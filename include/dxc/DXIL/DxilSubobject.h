@@ -11,20 +11,20 @@
 
 #pragma once
 
-#include <vector>
-#include <memory>
-#include <unordered_map>
-#include <map>
 #include "DxilConstants.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StringRef.h"
+#include <map>
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 namespace hlsl {
 
 class DxilSubobjects;
 
 namespace RDAT {
-  class DxilRuntimeData;
+class DxilRuntimeData;
 }
 
 class DxilSubobject {
@@ -44,25 +44,25 @@ public:
   // Note: strings and root signature data is owned by DxilModule
   // When creating subobjects, use canonical strings from module
 
-
   bool GetStateObjectConfig(uint32_t &Flags) const;
-  bool GetRootSignature(bool local, const void * &Data, uint32_t &Size, 
+  bool GetRootSignature(bool local, const void *&Data, uint32_t &Size,
                         const char **pText = nullptr) const;
   bool GetSubobjectToExportsAssociation(llvm::StringRef &Subobject,
-                                        const char * const * &Exports,
+                                        const char *const *&Exports,
                                         uint32_t &NumExports) const;
   bool GetRaytracingShaderConfig(uint32_t &MaxPayloadSizeInBytes,
                                  uint32_t &MaxAttributeSizeInBytes) const;
   bool GetRaytracingPipelineConfig(uint32_t &MaxTraceRecursionDepth) const;
-  bool GetRaytracingPipelineConfig1(uint32_t &MaxTraceRecursionDepth, uint32_t &Flags) const;
-  bool GetHitGroup(DXIL::HitGroupType &hitGroupType,
-                   llvm::StringRef &AnyHit,
+  bool GetRaytracingPipelineConfig1(uint32_t &MaxTraceRecursionDepth,
+                                    uint32_t &Flags) const;
+  bool GetHitGroup(DXIL::HitGroupType &hitGroupType, llvm::StringRef &AnyHit,
                    llvm::StringRef &ClosestHit,
                    llvm::StringRef &Intersection) const;
 
 private:
   DxilSubobject(DxilSubobjects &owner, Kind kind, llvm::StringRef name);
-  DxilSubobject(DxilSubobjects &owner, const DxilSubobject &other, llvm::StringRef name);
+  DxilSubobject(DxilSubobjects &owner, const DxilSubobject &other,
+                llvm::StringRef name);
   void CopyUnionedContents(const DxilSubobject &other);
   void InternStrings();
 
@@ -70,10 +70,10 @@ private:
   Kind m_Kind;
   llvm::StringRef m_Name;
 
-  std::vector<const char*> m_Exports;
+  std::vector<const char *> m_Exports;
 
   struct StateObjectConfig_t {
-    uint32_t Flags;   // DXIL::StateObjectFlags
+    uint32_t Flags; // DXIL::StateObjectFlags
   };
   struct RootSignature_t {
     uint32_t Size;
@@ -118,8 +118,9 @@ private:
 class DxilSubobjects {
 public:
   typedef std::pair<std::unique_ptr<char[]>, size_t> StoredBytes;
-  typedef llvm::MapVector< llvm::StringRef, StoredBytes > BytesStorage;
-  typedef llvm::MapVector< llvm::StringRef, std::unique_ptr<DxilSubobject> > SubobjectStorage;
+  typedef llvm::MapVector<llvm::StringRef, StoredBytes> BytesStorage;
+  typedef llvm::MapVector<llvm::StringRef, std::unique_ptr<DxilSubobject>>
+      SubobjectStorage;
   using Kind = DXIL::SubobjectKind;
 
   DxilSubobjects();
@@ -135,34 +136,30 @@ public:
   const void *InternRawBytes(const void *ptr, size_t size);
   DxilSubobject *FindSubobject(llvm::StringRef name);
   void RemoveSubobject(llvm::StringRef name);
-  DxilSubobject &CloneSubobject(const DxilSubobject &Subobject, llvm::StringRef Name);
-  const SubobjectStorage &GetSubobjects() const { return m_Subobjects;  }
+  DxilSubobject &CloneSubobject(const DxilSubobject &Subobject,
+                                llvm::StringRef Name);
+  const SubobjectStorage &GetSubobjects() const { return m_Subobjects; }
 
   // Create DxilSubobjects
 
-  DxilSubobject &CreateStateObjectConfig(llvm::StringRef Name,
-                                         uint32_t Flags);
+  DxilSubobject &CreateStateObjectConfig(llvm::StringRef Name, uint32_t Flags);
   // Local/Global RootSignature
-  DxilSubobject &CreateRootSignature(llvm::StringRef Name,
-                                     bool local,
-                                     const void *Data,
-                                     uint32_t Size,
+  DxilSubobject &CreateRootSignature(llvm::StringRef Name, bool local,
+                                     const void *Data, uint32_t Size,
                                      llvm::StringRef *pText = nullptr);
-  DxilSubobject &CreateSubobjectToExportsAssociation(
-    llvm::StringRef Name,
-    llvm::StringRef Subobject, llvm::StringRef *Exports, uint32_t NumExports);
-  DxilSubobject &CreateRaytracingShaderConfig(
-    llvm::StringRef Name,
-    uint32_t MaxPayloadSizeInBytes,
-    uint32_t MaxAttributeSizeInBytes);
-  DxilSubobject &CreateRaytracingPipelineConfig(
-    llvm::StringRef Name,
-    uint32_t MaxTraceRecursionDepth);
+  DxilSubobject &CreateSubobjectToExportsAssociation(llvm::StringRef Name,
+                                                     llvm::StringRef Subobject,
+                                                     llvm::StringRef *Exports,
+                                                     uint32_t NumExports);
+  DxilSubobject &CreateRaytracingShaderConfig(llvm::StringRef Name,
+                                              uint32_t MaxPayloadSizeInBytes,
+                                              uint32_t MaxAttributeSizeInBytes);
+  DxilSubobject &
+  CreateRaytracingPipelineConfig(llvm::StringRef Name,
+                                 uint32_t MaxTraceRecursionDepth);
   DxilSubobject &CreateRaytracingPipelineConfig1(
-    llvm::StringRef Name,
-    uint32_t MaxTraceRecursionDepth,
-    uint32_t Flags);
-  DxilSubobject &CreateHitGroup(llvm::StringRef Name, 
+      llvm::StringRef Name, uint32_t MaxTraceRecursionDepth, uint32_t Flags);
+  DxilSubobject &CreateHitGroup(llvm::StringRef Name,
                                 DXIL::HitGroupType hitGroupType,
                                 llvm::StringRef AnyHit,
                                 llvm::StringRef ClosestHit,
@@ -175,6 +172,7 @@ private:
   SubobjectStorage m_Subobjects;
 };
 
-bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, const RDAT::DxilRuntimeData &rdat);
+bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects,
+                            const RDAT::DxilRuntimeData &rdat);
 
 } // namespace hlsl

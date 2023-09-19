@@ -9,29 +9,29 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "HLSignatureLower.h"
 #include "dxc/DXIL/DxilEntryProps.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
-#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilUtil.h"
-#include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLOperationLower.h"
 #include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/Support/Global.h"
-#include "llvm/Pass.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <unordered_map>
@@ -110,10 +110,10 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
     M.SetEntryFunctionName(H.GetEntryFunctionName());
   }
 
-  std::vector<GlobalVariable* > &LLVMUsed = M.GetLLVMUsed();
+  std::vector<GlobalVariable *> &LLVMUsed = M.GetLLVMUsed();
 
   // Resources
-  for (auto && C : H.GetCBuffers()) {
+  for (auto &&C : H.GetCBuffers()) {
     auto b = llvm::make_unique<DxilCBuffer>();
     InitResourceBase(C.get(), b.get());
     b->SetSize(C->GetSize());
@@ -121,21 +121,21 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
       LLVMUsed.emplace_back(GV);
     M.AddCBuffer(std::move(b));
   }
-  for (auto && C : H.GetUAVs()) {
+  for (auto &&C : H.GetUAVs()) {
     auto b = llvm::make_unique<DxilResource>();
     InitResource(C.get(), b.get());
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(b->GetGlobalSymbol()))
       LLVMUsed.emplace_back(GV);
     M.AddUAV(std::move(b));
   }
-  for (auto && C : H.GetSRVs()) {
+  for (auto &&C : H.GetSRVs()) {
     auto b = llvm::make_unique<DxilResource>();
     InitResource(C.get(), b.get());
     if (GlobalVariable *GV = dyn_cast<GlobalVariable>(b->GetGlobalSymbol()))
       LLVMUsed.emplace_back(GV);
     M.AddSRV(std::move(b));
   }
-  for (auto && C : H.GetSamplers()) {
+  for (auto &&C : H.GetSamplers()) {
     auto b = llvm::make_unique<DxilSampler>();
     InitResourceBase(C.get(), b.get());
     b->SetSamplerKind(C->GetSamplerKind());
@@ -151,18 +151,18 @@ void InitDxilModuleFromHLModule(HLModule &H, DxilModule &M, bool HasDebugInfo) {
   M.ResetSubobjects(H.ReleaseSubobjects());
 
   // Shader properties.
-  //bool m_bDisableOptimizations;
+  // bool m_bDisableOptimizations;
   M.SetDisableOptimization(H.GetHLOptions().bDisableOptimizations);
   M.SetLegacyResourceReservation(H.GetHLOptions().bLegacyResourceReservation);
-  //bool m_bDisableMathRefactoring;
-  //bool m_bEnableDoublePrecision;
-  //bool m_bEnableDoubleExtensions;
-  //M.CollectShaderFlags();
+  // bool m_bDisableMathRefactoring;
+  // bool m_bEnableDoublePrecision;
+  // bool m_bEnableDoubleExtensions;
+  // M.CollectShaderFlags();
 
-  //bool m_bForceEarlyDepthStencil;
-  //bool m_bEnableRawAndStructuredBuffers;
-  //bool m_bEnableMSAD;
-  //M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
+  // bool m_bForceEarlyDepthStencil;
+  // bool m_bEnableRawAndStructuredBuffers;
+  // bool m_bEnableMSAD;
+  // M.m_ShaderFlags.SetAllResourcesBound(H.GetHLOptions().bAllResourcesBound);
 
   // DXIL type system.
   M.ResetTypeSystem(H.ReleaseTypeSystem());
@@ -188,7 +188,8 @@ class DxilGenerationPass : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilGenerationPass(bool NoOpt = false)
-      : ModulePass(ID), m_pHLModule(nullptr), m_extensionsCodegenHelper(nullptr), NotOptimized(NoOpt) {}
+      : ModulePass(ID), m_pHLModule(nullptr),
+        m_extensionsCodegenHelper(nullptr), NotOptimized(NoOpt) {}
 
   StringRef getPassName() const override { return "DXIL Generator"; }
 
@@ -231,7 +232,7 @@ public:
               llvm::make_unique<DxilEntryProps>(
                   props, m_pHLModule->GetHLOptions().bUseMinPrecision);
           if (m_pHLModule->IsGraphicsShader(&F) ||
-              m_pHLModule->IsComputeShader(&F)  ||
+              m_pHLModule->IsComputeShader(&F) ||
               m_pHLModule->IsNodeShader(&F)) {
             HLSignatureLower sigLower(&F, *m_pHLModule, pProps->sig);
             // TODO: BUG: This will lower patch constant function sigs twice if
@@ -253,19 +254,17 @@ public:
 
     GenerateDxilCBufferHandles();
 
-    std::unordered_map<CallInst *, Type*> HandleToResTypeMap;
+    std::unordered_map<CallInst *, Type *> HandleToResTypeMap;
     LowerHLCreateHandle(HandleToResTypeMap);
 
     MarkUpdateCounter(UpdateCounterSet);
 
-
-    // LowerHLCreateHandle() should have translated HLCreateHandle to CreateHandleForLib.
-    // Clean up HLCreateHandle functions.
+    // LowerHLCreateHandle() should have translated HLCreateHandle to
+    // CreateHandleForLib. Clean up HLCreateHandle functions.
     for (auto It = M.begin(); It != M.end();) {
       Function &F = *(It++);
       if (!F.isDeclaration()) {
-        if (hlsl::GetHLOpcodeGroupByName(&F) ==
-            HLOpcodeGroup::HLCreateHandle) {
+        if (hlsl::GetHLOpcodeGroupByName(&F) == HLOpcodeGroup::HLCreateHandle) {
           if (F.user_empty()) {
             F.eraseFromParent();
           } else {
@@ -273,10 +272,11 @@ public:
           }
         }
       }
-    }  
+    }
 
-    // Translate precise on allocas into function call to keep the information after mem2reg.
-    // The function calls will be removed after propagate precise attribute.
+    // Translate precise on allocas into function call to keep the information
+    // after mem2reg. The function calls will be removed after propagate precise
+    // attribute.
     TranslatePreciseAttribute();
 
     // High-level metadata should now be turned into low-level metadata.
@@ -286,7 +286,7 @@ public:
     }
 
     const bool SkipInit = true;
-    hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);  
+    hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);
     InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, m_HasDbgInfo);
     DxilMod.ResetEntryPropsMap(std::move(EntryPropsMap));
     if (!SM->IsLib()) {
@@ -311,11 +311,11 @@ public:
 private:
   void MarkUpdateCounter(std::unordered_set<Instruction *> &UpdateCounterSet);
   // Generate DXIL cbuffer handles.
-  void
-  GenerateDxilCBufferHandles();
+  void GenerateDxilCBufferHandles();
 
   // change built-in funtion into DXIL operations
-  void GenerateDxilOperations(Module &M,
+  void
+  GenerateDxilOperations(Module &M,
                          std::unordered_set<Instruction *> &UpdateCounterSet);
   void LowerHLCreateHandle(
       std::unordered_map<CallInst *, Type *> &HandleToResTypeMap);
@@ -336,7 +336,7 @@ private:
   // Input module is not optimized.
   bool NotOptimized;
 };
-}
+} // namespace
 
 namespace {
 void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
@@ -478,8 +478,7 @@ void TranslateHLAnnotateHandle(
       continue;
     // must be call inst
     CallInst *CI = cast<CallInst>(user);
-    Value *handle =
-        CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+    Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
     Value *RP = CI->getArgOperand(
         HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
     Type *ResTy =
@@ -494,7 +493,8 @@ void TranslateHLAnnotateHandle(
         Builder.SetInsertPoint(I->getNextNode());
       }
     } else if (Argument *Arg = dyn_cast<Argument>(handle)) {
-      Builder.SetInsertPoint(Arg->getParent()->getEntryBlock().getFirstInsertionPt());
+      Builder.SetInsertPoint(
+          Arg->getParent()->getEntryBlock().getFirstInsertionPt());
     }
     Function *annotateHandle =
         hlslOP.GetOpFunc(DXIL::OpCode::AnnotateHandle, Builder.getVoidTy());
@@ -539,7 +539,8 @@ void TranslateHLAnnotateNodeHandle(Function *F, hlsl::OP &hlslOP) {
   }
 }
 
-void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP, const llvm::DataLayout& DL) {
+void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP,
+                                const llvm::DataLayout &DL) {
   for (auto U = F->user_begin(); U != F->user_end();) {
     Value *User = *(U++);
     if (!isa<Instruction>(User))
@@ -588,7 +589,7 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP, const llvm::DataL
         if (!HandleCI)
           continue;
         hlsl::HLOpcodeGroup handleGroup =
-          hlsl::GetHLOpcodeGroup(HandleCI->getCalledFunction());
+            hlsl::GetHLOpcodeGroup(HandleCI->getCalledFunction());
         if (handleGroup == HLOpcodeGroup::HLCreateHandle) {
           HandleCI->replaceAllUsesWith(Handle);
           HandleCI->eraseFromParent();
@@ -630,7 +631,7 @@ void DxilGenerationPass::LowerHLCreateHandle(
       TranslateHLCreateHandle(F, hlslOP);
       break;
     case HLOpcodeGroup::HLCreateNodeOutputHandle:
-      TranslateHLCreateNodeOutputHandle(F, hlslOP);      
+      TranslateHLCreateNodeOutputHandle(F, hlslOP);
       break;
     case HLOpcodeGroup::HLIndexNodeHandle:
       TranslateHLIndexNodeHandle(F, hlslOP);
@@ -683,8 +684,7 @@ void DxilGenerationPass::LowerHLAnnotateWaveMatrix(Module &M) {
 }
 
 static void
-MarkUavUpdateCounter(Value* LoadOrGEP,
-                     DxilResource &res,
+MarkUavUpdateCounter(Value *LoadOrGEP, DxilResource &res,
                      std::unordered_set<Instruction *> &UpdateCounterSet) {
   if (LoadInst *ldInst = dyn_cast<LoadInst>(LoadOrGEP)) {
     if (UpdateCounterSet.count(ldInst)) {
@@ -777,25 +777,24 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
       DIV = dxilutil::FindGlobalVariableDebugInfo(GV, Finder);
       if (DIV)
         // TODO: how to get col?
-        DL = DILocation::get(Ctx, DIV->getLine(), 1,
-                             DIV->getScope());
+        DL = DILocation::get(Ctx, DIV->getLine(), 1, DIV->getScope());
     }
 
     if (CB.GetRangeSize() == 1 &&
         !GV->getType()->getElementType()->isArrayTy()) {
-      Function *createHandle =
-          hlslOP->GetOpFunc(OP::OpCode::CreateHandleForLib,
-                            GV->getType()->getElementType());
-      for (auto U = GV->user_begin(); U != GV->user_end(); ) {
+      Function *createHandle = hlslOP->GetOpFunc(
+          OP::OpCode::CreateHandleForLib, GV->getType()->getElementType());
+      for (auto U = GV->user_begin(); U != GV->user_end();) {
         // Must HLCreateHandle.
         CallInst *CI = cast<CallInst>(*(U++));
         // Put createHandle to entry block.
         IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(CI));
         Value *V = Builder.CreateLoad(GV);
-        CallInst *handle = Builder.CreateCall(createHandle, {opArg, V}, handleName);
+        CallInst *handle =
+            Builder.CreateCall(createHandle, {opArg, V}, handleName);
         if (m_HasDbgInfo) {
           // TODO: add debug info.
-          //handle->setDebugLoc(DL);
+          // handle->setDebugLoc(DL);
           (void)(DL);
         }
         CI->replaceAllUsesWith(handle);
@@ -812,7 +811,8 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
         // Must HLCreateHandle.
         CallInst *CI = cast<CallInst>(*(U++));
         IRBuilder<> Builder(CI);
-        Value *CBIndex = CI->getArgOperand(HLOperandIndex::kCreateHandleIndexOpIdx);
+        Value *CBIndex =
+            CI->getArgOperand(HLOperandIndex::kCreateHandleIndexOpIdx);
         if (isa<ConstantInt>(CBIndex)) {
           // Put createHandle to entry block for const index.
           Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(CI));
@@ -823,12 +823,13 @@ void DxilGenerationPass::GenerateDxilCBufferHandles() {
           DxilMDHelper::MarkNonUniform(cast<Instruction>(GEP));
         }
         Value *V = Builder.CreateLoad(GEP);
-        CallInst *handle = Builder.CreateCall(createHandle, {opArg, V}, handleName);
+        CallInst *handle =
+            Builder.CreateCall(createHandle, {opArg, V}, handleName);
         CI->replaceAllUsesWith(handle);
         CI->eraseFromParent();
       }
     }
-  } 
+  }
 }
 
 void DxilGenerationPass::GenerateDxilOperations(
@@ -885,7 +886,8 @@ static void TranslatePreciseAttributeOnFunction(Function &F, Module &M) {
         HLModule::MarkPreciseAttributeOnPtrWithFunctionCall(AI, M);
       }
     } else {
-      DXASSERT(!HLModule::HasPreciseAttributeWithMetadata(Inst), "Only alloca can has precise metadata.");
+      DXASSERT(!HLModule::HasPreciseAttributeWithMetadata(Inst),
+               "Only alloca can has precise metadata.");
     }
   }
 
@@ -906,7 +908,7 @@ static void TranslatePreciseAttributeOnFunction(Function &F, Module &M) {
   }
 }
 
-void DxilGenerationPass::TranslatePreciseAttribute() {  
+void DxilGenerationPass::TranslatePreciseAttribute() {
   bool bIEEEStrict = m_pHLModule->GetHLOptions().bIEEEStrict;
   if (bIEEEStrict) {
     // mark precise on dxil operations.
@@ -933,7 +935,8 @@ void DxilGenerationPass::TranslatePreciseAttribute() {
   // to propagate the precise for the precise call site.
   // This should be done at CGMSHLSLRuntime::FinishCodeGen.
   if (m_pHLModule->GetShaderModel()->IsLib()) {
-    // TODO: If all functions have been inlined, and unreferenced functions removed,
+    // TODO: If all functions have been inlined, and unreferenced functions
+    // removed,
     //        it should make sense to run on all funciton bodies,
     //        even when not processing a library.
     for (Function &F : M.functions()) {
@@ -1019,8 +1022,7 @@ void ReplaceMinPrecisionRawBufferStoreByType(
     // values to store should be converted to its higher precision types
     if (FromTy->isHalfTy()) {
       for (unsigned i = 4; i < 8; ++i) {
-        Value *NewV = CIBuilder.CreateFPExt(CI->getArgOperand(i),
-                                            ToTy);
+        Value *NewV = CIBuilder.CreateFPExt(CI->getArgOperand(i), ToTy);
         Args.emplace_back(NewV);
       }
     } else if (FromTy->isIntegerTy()) {
@@ -1039,8 +1041,7 @@ void ReplaceMinPrecisionRawBufferStoreByType(
       StructType *STy = dyn_cast<StructType>(resTyIt->second);
 
       STy = cast<StructType>(STy->getElementType(0));
-      DxilStructAnnotation *SAnnot =
-          typeSys.GetStructAnnotation(STy);
+      DxilStructAnnotation *SAnnot = typeSys.GetStructAnnotation(STy);
       ConstantInt *offsetInt = dyn_cast<ConstantInt>(
           CI->getArgOperand(DxilInst_RawBufferStore::arg_elementOffset));
       unsigned offset = offsetInt->getSExtValue();
@@ -1132,10 +1133,12 @@ void DxilGenerationPass::TranslateMinPrecisionRawBuffer(
 
 char DxilGenerationPass::ID = 0;
 
-ModulePass *llvm::createDxilGenerationPass(bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper) {
+ModulePass *llvm::createDxilGenerationPass(
+    bool NotOptimized, hlsl::HLSLExtensionsCodegenHelper *extensionsHelper) {
   DxilGenerationPass *dxilPass = new DxilGenerationPass(NotOptimized);
   dxilPass->SetExtensionsHelper(extensionsHelper);
   return dxilPass;
 }
 
-INITIALIZE_PASS(DxilGenerationPass, "dxilgen", "HLSL DXIL Generation", false, false)
+INITIALIZE_PASS(DxilGenerationPass, "dxilgen", "HLSL DXIL Generation", false,
+                false)

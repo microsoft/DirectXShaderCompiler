@@ -11,25 +11,24 @@
 
 #pragma once
 
-
 #include "dxc/Support/WinIncludes.h"
 
-#include "dxc/dxcapi.h"
 #include "dxc/Support/dxcapi.use.h"
+#include "dxc/dxcapi.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringRef.h"
 
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
 
 namespace hlsl {
 namespace options {
 class DxcOpts;
 class MainArgs;
-}
-}
+} // namespace options
+} // namespace hlsl
 
 /// Use this class to run a FileCheck invocation in memory.
 class FileCheckForTest {
@@ -64,7 +63,8 @@ public:
   int Run();
 };
 
-// wstring because most uses need UTF-16: IDxcResult output names, include handler
+// wstring because most uses need UTF-16: IDxcResult output names, include
+// handler
 typedef std::map<std::wstring, CComPtr<IDxcBlob>> FileMap;
 
 // The result of running a single command in a run pipeline
@@ -104,37 +104,54 @@ typedef std::map<std::string, std::string> PluginToolsPaths;
 
 class FileRunCommandPart {
 public:
-  FileRunCommandPart(const std::string &command, const std::string &arguments, LPCWSTR commandFileName);
-  FileRunCommandPart(const FileRunCommandPart&) = default;
-  FileRunCommandPart(FileRunCommandPart&&) = default;
-  
-  FileRunCommandResult Run(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior, PluginToolsPaths *pPluginToolsPaths = nullptr, LPCWSTR dumpName = nullptr);
-  FileRunCommandResult RunHashTests(dxc::DxcDllSupport &DllSupport);
-  
-  FileRunCommandResult ReadOptsForDxc(hlsl::options::MainArgs &argStrings, hlsl::options::DxcOpts &Opts, unsigned flagsToInclude = 0);
+  FileRunCommandPart(const std::string &command, const std::string &arguments,
+                     LPCWSTR commandFileName);
+  FileRunCommandPart(const FileRunCommandPart &) = default;
+  FileRunCommandPart(FileRunCommandPart &&) = default;
 
-  std::string Command;      // Command to run, eg %dxc
-  std::string Arguments;    // Arguments to command
-  LPCWSTR CommandFileName;  // File name replacement for %s
-  FileMap *pVFS = nullptr;  // Files in virtual file system
+  FileRunCommandResult Run(dxc::DxcDllSupport &DllSupport,
+                           const FileRunCommandResult *Prior,
+                           PluginToolsPaths *pPluginToolsPaths = nullptr,
+                           LPCWSTR dumpName = nullptr);
+  FileRunCommandResult RunHashTests(dxc::DxcDllSupport &DllSupport);
+
+  FileRunCommandResult ReadOptsForDxc(hlsl::options::MainArgs &argStrings,
+                                      hlsl::options::DxcOpts &Opts,
+                                      unsigned flagsToInclude = 0);
+
+  std::string Command;     // Command to run, eg %dxc
+  std::string Arguments;   // Arguments to command
+  LPCWSTR CommandFileName; // File name replacement for %s
+  FileMap *pVFS = nullptr; // Files in virtual file system
 
 private:
-  FileRunCommandResult RunFileChecker(const FileRunCommandResult *Prior, LPCWSTR dumpName = nullptr);
-  FileRunCommandResult RunDxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
-  FileRunCommandResult RunDxv(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
-  FileRunCommandResult RunOpt(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
-  FileRunCommandResult RunListParts(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
-  FileRunCommandResult RunD3DReflect(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
-  FileRunCommandResult RunDxr(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
-  FileRunCommandResult RunLink(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunFileChecker(const FileRunCommandResult *Prior,
+                                      LPCWSTR dumpName = nullptr);
+  FileRunCommandResult RunDxc(dxc::DxcDllSupport &DllSupport,
+                              const FileRunCommandResult *Prior);
+  FileRunCommandResult RunDxv(dxc::DxcDllSupport &DllSupport,
+                              const FileRunCommandResult *Prior);
+  FileRunCommandResult RunOpt(dxc::DxcDllSupport &DllSupport,
+                              const FileRunCommandResult *Prior);
+  FileRunCommandResult RunListParts(dxc::DxcDllSupport &DllSupport,
+                                    const FileRunCommandResult *Prior);
+  FileRunCommandResult RunD3DReflect(dxc::DxcDllSupport &DllSupport,
+                                     const FileRunCommandResult *Prior);
+  FileRunCommandResult RunDxr(dxc::DxcDllSupport &DllSupport,
+                              const FileRunCommandResult *Prior);
+  FileRunCommandResult RunLink(dxc::DxcDllSupport &DllSupport,
+                               const FileRunCommandResult *Prior);
   FileRunCommandResult RunTee(const FileRunCommandResult *Prior);
   FileRunCommandResult RunXFail(const FileRunCommandResult *Prior);
-  FileRunCommandResult RunDxilVer(dxc::DxcDllSupport& DllSupport, const FileRunCommandResult* Prior);
+  FileRunCommandResult RunDxilVer(dxc::DxcDllSupport &DllSupport,
+                                  const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxcHashTest(dxc::DxcDllSupport &DllSupport);
-  FileRunCommandResult RunFromPath(const std::string &path, const FileRunCommandResult *Prior);
+  FileRunCommandResult RunFromPath(const std::string &path,
+                                   const FileRunCommandResult *Prior);
   FileRunCommandResult RunFileCompareText(const FileRunCommandResult *Prior);
 #ifdef _WIN32
-  FileRunCommandResult RunFxc(dxc::DxcDllSupport &DllSupport, const FileRunCommandResult* Prior);
+  FileRunCommandResult RunFxc(dxc::DxcDllSupport &DllSupport,
+                              const FileRunCommandResult *Prior);
 #endif
 
   void SubstituteFilenameVars(std::string &args);
@@ -143,24 +160,28 @@ private:
 #endif
 };
 
-void ParseCommandParts(LPCSTR commands, LPCWSTR fileName, std::vector<FileRunCommandPart> &parts);
-void ParseCommandPartsFromFile(LPCWSTR fileName, std::vector<FileRunCommandPart> &parts);
+void ParseCommandParts(LPCSTR commands, LPCWSTR fileName,
+                       std::vector<FileRunCommandPart> &parts);
+void ParseCommandPartsFromFile(LPCWSTR fileName,
+                               std::vector<FileRunCommandPart> &parts);
 
 class FileRunTestResult {
 public:
   std::string ErrorMessage;
   int RunResult = -1;
   static FileRunTestResult RunHashTestFromFileCommands(LPCWSTR fileName);
-  static FileRunTestResult RunFromFileCommands(LPCWSTR fileName,
-                                               PluginToolsPaths *pPluginToolsPaths = nullptr,
-                                               LPCWSTR dumpName = nullptr);
-  static FileRunTestResult RunFromFileCommands(LPCWSTR fileName,
-                                               dxc::DxcDllSupport &dllSupport,
-                                               PluginToolsPaths *pPluginToolsPaths = nullptr,
-                                               LPCWSTR dumpName = nullptr);
+  static FileRunTestResult
+  RunFromFileCommands(LPCWSTR fileName,
+                      PluginToolsPaths *pPluginToolsPaths = nullptr,
+                      LPCWSTR dumpName = nullptr);
+  static FileRunTestResult
+  RunFromFileCommands(LPCWSTR fileName, dxc::DxcDllSupport &dllSupport,
+                      PluginToolsPaths *pPluginToolsPaths = nullptr,
+                      LPCWSTR dumpName = nullptr);
 };
 
-void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule, IDxcBlob **pContainer);
+void AssembleToContainer(dxc::DxcDllSupport &dllSupport, IDxcBlob *pModule,
+                         IDxcBlob **pContainer);
 std::string BlobToUtf8(IDxcBlob *pBlob);
 std::wstring BlobToWide(IDxcBlob *pBlob);
 void CheckOperationSucceeded(IDxcOperationResult *pResult, IDxcBlob **ppBlob);
@@ -172,10 +193,12 @@ bool CheckOperationResultMsgs(IDxcOperationResult *pResult,
                               bool maySucceedAnyway, bool bRegex);
 bool CheckMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
                size_t errorMsgCount, bool bRegex);
-bool CheckNotMsgs(const LPCSTR pText, size_t TextCount, const LPCSTR *pErrorMsgs,
-               size_t errorMsgCount, bool bRegex);
-void GetDxilPart(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram, IDxcBlob **pDxilPart);
-std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram);
+bool CheckNotMsgs(const LPCSTR pText, size_t TextCount,
+                  const LPCSTR *pErrorMsgs, size_t errorMsgCount, bool bRegex);
+void GetDxilPart(dxc::DxcDllSupport &dllSupport, IDxcBlob *pProgram,
+                 IDxcBlob **pDxilPart);
+std::string DisassembleProgram(dxc::DxcDllSupport &dllSupport,
+                               IDxcBlob *pProgram);
 void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes);
 void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
                            const std::string &val, UINT32 codePoint,
@@ -199,12 +222,16 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      IDxcBlob **ppResult);
 
-HRESULT GetVersion(dxc::DxcDllSupport& DllSupport, REFCLSID clsid, unsigned &Major, unsigned &Minor);
-bool ParseTargetProfile(llvm::StringRef targetProfile, llvm::StringRef &outStage, unsigned &outMajor, unsigned &outMinor);
+HRESULT GetVersion(dxc::DxcDllSupport &DllSupport, REFCLSID clsid,
+                   unsigned &Major, unsigned &Minor);
+bool ParseTargetProfile(llvm::StringRef targetProfile,
+                        llvm::StringRef &outStage, unsigned &outMajor,
+                        unsigned &outMinor);
 
 class VersionSupportInfo {
 private:
   bool m_CompilerIsDebugBuild;
+
 public:
   bool m_InternalValidator;
   unsigned m_DxilMajor, m_DxilMinor;
@@ -215,7 +242,8 @@ public:
   void Initialize(dxc::DxcDllSupport &dllSupport);
   // Return true if IR sensitive test should be skipped, and log comment
   bool SkipIRSensitiveTest();
-  // Return true if test requiring DXIL of given version should be skipped, and log comment
+  // Return true if test requiring DXIL of given version should be skipped, and
+  // log comment
   bool SkipDxilVersion(unsigned major, unsigned minor);
   // Return true if out-of-memory test should be skipped, and log comment
   bool SkipOutOfMemoryTest();

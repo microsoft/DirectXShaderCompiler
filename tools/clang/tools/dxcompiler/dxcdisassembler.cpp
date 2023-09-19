@@ -9,35 +9,35 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/WinFunctions.h"
-#include "dxc/dxcapi.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/dxcapi.h"
 
-#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
 #include "dxc/HLSL/HLMatrixType.h"
-#include "dxc/DXIL/DxilConstants.h"
-#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/Support/FileIOHelper.h"
+#include "dxcutil.h"
+#include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/AssemblyAnnotationWriter.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/FormattedStream.h"
 #include <assert.h> // Needed for DxilPipelineStateValidation.h
-#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
-#include "dxc/DxilContainer/DxilContainer.h"
-#include "dxc/DxilContainer/DxilRuntimeReflection.h"
-#include "dxc/HLSL/ComputeViewIdState.h"
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/DXIL/DxilUtil.h"
-#include "dxcutil.h"
-#include "dxc/DXIL/DxilInstructions.h"
-#include "dxc/DXIL/DxilResourceProperties.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -46,8 +46,7 @@ using namespace hlsl::DXIL;
 namespace {
 // Disassemble helper functions.
 
-template <typename T>
-const T *ByteOffset(LPCVOID p, uint32_t byteOffset) {
+template <typename T> const T *ByteOffset(LPCVOID p, uint32_t byteOffset) {
   return reinterpret_cast<const T *>((const uint8_t *)p + byteOffset);
 }
 bool SigElementHasStream(const DxilProgramSignatureElement &pSignature) {
@@ -55,8 +54,7 @@ bool SigElementHasStream(const DxilProgramSignatureElement &pSignature) {
 }
 
 void PrintSignature(LPCSTR pName, const DxilProgramSignature *pSignature,
-                           bool bIsInput, raw_string_ostream &OS,
-                           StringRef comment) {
+                    bool bIsInput, raw_string_ostream &OS, StringRef comment) {
   OS << comment << "\n"
      << comment << " " << pName << " signature:\n"
      << comment << "\n"
@@ -285,7 +283,7 @@ void PintCompMaskNameCompact(raw_string_ostream &OS, unsigned CompMask) {
 }
 
 void PrintDxilSignature(LPCSTR pName, const DxilSignature &Signature,
-                               raw_string_ostream &OS, StringRef comment) {
+                        raw_string_ostream &OS, StringRef comment) {
   const std::vector<std::unique_ptr<DxilSignatureElement>> &sigElts =
       Signature.GetElements();
   if (sigElts.size() == 0)
@@ -331,7 +329,7 @@ PCSTR g_pFeatureInfoNames[] = {
     "Typed UAV Load Additional Formats",
     "Raster Ordered UAVs",
     ("SV_RenderTargetArrayIndex or SV_ViewportArrayIndex from any shader "
-    "feeding rasterizer"),
+     "feeding rasterizer"),
     "Wave level operations",
     "64-Bit integer",
     "View Instancing",
@@ -350,10 +348,11 @@ PCSTR g_pFeatureInfoNames[] = {
     "Advanced Texture Ops",
     "Writeable MSAA Textures",
 };
-static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount, "g_pFeatureInfoNames needs to be updated");
+static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount,
+              "g_pFeatureInfoNames needs to be updated");
 
 void PrintFeatureInfo(const DxilShaderFeatureInfo *pFeatureInfo,
-                             raw_string_ostream &OS, StringRef comment) {
+                      raw_string_ostream &OS, StringRef comment) {
   uint64_t featureFlags = pFeatureInfo->FeatureFlags;
   if (!featureFlags)
     return;
@@ -367,7 +366,7 @@ void PrintFeatureInfo(const DxilShaderFeatureInfo *pFeatureInfo,
 }
 
 void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
-                                raw_string_ostream &OS) {
+                         raw_string_ostream &OS) {
   switch (res.GetClass()) {
   case DxilResourceBase::Class::CBuffer:
   case DxilResourceBase::Class::Sampler:
@@ -397,7 +396,7 @@ void PrintResourceFormat(DxilResourceBase &res, unsigned alignment,
 }
 
 void PrintResourceDim(DxilResourceBase &res, unsigned alignment,
-                             raw_string_ostream &OS) {
+                      raw_string_ostream &OS) {
   switch (res.GetClass()) {
   case DxilResourceBase::Class::CBuffer:
   case DxilResourceBase::Class::Sampler:
@@ -440,7 +439,7 @@ void PrintResourceDim(DxilResourceBase &res, unsigned alignment,
 }
 
 void PrintResourceBinding(DxilResourceBase &res, raw_string_ostream &OS,
-                                 StringRef comment) {
+                          StringRef comment) {
   OS << comment << " " << left_justify(res.GetGlobalName(), 31);
 
   OS << right_justify(res.GetResClassName(), 10);
@@ -466,7 +465,7 @@ void PrintResourceBinding(DxilResourceBase &res, raw_string_ostream &OS,
 }
 
 void PrintResourceBindings(DxilModule &M, raw_string_ostream &OS,
-                                  StringRef comment) {
+                           StringRef comment) {
   OS << comment << "\n"
      << comment << " Resource Bindings:\n"
      << comment << "\n"
@@ -533,7 +532,7 @@ void PrintInputsContributingToOutputs(
 }
 
 void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
-                             StringRef comment) {
+                      StringRef comment) {
   if (!M.GetModule()->getNamedMetadata("dx.viewIdState"))
     return;
 
@@ -613,14 +612,22 @@ void PrintViewIdState(DxilModule &M, raw_string_ostream &OS,
 
 static const char *SubobjectKindToString(DXIL::SubobjectKind kind) {
   switch (kind) {
-  case DXIL::SubobjectKind::StateObjectConfig: return "StateObjectConfig";
-  case DXIL::SubobjectKind::GlobalRootSignature: return "GlobalRootSignature";
-  case DXIL::SubobjectKind::LocalRootSignature: return "LocalRootSignature";
-  case DXIL::SubobjectKind::SubobjectToExportsAssociation: return "SubobjectToExportsAssociation";
-  case DXIL::SubobjectKind::RaytracingShaderConfig: return "RaytracingShaderConfig";
-  case DXIL::SubobjectKind::RaytracingPipelineConfig: return "RaytracingPipelineConfig";
-  case DXIL::SubobjectKind::HitGroup: return "HitGroup";
-  case DXIL::SubobjectKind::RaytracingPipelineConfig1: return "RaytracingPipelineConfig1";
+  case DXIL::SubobjectKind::StateObjectConfig:
+    return "StateObjectConfig";
+  case DXIL::SubobjectKind::GlobalRootSignature:
+    return "GlobalRootSignature";
+  case DXIL::SubobjectKind::LocalRootSignature:
+    return "LocalRootSignature";
+  case DXIL::SubobjectKind::SubobjectToExportsAssociation:
+    return "SubobjectToExportsAssociation";
+  case DXIL::SubobjectKind::RaytracingShaderConfig:
+    return "RaytracingShaderConfig";
+  case DXIL::SubobjectKind::RaytracingPipelineConfig:
+    return "RaytracingPipelineConfig";
+  case DXIL::SubobjectKind::HitGroup:
+    return "HitGroup";
+  case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+    return "RaytracingPipelineConfig1";
   }
   return "<invalid kind>";
 }
@@ -659,8 +666,7 @@ static const char *HitGroupTypeToString(DXIL::HitGroupType type) {
   return "<invalid HitGroupType>";
 }
 
-template <typename _T>
-void PrintFlags(raw_string_ostream &OS, uint32_t Flags) {
+template <typename _T> void PrintFlags(raw_string_ostream &OS, uint32_t Flags) {
   if (!Flags) {
     OS << "0";
     return;
@@ -675,8 +681,7 @@ void PrintFlags(raw_string_ostream &OS, uint32_t Flags) {
   }
 }
 
-void PrintSubobjects(const DxilSubobjects &subobjects,
-                     raw_string_ostream &OS,
+void PrintSubobjects(const DxilSubobjects &subobjects, raw_string_ostream &OS,
                      StringRef comment) {
   if (subobjects.GetSubobjects().empty())
     return;
@@ -688,11 +693,14 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
   for (auto &it : subobjects.GetSubobjects()) {
     StringRef name = it.first;
     if (!it.second) {
-      OS << comment << "  " << name << " = <null>" << "\n";
+      OS << comment << "  " << name << " = <null>"
+         << "\n";
       continue;
     }
     const DxilSubobject &obj = *it.second.get();
-    OS << comment << "  " << SubobjectKindToString(obj.GetKind()) << " " << name << " = " << "{ ";
+    OS << comment << "  " << SubobjectKindToString(obj.GetKind()) << " " << name
+       << " = "
+       << "{ ";
     bool bLocalRS = false;
     switch (obj.GetKind()) {
     case DXIL::SubobjectKind::StateObjectConfig: {
@@ -723,9 +731,10 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
     }
     case DXIL::SubobjectKind::SubobjectToExportsAssociation: {
       llvm::StringRef Subobject;
-      const char * const * Exports = nullptr;
+      const char *const *Exports = nullptr;
       uint32_t NumExports;
-      if (!obj.GetSubobjectToExportsAssociation(Subobject, Exports, NumExports)) {
+      if (!obj.GetSubobjectToExportsAssociation(Subobject, Exports,
+                                                NumExports)) {
         OS << "<error getting subobject>";
         break;
       }
@@ -768,9 +777,8 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
         OS << "<error getting subobject>";
         break;
       }
-      OS << "HitGroupType = " << HitGroupTypeToString(hgType) 
-         << ", Anyhit = \"" << AnyHit
-         << "\", Closesthit = \"" << ClosestHit
+      OS << "HitGroupType = " << HitGroupTypeToString(hgType) << ", Anyhit = \""
+         << AnyHit << "\", Closesthit = \"" << ClosestHit
          << "\", Intersection = \"" << Intersection << "\"";
       break;
     }
@@ -792,14 +800,15 @@ void PrintSubobjects(const DxilSubobjects &subobjects,
   OS << comment << "\n";
 }
 
-void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout *DL,
-                       raw_string_ostream &OS, StringRef comment,
-                       StringRef varName, unsigned offset,
+void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
+                       const DataLayout *DL, raw_string_ostream &OS,
+                       StringRef comment, StringRef varName, unsigned offset,
                        unsigned indent, unsigned arraySize,
                        unsigned sizeOfStruct = 0);
 
 void PrintTypeAndName(llvm::Type *Ty, DxilFieldAnnotation &annotation,
-                             std::string &StreamStr, unsigned arraySize, bool minPrecision) {
+                      std::string &StreamStr, unsigned arraySize,
+                      bool minPrecision) {
   raw_string_ostream Stream(StreamStr);
   while (Ty->isArrayTy())
     Ty = Ty->getArrayElementType();
@@ -832,10 +841,9 @@ void PrintTypeAndName(llvm::Type *Ty, DxilFieldAnnotation &annotation,
 }
 
 void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
-                      DxilTypeSystem &typeSys, const DataLayout* DL,
-                      raw_string_ostream &OS,
-                      StringRef comment, unsigned offset,
-                      unsigned indent, unsigned offsetIndent,
+                      DxilTypeSystem &typeSys, const DataLayout *DL,
+                      raw_string_ostream &OS, StringRef comment,
+                      unsigned offset, unsigned indent, unsigned offsetIndent,
                       unsigned sizeToPrint = 0) {
   if (Ty->isStructTy() && !annotation.HasMatrixAnnotation()) {
     PrintStructLayout(cast<StructType>(Ty), typeSys, DL, OS, comment,
@@ -889,7 +897,8 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
     } else {
       (OS << comment).indent(indent);
       std::string NameTypeStr;
-      PrintTypeAndName(Ty, annotation, NameTypeStr, arraySize, typeSys.UseMinPrecision());
+      PrintTypeAndName(Ty, annotation, NameTypeStr, arraySize,
+                       typeSys.UseMinPrecision());
       OS << left_justify(NameTypeStr, offsetIndent);
 
       // Offset
@@ -902,9 +911,9 @@ void PrintFieldLayout(llvm::Type *Ty, DxilFieldAnnotation &annotation,
 }
 
 // null DataLayout => assume constant buffer layout
-void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout *DL,
-                       raw_string_ostream &OS, StringRef comment,
-                       StringRef varName, unsigned offset,
+void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys,
+                       const DataLayout *DL, raw_string_ostream &OS,
+                       StringRef comment, StringRef varName, unsigned offset,
                        unsigned indent, unsigned offsetIndent,
                        unsigned sizeOfStruct) {
   DxilStructAnnotation *annotation = typeSys.GetStructAnnotation(ST);
@@ -918,7 +927,8 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout
     if (!sizeOfStruct) {
       (OS << comment).indent(fieldIndent) << "/* empty struct */\n";
     } else {
-      (OS << comment).indent(fieldIndent) << "[" << sizeOfStruct << " x i8] (type annotation not present)\n";
+      (OS << comment).indent(fieldIndent)
+          << "[" << sizeOfStruct << " x i8] (type annotation not present)\n";
     }
   } else {
     for (unsigned i = 0; i < ST->getNumElements(); i++) {
@@ -930,16 +940,16 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout
         fieldOffset = offset + DL->getStructLayout(ST)->getElementOffset(i);
       }
 
-      PrintFieldLayout(ST->getElementType(i), fieldAnnotation,
-                       typeSys, DL, OS, comment, fieldOffset,
-                       fieldIndent, offsetIndent - 4);
+      PrintFieldLayout(ST->getElementType(i), fieldAnnotation, typeSys, DL, OS,
+                       comment, fieldOffset, fieldIndent, offsetIndent - 4);
     }
   }
   (OS << comment).indent(indent) << "\n";
   // The 2 in offsetIndent-indent-2 is for "} ".
   std::string varNameAndSemicolon = varName;
   varNameAndSemicolon += ';';
-  (OS << comment).indent(indent) << "} " << left_justify(varNameAndSemicolon, offsetIndent - 2);
+  (OS << comment).indent(indent)
+      << "} " << left_justify(varNameAndSemicolon, offsetIndent - 2);
   OS << comment << " Offset:" << right_justify(std::to_string(offset), 5);
   if (sizeOfStruct)
     OS << " Size: " << right_justify(std::to_string(sizeOfStruct), 5);
@@ -948,11 +958,9 @@ void PrintStructLayout(StructType *ST, DxilTypeSystem &typeSys, const DataLayout
   OS << comment << "\n";
 }
 
-void PrintStructBufferDefinition(DxilResource *buf,
-                                        DxilTypeSystem &typeSys,
-                                        const DataLayout &DL,
-                                        raw_string_ostream &OS,
-                                        StringRef comment) {
+void PrintStructBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
+                                 const DataLayout &DL, raw_string_ostream &OS,
+                                 StringRef comment) {
   const unsigned offsetIndent = 50;
 
   OS << comment << " Resource bind info for " << buf->GetGlobalName() << "\n";
@@ -975,9 +983,9 @@ void PrintStructBufferDefinition(DxilResource *buf,
     } else {
       DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(0);
       fieldAnnotation.SetFieldName("$Element");
-      PrintFieldLayout(RetTy, fieldAnnotation, typeSys, /*DL*/ nullptr, OS, comment,
-                       /*offset*/ 0, /*indent*/ 3, offsetIndent,
-                       DL.getTypeAllocSize(ST));
+      PrintFieldLayout(
+          RetTy, fieldAnnotation, typeSys, /*DL*/ nullptr, OS, comment,
+          /*offset*/ 0, /*indent*/ 3, offsetIndent, DL.getTypeAllocSize(ST));
     }
     OS << comment << "\n";
   } else {
@@ -998,7 +1006,7 @@ void PrintStructBufferDefinition(DxilResource *buf,
 }
 
 void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
-                                   raw_string_ostream &OS, StringRef comment) {
+                            raw_string_ostream &OS, StringRef comment) {
   const unsigned offsetIndent = 50;
   llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
   // For TextureBuffer<> buf[2], the array size is in Resource binding count
@@ -1015,8 +1023,8 @@ void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
     OS << comment << "   (type annotation not present)\n";
     OS << comment << "\n";
   } else {
-    PrintStructLayout(cast<StructType>(Ty), typeSys, /*DL*/ nullptr, OS, comment,
-                      buf->GetGlobalName(), /*offset*/ 0, /*indent*/ 3,
+    PrintStructLayout(cast<StructType>(Ty), typeSys, /*DL*/ nullptr, OS,
+                      comment, buf->GetGlobalName(), /*offset*/ 0, /*indent*/ 3,
                       offsetIndent, annotation->GetCBufferSize());
   }
   OS << comment << " }\n";
@@ -1024,7 +1032,7 @@ void PrintTBufferDefinition(DxilResource *buf, DxilTypeSystem &typeSys,
 }
 
 void PrintCBufferDefinition(DxilCBuffer *buf, DxilTypeSystem &typeSys,
-                                   raw_string_ostream &OS, StringRef comment) {
+                            raw_string_ostream &OS, StringRef comment) {
   const unsigned offsetIndent = 50;
   llvm::Type *Ty = buf->GetHLSLType()->getPointerElementType();
   // For ConstantBuffer<> buf[2], the array size is in Resource binding count
@@ -1042,8 +1050,8 @@ void PrintCBufferDefinition(DxilCBuffer *buf, DxilTypeSystem &typeSys,
        << " x i8] (type annotation not present)\n";
     OS << comment << "\n";
   } else {
-    PrintStructLayout(cast<StructType>(Ty), typeSys, /*DL*/ nullptr, OS, comment,
-                      buf->GetGlobalName(), /*offset*/ 0, /*indent*/ 3,
+    PrintStructLayout(cast<StructType>(Ty), typeSys, /*DL*/ nullptr, OS,
+                      comment, buf->GetGlobalName(), /*offset*/ 0, /*indent*/ 3,
                       offsetIndent, buf->GetSize());
   }
   OS << comment << " }\n";
@@ -1051,7 +1059,7 @@ void PrintCBufferDefinition(DxilCBuffer *buf, DxilTypeSystem &typeSys,
 }
 
 void PrintBufferDefinitions(DxilModule &M, raw_string_ostream &OS,
-                                   StringRef comment) {
+                            StringRef comment) {
   OS << comment << "\n"
      << comment << " Buffer Definitions:\n"
      << comment << "\n";
@@ -1075,26 +1083,43 @@ void PrintBufferDefinitions(DxilModule &M, raw_string_ostream &OS,
 #include "DxcDisassembler.inc"
 
 LPCSTR ResourceKindToString(DXIL::ResourceKind RK) {
-  switch (RK)
-  {
-  case DXIL::ResourceKind::Texture1D: return "Texture1D";
-  case DXIL::ResourceKind::Texture2D: return "Texture2D";
-  case DXIL::ResourceKind::Texture2DMS: return "Texture2DMS";
-  case DXIL::ResourceKind::Texture3D: return "Texture3D";
-  case DXIL::ResourceKind::TextureCube: return "TextureCube";
-  case DXIL::ResourceKind::Texture1DArray: return "Texture1DArray";
-  case DXIL::ResourceKind::Texture2DArray: return "Texture2DArray";
-  case DXIL::ResourceKind::Texture2DMSArray: return "Texture2DMSArray";
-  case DXIL::ResourceKind::TextureCubeArray: return "TextureCubeArray";
-  case DXIL::ResourceKind::TypedBuffer: return "TypedBuffer";
-  case DXIL::ResourceKind::RawBuffer: return "ByteAddressBuffer";
-  case DXIL::ResourceKind::StructuredBuffer: return "StructuredBuffer";
-  case DXIL::ResourceKind::CBuffer: return "CBuffer";
-  case DXIL::ResourceKind::Sampler: return "Sampler";
-  case DXIL::ResourceKind::TBuffer: return "TBuffer";
-  case DXIL::ResourceKind::RTAccelerationStructure: return "RTAccelerationStructure";
-  case DXIL::ResourceKind::FeedbackTexture2D: return "FeedbackTexture2D";
-  case DXIL::ResourceKind::FeedbackTexture2DArray: return "FeedbackTexture2DArray";
+  switch (RK) {
+  case DXIL::ResourceKind::Texture1D:
+    return "Texture1D";
+  case DXIL::ResourceKind::Texture2D:
+    return "Texture2D";
+  case DXIL::ResourceKind::Texture2DMS:
+    return "Texture2DMS";
+  case DXIL::ResourceKind::Texture3D:
+    return "Texture3D";
+  case DXIL::ResourceKind::TextureCube:
+    return "TextureCube";
+  case DXIL::ResourceKind::Texture1DArray:
+    return "Texture1DArray";
+  case DXIL::ResourceKind::Texture2DArray:
+    return "Texture2DArray";
+  case DXIL::ResourceKind::Texture2DMSArray:
+    return "Texture2DMSArray";
+  case DXIL::ResourceKind::TextureCubeArray:
+    return "TextureCubeArray";
+  case DXIL::ResourceKind::TypedBuffer:
+    return "TypedBuffer";
+  case DXIL::ResourceKind::RawBuffer:
+    return "ByteAddressBuffer";
+  case DXIL::ResourceKind::StructuredBuffer:
+    return "StructuredBuffer";
+  case DXIL::ResourceKind::CBuffer:
+    return "CBuffer";
+  case DXIL::ResourceKind::Sampler:
+    return "Sampler";
+  case DXIL::ResourceKind::TBuffer:
+    return "TBuffer";
+  case DXIL::ResourceKind::RTAccelerationStructure:
+    return "RTAccelerationStructure";
+  case DXIL::ResourceKind::FeedbackTexture2D:
+    return "FeedbackTexture2D";
+  case DXIL::ResourceKind::FeedbackTexture2DArray:
+    return "FeedbackTexture2DArray";
   default:
     return "<invalid ResourceKind>";
   }
@@ -1102,31 +1127,49 @@ LPCSTR ResourceKindToString(DXIL::ResourceKind RK) {
 
 LPCSTR CompTypeToString(DXIL::ComponentType CompType) {
   switch (CompType) {
-  case DXIL::ComponentType::I1: return "I1";
-  case DXIL::ComponentType::I16: return "I16";
-  case DXIL::ComponentType::U16: return "U16";
-  case DXIL::ComponentType::I32: return "I32";
-  case DXIL::ComponentType::U32: return "U32";
-  case DXIL::ComponentType::I64: return "I64";
-  case DXIL::ComponentType::U64: return "U64";
-  case DXIL::ComponentType::F16: return "F16";
-  case DXIL::ComponentType::F32: return "F32";
-  case DXIL::ComponentType::F64: return "F64";
-  case DXIL::ComponentType::SNormF16: return "SNormF16";
-  case DXIL::ComponentType::UNormF16: return "UNormF16";
-  case DXIL::ComponentType::SNormF32: return "SNormF32";
-  case DXIL::ComponentType::UNormF32: return "UNormF32";
-  case DXIL::ComponentType::SNormF64: return "SNormF64";
-  case DXIL::ComponentType::UNormF64: return "UNormF64";
+  case DXIL::ComponentType::I1:
+    return "I1";
+  case DXIL::ComponentType::I16:
+    return "I16";
+  case DXIL::ComponentType::U16:
+    return "U16";
+  case DXIL::ComponentType::I32:
+    return "I32";
+  case DXIL::ComponentType::U32:
+    return "U32";
+  case DXIL::ComponentType::I64:
+    return "I64";
+  case DXIL::ComponentType::U64:
+    return "U64";
+  case DXIL::ComponentType::F16:
+    return "F16";
+  case DXIL::ComponentType::F32:
+    return "F32";
+  case DXIL::ComponentType::F64:
+    return "F64";
+  case DXIL::ComponentType::SNormF16:
+    return "SNormF16";
+  case DXIL::ComponentType::UNormF16:
+    return "UNormF16";
+  case DXIL::ComponentType::SNormF32:
+    return "SNormF32";
+  case DXIL::ComponentType::UNormF32:
+    return "UNormF32";
+  case DXIL::ComponentType::SNormF64:
+    return "SNormF64";
+  case DXIL::ComponentType::UNormF64:
+    return "UNormF64";
   default:
     return "<invalid CompType>";
   }
 }
 
 LPCSTR SamplerFeedbackTypeToString(DXIL::SamplerFeedbackType SFT) {
-  switch(SFT) {
-  case DXIL::SamplerFeedbackType::MinMip: return "MinMip";
-  case DXIL::SamplerFeedbackType::MipRegionUsed: return "MipRegionUsed";
+  switch (SFT) {
+  case DXIL::SamplerFeedbackType::MinMip:
+    return "MinMip";
+  case DXIL::SamplerFeedbackType::MipRegionUsed:
+    return "MipRegionUsed";
   default:
     return "<invalid sampler feedback type>";
   }
@@ -1158,8 +1201,7 @@ void PrintResourceProperties(DxilResourceProperties &RP,
   LPCSTR GC = bUAV && RP.Basic.IsGloballyCoherent ? "globallycoherent " : "";
   LPCSTR COUNTER = bUAV && RP.Basic.SamplerCmpOrHasCounter ? ", counter" : "";
 
-  switch (RP.getResourceKind())
-  {
+  switch (RP.getResourceKind()) {
   case DXIL::ResourceKind::Texture1D:
   case DXIL::ResourceKind::Texture2D:
   case DXIL::ResourceKind::Texture3D:
@@ -1174,8 +1216,7 @@ void PrintResourceProperties(DxilResourceProperties &RP,
     OS << "<";
     if (RP.Typed.CompCount > 1)
       OS << std::to_string(RP.Typed.CompCount) << "x";
-    OS << CompTypeToString(RP.getCompType())
-       << ">";
+    OS << CompTypeToString(RP.getCompType()) << ">";
     break;
 
   case DXIL::ResourceKind::RawBuffer:
@@ -1214,21 +1255,20 @@ public:
         if (const DbgDeclareInst *DI = dyn_cast<DbgDeclareInst>(I)) {
           Var = DI->getVariable();
           Expr = DI->getExpression();
-        }
-        else if (const DbgValueInst *DI = dyn_cast<DbgValueInst>(I)) {
+        } else if (const DbgValueInst *DI = dyn_cast<DbgValueInst>(I)) {
           Var = DI->getVariable();
           Expr = DI->getExpression();
         }
 
         if (Var && Expr) {
-          OS << " ; var:\"" << Var->getName() << "\"" << " ";
+          OS << " ; var:\"" << Var->getName() << "\""
+             << " ";
           Expr->printAsBody(OS);
           if (DISubprogram *SubP = findFunctionScope(Var)) {
             OS << " func:\"" << SubP->getName() << "\"";
           }
         }
-      }
-      else {
+      } else {
         DebugLoc Loc = I->getDebugLoc();
         if (Loc && Loc.getLine() != 0)
           OS << " ; line:" << Loc.getLine() << " col:" << Loc.getCol();
@@ -1265,9 +1305,10 @@ public:
     switch (opcode) {
     case DXIL::OpCode::AnnotateHandle: {
       // Decode resource properties
-      DxilInst_AnnotateHandle AH(const_cast<CallInst*>(CI));
+      DxilInst_AnnotateHandle AH(const_cast<CallInst *>(CI));
       if (Constant *Props = dyn_cast<Constant>(AH.get_props())) {
-        DxilResourceProperties RP = resource_helper::loadPropsFromConstant(*Props);
+        DxilResourceProperties RP =
+            resource_helper::loadPropsFromConstant(*Props);
         PrintResourceProperties(RP, OS);
       }
     } break;
@@ -1285,10 +1326,11 @@ public:
   }
 };
 
-void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, const uint32_t uBufferSize,
-                                                    DXIL::ShaderKind shaderKind,
-                                                    raw_string_ostream &OS,
-                                                    StringRef comment) {
+void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
+                                             const uint32_t uBufferSize,
+                                             DXIL::ShaderKind shaderKind,
+                                             raw_string_ostream &OS,
+                                             StringRef comment) {
   OS << comment << "\n"
      << comment << " Pipeline Runtime Information: \n"
      << comment << "\n";
@@ -1494,7 +1536,8 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, const uint32_t
       OS << "invalid\n";
       break;
     }
-    OS << comment << " OutputStreamMask=" << pInfo0->GS.OutputStreamMask << "\n";
+    OS << comment << " OutputStreamMask=" << pInfo0->GS.OutputStreamMask
+       << "\n";
     OS << comment
        << " OutputPositionPresent=" << (bool)pInfo0->GS.OutputPositionPresent
        << "\n";
@@ -1514,20 +1557,23 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, const uint32_t
   case DXIL::ShaderKind::Compute:
     OS << comment << " Compute Shader\n";
     if (pInfo2) {
-      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << ","
+         << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     break;
   case DXIL::ShaderKind::Amplification:
-    OS << comment << " Amplification Shader\n"; 
+    OS << comment << " Amplification Shader\n";
     if (pInfo2) {
-      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << ","
+         << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     break;
   case DXIL::ShaderKind::Mesh:
-    OS << comment << " Mesh Shader\n"; 
+    OS << comment << " Mesh Shader\n";
     if (pInfo1) {
       OS << comment << " MeshOutputTopology=";
-      DXIL::MeshOutputTopology topology = static_cast<DXIL::MeshOutputTopology>(pInfo1->MS1.MeshOutputTopology);
+      DXIL::MeshOutputTopology topology =
+          static_cast<DXIL::MeshOutputTopology>(pInfo1->MS1.MeshOutputTopology);
       switch (topology) {
       case DXIL::MeshOutputTopology::Undefined:
         OS << "undefined\n";
@@ -1544,7 +1590,8 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, const uint32_t
       }
     }
     if (pInfo2) {
-      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << "," << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
+      OS << comment << " NumThreads=(" << pInfo2->NumThreadsX << ","
+         << pInfo2->NumThreadsY << "," << pInfo2->NumThreadsZ << ")\n";
     }
     break;
   case DXIL::ShaderKind::Library:
@@ -1553,14 +1600,15 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer, const uint32_t
     break;
   }
 
-  if (pInfo0->MinimumExpectedWaveLaneCount == pInfo0->MaximumExpectedWaveLaneCount) {
-    OS << comment << " WaveSize=" << pInfo0->MinimumExpectedWaveLaneCount << "\n";
+  if (pInfo0->MinimumExpectedWaveLaneCount ==
+      pInfo0->MaximumExpectedWaveLaneCount) {
+    OS << comment << " WaveSize=" << pInfo0->MinimumExpectedWaveLaneCount
+       << "\n";
   }
 
   OS << comment << "\n";
 }
-}
-
+} // namespace
 
 namespace dxcutil {
 
@@ -1569,7 +1617,8 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   {
     CComPtr<IStream> pStream;
     IFR(hlsl::CreateReadOnlyBlobStream(pProgram, &pStream));
-    if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(DxcGetThreadMallocNoRef(), pStream, &pPdbContainerBlob))) {
+    if (SUCCEEDED(hlsl::pdb::LoadDataFromStream(DxcGetThreadMallocNoRef(),
+                                                pStream, &pPdbContainerBlob))) {
       pProgram = pPdbContainerBlob;
     }
   }
@@ -1630,10 +1679,10 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     }
 
     it = std::find_if(begin(pContainer), end(pContainer),
-      DxilPartIsType(DFCC_ShaderHash));
+                      DxilPartIsType(DFCC_ShaderHash));
     if (it != end(pContainer)) {
       const DxilShaderHash *pHashContent =
-        reinterpret_cast<const DxilShaderHash *>(GetDxilPartData(*it));
+          reinterpret_cast<const DxilShaderHash *>(GetDxilPartData(*it));
       Stream << "; shader hash: ";
       for (int i = 0; i < 16; ++i)
         Stream << format("%.2x", pHashContent->Digest[i]);
@@ -1673,7 +1722,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
 
     // RDAT
     it = std::find_if(begin(pContainer), end(pContainer),
-      DxilPartIsType(DFCC_RuntimeData));
+                      DxilPartIsType(DFCC_RuntimeData));
     if (it != end(pContainer)) {
       pRDATPart = *it;
     }
@@ -1683,11 +1732,13 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     it = std::find_if(begin(pContainer), end(pContainer),
                       DxilPartIsType(DFCC_ShaderStatistics));
     if (it != end(pContainer)) {
-      // If this part exists, use it for reflection data, probably stripped from DXIL part.
+      // If this part exists, use it for reflection data, probably stripped from
+      // DXIL part.
       const DxilProgramHeader *pReflectionProgramHeader =
           reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
       if (IsValidDxilProgramHeader(pReflectionProgramHeader, (*it)->PartSize)) {
-        GetDxilProgramBitcode(pReflectionProgramHeader, &pReflectionIL, &pReflectionILLength);
+        GetDxilProgramBitcode(pReflectionProgramHeader, &pReflectionIL,
+                              &pReflectionILLength);
       }
     }
 
@@ -1702,7 +1753,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   std::string DiagStr;
   llvm::LLVMContext llvmContext;
   std::unique_ptr<llvm::Module> pModule(dxilutil::LoadModuleFromBitcode(
-    llvm::StringRef(pIL, pILLength), llvmContext, DiagStr));
+      llvm::StringRef(pIL, pILLength), llvmContext, DiagStr));
   if (pModule.get() == nullptr) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
@@ -1710,7 +1761,8 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   std::unique_ptr<llvm::Module> pReflectionModule;
   if (pReflectionIL && pReflectionILLength) {
     pReflectionModule = dxilutil::LoadModuleFromBitcode(
-      llvm::StringRef(pReflectionIL, pReflectionILLength), llvmContext, DiagStr);
+        llvm::StringRef(pReflectionIL, pReflectionILLength), llvmContext,
+        DiagStr);
     if (pReflectionModule.get() == nullptr) {
       return DXC_E_IR_VERIFICATION_FAILED;
     }
@@ -1718,15 +1770,16 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
 
   if (pModule->getNamedMetadata("dx.version")) {
     DxilModule &dxilModule = pModule->GetOrCreateDxilModule();
-    DxilModule &dxilReflectionModule = pReflectionModule.get()
-      ? pReflectionModule->GetOrCreateDxilModule()
-      : dxilModule;
+    DxilModule &dxilReflectionModule =
+        pReflectionModule.get() ? pReflectionModule->GetOrCreateDxilModule()
+                                : dxilModule;
 
     if (!dxilModule.GetShaderModel()->IsLib()) {
       PrintDxilSignature("Input", dxilModule.GetInputSignature(), Stream,
                          /*comment*/ ";");
       if (dxilModule.GetShaderModel()->IsMS()) {
-        PrintDxilSignature("Vertex Output", dxilModule.GetOutputSignature(), Stream,
+        PrintDxilSignature("Vertex Output", dxilModule.GetOutputSignature(),
+                           Stream,
                            /*comment*/ ";");
         PrintDxilSignature("Primitive Output",
                            dxilModule.GetPatchConstOrPrimSignature(), Stream,
@@ -1744,7 +1797,8 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
     PrintViewIdState(dxilReflectionModule, Stream, /*comment*/ ";");
 
     if (pRDATPart) {
-      RDAT::DxilRuntimeData runtimeData(GetDxilPartData(pRDATPart), pRDATPart->PartSize);
+      RDAT::DxilRuntimeData runtimeData(GetDxilPartData(pRDATPart),
+                                        pRDATPart->PartSize);
       // TODO: Print the rest of the RDAT info
       if (runtimeData.GetSubobjectTable()) {
         dxilModule.ResetSubobjects(new DxilSubobjects());
@@ -1759,11 +1813,11 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
   }
   DxcAssemblyAnnotationWriter w;
   pModule->print(Stream, &w);
-  //if (pReflectionModule) {
-  //  Stream << "\n========== Reflection Module from STAT part ==========\n";
-  //  pReflectionModule->print(Stream, &w);
-  //}
+  // if (pReflectionModule) {
+  //   Stream << "\n========== Reflection Module from STAT part ==========\n";
+  //   pReflectionModule->print(Stream, &w);
+  // }
   Stream.flush();
   return S_OK;
 }
-}
+} // namespace dxcutil

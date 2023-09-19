@@ -9,17 +9,16 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilSignatureElement.h"
 #include "dxc/DXIL/DxilSemantic.h"
-#include "dxc/DXIL/DxilSigPoint.h"
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/DXIL/DxilSigPoint.h"
+#include "dxc/Support/Global.h"
 #include <memory>
 
 using std::string;
-using std::vector;
 using std::unique_ptr;
-
+using std::vector;
 
 namespace hlsl {
 
@@ -28,32 +27,26 @@ namespace hlsl {
 // DxilSignatureElement methods.
 //
 DxilSignatureElement::DxilSignatureElement(DXIL::SigPointKind sigPointKind)
-: m_sigPointKind(sigPointKind)
-, m_pSemantic(nullptr)
-, m_ID(kUndefinedID)
-, m_CompType(CompType::Kind::Invalid)
-, m_InterpMode(InterpolationMode::Kind::Invalid)
-, m_Rows(0)
-, m_Cols(0)
-, m_StartRow(Semantic::kUndefinedRow)
-, m_StartCol(Semantic::kUndefinedCol)
-, m_DynIdxCompMask(0)
-, m_UsageMask(0) {
-}
+    : m_sigPointKind(sigPointKind), m_pSemantic(nullptr), m_ID(kUndefinedID),
+      m_CompType(CompType::Kind::Invalid),
+      m_InterpMode(InterpolationMode::Kind::Invalid), m_Rows(0), m_Cols(0),
+      m_StartRow(Semantic::kUndefinedRow), m_StartCol(Semantic::kUndefinedCol),
+      m_DynIdxCompMask(0), m_UsageMask(0) {}
 
-DxilSignatureElement::~DxilSignatureElement() {
-}
+DxilSignatureElement::~DxilSignatureElement() {}
 
-void DxilSignatureElement::Initialize(llvm::StringRef Name, const CompType &ElementType, 
-                                      const InterpolationMode &InterpMode, 
-                                      unsigned Rows, unsigned Cols, 
-                                      int StartRow, int StartCol,
-                                      unsigned ID, const vector<unsigned> &IndexVector) {
+void DxilSignatureElement::Initialize(llvm::StringRef Name,
+                                      const CompType &ElementType,
+                                      const InterpolationMode &InterpMode,
+                                      unsigned Rows, unsigned Cols,
+                                      int StartRow, int StartCol, unsigned ID,
+                                      const vector<unsigned> &IndexVector) {
   DXASSERT(m_pSemantic == nullptr, "an instance should be initiazed only once");
 
   m_ID = ID;
   m_Name = Name.str(); // creates a copy
-  Semantic::DecomposeNameAndIndex(m_Name, &m_SemanticName, &m_SemanticStartIndex);
+  Semantic::DecomposeNameAndIndex(m_Name, &m_SemanticName,
+                                  &m_SemanticStartIndex);
   if (!IndexVector.empty())
     m_SemanticStartIndex = IndexVector[0];
   // Find semantic in the table.
@@ -68,9 +61,7 @@ void DxilSignatureElement::Initialize(llvm::StringRef Name, const CompType &Elem
   m_OutputStream = 0;
 }
 
-unsigned DxilSignatureElement::GetID() const {
-  return m_ID;
-}
+unsigned DxilSignatureElement::GetID() const { return m_ID; }
 
 void DxilSignatureElement::SetID(unsigned ID) {
   DXASSERT_NOMSG(m_ID == kUndefinedID || m_ID == ID);
@@ -102,28 +93,18 @@ const char *DxilSignatureElement::GetName() const {
     return m_Name.c_str();
 }
 
-unsigned DxilSignatureElement::GetRows() const {
-  return m_Rows;
-}
-void DxilSignatureElement::SetRows(unsigned Rows) {
-  m_Rows = Rows;
-}
+unsigned DxilSignatureElement::GetRows() const { return m_Rows; }
+void DxilSignatureElement::SetRows(unsigned Rows) { m_Rows = Rows; }
 
-unsigned DxilSignatureElement::GetCols() const {
-  return m_Cols;
-}
+unsigned DxilSignatureElement::GetCols() const { return m_Cols; }
 
-void DxilSignatureElement::SetCols(unsigned Cols) {
-  m_Cols = Cols;
-}
+void DxilSignatureElement::SetCols(unsigned Cols) { m_Cols = Cols; }
 
 const InterpolationMode *DxilSignatureElement::GetInterpolationMode() const {
   return &m_InterpMode;
 }
 
-CompType DxilSignatureElement::GetCompType() const {
-  return m_CompType;
-}
+CompType DxilSignatureElement::GetCompType() const { return m_CompType; }
 
 unsigned DxilSignatureElement::GetOutputStream() const {
   return m_OutputStream;
@@ -140,7 +121,6 @@ DXIL::SigPointKind DxilSignatureElement::GetSigPointKind() const {
 void DxilSignatureElement::SetSigPointKind(DXIL::SigPointKind K) {
   m_sigPointKind = K;
 }
-
 
 //
 // Semantic-related properties.
@@ -179,8 +159,11 @@ bool DxilSignatureElement::IsAnyDepth() const {
   return IsDepth() || IsDepthLE() || IsDepthGE();
 }
 
-DXIL::SemanticInterpretationKind DxilSignatureElement::GetInterpretation() const {
-  return SigPoint::GetInterpretation(m_pSemantic->GetKind(), m_sigPointKind, ShaderModel::kHighestMajor, ShaderModel::kHighestMinor);
+DXIL::SemanticInterpretationKind
+DxilSignatureElement::GetInterpretation() const {
+  return SigPoint::GetInterpretation(m_pSemantic->GetKind(), m_sigPointKind,
+                                     ShaderModel::kHighestMajor,
+                                     ShaderModel::kHighestMinor);
 }
 
 llvm::StringRef DxilSignatureElement::GetSemanticName() const {
@@ -193,27 +176,20 @@ unsigned DxilSignatureElement::GetSemanticStartIndex() const {
 //
 // Low-level properties.
 //
-int DxilSignatureElement::GetStartRow() const {
-  return m_StartRow;
-}
+int DxilSignatureElement::GetStartRow() const { return m_StartRow; }
 
-void DxilSignatureElement::SetStartRow(int StartRow) {
-  m_StartRow = StartRow;
-}
+void DxilSignatureElement::SetStartRow(int StartRow) { m_StartRow = StartRow; }
 
-int DxilSignatureElement::GetStartCol() const {
-  return m_StartCol;
-}
+int DxilSignatureElement::GetStartCol() const { return m_StartCol; }
 
-void DxilSignatureElement::SetStartCol(int StartCol) {
-  m_StartCol = StartCol;
-}
+void DxilSignatureElement::SetStartCol(int StartCol) { m_StartCol = StartCol; }
 
 const std::vector<unsigned> &DxilSignatureElement::GetSemanticIndexVec() const {
   return m_SemanticIndex;
 }
 
-void DxilSignatureElement::SetSemanticIndexVec(const std::vector<unsigned> &Vec) {
+void DxilSignatureElement::SetSemanticIndexVec(
+    const std::vector<unsigned> &Vec) {
   m_SemanticIndex = Vec;
 }
 
@@ -223,20 +199,21 @@ void DxilSignatureElement::AppendSemanticIndex(unsigned SemIdx) {
 
 void DxilSignatureElement::SetCompType(CompType CT) {
   // Translate packed types to u32
-  switch(CT.GetKind()) {
-    case CompType::Kind::PackedS8x32:
-    case CompType::Kind::PackedU8x32:
-      m_CompType = CompType::getU32();
-      break;
-    default:
-      m_CompType = CT;
-      break;
+  switch (CT.GetKind()) {
+  case CompType::Kind::PackedS8x32:
+  case CompType::Kind::PackedU8x32:
+    m_CompType = CompType::getU32();
+    break;
+  default:
+    m_CompType = CT;
+    break;
   }
 }
 
 uint8_t DxilSignatureElement::GetColsAsMask() const {
   unsigned StartCol = IsAllocated() ? m_StartCol : 0;
-  DXASSERT_ARGS(StartCol + m_Cols <= 4, "else start %u and cols %u exceed limit", StartCol, m_Cols);
+  DXASSERT_ARGS(StartCol + m_Cols <= 4,
+                "else start %u and cols %u exceed limit", StartCol, m_Cols);
   DXASSERT(m_Cols >= 1, "else signature takes no space");
   switch (StartCol) {
   case 0: {
@@ -274,7 +251,8 @@ uint8_t DxilSignatureElement::GetColsAsMask() const {
 }
 
 bool DxilSignatureElement::IsAllocated() const {
-  return (m_StartRow != Semantic::kUndefinedRow) && (m_StartCol != Semantic::kUndefinedCol);
+  return (m_StartRow != Semantic::kUndefinedRow) &&
+         (m_StartCol != Semantic::kUndefinedCol);
 }
 
 unsigned DxilSignatureElement::GetDynIdxCompMask() const {

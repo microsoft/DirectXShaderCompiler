@@ -40,14 +40,16 @@ public:
   }
 
   InjectedSource(IMalloc *pMalloc, Session *pSession, DWORD index)
-    : m_pMalloc(pMalloc), m_pSession(pSession), m_index(index) {}
+      : m_pMalloc(pMalloc), m_pSession(pSession), m_index(index) {}
 
   llvm::MDTuple *NameContent();
   llvm::StringRef Name();
   llvm::StringRef Content();
 
   STDMETHODIMP get_crc(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+      /* [retval][out] */ DWORD *pRetVal) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP get_length(ULONGLONG *pRetVal) override;
 
@@ -58,16 +60,18 @@ public:
   STDMETHODIMP get_virtualFilename(BSTR *pRetVal) override;
 
   STDMETHODIMP get_sourceCompression(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+      /* [retval][out] */ DWORD *pRetVal) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP get_source(
-    /* [in] */ DWORD cbData,
-    /* [out] */ DWORD *pcbData,
-    /* [size_is][out] */ BYTE *pbData) override;
+      /* [in] */ DWORD cbData,
+      /* [out] */ DWORD *pcbData,
+      /* [size_is][out] */ BYTE *pbData) override;
 };
 
-class InjectedSourcesTable : public impl::TableBase<IDiaEnumInjectedSources,
-                                                    IDiaInjectedSource> {
+class InjectedSourcesTable
+    : public impl::TableBase<IDiaEnumInjectedSources, IDiaInjectedSource> {
 public:
   InjectedSourcesTable(IMalloc *pMalloc, Session *pSession);
 
@@ -79,4 +83,4 @@ private:
   std::vector<unsigned> m_indexList;
 };
 
-}  // namespace dxil_dia
+} // namespace dxil_dia

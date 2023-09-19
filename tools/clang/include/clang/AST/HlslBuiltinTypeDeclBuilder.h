@@ -16,39 +16,46 @@
 #include "llvm/ADT/StringRef.h"
 
 namespace clang {
-  class ASTContext;
-  class DeclContext;
-  class CXXRecordDecl;
-  class ClassTemplateDecl;
-  class NamedDecl;
-}
+class ASTContext;
+class DeclContext;
+class CXXRecordDecl;
+class ClassTemplateDecl;
+class NamedDecl;
+} // namespace clang
 
 namespace hlsl {
-// Helper to declare a builtin HLSL type in the clang AST with minimal boilerplate.
+// Helper to declare a builtin HLSL type in the clang AST with minimal
+// boilerplate.
 class BuiltinTypeDeclBuilder final {
 public:
-  BuiltinTypeDeclBuilder(clang::DeclContext* declContext, llvm::StringRef name,
-    clang::TagDecl::TagKind tagKind = clang::TagDecl::TagKind::TTK_Class);
+  BuiltinTypeDeclBuilder(
+      clang::DeclContext *declContext, llvm::StringRef name,
+      clang::TagDecl::TagKind tagKind = clang::TagDecl::TagKind::TTK_Class);
 
-  clang::TemplateTypeParmDecl* addTypeTemplateParam(llvm::StringRef name, clang::TypeSourceInfo* defaultValue = nullptr);
-  clang::TemplateTypeParmDecl* addTypeTemplateParam(llvm::StringRef name, clang::QualType defaultValue);
-  clang::NonTypeTemplateParmDecl* addIntegerTemplateParam(llvm::StringRef name, clang::QualType type,
-    llvm::Optional<int64_t> defaultValue = llvm::None);
+  clang::TemplateTypeParmDecl *
+  addTypeTemplateParam(llvm::StringRef name,
+                       clang::TypeSourceInfo *defaultValue = nullptr);
+  clang::TemplateTypeParmDecl *
+  addTypeTemplateParam(llvm::StringRef name, clang::QualType defaultValue);
+  clang::NonTypeTemplateParmDecl *
+  addIntegerTemplateParam(llvm::StringRef name, clang::QualType type,
+                          llvm::Optional<int64_t> defaultValue = llvm::None);
 
   void startDefinition();
 
-  clang::FieldDecl* addField(llvm::StringRef name, clang::QualType type,
-    clang::AccessSpecifier access = clang::AccessSpecifier::AS_private);
+  clang::FieldDecl *
+  addField(llvm::StringRef name, clang::QualType type,
+           clang::AccessSpecifier access = clang::AccessSpecifier::AS_private);
 
-  clang::CXXRecordDecl* completeDefinition();
+  clang::CXXRecordDecl *completeDefinition();
 
-  clang::CXXRecordDecl* getRecordDecl() const { return m_recordDecl; }
-  clang::ClassTemplateDecl* getTemplateDecl() const;
+  clang::CXXRecordDecl *getRecordDecl() const { return m_recordDecl; }
+  clang::ClassTemplateDecl *getTemplateDecl() const;
 
 private:
-  clang::CXXRecordDecl* m_recordDecl = nullptr;
-  clang::ClassTemplateDecl* m_templateDecl = nullptr;
-  llvm::SmallVector<clang::NamedDecl*, 2> m_templateParams;
+  clang::CXXRecordDecl *m_recordDecl = nullptr;
+  clang::ClassTemplateDecl *m_templateDecl = nullptr;
+  llvm::SmallVector<clang::NamedDecl *, 2> m_templateParams;
 };
-} // end hlsl namespace
+} // namespace hlsl
 #endif

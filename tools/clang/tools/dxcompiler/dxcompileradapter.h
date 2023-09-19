@@ -11,19 +11,17 @@
 
 #pragma once
 
-#include "dxc/dxcapi.h"
 #include "dxc/Support/microcom.h"
+#include "dxc/dxcapi.h"
 
-namespace hlsl
-{
+namespace hlsl {
 // This class provides an adapter for the legacy compiler interfaces
 // (i.e. IDxcCompiler and IDxcCompiler2) that is backed by an IDxcCompiler3
 // implemenation. It allows a single core IDxcCompiler3 implementation to be
 // used to implement all IDxcCompiler interfaces.
 //
 // This must be owned/managed by IDxcCompiler3 instance.
-class DxcCompilerAdapter: public IDxcCompiler2
-{
+class DxcCompilerAdapter : public IDxcCompiler2 {
 private:
   IDxcCompiler3 *m_pCompilerImpl;
   IMalloc *m_pMalloc;
@@ -49,10 +47,12 @@ private:
   );
 
 public:
-  DxcCompilerAdapter(IDxcCompiler3 *impl, IMalloc *pMalloc) : m_pCompilerImpl(impl), m_pMalloc(pMalloc) {}
+  DxcCompilerAdapter(IDxcCompiler3 *impl, IMalloc *pMalloc)
+      : m_pCompilerImpl(impl), m_pMalloc(pMalloc) {}
   ULONG STDMETHODCALLTYPE AddRef() override;
   ULONG STDMETHODCALLTYPE Release() override;
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override;
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override;
 
   // ================ IDxcCompiler ================
 
@@ -121,4 +121,4 @@ public:
       ) override;
 };
 
-}
+} // namespace hlsl

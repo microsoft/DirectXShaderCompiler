@@ -3444,7 +3444,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   /* <py::lines('OPCODE-OLOAD-FUNCS')>hctdb_instrhelp.get_oloads_funcs()</py>*/
   switch (opCode) { // return     opCode
                     // OPCODE-OLOAD-FUNCS:BEGIN
-    // Temporary, indexable, input, output registers
+                    // Temporary, indexable, input, output registers
   case OpCode::TempRegLoad:
     A(pETy);
     A(pI32);

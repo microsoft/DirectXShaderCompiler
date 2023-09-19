@@ -43,7 +43,8 @@
 #ifdef RC_PRODUCT_NAME
 #undef RC_PRODUCT_NAME
 #endif
-#define RC_PRODUCT_NAME "Microsoft(r) DirectX for Windows(r) - Out Of Band - Preview"
+#define RC_PRODUCT_NAME                                                        \
+  "Microsoft(r) DirectX for Windows(r) - Out Of Band - Preview"
 
 #ifdef RC_PRODUCT_VERSION
 #undef RC_PRODUCT_VERSION

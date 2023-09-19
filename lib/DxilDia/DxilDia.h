@@ -27,4 +27,4 @@ static constexpr DWORD HlslCompilandEnvArgumentsId = 8;
 
 HRESULT ENotImpl();
 HRESULT StringRefToBSTR(llvm::StringRef value, BSTR *pRetVal);
-}  // namespace dxil_dia
+} // namespace dxil_dia

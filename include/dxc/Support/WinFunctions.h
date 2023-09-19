@@ -30,7 +30,7 @@ int _stricmp(const char *str1, const char *str2);
 int _wcsicmp(const wchar_t *str1, const wchar_t *str2);
 int _wcsnicmp(const wchar_t *str1, const wchar_t *str2, size_t n);
 int wsprintf(wchar_t *wcs, const wchar_t *fmt, ...);
-unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask);
+unsigned char _BitScanForward(unsigned long *Index, unsigned long Mask);
 
 HANDLE CreateFile2(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
                    DWORD dwCreationDisposition, void *pCreateExParams);
@@ -49,7 +49,7 @@ BOOL WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite,
 BOOL CloseHandle(HANDLE hObject);
 
 // Windows-specific heap functions
-HANDLE HeapCreate(DWORD flOptions, SIZE_T dwInitialSize , SIZE_T dwMaximumSize);
+HANDLE HeapCreate(DWORD flOptions, SIZE_T dwInitialSize, SIZE_T dwMaximumSize);
 BOOL HeapDestroy(HANDLE heap);
 LPVOID HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T nBytes);
 LPVOID HeapReAlloc(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem, SIZE_T dwBytes);

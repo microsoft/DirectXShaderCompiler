@@ -12,30 +12,30 @@
 #ifndef __DXCLANGEXTENSIONSHELPER_H__
 #define __DXCLANGEXTENSIONSHELPER_H__
 
+#include "dxc/Support/DxcLangExtensionsCommonHelper.h"
+#include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Unicode.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaHLSL.h"
-#include "dxc/Support/DxcLangExtensionsCommonHelper.h"
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/Unicode.h"
 #include <vector>
 
 namespace llvm {
 class raw_string_ostream;
 class CallInst;
 class Value;
-}
+} // namespace llvm
 namespace clang {
 class CompilerInstance;
 }
 
 namespace hlsl {
 
-class DxcLangExtensionsHelper : public DxcLangExtensionsCommonHelper, public DxcLangExtensionsHelperApply {
+class DxcLangExtensionsHelper : public DxcLangExtensionsCommonHelper,
+                                public DxcLangExtensionsHelperApply {
 private:
-
 public:
   void SetupSema(clang::Sema &S) override {
     clang::ExternalASTSource *astSource = S.getASTContext().getExternalSource();
@@ -64,7 +64,7 @@ public:
 // parsed by the compiler. It has a name (required), a value (could be
 // the empty string), and a location. We use an encoded clang::SourceLocation
 // for the location to avoid a clang include dependency.
-struct ParsedSemanticDefine{
+struct ParsedSemanticDefine {
   std::string Name;
   std::string Value;
   unsigned Location;

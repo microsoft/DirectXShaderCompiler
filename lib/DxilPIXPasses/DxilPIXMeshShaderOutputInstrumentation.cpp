@@ -37,7 +37,8 @@
 constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
 // The actual max size per record is much smaller than this, but it never
 // hurts to be generous.
-constexpr size_t CounterOffsetBeyondUsefulData = DebugBufferDumpingGroundSize / 2;
+constexpr size_t CounterOffsetBeyondUsefulData =
+    DebugBufferDumpingGroundSize / 2;
 
 // Keep these in sync with the same-named values in PIX's MeshShaderOutput.cpp
 constexpr uint32_t triangleIndexIndicator = 0x1;
@@ -50,8 +51,7 @@ using namespace llvm;
 using namespace hlsl;
 using namespace PIXPassHelpers;
 
-class DxilPIXMeshShaderOutputInstrumentation : public ModulePass 
-{
+class DxilPIXMeshShaderOutputInstrumentation : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilPIXMeshShaderOutputInstrumentation() : ModulePass(ID) {}
@@ -65,7 +65,7 @@ private:
   CallInst *m_OutputUAV = nullptr;
   int m_RemainingReservedSpaceInBytes = 0;
   Constant *m_OffsetMask = nullptr;
-  SmallVector<Value*,2> m_threadUniquifier;
+  SmallVector<Value *, 2> m_threadUniquifier;
 
   uint64_t m_UAVSize = 1024 * 1024;
   bool m_ExpandPayload = false;
@@ -78,7 +78,9 @@ private:
     IRBuilder<> &Builder;
   };
 
-  SmallVector<Value*, 2> insertInstructionsToCreateDisambiguationValue(IRBuilder<> & Builder, OP* HlslOP, LLVMContext& Ctx, StructType * originalPayloadStructType, Instruction * firstGetPayload);
+  SmallVector<Value *, 2> insertInstructionsToCreateDisambiguationValue(
+      IRBuilder<> &Builder, OP *HlslOP, LLVMContext &Ctx,
+      StructType *originalPayloadStructType, Instruction *firstGetPayload);
   Value *reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInBytes);
   uint32_t UAVDumpingGroundOffset();
   Value *writeDwordAndReturnNewOffset(BuilderContext &BC, Value *TheOffset,
@@ -86,24 +88,21 @@ private:
   template <typename... T> void Instrument(BuilderContext &BC, T... values);
 };
 
-void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) 
-{
+void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
   GetPassOptionBool(O, "expand-payload", &m_ExpandPayload, 0);
 }
 
-uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() 
-{
+uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
-    BuilderContext &BC, uint32_t SpaceInBytes) 
-{
+    BuilderContext &BC, uint32_t SpaceInBytes) {
   // Check the previous caller didn't reserve too much space:
   assert(m_RemainingReservedSpaceInBytes == 0);
-  
-  // Check that the caller didn't ask for so much memory that it will 
+
+  // Check that the caller didn't ask for so much memory that it will
   // overwrite the offset counter:
   assert(m_RemainingReservedSpaceInBytes < (int)CounterOffsetBeyondUsefulData);
 
@@ -116,8 +115,8 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
       BC.HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
   Constant *AtomicAdd =
       BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
-  Constant *OffsetArg =
-      BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() + CounterOffsetBeyondUsefulData);
+  Constant *OffsetArg = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() +
+                                               CounterOffsetBeyondUsefulData);
   UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
   Constant *Increment = BC.HlslOP->GetU32Const(SpaceInBytes);
@@ -140,8 +139,7 @@ Value *DxilPIXMeshShaderOutputInstrumentation::reserveDebugEntrySpace(
 }
 
 Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
-    BuilderContext &BC, Value *TheOffset, Value *TheValue) 
-{
+    BuilderContext &BC, Value *TheOffset, Value *TheValue) {
 
   Function *StoreValue =
       BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(BC.Ctx));
@@ -173,20 +171,21 @@ Value *DxilPIXMeshShaderOutputInstrumentation::writeDwordAndReturnNewOffset(
 
 template <typename... T>
 void DxilPIXMeshShaderOutputInstrumentation::Instrument(BuilderContext &BC,
-                                                        T... values)
-{
+                                                        T... values) {
   llvm::SmallVector<llvm::Value *, 10> Values(
       {static_cast<llvm::Value *>(values)...});
   const uint32_t DwordCount = Values.size();
   llvm::Value *byteOffset =
       reserveDebugEntrySpace(BC, DwordCount * sizeof(uint32_t));
-  for (llvm::Value *V : Values)
-  {
+  for (llvm::Value *V : Values) {
     byteOffset = writeDwordAndReturnNewOffset(BC, byteOffset, V);
   }
 }
 
-Value* GetValueFromExpandedPayload(IRBuilder<> &Builder, StructType* originalPayloadStructType, Instruction* firstGetPayload, unsigned int offset, const char * name) {
+Value *GetValueFromExpandedPayload(IRBuilder<> &Builder,
+                                   StructType *originalPayloadStructType,
+                                   Instruction *firstGetPayload,
+                                   unsigned int offset, const char *name) {
   auto *DerefPointer = Builder.getInt32(0);
   auto *OffsetToExpandedData = Builder.getInt32(offset);
   auto *GEP = Builder.CreateGEP(
@@ -196,91 +195,102 @@ Value* GetValueFromExpandedPayload(IRBuilder<> &Builder, StructType* originalPay
   return Builder.CreateLoad(GEP, name);
 }
 
-SmallVector<Value*, 2> DxilPIXMeshShaderOutputInstrumentation::
+SmallVector<Value *, 2> DxilPIXMeshShaderOutputInstrumentation::
     insertInstructionsToCreateDisambiguationValue(
         IRBuilder<> &Builder, OP *HlslOP, LLVMContext &Ctx,
         StructType *originalPayloadStructType, Instruction *firstGetPayload) {
 
-    // When a mesh shader is called from an amplification shader, all of the
-    // thread id values are relative to the DispatchMesh call made by
-    // that amplification shader. Data about what thread counts were passed
-    // by the CPU to *CommandList::DispatchMesh are not available, but we
-    // will have added that value to the AS->MS payload...
+  // When a mesh shader is called from an amplification shader, all of the
+  // thread id values are relative to the DispatchMesh call made by
+  // that amplification shader. Data about what thread counts were passed
+  // by the CPU to *CommandList::DispatchMesh are not available, but we
+  // will have added that value to the AS->MS payload...
 
-    SmallVector<Value *, 2> ret;
-    Constant *Zero32Arg = HlslOP->GetU32Const(0);
+  SmallVector<Value *, 2> ret;
+  Constant *Zero32Arg = HlslOP->GetU32Const(0);
 
-    bool AmplificationShaderIsActive = originalPayloadStructType != nullptr;
+  bool AmplificationShaderIsActive = originalPayloadStructType != nullptr;
 
-    llvm::Value *ASDispatchMeshYCount = nullptr;
-    llvm::Value *ASDispatchMeshZCount = nullptr;
-    if (AmplificationShaderIsActive) {
+  llvm::Value *ASDispatchMeshYCount = nullptr;
+  llvm::Value *ASDispatchMeshZCount = nullptr;
+  if (AmplificationShaderIsActive) {
 
-      auto *ASThreadId = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements(), "ASThreadId");
-      ret.push_back(ASThreadId);
-      ASDispatchMeshYCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 1, "ASDispatchMeshYCount");
-      ASDispatchMeshZCount = GetValueFromExpandedPayload(Builder, originalPayloadStructType, firstGetPayload, originalPayloadStructType->getStructNumElements() + 2, "ASDispatchMeshZCount");
-    } else {
-      ret.push_back(Zero32Arg);
-    }
+    auto *ASThreadId = GetValueFromExpandedPayload(
+        Builder, originalPayloadStructType, firstGetPayload,
+        originalPayloadStructType->getStructNumElements(), "ASThreadId");
+    ret.push_back(ASThreadId);
+    ASDispatchMeshYCount = GetValueFromExpandedPayload(
+        Builder, originalPayloadStructType, firstGetPayload,
+        originalPayloadStructType->getStructNumElements() + 1,
+        "ASDispatchMeshYCount");
+    ASDispatchMeshZCount = GetValueFromExpandedPayload(
+        Builder, originalPayloadStructType, firstGetPayload,
+        originalPayloadStructType->getStructNumElements() + 2,
+        "ASDispatchMeshZCount");
+  } else {
+    ret.push_back(Zero32Arg);
+  }
 
-    Constant *One32Arg = HlslOP->GetU32Const(1);
-    Constant *Two32Arg = HlslOP->GetU32Const(2);
+  Constant *One32Arg = HlslOP->GetU32Const(1);
+  Constant *Two32Arg = HlslOP->GetU32Const(2);
 
-    auto GroupIdFunc =
-        HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
-    Constant *Opcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
-    auto * GroupIdX =
-        Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "GroupIdX");
-    auto * GroupIdY =
-        Builder.CreateCall(GroupIdFunc, {Opcode, One32Arg}, "GroupIdY");
-    auto * GroupIdZ =
-        Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
+  auto GroupIdFunc =
+      HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
+  Constant *Opcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
+  auto *GroupIdX =
+      Builder.CreateCall(GroupIdFunc, {Opcode, Zero32Arg}, "GroupIdX");
+  auto *GroupIdY =
+      Builder.CreateCall(GroupIdFunc, {Opcode, One32Arg}, "GroupIdY");
+  auto *GroupIdZ =
+      Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
 
-    auto *XxY = AmplificationShaderIsActive ? 
-      Builder.CreateMul(GroupIdX, ASDispatchMeshYCount) : GroupIdX;
-    auto *XplusY = Builder.CreateAdd(GroupIdY, XxY);
-    auto *XYxZ = AmplificationShaderIsActive
-        ? Builder.CreateMul(XplusY, ASDispatchMeshZCount) : XplusY;
-    auto *XYZ = Builder.CreateAdd(GroupIdZ, XYxZ);
+  auto *XxY = AmplificationShaderIsActive
+                  ? Builder.CreateMul(GroupIdX, ASDispatchMeshYCount)
+                  : GroupIdX;
+  auto *XplusY = Builder.CreateAdd(GroupIdY, XxY);
+  auto *XYxZ = AmplificationShaderIsActive
+                   ? Builder.CreateMul(XplusY, ASDispatchMeshZCount)
+                   : XplusY;
+  auto *XYZ = Builder.CreateAdd(GroupIdZ, XYxZ);
 
-    ret.push_back(XYZ);
+  ret.push_back(XYZ);
 
-    return ret;
+  return ret;
 }
 
-bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
-{
+bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
   Type *OriginalPayloadStructType = nullptr;
   ExpandedStruct expanded = {};
-  Instruction* FirstNewStructGetMeshPayload = nullptr;
+  Instruction *FirstNewStructGetMeshPayload = nullptr;
   if (m_ExpandPayload) {
-    Instruction * getMeshPayloadInstructions = nullptr;
+    Instruction *getMeshPayloadInstructions = nullptr;
     llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
     for (inst_iterator I = inst_begin(entryFunction),
-        E = inst_end(entryFunction);
-        I != E; ++I) {
-        if (auto* Instr = llvm::cast<Instruction>(&*I)) {
-            if (hlsl::OP::IsDxilOpFuncCallInst(Instr,
-              hlsl::OP::OpCode::GetMeshPayload)) {
-              getMeshPayloadInstructions = Instr;
-              Type *OriginalPayloadStructPointerType = Instr->getType();
-              OriginalPayloadStructType = OriginalPayloadStructPointerType->getPointerElementType();
-              // The validator assures that there is only one call to GetMeshPayload...
-              break;
-            }
+                       E = inst_end(entryFunction);
+         I != E; ++I) {
+      if (auto *Instr = llvm::cast<Instruction>(&*I)) {
+        if (hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                           hlsl::OP::OpCode::GetMeshPayload)) {
+          getMeshPayloadInstructions = Instr;
+          Type *OriginalPayloadStructPointerType = Instr->getType();
+          OriginalPayloadStructType =
+              OriginalPayloadStructPointerType->getPointerElementType();
+          // The validator assures that there is only one call to
+          // GetMeshPayload...
+          break;
         }
+      }
     }
-    
+
     if (OriginalPayloadStructType == nullptr) {
-        // If the application used no payload, then we won't attempt to add one.
-        // TODO: Is there a credible use case with no AS->MS payload?
-        // PIX bug #35288335
-        return false;
+      // If the application used no payload, then we won't attempt to add one.
+      // TODO: Is there a credible use case with no AS->MS payload?
+      // PIX bug #35288335
+      return false;
     }
 
     if (expanded.ExpandedPayloadStructPtrType == nullptr) {
@@ -289,20 +299,24 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 
     if (getMeshPayloadInstructions != nullptr) {
 
-        Function* DxilFunc = HlslOP->GetOpFunc(OP::OpCode::GetMeshPayload, expanded.ExpandedPayloadStructPtrType);
-        Constant* opArg = HlslOP->GetU32Const((unsigned)OP::OpCode::GetMeshPayload);
-        IRBuilder<> Builder(getMeshPayloadInstructions);
-        Value* args[] = { opArg };
-        Instruction* payload = Builder.CreateCall(DxilFunc, args);
+      Function *DxilFunc = HlslOP->GetOpFunc(
+          OP::OpCode::GetMeshPayload, expanded.ExpandedPayloadStructPtrType);
+      Constant *opArg =
+          HlslOP->GetU32Const((unsigned)OP::OpCode::GetMeshPayload);
+      IRBuilder<> Builder(getMeshPayloadInstructions);
+      Value *args[] = {opArg};
+      Instruction *payload = Builder.CreateCall(DxilFunc, args);
 
-        if (FirstNewStructGetMeshPayload == nullptr) {
-            FirstNewStructGetMeshPayload = payload;
-        }
+      if (FirstNewStructGetMeshPayload == nullptr) {
+        FirstNewStructGetMeshPayload = payload;
+      }
 
-        ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(getMeshPayloadInstructions, payload, expanded.ExpandedPayloadStructType);
+      ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
+          getMeshPayloadInstructions, payload,
+          expanded.ExpandedPayloadStructType);
     }
   }
-  
+
   Instruction *firstInsertionPt =
       dxilutil::FirstNonAllocaInsertionPt(GetEntryFunction(DM));
   IRBuilder<> Builder(firstInsertionPt);
@@ -319,8 +333,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
     IRBuilder<> Builder(firstInsertionPt);
     m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(
         Builder, HlslOP, Ctx, nullptr, nullptr);
-  }
-  else {
+  } else {
     IRBuilder<> Builder(FirstNewStructGetMeshPayload->getNextNode());
     m_threadUniquifier = insertInstructionsToCreateDisambiguationValue(
         Builder, HlslOP, Ctx, cast<StructType>(OriginalPayloadStructType),
@@ -329,8 +342,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 
   auto F = HlslOP->GetOpFunc(DXIL::OpCode::EmitIndices, Type::getVoidTy(Ctx));
   auto FunctionUses = F->uses();
-  for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();)
-  {
+  for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
     auto &FunctionUse = *FI++;
     auto FunctionUser = FunctionUse.getUser();
 
@@ -340,29 +352,25 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
     BuilderContext BC2{M, DM, Ctx, HlslOP, Builder2};
 
     Instrument(BC2, BC2.HlslOP->GetI32Const(triangleIndexIndicator),
-               m_threadUniquifier[0], m_threadUniquifier[1], Call->getOperand(1),
-               Call->getOperand(2), Call->getOperand(3), Call->getOperand(4));
+               m_threadUniquifier[0], m_threadUniquifier[1],
+               Call->getOperand(1), Call->getOperand(2), Call->getOperand(3),
+               Call->getOperand(4));
   }
 
-  struct OutputType
-  {
+  struct OutputType {
     Type *type;
     uint32_t tag;
   };
-  SmallVector<OutputType, 4> StoreVertexOutputOverloads
-  {
-    {Type::getInt32Ty(Ctx), int32ValueIndicator},
-    {Type::getInt16Ty(Ctx), int16ValueIndicator}, 
-    {Type::getFloatTy(Ctx), floatValueIndicator},
-    {Type::getHalfTy(Ctx), float16ValueIndicator}
-  };
+  SmallVector<OutputType, 4> StoreVertexOutputOverloads{
+      {Type::getInt32Ty(Ctx), int32ValueIndicator},
+      {Type::getInt16Ty(Ctx), int16ValueIndicator},
+      {Type::getFloatTy(Ctx), floatValueIndicator},
+      {Type::getHalfTy(Ctx), float16ValueIndicator}};
 
-  for (auto const &Overload : StoreVertexOutputOverloads)
-  {
+  for (auto const &Overload : StoreVertexOutputOverloads) {
     F = HlslOP->GetOpFunc(DXIL::OpCode::StoreVertexOutput, Overload.type);
     FunctionUses = F->uses();
-    for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();)
-    {
+    for (auto FI = FunctionUses.begin(); FI != FunctionUses.end();) {
       auto &FunctionUse = *FI++;
       auto FunctionUser = FunctionUse.getUser();
 
@@ -373,49 +381,29 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 
       // Expand column index to 32 bits:
       auto ColumnIndex = BC2.Builder.CreateCast(
-       Instruction::ZExt, 
-        Call->getOperand(3), 
-        Type::getInt32Ty(Ctx));
+          Instruction::ZExt, Call->getOperand(3), Type::getInt32Ty(Ctx));
 
-      // Coerce actual value to int32 
+      // Coerce actual value to int32
       Value *CoercedValue = Call->getOperand(4);
 
-      if (Overload.tag == floatValueIndicator) 
-      {
+      if (Overload.tag == floatValueIndicator) {
         CoercedValue = BC2.Builder.CreateCast(
-          Instruction::BitCast,
-          CoercedValue, 
-          Type::getInt32Ty(Ctx));
-      }
-      else if (Overload.tag == float16ValueIndicator) 
-      {
-        auto * HalfInt = BC2.Builder.CreateCast(
-          Instruction::BitCast, 
-          CoercedValue, 
-          Type::getInt16Ty(Ctx));
+            Instruction::BitCast, CoercedValue, Type::getInt32Ty(Ctx));
+      } else if (Overload.tag == float16ValueIndicator) {
+        auto *HalfInt = BC2.Builder.CreateCast(
+            Instruction::BitCast, CoercedValue, Type::getInt16Ty(Ctx));
 
-        CoercedValue = BC2.Builder.CreateCast(
-          Instruction::ZExt, 
-          HalfInt, 
-          Type::getInt32Ty(Ctx));
-      }
-      else if (Overload.tag == int16ValueIndicator) 
-      {
-        CoercedValue = BC2.Builder.CreateCast(
-          Instruction::ZExt,
-          CoercedValue,
-          Type::getInt32Ty(Ctx));
+        CoercedValue = BC2.Builder.CreateCast(Instruction::ZExt, HalfInt,
+                                              Type::getInt32Ty(Ctx));
+      } else if (Overload.tag == int16ValueIndicator) {
+        CoercedValue = BC2.Builder.CreateCast(Instruction::ZExt, CoercedValue,
+                                              Type::getInt32Ty(Ctx));
       }
 
-      Instrument(
-        BC2, 
-        BC2.HlslOP->GetI32Const(Overload.tag),
-        m_threadUniquifier[0], m_threadUniquifier[1], 
-        Call->getOperand(1),
-        Call->getOperand(2),
-        ColumnIndex,
-        CoercedValue,
-        Call->getOperand(5));
+      Instrument(BC2, BC2.HlslOP->GetI32Const(Overload.tag),
+                 m_threadUniquifier[0], m_threadUniquifier[1],
+                 Call->getOperand(1), Call->getOperand(2), ColumnIndex,
+                 CoercedValue, Call->getOperand(5));
     }
   }
 
@@ -426,8 +414,7 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M)
 
 char DxilPIXMeshShaderOutputInstrumentation::ID = 0;
 
-ModulePass *llvm::createDxilDxilPIXMeshShaderOutputInstrumentation()
-{
+ModulePass *llvm::createDxilDxilPIXMeshShaderOutputInstrumentation() {
   return new DxilPIXMeshShaderOutputInstrumentation();
 }
 

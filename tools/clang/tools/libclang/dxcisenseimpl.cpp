@@ -15,20 +15,20 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Basic/TargetOptions.h"
 #include "clang/Basic/TargetInfo.h"
+#include "clang/Basic/TargetOptions.h"
+#include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Sema/SemaConsumer.h"
-#include "clang/Frontend/ASTUnit.h"
-#include "llvm/Support/Host.h"
 #include "clang/Sema/SemaHLSL.h"
+#include "llvm/Support/Host.h"
 
+#include "dxc/Support/Global.h"
 #include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/Global.h"
 #include "dxcisenseimpl.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
@@ -36,10 +36,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 HRESULT CreateDxcIntelliSense(REFIID riid, LPVOID *ppv) throw() {
-  CComPtr<DxcIntelliSense> isense = CreateOnMalloc<DxcIntelliSense>(DxcGetThreadMallocNoRef());
-  if (isense == nullptr)
-  {
-   *ppv = nullptr;
+  CComPtr<DxcIntelliSense> isense =
+      CreateOnMalloc<DxcIntelliSense>(DxcGetThreadMallocNoRef());
+  if (isense == nullptr) {
+    *ppv = nullptr;
     return E_OUTOFMEMORY;
   }
 
@@ -50,18 +50,18 @@ HRESULT CreateDxcIntelliSense(REFIID riid, LPVOID *ppv) throw() {
 
 // This is exposed as a helper class, but the implementation works on
 // interfaces; we expect callers should be able to use their own.
-class DxcBasicUnsavedFile : public IDxcUnsavedFile
-{
+class DxcBasicUnsavedFile : public IDxcUnsavedFile {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   LPSTR m_fileName;
   LPSTR m_contents;
   unsigned m_length;
+
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcBasicUnsavedFile)
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** ppvObject) override
-  {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcUnsavedFile>(this, iid, ppvObject);
   }
 
@@ -83,10 +83,10 @@ static bool IsCursorKindQualifiedByParent(CXCursorKind kind) throw();
 ///////////////////////////////////////////////////////////////////////////////
 
 static HRESULT AnsiToBSTR(const char *text, BSTR *pValue) throw() {
-  if (pValue == nullptr) return E_POINTER;
+  if (pValue == nullptr)
+    return E_POINTER;
   *pValue = nullptr;
-  if (text == nullptr)
-  {
+  if (text == nullptr) {
     return S_OK;
   }
 
@@ -97,13 +97,11 @@ static HRESULT AnsiToBSTR(const char *text, BSTR *pValue) throw() {
   // null terminator, so we remove that from charCount for that call.
   //
   int charCount = MultiByteToWideChar(CP_UTF8, 0, text, -1, nullptr, 0);
-  if (charCount <= 0)
-  {
+  if (charCount <= 0) {
     return HRESULT_FROM_WIN32(GetLastError());
   }
   *pValue = SysAllocStringLen(nullptr, charCount - 1);
-  if (*pValue == nullptr)
-  {
+  if (*pValue == nullptr) {
     return E_OUTOFMEMORY;
   }
 
@@ -112,39 +110,34 @@ static HRESULT AnsiToBSTR(const char *text, BSTR *pValue) throw() {
   return S_OK;
 }
 
-static
-LPVOID CoTaskMemAllocZero(SIZE_T cb) throw()
-{
+static LPVOID CoTaskMemAllocZero(SIZE_T cb) throw() {
   LPVOID result = CoTaskMemAlloc(cb);
-  if (result != nullptr)
-  {
+  if (result != nullptr) {
     ZeroMemory(result, cb);
   }
   return result;
 }
 
-/// <summary>Allocates one or more zero-initialized structures in task memory.</summary>
-/// <remarks>
-/// This does more work than CoTaskMemAlloc, but often simplifies cleanup for
-/// error cases.
+/// <summary>Allocates one or more zero-initialized structures in task
+/// memory.</summary> <remarks> This does more work than CoTaskMemAlloc, but
+/// often simplifies cleanup for error cases.
 /// </remarks>
 template <typename T>
 static void CoTaskMemAllocZeroElems(SIZE_T elementCount, T **buf) throw() {
-  *buf = reinterpret_cast<T*>(CoTaskMemAllocZero(elementCount * sizeof(T)));
+  *buf = reinterpret_cast<T *>(CoTaskMemAllocZero(elementCount * sizeof(T)));
 }
 
 static HRESULT CXStringToAnsiAndDispose(CXString value, LPSTR *pValue) throw() {
-  if (pValue == nullptr) return E_POINTER;
+  if (pValue == nullptr)
+    return E_POINTER;
   *pValue = nullptr;
-  const char* text = clang_getCString(value);
-  if (text == nullptr)
-  {
+  const char *text = clang_getCString(value);
+  if (text == nullptr) {
     return S_OK;
   }
   size_t len = strlen(text);
-  *pValue = (char*)CoTaskMemAlloc(len + 1);
-  if (*pValue == nullptr)
-  {
+  *pValue = (char *)CoTaskMemAlloc(len + 1);
+  if (*pValue == nullptr) {
     return E_OUTOFMEMORY;
   }
   memcpy(*pValue, text, len + 1);
@@ -160,8 +153,7 @@ static HRESULT CXStringToBSTRAndDispose(CXString value, BSTR *pValue) throw() {
 
 static void CleanupUnsavedFiles(CXUnsavedFile *files,
                                 unsigned file_count) throw() {
-  for (unsigned i = 0; i < file_count; ++i)
-  {
+  for (unsigned i = 0; i < file_count; ++i) {
     CoTaskMemFree((LPVOID)files[i].Filename);
     CoTaskMemFree((LPVOID)files[i].Contents);
   }
@@ -172,15 +164,13 @@ static void CleanupUnsavedFiles(CXUnsavedFile *files,
 static HRESULT CoTaskMemAllocString(const char *src, LPSTR *pResult) throw() {
   assert(src != nullptr);
 
-  if (pResult == nullptr)
-  {
+  if (pResult == nullptr) {
     return E_POINTER;
   }
 
   unsigned len = strlen(src);
-  *pResult = (char*)CoTaskMemAlloc(len + 1);
-  if (*pResult == nullptr)
-  {
+  *pResult = (char *)CoTaskMemAlloc(len + 1);
+  if (*pResult == nullptr) {
     return E_OUTOFMEMORY;
   }
   CopyMemory(*pResult, src, len + 1);
@@ -214,27 +204,24 @@ static HRESULT GetCursorQualifiedName(CXCursor cursor, bool includeTemplateArgs,
       pResult);
 }
 
-static
-bool IsCursorKindQualifiedByParent(CXCursorKind kind) throw()
-{
-  return
-    kind == CXCursor_TypeRef || kind == CXCursor_TemplateRef || kind == CXCursor_NamespaceRef || kind == CXCursor_MemberRef ||
-    kind == CXCursor_OverloadedDeclRef ||
-    kind == CXCursor_StructDecl || kind == CXCursor_UnionDecl || kind == CXCursor_ClassDecl || kind == CXCursor_EnumDecl ||
-    kind == CXCursor_FieldDecl || kind == CXCursor_EnumConstantDecl || kind == CXCursor_FunctionDecl ||
-    kind == CXCursor_CXXMethod || kind == CXCursor_Namespace ||
-    kind == CXCursor_Constructor || kind == CXCursor_Destructor ||
-    kind == CXCursor_FunctionTemplate || kind == CXCursor_ClassTemplate || kind == CXCursor_ClassTemplatePartialSpecialization;
+static bool IsCursorKindQualifiedByParent(CXCursorKind kind) throw() {
+  return kind == CXCursor_TypeRef || kind == CXCursor_TemplateRef ||
+         kind == CXCursor_NamespaceRef || kind == CXCursor_MemberRef ||
+         kind == CXCursor_OverloadedDeclRef || kind == CXCursor_StructDecl ||
+         kind == CXCursor_UnionDecl || kind == CXCursor_ClassDecl ||
+         kind == CXCursor_EnumDecl || kind == CXCursor_FieldDecl ||
+         kind == CXCursor_EnumConstantDecl || kind == CXCursor_FunctionDecl ||
+         kind == CXCursor_CXXMethod || kind == CXCursor_Namespace ||
+         kind == CXCursor_Constructor || kind == CXCursor_Destructor ||
+         kind == CXCursor_FunctionTemplate || kind == CXCursor_ClassTemplate ||
+         kind == CXCursor_ClassTemplatePartialSpecialization;
 }
 
 template <typename TIface>
 static void SafeReleaseIfaceArray(TIface **arr, unsigned count) throw() {
-  if (arr != nullptr)
-  {
-    for (unsigned i = 0; i < count; i++)
-    {
-      if (arr[i] != nullptr)
-      {
+  if (arr != nullptr) {
+    for (unsigned i = 0; i < count; i++) {
+      if (arr[i] != nullptr) {
         arr[i]->Release();
         arr[i] = nullptr;
       }
@@ -246,61 +233,58 @@ static HRESULT SetupUnsavedFiles(IDxcUnsavedFile **unsaved_files,
                                  unsigned num_unsaved_files,
                                  CXUnsavedFile **files) {
   *files = nullptr;
-  if (num_unsaved_files == 0)
-  {
+  if (num_unsaved_files == 0) {
     return S_OK;
   }
 
   HRESULT hr = S_OK;
-  CXUnsavedFile* localFiles = new (std::nothrow) CXUnsavedFile[num_unsaved_files];
+  CXUnsavedFile *localFiles =
+      new (std::nothrow) CXUnsavedFile[num_unsaved_files];
   IFROOM(localFiles);
   ZeroMemory(localFiles, num_unsaved_files * sizeof(localFiles[0]));
-  for (unsigned i = 0; i < num_unsaved_files; ++i)
-  {
-    if (unsaved_files[i] == nullptr)
-    {
+  for (unsigned i = 0; i < num_unsaved_files; ++i) {
+    if (unsaved_files[i] == nullptr) {
       hr = E_INVALIDARG;
       break;
     }
 
     LPSTR strPtr;
     hr = unsaved_files[i]->GetFileName(&strPtr);
-    if (FAILED(hr)) break;
+    if (FAILED(hr))
+      break;
     localFiles[i].Filename = strPtr;
 
     hr = unsaved_files[i]->GetContents(&strPtr);
-    if (FAILED(hr)) break;
+    if (FAILED(hr))
+      break;
     localFiles[i].Contents = strPtr;
 
-    hr = unsaved_files[i]->GetLength((unsigned*)&localFiles[i].Length);
-    if (FAILED(hr)) break;
+    hr = unsaved_files[i]->GetLength((unsigned *)&localFiles[i].Length);
+    if (FAILED(hr))
+      break;
   }
 
-  if (SUCCEEDED(hr))
-  {
+  if (SUCCEEDED(hr)) {
     *files = localFiles;
-  }
-  else
-  {
+  } else {
     CleanupUnsavedFiles(localFiles, num_unsaved_files);
   }
 
   return hr;
 }
 
-struct PagedCursorVisitorContext
-{
-  unsigned skip;                // References to skip at the beginning.
-  unsigned top;                 // Maximum number of references to get.
-  CSimpleArray<CXCursor> refs;  // Cursor references found.
+struct PagedCursorVisitorContext {
+  unsigned skip;               // References to skip at the beginning.
+  unsigned top;                // Maximum number of references to get.
+  CSimpleArray<CXCursor> refs; // Cursor references found.
 };
 
-static
-CXVisitorResult LIBCLANG_CC PagedCursorFindVisit(void *context, CXCursor c, CXSourceRange range)
-{
-  PagedCursorVisitorContext* pagedContext = (PagedCursorVisitorContext*)context;
-  if (pagedContext->skip > 0)
-  {
+static CXVisitorResult LIBCLANG_CC PagedCursorFindVisit(void *context,
+                                                        CXCursor c,
+                                                        CXSourceRange range) {
+  PagedCursorVisitorContext *pagedContext =
+      (PagedCursorVisitorContext *)context;
+  if (pagedContext->skip > 0) {
     --pagedContext->skip;
     return CXVisit_Continue;
   }
@@ -311,11 +295,11 @@ CXVisitorResult LIBCLANG_CC PagedCursorFindVisit(void *context, CXCursor c, CXSo
   return (pagedContext->top == 0) ? CXVisit_Break : CXVisit_Continue;
 }
 
-CXChildVisitResult LIBCLANG_CC PagedCursorTraverseVisit(CXCursor cursor, CXCursor parent, CXClientData client_data)
-{
-  PagedCursorVisitorContext* pagedContext = (PagedCursorVisitorContext*)client_data;
-  if (pagedContext->skip > 0)
-  {
+CXChildVisitResult LIBCLANG_CC PagedCursorTraverseVisit(
+    CXCursor cursor, CXCursor parent, CXClientData client_data) {
+  PagedCursorVisitorContext *pagedContext =
+      (PagedCursorVisitorContext *)client_data;
+  if (pagedContext->skip > 0) {
     --pagedContext->skip;
     return CXChildVisit_Continue;
   }
@@ -334,27 +318,23 @@ static HRESULT PagedCursorVisitorCopyResults(PagedCursorVisitorContext *context,
 
   unsigned resultLength = context->refs.GetSize();
   CoTaskMemAllocZeroElems(resultLength, pResult);
-  if (*pResult == nullptr)
-  {
+  if (*pResult == nullptr) {
     return E_OUTOFMEMORY;
   }
 
   *pResultLength = resultLength;
   HRESULT hr = S_OK;
-  for (unsigned i = 0; i < resultLength; ++i)
-  {
-    IDxcCursor* newCursor;
+  for (unsigned i = 0; i < resultLength; ++i) {
+    IDxcCursor *newCursor;
     hr = DxcCursor::Create(context->refs[i], &newCursor);
-    if (FAILED(hr))
-    {
+    if (FAILED(hr)) {
       break;
     }
     (*pResult)[i] = newCursor;
   }
 
   // Clean up any progress on failure.
-  if (FAILED(hr))
-  {
+  if (FAILED(hr)) {
     SafeReleaseIfaceArray(*pResult, resultLength);
     CoTaskMemFree(*pResult);
     *pResult = nullptr;
@@ -364,25 +344,23 @@ static HRESULT PagedCursorVisitorCopyResults(PagedCursorVisitorContext *context,
   return hr;
 }
 
-struct SourceCursorVisitorContext
-{
-  const CXSourceLocation& loc;
+struct SourceCursorVisitorContext {
+  const CXSourceLocation &loc;
   CXFile file;
   unsigned offset;
 
   bool found;
   CXCursor result;
   unsigned resultOffset;
-  SourceCursorVisitorContext(const CXSourceLocation& l) : loc(l), found(false)
-  {
+  SourceCursorVisitorContext(const CXSourceLocation &l) : loc(l), found(false) {
     clang_getSpellingLocation(loc, &file, nullptr, nullptr, &offset);
   }
 };
 
-static
-CXChildVisitResult LIBCLANG_CC SourceCursorVisit(CXCursor cursor, CXCursor parent, CXClientData client_data)
-{
-  SourceCursorVisitorContext* context = (SourceCursorVisitorContext*)client_data;
+static CXChildVisitResult LIBCLANG_CC
+SourceCursorVisit(CXCursor cursor, CXCursor parent, CXClientData client_data) {
+  SourceCursorVisitorContext *context =
+      (SourceCursorVisitorContext *)client_data;
 
   CXSourceRange range = clang_getCursorExtent(cursor);
 
@@ -390,9 +368,9 @@ CXChildVisitResult LIBCLANG_CC SourceCursorVisit(CXCursor cursor, CXCursor paren
   // to recurse.
   CXFile cursorFile;
   unsigned cursorEndOffset;
-  clang_getSpellingLocation(clang_getRangeEnd(range), &cursorFile, nullptr, nullptr, &cursorEndOffset);
-  if (cursorFile != context->file || cursorEndOffset < context->offset)
-  {
+  clang_getSpellingLocation(clang_getRangeEnd(range), &cursorFile, nullptr,
+                            nullptr, &cursorEndOffset);
+  if (cursorFile != context->file || cursorEndOffset < context->offset) {
     return CXChildVisit_Continue;
   }
 
@@ -403,20 +381,18 @@ CXChildVisitResult LIBCLANG_CC SourceCursorVisit(CXCursor cursor, CXCursor paren
   // don't in fact need to consider the value, other than to snap to the closest
   // cursor.
   unsigned cursorStartOffset;
-  clang_getSpellingLocation(clang_getRangeStart(range), &cursorFile, nullptr, nullptr, &cursorStartOffset);
+  clang_getSpellingLocation(clang_getRangeStart(range), &cursorFile, nullptr,
+                            nullptr, &cursorStartOffset);
 
-  bool isKindResult =
-    cursor.kind != CXCursor_CompoundStmt &&
-    cursor.kind != CXCursor_TranslationUnit &&
-    !clang_isInvalid(cursor.kind);
-  if (isKindResult)
-  {
-    bool cursorIsBetter =
-      context->found == false ||
-      (cursorStartOffset < context->resultOffset) ||
-      (cursorStartOffset == context->resultOffset && (int)cursor.kind == (int)DxcCursor_DeclRefExpr);
-    if (cursorIsBetter)
-    {
+  bool isKindResult = cursor.kind != CXCursor_CompoundStmt &&
+                      cursor.kind != CXCursor_TranslationUnit &&
+                      !clang_isInvalid(cursor.kind);
+  if (isKindResult) {
+    bool cursorIsBetter = context->found == false ||
+                          (cursorStartOffset < context->resultOffset) ||
+                          (cursorStartOffset == context->resultOffset &&
+                           (int)cursor.kind == (int)DxcCursor_DeclRefExpr);
+    if (cursorIsBetter) {
       context->found = true;
       context->result = cursor;
       context->resultOffset = cursorStartOffset;
@@ -429,34 +405,32 @@ CXChildVisitResult LIBCLANG_CC SourceCursorVisit(CXCursor cursor, CXCursor paren
 ///////////////////////////////////////////////////////////////////////////////
 
 DxcBasicUnsavedFile::DxcBasicUnsavedFile(IMalloc *pMalloc)
-    : m_dwRef(0), m_pMalloc(pMalloc)
-    , m_fileName(nullptr), m_contents(nullptr)
-{
+    : m_dwRef(0), m_pMalloc(pMalloc), m_fileName(nullptr), m_contents(nullptr) {
 }
 
-DxcBasicUnsavedFile::~DxcBasicUnsavedFile()
-{
+DxcBasicUnsavedFile::~DxcBasicUnsavedFile() {
   free(m_fileName);
   delete[] m_contents;
 }
 
-HRESULT DxcBasicUnsavedFile::Initialize(LPCSTR fileName, LPCSTR contents, unsigned contentLength)
-{
-  if (fileName == nullptr) return E_INVALIDARG;
-  if (contents == nullptr) return E_INVALIDARG;
+HRESULT DxcBasicUnsavedFile::Initialize(LPCSTR fileName, LPCSTR contents,
+                                        unsigned contentLength) {
+  if (fileName == nullptr)
+    return E_INVALIDARG;
+  if (contents == nullptr)
+    return E_INVALIDARG;
 
   m_fileName = _strdup(fileName);
-  if (m_fileName == nullptr) return E_OUTOFMEMORY;
+  if (m_fileName == nullptr)
+    return E_OUTOFMEMORY;
 
   unsigned bufferLength = strlen(contents);
-  if (contentLength > bufferLength)
-  {
+  if (contentLength > bufferLength) {
     contentLength = bufferLength;
   }
 
-  m_contents = new (std::nothrow)char[contentLength + 1];
-  if (m_contents == nullptr)
-  {
+  m_contents = new (std::nothrow) char[contentLength + 1];
+  if (m_contents == nullptr) {
     free(m_fileName);
     m_fileName = nullptr;
     return E_OUTOFMEMORY;
@@ -467,17 +441,18 @@ HRESULT DxcBasicUnsavedFile::Initialize(LPCSTR fileName, LPCSTR contents, unsign
   return S_OK;
 }
 
-HRESULT DxcBasicUnsavedFile::Create(
-  LPCSTR fileName, LPCSTR contents, unsigned contentLength,
-  IDxcUnsavedFile** pObject)
-{
-  if (pObject == nullptr) return E_POINTER;
+HRESULT DxcBasicUnsavedFile::Create(LPCSTR fileName, LPCSTR contents,
+                                    unsigned contentLength,
+                                    IDxcUnsavedFile **pObject) {
+  if (pObject == nullptr)
+    return E_POINTER;
   *pObject = nullptr;
-  DxcBasicUnsavedFile* newValue = DxcBasicUnsavedFile::Alloc(DxcGetThreadMallocNoRef());
-  if (newValue == nullptr) return E_OUTOFMEMORY;
+  DxcBasicUnsavedFile *newValue =
+      DxcBasicUnsavedFile::Alloc(DxcGetThreadMallocNoRef());
+  if (newValue == nullptr)
+    return E_OUTOFMEMORY;
   HRESULT hr = newValue->Initialize(fileName, contents, contentLength);
-  if (FAILED(hr))
-  {
+  if (FAILED(hr)) {
     CComPtr<IMalloc> pTmp(newValue->m_pMalloc);
     newValue->DxcBasicUnsavedFile::~DxcBasicUnsavedFile();
     pTmp->Free(newValue);
@@ -488,135 +463,133 @@ HRESULT DxcBasicUnsavedFile::Create(
   return S_OK;
 }
 
-HRESULT DxcBasicUnsavedFile::GetFileName(LPSTR* pFileName)
-{
+HRESULT DxcBasicUnsavedFile::GetFileName(LPSTR *pFileName) {
   return CoTaskMemAllocString(m_fileName, pFileName);
 }
 
-HRESULT DxcBasicUnsavedFile::GetContents(LPSTR* pContents)
-{
+HRESULT DxcBasicUnsavedFile::GetContents(LPSTR *pContents) {
   return CoTaskMemAllocString(m_contents, pContents);
 }
 
-HRESULT DxcBasicUnsavedFile::GetLength(unsigned* pLength)
-{
-  if (pLength == nullptr) return E_POINTER;
+HRESULT DxcBasicUnsavedFile::GetLength(unsigned *pLength) {
+  if (pLength == nullptr)
+    return E_POINTER;
   *pLength = m_length;
   return S_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-HRESULT DxcCursor::Create(const CXCursor& cursor, IDxcCursor** pObject)
-{
-  if (pObject == nullptr) return E_POINTER;
+HRESULT DxcCursor::Create(const CXCursor &cursor, IDxcCursor **pObject) {
+  if (pObject == nullptr)
+    return E_POINTER;
   *pObject = nullptr;
-  DxcCursor* newValue = DxcCursor::Alloc(DxcGetThreadMallocNoRef());
-  if (newValue == nullptr) return E_OUTOFMEMORY;
+  DxcCursor *newValue = DxcCursor::Alloc(DxcGetThreadMallocNoRef());
+  if (newValue == nullptr)
+    return E_OUTOFMEMORY;
   newValue->Initialize(cursor);
   newValue->AddRef();
   *pObject = newValue;
   return S_OK;
 }
 
-void DxcCursor::Initialize(const CXCursor& cursor)
-{
-  m_cursor = cursor;
-}
+void DxcCursor::Initialize(const CXCursor &cursor) { m_cursor = cursor; }
 
-HRESULT DxcCursor::GetExtent(IDxcSourceRange** pValue)
-{
+HRESULT DxcCursor::GetExtent(IDxcSourceRange **pValue) {
   DxcThreadMalloc TM(m_pMalloc);
   CXSourceRange range = clang_getCursorExtent(m_cursor);
   return DxcSourceRange::Create(range, pValue);
 }
 
-HRESULT DxcCursor::GetLocation(IDxcSourceLocation** pResult)
-{
+HRESULT DxcCursor::GetLocation(IDxcSourceLocation **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceLocation::Create(clang_getCursorLocation(m_cursor), pResult);
 }
 
-HRESULT DxcCursor::GetKind(DxcCursorKind* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetKind(DxcCursorKind *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = (DxcCursorKind)clang_getCursorKind(m_cursor);
   return S_OK;
 }
 
-HRESULT DxcCursor::GetKindFlags(DxcCursorKindFlags* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetKindFlags(DxcCursorKindFlags *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   DxcCursorKindFlags f = DxcCursorKind_None;
   CXCursorKind kind = clang_getCursorKind(m_cursor);
-  if (0 != clang_isDeclaration(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_Declaration);
-  if (0 != clang_isReference(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_Reference);
-  if (0 != clang_isExpression(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_Expression);
-  if (0 != clang_isStatement(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_Statement);
-  if (0 != clang_isAttribute(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_Attribute);
-  if (0 != clang_isInvalid(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_Invalid);
-  if (0 != clang_isTranslationUnit(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_TranslationUnit);
-  if (0 != clang_isPreprocessing(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_Preprocessing);
-  if (0 != clang_isUnexposed(kind)) f = (DxcCursorKindFlags)(f | DxcCursorKind_Unexposed);
+  if (0 != clang_isDeclaration(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_Declaration);
+  if (0 != clang_isReference(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_Reference);
+  if (0 != clang_isExpression(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_Expression);
+  if (0 != clang_isStatement(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_Statement);
+  if (0 != clang_isAttribute(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_Attribute);
+  if (0 != clang_isInvalid(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_Invalid);
+  if (0 != clang_isTranslationUnit(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_TranslationUnit);
+  if (0 != clang_isPreprocessing(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_Preprocessing);
+  if (0 != clang_isUnexposed(kind))
+    f = (DxcCursorKindFlags)(f | DxcCursorKind_Unexposed);
   *pResult = f;
   return S_OK;
 }
 
-HRESULT DxcCursor::GetSemanticParent(IDxcCursor** pResult)
-{
+HRESULT DxcCursor::GetSemanticParent(IDxcCursor **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_getCursorSemanticParent(m_cursor), pResult);
 }
 
-HRESULT DxcCursor::GetLexicalParent(IDxcCursor** pResult)
-{
+HRESULT DxcCursor::GetLexicalParent(IDxcCursor **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_getCursorLexicalParent(m_cursor), pResult);
 }
 
-HRESULT DxcCursor::GetCursorType(IDxcType** pResult)
-{
+HRESULT DxcCursor::GetCursorType(IDxcType **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcType::Create(clang_getCursorType(m_cursor), pResult);
 }
 
-HRESULT DxcCursor::GetNumArguments(int* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetNumArguments(int *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = clang_Cursor_getNumArguments(m_cursor);
   return S_OK;
 }
 
-HRESULT DxcCursor::GetArgumentAt(int index, IDxcCursor** pResult)
-{
+HRESULT DxcCursor::GetArgumentAt(int index, IDxcCursor **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_Cursor_getArgument(m_cursor, index), pResult);
 }
 
-HRESULT DxcCursor::GetReferencedCursor(IDxcCursor** pResult)
-{
+HRESULT DxcCursor::GetReferencedCursor(IDxcCursor **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_getCursorReferenced(m_cursor), pResult);
 }
 
-HRESULT DxcCursor::GetDefinitionCursor(IDxcCursor** pResult)
-{
+HRESULT DxcCursor::GetDefinitionCursor(IDxcCursor **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_getCursorDefinition(m_cursor), pResult);
 }
 
-HRESULT DxcCursor::FindReferencesInFile(
-  IDxcFile* file, unsigned skip, unsigned top,
-  unsigned* pResultLength, IDxcCursor*** pResult)
-{
-  if (pResultLength == nullptr) return E_POINTER;
-  if (pResult == nullptr) return E_POINTER;
-  if (file == nullptr) return E_INVALIDARG;
+HRESULT DxcCursor::FindReferencesInFile(IDxcFile *file, unsigned skip,
+                                        unsigned top, unsigned *pResultLength,
+                                        IDxcCursor ***pResult) {
+  if (pResultLength == nullptr)
+    return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
+  if (file == nullptr)
+    return E_INVALIDARG;
 
   *pResult = nullptr;
   *pResultLength = 0;
-  if (top == 0)
-  {
+  if (top == 0) {
     return S_OK;
   }
 
@@ -628,77 +601,81 @@ HRESULT DxcCursor::FindReferencesInFile(
   visitor.context = &findReferencesInFileContext;
   visitor.visit = PagedCursorFindVisit;
 
-  DxcFile* fileImpl = reinterpret_cast<DxcFile*>(file);
-  clang_findReferencesInFile(m_cursor, fileImpl->GetFile(), visitor); // known visitor, so ignore result
+  DxcFile *fileImpl = reinterpret_cast<DxcFile *>(file);
+  clang_findReferencesInFile(m_cursor, fileImpl->GetFile(),
+                             visitor); // known visitor, so ignore result
 
-  return PagedCursorVisitorCopyResults(&findReferencesInFileContext, pResultLength, pResult);
+  return PagedCursorVisitorCopyResults(&findReferencesInFileContext,
+                                       pResultLength, pResult);
 }
 
-HRESULT DxcCursor::GetSpelling(LPSTR* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetSpelling(LPSTR *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
   return CXStringToAnsiAndDispose(clang_getCursorSpelling(m_cursor), pResult);
 }
 
 HRESULT DxcCursor::IsEqualTo(IDxcCursor *other, BOOL *pResult) {
-  if (pResult == nullptr) return E_POINTER;
-  if (other == nullptr)
-  {
+  if (pResult == nullptr)
+    return E_POINTER;
+  if (other == nullptr) {
     *pResult = FALSE;
-  }
-  else
-  {
-    DxcCursor* otherImpl = reinterpret_cast<DxcCursor*>(other);
+  } else {
+    DxcCursor *otherImpl = reinterpret_cast<DxcCursor *>(other);
     *pResult = 0 != clang_equalCursors(m_cursor, otherImpl->m_cursor);
   }
   return S_OK;
 }
 
 HRESULT DxcCursor::IsNull(BOOL *pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = 0 != clang_Cursor_isNull(m_cursor);
   return S_OK;
 }
 
 HRESULT DxcCursor::IsDefinition(BOOL *pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = 0 != clang_isCursorDefinition(m_cursor);
   return S_OK;
 }
 
-HRESULT DxcCursor::GetDisplayName(BSTR* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetDisplayName(BSTR *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
-  return CXStringToBSTRAndDispose(clang_getCursorDisplayName(m_cursor), pResult);
+  return CXStringToBSTRAndDispose(clang_getCursorDisplayName(m_cursor),
+                                  pResult);
 }
 
-HRESULT DxcCursor::GetQualifiedName(BOOL includeTemplateArgs, BSTR* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetQualifiedName(BOOL includeTemplateArgs, BSTR *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
   return GetCursorQualifiedName(m_cursor, includeTemplateArgs, pResult);
 }
 
-HRESULT DxcCursor::GetFormattedName(DxcCursorFormatting formatting, BSTR* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetFormattedName(DxcCursorFormatting formatting,
+                                    BSTR *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
-  return CXStringToBSTRAndDispose(clang_getCursorSpellingWithFormatting(m_cursor, formatting), pResult);
+  return CXStringToBSTRAndDispose(
+      clang_getCursorSpellingWithFormatting(m_cursor, formatting), pResult);
 }
 
-HRESULT DxcCursor::GetChildren(
-  unsigned skip, unsigned top,
-  unsigned* pResultLength, IDxcCursor*** pResult)
-{
-  if (pResultLength == nullptr) return E_POINTER;
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetChildren(unsigned skip, unsigned top,
+                               unsigned *pResultLength, IDxcCursor ***pResult) {
+  if (pResultLength == nullptr)
+    return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
 
   *pResult = nullptr;
   *pResultLength = 0;
-  if (top == 0)
-  {
+  if (top == 0) {
     return S_OK;
   }
 
@@ -706,24 +683,27 @@ HRESULT DxcCursor::GetChildren(
   PagedCursorVisitorContext visitorContext;
   visitorContext.skip = skip;
   visitorContext.top = top;
-  clang_visitChildren(m_cursor, PagedCursorTraverseVisit, &visitorContext); // known visitor, so ignore result
+  clang_visitChildren(m_cursor, PagedCursorTraverseVisit,
+                      &visitorContext); // known visitor, so ignore result
   return PagedCursorVisitorCopyResults(&visitorContext, pResultLength, pResult);
 }
 
-HRESULT DxcCursor::GetSnappedChild(IDxcSourceLocation* location, IDxcCursor** pResult)
-{
-  if (location == nullptr) return E_POINTER;
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCursor::GetSnappedChild(IDxcSourceLocation *location,
+                                   IDxcCursor **pResult) {
+  if (location == nullptr)
+    return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
 
   *pResult = nullptr;
 
   DxcThreadMalloc TM(m_pMalloc);
-  DxcSourceLocation* locationImpl = reinterpret_cast<DxcSourceLocation*>(location);
-  const CXSourceLocation& snapLocation = locationImpl->GetLocation();
+  DxcSourceLocation *locationImpl =
+      reinterpret_cast<DxcSourceLocation *>(location);
+  const CXSourceLocation &snapLocation = locationImpl->GetLocation();
   SourceCursorVisitorContext visitorContext(snapLocation);
   clang_visitChildren(m_cursor, SourceCursorVisit, &visitorContext);
-  if (visitorContext.found)
-  {
+  if (visitorContext.found) {
     return DxcCursor::Create(visitorContext.result, pResult);
   }
 
@@ -733,88 +713,89 @@ HRESULT DxcCursor::GetSnappedChild(IDxcSourceLocation* location, IDxcCursor** pR
 ///////////////////////////////////////////////////////////////////////////////
 
 DxcDiagnostic::DxcDiagnostic(IMalloc *pMalloc)
-    : m_dwRef(0), m_pMalloc(pMalloc)
-    , m_diagnostic(nullptr)
-{
-}
+    : m_dwRef(0), m_pMalloc(pMalloc), m_diagnostic(nullptr) {}
 
-DxcDiagnostic::~DxcDiagnostic()
-{
-  if (m_diagnostic)
-  {
+DxcDiagnostic::~DxcDiagnostic() {
+  if (m_diagnostic) {
     clang_disposeDiagnostic(m_diagnostic);
   }
 }
 
-void DxcDiagnostic::Initialize(const CXDiagnostic& diagnostic)
-{
+void DxcDiagnostic::Initialize(const CXDiagnostic &diagnostic) {
   m_diagnostic = diagnostic;
 }
 
-HRESULT DxcDiagnostic::Create(const CXDiagnostic& diagnostic, IDxcDiagnostic** pObject)
-{
-  if (pObject == nullptr) return E_POINTER;
+HRESULT DxcDiagnostic::Create(const CXDiagnostic &diagnostic,
+                              IDxcDiagnostic **pObject) {
+  if (pObject == nullptr)
+    return E_POINTER;
   *pObject = nullptr;
-  DxcDiagnostic* newValue = DxcDiagnostic::Alloc(DxcGetThreadMallocNoRef());
-  if (newValue == nullptr) return E_OUTOFMEMORY;
+  DxcDiagnostic *newValue = DxcDiagnostic::Alloc(DxcGetThreadMallocNoRef());
+  if (newValue == nullptr)
+    return E_OUTOFMEMORY;
   newValue->Initialize(diagnostic);
   newValue->AddRef();
   *pObject = newValue;
   return S_OK;
 }
 
-HRESULT DxcDiagnostic::FormatDiagnostic(
-  DxcDiagnosticDisplayOptions options,
-  LPSTR* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcDiagnostic::FormatDiagnostic(DxcDiagnosticDisplayOptions options,
+                                        LPSTR *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
-  return CXStringToAnsiAndDispose(clang_formatDiagnostic(m_diagnostic, options), pResult);
+  return CXStringToAnsiAndDispose(clang_formatDiagnostic(m_diagnostic, options),
+                                  pResult);
 }
 
 HRESULT DxcDiagnostic::GetSeverity(DxcDiagnosticSeverity *pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = (DxcDiagnosticSeverity)clang_getDiagnosticSeverity(m_diagnostic);
   return S_OK;
 }
 
-HRESULT DxcDiagnostic::GetLocation(IDxcSourceLocation** pResult)
-{
-  return DxcSourceLocation::Create(clang_getDiagnosticLocation(m_diagnostic), pResult);
+HRESULT DxcDiagnostic::GetLocation(IDxcSourceLocation **pResult) {
+  return DxcSourceLocation::Create(clang_getDiagnosticLocation(m_diagnostic),
+                                   pResult);
 }
 
-HRESULT DxcDiagnostic::GetSpelling(LPSTR* pResult)
-{
-  return CXStringToAnsiAndDispose(clang_getDiagnosticSpelling(m_diagnostic), pResult);
+HRESULT DxcDiagnostic::GetSpelling(LPSTR *pResult) {
+  return CXStringToAnsiAndDispose(clang_getDiagnosticSpelling(m_diagnostic),
+                                  pResult);
 }
 
-HRESULT DxcDiagnostic::GetCategoryText(LPSTR* pResult)
-{
-  return CXStringToAnsiAndDispose(clang_getDiagnosticCategoryText(m_diagnostic), pResult);
+HRESULT DxcDiagnostic::GetCategoryText(LPSTR *pResult) {
+  return CXStringToAnsiAndDispose(clang_getDiagnosticCategoryText(m_diagnostic),
+                                  pResult);
 }
 
 HRESULT DxcDiagnostic::GetNumRanges(unsigned *pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = clang_getDiagnosticNumRanges(m_diagnostic);
   return S_OK;
 }
 
-HRESULT DxcDiagnostic::GetRangeAt(unsigned index, IDxcSourceRange** pResult)
-{
-  return DxcSourceRange::Create(clang_getDiagnosticRange(m_diagnostic, index), pResult);
+HRESULT DxcDiagnostic::GetRangeAt(unsigned index, IDxcSourceRange **pResult) {
+  return DxcSourceRange::Create(clang_getDiagnosticRange(m_diagnostic, index),
+                                pResult);
 }
 
 HRESULT DxcDiagnostic::GetNumFixIts(unsigned *pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = clang_getDiagnosticNumFixIts(m_diagnostic);
   return S_OK;
 }
 
 HRESULT DxcDiagnostic::GetFixItAt(unsigned index,
-  IDxcSourceRange** pReplacementRange, LPSTR* pText)
-{
-  if (pReplacementRange == nullptr) return E_POINTER;
-  if (pText == nullptr) return E_POINTER;
+                                  IDxcSourceRange **pReplacementRange,
+                                  LPSTR *pText) {
+  if (pReplacementRange == nullptr)
+    return E_POINTER;
+  if (pText == nullptr)
+    return E_POINTER;
   *pReplacementRange = nullptr;
   *pText = nullptr;
 
@@ -822,11 +803,9 @@ HRESULT DxcDiagnostic::GetFixItAt(unsigned index,
   CXSourceRange range;
   CXString text = clang_getDiagnosticFixIt(m_diagnostic, index, &range);
   HRESULT hr = DxcSourceRange::Create(range, pReplacementRange);
-  if (SUCCEEDED(hr))
-  {
+  if (SUCCEEDED(hr)) {
     hr = CXStringToAnsiAndDispose(text, pText);
-    if (FAILED(hr))
-    {
+    if (FAILED(hr)) {
       (*pReplacementRange)->Release();
       *pReplacementRange = nullptr;
     }
@@ -837,41 +816,35 @@ HRESULT DxcDiagnostic::GetFixItAt(unsigned index,
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void DxcFile::Initialize(const CXFile& file)
-{
-  m_file = file;
-}
+void DxcFile::Initialize(const CXFile &file) { m_file = file; }
 
-HRESULT DxcFile::Create(const CXFile& file, IDxcFile** pObject)
-{
-  if (pObject == nullptr) return E_POINTER;
+HRESULT DxcFile::Create(const CXFile &file, IDxcFile **pObject) {
+  if (pObject == nullptr)
+    return E_POINTER;
   *pObject = nullptr;
-  DxcFile* newValue = DxcFile::Alloc(DxcGetThreadMallocNoRef());
-  if (newValue == nullptr) return E_OUTOFMEMORY;
+  DxcFile *newValue = DxcFile::Alloc(DxcGetThreadMallocNoRef());
+  if (newValue == nullptr)
+    return E_OUTOFMEMORY;
   newValue->Initialize(file);
   newValue->AddRef();
   *pObject = newValue;
   return S_OK;
 }
 
-HRESULT DxcFile::GetName(LPSTR* pResult)
-{
+HRESULT DxcFile::GetName(LPSTR *pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return CXStringToAnsiAndDispose(clang_getFileName(m_file), pResult);
 }
 
-HRESULT DxcFile::IsEqualTo(IDxcFile* other, BOOL* pResult)
-{
-  if (!pResult) return E_POINTER;
-  if (other == nullptr)
-  {
+HRESULT DxcFile::IsEqualTo(IDxcFile *other, BOOL *pResult) {
+  if (!pResult)
+    return E_POINTER;
+  if (other == nullptr) {
     *pResult = FALSE;
-  }
-  else
-  {
+  } else {
     // CXFile is an internal pointer into the source manager, and so
     // should be equal for the same file.
-    DxcFile* otherImpl = reinterpret_cast<DxcFile*>(other);
+    DxcFile *otherImpl = reinterpret_cast<DxcFile *>(other);
     *pResult = (m_file == otherImpl->m_file) ? TRUE : FALSE;
   }
   return S_OK;
@@ -880,17 +853,15 @@ HRESULT DxcFile::IsEqualTo(IDxcFile* other, BOOL* pResult)
 ///////////////////////////////////////////////////////////////////////////////
 
 DxcInclusion::DxcInclusion(IMalloc *pMalloc)
-    : m_dwRef(0), m_pMalloc(pMalloc)
-    , m_file(nullptr), m_locations(nullptr), m_locationLength(0) {
-}
+    : m_dwRef(0), m_pMalloc(pMalloc), m_file(nullptr), m_locations(nullptr),
+      m_locationLength(0) {}
 
-DxcInclusion::~DxcInclusion() {
-  delete[] m_locations;
-}
+DxcInclusion::~DxcInclusion() { delete[] m_locations; }
 
-HRESULT DxcInclusion::Initialize(CXFile file, unsigned locations, CXSourceLocation *pLocations) {
+HRESULT DxcInclusion::Initialize(CXFile file, unsigned locations,
+                                 CXSourceLocation *pLocations) {
   if (locations) {
-    m_locations = new (std::nothrow)CXSourceLocation[locations];
+    m_locations = new (std::nothrow) CXSourceLocation[locations];
     if (m_locations == nullptr)
       return E_OUTOFMEMORY;
     std::copy(pLocations, pLocations + locations, m_locations);
@@ -900,15 +871,20 @@ HRESULT DxcInclusion::Initialize(CXFile file, unsigned locations, CXSourceLocati
   return S_OK;
 }
 
-HRESULT DxcInclusion::Create(CXFile file, unsigned locations, CXSourceLocation *pLocations, IDxcInclusion **pResult) {
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcInclusion::Create(CXFile file, unsigned locations,
+                             CXSourceLocation *pLocations,
+                             IDxcInclusion **pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = nullptr;
 
   CComPtr<DxcInclusion> local;
   local = DxcInclusion::Alloc(DxcGetThreadMallocNoRef());
-  if (local == nullptr) return E_OUTOFMEMORY;
+  if (local == nullptr)
+    return E_OUTOFMEMORY;
   HRESULT hr = local->Initialize(file, locations, pLocations);
-  if (FAILED(hr)) return hr;
+  if (FAILED(hr))
+    return hr;
   *pResult = local.Detach();
   return S_OK;
 }
@@ -919,15 +895,18 @@ HRESULT DxcInclusion::GetIncludedFile(IDxcFile **pResult) {
 }
 
 HRESULT DxcInclusion::GetStackLength(unsigned *pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = m_locationLength;
   return S_OK;
 }
 
 HRESULT DxcInclusion::GetStackItem(unsigned index,
                                    IDxcSourceLocation **pResult) {
-  if (pResult == nullptr) return E_POINTER;
-  if (index >= m_locationLength) return E_INVALIDARG;
+  if (pResult == nullptr)
+    return E_POINTER;
+  if (index >= m_locationLength)
+    return E_INVALIDARG;
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceLocation::Create(m_locations[index], pResult);
 }
@@ -935,18 +914,14 @@ HRESULT DxcInclusion::GetStackItem(unsigned index,
 ///////////////////////////////////////////////////////////////////////////////
 
 DxcIndex::DxcIndex(IMalloc *pMalloc)
-    : m_dwRef(0), m_pMalloc(pMalloc)
-    , m_index(0), m_options(DxcGlobalOpt_None)
-{
+    : m_dwRef(0), m_pMalloc(pMalloc), m_index(0), m_options(DxcGlobalOpt_None) {
 }
 
-DxcIndex::~DxcIndex()
-{
-    if (m_index)
-    {
-        clang_disposeIndex(m_index);
-        m_index = 0;
-    }
+DxcIndex::~DxcIndex() {
+  if (m_index) {
+    clang_disposeIndex(m_index);
+    m_index = 0;
+  }
 }
 
 HRESULT DxcIndex::Initialize(hlsl::DxcLangExtensionsHelper &langHelper) {
@@ -957,82 +932,85 @@ HRESULT DxcIndex::Initialize(hlsl::DxcLangExtensionsHelper &langHelper) {
       return E_FAIL;
     }
 
-    hlsl::DxcLangExtensionsHelperApply* apply = &m_langHelper;
+    hlsl::DxcLangExtensionsHelperApply *apply = &m_langHelper;
     clang_index_setLangHelper(m_index, apply);
   }
   CATCH_CPP_RETURN_HRESULT();
   return S_OK;
 }
 
-HRESULT DxcIndex::Create(hlsl::DxcLangExtensionsHelper &langHelper, DxcIndex** index)
-{
-  if (index == nullptr) return E_POINTER;
+HRESULT DxcIndex::Create(hlsl::DxcLangExtensionsHelper &langHelper,
+                         DxcIndex **index) {
+  if (index == nullptr)
+    return E_POINTER;
   *index = nullptr;
 
   CComPtr<DxcIndex> local;
   local = DxcIndex::Alloc(DxcGetThreadMallocNoRef());
-  if (local == nullptr) return E_OUTOFMEMORY;
+  if (local == nullptr)
+    return E_OUTOFMEMORY;
   HRESULT hr = local->Initialize(langHelper);
-  if (FAILED(hr)) return hr;
+  if (FAILED(hr))
+    return hr;
   *index = local.Detach();
   return S_OK;
 }
 
-HRESULT DxcIndex::SetGlobalOptions(DxcGlobalOptions options)
-{
+HRESULT DxcIndex::SetGlobalOptions(DxcGlobalOptions options) {
   m_options = options;
   return S_OK;
 }
 
 HRESULT DxcIndex::GetGlobalOptions(DxcGlobalOptions *options) {
-  if (options == nullptr) return E_POINTER;
+  if (options == nullptr)
+    return E_POINTER;
   *options = m_options;
   return S_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-HRESULT DxcIndex::ParseTranslationUnit(
-  const char *source_filename,
-  const char * const *command_line_args,
-  int num_command_line_args,
-  IDxcUnsavedFile** unsaved_files,
-  unsigned num_unsaved_files,
-  DxcTranslationUnitFlags options,
-  IDxcTranslationUnit** pTranslationUnit)
-{
-  if (pTranslationUnit == nullptr) return E_POINTER;
+HRESULT DxcIndex::ParseTranslationUnit(const char *source_filename,
+                                       const char *const *command_line_args,
+                                       int num_command_line_args,
+                                       IDxcUnsavedFile **unsaved_files,
+                                       unsigned num_unsaved_files,
+                                       DxcTranslationUnitFlags options,
+                                       IDxcTranslationUnit **pTranslationUnit) {
+  if (pTranslationUnit == nullptr)
+    return E_POINTER;
   *pTranslationUnit = nullptr;
 
-  if (m_index == 0) return E_FAIL;
+  if (m_index == 0)
+    return E_FAIL;
 
   DxcThreadMalloc TM(m_pMalloc);
 
-  CXUnsavedFile* files;
+  CXUnsavedFile *files;
   HRESULT hr = SetupUnsavedFiles(unsaved_files, num_unsaved_files, &files);
-  if (FAILED(hr)) return hr;
+  if (FAILED(hr))
+    return hr;
 
-  try
-  {
-    // TODO: until an interface to file access is defined and implemented, simply fall back to pure Win32/CRT calls.
-    ::llvm::sys::fs::MSFileSystem* msfPtr;
+  try {
+    // TODO: until an interface to file access is defined and implemented,
+    // simply fall back to pure Win32/CRT calls.
+    ::llvm::sys::fs::MSFileSystem *msfPtr;
     IFT(CreateMSFileSystemForDisk(&msfPtr));
     std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
 
     ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
     IFTLLVM(pts.error_code());
-    CXTranslationUnit tu = clang_parseTranslationUnit(m_index, source_filename,
-      command_line_args, num_command_line_args,
-      files, num_unsaved_files, options);
+    CXTranslationUnit tu = clang_parseTranslationUnit(
+        m_index, source_filename, command_line_args, num_command_line_args,
+        files, num_unsaved_files, options);
     CleanupUnsavedFiles(files, num_unsaved_files);
-    if (tu == nullptr)
-    {
+    if (tu == nullptr) {
       return E_FAIL;
     }
 
-    CComPtr<DxcTranslationUnit> localTU = DxcTranslationUnit::Alloc(DxcGetThreadMallocNoRef());
-    if (localTU == nullptr)
-    {
+    CComPtr<DxcTranslationUnit> localTU =
+        DxcTranslationUnit::Alloc(DxcGetThreadMallocNoRef());
+    if (localTU == nullptr) {
       clang_disposeTranslationUnit(tu);
       return E_OUTOFMEMORY;
     }
@@ -1046,8 +1024,7 @@ HRESULT DxcIndex::ParseTranslationUnit(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-HRESULT DxcIntelliSense::CreateIndex(IDxcIndex** index)
-{
+HRESULT DxcIntelliSense::CreateIndex(IDxcIndex **index) {
   DxcThreadMalloc TM(m_pMalloc);
   CComPtr<DxcIndex> local;
   HRESULT hr = DxcIndex::Create(m_langHelper, &local);
@@ -1055,69 +1032,74 @@ HRESULT DxcIntelliSense::CreateIndex(IDxcIndex** index)
   return hr;
 }
 
-HRESULT DxcIntelliSense::GetNullLocation(IDxcSourceLocation** location)
-{
+HRESULT DxcIntelliSense::GetNullLocation(IDxcSourceLocation **location) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceLocation::Create(clang_getNullLocation(), location);
 }
 
-HRESULT DxcIntelliSense::GetNullRange(IDxcSourceRange** location)
-{
+HRESULT DxcIntelliSense::GetNullRange(IDxcSourceRange **location) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceRange::Create(clang_getNullRange(), location);
 }
 
-HRESULT DxcIntelliSense::GetRange(
-  IDxcSourceLocation* start,
-  IDxcSourceLocation* end,
-  IDxcSourceRange** pResult)
-{
-  if (start == nullptr || end == nullptr) return E_INVALIDARG;
-  if (pResult == nullptr) return E_POINTER;
-  DxcSourceLocation* startImpl = reinterpret_cast<DxcSourceLocation*>(start);
-  DxcSourceLocation* endImpl = reinterpret_cast<DxcSourceLocation*>(end);
+HRESULT DxcIntelliSense::GetRange(IDxcSourceLocation *start,
+                                  IDxcSourceLocation *end,
+                                  IDxcSourceRange **pResult) {
+  if (start == nullptr || end == nullptr)
+    return E_INVALIDARG;
+  if (pResult == nullptr)
+    return E_POINTER;
+  DxcSourceLocation *startImpl = reinterpret_cast<DxcSourceLocation *>(start);
+  DxcSourceLocation *endImpl = reinterpret_cast<DxcSourceLocation *>(end);
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceRange::Create(
-    clang_getRange(startImpl->GetLocation(), endImpl->GetLocation()),
-    pResult);
+      clang_getRange(startImpl->GetLocation(), endImpl->GetLocation()),
+      pResult);
 }
 
 HRESULT DxcIntelliSense::GetDefaultDiagnosticDisplayOptions(
     DxcDiagnosticDisplayOptions *pValue) {
-  if (pValue == nullptr) return E_POINTER;
-  *pValue = (DxcDiagnosticDisplayOptions)clang_defaultDiagnosticDisplayOptions();
+  if (pValue == nullptr)
+    return E_POINTER;
+  *pValue =
+      (DxcDiagnosticDisplayOptions)clang_defaultDiagnosticDisplayOptions();
   return S_OK;
 }
 
 HRESULT
 DxcIntelliSense::GetDefaultEditingTUOptions(DxcTranslationUnitFlags *pValue) {
-  if (pValue == nullptr) return E_POINTER;
-  *pValue = (DxcTranslationUnitFlags)
-    (clang_defaultEditingTranslationUnitOptions() | (unsigned)DxcTranslationUnitFlags_UseCallerThread);
+  if (pValue == nullptr)
+    return E_POINTER;
+  *pValue =
+      (DxcTranslationUnitFlags)(clang_defaultEditingTranslationUnitOptions() |
+                                (unsigned)
+                                    DxcTranslationUnitFlags_UseCallerThread);
   return S_OK;
 }
 
-HRESULT DxcIntelliSense::CreateUnsavedFile(LPCSTR fileName, LPCSTR contents, unsigned contentLength, IDxcUnsavedFile** pResult)
-{
+HRESULT DxcIntelliSense::CreateUnsavedFile(LPCSTR fileName, LPCSTR contents,
+                                           unsigned contentLength,
+                                           IDxcUnsavedFile **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
-  return DxcBasicUnsavedFile::Create(fileName, contents, contentLength, pResult);
+  return DxcBasicUnsavedFile::Create(fileName, contents, contentLength,
+                                     pResult);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void DxcSourceLocation::Initialize(const CXSourceLocation& location)
-{
+void DxcSourceLocation::Initialize(const CXSourceLocation &location) {
   m_location = location;
 }
 
-HRESULT DxcSourceLocation::Create(
-  const CXSourceLocation& location,
-  IDxcSourceLocation** pObject)
-{
-  if (pObject == nullptr) return E_POINTER;
+HRESULT DxcSourceLocation::Create(const CXSourceLocation &location,
+                                  IDxcSourceLocation **pObject) {
+  if (pObject == nullptr)
+    return E_POINTER;
   *pObject = nullptr;
-  DxcSourceLocation* local = DxcSourceLocation::Alloc(DxcGetThreadMallocNoRef());
-  if (local == nullptr) return E_OUTOFMEMORY;
+  DxcSourceLocation *local =
+      DxcSourceLocation::Alloc(DxcGetThreadMallocNoRef());
+  if (local == nullptr)
+    return E_OUTOFMEMORY;
   local->Initialize(location);
   local->AddRef();
   *pObject = local;
@@ -1125,14 +1107,12 @@ HRESULT DxcSourceLocation::Create(
 }
 
 HRESULT DxcSourceLocation::IsEqualTo(IDxcSourceLocation *other, BOOL *pResult) {
-  if (pResult == nullptr) return E_POINTER;
-  if (other == nullptr)
-  {
+  if (pResult == nullptr)
+    return E_POINTER;
+  if (other == nullptr) {
     *pResult = FALSE;
-  }
-  else
-  {
-    DxcSourceLocation* otherImpl = reinterpret_cast<DxcSourceLocation*>(other);
+  } else {
+    DxcSourceLocation *otherImpl = reinterpret_cast<DxcSourceLocation *>(other);
     *pResult = clang_equalLocations(m_location, otherImpl->m_location) != 0;
   }
 
@@ -1146,21 +1126,25 @@ HRESULT DxcSourceLocation::GetSpellingLocation(IDxcFile **pFile,
   unsigned line, col, offset;
   DxcThreadMalloc TM(m_pMalloc);
   clang_getSpellingLocation(m_location, &file, &line, &col, &offset);
-  if (pFile != nullptr)
-  {
+  if (pFile != nullptr) {
     HRESULT hr = DxcFile::Create(file, pFile);
-    if (FAILED(hr)) return hr;
+    if (FAILED(hr))
+      return hr;
   }
-  if (pLine) *pLine = line;
-  if (pCol) *pCol = col;
-  if (pOffset) *pOffset = offset;
+  if (pLine)
+    *pLine = line;
+  if (pCol)
+    *pCol = col;
+  if (pOffset)
+    *pOffset = offset;
   return S_OK;
 }
 
 HRESULT DxcSourceLocation::IsNull(BOOL *pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   CXSourceLocation nullLocation = clang_getNullLocation();
-  *pResult = 0 !=clang_equalLocations(nullLocation, m_location);
+  *pResult = 0 != clang_equalLocations(nullLocation, m_location);
   return S_OK;
 }
 
@@ -1172,59 +1156,60 @@ HRESULT DxcSourceLocation::GetPresumedLocation(LPSTR *pFilename,
   CXString filename;
   unsigned line, col;
   clang_getPresumedLocation(m_location, &filename, &line, &col);
-  if (pFilename != nullptr)
-  {
+  if (pFilename != nullptr) {
     HRESULT hr = CXStringToAnsiAndDispose(filename, pFilename);
-    if (FAILED(hr)) return hr;
+    if (FAILED(hr))
+      return hr;
   }
-  if (pLine) *pLine = line;
-  if (pCol) *pCol = col;
+  if (pLine)
+    *pLine = line;
+  if (pCol)
+    *pCol = col;
   return S_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void DxcSourceRange::Initialize(const CXSourceRange& range)
-{
-  m_range = range;
-}
+void DxcSourceRange::Initialize(const CXSourceRange &range) { m_range = range; }
 
-HRESULT DxcSourceRange::Create(const CXSourceRange& range, IDxcSourceRange** pObject)
-{
-  if (pObject == nullptr) return E_POINTER;
+HRESULT DxcSourceRange::Create(const CXSourceRange &range,
+                               IDxcSourceRange **pObject) {
+  if (pObject == nullptr)
+    return E_POINTER;
   *pObject = nullptr;
-  DxcSourceRange* local = DxcSourceRange::Alloc(DxcGetThreadMallocNoRef());
-  if (local == nullptr) return E_OUTOFMEMORY;
+  DxcSourceRange *local = DxcSourceRange::Alloc(DxcGetThreadMallocNoRef());
+  if (local == nullptr)
+    return E_OUTOFMEMORY;
   local->Initialize(range);
   local->AddRef();
   *pObject = local;
   return S_OK;
 }
 
-HRESULT DxcSourceRange::IsNull(BOOL* pValue)
-{
-  if (pValue == nullptr) return E_POINTER;
+HRESULT DxcSourceRange::IsNull(BOOL *pValue) {
+  if (pValue == nullptr)
+    return E_POINTER;
   *pValue = clang_Range_isNull(m_range) != 0;
   return S_OK;
 }
 
-HRESULT DxcSourceRange::GetStart(IDxcSourceLocation** pValue)
-{
+HRESULT DxcSourceRange::GetStart(IDxcSourceLocation **pValue) {
   CXSourceLocation location = clang_getRangeStart(m_range);
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceLocation::Create(location, pValue);
 }
 
-HRESULT DxcSourceRange::GetEnd(IDxcSourceLocation** pValue)
-{
+HRESULT DxcSourceRange::GetEnd(IDxcSourceLocation **pValue) {
   CXSourceLocation location = clang_getRangeEnd(m_range);
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceLocation::Create(location, pValue);
 }
 
 HRESULT DxcSourceRange::GetOffsets(unsigned *startOffset, unsigned *endOffset) {
-  if (startOffset == nullptr) return E_POINTER;
-  if (endOffset == nullptr) return E_POINTER;
+  if (startOffset == nullptr)
+    return E_POINTER;
+  if (endOffset == nullptr)
+    return E_POINTER;
   CXSourceLocation startLocation = clang_getRangeStart(m_range);
   CXSourceLocation endLocation = clang_getRangeEnd(m_range);
 
@@ -1238,21 +1223,19 @@ HRESULT DxcSourceRange::GetOffsets(unsigned *startOffset, unsigned *endOffset) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void DxcToken::Initialize(const CXTranslationUnit& tu, const CXToken& token)
-{
+void DxcToken::Initialize(const CXTranslationUnit &tu, const CXToken &token) {
   m_tu = tu;
   m_token = token;
 }
 
-HRESULT DxcToken::Create(
-  const CXTranslationUnit& tu,
-  const CXToken& token,
-  IDxcToken** pObject)
-{
-  if (pObject == nullptr) return E_POINTER;
+HRESULT DxcToken::Create(const CXTranslationUnit &tu, const CXToken &token,
+                         IDxcToken **pObject) {
+  if (pObject == nullptr)
+    return E_POINTER;
   *pObject = nullptr;
-  DxcToken* local = DxcToken::Alloc(DxcGetThreadMallocNoRef());
-  if (local == nullptr) return E_OUTOFMEMORY;
+  DxcToken *local = DxcToken::Alloc(DxcGetThreadMallocNoRef());
+  if (local == nullptr)
+    return E_OUTOFMEMORY;
   local->Initialize(tu, token);
   local->AddRef();
   *pObject = local;
@@ -1260,54 +1243,68 @@ HRESULT DxcToken::Create(
 }
 
 HRESULT DxcToken::GetKind(DxcTokenKind *pValue) {
-  if (pValue == nullptr) return E_POINTER;
-  switch (clang_getTokenKind(m_token))
-  {
-  case CXToken_Punctuation: *pValue = DxcTokenKind_Punctuation; break;
-  case CXToken_Keyword: *pValue = DxcTokenKind_Keyword; break;
-  case CXToken_Identifier: *pValue = DxcTokenKind_Identifier; break;
-  case CXToken_Literal: *pValue = DxcTokenKind_Literal; break;
-  case CXToken_Comment: *pValue = DxcTokenKind_Comment; break;
-  case CXToken_BuiltInType: *pValue = DxcTokenKind_BuiltInType; break;
-  default: *pValue = DxcTokenKind_Unknown; break;
+  if (pValue == nullptr)
+    return E_POINTER;
+  switch (clang_getTokenKind(m_token)) {
+  case CXToken_Punctuation:
+    *pValue = DxcTokenKind_Punctuation;
+    break;
+  case CXToken_Keyword:
+    *pValue = DxcTokenKind_Keyword;
+    break;
+  case CXToken_Identifier:
+    *pValue = DxcTokenKind_Identifier;
+    break;
+  case CXToken_Literal:
+    *pValue = DxcTokenKind_Literal;
+    break;
+  case CXToken_Comment:
+    *pValue = DxcTokenKind_Comment;
+    break;
+  case CXToken_BuiltInType:
+    *pValue = DxcTokenKind_BuiltInType;
+    break;
+  default:
+    *pValue = DxcTokenKind_Unknown;
+    break;
   }
   return S_OK;
 }
 
-HRESULT DxcToken::GetLocation(IDxcSourceLocation** pValue)
-{
-  if (pValue == nullptr) return E_POINTER;
+HRESULT DxcToken::GetLocation(IDxcSourceLocation **pValue) {
+  if (pValue == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
-  return DxcSourceLocation::Create(clang_getTokenLocation(m_tu, m_token), pValue);
+  return DxcSourceLocation::Create(clang_getTokenLocation(m_tu, m_token),
+                                   pValue);
 }
 
-HRESULT DxcToken::GetExtent(IDxcSourceRange** pValue)
-{
-  if (pValue == nullptr) return E_POINTER;
+HRESULT DxcToken::GetExtent(IDxcSourceRange **pValue) {
+  if (pValue == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceRange::Create(clang_getTokenExtent(m_tu, m_token), pValue);
 }
 
-HRESULT DxcToken::GetSpelling(LPSTR* pValue)
-{
-  if (pValue == nullptr) return E_POINTER;
+HRESULT DxcToken::GetSpelling(LPSTR *pValue) {
+  if (pValue == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
-  return CXStringToAnsiAndDispose(clang_getTokenSpelling(m_tu, m_token), pValue);
+  return CXStringToAnsiAndDispose(clang_getTokenSpelling(m_tu, m_token),
+                                  pValue);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 DxcTranslationUnit::DxcTranslationUnit(IMalloc *pMalloc)
-    : m_dwRef(0), m_pMalloc(pMalloc)
-    , m_tu(nullptr)
-{
-}
+    : m_dwRef(0), m_pMalloc(pMalloc), m_tu(nullptr) {}
 
 DxcTranslationUnit::~DxcTranslationUnit() {
   if (m_tu != nullptr) {
-    // TODO: until an interface to file access is defined and implemented, simply fall back to pure Win32/CRT calls.
-    // Also, note that this can throw / fail in a destructor, which is a big no-no.
-    ::llvm::sys::fs::MSFileSystem* msfPtr;
+    // TODO: until an interface to file access is defined and implemented,
+    // simply fall back to pure Win32/CRT calls. Also, note that this can throw
+    // / fail in a destructor, which is a big no-no.
+    ::llvm::sys::fs::MSFileSystem *msfPtr;
     CreateMSFileSystemForDisk(&msfPtr);
     assert(msfPtr != nullptr);
     std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
@@ -1320,26 +1317,24 @@ DxcTranslationUnit::~DxcTranslationUnit() {
   }
 }
 
-void DxcTranslationUnit::Initialize(CXTranslationUnit tu)
-{
-  m_tu = tu;
-}
+void DxcTranslationUnit::Initialize(CXTranslationUnit tu) { m_tu = tu; }
 
-HRESULT DxcTranslationUnit::GetCursor(IDxcCursor** pCursor)
-{
+HRESULT DxcTranslationUnit::GetCursor(IDxcCursor **pCursor) {
   DxcThreadMalloc TM(m_pMalloc);
-  if (m_tu == nullptr) return E_FAIL;
+  if (m_tu == nullptr)
+    return E_FAIL;
   return DxcCursor::Create(clang_getTranslationUnitCursor(m_tu), pCursor);
 }
 
-HRESULT DxcTranslationUnit::Tokenize(
-  IDxcSourceRange* range,
-  IDxcToken*** pTokens,
-  unsigned* pTokenCount)
-{
-  if (range == nullptr) return E_INVALIDARG;
-  if (pTokens == nullptr) return E_POINTER;
-  if (pTokenCount == nullptr) return E_POINTER;
+HRESULT DxcTranslationUnit::Tokenize(IDxcSourceRange *range,
+                                     IDxcToken ***pTokens,
+                                     unsigned *pTokenCount) {
+  if (range == nullptr)
+    return E_INVALIDARG;
+  if (pTokens == nullptr)
+    return E_POINTER;
+  if (pTokenCount == nullptr)
+    return E_POINTER;
 
   *pTokens = nullptr;
   *pTokenCount = 0;
@@ -1347,24 +1342,20 @@ HRESULT DxcTranslationUnit::Tokenize(
   // Only accept our own source range.
   DxcThreadMalloc TM(m_pMalloc);
   HRESULT hr = S_OK;
-  DxcSourceRange* rangeImpl = reinterpret_cast<DxcSourceRange*>(range);
-  IDxcToken** localTokens = nullptr;
-  CXToken* tokens = nullptr;
+  DxcSourceRange *rangeImpl = reinterpret_cast<DxcSourceRange *>(range);
+  IDxcToken **localTokens = nullptr;
+  CXToken *tokens = nullptr;
   unsigned numTokens = 0;
   clang_tokenize(m_tu, rangeImpl->GetRange(), &tokens, &numTokens);
-  if (numTokens != 0)
-  {
+  if (numTokens != 0) {
     CoTaskMemAllocZeroElems(numTokens, &localTokens);
-    if (localTokens == nullptr)
-    {
+    if (localTokens == nullptr) {
       hr = E_OUTOFMEMORY;
-    }
-    else
-    {
-      for (unsigned i = 0; i < numTokens; ++i)
-      {
+    } else {
+      for (unsigned i = 0; i < numTokens; ++i) {
         hr = DxcToken::Create(m_tu, tokens[i], &localTokens[i]);
-        if (FAILED(hr)) break;
+        if (FAILED(hr))
+          break;
       }
       *pTokens = localTokens;
       *pTokenCount = numTokens;
@@ -1372,14 +1363,12 @@ HRESULT DxcTranslationUnit::Tokenize(
   }
 
   // Cleanup partial progress on failures.
-  if (FAILED(hr))
-  {
+  if (FAILED(hr)) {
     SafeReleaseIfaceArray(localTokens, numTokens);
     delete[] localTokens;
   }
 
-  if (tokens != nullptr)
-  {
+  if (tokens != nullptr) {
     clang_disposeTokens(m_tu, tokens, numTokens);
   }
 
@@ -1389,127 +1378,143 @@ HRESULT DxcTranslationUnit::Tokenize(
 HRESULT DxcTranslationUnit::GetLocation(IDxcFile *file, unsigned line,
                                         unsigned column,
                                         IDxcSourceLocation **pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = nullptr;
 
-  if (file == nullptr) return E_INVALIDARG;
+  if (file == nullptr)
+    return E_INVALIDARG;
   DxcThreadMalloc TM(m_pMalloc);
-  DxcFile* fileImpl = reinterpret_cast<DxcFile*>(file);
-  return DxcSourceLocation::Create(clang_getLocation(m_tu, fileImpl->GetFile(), line, column), pResult);
+  DxcFile *fileImpl = reinterpret_cast<DxcFile *>(file);
+  return DxcSourceLocation::Create(
+      clang_getLocation(m_tu, fileImpl->GetFile(), line, column), pResult);
 }
 
 HRESULT DxcTranslationUnit::GetNumDiagnostics(unsigned *pValue) {
-  if (pValue == nullptr) return E_POINTER;
+  if (pValue == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
   *pValue = clang_getNumDiagnostics(m_tu);
   return S_OK;
 }
 
-HRESULT DxcTranslationUnit::GetDiagnostic(unsigned index, IDxcDiagnostic** pValue)
-{
-  if (pValue == nullptr) return E_POINTER;
+HRESULT DxcTranslationUnit::GetDiagnostic(unsigned index,
+                                          IDxcDiagnostic **pValue) {
+  if (pValue == nullptr)
+    return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
   return DxcDiagnostic::Create(clang_getDiagnostic(m_tu, index), pValue);
 }
 
-HRESULT DxcTranslationUnit::GetFile(LPCSTR name, IDxcFile** pResult)
-{
-  if (name == nullptr) return E_INVALIDARG;
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcTranslationUnit::GetFile(LPCSTR name, IDxcFile **pResult) {
+  if (name == nullptr)
+    return E_INVALIDARG;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = nullptr;
 
-  // TODO: until an interface to file access is defined and implemented, simply fall back to pure Win32/CRT calls.
+  // TODO: until an interface to file access is defined and implemented, simply
+  // fall back to pure Win32/CRT calls.
   DxcThreadMalloc TM(m_pMalloc);
-  ::llvm::sys::fs::MSFileSystem* msfPtr;
+  ::llvm::sys::fs::MSFileSystem *msfPtr;
   IFR(CreateMSFileSystemForDisk(&msfPtr));
   std::unique_ptr<::llvm::sys::fs::MSFileSystem> msf(msfPtr);
   ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
 
   CXFile localFile = clang_getFile(m_tu, name);
-  return localFile == nullptr ? DISP_E_BADINDEX : DxcFile::Create(localFile, pResult);
+  return localFile == nullptr ? DISP_E_BADINDEX
+                              : DxcFile::Create(localFile, pResult);
 }
 
-HRESULT DxcTranslationUnit::GetFileName(LPSTR* pResult)
-{
+HRESULT DxcTranslationUnit::GetFileName(LPSTR *pResult) {
   DxcThreadMalloc TM(m_pMalloc);
-  return CXStringToAnsiAndDispose(clang_getTranslationUnitSpelling(m_tu), pResult);
+  return CXStringToAnsiAndDispose(clang_getTranslationUnitSpelling(m_tu),
+                                  pResult);
 }
 
-HRESULT DxcTranslationUnit::Reparse(
-  IDxcUnsavedFile** unsaved_files,
-  unsigned num_unsaved_files)
-{
+HRESULT DxcTranslationUnit::Reparse(IDxcUnsavedFile **unsaved_files,
+                                    unsigned num_unsaved_files) {
   HRESULT hr;
-  CXUnsavedFile* local_unsaved_files;
+  CXUnsavedFile *local_unsaved_files;
   DxcThreadMalloc TM(m_pMalloc);
-  hr = SetupUnsavedFiles(unsaved_files, num_unsaved_files, &local_unsaved_files);
-  if (FAILED(hr)) return hr;
-  int reparseResult = clang_reparseTranslationUnit(
-    m_tu, num_unsaved_files, local_unsaved_files, clang_defaultReparseOptions(m_tu));
+  hr =
+      SetupUnsavedFiles(unsaved_files, num_unsaved_files, &local_unsaved_files);
+  if (FAILED(hr))
+    return hr;
+  int reparseResult =
+      clang_reparseTranslationUnit(m_tu, num_unsaved_files, local_unsaved_files,
+                                   clang_defaultReparseOptions(m_tu));
   CleanupUnsavedFiles(local_unsaved_files, num_unsaved_files);
   return reparseResult == 0 ? S_OK : E_FAIL;
 }
 
-HRESULT DxcTranslationUnit::GetCursorForLocation(IDxcSourceLocation* location, IDxcCursor** pResult)
-{
-  if (location == nullptr) return E_INVALIDARG;
-  if (pResult == nullptr) return E_POINTER;
-  DxcSourceLocation* locationImpl = reinterpret_cast<DxcSourceLocation*>(location);
+HRESULT DxcTranslationUnit::GetCursorForLocation(IDxcSourceLocation *location,
+                                                 IDxcCursor **pResult) {
+  if (location == nullptr)
+    return E_INVALIDARG;
+  if (pResult == nullptr)
+    return E_POINTER;
+  DxcSourceLocation *locationImpl =
+      reinterpret_cast<DxcSourceLocation *>(location);
   DxcThreadMalloc TM(m_pMalloc);
-  return DxcCursor::Create(clang_getCursor(m_tu, locationImpl->GetLocation()), pResult);
+  return DxcCursor::Create(clang_getCursor(m_tu, locationImpl->GetLocation()),
+                           pResult);
 }
 
-HRESULT DxcTranslationUnit::GetLocationForOffset(IDxcFile* file, unsigned offset, IDxcSourceLocation** pResult)
-{
-  if (file == nullptr) return E_INVALIDARG;
-  if (pResult == nullptr) return E_POINTER;
-  DxcFile* fileImpl = reinterpret_cast<DxcFile*>(file);
+HRESULT DxcTranslationUnit::GetLocationForOffset(IDxcFile *file,
+                                                 unsigned offset,
+                                                 IDxcSourceLocation **pResult) {
+  if (file == nullptr)
+    return E_INVALIDARG;
+  if (pResult == nullptr)
+    return E_POINTER;
+  DxcFile *fileImpl = reinterpret_cast<DxcFile *>(file);
   DxcThreadMalloc TM(m_pMalloc);
-  return DxcSourceLocation::Create(clang_getLocationForOffset(m_tu, fileImpl->GetFile(), offset), pResult);
+  return DxcSourceLocation::Create(
+      clang_getLocationForOffset(m_tu, fileImpl->GetFile(), offset), pResult);
 }
 
-HRESULT DxcTranslationUnit::GetSkippedRanges(IDxcFile* file, unsigned* pResultCount, IDxcSourceRange*** pResult)
-{
-  if (file == nullptr) return E_INVALIDARG;
-  if (pResultCount == nullptr) return E_POINTER;
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcTranslationUnit::GetSkippedRanges(IDxcFile *file,
+                                             unsigned *pResultCount,
+                                             IDxcSourceRange ***pResult) {
+  if (file == nullptr)
+    return E_INVALIDARG;
+  if (pResultCount == nullptr)
+    return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
 
   *pResultCount = 0;
   *pResult = nullptr;
 
   DxcThreadMalloc TM(m_pMalloc);
-  DxcFile* fileImpl = reinterpret_cast<DxcFile*>(file);
+  DxcFile *fileImpl = reinterpret_cast<DxcFile *>(file);
 
   unsigned len = clang_ms_countSkippedRanges(m_tu, fileImpl->GetFile());
-  if (len == 0)
-  {
+  if (len == 0) {
     return S_OK;
   }
 
   CoTaskMemAllocZeroElems(len, pResult);
-  if (*pResult == nullptr)
-  {
+  if (*pResult == nullptr) {
     return E_OUTOFMEMORY;
   }
 
   HRESULT hr = S_OK;
-  CXSourceRange* ranges = new CXSourceRange[len];
+  CXSourceRange *ranges = new CXSourceRange[len];
   clang_ms_getSkippedRanges(m_tu, fileImpl->GetFile(), ranges, len);
-  for (unsigned i = 0; i < len; ++i)
-  {
+  for (unsigned i = 0; i < len; ++i) {
     hr = DxcSourceRange::Create(ranges[i], &(*pResult)[i]);
-    if (FAILED(hr)) break;
+    if (FAILED(hr))
+      break;
   }
 
   // Cleanup partial progress.
-  if (FAILED(hr))
-  {
+  if (FAILED(hr)) {
     SafeReleaseIfaceArray(*pResult, len);
     CoTaskMemFree(*pResult);
     *pResult = nullptr;
-  }
-  else
-  {
+  } else {
     *pResultCount = len;
   }
 
@@ -1522,11 +1527,9 @@ HRESULT DxcTranslationUnit::GetDiagnosticDetails(
     unsigned index, DxcDiagnosticDisplayOptions options, unsigned *errorCode,
     unsigned *errorLine, unsigned *errorColumn, BSTR *errorFile,
     unsigned *errorOffset, unsigned *errorLength, BSTR *errorMessage) {
-  if (errorCode == nullptr || errorLine == nullptr ||
-      errorColumn == nullptr || errorFile == nullptr ||
-      errorOffset == nullptr || errorLength == nullptr ||
-      errorMessage == nullptr)
-  {
+  if (errorCode == nullptr || errorLine == nullptr || errorColumn == nullptr ||
+      errorFile == nullptr || errorOffset == nullptr ||
+      errorLength == nullptr || errorMessage == nullptr) {
     return E_POINTER;
   }
 
@@ -1536,18 +1539,18 @@ HRESULT DxcTranslationUnit::GetDiagnosticDetails(
   HRESULT hr = S_OK;
   DxcThreadMalloc TM(m_pMalloc);
   CXDiagnostic diag = clang_getDiagnostic(m_tu, index);
-  hr = CXStringToBSTRAndDispose(clang_formatDiagnostic(diag, options), errorMessage);
-  if (FAILED(hr))
-  {
+  hr = CXStringToBSTRAndDispose(clang_formatDiagnostic(diag, options),
+                                errorMessage);
+  if (FAILED(hr)) {
     return hr;
   }
 
   CXSourceLocation diagLoc = clang_getDiagnosticLocation(diag);
   CXFile diagFile;
-  clang_getSpellingLocation(diagLoc, &diagFile, errorLine, errorColumn, errorOffset);
+  clang_getSpellingLocation(diagLoc, &diagFile, errorLine, errorColumn,
+                            errorOffset);
   hr = CXStringToBSTRAndDispose(clang_getFileName(diagFile), errorFile);
-  if (FAILED(hr))
-  {
+  if (FAILED(hr)) {
     SysFreeString(*errorMessage);
     *errorMessage = nullptr;
     return hr;
@@ -1561,19 +1564,17 @@ struct InclusionData {
   CSimpleArray<CComPtr<IDxcInclusion>> inclusions;
 };
 
-static
-void VisitInclusion(CXFile included_file,
-  CXSourceLocation* inclusion_stack,
-  unsigned include_len,
-  CXClientData client_data) {
-  InclusionData* D = (InclusionData *)client_data;
+static void VisitInclusion(CXFile included_file,
+                           CXSourceLocation *inclusion_stack,
+                           unsigned include_len, CXClientData client_data) {
+  InclusionData *D = (InclusionData *)client_data;
   if (SUCCEEDED(D->result)) {
     CComPtr<IDxcInclusion> pInclusion;
-    HRESULT hr = DxcInclusion::Create(included_file, include_len, inclusion_stack, &pInclusion);
+    HRESULT hr = DxcInclusion::Create(included_file, include_len,
+                                      inclusion_stack, &pInclusion);
     if (FAILED(hr)) {
       D->result = E_FAIL;
-    }
-    else if (!D->inclusions.Add(pInclusion)) {
+    } else if (!D->inclusions.Add(pInclusion)) {
       D->result = E_OUTOFMEMORY;
     }
   }
@@ -1608,12 +1609,14 @@ HRESULT DxcTranslationUnit::GetInclusionList(unsigned *pResultCount,
   return S_OK;
 }
 
-HRESULT DxcTranslationUnit::CodeCompleteAt(
-	const char *fileName, unsigned line, unsigned column,
-	IDxcUnsavedFile **pUnsavedFiles, unsigned numUnsavedFiles,
-	DxcCodeCompleteFlags options, IDxcCodeCompleteResults **pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcTranslationUnit::CodeCompleteAt(const char *fileName, unsigned line,
+                                           unsigned column,
+                                           IDxcUnsavedFile **pUnsavedFiles,
+                                           unsigned numUnsavedFiles,
+                                           DxcCodeCompleteFlags options,
+                                           IDxcCodeCompleteResults **pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
 
   DxcThreadMalloc TM(m_pMalloc);
 
@@ -1627,14 +1630,14 @@ HRESULT DxcTranslationUnit::CodeCompleteAt(
 
   CleanupUnsavedFiles(files, numUnsavedFiles);
 
-  if (results == nullptr) return E_FAIL;
+  if (results == nullptr)
+    return E_FAIL;
   *pResult = nullptr;
   DxcCodeCompleteResults *newValue =
       DxcCodeCompleteResults::Alloc(DxcGetThreadMallocNoRef());
-  if (newValue == nullptr)
-  {
-	  clang_disposeCodeCompleteResults(results);
-	  return E_OUTOFMEMORY;
+  if (newValue == nullptr) {
+    clang_disposeCodeCompleteResults(results);
+    return E_OUTOFMEMORY;
   }
   newValue->Initialize(results);
   newValue->AddRef();
@@ -1644,63 +1647,56 @@ HRESULT DxcTranslationUnit::CodeCompleteAt(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-HRESULT DxcType::Create(const CXType& type, IDxcType** pObject)
-{
-  if (pObject == nullptr) return E_POINTER;
+HRESULT DxcType::Create(const CXType &type, IDxcType **pObject) {
+  if (pObject == nullptr)
+    return E_POINTER;
   *pObject = nullptr;
-  DxcType* newValue = DxcType::Alloc(DxcGetThreadMallocNoRef());
-  if (newValue == nullptr) return E_OUTOFMEMORY;
+  DxcType *newValue = DxcType::Alloc(DxcGetThreadMallocNoRef());
+  if (newValue == nullptr)
+    return E_OUTOFMEMORY;
   newValue->Initialize(type);
   newValue->AddRef();
   *pObject = newValue;
   return S_OK;
 }
 
-void DxcType::Initialize(const CXType& type)
-{
-  m_type = type;
-}
+void DxcType::Initialize(const CXType &type) { m_type = type; }
 
-HRESULT DxcType::GetSpelling(LPSTR* pResult)
-{
+HRESULT DxcType::GetSpelling(LPSTR *pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return CXStringToAnsiAndDispose(clang_getTypeSpelling(m_type), pResult);
 }
 
-HRESULT DxcType::IsEqualTo(IDxcType* other, BOOL* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
-  if (other == nullptr)
-  {
+HRESULT DxcType::IsEqualTo(IDxcType *other, BOOL *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
+  if (other == nullptr) {
     *pResult = FALSE;
     return S_OK;
   }
-  DxcType* otherImpl = reinterpret_cast<DxcType*>(other);
+  DxcType *otherImpl = reinterpret_cast<DxcType *>(other);
   *pResult = 0 != clang_equalTypes(m_type, otherImpl->m_type);
   return S_OK;
 }
 
-HRESULT DxcType::GetKind(DxcTypeKind* pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcType::GetKind(DxcTypeKind *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = (DxcTypeKind)m_type.kind;
   return S_OK;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DxcCodeCompleteResults::~DxcCodeCompleteResults()
-{
-	clang_disposeCodeCompleteResults(m_ccr);
+DxcCodeCompleteResults::~DxcCodeCompleteResults() {
+  clang_disposeCodeCompleteResults(m_ccr);
 }
 
-void DxcCodeCompleteResults::Initialize(CXCodeCompleteResults* ccr)
-{
+void DxcCodeCompleteResults::Initialize(CXCodeCompleteResults *ccr) {
   m_ccr = ccr;
 }
 
-HRESULT DxcCodeCompleteResults::GetNumResults(unsigned *pResult)
-{
+HRESULT DxcCodeCompleteResults::GetNumResults(unsigned *pResult) {
   if (pResult == nullptr)
     return E_POINTER;
 
@@ -1710,10 +1706,8 @@ HRESULT DxcCodeCompleteResults::GetNumResults(unsigned *pResult)
   return S_OK;
 }
 
-HRESULT DxcCodeCompleteResults::GetResultAt(
-  unsigned index,
-  IDxcCompletionResult **pResult)
-{
+HRESULT DxcCodeCompleteResults::GetResultAt(unsigned index,
+                                            IDxcCompletionResult **pResult) {
   if (pResult == nullptr)
     return E_POINTER;
 
@@ -1722,7 +1716,8 @@ HRESULT DxcCodeCompleteResults::GetResultAt(
   CXCompletionResult result = m_ccr->Results[index];
 
   *pResult = nullptr;
-  DxcCompletionResult *newValue = DxcCompletionResult::Alloc(DxcGetThreadMallocNoRef());
+  DxcCompletionResult *newValue =
+      DxcCompletionResult::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr)
     return E_OUTOFMEMORY;
   newValue->Initialize(result);
@@ -1734,26 +1729,27 @@ HRESULT DxcCodeCompleteResults::GetResultAt(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void DxcCompletionResult::Initialize(const CXCompletionResult &cr)
-{
+void DxcCompletionResult::Initialize(const CXCompletionResult &cr) {
   m_cr = cr;
 }
 
-HRESULT DxcCompletionResult::GetCursorKind(DxcCursorKind *pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCompletionResult::GetCursorKind(DxcCursorKind *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = (DxcCursorKind)m_cr.CursorKind;
   return S_OK;
 }
 
-HRESULT DxcCompletionResult::GetCompletionString(IDxcCompletionString **pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT
+DxcCompletionResult::GetCompletionString(IDxcCompletionString **pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
 
   DxcThreadMalloc TM(m_pMalloc);
 
   *pResult = nullptr;
-  DxcCompletionString *newValue = DxcCompletionString::Alloc(DxcGetThreadMallocNoRef());
+  DxcCompletionString *newValue =
+      DxcCompletionString::Alloc(DxcGetThreadMallocNoRef());
   if (newValue == nullptr)
     return E_OUTOFMEMORY;
   newValue->Initialize(m_cr.CompletionString);
@@ -1765,30 +1761,34 @@ HRESULT DxcCompletionResult::GetCompletionString(IDxcCompletionString **pResult)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void DxcCompletionString::Initialize(const CXCompletionString &cs)
-{
+void DxcCompletionString::Initialize(const CXCompletionString &cs) {
   m_cs = cs;
 }
 
-HRESULT DxcCompletionString::GetNumCompletionChunks(unsigned *pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
+HRESULT DxcCompletionString::GetNumCompletionChunks(unsigned *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = clang_getNumCompletionChunks(m_cs);
   return S_OK;
 }
 
-HRESULT DxcCompletionString::GetCompletionChunkKind(unsigned chunkNumber, DxcCompletionChunkKind *pResult)
-{
-  if (pResult == nullptr) return E_POINTER;
-  *pResult = (DxcCompletionChunkKind)clang_getCompletionChunkKind(m_cs, chunkNumber);
+HRESULT
+DxcCompletionString::GetCompletionChunkKind(unsigned chunkNumber,
+                                            DxcCompletionChunkKind *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
+  *pResult =
+      (DxcCompletionChunkKind)clang_getCompletionChunkKind(m_cs, chunkNumber);
   return S_OK;
 }
 
-HRESULT DxcCompletionString::GetCompletionChunkText(unsigned chunkNumber, LPSTR* pResult)
-{
-	if (pResult == nullptr) return E_POINTER;
-	DxcThreadMalloc TM(m_pMalloc);
-	return CXStringToAnsiAndDispose(clang_getCompletionChunkText(m_cs, chunkNumber), pResult);
+HRESULT DxcCompletionString::GetCompletionChunkText(unsigned chunkNumber,
+                                                    LPSTR *pResult) {
+  if (pResult == nullptr)
+    return E_POINTER;
+  DxcThreadMalloc TM(m_pMalloc);
+  return CXStringToAnsiAndDispose(
+      clang_getCompletionChunkText(m_cs, chunkNumber), pResult);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1808,10 +1808,14 @@ C_ASSERT((int)DxcCursor_ObjCCategoryDecl == (int)CXCursor_ObjCCategoryDecl);
 C_ASSERT((int)DxcCursor_ObjCProtocolDecl == (int)CXCursor_ObjCProtocolDecl);
 C_ASSERT((int)DxcCursor_ObjCPropertyDecl == (int)CXCursor_ObjCPropertyDecl);
 C_ASSERT((int)DxcCursor_ObjCIvarDecl == (int)CXCursor_ObjCIvarDecl);
-C_ASSERT((int)DxcCursor_ObjCInstanceMethodDecl == (int)CXCursor_ObjCInstanceMethodDecl);
-C_ASSERT((int)DxcCursor_ObjCClassMethodDecl == (int)CXCursor_ObjCClassMethodDecl);
-C_ASSERT((int)DxcCursor_ObjCImplementationDecl == (int)CXCursor_ObjCImplementationDecl);
-C_ASSERT((int)DxcCursor_ObjCCategoryImplDecl == (int)CXCursor_ObjCCategoryImplDecl);
+C_ASSERT((int)DxcCursor_ObjCInstanceMethodDecl ==
+         (int)CXCursor_ObjCInstanceMethodDecl);
+C_ASSERT((int)DxcCursor_ObjCClassMethodDecl ==
+         (int)CXCursor_ObjCClassMethodDecl);
+C_ASSERT((int)DxcCursor_ObjCImplementationDecl ==
+         (int)CXCursor_ObjCImplementationDecl);
+C_ASSERT((int)DxcCursor_ObjCCategoryImplDecl ==
+         (int)CXCursor_ObjCCategoryImplDecl);
 C_ASSERT((int)DxcCursor_TypedefDecl == (int)CXCursor_TypedefDecl);
 C_ASSERT((int)DxcCursor_CXXMethod == (int)CXCursor_CXXMethod);
 C_ASSERT((int)DxcCursor_Namespace == (int)CXCursor_Namespace);
@@ -1819,12 +1823,16 @@ C_ASSERT((int)DxcCursor_LinkageSpec == (int)CXCursor_LinkageSpec);
 C_ASSERT((int)DxcCursor_Constructor == (int)CXCursor_Constructor);
 C_ASSERT((int)DxcCursor_Destructor == (int)CXCursor_Destructor);
 C_ASSERT((int)DxcCursor_ConversionFunction == (int)CXCursor_ConversionFunction);
-C_ASSERT((int)DxcCursor_TemplateTypeParameter == (int)CXCursor_TemplateTypeParameter);
-C_ASSERT((int)DxcCursor_NonTypeTemplateParameter == (int)CXCursor_NonTypeTemplateParameter);
-C_ASSERT((int)DxcCursor_TemplateTemplateParameter == (int)CXCursor_TemplateTemplateParameter);
+C_ASSERT((int)DxcCursor_TemplateTypeParameter ==
+         (int)CXCursor_TemplateTypeParameter);
+C_ASSERT((int)DxcCursor_NonTypeTemplateParameter ==
+         (int)CXCursor_NonTypeTemplateParameter);
+C_ASSERT((int)DxcCursor_TemplateTemplateParameter ==
+         (int)CXCursor_TemplateTemplateParameter);
 C_ASSERT((int)DxcCursor_FunctionTemplate == (int)CXCursor_FunctionTemplate);
 C_ASSERT((int)DxcCursor_ClassTemplate == (int)CXCursor_ClassTemplate);
-C_ASSERT((int)DxcCursor_ClassTemplatePartialSpecialization == (int)CXCursor_ClassTemplatePartialSpecialization);
+C_ASSERT((int)DxcCursor_ClassTemplatePartialSpecialization ==
+         (int)CXCursor_ClassTemplatePartialSpecialization);
 C_ASSERT((int)DxcCursor_NamespaceAlias == (int)CXCursor_NamespaceAlias);
 C_ASSERT((int)DxcCursor_UsingDirective == (int)CXCursor_UsingDirective);
 C_ASSERT((int)DxcCursor_UsingDeclaration == (int)CXCursor_UsingDeclaration);
@@ -1869,23 +1877,30 @@ C_ASSERT((int)DxcCursor_ParenExpr == (int)CXCursor_ParenExpr);
 C_ASSERT((int)DxcCursor_UnaryOperator == (int)CXCursor_UnaryOperator);
 C_ASSERT((int)DxcCursor_ArraySubscriptExpr == (int)CXCursor_ArraySubscriptExpr);
 C_ASSERT((int)DxcCursor_BinaryOperator == (int)CXCursor_BinaryOperator);
-C_ASSERT((int)DxcCursor_CompoundAssignOperator == (int)CXCursor_CompoundAssignOperator);
-C_ASSERT((int)DxcCursor_ConditionalOperator == (int)CXCursor_ConditionalOperator);
+C_ASSERT((int)DxcCursor_CompoundAssignOperator ==
+         (int)CXCursor_CompoundAssignOperator);
+C_ASSERT((int)DxcCursor_ConditionalOperator ==
+         (int)CXCursor_ConditionalOperator);
 C_ASSERT((int)DxcCursor_CStyleCastExpr == (int)CXCursor_CStyleCastExpr);
-C_ASSERT((int)DxcCursor_CompoundLiteralExpr == (int)CXCursor_CompoundLiteralExpr);
+C_ASSERT((int)DxcCursor_CompoundLiteralExpr ==
+         (int)CXCursor_CompoundLiteralExpr);
 C_ASSERT((int)DxcCursor_InitListExpr == (int)CXCursor_InitListExpr);
 C_ASSERT((int)DxcCursor_AddrLabelExpr == (int)CXCursor_AddrLabelExpr);
 C_ASSERT((int)DxcCursor_StmtExpr == (int)CXCursor_StmtExpr);
-C_ASSERT((int)DxcCursor_GenericSelectionExpr == (int)CXCursor_GenericSelectionExpr);
+C_ASSERT((int)DxcCursor_GenericSelectionExpr ==
+         (int)CXCursor_GenericSelectionExpr);
 C_ASSERT((int)DxcCursor_GNUNullExpr == (int)CXCursor_GNUNullExpr);
 C_ASSERT((int)DxcCursor_CXXStaticCastExpr == (int)CXCursor_CXXStaticCastExpr);
 C_ASSERT((int)DxcCursor_CXXDynamicCastExpr == (int)CXCursor_CXXDynamicCastExpr);
-C_ASSERT((int)DxcCursor_CXXReinterpretCastExpr == (int)CXCursor_CXXReinterpretCastExpr);
+C_ASSERT((int)DxcCursor_CXXReinterpretCastExpr ==
+         (int)CXCursor_CXXReinterpretCastExpr);
 C_ASSERT((int)DxcCursor_CXXConstCastExpr == (int)CXCursor_CXXConstCastExpr);
-C_ASSERT((int)DxcCursor_CXXFunctionalCastExpr == (int)CXCursor_CXXFunctionalCastExpr);
+C_ASSERT((int)DxcCursor_CXXFunctionalCastExpr ==
+         (int)CXCursor_CXXFunctionalCastExpr);
 C_ASSERT((int)DxcCursor_CXXTypeidExpr == (int)CXCursor_CXXTypeidExpr);
 C_ASSERT((int)DxcCursor_CXXBoolLiteralExpr == (int)CXCursor_CXXBoolLiteralExpr);
-C_ASSERT((int)DxcCursor_CXXNullPtrLiteralExpr == (int)CXCursor_CXXNullPtrLiteralExpr);
+C_ASSERT((int)DxcCursor_CXXNullPtrLiteralExpr ==
+         (int)CXCursor_CXXNullPtrLiteralExpr);
 C_ASSERT((int)DxcCursor_CXXThisExpr == (int)CXCursor_CXXThisExpr);
 C_ASSERT((int)DxcCursor_CXXThrowExpr == (int)CXCursor_CXXThrowExpr);
 C_ASSERT((int)DxcCursor_CXXNewExpr == (int)CXCursor_CXXNewExpr);
@@ -1895,11 +1910,13 @@ C_ASSERT((int)DxcCursor_ObjCStringLiteral == (int)CXCursor_ObjCStringLiteral);
 C_ASSERT((int)DxcCursor_ObjCEncodeExpr == (int)CXCursor_ObjCEncodeExpr);
 C_ASSERT((int)DxcCursor_ObjCSelectorExpr == (int)CXCursor_ObjCSelectorExpr);
 C_ASSERT((int)DxcCursor_ObjCProtocolExpr == (int)CXCursor_ObjCProtocolExpr);
-C_ASSERT((int)DxcCursor_ObjCBridgedCastExpr == (int)CXCursor_ObjCBridgedCastExpr);
+C_ASSERT((int)DxcCursor_ObjCBridgedCastExpr ==
+         (int)CXCursor_ObjCBridgedCastExpr);
 C_ASSERT((int)DxcCursor_PackExpansionExpr == (int)CXCursor_PackExpansionExpr);
 C_ASSERT((int)DxcCursor_SizeOfPackExpr == (int)CXCursor_SizeOfPackExpr);
 C_ASSERT((int)DxcCursor_LambdaExpr == (int)CXCursor_LambdaExpr);
-C_ASSERT((int)DxcCursor_ObjCBoolLiteralExpr == (int)CXCursor_ObjCBoolLiteralExpr);
+C_ASSERT((int)DxcCursor_ObjCBoolLiteralExpr ==
+         (int)CXCursor_ObjCBoolLiteralExpr);
 C_ASSERT((int)DxcCursor_ObjCSelfExpr == (int)CXCursor_ObjCSelfExpr);
 C_ASSERT((int)DxcCursor_LastExpr == (int)CXCursor_LastExpr);
 C_ASSERT((int)DxcCursor_FirstStmt == (int)CXCursor_FirstStmt);
@@ -1924,9 +1941,12 @@ C_ASSERT((int)DxcCursor_ObjCAtTryStmt == (int)CXCursor_ObjCAtTryStmt);
 C_ASSERT((int)DxcCursor_ObjCAtCatchStmt == (int)CXCursor_ObjCAtCatchStmt);
 C_ASSERT((int)DxcCursor_ObjCAtFinallyStmt == (int)CXCursor_ObjCAtFinallyStmt);
 C_ASSERT((int)DxcCursor_ObjCAtThrowStmt == (int)CXCursor_ObjCAtThrowStmt);
-C_ASSERT((int)DxcCursor_ObjCAtSynchronizedStmt == (int)CXCursor_ObjCAtSynchronizedStmt);
-C_ASSERT((int)DxcCursor_ObjCAutoreleasePoolStmt == (int)CXCursor_ObjCAutoreleasePoolStmt);
-C_ASSERT((int)DxcCursor_ObjCForCollectionStmt == (int)CXCursor_ObjCForCollectionStmt);
+C_ASSERT((int)DxcCursor_ObjCAtSynchronizedStmt ==
+         (int)CXCursor_ObjCAtSynchronizedStmt);
+C_ASSERT((int)DxcCursor_ObjCAutoreleasePoolStmt ==
+         (int)CXCursor_ObjCAutoreleasePoolStmt);
+C_ASSERT((int)DxcCursor_ObjCForCollectionStmt ==
+         (int)CXCursor_ObjCForCollectionStmt);
 C_ASSERT((int)DxcCursor_CXXCatchStmt == (int)CXCursor_CXXCatchStmt);
 C_ASSERT((int)DxcCursor_CXXTryStmt == (int)CXCursor_CXXTryStmt);
 C_ASSERT((int)DxcCursor_CXXForRangeStmt == (int)CXCursor_CXXForRangeStmt);
@@ -1936,21 +1956,24 @@ C_ASSERT((int)DxcCursor_SEHFinallyStmt == (int)CXCursor_SEHFinallyStmt);
 C_ASSERT((int)DxcCursor_MSAsmStmt == (int)CXCursor_MSAsmStmt);
 C_ASSERT((int)DxcCursor_NullStmt == (int)CXCursor_NullStmt);
 C_ASSERT((int)DxcCursor_DeclStmt == (int)CXCursor_DeclStmt);
-C_ASSERT((int)DxcCursor_OMPParallelDirective == (int)CXCursor_OMPParallelDirective);
+C_ASSERT((int)DxcCursor_OMPParallelDirective ==
+         (int)CXCursor_OMPParallelDirective);
 C_ASSERT((int)DxcCursor_LastStmt == (int)CXCursor_LastStmt);
 C_ASSERT((int)DxcCursor_TranslationUnit == (int)CXCursor_TranslationUnit);
 C_ASSERT((int)DxcCursor_FirstAttr == (int)CXCursor_FirstAttr);
 C_ASSERT((int)DxcCursor_UnexposedAttr == (int)CXCursor_UnexposedAttr);
 C_ASSERT((int)DxcCursor_IBActionAttr == (int)CXCursor_IBActionAttr);
 C_ASSERT((int)DxcCursor_IBOutletAttr == (int)CXCursor_IBOutletAttr);
-C_ASSERT((int)DxcCursor_IBOutletCollectionAttr == (int)CXCursor_IBOutletCollectionAttr);
+C_ASSERT((int)DxcCursor_IBOutletCollectionAttr ==
+         (int)CXCursor_IBOutletCollectionAttr);
 C_ASSERT((int)DxcCursor_CXXFinalAttr == (int)CXCursor_CXXFinalAttr);
 C_ASSERT((int)DxcCursor_CXXOverrideAttr == (int)CXCursor_CXXOverrideAttr);
 C_ASSERT((int)DxcCursor_AnnotateAttr == (int)CXCursor_AnnotateAttr);
 C_ASSERT((int)DxcCursor_AsmLabelAttr == (int)CXCursor_AsmLabelAttr);
 C_ASSERT((int)DxcCursor_PackedAttr == (int)CXCursor_PackedAttr);
 C_ASSERT((int)DxcCursor_LastAttr == (int)CXCursor_LastAttr);
-C_ASSERT((int)DxcCursor_PreprocessingDirective == (int)CXCursor_PreprocessingDirective);
+C_ASSERT((int)DxcCursor_PreprocessingDirective ==
+         (int)CXCursor_PreprocessingDirective);
 C_ASSERT((int)DxcCursor_MacroDefinition == (int)CXCursor_MacroDefinition);
 C_ASSERT((int)DxcCursor_MacroExpansion == (int)CXCursor_MacroExpansion);
 C_ASSERT((int)DxcCursor_MacroInstantiation == (int)CXCursor_MacroInstantiation);
@@ -1961,28 +1984,42 @@ C_ASSERT((int)DxcCursor_ModuleImportDecl == (int)CXCursor_ModuleImportDecl);
 C_ASSERT((int)DxcCursor_FirstExtraDecl == (int)CXCursor_FirstExtraDecl);
 C_ASSERT((int)DxcCursor_LastExtraDecl == (int)CXCursor_LastExtraDecl);
 
-C_ASSERT((int)DxcTranslationUnitFlags_UseCallerThread == (int)CXTranslationUnit_UseCallerThread);
+C_ASSERT((int)DxcTranslationUnitFlags_UseCallerThread ==
+         (int)CXTranslationUnit_UseCallerThread);
 
-C_ASSERT((int)DxcCodeCompleteFlags_IncludeMacros == (int)CXCodeComplete_IncludeMacros);
-C_ASSERT((int)DxcCodeCompleteFlags_IncludeCodePatterns == (int)CXCodeComplete_IncludeCodePatterns);
-C_ASSERT((int)DxcCodeCompleteFlags_IncludeBriefComments == (int)CXCodeComplete_IncludeBriefComments);
+C_ASSERT((int)DxcCodeCompleteFlags_IncludeMacros ==
+         (int)CXCodeComplete_IncludeMacros);
+C_ASSERT((int)DxcCodeCompleteFlags_IncludeCodePatterns ==
+         (int)CXCodeComplete_IncludeCodePatterns);
+C_ASSERT((int)DxcCodeCompleteFlags_IncludeBriefComments ==
+         (int)CXCodeComplete_IncludeBriefComments);
 
 C_ASSERT((int)DxcCompletionChunk_Optional == (int)CXCompletionChunk_Optional);
 C_ASSERT((int)DxcCompletionChunk_TypedText == (int)CXCompletionChunk_TypedText);
 C_ASSERT((int)DxcCompletionChunk_Text == (int)CXCompletionChunk_Text);
-C_ASSERT((int)DxcCompletionChunk_Placeholder == (int)CXCompletionChunk_Placeholder);
-C_ASSERT((int)DxcCompletionChunk_Informative == (int)CXCompletionChunk_Informative);
-C_ASSERT((int)DxcCompletionChunk_CurrentParameter == (int)CXCompletionChunk_CurrentParameter);
+C_ASSERT((int)DxcCompletionChunk_Placeholder ==
+         (int)CXCompletionChunk_Placeholder);
+C_ASSERT((int)DxcCompletionChunk_Informative ==
+         (int)CXCompletionChunk_Informative);
+C_ASSERT((int)DxcCompletionChunk_CurrentParameter ==
+         (int)CXCompletionChunk_CurrentParameter);
 C_ASSERT((int)DxcCompletionChunk_LeftParen == (int)CXCompletionChunk_LeftParen);
-C_ASSERT((int)DxcCompletionChunk_RightParen == (int)CXCompletionChunk_RightParen);
-C_ASSERT((int)DxcCompletionChunk_LeftBracket == (int)CXCompletionChunk_LeftBracket);
-C_ASSERT((int)DxcCompletionChunk_RightBracket == (int)CXCompletionChunk_RightBracket);
+C_ASSERT((int)DxcCompletionChunk_RightParen ==
+         (int)CXCompletionChunk_RightParen);
+C_ASSERT((int)DxcCompletionChunk_LeftBracket ==
+         (int)CXCompletionChunk_LeftBracket);
+C_ASSERT((int)DxcCompletionChunk_RightBracket ==
+         (int)CXCompletionChunk_RightBracket);
 C_ASSERT((int)DxcCompletionChunk_LeftBrace == (int)CXCompletionChunk_LeftBrace);
-C_ASSERT((int)DxcCompletionChunk_RightBrace == (int)CXCompletionChunk_RightBrace);
+C_ASSERT((int)DxcCompletionChunk_RightBrace ==
+         (int)CXCompletionChunk_RightBrace);
 C_ASSERT((int)DxcCompletionChunk_Comma == (int)CXCompletionChunk_Comma);
-C_ASSERT((int)DxcCompletionChunk_ResultType == (int)CXCompletionChunk_ResultType);
+C_ASSERT((int)DxcCompletionChunk_ResultType ==
+         (int)CXCompletionChunk_ResultType);
 C_ASSERT((int)DxcCompletionChunk_Colon == (int)CXCompletionChunk_Colon);
 C_ASSERT((int)DxcCompletionChunk_SemiColon == (int)CXCompletionChunk_SemiColon);
 C_ASSERT((int)DxcCompletionChunk_Equal == (int)CXCompletionChunk_Equal);
-C_ASSERT((int)DxcCompletionChunk_HorizontalSpace == (int)CXCompletionChunk_HorizontalSpace);
-C_ASSERT((int)DxcCompletionChunk_VerticalSpace == (int)CXCompletionChunk_VerticalSpace);
+C_ASSERT((int)DxcCompletionChunk_HorizontalSpace ==
+         (int)CXCompletionChunk_HorizontalSpace);
+C_ASSERT((int)DxcCompletionChunk_VerticalSpace ==
+         (int)CXCompletionChunk_VerticalSpace);
