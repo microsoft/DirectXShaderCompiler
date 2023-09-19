@@ -19,7 +19,8 @@ jobs:
           fetch-depth: 0
       - name: install clang-format
         run: sudo apt install -y clang-format
-      - run: |
+      - name: Comparing ${{ env.GITHUB_BASE_REF }} vs HEAD
+        run: |
             echo Comparing $GITHUB_BASE_REF vs HEAD
             git diff -U0 --no-color origin/$GITHUB_BASE_REF..HEAD | clang-format-diff -p1 | tee format.diff
             if [ -s "format.diff" ]
@@ -34,5 +35,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'PR contains clang-format violations. See action log for diff.'
+              body: 'PR contains clang-format violations. See [action log](https://github.com/microsoft/DirectXShaderCompiler/actions/runs/${{ env.GITHUB_RUN_ID }}/job/${{ env.GITHUB_JOB }}) for the full diff.'
             })
