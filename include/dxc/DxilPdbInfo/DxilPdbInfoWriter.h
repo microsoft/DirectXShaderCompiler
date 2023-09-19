@@ -18,7 +18,7 @@ struct IMalloc;
 
 namespace hlsl {
 
-HRESULT WritePdbInfoPart(IMalloc *pMalloc, const void *pUncompressedPdbInfoData, size_t size, std::vector<char> *outBuffer);
+HRESULT WritePdbInfoPart(IMalloc *pMalloc, const void *pUncompressedPdbInfoData,
+                         size_t size, std::vector<char> *outBuffer);
 
 }
-

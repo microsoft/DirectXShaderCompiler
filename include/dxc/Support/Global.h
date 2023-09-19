@@ -24,10 +24,10 @@ typedef _Return_type_success_(return >= 0) long HRESULT;
 #endif // !_HRESULT_DEFINED
 #endif // _WIN32
 
-#include <stdarg.h>
-#include <system_error>
 #include "dxc/Support/exception.h"
 #include "dxc/WinAdapter.h"
+#include <stdarg.h>
+#include <system_error>
 
 ///////////////////////////////////////////////////////////////////////////////
 // Memory allocation support.
@@ -51,12 +51,13 @@ void DxcCleanupThreadMalloc() throw();
 void DxcSetThreadMallocToDefault() throw();
 void DxcClearThreadMalloc() throw();
 
-// Used to retrieve the current invocation's allocator or perform an alloc/free/realloc.
+// Used to retrieve the current invocation's allocator or perform an
+// alloc/free/realloc.
 IMalloc *DxcGetThreadMallocNoRef() throw();
 
 // Common implementation of operators new and delete
 void *DxcNew(std::size_t size) throw();
-void DxcDelete(void* ptr) throw();
+void DxcDelete(void *ptr) throw();
 
 class DxcThreadMalloc {
 public:
@@ -69,10 +70,10 @@ private:
   // Copy constructor and assignment are dangerous and should always be
   // deleted...
   DxcThreadMalloc(const DxcThreadMalloc &) = delete;
-  DxcThreadMalloc &operator =(const DxcThreadMalloc &) = delete;
+  DxcThreadMalloc &operator=(const DxcThreadMalloc &) = delete;
   // Move constructor and assignment should be OK to be added if needed.
   DxcThreadMalloc(DxcThreadMalloc &&) = delete;
-  DxcThreadMalloc &operator =(DxcThreadMalloc &&) = delete;
+  DxcThreadMalloc &operator=(DxcThreadMalloc &&) = delete;
 
   IMalloc *p;
   IMalloc *pPrior;
@@ -82,33 +83,122 @@ private:
 // Error handling support.
 void CheckLLVMErrorCode(const std::error_code &ec);
 
-
 /******************************************************************************
                           Project-wide macros
 ******************************************************************************/
-#define SAFE_RELEASE(p)       { if (p) { (p)->Release();  (p) = nullptr; } }
-#define SAFE_ADDREF(p)        { if (p) { (p)->AddRef();               } }
+#define SAFE_RELEASE(p)                                                        \
+  {                                                                            \
+    if (p) {                                                                   \
+      (p)->Release();                                                          \
+      (p) = nullptr;                                                           \
+    }                                                                          \
+  }
+#define SAFE_ADDREF(p)                                                         \
+  {                                                                            \
+    if (p) {                                                                   \
+      (p)->AddRef();                                                           \
+    }                                                                          \
+  }
 
-#define SAFE_DELETE_ARRAY(p)  { delete [](p); p = nullptr; }
-#define SAFE_DELETE(p)        { delete (p); p = nullptr;  }
+#define SAFE_DELETE_ARRAY(p)                                                   \
+  {                                                                            \
+    delete[](p);                                                               \
+    p = nullptr;                                                               \
+  }
+#define SAFE_DELETE(p)                                                         \
+  {                                                                            \
+    delete (p);                                                                \
+    p = nullptr;                                                               \
+  }
 
 // VH is used in other DXC projects, but it's also a typedef in llvm.
 // Use the IFC (IfFailedCleanup) set of conventions.
-#define IFC(x)      { hr = (x); if (DXC_FAILED(hr)) goto Cleanup; }
-#define IFR(x)      { HRESULT __hr = (x); if (DXC_FAILED(__hr)) return __hr; }
-#define IFRBOOL(x,y){ if (!(x)) return (y); }
-#define IFCBOOL(x,y){ if (!(x)) { hr = (y); goto Cleanup; } }
-#define IFCOOM(x)   { if (nullptr == (x)) { hr = E_OUTOFMEMORY; goto Cleanup; } }
-#define IFROOM(x)   { if (nullptr == (x)) { return E_OUTOFMEMORY; } }
-#define IFCPTR(x)   { if (nullptr == (x)) { hr = E_POINTER; goto Cleanup; }}
-#define IFT(x)      { HRESULT __hr = (x); if (DXC_FAILED(__hr)) throw ::hlsl::Exception(__hr); }
-#define IFTBOOL(x,y){ if (!(x)) throw ::hlsl::Exception(y); }
-#define IFTOOM(x)   { if (nullptr == (x)) { throw ::hlsl::Exception(E_OUTOFMEMORY); }}
-#define IFTPTR(x)   { if (nullptr == (x)) { throw ::hlsl::Exception(E_POINTER); }}
-#define IFTARG(x)   { if (!(x)) { throw ::hlsl::Exception(E_INVALIDARG); }}
-#define IFTLLVM(x)  { CheckLLVMErrorCode(x); }
-#define IFTMSG(x, msg) { HRESULT __hr = (x); if (DXC_FAILED(__hr)) throw ::hlsl::Exception(__hr, msg); }
-#define IFTBOOLMSG(x, y, msg) { if (!(x)) throw ::hlsl::Exception(y, msg); }
+#define IFC(x)                                                                 \
+  {                                                                            \
+    hr = (x);                                                                  \
+    if (DXC_FAILED(hr))                                                        \
+      goto Cleanup;                                                            \
+  }
+#define IFR(x)                                                                 \
+  {                                                                            \
+    HRESULT __hr = (x);                                                        \
+    if (DXC_FAILED(__hr))                                                      \
+      return __hr;                                                             \
+  }
+#define IFRBOOL(x, y)                                                          \
+  {                                                                            \
+    if (!(x))                                                                  \
+      return (y);                                                              \
+  }
+#define IFCBOOL(x, y)                                                          \
+  {                                                                            \
+    if (!(x)) {                                                                \
+      hr = (y);                                                                \
+      goto Cleanup;                                                            \
+    }                                                                          \
+  }
+#define IFCOOM(x)                                                              \
+  {                                                                            \
+    if (nullptr == (x)) {                                                      \
+      hr = E_OUTOFMEMORY;                                                      \
+      goto Cleanup;                                                            \
+    }                                                                          \
+  }
+#define IFROOM(x)                                                              \
+  {                                                                            \
+    if (nullptr == (x)) {                                                      \
+      return E_OUTOFMEMORY;                                                    \
+    }                                                                          \
+  }
+#define IFCPTR(x)                                                              \
+  {                                                                            \
+    if (nullptr == (x)) {                                                      \
+      hr = E_POINTER;                                                          \
+      goto Cleanup;                                                            \
+    }                                                                          \
+  }
+#define IFT(x)                                                                 \
+  {                                                                            \
+    HRESULT __hr = (x);                                                        \
+    if (DXC_FAILED(__hr))                                                      \
+      throw ::hlsl::Exception(__hr);                                           \
+  }
+#define IFTBOOL(x, y)                                                          \
+  {                                                                            \
+    if (!(x))                                                                  \
+      throw ::hlsl::Exception(y);                                              \
+  }
+#define IFTOOM(x)                                                              \
+  {                                                                            \
+    if (nullptr == (x)) {                                                      \
+      throw ::hlsl::Exception(E_OUTOFMEMORY);                                  \
+    }                                                                          \
+  }
+#define IFTPTR(x)                                                              \
+  {                                                                            \
+    if (nullptr == (x)) {                                                      \
+      throw ::hlsl::Exception(E_POINTER);                                      \
+    }                                                                          \
+  }
+#define IFTARG(x)                                                              \
+  {                                                                            \
+    if (!(x)) {                                                                \
+      throw ::hlsl::Exception(E_INVALIDARG);                                   \
+    }                                                                          \
+  }
+#define IFTLLVM(x)                                                             \
+  { CheckLLVMErrorCode(x); }
+#define IFTMSG(x, msg)                                                         \
+  {                                                                            \
+    HRESULT __hr = (x);                                                        \
+    if (DXC_FAILED(__hr))                                                      \
+      throw ::hlsl::Exception(__hr, msg);                                      \
+  }
+#define IFTBOOLMSG(x, y, msg)                                                  \
+  {                                                                            \
+    if (!(x))                                                                  \
+      throw ::hlsl::Exception(y, msg);                                         \
+  }
 
 // Propagate an C++ exception into an HRESULT.
 #define CATCH_CPP_ASSIGN_HRESULT()                                             \
@@ -132,7 +222,7 @@ void CheckLLVMErrorCode(const std::error_code &ec);
     return E_FAIL;                                                             \
   }
 
-template<typename T> T *VerifyNullAndThrow(T *p) {
+template <typename T> T *VerifyNullAndThrow(T *p) {
   if (p == nullptr)
     throw std::bad_alloc();
   return p;
@@ -235,9 +325,21 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 
 #define DXVERIFY_NOMSG assert
 
-#define DXASSERT_ARGS(expr, fmt, ...) do { if (!(expr)) { fprintf(stderr, fmt, __VA_ARGS__); assert(false); } } while (0);
+#define DXASSERT_ARGS(expr, fmt, ...)                                          \
+  do {                                                                         \
+    if (!(expr)) {                                                             \
+      fprintf(stderr, fmt, __VA_ARGS__);                                       \
+      assert(false);                                                           \
+    }                                                                          \
+  } while (0);
 
-#define DXASSERT(expr, msg) do { if (!(expr)) { fprintf(stderr, msg); assert(false && msg); } } while (0);
+#define DXASSERT(expr, msg)                                                    \
+  do {                                                                         \
+    if (!(expr)) {                                                             \
+      fprintf(stderr, msg);                                                    \
+      assert(false && msg);                                                    \
+    }                                                                          \
+  } while (0);
 
 #endif // _WIN32
 
@@ -249,7 +351,8 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 // DXASSERT is disabled in free builds.
 #define DXASSERT(exp, msg)
 
-// DXASSERT_LOCALVAR is disabled in free builds, but we keep the local referenced to avoid a warning.
+// DXASSERT_LOCALVAR is disabled in free builds, but we keep the local
+// referenced to avoid a warning.
 #define DXASSERT_LOCALVAR(local, exp, msg)                                     \
   do {                                                                         \
     (void)(local);                                                             \

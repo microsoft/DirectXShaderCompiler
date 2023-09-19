@@ -4,15 +4,15 @@
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
-class ShaderTesterImpl : public ShaderTester
-{
+class ShaderTesterImpl : public ShaderTester {
 public:
-  ShaderTesterImpl(const std::wstring& filename);
-  ShaderTesterImpl(ID3DBlob* blob);
+  ShaderTesterImpl(const std::wstring &filename);
+  ShaderTesterImpl(ID3DBlob *blob);
   virtual ~ShaderTesterImpl();
 
-  virtual void setDevice(const std::wstring& namePrefix);
-  virtual void runShader(int initialShaderId, const std::vector<int>& input, std::vector<int>& output) override;
+  virtual void setDevice(const std::wstring &namePrefix);
+  virtual void runShader(int initialShaderId, const std::vector<int> &input,
+                         std::vector<int> &output) override;
 
 private:
   void init();
@@ -21,7 +21,7 @@ private:
   void initPipeline();
   void initExecution();
 
-  void printLog(int* log);
+  void printLog(int *log);
 
   std::wstring m_filename;
   ComPtr<ID3DBlob> m_blob;
@@ -43,7 +43,7 @@ private:
   ComPtr<ID3D12DescriptorHeap> m_uavHeap;
   UINT m_uavDescriptorSize;
 
-  // Execution 
+  // Execution
   ComPtr<ID3D12CommandAllocator> m_commandAllocator;
   ComPtr<ID3D12CommandQueue> m_commandQueue;
   ComPtr<ID3D12GraphicsCommandList> m_commandList;

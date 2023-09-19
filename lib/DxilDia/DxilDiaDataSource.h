@@ -78,4 +78,4 @@ public:
   }
 };
 
-}  // namespace dxil_dia
+} // namespace dxil_dia

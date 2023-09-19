@@ -15,10 +15,10 @@
 
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilUtil.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constant.h"
@@ -63,8 +63,7 @@ namespace {
 using namespace pix_dxil;
 
 static bool IsInstrumentableFundamentalType(llvm::Type *pAllocaTy) {
-  return
-    pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy();
+  return pAllocaTy->isFloatingPointTy() || pAllocaTy->isIntegerTy();
 }
 
 class DxilAnnotateWithVirtualRegister : public llvm::ModulePass {
@@ -83,9 +82,9 @@ private:
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
   void AnnotateGeneric(llvm::Instruction *pI);
   void AssignNewDxilRegister(llvm::Instruction *pI);
-  void AssignNewAllocaRegister(llvm::AllocaInst* pAlloca, std::uint32_t C);
+  void AssignNewAllocaRegister(llvm::AllocaInst *pAlloca, std::uint32_t C);
 
-  hlsl::DxilModule* m_DM;
+  hlsl::DxilModule *m_DM;
   std::uint32_t m_uVReg;
   std::unique_ptr<llvm::ModuleSlotTracker> m_MST;
   int m_StartInstruction = 0;
@@ -95,7 +94,7 @@ private:
     m_uVReg = 0;
     m_MST.reset(new llvm::ModuleSlotTracker(&M));
     auto functions = m_DM->GetExportedFunctions();
-    for (auto& fn : functions) {
+    for (auto &fn : functions) {
       m_MST->incorporateFunction(*fn);
     }
   }
@@ -131,7 +130,8 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
 
   std::uint32_t InstNum = m_StartInstruction;
 
-  auto instrumentableFunctions = PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
+  auto instrumentableFunctions =
+      PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
   for (auto *F : instrumentableFunctions) {
     for (auto &block : F->getBasicBlockList()) {
@@ -154,12 +154,12 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     int InstructionRangeEnd = InstNum;
     for (auto &block : F->getBasicBlockList()) {
       for (llvm::Instruction &I : block.getInstList()) {
-        // If the instruction is part of the debug value instrumentation added by this pass, 
-        // it doesn't need to be instrumented for the PIX user.
+        // If the instruction is part of the debug value instrumentation added
+        // by this pass, it doesn't need to be instrumented for the PIX user.
         uint32_t unused1, unused2;
         if (auto *Alloca = llvm::dyn_cast<llvm::AllocaInst>(&I))
-            if (PixAllocaReg::FromInst(Alloca, &unused1, &unused2))
-                continue;
+          if (PixAllocaReg::FromInst(Alloca, &unused1, &unused2))
+            continue;
         if (!llvm::isa<llvm::DbgDeclareInst>(&I)) {
           pix_dxil::PixDxilInstNum::AddMD(M.getContext(), &I, InstNum++);
           InstructionRangeEnd = InstNum;
@@ -179,9 +179,10 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
 
   if (OSOverride != nullptr) {
-    // Print a set of strings of the exemplary form "InstructionCount: <n> <fnName>"
+    // Print a set of strings of the exemplary form "InstructionCount: <n>
+    // <fnName>"
     if (m_DM->GetShaderModel()->GetKind() == hlsl::ShaderModel::Kind::Library)
-        *OSOverride << "\nIsLibrary\n";
+      *OSOverride << "\nIsLibrary\n";
     *OSOverride << "\nInstructionCount:" << InstNum << "\n";
   }
 
@@ -190,7 +191,7 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
 }
 
 void DxilAnnotateWithVirtualRegister::AnnotateValues(llvm::Instruction *pI) {
-  if (auto* pAlloca = llvm::dyn_cast<llvm::AllocaInst>(pI)) {
+  if (auto *pAlloca = llvm::dyn_cast<llvm::AllocaInst>(pI)) {
     AnnotateAlloca(pAlloca);
   } else if (!pI->getType()->isPointerTy()) {
     AnnotateGeneric(pI);
@@ -219,16 +220,12 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(llvm::Instruction *pI) {
   PixAllocaRegWrite::AddMD(m_DM->GetCtx(), pSt, AllocaReg, Index);
 }
 
-static uint32_t GetStructOffset(
-  llvm::GetElementPtrInst* pGEP,
-  uint32_t& GEPOperandIndex,
-  llvm::Type* pElementType)
-{
+static uint32_t GetStructOffset(llvm::GetElementPtrInst *pGEP,
+                                uint32_t &GEPOperandIndex,
+                                llvm::Type *pElementType) {
   if (IsInstrumentableFundamentalType(pElementType)) {
     return 0;
-  }
-  else if (auto* pArray = llvm::dyn_cast<llvm::ArrayType>(pElementType))
-  {
+  } else if (auto *pArray = llvm::dyn_cast<llvm::ArrayType>(pElementType)) {
     // 1D-array example:
     //
     // When referring to the zeroth member of the array in this struct:
@@ -241,8 +238,8 @@ static uint32_t GetStructOffset(
     //  -The zeroth element in the struct (which is the array)
     //  -The zeroth element in that array
 
-    auto* pArrayIndex =
-      llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
+    auto *pArrayIndex =
+        llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
 
     if (pArrayIndex == nullptr) {
       return 0;
@@ -251,14 +248,14 @@ static uint32_t GetStructOffset(
     uint32_t ArrayIndex = pArrayIndex->getLimitedValue();
     auto pArrayElementType = pArray->getArrayElementType();
     uint32_t MemberIndex = ArrayIndex * CountStructMembers(pArrayElementType);
-    return MemberIndex + GetStructOffset(pGEP, GEPOperandIndex, pArrayElementType);
-  }
-  else if (auto* pStruct = llvm::dyn_cast<llvm::StructType>(pElementType))
-  {
-    DXASSERT(GEPOperandIndex < pGEP->getNumOperands(), "Unexpectedly read too many GetElementPtrInst operands");
+    return MemberIndex +
+           GetStructOffset(pGEP, GEPOperandIndex, pArrayElementType);
+  } else if (auto *pStruct = llvm::dyn_cast<llvm::StructType>(pElementType)) {
+    DXASSERT(GEPOperandIndex < pGEP->getNumOperands(),
+             "Unexpectedly read too many GetElementPtrInst operands");
 
-    auto* pMemberIndex =
-      llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
+    auto *pMemberIndex =
+        llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
 
     if (pMemberIndex == nullptr) {
       return 0;
@@ -267,20 +264,16 @@ static uint32_t GetStructOffset(
     uint32_t MemberIndex = pMemberIndex->getLimitedValue();
 
     uint32_t MemberOffset = 0;
-    for (uint32_t i = 0; i < MemberIndex; ++i)
-    {
+    for (uint32_t i = 0; i < MemberIndex; ++i) {
       MemberOffset += CountStructMembers(pStruct->getElementType(i));
     }
 
-    return MemberOffset +
-      GetStructOffset(pGEP, GEPOperandIndex, pStruct->getElementType(MemberIndex));
-  }
-  else
-  {
+    return MemberOffset + GetStructOffset(pGEP, GEPOperandIndex,
+                                          pStruct->getElementType(MemberIndex));
+  } else {
     return 0;
   }
 }
-
 
 bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     llvm::Value *V, llvm::AllocaInst **pAI, llvm::Value **pIdx) {
@@ -293,26 +286,28 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     uint32_t precedingMemberCount = 0;
     auto *Alloca = llvm::dyn_cast<llvm::AllocaInst>(pGEP->getPointerOperand());
     if (Alloca == nullptr) {
-      // In the case of vector types (floatN, matrixNxM), the pointer operand will actually
-      // point to another element pointer instruction. But this isn't a recursive thing-
-      // we only need to check these two levels.
-      if (auto* pPointerGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(pGEP->getPointerOperand())) {
+      // In the case of vector types (floatN, matrixNxM), the pointer operand
+      // will actually point to another element pointer instruction. But this
+      // isn't a recursive thing- we only need to check these two levels.
+      if (auto *pPointerGEP = llvm::dyn_cast<llvm::GetElementPtrInst>(
+              pGEP->getPointerOperand())) {
         Alloca =
             llvm::dyn_cast<llvm::AllocaInst>(pPointerGEP->getPointerOperand());
         if (Alloca == nullptr) {
           return false;
         }
-        // And of course the member we're after might not be at the beginning of the struct:
-        auto* pStructType  = llvm::dyn_cast<llvm::StructType>(pPointerGEP->getPointerOperandType()->getPointerElementType());
-        auto* pStructMember = llvm::dyn_cast<llvm::ConstantInt>(pPointerGEP->getOperand(2));
+        // And of course the member we're after might not be at the beginning of
+        // the struct:
+        auto *pStructType = llvm::dyn_cast<llvm::StructType>(
+            pPointerGEP->getPointerOperandType()->getPointerElementType());
+        auto *pStructMember =
+            llvm::dyn_cast<llvm::ConstantInt>(pPointerGEP->getOperand(2));
         uint64_t memberIndex = pStructMember->getLimitedValue();
-        for(uint64_t i = 0; i < memberIndex; ++i)
-        {
-          precedingMemberCount += CountStructMembers(pStructType->getStructElementType(i));
+        for (uint64_t i = 0; i < memberIndex; ++i) {
+          precedingMemberCount +=
+              CountStructMembers(pStructType->getStructElementType(i));
         }
-      }
-      else
-      {
+      } else {
         return false;
       }
     }
@@ -321,9 +316,10 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     llvm::Type *pStructType = pGEP->getPointerOperandType();
     pStructType = pStructType->getContainedType(0);
 
-    // The 1th operand is an index into the array of the above type. In DXIL derived from HLSL,
-    // we always expect this to be 0 (since llvm structs are only used for single-valued
-    // objects in HLSL, such as the amplification-to-mesh or TraceRays payloads).
+    // The 1th operand is an index into the array of the above type. In DXIL
+    // derived from HLSL, we always expect this to be 0 (since llvm structs are
+    // only used for single-valued objects in HLSL, such as the
+    // amplification-to-mesh or TraceRays payloads).
     uint32_t GEPOperandIndex = 1;
     auto *pBaseArrayIndex =
         llvm::dyn_cast<llvm::ConstantInt>(pGEP->getOperand(GEPOperandIndex++));
@@ -332,19 +328,15 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
     DXASSERT_LOCALVAR(pBaseArrayIndex, pBaseArrayIndex->getLimitedValue() == 0,
                       "unexpected >0 array index");
 
-    // From here on, the indices always come in groups: first, the type 
+    // From here on, the indices always come in groups: first, the type
     // referenced in the current struct. If that type is an (n-dimensional)
     // array, then there follow n indices.
 
-    auto offset = GetStructOffset(
-      pGEP,
-      GEPOperandIndex,
-      pStructType);
+    auto offset = GetStructOffset(pGEP, GEPOperandIndex, pStructType);
 
-    llvm::Value* IndexValue = B.getInt32(offset + precedingMemberCount);
+    llvm::Value *IndexValue = B.getInt32(offset + precedingMemberCount);
 
-    if (IndexValue != nullptr)
-    {
+    if (IndexValue != nullptr) {
       *pAI = Alloca;
       *pIdx = IndexValue;
       return true;
@@ -388,23 +380,24 @@ void DxilAnnotateWithVirtualRegister::AnnotateGeneric(llvm::Instruction *pI) {
     llvm::AllocaInst *StructAlloca =
         llvm::dyn_cast<llvm::AllocaInst>(GEP->getOperand(0));
     if (StructAlloca != nullptr) {
-      // This is the case of a pointer to a struct member. 
+      // This is the case of a pointer to a struct member.
       // We treat it as an alias of the actual member in the alloca.
       std::uint32_t baseStructRegNum = 0;
       std::uint32_t regSize = 0;
-      if (pix_dxil::PixAllocaReg::FromInst(StructAlloca, &baseStructRegNum, & regSize)) {
+      if (pix_dxil::PixAllocaReg::FromInst(StructAlloca, &baseStructRegNum,
+                                           &regSize)) {
         llvm::ConstantInt *OffsetAsInt =
             llvm::dyn_cast<llvm::ConstantInt>(GEP->getOperand(2));
-        if (OffsetAsInt != nullptr)
-        {
-          std::uint32_t OffsetInElementsFromStructureStart = static_cast<std::uint32_t>(
-            OffsetAsInt->getValue().getLimitedValue());
+        if (OffsetAsInt != nullptr) {
+          std::uint32_t OffsetInElementsFromStructureStart =
+              static_cast<std::uint32_t>(
+                  OffsetAsInt->getValue().getLimitedValue());
           DXASSERT(OffsetInElementsFromStructureStart < regSize,
-            "Structure member offset out of expected range");
+                   "Structure member offset out of expected range");
           std::uint32_t OffsetInValuesFromStructureStart =
-              OffsetInElementsFromStructureStart; 
-          if (auto *ST = llvm::dyn_cast<llvm::StructType>(GEP->getPointerOperandType()
-                                                       ->getPointerElementType())) {
+              OffsetInElementsFromStructureStart;
+          if (auto *ST = llvm::dyn_cast<llvm::StructType>(
+                  GEP->getPointerOperandType()->getPointerElementType())) {
             DXASSERT(OffsetInElementsFromStructureStart < ST->getNumElements(),
                      "Offset into struct is bigger than struct");
             OffsetInValuesFromStructureStart = 0;

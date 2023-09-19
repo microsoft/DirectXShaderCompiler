@@ -10,7 +10,6 @@
 #include "dxc/DXIL/DxilCBuffer.h"
 #include "dxc/Support/Global.h"
 
-
 namespace hlsl {
 
 //------------------------------------------------------------------------------
@@ -18,8 +17,7 @@ namespace hlsl {
 // DxilCBuffer methods.
 //
 DxilCBuffer::DxilCBuffer()
-: DxilResourceBase(DxilResourceBase::Class::CBuffer)
-, m_SizeInBytes(0) {
+    : DxilResourceBase(DxilResourceBase::Class::CBuffer), m_SizeInBytes(0) {
   SetKind(DxilResourceBase::Kind::CBuffer);
 }
 
@@ -27,6 +25,8 @@ DxilCBuffer::~DxilCBuffer() {}
 
 unsigned DxilCBuffer::GetSize() const { return m_SizeInBytes; }
 
-void DxilCBuffer::SetSize(unsigned InstanceSizeInBytes) { m_SizeInBytes = InstanceSizeInBytes; }
+void DxilCBuffer::SetSize(unsigned InstanceSizeInBytes) {
+  m_SizeInBytes = InstanceSizeInBytes;
+}
 
 } // namespace hlsl

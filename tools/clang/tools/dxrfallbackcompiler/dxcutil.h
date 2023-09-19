@@ -11,10 +11,10 @@
 
 #pragma once
 
-#include "dxc/dxcapi.h"
 #include "dxc/Support/microcom.h"
-#include <memory>
+#include "dxc/dxcapi.h"
 #include "llvm/ADT/StringRef.h"
+#include <memory>
 
 #define DISABLE_GET_CUSTOM_DIAG_ID 1
 
@@ -43,8 +43,7 @@ class DxcOpts;
 namespace dxcutil {
 struct AssembleInputs {
   AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
-                 CComPtr<IDxcBlob> &pOutputContainerBlob,
-                 IMalloc *pMalloc,
+                 CComPtr<IDxcBlob> &pOutputContainerBlob, IMalloc *pMalloc,
                  hlsl::SerializeDxilFlags SerializeFlags,
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                  bool bDebugInfo = false,
@@ -66,8 +65,9 @@ struct AssembleInputs {
   hlsl::AbstractMemoryStream *pRootSigOut = nullptr;
 };
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
-HRESULT ValidateRootSignatureInContainer(
-    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr);
+HRESULT
+ValidateRootSignatureInContainer(IDxcBlob *pRootSigContainer,
+                                 clang::DiagnosticsEngine *pDiag = nullptr);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
 void AssembleToContainer(AssembleInputs &inputs);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);

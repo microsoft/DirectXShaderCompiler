@@ -17,14 +17,15 @@ using namespace llvm;
 namespace {
 
 TEST(PointeeIteratorTest, Basic) {
-  int arr[4] = { 1, 2, 3, 4 };
+  int arr[4] = {1, 2, 3, 4};
   SmallVector<int *, 4> V;
   V.push_back(&arr[0]);
   V.push_back(&arr[1]);
   V.push_back(&arr[2]);
   V.push_back(&arr[3]);
 
-  typedef pointee_iterator<SmallVectorImpl<int *>::const_iterator> test_iterator;
+  typedef pointee_iterator<SmallVectorImpl<int *>::const_iterator>
+      test_iterator;
 
   test_iterator Begin, End;
   Begin = V.begin();
@@ -65,7 +66,8 @@ TEST(PointeeIteratorTest, SmartPointer) {
   V.push_back(make_unique<int>(4));
 
   typedef pointee_iterator<
-      SmallVectorImpl<std::unique_ptr<int>>::const_iterator> test_iterator;
+      SmallVectorImpl<std::unique_ptr<int>>::const_iterator>
+      test_iterator;
 
   test_iterator Begin, End;
   Begin = V.begin();

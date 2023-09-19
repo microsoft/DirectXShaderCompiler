@@ -21,8 +21,8 @@ namespace hlsl {
 enum class DxilRootSignatureVersion;
 enum class DxilRootSignatureCompilationFlags;
 struct DxilVersionedRootSignatureDesc;
-class  RootSignatureHandle;
-}
+class RootSignatureHandle;
+} // namespace hlsl
 
 namespace clang {
 class DiagnosticsEngine;
@@ -37,10 +37,10 @@ void ReportHLSLRootSigError(clang::DiagnosticsEngine &Diags,
                             clang::SourceLocation Loc, const char *pData,
                             unsigned Len);
 void CompileRootSignature(StringRef rootSigStr, DiagnosticsEngine &Diags,
-                          SourceLocation SLoc, 
+                          SourceLocation SLoc,
                           hlsl::DxilRootSignatureVersion rootSigVer,
                           hlsl::DxilRootSignatureCompilationFlags flags,
                           hlsl::RootSignatureHandle *pRootSigHandle);
-}
+} // namespace clang
 
 #endif
