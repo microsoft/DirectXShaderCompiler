@@ -3682,6 +3682,9 @@ static void ValidateGlobalVariables(ValidationContext &ValCtx) {
                 ValCtx.EmitInstrFormatError(I, ValidationRule::SmTGSMUnsupported,
                                             { "from non-compute entry points" });
               }
+            } else if (M.IsPatchConstantShader(F)) {
+              ValCtx.EmitInstrFormatError(I, ValidationRule::SmTGSMUnsupported,
+                                          { "from non-compute entry points" });
             }
           }
         }
