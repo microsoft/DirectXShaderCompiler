@@ -10,26 +10,27 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/LLVMContext.h"
 
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilValidation.h"
+#include "dxc/Support/WinIncludes.h"
 
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/dxcapi.impl.h"
+#include "dxc/Support/microcom.h"
+#include "dxcetw.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
-#include "dxc/Support/microcom.h"
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/dxcapi.impl.h"
-#include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxcetw.h"
 
 using namespace llvm;
 using namespace hlsl;
 
-// Utility class for setting and restoring the diagnostic context so we may capture errors/warnings
+// Utility class for setting and restoring the diagnostic context so we may
+// capture errors/warnings
 struct DiagRestore {
   LLVMContext &Ctx;
   void *OrigDiagContext;
@@ -41,9 +42,7 @@ struct DiagRestore {
     Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
                              DiagContext);
   }
-  ~DiagRestore() {
-    Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext);
-  }
+  ~DiagRestore() { Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext); }
 };
 
 class DxcValidator : public IDxcValidator, public IDxcVersionInfo {
@@ -65,7 +64,8 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcValidator)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcValidator, IDxcVersionInfo>(this, iid,
+                                                                 ppvObject);
   }
 
   // For internal use only.
@@ -100,9 +100,12 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
         *ppResult // Validation output status, buffer, and errors
 ) {
   DxcThreadMalloc TM(m_pMalloc);
-  if (pShader == nullptr || ppResult == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
+  if (pShader == nullptr || ppResult == nullptr ||
+      Flags & ~DxcValidatorFlags_ValidMask)
     return E_INVALIDARG;
-  if ((Flags & DxcValidatorFlags_ModuleOnly) && (Flags & (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
+  if ((Flags & DxcValidatorFlags_ModuleOnly) &&
+      (Flags &
+       (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
     return E_INVALIDARG;
   return ValidateWithOptModules(pShader, Flags, nullptr, nullptr, ppResult);
 }
@@ -129,7 +132,8 @@ HRESULT DxcValidator::ValidateWithOptModules(
     if (Flags & DxcValidatorFlags_RootSignatureOnly) {
       validationStatus = RunRootSignatureValidation(pShader, pDiagStream);
     } else {
-      validationStatus = RunValidation(pShader, Flags, pModule, pDebugModule, pDiagStream);
+      validationStatus =
+          RunValidation(pShader, Flags, pModule, pDebugModule, pDiagStream);
     }
     if (FAILED(validationStatus)) {
       std::string msg("Validation failed.\n");
@@ -140,10 +144,12 @@ HRESULT DxcValidator::ValidateWithOptModules(
     CComPtr<IDxcBlob> pDiagBlob;
     hr = pDiagStream.QueryInterface(&pDiagBlob);
     DXASSERT_NOMSG(SUCCEEDED(hr));
-    IFT(DxcResult::Create(validationStatus, DXC_OUT_NONE, {
-        DxcOutputObject::ErrorOutput(CP_UTF8, // TODO Support DefaultTextCodePage
-          (LPCSTR)pDiagBlob->GetBufferPointer(), pDiagBlob->GetBufferSize())
-      }, ppResult));
+    IFT(DxcResult::Create(
+        validationStatus, DXC_OUT_NONE,
+        {DxcOutputObject::ErrorOutput(
+            CP_UTF8, // TODO Support DefaultTextCodePage
+            (LPCSTR)pDiagBlob->GetBufferPointer(), pDiagBlob->GetBufferSize())},
+        ppResult));
   }
   CATCH_CPP_ASSIGN_HRESULT();
 
@@ -179,22 +185,30 @@ HRESULT DxcValidator::RunValidation(
 
   // Run validation may throw, but that indicates an inability to validate,
   // not that the validation failed (eg out of memory). That is indicated
-  // by a failing HRESULT, and possibly error messages in the diagnostics stream.
+  // by a failing HRESULT, and possibly error messages in the diagnostics
+  // stream.
 
   raw_stream_ostream DiagStream(pDiagStream);
 
   if (Flags & DxcValidatorFlags_ModuleOnly) {
-    IFRBOOL(!IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()), E_INVALIDARG);
+    IFRBOOL(!IsDxilContainerLike(pShader->GetBufferPointer(),
+                                 pShader->GetBufferSize()),
+            E_INVALIDARG);
   } else {
-    IFRBOOL(IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()), DXC_E_CONTAINER_INVALID);
+    IFRBOOL(IsDxilContainerLike(pShader->GetBufferPointer(),
+                                pShader->GetBufferSize()),
+            DXC_E_CONTAINER_INVALID);
   }
 
   if (!pModule) {
     DXASSERT_NOMSG(pDebugModule == nullptr);
     if (Flags & DxcValidatorFlags_ModuleOnly) {
-      return ValidateDxilBitcode((const char*)pShader->GetBufferPointer(), (uint32_t)pShader->GetBufferSize(), DiagStream);
+      return ValidateDxilBitcode((const char *)pShader->GetBufferPointer(),
+                                 (uint32_t)pShader->GetBufferSize(),
+                                 DiagStream);
     } else {
-      return ValidateDxilContainer(pShader->GetBufferPointer(), pShader->GetBufferSize(), DiagStream);
+      return ValidateDxilContainer(pShader->GetBufferPointer(),
+                                   pShader->GetBufferSize(), DiagStream);
     }
   }
 
@@ -204,9 +218,11 @@ HRESULT DxcValidator::RunValidation(
 
   IFR(hlsl::ValidateDxilModule(pModule, pDebugModule));
   if (!(Flags & DxcValidatorFlags_ModuleOnly)) {
-    IFR(ValidateDxilContainerParts(pModule, pDebugModule,
-                      IsDxilContainerLike(pShader->GetBufferPointer(), pShader->GetBufferSize()),
-                      (uint32_t)pShader->GetBufferSize()));
+    IFR(ValidateDxilContainerParts(
+        pModule, pDebugModule,
+        IsDxilContainerLike(pShader->GetBufferPointer(),
+                            pShader->GetBufferSize()),
+        (uint32_t)pShader->GetBufferSize()));
   }
 
   if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
@@ -221,27 +237,30 @@ DxcValidator::RunRootSignatureValidation(IDxcBlob *pShader,
                                          AbstractMemoryStream *pDiagStream) {
 
   const DxilContainerHeader *pDxilContainer = IsDxilContainerLike(
-    pShader->GetBufferPointer(), pShader->GetBufferSize());
+      pShader->GetBufferPointer(), pShader->GetBufferSize());
   if (!pDxilContainer) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
-  const DxilProgramHeader *pProgramHeader = GetDxilProgramHeader(pDxilContainer, DFCC_DXIL);
-  const DxilPartHeader *pPSVPart = GetDxilPartByType(pDxilContainer, DFCC_PipelineStateValidation);
-  const DxilPartHeader *pRSPart = GetDxilPartByType(pDxilContainer, DFCC_RootSignature);
+  const DxilProgramHeader *pProgramHeader =
+      GetDxilProgramHeader(pDxilContainer, DFCC_DXIL);
+  const DxilPartHeader *pPSVPart =
+      GetDxilPartByType(pDxilContainer, DFCC_PipelineStateValidation);
+  const DxilPartHeader *pRSPart =
+      GetDxilPartByType(pDxilContainer, DFCC_RootSignature);
   IFRBOOL(pPSVPart && pRSPart, DXC_E_MISSING_PART);
   try {
     RootSignatureHandle RSH;
-    RSH.LoadSerialized((const uint8_t*)GetDxilPartData(pRSPart), pRSPart->PartSize);
+    RSH.LoadSerialized((const uint8_t *)GetDxilPartData(pRSPart),
+                       pRSPart->PartSize);
     RSH.Deserialize();
     raw_stream_ostream DiagStream(pDiagStream);
-    IFRBOOL(VerifyRootSignatureWithShaderPSV(RSH.GetDesc(),
-                                             GetVersionShaderType(pProgramHeader->ProgramVersion),
-                                             GetDxilPartData(pPSVPart),
-                                             pPSVPart->PartSize,
-                                             DiagStream),
-      DXC_E_INCORRECT_ROOT_SIGNATURE);
-  } catch(...) {
+    IFRBOOL(VerifyRootSignatureWithShaderPSV(
+                RSH.GetDesc(),
+                GetVersionShaderType(pProgramHeader->ProgramVersion),
+                GetDxilPartData(pPSVPart), pPSVPart->PartSize, DiagStream),
+            DXC_E_INCORRECT_ROOT_SIGNATURE);
+  } catch (...) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
@@ -265,9 +284,10 @@ HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
 
 HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv) {
   try {
-      CComPtr<DxcValidator> result(DxcValidator::Alloc(DxcGetThreadMallocNoRef()));
-      IFROOM(result.p);
-      return result.p->QueryInterface(riid, ppv);
+    CComPtr<DxcValidator> result(
+        DxcValidator::Alloc(DxcGetThreadMallocNoRef()));
+    IFROOM(result.p);
+    return result.p->QueryInterface(riid, ppv);
   }
   CATCH_CPP_RETURN_HRESULT();
 }

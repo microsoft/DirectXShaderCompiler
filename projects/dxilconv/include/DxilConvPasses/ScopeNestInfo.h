@@ -30,18 +30,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "llvm/Pass.h"
 #include "DxilConvPasses/ScopeNest.h"
-
+#include "llvm/Pass.h"
 
 namespace llvm {
 class Function;
 class PassRegistry;
 class FunctionPass;
 
-
 llvm::FunctionPass *createScopeNestInfoWrapperPass();
-void initializeScopeNestInfoWrapperPassPass(llvm::PassRegistry&);
+void initializeScopeNestInfoWrapperPassPass(llvm::PassRegistry &);
 
 // Class to hold the results of the scope nest analysis.
 //
@@ -52,46 +50,49 @@ void initializeScopeNestInfoWrapperPassPass(llvm::PassRegistry&);
 // This class is modeled after llvm LoopInfo.
 class ScopeNestInfo {
 public:
-    typedef std::vector<ScopeNestEvent>::const_iterator elements_iterator;
-    typedef iterator_range<elements_iterator> elements_iterator_range;
+  typedef std::vector<ScopeNestEvent>::const_iterator elements_iterator;
+  typedef iterator_range<elements_iterator> elements_iterator_range;
 
-    elements_iterator elements_begin() { return m_scopeElements.begin(); }
-    elements_iterator elements_end()   { return m_scopeElements.end(); }
-    elements_iterator_range elements(){ return elements_iterator_range(elements_begin(), elements_end()); }
+  elements_iterator elements_begin() { return m_scopeElements.begin(); }
+  elements_iterator elements_end() { return m_scopeElements.end(); }
+  elements_iterator_range elements() {
+    return elements_iterator_range(elements_begin(), elements_end());
+  }
 
-    void Analyze(Function &F);
-    void print(raw_ostream &O) const;
-    void releaseMemory();
+  void Analyze(Function &F);
+  void print(raw_ostream &O) const;
+  void releaseMemory();
 
 private:
-    std::vector<ScopeNestEvent> m_scopeElements;
+  std::vector<ScopeNestEvent> m_scopeElements;
 
-    raw_ostream &indent(raw_ostream &O, int level, StringRef str) const;
+  raw_ostream &indent(raw_ostream &O, int level, StringRef str) const;
 };
 
-// The legacy pass manager's analysis pass to read scope nest annotation information.
+// The legacy pass manager's analysis pass to read scope nest annotation
+// information.
 //
 // This class is modeled after the llvm LoopInfoWrapperPass.
 class ScopeNestInfoWrapperPass : public FunctionPass {
-    ScopeNestInfo SI;
+  ScopeNestInfo SI;
 
 public:
-    static char ID; // Pass identification, replacement for typeid
+  static char ID; // Pass identification, replacement for typeid
 
-    ScopeNestInfoWrapperPass() : FunctionPass(ID) {
-        initializeScopeNestInfoWrapperPassPass(*PassRegistry::getPassRegistry());
-    }
+  ScopeNestInfoWrapperPass() : FunctionPass(ID) {
+    initializeScopeNestInfoWrapperPassPass(*PassRegistry::getPassRegistry());
+  }
 
-    ScopeNestInfo &getScopeNestedInfo() { return SI; }
-    const ScopeNestInfo &getScopeNestedInfo() const { return SI; }
+  ScopeNestInfo &getScopeNestedInfo() { return SI; }
+  const ScopeNestInfo &getScopeNestedInfo() const { return SI; }
 
-    // Read the scope nest annotation information for a given function.
-    bool runOnFunction(Function &F) override;
+  // Read the scope nest annotation information for a given function.
+  bool runOnFunction(Function &F) override;
 
-    void releaseMemory() override;
+  void releaseMemory() override;
 
-    void print(raw_ostream &O, const Module *M = nullptr) const override;
+  void print(raw_ostream &O, const Module *M = nullptr) const override;
 
-    void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
-}
+} // namespace llvm

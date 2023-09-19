@@ -15,11 +15,11 @@
 namespace hlsl {
 
 DxilPartIterator begin(const DxilContainerHeader *pHeader) {
-  return{ pHeader, 0 };
+  return {pHeader, 0};
 }
 
 DxilPartIterator end(const DxilContainerHeader *pHeader) {
-  return{ pHeader, pHeader->PartCount };
+  return {pHeader, pHeader->PartCount};
 }
 
 void InitDxilContainer(DxilContainerHeader *pHeader, uint32_t partCount,
@@ -41,20 +41,26 @@ const DxilContainerHeader *IsDxilContainerLike(const void *ptr, size_t length) {
 }
 
 DxilContainerHeader *IsDxilContainerLike(void *ptr, size_t length) {
-  return const_cast<DxilContainerHeader *>(IsDxilContainerLike(
-    static_cast<const void *>(ptr), length));
+  return const_cast<DxilContainerHeader *>(
+      IsDxilContainerLike(static_cast<const void *>(ptr), length));
 }
 
 bool IsValidDxilContainer(const DxilContainerHeader *pHeader, size_t length) {
   // Validate that the header is where it's supposed to be.
-  if (pHeader == nullptr) return false;
-  if (length < sizeof(DxilContainerHeader)) return false;
+  if (pHeader == nullptr)
+    return false;
+  if (length < sizeof(DxilContainerHeader))
+    return false;
 
   // Validate the header values.
-  if (pHeader->HeaderFourCC != DFCC_Container) return false;
-  if (pHeader->Version.Major != DxilContainerVersionMajor) return false;
-  if (pHeader->ContainerSizeInBytes > length) return false;
-  if (pHeader->ContainerSizeInBytes > DxilContainerMaxSize) return false;
+  if (pHeader->HeaderFourCC != DFCC_Container)
+    return false;
+  if (pHeader->Version.Major != DxilContainerVersionMajor)
+    return false;
+  if (pHeader->ContainerSizeInBytes > length)
+    return false;
+  if (pHeader->ContainerSizeInBytes > DxilContainerMaxSize)
+    return false;
 
   // Make sure that the count of offsets fits.
   size_t partOffsetTableBytes = sizeof(uint32_t) * pHeader->PartCount;
@@ -80,7 +86,7 @@ bool IsValidDxilContainer(const DxilContainerHeader *pHeader, size_t length) {
                                                  pPartOffsetTable[i]);
 
     // Each part should start at next location with no gaps.
-    if ((const void*)nextPartBegin != pPartHeader)
+    if ((const void *)nextPartBegin != pPartHeader)
       return false;
 
     if (pPartOffsetTable[i] + sizeof(DxilPartHeader) + pPartHeader->PartSize >
@@ -98,7 +104,8 @@ bool IsValidDxilContainer(const DxilContainerHeader *pHeader, size_t length) {
   return true;
 }
 
-const DxilPartHeader *GetDxilPartByType(const DxilContainerHeader *pHeader, DxilFourCC fourCC) {
+const DxilPartHeader *GetDxilPartByType(const DxilContainerHeader *pHeader,
+                                        DxilFourCC fourCC) {
   if (!IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes)) {
     return nullptr;
   }
@@ -116,7 +123,8 @@ DxilPartHeader *GetDxilPartByType(DxilContainerHeader *pHeader,
       static_cast<const DxilContainerHeader *>(pHeader), fourCC));
 }
 
-const DxilProgramHeader *GetDxilProgramHeader(const DxilContainerHeader *pHeader, DxilFourCC fourCC) {
+const DxilProgramHeader *
+GetDxilProgramHeader(const DxilContainerHeader *pHeader, DxilFourCC fourCC) {
   if (!IsDxilContainerLike(pHeader, pHeader->ContainerSizeInBytes)) {
     return nullptr;
   }
@@ -132,9 +140,10 @@ const DxilProgramHeader *GetDxilProgramHeader(const DxilContainerHeader *pHeader
              : nullptr;
 }
 
-DxilProgramHeader *GetDxilProgramHeader(DxilContainerHeader *pHeader, DxilFourCC fourCC) {
-  return const_cast<DxilProgramHeader *>(
-      GetDxilProgramHeader(static_cast<const DxilContainerHeader *>(pHeader), fourCC));
+DxilProgramHeader *GetDxilProgramHeader(DxilContainerHeader *pHeader,
+                                        DxilFourCC fourCC) {
+  return const_cast<DxilProgramHeader *>(GetDxilProgramHeader(
+      static_cast<const DxilContainerHeader *>(pHeader), fourCC));
 }
 
 } // namespace hlsl

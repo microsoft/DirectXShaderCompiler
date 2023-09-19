@@ -68,8 +68,9 @@ struct AssembleInputs {
   CComPtr<IDxcBlob> pPrivateBlob = nullptr;
 };
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
-HRESULT ValidateRootSignatureInContainer(
-    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr);
+HRESULT
+ValidateRootSignatureInContainer(IDxcBlob *pRootSigContainer,
+                                 clang::DiagnosticsEngine *pDiag = nullptr);
 HRESULT SetRootSignature(hlsl::DxilModule *pModule, CComPtr<IDxcBlob> pSource);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
 void AssembleToContainer(AssembleInputs &inputs);

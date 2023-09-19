@@ -5,14 +5,14 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Helper class for reading from dxil container.                                  //
+// Helper class for reading from dxil container. //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DxilContainer/DxilContainerReader.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h"
 #include "dxc/WinAdapter.h"
-#include "dxc/DxilContainer/DxilContainer.h"
-#include "dxc/DxilContainer/DxilContainerReader.h"
 
 namespace hlsl {
 
@@ -22,7 +22,8 @@ HRESULT DxilContainerReader::Load(const void *pContainer,
     return E_FAIL;
   }
 
-  const DxilContainerHeader *pHeader = IsDxilContainerLike(pContainer, containerSizeInBytes);
+  const DxilContainerHeader *pHeader =
+      IsDxilContainerLike(pContainer, containerSizeInBytes);
   if (pHeader == nullptr) {
     return E_FAIL;
   }
@@ -33,30 +34,37 @@ HRESULT DxilContainerReader::Load(const void *pContainer,
   m_pContainer = pContainer;
   m_uContainerSize = containerSizeInBytes;
   m_pHeader = pHeader;
-  
+
   return S_OK;
 }
 
 HRESULT DxilContainerReader::GetVersion(DxilContainerVersion *pResult) {
-  if (pResult == nullptr) return E_POINTER;
-  if (!IsLoaded()) return E_NOT_VALID_STATE;
+  if (pResult == nullptr)
+    return E_POINTER;
+  if (!IsLoaded())
+    return E_NOT_VALID_STATE;
   *pResult = m_pHeader->Version;
   return S_OK;
 }
 
 HRESULT DxilContainerReader::GetPartCount(uint32_t *pResult) {
-  if (pResult == nullptr) return E_POINTER;
-  if (!IsLoaded()) return E_NOT_VALID_STATE;
+  if (pResult == nullptr)
+    return E_POINTER;
+  if (!IsLoaded())
+    return E_NOT_VALID_STATE;
   *pResult = m_pHeader->PartCount;
   return S_OK;
 }
 
 HRESULT DxilContainerReader::GetPartContent(uint32_t idx, const void **ppResult,
                                             uint32_t *pResultSize) {
-  if (ppResult == nullptr) return E_POINTER;
+  if (ppResult == nullptr)
+    return E_POINTER;
   *ppResult = nullptr;
-  if (!IsLoaded()) return E_NOT_VALID_STATE;
-  if (idx >= m_pHeader->PartCount) return E_BOUNDS;
+  if (!IsLoaded())
+    return E_NOT_VALID_STATE;
+  if (idx >= m_pHeader->PartCount)
+    return E_BOUNDS;
   const DxilPartHeader *pPart = GetDxilContainerPart(m_pHeader, idx);
   *ppResult = GetDxilPartData(pPart);
   if (pResultSize != nullptr) {
@@ -66,9 +74,12 @@ HRESULT DxilContainerReader::GetPartContent(uint32_t idx, const void **ppResult,
 }
 
 HRESULT DxilContainerReader::GetPartFourCC(uint32_t idx, uint32_t *pResult) {
-  if (pResult == nullptr) return E_POINTER;
-  if (!IsLoaded()) return E_NOT_VALID_STATE;
-  if (idx >= m_pHeader->PartCount) return E_BOUNDS;
+  if (pResult == nullptr)
+    return E_POINTER;
+  if (!IsLoaded())
+    return E_NOT_VALID_STATE;
+  if (idx >= m_pHeader->PartCount)
+    return E_BOUNDS;
   const DxilPartHeader *pPart = GetDxilContainerPart(m_pHeader, idx);
   *pResult = pPart->PartFourCC;
   return S_OK;
@@ -76,10 +87,13 @@ HRESULT DxilContainerReader::GetPartFourCC(uint32_t idx, uint32_t *pResult) {
 
 HRESULT DxilContainerReader::FindFirstPartKind(uint32_t kind,
                                                uint32_t *pResult) {
-  if (pResult == nullptr) return E_POINTER;
+  if (pResult == nullptr)
+    return E_POINTER;
   *pResult = 0;
-  if (!IsLoaded()) return E_NOT_VALID_STATE;
-  DxilPartIterator it = std::find_if(begin(m_pHeader), end(m_pHeader), DxilPartIsType(kind));
+  if (!IsLoaded())
+    return E_NOT_VALID_STATE;
+  DxilPartIterator it =
+      std::find_if(begin(m_pHeader), end(m_pHeader), DxilPartIsType(kind));
   *pResult = (it == end(m_pHeader)) ? DXIL_CONTAINER_BLOB_NOT_FOUND : it.index;
   return S_OK;
 }

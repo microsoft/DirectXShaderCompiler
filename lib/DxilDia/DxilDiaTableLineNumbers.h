@@ -42,71 +42,78 @@ public:
   }
 
   LineNumber(
-    /* [in] */ IMalloc *pMalloc,
-    /* [in] */ Session *pSession,
-    /* [in] */ const llvm::Instruction * inst);
+      /* [in] */ IMalloc *pMalloc,
+      /* [in] */ Session *pSession,
+      /* [in] */ const llvm::Instruction *inst);
 
   const llvm::DebugLoc &DL() const;
 
   const llvm::Instruction *Inst() const { return m_inst; }
 
   STDMETHODIMP get_compiland(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override { return ENotImpl(); }
+      /* [retval][out] */ IDiaSymbol **pRetVal) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP get_sourceFile(
-    /* [retval][out] */ IDiaSourceFile **pRetVal) override;
+      /* [retval][out] */ IDiaSourceFile **pRetVal) override;
 
   STDMETHODIMP get_lineNumber(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_lineNumberEnd(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_columnNumber(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_columnNumberEnd(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_addressSection(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+      /* [retval][out] */ DWORD *pRetVal) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP get_addressOffset(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_relativeVirtualAddress(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_virtualAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) override { return ENotImpl(); }
+      /* [retval][out] */ ULONGLONG *pRetVal) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP get_length(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_sourceFileId(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_statement(
-    /* [retval][out] */ BOOL *pRetVal) override;
+      /* [retval][out] */ BOOL *pRetVal) override;
 
   STDMETHODIMP get_compilandId(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 };
 
-class LineNumbersTable : public impl::TableBase<IDiaEnumLineNumbers, IDiaLineNumber> {
+class LineNumbersTable
+    : public impl::TableBase<IDiaEnumLineNumbers, IDiaLineNumber> {
 public:
   LineNumbersTable(
-    /* [in] */ IMalloc *pMalloc,
-    /* [in] */ Session *pSession);
+      /* [in] */ IMalloc *pMalloc,
+      /* [in] */ Session *pSession);
 
   LineNumbersTable(
-    /* [in] */ IMalloc *pMalloc,
-    /* [in] */ Session *pSession,
-    /* [in] */ std::vector<const llvm::Instruction*> &&instructions);
+      /* [in] */ IMalloc *pMalloc,
+      /* [in] */ Session *pSession,
+      /* [in] */ std::vector<const llvm::Instruction *> &&instructions);
 
   HRESULT GetItem(
-    /* [in] */ DWORD index, 
-    /* [out] */ IDiaLineNumber **ppItem) override;
+      /* [in] */ DWORD index,
+      /* [out] */ IDiaLineNumber **ppItem) override;
 
 private:
   // Keep a reference to the instructions that contain the line numbers.
@@ -117,4 +124,4 @@ private:
   std::vector<const llvm::Instruction *> m_instructionsStorage;
 };
 
-}  // namespace dxil_dia
+} // namespace dxil_dia

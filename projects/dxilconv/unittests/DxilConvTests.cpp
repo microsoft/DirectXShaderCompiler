@@ -13,47 +13,47 @@
 #define UNICODE
 #endif
 
-#include <memory>
-#include <vector>
-#include <string>
-#include <map>
-#include <cassert>
-#include <sstream>
-#include <algorithm>
-#include <cfloat>
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#include <algorithm>
 #include <atlfile.h>
+#include <cassert>
+#include <cfloat>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
+#include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
-#include "dxc/Test/DxcTestUtils.h"
 
-#include "llvm/Support/raw_os_ostream.h"
 #include "dxc/Support/Global.h"
-#include "dxc/Support/dxcapi.use.h"
-#include "dxc/Support/microcom.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/dxcapi.use.h"
+#include "dxc/Support/microcom.h"
+#include "llvm/Support/raw_os_ostream.h"
 
-#include <fstream>
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/Path.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringSwitch.h"
+#include <fstream>
 
 using namespace std;
 
 class DxilConvTest {
 public:
   BEGIN_TEST_CLASS(DxilConvTest)
-    TEST_CLASS_PROPERTY(L"Parallel", L"true")
-    TEST_METHOD_PROPERTY(L"Priority", L"0")
-    END_TEST_CLASS()
+  TEST_CLASS_PROPERTY(L"Parallel", L"true")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
+  END_TEST_CLASS()
 
-    TEST_CLASS_SETUP(InitSupport);
+  TEST_CLASS_SETUP(InitSupport);
 
   TEST_METHOD(BatchDxbc2dxil);
   TEST_METHOD(BatchDxbc2dxilAsm);
@@ -63,15 +63,16 @@ public:
   TEST_METHOD(RegressionTests);
 
   BEGIN_TEST_METHOD(ManualFileCheckTest)
-    TEST_METHOD_PROPERTY(L"Ignore", L"true")
-    END_TEST_METHOD()
+  TEST_METHOD_PROPERTY(L"Ignore", L"true")
+  END_TEST_METHOD()
 
 private:
   dxc::DxcDllSupport m_dllSupport;
   PluginToolsPaths m_TestToolPaths;
 
   void DxilConvTestCheckFile(LPCWSTR path) {
-    FileRunTestResult t = FileRunTestResult::RunFromFileCommands(path, m_dllSupport, &m_TestToolPaths);
+    FileRunTestResult t = FileRunTestResult::RunFromFileCommands(
+        path, m_dllSupport, &m_TestToolPaths);
     if (t.RunResult != 0) {
       CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
       WEX::Logging::Log::Comment(commentWide);
@@ -79,7 +80,9 @@ private:
     }
   }
 
-  void DxilConvTestCheckBatchDir(std::wstring suitePath, std::string fileExt = ".hlsl", bool useRelativeFilename = false) {
+  void DxilConvTestCheckBatchDir(std::wstring suitePath,
+                                 std::string fileExt = ".hlsl",
+                                 bool useRelativeFilename = false) {
     using namespace llvm;
     using namespace WEX::TestExecution;
 
@@ -104,7 +107,7 @@ private:
     llvm::StringRef filterExt(fileExt);
     llvm::sys::path::native(utf8SuitePath.m_psz, DirNative);
     for (llvm::sys::fs::recursive_directory_iterator Dir(DirNative, EC), DirEnd;
-      Dir != DirEnd && !EC; Dir.increment(EC)) {
+         Dir != DirEnd && !EC; Dir.increment(EC)) {
       if (!llvm::sys::path::extension(Dir->path()).equals(filterExt)) {
         continue;
       }
@@ -118,7 +121,8 @@ private:
       numTestsRun++;
     }
 
-    VERIFY_IS_GREATER_THAN(numTestsRun, (unsigned)0, L"No test files found in batch directory.");
+    VERIFY_IS_GREATER_THAN(numTestsRun, (unsigned)0,
+                           L"No test files found in batch directory.");
   }
 
   bool GetCurrentBinDir(std::string &binDir) {
@@ -154,8 +158,7 @@ private:
     std::string loc = binDir + binaryName;
     if (::PathFileExistsA(loc.c_str())) {
       m_TestToolPaths.emplace(refName, loc);
-    }
-    else {
+    } else {
       CA2W locW(loc.c_str(), CP_UTF8);
       hlsl_test::LogErrorFmt(L"Cannot find %s.", locW.m_psz);
       return false;
@@ -166,7 +169,8 @@ private:
 
 bool DxilConvTest::InitSupport() {
   if (!m_dllSupport.IsEnabled()) {
-    VERIFY_SUCCEEDED(m_dllSupport.InitializeForDll("dxilconv.dll", "DxcCreateInstance"));
+    VERIFY_SUCCEEDED(
+        m_dllSupport.InitializeForDll("dxilconv.dll", "DxcCreateInstance"));
   }
 
   if (!FindToolInBinDir("%dxbc2dxil", "dxbc2dxil.exe")) {
@@ -188,15 +192,16 @@ TEST_F(DxilConvTest, ManualFileCheckTest) {
   WEX::Common::String value;
   VERIFY_SUCCEEDED(RuntimeParameters::TryGetValue(L"InputPath", value));
 
-  std::wstring path = static_cast<const wchar_t*>(value);
+  std::wstring path = static_cast<const wchar_t *>(value);
   if (!llvm::sys::path::is_absolute(CW2A(path.c_str()).m_psz)) {
     path = hlsl_test::GetPathToHlslDataFile(path.c_str());
   }
 
   bool isDirectory;
   {
-    // Temporarily setup the filesystem for testing whether the path is a directory.
-    // If it is, CodeGenTestCheckBatchDir will create its own instance.
+    // Temporarily setup the filesystem for testing whether the path is a
+    // directory. If it is, CodeGenTestCheckBatchDir will create its own
+    // instance.
     llvm::sys::fs::MSFileSystem *msfPtr;
     VERIFY_SUCCEEDED(CreateMSFileSystemForDisk(&msfPtr));
     std::unique_ptr<llvm::sys::fs::MSFileSystem> msf(msfPtr);
@@ -208,7 +213,7 @@ TEST_F(DxilConvTest, ManualFileCheckTest) {
   if (isDirectory) {
     DxilConvTestCheckBatchDir(path);
   } else {
-    DxilConvTestCheckFile(path.c_str() );
+    DxilConvTestCheckFile(path.c_str());
   }
 }
 
@@ -221,8 +226,8 @@ TEST_F(DxilConvTest, BatchDxbc2dxilAsm) {
 }
 
 TEST_F(DxilConvTest, BatchDxilCleanup) {
-  // switch current directory to directory with test files and use relative paths
-  // because the reference files contain file path as ModuleID
+  // switch current directory to directory with test files and use relative
+  // paths because the reference files contain file path as ModuleID
   wchar_t curDir[MAX_PATH];
   IFT(GetCurrentDirectoryW(sizeof(curDir), curDir) == 0);
 
@@ -233,12 +238,12 @@ TEST_F(DxilConvTest, BatchDxilCleanup) {
 
   IFT(::SetCurrentDirectory(curDir));
 }
- 
+
 TEST_F(DxilConvTest, BatchNormalizeDxil) {
   DxilConvTestCheckBatchDir(L"normalize_dxil", ".ll");
 }
 
-TEST_F(DxilConvTest, BatchScopeNestIterator) {  
+TEST_F(DxilConvTest, BatchScopeNestIterator) {
   DxilConvTestCheckBatchDir(L"scope_nest_iterator", ".ll");
 }
 

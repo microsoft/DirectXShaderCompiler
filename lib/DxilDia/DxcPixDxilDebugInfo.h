@@ -21,35 +21,27 @@
 #include <memory>
 #include <vector>
 
-namespace dxil_dia
-{
+namespace dxil_dia {
 class Session;
-}  // namespace dxil_dia
+} // namespace dxil_dia
 
-namespace llvm
-{
+namespace llvm {
 class Instruction;
 class Module;
-}  // namespace llvm
+} // namespace llvm
 
-namespace dxil_debug_info
-{
+namespace dxil_debug_info {
 class LiveVariables;
 
-class DxcPixDxilDebugInfo : public IDxcPixDxilDebugInfo
-{
+class DxcPixDxilDebugInfo : public IDxcPixDxilDebugInfo {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<dxil_dia::Session> m_pSession;
   std::unique_ptr<LiveVariables> m_LiveVars;
 
-  DxcPixDxilDebugInfo(
-      IMalloc *pMalloc,
-      dxil_dia::Session *pSession);
+  DxcPixDxilDebugInfo(IMalloc *pMalloc, dxil_dia::Session *pSession);
 
-  llvm::Instruction* FindInstruction(
-      DWORD InstructionOffset
-  ) const;
+  llvm::Instruction *FindInstruction(DWORD InstructionOffset) const;
 
 public:
   ~DxcPixDxilDebugInfo();
@@ -84,24 +76,17 @@ public:
 
   llvm::Module *GetModuleRef();
 
-  IMalloc *GetMallocNoRef()
-  {
-    return m_pMalloc;
-  }
+  IMalloc *GetMallocNoRef() { return m_pMalloc; }
 };
 
-class DxcPixDxilInstructionOffsets : public IDxcPixDxilInstructionOffsets
-{
+class DxcPixDxilInstructionOffsets : public IDxcPixDxilInstructionOffsets {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<dxil_dia::Session> m_pSession;
 
-  DxcPixDxilInstructionOffsets(
-    IMalloc* pMalloc,
-    dxil_dia::Session *pSession,
-    const wchar_t *FileName,
-    DWORD SourceLine,
-    DWORD SourceColumn);
+  DxcPixDxilInstructionOffsets(IMalloc *pMalloc, dxil_dia::Session *pSession,
+                               const wchar_t *FileName, DWORD SourceLine,
+                               DWORD SourceColumn);
 
   std::vector<DWORD> m_offsets;
 
@@ -110,28 +95,25 @@ public:
   DXC_MICROCOM_TM_ALLOC(DxcPixDxilInstructionOffsets)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDxcPixDxilInstructionOffsets>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPixDxilInstructionOffsets>(this, iid,
+                                                                ppvObject);
   }
 
   virtual STDMETHODIMP_(DWORD) GetCount() override;
   virtual STDMETHODIMP_(DWORD) GetOffsetByIndex(DWORD Index) override;
 };
 
-class DxcPixDxilSourceLocations : public IDxcPixDxilSourceLocations
-{
+class DxcPixDxilSourceLocations : public IDxcPixDxilSourceLocations {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
-  DxcPixDxilSourceLocations(
-    IMalloc* pMalloc,
-    dxil_dia::Session *pSession,
-    llvm::Instruction* IP);
+  DxcPixDxilSourceLocations(IMalloc *pMalloc, dxil_dia::Session *pSession,
+                            llvm::Instruction *IP);
 
-  struct Location
-  {
-      CComBSTR Filename;
-      DWORD Line;
-      DWORD Column;
+  struct Location {
+    CComBSTR Filename;
+    DWORD Line;
+    DWORD Column;
   };
   std::vector<Location> m_locations;
 
@@ -140,7 +122,8 @@ public:
   DXC_MICROCOM_TM_ALLOC(DxcPixDxilSourceLocations)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDxcPixDxilSourceLocations>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPixDxilSourceLocations>(this, iid,
+                                                             ppvObject);
   }
 
   virtual STDMETHODIMP_(DWORD) GetCount() override;
@@ -149,4 +132,4 @@ public:
   virtual STDMETHODIMP GetFileNameByIndex(DWORD Index, BSTR *Name) override;
 };
 
-}  // namespace dxil_debug_info
+} // namespace dxil_debug_info
