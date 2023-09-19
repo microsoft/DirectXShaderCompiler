@@ -1,0 +1,38 @@
+name: 'PR clang-format checker'
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+jobs:
+  check-pr-formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: install clang-format
+        run: sudo apt install -y clang-format
+      - run: |
+            echo Comparing $GITHUB_BASE_REF vs HEAD
+            git diff -U0 --no-color origin/$GITHUB_BASE_REF..HEAD | clang-format-diff -p1 | tee format.diff
+            if [ -s "format.diff" ]
+            then 
+              exit 1
+            fi
+      - if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'PR contains clang-format violations. See action log for diff.'
+            })
