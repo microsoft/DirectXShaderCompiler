@@ -119,9 +119,9 @@ add_link_options(/guard:cf)
 endif(WIN32)
 
 # Enable CET Shadow Stack
-if(WIN32 AND NOT (CMAKE_GENERATOR_PLATFORM MATCHES "ARM.*"))
-add_link_options(/CETCOMPAT)
-endif(WIN32 AND NOT (CMAKE_GENERATOR_PLATFORM MATCHES "ARM.*"))
+if(WIN32 AND NOT (CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "ARM.*"))
+  add_link_options(/CETCOMPAT)
+endif()
 
 # HLSL Change Ends
 
