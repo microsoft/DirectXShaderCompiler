@@ -62,31 +62,23 @@ public:
   }
 
 public:
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override;
+  STDMETHODIMP GetName(BSTR *Name) override;
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType** ppType) override;
+  STDMETHODIMP GetType(IDxcPixType **ppType) override;
 
-  STDMETHODIMP GetStorage(
-      _COM_Outptr_ IDxcPixDxilStorage** ppStorage) override;
+  STDMETHODIMP GetStorage(IDxcPixDxilStorage **ppStorage) override;
 };
 
 }  // namespace dxil_debug_info
 
 template <typename T>
-STDMETHODIMP dxil_debug_info::DxcPixVariable<T>::GetName(
-    _Outptr_result_z_ BSTR* Name)
-{
+STDMETHODIMP dxil_debug_info::DxcPixVariable<T>::GetName(BSTR *Name) {
   *Name = CComBSTR(CA2W(m_pVariable->getName().data())).Detach();
   return S_OK;
 }
 
 template <typename T>
-STDMETHODIMP dxil_debug_info::DxcPixVariable<T>::GetType(
-    _Outptr_result_z_ IDxcPixType **ppType
-)
-{
+STDMETHODIMP dxil_debug_info::DxcPixVariable<T>::GetType(IDxcPixType **ppType) {
   return dxil_debug_info::CreateDxcPixType(
       m_pDxilDebugInfo,
       m_pType,
@@ -94,10 +86,8 @@ STDMETHODIMP dxil_debug_info::DxcPixVariable<T>::GetType(
 }
 
 template <typename T>
-STDMETHODIMP dxil_debug_info::DxcPixVariable<T>::GetStorage(
-    _COM_Outptr_ IDxcPixDxilStorage **ppStorage
-)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixVariable<T>::GetStorage(IDxcPixDxilStorage **ppStorage) {
   const unsigned InitialOffsetInBits = 0;
   return CreateDxcPixStorage(
       m_pDxilDebugInfo,
@@ -145,21 +135,17 @@ public:
     return DoBasicQueryInterface<IDxcPixDxilLiveVariables>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP GetCount(
-      _Outptr_ DWORD *dwSize) override;
+  STDMETHODIMP GetCount(DWORD *dwSize) override;
 
-  STDMETHODIMP GetVariableByIndex(
-      _In_ DWORD Index,
-      _Outptr_result_z_ IDxcPixVariable** ppVariable) override;
+  STDMETHODIMP GetVariableByIndex(DWORD Index,
+                                  IDxcPixVariable **ppVariable) override;
 
-  STDMETHODIMP GetVariableByName(
-      _In_ LPCWSTR Name,
-      _Outptr_result_z_ IDxcPixVariable** ppVariable) override;
+  STDMETHODIMP GetVariableByName(LPCWSTR Name,
+                                 IDxcPixVariable **ppVariable) override;
 };
 
 }  // namespace dxil_debug_info
-STDMETHODIMP dxil_debug_info::DxcPixDxilLiveVariables::GetCount(
-    _Outptr_ DWORD *dwSize) {
+STDMETHODIMP dxil_debug_info::DxcPixDxilLiveVariables::GetCount(DWORD *dwSize) {
   *dwSize = m_LiveVars.size();
   return S_OK;
 }
@@ -192,9 +178,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilLiveVariables::CreateDxcPixVariable(
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilLiveVariables::GetVariableByIndex(
-    _In_ DWORD Index,
-    _Outptr_result_z_ IDxcPixVariable **ppVariable)
-{
+    DWORD Index, IDxcPixVariable **ppVariable) {
   if (Index >= m_LiveVars.size())
   {
     return E_BOUNDS;
@@ -205,9 +189,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilLiveVariables::GetVariableByIndex(
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilLiveVariables::GetVariableByName(
-    _In_ LPCWSTR Name,
-    _Outptr_result_z_ IDxcPixVariable **ppVariable)
-{
+    LPCWSTR Name, IDxcPixVariable **ppVariable) {
   std::string name = std::string(CW2A(Name));
 
   for (auto *VarInfo : m_LiveVars)

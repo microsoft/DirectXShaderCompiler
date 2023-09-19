@@ -386,7 +386,7 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
            (m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()),
            "only works for CS/MS/AS profiles");
   DXASSERT(idx < 3, "Thread dimension index must be 0-2");
-  __analysis_assume(idx < 3);
+  assert(idx < 3);
   if (!(m_pSM->IsCS() || m_pSM->IsMS() || m_pSM->IsAS()))
     return 0;
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;

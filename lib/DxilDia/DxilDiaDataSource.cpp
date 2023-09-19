@@ -44,14 +44,14 @@ STDMETHODIMP dxil_dia::DataSource::get_lastError(BSTR *pRetVal) {
 
 namespace dxil_dia
 {
-std::unique_ptr<llvm::MemoryBuffer> getMemBufferFromBlob(_In_ IDxcBlob *pBlob,
-                                                         const llvm::Twine &BufferName) {
+std::unique_ptr<llvm::MemoryBuffer>
+getMemBufferFromBlob(IDxcBlob *pBlob, const llvm::Twine &BufferName) {
   llvm::StringRef Data((LPSTR)pBlob->GetBufferPointer(), pBlob->GetBufferSize());
   return llvm::MemoryBuffer::getMemBufferCopy(Data, BufferName);
 }
 
-std::unique_ptr<llvm::MemoryBuffer> getMemBufferFromStream(_In_ IStream *pStream,
-                                                           const llvm::Twine &BufferName) {
+std::unique_ptr<llvm::MemoryBuffer>
+getMemBufferFromStream(IStream *pStream, const llvm::Twine &BufferName) {
   CComPtr<IDxcBlob> pBlob;
   if (SUCCEEDED(pStream->QueryInterface(&pBlob))) {
     return getMemBufferFromBlob(pBlob, BufferName);
@@ -69,7 +69,7 @@ std::unique_ptr<llvm::MemoryBuffer> getMemBufferFromStream(_In_ IStream *pStream
 }
 }  // namespace dxil_dia
 
-STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStream) {
+STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(IStream *pInputIStream) {
   try {
     DxcThreadMalloc TM(m_pMalloc);
     if (m_module.get() != nullptr) {
@@ -151,7 +151,7 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(_In_ IStream *pInputIStre
   return S_OK;
 }
 
-STDMETHODIMP dxil_dia::DataSource::openSession(_COM_Outptr_ IDiaSession **ppSession) {
+STDMETHODIMP dxil_dia::DataSource::openSession(IDiaSession **ppSession) {
   DxcThreadMalloc TM(m_pMalloc);
   *ppSession = nullptr;
   if (m_module.get() == nullptr)
@@ -171,8 +171,7 @@ STDMETHODIMP dxil_dia::DataSource::openSession(_COM_Outptr_ IDiaSession **ppSess
   return S_OK;
 }
 
-
-HRESULT CreateDxcDiaDataSource(_In_ REFIID riid, _Out_ LPVOID* ppv) {
+HRESULT CreateDxcDiaDataSource(REFIID riid, LPVOID *ppv) {
   CComPtr<dxil_dia::DataSource> result = CreateOnMalloc<dxil_dia::DataSource>(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;

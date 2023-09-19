@@ -82,8 +82,8 @@ void main() {
 // CHECK:                     OpLine [[file]] 87 41
 // CHECK-NEXT: [[idx:%[0-9]+]] = OpIAdd %uint
 // CHECK:                     OpLine [[file]] 87 3
-// CHECK-NEXT: [[v4i_0_0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %v4i %int_0
-// CHECK-NEXT:                OpStore [[v4i_0_0]] {{%[0-9]+}}
+// CHECK-NEXT: [[v4i_1:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %v4i %int_0
+// CHECK-NEXT:                OpStore [[v4i_1]] {{%[0-9]+}}
   v4i.x = NonUniformResourceIndex(v4i.y + v4i.z);
 
 // CHECK:      OpLine [[file]] 93 11
@@ -176,7 +176,7 @@ void main() {
 // CHECK-NEXT:                OpLine [[file]] 180 20
 // CHECK-NEXT:                OpExtInst %float {{%[0-9]+}} Sqrt [[abs]]
 // CHECK:      OpLine [[file]] 180 7
-// CHECK-NEXT: OpExtInst %uint {{%[0-9]+}} FindUMsb
+// CHECK-NEXT: OpExtInst %uint {{%[0-9]+}} FindSMsb
   max(firstbithigh(sqrt(abs(v2f.x * v4f.w)) + v4i.x),
 // CHECK:      OpLine [[file]] 183 7
 // CHECK-NEXT: OpExtInst %float {{%[0-9]+}} Cos

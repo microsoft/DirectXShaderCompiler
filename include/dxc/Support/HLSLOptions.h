@@ -41,6 +41,8 @@ class DxcDllSupport;
 
 namespace hlsl {
 
+enum class SerializeDxilFlags : uint32_t;
+
 namespace options {
 /// Flags specifically for clang options.  Must not overlap with
 /// llvm::opt::DriverFlag or (for clarity) with clang::driver::options.
@@ -302,6 +304,9 @@ int SetupDxcDllSupport(const DxcOpts &opts, dxc::DxcDllSupport &dxcSupport,
 void CopyArgsToWStrings(const llvm::opt::InputArgList &inArgs,
                         unsigned flagsToInclude,
                         std::vector<std::wstring> &outArgs);
+
+SerializeDxilFlags ComputeSerializeDxilFlags(const options::DxcOpts &opts);
+
 }
 }
 

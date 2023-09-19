@@ -95,10 +95,8 @@ public:
   }
 
   // IEnumUnknown implementation.
-  STDMETHODIMP Next(
-    _In_  ULONG celt,
-    _Out_writes_to_(celt, *pceltFetched)  IUnknown **rgelt,
-    _Out_opt_  ULONG *pceltFetched) override {
+  STDMETHODIMP Next(ULONG celt, IUnknown **rgelt,
+                    ULONG *pceltFetched) override {
     DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next < m_count) {
@@ -140,19 +138,19 @@ public:
     return (*pRetVal) ? S_OK : E_OUTOFMEMORY;
   }
 
-  STDMETHODIMP get_Count(_Out_ LONG *pRetVal) override {
+  STDMETHODIMP get_Count(LONG *pRetVal) override {
     *pRetVal = m_count;
     return S_OK;
   }
 
-  STDMETHODIMP Item(DWORD index, _COM_Outptr_ IUnknown **table) override {
+  STDMETHODIMP Item(DWORD index, IUnknown **table) override {
     if (index >= m_count)
       return E_INVALIDARG;
     return GetItem(index, (TItem **)table);
   }
 
   // T implementation (partial).
-  STDMETHODIMP Clone(_COM_Outptr_ T **ppenum) override {
+  STDMETHODIMP Clone(T **ppenum) override {
     *ppenum = nullptr;
     return ENotImpl();
   }

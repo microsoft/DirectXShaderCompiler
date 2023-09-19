@@ -55,45 +55,43 @@ struct __declspec(uuid("76bb3c85-006d-4b72-9e10-63cd97df57f0"))
   virtual HRESULT STDMETHODCALLTYPE SetDebugOutput(int val) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE RenameAndLink(
-      _In_count_(libCount) DxcShaderBytecode *pLibs,
-      UINT32 libCount,
-      _In_count_(ExportCount) DxcExportDesc *pExports,
-      UINT32 ExportCount,
-      _COM_Outptr_ IDxcOperationResult **ppResult
-  ) = 0;
+      DxcShaderBytecode *pLibs, UINT32 libCount, DxcExportDesc *pExports,
+      UINT32 ExportCount, IDxcOperationResult **ppResult) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE PatchShaderBindingTables(
-      _In_ const LPCWSTR pEntryName,
-      _In_ DxcShaderBytecode *pShaderBytecode,
-      _In_ void *pShaderInfo,
-      _COM_Outptr_ IDxcOperationResult **ppResult
-  ) = 0;
+      const LPCWSTR pEntryName, DxcShaderBytecode *pShaderBytecode,
+      void *pShaderInfo, IDxcOperationResult **ppResult) = 0;
 
   // Compiles libs together to create a raytracing compute shader. One of the libs 
   // should be the fallback implementation lib that defines functions like 
   // Fallback_TraceRay(), Fallback_ReportHit(), etc. Fallback_TraceRay() should 
-  // be one of the shader names so that it gets included in the compile. 
+  // be one of the shader names so that it gets included in the compile.
   virtual HRESULT STDMETHODCALLTYPE Compile(
-    _In_count_(libCount) DxcShaderBytecode *pLibs,                  // Array of libraries containing shaders
-    UINT32 libCount,                                        // Number of libraries containing shaders
-    _In_count_(shaderCount) const LPCWSTR *pShaderNames,    // Array of shader names to compile
-    _Out_writes_(shaderCount) DxcShaderInfo *pShaderInfo,   // Array of shaderInfo corresponding to pShaderNames
-    UINT32 shaderCount,                                     // Number of shaders to compile
-    UINT32 maxAttributeSize,
-    _COM_Outptr_ IDxcOperationResult **ppResult             // Compiler output status, buffer, and errors
-  ) = 0;
+      DxcShaderBytecode *pLibs,    // Array of libraries containing shaders
+      UINT32 libCount,             // Number of libraries containing shaders
+      const LPCWSTR *pShaderNames, // Array of shader names to compile
+      DxcShaderInfo
+          *pShaderInfo,   // Array of shaderInfo corresponding to pShaderNames
+      UINT32 shaderCount, // Number of shaders to compile
+      UINT32 maxAttributeSize,
+      IDxcOperationResult *
+          *ppResult // Compiler output status, buffer, and errors
+      ) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE Link(
-      _In_ const LPCWSTR pEntryName,                          // Name of entry function, null if compiling a collection
-      _In_count_(libCount) IDxcBlob **pLibs,                  // Array of libraries containing shaders
-      UINT32 libCount,                                        // Number of libraries containing shaders
-      _In_count_(shaderCount) const LPCWSTR *pShaderNames,    // Array of shader names to compile
-      _In_count_(shaderCount) DxcShaderInfo *pShaderInfo,   // Array of shaderInfo corresponding to pShaderNames
-      UINT32 shaderCount,                                     // Number of shaders to compile
+      const LPCWSTR
+          pEntryName, // Name of entry function, null if compiling a collection
+      IDxcBlob **pLibs,            // Array of libraries containing shaders
+      UINT32 libCount,             // Number of libraries containing shaders
+      const LPCWSTR *pShaderNames, // Array of shader names to compile
+      DxcShaderInfo
+          *pShaderInfo,   // Array of shaderInfo corresponding to pShaderNames
+      UINT32 shaderCount, // Number of shaders to compile
       UINT32 maxAttributeSize,
-      UINT32 stackSizeInBytes,                                // Continuation stack size. Use 0 for default.
-      _COM_Outptr_ IDxcOperationResult **ppResult             // Compiler output status, buffer, and errors
-  ) = 0;
+      UINT32 stackSizeInBytes, // Continuation stack size. Use 0 for default.
+      IDxcOperationResult *
+          *ppResult // Compiler output status, buffer, and errors
+      ) = 0;
 };
 
 // Note: __declspec(selectany) requires 'extern'
@@ -112,10 +110,8 @@ CLSID_SCOPE const GUID CLSID_DxcDxrFallbackCompiler = {
 { 0x9e, 0x10, 0x63, 0xcd, 0x97, 0xdf, 0x57, 0xf0 }
 };
 
-typedef HRESULT(__stdcall *DxcCreateDxrFallbackCompilerProc)(
-  _In_ REFCLSID   rclsid,
-  _In_ REFIID     riid,
-  _Out_ LPVOID*   ppv
-  );
+typedef HRESULT(__stdcall *DxcCreateDxrFallbackCompilerProc)(REFCLSID rclsid,
+                                                             REFIID riid,
+                                                             LPVOID *ppv);
 
 #endif

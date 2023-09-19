@@ -44,7 +44,7 @@ class Converter {
 public:
   Converter();
   static void PrintUsage();
-  void ParseCommandLine(int NumArgs, _In_z_count_(NumArgs + 1) wchar_t **ppArgs);
+  void ParseCommandLine(int NumArgs, wchar_t **ppArgs);
   static void CmdLineError(const wchar_t *pFormat, ...);
   void Run();
 
@@ -61,9 +61,9 @@ private:
   DxcCreateInstanceProc m_pfnDXCompiler_DxcCreateInstance;
   DxcCreateInstanceProc m_pfnDxilConv_DxcCreateInstance;
 
-  HRESULT CreateDxcLibrary(_Outptr_ IDxcLibrary **ppLibrary);
-  HRESULT CreateDxcCompiler(_Outptr_ IDxcCompiler **ppCompiler);
-  HRESULT CreateDxbcConverter(_Outptr_ IDxbcConverter **ppConverter);
+  HRESULT CreateDxcLibrary(IDxcLibrary **ppLibrary);
+  HRESULT CreateDxcCompiler(IDxcCompiler **ppCompiler);
+  HRESULT CreateDxbcConverter(IDxbcConverter **ppConverter);
   HRESULT GetDxcCreateInstance(LPCWSTR dllFileName, DxcCreateInstanceProc *ppFn);
 
   static bool CheckOption(const wchar_t *pStr, const wchar_t *pOption);
@@ -100,7 +100,7 @@ bool Converter::CheckOption(const wchar_t *pStr, const wchar_t *pOption) {
   return _wcsicmp(&pStr[1], pOption) == 0;
 }
 
-void Converter::ParseCommandLine(int NumArgs, _In_z_count_(NumArgs + 1) wchar_t **ppArgs) {
+void Converter::ParseCommandLine(int NumArgs, wchar_t **ppArgs) {
   try {
     bool bSeenHelp = false;
     bool bSeenInputFile = false;
@@ -184,7 +184,7 @@ void Converter::CmdLineError(const wchar_t *pFormat, ...) {
   // idx is the number of characters written, not including the terminating
   // null character, or a negative value if an output error occurs
   if (idx < 0) idx = 0;
-  _Analysis_assume_(0 <= idx && idx <= kBufSize);
+  assert(0 <= idx && idx <= kBufSize);
   buf[idx] = L'\0';
 
   throw wstring(buf);
@@ -294,7 +294,7 @@ void Converter::Run() {
   IFT(hlsl::WriteBinaryFile(m_OutputFile.c_str(), pOutput, OutputSize));
 }
 
-HRESULT Converter::CreateDxcLibrary(_Outptr_ IDxcLibrary **ppLibrary) {
+HRESULT Converter::CreateDxcLibrary(IDxcLibrary **ppLibrary) {
   if (m_pfnDXCompiler_DxcCreateInstance == nullptr) {
     IFR(GetDxcCreateInstance(L"dxcompiler.dll", &m_pfnDXCompiler_DxcCreateInstance));
   }
@@ -302,7 +302,7 @@ HRESULT Converter::CreateDxcLibrary(_Outptr_ IDxcLibrary **ppLibrary) {
   return S_OK;
 }
 
-HRESULT Converter::CreateDxcCompiler(_Outptr_ IDxcCompiler **ppCompiler) {
+HRESULT Converter::CreateDxcCompiler(IDxcCompiler **ppCompiler) {
   if (m_pfnDXCompiler_DxcCreateInstance == nullptr) {
     IFR(GetDxcCreateInstance(L"dxcompiler.dll", &m_pfnDXCompiler_DxcCreateInstance));
   }
@@ -310,7 +310,7 @@ HRESULT Converter::CreateDxcCompiler(_Outptr_ IDxcCompiler **ppCompiler) {
   return S_OK;
 }
 
-HRESULT Converter::CreateDxbcConverter(_Outptr_ IDxbcConverter **ppConverter) {
+HRESULT Converter::CreateDxbcConverter(IDxbcConverter **ppConverter) {
   if (m_pfnDxilConv_DxcCreateInstance == nullptr) {
     IFR(GetDxcCreateInstance(L"dxilconv.dll", &m_pfnDxilConv_DxcCreateInstance));
   }
@@ -333,7 +333,7 @@ HRESULT Converter::GetDxcCreateInstance(LPCWSTR dllFileName, DxcCreateInstancePr
   return S_OK;
 }
 
-int __cdecl wmain(int argc, _In_z_count_(argc + 1) wchar_t **argv) {
+int __cdecl wmain(int argc, wchar_t **argv) {
   llvm_shutdown_obj Y;
 
   try {

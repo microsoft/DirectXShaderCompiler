@@ -80,12 +80,15 @@ public:
     return DoBasicQueryInterface<IDxcContainerReflection>(this, iid, ppvObject);
   }
 
-  HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pContainer) override;
-  HRESULT STDMETHODCALLTYPE GetPartCount(_Out_ UINT32 *pResult) override;
-  HRESULT STDMETHODCALLTYPE GetPartKind(UINT32 idx, _Out_ UINT32 *pResult) override;
-  HRESULT STDMETHODCALLTYPE GetPartContent(UINT32 idx, _COM_Outptr_ IDxcBlob **ppResult) override;
-  HRESULT STDMETHODCALLTYPE FindFirstPartKind(UINT32 kind, _Out_ UINT32 *pResult) override;
-  HRESULT STDMETHODCALLTYPE GetPartReflection(UINT32 idx, REFIID iid, _COM_Outptr_ void **ppvObject) override;
+  HRESULT STDMETHODCALLTYPE Load(IDxcBlob *pContainer) override;
+  HRESULT STDMETHODCALLTYPE GetPartCount(UINT32 *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetPartKind(UINT32 idx, UINT32 *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetPartContent(UINT32 idx,
+                                           IDxcBlob **ppResult) override;
+  HRESULT STDMETHODCALLTYPE FindFirstPartKind(UINT32 kind,
+                                              UINT32 *pResult) override;
+  HRESULT STDMETHODCALLTYPE GetPartReflection(UINT32 idx, REFIID iid,
+                                              void **ppvObject) override;
 };
 
 class CShaderReflectionConstantBuffer;
@@ -140,7 +143,7 @@ public:
   ID3D12ShaderReflectionConstantBuffer* _GetConstantBufferByName(LPCSTR Name);
 
   HRESULT _GetResourceBindingDesc(UINT ResourceIndex,
-                                  _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc,
+                                  D3D12_SHADER_INPUT_BIND_DESC *pDesc,
                                   PublicAPI api = PublicAPI::D3D12);
 
   ID3D12ShaderReflectionVariable* _GetVariableByName(LPCSTR Name);
@@ -197,43 +200,49 @@ public:
   HRESULT Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart);
 
   // ID3D12ShaderReflection
-  STDMETHODIMP GetDesc(THIS_ _Out_ D3D12_SHADER_DESC *pDesc) override;
+  STDMETHODIMP GetDesc(D3D12_SHADER_DESC *pDesc) override;
 
-  STDMETHODIMP_(ID3D12ShaderReflectionConstantBuffer*) GetConstantBufferByIndex(THIS_ _In_ UINT Index) override;
-  STDMETHODIMP_(ID3D12ShaderReflectionConstantBuffer*) GetConstantBufferByName(THIS_ _In_ LPCSTR Name) override;
+  STDMETHODIMP_(ID3D12ShaderReflectionConstantBuffer *)
+  GetConstantBufferByIndex(UINT Index) override;
+  STDMETHODIMP_(ID3D12ShaderReflectionConstantBuffer *)
+  GetConstantBufferByName(LPCSTR Name) override;
 
-  STDMETHODIMP GetResourceBindingDesc(THIS_ _In_ UINT ResourceIndex,
-    _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) override;
+  STDMETHODIMP
+  GetResourceBindingDesc(UINT ResourceIndex,
+                         D3D12_SHADER_INPUT_BIND_DESC *pDesc) override;
 
-  STDMETHODIMP GetInputParameterDesc(THIS_ _In_ UINT ParameterIndex,
-    _Out_ D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
-  STDMETHODIMP GetOutputParameterDesc(THIS_ _In_ UINT ParameterIndex,
-    _Out_ D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
-  STDMETHODIMP GetPatchConstantParameterDesc(THIS_ _In_ UINT ParameterIndex,
-    _Out_ D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
+  STDMETHODIMP
+  GetInputParameterDesc(UINT ParameterIndex,
+                        D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
+  STDMETHODIMP
+  GetOutputParameterDesc(UINT ParameterIndex,
+                         D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
+  STDMETHODIMP
+  GetPatchConstantParameterDesc(UINT ParameterIndex,
+                                D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
 
-  STDMETHODIMP_(ID3D12ShaderReflectionVariable*) GetVariableByName(THIS_ _In_ LPCSTR Name) override;
+  STDMETHODIMP_(ID3D12ShaderReflectionVariable *)
+  GetVariableByName(LPCSTR Name) override;
 
-  STDMETHODIMP GetResourceBindingDescByName(THIS_ _In_ LPCSTR Name,
-    _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) override;
+  STDMETHODIMP
+  GetResourceBindingDescByName(LPCSTR Name,
+                               D3D12_SHADER_INPUT_BIND_DESC *pDesc) override;
 
-  STDMETHODIMP_(UINT) GetMovInstructionCount(THIS) override;
-  STDMETHODIMP_(UINT) GetMovcInstructionCount(THIS) override;
-  STDMETHODIMP_(UINT) GetConversionInstructionCount(THIS) override;
-  STDMETHODIMP_(UINT) GetBitwiseInstructionCount(THIS) override;
+  STDMETHODIMP_(UINT) GetMovInstructionCount() override;
+  STDMETHODIMP_(UINT) GetMovcInstructionCount() override;
+  STDMETHODIMP_(UINT) GetConversionInstructionCount() override;
+  STDMETHODIMP_(UINT) GetBitwiseInstructionCount() override;
 
-  STDMETHODIMP_(D3D_PRIMITIVE) GetGSInputPrimitive(THIS) override;
-  STDMETHODIMP_(BOOL) IsSampleFrequencyShader(THIS) override;
+  STDMETHODIMP_(D3D_PRIMITIVE) GetGSInputPrimitive() override;
+  STDMETHODIMP_(BOOL) IsSampleFrequencyShader() override;
 
-  STDMETHODIMP_(UINT) GetNumInterfaceSlots(THIS) override;
-  STDMETHODIMP GetMinFeatureLevel(THIS_ _Out_ enum D3D_FEATURE_LEVEL* pLevel) override;
+  STDMETHODIMP_(UINT) GetNumInterfaceSlots() override;
+  STDMETHODIMP GetMinFeatureLevel(enum D3D_FEATURE_LEVEL *pLevel) override;
 
-  STDMETHODIMP_(UINT) GetThreadGroupSize(THIS_
-    _Out_opt_ UINT* pSizeX,
-    _Out_opt_ UINT* pSizeY,
-    _Out_opt_ UINT* pSizeZ) override;
+  STDMETHODIMP_(UINT)
+  GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY, UINT *pSizeZ) override;
 
-  STDMETHODIMP_(UINT64) GetRequiresFlags(THIS) override;
+  STDMETHODIMP_(UINT64) GetRequiresFlags() override;
 };
 
 class CFunctionReflection;
@@ -262,9 +271,10 @@ public:
   HRESULT Load(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart);
 
   // ID3D12LibraryReflection
-  STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_LIBRARY_DESC * pDesc) override;
+  STDMETHOD(GetDesc)(D3D12_LIBRARY_DESC *pDesc) override;
 
-  STDMETHOD_(ID3D12FunctionReflection *, GetFunctionByIndex)(THIS_ _In_ INT FunctionIndex) override;
+  STDMETHOD_(ID3D12FunctionReflection *, GetFunctionByIndex)
+  (INT FunctionIndex) override;
 };
 
 namespace hlsl {
@@ -333,7 +343,6 @@ HRESULT CreateDxilShaderOrLibraryReflectionFromModulePart(const DxilPartHeader *
 
 }
 
-_Use_decl_annotations_
 HRESULT DxilContainerReflection::Load(IDxcBlob *pContainer) {
 
   if (pContainer == nullptr) {
@@ -371,7 +380,6 @@ HRESULT DxilContainerReflection::Load(IDxcBlob *pContainer) {
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxilContainerReflection::GetPartCount(UINT32 *pResult) {
   if (pResult == nullptr) return E_POINTER;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
@@ -379,8 +387,7 @@ HRESULT DxilContainerReflection::GetPartCount(UINT32 *pResult) {
   return S_OK;
 }
 
-_Use_decl_annotations_
-HRESULT DxilContainerReflection::GetPartKind(UINT32 idx, _Out_ UINT32 *pResult) {
+HRESULT DxilContainerReflection::GetPartKind(UINT32 idx, UINT32 *pResult) {
   if (pResult == nullptr) return E_POINTER;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
   if (idx >= m_pHeader->PartCount) return E_BOUNDS;
@@ -389,8 +396,8 @@ HRESULT DxilContainerReflection::GetPartKind(UINT32 idx, _Out_ UINT32 *pResult) 
   return S_OK;
 }
 
-_Use_decl_annotations_
-HRESULT DxilContainerReflection::GetPartContent(UINT32 idx, _COM_Outptr_ IDxcBlob **ppResult) {
+HRESULT DxilContainerReflection::GetPartContent(UINT32 idx,
+                                                IDxcBlob **ppResult) {
   if (ppResult == nullptr) return E_POINTER;
   *ppResult = nullptr;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
@@ -403,8 +410,8 @@ HRESULT DxilContainerReflection::GetPartContent(UINT32 idx, _COM_Outptr_ IDxcBlo
   return DxcCreateBlobFromBlob(m_container, offset, length, ppResult);
 }
 
-_Use_decl_annotations_
-HRESULT DxilContainerReflection::FindFirstPartKind(UINT32 kind, _Out_ UINT32 *pResult) {
+HRESULT DxilContainerReflection::FindFirstPartKind(UINT32 kind,
+                                                   UINT32 *pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = 0;
   if (!IsLoaded()) return E_NOT_VALID_STATE;
@@ -414,7 +421,6 @@ HRESULT DxilContainerReflection::FindFirstPartKind(UINT32 kind, _Out_ UINT32 *pR
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxilContainerReflection::GetPartReflection(UINT32 idx, REFIID iid, void **ppvObject) {
   if (ppvObject == nullptr) return E_POINTER;
   *ppvObject = nullptr;
@@ -499,15 +505,15 @@ public:
   STDMETHOD_(ID3D12ShaderReflectionType*, GetMemberTypeByName)(LPCSTR Name);
   STDMETHOD_(LPCSTR, GetMemberTypeName)(UINT Index);
 
-  STDMETHOD(IsEqual)(THIS_ ID3D12ShaderReflectionType* pType);
-  STDMETHOD_(ID3D12ShaderReflectionType*, GetSubType)(THIS);
-  STDMETHOD_(ID3D12ShaderReflectionType*, GetBaseClass)(THIS);
-  STDMETHOD_(UINT, GetNumInterfaces)(THIS);
-  STDMETHOD_(ID3D12ShaderReflectionType*, GetInterfaceByIndex)(THIS_ UINT uIndex);
-  STDMETHOD(IsOfType)(THIS_ ID3D12ShaderReflectionType* pType);
-  STDMETHOD(ImplementsInterface)(THIS_ ID3D12ShaderReflectionType* pBase);
+  STDMETHOD(IsEqual)(ID3D12ShaderReflectionType *pType);
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetSubType)();
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetBaseClass)();
+  STDMETHOD_(UINT, GetNumInterfaces)();
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetInterfaceByIndex)(UINT uIndex);
+  STDMETHOD(IsOfType)(ID3D12ShaderReflectionType *pType);
+  STDMETHOD(ImplementsInterface)(ID3D12ShaderReflectionType *pBase);
 
-  bool CheckEqual(_In_ CShaderReflectionType *pOther) {
+  bool CheckEqual(CShaderReflectionType *pOther) {
     return m_Identity == pOther->m_Identity;
   }
 
@@ -535,7 +541,7 @@ public:
   STDMETHOD_(ID3D12ShaderReflectionType*, GetType)();
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer*, GetBuffer)();
 
-  STDMETHOD_(UINT, GetInterfaceSlot)(THIS_ UINT uArrayIndex);
+  STDMETHOD_(UINT, GetInterfaceSlot)(UINT uArrayIndex);
 };
 
 class CShaderReflectionConstantBuffer final : public ID3D12ShaderReflectionConstantBuffer
@@ -587,13 +593,15 @@ class CInvalidSRType final : public ID3D12ShaderReflectionType {
   STDMETHOD_(ID3D12ShaderReflectionType*, GetMemberTypeByName)(LPCSTR Name);
   STDMETHOD_(LPCSTR, GetMemberTypeName)(UINT Index) { return "$Invalid"; }
 
-  STDMETHOD(IsEqual)(THIS_ ID3D12ShaderReflectionType* pType) { return E_FAIL; }
-  STDMETHOD_(ID3D12ShaderReflectionType*, GetSubType)(THIS);
-  STDMETHOD_(ID3D12ShaderReflectionType*, GetBaseClass)(THIS);
-  STDMETHOD_(UINT, GetNumInterfaces)(THIS) { return 0; }
-  STDMETHOD_(ID3D12ShaderReflectionType*, GetInterfaceByIndex)(THIS_ UINT uIndex);
-  STDMETHOD(IsOfType)(THIS_ ID3D12ShaderReflectionType* pType) { return E_FAIL; }
-  STDMETHOD(ImplementsInterface)(THIS_ ID3D12ShaderReflectionType* pBase) { return E_FAIL; }
+  STDMETHOD(IsEqual)(ID3D12ShaderReflectionType *pType) { return E_FAIL; }
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetSubType)();
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetBaseClass)();
+  STDMETHOD_(UINT, GetNumInterfaces)() { return 0; }
+  STDMETHOD_(ID3D12ShaderReflectionType *, GetInterfaceByIndex)(UINT uIndex);
+  STDMETHOD(IsOfType)(ID3D12ShaderReflectionType *pType) { return E_FAIL; }
+  STDMETHOD(ImplementsInterface)(ID3D12ShaderReflectionType *pBase) {
+    return E_FAIL;
+  }
 };
 static CInvalidSRType g_InvalidSRType;
 
@@ -609,7 +617,7 @@ class CInvalidSRVariable final : public ID3D12ShaderReflectionVariable {
   STDMETHOD_(ID3D12ShaderReflectionType*, GetType)() { return &g_InvalidSRType; }
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer*, GetBuffer)();
 
-  STDMETHOD_(UINT, GetInterfaceSlot)(THIS_ UINT uIndex) { return UINT_MAX; }
+  STDMETHOD_(UINT, GetInterfaceSlot)(UINT uIndex) { return UINT_MAX; }
 };
 static CInvalidSRVariable g_InvalidSRVariable;
 
@@ -622,26 +630,41 @@ class CInvalidSRConstantBuffer final : public ID3D12ShaderReflectionConstantBuff
 static CInvalidSRConstantBuffer g_InvalidSRConstantBuffer;
 
 class CInvalidFunctionParameter final : public ID3D12FunctionParameterReflection {
-  STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_PARAMETER_DESC * pDesc) { return E_FAIL; }
+  STDMETHOD(GetDesc)(D3D12_PARAMETER_DESC *pDesc) { return E_FAIL; }
 };
 CInvalidFunctionParameter g_InvalidFunctionParameter;
 
 class CInvalidFunction final : public ID3D12FunctionReflection {
-  STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_FUNCTION_DESC * pDesc) { return E_FAIL; }
+  STDMETHOD(GetDesc)(D3D12_FUNCTION_DESC *pDesc) { return E_FAIL; }
 
-  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)(THIS_ _In_ UINT BufferIndex) { return &g_InvalidSRConstantBuffer; }
-  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByName)(THIS_ _In_ LPCSTR Name) { return &g_InvalidSRConstantBuffer; }
+  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
+  (UINT BufferIndex) {
+    return &g_InvalidSRConstantBuffer;
+  }
+  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByName)
+  (LPCSTR Name) {
+    return &g_InvalidSRConstantBuffer;
+  }
 
-  STDMETHOD(GetResourceBindingDesc)(THIS_ _In_ UINT ResourceIndex,
-    _Out_ D3D12_SHADER_INPUT_BIND_DESC * pDesc) { return E_FAIL; }
+  STDMETHOD(GetResourceBindingDesc)
+  (UINT ResourceIndex, D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
+    return E_FAIL;
+  }
 
-  STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByName)(THIS_ _In_ LPCSTR Name) { return nullptr; }
+  STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByName)(LPCSTR Name) {
+    return nullptr;
+  }
 
-  STDMETHOD(GetResourceBindingDescByName)(THIS_ _In_ LPCSTR Name,
-    _Out_ D3D12_SHADER_INPUT_BIND_DESC * pDesc) { return E_FAIL; }
+  STDMETHOD(GetResourceBindingDescByName)
+  (LPCSTR Name, D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
+    return E_FAIL;
+  }
 
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
-  STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)(THIS_ _In_ INT ParameterIndex) { return &g_InvalidFunctionParameter; }
+  STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
+  (INT ParameterIndex) {
+    return &g_InvalidFunctionParameter;
+  }
 };
 CInvalidFunction g_InvalidFunction;
 
@@ -710,44 +733,42 @@ STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetMemberTypeB
   return nullptr;
 }
 
-STDMETHODIMP CShaderReflectionType::IsEqual(THIS_ ID3D12ShaderReflectionType* pType)
-{
+STDMETHODIMP CShaderReflectionType::IsEqual(ID3D12ShaderReflectionType *pType) {
   // TODO: implement this check, if users actually depend on it
   return S_FALSE;
 }
 
-STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetSubType(THIS)
-{
+STDMETHODIMP_(ID3D12ShaderReflectionType *)
+CShaderReflectionType::GetSubType() {
   // TODO: implement `class`-related features, if requested
   return nullptr;
 }
 
-STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetBaseClass(THIS)
-{
+STDMETHODIMP_(ID3D12ShaderReflectionType *)
+CShaderReflectionType::GetBaseClass() {
   // TODO: implement `class`-related features, if requested
   return nullptr;
 }
 
-STDMETHODIMP_(UINT) CShaderReflectionType::GetNumInterfaces(THIS)
-{
+STDMETHODIMP_(UINT) CShaderReflectionType::GetNumInterfaces() {
   // HLSL interfaces have been deprecated
   return 0;
 }
 
-STDMETHODIMP_(ID3D12ShaderReflectionType*) CShaderReflectionType::GetInterfaceByIndex(THIS_ UINT uIndex)
-{
+STDMETHODIMP_(ID3D12ShaderReflectionType *)
+CShaderReflectionType::GetInterfaceByIndex(UINT uIndex) {
   // HLSL interfaces have been deprecated
   return nullptr;
 }
 
-STDMETHODIMP CShaderReflectionType::IsOfType(THIS_ ID3D12ShaderReflectionType* pType)
-{
+STDMETHODIMP
+CShaderReflectionType::IsOfType(ID3D12ShaderReflectionType *pType) {
   // TODO: implement `class`-related features, if requested
   return S_FALSE;
 }
 
-STDMETHODIMP CShaderReflectionType::ImplementsInterface(THIS_ ID3D12ShaderReflectionType* pBase)
-{
+STDMETHODIMP
+CShaderReflectionType::ImplementsInterface(ID3D12ShaderReflectionType *pBase) {
   // HLSL interfaces have been deprecated
   return S_FALSE;
 }
@@ -2197,7 +2218,6 @@ HRESULT DxilShaderReflection::Load(const DxilProgramHeader *pProgramHeader, cons
   CATCH_CPP_RETURN_HRESULT();
 }
 
-_Use_decl_annotations_
 HRESULT DxilShaderReflection::GetDesc(D3D12_SHADER_DESC *pDesc) {
   if (nullptr == pDesc) return E_POINTER;
   memcpy(pDesc, &m_Desc, sizeof(D3D12_SHADER_DESC));
@@ -2394,7 +2414,6 @@ void DxilShaderReflection::InitDesc() {
   // Macro instructions are a <= DX9 concept.
 }
 
-_Use_decl_annotations_
 ID3D12ShaderReflectionConstantBuffer* DxilShaderReflection::GetConstantBufferByIndex(UINT Index) {
   return DxilModuleReflection::_GetConstantBufferByIndex(Index);
 }
@@ -2405,7 +2424,6 @@ ID3D12ShaderReflectionConstantBuffer* DxilModuleReflection::_GetConstantBufferBy
   return m_CBs[Index].get();
 }
 
-_Use_decl_annotations_
 ID3D12ShaderReflectionConstantBuffer* DxilShaderReflection::GetConstantBufferByName(LPCSTR Name) {
   return DxilModuleReflection::_GetConstantBufferByName(Name);
 }
@@ -2431,13 +2449,12 @@ ID3D12ShaderReflectionConstantBuffer* DxilModuleReflection::_GetConstantBufferBy
   return &g_InvalidSRConstantBuffer;
 }
 
-_Use_decl_annotations_
-HRESULT DxilShaderReflection::GetResourceBindingDesc(UINT ResourceIndex,
-  _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
+HRESULT DxilShaderReflection::GetResourceBindingDesc(
+    UINT ResourceIndex, D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
   return DxilModuleReflection::_GetResourceBindingDesc(ResourceIndex, pDesc, m_PublicAPI);
 }
-HRESULT DxilModuleReflection::_GetResourceBindingDesc(UINT ResourceIndex,
-  _Out_ D3D12_SHADER_INPUT_BIND_DESC *pDesc, PublicAPI api) {
+HRESULT DxilModuleReflection::_GetResourceBindingDesc(
+    UINT ResourceIndex, D3D12_SHADER_INPUT_BIND_DESC *pDesc, PublicAPI api) {
   IFRBOOL(pDesc != nullptr, E_INVALIDARG);
   IFRBOOL(ResourceIndex < m_Resources.size(), E_INVALIDARG);
   if (api != PublicAPI::D3D12) {
@@ -2449,9 +2466,8 @@ HRESULT DxilModuleReflection::_GetResourceBindingDesc(UINT ResourceIndex,
   return S_OK;
 }
 
-_Use_decl_annotations_
-HRESULT DxilShaderReflection::GetInputParameterDesc(UINT ParameterIndex,
-  _Out_ D3D12_SIGNATURE_PARAMETER_DESC *pDesc) {
+HRESULT DxilShaderReflection::GetInputParameterDesc(
+    UINT ParameterIndex, D3D12_SIGNATURE_PARAMETER_DESC *pDesc) {
   IFRBOOL(pDesc != nullptr, E_INVALIDARG);
   IFRBOOL(ParameterIndex < m_InputSignature.size(), E_INVALIDARG);
   if (m_PublicAPI != PublicAPI::D3D11_43)
@@ -2464,7 +2480,6 @@ HRESULT DxilShaderReflection::GetInputParameterDesc(UINT ParameterIndex,
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxilShaderReflection::GetOutputParameterDesc(UINT ParameterIndex,
   D3D12_SIGNATURE_PARAMETER_DESC *pDesc) {
   IFRBOOL(pDesc != nullptr, E_INVALIDARG);
@@ -2479,7 +2494,6 @@ HRESULT DxilShaderReflection::GetOutputParameterDesc(UINT ParameterIndex,
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxilShaderReflection::GetPatchConstantParameterDesc(UINT ParameterIndex,
   D3D12_SIGNATURE_PARAMETER_DESC *pDesc) {
   IFRBOOL(pDesc != nullptr, E_INVALIDARG);
@@ -2494,7 +2508,6 @@ HRESULT DxilShaderReflection::GetPatchConstantParameterDesc(UINT ParameterIndex,
   return S_OK;
 }
 
-_Use_decl_annotations_
 ID3D12ShaderReflectionVariable* DxilShaderReflection::GetVariableByName(LPCSTR Name) {
   return DxilModuleReflection::_GetVariableByName(Name);
 }
@@ -2512,7 +2525,6 @@ ID3D12ShaderReflectionVariable* DxilModuleReflection::_GetVariableByName(LPCSTR 
   return &g_InvalidSRVariable;
 }
 
-_Use_decl_annotations_
 HRESULT DxilShaderReflection::GetResourceBindingDescByName(LPCSTR Name,
   D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
   return DxilModuleReflection::_GetResourceBindingDescByName(Name, pDesc, m_PublicAPI);
@@ -2554,13 +2566,11 @@ BOOL DxilShaderReflection::IsSampleFrequencyShader() {
 
 UINT DxilShaderReflection::GetNumInterfaceSlots() { return 0; }
 
-_Use_decl_annotations_
 HRESULT DxilShaderReflection::GetMinFeatureLevel(enum D3D_FEATURE_LEVEL* pLevel) {
   IFR(AssignToOut(D3D_FEATURE_LEVEL_12_0, pLevel));
   return S_OK;
 }
 
-_Use_decl_annotations_
 UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY, UINT *pSizeZ) {
   if (!m_pDxilModule->GetShaderModel()->IsCS() &&
       !m_pDxilModule->GetShaderModel()->IsMS() &&
@@ -2631,27 +2641,29 @@ public:
   }
 
   // ID3D12FunctionReflection
-  STDMETHOD(GetDesc)(THIS_ _Out_ D3D12_FUNCTION_DESC * pDesc);
+  STDMETHOD(GetDesc)(D3D12_FUNCTION_DESC *pDesc);
 
   // BufferIndex relative to used constant buffers here
-  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)(THIS_ _In_ UINT BufferIndex);
-  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByName)(THIS_ _In_ LPCSTR Name);
+  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
+  (UINT BufferIndex);
+  STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByName)
+  (LPCSTR Name);
 
-  STDMETHOD(GetResourceBindingDesc)(THIS_ _In_ UINT ResourceIndex,
-    _Out_ D3D12_SHADER_INPUT_BIND_DESC * pDesc);
+  STDMETHOD(GetResourceBindingDesc)
+  (UINT ResourceIndex, D3D12_SHADER_INPUT_BIND_DESC *pDesc);
 
-  STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByName)(THIS_ _In_ LPCSTR Name);
+  STDMETHOD_(ID3D12ShaderReflectionVariable *, GetVariableByName)(LPCSTR Name);
 
-  STDMETHOD(GetResourceBindingDescByName)(THIS_ _In_ LPCSTR Name,
-    _Out_ D3D12_SHADER_INPUT_BIND_DESC * pDesc);
+  STDMETHOD(GetResourceBindingDescByName)
+  (LPCSTR Name, D3D12_SHADER_INPUT_BIND_DESC *pDesc);
 
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
-  STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)(THIS_ _In_ INT ParameterIndex) {
+  STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
+  (INT ParameterIndex) {
     return &g_InvalidFunctionParameter;
   }
 };
 
-_Use_decl_annotations_
 HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   DXASSERT_NOMSG(m_pLibraryReflection);
   IFR(ZeroMemoryToOut(pDesc));
@@ -2868,7 +2880,6 @@ HRESULT DxilLibraryReflection::Load(const DxilProgramHeader *pProgramHeader, con
   CATCH_CPP_RETURN_HRESULT();
 }
 
-_Use_decl_annotations_
 HRESULT DxilLibraryReflection::GetDesc(D3D12_LIBRARY_DESC * pDesc) {
   IFR(ZeroMemoryToOut(pDesc));
   //Unset:  LPCSTR    Creator;           // The name of the originator of the library.
@@ -2878,7 +2889,6 @@ HRESULT DxilLibraryReflection::GetDesc(D3D12_LIBRARY_DESC * pDesc) {
   return S_OK;
 }
 
-_Use_decl_annotations_
 ID3D12FunctionReflection *DxilLibraryReflection::GetFunctionByIndex(INT FunctionIndex) {
   if ((UINT)FunctionIndex >= m_FunctionVector.size())
     return &g_InvalidFunction;

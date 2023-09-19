@@ -49,7 +49,7 @@ public:
   STDMETHODIMP get_crc(
     /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
 
-  STDMETHODIMP get_length(_Out_ ULONGLONG *pRetVal) override;
+  STDMETHODIMP get_length(ULONGLONG *pRetVal) override;
 
   STDMETHODIMP get_filename(BSTR *pRetVal) override;
 

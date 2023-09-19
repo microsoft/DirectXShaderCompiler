@@ -835,7 +835,6 @@ static DxilShaderVisibility GetVisibilityType(DXIL::ShaderKind ShaderKind) {
   }
 }
 
-_Use_decl_annotations_
 bool VerifyRootSignatureWithShaderPSV(const DxilVersionedRootSignatureDesc *pDesc,
                                       DXIL::ShaderKind ShaderKind,
                                       const void *pPSVData,
@@ -853,9 +852,9 @@ bool VerifyRootSignatureWithShaderPSV(const DxilVersionedRootSignatureDesc *pDes
   return true;
 }
 
-bool VerifyRootSignature(_In_ const DxilVersionedRootSignatureDesc *pDesc,
-                         _In_ llvm::raw_ostream &DiagStream,
-                         _In_ bool bAllowReservedRegisterSpace) {
+bool VerifyRootSignature(const DxilVersionedRootSignatureDesc *pDesc,
+                         llvm::raw_ostream &DiagStream,
+                         bool bAllowReservedRegisterSpace) {
   try {
     RootSignatureVerifier RSV;
     RSV.AllowReservedRegisterSpace(bAllowReservedRegisterSpace);

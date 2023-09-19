@@ -8313,25 +8313,6 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            srcLoc, srcRange);                  \
   } break
 
-#define INTRINSIC_OP_CASE_SINT_UINT(intrinsicOp, glslSintOp, glslUintOp,       \
-                                    doEachVec)                                 \
-  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
-    glslOpcode = isSintType ? GLSLstd450::GLSLstd450##glslSintOp               \
-                            : GLSLstd450::GLSLstd450##glslUintOp;              \
-    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec,    \
-                                           srcLoc, srcRange);                  \
-  } break
-
-#define INTRINSIC_OP_CASE_SINT_UINT_FLOAT(intrinsicOp, glslSintOp, glslUintOp, \
-                                          glslFloatOp, doEachVec)              \
-  case hlsl::IntrinsicOp::IOP_##intrinsicOp: {                                 \
-    glslOpcode = isFloatType  ? GLSLstd450::GLSLstd450##glslFloatOp            \
-                 : isSintType ? GLSLstd450::GLSLstd450##glslSintOp             \
-                              : GLSLstd450::GLSLstd450##glslUintOp;            \
-    retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, doEachVec,    \
-                                           srcLoc, srcRange);                  \
-  } break
-
   switch (const auto hlslOpcode = static_cast<hlsl::IntrinsicOp>(opcode)) {
   case hlsl::IntrinsicOp::IOP_InterlockedAdd:
   case hlsl::IntrinsicOp::IOP_InterlockedAnd:
@@ -8742,6 +8723,18 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            srcRange);
     break;
   }
+  case hlsl::IntrinsicOp::IOP_ufirstbithigh: {
+    retVal = processIntrinsicFirstbit(callExpr, GLSLstd450::GLSLstd450FindUMsb);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_firstbithigh: {
+    retVal = processIntrinsicFirstbit(callExpr, GLSLstd450::GLSLstd450FindSMsb);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_firstbitlow: {
+    retVal = processIntrinsicFirstbit(callExpr, GLSLstd450::GLSLstd450FindILsb);
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
     INTRINSIC_SPIRV_OP_CASE(ddx_fine, DPdxFine, false);
@@ -8772,10 +8765,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_OP_CASE(determinant, Determinant, false);
     INTRINSIC_OP_CASE(exp, Exp, true);
     INTRINSIC_OP_CASE(exp2, Exp2, true);
-    INTRINSIC_OP_CASE_SINT_UINT(firstbithigh, FindSMsb, FindUMsb, false);
-    INTRINSIC_OP_CASE_SINT_UINT(ufirstbithigh, FindSMsb, FindUMsb, false);
     INTRINSIC_OP_CASE(faceforward, FaceForward, false);
-    INTRINSIC_OP_CASE(firstbitlow, FindILsb, false);
     INTRINSIC_OP_CASE(floor, Floor, true);
     INTRINSIC_OP_CASE(fma, Fma, true);
     INTRINSIC_OP_CASE(frac, Fract, true);
@@ -8811,6 +8801,26 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   if (retVal)
     retVal->setRValue();
   return retVal;
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsicFirstbit(const CallExpr *callExpr,
+                                       GLSLstd450 glslOpcode) {
+  const FunctionDecl *callee = callExpr->getDirectCallee();
+  const SourceLocation srcLoc = callExpr->getExprLoc();
+  const SourceRange srcRange = callExpr->getSourceRange();
+  const QualType argType = callExpr->getArg(0)->getType();
+
+  if (astContext.getTypeSize(argType) == 64) {
+    emitError("%0 is not yet implemented for 64-bit width components when "
+              "targetting SPIR-V",
+              srcLoc)
+        << getFunctionOrOperatorName(callee, true);
+    return nullptr;
+  }
+
+  return processIntrinsicUsingGLSLInst(callExpr, glslOpcode, false, srcLoc,
+                                       srcRange);
 }
 
 SpirvInstruction *
@@ -8874,6 +8884,13 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
                                        const CallExpr *callExpr,
                                        uint32_t outputArgIndex) {
     const auto outputArg = callExpr->getArg(outputArgIndex);
+    if (dyn_cast<DeclRefExpr>(outputArg) == nullptr) {
+      emitError(
+          "InterlockedCompareExchange requires a reference as output parameter",
+          outputArg->getExprLoc());
+      return;
+    }
+
     const auto outputArgType = outputArg->getType();
     if (baseType != outputArgType)
       toWrite =
@@ -11179,11 +11196,14 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
   // 1 / log2(10) = 0.30103
   auto loc = callExpr->getExprLoc();
   auto range = callExpr->getSourceRange();
+
+  const auto returnType = callExpr->getType();
+  auto scalarType = getElementType(astContext, returnType);
+
   auto *scale =
-      spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.30103f));
+      spvBuilder.getConstantFloat(scalarType, llvm::APFloat(0.30103f));
   auto *log2 = processIntrinsicUsingGLSLInst(
       callExpr, GLSLstd450::GLSLstd450Log2, true, loc, range);
-  const auto returnType = callExpr->getType();
   spv::Op scaleOp = isScalarType(returnType)   ? spv::Op::OpFMul
                     : isVectorType(returnType) ? spv::Op::OpVectorTimesScalar
                                                : spv::Op::OpMatrixTimesScalar;
@@ -13747,60 +13767,28 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
                                 /*isInstr*/ true, expr->getExprLoc());
 }
 
-uint32_t SpirvEmitter::getAlignmentForRawBufferLoad(const CallExpr *callExpr) {
-  if (callExpr->getNumArgs() == 1)
-    return 4;
-
-  if (callExpr->getNumArgs() > 2) {
-    emitError("number of arguments for vk::RawBufferLoad() must be 1 or 2",
-              callExpr->getExprLoc());
-    return 0;
+uint32_t SpirvEmitter::getRawBufferAlignment(const Expr *expr) {
+  llvm::APSInt value;
+  if (expr->EvaluateAsInt(value, astContext) && value.isNonNegative()) {
+    return static_cast<uint32_t>(value.getZExtValue());
   }
 
-  const Expr *alignmentArgExpr = callExpr->getArg(1);
-  if (const auto *templateParmExpr =
-          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
-    alignmentArgExpr = templateParmExpr->getReplacement();
-  }
-  const auto *intLiteral =
-      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
-  if (intLiteral == nullptr) {
-    emitError("alignment argument of vk::RawBufferLoad() must be a constant "
-              "integer",
-              callExpr->getArg(1)->getExprLoc());
-    return 0;
-  }
-  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
-}
-
-uint32_t SpirvEmitter::getAlignmentForRawBufferStore(const CallExpr *callExpr) {
-  if (callExpr->getNumArgs() == 2)
-    return 4;
-
-  if (callExpr->getNumArgs() != 2 && callExpr->getNumArgs() != 3) {
-    emitError("number of arguments for vk::RawBufferStore() must be 2 or 3",
-              callExpr->getExprLoc());
-    return 0;
-  }
-
-  const Expr *alignmentArgExpr = callExpr->getArg(2);
-  if (const auto *templateParmExpr =
-          dyn_cast<SubstNonTypeTemplateParmExpr>(alignmentArgExpr)) {
-    alignmentArgExpr = templateParmExpr->getReplacement();
-  }
-  const auto *intLiteral =
-      dyn_cast<IntegerLiteral>(alignmentArgExpr->IgnoreImplicit());
-  if (intLiteral == nullptr) {
-    emitError("alignment argument of vk::RawBufferStore() must be a constant "
-              "integer",
-              callExpr->getArg(2)->getExprLoc());
-    return 0;
-  }
-  return static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
+  // Unable to determine a valid alignment at compile time
+  emitError("alignment argument must be a constant unsigned integer",
+            expr->getExprLoc());
+  return 0;
 }
 
 SpirvInstruction *SpirvEmitter::processRawBufferLoad(const CallExpr *callExpr) {
-  uint32_t alignment = getAlignmentForRawBufferLoad(callExpr);
+  if (callExpr->getNumArgs() > 2) {
+    emitError("number of arguments for vk::RawBufferLoad() must be 1 or 2",
+              callExpr->getExprLoc());
+    return nullptr;
+  }
+
+  uint32_t alignment = callExpr->getNumArgs() == 1
+                           ? 4
+                           : getRawBufferAlignment(callExpr->getArg(1));
   if (alignment == 0)
     return nullptr;
 
@@ -13893,7 +13881,15 @@ SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
 
 SpirvInstruction *
 SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
-  uint32_t alignment = getAlignmentForRawBufferStore(callExpr);
+  if (callExpr->getNumArgs() != 2 && callExpr->getNumArgs() != 3) {
+    emitError("number of arguments for vk::RawBufferStore() must be 2 or 3",
+              callExpr->getExprLoc());
+    return nullptr;
+  }
+
+  uint32_t alignment = callExpr->getNumArgs() == 2
+                           ? 4
+                           : getRawBufferAlignment(callExpr->getArg(2));
   if (alignment == 0)
     return nullptr;
 

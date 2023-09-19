@@ -110,7 +110,7 @@ public:
   HlslIntellisenseSupport(HlslIntellisenseSupport &&other)
       : dxc::DxcDllSupport(std::move(other)) {}
 
-  HRESULT CreateIntellisense(_Outptr_ IDxcIntelliSense **pResult) {
+  HRESULT CreateIntellisense(IDxcIntelliSense **pResult) {
     return CreateInstance(CLSID_DxcIntelliSense, pResult);
   }
 };
@@ -210,11 +210,11 @@ public:
     return result;
   }
 
-  static CompilationResult CreateForProgramAndArgs(const char* text, size_t textLen,
-    _In_count_(commandLineArgsCount) const char* commandLineArgs[],
-    unsigned commandLineArgsCount,
-    _In_opt_ DxcTranslationUnitFlags* options = nullptr)
-  {
+  static CompilationResult
+  CreateForProgramAndArgs(const char *text, size_t textLen,
+                          const char *commandLineArgs[],
+                          unsigned commandLineArgsCount,
+                          DxcTranslationUnitFlags *options = nullptr) {
     std::shared_ptr<HlslIntellisenseSupport> support(GetHlslSupport());
 
     CComPtr<IDxcIntelliSense> isense;
@@ -247,7 +247,7 @@ public:
 
   static CompilationResult
   CreateForProgram(const char *text, size_t textLen,
-                   _In_opt_ DxcTranslationUnitFlags *options = nullptr) {
+                   DxcTranslationUnitFlags *options = nullptr) {
     const char *commandLineArgs[] = {"-c", "-ferror-limit=200"};
     unsigned commandLineArgsCount = _countof(commandLineArgs);
     return CreateForProgramAndArgs(text, textLen, commandLineArgs,

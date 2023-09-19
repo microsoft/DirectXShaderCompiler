@@ -26,9 +26,9 @@
 #include "dxc/dxcapi.h"
 #include <atlfile.h>
 
-#include "dxc/test/HLSLTestData.h"
-#include "dxc/test/HlslTestUtils.h"
-#include "dxc/test/DxcTestUtils.h"
+#include "dxc/Test/HLSLTestData.h"
+#include "dxc/Test/HlslTestUtils.h"
+#include "dxc/Test/DxcTestUtils.h"
 
 #include "llvm/Support/raw_os_ostream.h"
 #include "dxc/Support/Global.h"

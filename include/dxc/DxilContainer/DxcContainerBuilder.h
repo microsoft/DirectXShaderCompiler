@@ -25,10 +25,15 @@ namespace hlsl {
 
 class DxcContainerBuilder : public IDxcContainerBuilder {
 public:
-  HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader) override; // Loads DxilContainer to the builder
-  HRESULT STDMETHODCALLTYPE AddPart(_In_ UINT32 fourCC, _In_ IDxcBlob *pSource) override; // Add the given part with fourCC
-  HRESULT STDMETHODCALLTYPE RemovePart(_In_ UINT32 fourCC) override;                // Remove the part with fourCC
-  HRESULT STDMETHODCALLTYPE SerializeContainer(_Out_ IDxcOperationResult **ppResult) override; // Builds a container of the given container builder state
+  // Loads DxilContainer to the builder
+  HRESULT STDMETHODCALLTYPE Load(IDxcBlob *pDxilContainerHeader) override;
+  // Add the given part with fourCC
+  HRESULT STDMETHODCALLTYPE AddPart(UINT32 fourCC, IDxcBlob *pSource) override;
+  // Remove the part with fourCC
+  HRESULT STDMETHODCALLTYPE RemovePart(UINT32 fourCC) override;
+  // Builds a container of the given container builder state
+  HRESULT STDMETHODCALLTYPE
+  SerializeContainer(IDxcOperationResult **ppResult) override;
 
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcContainerBuilder)

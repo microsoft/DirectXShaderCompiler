@@ -32,10 +32,11 @@ HRESULT DxilLibCleanup(DxilLibCleanUpType type);
 // Check if can access dxil.dll
 bool DxilLibIsEnabled();
 
-HRESULT DxilLibCreateInstance(_In_ REFCLSID rclsid, _In_ REFIID riid, _In_ IUnknown **ppInterface);
+HRESULT DxilLibCreateInstance(REFCLSID rclsid, REFIID riid,
+                              IUnknown **ppInterface);
 
 template <class TInterface>
-HRESULT DxilLibCreateInstance(_In_ REFCLSID rclsid, _In_ TInterface **ppInterface) {
+HRESULT DxilLibCreateInstance(REFCLSID rclsid, TInterface **ppInterface) {
   return DxilLibCreateInstance(rclsid, __uuidof(TInterface), (IUnknown**) ppInterface);
 }
 

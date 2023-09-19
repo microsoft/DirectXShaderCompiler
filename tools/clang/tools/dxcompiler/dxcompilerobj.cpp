@@ -77,17 +77,15 @@ using namespace hlsl;
 using std::string;
 
 // This declaration is used for the locally-linked validator.
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 
 // This internal call allows the validator to avoid having to re-deserialize
 // the module. It trusts that the caller didn't make any changes and is
 // kept internal because the layout of the module class may change based
 // on changes across modules, or picking a different compiler version or CRT.
-HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
-                             _In_ llvm::Module *pModule,
-                             _In_ llvm::Module *pDebugModule,
-                             _In_ IDxcBlob *pShader, UINT32 Flags,
-                             _In_ IDxcOperationResult **ppResult);
+HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
+                             llvm::Module *pDebugModule, IDxcBlob *pShader,
+                             UINT32 Flags, IDxcOperationResult **ppResult);
 
 static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
   switch (FourCC) {
@@ -413,10 +411,8 @@ public:
   }
 };
 
-static void CreateDefineStrings(
-    _In_count_(defineCount) const DxcDefine *pDefines,
-    UINT defineCount,
-    std::vector<std::string> &defines) {
+static void CreateDefineStrings(const DxcDefine *pDefines, UINT defineCount,
+                                std::vector<std::string> &defines) {
   // Not very efficient but also not very important.
   for (UINT32 i = 0; i < defineCount; i++) {
     CW2A utf8Name(pDefines[i].Name, CP_UTF8);
@@ -492,12 +488,13 @@ public:
 
   // Compile a single entry point to the target shader model with debug information.
   HRESULT STDMETHODCALLTYPE Compile(
-    _In_ const DxcBuffer *pSource,                // Source text to compile
-    _In_opt_count_(argCount) LPCWSTR *pArguments, // Array of pointers to arguments
-    _In_ UINT32 argCount,                         // Number of arguments
-    _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
-    _In_ REFIID riid, _Out_ LPVOID *ppResult      // IDxcResult: status, buffer, and errors
-  ) override {
+      const DxcBuffer *pSource,            // Source text to compile
+      LPCWSTR *pArguments,                 // Array of pointers to arguments
+      UINT32 argCount,                     // Number of arguments
+      IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle
+                                           // #include directives (optional)
+      REFIID riid, LPVOID *ppResult // IDxcResult: status, buffer, and errors
+      ) override {
     llvm::TimeTraceScope TimeScope("Compile", StringRef(""));
     if (pSource == nullptr || ppResult == nullptr ||
         (argCount > 0 && pArguments == nullptr))
@@ -928,35 +925,9 @@ public:
         }
         outStream.flush();
 
-        SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+        SerializeDxilFlags SerializeFlags = hlsl::options::ComputeSerializeDxilFlags(opts);
         CComPtr<IDxcBlob> pRootSignatureBlob = nullptr;
         CComPtr<IDxcBlob> pPrivateBlob = nullptr;
-        if (opts.EmbedPDBName()) {
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
-        }
-        // If -Qembed_debug specified, embed the debug info.
-        // Or, if there is no output pointer for the debug blob (such as when called by Compile()),
-        // embed the debug info and emit a note.
-        if (opts.EmbedDebugInfo()) {
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
-        }
-        if (opts.DebugNameForSource) {
-          // Implies name part
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
-          SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
-        } else if (opts.DebugNameForBinary) {
-          // Implies name part
-          SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
-        }
-        if (!opts.KeepReflectionInDxil) {
-          SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
-        }
-        if (!opts.StripReflection) {
-          SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
-        }
-        if (opts.StripRootSignature) {
-          SerializeFlags |= SerializeDxilFlags::StripRootSignature;
-        }
         if (!opts.RootSignatureSource.empty()) {
           hlsl::options::StringRefWide wstrRef(opts.RootSignatureSource);
           std::string error;
@@ -1179,7 +1150,7 @@ public:
     } catch (std::bad_alloc &) {
       hr = E_OUTOFMEMORY;
     } catch (hlsl::Exception &e) {
-      _Analysis_assume_(DXC_FAILED(e.hr));
+      assert(DXC_FAILED(e.hr));
       CComPtr<IDxcResult> pResult;
       hr = e.hr;
       std::string msg("Internal Compiler error: ");
@@ -1213,9 +1184,11 @@ public:
 
   // Disassemble a program.
   virtual HRESULT STDMETHODCALLTYPE Disassemble(
-    _In_ const DxcBuffer *pObject,                // Program to disassemble: dxil container or bitcode.
-    _In_ REFIID riid, _Out_ LPVOID *ppResult      // IDxcResult: status, disassembly text, and errors
-    ) override {
+      const DxcBuffer
+          *pObject, // Program to disassemble: dxil container or bitcode.
+      REFIID riid,
+      LPVOID *ppResult // IDxcResult: status, disassembly text, and errors
+      ) override {
     if (pObject == nullptr || ppResult == nullptr)
       return E_INVALIDARG;
     if (!(IsEqualIID(riid, __uuidof(IDxcResult)) ||
@@ -1255,7 +1228,7 @@ public:
     } catch (std::bad_alloc &) {
       hr = E_OUTOFMEMORY;
     } catch (hlsl::Exception &e) {
-      _Analysis_assume_(DXC_FAILED(e.hr));
+      assert(DXC_FAILED(e.hr));
       hr = e.hr;
       if (SUCCEEDED(DxcResult::Create(e.hr, DXC_OUT_NONE, {
               DxcOutputObject::ErrorOutput(CP_UTF8,
@@ -1273,12 +1246,12 @@ public:
   }
 
   void SetupCompilerForCompile(CompilerInstance &compiler,
-                               _In_ DxcLangExtensionsHelper *helper,
-                               _In_ LPCSTR pMainFile, _In_ TextDiagnosticPrinter *diagPrinter,
-                               _In_ std::vector<std::string>& defines,
-                               _In_ hlsl::options::DxcOpts &Opts,
-                               _In_count_(argCount) LPCWSTR *pArguments,
-                               _In_ UINT32 argCount) {
+                               DxcLangExtensionsHelper *helper,
+                               LPCSTR pMainFile,
+                               TextDiagnosticPrinter *diagPrinter,
+                               std::vector<std::string> &defines,
+                               hlsl::options::DxcOpts &Opts,
+                               LPCWSTR *pArguments, UINT32 argCount) {
     // Setup a compiler instance.
     std::shared_ptr<TargetOptions> targetOptions(new TargetOptions);
     targetOptions->Triple = "dxil-ms-dx";
@@ -1504,7 +1477,8 @@ public:
   }
 
   // IDxcVersionInfo
-  HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) override {
+  HRESULT STDMETHODCALLTYPE GetVersion(UINT32 *pMajor,
+                                       UINT32 *pMinor) override {
     if (pMajor == nullptr || pMinor == nullptr)
       return E_INVALIDARG;
     *pMajor = DXIL::kDxilMajor;
@@ -1512,9 +1486,9 @@ public:
     return S_OK;
   }
   HRESULT STDMETHODCALLTYPE GetCustomVersionString(
-    _Outptr_result_z_ char **pVersionString // Custom version string for compiler. (Must be CoTaskMemFree()'d!)
-  ) override
-  {
+      char **pVersionString // Custom version string for compiler. (Must be
+                            // CoTaskMemFree()'d!)
+      ) override {
     size_t size = strlen(RC_FILE_VERSION);
     char *const result = (char *)CoTaskMemAlloc(size + 1);
     if (result == nullptr)
@@ -1525,8 +1499,8 @@ public:
   }
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
-  HRESULT STDMETHODCALLTYPE GetCommitInfo(_Out_ UINT32 *pCommitCount,
-                                          _Out_ char **pCommitHash) override {
+  HRESULT STDMETHODCALLTYPE GetCommitInfo(UINT32 *pCommitCount,
+                                          char **pCommitHash) override {
     if (pCommitCount == nullptr || pCommitHash == nullptr)
       return E_INVALIDARG;
 
@@ -1542,7 +1516,7 @@ public:
   }
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
-  HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) override {
+  HRESULT STDMETHODCALLTYPE GetFlags(UINT32 *pFlags) override {
     if (pFlags == nullptr)
       return E_INVALIDARG;
     *pFlags = DxcVersionInfoFlags_None;
@@ -1567,15 +1541,17 @@ HRESULT STDMETHODCALLTYPE DxcCompilerAdapter::QueryInterface(REFIID iid, void **
 
 // Preprocess source text
 HRESULT STDMETHODCALLTYPE DxcCompilerAdapter::Preprocess(
-  _In_ IDxcBlob *pSource,                       // Source text to preprocess
-  _In_opt_z_ LPCWSTR pSourceName,               // Optional file name for pSource. Used in errors and include handlers.
-  _In_opt_count_(argCount) LPCWSTR *pArguments, // Array of pointers to arguments
-  _In_ UINT32 argCount,                         // Number of arguments
-  _In_count_(defineCount)
-    const DxcDefine *pDefines,                  // Array of defines
-  _In_ UINT32 defineCount,                      // Number of defines
-  _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
-  _COM_Outptr_ IDxcOperationResult **ppResult   // Preprocessor output status, buffer, and errors
+    IDxcBlob *pSource,   // Source text to preprocess
+    LPCWSTR pSourceName, // Optional file name for pSource. Used in errors and
+                         // include handlers.
+    LPCWSTR *pArguments, // Array of pointers to arguments
+    UINT32 argCount,     // Number of arguments
+    const DxcDefine *pDefines,           // Array of defines
+    UINT32 defineCount,                  // Number of defines
+    IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle
+                                         // #include directives (optional)
+    IDxcOperationResult *
+        *ppResult // Preprocessor output status, buffer, and errors
 ) {
   if (pSource == nullptr || ppResult == nullptr ||
       (defineCount > 0 && pDefines == nullptr) ||
@@ -1595,8 +1571,8 @@ HRESULT STDMETHODCALLTYPE DxcCompilerAdapter::Preprocess(
 
 // Disassemble a program.
 HRESULT STDMETHODCALLTYPE DxcCompilerAdapter::Disassemble(
-  _In_ IDxcBlob *pProgram,                        // Program to disassemble.
-  _COM_Outptr_ IDxcBlobEncoding **ppDisassembly   // Disassembly text.
+    IDxcBlob *pProgram,              // Program to disassemble.
+    IDxcBlobEncoding **ppDisassembly // Disassembly text.
 ) {
   if (pProgram == nullptr || ppDisassembly == nullptr)
     return E_INVALIDARG;
@@ -1619,21 +1595,24 @@ HRESULT STDMETHODCALLTYPE DxcCompilerAdapter::Disassemble(
   return hr;
 }
 
-HRESULT CreateDxcUtils(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcUtils(REFIID riid, LPVOID *ppv);
 
 HRESULT STDMETHODCALLTYPE DxcCompilerAdapter::CompileWithDebug(
-  _In_ IDxcBlob *pSource,                       // Source text to compile
-  _In_opt_ LPCWSTR pSourceName,                 // Optional file name for pSource. Used in errors and include handlers.
-  _In_ LPCWSTR pEntryPoint,                     // Entry point name
-  _In_ LPCWSTR pTargetProfile,                  // Shader profile to compile
-  _In_count_(argCount) LPCWSTR *pArguments,     // Array of pointers to arguments
-  _In_ UINT32 argCount,                         // Number of arguments
-  _In_count_(defineCount) const DxcDefine *pDefines,  // Array of defines
-  _In_ UINT32 defineCount,                      // Number of defines
-  _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
-  _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
-  _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob.
-  _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
+    IDxcBlob *pSource,   // Source text to compile
+    LPCWSTR pSourceName, // Optional file name for pSource. Used in errors and
+                         // include handlers.
+    LPCWSTR pEntryPoint, // Entry point name
+    LPCWSTR pTargetProfile,              // Shader profile to compile
+    LPCWSTR *pArguments,                 // Array of pointers to arguments
+    UINT32 argCount,                     // Number of arguments
+    const DxcDefine *pDefines,           // Array of defines
+    UINT32 defineCount,                  // Number of defines
+    IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle
+                                         // #include directives (optional)
+    IDxcOperationResult *
+        *ppResult,           // Compiler output status, buffer, and errors
+    LPWSTR *ppDebugBlobName, // Suggested file name for debug blob.
+    IDxcBlob **ppDebugBlob   // Debug blob
 ) {
   if (pSource == nullptr || ppResult == nullptr ||
       (defineCount > 0 && pDefines == nullptr) ||
@@ -1656,19 +1635,22 @@ HRESULT STDMETHODCALLTYPE DxcCompilerAdapter::CompileWithDebug(
 }
 
 HRESULT DxcCompilerAdapter::WrapCompile(
-  _In_ BOOL bPreprocess,                        // Preprocess mode
-  _In_ IDxcBlob *pSource,                       // Source text to compile
-  _In_opt_ LPCWSTR pSourceName,                 // Optional file name for pSource. Used in errors and include handlers.
-  _In_ LPCWSTR pEntryPoint,                     // Entry point name
-  _In_ LPCWSTR pTargetProfile,                  // Shader profile to compile
-  _In_count_(argCount) LPCWSTR *pArguments,     // Array of pointers to arguments
-  _In_ UINT32 argCount,                         // Number of arguments
-  _In_count_(defineCount) const DxcDefine *pDefines,  // Array of defines
-  _In_ UINT32 defineCount,                      // Number of defines
-  _In_opt_ IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle #include directives (optional)
-  _COM_Outptr_ IDxcOperationResult **ppResult,  // Compiler output status, buffer, and errors
-  _Outptr_opt_result_z_ LPWSTR *ppDebugBlobName,// Suggested file name for debug blob.
-  _COM_Outptr_opt_ IDxcBlob **ppDebugBlob       // Debug blob
+    BOOL bPreprocess,    // Preprocess mode
+    IDxcBlob *pSource,   // Source text to compile
+    LPCWSTR pSourceName, // Optional file name for pSource. Used in errors and
+                         // include handlers.
+    LPCWSTR pEntryPoint, // Entry point name
+    LPCWSTR pTargetProfile,              // Shader profile to compile
+    LPCWSTR *pArguments,                 // Array of pointers to arguments
+    UINT32 argCount,                     // Number of arguments
+    const DxcDefine *pDefines,           // Array of defines
+    UINT32 defineCount,                  // Number of defines
+    IDxcIncludeHandler *pIncludeHandler, // user-provided interface to handle
+                                         // #include directives (optional)
+    IDxcOperationResult *
+        *ppResult,           // Compiler output status, buffer, and errors
+    LPWSTR *ppDebugBlobName, // Suggested file name for debug blob.
+    IDxcBlob **ppDebugBlob   // Debug blob
 ) {
   HRESULT hr = S_OK;
   DxcThreadMalloc TM(m_pMalloc);
@@ -1811,7 +1793,7 @@ HRESULT DxcCompilerAdapter::WrapCompile(
   } catch (std::bad_alloc &) {
     hr = E_OUTOFMEMORY;
   } catch (hlsl::Exception &e) {
-    _Analysis_assume_(DXC_FAILED(e.hr));
+    assert(DXC_FAILED(e.hr));
     hr = DxcResult::Create(e.hr, DXC_OUT_NONE, {
         DxcOutputObject::ErrorOutput(CP_UTF8, e.msg.c_str(), e.msg.size())
       }, ppResult);
@@ -1822,8 +1804,7 @@ HRESULT DxcCompilerAdapter::WrapCompile(
 }
 //////////////////////////////////////////////////////////////
 
-
-HRESULT CreateDxcCompiler(_In_ REFIID riid, _Out_ LPVOID* ppv) {
+HRESULT CreateDxcCompiler(REFIID riid, LPVOID *ppv) {
   *ppv = nullptr;
   try {
     CComPtr<DxcCompiler> result(DxcCompiler::Alloc(DxcGetThreadMallocNoRef()));

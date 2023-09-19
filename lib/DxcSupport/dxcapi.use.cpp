@@ -25,7 +25,7 @@ const char* kDxCompilerLib = CMAKE_SHARED_LIBRARY_PREFIX "dxcompiler" CMAKE_SHAR
 const char* kDxilLib = CMAKE_SHARED_LIBRARY_PREFIX "dxil" CMAKE_SHARED_LIBRARY_SUFFIX;
 
 #ifdef _WIN32
-static void TrimEOL(_Inout_z_ char *pMsg) {
+static void TrimEOL(char *pMsg) {
   char *pEnd = pMsg + strlen(pMsg);
   --pEnd;
   while (pEnd > pMsg && (*pEnd == '\r' || *pEnd == '\n')) {
@@ -76,15 +76,15 @@ void EnsureEnabled(DxcDllSupport &dxcSupport) {
   }
 }
 
-void ReadFileIntoBlob(DxcDllSupport &dxcSupport, _In_ LPCWSTR pFileName,
-                      _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) {
+void ReadFileIntoBlob(DxcDllSupport &dxcSupport, LPCWSTR pFileName,
+                      IDxcBlobEncoding **ppBlobEncoding) {
   CComPtr<IDxcLibrary> library;
   IFT(dxcSupport.CreateInstance(CLSID_DxcLibrary, &library));
   IFT_Data(library->CreateBlobFromFile(pFileName, nullptr, ppBlobEncoding),
            pFileName);
 }
 
-void WriteOperationErrorsToConsole(_In_ IDxcOperationResult *pResult,
+void WriteOperationErrorsToConsole(IDxcOperationResult *pResult,
                                    bool outputWarnings) {
   HRESULT status;
   IFT(pResult->GetStatus(&status));
@@ -97,7 +97,7 @@ void WriteOperationErrorsToConsole(_In_ IDxcOperationResult *pResult,
   }
 }
 
-void WriteOperationResultToConsole(_In_ IDxcOperationResult *pRewriteResult,
+void WriteOperationResultToConsole(IDxcOperationResult *pRewriteResult,
                                    bool outputWarnings) {
   WriteOperationErrorsToConsole(pRewriteResult, outputWarnings);
 
@@ -106,8 +106,7 @@ void WriteOperationResultToConsole(_In_ IDxcOperationResult *pRewriteResult,
   WriteBlobToConsole(pBlob, STD_OUTPUT_HANDLE);
 }
 
-static void WriteWideNullTermToConsole(_In_opt_count_(charCount) const wchar_t *pText,
-                                 DWORD streamType) {
+static void WriteWideNullTermToConsole(const wchar_t *pText, DWORD streamType) {
   if (pText == nullptr) {
     return;
   }
@@ -126,7 +125,7 @@ static void WriteWideNullTermToConsole(_In_opt_count_(charCount) const wchar_t *
   }
 }
 
-static HRESULT BlobToUtf8IfText(_In_opt_ IDxcBlob *pBlob, IDxcBlobUtf8 **ppBlobUtf8) {
+static HRESULT BlobToUtf8IfText(IDxcBlob *pBlob, IDxcBlobUtf8 **ppBlobUtf8) {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   if (SUCCEEDED(pBlob->QueryInterface(&pBlobEncoding))) {
     BOOL known;
@@ -139,7 +138,7 @@ static HRESULT BlobToUtf8IfText(_In_opt_ IDxcBlob *pBlob, IDxcBlobUtf8 **ppBlobU
   return S_OK;
 }
 
-static HRESULT BlobToWideIfText(_In_opt_ IDxcBlob *pBlob, IDxcBlobWide **ppBlobWide) {
+static HRESULT BlobToWideIfText(IDxcBlob *pBlob, IDxcBlobWide **ppBlobWide) {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   if (SUCCEEDED(pBlob->QueryInterface(&pBlobEncoding))) {
     BOOL known;
@@ -152,7 +151,7 @@ static HRESULT BlobToWideIfText(_In_opt_ IDxcBlob *pBlob, IDxcBlobWide **ppBlobW
   return S_OK;
 }
 
-void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob, DWORD streamType) {
+void WriteBlobToConsole(IDxcBlob *pBlob, DWORD streamType) {
   if (pBlob == nullptr) {
     return;
   }
@@ -175,7 +174,7 @@ void WriteBlobToConsole(_In_opt_ IDxcBlob *pBlob, DWORD streamType) {
   }
 }
 
-void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName, _In_ UINT32 textCodePage) {
+void WriteBlobToFile(IDxcBlob *pBlob, LPCWSTR pFileName, UINT32 textCodePage) {
   if (pBlob == nullptr) {
     return;
   }
@@ -189,7 +188,8 @@ void WriteBlobToFile(_In_opt_ IDxcBlob *pBlob, _In_ LPCWSTR pFileName, _In_ UINT
   WriteBlobToHandle(pBlob, file, pFileName, textCodePage);
 }
 
-void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, _In_ HANDLE hFile, _In_opt_ LPCWSTR pFileName, _In_ UINT32 textCodePage) {
+void WriteBlobToHandle(IDxcBlob *pBlob, HANDLE hFile, LPCWSTR pFileName,
+                       UINT32 textCodePage) {
   if (pBlob == nullptr) {
     return;
   }
@@ -232,8 +232,7 @@ void WriteBlobToHandle(_In_opt_ IDxcBlob *pBlob, _In_ HANDLE hFile, _In_opt_ LPC
   }
 }
 
-void WriteUtf8ToConsole(_In_opt_count_(charCount) const char *pText,
-                        int charCount, DWORD streamType) {
+void WriteUtf8ToConsole(const char *pText, int charCount, DWORD streamType) {
   if (charCount == 0 || pText == nullptr) {
     return;
   }
@@ -249,8 +248,8 @@ void WriteUtf8ToConsole(_In_opt_count_(charCount) const char *pText,
   delete[] wideMessage;
 }
 
-void WriteUtf8ToConsoleSizeT(_In_opt_count_(charCount) const char *pText,
-  size_t charCount, DWORD streamType) {
+void WriteUtf8ToConsoleSizeT(const char *pText, size_t charCount,
+                             DWORD streamType) {
   if (charCount == 0) {
     return;
   }

@@ -19,12 +19,10 @@
 #include "dxc/dxcdxrfallbackcompiler.h"
 #include <memory>
 
-HRESULT CreateDxcDxrFallbackCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcDxrFallbackCompiler(REFIID riid, LPVOID *ppv);
 
-static HRESULT ThreadMallocDxcCreateInstance(
-  _In_ REFCLSID   rclsid,
-                  _In_ REFIID     riid,
-                  _Out_ LPVOID   *ppv) {
+static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
+                                             LPVOID *ppv) {
   HRESULT hr = S_OK;
   *ppv = nullptr;
 
@@ -37,11 +35,9 @@ static HRESULT ThreadMallocDxcCreateInstance(
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateDxrFallbackCompiler(
-  _In_ REFCLSID   rclsid,
-  _In_ REFIID     riid,
-  _Out_ LPVOID   *ppv) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateDxrFallbackCompiler(REFCLSID rclsid,
+                                                              REFIID riid,
+                                                              LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }
