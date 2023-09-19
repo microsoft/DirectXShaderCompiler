@@ -10,15 +10,15 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/HLSL/HLUtil.h"
-#include "dxc/HLSL/HLOperations.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/HLSL/HLOperations.h"
 
 #include "dxc/Support/Global.h"
 
-#include "llvm/IR/Operator.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/IR/Operator.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -30,7 +30,7 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
   // Early return when only care load store.
   if (bLdStOnly) {
     if (PS.HasLoaded() && PS.HasStored())
-       return;
+      return;
   }
   for (const User *U : V->users()) {
     if (const Instruction *I = dyn_cast<Instruction>(U)) {
@@ -187,7 +187,7 @@ void analyzePointer(const Value *V, PointerStatus &PS, DxilTypeSystem &typeSys,
     }
   }
 }
-}
+} // namespace
 
 namespace hlsl {
 namespace hlutil {

@@ -12,11 +12,10 @@
 #include "dxclib/dxc.h"
 
 #ifdef _WIN32
-int __cdecl wmain(int argc, const wchar_t **argv_) 
-{
-    return dxc::main(argc, argv_);
+int __cdecl wmain(int argc, const wchar_t **argv_) {
+  return dxc::main(argc, argv_);
 #else
 int main(int argc, const char **argv_) {
-    return dxc::main(argc, argv_);
+  return dxc::main(argc, argv_);
 #endif // _WIN32
 }

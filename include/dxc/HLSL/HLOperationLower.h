@@ -15,7 +15,7 @@
 namespace llvm {
 class Instruction;
 class Function;
-}
+} // namespace llvm
 
 namespace hlsl {
 class HLModule;
@@ -25,4 +25,4 @@ class HLSLExtensionsCodegenHelper;
 void TranslateBuiltinOperations(
     HLModule &HLM, HLSLExtensionsCodegenHelper *extCodegenHelper,
     std::unordered_set<llvm::Instruction *> &UpdateCounterSet);
-}
+} // namespace hlsl

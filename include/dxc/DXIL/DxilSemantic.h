@@ -27,15 +27,20 @@ public:
   static const int kUndefinedCol = -1;
 
   static const Semantic *GetByName(llvm::StringRef name);
-  static const Semantic *GetByName(llvm::StringRef Name, DXIL::SigPointKind sigPointKind,
-    unsigned MajorVersion = ShaderModel::kHighestMajor, unsigned MinorVersion = ShaderModel::kHighestMinor);
+  static const Semantic *
+  GetByName(llvm::StringRef Name, DXIL::SigPointKind sigPointKind,
+            unsigned MajorVersion = ShaderModel::kHighestMajor,
+            unsigned MinorVersion = ShaderModel::kHighestMinor);
   static const Semantic *Get(Kind kind);
-  static const Semantic *Get(Kind kind, DXIL::SigPointKind sigPointKind,
-    unsigned MajorVersion = ShaderModel::kHighestMajor, unsigned MinorVersion = ShaderModel::kHighestMinor);
+  static const Semantic *
+  Get(Kind kind, DXIL::SigPointKind sigPointKind,
+      unsigned MajorVersion = ShaderModel::kHighestMajor,
+      unsigned MinorVersion = ShaderModel::kHighestMinor);
   static const Semantic *GetInvalid();
   static const Semantic *GetArbitrary();
   static bool HasSVPrefix(llvm::StringRef Name);
-  static void DecomposeNameAndIndex(llvm::StringRef FullName, llvm::StringRef *pName, unsigned *pIndex);
+  static void DecomposeNameAndIndex(llvm::StringRef FullName,
+                                    llvm::StringRef *pName, unsigned *pIndex);
 
   Kind GetKind() const;
   const char *GetName() const;
@@ -43,8 +48,8 @@ public:
   bool IsInvalid() const;
 
 private:
-  Kind m_Kind;                   // Semantic kind.
-  const char *m_pszName;              // Canonical name (for system semantics).
+  Kind m_Kind;           // Semantic kind.
+  const char *m_pszName; // Canonical name (for system semantics).
 
   Semantic() = delete;
   Semantic(Kind Kind, const char *pszName);

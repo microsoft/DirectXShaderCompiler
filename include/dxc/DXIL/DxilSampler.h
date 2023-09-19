@@ -28,7 +28,7 @@ public:
   void SetSamplerKind(SamplerKind K);
 
 private:
-  SamplerKind m_SamplerKind;      // Sampler mode.
+  SamplerKind m_SamplerKind; // Sampler mode.
 };
 
 } // namespace hlsl

@@ -9,19 +9,19 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/microcom.h"
 #include "llvm/Support/Compiler.h" // for LLVM_FALLTHROUGH
-#include <vector>
-#include <string>
-#include <comdef.h>
 #include <algorithm>
-#include <unordered_map>
+#include <atlcoll.h>
+#include <comdef.h>
 #include <d3d12.h>
 #include <dxgi1_4.h>
-#include <atlcoll.h>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3d12.lib")
@@ -42,6 +42,7 @@ class ServerFactory;
 class HhEvent {
 public:
   HANDLE m_handle = INVALID_HANDLE_VALUE;
+
 public:
   HRESULT Init() {
     if (m_handle == INVALID_HANDLE_VALUE) {
@@ -52,12 +53,8 @@ public:
     }
     return S_OK;
   }
-  void SetEvent() {
-    ::SetEvent(m_handle);
-  }
-  void ResetEvent() {
-    ::ResetEvent(m_handle);
-  }
+  void SetEvent() { ::SetEvent(m_handle); }
+  void ResetEvent() { ::ResetEvent(m_handle); }
   ~HhEvent() {
     if (m_handle != INVALID_HANDLE_VALUE) {
       CloseHandle(m_handle);
@@ -68,59 +65,69 @@ public:
 class HhCriticalSection {
 private:
   CRITICAL_SECTION m_cs;
+
 public:
   HhCriticalSection() { InitializeCriticalSection(&m_cs); }
   ~HhCriticalSection() { DeleteCriticalSection(&m_cs); }
   class Lock {
   private:
     CRITICAL_SECTION *m_pLock;
+
   public:
     Lock() = delete;
-    Lock(const Lock&) = delete;
+    Lock(const Lock &) = delete;
     Lock(Lock &&other) { std::swap(m_pLock, other.m_pLock); }
     Lock(CRITICAL_SECTION *pLock) : m_pLock(pLock) {
       EnterCriticalSection(m_pLock);
     }
     ~Lock() {
-      if (m_pLock) LeaveCriticalSection(m_pLock);
+      if (m_pLock)
+        LeaveCriticalSection(m_pLock);
     }
   };
-  Lock LockCS() {
-    return Lock(&m_cs);
-  }
+  Lock LockCS() { return Lock(&m_cs); }
 };
 
 class ClassObjectRegistration {
 private:
   DWORD m_reg = 0;
   HRESULT m_hr = E_FAIL;
+
 public:
-  HRESULT Register(REFCLSID rclsid, IUnknown *pUnk, DWORD dwClsContext, DWORD flags) {
+  HRESULT Register(REFCLSID rclsid, IUnknown *pUnk, DWORD dwClsContext,
+                   DWORD flags) {
     m_hr = CoRegisterClassObject(rclsid, pUnk, dwClsContext, flags, &m_reg);
     return m_hr;
   }
   ~ClassObjectRegistration() {
-    if (SUCCEEDED(m_hr)) CoRevokeClassObject(m_reg);
+    if (SUCCEEDED(m_hr))
+      CoRevokeClassObject(m_reg);
   }
 };
 
 class CoInit {
 private:
   HRESULT m_hr = E_FAIL;
+
 public:
   HRESULT Initialize(DWORD dwCoInit) {
     m_hr = CoInitializeEx(nullptr, dwCoInit);
     return m_hr;
   }
   ~CoInit() {
-    if (SUCCEEDED(m_hr)) CoUninitialize();
+    if (SUCCEEDED(m_hr))
+      CoUninitialize();
   }
 };
 
 // Globals.
 static DWORD g_ProcessLocks;
-static const GUID CLSID_HLSLHostServer = // {7FD7A859-6C6B-4352-8F1E-C67BB62E774B}
-  { 0x7fd7a859, 0x6c6b, 0x4352,{ 0x8f, 0x1e, 0xc6, 0x7b, 0xb6, 0x2e, 0x77, 0x4b } };
+static const GUID
+    CLSID_HLSLHostServer = // {7FD7A859-6C6B-4352-8F1E-C67BB62E774B}
+    {0x7fd7a859,
+     0x6c6b,
+     0x4352,
+     {0x8f, 0x1e, 0xc6, 0x7b, 0xb6, 0x2e, 0x77, 0x4b}};
 static HhEvent g_ShutdownServerEvent;
 
 static const DWORD GetPidMsgId = 1;
@@ -165,24 +172,23 @@ struct HhResultReply {
 };
 
 // Logging and tracing.
-static void HhTrace(LPWSTR pMessage) {
-  wprintf(L"%s\n", pMessage);
-}
+static void HhTrace(LPWSTR pMessage) { wprintf(L"%s\n", pMessage); }
 
 template <typename TInterface, typename TObject>
-HRESULT DoBasicQueryInterfaceWithRemote(TObject* self, REFIID iid, void** ppvObject)
-{
-  if (ppvObject == nullptr) return E_POINTER;
+HRESULT DoBasicQueryInterfaceWithRemote(TObject *self, REFIID iid,
+                                        void **ppvObject) {
+  if (ppvObject == nullptr)
+    return E_POINTER;
 
   // Support INoMarshal to void GIT shenanigans.
   if (IsEqualIID(iid, __uuidof(IUnknown))) {
-    *ppvObject = reinterpret_cast<IUnknown*>(self);
-    reinterpret_cast<IUnknown*>(self)->AddRef();
+    *ppvObject = reinterpret_cast<IUnknown *>(self);
+    reinterpret_cast<IUnknown *>(self)->AddRef();
     return S_OK;
   }
 
   if (IsEqualIID(iid, __uuidof(TInterface))) {
-    *(TInterface**)ppvObject = self;
+    *(TInterface **)ppvObject = self;
     self->AddRef();
     return S_OK;
   }
@@ -197,14 +203,15 @@ LRESULT CALLBACK RendererWndProc(HWND, UINT, WPARAM, LPARAM);
 DWORD WINAPI RendererStart(LPVOID lpThreadParameter);
 void __stdcall RendererLog(void *pRenderer, const wchar_t *pText);
 typedef void(__stdcall *OutputStringFn)(void *pCtx, const wchar_t *pText);
-typedef HRESULT(WINAPI *InitOpTestFn)(void *pStrCtx, OutputStringFn pOutputStrFn);
+typedef HRESULT(WINAPI *InitOpTestFn)(void *pStrCtx,
+                                      OutputStringFn pOutputStrFn);
 typedef HRESULT(WINAPI *RunOpTestFn)(void *pStrCtx, OutputStringFn pOutputStrFn,
                                      LPCSTR pText, ID3D12Device *pDevice,
                                      ID3D12CommandQueue *pCommandQueue,
                                      ID3D12Resource *pRenderTarget,
                                      char **pReadBackDump);
 #define WM_RENDERER_SETPAYLOAD (WM_USER)
-#define WM_RENDERER_QUIT       (WM_USER + 1)
+#define WM_RENDERER_QUIT (WM_USER + 1)
 
 class Renderer {
 private:
@@ -238,7 +245,8 @@ private:
     if (m_TestDLL == NULL) {
       m_TestDLL = LoadLibrary("ClangHLSLTests.dll");
       m_pRunOpTestFn = (RunOpTestFn)GetProcAddress(m_TestDLL, "RunOpTest");
-      m_pInitOpTestFn = (InitOpTestFn)GetProcAddress(m_TestDLL, "InitializeOpTests");
+      m_pInitOpTestFn =
+          (InitOpTestFn)GetProcAddress(m_TestDLL, "InitializeOpTests");
       HRESULT hrInit = m_pInitOpTestFn(this, RendererLog);
       if (FAILED(hrInit)) {
         CloseHandle(m_TestDLL);
@@ -254,12 +262,12 @@ private:
     UINT MessageType = MB_ICONERROR;
     if (m_ResourceViewText.m_pData == nullptr) {
       OpMessage = "No resources read back from a prior render.";
-    }
-    else {
+    } else {
       OpMessage = "Unable to copy resource data to clipboard.";
       if (OpenClipboard(m_hwnd)) {
         if (EmptyClipboard()) {
-          HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 1 + strlen(m_ResourceViewText.m_pData));
+          HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE,
+                                     1 + strlen(m_ResourceViewText.m_pData));
           if (hMem) {
             LPSTR pCopy = (LPSTR)GlobalLock(hMem);
             strcpy(pCopy, m_ResourceViewText.m_pData);
@@ -282,13 +290,14 @@ private:
   }
 
   void HandleHelp() {
-    MessageBoxW(m_hwnd, L"Commands:\r\n"
-      L"(C)opy Results\r\n"
-      L"(D)evice Cycle\r\n"
-      L"(H)elp (show this message)\r\n"
-      L"(R)un\r\n"
-      L"(Q)uit",
-      L"HLSL Host Help", MB_OK);
+    MessageBoxW(m_hwnd,
+                L"Commands:\r\n"
+                L"(C)opy Results\r\n"
+                L"(D)evice Cycle\r\n"
+                L"(H)elp (show this message)\r\n"
+                L"(R)un\r\n"
+                L"(Q)uit",
+                L"HLSL Host Help", MB_OK);
   }
 
   HRESULT HandlePayload() {
@@ -296,25 +305,32 @@ private:
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
     IFR(m_swapChain->GetBuffer(m_frameIndex, IID_PPV_ARGS(&pRT)));
     wchar_t ResName[32];
-    StringCchPrintfW(ResName, _countof(ResName), L"SwapChain Buffer #%u", m_frameIndex);
+    StringCchPrintfW(ResName, _countof(ResName), L"SwapChain Buffer #%u",
+                     m_frameIndex);
     pRT->SetName(ResName);
-    StringCchPrintfW(ResName, _countof(ResName), L"Render %u\r\n", ++m_renderCount);
+    StringCchPrintfW(ResName, _countof(ResName), L"Render %u\r\n",
+                     ++m_renderCount);
     Log(ResName);
     m_ResourceViewText.Free();
     LPSTR pText = (LPSTR)InterlockedExchangePointer(&m_ShaderOpText, nullptr);
-    HRESULT hr = m_pRunOpTestFn(this, RendererLog, pText, m_device, m_commandQueue, pRT, &m_ResourceViewText);
-    // If we can restore it, we're set; otherwise we should delete our stale copy.
-    if (nullptr != InterlockedCompareExchangePointer(&m_ShaderOpText, pText, nullptr))
+    HRESULT hr = m_pRunOpTestFn(this, RendererLog, pText, m_device,
+                                m_commandQueue, pRT, &m_ResourceViewText);
+    // If we can restore it, we're set; otherwise we should delete our stale
+    // copy.
+    if (nullptr !=
+        InterlockedCompareExchangePointer(&m_ShaderOpText, pText, nullptr))
       free(pText);
     wchar_t ErrMsg[64];
     if (FAILED(hr)) {
-      StringCchPrintfW(ErrMsg, _countof(ErrMsg), L"Shader operation failed: 0x%08x\r\n", hr);
+      StringCchPrintfW(ErrMsg, _countof(ErrMsg),
+                       L"Shader operation failed: 0x%08x\r\n", hr);
       Log(ErrMsg);
       return hr;
     }
     hr = m_swapChain->Present(1, 0);
     if (FAILED(hr)) {
-      StringCchPrintfW(ErrMsg, _countof(ErrMsg), L"Present failed: 0x%08x\r\n", hr);
+      StringCchPrintfW(ErrMsg, _countof(ErrMsg), L"Present failed: 0x%08x\r\n",
+                       hr);
       Log(ErrMsg);
       return hr;
     }
@@ -344,8 +360,7 @@ private:
       HRESULT hrEnum = factory->EnumAdapters(hardwareIndex, &adapter);
       if (hrEnum == DXGI_ERROR_NOT_FOUND) {
         m_TargetDeviceIndex = 0; // cycle to WARP
-      }
-      else {
+      } else {
         IFR(hrEnum);
       }
     }
@@ -363,7 +378,8 @@ private:
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
-    IFR(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
+    IFR(m_device->CreateCommandQueue(&queueDesc,
+                                     IID_PPV_ARGS(&m_commandQueue)));
 
     // Describe and create the swap chain.
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
@@ -388,18 +404,20 @@ private:
     return S_OK;
   }
 
-  HRESULT SetWindowTextToDevice(HRESULT hrCreate, HWND hwnd, IDXGIAdapter *pAdapter, ID3D12Device *pDevice) {
+  HRESULT SetWindowTextToDevice(HRESULT hrCreate, HWND hwnd,
+                                IDXGIAdapter *pAdapter, ID3D12Device *pDevice) {
     DXGI_ADAPTER_DESC AdapterDesc;
     D3D12_FEATURE_DATA_D3D12_OPTIONS1 DeviceOptions;
     D3D12_FEATURE_DATA_SHADER_MODEL DeviceSM;
     wchar_t title[200];
     IFR(pAdapter->GetDesc(&AdapterDesc));
-    IFR(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1, &DeviceOptions, sizeof(DeviceOptions)));
+    IFR(pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1,
+                                     &DeviceOptions, sizeof(DeviceOptions)));
     DeviceSM.HighestShaderModel = D3D_SHADER_MODEL_6_0;
-    IFR(pDevice->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &DeviceSM, sizeof(DeviceSM)));
+    IFR(pDevice->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL, &DeviceSM,
+                                     sizeof(DeviceSM)));
     IFR(StringCchPrintfW(
-        title, _countof(title),
-        L"%s%s - caps:%s%s%s",
+        title, _countof(title), L"%s%s - caps:%s%s%s",
         SUCCEEDED(hrCreate) ? L"" : L"(cannot create D3D12 device)",
         AdapterDesc.Description,
         (DeviceSM.HighestShaderModel >= D3D_SHADER_MODEL_6_0) ? L" SM6" : L"",
@@ -408,18 +426,22 @@ private:
     SetWindowTextW(hwnd, title);
     return S_OK;
   }
+
 public:
   HRESULT Start(void *pLogCtx, OutputStringFn pLog) {
     if (SUCCEEDED(m_threadStartResult)) {
       return m_threadStartResult;
     }
     IFR(m_threadReady.Init());
-    if (m_width == 0) m_width = 320;
-    if (m_height == 0) m_height = 200;
+    if (m_width == 0)
+      m_width = 320;
+    if (m_height == 0)
+      m_height = 200;
     m_pLog = pLog;
     m_pLogCtx = pLogCtx;
     m_thread = CreateThread(nullptr, 0, RendererStart, this, 0, &m_tid);
-    if (!m_thread) return HRESULT_FROM_WIN32(GetLastError());
+    if (!m_thread)
+      return HRESULT_FROM_WIN32(GetLastError());
     WaitForSingleObject(m_threadReady.m_handle, INFINITE);
     if (FAILED(m_threadStartResult)) {
       WaitForSingleObject(m_thread, INFINITE);
@@ -438,7 +460,7 @@ public:
         wndClass.lpszClassName = WindowClassName;
         wndClass.hInstance = procInstance; // GetModuleHandle("HLSLHost.exe");
         wndClass.style = WS_OVERLAPPED;
-        wndClass.cbWndExtra = sizeof(void*);
+        wndClass.cbWndExtra = sizeof(void *);
         wndClass.lpfnWndProc = RendererWndProc;
         ATOM atom = RegisterClass(&wndClass);
         if (atom == INVALID_ATOM) {
@@ -449,13 +471,13 @@ public:
       }
     }
     DWORD style = WS_OVERLAPPEDWINDOW;
-    RECT windowRect = { 0, 0, (LONG)m_width, (LONG)m_height };
+    RECT windowRect = {0, 0, (LONG)m_width, (LONG)m_height};
     AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
     LPVOID lParam = this;
     m_hwnd = CreateWindow(WindowClassName, "Renderer", style, CW_USEDEFAULT,
-      CW_USEDEFAULT,
-      windowRect.right - windowRect.left,
-      windowRect.bottom - windowRect.top, NULL, NULL, procInstance, lParam);
+                          CW_USEDEFAULT, windowRect.right - windowRect.left,
+                          windowRect.bottom - windowRect.top, NULL, NULL,
+                          procInstance, lParam);
     if (m_hwnd == NULL) {
       m_threadStartResult = HRESULT_FROM_WIN32(GetLastError());
       m_threadReady.SetEvent();
@@ -467,7 +489,7 @@ public:
 
     m_threadStartResult = S_OK;
     m_threadReady.SetEvent();
-    
+
     // Basic dispatch loop.
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
@@ -482,7 +504,8 @@ public:
   }
   void SetPayload(LPSTR pText) {
     LPSTR textCopy = strdup(pText);
-    LPSTR oldText = (LPSTR)InterlockedExchangePointer(&m_ShaderOpText, textCopy);
+    LPSTR oldText =
+        (LPSTR)InterlockedExchangePointer(&m_ShaderOpText, textCopy);
     if (oldText != nullptr)
       free(oldText);
     PostMessage(m_hwnd, WM_RENDERER_SETPAYLOAD, 0, 0);
@@ -490,11 +513,11 @@ public:
   HRESULT SetSize(DWORD width, DWORD height) {
     RECT windowRect;
     GetWindowRect(m_hwnd, &windowRect);
-    RECT client = { 0, 0, (LONG)width, (LONG)height };
+    RECT client = {0, 0, (LONG)width, (LONG)height};
     AdjustWindowRect(&client, WS_OVERLAPPEDWINDOW, FALSE);
     SetWindowPos(m_hwnd, 0, windowRect.left, windowRect.top,
-      client.right - client.left,
-      client.bottom - client.top, SWP_NOZORDER);
+                 client.right - client.left, client.bottom - client.top,
+                 SWP_NOZORDER);
     return S_OK;
   }
   HRESULT SetParentHwnd(HWND handle) {
@@ -505,8 +528,7 @@ public:
     if (handle == NULL) {
       // Top-level, so restore original style.
       SetWindowLong(m_hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
-    }
-    else {
+    } else {
       // Child window, so set new style and reset position.
       SetWindowPos(m_hwnd, 0, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
       SetWindowLong(m_hwnd, GWL_STYLE, WS_CHILD | WS_VISIBLE);
@@ -537,8 +559,10 @@ public:
         GetClientRect(hWnd, &r);
         m_width = r.right - r.left;
         m_height = r.bottom - r.top;
-        HRESULT hr = m_swapChain->ResizeBuffers(FrameCount, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
-        Log(SUCCEEDED(hr) ? L"Swapchain buffers resized." : L"Failed to resize swapchain buffers.");
+        HRESULT hr = m_swapChain->ResizeBuffers(FrameCount, 0, 0,
+                                                DXGI_FORMAT_UNKNOWN, 0);
+        Log(SUCCEEDED(hr) ? L"Swapchain buffers resized."
+                          : L"Failed to resize swapchain buffers.");
       }
       break;
     case WM_KEYDOWN:
@@ -589,7 +613,8 @@ void __stdcall RendererLog(void *pCtx, const wchar_t *pText) {
   ((Renderer *)pCtx)->Log(pText);
 }
 
-LRESULT CALLBACK RendererWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK RendererWndProc(HWND hWnd, UINT msg, WPARAM wParam,
+                                 LPARAM lParam) {
   if (msg == WM_CREATE) {
     return DefWindowProc(hWnd, msg, wParam, lParam);
   }
@@ -613,6 +638,7 @@ private:
   CAtlArray<wchar_t> m_pMessages;
   CAtlArray<BYTE> m_pLog;
   DWORD m_pLogStart = 0;
+
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   ServerObj() : m_dwRef(0) {}
@@ -671,8 +697,7 @@ public:
       break;
     case StartRendererMsgId:
       HhTrace(L"StartRenderer message received");
-      WriteRequestResultReply(MsgKind,
-        m_renderer.Start(this, ServerObjLog));
+      WriteRequestResultReply(MsgKind, m_renderer.Start(this, ServerObjLog));
       break;
     case StopRendererMsgId:
       HhTrace(L"StopRenderer message received");
@@ -696,7 +721,8 @@ public:
       auto l = m_cs.LockCS();
       messageLen = (DWORD)m_pMessages.GetCount();
       messageLenInBytes = messageLen * sizeof(wchar_t);
-      H.Length = sizeof(HhMessageHeader) + sizeof(messageLen) + messageLenInBytes + sizeof(nullTerm);
+      H.Length = sizeof(HhMessageHeader) + sizeof(messageLen) +
+                 messageLenInBytes + sizeof(nullTerm);
       H.Kind = ReadLogMsgReplyId;
       size_t count = m_pLog.GetCount();
       size_t growBy = H.Length;
@@ -721,18 +747,19 @@ public:
         return;
       }
       const HhSetSizeMessage *pSetSize = (const HhSetSizeMessage *)pHeader;
-      WriteRequestResultReply(MsgKind,
-        m_renderer.SetSize(pSetSize->Width, pSetSize->Height));
+      WriteRequestResultReply(
+          MsgKind, m_renderer.SetSize(pSetSize->Width, pSetSize->Height));
     }
-    LLVM_FALLTHROUGH;
+      LLVM_FALLTHROUGH;
     case SetParentWndMsgId: {
       if (cb < sizeof(HhSetParentWndMessage)) {
         WriteRequestResultReply(MsgKind, E_INVALIDARG);
         return;
       }
-      const HhSetParentWndMessage *pSetParent = (const HhSetParentWndMessage *)pHeader;
-      WriteRequestResultReply(MsgKind,
-        m_renderer.SetParentHwnd((HWND)pSetParent->Handle));
+      const HhSetParentWndMessage *pSetParent =
+          (const HhSetParentWndMessage *)pHeader;
+      WriteRequestResultReply(
+          MsgKind, m_renderer.SetParentHwnd((HWND)pSetParent->Handle));
     }
     }
   }
@@ -786,8 +813,7 @@ public:
     return E_NOTIMPL;
   }
 
-  HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER,
-                                   ULARGE_INTEGER *,
+  HRESULT STDMETHODCALLTYPE CopyTo(IStream *, ULARGE_INTEGER, ULARGE_INTEGER *,
                                    ULARGE_INTEGER *) override {
     return E_NOTIMPL;
   }
@@ -796,13 +822,13 @@ public:
 
   HRESULT STDMETHODCALLTYPE Revert(void) override { return E_NOTIMPL; }
 
-  HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER,
-                                       ULARGE_INTEGER, DWORD) override {
+  HRESULT STDMETHODCALLTYPE LockRegion(ULARGE_INTEGER, ULARGE_INTEGER,
+                                       DWORD) override {
     return E_NOTIMPL;
   }
 
-  HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER,
-                                         ULARGE_INTEGER, DWORD) override {
+  HRESULT STDMETHODCALLTYPE UnlockRegion(ULARGE_INTEGER, ULARGE_INTEGER,
+                                         DWORD) override {
     return E_NOTIMPL;
   }
 
@@ -826,16 +852,20 @@ void __stdcall ServerObjLog(void *pCtx, const wchar_t *pText) {
 class ServerFactory : public IClassFactory {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef);
+
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   ServerFactory() : m_dwRef(0) {}
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterfaceWithRemote<IClassFactory>(this, iid, ppvObject);
   }
-  HRESULT STDMETHODCALLTYPE CreateInstance(IUnknown *pUnk, REFIID riid, void **ppvObj) {
-    if (pUnk) return CLASS_E_NOAGGREGATION;
+  HRESULT STDMETHODCALLTYPE CreateInstance(IUnknown *pUnk, REFIID riid,
+                                           void **ppvObj) {
+    if (pUnk)
+      return CLASS_E_NOAGGREGATION;
     CComPtr<ServerObj> obj = new (std::nothrow) ServerObj();
-    if (obj.p == nullptr) return E_OUTOFMEMORY;
+    if (obj.p == nullptr)
+      return E_OUTOFMEMORY;
     return obj.p->QueryInterface(riid, ppvObj);
   }
   HRESULT STDMETHODCALLTYPE LockServer(BOOL fLock) {
@@ -851,7 +881,8 @@ HRESULT RunServer(REFCLSID rclsid) {
   IFR(coInit.Initialize(COINIT_MULTITHREADED));
   IFR(g_ShutdownServerEvent.Init());
   CComPtr<ServerFactory> pServerFactory = new (std::nothrow) ServerFactory();
-  IFR(registration.Register(rclsid, pServerFactory, CLSCTX_LOCAL_SERVER, REGCLS_MULTIPLEUSE));
+  IFR(registration.Register(rclsid, pServerFactory, CLSCTX_LOCAL_SERVER,
+                            REGCLS_MULTIPLEUSE));
   WaitForSingleObject(g_ShutdownServerEvent.m_handle, INFINITE);
   return S_OK;
 }
@@ -860,15 +891,14 @@ HRESULT RunServer(const wchar_t *pCLSIDText) {
   CLSID clsid;
   if (pCLSIDText && *pCLSIDText) {
     IFR(CLSIDFromString(pCLSIDText, &clsid));
-  }
-  else {
+  } else {
     clsid = CLSID_HLSLHostServer;
   }
   return RunServer(clsid);
 }
 
 // Entry point for host process to render shaders.
-int wmain(int argc, wchar_t* argv[]) {
+int wmain(int argc, wchar_t *argv[]) {
   int resultCode;
   resultCode = SUCCEEDED(RunServer(nullptr)) ? 0 : 1;
   return resultCode;

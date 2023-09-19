@@ -17,24 +17,24 @@
 //   5. Remove all blocks in the region (excluding original block and ancestor)
 //
 
-#include "llvm/Pass.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/CFG.h"
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/ADT/SetVector.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/Local.h"
 
-#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
-#include "dxc/HLSL/DxilNoops.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/DxilNoops.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -46,8 +46,8 @@ using namespace hlsl;
 namespace {
 
 struct MiniDCE {
-  // Use a set vector because the same value could be added more than once, which
-  // could lead to double free.
+  // Use a set vector because the same value could be added more than once,
+  // which could lead to double free.
   SetVector<Instruction *> Worklist;
   void EraseAndProcessOperands(Instruction *TopI);
 };
@@ -73,7 +73,7 @@ void MiniDCE::EraseAndProcessOperands(Instruction *TopI) {
   }
 }
 
-}
+} // namespace
 
 struct DxilEraseDeadRegion : public FunctionPass {
   static char ID;
@@ -86,7 +86,7 @@ struct DxilEraseDeadRegion : public FunctionPass {
   MiniDCE m_DCE;
 
   // Replace all uses of every instruction in a block with undefs
-  void UndefBasicBlock(BasicBlock* BB) {
+  void UndefBasicBlock(BasicBlock *BB) {
     while (BB->begin() != BB->end()) {
       Instruction *I = &BB->back();
       if (!I->user_empty())
@@ -113,8 +113,9 @@ struct DxilEraseDeadRegion : public FunctionPass {
   // this region (i.e. if any values defined in the block are used outside of
   // the region) and whether it's safe to delete the block in general (side
   // effects).
-  bool SafeToDeleteBlock(BasicBlock *BB, const std::set<BasicBlock*> &Region) {
-    assert(Region.count(BB)); // Region must be a complete region that contains the block.
+  bool SafeToDeleteBlock(BasicBlock *BB, const std::set<BasicBlock *> &Region) {
+    assert(Region.count(
+        BB)); // Region must be a complete region that contains the block.
 
     auto FindIt = m_SafeBlocks.find(BB);
     if (FindIt != m_SafeBlocks.end()) {
@@ -160,14 +161,20 @@ struct DxilEraseDeadRegion : public FunctionPass {
 
   // Find a region of blocks between `Begin` and `End` that are entirely self
   // contained and produce no values that leave the region.
-  bool FindDeadRegion(DominatorTree *DT, PostDominatorTree *PDT, BasicBlock *Begin, BasicBlock *End, std::set<BasicBlock *> &Region) {
+  bool FindDeadRegion(DominatorTree *DT, PostDominatorTree *PDT,
+                      BasicBlock *Begin, BasicBlock *End,
+                      std::set<BasicBlock *> &Region) {
     std::vector<BasicBlock *> WorkList;
-    auto ProcessSuccessors = [DT, PDT, &WorkList, Begin, End, &Region](BasicBlock *BB) {
+    auto ProcessSuccessors = [DT, PDT, &WorkList, Begin, End,
+                              &Region](BasicBlock *BB) {
       for (BasicBlock *Succ : successors(BB)) {
-        if (Succ == End) continue;
-        if (Region.count(Succ)) continue;
+        if (Succ == End)
+          continue;
+        if (Region.count(Succ))
+          continue;
         // Make sure it's safely inside the region.
-        if (!DT->properlyDominates(Begin, Succ) || !PDT->properlyDominates(End, Succ))
+        if (!DT->properlyDominates(Begin, Succ) ||
+            !PDT->properlyDominates(End, Succ))
           return false;
         WorkList.push_back(Succ);
         Region.insert(Succ);
@@ -191,7 +198,8 @@ struct DxilEraseDeadRegion : public FunctionPass {
     for (BasicBlock *BB : Region) {
       // Give up if there are any edges coming from outside of the region
       // anywhere other than `Begin`.
-      for (auto PredIt = llvm::pred_begin(BB); PredIt != llvm::pred_end(BB); PredIt++) {
+      for (auto PredIt = llvm::pred_begin(BB); PredIt != llvm::pred_end(BB);
+           PredIt++) {
         BasicBlock *PredBB = *PredIt;
         if (PredBB != Begin && !Region.count(PredBB))
           return false;
@@ -203,7 +211,8 @@ struct DxilEraseDeadRegion : public FunctionPass {
     return true;
   }
 
-  static bool IsMetadataKind(LLVMContext &Ctx, unsigned TargetID, StringRef MDKind) {
+  static bool IsMetadataKind(LLVMContext &Ctx, unsigned TargetID,
+                             StringRef MDKind) {
     unsigned ID = 0;
     if (Ctx.findMDKindID(MDKind, &ID))
       return TargetID == ID;
@@ -218,7 +227,8 @@ struct DxilEraseDeadRegion : public FunctionPass {
     for (auto &p : MDs) {
       if (p.first == (unsigned)LLVMContext::MD_dbg)
         continue;
-      if (IsMetadataKind(Context, p.first, DxilMDHelper::kDxilControlFlowHintMDName))
+      if (IsMetadataKind(Context, p.first,
+                         DxilMDHelper::kDxilControlFlowHintMDName))
         continue;
       return true;
     }
@@ -226,20 +236,25 @@ struct DxilEraseDeadRegion : public FunctionPass {
     return false;
   }
 
-  bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, LoopInfo *LI, BasicBlock *BB) {
+  bool TrySimplify(DominatorTree *DT, PostDominatorTree *PDT, LoopInfo *LI,
+                   BasicBlock *BB) {
     // Give up if BB has any Phis
     if (BB->begin() != BB->end() && isa<PHINode>(BB->begin()))
       return false;
 
     std::vector<BasicBlock *> Predecessors(pred_begin(BB), pred_end(BB));
-    if (Predecessors.size() < 2) return false;
+    if (Predecessors.size() < 2)
+      return false;
 
     // Find the common ancestor of all the predecessors
-    BasicBlock *Common = DT->findNearestCommonDominator(Predecessors[0], Predecessors[1]);
-    if (!Common) return false;
+    BasicBlock *Common =
+        DT->findNearestCommonDominator(Predecessors[0], Predecessors[1]);
+    if (!Common)
+      return false;
     for (unsigned i = 2; i < Predecessors.size(); i++) {
       Common = DT->findNearestCommonDominator(Common, Predecessors[i]);
-      if (!Common) return false;
+      if (!Common)
+        return false;
     }
 
     // If there are any metadata on Common block's branch, give up.
@@ -269,8 +284,9 @@ struct DxilEraseDeadRegion : public FunctionPass {
   void DeleteRegion(std::set<BasicBlock *> &Region, LoopInfo *LI) {
     for (BasicBlock *BB : Region) {
       UndefBasicBlock(BB);
-      // Don't leave any dangling pointers in the LoopInfo for subsequent iterations.
-      // But don't bother to delete the (possibly now empty) Loop objects, just leave them empty.
+      // Don't leave any dangling pointers in the LoopInfo for subsequent
+      // iterations. But don't bother to delete the (possibly now empty) Loop
+      // objects, just leave them empty.
       LI->removeBlock(BB);
     }
 
@@ -287,8 +303,9 @@ struct DxilEraseDeadRegion : public FunctionPass {
     AU.addRequired<LoopInfoWrapperPass>();
   }
 
-  // Go through list of all the loops and delete ones that definitely don't contribute any outputs.
-  // Delete the loop if there's no side effects in the loop, and the loop has no exit values at all.
+  // Go through list of all the loops and delete ones that definitely don't
+  // contribute any outputs. Delete the loop if there's no side effects in the
+  // loop, and the loop has no exit values at all.
   bool TryRemoveSimpleDeadLoops(LoopInfo *LI) {
     bool Changed = false;
     SmallVector<Loop *, 4> LoopWorklist;
@@ -309,8 +326,8 @@ struct DxilEraseDeadRegion : public FunctionPass {
       BasicBlock *Preheader = L->getLoopPreheader();
       BasicBlock *ExitBB = L->getExitBlock();
 
-      // If there's not a single preheader and exit block, give up. Those cases can probably
-      // be handled by normal region deletion heuristic anyways.
+      // If there's not a single preheader and exit block, give up. Those cases
+      // can probably be handled by normal region deletion heuristic anyways.
       if (!Preheader || !ExitBB || !ExitBB->getSinglePredecessor()) {
         LoopSafeToDelete = false;
       }
@@ -335,7 +352,8 @@ struct DxilEraseDeadRegion : public FunctionPass {
         BasicBlock *ExitingBlock = L->getExitingBlock();
         for (Instruction &I : *ExitBB) {
           PHINode *Phi = dyn_cast<PHINode>(&I);
-          if (!Phi) break;
+          if (!Phi)
+            break;
           assert(Phi->getNumIncomingValues() == 1);
           for (unsigned i = 0; i < Phi->getNumIncomingValues(); i++) {
             if (Phi->getIncomingBlock(i) == ExitingBlock) {
@@ -344,14 +362,14 @@ struct DxilEraseDeadRegion : public FunctionPass {
           }
         }
 
-        // Re-branch anything that went to the loop's header to the loop's sole exit.
+        // Re-branch anything that went to the loop's header to the loop's sole
+        // exit.
         TerminatorInst *TI = Preheader->getTerminator();
         TI->replaceUsesOfWith(L->getHeader(), ExitBB);
 
         DeleteRegion(LoopRegion, LI);
         Changed = true;
-      }
-      else {
+      } else {
         for (Loop *ChildLoop : *L)
           LoopWorklist.push_back(ChildLoop);
       }
@@ -394,8 +412,9 @@ Pass *llvm::createDxilEraseDeadRegionPass() {
   return new DxilEraseDeadRegion();
 }
 
-INITIALIZE_PASS_BEGIN(DxilEraseDeadRegion, "dxil-erase-dead-region", "Dxil Erase Dead Region", false, false)
+INITIALIZE_PASS_BEGIN(DxilEraseDeadRegion, "dxil-erase-dead-region",
+                      "Dxil Erase Dead Region", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
-INITIALIZE_PASS_END(DxilEraseDeadRegion, "dxil-erase-dead-region", "Dxil Erase Dead Region", false, false)
-
+INITIALIZE_PASS_END(DxilEraseDeadRegion, "dxil-erase-dead-region",
+                    "Dxil Erase Dead Region", false, false)

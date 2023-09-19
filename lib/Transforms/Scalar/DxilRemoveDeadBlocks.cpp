@@ -9,25 +9,25 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Pass.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/CFG.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/IR/DebugInfo.h"
+#include "llvm/Transforms/Scalar.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilUtil.h"
-#include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/DxilNoops.h"
 
 #include <unordered_set>
@@ -77,8 +77,7 @@ bool DeadBlockDeleter::Run(Function &F, DxilValueCache *DVC) {
       if (Br->isUnconditional()) {
         BasicBlock *Succ = Br->getSuccessor(0);
         Add(Succ);
-      }
-      else {
+      } else {
         if (ConstantInt *C = DVC->GetConstInt(Br->getCondition())) {
           bool IsTrue = C->getLimitedValue() != 0;
           BasicBlock *Succ = Br->getSuccessor(IsTrue ? 0 : 1);
@@ -98,14 +97,12 @@ bool DeadBlockDeleter::Run(Function &F, DxilValueCache *DVC) {
             Br = nullptr;
             Changed = true;
           }
-        }
-        else {
+        } else {
           Add(Br->getSuccessor(0));
           Add(Br->getSuccessor(1));
         }
       }
-    }
-    else if (SwitchInst *Switch = dyn_cast<SwitchInst>(BB->getTerminator())) {
+    } else if (SwitchInst *Switch = dyn_cast<SwitchInst>(BB->getTerminator())) {
       Value *Cond = Switch->getCondition();
       BasicBlock *Succ = nullptr;
       if (ConstantInt *ConstCond = DVC->GetConstInt(Cond)) {
@@ -128,8 +125,7 @@ bool DeadBlockDeleter::Run(Function &F, DxilValueCache *DVC) {
         Switch->eraseFromParent();
         Switch = nullptr;
         Changed = true;
-      }
-      else {
+      } else {
         for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
           Add(Switch->getSuccessor(i));
         }
@@ -153,15 +149,18 @@ bool DeadBlockDeleter::Run(Function &F, DxilValueCache *DVC) {
     // Make predecessors branch somewhere else and fix the phi nodes
     for (auto pred_it = pred_begin(BB); pred_it != pred_end(BB);) {
       BasicBlock *PredBB = *(pred_it++);
-      if (!Seen.count(PredBB)) // Don't bother fixing it if it's gonna get deleted anyway
+      if (!Seen.count(PredBB)) // Don't bother fixing it if it's gonna get
+                               // deleted anyway
         continue;
       TerminatorInst *TI = PredBB->getTerminator();
-      if (!TI) continue;
+      if (!TI)
+        continue;
       BranchInst *Br = dyn_cast<BranchInst>(TI);
-      if (!Br || Br->isUnconditional()) continue;
+      if (!Br || Br->isUnconditional())
+        continue;
 
-      BasicBlock *Other = Br->getSuccessor(0) == BB ?
-        Br->getSuccessor(1) : Br->getSuccessor(0);
+      BasicBlock *Other =
+          Br->getSuccessor(0) == BB ? Br->getSuccessor(1) : Br->getSuccessor(0);
 
       BranchInst *NewBr = BranchInst::Create(Other, Br);
       hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Br);
@@ -171,7 +170,8 @@ bool DeadBlockDeleter::Run(Function &F, DxilValueCache *DVC) {
     // Fix phi nodes in successors
     for (auto succ_it = succ_begin(BB); succ_it != succ_end(BB); succ_it++) {
       BasicBlock *SuccBB = *succ_it;
-      if (!Seen.count(SuccBB)) continue; // Don't bother fixing it if it's gonna get deleted anyway
+      if (!Seen.count(SuccBB))
+        continue; // Don't bother fixing it if it's gonna get deleted anyway
       RemoveIncomingValueFrom(SuccBB, BB);
     }
 
@@ -208,9 +208,11 @@ static bool DeleteDeadBlocks(Function &F, DxilValueCache *DVC) {
 
 static bool IsDxBreak(Instruction *I) {
   CallInst *CI = dyn_cast<CallInst>(I);
-  if (!CI) return false;
+  if (!CI)
+    return false;
   Function *CalledFunction = CI->getCalledFunction();
-  return CalledFunction && CalledFunction->getName() == hlsl::DXIL::kDxBreakFuncName;
+  return CalledFunction &&
+         CalledFunction->getName() == hlsl::DXIL::kDxBreakFuncName;
 }
 
 static bool IsIsHelperLane(Instruction *I) {
@@ -254,10 +256,10 @@ struct ValueDeleter {
             // If this operand could be reduced to a constant, stop adding all
             // its operands. Otherwise, we could unintentionally hold on to
             // dead instructions like:
-            // 
+            //
             //   %my_actually_dead_inst = ...
             //   %my_const = fmul 0.0, %my_actually_dead_inst
-            // 
+            //
             // %my_actually_dead_inst should be deleted with the rest of the
             // non-contributing instructions.
             if (Constant *C = DVC->GetConstValue(OpI))
@@ -269,11 +271,12 @@ struct ValueDeleter {
       }
     }
 
-    // Go through all dbg.value and see if we can replace their value with constant.
-    // As we go and delete all non-contributing values, we want to preserve as much debug
-    // info as possible.
+    // Go through all dbg.value and see if we can replace their value with
+    // constant. As we go and delete all non-contributing values, we want to
+    // preserve as much debug info as possible.
     if (llvm::hasDebugInfo(*F.getParent())) {
-      Function *DbgValueF = F.getParent()->getFunction(Intrinsic::getName(Intrinsic::dbg_value));
+      Function *DbgValueF =
+          F.getParent()->getFunction(Intrinsic::getName(Intrinsic::dbg_value));
       if (DbgValueF) {
         LLVMContext &Ctx = F.getContext();
         for (User *U : DbgValueF->users()) {
@@ -281,7 +284,8 @@ struct ValueDeleter {
           Value *Val = DbgVal->getValue();
           if (Val) {
             if (Constant *C = DVC->GetConstValue(DbgVal->getValue())) {
-              DbgVal->setArgOperand(0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(C)));
+              DbgVal->setArgOperand(
+                  0, MetadataAsValue::get(Ctx, ValueAsMetadata::get(C)));
             }
           }
         }
@@ -289,12 +293,16 @@ struct ValueDeleter {
     }
 
     bool Changed = false;
-    for (auto bb_it = F.getBasicBlockList().rbegin(), bb_end = F.getBasicBlockList().rend(); bb_it != bb_end; bb_it++) {
+    for (auto bb_it = F.getBasicBlockList().rbegin(),
+              bb_end = F.getBasicBlockList().rend();
+         bb_it != bb_end; bb_it++) {
       BasicBlock *BB = &*bb_it;
       for (auto it = BB->begin(), end = BB->end(); it != end;) {
         Instruction *I = &*(it++);
-        if (isa<DbgInfoIntrinsic>(I)) continue;
-        if (IsDxBreak(I)) continue;
+        if (isa<DbgInfoIntrinsic>(I))
+          continue;
+        if (IsDxBreak(I))
+          continue;
         if (!Seen.count(I)) {
           if (!I->user_empty())
             I->replaceAllUsesWith(UndefValue::get(I->getType()));
@@ -307,17 +315,17 @@ struct ValueDeleter {
   } // Run
 };
 
-}
+} // namespace
 
 // Iteratively and aggressively delete instructions that don't
 // contribute to the shader's output.
-// 
+//
 // Find all things that could impact the program's output, including:
 //   - terminator insts (branches, switches, returns)
 //   - anything with side effect
 // Recursively find all the instructions they reference
 // Delete all the rest
-// 
+//
 // Also replace any values that the value cache determined can be
 // replaced by a constant, with the exception of a few intrinsics that
 // we expect to see in the output.
@@ -366,7 +374,7 @@ struct DxilRemoveDeadBlocks : public FunctionPass {
   }
 };
 
-}
+} // namespace
 
 char DxilRemoveDeadBlocks::ID;
 
@@ -374,6 +382,8 @@ Pass *llvm::createDxilRemoveDeadBlocksPass() {
   return new DxilRemoveDeadBlocks();
 }
 
-INITIALIZE_PASS_BEGIN(DxilRemoveDeadBlocks, "dxil-remove-dead-blocks", "DXIL Remove Dead Blocks", false, false)
+INITIALIZE_PASS_BEGIN(DxilRemoveDeadBlocks, "dxil-remove-dead-blocks",
+                      "DXIL Remove Dead Blocks", false, false)
 INITIALIZE_PASS_DEPENDENCY(DxilValueCache)
-INITIALIZE_PASS_END(DxilRemoveDeadBlocks, "dxil-remove-dead-blocks", "DXIL Remove Dead Blocks", false, false)
+INITIALIZE_PASS_END(DxilRemoveDeadBlocks, "dxil-remove-dead-blocks",
+                    "DXIL Remove Dead Blocks", false, false)

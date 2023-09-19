@@ -10,15 +10,15 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <vector>
-#include <stdint.h>
-#include "llvm/ADT/StringRef.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "llvm/ADT/StringRef.h"
+#include <stdint.h>
+#include <vector>
 
 namespace clang {
-  class CodeGenOptions;
-  class SourceManager;
-}
+class CodeGenOptions;
+class SourceManager;
+} // namespace clang
 
 namespace hlsl {
 
@@ -56,7 +56,8 @@ struct SourceInfoWriter {
   Buffer m_Buffer;
 
   const hlsl::DxilSourceInfo *GetPart() const;
-  void Write(llvm::StringRef targetProfile, llvm::StringRef entryPoint, clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr);
+  void Write(llvm::StringRef targetProfile, llvm::StringRef entryPoint,
+             clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr);
 };
 
-} // namespace hlsl;
+} // namespace hlsl

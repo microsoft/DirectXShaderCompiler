@@ -743,20 +743,21 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
 
       spv::BuiltIn builtinID = spv::BuiltIn::Max;
       if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
-        // For EXT_mesh_shader, set builtin type as PrimitivePoint/Line/TriangleIndicesEXT
-        // based on the vertices per primitive
-        switch (verticesPerPrim) { 
-          case 1:
-            builtinID = spv::BuiltIn::PrimitivePointIndicesEXT;
-            break;
-          case 2:
-            builtinID = spv::BuiltIn::PrimitiveLineIndicesEXT;
-            break;
-          case 3:
-            builtinID = spv::BuiltIn::PrimitiveTriangleIndicesEXT;
-            break;
-          default:
-            break;
+        // For EXT_mesh_shader, set builtin type as
+        // PrimitivePoint/Line/TriangleIndicesEXT based on the vertices per
+        // primitive
+        switch (verticesPerPrim) {
+        case 1:
+          builtinID = spv::BuiltIn::PrimitivePointIndicesEXT;
+          break;
+        case 2:
+          builtinID = spv::BuiltIn::PrimitiveLineIndicesEXT;
+          break;
+        case 3:
+          builtinID = spv::BuiltIn::PrimitiveTriangleIndicesEXT;
+          break;
+        default:
+          break;
         }
         QualType arrayType = astContext.getConstantArrayType(
             type, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
@@ -764,16 +765,16 @@ bool DeclResultIdMapper::createStageOutputVar(const DeclaratorDecl *decl,
         stageVarInstructions[cast<DeclaratorDecl>(decl)] =
             getBuiltinVar(builtinID, arrayType, decl->getLocation());
       } else {
-          // For NV_mesh_shader, the built type is PrimitiveIndicesNV
-          builtinID = spv::BuiltIn::PrimitiveIndicesNV;
+        // For NV_mesh_shader, the built type is PrimitiveIndicesNV
+        builtinID = spv::BuiltIn::PrimitiveIndicesNV;
 
-          arraySize = arraySize * verticesPerPrim;
-          QualType arrayType = astContext.getConstantArrayType(
-              astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
-              clang::ArrayType::Normal, 0);
+        arraySize = arraySize * verticesPerPrim;
+        QualType arrayType = astContext.getConstantArrayType(
+            astContext.UnsignedIntTy, llvm::APInt(32, arraySize),
+            clang::ArrayType::Normal, 0);
 
-          stageVarInstructions[cast<DeclaratorDecl>(decl)] =
-              getBuiltinVar(builtinID, arrayType, decl->getLocation());
+        stageVarInstructions[cast<DeclaratorDecl>(decl)] =
+            getBuiltinVar(builtinID, arrayType, decl->getLocation());
       }
 
       return true;
@@ -849,9 +850,10 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   SemanticInfo inheritSemantic = {};
 
   if (paramDecl->hasAttr<HLSLPayloadAttr>()) {
-    spv::StorageClass sc = (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader))
-                           ? spv::StorageClass::TaskPayloadWorkgroupEXT
-                           : getStorageClassForSigPoint(sigPoint);
+    spv::StorageClass sc =
+        (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader))
+            ? spv::StorageClass::TaskPayloadWorkgroupEXT
+            : getStorageClassForSigPoint(sigPoint);
     return createPayloadStageVars(sigPoint, sc, paramDecl, /*asInput=*/true,
                                   type, "in.var", loadedValue);
   } else {
@@ -2017,9 +2019,9 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if (spirvOptions.stageIoOrder == "alpha") {
     // Sort stage input/output variables alphabetically
     std::stable_sort(vars.begin(), vars.end(),
-              [](const StageVar *a, const StageVar *b) {
-                return a->getSemanticStr() < b->getSemanticStr();
-              });
+                     [](const StageVar *a, const StageVar *b) {
+                       return a->getSemanticStr() < b->getSemanticStr();
+                     });
     return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
   }
 
@@ -2039,9 +2041,9 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if ((!forInput && spvContext.isHS()) || (forInput && spvContext.isDS())) {
     // Sort stage input/output variables alphabetically
     std::stable_sort(vars.begin(), vars.end(),
-              [](const StageVar *a, const StageVar *b) {
-                return a->getSemanticStr() < b->getSemanticStr();
-              });
+                     [](const StageVar *a, const StageVar *b) {
+                       return a->getSemanticStr() < b->getSemanticStr();
+                     });
   }
   return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
 }
