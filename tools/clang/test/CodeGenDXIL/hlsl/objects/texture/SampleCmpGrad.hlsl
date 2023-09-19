@@ -4,11 +4,10 @@ SamplerComparisonState samp1;
 
 Texture2D<float4> tex2d;
 Texture2DArray<float4> tex2d_array;
-Texture3D<float4> tex3d;
 TextureCube<float4> texcube;
 TextureCubeArray<float4> texcube_array;
 
-half cmpVal;
+float cmpVal;
 
 float2 ddx;
 float2 ddy;
@@ -17,9 +16,8 @@ float clamp;
 
 // CHECK: define void @main()
 
-// CHECK: %[[CubeArray:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 4, i32 4, i32 0, i8 0 }, i32 4, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
-// CHECK: %[[Cube:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 3, i32 3, i32 0, i8 0 }, i32 3, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
-// CHECK: %[[T3D:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 2, i32 2, i32 0, i8 0 }, i32 2, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+// CHECK: %[[CubeArray:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 3, i32 3, i32 0, i8 0 }, i32 3, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+// CHECK: %[[Cube:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 2, i32 2, i32 0, i8 0 }, i32 2, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
 // CHECK: %[[T2DArray:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 1, i32 0, i8 0 }, i32 1, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
 // CHECK: %[[T2D:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
 
@@ -52,13 +50,6 @@ float main(float4 a
 // CHECK: extractvalue %dx.types.ResRet.f32 %[[T2DStatus]], 4
 
   r += tex2d.SampleCmpGrad(samp1, a.xy, cmpVal, ddx, ddy, uint2(-3, 2), 0.f, status);
-  r += status;
-
-// CHECK: %[[AnnotT3D:.+]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[T3D]], %dx.types.ResourceProperties { i32 4, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture3D<4xF32>
-// CHECK: %[[T3DStatus:.+]] = call %dx.types.ResRet.f32 @dx.op.sampleCmpGrad.f32(i32 254, %dx.types.Handle %[[AnnotT3D]], %dx.types.Handle %[[AnnotSampler]], float %{{.*}}, float %{{.*}}, float %{{.*}}, float undef, i32 -3, i32 2, i32 -1, float %{{.*}}, float %{{.*}}, float %{{.*}}, float %{{.*}}, float %{{.*}}, float %{{.*}}, float %{{.*}}, float %{{.*}})  ; SampleCmpGrad(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,ddx0,ddx1,ddx2,ddy0,ddy1,ddy2,clamp)
-// CHECK: extractvalue %dx.types.ResRet.f32 %[[T3DStatus]], 4
-
-  r += tex3d.SampleCmpGrad(samp1, a.xyz, cmpVal, ddx.xyx, ddy.yxy, uint3(-3, 2, -1), clamp, status);
   r += status;
 
   return r;

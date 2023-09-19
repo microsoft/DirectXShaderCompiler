@@ -5,9 +5,9 @@ Texture1D<float4> tex1d;
 Texture1DArray<float4> tex1d_array;
 Texture2D<float4> tex2d;
 
-Texture3D<float4> tex3d;
+TextureCube<float4> texcube;
 
-half cmpVal;
+float cmpVal;
 float bias;
 
 
@@ -15,7 +15,7 @@ float clamp;
 
 // CHECK: define void @main()
 
-// CHECK: %[[T3D:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 3, i32 3, i32 0, i8 0 }, i32 3, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
+// CHECK: %[[TCube:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 3, i32 3, i32 0, i8 0 }, i32 3, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
 // CHECK: %[[T2D:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 2, i32 2, i32 0, i8 0 }, i32 2, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
 // CHECK: %[[T1DArray:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind { i32 1, i32 1, i32 0, i8 0 }, i32 1, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
 // CHECK: %[[T1D:.+]] = call %dx.types.Handle @dx.op.createHandleFromBinding(i32 217, %dx.types.ResBind zeroinitializer, i32 0, i1 false)  ; CreateHandleFromBinding(bind,index,nonUniformIndex)
@@ -42,11 +42,11 @@ float main(float4 a
   
   r += tex2d.SampleCmpBias(samp1, a.xy, cmpVal, bias, uint2(-5, 7), clamp);
 
-// CHECK: %[[AnnotT3D:.+]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[T3D]], %dx.types.ResourceProperties { i32 4, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture3D<4xF32>
-// CHECK: %[[T3DStatus:.+]] = call %dx.types.ResRet.f32 @dx.op.sampleCmpBias.f32(i32 255, %dx.types.Handle %[[AnnotT3D]], %dx.types.Handle %[[AnnotSampler]], float %{{.*}}, float %{{.*}}, float %{{.*}}, float undef, i32 4, i32 3, i32 -5, float %{{.*}}, float %{{.*}}, float %{{.*}})  ; SampleCmpBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,bias,clamp)
-// CHECK: extractvalue %dx.types.ResRet.f32 %[[T3DStatus]], 4
+// CHECK: %[[AnnotTCube:.+]] = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %[[TCube]], %dx.types.ResourceProperties { i32 5, i32 1033 })  ; AnnotateHandle(res,props)  resource: TextureCube<4xF32>
+// CHECK: %[[TCubeStatus:.+]] = call %dx.types.ResRet.f32 @dx.op.sampleCmpBias.f32(i32 255, %dx.types.Handle %[[AnnotTCube]], %dx.types.Handle %[[AnnotSampler]], float %{{.*}}, float %{{.*}}, float %{{.*}}, float undef, i32 undef, i32 undef, i32 undef, float %{{.*}}, float %{{.*}}, float %{{.*}})  ; SampleCmpBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,bias,clamp)
+// CHECK: extractvalue %dx.types.ResRet.f32 %[[TCubeStatus]], 4
 
-  r += tex3d.SampleCmpBias(samp1, a.xyz, cmpVal, bias, uint3(4, 3, -5), clamp, status);
+  r += texcube.SampleCmpBias(samp1, a.xyz, cmpVal, bias, clamp, status);
   r += status;
 
 
