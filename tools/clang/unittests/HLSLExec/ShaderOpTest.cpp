@@ -830,6 +830,7 @@ void ShaderOpTest::CreateShaders() {
     CComPtr<ID3DBlob> pCode;
     HRESULT hr = S_OK;
     LPCSTR pText = m_pShaderOp->GetShaderText(&S);
+    LPCSTR pArguments = m_pShaderOp->GetShaderArguments(&S);
     if (S.Callback) {
       if (!m_ShaderCallbackFn) {
         ShaderOpLogFmt(
@@ -858,7 +859,7 @@ void ShaderOpTest::CreateShaders() {
       CA2W nameW(S.Name, CP_UTF8);
       CA2W entryPointW(S.EntryPoint, CP_UTF8);
       CA2W targetW(S.Target, CP_UTF8);
-      CA2W argumentsW(S.Arguments, CP_UTF8);
+      CA2W argumentsW(pArguments, CP_UTF8);
 
       std::vector<LPWSTR> argumentsWList;
       splitWStringIntoVectors(argumentsW, L' ', argumentsWList);

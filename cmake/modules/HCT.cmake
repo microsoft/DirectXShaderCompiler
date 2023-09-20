@@ -44,7 +44,7 @@ function(add_hlsl_hctgen mode)
     message(FATAL_ERROR "add_hlsl_hctgen requires OUTPUT argument")
   endif()
  
-  set(temp_output ${CMAKE_CURRENT_BINARY_DIR}/${ARG_OUTPUT}.tmp)
+  set(temp_output ${CMAKE_CURRENT_BINARY_DIR}/tmp/${ARG_OUTPUT})
   set(full_output ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_OUTPUT})
   if (ARG_BUILD_DIR)
     set(full_output ${CMAKE_CURRENT_BINARY_DIR}/${ARG_OUTPUT})
