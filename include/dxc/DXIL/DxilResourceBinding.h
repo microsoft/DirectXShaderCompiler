@@ -16,7 +16,7 @@
 namespace llvm {
 class Constant;
 class Type;
-}
+} // namespace llvm
 
 namespace hlsl {
 
@@ -44,9 +44,9 @@ namespace resource_helper {
 llvm::Constant *getAsConstant(const DxilResourceBinding &, llvm::Type *Ty,
                               const ShaderModel &);
 DxilResourceBinding loadBindingFromConstant(const llvm::Constant &C);
-DxilResourceBinding
-loadBindingFromCreateHandleFromBinding(const DxilInst_CreateHandleFromBinding &createHandle, llvm::Type *Ty,
-                       const ShaderModel &);
+DxilResourceBinding loadBindingFromCreateHandleFromBinding(
+    const DxilInst_CreateHandleFromBinding &createHandle, llvm::Type *Ty,
+    const ShaderModel &);
 DxilResourceBinding loadBindingFromResourceBase(DxilResourceBase *);
 
 } // namespace resource_helper

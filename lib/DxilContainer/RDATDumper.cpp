@@ -9,8 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
 #include "dxc/Test/RDATDumper.h"
+#include "dxc/Support/Global.h"
 
 using namespace hlsl;
 using namespace RDAT;
@@ -28,19 +28,21 @@ void DumpRuntimeData(const RDAT::DxilRuntimeData &RDAT, DumpContext &d) {
   d.WriteLn("RawBytes (size = ", ctx.RawBytes.Size(), " bytes)");
 
 // Once per table.
-#define RDAT_STRUCT_TABLE(type, table) DumpRecordTable<type>(ctx, d, #table, ctx.Table(RecordTableIndex::table));
+#define RDAT_STRUCT_TABLE(type, table)                                         \
+  DumpRecordTable<type>(ctx, d, #table, ctx.Table(RecordTableIndex::table));
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
 
   d.Dedent();
 }
 
-template<typename RecordType>
+template <typename RecordType>
 void DumpRecordTable(const RDAT::RDATContext &ctx, DumpContext &d,
                      const char *tableName, const RDAT::TableReader &table) {
   if (!table.Count())
     return;
-  d.WriteLn("RecordTable (stride = ", table.Stride(), " bytes) ", tableName, "[", table.Count(), "] = {");
+  d.WriteLn("RecordTable (stride = ", table.Stride(), " bytes) ", tableName,
+            "[", table.Count(), "] = {");
   d.Indent();
   for (unsigned i = 0; i < table.Count(); i++) {
     DumpRecordTableEntry<RecordType>(ctx, d, i);
@@ -49,7 +51,7 @@ void DumpRecordTable(const RDAT::RDATContext &ctx, DumpContext &d,
   d.WriteLn("}");
 }
 
-template<typename RecordType>
+template <typename RecordType>
 void DumpRecordTableEntry(const RDAT::RDATContext &ctx, DumpContext &d,
                           uint32_t i) {
   // Visit() will prevent recursive/repeated reference expansion.  Resetting
@@ -65,7 +67,7 @@ void DumpRecordTableEntry(const RDAT::RDATContext &ctx, DumpContext &d,
   d.WriteLn("}");
 }
 
-template<typename _T>
+template <typename _T>
 void DumpRecordValue(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
                      const char *tyName, const char *memberName,
                      const _T *memberPtr) {
@@ -73,7 +75,7 @@ void DumpRecordValue(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
   DumpWithBase(ctx, d, memberPtr);
 }
 
-template<typename _T>
+template <typename _T>
 void DumpRecordRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
                    const char *tyName, const char *memberName,
                    hlsl::RDAT::RecordRef<_T> rr) {
@@ -91,23 +93,26 @@ void DumpRecordRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
   }
 }
 
-template<typename _T>
+template <typename _T>
 void DumpRecordArrayRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
                         const char *tyName, const char *memberName,
                         hlsl::RDAT::RecordArrayRef<_T> rar) {
   auto row = ctx.IndexTable.getRow(rar.Index);
   if (row.Count()) {
-    d.WriteLn(memberName, ": <", rar.Index, ":RecordArrayRef<", tyName, ">[", row.Count(), "]>  = {");
+    d.WriteLn(memberName, ": <", rar.Index, ":RecordArrayRef<", tyName, ">[",
+              row.Count(), "]>  = {");
     d.Indent();
     for (uint32_t i = 0; i < row.Count(); ++i) {
       RecordRefDumper<_T> rrDumper(row.At(i));
       if (rrDumper.Get(ctx)) {
         if (d.Visit(rrDumper.Get(ctx))) {
-          d.WriteLn("[", i, "]: <", rrDumper.Index, ":", rrDumper.TypeName(ctx), "> = {");
+          d.WriteLn("[", i, "]: <", rrDumper.Index, ":", rrDumper.TypeName(ctx),
+                    "> = {");
           rrDumper.Dump(ctx, d);
           d.WriteLn("}");
         } else {
-          d.WriteLn("[", i, "]: <", rrDumper.Index, ":", rrDumper.TypeName(ctx), ">");
+          d.WriteLn("[", i, "]: <", rrDumper.Index, ":", rrDumper.TypeName(ctx),
+                    ">");
         }
       } else {
         d.WriteLn("[", i, "]: <", row.At(i), ":", tyName, "> = <nullptr>");
@@ -121,8 +126,7 @@ void DumpRecordArrayRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
 }
 
 void DumpStringArray(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
-                     const char *memberName,
-                     hlsl::RDAT::RDATStringArray sa) {
+                     const char *memberName, hlsl::RDAT::RDATStringArray sa) {
   auto sar = sa.Get(ctx);
   if (sar && sar.Count()) {
     d.WriteLn(memberName, ": <", sa.Index, ":string[", sar.Count(), "]> = {");
@@ -160,18 +164,17 @@ void DumpIndexArray(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
 }
 
 void DumpBytesRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
-                   const char *memberName,
-                   hlsl::RDAT::BytesRef bytesRef) {
+                  const char *memberName, hlsl::RDAT::BytesRef bytesRef) {
   d.WriteLn(memberName, ": <", bytesRef.Offset, ":bytes[", bytesRef.Size, "]>");
 }
 
-template<typename _T>
+template <typename _T>
 void DumpValueArray(DumpContext &d, const char *memberName,
                     const char *typeName, const void *valueArray,
                     unsigned arraySize) {
   d.WriteLn(memberName, ": ", typeName, "[", arraySize, "] = { ");
   for (unsigned i = 0; i < arraySize; i++) {
-    d.Write(((const _T*)valueArray)[i]);
+    d.Write(((const _T *)valueArray)[i]);
     if (i < arraySize - 1)
       d.Write(", ");
   }

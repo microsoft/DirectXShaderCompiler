@@ -363,6 +363,23 @@ if( MSVC )
     if (LLVM_ENABLE_PEDANTIC)
       # No MSVC equivalent available
     endif (LLVM_ENABLE_PEDANTIC)
+
+    if (CLANG_CL)
+      append("-Wall -W -Wno-unused-parameter -Wwrite-strings -Wimplicit-fallthrough" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wcast-qual" CMAKE_CXX_FLAGS)
+
+      # Disable unknown pragma warnings because the output is just too long with them.
+      append("-Wno-unknown-pragmas" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+      add_flag_if_supported("-Wno-unused-but-set-variable" UNUSED_BUT_SET_VARIABLE)
+      append("-Wno-switch" CMAKE_CXX_FLAGS)
+
+      append("-Wmissing-field-initializers" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+      # enable warnings explicitly.
+      append("-Wnonportable-include-path -Wunused-function" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wtrigraphs -Wconstant-logical-operand -Wunused-variable" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    endif (CLANG_CL)
   endif (LLVM_ENABLE_WARNINGS)
   if (LLVM_ENABLE_WERROR)
     append("/WX" msvc_warning_flags)

@@ -420,8 +420,7 @@ public:
 
 class RayQueryTypeKHR : public SpirvType {
 public:
-  RayQueryTypeKHR()
-      : SpirvType(TK_RayQueryKHR, "rayQueryKHR") {}
+  RayQueryTypeKHR() : SpirvType(TK_RayQueryKHR, "rayQueryKHR") {}
 
   static bool classof(const SpirvType *t) {
     return t->getKind() == TK_RayQueryKHR;

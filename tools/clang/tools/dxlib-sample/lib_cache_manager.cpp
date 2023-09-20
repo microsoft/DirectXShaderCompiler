@@ -9,17 +9,17 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#include "lib_share_helper.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Hashing.h"
+#include "llvm/ADT/STLExtras.h"
 #include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
-#include "lib_share_helper.h"
-#include "llvm/ADT/STLExtras.h"
-#include "dxc/Support/FileIOHelper.h"
 
 using namespace llvm;
 using namespace libshare;
@@ -34,8 +34,7 @@ public:
       m_dllSupport.Initialize();
     m_dllSupport.CreateInstance(CLSID_DxcRewriter, &m_pRewriter);
   }
-  HRESULT RewriteToNoFuncBody(LPCWSTR pFilename,
-                              IDxcBlobEncoding *pSource,
+  HRESULT RewriteToNoFuncBody(LPCWSTR pFilename, IDxcBlobEncoding *pSource,
                               std::vector<DxcDefine> &m_defines,
                               IDxcBlob **ppNoFuncBodySource);
 
@@ -105,7 +104,7 @@ private:
       std::unordered_map<hash_code, std::string, KeyHash, KeyEqual>;
   headerCacheType m_headerCache;
   std::shared_mutex m_mutex;
-  NoFuncBodyRewriter  m_rewriter;
+  NoFuncBodyRewriter m_rewriter;
 };
 
 static hash_code CombineWStr(hash_code hash, LPCWSTR Arg) {
@@ -114,8 +113,9 @@ static hash_code CombineWStr(hash_code hash, LPCWSTR Arg) {
   return hash_combine(hash, StringRef(pUtf8Arg.m_psz, length));
 }
 
-hash_code LibCacheManagerImpl::GetHash(const std::string &header, const std::string &snippet,
-                    CompileInput &compiler) {
+hash_code LibCacheManagerImpl::GetHash(const std::string &header,
+                                       const std::string &snippet,
+                                       CompileInput &compiler) {
   hash_code libHash = hash_value(header);
   libHash = hash_combine(libHash, snippet);
   // Combine compile input.
@@ -128,11 +128,10 @@ hash_code LibCacheManagerImpl::GetHash(const std::string &header, const std::str
 
 using namespace hlsl;
 
-HRESULT LibCacheManagerImpl::AddLibBlob(std::string &processedHeader,
-                                        const std::string &snippet,
-                                        CompileInput &compiler, size_t &hash,
-                                        IDxcBlob **pResultLib,
-                                        std::function<void(IDxcBlob *pSource)> compileFn) {
+HRESULT LibCacheManagerImpl::AddLibBlob(
+    std::string &processedHeader, const std::string &snippet,
+    CompileInput &compiler, size_t &hash, IDxcBlob **pResultLib,
+    std::function<void(IDxcBlob *pSource)> compileFn) {
   if (!pResultLib) {
     return E_FAIL;
   }
@@ -148,7 +147,8 @@ HRESULT LibCacheManagerImpl::AddLibBlob(std::string &processedHeader,
   }
   std::string shader = processedHeader + snippet;
   CComPtr<IDxcBlobEncoding> pSource;
-  IFT(DxcCreateBlobWithEncodingOnMallocCopy(GetGlobalHeapMalloc(), shader.data(), shader.size(), CP_UTF8, &pSource));
+  IFT(DxcCreateBlobWithEncodingOnMallocCopy(
+      GetGlobalHeapMalloc(), shader.data(), shader.size(), CP_UTF8, &pSource));
 
   compileFn(pSource);
 
@@ -156,9 +156,10 @@ HRESULT LibCacheManagerImpl::AddLibBlob(std::string &processedHeader,
 
   // Rewrite curHeader to remove function body.
   CComPtr<IDxcBlob> result;
-  IFT(m_rewriter.RewriteToNoFuncBody(L"input.hlsl", pSource, compiler.defines, &result));
+  IFT(m_rewriter.RewriteToNoFuncBody(L"input.hlsl", pSource, compiler.defines,
+                                     &result));
   processedHeader = std::string((char *)(result)->GetBufferPointer(),
-                                   (result)->GetBufferSize());
+                                (result)->GetBufferSize());
   m_headerCache[hash] = processedHeader;
   return S_OK;
 }
@@ -198,9 +199,9 @@ LibCacheManager *GetLibCacheManagerPtr(bool bFree) {
 } // namespace
 
 LibCacheManager &LibCacheManager::GetLibCacheManager() {
-  return *GetLibCacheManagerPtr(/*bFree*/false);
+  return *GetLibCacheManagerPtr(/*bFree*/ false);
 }
 
 void LibCacheManager::ReleaseLibCacheManager() {
-  GetLibCacheManagerPtr(/*bFree*/true);
+  GetLibCacheManagerPtr(/*bFree*/ true);
 }

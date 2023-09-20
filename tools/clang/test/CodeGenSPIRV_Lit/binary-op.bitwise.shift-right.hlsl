@@ -24,22 +24,22 @@ void main() {
     f = d >> e;
 
 // CHECK:        [[h:%[0-9]+]] = OpLoad %v3long %h
-// CHECK-NEXT: [[rhs_0_0:%[0-9]+]] = OpBitwiseAnd %v3long [[h]] [[v3c63]]
-// CHECK-NEXT:                OpShiftRightArithmetic %v3long {{%[0-9]+}} [[rhs_0_0]]
+// CHECK-NEXT: [[rhs_1:%[0-9]+]] = OpBitwiseAnd %v3long [[h]] [[v3c63]]
+// CHECK-NEXT:                OpShiftRightArithmetic %v3long {{%[0-9]+}} [[rhs_1]]
     i = g >> h;
 
 // CHECK:        [[k:%[0-9]+]] = OpLoad %ulong %k
-// CHECK-NEXT: [[rhs_0_0_0:%[0-9]+]] = OpBitwiseAnd %ulong [[k]] %ulong_63
-// CHECK-NEXT:                OpShiftRightLogical %ulong {{%[0-9]+}} [[rhs_0_0_0]]
+// CHECK-NEXT: [[rhs_2:%[0-9]+]] = OpBitwiseAnd %ulong [[k]] %ulong_63
+// CHECK-NEXT:                OpShiftRightLogical %ulong {{%[0-9]+}} [[rhs_2]]
     l = j >> k;
 
 // CHECK:        [[n:%[0-9]+]] = OpLoad %short %n
-// CHECK-NEXT: [[rhs_0_0_0_0:%[0-9]+]] = OpBitwiseAnd %short [[n]] %short_15
-// CHECK-NEXT:                OpShiftRightArithmetic %short {{%[0-9]+}} [[rhs_0_0_0_0]]
+// CHECK-NEXT: [[rhs_3:%[0-9]+]] = OpBitwiseAnd %short [[n]] %short_15
+// CHECK-NEXT:                OpShiftRightArithmetic %short {{%[0-9]+}} [[rhs_3]]
     o = m >> n;
 
 // CHECK:        [[q:%[0-9]+]] = OpLoad %v4ushort %q
-// CHECK-NEXT: [[rhs_0_0_0_0_0:%[0-9]+]] = OpBitwiseAnd %v4ushort [[q]] [[v4c15]]
-// CHECK-NEXT:                OpShiftRightLogical %v4ushort {{%[0-9]+}} [[rhs_0_0_0_0_0]]
+// CHECK-NEXT: [[rhs_4:%[0-9]+]] = OpBitwiseAnd %v4ushort [[q]] [[v4c15]]
+// CHECK-NEXT:                OpShiftRightLogical %v4ushort {{%[0-9]+}} [[rhs_4]]
     r = p >> q;
 }

@@ -8,7 +8,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "clang/Rewrite/Frontend/FrontendActions.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -19,6 +18,7 @@
 #include "clang/Parse/Parser.h"
 #include "clang/Rewrite/Frontend/ASTConsumers.h"
 #include "clang/Rewrite/Frontend/FixItRewriter.h"
+#include "clang/Rewrite/Frontend/FrontendActions.h"
 #include "clang/Rewrite/Frontend/Rewriters.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -61,15 +61,15 @@ class FixItActionSuffixInserter : public FixItOptions {
 
 public:
   FixItActionSuffixInserter(std::string NewSuffix, bool FixWhatYouCan)
-    : NewSuffix(NewSuffix) {
-      this->FixWhatYouCan = FixWhatYouCan;
+      : NewSuffix(NewSuffix) {
+    this->FixWhatYouCan = FixWhatYouCan;
   }
 
   std::string RewriteFilename(const std::string &Filename, int &fd) override {
     fd = -1;
     SmallString<128> Path(Filename);
-    llvm::sys::path::replace_extension(Path,
-      NewSuffix + llvm::sys::path::extension(Path));
+    llvm::sys::path::replace_extension(
+        Path, NewSuffix + llvm::sys::path::extension(Path));
     return Path.str();
   }
 };
@@ -108,7 +108,7 @@ void FixItAction::EndSourceFileAction() {
 
 bool FixItRecompile::BeginInvocation(CompilerInstance &CI) {
 
-  std::vector<std::pair<std::string, std::string> > RewrittenFiles;
+  std::vector<std::pair<std::string, std::string>> RewrittenFiles;
   bool err = false;
   {
     const FrontendOptions &FEOpts = CI.getFrontendOpts();
@@ -125,9 +125,9 @@ bool FixItRecompile::BeginInvocation(CompilerInstance &CI) {
       FixItRewriter Rewriter(CI.getDiagnostics(), CI.getSourceManager(),
                              CI.getLangOpts(), FixItOpts.get());
       FixAction->Execute();
-  
+
       err = Rewriter.WriteFixedFiles(&RewrittenFiles);
-    
+
       FixAction->EndSourceFile();
       CI.setSourceManager(nullptr);
       CI.setFileManager(nullptr);
@@ -154,13 +154,11 @@ std::unique_ptr<ASTConsumer>
 RewriteObjCAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
   if (raw_ostream *OS = CI.createDefaultOutputFile(false, InFile, "cpp")) {
     if (CI.getLangOpts().ObjCRuntime.isNonFragile())
-      return CreateModernObjCRewriter(InFile, OS,
-                                CI.getDiagnostics(), CI.getLangOpts(),
-                                CI.getDiagnosticOpts().NoRewriteMacros,
-                                (CI.getCodeGenOpts().getDebugInfo() !=
-                                 CodeGenOptions::NoDebugInfo));
-    return CreateObjCRewriter(InFile, OS,
-                              CI.getDiagnostics(), CI.getLangOpts(),
+      return CreateModernObjCRewriter(
+          InFile, OS, CI.getDiagnostics(), CI.getLangOpts(),
+          CI.getDiagnosticOpts().NoRewriteMacros,
+          (CI.getCodeGenOpts().getDebugInfo() != CodeGenOptions::NoDebugInfo));
+    return CreateObjCRewriter(InFile, OS, CI.getDiagnostics(), CI.getLangOpts(),
                               CI.getDiagnosticOpts().NoRewriteMacros);
   }
   return nullptr;
@@ -175,7 +173,8 @@ RewriteObjCAction::CreateASTConsumer(CompilerInstance &CI, StringRef InFile) {
 void RewriteMacrosAction::ExecuteAction() {
   CompilerInstance &CI = getCompilerInstance();
   raw_ostream *OS = CI.createDefaultOutputFile(true, getCurrentFile());
-  if (!OS) return;
+  if (!OS)
+    return;
 
   RewriteMacrosInInput(CI.getPreprocessor(), OS);
 }
@@ -183,7 +182,8 @@ void RewriteMacrosAction::ExecuteAction() {
 void RewriteTestAction::ExecuteAction() {
   CompilerInstance &CI = getCompilerInstance();
   raw_ostream *OS = CI.createDefaultOutputFile(false, getCurrentFile());
-  if (!OS) return;
+  if (!OS)
+    return;
 
   DoRewriteTest(CI.getPreprocessor(), OS);
 }
@@ -191,7 +191,8 @@ void RewriteTestAction::ExecuteAction() {
 void RewriteIncludesAction::ExecuteAction() {
   CompilerInstance &CI = getCompilerInstance();
   raw_ostream *OS = CI.createDefaultOutputFile(true, getCurrentFile());
-  if (!OS) return;
+  if (!OS)
+    return;
 
   RewriteIncludesInInput(CI.getPreprocessor(), OS,
                          CI.getPreprocessorOutputOpts());

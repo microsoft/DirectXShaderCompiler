@@ -7,64 +7,45 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
+#include "dxc/DXIL/DxilEntryProps.h"
+#include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilResourceBinding.h"
-#include "dxc/Support/Global.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/Support/Casting.h"
-#include "dxc/DXIL/DxilEntryProps.h"
-#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/Support/Global.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/Support/Casting.h"
 
 using namespace hlsl;
 using namespace llvm;
 
-ShaderFlags::ShaderFlags():
-  m_bDisableOptimizations(false)
-, m_bDisableMathRefactoring(false)
-, m_bEnableDoublePrecision(false)
-, m_bForceEarlyDepthStencil(false)
-, m_bEnableRawAndStructuredBuffers(false)
-, m_bLowPrecisionPresent(false)
-, m_bEnableDoubleExtensions(false)
-, m_bEnableMSAD(false)
-, m_bAllResourcesBound(false)
-, m_bViewportAndRTArrayIndex(false)
-, m_bInnerCoverage(false)
-, m_bStencilRef(false)
-, m_bTiledResources(false)
-, m_bUAVLoadAdditionalFormats(false)
-, m_bLevel9ComparisonFiltering(false)
-, m_b64UAVs(false)
-, m_UAVsAtEveryStage(false)
-, m_bCSRawAndStructuredViaShader4X(false)
-, m_bROVS(false)
-, m_bWaveOps(false)
-, m_bInt64Ops(false)
-, m_bViewID(false)
-, m_bBarycentrics(false)
-, m_bUseNativeLowPrecision(false)
-, m_bShadingRate(false)
-, m_bRaytracingTier1_1(false)
-, m_bSamplerFeedback(false)
-, m_bAtomicInt64OnTypedResource(false)
-, m_bAtomicInt64OnGroupShared(false)
-, m_bDerivativesInMeshAndAmpShaders(false)
-, m_bResourceDescriptorHeapIndexing(false)
-, m_bSamplerDescriptorHeapIndexing(false)
-, m_bAtomicInt64OnHeapResource(false)
-, m_bResMayNotAlias(false)
-, m_bAdvancedTextureOps(false)
-, m_bWriteableMSAATextures(false)
-, m_bWaveMMA(false)
-, m_align1(0)
-{
+ShaderFlags::ShaderFlags()
+    : m_bDisableOptimizations(false), m_bDisableMathRefactoring(false),
+      m_bEnableDoublePrecision(false), m_bForceEarlyDepthStencil(false),
+      m_bEnableRawAndStructuredBuffers(false), m_bLowPrecisionPresent(false),
+      m_bEnableDoubleExtensions(false), m_bEnableMSAD(false),
+      m_bAllResourcesBound(false), m_bViewportAndRTArrayIndex(false),
+      m_bInnerCoverage(false), m_bStencilRef(false), m_bTiledResources(false),
+      m_bUAVLoadAdditionalFormats(false), m_bLevel9ComparisonFiltering(false),
+      m_b64UAVs(false), m_UAVsAtEveryStage(false),
+      m_bCSRawAndStructuredViaShader4X(false), m_bROVS(false),
+      m_bWaveOps(false), m_bInt64Ops(false), m_bViewID(false),
+      m_bBarycentrics(false), m_bUseNativeLowPrecision(false),
+      m_bShadingRate(false), m_bRaytracingTier1_1(false),
+      m_bSamplerFeedback(false), m_bAtomicInt64OnTypedResource(false),
+      m_bAtomicInt64OnGroupShared(false),
+      m_bDerivativesInMeshAndAmpShaders(false),
+      m_bResourceDescriptorHeapIndexing(false),
+      m_bSamplerDescriptorHeapIndexing(false),
+      m_bAtomicInt64OnHeapResource(false), m_bResMayNotAlias(false),
+      m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
+      m_bWaveMMA(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
@@ -111,17 +92,36 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bViewID ? hlsl::DXIL::ShaderFeatureInfo_ViewID : 0;
   Flags |= m_bBarycentrics ? hlsl::DXIL::ShaderFeatureInfo_Barycentrics : 0;
   Flags |= m_bShadingRate ? hlsl::DXIL::ShaderFeatureInfo_ShadingRate : 0;
-  Flags |= m_bRaytracingTier1_1 ? hlsl::DXIL::ShaderFeatureInfo_Raytracing_Tier_1_1 : 0;
-  Flags |= m_bSamplerFeedback ? hlsl::DXIL::ShaderFeatureInfo_SamplerFeedback : 0;
-  Flags |= m_bAtomicInt64OnTypedResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnTypedResource : 0;
-  Flags |= m_bAtomicInt64OnGroupShared ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnGroupShared : 0;
-  Flags |= m_bDerivativesInMeshAndAmpShaders ? hlsl::DXIL::ShaderFeatureInfo_DerivativesInMeshAndAmpShaders : 0;
-  Flags |= m_bResourceDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_ResourceDescriptorHeapIndexing : 0;
-  Flags |= m_bSamplerDescriptorHeapIndexing ? hlsl::DXIL::ShaderFeatureInfo_SamplerDescriptorHeapIndexing : 0;
-  Flags |= m_bAtomicInt64OnHeapResource ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnHeapResource : 0;
+  Flags |= m_bRaytracingTier1_1
+               ? hlsl::DXIL::ShaderFeatureInfo_Raytracing_Tier_1_1
+               : 0;
+  Flags |=
+      m_bSamplerFeedback ? hlsl::DXIL::ShaderFeatureInfo_SamplerFeedback : 0;
+  Flags |= m_bAtomicInt64OnTypedResource
+               ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnTypedResource
+               : 0;
+  Flags |= m_bAtomicInt64OnGroupShared
+               ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnGroupShared
+               : 0;
+  Flags |= m_bDerivativesInMeshAndAmpShaders
+               ? hlsl::DXIL::ShaderFeatureInfo_DerivativesInMeshAndAmpShaders
+               : 0;
+  Flags |= m_bResourceDescriptorHeapIndexing
+               ? hlsl::DXIL::ShaderFeatureInfo_ResourceDescriptorHeapIndexing
+               : 0;
+  Flags |= m_bSamplerDescriptorHeapIndexing
+               ? hlsl::DXIL::ShaderFeatureInfo_SamplerDescriptorHeapIndexing
+               : 0;
+  Flags |= m_bAtomicInt64OnHeapResource
+               ? hlsl::DXIL::ShaderFeatureInfo_AtomicInt64OnHeapResource
+               : 0;
 
-  Flags |= m_bAdvancedTextureOps ? hlsl::DXIL::ShaderFeatureInfo_AdvancedTextureOps : 0;
-  Flags |= m_bWriteableMSAATextures ? hlsl::DXIL::ShaderFeatureInfo_WriteableMSAATextures : 0;
+  Flags |= m_bAdvancedTextureOps
+               ? hlsl::DXIL::ShaderFeatureInfo_AdvancedTextureOps
+               : 0;
+  Flags |= m_bWriteableMSAATextures
+               ? hlsl::DXIL::ShaderFeatureInfo_WriteableMSAATextures
+               : 0;
 
   Flags |= m_bWaveMMA ? hlsl::DXIL::ShaderFeatureInfo_WaveMMA : 0;
 
@@ -130,11 +130,9 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
 
 uint64_t ShaderFlags::GetShaderFlagsRaw() const {
   union Cast {
-    Cast(const ShaderFlags &flags) {
-      shaderFlags = flags;
-    }
+    Cast(const ShaderFlags &flags) { shaderFlags = flags; }
     ShaderFlags shaderFlags;
-    uint64_t  rawData;
+    uint64_t rawData;
   };
   static_assert(sizeof(uint64_t) == sizeof(ShaderFlags),
                 "size must match to make sure no undefined bits when cast");
@@ -144,11 +142,9 @@ uint64_t ShaderFlags::GetShaderFlagsRaw() const {
 
 void ShaderFlags::SetShaderFlagsRaw(uint64_t data) {
   union Cast {
-    Cast(uint64_t data) {
-      rawData = data;
-    }
+    Cast(uint64_t data) { rawData = data; }
     ShaderFlags shaderFlags;
-    uint64_t  rawData;
+    uint64_t rawData;
   };
 
   Cast rawCast(data);
@@ -156,7 +152,8 @@ void ShaderFlags::SetShaderFlagsRaw(uint64_t data) {
 }
 
 uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
-  // This should be all the flags that can be set by DxilModule::CollectShaderFlags.
+  // This should be all the flags that can be set by
+  // DxilModule::CollectShaderFlags.
   ShaderFlags Flags;
   Flags.SetEnableDoublePrecision(true);
   Flags.SetInt64Ops(true);
@@ -197,8 +194,12 @@ unsigned ShaderFlags::GetGlobalFlags() const {
   Flags |= m_bDisableMathRefactoring ? DXIL::kDisableMathRefactoring : 0;
   Flags |= m_bEnableDoublePrecision ? DXIL::kEnableDoublePrecision : 0;
   Flags |= m_bForceEarlyDepthStencil ? DXIL::kForceEarlyDepthStencil : 0;
-  Flags |= m_bEnableRawAndStructuredBuffers ? DXIL::kEnableRawAndStructuredBuffers : 0;
-  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision? DXIL::kEnableMinPrecision : 0;
+  Flags |= m_bEnableRawAndStructuredBuffers
+               ? DXIL::kEnableRawAndStructuredBuffers
+               : 0;
+  Flags |= m_bLowPrecisionPresent && !m_bUseNativeLowPrecision
+               ? DXIL::kEnableMinPrecision
+               : 0;
   Flags |= m_bEnableDoubleExtensions ? DXIL::kEnableDoubleExtensions : 0;
   Flags |= m_bEnableMSAD ? DXIL::kEnableMSAD : 0;
   Flags |= m_bAllResourcesBound ? DXIL::kAllResourcesBound : 0;
@@ -206,8 +207,9 @@ unsigned ShaderFlags::GetGlobalFlags() const {
 }
 
 // Given a CreateHandle call, returns arbitrary ConstantInt rangeID
-// Note: HLSL is currently assuming that rangeID is a constant value, but this code is assuming
-// that it can be either constant, phi node, or select instruction
+// Note: HLSL is currently assuming that rangeID is a constant value, but this
+// code is assuming that it can be either constant, phi node, or select
+// instruction
 static ConstantInt *GetArbitraryConstantRangeID(CallInst *handleCall) {
   Value *rangeID =
       handleCall->getArgOperand(DXIL::OperandIndex::kCreateHandleResIDOpIdx);
@@ -233,11 +235,9 @@ static CallInst *FindCallToCreateHandle(Value *handleType) {
   while (CI == nullptr) {
     if (PHINode *PN = dyn_cast<PHINode>(curVal)) {
       curVal = PN->getIncomingValue(0);
-    }
-    else if (SelectInst *SI = dyn_cast<SelectInst>(curVal)) {
+    } else if (SelectInst *SI = dyn_cast<SelectInst>(curVal)) {
       curVal = SI->getTrueValue();
-    }
-    else {
+    } else {
       return nullptr;
     }
     CI = dyn_cast<CallInst>(curVal);
@@ -245,19 +245,22 @@ static CallInst *FindCallToCreateHandle(Value *handleType) {
   return CI;
 }
 
-DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule *M, CallInst *handleCall) {
+DxilResourceProperties
+GetResourcePropertyFromHandleCall(const hlsl::DxilModule *M,
+                                  CallInst *handleCall) {
 
   DxilResourceProperties RP;
 
   ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
       handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
-  DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+  DXIL::OpCode handleOp =
+      static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
   if (handleOp == DXIL::OpCode::CreateHandle) {
     if (ConstantInt *resClassArg =
-      dyn_cast<ConstantInt>(handleCall->getArgOperand(
-        DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
-      DXIL::ResourceClass resClass = static_cast<DXIL::ResourceClass>(
-        resClassArg->getLimitedValue());
+            dyn_cast<ConstantInt>(handleCall->getArgOperand(
+                DXIL::OperandIndex::kCreateHandleResClassOpIdx))) {
+      DXIL::ResourceClass resClass =
+          static_cast<DXIL::ResourceClass>(resClassArg->getLimitedValue());
       ConstantInt *rangeID = GetArbitraryConstantRangeID(handleCall);
       if (rangeID) {
         DxilResource resource;
@@ -268,8 +271,7 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
         RP = resource_helper::loadPropsFromResourceBase(&resource);
       }
     }
-  }
-  else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
+  } else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
     // If library handle, find DxilResource by checking the name
     if (LoadInst *LI = dyn_cast<LoadInst>(handleCall->getArgOperand(
             DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
@@ -283,7 +285,8 @@ DxilResourceProperties GetResourcePropertyFromHandleCall(const hlsl::DxilModule 
   } else if (handleOp == DXIL::OpCode::AnnotateHandle) {
     DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
 
-    RP = resource_helper::loadPropsFromAnnotateHandle(annotateHandle, *M->GetShaderModel());
+    RP = resource_helper::loadPropsFromAnnotateHandle(annotateHandle,
+                                                      *M->GetShaderModel());
   }
 
   return RP;
@@ -297,43 +300,52 @@ struct ResourceKey {
 };
 
 struct ResKeyEq {
-   bool operator()(const ResourceKey& k1, const ResourceKey& k2) const {
-     return k1.Class == k2.Class && k1.Space == k2.Space &&
-       k1.LowerBound == k2.LowerBound && k1.UpperBound == k2.UpperBound;
-   }
+  bool operator()(const ResourceKey &k1, const ResourceKey &k2) const {
+    return k1.Class == k2.Class && k1.Space == k2.Space &&
+           k1.LowerBound == k2.LowerBound && k1.UpperBound == k2.UpperBound;
+  }
 };
 
 struct ResKeyHash {
-   std::size_t operator()(const ResourceKey& k) const {
-     return std::hash<uint32_t>()(k.LowerBound) ^ (std::hash<uint32_t>()(k.UpperBound)<<1) ^
-       (std::hash<uint32_t>()(k.Space)<<2) ^ (std::hash<uint8_t>()(k.Class)<<3);
-   }
+  std::size_t operator()(const ResourceKey &k) const {
+    return std::hash<uint32_t>()(k.LowerBound) ^
+           (std::hash<uint32_t>()(k.UpperBound) << 1) ^
+           (std::hash<uint32_t>()(k.Space) << 2) ^
+           (std::hash<uint8_t>()(k.Class) << 3);
+  }
 };
 
-// Limited to retrieving handles created by CreateHandleFromBinding and CreateHandleForLib. returns null otherwise
-// map should contain resources indexed by space, class, lower, and upper bounds
-DxilResource *GetResourceFromAnnotateHandle(const hlsl::DxilModule *M, CallInst *handleCall,
-                                     std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap) {
+// Limited to retrieving handles created by CreateHandleFromBinding and
+// CreateHandleForLib. returns null otherwise map should contain resources
+// indexed by space, class, lower, and upper bounds
+DxilResource *GetResourceFromAnnotateHandle(
+    const hlsl::DxilModule *M, CallInst *handleCall,
+    std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq>
+        resMap) {
   DxilResource *resource = nullptr;
 
   ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
       handleCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
-  DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+  DXIL::OpCode handleOp =
+      static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
   if (handleOp == DXIL::OpCode::AnnotateHandle) {
     DxilInst_AnnotateHandle annotateHandle(cast<Instruction>(handleCall));
     CallInst *createCall = cast<CallInst>(annotateHandle.get_res());
     ConstantInt *HandleOpCodeConst = cast<ConstantInt>(
-            createCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
-    DXIL::OpCode handleOp = static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
+        createCall->getArgOperand(DXIL::OperandIndex::kOpcodeIdx));
+    DXIL::OpCode handleOp =
+        static_cast<DXIL::OpCode>(HandleOpCodeConst->getLimitedValue());
     if (handleOp == DXIL::OpCode::CreateHandleFromBinding) {
       DxilInst_CreateHandleFromBinding fromBind(createCall);
-      DxilResourceBinding B = resource_helper::loadBindingFromConstant(*cast<Constant>(fromBind.get_bind()));
-      ResourceKey key = {B.resourceClass, B.spaceID, B.rangeLowerBound, B.rangeUpperBound};
+      DxilResourceBinding B = resource_helper::loadBindingFromConstant(
+          *cast<Constant>(fromBind.get_bind()));
+      ResourceKey key = {B.resourceClass, B.spaceID, B.rangeLowerBound,
+                         B.rangeUpperBound};
       resource = resMap[key];
     } else if (handleOp == DXIL::OpCode::CreateHandleForLib) {
       // If library handle, find DxilResource by checking the name
       if (LoadInst *LI = dyn_cast<LoadInst>(createCall->getArgOperand(
-                                              DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
+              DXIL::OperandIndex::kCreateHandleForLibResOpIdx))) {
         Value *resType = LI->getOperand(0);
         for (auto &&res : M->GetUAVs()) {
           if (res->GetGlobalSymbol() == resType) {
@@ -347,9 +359,8 @@ DxilResource *GetResourceFromAnnotateHandle(const hlsl::DxilModule *M, CallInst 
   return resource;
 }
 
-
 ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
-                                           const hlsl::DxilModule *M) {
+                                            const hlsl::DxilModule *M) {
   ShaderFlags flag;
   // Module level options
   flag.SetUseNativeLowPrecision(!M->GetUseMinPrecision());
@@ -400,11 +411,11 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   // fail shader create due to an unrecognized flag.
   uint32_t dxilMajor, dxilMinor;
   M->GetDxilVersion(dxilMajor, dxilMinor);
-  bool canSetResMayNotAlias = DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 7) >= 0;
+  bool canSetResMayNotAlias =
+      DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 7) >= 0;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
-
 
   // Set up resource to binding handle map for 64-bit atomics usage
   std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap;
@@ -429,8 +440,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
       bool isHalf = Ty->isHalfTy();
       bool isInt16 = Ty == int16Ty;
       bool isInt64 = Ty == int64Ty;
-      if (isa<ExtractElementInst>(&I) ||
-        isa<InsertElementInst>(&I))
+      if (isa<ExtractElementInst>(&I) || isa<InsertElementInst>(&I))
         continue;
       for (Value *operand : I.operands()) {
         Type *Ty = operand->getType();
@@ -471,7 +481,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         DXASSERT(opcodeConst, "DXIL opcode arg must be immediate");
         unsigned opcode = opcodeConst->getLimitedValue();
         DXASSERT(opcode < static_cast<unsigned>(DXIL::OpCode::NumOpCodes),
-          "invalid DXIL opcode");
+                 "invalid DXIL opcode");
         DXIL::OpCode dxilOp = static_cast<DXIL::OpCode>(opcode);
         if (hlsl::OP::IsDxilOpWave(dxilOp))
           hasWaveOps = true;
@@ -483,21 +493,28 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           hasMSAD = true;
           break;
         case DXIL::OpCode::TextureLoad:
-          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureLoadOffset2OpIdx)))
+          if (!isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureLoadOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureLoadOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureLoadOffset2OpIdx)))
             hasAdvancedTextureOps = true;
           LLVM_FALLTHROUGH;
         case DXIL::OpCode::BufferLoad: {
-          if (hasMulticomponentUAVLoads) continue;
+          if (hasMulticomponentUAVLoads)
+            continue;
           // This is the old-style computation (overestimating requirements).
-          Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kBufferLoadHandleOpIdx);
+          Value *resHandle =
+              CI->getArgOperand(DXIL::OperandIndex::kBufferLoadHandleOpIdx);
           CallInst *handleCall = FindCallToCreateHandle(resHandle);
           // Check if this is a library handle or general create handle
           if (handleCall) {
-            DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
+            DxilResourceProperties RP =
+                GetResourcePropertyFromHandleCall(M, handleCall);
             if (RP.isUAV()) {
-              // Validator 1.0 assumes that all uav load is multi component load.
+              // Validator 1.0 assumes that all uav load is multi component
+              // load.
               if (hasMulticomponentUAVLoadsBackCompat) {
                 hasMulticomponentUAVLoads = true;
                 continue;
@@ -508,7 +525,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
               }
             }
           }
-       } break;
+        } break;
         case DXIL::OpCode::Fma:
           hasDoubleExtension |= isDouble;
           break;
@@ -524,17 +541,20 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           break;
         case DXIL::OpCode::AttributeAtVertex:
           hasBarycentrics = true;
-        break;
+          break;
         case DXIL::OpCode::AtomicBinOp:
         case DXIL::OpCode::AtomicCompareExchange:
           if (isInt64) {
-            Value *resHandle = CI->getArgOperand(DXIL::OperandIndex::kAtomicBinOpHandleOpIdx);
+            Value *resHandle =
+                CI->getArgOperand(DXIL::OperandIndex::kAtomicBinOpHandleOpIdx);
             CallInst *handleCall = FindCallToCreateHandle(resHandle);
-            DxilResourceProperties RP = GetResourcePropertyFromHandleCall(M, handleCall);
+            DxilResourceProperties RP =
+                GetResourcePropertyFromHandleCall(M, handleCall);
             if (DXIL::IsTyped(RP.getResourceKind()))
-                hasAtomicInt64OnTypedResource = true;
+              hasAtomicInt64OnTypedResource = true;
             // set uses 64-bit flag if relevant
-            if (DxilResource *res = GetResourceFromAnnotateHandle(M, handleCall, resMap)) {
+            if (DxilResource *res =
+                    GetResourceFromAnnotateHandle(M, handleCall, resMap)) {
               res->SetHasAtomic64Use(true);
             } else {
               // Assuming CreateHandleFromHeap, which indicates a descriptor
@@ -545,17 +565,23 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::SampleGrad:
         case DXIL::OpCode::SampleLevel:
         case DXIL::OpCode::SampleCmpLevelZero:
-          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
+          if (!isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
             hasAdvancedTextureOps = true;
           break;
         case DXIL::OpCode::Sample:
         case DXIL::OpCode::SampleBias:
         case DXIL::OpCode::SampleCmp:
-          if (!isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
+          if (!isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
             hasAdvancedTextureOps = true;
           LLVM_FALLTHROUGH;
         case DXIL::OpCode::DerivFineX:
@@ -568,8 +594,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             hasDerivativesInMeshAndAmpShaders = true;
         } break;
         case DXIL::OpCode::CreateHandleFromHeap: {
-          ConstantInt *isSamplerVal = dyn_cast<ConstantInt>(
-                        CI->getArgOperand(DXIL::OperandIndex::kCreateHandleFromHeapSamplerHeapOpIdx));
+          ConstantInt *isSamplerVal = dyn_cast<ConstantInt>(CI->getArgOperand(
+              DXIL::OperandIndex::kCreateHandleFromHeapSamplerHeapOpIdx));
           if (isSamplerVal->getLimitedValue()) {
             hasSamplerDescriptorHeapIndexing = true;
           } else {
@@ -625,11 +651,11 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
     // it produced the correct result for PS by accident.
     bool checkInputRTArrayIndex = entryProps.props.IsGS();
     if (!hasViewportOrRTArrayIndexBackCombat)
-      checkInputRTArrayIndex |= entryProps.props.IsDS() ||
-                                entryProps.props.IsHS();
-    bool checkOutputRTArrayIndex =
-      entryProps.props.IsVS() || entryProps.props.IsDS() ||
-      entryProps.props.IsHS();
+      checkInputRTArrayIndex |=
+          entryProps.props.IsDS() || entryProps.props.IsHS();
+    bool checkOutputRTArrayIndex = entryProps.props.IsVS() ||
+                                   entryProps.props.IsDS() ||
+                                   entryProps.props.IsHS();
 
     for (auto &&E : entryProps.sig.InputSignature.GetElements()) {
       switch (E->GetKind()) {

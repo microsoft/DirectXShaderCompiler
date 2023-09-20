@@ -40,6 +40,7 @@ public:
 #else
 
 #define LANGOPT(Name, Bits, Default, Description) static const unsigned Name = Default;
+#define LANGOPT_BOOL(Name, Default, Description) static const bool Name = static_cast<bool>( Default );
 #define ENUM_LANGOPT(Name, Type, Bits, Default, Description)
 #include "clang/Basic/LangOptions.fixed.def"
 

@@ -2342,6 +2342,8 @@ class db_dxil(object):
             {'n':'checkForDynamicIndexing','t':'bool','c':1}])
         add_pass('hlsl-dxil-debug-instrumentation', 'DxilDebugInstrumentation', 'HLSL DXIL debug instrumentation for PIX', [
             {'n':'UAVSize','t':'int','c':1},
+            {'n':'FirstInstruction','t':'int','c':1},
+            {'n':'LastInstruction','t':'int','c':1},
             {'n':'parameter0','t':'int','c':1},
             {'n':'parameter1','t':'int','c':1},
             {'n':'parameter2','t':'int','c':1}])

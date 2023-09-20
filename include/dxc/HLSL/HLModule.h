@@ -11,25 +11,25 @@
 
 #pragma once
 
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/HLSL/HLResource.h"
-#include "dxc/HLSL/HLOperations.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilMetadataHelper.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DXIL/DxilSampler.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSignature.h"
-#include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilSubobject.h"
-#include "dxc/DXIL/DxilResourceProperties.h"
+#include "dxc/HLSL/HLOperations.h"
+#include "dxc/HLSL/HLResource.h"
+#include "dxc/Support/Global.h"
 #include <memory>
 #include <string>
-#include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace llvm {
-template<typename T> class ArrayRef;
+template <typename T> class ArrayRef;
 class LLVMContext;
 class Module;
 class Function;
@@ -41,8 +41,7 @@ class GlobalVariable;
 class DIGlobalVariable;
 class DebugInfoFinder;
 class GetElementPtrInst;
-}
-
+} // namespace llvm
 
 namespace hlsl {
 
@@ -51,29 +50,33 @@ class OP;
 
 struct HLOptions {
   HLOptions()
-      : bDefaultRowMajor(false), bIEEEStrict(false), bAllResourcesBound(false), bDisableOptimizations(false),
-        bLegacyCBufferLoad(false), PackingStrategy(0), bUseMinPrecision(false), bDX9CompatMode(false),
-        bFXCCompatMode(false), bLegacyResourceReservation(false), bForceZeroStoreLifetimes(false), unused(0) {
-  }
+      : bDefaultRowMajor(false), bIEEEStrict(false), bAllResourcesBound(false),
+        bDisableOptimizations(false), bLegacyCBufferLoad(false),
+        PackingStrategy(0), bUseMinPrecision(false), bDX9CompatMode(false),
+        bFXCCompatMode(false), bLegacyResourceReservation(false),
+        bForceZeroStoreLifetimes(false), unused(0) {}
   uint32_t GetHLOptionsRaw() const;
   void SetHLOptionsRaw(uint32_t data);
-  unsigned bDefaultRowMajor        : 1;
-  unsigned bIEEEStrict             : 1;
-  unsigned bAllResourcesBound      : 1;
-  unsigned bDisableOptimizations   : 1;
-  unsigned bLegacyCBufferLoad      : 1;
-  unsigned PackingStrategy         : 2;
-  static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4, "otherwise 2 bits is not enough to store PackingStrategy");
-  unsigned bUseMinPrecision        : 1;
-  unsigned bDX9CompatMode          : 1;
-  unsigned bFXCCompatMode          : 1;
+  unsigned bDefaultRowMajor : 1;
+  unsigned bIEEEStrict : 1;
+  unsigned bAllResourcesBound : 1;
+  unsigned bDisableOptimizations : 1;
+  unsigned bLegacyCBufferLoad : 1;
+  unsigned PackingStrategy : 2;
+  static_assert((unsigned)DXIL::PackingStrategy::Invalid < 4,
+                "otherwise 2 bits is not enough to store PackingStrategy");
+  unsigned bUseMinPrecision : 1;
+  unsigned bDX9CompatMode : 1;
+  unsigned bFXCCompatMode : 1;
   unsigned bLegacyResourceReservation : 1;
   unsigned bForceZeroStoreLifetimes : 1;
-  unsigned bResMayAlias            : 1;
-  unsigned unused                  : 19;
+  unsigned bResMayAlias : 1;
+  unsigned unused : 19;
 };
 
-typedef std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>> DxilFunctionPropsMap;
+typedef std::unordered_map<const llvm::Function *,
+                           std::unique_ptr<DxilFunctionProps>>
+    DxilFunctionPropsMap;
 
 /// Use this class to manipulate HLDXIR of a shader.
 class HLModule {
@@ -112,28 +115,28 @@ public:
   unsigned AddCBuffer(std::unique_ptr<DxilCBuffer> pCB);
   DxilCBuffer &GetCBuffer(unsigned idx);
   const DxilCBuffer &GetCBuffer(unsigned idx) const;
-  const std::vector<std::unique_ptr<DxilCBuffer> > &GetCBuffers() const;
+  const std::vector<std::unique_ptr<DxilCBuffer>> &GetCBuffers() const;
 
   unsigned AddSampler(std::unique_ptr<DxilSampler> pSampler);
   DxilSampler &GetSampler(unsigned idx);
   const DxilSampler &GetSampler(unsigned idx) const;
-  const std::vector<std::unique_ptr<DxilSampler> > &GetSamplers() const;
+  const std::vector<std::unique_ptr<DxilSampler>> &GetSamplers() const;
 
   unsigned AddSRV(std::unique_ptr<HLResource> pSRV);
   HLResource &GetSRV(unsigned idx);
   const HLResource &GetSRV(unsigned idx) const;
-  const std::vector<std::unique_ptr<HLResource> > &GetSRVs() const;
+  const std::vector<std::unique_ptr<HLResource>> &GetSRVs() const;
 
   unsigned AddUAV(std::unique_ptr<HLResource> pUAV);
   HLResource &GetUAV(unsigned idx);
   const HLResource &GetUAV(unsigned idx) const;
-  const std::vector<std::unique_ptr<HLResource> > &GetUAVs() const;
+  const std::vector<std::unique_ptr<HLResource>> &GetUAVs() const;
 
   void RemoveGlobal(llvm::GlobalVariable *GV);
   void RemoveFunction(llvm::Function *F);
 
   // ThreadGroupSharedMemory.
-  typedef std::vector<llvm::GlobalVariable*>::iterator tgsm_iterator;
+  typedef std::vector<llvm::GlobalVariable *>::iterator tgsm_iterator;
   tgsm_iterator tgsm_begin();
   tgsm_iterator tgsm_end();
   void AddGroupSharedVariable(llvm::GlobalVariable *GV);
@@ -145,8 +148,10 @@ public:
   // DxilFunctionProps.
   bool HasDxilFunctionProps(llvm::Function *F);
   DxilFunctionProps &GetDxilFunctionProps(llvm::Function *F);
-  void AddDxilFunctionProps(llvm::Function *F, std::unique_ptr<DxilFunctionProps> &info);
-  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
+  void AddDxilFunctionProps(llvm::Function *F,
+                            std::unique_ptr<DxilFunctionProps> &info);
+  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc,
+                                     llvm::Function *patchConstantFunc);
   bool IsGraphicsShader(llvm::Function *F); // vs,hs,ds,gs,ps
   bool IsPatchConstantShader(llvm::Function *F);
   bool IsComputeShader(llvm::Function *F);
@@ -188,23 +193,23 @@ public:
   // Type related methods.
   static bool IsStreamOutputPtrType(llvm::Type *Ty);
   static bool IsStreamOutputType(llvm::Type *Ty);
-  static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows, unsigned &cols,
+  static void GetParameterRowsAndCols(llvm::Type *Ty, unsigned &rows,
+                                      unsigned &cols,
                                       DxilParameterAnnotation &paramAnnotation);
 
   // HL code gen.
   static llvm::Function *GetHLOperationFunction(
       HLOpcodeGroup group, unsigned opcode, llvm::Type *RetType,
       llvm::ArrayRef<llvm::Value *> paramList, llvm::Module &M);
-  template<class BuilderTy>
-  static llvm::CallInst *EmitHLOperationCall(BuilderTy &Builder,
-                                          HLOpcodeGroup group, unsigned opcode,
-                                          llvm::Type *RetType,
-                                          llvm::ArrayRef<llvm::Value *> paramList,
-                                          llvm::Module &M);
+  template <class BuilderTy>
+  static llvm::CallInst *
+  EmitHLOperationCall(BuilderTy &Builder, HLOpcodeGroup group, unsigned opcode,
+                      llvm::Type *RetType,
+                      llvm::ArrayRef<llvm::Value *> paramList, llvm::Module &M);
 
   // Caller must handle conversions to bool and no-ops
-  static unsigned GetNumericCastOp(
-    llvm::Type *SrcTy, bool SrcIsUnsigned, llvm::Type *DstTy, bool DstIsUnsigned);
+  static unsigned GetNumericCastOp(llvm::Type *SrcTy, bool SrcIsUnsigned,
+                                   llvm::Type *DstTy, bool DstIsUnsigned);
 
   // Precise attribute.
   // Note: Precise will be marked on alloca inst with metadata in code gen.
@@ -213,9 +218,10 @@ public:
   static bool HasPreciseAttributeWithMetadata(llvm::Instruction *I);
   static void MarkPreciseAttributeWithMetadata(llvm::Instruction *I);
   static void ClearPreciseAttributeWithMetadata(llvm::Instruction *I);
-  template<class BuilderTy>
+  template <class BuilderTy>
   static void MarkPreciseAttributeOnValWithFunctionCall(llvm::Value *V,
-                                                        BuilderTy &Builder, llvm::Module &M);
+                                                        BuilderTy &Builder,
+                                                        llvm::Module &M);
   static void MarkPreciseAttributeOnPtrWithFunctionCall(llvm::Value *Ptr,
                                                         llvm::Module &M);
   static bool HasPreciseAttribute(llvm::Function *F);
@@ -223,9 +229,10 @@ public:
   // DXIL type system.
   DxilTypeSystem &GetTypeSystem();
 
-  /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
+  /// Emit llvm.used array to make sure that optimizations do not remove
+  /// unreferenced globals.
   void EmitLLVMUsed();
-  std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
+  std::vector<llvm::GlobalVariable *> &GetLLVMUsed();
 
   // Release functions used to transfer ownership.
   DxilTypeSystem *ReleaseTypeSystem();
@@ -251,24 +258,26 @@ public:
   void ResetSubobjects(DxilSubobjects *subobjects);
 
   // Reg binding for resource in cb.
-  void AddRegBinding(unsigned CbID, unsigned ConstantIdx, unsigned Srv, unsigned Uav, unsigned Sampler);
+  void AddRegBinding(unsigned CbID, unsigned ConstantIdx, unsigned Srv,
+                     unsigned Uav, unsigned Sampler);
 
 private:
   // Signatures.
   std::vector<uint8_t> m_SerializedRootSignature;
 
   // Shader resources.
-  std::vector<std::unique_ptr<HLResource> > m_SRVs;
-  std::vector<std::unique_ptr<HLResource> > m_UAVs;
-  std::vector<std::unique_ptr<DxilCBuffer> > m_CBuffers;
-  std::vector<std::unique_ptr<DxilSampler> > m_Samplers;
+  std::vector<std::unique_ptr<HLResource>> m_SRVs;
+  std::vector<std::unique_ptr<HLResource>> m_UAVs;
+  std::vector<std::unique_ptr<DxilCBuffer>> m_CBuffers;
+  std::vector<std::unique_ptr<DxilSampler>> m_Samplers;
 
   // ThreadGroupSharedMemory.
-  std::vector<llvm::GlobalVariable*>  m_TGSMVariables;
+  std::vector<llvm::GlobalVariable *> m_TGSMVariables;
 
   // High level function info.
-  std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>>  m_DxilFunctionPropsMap;
-  std::unordered_set<llvm::Function *>  m_PatchConstantFunctions;
+  std::unordered_map<const llvm::Function *, std::unique_ptr<DxilFunctionProps>>
+      m_DxilFunctionPropsMap;
+  std::unordered_set<llvm::Function *> m_PatchConstantFunctions;
 
   // Resource bindings for res in cb.
   // Key = CbID << 32 | ConstantIdx. Val is reg binding.
@@ -303,25 +312,29 @@ private:
   void LoadHLShaderProperties(const llvm::MDOperand &MDO);
   llvm::MDTuple *EmitDxilShaderProperties();
   // LLVM used.
-  std::vector<llvm::GlobalVariable*> m_LLVMUsed;
+  std::vector<llvm::GlobalVariable *> m_LLVMUsed;
 
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
 
   // Helpers.
-  template<typename T> unsigned AddResource(std::vector<std::unique_ptr<T> > &Vec, std::unique_ptr<T> pRes);
+  template <typename T>
+  unsigned AddResource(std::vector<std::unique_ptr<T>> &Vec,
+                       std::unique_ptr<T> pRes);
 };
 
-
-/// Use this class to manipulate metadata of extra metadata record properties that are specific to high-level DX IR.
+/// Use this class to manipulate metadata of extra metadata record properties
+/// that are specific to high-level DX IR.
 class HLExtraPropertyHelper : public DxilExtraPropertyHelper {
 public:
   HLExtraPropertyHelper(llvm::Module *pModule);
   virtual ~HLExtraPropertyHelper() {}
 
-  virtual void EmitSignatureElementProperties(const DxilSignatureElement &SE, std::vector<llvm::Metadata *> &MDVals);
-  virtual void LoadSignatureElementProperties(const llvm::MDOperand &MDO, DxilSignatureElement &SE);
+  virtual void
+  EmitSignatureElementProperties(const DxilSignatureElement &SE,
+                                 std::vector<llvm::Metadata *> &MDVals);
+  virtual void LoadSignatureElementProperties(const llvm::MDOperand &MDO,
+                                              DxilSignatureElement &SE);
 };
 
 } // namespace hlsl
-

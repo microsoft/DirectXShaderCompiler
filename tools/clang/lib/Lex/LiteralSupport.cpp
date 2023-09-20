@@ -367,7 +367,7 @@ static int MeasureUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
 /// we will likely rework our support for UCN's.
 static void EncodeUCNEscape(const char *ThisTokBegin, const char *&ThisTokBuf,
                             const char *ThisTokEnd,
-                            _Out_cap_(4) char *&ResultBuf, bool &HadError,
+                            char *&ResultBuf, bool &HadError,
                             FullSourceLoc Loc, unsigned CharByteWidth,
                             DiagnosticsEngine *Diags,
                             const LangOptions &Features) {

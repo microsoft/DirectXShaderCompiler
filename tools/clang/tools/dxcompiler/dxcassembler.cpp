@@ -9,30 +9,30 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/Global.h"
-#include "dxc/Support/Unicode.h"
-#include "dxc/Support/microcom.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/FileIOHelper.h"
-#include "dxc/DXIL/DxilModule.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/Unicode.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/dxcfilesystem.h"
-#include "dxillib.h"
+#include "dxc/Support/microcom.h"
 #include "dxcutil.h"
+#include "dxillib.h"
 
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/IRReader/IRReader.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 
 using namespace llvm;
 using namespace hlsl;
 
 // This declaration is used for the locally-linked validator.
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 
 static bool HasDebugInfo(const Module &M) {
   for (Module::const_named_metadata_iterator NMI = M.named_metadata_begin(),
@@ -47,27 +47,29 @@ static bool HasDebugInfo(const Module &M) {
 
 class DxcAssembler : public IDxcAssembler {
 private:
-  DXC_MICROCOM_TM_REF_FIELDS()      
+  DXC_MICROCOM_TM_REF_FIELDS()
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcAssembler)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcAssembler>(this, iid, ppvObject);
   }
 
   // Assemble dxil in ll or llvm bitcode to dxbc container.
   HRESULT STDMETHODCALLTYPE AssembleToContainer(
-      _In_ IDxcBlob *pShader, // Shader to assemble.
-      _COM_Outptr_ IDxcOperationResult **ppResult // Assemble output status, buffer, and errors
+      IDxcBlob *pShader, // Shader to assemble.
+      IDxcOperationResult *
+          *ppResult // Assemble output status, buffer, and errors
       ) override;
 };
 
 // Assemble dxil in ll or llvm bitcode to dxbc container.
 HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
-    _In_ IDxcBlob *pShader, // Shader to assemble.
-    _COM_Outptr_ IDxcOperationResult **ppResult // Assemble output status, buffer, and errors
-    ) {
+    IDxcBlob *pShader,             // Shader to assemble.
+    IDxcOperationResult **ppResult // Assemble output status, buffer, and errors
+) {
   if (pShader == nullptr || ppResult == nullptr)
     return E_POINTER;
 
@@ -82,9 +84,11 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
 
     // Setup input buffer.
     // The ir parsing requires the buffer to be null terminated. We deal with
-    // both source and bitcode input, so the input buffer may not be null terminated.
-    // Create a new membuf that copies the buffer and adds a null terminator.
-    const unsigned char *pBytes = (const unsigned char *)(pShader->GetBufferPointer());
+    // both source and bitcode input, so the input buffer may not be null
+    // terminated. Create a new membuf that copies the buffer and adds a null
+    // terminator.
+    const unsigned char *pBytes =
+        (const unsigned char *)(pShader->GetBufferPointer());
     unsigned bytesLen = pShader->GetBufferSize();
     bool bytesAreText = !isBitcode(pBytes, pBytes + bytesLen);
     CComPtr<IDxcBlob> readingBlob;
@@ -120,10 +124,12 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       CComPtr<IDxcBlob> pStreamBlob;
       CComPtr<IDxcBlobEncoding> pErrorBlob;
       DXVERIFY_NOMSG(SUCCEEDED(pOutputStream.QueryInterface(&pStreamBlob)));
-      IFT(DxcResult::Create(E_FAIL, DXC_OUT_NONE, {
-          DxcOutputObject::ErrorOutput(CP_UTF8,   // TODO Support DefaultTextCodePage
-            (LPCSTR)pStreamBlob->GetBufferPointer(), pStreamBlob->GetBufferSize())
-        }, ppResult));
+      IFT(DxcResult::Create(E_FAIL, DXC_OUT_NONE,
+                            {DxcOutputObject::ErrorOutput(
+                                CP_UTF8, // TODO Support DefaultTextCodePage
+                                (LPCSTR)pStreamBlob->GetBufferPointer(),
+                                pStreamBlob->GetBufferSize())},
+                            ppResult));
       return S_OK;
     }
 
@@ -132,7 +138,8 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
       DxilModule &program = M->GetOrCreateDxilModule();
 
       // Only set validator version metadata if none present.
-      if (nullptr == M->getNamedMetadata(DxilMDHelper::kDxilValidatorVersionMDName)) {
+      if (nullptr ==
+          M->getNamedMetadata(DxilMDHelper::kDxilValidatorVersionMDName)) {
         UINT32 majorVer, minorVer;
         dxcutil::GetValidatorVersion(&majorVer, &minorVer);
         if (program.UpgradeValidatorVersion(majorVer, minorVer)) {
@@ -140,10 +147,11 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
         }
       }
     } catch (hlsl::Exception &e) {
-      IFT(DxcResult::Create(e.hr, DXC_OUT_NONE, {
-          DxcOutputObject::ErrorOutput(CP_UTF8,   // TODO Support DefaultTextCodePage
-            e.msg.c_str(), e.msg.size())
-        }, ppResult));
+      IFT(DxcResult::Create(e.hr, DXC_OUT_NONE,
+                            {DxcOutputObject::ErrorOutput(
+                                CP_UTF8, // TODO Support DefaultTextCodePage
+                                e.msg.c_str(), e.msg.size())},
+                            ppResult));
       return S_OK;
     }
     // Create bitcode of M.
@@ -151,7 +159,8 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
     outStream.flush();
 
     CComPtr<IDxcBlob> pResultBlob;
-    hlsl::SerializeDxilFlags flags = hlsl::SerializeDxilFlags::IncludeReflectionPart;
+    hlsl::SerializeDxilFlags flags =
+        hlsl::SerializeDxilFlags::IncludeReflectionPart;
     if (HasDebugInfo(*M)) {
       flags |= SerializeDxilFlags::IncludeDebugInfoPart;
       flags |= SerializeDxilFlags::IncludeDebugNamePart;
@@ -162,16 +171,17 @@ HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
                                    pOutputStream);
     dxcutil::AssembleToContainer(inputs);
 
-    IFT(DxcResult::Create(S_OK, DXC_OUT_OBJECT, {
-        DxcOutputObject::DataOutput(DXC_OUT_OBJECT, pResultBlob, DxcOutNoName)
-      }, ppResult));
+    IFT(DxcResult::Create(S_OK, DXC_OUT_OBJECT,
+                          {DxcOutputObject::DataOutput(
+                              DXC_OUT_OBJECT, pResultBlob, DxcOutNoName)},
+                          ppResult));
   }
   CATCH_CPP_ASSIGN_HRESULT();
 
   return hr;
 }
 
-HRESULT CreateDxcAssembler(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcAssembler(REFIID riid, LPVOID *ppv) {
   CComPtr<DxcAssembler> result = DxcAssembler::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;

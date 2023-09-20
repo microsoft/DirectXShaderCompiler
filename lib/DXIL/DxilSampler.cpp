@@ -10,7 +10,6 @@
 #include "dxc/DXIL/DxilSampler.h"
 #include "dxc/Support/Global.h"
 
-
 namespace hlsl {
 
 //------------------------------------------------------------------------------
@@ -23,9 +22,13 @@ DxilSampler::DxilSampler()
   DxilResourceBase::SetKind(DxilResourceBase::Kind::Sampler);
 }
 
-DxilSampler::SamplerKind DxilSampler::GetSamplerKind() const  { return m_SamplerKind; }
-bool DxilSampler::IsCompSampler() const         { return m_SamplerKind == SamplerKind::Comparison; }
+DxilSampler::SamplerKind DxilSampler::GetSamplerKind() const {
+  return m_SamplerKind;
+}
+bool DxilSampler::IsCompSampler() const {
+  return m_SamplerKind == SamplerKind::Comparison;
+}
 
-void DxilSampler::SetSamplerKind(SamplerKind K)  { m_SamplerKind = K; }
+void DxilSampler::SetSamplerKind(SamplerKind K) { m_SamplerKind = K; }
 
 } // namespace hlsl

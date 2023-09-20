@@ -26,24 +26,19 @@
 
 #include "DxcPixDxilDebugInfo.h"
 
-namespace llvm
-{
+namespace llvm {
 class DIType;
-}  // namespace llvm
+} // namespace llvm
 
-namespace dxil_debug_info
-{
+namespace dxil_debug_info {
 struct VariableInfo;
 
-HRESULT CreateDxcPixStorage(
-    DxcPixDxilDebugInfo *pDxilDebugInfo,
-    llvm::DIType *diType,
-    const VariableInfo *VarInfo,
-    unsigned CurrentOffsetInBits,
-    IDxcPixDxilStorage **ppStorage);
+HRESULT CreateDxcPixStorage(DxcPixDxilDebugInfo *pDxilDebugInfo,
+                            llvm::DIType *diType, const VariableInfo *VarInfo,
+                            unsigned CurrentOffsetInBits,
+                            IDxcPixDxilStorage **ppStorage);
 
-class DxcPixDxilArrayStorage : public IDxcPixDxilStorage
-{
+class DxcPixDxilArrayStorage : public IDxcPixDxilStorage {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcPixDxilDebugInfo> m_pDxilDebugInfo;
@@ -52,21 +47,13 @@ private:
   VariableInfo const *m_pVarInfo;
   unsigned m_OffsetFromStorageStartInBits;
 
-  DxcPixDxilArrayStorage(
-      IMalloc *pMalloc,
-      DxcPixDxilDebugInfo *pDxilDebugInfo,
-      IDxcPixType* OriginalType,
-      IDxcPixArrayType *pType,
-      const VariableInfo* pVarInfo,
-      unsigned OffsetFromStorageStartInBits)
-    : m_pMalloc(pMalloc)
-    , m_pDxilDebugInfo(pDxilDebugInfo)
-    , m_pOriginalType(OriginalType)
-    , m_pType(pType)
-    , m_pVarInfo(pVarInfo)
-    , m_OffsetFromStorageStartInBits(OffsetFromStorageStartInBits)
-  {
-  }
+  DxcPixDxilArrayStorage(IMalloc *pMalloc, DxcPixDxilDebugInfo *pDxilDebugInfo,
+                         IDxcPixType *OriginalType, IDxcPixArrayType *pType,
+                         const VariableInfo *pVarInfo,
+                         unsigned OffsetFromStorageStartInBits)
+      : m_pMalloc(pMalloc), m_pDxilDebugInfo(pDxilDebugInfo),
+        m_pOriginalType(OriginalType), m_pType(pType), m_pVarInfo(pVarInfo),
+        m_OffsetFromStorageStartInBits(OffsetFromStorageStartInBits) {}
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
@@ -76,25 +63,19 @@ public:
     return DoBasicQueryInterface<IDxcPixDxilStorage>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP AccessField(
-      _In_ LPCWSTR Name,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP AccessField(LPCWSTR Name,
+                           IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP Index(
-      _In_ DWORD Index,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP Index(DWORD Index, IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP GetRegisterNumber(
-      _Outptr_result_z_ DWORD *pRegisterNumber) override;
+  STDMETHODIMP GetRegisterNumber(DWORD *pRegisterNumber) override;
 
   STDMETHODIMP GetIsAlive() override;
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) override;
+  STDMETHODIMP GetType(IDxcPixType **ppType) override;
 };
 
-class DxcPixDxilStructStorage : public IDxcPixDxilStorage
-{
+class DxcPixDxilStructStorage : public IDxcPixDxilStorage {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcPixDxilDebugInfo> m_pDxilDebugInfo;
@@ -103,21 +84,13 @@ private:
   VariableInfo const *m_pVarInfo;
   unsigned m_OffsetFromStorageStartInBits;
 
-  DxcPixDxilStructStorage(
-      IMalloc *pMalloc,
-      DxcPixDxilDebugInfo *pDxilDebugInfo,
-      IDxcPixType* OriginalType,
-      IDxcPixStructType2 *pType,
-      VariableInfo const *pVarInfo,
-      unsigned OffsetFromStorageStartInBits)
-    : m_pMalloc(pMalloc)
-    , m_pDxilDebugInfo(pDxilDebugInfo)
-    , m_pOriginalType(OriginalType)
-    , m_pType(pType)
-    , m_pVarInfo(pVarInfo)
-    , m_OffsetFromStorageStartInBits(OffsetFromStorageStartInBits)
-  {
-  }
+  DxcPixDxilStructStorage(IMalloc *pMalloc, DxcPixDxilDebugInfo *pDxilDebugInfo,
+                          IDxcPixType *OriginalType, IDxcPixStructType2 *pType,
+                          VariableInfo const *pVarInfo,
+                          unsigned OffsetFromStorageStartInBits)
+      : m_pMalloc(pMalloc), m_pDxilDebugInfo(pDxilDebugInfo),
+        m_pOriginalType(OriginalType), m_pType(pType), m_pVarInfo(pVarInfo),
+        m_OffsetFromStorageStartInBits(OffsetFromStorageStartInBits) {}
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
@@ -127,25 +100,19 @@ public:
     return DoBasicQueryInterface<IDxcPixDxilStorage>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP AccessField(
-      _In_ LPCWSTR Name,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP AccessField(LPCWSTR Name,
+                           IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP Index(
-      _In_ DWORD Index,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP Index(DWORD Index, IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP GetRegisterNumber(
-      _Outptr_result_z_ DWORD *pRegisterNumber) override;
+  STDMETHODIMP GetRegisterNumber(DWORD *pRegisterNumber) override;
 
   STDMETHODIMP GetIsAlive() override;
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) override;
+  STDMETHODIMP GetType(IDxcPixType **ppType) override;
 };
 
-class DxcPixDxilScalarStorage : public IDxcPixDxilStorage
-{
+class DxcPixDxilScalarStorage : public IDxcPixDxilStorage {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<DxcPixDxilDebugInfo> m_pDxilDebugInfo;
@@ -154,21 +121,13 @@ private:
   VariableInfo const *m_pVarInfo;
   unsigned m_OffsetFromStorageStartInBits;
 
-  DxcPixDxilScalarStorage(
-      IMalloc *pMalloc,
-      DxcPixDxilDebugInfo *pDxilDebugInfo,
-      IDxcPixType *OriginalType,
-      IDxcPixScalarType *pType,
-      VariableInfo const *pVarInfo,
-      unsigned OffsetFromStorageStartInBits)
-    : m_pMalloc(pMalloc)
-    , m_pDxilDebugInfo(pDxilDebugInfo)
-    , m_pOriginalType(OriginalType)
-    , m_pType(pType)
-    , m_pVarInfo(pVarInfo)
-    , m_OffsetFromStorageStartInBits(OffsetFromStorageStartInBits)
-  {
-  }
+  DxcPixDxilScalarStorage(IMalloc *pMalloc, DxcPixDxilDebugInfo *pDxilDebugInfo,
+                          IDxcPixType *OriginalType, IDxcPixScalarType *pType,
+                          VariableInfo const *pVarInfo,
+                          unsigned OffsetFromStorageStartInBits)
+      : m_pMalloc(pMalloc), m_pDxilDebugInfo(pDxilDebugInfo),
+        m_pOriginalType(OriginalType), m_pType(pType), m_pVarInfo(pVarInfo),
+        m_OffsetFromStorageStartInBits(OffsetFromStorageStartInBits) {}
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
@@ -178,21 +137,16 @@ public:
     return DoBasicQueryInterface<IDxcPixDxilStorage>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP AccessField(
-      _In_ LPCWSTR Name,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP AccessField(LPCWSTR Name,
+                           IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP Index(
-      _In_ DWORD Index,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP Index(DWORD Index, IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP GetRegisterNumber(
-      _Outptr_result_z_ DWORD *pRegisterNumber) override;
+  STDMETHODIMP GetRegisterNumber(DWORD *pRegisterNumber) override;
 
   STDMETHODIMP GetIsAlive() override;
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) override;
+  STDMETHODIMP GetType(IDxcPixType **ppType) override;
 };
 
-}  // namespace dxil_debug_info
+} // namespace dxil_debug_info
