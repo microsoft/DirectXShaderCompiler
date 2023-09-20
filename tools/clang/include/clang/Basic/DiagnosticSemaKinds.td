@@ -7836,8 +7836,6 @@ def err_hlsl_node_record_type : Error<
    "%0 is not valid as a node record type - struct/class required">;
 def err_hlsl_node_record_object : Error<
    "object %0 may not appear in a node record">;
-def err_hlsl_node_record_template : Error<
-   "templated types are not currently supported in a node record">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

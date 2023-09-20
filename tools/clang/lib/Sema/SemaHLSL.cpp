@@ -5588,6 +5588,15 @@ public:
             << ArgTy << ArgLoc.getSourceRange();
         return true;
       }
+      if (auto *TST = dyn_cast<TemplateSpecializationType>(ArgTy)) {
+        // If ArgType is a template we force specialization of the it here.
+        GetOrCreateTemplateSpecialization(
+            *m_context, *m_sema,
+            cast<ClassTemplateDecl>(
+                TST->getTemplateName().getAsTemplateDecl()),
+            llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
+                                             TST->getNumArgs()));
+      }
 
       bool EmptyStruct = true;
       if (DiagnoseNodeStructArgument(m_sema, ArgLoc, ArgTy, EmptyStruct))
@@ -11403,17 +11412,6 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
           << FD->getType() << FD->getSourceRange();
     return true;
   case AR_TOBJ_COMPOUND: {
-    // TODO: Templated records are non-trivial to diagnose here, and allowing
-    // them results in asserts later in CodeGen (which need fixing), so we'll
-    // disallow them here for now as a lesser evil.
-    if (auto TTy = dyn_cast<TemplateSpecializationType>(ArgTy)) {
-      self->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_template)
-          << ArgTy << ArgLoc.getSourceRange();
-      if (FD)
-        self->Diag(FD->getLocation(), diag::note_field_declared_here)
-            << "templated" << FD->getSourceRange();
-      return true;
-    }
     bool ErrorFound = false;
     const RecordDecl *RD = ArgTy->getAs<RecordType>()->getDecl();
     // Check the fields of the RecordDecl

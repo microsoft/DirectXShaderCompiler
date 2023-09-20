@@ -128,33 +128,26 @@ void node16()
 }
 
 
-// TODO: templated structs should be handled as any other structs are - allowed where valid, and diagnostics generated
-// where invalid.
-// Unfortunately templated structs are not currently handled correctly by either the DiagnodeNodeRecordStructArgument()
-// function (always producing a zero sized record diagnostic), or if that is bypassed they hit asserts in CodeGen.
-// NOTE: for now, an error diagnostic is produced for the use of a templated type in a node record.
 template<typename T> struct MyTemplateStruct {
-  T MyField;
+  T MyField; // expected-note+ {{'SamplerState' field declared here}}
 };
 
 struct MyNestedTemplateStruct {
-  MyTemplateStruct<SamplerState> a; // expected-note {{templated field declared here}}
+  MyTemplateStruct<SamplerState> a;
 };
 
-// TODO: This should be accepted without error
+// This should be accepted without error
 [Shader("node")]
 [NodeLaunch("thread")]
-void node17(ThreadNodeInputRecord<MyTemplateStruct<int> > input) // expected-error {{templated types are not currently supported in a node record}}
+void node17(ThreadNodeInputRecord<MyTemplateStruct<int> > input)
 { }
 
-// This should generate a "object 'SamplerState' may not appear in a node record" diagnostic
 [Shader("node")]
 [NodeLaunch("thread")]
-void node18(ThreadNodeInputRecord<MyTemplateStruct<SamplerState> > input) // expected-error {{templated types are not currently supported in a node record}}
+void node18(ThreadNodeInputRecord<MyTemplateStruct<SamplerState> > input) // expected-error {{object 'SamplerState' may not appear in a node record}}
 { }
 
-// This should generate a "object 'SamplerState' may not appear in a node record" diagnostic
 [Shader("node")]
 [NodeLaunch("thread")]
-void node19(RWThreadNodeInputRecord<MyNestedTemplateStruct> input) // expected-error {{templated types are not currently supported in a node record}}
+void node19(RWThreadNodeInputRecord<MyNestedTemplateStruct> input) // expected-error {{object 'SamplerState' may not appear in a node record}}
 { }
