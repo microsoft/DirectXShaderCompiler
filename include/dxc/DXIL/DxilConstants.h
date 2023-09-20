@@ -995,6 +995,10 @@ enum class OpCodeClass : unsigned {
   BitcastI32toF32,
   BitcastI64toF64,
 
+  // Comparison Samples
+  SampleCmpBias,
+  SampleCmpGrad,
+
   // Compute/Mesh/Amplification/Node shader
   FlattenedThreadIdInGroup,
   GroupId,
@@ -1267,7 +1271,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
 
-  NumOpClasses = 179 // exclusive last value of enumeration
+  NumOpClasses = 181 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

@@ -9081,18 +9081,21 @@ struct DxilInst_GetRemainingRecursionLevels {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction samples a texture using a gradient and compares a single component against the specified comparison value
+/// This instruction samples a texture using a gradient and compares a single
+/// component against the specified comparison value
 struct DxilInst_SampleCmpGrad {
   llvm::Instruction *Instr;
   // Construction and identification
   DxilInst_SampleCmpGrad(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::SampleCmpGrad);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::SampleCmpGrad);
   }
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (18 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (18 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
     return true;
   }
   // Metadata
@@ -9154,18 +9157,22 @@ struct DxilInst_SampleCmpGrad {
   void set_clamp(llvm::Value *val) { Instr->setOperand(17, val); }
 };
 
-/// This instruction samples a texture after applying the input bias to the mipmap level and compares a single component against the specified comparison value
+/// This instruction samples a texture after applying the input bias to the
+/// mipmap level and compares a single component against the specified
+/// comparison value
 struct DxilInst_SampleCmpBias {
   llvm::Instruction *Instr;
   // Construction and identification
   DxilInst_SampleCmpBias(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::SampleCmpBias);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::SampleCmpBias);
   }
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (13 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;
+    if (13 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
     return true;
   }
   // Metadata

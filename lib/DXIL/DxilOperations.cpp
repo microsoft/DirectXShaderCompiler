@@ -2561,6 +2561,27 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadOnly,
     },
+
+    // Comparison Samples void,     h,     f,     d,    i1,    i8,   i16,   i32,
+    // i64,   udt,   obj ,  function attribute
+    {
+        OC::SampleCmpGrad,
+        "SampleCmpGrad",
+        OCC::SampleCmpGrad,
+        "sampleCmpGrad",
+        {false, true, true, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadOnly,
+    },
+    {
+        OC::SampleCmpBias,
+        "SampleCmpBias",
+        OCC::SampleCmpBias,
+        "sampleCmpBias",
+        {false, true, true, false, false, false, false, false, false, false,
+         false},
+        Attribute::ReadOnly,
+    },
 };
 // OPCODE-OLOADS:END
 
@@ -2899,17 +2920,17 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
-  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
-      (83 <= op && op <= 86)) {
+  // Instructions: CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
+  // DerivFineX=85, DerivFineY=86
+  if (op == 81 || (83 <= op && op <= 86)) {
     mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
            SFLAG(Amplification) | SFLAG(Mesh);
     return;
   }
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64
   if ((60 <= op && op <= 61) || op == 64) {
-    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
+           SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
   }
   // Instructions: RenderTargetGetSamplePosition=76,
@@ -3144,16 +3165,18 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     return;
   }
   // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,
-  // BarrierByNodeRecordHandle=246, SampleCmpGrad=254, SampleCmpBias=255
-  if ((244 <= op && op <= 246) || (254 <= op && op <= 255)) {
+  // BarrierByNodeRecordHandle=246, SampleCmpGrad=254
+  if ((244 <= op && op <= 246) || op == 254) {
     major = 6;
     minor = 8;
     return;
   }
   // Instructions: SampleCmpBias=255
   if (op == 255) {
-    major = 6;  minor = 8;
-    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
+    major = 6;
+    minor = 8;
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
+           SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
   }
   // Instructions: AllocateNodeOutputRecords=238, GetNodeRecordPtr=239,
@@ -5629,8 +5652,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TextureGatherRaw:
   case OpCode::SampleCmpLevel:
   case OpCode::SampleCmpGrad:
-  case OpCode::SampleCmpBias:
-  {
+  case OpCode::SampleCmpBias: {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
