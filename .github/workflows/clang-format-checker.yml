@@ -1,17 +1,17 @@
 name: 'PR clang-format checker'
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - edited
       - synchronize
       - reopened
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
 jobs:
   check-pr-formatting:
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -19,21 +19,20 @@ jobs:
           fetch-depth: 0
       - name: install clang-format
         run: sudo apt install -y clang-format
-      - name: Comparing ${{ env.GITHUB_BASE_REF }} vs HEAD
+      - name: Comparing PR against target branch
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
             echo Comparing $GITHUB_BASE_REF vs HEAD
             git diff -U0 --no-color origin/$GITHUB_BASE_REF..HEAD | clang-format-diff -p1 | tee format.diff
             if [ -s "format.diff" ]
-            then 
+            then
+              echo PR contains clang-format violations. First 50 lines of the diff: >> message.txt
+              echo ``` >> message.txt
+              cat format.diff | head -n 50 >> message.txt
+              echo ``` >> message.txt
+              echo See [action log]\(https://github.com/microsoft/DirectXShaderCompiler/actions/runs/$GITHUB_RUN_ID/job/$GITHUB_JOB\) for the full diff.  >> message.txt
+              gh pr comment $PR_NUMBER --body-file message.txt
               exit 1
             fi
-      - if: failure()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'PR contains clang-format violations. See [action log](https://github.com/microsoft/DirectXShaderCompiler/actions/runs/${{ env.GITHUB_RUN_ID }}/job/${{ env.GITHUB_JOB }}) for the full diff.'
-            })
