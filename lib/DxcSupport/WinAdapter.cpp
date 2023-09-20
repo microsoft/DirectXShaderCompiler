@@ -7,9 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/WinFunctions.h"
 #include "assert.h"
+#include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/WinIncludes.h"
 #ifndef _WIN32
 
 #include "dxc/Support/Unicode.h"
@@ -80,7 +80,7 @@ CHandle::operator HANDLE() const throw() { return m_h; }
 // CComBSTR
 CComBSTR::CComBSTR(int nSize, LPCWSTR sz) {
   if (nSize < 0) {
-    throw  std::invalid_argument("CComBSTR must have size >= 0");
+    throw std::invalid_argument("CComBSTR must have size >= 0");
   }
 
   if (nSize == 0) {

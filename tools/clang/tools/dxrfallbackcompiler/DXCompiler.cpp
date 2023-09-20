@@ -19,27 +19,29 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
 
-namespace hlsl { HRESULT SetupRegistryPassForHLSL(); }
+namespace hlsl {
+HRESULT SetupRegistryPassForHLSL();
+}
 
-// C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
-#pragma warning( disable : 4290 )
+// C++ exception specification ignored except to indicate a function is not
+// __declspec(nothrow)
+#pragma warning(disable : 4290)
 
 #if !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 // operator new and friends.
-void * __CRTDECL operator new(std::size_t size) noexcept(false) {
+void *__CRTDECL operator new(std::size_t size) noexcept(false) {
   void *ptr = DxcNew(size);
   if (ptr == nullptr)
     throw std::bad_alloc();
   return ptr;
 }
-void * __CRTDECL operator new(std::size_t size,
-  const std::nothrow_t &nothrow_value) throw() {
+void *__CRTDECL operator new(std::size_t size,
+                             const std::nothrow_t &nothrow_value) throw() {
   return DxcNew(size);
 }
-void  __CRTDECL operator delete (void* ptr) throw() {
-  DxcDelete(ptr);
-}
-void  __CRTDECL operator delete (void* ptr, const std::nothrow_t& nothrow_constant) throw() {
+void __CRTDECL operator delete(void *ptr) throw() { DxcDelete(ptr); }
+void __CRTDECL operator delete(void *ptr,
+                               const std::nothrow_t &nothrow_constant) throw() {
   DxcDelete(ptr);
 }
 #endif
@@ -70,8 +72,7 @@ Cleanup:
       DxcClearThreadMalloc();
       DxcCleanupThreadMalloc();
     }
-  }
-  else {
+  } else {
     DxcClearThreadMalloc();
   }
   return hr;
@@ -91,10 +92,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
     ::hlsl::options::cleanupHlslOptTable();
     ::llvm::sys::fs::CleanupPerThreadFileSystem();
     ::llvm::llvm_shutdown();
-    if (reserved == NULL) { // FreeLibrary has been called or the DLL load failed
+    if (reserved ==
+        NULL) { // FreeLibrary has been called or the DLL load failed
       DxilLibCleanup(DxilLibCleanUpType::UnloadLibrary);
-    }
-    else { // Process termination. We should not call FreeLibrary()
+    } else { // Process termination. We should not call FreeLibrary()
       DxilLibCleanup(DxilLibCleanUpType::ProcessTermination);
     }
     DxcClearThreadMalloc();

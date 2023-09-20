@@ -9,32 +9,32 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/WinIncludes.h"
 #include "lib_share_helper.h"
 
 using namespace hlsl;
 
 // Overwrite new delete copy from DXCompiler.cpp
-// C++ exception specification ignored except to indicate a function is not __declspec(nothrow)
-#pragma warning( disable : 4290 )
+// C++ exception specification ignored except to indicate a function is not
+// __declspec(nothrow)
+#pragma warning(disable : 4290)
 
 // operator new and friends.
-void *  __CRTDECL operator new(std::size_t size) noexcept(false) {
+void *__CRTDECL operator new(std::size_t size) noexcept(false) {
   void *ptr = DxcNew(size);
   if (ptr == nullptr)
     throw std::bad_alloc();
   return ptr;
 }
-void *  __CRTDECL operator new(std::size_t size,
-  const std::nothrow_t &nothrow_value) throw() {
+void *__CRTDECL operator new(std::size_t size,
+                             const std::nothrow_t &nothrow_value) throw() {
   return DxcNew(size);
 }
-void  __CRTDECL operator delete (void* ptr) throw() {
-  DxcDelete(ptr);
-}
-void  __CRTDECL operator delete (void* ptr, const std::nothrow_t& nothrow_constant) throw() {
+void __CRTDECL operator delete(void *ptr) throw() { DxcDelete(ptr); }
+void __CRTDECL operator delete(void *ptr,
+                               const std::nothrow_t &nothrow_constant) throw() {
   DxcDelete(ptr);
 }
 // Finish of new delete.
@@ -46,10 +46,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
     DxcSetThreadMallocToDefault();
 
     if (hlsl::options::initHlslOptTable()) {
-    DxcClearThreadMalloc();
+      DxcClearThreadMalloc();
       return FALSE;
     } else {
-    DxcClearThreadMalloc();
+      DxcClearThreadMalloc();
       return TRUE;
     }
   } else if (Reason == DLL_PROCESS_DETACH) {

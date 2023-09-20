@@ -8,17 +8,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilResourceProperties.h"
-#include "llvm/IR/Constant.h"
-#include "dxc/DXIL/DxilShaderModel.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Constants.h"
-#include "dxc/DXIL/DxilResourceBase.h"
-#include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilCBuffer.h"
-#include "dxc/DXIL/DxilSampler.h"
-#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilResourceBase.h"
+#include "dxc/DXIL/DxilSampler.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 
 using namespace llvm;
 
@@ -73,13 +73,14 @@ unsigned DxilResourceProperties::getElementStride() const {
   }
 }
 
-bool DxilResourceProperties::operator==(const DxilResourceProperties &RP) const {
-  return RawDword0 == RP.RawDword0 &&
-         RawDword1 == RP.RawDword1;
+bool DxilResourceProperties::operator==(
+    const DxilResourceProperties &RP) const {
+  return RawDword0 == RP.RawDword0 && RawDword1 == RP.RawDword1;
 }
 
-bool DxilResourceProperties::operator!=(const DxilResourceProperties &RP) const {
-  return !(*this == RP) ;
+bool DxilResourceProperties::operator!=(
+    const DxilResourceProperties &RP) const {
+  return !(*this == RP);
 }
 
 namespace resource_helper {
@@ -142,7 +143,6 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
     return RP;
   }
 
-
   auto SetResProperties = [&RP](const DxilResource &Res) {
     switch (Res.GetKind()) {
     default:
@@ -154,8 +154,7 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
     case DXIL::ResourceKind::RTAccelerationStructure:
 
       break;
-    case DXIL::ResourceKind::StructuredBuffer:
-    {
+    case DXIL::ResourceKind::StructuredBuffer: {
       RP.StructStrideInBytes = Res.GetElementStride();
       RP.Basic.BaseAlignLog2 = Res.GetBaseAlignLog2();
       break;
@@ -178,9 +177,11 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
     }
   };
 
-  switch (Res->GetClass()) { case DXIL::ResourceClass::Invalid: return RP;
+  switch (Res->GetClass()) {
+  case DXIL::ResourceClass::Invalid:
+    return RP;
   case DXIL::ResourceClass::SRV: {
-    const DxilResource *SRV = (const DxilResource*)(Res);
+    const DxilResource *SRV = (const DxilResource *)(Res);
     RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
     SetResProperties(*SRV);
   } break;
@@ -195,7 +196,7 @@ DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *Res) {
   } break;
   case DXIL::ResourceClass::Sampler: {
     RP.Basic.ResourceKind = (uint8_t)Res->GetKind();
-    const DxilSampler *Sampler = (const DxilSampler*)Res;
+    const DxilSampler *Sampler = (const DxilSampler *)Res;
     if (Sampler->GetSamplerKind() == DXIL::SamplerKind::Comparison)
       RP.Basic.SamplerCmpOrHasCounter = true;
     else if (Sampler->GetSamplerKind() == DXIL::SamplerKind::Invalid)
@@ -252,7 +253,8 @@ DxilResourceProperties tryMergeProps(DxilResourceProperties curProps,
   return curProps;
 }
 // Merge 2 props on a chain of annotateHandle.
-Constant *tryMergeProps(const Constant *curPropsConst, const Constant *prevPropsConst, Type *Ty,
+Constant *tryMergeProps(const Constant *curPropsConst,
+                        const Constant *prevPropsConst, Type *Ty,
                         const ShaderModel &SM) {
   if (curPropsConst == prevPropsConst)
     return const_cast<Constant *>(curPropsConst);
