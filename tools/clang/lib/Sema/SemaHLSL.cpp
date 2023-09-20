@@ -11298,6 +11298,66 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
+void ValidateCallGraphWaveSize(clang::Sema *S, FunctionDecl *FD) {
+  const auto *SM =
+      hlsl::ShaderModel::GetByName(S->getLangOpts().HLSLProfile.c_str());
+
+  const std::string &entryName = S->getLangOpts().HLSLEntryFunction;
+  StringRef functionName = "";
+  if (FD->getIdentifier())
+    functionName = FD->getIdentifier()->getName();
+  bool isEntry = false;
+  bool isNode = false;
+  bool isCS = false;
+
+  isEntry =
+      !SM->IsLib() &&
+      FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
+      functionName == entryName;
+
+  for (auto *pAL : FD->specific_attrs<HLSLShaderAttr>()) {
+    StringRef Literal =
+        pAL->getStage();
+    DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal);
+    isNode |= Stage == DXIL::ShaderKind::Node;
+    isCS |= Stage == DXIL::ShaderKind::Compute;
+  }
+
+  HLSLWaveSizeAttr *attr = FD->getAttr<HLSLWaveSizeAttr>();
+
+  if (!SM->IsLib() && !isEntry && !isNode) {
+    S->Diag(attr->getRange().getBegin(),
+            diag::err_hlsl_attribute_valid_on_entry_function_only)
+        << "WaveSize";
+  }
+
+  if (!SM->IsLib() && !SM->IsCS() && !isCS && !isNode) {
+    S->Diag(attr->getRange().getBegin(),
+            diag::err_hlsl_attribute_unsupported_stage)
+        << "WaveSize"
+        << "compute";
+  }
+}
+
+void ValidateEntryPointFunctionAttributes(
+    clang::Sema *self, FunctionDecl *pEntryPointDecl) {
+
+  // run validation on the entry point attribute that belongs
+  // to the entry point function
+  if (pEntryPointDecl->hasAttrs()) {
+    for (Attr *pAttr : pEntryPointDecl->getAttrs()) {
+      switch (pAttr->getKind()) {
+      
+      case clang::attr::HLSLWaveSize: {
+        ValidateCallGraphWaveSize(self, pEntryPointDecl);
+        break;
+      }
+      }
+    }
+  }
+}
+
+
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
 
@@ -11428,6 +11488,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         Diags.Report(pPatchFnDecl->getSourceRange().getBegin(), id);
       }
     }
+    ValidateEntryPointFunctionAttributes(self, pEntryPointDecl);
   }
 }
 
@@ -12803,6 +12864,30 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
                          A.getAttributeSpellingListIndex());
 }
 
+HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
+                                             const AttributeList &A) {
+  // make sure we are in an appropriate shader model
+  const auto *SM =
+      hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
+  if (SM->IsSM66Plus()) {
+    S.Diag(A.getLoc(), diag::err_hlsl_attribute_in_wrong_shader_model) << "wavesize" << "6.6";
+    return nullptr;
+  }
+
+  // validate that the wavesize argument is a power of 2 between 4 and 128 inclusive
+  HLSLWaveSizeAttr *pAttr = ::new (S.Context)
+      HLSLWaveSizeAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+                       A.getAttributeSpellingListIndex());
+
+  unsigned waveSize = pAttr->getSize();
+  if (!DXIL::IsValidWaveSizeValue(waveSize)) {
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size);
+    return nullptr;
+  }
+
+  return pAttr;
+}
+
 HLSLMaxRecordsSharedWithAttr *
 ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
                                                  const AttributeList &A) {
@@ -13223,8 +13308,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A, 
     declAttr = ::new (S.Context) HLSLWaveSensitiveAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLWaveSize:
-    declAttr = ::new (S.Context) HLSLWaveSizeAttr(A.getRange(), S.Context,
-      ValidateAttributeIntArg(S, A), A.getAttributeSpellingListIndex());
+    declAttr = ValidateWaveSizeAttributes(S, D, A);
+    if (!declAttr) {
+      Handled = true;
+      return;
+    }
     break;
   case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
     declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(A.getRange(), S.Context, A.getAttributeSpellingListIndex());

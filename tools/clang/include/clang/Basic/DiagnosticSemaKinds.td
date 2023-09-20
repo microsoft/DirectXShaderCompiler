@@ -7469,6 +7469,12 @@ def err_hlsl_attribute_expects_string_literal: Error<
   "attribute %0 must have a string literal argument">;
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
+def err_hlsl_attribute_valid_on_entry_function_only: Error<
+  "%0 attribute only valid on entry point functions">;
+def err_hlsl_attribute_unsupported_stage: Error<
+  "attribute %0 requires shader stage %1">;
+def err_hlsl_attribute_in_wrong_shader_model: Error<
+  "attribute %0 must be in at least shader model %1">;
 def err_hlsl_conflicting_shader_attribute: Error<
   "shader attribute type '%0' conflicts with shader attribute type '%1'">;
 def note_hlsl_shader_attribute_here: Note<
@@ -7477,6 +7483,8 @@ def err_hlsl_profile_conflicts_with_shader_attribute : Error<
   "entry type '%0' from profile '%1' conflicts with shader attribute type '%2' on entry function '%3'.">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
+def err_hlsl_wavesize_size: Error<
+  "WaveSize value must be between 4 and 128 and a power of 2">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<
