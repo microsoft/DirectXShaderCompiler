@@ -25,7 +25,8 @@ void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
 
 #include <assert.h>
 
-void llvm_assert(const char *message, const char *, unsigned) {
+void llvm_assert(const char *message, const char *, unsigned,
+                 const char *_Function) {
   assert(false && message);
 }
 
