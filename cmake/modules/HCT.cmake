@@ -2,6 +2,15 @@ option(HLSL_COPY_GENERATED_SOURCES "Copy generated sources if different" Off)
 
 add_custom_target(HCTGen)
 
+find_program(CLANG_FORMAT_EXE NAMES clang-format)
+
+if (NOT CLANG_FORMAT_EXE)
+  message(WARNING "Clang-format is not available. Generating included sources is not supported.")
+  if (HLSL_COPY_GENERATED_SOURCES)
+    message(FATAL_ERROR "Generating sources requires clang-format")
+  endif ()
+endif ()
+
 if (WIN32 AND NOT DEFINED HLSL_AUTOCRLF)
   find_program(git_executable NAMES git git.exe git.cmd)
   execute_process(COMMAND ${git_executable} config --get core.autocrlf
@@ -35,7 +44,7 @@ function(add_hlsl_hctgen mode)
     message(FATAL_ERROR "add_hlsl_hctgen requires OUTPUT argument")
   endif()
  
-  set(temp_output ${CMAKE_CURRENT_BINARY_DIR}/${ARG_OUTPUT}.tmp)
+  set(temp_output ${CMAKE_CURRENT_BINARY_DIR}/tmp/${ARG_OUTPUT})
   set(full_output ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_OUTPUT})
   if (ARG_BUILD_DIR)
     set(full_output ${CMAKE_CURRENT_BINARY_DIR}/${ARG_OUTPUT})
@@ -48,6 +57,12 @@ function(add_hlsl_hctgen mode)
                        ${hctgen}
                        ${hctdb}
                        ${hctdb_helper})
+
+  get_filename_component(output_extension ${full_output} LAST_EXT)
+
+  if (CLANG_FORMAT_EXE AND output_extension MATCHES "\.h|\.cpp|\.inl")
+    set(format_cmd COMMAND ${CLANG_FORMAT_EXE} -i ${temp_output})
+  endif ()
 
   set(copy_sources Off)
   if(ARG_BUILD_DIR OR HLSL_COPY_GENERATED_SOURCES)
@@ -77,7 +92,9 @@ function(add_hlsl_hctgen mode)
   # file, and define the verification command
   if(NOT copy_sources)
     set(output ${temp_output})
-    set(verification COMMAND ${CMAKE_COMMAND} -E compare_files ${temp_output} ${full_output})
+    if (CLANG_FORMAT_EXE) # Only verify sources if clang-format is available.
+      set(verification COMMAND ${CMAKE_COMMAND} -E compare_files ${temp_output} ${full_output})
+    endif()
   endif()
   if(WIN32 AND NOT HLSL_AUTOCRLF)
     set(force_lf "--force-lf")
@@ -87,6 +104,7 @@ function(add_hlsl_hctgen mode)
                      COMMAND ${PYTHON_EXECUTABLE}
                              ${hctgen} ${force_lf}
                              ${mode} --output ${temp_output} ${input_flag}
+                     ${format_cmd}
                      COMMENT "Building ${ARG_OUTPUT}..."
                      DEPENDS ${hct_dependencies}
                      )

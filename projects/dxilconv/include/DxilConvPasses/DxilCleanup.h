@@ -19,6 +19,6 @@ extern char &DxilCleanupID;
 
 llvm::ModulePass *createDxilCleanupPass();
 
-void initializeDxilCleanupPass(llvm::PassRegistry&);
+void initializeDxilCleanupPass(llvm::PassRegistry &);
 
-}
+} // namespace llvm

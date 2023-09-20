@@ -14,42 +14,39 @@
 #define __DXC_DXR_FALLBACK_COMPILER_API__
 #include "dxcapi.h"
 
-enum class ShaderType : unsigned int
-{
-    Raygen,
-    AnyHit,
-    ClosestHit,
-    Intersection,
-    Miss,
-    Callable,
-    Lib,
+enum class ShaderType : unsigned int {
+  Raygen,
+  AnyHit,
+  ClosestHit,
+  Intersection,
+  Miss,
+  Callable,
+  Lib,
 };
 
-struct DxcShaderInfo
-{
-    UINT32 Identifier;
-    UINT32 StackSize;
-    ShaderType Type;
+struct DxcShaderInfo {
+  UINT32 Identifier;
+  UINT32 StackSize;
+  ShaderType Type;
 };
 
-struct DxcShaderBytecode
-{
-    LPBYTE pData;
-    UINT32 Size;
+struct DxcShaderBytecode {
+  LPBYTE pData;
+  UINT32 Size;
 };
 
-struct DxcExportDesc
-{
-    LPCWSTR ExportToRename;
-    LPCWSTR ExportName;
+struct DxcExportDesc {
+  LPCWSTR ExportToRename;
+  LPCWSTR ExportName;
 };
 
 struct __declspec(uuid("76bb3c85-006d-4b72-9e10-63cd97df57f0"))
-  IDxcDxrFallbackCompiler : public IUnknown {
+    IDxcDxrFallbackCompiler : public IUnknown {
 
-  // If set to true then shaders not listed in pShaderNames in Compile() but 
-  // called by shaders in pShaderNames are added to the final computer shader. 
-  // Otherwise these are considered errors. This is intended for testing purposes.
+  // If set to true then shaders not listed in pShaderNames in Compile() but
+  // called by shaders in pShaderNames are added to the final computer shader.
+  // Otherwise these are considered errors. This is intended for testing
+  // purposes.
   virtual HRESULT STDMETHODCALLTYPE SetFindCalledShaders(bool val) = 0;
 
   virtual HRESULT STDMETHODCALLTYPE SetDebugOutput(int val) = 0;
@@ -62,9 +59,9 @@ struct __declspec(uuid("76bb3c85-006d-4b72-9e10-63cd97df57f0"))
       const LPCWSTR pEntryName, DxcShaderBytecode *pShaderBytecode,
       void *pShaderInfo, IDxcOperationResult **ppResult) = 0;
 
-  // Compiles libs together to create a raytracing compute shader. One of the libs 
-  // should be the fallback implementation lib that defines functions like 
-  // Fallback_TraceRay(), Fallback_ReportHit(), etc. Fallback_TraceRay() should 
+  // Compiles libs together to create a raytracing compute shader. One of the
+  // libs should be the fallback implementation lib that defines functions like
+  // Fallback_TraceRay(), Fallback_ReportHit(), etc. Fallback_TraceRay() should
   // be one of the shader names so that it gets included in the compile.
   virtual HRESULT STDMETHODCALLTYPE Compile(
       DxcShaderBytecode *pLibs,    // Array of libraries containing shaders
@@ -95,7 +92,8 @@ struct __declspec(uuid("76bb3c85-006d-4b72-9e10-63cd97df57f0"))
 };
 
 // Note: __declspec(selectany) requires 'extern'
-// On Linux __declspec(selectany) is removed and using 'extern' results in link error.
+// On Linux __declspec(selectany) is removed and using 'extern' results in link
+// error.
 #ifdef _MSC_VER
 #define CLSID_SCOPE __declspec(selectany) extern
 #else
@@ -104,11 +102,10 @@ struct __declspec(uuid("76bb3c85-006d-4b72-9e10-63cd97df57f0"))
 
 // {76bb3c85-006d-4b72-9e10-63cd97df57f0}
 CLSID_SCOPE const GUID CLSID_DxcDxrFallbackCompiler = {
-  0x76bb3c85,
-  0x006d,
-  0x4b72,
-{ 0x9e, 0x10, 0x63, 0xcd, 0x97, 0xdf, 0x57, 0xf0 }
-};
+    0x76bb3c85,
+    0x006d,
+    0x4b72,
+    {0x9e, 0x10, 0x63, 0xcd, 0x97, 0xdf, 0x57, 0xf0}};
 
 typedef HRESULT(__stdcall *DxcCreateDxrFallbackCompilerProc)(REFCLSID rclsid,
                                                              REFIID riid,

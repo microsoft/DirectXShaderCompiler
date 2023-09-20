@@ -18,9 +18,9 @@
 #include <string>
 #include <vector>
 
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/dxcapi.use.h"
@@ -35,9 +35,9 @@
 #include <algorithm>
 #include <chrono>
 #include <comdef.h>
+#include <ios>
 #include <thread>
 #include <unordered_map>
-#include <ios>
 
 #include "llvm/Support//MSFileSystem.h"
 #include "llvm/Support/CommandLine.h"
@@ -98,21 +98,25 @@ static void PrintHlslException(const ::hlsl::Exception &hlslException,
   try {
     errorStream << hlslException.what();
     if (hlslException.hr == DXC_E_DUPLICATE_PART) {
-      errorStream << "dxc_batch failed : DXIL container already contains the given part.";
+      errorStream << "dxc_batch failed : DXIL container already contains the "
+                     "given part.";
     } else if (hlslException.hr == DXC_E_MISSING_PART) {
-      errorStream << "dxc_batch failed : DXIL container does not contain the given part.";
+      errorStream << "dxc_batch failed : DXIL container does not contain the "
+                     "given part.";
     } else if (hlslException.hr == DXC_E_CONTAINER_INVALID) {
       errorStream << "dxc_batch failed : Invalid DXIL container.";
     } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DXIL) {
       errorStream << "dxc_batch failed : DXIL container is missing DXIL part.";
     } else if (hlslException.hr == DXC_E_CONTAINER_MISSING_DEBUG) {
-      errorStream << "dxc_batch failed : DXIL container is missing Debug Info part.";
+      errorStream
+          << "dxc_batch failed : DXIL container is missing Debug Info part.";
     } else if (hlslException.hr == E_OUTOFMEMORY) {
       errorStream << "dxc_batch failed : Out of Memory.";
     } else if (hlslException.hr == E_INVALIDARG) {
       errorStream << "dxc_batch failed : Invalid argument.";
     } else {
-      errorStream << "dxc_batch failed : error code 0x" << std::hex << hlslException.hr << ".";
+      errorStream << "dxc_batch failed : error code 0x" << std::hex
+                  << hlslException.hr << ".";
     }
     errorStream << "\n";
   } catch (...) {
@@ -123,10 +127,10 @@ static void PrintHlslException(const ::hlsl::Exception &hlslException,
 static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
                    llvm::StringRef path, bool bLinkLib,
                    std::string &errorString) {
-                   //llvm::raw_string_ostream &errorStream) {
+  // llvm::raw_string_ostream &errorStream) {
   const OptTable *optionTable = getHlslOptTable();
   llvm::SmallVector<llvm::StringRef, 4> args;
-  command.split(args, " ", /*MaxSplit*/-1, /*KeepEmpty*/false);
+  command.split(args, " ", /*MaxSplit*/ -1, /*KeepEmpty*/ false);
   if (!path.empty()) {
     args.emplace_back("-I");
     args.emplace_back(path);
@@ -145,23 +149,18 @@ static int Compile(llvm::StringRef command, DxcDllSupport &dxcSupport,
       // TODO: implement all other actions.
       if (!dxcOpts.Preprocess.empty()) {
         context.Preprocess();
-      }
-      else if (dxcOpts.DumpBin) {
+      } else if (dxcOpts.DumpBin) {
         retVal = context.DumpBinary();
-      }
-      else {
+      } else {
         retVal = context.Compile(path, bLinkLib);
       }
-    }
-    catch (const ::hlsl::Exception &hlslException) {
+    } catch (const ::hlsl::Exception &hlslException) {
       PrintHlslException(hlslException, command, errorStream);
       retVal = 1;
-    }
-    catch (std::bad_alloc &) {
+    } catch (std::bad_alloc &) {
       errorStream << command << " failed - out of memory.\n";
       retVal = 1;
-    }
-    catch (...) {
+    } catch (...) {
       errorStream << command << " failed - unknown error.\n";
       retVal = 1;
     }
@@ -256,7 +255,8 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
   if (m_Opts.ExtractRootSignature) {
     CComPtr<IDxcBlob> pRootSignatureContainer;
     ExtractRootSignature(pBlob, &pRootSignatureContainer);
-    WriteBlobToFile(pRootSignatureContainer, m_Opts.OutputObject, m_Opts.DefaultTextCodePage);
+    WriteBlobToFile(pRootSignatureContainer, m_Opts.OutputObject,
+                    m_Opts.DefaultTextCodePage);
   }
 
   // Extract and write private data.
@@ -298,7 +298,8 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
     WriteHeader(pDisassembleResult, pBlob, varName,
                 StringRefWide(m_Opts.OutputHeader));
   } else if (!m_Opts.AssemblyCode.empty()) {
-    WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode, m_Opts.DefaultTextCodePage);
+    WriteBlobToFile(pDisassembleResult, m_Opts.AssemblyCode,
+                    m_Opts.DefaultTextCodePage);
   } else {
     WriteBlobToConsole(pDisassembleResult);
   }
@@ -368,7 +369,8 @@ void DxcContext::UpdatePart(IDxcBlob *pSource, IDxcBlob **ppResult) {
     CComPtr<IDxcBlobEncoding> pErrors;
     IFT(pBuilderResult->GetErrorBuffer(&pErrors));
     if (pErrors != nullptr) {
-      WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile, m_Opts.DefaultTextCodePage);
+      WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile,
+                      m_Opts.DefaultTextCodePage);
     }
   } else {
     WriteOperationErrorsToConsole(pBuilderResult, m_Opts.OutputWarnings);
@@ -410,7 +412,7 @@ HRESULT DxcContext::ReadFileIntoPartContent(hlsl::DxilFourCC fourCC,
     IFT(hlsl::ReadBinaryFile(fileName, (void **)&pData, &dataSize));
     DXASSERT(pData != nullptr,
              "otherwise ReadBinaryFile should throw an exception");
-    hlsl::DxilContainerHeader *pHeader = 
+    hlsl::DxilContainerHeader *pHeader =
         hlsl::IsDxilContainerLike(pData.m_pData, dataSize);
     IFRBOOL(IsValidDxilContainer(pHeader, dataSize), E_INVALIDARG);
     hlsl::DxilPartHeader *pPartHeader =
@@ -514,7 +516,8 @@ int DxcContext::VerifyRootSignature() {
     if (!m_Opts.OutputWarningsFile.empty()) {
       CComPtr<IDxcBlobEncoding> pErrors;
       IFT(pOperationResult->GetErrorBuffer(&pErrors));
-      WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile, m_Opts.DefaultTextCodePage);
+      WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile,
+                      m_Opts.DefaultTextCodePage);
     } else {
       WriteOperationErrorsToConsole(pOperationResult, m_Opts.OutputWarnings);
     }
@@ -585,8 +588,7 @@ int DxcContext::Compile(llvm::StringRef path, bool bLibLink) {
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
     IFT(m_dxcSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
     if (path.empty()) {
-      ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile),
-                       &pSource);
+      ReadFileIntoBlob(m_dxcSupport, StringRefWide(m_Opts.InputFile), &pSource);
     } else {
       llvm::sys::fs::MSFileSystem *msfPtr;
       IFT(CreateMSFileSystemForDisk(&msfPtr));
@@ -638,7 +640,8 @@ int DxcContext::Compile(llvm::StringRef path, bool bLibLink) {
   if (!m_Opts.OutputWarningsFile.empty()) {
     CComPtr<IDxcBlobEncoding> pErrors;
     IFT(pCompileResult->GetErrorBuffer(&pErrors));
-    WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile, m_Opts.DefaultTextCodePage);
+    WriteBlobToFile(pErrors, m_Opts.OutputWarningsFile,
+                    m_Opts.DefaultTextCodePage);
   } else {
     WriteOperationErrorsToConsole(pCompileResult, m_Opts.OutputWarnings);
   }
@@ -775,7 +778,7 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
   llvm::StringRef source((char *)pSource->GetBufferPointer(),
                          pSource->GetBufferSize());
   llvm::SmallVector<llvm::StringRef, 4> commands;
-  source.split(commands, "\n", /*MaxSplit*/-1, /*KeepEmpty*/false);
+  source.split(commands, "\n", /*MaxSplit*/ -1, /*KeepEmpty*/ false);
 
   if (bMultiThread) {
     unsigned int threadNum = std::min<unsigned>(
@@ -797,9 +800,9 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
       unsigned threadIdx = i % threadNum;
       threads[threadIdx].join();
 
-      threads[threadIdx] = std::thread(
-          ::Compile, command, std::ref(m_dxcSupport), path.str(), bLibLink,
-                     std::ref(errorStrings[threadIdx]));
+      threads[threadIdx] =
+          std::thread(::Compile, command, std::ref(m_dxcSupport), path.str(),
+                      bLibLink, std::ref(errorStrings[threadIdx]));
     }
     for (auto &th : threads)
       th.join();
@@ -821,7 +824,8 @@ int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
       if (command.startswith("//"))
         continue;
       std::string errorString;
-      int ret = Compile(command, m_dxcSupport, path.str(), bLibLink, errorString);
+      int ret =
+          Compile(command, m_dxcSupport, path.str(), bLibLink, errorString);
       if (ret && 0 == retVal)
         retVal = ret;
       if (errorString.size()) {
