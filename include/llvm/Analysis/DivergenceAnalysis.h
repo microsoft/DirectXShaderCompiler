@@ -45,4 +45,4 @@ private:
   // Stores all divergent values.
   DenseSet<const Value *> DivergentValues;
 };
-} // End llvm namespace
+} // namespace llvm

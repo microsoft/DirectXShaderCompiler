@@ -11,8 +11,8 @@
 
 #pragma once
 
-#include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/Support/Global.h"
 #include "dxc/WinAdapter.h"
 #include <memory>
 
@@ -22,7 +22,7 @@ class LLVMContext;
 class raw_ostream;
 class DiagnosticPrinter;
 class DiagnosticInfo;
-}
+} // namespace llvm
 
 namespace hlsl {
 
@@ -50,7 +50,8 @@ bool VerifyFeatureInfoMatches(llvm::Module *pModule,
                               const void *pFeatureInfoData,
                               uint32_t FeatureInfoSize);
 
-// Validate the container parts, assuming supplied module is valid, loaded from the container provided
+// Validate the container parts, assuming supplied module is valid, loaded from
+// the container provided
 struct DxilContainerHeader;
 HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
                                    llvm::Module *pDebugModule,
@@ -106,4 +107,4 @@ public:
   static void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI,
                                      void *Context);
 };
-}
+} // namespace hlsl

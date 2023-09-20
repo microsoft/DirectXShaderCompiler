@@ -13,71 +13,70 @@
 #include "dxc/DXIL/DXIL.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerReader.h"
-#include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/Global.h"
+#include "llvm/Analysis/ReducibilityAnalysis.h"
 
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Bitcode/BitstreamWriter.h"
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FileOutputBuffer.h"
+#include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/FileOutputBuffer.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Statistic.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstVisitor.h"
-#include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Bitcode/BitstreamWriter.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/Transforms/Scalar.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Scalar.h"
 
-#include <atlbase.h>
-#include "dxc/Support/microcom.h"
 #include "Support/DXIncludes.h"
+#include "dxc/Support/microcom.h"
+#include <atlbase.h>
 
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MSFileSystem.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/dxcapi.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/MSFileSystem.h"
 
-#include "DxbcUtil.h"
 #include "DxbcConverter.h"
+#include "DxbcUtil.h"
 
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 
 #include "Tracing/DxcRuntimeEtw.h"
 
-#include <vector>
-#include <map>
 #include <algorithm>
+#include <map>
+#include <vector>
 
 #pragma once
 namespace llvm {
-using legacy::PassManagerBase;
-using legacy::PassManager;
 using legacy::FunctionPassManager;
-}
+using legacy::PassManager;
+using legacy::PassManagerBase;
+} // namespace llvm
 
 using namespace llvm;
-using std::string;
-using std::wstring;
-using std::pair;
-using std::vector;
 using std::map;
+using std::pair;
+using std::string;
 using std::unique_ptr;
-
+using std::vector;
+using std::wstring;
 
 struct D3D12DDIARG_SIGNATURE_ENTRY_0012 {
   D3D10_SB_NAME SystemValue;
@@ -85,33 +84,36 @@ struct D3D12DDIARG_SIGNATURE_ENTRY_0012 {
   BYTE Mask;
   BYTE Stream;
   D3D10_SB_REGISTER_COMPONENT_TYPE RegisterComponentType;
-  D3D11_SB_OPERAND_MIN_PRECISION   MinPrecision;
+  D3D11_SB_OPERAND_MIN_PRECISION MinPrecision;
 };
-
 
 namespace hlsl {
 
-#define DXBC_FOURCC(ch0, ch1, ch2, ch3)                              \
-            ((UINT)(BYTE)(ch0) | ((UINT)(BYTE)(ch1) << 8) |   \
-            ((UINT)(BYTE)(ch2) << 16) | ((UINT)(BYTE)(ch3) << 24 ))
+#define DXBC_FOURCC(ch0, ch1, ch2, ch3)                                        \
+  ((UINT)(BYTE)(ch0) | ((UINT)(BYTE)(ch1) << 8) | ((UINT)(BYTE)(ch2) << 16) |  \
+   ((UINT)(BYTE)(ch3) << 24))
 
 enum DXBCFourCC {
-  DXBC_GenericShader              = DXBC_FOURCC('S', 'H', 'D', 'R'),
-  DXBC_GenericShaderEx            = DXBC_FOURCC('S', 'H', 'E', 'X'),
-  DXBC_InputSignature             = DXBC_FOURCC('I', 'S', 'G', 'N'),
-  DXBC_InputSignature11_1         = DXBC_FOURCC('I', 'S', 'G', '1'), // == DFCC_InputSignature
-  DXBC_PatchConstantSignature     = DXBC_FOURCC('P', 'C', 'S', 'G'),
-  DXBC_PatchConstantSignature11_1 = DXBC_FOURCC('P', 'S', 'G', '1'), // == DFCC_PatchConstantSignature
-  DXBC_OutputSignature            = DXBC_FOURCC('O', 'S', 'G', 'N'),
-  DXBC_OutputSignature5           = DXBC_FOURCC('O', 'S', 'G', '5'),
-  DXBC_OutputSignature11_1        = DXBC_FOURCC('O', 'S', 'G', '1'), // == DFCC_OutputSignature
-  DXBC_ShaderFeatureInfo          = DXBC_FOURCC('S', 'F', 'I', '0'), // == DFCC_FeatureInfo
-  DXBC_RootSignature              = DXBC_FOURCC('R', 'T', 'S', '0'), // == DFCC_RootSignature
-  DXBC_DXIL                       = DXBC_FOURCC('D', 'X', 'I', 'L'), // == DFCC_DXIL
-  DXBC_PipelineStateValidation    = DXBC_FOURCC('P', 'S', 'V', '0'), // == DFCC_PipelineStateValidation
+  DXBC_GenericShader = DXBC_FOURCC('S', 'H', 'D', 'R'),
+  DXBC_GenericShaderEx = DXBC_FOURCC('S', 'H', 'E', 'X'),
+  DXBC_InputSignature = DXBC_FOURCC('I', 'S', 'G', 'N'),
+  DXBC_InputSignature11_1 =
+      DXBC_FOURCC('I', 'S', 'G', '1'), // == DFCC_InputSignature
+  DXBC_PatchConstantSignature = DXBC_FOURCC('P', 'C', 'S', 'G'),
+  DXBC_PatchConstantSignature11_1 =
+      DXBC_FOURCC('P', 'S', 'G', '1'), // == DFCC_PatchConstantSignature
+  DXBC_OutputSignature = DXBC_FOURCC('O', 'S', 'G', 'N'),
+  DXBC_OutputSignature5 = DXBC_FOURCC('O', 'S', 'G', '5'),
+  DXBC_OutputSignature11_1 =
+      DXBC_FOURCC('O', 'S', 'G', '1'), // == DFCC_OutputSignature
+  DXBC_ShaderFeatureInfo =
+      DXBC_FOURCC('S', 'F', 'I', '0'),                  // == DFCC_FeatureInfo
+  DXBC_RootSignature = DXBC_FOURCC('R', 'T', 'S', '0'), // == DFCC_RootSignature
+  DXBC_DXIL = DXBC_FOURCC('D', 'X', 'I', 'L'),          // == DFCC_DXIL
+  DXBC_PipelineStateValidation =
+      DXBC_FOURCC('P', 'S', 'V', '0'), // == DFCC_PipelineStateValidation
 };
 #undef DXBC_FOURCC
-
 
 /// Use this class to parse DXBC signatures.
 class SignatureHelper {
@@ -141,7 +143,9 @@ public:
     unsigned Cols;
     BYTE OutputStream;
 
-    Range() : StartRow(UINT_MAX), StartCol(UINT_MAX), Rows(0), Cols(0), OutputStream(0) {}
+    Range()
+        : StartRow(UINT_MAX), StartCol(UINT_MAX), Rows(0), Cols(0),
+          OutputStream(0) {}
 
     unsigned GetStartRow() const { return StartRow; }
     unsigned GetStartCol() const { return StartCol; }
@@ -177,9 +181,11 @@ public:
     unsigned NumUnits;
     BYTE OutputStream;
 
-    UsedElement() : Row(UINT_MAX), StartCol(UINT_MAX), Cols(0), 
-      InterpolationMode(D3D_INTERPOLATION_UNDEFINED), MinPrecision(D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT),
-      NumUnits(0), OutputStream(0) {}
+    UsedElement()
+        : Row(UINT_MAX), StartCol(UINT_MAX), Cols(0),
+          InterpolationMode(D3D_INTERPOLATION_UNDEFINED),
+          MinPrecision(D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT), NumUnits(0),
+          OutputStream(0) {}
 
     struct LTByStreamAndStartRowAndStartCol {
       bool operator()(const UsedElement &e1, const UsedElement &e2) const {
@@ -206,7 +212,8 @@ public:
     unsigned Reg;
     unsigned Comp;
     unsigned Stream;
-    RegAndCompAndStream(unsigned r, unsigned c, unsigned s) : Reg(r), Comp(c), Stream(s) {}
+    RegAndCompAndStream(unsigned r, unsigned c, unsigned s)
+        : Reg(r), Comp(c), Stream(s) {}
     bool operator<(const RegAndCompAndStream &o) const {
       if (Stream < o.Stream)
         return true;
@@ -227,7 +234,8 @@ public:
     const unsigned Stream = 0;
     return GetElementWithStream(Reg, Comp, Stream);
   }
-  const DxilSignatureElement *GetElementWithStream(unsigned Reg, unsigned Comp, unsigned Stream) const {
+  const DxilSignatureElement *GetElementWithStream(unsigned Reg, unsigned Comp,
+                                                   unsigned Stream) const {
     RegAndCompAndStream Key(Reg, Comp, Stream);
     auto it = m_DxbcRegisterToSignatureElement.find(Key);
     if (it == m_DxbcRegisterToSignatureElement.end()) {
@@ -235,20 +243,29 @@ public:
     }
     unsigned ElemIdx = it->second;
     const DxilSignatureElement *E = &m_Signature.GetElement(ElemIdx);
-    DXASSERT(E->IsAllocated(), "otherwise signature elements were not set correctly");
-    DXASSERT(E->GetStartRow() <= (int)Reg && (int)Reg < E->GetStartRow()+E->GetRows(), "otherwise signature elements were not set correctly");
-    DXASSERT(E->GetStartCol() <= (int)Comp && (int)Comp < E->GetStartCol()+E->GetCols(), "otherwise signature elements were not set correctly");
+    DXASSERT(E->IsAllocated(),
+             "otherwise signature elements were not set correctly");
+    DXASSERT(E->GetStartRow() <= (int)Reg &&
+                 (int)Reg < E->GetStartRow() + E->GetRows(),
+             "otherwise signature elements were not set correctly");
+    DXASSERT(E->GetStartCol() <= (int)Comp &&
+                 (int)Comp < E->GetStartCol() + E->GetCols(),
+             "otherwise signature elements were not set correctly");
     return E;
   }
 
   // Elements that are System Generated Values (SVGs), without register.
   map<D3D10_SB_OPERAND_TYPE, unsigned> m_DxbcSgvToSignatureElement;
 
-  const DxilSignatureElement *GetElement(D3D10_SB_OPERAND_TYPE SgvRegType) const {
-    DXASSERT(m_DxbcSgvToSignatureElement.find(SgvRegType) != m_DxbcSgvToSignatureElement.end(), "otherwise the element has not been added to the map");
+  const DxilSignatureElement *
+  GetElement(D3D10_SB_OPERAND_TYPE SgvRegType) const {
+    DXASSERT(m_DxbcSgvToSignatureElement.find(SgvRegType) !=
+                 m_DxbcSgvToSignatureElement.end(),
+             "otherwise the element has not been added to the map");
     unsigned ElemIdx = m_DxbcSgvToSignatureElement.find(SgvRegType)->second;
     const DxilSignatureElement *E = &m_Signature.GetElement(ElemIdx);
-    DXASSERT(!E->IsAllocated(), "otherwise signature elements were not set correctly");
+    DXASSERT(!E->IsAllocated(),
+             "otherwise signature elements were not set correctly");
     return E;
   }
 
@@ -260,16 +277,16 @@ public:
   bool m_bHasInnerInputCoverage;
 
   SignatureHelper(DXIL::ShaderKind shaderKind, DXIL::SignatureKind sigKind)
-    : m_Signature(shaderKind, sigKind, /*useMinPrecision*/false)
-    , m_bHasInputCoverage(false)
-    , m_bHasInnerInputCoverage(false) {}
+      : m_Signature(shaderKind, sigKind, /*useMinPrecision*/ false),
+        m_bHasInputCoverage(false), m_bHasInnerInputCoverage(false) {}
 };
 
-
-/// Use this class to implement the IDxbcConverter inteface for DXBC to DXIL translation.
+/// Use this class to implement the IDxbcConverter inteface for DXBC to DXIL
+/// translation.
 class DxbcConverter : public IDxbcConverter {
 protected:
   DXC_MICROCOM_TM_REF_FIELDS();
+
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL();
 
@@ -304,9 +321,11 @@ protected:
   const ShaderModel *m_pSM;
   unsigned m_DxbcMajor;
   unsigned m_DxbcMinor;
-  bool IsSM51Plus() const { return m_DxbcMajor > 5 || (m_DxbcMajor == 5 && m_DxbcMinor >= 1); }
-  std::unique_ptr< IRBuilder<> > m_pBuilder;
-  
+  bool IsSM51Plus() const {
+    return m_DxbcMajor > 5 || (m_DxbcMajor == 5 && m_DxbcMinor >= 1);
+  }
+  std::unique_ptr<IRBuilder<>> m_pBuilder;
+
   bool m_bDisableHashCheck;
   bool m_bRunDxilCleanup;
 
@@ -346,7 +365,7 @@ protected:
   map<unsigned, unsigned> m_SamplerRangeMap;
 
   // Cached handles for SM 5.0 or below, key: (Class, LowerBound).
-  map<std::pair<unsigned, unsigned>, Value*> m_HandleMap;
+  map<std::pair<unsigned, unsigned>, Value *> m_HandleMap;
 
   // Immediate constant buffer.
   GlobalVariable *m_pIcbGV;
@@ -400,14 +419,24 @@ protected:
         unsigned HullLoopTripCount;
       };
     };
-    vector<pair<unsigned, BasicBlock*> > SwitchCases;  // Switch
+    vector<pair<unsigned, BasicBlock *>> SwitchCases; // Switch
 
-    Scope() : Kind(Kind::Function), pPreScopeBB(nullptr), pPostScopeBB(nullptr), NameIndex(0) {
-      memset(reinterpret_cast<char*>(&pThenBB), '\0', reinterpret_cast<char*>(&SwitchCases) - reinterpret_cast<char*>(&pThenBB));
+    Scope()
+        : Kind(Kind::Function), pPreScopeBB(nullptr), pPostScopeBB(nullptr),
+          NameIndex(0) {
+      memset(reinterpret_cast<char *>(&pThenBB), '\0',
+             reinterpret_cast<char *>(&SwitchCases) -
+                 reinterpret_cast<char *>(&pThenBB));
     }
 
-    void SetEntry(bool b = true) { DXASSERT_NOMSG(Kind==Function); bEntryFunc = b; }
-    bool IsEntry() const { DXASSERT_NOMSG(Kind==Function); return bEntryFunc; }
+    void SetEntry(bool b = true) {
+      DXASSERT_NOMSG(Kind == Function);
+      bEntryFunc = b;
+    }
+    bool IsEntry() const {
+      DXASSERT_NOMSG(Kind == Function);
+      return bEntryFunc;
+    }
   };
 
   class ScopeStack {
@@ -437,7 +466,9 @@ protected:
   };
   map<unsigned, LabelEntry> m_Labels;
   map<unsigned, LabelEntry> m_InterfaceFunctionBodies;
-  bool HasLabels() { return !m_Labels.empty() || !m_InterfaceFunctionBodies.empty(); }
+  bool HasLabels() {
+    return !m_Labels.empty() || !m_InterfaceFunctionBodies.empty();
+  }
 
   // Shared memory.
   struct TGSMEntry {
@@ -460,10 +491,10 @@ protected:
   CMask m_PreciseMask;
 
   // Interfaces
-  DxilCBuffer* m_pInterfaceDataBuffer;
-  DxilCBuffer* m_pClassInstanceCBuffers;
-  DxilSampler* m_pClassInstanceSamplers;
-  DxilSampler* m_pClassInstanceComparisonSamplers;
+  DxilCBuffer *m_pInterfaceDataBuffer;
+  DxilCBuffer *m_pClassInstanceCBuffers;
+  DxilSampler *m_pClassInstanceSamplers;
+  DxilSampler *m_pClassInstanceComparisonSamplers;
 
   struct InterfaceShaderResourceKey {
     DxilResource::Kind Kind;
@@ -525,68 +556,113 @@ protected:
 
   void AnalyzeShader(D3D10ShaderBinary::CShaderCodeParser &Parser);
 
-  void ExtractInputSignatureFromDXBC(DxilContainerReader &dxbcReader, const void *pMaxPtr);
-  void ExtractOutputSignatureFromDXBC(DxilContainerReader &dxbcReader, const void *pMaxPtr);
-  void ExtractPatchConstantSignatureFromDXBC(DxilContainerReader &dxbcReader, const void *pMaxPtr);
-  void ExtractSignatureFromDXBC(const D3D10_INTERNALSHADER_SIGNATURE *pSig, UINT uElemSize,
-                                const void *pMaxPtr, SignatureHelper &SigHelper);
-  void ExtractSignatureFromDDI(const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pElements, unsigned NumElements, SignatureHelper &SigHelper);
-  /// Correlates information from decls and signature element records to create DXIL signature element.
+  void ExtractInputSignatureFromDXBC(DxilContainerReader &dxbcReader,
+                                     const void *pMaxPtr);
+  void ExtractOutputSignatureFromDXBC(DxilContainerReader &dxbcReader,
+                                      const void *pMaxPtr);
+  void ExtractPatchConstantSignatureFromDXBC(DxilContainerReader &dxbcReader,
+                                             const void *pMaxPtr);
+  void ExtractSignatureFromDXBC(const D3D10_INTERNALSHADER_SIGNATURE *pSig,
+                                UINT uElemSize, const void *pMaxPtr,
+                                SignatureHelper &SigHelper);
+  void
+  ExtractSignatureFromDDI(const D3D12DDIARG_SIGNATURE_ENTRY_0012 *pElements,
+                          unsigned NumElements, SignatureHelper &SigHelper);
+  /// Correlates information from decls and signature element records to create
+  /// DXIL signature element.
   void ConvertSignature(SignatureHelper &SigHelper, DxilSignature &Sig);
 
   void ConvertInstructions(D3D10ShaderBinary::CShaderCodeParser &Parser);
-  void AdvanceDxbcInstructionStream(D3D10ShaderBinary::CShaderCodeParser &Parser,
-                                    D3D10ShaderBinary::CInstruction &Inst, 
-                                    bool &bDoneParsing);
-  bool GetNextDxbcInstruction(D3D10ShaderBinary::CShaderCodeParser &Parser, D3D10ShaderBinary::CInstruction &NextInst);
+  void
+  AdvanceDxbcInstructionStream(D3D10ShaderBinary::CShaderCodeParser &Parser,
+                               D3D10ShaderBinary::CInstruction &Inst,
+                               bool &bDoneParsing);
+  bool GetNextDxbcInstruction(D3D10ShaderBinary::CShaderCodeParser &Parser,
+                              D3D10ShaderBinary::CInstruction &NextInst);
   void InsertSM50ResourceHandles();
   void InsertInterfacesResourceDecls();
-  const DxilResource& GetInterfacesSRVDecl(D3D10ShaderBinary::CInstruction &Inst);
+  const DxilResource &
+  GetInterfacesSRVDecl(D3D10ShaderBinary::CInstruction &Inst);
   void DeclareIndexableRegisters();
   void CleanupIndexableRegisterDecls(map<unsigned, IndexableReg> &IdxRegMap);
   void RemoveUnreachableBasicBlocks();
   void CleanupGEP();
-  
-  void ConvertUnary(OP::OpCode OpCode, const CompType &ElementType, D3D10ShaderBinary::CInstruction &Inst, 
+
+  void ConvertUnary(OP::OpCode OpCode, const CompType &ElementType,
+                    D3D10ShaderBinary::CInstruction &Inst,
                     const unsigned DstIdx = 0, const unsigned SrcIdx = 1);
-  void ConvertBinary(OP::OpCode OpCode, const CompType &ElementType, D3D10ShaderBinary::CInstruction &Inst, 
-                     const unsigned DstIdx = 0, const unsigned SrcIdx1 = 1, const unsigned SrcIdx2 = 2);
-  void ConvertBinary(Instruction::BinaryOps OpCode, const CompType &ElementType, D3D10ShaderBinary::CInstruction &Inst, 
-                     const unsigned DstIdx = 0, const unsigned SrcIdx1 = 1, const unsigned SrcIdx2 = 2);
-  void ConvertBinaryWithTwoOuts(OP::OpCode OpCode, D3D10ShaderBinary::CInstruction &Inst, 
-                                const unsigned DstIdx1 = 0, const unsigned DstIdx2 = 1,
-                                const unsigned SrcIdx1 = 2, const unsigned SrcIdx2 = 3);
-  void ConvertBinaryWithCarry(OP::OpCode OpCode, D3D10ShaderBinary::CInstruction &Inst, 
-                              const unsigned DstIdx1 = 0, const unsigned DstIdx2 = 1,
-                              const unsigned SrcIdx1 = 2, const unsigned SrcIdx2 = 3);
-  void ConvertTertiary(OP::OpCode OpCode, const CompType &ElementType, D3D10ShaderBinary::CInstruction &Inst, 
-                       const unsigned DstIdx = 0,
-                       const unsigned SrcIdx1 = 1, const unsigned SrcIdx2 = 2, const unsigned SrcIdx3 = 3);
-  void ConvertQuaternary(OP::OpCode OpCode, const CompType &ElementType, D3D10ShaderBinary::CInstruction &Inst, 
-                         const unsigned DstIdx = 0,
-                         const unsigned SrcIdx1 = 1, const unsigned SrcIdx2 = 2,
-                         const unsigned SrcIdx3 = 3, const unsigned SrcIdx4 = 4);
-  void ConvertComparison(CmpInst::Predicate Predicate, const CompType &ElementType, D3D10ShaderBinary::CInstruction &Inst, 
-                         const unsigned DstIdx = 0, const unsigned SrcIdx1 = 1, const unsigned SrcIdx2 = 2);
-  void ConvertDotProduct(OP::OpCode OpCode, const BYTE NumComps, const CMask &LoadMask, D3D10ShaderBinary::CInstruction &Inst);
-  void ConvertCast(const CompType &SrcElementType, const CompType &DstElementType, D3D10ShaderBinary::CInstruction &Inst, 
+  void ConvertBinary(OP::OpCode OpCode, const CompType &ElementType,
+                     D3D10ShaderBinary::CInstruction &Inst,
+                     const unsigned DstIdx = 0, const unsigned SrcIdx1 = 1,
+                     const unsigned SrcIdx2 = 2);
+  void ConvertBinary(Instruction::BinaryOps OpCode, const CompType &ElementType,
+                     D3D10ShaderBinary::CInstruction &Inst,
+                     const unsigned DstIdx = 0, const unsigned SrcIdx1 = 1,
+                     const unsigned SrcIdx2 = 2);
+  void ConvertBinaryWithTwoOuts(OP::OpCode OpCode,
+                                D3D10ShaderBinary::CInstruction &Inst,
+                                const unsigned DstIdx1 = 0,
+                                const unsigned DstIdx2 = 1,
+                                const unsigned SrcIdx1 = 2,
+                                const unsigned SrcIdx2 = 3);
+  void ConvertBinaryWithCarry(OP::OpCode OpCode,
+                              D3D10ShaderBinary::CInstruction &Inst,
+                              const unsigned DstIdx1 = 0,
+                              const unsigned DstIdx2 = 1,
+                              const unsigned SrcIdx1 = 2,
+                              const unsigned SrcIdx2 = 3);
+  void ConvertTertiary(OP::OpCode OpCode, const CompType &ElementType,
+                       D3D10ShaderBinary::CInstruction &Inst,
+                       const unsigned DstIdx = 0, const unsigned SrcIdx1 = 1,
+                       const unsigned SrcIdx2 = 2, const unsigned SrcIdx3 = 3);
+  void ConvertQuaternary(OP::OpCode OpCode, const CompType &ElementType,
+                         D3D10ShaderBinary::CInstruction &Inst,
+                         const unsigned DstIdx = 0, const unsigned SrcIdx1 = 1,
+                         const unsigned SrcIdx2 = 2, const unsigned SrcIdx3 = 3,
+                         const unsigned SrcIdx4 = 4);
+  void ConvertComparison(CmpInst::Predicate Predicate,
+                         const CompType &ElementType,
+                         D3D10ShaderBinary::CInstruction &Inst,
+                         const unsigned DstIdx = 0, const unsigned SrcIdx1 = 1,
+                         const unsigned SrcIdx2 = 2);
+  void ConvertDotProduct(OP::OpCode OpCode, const BYTE NumComps,
+                         const CMask &LoadMask,
+                         D3D10ShaderBinary::CInstruction &Inst);
+  void ConvertCast(const CompType &SrcElementType,
+                   const CompType &DstElementType,
+                   D3D10ShaderBinary::CInstruction &Inst,
                    const unsigned DstIdx = 0, const unsigned SrcIdx = 1);
-  void ConvertToDouble(const CompType &SrcElementType, D3D10ShaderBinary::CInstruction &Inst);
-  void ConvertFromDouble(const CompType &DstElementType, D3D10ShaderBinary::CInstruction &Inst);
-  void LoadCommonSampleInputs(D3D10ShaderBinary::CInstruction &Inst, Value *pArgs[], bool bSetOffsets = true);
-  void StoreResRetOutputAndStatus(D3D10ShaderBinary::CInstruction &Inst, Value *pResRet, CompType DstType);
-  void StoreGetDimensionsOutput(D3D10ShaderBinary::CInstruction &Inst, Value *pGetDimRet);
-  void StoreSamplePosOutput(D3D10ShaderBinary::CInstruction &Inst, Value *pSamplePosVal);
-  void StoreBroadcastOutput(D3D10ShaderBinary::CInstruction &Inst, Value *pValue, CompType DstType);
-  Value *GetCoordValue(D3D10ShaderBinary::CInstruction &Inst, const unsigned uCoordIdx);
-  Value *GetByteOffset(D3D10ShaderBinary::CInstruction &Inst, const unsigned Idx1, const unsigned Idx2, const unsigned Stride);
-  void ConvertLoadTGSM(D3D10ShaderBinary::CInstruction &Inst, const unsigned uOpTGSM, const unsigned uOpOutput, CompType SrcType, Value *pByteOffset);
-  void ConvertStoreTGSM(D3D10ShaderBinary::CInstruction &Inst, const unsigned uOpTGSM, const unsigned uOpValue, CompType BaseValueType, Value *pByteOffset);
+  void ConvertToDouble(const CompType &SrcElementType,
+                       D3D10ShaderBinary::CInstruction &Inst);
+  void ConvertFromDouble(const CompType &DstElementType,
+                         D3D10ShaderBinary::CInstruction &Inst);
+  void LoadCommonSampleInputs(D3D10ShaderBinary::CInstruction &Inst,
+                              Value *pArgs[], bool bSetOffsets = true);
+  void StoreResRetOutputAndStatus(D3D10ShaderBinary::CInstruction &Inst,
+                                  Value *pResRet, CompType DstType);
+  void StoreGetDimensionsOutput(D3D10ShaderBinary::CInstruction &Inst,
+                                Value *pGetDimRet);
+  void StoreSamplePosOutput(D3D10ShaderBinary::CInstruction &Inst,
+                            Value *pSamplePosVal);
+  void StoreBroadcastOutput(D3D10ShaderBinary::CInstruction &Inst,
+                            Value *pValue, CompType DstType);
+  Value *GetCoordValue(D3D10ShaderBinary::CInstruction &Inst,
+                       const unsigned uCoordIdx);
+  Value *GetByteOffset(D3D10ShaderBinary::CInstruction &Inst,
+                       const unsigned Idx1, const unsigned Idx2,
+                       const unsigned Stride);
+  void ConvertLoadTGSM(D3D10ShaderBinary::CInstruction &Inst,
+                       const unsigned uOpTGSM, const unsigned uOpOutput,
+                       CompType SrcType, Value *pByteOffset);
+  void ConvertStoreTGSM(D3D10ShaderBinary::CInstruction &Inst,
+                        const unsigned uOpTGSM, const unsigned uOpValue,
+                        CompType BaseValueType, Value *pByteOffset);
 
   void EmitGSOutputRegisterStore(unsigned StreamId);
 
   void SetShaderGlobalFlags(unsigned GlobalFlags);
-  Value *CreateHandle(DxilResourceBase::Class Class, unsigned RangeID, Value *pIndex, bool bNonUniformIndex);
+  Value *CreateHandle(DxilResourceBase::Class Class, unsigned RangeID,
+                      Value *pIndex, bool bNonUniformIndex);
   void SetCachedHandle(const DxilResourceBase &R);
   Value *GetCachedHandle(const DxilResourceBase &R);
 
@@ -594,24 +670,45 @@ protected:
 
   void CheckDxbcString(const char *pStr, const void *pMaxPtrInclusive);
 
-  Value *LoadConstFloat(float& fVal);
-  void SetHasCounter(D3D10ShaderBinary::CInstruction &Inst, const unsigned uOpUAV);
-  void LoadOperand(OperandValue &SrcVal, D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx, const CMask &Mask, const CompType &ValueType);
-  const DxilResource& LoadSRVOperand(OperandValue &SrcVal, D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx, const CMask &Mask, const CompType &ValueType);
-  const DxilResource& GetSRVFromOperand(D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx);
-  void StoreOperand(OperandValue &DstVal, const D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx, const CMask &Mask, const CompType &ValueType);
-  Value *LoadOperandIndex(const D3D10ShaderBinary::COperandIndex &OpIndex, const D3D10_SB_OPERAND_INDEX_REPRESENTATION IndexType);
-  Value *LoadOperandIndexRelative(const D3D10ShaderBinary::COperandIndex &OpIndex);
+  Value *LoadConstFloat(float &fVal);
+  void SetHasCounter(D3D10ShaderBinary::CInstruction &Inst,
+                     const unsigned uOpUAV);
+  void LoadOperand(OperandValue &SrcVal, D3D10ShaderBinary::CInstruction &Inst,
+                   const unsigned OpIdx, const CMask &Mask,
+                   const CompType &ValueType);
+  const DxilResource &LoadSRVOperand(OperandValue &SrcVal,
+                                     D3D10ShaderBinary::CInstruction &Inst,
+                                     const unsigned OpIdx, const CMask &Mask,
+                                     const CompType &ValueType);
+  const DxilResource &GetSRVFromOperand(D3D10ShaderBinary::CInstruction &Inst,
+                                        const unsigned OpIdx);
+  void StoreOperand(OperandValue &DstVal,
+                    const D3D10ShaderBinary::CInstruction &Inst,
+                    const unsigned OpIdx, const CMask &Mask,
+                    const CompType &ValueType);
+  Value *
+  LoadOperandIndex(const D3D10ShaderBinary::COperandIndex &OpIndex,
+                   const D3D10_SB_OPERAND_INDEX_REPRESENTATION IndexType);
+  Value *
+  LoadOperandIndexRelative(const D3D10ShaderBinary::COperandIndex &OpIndex);
   /// Implicit casts of a value.
-  Value *CastDxbcValue(Value *pValue, const CompType &SrcType, const CompType &DstType);
-  Value *CreateBitCast(Value *pValue, const CompType &SrcType, const CompType &DstType);
-  Value *ApplyOperandModifiers(Value *pValue, const D3D10ShaderBinary::COperandBase &O);
-  void ApplyInstructionModifiers(OperandValue &DstVal, const D3D10ShaderBinary::CInstruction &Inst);
-  CompType InferOperandType(const D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx, const CMask &Mask);
+  Value *CastDxbcValue(Value *pValue, const CompType &SrcType,
+                       const CompType &DstType);
+  Value *CreateBitCast(Value *pValue, const CompType &SrcType,
+                       const CompType &DstType);
+  Value *ApplyOperandModifiers(Value *pValue,
+                               const D3D10ShaderBinary::COperandBase &O);
+  void ApplyInstructionModifiers(OperandValue &DstVal,
+                                 const D3D10ShaderBinary::CInstruction &Inst);
+  CompType InferOperandType(const D3D10ShaderBinary::CInstruction &Inst,
+                            const unsigned OpIdx, const CMask &Mask);
 
   void CreateBranchIfNeeded(BasicBlock *pBB, BasicBlock *pTargetBB);
-  Value *LoadZNZCondition(D3D10ShaderBinary::CInstruction &Inst, const unsigned OpIdx);
-  D3D11_SB_OPERAND_MIN_PRECISION GetHigherPrecision(D3D11_SB_OPERAND_MIN_PRECISION p1, D3D11_SB_OPERAND_MIN_PRECISION p2);
+  Value *LoadZNZCondition(D3D10ShaderBinary::CInstruction &Inst,
+                          const unsigned OpIdx);
+  D3D11_SB_OPERAND_MIN_PRECISION
+  GetHigherPrecision(D3D11_SB_OPERAND_MIN_PRECISION p1,
+                     D3D11_SB_OPERAND_MIN_PRECISION p2);
 
   string SynthesizeResGVName(const char *pNamePrefix, unsigned ID);
   StructType *GetStructResElemType(unsigned StructSizeInBytes);
@@ -620,6 +717,5 @@ protected:
   Value *MarkPrecise(Value *pVal, BYTE Comp = BYTE(-1));
 
   void SerializeDxil(SmallVectorImpl<char> &DxilBitcode);
-
 };
-}
+} // namespace hlsl

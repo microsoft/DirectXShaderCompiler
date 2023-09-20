@@ -7,14 +7,14 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Pass.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "dxc/DXIL/DxilModule.h"
-#include "dxc/HLSL/DxilGenerationPass.h"
+#include "llvm/Pass.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -26,8 +26,7 @@ namespace {
 class DxilRenameResources : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilRenameResources()
-      : ModulePass(ID) {}
+  explicit DxilRenameResources() : ModulePass(ID) {}
 
   void applyOptions(PassOptions O) override {
     GetPassOptionBool(O, "from-binding", &m_bFromBinding, false);
@@ -37,9 +36,7 @@ public:
     m_Prefix = prefix.str();
   }
 
-  StringRef getPassName() const override {
-    return "DXIL rename resources";
-  }
+  StringRef getPassName() const override { return "DXIL rename resources"; }
 
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
@@ -64,12 +61,11 @@ private:
 
 char DxilRenameResources::ID = 0;
 
-}
+} // namespace
 
 ModulePass *llvm::createDxilRenameResourcesPass() {
   return new DxilRenameResources();
 }
 
-INITIALIZE_PASS(DxilRenameResources,
-                "dxil-rename-resources",
+INITIALIZE_PASS(DxilRenameResources, "dxil-rename-resources",
                 "DXIL rename resources", false, false)

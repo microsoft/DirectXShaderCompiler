@@ -9,17 +9,17 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/Global.h"
-#include "dxc/Support/microcom.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/microcom.h"
 
 #include "dxc/Support/dxcfilesystem.h"
 #include "lib_share_helper.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/raw_ostream.h"
 #include <unordered_set>
 
 using namespace libshare;
@@ -42,7 +42,7 @@ bool IsAbsoluteOrCurDirRelative(const Twine &T) {
   DXASSERT(false, "twine kind not supported");
   return false;
 }
-}
+} // namespace dxcutil
 
 namespace {
 
@@ -55,8 +55,10 @@ public:
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) {
     return DoBasicQueryInterface<::IDxcIncludeHandler>(this, riid, ppvObject);
   }
-  IncPathIncludeHandler(IDxcIncludeHandler *handler, std::vector<std::string> &includePathList)
-      : m_dwRef(0), m_pIncludeHandler(handler), m_includePathList(includePathList) {}
+  IncPathIncludeHandler(IDxcIncludeHandler *handler,
+                        std::vector<std::string> &includePathList)
+      : m_dwRef(0), m_pIncludeHandler(handler),
+        m_includePathList(includePathList) {}
   HRESULT STDMETHODCALLTYPE LoadSource(
       LPCWSTR pFilename,         // Candidate filename.
       IDxcBlob **ppIncludeSource // Resultant
@@ -85,7 +87,8 @@ public:
       bool bLoaded = false;
       // Not support same filename in different directory.
       for (std::string &path : m_includePathList) {
-        std::string tmpFilenameStr = path + StringRef(pUtf8Filename.m_psz).str();
+        std::string tmpFilenameStr =
+            path + StringRef(pUtf8Filename.m_psz).str();
         CA2W pWTmpFilename(tmpFilenameStr.c_str());
         if (S_OK == m_pIncludeHandler->LoadSource(pWTmpFilename.m_psz,
                                                   ppIncludeSource)) {
@@ -98,9 +101,11 @@ public:
       }
     }
     CComPtr<IDxcBlobUtf8> utf8Source;
-    IFT(hlsl::DxcGetBlobAsUtf8(*ppIncludeSource, DxcGetThreadMallocNoRef(), &utf8Source));
+    IFT(hlsl::DxcGetBlobAsUtf8(*ppIncludeSource, DxcGetThreadMallocNoRef(),
+                               &utf8Source));
 
-    StringRef Data(utf8Source->GetStringPointer(), utf8Source->GetStringLength());
+    StringRef Data(utf8Source->GetStringPointer(),
+                   utf8Source->GetStringLength());
     std::string strRegionData = (Twine(file_region) + Data + file_region).str();
 
     CComPtr<IDxcBlobEncoding> pEncodingIncludeSource;
@@ -130,15 +135,16 @@ public:
   virtual ~IncludeToLibPreprocessorImpl() {}
 
   IncludeToLibPreprocessorImpl(IDxcIncludeHandler *handler)
-      : m_pIncludeHandler(handler) {
-  }
+      : m_pIncludeHandler(handler) {}
 
   void AddIncPath(StringRef path) override;
   HRESULT Preprocess(IDxcBlob *pSource, LPCWSTR pFilename, LPCWSTR *pArguments,
                      UINT32 argCount, const DxcDefine *pDefines,
                      unsigned defineCount) override;
 
-  const std::vector<std::string> &GetSnippets() const override { return m_snippets; }
+  const std::vector<std::string> &GetSnippets() const override {
+    return m_snippets;
+  }
 
 private:
   HRESULT SplitShaderIntoSnippets(IDxcBlob *pSource);
@@ -148,14 +154,14 @@ private:
   std::vector<std::string> m_includePathList;
 };
 
-HRESULT IncludeToLibPreprocessorImpl::SplitShaderIntoSnippets(IDxcBlob *pSource) {
+HRESULT
+IncludeToLibPreprocessorImpl::SplitShaderIntoSnippets(IDxcBlob *pSource) {
   CComPtr<IDxcBlobUtf8> utf8Source;
   IFT(hlsl::DxcGetBlobAsUtf8(pSource, DxcGetThreadMallocNoRef(), &utf8Source));
 
-  StringRef Data(utf8Source->GetStringPointer(),
-                 utf8Source->GetStringLength());
-  SmallVector<StringRef,8> splitResult;
-  Data.split(splitResult, file_region, /*maxSplit*/-1, /*keepEmpty*/false);
+  StringRef Data(utf8Source->GetStringPointer(), utf8Source->GetStringLength());
+  SmallVector<StringRef, 8> splitResult;
+  Data.split(splitResult, file_region, /*maxSplit*/ -1, /*keepEmpty*/ false);
   for (StringRef snippet : splitResult) {
     m_snippets.emplace_back(snippet);
   }
@@ -175,7 +181,8 @@ HRESULT IncludeToLibPreprocessorImpl::Preprocess(
 
   CW2A pUtf8Name(pFilename);
 
-  IncPathIncludeHandler incPathIncludeHandler(m_pIncludeHandler, m_includePathList);
+  IncPathIncludeHandler incPathIncludeHandler(m_pIncludeHandler,
+                                              m_includePathList);
   // AddRef to hold incPathIncludeHandler.
   // If not, DxcArgsFileSystem will kill it.
   incPathIncludeHandler.AddRef();
@@ -201,6 +208,7 @@ HRESULT IncludeToLibPreprocessorImpl::Preprocess(
 } // namespace
 
 std::unique_ptr<IncludeToLibPreprocessor>
-  IncludeToLibPreprocessor::CreateIncludeToLibPreprocessor(IDxcIncludeHandler *handler) {
+IncludeToLibPreprocessor::CreateIncludeToLibPreprocessor(
+    IDxcIncludeHandler *handler) {
   return llvm::make_unique<IncludeToLibPreprocessorImpl>(handler);
 }

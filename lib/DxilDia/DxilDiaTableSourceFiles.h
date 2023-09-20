@@ -49,24 +49,31 @@ public:
   llvm::StringRef Name() const;
 
   STDMETHODIMP get_uniqueId(
-    /* [retval][out] */ DWORD *pRetVal) override;
+      /* [retval][out] */ DWORD *pRetVal) override;
 
   STDMETHODIMP get_fileName(
-    /* [retval][out] */ BSTR *pRetVal) override;
+      /* [retval][out] */ BSTR *pRetVal) override;
 
   STDMETHODIMP get_checksumType(
-    /* [retval][out] */ DWORD *pRetVal) override { return ENotImpl(); }
+      /* [retval][out] */ DWORD *pRetVal) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP get_compilands(
-    /* [retval][out] */ IDiaEnumSymbols **pRetVal) override { return ENotImpl(); }
+      /* [retval][out] */ IDiaEnumSymbols **pRetVal) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP get_checksum(
-    /* [in] */ DWORD cbData,
-    /* [out] */ DWORD *pcbData,
-    /* [size_is][out] */ BYTE *pbData) override { return ENotImpl(); }
+      /* [in] */ DWORD cbData,
+      /* [out] */ DWORD *pcbData,
+      /* [size_is][out] */ BYTE *pbData) override {
+    return ENotImpl();
+  }
 };
 
-class SourceFilesTable : public impl::TableBase<IDiaEnumSourceFiles, IDiaSourceFile> {
+class SourceFilesTable
+    : public impl::TableBase<IDiaEnumSourceFiles, IDiaSourceFile> {
 public:
   SourceFilesTable(IMalloc *pMalloc, Session *pSession);
   SourceFilesTable(IMalloc *pMalloc, Session *pSession,
@@ -78,4 +85,4 @@ private:
   std::vector<CComPtr<IDiaSourceFile>> m_items;
 };
 
-}  // namespace dxil_dia
+} // namespace dxil_dia

@@ -16,19 +16,17 @@
 
 #pragma once
 
-
 namespace llvm {
 class Module;
 class Function;
 class PassRegistry;
 class FunctionPass;
 
-
 llvm::FunctionPass *createScopeNestedCFGPass();
-void initializeScopeNestedCFGPass(llvm::PassRegistry&);
+void initializeScopeNestedCFGPass(llvm::PassRegistry &);
 
 llvm::FunctionPass *createLoopSimplifyFunctionPass();
-void initializeLoopSimplifyFunctionPass(llvm::PassRegistry&);
+void initializeLoopSimplifyFunctionPass(llvm::PassRegistry &);
 
 enum class BranchKind {
   Invalid = 0,
@@ -50,4 +48,4 @@ enum class BranchKind {
   LoopBackEdge,
 };
 
-}
+} // namespace llvm
