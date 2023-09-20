@@ -229,7 +229,7 @@ void Lexer::Stringify(SmallVectorImpl<char> &Str) {
 /// \brief Slow case of getSpelling. Extract the characters comprising the
 /// spelling of this token from the provided input buffer.
 static size_t getSpellingSlow(const Token &Tok, const char *BufPtr,
-                              const LangOptions &LangOpts, _Out_cap_x_(Tok.getLength()) char *Spelling) {
+                              const LangOptions &LangOpts, char *Spelling) {
   assert(Tok.needsCleaning() && "getSpellingSlow called on simple token");
 
   size_t Length = 0;

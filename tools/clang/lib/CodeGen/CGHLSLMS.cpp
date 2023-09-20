@@ -514,47 +514,46 @@ CGMSHLSLRuntime::SetSemantic(const NamedDecl *decl,
 }
 
 static DXIL::TessellatorDomain StringToDomain(StringRef domain) {
-  if (domain == "isoline")
-    return DXIL::TessellatorDomain::IsoLine;
-  if (domain == "tri")
-    return DXIL::TessellatorDomain::Tri;
-  if (domain == "quad")
-    return DXIL::TessellatorDomain::Quad;
-  return DXIL::TessellatorDomain::Undefined;
+  return llvm::StringSwitch<DXIL::TessellatorDomain>(domain)
+      .Case("isoline", DXIL::TessellatorDomain::IsoLine)
+      .Case("tri", DXIL::TessellatorDomain::Tri)
+      .Case("quad", DXIL::TessellatorDomain::Quad)
+      .Default(DXIL::TessellatorDomain::Undefined);
 }
 
 static DXIL::TessellatorPartitioning StringToPartitioning(StringRef partition) {
-  if (partition == "integer")
-    return DXIL::TessellatorPartitioning::Integer;
-  if (partition == "pow2")
-    return DXIL::TessellatorPartitioning::Pow2;
-  if (partition == "fractional_even")
-    return DXIL::TessellatorPartitioning::FractionalEven;
-  if (partition == "fractional_odd")
-    return DXIL::TessellatorPartitioning::FractionalOdd;
-  return DXIL::TessellatorPartitioning::Undefined;
+  return llvm::StringSwitch<DXIL::TessellatorPartitioning>(partition)
+      .Case("integer", DXIL::TessellatorPartitioning::Integer)
+      .Case("pow2", DXIL::TessellatorPartitioning::Pow2)
+      .Case("fractional_even", DXIL::TessellatorPartitioning::FractionalEven)
+      .Case("fractional_odd", DXIL::TessellatorPartitioning::FractionalOdd)
+      .Default(DXIL::TessellatorPartitioning::Undefined);
 }
 
 static DXIL::TessellatorOutputPrimitive
 StringToTessOutputPrimitive(StringRef primitive) {
-  if (primitive == "point")
-    return DXIL::TessellatorOutputPrimitive::Point;
-  if (primitive == "line")
-    return DXIL::TessellatorOutputPrimitive::Line;
-  if (primitive == "triangle_cw")
-    return DXIL::TessellatorOutputPrimitive::TriangleCW;
-  if (primitive == "triangle_ccw")
-    return DXIL::TessellatorOutputPrimitive::TriangleCCW;
-  return DXIL::TessellatorOutputPrimitive::Undefined;
+  return llvm::StringSwitch<DXIL::TessellatorOutputPrimitive>(primitive)
+      .Case("point", DXIL::TessellatorOutputPrimitive::Point)
+      .Case("line", DXIL::TessellatorOutputPrimitive::Line)
+      .Case("triangle_cw", DXIL::TessellatorOutputPrimitive::TriangleCW)
+      .Case("triangle_ccw", DXIL::TessellatorOutputPrimitive::TriangleCCW)
+      .Default(DXIL::TessellatorOutputPrimitive::Undefined);
 }
 
 static DXIL::MeshOutputTopology
 StringToMeshOutputTopology(StringRef topology) {
-  if (topology == "line")
-    return DXIL::MeshOutputTopology::Line;
-  if (topology == "triangle")
-    return DXIL::MeshOutputTopology::Triangle;
-  return DXIL::MeshOutputTopology::Undefined;
+  return llvm::StringSwitch<DXIL::MeshOutputTopology>(topology)
+      .Case("line", DXIL::MeshOutputTopology::Line)
+      .Case("triangle", DXIL::MeshOutputTopology::Triangle)
+      .Default(DXIL::MeshOutputTopology::Undefined);
+}
+
+static DxilSampler::SamplerKind
+StringToSamplerKind(llvm::StringRef samplerKind) {
+  return llvm::StringSwitch<DxilSampler::SamplerKind>(samplerKind)
+      .Case("SamplerState", DxilSampler::SamplerKind::Default)
+      .Case("SamplerComparisonState", DxilSampler::SamplerKind::Comparison)
+      .Default(DxilSampler::SamplerKind::Invalid);
 }
 
 static unsigned GetMatrixSizeInCB(QualType Ty, bool defaultRowMajor,
@@ -662,15 +661,6 @@ static CompType::Kind BuiltinTyToCompTy(const BuiltinType *BTy, bool bSNorm,
   return kind;
 }
 
-static DxilSampler::SamplerKind KeywordToSamplerKind(llvm::StringRef keyword) {
-  // TODO: refactor for faster search (switch by 1/2/3 first letters, then
-  // compare)
-  return llvm::StringSwitch<DxilSampler::SamplerKind>(keyword)
-    .Case("SamplerState", DxilSampler::SamplerKind::Default)
-    .Case("SamplerComparisonState", DxilSampler::SamplerKind::Comparison)
-    .Default(DxilSampler::SamplerKind::Invalid);
-}
-
 
 namespace {
 MatrixOrientation GetMatrixMajor(QualType Ty, bool bDefaultRowMajor) {
@@ -737,7 +727,7 @@ DxilResourceProperties CGMSHLSLRuntime::BuildResourceProperty(QualType resTy) {
     RP = resource_helper::loadPropsFromResourceBase(&SRV);
   } break;
   case DXIL::ResourceClass::Sampler: {
-    DxilSampler::SamplerKind kind = KeywordToSamplerKind(RD->getName());
+    DxilSampler::SamplerKind kind = StringToSamplerKind(RD->getName());
     DxilSampler Sampler;
     Sampler.SetSamplerKind(kind);
     RP = resource_helper::loadPropsFromResourceBase(&Sampler);
@@ -3200,7 +3190,7 @@ uint32_t CGMSHLSLRuntime::AddSampler(VarDecl *samplerDecl) {
   hlslRes->SetRangeSize(rangeSize);
 
   const RecordType *RT = VarTy->getAs<RecordType>();
-  DxilSampler::SamplerKind kind = KeywordToSamplerKind(RT->getDecl()->getName());
+  DxilSampler::SamplerKind kind = StringToSamplerKind(RT->getDecl()->getName());
 
   hlslRes->SetSamplerKind(kind);
   InitFromUnusualAnnotations(*hlslRes, *samplerDecl);

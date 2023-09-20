@@ -33,11 +33,11 @@ VS_OUTPUT main(float4 pos : POSITION,
       x += a + b + c;
     }
 //CHECK:      DebugScope [[bb1]]
-//CHECK-NEXT: OpLine [[file_0_0:%[0-9]+]] 37
+//CHECK-NEXT: OpLine [[file_1:%[0-9]+]] 37
     x += a + b + c;
   }
 //CHECK:      DebugScope [[bb0]]
-//CHECK-NEXT: OpLine [[file_0_0_0:%[0-9]+]] 41
+//CHECK-NEXT: OpLine [[file_2:%[0-9]+]] 41
   x += a + b + c;
 
   VS_OUTPUT vout;

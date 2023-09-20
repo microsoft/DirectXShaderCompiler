@@ -71,8 +71,8 @@ void main() {
 // CHECK:                   OpLine [[file]] 76 3
 // CHECK-NEXT: [[z:%[0-9]+]] = OpLoad %type_2d_image %z
 // CHECK-NEXT: [[z_0:%[0-9]+]] = OpImageRead %v4int [[z]] {{%[0-9]+}} None
-// CHECK-NEXT: [[z_0_0:%[0-9]+]] = OpVectorShuffle %v3int [[z_0]] [[z_0]] 0 1 2
-// CHECK-NEXT:   {{%[0-9]+}} = OpCompositeInsert %v3int %int_16 [[z_0_0]] 0
+// CHECK-NEXT: [[z_1:%[0-9]+]] = OpVectorShuffle %v3int [[z_0]] [[z_0]] 0 1 2
+// CHECK-NEXT:   {{%[0-9]+}} = OpCompositeInsert %v3int %int_16 [[z_1]] 0
   z[uint2(2, 3)].x = 16;
 
 // CHECK:      OpLine [[file]] 82 3

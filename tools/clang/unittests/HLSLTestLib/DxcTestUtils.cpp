@@ -225,7 +225,7 @@ void SplitPassList(LPWSTR pPassesBuffer, std::vector<LPCWSTR> &passes) {
   }
 }
 
-std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
+std::string BlobToUtf8(IDxcBlob *pBlob) {
   if (!pBlob)
     return std::string();
   CComPtr<IDxcBlobUtf8> pBlobUtf8;
@@ -265,7 +265,7 @@ std::string BlobToUtf8(_In_ IDxcBlob *pBlob) {
   }
 }
 
-std::wstring BlobToWide(_In_ IDxcBlob *pBlob) {
+std::wstring BlobToWide(IDxcBlob *pBlob) {
   if (!pBlob)
     return std::wstring();
   CComPtr<IDxcBlobWide> pBlobWide;
@@ -301,38 +301,40 @@ std::wstring BlobToWide(_In_ IDxcBlob *pBlob) {
 }
 
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const char *pVal,
-                _Outptr_ IDxcBlobEncoding **ppBlob) {
+                IDxcBlobEncoding **ppBlob) {
   CComPtr<IDxcLibrary> library;
   IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
   IFT(library->CreateBlobWithEncodingOnHeapCopy(pVal, strlen(pVal), CP_UTF8,
                                                 ppBlob));
 }
 
-void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
-                           UINT32 codePage, _Outptr_ IDxcBlobEncoding **ppBlob) {
+void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
+                           const std::string &val, UINT32 codePage,
+                           IDxcBlobEncoding **ppBlob) {
   CComPtr<IDxcLibrary> library;
   IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
   IFT(library->CreateBlobWithEncodingOnHeapCopy(val.data(), val.size(),
                                                 codePage, ppBlob));
 }
 
-void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
-                           UINT32 codePage, _Outptr_ IDxcBlob **ppBlob) {
+void MultiByteStringToBlob(dxc::DxcDllSupport &dllSupport,
+                           const std::string &val, UINT32 codePage,
+                           IDxcBlob **ppBlob) {
   MultiByteStringToBlob(dllSupport, val, codePage, (IDxcBlobEncoding **)ppBlob);
 }
 
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
-                _Outptr_ IDxcBlobEncoding **ppBlob) {
+                IDxcBlobEncoding **ppBlob) {
   MultiByteStringToBlob(dllSupport, val, CP_UTF8, ppBlob);
 }
 
 void Utf8ToBlob(dxc::DxcDllSupport &dllSupport, const std::string &val,
-                _Outptr_ IDxcBlob **ppBlob) {
+                IDxcBlob **ppBlob) {
   Utf8ToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
 }
 
 void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
-                 _Outptr_ IDxcBlobEncoding **ppBlob) {
+                IDxcBlobEncoding **ppBlob) {
   CComPtr<IDxcLibrary> library;
   IFT(dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
   IFT(library->CreateBlobWithEncodingOnHeapCopy(
@@ -340,13 +342,13 @@ void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
 }
 
 void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
-                 _Outptr_ IDxcBlob **ppBlob) {
+                IDxcBlob **ppBlob) {
   WideToBlob(dllSupport, val, (IDxcBlobEncoding **)ppBlob);
 }
 
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, LPCWSTR pArgs,
-                     _Outptr_ IDxcBlob **ppResult) {
+                     IDxcBlob **ppResult) {
   std::vector<std::wstring> argsW;
   std::vector<LPCWSTR> args;
   if (pArgs) {
@@ -361,7 +363,7 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
 
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPWSTR pTargetProfile, std::vector<LPCWSTR> &args,
-                     _Outptr_ IDxcBlob **ppResult) {
+                     IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcOperationResult> pResult;

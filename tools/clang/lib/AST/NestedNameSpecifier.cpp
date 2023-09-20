@@ -436,45 +436,46 @@ TypeLoc NestedNameSpecifierLoc::getTypeLoc() const {
 }
 
 namespace {
-  void Append(_In_reads_to_ptr_(End) char *Start, _In_reads_(0) char *End, _Outref_result_buffer_(BufferSize) char *&Buffer, unsigned &BufferSize,
-              unsigned &BufferCapacity) {
-    if (Start == End)
-      return;
+void Append(char *Start, char *End, char *&Buffer, unsigned &BufferSize,
+            unsigned &BufferCapacity) {
+  if (Start == End)
+    return;
 
-    if (BufferSize + (End - Start) > BufferCapacity) {
-      // Reallocate the buffer.
-      unsigned NewCapacity = std::max(
-          (unsigned)(BufferCapacity ? BufferCapacity * 2 : sizeof(void *) * 2),
-          (unsigned)(BufferSize + (End - Start)));
-      char *NewBuffer = new char[NewCapacity]; // HLSL Change: Use overridable operator new
-      if (BufferCapacity) {
-        memcpy(NewBuffer, Buffer, BufferSize);
-        delete[] Buffer; // HLSL Change: Use overridable operator delete
-      }
-      Buffer = NewBuffer;
-      BufferCapacity = NewCapacity;
+  if (BufferSize + (End - Start) > BufferCapacity) {
+    // Reallocate the buffer.
+    unsigned NewCapacity = std::max(
+        (unsigned)(BufferCapacity ? BufferCapacity * 2 : sizeof(void *) * 2),
+        (unsigned)(BufferSize + (End - Start)));
+    char *NewBuffer =
+        new char[NewCapacity]; // HLSL Change: Use overridable operator new
+    if (BufferCapacity) {
+      memcpy(NewBuffer, Buffer, BufferSize);
+      delete[] Buffer; // HLSL Change: Use overridable operator delete
     }
-    
-    memcpy(Buffer + BufferSize, Start, End - Start);
-    BufferSize += End-Start;
+    Buffer = NewBuffer;
+    BufferCapacity = NewCapacity;
   }
-  
+
+  memcpy(Buffer + BufferSize, Start, End - Start);
+  BufferSize += End - Start;
+}
+
   /// \brief Save a source location to the given buffer.
-  void SaveSourceLocation(SourceLocation Loc, _Outref_result_buffer_(BufferSize) char *&Buffer,
-                          unsigned &BufferSize, unsigned &BufferCapacity) {
-    unsigned Raw = Loc.getRawEncoding();
-    Append(reinterpret_cast<char *>(&Raw),
-           reinterpret_cast<char *>(&Raw) + sizeof(unsigned),
-           Buffer, BufferSize, BufferCapacity);
-  }
-  
+void SaveSourceLocation(SourceLocation Loc, char *&Buffer, unsigned &BufferSize,
+                        unsigned &BufferCapacity) {
+  unsigned Raw = Loc.getRawEncoding();
+  Append(reinterpret_cast<char *>(&Raw),
+         reinterpret_cast<char *>(&Raw) + sizeof(unsigned), Buffer, BufferSize,
+         BufferCapacity);
+}
+
   /// \brief Save a pointer to the given buffer.
-  void SavePointer(void *Ptr, _Outref_result_buffer_(BufferSize) char *&Buffer, unsigned &BufferSize,
-                   unsigned &BufferCapacity) {
-    Append(reinterpret_cast<char *>(&Ptr),
-           reinterpret_cast<char *>(&Ptr) + sizeof(void *),
-           Buffer, BufferSize, BufferCapacity);
-  }
+void SavePointer(void *Ptr, char *&Buffer, unsigned &BufferSize,
+                 unsigned &BufferCapacity) {
+  Append(reinterpret_cast<char *>(&Ptr),
+         reinterpret_cast<char *>(&Ptr) + sizeof(void *), Buffer, BufferSize,
+         BufferCapacity);
+}
 }
 
 NestedNameSpecifierLocBuilder::

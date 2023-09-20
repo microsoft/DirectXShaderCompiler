@@ -433,7 +433,7 @@ static GenericValue lle_X_sscanf(FunctionType *FT,
   char *Args[10];
   _Analysis_assume_nullterminated_(Args);
   for (unsigned i = 0; i < args.size(); ++i) {
-	  _Analysis_assume_(i < 10);
+    assert(i < 10);
     Args[i] = (char*)GVTOP(args[i]);
   }
 
@@ -449,7 +449,7 @@ static GenericValue lle_X_scanf(FunctionType *FT, ArrayRef<GenericValue> args) {
 
   char *Args[10] = { 0 };
   for (unsigned i = 0; i < args.size(); ++i) {
-	  _Analysis_assume_(i < 10);
+    assert(i < 10);
     Args[i] = (char*)GVTOP(args[i]);
   }
 

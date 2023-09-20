@@ -19,6 +19,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
@@ -1244,5 +1245,35 @@ void CopyArgsToWStrings(const InputArgList &inArgs, unsigned flagsToInclude,
     outArgs.emplace_back(Unicode::UTF8ToWideStringOrThrow(argText));
   }
 }
+
+SerializeDxilFlags ComputeSerializeDxilFlags(const options::DxcOpts &opts) {
+  SerializeDxilFlags SerializeFlags = SerializeDxilFlags::None;
+
+  if (opts.EmbedPDBName()) {
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+  }
+  if (opts.EmbedDebugInfo()) {
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
+  }
+  if (opts.DebugNameForSource) {
+    // Implies name part
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+    SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
+  } else if (opts.DebugNameForBinary) {
+    // Implies name part
+    SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
+  }
+  if (!opts.KeepReflectionInDxil) {
+    SerializeFlags |= SerializeDxilFlags::StripReflectionFromDxilPart;
+  }
+  if (!opts.StripReflection) {
+    SerializeFlags |= SerializeDxilFlags::IncludeReflectionPart;
+  }
+  if (opts.StripRootSignature) {
+    SerializeFlags |= SerializeDxilFlags::StripRootSignature;
+  }
+  return SerializeFlags;
+}
+
 
 } } // hlsl::options

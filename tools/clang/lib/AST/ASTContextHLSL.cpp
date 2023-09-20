@@ -787,12 +787,10 @@ void hlsl::AddStdIsEqualImplementation(clang::ASTContext& context, clang::Sema& 
 /// <parm name="typeName">Name of template to create.</param>
 /// <parm name="templateArgCount">Number of template arguments (one or two).</param>
 /// <parm name="defaultTypeArgValue">If assigned, the default argument for the element template.</param>
-CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
-  ASTContext& context,
-  StringRef name,
-  uint8_t templateArgCount, 
-  _In_opt_ TypeSourceInfo* defaultTypeArgValue)
-{
+CXXRecordDecl *
+hlsl::DeclareTemplateTypeWithHandle(ASTContext &context, StringRef name,
+                                    uint8_t templateArgCount,
+                                    TypeSourceInfo *defaultTypeArgValue) {
   return DeclareTemplateTypeWithHandleInDeclContext(context,
                                                     context.getTranslationUnitDecl(),
                                                     name,
@@ -800,13 +798,9 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandle(
                                                     defaultTypeArgValue);
 }
 
-CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandleInDeclContext(
-  ASTContext& context,
-  DeclContext *declContext,
-  StringRef name,
-  uint8_t templateArgCount,
-  _In_opt_ TypeSourceInfo* defaultTypeArgValue)
-{
+CXXRecordDecl *hlsl::DeclareTemplateTypeWithHandleInDeclContext(
+    ASTContext &context, DeclContext *declContext, StringRef name,
+    uint8_t templateArgCount, TypeSourceInfo *defaultTypeArgValue) {
   DXASSERT(templateArgCount != 0, "otherwise caller should be creating a class or struct");
   DXASSERT(templateArgCount <= 2, "otherwise the function needs to be updated for a different template pattern");
 
@@ -855,13 +849,9 @@ CXXRecordDecl* hlsl::DeclareTemplateTypeWithHandleInDeclContext(
   return typeDeclBuilder.getRecordDecl();
 }
 
-FunctionTemplateDecl* hlsl::CreateFunctionTemplateDecl(
-  ASTContext& context,
-  _In_ CXXRecordDecl* recordDecl,
-  _In_ CXXMethodDecl* functionDecl,
-  _In_count_(templateParamNamedDeclsCount) NamedDecl** templateParamNamedDecls,
-  size_t templateParamNamedDeclsCount)
-{
+FunctionTemplateDecl *hlsl::CreateFunctionTemplateDecl(
+    ASTContext &context, CXXRecordDecl *recordDecl, CXXMethodDecl *functionDecl,
+    NamedDecl **templateParamNamedDecls, size_t templateParamNamedDeclsCount) {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(templateParamNamedDecls != nullptr);
   DXASSERT(templateParamNamedDeclsCount > 0, "otherwise caller shouldn't invoke this function");
@@ -878,12 +868,9 @@ FunctionTemplateDecl* hlsl::CreateFunctionTemplateDecl(
   return functionTemplate;
 }
 
-static
-void AssociateParametersToFunctionPrototype(
-  _In_ TypeSourceInfo* tinfo,
-  _In_count_(numParams) ParmVarDecl** paramVarDecls,
-  unsigned int numParams)
-{
+static void AssociateParametersToFunctionPrototype(TypeSourceInfo *tinfo,
+                                                   ParmVarDecl **paramVarDecls,
+                                                   unsigned int numParams) {
   FunctionProtoTypeLoc protoLoc = tinfo->getTypeLoc().getAs<FunctionProtoTypeLoc>();
   DXASSERT(protoLoc.getNumParams() == numParams, "otherwise unexpected number of parameters available");
   for (unsigned i = 0; i < numParams; i++) {
@@ -893,9 +880,9 @@ void AssociateParametersToFunctionPrototype(
 }
 
 static void CreateConstructorDeclaration(
-  ASTContext &context, _In_ CXXRecordDecl *recordDecl, QualType resultType,
-  ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
-  _Out_ CXXConstructorDecl **constructorDecl, _Out_ TypeSourceInfo **tinfo) {
+    ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
+    ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
+    CXXConstructorDecl **constructorDecl, TypeSourceInfo **tinfo) {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(constructorDecl != nullptr);
 
@@ -915,9 +902,9 @@ static void CreateConstructorDeclaration(
 }
 
 static void CreateObjectFunctionDeclaration(
-    ASTContext &context, _In_ CXXRecordDecl *recordDecl, QualType resultType,
+    ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
     ArrayRef<QualType> args, DeclarationName declarationName, bool isConst,
-    _Out_ CXXMethodDecl **functionDecl, _Out_ TypeSourceInfo **tinfo) {
+    CXXMethodDecl **functionDecl, TypeSourceInfo **tinfo) {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(functionDecl != nullptr);
 
@@ -936,16 +923,10 @@ static void CreateObjectFunctionDeclaration(
   (*functionDecl)->setAccess(AccessSpecifier::AS_public);
 }
 
-CXXMethodDecl* hlsl::CreateObjectFunctionDeclarationWithParams(
-  ASTContext& context,
-  _In_ CXXRecordDecl* recordDecl,
-  QualType resultType,
-  ArrayRef<QualType> paramTypes,
-  ArrayRef<StringRef> paramNames,
-  DeclarationName declarationName,
-  bool isConst,
-  bool isTemplateFunction)
-{
+CXXMethodDecl *hlsl::CreateObjectFunctionDeclarationWithParams(
+    ASTContext &context, CXXRecordDecl *recordDecl, QualType resultType,
+    ArrayRef<QualType> paramTypes, ArrayRef<StringRef> paramNames,
+    DeclarationName declarationName, bool isConst, bool isTemplateFunction) {
   DXASSERT_NOMSG(recordDecl != nullptr);
   DXASSERT_NOMSG(!resultType.isNull());
   DXASSERT_NOMSG(paramTypes.size() == paramNames.size());
@@ -1233,8 +1214,7 @@ llvm::StringRef hlsl::GetWaveMatrixName(DXIL::WaveMatrixKind kind) {
 
 
 /// <summary>Parses a column or row digit.</summary>
-static
-bool TryParseColOrRowChar(const char digit, _Out_ int* count) {
+static bool TryParseColOrRowChar(const char digit, int *count) {
   if ('1' <= digit && digit <= '4') {
     *count = digit - '0';
     return true;
@@ -1245,7 +1225,6 @@ bool TryParseColOrRowChar(const char digit, _Out_ int* count) {
 }
 
 /// <summary>Parses a matrix shorthand identifier (eg, float3x2).</summary>
-_Use_decl_annotations_
 bool hlsl::TryParseMatrixShorthand(
   const char* typeName,
   size_t typeNameLen,
@@ -1275,7 +1254,6 @@ bool hlsl::TryParseMatrixShorthand(
 }
 
 /// <summary>Parses a vector shorthand identifier (eg, float3).</summary>
-_Use_decl_annotations_
 bool hlsl::TryParseVectorShorthand(
   const char* typeName,
   size_t typeNameLen,
@@ -1298,13 +1276,9 @@ bool hlsl::TryParseVectorShorthand(
 }
 
 /// <summary>Parses a hlsl scalar type (e.g min16float, uint3x4) </summary>
-_Use_decl_annotations_
-bool hlsl::TryParseScalar(
-  _In_count_(typenameLen)
-            const char* typeName,
-            size_t typeNameLen,
-  _Out_     HLSLScalarType *parsedType,
-  _In_      const clang::LangOptions& langOptions) {
+bool hlsl::TryParseScalar(const char *typeName, size_t typeNameLen,
+                          HLSLScalarType *parsedType,
+                          const clang::LangOptions &langOptions) {
   HLSLScalarType type = FindScalarTypeByName(typeName, typeNameLen, langOptions);
   if (type!= HLSLScalarType_unknown) {
     *parsedType = type;
@@ -1314,15 +1288,9 @@ bool hlsl::TryParseScalar(
 }
 
 /// <summary>Parse any (scalar, vector, matrix) hlsl types (e.g float, int3x4, uint2) </summary>
-_Use_decl_annotations_
-bool hlsl::TryParseAny(
-  _In_count_(typenameLen)
-  const char* typeName,
-  size_t typeNameLen,
-  _Out_ HLSLScalarType *parsedType,
-  int *rowCount,
-  int *colCount,
-  _In_ const clang::LangOptions& langOptions) {
+bool hlsl::TryParseAny(const char *typeName, size_t typeNameLen,
+                       HLSLScalarType *parsedType, int *rowCount, int *colCount,
+                       const clang::LangOptions &langOptions) {
   // at least 'int'
   const size_t MinValidLen = 3;
   if (typeNameLen >= MinValidLen) {
@@ -1339,12 +1307,8 @@ bool hlsl::TryParseAny(
 }
 
 /// <summary>Parse string hlsl type</summary>
-_Use_decl_annotations_
-bool hlsl::TryParseString(
-  _In_count_(typenameLen)
-  const char* typeName,
-  size_t typeNameLen,
-  _In_ const clang::LangOptions& langOptions) {
+bool hlsl::TryParseString(const char *typeName, size_t typeNameLen,
+                          const clang::LangOptions &langOptions) {
 
   if (typeNameLen == 6 && typeName[0] == 's' && strncmp(typeName, "string", 6) == 0) {
     return true;
@@ -1355,14 +1319,9 @@ bool hlsl::TryParseString(
 /// <summary>Parse any kind of dimension for vector or matrix (e.g 4,3 in int4x3).
 /// If it's a matrix type, rowCount and colCount will be nonzero. If it's a vector type, colCount is 0.
 /// Otherwise both rowCount and colCount is 0. Returns true if either matrix or vector dimensions detected. </summary>
-_Use_decl_annotations_
 bool hlsl::TryParseMatrixOrVectorDimension(
-    _In_count_(typeNameLen)
-    const char *typeName,
-    size_t typeNameLen,
-    _Out_opt_ int *rowCount,
-    _Out_opt_ int *colCount,
-  _In_      const clang::LangOptions& langOptions) {
+    const char *typeName, size_t typeNameLen, int *rowCount, int *colCount,
+    const clang::LangOptions &langOptions) {
   *rowCount = 0;
   *colCount = 0;
   size_t MinValidLen = 3; // at least int

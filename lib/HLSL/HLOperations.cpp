@@ -11,6 +11,7 @@
 
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -80,64 +81,28 @@ static_assert(_countof(HLOpcodeGroupFullNames) ==
               "otherwise, tables out of sync");
 
 static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
-  if (!group.empty()) {
-    switch (group[0]) {
-    case 'o': // op
-      return HLOpcodeGroup::HLIntrinsic;
-    case 'c': // cast
-      switch (group[1]) {
-      case 'a': // cast
-        return HLOpcodeGroup::HLCast;
-      case 'r': // createhandle
-      {
-        if (group.startswith_lower("createnodeoutputhandle"))
-          return HLOpcodeGroup::HLCreateNodeOutputHandle;
-        else if (group.startswith_lower("createnodeinputrecordhandle"))
-          return HLOpcodeGroup::HLCreateNodeInputRecordHandle;
-        else {
-          assert(group.startswith_lower("createhandle"));
-          return HLOpcodeGroup::HLCreateHandle;
-        }
-      }
-      }
-      llvm_unreachable("unrecognized group code");
-    case 'i': // init
-    {
-      if (group.startswith_lower("init"))
-        return HLOpcodeGroup::HLInit;
-      else if (group.startswith_lower("indexnodehandle"))
-        return HLOpcodeGroup::HLIndexNodeHandle;
-    }
-    break;
-      
-    case 'b': // binaryOp
-      return HLOpcodeGroup::HLBinOp;
-    case 'u': // unaryOp
-      return HLOpcodeGroup::HLUnOp;
-    case 's': // subscript
-      switch (group[1]) {
-      case 'u':
-        return HLOpcodeGroup::HLSubscript;
-      case 'e':
-        return HLOpcodeGroup::HLSelect;
-      }
-      llvm_unreachable("unrecognized group code");
-    case 'm': // matldst
-      return HLOpcodeGroup::HLMatLoadStore;
-    case 'a': // annotatehandle
-      if (group.startswith_lower("annotatehandle"))
-        return HLOpcodeGroup::HLAnnotateHandle;
-      else if (group.startswith_lower("annotatenodehandle"))
-        return HLOpcodeGroup::HLAnnotateNodeHandle;
-      else if (group.startswith_lower("annotatenoderecordhandle"))
-        return HLOpcodeGroup::HLAnnotateNodeRecordHandle;
-      break;
-    case 'w': // wavematrix_annotate
-      return HLOpcodeGroup::HLWaveMatrix_Annotate;
-    }
-  }
-  return HLOpcodeGroup::NotHL;
+  return llvm::StringSwitch<HLOpcodeGroup>(group)
+      .Case("op", HLOpcodeGroup::HLIntrinsic)
+      .Case("cast", HLOpcodeGroup::HLCast)
+      .Case("init", HLOpcodeGroup::HLInit)
+      .Case("binop", HLOpcodeGroup::HLBinOp)
+      .Case("unop", HLOpcodeGroup::HLUnOp)
+      .Case("subscript", HLOpcodeGroup::HLSubscript)
+      .Case("matldst", HLOpcodeGroup::HLMatLoadStore)
+      .Case("select", HLOpcodeGroup::HLSelect)
+      .Case("createhandle", HLOpcodeGroup::HLCreateHandle)
+      .Case("createnodeoutputhandle", HLOpcodeGroup::HLCreateNodeOutputHandle)
+      .Case("indexnodehandle", HLOpcodeGroup::HLIndexNodeHandle)
+      .Case("createnodeinputrecordhandle",
+            HLOpcodeGroup::HLCreateNodeInputRecordHandle)
+      .Case("annotatehandle", HLOpcodeGroup::HLAnnotateHandle)
+      .Case("wavematrix_annotate", HLOpcodeGroup::HLWaveMatrix_Annotate)
+      .Case("annotatenodehandle", HLOpcodeGroup::HLAnnotateNodeHandle)
+      .Case("annotatenoderecordhandle",
+            HLOpcodeGroup::HLAnnotateNodeRecordHandle)
+      .Default(HLOpcodeGroup::NotHL);
 }
+
 // GetHLOpGroup by function name.
 HLOpcodeGroup GetHLOpcodeGroupByName(const Function *F) {
   StringRef name = F->getName();
@@ -150,8 +115,10 @@ HLOpcodeGroup GetHLOpcodeGroupByName(const Function *F) {
   }
 
   const unsigned prefixSize = sizeof(HLPrefixStr);
+  const unsigned groupEnd = name.find_first_of('.', prefixSize);
 
-  StringRef group = name.substr(prefixSize);
+  StringRef group = name.substr(prefixSize, groupEnd - prefixSize);
+
   return GetHLOpcodeGroupInternal(group);
 }
 

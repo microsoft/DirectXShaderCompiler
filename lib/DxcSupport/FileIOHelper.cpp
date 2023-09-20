@@ -44,39 +44,23 @@ public:
   STDMETHODIMP QueryInterface(REFIID iid, void** ppvObject) override {
     return DoBasicQueryInterface<IMalloc>(this, iid, ppvObject);
   }
-  void *STDMETHODCALLTYPE Alloc (
-    /* [annotation][in] */
-    _In_  SIZE_T cb) override {
+  void *STDMETHODCALLTYPE Alloc(SIZE_T cb) override {
     return HeapAlloc(GetProcessHeap(), 0, cb);
   }
 
-  void *STDMETHODCALLTYPE Realloc (
-    /* [annotation][in] */
-    _In_opt_  void *pv,
-    /* [annotation][in] */
-    _In_  SIZE_T cb) override
-  {
+  void *STDMETHODCALLTYPE Realloc(void *pv, SIZE_T cb) override {
     return HeapReAlloc(GetProcessHeap(), 0, pv, cb);
   }
 
-  void STDMETHODCALLTYPE Free (
-    /* [annotation][in] */
-    _In_opt_  void *pv) override
-  {
+  void STDMETHODCALLTYPE Free(void *pv) override {
     HeapFree(GetProcessHeap(), 0, pv);
   }
 
-  SIZE_T STDMETHODCALLTYPE GetSize(
-    /* [annotation][in] */
-    _In_opt_ _Post_writable_byte_size_(return)  void *pv) override
-  {
+  SIZE_T STDMETHODCALLTYPE GetSize(void *pv) override {
     return HeapSize(GetProcessHeap(), 0, pv);
   }
 
-  int STDMETHODCALLTYPE DidAlloc(
-    /* [annotation][in] */
-    _In_opt_  void *pv) override
-  {
+  int STDMETHODCALLTYPE DidAlloc(void *pv) override {
     return -1; // don't know
   }
 
@@ -91,7 +75,6 @@ IMalloc *GetGlobalHeapMalloc() throw() {
   return &g_HeapMalloc;
 }
 
-_Use_decl_annotations_
 HRESULT ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
                     DWORD *pDataSize) throw() {
   HANDLE hFile = CreateFileW(pFileName, GENERIC_READ, FILE_SHARE_READ, NULL,
@@ -129,12 +112,10 @@ HRESULT ReadBinaryFile(IMalloc *pMalloc, LPCWSTR pFileName, void **ppData,
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT ReadBinaryFile(LPCWSTR pFileName, void **ppData, DWORD *pDataSize) throw() {
   return ReadBinaryFile(GetGlobalHeapMalloc(), pFileName, ppData, pDataSize);
 }
 
-_Use_decl_annotations_
 HRESULT WriteBinaryFile(LPCWSTR pFileName, const void *pData, DWORD DataSize) throw() {
   HANDLE hFile = CreateFileW(pFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
   if(hFile == INVALID_HANDLE_VALUE) {
@@ -151,7 +132,6 @@ HRESULT WriteBinaryFile(LPCWSTR pFileName, const void *pData, DWORD DataSize) th
   return S_OK;
 }
 
-_Use_decl_annotations_
 UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw() {
   UINT32 codePage;
   if (byteLen >= 4) {
@@ -341,9 +321,9 @@ public:
     }
   }
 
-  static HRESULT
-  CreateFromBlob(_In_ IDxcBlob *pBlob, _In_ IMalloc *pMalloc, bool encodingKnown, UINT32 codePage,
-                 _COM_Outptr_ InternalDxcBlobEncoding_Impl **pEncoding) {
+  static HRESULT CreateFromBlob(IDxcBlob *pBlob, IMalloc *pMalloc,
+                                bool encodingKnown, UINT32 codePage,
+                                InternalDxcBlobEncoding_Impl **pEncoding) {
     *pEncoding = InternalDxcBlobEncoding_Impl::Alloc(pMalloc);
     if (*pEncoding == nullptr) {
       return E_OUTOFMEMORY;
@@ -360,9 +340,10 @@ public:
     return S_OK;
   }
 
-  static HRESULT
-  CreateFromMalloc(LPCVOID buffer, IMalloc *pIMalloc, SIZE_T bufferSize, bool encodingKnown,
-    UINT32 codePage, _COM_Outptr_ InternalDxcBlobEncoding_Impl **pEncoding) {
+  static HRESULT CreateFromMalloc(LPCVOID buffer, IMalloc *pIMalloc,
+                                  SIZE_T bufferSize, bool encodingKnown,
+                                  UINT32 codePage,
+                                  InternalDxcBlobEncoding_Impl **pEncoding) {
     *pEncoding = InternalDxcBlobEncoding_Impl::Alloc(pIMalloc);
     if (*pEncoding == nullptr) {
       *pEncoding = nullptr;
@@ -394,7 +375,8 @@ public:
   virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
     return m_BufferSize;
   }
-  virtual HRESULT STDMETHODCALLTYPE GetEncoding(_Out_ BOOL *pKnown, _Out_ UINT32 *pCodePage) override {
+  virtual HRESULT STDMETHODCALLTYPE GetEncoding(BOOL *pKnown,
+                                                UINT32 *pCodePage) override {
     *pKnown = m_EncodingKnown ? TRUE : FALSE;
     *pCodePage = m_CodePage;
     return S_OK;
@@ -410,9 +392,9 @@ typedef InternalDxcBlobEncoding_Impl<DxcBlobWide_Impl> InternalDxcBlobWide;
 typedef InternalDxcBlobEncoding_Impl<DxcBlobUtf8_Impl> InternalDxcBlobUtf8;
 
 static HRESULT CodePageBufferToWide(UINT32 codePage, LPCVOID bufferPointer,
-                                     SIZE_T bufferSize,
-                                     CDxcMallocHeapPtr<WCHAR> &wideNewCopy,
-                                     _Out_ UINT32 *pConvertedCharCount) {
+                                    SIZE_T bufferSize,
+                                    CDxcMallocHeapPtr<WCHAR> &wideNewCopy,
+                                    UINT32 *pConvertedCharCount) {
   *pConvertedCharCount = 0;
 
   // If the buffer is empty, don't dereference bufferPointer at all.
@@ -468,10 +450,9 @@ static HRESULT CodePageBufferToWide(UINT32 codePage, LPCVOID bufferPointer,
 }
 
 static HRESULT CodePageBufferToUtf8(UINT32 codePage, LPCVOID bufferPointer,
-                                    SIZE_T bufferSize,
-                                    IMalloc *pMalloc,
+                                    SIZE_T bufferSize, IMalloc *pMalloc,
                                     CDxcMallocHeapPtr<char> &utf8NewCopy,
-                                    _Out_ UINT32 *pConvertedCharCount) {
+                                    UINT32 *pConvertedCharCount) {
   *pConvertedCharCount = 0;
   CDxcMallocHeapPtr<WCHAR> wideNewCopy(pMalloc);
   UINT32 wideCharCount = 0;
@@ -617,6 +598,10 @@ HRESULT DxcCreateBlob(
     InternalDxcBlobEncoding *pInternalEncoding;
     IFR(InternalDxcBlobEncoding::CreateFromMalloc(nullptr, pMalloc, 0, encodingKnown, codePage, &pInternalEncoding));
     *ppBlobEncoding = pInternalEncoding;
+    if (pPtr && !(bCopy || bPinned)) {
+      // Free memory as we're not taking ownership of it
+      pMalloc->Free(const_cast<void*>(pPtr));
+    }
     return S_OK;
   }
 
@@ -783,7 +768,6 @@ HRESULT DxcCreateBlobEncodingFromBlob(
 }
 
 
-_Use_decl_annotations_
 HRESULT DxcCreateBlobFromBlob(
     IDxcBlob *pBlob, UINT32 offset, UINT32 length, IDxcBlob **ppResult) throw() {
   IFRBOOL(ppResult, E_POINTER);
@@ -794,7 +778,6 @@ HRESULT DxcCreateBlobFromBlob(
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcCreateBlobOnMalloc(LPCVOID pData, IMalloc *pIMalloc, UINT32 size, IDxcBlob **ppResult) throw() {
   IFRBOOL(ppResult, E_POINTER);
@@ -805,10 +788,9 @@ DxcCreateBlobOnMalloc(LPCVOID pData, IMalloc *pIMalloc, UINT32 size, IDxcBlob **
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT
-DxcCreateBlobOnHeapCopy(_In_bytecount_(size) LPCVOID pData, UINT32 size,
-                        _COM_Outptr_ IDxcBlob **ppResult) throw() {
+DxcCreateBlobOnHeapCopy(LPCVOID pData, UINT32 size,
+                        IDxcBlob **ppResult) throw() {
   IFRBOOL(ppResult, E_POINTER);
   *ppResult = nullptr;
   IDxcBlobEncoding *pResult;
@@ -817,7 +799,6 @@ DxcCreateBlobOnHeapCopy(_In_bytecount_(size) LPCVOID pData, UINT32 size,
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcCreateBlobFromFile(IMalloc *pMalloc, LPCWSTR pFileName, UINT32 *pCodePage,
                       IDxcBlobEncoding **ppBlobEncoding) throw() {
@@ -842,42 +823,36 @@ DxcCreateBlobFromFile(IMalloc *pMalloc, LPCWSTR pFileName, UINT32 *pCodePage,
   return hr;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCreateBlobFromFile(LPCWSTR pFileName, UINT32 *pCodePage,
                               IDxcBlobEncoding **ppBlobEncoding) throw() {
   return DxcCreateBlobFromFile(DxcGetThreadMallocNoRef(), pFileName, pCodePage, ppBlobEncoding);
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingSet(IMalloc *pMalloc, IDxcBlob *pBlob, UINT32 codePage,
                              IDxcBlobEncoding **ppBlobEncoding) throw() {
   return DxcCreateBlobEncodingFromBlob(pBlob, 0, 0, true, codePage, pMalloc, ppBlobEncoding);
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingSet(IDxcBlob *pBlob, UINT32 codePage,
                              IDxcBlobEncoding **ppBlobEncoding) throw() {
   return DxcCreateBlobEncodingFromBlob(pBlob, 0, 0, true, codePage, nullptr, ppBlobEncoding);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCreateBlobWithEncodingFromPinned(LPCVOID pText, UINT32 size,
                                             UINT32 codePage,
                                             IDxcBlobEncoding **pBlobEncoding) throw() {
   return DxcCreateBlob(pText, size, true, false, true, codePage, nullptr, pBlobEncoding);
 }
 
-HRESULT DxcCreateBlobFromPinned(
-    _In_bytecount_(size) LPCVOID pText, UINT32 size,
-    _COM_Outptr_ IDxcBlob **pBlob) throw() {
+HRESULT DxcCreateBlobFromPinned(LPCVOID pText, UINT32 size,
+                                IDxcBlob **pBlob) throw() {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   DxcCreateBlob(pText, size, true, false, false, CP_ACP, nullptr, &pBlobEncoding);
   return pBlobEncoding.QueryInterface(pBlob);
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingFromStream(IStream *pStream, bool newInstanceAlways,
                                     UINT32 codePage,
@@ -908,28 +883,24 @@ DxcCreateBlobWithEncodingFromStream(IStream *pStream, bool newInstanceAlways,
   return E_NOTIMPL;
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingOnHeapCopy(LPCVOID pText, UINT32 size, UINT32 codePage,
   IDxcBlobEncoding **pBlobEncoding) throw() {
   return DxcCreateBlob(pText, size, false, true, true, codePage, nullptr, pBlobEncoding);
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingOnMalloc(LPCVOID pText, IMalloc *pIMalloc, UINT32 size, UINT32 codePage,
   IDxcBlobEncoding **pBlobEncoding) throw() {
   return DxcCreateBlob(pText, size, false, false, true, codePage, pIMalloc, pBlobEncoding);
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcCreateBlobWithEncodingOnMallocCopy(IMalloc *pIMalloc, LPCVOID pText, UINT32 size, UINT32 codePage,
   IDxcBlobEncoding **ppBlobEncoding) throw() {
   return DxcCreateBlob(pText, size, false, true, true, codePage, pIMalloc, ppBlobEncoding);
 }
 
-_Use_decl_annotations_
 HRESULT
 DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc,
                  IDxcBlobUtf8 **pBlobEncoding, UINT32 defaultCodePage) throw() {
@@ -1019,8 +990,8 @@ DxcGetBlobAsUtf8(IDxcBlob *pBlob, IMalloc *pMalloc,
 
 // This is kept for compatibility.
 HRESULT
-DxcGetBlobAsUtf8NullTerm(_In_ IDxcBlob *pBlob,
-                         _COM_Outptr_ IDxcBlobEncoding **ppBlobEncoding) throw() {
+DxcGetBlobAsUtf8NullTerm(IDxcBlob *pBlob,
+                         IDxcBlobEncoding **ppBlobEncoding) throw() {
   IFRBOOL(pBlob, E_POINTER);
   IFRBOOL(ppBlobEncoding, E_POINTER);
   *ppBlobEncoding = nullptr;
@@ -1031,7 +1002,6 @@ DxcGetBlobAsUtf8NullTerm(_In_ IDxcBlob *pBlob,
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcGetBlobAsWide(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobWide **pBlobEncoding) throw() {
   IFRBOOL(pBlob, E_POINTER);
   IFRBOOL(pBlobEncoding, E_POINTER);
@@ -1117,7 +1087,7 @@ HRESULT DxcGetBlobAsWide(IDxcBlob *pBlob, IMalloc *pMalloc, IDxcBlobWide **pBlob
   return hr;
 }
 
-bool IsBlobNullOrEmpty(_In_opt_ IDxcBlob *pBlob) throw() {
+bool IsBlobNullOrEmpty(IDxcBlob *pBlob) throw() {
   return pBlob == nullptr || pBlob->GetBufferSize() == 0;
 }
 
@@ -1568,7 +1538,8 @@ public:
   }
 };
 
-HRESULT CreateMemoryStream(_In_ IMalloc *pMalloc, _COM_Outptr_ AbstractMemoryStream** ppResult) throw() {
+HRESULT CreateMemoryStream(IMalloc *pMalloc,
+                           AbstractMemoryStream **ppResult) throw() {
   if (pMalloc == nullptr || ppResult == nullptr) {
     return E_POINTER;
   }
@@ -1578,7 +1549,8 @@ HRESULT CreateMemoryStream(_In_ IMalloc *pMalloc, _COM_Outptr_ AbstractMemoryStr
   return (*ppResult == nullptr) ? E_OUTOFMEMORY : S_OK;
 }
 
-HRESULT CreateReadOnlyBlobStream(_In_ IDxcBlob *pSource, _COM_Outptr_ IStream** ppResult) throw() {
+HRESULT CreateReadOnlyBlobStream(IDxcBlob *pSource,
+                                 IStream **ppResult) throw() {
   if (pSource == nullptr || ppResult == nullptr) {
     return E_POINTER;
   }
@@ -1591,7 +1563,8 @@ HRESULT CreateReadOnlyBlobStream(_In_ IDxcBlob *pSource, _COM_Outptr_ IStream** 
   return (*ppResult == nullptr) ? E_OUTOFMEMORY : S_OK;
 }
 
-HRESULT CreateFixedSizeMemoryStream(_In_ LPBYTE pBuffer, size_t size, _COM_Outptr_ AbstractMemoryStream** ppResult) throw() {
+HRESULT CreateFixedSizeMemoryStream(LPBYTE pBuffer, size_t size,
+                                    AbstractMemoryStream **ppResult) throw() {
   if (pBuffer == nullptr || ppResult == nullptr) {
     return E_POINTER;
   }

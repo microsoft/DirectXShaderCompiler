@@ -168,8 +168,7 @@ inline void strreplace(const std::vector<std::string>& lookFors, const std::vect
 
 namespace hlsl_test {
 
-inline std::wstring
-vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, va_list argptr) {
+inline std::wstring vFormatToWString(const wchar_t *fmt, va_list argptr) {
   std::wstring result;
 #ifdef _WIN32
   int len = _vscwprintf(fmt, argptr);
@@ -185,8 +184,7 @@ vFormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, va_list argpt
   return result;
 }
 
-inline std::wstring
-FormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
+inline std::wstring FormatToWString(const wchar_t *fmt, ...) {
   va_list args;
   va_start(args, fmt);
   std::wstring result(vFormatToWString(fmt, args));
@@ -194,7 +192,7 @@ FormatToWString(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
   return result;
 }
 
-inline void LogCommentFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
+inline void LogCommentFmt(const wchar_t *fmt, ...) {
   va_list args;
   va_start(args, fmt);
   std::wstring buf(vFormatToWString(fmt, args));
@@ -202,12 +200,12 @@ inline void LogCommentFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...)
   WEX::Logging::Log::Comment(buf.data());
 }
 
-inline void LogErrorFmt(_In_z_ _Printf_format_string_ const wchar_t *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    std::wstring buf(vFormatToWString(fmt, args));
-    va_end(args);
-    WEX::Logging::Log::Error(buf.data());
+inline void LogErrorFmt(const wchar_t *fmt, ...) {
+  va_list args;
+  va_start(args, fmt);
+  std::wstring buf(vFormatToWString(fmt, args));
+  va_end(args);
+  WEX::Logging::Log::Error(buf.data());
 }
 
 inline std::wstring GetPathToHlslDataFile(const wchar_t* relative, LPCWSTR paramName = HLSLDATAFILEPARAM, LPCWSTR defaultDataDir = DEFAULT_TEST_DIR) {

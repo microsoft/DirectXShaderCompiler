@@ -22,7 +22,7 @@ DxilPartIterator end(const DxilContainerHeader *pHeader) {
   return{ pHeader, pHeader->PartCount };
 }
 
-void InitDxilContainer(_Out_ DxilContainerHeader *pHeader, uint32_t partCount,
+void InitDxilContainer(DxilContainerHeader *pHeader, uint32_t partCount,
                        uint32_t containerSizeInBytes) {
   memset(pHeader, 0, sizeof(*pHeader));
   pHeader->HeaderFourCC = DFCC_Container;

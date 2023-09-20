@@ -109,8 +109,8 @@ public:
     }
   };
 
-  void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
-                        UINT32 codePage, _In_ IDxcBlobEncoding **ppBlob) {
+  void CreateBlobPinned(LPCVOID data, SIZE_T size, UINT32 codePage,
+                        IDxcBlobEncoding **ppBlob) {
     CComPtr<IDxcLibrary> library;
     IFT(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
     IFT(library->CreateBlobWithEncodingFromPinned(data, size, codePage,
@@ -216,8 +216,8 @@ public:
   // to check for stable output.  It has now been replaced by a new test that checks against a gold baseline.
 
   void RewriteCompareGold(LPCWSTR path, LPCWSTR goldPath,
-                          _COM_Outptr_ IDxcOperationResult **ppResult,
-                          _In_ IDxcRewriter *rewriter) {
+                          IDxcOperationResult **ppResult,
+                          IDxcRewriter *rewriter) {
     // Get the source text from a file
     FileWithBlob source(m_dllSupport, path);
 

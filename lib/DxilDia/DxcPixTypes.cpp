@@ -14,6 +14,13 @@
 #include "DxcPixTypes.h"
 #include "DxilDiaSession.h"
 
+static const char * GetTypeNameOrDefault(llvm::DIType *diType) {
+  auto stringRef = diType->getName();
+  if (stringRef.empty())
+    return "<unnamed>";
+  return stringRef.data();
+}
+
 HRESULT dxil_debug_info::CreateDxcPixType(
     DxcPixDxilDebugInfo *pDxilDebugInfo,
     llvm::DIType *diType,
@@ -80,90 +87,77 @@ HRESULT dxil_debug_info::CreateDxcPixType(
   return E_UNEXPECTED;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixConstType::GetName(
-    _Outptr_result_z_ BSTR *Name)
-{
+STDMETHODIMP dxil_debug_info::DxcPixConstType::GetName(BSTR *Name) {
   CComPtr<IDxcPixType> BaseType;
   IFR(UnAlias(&BaseType));
 
   CComBSTR BaseName;
   IFR(BaseType->GetName(&BaseName));
 
-  *Name = CComBSTR((L"const " + std::wstring(BaseName)).c_str()).Detach();
+  *Name =
+      CComBSTR((L"const " + std::wstring(BaseName)).c_str())
+          .Detach();
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixConstType::GetSizeInBits(
-    _Outptr_result_z_ DWORD *pSize)
-{
+STDMETHODIMP dxil_debug_info::DxcPixConstType::GetSizeInBits(DWORD *pSize) {
   CComPtr<IDxcPixType> BaseType;
   IFR(UnAlias(&BaseType));
 
   return BaseType->GetSizeInBits(pSize);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixConstType::UnAlias(
-    _Outptr_result_z_ IDxcPixType **ppType)
-{
+STDMETHODIMP dxil_debug_info::DxcPixConstType::UnAlias(IDxcPixType **ppType) {
   return CreateDxcPixType(m_pDxilDebugInfo, m_pBaseType, ppType);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixTypedefType::GetName(
-    _Outptr_result_z_ BSTR *Name)
+STDMETHODIMP dxil_debug_info::DxcPixTypedefType::GetName(BSTR *Name)
 {
-  *Name = CComBSTR(CA2W(m_pType->getName().data())).Detach();
+  *Name =
+      CComBSTR(CA2W(GetTypeNameOrDefault(m_pType))).Detach();
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixTypedefType::GetSizeInBits(
-    _Outptr_result_z_ DWORD *pSize)
-{
+STDMETHODIMP dxil_debug_info::DxcPixTypedefType::GetSizeInBits(DWORD *pSize) {
   CComPtr<IDxcPixType> BaseType;
   IFR(UnAlias(&BaseType));
 
   return BaseType->GetSizeInBits(pSize);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixTypedefType::UnAlias(
-    _Outptr_result_z_ IDxcPixType **ppType)
-{
+STDMETHODIMP dxil_debug_info::DxcPixTypedefType::UnAlias(IDxcPixType **ppType) {
   return CreateDxcPixType(m_pDxilDebugInfo, m_pBaseType, ppType);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixScalarType::GetName(
-    _Outptr_result_z_ BSTR *Name)
+STDMETHODIMP dxil_debug_info::DxcPixScalarType::GetName(BSTR *Name)
 {
-  *Name = CComBSTR(CA2W(m_pType->getName().data())).Detach();
+  *Name =
+      CComBSTR(CA2W(GetTypeNameOrDefault(m_pType))).Detach();
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixScalarType::GetSizeInBits(
-    _Outptr_result_z_ DWORD *pSizeInBits)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixScalarType::GetSizeInBits(DWORD *pSizeInBits) {
   *pSizeInBits = m_pType->getSizeInBits();
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixScalarType::UnAlias(
-    _Outptr_result_z_ IDxcPixType **ppType)
-{
+STDMETHODIMP dxil_debug_info::DxcPixScalarType::UnAlias(IDxcPixType **ppType) {
   *ppType = this;
   this->AddRef();
   return S_FALSE;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetName(
-    _Outptr_result_z_ BSTR *Name)
+STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetName(BSTR *Name)
 {
-  CComBSTR name(CA2W(m_pBaseType->getName().data()));
+  CComBSTR name(CA2W(GetTypeNameOrDefault(m_pBaseType)));
   name.Append(L"[]");
   *Name = name.Detach();
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetSizeInBits(
-    _Outptr_result_z_ DWORD *pSizeInBits)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixArrayType::GetSizeInBits(DWORD *pSizeInBits) {
   *pSizeInBits = m_pArray->getSizeInBits();
   for (unsigned ContainerDims = 0; ContainerDims < m_DimNum; ++ContainerDims)
   {
@@ -178,17 +172,14 @@ STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetSizeInBits(
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixArrayType::UnAlias(
-    _Outptr_result_z_ IDxcPixType **ppType)
-{
+STDMETHODIMP dxil_debug_info::DxcPixArrayType::UnAlias(IDxcPixType **ppType) {
   *ppType = this;
   this->AddRef();
   return S_FALSE;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetNumElements(
-    _Outptr_result_z_ DWORD *ppNumElements) 
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixArrayType::GetNumElements(DWORD *ppNumElements) {
   auto* SR = llvm::dyn_cast<llvm::DISubrange>(m_pArray->getElements()[m_DimNum]);
   if (SR == nullptr)
   {
@@ -200,8 +191,7 @@ STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetNumElements(
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetIndexedType(
-    _Outptr_result_z_ IDxcPixType **ppIndexedElement)
-{
+    IDxcPixType **ppIndexedElement) {
   assert(1 + m_DimNum <= m_pArray->getElements().size());
   if (1 + m_DimNum == m_pArray->getElements().size())
   {
@@ -216,37 +206,32 @@ STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetIndexedType(
       1 + m_DimNum);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixArrayType::GetElementType(
-    _Outptr_result_z_ IDxcPixType **ppElementType)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixArrayType::GetElementType(IDxcPixType **ppElementType) {
   return CreateDxcPixType(m_pDxilDebugInfo, m_pBaseType, ppElementType);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructType::GetName(
-    _Outptr_result_z_ BSTR *Name)
+STDMETHODIMP dxil_debug_info::DxcPixStructType::GetName(BSTR *Name)
 {
-  *Name = CComBSTR(CA2W(m_pStruct->getName().data())).Detach();
+  *Name =
+      CComBSTR(CA2W(GetTypeNameOrDefault(m_pStruct))).Detach();
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructType::GetSizeInBits(
-    _Outptr_result_z_ DWORD *pSizeInBits)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixStructType::GetSizeInBits(DWORD *pSizeInBits) {
   *pSizeInBits = m_pStruct->getSizeInBits();
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructType::UnAlias(
-    _Outptr_result_z_ IDxcPixType **ppType)
-{
+STDMETHODIMP dxil_debug_info::DxcPixStructType::UnAlias(IDxcPixType **ppType) {
   *ppType = this;
   this->AddRef();
   return S_FALSE;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructType::GetNumFields(
-    _Outptr_result_z_ DWORD *ppNumFields)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixStructType::GetNumFields(DWORD *ppNumFields) {
   *ppNumFields = 0;
   // DWARF lists the ancestor class, if any, and member fns
   // as a member element. Don't count those as data members:
@@ -261,9 +246,7 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetNumFields(
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixStructType::GetFieldByIndex(
-    DWORD dwIndex,
-    _Outptr_result_z_ IDxcPixStructField **ppField)
-{
+    DWORD dwIndex, IDxcPixStructField **ppField) {
   *ppField = nullptr;
 
   // DWARF lists the ancestor class, if any, and member fns
@@ -295,9 +278,7 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetFieldByIndex(
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixStructType::GetFieldByName(
-    _In_ LPCWSTR lpName,
-    _Outptr_result_z_ IDxcPixStructField **ppField)
-{
+    LPCWSTR lpName, IDxcPixStructField **ppField) {
   std::string name = std::string(CW2A(lpName));
   for (auto *Node : m_pStruct->getElements())
   {
@@ -326,9 +307,8 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetFieldByName(
   return E_BOUNDS;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructType::GetBaseType(
-    _Outptr_result_z_ IDxcPixType **ppType)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixStructType::GetBaseType(IDxcPixType **ppType) {
   for (auto *Node : m_pStruct->getElements())
   {
     auto* pDIField = llvm::dyn_cast<llvm::DIDerivedType>(Node);
@@ -354,22 +334,19 @@ STDMETHODIMP dxil_debug_info::DxcPixStructType::GetBaseType(
   return E_NOINTERFACE;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructField::GetName(
-    _Outptr_result_z_ BSTR *Name) 
+STDMETHODIMP dxil_debug_info::DxcPixStructField::GetName(BSTR *Name) 
 {
-  *Name = CComBSTR(CA2W(m_pField->getName().data())).Detach();
+  *Name =
+      CComBSTR(CA2W(GetTypeNameOrDefault(m_pField))).Detach();
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructField::GetType(
-    _Outptr_result_z_ IDxcPixType **ppType)
-{
+STDMETHODIMP dxil_debug_info::DxcPixStructField::GetType(IDxcPixType **ppType) {
   return CreateDxcPixType(m_pDxilDebugInfo, m_pType, ppType);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixStructField::GetOffsetInBits(
-    _Outptr_result_z_ DWORD *pOffsetInBits)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixStructField::GetOffsetInBits(DWORD *pOffsetInBits) {
   *pOffsetInBits = m_pField->getOffsetInBits();
   return S_OK;
 }

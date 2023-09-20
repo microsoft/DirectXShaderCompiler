@@ -120,6 +120,7 @@ public:
   TEST_METHOD(RunNodeZeroSizedRecordDiags)
   TEST_METHOD(RunWorkGraphAttributeDiags)
   TEST_METHOD(RunInvalidNodeLaunchDiags)
+  TEST_METHOD(RunInvalidNodeOutputCompleteDiags)
   TEST_METHOD(RunShaderMismatch)
   TEST_METHOD(RunMaxRecordsAttribute)
   TEST_METHOD(RunNodeOutputArrayDiags)
@@ -552,4 +553,8 @@ TEST_F(VerifierTest, RunInvalidNodeLaunchDiags) {
 
 TEST_F(VerifierTest, RunNodeOutputArrayDiags) {
   CheckVerifiesHLSL(L"/workgraph/nodeoutput_array.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidNodeOutputCompleteDiags) {
+  CheckVerifiesHLSL(L"/workgraph/outputcomplete_unsupported_nodeio.hlsl");
 }

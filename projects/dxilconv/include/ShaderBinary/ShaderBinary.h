@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// ShaderBinary.h                                                          //
+// ShaderBinary.h                                                            //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -2422,7 +2422,8 @@ public:
         {
             Reserve(FullSizeInUINTs);
         }
-        __analysis_assume(m_Index + FullSizeInUINTs < m_BufferSize);  // Otherwise there's a bug in Reserve()
+        assert(m_Index + FullSizeInUINTs <
+               m_BufferSize); // Otherwise there's a bug in Reserve()
         m_dwFunc[m_Index++] = ENCODE_D3D10_SB_CUSTOMDATA_CLASS(CustomDataClass);
         m_dwFunc[m_Index++] = FullSizeInUINTs;
         memcpy(&m_dwFunc[m_Index],pCustomData,sizeof(UINT)*SizeInUINTs);
@@ -2469,8 +2470,8 @@ protected:
             }
             if( bExtendedLength )
             {
-                __analysis_assume(m_StartOpIndex + 1 < m_Index);
-                m_dwFunc[m_StartOpIndex + 1] = m_Index - m_StartOpIndex;
+              assert(m_StartOpIndex + 1 < m_Index);
+              m_dwFunc[m_StartOpIndex + 1] = m_Index - m_StartOpIndex;
             }
             Reserve(MAX_INSTRUCTION_LENGTH);
             m_StatementIndex++;
@@ -2578,12 +2579,12 @@ public:
                                        CONST CShaderToken* pBuffer,
                                        CONST CShaderToken* pBufferEnd)
     {
-        CShaderToken* pCurTok = m_pCurrentToken;
-        CShaderToken* pEndTok = m_pShaderEndToken;
-        CShaderToken* pRet;
+        const CShaderToken *pCurTok = m_pCurrentToken;
+        const CShaderToken *pEndTok = m_pShaderEndToken;
+        const CShaderToken *pRet;
 
-        m_pCurrentToken = (CShaderToken*)pBuffer;
-        m_pShaderEndToken = (CShaderToken*)pBufferEnd;
+        m_pCurrentToken = (pBuffer);
+        m_pShaderEndToken = (pBufferEnd);
 
         ParseOperand(pOperand);
         pRet = m_pCurrentToken;
@@ -2595,10 +2596,10 @@ public:
     }
     
 protected:
-    CShaderToken*   m_pCurrentToken;
-    CShaderToken*   m_pShaderCode;
+    const CShaderToken*   m_pCurrentToken;
+    const CShaderToken*   m_pShaderCode;
     // Points to the last token of the current shader
-    CShaderToken*   m_pShaderEndToken;
+    const CShaderToken*   m_pShaderEndToken;
 };
 
 }; // name space D3D10ShaderBinary

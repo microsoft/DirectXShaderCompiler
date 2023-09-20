@@ -15,7 +15,6 @@
 #ifndef LLVM_C_CORE_H
 #define LLVM_C_CORE_H
 
-#include "dxc/WinAdapter.h" // HLSL Change
 #include "llvm-c/Support.h"
 
 #ifdef __cplusplus
@@ -433,7 +432,7 @@ void LLVMShutdown(void);
 /*===-- Error handling ----------------------------------------------------===*/
 
 char *LLVMCreateMessage(const char *Message);
-void LLVMDisposeMessage(_Out_opt_ char *Message);
+void LLVMDisposeMessage(char *Message);
 
 typedef void (*LLVMFatalErrorHandler)(const char *Reason);
 
@@ -617,7 +616,7 @@ void LLVMDumpModule(LLVMModuleRef M);
  * @see Module::print()
  */
 LLVMBool LLVMPrintModuleToFile(LLVMModuleRef M, const char *Filename,
-    _Out_opt_ char **ErrorMessage);
+    char **ErrorMessage);
 
 /**
  * Return a string representation of the module. Use
@@ -2902,9 +2901,9 @@ void LLVMDisposeModuleProvider(LLVMModuleProviderRef M);
 
 LLVMBool LLVMCreateMemoryBufferWithContentsOfFile(const char *Path,
                                                   LLVMMemoryBufferRef *OutMemBuf,
-                                                  _Out_opt_ char **OutMessage);
+                                                  char **OutMessage);
 LLVMBool LLVMCreateMemoryBufferWithSTDIN(LLVMMemoryBufferRef *OutMemBuf,
-    _Out_opt_ char **OutMessage);
+    char **OutMessage);
 LLVMMemoryBufferRef LLVMCreateMemoryBufferWithMemoryRange(const char *InputData,
                                                           size_t InputDataLength,
                                                           const char *BufferName,

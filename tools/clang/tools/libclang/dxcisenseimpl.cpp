@@ -35,8 +35,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-HRESULT CreateDxcIntelliSense(_In_ REFIID riid, _Out_ LPVOID* ppv) throw()
-{
+HRESULT CreateDxcIntelliSense(REFIID riid, LPVOID *ppv) throw() {
   CComPtr<DxcIntelliSense> isense = CreateOnMalloc<DxcIntelliSense>(DxcGetThreadMallocNoRef());
   if (isense == nullptr)
   {
@@ -68,12 +67,13 @@ public:
 
   DxcBasicUnsavedFile(IMalloc *pMalloc);
   ~DxcBasicUnsavedFile();
-  HRESULT Initialize(_In_z_ LPCSTR fileName, _In_z_ LPCSTR contents, unsigned length);
-  static HRESULT Create(_In_z_ LPCSTR fileName, _In_z_ LPCSTR contents, unsigned length, _COM_Outptr_ IDxcUnsavedFile** pObject);
+  HRESULT Initialize(LPCSTR fileName, LPCSTR contents, unsigned length);
+  static HRESULT Create(LPCSTR fileName, LPCSTR contents, unsigned length,
+                        IDxcUnsavedFile **pObject);
 
-  HRESULT STDMETHODCALLTYPE GetFileName(_Outptr_result_z_ LPSTR* pFileName) override;
-  HRESULT STDMETHODCALLTYPE GetContents(_Outptr_result_z_ LPSTR* pContents) override;
-  HRESULT STDMETHODCALLTYPE GetLength(_Out_ unsigned* pLength) override;
+  HRESULT STDMETHODCALLTYPE GetFileName(LPSTR *pFileName) override;
+  HRESULT STDMETHODCALLTYPE GetContents(LPSTR *pContents) override;
+  HRESULT STDMETHODCALLTYPE GetLength(unsigned *pLength) override;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -82,9 +82,7 @@ static bool IsCursorKindQualifiedByParent(CXCursorKind kind) throw();
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static
-HRESULT AnsiToBSTR(_In_opt_z_ const char* text, _Outptr_result_maybenull_ BSTR* pValue) throw()
-{
+static HRESULT AnsiToBSTR(const char *text, BSTR *pValue) throw() {
   if (pValue == nullptr) return E_POINTER;
   *pValue = nullptr;
   if (text == nullptr)
@@ -115,7 +113,6 @@ HRESULT AnsiToBSTR(_In_opt_z_ const char* text, _Outptr_result_maybenull_ BSTR* 
 }
 
 static
-_Ret_opt_ _Post_readable_byte_size_(cb)  __drv_allocatesMem(Mem)
 LPVOID CoTaskMemAllocZero(SIZE_T cb) throw()
 {
   LPVOID result = CoTaskMemAlloc(cb);
@@ -132,15 +129,11 @@ LPVOID CoTaskMemAllocZero(SIZE_T cb) throw()
 /// error cases.
 /// </remarks>
 template <typename T>
-static
-void CoTaskMemAllocZeroElems(_In_ SIZE_T elementCount, _Outptr_result_buffer_maybenull_(elementCount) T**buf) throw()
-{
+static void CoTaskMemAllocZeroElems(SIZE_T elementCount, T **buf) throw() {
   *buf = reinterpret_cast<T*>(CoTaskMemAllocZero(elementCount * sizeof(T)));
 }
 
-static
-HRESULT CXStringToAnsiAndDispose(CXString value, _Outptr_result_maybenull_ LPSTR* pValue) throw()
-{
+static HRESULT CXStringToAnsiAndDispose(CXString value, LPSTR *pValue) throw() {
   if (pValue == nullptr) return E_POINTER;
   *pValue = nullptr;
   const char* text = clang_getCString(value);
@@ -159,19 +152,14 @@ HRESULT CXStringToAnsiAndDispose(CXString value, _Outptr_result_maybenull_ LPSTR
   return S_OK;
 }
 
-static
-HRESULT CXStringToBSTRAndDispose(CXString value, _Outptr_result_maybenull_ BSTR* pValue) throw()
-{
+static HRESULT CXStringToBSTRAndDispose(CXString value, BSTR *pValue) throw() {
   HRESULT hr = AnsiToBSTR(clang_getCString(value), pValue);
   clang_disposeString(value);
   return hr;
 }
 
-static
-void CleanupUnsavedFiles(
-  _In_count_(file_count) CXUnsavedFile * files,
-  unsigned file_count) throw()
-{
+static void CleanupUnsavedFiles(CXUnsavedFile *files,
+                                unsigned file_count) throw() {
   for (unsigned i = 0; i < file_count; ++i)
   {
     CoTaskMemFree((LPVOID)files[i].Filename);
@@ -181,9 +169,7 @@ void CleanupUnsavedFiles(
   delete[] files;
 }
 
-static
-HRESULT CoTaskMemAllocString(_In_z_ const char* src, _Outptr_ LPSTR* pResult) throw()
-{
+static HRESULT CoTaskMemAllocString(const char *src, LPSTR *pResult) throw() {
   assert(src != nullptr);
 
   if (pResult == nullptr)
@@ -241,10 +227,8 @@ bool IsCursorKindQualifiedByParent(CXCursorKind kind) throw()
     kind == CXCursor_FunctionTemplate || kind == CXCursor_ClassTemplate || kind == CXCursor_ClassTemplatePartialSpecialization;
 }
 
-template<typename TIface>
-static
-void SafeReleaseIfaceArray(_Inout_count_(count) TIface** arr, unsigned count) throw()
-{
+template <typename TIface>
+static void SafeReleaseIfaceArray(TIface **arr, unsigned count) throw() {
   if (arr != nullptr)
   {
     for (unsigned i = 0; i < count; i++)
@@ -258,12 +242,9 @@ void SafeReleaseIfaceArray(_Inout_count_(count) TIface** arr, unsigned count) th
   }
 }
 
-static
-HRESULT SetupUnsavedFiles(
-  _In_count_(num_unsaved_files) IDxcUnsavedFile** unsaved_files,
-  unsigned num_unsaved_files,
-  _Outptr_result_buffer_maybenull_(num_unsaved_files) CXUnsavedFile** files)
-{
+static HRESULT SetupUnsavedFiles(IDxcUnsavedFile **unsaved_files,
+                                 unsigned num_unsaved_files,
+                                 CXUnsavedFile **files) {
   *files = nullptr;
   if (num_unsaved_files == 0)
   {
@@ -345,12 +326,9 @@ CXChildVisitResult LIBCLANG_CC PagedCursorTraverseVisit(CXCursor cursor, CXCurso
   return (pagedContext->top == 0) ? CXChildVisit_Break : CXChildVisit_Continue;
 }
 
-static
-HRESULT PagedCursorVisitorCopyResults(
-  _In_ PagedCursorVisitorContext* context,
-  _Out_ unsigned* pResultLength,
-  _Outptr_result_buffer_(*pResultLength) IDxcCursor*** pResult)
-{
+static HRESULT PagedCursorVisitorCopyResults(PagedCursorVisitorContext *context,
+                                             unsigned *pResultLength,
+                                             IDxcCursor ***pResult) {
   *pResultLength = 0;
   *pResult = nullptr;
 
@@ -462,7 +440,6 @@ DxcBasicUnsavedFile::~DxcBasicUnsavedFile()
   delete[] m_contents;
 }
 
-_Use_decl_annotations_
 HRESULT DxcBasicUnsavedFile::Initialize(LPCSTR fileName, LPCSTR contents, unsigned contentLength)
 {
   if (fileName == nullptr) return E_INVALIDARG;
@@ -490,7 +467,6 @@ HRESULT DxcBasicUnsavedFile::Initialize(LPCSTR fileName, LPCSTR contents, unsign
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcBasicUnsavedFile::Create(
   LPCSTR fileName, LPCSTR contents, unsigned contentLength,
   IDxcUnsavedFile** pObject)
@@ -512,13 +488,11 @@ HRESULT DxcBasicUnsavedFile::Create(
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcBasicUnsavedFile::GetFileName(LPSTR* pFileName)
 {
   return CoTaskMemAllocString(m_fileName, pFileName);
 }
 
-_Use_decl_annotations_
 HRESULT DxcBasicUnsavedFile::GetContents(LPSTR* pContents)
 {
   return CoTaskMemAllocString(m_contents, pContents);
@@ -533,7 +507,6 @@ HRESULT DxcBasicUnsavedFile::GetLength(unsigned* pLength)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-_Use_decl_annotations_
 HRESULT DxcCursor::Create(const CXCursor& cursor, IDxcCursor** pObject)
 {
   if (pObject == nullptr) return E_POINTER;
@@ -551,7 +524,6 @@ void DxcCursor::Initialize(const CXCursor& cursor)
   m_cursor = cursor;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetExtent(IDxcSourceRange** pValue)
 {
   DxcThreadMalloc TM(m_pMalloc);
@@ -559,14 +531,12 @@ HRESULT DxcCursor::GetExtent(IDxcSourceRange** pValue)
   return DxcSourceRange::Create(range, pValue);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetLocation(IDxcSourceLocation** pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceLocation::Create(clang_getCursorLocation(m_cursor), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetKind(DxcCursorKind* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -574,7 +544,6 @@ HRESULT DxcCursor::GetKind(DxcCursorKind* pResult)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetKindFlags(DxcCursorKindFlags* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -593,28 +562,24 @@ HRESULT DxcCursor::GetKindFlags(DxcCursorKindFlags* pResult)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetSemanticParent(IDxcCursor** pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_getCursorSemanticParent(m_cursor), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetLexicalParent(IDxcCursor** pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_getCursorLexicalParent(m_cursor), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetCursorType(IDxcType** pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcType::Create(clang_getCursorType(m_cursor), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetNumArguments(int* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -622,28 +587,24 @@ HRESULT DxcCursor::GetNumArguments(int* pResult)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetArgumentAt(int index, IDxcCursor** pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_Cursor_getArgument(m_cursor, index), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetReferencedCursor(IDxcCursor** pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_getCursorReferenced(m_cursor), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetDefinitionCursor(IDxcCursor** pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcCursor::Create(clang_getCursorDefinition(m_cursor), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::FindReferencesInFile(
   IDxcFile* file, unsigned skip, unsigned top,
   unsigned* pResultLength, IDxcCursor*** pResult)
@@ -673,7 +634,6 @@ HRESULT DxcCursor::FindReferencesInFile(
   return PagedCursorVisitorCopyResults(&findReferencesInFileContext, pResultLength, pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetSpelling(LPSTR* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -681,8 +641,7 @@ HRESULT DxcCursor::GetSpelling(LPSTR* pResult)
   return CXStringToAnsiAndDispose(clang_getCursorSpelling(m_cursor), pResult);
 }
 
-HRESULT DxcCursor::IsEqualTo(_In_ IDxcCursor* other, _Out_ BOOL* pResult)
-{
+HRESULT DxcCursor::IsEqualTo(IDxcCursor *other, BOOL *pResult) {
   if (pResult == nullptr) return E_POINTER;
   if (other == nullptr)
   {
@@ -696,21 +655,18 @@ HRESULT DxcCursor::IsEqualTo(_In_ IDxcCursor* other, _Out_ BOOL* pResult)
   return S_OK;
 }
 
-HRESULT DxcCursor::IsNull(_Out_ BOOL* pResult)
-{
+HRESULT DxcCursor::IsNull(BOOL *pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = 0 != clang_Cursor_isNull(m_cursor);
   return S_OK;
 }
 
-HRESULT DxcCursor::IsDefinition(_Out_ BOOL* pResult)
-{
+HRESULT DxcCursor::IsDefinition(BOOL *pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = 0 != clang_isCursorDefinition(m_cursor);
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetDisplayName(BSTR* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -718,7 +674,6 @@ HRESULT DxcCursor::GetDisplayName(BSTR* pResult)
   return CXStringToBSTRAndDispose(clang_getCursorDisplayName(m_cursor), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetQualifiedName(BOOL includeTemplateArgs, BSTR* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -726,7 +681,6 @@ HRESULT DxcCursor::GetQualifiedName(BOOL includeTemplateArgs, BSTR* pResult)
   return GetCursorQualifiedName(m_cursor, includeTemplateArgs, pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetFormattedName(DxcCursorFormatting formatting, BSTR* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -734,7 +688,6 @@ HRESULT DxcCursor::GetFormattedName(DxcCursorFormatting formatting, BSTR* pResul
   return CXStringToBSTRAndDispose(clang_getCursorSpellingWithFormatting(m_cursor, formatting), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetChildren(
   unsigned skip, unsigned top,
   unsigned* pResultLength, IDxcCursor*** pResult)
@@ -757,7 +710,6 @@ HRESULT DxcCursor::GetChildren(
   return PagedCursorVisitorCopyResults(&visitorContext, pResultLength, pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcCursor::GetSnappedChild(IDxcSourceLocation* location, IDxcCursor** pResult)
 {
   if (location == nullptr) return E_POINTER;
@@ -799,7 +751,6 @@ void DxcDiagnostic::Initialize(const CXDiagnostic& diagnostic)
   m_diagnostic = diagnostic;
 }
 
-_Use_decl_annotations_
 HRESULT DxcDiagnostic::Create(const CXDiagnostic& diagnostic, IDxcDiagnostic** pObject)
 {
   if (pObject == nullptr) return E_POINTER;
@@ -812,7 +763,6 @@ HRESULT DxcDiagnostic::Create(const CXDiagnostic& diagnostic, IDxcDiagnostic** p
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcDiagnostic::FormatDiagnostic(
   DxcDiagnosticDisplayOptions options,
   LPSTR* pResult)
@@ -822,52 +772,44 @@ HRESULT DxcDiagnostic::FormatDiagnostic(
   return CXStringToAnsiAndDispose(clang_formatDiagnostic(m_diagnostic, options), pResult);
 }
 
-HRESULT DxcDiagnostic::GetSeverity(_Out_ DxcDiagnosticSeverity* pResult)
-{
+HRESULT DxcDiagnostic::GetSeverity(DxcDiagnosticSeverity *pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = (DxcDiagnosticSeverity)clang_getDiagnosticSeverity(m_diagnostic);
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcDiagnostic::GetLocation(IDxcSourceLocation** pResult)
 {
   return DxcSourceLocation::Create(clang_getDiagnosticLocation(m_diagnostic), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcDiagnostic::GetSpelling(LPSTR* pResult)
 {
   return CXStringToAnsiAndDispose(clang_getDiagnosticSpelling(m_diagnostic), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcDiagnostic::GetCategoryText(LPSTR* pResult)
 {
   return CXStringToAnsiAndDispose(clang_getDiagnosticCategoryText(m_diagnostic), pResult);
 }
 
-HRESULT DxcDiagnostic::GetNumRanges(_Out_ unsigned* pResult)
-{
+HRESULT DxcDiagnostic::GetNumRanges(unsigned *pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = clang_getDiagnosticNumRanges(m_diagnostic);
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcDiagnostic::GetRangeAt(unsigned index, IDxcSourceRange** pResult)
 {
   return DxcSourceRange::Create(clang_getDiagnosticRange(m_diagnostic, index), pResult);
 }
 
-HRESULT DxcDiagnostic::GetNumFixIts(_Out_ unsigned* pResult)
-{
+HRESULT DxcDiagnostic::GetNumFixIts(unsigned *pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = clang_getDiagnosticNumFixIts(m_diagnostic);
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcDiagnostic::GetFixItAt(unsigned index,
   IDxcSourceRange** pReplacementRange, LPSTR* pText)
 {
@@ -900,7 +842,6 @@ void DxcFile::Initialize(const CXFile& file)
   m_file = file;
 }
 
-_Use_decl_annotations_
 HRESULT DxcFile::Create(const CXFile& file, IDxcFile** pObject)
 {
   if (pObject == nullptr) return E_POINTER;
@@ -913,14 +854,12 @@ HRESULT DxcFile::Create(const CXFile& file, IDxcFile** pObject)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcFile::GetName(LPSTR* pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return CXStringToAnsiAndDispose(clang_getFileName(m_file), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcFile::IsEqualTo(IDxcFile* other, BOOL* pResult)
 {
   if (!pResult) return E_POINTER;
@@ -949,7 +888,6 @@ DxcInclusion::~DxcInclusion() {
   delete[] m_locations;
 }
 
-_Use_decl_annotations_
 HRESULT DxcInclusion::Initialize(CXFile file, unsigned locations, CXSourceLocation *pLocations) {
   if (locations) {
     m_locations = new (std::nothrow)CXSourceLocation[locations];
@@ -962,7 +900,6 @@ HRESULT DxcInclusion::Initialize(CXFile file, unsigned locations, CXSourceLocati
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcInclusion::Create(CXFile file, unsigned locations, CXSourceLocation *pLocations, IDxcInclusion **pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = nullptr;
@@ -976,21 +913,19 @@ HRESULT DxcInclusion::Create(CXFile file, unsigned locations, CXSourceLocation *
   return S_OK;
 }
 
-_Use_decl_annotations_
-HRESULT DxcInclusion::GetIncludedFile(_Outptr_result_nullonfailure_ IDxcFile** pResult) {
+HRESULT DxcInclusion::GetIncludedFile(IDxcFile **pResult) {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcFile::Create(m_file, pResult);
 }
 
-_Use_decl_annotations_
-HRESULT DxcInclusion::GetStackLength(_Out_ unsigned *pResult) {
+HRESULT DxcInclusion::GetStackLength(unsigned *pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = m_locationLength;
   return S_OK;
 }
 
-_Use_decl_annotations_
-HRESULT DxcInclusion::GetStackItem(unsigned index, _Outptr_result_nullonfailure_ IDxcSourceLocation **pResult) {
+HRESULT DxcInclusion::GetStackItem(unsigned index,
+                                   IDxcSourceLocation **pResult) {
   if (pResult == nullptr) return E_POINTER;
   if (index >= m_locationLength) return E_INVALIDARG;
   DxcThreadMalloc TM(m_pMalloc);
@@ -1029,7 +964,6 @@ HRESULT DxcIndex::Initialize(hlsl::DxcLangExtensionsHelper &langHelper) {
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcIndex::Create(hlsl::DxcLangExtensionsHelper &langHelper, DxcIndex** index)
 {
   if (index == nullptr) return E_POINTER;
@@ -1050,8 +984,7 @@ HRESULT DxcIndex::SetGlobalOptions(DxcGlobalOptions options)
   return S_OK;
 }
 
-HRESULT DxcIndex::GetGlobalOptions(_Out_ DxcGlobalOptions* options)
-{
+HRESULT DxcIndex::GetGlobalOptions(DxcGlobalOptions *options) {
   if (options == nullptr) return E_POINTER;
   *options = m_options;
   return S_OK;
@@ -1059,7 +992,6 @@ HRESULT DxcIndex::GetGlobalOptions(_Out_ DxcGlobalOptions* options)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-_Use_decl_annotations_
 HRESULT DxcIndex::ParseTranslationUnit(
   const char *source_filename,
   const char * const *command_line_args,
@@ -1114,7 +1046,6 @@ HRESULT DxcIndex::ParseTranslationUnit(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-_Use_decl_annotations_
 HRESULT DxcIntelliSense::CreateIndex(IDxcIndex** index)
 {
   DxcThreadMalloc TM(m_pMalloc);
@@ -1124,21 +1055,18 @@ HRESULT DxcIntelliSense::CreateIndex(IDxcIndex** index)
   return hr;
 }
 
-_Use_decl_annotations_
 HRESULT DxcIntelliSense::GetNullLocation(IDxcSourceLocation** location)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceLocation::Create(clang_getNullLocation(), location);
 }
 
-_Use_decl_annotations_
 HRESULT DxcIntelliSense::GetNullRange(IDxcSourceRange** location)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return DxcSourceRange::Create(clang_getNullRange(), location);
 }
 
-_Use_decl_annotations_
 HRESULT DxcIntelliSense::GetRange(
   IDxcSourceLocation* start,
   IDxcSourceLocation* end,
@@ -1155,22 +1083,20 @@ HRESULT DxcIntelliSense::GetRange(
 }
 
 HRESULT DxcIntelliSense::GetDefaultDiagnosticDisplayOptions(
-  _Out_ DxcDiagnosticDisplayOptions* pValue)
-{
+    DxcDiagnosticDisplayOptions *pValue) {
   if (pValue == nullptr) return E_POINTER;
   *pValue = (DxcDiagnosticDisplayOptions)clang_defaultDiagnosticDisplayOptions();
   return S_OK;
 }
 
-HRESULT DxcIntelliSense::GetDefaultEditingTUOptions(_Out_ DxcTranslationUnitFlags* pValue)
-{
+HRESULT
+DxcIntelliSense::GetDefaultEditingTUOptions(DxcTranslationUnitFlags *pValue) {
   if (pValue == nullptr) return E_POINTER;
   *pValue = (DxcTranslationUnitFlags)
     (clang_defaultEditingTranslationUnitOptions() | (unsigned)DxcTranslationUnitFlags_UseCallerThread);
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcIntelliSense::CreateUnsavedFile(LPCSTR fileName, LPCSTR contents, unsigned contentLength, IDxcUnsavedFile** pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
@@ -1184,7 +1110,6 @@ void DxcSourceLocation::Initialize(const CXSourceLocation& location)
   m_location = location;
 }
 
-_Use_decl_annotations_
 HRESULT DxcSourceLocation::Create(
   const CXSourceLocation& location,
   IDxcSourceLocation** pObject)
@@ -1199,8 +1124,7 @@ HRESULT DxcSourceLocation::Create(
   return S_OK;
 }
 
-HRESULT DxcSourceLocation::IsEqualTo(_In_ IDxcSourceLocation* other, _Out_ BOOL* pResult)
-{
+HRESULT DxcSourceLocation::IsEqualTo(IDxcSourceLocation *other, BOOL *pResult) {
   if (pResult == nullptr) return E_POINTER;
   if (other == nullptr)
   {
@@ -1215,12 +1139,9 @@ HRESULT DxcSourceLocation::IsEqualTo(_In_ IDxcSourceLocation* other, _Out_ BOOL*
   return S_OK;
 }
 
-HRESULT DxcSourceLocation::GetSpellingLocation(
-  _Outptr_opt_ IDxcFile** pFile,
-  _Out_opt_ unsigned* pLine,
-  _Out_opt_ unsigned* pCol,
-  _Out_opt_ unsigned* pOffset)
-{
+HRESULT DxcSourceLocation::GetSpellingLocation(IDxcFile **pFile,
+                                               unsigned *pLine, unsigned *pCol,
+                                               unsigned *pOffset) {
   CXFile file;
   unsigned line, col, offset;
   DxcThreadMalloc TM(m_pMalloc);
@@ -1236,19 +1157,16 @@ HRESULT DxcSourceLocation::GetSpellingLocation(
   return S_OK;
 }
 
-HRESULT DxcSourceLocation::IsNull(_Out_ BOOL* pResult)
-{
+HRESULT DxcSourceLocation::IsNull(BOOL *pResult) {
   if (pResult == nullptr) return E_POINTER;
   CXSourceLocation nullLocation = clang_getNullLocation();
   *pResult = 0 !=clang_equalLocations(nullLocation, m_location);
   return S_OK;
 }
 
-HRESULT DxcSourceLocation::GetPresumedLocation(
-  _Outptr_opt_ LPSTR* pFilename,
-  _Out_opt_ unsigned* pLine,
-  _Out_opt_ unsigned* pCol)
-{
+HRESULT DxcSourceLocation::GetPresumedLocation(LPSTR *pFilename,
+                                               unsigned *pLine,
+                                               unsigned *pCol) {
   DxcThreadMalloc TM(m_pMalloc);
 
   CXString filename;
@@ -1271,7 +1189,6 @@ void DxcSourceRange::Initialize(const CXSourceRange& range)
   m_range = range;
 }
 
-_Use_decl_annotations_
 HRESULT DxcSourceRange::Create(const CXSourceRange& range, IDxcSourceRange** pObject)
 {
   if (pObject == nullptr) return E_POINTER;
@@ -1284,7 +1201,6 @@ HRESULT DxcSourceRange::Create(const CXSourceRange& range, IDxcSourceRange** pOb
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcSourceRange::IsNull(BOOL* pValue)
 {
   if (pValue == nullptr) return E_POINTER;
@@ -1292,7 +1208,6 @@ HRESULT DxcSourceRange::IsNull(BOOL* pValue)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcSourceRange::GetStart(IDxcSourceLocation** pValue)
 {
   CXSourceLocation location = clang_getRangeStart(m_range);
@@ -1300,7 +1215,6 @@ HRESULT DxcSourceRange::GetStart(IDxcSourceLocation** pValue)
   return DxcSourceLocation::Create(location, pValue);
 }
 
-_Use_decl_annotations_
 HRESULT DxcSourceRange::GetEnd(IDxcSourceLocation** pValue)
 {
   CXSourceLocation location = clang_getRangeEnd(m_range);
@@ -1308,8 +1222,7 @@ HRESULT DxcSourceRange::GetEnd(IDxcSourceLocation** pValue)
   return DxcSourceLocation::Create(location, pValue);
 }
 
-HRESULT DxcSourceRange::GetOffsets(_Out_ unsigned* startOffset, _Out_ unsigned* endOffset)
-{
+HRESULT DxcSourceRange::GetOffsets(unsigned *startOffset, unsigned *endOffset) {
   if (startOffset == nullptr) return E_POINTER;
   if (endOffset == nullptr) return E_POINTER;
   CXSourceLocation startLocation = clang_getRangeStart(m_range);
@@ -1331,7 +1244,6 @@ void DxcToken::Initialize(const CXTranslationUnit& tu, const CXToken& token)
   m_token = token;
 }
 
-_Use_decl_annotations_
 HRESULT DxcToken::Create(
   const CXTranslationUnit& tu,
   const CXToken& token,
@@ -1347,8 +1259,7 @@ HRESULT DxcToken::Create(
   return S_OK;
 }
 
-HRESULT DxcToken::GetKind(_Out_ DxcTokenKind* pValue)
-{
+HRESULT DxcToken::GetKind(DxcTokenKind *pValue) {
   if (pValue == nullptr) return E_POINTER;
   switch (clang_getTokenKind(m_token))
   {
@@ -1363,7 +1274,6 @@ HRESULT DxcToken::GetKind(_Out_ DxcTokenKind* pValue)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcToken::GetLocation(IDxcSourceLocation** pValue)
 {
   if (pValue == nullptr) return E_POINTER;
@@ -1371,7 +1281,6 @@ HRESULT DxcToken::GetLocation(IDxcSourceLocation** pValue)
   return DxcSourceLocation::Create(clang_getTokenLocation(m_tu, m_token), pValue);
 }
 
-_Use_decl_annotations_
 HRESULT DxcToken::GetExtent(IDxcSourceRange** pValue)
 {
   if (pValue == nullptr) return E_POINTER;
@@ -1379,7 +1288,6 @@ HRESULT DxcToken::GetExtent(IDxcSourceRange** pValue)
   return DxcSourceRange::Create(clang_getTokenExtent(m_tu, m_token), pValue);
 }
 
-_Use_decl_annotations_
 HRESULT DxcToken::GetSpelling(LPSTR* pValue)
 {
   if (pValue == nullptr) return E_POINTER;
@@ -1417,7 +1325,6 @@ void DxcTranslationUnit::Initialize(CXTranslationUnit tu)
   m_tu = tu;
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::GetCursor(IDxcCursor** pCursor)
 {
   DxcThreadMalloc TM(m_pMalloc);
@@ -1425,7 +1332,6 @@ HRESULT DxcTranslationUnit::GetCursor(IDxcCursor** pCursor)
   return DxcCursor::Create(clang_getTranslationUnitCursor(m_tu), pCursor);
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::Tokenize(
   IDxcSourceRange* range,
   IDxcToken*** pTokens,
@@ -1480,12 +1386,9 @@ HRESULT DxcTranslationUnit::Tokenize(
   return hr;
 }
 
-_Use_decl_annotations_
-HRESULT DxcTranslationUnit::GetLocation(
-  _In_ IDxcFile* file,
-  unsigned line, unsigned column,
-  IDxcSourceLocation** pResult)
-{
+HRESULT DxcTranslationUnit::GetLocation(IDxcFile *file, unsigned line,
+                                        unsigned column,
+                                        IDxcSourceLocation **pResult) {
   if (pResult == nullptr) return E_POINTER;
   *pResult = nullptr;
 
@@ -1495,15 +1398,13 @@ HRESULT DxcTranslationUnit::GetLocation(
   return DxcSourceLocation::Create(clang_getLocation(m_tu, fileImpl->GetFile(), line, column), pResult);
 }
 
-HRESULT DxcTranslationUnit::GetNumDiagnostics(_Out_ unsigned* pValue)
-{
+HRESULT DxcTranslationUnit::GetNumDiagnostics(unsigned *pValue) {
   if (pValue == nullptr) return E_POINTER;
   DxcThreadMalloc TM(m_pMalloc);
   *pValue = clang_getNumDiagnostics(m_tu);
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::GetDiagnostic(unsigned index, IDxcDiagnostic** pValue)
 {
   if (pValue == nullptr) return E_POINTER;
@@ -1511,7 +1412,6 @@ HRESULT DxcTranslationUnit::GetDiagnostic(unsigned index, IDxcDiagnostic** pValu
   return DxcDiagnostic::Create(clang_getDiagnostic(m_tu, index), pValue);
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::GetFile(LPCSTR name, IDxcFile** pResult)
 {
   if (name == nullptr) return E_INVALIDARG;
@@ -1529,14 +1429,12 @@ HRESULT DxcTranslationUnit::GetFile(LPCSTR name, IDxcFile** pResult)
   return localFile == nullptr ? DISP_E_BADINDEX : DxcFile::Create(localFile, pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::GetFileName(LPSTR* pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return CXStringToAnsiAndDispose(clang_getTranslationUnitSpelling(m_tu), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::Reparse(
   IDxcUnsavedFile** unsaved_files,
   unsigned num_unsaved_files)
@@ -1552,7 +1450,6 @@ HRESULT DxcTranslationUnit::Reparse(
   return reparseResult == 0 ? S_OK : E_FAIL;
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::GetCursorForLocation(IDxcSourceLocation* location, IDxcCursor** pResult)
 {
   if (location == nullptr) return E_INVALIDARG;
@@ -1562,7 +1459,6 @@ HRESULT DxcTranslationUnit::GetCursorForLocation(IDxcSourceLocation* location, I
   return DxcCursor::Create(clang_getCursor(m_tu, locationImpl->GetLocation()), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::GetLocationForOffset(IDxcFile* file, unsigned offset, IDxcSourceLocation** pResult)
 {
   if (file == nullptr) return E_INVALIDARG;
@@ -1572,7 +1468,6 @@ HRESULT DxcTranslationUnit::GetLocationForOffset(IDxcFile* file, unsigned offset
   return DxcSourceLocation::Create(clang_getLocationForOffset(m_tu, fileImpl->GetFile(), offset), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::GetSkippedRanges(IDxcFile* file, unsigned* pResultCount, IDxcSourceRange*** pResult)
 {
   if (file == nullptr) return E_INVALIDARG;
@@ -1624,16 +1519,9 @@ HRESULT DxcTranslationUnit::GetSkippedRanges(IDxcFile* file, unsigned* pResultCo
 }
 
 HRESULT DxcTranslationUnit::GetDiagnosticDetails(
-  unsigned index,
-  DxcDiagnosticDisplayOptions options,
-  _Out_ unsigned* errorCode,
-  _Out_ unsigned* errorLine,
-  _Out_ unsigned* errorColumn,
-  _Out_ BSTR* errorFile,
-  _Out_ unsigned* errorOffset,
-  _Out_ unsigned* errorLength,
-  _Out_ BSTR* errorMessage)
-{
+    unsigned index, DxcDiagnosticDisplayOptions options, unsigned *errorCode,
+    unsigned *errorLine, unsigned *errorColumn, BSTR *errorFile,
+    unsigned *errorOffset, unsigned *errorLength, BSTR *errorMessage) {
   if (errorCode == nullptr || errorLine == nullptr ||
       errorColumn == nullptr || errorFile == nullptr ||
       errorOffset == nullptr || errorLength == nullptr ||
@@ -1691,7 +1579,6 @@ void VisitInclusion(CXFile included_file,
   }
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::GetInclusionList(unsigned *pResultCount,
                                              IDxcInclusion ***pResult) {
   if (pResultCount == nullptr || pResult == nullptr) {
@@ -1721,7 +1608,6 @@ HRESULT DxcTranslationUnit::GetInclusionList(unsigned *pResultCount,
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcTranslationUnit::CodeCompleteAt(
 	const char *fileName, unsigned line, unsigned column,
 	IDxcUnsavedFile **pUnsavedFiles, unsigned numUnsavedFiles,
@@ -1758,7 +1644,6 @@ HRESULT DxcTranslationUnit::CodeCompleteAt(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-_Use_decl_annotations_
 HRESULT DxcType::Create(const CXType& type, IDxcType** pObject)
 {
   if (pObject == nullptr) return E_POINTER;
@@ -1776,14 +1661,12 @@ void DxcType::Initialize(const CXType& type)
   m_type = type;
 }
 
-_Use_decl_annotations_
 HRESULT DxcType::GetSpelling(LPSTR* pResult)
 {
   DxcThreadMalloc TM(m_pMalloc);
   return CXStringToAnsiAndDispose(clang_getTypeSpelling(m_type), pResult);
 }
 
-_Use_decl_annotations_
 HRESULT DxcType::IsEqualTo(IDxcType* other, BOOL* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -1797,7 +1680,6 @@ HRESULT DxcType::IsEqualTo(IDxcType* other, BOOL* pResult)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcType::GetKind(DxcTypeKind* pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -1817,7 +1699,6 @@ void DxcCodeCompleteResults::Initialize(CXCodeCompleteResults* ccr)
   m_ccr = ccr;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCodeCompleteResults::GetNumResults(unsigned *pResult)
 {
   if (pResult == nullptr)
@@ -1829,7 +1710,6 @@ HRESULT DxcCodeCompleteResults::GetNumResults(unsigned *pResult)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCodeCompleteResults::GetResultAt(
   unsigned index,
   IDxcCompletionResult **pResult)
@@ -1859,7 +1739,6 @@ void DxcCompletionResult::Initialize(const CXCompletionResult &cr)
   m_cr = cr;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCompletionResult::GetCursorKind(DxcCursorKind *pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -1867,7 +1746,6 @@ HRESULT DxcCompletionResult::GetCursorKind(DxcCursorKind *pResult)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCompletionResult::GetCompletionString(IDxcCompletionString **pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -1892,7 +1770,6 @@ void DxcCompletionString::Initialize(const CXCompletionString &cs)
   m_cs = cs;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCompletionString::GetNumCompletionChunks(unsigned *pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -1900,7 +1777,6 @@ HRESULT DxcCompletionString::GetNumCompletionChunks(unsigned *pResult)
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCompletionString::GetCompletionChunkKind(unsigned chunkNumber, DxcCompletionChunkKind *pResult)
 {
   if (pResult == nullptr) return E_POINTER;
@@ -1908,7 +1784,6 @@ HRESULT DxcCompletionString::GetCompletionChunkKind(unsigned chunkNumber, DxcCom
   return S_OK;
 }
 
-_Use_decl_annotations_
 HRESULT DxcCompletionString::GetCompletionChunkText(unsigned chunkNumber, LPSTR* pResult)
 {
 	if (pResult == nullptr) return E_POINTER;

@@ -813,14 +813,10 @@ static const bool SampleFalse = false;            // a type does not support the
 static const bool SampleTrue = true;              // a type supports the .sample member
 static const size_t MaxVectorSize = 4;            // maximum size for a vector
 
-static 
-QualType GetOrCreateTemplateSpecialization(
-  ASTContext& context, 
-  Sema& sema,
-  _In_ ClassTemplateDecl* templateDecl,
-  ArrayRef<TemplateArgument> templateArgs
-  )
-{
+static QualType
+GetOrCreateTemplateSpecialization(ASTContext &context, Sema &sema,
+                                  ClassTemplateDecl *templateDecl,
+                                  ArrayRef<TemplateArgument> templateArgs) {
   DXASSERT_NOMSG(templateDecl);
   DeclContext* currentDeclContext = context.getTranslationUnitDecl();
   SmallVector<TemplateArgument, 3> templateArgsForDecl;
@@ -872,11 +868,9 @@ QualType GetOrCreateTemplateSpecialization(
 }
 
 /// <summary>Instantiates a new matrix type specialization or gets an existing one from the AST.</summary>
-static
-QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
-  _In_ ClassTemplateDecl* matrixTemplateDecl,
-  QualType elementType, uint64_t rowCount, uint64_t colCount)
-{
+static QualType GetOrCreateMatrixSpecialization(
+    ASTContext &context, Sema *sema, ClassTemplateDecl *matrixTemplateDecl,
+    QualType elementType, uint64_t rowCount, uint64_t colCount) {
   DXASSERT_NOMSG(sema);
 
   TemplateArgument templateArgs[3] = {
@@ -907,11 +901,10 @@ QualType GetOrCreateMatrixSpecialization(ASTContext& context, Sema* sema,
 }
 
 /// <summary>Instantiates a new vector type specialization or gets an existing one from the AST.</summary>
-static
-QualType GetOrCreateVectorSpecialization(ASTContext& context, Sema* sema,
-  _In_ ClassTemplateDecl* vectorTemplateDecl,
-  QualType elementType, uint64_t colCount)
-{
+static QualType
+GetOrCreateVectorSpecialization(ASTContext &context, Sema *sema,
+                                ClassTemplateDecl *vectorTemplateDecl,
+                                QualType elementType, uint64_t colCount) {
   DXASSERT_NOMSG(sema);
   DXASSERT_NOMSG(vectorTemplateDecl);
 
@@ -2236,13 +2229,11 @@ static void AddHLSLIntrinsicAttr(FunctionDecl *FD, ASTContext &context,
     FD->addAttr(HLSLWaveSensitiveAttr::CreateImplicit(context));
 }
 
-static
-FunctionDecl *AddHLSLIntrinsicFunction(
-    ASTContext &context, _In_ NamespaceDecl *NS,
-    LPCSTR tableName, LPCSTR lowering,
-    _In_ const HLSL_INTRINSIC *pIntrinsic,
-    std::vector<QualType> *functionArgQualTypesVector)
-{
+static FunctionDecl *
+AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
+                         LPCSTR tableName, LPCSTR lowering,
+                         const HLSL_INTRINSIC *pIntrinsic,
+                         std::vector<QualType> *functionArgQualTypesVector) {
   DeclContext *currentDeclContext = context.getTranslationUnitDecl();
   std::vector<QualType> &functionArgQualTypes = *functionArgQualTypesVector;
   const size_t functionArgTypeCount = functionArgQualTypes.size();
@@ -2325,9 +2316,7 @@ FunctionDecl *AddHLSLIntrinsicFunction(
 /// <summary>
 /// Checks whether the specified expression is a (possibly parenthesized) comma operator.
 /// </summary>
-static
-bool IsExpressionBinaryComma(_In_ const Expr* expr)
-{
+static bool IsExpressionBinaryComma(const Expr *expr) {
   DXASSERT_NOMSG(expr != nullptr);
   expr = expr->IgnoreParens();
   return
@@ -2339,9 +2328,7 @@ bool IsExpressionBinaryComma(_In_ const Expr* expr)
 /// Silences diagnostics for the initialization sequence, typically because they have already
 /// been emitted.
 /// </summary>
-static
-void SilenceSequenceDiagnostics(_Inout_ InitializationSequence* initSequence)
-{
+static void SilenceSequenceDiagnostics(InitializationSequence *initSequence) {
   DXASSERT_NOMSG(initSequence != nullptr);
   initSequence->SetFailed(InitializationSequence::FK_ListInitializationFailed);
 }
@@ -2421,19 +2408,15 @@ private:
   mutable FunctionDecl* m_functionDecl;
 };
 
-template <typename T>
-inline void AssignOpt(T value, _Out_opt_ T* ptr)
-{
+template <typename T> inline void AssignOpt(T value, T *ptr) {
   if (ptr != nullptr)
   {
     *ptr = value;
   }
 }
 
-static bool CombineBasicTypes(ArBasicKind LeftKind,
-                              ArBasicKind RightKind,
-                              _Out_ ArBasicKind* pOutKind)
-{
+static bool CombineBasicTypes(ArBasicKind LeftKind, ArBasicKind RightKind,
+                              ArBasicKind *pOutKind) {
   // Make sure the kinds are both valid
   if ((LeftKind < 0 || LeftKind >= AR_BASIC_MAXIMUM_COUNT) ||
       (RightKind < 0 || RightKind >= AR_BASIC_MAXIMUM_COUNT)) {
@@ -2576,9 +2559,9 @@ class UsedIntrinsicStore : public std::set<UsedIntrinsic>
 {
 };
 
-static
-void GetIntrinsicMethods(ArBasicKind kind, _Outptr_result_buffer_(*intrinsicCount) const HLSL_INTRINSIC** intrinsics, _Out_ size_t* intrinsicCount)
-{
+static void GetIntrinsicMethods(ArBasicKind kind,
+                                const HLSL_INTRINSIC **intrinsics,
+                                size_t *intrinsicCount) {
   DXASSERT_NOMSG(intrinsics != nullptr);
   DXASSERT_NOMSG(intrinsicCount != nullptr);
 
@@ -3413,7 +3396,7 @@ private:
   NamespaceDecl*     m_vkNSDecl;
 
   // Context being processed.
-  _Notnull_ ASTContext* m_context;
+  ASTContext *m_context;
 
   // Semantic analyzer being processed.
   Sema* m_sema;
@@ -3461,8 +3444,7 @@ private:
   /// <summary>Adds string type QualType for HLSL string declarations</summary>
   void AddHLSLStringType();
 
-  QualType GetTemplateObjectDataType(_In_ CXXRecordDecl* recordDecl)
-  {
+  QualType GetTemplateObjectDataType(CXXRecordDecl *recordDecl) {
     DXASSERT_NOMSG(recordDecl != nullptr);
     TemplateParameterList* parameterList = recordDecl->getTemplateParameterList(0);
     NamedDecl* parameterDecl = parameterList->getParam(0);
@@ -3502,16 +3484,16 @@ private:
   }
 
   // Adds a new template parameter declaration to the specified array and returns the type for the parameter.
-  QualType AddTemplateParamToArray(_In_z_ const char* name, _Inout_ CXXRecordDecl* recordDecl, int templateDepth,
-    _Inout_count_c_(g_MaxIntrinsicParamCount + 1) NamedDecl* (&templateParamNamedDecls)[g_MaxIntrinsicParamCount + 1],
-    _Inout_ size_t* templateParamNamedDeclsCount)
-  {
+  QualType AddTemplateParamToArray(
+      const char *name, CXXRecordDecl *recordDecl, int templateDepth,
+      NamedDecl *(&templateParamNamedDecls)[g_MaxIntrinsicParamCount + 1],
+      size_t *templateParamNamedDeclsCount) {
     DXASSERT_NOMSG(name != nullptr);
     DXASSERT_NOMSG(recordDecl != nullptr);
     DXASSERT_NOMSG(templateParamNamedDecls != nullptr);
     DXASSERT_NOMSG(templateParamNamedDeclsCount != nullptr);
     DXASSERT(*templateParamNamedDeclsCount < _countof(templateParamNamedDecls), "otherwise constants should be updated");
-    _Analysis_assume_(*templateParamNamedDeclsCount < _countof(templateParamNamedDecls));
+    assert(*templateParamNamedDeclsCount < _countof(templateParamNamedDecls));
 
     // Create the declaration for the template parameter.
     IdentifierInfo* id = &m_context->Idents.get(StringRef(name));
@@ -3534,15 +3516,15 @@ private:
   // Adds a function specified by the given intrinsic to a record declaration.
   // The template depth will be zero for records that don't have a "template<>" line
   // even if conceptual; or one if it does have one.
-  void AddObjectIntrinsicTemplate(_Inout_ CXXRecordDecl* recordDecl, int templateDepth, _In_ const HLSL_INTRINSIC* intrinsic)
-  {
+  void AddObjectIntrinsicTemplate(CXXRecordDecl *recordDecl, int templateDepth,
+                                  const HLSL_INTRINSIC *intrinsic) {
     DXASSERT_NOMSG(recordDecl != nullptr);
     DXASSERT_NOMSG(intrinsic != nullptr);
     DXASSERT(intrinsic->uNumArgs > 0, "otherwise there isn't even an intrinsic name");
     DXASSERT(intrinsic->uNumArgs <= (g_MaxIntrinsicParamCount + 1), "otherwise g_MaxIntrinsicParamCount should be updated");
     
     // uNumArgs includes the result type, g_MaxIntrinsicParamCount doesn't, thus the +1.
-    _Analysis_assume_(intrinsic->uNumArgs <= (g_MaxIntrinsicParamCount + 1));
+    assert(intrinsic->uNumArgs <= (g_MaxIntrinsicParamCount + 1));
 
     // TODO: implement template parameter constraints for HLSL intrinsic methods in declarations
 
@@ -3637,8 +3619,8 @@ private:
   }
 
   // Adds all the intrinsic methods that correspond to the specified type.
-  void AddObjectMethods(ArBasicKind kind, _In_ CXXRecordDecl* recordDecl, int templateDepth)
-  {
+  void AddObjectMethods(ArBasicKind kind, CXXRecordDecl *recordDecl,
+                        int templateDepth) {
     DXASSERT_NOMSG(recordDecl != nullptr);
     DXASSERT_NOMSG(templateDepth >= 0);
 
@@ -3664,14 +3646,11 @@ private:
   }
 
   void AddDoubleSubscriptSupport(
-    _In_ ClassTemplateDecl* typeDecl,
-    _In_ CXXRecordDecl* recordDecl,
-    _In_z_ const char* memberName, QualType elementType, TemplateTypeParmDecl* templateTypeParmDecl,
-    _In_z_ const char* type0Name,
-    _In_z_ const char* type1Name,
-    _In_z_ const char* indexer0Name, QualType indexer0Type,
-    _In_z_ const char* indexer1Name, QualType indexer1Type)
-  {
+      ClassTemplateDecl *typeDecl, CXXRecordDecl *recordDecl,
+      const char *memberName, QualType elementType,
+      TemplateTypeParmDecl *templateTypeParmDecl, const char *type0Name,
+      const char *type1Name, const char *indexer0Name, QualType indexer0Type,
+      const char *indexer1Name, QualType indexer1Type) {
     DXASSERT_NOMSG(typeDecl != nullptr);
     DXASSERT_NOMSG(recordDecl != nullptr);
     DXASSERT_NOMSG(memberName != nullptr);
@@ -3753,8 +3732,8 @@ private:
     recordDecl->addDecl(sampleFieldDecl);
   }
 
-  void AddObjectSubscripts(ArBasicKind kind, _In_ ClassTemplateDecl *typeDecl,
-                           _In_ CXXRecordDecl *recordDecl,
+  void AddObjectSubscripts(ArBasicKind kind, ClassTemplateDecl *typeDecl,
+                           CXXRecordDecl *recordDecl,
                            SubscriptOperatorRecord op) {
     DXASSERT_NOMSG(typeDecl != nullptr);
     DXASSERT_NOMSG(recordDecl != nullptr);
@@ -4083,7 +4062,7 @@ private:
         effectKindIndex = i;
 
       DXASSERT(kind < _countof(g_ArBasicTypeNames), "g_ArBasicTypeNames has the wrong number of entries");
-      _Analysis_assume_(kind < _countof(g_ArBasicTypeNames));
+      assert(kind < _countof(g_ArBasicTypeNames));
       const char* typeName = g_ArBasicTypeNames[kind];
       uint8_t templateArgCount = g_ArBasicKindsTemplateCount[i];
       CXXRecordDecl* recordDecl = nullptr;
@@ -4278,10 +4257,10 @@ private:
     std::sort(m_objectTypeDeclsMap.begin(), m_objectTypeDeclsMap.end(), ObjectTypeDeclMapTypeCmp);
   }
 
-  FunctionDecl* AddSubscriptSpecialization(
-    _In_ FunctionTemplateDecl* functionTemplate,
-    QualType objectElement,
-    const FindStructBasicTypeResult& findResult);
+  FunctionDecl *
+  AddSubscriptSpecialization(FunctionTemplateDecl *functionTemplate,
+                             QualType objectElement,
+                             const FindStructBasicTypeResult &findResult);
 
   ImplicitCastExpr* CreateLValueToRValueCast(Expr* input) {
     return ImplicitCastExpr::Create(*m_context, input->getType(), CK_LValueToRValue, input, nullptr, VK_RValue);
@@ -4344,8 +4323,7 @@ public:
 
   ~HLSLExternalSource() { }
 
-  static HLSLExternalSource* FromSema(_In_ Sema* self)
-  {
+  static HLSLExternalSource *FromSema(Sema *self) {
     DXASSERT_NOMSG(self != nullptr);
 
     ExternalSemaSource* externalSource = self->getExternalSource();
@@ -4833,7 +4811,7 @@ public:
     return AR_BASIC_UNKNOWN;
   }
 
-  void AddIntrinsicTableMethods(_In_ IDxcIntrinsicTable *table) {
+  void AddIntrinsicTableMethods(IDxcIntrinsicTable *table) {
     DXASSERT_NOMSG(table != nullptr);
 
     // Function intrinsics are added on-demand, objects get template methods.
@@ -4868,7 +4846,7 @@ public:
     }
   }
 
-  void RegisterIntrinsicTable(_In_ IDxcIntrinsicTable *table) {
+  void RegisterIntrinsicTable(IDxcIntrinsicTable *table) {
     DXASSERT_NOMSG(table != nullptr);
     m_intrinsicTables.push_back(table);
     // If already initialized, add methods immediately.
@@ -5055,13 +5033,9 @@ public:
     return type;
   }
 
-  QualType NewSimpleAggregateType(
-    _In_ ArTypeObjectKind ExplicitKind,
-    _In_ ArBasicKind componentType,
-    _In_ UINT64 qwQual,
-    _In_ UINT uRows,
-    _In_ UINT uCols)
-  {
+  QualType NewSimpleAggregateType(ArTypeObjectKind ExplicitKind,
+                                  ArBasicKind componentType, UINT64 qwQual,
+                                  UINT uRows, UINT uCols) {
     DXASSERT_VALIDBASICKIND(componentType);
 
     QualType pType;  // The type to return.
@@ -5121,32 +5095,23 @@ public:
   /// <param name="argTypes">After exectuion, type of arguments.</param>
   /// <param name="badArgIdx">The first argument to mismatch if any</param>
   /// <remarks>On success, argTypes includes the clang Types to use for the signature, with the first being the return type.</remarks>
-  bool MatchArguments(
-    const IntrinsicDefIter &cursor,
-    _In_ QualType objectType,
-    _In_ QualType objectElement,
-    _In_ QualType functionTemplateTypeArg,
-    _In_ ArrayRef<Expr *> Args, 
-    _Out_ std::vector<QualType> *,
-    _Out_ size_t &badArgIdx);
+  bool MatchArguments(const IntrinsicDefIter &cursor, QualType objectType,
+                      QualType objectElement, QualType functionTemplateTypeArg,
+                      ArrayRef<Expr *> Args, std::vector<QualType> *, size_t &badArgIdx);
 
   /// <summary>Validate object element on intrinsic to catch case like integer on Sample.</summary>
   /// <param name="tableName">Intrinsic function to validate.</param>
   /// <param name="op">Intrinsic opcode to validate.</param>
   /// <param name="objectElement">Type element on the class intrinsic belongs to; possibly null (eg, 'float' in 'Texture2D<float>').</param>
-  bool IsValidObjectElement(
-    LPCSTR tableName,
-    _In_ IntrinsicOp op,
-    _In_ QualType objectElement);
+  bool IsValidObjectElement(LPCSTR tableName, IntrinsicOp op,
+                            QualType objectElement);
 
   // Returns the iterator with the first entry that matches the requirement
-  IntrinsicDefIter FindIntrinsicByNameAndArgCount(
-    _In_count_(tableSize) const HLSL_INTRINSIC* table,
-    size_t tableSize,
-    StringRef typeName,
-    StringRef nameIdentifier,
-    size_t argumentCount)
-  {
+  IntrinsicDefIter FindIntrinsicByNameAndArgCount(const HLSL_INTRINSIC *table,
+                                                  size_t tableSize,
+                                                  StringRef typeName,
+                                                  StringRef nameIdentifier,
+                                                  size_t argumentCount) {
     // This is implemented by a linear scan for now.
     // We tested binary search on tables, and there was no performance gain on
     // samples probably for the following reasons.
@@ -5311,7 +5276,7 @@ public:
   }
 
   /// <summary>Checks whether the specified type is numeric or composed of numeric elements exclusively.</summary>
-  bool IsTypeNumeric(QualType type, _Out_ UINT* count);
+  bool IsTypeNumeric(QualType type, UINT *count);
 
   /// <summary>Checks whether the specified type is a scalar type.</summary>
   bool IsScalarType(const QualType& type) {
@@ -5423,17 +5388,17 @@ public:
   }
 
   /// <summary>Checks whether the source type can be converted to the target type.</summary>
-  bool CanConvert(SourceLocation loc, Expr* sourceExpr, QualType target, bool explicitConversion,
-    _Out_opt_ TYPE_CONVERSION_REMARKS* remarks,
-    _Inout_opt_ StandardConversionSequence* sequence);
-  void CollectInfo(QualType type, _Out_ ArTypeInfo* pTypeInfo);
+  bool CanConvert(SourceLocation loc, Expr *sourceExpr, QualType target,
+                  bool explicitConversion, TYPE_CONVERSION_REMARKS *remarks,
+                  StandardConversionSequence *sequence);
+  void CollectInfo(QualType type, ArTypeInfo *pTypeInfo);
   void GetConversionForm(
     QualType type,
     bool explicitConversion,
     ArTypeInfo* pTypeInfo);
-  bool ValidateCast(SourceLocation Loc, _In_ Expr* source, QualType target, bool explicitConversion,
-     bool suppressWarnings, bool suppressErrors,
-    _Inout_opt_ StandardConversionSequence* sequence);
+  bool ValidateCast(SourceLocation Loc, Expr *source, QualType target,
+                    bool explicitConversion, bool suppressWarnings,
+                    bool suppressErrors, StandardConversionSequence *sequence);
   bool ValidatePrimitiveTypeForOperand(SourceLocation loc, QualType type, ArTypeObjectKind kind);
   bool ValidateTypeRequirements(
     SourceLocation loc,
@@ -5479,17 +5444,13 @@ public:
   /// <param name="RHS">Right hand side.</param>
   /// <param name="QuestionLoc">Location of question mark in operator.</param>
   /// <returns>Result type of vector conditional expression.</returns>
-  clang::QualType CheckVectorConditional(
-    _In_ ExprResult &Cond,
-    _In_ ExprResult &LHS,
-    _In_ ExprResult &RHS,
-    _In_ SourceLocation QuestionLoc);
+  clang::QualType CheckVectorConditional(ExprResult &Cond, ExprResult &LHS,
+                                         ExprResult &RHS,
+                                         SourceLocation QuestionLoc);
 
-  clang::QualType ApplyTypeSpecSignToParsedType(
-      _In_ clang::QualType &type,
-      _In_ TypeSpecifierSign TSS,
-      _In_ SourceLocation Loc
-  );
+  clang::QualType ApplyTypeSpecSignToParsedType(clang::QualType &type,
+                                                TypeSpecifierSign TSS,
+                                                SourceLocation Loc);
 
   bool CheckRangedTemplateArgument(SourceLocation diagLoc, llvm::APSInt& sintValue)
   {
@@ -5504,7 +5465,7 @@ public:
 
   /// <summary>Performs HLSL-specific processing of template declarations.</summary>
   bool
-  CheckTemplateArgumentListForHLSL(_In_ TemplateDecl *Template,
+  CheckTemplateArgumentListForHLSL(TemplateDecl *Template,
                                    SourceLocation /* TemplateLoc */,
                                    TemplateArgumentListInfo &TemplateArgList) {
     DXASSERT_NOMSG(Template != nullptr);
@@ -5648,18 +5609,17 @@ public:
     return false;
   }
 
-  FindStructBasicTypeResult FindStructBasicType(_In_ DeclContext* functionDeclContext);
+  FindStructBasicTypeResult
+  FindStructBasicType(DeclContext *functionDeclContext);
 
   /// <summary>Finds the table of intrinsics for the declaration context of a member function.</summary>
   /// <param name="functionDeclContext">Declaration context of function.</param>
   /// <param name="name">After execution, the name of the object to which the table applies.</param>
   /// <param name="intrinsics">After execution, the intrinsic table.</param>
   /// <param name="intrinsicCount">After execution, the count of elements in the intrinsic table.</param>
-  void FindIntrinsicTable(
-    _In_ DeclContext* functionDeclContext,
-    _Outptr_result_z_ const char** name,
-    _Outptr_result_buffer_(*intrinsicCount) const HLSL_INTRINSIC** intrinsics,
-    _Out_ size_t* intrinsicCount);
+  void FindIntrinsicTable(DeclContext *functionDeclContext, const char **name,
+                          const HLSL_INTRINSIC **intrinsics,
+                          size_t *intrinsicCount);
 
   /// <summary>Deduces the template arguments by comparing the argument types and the HLSL intrinsic tables.</summary>
   /// <param name="FunctionTemplate">The declaration for the function template being deduced.</param>
@@ -5687,12 +5647,10 @@ public:
   /// <param name="Args">Arguments to the initialization.</param>
   /// <param name="TopLevelOfInitList">Whether this is the top-level of an initialization list.</param>
   /// <param name="initSequence">Initialization sequence description to initialize.</param>
-  void InitializeInitSequenceForHLSL(
-    const InitializedEntity& Entity,
-    const InitializationKind& Kind,
-    MultiExprArg Args,
-    bool TopLevelOfInitList,
-    _Inout_ InitializationSequence* initSequence);
+  void InitializeInitSequenceForHLSL(const InitializedEntity &Entity,
+                                     const InitializationKind &Kind,
+                                     MultiExprArg Args, bool TopLevelOfInitList,
+                                     InitializationSequence *initSequence);
 
   /// <summary>
   /// Checks whether the specified conversion occurs to a type of idential element type but less elements.
@@ -5758,18 +5716,15 @@ public:
   /// Constant/TextureBuffer<T>, converts it to const T.</summary>
   /// <param name="E">Expression to convert.</param>
   /// <returns>The result of the conversion; or E if the type is not a scalar.</returns>
-  ExprResult MaybeConvertMemberAccess(_In_ clang::Expr* E);
+  ExprResult MaybeConvertMemberAccess(clang::Expr *E);
 
-  clang::Expr *HLSLImpCastToScalar(
-    _In_ clang::Sema* self,
-    _In_ clang::Expr* From,
-    ArTypeObjectKind FromShape,
-    ArBasicKind EltKind);
-  clang::ExprResult PerformHLSLConversion(
-    _In_ clang::Expr* From,
-    _In_ clang::QualType targetType,
-    _In_ const clang::StandardConversionSequence &SCS,
-    _In_ clang::Sema::CheckedConversionKind CCK);
+  clang::Expr *HLSLImpCastToScalar(clang::Sema *self, clang::Expr *From,
+                                   ArTypeObjectKind FromShape,
+                                   ArBasicKind EltKind);
+  clang::ExprResult
+  PerformHLSLConversion(clang::Expr *From, clang::QualType targetType,
+                        const clang::StandardConversionSequence &SCS,
+                        clang::Sema::CheckedConversionKind CCK);
 
   /// <summary>Diagnoses an error when precessing the specified type if nesting is too deep.</summary>
   void ReportUnsupportedTypeNesting(SourceLocation loc, QualType type);
@@ -5787,13 +5742,13 @@ public:
   /// <param name="ListInitialization">Whether the cast is in the context of a list initialization.</param>
   /// <param name="SuppressWarnings">Whether warnings should be omitted.</param>
   /// <param name="SuppressErrors">Whether errors should be omitted.</param>
-  bool TryStaticCastForHLSL(ExprResult &SrcExpr,
-    QualType DestType,
-    Sema::CheckedConversionKind CCK,
-    const SourceRange &OpRange, unsigned &msg,
-    CastKind &Kind, CXXCastPath &BasePath,
-    bool ListInitialization, bool SuppressWarnings, bool SuppressErrors,
-    _Inout_opt_ StandardConversionSequence* standard);
+  bool TryStaticCastForHLSL(ExprResult &SrcExpr, QualType DestType,
+                            Sema::CheckedConversionKind CCK,
+                            const SourceRange &OpRange, unsigned &msg,
+                            CastKind &Kind, CXXCastPath &BasePath,
+                            bool ListInitialization, bool SuppressWarnings,
+                            bool SuppressErrors,
+                            StandardConversionSequence *standard);
 
   /// <summary>
   /// Checks if a subscript index argument can be initialized from the given expression.
@@ -5804,7 +5759,9 @@ public:
   /// Rules for subscript index initialization follow regular implicit casting rules, with the exception that
   /// no changes in arity are allowed (i.e., int2 can become uint2, but uint or uint3 cannot).
   /// </remarks>
-  ImplicitConversionSequence TrySubscriptIndexInitialization(_In_ clang::Expr* SrcExpr, clang::QualType DestType);
+  ImplicitConversionSequence
+  TrySubscriptIndexInitialization(clang::Expr *SrcExpr,
+                                  clang::QualType DestType);
 
   void CompleteType(TagDecl *Tag) override {
     if (Tag->isCompleteDefinition() || !isa<CXXRecordDecl>(Tag))
@@ -5840,15 +5797,12 @@ public:
     recordDecl->completeDefinition();
   }
 
-  FunctionDecl* AddHLSLIntrinsicMethod(
-    LPCSTR tableName,
-    LPCSTR lowering,
-    _In_ const HLSL_INTRINSIC* intrinsic,
-    _In_ FunctionTemplateDecl *FunctionTemplate,
-    ArrayRef<Expr *> Args,
-    _In_count_(parameterTypeCount) QualType* parameterTypes,
-    size_t parameterTypeCount)
-  {
+  FunctionDecl *AddHLSLIntrinsicMethod(LPCSTR tableName, LPCSTR lowering,
+                                       const HLSL_INTRINSIC *intrinsic,
+                                       FunctionTemplateDecl *FunctionTemplate,
+                                       ArrayRef<Expr *> Args,
+                                       QualType *parameterTypes,
+                                       size_t parameterTypeCount) {
     DXASSERT_NOMSG(intrinsic != nullptr);
     DXASSERT_NOMSG(FunctionTemplate != nullptr);
     DXASSERT_NOMSG(parameterTypes != nullptr);
@@ -6039,7 +5993,7 @@ private:
   /// <summary>Pushes a tracker for the specified expression; returns true if there is something to evaluate.</summary>
   bool pushTrackerForExpression(MultiExprArg::iterator expression);
   /// <summary>Pushes a tracker for the specified type; returns true if there is something to evaluate.</summary>
-  bool pushTrackerForType(QualType type, _In_opt_ MultiExprArg::iterator expression);
+  bool pushTrackerForType(QualType type, MultiExprArg::iterator expression);
 
 public:
   /// <summary>Constructs a FlattenedTypeIterator for the specified type.</summary>
@@ -6168,11 +6122,9 @@ void HLSLExternalSource::AddHLSLStringType() {
   m_hlslStringType = m_context->HLSLStringTy;
 }
 
-FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(
-  _In_ FunctionTemplateDecl* functionTemplate,
-  QualType objectElement,
-  const FindStructBasicTypeResult& findResult)
-{
+FunctionDecl *HLSLExternalSource::AddSubscriptSpecialization(
+    FunctionTemplateDecl *functionTemplate, QualType objectElement,
+    const FindStructBasicTypeResult &findResult) {
   DXASSERT_NOMSG(functionTemplate != nullptr);
   DXASSERT_NOMSG(!objectElement.isNull());
   DXASSERT_NOMSG(findResult.Found());
@@ -6252,8 +6204,8 @@ FunctionDecl* HLSLExternalSource::AddSubscriptSpecialization(
 /// and want to treat either side equally you should call it twice, swapping the
 /// parameter order.
 /// </summary>
-static bool CombineObjectTypes(ArBasicKind Target, _In_ ArBasicKind Source,
-                               _Out_opt_ ArBasicKind *pCombined) {
+static bool CombineObjectTypes(ArBasicKind Target, ArBasicKind Source,
+                               ArBasicKind *pCombined) {
   if (Target == Source) {
     AssignOpt(Target, pCombined);
     return true;
@@ -6421,9 +6373,9 @@ ConcreteLiteralType(Expr *litExpr, ArBasicKind kind,
   }
 }
 
-_Use_decl_annotations_ bool
-HLSLExternalSource::IsValidObjectElement(LPCSTR tableName, const IntrinsicOp op,
-                                         QualType objectElement) {
+bool HLSLExternalSource::IsValidObjectElement(LPCSTR tableName,
+                                              const IntrinsicOp op,
+                                              QualType objectElement) {
   // Only meant to exclude builtins, assume others are fine
   if (!IsBuiltinTable(tableName))
     return true;
@@ -6498,7 +6450,6 @@ static ArBasicKind GetValidWaveMatrixComponentTypeForArg(
   return objEltKind;
 }
 
-_Use_decl_annotations_
 bool HLSLExternalSource::MatchArguments(
   const IntrinsicDefIter &cursor,
   QualType objectType,
@@ -7151,14 +7102,15 @@ bool HLSLExternalSource::MatchArguments(
   // For object return types that need to match arguments, we need to slot in
   // the full type here Can't do it sooner because when return is encountered
   // above, the other arg types haven't been set
-  if (Template[pIntrinsic->pArgs[0].uTemplateId] == AR_TOBJ_OBJECT)
-    argTypes[0] = argTypes[pIntrinsic->pArgs[0].uComponentTypeId];
+  if (pIntrinsic->pArgs[0].uTemplateId < MaxIntrinsicArgs) {
+    if (Template[pIntrinsic->pArgs[0].uTemplateId] == AR_TOBJ_OBJECT)
+      argTypes[0] = argTypes[pIntrinsic->pArgs[0].uComponentTypeId];
+  }
 
   return badArgIdx == MaxIntrinsicArgs;
 #undef CAB
 }
 
-_Use_decl_annotations_
 HLSLExternalSource::FindStructBasicTypeResult
 HLSLExternalSource::FindStructBasicType(DeclContext* functionDeclContext)
 {
@@ -7181,7 +7133,6 @@ HLSLExternalSource::FindStructBasicType(DeclContext* functionDeclContext)
   return HLSLExternalSource::FindStructBasicTypeResult(AR_BASIC_UNKNOWN, 0);
 }
 
-_Use_decl_annotations_
 void HLSLExternalSource::FindIntrinsicTable(DeclContext* functionDeclContext, const char** name, const HLSL_INTRINSIC** intrinsics, size_t* intrinsicCount)
 {
   DXASSERT_NOMSG(functionDeclContext != nullptr);
@@ -7424,7 +7375,6 @@ ExprResult HLSLExternalSource::PromoteToIntIfBool(ExprResult& E)
   return E;
 }
 
-_Use_decl_annotations_
 void HLSLExternalSource::CollectInfo(QualType type, ArTypeInfo* pTypeInfo)
 {
   DXASSERT_NOMSG(pTypeInfo != nullptr);
@@ -8126,7 +8076,7 @@ UINT64 HLSLExternalSource::ScoreCast(QualType pLType, QualType pRType)
 #undef SCORE_COND
 
   // Make sure our scores fit in a UINT64.
-  C_ASSERT(SCORE_MIN_SHIFT + SCORE_PARAM_SHIFT * 8 <= 64);
+  static_assert(SCORE_MIN_SHIFT + SCORE_PARAM_SHIFT * 8 <= 64);
 
   return uScore;
 }
@@ -8225,12 +8175,9 @@ OverloadingResult HLSLExternalSource::GetBestViableFunction(
 /// <param name="TopLevelOfInitList">Whether this is the top-level of an initialization list.</param>
 /// <param name="initSequence">Initialization sequence description to initialize.</param>
 void HLSLExternalSource::InitializeInitSequenceForHLSL(
-  const InitializedEntity& Entity,
-  const InitializationKind& Kind,
-  MultiExprArg Args,
-  bool TopLevelOfInitList,
-  _Inout_ InitializationSequence* initSequence)
-{
+    const InitializedEntity &Entity, const InitializationKind &Kind,
+    MultiExprArg Args, bool TopLevelOfInitList,
+    InitializationSequence *initSequence) {
   DXASSERT_NOMSG(initSequence != nullptr);
 
   // In HLSL there are no default initializers, eg float4x4 m();
@@ -8519,9 +8466,9 @@ MatrixMemberAccessError TryConsumeMatrixDigit(const char*& memberText, uint32_t*
   return MatrixMemberAccessError_None;
 }
 
-static
-MatrixMemberAccessError TryParseMatrixMemberAccess(_In_z_ const char* memberText, _Out_ MatrixMemberAccessPositions* value)
-{
+static MatrixMemberAccessError
+TryParseMatrixMemberAccess(const char *memberText,
+                           MatrixMemberAccessPositions *value) {
   DXASSERT_NOMSG(memberText != nullptr);
   DXASSERT_NOMSG(value != nullptr);
 
@@ -8768,8 +8715,9 @@ VectorMemberAccessError TryConsumeVectorDigit(const char*& memberText, uint32_t*
   return VectorMemberAccessError_None;
 }
 
-static
-VectorMemberAccessError TryParseVectorMemberAccess(_In_z_ const char* memberText, _Out_ VectorMemberAccessPositions* value) {
+static VectorMemberAccessError
+TryParseVectorMemberAccess(const char *memberText,
+                           VectorMemberAccessPositions *value) {
   DXASSERT_NOMSG(memberText != nullptr);
   DXASSERT_NOMSG(value != nullptr);
 
@@ -8968,9 +8916,8 @@ ExprResult HLSLExternalSource::LookupArrayMemberExprForHLSL(
 
   return ExprError();
 }
-  
 
-ExprResult HLSLExternalSource::MaybeConvertMemberAccess(_In_ clang::Expr* E) {
+ExprResult HLSLExternalSource::MaybeConvertMemberAccess(clang::Expr *E) {
   DXASSERT_NOMSG(E != nullptr);
 
   if (IsHLSLObjectWithImplicitMemberAccess(E->getType())) {
@@ -9049,12 +8996,10 @@ static clang::CastKind ConvertToComponentCastKind(clang::CastKind CK) {
   return CK_Invalid;
 }
 
-clang::Expr *HLSLExternalSource::HLSLImpCastToScalar(
-  _In_ clang::Sema* self,
-  _In_ clang::Expr* From,
-  ArTypeObjectKind FromShape,
-  ArBasicKind EltKind)
-{
+clang::Expr *HLSLExternalSource::HLSLImpCastToScalar(clang::Sema *self,
+                                                     clang::Expr *From,
+                                                     ArTypeObjectKind FromShape,
+                                                     ArBasicKind EltKind) {
   clang::CastKind CK = CK_Invalid;
   if (AR_TOBJ_MATRIX == FromShape)
     CK = CK_HLSLMatrixToScalarCast;
@@ -9068,11 +9013,9 @@ clang::Expr *HLSLExternalSource::HLSLImpCastToScalar(
 }
 
 clang::ExprResult HLSLExternalSource::PerformHLSLConversion(
-  _In_ clang::Expr* From,
-  _In_ clang::QualType targetType,
-  _In_ const clang::StandardConversionSequence &SCS,
-  _In_ clang::Sema::CheckedConversionKind CCK)
-{
+    clang::Expr *From, clang::QualType targetType,
+    const clang::StandardConversionSequence &SCS,
+    clang::Sema::CheckedConversionKind CCK) {
   QualType sourceType = From->getType();
   sourceType = GetStructuralForm(sourceType);
   targetType = GetStructuralForm(targetType);
@@ -9258,9 +9201,8 @@ void HLSLExternalSource::GetConversionForm(
   }
 }
 
-static
-bool HandleVoidConversion(QualType source, QualType target, bool explicitConversion, _Out_ bool* allowed)
-{
+static bool HandleVoidConversion(QualType source, QualType target,
+                                 bool explicitConversion, bool *allowed) {
   DXASSERT_NOMSG(allowed != nullptr);
   bool applicable = true;
   *allowed = true;
@@ -9585,15 +9527,10 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
   return true;
 }
 
-_Use_decl_annotations_
-bool HLSLExternalSource::CanConvert(
-  SourceLocation loc,
-  Expr* sourceExpr,
-  QualType target,
-  bool explicitConversion,
-  _Out_opt_ TYPE_CONVERSION_REMARKS* remarks,
-  _Inout_opt_ StandardConversionSequence* standard)
-{
+bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
+                                    QualType target, bool explicitConversion,
+                                    TYPE_CONVERSION_REMARKS *remarks,
+                                    StandardConversionSequence *standard) {
   UINT uTSize, uSSize;
   bool SourceIsAggregate, TargetIsAggregate; // Early declarations due to gotos below
 
@@ -10382,12 +10319,10 @@ QualType HLSLExternalSource::CheckUnaryOpForHLSL(
   }
 }
 
-clang::QualType HLSLExternalSource::CheckVectorConditional(
-  _In_ ExprResult &Cond,
-  _In_ ExprResult &LHS,
-  _In_ ExprResult &RHS,
-  _In_ SourceLocation QuestionLoc)
-{
+clang::QualType
+HLSLExternalSource::CheckVectorConditional(ExprResult &Cond, ExprResult &LHS,
+                                           ExprResult &RHS,
+                                           SourceLocation QuestionLoc) {
 
   Cond = m_sema->CorrectDelayedTyposInExpr(Cond);
   LHS = m_sema->CorrectDelayedTyposInExpr(LHS);
@@ -10571,9 +10506,10 @@ clang::QualType HLSLExternalSource::CheckVectorConditional(
 
 // Apply type specifier sign to the given QualType.
 // Other than privmitive int type, only allow shorthand vectors and matrices to be unsigned.
-clang::QualType HLSLExternalSource::ApplyTypeSpecSignToParsedType(
-    _In_ clang::QualType &type, _In_ clang::TypeSpecifierSign TSS,
-    _In_ clang::SourceLocation Loc) {
+clang::QualType
+HLSLExternalSource::ApplyTypeSpecSignToParsedType(clang::QualType &type,
+                                                  clang::TypeSpecifierSign TSS,
+                                                  clang::SourceLocation Loc) {
   if (TSS == TypeSpecifierSign::TSS_unspecified) {
     return type;
   }
@@ -10784,14 +10720,11 @@ void HLSLExternalSource::ReportUnsupportedTypeNesting(SourceLocation loc, QualTy
   m_sema->Diag(loc, diag::err_hlsl_unsupported_type_nesting) << type;
 }
 
-bool HLSLExternalSource::TryStaticCastForHLSL(ExprResult &SrcExpr,
-  QualType DestType,
-  Sema::CheckedConversionKind CCK,
-  const SourceRange &OpRange, unsigned &msg,
-  CastKind &Kind, CXXCastPath &BasePath,
-  bool ListInitialization, bool SuppressWarnings, bool SuppressErrors,
-  _Inout_opt_ StandardConversionSequence* standard)
-{
+bool HLSLExternalSource::TryStaticCastForHLSL(
+    ExprResult &SrcExpr, QualType DestType, Sema::CheckedConversionKind CCK,
+    const SourceRange &OpRange, unsigned &msg, CastKind &Kind,
+    CXXCastPath &BasePath, bool ListInitialization, bool SuppressWarnings,
+    bool SuppressErrors, StandardConversionSequence *standard) {
   DXASSERT(!SrcExpr.isInvalid(), "caller should check for invalid expressions and placeholder types");
   bool explicitConversion
     = (CCK == Sema::CCK_CStyleCast || CCK == Sema::CCK_FunctionalCast);
@@ -10821,7 +10754,7 @@ bool HLSLExternalSource::TryStaticCastForHLSL(ExprResult &SrcExpr,
 /// no changes in arity are allowed (i.e., int2 can become uint2, but uint or uint3 cannot).
 /// </remarks>
 ImplicitConversionSequence
-HLSLExternalSource::TrySubscriptIndexInitialization(_In_ clang::Expr *SrcExpr,
+HLSLExternalSource::TrySubscriptIndexInitialization(clang::Expr *SrcExpr,
                                                     clang::QualType DestType) {
   DXASSERT_NOMSG(SrcExpr != nullptr);
   DXASSERT_NOMSG(!DestType.isNull());
@@ -10975,9 +10908,9 @@ bool IsValueInBasicRange(ArBasicKind basicKind, const APValue& value)
   }
 }
 
-static
-bool IsPrecisionLossIrrelevant(ASTContext& Ctx, _In_ const Expr* sourceExpr, QualType targetType, ArBasicKind targetKind)
-{
+static bool IsPrecisionLossIrrelevant(ASTContext &Ctx, const Expr *sourceExpr,
+                                      QualType targetType,
+                                      ArBasicKind targetKind) {
   DXASSERT_NOMSG(!targetType.isNull());
   DXASSERT_NOMSG(sourceExpr != nullptr);
 
@@ -10991,15 +10924,11 @@ bool IsPrecisionLossIrrelevant(ASTContext& Ctx, _In_ const Expr* sourceExpr, Qua
   return false;
 }
 
-bool HLSLExternalSource::ValidateCast(
-  SourceLocation OpLoc,
-  _In_ Expr* sourceExpr,
-  QualType target,
-  bool explicitConversion,
-  bool suppressWarnings,
-  bool suppressErrors,
-  _Inout_opt_ StandardConversionSequence* standard)
-{
+bool HLSLExternalSource::ValidateCast(SourceLocation OpLoc, Expr *sourceExpr,
+                                      QualType target, bool explicitConversion,
+                                      bool suppressWarnings,
+                                      bool suppressErrors,
+                                      StandardConversionSequence *standard) {
   DXASSERT_NOMSG(sourceExpr != nullptr);
 
   if (OpLoc.isInvalid())
@@ -11779,10 +11708,10 @@ static unsigned CaculateInitListSize(HLSLExternalSource *hlslSource,
   return totalSize;
 }
 
-unsigned hlsl::CaculateInitListArraySizeForHLSL(
-  _In_ clang::Sema* sema,
-  _In_ const clang::InitListExpr *InitList,
-  _In_ const clang::QualType EltTy) {
+unsigned
+hlsl::CaculateInitListArraySizeForHLSL(clang::Sema *sema,
+                                       const clang::InitListExpr *InitList,
+                                       const clang::QualType EltTy) {
   HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(sema);
   unsigned totalSize = CaculateInitListSize(hlslSource, InitList);
   unsigned eltSize = hlslSource->GetNumBasicElements(EltTy);
@@ -11853,11 +11782,8 @@ bool hlsl::ShouldSkipNRVO(clang::Sema& sema, clang::QualType returnType, clang::
 }
 
 bool hlsl::IsConversionToLessOrEqualElements(
-  _In_ clang::Sema* self,
-  const clang::ExprResult& sourceExpr,
-  const clang::QualType& targetType,
-  bool explicitConversion)
-{
+    clang::Sema *self, const clang::ExprResult &sourceExpr,
+    const clang::QualType &targetType, bool explicitConversion) {
   return HLSLExternalSource::FromSema(self)
     ->IsConversionToLessOrEqualElements(sourceExpr, targetType, explicitConversion);
 }
@@ -11924,42 +11850,32 @@ bool hlsl::LookupRecordMemberExprForHLSL(
   return false;
 }
 
-clang::ExprResult hlsl::MaybeConvertMemberAccess(
-  _In_ clang::Sema* self,
-  _In_ clang::Expr* E)
-{
+clang::ExprResult hlsl::MaybeConvertMemberAccess(clang::Sema *self,
+                                                 clang::Expr *E) {
   return HLSLExternalSource::FromSema(self)->MaybeConvertMemberAccess(E);
 }
 
-bool hlsl::TryStaticCastForHLSL(_In_ Sema* self, ExprResult &SrcExpr,
-  QualType DestType,
-  Sema::CheckedConversionKind CCK,
-  const SourceRange &OpRange, unsigned &msg,
-  CastKind &Kind, CXXCastPath &BasePath,
-  bool ListInitialization,
-  bool SuppressDiagnostics,
-  _Inout_opt_ StandardConversionSequence* standard)
-{
+bool hlsl::TryStaticCastForHLSL(
+    Sema *self, ExprResult &SrcExpr, QualType DestType,
+    Sema::CheckedConversionKind CCK, const SourceRange &OpRange, unsigned &msg,
+    CastKind &Kind, CXXCastPath &BasePath, bool ListInitialization,
+    bool SuppressDiagnostics, StandardConversionSequence *standard) {
   return HLSLExternalSource::FromSema(self)->TryStaticCastForHLSL(
       SrcExpr, DestType, CCK, OpRange, msg, Kind, BasePath, ListInitialization,
       SuppressDiagnostics, SuppressDiagnostics, standard);
 }
 
-clang::ExprResult hlsl::PerformHLSLConversion(
-  _In_ clang::Sema* self,
-  _In_ clang::Expr* From,
-  _In_ clang::QualType targetType,
-  _In_ const clang::StandardConversionSequence &SCS,
-  _In_ clang::Sema::CheckedConversionKind CCK)
-{
+clang::ExprResult
+hlsl::PerformHLSLConversion(clang::Sema *self, clang::Expr *From,
+                            clang::QualType targetType,
+                            const clang::StandardConversionSequence &SCS,
+                            clang::Sema::CheckedConversionKind CCK) {
   return HLSLExternalSource::FromSema(self)->PerformHLSLConversion(From, targetType, SCS, CCK);
 }
 
-clang::ImplicitConversionSequence hlsl::TrySubscriptIndexInitialization(
-  _In_ clang::Sema* self,
-  _In_ clang::Expr* SrcExpr,
-  clang::QualType DestType)
-{
+clang::ImplicitConversionSequence
+hlsl::TrySubscriptIndexInitialization(clang::Sema *self, clang::Expr *SrcExpr,
+                                      clang::QualType DestType) {
   return HLSLExternalSource::FromSema(self)
     ->TrySubscriptIndexInitialization(SrcExpr, DestType);
 }
@@ -12749,7 +12665,7 @@ static void ValidateAttributeOnSwitchOrIf(Sema& S, Stmt* St, const AttributeList
 }
 
 static StringRef ValidateAttributeStringArg(Sema &S, const AttributeList &A,
-                                            _In_opt_z_ const char *values,
+                                            const char *values,
                                             unsigned index = 0,
                                             bool isCaseSensitive = true) {
   // values is an optional comma-separated list of potential values.
@@ -12849,12 +12765,9 @@ HLSLShaderAttr* ValidateShaderAttributes(Sema &S, Decl *D,
         ShaderModel::KindFromFullName(Existing->getStage());
     if (Stage == NewStage)
       return nullptr; // don't create, but no error.
-    if ((Stage != DXIL::ShaderKind::Compute &&
-         Stage != DXIL::ShaderKind::Node) ||
-        (NewStage != DXIL::ShaderKind::Compute &&
-         NewStage != DXIL::ShaderKind::Node)) {
-      S.Diag(A.getLoc(), diag::err_hlsl_attribute_mismatch);
-      S.Diag(A.getLoc(), diag::note_conflicting_attribute);
+    else {
+      S.Diag(A.getLoc(), diag::err_hlsl_conflicting_shader_attribute)
+          << ShaderModel::FullNameFromKind(Stage) << ShaderModel::FullNameFromKind(NewStage);
       S.Diag(Existing->getLocation(), diag::note_conflicting_attribute);
       return nullptr;
     }
@@ -14413,10 +14326,9 @@ static QualType getUnderlyingType(QualType Type)
 /// <param name="ppMatrixOrientation">Set pointer to column_major/row_major AttributedType if supplied.</param>
 /// <param name="ppNorm">Set pointer to snorm/unorm AttributedType if supplied.</param>
 void hlsl::GetHLSLAttributedTypes(
-    _In_ clang::Sema *self, clang::QualType type,
-    _Inout_opt_ const clang::AttributedType **ppMatrixOrientation,
-    _Inout_opt_ const clang::AttributedType **ppNorm,
-    _Inout_opt_ const clang::AttributedType **ppGLC) {
+    clang::Sema *self, clang::QualType type,
+    const clang::AttributedType **ppMatrixOrientation,
+    const clang::AttributedType **ppNorm, const clang::AttributedType **ppGLC) {
   AssignOpt<const clang::AttributedType *>(nullptr, ppMatrixOrientation);
   AssignOpt<const clang::AttributedType *>(nullptr, ppNorm);
   AssignOpt<const clang::AttributedType *>(nullptr, ppGLC);
@@ -14477,29 +14389,22 @@ void hlsl::GetHLSLAttributedTypes(
 /// <summary>Returns true if QualType is an HLSL Matrix type.</summary>
 /// <param name="self">Sema with context.</param>
 /// <param name="type">QualType to check.</param>
-bool hlsl::IsMatrixType(
-  _In_ clang::Sema* self, 
-  _In_ clang::QualType type)
-{
+bool hlsl::IsMatrixType(clang::Sema *self, clang::QualType type) {
   return HLSLExternalSource::FromSema(self)->GetTypeObjectKind(type) == AR_TOBJ_MATRIX;
 }
 
 /// <summary>Returns true if QualType is an HLSL Vector type.</summary>
 /// <param name="self">Sema with context.</param>
 /// <param name="type">QualType to check.</param>
-bool hlsl::IsVectorType(
-  _In_ clang::Sema* self, 
-  _In_ clang::QualType type)
-{
+bool hlsl::IsVectorType(clang::Sema *self, clang::QualType type) {
   return HLSLExternalSource::FromSema(self)->GetTypeObjectKind(type) == AR_TOBJ_VECTOR;
 }
 
 /// <summary>Get element type for an HLSL Matrix or Vector, preserving AttributedType.</summary>
 /// <param name="self">Sema with context.</param>
 /// <param name="type">Matrix or Vector type.</param>
-clang::QualType hlsl::GetOriginalMatrixOrVectorElementType(
-  _In_ clang::QualType type)
-{
+clang::QualType
+hlsl::GetOriginalMatrixOrVectorElementType(clang::QualType type) {
   // TODO: Determine if this is really the best way to get the matrix/vector specialization
   // without losing the AttributedType on the template parameter
   if (const Type* Ty = type.getTypePtrOrNull()) {
@@ -14530,10 +14435,8 @@ clang::QualType hlsl::GetOriginalMatrixOrVectorElementType(
 /// <summary>Get element type, preserving AttributedType, if vector or matrix, otherwise return the type unmodified.</summary>
 /// <param name="self">Sema with context.</param>
 /// <param name="type">Input type.</param>
-clang::QualType hlsl::GetOriginalElementType(
-  _In_ clang::Sema* self, 
-  _In_ clang::QualType type)
-{
+clang::QualType hlsl::GetOriginalElementType(clang::Sema *self,
+                                             clang::QualType type) {
   ArTypeObjectKind Kind = HLSLExternalSource::FromSema(self)->GetTypeObjectKind(type);
   if (Kind == AR_TOBJ_MATRIX || Kind == AR_TOBJ_VECTOR) {
     return GetOriginalMatrixOrVectorElementType(type);
@@ -15060,11 +14963,8 @@ void hlsl::PrintClipPlaneIfPresent(clang::Expr *ClipPlane, llvm::raw_ostream &Ou
   }
 }
 
-bool hlsl::IsObjectType(
-  _In_ clang::Sema* self,
-  _In_ clang::QualType type,
-  _Inout_opt_ bool *isDeprecatedEffectObject)
-{
+bool hlsl::IsObjectType(clang::Sema *self, clang::QualType type,
+                        bool *isDeprecatedEffectObject) {
   HLSLExternalSource *pExternalSource = HLSLExternalSource::FromSema(self);
   if (pExternalSource && pExternalSource->GetTypeObjectKind(type) == AR_TOBJ_OBJECT) {
     if (isDeprecatedEffectObject)
@@ -15076,14 +14976,10 @@ bool hlsl::IsObjectType(
   return false;
 }
 
-bool hlsl::CanConvert(
-  _In_ clang::Sema* self, 
-  clang::SourceLocation loc,
-  _In_ clang::Expr* sourceExpr, 
-  clang::QualType target,
-  bool explicitConversion,
-  _Inout_opt_ clang::StandardConversionSequence* standard)
-{
+bool hlsl::CanConvert(clang::Sema *self, clang::SourceLocation loc,
+                      clang::Expr *sourceExpr, clang::QualType target,
+                      bool explicitConversion,
+                      clang::StandardConversionSequence *standard) {
   return HLSLExternalSource::FromSema(self)->CanConvert(loc, sourceExpr, target, explicitConversion, nullptr, standard);
 }
 
@@ -15093,8 +14989,8 @@ void hlsl::Indent(unsigned int Indentation, llvm::raw_ostream &Out)
     Out << "  ";
 }
 
-void hlsl::RegisterIntrinsicTable(_In_ clang::ExternalSemaSource* self, _In_ IDxcIntrinsicTable* table)
-{
+void hlsl::RegisterIntrinsicTable(clang::ExternalSemaSource *self,
+                                  IDxcIntrinsicTable *table) {
   DXASSERT_NOMSG(self != nullptr);
   DXASSERT_NOMSG(table != nullptr);
 
@@ -15102,17 +14998,14 @@ void hlsl::RegisterIntrinsicTable(_In_ clang::ExternalSemaSource* self, _In_ IDx
   source->RegisterIntrinsicTable(table);
 }
 
-clang::QualType hlsl::CheckVectorConditional(
-  _In_ clang::Sema* self,
-  _In_ clang::ExprResult &Cond,
-  _In_ clang::ExprResult &LHS,
-  _In_ clang::ExprResult &RHS,
-  _In_ clang::SourceLocation QuestionLoc)
-{
+clang::QualType
+hlsl::CheckVectorConditional(clang::Sema *self, clang::ExprResult &Cond,
+                             clang::ExprResult &LHS, clang::ExprResult &RHS,
+                             clang::SourceLocation QuestionLoc) {
   return HLSLExternalSource::FromSema(self)->CheckVectorConditional(Cond, LHS, RHS, QuestionLoc);
 }
 
-bool IsTypeNumeric(_In_ clang::Sema* self, _In_ clang::QualType &type) {
+bool IsTypeNumeric(clang::Sema *self, clang::QualType &type) {
   UINT count;
   return HLSLExternalSource::FromSema(self)->IsTypeNumeric(type, &count);
 }
@@ -15156,14 +15049,12 @@ void Sema::CheckHLSLArrayAccess(const Expr *expr) {
   }
 }
 
-clang::QualType ApplyTypeSpecSignToParsedType(
-    _In_ clang::Sema* self,
-    _In_ clang::QualType &type,
-    _In_ clang::TypeSpecifierSign TSS, 
-    _In_ clang::SourceLocation Loc
-)
-{
-    return HLSLExternalSource::FromSema(self)->ApplyTypeSpecSignToParsedType(type, TSS, Loc);
+clang::QualType ApplyTypeSpecSignToParsedType(clang::Sema *self,
+                                              clang::QualType &type,
+                                              clang::TypeSpecifierSign TSS,
+                                              clang::SourceLocation Loc) {
+  return HLSLExternalSource::FromSema(self)->ApplyTypeSpecSignToParsedType(
+      type, TSS, Loc);
 }
 
 QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
@@ -15201,24 +15092,20 @@ static bool nodeInputIsCompatible(StringRef& typeName,
 
 void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 
-  SourceLocation ComputeLoc = SourceLocation();
   SourceLocation NodeLoc = SourceLocation();
   SourceLocation NodeLaunchLoc = SourceLocation();
   DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
   unsigned InputCount = 0;
-
-  // a function may be both compute and work-graph node
-  for (auto *pAttr : FD->specific_attrs<HLSLShaderAttr>()) {
-    DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(pAttr->getStage());
-    if (shaderKind == DXIL::ShaderKind::Node) {
-      NodeLoc = pAttr->getLocation();
-    } else if (shaderKind == DXIL::ShaderKind::Compute) {
-      ComputeLoc = pAttr->getLocation();
-    }
+  
+  auto pAttr = FD->getAttr<HLSLShaderAttr>();
+  DXIL::ShaderKind shaderKind =
+      ShaderModel::KindFromFullName(pAttr->getStage());
+  if (shaderKind == DXIL::ShaderKind::Node) {
+    NodeLoc = pAttr->getLocation();
   }
-  // if this isn't a work-graph node we can quit now
-  if (!NodeLoc.isValid())
+  if (NodeLoc.isInvalid()) {
     return;
+  }
 
   // save NodeLaunch type for use later
   if (auto NodeLaunchAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
@@ -15228,15 +15115,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   } else {
     NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
     NodeLaunchLoc = SourceLocation();
-  }
-
-  // If this is both a compute shader and work-graph node, it may only have
-  // broadcasting launch mode
-  if (ComputeLoc.isValid() &&
-      NodeLaunchTy != DXIL::NodeLaunchType::Broadcasting) {
-    S.Diags.Report(NodeLaunchLoc, diag::err_hlsl_compute_launch_compatibility)
-      << FD->getName() << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy);
-    S.Diags.Report(ComputeLoc, diag::note_defined_here) << "compute";
   }
 
   // Check that if a Thread launch node has the NumThreads attribute the
@@ -15312,14 +15190,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     ParmVarDecl *Param = FD->getParamDecl(Idx);
     clang::QualType ParamTy = Param->getType();
 
-    // compute is incompatible with node input/output
-    if (ComputeLoc.isValid() && hlsl::IsHLSLNodeType(ParamTy)) {
-      S.Diags.Report(Param->getLocation(),
-                     diag::err_hlsl_compute_io_compatibility)
-        << FD->getName() << "node input/output" << Param->getSourceRange();
-      S.Diags.Report(ComputeLoc, diag::note_defined_here) << "compute";
-    }
-
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(ParamTy)) {
       InputCount++;
@@ -15394,10 +15264,61 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   return;
 }
 
-void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
-  auto Attr = FD->getAttr<HLSLShaderAttr>();
-  if (!Attr)
+// if this is the Entry FD, then try adding the target profile
+// shader attribute to the FD and carry on with validation
+void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
+  const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;  
+  
+  // if there's no defined entry point, just return
+  if (EntryPointName.empty()) {
     return;
+  }
+
+  // if this FD isn't the entry point, then we shouldn't add
+  // a shader attribute to this decl, so just return
+  if (EntryPointName != FD->getIdentifier()->getName()) {
+    return;
+  }
+
+  std::string profile = S.getLangOpts().HLSLProfile;
+  const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+  const llvm::StringRef fullName = ShaderModel::FullNameFromKind(SM->GetKind());
+
+  // don't add the attribute for an invalid profile, like library
+  if (fullName.empty()) {
+    return;
+  }
+
+  HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
+  // Don't add the attribute if it already exists as an attribute on the decl.
+  // In the special case that the target profile is compute and the
+  // entry decl already has a node shader attr, don't do anything
+  if (currentShaderAttr) {
+    llvm::StringRef currentFullName = currentShaderAttr->getStage();
+    if (currentFullName != fullName) {     
+      S.Diag(currentShaderAttr->getLocation(),
+             diag::err_hlsl_profile_conflicts_with_shader_attribute)
+          << fullName << profile << currentFullName << EntryPointName;      
+    }
+    // Don't add another attr if one exists, to prevent
+    // more unrelated errors down the line.
+    return;
+  }
+
+  HLSLShaderAttr *pShaderAttr =
+      HLSLShaderAttr::CreateImplicit(S.Context, fullName);
+  
+  FD->addAttr(pShaderAttr);
+  return;
+}
+
+void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
+  TryAddShaderAttrFromTargetProfile(S, FD);
+
+  auto Attr = FD->getAttr<HLSLShaderAttr>();
+  if (!Attr) {         
+    return;     
+  }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
   switch (Stage) {
@@ -15410,6 +15331,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Invalid:
+  case DXIL::ShaderKind::Compute:
     return;
   case DXIL::ShaderKind::Callable: {
     return DiagnoseCallableEntry(S, FD, Attr);
@@ -15425,9 +15347,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::ClosestHit: {
     return DiagnoseClosestHitEntry(S, FD, Attr);
   }
-  case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Node: {
-    // A compute shader may also be a node, so we check it here
     return DiagnoseNodeEntry(S, FD, Attr);
   }
   }

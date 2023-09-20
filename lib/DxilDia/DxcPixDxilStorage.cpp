@@ -98,18 +98,14 @@ HRESULT CreateDxcPixStorageImpl(
   return E_UNEXPECTED;
 }
 
-
 STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::AccessField(
-    _In_ LPCWSTR Name,
-    _COM_Outptr_ IDxcPixDxilStorage** ppResult)
-{
+    LPCWSTR Name, IDxcPixDxilStorage **ppResult) {
   return E_FAIL;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::Index(
-    _In_ DWORD Index,
-    _COM_Outptr_ IDxcPixDxilStorage** ppResult)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilArrayStorage::Index(DWORD Index,
+                                               IDxcPixDxilStorage **ppResult) {
   CComPtr<IDxcPixType> IndexedType;
   IFR(m_pType->GetIndexedType(&IndexedType));
 
@@ -136,8 +132,7 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::Index(
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetRegisterNumber(
-    _Outptr_result_z_ DWORD* pRegisterNumber)
-{
+    DWORD *pRegisterNumber) {
   return E_FAIL;
 }
 
@@ -153,18 +148,15 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetIsAlive()
   return E_FAIL;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetType(
-    _Outptr_result_z_ IDxcPixType** ppType)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilArrayStorage::GetType(IDxcPixType **ppType) {
   *ppType = m_pOriginalType;
   (*ppType)->AddRef();
   return S_OK;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::AccessField(
-    _In_ LPCWSTR Name,
-    _COM_Outptr_ IDxcPixDxilStorage** ppResult)
-{
+    LPCWSTR Name, IDxcPixDxilStorage **ppResult) {
   DWORD FieldOffsetInBits = 0;
   CComPtr<IDxcPixType> FieldType;
   if (*Name != 0)
@@ -192,16 +184,14 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::AccessField(
       ppResult);
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::Index(
-    _In_ DWORD Index,
-    _COM_Outptr_ IDxcPixDxilStorage** ppResult)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilStructStorage::Index(DWORD Index,
+                                                IDxcPixDxilStorage **ppResult) {
   return E_FAIL;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::GetRegisterNumber(
-    _Outptr_result_z_ DWORD* pRegisterNumber)
-{
+    DWORD *pRegisterNumber) {
   return E_FAIL;
 }
 
@@ -217,31 +207,26 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::GetIsAlive()
   return E_FAIL;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::GetType(
-    _Outptr_result_z_ IDxcPixType** ppType)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilStructStorage::GetType(IDxcPixType **ppType) {
   *ppType = m_pOriginalType;
   (*ppType)->AddRef();
   return S_OK;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::AccessField(
-    _In_ LPCWSTR Name,
-    _COM_Outptr_ IDxcPixDxilStorage** ppResult)
-{
+    LPCWSTR Name, IDxcPixDxilStorage **ppResult) {
   return E_FAIL;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::Index(
-    _In_ DWORD Index,
-    _COM_Outptr_ IDxcPixDxilStorage** ppResult)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilScalarStorage::Index(DWORD Index,
+                                                IDxcPixDxilStorage **ppResult) {
   return E_FAIL;
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetRegisterNumber(
-    _Outptr_result_z_ DWORD* pRegisterNumber)
-{
+    DWORD *pRegisterNumber) {
   const auto &ValueLocationMap = m_pVarInfo->m_ValueLocationMap;
   auto RegIt = ValueLocationMap.find(
       m_OffsetFromStorageStartInBits);
@@ -279,9 +264,8 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetIsAlive()
   return RegIt == ValueLocationMap.end() ? E_FAIL : S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetType(
-    _Outptr_result_z_ IDxcPixType **ppType)
-{
+STDMETHODIMP
+dxil_debug_info::DxcPixDxilScalarStorage::GetType(IDxcPixType **ppType) {
   *ppType = m_pOriginalType;
   (*ppType)->AddRef();
   return S_OK;

@@ -4417,7 +4417,7 @@ void TranslateAtomicBinaryOperation(AtomicHelper &helper,
   if (addr->getType()->isVectorTy()) {
     unsigned vectorNumElements = addr->getType()->getVectorNumElements();
     DXASSERT(vectorNumElements <= 3, "up to 3 elements for atomic binary op");
-    _Analysis_assume_(vectorNumElements <= 3);
+    assert(vectorNumElements <= 3);
     for (unsigned i = 0; i < vectorNumElements; i++) {
       Value *Elt = Builder.CreateExtractElement(addr, i);
       args[DXIL::OperandIndex::kAtomicBinOpCoord0OpIdx + i] = Elt;
@@ -4539,7 +4539,7 @@ void TranslateAtomicCmpXChg(AtomicHelper &helper, IRBuilder<> &Builder,
   if (addr->getType()->isVectorTy()) {
     unsigned vectorNumElements = addr->getType()->getVectorNumElements();
     DXASSERT(vectorNumElements <= 3, "up to 3 elements in atomic op");
-    _Analysis_assume_(vectorNumElements <= 3);
+    assert(vectorNumElements <= 3);
     for (unsigned i = 0; i < vectorNumElements; i++) {
       Value *Elt = Builder.CreateExtractElement(addr, i);
       args[DXIL::OperandIndex::kAtomicCmpExchangeCoord0OpIdx + i] = Elt;
@@ -6556,7 +6556,7 @@ void TranslateCBAddressUser(Instruction *user, Value *handle, Value *baseOffset,
       if (resultType->isVectorTy())
         resultSize = resultType->getVectorNumElements();
       DXASSERT(resultSize <= 16, "up to 4x4 elements in vector or matrix");
-      _Analysis_assume_(resultSize <= 16);
+      assert(resultSize <= 16);
       Value *idxList[16];
 
       switch (subOp) {
@@ -6977,7 +6977,7 @@ void TranslateCBAddressUserLegacy(Instruction *user, Value *handle,
       if (resultType->isVectorTy())
         resultSize = resultType->getVectorNumElements();
       DXASSERT(resultSize <= 16, "up to 4x4 elements in vector or matrix");
-      _Analysis_assume_(resultSize <= 16);
+      assert(resultSize <= 16);
       Value *idxList[16];
       bool colMajor = subOp == HLSubscriptOpcode::ColMatSubscript ||
                       subOp == HLSubscriptOpcode::ColMatElement;
@@ -7693,7 +7693,7 @@ void TranslateStructBufMatSubscript(CallInst *CI,
   if (resultType->isVectorTy())
     resultSize = resultType->getVectorNumElements();
   DXASSERT(resultSize <= 16, "up to 4x4 elements in vector or matrix");
-  _Analysis_assume_(resultSize <= 16);
+  assert(resultSize <= 16);
   std::vector<Value *> idxList(resultSize);
 
   switch (subOp) {
@@ -7958,7 +7958,7 @@ void TranslateStructBufSubscriptUser(
         if (Ty->isVectorTy()) {
           unsigned vectorNumElements = Ty->getVectorNumElements();
           DXASSERT(vectorNumElements <= 4, "up to 4 elements in vector");
-          _Analysis_assume_(vectorNumElements <= 4);
+          assert(vectorNumElements <= 4);
           for (unsigned i = 0; i < vectorNumElements; i++) {
             vals[i] = Builder.CreateExtractElement(val, i);
             mask |= (1<<i);

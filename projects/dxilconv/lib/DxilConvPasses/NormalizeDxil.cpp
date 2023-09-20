@@ -20,7 +20,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"
 
-#include "dxc/DXIL/DXILOperations.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
 
 #include <vector>

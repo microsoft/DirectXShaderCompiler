@@ -399,21 +399,15 @@ struct IDxcPixTypeEntrypoint : public Entrypoint<IDxcPixType>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixTypeEntrypoint);
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override
-  {
+  STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *SizeInBits) override
-  {
+  STDMETHODIMP GetSizeInBits(DWORD *SizeInBits) override {
     return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType** ppBaseType) override
-  {
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override {
     return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 };
@@ -423,21 +417,15 @@ struct IDxcPixConstTypeEntrypoint : public Entrypoint<IDxcPixConstType>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixConstTypeEntrypoint);
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override
-  {
+  STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *SizeInBits) override
-  {
+  STDMETHODIMP GetSizeInBits(DWORD *SizeInBits) override {
     return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType** ppBaseType) override
-  {
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override {
     return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 };
@@ -447,21 +435,15 @@ struct IDxcPixTypedefTypeEntrypoint : public Entrypoint<IDxcPixTypedefType>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixTypedefTypeEntrypoint);
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override
-  {
+  STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *SizeInBits) override
-  {
+  STDMETHODIMP GetSizeInBits(DWORD *SizeInBits) override {
     return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType** ppBaseType) override
-  {
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override {
     return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 };
@@ -471,21 +453,15 @@ struct IDxcPixScalarTypeEntrypoint : public Entrypoint<IDxcPixScalarType>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixScalarTypeEntrypoint);
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override
-  {
+  STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *SizeInBits) override
-  {
+  STDMETHODIMP GetSizeInBits(DWORD *SizeInBits) override {
     return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType** ppBaseType) override
-  {
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override {
     return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 };
@@ -495,39 +471,27 @@ struct IDxcPixArrayTypeEntrypoint : public Entrypoint<IDxcPixArrayType>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixArrayTypeEntrypoint);
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override
-  {
+  STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *SizeInBits) override
-  {
+  STDMETHODIMP GetSizeInBits(DWORD *SizeInBits) override {
     return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType** ppBaseType) override
-  {
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override {
     return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 
-  STDMETHODIMP GetNumElements(
-      _Outptr_result_z_ DWORD *ppNumElements) override
-  {
+  STDMETHODIMP GetNumElements(DWORD *ppNumElements) override {
     return InvokeOnReal(&IInterface::GetNumElements, CheckNotNull(OutParam(ppNumElements)));
   }
 
-  STDMETHODIMP GetIndexedType(
-      _Outptr_result_z_ IDxcPixType **ppElementType) override
-  {
+  STDMETHODIMP GetIndexedType(IDxcPixType **ppElementType) override {
     return InvokeOnReal(&IInterface::GetIndexedType, CheckNotNull(OutParam(ppElementType)));
   }
 
-  STDMETHODIMP GetElementType(
-      _Outptr_result_z_ IDxcPixType** ppElementType) override
-  {
+  STDMETHODIMP GetElementType(IDxcPixType **ppElementType) override {
     return InvokeOnReal(&IInterface::GetElementType, CheckNotNull(OutParam(ppElementType)));
   }
 };
@@ -537,21 +501,15 @@ struct IDxcPixStructFieldEntrypoint : public Entrypoint<IDxcPixStructField>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixStructFieldEntrypoint);
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override
-  {
+  STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType** ppType) override
-  {
+  STDMETHODIMP GetType(IDxcPixType **ppType) override {
     return InvokeOnReal(&IInterface::GetType, CheckNotNull(OutParam(ppType)));
   }
 
-  STDMETHODIMP GetOffsetInBits(
-      _Outptr_result_z_ DWORD *pOffsetInBits) override
-  {
+  STDMETHODIMP GetOffsetInBits(DWORD *pOffsetInBits) override {
     return InvokeOnReal(&IInterface::GetOffsetInBits, CheckNotNull(OutParam(pOffsetInBits)));
   }
 };
@@ -561,47 +519,34 @@ struct IDxcPixStructType2Entrypoint : public Entrypoint<IDxcPixStructType2>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixStructType2Entrypoint);
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override
-  {
+  STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
-  STDMETHODIMP GetSizeInBits(
-      _Outptr_result_z_ DWORD *SizeInBits) override
-  {
+  STDMETHODIMP GetSizeInBits(DWORD *SizeInBits) override {
     return InvokeOnReal(&IInterface::GetSizeInBits, CheckNotNull(OutParam(SizeInBits)));
   }
 
-  STDMETHODIMP UnAlias(
-      _Outptr_result_z_ IDxcPixType** ppBaseType) override
-  {
+  STDMETHODIMP UnAlias(IDxcPixType **ppBaseType) override {
     return InvokeOnReal(&IInterface::UnAlias, CheckNotNull(OutParam(ppBaseType)));
   }
 
-  STDMETHODIMP GetNumFields(
-      _Outptr_result_z_ DWORD* ppNumFields) override
-  {
-      return InvokeOnReal(&IInterface::GetNumFields, CheckNotNull(OutParam(ppNumFields)));
+  STDMETHODIMP GetNumFields(DWORD *ppNumFields) override {
+    return InvokeOnReal(&IInterface::GetNumFields,
+                        CheckNotNull(OutParam(ppNumFields)));
   }
 
-  STDMETHODIMP GetFieldByIndex(
-      DWORD dwIndex,
-      _Outptr_result_z_ IDxcPixStructField **ppField) override
-  {
+  STDMETHODIMP GetFieldByIndex(DWORD dwIndex,
+                               IDxcPixStructField **ppField) override {
     return InvokeOnReal(&IInterface::GetFieldByIndex, dwIndex, CheckNotNull(OutParam(ppField)));
   }
 
-  STDMETHODIMP GetFieldByName(
-      _In_ LPCWSTR lpName,
-      _Outptr_result_z_ IDxcPixStructField** ppField) override
-  {
+  STDMETHODIMP GetFieldByName(LPCWSTR lpName,
+                              IDxcPixStructField **ppField) override {
     return InvokeOnReal(&IInterface::GetFieldByName, CheckNotNull(InParam(lpName)), CheckNotNull(OutParam(ppField)));
   }
 
-  STDMETHODIMP GetBaseType(
-      _Outptr_result_z_ IDxcPixType** ppType) override
-  {
+  STDMETHODIMP GetBaseType(IDxcPixType **ppType) override {
     return InvokeOnReal(&IInterface::GetBaseType, CheckNotNull(OutParam(ppType)));
   }
 };
@@ -611,23 +556,16 @@ struct IDxcPixDxilStorageEntrypoint : public Entrypoint<IDxcPixDxilStorage>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixDxilStorageEntrypoint);
 
-  STDMETHODIMP AccessField(
-      _In_ LPCWSTR Name,
-      _COM_Outptr_ IDxcPixDxilStorage** ppResult) override
-  {
+  STDMETHODIMP AccessField(LPCWSTR Name,
+                           IDxcPixDxilStorage **ppResult) override {
     return InvokeOnReal(&IInterface::AccessField, CheckNotNull(InParam(Name)), CheckNotNull(OutParam(ppResult)));
   }
 
-  STDMETHODIMP Index(
-      _In_ DWORD Index,
-      _COM_Outptr_ IDxcPixDxilStorage** ppResult) override
-  {
+  STDMETHODIMP Index(DWORD Index, IDxcPixDxilStorage **ppResult) override {
     return InvokeOnReal(&IInterface::Index, Index, CheckNotNull(OutParam(ppResult)));
   }
 
-  STDMETHODIMP GetRegisterNumber(
-      _Outptr_result_z_ DWORD *pRegNum) override
-  {
+  STDMETHODIMP GetRegisterNumber(DWORD *pRegNum) override {
     return InvokeOnReal(&IInterface::GetRegisterNumber, CheckNotNull(OutParam(pRegNum)));
   }
 
@@ -636,9 +574,7 @@ struct IDxcPixDxilStorageEntrypoint : public Entrypoint<IDxcPixDxilStorage>
     return InvokeOnReal(&IInterface::GetIsAlive);
   }
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType** ppType) override
-  {
+  STDMETHODIMP GetType(IDxcPixType **ppType) override {
     return InvokeOnReal(&IInterface::GetType, CheckNotNull(OutParam(ppType)));
   }
 };
@@ -648,22 +584,17 @@ struct IDxcPixVariableEntrypoint : public Entrypoint<IDxcPixVariable>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixVariableEntrypoint);
 
-  STDMETHODIMP GetName(
-      _Outptr_result_z_ BSTR *Name) override
-  {
+  STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
   }
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) override
-  {
+  STDMETHODIMP GetType(IDxcPixType **ppType) override {
     return InvokeOnReal(&IInterface::GetType, CheckNotNull(OutParam(ppType)));
   }
 
-  STDMETHODIMP GetStorage(
-      _COM_Outptr_ IDxcPixDxilStorage **ppStorage) override
-  {
-      return InvokeOnReal(&IInterface::GetStorage, CheckNotNull(OutParam(ppStorage)));
+  STDMETHODIMP GetStorage(IDxcPixDxilStorage **ppStorage) override {
+    return InvokeOnReal(&IInterface::GetStorage,
+                        CheckNotNull(OutParam(ppStorage)));
   }
 };
 DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixVariable);
@@ -672,23 +603,17 @@ struct IDxcPixDxilLiveVariablesEntrypoint : public Entrypoint<IDxcPixDxilLiveVar
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixDxilLiveVariablesEntrypoint);
 
-  STDMETHODIMP GetCount(
-      _Outptr_ DWORD *dwSize) override
-  {
+  STDMETHODIMP GetCount(DWORD *dwSize) override {
     return InvokeOnReal(&IInterface::GetCount, CheckNotNull(OutParam(dwSize)));
   }
 
-  STDMETHODIMP GetVariableByIndex(
-      _In_ DWORD Index,
-      _Outptr_result_z_ IDxcPixVariable ** ppVariable) override
-  {
+  STDMETHODIMP GetVariableByIndex(DWORD Index,
+                                  IDxcPixVariable **ppVariable) override {
     return InvokeOnReal(&IInterface::GetVariableByIndex, Index, CheckNotNull(OutParam(ppVariable)));
   }
 
-  STDMETHODIMP GetVariableByName(
-      _In_ LPCWSTR Name,
-      _Outptr_result_z_ IDxcPixVariable** ppVariable) override
-  {
+  STDMETHODIMP GetVariableByName(LPCWSTR Name,
+                                 IDxcPixVariable **ppVariable) override {
     return InvokeOnReal(&IInterface::GetVariableByName, CheckNotNull(InParam(Name)), CheckNotNull(OutParam(ppVariable)));
   }
 };
@@ -698,48 +623,39 @@ struct IDxcPixDxilDebugInfoEntrypoint : public Entrypoint<IDxcPixDxilDebugInfo>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixDxilDebugInfoEntrypoint);
 
-  STDMETHODIMP GetLiveVariablesAt(
-      _In_ DWORD InstructionOffset,
-      _COM_Outptr_ IDxcPixDxilLiveVariables **ppLiveVariables) override
-  {
+  STDMETHODIMP
+  GetLiveVariablesAt(DWORD InstructionOffset,
+                     IDxcPixDxilLiveVariables **ppLiveVariables) override {
     return InvokeOnReal(&IInterface::GetLiveVariablesAt, InstructionOffset, CheckNotNull(OutParam(ppLiveVariables)));
   }
 
-  STDMETHODIMP IsVariableInRegister(
-      _In_ DWORD InstructionOffset,
-      _In_ const wchar_t *VariableName) override
-  {
+  STDMETHODIMP IsVariableInRegister(DWORD InstructionOffset,
+                                    const wchar_t *VariableName) override {
     return InvokeOnReal(&IInterface::IsVariableInRegister, InstructionOffset, CheckNotNull(InParam(VariableName)));
   }
 
-  STDMETHODIMP GetFunctionName(
-      _In_ DWORD InstructionOffset,
-      _Outptr_result_z_ BSTR *ppFunctionName) override
-  {
+  STDMETHODIMP GetFunctionName(DWORD InstructionOffset,
+                               BSTR *ppFunctionName) override {
     return InvokeOnReal(&IInterface::GetFunctionName, InstructionOffset, CheckNotNull(OutParam(ppFunctionName)));
   }
 
-  STDMETHODIMP GetStackDepth(
-      _In_ DWORD InstructionOffset,
-      _Outptr_ DWORD *StackDepth) override
-  {
+  STDMETHODIMP GetStackDepth(DWORD InstructionOffset,
+                             DWORD *StackDepth) override {
     return InvokeOnReal(&IInterface::GetStackDepth, InstructionOffset, CheckNotNull(OutParam(StackDepth)));
   }
 
   STDMETHODIMP InstructionOffsetsFromSourceLocation(
-      _In_ const wchar_t* FileName,
-      _In_ DWORD SourceLine,
-      _In_ DWORD SourceColumn,
-      _COM_Outptr_ IDxcPixDxilInstructionOffsets** ppOffsets) override
-  {
+      const wchar_t *FileName, DWORD SourceLine, DWORD SourceColumn,
+      IDxcPixDxilInstructionOffsets **ppOffsets) override {
     return InvokeOnReal(&IInterface::InstructionOffsetsFromSourceLocation, CheckNotNull(InParam(FileName)), SourceLine, SourceColumn, CheckNotNull(OutParam(ppOffsets)));
   }
 
   STDMETHODIMP SourceLocationsFromInstructionOffset(
-      _In_ DWORD InstructionOffset,
-      _COM_Outptr_ IDxcPixDxilSourceLocations** ppSourceLocations) override
-  {
-      return InvokeOnReal(&IInterface::SourceLocationsFromInstructionOffset, InstructionOffset, CheckNotNull(OutParam(ppSourceLocations)));
+      DWORD InstructionOffset,
+      IDxcPixDxilSourceLocations **ppSourceLocations) override {
+    return InvokeOnReal(&IInterface::SourceLocationsFromInstructionOffset,
+                        InstructionOffset,
+                        CheckNotNull(OutParam(ppSourceLocations)));
   }
 };
 DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixDxilDebugInfo);
@@ -753,8 +669,7 @@ struct IDxcPixDxilInstructionOffsetsEntrypoint : public Entrypoint<IDxcPixDxilIn
     return InvokeOnReal(&IInterface::GetCount);
   }
 
-  STDMETHODIMP_(DWORD) GetOffsetByIndex(_In_ DWORD Index) override
-  {
+  STDMETHODIMP_(DWORD) GetOffsetByIndex(DWORD Index) override {
     return InvokeOnReal(&IInterface::GetOffsetByIndex, Index);
   }
 };
@@ -769,17 +684,14 @@ struct IDxcPixDxilSourceLocationsEntrypoint : public Entrypoint<IDxcPixDxilSourc
       return InvokeOnReal(&IInterface::GetCount);
   }
 
-  STDMETHODIMP_(DWORD) GetLineNumberByIndex(_In_ DWORD Index) override
-  {
+  STDMETHODIMP_(DWORD) GetLineNumberByIndex(DWORD Index) override {
     return InvokeOnReal(&IInterface::GetLineNumberByIndex, Index);
   }
 
-  STDMETHODIMP_(DWORD) GetColumnByIndex(_In_ DWORD Index) override
-  {
+  STDMETHODIMP_(DWORD) GetColumnByIndex(DWORD Index) override {
     return InvokeOnReal(&IInterface::GetColumnByIndex, Index);
   }
-  STDMETHODIMP GetFileNameByIndex(_In_ DWORD Index, _Outptr_result_z_ BSTR* Name) override
-  {
+  STDMETHODIMP GetFileNameByIndex(DWORD Index, BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetFileNameByIndex, Index, CheckNotNull(OutParam(Name)));
   }
 };
@@ -789,45 +701,32 @@ struct IDxcPixCompilationInfoEntrypoint
     : public Entrypoint<IDxcPixCompilationInfo>
 {
   DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixCompilationInfoEntrypoint);
-  virtual STDMETHODIMP
-  GetSourceFile(_In_ DWORD SourceFileOrdinal,
-                _Outptr_result_z_ BSTR *pSourceName,
-                _Outptr_result_z_ BSTR *pSourceContents) override {
+  virtual STDMETHODIMP GetSourceFile(DWORD SourceFileOrdinal, BSTR *pSourceName,
+                                     BSTR *pSourceContents) override {
     return InvokeOnReal(&IInterface::GetSourceFile, SourceFileOrdinal,
                         CheckNotNull(OutParam(pSourceName)),
                         CheckNotNull(OutParam(pSourceContents))
       );
   }
 
-  virtual STDMETHODIMP GetArguments(_Outptr_result_z_ BSTR* pArguments) override 
-  {
+  virtual STDMETHODIMP GetArguments(BSTR *pArguments) override {
     return InvokeOnReal(&IInterface::GetArguments, CheckNotNull(OutParam(pArguments)));
   }
-  virtual STDMETHODIMP
-    GetMacroDefinitions(_Outptr_result_z_ BSTR* pMacroDefinitions) override 
-  {
+  virtual STDMETHODIMP GetMacroDefinitions(BSTR *pMacroDefinitions) override {
     return InvokeOnReal(&IInterface::GetMacroDefinitions,
                         CheckNotNull(OutParam(pMacroDefinitions)));
-
   }
-  virtual STDMETHODIMP
-    GetEntryPointFile(_Outptr_result_z_ BSTR* pEntryPointFile) override {
+  virtual STDMETHODIMP GetEntryPointFile(BSTR *pEntryPointFile) override {
     return InvokeOnReal(&IInterface::GetEntryPointFile,
                         CheckNotNull(OutParam(pEntryPointFile)));
-
   }
-  virtual STDMETHODIMP
-    GetHlslTarget(_Outptr_result_z_ BSTR* pHlslTarget) override {
+  virtual STDMETHODIMP GetHlslTarget(BSTR *pHlslTarget) override {
     return InvokeOnReal(&IInterface::GetHlslTarget,
                         CheckNotNull(OutParam(pHlslTarget)));
-
   }
-  virtual STDMETHODIMP
-    GetEntryPoint(_Outptr_result_z_ BSTR* pEntryPoint) override
-  {
+  virtual STDMETHODIMP GetEntryPoint(BSTR *pEntryPoint) override {
     return InvokeOnReal(&IInterface::GetEntryPoint,
                         CheckNotNull(OutParam(pEntryPoint)));
-
   }
 };
 DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixCompilationInfo);
@@ -885,8 +784,7 @@ static STDMETHODIMP NewDxcPixDxilDebugInfoImpl(
 }
 
 STDMETHODIMP dxil_dia::Session::NewDxcPixDxilDebugInfo(
-    _COM_Outptr_ IDxcPixDxilDebugInfo** ppDxilDebugInfo)
-{
+    IDxcPixDxilDebugInfo **ppDxilDebugInfo) {
   return SetupAndRun(
       m_pMalloc,
       &NewDxcPixDxilDebugInfoImpl,
@@ -908,8 +806,7 @@ static STDMETHODIMP NewDxcPixCompilationInfoImpl(
 }
 
 STDMETHODIMP dxil_dia::Session::NewDxcPixCompilationInfo(
-    _COM_Outptr_ IDxcPixCompilationInfo **ppCompilationInfo)
-{
+    IDxcPixCompilationInfo **ppCompilationInfo) {
   return SetupAndRun(
       m_pMalloc,
       &NewDxcPixCompilationInfoImpl,

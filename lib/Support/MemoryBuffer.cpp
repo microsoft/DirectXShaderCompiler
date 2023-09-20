@@ -56,7 +56,7 @@ void MemoryBuffer::init(const char *BufStart, const char *BufEnd,
 
 /// CopyStringRef - Copies contents of a StringRef into a block of memory and
 /// null-terminates it.
-static void CopyStringRef(_Out_cap_x_(Data.size()+1) char *Memory, StringRef Data) {
+static void CopyStringRef(char *Memory, StringRef Data) {
   if (!Data.empty())
     memcpy(Memory, Data.data(), Data.size());
   Memory[Data.size()] = 0; // Null terminate string.

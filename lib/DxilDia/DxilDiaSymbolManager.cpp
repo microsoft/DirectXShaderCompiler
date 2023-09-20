@@ -1070,7 +1070,6 @@ STDMETHODIMP dxil_dia::hlsl_symbols::LocalVariableSymbol::get_sizeInUdt(
     return E_INVALIDARG;
   }
 
-  static constexpr DWORD kBitsPerByte = 8;
   //auto *DT = llvm::cast<llvm::DIDerivedType>(m_pType);
   *pRetVal = 4; //DT->getSizeInBits() / kBitsPerByte;
   return S_OK;

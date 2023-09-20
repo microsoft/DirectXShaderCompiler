@@ -18,19 +18,39 @@
 // and code.
 // While some of associated macros sets are not defined in this file, these
 // definitions allow custom paths in the type definition files in certain cases.
-#define DEF_RDAT_DEFAULTS 1             // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define empty macros for anything not already defined
-#define DEF_RDAT_TYPES_BASIC_STRUCT 2   // DEF_RDAT_TYPES - define structs with basic types, matching RDAT format
-#define DEF_RDAT_TYPES_USE_HELPERS 3    // DEF_RDAT_TYPES - define structs using helpers, matching RDAT format
-#define DEF_RDAT_DUMP_DECL 4            // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write dump declarations
-#define DEF_RDAT_DUMP_IMPL 5            // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write dump implementation
-#define DEF_RDAT_TYPES_USE_POINTERS 6   // DEF_RDAT_TYPES - define deserialized version using pointers instead of offsets
-#define DEF_RDAT_ENUM_CLASS 7           // DEF_RDAT_ENUMS - declare enums with enum class
-#define DEF_RDAT_TRAITS 8               // DEF_RDAT_TYPES - define type traits
-#define DEF_RDAT_TYPES_FORWARD_DECL 9   // DEF_RDAT_TYPES - forward declare type struct/class
-#define DEF_RDAT_READER_DECL 10         // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write reader classes
-#define DEF_RDAT_READER_IMPL 11         // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write reader classes
-#define DEF_RDAT_STRUCT_VALIDATION 13   // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define structural validation
+
+// DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define empty macros for anything not
+// already defined
+#define DEF_RDAT_DEFAULTS 1
+// DEF_RDAT_TYPES - define structs with basic types, matching RDAT format
+#define DEF_RDAT_TYPES_BASIC_STRUCT 2
+// DEF_RDAT_TYPES - define structs using helpers, matching RDAT format
+#define DEF_RDAT_TYPES_USE_HELPERS 3
+// DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write dump declarations
+#define DEF_RDAT_DUMP_DECL 4
+// DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write dump implementation
+#define DEF_RDAT_DUMP_IMPL 5
+// DEF_RDAT_TYPES - define deserialized version using pointers instead of
+// offsets
+#define DEF_RDAT_TYPES_USE_POINTERS 6
+// DEF_RDAT_ENUMS - declare enums with enum class
+#define DEF_RDAT_ENUM_CLASS 7
+// DEF_RDAT_TYPES - define type traits
+#define DEF_RDAT_TRAITS 8
+// DEF_RDAT_TYPES - forward declare type struct/class
+#define DEF_RDAT_TYPES_FORWARD_DECL 9
+// DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write reader classes
+#define DEF_RDAT_READER_DECL 10
+// DEF_RDAT_TYPES and DEF_RDAT_ENUMS - write reader classes
+#define DEF_RDAT_READER_IMPL 11
+// DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define structural validation
+#define DEF_RDAT_STRUCT_VALIDATION 13
+
 // PRERELEASE-TODO: deeper validation for DxilValidation (limiting enum values and other such things)
+
+// clang-format off
+#define CLOSE_COMPOUND_DECL };
+// clang-format on
 
 #define GLUE2(a, b) a##b
 #define GLUE(a, b) GLUE2(a, b)
@@ -48,9 +68,9 @@
   #define RDAT_STRUCT(type)                   struct type {
   #define RDAT_STRUCT_DERIVED(type, base)     \
     struct type : public base {
-  #define RDAT_STRUCT_END()                   };
+  #define RDAT_STRUCT_END()                   CLOSE_COMPOUND_DECL
   #define RDAT_UNION()                        union {
-  #define RDAT_UNION_END()                    };
+  #define RDAT_UNION_END()                    CLOSE_COMPOUND_DECL
   #define RDAT_RECORD_REF(type, name)         uint32_t name;
   #define RDAT_RECORD_ARRAY_REF(type, name)   uint32_t name;
   #define RDAT_RECORD_VALUE(type, name)       type name;
@@ -67,9 +87,9 @@
 
   #define RDAT_STRUCT(type)                   struct type {
   #define RDAT_STRUCT_DERIVED(type, base)     struct type : public base {
-  #define RDAT_STRUCT_END()                   };
+  #define RDAT_STRUCT_END()                   CLOSE_COMPOUND_DECL
   #define RDAT_UNION()                        union {
-  #define RDAT_UNION_END()                    };
+  #define RDAT_UNION_END()                    CLOSE_COMPOUND_DECL
   #define RDAT_RECORD_REF(type, name)         RecordRef<type> name;
   #define RDAT_RECORD_ARRAY_REF(type, name)   RecordArrayRef<type> name;
   #define RDAT_RECORD_VALUE(type, name)       struct type name;
@@ -106,7 +126,7 @@
       type##_Reader(); \
       const RecordType *asRecord() const; \
       const RecordType *operator->() const { return asRecord(); }
-  #define RDAT_STRUCT_END() };
+  #define RDAT_STRUCT_END() CLOSE_COMPOUND_DECL
   #define RDAT_UNION_IF(name, expr)           bool has##name() const;
   #define RDAT_UNION_ELIF(name, expr)         RDAT_UNION_IF(name, expr)
   #define RDAT_RECORD_REF(type, name)         type##_Reader get##name() const;
@@ -315,7 +335,7 @@
   #define RDAT_ENUM_VALUE(name, value) name = value,
   #define RDAT_ENUM_VALUE_ALIAS(name, value) name = value,
   #define RDAT_ENUM_VALUE_NODEF(name) name,
-  #define RDAT_ENUM_END() };
+  #define RDAT_ENUM_END() CLOSE_COMPOUND_DECL
 
 #elif DEF_RDAT_ENUMS == DEF_RDAT_DUMP_DECL
 

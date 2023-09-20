@@ -51,15 +51,14 @@ private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
   HRESULT RunValidation(
-    _In_ IDxcBlob *pShader,                       // Shader to validate.
-    _In_ UINT32 Flags,                            // Validation flags.
-    _In_ llvm::Module *pModule,                   // Module to validate, if available.
-    _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
-    _In_ AbstractMemoryStream *pDiagStream);
+      IDxcBlob *pShader,          // Shader to validate.
+      UINT32 Flags,               // Validation flags.
+      llvm::Module *pModule,      // Module to validate, if available.
+      llvm::Module *pDebugModule, // Debug module to validate, if available
+      AbstractMemoryStream *pDiagStream);
 
-  HRESULT RunRootSignatureValidation(
-    _In_ IDxcBlob *pShader,                       // Shader to validate.
-    _In_ AbstractMemoryStream *pDiagStream);
+  HRESULT RunRootSignatureValidation(IDxcBlob *pShader, // Shader to validate.
+                                     AbstractMemoryStream *pDiagStream);
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
@@ -71,30 +70,34 @@ public:
 
   // For internal use only.
   HRESULT ValidateWithOptModules(
-    _In_ IDxcBlob *pShader,                       // Shader to validate.
-    _In_ UINT32 Flags,                            // Validation flags.
-    _In_ llvm::Module *pModule,                   // Module to validate, if available.
-    _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
-    _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
+      IDxcBlob *pShader,          // Shader to validate.
+      UINT32 Flags,               // Validation flags.
+      llvm::Module *pModule,      // Module to validate, if available.
+      llvm::Module *pDebugModule, // Debug module to validate, if available
+      IDxcOperationResult *
+          *ppResult // Validation output status, buffer, and errors
   );
 
   // IDxcValidator
   __override HRESULT STDMETHODCALLTYPE Validate(
-    _In_ IDxcBlob *pShader,                       // Shader to validate.
-    _In_ UINT32 Flags,                            // Validation flags.
-    _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
-    );
+      IDxcBlob *pShader, // Shader to validate.
+      UINT32 Flags,      // Validation flags.
+      IDxcOperationResult *
+          *ppResult // Validation output status, buffer, and errors
+  );
 
   // IDxcVersionInfo
-  __override HRESULT STDMETHODCALLTYPE GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor);
-  __override HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags);
+  __override HRESULT STDMETHODCALLTYPE GetVersion(UINT32 *pMajor,
+                                                  UINT32 *pMinor);
+  __override HRESULT STDMETHODCALLTYPE GetFlags(UINT32 *pFlags);
 };
 
 // Compile a single entry point to the target shader model
 HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
-  _In_ IDxcBlob *pShader,                       // Shader to validate.
-  _In_ UINT32 Flags,                            // Validation flags.
-  _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
+    IDxcBlob *pShader, // Shader to validate.
+    UINT32 Flags,      // Validation flags.
+    IDxcOperationResult *
+        *ppResult // Validation output status, buffer, and errors
 ) {
   DxcThreadMalloc TM(m_pMalloc);
   if (pShader == nullptr || ppResult == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
@@ -105,11 +108,12 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
 }
 
 HRESULT DxcValidator::ValidateWithOptModules(
-  _In_ IDxcBlob *pShader,                       // Shader to validate.
-  _In_ UINT32 Flags,                            // Validation flags.
-  _In_ llvm::Module *pModule,                   // Module to validate, if available.
-  _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
-  _COM_Outptr_ IDxcOperationResult **ppResult   // Validation output status, buffer, and errors
+    IDxcBlob *pShader,          // Shader to validate.
+    UINT32 Flags,               // Validation flags.
+    llvm::Module *pModule,      // Module to validate, if available.
+    llvm::Module *pDebugModule, // Debug module to validate, if available
+    IDxcOperationResult *
+        *ppResult // Validation output status, buffer, and errors
 ) {
   *ppResult = nullptr;
   HRESULT hr = S_OK;
@@ -147,14 +151,15 @@ HRESULT DxcValidator::ValidateWithOptModules(
   return hr;
 }
 
-HRESULT STDMETHODCALLTYPE DxcValidator::GetVersion(_Out_ UINT32 *pMajor, _Out_ UINT32 *pMinor) {
+HRESULT STDMETHODCALLTYPE DxcValidator::GetVersion(UINT32 *pMajor,
+                                                   UINT32 *pMinor) {
   if (pMajor == nullptr || pMinor == nullptr)
     return E_INVALIDARG;
   GetValidationVersion(pMajor, pMinor);
   return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(_Out_ UINT32 *pFlags) {
+HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(UINT32 *pFlags) {
   if (pFlags == nullptr)
     return E_INVALIDARG;
   *pFlags = DxcVersionInfoFlags_None;
@@ -166,11 +171,11 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(_Out_ UINT32 *pFlags) {
 }
 
 HRESULT DxcValidator::RunValidation(
-  _In_ IDxcBlob *pShader,
-  _In_ UINT32 Flags,                            // Validation flags.
-  _In_ llvm::Module *pModule,                   // Module to validate, if available.
-  _In_ llvm::Module *pDebugModule,              // Debug module to validate, if available
-  _In_ AbstractMemoryStream *pDiagStream) {
+    IDxcBlob *pShader,
+    UINT32 Flags,               // Validation flags.
+    llvm::Module *pModule,      // Module to validate, if available.
+    llvm::Module *pDebugModule, // Debug module to validate, if available
+    AbstractMemoryStream *pDiagStream) {
 
   // Run validation may throw, but that indicates an inability to validate,
   // not that the validation failed (eg out of memory). That is indicated
@@ -211,9 +216,9 @@ HRESULT DxcValidator::RunValidation(
   return S_OK;
 }
 
-HRESULT DxcValidator::RunRootSignatureValidation(
-  _In_ IDxcBlob *pShader,
-  _In_ AbstractMemoryStream *pDiagStream) {
+HRESULT
+DxcValidator::RunRootSignatureValidation(IDxcBlob *pShader,
+                                         AbstractMemoryStream *pDiagStream) {
 
   const DxilContainerHeader *pDxilContainer = IsDxilContainerLike(
     pShader->GetBufferPointer(), pShader->GetBufferSize());
@@ -245,11 +250,9 @@ HRESULT DxcValidator::RunRootSignatureValidation(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
-                             _In_ llvm::Module *pModule,
-                             _In_ llvm::Module *pDebugModule,
-                             _In_ IDxcBlob *pShader, UINT32 Flags,
-                             _COM_Outptr_ IDxcOperationResult **ppResult) {
+HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
+                             llvm::Module *pDebugModule, IDxcBlob *pShader,
+                             UINT32 Flags, IDxcOperationResult **ppResult) {
   DXASSERT_NOMSG(pValidator != nullptr);
   DXASSERT_NOMSG(pModule != nullptr);
   DXASSERT_NOMSG(pShader != nullptr);
@@ -260,7 +263,7 @@ HRESULT RunInternalValidator(_In_ IDxcValidator *pValidator,
                                                     pDebugModule, ppResult);
 }
 
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID* ppv) {
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv) {
   try {
       CComPtr<DxcValidator> result(DxcValidator::Alloc(DxcGetThreadMallocNoRef()));
       IFROOM(result.p);

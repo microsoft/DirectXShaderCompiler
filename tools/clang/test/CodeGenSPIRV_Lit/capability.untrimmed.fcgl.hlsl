@@ -8,5 +8,10 @@
 // event if unused.
 
 // CHECK: OpCapability MinLod
+// CHECK: OpCapability FragmentShaderSampleInterlockEXT
+// CHECK: OpCapability FragmentShaderPixelInterlockEXT
+// CHECK: OpCapability FragmentShaderShadingRateInterlockEXT
+
+// CHECK: OpExtension "SPV_EXT_fragment_shader_interlock"
 [numthreads(1, 1, 1)]
 void main() { }

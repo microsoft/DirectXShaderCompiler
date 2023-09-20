@@ -34,8 +34,8 @@ public:
 };
 
 namespace {
-HRESULT TranslateUtf8StringForOutput(
-    _In_opt_count_(size) LPCSTR pStr, SIZE_T size, UINT32 codePage, IDxcBlobEncoding **ppBlobEncoding) {
+HRESULT TranslateUtf8StringForOutput(LPCSTR pStr, SIZE_T size, UINT32 codePage,
+                                     IDxcBlobEncoding **ppBlobEncoding) {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(pStr, size, DXC_CP_UTF8, &pBlobEncoding));
   if (codePage == DXC_CP_WIDE) {
@@ -47,8 +47,8 @@ HRESULT TranslateUtf8StringForOutput(
   return S_OK;
 }
 
-HRESULT TranslateWideStringForOutput(
-    _In_opt_count_(size) LPCWSTR pStr, SIZE_T size, UINT32 codePage, IDxcBlobEncoding **ppBlobEncoding) {
+HRESULT TranslateWideStringForOutput(LPCWSTR pStr, SIZE_T size, UINT32 codePage,
+                                     IDxcBlobEncoding **ppBlobEncoding) {
   CComPtr<IDxcBlobEncoding> pBlobEncoding;
   IFR(hlsl::DxcCreateBlobWithEncodingOnHeapCopy(pStr, size, DXC_CP_WIDE, &pBlobEncoding));
   if (codePage == DXC_CP_UTF8) {
@@ -138,7 +138,7 @@ struct DxcOutputObject {
     }
     return S_OK;
   }
-  HRESULT SetObjectData(_In_opt_bytecount_(size) LPCVOID pData, SIZE_T size) {
+  HRESULT SetObjectData(LPCVOID pData, SIZE_T size) {
     DXASSERT_NOMSG(!object);
     if (!pData || !size)
       return S_OK;
@@ -147,7 +147,7 @@ struct DxcOutputObject {
     object = pBlob;
     return S_OK;
   }
-  HRESULT SetString(_In_ UINT32 codePage, _In_opt_count_(size) LPCWSTR pText, SIZE_T size = kAutoSize) {
+  HRESULT SetString(UINT32 codePage, LPCWSTR pText, SIZE_T size = kAutoSize) {
     DXASSERT_NOMSG(!object);
     if (!pText)
       return S_OK;
@@ -158,7 +158,7 @@ struct DxcOutputObject {
     object = pBlobEncoding;
     return S_OK;
   }
-  HRESULT SetString(_In_ UINT32 codePage, _In_opt_count_(size) LPCSTR pText, SIZE_T size = kAutoSize) {
+  HRESULT SetString(UINT32 codePage, LPCSTR pText, SIZE_T size = kAutoSize) {
     DXASSERT_NOMSG(!object);
     if (!pText)
       return S_OK;
@@ -169,12 +169,12 @@ struct DxcOutputObject {
     object = pBlobEncoding;
     return S_OK;
   }
-  HRESULT SetName(_In_opt_z_ IDxcBlobWide *pName) {
+  HRESULT SetName(IDxcBlobWide *pName) {
     DXASSERT_NOMSG(!name);
     name = pName;
     return S_OK;
   }
-  HRESULT SetName(_In_opt_z_ LPCWSTR pName) {
+  HRESULT SetName(LPCWSTR pName) {
     DXASSERT_NOMSG(!name);
     if (!pName)
       return S_OK;
@@ -183,7 +183,7 @@ struct DxcOutputObject {
           pName, (wcslen(pName) + 1) * sizeof(wchar_t), DXC_CP_WIDE, &pBlobEncoding));
     return pBlobEncoding->QueryInterface(&name);
   }
-  HRESULT SetName(_In_opt_z_ LPCSTR pName) {
+  HRESULT SetName(LPCSTR pName) {
     DXASSERT_NOMSG(!name);
     if (!pName)
       return S_OK;
@@ -191,7 +191,7 @@ struct DxcOutputObject {
     IFR(TranslateUtf8StringForOutput(pName, strlen(pName) + 1, DXC_CP_WIDE, &pBlobEncoding));
     return pBlobEncoding->QueryInterface(&name);
   }
-  HRESULT SetName(_In_opt_z_ llvm::StringRef Name) {
+  HRESULT SetName(llvm::StringRef Name) {
     DXASSERT_NOMSG(!name);
     if (Name.empty())
       return S_OK;
@@ -204,67 +204,56 @@ struct DxcOutputObject {
   // Static object constructors
   /////////////////////////////
 
-  template<typename DataTy, typename NameTy>
-  static DxcOutputObject StringOutput(_In_ DXC_OUT_KIND kind,
-                                      _In_ UINT32 codePage,
-                                      _In_opt_count_(size) DataTy pText, _In_ SIZE_T size,
-                                      _In_opt_z_ NameTy pName) {
+  template <typename DataTy, typename NameTy>
+  static DxcOutputObject StringOutput(DXC_OUT_KIND kind, UINT32 codePage,
+                                      DataTy pText, SIZE_T size, NameTy pName) {
     DxcOutputObject output;
     output.kind = kind;
     IFT(output.SetString(codePage, pText, size));
     IFT(output.SetName(pName));
     return output;
   }
-  template<typename DataTy, typename NameTy>
-  static DxcOutputObject StringOutput(_In_ DXC_OUT_KIND kind,
-                                      _In_ UINT32 codePage,
-                                      _In_opt_ DataTy pText,
-                                      _In_opt_z_ NameTy pName) {
+  template <typename DataTy, typename NameTy>
+  static DxcOutputObject StringOutput(DXC_OUT_KIND kind, UINT32 codePage,
+                                      DataTy pText, NameTy pName) {
     return StringOutput(kind, codePage, pText, kAutoSize, pName);
   }
-  template<typename NameTy>
-  static DxcOutputObject DataOutput(_In_ DXC_OUT_KIND kind,
-                                    _In_opt_bytecount_(size) LPCVOID pData, _In_ SIZE_T size,
-                                    _In_opt_z_ NameTy pName) {
+  template <typename NameTy>
+  static DxcOutputObject DataOutput(DXC_OUT_KIND kind, LPCVOID pData,
+                                    SIZE_T size, NameTy pName) {
     DxcOutputObject output;
     output.kind = kind;
     IFT(output.SetObjectData(pData, size));
     IFT(output.SetName(pName));
     return output;
   }
-  template<typename NameTy>
-  static DxcOutputObject DataOutput(_In_ DXC_OUT_KIND kind,
-                                    _In_opt_ IDxcBlob *pBlob,
-                                    _In_opt_z_ NameTy pName) {
+  template <typename NameTy>
+  static DxcOutputObject DataOutput(DXC_OUT_KIND kind, IDxcBlob *pBlob,
+                                    NameTy pName) {
     DxcOutputObject output;
     output.kind = kind;
     IFT(output.SetObject(pBlob));
     IFT(output.SetName(pName));
     return output;
   }
-  static DxcOutputObject DataOutput(_In_ DXC_OUT_KIND kind,
-                                    _In_opt_ IDxcBlob *pBlob) {
+  static DxcOutputObject DataOutput(DXC_OUT_KIND kind, IDxcBlob *pBlob) {
     return DataOutput(kind, pBlob, DxcOutNoName);
   }
-  template<typename NameTy>
-  static DxcOutputObject DataOutput(_In_ DXC_OUT_KIND kind,
-                                    _In_ UINT32 codePage,
-                                    _In_opt_ IDxcBlob *pBlob,
-                                    _In_opt_z_ NameTy pName) {
+  template <typename NameTy>
+  static DxcOutputObject DataOutput(DXC_OUT_KIND kind, UINT32 codePage,
+                                    IDxcBlob *pBlob, NameTy pName) {
     DxcOutputObject output;
     output.kind = kind;
     IFT(output.SetObject(pBlob, codePage));
     IFT(output.SetName(pName));
     return output;
   }
-  static DxcOutputObject DataOutput(_In_ DXC_OUT_KIND kind,
-                                    _In_ UINT32 codePage,
-                                    _In_opt_ IDxcBlob *pBlob) {
+  static DxcOutputObject DataOutput(DXC_OUT_KIND kind, UINT32 codePage,
+                                    IDxcBlob *pBlob) {
     return DataOutput(kind, codePage, pBlob, DxcOutNoName);
   }
-  static DxcOutputObject DataOutput(_In_ DXC_OUT_KIND kind,
-                                    _In_ UINT32 codePage,
-                                    _In_opt_ IUnknown *pBlob) {
+  static DxcOutputObject DataOutput(DXC_OUT_KIND kind, UINT32 codePage,
+                                    IUnknown *pBlob) {
     DxcOutputObject output;
     output.kind = kind;
     IFT(output.SetObject(pBlob, codePage));
@@ -322,11 +311,10 @@ public:
     return m_uCount;
   }
 
-  HRESULT STDMETHODCALLTYPE GetOutput(_In_ UINT32 uIndex,
-    _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
-    _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppOutputType,
-    _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppOutputName) override
-  {
+  HRESULT STDMETHODCALLTYPE GetOutput(UINT32 uIndex, REFIID iid,
+                                      void **ppvObject,
+                                      IDxcBlobWide **ppOutputType,
+                                      IDxcBlobWide **ppOutputName) override {
     if (uIndex >= m_uCount)
       return E_INVALIDARG;
 
@@ -395,7 +383,7 @@ public:
   // IDxcOperationResult
   //////////////////////
 
-  HRESULT STDMETHODCALLTYPE GetStatus(_Out_ HRESULT *pStatus) override {
+  HRESULT STDMETHODCALLTYPE GetStatus(HRESULT *pStatus) override {
     if (pStatus == nullptr)
       return E_INVALIDARG;
 
@@ -403,8 +391,7 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE
-    GetResult(_COM_Outptr_result_maybenull_ IDxcBlob **ppResult) override {
+  HRESULT STDMETHODCALLTYPE GetResult(IDxcBlob **ppResult) override {
     *ppResult = nullptr;
     if (m_resultType == DXC_OUT_NONE)
       return S_OK;
@@ -415,7 +402,7 @@ public:
   }
 
   HRESULT STDMETHODCALLTYPE
-    GetErrorBuffer(_COM_Outptr_result_maybenull_ IDxcBlobEncoding **ppErrors) override {
+  GetErrorBuffer(IDxcBlobEncoding **ppErrors) override {
     *ppErrors = nullptr;
     DxcOutputObject *pObject = Output(DXC_OUT_ERRORS);
     if (pObject && pObject->object)
@@ -427,14 +414,14 @@ public:
   // IDxcResult
   /////////////
 
-  BOOL STDMETHODCALLTYPE HasOutput(_In_ DXC_OUT_KIND dxcOutKind) override {
+  BOOL STDMETHODCALLTYPE HasOutput(DXC_OUT_KIND dxcOutKind) override {
     if (dxcOutKind <= DXC_OUT_NONE || (unsigned)dxcOutKind > kNumDxcOutputTypes)
       return FALSE;
     return m_outputs[(unsigned)dxcOutKind - 1].kind != DXC_OUT_NONE;
   }
-  HRESULT STDMETHODCALLTYPE GetOutput(_In_ DXC_OUT_KIND dxcOutKind,
-      _In_ REFIID iid, _COM_Outptr_opt_result_maybenull_ void **ppvObject,
-      _COM_Outptr_ IDxcBlobWide **ppOutputName) override {
+  HRESULT STDMETHODCALLTYPE GetOutput(DXC_OUT_KIND dxcOutKind, REFIID iid,
+                                      void **ppvObject,
+                                      IDxcBlobWide **ppOutputName) override {
     if (ppvObject == nullptr)
       return E_INVALIDARG;
     if (dxcOutKind <= DXC_OUT_NONE || (unsigned)dxcOutKind > kNumDxcOutputTypes)
@@ -590,7 +577,7 @@ public:
   }
 
   // All-in-one initialization
-  HRESULT Init(_In_ HRESULT status, _In_ DXC_OUT_KIND resultType,
+  HRESULT Init(HRESULT status, DXC_OUT_KIND resultType,
                const llvm::ArrayRef<DxcOutputObject> outputs) {
     m_status = status;
     m_resultType = resultType;
@@ -599,10 +586,9 @@ public:
 
   // All-in-one create functions
 
-  static HRESULT Create(_In_ HRESULT status, _In_ DXC_OUT_KIND resultType,
-                        _In_opt_count_(numOutputs) const DxcOutputObject *pOutputs,
-                        _In_ unsigned numOutputs,
-                        _COM_Outptr_ IDxcResult **ppResult) {
+  static HRESULT Create(HRESULT status, DXC_OUT_KIND resultType,
+                        const DxcOutputObject *pOutputs, unsigned numOutputs,
+                        IDxcResult **ppResult) {
     *ppResult = nullptr;
     CComPtr<DxcResult> result =
       DxcResult::Alloc(DxcGetThreadMallocNoRef());
@@ -611,15 +597,15 @@ public:
     *ppResult = result.Detach();
     return S_OK;
   }
-  static HRESULT Create(_In_ HRESULT status, _In_ DXC_OUT_KIND resultType,
+  static HRESULT Create(HRESULT status, DXC_OUT_KIND resultType,
                         const llvm::ArrayRef<DxcOutputObject> outputs,
-                        _COM_Outptr_ IDxcResult **ppResult) {
+                        IDxcResult **ppResult) {
     return Create(status, resultType, outputs.data(), outputs.size(), ppResult);
   }
   // For convenient use in legacy interface implementations
-  static HRESULT Create(_In_ HRESULT status, _In_ DXC_OUT_KIND resultType,
+  static HRESULT Create(HRESULT status, DXC_OUT_KIND resultType,
                         const llvm::ArrayRef<DxcOutputObject> outputs,
-                        _COM_Outptr_ IDxcOperationResult **ppResult) {
+                        IDxcOperationResult **ppResult) {
     IDxcResult *pResult;
     IFR(Create(status, resultType, outputs.data(), outputs.size(), &pResult));
     *ppResult = pResult;

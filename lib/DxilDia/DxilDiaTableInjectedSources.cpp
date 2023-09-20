@@ -27,7 +27,7 @@ llvm::StringRef dxil_dia::InjectedSource::Content() {
   return llvm::dyn_cast<llvm::MDString>(NameContent()->getOperand(1))->getString();
 }
 
-STDMETHODIMP dxil_dia::InjectedSource::get_length(_Out_ ULONGLONG *pRetVal) {
+STDMETHODIMP dxil_dia::InjectedSource::get_length(ULONGLONG *pRetVal) {
   *pRetVal = Content().size();
   return S_OK;
 }

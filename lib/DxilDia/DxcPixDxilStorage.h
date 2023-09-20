@@ -76,21 +76,16 @@ public:
     return DoBasicQueryInterface<IDxcPixDxilStorage>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP AccessField(
-      _In_ LPCWSTR Name,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP AccessField(LPCWSTR Name,
+                           IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP Index(
-      _In_ DWORD Index,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP Index(DWORD Index, IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP GetRegisterNumber(
-      _Outptr_result_z_ DWORD *pRegisterNumber) override;
+  STDMETHODIMP GetRegisterNumber(DWORD *pRegisterNumber) override;
 
   STDMETHODIMP GetIsAlive() override;
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) override;
+  STDMETHODIMP GetType(IDxcPixType **ppType) override;
 };
 
 class DxcPixDxilStructStorage : public IDxcPixDxilStorage
@@ -127,21 +122,16 @@ public:
     return DoBasicQueryInterface<IDxcPixDxilStorage>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP AccessField(
-      _In_ LPCWSTR Name,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP AccessField(LPCWSTR Name,
+                           IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP Index(
-      _In_ DWORD Index,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP Index(DWORD Index, IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP GetRegisterNumber(
-      _Outptr_result_z_ DWORD *pRegisterNumber) override;
+  STDMETHODIMP GetRegisterNumber(DWORD *pRegisterNumber) override;
 
   STDMETHODIMP GetIsAlive() override;
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) override;
+  STDMETHODIMP GetType(IDxcPixType **ppType) override;
 };
 
 class DxcPixDxilScalarStorage : public IDxcPixDxilStorage
@@ -178,21 +168,16 @@ public:
     return DoBasicQueryInterface<IDxcPixDxilStorage>(this, iid, ppvObject);
   }
 
-  STDMETHODIMP AccessField(
-      _In_ LPCWSTR Name,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP AccessField(LPCWSTR Name,
+                           IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP Index(
-      _In_ DWORD Index,
-      _COM_Outptr_ IDxcPixDxilStorage **ppResult) override;
+  STDMETHODIMP Index(DWORD Index, IDxcPixDxilStorage **ppResult) override;
 
-  STDMETHODIMP GetRegisterNumber(
-      _Outptr_result_z_ DWORD *pRegisterNumber) override;
+  STDMETHODIMP GetRegisterNumber(DWORD *pRegisterNumber) override;
 
   STDMETHODIMP GetIsAlive() override;
 
-  STDMETHODIMP GetType(
-      _Outptr_result_z_ IDxcPixType **ppType) override;
+  STDMETHODIMP GetType(IDxcPixType **ppType) override;
 };
 
 }  // namespace dxil_debug_info
