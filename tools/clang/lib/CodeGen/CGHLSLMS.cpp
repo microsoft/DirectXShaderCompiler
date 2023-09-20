@@ -2453,18 +2453,17 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // with the SV_DispatchGrid attribute is provided.
   if (funcProps->Node.MaxDispatchGrid[0] > 0) {
     bool found = false;
-    if (funcProps->InputNodes.size() != 0) {
-      for (auto node : funcProps->InputNodes) {
-        if (node.RecordType.SV_DispatchGrid.NumComponents != 0) {
-          found = true;
-          break;
-        }
-      }    
+    for (auto node : funcProps->InputNodes) {
+      if (node.RecordType.SV_DispatchGrid.NumComponents != 0) {
+        found = true;
+        break;
+      }
     }
-    if (!found || funcProps->InputNodes.size() == 0) {
+    
+    if (!found) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error,
-          "node shader '%0' with NodeMaxDispatchGrid attribute must have an input node with the SV_DispatchGrid semantic");
+          "node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with the SV_DispatchGrid semantic");
       Diags.Report(FD->getLocation(), DiagID) << FD->getIdentifier()->getName();
     }
   }
