@@ -22,13 +22,13 @@ typedef struct ID3D10Blob ID3D10Blob;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Intrinsic definitions.
-#define AR_QUAL_IN             0x0000000000000010ULL
-#define AR_QUAL_OUT            0x0000000000000020ULL
-#define AR_QUAL_REF            0x0000000000000040ULL
-#define AR_QUAL_CONST          0x0000000000000200ULL
-#define AR_QUAL_ROWMAJOR       0x0000000000000400ULL
-#define AR_QUAL_COLMAJOR       0x0000000000000800ULL
-#define AR_QUAL_GROUPSHARED    0x0000000000001000ULL
+#define AR_QUAL_IN 0x0000000000000010ULL
+#define AR_QUAL_OUT 0x0000000000000020ULL
+#define AR_QUAL_REF 0x0000000000000040ULL
+#define AR_QUAL_CONST 0x0000000000000200ULL
+#define AR_QUAL_ROWMAJOR 0x0000000000000400ULL
+#define AR_QUAL_COLMAJOR 0x0000000000000800ULL
+#define AR_QUAL_GROUPSHARED 0x0000000000001000ULL
 
 #define AR_QUAL_IN_OUT (AR_QUAL_IN | AR_QUAL_OUT)
 
@@ -38,13 +38,14 @@ static const BYTE INTRIN_TEMPLATE_FROM_FUNCTION = 0xfd;
 
 // Use this enumeration to describe allowed templates (layouts) in intrinsics.
 enum LEGAL_INTRINSIC_TEMPLATES {
-  LITEMPLATE_VOID   = 0,  // No return type.
-  LITEMPLATE_SCALAR = 1,  // Scalar types.
-  LITEMPLATE_VECTOR = 2,  // Vector types (eg. float3).
-  LITEMPLATE_MATRIX = 3,  // Matrix types (eg. float3x3).
-  LITEMPLATE_ANY    = 4,  // Any one of scalar, vector or matrix types (but not object).
-  LITEMPLATE_OBJECT = 5,  // Object types.
-  LITEMPLATE_ARRAY  = 6,  // Scalar array.
+  LITEMPLATE_VOID = 0,   // No return type.
+  LITEMPLATE_SCALAR = 1, // Scalar types.
+  LITEMPLATE_VECTOR = 2, // Vector types (eg. float3).
+  LITEMPLATE_MATRIX = 3, // Matrix types (eg. float3x3).
+  LITEMPLATE_ANY =
+      4, // Any one of scalar, vector or matrix types (but not object).
+  LITEMPLATE_OBJECT = 5, // Object types.
+  LITEMPLATE_ARRAY = 6,  // Scalar array.
 
   LITEMPLATE_COUNT = 7
 };
@@ -142,33 +143,45 @@ static const BYTE IA_C2 = 0xf3;
 static const BYTE IA_SPECIAL_SLOTS = 4;
 
 struct HLSL_INTRINSIC_ARGUMENT {
-  LPCSTR pName;               // Name of the argument; the first argument has the function name.
-  UINT64 qwUsage;             // A combination of AR_QUAL_IN|AR_QUAL_OUT|AR_QUAL_COLMAJOR|AR_QUAL_ROWMAJOR in parameter tables; other values possible elsewhere.
+  LPCSTR
+      pName; // Name of the argument; the first argument has the function name.
+  UINT64 qwUsage; // A combination of
+                  // AR_QUAL_IN|AR_QUAL_OUT|AR_QUAL_COLMAJOR|AR_QUAL_ROWMAJOR in
+                  // parameter tables; other values possible elsewhere.
 
-  BYTE uTemplateId;           // One of INTRIN_TEMPLATE_FROM_TYPE, INTRIN_TEMPLATE_VARARGS or the argument # the template (layout) must match (trivially itself).
-  BYTE uLegalTemplates;       // A LEGAL_INTRINSIC_TEMPLATES value for allowed templates.
-  BYTE uComponentTypeId;      // INTRIN_COMPTYPE_FROM_TYPE_ELT0, or the argument # the component (element type) must match (trivially itself).
-  BYTE uLegalComponentTypes;  // A LEGAL_INTRINSIC_COMPTYPES value for allowed components.
+  BYTE uTemplateId; // One of INTRIN_TEMPLATE_FROM_TYPE, INTRIN_TEMPLATE_VARARGS
+                    // or the argument # the template (layout) must match
+                    // (trivially itself).
+  BYTE uLegalTemplates;  // A LEGAL_INTRINSIC_TEMPLATES value for allowed
+                         // templates.
+  BYTE uComponentTypeId; // INTRIN_COMPTYPE_FROM_TYPE_ELT0, or the argument #
+                         // the component (element type) must match (trivially
+                         // itself).
+  BYTE uLegalComponentTypes; // A LEGAL_INTRINSIC_COMPTYPES value for allowed
+                             // components.
 
-  BYTE uRows;                 // Required number of rows, or one of IA_R/IA_C/IA_R2/IA_C2 for matching input constraints.
-  BYTE uCols;                 // Required number of cols, or one of IA_R/IA_C/IA_R2/IA_C2 for matching input constraints.
+  BYTE uRows; // Required number of rows, or one of IA_R/IA_C/IA_R2/IA_C2 for
+              // matching input constraints.
+  BYTE uCols; // Required number of cols, or one of IA_R/IA_C/IA_R2/IA_C2 for
+              // matching input constraints.
 };
 
 struct HLSL_INTRINSIC {
-  UINT Op;                              // Intrinsic Op ID
-  BOOL bReadOnly;                       // Only read memory
-  BOOL bReadNone;                       // Not read memory
-  BOOL bIsWave;                         // Is a wave-sensitive op
-  INT  iOverloadParamIndex;             // Parameter decide the overload type, -1 means ret type
-  UINT uNumArgs;                        // Count of arguments in pArgs.
-  const HLSL_INTRINSIC_ARGUMENT* pArgs; // Pointer to first argument.
+  UINT Op;                 // Intrinsic Op ID
+  BOOL bReadOnly;          // Only read memory
+  BOOL bReadNone;          // Not read memory
+  BOOL bIsWave;            // Is a wave-sensitive op
+  INT iOverloadParamIndex; // Parameter decide the overload type, -1 means ret
+                           // type
+  UINT uNumArgs;           // Count of arguments in pArgs.
+  const HLSL_INTRINSIC_ARGUMENT *pArgs; // Pointer to first argument.
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 // Interfaces.
-CROSS_PLATFORM_UUIDOF(IDxcIntrinsicTable, "f0d4da3f-f863-4660-b8b4-dfd94ded6215")
-struct IDxcIntrinsicTable : public IUnknown
-{
+CROSS_PLATFORM_UUIDOF(IDxcIntrinsicTable,
+                      "f0d4da3f-f863-4660-b8b4-dfd94ded6215")
+struct IDxcIntrinsicTable : public IUnknown {
 public:
   virtual HRESULT STDMETHODCALLTYPE GetTableName(LPCSTR *pTableName) = 0;
   virtual HRESULT STDMETHODCALLTYPE
@@ -176,32 +189,37 @@ public:
                   const HLSL_INTRINSIC **pIntrinsic, UINT64 *pLookupCookie) = 0;
 
   // Get the lowering strategy for an hlsl extension intrinsic.
-  virtual HRESULT STDMETHODCALLTYPE GetLoweringStrategy(UINT opcode, LPCSTR *pStrategy) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetLoweringStrategy(UINT opcode,
+                                                        LPCSTR *pStrategy) = 0;
 
-  // Callback to support custom naming of hlsl extension intrinsic functions in dxil.
-  // Return the empty string to get the default intrinsic name, which is the mangled
-  // name of the high level intrinsic function.
+  // Callback to support custom naming of hlsl extension intrinsic functions in
+  // dxil. Return the empty string to get the default intrinsic name, which is
+  // the mangled name of the high level intrinsic function.
   //
-  // Overloaded intrinsics are supported by use of an overload place holder in the
-  // name. The string "$o" in the name will be replaced by the return type of the
-  // intrinsic.
-  virtual HRESULT STDMETHODCALLTYPE GetIntrinsicName(UINT opcode, LPCSTR *pName) = 0;
+  // Overloaded intrinsics are supported by use of an overload place holder in
+  // the name. The string "$o" in the name will be replaced by the return type
+  // of the intrinsic.
+  virtual HRESULT STDMETHODCALLTYPE GetIntrinsicName(UINT opcode,
+                                                     LPCSTR *pName) = 0;
 
   // Callback to support the 'dxil' lowering strategy.
   // Returns the dxil opcode that the intrinsic should use for lowering.
-  virtual HRESULT STDMETHODCALLTYPE GetDxilOpCode(UINT opcode, UINT *pDxilOpcode) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetDxilOpCode(UINT opcode,
+                                                  UINT *pDxilOpcode) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcSemanticDefineValidator, "1d063e4f-515a-4d57-a12a-431f6a44cfb9")
-struct IDxcSemanticDefineValidator : public IUnknown
-{
+CROSS_PLATFORM_UUIDOF(IDxcSemanticDefineValidator,
+                      "1d063e4f-515a-4d57-a12a-431f6a44cfb9")
+struct IDxcSemanticDefineValidator : public IUnknown {
 public:
-  virtual HRESULT STDMETHODCALLTYPE GetSemanticDefineWarningsAndErrors(LPCSTR pName, LPCSTR pValue, IDxcBlobEncoding **ppWarningBlob, IDxcBlobEncoding **ppErrorBlob) = 0;
+  virtual HRESULT STDMETHODCALLTYPE GetSemanticDefineWarningsAndErrors(
+      LPCSTR pName, LPCSTR pValue, IDxcBlobEncoding **ppWarningBlob,
+      IDxcBlobEncoding **ppErrorBlob) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcLangExtensions, "282a56b4-3f56-4360-98c7-9ea04a752272")
-struct IDxcLangExtensions : public IUnknown
-{
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions,
+                      "282a56b4-3f56-4360-98c7-9ea04a752272")
+struct IDxcLangExtensions : public IUnknown {
 public:
   /// <summary>
   /// Registers the name of a preprocessor define that has semantic meaning
@@ -209,39 +227,47 @@ public:
   /// </summary>
   virtual HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) = 0;
   /// <summary>Registers a name to exclude from semantic defines.</summary>
-  virtual HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name) = 0;
+  virtual HRESULT STDMETHODCALLTYPE
+  RegisterSemanticDefineExclusion(LPCWSTR name) = 0;
   /// <summary>Registers a definition for compilation.</summary>
   virtual HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) = 0;
   /// <summary>Registers a table of built-in intrinsics.</summary>
   virtual HRESULT STDMETHODCALLTYPE
   RegisterIntrinsicTable(IDxcIntrinsicTable *pTable) = 0;
-  /// <summary>Sets an (optional) validator for parsed semantic defines.<summary>
-  /// This provides a hook to check that the semantic defines present in the source
-  /// contain valid data. One validator is used to validate all parsed semantic defines.
+  /// <summary>Sets an (optional) validator for parsed semantic
+  /// defines.<summary> This provides a hook to check that the semantic defines
+  /// present in the source contain valid data. One validator is used to
+  /// validate all parsed semantic defines.
   virtual HRESULT STDMETHODCALLTYPE
   SetSemanticDefineValidator(IDxcSemanticDefineValidator *pValidator) = 0;
-  /// <summary>Sets the name for the root metadata node used in DXIL to hold the semantic defines.</summary>
-  virtual HRESULT STDMETHODCALLTYPE SetSemanticDefineMetaDataName(LPCSTR name) = 0;
+  /// <summary>Sets the name for the root metadata node used in DXIL to hold the
+  /// semantic defines.</summary>
+  virtual HRESULT STDMETHODCALLTYPE
+  SetSemanticDefineMetaDataName(LPCSTR name) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2, "2490C368-89EE-4491-A4B2-C6547B6C9381")
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2,
+                      "2490C368-89EE-4491-A4B2-C6547B6C9381")
 struct IDxcLangExtensions2 : public IDxcLangExtensions {
 public:
   virtual HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcLangExtensions3, "A1B19880-FB1F-4920-9BC5-50356483BAC1")
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions3,
+                      "A1B19880-FB1F-4920-9BC5-50356483BAC1")
 struct IDxcLangExtensions3 : public IDxcLangExtensions2 {
 public:
-  /// Registers a semantic define which cannot be overriden using the flag -override-opt-semdefs
-  virtual HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name) = 0;
+  /// Registers a semantic define which cannot be overriden using the flag
+  /// -override-opt-semdefs
+  virtual HRESULT STDMETHODCALLTYPE
+  RegisterNonOptSemanticDefine(LPCWSTR name) = 0;
 };
 
 CROSS_PLATFORM_UUIDOF(IDxcSystemAccess, "454b764f-3549-475b-958c-a7a6fcd05fbc")
-struct IDxcSystemAccess : public IUnknown
-{
+struct IDxcSystemAccess : public IUnknown {
 public:
-  virtual HRESULT STDMETHODCALLTYPE EnumFiles(LPCWSTR fileName, IEnumSTATSTG** pResult) = 0;
+  virtual HRESULT STDMETHODCALLTYPE EnumFiles(LPCWSTR fileName,
+                                              IEnumSTATSTG **pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE OpenStorage(LPCWSTR lpFileName,
                                                 DWORD dwDesiredAccess,
                                                 DWORD dwShareMode,
@@ -263,7 +289,8 @@ public:
   virtual HRESULT STDMETHODCALLTYPE
   GetFileAttributesForStorage(LPCWSTR lpFileName, DWORD *pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE DeleteStorage(LPCWSTR lpFileName) = 0;
-  virtual HRESULT STDMETHODCALLTYPE RemoveDirectoryStorage(LPCWSTR lpFileName) = 0;
+  virtual HRESULT STDMETHODCALLTYPE
+  RemoveDirectoryStorage(LPCWSTR lpFileName) = 0;
   virtual HRESULT STDMETHODCALLTYPE
   CreateDirectoryStorage(LPCWSTR lpPathName) = 0;
   virtual HRESULT STDMETHODCALLTYPE GetCurrentDirectoryForStorage(
@@ -292,19 +319,21 @@ public:
                                                      unsigned *columnCount) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcContainerEventsHandler, "e991ca8d-2045-413c-a8b8-788b2c06e14d")
-struct IDxcContainerEventsHandler : public IUnknown
-{
+CROSS_PLATFORM_UUIDOF(IDxcContainerEventsHandler,
+                      "e991ca8d-2045-413c-a8b8-788b2c06e14d")
+struct IDxcContainerEventsHandler : public IUnknown {
 public:
   virtual HRESULT STDMETHODCALLTYPE
   OnDxilContainerBuilt(IDxcBlob *pSource, IDxcBlob **ppTarget) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcContainerEvent, "0cfc5058-342b-4ff2-83f7-04c12aad3d01")
-struct IDxcContainerEvent : public IUnknown
-{
+CROSS_PLATFORM_UUIDOF(IDxcContainerEvent,
+                      "0cfc5058-342b-4ff2-83f7-04c12aad3d01")
+struct IDxcContainerEvent : public IUnknown {
 public:
-  virtual HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) = 0;
-  virtual HRESULT STDMETHODCALLTYPE UnRegisterDxilContainerEventHandler(UINT64 cookie) = 0;
+  virtual HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
+      IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) = 0;
+  virtual HRESULT STDMETHODCALLTYPE
+  UnRegisterDxilContainerEventHandler(UINT64 cookie) = 0;
 };
 #endif

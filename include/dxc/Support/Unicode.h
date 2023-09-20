@@ -33,11 +33,19 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t dwFlags,
                         bool *lpUsedDefaultChar = nullptr);
 #endif // _WIN32
 
-namespace Unicode
-{
+namespace Unicode {
 
-// Based on http://msdn.microsoft.com/en-us/library/windows/desktop/dd374101(v=vs.85).aspx.
-enum class Encoding { ASCII = 0, UTF8, UTF8_BOM, UTF16_LE, UTF16_BE, UTF32_LE, UTF32_BE };
+// Based on
+// http://msdn.microsoft.com/en-us/library/windows/desktop/dd374101(v=vs.85).aspx.
+enum class Encoding {
+  ASCII = 0,
+  UTF8,
+  UTF8_BOM,
+  UTF16_LE,
+  UTF16_BE,
+  UTF32_LE,
+  UTF32_BE
+};
 
 // An acp_char is a character encoded in the current Windows ANSI code page.
 typedef char acp_char;
@@ -79,4 +87,4 @@ bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide,
 bool WideBufferToUTF8Buffer(const wchar_t *pWide, int cchWide, char **ppUTF8,
                             size_t *pcbUTF8) throw();
 
-}  // namespace Unicode
+} // namespace Unicode

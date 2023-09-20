@@ -9,37 +9,37 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/DXIL/DxilOperations.h"
-#include "dxc/HLSL/HLOperations.h"
-#include "dxc/DXIL/DxilModule.h"
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilTypeSystem.h"
-#include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilInstructions.h"
-#include "dxc/DXIL/DxilConstants.h"
-#include "dxc/HlslIntrinsicOp.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilPoisonValues.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstIterator.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Analysis/PostDominators.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/PassManager.h"
+#include "dxc/HLSL/HLOperations.h"
+#include "dxc/HlslIntrinsicOp.h"
+#include "dxc/Support/Global.h"
 #include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/Pass.h"
-#include "llvm/Transforms/Utils/Local.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include <memory>
 #include <unordered_set>
 
@@ -55,17 +55,22 @@ public:
     initializeScalarizerPass(*PassRegistry::getPassRegistry());
   }
 
-  StringRef getPassName() const override { return "Invalidate undef resources"; }
+  StringRef getPassName() const override {
+    return "Invalidate undef resources";
+  }
 
   bool runOnModule(Module &M) override;
 };
-}
+} // namespace
 
 char InvalidateUndefResources::ID = 0;
 
-ModulePass *llvm::createInvalidateUndefResourcesPass() { return new InvalidateUndefResources(); }
+ModulePass *llvm::createInvalidateUndefResourcesPass() {
+  return new InvalidateUndefResources();
+}
 
-INITIALIZE_PASS(InvalidateUndefResources, "invalidate-undef-resource", "Invalidate undef resources", false, false)
+INITIALIZE_PASS(InvalidateUndefResources, "invalidate-undef-resource",
+                "Invalidate undef resources", false, false)
 
 bool InvalidateUndefResources::runOnModule(Module &M) {
   // Undef resources typically indicate uninitialized locals being used
@@ -80,7 +85,7 @@ bool InvalidateUndefResources::runOnModule(Module &M) {
   for (auto &F : M.functions()) {
     if (GetHLOpcodeGroupByName(&F) == HLOpcodeGroup::HLCreateHandle) {
       Type *ResTy = F.getFunctionType()->getParamType(
-        HLOperandIndex::kCreateHandleResourceOpIdx);
+          HLOperandIndex::kCreateHandleResourceOpIdx);
       UndefValue *UndefRes = UndefValue::get(ResTy);
       if (!UndefRes->use_empty()) {
         Constant *InvalidRes = ConstantAggregateZero::get(ResTy);
@@ -106,13 +111,14 @@ public:
 
 private:
 };
-}
+} // namespace
 
 char SimplifyInst::ID = 0;
 
 FunctionPass *llvm::createSimplifyInstPass() { return new SimplifyInst(); }
 
-INITIALIZE_PASS(SimplifyInst, "simplify-inst", "Simplify Instructions", false, false)
+INITIALIZE_PASS(SimplifyInst, "simplify-inst", "Simplify Instructions", false,
+                false)
 
 bool SimplifyInst::runOnFunction(Function &F) {
   for (Function::iterator BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
@@ -128,9 +134,11 @@ namespace {
 class DxilDeadFunctionElimination : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilDeadFunctionElimination () : ModulePass(ID) {}
+  explicit DxilDeadFunctionElimination() : ModulePass(ID) {}
 
-  StringRef getPassName() const override { return "Remove all unused function except entry from DxilModule"; }
+  StringRef getPassName() const override {
+    return "Remove all unused function except entry from DxilModule";
+  }
 
   bool runOnModule(Module &M) override {
     if (M.HasDxilModule()) {
@@ -149,7 +157,7 @@ public:
     return false;
   }
 };
-}
+} // namespace
 
 char DxilDeadFunctionElimination::ID = 0;
 
@@ -157,7 +165,9 @@ ModulePass *llvm::createDxilDeadFunctionEliminationPass() {
   return new DxilDeadFunctionElimination();
 }
 
-INITIALIZE_PASS(DxilDeadFunctionElimination, "dxil-dfe", "Remove all unused function except entry from DxilModule", false, false)
+INITIALIZE_PASS(DxilDeadFunctionElimination, "dxil-dfe",
+                "Remove all unused function except entry from DxilModule",
+                false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -169,13 +179,17 @@ static void TransferEntryFunctionAttributes(Function *F, Function *NewFunc) {
   // Keep necessary function attributes
   AttributeSet attributeSet = F->getAttributes();
   StringRef attrKind, attrValue;
-  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString)) {
-    Attribute attribute = attributeSet.getAttribute(AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
-    DXASSERT(attribute.isStringAttribute(), "otherwise we have wrong fp-denorm-mode attribute.");
+  if (attributeSet.hasAttribute(AttributeSet::FunctionIndex,
+                                DXIL::kFP32DenormKindString)) {
+    Attribute attribute = attributeSet.getAttribute(
+        AttributeSet::FunctionIndex, DXIL::kFP32DenormKindString);
+    DXASSERT(attribute.isStringAttribute(),
+             "otherwise we have wrong fp-denorm-mode attribute.");
     attrKind = attribute.getKindAsString();
     attrValue = attribute.getValueAsString();
   }
-  bool helperLane = attributeSet.hasAttribute(AttributeSet::FunctionIndex, DXIL::kWaveOpsIncludeHelperLanesString);
+  bool helperLane = attributeSet.hasAttribute(
+      AttributeSet::FunctionIndex, DXIL::kWaveOpsIncludeHelperLanesString);
   if (F == NewFunc) {
     NewFunc->removeAttributes(AttributeSet::FunctionIndex, attributeSet);
   }
@@ -185,8 +199,10 @@ static void TransferEntryFunctionAttributes(Function *F, Function *NewFunc) {
     NewFunc->addFnAttr(DXIL::kWaveOpsIncludeHelperLanesString);
 }
 
-// If this returns non-null, the old function F has been stripped and can be deleted.
-static Function *StripFunctionParameter(Function *F, DxilModule &DM,
+// If this returns non-null, the old function F has been stripped and can be
+// deleted.
+static Function *StripFunctionParameter(
+    Function *F, DxilModule &DM,
     DenseMap<const Function *, DISubprogram *> &FunctionDIs) {
   if (F->arg_empty() && F->getReturnType()->isVoidTy()) {
     // This will strip non-entry function attributes
@@ -262,9 +278,11 @@ void CheckInBoundForTGSM(GlobalVariable &GV, const DataLayout &DL) {
 
 static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
   ConstantInt *CI = dyn_cast<ConstantInt>(V);
-  if (!CI) return false;
+  if (!CI)
+    return false;
   uint64_t u = CI->getZExtValue();
-  if (u > UINT32_MAX) return false;
+  if (u > UINT32_MAX)
+    return false;
   *pValue = (uint32_t)u;
   return true;
 }
@@ -273,7 +291,8 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
   DXASSERT_NOMSG(F != nullptr);
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
   // F is a pointer to a Function instance
-  for (llvm::inst_iterator I = llvm::inst_begin(F), E = llvm::inst_end(F); I != E; ++I) {
+  for (llvm::inst_iterator I = llvm::inst_begin(F), E = llvm::inst_end(F);
+       I != E; ++I) {
     DxilInst_LoadInput LI(&*I);
     DxilInst_StoreOutput SO(&*I);
     DxilInst_LoadPatchConstant LPC(&*I);
@@ -284,42 +303,54 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
     uint32_t col, row, sigId;
     bool bDynIdx = false;
     if (LI) {
-      if (!GetUnsignedVal(LI.get_inputSigId(), &sigId)) continue;
-      if (!GetUnsignedVal(LI.get_colIndex(), &col)) continue;
-      if (!GetUnsignedVal(LI.get_rowIndex(), &row)) bDynIdx = true;
+      if (!GetUnsignedVal(LI.get_inputSigId(), &sigId))
+        continue;
+      if (!GetUnsignedVal(LI.get_colIndex(), &col))
+        continue;
+      if (!GetUnsignedVal(LI.get_rowIndex(), &row))
+        bDynIdx = true;
       pSig = &DM.GetInputSignature();
-    }
-    else if (SO) {
-      if (!GetUnsignedVal(SO.get_outputSigId(), &sigId)) continue;
-      if (!GetUnsignedVal(SO.get_colIndex(), &col)) continue;
-      if (!GetUnsignedVal(SO.get_rowIndex(), &row)) bDynIdx = true;
+    } else if (SO) {
+      if (!GetUnsignedVal(SO.get_outputSigId(), &sigId))
+        continue;
+      if (!GetUnsignedVal(SO.get_colIndex(), &col))
+        continue;
+      if (!GetUnsignedVal(SO.get_rowIndex(), &row))
+        bDynIdx = true;
       pSig = &DM.GetOutputSignature();
-    }
-    else if (SPC) {
-      if (!GetUnsignedVal(SPC.get_outputSigID(), &sigId)) continue;
-      if (!GetUnsignedVal(SPC.get_col(), &col)) continue;
-      if (!GetUnsignedVal(SPC.get_row(), &row)) bDynIdx = true;
+    } else if (SPC) {
+      if (!GetUnsignedVal(SPC.get_outputSigID(), &sigId))
+        continue;
+      if (!GetUnsignedVal(SPC.get_col(), &col))
+        continue;
+      if (!GetUnsignedVal(SPC.get_row(), &row))
+        bDynIdx = true;
       pSig = &DM.GetPatchConstOrPrimSignature();
-    }
-    else if (LPC) {
-      if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId)) continue;
-      if (!GetUnsignedVal(LPC.get_col(), &col)) continue;
-      if (!GetUnsignedVal(LPC.get_row(), &row)) bDynIdx = true;
+    } else if (LPC) {
+      if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId))
+        continue;
+      if (!GetUnsignedVal(LPC.get_col(), &col))
+        continue;
+      if (!GetUnsignedVal(LPC.get_row(), &row))
+        bDynIdx = true;
       pSig = &DM.GetPatchConstOrPrimSignature();
-    }
-    else if (SVO) {
-      if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId)) continue;
-      if (!GetUnsignedVal(SVO.get_colIndex(), &col)) continue;
-      if (!GetUnsignedVal(SVO.get_rowIndex(), &row)) bDynIdx = true;
+    } else if (SVO) {
+      if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId))
+        continue;
+      if (!GetUnsignedVal(SVO.get_colIndex(), &col))
+        continue;
+      if (!GetUnsignedVal(SVO.get_rowIndex(), &row))
+        bDynIdx = true;
       pSig = &DM.GetOutputSignature();
-    }
-    else if (SPO) {
-      if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId)) continue;
-      if (!GetUnsignedVal(SPO.get_colIndex(), &col)) continue;
-      if (!GetUnsignedVal(SPO.get_rowIndex(), &row)) bDynIdx = true;
+    } else if (SPO) {
+      if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId))
+        continue;
+      if (!GetUnsignedVal(SPO.get_colIndex(), &col))
+        continue;
+      if (!GetUnsignedVal(SPO.get_rowIndex(), &row))
+        bDynIdx = true;
       pSig = &DM.GetPatchConstOrPrimSignature();
-    }
-    else {
+    } else {
       continue;
     }
 
@@ -456,7 +487,7 @@ public:
     }
 
     // add PS entry points to set
-    SmallSetVector<Function*, 4> psEntries;
+    SmallSetVector<Function *, 4> psEntries;
     if (pSM->IsPS()) {
       psEntries.insert(DM.GetEntryFunction());
     } else if (pSM->IsLib()) {
@@ -491,7 +522,8 @@ public:
   }
 
   GlobalVariable *GetIsHelperGV(Module &M) {
-    return M.getGlobalVariable(DXIL::kDxIsHelperGlobalName, /*AllowLocal*/ true);
+    return M.getGlobalVariable(DXIL::kDxIsHelperGlobalName,
+                               /*AllowLocal*/ true);
   }
   GlobalVariable *GetOrCreateIsHelperGV(Module &M, hlsl::OP *hlslOP) {
     GlobalVariable *GV = GetIsHelperGV(M);
@@ -583,7 +615,8 @@ public:
   }
   ///////////////////////////////////////////////////
 
-  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP, unsigned ValMajor, unsigned ValMinor) {
+  void patchDxil_1_6(Module &M, hlsl::OP *hlslOP, unsigned ValMajor,
+                     unsigned ValMinor) {
     RemoveAnnotateHandle(hlslOP);
 
     // Convert IsHelperLane() on down-level targets
@@ -662,13 +695,14 @@ public:
   // that has an initializer.
   // This works around losing scoping information in earlier shader models
   // that do not support the intrinsics natively.
-  void patchLifetimeIntrinsics(Module &M, unsigned ValMajor, unsigned ValMinor, bool forceZeroStoreLifetimes) {
+  void patchLifetimeIntrinsics(Module &M, unsigned ValMajor, unsigned ValMinor,
+                               bool forceZeroStoreLifetimes) {
     // Get the declarations. This may introduce them if there were none before.
     Value *StartDecl = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_start);
-    Value *EndDecl   = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_end);
+    Value *EndDecl = Intrinsic::getDeclaration(&M, Intrinsic::lifetime_end);
 
     // Collect all calls to both intrinsics.
-    std::vector<CallInst*> intrinsicCalls;
+    std::vector<CallInst *> intrinsicCalls;
     for (Use &U : StartDecl->uses()) {
       // All users must be call instructions.
       CallInst *CI = dyn_cast<CallInst>(U.getUser());
@@ -689,8 +723,8 @@ public:
       // argument, ...).
       Value *voidPtr = CI->getArgOperand(1);
       DXASSERT(voidPtr->getType()->isPointerTy() &&
-               voidPtr->getType()->getPointerElementType()->isIntegerTy(8),
-               "Expected operand of lifetime intrinsic to be of type i8*" );
+                   voidPtr->getType()->getPointerElementType()->isIntegerTy(8),
+               "Expected operand of lifetime intrinsic to be of type i8*");
 
       Value *ptr = nullptr;
       if (ConstantExpr *CE = dyn_cast<ConstantExpr>(voidPtr)) {
@@ -717,7 +751,8 @@ public:
       if (ptr) {
         // Determine the type to use when storing undef.
         DXASSERT(ptr->getType()->isPointerTy(),
-                 "Expected type of operand of lifetime intrinsic bitcast operand to be a pointer");
+                 "Expected type of operand of lifetime intrinsic bitcast "
+                 "operand to be a pointer");
         Type *T = ptr->getType()->getPointerElementType();
 
         // Store undef at the location of the start/end intrinsic.
@@ -726,7 +761,8 @@ public:
         // achieves mostly the same as storing undef but can cause overhead in
         // some situations.
         // We also allow to force zeroinitializer through a flag.
-        if (forceZeroStoreLifetimes || ValMajor < 1 || (ValMajor == 1 && ValMinor < 6))
+        if (forceZeroStoreLifetimes || ValMajor < 1 ||
+            (ValMajor == 1 && ValMinor < 6))
           IRBuilder<>(CI).CreateStore(Constant::getNullValue(T), ptr);
         else
           IRBuilder<>(CI).CreateStore(UndefValue::get(T), ptr);
@@ -821,10 +857,10 @@ public:
           if (Elt->GetKind() == Semantic::Kind::Target &&
               Elt->GetUsageMask() != Elt->GetColsAsMask()) {
             dxilutil::EmitWarningOnContext(
-                M.getContext(),
-                "Declared output " + llvm::Twine(Elt->GetName()) +
-                    llvm::Twine(Elt->GetSemanticStartIndex()) +
-                    " not fully written in shader.");
+                M.getContext(), "Declared output " +
+                                    llvm::Twine(Elt->GetName()) +
+                                    llvm::Twine(Elt->GetSemanticStartIndex()) +
+                                    " not fully written in shader.");
           }
         }
       }
@@ -908,15 +944,19 @@ private:
     }
   }
 
-  static bool BitPieceCoversEntireVar(DIExpression *expr, DILocalVariable *var, DITypeIdentifierMap &TypeIdentifierMap) {
+  static bool BitPieceCoversEntireVar(DIExpression *expr, DILocalVariable *var,
+                                      DITypeIdentifierMap &TypeIdentifierMap) {
     if (expr->isBitPiece()) {
       DIType *ty = var->getType().resolve(TypeIdentifierMap);
-      return expr->getBitPieceOffset() == 0 && expr->getBitPieceSize() == ty->getSizeInBits();
+      return expr->getBitPieceOffset() == 0 &&
+             expr->getBitPieceSize() == ty->getSizeInBits();
     }
     return false;
   }
 
-  static void LegalizeDbgFragmentsForDbgIntrinsic(Function *f, DITypeIdentifierMap &TypeIdentifierMap) {
+  static void
+  LegalizeDbgFragmentsForDbgIntrinsic(Function *f,
+                                      DITypeIdentifierMap &TypeIdentifierMap) {
     Intrinsic::ID intrinsic = f->getIntrinsicID();
 
     DIBuilder dib(*f->getParent());
@@ -932,12 +972,13 @@ private:
         DIExpression *expr = di->getExpression();
         DILocalVariable *var = di->getVariable();
         if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
-          dib.insertDbgValueIntrinsic(value, 0, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          dib.insertDbgValueIntrinsic(value, 0, var,
+                                      DIExpression::get(di->getContext(), {}),
+                                      di->getDebugLoc(), di);
           di->eraseFromParent();
         }
       }
-    }
-    else if (intrinsic == Intrinsic::dbg_declare) {
+    } else if (intrinsic == Intrinsic::dbg_declare) {
       for (auto it = f->user_begin(), end = f->user_end(); it != end;) {
         User *u = *(it++);
         DbgDeclareInst *di = cast<DbgDeclareInst>(u);
@@ -949,7 +990,8 @@ private:
         DIExpression *expr = di->getExpression();
         DILocalVariable *var = di->getVariable();
         if (BitPieceCoversEntireVar(expr, var, TypeIdentifierMap)) {
-          dib.insertDeclare(addr, var, DIExpression::get(di->getContext(), {}), di->getDebugLoc(), di);
+          dib.insertDeclare(addr, var, DIExpression::get(di->getContext(), {}),
+                            di->getDebugLoc(), di);
           di->eraseFromParent();
         }
       }
@@ -962,7 +1004,8 @@ private:
     if (Function *f = M.getFunction(Intrinsic::getName(Intrinsic::dbg_value))) {
       LegalizeDbgFragmentsForDbgIntrinsic(f, TypeIdentifierMap);
     }
-    if (Function *f = M.getFunction(Intrinsic::getName(Intrinsic::dbg_declare))) {
+    if (Function *f =
+            M.getFunction(Intrinsic::getName(Intrinsic::dbg_declare))) {
       LegalizeDbgFragmentsForDbgIntrinsic(f, TypeIdentifierMap);
     }
   }
@@ -1012,8 +1055,10 @@ private:
           DM.SetPatchConstantFunction(NewPatchConstantFunc);
 
           // Erase once the DxilModule doesn't track the old function anymore
-          DXASSERT(DM.IsPatchConstantShader(NewPatchConstantFunc) && !DM.IsPatchConstantShader(OldPatchConstantFunc),
-            "Error while migrating to parameter-stripped patch constant function.");
+          DXASSERT(DM.IsPatchConstantShader(NewPatchConstantFunc) &&
+                       !DM.IsPatchConstantShader(OldPatchConstantFunc),
+                   "Error while migrating to parameter-stripped patch constant "
+                   "function.");
           OldPatchConstantFunc->eraseFromParent();
         }
       }
@@ -1021,7 +1066,8 @@ private:
       if (Function *OldEntryFunc = DM.GetEntryFunction()) {
         StringRef Name = DM.GetEntryFunctionName();
         OldEntryFunc->setName(Name);
-        Function *NewEntryFunc = StripFunctionParameter(OldEntryFunc, DM, FunctionDIs);
+        Function *NewEntryFunc =
+            StripFunctionParameter(OldEntryFunc, DM, FunctionDIs);
         if (NewEntryFunc) {
           DM.SetEntryFunction(NewEntryFunc);
           OldEntryFunc->eraseFromParent();
@@ -1029,8 +1075,10 @@ private:
       }
     } else {
       std::vector<Function *> entries;
-      // Handle when multiple hull shaders point to the same patch constant function
-      MapVector<Function*, llvm::SmallVector<Function*, 2>> PatchConstantFuncUsers;
+      // Handle when multiple hull shaders point to the same patch constant
+      // function
+      MapVector<Function *, llvm::SmallVector<Function *, 2>>
+          PatchConstantFuncUsers;
       for (iplist<Function>::iterator F : M.getFunctionList()) {
         if (DM.IsEntryThatUsesSignatures(F)) {
           auto *FT = F->getFunctionType();
@@ -1039,14 +1087,18 @@ private:
             entries.emplace_back(F);
           }
 
-          DxilFunctionProps& props = DM.GetDxilFunctionProps(F);
+          DxilFunctionProps &props = DM.GetDxilFunctionProps(F);
           if (props.IsHS() && props.ShaderProps.HS.patchConstantFunc) {
-            FunctionType* PatchConstantFuncTy = props.ShaderProps.HS.patchConstantFunc->getFunctionType();
-            if (PatchConstantFuncTy->getNumParams() > 0 || !PatchConstantFuncTy->getReturnType()->isVoidTy()) {
-              // Accumulate all hull shaders using a given patch constant function,
-              // so we can update it once and fix all hull shaders, without having an intermediary
-              // state where some hull shaders point to a destroyed patch constant function.
-              PatchConstantFuncUsers[props.ShaderProps.HS.patchConstantFunc].emplace_back(F);
+            FunctionType *PatchConstantFuncTy =
+                props.ShaderProps.HS.patchConstantFunc->getFunctionType();
+            if (PatchConstantFuncTy->getNumParams() > 0 ||
+                !PatchConstantFuncTy->getReturnType()->isVoidTy()) {
+              // Accumulate all hull shaders using a given patch constant
+              // function, so we can update it once and fix all hull shaders,
+              // without having an intermediary state where some hull shaders
+              // point to a destroyed patch constant function.
+              PatchConstantFuncUsers[props.ShaderProps.HS.patchConstantFunc]
+                  .emplace_back(F);
             }
           }
         }
@@ -1054,23 +1106,28 @@ private:
 
       // Strip patch constant functions first
       for (auto &PatchConstantFuncEntry : PatchConstantFuncUsers) {
-        Function* OldPatchConstantFunc = PatchConstantFuncEntry.first;
-        Function* NewPatchConstantFunc = StripFunctionParameter(OldPatchConstantFunc, DM, FunctionDIs);
+        Function *OldPatchConstantFunc = PatchConstantFuncEntry.first;
+        Function *NewPatchConstantFunc =
+            StripFunctionParameter(OldPatchConstantFunc, DM, FunctionDIs);
         if (NewPatchConstantFunc) {
           // Update all user hull shaders
           for (Function *HullShaderFunc : PatchConstantFuncEntry.second)
-            DM.SetPatchConstantFunctionForHS(HullShaderFunc, NewPatchConstantFunc);
+            DM.SetPatchConstantFunctionForHS(HullShaderFunc,
+                                             NewPatchConstantFunc);
 
           // Erase once the DxilModule doesn't track the old function anymore
-          DXASSERT(DM.IsPatchConstantShader(NewPatchConstantFunc) && !DM.IsPatchConstantShader(OldPatchConstantFunc),
-            "Error while migrating to parameter-stripped patch constant function.");
+          DXASSERT(DM.IsPatchConstantShader(NewPatchConstantFunc) &&
+                       !DM.IsPatchConstantShader(OldPatchConstantFunc),
+                   "Error while migrating to parameter-stripped patch constant "
+                   "function.");
           OldPatchConstantFunc->eraseFromParent();
         }
       }
 
       for (Function *OldEntry : entries) {
         Function *NewEntry = StripFunctionParameter(OldEntry, DM, FunctionDIs);
-        if (NewEntry) OldEntry->eraseFromParent();
+        if (NewEntry)
+          OldEntry->eraseFromParent();
       }
     }
   }
@@ -1099,8 +1156,8 @@ private:
   void RemoveUnusedRayQuery(Module &M) {
     hlsl::OP *hlslOP = M.GetDxilModule().GetOP();
     llvm::Function *AllocFn = hlslOP->GetOpFunc(
-      DXIL::OpCode::AllocateRayQuery, Type::getVoidTy(M.getContext()));
-    SmallVector<CallInst*, 4> DeadInsts;
+        DXIL::OpCode::AllocateRayQuery, Type::getVoidTy(M.getContext()));
+    SmallVector<CallInst *, 4> DeadInsts;
     for (auto U : AllocFn->users()) {
       if (CallInst *CI = dyn_cast<CallInst>(U)) {
         if (CI->user_empty()) {
@@ -1116,23 +1173,26 @@ private:
     }
   }
 
-  // Convert all uses of dx.break() into per-function load/cmp of dx.break.cond global constant
+  // Convert all uses of dx.break() into per-function load/cmp of dx.break.cond
+  // global constant
   void LowerDxBreak(Module &M) {
     if (Function *BreakFunc = M.getFunction(DXIL::kDxBreakFuncName)) {
       if (!BreakFunc->use_empty()) {
         llvm::Type *i32Ty = llvm::Type::getInt32Ty(M.getContext());
         Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
-        unsigned int Values[1] = { 0 };
+        unsigned int Values[1] = {0};
         Constant *InitialValue = ConstantDataArray::get(M.getContext(), Values);
         Constant *GV = new GlobalVariable(M, i32ArrayTy, true,
                                           GlobalValue::InternalLinkage,
                                           InitialValue, DXIL::kDxBreakCondName);
 
-        Constant *Indices[] = { ConstantInt::get(i32Ty, 0), ConstantInt::get(i32Ty, 0) };
+        Constant *Indices[] = {ConstantInt::get(i32Ty, 0),
+                               ConstantInt::get(i32Ty, 0)};
         Constant *Gep = ConstantExpr::getGetElementPtr(nullptr, GV, Indices);
-        SmallDenseMap<llvm::Function*, llvm::ICmpInst*, 16> DxBreakCmpMap;
+        SmallDenseMap<llvm::Function *, llvm::ICmpInst *, 16> DxBreakCmpMap;
         // Replace all uses of dx.break with references to the constant global
-        for (auto I = BreakFunc->user_begin(), E = BreakFunc->user_end(); I != E;) {
+        for (auto I = BreakFunc->user_begin(), E = BreakFunc->user_end();
+             I != E;) {
           User *U = *I++;
           CallInst *CI = cast<CallInst>(U);
           Function *F = CI->getParent()->getParent();
@@ -1140,7 +1200,8 @@ private:
           if (!Cmp) {
             Instruction *IP = dxilutil::FindAllocaInsertionPt(F);
             LoadInst *LI = new LoadInst(Gep, nullptr, false, IP);
-            Cmp = new ICmpInst(IP, ICmpInst::ICMP_EQ, LI, llvm::ConstantInt::get(i32Ty,0));
+            Cmp = new ICmpInst(IP, ICmpInst::ICMP_EQ, LI,
+                               llvm::ConstantInt::get(i32Ty, 0));
             DxBreakCmpMap[F] = Cmp;
           }
           CI->replaceAllUsesWith(Cmp);
@@ -1159,7 +1220,7 @@ private:
     }
   }
 };
-}
+} // namespace
 
 char DxilFinalizeModule::ID = 0;
 
@@ -1167,18 +1228,18 @@ ModulePass *llvm::createDxilFinalizeModulePass() {
   return new DxilFinalizeModule();
 }
 
-INITIALIZE_PASS(DxilFinalizeModule, "hlsl-dxilfinalize", "HLSL DXIL Finalize Module", false, false)
-
+INITIALIZE_PASS(DxilFinalizeModule, "hlsl-dxilfinalize",
+                "HLSL DXIL Finalize Module", false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
 namespace {
-typedef MapVector< PHINode*, SmallVector<Value*,8> > PHIReplacementMap;
+typedef MapVector<PHINode *, SmallVector<Value *, 8>> PHIReplacementMap;
 bool RemoveAddrSpaceCasts(Value *Val, Value *NewVal,
                           PHIReplacementMap &phiReplacements,
-                          DenseMap<Value*, Value*> &valueMap) {
+                          DenseMap<Value *, Value *> &valueMap) {
   bool bChanged = false;
-  for (auto itU = Val->use_begin(), itEnd = Val->use_end(); itU != itEnd; ) {
+  for (auto itU = Val->use_begin(), itEnd = Val->use_end(); itU != itEnd;) {
     Use &use = *(itU++);
     User *user = use.getUser();
     Value *userReplacement = user;
@@ -1189,22 +1250,23 @@ bool RemoveAddrSpaceCasts(Value *Val, Value *NewVal,
       userReplacement = valueMapIter->second;
     else if (Val != NewVal)
       bConstructReplacement = true;
-    if (ConstantExpr* CE = dyn_cast<ConstantExpr>(user)) {
+    if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       if (CE->getOpcode() == Instruction::BitCast) {
         if (bConstructReplacement) {
           // Replicate bitcast in target address space
-          Type* NewTy = PointerType::get(
-            CE->getType()->getPointerElementType(),
-            NewVal->getType()->getPointerAddressSpace());
-          userReplacement = ConstantExpr::getBitCast(cast<Constant>(NewVal), NewTy);
+          Type *NewTy =
+              PointerType::get(CE->getType()->getPointerElementType(),
+                               NewVal->getType()->getPointerAddressSpace());
+          userReplacement =
+              ConstantExpr::getBitCast(cast<Constant>(NewVal), NewTy);
         }
       } else if (CE->getOpcode() == Instruction::GetElementPtr) {
         if (bConstructReplacement) {
           // Replicate GEP in target address space
           GEPOperator *GEP = cast<GEPOperator>(CE);
-          SmallVector<Value*, 8> idxList(GEP->idx_begin(), GEP->idx_end());
+          SmallVector<Value *, 8> idxList(GEP->idx_begin(), GEP->idx_end());
           userReplacement = ConstantExpr::getGetElementPtr(
-            nullptr, cast<Constant>(NewVal), idxList, GEP->isInBounds());
+              nullptr, cast<Constant>(NewVal), idxList, GEP->isInBounds());
         }
       } else if (CE->getOpcode() == Instruction::AddrSpaceCast) {
         userReplacement = NewVal;
@@ -1216,18 +1278,20 @@ bool RemoveAddrSpaceCasts(Value *Val, Value *NewVal,
       if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
         if (bConstructReplacement) {
           IRBuilder<> Builder(GEP);
-          SmallVector<Value*, 8> idxList(GEP->idx_begin(), GEP->idx_end());
+          SmallVector<Value *, 8> idxList(GEP->idx_begin(), GEP->idx_end());
           if (GEP->isInBounds())
-            userReplacement = Builder.CreateInBoundsGEP(NewVal, idxList, GEP->getName());
+            userReplacement =
+                Builder.CreateInBoundsGEP(NewVal, idxList, GEP->getName());
           else
-            userReplacement = Builder.CreateGEP(NewVal, idxList, GEP->getName());
+            userReplacement =
+                Builder.CreateGEP(NewVal, idxList, GEP->getName());
         }
       } else if (BitCastInst *BC = dyn_cast<BitCastInst>(user)) {
         if (bConstructReplacement) {
           IRBuilder<> Builder(BC);
-          Type* NewTy = PointerType::get(
-            BC->getType()->getPointerElementType(),
-            NewVal->getType()->getPointerAddressSpace());
+          Type *NewTy =
+              PointerType::get(BC->getType()->getPointerElementType(),
+                               NewVal->getType()->getPointerAddressSpace());
           userReplacement = Builder.CreateBitCast(NewVal, NewTy);
         }
       } else if (PHINode *PHI = dyn_cast<PHINode>(user)) {
@@ -1237,8 +1301,7 @@ bool RemoveAddrSpaceCasts(Value *Val, Value *NewVal,
         if (phiValues.empty())
           phiValues.resize(numValues, nullptr);
         for (unsigned idx = 0; idx < numValues; ++idx) {
-          if (phiValues[idx] == nullptr &&
-              PHI->getIncomingValue(idx) == Val) {
+          if (phiValues[idx] == nullptr && PHI->getIncomingValue(idx) == Val) {
             phiValues[idx] = NewVal;
             bChanged = true;
           }
@@ -1260,8 +1323,8 @@ bool RemoveAddrSpaceCasts(Value *Val, Value *NewVal,
     }
     if (bConstructReplacement && user != userReplacement)
       valueMap[user] = userReplacement;
-    bChanged |= RemoveAddrSpaceCasts(user, userReplacement, phiReplacements,
-                                      valueMap);
+    bChanged |=
+        RemoveAddrSpaceCasts(user, userReplacement, phiReplacements, valueMap);
     if (bCleanupInst && user->use_empty()) {
       // Clean up old instruction if it's now unused.
       // Safe during this use iteration when only one use of V in instruction.
@@ -1272,18 +1335,17 @@ bool RemoveAddrSpaceCasts(Value *Val, Value *NewVal,
   }
   return bChanged;
 }
-}
+} // namespace
 
 bool CleanupSharedMemoryAddrSpaceCast(Module &M) {
   bool bChanged = false;
   // Eliminate address space casts if possible
   // Collect phi nodes so we can replace iteratively after pass over GVs
   PHIReplacementMap phiReplacements;
-  DenseMap<Value*, Value*> valueMap;
+  DenseMap<Value *, Value *> valueMap;
   for (GlobalVariable &GV : M.globals()) {
     if (dxilutil::IsSharedMemoryGlobal(&GV)) {
-      bChanged |= RemoveAddrSpaceCasts(&GV, &GV, phiReplacements,
-                                       valueMap);
+      bChanged |= RemoveAddrSpaceCasts(&GV, &GV, phiReplacements, valueMap);
     }
   }
   bool bConverged = false;
@@ -1326,18 +1388,16 @@ bool CleanupSharedMemoryAddrSpaceCast(Module &M) {
       } else {
         IRBuilder<> Builder(PHI);
         NewPHI = Builder.CreatePHI(
-          PointerType::get(PHI->getType()->getPointerElementType(),
-                           incomingAddrSpace),
-          PHI->getNumIncomingValues(),
-          PHI->getName());
+            PointerType::get(PHI->getType()->getPointerElementType(),
+                             incomingAddrSpace),
+            PHI->getNumIncomingValues(), PHI->getName());
         NewVal = NewPHI;
         for (unsigned idx = 0; idx < PHI->getNumIncomingValues(); idx++) {
           NewPHI->addIncoming(phiReplacement.second[idx],
                               PHI->getIncomingBlock(idx));
         }
       }
-      if (RemoveAddrSpaceCasts(PHI, NewPHI, phiReplacements,
-                               valueMap)) {
+      if (RemoveAddrSpaceCasts(PHI, NewPHI, phiReplacements, valueMap)) {
         bConverged = false;
         bChanged = true;
         break;
@@ -1376,7 +1436,9 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilCleanupAddrSpaceCast() : ModulePass(ID) {}
 
-  StringRef getPassName() const override { return "HLSL DXIL Cleanup Address Space Cast"; }
+  StringRef getPassName() const override {
+    return "HLSL DXIL Cleanup Address Space Cast";
+  }
 
   bool runOnModule(Module &M) override {
     return CleanupSharedMemoryAddrSpaceCast(M);
@@ -1389,7 +1451,8 @@ ModulePass *llvm::createDxilCleanupAddrSpaceCastPass() {
   return new DxilCleanupAddrSpaceCast();
 }
 
-INITIALIZE_PASS(DxilCleanupAddrSpaceCast, "hlsl-dxil-cleanup-addrspacecast", "HLSL DXIL Cleanup Address Space Cast", false, false)
+INITIALIZE_PASS(DxilCleanupAddrSpaceCast, "hlsl-dxil-cleanup-addrspacecast",
+                "HLSL DXIL Cleanup Address Space Cast", false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1412,6 +1475,7 @@ public:
 
     return false;
   }
+
 private:
   void patchIsFrontfaceTy(Module &M);
 };
@@ -1448,7 +1512,7 @@ void DxilEmitMetadata::patchIsFrontfaceTy(Module &M) {
   }
 }
 
-}
+} // namespace
 
 char DxilEmitMetadata::ID = 0;
 
@@ -1456,7 +1520,8 @@ ModulePass *llvm::createDxilEmitMetadataPass() {
   return new DxilEmitMetadata();
 }
 
-INITIALIZE_PASS(DxilEmitMetadata, "hlsl-dxilemit", "HLSL DXIL Metadata Emit", false, false)
+INITIALIZE_PASS(DxilEmitMetadata, "hlsl-dxilemit", "HLSL DXIL Metadata Emit",
+                false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1563,7 +1628,7 @@ public:
   }
 };
 
-}
+} // namespace
 
 char DxilValidateWaveSensitivity::ID = 0;
 
@@ -1571,21 +1636,25 @@ ModulePass *llvm::createDxilValidateWaveSensitivityPass() {
   return new DxilValidateWaveSensitivity();
 }
 
-INITIALIZE_PASS(DxilValidateWaveSensitivity, "hlsl-validate-wave-sensitivity", "HLSL DXIL wave sensitiveity validation", false, false)
-
+INITIALIZE_PASS(DxilValidateWaveSensitivity, "hlsl-validate-wave-sensitivity",
+                "HLSL DXIL wave sensitiveity validation", false, false)
 
 namespace {
 
-// Cull blocks from BreakBBs that containing instructions that are sensitive to the wave-sensitive Inst
-// Sensitivity entails being an eventual user of the Inst and also belonging to a block with
-// a break conditional on dx.break that breaks out of a loop that contains WaveCI
-// LInfo is needed to determine loop contents. Visited is needed to prevent infinite looping.
-static void CullSensitiveBlocks(LoopInfo *LInfo, Loop *WaveLoop, BasicBlock *LastBB, Instruction *Inst,
-                                std::unordered_set<Instruction *> &Visited,
-                                SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
+// Cull blocks from BreakBBs that containing instructions that are sensitive to
+// the wave-sensitive Inst Sensitivity entails being an eventual user of the
+// Inst and also belonging to a block with a break conditional on dx.break that
+// breaks out of a loop that contains WaveCI LInfo is needed to determine loop
+// contents. Visited is needed to prevent infinite looping.
+static void
+CullSensitiveBlocks(LoopInfo *LInfo, Loop *WaveLoop, BasicBlock *LastBB,
+                    Instruction *Inst,
+                    std::unordered_set<Instruction *> &Visited,
+                    SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
   BasicBlock *BB = Inst->getParent();
   Loop *BreakLoop = LInfo->getLoopFor(BB);
-  // If this instruction isn't in a loop, there is no need to track its sensitivity further
+  // If this instruction isn't in a loop, there is no need to track its
+  // sensitivity further
   if (!BreakLoop || BreakBBs.empty())
     return;
 
@@ -1595,8 +1664,8 @@ static void CullSensitiveBlocks(LoopInfo *LInfo, Loop *WaveLoop, BasicBlock *Las
 
   // If this BB wasn't already just processed, handle it now
   if (LastBB != BB) {
-    // Determine if the instruction's block has an artificially-conditional break
-    // and breaks out of a loop that contains the waveCI
+    // Determine if the instruction's block has an artificially-conditional
+    // break and breaks out of a loop that contains the waveCI
     BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator());
     if (BI && BI->isConditional() && BreakLoop->contains(WaveLoop))
       BreakBBs.erase(BB);
@@ -1609,10 +1678,12 @@ static void CullSensitiveBlocks(LoopInfo *LInfo, Loop *WaveLoop, BasicBlock *Las
   }
 }
 
-// Collect blocks that end in a dx.break dependent branch by tracing the descendants of BreakFunc
-// that are found in ThisFunc and store the block and call instruction in BreakBBs
-static void CollectBreakBlocks(Function *BreakFunc, Function *ThisFunc,
-                               SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
+// Collect blocks that end in a dx.break dependent branch by tracing the
+// descendants of BreakFunc that are found in ThisFunc and store the block and
+// call instruction in BreakBBs
+static void
+CollectBreakBlocks(Function *BreakFunc, Function *ThisFunc,
+                   SmallDenseMap<BasicBlock *, Instruction *, 16> &BreakBBs) {
   for (User *U : BreakFunc->users()) {
     SmallVector<User *, 16> WorkList;
     Instruction *CI = cast<Instruction>(U);
@@ -1633,14 +1704,15 @@ static void CollectBreakBlocks(Function *BreakFunc, Function *ThisFunc,
   }
 }
 
-
 // A pass to remove conditions from breaks that do not contain instructions that
 // depend on wave operations that are in the loop that the break leaves.
 class CleanupDxBreak : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit CleanupDxBreak() : FunctionPass(ID) {}
-  StringRef getPassName() const override { return "HLSL Remove unnecessary dx.break conditions"; }
+  StringRef getPassName() const override {
+    return "HLSL Remove unnecessary dx.break conditions";
+  }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<LoopInfoWrapperPass>();
   }
@@ -1657,14 +1729,13 @@ public:
       return false;
 
     LInfo = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    // Collect the blocks that depend on dx.break and the instructions that call dx.break()
+    // Collect the blocks that depend on dx.break and the instructions that call
+    // dx.break()
     SmallDenseMap<BasicBlock *, Instruction *, 16> BreakBBs;
     CollectBreakBlocks(BreakFunc, &F, BreakBBs);
 
     if (BreakBBs.empty())
       return false;
-
-
 
     // Collect all wave calls in this function and group by loop
     SmallDenseMap<Loop *, SmallVector<CallInst *, 8>, 16> WaveCalls;
@@ -1673,8 +1744,10 @@ public:
       HLOpcodeGroup opgroup = hlsl::GetHLOpcodeGroup(&IF);
       // Only consider wave-sensitive intrinsics or extintrinsics
       if (IF.isDeclaration() && IsHLWaveSensitive(&IF) && !BreakBBs.empty() &&
-          (opgroup == HLOpcodeGroup::HLIntrinsic || opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
-        // For each user of the function, trace all its users to remove the blocks
+          (opgroup == HLOpcodeGroup::HLIntrinsic ||
+           opgroup == HLOpcodeGroup::HLExtIntrinsic)) {
+        // For each user of the function, trace all its users to remove the
+        // blocks
         for (User *U : IF.users()) {
           CallInst *CI = cast<CallInst>(U);
           if (CI->getParent()->getParent() == &F) {
@@ -1685,9 +1758,11 @@ public:
       }
     }
 
-    // For each wave operation, remove all the dx.break blocks that are sensitive to it
-    for (DenseMap<Loop*, SmallVector<CallInst *, 8>>::iterator I =
-           WaveCalls.begin(), E = WaveCalls.end();
+    // For each wave operation, remove all the dx.break blocks that are
+    // sensitive to it
+    for (DenseMap<Loop *, SmallVector<CallInst *, 8>>::iterator
+             I = WaveCalls.begin(),
+             E = WaveCalls.end();
          I != E; ++I) {
       Loop *loop = I->first;
       std::unordered_set<Instruction *> Visited;
@@ -1697,7 +1772,8 @@ public:
     }
 
     bool Changed = false;
-    // Revert artificially conditional breaks in non-wave-sensitive blocks that remain in BreakBBs
+    // Revert artificially conditional breaks in non-wave-sensitive blocks that
+    // remain in BreakBBs
     Constant *C = ConstantInt::get(Type::getInt1Ty(M->getContext()), 1);
     for (auto &BB : BreakBBs) {
       // Replace the call instruction with a constant boolen
@@ -1709,17 +1785,18 @@ public:
   }
 };
 
-}
+} // namespace
 
 char CleanupDxBreak::ID = 0;
 
-INITIALIZE_PASS_BEGIN(CleanupDxBreak, "hlsl-cleanup-dxbreak", "HLSL Remove unnecessary dx.break conditions", false, false)
+INITIALIZE_PASS_BEGIN(CleanupDxBreak, "hlsl-cleanup-dxbreak",
+                      "HLSL Remove unnecessary dx.break conditions", false,
+                      false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(CleanupDxBreak, "hlsl-cleanup-dxbreak", "HLSL Remove unnecessary dx.break conditions", false, false)
+INITIALIZE_PASS_END(CleanupDxBreak, "hlsl-cleanup-dxbreak",
+                    "HLSL Remove unnecessary dx.break conditions", false, false)
 
-FunctionPass *llvm::createCleanupDxBreakPass() {
-  return new CleanupDxBreak();
-}
+FunctionPass *llvm::createCleanupDxBreakPass() { return new CleanupDxBreak(); }
 
 ///////////////////////////////////////////////////////////////////////////////
 

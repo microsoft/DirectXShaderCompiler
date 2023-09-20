@@ -20,8 +20,8 @@
 
 #include "dia2.h"
 
-#include "dxc/dxcpix.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/dxcpix.h"
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/microcom.h"
@@ -37,9 +37,7 @@ public:
 
   struct LineInfo {
     LineInfo(std::uint32_t start_col, RVA first, RVA last)
-      : StartCol(start_col),
-        First(first),
-        Last(last) {}
+        : StartCol(start_col), First(first), Last(last) {}
 
     std::uint32_t StartCol = 0;
     RVA First = 0;
@@ -65,315 +63,418 @@ public:
   llvm::DebugInfoFinder &InfoRef() { return *m_finder.get(); }
   const SymbolManager &SymMgr() const { return m_symsMgr; }
   const RVAMap &InstructionsRef() const { return m_instructions; }
-  const std::vector<const llvm::Instruction *> &InstructionLinesRef() const { return m_instructionLines; }
-  const std::unordered_map<const llvm::Instruction *, RVA> &RvaMapRef() const { return m_rvaMap; }
-  const LineToInfoMap &LineToColumnStartMapRef() const { return m_lineToInfoMap; }
+  const std::vector<const llvm::Instruction *> &InstructionLinesRef() const {
+    return m_instructionLines;
+  }
+  const std::unordered_map<const llvm::Instruction *, RVA> &RvaMapRef() const {
+    return m_rvaMap;
+  }
+  const LineToInfoMap &LineToColumnStartMapRef() const {
+    return m_lineToInfoMap;
+  }
 
   HRESULT getSourceFileIdByName(llvm::StringRef fileName, DWORD *pRetVal);
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDiaSession, IDxcPixDxilDebugInfoFactory>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDiaSession, IDxcPixDxilDebugInfoFactory>(
+        this, iid, ppvObject);
   }
 
   STDMETHODIMP get_loadAddress(
-    /* [retval][out] */ ULONGLONG *pRetVal) override;
+      /* [retval][out] */ ULONGLONG *pRetVal) override;
 
   STDMETHODIMP put_loadAddress(
-    /* [in] */ ULONGLONG NewVal) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG NewVal) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP get_globalScope(
-    /* [retval][out] */ IDiaSymbol **pRetVal) override;
+      /* [retval][out] */ IDiaSymbol **pRetVal) override;
 
   STDMETHODIMP getEnumTables(IDiaEnumTables **ppEnumTables) override;
 
   STDMETHODIMP getSymbolsByAddr(
-    /* [out] */ IDiaEnumSymbolsByAddr **ppEnumbyAddr) override { return ENotImpl(); }
+      /* [out] */ IDiaEnumSymbolsByAddr **ppEnumbyAddr) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findChildren(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ enum SymTagEnum symtag,
-    /* [in] */ LPCOLESTR name,
-    /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [in] */ LPCOLESTR name,
+      /* [in] */ DWORD compareFlags,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findChildrenEx(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ enum SymTagEnum symtag,
-    /* [in] */ LPCOLESTR name,
-    /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [in] */ LPCOLESTR name,
+      /* [in] */ DWORD compareFlags,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findChildrenExByAddr(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ enum SymTagEnum symtag,
-    /* [in] */ LPCOLESTR name,
-    /* [in] */ DWORD compareFlags,
-    /* [in] */ DWORD isect,
-    /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [in] */ LPCOLESTR name,
+      /* [in] */ DWORD compareFlags,
+      /* [in] */ DWORD isect,
+      /* [in] */ DWORD offset,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findChildrenExByVA(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ enum SymTagEnum symtag,
-    /* [in] */ LPCOLESTR name,
-    /* [in] */ DWORD compareFlags,
-    /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [in] */ LPCOLESTR name,
+      /* [in] */ DWORD compareFlags,
+      /* [in] */ ULONGLONG va,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findChildrenExByRVA(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ enum SymTagEnum symtag,
-    /* [in] */ LPCOLESTR name,
-    /* [in] */ DWORD compareFlags,
-    /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [in] */ LPCOLESTR name,
+      /* [in] */ DWORD compareFlags,
+      /* [in] */ DWORD rva,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findSymbolByAddr(
-    /* [in] */ DWORD isect,
-    /* [in] */ DWORD offset,
-    /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
+      /* [in] */ DWORD isect,
+      /* [in] */ DWORD offset,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [out] */ IDiaSymbol **ppSymbol) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findSymbolByRVA(
-    /* [in] */ DWORD rva,
-  /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
+      /* [in] */ DWORD rva,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [out] */ IDiaSymbol **ppSymbol) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findSymbolByVA(
-    /* [in] */ ULONGLONG va,
-  /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG va,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [out] */ IDiaSymbol **ppSymbol) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findSymbolByToken(
-    /* [in] */ ULONG token,
-  /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
+      /* [in] */ ULONG token,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [out] */ IDiaSymbol **ppSymbol) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP symsAreEquiv(
-    /* [in] */ IDiaSymbol *symbolA,
-    /* [in] */ IDiaSymbol *symbolB) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *symbolA,
+      /* [in] */ IDiaSymbol *symbolB) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP symbolById(
-    /* [in] */ DWORD id,
-    /* [out] */ IDiaSymbol **ppSymbol) override { return ENotImpl(); }
+      /* [in] */ DWORD id,
+      /* [out] */ IDiaSymbol **ppSymbol) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findSymbolByRVAEx(
-    /* [in] */ DWORD rva,
-  /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol,
-    /* [out] */ long *displacement) override { return ENotImpl(); }
+      /* [in] */ DWORD rva,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [out] */ IDiaSymbol **ppSymbol,
+      /* [out] */ long *displacement) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findSymbolByVAEx(
-    /* [in] */ ULONGLONG va,
-  /* [in] */ enum SymTagEnum symtag,
-    /* [out] */ IDiaSymbol **ppSymbol,
-    /* [out] */ long *displacement) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG va,
+      /* [in] */ enum SymTagEnum symtag,
+      /* [out] */ IDiaSymbol **ppSymbol,
+      /* [out] */ long *displacement) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findFile(
-    /* [in] */ IDiaSymbol *pCompiland,
-    /* [in] */ LPCOLESTR name,
-    /* [in] */ DWORD compareFlags,
-    /* [out] */ IDiaEnumSourceFiles **ppResult) override;
+      /* [in] */ IDiaSymbol *pCompiland,
+      /* [in] */ LPCOLESTR name,
+      /* [in] */ DWORD compareFlags,
+      /* [out] */ IDiaEnumSourceFiles **ppResult) override;
 
   STDMETHODIMP findFileById(
-    /* [in] */ DWORD uniqueId,
-    /* [out] */ IDiaSourceFile **ppResult) override;
+      /* [in] */ DWORD uniqueId,
+      /* [out] */ IDiaSourceFile **ppResult) override;
 
   STDMETHODIMP findLines(
-    /* [in] */ IDiaSymbol *compiland,
-    /* [in] */ IDiaSourceFile *file,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *compiland,
+      /* [in] */ IDiaSourceFile *file,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findLinesByAddr(
-    /* [in] */ DWORD seg,
-    /* [in] */ DWORD offset,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override;
+      /* [in] */ DWORD seg,
+      /* [in] */ DWORD offset,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override;
 
   STDMETHODIMP findLinesByRVA(
-    /* [in] */ DWORD rva,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override;
+      /* [in] */ DWORD rva,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override;
 
   STDMETHODIMP findLinesByVA(
-    /* [in] */ ULONGLONG va,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG va,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findLinesByLinenum(
-    /* [in] */ IDiaSymbol *compiland,
-    /* [in] */ IDiaSourceFile *file,
-    /* [in] */ DWORD linenum,
-    /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override;
+      /* [in] */ IDiaSymbol *compiland,
+      /* [in] */ IDiaSourceFile *file,
+      /* [in] */ DWORD linenum,
+      /* [in] */ DWORD column,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override;
 
   STDMETHODIMP findInjectedSource(
       /* [in] */ LPCOLESTR srcFile,
       /* [out] */ IDiaEnumInjectedSources **ppResult) override;
 
   STDMETHODIMP getEnumDebugStreams(
-    /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) override { return ENotImpl(); }
+      /* [out] */ IDiaEnumDebugStreams **ppEnumDebugStreams) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInlineFramesByAddr(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ DWORD isect,
-    /* [in] */ DWORD offset,
-    /* [out] */ IDiaEnumSymbols **ppResult) override;
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ DWORD isect,
+      /* [in] */ DWORD offset,
+      /* [out] */ IDiaEnumSymbols **ppResult) override;
 
   STDMETHODIMP findInlineFramesByRVA(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ DWORD rva,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInlineFramesByVA(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ ULONGLONG va,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ ULONGLONG va,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInlineeLines(
-    /* [in] */ IDiaSymbol *parent,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInlineeLinesByAddr(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ DWORD isect,
-    /* [in] */ DWORD offset,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override;
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ DWORD isect,
+      /* [in] */ DWORD offset,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override;
 
   STDMETHODIMP findInlineeLinesByRVA(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ DWORD rva,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ DWORD rva,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInlineeLinesByVA(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ ULONGLONG va,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ ULONGLONG va,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInlineeLinesByLinenum(
-    /* [in] */ IDiaSymbol *compiland,
-    /* [in] */ IDiaSourceFile *file,
-    /* [in] */ DWORD linenum,
-    /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *compiland,
+      /* [in] */ IDiaSourceFile *file,
+      /* [in] */ DWORD linenum,
+      /* [in] */ DWORD column,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInlineesByName(
-    /* [in] */ LPCOLESTR name,
-    /* [in] */ DWORD option,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ LPCOLESTR name,
+      /* [in] */ DWORD option,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findAcceleratorInlineeLinesByLinenum(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ IDiaSourceFile *file,
-    /* [in] */ DWORD linenum,
-    /* [in] */ DWORD column,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ IDiaSourceFile *file,
+      /* [in] */ DWORD linenum,
+      /* [in] */ DWORD column,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findSymbolsForAcceleratorPointerTag(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ DWORD tagValue,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ DWORD tagValue,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findSymbolsByRVAForAcceleratorPointerTag(
-    /* [in] */ IDiaSymbol *parent,
-    /* [in] */ DWORD tagValue,
-    /* [in] */ DWORD rva,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *parent,
+      /* [in] */ DWORD tagValue,
+      /* [in] */ DWORD rva,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findAcceleratorInlineesByName(
-    /* [in] */ LPCOLESTR name,
-    /* [in] */ DWORD option,
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [in] */ LPCOLESTR name,
+      /* [in] */ DWORD option,
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP addressForVA(
-    /* [in] */ ULONGLONG va,
-    /* [out] */ DWORD *pISect,
-    /* [out] */ DWORD *pOffset) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG va,
+      /* [out] */ DWORD *pISect,
+      /* [out] */ DWORD *pOffset) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP addressForRVA(
-    /* [in] */ DWORD rva,
-    /* [out] */ DWORD *pISect,
-    /* [out] */ DWORD *pOffset) override { return ENotImpl(); }
+      /* [in] */ DWORD rva,
+      /* [out] */ DWORD *pISect,
+      /* [out] */ DWORD *pOffset) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findILOffsetsByAddr(
-    /* [in] */ DWORD isect,
-    /* [in] */ DWORD offset,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ DWORD isect,
+      /* [in] */ DWORD offset,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findILOffsetsByRVA(
-    /* [in] */ DWORD rva,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ DWORD rva,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findILOffsetsByVA(
-    /* [in] */ ULONGLONG va,
-    /* [in] */ DWORD length,
-    /* [out] */ IDiaEnumLineNumbers **ppResult) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG va,
+      /* [in] */ DWORD length,
+      /* [out] */ IDiaEnumLineNumbers **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInputAssemblyFiles(
-    /* [out] */ IDiaEnumInputAssemblyFiles **ppResult) override { return ENotImpl(); }
+      /* [out] */ IDiaEnumInputAssemblyFiles **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInputAssembly(
-    /* [in] */ DWORD index,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return ENotImpl(); }
+      /* [in] */ DWORD index,
+      /* [out] */ IDiaInputAssemblyFile **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInputAssemblyById(
-    /* [in] */ DWORD uniqueId,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return ENotImpl(); }
+      /* [in] */ DWORD uniqueId,
+      /* [out] */ IDiaInputAssemblyFile **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getFuncMDTokenMapSize(
-    /* [out] */ DWORD *pcb) override { return ENotImpl(); }
+      /* [out] */ DWORD *pcb) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getFuncMDTokenMap(
-    /* [in] */ DWORD cb,
-    /* [out] */ DWORD *pcb,
-    /* [size_is][out] */ BYTE *pb) override { return ENotImpl(); }
+      /* [in] */ DWORD cb,
+      /* [out] */ DWORD *pcb,
+      /* [size_is][out] */ BYTE *pb) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getTypeMDTokenMapSize(
-    /* [out] */ DWORD *pcb) override { return ENotImpl(); }
+      /* [out] */ DWORD *pcb) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getTypeMDTokenMap(
-    /* [in] */ DWORD cb,
-    /* [out] */ DWORD *pcb,
-    /* [size_is][out] */ BYTE *pb) override { return ENotImpl(); }
+      /* [in] */ DWORD cb,
+      /* [out] */ DWORD *pcb,
+      /* [size_is][out] */ BYTE *pb) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getNumberOfFunctionFragments_VA(
-    /* [in] */ ULONGLONG vaFunc,
-    /* [in] */ DWORD cbFunc,
-    /* [out] */ DWORD *pNumFragments) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG vaFunc,
+      /* [in] */ DWORD cbFunc,
+      /* [out] */ DWORD *pNumFragments) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getNumberOfFunctionFragments_RVA(
-    /* [in] */ DWORD rvaFunc,
-    /* [in] */ DWORD cbFunc,
-    /* [out] */ DWORD *pNumFragments) override { return ENotImpl(); }
+      /* [in] */ DWORD rvaFunc,
+      /* [in] */ DWORD cbFunc,
+      /* [out] */ DWORD *pNumFragments) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getFunctionFragments_VA(
-    /* [in] */ ULONGLONG vaFunc,
-    /* [in] */ DWORD cbFunc,
-    /* [in] */ DWORD cFragments,
-    /* [size_is][out] */ ULONGLONG *pVaFragment,
-    /* [size_is][out] */ DWORD *pLenFragment) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG vaFunc,
+      /* [in] */ DWORD cbFunc,
+      /* [in] */ DWORD cFragments,
+      /* [size_is][out] */ ULONGLONG *pVaFragment,
+      /* [size_is][out] */ DWORD *pLenFragment) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getFunctionFragments_RVA(
-    /* [in] */ DWORD rvaFunc,
-    /* [in] */ DWORD cbFunc,
-    /* [in] */ DWORD cFragments,
-    /* [size_is][out] */ DWORD *pRvaFragment,
-    /* [size_is][out] */ DWORD *pLenFragment) override { return ENotImpl(); }
+      /* [in] */ DWORD rvaFunc,
+      /* [in] */ DWORD cbFunc,
+      /* [in] */ DWORD cFragments,
+      /* [size_is][out] */ DWORD *pRvaFragment,
+      /* [size_is][out] */ DWORD *pLenFragment) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getExports(
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP getHeapAllocationSites(
-    /* [out] */ IDiaEnumSymbols **ppResult) override { return ENotImpl(); }
+      /* [out] */ IDiaEnumSymbols **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP findInputAssemblyFile(
-    /* [in] */ IDiaSymbol *pSymbol,
-    /* [out] */ IDiaInputAssemblyFile **ppResult) override { return ENotImpl(); }
+      /* [in] */ IDiaSymbol *pSymbol,
+      /* [out] */ IDiaInputAssemblyFile **ppResult) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP
   NewDxcPixDxilDebugInfo(IDxcPixDxilDebugInfo **ppDxilDebugInfo) override;
@@ -392,12 +493,14 @@ private:
   llvm::NamedMDNode *m_mainFileName;
   llvm::NamedMDNode *m_arguments;
   RVAMap m_instructions;
-  std::vector<const llvm::Instruction *> m_instructionLines; // Instructions with line info.
-  std::unordered_map<const llvm::Instruction *, RVA> m_rvaMap; // Map instruction to its RVA.
+  std::vector<const llvm::Instruction *>
+      m_instructionLines; // Instructions with line info.
+  std::unordered_map<const llvm::Instruction *, RVA>
+      m_rvaMap; // Map instruction to its RVA.
   LineToInfoMap m_lineToInfoMap;
   SymbolManager m_symsMgr;
 
 private:
   CComPtr<IDiaEnumTables> m_pEnumTables;
 };
-}  // namespace dxil_dia
+} // namespace dxil_dia

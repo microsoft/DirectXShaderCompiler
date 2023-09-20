@@ -1,4 +1,5 @@
-//===-- WinFunctions.cpp - Windows Functions for other platforms --*- C++ -*-===//
+//===-- WinFunctions.cpp - Windows Functions for other platforms --*- C++
+//-*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -22,7 +23,6 @@
 #include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/microcom.h"
 
-
 HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...) {
   va_list args;
   va_start(args, format);
@@ -30,7 +30,8 @@ HRESULT StringCchPrintfA(char *dst, size_t dstSize, const char *format, ...) {
   va_copy(argscopy, args);
   // C++11 snprintf can return the size of the resulting string if it was to be
   // constructed.
-  size_t size = vsnprintf(nullptr, 0, format, argscopy) + 1; // Extra space for '\0'
+  size_t size =
+      vsnprintf(nullptr, 0, format, argscopy) + 1; // Extra space for '\0'
   if (size > dstSize) {
     *dst = '\0';
   } else {
@@ -64,11 +65,10 @@ HRESULT IntToUInt(int in, UINT *out) {
 }
 HRESULT SizeTToInt(size_t in, int *out) {
   HRESULT hr;
-  if(in <= INT_MAX) {
+  if (in <= INT_MAX) {
     *out = (int)in;
     hr = S_OK;
-  }
-  else {
+  } else {
     *out = 0xffffffff;
     hr = ERROR_ARITHMETIC_OVERFLOW;
   }
@@ -127,14 +127,17 @@ int _wcsnicmp(const wchar_t *str1, const wchar_t *str2, size_t n) {
     if (d != 0)
       return d;
   }
-  if (i >= n) return 0;
+  if (i >= n)
+    return 0;
   return str1[i] - str2[i];
 }
 
-unsigned char _BitScanForward(unsigned long * Index, unsigned long Mask) {
+unsigned char _BitScanForward(unsigned long *Index, unsigned long Mask) {
   unsigned long l;
-  if (!Mask) return 0;
-  for (l=0; !(Mask&1); l++) Mask >>= 1;
+  if (!Mask)
+    return 0;
+  for (l = 0; !(Mask & 1); l++)
+    Mask >>= 1;
   *Index = l;
   return 1;
 }
@@ -157,7 +160,8 @@ HANDLE CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
       flags |= O_RDWR;
     else
       flags |= O_WRONLY;
-  else // dwDesiredAccess may be 0, but open() demands something here. This is mostly harmless
+  else // dwDesiredAccess may be 0, but open() demands something here. This is
+       // mostly harmless
     flags |= O_RDONLY;
 
   if (dwCreationDisposition == CREATE_ALWAYS)
@@ -171,12 +175,14 @@ HANDLE CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
   // OPEN_EXISTING represents default open() behavior
 
   // Catch Implementation limitations.
-  assert(!lpSecurityAttributes && "security attributes not supported in CreateFileW yet");
+  assert(!lpSecurityAttributes &&
+         "security attributes not supported in CreateFileW yet");
   assert(!hTemplateFile && "template file not supported in CreateFileW yet");
   assert(dwFlagsAndAttributes == FILE_ATTRIBUTE_NORMAL &&
          "Attributes other than NORMAL not supported in CreateFileW yet");
 
-  while ((int)(fd = open(pUtf8FileName, flags, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) < 0) {
+  while ((int)(fd = open(pUtf8FileName, flags,
+                         S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) < 0) {
     if (errno != EINTR)
       return INVALID_HANDLE_VALUE;
   }
@@ -231,8 +237,8 @@ BOOL CloseHandle(HANDLE hObject) {
 }
 
 // Half-hearted implementation of a heap structure
-// Enables size queries, maximum allocation limit, and collective free at heap destruction
-// Does not perform any preallocation or allocation organization.
+// Enables size queries, maximum allocation limit, and collective free at heap
+// destruction Does not perform any preallocation or allocation organization.
 // Does not respect any flags except for HEAP_ZERO_MEMORY
 struct SimpleAllocation {
   LPVOID ptr;
@@ -244,7 +250,7 @@ struct SimpleHeap {
   SIZE_T maxSize, curSize;
 };
 
-HANDLE HeapCreate(DWORD flOptions, SIZE_T dwInitialSize , SIZE_T dwMaximumSize) {
+HANDLE HeapCreate(DWORD flOptions, SIZE_T dwInitialSize, SIZE_T dwMaximumSize) {
   SimpleHeap *simpHeap = new SimpleHeap;
   simpHeap->maxSize = dwMaximumSize;
   simpHeap->curSize = 0;
@@ -252,9 +258,10 @@ HANDLE HeapCreate(DWORD flOptions, SIZE_T dwInitialSize , SIZE_T dwMaximumSize) 
 }
 
 BOOL HeapDestroy(HANDLE hHeap) {
-  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SimpleHeap *simpHeap = (SimpleHeap *)hHeap;
 
-  for (auto it = simpHeap->allocs.begin(), e = simpHeap->allocs.end(); it != e; it++)
+  for (auto it = simpHeap->allocs.begin(), e = simpHeap->allocs.end(); it != e;
+       it++)
     free(it->second.ptr);
 
   delete simpHeap;
@@ -263,7 +270,7 @@ BOOL HeapDestroy(HANDLE hHeap) {
 
 LPVOID HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
   LPVOID ptr = nullptr;
-  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SimpleHeap *simpHeap = (SimpleHeap *)hHeap;
 
   if (simpHeap->maxSize && simpHeap->curSize + dwBytes > simpHeap->maxSize)
     return nullptr;
@@ -281,15 +288,16 @@ LPVOID HeapAlloc(HANDLE hHeap, DWORD dwFlags, SIZE_T dwBytes) {
 
 LPVOID HeapReAlloc(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem, SIZE_T dwBytes) {
   LPVOID ptr = nullptr;
-  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SimpleHeap *simpHeap = (SimpleHeap *)hHeap;
   SIZE_T oSize = simpHeap->allocs[lpMem].size;
 
-  if (simpHeap->maxSize && simpHeap->curSize - oSize + dwBytes > simpHeap->maxSize)
+  if (simpHeap->maxSize &&
+      simpHeap->curSize - oSize + dwBytes > simpHeap->maxSize)
     return nullptr;
 
   ptr = realloc(lpMem, dwBytes);
   if (dwFlags == HEAP_ZERO_MEMORY && oSize < dwBytes)
-    memset((char*)ptr + oSize, 0, dwBytes - oSize);
+    memset((char *)ptr + oSize, 0, dwBytes - oSize);
 
   simpHeap->allocs.erase(lpMem);
   simpHeap->curSize -= oSize;
@@ -301,7 +309,7 @@ LPVOID HeapReAlloc(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem, SIZE_T dwBytes) {
 }
 
 BOOL HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
-  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SimpleHeap *simpHeap = (SimpleHeap *)hHeap;
   SIZE_T oSize = simpHeap->allocs[lpMem].size;
 
   free(lpMem);
@@ -313,14 +321,12 @@ BOOL HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
 }
 
 SIZE_T HeapSize(HANDLE hHeap, DWORD dwFlags, LPCVOID lpMem) {
-  SimpleHeap *simpHeap = (SimpleHeap*)hHeap;
+  SimpleHeap *simpHeap = (SimpleHeap *)hHeap;
   return simpHeap->allocs[lpMem].size;
 }
 
 static SimpleHeap g_processHeap;
 
-HANDLE GetProcessHeap() {
-  return (HANDLE)&g_processHeap;
-}
+HANDLE GetProcessHeap() { return (HANDLE)&g_processHeap; }
 
 #endif // _WIN32

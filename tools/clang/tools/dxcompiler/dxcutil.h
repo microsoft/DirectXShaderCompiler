@@ -13,10 +13,10 @@
 
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
 #include "llvm/ADT/StringRef.h"
-#include "dxc/Support/HLSLOptions.h"
 
 #include <memory>
 

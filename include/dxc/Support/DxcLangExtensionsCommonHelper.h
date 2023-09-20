@@ -22,7 +22,7 @@ namespace llvm {
 class raw_string_ostream;
 class CallInst;
 class Value;
-}
+} // namespace llvm
 
 namespace hlsl {
 
@@ -36,8 +36,8 @@ private:
   CComPtr<IDxcSemanticDefineValidator> m_semanticDefineValidator;
   std::string m_semanticDefineMetaDataName;
   std::string m_targetTriple;
-  HRESULT STDMETHODCALLTYPE RegisterIntoVector(LPCWSTR name, llvm::SmallVector<std::string, 2>& here)
-  {
+  HRESULT STDMETHODCALLTYPE
+  RegisterIntoVector(LPCWSTR name, llvm::SmallVector<std::string, 2> &here) {
     try {
       IFTPTR(name);
       std::string s;
@@ -50,8 +50,8 @@ private:
     CATCH_CPP_RETURN_HRESULT();
   }
 
-  HRESULT STDMETHODCALLTYPE RegisterIntoSet(LPCWSTR name, llvm::SetVector<std::string>& here)
-  {
+  HRESULT STDMETHODCALLTYPE
+  RegisterIntoSet(LPCWSTR name, llvm::SetVector<std::string> &here) {
     try {
       IFTPTR(name);
       std::string s;
@@ -65,31 +65,39 @@ private:
   }
 
 public:
-  const llvm::SmallVector<std::string, 2>& GetSemanticDefines() const { return m_semanticDefines; }
-  const llvm::SmallVector<std::string, 2>& GetSemanticDefineExclusions() const { return m_semanticDefineExclusions; }
-  const llvm::SetVector<std::string>& GetNonOptSemanticDefines() const { return m_nonOptSemanticDefines; }
-  const llvm::SmallVector<std::string, 2>& GetDefines() const { return m_defines; }
-  llvm::SmallVector<CComPtr<IDxcIntrinsicTable>, 2>& GetIntrinsicTables(){ return m_intrinsicTables; }
-  const std::string &GetSemanticDefineMetadataName() { return m_semanticDefineMetaDataName; }
+  const llvm::SmallVector<std::string, 2> &GetSemanticDefines() const {
+    return m_semanticDefines;
+  }
+  const llvm::SmallVector<std::string, 2> &GetSemanticDefineExclusions() const {
+    return m_semanticDefineExclusions;
+  }
+  const llvm::SetVector<std::string> &GetNonOptSemanticDefines() const {
+    return m_nonOptSemanticDefines;
+  }
+  const llvm::SmallVector<std::string, 2> &GetDefines() const {
+    return m_defines;
+  }
+  llvm::SmallVector<CComPtr<IDxcIntrinsicTable>, 2> &GetIntrinsicTables() {
+    return m_intrinsicTables;
+  }
+  const std::string &GetSemanticDefineMetadataName() {
+    return m_semanticDefineMetaDataName;
+  }
   const std::string &GetTargetTriple() { return m_targetTriple; }
 
-  HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name)
-  {
+  HRESULT STDMETHODCALLTYPE RegisterSemanticDefine(LPCWSTR name) {
     return RegisterIntoVector(name, m_semanticDefines);
   }
 
-  HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name)
-  {
+  HRESULT STDMETHODCALLTYPE RegisterSemanticDefineExclusion(LPCWSTR name) {
     return RegisterIntoVector(name, m_semanticDefineExclusions);
   }
 
-  HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name)
-  {
+  HRESULT STDMETHODCALLTYPE RegisterNonOptSemanticDefine(LPCWSTR name) {
     return RegisterIntoSet(name, m_nonOptSemanticDefines);
   }
 
-  HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name)
-  {
+  HRESULT STDMETHODCALLTYPE RegisterDefine(LPCWSTR name) {
     return RegisterIntoVector(name, m_defines);
   }
 
@@ -99,12 +107,14 @@ public:
       LPCSTR tableName = nullptr;
       IFT(pTable->GetTableName(&tableName));
       IFTPTR(tableName);
-      IFTARG(strcmp(tableName, "op") != 0);   // "op" is reserved for builtin intrinsics
+      IFTARG(strcmp(tableName, "op") !=
+             0); // "op" is reserved for builtin intrinsics
       for (auto &&table : m_intrinsicTables) {
         LPCSTR otherTableName = nullptr;
         IFT(table->GetTableName(&otherTableName));
         IFTPTR(otherTableName);
-        IFTARG(strcmp(tableName, otherTableName) != 0); // Added a duplicate table name
+        IFTARG(strcmp(tableName, otherTableName) !=
+               0); // Added a duplicate table name
       }
       m_intrinsicTables.push_back(pTable);
       return S_OK;
@@ -148,7 +158,7 @@ public:
       }
     }
 
-      return "";
+    return "";
   }
 
   // Get the dxil opcode for the extension opcode if one exists.
@@ -177,35 +187,44 @@ public:
     }
   };
 
-  // Use the contained semantice define validator to validate the given semantic define.
-  SemanticDefineValidationResult ValidateSemanticDefine(const std::string &name, const std::string &value) {
+  // Use the contained semantice define validator to validate the given semantic
+  // define.
+  SemanticDefineValidationResult
+  ValidateSemanticDefine(const std::string &name, const std::string &value) {
     if (!m_semanticDefineValidator)
       return SemanticDefineValidationResult::Success();
 
-    // Blobs for getting restul from validator. Strings for returning results to caller.
+    // Blobs for getting restul from validator. Strings for returning results to
+    // caller.
     CComPtr<IDxcBlobEncoding> pError;
     CComPtr<IDxcBlobEncoding> pWarning;
     std::string error;
     std::string warning;
 
     // Run semantic define validator.
-    HRESULT result = m_semanticDefineValidator->GetSemanticDefineWarningsAndErrors(name.c_str(), value.c_str(), &pWarning, &pError);
-
+    HRESULT result =
+        m_semanticDefineValidator->GetSemanticDefineWarningsAndErrors(
+            name.c_str(), value.c_str(), &pWarning, &pError);
 
     if (FAILED(result)) {
       // Failure indicates it was not able to even run validation so
       // we cannot say whether the define is invalid or not. Return a
       // generic error message about failure to run the valiadator.
       error = "failed to run semantic define validator for: ";
-      error.append(name); error.append("="); error.append(value);
-      return SemanticDefineValidationResult{ warning, error };
+      error.append(name);
+      error.append("=");
+      error.append(value);
+      return SemanticDefineValidationResult{warning, error};
     }
 
     // Define a  little function to convert encoded blob into a string.
-    auto GetErrorAsString = [&name](const CComPtr<IDxcBlobEncoding> &pBlobString) -> std::string {
+    auto GetErrorAsString =
+        [&name](const CComPtr<IDxcBlobEncoding> &pBlobString) -> std::string {
       CComPtr<IDxcBlobUtf8> pUTF8BlobStr;
-      if (SUCCEEDED(hlsl::DxcGetBlobAsUtf8(pBlobString, DxcGetThreadMallocNoRef(), &pUTF8BlobStr)))
-        return std::string(pUTF8BlobStr->GetStringPointer(), pUTF8BlobStr->GetStringLength());
+      if (SUCCEEDED(hlsl::DxcGetBlobAsUtf8(
+              pBlobString, DxcGetThreadMallocNoRef(), &pUTF8BlobStr)))
+        return std::string(pUTF8BlobStr->GetStringPointer(),
+                           pUTF8BlobStr->GetStringLength());
       else
         return std::string("invalid semantic define " + name);
     };
@@ -218,7 +237,7 @@ public:
       warning = GetErrorAsString(pWarning);
     }
 
-    return SemanticDefineValidationResult{ warning, error };
+    return SemanticDefineValidationResult{warning, error};
   }
 
   DxcLangExtensionsCommonHelper()

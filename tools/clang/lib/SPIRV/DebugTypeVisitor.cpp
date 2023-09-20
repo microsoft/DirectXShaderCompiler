@@ -97,9 +97,8 @@ void DebugTypeVisitor::addDebugTypeForMemberVariables(
     // For example, we do not have physical layout for a local variable.
 
     // Get offset (in bits) of this member within the composite.
-    uint32_t offsetInBits = field.offset.hasValue()
-                                ? *field.offset * 8
-                                : compositeSizeInBits;
+    uint32_t offsetInBits =
+        field.offset.hasValue() ? *field.offset * 8 : compositeSizeInBits;
     // Get size (in bits) of this member within the composite.
     uint32_t sizeInBits = field.sizeInBytes.hasValue()
                               ? *field.sizeInBytes * 8

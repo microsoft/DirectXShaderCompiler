@@ -16,14 +16,14 @@
 
 #include <stdint.h>
 
-#include "dxc/WinAdapter.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/WinAdapter.h"
 
 struct IDxcBlob;
 struct IDxcBlobEncoding;
 
 namespace llvm {
-  class raw_ostream;
+class raw_ostream;
 }
 
 namespace hlsl {
@@ -47,14 +47,14 @@ struct DxilVersionedRootSignatureDesc;
 static const uint32_t DxilDescriptorRangeOffsetAppend = 0xffffffff;
 static const uint32_t DxilSystemReservedRegisterSpaceValuesStart = 0xfffffff0;
 static const uint32_t DxilSystemReservedRegisterSpaceValuesEnd = 0xffffffff;
-#define DxilMipLodBiaxMax ( 15.99f )
-#define DxilMipLodBiaxMin ( -16.0f )
-#define DxilFloat32Max ( 3.402823466e+38f )
+#define DxilMipLodBiaxMax (15.99f)
+#define DxilMipLodBiaxMin (-16.0f)
+#define DxilFloat32Max (3.402823466e+38f)
 static const uint32_t DxilMipLodFractionalBitCount = 8;
 static const uint32_t DxilMapAnisotropy = 16;
 
 // Enumerations and flags.
-enum class DxilComparisonFunc : unsigned{
+enum class DxilComparisonFunc : unsigned {
   Never = 1,
   Less = 2,
   Equal = 3,
@@ -190,22 +190,19 @@ enum class DxilTextureAddressMode {
 
 // Structure definitions for serialized structures.
 #pragma pack(push, 1)
-struct DxilContainerRootDescriptor1
-{
+struct DxilContainerRootDescriptor1 {
   uint32_t ShaderRegister;
   uint32_t RegisterSpace;
   uint32_t Flags;
 };
-struct DxilContainerDescriptorRange
-{
+struct DxilContainerDescriptorRange {
   uint32_t RangeType;
   uint32_t NumDescriptors;
   uint32_t BaseShaderRegister;
   uint32_t RegisterSpace;
   uint32_t OffsetInDescriptorsFromTableStart;
 };
-struct DxilContainerDescriptorRange1
-{
+struct DxilContainerDescriptorRange1 {
   uint32_t RangeType;
   uint32_t NumDescriptors;
   uint32_t BaseShaderRegister;
@@ -213,19 +210,16 @@ struct DxilContainerDescriptorRange1
   uint32_t Flags;
   uint32_t OffsetInDescriptorsFromTableStart;
 };
-struct DxilContainerRootDescriptorTable
-{
+struct DxilContainerRootDescriptorTable {
   uint32_t NumDescriptorRanges;
   uint32_t DescriptorRangesOffset;
 };
-struct DxilContainerRootParameter
-{
+struct DxilContainerRootParameter {
   uint32_t ParameterType;
   uint32_t ShaderVisibility;
   uint32_t PayloadOffset;
 };
-struct DxilContainerRootSignatureDesc
-{
+struct DxilContainerRootSignatureDesc {
   uint32_t Version;
   uint32_t NumParameters;
   uint32_t RootParametersOffset;
@@ -328,14 +322,17 @@ struct DxilVersionedRootSignatureDesc {
   };
 };
 
-void printRootSignature(const DxilVersionedRootSignatureDesc &RS, llvm::raw_ostream &os);
+void printRootSignature(const DxilVersionedRootSignatureDesc &RS,
+                        llvm::raw_ostream &os);
 
-// Use this class to represent a root signature that may be in memory or serialized.
-// There is just enough API surface to help callers not take a dependency on Windows headers.
+// Use this class to represent a root signature that may be in memory or
+// serialized. There is just enough API surface to help callers not take a
+// dependency on Windows headers.
 class RootSignatureHandle {
 private:
   const DxilVersionedRootSignatureDesc *m_pDesc;
   IDxcBlob *m_pSerialized;
+
 public:
   RootSignatureHandle() : m_pDesc(nullptr), m_pSerialized(nullptr) {}
   RootSignatureHandle(const RootSignatureHandle &) = delete;
@@ -349,7 +346,8 @@ public:
   const uint8_t *GetSerializedBytes() const;
   unsigned GetSerializedSize() const;
 
-  void Assign(const DxilVersionedRootSignatureDesc *pDesc, IDxcBlob *pSerialized);
+  void Assign(const DxilVersionedRootSignatureDesc *pDesc,
+              IDxcBlob *pSerialized);
   void Clear();
   void LoadSerialized(const uint8_t *pData, uint32_t length);
   void EnsureSerializedAvailable();
@@ -358,12 +356,14 @@ public:
   const DxilVersionedRootSignatureDesc *GetDesc() const { return m_pDesc; }
 };
 
-void DeleteRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature);  
+void DeleteRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature);
 
-// Careful to delete: returns the original root signature, if conversion is not required.  
-void ConvertRootSignature(const DxilVersionedRootSignatureDesc* pRootSignatureIn,
-                          DxilRootSignatureVersion RootSignatureVersionOut,  
-                          const DxilVersionedRootSignatureDesc ** ppRootSignatureOut);
+// Careful to delete: returns the original root signature, if conversion is not
+// required.
+void ConvertRootSignature(
+    const DxilVersionedRootSignatureDesc *pRootSignatureIn,
+    DxilRootSignatureVersion RootSignatureVersionOut,
+    const DxilVersionedRootSignatureDesc **ppRootSignatureOut);
 
 void SerializeRootSignature(
     const DxilVersionedRootSignatureDesc *pRootSignature, IDxcBlob **ppBlob,
@@ -387,7 +387,7 @@ class DxilVersionedRootSignature {
   DxilVersionedRootSignatureDesc *m_pRootSignature;
 
 public:
-    // Non-copyable:
+  // Non-copyable:
   DxilVersionedRootSignature(DxilVersionedRootSignature const &) = delete;
   DxilVersionedRootSignature const &
   operator=(DxilVersionedRootSignature const &) = delete;
@@ -401,23 +401,20 @@ public:
   explicit DxilVersionedRootSignature(
       const DxilVersionedRootSignatureDesc *pRootSignature)
       : m_pRootSignature(
-            const_cast<DxilVersionedRootSignatureDesc *> (pRootSignature)) {}
-  ~DxilVersionedRootSignature() { 
-      DeleteRootSignature(m_pRootSignature);
-  }
-  const DxilVersionedRootSignatureDesc* operator -> () const {
+            const_cast<DxilVersionedRootSignatureDesc *>(pRootSignature)) {}
+  ~DxilVersionedRootSignature() { DeleteRootSignature(m_pRootSignature); }
+  const DxilVersionedRootSignatureDesc *operator->() const {
     return m_pRootSignature;
   }
-  const DxilVersionedRootSignatureDesc ** get_address_of() {
+  const DxilVersionedRootSignatureDesc **get_address_of() {
     if (m_pRootSignature != nullptr)
       return nullptr; // You're probably about to leak...
-    return const_cast<const DxilVersionedRootSignatureDesc **> (&m_pRootSignature);
+    return const_cast<const DxilVersionedRootSignatureDesc **>(
+        &m_pRootSignature);
   }
-  const DxilVersionedRootSignatureDesc* get() const { 
-      return m_pRootSignature;
-  }
-  DxilVersionedRootSignatureDesc* get_mutable() const { 
-      return m_pRootSignature;
+  const DxilVersionedRootSignatureDesc *get() const { return m_pRootSignature; }
+  DxilVersionedRootSignatureDesc *get_mutable() const {
+    return m_pRootSignature;
   }
 };
 } // namespace hlsl

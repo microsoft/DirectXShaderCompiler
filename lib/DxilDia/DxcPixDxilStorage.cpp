@@ -11,8 +11,8 @@
 
 #include "DxcPixDxilStorage.h"
 
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/IR/Instructions.h"
 
 #include "DxcPixBase.h"
@@ -20,23 +20,18 @@
 #include "DxcPixTypes.h"
 #include "DxilDiaSession.h"
 
-static HRESULT UnAliasType(
-    IDxcPixType *MaybeAlias,
-    IDxcPixType **OriginalType
-)
-{
+static HRESULT UnAliasType(IDxcPixType *MaybeAlias,
+                           IDxcPixType **OriginalType) {
   CComPtr<IDxcPixType> Tmp(MaybeAlias);
   HRESULT hr = E_FAIL;
 
   *OriginalType = nullptr;
-  do
-  {
+  do {
     CComPtr<IDxcPixType> Other;
-    
+
     hr = Tmp->UnAlias(&Other);
     IFR(hr);
-    if (hr == S_FALSE)
-    {
+    if (hr == S_FALSE) {
       break;
     }
 
@@ -49,11 +44,8 @@ static HRESULT UnAliasType(
 
 HRESULT CreateDxcPixStorageImpl(
     dxil_debug_info::DxcPixDxilDebugInfo *pDxilDebugInfo,
-    IDxcPixType* OriginalType,
-    const dxil_debug_info::VariableInfo* VarInfo,
-    unsigned CurrentOffsetInBits,
-    IDxcPixDxilStorage** ppStorage)
-{
+    IDxcPixType *OriginalType, const dxil_debug_info::VariableInfo *VarInfo,
+    unsigned CurrentOffsetInBits, IDxcPixDxilStorage **ppStorage) {
   CComPtr<IDxcPixArrayType> ArrayTy;
   CComPtr<IDxcPixStructType2> StructTy;
   CComPtr<IDxcPixScalarType> ScalarTy;
@@ -61,38 +53,21 @@ HRESULT CreateDxcPixStorageImpl(
   CComPtr<IDxcPixType> UnalisedType;
   IFR(UnAliasType(OriginalType, &UnalisedType));
 
-  if (UnalisedType->QueryInterface(&ArrayTy) == S_OK)
-  {
-    return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<dxil_debug_info::DxcPixDxilArrayStorage>(
-        ppStorage,
-        pDxilDebugInfo->GetMallocNoRef(),
-        pDxilDebugInfo,
-        OriginalType,
-        ArrayTy,
-        VarInfo,
-        CurrentOffsetInBits);
-  }
-  else if (UnalisedType->QueryInterface(&StructTy) == S_OK)
-  {
-    return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<dxil_debug_info::DxcPixDxilStructStorage>(
-        ppStorage,
-        pDxilDebugInfo->GetMallocNoRef(),
-        pDxilDebugInfo,
-        OriginalType,
-        StructTy,
-        VarInfo,
-        CurrentOffsetInBits);
-  }
-  else if (UnalisedType->QueryInterface(&ScalarTy) == S_OK)
-  {
-    return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<dxil_debug_info::DxcPixDxilScalarStorage>(
-        ppStorage,
-        pDxilDebugInfo->GetMallocNoRef(),
-        pDxilDebugInfo,
-        OriginalType,
-        ScalarTy,
-        VarInfo,
-        CurrentOffsetInBits);
+  if (UnalisedType->QueryInterface(&ArrayTy) == S_OK) {
+    return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<
+        dxil_debug_info::DxcPixDxilArrayStorage>(
+        ppStorage, pDxilDebugInfo->GetMallocNoRef(), pDxilDebugInfo,
+        OriginalType, ArrayTy, VarInfo, CurrentOffsetInBits);
+  } else if (UnalisedType->QueryInterface(&StructTy) == S_OK) {
+    return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<
+        dxil_debug_info::DxcPixDxilStructStorage>(
+        ppStorage, pDxilDebugInfo->GetMallocNoRef(), pDxilDebugInfo,
+        OriginalType, StructTy, VarInfo, CurrentOffsetInBits);
+  } else if (UnalisedType->QueryInterface(&ScalarTy) == S_OK) {
+    return dxil_debug_info::NewDxcPixDxilDebugInfoObjectOrThrow<
+        dxil_debug_info::DxcPixDxilScalarStorage>(
+        ppStorage, pDxilDebugInfo->GetMallocNoRef(), pDxilDebugInfo,
+        OriginalType, ScalarTy, VarInfo, CurrentOffsetInBits);
   }
 
   return E_UNEXPECTED;
@@ -112,8 +87,7 @@ dxil_debug_info::DxcPixDxilArrayStorage::Index(DWORD Index,
   DWORD NumElements;
   IFR(m_pType->GetNumElements(&NumElements));
 
-  if (Index >= NumElements)
-  {
+  if (Index >= NumElements) {
     return E_BOUNDS;
   }
 
@@ -123,12 +97,8 @@ dxil_debug_info::DxcPixDxilArrayStorage::Index(DWORD Index,
   const unsigned NewOffsetInBits =
       m_OffsetFromStorageStartInBits + Index * IndexedTypeSizeInBits;
 
-  return CreateDxcPixStorageImpl(
-      m_pDxilDebugInfo,
-      IndexedType,
-      m_pVarInfo,
-      NewOffsetInBits,
-      ppResult);
+  return CreateDxcPixStorageImpl(m_pDxilDebugInfo, IndexedType, m_pVarInfo,
+                                 NewOffsetInBits, ppResult);
 }
 
 STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetRegisterNumber(
@@ -136,12 +106,9 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetRegisterNumber(
   return E_FAIL;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetIsAlive()
-{
-  for (auto OffsetAndRegister : m_pVarInfo->m_ValueLocationMap)
-  {
-    if (OffsetAndRegister.second.m_V != nullptr)
-    {
+STDMETHODIMP dxil_debug_info::DxcPixDxilArrayStorage::GetIsAlive() {
+  for (auto OffsetAndRegister : m_pVarInfo->m_ValueLocationMap) {
+    if (OffsetAndRegister.second.m_V != nullptr) {
       return S_OK;
     }
   }
@@ -159,29 +126,22 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::AccessField(
     LPCWSTR Name, IDxcPixDxilStorage **ppResult) {
   DWORD FieldOffsetInBits = 0;
   CComPtr<IDxcPixType> FieldType;
-  if (*Name != 0)
-  {
-      CComPtr<IDxcPixStructField> Field;
-      IFR(m_pType->GetFieldByName(Name, &Field));
+  if (*Name != 0) {
+    CComPtr<IDxcPixStructField> Field;
+    IFR(m_pType->GetFieldByName(Name, &Field));
 
-      IFR(Field->GetType(&FieldType));
+    IFR(Field->GetType(&FieldType));
 
-      IFR(Field->GetOffsetInBits(&FieldOffsetInBits));
-  }
-  else 
-  {
-      IFR(m_pType->GetBaseType(&FieldType));
+    IFR(Field->GetOffsetInBits(&FieldOffsetInBits));
+  } else {
+    IFR(m_pType->GetBaseType(&FieldType));
   }
 
   const unsigned NewOffsetInBits =
       m_OffsetFromStorageStartInBits + FieldOffsetInBits;
 
-  return CreateDxcPixStorageImpl(
-      m_pDxilDebugInfo,
-      FieldType,
-      m_pVarInfo,
-      NewOffsetInBits,
-      ppResult);
+  return CreateDxcPixStorageImpl(m_pDxilDebugInfo, FieldType, m_pVarInfo,
+                                 NewOffsetInBits, ppResult);
 }
 
 STDMETHODIMP
@@ -195,12 +155,9 @@ STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::GetRegisterNumber(
   return E_FAIL;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::GetIsAlive()
-{
-  for (auto OffsetAndRegister : m_pVarInfo->m_ValueLocationMap)
-  {
-    if (OffsetAndRegister.second.m_V != nullptr)
-    {
+STDMETHODIMP dxil_debug_info::DxcPixDxilStructStorage::GetIsAlive() {
+  for (auto OffsetAndRegister : m_pVarInfo->m_ValueLocationMap) {
+    if (OffsetAndRegister.second.m_V != nullptr) {
       return S_OK;
     }
   }
@@ -228,38 +185,30 @@ dxil_debug_info::DxcPixDxilScalarStorage::Index(DWORD Index,
 STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetRegisterNumber(
     DWORD *pRegisterNumber) {
   const auto &ValueLocationMap = m_pVarInfo->m_ValueLocationMap;
-  auto RegIt = ValueLocationMap.find(
-      m_OffsetFromStorageStartInBits);
+  auto RegIt = ValueLocationMap.find(m_OffsetFromStorageStartInBits);
 
-  if (RegIt == ValueLocationMap.end())
-  {
+  if (RegIt == ValueLocationMap.end()) {
     return E_FAIL;
   }
 
-  if (auto *AllocaReg = llvm::dyn_cast<llvm::AllocaInst>(RegIt->second.m_V))
-  {
+  if (auto *AllocaReg = llvm::dyn_cast<llvm::AllocaInst>(RegIt->second.m_V)) {
     uint32_t RegNum;
     uint32_t RegSize;
-    if (!pix_dxil::PixAllocaReg::FromInst(AllocaReg, &RegNum, &RegSize))
-    {
+    if (!pix_dxil::PixAllocaReg::FromInst(AllocaReg, &RegNum, &RegSize)) {
       return E_FAIL;
     }
 
     *pRegisterNumber = RegNum + RegIt->second.m_FragmentIndex;
-  }
-  else
-  {
+  } else {
     return E_FAIL;
   }
 
   return S_OK;
 }
 
-STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetIsAlive()
-{
+STDMETHODIMP dxil_debug_info::DxcPixDxilScalarStorage::GetIsAlive() {
   const auto &ValueLocationMap = m_pVarInfo->m_ValueLocationMap;
-  auto RegIt = ValueLocationMap.find(
-      m_OffsetFromStorageStartInBits);
+  auto RegIt = ValueLocationMap.find(m_OffsetFromStorageStartInBits);
 
   return RegIt == ValueLocationMap.end() ? E_FAIL : S_OK;
 }
@@ -272,19 +221,12 @@ dxil_debug_info::DxcPixDxilScalarStorage::GetType(IDxcPixType **ppType) {
 }
 
 HRESULT dxil_debug_info::CreateDxcPixStorage(
-    DxcPixDxilDebugInfo *pDxilDebugInfo,
-    llvm::DIType *diType,
-    const VariableInfo *VarInfo,
-    unsigned CurrentOffsetInBits,
-    IDxcPixDxilStorage **ppStorage)
-{
+    DxcPixDxilDebugInfo *pDxilDebugInfo, llvm::DIType *diType,
+    const VariableInfo *VarInfo, unsigned CurrentOffsetInBits,
+    IDxcPixDxilStorage **ppStorage) {
   CComPtr<IDxcPixType> OriginalType;
   IFR(dxil_debug_info::CreateDxcPixType(pDxilDebugInfo, diType, &OriginalType));
 
-  return CreateDxcPixStorageImpl(
-      pDxilDebugInfo,
-      OriginalType,
-      VarInfo,
-      CurrentOffsetInBits,
-      ppStorage);
+  return CreateDxcPixStorageImpl(pDxilDebugInfo, OriginalType, VarInfo,
+                                 CurrentOffsetInBits, ppStorage);
 }

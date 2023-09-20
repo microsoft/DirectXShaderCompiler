@@ -7,32 +7,32 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilOperations.h"
-#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilCounters.h"
+#include "dxc/DXIL/DxilEntryProps.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilSignatureElement.h"
-#include "dxc/DXIL/DxilFunctionProps.h"
-#include "dxc/WinAdapter.h"
-#include "dxc/DXIL/DxilEntryProps.h"
 #include "dxc/DXIL/DxilSubobject.h"
-#include "dxc/DXIL/DxilInstructions.h"
-#include "dxc/DXIL/DxilCounters.h"
+#include "dxc/Support/Global.h"
+#include "dxc/WinAdapter.h"
 
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SetVector.h"
 #include <unordered_set>
 
 #ifndef _WIN32
@@ -41,38 +41,35 @@ using llvm::make_unique;
 using std::make_unique;
 #endif
 
-
 using namespace llvm;
 using std::string;
-using std::vector;
 using std::unique_ptr;
-
+using std::vector;
 
 namespace {
 class DxilErrorDiagnosticInfo : public DiagnosticInfo {
 private:
   const char *m_message;
+
 public:
   DxilErrorDiagnosticInfo(const char *str)
-    : DiagnosticInfo(DK_FirstPluginKind, DiagnosticSeverity::DS_Error),
-    m_message(str) { }
+      : DiagnosticInfo(DK_FirstPluginKind, DiagnosticSeverity::DS_Error),
+        m_message(str) {}
 
-  void print(DiagnosticPrinter &DP) const override {
-    DP << m_message;
-  }
+  void print(DiagnosticPrinter &DP) const override { DP << m_message; }
 };
-} // anon namespace
+} // namespace
 
 namespace hlsl {
 
 // Avoid dependency on DxilModule from llvm::Module using this:
-void DxilModule_RemoveGlobal(llvm::Module* M, llvm::GlobalObject* G) {
+void DxilModule_RemoveGlobal(llvm::Module *M, llvm::GlobalObject *G) {
   if (M && G && M->HasDxilModule()) {
     if (llvm::Function *F = dyn_cast<llvm::Function>(G))
       M->GetDxilModule().RemoveFunction(F);
   }
 }
-void DxilModule_ResetModule(llvm::Module* M) {
+void DxilModule_ResetModule(llvm::Module *M) {
   if (M && M->HasDxilModule())
     delete &M->GetDxilModule();
   M->SetDxilModule(nullptr);
@@ -110,7 +107,8 @@ hlsl::DxilModule *hlsl::DxilModule::TryGetDxilModule(llvm::Module *pModule) {
     }
     Ctx.diagnose(DxilErrorDiagnosticInfo(diagStream.str().c_str()));
   } catch (...) {
-    Ctx.diagnose(DxilErrorDiagnosticInfo("load dxil metadata failed - unknown error.\n"));
+    Ctx.diagnose(DxilErrorDiagnosticInfo(
+        "load dxil metadata failed - unknown error.\n"));
   }
   return pDxilModule;
 }
@@ -130,4 +128,4 @@ hlsl::DxilModule &Module::GetOrCreateDxilModule(bool skipInit) {
   return GetDxilModule();
 }
 
-}
+} // namespace llvm
