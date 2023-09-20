@@ -12869,7 +12869,7 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
   // make sure we are in an appropriate shader model
   const auto *SM =
       hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
-  if (SM->IsSM66Plus()) {
+  if (!SM->IsSM66Plus()) {
     S.Diag(A.getLoc(), diag::err_hlsl_attribute_in_wrong_shader_model) << "wavesize" << "6.6";
     return nullptr;
   }
