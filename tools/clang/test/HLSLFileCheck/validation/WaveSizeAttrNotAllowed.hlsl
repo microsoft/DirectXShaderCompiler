@@ -1,6 +1,6 @@
-// RUN: %dxc -T lib_6_7 %s | FileCheck %s
+// RUN: %dxc -E S -T cs_6_0 %s | FileCheck %s
 
-// CHECK: error: attribute numthreads requires shader stage compute, mesh, or amplification
+// CHECK: error: attribute wavesize must be in at least shader model 6.6
 [WaveSize(64)]
 [numthreads(2,2,4)]
 void S()

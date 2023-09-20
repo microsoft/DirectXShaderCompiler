@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main %s | FileCheck %s
+// RUN: %dxc -T cs_6_6 -E main %s | FileCheck %s
 // RUN: %dxc -T cs_6_6 -E main2 %s | FileCheck %s -check-prefixes=CHECK-MAIN2
 
 // check that entry point attributes are validated even
