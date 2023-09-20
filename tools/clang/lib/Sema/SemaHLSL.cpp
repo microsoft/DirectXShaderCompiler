@@ -11299,14 +11299,14 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
-void ValidateCallGraphWaveSize(clang::Sema *S, FunctionDecl *FD) {
+void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
   const auto *SM =
       hlsl::ShaderModel::GetByName(S->getLangOpts().HLSLProfile.c_str());
 
-  const std::string &entryName = S->getLangOpts().HLSLEntryFunction;
+  const llvm::StringRef &entryName = S->getLangOpts().HLSLEntryFunction;
   StringRef functionName = "";
   if (FD->getIdentifier())
-    functionName = FD->getIdentifier()->getName();
+    functionName = FD->getName();
   bool isEntry = false;
   bool isNode = false;
   bool isCS = false;
@@ -11316,13 +11316,11 @@ void ValidateCallGraphWaveSize(clang::Sema *S, FunctionDecl *FD) {
       FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
       functionName == entryName;
 
-  for (auto *pAL : FD->specific_attrs<HLSLShaderAttr>()) {
-    StringRef Literal =
-        pAL->getStage();
-    DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal);
-    isNode |= Stage == DXIL::ShaderKind::Node;
-    isCS |= Stage == DXIL::ShaderKind::Compute;
-  }
+  auto *shaderAttribute = FD->getAttr<HLSLShaderAttr>();
+  StringRef Literal = shaderAttribute->getStage();
+  DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal);
+  isNode = Stage == DXIL::ShaderKind::Node;
+  isCS = Stage == DXIL::ShaderKind::Compute;
 
   HLSLWaveSizeAttr *attr = FD->getAttr<HLSLWaveSizeAttr>();
 
@@ -11332,7 +11330,7 @@ void ValidateCallGraphWaveSize(clang::Sema *S, FunctionDecl *FD) {
         << "WaveSize";
   }
 
-  if (!SM->IsLib() && !SM->IsCS() && !isCS && !isNode) {
+  if (!SM->IsLib() && !isCS && !isNode) {
     S->Diag(attr->getRange().getBegin(),
             diag::err_hlsl_attribute_unsupported_stage)
         << "WaveSize"
@@ -11341,19 +11339,17 @@ void ValidateCallGraphWaveSize(clang::Sema *S, FunctionDecl *FD) {
 }
 
 void ValidateEntryPointFunctionAttributes(
-    clang::Sema *self, FunctionDecl *pEntryPointDecl) {
+    clang::Sema *self, FunctionDecl *entryPointDecl) {
 
   // run validation on the entry point attribute that belongs
   // to the entry point function
-  if (pEntryPointDecl->hasAttrs()) {
-    for (Attr *pAttr : pEntryPointDecl->getAttrs()) {
-      switch (pAttr->getKind()) {
+  for (Attr *pAttr : entryPointDecl->getAttrs()) {
+    switch (pAttr->getKind()) {
       
-      case clang::attr::HLSLWaveSize: {
-        ValidateCallGraphWaveSize(self, pEntryPointDecl);
-        break;
-      }
-      }
+    case clang::attr::HLSLWaveSize: {
+      ValidateWaveSize(self, entryPointDecl);
+      break;
+    }
     }
   }
 }
@@ -12838,7 +12834,7 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
                                              const AttributeList &A) {
   // make sure we are in an appropriate shader model
   const auto *SM =
-      hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
+      hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile);
   if (!SM->IsSM66Plus()) {
     S.Diag(A.getLoc(), diag::err_hlsl_attribute_in_wrong_shader_model) << "wavesize" << "6.6";
     return nullptr;
