@@ -88,29 +88,60 @@ class DxcHashTest(TestFormat):
                 yield test
             #yield self.discoverTests(testSuite, self.test_path, litConfig, local_config_cache)
 
+    def isUselessArgWithValue(self, arg):
+        useless_arg_with_val = ["-Fo" , "/Fo" , "-Fe" , "/Fe" , "-Fi" , "/Fi" , \
+                 "-Fc" , "/Fc", "-Fd", "/Fd",
+                 "-Fh", "/Fh", "-Vn", "/Vn", "-Frs", "/Frs", "-Fre", "/Fre"]
+        return arg in useless_arg_with_val
+    
+    def isUselessArgFlag(self, arg):
+        useless_arg_flag = ["-ast-dump", "/ast-dump", "-ast-dump-implicit", \
+                            "-Zi", "-M", "-H", "/Odump", "-fcgl"]
+        return arg in useless_arg_flag
+
     def getCleanArgs(self, dxc_cmd):
         original_args = dxc_cmd.args
         args = []
+        skip_val = False
         for i in range(len(original_args)):
             arg = original_args[i]
-            if arg == "-Fo" or arg == "-validator-version" or arg == "-Fc":
-                # remove "-Fo", "-validator-version" and things next to it from args
-                i += 2
+            if self.isUselessArgWithValue(arg):
+                # remove "-Fo", "-Fe", "-Fi" and things next to it from args
+                skip_val = True
                 continue
-            elif arg == "-ast-dump" or arg == "/ast-dump" or arg == "-ast-dump-implicit" or \
-                 arg == "-Zi" or arg == "-verify" or arg == "-M" or arg == "-H" or \
-                 arg == "/Odump" or \
-                 arg == "-fcgl" or arg.startswith("rootsig_1_") or arg.startswith("-Trootsig_1_"):
+            elif self.isUselessArgFlag(arg):
                 # remove "-ast-dump" and "-Zi" from args
-                i += 1
                 continue
-            elif arg == "lib_6_x" or arg == "structurize-returns":
-                # FIXME: allow lib_6_x and structurize-returns
-                i += 1
+            elif skip_val:
+                skip_val = False
                 continue
 
             args.append(arg)
+
         return args
+
+    def hasIllegalArgs(self, args):
+        # skip RUN lines without %dxc
+        if args[0] != "%dxc":
+            return True
+
+        # skip RUN lines with illegal args
+        illegal_args = {"-dumpbin", "/dumpbin", "-spirv", "/spirv", \
+                        "-MD", "/MD", "-M", "/M", "/recompile", "/P", "-P",
+                        "-verify", "-Zs", "/Zs"}
+        if not illegal_args.isdisjoint(args):
+            return True
+
+        for arg in args:
+            if arg.startswith("-ftime-trace"):
+                return True
+            if arg.startswith("/MF"):
+                return True
+            # root signature profile doesn't generate hash part
+            if arg.startswith("rootsig_1_") or arg.startswith("-Trootsig_1_"):
+                return True
+
+        return False
 
     def executeHashTest(self, test, cmd):
         if isinstance(cmd, ShUtil.Seq):
@@ -129,16 +160,10 @@ class DxcHashTest(TestFormat):
         status = lit.Test.PASS
 
         for i,j in enumerate(cmd.commands):
+            if self.hasIllegalArgs(j.args):
+                continue
+
             args = self.getCleanArgs(j)
-
-            if args[0] != "%dxc":
-                continue
-
-            if "-spirv" in args:
-                continue
-
-            if "/MD" in args or "/M" in args:
-                continue
 
             # get test_name from test path for tmp file name.
             test_name = test.path_in_suite[0].replace('\\','_').replace('/','_').replace('.','_')

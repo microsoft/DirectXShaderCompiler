@@ -44,8 +44,11 @@ def normal_compile(args, output_file, working_dir, empty_env):
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             close_fds=close_fds)
-    proc.communicate()
-    return proc.wait()
+    stdout, stderr = proc.communicate()
+    res = proc.wait()
+    if res != 0:
+        print(f"normal compile failed {args}, stdout:{stdout}, stderr:{stderr}")
+    return res
 
 def debug_compile(args, output_file, working_dir, empty_env):
     debug_args = args
@@ -78,9 +81,9 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir, suf
     normal_out = os.path.join(working_dir, 'Output', f'{test_name}_{suffix}.normal.out')
     res = normal_compile(args, normal_out, working_dir, empty_env)
     if res != 0:
-        return True, "normal compile failed, assume this is an expected failure testing shader."
+        return False, "normal compile failed"
     elif os.path.exists(normal_out) == 0:
-        return True, "normal compile doesn't generate output, assume this is an expected failure testing shader."
+        return False, f"normal compile doesn't generate output, {args}"
 
     normal_hash = extract_hash(dxa_path, normal_out, working_dir, empty_env)
     if normal_hash is None:
