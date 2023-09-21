@@ -181,13 +181,24 @@ public:
   }
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxilShaderReflection)
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     HRESULT hr = E_NOINTERFACE;
+
+    // There is non-standard handling of QueryInterface:
+    // - although everything uses the same vtable as ID3D12ShaderReflection,
+    //   there are differences in behavior depending on the API version, and
+    //   there are 3 of these - it's not just d3d11 vs d3d12.
+    // - when the object is created the API version is fixed
+    // - from that point on, this object can only be QI'd for the matching API
+    //   version.
     PublicAPI api = IIDToAPI(iid);
-    // ID3D11ShaderReflection is identical to ID3D12ShaderReflection, except
-    // for some shorter data structures in some out parameters.
-    if (api == m_PublicAPI || IsEqualIID(__uuidof(IUnknown), iid)) {
-      *ppvObject = (ID3D12ShaderReflection *)this;
+    if (api == m_PublicAPI) {
+      *ppvObject = static_cast<ID3D12ShaderReflection *>(this);
+      this->AddRef();
+      hr = S_OK;
+    } else if (IsEqualIID(__uuidof(IUnknown), iid)) {
+      *ppvObject = static_cast<IUnknown *>(this);
       this->AddRef();
       hr = S_OK;
     }

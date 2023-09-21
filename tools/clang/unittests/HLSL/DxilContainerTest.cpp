@@ -1764,7 +1764,8 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
 }
 
 TEST_F(DxilContainerTest, CheckReflectionQueryInterface) {
-  if (m_ver.SkipDxilVersion(1, 5))
+  // Minimum version 1.3 required for library support.
+  if (m_ver.SkipDxilVersion(1, 3))
     return;
 
   // Check that QueryInterface for shader and library reflection accepts/rejects
@@ -1809,7 +1810,10 @@ void main(
 
   struct TestDescStruct {
     D3D12_SIGNATURE_PARAMETER_DESC paramDesc;
+    // `pad` is used to ensure Get*ParameterDesc does not write out-of-bounds.
+    // It should still have the 0xFE byte pattern.
     uint32_t pad;
+
     TestDescStruct() { Clear(); }
     void Clear() {
       // fill this structure with 0xFE bytes
