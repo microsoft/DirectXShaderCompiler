@@ -2091,10 +2091,18 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
   };
 
   Profile profiles[] = {
-    { source_0, {L"/Tps_6_0", L"/Zi",}},
-    { source_0, {L"/Tps_6_0", L"/Zs",}},
-    { source_1, {L"/Tps_6_0", L"/Zi", L"Od"}},
-    { source_1, {L"/Tps_6_0", L"/Zs", L"Od"}},
+      {source_0,
+       {
+           L"/Tps_6_0",
+           L"/Zi",
+       }},
+      {source_0,
+       {
+           L"/Tps_6_0",
+           L"/Zs",
+       }},
+      {source_1, {L"/Tps_6_0", L"/Zi", L"Od"}},
+      {source_1, {L"/Tps_6_0", L"/Zs", L"Od"}},
   };
 
   for (Profile &p : profiles) {

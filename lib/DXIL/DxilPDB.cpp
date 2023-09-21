@@ -117,8 +117,11 @@ struct MSFWriter {
   uint32_t CalculateStreamDirectorySize() {
     uint32_t DirectorySizeInBytes = 0;
     DirectorySizeInBytes += sizeof(uint32_t); // NumStreams
-    DirectorySizeInBytes += m_Streams.size() * sizeof(uint32_t);  // Stream sizes (in number of blocks)
-    DirectorySizeInBytes += m_NumStreamBlocks * sizeof(uint32_t); // Block indices for each stream
+    DirectorySizeInBytes +=
+        m_Streams.size() *
+        sizeof(uint32_t); // Stream sizes (in number of blocks)
+    DirectorySizeInBytes +=
+        m_NumStreamBlocks * sizeof(uint32_t); // Block indices for each stream
     return DirectorySizeInBytes;
   }
 
@@ -214,7 +217,7 @@ struct MSFWriter {
         V = Start++;
         BlockAddr.push_back(V);
       }
-      assert(BlockAddrSizeInBytes == sizeof(BlockAddr[0])*BlockAddr.size());
+      assert(BlockAddrSizeInBytes == sizeof(BlockAddr[0]) * BlockAddr.size());
       Writer.WriteBlocks(BlockAddrNumBlocks, BlockAddr.data(),
                          BlockAddr.size());
     }
