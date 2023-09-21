@@ -54,6 +54,7 @@
 #include "dxc/Support/Unicode.h"
 
 #include <fstream>
+#include "llvm/Support/Endian.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/Path.h"
@@ -150,6 +151,7 @@ public:
   TEST_METHOD(CompileThenTestPdbUtilsStripped)
   TEST_METHOD(CompileThenTestPdbUtilsEmptyEntry)
   TEST_METHOD(CompileThenTestPdbUtilsRelativePath)
+  TEST_METHOD(CompileThenTestPdbIntegrity)
   TEST_METHOD(CompileSameFilenameAndEntryThenTestPdbUtilsArgs)
   TEST_METHOD(CompileWithRootSignatureThenStripRootSignature)
   TEST_METHOD(CompileThenSetRootSignatureThenValidate)
@@ -2052,6 +2054,94 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsRelativePath) {
   VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
 
   VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
+}
+
+// We had a bug where the block addr blocks were not included in the
+// NumBlocks member in the super block. This test makes sure that number
+// is actually correct.
+TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
+  // Normal small shader
+  std::string source_0 = R"x(
+      [RootSignature("CBV(b1)")]
+      float4 main() : SV_Target {
+        return float4(1,0,0,1);
+      }
+  )x";
+
+  // This is going to compile to a really big shader (and PDB)
+  std::string source_1 = R"x(
+      Texture1D<float> t0 : register(t0);
+      [RootSignature("CBV(b1),DescriptorTable(SRV(t0))")]
+      float main() : SV_Target {
+        float ret = 0;
+        [unroll]
+        for (int i = 0; i < 256; i++) {
+          ret += t0.Load(i);
+        }
+        return ret;
+      }
+  )x";
+
+  CComPtr<IDxcCompiler3> pCompiler;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
+
+  struct Profile {
+    llvm::StringRef src;
+    std::vector<const WCHAR *> args;
+  };
+
+  Profile profiles[] = {
+    { source_0, {L"/Tps_6_0", L"/Zi",}},
+    { source_0, {L"/Tps_6_0", L"/Zs",}},
+    { source_1, {L"/Tps_6_0", L"/Zi", L"Od"}},
+    { source_1, {L"/Tps_6_0", L"/Zs", L"Od"}},
+  };
+
+  for (Profile &p : profiles) {
+    DxcBuffer SourceBuf = {};
+    SourceBuf.Ptr  = p.src.data();
+    SourceBuf.Size = p.src.size();
+    SourceBuf.Encoding = CP_UTF8;
+
+    CComPtr<IDxcResult> pResult;
+    VERIFY_SUCCEEDED(pCompiler->Compile(&SourceBuf, p.args.data(), p.args.size(), nullptr, IID_PPV_ARGS(&pResult)));
+
+    CComPtr<IDxcBlob> pPdb;
+    VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+
+    static const char kMsfMagic[] = {'M',  'i',  'c',    'r', 'o', 's',  'o',  'f',
+                                     't',  ' ',  'C',    '/', 'C', '+',  '+',  ' ',
+                                     'M',  'S',  'F',    ' ', '7', '.',  '0',  '0',
+                                     '\r', '\n', '\x1a', 'D', 'S', '\0', '\0', '\0'};
+    struct MSF_SuperBlock {
+      char MagicBytes[sizeof(kMsfMagic)];
+      // The file system is split into a variable number of fixed size elements.
+      // These elements are referred to as blocks.  The size of a block may vary
+      // from system to system.
+      llvm::support::ulittle32_t BlockSize;
+      // The index of the free block map.
+      llvm::support::ulittle32_t FreeBlockMapBlock;
+      // This contains the number of blocks resident in the file system.  In
+      // practice, NumBlocks * BlockSize is equivalent to the size of the MSF
+      // file.
+      llvm::support::ulittle32_t NumBlocks;
+      // This contains the number of bytes which make up the directory.
+      llvm::support::ulittle32_t NumDirectoryBytes;
+      // This field's purpose is not yet known.
+      llvm::support::ulittle32_t Unknown1;
+      // This contains the block # of the block map.
+      llvm::support::ulittle32_t BlockMapAddr;
+    };
+
+    VERIFY_IS_LESS_THAN_OR_EQUAL(sizeof(MSF_SuperBlock), pPdb->GetBufferSize());
+    VERIFY_ARE_EQUAL(0, memcmp(pPdb->GetBufferPointer(), kMsfMagic, sizeof(kMsfMagic)));
+
+    const MSF_SuperBlock *pSuperBlock = (const MSF_SuperBlock *)pPdb->GetBufferPointer();
+    const uint32_t NumBlocks = pSuperBlock->NumBlocks;
+    const uint32_t BlockSize = pSuperBlock->BlockSize;
+
+    VERIFY_ARE_EQUAL(BlockSize * NumBlocks, pPdb->GetBufferSize());
+  }
 }
 
 TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
