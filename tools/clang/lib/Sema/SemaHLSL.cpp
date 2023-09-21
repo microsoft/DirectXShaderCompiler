@@ -11299,10 +11299,11 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
-void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
-  const auto *SM =
-      hlsl::ShaderModel::GetByName(S->getLangOpts().HLSLProfile.c_str());
-
+// This validation function performs validation using the context
+// that other attributes provide on the decl, such as the fact of 
+// whether or not the decl is a node shader. This validation is 
+// performed after all attributs on the decl have been parsed.
+void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {  
   const llvm::StringRef &entryName = S->getLangOpts().HLSLEntryFunction;
   StringRef functionName = "";
   if (FD->getIdentifier())
@@ -11310,9 +11311,10 @@ void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
   bool isEntry = false;
   bool isNode = false;
   bool isCS = false;
+  bool isLib = S->getLangOpts().IsHLSLLibrary;
 
   isEntry =
-      !SM->IsLib() &&
+      !isLib &&
       FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
       functionName == entryName;
 
@@ -11324,13 +11326,16 @@ void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
 
   HLSLWaveSizeAttr *attr = FD->getAttr<HLSLWaveSizeAttr>();
 
-  if (!SM->IsLib() && !isEntry && !isNode) {
+  if (!isLib &&
+      (FD->getDeclContext()->getDeclKind() != Decl::Kind::TranslationUnit ||
+       functionName != entryName) &&
+       !isNode) {
     S->Diag(attr->getRange().getBegin(),
             diag::err_hlsl_attribute_valid_on_entry_function_only)
         << "WaveSize";
   }
 
-  if (!SM->IsLib() && !isCS && !isNode) {
+  if (!isLib && !isCS && !isNode) {
     S->Diag(attr->getRange().getBegin(),
             diag::err_hlsl_attribute_unsupported_stage)
         << "WaveSize"
@@ -12830,11 +12835,17 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
                          A.getAttributeSpellingListIndex());
 }
 
+// This function validates the wave size attribute in a stand-alone way,
+// by directly determining whether the attribute is well formed or
+// allowed. It performs validation outside of the context
+// of other attributes that could exist on this decl, and immediately
+// upon detecting the attribute on the decl.
 HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
                                              const AttributeList &A) {
   // make sure we are in an appropriate shader model
   const auto *SM =
       hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile);
+  
   if (!SM->IsSM66Plus()) {
     S.Diag(A.getLoc(), diag::err_hlsl_attribute_in_wrong_shader_model) << "wavesize" << "6.6";
     return nullptr;
@@ -12847,7 +12858,8 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
 
   unsigned waveSize = pAttr->getSize();
   if (!DXIL::IsValidWaveSizeValue(waveSize)) {
-    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size);
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
+        << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
     return nullptr;
   }
 

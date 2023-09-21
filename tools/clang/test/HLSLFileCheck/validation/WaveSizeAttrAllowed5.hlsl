@@ -4,5 +4,8 @@
 // because we shouldn't presume that N() is an entry 
 // point, so entry point attributes are ignored.
 
+// CHECK-NOT: error:
+// CHECK-NOT: warning:
+
 [WaveSize(64)]
 void N(){}
