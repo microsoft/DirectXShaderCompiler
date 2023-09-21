@@ -350,7 +350,7 @@ void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
 
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, LPCWSTR pArgs,
-                     _Outptr_ IDxcBlob **ppResult) {
+                     IDxcBlob **ppResult) {
   std::vector<std::wstring> argsW;
   std::vector<LPCWSTR> args;
   if (pArgs) {
@@ -365,7 +365,7 @@ void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
 
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
-                     _Outptr_ IDxcBlob **ppResult) {
+                     IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcOperationResult> pResult;

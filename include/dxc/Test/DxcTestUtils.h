@@ -218,10 +218,10 @@ void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
                 IDxcBlobEncoding **ppBlob);
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, LPCWSTR pArgs,
-                     _Outptr_ IDxcBlob **ppResult);
+                    IDxcBlob **ppResult);
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
-                     _Outptr_ IDxcBlob **ppResult);
+                     IDxcBlob **ppResult);
 
 HRESULT GetVersion(dxc::DxcDllSupport &DllSupport, REFCLSID clsid,
                    unsigned &Major, unsigned &Minor);
