@@ -7,15 +7,15 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HlslIntrinsicOp.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLOperations.h"
-#include "llvm/Pass.h"
+#include "dxc/HlslIntrinsicOp.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 #include <unordered_set>
 #include <vector>

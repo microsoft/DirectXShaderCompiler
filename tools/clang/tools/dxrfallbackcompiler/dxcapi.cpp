@@ -13,10 +13,10 @@
 
 #define DXC_API_IMPORT __declspec(dllexport)
 
-#include "dxc/dxctools.h"
 #include "dxc/Support/Global.h"
-#include "dxcetw.h"
 #include "dxc/dxcdxrfallbackcompiler.h"
+#include "dxc/dxctools.h"
+#include "dxcetw.h"
 #include <memory>
 
 HRESULT CreateDxcDxrFallbackCompiler(REFIID riid, LPVOID *ppv);
@@ -28,8 +28,7 @@ static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
 
   if (IsEqualCLSID(rclsid, CLSID_DxcDxrFallbackCompiler)) {
     hr = CreateDxcDxrFallbackCompiler(riid, ppv);
-  }
-  else {
+  } else {
     hr = REGDB_E_CLASSNOTREG;
   }
   return hr;

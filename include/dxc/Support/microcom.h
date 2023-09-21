@@ -16,26 +16,20 @@
 #include "llvm/Support/Atomic.h"
 #include <atomic>
 
-template <typename TIface>
-class CComInterfaceArray {
+template <typename TIface> class CComInterfaceArray {
 private:
   TIface **m_pData;
   unsigned m_length;
+
 public:
-  CComInterfaceArray() : m_pData(nullptr), m_length(0) { }
-  ~CComInterfaceArray() {
-    clear();
-  }
+  CComInterfaceArray() : m_pData(nullptr), m_length(0) {}
+  ~CComInterfaceArray() { clear(); }
   bool empty() const { return m_length == 0; }
   unsigned size() const { return m_length; }
   TIface ***data_ref() { return &m_pData; }
   unsigned *size_ref() { return &m_length; }
-  TIface **begin() {
-    return m_pData;
-  }
-  TIface **end() {
-    return m_pData + m_length;
-  }
+  TIface **begin() { return m_pData; }
+  TIface **end() { return m_pData + m_length; }
   void clear() {
     if (m_length) {
       for (unsigned i = 0; i < m_length; ++i) {
@@ -53,16 +47,14 @@ public:
   }
   HRESULT alloc(unsigned count) {
     clear();
-    m_pData = (TIface**)CoTaskMemAlloc(sizeof(TIface*) * count);
+    m_pData = (TIface **)CoTaskMemAlloc(sizeof(TIface *) * count);
     if (m_pData == nullptr)
       return E_OUTOFMEMORY;
     m_length = count;
-    ZeroMemory(m_pData, sizeof(TIface*) * count);
+    ZeroMemory(m_pData, sizeof(TIface *) * count);
     return S_OK;
   }
-  TIface **get_address_of(unsigned index) {
-    return &(m_pData[index]);
-  }
+  TIface **get_address_of(unsigned index) { return &(m_pData[index]); }
   TIface **release() {
     TIface **result = m_pData;
     m_pData = nullptr;
@@ -77,17 +69,12 @@ public:
   }
 };
 
-template<typename T>
-void DxcCallDestructor(T *obj) {
-  obj->T::~T();
-}
+template <typename T> void DxcCallDestructor(T *obj) { obj->T::~T(); }
 
 #define DXC_MICROCOM_REF_FIELD(m_dwRef)                                        \
   volatile std::atomic<llvm::sys::cas_flag> m_dwRef = {0};
 #define DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                      \
-  ULONG STDMETHODCALLTYPE AddRef() override {                                  \
-    return (ULONG)++m_dwRef;                                                   \
-  }
+  ULONG STDMETHODCALLTYPE AddRef() override { return (ULONG)++m_dwRef; }
 #define DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)                              \
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                            \
   ULONG STDMETHODCALLTYPE Release() override {                                 \
@@ -100,10 +87,15 @@ void DxcCallDestructor(T *obj) {
   }
 
 template <typename T, typename... Args>
-inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
+inline T *CreateOnMalloc(IMalloc *pMalloc, Args &&...args) {
   void *P = pMalloc->Alloc(sizeof(T));
-  try { if (P) new (P)T(pMalloc, std::forward<Args>(args)...); }
-  catch (...) { pMalloc->Free(P); throw; }
+  try {
+    if (P)
+      new (P) T(pMalloc, std::forward<Args>(args)...);
+  } catch (...) {
+    pMalloc->Free(P);
+    throw;
+  }
   return (T *)P;
 }
 
@@ -133,7 +125,7 @@ inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
   T(IMalloc *pMalloc) : m_dwRef(0), m_pMalloc(pMalloc) {}
 #define DXC_MICROCOM_TM_ALLOC(T)                                               \
   template <typename... Args>                                                  \
-  static T *Alloc(IMalloc *pMalloc, Args &&... args) {                         \
+  static T *Alloc(IMalloc *pMalloc, Args &&...args) {                          \
     void *P = pMalloc->Alloc(sizeof(T));                                       \
     try {                                                                      \
       if (P)                                                                   \
@@ -154,29 +146,33 @@ inline T *CreateOnMalloc(IMalloc * pMalloc, Args&&... args) {
 /// marshaling. This will help catch marshaling problems early or avoid
 /// them altogether.
 /// </remarks>
-template<typename TObject>
-HRESULT DoBasicQueryInterface_recurse(TObject* self, REFIID iid, void** ppvObject) {
+template <typename TObject>
+HRESULT DoBasicQueryInterface_recurse(TObject *self, REFIID iid,
+                                      void **ppvObject) {
   return E_NOINTERFACE;
 }
-template<typename TObject, typename TInterface, typename... Ts>
-HRESULT DoBasicQueryInterface_recurse(TObject* self, REFIID iid, void** ppvObject) {
-  if (ppvObject == nullptr) return E_POINTER;
+template <typename TObject, typename TInterface, typename... Ts>
+HRESULT DoBasicQueryInterface_recurse(TObject *self, REFIID iid,
+                                      void **ppvObject) {
+  if (ppvObject == nullptr)
+    return E_POINTER;
   if (IsEqualIID(iid, __uuidof(TInterface))) {
-    *(TInterface**)ppvObject = self;
+    *(TInterface **)ppvObject = self;
     self->AddRef();
     return S_OK;
   }
   return DoBasicQueryInterface_recurse<TObject, Ts...>(self, iid, ppvObject);
 }
-template<typename... Ts, typename TObject>
-HRESULT DoBasicQueryInterface(TObject* self, REFIID iid, void** ppvObject) {
-  if (ppvObject == nullptr) return E_POINTER;
+template <typename... Ts, typename TObject>
+HRESULT DoBasicQueryInterface(TObject *self, REFIID iid, void **ppvObject) {
+  if (ppvObject == nullptr)
+    return E_POINTER;
 
   // Support INoMarshal to void GIT shenanigans.
   if (IsEqualIID(iid, __uuidof(IUnknown)) ||
-    IsEqualIID(iid, __uuidof(INoMarshal))) {
-    *ppvObject = reinterpret_cast<IUnknown*>(self);
-    reinterpret_cast<IUnknown*>(self)->AddRef();
+      IsEqualIID(iid, __uuidof(INoMarshal))) {
+    *ppvObject = reinterpret_cast<IUnknown *>(self);
+    reinterpret_cast<IUnknown *>(self)->AddRef();
     return S_OK;
   }
 

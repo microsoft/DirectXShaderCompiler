@@ -309,7 +309,7 @@ const DeclaratorDecl *getReferencedDef(const Expr *expr) {
     return nullptr;
 
   expr = expr->IgnoreParenCasts();
-  while(const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
+  while (const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
     expr = arraySubscriptExpr->getBase();
     expr = expr->IgnoreParenCasts();
   }
@@ -772,7 +772,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   if (spirvOptions.debugInfoRich) {
-    emitWarning("Member functions will not be linked to their class in the debug information. "
+    emitWarning("Member functions will not be linked to their class in the "
+                "debug information. "
                 "See https://github.com/KhronosGroup/SPIRV-Registry/issues/203",
                 {});
   }
@@ -835,7 +836,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     const FunctionInfo *entryInfo = workQueue[i];
     assert(entryInfo->isEntryFunction);
     spvBuilder.addEntryPoint(
-        getSpirvShaderStage(entryInfo->shaderModelKind, featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)),
+        getSpirvShaderStage(
+            entryInfo->shaderModelKind,
+            featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)),
         entryInfo->entryFunction, getEntryPointName(entryInfo),
         getInterfacesForEntryPoint(entryInfo->entryFunction));
   }
@@ -1148,7 +1151,8 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
     result = doArraySubscriptExpr(subscriptExpr, range);
   } else if (const auto *condExpr = dyn_cast<ConditionalOperator>(expr)) {
     // Beginning with HLSL 2021, the ternary operator is short-circuited.
-    if (getCompilerInstance().getLangOpts().HLSLVersion >= hlsl::LangStd::v2021) {
+    if (getCompilerInstance().getLangOpts().HLSLVersion >=
+        hlsl::LangStd::v2021) {
       result = doShortCircuitedConditionalOperator(condExpr);
     } else {
       const Expr *cond = condExpr->getCond();
@@ -6537,7 +6541,8 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
         [&](size_t spirvFieldIndex, const QualType &fieldType,
             const auto &field) {
           SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
-              fieldType, srcVal, {static_cast<uint32_t>(spirvFieldIndex)}, loc, range);
+              fieldType, srcVal, {static_cast<uint32_t>(spirvFieldIndex)}, loc,
+              range);
           subSrcVal->setLayoutRule(srcVal->getLayoutRule());
           elements.push_back(
               reconstructValue(subSrcVal, fieldType, dstLR, loc, range));
@@ -7025,7 +7030,8 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
   if (auto *constVal = dyn_cast<SpirvConstant>(scalarVal)) {
     llvm::SmallVector<SpirvConstant *, 4> elements(size_t(size), constVal);
     const bool isSpecConst = constVal->getopcode() == spv::Op::OpSpecConstant;
-    auto *value = spvBuilder.getConstantComposite(vecType, elements, isSpecConst);
+    auto *value =
+        spvBuilder.getConstantComposite(vecType, elements, isSpecConst);
     if (!value)
       return nullptr;
     value->setRValue();
@@ -7571,8 +7577,7 @@ void SpirvEmitter::assignToMSOutIndices(
     const llvm::SmallVector<SpirvInstruction *, 4> &indices) {
   assert(spvContext.isMS() && !indices.empty());
 
-  bool extMesh =
-      featureManager.isExtensionEnabled(Extension::EXT_mesh_shader);
+  bool extMesh = featureManager.isExtensionEnabled(Extension::EXT_mesh_shader);
 
   // Extract vertex index and vecComponent (if any).
   SpirvInstruction *vertIndex = indices.front();
@@ -7613,14 +7618,16 @@ void SpirvEmitter::assignToMSOutIndices(
         // create accesschain for Primitive*IndicesEXT[vertIndex][vecComponent].
         auto *ptr = spvBuilder.createAccessChain(
             astContext.UnsignedIntTy, var, {vertIndex, vecComponent}, loc);
-        // finally create store for Primitive*IndicesEXT[vertIndex][vecComponent] = value.
+        // finally create store for
+        // Primitive*IndicesEXT[vertIndex][vecComponent] = value.
         spvBuilder.createStore(ptr, value, loc);
       } else {
         // set baseOffset = vertIndex * numVertices.
         auto *baseOffset = spvBuilder.createBinaryOp(
             spv::Op::OpIMul, astContext.UnsignedIntTy, vertIndex,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, numVertices)), loc);
+                                      llvm::APInt(32, numVertices)),
+            loc);
         // set baseOffset = baseOffset + vecComponent.
         baseOffset =
             spvBuilder.createBinaryOp(spv::Op::OpIAdd, astContext.UnsignedIntTy,
@@ -7643,7 +7650,8 @@ void SpirvEmitter::assignToMSOutIndices(
         auto *baseOffset = spvBuilder.createBinaryOp(
             spv::Op::OpIMul, astContext.UnsignedIntTy, vertIndex,
             spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, numVertices)), loc);
+                                      llvm::APInt(32, numVertices)),
+            loc);
         // write all vector components of uint2 or uint3.
         auto *curOffset = baseOffset;
         for (uint32_t i = 0; i < numValues; ++i) {
@@ -7865,10 +7873,10 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
       const StructType *spirvStructType =
           lowerStructType(spirvOptions, lowerTypeVisitor, astStructType);
       assert(spirvStructType != nullptr);
-      const uint32_t fieldIndex = getFieldIndexInStruct(
-          spirvStructType, astStructType,
-          /* fieldDecl */
-          dyn_cast<FieldDecl>(indexing->getMemberDecl()));
+      const uint32_t fieldIndex =
+          getFieldIndexInStruct(spirvStructType, astStructType,
+                                /* fieldDecl */
+                                dyn_cast<FieldDecl>(indexing->getMemberDecl()));
 
       if (rawIndex) {
         rawIndices->push_back(fieldIndex);
@@ -9212,21 +9220,22 @@ SpirvInstruction *SpirvEmitter::processIsHelperLane(const CallExpr *callExpr,
                                                     SourceRange range) {
   assert(callExpr->getNumArgs() == 0);
 
-  if(!featureManager.isTargetEnvVulkan1p3OrAbove()) {
+  if (!featureManager.isTargetEnvVulkan1p3OrAbove()) {
     // If IsHelperlane is used for Vulkan 1.2 or less, we enable
     // SPV_EXT_demote_to_helper_invocation extension to use
     // OpIsHelperInvocationEXT instruction.
     featureManager.allowExtension("SPV_EXT_demote_to_helper_invocation");
 
     const QualType retType = callExpr->getCallReturnType(astContext);
-    return spvBuilder.createIsHelperInvocationEXT(retType, callExpr->getExprLoc());
+    return spvBuilder.createIsHelperInvocationEXT(retType,
+                                                  callExpr->getExprLoc());
   }
 
   // The SpreadVolatileSemanticsPass legalization pass will decorate the
   // load with Volatile.
   const QualType retType = callExpr->getCallReturnType(astContext);
   auto *var =
-    declIdMapper.getBuiltinVar(spv::BuiltIn::HelperInvocation, retType, loc);
+      declIdMapper.getBuiltinVar(spv::BuiltIn::HelperInvocation, retType, loc);
   auto retVal = spvBuilder.createLoad(retType, var, loc, range);
   needsLegalization = true;
 
@@ -11733,7 +11742,8 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
   // 2) create PerTaskNV out attribute block and store MeshPayload info.
   const auto *sigPoint =
       hlsl::SigPoint::GetSigPoint(hlsl::DXIL::SigPointKind::MSOut);
-  spv::StorageClass sc = featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)
+  spv::StorageClass sc =
+      featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)
           ? spv::StorageClass::TaskPayloadWorkgroupEXT
           : spv::StorageClass::Output;
   auto *payloadArg = doExpr(args[3]);
@@ -11763,7 +11773,8 @@ void SpirvEmitter::processDispatchMesh(const CallExpr *callExpr) {
 
   if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
     // for EXT_mesh_shader, create opEmitMeshTasksEXT.
-    spvBuilder.createEmitMeshTasksEXT(threadX, threadY, threadZ, loc, nullptr, range);
+    spvBuilder.createEmitMeshTasksEXT(threadX, threadY, threadZ, loc, nullptr,
+                                      range);
   } else {
     // for NV_mesh_shader, set TaskCountNV = threadX * threadY * threadZ.
     auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::TaskCountNV,
@@ -11785,10 +11796,11 @@ void SpirvEmitter::processMeshOutputCounts(const CallExpr *callExpr) {
   const auto range = callExpr->getSourceRange();
 
   if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
-    spvBuilder.createSetMeshOutputsEXT(doExpr(args[0]), doExpr(args[1]), loc, range);
+    spvBuilder.createSetMeshOutputsEXT(doExpr(args[0]), doExpr(args[1]), loc,
+                                       range);
   } else {
     auto *var = declIdMapper.getBuiltinVar(spv::BuiltIn::PrimitiveCountNV,
-                                         astContext.UnsignedIntTy, loc);
+                                           astContext.UnsignedIntTy, loc);
     spvBuilder.createStore(var, doExpr(args[1]), loc, range);
   }
 }
@@ -12113,7 +12125,8 @@ hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
 }
 
 spv::ExecutionModel
-SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk, bool extMeshShading) {
+SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk,
+                                  bool extMeshShading) {
   switch (smk) {
   case hlsl::ShaderModel::Kind::Vertex:
     return spv::ExecutionModel::Vertex;
@@ -12140,13 +12153,11 @@ SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk, bool extMeshShadi
   case hlsl::ShaderModel::Kind::Callable:
     return spv::ExecutionModel::CallableNV;
   case hlsl::ShaderModel::Kind::Mesh:
-    return extMeshShading ?
-           spv::ExecutionModel::MeshEXT:
-           spv::ExecutionModel::MeshNV;
+    return extMeshShading ? spv::ExecutionModel::MeshEXT
+                          : spv::ExecutionModel::MeshNV;
   case hlsl::ShaderModel::Kind::Amplification:
-    return extMeshShading ?
-        spv::ExecutionModel::TaskEXT:
-        spv::ExecutionModel::TaskNV;
+    return extMeshShading ? spv::ExecutionModel::TaskEXT
+                          : spv::ExecutionModel::TaskNV;
   default:
     llvm_unreachable("invalid shader model kind");
     break;
@@ -13835,8 +13846,8 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
       spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
 
-  SpirvLoad *loadInst = dyn_cast<SpirvLoad>(
-      spvBuilder.createLoad(bufferType, address, loc));
+  SpirvLoad *loadInst =
+      dyn_cast<SpirvLoad>(spvBuilder.createLoad(bufferType, address, loc));
   assert(loadInst);
   loadInst->setAlignment(alignment);
   loadInst->setRValue();

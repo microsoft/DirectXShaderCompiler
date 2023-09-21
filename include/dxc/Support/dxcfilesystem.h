@@ -28,8 +28,6 @@ class MSFileSystem;
 } // namespace sys
 } // namespace llvm
 
-
-
 namespace dxcutil {
 
 class DxcArgsFileSystem : public ::llvm::sys::fs::MSFileSystem {

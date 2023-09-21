@@ -109,7 +109,7 @@ public:
     IK_EndPrimitive, // OpEndPrimitive
     IK_EmitVertex,   // OpEmitVertex
 
-    IK_SetMeshOutputsEXT,       // OpSetMeshOutputsEXT
+    IK_SetMeshOutputsEXT, // OpSetMeshOutputsEXT
 
     // The following section is for group non-uniform instructions.
     // Used by LLVM-style RTTI; order matters.
@@ -2165,10 +2165,8 @@ private:
 /// \brief OpEmitMeshTasksEXT instruction.
 class SpirvEmitMeshTasksEXT : public SpirvInstruction {
 public:
-  SpirvEmitMeshTasksEXT(SpirvInstruction* xDim,
-                        SpirvInstruction* yDim,
-                        SpirvInstruction* zDim,
-                        SpirvInstruction* payload,
+  SpirvEmitMeshTasksEXT(SpirvInstruction *xDim, SpirvInstruction *yDim,
+                        SpirvInstruction *zDim, SpirvInstruction *payload,
                         SourceLocation loc, SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvEmitMeshTasksEXT)
@@ -2195,9 +2193,8 @@ private:
 /// \brief OpSetMeshOutputsEXT instruction.
 class SpirvSetMeshOutputsEXT : public SpirvInstruction {
 public:
-  SpirvSetMeshOutputsEXT(SpirvInstruction* vertCount,
-                         SpirvInstruction* primCount, 
-                         SourceLocation loc,
+  SpirvSetMeshOutputsEXT(SpirvInstruction *vertCount,
+                         SpirvInstruction *primCount, SourceLocation loc,
                          SourceRange range = {});
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSetMeshOutputsEXT)

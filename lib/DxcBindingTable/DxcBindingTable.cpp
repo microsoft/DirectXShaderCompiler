@@ -7,16 +7,16 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/ADT/Twine.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Constants.h"
 
-#include "dxc/DxcBindingTable/DxcBindingTable.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResourceBase.h"
+#include "dxc/DxcBindingTable/DxcBindingTable.h"
 
 #include <ctype.h>
 #include <set>
@@ -25,41 +25,44 @@ using namespace llvm;
 using namespace hlsl;
 
 namespace {
-  enum IntegerConversionStatus {
-    Success,
-    OutOfBounds,
-    Invalid,
-    Empty,
-  };
+enum IntegerConversionStatus {
+  Success,
+  OutOfBounds,
+  Invalid,
+  Empty,
+};
 
-  static IntegerConversionStatus ToUnsigned32(StringRef str, uint32_t *outInteger) {
-    *outInteger = 0;
+static IntegerConversionStatus ToUnsigned32(StringRef str,
+                                            uint32_t *outInteger) {
+  *outInteger = 0;
 
-    if (str.empty())
-      return IntegerConversionStatus::Empty;
+  if (str.empty())
+    return IntegerConversionStatus::Empty;
 
-    llvm::APInt integer;
-    if (llvm::StringRef(str).getAsInteger(0, integer)) {
-      return IntegerConversionStatus::Invalid;
-    }
-
-    if (integer != 0 && integer.getBitWidth() > 32) {
-      return IntegerConversionStatus::OutOfBounds;
-    }
-
-    *outInteger = (uint32_t)integer.getLimitedValue();
-    return IntegerConversionStatus::Success;
+  llvm::APInt integer;
+  if (llvm::StringRef(str).getAsInteger(0, integer)) {
+    return IntegerConversionStatus::Invalid;
   }
-}
 
-bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, llvm::raw_ostream &errors, DxcBindingTable *outTable) {
+  if (integer != 0 && integer.getBitWidth() > 32) {
+    return IntegerConversionStatus::OutOfBounds;
+  }
+
+  *outInteger = (uint32_t)integer.getLimitedValue();
+  return IntegerConversionStatus::Success;
+}
+} // namespace
+
+bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content,
+                             llvm::raw_ostream &errors,
+                             DxcBindingTable *outTable) {
 
   struct Parser {
     StringRef fileName;
     const char *curr = nullptr;
-    const char *end  = nullptr;
+    const char *end = nullptr;
     int line = 1;
-    int col  = 1;
+    int col = 1;
     llvm::raw_ostream &errors;
     bool WasEndOfLine = false;
 
@@ -68,29 +71,19 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       int col = 0;
     };
 
-    inline static bool IsDelimiter(char c) {
-      return c == ',';
-    }
-    inline static bool IsNewline(char c) {
-       return c == '\r' || c == '\n';
-    }
+    inline static bool IsDelimiter(char c) { return c == ','; }
+    inline static bool IsNewline(char c) { return c == '\r' || c == '\n'; }
     inline static bool IsEndOfLine(char c) {
       return IsNewline(c) || c == ';' || c == '\0';
     }
-    inline static bool IsWhitespace(char c) {
-      return c == ' ' || c == '\t';
-    }
-    inline Parser(StringRef fileName, StringRef content, llvm::raw_ostream &errors) :
-      fileName(fileName),
-      curr(content.data()),
-      end(content.data() + content.size()),
-      errors(errors)
-    {
+    inline static bool IsWhitespace(char c) { return c == ' ' || c == '\t'; }
+    inline Parser(StringRef fileName, StringRef content,
+                  llvm::raw_ostream &errors)
+        : fileName(fileName), curr(content.data()),
+          end(content.data() + content.size()), errors(errors) {
       EatWhiteSpaceAndNewlines();
     }
-    inline bool WasJustEndOfLine() const {
-      return WasEndOfLine;
-    }
+    inline bool WasJustEndOfLine() const { return WasEndOfLine; }
 
     inline void EatWhitespace() {
       for (;;) {
@@ -120,20 +113,17 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       if (*curr == '\n') {
         line++;
         col = 1;
-      }
-      else if (*curr != '\r') {
+      } else if (*curr != '\r') {
         col++;
       }
       curr++;
     }
-    inline bool ReachedEnd() const {
-      return curr >= end || *curr == '\0';
-    }
-    inline void Warn(Location loc, const Twine &err) {
-      (void)Error(loc, err);
-    }
+    inline bool ReachedEnd() const { return curr >= end || *curr == '\0'; }
+    inline void Warn(Location loc, const Twine &err) { (void)Error(loc, err); }
     inline bool Error(Location loc, const Twine &err) {
-      errors << (Twine(fileName) + ":" + Twine(loc.line) + ":" + Twine(loc.col) + ": " + err + "\n").str();
+      errors << (Twine(fileName) + ":" + Twine(loc.line) + ":" +
+                 Twine(loc.col) + ": " + err + "\n")
+                    .str();
       return false;
     }
     inline bool Error(const Twine &err) {
@@ -141,7 +131,8 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       return false;
     }
     inline char Peek() const {
-      if (ReachedEnd()) return '\0';
+      if (ReachedEnd())
+        return '\0';
       return *curr;
     }
 
@@ -210,7 +201,8 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       return true;
     }
 
-    bool ParseResourceIndex(hlsl::DXIL::ResourceClass *outClass, unsigned *outIndex) {
+    bool ParseResourceIndex(hlsl::DXIL::ResourceClass *outClass,
+                            unsigned *outIndex) {
 
       *outClass = hlsl::DXIL::ResourceClass::Invalid;
       *outIndex = UINT_MAX;
@@ -238,21 +230,25 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
         *outClass = hlsl::DXIL::ResourceClass::UAV;
         break;
       default:
-        return Error(loc, "Invalid resource class. Needs to be one of 'b', 's', 't', or 'u'.");
+        return Error(loc, "Invalid resource class. Needs to be one of 'b', "
+                          "'s', 't', or 'u'.");
         break;
       }
 
       StringRef integerStr;
       if (str.size() > 1) {
-        integerStr = StringRef( &str[1], str.size() - 1);
+        integerStr = StringRef(&str[1], str.size() - 1);
       }
 
       if (auto result = ToUnsigned32(integerStr, outIndex)) {
         switch (result) {
         case IntegerConversionStatus::OutOfBounds:
-          return Error(loc, Twine() + "'" + integerStr + "' is out of range of an 32-bit unsigned integer.");
+          return Error(loc,
+                       Twine() + "'" + integerStr +
+                           "' is out of range of an 32-bit unsigned integer.");
         default:
-          return Error(loc, Twine() + "'" + str + "' is not a valid resource binding.");
+          return Error(loc, Twine() + "'" + str +
+                                "' is not a valid resource binding.");
         }
       }
 
@@ -266,15 +262,19 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
         return false;
 
       if (str.empty()) {
-        return Error(loc, "Expected unsigned 32-bit integer for resource space, but got empty cell.");
+        return Error(loc, "Expected unsigned 32-bit integer for resource "
+                          "space, but got empty cell.");
       }
 
       if (auto result = ToUnsigned32(str, outResult)) {
         switch (result) {
         case IntegerConversionStatus::OutOfBounds:
-          return Error(loc, Twine() + "'" + str + "' is out of range of an 32-bit unsigned integer.");
+          return Error(loc,
+                       Twine() + "'" + str +
+                           "' is out of range of an 32-bit unsigned integer.");
         default:
-          return Error(loc, Twine() + "'" + str + "' is not a valid 32-bit unsigned integer.");
+          return Error(loc, Twine() + "'" + str +
+                                "' is not a valid 32-bit unsigned integer.");
         }
       }
 
@@ -309,20 +309,17 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
         return P.Error(loc, "Column 'ResourceName' already specified.");
       }
       columns.push_back(ColumnType::Name);
-    }
-    else if (column == "binding") {
+    } else if (column == "binding") {
       if (!columnsSet.insert(ColumnType::Index).second) {
         return P.Error(loc, "Column 'Binding' already specified.");
       }
       columns.push_back(ColumnType::Index);
-    }
-    else if (column == "space") {
+    } else if (column == "space") {
       if (!columnsSet.insert(ColumnType::Space).second) {
         return P.Error(loc, "Column 'Space' already specified.");
       }
       columns.push_back(ColumnType::Space);
-    }
-    else {
+    } else {
       P.Warn(loc, Twine() + "Unknown column '" + column + "'");
       columns.push_back(ColumnType::Unknown);
     }
@@ -331,11 +328,12 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
       break;
   }
 
-  if (!columnsSet.count(ColumnType::Name)  ||
+  if (!columnsSet.count(ColumnType::Name) ||
       !columnsSet.count(ColumnType::Index) ||
-      !columnsSet.count(ColumnType::Space))
-  {
-    return P.Error(Twine() + "Input format is csv with headings: ResourceName, Binding, Space.");
+      !columnsSet.count(ColumnType::Space)) {
+    return P.Error(
+        Twine() +
+        "Input format is csv with headings: ResourceName, Binding, Space.");
   }
 
   while (!P.ReachedEnd()) {
@@ -348,32 +346,29 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
     for (unsigned i = 0; i < columns.size(); i++) {
       ColumnType column = columns[i];
       switch (column) {
-      case ColumnType::Name:
-      {
+      case ColumnType::Name: {
         if (!P.ParseCell(&name))
           return false;
       } break;
 
-      case ColumnType::Index:
-      {
+      case ColumnType::Index: {
         if (!P.ParseResourceIndex(&cls, &index))
           return false;
       } break;
 
-      case ColumnType::Space:
-      {
+      case ColumnType::Space: {
         if (!P.ParseReourceSpace(&space))
           return false;
       } break;
-      default:
-      {
+      default: {
         if (!P.ParseCell(nullptr))
           return false;
       } break;
       }
 
-      if (P.WasJustEndOfLine() && i+1 != columns.size()) {
-        return P.Error("Row ended after just " + Twine(i+1) + " columns. Expected " + Twine(columns.size()) + ".");
+      if (P.WasJustEndOfLine() && i + 1 != columns.size()) {
+        return P.Error("Row ended after just " + Twine(i + 1) +
+                       " columns. Expected " + Twine(columns.size()) + ".");
       }
     }
 
@@ -384,8 +379,9 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
     outTable->entries[DxcBindingTable::Key(name.c_str(), cls)] = entry;
 
     if (!P.WasJustEndOfLine()) {
-      return P.Error("Unexpected cell at the end of row. There should only be "
-        + Twine(columns.size()) + " columns");
+      return P.Error(
+          "Unexpected cell at the end of row. There should only be " +
+          Twine(columns.size()) + " columns");
     }
   }
 
@@ -395,18 +391,21 @@ bool hlsl::ParseBindingTable(llvm::StringRef fileName, llvm::StringRef content, 
 typedef std::pair<std::string, hlsl::DXIL::ResourceClass> ResourceKey;
 typedef std::map<ResourceKey, DxilResourceBase *> ResourceMap;
 
-template<typename T>
-static inline void GatherResources(const std::vector<std::unique_ptr<T> > &List, ResourceMap *Map) {
+template <typename T>
+static inline void GatherResources(const std::vector<std::unique_ptr<T>> &List,
+                                   ResourceMap *Map) {
   for (const std::unique_ptr<T> &ptr : List) {
     (*Map)[ResourceKey(ptr->GetGlobalName(), ptr->GetClass())] = ptr.get();
   }
 }
 
-void hlsl::WriteBindingTableToMetadata(llvm::Module &M, const hlsl::DxcBindingTable &table) {
+void hlsl::WriteBindingTableToMetadata(llvm::Module &M,
+                                       const hlsl::DxcBindingTable &table) {
   if (table.entries.empty())
     return;
 
-  llvm::NamedMDNode *bindingsMD = M.getOrInsertNamedMetadata(hlsl::DxilMDHelper::kDxilDxcBindingTableMDName);
+  llvm::NamedMDNode *bindingsMD = M.getOrInsertNamedMetadata(
+      hlsl::DxilMDHelper::kDxilDxcBindingTableMDName);
   LLVMContext &LLVMCtx = M.getContext();
 
   // Don't add operands repeatedly
@@ -414,17 +413,23 @@ void hlsl::WriteBindingTableToMetadata(llvm::Module &M, const hlsl::DxcBindingTa
     return;
   }
 
-  for (const std::pair<const DxcBindingTable::Key, DxcBindingTable::Entry> &binding : table.entries) {
+  for (const std::pair<const DxcBindingTable::Key, DxcBindingTable::Entry>
+           &binding : table.entries) {
 
-    auto GetInt32MD = [&LLVMCtx](uint32_t val) -> llvm::ValueAsMetadata* {
-      return llvm::ValueAsMetadata::get(llvm::ConstantInt::get(llvm::Type::getInt32Ty(LLVMCtx), val));
+    auto GetInt32MD = [&LLVMCtx](uint32_t val) -> llvm::ValueAsMetadata * {
+      return llvm::ValueAsMetadata::get(
+          llvm::ConstantInt::get(llvm::Type::getInt32Ty(LLVMCtx), val));
     };
 
     llvm::Metadata *operands[4] = {};
-    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceName]  = llvm::MDString::get(LLVMCtx, binding.first.first);
-    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceClass] = GetInt32MD((unsigned)binding.first.second);
-    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceIndex] = GetInt32MD(binding.second.index);
-    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceSpace] = GetInt32MD(binding.second.space);
+    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceName] =
+        llvm::MDString::get(LLVMCtx, binding.first.first);
+    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceClass] =
+        GetInt32MD((unsigned)binding.first.second);
+    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceIndex] =
+        GetInt32MD(binding.second.index);
+    operands[hlsl::DxilMDHelper::kDxilDxcBindingTableResourceSpace] =
+        GetInt32MD(binding.second.space);
 
     llvm::MDTuple *entry = llvm::MDNode::get(LLVMCtx, operands);
     bindingsMD->addOperand(entry);
@@ -433,28 +438,39 @@ void hlsl::WriteBindingTableToMetadata(llvm::Module &M, const hlsl::DxcBindingTa
 
 void hlsl::ApplyBindingTableFromMetadata(DxilModule &DM) {
   Module &M = *DM.GetModule();
-  NamedMDNode *bindings = M.getNamedMetadata(hlsl::DxilMDHelper::kDxilDxcBindingTableMDName);
+  NamedMDNode *bindings =
+      M.getNamedMetadata(hlsl::DxilMDHelper::kDxilDxcBindingTableMDName);
   if (!bindings)
     return;
 
   ResourceMap resourceMap;
   GatherResources(DM.GetCBuffers(), &resourceMap);
-  GatherResources(DM.GetSRVs(),     &resourceMap);
-  GatherResources(DM.GetUAVs(),     &resourceMap);
+  GatherResources(DM.GetSRVs(), &resourceMap);
+  GatherResources(DM.GetUAVs(), &resourceMap);
   GatherResources(DM.GetSamplers(), &resourceMap);
 
   for (MDNode *mdEntry : bindings->operands()) {
 
-    Metadata *nameMD  = mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceName);
-    Metadata *classMD = mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceClass);
-    Metadata *indexMD = mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceIndex);
-    Metadata *spaceMD = mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceSpace);
+    Metadata *nameMD =
+        mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceName);
+    Metadata *classMD =
+        mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceClass);
+    Metadata *indexMD =
+        mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceIndex);
+    Metadata *spaceMD =
+        mdEntry->getOperand(DxilMDHelper::kDxilDxcBindingTableResourceSpace);
 
     StringRef name = cast<MDString>(nameMD)->getString();
     hlsl::DXIL::ResourceClass cls =
-      (hlsl::DXIL::ResourceClass)cast<ConstantInt>(cast<ValueAsMetadata>(classMD)->getValue())->getLimitedValue();
-    unsigned index = cast<ConstantInt>(cast<ValueAsMetadata>(indexMD)->getValue())->getLimitedValue();
-    unsigned space = cast<ConstantInt>(cast<ValueAsMetadata>(spaceMD)->getValue())->getLimitedValue();
+        (hlsl::DXIL::ResourceClass)cast<ConstantInt>(
+            cast<ValueAsMetadata>(classMD)->getValue())
+            ->getLimitedValue();
+    unsigned index =
+        cast<ConstantInt>(cast<ValueAsMetadata>(indexMD)->getValue())
+            ->getLimitedValue();
+    unsigned space =
+        cast<ConstantInt>(cast<ValueAsMetadata>(spaceMD)->getValue())
+            ->getLimitedValue();
 
     auto it = resourceMap.find(ResourceKey(name, cls));
     if (it != resourceMap.end()) {
@@ -466,4 +482,3 @@ void hlsl::ApplyBindingTableFromMetadata(DxilModule &DM) {
     }
   }
 }
-

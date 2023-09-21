@@ -47,24 +47,19 @@ public:
 
 // Like CComHeapPtr, but with CDxcThreadMallocAllocator.
 template <typename T>
-class CDxcTMHeapPtr :
-  public CHeapPtr<T, CDxcThreadMallocAllocator>
-{
+class CDxcTMHeapPtr : public CHeapPtr<T, CDxcThreadMallocAllocator> {
 public:
-  CDxcTMHeapPtr() throw()
-  {
-  }
+  CDxcTMHeapPtr() throw() {}
 
   explicit CDxcTMHeapPtr(T *pData) throw()
       : CHeapPtr<T, CDxcThreadMallocAllocator>(pData) {}
 };
 
 // Like CComHeapPtr, but with a stateful allocator.
-template <typename T>
-class CDxcMallocHeapPtr
-{
+template <typename T> class CDxcMallocHeapPtr {
 private:
   CComPtr<IMalloc> m_pMalloc;
+
 public:
   T *m_pData;
 
@@ -78,7 +73,7 @@ public:
 
   operator T *() const throw() { return m_pData; }
 
-  IMalloc* GetMallocNoRef() const throw() { return m_pMalloc.p; }
+  IMalloc *GetMallocNoRef() const throw() { return m_pMalloc.p; }
 
   bool Allocate(SIZE_T ElementCount) throw() {
     ATLASSERT(m_pData == NULL);
@@ -135,16 +130,16 @@ UINT32 DxcCodePageFromBytes(const char *bytes, size_t byteLen) throw();
 // an IDxcBlobUtf8 or IDxcBlobWide will be constructed.
 // If text, it's best if size includes null terminator when not copying,
 // otherwise IDxcBlobUtf8 or IDxcBlobWide will not be constructed.
-HRESULT DxcCreateBlob(
-    LPCVOID pPtr, SIZE_T size, bool bPinned, bool bCopy,
-    bool encodingKnown, UINT32 codePage,
-    IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw();
+HRESULT DxcCreateBlob(LPCVOID pPtr, SIZE_T size, bool bPinned, bool bCopy,
+                      bool encodingKnown, UINT32 codePage, IMalloc *pMalloc,
+                      IDxcBlobEncoding **ppBlobEncoding) throw();
 // Create from blob references original blob.
 // Pass nonzero for offset or length for sub-blob reference.
-HRESULT DxcCreateBlobEncodingFromBlob(
-    IDxcBlob *pFromBlob, UINT32 offset, UINT32 length,
-    bool encodingKnown, UINT32 codePage,
-    IMalloc *pMalloc, IDxcBlobEncoding **ppBlobEncoding) throw();
+HRESULT
+DxcCreateBlobEncodingFromBlob(IDxcBlob *pFromBlob, UINT32 offset, UINT32 length,
+                              bool encodingKnown, UINT32 codePage,
+                              IMalloc *pMalloc,
+                              IDxcBlobEncoding **ppBlobEncoding) throw();
 
 // Load files
 HRESULT DxcCreateBlobFromFile(IMalloc *pMalloc, LPCWSTR pFileName,
@@ -200,7 +195,8 @@ DxcCreateBlobWithEncodingOnMalloc(LPCVOID pText, IMalloc *pIMalloc, UINT32 size,
                                   UINT32 codePage,
                                   IDxcBlobEncoding **pBlobEncoding) throw();
 
-// Creates a blob with a copy of encoded text, allocated using the provided IMalloc
+// Creates a blob with a copy of encoded text, allocated using the provided
+// IMalloc
 HRESULT
 DxcCreateBlobWithEncodingOnMallocCopy(IMalloc *pIMalloc, LPCVOID pText,
                                       UINT32 size, UINT32 codePage,
@@ -232,7 +228,7 @@ HRESULT CreateFixedSizeMemoryStream(LPBYTE pBuffer, size_t size,
                                     AbstractMemoryStream **ppResult) throw();
 
 template <typename T>
-HRESULT WriteStreamValue(IStream *pStream, const T& value) {
+HRESULT WriteStreamValue(IStream *pStream, const T &value) {
   ULONG cb;
   return pStream->Write(&value, sizeof(value), &cb);
 }

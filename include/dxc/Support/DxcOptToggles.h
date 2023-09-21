@@ -31,7 +31,7 @@ struct Toggle {
 };
 
 enum {
-  DEFAULT_ON  = 1,
+  DEFAULT_ON = 1,
   DEFAULT_OFF = 0,
 };
 
@@ -44,16 +44,15 @@ static const Toggle TOGGLE_PARTIAL_LIFETIME_MARKERS = {
 static const Toggle TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL = {
     "structurize-loop-exits-for-unroll", DEFAULT_ON};
 static const Toggle TOGGLE_DEBUG_NOPS = {"debug-nops", DEFAULT_ON};
-static const Toggle TOGGLE_STRUCTURIZE_RETURNS = {"structurize-returns", DEFAULT_OFF};
+static const Toggle TOGGLE_STRUCTURIZE_RETURNS = {"structurize-returns",
+                                                  DEFAULT_OFF};
 
 struct OptimizationToggles {
   // Optimization pass enables, disables and selects
-  std::map<std::string, bool>        Toggles; // OPT_opt_enable & OPT_opt_disable
+  std::map<std::string, bool> Toggles; // OPT_opt_enable & OPT_opt_disable
   std::map<std::string, std::string> Selects; // OPT_opt_select
 
-  void Set(Toggle Opt, bool Value) {
-    Toggles[Opt.Name] = Value;
-  }
+  void Set(Toggle Opt, bool Value) { Toggles[Opt.Name] = Value; }
   bool IsSet(Toggle Opt) const {
     return Toggles.find(Opt.Name) != Toggles.end();
   }

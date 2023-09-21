@@ -346,7 +346,8 @@ bool FeatureManager::enabledByDefault(Extension ext) {
   case Extension::EXT_demote_to_helper_invocation:
     return false;
   case Extension::EXT_mesh_shader:
-    // Enabling EXT_mesh_shader only when the target environment is SPIR-V 1.4 or above
+    // Enabling EXT_mesh_shader only when the target environment is SPIR-V 1.4
+    // or above
     return false;
   default:
     return true;
