@@ -32,7 +32,7 @@ jobs:
               echo \`\`\`diff >> message.txt
               cat format.diff | head -n 50 >> message.txt
               echo \`\`\` >> message.txt
-              echo See [action log]\(https://github.com/microsoft/DirectXShaderCompiler/actions/runs/$GITHUB_RUN_ID/) for the full diff.  >> message.txt
+              echo See [action log]\(https://github.com/microsoft/DirectXShaderCompiler/actions/runs/$GITHUB_RUN_ID/\) for the full diff.  >> message.txt
               gh pr comment $PR_NUMBER --body-file message.txt
               exit 1
             fi
