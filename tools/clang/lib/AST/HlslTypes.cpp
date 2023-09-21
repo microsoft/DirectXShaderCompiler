@@ -664,28 +664,25 @@ bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type) {
 }
 
 bool IsHLSLRWNodeInputRecordType(clang::QualType type) {
-  if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
-    return Attr->getType() == HLSLNodeObjectAttr::RWDispatchNodeInputRecord ||
-           Attr->getType() == HLSLNodeObjectAttr::RWGroupNodeInputRecords ||
-           Attr->getType() == HLSLNodeObjectAttr::RWThreadNodeInputRecord;
-  return false;
+  return (static_cast<uint32_t>(GetNodeIOType(type)) &
+          (static_cast<uint32_t>(DXIL::NodeIOFlags::ReadWrite) |
+           static_cast<uint32_t>(DXIL::NodeIOFlags::Input))) ==
+         (static_cast<uint32_t>(DXIL::NodeIOFlags::ReadWrite) |
+          static_cast<uint32_t>(DXIL::NodeIOFlags::Input));
 }
 
 bool IsHLSLRONodeInputRecordType(clang::QualType type) {
-  if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
-    return Attr->getType() == HLSLNodeObjectAttr::DispatchNodeInputRecord ||
-           Attr->getType() == HLSLNodeObjectAttr::GroupNodeInputRecords ||
-           Attr->getType() == HLSLNodeObjectAttr::ThreadNodeInputRecord;
-  return false;
+  return (static_cast<uint32_t>(GetNodeIOType(type)) &
+          (static_cast<uint32_t>(DXIL::NodeIOFlags::ReadWrite) |
+           static_cast<uint32_t>(DXIL::NodeIOFlags::Input))) ==
+         static_cast<uint32_t>(DXIL::NodeIOFlags::Input);
 }
 
 bool IsHLSLNodeOutputType(clang::QualType type) {
-  if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
-    return Attr->getType() == HLSLNodeObjectAttr::NodeOutput ||
-           Attr->getType() == HLSLNodeObjectAttr::NodeOutputArray ||
-           Attr->getType() == HLSLNodeObjectAttr::EmptyNodeOutput ||
-           Attr->getType() == HLSLNodeObjectAttr::EmptyNodeOutputArray;
-  return false;
+  return (static_cast<uint32_t>(GetNodeIOType(type)) &
+          (static_cast<uint32_t>(DXIL::NodeIOFlags::Output) |
+           static_cast<uint32_t>(DXIL::NodeIOFlags::RecordGranularityMask))) ==
+         static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
 }
 
 bool IsHLSLStructuredBufferType(clang::QualType type) {
