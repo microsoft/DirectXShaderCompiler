@@ -8158,40 +8158,37 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
   }
 
   if (const auto *recordType = fromType->getAs<RecordType>()) {
+    // This code is bogus but approximates the current (unspec'd)
+    // behavior for the DXIL target.
     assert(recordType->isStructureType());
 
-    uint32_t width = getElementSpirvBitwidth(astContext, toIntType,
-                                             spirvOptions.enable16BitTypes);
-    uint32_t offset = 0;
+    auto fieldDecl = recordType->getDecl()->field_begin();
+    QualType fieldType = fieldDecl->getType();
+    QualType elemType = {};
+    SpirvInstruction *firstField;
+
+    if (isVectorType(fieldType, &elemType)) {
+      fieldType = elemType;
+      firstField = spvBuilder.createCompositeExtract(fieldType, fromVal, {0, 0},
+                                                     srcLoc, srcRange);
+    } else {
+      firstField = spvBuilder.createCompositeExtract(fieldType, fromVal, {0},
+                                                     srcLoc, srcRange);
+      if (fieldDecl->isBitField()) {
+        auto offset = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                llvm::APInt(32, 0));
+        auto width = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy,
+            llvm::APInt(32, fieldDecl->getBitWidthValue(astContext)));
+        firstField = spvBuilder.createBitFieldExtract(
+            fieldType, firstField, offset, width,
+            toIntType->hasSignedIntegerRepresentation(), srcLoc);
+      }
+    }
+
     SpirvInstruction *result =
-        spvBuilder.getConstantInt(toIntType, llvm::APInt(width, 0));
-    SpirvLayoutRule dstLR = fromVal->getLayoutRule();
-
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
-    const StructType *spirvStructType =
-        lowerStructType(spirvOptions, lowerTypeVisitor, recordType->desugar());
-
-    forEachSpirvField(
-        recordType, spirvStructType,
-        [&](size_t spirvFieldIndex, const QualType &fieldType,
-            const auto &field) {
-          uint32_t fieldWidth = getElementSpirvBitwidth(
-              astContext, fieldType, spirvOptions.enable16BitTypes);
-          SpirvInstruction *subSrcVal = spvBuilder.createCompositeExtract(
-              fieldType, fromVal, {static_cast<uint32_t>(spirvFieldIndex)},
-              srcLoc, srcRange);
-          result = spvBuilder.createBitFieldInsert(
-              toIntType, result, subSrcVal,
-              spvBuilder.getConstantInt(toIntType, llvm::APInt(32, offset)),
-              spvBuilder.getConstantInt(toIntType, llvm::APInt(32, fieldWidth)),
-              srcLoc);
-          offset += fieldWidth;
-
-          assert(offset <= width);
-          return true;
-        });
-
-    result->setLayoutRule(dstLR);
+        castToInt(firstField, fieldType, toIntType, srcLoc, srcRange);
+    result->setLayoutRule(fromVal->getLayoutRule());
     return result;
   }
 
