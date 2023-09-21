@@ -11302,7 +11302,7 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 // This validation function performs validation using the context
 // that other attributes provide on the decl, such as the fact of 
 // whether or not the decl is a node shader. This validation is 
-// performed after all attributs on the decl have been parsed.
+// performed after all attributes on the decl have been parsed.
 void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {  
   const llvm::StringRef &entryName = S->getLangOpts().HLSLEntryFunction;
   StringRef functionName = FD->getName();
@@ -11312,28 +11312,34 @@ void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
       FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
       functionName == entryName;
 
+  bool isNode = false;
+  bool isCS = false;
+
   auto *shaderAttribute = FD->getAttr<HLSLShaderAttr>();
-  StringRef Literal = shaderAttribute->getStage();
-  DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal);
-  bool isNode = Stage == DXIL::ShaderKind::Node;
-  bool isCS = Stage == DXIL::ShaderKind::Compute;
+  if (shaderAttribute) {
+    StringRef Literal = shaderAttribute->getStage();
+    DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal);
+    isNode = Stage == DXIL::ShaderKind::Node;
+    isCS = Stage == DXIL::ShaderKind::Compute;
+  }
 
   HLSLWaveSizeAttr *attr = FD->getAttr<HLSLWaveSizeAttr>();
 
-  if (!isLib &&
-      (FD->getDeclContext()->getDeclKind() != Decl::Kind::TranslationUnit ||
-       functionName != entryName) &&
-       !isNode) {
+  // make sure we are in an appropriate shader model
+  const auto *SM = hlsl::ShaderModel::GetByName(S->getLangOpts().HLSLProfile);
+
+  if (!SM->IsSM66Plus()) {
     S->Diag(attr->getRange().getBegin(),
-            diag::err_hlsl_attribute_valid_on_entry_function_only)
-        << "WaveSize";
+            diag::err_hlsl_attribute_in_wrong_shader_model)
+        << "wavesize"
+        << "6.6";
   }
 
   if (!isLib && !isCS && !isNode) {
     S->Diag(attr->getRange().getBegin(),
             diag::err_hlsl_attribute_unsupported_stage)
         << "WaveSize"
-        << "compute";
+        << "compute or node";
   }
 }
 
@@ -11342,13 +11348,15 @@ void ValidateEntryPointFunctionAttributes(
 
   // run validation on the entry point attribute that belongs
   // to the entry point function
-  for (Attr *pAttr : entryPointDecl->getAttrs()) {
-    switch (pAttr->getKind()) {
+  if (entryPointDecl->hasAttrs()) {
+    for (Attr *pAttr : entryPointDecl->getAttrs()) {
+      switch (pAttr->getKind()) {
       
-    case clang::attr::HLSLWaveSize: {
-      ValidateWaveSize(self, entryPointDecl);
-      break;
-    }
+      case clang::attr::HLSLWaveSize: {
+        ValidateWaveSize(self, entryPointDecl);
+        break;
+      }
+      }
     }
   }
 }
@@ -12835,17 +12843,7 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
 // of other attributes that could exist on this decl, and immediately
 // upon detecting the attribute on the decl.
 HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
-                                             const AttributeList &A) {
-  // make sure we are in an appropriate shader model
-  const auto *SM = hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile);
-
-  if (!SM->IsSM66Plus()) {
-    S.Diag(A.getLoc(), diag::err_hlsl_attribute_in_wrong_shader_model)
-        << "wavesize"
-        << "6.6";
-    return nullptr;
-  }
-
+                                             const AttributeList &A) { 
   // validate that the wavesize argument is a power of 2 between 4 and 128
   // inclusive
   HLSLWaveSizeAttr *pAttr = ::new (S.Context)
@@ -12856,9 +12854,18 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
   if (!DXIL::IsValidWaveSizeValue(waveSize)) {
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
         << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
-    return nullptr;
   }
 
+  // make sure there is not already an existing conflicting
+  // wavesize attribute on the decl
+  HLSLWaveSizeAttr *waveSizeAttr = D->getAttr<HLSLWaveSizeAttr>();
+  if (waveSizeAttr) {
+    if (waveSizeAttr->getSize() != pAttr->getSize()) {
+      S.Diag(A.getLoc(), diag::err_hlsl_conflicting_shader_attribute)
+          << pAttr->getSpelling() << waveSizeAttr->getSpelling();
+      S.Diag(waveSizeAttr->getLocation(), diag::note_conflicting_attribute);
+    }
+  }
   return pAttr;
 }
 
@@ -13314,11 +13321,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLWaveSize:
-    declAttr = ValidateWaveSizeAttributes(S, D, A);
-    if (!declAttr) {
-      Handled = true;
-      return;
-    }
+    declAttr = ValidateWaveSizeAttributes(S, D, A);    
     break;
   case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
     declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(

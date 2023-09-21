@@ -7469,12 +7469,10 @@ def err_hlsl_attribute_expects_string_literal: Error<
   "attribute %0 must have a string literal argument">;
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
-def err_hlsl_attribute_valid_on_entry_function_only: Error<
-  "%0 attribute only valid on entry point functions">;
 def err_hlsl_attribute_unsupported_stage: Error<
-  "attribute %0 requires shader stage %1">;
+  "attribute %0 only allowed on %1 shaders">;
 def err_hlsl_attribute_in_wrong_shader_model: Error<
-  "attribute %0 must be in at least shader model %1">;
+  "attribute %0 requires shader model %1 or greater">;
 def err_hlsl_conflicting_shader_attribute: Error<
   "shader attribute type '%0' conflicts with shader attribute type '%1'">;
 def note_hlsl_shader_attribute_here: Note<
