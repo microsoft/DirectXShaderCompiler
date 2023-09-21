@@ -10897,9 +10897,9 @@ TEST_F(ExecutionTest, HelperLaneTest) {
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
 #ifdef ISHELPERLANE_PLACEHOLDER
-  string args = "-DISHELPERLANE_PLACEHOLDER";
+  string args = "-DISHELPERLANE_PLACEHOLDER -opt-disable sink";
 #else 
-  string args = "";
+  string args = "-opt-disable sink";
 #endif
 
   D3D_SHADER_MODEL TestShaderModels[] = { D3D_SHADER_MODEL_6_0, D3D_SHADER_MODEL_6_6 };
