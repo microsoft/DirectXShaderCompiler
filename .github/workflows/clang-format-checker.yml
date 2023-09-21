@@ -25,7 +25,7 @@ jobs:
             echo Comparing $PR_NUMBER vs target branch
             git fetch origin refs/pull/$PR_NUMBER/head:pull/$PR_NUMBER
             git checkout pull/$PR_NUMBER
-            git diff -U0 --no-color $GITHUB_REF..pull/$PR_NUMBER | clang-format-diff-15 -p1 | tee format.diff
+            git diff -U0 --no-color $GITHUB_SHA..pull/$PR_NUMBER | clang-format-diff-15 -p1 | tee format.diff
             if [ -s format.diff ]
             then
               echo PR contains clang-format violations. First 50 lines of the diff: >> message.txt
