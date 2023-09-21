@@ -311,6 +311,11 @@ if "%TEST_USE_LIT%"=="1" (
     cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
     set RES_CLANG=!ERRORLEVEL!
     set RES_DXILCONV=!RES_CLANG!
+    rem check exec.
+    if defined EXEC_ADAPTER (
+        echo The -adapter parameter is supported only when running just execution tests ^(hcttest.cmd exec^)
+      )
+    set RES_EXEC=!ERRORLEVEL!
   ) else (
     if "%TEST_DXILCONV%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
