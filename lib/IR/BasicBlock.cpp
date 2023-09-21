@@ -284,7 +284,7 @@ BasicBlock *BasicBlock::getUniqueSuccessor() {
 void BasicBlock::removePredecessor(BasicBlock *Pred,
                                    bool DontDeleteUselessPHIs) {
   assert((hasNUsesOrMore(16)||// Reduce cost of this assertion for complex CFGs.
-          find(pred_begin(this), pred_end(this), Pred) != pred_end(this)) &&
+          std::find(pred_begin(this), pred_end(this), Pred) != pred_end(this)) &&
          "removePredecessor: BB is not a predecessor!");
 
   if (InstList.empty()) return;

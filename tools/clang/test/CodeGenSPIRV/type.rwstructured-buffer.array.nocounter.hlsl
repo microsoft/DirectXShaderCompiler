@@ -12,7 +12,7 @@ RWStructuredBuffer<uint> g_rwbuffer[5] : register(u0, space2);
 
 float4 main(PSInput input) : SV_TARGET
 {
-// CHECK: [[ac1:%\w+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer %35
+// CHECK: [[ac1:%\w+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer {{%\d+}}
 // CHECK: [[ac2:%\w+]] = OpAccessChain %_ptr_Uniform_uint [[ac1]] %int_0 %uint_0
 // CHECK: OpLoad %uint [[ac2]]
 	return g_rwbuffer[input.idx][0];

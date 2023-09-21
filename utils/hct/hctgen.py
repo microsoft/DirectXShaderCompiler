@@ -163,7 +163,7 @@ def writeDxilValidation(args):
     '  unsigned op = I.getOpcode();',
     ]))
   out.write(get_instrs_pred("op", lambda i: not i.is_dxil_op and i.is_allowed, "llvm_id"))
-  out.write('}\n\nvoid GetValidationVersion(_Out_ unsigned *pMajor, _Out_ unsigned *pMinor) {')
+  out.write('}\n\nvoid GetValidationVersion(unsigned *pMajor, unsigned *pMinor) {')
   out.write(get_validation_version())
   out.write('}\n}\n')
   return 0

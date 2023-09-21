@@ -89,7 +89,7 @@ add_lit_testsuite(check-clang "Running the Clang regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
   #LIT ${LLVM_LIT}
   PARAMS ${CLANG_TEST_PARAMS}
-    skip_taef_exec=True
+    skip_taef_exec=False
   DEPENDS ${CLANG_TEST_DEPS}
   ARGS ${CLANG_TEST_EXTRA_ARGS}
   )
@@ -106,6 +106,7 @@ set(CLANG_TEST_PARAMS
   ${CLANG_TEST_PARAMS}
   clang_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
   clang_taef_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
+  no_priority=True
   clang_taef_exec_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
   )
 
@@ -138,9 +139,12 @@ if (WIN32)
             DEPENDS ClangHLSLTests
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )
+  set(TAEF_EXEC_ADAPTER "" CACHE STRING "adapter for taef exec test")
+
   add_lit_target("check-clang-taef-exec" "Running lit suite hlsl execution test"
             ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
             PARAMS ${CLANG_TEST_PARAMS}
+                adapter=${TAEF_EXEC_ADAPTER}
             DEPENDS ExecHLSLTests dxexp
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )

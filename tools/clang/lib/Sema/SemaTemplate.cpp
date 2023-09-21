@@ -420,10 +420,12 @@ Sema::ActOnDependentIdExpression(const CXXScopeSpec &SS,
     // perform the double-lookup check.
     NamedDecl *FirstQualifierInScope = nullptr;
 
+    // HLSL Change begin - This is a reference.
     return CXXDependentScopeMemberExpr::Create(
-        Context, /*This*/ nullptr, ThisType, /*IsArrow*/ true,
+        Context, /*This*/ nullptr, ThisType, /*IsArrow*/ !getLangOpts().HLSL,
         /*Op*/ SourceLocation(), SS.getWithLocInContext(Context), TemplateKWLoc,
         FirstQualifierInScope, NameInfo, TemplateArgs);
+    // HLSL Change end - This is a reference.
   }
 
   return BuildDependentDeclRefExpr(SS, TemplateKWLoc, NameInfo, TemplateArgs);

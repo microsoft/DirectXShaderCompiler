@@ -22,13 +22,13 @@
 #include <utility>
 
 namespace clang {
-  class Preprocessor;
-  class Token;
-  class MacroInfo;
-}
+class Preprocessor;
+class Token;
+class MacroInfo;
+} // namespace clang
 
 namespace llvm {
-  class StringRef;
+class StringRef;
 }
 
 namespace hlsl {
@@ -48,16 +48,16 @@ public:
   // Returns true if macro was expanded successfully.
   bool ExpandMacro(clang::MacroInfo *macro, std::string *out);
 
-
   // Look in the preprocessor for a macro with the provided name.
   // Return nullptr if the macro could not be found.
-  static clang::MacroInfo *FindMacroInfo(clang::Preprocessor &PP, llvm::StringRef macroName);
+  static clang::MacroInfo *FindMacroInfo(clang::Preprocessor &PP,
+                                         llvm::StringRef macroName);
 
 private:
   clang::Preprocessor &PP;
   clang::FileID m_expansionFileId;
   bool m_stripQuotes;
 };
-}
+} // namespace hlsl
 
 #endif // header include guard

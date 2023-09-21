@@ -93,16 +93,20 @@ if "%1"=="-clean" (
 ) else if "%1"=="clang-filter" (
   set TEST_ALL=0
   set TEST_CLANG=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_CLANG_FILTER=%2
   shift /1
 ) else if "%1"=="file-check" (
   set TEST_ALL=0
   set TEST_MANUAL_FILE_CHECK=1
-  set MANUAL_FILE_CHECK_PATH=%~2
+  set MANUAL_FILE_CHECK_PATH=%~f2
   shift /1
 ) else if "%1"=="v" (
   set TEST_ALL=0
   set TEST_CLANG=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_CLANG_FILTER=VerifierTest::*
 ) else if "%1"=="cmd" (
   set TEST_ALL=0
@@ -113,7 +117,9 @@ if "%1"=="-clean" (
 ) else if "%1" == "dxilconv-filter" (
   set TEST_ALL=0
   set TEST_DXILCONV=1
+  set TEST_USE_LIT=0
   set TEST_DXILCONV_FILTER=%2
+  echo Fallback to taef when use taef only options.
   shift /1
 ) else if "%1"=="noexec" (
   set TEST_ALL=0
@@ -129,17 +135,23 @@ if "%1"=="-clean" (
 ) else if "%1"=="exec-filter" (
   set TEST_ALL=0
   set TEST_EXEC=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_EXEC_FILTER=ExecutionTest::%2
   set TEST_EXEC_REQUIRED=1
   shift /1
 ) else if "%1"=="exec-future" (
   set TEST_ALL=0
   set TEST_EXEC=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_EXEC_FUTURE=1
   set TEST_EXEC_REQUIRED=1
 ) else if "%1"=="exec-future-filter" (
   set TEST_ALL=0
   set TEST_EXEC=1
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   set TEST_EXEC_FUTURE=1
   set TEST_EXEC_FILTER=ExecutionTest::%2
   set TEST_EXEC_REQUIRED=1
@@ -149,10 +161,6 @@ if "%1"=="-clean" (
   set TEST_EXTRAS=1
 ) else if "%1"=="-ninja" (
   set GENERATOR_NINJA=1
-) else if "%1"=="-disable-lit" (
-  set TEST_USE_LIT=0
-) else if "%1"=="-enable-lit" (
-  set TEST_USE_LIT=1
 ) else if "%1"=="-rel" (
   set BUILD_CONFIG=Release
 ) else if /i "%1"=="-Release" (
@@ -172,6 +180,7 @@ if "%1"=="-clean" (
   set BUILD_ARCH=ARM64EC
 ) else if "%1"=="-adapter" (
   set TEST_ADAPTER= /p:"Adapter=%~2"
+  set EXEC_ADAPTER=--param adapter=%~2
   shift /1
 ) else if "%1"=="-verbose" (
   set LOG_FILTER=
@@ -184,6 +193,8 @@ if "%1"=="-clean" (
   shift /1
 ) else if "%1"=="-file-check-dump" (
   set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% /p:"FileCheckDumpDir=%~2\HLSL"
+  set TEST_USE_LIT=0
+  echo Fallback to taef when use taef only options.
   shift /1
 ) else if "%1"=="-dxil-loc" (
   set DXIL_DLL_LOC=%~2
@@ -204,6 +215,8 @@ rem This is the robust way to detect whether %1 is empty:
 set "_NEXT_=%1"
 if not defined _NEXT_ goto :done_args
 set ADDITIONAL_OPTS=%ADDITIONAL_OPTS% %1
+set TEST_USE_LIT=0
+echo Fallback to taef when use taef only options.
 shift /1
 goto :collect_args
 :done_args
@@ -218,9 +231,9 @@ rem Win32 to x86, no changes for other platforms
 set TEST_ARCH=%BUILD_ARCH:Win32=x86%
 
 rem By default, run all clang tests and execution tests and dxilconv tests
+rem Cmd tests are already included in the clang test suite.
 if "%TEST_ALL%"=="1" (
   set TEST_CLANG=1
-  set TEST_CMD=1
   set TEST_EXEC=1
   set TEST_EXTRAS=1
   set TEST_DXILCONV=1
@@ -265,36 +278,63 @@ if "%TEST_CLEAN%"=="1" (
 )
 
 if "%TEST_MANUAL_FILE_CHECK%"=="1" (
-  set TEST_USE_LIT=0
+  echo %MANUAL_FILE_CHECK_PATH%|find /i "\HLSLFileCheck\" >nul
+  if errorlevel 1 (
+        if "%MANUAL_FILE_CHECK_PATH:~-14%" == "\HLSLFileCheck" (
+            set TEST_USE_LIT=0
+            echo "run taef file-check"
+        ) else (
+            echo "run lit file-check"
+            set TEST_MANUAL_FILE_CHECK=0
+            set TEST_CLANG=0
+            set TEST_DXILCONV=0
+            set TEST_SPIRV=0
+            set TEST_EXEC=0
+            set TEST_CMD=0
+            py %BIN_DIR%\llvm-lit.py %MANUAL_FILE_CHECK_PATH% -v
+		)
+  ) else (
+        set TEST_USE_LIT=0
+        echo "run taef file-check"
+  )
 )
 
+echo Running HLSL tests for %BUILD_ARCH%...
+
 if "%TEST_USE_LIT%"=="1" (
-  rem LIT does not separate cmd tests from other clang hlsl tests.
-  if "%TEST_CMD%"=="1" (
-    set TEST_CLANG=1
-  )
+  rem LIT does not separate spirv tests from other clang hlsl tests.
   if "%TEST_SPIRV%"=="1" (
     set TEST_CLANG=1
   )
   if "%TEST_ALL%"=="1" (
-    rem check all includes clang, dxilconv, and exec
+    rem check all except exec.
     cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-all
     set RES_CLANG=!ERRORLEVEL!
-    set RES_DXILCONV=%RES_CLANG%
-    set RES_EXEC=%RES_CLANG%
-    set RES_CMD=%RES_CLANG%
+    set RES_DXILCONV=!RES_CLANG!
+    rem check exec.
+    if defined EXEC_ADAPTER (
+        echo The -adapter parameter is supported only when running just execution tests ^(hcttest.cmd exec^)
+      )
+    set RES_EXEC=!ERRORLEVEL!
   ) else (
     if "%TEST_DXILCONV%"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-dxilconv
       set RES_DXILCONV=!ERRORLEVEL!
     )
+    if "%TEST_CMD%"=="1" (
+      py %BIN_DIR%\llvm-lit.py %HLSL_SRC_DIR%/tools/clang/test/DXC -v
+      set RES_CMD=!ERRORLEVEL!
+    )
     if "!TEST_CLANG!"=="1" (
       cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang
       set RES_CLANG=!ERRORLEVEL!
-      set RES_CMD=%RES_CLANG%
     )
     if "!TEST_EXEC!"=="1" (
-      cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-taef-exec
+      if defined EXEC_ADAPTER (
+        py %HLSL_SRC_DIR%/utils/lit/lit.py -v --no-progress-bar --param build_mode=%BUILD_CONFIG% --param clang_site_config=%HLSL_BLD_DIR%/tools/clang/test/lit.site.cfg --param clang_taef_exec_site_config=%HLSL_BLD_DIR%/tools/clang/test/taef_exec/lit.site.cfg %EXEC_ADAPTER% %HLSL_SRC_DIR%/tools/clang/test/taef_exec
+      ) else (
+        cmake --build %HLSL_BLD_DIR% --config %BUILD_CONFIG% --target check-clang-taef-exec
+	  )
       set RES_EXEC=!ERRORLEVEL!
     )
   )
@@ -303,6 +343,11 @@ if "%TEST_USE_LIT%"=="1" (
   set TEST_SPIRV=0
   set TEST_EXEC=0
   set TEST_CMD=0
+
+  rem No other tests to run - skip copying and move on to report the results
+  if not exist "%HCT_EXTRAS%\hcttest-extras.cmd" (
+    goto :report_results
+  )
 )
 
 if not exist %TEST_DIR% (mkdir %TEST_DIR%)
@@ -351,8 +396,6 @@ if "%TEST_SPIRV%"=="1" (
 )
 rem End SPIRV change
 
-echo Running HLSL tests for %BUILD_ARCH%...
-
 if "%BUILD_ARCH_DIR%"=="ARM64" (
     rem ARM64 TAEF has an issue when running ARM64X tests with /parallel flag
     set PARALLEL_OPTION=
@@ -378,11 +421,6 @@ if "%TEST_CLANG%"=="1" (
   set RES_CLANG=!ERRORLEVEL!
 )
 
-if "%TEST_CMD%"=="1" (
-  copy /y %HLSL_SRC_DIR%\utils\hct\cmdtestfiles\smoke.hlsl %TEST_DIR%\smoke.hlsl
-  call %HLSL_SRC_DIR%\utils\hct\hcttestcmds.cmd %TEST_DIR% %HLSL_SRC_DIR%\tools\clang\test\HLSL
-  set RES_CMD=!ERRORLEVEL!
-)
 
 if "%TEST_EXEC%"=="1" (
   call :copyagility
@@ -443,6 +481,7 @@ if "%TEST_MANUAL_FILE_CHECK%"=="1" (
   set RES_EXEC=!ERRORLEVEL!
 )
 
+:report_results
 echo.
 echo ==================================
 echo Unit test results:

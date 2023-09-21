@@ -19,7 +19,8 @@
 //   1. Removes TempRegStore/TempRegLoad calls, replacing DXBC registers with
 //      either temporary or global LLVM values.
 //   2. Minimizes the number of bitcasts induced by the lack of types in DXBC.
-//   3. Removes helper operations to support DXBC conditionals, translated to i1.
+//   3. Removes helper operations to support DXBC conditionals, translated to
+//   i1.
 //   4. Recovers doubles from pairs of 32-bit DXBC registers.
 //   5. Removes MinPrecXRegLoad and MinPrecXRegStore for DXBC indexable,
 //      min-presicion x-registers.
@@ -31,60 +32,60 @@
 //      This creates a bitcast graphs.
 //   3. Live ranges are assigned types based on the number of float (F) or
 //      integer (I) defs. A bitcast def initially has an unknow type (U).
-//      Each LR is assigned type only once. LRs are processed in dynamic order 
+//      Each LR is assigned type only once. LRs are processed in dynamic order
 //      biased towards LRs with known types, e.g., numF > numI + numU.
 //      When a LR is assigned final type, emanating bitcasts become "resolved"
 //      and contribute desired type to the neighboring LRs.
-//   4. After all LRs are processed, each LR is assigned final type based on 
+//   4. After all LRs are processed, each LR is assigned final type based on
 //      the number of F and I defs. If type changed from the initial assumption,
-//      the code is rewritten accordingly: new bitcasts are inserted for 
+//      the code is rewritten accordingly: new bitcasts are inserted for
 //      correctness.
 //   5. After every LR type is finalized, chains of bitcasts are cleaned up.
 //   6. The algorithm splits 16- and 32-bit LRs.
-//   7. Registers that are used in an entry and another subroutine are 
+//   7. Registers that are used in an entry and another subroutine are
 //      represented as global variables.
 //
 
 #include "DxilConvPasses/DxilCleanup.h"
-#include "dxc/Support/Global.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
-#include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/Support/Global.h"
 
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Verifier.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 
+#include <algorithm>
+#include <queue>
+#include <set>
 #include <utility>
 #include <vector>
-#include <set>
-#include <queue>
-#include <algorithm>
 
 using namespace llvm;
 using namespace llvm::legacy;
 using namespace hlsl;
+using std::pair;
+using std::set;
 using std::string;
 using std::vector;
-using std::set;
-using std::pair;
 
-#define DXILCLEANUP_DBG   0
+#define DXILCLEANUP_DBG 0
 
 #define DEBUG_TYPE "dxilcleanup"
 
@@ -98,7 +99,6 @@ static void debugprint(const char *banner, Module &M) {
   std::puts(buf.c_str());
 }
 #endif
-
 
 namespace DxilCleanupNS {
 
@@ -124,16 +124,20 @@ public:
     LiveRange() : id(0), numI(0), numF(0), numU(0), pNewType(nullptr) {}
     LiveRange operator=(const LiveRange &) = delete;
 
-    // I cannot delete these constructors, because vector depends on them, even if I never trigger them.
-    // So assert if they are hit instead.
+    // I cannot delete these constructors, because vector depends on them, even
+    // if I never trigger them. So assert if they are hit instead.
     LiveRange(const LiveRange &other)
-      : id(other.id), numI(other.numI), numF(other.numF), numU(other.numU), pNewType(other.pNewType),
-      defs(other.defs), bitcastMap(other.bitcastMap)
-    { DXASSERT_NOMSG(false); }
+        : id(other.id), defs(other.defs), bitcastMap(other.bitcastMap),
+          numI(other.numI), numF(other.numF), numU(other.numU),
+          pNewType(other.pNewType) {
+      DXASSERT_NOMSG(false);
+    }
     LiveRange(LiveRange &&other)
-      : id(other.id), numI(other.numI), numF(other.numF), numU(other.numU), pNewType(other.pNewType),
-        defs(std::move(other.defs)), bitcastMap(std::move(other.bitcastMap))
-    { DXASSERT_NOMSG(false); }
+        : id(other.id), numI(other.numI), numF(other.numF), numU(other.numU),
+          pNewType(other.pNewType), defs(std::move(other.defs)),
+          bitcastMap(std::move(other.bitcastMap)) {
+      DXASSERT_NOMSG(false);
+    }
 
     unsigned GetCaseNumber() const;
     void GuessType(LLVMContext &Ctx);
@@ -151,11 +155,16 @@ private:
   DenseMap<Value *, unsigned> m_LiveRangeMap;
 
   void OptimizeIdxRegDecls();
-  bool OptimizeIdxRegDecls_CollectUsage(Value *pDecl, unsigned &numF, unsigned &numI);
-  bool OptimizeIdxRegDecls_CollectUsageForUser(User *U, bool bFlt, bool bInt, unsigned &numF, unsigned &numI);
+  bool OptimizeIdxRegDecls_CollectUsage(Value *pDecl, unsigned &numF,
+                                        unsigned &numI);
+  bool OptimizeIdxRegDecls_CollectUsageForUser(User *U, bool bFlt, bool bInt,
+                                               unsigned &numF, unsigned &numI);
   Type *OptimizeIdxRegDecls_DeclareType(Type *pOldType);
-  void OptimizeIdxRegDecls_ReplaceDecl(Value *pOldDecl, Value *pNewDecl, vector<Instruction*> &InstrToErase);
-  void OptimizeIdxRegDecls_ReplaceGEPUse(Value *pOldGEPUser, Value *pNewGEP, Value *pOldDecl, Value *pNewDecl, vector<Instruction*> &InstrToErase);
+  void OptimizeIdxRegDecls_ReplaceDecl(Value *pOldDecl, Value *pNewDecl,
+                                       vector<Instruction *> &InstrToErase);
+  void OptimizeIdxRegDecls_ReplaceGEPUse(Value *pOldGEPUser, Value *pNewGEP,
+                                         Value *pOldDecl, Value *pNewDecl,
+                                         vector<Instruction *> &InstrToErase);
 
   void RemoveRegLoadStore();
   void ConstructSSA();
@@ -198,12 +207,15 @@ bool DxilCleanup::runOnModule(Module &M) {
 
 void DxilCleanup::OptimizeIdxRegDecls() {
   // 1. Convert global x-register decl into alloca if used only in one function.
-  for (auto itGV = m_pModule->global_begin(), endGV = m_pModule->global_end(); itGV != endGV; ) {
+  for (auto itGV = m_pModule->global_begin(), endGV = m_pModule->global_end();
+       itGV != endGV;) {
     GlobalVariable *GV = itGV;
     ++itGV;
-    if (GV->isConstant() || GV->getLinkage() != GlobalValue::InternalLinkage) continue;
+    if (GV->isConstant() || GV->getLinkage() != GlobalValue::InternalLinkage)
+      continue;
     PointerType *pPtrType = dyn_cast<PointerType>(GV->getType());
-    if (!pPtrType || pPtrType->getAddressSpace() != DXIL::kDefaultAddrSpace) continue;
+    if (!pPtrType || pPtrType->getAddressSpace() != DXIL::kDefaultAddrSpace)
+      continue;
 
     Type *pElemType = pPtrType->getElementType();
 
@@ -221,7 +233,8 @@ void DxilCleanup::OptimizeIdxRegDecls() {
     if (F) {
       // Promote to alloca.
       Instruction *pAnchor = F->getEntryBlock().begin();
-      AllocaInst *AI = new AllocaInst(pElemType, nullptr, GV->getName(), pAnchor);
+      AllocaInst *AI =
+          new AllocaInst(pElemType, nullptr, GV->getName(), pAnchor);
       AI->setAlignment(GV->getAlignment());
       GV->replaceAllUsesWith(AI);
       GV->eraseFromParent();
@@ -229,19 +242,25 @@ void DxilCleanup::OptimizeIdxRegDecls() {
   }
 
   // 2. Collect x-register alloca usage stats and change type, if profitable.
-  for (auto itF = m_pModule->begin(), endFn = m_pModule->end(); itF != endFn; ++itF) {
+  for (auto itF = m_pModule->begin(), endFn = m_pModule->end(); itF != endFn;
+       ++itF) {
     Function *F = itF;
-    if (F->empty()) continue;
+    if (F->empty())
+      continue;
     BasicBlock *pEntryBB = &F->getEntryBlock();
-    vector<Instruction*> InstrToErase;
+    vector<Instruction *> InstrToErase;
 
-    for (auto itInst = pEntryBB->begin(), endInst = pEntryBB->end(); itInst != endInst; ++itInst) {
+    for (auto itInst = pEntryBB->begin(), endInst = pEntryBB->end();
+         itInst != endInst; ++itInst) {
       AllocaInst *AI = dyn_cast<AllocaInst>(itInst);
-      if (!AI) continue;
+      if (!AI)
+        continue;
 
       Type *pScalarType = GetDeclScalarType(AI->getType());
-      if (pScalarType != Type::getFloatTy(*m_pCtx) && pScalarType != Type::getHalfTy(*m_pCtx) &&
-          pScalarType != Type::getInt32Ty(*m_pCtx) && pScalarType != Type::getInt16Ty(*m_pCtx)) {
+      if (pScalarType != Type::getFloatTy(*m_pCtx) &&
+          pScalarType != Type::getHalfTy(*m_pCtx) &&
+          pScalarType != Type::getInt32Ty(*m_pCtx) &&
+          pScalarType != Type::getInt16Ty(*m_pCtx)) {
         continue;
       }
 
@@ -249,12 +268,13 @@ void DxilCleanup::OptimizeIdxRegDecls() {
       unsigned numF, numI;
       if (OptimizeIdxRegDecls_CollectUsage(AI, numF, numI)) {
         Type *pScalarType = GetDeclScalarType(AI->getType());
-        if ((pScalarType->isFloatingPointTy() && numI > numF) || 
+        if ((pScalarType->isFloatingPointTy() && numI > numF) ||
             (pScalarType->isIntegerTy() && numF >= numI)) {
           Type *pNewType = OptimizeIdxRegDecls_DeclareType(AI->getType());
           if (pNewType) {
             // Replace alloca.
-            AllocaInst *AI2 = new AllocaInst(pNewType, nullptr, AI->getName(), AI);
+            AllocaInst *AI2 =
+                new AllocaInst(pNewType, nullptr, AI->getName(), AI);
             AI2->setAlignment(AI->getAlignment());
             OptimizeIdxRegDecls_ReplaceDecl(AI, AI2, InstrToErase);
             InstrToErase.emplace_back(AI);
@@ -268,19 +288,24 @@ void DxilCleanup::OptimizeIdxRegDecls() {
     }
   }
 
-  // 3. Collect x-register global decl usage stats and change type, if profitable.
-  llvm::SmallVector<GlobalVariable*, 4> GVWorklist;
-  for (auto itGV = m_pModule->global_begin(), endGV = m_pModule->global_end(); itGV != endGV; ) {
+  // 3. Collect x-register global decl usage stats and change type, if
+  // profitable.
+  llvm::SmallVector<GlobalVariable *, 4> GVWorklist;
+  for (auto itGV = m_pModule->global_begin(), endGV = m_pModule->global_end();
+       itGV != endGV;) {
     GlobalVariable *pOldGV = itGV;
     ++itGV;
-    if (pOldGV->isConstant()) continue;
+    if (pOldGV->isConstant())
+      continue;
     PointerType *pOldPtrType = dyn_cast<PointerType>(pOldGV->getType());
-    if (!pOldPtrType || pOldPtrType->getAddressSpace() != DXIL::kDefaultAddrSpace) continue;
+    if (!pOldPtrType ||
+        pOldPtrType->getAddressSpace() != DXIL::kDefaultAddrSpace)
+      continue;
 
     unsigned numF, numI;
     if (OptimizeIdxRegDecls_CollectUsage(pOldGV, numF, numI)) {
       Type *pScalarType = GetDeclScalarType(pOldGV->getType());
-      if ((pScalarType->isFloatingPointTy() && numI > numF) || 
+      if ((pScalarType->isFloatingPointTy() && numI > numF) ||
           (pScalarType->isIntegerTy() && numF >= numI)) {
         GVWorklist.push_back(pOldGV);
       }
@@ -291,11 +316,11 @@ void DxilCleanup::OptimizeIdxRegDecls() {
     if (Type *pNewType = OptimizeIdxRegDecls_DeclareType(pOldGV->getType())) {
       // Replace global decl.
       PointerType *pOldPtrType = dyn_cast<PointerType>(pOldGV->getType());
-      GlobalVariable *pNewGV = new GlobalVariable(*m_pModule, pNewType, false, pOldGV->getLinkage(),
-                                                  UndefValue::get(pNewType), pOldGV->getName(),
-                                                  nullptr, pOldGV->getThreadLocalMode(),
-                                                  pOldPtrType->getAddressSpace());
-      vector<Instruction*> InstrToErase;
+      GlobalVariable *pNewGV = new GlobalVariable(
+          *m_pModule, pNewType, false, pOldGV->getLinkage(),
+          UndefValue::get(pNewType), pOldGV->getName(), nullptr,
+          pOldGV->getThreadLocalMode(), pOldPtrType->getAddressSpace());
+      vector<Instruction *> InstrToErase;
       OptimizeIdxRegDecls_ReplaceDecl(pOldGV, pNewGV, InstrToErase);
       for (auto *I : InstrToErase) {
         I->eraseFromParent();
@@ -307,7 +332,8 @@ void DxilCleanup::OptimizeIdxRegDecls() {
 
 ArrayType *DxilCleanup::GetDeclArrayType(Type *pSrcType) {
   PointerType *pPtrType = dyn_cast<PointerType>(pSrcType);
-  if (!pPtrType) return nullptr;
+  if (!pPtrType)
+    return nullptr;
 
   if (ArrayType *pArrayType = dyn_cast<ArrayType>(pPtrType->getElementType())) {
     return pArrayType;
@@ -318,7 +344,8 @@ ArrayType *DxilCleanup::GetDeclArrayType(Type *pSrcType) {
 
 Type *DxilCleanup::GetDeclScalarType(Type *pSrcType) {
   PointerType *pPtrType = dyn_cast<PointerType>(pSrcType);
-  if (!pPtrType) return nullptr;
+  if (!pPtrType)
+    return nullptr;
 
   Type *pScalarType = pPtrType->getElementType();
   if (ArrayType *pArrayType = dyn_cast<ArrayType>(pScalarType)) {
@@ -360,27 +387,35 @@ Type *DxilCleanup::OptimizeIdxRegDecls_DeclareType(Type *pOldType) {
   return pNewType;
 }
 
-bool DxilCleanup::OptimizeIdxRegDecls_CollectUsage(Value *pDecl, unsigned &numF, unsigned &numI) {
+bool DxilCleanup::OptimizeIdxRegDecls_CollectUsage(Value *pDecl, unsigned &numF,
+                                                   unsigned &numI) {
   numF = numI = 0;
   Type *pScalarType = GetDeclScalarType(pDecl->getType());
-  if (!pScalarType) return false;
-  bool bFlt = pScalarType == Type::getFloatTy(*m_pCtx) || pScalarType == Type::getHalfTy(*m_pCtx);
-  bool bInt = pScalarType == Type::getInt32Ty(*m_pCtx) || pScalarType == Type::getInt16Ty(*m_pCtx);
-  if (!(bFlt || bInt)) return false;
+  if (!pScalarType)
+    return false;
+  bool bFlt = pScalarType == Type::getFloatTy(*m_pCtx) ||
+              pScalarType == Type::getHalfTy(*m_pCtx);
+  bool bInt = pScalarType == Type::getInt32Ty(*m_pCtx) ||
+              pScalarType == Type::getInt16Ty(*m_pCtx);
+  if (!(bFlt || bInt))
+    return false;
 
   for (User *U : pDecl->users()) {
     if (GetElementPtrInst *pGEP = dyn_cast<GetElementPtrInst>(U)) {
       for (User *U2 : pGEP->users()) {
-        if (!OptimizeIdxRegDecls_CollectUsageForUser(U2, bFlt, bInt, numF, numI))
+        if (!OptimizeIdxRegDecls_CollectUsageForUser(U2, bFlt, bInt, numF,
+                                                     numI))
           return false;
       }
     } else if (GEPOperator *pGEP = dyn_cast<GEPOperator>(U)) {
       for (User *U2 : pGEP->users()) {
-        if (!OptimizeIdxRegDecls_CollectUsageForUser(U2, bFlt, bInt, numF, numI))
+        if (!OptimizeIdxRegDecls_CollectUsageForUser(U2, bFlt, bInt, numF,
+                                                     numI))
           return false;
       }
     } else if (BitCastInst *pBC = dyn_cast<BitCastInst>(U)) {
-      if (pBC->getType() != Type::getDoublePtrTy(*m_pCtx)) return false;
+      if (pBC->getType() != Type::getDoublePtrTy(*m_pCtx))
+        return false;
     } else {
       return false;
     }
@@ -389,25 +424,36 @@ bool DxilCleanup::OptimizeIdxRegDecls_CollectUsage(Value *pDecl, unsigned &numF,
   return true;
 }
 
-bool DxilCleanup::OptimizeIdxRegDecls_CollectUsageForUser(User *U, bool bFlt, bool bInt, unsigned &numF, unsigned &numI) {
+bool DxilCleanup::OptimizeIdxRegDecls_CollectUsageForUser(User *U, bool bFlt,
+                                                          bool bInt,
+                                                          unsigned &numF,
+                                                          unsigned &numI) {
   if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
     for (User *U2 : LI->users()) {
       if (!IsDxilBitcast(U2)) {
-        if (bFlt) numF++;
-        if (bInt) numI++;
+        if (bFlt)
+          numF++;
+        if (bInt)
+          numI++;
       } else {
-        if (bFlt) numI++;
-        if (bInt) numF++;
+        if (bFlt)
+          numI++;
+        if (bInt)
+          numF++;
       }
     }
   } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
     Value *pValue = SI->getValueOperand();
     if (!IsDxilBitcast(pValue)) {
-      if (bFlt) numF++;
-      if (bInt) numI++;
+      if (bFlt)
+        numF++;
+      if (bInt)
+        numI++;
     } else {
-      if (bFlt) numI++;
-      if (bInt) numF++;
+      if (bFlt)
+        numI++;
+      if (bInt)
+        numF++;
     }
   } else {
     return false;
@@ -416,26 +462,26 @@ bool DxilCleanup::OptimizeIdxRegDecls_CollectUsageForUser(User *U, bool bFlt, bo
   return true;
 }
 
-void DxilCleanup::OptimizeIdxRegDecls_ReplaceDecl(Value *pOldDecl, Value *pNewDecl,
-                                                  vector<Instruction*> &InstrToErase) {
-  for (auto itU = pOldDecl->use_begin(), endU = pOldDecl->use_end(); itU != endU; ++itU) {
+void DxilCleanup::OptimizeIdxRegDecls_ReplaceDecl(
+    Value *pOldDecl, Value *pNewDecl, vector<Instruction *> &InstrToErase) {
+  for (auto itU = pOldDecl->use_begin(), endU = pOldDecl->use_end();
+       itU != endU; ++itU) {
     User *I = itU->getUser();
 
     if (GetElementPtrInst *pOldGEP = dyn_cast<GetElementPtrInst>(I)) {
       // Case 1. Load.
-      //   %44 = getelementptr [24 x float], [24 x float]* %dx.v32.x0, i32 0, i32 %43
-      //   %45 = load float, float* %44, align 4
-      //   %46 = add float %45, ...
+      //   %44 = getelementptr [24 x float], [24 x float]* %dx.v32.x0, i32 0,
+      //   i32 %43 %45 = load float, float* %44, align 4 %46 = add float %45,
+      //   ...
       // becomes
-      //   %44 = getelementptr [24 x i32], [24 x i32]* %dx.v32.x0, i32 0, i32 %43
-      //   %45 = load i32, i32* %44, align 4
-      //   %t1 = call float @dx.op.bitcastI32toF32 i32 %45
-      //   %46 = add i32 %t1, ...
+      //   %44 = getelementptr [24 x i32], [24 x i32]* %dx.v32.x0, i32 0, i32
+      //   %43 %45 = load i32, i32* %44, align 4 %t1 = call float
+      //   @dx.op.bitcastI32toF32 i32 %45 %46 = add i32 %t1, ...
       //
       // Case 2. Store.
       //   %31 = add float ...
-      //   %32 = getelementptr [24 x float], [24 x float]* %dx.v32.x0, i32 0, i32 16
-      //   store float %31, float* %32, align 4
+      //   %32 = getelementptr [24 x float], [24 x float]* %dx.v32.x0, i32 0,
+      //   i32 16 store float %31, float* %32, align 4
       // becomes
       //   %31 = add float ...
       //   %32 = getelementptr [24 x i32], [24 x i32]* %dx.v32.x0, i32 0, i32 16
@@ -446,10 +492,14 @@ void DxilCleanup::OptimizeIdxRegDecls_ReplaceDecl(Value *pOldDecl, Value *pNewDe
       for (auto i = pOldGEP->idx_begin(), e = pOldGEP->idx_end(); i != e; i++) {
         GEPIndices.push_back(*i);
       }
-      GetElementPtrInst *pNewGEP = GetElementPtrInst::Create(nullptr, pNewDecl, GEPIndices, pOldGEP->getName(), pOldGEP->getNextNode());
-      for (auto itU2 = pOldGEP->use_begin(), endU2 = pOldGEP->use_end(); itU2 != endU2; ++itU2) {
+      GetElementPtrInst *pNewGEP =
+          GetElementPtrInst::Create(nullptr, pNewDecl, GEPIndices,
+                                    pOldGEP->getName(), pOldGEP->getNextNode());
+      for (auto itU2 = pOldGEP->use_begin(), endU2 = pOldGEP->use_end();
+           itU2 != endU2; ++itU2) {
         Value *pOldGEPUser = itU2->getUser();
-        OptimizeIdxRegDecls_ReplaceGEPUse(pOldGEPUser, pNewGEP, pOldDecl, pNewDecl, InstrToErase);
+        OptimizeIdxRegDecls_ReplaceGEPUse(pOldGEPUser, pNewGEP, pOldDecl,
+                                          pNewDecl, InstrToErase);
       }
       InstrToErase.emplace_back(pOldGEP);
     } else if (GEPOperator *pOldGEP = dyn_cast<GEPOperator>(I)) {
@@ -458,18 +508,25 @@ void DxilCleanup::OptimizeIdxRegDecls_ReplaceDecl(Value *pOldDecl, Value *pNewDe
       for (auto i = pOldGEP->idx_begin(), e = pOldGEP->idx_end(); i != e; i++) {
         GEPIndices.push_back(*i);
       }
-      Type *pNewGEPElemType = cast<PointerType>(pNewDecl->getType())->getElementType();
-      Constant *pNewGEPOp = ConstantExpr::getGetElementPtr(pNewGEPElemType, cast<Constant>(pNewDecl), GEPIndices, pOldGEP->isInBounds());
+      Type *pNewGEPElemType =
+          cast<PointerType>(pNewDecl->getType())->getElementType();
+      Constant *pNewGEPOp = ConstantExpr::getGetElementPtr(
+          pNewGEPElemType, cast<Constant>(pNewDecl), GEPIndices,
+          pOldGEP->isInBounds());
       GEPOperator *pNewGEP = cast<GEPOperator>(pNewGEPOp);
-      for (auto itU2 = pOldGEP->use_begin(), endU2 = pOldGEP->use_end(); itU2 != endU2; ++itU2) {
+      for (auto itU2 = pOldGEP->use_begin(), endU2 = pOldGEP->use_end();
+           itU2 != endU2; ++itU2) {
         Value *pOldGEPUser = itU2->getUser();
-        OptimizeIdxRegDecls_ReplaceGEPUse(pOldGEPUser, pNewGEP, pOldDecl, pNewDecl, InstrToErase);
+        OptimizeIdxRegDecls_ReplaceGEPUse(pOldGEPUser, pNewGEP, pOldDecl,
+                                          pNewDecl, InstrToErase);
       }
     } else if (BitCastInst *pOldBC = dyn_cast<BitCastInst>(I)) {
       //   %1 = bitcast [24 x float]* %dx.v32.x0 to double*
       // becomes
       //   %1 = bitcast [24 x i32]* %dx.v32.x0 to double*
-      BitCastInst *pNewBC = new BitCastInst(pNewDecl, pOldBC->getType(), pOldBC->getName(), pOldBC->getNextNode());
+      BitCastInst *pNewBC =
+          new BitCastInst(pNewDecl, pOldBC->getType(), pOldBC->getName(),
+                          pOldBC->getNextNode());
       pOldBC->replaceAllUsesWith(pNewBC);
       InstrToErase.emplace_back(pOldBC);
     } else {
@@ -478,19 +535,23 @@ void DxilCleanup::OptimizeIdxRegDecls_ReplaceDecl(Value *pOldDecl, Value *pNewDe
   }
 }
 
-void DxilCleanup::OptimizeIdxRegDecls_ReplaceGEPUse(Value *pOldGEPUser, Value *pNewGEP,
-                                                    Value *pOldDecl, Value *pNewDecl,
-                                                    vector<Instruction*> &InstrToErase) {
+void DxilCleanup::OptimizeIdxRegDecls_ReplaceGEPUse(
+    Value *pOldGEPUser, Value *pNewGEP, Value *pOldDecl, Value *pNewDecl,
+    vector<Instruction *> &InstrToErase) {
   if (LoadInst *pOldLI = dyn_cast<LoadInst>(pOldGEPUser)) {
-    LoadInst *pNewLI = new LoadInst(pNewGEP, pOldLI->getName(), pOldLI->getNextNode());
+    LoadInst *pNewLI =
+        new LoadInst(pNewGEP, pOldLI->getName(), pOldLI->getNextNode());
     pNewLI->setAlignment(pOldLI->getAlignment());
-    Value *pNewValue = CastValue(pNewLI, GetDeclScalarType(pOldDecl->getType()), pNewLI->getNextNode());
+    Value *pNewValue = CastValue(pNewLI, GetDeclScalarType(pOldDecl->getType()),
+                                 pNewLI->getNextNode());
     pOldLI->replaceAllUsesWith(pNewValue);
     InstrToErase.emplace_back(pOldLI);
   } else if (StoreInst *pOldSI = dyn_cast<StoreInst>(pOldGEPUser)) {
     Value *pOldValue = pOldSI->getValueOperand();
-    Value *pNewValue = CastValue(pOldValue, GetDeclScalarType(pNewDecl->getType()), pOldSI);
-    StoreInst *pNewSI = new StoreInst(pNewValue, pNewGEP, pOldSI->getNextNode());
+    Value *pNewValue =
+        CastValue(pOldValue, GetDeclScalarType(pNewDecl->getType()), pOldSI);
+    StoreInst *pNewSI =
+        new StoreInst(pNewValue, pNewGEP, pOldSI->getNextNode());
     pNewSI->setAlignment(pOldSI->getAlignment());
     InstrToErase.emplace_back(pOldSI);
   } else {
@@ -506,7 +567,9 @@ void DxilCleanup::RemoveRegLoadStore() {
     unsigned numF16;
     Value *pDecl32;
     Value *pDecl16;
-    RegRec() : numI32(0), numF32(0), numI16(0), numF16(0), pDecl32(nullptr), pDecl16(nullptr) {}
+    RegRec()
+        : numI32(0), numF32(0), numI16(0), numF16(0), pDecl32(nullptr),
+          pDecl16(nullptr) {}
   };
   struct FuncRec {
     MapVector<unsigned, RegRec> RegMap;
@@ -517,14 +580,16 @@ void DxilCleanup::RemoveRegLoadStore() {
   MapVector<Function *, FuncRec> FuncMap;
 
   // 1. For each r-register, collect usage stats.
-  for (auto itF = m_pModule->begin(), endFn = m_pModule->end(); itF != endFn; ++itF) {
+  for (auto itF = m_pModule->begin(), endFn = m_pModule->end(); itF != endFn;
+       ++itF) {
     Function *F = itF;
-    if (F->empty()) continue;
+    if (F->empty())
+      continue;
     DXASSERT_NOMSG(FuncMap.find(F) == FuncMap.end());
     FuncRec &FR = FuncMap[F];
 
     // Detect entry.
-    if (F == m_pDxilModule->GetEntryFunction() || 
+    if (F == m_pDxilModule->GetEntryFunction() ||
         F == m_pDxilModule->GetPatchConstantFunction()) {
       FR.bEntry = true;
     }
@@ -532,9 +597,11 @@ void DxilCleanup::RemoveRegLoadStore() {
     for (auto itBB = F->begin(), endBB = F->end(); itBB != endBB; ++itBB) {
       BasicBlock *BB = itBB;
 
-      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst; ++itInst) {
+      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst;
+           ++itInst) {
         CallInst *CI = dyn_cast<CallInst>(itInst);
-        if (!CI) continue;
+        if (!CI)
+          continue;
 
         if (!OP::IsDxilOpFuncCallInst(CI)) {
           FuncMap[F].bCallsOtherFunc = true;
@@ -582,25 +649,33 @@ void DxilCleanup::RemoveRegLoadStore() {
       DXASSERT_NOMSG(reg.pDecl16 == nullptr && reg.pDecl32 == nullptr);
 
       enum class DeclKind { None, Alloca, Global };
-      DeclKind Decl32Kind = (reg.numF32 + reg.numI32) == 0 ? DeclKind::None : DeclKind::Alloca;
-      DeclKind Decl16Kind = (reg.numF16 + reg.numI16) == 0 ? DeclKind::None : DeclKind::Alloca;
-      DXASSERT_NOMSG(Decl32Kind == DeclKind::Alloca || Decl16Kind == DeclKind::Alloca);
-      unsigned numF32 = reg.numF32, numI32 = reg.numI32, numF16 = reg.numF16, numI16 = reg.numI16;
+      DeclKind Decl32Kind =
+          (reg.numF32 + reg.numI32) == 0 ? DeclKind::None : DeclKind::Alloca;
+      DeclKind Decl16Kind =
+          (reg.numF16 + reg.numI16) == 0 ? DeclKind::None : DeclKind::Alloca;
+      DXASSERT_NOMSG(Decl32Kind == DeclKind::Alloca ||
+                     Decl16Kind == DeclKind::Alloca);
+      unsigned numF32 = reg.numF32, numI32 = reg.numI32, numF16 = reg.numF16,
+               numI16 = reg.numI16;
       if (!FR.bEntry || FR.bCallsOtherFunc) {
         // Check if register is used in another function.
         for (auto &itF2 : FuncMap) {
           Function *F2 = itF2.first;
           FuncRec &FR2 = itF2.second;
-          if (F2 == F || (FR.bEntry && FR2.bEntry)) continue;
+          if (F2 == F || (FR.bEntry && FR2.bEntry))
+            continue;
 
           auto itReg2 = FR2.RegMap.find(regIdx);
-          if (itReg2 == FR2.RegMap.end()) continue;
+          if (itReg2 == FR2.RegMap.end())
+            continue;
 
           RegRec &reg2 = itReg2->second;
-          if (Decl32Kind == DeclKind::Alloca && (reg2.numF32 + reg2.numI32) > 0) {
+          if (Decl32Kind == DeclKind::Alloca &&
+              (reg2.numF32 + reg2.numI32) > 0) {
             Decl32Kind = DeclKind::Global;
           }
-          if (Decl16Kind == DeclKind::Alloca && (reg2.numF16 + reg2.numI16) > 0) {
+          if (Decl16Kind == DeclKind::Alloca &&
+              (reg2.numF16 + reg2.numI16) > 0) {
             Decl16Kind = DeclKind::Global;
           }
           numF32 += reg2.numF32;
@@ -613,7 +688,8 @@ void DxilCleanup::RemoveRegLoadStore() {
       // Declare variables.
       if (Decl32Kind == DeclKind::Alloca) {
         Twine regName = Twine("dx.v32.r") + Twine(regIdx);
-        Type *pDeclType = numF32 >= numI32 ? Type::getFloatTy(*m_pCtx) : Type::getInt32Ty(*m_pCtx);
+        Type *pDeclType = numF32 >= numI32 ? Type::getFloatTy(*m_pCtx)
+                                           : Type::getInt32Ty(*m_pCtx);
         Instruction *pAnchor = F->getEntryBlock().begin();
         AllocaInst *AI = new AllocaInst(pDeclType, nullptr, regName, pAnchor);
         AI->setAlignment(kRegCompAlignment);
@@ -621,7 +697,8 @@ void DxilCleanup::RemoveRegLoadStore() {
       }
       if (Decl16Kind == DeclKind::Alloca) {
         Twine regName = Twine("dx.v16.r") + Twine(regIdx);
-        Type *pDeclType = numF16 >= numI16 ? Type::getHalfTy(*m_pCtx) : Type::getInt16Ty(*m_pCtx);
+        Type *pDeclType = numF16 >= numI16 ? Type::getHalfTy(*m_pCtx)
+                                           : Type::getInt16Ty(*m_pCtx);
         Instruction *pAnchor = F->getEntryBlock().begin();
         AllocaInst *AI = new AllocaInst(pDeclType, nullptr, regName, pAnchor);
         AI->setAlignment(kRegCompAlignment);
@@ -630,14 +707,15 @@ void DxilCleanup::RemoveRegLoadStore() {
       if (Decl32Kind == DeclKind::Global) {
         SmallVector<char, 16> regName;
         (Twine("dx.v32.r") + Twine(regIdx)).toStringRef(regName);
-        Type *pDeclType = numF32 >= numI32 ? Type::getFloatTy(*m_pCtx) : Type::getInt32Ty(*m_pCtx);
-        GlobalVariable *GV = m_pModule->getGlobalVariable(StringRef(regName.data(), regName.size()), true);
+        Type *pDeclType = numF32 >= numI32 ? Type::getFloatTy(*m_pCtx)
+                                           : Type::getInt32Ty(*m_pCtx);
+        GlobalVariable *GV = m_pModule->getGlobalVariable(
+            StringRef(regName.data(), regName.size()), true);
         if (!GV) {
-          GV = new GlobalVariable(*m_pModule, pDeclType, 
-                                  false, GlobalValue::InternalLinkage, 
-                                  UndefValue::get(pDeclType), 
-                                  regName, nullptr, 
-                                  GlobalVariable::NotThreadLocal, DXIL::kDefaultAddrSpace);
+          GV = new GlobalVariable(
+              *m_pModule, pDeclType, false, GlobalValue::InternalLinkage,
+              UndefValue::get(pDeclType), regName, nullptr,
+              GlobalVariable::NotThreadLocal, DXIL::kDefaultAddrSpace);
         }
         GV->setAlignment(kRegCompAlignment);
         reg.pDecl32 = GV;
@@ -645,14 +723,15 @@ void DxilCleanup::RemoveRegLoadStore() {
       if (Decl16Kind == DeclKind::Global) {
         SmallVector<char, 16> regName;
         (Twine("dx.v16.r") + Twine(regIdx)).toStringRef(regName);
-        Type *pDeclType = numF16 >= numI16 ? Type::getHalfTy(*m_pCtx) : Type::getInt16Ty(*m_pCtx);
-        GlobalVariable *GV = m_pModule->getGlobalVariable(StringRef(regName.data(), regName.size()), true);
+        Type *pDeclType = numF16 >= numI16 ? Type::getHalfTy(*m_pCtx)
+                                           : Type::getInt16Ty(*m_pCtx);
+        GlobalVariable *GV = m_pModule->getGlobalVariable(
+            StringRef(regName.data(), regName.size()), true);
         if (!GV) {
-          GV = new GlobalVariable(*m_pModule, pDeclType, 
-                                  false, GlobalValue::InternalLinkage, 
-                                  UndefValue::get(pDeclType), 
-                                  regName, nullptr, 
-                                  GlobalVariable::NotThreadLocal, DXIL::kDefaultAddrSpace);
+          GV = new GlobalVariable(
+              *m_pModule, pDeclType, false, GlobalValue::InternalLinkage,
+              UndefValue::get(pDeclType), regName, nullptr,
+              GlobalVariable::NotThreadLocal, DXIL::kDefaultAddrSpace);
         }
         GV->setAlignment(kRegCompAlignment);
         reg.pDecl16 = GV;
@@ -661,26 +740,31 @@ void DxilCleanup::RemoveRegLoadStore() {
   }
 
   // 3. Replace TempRegLoad/Store with load/store to declared variables.
-  for (auto itFn = m_pModule->begin(), endFn = m_pModule->end(); itFn != endFn; ++itFn) {
+  for (auto itFn = m_pModule->begin(), endFn = m_pModule->end(); itFn != endFn;
+       ++itFn) {
     Function *F = itFn;
-    if (F->empty()) continue;
+    if (F->empty())
+      continue;
     DXASSERT_NOMSG(FuncMap.find(F) != FuncMap.end());
     FuncRec &FR = FuncMap[F];
 
     for (auto itBB = F->begin(), endBB = F->end(); itBB != endBB; ++itBB) {
       BasicBlock *BB = itBB;
 
-      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst; ) {
+      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst;) {
         Instruction *CI = itInst;
 
         if (DxilInst_TempRegLoad TRL = DxilInst_TempRegLoad(CI)) {
           // Replace TempRegLoad intrinsic with a load.
-          unsigned regIdx = dyn_cast<ConstantInt>(TRL.get_index())->getZExtValue();
+          unsigned regIdx =
+              dyn_cast<ConstantInt>(TRL.get_index())->getZExtValue();
           RegRec &reg = FR.RegMap[regIdx];
 
           Type *pValType = CI->getType();
-          Value *pDecl = (pValType == Type::getFloatTy(*m_pCtx) || 
-                          pValType == Type::getInt32Ty(*m_pCtx))   ? reg.pDecl32 : reg.pDecl16;
+          Value *pDecl = (pValType == Type::getFloatTy(*m_pCtx) ||
+                          pValType == Type::getInt32Ty(*m_pCtx))
+                             ? reg.pDecl32
+                             : reg.pDecl16;
           DXASSERT_NOMSG(pValType != nullptr);
 
           LoadInst *LI = new LoadInst(pDecl, nullptr, CI);
@@ -691,15 +775,19 @@ void DxilCleanup::RemoveRegLoadStore() {
           CI->eraseFromParent();
         } else if (DxilInst_TempRegStore TRS = DxilInst_TempRegStore(CI)) {
           // Replace TempRegStore with a store.
-          unsigned regIdx = dyn_cast<ConstantInt>(TRS.get_index())->getZExtValue();
+          unsigned regIdx =
+              dyn_cast<ConstantInt>(TRS.get_index())->getZExtValue();
           RegRec &reg = FR.RegMap[regIdx];
 
           Value *pValue = TRS.get_value();
           Type *pValType = pValue->getType();
-          Value *pDecl = (pValType == Type::getFloatTy(*m_pCtx) || 
-                          pValType == Type::getInt32Ty(*m_pCtx))   ? reg.pDecl32 : reg.pDecl16;
+          Value *pDecl = (pValType == Type::getFloatTy(*m_pCtx) ||
+                          pValType == Type::getInt32Ty(*m_pCtx))
+                             ? reg.pDecl32
+                             : reg.pDecl16;
           DXASSERT_NOMSG(pValType != nullptr);
-          Type *pDeclType = cast<PointerType>(pDecl->getType())->getElementType();
+          Type *pDeclType =
+              cast<PointerType>(pDecl->getType())->getElementType();
           Value *pBitcastValueToStore = CastValue(pValue, pDeclType, CI);
 
           StoreInst *SI = new StoreInst(pBitcastValueToStore, pDecl, CI);
@@ -725,19 +813,22 @@ void DxilCleanup::ConstructSSA() {
   PM.run(*m_pModule);
 }
 
-// Note: this two-pass initialization scheme limits the algorithm to handling 2^31 live ranges, instead of 2^32.
-#define LIVE_RANGE_UNINITIALIZED (((unsigned)1<<31))
+// Note: this two-pass initialization scheme limits the algorithm to handling
+// 2^31 live ranges, instead of 2^32.
+#define LIVE_RANGE_UNINITIALIZED (((unsigned)1 << 31))
 
 void DxilCleanup::CollectLiveRanges() {
   // 0. Count and allocate live ranges.
   unsigned LiveRangeCount = 0;
-  for (auto itFn = m_pModule->begin(), endFn = m_pModule->end(); itFn != endFn; ++itFn) {
+  for (auto itFn = m_pModule->begin(), endFn = m_pModule->end(); itFn != endFn;
+       ++itFn) {
     Function *F = itFn;
 
     for (auto itBB = F->begin(), endBB = F->end(); itBB != endBB; ++itBB) {
       BasicBlock *BB = &*itBB;
 
-      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst; ++itInst) {
+      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst;
+           ++itInst) {
         Instruction *I = &*itInst;
         Type *pType = I->getType();
 
@@ -762,13 +853,15 @@ void DxilCleanup::CollectLiveRanges() {
 
   // 1. Recover live ranges.
   unsigned LRId = 0;
-  for (auto itFn = m_pModule->begin(), endFn = m_pModule->end(); itFn != endFn; ++itFn) {
+  for (auto itFn = m_pModule->begin(), endFn = m_pModule->end(); itFn != endFn;
+       ++itFn) {
     Function *F = itFn;
 
     for (auto itBB = F->begin(), endBB = F->end(); itBB != endBB; ++itBB) {
       BasicBlock *BB = &*itBB;
 
-      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst; ++itInst) {
+      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst;
+           ++itInst) {
         Instruction *I = &*itInst;
         Type *pType = I->getType();
 
@@ -776,7 +869,9 @@ void DxilCleanup::CollectLiveRanges() {
           continue;
 
         auto it = m_LiveRangeMap.find(I);
-        DXASSERT(it != m_LiveRangeMap.end(), "otherwise, instruction not added to m_LiveRangeMap during counting stage");
+        DXASSERT(it != m_LiveRangeMap.end(),
+                 "otherwise, instruction not added to m_LiveRangeMap during "
+                 "counting stage");
         if (!(it->second & LIVE_RANGE_UNINITIALIZED)) {
           continue;
         }
@@ -795,7 +890,8 @@ void DxilCleanup::CollectLiveRanges() {
       for (User *U : def->users()) {
         if (IsDxilBitcast(U)) {
           DXASSERT_NOMSG(m_LiveRangeMap.find(U) != m_LiveRangeMap.end());
-          DXASSERT(!(m_LiveRangeMap.find(U)->second & LIVE_RANGE_UNINITIALIZED), "otherwise, live range not initialized!");
+          DXASSERT(!(m_LiveRangeMap.find(U)->second & LIVE_RANGE_UNINITIALIZED),
+                   "otherwise, live range not initialized!");
           unsigned userLRId = m_LiveRangeMap[U];
           LR.bitcastMap[userLRId]++;
         }
@@ -809,8 +905,8 @@ void DxilCleanup::CollectLiveRanges() {
   dbgs() << "Live ranges:\n";
   for (LiveRange &LR : m_LiveRanges) {
     NumDefs += LR.defs.size();
-    dbgs() << "id=" << LR.id << ", F=" << LR.numF 
-           << ", I=" << LR.numI << ", U=" << LR.numU << ", defs = {";
+    dbgs() << "id=" << LR.id << ", F=" << LR.numF << ", I=" << LR.numI
+           << ", U=" << LR.numU << ", defs = {";
     for (Value *D : LR.defs) {
       dbgs() << "\n";
       D->dump();
@@ -822,7 +918,7 @@ void DxilCleanup::CollectLiveRanges() {
         dbgs() << ", ";
       }
       dbgs() << "<" << it.first << "," << it.second << ">";
-      bFirst= true;
+      bFirst = true;
     }
     dbgs() << "}\n";
   }
@@ -893,13 +989,14 @@ void DxilCleanup::RecoverLiveRangeRec(LiveRange &LR, Instruction *pInst) {
 }
 
 unsigned DxilCleanup::LiveRange::GetCaseNumber() const {
-  if (numI > (numF+numU) || numF > (numI+numU))
+  if (numI > (numF + numU) || numF > (numI + numU))
     return 1; // Type is known.
 
-  if (numI == (numF+numU) || numF == (numI+numU))
+  if (numI == (numF + numU) || numF == (numI + numU))
     return 2; // Type may change, but unlikely.
 
-  return 3;   // Type is unknown yet. Postpone the decision until more live ranges have types.
+  return 3; // Type is unknown yet. Postpone the decision until more live ranges
+            // have types.
 }
 
 void DxilCleanup::LiveRange::GuessType(LLVMContext &Ctx) {
@@ -971,7 +1068,7 @@ bool DxilCleanup::LiveRange::operator<(const LiveRange &o) const {
     unsigned n1 = std::max(numI, numF);
     unsigned n2 = std::max(o.numI, o.numF);
     if (n1 != n2)
-      return n2 < n1; 
+      return n2 < n1;
     break;
   }
   case 3: {
@@ -992,7 +1089,8 @@ bool DxilCleanup::LiveRange::operator<(const LiveRange &o) const {
 }
 
 struct LiveRangeLT {
-  LiveRangeLT(const vector<DxilCleanup::LiveRange> &LiveRanges) : m_LiveRanges(LiveRanges) {}
+  LiveRangeLT(const vector<DxilCleanup::LiveRange> &LiveRanges)
+      : m_LiveRanges(LiveRanges) {}
   bool operator()(const unsigned i1, const unsigned i2) const {
     const DxilCleanup::LiveRange &lr1 = m_LiveRanges[i1];
     const DxilCleanup::LiveRange &lr2 = m_LiveRanges[i2];
@@ -1052,7 +1150,9 @@ void DxilCleanup::ChangeLiveRangeTypes() {
     for (Value *D : LR.defs) {
       Instruction *pInst = dyn_cast<Instruction>(D);
       if (PHINode *phi = dyn_cast<PHINode>(pInst)) {
-        PHINode *pNewPhi = PHINode::Create(LR.pNewType, phi->getNumIncomingValues(), phi->getName(), phi->getNextNode());
+        PHINode *pNewPhi =
+            PHINode::Create(LR.pNewType, phi->getNumIncomingValues(),
+                            phi->getName(), phi->getNextNode());
         DefMap[D] = pNewPhi;
       } else {
         DefMap[D] = CastValue(pInst, LR.pNewType, pInst);
@@ -1088,9 +1188,11 @@ void DxilCleanup::ChangeLiveRangeTypes() {
         Value *pRevBitcast = CastValue(pNewInst, pType, pNewInst);
         U->replaceUsesOfWith(D, pRevBitcast);
 
-        // If the new def is a phi we need to be careful about where we place the bitcast.
-        // For phis we need to place the bitcast after all the phi defs for the block.
-        if (isa<PHINode>(pNewInst) && isa<Instruction>(pRevBitcast) && pRevBitcast != pNewInst) {
+        // If the new def is a phi we need to be careful about where we place
+        // the bitcast. For phis we need to place the bitcast after all the phi
+        // defs for the block.
+        if (isa<PHINode>(pNewInst) && isa<Instruction>(pRevBitcast) &&
+            pRevBitcast != pNewInst) {
           PHINode *pPhi = cast<PHINode>(pNewInst);
           Instruction *pInst = cast<Instruction>(pRevBitcast);
           pInst->removeFromParent();
@@ -1101,7 +1203,7 @@ void DxilCleanup::ChangeLiveRangeTypes() {
   }
 }
 
-template<typename DxilBitcast1, typename DxilBitcast2>
+template <typename DxilBitcast1, typename DxilBitcast2>
 static bool CleanupBitcastPattern(Instruction *I1) {
   if (DxilBitcast1 BC1 = DxilBitcast1(I1)) {
     Instruction *I2 = dyn_cast<Instruction>(BC1.get_value());
@@ -1116,13 +1218,15 @@ static bool CleanupBitcastPattern(Instruction *I1) {
 }
 
 void DxilCleanup::CleanupPatterns() {
-  for (auto itFn = m_pModule->begin(), endFn = m_pModule->end(); itFn != endFn; ++itFn) {
+  for (auto itFn = m_pModule->begin(), endFn = m_pModule->end(); itFn != endFn;
+       ++itFn) {
     Function *F = itFn;
 
     for (auto itBB = F->begin(), endBB = F->end(); itBB != endBB; ++itBB) {
       BasicBlock *BB = &*itBB;
 
-      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst; ++itInst) {
+      for (auto itInst = BB->begin(), endInst = BB->end(); itInst != endInst;
+           ++itInst) {
         Instruction *I1 = &*itInst;
 
         // Cleanup i1 pattern:
@@ -1169,33 +1273,50 @@ void DxilCleanup::CleanupPatterns() {
         // ...
         // %3 = iadd i32 %0, ...
         //
-        if (CleanupBitcastPattern<DxilInst_BitcastI32toF32, DxilInst_BitcastF32toI32>(I1)) continue;
-        if (CleanupBitcastPattern<DxilInst_BitcastF32toI32, DxilInst_BitcastI32toF32>(I1)) continue;
-        if (CleanupBitcastPattern<DxilInst_BitcastI16toF16, DxilInst_BitcastF16toI16>(I1)) continue;
-        if (CleanupBitcastPattern<DxilInst_BitcastF16toI16, DxilInst_BitcastI16toF16>(I1)) continue;
-        if (CleanupBitcastPattern<DxilInst_BitcastI64toF64, DxilInst_BitcastF64toI64>(I1)) continue;
-        if (CleanupBitcastPattern<DxilInst_BitcastF64toI64, DxilInst_BitcastI64toF64>(I1)) continue;
+        if (CleanupBitcastPattern<DxilInst_BitcastI32toF32,
+                                  DxilInst_BitcastF32toI32>(I1))
+          continue;
+        if (CleanupBitcastPattern<DxilInst_BitcastF32toI32,
+                                  DxilInst_BitcastI32toF32>(I1))
+          continue;
+        if (CleanupBitcastPattern<DxilInst_BitcastI16toF16,
+                                  DxilInst_BitcastF16toI16>(I1))
+          continue;
+        if (CleanupBitcastPattern<DxilInst_BitcastF16toI16,
+                                  DxilInst_BitcastI16toF16>(I1))
+          continue;
+        if (CleanupBitcastPattern<DxilInst_BitcastI64toF64,
+                                  DxilInst_BitcastF64toI64>(I1))
+          continue;
+        if (CleanupBitcastPattern<DxilInst_BitcastF64toI64,
+                                  DxilInst_BitcastI64toF64>(I1))
+          continue;
 
         // Cleanup chains of doubles:
-        // %7 = call %dx.types.splitdouble @dx.op.splitDouble.f64(i32 102, double %6)
-        // %8 = extractvalue %dx.types.splitdouble %7, 0
-        // %9 = extractvalue %dx.types.splitdouble %7, 1
+        // %7 = call %dx.types.splitdouble @dx.op.splitDouble.f64(i32 102,
+        // double %6) %8 = extractvalue %dx.types.splitdouble %7, 0 %9 =
+        // extractvalue %dx.types.splitdouble %7, 1
         // ...
         // %15 = call double @dx.op.makeDouble.f64(i32 101, i32 %8, i32 %9)
-        // %16 = call double @dx.op.binary.f64(i32 36, double %15, double 0x3FFC51EB80000000)
+        // %16 = call double @dx.op.binary.f64(i32 36, double %15, double
+        // 0x3FFC51EB80000000)
         //
         // becomes (%15 -> %6)
         // ...
-        // %16 = call double @dx.op.binary.f64(i32 36, double %6, double 0x3FFC51EB80000000)
+        // %16 = call double @dx.op.binary.f64(i32 36, double %6, double
+        // 0x3FFC51EB80000000)
         //
         if (DxilInst_MakeDouble MD = DxilInst_MakeDouble(I1)) {
           ExtractValueInst *V1 = dyn_cast<ExtractValueInst>(MD.get_hi());
           ExtractValueInst *V2 = dyn_cast<ExtractValueInst>(MD.get_lo());
-          if (V1 && V2 && V1->getAggregateOperand() == V2->getAggregateOperand() &&
+          if (V1 && V2 &&
+              V1->getAggregateOperand() == V2->getAggregateOperand() &&
               V1->getNumIndices() == 1 && V2->getNumIndices() == 1 &&
               *V1->idx_begin() == 1 && *V2->idx_begin() == 0) {
-            Instruction *pSDInst = dyn_cast<Instruction>(V1->getAggregateOperand());
-            if (!pSDInst) continue;
+            Instruction *pSDInst =
+                dyn_cast<Instruction>(V1->getAggregateOperand());
+            if (!pSDInst)
+              continue;
 
             if (DxilInst_SplitDouble SD = DxilInst_SplitDouble(pSDInst)) {
               I1->replaceAllUsesWith(SD.get_value());
@@ -1218,7 +1339,8 @@ void DxilCleanup::RemoveDeadCode() {
   PM.run(*m_pModule);
 }
 
-Value *DxilCleanup::CastValue(Value *pValue, Type *pToType, Instruction *pOrigInst) {
+Value *DxilCleanup::CastValue(Value *pValue, Type *pToType,
+                              Instruction *pOrigInst) {
   Type *pType = pValue->getType();
 
   if (pType == pToType)
@@ -1226,7 +1348,7 @@ Value *DxilCleanup::CastValue(Value *pValue, Type *pToType, Instruction *pOrigIn
 
   const unsigned kNumTypeArgs = 3;
   Type *ArgTypes[kNumTypeArgs];
-  DXIL::OpCode OpCode;
+  DXIL::OpCode OpCode = DXIL::OpCode::NumOpCodes;
   if (pType == Type::getFloatTy(*m_pCtx)) {
     IFTBOOL(pToType == Type::getInt32Ty(*m_pCtx), DXC_E_OPTIMIZATION_FAILED);
     OpCode = DXIL::OpCode::BitcastF32toI32;
@@ -1268,13 +1390,16 @@ Value *DxilCleanup::CastValue(Value *pValue, Type *pToType, Instruction *pOrigIn
   }
 
   // Get function.
-  std::string funcName = (Twine("dx.op.") + Twine(OP::GetOpCodeClassName(OpCode))).str();
+  std::string funcName =
+      (Twine("dx.op.") + Twine(OP::GetOpCodeClassName(OpCode))).str();
   // Try to find exist function with the same name in the module.
   Function *F = m_pModule->getFunction(funcName);
   if (!F) {
     FunctionType *pFT;
-    pFT = FunctionType::get(ArgTypes[0], ArrayRef<Type*>(&ArgTypes[1], kNumTypeArgs-1), false);
-    F = Function::Create(pFT, GlobalValue::LinkageTypes::ExternalLinkage, funcName, m_pModule);
+    pFT = FunctionType::get(
+        ArgTypes[0], ArrayRef<Type *>(&ArgTypes[1], kNumTypeArgs - 1), false);
+    F = Function::Create(pFT, GlobalValue::LinkageTypes::ExternalLinkage,
+                         funcName, m_pModule);
     F->setCallingConv(CallingConv::C);
     F->addFnAttr(Attribute::NoUnwind);
     F->addFnAttr(Attribute::ReadNone);
@@ -1283,13 +1408,16 @@ Value *DxilCleanup::CastValue(Value *pValue, Type *pToType, Instruction *pOrigIn
   // Create bitcast call.
   const unsigned kNumArgs = 2;
   Value *Args[kNumArgs];
-  Args[0] = Constant::getIntegerValue(IntegerType::get(*m_pCtx, 32), APInt(32, (int)OpCode));
+  Args[0] = Constant::getIntegerValue(IntegerType::get(*m_pCtx, 32),
+                                      APInt(32, (int)OpCode));
   Args[1] = pValue;
   CallInst *pBitcast = nullptr;
   if (Instruction *pInsertAfter = dyn_cast<Instruction>(pValue)) {
-    pBitcast = CallInst::Create(F, ArrayRef<Value*>(&Args[0], kNumArgs), "", pInsertAfter->getNextNode());
+    pBitcast = CallInst::Create(F, ArrayRef<Value *>(&Args[0], kNumArgs), "",
+                                pInsertAfter->getNextNode());
   } else {
-    pBitcast = CallInst::Create(F, ArrayRef<Value*>(&Args[0], kNumArgs), "", pOrigInst);
+    pBitcast = CallInst::Create(F, ArrayRef<Value *>(&Args[0], kNumArgs), "",
+                                pOrigInst);
   }
 
   return pBitcast;
@@ -1307,6 +1435,8 @@ bool DxilCleanup::IsDxilBitcast(Value *pValue) {
       case OP::OpCode::BitcastI32toF32:
       case OP::OpCode::BitcastI64toF64:
         return true;
+      default:
+        return false;
       }
     }
   }
@@ -1315,20 +1445,18 @@ bool DxilCleanup::IsDxilBitcast(Value *pValue) {
 
 } // namespace DxilCleanupNS
 
-
 using namespace DxilCleanupNS;
 
 // Publicly exposed interface to pass...
 char &llvm::DxilCleanupID = DxilCleanup::ID;
 
-
-INITIALIZE_PASS_BEGIN(DxilCleanup, "dxil-cleanup", "Optimize DXIL after conversion from DXBC", true, false)
-INITIALIZE_PASS_END  (DxilCleanup, "dxil-cleanup", "Optimize DXIL after conversion from DXBC", true, false)
+INITIALIZE_PASS_BEGIN(DxilCleanup, "dxil-cleanup",
+                      "Optimize DXIL after conversion from DXBC", true, false)
+INITIALIZE_PASS_END(DxilCleanup, "dxil-cleanup",
+                    "Optimize DXIL after conversion from DXBC", true, false)
 
 namespace llvm {
 
-ModulePass *createDxilCleanupPass() {
-  return new DxilCleanup();
-}
+ModulePass *createDxilCleanupPass() { return new DxilCleanup(); }
 
-}
+} // namespace llvm

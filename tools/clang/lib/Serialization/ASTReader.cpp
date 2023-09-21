@@ -201,6 +201,10 @@ static bool checkLanguageOptions(const LangOptions &LangOpts,
   if (!AllowCompatibleDifferences)                            \
     LANGOPT(Name, Bits, Default, Description)
 
+#define COMPATIBLE_LANGOPT_BOOL(Name, Default, Description)  \
+  if (!AllowCompatibleDifferences)                            \
+    LANGOPT_BOOL(Name, Default, Description)
+
 #define COMPATIBLE_ENUM_LANGOPT(Name, Bits, Default, Description)  \
   if (!AllowCompatibleDifferences)                                 \
     ENUM_LANGOPT(Name, Bits, Default, Description)

@@ -13,7 +13,6 @@ from .base import TestFormat
 # because of the way it manually processes quoted arguments in a
 # non-standard way.
 def executeCommandForTaef(command, cwd=None, env=None):
-    command = ' '.join(command)
     p = subprocess.Popen(command, cwd=cwd,
                         shell=True,
                         stdin=subprocess.PIPE,
@@ -64,16 +63,21 @@ class TaefTest(TestFormat):
 
         if litConfig.debug:
             litConfig.note('searching taef test in %r' % dll_path)
+        
+        cmd = [self.te, dll_path, "/list", "/select:", self.select_filter]
 
         try:
-            lines = lit.util.capture([self.te, dll_path, '/list'],
-                                     env=localConfig.environment)
+            lines,err,exitCode = executeCommandForTaef(cmd)
             # this is for windows
             lines = lines.replace('\r', '')
             lines = lines.split('\n')
 
         except:
-            litConfig.error("unable to discover taef tests in %r, using %s" % (dll_path, self.te))
+            litConfig.error("unable to discover taef tests in %r, using %s. exeption encountered." % (dll_path, self.te))
+            raise StopIteration
+
+        if exitCode:
+            litConfig.error("unable to discover taef tests in %r, using %s. error: %s." % (dll_path, self.te, err))
             raise StopIteration
 
         for ln in lines:
@@ -121,10 +125,8 @@ class TaefTest(TestFormat):
         if self.select_filter != "":
             select_filter = str.format("{} AND {}", select_filter, self.select_filter)
 
-        select_filter = str.format('/select:"{}"', select_filter)
-
         cmd = [self.te, test_dll, '/inproc',
-                select_filter,
+                '/select:', select_filter,
                 '/miniDumpOnCrash', '/unicodeOutput:false',
                 str.format('/outputFolder:{}', self.test_path)]
         cmd.extend(self.extra_params)

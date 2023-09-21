@@ -11,14 +11,13 @@
 
 #ifdef _WIN32
 
-#include "windows.h"
 #include "dxc/Support/Global.h"
+#include "windows.h"
 
-void llvm_assert(_In_z_ const char *_Message,
-                 _In_z_ const char *_File,
-                 _In_ unsigned _Line,
+void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
                  const char *_Function) {
-  OutputDebugFormatA("Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message, _File, _Line, _Function);
+  OutputDebugFormatA("Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message,
+                     _File, _Line, _Function);
   RaiseException(STATUS_LLVM_ASSERT, 0, 0, 0);
 }
 
@@ -26,7 +25,8 @@ void llvm_assert(_In_z_ const char *_Message,
 
 #include <assert.h>
 
-void llvm_assert(const char* message, const char*, unsigned) {
+void llvm_assert(const char *message, const char *, unsigned,
+                 const char *_Function) {
   assert(false && message);
 }
 

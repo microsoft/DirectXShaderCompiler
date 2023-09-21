@@ -14,9 +14,9 @@
 
 namespace hlsl {
 
- // This Updates to this enum must be reflected in HLSLOptions.td and Options.td
- // for the hlsl_version option.
-enum class LangStd : unsigned long  {
+// This Updates to this enum must be reflected in HLSLOptions.td and Options.td
+// for the hlsl_version option.
+enum class LangStd : unsigned long {
   vUnset = 0,
   vError = 1,
   v2015 = 2015,
@@ -25,7 +25,7 @@ enum class LangStd : unsigned long  {
   v2018 = 2018,
   v2021 = 2021,
   v202x = 2029,
-  vLatest = v2018
+  vLatest = v2021
 };
 
 constexpr const char *ValidVersionsStr = "2015, 2016, 2017, 2018, and 2021";

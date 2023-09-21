@@ -9,22 +9,22 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/WinFunctions.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include <string>
 #include <algorithm>
+#include <set>
+#include <string>
 #include <utility>
 #include <vector>
-#include <set>
 
 #include "DxilRootSignatureHelper.h"
 
@@ -36,7 +36,7 @@ namespace hlsl {
 //////////////////////////////////////////////////////////////////////////////
 // Root signature handler.
 
-RootSignatureHandle::RootSignatureHandle(RootSignatureHandle&& other) {
+RootSignatureHandle::RootSignatureHandle(RootSignatureHandle &&other) {
   m_pDesc = nullptr;
   m_pSerialized = nullptr;
   std::swap(m_pDesc, other.m_pDesc);
@@ -83,7 +83,8 @@ void RootSignatureHandle::EnsureSerializedAvailable() {
 
 void RootSignatureHandle::Deserialize() {
   DXASSERT_NOMSG(m_pSerialized && !m_pDesc);
-  DeserializeRootSignature((uint8_t*)m_pSerialized->GetBufferPointer(), (uint32_t)m_pSerialized->GetBufferSize(), &m_pDesc);
+  DeserializeRootSignature((uint8_t *)m_pSerialized->GetBufferPointer(),
+                           (uint32_t)m_pSerialized->GetBufferSize(), &m_pDesc);
 }
 
 void RootSignatureHandle::LoadSerialized(const uint8_t *pData,
@@ -121,8 +122,10 @@ DxilDescriptorRangeFlags GetFlags(const DxilDescriptorRange &D) {
 
   // Sampler does not have data.
   if (D.RangeType != DxilDescriptorRangeType::Sampler)
-    Flags = (DxilDescriptorRangeFlags)(
-        (unsigned)Flags | (unsigned)DxilDescriptorRangeFlags::DataVolatile);
+    Flags =
+        (DxilDescriptorRangeFlags)((unsigned)Flags |
+                                   (unsigned)
+                                       DxilDescriptorRangeFlags::DataVolatile);
 
   return Flags;
 }
@@ -157,8 +160,7 @@ void SetFlags(DxilContainerDescriptorRange1 &D,
 
 //////////////////////////////////////////////////////////////////////////////
 
-template <typename T>
-void DeleteRootSignatureTemplate(const T &RS) {
+template <typename T> void DeleteRootSignatureTemplate(const T &RS) {
   for (unsigned i = 0; i < RS.NumParameters; i++) {
     const auto &P = RS.pParameters[i];
     if (P.ParameterType == DxilRootParameterType::DescriptorTable) {
@@ -170,20 +172,21 @@ void DeleteRootSignatureTemplate(const T &RS) {
   delete[] RS.pStaticSamplers;
 }
 
-void DeleteRootSignature(const DxilVersionedRootSignatureDesc * pRootSignature)
-{
+void DeleteRootSignature(const DxilVersionedRootSignatureDesc *pRootSignature) {
   if (pRootSignature == nullptr)
     return;
 
-  switch (pRootSignature->Version)
-  {
+  switch (pRootSignature->Version) {
   case DxilRootSignatureVersion::Version_1_0:
-    DeleteRootSignatureTemplate<DxilRootSignatureDesc>(pRootSignature->Desc_1_0);
+    DeleteRootSignatureTemplate<DxilRootSignatureDesc>(
+        pRootSignature->Desc_1_0);
     break;
   case DxilRootSignatureVersion::Version_1_1:
   default:
-    DXASSERT(pRootSignature->Version == DxilRootSignatureVersion::Version_1_1, "else version is incorrect");
-    DeleteRootSignatureTemplate<DxilRootSignatureDesc1>(pRootSignature->Desc_1_1);
+    DXASSERT(pRootSignature->Version == DxilRootSignatureVersion::Version_1_1,
+             "else version is incorrect");
+    DeleteRootSignatureTemplate<DxilRootSignatureDesc1>(
+        pRootSignature->Desc_1_1);
     break;
   }
 
@@ -313,25 +316,25 @@ void printRootParam(ParamTy &Param, raw_ostream &os) {
   switch (Param.ParameterType) {
   case DxilRootParameterType::CBV:
     printDescType(DxilDescriptorRangeType::CBV, os);
-    printDesc(Param.Descriptor.ShaderRegister, Param.Descriptor.RegisterSpace, 0,
-             os);
+    printDesc(Param.Descriptor.ShaderRegister, Param.Descriptor.RegisterSpace,
+              0, os);
 
     break;
   case DxilRootParameterType::SRV:
     printDescType(DxilDescriptorRangeType::SRV, os);
-    printDesc(Param.Descriptor.ShaderRegister, Param.Descriptor.RegisterSpace, 0,
-             os);
+    printDesc(Param.Descriptor.ShaderRegister, Param.Descriptor.RegisterSpace,
+              0, os);
     break;
   case DxilRootParameterType::UAV:
     printDescType(DxilDescriptorRangeType::UAV, os);
-    printDesc(Param.Descriptor.ShaderRegister, Param.Descriptor.RegisterSpace, 0,
-             os);
+    printDesc(Param.Descriptor.ShaderRegister, Param.Descriptor.RegisterSpace,
+              0, os);
     break;
   case DxilRootParameterType::Constants32Bit:
     os << "RootConstants(num32BitConstants=" << Param.Constants.Num32BitValues
        << "b";
     printDesc(Param.Constants.ShaderRegister, Param.Constants.RegisterSpace, 0,
-             os);
+              os);
     break;
   case DxilRootParameterType::DescriptorTable:
     os << "DescriptorTable(";
@@ -367,7 +370,8 @@ template <typename DescTy> void printRootSig(DescTy &RS, raw_ostream &os) {
 }
 } // namespace
 
-void printRootSignature(const DxilVersionedRootSignatureDesc &RS, raw_ostream &os) {
+void printRootSignature(const DxilVersionedRootSignatureDesc &RS,
+                        raw_ostream &os) {
   switch (RS.Version) {
   case DxilRootSignatureVersion::Version_1_0:
     printRootSig(RS.Desc_1_0, os);
@@ -381,6 +385,5 @@ void printRootSignature(const DxilVersionedRootSignatureDesc &RS, raw_ostream &o
   }
   os.flush();
 }
-
 
 } // namespace hlsl

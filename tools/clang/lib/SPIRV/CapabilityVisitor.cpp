@@ -23,6 +23,20 @@ void CapabilityVisitor::addExtension(Extension ext, llvm::StringRef target,
     spvBuilder.requireExtension(featureManager.getExtensionName(ext), loc);
 }
 
+bool CapabilityVisitor::addExtensionAndCapabilitiesIfEnabled(
+    Extension ext, llvm::ArrayRef<spv::Capability> capabilities) {
+  if (!featureManager.isExtensionEnabled(ext)) {
+    return false;
+  }
+
+  addExtension(ext, "", {});
+
+  for (auto cap : capabilities) {
+    addCapability(cap);
+  }
+  return true;
+}
+
 void CapabilityVisitor::addCapability(spv::Capability cap, SourceLocation loc) {
   if (cap != spv::Capability::Max) {
     spvBuilder.requireCapability(cap, loc);
@@ -169,9 +183,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       break;
     }
 
-    if (imageType->isArrayedImage() && imageType->isMSImage())
-      addCapability(spv::Capability::ImageMSArray);
-
     if (const auto *sampledType = imageType->getSampledType()) {
       addCapabilityForType(sampledType, loc, sc);
       if (const auto *sampledIntType = dyn_cast<IntegerType>(sampledType)) {
@@ -213,18 +224,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     }
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
-  }
-  // AccelerationStructureTypeNV and RayQueryTypeKHR type
-  // Note: Because AccelerationStructureType can be provided by both
-  // SPV_KHR_ray_query and SPV_{NV,KHR}_ray_tracing extensions, this logic will
-  // result in SPV_KHR_ray_query being unnecessarily required in some cases. If
-  // this is an issue in future (more devices are identified that support
-  // ray_tracing but not ray_query), then we should consider addressing this
-  // interaction with a spirv-opt pass instead.
-  else if (isa<AccelerationStructureTypeNV>(type) ||
-           isa<RayQueryTypeKHR>(type)) {
-    addCapability(spv::Capability::RayQueryKHR);
-    addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
   }
 }
 
@@ -307,7 +306,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     case spv::BuiltIn::PrimitiveId: {
       // PrimitiveID can be used as PSIn or MSPOut.
       if (shaderModel == spv::ExecutionModel::Fragment ||
-          shaderModel == spv::ExecutionModel::MeshNV   ||
+          shaderModel == spv::ExecutionModel::MeshNV ||
           shaderModel == spv::ExecutionModel::MeshEXT)
         addCapability(spv::Capability::Geometry);
       break;
@@ -325,7 +324,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
           addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshNV ||
                  shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
         addCapability(spv::Capability::Geometry);
@@ -345,7 +344,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::Geometry ||
-                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshNV ||
                  shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut.
         addCapability(spv::Capability::MultiViewport);
@@ -453,8 +452,6 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
                        instr->getStorageClass());
   if (instr->hasOffset() || instr->hasConstOffsets())
     addCapability(spv::Capability::ImageGatherExtended);
-  if (instr->hasMinLod())
-    addCapability(spv::Capability::MinLod);
   if (instr->isSparse())
     addCapability(spv::Capability::SparseResidency);
 
@@ -587,8 +584,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpSetMeshOutputsEXT:
   case spv::Op::OpEmitMeshTasksEXT: {
     if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
-      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader",
-                                     {});
+      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader", {});
       addCapability(spv::Capability::MeshShadingEXT);
       addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
     }
@@ -864,6 +860,33 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
     addCapability(spv::Capability::Shader);
     addCapability(spv::Capability::Linkage);
   }
+
+  // SPIRV-Tools now has a pass to trim superfluous capabilities. This means we
+  // can remove most capability-selection logic from here, and just add
+  // capabilities by default. SPIRV-Tools will clean those up. Note: this pass
+  // supports only some capabilities. This list should be expanded to match the
+  // supported capabilities.
+  addCapability(spv::Capability::MinLod);
+
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::EXT_fragment_shader_interlock,
+      {
+          spv::Capability::FragmentShaderSampleInterlockEXT,
+          spv::Capability::FragmentShaderPixelInterlockEXT,
+          spv::Capability::FragmentShaderShadingRateInterlockEXT,
+      });
+
+  // AccelerationStructureType or RayQueryType can be provided by both
+  // ray_tracing and ray_query extension. By default, we select ray_query to
+  // provide it. This is an arbitrary decision. If the user wants avoid one
+  // extension (lack of support by ex), if can be done by providing the list
+  // of enabled extensions.
+  if (!addExtensionAndCapabilitiesIfEnabled(Extension::KHR_ray_query,
+                                            {spv::Capability::RayQueryKHR})) {
+    addExtensionAndCapabilitiesIfEnabled(Extension::KHR_ray_tracing,
+                                         {spv::Capability::RayTracingKHR});
+  }
+
   return true;
 }
 

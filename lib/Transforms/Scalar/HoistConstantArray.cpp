@@ -12,9 +12,9 @@
 // This file implements hoisting of constant local arrays to global arrays.
 // The idea is to change the array initialization from function local memory
 // using alloca and stores to global constant memory using a global variable
-// and constant initializer. We only hoist arrays that have all constant elements.
-// The frontend will hoist the arrays if they are declared static, but we can
-// hoist any array that is only ever initialized with constant data.
+// and constant initializer. We only hoist arrays that have all constant
+// elements. The frontend will hoist the arrays if they are declared static, but
+// we can hoist any array that is only ever initialized with constant data.
 //
 // This transformation was developed to work with the dxil produced from the
 // hlsl compiler. Hoisting the array to use a constant initializer should allow
@@ -23,7 +23,7 @@
 //
 // We limit hoisting to those arrays that are initialized by constant values.
 // We still hoist if the array is partially initialized as long as no
-// non-constant values are written. The uninitialized values will be hoisted 
+// non-constant values are written. The uninitialized values will be hoisted
 // as undef values.
 //
 // Improvements:
@@ -51,93 +51,90 @@
 //   store float 2.000000e+00, float* %2, align 4
 //   %3 = getelementptr inbounds[3 x float], [3 x float] * %A, i32 0, i32 2
 //   store float 3.000000e+00, float* %3, align 4
-//   %arrayidx = getelementptr inbounds[3 x float], [3 x float] * %A, i32 0, i32 %0
-//   %4 = load float, float* %arrayidx, align 4, !tbaa !14
-//   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %4);
-//   ret void
+//   %arrayidx = getelementptr inbounds[3 x float], [3 x float] * %A, i32 0, i32
+//   %0 %4 = load float, float* %arrayidx, align 4, !tbaa !14 call void
+//   @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %4); ret void
 // }
 //
 // With array hoisting enabled we generate this dxil
 //
-// @A.hca = internal unnamed_addr constant [3 x float] [float 1.000000e+00, float 2.000000e+00, float 3.000000e+00]
-// define void @main() {
-// entry:
+// @A.hca = internal unnamed_addr constant [3 x float] [float 1.000000e+00,
+// float 2.000000e+00, float 3.000000e+00] define void @main() { entry:
 //   %0 = call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 0, i32 undef)
-//   %arrayidx = getelementptr inbounds[3 x float], [3 x float] * @A.hca, i32 0, i32 %0
-//   %1 = load float, float* %arrayidx, align 4, !tbaa !14
-//   call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %1)
-//   ret void
+//   %arrayidx = getelementptr inbounds[3 x float], [3 x float] * @A.hca, i32 0,
+//   i32 %0 %1 = load float, float* %arrayidx, align 4, !tbaa !14 call void
+//   @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %1) ret void
 // }
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/Type.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constant.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/Type.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Transforms/Scalar.h"
 using namespace llvm;
 
 namespace {
-  class CandidateArray;
+class CandidateArray;
 
-  //===--------------------------------------------------------------------===//
-  // HoistConstantArray pass implementation
-  //
-  class HoistConstantArray : public ModulePass {
-  public:
-    static char ID; // Pass identification, replacement for typeid
-    HoistConstantArray() : ModulePass(ID) {
-      initializeHoistConstantArrayPass(*PassRegistry::getPassRegistry());
-    }
+//===--------------------------------------------------------------------===//
+// HoistConstantArray pass implementation
+//
+class HoistConstantArray : public ModulePass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  HoistConstantArray() : ModulePass(ID) {
+    initializeHoistConstantArrayPass(*PassRegistry::getPassRegistry());
+  }
 
-    bool runOnModule(Module &M) override;
+  bool runOnModule(Module &M) override;
 
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.setPreservesCFG();
-    }
-  private:
-    bool runOnFunction(Function &F);
-    std::vector<AllocaInst *> findCandidateAllocas(Function &F);
-    void hoistArray(const CandidateArray &candidate);
-    void removeLocalArrayStores(const CandidateArray &candidate);
- };
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+  }
 
-  // Represents an array we are considering for hoisting.
-  // Contains helper routines for analyzing if hoisting is possible
-  // and creating the global variable for the hoisted array.
-  class CandidateArray {
-  public:
-    explicit CandidateArray(AllocaInst *);
-    bool IsConstArray() const { return m_IsConstArray; }
-    void AnalyzeUses();
-    GlobalVariable *GetGlobalArray() const;
-    AllocaInst *GetLocalArray() const { return m_Alloca; }
-    std::vector<StoreInst*> GetArrayStores() const;
+private:
+  bool runOnFunction(Function &F);
+  std::vector<AllocaInst *> findCandidateAllocas(Function &F);
+  void hoistArray(const CandidateArray &candidate);
+  void removeLocalArrayStores(const CandidateArray &candidate);
+};
 
-  private:
-    AllocaInst *m_Alloca;
-    ArrayType *m_ArrayType;
-    std::vector<Constant *> m_Values;
-    bool m_IsConstArray;
+// Represents an array we are considering for hoisting.
+// Contains helper routines for analyzing if hoisting is possible
+// and creating the global variable for the hoisted array.
+class CandidateArray {
+public:
+  explicit CandidateArray(AllocaInst *);
+  bool IsConstArray() const { return m_IsConstArray; }
+  void AnalyzeUses();
+  GlobalVariable *GetGlobalArray() const;
+  AllocaInst *GetLocalArray() const { return m_Alloca; }
+  std::vector<StoreInst *> GetArrayStores() const;
 
-    bool AnalyzeStore(StoreInst *SI);
-    bool StoreConstant(int64_t index, Constant *value);
-    void EnsureSize();
-    void GetArrayStores(GEPOperator *gep,
-                        std::vector<StoreInst *> &stores) const;
-    bool AllArrayUsersAreGEPOrLifetime(std::vector<GEPOperator *> &geps);
-    bool AllGEPUsersAreValid(GEPOperator *gep);
-    UndefValue *UndefElement();
-  };
-}
+private:
+  AllocaInst *m_Alloca;
+  ArrayType *m_ArrayType;
+  std::vector<Constant *> m_Values;
+  bool m_IsConstArray;
+
+  bool AnalyzeStore(StoreInst *SI);
+  bool StoreConstant(int64_t index, Constant *value);
+  void EnsureSize();
+  void GetArrayStores(GEPOperator *gep, std::vector<StoreInst *> &stores) const;
+  bool AllArrayUsersAreGEPOrLifetime(std::vector<GEPOperator *> &geps);
+  bool AllGEPUsersAreValid(GEPOperator *gep);
+  UndefValue *UndefElement();
+};
+} // namespace
 
 // Returns the ArrayType for the alloca or nullptr if the alloca
 // does not allocate an array.
@@ -168,10 +165,7 @@ static AllocaInst *isHoistableArrayAlloca(Instruction *I) {
 
 // Create the candidate array for the alloca.
 CandidateArray::CandidateArray(AllocaInst *AI)
-  : m_Alloca(AI)
-  , m_Values()
-  , m_IsConstArray(false)
-{
+    : m_Alloca(AI), m_Values(), m_IsConstArray(false) {
   assert(isHoistableArrayAlloca(AI));
   m_ArrayType = getAllocaArrayType(AI);
 }
@@ -182,7 +176,9 @@ GlobalVariable *CandidateArray::GetGlobalArray() const {
   assert(IsConstArray());
   Constant *initializer = ConstantArray::get(m_ArrayType, m_Values);
   Module *M = m_Alloca->getModule();
-  GlobalVariable *GV = new GlobalVariable(*M, m_ArrayType, true, GlobalVariable::LinkageTypes::InternalLinkage, initializer, Twine(m_Alloca->getName()) + ".hca");
+  GlobalVariable *GV = new GlobalVariable(
+      *M, m_ArrayType, true, GlobalVariable::LinkageTypes::InternalLinkage,
+      initializer, Twine(m_Alloca->getName()) + ".hca");
   GV->setUnnamedAddr(true);
   return GV;
 }
@@ -204,15 +200,15 @@ void CandidateArray::GetArrayStores(GEPOperator *gep,
   for (User *GU : gep->users()) {
     if (StoreInst *SI = dyn_cast<StoreInst>(GU)) {
       stores.push_back(SI);
-    }
-    else if (GEPOperator *GEPI = dyn_cast<GEPOperator>(GU)) {
+    } else if (GEPOperator *GEPI = dyn_cast<GEPOperator>(GU)) {
       GetArrayStores(GEPI, stores);
     }
   }
 }
 // Check to see that all the users of the array are GEPs or lifetime intrinsics.
 // If so, populate the `geps` vector with a list of all geps that use the array.
-bool CandidateArray::AllArrayUsersAreGEPOrLifetime(std::vector<GEPOperator *> &geps) {
+bool CandidateArray::AllArrayUsersAreGEPOrLifetime(
+    std::vector<GEPOperator *> &geps) {
   for (User *U : m_Alloca->users()) {
     // Allow users that are only used by lifetime intrinsics.
     if (isa<BitCastInst>(U) && onlyUsedByLifetimeMarkers(U))
@@ -240,12 +236,10 @@ bool CandidateArray::AllGEPUsersAreValid(GEPOperator *gep) {
     if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
       if (!AnalyzeStore(SI))
         return false;
-    }
-    else if (GEPOperator *recursive_gep = dyn_cast<GEPOperator>(U)) {
+    } else if (GEPOperator *recursive_gep = dyn_cast<GEPOperator>(U)) {
       if (!AllGEPUsersAreValid(recursive_gep))
         return false;
-    }
-    else if (!isa<LoadInst>(U)) {
+    } else if (!isa<LoadInst>(U)) {
       return false;
     }
   }
@@ -293,8 +287,7 @@ bool CandidateArray::AnalyzeStore(StoreInst *SI) {
       ConstantInt *ptrOffset = cast<ConstantInt>(gep->getOperand(1));
       if (!ptrOffset->isZero())
         return false;
-    }
-    else if (gep->getNumIndices() != 1) {
+    } else if (gep->getNumIndices() != 1) {
       return false;
     }
 
@@ -338,17 +331,17 @@ UndefValue *CandidateArray::UndefElement() {
   return UndefValue::get(m_ArrayType->getElementType());
 }
 
-
 // ----------------------------------------------------------------------------
 // Pass Implementation
 // ----------------------------------------------------------------------------
 
 // Find the allocas that are candidates for array hoisting in the function.
-std::vector<AllocaInst*> HoistConstantArray::findCandidateAllocas(Function &F) {
-  std::vector<AllocaInst*> candidates;
+std::vector<AllocaInst *>
+HoistConstantArray::findCandidateAllocas(Function &F) {
+  std::vector<AllocaInst *> candidates;
   for (Instruction &I : F.getEntryBlock())
     if (AllocaInst *allocaInst = isHoistableArrayAlloca(&I))
-        candidates.push_back(allocaInst);
+      candidates.push_back(allocaInst);
 
   return candidates;
 }
@@ -356,8 +349,9 @@ std::vector<AllocaInst*> HoistConstantArray::findCandidateAllocas(Function &F) {
 // Remove local stores to the array.
 // We remove them explicitly rather than relying on DCE to find they are dead.
 // Other uses (e.g. geps) can be easily cleaned up by DCE.
-void HoistConstantArray::removeLocalArrayStores(const CandidateArray &candidate) {
-  std::vector<StoreInst*> stores = candidate.GetArrayStores();
+void HoistConstantArray::removeLocalArrayStores(
+    const CandidateArray &candidate) {
+  std::vector<StoreInst *> stores = candidate.GetArrayStores();
   for (StoreInst *store : stores)
     store->eraseFromParent();
 }
@@ -391,7 +385,8 @@ bool HoistConstantArray::runOnFunction(Function &F) {
 }
 
 char HoistConstantArray::ID = 0;
-INITIALIZE_PASS(HoistConstantArray, "hlsl-hca", "Hoist constant arrays", false, false)
+INITIALIZE_PASS(HoistConstantArray, "hlsl-hca", "Hoist constant arrays", false,
+                false)
 
 bool HoistConstantArray::runOnModule(Module &M) {
   bool changed = false;
@@ -408,4 +403,3 @@ bool HoistConstantArray::runOnModule(Module &M) {
 ModulePass *llvm::createHoistConstantArrayPass() {
   return new HoistConstantArray();
 }
-

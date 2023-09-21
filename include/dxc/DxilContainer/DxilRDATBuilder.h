@@ -17,20 +17,20 @@
 
 namespace hlsl {
 
-// Like DXIL container, RDAT itself is a mini container that contains multiple RDAT parts
+// Like DXIL container, RDAT itself is a mini container that contains multiple
+// RDAT parts
 class DxilRDATBuilder {
   llvm::SmallVector<char, 1024> m_RDATBuffer;
   std::vector<std::unique_ptr<RDATPart>> m_Parts;
 
   StringBufferPart *m_pStringBufferPart = nullptr;
-  IndexArraysPart  *m_pIndexArraysPart  = nullptr;
-  RawBytesPart     *m_pRawBytesPart     = nullptr;
+  IndexArraysPart *m_pIndexArraysPart = nullptr;
+  RawBytesPart *m_pRawBytesPart = nullptr;
   RDATTable *m_pTables[(size_t)RDAT::RecordTableIndex::RecordTableCount] = {};
 
   bool m_bRecordDeduplicationEnabled = true;
 
-  template<typename T>
-  T *GetOrAddPart(T **ptrStorage) {
+  template <typename T> T *GetOrAddPart(T **ptrStorage) {
     if (!*ptrStorage) {
       m_Parts.emplace_back(llvm::make_unique<T>());
       *ptrStorage = reinterpret_cast<T *>(m_Parts.back().get());
@@ -41,9 +41,9 @@ class DxilRDATBuilder {
 public:
   DxilRDATBuilder(bool allowRecordDuplication);
 
-  template<typename T>
-  RDATTable *GetOrAddTable() {
-    RDATTable **tablePtr = &m_pTables[ (size_t)RDAT::RecordTraits<T>::TableIndex() ];
+  template <typename T> RDATTable *GetOrAddTable() {
+    RDATTable **tablePtr =
+        &m_pTables[(size_t)RDAT::RecordTraits<T>::TableIndex()];
     if (!*tablePtr) {
       m_Parts.emplace_back(llvm::make_unique<RDATTable>());
       *tablePtr = reinterpret_cast<RDATTable *>(m_Parts.back().get());
@@ -54,8 +54,7 @@ public:
     return *tablePtr;
   }
 
-  template<typename T>
-  uint32_t InsertRecord(const T &record) {
+  template <typename T> uint32_t InsertRecord(const T &record) {
     return GetOrAddTable<T>()->Insert(record);
   }
   uint32_t InsertString(llvm::StringRef str) {
@@ -67,12 +66,10 @@ public:
   hlsl::RDAT::BytesRef InsertBytesRef(llvm::StringRef data) {
     return GetRawBytesPart().InsertBytesRef(data.data(), data.size());
   }
-  template<typename T>
-  uint32_t InsertArray(T begin, T end) {
+  template <typename T> uint32_t InsertArray(T begin, T end) {
     return GetIndexArraysPart().AddIndex(begin, end);
   }
-  template<typename T>
-  uint32_t InsertArray(T arr) {
+  template <typename T> uint32_t InsertArray(T arr) {
     return InsertArray(arr.begin(), arr.end());
   }
 
@@ -82,9 +79,7 @@ public:
   IndexArraysPart &GetIndexArraysPart() {
     return *GetOrAddPart(&m_pIndexArraysPart);
   }
-  RawBytesPart &GetRawBytesPart() {
-    return *GetOrAddPart(&m_pRawBytesPart);
-  }
+  RawBytesPart &GetRawBytesPart() { return *GetOrAddPart(&m_pRawBytesPart); }
 
   struct SizeInfo {
     uint32_t sizeInBytes;
@@ -92,12 +87,9 @@ public:
   };
   SizeInfo ComputeSize() const;
 
-  uint32_t size() const {
-    return ComputeSize().sizeInBytes;
-  }
+  uint32_t size() const { return ComputeSize().sizeInBytes; }
 
   llvm::StringRef FinalizeAndGetData();
 };
 
 } // namespace hlsl
-

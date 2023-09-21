@@ -363,6 +363,23 @@ if( MSVC )
     if (LLVM_ENABLE_PEDANTIC)
       # No MSVC equivalent available
     endif (LLVM_ENABLE_PEDANTIC)
+
+    if (CLANG_CL)
+      append("-Wall -W -Wno-unused-parameter -Wwrite-strings -Wimplicit-fallthrough" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wcast-qual" CMAKE_CXX_FLAGS)
+
+      # Disable unknown pragma warnings because the output is just too long with them.
+      append("-Wno-unknown-pragmas" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+      add_flag_if_supported("-Wno-unused-but-set-variable" UNUSED_BUT_SET_VARIABLE)
+      append("-Wno-switch" CMAKE_CXX_FLAGS)
+
+      append("-Wmissing-field-initializers" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+      # enable warnings explicitly.
+      append("-Wnonportable-include-path -Wunused-function" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wtrigraphs -Wconstant-logical-operand -Wunused-variable" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    endif (CLANG_CL)
   endif (LLVM_ENABLE_WARNINGS)
   if (LLVM_ENABLE_WERROR)
     append("/WX" msvc_warning_flags)
@@ -391,7 +408,6 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
     # Colorize GCC output even with ninja's stdout redirection.
     if (CMAKE_COMPILER_IS_GNUCXX)
        append("-fdiagnostics-color" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
-       append("-std=c++11" CMAKE_CXX_FLAGS)
     endif (CMAKE_COMPILER_IS_GNUCXX)
 
     # Turn off missing field initializer warnings for gcc to avoid noise from
@@ -453,23 +469,7 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
   if (NOT LLVM_ENABLE_TIMESTAMPS)
     add_flag_if_supported("-Werror=date-time" WERROR_DATE_TIME)
   endif ()
-  if (LLVM_ENABLE_CXX1Y)
-    check_cxx_compiler_flag("-std=c++1y" CXX_SUPPORTS_CXX1Y)
-    append_if(CXX_SUPPORTS_CXX1Y "-std=c++1y" CMAKE_CXX_FLAGS)
-  else()
-    check_cxx_compiler_flag("-std=c++14" CXX_SUPPORTS_CXX14)
-    if (CXX_SUPPORTS_CXX14)
-      if (CYGWIN OR MINGW)
-        # MinGW and Cygwin are a bit stricter and lack things like
-        # 'strdup', 'stricmp', etc in c++11 mode.
-        append("-std=gnu++14" CMAKE_CXX_FLAGS)
-      else()
-        append("-std=c++14" CMAKE_CXX_FLAGS)
-      endif()
-    else()
-      message(FATAL_ERROR "LLVM requires C++11 support but the '-std=c++14' flag isn't supported.")
-    endif()
-  endif()
+
   if (LLVM_ENABLE_MODULES)
     set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
     set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fmodules -fcxx-modules")

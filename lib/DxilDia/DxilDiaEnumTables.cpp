@@ -15,7 +15,7 @@
 #include "DxilDiaSession.h"
 #include "DxilDiaTable.h"
 
-STDMETHODIMP dxil_dia::EnumTables::get_Count(_Out_ LONG *pRetVal) {
+STDMETHODIMP dxil_dia::EnumTables::get_Count(LONG *pRetVal) {
   *pRetVal = ((unsigned)Table::LastKind - (unsigned)Table::FirstKind) + 1;
   return S_OK;
 }
@@ -23,7 +23,8 @@ STDMETHODIMP dxil_dia::EnumTables::get_Count(_Out_ LONG *pRetVal) {
 STDMETHODIMP dxil_dia::EnumTables::Item(
     /* [in] */ VARIANT index,
     /* [retval][out] */ IDiaTable **table) {
-  // Avoid pulling in additional variant support (could have used VariantChangeType instead).
+  // Avoid pulling in additional variant support (could have used
+  // VariantChangeType instead).
   DWORD indexVal;
   switch (index.vt) {
   case VT_UI4:
@@ -48,10 +49,8 @@ STDMETHODIMP dxil_dia::EnumTables::Item(
   return hr;
 }
 
-STDMETHODIMP dxil_dia::EnumTables::Next(
-    ULONG celt,
-    IDiaTable **rgelt,
-    ULONG *pceltFetched) {
+STDMETHODIMP dxil_dia::EnumTables::Next(ULONG celt, IDiaTable **rgelt,
+                                        ULONG *pceltFetched) {
   DxcThreadMalloc TM(m_pMalloc);
   ULONG fetched = 0;
   while (fetched < celt && m_next <= (unsigned)Table::LastKind) {
@@ -80,7 +79,8 @@ STDMETHODIMP dxil_dia::EnumTables::Reset() {
 HRESULT dxil_dia::EnumTables::Create(
     /* [in] */ dxil_dia::Session *pSession,
     /* [out] */ IDiaEnumTables **ppEnumTables) {
-  *ppEnumTables = CreateOnMalloc<EnumTables>(pSession->GetMallocNoRef(), pSession);
+  *ppEnumTables =
+      CreateOnMalloc<EnumTables>(pSession->GetMallocNoRef(), pSession);
   if (*ppEnumTables == nullptr)
     return E_OUTOFMEMORY;
   (*ppEnumTables)->AddRef();

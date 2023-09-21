@@ -12,7 +12,8 @@
 #pragma once
 
 #include "dxc/DXIL/DxilConstants.h"
-#include "dxc/WinAdapter.h"
+
+#include <cstddef>
 
 #define RDAT_NULL_REF ((uint32_t)0xFFFFFFFF)
 
@@ -40,35 +41,38 @@ enum RuntimeDataVersion {
 };
 
 enum class RuntimeDataGroup : uint32_t {
-  Core    = 0,
+  Core = 0,
   PdbInfo = 1,
 };
 
-constexpr uint32_t RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup group, uint32_t id) {
-  return (((uint32_t)(group) << 16) | ((id) & 0xFFFF));
+constexpr uint32_t RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup group,
+                                           uint32_t id) {
+  return (((uint32_t)(group) << 16) | ((id)&0xFFFF));
 }
 
 enum class RuntimeDataPartType : uint32_t {
-  Invalid             = 0,
-  StringBuffer        = 1,
-  IndexArrays         = 2,
-  ResourceTable       = 3,
-  FunctionTable       = 4,
+  Invalid = 0,
+  StringBuffer = 1,
+  IndexArrays = 2,
+  ResourceTable = 3,
+  FunctionTable = 4,
   Last_1_3 = FunctionTable,
-  RawBytes            = 5,
-  SubobjectTable      = 6,
+  RawBytes = 5,
+  SubobjectTable = 6,
   Last_1_4 = SubobjectTable,
 
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
 
-  DxilPdbInfoTable        = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 1),
-  DxilPdbInfoSourceTable  = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 2),
-  DxilPdbInfoLibraryTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
+  DxilPdbInfoTable = RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 1),
+  DxilPdbInfoSourceTable =
+      RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 2),
+  DxilPdbInfoLibraryTable =
+      RDAT_PART_ID_WITH_GROUP(RuntimeDataGroup::PdbInfo, 3),
 };
 
-inline
-RuntimeDataPartType MaxPartTypeForValVer(unsigned Major, unsigned Minor) {
+inline RuntimeDataPartType MaxPartTypeForValVer(unsigned Major,
+                                                unsigned Minor) {
   return DXIL::CompareVersions(Major, Minor, 1, 3) < 0
              ? RuntimeDataPartType::Invalid // No RDAT before 1.3
          : DXIL::CompareVersions(Major, Minor, 1, 4) < 0
@@ -103,7 +107,7 @@ struct RuntimeDataHeader {
 };
 struct RuntimeDataPartHeader {
   RuntimeDataPartType Type;
-  uint32_t Size;  // Not including this header.  Must be 4-byte aligned.
+  uint32_t Size; // Not including this header.  Must be 4-byte aligned.
   // Followed by part data
   //  byte Data[ALIGN4(Size)];
 };
@@ -112,7 +116,7 @@ struct RuntimeDataPartHeader {
 // Stride allows for extending records, with forward and backward compatibility
 struct RuntimeDataTableHeader {
   uint32_t RecordCount;
-  uint32_t RecordStride;  // Must be 4-byte aligned.
+  uint32_t RecordStride; // Must be 4-byte aligned.
   // Followed by recordCount records of recordStride size
   // byte TableData[RecordCount * RecordStride];
 };
@@ -130,17 +134,19 @@ class TableReader {
 public:
   TableReader() : TableReader(nullptr, 0, 0) {}
   TableReader(const char *table, uint32_t count, uint32_t stride)
-    : m_table(table), m_count(count), m_stride(stride) {}
+      : m_table(table), m_count(count), m_stride(stride) {}
   void Init(const char *table, uint32_t count, uint32_t stride) {
-    m_table = table; m_count = count; m_stride = stride;
+    m_table = table;
+    m_count = count;
+    m_stride = stride;
   }
   const char *Data() const { return m_table; }
   uint32_t Count() const { return m_count; }
   uint32_t Stride() const { return m_stride; }
 
-  template<typename T> const T *Row(uint32_t index) const {
+  template <typename T> const T *Row(uint32_t index) const {
     if (Valid() && index < m_count && sizeof(T) <= m_stride)
-      return reinterpret_cast<const T*>(m_table + (m_stride * index));
+      return reinterpret_cast<const T *>(m_table + (m_stride * index));
     return nullptr;
   }
   bool Valid() const { return m_table && m_count && m_stride; }
@@ -179,9 +185,10 @@ public:
 
   IndexTableReader() : IndexTableReader(nullptr, 0) {}
   IndexTableReader(const uint32_t *table, uint32_t size)
-    : m_table(table), m_size(size) {}
+      : m_table(table), m_size(size) {}
   void Init(const uint32_t *table, uint32_t size) {
-    m_table = table; m_size = size;
+    m_table = table;
+    m_size = size;
   }
   IndexRow getRow(uint32_t i) const {
     if (Valid() && i < m_size - 1 && m_table[i] + i < m_size) {
@@ -198,14 +205,13 @@ public:
 class StringTableReader {
   const char *m_table = nullptr;
   uint32_t m_size = 0;
+
 public:
   void Init(const char *table, uint32_t size) {
     m_table = table;
     m_size = size;
   }
   const char *Get(uint32_t offset) const {
-    _Analysis_assume_(offset < m_size && m_table &&
-                      m_table[m_size - 1] == '\0');
     (void)m_size; // avoid unused private warning if use above is ignored.
     return m_table + offset;
   }
@@ -216,26 +222,25 @@ public:
 class RawBytesReader {
   const void *m_table;
   uint32_t m_size;
+
 public:
   RawBytesReader(const void *table, uint32_t size)
       : m_table(table), m_size(size) {}
   RawBytesReader() : RawBytesReader(nullptr, 0) {}
   void Init(const void *table, uint32_t size) {
-    m_table = table; m_size = size;
+    m_table = table;
+    m_size = size;
   }
   uint32_t Size() const { return m_size; }
   const void *Get(uint32_t offset) const {
-    _Analysis_assume_(offset < m_size && m_table);
-    (void)m_size; // avoid unused private warning if use above is ignored.
-    return (const void*)(((const char*)m_table) + offset);
+    return (const void *)(((const char *)m_table) + offset);
   }
 };
 
 ///////////////////////////////////////
 // Record Traits
 
-template<typename _T>
-class RecordTraits {
+template <typename _T> class RecordTraits {
 public:
   static constexpr const char *TypeName();
 
@@ -245,10 +250,13 @@ public:
   // RDAT_STRUCT is being used in ref type, which requires the struct to have
   // a table and be defined with RDAT_STRUCT_TABLE instead.
   static constexpr RecordTableIndex TableIndex();
-  
-  // RecordSize() is defined in order to allow for use of forward decl type in RecordRef
+
+  // RecordSize() is defined in order to allow for use of forward decl type in
+  // RecordRef
   static constexpr size_t RecordSize() { return sizeof(_T); }
-  static constexpr size_t MaxRecordSize() { return RecordTraits<_T>::DerivedRecordSize(); }
+  static constexpr size_t MaxRecordSize() {
+    return RecordTraits<_T>::DerivedRecordSize();
+  }
   static constexpr size_t DerivedRecordSize() { return sizeof(_T); }
 };
 
@@ -268,14 +276,16 @@ struct RDATContext {
   TableReader &Table(RecordTableIndex idx) {
     return const_cast<TableReader &>(((const RDATContext *)this)->Table(idx));
   }
-  template<typename RecordType>
-  const TableReader &Table() const {
-    static_assert(RecordTraits<RecordType>::TableIndex() < RecordTableIndex::RecordTableCount, "");
+  template <typename RecordType> const TableReader &Table() const {
+    static_assert(RecordTraits<RecordType>::TableIndex() <
+                      RecordTableIndex::RecordTableCount,
+                  "");
     return Table(RecordTraits<RecordType>::TableIndex());
   }
-  template<typename RecordType>
-  TableReader &Table() {
-    return const_cast<TableReader &>(((const RDATContext *)this)->Table(RecordTraits<RecordType>::TableIndex()));
+  template <typename RecordType> TableReader &Table() {
+    return const_cast<TableReader &>(
+        ((const RDATContext *)this)
+            ->Table(RecordTraits<RecordType>::TableIndex()));
   }
 };
 
@@ -288,15 +298,14 @@ protected:
   const void *m_pRecord = nullptr;
   uint32_t m_Size = 0;
 
-  template<typename _ReaderTy>
-  const _ReaderTy asReader() const {
-    if (*this && m_Size >= RecordTraits<typename _ReaderTy::RecordType>::RecordSize())
+  template <typename _ReaderTy> const _ReaderTy asReader() const {
+    if (*this &&
+        m_Size >= RecordTraits<typename _ReaderTy::RecordType>::RecordSize())
       return _ReaderTy(*this);
     return {};
   }
 
-  template<typename _T>
-  const _T *asRecord() const {
+  template <typename _T> const _T *asRecord() const {
     return static_cast<const _T *>(
         (*this && m_Size >= RecordTraits<_T>::RecordSize()) ? m_pRecord
                                                             : nullptr);
@@ -310,7 +319,7 @@ protected:
 
 public:
   BaseRecordReader(const RDATContext *ctx, const void *record, uint32_t size)
-    : m_pContext(ctx), m_pRecord(record), m_Size(size) {}
+      : m_pContext(ctx), m_pRecord(record), m_Size(size) {}
   BaseRecordReader() : BaseRecordReader(nullptr, nullptr, 0) {}
 
   // Is this a valid reader
@@ -320,10 +329,10 @@ public:
   const RDATContext *GetContext() const { return m_pContext; }
 };
 
-template<typename _ReaderTy>
-class RecordArrayReader {
+template <typename _ReaderTy> class RecordArrayReader {
   const RDATContext *m_pContext;
   const uint32_t m_IndexOffset;
+
 public:
   RecordArrayReader(const RDATContext *ctx, uint32_t indexOffset)
       : m_pContext(ctx), m_IndexOffset(indexOffset) {
@@ -361,9 +370,10 @@ public:
 class StringArrayReader {
   const RDATContext *m_pContext;
   const uint32_t m_IndexOffset;
+
 public:
   StringArrayReader(const RDATContext *pContext, uint32_t indexOffset)
-    : m_pContext(pContext), m_IndexOffset(indexOffset) {}
+      : m_pContext(pContext), m_IndexOffset(indexOffset) {}
   uint32_t Count() const {
     return *this ? m_pContext->IndexTable.getRow(m_IndexOffset).Count() : 0;
   }
@@ -383,31 +393,35 @@ public:
 ///////////////////////////////////////
 // Field Helpers
 
-template<typename _T>
-struct RecordRef {
+template <typename _T> struct RecordRef {
   uint32_t Index;
 
-  template<typename RecordType = _T>
+  template <typename RecordType = _T>
   const _T *Get(const RDATContext &ctx) const {
-    return ctx.Table<_T>(). template Row<RecordType>(Index);
+    return ctx.Table<_T>().template Row<RecordType>(Index);
   }
-  RecordRef &operator =(uint32_t index) { Index = index; return *this; }
-  operator uint32_t&() { return Index; }
-  operator const uint32_t&() const { return Index; }
-  uint32_t *operator &() { return &Index; }
+  RecordRef &operator=(uint32_t index) {
+    Index = index;
+    return *this;
+  }
+  operator uint32_t &() { return Index; }
+  operator const uint32_t &() const { return Index; }
+  uint32_t *operator&() { return &Index; }
 };
 
-template<typename _T>
-struct RecordArrayRef {
+template <typename _T> struct RecordArrayRef {
   uint32_t Index;
 
   RecordArrayReader<_T> Get(const RDATContext &ctx) const {
     return RecordArrayReader<_T>(ctx.IndexTable, ctx.Table<_T>(), Index);
   }
-  RecordArrayRef &operator =(uint32_t index) { Index = index; return *this; }
-  operator uint32_t&() { return Index; }
-  operator const uint32_t&() const { return Index; }
-  uint32_t *operator &() { return &Index; }
+  RecordArrayRef &operator=(uint32_t index) {
+    Index = index;
+    return *this;
+  }
+  operator uint32_t &() { return Index; }
+  operator const uint32_t &() const { return Index; }
+  uint32_t *operator&() { return &Index; }
 };
 
 struct RDATString {
@@ -416,10 +430,13 @@ struct RDATString {
   const char *Get(const RDATContext &ctx) const {
     return ctx.StringBuffer.Get(Offset);
   }
-  RDATString &operator =(uint32_t offset) { Offset = offset; return *this; }
-  operator uint32_t&() { return Offset; }
-  operator const uint32_t&() const { return Offset; }
-  uint32_t *operator &() { return &Offset; }
+  RDATString &operator=(uint32_t offset) {
+    Offset = offset;
+    return *this;
+  }
+  operator uint32_t &() { return Offset; }
+  operator const uint32_t &() const { return Offset; }
+  uint32_t *operator&() { return &Offset; }
 };
 
 struct RDATStringArray {
@@ -429,10 +446,13 @@ struct RDATStringArray {
     return StringArrayReader(&ctx, Index);
   }
   operator bool() const { return Index == 0 ? false : true; }
-  RDATStringArray &operator =(uint32_t index) { Index = index; return *this; }
-  operator uint32_t&() { return Index; }
-  operator const uint32_t&() const { return Index; }
-  uint32_t *operator &() { return &Index; }
+  RDATStringArray &operator=(uint32_t index) {
+    Index = index;
+    return *this;
+  }
+  operator uint32_t &() { return Index; }
+  operator const uint32_t &() const { return Index; }
+  uint32_t *operator&() { return &Index; }
 };
 
 struct IndexArrayRef {
@@ -441,10 +461,13 @@ struct IndexArrayRef {
   IndexTableReader::IndexRow Get(const RDATContext &ctx) const {
     return ctx.IndexTable.getRow(Index);
   }
-  IndexArrayRef &operator =(uint32_t index) { Index = index; return *this; }
-  operator uint32_t&() { return Index; }
-  operator const uint32_t&() const { return Index; }
-  uint32_t *operator &() { return &Index; }
+  IndexArrayRef &operator=(uint32_t index) {
+    Index = index;
+    return *this;
+  }
+  operator uint32_t &() { return Index; }
+  operator const uint32_t &() const { return Index; }
+  uint32_t *operator&() { return &Index; }
 };
 
 struct BytesRef {
@@ -454,71 +477,73 @@ struct BytesRef {
   const void *GetBytes(const RDATContext &ctx) const {
     return ctx.RawBytes.Get(Offset);
   }
-  template<typename _T>
-  const _T *GetAs(const RDATContext &ctx) const {
-    return (sizeof(_T) > Size) ? nullptr :
-      reinterpret_cast<const _T*>(ctx.RawBytes.Get(Offset));
+  template <typename _T> const _T *GetAs(const RDATContext &ctx) const {
+    return (sizeof(_T) > Size)
+               ? nullptr
+               : reinterpret_cast<const _T *>(ctx.RawBytes.Get(Offset));
   }
-  uint32_t *operator &() { return &Offset; }
+  uint32_t *operator&() { return &Offset; }
 };
 
 struct BytesPtr {
   const void *Ptr = nullptr;
   uint32_t Size = 0;
 
-  BytesPtr(const void *ptr, uint32_t size) :
-    Ptr(ptr), Size(size) {}
+  BytesPtr(const void *ptr, uint32_t size) : Ptr(ptr), Size(size) {}
   BytesPtr() : BytesPtr(nullptr, 0) {}
-  template<typename _T>
-  const _T *GetAs() const {
-    return (sizeof(_T) > Size) ? nullptr : reinterpret_cast<const _T*>(Ptr);
+  template <typename _T> const _T *GetAs() const {
+    return (sizeof(_T) > Size) ? nullptr : reinterpret_cast<const _T *>(Ptr);
   }
 };
 
 ///////////////////////////////////////
 // Record Helpers
 
-template<typename _RecordReader>
-class RecordReader : public BaseRecordReader {
+template <typename _RecordReader> class RecordReader : public BaseRecordReader {
 public:
   typedef _RecordReader ThisReaderType;
   RecordReader(const BaseRecordReader &base) : BaseRecordReader(base) {
     typedef typename _RecordReader::RecordType RecordType;
-    if ((m_pContext || m_pRecord) && m_Size < RecordTraits<RecordType>::RecordSize())
+    if ((m_pContext || m_pRecord) &&
+        m_Size < RecordTraits<RecordType>::RecordSize())
       InvalidateReader();
   }
   RecordReader() : BaseRecordReader() {}
-  template<typename _ReaderType> _ReaderType as() { _ReaderType(*this); }
+  template <typename _ReaderType> _ReaderType as() { _ReaderType(*this); }
 
 protected:
-  template<typename _FieldRecordReader>
+  template <typename _FieldRecordReader>
   _FieldRecordReader GetField_RecordValue(const void *pField) const {
     if (*this) {
       return _FieldRecordReader(BaseRecordReader(
-          m_pContext, pField, (uint32_t)RecordTraits<typename _FieldRecordReader::RecordType>::RecordSize()));
+          m_pContext, pField,
+          (uint32_t)RecordTraits<
+              typename _FieldRecordReader::RecordType>::RecordSize()));
     }
     return {};
   }
-  template<typename _FieldRecordReader>
+  template <typename _FieldRecordReader>
   _FieldRecordReader GetField_RecordRef(const void *pIndex) const {
     typedef typename _FieldRecordReader::RecordType RecordType;
     if (*this) {
       const TableReader &Table = m_pContext->Table<RecordType>();
       return _FieldRecordReader(BaseRecordReader(
-          m_pContext, (const void *)Table.Row<RecordType>(*(const uint32_t*)pIndex),
+          m_pContext,
+          (const void *)Table.Row<RecordType>(*(const uint32_t *)pIndex),
           Table.Stride()));
     }
     return {};
   }
-  template<typename _FieldRecordReader>
-  RecordArrayReader<_FieldRecordReader> GetField_RecordArrayRef(const void *pIndex) const {
+  template <typename _FieldRecordReader>
+  RecordArrayReader<_FieldRecordReader>
+  GetField_RecordArrayRef(const void *pIndex) const {
     if (*this) {
       return RecordArrayReader<_FieldRecordReader>(m_pContext,
                                                    *(const uint32_t *)pIndex);
     }
     return {};
   }
-  template<typename _T, typename _StorageTy>
+  template <typename _T, typename _StorageTy>
   _T GetField_Value(const _StorageTy *value) const {
     _T result = {};
     if (*this)
@@ -533,34 +558,36 @@ protected:
   }
   // Would use std::array, but don't want this header dependent on that.
   // Array reference syntax is almost enough reason to abandon C++!!!
-  template<typename _T, size_t _ArraySize>
-  decltype(auto) GetField_ValueArray(_T const(&value)[_ArraySize])const {
+  template <typename _T, size_t _ArraySize>
+  decltype(auto) GetField_ValueArray(_T const (&value)[_ArraySize]) const {
     typedef _T ArrayType[_ArraySize];
     if (*this)
       return value;
-    return *(const ArrayType*)nullptr;
+    return *(const ArrayType *)nullptr;
   }
   const char *GetField_String(const void *pIndex) const {
-    return *this ? m_pContext->StringBuffer.Get(*(const uint32_t*)pIndex) : nullptr;
+    return *this ? m_pContext->StringBuffer.Get(*(const uint32_t *)pIndex)
+                 : nullptr;
   }
   StringArrayReader GetField_StringArray(const void *pIndex) const {
     return *this ? StringArrayReader(m_pContext, *(const uint32_t *)pIndex)
                  : StringArrayReader(nullptr, 0);
   }
   const void *GetField_Bytes(const void *pIndex) const {
-    return *this ? m_pContext->RawBytes.Get(*(const uint32_t*)pIndex) : nullptr;
+    return *this ? m_pContext->RawBytes.Get(*(const uint32_t *)pIndex)
+                 : nullptr;
   }
   uint32_t GetField_BytesSize(const void *pIndex) const {
-    return *this ? *(((const uint32_t*)pIndex) + 1) : 0;
+    return *this ? *(((const uint32_t *)pIndex) + 1) : 0;
   }
 };
 
-template<typename _RecordReader>
-class RecordTableReader {
+template <typename _RecordReader> class RecordTableReader {
   const RDATContext *m_pContext;
+
 public:
   RecordTableReader(const RDATContext *pContext) : m_pContext(pContext) {}
-  template<typename RecordReaderType = _RecordReader>
+  template <typename RecordReaderType = _RecordReader>
   RecordReaderType Row(uint32_t index) const {
     typedef typename _RecordReader::RecordType RecordType;
     const TableReader &Table = m_pContext->Table<RecordType>();
@@ -574,7 +601,6 @@ public:
   const _RecordReader operator[](uint32_t index) const { return Row(index); }
   operator bool() { return m_pContext && Count(); }
 };
-
 
 /////////////////////////////
 // All RDAT enums and types
@@ -620,9 +646,7 @@ public:
   }
 #define DEF_RDAT_TYPES DEF_RDAT_DEFAULTS
 #include "dxc/DxilContainer/RDAT_Macros.inl"
-
 };
-
 
 //////////////////////////////////
 /// structures for library runtime
@@ -634,22 +658,22 @@ struct DxilResourceDesc {
   uint32_t Space;
   uint32_t UpperBound;
   uint32_t LowerBound;
-  LPCWSTR Name;
+  const wchar_t *Name;
   uint32_t Flags; // hlsl::RDAT::DxilResourceFlag
 };
 
 typedef const DxilResourceDesc *const *DxilResourceDescPtrArray;
 
 struct DxilFunctionDesc {
-  LPCWSTR Name;
-  LPCWSTR UnmangledName;
+  const wchar_t *Name;
+  const wchar_t *UnmangledName;
   uint32_t NumResources;
   uint32_t NumFunctionDependencies;
   DxilResourceDescPtrArray Resources;
-  const LPCWSTR *FunctionDependencies;
+  const wchar_t *const *FunctionDependencies;
   DXIL::ShaderKind ShaderKind;
-  uint32_t PayloadSizeInBytes;   // 1) hit, miss, or closest shader: payload count
-                                 // 2) call shader: parameter size
+  uint32_t PayloadSizeInBytes; // 1) hit, miss, or closest shader: payload count
+                               // 2) call shader: parameter size
   uint32_t AttributeSizeInBytes; // attribute size for closest hit and any hit
   uint32_t FeatureInfo1;         // first 32 bits of feature flag
   uint32_t FeatureInfo2;         // second 32 bits of feature flag
@@ -658,20 +682,20 @@ struct DxilFunctionDesc {
 };
 
 struct DxilSubobjectDesc {
-  LPCWSTR Name;
-  DXIL::SubobjectKind Kind;         // D3D12_STATE_SUBOBJECT_TYPE
+  const wchar_t *Name;
+  DXIL::SubobjectKind Kind; // D3D12_STATE_SUBOBJECT_TYPE
 
   struct StateObjectConfig_t {
-    uint32_t Flags;   // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
+    uint32_t Flags; // DXIL::StateObjectFlags / D3D12_STATE_OBJECT_FLAGS
   };
   struct RootSignature_t {
-    LPCVOID pSerializedSignature;
+    const void *pSerializedSignature;
     uint32_t SizeInBytes;
-  };    // GlobalRootSignature or LocalRootSignature
+  }; // GlobalRootSignature or LocalRootSignature
   struct SubobjectToExportsAssociation_t {
-    LPCWSTR Subobject;
+    const wchar_t *Subobject;
     uint32_t NumExports;
-    const LPCWSTR* Exports;
+    const wchar_t *const *Exports;
   };
   struct RaytracingShaderConfig_t {
     uint32_t MaxPayloadSizeInBytes;
@@ -681,20 +705,21 @@ struct DxilSubobjectDesc {
     uint32_t MaxTraceRecursionDepth;
   };
   struct HitGroup_t {
-    DXIL::HitGroupType Type;        // D3D12_HIT_GROUP_TYPE
-    LPCWSTR AnyHit;
-    LPCWSTR ClosestHit;
-    LPCWSTR Intersection;
+    DXIL::HitGroupType Type; // D3D12_HIT_GROUP_TYPE
+    const wchar_t *AnyHit;
+    const wchar_t *ClosestHit;
+    const wchar_t *Intersection;
   };
 
   struct RaytracingPipelineConfig1_t {
     uint32_t MaxTraceRecursionDepth;
-    uint32_t Flags; // DXIL::RaytracingPipelineFlags / D3D12_RAYTRACING_PIPELINE_FLAGS
+    uint32_t Flags; // DXIL::RaytracingPipelineFlags /
+                    // D3D12_RAYTRACING_PIPELINE_FLAGS
   };
 
   union {
     StateObjectConfig_t StateObjectConfig;
-    RootSignature_t RootSignature;    // GlobalRootSignature or LocalRootSignature
+    RootSignature_t RootSignature; // GlobalRootSignature or LocalRootSignature
     SubobjectToExportsAssociation_t SubobjectToExportsAssociation;
     RaytracingShaderConfig_t RaytracingShaderConfig;
     RaytracingPipelineConfig_t RaytracingPipelineConfig;

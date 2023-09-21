@@ -1,5 +1,8 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
-cmake_minimum_required(VERSION 3.10) # HLSL Change - Require CMake 3.10.
+cmake_minimum_required(VERSION 3.17.2) # HLSL Change - Require CMake 3.17.2.
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
   include(${DXC_CMAKE_BEGINS_INCLUDE})
@@ -114,6 +117,11 @@ if(WIN32)
 add_compile_options(/guard:cf)
 add_link_options(/guard:cf)
 endif(WIN32)
+
+# Enable CET Shadow Stack
+if(WIN32 AND NOT (CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "ARM.*"))
+  add_link_options(/CETCOMPAT)
+endif()
 
 # HLSL Change Ends
 
@@ -390,6 +398,8 @@ option(LLVM_INCLUDE_EXAMPLES "Generate build targets for the LLVM examples" ON)
 option(LLVM_BUILD_TESTS
   "Build LLVM unit tests. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_TESTS "Generate build targets for the LLVM unit tests." ON)
+
+option(HLSL_INCLUDE_TESTS  "Generate build targets for the HLSL unit tests." ON)
 
 option (LLVM_BUILD_DOCS "Build the llvm documentation." OFF)
 option (LLVM_INCLUDE_DOCS "Generate build targets for llvm documentation." ON)

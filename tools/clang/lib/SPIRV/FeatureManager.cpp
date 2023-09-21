@@ -172,6 +172,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::EXT_fragment_fully_covered)
       .Case("SPV_EXT_fragment_invocation_density",
             Extension::EXT_fragment_invocation_density)
+      .Case("SPV_EXT_fragment_shader_interlock",
+            Extension::EXT_fragment_shader_interlock)
       .Case("SPV_EXT_mesh_shader", Extension::EXT_mesh_shader)
       .Case("SPV_EXT_shader_stencil_export",
             Extension::EXT_shader_stencil_export)
@@ -228,6 +230,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_EXT_fragment_fully_covered";
   case Extension::EXT_fragment_invocation_density:
     return "SPV_EXT_fragment_invocation_density";
+  case Extension::EXT_fragment_shader_interlock:
+    return "SPV_EXT_fragment_shader_interlock";
   case Extension::EXT_mesh_shader:
     return "SPV_EXT_mesh_shader";
   case Extension::EXT_shader_stencil_export:
@@ -342,7 +346,8 @@ bool FeatureManager::enabledByDefault(Extension ext) {
   case Extension::EXT_demote_to_helper_invocation:
     return false;
   case Extension::EXT_mesh_shader:
-    // Enabling EXT_mesh_shader only when the target environment is SPIR-V 1.4 or above
+    // Enabling EXT_mesh_shader only when the target environment is SPIR-V 1.4
+    // or above
     return false;
   default:
     return true;

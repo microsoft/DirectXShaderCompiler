@@ -18,7 +18,6 @@ add_clang_unittest(ClangSPIRVTests
   SpirvConstantTest.cpp
   StringTest.cpp
   TestMain.cpp
-  WholeFileTestFixture.cpp
   )
 
 target_link_libraries(ClangSPIRVTests

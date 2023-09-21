@@ -11,13 +11,15 @@
 
 #pragma once
 
-#include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/DXIL/DxilSemantic.h"
-#include "dxc/DXIL/DxilInterpolationMode.h"
+#include "Support/DXIncludes.h"
+
 #include "dxc/DXIL/DxilCompType.h"
-#include "dxc/DXIL/DxilSampler.h"
-#include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilInterpolationMode.h"
+#include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilSampler.h"
+#include "dxc/DXIL/DxilSemantic.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 
 #include "llvm/IR/Instructions.h"
 
@@ -25,10 +27,10 @@ namespace llvm {
 class Type;
 class LLVMContext;
 class Value;
-}
+} // namespace llvm
 
-#define DXASSERT_DXBC(__exp) DXASSERT(__exp, "otherwise incorrect assumption about DXBC")
-
+#define DXASSERT_DXBC(__exp)                                                   \
+  DXASSERT(__exp, "otherwise incorrect assumption about DXBC")
 
 namespace hlsl {
 
@@ -61,9 +63,12 @@ BYTE GetNumResCoords(DxilResource::Kind ResKind);
 BYTE GetNumResOffsets(DxilResource::Kind ResKind);
 
 CompType GetCompType(D3D_REGISTER_COMPONENT_TYPE CompTy);
-CompType GetCompTypeWithMinPrec(D3D_REGISTER_COMPONENT_TYPE BaseCompTy, D3D11_SB_OPERAND_MIN_PRECISION MinPrec);
-CompType GetCompTypeWithMinPrec(CompType BaseCompTy, D3D11_SB_OPERAND_MIN_PRECISION MinPrec);
-CompType GetCompTypeFromMinPrec(D3D11_SB_OPERAND_MIN_PRECISION MinPrec, CompType DefaultPrecCompType);
+CompType GetCompTypeWithMinPrec(D3D_REGISTER_COMPONENT_TYPE BaseCompTy,
+                                D3D11_SB_OPERAND_MIN_PRECISION MinPrec);
+CompType GetCompTypeWithMinPrec(CompType BaseCompTy,
+                                D3D11_SB_OPERAND_MIN_PRECISION MinPrec);
+CompType GetCompTypeFromMinPrec(D3D11_SB_OPERAND_MIN_PRECISION MinPrec,
+                                CompType DefaultPrecCompType);
 
 CompType GetResCompType(D3D10_SB_RESOURCE_RETURN_TYPE CompTy);
 CompType GetDeclResCompType(D3D10_SB_RESOURCE_RETURN_TYPE CompTy);
@@ -82,11 +87,12 @@ bool IsCompareExchAtomicBinOp(D3D10_SB_OPCODE_TYPE DxbcOpCode);
 bool HasFeedback(D3D10_SB_OPCODE_TYPE OpCode);
 unsigned GetResourceSlot(D3D10_SB_OPCODE_TYPE OpCode);
 
-DXIL::BarrierMode GetBarrierMode(bool bSyncThreadGroup, bool bUAVFenceGlobal, 
+DXIL::BarrierMode GetBarrierMode(bool bSyncThreadGroup, bool bUAVFenceGlobal,
                                  bool bUAVFenceThreadGroup, bool bTGSMFence);
 
 DXIL::InputPrimitive GetInputPrimitive(D3D10_SB_PRIMITIVE Primitive);
-DXIL::PrimitiveTopology GetPrimitiveTopology(D3D10_SB_PRIMITIVE_TOPOLOGY Topology);
+DXIL::PrimitiveTopology
+GetPrimitiveTopology(D3D10_SB_PRIMITIVE_TOPOLOGY Topology);
 
 const char *GetD3D10SBName(D3D10_SB_NAME D3DName);
 unsigned GetD3D10SBSemanticIndex(D3D10_SB_NAME D3DName);
@@ -94,12 +100,14 @@ D3D_REGISTER_COMPONENT_TYPE GetD3DRegCompType(D3D10_SB_NAME D3DName);
 const char *GetSemanticNameFromD3DName(D3D_NAME D3DName);
 unsigned GetSemanticIndexFromD3DName(D3D_NAME D3DName);
 
-DXIL::TessellatorDomain GetTessellatorDomain(D3D11_SB_TESSELLATOR_DOMAIN TessDomain);
-DXIL::TessellatorPartitioning GetTessellatorPartitioning(D3D11_SB_TESSELLATOR_PARTITIONING TessPartitioning);
-DXIL::TessellatorOutputPrimitive GetTessellatorOutputPrimitive(D3D11_SB_TESSELLATOR_OUTPUT_PRIMITIVE TessOutputPrimitive);
+DXIL::TessellatorDomain
+GetTessellatorDomain(D3D11_SB_TESSELLATOR_DOMAIN TessDomain);
+DXIL::TessellatorPartitioning
+GetTessellatorPartitioning(D3D11_SB_TESSELLATOR_PARTITIONING TessPartitioning);
+DXIL::TessellatorOutputPrimitive GetTessellatorOutputPrimitive(
+    D3D11_SB_TESSELLATOR_OUTPUT_PRIMITIVE TessOutputPrimitive);
 
 } // namespace DXBC
-
 
 /// Use this class to represent DXBC register component mask.
 class CMask {
@@ -138,21 +146,21 @@ protected:
   BYTE m_Mask;
 };
 
-
 /// Use this class to pass around DXBC register component values.
 class OperandValue {
   friend class OperandValueHelper;
-  typedef llvm::Value * PValue;
+  typedef llvm::Value *PValue;
   PValue m_pVal[DXBC::kWidth];
+
 public:
   OperandValue();
   PValue &operator[](BYTE c);
   const PValue &operator[](BYTE c) const;
 };
 
-
-/// \brief Use this one-time-iterator class to set up component values of input operands, 
-/// replicating the same value to all components with the same swizzled name.
+/// \brief Use this one-time-iterator class to set up component values of input
+/// operands, replicating the same value to all components with the same
+/// swizzled name.
 ///
 /// After creation an instance serves as an iterator to iterate through
 /// uniques components and set their values in the OperandValue instance.
@@ -168,7 +176,8 @@ public:
 class OperandValueHelper {
 public:
   OperandValueHelper();
-  OperandValueHelper(OperandValue &OpValue, const CMask &Mask, const D3D10ShaderBinary::COperandBase &O);
+  OperandValueHelper(OperandValue &OpValue, const CMask &Mask,
+                     const D3D10ShaderBinary::COperandBase &O);
 
   /// Returns the value of the current active wrt to Mask component.
   BYTE GetComp() const;
@@ -176,7 +185,8 @@ public:
   bool IsDone() const;
   /// Advances the iterator to the next unique, active component.
   void Advance();
-  /// Sets the value of all active components with the same swizzle name in OperandValue OpValue.
+  /// Sets the value of all active components with the same swizzle name in
+  /// OperandValue OpValue.
   void SetValue(llvm::Value *pValue);
 
 private:
