@@ -12054,24 +12054,24 @@ SpirvConstant *SpirvEmitter::tryToEvaluateAsConst(const Expr *expr) {
   return nullptr;
 }
 
-hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName)
-{
-  hlsl::ShaderModel::Kind SMK = llvm::StringSwitch<hlsl::ShaderModel::Kind>(stageName)
-      .Case("pixel", hlsl::ShaderModel::Kind::Pixel)
-      .Case("vertex", hlsl::ShaderModel::Kind::Vertex)
-      .Case("geometry", hlsl::ShaderModel::Kind::Geometry)
-      .Case("hull", hlsl::ShaderModel::Kind::Hull)
-      .Case("domain", hlsl::ShaderModel::Kind::Domain)
-      .Case("compute", hlsl::ShaderModel::Kind::Compute)
-      .Case("raygeneration", hlsl::ShaderModel::Kind::RayGeneration)
-      .Case("intersection", hlsl::ShaderModel::Kind::Intersection)
-      .Case("anyhit", hlsl::ShaderModel::Kind::AnyHit)
-      .Case("closesthit", hlsl::ShaderModel::Kind::ClosestHit)
-      .Case("miss", hlsl::ShaderModel::Kind::Miss)
-      .Case("callable", hlsl::ShaderModel::Kind::Callable)
-      .Case("mesh", hlsl::ShaderModel::Kind::Mesh)
-      .Case("amplification", hlsl::ShaderModel::Kind::Amplification)
-      .Default(hlsl::ShaderModel::Kind::Invalid);
+hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
+  hlsl::ShaderModel::Kind SMK =
+      llvm::StringSwitch<hlsl::ShaderModel::Kind>(stageName)
+          .Case("pixel", hlsl::ShaderModel::Kind::Pixel)
+          .Case("vertex", hlsl::ShaderModel::Kind::Vertex)
+          .Case("geometry", hlsl::ShaderModel::Kind::Geometry)
+          .Case("hull", hlsl::ShaderModel::Kind::Hull)
+          .Case("domain", hlsl::ShaderModel::Kind::Domain)
+          .Case("compute", hlsl::ShaderModel::Kind::Compute)
+          .Case("raygeneration", hlsl::ShaderModel::Kind::RayGeneration)
+          .Case("intersection", hlsl::ShaderModel::Kind::Intersection)
+          .Case("anyhit", hlsl::ShaderModel::Kind::AnyHit)
+          .Case("closesthit", hlsl::ShaderModel::Kind::ClosestHit)
+          .Case("miss", hlsl::ShaderModel::Kind::Miss)
+          .Case("callable", hlsl::ShaderModel::Kind::Callable)
+          .Case("mesh", hlsl::ShaderModel::Kind::Mesh)
+          .Case("amplification", hlsl::ShaderModel::Kind::Amplification)
+          .Default(hlsl::ShaderModel::Kind::Invalid);
   assert(SMK != hlsl::ShaderModel::Kind::Invalid);
   return SMK;
 }
