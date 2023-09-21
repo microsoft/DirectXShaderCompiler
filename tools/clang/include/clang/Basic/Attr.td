@@ -984,6 +984,40 @@ def HLSLNodeTrackRWInputSharing : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLNodeRecord : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+
+  let Args = [EnumArgument<"Type", "RecordType",
+                           ["DispatchNodeInputRecord",
+                           "RWDispatchNodeInputRecord",
+                           "GroupNodeInputRecords",
+                           "RWGroupNodeInputRecords",
+                           "ThreadNodeInputRecord",
+                           "RWThreadNodeInputRecord",
+                           "EmptyNodeInput",
+                           "NodeOutput",
+                           "EmptyNodeOutput",
+                           "NodeOutputArray",
+                           "EmptyNodeOutputArray",
+                           "GroupNodeOutputRecords",
+                           "ThreadNodeOutputRecords"],
+                           ["DispatchNodeInputRecord",
+                           "RWDispatchNodeInputRecord",
+                           "GroupNodeInputRecords",
+                           "RWGroupNodeInputRecords",
+                           "ThreadNodeInputRecord",
+                           "RWThreadNodeInputRecord",
+                           "EmptyNodeInput",
+                           "NodeOutput",
+                           "EmptyNodeOutput",
+                           "NodeOutputArray",
+                           "EmptyNodeOutputArray",
+                           "GroupNodeOutputRecords",
+                           "ThreadNodeOutputRecords"]>];
+}
+
 
 // HLSL Parameter Attributes
 

@@ -344,7 +344,7 @@ void AddHLSLVectorTemplate(clang::ASTContext &context,
                            clang::ClassTemplateDecl **vectorTemplateDecl);
 
 void AddHLSLNodeOutputRecordTemplate(
-    clang::ASTContext &context, llvm::StringRef templateName,
+    clang::ASTContext &context, DXIL::NodeIOKind Type,
     _Outptr_ clang::ClassTemplateDecl **outputRecordTemplateDecl,
     bool isCompleteType = true);
 
@@ -394,13 +394,13 @@ clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
                                           bool bSampler);
 
 clang::CXXRecordDecl *
-DeclareNodeOrRecordType(clang::ASTContext &Ctx, llvm::StringRef TypeName,
+DeclareNodeOrRecordType(clang::ASTContext &Ctx, DXIL::NodeIOKind Type,
                         bool IsRecordTypeTemplate = false, bool IsConst = false,
                         bool HasGetMethods = false, bool IsArray = false,
                         bool IsCompleteType = false);
 
 clang::CXXRecordDecl *DeclareNodeOutputArray(clang::ASTContext &Ctx,
-                                             llvm::StringRef TypeName,
+                                             DXIL::NodeIOKind Type,
                                              clang::CXXRecordDecl *OutputType,
                                              bool IsRecordTypeTemplate,
                                              bool IsCompleteType);
@@ -464,6 +464,8 @@ bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);
 bool IsHLSLRONodeInputRecordType(clang::QualType type);
 bool IsHLSLNodeOutputType(clang::QualType type);
+
+DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
 
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);

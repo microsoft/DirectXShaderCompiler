@@ -157,53 +157,14 @@ bool IsHLSLAggregateType(clang::QualType type) {
   return IsUserDefinedRecordType(type);
 }
 
-hlsl::NodeFlags GetNodeKind(llvm::StringRef nodekind) {
-  DXIL::NodeIOKind nodeKind =
-      llvm::StringSwitch<DXIL::NodeIOKind>(nodekind)
-          .Case("EmptyNodeInput", DXIL::NodeIOKind::EmptyInput)
-          .Case("DispatchNodeInputRecord",
-                DXIL::NodeIOKind::DispatchNodeInputRecord)
-          .Case("RWDispatchNodeInputRecord",
-                DXIL::NodeIOKind::RWDispatchNodeInputRecord)
-          .Case("GroupNodeInputRecords",
-                DXIL::NodeIOKind::GroupNodeInputRecords)
-          .Case("RWGroupNodeInputRecords",
-                DXIL::NodeIOKind::RWGroupNodeInputRecords)
-          .Case("ThreadNodeInputRecord",
-                DXIL::NodeIOKind::ThreadNodeInputRecord)
-          .Case("RWThreadNodeInputRecord",
-                DXIL::NodeIOKind::RWThreadNodeInputRecord)
-          .Case("NodeOutput", DXIL::NodeIOKind::NodeOutput)
-          .Case("NodeOutputArray", DXIL::NodeIOKind::NodeOutputArray)
-          .Case("EmptyNodeOutput", DXIL::NodeIOKind::EmptyOutput)
-          .Case("EmptyNodeOutputArray", DXIL::NodeIOKind::EmptyOutputArray)
-          .Case("ThreadNodeOutputRecords",
-                DXIL::NodeIOKind::ThreadNodeOutputRecords)
-          .Case("GroupNodeOutputRecords",
-                DXIL::NodeIOKind::GroupNodeOutputRecords)
-          .Default(DXIL::NodeIOKind::Invalid);
-
-  return NodeFlags(nodeKind);
-}
-
 bool GetHLSLNodeIORecordType(const ParmVarDecl *parmDecl, NodeFlags &nodeKind) {
   clang::QualType paramTy = parmDecl->getType().getCanonicalType();
 
   if (auto arrayType = dyn_cast<ConstantArrayType>(paramTy))
     paramTy = arrayType->getElementType();
 
-  llvm::StringRef name;
-  if (const RecordType *RT = dyn_cast<RecordType>(paramTy)) {
-    if (const ClassTemplateSpecializationDecl *templateDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
-      name = templateDecl->getName();
-    else
-      name = paramTy->getAsCXXRecordDecl()->getName();
-
-    nodeKind = GetNodeKind(name);
-    return nodeKind.IsValidNodeKind();
-  }
-  return false;
+  nodeKind = NodeFlags(GetNodeIOType(paramTy));
+  return nodeKind.IsValidNodeKind();
 }
 
 clang::QualType GetElementTypeOrType(clang::QualType type) {
@@ -645,15 +606,62 @@ bool IsHLSLResourceType(clang::QualType type) {
   return false;
 }
 
-bool IsHLSLNodeInputType(clang::QualType type) {
+static HLSLNodeRecordAttr *getNodeAttr(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "EmptyNodeInput" || name == "DispatchNodeInputRecord" ||
-        name == "RWDispatchNodeInputRecord" ||
-        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
-        name == "ThreadNodeInputRecord" || name == "RWThreadNodeInputRecord")
-      return true;
+    if (const auto *Spec =
+            dyn_cast<ClassTemplateSpecializationDecl>(RT->getDecl()))
+      if (const auto *Template =
+              dyn_cast<ClassTemplateDecl>(Spec->getSpecializedTemplate()))
+        return Template->getTemplatedDecl()->getAttr<HLSLNodeRecordAttr>();
+    if (const auto *Decl = dyn_cast<CXXRecordDecl>(RT->getDecl()))
+      return Decl->getAttr<HLSLNodeRecordAttr>();
   }
+  return nullptr;
+}
+
+DXIL::NodeIOKind GetNodeIOType(clang::QualType type) {
+  if (const HLSLNodeRecordAttr *Attr = getNodeAttr(type)) {
+    switch (Attr->getType()) {
+    case HLSLNodeRecordAttr::DispatchNodeInputRecord:
+      return DXIL::NodeIOKind::DispatchNodeInputRecord;
+    case HLSLNodeRecordAttr::RWDispatchNodeInputRecord:
+      return DXIL::NodeIOKind::RWDispatchNodeInputRecord;
+    case HLSLNodeRecordAttr::GroupNodeInputRecords:
+      return DXIL::NodeIOKind::GroupNodeInputRecords;
+    case HLSLNodeRecordAttr::RWGroupNodeInputRecords:
+      return DXIL::NodeIOKind::RWGroupNodeInputRecords;
+    case HLSLNodeRecordAttr::ThreadNodeInputRecord:
+      return DXIL::NodeIOKind::ThreadNodeInputRecord;
+    case HLSLNodeRecordAttr::RWThreadNodeInputRecord:
+      return DXIL::NodeIOKind::RWThreadNodeInputRecord;
+    case HLSLNodeRecordAttr::EmptyNodeInput:
+      return DXIL::NodeIOKind::EmptyInput;
+    case HLSLNodeRecordAttr::NodeOutput:
+      return DXIL::NodeIOKind::NodeOutput;
+    case HLSLNodeRecordAttr::EmptyNodeOutput:
+      return DXIL::NodeIOKind::EmptyOutput;
+    case HLSLNodeRecordAttr::NodeOutputArray:
+      return DXIL::NodeIOKind::NodeOutputArray;
+    case HLSLNodeRecordAttr::EmptyNodeOutputArray:
+      return DXIL::NodeIOKind::EmptyOutputArray;
+    case HLSLNodeRecordAttr::GroupNodeOutputRecords:
+      return DXIL::NodeIOKind::GroupNodeOutputRecords;
+    case HLSLNodeRecordAttr::ThreadNodeOutputRecords:
+      return DXIL::NodeIOKind::ThreadNodeOutputRecords;
+    }
+  }
+  return DXIL::NodeIOKind::Invalid;
+}
+
+bool IsHLSLNodeInputType(clang::QualType type) {
+  if (const HLSLNodeRecordAttr *Attr = getNodeAttr(type))
+    return Attr->getType() == HLSLNodeRecordAttr::EmptyNodeInput ||
+           Attr->getType() == HLSLNodeRecordAttr::DispatchNodeInputRecord ||
+           Attr->getType() == HLSLNodeRecordAttr::RWDispatchNodeInputRecord ||
+           Attr->getType() == HLSLNodeRecordAttr::GroupNodeInputRecords ||
+           Attr->getType() == HLSLNodeRecordAttr::RWGroupNodeInputRecords ||
+           Attr->getType() == HLSLNodeRecordAttr::ThreadNodeInputRecord ||
+           Attr->getType() == HLSLNodeRecordAttr::RWThreadNodeInputRecord;
   return false;
 }
 
@@ -666,21 +674,8 @@ bool IsHLSLDynamicResourceType(clang::QualType type) {
 }
 
 bool IsHLSLNodeType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "EmptyNodeInput" || name == "DispatchNodeInputRecord" ||
-        name == "RWDispatchNodeInputRecord" ||
-        name == "GroupNodeInputRecords" || name == "RWGroupNodeInputRecords" ||
-        name == "ThreadNodeInputRecord" || name == "RWThreadNodeInputRecord")
-      return true;
-
-    if (name == "NodeOutput" || name == "NodeOutputArray" ||
-        name == "EmptyNodeOutput" || name == "EmptyNodeOutputArray")
-      return true;
-
-    if (name == "ThreadNodeOutputRecords" || name == "GroupNodeOutputRecords")
-      return true;
-  }
+  if (const HLSLNodeRecordAttr *Attr = getNodeAttr(type))
+    return true;
   return false;
 }
 
@@ -704,32 +699,27 @@ bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type) {
 }
 
 bool IsHLSLRWNodeInputRecordType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "RWDispatchNodeInputRecord" ||
-        name == "RWGroupNodeInputRecords" || name == "RWThreadNodeInputRecord")
-      return true;
-  }
+  if (const HLSLNodeRecordAttr *Attr = getNodeAttr(type))
+    return Attr->getType() == HLSLNodeRecordAttr::RWDispatchNodeInputRecord ||
+           Attr->getType() == HLSLNodeRecordAttr::RWGroupNodeInputRecords ||
+           Attr->getType() == HLSLNodeRecordAttr::RWThreadNodeInputRecord;
   return false;
 }
 
 bool IsHLSLRONodeInputRecordType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "DispatchNodeInputRecord" || name == "GroupNodeInputRecords" ||
-        name == "ThreadNodeInputRecord")
-      return true;
-  }
+  if (const HLSLNodeRecordAttr *Attr = getNodeAttr(type))
+    return Attr->getType() == HLSLNodeRecordAttr::DispatchNodeInputRecord ||
+           Attr->getType() == HLSLNodeRecordAttr::GroupNodeInputRecords ||
+           Attr->getType() == HLSLNodeRecordAttr::ThreadNodeInputRecord;
   return false;
 }
 
 bool IsHLSLNodeOutputType(clang::QualType type) {
-  if (const RecordType *RT = type->getAs<RecordType>()) {
-    StringRef name = RT->getDecl()->getName();
-    if (name == "NodeOutput" || name == "NodeOutputArray" ||
-        name == "EmptyNodeOutput" || name == "EmptyNodeOutputArray")
-      return true;
-  }
+  if (const HLSLNodeRecordAttr *Attr = getNodeAttr(type))
+    return Attr->getType() == HLSLNodeRecordAttr::NodeOutput ||
+           Attr->getType() == HLSLNodeRecordAttr::NodeOutputArray ||
+           Attr->getType() == HLSLNodeRecordAttr::EmptyNodeOutput ||
+           Attr->getType() == HLSLNodeRecordAttr::EmptyNodeOutputArray;
   return false;
 }
 
