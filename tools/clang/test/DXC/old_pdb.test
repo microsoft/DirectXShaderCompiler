@@ -1,0 +1,7 @@
+// RUN: %dxc /dumpbin %S/Inputs/old_pdb.pdb | FileCheck %s
+
+// CHECK: define void @main
+
+// This test checks that a PDB container produced before the fix to the
+// incorrect BlockSize can still be read and dumped correctly.
+
