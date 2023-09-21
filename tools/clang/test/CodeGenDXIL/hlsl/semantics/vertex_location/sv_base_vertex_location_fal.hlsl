@@ -3,10 +3,10 @@
 
 // RUN: not %dxc -E main -T vs_6_8 %s 2>&1 | FileCheck %s
 
-// CHECK: SV_BaseVertexLocation must be integer
-// CHECK: SV_StartInstanceLocation must be integer
+// CHECK: SV_BaseVertexLocation must be int
+// CHECK: SV_StartInstanceLocation must be uint
 
-float4 main(float loc : SV_BaseVertexLocation
+float4 main(uint loc : SV_BaseVertexLocation
            , float loc2 : SV_StartInstanceLocation
            ) : SV_Position
 {

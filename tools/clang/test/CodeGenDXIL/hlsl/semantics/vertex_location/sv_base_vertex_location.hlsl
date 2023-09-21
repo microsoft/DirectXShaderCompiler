@@ -10,7 +10,7 @@
 // The input should be null
 // CHECK: ![[SIG]] = !{null,
 
-float4 main(uint loc : SV_BaseVertexLocation
+float4 main(int loc : SV_BaseVertexLocation
            , uint loc2 : SV_StartInstanceLocation
            ) : SV_Position
 {
