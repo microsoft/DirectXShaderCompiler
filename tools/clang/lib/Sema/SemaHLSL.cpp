@@ -11305,15 +11305,9 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 // performed after all attributs on the decl have been parsed.
 void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {  
   const llvm::StringRef &entryName = S->getLangOpts().HLSLEntryFunction;
-  StringRef functionName = "";
-  if (FD->getIdentifier())
-    functionName = FD->getName();
-  bool isEntry = false;
-  bool isNode = false;
-  bool isCS = false;
+  StringRef functionName = FD->getName();
   bool isLib = S->getLangOpts().IsHLSLLibrary;
-
-  isEntry =
+  bool isEntry =
       !isLib &&
       FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
       functionName == entryName;
@@ -11321,8 +11315,8 @@ void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
   auto *shaderAttribute = FD->getAttr<HLSLShaderAttr>();
   StringRef Literal = shaderAttribute->getStage();
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal);
-  isNode = Stage == DXIL::ShaderKind::Node;
-  isCS = Stage == DXIL::ShaderKind::Compute;
+  bool isNode = Stage == DXIL::ShaderKind::Node;
+  bool isCS = Stage == DXIL::ShaderKind::Compute;
 
   HLSLWaveSizeAttr *attr = FD->getAttr<HLSLWaveSizeAttr>();
 
@@ -12843,15 +12837,17 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
 HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
                                              const AttributeList &A) {
   // make sure we are in an appropriate shader model
-  const auto *SM =
-      hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile);
-  
+  const auto *SM = hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile);
+
   if (!SM->IsSM66Plus()) {
-    S.Diag(A.getLoc(), diag::err_hlsl_attribute_in_wrong_shader_model) << "wavesize" << "6.6";
+    S.Diag(A.getLoc(), diag::err_hlsl_attribute_in_wrong_shader_model)
+        << "wavesize"
+        << "6.6";
     return nullptr;
   }
 
-  // validate that the wavesize argument is a power of 2 between 4 and 128 inclusive
+  // validate that the wavesize argument is a power of 2 between 4 and 128
+  // inclusive
   HLSLWaveSizeAttr *pAttr = ::new (S.Context)
       HLSLWaveSizeAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
                        A.getAttributeSpellingListIndex());
