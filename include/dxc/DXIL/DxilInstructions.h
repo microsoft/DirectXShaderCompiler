@@ -9080,5 +9080,143 @@ struct DxilInst_GetRemainingRecursionLevels {
   // Metadata
   bool requiresUniformInputs() const { return false; }
 };
+
+/// This instruction samples a texture using a gradient and compares a single
+/// component against the specified comparison value
+struct DxilInst_SampleCmpGrad {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_SampleCmpGrad(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::SampleCmpGrad);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (18 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_srv = 1,
+    arg_sampler = 2,
+    arg_coord0 = 3,
+    arg_coord1 = 4,
+    arg_coord2 = 5,
+    arg_coord3 = 6,
+    arg_offset0 = 7,
+    arg_offset1 = 8,
+    arg_offset2 = 9,
+    arg_compareValue = 10,
+    arg_ddx0 = 11,
+    arg_ddx1 = 12,
+    arg_ddx2 = 13,
+    arg_ddy0 = 14,
+    arg_ddy1 = 15,
+    arg_ddy2 = 16,
+    arg_clamp = 17,
+  };
+  // Accessors
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(2); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_coord0() const { return Instr->getOperand(3); }
+  void set_coord0(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_coord1() const { return Instr->getOperand(4); }
+  void set_coord1(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_coord2() const { return Instr->getOperand(5); }
+  void set_coord2(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_coord3() const { return Instr->getOperand(6); }
+  void set_coord3(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_offset0() const { return Instr->getOperand(7); }
+  void set_offset0(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_offset1() const { return Instr->getOperand(8); }
+  void set_offset1(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_offset2() const { return Instr->getOperand(9); }
+  void set_offset2(llvm::Value *val) { Instr->setOperand(9, val); }
+  llvm::Value *get_compareValue() const { return Instr->getOperand(10); }
+  void set_compareValue(llvm::Value *val) { Instr->setOperand(10, val); }
+  llvm::Value *get_ddx0() const { return Instr->getOperand(11); }
+  void set_ddx0(llvm::Value *val) { Instr->setOperand(11, val); }
+  llvm::Value *get_ddx1() const { return Instr->getOperand(12); }
+  void set_ddx1(llvm::Value *val) { Instr->setOperand(12, val); }
+  llvm::Value *get_ddx2() const { return Instr->getOperand(13); }
+  void set_ddx2(llvm::Value *val) { Instr->setOperand(13, val); }
+  llvm::Value *get_ddy0() const { return Instr->getOperand(14); }
+  void set_ddy0(llvm::Value *val) { Instr->setOperand(14, val); }
+  llvm::Value *get_ddy1() const { return Instr->getOperand(15); }
+  void set_ddy1(llvm::Value *val) { Instr->setOperand(15, val); }
+  llvm::Value *get_ddy2() const { return Instr->getOperand(16); }
+  void set_ddy2(llvm::Value *val) { Instr->setOperand(16, val); }
+  llvm::Value *get_clamp() const { return Instr->getOperand(17); }
+  void set_clamp(llvm::Value *val) { Instr->setOperand(17, val); }
+};
+
+/// This instruction samples a texture after applying the input bias to the
+/// mipmap level and compares a single component against the specified
+/// comparison value
+struct DxilInst_SampleCmpBias {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_SampleCmpBias(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
+                                          hlsl::OP::OpCode::SampleCmpBias);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (13 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+  // Operand indexes
+  enum OperandIdx {
+    arg_srv = 1,
+    arg_sampler = 2,
+    arg_coord0 = 3,
+    arg_coord1 = 4,
+    arg_coord2 = 5,
+    arg_coord3 = 6,
+    arg_offset0 = 7,
+    arg_offset1 = 8,
+    arg_offset2 = 9,
+    arg_compareValue = 10,
+    arg_bias = 11,
+    arg_clamp = 12,
+  };
+  // Accessors
+  llvm::Value *get_srv() const { return Instr->getOperand(1); }
+  void set_srv(llvm::Value *val) { Instr->setOperand(1, val); }
+  llvm::Value *get_sampler() const { return Instr->getOperand(2); }
+  void set_sampler(llvm::Value *val) { Instr->setOperand(2, val); }
+  llvm::Value *get_coord0() const { return Instr->getOperand(3); }
+  void set_coord0(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_coord1() const { return Instr->getOperand(4); }
+  void set_coord1(llvm::Value *val) { Instr->setOperand(4, val); }
+  llvm::Value *get_coord2() const { return Instr->getOperand(5); }
+  void set_coord2(llvm::Value *val) { Instr->setOperand(5, val); }
+  llvm::Value *get_coord3() const { return Instr->getOperand(6); }
+  void set_coord3(llvm::Value *val) { Instr->setOperand(6, val); }
+  llvm::Value *get_offset0() const { return Instr->getOperand(7); }
+  void set_offset0(llvm::Value *val) { Instr->setOperand(7, val); }
+  llvm::Value *get_offset1() const { return Instr->getOperand(8); }
+  void set_offset1(llvm::Value *val) { Instr->setOperand(8, val); }
+  llvm::Value *get_offset2() const { return Instr->getOperand(9); }
+  void set_offset2(llvm::Value *val) { Instr->setOperand(9, val); }
+  llvm::Value *get_compareValue() const { return Instr->getOperand(10); }
+  void set_compareValue(llvm::Value *val) { Instr->setOperand(10, val); }
+  llvm::Value *get_bias() const { return Instr->getOperand(11); }
+  void set_bias(llvm::Value *val) { Instr->setOperand(11, val); }
+  llvm::Value *get_clamp() const { return Instr->getOperand(12); }
+  void set_clamp(llvm::Value *val) { Instr->setOperand(12, val); }
+};
 // INSTR-HELPER:END
 } // namespace hlsl
