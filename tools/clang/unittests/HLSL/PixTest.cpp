@@ -241,6 +241,7 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedStruct)
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedArray)
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
+  TEST_METHOD(DxcPixDxilDebugInfo_LexicalBlocks)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -1182,13 +1183,15 @@ static std::string ToString(std::wstring from)
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob* blob);
   CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob* blob);
   void CompileAndRunAnnotationAndGetDebugPart(
-      dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
+      dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile, IDxcIncludeHandler *includer,
       IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs = {});
   void CompileAndRunValueToDeclareAndGetDebugPart(
       dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+      IDxcIncludeHandler *includer,
       IDxcBlob **ppDebugPart);
   void CompileAndRunAnnotationAndLoadDiaSource(
-      dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
+      dxc::DxcDllSupport &dllSupport, const char *source,
+      const wchar_t *profile, IDxcIncludeHandler *includer,
       IDiaDataSource **ppDataSource,
       std::vector<const wchar_t *> extraArgs = {});
 
@@ -1200,7 +1203,8 @@ static std::string ToString(std::wstring from)
       const char *hlsl, const wchar_t * profile, const char *lineAtWhichToExamineVariables,
       std::vector<VariableComponentInfo> const &ExpectedVariables);
   CComPtr<IDxcPixDxilDebugInfo>
-  CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile);
+  CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
+                           IDxcIncludeHandler *includer = nullptr);
   CComPtr<IDxcPixDxilLiveVariables>
   GetLiveVariablesAt(const char *hlsl,
                      const char *lineAtWhichToExamineVariables,
@@ -1870,6 +1874,7 @@ static LPCWSTR defaultFilename = L"source.hlsl";
 
 static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
+                        IDxcIncludeHandler * includer,
                      _Outptr_ IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
@@ -1880,7 +1885,7 @@ static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
   Utf8ToBlob(dllSupport, pText, &pSource);
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, defaultFilename, L"main",
                                       pTargetProfile, args.data(), args.size(),
-                                      nullptr, 0, nullptr, &pResult));
+                                      nullptr, 0, includer, &pResult));
 
   VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
   if (FAILED(hrCompile)) {
@@ -1916,6 +1921,7 @@ static CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
 
 void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
     dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
+    IDxcIncludeHandler * includer,
     IDxcBlob **ppDebugPart) {
   CComPtr<IDxcBlob> pContainer;
   std::vector<LPCWSTR> args;
@@ -1923,7 +1929,7 @@ void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
   args.push_back(L"/Od");
   args.push_back(L"/Qembed_debug");
 
-  CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
+  CompileAndLogErrors(dllSupport, source, profile, args, includer , & pContainer);
 
   auto annotated = RunValueToDeclarePass(pContainer);
 
@@ -1934,7 +1940,8 @@ void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
 
 void PixTest::CompileAndRunAnnotationAndGetDebugPart(
     dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
-    IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs) {
+    IDxcIncludeHandler *includer, IDxcBlob **ppDebugPart,
+    std::vector<const wchar_t *> extraArgs) {
 
   CComPtr<IDxcBlob> pContainer;
   std::vector<LPCWSTR> args;
@@ -1942,7 +1949,7 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
   args.push_back(L"/Qembed_debug");
   args.insert(args.end(), extraArgs.begin(), extraArgs.end());
 
-  CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
+  CompileAndLogErrors(dllSupport, source, profile, args, includer, &pContainer);
 
   auto annotated = RunAnnotationPasses(pContainer);
 
@@ -1953,7 +1960,7 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
 
 void PixTest::CompileAndRunAnnotationAndLoadDiaSource(
     dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
-    IDiaDataSource **ppDataSource,
+    IDxcIncludeHandler *includer, IDiaDataSource **ppDataSource,
     std::vector<const wchar_t *> extraArgs) {
   CComPtr<IDxcBlob> pDebugContent;
   CComPtr<IStream> pStream;
@@ -1962,7 +1969,7 @@ void PixTest::CompileAndRunAnnotationAndLoadDiaSource(
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
 
   CompileAndRunAnnotationAndGetDebugPart(dllSupport, source, profile,
-                                         &pDebugContent, extraArgs);
+                                         includer, &pDebugContent, extraArgs);
   VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pDebugContent, &pStream));
   VERIFY_SUCCEEDED(
       dllSupport.CreateInstance(CLSID_DxcDiaDataSource, &pDiaSource));
@@ -2030,7 +2037,7 @@ void main()
 
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6", nullptr,
                                           &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
@@ -2074,6 +2081,7 @@ void main()
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          nullptr,
                                           &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
@@ -2117,6 +2125,7 @@ void main()
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          nullptr,
                                           &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
@@ -2186,6 +2195,7 @@ void main()
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          nullptr,
                                           &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
@@ -2240,6 +2250,7 @@ VSOut main( const uint id : SV_OutputControlPointID,
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"hs_6_0",
+                                          nullptr,
                                           &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
@@ -2368,6 +2379,7 @@ void MyMissShader(inout RayPayload payload)
 
   CComPtr<IDiaDataSource> pDiaDataSource;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
+                                          nullptr,
                                           &pDiaDataSource);
 
   CComPtr<IDiaSession> session;
@@ -2561,10 +2573,10 @@ static bool ContainedBy(std::vector<PixTest::VariableComponentInfo> const &v1,
   return true;
 }
 
-CComPtr<IDxcPixDxilDebugInfo> PixTest::CompileAndCreateDxcDebug(const char* hlsl, const wchar_t* profile) {
+CComPtr<IDxcPixDxilDebugInfo> PixTest::CompileAndCreateDxcDebug(const char* hlsl, const wchar_t* profile, IDxcIncludeHandler * includer) {
 
   CComPtr<IDiaDataSource> pDiaDataSource;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, profile,
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, profile, includer,
                                           &pDiaDataSource, {L"-Od"});
 
   CComPtr<IDiaSession> session;
@@ -3204,7 +3216,72 @@ void main()
   VERIFY_IS_TRUE(FoundTheVariable);
 }
 
-CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
+class DxcIncludeHandlerForInjectedSources : public IDxcIncludeHandler {
+private:
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
+
+public:
+  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DxcIncludeHandlerForInjectedSources() : m_dwRef(0){};
+  std::unordered_map<std::wstring, CComPtr<IDxcBlob>> includeFiles;
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+    return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+  }
+
+  HRESULT insertIncludeFile(_In_ LPCWSTR pFilename,
+                            _In_ IDxcBlobEncoding *pBlob, _In_ UINT32 dataLen) {
+    try {
+      includeFiles.try_emplace(std::wstring(pFilename), pBlob);
+    }
+    CATCH_CPP_RETURN_HRESULT()
+    return S_OK;
+  }
+
+  HRESULT STDMETHODCALLTYPE LoadSource(
+      _In_ LPCWSTR pFilename,
+      _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource) override {
+    try {
+      *ppIncludeSource = includeFiles.at(std::wstring(pFilename));
+      (*ppIncludeSource)->AddRef();
+    }
+    CATCH_CPP_RETURN_HRESULT()
+    return S_OK;
+  }
+};
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_LexicalBlocks) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+
+  CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler =
+      new DxcIncludeHandlerForInjectedSources();
+
+  const char *hlsl = R"(
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  struct
+  {
+    struct {
+      float fg;
+      RWStructuredBuffer<float> buf;
+    } contained;
+  } glbl = { {42.f, floatRWUAV} };
+  float f = glbl.contained.fg + glbl.contained.buf[1]; // InterestingLine
+  floatRWUAV[0] = f;
+}
+
+)";
+
+  auto dxilDebugger =
+      CompileAndCreateDxcDebug(hlsl, L"cs_6_0", pIncludeHandler);
+  
+}
+
+CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob * blob) {
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
