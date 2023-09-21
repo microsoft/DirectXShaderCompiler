@@ -2107,20 +2107,23 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
 
   for (Profile &p : profiles) {
     DxcBuffer SourceBuf = {};
-    SourceBuf.Ptr  = p.src.data();
+    SourceBuf.Ptr = p.src.data();
     SourceBuf.Size = p.src.size();
     SourceBuf.Encoding = CP_UTF8;
 
     CComPtr<IDxcResult> pResult;
-    VERIFY_SUCCEEDED(pCompiler->Compile(&SourceBuf, p.args.data(), p.args.size(), nullptr, IID_PPV_ARGS(&pResult)));
+    VERIFY_SUCCEEDED(pCompiler->Compile(&SourceBuf, p.args.data(),
+                                        p.args.size(), nullptr,
+                                        IID_PPV_ARGS(&pResult)));
 
     CComPtr<IDxcBlob> pPdb;
-    VERIFY_SUCCEEDED(pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+    VERIFY_SUCCEEDED(
+        pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
 
-    static const char kMsfMagic[] = {'M',  'i',  'c',    'r', 'o', 's',  'o',  'f',
-                                     't',  ' ',  'C',    '/', 'C', '+',  '+',  ' ',
-                                     'M',  'S',  'F',    ' ', '7', '.',  '0',  '0',
-                                     '\r', '\n', '\x1a', 'D', 'S', '\0', '\0', '\0'};
+    static const char kMsfMagic[] = {
+        'M', 'i', 'c',  'r',  'o',    's', 'o', 'f',  't',  ' ', 'C',
+        '/', 'C', '+',  '+',  ' ',    'M', 'S', 'F',  ' ',  '7', '.',
+        '0', '0', '\r', '\n', '\x1a', 'D', 'S', '\0', '\0', '\0'};
     struct MSF_SuperBlock {
       char MagicBytes[sizeof(kMsfMagic)];
       // The file system is split into a variable number of fixed size elements.
@@ -2142,9 +2145,11 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
     };
 
     VERIFY_IS_LESS_THAN_OR_EQUAL(sizeof(MSF_SuperBlock), pPdb->GetBufferSize());
-    VERIFY_ARE_EQUAL(0, memcmp(pPdb->GetBufferPointer(), kMsfMagic, sizeof(kMsfMagic)));
+    VERIFY_ARE_EQUAL(
+        0, memcmp(pPdb->GetBufferPointer(), kMsfMagic, sizeof(kMsfMagic)));
 
-    const MSF_SuperBlock *pSuperBlock = (const MSF_SuperBlock *)pPdb->GetBufferPointer();
+    const MSF_SuperBlock *pSuperBlock =
+        (const MSF_SuperBlock *)pPdb->GetBufferPointer();
     const uint32_t NumBlocks = pSuperBlock->NumBlocks;
     const uint32_t BlockSize = pSuperBlock->BlockSize;
 
