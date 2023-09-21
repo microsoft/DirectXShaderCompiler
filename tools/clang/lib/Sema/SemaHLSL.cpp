@@ -5361,7 +5361,7 @@ public:
       }
       return false;
 
-    } else if (Template->getTemplatedDecl()->hasAttr<HLSLNodeRecordAttr>()) {
+    } else if (Template->getTemplatedDecl()->hasAttr<HLSLNodeObjectAttr>()) {
 
       DXASSERT(TemplateArgList.size() == 1,
                "otherwise the template has not been declared properly");
