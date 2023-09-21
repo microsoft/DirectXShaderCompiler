@@ -2582,6 +2582,27 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadOnly,
     },
+
+    // Vertex shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
+    // udt,   obj ,  function attribute
+    {
+        OC::BaseVertexLocation,
+        "BaseVertexLocation",
+        OCC::BaseVertexLocation,
+        "baseVertexLocation",
+        {false, false, false, false, false, false, false, true, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::StartInstanceLocation,
+        "StartInstanceLocation",
+        OCC::StartInstanceLocation,
+        "startInstanceLocation",
+        {false, false, false, false, false, false, false, true, false, false,
+         false},
+        Attribute::ReadNone,
+    },
 };
 // OPCODE-OLOADS:END
 
@@ -3189,6 +3210,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     major = 6;
     minor = 8;
     mask = SFLAG(Node);
+    return;
+  }
+  // Instructions: BaseVertexLocation=256, StartInstanceLocation=257
+  if ((256 <= op && op <= 257)) {
+    major = 6;
+    minor = 8;
+    mask = SFLAG(Vertex);
     return;
   }
   // OPCODE-SMMASK:END
@@ -5336,6 +5364,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF32);
     A(pF32);
     break;
+
+    // Vertex shader
+  case OpCode::BaseVertexLocation:
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::StartInstanceLocation:
+    A(pI32);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -5596,6 +5634,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GeometryIndex:
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
+  case OpCode::BaseVertexLocation:
+  case OpCode::StartInstanceLocation:
     return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:

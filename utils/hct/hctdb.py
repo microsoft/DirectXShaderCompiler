@@ -491,6 +491,11 @@ class db_dxil(object):
         for i in "SampleCmpBias,SampleCmpGrad".split(","):
             self.name_idx[i].category = "Comparison Samples"
             self.name_idx[i].shader_model = 6,8
+        for i in "BaseVertexLocation,StartInstanceLocation".split(","):
+            self.name_idx[i].category = "Vertex shader"
+            self.name_idx[i].shader_stages = ("vertex",)
+            self.name_idx[i].shader_model = 6,8
+
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -2178,7 +2183,13 @@ class db_dxil(object):
             counters=('tex_cmp',))
         next_op_idx += 1
 
+        self.add_dxil_op("BaseVertexLocation", next_op_idx, "BaseVertexLocation", "returns the BaseVertexLocation for DrawIndexedInstanced", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
 
+        self.add_dxil_op("StartInstanceLocation", next_op_idx, "StartInstanceLocation", "returns the StartInstanceLocation for DrawIndexedInstanced", "i", "rn", [
+            db_dxil_param(0, "i32", "", "result")])
+        next_op_idx += 1
 
         # Set interesting properties.
         self.build_indices()
@@ -2598,7 +2609,9 @@ class db_dxil(object):
             (28, "Barycentrics", ""),
             (29, "ShadingRate", ""),
             (30, "CullPrimitive", ""),
-            (31, "Invalid", ""),
+            (31, "BaseVertexLocation", ""),
+            (32, "StartInstanceLocation", ""),
+            (33, "Invalid", ""),
             ])
         self.enums.append(SemanticKind)
         SigPointKind = db_dxil_enum("SigPointKind", "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.", [
@@ -2728,6 +2741,8 @@ class db_dxil(object):
             Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA,NA,NA,NA,NA
             ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA,NA,NA,SV,NA
             CullPrimitive,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NotPacked,NA
+            BaseVertexLocation,NotInSig _68,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            StartInstanceLocation,NotInSig _68,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular

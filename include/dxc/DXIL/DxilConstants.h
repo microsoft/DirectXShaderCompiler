@@ -245,6 +245,8 @@ enum class SemanticKind : unsigned {
   Barycentrics,
   ShadingRate,
   CullPrimitive,
+  BaseVertexLocation,
+  StartInstanceLocation,
   Invalid,
 };
 // SemanticKind-ENUM:END
@@ -892,6 +894,12 @@ enum class OpCode : unsigned {
   Unpack4x8 = 219, // unpacks 4 8-bit signed or unsigned values into int32 or
                    // int16 vector
 
+  // Vertex shader
+  BaseVertexLocation =
+      256, // returns the BaseVertexLocation for DrawIndexedInstanced
+  StartInstanceLocation =
+      257, // returns the StartInstanceLocation for DrawIndexedInstanced
+
   // Wave
   WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
   WaveActiveBallot = 116, // returns a struct with a bit set for each lane where
@@ -960,7 +968,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
 
-  NumOpCodes = 256 // exclusive last value of enumeration
+  NumOpCodes = 258 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1224,6 +1232,10 @@ enum class OpCodeClass : unsigned {
   // Unpacking intrinsics
   Unpack4x8,
 
+  // Vertex shader
+  BaseVertexLocation,
+  StartInstanceLocation,
+
   // Wave
   WaveActiveAllEqual,
   WaveActiveBallot,
@@ -1271,7 +1283,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
 
-  NumOpClasses = 181 // exclusive last value of enumeration
+  NumOpClasses = 183 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

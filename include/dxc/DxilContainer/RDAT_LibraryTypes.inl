@@ -164,6 +164,8 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::SemanticKind, uint32_t)
   RDAT_ENUM_VALUE_NODEF(Barycentrics)
   RDAT_ENUM_VALUE_NODEF(ShadingRate)
   RDAT_ENUM_VALUE_NODEF(CullPrimitive)
+  RDAT_ENUM_VALUE_NODEF(BaseVertexLocation)
+  RDAT_ENUM_VALUE_NODEF(StartInstanceLocation)
   RDAT_ENUM_VALUE_NODEF(Invalid)
   // SemanticKind-ENUM:END
 RDAT_ENUM_END()
