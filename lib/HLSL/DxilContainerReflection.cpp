@@ -273,8 +273,12 @@ HRESULT CreateDxilShaderReflection(const DxilProgramHeader *pProgramHeader, cons
   if (!ppvObject)
     return E_INVALIDARG;
   PublicAPI api = DxilShaderReflection::IIDToAPI(iid);
-  if (api == PublicAPI::Invalid)
-    return E_INVALIDARG;
+  if (api == PublicAPI::Invalid) {
+    if (IsEqualIID(__uuidof(IUnknown), iid))
+      api = PublicAPI::D3D12;
+		else
+			return E_NOINTERFACE;
+  }
   CComPtr<DxilShaderReflection> pReflection = DxilShaderReflection::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(pReflection.p);
   pReflection->SetPublicAPI(api);
@@ -287,8 +291,9 @@ HRESULT CreateDxilShaderReflection(const DxilProgramHeader *pProgramHeader, cons
 HRESULT CreateDxilLibraryReflection(const DxilProgramHeader *pProgramHeader, const DxilPartHeader *pRDATPart, REFIID iid, void **ppvObject) {
   if (!ppvObject)
     return E_INVALIDARG;
-  if (!IsEqualIID(__uuidof(ID3D12LibraryReflection), iid))
-    return E_INVALIDARG;
+  if (!IsEqualIID(__uuidof(ID3D12LibraryReflection), iid) &&
+      !IsEqualIID(__uuidof(IUnknown), iid))
+    return E_NOINTERFACE;
   CComPtr<DxilLibraryReflection> pReflection = DxilLibraryReflection::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(pReflection.p);
   // pRDATPart used for resource usage per-function.

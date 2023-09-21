@@ -1868,9 +1868,20 @@ void main(
           pLibraryReflection->QueryInterface(IID_PPV_ARGS(&pShaderReflection)));
     }
 
-    { // Fail to create with invalid interface
+    { // Allow IUnknown
       CComPtr<IUnknown> pUnknown;
-      VERIFY_FAILED(pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pUnknown)));
+      VERIFY_SUCCEEDED(
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pUnknown)));
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_SUCCEEDED(
+          pUnknown->QueryInterface(IID_PPV_ARGS(&pLibraryReflection)));
+    }
+
+    { // Fail to create with incorrect interface
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_ARE_EQUAL(
+          E_NOINTERFACE,
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pShaderReflection)));
     }
   }
 
@@ -2024,9 +2035,20 @@ void main(
       VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterStream());
     }
 
-    { // Fail to create with invalid interface
+    { // Allow IUnknown for latest interface version
       CComPtr<IUnknown> pUnknown;
-      VERIFY_FAILED(pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pUnknown)));
+      VERIFY_SUCCEEDED(pUtils->CreateReflection(
+                                         &buffer, IID_PPV_ARGS(&pUnknown)));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(
+          pUnknown->QueryInterface(IID_PPV_ARGS(&pShaderReflection)));
+    }
+
+    { // Fail to create with incorrect interface
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_ARE_EQUAL(
+          E_NOINTERFACE,
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pLibraryReflection)));
     }
   }
 }
