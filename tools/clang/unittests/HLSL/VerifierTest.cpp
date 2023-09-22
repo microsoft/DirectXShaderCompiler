@@ -123,7 +123,6 @@ public:
   TEST_METHOD(RunInvalidNodeOutputCompleteDiags)
   TEST_METHOD(RunShaderMismatch)
   TEST_METHOD(RunMaxRecordsAttribute)
-  //TEST_METHOD(RunWaveSizeAttribute)
 
   void CheckVerifies(const wchar_t *path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -209,19 +208,6 @@ TEST_F(VerifierTest, RunShaderMismatch) {
   CheckVerifiesHLSL(L"shader_attribute.hlsl");
   CheckVerifiesHLSL(L"shader_attribute_no_mismatch.hlsl");
 }
-/*
-TEST_F(VerifierTest, RunWaveSizeAttribute) {
-  CheckVerifiesHLSL(L"WaveSizeAttrAllowed1.hlsl"); 
-  CheckVerifiesHLSL(L"WaveSizeAttrAllowed2.hlsl");
-  CheckVerifiesHLSL(L"WaveSizeAttrAllowed2part2.hlsl");
-  CheckVerifiesHLSL(L"WaveSizeAttrAllowed3.hlsl");
-  CheckVerifiesHLSL(L"WaveSizeAttrAllowed4.hlsl");
-  CheckVerifiesHLSL(L"WaveSizeAttrAllowed5.hlsl");
-  CheckVerifiesHLSL(L"WaveSizeAttrAllowed6.hlsl");
-  CheckVerifiesHLSL(L"WaveSizeAttrNotAllowed1.hlsl");
-  CheckVerifiesHLSL(L"WaveSizeAttrNotAllowed2.hlsl");
-  CheckVerifiesHLSL(L"WaveSizeAttrNotAllowed3.hlsl"); 
-}*/
 
 TEST_F(VerifierTest, RunMaxRecordsAttribute) {
   CheckVerifiesHLSL(L"max_output_records_duplicate.hlsl");

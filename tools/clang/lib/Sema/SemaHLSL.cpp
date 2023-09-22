@@ -11308,11 +11308,6 @@ void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD,
   const llvm::StringRef &entryName = S->getLangOpts().HLSLEntryFunction;
   StringRef functionName = FD->getName();
   bool isLib = S->getLangOpts().IsHLSLLibrary;
-  bool isEntry =
-      !isLib &&
-      FD->getDeclContext()->getDeclKind() == Decl::Kind::TranslationUnit &&
-      functionName == entryName;
-
   bool isNode = false;
   bool isCS = false;
 
