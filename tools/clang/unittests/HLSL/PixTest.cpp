@@ -1211,7 +1211,8 @@ public:
       dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
       IDxcIncludeHandler *includer, IDxcBlob **ppDebugPart);
   void CompileAndRunAnnotationAndLoadDiaSource(
-      IDxcIncludeHandler *includer, const wchar_t *profile,
+      dxc::DxcDllSupport &dllSupport, const char *source,
+      const wchar_t *profile, IDxcIncludeHandler *includer,
       IDiaDataSource **ppDataSource,
       std::vector<const wchar_t *> extraArgs = {});
 
@@ -3273,16 +3274,35 @@ void main()
   VERIFY_IS_TRUE(FoundTheVariable);
 }
 
+class DxcBlobImpl : public IDxcBlob{
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
+  std::string m_data;
+
+public:
+  DxcBlobImpl(std::string d) : m_data(std::move(d)), m_dwRef(1) {}
+
+  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+    return DoBasicQueryInterface<IDxcBlob>(this, iid, ppvObject);
+  }
+  virtual LPVOID STDMETHODCALLTYPE GetBufferPointer(void) override {
+    return m_data.data();
+  }
+  virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
+    return static_cast<SIZE_T>(m_data.size() * sizeof(m_data[0]));
+  }
+};
+
 class DxcIncludeHandlerForInjectedSources : public IDxcIncludeHandler {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
 
-  std::vector<std::pair<std::string, std::string>> m_files;
+  std::vector<std::pair<std::wstring, std::string>> m_files;
 
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   DxcIncludeHandlerForInjectedSources(
-      std::vector<std::pair<std::string, std::string>> files)
+      std::vector<std::pair<std::wstring, std::string>> files)
       : m_dwRef(0), m_files(files){};
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
@@ -3291,22 +3311,20 @@ public:
 
   HRESULT insertIncludeFile(_In_ LPCWSTR pFilename,
                             _In_ IDxcBlobEncoding *pBlob, _In_ UINT32 dataLen) {
-    for (auto const &file : m_files) {
-      if (file.first == std::wstring(pFilename))
-        return file.
-    }
-    return S_OK;
+    return E_FAIL;
   }
 
   HRESULT STDMETHODCALLTYPE LoadSource(
       _In_ LPCWSTR pFilename,
       _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource) override {
-    try {
-      *ppIncludeSource = includeFiles.at(std::wstring(pFilename));
-      (*ppIncludeSource)->AddRef();
+    for (auto const &file : m_files) {
+      std::wstring prependedWithDotHack = L"./" + file.first;
+      if (prependedWithDotHack == std::wstring(pFilename)) {
+        *ppIncludeSource = new DxcBlobImpl(file.second);
+        return S_OK;
+      }
     }
-    CATCH_CPP_RETURN_HRESULT()
-    return S_OK;
+    return E_FAIL;
   }
 };
 
@@ -3315,31 +3333,94 @@ TEST_F(PixTest, DxcPixDxilDebugInfo_LexicalBlocks) {
     return;
 
   CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler =
-      new DxcIncludeHandlerForInjectedSources();
+      new DxcIncludeHandlerForInjectedSources({
+          {L"../include1/samefilename.h",
+           "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
+           "sqrt(v); return v; } "},
+          {L"../include2/samefilename.h",
+          R"(
+float4 RELAX_FrontEnd_PackRadianceAndHitDist( float3 radiance, float hitDist, bool sanitize = true )
+{
+  if (sanitize)
+  {
+    radiance = any(isnan(radiance) | isinf(radiance)) ? 0 : clamp(radiance, 0, 1034.f);
+    hitDist = (isnan(hitDist) | isinf(hitDist)) ? 0 : clamp(hitDist, 0, 1024.f); 
+  }
+  if( hitDist != 0 ) hitDist = max( hitDist, -1024.f);
+  return float4( radiance, hitDist );}
+)"}});
 
   const char *hlsl = R"(
+
+#include "../include1/samefilename.h"
+namespace n1 {
+#include "../include2/samefilename.h"
+}
 RWStructuredBuffer<float> floatRWUAV: register(u0);
 
 [numthreads(1, 1, 1)]
 void main()
 {
-  struct
-  {
-    struct {
-      float fg;
-      RWStructuredBuffer<float> buf;
-    } contained;
-  } glbl = { {42.f, floatRWUAV} };
-  float f = glbl.contained.fg + glbl.contained.buf[1]; // InterestingLine
-  floatRWUAV[0] = f;
+  float4 result = n1::RELAX_FrontEnd_PackRadianceAndHitDist(
+    float3(floatRWUAV[0], floatRWUAV[1], floatRWUAV[2]),
+    floatRWUAV[3]);
+  floatRWUAV[0]  = result.x;
+  floatRWUAV[1]  = result.y;
+  floatRWUAV[2]  = result.z;
+  floatRWUAV[3]  = result.w;
 }
 
 )";
 
   auto dxilDebugger =
       CompileAndCreateDxcDebug(hlsl, L"cs_6_0", pIncludeHandler);
-}
 
+  struct SourceLocations {
+    CComBSTR Filename;
+    DWORD Column;
+    DWORD Line;
+  };
+
+  std::vector<SourceLocations> sourceLocations;
+
+  DWORD instructionOffset = 0;
+  CComPtr<IDxcPixDxilSourceLocations> DxcSourceLocations;
+  while (SUCCEEDED(dxilDebugger->SourceLocationsFromInstructionOffset(
+      instructionOffset++, &DxcSourceLocations))) {
+    auto count = DxcSourceLocations->GetCount();
+    for (DWORD i = 0; i < count; ++i) {
+      sourceLocations.push_back({});
+      DxcSourceLocations->GetFileNameByIndex(i,
+                                             &sourceLocations.back().Filename);
+      sourceLocations.back().Line = DxcSourceLocations->GetLineNumberByIndex(i);
+      sourceLocations.back().Column = DxcSourceLocations->GetColumnByIndex(i);
+    }
+    DxcSourceLocations = nullptr;
+  }
+
+  auto it = sourceLocations.begin();
+  VERIFY_IS_FALSE(it == sourceLocations.end());
+
+  // The list of source locations should start with the containing file:
+  while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
+    it++;
+  VERIFY_IS_FALSE(it == sourceLocations.end());
+
+  // Then have a bunch of "../include2/samefilename.h"
+  VERIFY_ARE_EQUAL_WSTR(L"./../include2/samefilename.h", it->Filename);
+  while (it != sourceLocations.end() &&
+         it->Filename == L"./../include2/samefilename.h")
+    it++;
+  VERIFY_IS_FALSE(it == sourceLocations.end());
+
+  // Then some more main file:
+  VERIFY_ARE_EQUAL_WSTR(L"source.hlsl", it->Filename);
+  while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
+    it++;
+
+  //And that should be the end:
+  VERIFY_IS_TRUE(it == sourceLocations.end());
+}
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
@@ -4642,38 +4723,24 @@ struct Gbuffer
 {
 	float3 worldNormal;
 	float3 objectNormal; //offset:12
-
 	float linearZ; //24
 	float prevLinearZ; //28
-
-
 	float fwidthLinearZ; //32
 	float fwidthObjectNormal; //36
-
-
 	uint materialType; //40
 	uint2 materialParams0; //44
 	uint4 materialParams1; //52  <--------- this is the variable that's being covered twice (52*8 = 416 416)
-
 	uint instanceId;  //68  <------- and there's one dword left over, as expected
-
-
 	void load(int2 pixelPos, Texture2DArray<uint4> gbTex)
 	{
 	uint4 data0 = gbTex.Load(int4(pixelPos, 0, 0));
 	uint4 data1 = gbTex.Load(int4(pixelPos, 1, 0));
 	uint4 data2 = gbTex.Load(int4(pixelPos, 2, 0));
-
-
 	worldNormal = unpackOctahedralUnorm(unpackUnorm2(data0.x));
 	linearZ = f16tof32((data0.y >> 8) & 0xffff);
 	materialType = (data0.y & 0xff);
 	materialParams0 = data0.zw;
-
-
 	materialParams1 = data1.xyzw;
-
-
 	instanceId = data2.x;
 	prevLinearZ = asfloat(data2.y);
 	objectNormal = unpackOctahedralUnorm(unpackUnorm2(data2.z));
