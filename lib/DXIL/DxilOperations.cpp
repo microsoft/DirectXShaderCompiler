@@ -2583,8 +2583,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         Attribute::ReadOnly,
     },
 
-    // Vertex shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
+    // DrawIndexedInstanced void,     h,     f,     d,    i1,    i8,   i16, i32,
+    // i64,   udt,   obj ,  function attribute
     {
         OC::BaseVertexLocation,
         "BaseVertexLocation",
@@ -5365,7 +5365,7 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF32);
     break;
 
-    // Vertex shader
+    // DrawIndexedInstanced
   case OpCode::BaseVertexLocation:
     A(pI32);
     A(pI32);

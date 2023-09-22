@@ -556,6 +556,12 @@ enum class OpCode : unsigned {
   MakeDouble = 101,           // creates a double value
   SplitDouble = 102,          // splits a double into low and high parts
 
+  // DrawIndexedInstanced
+  BaseVertexLocation =
+      256, // returns the BaseVertexLocation for DrawIndexedInstanced
+  StartInstanceLocation =
+      257, // returns the StartInstanceLocation for DrawIndexedInstanced
+
   // Geometry shader
   CutStream =
       98, // completes the current primitive topology at the specified stream
@@ -894,12 +900,6 @@ enum class OpCode : unsigned {
   Unpack4x8 = 219, // unpacks 4 8-bit signed or unsigned values into int32 or
                    // int16 vector
 
-  // Vertex shader
-  BaseVertexLocation =
-      256, // returns the BaseVertexLocation for DrawIndexedInstanced
-  StartInstanceLocation =
-      257, // returns the StartInstanceLocation for DrawIndexedInstanced
-
   // Wave
   WaveActiveAllEqual = 115, // returns 1 if all the lanes have the same value
   WaveActiveBallot = 116, // returns a struct with a bit set for each lane where
@@ -1047,6 +1047,10 @@ enum class OpCodeClass : unsigned {
   LegacyDoubleToUInt32,
   MakeDouble,
   SplitDouble,
+
+  // DrawIndexedInstanced
+  BaseVertexLocation,
+  StartInstanceLocation,
 
   // Geometry shader
   CutStream,
@@ -1231,10 +1235,6 @@ enum class OpCodeClass : unsigned {
 
   // Unpacking intrinsics
   Unpack4x8,
-
-  // Vertex shader
-  BaseVertexLocation,
-  StartInstanceLocation,
 
   // Wave
   WaveActiveAllEqual,

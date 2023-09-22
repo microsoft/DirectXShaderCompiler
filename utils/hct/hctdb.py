@@ -492,7 +492,7 @@ class db_dxil(object):
             self.name_idx[i].category = "Comparison Samples"
             self.name_idx[i].shader_model = 6,8
         for i in "BaseVertexLocation,StartInstanceLocation".split(","):
-            self.name_idx[i].category = "Vertex shader"
+            self.name_idx[i].category = "DrawIndexedInstanced"
             self.name_idx[i].shader_stages = ("vertex",)
             self.name_idx[i].shader_model = 6,8
 
