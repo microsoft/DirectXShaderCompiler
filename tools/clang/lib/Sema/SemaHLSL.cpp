@@ -11305,9 +11305,6 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 // performed after all attributes on the decl have been parsed.
 void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD,
                       const hlsl::ShaderModel *SM, HLSLShaderAttr *shaderAttr) {  
-  const llvm::StringRef &entryName = S->getLangOpts().HLSLEntryFunction;
-  StringRef functionName = FD->getName();
-  bool isLib = S->getLangOpts().IsHLSLLibrary;
   bool isNode = false;
   bool isCS = false;
 
