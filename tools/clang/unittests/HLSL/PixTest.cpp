@@ -3274,7 +3274,7 @@ void main()
   VERIFY_IS_TRUE(FoundTheVariable);
 }
 
-class DxcBlobImpl : public IDxcBlob{
+class DxcBlobImpl : public IDxcBlob {
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   std::string m_data;
 
@@ -3333,12 +3333,12 @@ TEST_F(PixTest, DxcPixDxilDebugInfo_SubPrograms) {
     return;
 
   CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler =
-      new DxcIncludeHandlerForInjectedSources({
-          {L"../include1/samefilename.h",
-           "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
-           "sqrt(v); return v; } "},
-          {L"../include2/samefilename.h",
-          R"(
+      new DxcIncludeHandlerForInjectedSources(
+          {{L"../include1/samefilename.h",
+            "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
+            "sqrt(v); return v; } "},
+           {L"../include2/samefilename.h",
+            R"(
 float4 RELAX_FrontEnd_PackRadianceAndHitDist( float3 radiance, float hitDist, bool sanitize = true )
 {
   if (sanitize)
@@ -3418,7 +3418,7 @@ void main()
   while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
     it++;
 
-  //And that should be the end:
+  // And that should be the end:
   VERIFY_IS_TRUE(it == sourceLocations.end());
 }
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
