@@ -26,7 +26,7 @@ def extract_hash(dxa_path, dx_container, working_dir, empty_env):
     stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
-        str_args = str(args).replace("'","")
+        str_args = str(args).replace("'","").replace(","," ")
         print(f"extract hash from {dx_container} failed with \n{str_args}\n stdout:{stdout}\n stderr:{stderr}\n")
         # extract hash failed, return fail.
         return None
@@ -69,7 +69,7 @@ def debug_compile(args, output_file, working_dir, empty_env):
     stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
-        str_args = str(args).replace("'","")
+        str_args = str(args).replace("'","").replace(","," ")
         print(f"\n\ndebug compile failed with \n{str_args}\n stdout:{stdout}\n stderr:{stderr}\n\n")
     return res
 
@@ -109,7 +109,7 @@ def run_hash_stablity_test(args, dxc_path, dxa_path, test_name, working_dir, suf
         return True, "Hash matches."
     else:
         # hash mismatch
-        str_args = str(args).replace("'","")
+        str_args = str(args).replace("'","").replace(","," ")
         return False, f"Hash mismatches on {normal_out} and {debug_out} from {str_args}."
 
 ################################################
@@ -121,10 +121,15 @@ if __name__ == '__main__':
     parser.add_argument('argument', nargs='+',
                         help='command line options to run dxc')
     parser.add_argument('-p','--path', help='path to the directory containing dxc and dxa', required=True)
+    parser.add_argument('-s','--suffix', help='suffix for the output container', required=True)
     args = parser.parse_args()
+
     dxc_args = args.argument
+    if len(dxc_args) == 1:
+        dxc_args = dxc_args[0].split()
     dxc_args.insert(0, "%dxc")
     bin_dir = args.path
+    suffix = args.suffix
     # get dxc and dxa path when running from command line
     dxc_name = 'dxc'
     dxa_name = 'dxa'
@@ -143,10 +148,10 @@ if __name__ == '__main__':
             print("Creation of the directory %s for temp output failed" % tmp_path)
             exit(1)
 
-    res, msg = run_hash_stablity_test(dxc_args, dxc_path, dxa_path, "test", working_dir)
+    res, msg = run_hash_stablity_test(dxc_args, dxc_path, dxa_path, "test", working_dir, suffix)
     if res:
         print("PASS")
     else:
         print(f"FAIL: {msg}")
-    # remove tmp dir
-    shutil.rmtree(tmp_path)
+        exit(1)
+

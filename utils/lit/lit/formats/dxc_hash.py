@@ -170,22 +170,22 @@ class DxcHashTest(TestFormat):
 
         return False
 
-    def executeHashTest(self, test, cmd):
+    def executeHashTest(self, test, cmd, counter):
         if isinstance(cmd, ShUtil.Seq):
             if cmd.op == '&':
                 raise lit.TestRunner.InternalShellError(cmd,"unsupported shell operator: '&'")
 
             if cmd.op == ';' or cmd.op == '||' or cmd.op == '&&':
-                res, no_run = self.executeHashTest(test, cmd.lhs)
+                res, counter = self.executeHashTest(test, cmd.lhs, counter)
                 if res.code == lit.Test.FAIL:
-                    return res, no_run
-                return self.executeHashTest(test, cmd.rhs)
+                    return res, counter
+                return self.executeHashTest(test, cmd.rhs, counter)
 
             raise ValueError('Unknown shell command: %r' % cmd.op)
         assert isinstance(cmd, ShUtil.Pipeline)
 
         status = lit.Test.PASS
-        no_run = True
+
         for i,j in enumerate(cmd.commands):
             if self.hasIllegalArgs(j.args):
                 continue
@@ -196,12 +196,12 @@ class DxcHashTest(TestFormat):
             test_name = test.path_in_suite[0].replace('\\','_').replace('/','_').replace('.','_')
 
             # run hash stability test
-            res, msg = run_hash_stablity_test(args, self.dxc_path, self.dxa_path, test_name, self.cwd, i)
-            no_run = False
+            res, msg = run_hash_stablity_test(args, self.dxc_path, self.dxa_path, test_name, self.cwd, counter)
+            counter += 1
             if not res:
                 status = lit.Test.FAIL
-                return lit.Test.Result(lit.Test.FAIL, msg), no_run
-        return lit.Test.Result(lit.Test.PASS), no_run
+                return lit.Test.Result(lit.Test.FAIL, msg), counter
+        return lit.Test.Result(lit.Test.PASS), counter
 
     def execute(self, test, litConfig):
         if test.config.unsupported:
@@ -223,12 +223,11 @@ class DxcHashTest(TestFormat):
             except:
                 return lit.Test.Result(lit.Test.FAIL, "shell parser error on: %r" % ln)
 
-        nothing_run = True
+        counter = 0
         for cmd in cmds:
-            res, no_run = self.executeHashTest(test, cmd)
-            nothing_run &= no_run
+            res, counter = self.executeHashTest(test, cmd, counter)
             if res.code == lit.Test.FAIL:
                 return res
-        if nothing_run:
+        if counter == 0:
             return lit.Test.Result(lit.Test.FAIL, "no RUN lines for hash stability found. If this is expected, add 'UNSUPPORTED: hash_stability' to the test")
         return lit.Test.Result(lit.Test.PASS)
