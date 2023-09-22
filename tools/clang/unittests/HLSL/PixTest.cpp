@@ -3282,11 +3282,10 @@ private:
   std::vector<std::pair<std::wstring, std::string>> m_files;
   PixTest *m_pixTest;
 
-public :
+public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   DxcIncludeHandlerForInjectedSourcesForPix(
-      PixTest * pixTest,
-      std::vector<std::pair<std::wstring, std::string>> files)
+      PixTest *pixTest, std::vector<std::pair<std::wstring, std::string>> files)
       : m_dwRef(0), m_pixTest(pixTest), m_files(files){};
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
@@ -3316,12 +3315,12 @@ public :
 
 void PixTest::RunSubProgramsCase(const char *hlsl) {
   CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
-      new DxcIncludeHandlerForInjectedSourcesForPix(this,
-          {{L"../include1/samefilename.h",
-            "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
-            "sqrt(v); return v; } "},
-           {L"../include2/samefilename.h",
-            R"(
+      new DxcIncludeHandlerForInjectedSourcesForPix(
+          this, {{L"../include1/samefilename.h",
+                  "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
+                  "sqrt(v); return v; } "},
+                 {L"../include2/samefilename.h",
+                  R"(
 float4 fn2( float3 f3, float d, bool sanitize = true )
 {
   if (sanitize)
