@@ -11,9 +11,9 @@
 
 #pragma once
 
+#include "dxc/DXIL/DxilCBuffer.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilMetadataHelper.h"
-#include "dxc/DXIL/DxilCBuffer.h"
 #include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilSampler.h"
 #include "dxc/DXIL/DxilShaderFlags.h"
@@ -23,9 +23,9 @@
 
 #include <memory>
 #include <string>
-#include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace llvm {
 class LLVMContext;
@@ -35,7 +35,7 @@ class Instruction;
 class MDTuple;
 class MDOperand;
 class DebugInfoFinder;
-}
+} // namespace llvm
 
 namespace hlsl {
 
@@ -67,9 +67,11 @@ public:
   void SetForceZeroStoreLifetimes(bool ForceZeroStoreLifetimes);
   bool GetForceZeroStoreLifetimes() const;
 
-  // Return true on success, requires valid shader model and CollectShaderFlags to have been set
+  // Return true on success, requires valid shader model and CollectShaderFlags
+  // to have been set
   bool GetMinValidatorVersion(unsigned &ValMajor, unsigned &ValMinor) const;
-  // Update validator version to minimum if higher than current (ex: after CollectShaderFlags)
+  // Update validator version to minimum if higher than current (ex: after
+  // CollectShaderFlags)
   bool UpgradeToMinValidatorVersion();
 
   // Entry functions.
@@ -81,7 +83,7 @@ public:
   llvm::Function *GetPatchConstantFunction();
   const llvm::Function *GetPatchConstantFunction() const;
   void SetPatchConstantFunction(llvm::Function *pFunc);
-  bool IsEntryOrPatchConstantFunction(const llvm::Function* pFunc) const;
+  bool IsEntryOrPatchConstantFunction(const llvm::Function *pFunc) const;
   llvm::SmallVector<llvm::Function *, 64> GetExportedFunctions();
 
   // Flags.
@@ -92,22 +94,22 @@ public:
   unsigned AddCBuffer(std::unique_ptr<DxilCBuffer> pCB);
   DxilCBuffer &GetCBuffer(unsigned idx);
   const DxilCBuffer &GetCBuffer(unsigned idx) const;
-  const std::vector<std::unique_ptr<DxilCBuffer> > &GetCBuffers() const;
+  const std::vector<std::unique_ptr<DxilCBuffer>> &GetCBuffers() const;
 
   unsigned AddSampler(std::unique_ptr<DxilSampler> pSampler);
   DxilSampler &GetSampler(unsigned idx);
   const DxilSampler &GetSampler(unsigned idx) const;
-  const std::vector<std::unique_ptr<DxilSampler> > &GetSamplers() const;
+  const std::vector<std::unique_ptr<DxilSampler>> &GetSamplers() const;
 
   unsigned AddSRV(std::unique_ptr<DxilResource> pSRV);
   DxilResource &GetSRV(unsigned idx);
   const DxilResource &GetSRV(unsigned idx) const;
-  const std::vector<std::unique_ptr<DxilResource> > &GetSRVs() const;
+  const std::vector<std::unique_ptr<DxilResource>> &GetSRVs() const;
 
   unsigned AddUAV(std::unique_ptr<DxilResource> pUAV);
   DxilResource &GetUAV(unsigned idx);
   const DxilResource &GetUAV(unsigned idx) const;
-  const std::vector<std::unique_ptr<DxilResource> > &GetUAVs() const;
+  const std::vector<std::unique_ptr<DxilResource>> &GetUAVs() const;
 
   void RemoveUnusedResources();
   void RemoveResourcesWithUnusedSymbols();
@@ -142,14 +144,15 @@ public:
   const DxilFunctionProps &GetDxilFunctionProps(const llvm::Function *F) const;
 
   // Move DxilFunctionProps of F to NewF.
-  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc, llvm::Function *patchConstantFunc);
+  void SetPatchConstantFunctionForHS(llvm::Function *hullShaderFunc,
+                                     llvm::Function *patchConstantFunc);
   bool IsGraphicsShader(const llvm::Function *F) const; // vs,hs,ds,gs,ps
   bool IsPatchConstantShader(const llvm::Function *F) const;
   bool IsComputeShader(const llvm::Function *F) const;
 
   // Is an entry function that uses input/output signature conventions?
   // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.
-  bool IsEntryThatUsesSignatures(const llvm::Function *F) const ;
+  bool IsEntryThatUsesSignatures(const llvm::Function *F) const;
   // Is F an entry?
   // Includes: IsEntryThatUsesSignatures and all ray tracing shaders.
   bool IsEntry(const llvm::Function *F) const;
@@ -165,9 +168,10 @@ public:
   DxilTypeSystem &GetTypeSystem();
   const DxilTypeSystem &GetTypeSystem() const;
 
-  /// Emit llvm.used array to make sure that optimizations do not remove unreferenced globals.
+  /// Emit llvm.used array to make sure that optimizations do not remove
+  /// unreferenced globals.
   void EmitLLVMUsed();
-  std::vector<llvm::GlobalVariable* > &GetLLVMUsed();
+  std::vector<llvm::GlobalVariable *> &GetLLVMUsed();
   void ClearLLVMUsed();
 
   // ViewId state.
@@ -210,7 +214,7 @@ public:
   // Helper to remove dx.* metadata with source and compile options.
   // If the parameter `bReplaceWithDummyData` is true, the named metadata
   // are replaced with valid empty data that satisfy tools.
-  void StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData=false);
+  void StripShaderSourcesAndCompileOptions(bool bReplaceWithDummyData = false);
   llvm::DebugInfoFinder &GetOrCreateDebugInfoFinder();
 
   static DxilModule *TryGetDxilModule(llvm::Module *pModule);
@@ -230,10 +234,10 @@ public:
   // Check if the instruction has fast math flags configured to indicate
   // the instruction is precise.
   static bool HasPreciseFastMathFlags(const llvm::Instruction *inst);
-  
+
   // Set fast math flags configured to indicate the instruction is precise.
   static void SetPreciseFastMathFlags(llvm::Instruction *inst);
-  
+
   // True if fast math flags are preserved across serialize/deserialize.
   static bool PreservesFastMathFlags(const llvm::Instruction *inst);
 
@@ -242,7 +246,8 @@ public:
   void CollectShaderFlagsForModule(ShaderFlags &Flags);
 
   // Check if DxilModule contains multi component UAV Loads.
-  // This funciton must be called after unused resources are removed from DxilModule
+  // This funciton must be called after unused resources are removed from
+  // DxilModule
   bool ModuleHasMulticomponentUAVLoads();
 
   // Compute/Mesh/Amplification shader.
@@ -294,9 +299,11 @@ public:
   unsigned GetOutputControlPointCount() const;
   void SetOutputControlPointCount(unsigned NumOCPs);
   DXIL::TessellatorPartitioning GetTessellatorPartitioning() const;
-  void SetTessellatorPartitioning(DXIL::TessellatorPartitioning TessPartitioning);
+  void
+  SetTessellatorPartitioning(DXIL::TessellatorPartitioning TessPartitioning);
   DXIL::TessellatorOutputPrimitive GetTessellatorOutputPrimitive() const;
-  void SetTessellatorOutputPrimitive(DXIL::TessellatorOutputPrimitive TessOutputPrimitive);
+  void SetTessellatorOutputPrimitive(
+      DXIL::TessellatorOutputPrimitive TessOutputPrimitive);
   float GetMaxTessellationFactor() const;
   void SetMaxTessellationFactor(float MaxTessellationFactor);
 
@@ -327,13 +334,14 @@ private:
   std::vector<uint8_t> m_SerializedRootSignature;
 
   // Shader resources.
-  std::vector<std::unique_ptr<DxilResource> > m_SRVs;
-  std::vector<std::unique_ptr<DxilResource> > m_UAVs;
-  std::vector<std::unique_ptr<DxilCBuffer> > m_CBuffers;
-  std::vector<std::unique_ptr<DxilSampler> > m_Samplers;
+  std::vector<std::unique_ptr<DxilResource>> m_SRVs;
+  std::vector<std::unique_ptr<DxilResource>> m_UAVs;
+  std::vector<std::unique_ptr<DxilCBuffer>> m_CBuffers;
+  std::vector<std::unique_ptr<DxilSampler>> m_Samplers;
 
   // Geometry shader.
-  DXIL::PrimitiveTopology m_StreamPrimitiveTopology = DXIL::PrimitiveTopology::Undefined;
+  DXIL::PrimitiveTopology m_StreamPrimitiveTopology =
+      DXIL::PrimitiveTopology::Undefined;
   unsigned m_ActiveStreamMask = 0;
 
   enum IntermediateFlags : uint32_t {
@@ -356,16 +364,16 @@ private:
   std::unique_ptr<OP> m_pOP;
 
   // LLVM used.
-  std::vector<llvm::GlobalVariable*> m_LLVMUsed;
+  std::vector<llvm::GlobalVariable *> m_LLVMUsed;
 
   // Type annotations.
   std::unique_ptr<DxilTypeSystem> m_pTypeSystem;
 
   // EntryProps for shader functions.
-  DxilEntryPropsMap  m_DxilEntryPropsMap;
+  DxilEntryPropsMap m_DxilEntryPropsMap;
 
   // Keeps track of patch constant functions used by hull shaders
-  std::unordered_set<const llvm::Function *>  m_PatchConstantFunctions;
+  std::unordered_set<const llvm::Function *> m_PatchConstantFunctions;
 
   // Serialized ViewId state.
   std::vector<unsigned> m_SerializedState;
@@ -391,9 +399,11 @@ private:
   void LoadDxilResources(const llvm::MDOperand &MDO);
 
   // Helpers.
-  template<typename T> unsigned AddResource(std::vector<std::unique_ptr<T> > &Vec, std::unique_ptr<T> pRes);
-  void LoadDxilSignature(const llvm::MDTuple *pSigTuple, DxilSignature &Sig, bool bInput);
-
+  template <typename T>
+  unsigned AddResource(std::vector<std::unique_ptr<T>> &Vec,
+                       std::unique_ptr<T> pRes);
+  void LoadDxilSignature(const llvm::MDTuple *pSigTuple, DxilSignature &Sig,
+                         bool bInput);
 };
 
 } // namespace hlsl

@@ -1,20 +1,20 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// PixPassHelpers.cpp														 //
-// Copyright (C) Microsoft Corporation. All rights reserved.                 //
-// This file is distributed under the University of Illinois Open Source     //
-// License. See LICENSE.TXT for details.                                     //
+// PixPassHelpers.cpp
+// // Copyright (C) Microsoft Corporation. All rights reserved. // This file is
+// distributed under the University of Illinois Open Source     // License. See
+// LICENSE.TXT for details.                                     //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DXIL/DxilOperations.h"
-#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResourceBinding.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
-#include "dxc/HLSL/DxilSpanAllocator.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/HLSL/DxilSpanAllocator.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
@@ -28,9 +28,9 @@
 #include "dxc/dxcapi.h"
 
 #ifdef PIX_DEBUG_DUMP_HELPER
-#include <iostream>
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include <iostream>
 #endif
 
 using namespace llvm;
@@ -82,18 +82,17 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
   unsigned int resourceMetaDataId =
       GetNextRegisterIdForClass(DM, resourceClass);
 
-  auto const * shaderModel = DM.GetShaderModel();
-  if (shaderModel->IsLib())
-  {
+  auto const *shaderModel = DM.GetShaderModel();
+  if (shaderModel->IsLib()) {
     llvm::Constant *object = resource->GetGlobalSymbol();
-    auto * load = Builder.CreateLoad(object);
-    Function *CreateHandleForLibOpFunc = HlslOP->GetOpFunc(
-        DXIL::OpCode::CreateHandleForLib, resource->GetHLSLType()->getVectorElementType());
+    auto *load = Builder.CreateLoad(object);
+    Function *CreateHandleForLibOpFunc =
+        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib,
+                          resource->GetHLSLType()->getVectorElementType());
     Constant *CreateHandleForLibOpcodeArg =
         HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
-    auto *handle =
-        Builder.CreateCall(CreateHandleForLibOpFunc,
-        {CreateHandleForLibOpcodeArg, load });
+    auto *handle = Builder.CreateCall(CreateHandleForLibOpFunc,
+                                      {CreateHandleForLibOpcodeArg, load});
 
     if (ShaderModelRequiresAnnotateHandle(DM)) {
       Function *annotHandleFn =
@@ -111,8 +110,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
     } else {
       return handle;
     }
-  }
-  else if (IsDynamicResourceShaderModel(DM)) {
+  } else if (IsDynamicResourceShaderModel(DM)) {
     Function *CreateHandleFromBindingOpFunc = HlslOP->GetOpFunc(
         DXIL::OpCode::CreateHandleFromBinding, Type::getVoidTy(Ctx));
     Constant *CreateHandleFromBindingOpcodeArg =
@@ -161,11 +159,13 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
         HlslOP->GetI1Const(0); // non-uniform resource index: false
     return Builder.CreateCall(
         CreateHandleOpFunc,
-        {CreateHandleOpcodeArg, ClassArg, MetaDataArg, IndexArg, FalseArg}, name);
+        {CreateHandleOpcodeArg, ClassArg, MetaDataArg, IndexArg, FalseArg},
+        name);
   }
 }
 
-static std::vector<uint8_t> SerializeRootSignatureToVector(DxilVersionedRootSignatureDesc const *rootSignature) {
+static std::vector<uint8_t> SerializeRootSignatureToVector(
+    DxilVersionedRootSignatureDesc const *rootSignature) {
   CComPtr<IDxcBlob> serializedRootSignature;
   CComPtr<IDxcBlobEncoding> errorBlob;
   constexpr bool allowReservedRegisterSpace = true;
@@ -183,7 +183,7 @@ static std::vector<uint8_t> SerializeRootSignatureToVector(DxilVersionedRootSign
 constexpr uint32_t toolsRegisterSpace = static_cast<uint32_t>(-2);
 constexpr uint32_t toolsUAVRegister = 0;
 
-template<typename RootSigDesc, typename RootParameterDesc>
+template <typename RootSigDesc, typename RootParameterDesc>
 void ExtendRootSig(RootSigDesc &rootSigDesc) {
   auto *existingParams = rootSigDesc.pParameters;
   auto *newParams = new RootParameterDesc[rootSigDesc.NumParameters + 1];
@@ -193,15 +193,19 @@ void ExtendRootSig(RootSigDesc &rootSigDesc) {
     delete[] existingParams;
   }
   rootSigDesc.pParameters = newParams;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].ParameterType = DxilRootParameterType::UAV;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.RegisterSpace = toolsRegisterSpace;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.ShaderRegister = toolsUAVRegister;
-  rootSigDesc.pParameters[rootSigDesc.NumParameters].ShaderVisibility = DxilShaderVisibility::All;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].ParameterType =
+      DxilRootParameterType::UAV;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.RegisterSpace =
+      toolsRegisterSpace;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].Descriptor.ShaderRegister =
+      toolsUAVRegister;
+  rootSigDesc.pParameters[rootSigDesc.NumParameters].ShaderVisibility =
+      DxilShaderVisibility::All;
   rootSigDesc.NumParameters++;
-} 
+}
 
 static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
-                                                       uint32_t Size) {
+                                                          uint32_t Size) {
   DxilVersionedRootSignature rootSignature;
   DeserializeRootSignature(Data, Size, rootSignature.get_address_of());
   auto *rs = rootSignature.get_mutable();
@@ -220,13 +224,14 @@ static std::vector<uint8_t> AddUAVParamterToRootSignature(const void *Data,
 
 static void AddUAVToShaderAttributeRootSignature(DxilModule &DM) {
   auto rs = DM.GetSerializedRootSignature();
-  if(!rs.empty()) {
-    std::vector<uint8_t> asVector = AddUAVParamterToRootSignature(rs.data(), static_cast<uint32_t>(rs.size()));
+  if (!rs.empty()) {
+    std::vector<uint8_t> asVector = AddUAVParamterToRootSignature(
+        rs.data(), static_cast<uint32_t>(rs.size()));
     DM.ResetSerializedRootSignature(asVector);
   }
 }
 
-static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule& DM) {
+static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM) {
   auto *subObjects = DM.GetSubobjects();
   if (subObjects != nullptr) {
     for (auto const &subObject : subObjects->GetSubobjects()) {
@@ -240,10 +245,9 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule& DM) {
           auto extendedRootSig = AddUAVParamterToRootSignature(Data, Size);
           auto rootSignatureSubObjectName = subObject.first;
           subObjects->RemoveSubobject(rootSignatureSubObjectName);
-          subObjects->CreateRootSignature(rootSignatureSubObjectName,
-                                          notALocalRS,
-                                          extendedRootSig.data(),
-                                          static_cast<uint32_t>(extendedRootSig.size()));
+          subObjects->CreateRootSignature(
+              rootSignatureSubObjectName, notALocalRS, extendedRootSig.data(),
+              static_cast<uint32_t>(extendedRootSig.size()));
           break;
         }
       }
@@ -251,12 +255,12 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule& DM) {
   }
 }
 
-    // Set up a UAV with structure of a single int
+// Set up a UAV with structure of a single int
 llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
                           unsigned int registerId, const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
-  const char * PIXStructTypeName = "struct.RWByteAddressBuffer";
+  const char *PIXStructTypeName = "struct.RWByteAddressBuffer";
   llvm::StructType *UAVStructTy =
       DM.GetModule()->getTypeByName(PIXStructTypeName);
   if (UAVStructTy == nullptr) {
@@ -273,15 +277,15 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
 
   auto const *shaderModel = DM.GetShaderModel();
   if (shaderModel->IsLib()) {
-    auto *Global = DM.GetModule()->getOrInsertGlobal(("PIXUAV" + std::to_string(registerId)).c_str(), UAVStructTy);
+    auto *Global = DM.GetModule()->getOrInsertGlobal(
+        ("PIXUAV" + std::to_string(registerId)).c_str(), UAVStructTy);
     GlobalVariable *NewGV = cast<GlobalVariable>(Global);
     NewGV->setConstant(true);
     NewGV->setLinkage(GlobalValue::ExternalLinkage);
     NewGV->setThreadLocal(false);
     NewGV->setAlignment(4);
     pUAV->SetGlobalSymbol(NewGV);
-  }
-  else {
+  } else {
     pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
   }
   pUAV->SetGlobalName(name);
@@ -314,11 +318,11 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
   return handle;
 }
 
-llvm::Function* GetEntryFunction(hlsl::DxilModule& DM) {
-    if (DM.GetEntryFunction() != nullptr) {
-        return DM.GetEntryFunction();
-    }
-    return DM.GetPatchConstantFunction();
+llvm::Function *GetEntryFunction(hlsl::DxilModule &DM) {
+  if (DM.GetEntryFunction() != nullptr) {
+    return DM.GetEntryFunction();
+  }
+  return DM.GetPatchConstantFunction();
 }
 
 std::vector<llvm::Function *>
@@ -338,36 +342,36 @@ GetAllInstrumentableFunctions(hlsl::DxilModule &DM) {
 }
 
 hlsl::DXIL::ShaderKind GetFunctionShaderKind(hlsl::DxilModule &DM,
-                                       llvm::Function *fn) {
+                                             llvm::Function *fn) {
   hlsl::DXIL::ShaderKind shaderKind = hlsl::DXIL::ShaderKind::Invalid;
   if (!DM.HasDxilFunctionProps(fn)) {
     auto ShaderModel = DM.GetShaderModel();
     shaderKind = ShaderModel->GetKind();
   } else {
-    hlsl::DxilFunctionProps const &props =
-        DM.GetDxilFunctionProps(fn);
+    hlsl::DxilFunctionProps const &props = DM.GetDxilFunctionProps(fn);
     shaderKind = props.shaderKind;
   }
   return shaderKind;
 }
 
-std::vector<llvm::BasicBlock*> GetAllBlocks(hlsl::DxilModule& DM) {
-    std::vector<llvm::BasicBlock*> ret;
-    auto entryPoints = DM.GetExportedFunctions();
-    for (auto& fn : entryPoints) {
-      auto& blocks = fn->getBasicBlockList();
-      for (auto& block : blocks) {
-        ret.push_back(&block);
-      }
+std::vector<llvm::BasicBlock *> GetAllBlocks(hlsl::DxilModule &DM) {
+  std::vector<llvm::BasicBlock *> ret;
+  auto entryPoints = DM.GetExportedFunctions();
+  for (auto &fn : entryPoints) {
+    auto &blocks = fn->getBasicBlockList();
+    for (auto &block : blocks) {
+      ret.push_back(&block);
     }
-    return ret;
+  }
+  return ret;
 }
 
 ExpandedStruct ExpandStructType(LLVMContext &Ctx,
                                 Type *OriginalPayloadStructType) {
   SmallVector<Type *, 16> Elements;
-  for (unsigned int i = 0; i < OriginalPayloadStructType->getStructNumElements(); ++i) {
-      Elements.push_back(OriginalPayloadStructType->getStructElementType(i));
+  for (unsigned int i = 0;
+       i < OriginalPayloadStructType->getStructNumElements(); ++i) {
+    Elements.push_back(OriginalPayloadStructType->getStructElementType(i));
   }
   Elements.push_back(Type::getInt32Ty(Ctx));
   Elements.push_back(Type::getInt32Ty(Ctx));
@@ -398,21 +402,24 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
       if (llvm::isa<GetElementPtrInst>(instruction)) {
         auto *GEP = llvm::cast<GetElementPtrInst>(instruction);
         GEP->setSourceElementType(newType);
-      }
-      else if (hlsl::OP::IsDxilOpFuncCallInst(instruction, hlsl::OP::OpCode::DispatchMesh)) {
+      } else if (hlsl::OP::IsDxilOpFuncCallInst(
+                     instruction, hlsl::OP::OpCode::DispatchMesh)) {
         DxilModule &DM = instruction->getModule()->GetOrCreateDxilModule();
         OP *HlslOP = DM.GetOP();
 
         DxilInst_DispatchMesh DispatchMesh(instruction);
         IRBuilder<> B(instruction);
-        SmallVector<Value*, 5> args;
-        args.push_back( HlslOP->GetU32Const((unsigned)hlsl::OP::OpCode::DispatchMesh));
-        args.push_back( DispatchMesh.get_threadGroupCountX());
-        args.push_back( DispatchMesh.get_threadGroupCountY());
-        args.push_back( DispatchMesh.get_threadGroupCountZ());
-        args.push_back( newValue );
+        SmallVector<Value *, 5> args;
+        args.push_back(
+            HlslOP->GetU32Const((unsigned)hlsl::OP::OpCode::DispatchMesh));
+        args.push_back(DispatchMesh.get_threadGroupCountX());
+        args.push_back(DispatchMesh.get_threadGroupCountY());
+        args.push_back(DispatchMesh.get_threadGroupCountZ());
+        args.push_back(newValue);
 
-        B.CreateCall(HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh, newType->getPointerTo()), args);
+        B.CreateCall(HlslOP->GetOpFunc(DXIL::OpCode::DispatchMesh,
+                                       newType->getPointerTo()),
+                     args);
 
         instruction->removeFromParent();
         delete instruction;
@@ -424,20 +431,13 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
   delete Instr;
 }
 
-
 #ifdef PIX_DEBUG_DUMP_HELPER
 
 static int g_logIndent = 0;
-void IncreaseLogIndent()
-{
-    g_logIndent++;
-}
-void DecreaseLogIndent()
-{ 
-    --g_logIndent;
-}
+void IncreaseLogIndent() { g_logIndent++; }
+void DecreaseLogIndent() { --g_logIndent; }
 
-void Log(const char* format, ...) {
+void Log(const char *format, ...) {
   va_list argumentPointer;
   va_start(argumentPointer, format);
   char buffer[512];
@@ -501,11 +501,10 @@ void DumpFullType(llvm::DIType const *type) {
     case llvm::dwarf::DW_TAG_inheritance:
       DumpFullType(DerivedTy->getBaseType().resolve(EmptyMap));
       return;
-    case llvm::dwarf::DW_TAG_member:
-    {
-        Log("Member variable");
-        ScopedIndenter indent;
-        DumpFullType(DerivedTy->getBaseType().resolve(EmptyMap));
+    case llvm::dwarf::DW_TAG_member: {
+      Log("Member variable");
+      ScopedIndenter indent;
+      DumpFullType(DerivedTy->getBaseType().resolve(EmptyMap));
     }
       return;
     case llvm::dwarf::DW_TAG_subroutine_type:

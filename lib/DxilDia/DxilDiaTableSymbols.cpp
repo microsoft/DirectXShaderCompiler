@@ -36,19 +36,19 @@ void dxil_dia::Symbol::Init(Session *pSession, DWORD ID, DWORD symTag) {
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_symIndexId(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   *pRetVal = m_ID;
   return S_OK;
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_symTag(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   *pRetVal = m_symTag;
   return S_OK;
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_name(
-  /* [retval][out] */ BSTR *pRetVal) {
+    /* [retval][out] */ BSTR *pRetVal) {
   DxcThreadMalloc TM(m_pSession->GetMallocNoRef());
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
@@ -61,7 +61,7 @@ STDMETHODIMP dxil_dia::Symbol::get_name(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_lexicalParent(
-  /* [retval][out] */ IDiaSymbol **pRetVal) {
+    /* [retval][out] */ IDiaSymbol **pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -80,12 +80,12 @@ STDMETHODIMP dxil_dia::Symbol::get_lexicalParent(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_type(
-  /* [retval][out] */ IDiaSymbol **pRetVal) {
+    /* [retval][out] */ IDiaSymbol **pRetVal) {
   return S_FALSE;
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_dataKind(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -98,7 +98,7 @@ STDMETHODIMP dxil_dia::Symbol::get_dataKind(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_locationType(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -108,7 +108,7 @@ STDMETHODIMP dxil_dia::Symbol::get_locationType(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_sourceFileName(
-  /* [retval][out] */ BSTR *pRetVal) {
+    /* [retval][out] */ BSTR *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -121,7 +121,7 @@ STDMETHODIMP dxil_dia::Symbol::get_sourceFileName(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_value(
-  /* [retval][out] */ VARIANT *pRetVal) {
+    /* [retval][out] */ VARIANT *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -133,7 +133,7 @@ STDMETHODIMP dxil_dia::Symbol::get_value(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_baseType(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal != nullptr) {
     return E_INVALIDARG;
   }
@@ -143,7 +143,7 @@ STDMETHODIMP dxil_dia::Symbol::get_baseType(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_count(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -153,7 +153,7 @@ STDMETHODIMP dxil_dia::Symbol::get_count(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_offset(
-  /* [retval][out] */ LONG *pRetVal) {
+    /* [retval][out] */ LONG *pRetVal) {
   if (pRetVal != nullptr) {
     return E_INVALIDARG;
   }
@@ -163,7 +163,7 @@ STDMETHODIMP dxil_dia::Symbol::get_offset(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_length(
-  /* [retval][out] */ ULONGLONG *pRetVal) {
+    /* [retval][out] */ ULONGLONG *pRetVal) {
   if (pRetVal != nullptr) {
     return E_INVALIDARG;
   }
@@ -173,7 +173,7 @@ STDMETHODIMP dxil_dia::Symbol::get_length(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_lexicalParentId(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -185,13 +185,14 @@ STDMETHODIMP dxil_dia::Symbol::get_lexicalParentId(
   return S_OK;
 }
 
-void dxil_dia::SymbolChildrenEnumerator::Init(std::vector<CComPtr<Symbol>> &&syms) {
+void dxil_dia::SymbolChildrenEnumerator::Init(
+    std::vector<CComPtr<Symbol>> &&syms) {
   std::swap(syms, m_symbols);
   m_pos = m_symbols.begin();
 }
 
 HRESULT STDMETHODCALLTYPE dxil_dia::SymbolChildrenEnumerator::get_Count(
-  /* [retval][out] */ LONG *pRetVal) {
+    /* [retval][out] */ LONG *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -201,8 +202,8 @@ HRESULT STDMETHODCALLTYPE dxil_dia::SymbolChildrenEnumerator::get_Count(
 }
 
 HRESULT STDMETHODCALLTYPE dxil_dia::SymbolChildrenEnumerator::Item(
-  /* [in] */ DWORD index,
-  /* [retval][out] */ IDiaSymbol **symbol) {
+    /* [in] */ DWORD index,
+    /* [retval][out] */ IDiaSymbol **symbol) {
   if (symbol == nullptr) {
     return E_INVALIDARG;
   }
@@ -223,9 +224,9 @@ HRESULT STDMETHODCALLTYPE dxil_dia::SymbolChildrenEnumerator::Reset(void) {
 }
 
 HRESULT STDMETHODCALLTYPE dxil_dia::SymbolChildrenEnumerator::Next(
-  /* [in] */ ULONG celt,
-  /* [out] */ IDiaSymbol **rgelt,
-  /* [out] */ ULONG *pceltFetched) {
+    /* [in] */ ULONG celt,
+    /* [out] */ IDiaSymbol **rgelt,
+    /* [out] */ ULONG *pceltFetched) {
   DxcThreadMalloc TM(m_pMalloc);
   if (rgelt == nullptr || pceltFetched == nullptr) {
     return E_INVALIDARG;
@@ -234,7 +235,8 @@ HRESULT STDMETHODCALLTYPE dxil_dia::SymbolChildrenEnumerator::Next(
   *pceltFetched = 0;
   ZeroMemory(rgelt, sizeof(*rgelt) * celt);
 
-  for (; *pceltFetched < celt && m_pos != m_symbols.end(); ++m_pos, ++rgelt, ++(*pceltFetched)) {
+  for (; *pceltFetched < celt && m_pos != m_symbols.end();
+       ++m_pos, ++rgelt, ++(*pceltFetched)) {
     *rgelt = *m_pos;
     (*rgelt)->AddRef();
   }
@@ -243,25 +245,27 @@ HRESULT STDMETHODCALLTYPE dxil_dia::SymbolChildrenEnumerator::Next(
 }
 
 STDMETHODIMP dxil_dia::Symbol::findChildren(
-  /* [in] */ enum SymTagEnum symtag,
-  /* [in] */ LPCOLESTR name,
-  /* [in] */ DWORD compareFlags,
-  /* [out] */ IDiaEnumSymbols **ppResult) {
-  return findChildrenEx(symtag, name, compareFlags, ppResult);;
+    /* [in] */ enum SymTagEnum symtag,
+    /* [in] */ LPCOLESTR name,
+    /* [in] */ DWORD compareFlags,
+    /* [out] */ IDiaEnumSymbols **ppResult) {
+  return findChildrenEx(symtag, name, compareFlags, ppResult);
+  ;
 }
 
 STDMETHODIMP dxil_dia::Symbol::findChildrenEx(
-  /* [in] */ enum SymTagEnum symtag,
-  /* [in] */ LPCOLESTR name,
-  /* [in] */ DWORD compareFlags,
-  /* [out] */ IDiaEnumSymbols **ppResult)  {
+    /* [in] */ enum SymTagEnum symtag,
+    /* [in] */ LPCOLESTR name,
+    /* [in] */ DWORD compareFlags,
+    /* [out] */ IDiaEnumSymbols **ppResult) {
   DxcThreadMalloc TM(m_pMalloc);
   if (ppResult == nullptr) {
     return E_INVALIDARG;
   }
   *ppResult = nullptr;
 
-  CComPtr<SymbolChildrenEnumerator> ret = SymbolChildrenEnumerator::Alloc(m_pMalloc);
+  CComPtr<SymbolChildrenEnumerator> ret =
+      SymbolChildrenEnumerator::Alloc(m_pMalloc);
   if (!ret) {
     return E_OUTOFMEMORY;
   }
@@ -272,7 +276,7 @@ STDMETHODIMP dxil_dia::Symbol::findChildrenEx(
   if (symtag != nsNone) {
     std::vector<CComPtr<Symbol>> tmp;
     tmp.reserve(children.size());
-    for (const auto & c : children) {
+    for (const auto &c : children) {
       if (c->m_symTag == symtag) {
         tmp.emplace_back(c);
       }
@@ -283,12 +287,14 @@ STDMETHODIMP dxil_dia::Symbol::findChildrenEx(
   if (name != nullptr && compareFlags != nsNone) {
     std::vector<CComPtr<Symbol>> tmp;
     tmp.reserve(children.size());
-    for (const auto & c : children) {
+    for (const auto &c : children) {
       CComBSTR cName;
       IFR(c->get_name(&cName));
-      // Careful with the string comparison function we use as it can make us pull in new dependencies
-      // CompareStringOrdinal lives in kernel32.dll
-      if (CompareStringOrdinal(cName, cName.Length(), name, -1, (BOOL)(compareFlags == nsfCaseInsensitive)) != CSTR_EQUAL) {
+      // Careful with the string comparison function we use as it can make us
+      // pull in new dependencies CompareStringOrdinal lives in kernel32.dll
+      if (CompareStringOrdinal(cName, cName.Length(), name, -1,
+                               (BOOL)(compareFlags == nsfCaseInsensitive)) !=
+          CSTR_EQUAL) {
         continue;
       }
 
@@ -306,7 +312,7 @@ STDMETHODIMP dxil_dia::Symbol::findChildrenEx(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_isAggregated(
-  /* [retval][out] */ BOOL *pRetVal) {
+    /* [retval][out] */ BOOL *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -315,7 +321,7 @@ STDMETHODIMP dxil_dia::Symbol::get_isAggregated(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_registerType(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -325,7 +331,7 @@ STDMETHODIMP dxil_dia::Symbol::get_registerType(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_sizeInUdt(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -334,7 +340,7 @@ STDMETHODIMP dxil_dia::Symbol::get_sizeInUdt(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_liveRangeStartAddressOffset(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -347,7 +353,7 @@ STDMETHODIMP dxil_dia::Symbol::get_liveRangeStartAddressOffset(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_liveRangeLength(
-  /* [retval][out] */ ULONGLONG *pRetVal) {
+    /* [retval][out] */ ULONGLONG *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -360,7 +366,7 @@ STDMETHODIMP dxil_dia::Symbol::get_liveRangeLength(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_offsetInUdt(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -370,9 +376,9 @@ STDMETHODIMP dxil_dia::Symbol::get_offsetInUdt(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_numericProperties(
-  /* [in] */ DWORD cnt,
-  /* [out] */ DWORD *pcnt,
-  /* [size_is][out] */ DWORD *pProperties) {
+    /* [in] */ DWORD cnt,
+    /* [out] */ DWORD *pcnt,
+    /* [size_is][out] */ DWORD *pProperties) {
   if (pcnt == nullptr || pProperties == nullptr) {
     return E_INVALIDARG;
   }
@@ -383,7 +389,7 @@ STDMETHODIMP dxil_dia::Symbol::get_numericProperties(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_numberOfRegisterIndices(
-  /* [retval][out] */ DWORD *pRetVal) {
+    /* [retval][out] */ DWORD *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -393,7 +399,7 @@ STDMETHODIMP dxil_dia::Symbol::get_numberOfRegisterIndices(
 }
 
 STDMETHODIMP dxil_dia::Symbol::get_isHLSLData(
-  /* [retval][out] */ BOOL *pRetVal) {
+    /* [retval][out] */ BOOL *pRetVal) {
   if (pRetVal == nullptr) {
     return E_INVALIDARG;
   }
@@ -406,7 +412,8 @@ STDMETHODIMP dxil_dia::Symbol::get_isHLSLData(
 }
 
 dxil_dia::SymbolsTable::SymbolsTable(IMalloc *pMalloc, Session *pSession)
-  : impl::TableBase<IDiaEnumSymbols, IDiaSymbol>(pMalloc, pSession, Table::Kind::Symbols) {
+    : impl::TableBase<IDiaEnumSymbols, IDiaSymbol>(pMalloc, pSession,
+                                                   Table::Kind::Symbols) {
   m_count = pSession->SymMgr().NumSymbols();
 }
 

@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/iterator_range.h"
 #include "gtest/gtest.h"
 
 #include <iterator>
@@ -114,7 +114,7 @@ public:
   };
 
   iterator begin() const { return V.begin(); }
-  iterator end()  const { return V.end(); }
+  iterator end() const { return V.end(); }
   reverse_iterator rbegin() const { return reverse_iterator(V.end()); }
   reverse_iterator rend() const { return reverse_iterator(V.begin()); }
 };

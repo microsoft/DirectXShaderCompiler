@@ -9,7 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-
 #pragma once
 
 #cmakedefine CMAKE_SHARED_LIBRARY_PREFIX "@CMAKE_SHARED_LIBRARY_PREFIX@"

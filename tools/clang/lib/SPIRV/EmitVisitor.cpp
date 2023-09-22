@@ -1966,12 +1966,15 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
 bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) {
   initInstruction(inst);
 
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getXDimension()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getYDimension()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getZDimension()));
-  if (inst->getPayload() != nullptr)
-  {
-      curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPayload()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getXDimension()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getYDimension()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getZDimension()));
+  if (inst->getPayload() != nullptr) {
+    curInst.push_back(
+        getOrAssignResultId<SpirvInstruction>(inst->getPayload()));
   }
 
   finalizeInstruction(&mainBinary);
@@ -1980,8 +1983,10 @@ bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) {
 bool EmitVisitor::visit(SpirvSetMeshOutputsEXT *inst) {
   initInstruction(inst);
 
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getVertexCount()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPrimitiveCount()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getVertexCount()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getPrimitiveCount()));
 
   finalizeInstruction(&mainBinary);
   return true;

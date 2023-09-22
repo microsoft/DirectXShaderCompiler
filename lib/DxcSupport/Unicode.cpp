@@ -14,11 +14,11 @@
 #else
 #include <clocale>
 #endif
-#include <assert.h>
-#include <string>
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
+#include <assert.h>
+#include <string>
 
 #ifndef _WIN32
 // MultiByteToWideChar which is a Windows-specific method.
@@ -55,16 +55,17 @@ int MultiByteToWideChar(uint32_t CodePage, uint32_t /*dwFlags*/,
   const char *locale = CPToLocale(CodePage);
   locale = setlocale(LC_ALL, locale);
   if (lpMultiByteStr[cbMultiByte - 1] != '\0') {
-    char *srcStr = (char *)malloc((cbMultiByte +1) * sizeof(char));
+    char *srcStr = (char *)malloc((cbMultiByte + 1) * sizeof(char));
     strncpy(srcStr, lpMultiByteStr, cbMultiByte);
-    srcStr[cbMultiByte]='\0';
+    srcStr[cbMultiByte] = '\0';
     rv = mbstowcs(lpWideCharStr, srcStr, cchWideChar);
     free(srcStr);
   } else {
     rv = mbstowcs(lpWideCharStr, lpMultiByteStr, cchWideChar);
   }
   setlocale(LC_ALL, locale);
-  if (rv == (size_t)cbMultiByte) return rv;
+  if (rv == (size_t)cbMultiByte)
+    return rv;
   return rv + 1; // mbstowcs excludes the terminating character
 }
 
@@ -104,7 +105,7 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
   const char *locale = CPToLocale(CodePage);
   locale = setlocale(LC_ALL, locale);
   if (lpWideCharStr[cchWideChar - 1] != L'\0') {
-    wchar_t *srcStr = (wchar_t *)malloc((cchWideChar+1) * sizeof(wchar_t));
+    wchar_t *srcStr = (wchar_t *)malloc((cchWideChar + 1) * sizeof(wchar_t));
     wcsncpy(srcStr, lpWideCharStr, cchWideChar);
     srcStr[cchWideChar] = L'\0';
     rv = wcstombs(lpMultiByteStr, srcStr, cbMultiByte);
@@ -113,7 +114,8 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
     rv = wcstombs(lpMultiByteStr, lpWideCharStr, cbMultiByte);
   }
   setlocale(LC_ALL, locale);
-  if (rv == (size_t)cchWideChar) return rv;
+  if (rv == (size_t)cchWideChar)
+    return rv;
   return rv + 1; // mbstowcs excludes the terminating character
 }
 #endif // _WIN32
@@ -124,26 +126,33 @@ bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
                          DWORD flags, std::string *pValue, bool *lossy) {
   BOOL usedDefaultChar;
   LPBOOL pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
-  if (lossy != nullptr) *lossy = false;
+  if (lossy != nullptr)
+    *lossy = false;
 
-  // Handle zero-length as a special case; it's a special value to indicate errors in WideCharToMultiByte.
+  // Handle zero-length as a special case; it's a special value to indicate
+  // errors in WideCharToMultiByte.
   if (cWide == 0) {
     pValue->resize(0);
-    DXASSERT(lossy == nullptr || *lossy == false, "otherwise earlier initialization in this function was updated");
+    DXASSERT(lossy == nullptr || *lossy == false,
+             "otherwise earlier initialization in this function was updated");
     return true;
   }
 
-  int cbUTF8 = ::WideCharToMultiByte(cp, flags, text, cWide, nullptr, 0, nullptr, pUsedDefaultChar);
+  int cbUTF8 = ::WideCharToMultiByte(cp, flags, text, cWide, nullptr, 0,
+                                     nullptr, pUsedDefaultChar);
   if (cbUTF8 == 0)
     return false;
 
   pValue->resize(cbUTF8);
 
-  cbUTF8 = ::WideCharToMultiByte(cp, flags, text, cWide, &(*pValue)[0], pValue->size(), nullptr, pUsedDefaultChar);
+  cbUTF8 = ::WideCharToMultiByte(cp, flags, text, cWide, &(*pValue)[0],
+                                 pValue->size(), nullptr, pUsedDefaultChar);
   DXASSERT(cbUTF8 > 0, "otherwise contents have changed");
-  DXASSERT((*pValue)[pValue->size()] == '\0', "otherwise string didn't null-terminate after resize() call");
+  DXASSERT((*pValue)[pValue->size()] == '\0',
+           "otherwise string didn't null-terminate after resize() call");
 
-  if (lossy != nullptr) *lossy = usedDefaultChar;
+  if (lossy != nullptr)
+    *lossy = usedDefaultChar;
   return true;
 }
 
@@ -163,14 +172,14 @@ bool UTF8ToWideString(const char *pUTF8, size_t cbUTF8, std::wstring *pWide) {
   }
 
   int cWide = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8,
-                                     cbUTF8, nullptr, 0);
+                                    cbUTF8, nullptr, 0);
   if (cWide == 0)
     return false;
 
   pWide->resize(cWide);
 
   cWide = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, cbUTF8,
-                                 &(*pWide)[0], pWide->size());
+                                &(*pWide)[0], pWide->size());
   DXASSERT(cWide > 0, "otherwise contents changed");
   DXASSERT((*pWide)[pWide->size()] == L'\0',
            "otherwise wstring didn't null-terminate after resize() call");
@@ -190,7 +199,8 @@ bool UTF8ToConsoleString(const char *text, size_t textLen, std::string *pValue,
   DXASSERT_NOMSG(text != nullptr);
   DXASSERT_NOMSG(pValue != nullptr);
   std::wstring text16;
-  if (lossy != nullptr) *lossy = false;
+  if (lossy != nullptr)
+    *lossy = false;
   if (!UTF8ToWideString(text, textLen, &text16)) {
     return false;
   }
@@ -209,7 +219,8 @@ bool WideToConsoleString(const wchar_t *text, size_t textLen,
   return WideToEncodedString(text, textLen, cp, 0, pValue, lossy);
 }
 
-bool WideToConsoleString(const wchar_t* text, std::string* pValue, bool* lossy) {
+bool WideToConsoleString(const wchar_t *text, std::string *pValue,
+                         bool *lossy) {
   return WideToConsoleString(text, wcslen(text), pValue, lossy);
 }
 
@@ -248,7 +259,8 @@ bool UTF8BufferToWideComHeap(const char *pUTF8, wchar_t **ppWide) throw() {
   return true;
 }
 
-bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide, size_t *pcWide) throw() {
+bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide,
+                            size_t *pcWide) throw() {
   *ppWide = nullptr;
   *pcWide = 0;
 
@@ -261,7 +273,8 @@ bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide, siz
     return true;
   }
 
-  int c = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, cbUTF8, nullptr, 0);
+  int c = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, cbUTF8,
+                                nullptr, 0);
   if (c == 0)
     return false;
 
@@ -274,9 +287,8 @@ bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide, siz
   if (p == nullptr)
     return false;
 
-  int converted = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
-                            pUTF8, cbUTF8,
-                            p, c);
+  int converted =
+      ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, pUTF8, cbUTF8, p, c);
   (void)converted;
   DXASSERT(converted > 0, "otherwise contents have changed");
   p[c - 1] = L'\0';
@@ -287,7 +299,8 @@ bool UTF8BufferToWideBuffer(const char *pUTF8, int cbUTF8, wchar_t **ppWide, siz
   return true;
 }
 
-bool WideBufferToUTF8Buffer(const wchar_t *pWide, int cWide, char **ppUTF8, size_t *pcUTF8) throw() {
+bool WideBufferToUTF8Buffer(const wchar_t *pWide, int cWide, char **ppUTF8,
+                            size_t *pcUTF8) throw() {
   *ppUTF8 = nullptr;
   *pcUTF8 = 0;
 
@@ -302,8 +315,8 @@ bool WideBufferToUTF8Buffer(const wchar_t *pWide, int cWide, char **ppUTF8, size
 
   int c1 = ::WideCharToMultiByte(CP_UTF8, // code page
                                  0,       // flags
-                                 pWide,  // string to convert
-                                 cWide,  // size, in chars, of string to convert
+                                 pWide,   // string to convert
+                                 cWide, // size, in chars, of string to convert
                                  nullptr, // output buffer
                                  0,       // size of output buffer
                                  nullptr, nullptr);
@@ -318,10 +331,8 @@ bool WideBufferToUTF8Buffer(const wchar_t *pWide, int cWide, char **ppUTF8, size
   if (p == nullptr)
     return false;
 
-  int converted = ::WideCharToMultiByte(CP_UTF8, 0,
-                            pWide, cWide,
-                            p, c1,
-                            nullptr, nullptr);
+  int converted =
+      ::WideCharToMultiByte(CP_UTF8, 0, pWide, cWide, p, c1, nullptr, nullptr);
   (void)converted;
   DXASSERT(converted > 0, "otherwise contents have changed");
   p[c1 - 1] = '\0';
@@ -332,9 +343,9 @@ bool WideBufferToUTF8Buffer(const wchar_t *pWide, int cWide, char **ppUTF8, size
   return true;
 }
 
-template<typename TChar>
-static
-bool IsStarMatchT(const TChar *pMask, size_t maskLen, const TChar *pName, size_t nameLen, TChar star) {
+template <typename TChar>
+static bool IsStarMatchT(const TChar *pMask, size_t maskLen, const TChar *pName,
+                         size_t nameLen, TChar star) {
   if (maskLen == 0 && nameLen == 0) {
     return true;
   }
@@ -352,8 +363,7 @@ bool IsStarMatchT(const TChar *pMask, size_t maskLen, const TChar *pName, size_t
       return false;
     }
     return 0 == memcmp(pMask, pName, sizeof(TChar) * maskLen);
-  }
-  else {
+  } else {
     // Exact match.
     if (nameLen != maskLen) {
       return false;
@@ -362,13 +372,14 @@ bool IsStarMatchT(const TChar *pMask, size_t maskLen, const TChar *pName, size_t
   }
 }
 
-bool IsStarMatchUTF8(const char *pMask, size_t maskLen, const char *pName, size_t nameLen) {
+bool IsStarMatchUTF8(const char *pMask, size_t maskLen, const char *pName,
+                     size_t nameLen) {
   return IsStarMatchT<char>(pMask, maskLen, pName, nameLen, '*');
 }
 
-bool IsStarMatchWide(const wchar_t *pMask, size_t maskLen, const wchar_t *pName, size_t nameLen) {
+bool IsStarMatchWide(const wchar_t *pMask, size_t maskLen, const wchar_t *pName,
+                     size_t nameLen) {
   return IsStarMatchT<wchar_t>(pMask, maskLen, pName, nameLen, L'*');
 }
 
-
-}  // namespace Unicode
+} // namespace Unicode
