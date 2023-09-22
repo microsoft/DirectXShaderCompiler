@@ -3295,14 +3295,13 @@ public:
     return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
   }
 
-  HRESULT insertIncludeFile(_In_ LPCWSTR pFilename,
-                            _In_ IDxcBlobEncoding *pBlob, _In_ UINT32 dataLen) {
+  HRESULT insertIncludeFile(LPCWSTR pFilename, IDxcBlobEncoding *pBlob,
+                            UINT32 dataLen) {
     return E_FAIL;
   }
 
-  HRESULT STDMETHODCALLTYPE LoadSource(
-      _In_ LPCWSTR pFilename,
-      _COM_Outptr_result_maybenull_ IDxcBlob **ppIncludeSource) override {
+  HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename,
+                                       IDxcBlob **ppIncludeSource) override {
     for (auto const &file : m_files) {
       std::wstring prependedWithDotHack = L"./" + file.first;
       if (prependedWithDotHack == std::wstring(pFilename)) {
