@@ -10,8 +10,6 @@
 // CHECK: [[NT]] = !{i32 32, i32 1, i32 1}
 // CHECK: [[WS]] = !{i32 32}
 
-
-
 [WaveSize(32)]
 [numthreads(32, 1, 1)]
 void csmain1(){ }

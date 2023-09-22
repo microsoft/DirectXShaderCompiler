@@ -11303,7 +11303,8 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 // that other attributes provide on the decl, such as the fact of 
 // whether or not the decl is a node shader. This validation is 
 // performed after all attributes on the decl have been parsed.
-void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {  
+void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD,
+                      const hlsl::ShaderModel *SM, HLSLShaderAttr *shaderAttr) {  
   const llvm::StringRef &entryName = S->getLangOpts().HLSLEntryFunction;
   StringRef functionName = FD->getName();
   bool isLib = S->getLangOpts().IsHLSLLibrary;
@@ -11315,18 +11316,14 @@ void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
   bool isNode = false;
   bool isCS = false;
 
-  auto *shaderAttribute = FD->getAttr<HLSLShaderAttr>();
-  if (shaderAttribute) {
-    StringRef Literal = shaderAttribute->getStage();
+  if (shaderAttr) {
+    StringRef Literal = shaderAttr->getStage();
     DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal);
     isNode = Stage == DXIL::ShaderKind::Node;
     isCS = Stage == DXIL::ShaderKind::Compute;
   }
 
   HLSLWaveSizeAttr *attr = FD->getAttr<HLSLWaveSizeAttr>();
-
-  // make sure we are in an appropriate shader model
-  const auto *SM = hlsl::ShaderModel::GetByName(S->getLangOpts().HLSLProfile);
 
   if (!SM->IsSM66Plus()) {
     S->Diag(attr->getRange().getBegin(),
@@ -11335,7 +11332,7 @@ void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
         << "6.6";
   }
 
-  if (!isLib && !isCS && !isNode) {
+  if (!isCS && !isNode) {
     S->Diag(attr->getRange().getBegin(),
             diag::err_hlsl_attribute_unsupported_stage)
         << "WaveSize"
@@ -11346,6 +11343,11 @@ void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD) {
 void ValidateEntryPointFunctionAttributes(
     clang::Sema *self, FunctionDecl *entryPointDecl) {
 
+  // make sure we are in an appropriate shader model
+  const auto *SM = hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile);
+  HLSLShaderAttr *shaderAttr = entryPointDecl->getAttr<HLSLShaderAttr>();
+
+
   // run validation on the entry point attribute that belongs
   // to the entry point function
   if (entryPointDecl->hasAttrs()) {
@@ -11353,7 +11355,7 @@ void ValidateEntryPointFunctionAttributes(
       switch (pAttr->getKind()) {
       
       case clang::attr::HLSLWaveSize: {
-        ValidateWaveSize(self, entryPointDecl);
+        ValidateWaveSize(self, entryPointDecl, SM, shaderAttr);
         break;
       }
       }

@@ -14,7 +14,6 @@
 // CHECK-MAIN2: [[NT]] = !{i32 2, i32 2, i32 1}
 // CHECK-MAIN2: [[WS]] = !{i32 32}
 
-
 [wavesize(32)]
 [numthreads(2,2,1)]
 void main2() {}
