@@ -1502,7 +1502,7 @@ TEST_F(PixTest, DiaLoadRelocatedBitcode) {
 
   // Get program header
   const hlsl::DxilProgramHeader *programHeader =
-    (const hlsl::DxilProgramHeader *)pPartData;
+      (const hlsl::DxilProgramHeader *)pPartData;
 
   const char *pBitcode = nullptr;
   uint32_t uBitcodeSize = 0;
