@@ -1,3 +1,6 @@
+// Skip hash stablity because verify mode might have compile error.
+// UNSUPPORTED: hash_stability
+
 // RUN: %dxc -T lib_6_3 %s -verify
 // RUN: not %dxc -T lib_6_3 %s -DEXTRA_ERROR -verify 2>&1 | FileCheck %s
 

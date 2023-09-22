@@ -74,6 +74,8 @@ class DxcHashTest(TestFormat):
 
     def getTestsInDirectory(self, testSuite, path_in_suite,
                             litConfig, localConfig):
+        # set exec path of testSuite to cwd
+        testSuite.exec_root = self.cwd
 
         if not os.path.isdir(self.test_path):
             rel_dir = os.path.relpath(self.test_path, testSuite.source_root)
@@ -89,14 +91,30 @@ class DxcHashTest(TestFormat):
             #yield self.discoverTests(testSuite, self.test_path, litConfig, local_config_cache)
 
     def isUselessArgWithValue(self, arg):
-        useless_arg_with_val = ["-Fo" , "/Fo" , "-Fe" , "/Fe" , "-Fi" , "/Fi" , \
-                 "-Fc" , "/Fc", "-Fd", "/Fd",
-                 "-Fh", "/Fh", "-Vn", "/Vn", "-Frs", "/Frs", "-Fre", "/Fre"]
+        useless_arg_with_val = ["-Fo" , "/Fo", # Fo will be removed for use different output file
+                 "-P", "/P", # P will make dxc only preprocess
+                 "-Fd", "/Fd", # Fd is depend on /Zi which will be removed for normal compile
+                 ]
         return arg in useless_arg_with_val
     
     def isUselessArgFlag(self, arg):
-        useless_arg_flag = ["-ast-dump", "/ast-dump", "-ast-dump-implicit", \
-                            "-Zi", "-M", "-H", "/Odump", "-fcgl"]
+        useless_arg_flag = [
+                            "-Zi", "/Zi", # skip Zi for normal compile
+                            "-M", "/M", # skip M which dump dependency
+                            "-MD", "/MD", # skip MD which dump dependency
+                            "-H", # skip H which only show header includes
+                            "-Odump", "/Odump", # skip Odump which only dump optimizer commands
+                            "-fcgl", "/fcgl", # skip fcgl which doesn't generate container
+                            # skip ast options which doesn't generate container
+                            "-ast-dump", "/ast-dump",
+                            "-ast-dump-implicit", "/ast-dump-implicit",
+                            # skip debug related args for normal compile
+                            "-Zsb", "/Zsb",
+                            "-Zss", "/Zss",
+                            "-Zpr", "/Zpr",
+                            "-Qembed_debug", "/Qembed_debug", 
+                            # skip Zs for conflict with Zi
+                            "-Zs", "/Zs"]
         return arg in useless_arg_flag
 
     def getCleanArgs(self, dxc_cmd):
@@ -106,6 +124,13 @@ class DxcHashTest(TestFormat):
         for i in range(len(original_args)):
             arg = original_args[i]
             if self.isUselessArgWithValue(arg):
+                if arg == "/P" or arg == "-P":
+                    # Check if next arg is a file name
+                    if i + 1 < len(original_args):
+                        next_arg = original_args[i + 1]
+                        # If next arg is not a file name, leave it out
+                        if not os.path.isfile(next_arg):
+                            continue
                 # remove "-Fo", "-Fe", "-Fi" and things next to it from args
                 skip_val = True
                 continue
@@ -126,19 +151,21 @@ class DxcHashTest(TestFormat):
             return True
 
         # skip RUN lines with illegal args
-        illegal_args = {"-dumpbin", "/dumpbin", "-spirv", "/spirv", \
-                        "-MD", "/MD", "-M", "/M", "/recompile", "/P", "-P",
-                        "-verify", "-Zs", "/Zs"}
+        illegal_args = {
+                        # skip spirv which not generate DXIL and might have other spirv only options.
+                        "-spirv", "/spirv",
+                        # skip options which don't need set target profile.
+                        "-dumpbin", "/dumpbin",
+                        "-recompile", "/recompile",
+                        # skip verify for the shader might fail to compile.
+                        "-verify"}
         if not illegal_args.isdisjoint(args):
             return True
 
         for arg in args:
-            if arg.startswith("-ftime-trace"):
-                return True
-            if arg.startswith("/MF"):
-                return True
             # root signature profile doesn't generate hash part
-            if arg.startswith("rootsig_1_") or arg.startswith("-Trootsig_1_"):
+            if (arg.startswith("rootsig_1_") and "-force_rootsig_ver" not in args) or \
+                arg.startswith("-Trootsig_1_"):
                 return True
 
         return False
@@ -149,16 +176,16 @@ class DxcHashTest(TestFormat):
                 raise lit.TestRunner.InternalShellError(cmd,"unsupported shell operator: '&'")
 
             if cmd.op == ';' or cmd.op == '||' or cmd.op == '&&':
-                res = self.executeHashTest(test, cmd.lhs)
+                res, no_run = self.executeHashTest(test, cmd.lhs)
                 if res.code == lit.Test.FAIL:
-                    return res
+                    return res, no_run
                 return self.executeHashTest(test, cmd.rhs)
 
             raise ValueError('Unknown shell command: %r' % cmd.op)
         assert isinstance(cmd, ShUtil.Pipeline)
 
         status = lit.Test.PASS
-
+        no_run = True
         for i,j in enumerate(cmd.commands):
             if self.hasIllegalArgs(j.args):
                 continue
@@ -170,11 +197,11 @@ class DxcHashTest(TestFormat):
 
             # run hash stability test
             res, msg = run_hash_stablity_test(args, self.dxc_path, self.dxa_path, test_name, self.cwd, i)
-
+            no_run = False
             if not res:
                 status = lit.Test.FAIL
-                return lit.Test.Result(lit.Test.FAIL, msg)
-        return lit.Test.Result(lit.Test.PASS)
+                return lit.Test.Result(lit.Test.FAIL, msg), no_run
+        return lit.Test.Result(lit.Test.PASS), no_run
 
     def execute(self, test, litConfig):
         if test.config.unsupported:
@@ -196,8 +223,12 @@ class DxcHashTest(TestFormat):
             except:
                 return lit.Test.Result(lit.Test.FAIL, "shell parser error on: %r" % ln)
 
+        nothing_run = True
         for cmd in cmds:
-            res = self.executeHashTest(test, cmd)
+            res, no_run = self.executeHashTest(test, cmd)
+            nothing_run &= no_run
             if res.code == lit.Test.FAIL:
                 return res
+        if nothing_run:
+            return lit.Test.Result(lit.Test.FAIL, "no RUN lines for hash stability found. If this is expected, add 'UNSUPPORTED: hash_stability' to the test")
         return lit.Test.Result(lit.Test.PASS)

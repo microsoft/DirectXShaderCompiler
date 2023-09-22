@@ -1,3 +1,6 @@
+// Skip hash stability because the output is not legal HLSL.
+// UNSUPPORTED: hash_stability
+
 // RUN: %dxc -T vs_6_5 -P -Fi %t.vs_65.hlsl.pp %s
 // RUN: FileCheck --input-file=%t.vs_65.hlsl.pp %s --check-prefix=VS_65
 // VS_65:vs 6 5

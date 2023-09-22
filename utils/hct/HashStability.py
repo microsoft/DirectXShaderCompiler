@@ -26,7 +26,8 @@ def extract_hash(dxa_path, dx_container, working_dir, empty_env):
     stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
-        print(f"extract hash from {dx_container} failed {args}, stdout:{stdout}, stderr:{stderr}")
+        str_args = str(args).replace("'","")
+        print(f"extract hash from {dx_container} failed with \n{str_args}\n stdout:{stdout}\n stderr:{stderr}\n")
         # extract hash failed, return fail.
         return None
     return hash_file
@@ -47,7 +48,8 @@ def normal_compile(args, output_file, working_dir, empty_env):
     stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
-        print(f"normal compile failed {args}, stdout:{stdout}, stderr:{stderr}")
+        str_args = str(args).replace("'","")
+        print(f"\n\nnormal compile failed with\n{str_args}\n stdout:{stdout}\n stderr:{stderr}\n\n")
     return res
 
 def debug_compile(args, output_file, working_dir, empty_env):
@@ -67,7 +69,8 @@ def debug_compile(args, output_file, working_dir, empty_env):
     stdout, stderr = proc.communicate()
     res = proc.wait()
     if res != 0:
-        print(f"debug compile failed {args}, stdout:{stdout}, stderr:{stderr}")
+        str_args = str(args).replace("'","")
+        print(f"\n\ndebug compile failed with \n{str_args}\n stdout:{stdout}\n stderr:{stderr}\n\n")
     return res
 
 
