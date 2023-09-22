@@ -1,4 +1,8 @@
 // RUN: %dxc -E main -T vs_6_8 %s | FileCheck %s
+// RUN: not %dxc -E main -T vs_6_7 %s 2>&1 | FileCheck %s --check-prefix=SM67
+
+// SM67:invalid semantic 'SV_BaseVertexLocation' for vs 6.7
+// SM67:invalid semantic 'SV_StartInstanceLocation' for vs 6.7
 
 // CHECK: @main
 
