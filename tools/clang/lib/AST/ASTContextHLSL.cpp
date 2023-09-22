@@ -469,10 +469,12 @@ static void AddRecordSubscriptAccess(clang::ASTContext &Ctx,
 /// <summary>Adds up-front support for HLSL *NodeOutputRecords template
 /// types.</summary>
 void hlsl::AddHLSLNodeOutputRecordTemplate(
-    ASTContext &context, StringRef templateName,
+    ASTContext &context, DXIL::NodeIOKind Type,
     ClassTemplateDecl **outputRecordTemplateDecl,
     bool isCompleteType /*= true*/) {
   DXASSERT_NOMSG(outputRecordTemplateDecl != nullptr);
+
+  StringRef templateName = HLSLNodeObjectAttr::ConvertRecordTypeToStr(Type);
 
   // Create a *NodeOutputRecords template declaration in translation unit scope.
   BuiltinTypeDeclBuilder typeDeclBuilder(context.getTranslationUnitDecl(),
@@ -485,6 +487,9 @@ void hlsl::AddHLSLNodeOutputRecordTemplate(
 
   // Add an 'h' field to hold the handle.
   typeDeclBuilder.addField("h", GetHLSLObjectHandleType(context));
+
+  typeDeclBuilder.getRecordDecl()->addAttr(
+      HLSLNodeObjectAttr::CreateImplicit(context, Type));
 
   QualType elementType = context.getTemplateTypeParmType(
       0, 0, ParameterPackFalse, outputTemplateParamDecl);
@@ -1204,8 +1209,9 @@ CXXRecordDecl *hlsl::DeclareResourceType(ASTContext &context, bool bSampler) {
 }
 
 CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
-    clang::ASTContext &Ctx, StringRef TypeName, bool IsRecordTypeTemplate,
+    clang::ASTContext &Ctx, DXIL::NodeIOKind Type, bool IsRecordTypeTemplate,
     bool IsConst, bool HasGetMethods, bool IsArray, bool IsCompleteType) {
+  StringRef TypeName = HLSLNodeObjectAttr::ConvertRecordTypeToStr(Type);
 
   BuiltinTypeDeclBuilder Builder(Ctx.getTranslationUnitDecl(), TypeName,
                                  TagDecl::TagKind::TTK_Struct);
@@ -1216,6 +1222,9 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 
   Builder.startDefinition();
   Builder.addField("h", GetHLSLObjectHandleType(Ctx));
+
+  Builder.getRecordDecl()->addAttr(
+      HLSLNodeObjectAttr::CreateImplicit(Ctx, Type));
 
   if (IsRecordTypeTemplate) {
     QualType ParamTy = QualType(TyParamDecl->getTypeForDecl(), 0);
@@ -1235,11 +1244,11 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 }
 
 CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
-                                            StringRef TypeName,
+                                            DXIL::NodeIOKind Type,
                                             CXXRecordDecl *OutputType,
                                             bool IsRecordTypeTemplate,
                                             bool IsCompleteType) {
-
+  StringRef TypeName = HLSLNodeObjectAttr::ConvertRecordTypeToStr(Type);
   BuiltinTypeDeclBuilder Builder(Ctx.getTranslationUnitDecl(), TypeName,
                                  TagDecl::TagKind::TTK_Struct);
   TemplateTypeParmDecl *elementTemplateParamDecl = nullptr;
@@ -1249,6 +1258,10 @@ CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
 
   Builder.startDefinition();
   Builder.addField("h", GetHLSLObjectHandleType(Ctx));
+
+  Builder.getRecordDecl()->addAttr(
+      HLSLNodeObjectAttr::CreateImplicit(Ctx, Type));
+
   QualType ResultType;
   if (IsRecordTypeTemplate) {
     QualType elementType = Ctx.getTemplateTypeParmType(

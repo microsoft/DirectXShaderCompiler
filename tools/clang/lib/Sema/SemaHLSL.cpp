@@ -3878,69 +3878,71 @@ private:
             *m_context, "FeedbackTexture2DArray", "kind");
       } else if (kind == AR_OBJECT_EMPTY_NODE_INPUT) {
         recordDecl = DeclareNodeOrRecordType(
-            *m_context, "EmptyNodeInput",
+            *m_context, DXIL::NodeIOKind::EmptyInput,
             /*IsRecordTypeTemplate*/ false, /*IsConst*/ true,
             /*HasGetMethods*/ false,
             /*IsArray*/ false, /*IsCompleteType*/ false);
       } else if (kind == AR_OBJECT_DISPATCH_NODE_INPUT_RECORD) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "DispatchNodeInputRecord",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ true, /*HasGetMethods*/ true,
-                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::DispatchNodeInputRecord,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ true, /*HasGetMethods*/ true,
+            /*IsArray*/ false, /*IsCompleteType*/ true);
       } else if (kind == AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD) {
         recordDecl = DeclareNodeOrRecordType(
-            *m_context, "RWDispatchNodeInputRecord",
+            *m_context, DXIL::NodeIOKind::RWDispatchNodeInputRecord,
             /*IsRecordTypeTemplate*/ true, /*IsConst*/ false,
             /*HasGetMethods*/ true,
             /*IsArray*/ false, /*IsCompleteType*/ false);
       } else if (kind == AR_OBJECT_GROUP_NODE_INPUT_RECORDS) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "GroupNodeInputRecords",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ true, /*HasGetMethods*/ true,
-                                    /*IsArray*/ true, /*IsCompleteType*/ false);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::GroupNodeInputRecords,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ true, /*HasGetMethods*/ true,
+            /*IsArray*/ true, /*IsCompleteType*/ false);
       } else if (kind == AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "RWGroupNodeInputRecords",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ false, /*HasGetMethods*/ true,
-                                    /*IsArray*/ true, /*IsCompleteType*/ false);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::RWGroupNodeInputRecords,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ false, /*HasGetMethods*/ true,
+            /*IsArray*/ true, /*IsCompleteType*/ false);
       } else if (kind == AR_OBJECT_THREAD_NODE_INPUT_RECORD) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "ThreadNodeInputRecord",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ true, /*HasGetMethods*/ true,
-                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::ThreadNodeInputRecord,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ true, /*HasGetMethods*/ true,
+            /*IsArray*/ false, /*IsCompleteType*/ true);
       } else if (kind == AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "RWThreadNodeInputRecord",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ false, /*HasGetMethods*/ true,
-                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::RWThreadNodeInputRecord,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ false, /*HasGetMethods*/ true,
+            /*IsArray*/ false, /*IsCompleteType*/ true);
       } else if (kind == AR_OBJECT_NODE_OUTPUT) {
         recordDecl = DeclareNodeOrRecordType(
-            *m_context, "NodeOutput",
+            *m_context, DXIL::NodeIOKind::NodeOutput,
             /*IsRecordTypeTemplate*/ true, /*IsConst*/ true,
             /*HasGetMethods*/ false,
             /*IsArray*/ false, /*IsCompleteType*/ false);
         nodeOutputDecl = recordDecl;
       } else if (kind == AR_OBJECT_EMPTY_NODE_OUTPUT) {
         recordDecl = DeclareNodeOrRecordType(
-            *m_context, "EmptyNodeOutput",
+            *m_context, DXIL::NodeIOKind::EmptyOutput,
             /*IsRecordTypeTemplate*/ false, /*IsConst*/ true,
             /*HasGetMethods*/ false,
             /*IsArray*/ false, /*IsCompleteType*/ false);
         emptyNodeOutputDecl = recordDecl;
       } else if (kind == AR_OBJECT_NODE_OUTPUT_ARRAY) {
         assert(nodeOutputDecl != nullptr);
-        recordDecl = DeclareNodeOutputArray(*m_context, "NodeOutputArray",
+        recordDecl = DeclareNodeOutputArray(*m_context,
+                                            DXIL::NodeIOKind::NodeOutputArray,
                                             /* ItemType */ nodeOutputDecl,
                                             /*IsRecordTypeTemplate*/ true,
                                             /*IsCompleteType*/ true);
       } else if (kind == AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY) {
         assert(emptyNodeOutputDecl != nullptr);
-        recordDecl = DeclareNodeOutputArray(*m_context, "EmptyNodeOutputArray",
+        recordDecl = DeclareNodeOutputArray(*m_context,
+                                            DXIL::NodeIOKind::EmptyOutputArray,
                                             /* ItemType */ emptyNodeOutputDecl,
                                             /*IsRecordTypeTemplate*/ false,
                                             /*IsCompleteType*/ true);
@@ -5115,10 +5117,12 @@ public:
     AddSamplerFeedbackConstants(*m_context);
     AddBarrierConstants(*m_context);
 
-    AddHLSLNodeOutputRecordTemplate(*m_context, "GroupNodeOutputRecords",
+    AddHLSLNodeOutputRecordTemplate(*m_context,
+                                    DXIL::NodeIOKind::GroupNodeOutputRecords,
                                     &m_GroupNodeOutputRecordsTemplateDecl,
                                     /* isCompleteType */ false);
-    AddHLSLNodeOutputRecordTemplate(*m_context, "ThreadNodeOutputRecords",
+    AddHLSLNodeOutputRecordTemplate(*m_context,
+                                    DXIL::NodeIOKind::ThreadNodeOutputRecords,
                                     &m_ThreadNodeOutputRecordsTemplateDecl,
                                     /* isCompleteType */ false);
 
@@ -5357,16 +5361,7 @@ public:
       }
       return false;
 
-    } else if (templateName == "DispatchNodeInputRecord" ||
-               templateName == "RWDispatchNodeInputRecord" ||
-               templateName == "GroupNodeInputRecords" ||
-               templateName == "RWGroupNodeInputRecords" ||
-               templateName == "ThreadNodeInputRecord" ||
-               templateName == "RWThreadNodeInputRecord" ||
-               templateName == "NodeOutput" ||
-               templateName == "NodeOutputArray" ||
-               templateName == "GroupNodeOutputRecords" ||
-               templateName == "ThreadNodeOutputRecords") {
+    } else if (Template->getTemplatedDecl()->hasAttr<HLSLNodeObjectAttr>()) {
 
       DXASSERT(TemplateArgList.size() == 1,
                "otherwise the template has not been declared properly");
@@ -15101,22 +15096,25 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
 
 namespace hlsl {
 
-static bool nodeInputIsCompatible(StringRef &typeName,
+static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
                                   DXIL::NodeLaunchType launchType) {
-  return llvm::StringSwitch<bool>(typeName)
-      .Case("DispatchNodeInputRecord",
-            launchType == DXIL::NodeLaunchType::Broadcasting)
-      .Case("RWDispatchNodeInputRecord",
-            launchType == DXIL::NodeLaunchType::Broadcasting)
-      .Case("GroupNodeInputRecords",
-            launchType == DXIL::NodeLaunchType::Coalescing)
-      .Case("RWGroupNodeInputRecords",
-            launchType == DXIL::NodeLaunchType::Coalescing)
-      .Case("EmptyNodeInput", launchType == DXIL::NodeLaunchType::Coalescing)
-      .Case("ThreadNodeInputRecord", launchType == DXIL::NodeLaunchType::Thread)
-      .Case("RWThreadNodeInputRecord",
-            launchType == DXIL::NodeLaunchType::Thread)
-      .Default(false);
+  switch (IOType) {
+  case DXIL::NodeIOKind::DispatchNodeInputRecord:
+  case DXIL::NodeIOKind::RWDispatchNodeInputRecord:
+    return launchType == DXIL::NodeLaunchType::Broadcasting;
+
+  case DXIL::NodeIOKind::GroupNodeInputRecords:
+  case DXIL::NodeIOKind::RWGroupNodeInputRecords:
+  case DXIL::NodeIOKind::EmptyInput:
+    return launchType == DXIL::NodeLaunchType::Coalescing;
+
+  case DXIL::NodeIOKind::ThreadNodeInputRecord:
+  case DXIL::NodeIOKind::RWThreadNodeInputRecord:
+    return launchType == DXIL::NodeLaunchType::Thread;
+
+  default:
+    return false;
+  }
 }
 
 void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
@@ -15222,12 +15220,13 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(Param->getType())) {
       InputCount++;
-      const RecordType *RT = Param->getType()->getAs<RecordType>();
-      StringRef TypeName = RT->getDecl()->getName();
       if (NodeLaunchTy != DXIL::NodeLaunchType::Invalid &&
-          !nodeInputIsCompatible(TypeName, NodeLaunchTy)) {
+          !nodeInputIsCompatible(GetNodeIOType(Param->getType()),
+                                 NodeLaunchTy)) {
+        const RecordType *RT = Param->getType()->getAs<RecordType>();
         S.Diags.Report(Param->getLocation(), diag::err_hlsl_wg_input_kind)
-            << TypeName << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy)
+            << RT->getDecl()->getName()
+            << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy)
             << (static_cast<unsigned>(NodeLaunchTy) - 1)
             << Param->getSourceRange();
         if (NodeLaunchLoc.isValid())
