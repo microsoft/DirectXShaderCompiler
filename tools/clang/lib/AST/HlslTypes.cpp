@@ -638,13 +638,6 @@ bool IsHLSLDynamicResourceType(clang::QualType type) {
   return false;
 }
 
-bool IsHLSLNodeType(clang::QualType type, StringRef name) {
-  if (const RecordType* RT = type->getAs<RecordType>()) {
-    return name.equals(RT->getDecl()->getName());
-  }
-  return false;
-}
-
 bool IsHLSLNodeType(clang::QualType type) {
   if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
     return true;

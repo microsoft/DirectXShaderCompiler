@@ -15243,17 +15243,14 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     // arrays of NodeOutput or EmptyNodeOutput are not supported as node
     // parameters
     if (ParamTy->isArrayType()) {
-      const ArrayType* AT = dyn_cast<ArrayType>(ParamTy);
-      if (hlsl::IsHLSLNodeType(AT->getElementType(), "NodeOutput")) {
+      const ArrayType *AT = dyn_cast<ArrayType>(ParamTy);
+      DXIL::NodeIOKind Kind = GetNodeIOType(AT->getElementType());
+      if (Kind == DXIL::NodeIOKind::NodeOutput ||
+          Kind == DXIL::NodeIOKind::EmptyOutput) {
         S.Diags.Report(Param->getLocation(),
                        diag::err_hlsl_nodeoutput_array_parameter)
-          << "NodeOutput" << Param->getSourceRange();
-        Param->setInvalidDecl();
-      }
-      if (hlsl::IsHLSLNodeType(AT->getElementType(), "EmptyNodeOutput")) {
-        S.Diags.Report(Param->getLocation(),
-                       diag::err_hlsl_nodeoutput_array_parameter)
-          << "EmptyNodeOutput" << Param->getSourceRange();
+            << HLSLNodeObjectAttr::ConvertRecordTypeToStr(Kind)
+            << Param->getSourceRange();
         Param->setInvalidDecl();
       }
     }

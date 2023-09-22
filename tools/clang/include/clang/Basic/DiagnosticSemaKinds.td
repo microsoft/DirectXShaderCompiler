@@ -7836,7 +7836,7 @@ def err_hlsl_maxrecursiondepth_exceeded : Error<
 def err_hlsl_too_many_node_inputs : Error<
    "Node shader '%0' may not have more than one input record">;
 def err_hlsl_nodeoutput_array_parameter : Error<
-   "arrays of %0 are not supported as node parameters - use %0Array instead">;
+   "arrays of '%0' are not supported as node parameters - use '%0Array' instead">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
