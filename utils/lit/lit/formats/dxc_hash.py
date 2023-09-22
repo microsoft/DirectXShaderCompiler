@@ -74,7 +74,12 @@ class DxcHashTest(TestFormat):
 
     def getTestsInDirectory(self, testSuite, path_in_suite,
                             litConfig, localConfig):
-        # set exec path of testSuite to cwd
+        # If not running from HashStability directory directly, update source_root to HashStability
+        # This is for temp dir for the original RUN line output file like Fi/Fe.
+        rel_dir = os.path.relpath(testSuite.source_root, self.cwd)
+        if rel_dir == ".": # testSuite.source_root is self.test_path
+            testSuite.source_root = os.path.join(self.test_path, 'HashStability')
+        # update exec_root to cwd
         testSuite.exec_root = self.cwd
 
         if not os.path.isdir(self.test_path):
@@ -129,7 +134,7 @@ class DxcHashTest(TestFormat):
                     if i + 1 < len(original_args):
                         next_arg = original_args[i + 1]
                         # If next arg is not a file name, leave it out
-                        if not os.path.isfile(next_arg):
+                        if not os.path.isfile(next_arg) and not next_arg.endswith(".hlsl"):
                             continue
                 # remove "-Fo", "-Fe", "-Fi" and things next to it from args
                 skip_val = True
@@ -222,6 +227,13 @@ class DxcHashTest(TestFormat):
                                             test.config.pipefail).parse())
             except:
                 return lit.Test.Result(lit.Test.FAIL, "shell parser error on: %r" % ln)
+
+        # Create the output directory for original RUN line output file if it does not already exist.
+        # This is for output like Fi/Fe.
+        execpath = test.getExecPath()
+        execdir,execbase = os.path.split(execpath)
+        tmpDir = os.path.join(execdir, 'Output')
+        lit.util.mkdir_p(os.path.dirname(tmpDir))
 
         counter = 0
         for cmd in cmds:

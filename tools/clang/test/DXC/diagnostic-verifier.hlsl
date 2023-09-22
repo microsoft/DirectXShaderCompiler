@@ -11,4 +11,4 @@ baz(); // Woah!
 #endif
 
 // CHECK: error: 'error' diagnostics seen but not expected: 
-// CHECK: File {{.*}}diagnostic-verifier.hlsl Line 7: HLSL requires a type specifier for all declarations
+// CHECK: File {{.*}}diagnostic-verifier.hlsl Line 10: HLSL requires a type specifier for all declarations
