@@ -36,7 +36,8 @@ void loadStressWorker(
 [Shader("node")]
 [NodeMaxDispatchGrid(3, 1, 1)]
 [NumThreads(16, 1, 1)]
-void loadStress_16(    
+void loadStress_16(
+    DispatchNodeInputRecord<loadStressRecord> input,
     [MaxRecords(16)] NodeOutput<loadStressRecord> loadStressChild
 )
 {
