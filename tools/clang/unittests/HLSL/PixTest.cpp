@@ -238,8 +238,7 @@ public:
   VersionSupportInfo m_ver;
 
   void PixTest::RunSubProgramsCase(const char *hlsl);
-  void PixTest::TestUnnamedTypeCase(const char *hlsl,
-                                    const wchar_t *expectedTypeName);
+  void TestUnnamedTypeCase(const char *hlsl, const wchar_t *expectedTypeName);
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
                         UINT32 codePage, IDxcBlobEncoding **ppBlob) {
@@ -3276,36 +3275,19 @@ void main()
   VERIFY_IS_TRUE(FoundTheVariable);
 }
 
-class DxcBlobImpl : public IDxcBlob {
-  DXC_MICROCOM_REF_FIELD(m_dwRef)
-  std::string m_data;
-
-public:
-  DxcBlobImpl(std::string d) : m_data(std::move(d)), m_dwRef(1) {}
-
-  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDxcBlob>(this, iid, ppvObject);
-  }
-  virtual LPVOID STDMETHODCALLTYPE GetBufferPointer(void) override {
-    return m_data.data();
-  }
-  virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) override {
-    return static_cast<SIZE_T>(m_data.size() * sizeof(m_data[0]));
-  }
-};
-
-class DxcIncludeHandlerForInjectedSources : public IDxcIncludeHandler {
+class DxcIncludeHandlerForInjectedSourcesForPix : public IDxcIncludeHandler {
 private:
   DXC_MICROCOM_REF_FIELD(m_dwRef)
 
   std::vector<std::pair<std::wstring, std::string>> m_files;
+  PixTest *m_pixTest;
 
-public:
+public :
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-  DxcIncludeHandlerForInjectedSources(
+  DxcIncludeHandlerForInjectedSourcesForPix(
+      PixTest * pixTest,
       std::vector<std::pair<std::wstring, std::string>> files)
-      : m_dwRef(0), m_files(files){};
+      : m_dwRef(0), m_pixTest(pixTest), m_files(files){};
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
     return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
@@ -3322,7 +3304,9 @@ public:
     for (auto const &file : m_files) {
       std::wstring prependedWithDotHack = L"./" + file.first;
       if (prependedWithDotHack == std::wstring(pFilename)) {
-        *ppIncludeSource = new DxcBlobImpl(file.second);
+        CComPtr<IDxcBlobEncoding> blob;
+        m_pixTest->CreateBlobFromText(file.second.c_str(), &blob);
+        *ppIncludeSource = blob.Detach();
         return S_OK;
       }
     }
@@ -3331,8 +3315,8 @@ public:
 };
 
 void PixTest::RunSubProgramsCase(const char *hlsl) {
-  CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler =
-      new DxcIncludeHandlerForInjectedSources(
+  CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
+      new DxcIncludeHandlerForInjectedSourcesForPix(this,
           {{L"../include1/samefilename.h",
             "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
             "sqrt(v); return v; } "},
