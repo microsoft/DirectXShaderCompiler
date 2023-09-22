@@ -26,10 +26,10 @@ namespace spirv {
 struct StringMapInfo {
   static inline std::string getEmptyKey() { return ""; }
   static inline std::string getTombstoneKey() { return ""; }
-  static unsigned getHashValue(const std::string& Val) {
+  static unsigned getHashValue(const std::string &Val) {
     return llvm::hash_combine(Val);
   }
-  static bool isEqual(const std::string& LHS, const std::string& RHS) {
+  static bool isEqual(const std::string &LHS, const std::string &RHS) {
     // Either both are null, or both should have the same underlying type.
     return LHS == RHS;
   }
@@ -190,7 +190,7 @@ public:
   /// address. Returns the instruction pointer for the store instruction.
   /// This function handles storing to bitfields.
   SpirvStore *createStore(SpirvInstruction *address, SpirvInstruction *value,
-                   SourceLocation loc, SourceRange range = {});
+                          SourceLocation loc, SourceRange range = {});
 
   /// \brief Creates a function call instruction and returns the instruction
   /// pointer for the return value.
@@ -461,17 +461,14 @@ public:
   void createEndPrimitive(SourceLocation, SourceRange range = {});
 
   /// \brief Creates an OpEmitMeshTasksEXT instruction.
-  void createEmitMeshTasksEXT(SpirvInstruction* xDim,
-                              SpirvInstruction* yDim,
-                              SpirvInstruction* zDim,
-                              SourceLocation loc,
+  void createEmitMeshTasksEXT(SpirvInstruction *xDim, SpirvInstruction *yDim,
+                              SpirvInstruction *zDim, SourceLocation loc,
                               SpirvInstruction *payload = nullptr,
                               SourceRange range = {});
 
   /// \brief Creates an OpSetMeshOutputsEXT instruction.
-  void createSetMeshOutputsEXT(SpirvInstruction* vertCount,
-                               SpirvInstruction* primCount,
-                               SourceLocation loc,
+  void createSetMeshOutputsEXT(SpirvInstruction *vertCount,
+                               SpirvInstruction *primCount, SourceLocation loc,
                                SourceRange range = {});
 
   /// \brief Creates an OpArrayLength instruction.

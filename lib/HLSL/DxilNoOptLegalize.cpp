@@ -7,15 +7,15 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Instructions.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/DxilNoops.h"
 #include "dxc/Support/Global.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
 
 using namespace llvm;
 
@@ -45,8 +45,7 @@ bool DxilNoOptLegalize::RemoveStoreUndefsFromPtr(Value *Ptr) {
     if (isa<AllocaInst>(V) || isa<GlobalVariable>(V) || isa<GEPOperator>(V)) {
       for (User *U : V->users())
         Worklist.push_back(U);
-    }
-    else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
+    } else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
       if (isa<UndefValue>(Store->getValueOperand())) {
         Store->eraseFromParent();
         Changed = true;
@@ -77,7 +76,6 @@ bool DxilNoOptLegalize::RemoveStoreUndefs(Module &M) {
   return Changed;
 }
 
-
 bool DxilNoOptLegalize::runOnModule(Module &M) {
   bool Changed = false;
   Changed |= RemoveStoreUndefs(M);
@@ -88,9 +86,8 @@ ModulePass *llvm::createDxilNoOptLegalizePass() {
   return new DxilNoOptLegalize();
 }
 
-INITIALIZE_PASS(DxilNoOptLegalize, "dxil-o0-legalize", "DXIL No-Opt Legalize", false, false)
-
-
+INITIALIZE_PASS(DxilNoOptLegalize, "dxil-o0-legalize", "DXIL No-Opt Legalize",
+                false, false)
 
 class DxilNoOptSimplifyInstructions : public ModulePass {
   SmallVector<Value *, 16> Worklist;
@@ -98,7 +95,8 @@ class DxilNoOptSimplifyInstructions : public ModulePass {
 public:
   static char ID;
   DxilNoOptSimplifyInstructions() : ModulePass(ID) {
-    initializeDxilNoOptSimplifyInstructionsPass(*PassRegistry::getPassRegistry());
+    initializeDxilNoOptSimplifyInstructionsPass(
+        *PassRegistry::getPassRegistry());
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -122,11 +120,12 @@ public:
               I->eraseFromParent();
               Changed = true;
             }
-          } else if (PHINode* Phi = dyn_cast<PHINode>(I)) {
-            // Replace all simple phi values (such as those inserted by lcssa) with the
-            // value itself. This avoids phis in places they are not expected because
-            // the normal simplify passes will clean them up.
-            if (Value *NewPhi = llvm::SimplifyInstruction(Phi, M.getDataLayout())) {
+          } else if (PHINode *Phi = dyn_cast<PHINode>(I)) {
+            // Replace all simple phi values (such as those inserted by lcssa)
+            // with the value itself. This avoids phis in places they are not
+            // expected because the normal simplify passes will clean them up.
+            if (Value *NewPhi =
+                    llvm::SimplifyInstruction(Phi, M.getDataLayout())) {
               Phi->replaceAllUsesWith(NewPhi);
               Phi->eraseFromParent();
               Changed = true;
@@ -144,5 +143,5 @@ ModulePass *llvm::createDxilNoOptSimplifyInstructionsPass() {
   return new DxilNoOptSimplifyInstructions();
 }
 
-INITIALIZE_PASS(DxilNoOptSimplifyInstructions, "dxil-o0-simplify-inst", "DXIL No-Opt Simplify Inst", false, false)
-
+INITIALIZE_PASS(DxilNoOptSimplifyInstructions, "dxil-o0-simplify-inst",
+                "DXIL No-Opt Simplify Inst", false, false)

@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main -HV 2018 -fspv-target-env=vulkan1.0
+// RUN: not %dxc -T cs_6_0 -E main -HV 2018 -fspv-target-env=vulkan1.0 -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 struct S {
     float4 val1;

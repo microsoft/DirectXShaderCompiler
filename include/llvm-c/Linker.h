@@ -36,7 +36,7 @@ typedef enum {
  * Note that the linker mode parameter \p Unused is no longer used, and has
  * no effect. */
 LLVMBool LLVMLinkModules(LLVMModuleRef Dest, LLVMModuleRef Src,
-                         LLVMLinkerMode Unused, _Outptr_result_maybenull_ char **OutMessage);
+                         LLVMLinkerMode Unused, char **OutMessage);
 
 #ifdef __cplusplus
 }

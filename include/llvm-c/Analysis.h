@@ -43,7 +43,7 @@ typedef enum {
    Optionally returns a human-readable description of any invalid constructs.
    OutMessage must be disposed with LLVMDisposeMessage. */
 LLVMBool LLVMVerifyModule(LLVMModuleRef M, LLVMVerifierFailureAction Action,
-                          _Outptr_opt_ char **OutMessage);
+                          char **OutMessage);
 
 /* Verifies that a single function is valid, taking the specified action. Useful
    for debugging. */

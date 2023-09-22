@@ -16,7 +16,7 @@
 
 namespace llvm {
 class Argument;
-template<typename T> class ArrayRef;
+template <typename T> class ArrayRef;
 class AttributeSet;
 class CallInst;
 class Function;
@@ -25,7 +25,7 @@ class Module;
 class StringRef;
 class Type;
 class Value;
-}
+} // namespace llvm
 
 namespace hlsl {
 
@@ -96,7 +96,8 @@ enum class HLSubscriptOpcode {
   RowMatElement,
   DoubleSubscript,
   CBufferSubscript,
-  VectorSubscript,   // Only for bool vector, other vector type will use GEP directly.
+  VectorSubscript, // Only for bool vector, other vector type will use GEP
+                   // directly.
 };
 
 enum class HLCastOpcode {
@@ -118,14 +119,14 @@ enum class HLMatLoadStoreOpcode {
   RowMatStore,
 };
 
-extern const char * const HLPrefix;
+extern const char *const HLPrefix;
 
 HLOpcodeGroup GetHLOpcodeGroup(llvm::Function *F);
 HLOpcodeGroup GetHLOpcodeGroupByName(const llvm::Function *F);
 llvm::StringRef GetHLOpcodeGroupNameByAttr(llvm::Function *F);
 llvm::StringRef GetHLLowerStrategy(llvm::Function *F);
-unsigned  GetHLOpcode(const llvm::CallInst *CI);
-unsigned  GetRowMajorOpcode(HLOpcodeGroup group, unsigned opcode);
+unsigned GetHLOpcode(const llvm::CallInst *CI);
+unsigned GetRowMajorOpcode(HLOpcodeGroup group, unsigned opcode);
 void SetHLLowerStrategy(llvm::Function *F, llvm::StringRef S);
 
 void SetHLWaveSensitive(llvm::Function *F);
@@ -237,7 +238,6 @@ const unsigned kSmoothStepOpXIdx = 3;
 const unsigned kClampOpXIdx = 1;
 const unsigned kClampOpMinIdx = 2;
 const unsigned kClampOpMaxIdx = 3;
-
 
 // Object functions.
 const unsigned kHandleOpIdx = 1;
@@ -395,8 +395,7 @@ llvm::Function *GetOrCreateHLFunction(llvm::Module &M,
                                       llvm::FunctionType *funcTy,
                                       HLOpcodeGroup group,
                                       llvm::StringRef *groupName,
-                                      llvm::StringRef *fnName,
-                                      unsigned opcode);
+                                      llvm::StringRef *fnName, unsigned opcode);
 
 llvm::Function *GetOrCreateHLFunction(llvm::Module &M,
                                       llvm::FunctionType *funcTy,
@@ -406,8 +405,7 @@ llvm::Function *GetOrCreateHLFunction(llvm::Module &M,
                                       llvm::FunctionType *funcTy,
                                       HLOpcodeGroup group,
                                       llvm::StringRef *groupName,
-                                      llvm::StringRef *fnName,
-                                      unsigned opcode,
+                                      llvm::StringRef *fnName, unsigned opcode,
                                       const llvm::AttributeSet &attribs);
 
 llvm::Function *GetOrCreateHLFunctionWithBody(llvm::Module &M,
@@ -416,12 +414,15 @@ llvm::Function *GetOrCreateHLFunctionWithBody(llvm::Module &M,
                                               unsigned opcode,
                                               llvm::StringRef name);
 
-llvm::Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
-                            llvm::Type *RetTy, llvm::ArrayRef<llvm::Value*> Args,
-                            const llvm::AttributeSet &attribs, llvm::IRBuilder<> &Builder);
+llvm::Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup,
+                            unsigned Opcode, llvm::Type *RetTy,
+                            llvm::ArrayRef<llvm::Value *> Args,
+                            const llvm::AttributeSet &attribs,
+                            llvm::IRBuilder<> &Builder);
 
-llvm::Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
-                            llvm::Type *RetTy, llvm::ArrayRef<llvm::Value*> Args,
+llvm::Value *callHLFunction(llvm::Module &Module, HLOpcodeGroup OpcodeGroup,
+                            unsigned Opcode, llvm::Type *RetTy,
+                            llvm::ArrayRef<llvm::Value *> Args,
                             llvm::IRBuilder<> &Builder);
 
 } // namespace hlsl

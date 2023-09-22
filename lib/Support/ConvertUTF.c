@@ -48,7 +48,7 @@
 
 
 #include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/Compiler.h" // HLSL Change - for LLVM_FALLTHROUGH
+#include "llvm/Support/Compiler.h" // HLSL Change - for LLVM_C_FALLTHROUGH
 #ifdef CVTUTF_DEBUG
 #include <stdio.h>
 #endif

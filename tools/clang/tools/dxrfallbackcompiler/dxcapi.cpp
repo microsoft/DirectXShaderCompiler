@@ -13,35 +13,30 @@
 
 #define DXC_API_IMPORT __declspec(dllexport)
 
-#include "dxc/dxctools.h"
 #include "dxc/Support/Global.h"
-#include "dxcetw.h"
 #include "dxc/dxcdxrfallbackcompiler.h"
+#include "dxc/dxctools.h"
+#include "dxcetw.h"
 #include <memory>
 
-HRESULT CreateDxcDxrFallbackCompiler(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcDxrFallbackCompiler(REFIID riid, LPVOID *ppv);
 
-static HRESULT ThreadMallocDxcCreateInstance(
-  _In_ REFCLSID   rclsid,
-                  _In_ REFIID     riid,
-                  _Out_ LPVOID   *ppv) {
+static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
+                                             LPVOID *ppv) {
   HRESULT hr = S_OK;
   *ppv = nullptr;
 
   if (IsEqualCLSID(rclsid, CLSID_DxcDxrFallbackCompiler)) {
     hr = CreateDxcDxrFallbackCompiler(riid, ppv);
-  }
-  else {
+  } else {
     hr = REGDB_E_CLASSNOTREG;
   }
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall
-DxcCreateDxrFallbackCompiler(
-  _In_ REFCLSID   rclsid,
-  _In_ REFIID     riid,
-  _Out_ LPVOID   *ppv) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateDxrFallbackCompiler(REFCLSID rclsid,
+                                                              REFIID riid,
+                                                              LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }
