@@ -222,6 +222,7 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedStruct)
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedArray)
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
+  TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
@@ -236,6 +237,7 @@ public:
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
+  void PixTest::RunSubProgramsCase(const char *hlsl);
   void PixTest::TestUnnamedTypeCase(const char *hlsl,
                                     const wchar_t *expectedTypeName);
 
@@ -3328,10 +3330,7 @@ public:
   }
 };
 
-TEST_F(PixTest, DxcPixDxilDebugInfo_SubPrograms) {
-  if (m_ver.SkipDxilVersion(1, 2))
-    return;
-
+void PixTest::RunSubProgramsCase(const char *hlsl) {
   CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler =
       new DxcIncludeHandlerForInjectedSources(
           {{L"../include1/samefilename.h",
@@ -3339,38 +3338,16 @@ TEST_F(PixTest, DxcPixDxilDebugInfo_SubPrograms) {
             "sqrt(v); return v; } "},
            {L"../include2/samefilename.h",
             R"(
-float4 RELAX_FrontEnd_PackRadianceAndHitDist( float3 radiance, float hitDist, bool sanitize = true )
+float4 fn2( float3 f3, float d, bool sanitize = true )
 {
   if (sanitize)
   {
-    radiance = any(isnan(radiance) | isinf(radiance)) ? 0 : clamp(radiance, 0, 1034.f);
-    hitDist = (isnan(hitDist) | isinf(hitDist)) ? 0 : clamp(hitDist, 0, 1024.f); 
+    f3 = any(isnan(f3) | isinf(f3)) ? 0 : clamp(f3, 0, 1034.f);
+    d = (isnan(d) | isinf(d)) ? 0 : clamp(d, 0, 1024.f); 
   }
-  if( hitDist != 0 ) hitDist = max( hitDist, -1024.f);
-  return float4( radiance, hitDist );}
+  if( d != 0 ) d = max( d, -1024.f);
+  return float4( f3, d );}
 )"}});
-
-  const char *hlsl = R"(
-
-#include "../include1/samefilename.h"
-namespace n1 {
-#include "../include2/samefilename.h"
-}
-RWStructuredBuffer<float> floatRWUAV: register(u0);
-
-[numthreads(1, 1, 1)]
-void main()
-{
-  float4 result = n1::RELAX_FrontEnd_PackRadianceAndHitDist(
-    float3(floatRWUAV[0], floatRWUAV[1], floatRWUAV[2]),
-    floatRWUAV[3]);
-  floatRWUAV[0]  = result.x;
-  floatRWUAV[1]  = result.y;
-  floatRWUAV[2]  = result.z;
-  floatRWUAV[3]  = result.w;
-}
-
-)";
 
   auto dxilDebugger =
       CompileAndCreateDxcDebug(hlsl, L"cs_6_0", pIncludeHandler);
@@ -3421,6 +3398,62 @@ void main()
   // And that should be the end:
   VERIFY_IS_TRUE(it == sourceLocations.end());
 }
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_SubPrograms) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+
+  const char *hlsl = R"(
+
+#include "../include1/samefilename.h"
+namespace n1 {
+#include "../include2/samefilename.h"
+}
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  float4 result = n1::fn2(
+    float3(floatRWUAV[0], floatRWUAV[1], floatRWUAV[2]),
+    floatRWUAV[3]);
+  floatRWUAV[0]  = result.x;
+  floatRWUAV[1]  = result.y;
+  floatRWUAV[2]  = result.z;
+  floatRWUAV[3]  = result.w;
+}
+
+)";
+  RunSubProgramsCase(hlsl);
+}
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_SubProgramsInNamespaces) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+
+  const char *hlsl = R"(
+
+#include "../include1/samefilename.h"
+#include "../include2/samefilename.h"
+
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  float4 result = fn2(
+    float3(floatRWUAV[0], floatRWUAV[1], floatRWUAV[2]),
+    floatRWUAV[3]);
+  floatRWUAV[0]  = result.x;
+  floatRWUAV[1]  = result.y;
+  floatRWUAV[2]  = result.z;
+  floatRWUAV[3]  = result.w;
+}
+
+)";
+  RunSubProgramsCase(hlsl);
+}
+
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
