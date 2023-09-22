@@ -222,7 +222,7 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedStruct)
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedArray)
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
-  TEST_METHOD(DxcPixDxilDebugInfo_LexicalBlocks)
+  TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -3274,7 +3274,7 @@ void main()
   VERIFY_IS_TRUE(FoundTheVariable);
 }
 
-class DxcBlobImpl : public IDxcBlob {
+class DxcBlobImpl : public IDxcBlob{
   DXC_MICROCOM_REF_FIELD(m_dwRef)
   std::string m_data;
 
@@ -3328,17 +3328,17 @@ public:
   }
 };
 
-TEST_F(PixTest, DxcPixDxilDebugInfo_LexicalBlocks) {
+TEST_F(PixTest, DxcPixDxilDebugInfo_SubPrograms) {
   if (m_ver.SkipDxilVersion(1, 2))
     return;
 
   CComPtr<DxcIncludeHandlerForInjectedSources> pIncludeHandler =
-      new DxcIncludeHandlerForInjectedSources(
-          {{L"../include1/samefilename.h",
-            "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
-            "sqrt(v); return v; } "},
-           {L"../include2/samefilename.h",
-            R"(
+      new DxcIncludeHandlerForInjectedSources({
+          {L"../include1/samefilename.h",
+           "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
+           "sqrt(v); return v; } "},
+          {L"../include2/samefilename.h",
+          R"(
 float4 RELAX_FrontEnd_PackRadianceAndHitDist( float3 radiance, float hitDist, bool sanitize = true )
 {
   if (sanitize)
@@ -3418,7 +3418,7 @@ void main()
   while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
     it++;
 
-  // And that should be the end:
+  //And that should be the end:
   VERIFY_IS_TRUE(it == sourceLocations.end());
 }
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
