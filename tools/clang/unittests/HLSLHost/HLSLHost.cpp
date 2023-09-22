@@ -637,7 +637,8 @@ public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   ServerObj() : m_dwRef(0) {}
   ~ServerObj() {}
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterfaceWithRemote<IStream>(this, iid, ppvObject);
   }
 
@@ -850,7 +851,8 @@ private:
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   ServerFactory() : m_dwRef(0) {}
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterfaceWithRemote<IClassFactory>(this, iid, ppvObject);
   }
   HRESULT STDMETHODCALLTYPE CreateInstance(IUnknown *pUnk, REFIID riid,

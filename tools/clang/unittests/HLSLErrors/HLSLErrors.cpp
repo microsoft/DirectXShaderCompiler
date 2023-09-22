@@ -4,7 +4,7 @@
 #include "dxc/dxcapi.h"     // Be sure to link with dxcompiler.lib.
 #include <d3d12shader.h>    // Shader reflection.
 // clang-format on
-#include <array>            // for std::size.
+#include <array> // for std::size.
 
 // Code from
 // https://github.com/microsoft/DirectXShaderCompiler/wiki/Using-dxc.exe-and-dxcompiler.dll
