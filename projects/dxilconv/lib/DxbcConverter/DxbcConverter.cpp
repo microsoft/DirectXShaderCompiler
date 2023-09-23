@@ -567,11 +567,11 @@ void DxbcConverter::ExtractSignatureFromDXBC(
       memcpy(&P, pParamBase + iElement * uElemSize, uElemSize);
       break;
     case sizeof(D3D10_INTERNALSHADER_PARAMETER):
-      static_assert(sizeof(D3D11_INTERNALSHADER_PARAMETER_FOR_GS) ==
-                        sizeof(D3D10_INTERNALSHADER_PARAMETER) +
-                            FIELD_OFFSET(D3D11_INTERNALSHADER_PARAMETER_FOR_GS,
-                                         SemanticName),
-                    "Incorrect assumptions about field offset");
+      static_assert(
+          sizeof(D3D11_INTERNALSHADER_PARAMETER_FOR_GS) ==
+              sizeof(D3D10_INTERNALSHADER_PARAMETER) +
+                  offsetof(D3D11_INTERNALSHADER_PARAMETER_FOR_GS, SemanticName),
+          "Incorrect assumptions about field offset");
       memcpy(&P.SemanticName, pParamBase + iElement * uElemSize, uElemSize);
       break;
     default:
