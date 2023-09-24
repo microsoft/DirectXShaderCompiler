@@ -140,7 +140,7 @@ private:
       return false;
     }
     std::string str = std::string(buffer, size);
-    DWORD pos;
+    size_t pos;
     if ((pos = str.find_last_of("\\")) != std::string::npos) {
       str = str.substr(0, pos + 1);
     }

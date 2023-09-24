@@ -98,7 +98,7 @@ void dxil_dia::Session::Init(std::shared_ptr<llvm::LLVMContext> context,
   try {
     m_symsMgr.Init(this);
   } catch (const hlsl::Exception &) {
-    m_symsMgr = std::move(dxil_dia::SymbolManager());
+    m_symsMgr = dxil_dia::SymbolManager();
   }
 }
 

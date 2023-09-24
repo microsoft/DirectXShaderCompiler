@@ -5477,7 +5477,7 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
     return;
   }
 
-  char *pShaderModelStr;
+  const char *pShaderModelStr;
   if (shaderModel == D3D_SHADER_MODEL_6_1) {
     pShaderModelStr = "cs_6_1";
   } else if (shaderModel == D3D_SHADER_MODEL_6_3) {
@@ -5499,7 +5499,7 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
   char shader[sizeof(shaderTemplate) + 50];
 
   // Run simple shader with float data types
-  char *sTy = "float";
+  const char *sTy = "float";
   float inputFloatPairs[] = {1.5f, -2.8f, 3.23e-5f, 6.0f, 181.621f, 14.978f};
   VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
   WEX::Logging::Log::Comment(L"BasicShaderModel float");
@@ -11749,14 +11749,9 @@ TEST_F(ExecutionTest, HelperLaneTest) {
       std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
-#ifdef ISHELPERLANE_PLACEHOLDER
-  string args = "-DISHELPERLANE_PLACEHOLDER";
-#else
-  string args = "";
-#endif
-
   D3D_SHADER_MODEL TestShaderModels[] = {D3D_SHADER_MODEL_6_0,
                                          D3D_SHADER_MODEL_6_6};
+
   for (unsigned i = 0; i < _countof(TestShaderModels); i++) {
     D3D_SHADER_MODEL sm = TestShaderModels[i];
     LogCommentFmt(L"Verifying IsHelperLane in shader model 6.%1u",
@@ -11773,8 +11768,7 @@ TEST_F(ExecutionTest, HelperLaneTest) {
         [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
           VERIFY_IS_TRUE(0 == _stricmp(Name, "UAVBuffer0"));
           std::fill(Data.begin(), Data.end(), (BYTE)0xCC);
-          pShaderOp->Shaders.at(0).Arguments = args.c_str();
-          pShaderOp->Shaders.at(1).Arguments = args.c_str();
+          UNREFERENCED_PARAMETER(pShaderOp);
         },
         ShaderOpSet);
 
@@ -12155,17 +12149,6 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       std::make_shared<st::ShaderOpSet>();
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("HelperLaneTestWave");
-
-#ifdef ISHELPERLANE_PLACEHOLDER
-  LPCSTR args = "/Od -DISHELPERLANE_PLACEHOLDER";
-#else
-  LPCSTR args = "/Od";
-#endif
-
-  if (args[0]) {
-    for (st::ShaderOpShader &S : pShaderOp->Shaders)
-      S.Arguments = args;
-  }
 
   bool testPassed = true;
 
