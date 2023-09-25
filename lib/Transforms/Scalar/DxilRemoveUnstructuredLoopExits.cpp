@@ -561,8 +561,8 @@ bool hlsl::RemoveUnstructuredLoopExits(
   if (!L->isLCSSAForm(*DT))
     return false;
 
-  // Check that the exiting blocks in the loop have BranchInst terminators (as opposed to SwitchInst).
-  // At the moment we only handle BranchInst case.
+  // Check that the exiting blocks in the loop have BranchInst terminators (as
+  // opposed to SwitchInst). At the moment we only handle BranchInst case.
   {
     llvm::SmallVector<BasicBlock *, 4> exiting_blocks;
     L->getExitingBlocks(exiting_blocks);
