@@ -2190,8 +2190,8 @@ void main(
 
     { // Allow IUnknown for latest interface version
       CComPtr<IUnknown> pUnknown;
-      VERIFY_SUCCEEDED(pUtils->CreateReflection(
-                                         &buffer, IID_PPV_ARGS(&pUnknown)));
+      VERIFY_SUCCEEDED(
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pUnknown)));
       CComPtr<ID3D12ShaderReflection> pShaderReflection;
       VERIFY_SUCCEEDED(
           pUnknown->QueryInterface(IID_PPV_ARGS(&pShaderReflection)));

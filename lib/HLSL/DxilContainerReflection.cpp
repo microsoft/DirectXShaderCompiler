@@ -312,8 +312,8 @@ HRESULT CreateDxilShaderReflection(const DxilProgramHeader *pProgramHeader,
   if (api == PublicAPI::Invalid) {
     if (IsEqualIID(__uuidof(IUnknown), iid))
       api = PublicAPI::D3D12;
-		else
-			return E_NOINTERFACE;
+    else
+      return E_NOINTERFACE;
   }
   CComPtr<DxilShaderReflection> pReflection =
       DxilShaderReflection::Alloc(DxcGetThreadMallocNoRef());
