@@ -111,7 +111,7 @@
 //     side effects in there. This doesn't impact code correctness,
 //     but the code will execute for one iteration even if the exit condition
 //     is met.
-// 
+//
 //   - If any exiting block uses a switch statement to conditionally exit the
 //     loop, we currently do not handle that case.
 //
