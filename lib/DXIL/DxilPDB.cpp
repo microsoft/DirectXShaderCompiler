@@ -175,17 +175,33 @@ struct MSFWriter {
     return ValueLE;
   }
 
+  // The starting block index of block addr. This skips over:
+  //  [0] Superblock
+  //  [1] FPM1
+  //  [2] FPM2
+  static constexpr uint32_t kBlockAddrStart = 3;
+
   void WriteToStream(raw_ostream &OS) {
     const uint32_t StreamDirectorySizeInBytes = CalculateStreamDirectorySize();
     const uint32_t StreamDirectoryNumBlocks =
         GetNumBlocks(StreamDirectorySizeInBytes);
 
+    // The block addr is a list of uint32's pointing to a list of blocks
+    // where the stream directory lives.
     const uint32_t BlockAddrSizeInBytes =
         StreamDirectoryNumBlocks * sizeof(support::ulittle32_t);
+    // The block addr itself should be only one block. If we end up with
+    // a stream directory so large that block addr won't fit in one block,
+    // we would have to adjust the block size.
+    //
+    // However, with our block size as 512 bytes, we can fit 128 uint32's
+    // in there, each one point to one block for the stream directory would
+    // mean 128 * 512 -> 65536 bytes for the stream directory. Let's say
+    // only half of that size can be used to point stream blocks (in reality
+    // most of them are used for stream blocks), that's 65536/2 * 512 -> 16777216
     const uint32_t BlockAddrNumBlocks = GetNumBlocks(BlockAddrSizeInBytes);
 
-    const uint32_t BlockAddrStart = 3;
-    const uint32_t StreamDirectoryStart = BlockAddrStart + BlockAddrNumBlocks;
+    const uint32_t StreamDirectoryStart = kBlockAddrStart + BlockAddrNumBlocks;
     const uint32_t StreamStart =
         StreamDirectoryStart + StreamDirectoryNumBlocks;
 
@@ -194,10 +210,10 @@ struct MSFWriter {
       memcpy(SB.MagicBytes, kMsfMagic, sizeof(kMsfMagic));
       SB.BlockSize = kMsfBlockSize;
       SB.NumDirectoryBytes = StreamDirectorySizeInBytes;
-      SB.NumBlocks = 3 /*super block + FPM1 + FPM2*/ + m_NumStreamBlocks +
+      SB.NumBlocks = kBlockAddrStart /*super block + FPM1 + FPM2*/ + m_NumStreamBlocks +
                      StreamDirectoryNumBlocks + BlockAddrNumBlocks;
       SB.FreeBlockMapBlock = 1;
-      SB.BlockMapAddr = 3;
+      SB.BlockMapAddr = kBlockAddrStart;
     }
 
     BlockWriter Writer(OS);
