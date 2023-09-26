@@ -11299,9 +11299,9 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
-void ValidateEntryPointFunctionAttributes(clang::Sema *self,
-                                          FunctionDecl *entryPointDecl,
-                                          HLSLShaderAttr *shaderAttr) {
+void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
+                                     FunctionDecl *entryPointDecl,
+                                     HLSLShaderAttr *shaderAttr) {
 
   std::string stageName = shaderAttr->getStage();
 
@@ -11310,17 +11310,16 @@ void ValidateEntryPointFunctionAttributes(clang::Sema *self,
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
       switch (pAttr->getKind()) {
-      
+
       case clang::attr::HLSLWaveSize: {
-        bool isValid =
-            llvm::StringSwitch<bool>(stageName)
-        .Case("compute", true)
-        .Case("node", true)
-        .Default(false);        
-      
-        if (!isValid) {        
+        bool isValid = llvm::StringSwitch<bool>(stageName)
+                           .Case("compute", true)
+                           .Case("node", true)
+                           .Default(false);
+
+        if (!isValid) {
           self->Diag(pAttr->getRange().getBegin(),
-                  diag::err_hlsl_attribute_unsupported_stage)
+                     diag::err_hlsl_attribute_unsupported_stage)
               << "WaveSize"
               << "compute or node";
         }
@@ -15182,7 +15181,7 @@ static bool nodeInputIsCompatible(StringRef &typeName,
 }
 
 void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
-                       bool isActiveEntry) {
+                          bool isActiveEntry) {
 
   auto pAttr = FD->getAttr<HLSLShaderAttr>();
   DXIL::ShaderKind shaderKind =
@@ -15251,13 +15250,13 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr, bool isA
         << "numthreads";
   }
 
-  if (isActiveEntry) {  
+  if (isActiveEntry) {
     if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
       std::string profile = S.getLangOpts().HLSLProfile;
       const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
       if (!SM->IsSM66Plus()) {
         S.Diags.Report(WaveSizeAttr->getRange().getBegin(),
-                diag::err_hlsl_attribute_in_wrong_shader_model)
+                       diag::err_hlsl_attribute_in_wrong_shader_model)
             << "wavesize"
             << "6.6";
       }
@@ -15437,7 +15436,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
 
   if (isActiveEntry) {
-    ValidateEntryPointFunctionAttributes(&S, FD, Attr);
+    DiagnoseEntryAttrAllowedOnStage(&S, FD, Attr);
   }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
