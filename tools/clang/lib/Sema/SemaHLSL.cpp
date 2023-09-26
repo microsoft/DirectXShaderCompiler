@@ -15211,8 +15211,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
   unsigned InputCount = 0;
 
   auto pAttr = FD->getAttr<HLSLShaderAttr>();
-  DXIL::ShaderKind shaderKind =
-      ShaderModel::KindFromFullName(StageName);
+  DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(StageName);
   if (shaderKind == DXIL::ShaderKind::Node) {
     NodeLoc = pAttr->getLocation();
   }
