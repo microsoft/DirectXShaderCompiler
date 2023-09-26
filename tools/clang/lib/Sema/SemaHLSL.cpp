@@ -15423,12 +15423,15 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   bool isLib = S.getLangOpts().IsHLSLLibrary;
-
-  // TODO: Improve accuracy of isActiveEntry by analyzing -exports option
-  // to determine which entries are active for lib target
-  bool isActiveEntry = true;
-  if (!isLib)
+  bool isActiveEntry = false;
+  if (S.getLangOpts().IsHLSLLibrary) {
+    // TODO: Analyze -exports option to determine which entries
+    // are active for lib target.
+    // For now, assume all entries are active.
+    isActiveEntry = true;
+  } else {
     TryAddShaderAttrFromTargetProfile(S, FD, isActiveEntry);
+  }
 
   HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>();
   if (!Attr) {
@@ -15464,7 +15467,6 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::ClosestHit: {
     return DiagnoseClosestHitEntry(S, FD, StageName);
   }
-  // TODO: Create a Compute function, move compute only diags over.
   case DXIL::ShaderKind::Compute: {
     return DiagnoseComputeEntry(S, FD, StageName, isActiveEntry);
   }
