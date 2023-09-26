@@ -11301,9 +11301,7 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 
 void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
                                      FunctionDecl *entryPointDecl,
-                                     HLSLShaderAttr *shaderAttr) {
-
-  std::string stageName = shaderAttr->getStage();
+                                     DXIL::ShaderKind shaderKind) {
 
   // whether or not this attribute should exist on this shader stage
   bool isValid = false;
@@ -11312,10 +11310,19 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
       switch (pAttr->getKind()) {
 
       case clang::attr::HLSLWaveSize: {
-        bool isValid = llvm::StringSwitch<bool>(stageName)
-                           .Case("compute", true)
-                           .Case("node", true)
-                           .Default(false);
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Compute: {
+          isValid = true;
+          break;
+        }
+        case DXIL::ShaderKind::Node: {
+          isValid = true;
+          break;
+        }
+        default: {
+          isValid = false;
+        }
+        }
 
         if (!isValid) {
           self->Diag(pAttr->getRange().getBegin(),
@@ -15377,12 +15384,6 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
   isActiveEntry = false;
   const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
 
-  if (S.getLangOpts().IsHLSLLibrary) {
-    // TODO: Improve accuracy by analyzing -exports option
-    // to determine which entries are active for lib target
-    isActiveEntry = true;
-  }
-
   // if there's no defined entry point, just return
   if (EntryPointName.empty()) {
     return;
@@ -15428,19 +15429,23 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 }
 
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
-  bool isActiveEntry = false;
-  TryAddShaderAttrFromTargetProfile(S, FD, isActiveEntry);
+  bool isLib = S.getLangOpts().IsHLSLLibrary;
+
+  // TODO: Improve accuracy of isActiveEntry by analyzing -exports option
+  // to determine which entries are active for lib target
+  bool isActiveEntry = true;
+  if (!isLib)
+    TryAddShaderAttrFromTargetProfile(S, FD, isActiveEntry);
 
   HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>();
   if (!Attr) {
     return;
   }
 
-  if (isActiveEntry) {
-    DiagnoseEntryAttrAllowedOnStage(&S, FD, Attr);
-  }
-
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
+
+  DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
+
   switch (Stage) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
