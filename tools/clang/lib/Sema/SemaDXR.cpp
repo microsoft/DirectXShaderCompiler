@@ -1141,14 +1141,14 @@ void DiagnoseRaytracingPayloadAccess(clang::Sema &S,
   visitor.diagnose(TU);
 }
 
-void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
+void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD,
+                           llvm::StringRef StageName) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
-        << Attr->getStage();
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void) << StageName;
 
   if (FD->getNumParams() != 1)
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
-        << Attr->getStage() << FD->getNumParams()
+        << StageName << FD->getNumParams()
         << /*Special message for callable.*/ 3;
   else {
     ParmVarDecl *Param = FD->getParamDecl(0);
@@ -1165,16 +1165,16 @@ void DiagnoseCallableEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   return;
 }
 
-void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
+void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD,
+                               llvm::StringRef StageName,
                                DXIL::ShaderKind Stage) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
-        << Attr->getStage();
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void) << StageName;
 
   unsigned ExpectedParams = Stage == DXIL::ShaderKind::Miss ? 1 : 2;
   if (ExpectedParams != FD->getNumParams()) {
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
-        << Attr->getStage() << FD->getNumParams() << ExpectedParams;
+        << StageName << FD->getNumParams() << ExpectedParams;
     return;
   }
   ParmVarDecl *Param = FD->getParamDecl(0);
@@ -1208,26 +1208,25 @@ void DiagnoseMissOrAnyHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
 }
 
 void DiagnoseRayGenerationOrIntersectionEntry(Sema &S, FunctionDecl *FD,
-                                              HLSLShaderAttr *Attr) {
+                                              llvm::StringRef StageName) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
-        << Attr->getStage();
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void) << StageName;
   unsigned ExpectedParams = 0;
   if (ExpectedParams != FD->getNumParams())
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
-        << Attr->getStage() << FD->getNumParams() << ExpectedParams;
+        << StageName << FD->getNumParams() << ExpectedParams;
   return;
 }
 
-void DiagnoseClosestHitEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
+void DiagnoseClosestHitEntry(Sema &S, FunctionDecl *FD,
+                             llvm::StringRef StageName) {
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
-        << Attr->getStage();
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void) << StageName;
   unsigned ExpectedParams = 2;
 
   if (ExpectedParams != FD->getNumParams()) {
     S.Diag(FD->getLocation(), diag::err_raytracing_entry_param_count)
-        << Attr->getStage() << FD->getNumParams() << ExpectedParams;
+        << StageName << FD->getNumParams() << ExpectedParams;
   }
 
   if (FD->getNumParams() == 0)

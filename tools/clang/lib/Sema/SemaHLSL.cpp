@@ -15186,13 +15186,8 @@ static bool nodeInputIsCompatible(StringRef &typeName,
       .Default(false);
 }
 
-void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
+void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                           bool isActiveEntry) {
-
-  auto pAttr = FD->getAttr<HLSLShaderAttr>();
-  DXIL::ShaderKind shaderKind =
-      ShaderModel::KindFromFullName(pAttr->getStage());
-
   if (isActiveEntry) {
     if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
       std::string profile = S.getLangOpts().HLSLProfile;
@@ -15207,7 +15202,7 @@ void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
   }
 }
 
-void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
+void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                        bool isActiveEntry) {
 
   SourceLocation NodeLoc = SourceLocation();
@@ -15217,7 +15212,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
 
   auto pAttr = FD->getAttr<HLSLShaderAttr>();
   DXIL::ShaderKind shaderKind =
-      ShaderModel::KindFromFullName(pAttr->getStage());
+      ShaderModel::KindFromFullName(StageName);
   if (shaderKind == DXIL::ShaderKind::Node) {
     NodeLoc = pAttr->getLocation();
   }
@@ -15314,8 +15309,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
   }
 
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
-        << Attr->getStage();
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void) << StageName;
 
   // Check parameter constraints
   for (unsigned Idx = 0; Idx < FD->getNumParams(); ++Idx) {
@@ -15443,7 +15437,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
-
+  llvm::StringRef StageName = Attr->getStage();
   DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
 
   switch (Stage) {
@@ -15458,27 +15452,27 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::Invalid:
     return;
   case DXIL::ShaderKind::Callable: {
-    return DiagnoseCallableEntry(S, FD, Attr);
+    return DiagnoseCallableEntry(S, FD, StageName);
   }
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::AnyHit: {
-    return DiagnoseMissOrAnyHitEntry(S, FD, Attr, Stage);
+    return DiagnoseMissOrAnyHitEntry(S, FD, StageName, Stage);
   }
   case DXIL::ShaderKind::RayGeneration:
   case DXIL::ShaderKind::Intersection: {
-    return DiagnoseRayGenerationOrIntersectionEntry(S, FD, Attr);
+    return DiagnoseRayGenerationOrIntersectionEntry(S, FD, StageName);
   }
   case DXIL::ShaderKind::ClosestHit: {
-    return DiagnoseClosestHitEntry(S, FD, Attr);
+    return DiagnoseClosestHitEntry(S, FD, StageName);
   }
   // TODO: Create a Compute function, move compute only diags over.
   case DXIL::ShaderKind::Compute: {
-    return DiagnoseComputeEntry(S, FD, Attr, isActiveEntry);
+    return DiagnoseComputeEntry(S, FD, StageName, isActiveEntry);
   }
 
   case DXIL::ShaderKind::Node: {
     // A compute shader may also be a node, so we check it here
-    return DiagnoseNodeEntry(S, FD, Attr, isActiveEntry);
+    return DiagnoseNodeEntry(S, FD, StageName, isActiveEntry);
   }
   }
 }
