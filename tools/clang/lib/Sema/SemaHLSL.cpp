@@ -11299,56 +11299,31 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
-// This validation function performs validation using the context
-// that other attributes provide on the decl, such as the fact of 
-// whether or not the decl is a node shader. This validation is 
-// performed after all attributes on the decl have been parsed.
-void ValidateWaveSize(clang::Sema *S, FunctionDecl *FD,
-                      const hlsl::ShaderModel *SM, HLSLShaderAttr *shaderAttr) {  
-  bool isNode = false;
-  bool isCS = false;
+void ValidateEntryPointFunctionAttributes(clang::Sema *self,
+                                          FunctionDecl *entryPointDecl,
+                                          HLSLShaderAttr *shaderAttr) {
 
-  if (shaderAttr) {
-    StringRef Literal = shaderAttr->getStage();
-    DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Literal);
-    isNode = Stage == DXIL::ShaderKind::Node;
-    isCS = Stage == DXIL::ShaderKind::Compute;
-  }
+  std::string stageName = shaderAttr->getStage();
 
-  HLSLWaveSizeAttr *attr = FD->getAttr<HLSLWaveSizeAttr>();
-
-  if (!SM->IsSM66Plus()) {
-    S->Diag(attr->getRange().getBegin(),
-            diag::err_hlsl_attribute_in_wrong_shader_model)
-        << "wavesize"
-        << "6.6";
-  }
-
-  if (!isCS && !isNode) {
-    S->Diag(attr->getRange().getBegin(),
-            diag::err_hlsl_attribute_unsupported_stage)
-        << "WaveSize"
-        << "compute or node";
-  }
-}
-
-void ValidateEntryPointFunctionAttributes(
-    clang::Sema *self, FunctionDecl *entryPointDecl) {
-
-  // make sure we are in an appropriate shader model
-  const auto *SM = hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile);
-  HLSLShaderAttr *shaderAttr = entryPointDecl->getAttr<HLSLShaderAttr>();
-
-
-  // run validation on the entry point attribute that belongs
-  // to the entry point function
+  // whether or not this attribute should exist on this shader stage
+  bool isValid = false;
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
       switch (pAttr->getKind()) {
       
       case clang::attr::HLSLWaveSize: {
-        ValidateWaveSize(self, entryPointDecl, SM, shaderAttr);
-        break;
+        bool isValid =
+            llvm::StringSwitch<bool>(stageName)
+        .Case("compute", true)
+        .Case("node", true)
+        .Default(false);        
+      
+        if (!isValid) {        
+          self->Diag(pAttr->getRange().getBegin(),
+                  diag::err_hlsl_attribute_unsupported_stage)
+              << "WaveSize"
+              << "compute or node";
+        }
       }
       }
     }
@@ -11493,7 +11468,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         Diags.Report(pPatchFnDecl->getSourceRange().getBegin(), id);
       }
     }
-    ValidateEntryPointFunctionAttributes(self, pEntryPointDecl);
   }
 }
 
@@ -15207,7 +15181,28 @@ static bool nodeInputIsCompatible(StringRef &typeName,
       .Default(false);
 }
 
-void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
+void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
+                       bool isActiveEntry) {
+
+  auto pAttr = FD->getAttr<HLSLShaderAttr>();
+  DXIL::ShaderKind shaderKind =
+      ShaderModel::KindFromFullName(pAttr->getStage());
+
+  if (isActiveEntry) {
+    if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
+      std::string profile = S.getLangOpts().HLSLProfile;
+      const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+      if (!SM->IsSM66Plus()) {
+        S.Diags.Report(WaveSizeAttr->getRange().getBegin(),
+                       diag::err_hlsl_attribute_in_wrong_shader_model)
+            << "wavesize"
+            << "6.6";
+      }
+    }
+  }
+}
+
+void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr, bool isActiveEntry) {
 
   SourceLocation NodeLoc = SourceLocation();
   SourceLocation NodeLaunchLoc = SourceLocation();
@@ -15254,6 +15249,19 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_node_attr)
         << FD->getName() << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy)
         << "numthreads";
+  }
+
+  if (isActiveEntry) {  
+    if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
+      std::string profile = S.getLangOpts().HLSLProfile;
+      const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+      if (!SM->IsSM66Plus()) {
+        S.Diags.Report(WaveSizeAttr->getRange().getBegin(),
+                diag::err_hlsl_attribute_in_wrong_shader_model)
+            << "wavesize"
+            << "6.6";
+      }
+    }
   }
 
   auto *NodeDG = FD->getAttr<HLSLNodeDispatchGridAttr>();
@@ -15365,8 +15373,15 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 
 // if this is the Entry FD, then try adding the target profile
 // shader attribute to the FD and carry on with validation
-void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
+void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD, bool &isActiveEntry) {
+  isActiveEntry = false;
   const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
+
+  if (S.getLangOpts().IsHLSLLibrary) {
+    // TODO: Improve accuracy by analyzing -exports option
+    // to determine which entries are active for lib target
+    isActiveEntry = true;
+  }
 
   // if there's no defined entry point, just return
   if (EntryPointName.empty()) {
@@ -15408,15 +15423,21 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
       HLSLShaderAttr::CreateImplicit(S.Context, fullName);
 
   FD->addAttr(pShaderAttr);
+  isActiveEntry = true;
   return;
 }
 
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
-  TryAddShaderAttrFromTargetProfile(S, FD);
+  bool isActiveEntry = false;
+  TryAddShaderAttrFromTargetProfile(S, FD, isActiveEntry);
 
-  auto Attr = FD->getAttr<HLSLShaderAttr>();
+  HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>();
   if (!Attr) {
     return;
+  }
+
+  if (isActiveEntry) {
+    ValidateEntryPointFunctionAttributes(&S, FD, Attr);
   }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
@@ -15445,10 +15466,14 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::ClosestHit: {
     return DiagnoseClosestHitEntry(S, FD, Attr);
   }
-  case DXIL::ShaderKind::Compute:
+  // TODO: Create a Compute function, move compute only diags over.
+  case DXIL::ShaderKind::Compute: {
+    return DiagnoseComputeEntry(S, FD, Attr, isActiveEntry);
+  }
+  
   case DXIL::ShaderKind::Node: {
     // A compute shader may also be a node, so we check it here
-    return DiagnoseNodeEntry(S, FD, Attr);
+    return DiagnoseNodeEntry(S, FD, Attr, isActiveEntry);
   }
   }
 }
