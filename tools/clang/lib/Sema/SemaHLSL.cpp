@@ -11299,36 +11299,27 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
+// This function diagnoses whether or not all entry-point attributes
+// should exist on this shader stage
 void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
                                      FunctionDecl *entryPointDecl,
                                      DXIL::ShaderKind shaderKind) {
-
-  // whether or not this attribute should exist on this shader stage
-  bool isValid = false;
+  
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
       switch (pAttr->getKind()) {
 
       case clang::attr::HLSLWaveSize: {
         switch (shaderKind) {
-        case DXIL::ShaderKind::Compute: {
-          isValid = true;
+        case DXIL::ShaderKind::Compute:
+        case DXIL::ShaderKind::Node:
           break;
-        }
-        case DXIL::ShaderKind::Node: {
-          isValid = true;
-          break;
-        }
-        default: {
-          isValid = false;
-        }
-        }
-
-        if (!isValid) {
+        default:
           self->Diag(pAttr->getRange().getBegin(),
                      diag::err_hlsl_attribute_unsupported_stage)
               << "WaveSize"
               << "compute or node";
+          break;
         }
       }
       }
@@ -15374,6 +15365,14 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
 // shader attribute to the FD and carry on with validation
 void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
                                        bool &isActiveEntry) {
+  // When isActiveEntry is true and this function is an entry point, this entry
+  // point is used in compilation. This is an important distinction when
+  // diagnosing certain types of errors based on the compilation parameters. For
+  // example, if isActiveEntry is false, diagnostics dependent on the shader
+  // model should not be performed. That way we won't raise an error about a
+  // feature used by the inactive entry that's not available in the current
+  // shader model. Since that entry point is not used, it may still be valid in
+  // another compilation where a different shader model is specified.
   isActiveEntry = false;
   const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
 
