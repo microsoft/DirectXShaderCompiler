@@ -12749,67 +12749,63 @@ static void ValidateAttributeOnSwitchOrIf(Sema& S, Stmt* St, const AttributeList
 }
 
 static StringRef ValidateAttributeStringArg(Sema &S, const AttributeList &A,
-                                            _In_opt_z_ const char *values,
-                                            unsigned index = 0,
-                                            bool isCaseSensitive = true) {
+                                            const char *values,
+                                            unsigned index = 0) {
   // values is an optional comma-separated list of potential values.
   if (A.getNumArgs() <= index)
     return StringRef();
 
-  Expr* E = A.getArgAsExpr(index);
-  if (E->isTypeDependent() || E->isValueDependent() || E->getStmtClass() != Stmt::StringLiteralClass)
-  {
+  Expr *E = A.getArgAsExpr(index);
+  if (E->isTypeDependent() || E->isValueDependent() ||
+      E->getStmtClass() != Stmt::StringLiteralClass) {
     S.Diag(E->getLocStart(), diag::err_hlsl_attribute_expects_string_literal)
-      << A.getName();
+        << A.getName();
     return StringRef();
   }
 
-  StringLiteral* sl = cast<StringLiteral>(E);
+  StringLiteral *sl = cast<StringLiteral>(E);
   StringRef result = sl->getString();
 
   // Return result with no additional validation.
-  if (values == nullptr)
-  {
+  if (values == nullptr) {
     return result;
   }
 
-  const char* value = values;
-  while (*value != '\0')
-  {
+  const char *value = values;
+  while (*value != '\0') {
     DXASSERT_NOMSG(*value != ','); // no leading commas in values
 
     // Look for a match.
-    const char* argData = result.data();
+    const char *argData = result.data();
     size_t argDataLen = result.size();
 
-    while (argDataLen != 0 && *argData == *value && *value)
-    {
+    while (argDataLen != 0 && *argData == *value && *value) {
       ++argData;
       ++value;
       --argDataLen;
     }
 
     // Match found if every input character matched.
-    if (argDataLen == 0 && (*value == '\0' || *value == ','))
-    {
+    if (argDataLen == 0 && (*value == '\0' || *value == ',')) {
       return result;
     }
 
     // Move to next separator.
-    while (*value != '\0' && *value != ',')
-    {
+    while (*value != '\0' && *value != ',') {
       ++value;
     }
 
     // Move to the start of the next item if any.
-    if (*value == ',') value++;
+    if (*value == ',')
+      value++;
   }
 
   DXASSERT_NOMSG(*value == '\0'); // no other terminating conditions
 
   // No match found.
-  S.Diag(E->getLocStart(), diag::err_hlsl_attribute_expects_string_literal_from_list)
-    << A.getName() << values;
+  S.Diag(E->getLocStart(),
+         diag::err_hlsl_attribute_expects_string_literal_from_list)
+      << A.getName() << values;
   return StringRef();
 }
 
