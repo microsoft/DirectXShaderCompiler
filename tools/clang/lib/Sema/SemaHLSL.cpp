@@ -15422,7 +15422,6 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 }
 
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
-  bool isLib = S.getLangOpts().IsHLSLLibrary;
   bool isActiveEntry = false;
   if (S.getLangOpts().IsHLSLLibrary) {
     // TODO: Analyze -exports option to determine which entries
