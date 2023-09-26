@@ -38,7 +38,7 @@ float2 ddy;
 bool clamp;
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void BackwardRef(
   RWThreadNodeInputRecord<rec0> InputyMcInputFace,
   [MaxRecords(5)] NodeOutput<rec1> Output1,
