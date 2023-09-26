@@ -1834,8 +1834,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->ShaderProps.PS.EarlyDepthStencil = true;
   }
 
-  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>())   
-    funcProps->waveSize = Attr->getSize();  
+  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>())
+    funcProps->waveSize = Attr->getSize();
 
   // Node shader
   if (isNode) {

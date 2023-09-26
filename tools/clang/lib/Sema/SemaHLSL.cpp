@@ -11329,7 +11329,6 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
   }
 }
 
-
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
 
