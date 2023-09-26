@@ -222,6 +222,8 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedStruct)
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedArray)
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
+  TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
+  TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
 
   TEST_METHOD(VirtualRegisters_InstructionCounts)
   TEST_METHOD(VirtualRegisters_AlignedOffsets)
@@ -235,6 +237,7 @@ public:
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
+  void RunSubProgramsCase(const char *hlsl);
   void TestUnnamedTypeCase(const char *hlsl, const wchar_t *expectedTypeName);
 
   void CreateBlobPinned(_In_bytecount_(size) LPCVOID data, SIZE_T size,
@@ -1203,14 +1206,15 @@ public:
   CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob *blob);
   void CompileAndRunAnnotationAndGetDebugPart(
       dxc::DxcDllSupport &dllSupport, const char *source,
-      const wchar_t *profile, IDxcBlob **ppDebugPart,
-      std::vector<const wchar_t *> extraArgs = {});
+      const wchar_t *profile, IDxcIncludeHandler *includer,
+      IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs = {});
   void CompileAndRunValueToDeclareAndGetDebugPart(
       dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
-      IDxcBlob **ppDebugPart);
+      IDxcIncludeHandler *includer, IDxcBlob **ppDebugPart);
   void CompileAndRunAnnotationAndLoadDiaSource(
       dxc::DxcDllSupport &dllSupport, const char *source,
-      const wchar_t *profile, IDiaDataSource **ppDataSource,
+      const wchar_t *profile, IDxcIncludeHandler *includer,
+      IDiaDataSource **ppDataSource,
       std::vector<const wchar_t *> extraArgs = {});
 
   struct VariableComponentInfo {
@@ -1222,7 +1226,8 @@ public:
       const char *lineAtWhichToExamineVariables,
       std::vector<VariableComponentInfo> const &ExpectedVariables);
   CComPtr<IDxcPixDxilDebugInfo>
-  CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile);
+  CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
+                           IDxcIncludeHandler *includer = nullptr);
   CComPtr<IDxcPixDxilLiveVariables>
   GetLiveVariablesAt(const char *hlsl,
                      const char *lineAtWhichToExamineVariables,
@@ -1263,9 +1268,9 @@ TEST_F(PixTest, CompileWhenDebugThenDIPresent) {
 
   // Very basic tests - we have basic symbols, line numbers, and files with
   // sources.
-  VERIFY_IS_NOT_NULL(
-      wcsstr(diaDump.c_str(), L"symIndexId: 5, CompilandEnv, name: hlslTarget, "
-                              L"lexicalParent: id=2, value: ps_6_0"));
+  VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(),
+                            L"symIndexId: 5, CompilandEnv, name: hlslTarget, "
+                            L"lexicalParent: id=2, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(
       wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
@@ -1497,7 +1502,7 @@ TEST_F(PixTest, DiaLoadRelocatedBitcode) {
 
   // Get program header
   const hlsl::DxilProgramHeader *programHeader =
-    (const hlsl::DxilProgramHeader *)pPartData;
+      (const hlsl::DxilProgramHeader *)pPartData;
 
   const char *pBitcode = nullptr;
   uint32_t uBitcodeSize = 0;
@@ -1931,7 +1936,8 @@ static LPCWSTR defaultFilename = L"source.hlsl";
 static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                                 LPCWSTR pTargetProfile,
                                 std::vector<LPCWSTR> &args,
-                                IDxcBlob **ppResult) {
+                                IDxcIncludeHandler *includer,
+                                _Outptr_ IDxcBlob **ppResult) {
   CComPtr<IDxcCompiler> pCompiler;
   CComPtr<IDxcBlobEncoding> pSource;
   CComPtr<IDxcOperationResult> pResult;
@@ -1941,7 +1947,7 @@ static void CompileAndLogErrors(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
   Utf8ToBlob(dllSupport, pText, &pSource);
   VERIFY_SUCCEEDED(pCompiler->Compile(pSource, defaultFilename, L"main",
                                       pTargetProfile, args.data(), args.size(),
-                                      nullptr, 0, nullptr, &pResult));
+                                      nullptr, 0, includer, &pResult));
 
   VERIFY_SUCCEEDED(pResult->GetStatus(&hrCompile));
   if (FAILED(hrCompile)) {
@@ -1977,14 +1983,14 @@ static CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
 
 void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
     dxc::DxcDllSupport &dllSupport, const char *source, wchar_t *profile,
-    IDxcBlob **ppDebugPart) {
+    IDxcIncludeHandler *includer, IDxcBlob **ppDebugPart) {
   CComPtr<IDxcBlob> pContainer;
   std::vector<LPCWSTR> args;
   args.push_back(L"/Zi");
   args.push_back(L"/Od");
   args.push_back(L"/Qembed_debug");
 
-  CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
+  CompileAndLogErrors(dllSupport, source, profile, args, includer, &pContainer);
 
   auto annotated = RunValueToDeclarePass(pContainer);
 
@@ -1995,7 +2001,8 @@ void PixTest::CompileAndRunValueToDeclareAndGetDebugPart(
 
 void PixTest::CompileAndRunAnnotationAndGetDebugPart(
     dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
-    IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs) {
+    IDxcIncludeHandler *includer, IDxcBlob **ppDebugPart,
+    std::vector<const wchar_t *> extraArgs) {
 
   CComPtr<IDxcBlob> pContainer;
   std::vector<LPCWSTR> args;
@@ -2003,7 +2010,7 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
   args.push_back(L"/Qembed_debug");
   args.insert(args.end(), extraArgs.begin(), extraArgs.end());
 
-  CompileAndLogErrors(dllSupport, source, profile, args, &pContainer);
+  CompileAndLogErrors(dllSupport, source, profile, args, includer, &pContainer);
 
   auto annotated = RunAnnotationPasses(pContainer);
 
@@ -2014,14 +2021,15 @@ void PixTest::CompileAndRunAnnotationAndGetDebugPart(
 
 void PixTest::CompileAndRunAnnotationAndLoadDiaSource(
     dxc::DxcDllSupport &dllSupport, const char *source, const wchar_t *profile,
-    IDiaDataSource **ppDataSource, std::vector<const wchar_t *> extraArgs) {
+    IDxcIncludeHandler *includer, IDiaDataSource **ppDataSource,
+    std::vector<const wchar_t *> extraArgs) {
   CComPtr<IDxcBlob> pDebugContent;
   CComPtr<IStream> pStream;
   CComPtr<IDiaDataSource> pDiaSource;
   CComPtr<IDxcLibrary> pLib;
   VERIFY_SUCCEEDED(dllSupport.CreateInstance(CLSID_DxcLibrary, &pLib));
 
-  CompileAndRunAnnotationAndGetDebugPart(dllSupport, source, profile,
+  CompileAndRunAnnotationAndGetDebugPart(dllSupport, source, profile, includer,
                                          &pDebugContent, extraArgs);
   VERIFY_SUCCEEDED(pLib->CreateStreamFromBlobReadOnly(pDebugContent, &pStream));
   VERIFY_SUCCEEDED(
@@ -2091,7 +2099,7 @@ void main()
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
-                                          &pDiaDataSource);
+                                          nullptr, &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
 }
@@ -2134,7 +2142,7 @@ void main()
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
-                                          &pDiaDataSource);
+                                          nullptr, &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
 }
@@ -2177,7 +2185,7 @@ void main()
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
-                                          &pDiaDataSource);
+                                          nullptr, &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
 }
@@ -2246,7 +2254,7 @@ void main()
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
-                                          &pDiaDataSource);
+                                          nullptr, &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
 }
@@ -2300,7 +2308,7 @@ VSOut main( const uint id : SV_OutputControlPointID,
   CComPtr<IDiaDataSource> pDiaDataSource;
   CComPtr<IDiaSession> pDiaSession;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"hs_6_0",
-                                          &pDiaDataSource);
+                                          nullptr, &pDiaDataSource);
 
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&pDiaSession));
 }
@@ -2373,7 +2381,7 @@ void RaygenCommon()
 {
     float3 rayDir;
     float3 origin;
-    
+
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
@@ -2431,7 +2439,7 @@ void MyMissShader(inout RayPayload payload)
 
   CComPtr<IDiaDataSource> pDiaDataSource;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"lib_6_6",
-                                          &pDiaDataSource);
+                                          nullptr, &pDiaDataSource);
 
   CComPtr<IDiaSession> session;
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&session));
@@ -2626,10 +2634,11 @@ static bool ContainedBy(std::vector<PixTest::VariableComponentInfo> const &v1,
 }
 
 CComPtr<IDxcPixDxilDebugInfo>
-PixTest::CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile) {
+PixTest::CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
+                                  IDxcIncludeHandler *includer) {
 
   CComPtr<IDiaDataSource> pDiaDataSource;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, profile,
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, profile, includer,
                                           &pDiaDataSource, {L"-Od"});
 
   CComPtr<IDiaSession> session;
@@ -3080,7 +3089,7 @@ void AStruct::Init(float fi)
       f += floatRWUAV[i+2];
     }
 }
-  
+
 [numthreads(1, 1, 1)]
 void main()
 {
@@ -3267,6 +3276,167 @@ void main()
     }
   }
   VERIFY_IS_TRUE(FoundTheVariable);
+}
+
+class DxcIncludeHandlerForInjectedSourcesForPix : public IDxcIncludeHandler {
+private:
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
+
+  std::vector<std::pair<std::wstring, std::string>> m_files;
+  PixTest *m_pixTest;
+
+public:
+  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  DxcIncludeHandlerForInjectedSourcesForPix(
+      PixTest *pixTest, std::vector<std::pair<std::wstring, std::string>> files)
+      : m_dwRef(0), m_pixTest(pixTest), m_files(files){};
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+    return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+  }
+
+  HRESULT insertIncludeFile(LPCWSTR pFilename, IDxcBlobEncoding *pBlob,
+                            UINT32 dataLen) {
+    return E_FAIL;
+  }
+
+  HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename,
+                                       IDxcBlob **ppIncludeSource) override {
+    for (auto const &file : m_files) {
+      std::wstring prependedWithDotHack = L"./" + file.first;
+      if (prependedWithDotHack == std::wstring(pFilename)) {
+        CComPtr<IDxcBlobEncoding> blob;
+        m_pixTest->CreateBlobFromText(file.second.c_str(), &blob);
+        *ppIncludeSource = blob.Detach();
+        return S_OK;
+      }
+    }
+    return E_FAIL;
+  }
+};
+
+void PixTest::RunSubProgramsCase(const char *hlsl) {
+  CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
+      new DxcIncludeHandlerForInjectedSourcesForPix(
+          this, {{L"../include1/samefilename.h",
+                  "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
+                  "sqrt(v); return v; } "},
+                 {L"../include2/samefilename.h",
+                  R"(
+float4 fn2( float3 f3, float d, bool sanitize = true )
+{
+  if (sanitize)
+  {
+    f3 = any(isnan(f3) | isinf(f3)) ? 0 : clamp(f3, 0, 1034.f);
+    d = (isnan(d) | isinf(d)) ? 0 : clamp(d, 0, 1024.f); 
+  }
+  if( d != 0 ) d = max( d, -1024.f);
+  return float4( f3, d );}
+)"}});
+
+  auto dxilDebugger =
+      CompileAndCreateDxcDebug(hlsl, L"cs_6_0", pIncludeHandler);
+
+  struct SourceLocations {
+    CComBSTR Filename;
+    DWORD Column;
+    DWORD Line;
+  };
+
+  std::vector<SourceLocations> sourceLocations;
+
+  DWORD instructionOffset = 0;
+  CComPtr<IDxcPixDxilSourceLocations> DxcSourceLocations;
+  while (SUCCEEDED(dxilDebugger->SourceLocationsFromInstructionOffset(
+      instructionOffset++, &DxcSourceLocations))) {
+    auto count = DxcSourceLocations->GetCount();
+    for (DWORD i = 0; i < count; ++i) {
+      sourceLocations.push_back({});
+      DxcSourceLocations->GetFileNameByIndex(i,
+                                             &sourceLocations.back().Filename);
+      sourceLocations.back().Line = DxcSourceLocations->GetLineNumberByIndex(i);
+      sourceLocations.back().Column = DxcSourceLocations->GetColumnByIndex(i);
+    }
+    DxcSourceLocations = nullptr;
+  }
+
+  auto it = sourceLocations.begin();
+  VERIFY_IS_FALSE(it == sourceLocations.end());
+
+  // The list of source locations should start with the containing file:
+  while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
+    it++;
+  VERIFY_IS_FALSE(it == sourceLocations.end());
+
+  // Then have a bunch of "../include2/samefilename.h"
+  VERIFY_ARE_EQUAL_WSTR(L"./../include2/samefilename.h", it->Filename);
+  while (it != sourceLocations.end() &&
+         it->Filename == L"./../include2/samefilename.h")
+    it++;
+  VERIFY_IS_FALSE(it == sourceLocations.end());
+
+  // Then some more main file:
+  VERIFY_ARE_EQUAL_WSTR(L"source.hlsl", it->Filename);
+  while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
+    it++;
+
+  // And that should be the end:
+  VERIFY_IS_TRUE(it == sourceLocations.end());
+}
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_SubPrograms) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+
+  const char *hlsl = R"(
+
+#include "../include1/samefilename.h"
+namespace n1 {
+#include "../include2/samefilename.h"
+}
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  float4 result = n1::fn2(
+    float3(floatRWUAV[0], floatRWUAV[1], floatRWUAV[2]),
+    floatRWUAV[3]);
+  floatRWUAV[0]  = result.x;
+  floatRWUAV[1]  = result.y;
+  floatRWUAV[2]  = result.z;
+  floatRWUAV[3]  = result.w;
+}
+
+)";
+  RunSubProgramsCase(hlsl);
+}
+
+TEST_F(PixTest, DxcPixDxilDebugInfo_SubProgramsInNamespaces) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+
+  const char *hlsl = R"(
+
+#include "../include1/samefilename.h"
+#include "../include2/samefilename.h"
+
+RWStructuredBuffer<float> floatRWUAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  float4 result = fn2(
+    float3(floatRWUAV[0], floatRWUAV[1], floatRWUAV[2]),
+    floatRWUAV[3]);
+  floatRWUAV[0]  = result.x;
+  floatRWUAV[1]  = result.y;
+  floatRWUAV[2]  = result.z;
+  floatRWUAV[3]  = result.w;
+}
+
+)";
+  RunSubProgramsCase(hlsl);
 }
 
 CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
@@ -3845,7 +4015,7 @@ void RaygenCommon()
 {
     float3 rayDir;
     float3 origin;
-    
+
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
@@ -3930,7 +4100,7 @@ void RaygenCommon()
 {
     float3 rayDir;
     float3 origin;
-    
+
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
@@ -4570,38 +4740,24 @@ struct Gbuffer
 {
 	float3 worldNormal;
 	float3 objectNormal; //offset:12
-	
 	float linearZ; //24
 	float prevLinearZ; //28
-	
-	
 	float fwidthLinearZ; //32
 	float fwidthObjectNormal; //36
-	
-	
 	uint materialType; //40
 	uint2 materialParams0; //44
 	uint4 materialParams1; //52  <--------- this is the variable that's being covered twice (52*8 = 416 416)
-	
 	uint instanceId;  //68  <------- and there's one dword left over, as expected
-	
-	
 	void load(int2 pixelPos, Texture2DArray<uint4> gbTex)
 	{
 	uint4 data0 = gbTex.Load(int4(pixelPos, 0, 0));
 	uint4 data1 = gbTex.Load(int4(pixelPos, 1, 0));
 	uint4 data2 = gbTex.Load(int4(pixelPos, 2, 0));
-	
-	
 	worldNormal = unpackOctahedralUnorm(unpackUnorm2(data0.x));
 	linearZ = f16tof32((data0.y >> 8) & 0xffff);
 	materialType = (data0.y & 0xff);
 	materialParams0 = data0.zw;
-	
-	
 	materialParams1 = data1.xyzw;
-	
-	
 	instanceId = data2.x;
 	prevLinearZ = asfloat(data2.y);
 	objectNormal = unpackOctahedralUnorm(unpackUnorm2(data2.z));
@@ -4622,7 +4778,7 @@ Texture2DArray<uint4> g_gbuffer : register(t0, space0);
 
 [numthreads(1, 1, 1)]
 void main()
-{	
+{
 	const Gbuffer gbuffer = loadGbuffer(int2(0,0), g_gbuffer);
     smallPayload p;
     p.i = gbuffer.materialParams1.x + gbuffer.materialParams1.y + gbuffer.materialParams1.z + gbuffer.materialParams1.w;
@@ -4986,7 +5142,7 @@ void RaygenCommon()
 {
     float3 rayDir;
     float3 origin;
-    
+
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
@@ -5187,21 +5343,21 @@ GlobalRootSignature so_GlobalRootSignature =
 	"RootConstants(num32BitConstants=1, b8), "
 };
 
-StateObjectConfig so_StateObjectConfig = 
-{ 
+StateObjectConfig so_StateObjectConfig =
+{
     STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS
 };
 
-LocalRootSignature so_LocalRootSignature1 = 
+LocalRootSignature so_LocalRootSignature1 =
 {
 	"RootConstants(num32BitConstants=3, b2), "
-	"UAV(u6),RootFlags(LOCAL_ROOT_SIGNATURE)" 
+	"UAV(u6),RootFlags(LOCAL_ROOT_SIGNATURE)"
 };
 
-LocalRootSignature so_LocalRootSignature2 = 
+LocalRootSignature so_LocalRootSignature2 =
 {
 	"RootConstants(num32BitConstants=3, b2), "
-	"UAV(u8, flags=DATA_STATIC), " 
+	"UAV(u8, flags=DATA_STATIC), "
 	"RootFlags(LOCAL_ROOT_SIGNATURE)"
 };
 
@@ -5225,13 +5381,13 @@ TriangleHitGroup MyHitGroup =
 SubobjectToExportsAssociation so_Association1 =
 {
 	"so_LocalRootSignature1", // subobject name
-	"MyRayGen"                // export association 
+	"MyRayGen"                // export association
 };
 
 SubobjectToExportsAssociation so_Association2 =
 {
 	"so_LocalRootSignature2", // subobject name
-	"MyAnyHit"                // export association 
+	"MyAnyHit"                // export association
 };
 
 struct MyPayload
@@ -5246,7 +5402,7 @@ void MyRayGen()
 
 [shader("closesthit")]
 void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
-{  
+{
 }
 
 [shader("anyhit")]
@@ -5497,7 +5653,7 @@ void MyRayGen()
 
 [shader("closesthit")]
 void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
-{  
+{
 }
 
 [shader("anyhit")]
