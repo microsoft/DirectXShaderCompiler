@@ -137,11 +137,13 @@ public:
     GetPassOptionUnsigned(O, "MaxIterationAttempt", &MaxIterationAttempt,
                           false);
     GetPassOptionBool(O, "OnlyWarnOnFail", &OnlyWarnOnFail, false);
+    GetPassOptionBool(O, "StructurizeLoopExits", &StructurizeLoopExits, false);
   }
   void dumpConfig(raw_ostream &OS) override {
     LoopPass::dumpConfig(OS);
     OS << ",MaxIterationAttempt=" << MaxIterationAttempt;
     OS << ",OnlyWarnOnFail=" << OnlyWarnOnFail;
+    OS << ",StructurizeLoopExits=" << StructurizeLoopExits;
   }
   void RecursivelyRemoveLoopOnSuccess(LPPassManager &LPM, Loop *L);
   void RecursivelyRecreateSubLoopForIteration(LPPassManager &LPM, LoopInfo *LI,
