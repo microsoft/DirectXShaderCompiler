@@ -71,7 +71,7 @@ struct ScopeNestEvent {
   Type ElementType;
   BlockTy *Block;
 
-  ScopeNestEvent(BlockTy *B, Type T) : Block(B), ElementType(T) {}
+  ScopeNestEvent(BlockTy *B, Type T) : ElementType(T), Block(B) {}
   static ScopeNestEvent Invalid() {
     return ScopeNestEvent(nullptr, Type::Invalid);
   }

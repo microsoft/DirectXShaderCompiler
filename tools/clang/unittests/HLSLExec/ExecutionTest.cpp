@@ -3445,9 +3445,9 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
             bool isTop[4];
             bool isLeft[4];
             PerPixelData helperData;
-            memset(&helperData, sizeof(helperData), 0);
+            memset(&helperData, 0, sizeof(helperData));
             PerPixelData *layout[4]; // tl,tr,bl,br
-            memset(layout, sizeof(layout), 0);
+            memset(layout, 0, sizeof(layout));
             auto fnToLayout = [&](bool top, bool left) -> PerPixelData ** {
               int idx = top ? 0 : 2;
               idx += left ? 0 : 1;
@@ -10948,7 +10948,7 @@ void ExecutionTest::WaveSizeTest() {
           VERIFY_IS_TRUE(sizeof(WaveSizeTestData) * MAX_WAVESIZE <=
                          Data.size());
           WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
-          memset(&pInData, sizeof(WaveSizeTestData) * MAX_WAVESIZE, 0);
+          memset(pInData, 0, sizeof(WaveSizeTestData) * MAX_WAVESIZE);
         },
         ShaderOpSet);
 

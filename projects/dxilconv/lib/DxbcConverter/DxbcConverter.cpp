@@ -104,14 +104,14 @@ __override HRESULT STDMETHODCALLTYPE DxbcConverter::ConvertInDriver(
 
 DxbcConverter::DxbcConverter()
     : m_dwRef(0), m_pPR(nullptr), m_pOP(nullptr), m_pSM(nullptr),
-      m_DxbcMajor(0), m_DxbcMinor(0), m_pUnusedF32(nullptr),
-      m_pUnusedI32(nullptr), m_NumTempRegs(0), m_pIcbGV(nullptr),
-      m_bDisableHashCheck(false), m_bRunDxilCleanup(true),
-      m_bLegacyCBufferLoad(true), m_TGSMCount(0),
+      m_DxbcMajor(0), m_DxbcMinor(0), m_bDisableHashCheck(false),
+      m_bRunDxilCleanup(true), m_bLegacyCBufferLoad(true),
       m_DepthRegType(D3D10_SB_OPERAND_TYPE_NULL), m_bHasStencilRef(false),
-      m_bHasCoverageOut(false), m_bControlPointPhase(false),
-      m_bPatchConstantPhase(false), m_pInterfaceDataBuffer(nullptr),
-      m_pClassInstanceCBuffers(nullptr), m_pClassInstanceSamplers(nullptr),
+      m_bHasCoverageOut(false), m_pUnusedF32(nullptr), m_pUnusedI32(nullptr),
+      m_NumTempRegs(0), m_pIcbGV(nullptr), m_TGSMCount(0),
+      m_bControlPointPhase(false), m_bPatchConstantPhase(false),
+      m_pInterfaceDataBuffer(nullptr), m_pClassInstanceCBuffers(nullptr),
+      m_pClassInstanceSamplers(nullptr),
       m_pClassInstanceComparisonSamplers(nullptr), m_NumIfaces(0),
       m_FcallCount(0) {
   DXASSERT(OP::CheckOpCodeTable(), "incorrect entry in OpCode property table");
