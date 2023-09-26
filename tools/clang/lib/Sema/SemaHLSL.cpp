@@ -12809,7 +12809,7 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
 // of other attributes that could exist on this decl, and immediately
 // upon detecting the attribute on the decl.
 HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
-                                             const AttributeList &A) { 
+                                             const AttributeList &A) {
   // validate that the wavesize argument is a power of 2 between 4 and 128
   // inclusive
   HLSLWaveSizeAttr *pAttr = ::new (S.Context)
@@ -13287,7 +13287,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLWaveSize:
-    declAttr = ValidateWaveSizeAttributes(S, D, A);    
+    declAttr = ValidateWaveSizeAttributes(S, D, A);
     break;
   case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
     declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(
@@ -15200,7 +15200,8 @@ void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
   }
 }
 
-void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr, bool isActiveEntry) {
+void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr,
+                       bool isActiveEntry) {
 
   SourceLocation NodeLoc = SourceLocation();
   SourceLocation NodeLaunchLoc = SourceLocation();
@@ -15371,7 +15372,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr, bool isA
 
 // if this is the Entry FD, then try adding the target profile
 // shader attribute to the FD and carry on with validation
-void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD, bool &isActiveEntry) {
+void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
+                                       bool &isActiveEntry) {
   isActiveEntry = false;
   const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
 
@@ -15468,7 +15470,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::Compute: {
     return DiagnoseComputeEntry(S, FD, Attr, isActiveEntry);
   }
-  
+
   case DXIL::ShaderKind::Node: {
     // A compute shader may also be a node, so we check it here
     return DiagnoseNodeEntry(S, FD, Attr, isActiveEntry);
