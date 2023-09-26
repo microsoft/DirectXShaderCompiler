@@ -11304,7 +11304,7 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
                                      FunctionDecl *entryPointDecl,
                                      DXIL::ShaderKind shaderKind) {
-  
+
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
       switch (pAttr->getKind()) {
