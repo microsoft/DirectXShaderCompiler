@@ -26,7 +26,7 @@
 #include <vector>
 
 // We need to keep & fix these warnings to integrate smoothly with HLK
-#pragma warning(error: 4100 4146 4242 4244 4267 4701 4389)
+#pragma warning(error : 4100 4146 4242 4244 4267 4701 4389)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Forward declarations.
@@ -51,8 +51,8 @@ void RecordTransitionBarrier(ID3D12GraphicsCommandList *pCommandList,
                              D3D12_RESOURCE_STATES after);
 void ExecuteCommandList(ID3D12CommandQueue *pQueue, ID3D12CommandList *pList);
 HRESULT SetObjectName(ID3D12Object *pObject, LPCSTR pName);
-void WaitForSignal(ID3D12CommandQueue *pCQ, ID3D12Fence *pFence,
-                   HANDLE hFence, UINT64 fenceValue);
+void WaitForSignal(ID3D12CommandQueue *pCQ, ID3D12Fence *pFence, HANDLE hFence,
+                   UINT64 fenceValue);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Helper class for mapped data.
@@ -61,14 +61,14 @@ private:
   CComPtr<ID3D12Resource> m_pResource;
   void *m_pData;
   UINT32 m_size;
+
 public:
   MappedData() : m_pData(nullptr), m_size(0) {}
-  MappedData(ID3D12Resource *pResource, UINT32 sizeInBytes) : m_pData(nullptr), m_size(0) {
+  MappedData(ID3D12Resource *pResource, UINT32 sizeInBytes)
+      : m_pData(nullptr), m_size(0) {
     reset(pResource, sizeInBytes);
   }
-  ~MappedData() {
-    reset();
-  }
+  ~MappedData() { reset(); }
   void *data() { return m_pData; }
   UINT32 size() const { return m_size; }
   void dump() const;
@@ -92,25 +92,25 @@ private:
 #ifdef _HASH_SEQ_DEFINED
       return std::_Hash_seq((const unsigned char *)a, strlen(a));
 #else
-      return std::_Hash_array_representation((const unsigned char *)a, strlen(a));
+      return std::_Hash_array_representation((const unsigned char *)a,
+                                             strlen(a));
 #endif
     }
   };
   struct PredStr {
-    bool operator()(LPCSTR a, LPCSTR b) const {
-      return strcmp(a, b) == 0;
-    }
+    bool operator()(LPCSTR a, LPCSTR b) const { return strcmp(a, b) == 0; }
   };
 
   std::unordered_set<LPCSTR, HashStr, PredStr> m_values;
   std::vector<std::vector<char>> m_strings;
+
 public:
   string_table() {}
   // Disable copy constructor and move constructor.
-  string_table(const string_table&) = delete;
-  string_table& operator=(const string_table&) = delete;
-  string_table(string_table&&) = delete;
-  string_table& operator=(string_table&&) = delete;
+  string_table(const string_table &) = delete;
+  string_table &operator=(const string_table &) = delete;
+  string_table(string_table &&) = delete;
+  string_table &operator=(string_table &&) = delete;
   LPCSTR insert(LPCSTR pValue);
   LPCSTR insert(LPCWSTR pValue);
 };
@@ -118,66 +118,69 @@ public:
 // Use this class to represent a specific D3D12 resource descriptor.
 class ShaderOpDescriptor {
 public:
-  LPCSTR  Name;         // Descriptor name.
-  LPCSTR  ResName;      // Name of the underlying resource.
-  LPCSTR  CounterName;  // Name of the counter resource, if applicable.
-  LPCSTR  Kind;         // One of UAV,SRV,CBV
+  LPCSTR Name;        // Descriptor name.
+  LPCSTR ResName;     // Name of the underlying resource.
+  LPCSTR CounterName; // Name of the counter resource, if applicable.
+  LPCSTR Kind;        // One of UAV,SRV,CBV
   // Other fields to customize mapping can be added here.
-  D3D12_SHADER_RESOURCE_VIEW_DESC   SrvDesc;
-  bool                              SrvDescPresent;
-  D3D12_UNORDERED_ACCESS_VIEW_DESC  UavDesc;
-  D3D12_SAMPLER_DESC                SamplerDesc;
+  D3D12_SHADER_RESOURCE_VIEW_DESC SrvDesc;
+  bool SrvDescPresent;
+  D3D12_UNORDERED_ACCESS_VIEW_DESC UavDesc;
+  D3D12_SAMPLER_DESC SamplerDesc;
 };
 
 // Use this class to represent a heap of D3D12 resource descriptors.
 class ShaderOpDescriptorHeap {
 public:
-  LPCSTR                        Name;
-  D3D12_DESCRIPTOR_HEAP_DESC    Desc;
-  std::vector<ShaderOpDescriptor>  Descriptors;
+  LPCSTR Name;
+  D3D12_DESCRIPTOR_HEAP_DESC Desc;
+  std::vector<ShaderOpDescriptor> Descriptors;
 };
 
 // Use this class to represent a D3D12 resource.
 class ShaderOpResource {
 public:
-  LPCSTR                Name;                   // Name for lookups and diagnostics.
-  LPCSTR                Init;                   // Initialization method.
-  D3D12_HEAP_PROPERTIES HeapProperties;         // Heap properties for resource.
-  D3D12_HEAP_FLAGS      HeapFlags;              // Flags.
-  D3D12_RESOURCE_DESC   Desc;                   // Resource description.
-  D3D12_RESOURCE_STATES InitialResourceState;   // Initial state.
-  D3D12_RESOURCE_STATES TransitionTo;           // State to transition before running shader.
-  BOOL                  ReadBack;               // TRUE to read back to CPU after operations are done.
-  std::vector<BYTE>     InitBytes;              // Byte payload for initialization.
-  D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology;     // Primitive topology.
+  LPCSTR Name;                          // Name for lookups and diagnostics.
+  LPCSTR Init;                          // Initialization method.
+  D3D12_HEAP_PROPERTIES HeapProperties; // Heap properties for resource.
+  D3D12_HEAP_FLAGS HeapFlags;           // Flags.
+  D3D12_RESOURCE_DESC Desc;             // Resource description.
+  D3D12_RESOURCE_STATES InitialResourceState; // Initial state.
+  D3D12_RESOURCE_STATES
+      TransitionTo; // State to transition before running shader.
+  BOOL ReadBack;    // TRUE to read back to CPU after operations are done.
+  std::vector<BYTE> InitBytes;              // Byte payload for initialization.
+  D3D_PRIMITIVE_TOPOLOGY PrimitiveTopology; // Primitive topology.
 };
 
 // Use this class to represent a shader.
 class ShaderOpShader {
 public:
-  LPCSTR  Name;       // Name for lookups and diagnostics.
-  LPCSTR  EntryPoint; // Entry point function name.
-  LPCSTR  Target;     // Target profile.
-  LPCSTR  Text;       // HLSL Shader Text.
-  LPCSTR  Arguments;  // Command line Arguments.
-  LPCSTR  Defines;    // HLSL Defines.
-  BOOL    Compiled;   // Whether text is a base64-encoded value.
-  BOOL    Callback;    // Whether a function exists to modify the shader's disassembly.
+  LPCSTR Name;       // Name for lookups and diagnostics.
+  LPCSTR EntryPoint; // Entry point function name.
+  LPCSTR Target;     // Target profile.
+  LPCSTR Text;       // HLSL Shader Text.
+  LPCSTR Arguments;  // Command line Arguments.
+  LPCSTR Defines;    // HLSL Defines.
+  BOOL Compiled;     // Whether text is a base64-encoded value.
+  BOOL
+      Callback; // Whether a function exists to modify the shader's disassembly.
 };
 
 // Use this class to represent a value in the root signature.
 class ShaderOpRootValue {
 public:
-  LPCSTR  ResName;    // Resource name.
-  LPCSTR  HeapName;   // Descriptor table, mapping the base of a heap.
-  UINT    Index;      // Explicit index in root table.
+  LPCSTR ResName;  // Resource name.
+  LPCSTR HeapName; // Descriptor table, mapping the base of a heap.
+  UINT Index;      // Explicit index in root table.
 };
 
 // Use this class to represent a render target and its viewport.
 class ShaderOpRenderTarget {
 public:
-  LPCSTR             Name;        // Render target name
-  D3D12_VIEWPORT     Viewport;    // Viewport to use; if Width == 0 use the full render target
+  LPCSTR Name; // Render target name
+  D3D12_VIEWPORT
+      Viewport; // Viewport to use; if Width == 0 use the full render target
 };
 
 // Use this class to hold all information needed for a Draw/Dispatch call.
@@ -199,18 +202,18 @@ public:
   LPCSTR AS = nullptr, MS = nullptr;
   LPCSTR GetString(LPCSTR str) { return Strings.insert(str); }
   UINT DispatchX = 1, DispatchY = 1, DispatchZ = 1;
-  D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+  D3D12_PRIMITIVE_TOPOLOGY_TYPE PrimitiveTopologyType =
+      D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
   UINT SampleMask = UINT_MAX; // TODO: parse from file
-  DXGI_FORMAT RTVFormats[8]; // TODO: parse from file
-  bool IsCompute() const {
-    return CS != nullptr;
-  }
+  DXGI_FORMAT RTVFormats[8];  // TODO: parse from file
+  bool IsCompute() const { return CS != nullptr; }
   LPCSTR GetShaderText(ShaderOpShader *pShader) {
-    if (!pShader || !pShader->Text) return nullptr;
+    if (!pShader || !pShader->Text)
+      return nullptr;
     LPCSTR result = pShader->Text;
     if (result[0] == '@') {
-      for (auto && S : Shaders) {
+      for (auto &&S : Shaders) {
         if (S.Name && 0 == strcmp(S.Name, result + 1))
           return S.Text;
       }
@@ -218,15 +221,27 @@ public:
     }
     return result;
   }
+  LPCSTR GetShaderArguments(ShaderOpShader *pShader) {
+    if (!pShader || !pShader->Arguments) return nullptr;
+    LPCSTR result = pShader->Arguments;
+    if (result[0] == '@') {
+      for (auto && S : Shaders) {
+        if (S.Name && 0 == strcmp(S.Name, result + 1))
+          return S.Arguments;
+      }
+      result = nullptr;
+    }
+    return result;
+  }
   ShaderOpDescriptorHeap *GetDescriptorHeapByName(LPCSTR pName) {
-    for (auto && R : DescriptorHeaps) {
+    for (auto &&R : DescriptorHeaps) {
       if (R.Name && 0 == strcmp(R.Name, pName))
         return &R;
     }
     return nullptr;
   }
   ShaderOpResource *GetResourceByName(LPCSTR pName) {
-    for (auto && R : Resources) {
+    for (auto &&R : Resources) {
       if (R.Name && 0 == strcmp(R.Name, pName))
         return &R;
     }
@@ -253,32 +268,38 @@ struct CommandListRefs {
 // Use this class to run the operation described in a ShaderOp object.
 class ShaderOpTest {
 public:
-  typedef std::function<void(LPCSTR Name, std::vector<BYTE> &Data, ShaderOp *pShaderOp)> TInitCallbackFn;
-  typedef std::function<void(LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob, ShaderOp *pShaderOp)> TShaderCallbackFn;
+  typedef std::function<void(LPCSTR Name, std::vector<BYTE> &Data,
+                             ShaderOp *pShaderOp)>
+      TInitCallbackFn;
+  typedef std::function<void(LPCSTR Name, LPCSTR pText, IDxcBlob **ppShaderBlob,
+                             ShaderOp *pShaderOp)>
+      TShaderCallbackFn;
   void GetPipelineStats(D3D12_QUERY_DATA_PIPELINE_STATISTICS *pStats);
   void GetReadBackData(LPCSTR pResourceName, MappedData *pData);
   void RunShaderOp(ShaderOp *pShaderOp);
   void RunShaderOp(std::shared_ptr<ShaderOp> pShaderOp);
-  void SetDevice(ID3D12Device* pDevice);
+  void SetDevice(ID3D12Device *pDevice);
   void SetDxcSupport(dxc::DxcDllSupport *pDxcSupport);
   void SetInitCallback(TInitCallbackFn InitCallbackFn);
   void SetShaderCallback(TShaderCallbackFn ShaderCallbackFn);
   void SetupRenderTarget(ShaderOp *pShaderOp, ID3D12Device *pDevice,
                          ID3D12CommandQueue *pCommandQueue,
                          ID3D12Resource *pRenderTarget);
-  void PresentRenderTarget(ShaderOp *pShaderOp, ID3D12CommandQueue *pCommandQueue, ID3D12Resource *pRenderTarget);
+  void PresentRenderTarget(ShaderOp *pShaderOp,
+                           ID3D12CommandQueue *pCommandQueue,
+                           ID3D12Resource *pRenderTarget);
 
 private:
   struct ShaderOpResourceData {
-    ShaderOpResource        *ShaderOpRes;
-    D3D12_RESOURCE_STATES   ResourceState;
+    ShaderOpResource *ShaderOpRes;
+    D3D12_RESOURCE_STATES ResourceState;
     CComPtr<ID3D12Resource> ReadBack;
     CComPtr<ID3D12Resource> Resource;
     CComPtr<ID3D12Resource> View;
   };
   struct ShaderOpDescriptorData {
-    ShaderOpDescriptor          *Descriptor;
-    ShaderOpResourceData        *ResData;
+    ShaderOpDescriptor *Descriptor;
+    ShaderOpResourceData *ResData;
     D3D12_GPU_DESCRIPTOR_HANDLE GPUHandle;
     D3D12_CPU_DESCRIPTOR_HANDLE CPUHandle;
   };
@@ -293,8 +314,8 @@ private:
   HANDLE m_hFence;
   ShaderOp *m_pShaderOp;
   UINT64 m_FenceValue;
-  std::map<LPCSTR, CComPtr<ID3D10Blob> > m_Shaders;
-  std::map<LPCSTR, CComPtr<ID3D12DescriptorHeap> > m_DescriptorHeapsByName;
+  std::map<LPCSTR, CComPtr<ID3D10Blob>> m_Shaders;
+  std::map<LPCSTR, CComPtr<ID3D12DescriptorHeap>> m_DescriptorHeapsByName;
   std::map<LPCSTR, ShaderOpResourceData> m_ResourceData;
   std::map<LPCSTR, ShaderOpDescriptorData> m_DescriptorData;
   std::vector<ID3D12DescriptorHeap *> m_DescriptorHeaps;

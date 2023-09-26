@@ -10,49 +10,45 @@
 // Utility to compute and cache constant values for instructions.
 //
 
-
-#include "dxc/Support/Global.h"
-#include "llvm/Pass.h"
 #include "dxc/DXIL/DxilConstants.h"
-#include "llvm/Analysis/DxilSimplify.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/ModuleSlotTracker.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/Transforms/Scalar.h"
-#include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/ConstantFolding.h"
+#include "dxc/Support/Global.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/DxilSimplify.h"
+#include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/ModuleSlotTracker.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Scalar.h"
 
 #include "llvm/Analysis/DxilValueCache.h"
 
-#include <unordered_set>
 #include <unordered_map>
+#include <unordered_set>
 
 #define DEBUG_TYPE "dxil-value-cache"
 
 using namespace llvm;
 
-static
-bool IsConstantTrue(const Value *V) {
+static bool IsConstantTrue(const Value *V) {
   if (const ConstantInt *C = dyn_cast<ConstantInt>(V))
     return C->getLimitedValue() != 0;
   return false;
 }
-static
-bool IsConstantFalse(const Value *V) {
+static bool IsConstantFalse(const Value *V) {
   if (const ConstantInt *C = dyn_cast<ConstantInt>(V))
     return C->getLimitedValue() == 0;
   return false;
 }
 
-static
-bool IsEntryBlock(const BasicBlock *BB) {
+static bool IsEntryBlock(const BasicBlock *BB) {
   return BB == &BB->getParent()->getEntryBlock();
 }
 
@@ -66,7 +62,8 @@ bool DxilValueCache::MayBranchTo(BasicBlock *A, BasicBlock *B) {
     if (Br->isUnconditional() && Br->getSuccessor(0) == B)
       return true;
 
-    if (ConstantInt *C = dyn_cast<ConstantInt>(TryGetCachedValue(Br->getCondition()))) {
+    if (ConstantInt *C =
+            dyn_cast<ConstantInt>(TryGetCachedValue(Br->getCondition()))) {
       unsigned SuccIndex = C->getLimitedValue() != 0 ? 0 : 1;
       return Br->getSuccessor(SuccIndex) == B;
     }
@@ -99,7 +96,8 @@ bool DxilValueCache::IsUnreachable_(BasicBlock *BB) {
   return false;
 }
 
-Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I,
+                                              DominatorTree *DT) {
   PHINode *PN = cast<PHINode>(I);
   BasicBlock *SoleIncoming = nullptr;
 
@@ -139,20 +137,17 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
       //   2. If the instruction is in the entry block, then it must dominate
       //   3. If we are provided with a Dominator tree, and it decides that
       //      it dominates.
-      if (PN->getNumIncomingValues() == 1 ||
-        IsEntryBlock(I->getParent()) ||
-        (DT && DT->dominates(I, PN)))
-      {
+      if (PN->getNumIncomingValues() == 1 || IsEntryBlock(I->getParent()) ||
+          (DT && DT->dominates(I, PN))) {
         Simplified = I;
-      }
-      else {
+      } else {
         SimplifiedNotDominating = I;
       }
     }
   }
 
-  // If we have a value but it's not dominating our PHI, see if it has a cached value
-  // that were computed previously.
+  // If we have a value but it's not dominating our PHI, see if it has a cached
+  // value that were computed previously.
   if (!Simplified) {
     if (SimplifiedNotDominating)
       if (Value *CachedV = Map.Get(SimplifiedNotDominating))
@@ -172,7 +167,8 @@ Value *DxilValueCache::ProcessAndSimplify_PHI(Instruction *I, DominatorTree *DT)
   return Simplified;
 }
 
-Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I,
+                                                 DominatorTree *DT) {
   SwitchInst *Sw = cast<SwitchInst>(I);
   BasicBlock *BB = Sw->getParent();
 
@@ -183,8 +179,7 @@ Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *
       if (Succ->getUniquePredecessor())
         MarkUnreachable(Succ);
     }
-  }
-  else if (isa<Constant>(Cond)) {
+  } else if (isa<Constant>(Cond)) {
     BasicBlock *ConstDest = nullptr;
     for (auto Case : Sw->cases()) {
       BasicBlock *Succ = Case.getCaseSuccessor();
@@ -210,7 +205,8 @@ Value *DxilValueCache::ProcessAndSimplify_Switch(Instruction *I, DominatorTree *
   return nullptr;
 }
 
-Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I,
+                                             DominatorTree *DT) {
 
   // The *only* reason we're paying special attention to the
   // branch inst, is to mark certain Basic Blocks as always
@@ -230,17 +226,14 @@ Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) 
         MarkUnreachable(FalseSucc);
       if (TrueSucc->getSinglePredecessor())
         MarkUnreachable(TrueSucc);
-    }
-    else if (IsConstantTrue(Cond)) {
+    } else if (IsConstantTrue(Cond)) {
       if (FalseSucc->getSinglePredecessor())
         MarkUnreachable(FalseSucc);
-    }
-    else if (IsConstantFalse(Cond)) {
+    } else if (IsConstantFalse(Cond)) {
       if (TrueSucc->getSinglePredecessor())
         MarkUnreachable(TrueSucc);
     }
-  }
-  else {
+  } else {
     BasicBlock *Succ = Br->getSuccessor(0);
     if (Succ->getSinglePredecessor() && IsUnreachable_(BB))
       MarkUnreachable(Succ);
@@ -249,7 +242,8 @@ Value *DxilValueCache::ProcessAndSimplify_Br(Instruction *I, DominatorTree *DT) 
   return nullptr;
 }
 
-Value *DxilValueCache::ProcessAndSimplify_Load(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::ProcessAndSimplify_Load(Instruction *I,
+                                               DominatorTree *DT) {
   LoadInst *LI = cast<LoadInst>(I);
   Value *V = TryGetCachedValue(LI->getPointerOperand());
   if (Constant *ConstPtr = dyn_cast<Constant>(V)) {
@@ -259,7 +253,8 @@ Value *DxilValueCache::ProcessAndSimplify_Load(Instruction *I, DominatorTree *DT
   return nullptr;
 }
 
-Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT) {
+Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I,
+                                              DominatorTree *DT) {
 
   if (ShouldSkipCallback && ShouldSkipCallback(I))
     return nullptr;
@@ -272,39 +267,35 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   }
   if (Instruction::Switch == I->getOpcode()) {
     Simplified = ProcessAndSimplify_Switch(I, DT);
-  }
-  else if (Instruction::PHI == I->getOpcode()) {
+  } else if (Instruction::PHI == I->getOpcode()) {
     Simplified = ProcessAndSimplify_PHI(I, DT);
-  }
-  else if (Instruction::Load == I->getOpcode()) {
+  } else if (Instruction::Load == I->getOpcode()) {
     Simplified = ProcessAndSimplify_Load(I, DT);
-  }
-  else if (Instruction::GetElementPtr == I->getOpcode()) {
+  } else if (Instruction::GetElementPtr == I->getOpcode()) {
     SmallVector<Value *, 4> Ops;
     for (unsigned i = 0; i < I->getNumOperands(); i++)
       Ops.push_back(TryGetCachedValue(I->getOperand(i)));
     Simplified = llvm::SimplifyGEPInst(Ops, DL, nullptr, DT);
-  }
-  else if (Instruction::Call == I->getOpcode()) {
+  } else if (Instruction::Call == I->getOpcode()) {
     Module *M = I->getModule();
     CallInst *CI = cast<CallInst>(I);
     Value *Callee = CI->getCalledValue();
     Function *CalledFunction = dyn_cast<Function>(Callee);
 
-    if (CalledFunction && CalledFunction->getName() == hlsl::DXIL::kDxBreakFuncName) {
+    if (CalledFunction &&
+        CalledFunction->getName() == hlsl::DXIL::kDxBreakFuncName) {
       llvm::Type *i1Ty = llvm::Type::getInt1Ty(M->getContext());
       Simplified = llvm::ConstantInt::get(i1Ty, 1);
-    }
-    else {
-      SmallVector<Value *,16> Args;
+    } else {
+      SmallVector<Value *, 16> Args;
       for (unsigned i = 0; i < CI->getNumArgOperands(); i++) {
         Args.push_back(TryGetCachedValue(CI->getArgOperand(i)));
       }
 
       if (CalledFunction && hlsl::CanSimplify(CalledFunction)) {
-        Simplified = hlsl::SimplifyDxilCall(CalledFunction, Args, CI, /* MayInsert */ false);
-      }
-      else {
+        Simplified = hlsl::SimplifyDxilCall(CalledFunction, Args, CI,
+                                            /* MayInsert */ false);
+      } else {
         Simplified = llvm::SimplifyCall(Callee, Args, DL, nullptr, DT);
       }
     }
@@ -312,70 +303,44 @@ Value *DxilValueCache::SimplifyAndCacheResult(Instruction *I, DominatorTree *DT)
   // The rest of the checks use LLVM stock simplifications
   else if (I->isBinaryOp()) {
     if (FPMathOperator *FPOp = dyn_cast<FPMathOperator>(I)) {
-      Simplified =
-        llvm::SimplifyFPBinOp(
-          I->getOpcode(),
-          TryGetCachedValue(I->getOperand(0)),
-          TryGetCachedValue(I->getOperand(1)),
-          FPOp->getFastMathFlags(),
-          DL);
+      Simplified = llvm::SimplifyFPBinOp(
+          I->getOpcode(), TryGetCachedValue(I->getOperand(0)),
+          TryGetCachedValue(I->getOperand(1)), FPOp->getFastMathFlags(), DL);
+    } else {
+      Simplified = llvm::SimplifyBinOp(I->getOpcode(),
+                                       TryGetCachedValue(I->getOperand(0)),
+                                       TryGetCachedValue(I->getOperand(1)), DL);
     }
-    else {
-      Simplified =
-        llvm::SimplifyBinOp(
-          I->getOpcode(),
-          TryGetCachedValue(I->getOperand(0)),
-          TryGetCachedValue(I->getOperand(1)),
-          DL);
-    }
-  }
-  else if (GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(I)) {
+  } else if (GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(I)) {
     SmallVector<Value *, 4> Values;
     for (Value *V : Gep->operand_values()) {
       Values.push_back(TryGetCachedValue(V));
     }
     Simplified =
-      llvm::SimplifyGEPInst(Values, DL, nullptr, DT, nullptr, nullptr);
-  }
-  else if (CmpInst *Cmp = dyn_cast<CmpInst>(I)) {
+        llvm::SimplifyGEPInst(Values, DL, nullptr, DT, nullptr, nullptr);
+  } else if (CmpInst *Cmp = dyn_cast<CmpInst>(I)) {
     if (FPMathOperator *FPOp = dyn_cast<FPMathOperator>(I)) {
-      Simplified =
-        llvm::SimplifyFCmpInst(Cmp->getPredicate(),
-          TryGetCachedValue(I->getOperand(0)),
-          TryGetCachedValue(I->getOperand(1)),
-          FPOp->getFastMathFlags(),
-          DL);
+      Simplified = llvm::SimplifyFCmpInst(
+          Cmp->getPredicate(), TryGetCachedValue(I->getOperand(0)),
+          TryGetCachedValue(I->getOperand(1)), FPOp->getFastMathFlags(), DL);
+    } else {
+      Simplified = llvm::SimplifyCmpInst(
+          Cmp->getPredicate(), TryGetCachedValue(I->getOperand(0)),
+          TryGetCachedValue(I->getOperand(1)), DL);
     }
-    else {
-      Simplified =
-        llvm::SimplifyCmpInst(Cmp->getPredicate(),
-          TryGetCachedValue(I->getOperand(0)),
-          TryGetCachedValue(I->getOperand(1)),
-          DL);
-    }
-  }
-  else if (SelectInst *Select = dyn_cast<SelectInst>(I)) {
-    Simplified = 
-      llvm::SimplifySelectInst(
+  } else if (SelectInst *Select = dyn_cast<SelectInst>(I)) {
+    Simplified = llvm::SimplifySelectInst(
         TryGetCachedValue(Select->getCondition()),
         TryGetCachedValue(Select->getTrueValue()),
-        TryGetCachedValue(Select->getFalseValue()),
-        DL
-      );
-  }
-  else if (ExtractElementInst *IE = dyn_cast<ExtractElementInst>(I)) {
-    Simplified =
-      llvm::SimplifyExtractElementInst(
+        TryGetCachedValue(Select->getFalseValue()), DL);
+  } else if (ExtractElementInst *IE = dyn_cast<ExtractElementInst>(I)) {
+    Simplified = llvm::SimplifyExtractElementInst(
         TryGetCachedValue(IE->getVectorOperand()),
-        TryGetCachedValue(IE->getIndexOperand()),
-        DL, nullptr, DT);
-  }
-  else if (CastInst *Cast = dyn_cast<CastInst>(I)) {
-    Simplified =
-      llvm::SimplifyCastInst(
-        Cast->getOpcode(),
-        TryGetCachedValue(Cast->getOperand(0)),
-        Cast->getType(), DL);
+        TryGetCachedValue(IE->getIndexOperand()), DL, nullptr, DT);
+  } else if (CastInst *Cast = dyn_cast<CastInst>(I)) {
+    Simplified = llvm::SimplifyCastInst(Cast->getOpcode(),
+                                        TryGetCachedValue(Cast->getOperand(0)),
+                                        Cast->getType(), DL);
   }
 
   if (Simplified && isa<Constant>(Simplified))
@@ -417,14 +382,12 @@ void DxilValueCache::WeakValueMap::SetSentinel(Value *Key) {
 
 Value *DxilValueCache::WeakValueMap::GetSentinel(LLVMContext &Ctx) {
   if (!Sentinel) {
-    Sentinel.reset( PHINode::Create(Type::getInt1Ty(Ctx), 0) );
+    Sentinel.reset(PHINode::Create(Type::getInt1Ty(Ctx), 0));
   }
   return Sentinel.get();
 }
 
-void DxilValueCache::WeakValueMap::ResetAll() {
-  Map.clear();
-}
+void DxilValueCache::WeakValueMap::ResetAll() { Map.clear(); }
 
 void DxilValueCache::WeakValueMap::ResetUnknowns() {
   if (!Sentinel)
@@ -453,8 +416,10 @@ void DxilValueCache::WeakValueMap::dump() const {
     ModuleSlotTracker *MST = nullptr;
     {
       const Module *M = nullptr;
-      if (auto I = dyn_cast<Instruction>(Key)) M = I->getModule();
-      else if (auto BB = dyn_cast<BasicBlock>(Key)) M = BB->getModule();
+      if (auto I = dyn_cast<Instruction>(Key))
+        M = I->getModule();
+      else if (auto BB = dyn_cast<BasicBlock>(Key))
+        M = BB->getModule();
       else {
         errs() << *Key;
         llvm_unreachable("How can a key be neither an instruction or BB?");
@@ -481,8 +446,7 @@ void DxilValueCache::WeakValueMap::dump() const {
         else if (IsConstantFalse(V))
           dbgs() << "Never Reachable!";
       }
-    }
-    else {
+    } else {
       dbgs() << *Key << " -> ";
       if (IsSentinel)
         dbgs() << "NO_VALUE";
@@ -509,9 +473,7 @@ DxilValueCache::DxilValueCache() : ImmutablePass(ID) {
   initializeDxilValueCachePass(*PassRegistry::getPassRegistry());
 }
 
-StringRef DxilValueCache::getPassName() const {
-  return "Dxil Value Cache";
-}
+StringRef DxilValueCache::getPassName() const { return "Dxil Value Cache"; }
 
 Value *DxilValueCache::GetValue(Value *V, DominatorTree *DT) {
   if (dyn_cast<Constant>(V))
@@ -540,9 +502,7 @@ bool DxilValueCache::IsUnreachable(BasicBlock *BB, DominatorTree *DT) {
 }
 
 LLVM_DUMP_METHOD
-void DxilValueCache::dump() const {
-  Map.dump();
-}
+void DxilValueCache::dump() const { Map.dump(); }
 
 void DxilValueCache::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
@@ -560,19 +520,16 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
   // Instructions.
   if (Instruction *I = dyn_cast<Instruction>(NewV)) {
     WorkList.push_back(I);
-  }
-  else if (BasicBlock *BB = dyn_cast<BasicBlock>(NewV)) {
+  } else if (BasicBlock *BB = dyn_cast<BasicBlock>(NewV)) {
     WorkList.push_back(BB->getTerminator());
     WorkList.push_back(BB);
-  }
-  else {
+  } else {
     return nullptr;
   }
 
   // Unconditionally process this one instruction, whether we've seen
   // it or not. The simplification might be able to do something to
   // simplify it even when we don't have its value cached.
-
 
   // This is a basic DFS setup.
   while (WorkList.size()) {
@@ -602,9 +559,9 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
               WorkList.push_back(BB);
           }
         }
-      }
-      else if (BasicBlock *BB = dyn_cast<BasicBlock>(V)) {
-        for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; PI++) {
+      } else if (BasicBlock *BB = dyn_cast<BasicBlock>(V)) {
+        for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E;
+             PI++) {
           BasicBlock *PredBB = *PI;
           TerminatorInst *Term = PredBB->getTerminator();
           if (!Map.Seen(Term))
@@ -625,13 +582,13 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
         // so we return it directly.
         if (I == NewV)
           Result = SimplifiedValue;
-      }
-      else if (BasicBlock *BB = dyn_cast<BasicBlock>(V)) {
+      } else if (BasicBlock *BB = dyn_cast<BasicBlock>(V)) {
         // Deduce the basic block's reachability based on
         // other analysis.
         if (!IsEntryBlock(BB)) {
           bool AllNeverReachable = true;
-          for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; PI++) {
+          for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E;
+               PI++) {
             if (!IsUnreachable_(*PI)) {
               AllNeverReachable = false;
               break;
@@ -640,7 +597,6 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
           if (AllNeverReachable)
             MarkUnreachable(BB);
         }
-
       }
     }
   }
@@ -650,9 +606,6 @@ Value *DxilValueCache::ProcessValue(Value *NewV, DominatorTree *DT) {
 
 char DxilValueCache::ID;
 
-Pass *llvm::createDxilValueCachePass() {
-  return new DxilValueCache();
-}
+Pass *llvm::createDxilValueCachePass() { return new DxilValueCache(); }
 
 INITIALIZE_PASS(DxilValueCache, DEBUG_TYPE, "Dxil Value Cache", false, false)
-

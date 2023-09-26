@@ -4,7 +4,8 @@
 
 #pragma once
 namespace hlsl {
-enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
+enum class IntrinsicOp {
+  IOP_AcceptHitAndEndSearch,
   IOP_AddUint64,
   IOP_AllMemoryBarrier,
   IOP_AllMemoryBarrierWithGroupSync,
@@ -251,6 +252,8 @@ enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
   MOP_Sample,
   MOP_SampleBias,
   MOP_SampleCmp,
+  MOP_SampleCmpBias,
+  MOP_SampleCmpGrad,
   MOP_SampleCmpLevel,
   MOP_SampleCmpLevelZero,
   MOP_SampleGrad,
@@ -387,7 +390,8 @@ enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
   Num_Intrinsics,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
-  switch (opcode) {  case IntrinsicOp::IOP_InterlockedMax:
+  switch (opcode) {
+  case IntrinsicOp::IOP_InterlockedMax:
   case IntrinsicOp::IOP_InterlockedMin:
   case IntrinsicOp::IOP_WaveActiveMax:
   case IntrinsicOp::IOP_WaveActiveMin:
@@ -415,7 +419,8 @@ inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   }
 }
 inline unsigned GetUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
-  switch (opcode) {  case IntrinsicOp::IOP_InterlockedMax:
+  switch (opcode) {
+  case IntrinsicOp::IOP_InterlockedMax:
     return static_cast<unsigned>(IntrinsicOp::IOP_InterlockedUMax);
   case IntrinsicOp::IOP_InterlockedMin:
     return static_cast<unsigned>(IntrinsicOp::IOP_InterlockedUMin);

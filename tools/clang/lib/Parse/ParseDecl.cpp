@@ -208,10 +208,10 @@ AfterAttributeParsing: // HLSL Change - skip attribute parsing
 }
 
 // HLSL Change Starts: Implementation for Semantic, Register, packoffset semantics.
-static void ParseRegisterNumberForHLSL(_In_ const StringRef name,
-                                       _Out_ char *registerType,
-                                       _Out_ unsigned *registerNumber,
-                                       _Out_ unsigned *diagId) {
+static void ParseRegisterNumberForHLSL(const StringRef name,
+                                       char *registerType,
+                                       unsigned *registerNumber,
+                                       unsigned *diagId) {
   DXASSERT_NOMSG(registerType != nullptr);
   DXASSERT_NOMSG(registerNumber != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
@@ -248,7 +248,7 @@ static void ParseRegisterNumberForHLSL(_In_ const StringRef name,
 }
 
 static
-void ParsePackSubcomponent(_In_ const StringRef name, _Out_ unsigned* subcomponent, _Out_ unsigned* diagId)
+void ParsePackSubcomponent(const StringRef name, unsigned* subcomponent, unsigned* diagId)
 {
   DXASSERT_NOMSG(subcomponent != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
@@ -264,9 +264,9 @@ void ParsePackSubcomponent(_In_ const StringRef name, _Out_ unsigned* subcompone
 
 static
 void ParsePackComponent(
-  _In_ const StringRef name,
-  _Inout_ hlsl::ConstantPacking* cp,
-  _Out_ unsigned* diagId)
+  const StringRef name,
+  hlsl::ConstantPacking* cp,
+  unsigned* diagId)
 {
   DXASSERT(name.size(), "otherwise an empty string was parsed as an identifier");
   *diagId = 0;
@@ -287,7 +287,7 @@ void ParsePackComponent(
 }
 
 static
-bool IsShaderProfileShort(_In_ const StringRef profile)
+bool IsShaderProfileShort(const StringRef profile)
 {
   // Look for vs, ps, gs, hs, cs.
   if (profile.size() != 2) return false;
@@ -299,7 +299,7 @@ bool IsShaderProfileShort(_In_ const StringRef profile)
 }
 
 static
-bool IsShaderProfileLike(_In_ const StringRef profile)
+bool IsShaderProfileLike(const StringRef profile)
 {
   bool foundUnderscore = false;
   bool foundDigit = false;
@@ -315,9 +315,9 @@ bool IsShaderProfileLike(_In_ const StringRef profile)
   return foundUnderscore && foundDigit && foundLetter;
 }
 
-static void ParseSpaceForHLSL(_In_ const StringRef name,
-                              _Out_ uint32_t *spaceValue,
-                              _Out_ unsigned *diagId) {
+static void ParseSpaceForHLSL(const StringRef name,
+                              uint32_t *spaceValue,
+                              unsigned *diagId) {
   DXASSERT_NOMSG(spaceValue != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
 
@@ -330,7 +330,7 @@ static void ParseSpaceForHLSL(_In_ const StringRef name,
   }
 
   // Otherwise, strncmp above would have been != 0.
-  _Analysis_assume_(name.size() > sizeof("space"));
+  assert(name.size() >= strlen("space"));
 
   StringRef numName = name.substr(sizeof("space")-1);
 

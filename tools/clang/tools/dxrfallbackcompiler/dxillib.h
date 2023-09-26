@@ -15,28 +15,27 @@
 
 #include "dxc/Support/WinIncludes.h"
 
-
-// Initialize Dxil library. 
+// Initialize Dxil library.
 HRESULT DxilLibInitialize();
 
-// When dxcompiler is detached from process, 
-// we should not call FreeLibrary on process termination. 
-// So the caller has to specify if cleaning is from FreeLibrary or process termination
-enum class DxilLibCleanUpType {
-  UnloadLibrary,
-  ProcessTermination
-};
+// When dxcompiler is detached from process,
+// we should not call FreeLibrary on process termination.
+// So the caller has to specify if cleaning is from FreeLibrary or process
+// termination
+enum class DxilLibCleanUpType { UnloadLibrary, ProcessTermination };
 
 HRESULT DxilLibCleanup(DxilLibCleanUpType type);
 
 // Check if can access dxil.dll
 bool DxilLibIsEnabled();
 
-HRESULT DxilLibCreateInstance(_In_ REFCLSID rclsid, _In_ REFIID riid, _In_ IUnknown **ppInterface);
+HRESULT DxilLibCreateInstance(REFCLSID rclsid, REFIID riid,
+                              IUnknown **ppInterface);
 
 template <class TInterface>
-HRESULT DxilLibCreateInstance(_In_ REFCLSID rclsid, _In_ TInterface **ppInterface) {
-  return DxilLibCreateInstance(rclsid, __uuidof(TInterface), (IUnknown**) ppInterface);
+HRESULT DxilLibCreateInstance(REFCLSID rclsid, TInterface **ppInterface) {
+  return DxilLibCreateInstance(rclsid, __uuidof(TInterface),
+                               (IUnknown **)ppInterface);
 }
 
 #endif // __DXC_DXILLIB__

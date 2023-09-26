@@ -27,7 +27,8 @@ using namespace hlsl;
 using namespace PIXPassHelpers;
 
 class DxilPIXDXRInvocationsLog : public ModulePass {
-    uint64_t m_MaxNumEntriesInLog = 1;
+  uint64_t m_MaxNumEntriesInLog = 1;
+
 public:
   static char ID;
   DxilPIXDXRInvocationsLog() : ModulePass(ID) {}
@@ -39,23 +40,24 @@ public:
   bool runOnModule(Module &M) override;
 };
 
-static DXIL::ShaderKind GetShaderKind(DxilModule const &DM, llvm::Function const *entryFunction)
-{
-    DXIL::ShaderKind ShaderKind = DXIL::ShaderKind::Invalid;
-    if (!DM.HasDxilFunctionProps(entryFunction)) {
-        auto ShaderModel = DM.GetShaderModel();
-        ShaderKind = ShaderModel->GetKind();
-    }
-    else {
-        auto const& Props = DM.GetDxilFunctionProps(entryFunction);
-        ShaderKind = Props.shaderKind;
-    }
+static DXIL::ShaderKind GetShaderKind(DxilModule const &DM,
+                                      llvm::Function const *entryFunction) {
+  DXIL::ShaderKind ShaderKind = DXIL::ShaderKind::Invalid;
+  if (!DM.HasDxilFunctionProps(entryFunction)) {
+    auto ShaderModel = DM.GetShaderModel();
+    ShaderKind = ShaderModel->GetKind();
+  } else {
+    auto const &Props = DM.GetDxilFunctionProps(entryFunction);
+    ShaderKind = Props.shaderKind;
+  }
 
-    return ShaderKind;
+  return ShaderKind;
 }
 
 void DxilPIXDXRInvocationsLog::applyOptions(PassOptions O) {
-    GetPassOptionUInt64(O, "maxNumEntriesInLog", &m_MaxNumEntriesInLog, 1); // Use a silly default value. PIX should set a better value here.
+  GetPassOptionUInt64(
+      O, "maxNumEntriesInLog", &m_MaxNumEntriesInLog,
+      1); // Use a silly default value. PIX should set a better value here.
 }
 
 bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
@@ -67,16 +69,16 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
   bool Modified = false;
 
   for (auto entryFunction : DM.GetExportedFunctions()) {
-    
+
     DXIL::ShaderKind ShaderKind = GetShaderKind(DM, entryFunction);
-    
+
     switch (ShaderKind) {
     case DXIL::ShaderKind::Intersection:
     case DXIL::ShaderKind::AnyHit:
     case DXIL::ShaderKind::ClosestHit:
     case DXIL::ShaderKind::Miss:
       break;
-    
+
     default:
       continue;
     }
@@ -86,62 +88,103 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
     IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(entryFunction));
 
     // Add the UAVs that we're going to write to
-    CallInst* HandleForCountUAV = PIXPassHelpers::CreateUAV(DM, Builder, /* registerID */ 0, "PIX_CountUAV_Handle");
-    CallInst* HandleForUAV = PIXPassHelpers::CreateUAV(DM, Builder, /* registerID */ 1, "PIX_UAV_Handle");
+    CallInst *HandleForCountUAV = PIXPassHelpers::CreateUAV(
+        DM, Builder, /* registerID */ 0, "PIX_CountUAV_Handle");
+    CallInst *HandleForUAV = PIXPassHelpers::CreateUAV(
+        DM, Builder, /* registerID */ 1, "PIX_UAV_Handle");
 
     DM.ReEmitDxilResources();
 
-    auto DispatchRaysIndexOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(Ctx));
-    auto WorldRayOriginOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::WorldRayOrigin, Type::getFloatTy(Ctx));
-    auto WorldRayDirectionOpFunc = HlslOP->GetOpFunc(DXIL::OpCode::WorldRayDirection, Type::getFloatTy(Ctx));
-    auto CurrentRayTFunc = HlslOP->GetOpFunc(DXIL::OpCode::RayTCurrent, Type::getFloatTy(Ctx));
-    auto MinRayTFunc = HlslOP->GetOpFunc(DXIL::OpCode::RayTMin, Type::getFloatTy(Ctx));
-    auto RayFlagsFunc = HlslOP->GetOpFunc(DXIL::OpCode::RayFlags, Type::getInt32Ty(Ctx));
+    auto DispatchRaysIndexOpFunc = HlslOP->GetOpFunc(
+        DXIL::OpCode::DispatchRaysIndex, Type::getInt32Ty(Ctx));
+    auto WorldRayOriginOpFunc =
+        HlslOP->GetOpFunc(DXIL::OpCode::WorldRayOrigin, Type::getFloatTy(Ctx));
+    auto WorldRayDirectionOpFunc = HlslOP->GetOpFunc(
+        DXIL::OpCode::WorldRayDirection, Type::getFloatTy(Ctx));
+    auto CurrentRayTFunc =
+        HlslOP->GetOpFunc(DXIL::OpCode::RayTCurrent, Type::getFloatTy(Ctx));
+    auto MinRayTFunc =
+        HlslOP->GetOpFunc(DXIL::OpCode::RayTMin, Type::getFloatTy(Ctx));
+    auto RayFlagsFunc =
+        HlslOP->GetOpFunc(DXIL::OpCode::RayFlags, Type::getInt32Ty(Ctx));
 
-    auto *DispatchRaysIndexOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::DispatchRaysIndex);
-    auto *WorldRayOriginOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::WorldRayOrigin); 
-    auto *WorldRayDirectionOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::WorldRayDirection);
-    auto *CurrentRayTOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::RayTCurrent);
+    auto *DispatchRaysIndexOpcode =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::DispatchRaysIndex);
+    auto *WorldRayOriginOpcode =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::WorldRayOrigin);
+    auto *WorldRayDirectionOpcode =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::WorldRayDirection);
+    auto *CurrentRayTOpcode =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::RayTCurrent);
     auto *MinRayTOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::RayTMin);
-    auto *RayFlagsOpcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::RayFlags);
+    auto *RayFlagsOpcode =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::RayFlags);
 
-    auto DispatchRaysX = Builder.CreateCall(DispatchRaysIndexOpFunc, { DispatchRaysIndexOpcode, HlslOP->GetI8Const(0) }, "DispatchRaysX");
-    auto DispatchRaysY = Builder.CreateCall(DispatchRaysIndexOpFunc, { DispatchRaysIndexOpcode, HlslOP->GetI8Const(1) }, "DispatchRaysY");
-    auto DispatchRaysZ = Builder.CreateCall(DispatchRaysIndexOpFunc, { DispatchRaysIndexOpcode, HlslOP->GetI8Const(2) }, "DispatchRaysZ");
+    auto DispatchRaysX = Builder.CreateCall(
+        DispatchRaysIndexOpFunc,
+        {DispatchRaysIndexOpcode, HlslOP->GetI8Const(0)}, "DispatchRaysX");
+    auto DispatchRaysY = Builder.CreateCall(
+        DispatchRaysIndexOpFunc,
+        {DispatchRaysIndexOpcode, HlslOP->GetI8Const(1)}, "DispatchRaysY");
+    auto DispatchRaysZ = Builder.CreateCall(
+        DispatchRaysIndexOpFunc,
+        {DispatchRaysIndexOpcode, HlslOP->GetI8Const(2)}, "DispatchRaysZ");
 
-    auto WorldRayOriginX = Builder.CreateCall(WorldRayOriginOpFunc, { WorldRayOriginOpcode, HlslOP->GetI8Const(0) }, "WorldRayOriginX");
-    auto WorldRayOriginY = Builder.CreateCall(WorldRayOriginOpFunc, { WorldRayOriginOpcode, HlslOP->GetI8Const(1) }, "WorldRayOriginY");
-    auto WorldRayOriginZ = Builder.CreateCall(WorldRayOriginOpFunc, { WorldRayOriginOpcode, HlslOP->GetI8Const(2) }, "WorldRayOriginZ");
+    auto WorldRayOriginX = Builder.CreateCall(
+        WorldRayOriginOpFunc, {WorldRayOriginOpcode, HlslOP->GetI8Const(0)},
+        "WorldRayOriginX");
+    auto WorldRayOriginY = Builder.CreateCall(
+        WorldRayOriginOpFunc, {WorldRayOriginOpcode, HlslOP->GetI8Const(1)},
+        "WorldRayOriginY");
+    auto WorldRayOriginZ = Builder.CreateCall(
+        WorldRayOriginOpFunc, {WorldRayOriginOpcode, HlslOP->GetI8Const(2)},
+        "WorldRayOriginZ");
 
-    auto WorldRayDirectionX = Builder.CreateCall(WorldRayDirectionOpFunc, { WorldRayDirectionOpcode, HlslOP->GetI8Const(0) }, "WorldRayDirectionX");
-    auto WorldRayDirectionY = Builder.CreateCall(WorldRayDirectionOpFunc, { WorldRayDirectionOpcode, HlslOP->GetI8Const(1) }, "WorldRayDirectionY");
-    auto WorldRayDirectionZ = Builder.CreateCall(WorldRayDirectionOpFunc, { WorldRayDirectionOpcode, HlslOP->GetI8Const(2) }, "WorldRayDirectionZ");
+    auto WorldRayDirectionX = Builder.CreateCall(
+        WorldRayDirectionOpFunc,
+        {WorldRayDirectionOpcode, HlslOP->GetI8Const(0)}, "WorldRayDirectionX");
+    auto WorldRayDirectionY = Builder.CreateCall(
+        WorldRayDirectionOpFunc,
+        {WorldRayDirectionOpcode, HlslOP->GetI8Const(1)}, "WorldRayDirectionY");
+    auto WorldRayDirectionZ = Builder.CreateCall(
+        WorldRayDirectionOpFunc,
+        {WorldRayDirectionOpcode, HlslOP->GetI8Const(2)}, "WorldRayDirectionZ");
 
-    auto CurrentRayT = Builder.CreateCall(CurrentRayTFunc, { CurrentRayTOpcode }, "CurrentRayT");
-    auto MinRayT = Builder.CreateCall(MinRayTFunc, { MinRayTOpcode }, "MinRayT");
-    auto RayFlags = Builder.CreateCall(RayFlagsFunc, { RayFlagsOpcode }, "RayFlags");
+    auto CurrentRayT =
+        Builder.CreateCall(CurrentRayTFunc, {CurrentRayTOpcode}, "CurrentRayT");
+    auto MinRayT = Builder.CreateCall(MinRayTFunc, {MinRayTOpcode}, "MinRayT");
+    auto RayFlags =
+        Builder.CreateCall(RayFlagsFunc, {RayFlagsOpcode}, "RayFlags");
 
-    Function *AtomicOpFunc = HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
-    Constant *AtomicBinOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
-    Constant *AtomicAdd = HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
+    Function *AtomicOpFunc =
+        HlslOP->GetOpFunc(OP::OpCode::AtomicBinOp, Type::getInt32Ty(Ctx));
+    Constant *AtomicBinOpcode =
+        HlslOP->GetU32Const((unsigned)OP::OpCode::AtomicBinOp);
+    Constant *AtomicAdd =
+        HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
 
-    Function *UMinOpFunc = HlslOP->GetOpFunc(OP::OpCode::UMin, Type::getInt32Ty(Ctx));
+    Function *UMinOpFunc =
+        HlslOP->GetOpFunc(OP::OpCode::UMin, Type::getInt32Ty(Ctx));
     Constant *UMinOpCode = HlslOP->GetU32Const((unsigned)OP::OpCode::UMin);
 
-    Function *StoreFuncFloat = HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getFloatTy(Ctx));
-    Function *StoreFuncInt = HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(Ctx));
-    Constant *StoreOpcode = HlslOP->GetU32Const((unsigned)OP::OpCode::BufferStore);
+    Function *StoreFuncFloat =
+        HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getFloatTy(Ctx));
+    Function *StoreFuncInt =
+        HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(Ctx));
+    Constant *StoreOpcode =
+        HlslOP->GetU32Const((unsigned)OP::OpCode::BufferStore);
 
     Constant *WriteMask_XYZW = HlslOP->GetI8Const(15);
     Constant *WriteMask_X = HlslOP->GetI8Const(1);
     Constant *ShaderKindAsConstant = HlslOP->GetU32Const((uint32_t)ShaderKind);
-    Constant *MaxEntryIndexAsConstant = HlslOP->GetU32Const((uint32_t)m_MaxNumEntriesInLog - 1u);
+    Constant *MaxEntryIndexAsConstant =
+        HlslOP->GetU32Const((uint32_t)m_MaxNumEntriesInLog - 1u);
     Constant *Zero32Arg = HlslOP->GetU32Const(0);
     Constant *One32Arg = HlslOP->GetU32Const(1);
     UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(Ctx));
 
-    // Firstly we read this invocation's index within the invocations log buffer, and
-    // atomically increment it for the next invocation
+    // Firstly we read this invocation's index within the invocations log
+    // buffer, and atomically increment it for the next invocation
     auto *EntryIndex = Builder.CreateCall(
         AtomicOpFunc,
         {
@@ -155,16 +198,25 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
         },
         "EntryIndexResult");
 
-    // Clamp the index so that we don't write off the end of the UAV. If we clamp, then it's up to PIX to replay the work
-    // again with a larger log buffer.
-    auto* EntryIndexClamped = Builder.CreateCall(UMinOpFunc, { UMinOpCode, EntryIndex, MaxEntryIndexAsConstant });
+    // Clamp the index so that we don't write off the end of the UAV. If we
+    // clamp, then it's up to PIX to replay the work again with a larger log
+    // buffer.
+    auto *EntryIndexClamped = Builder.CreateCall(
+        UMinOpFunc, {UMinOpCode, EntryIndex, MaxEntryIndexAsConstant});
 
-    const auto numBytesPerEntry = 4 + (3 * 4) + (3 * 4) + (3 * 4) + 4 + 4 + 4; // See number of bytes we store per shader invocation below
+    const auto numBytesPerEntry =
+        4 + (3 * 4) + (3 * 4) + (3 * 4) + 4 + 4 +
+        4; // See number of bytes we store per shader invocation below
 
-    auto EntryOffset = Builder.CreateMul(EntryIndexClamped, HlslOP->GetU32Const(numBytesPerEntry), "EntryOffset");
-    auto EntryOffsetPlus16 = Builder.CreateAdd(EntryOffset, HlslOP->GetU32Const(16), "EntryOffsetPlus16");
-    auto EntryOffsetPlus32 = Builder.CreateAdd(EntryOffset, HlslOP->GetU32Const(32), "EntryOffsetPlus32");
-    auto EntryOffsetPlus48 = Builder.CreateAdd(EntryOffset, HlslOP->GetU32Const(48), "EntryOffsetPlus48");
+    auto EntryOffset =
+        Builder.CreateMul(EntryIndexClamped,
+                          HlslOP->GetU32Const(numBytesPerEntry), "EntryOffset");
+    auto EntryOffsetPlus16 = Builder.CreateAdd(
+        EntryOffset, HlslOP->GetU32Const(16), "EntryOffsetPlus16");
+    auto EntryOffsetPlus32 = Builder.CreateAdd(
+        EntryOffset, HlslOP->GetU32Const(32), "EntryOffsetPlus32");
+    auto EntryOffsetPlus48 = Builder.CreateAdd(
+        EntryOffset, HlslOP->GetU32Const(48), "EntryOffsetPlus48");
 
     // Then we start storing the invocation's info into the main UAV buffer
     (void)Builder.CreateCall(

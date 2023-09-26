@@ -1,4 +1,5 @@
-//===- DxilFixConstArrayInitializer.cpp - Special Construct Initializer ------------===//
+//===- DxilFixConstArrayInitializer.cpp - Special Construct Initializer
+//------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,19 +8,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/Transforms/Scalar.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/HLSL/HLModule.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
+#include "llvm/Transforms/Scalar.h"
 
-#include <unordered_map>
 #include <limits>
+#include <unordered_map>
 
 using namespace llvm;
 
@@ -29,16 +30,21 @@ class DxilFixConstArrayInitializer : public ModulePass {
 public:
   static char ID;
   DxilFixConstArrayInitializer() : ModulePass(ID) {
-    initializeDxilFixConstArrayInitializerPass(*PassRegistry::getPassRegistry());
+    initializeDxilFixConstArrayInitializerPass(
+        *PassRegistry::getPassRegistry());
   }
   bool runOnModule(Module &M) override;
-  StringRef getPassName() const override { return "Dxil Fix Const Array Initializer"; }
+  StringRef getPassName() const override {
+    return "Dxil Fix Const Array Initializer";
+  }
 };
 
 char DxilFixConstArrayInitializer::ID;
-}
+} // namespace
 
-static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, const std::unordered_map<Instruction *, unsigned> &InstOrder) {
+static bool TryFixGlobalVariable(
+    GlobalVariable &GV, BasicBlock *EntryBlock,
+    const std::unordered_map<Instruction *, unsigned> &InstOrder) {
   // Only proceed if the variable has an undef initializer
   if (!GV.hasInitializer() || !isa<UndefValue>(GV.getInitializer()))
     return false;
@@ -85,8 +91,7 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
             continue;
           }
           PossibleFoldableStores.push_back(Store);
-        }
-        else if (LoadInst *Load = dyn_cast<LoadInst>(GEPUser)) {
+        } else if (LoadInst *Load = dyn_cast<LoadInst>(GEPUser)) {
           if (Load->getParent() != EntryBlock)
             continue;
           FirstUnsafeIndex = std::min(FirstUnsafeIndex, InstOrder.at(Load));
@@ -98,9 +103,9 @@ static bool TryFixGlobalVariable(GlobalVariable &GV, BasicBlock *EntryBlock, con
       }
     }
   }
-  
+
   SmallVector<Constant *, 16> InitValue;
-  SmallVector<unsigned, 16>   LatestStores;
+  SmallVector<unsigned, 16> LatestStores;
   SmallVector<StoreInst *, 8> StoresToRemove;
 
   InitValue.resize(Ty->getArrayNumElements());
@@ -143,8 +148,7 @@ bool DxilFixConstArrayInitializer::runOnModule(Module &M) {
     if (DM.GetEntryFunction()) {
       EntryBlock = &DM.GetEntryFunction()->getEntryBlock();
     }
-  }
-  else if (M.HasHLModule()) {
+  } else if (M.HasHLModule()) {
     hlsl::HLModule &HM = M.GetHLModule();
     if (HM.GetEntryFunction())
       EntryBlock = &HM.GetEntryFunction()->getEntryBlock();
@@ -153,8 +157,9 @@ bool DxilFixConstArrayInitializer::runOnModule(Module &M) {
   if (!EntryBlock)
     return false;
 
-  // If some block might branch to the entry for some reason (like if it's a loop header),
-  // give up now. Have to make sure this block is not preceeded by anything.
+  // If some block might branch to the entry for some reason (like if it's a
+  // loop header), give up now. Have to make sure this block is not preceeded by
+  // anything.
   if (pred_begin(EntryBlock) != pred_end(EntryBlock))
     return false;
 
@@ -172,9 +177,9 @@ bool DxilFixConstArrayInitializer::runOnModule(Module &M) {
   return Changed;
 }
 
-
 Pass *llvm::createDxilFixConstArrayInitializerPass() {
   return new DxilFixConstArrayInitializer();
 }
 
-INITIALIZE_PASS(DxilFixConstArrayInitializer, "dxil-fix-array-init", "Dxil Fix Array Initializer", false, false)
+INITIALIZE_PASS(DxilFixConstArrayInitializer, "dxil-fix-array-init",
+                "Dxil Fix Array Initializer", false, false)

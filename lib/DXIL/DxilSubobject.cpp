@@ -7,11 +7,11 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilSubobject.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/DXIL/DxilSubobject.h"
-#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "llvm/ADT/STLExtras.h"
 
 namespace hlsl {
@@ -22,30 +22,24 @@ namespace hlsl {
 //
 
 DxilSubobject::DxilSubobject(DxilSubobject &&other)
-  : m_Owner(other.m_Owner),
-    m_Kind(other.m_Kind),
-    m_Name(m_Owner.InternString(other.m_Name)),
-    m_Exports(std::move(other.m_Exports))
-{
+    : m_Owner(other.m_Owner), m_Kind(other.m_Kind),
+      m_Name(m_Owner.InternString(other.m_Name)),
+      m_Exports(std::move(other.m_Exports)) {
   DXASSERT_NOMSG(DXIL::IsValidSubobjectKind(m_Kind));
   CopyUnionedContents(other);
 }
 
-DxilSubobject::DxilSubobject(DxilSubobjects &owner, Kind kind, llvm::StringRef name)
-  : m_Owner(owner),
-    m_Kind(kind),
-    m_Name(m_Owner.InternString(name)),
-    m_Exports()
-{
+DxilSubobject::DxilSubobject(DxilSubobjects &owner, Kind kind,
+                             llvm::StringRef name)
+    : m_Owner(owner), m_Kind(kind), m_Name(m_Owner.InternString(name)),
+      m_Exports() {
   DXASSERT_NOMSG(DXIL::IsValidSubobjectKind(m_Kind));
 }
 
-DxilSubobject::DxilSubobject(DxilSubobjects &owner, const DxilSubobject &other, llvm::StringRef name)
-  : m_Owner(owner),
-    m_Kind(other.m_Kind),
-    m_Name(name),
-    m_Exports(other.m_Exports.begin(), other.m_Exports.end())
-{
+DxilSubobject::DxilSubobject(DxilSubobjects &owner, const DxilSubobject &other,
+                             llvm::StringRef name)
+    : m_Owner(owner), m_Kind(other.m_Kind), m_Name(name),
+      m_Exports(other.m_Exports.begin(), other.m_Exports.end()) {
   DXASSERT_NOMSG(DXIL::IsValidSubobjectKind(m_Kind));
   CopyUnionedContents(other);
   if (&m_Owner != &other.m_Owner)
@@ -63,14 +57,18 @@ void DxilSubobject::CopyUnionedContents(const DxilSubobject &other) {
     RootSignature.Data = other.RootSignature.Data;
     break;
   case Kind::SubobjectToExportsAssociation:
-    SubobjectToExportsAssociation.Subobject = other.SubobjectToExportsAssociation.Subobject;
+    SubobjectToExportsAssociation.Subobject =
+        other.SubobjectToExportsAssociation.Subobject;
     break;
   case Kind::RaytracingShaderConfig:
-    RaytracingShaderConfig.MaxPayloadSizeInBytes = other.RaytracingShaderConfig.MaxPayloadSizeInBytes;
-    RaytracingShaderConfig.MaxAttributeSizeInBytes = other.RaytracingShaderConfig.MaxAttributeSizeInBytes;
+    RaytracingShaderConfig.MaxPayloadSizeInBytes =
+        other.RaytracingShaderConfig.MaxPayloadSizeInBytes;
+    RaytracingShaderConfig.MaxAttributeSizeInBytes =
+        other.RaytracingShaderConfig.MaxAttributeSizeInBytes;
     break;
   case Kind::RaytracingPipelineConfig:
-    RaytracingPipelineConfig.MaxTraceRecursionDepth = other.RaytracingPipelineConfig.MaxTraceRecursionDepth;
+    RaytracingPipelineConfig.MaxTraceRecursionDepth =
+        other.RaytracingPipelineConfig.MaxTraceRecursionDepth;
     break;
   case Kind::HitGroup:
     HitGroup.Type = other.HitGroup.Type;
@@ -79,7 +77,8 @@ void DxilSubobject::CopyUnionedContents(const DxilSubobject &other) {
     HitGroup.Intersection = other.HitGroup.Intersection;
     break;
   case Kind::RaytracingPipelineConfig1:
-    RaytracingPipelineConfig1.MaxTraceRecursionDepth = other.RaytracingPipelineConfig1.MaxTraceRecursionDepth;
+    RaytracingPipelineConfig1.MaxTraceRecursionDepth =
+        other.RaytracingPipelineConfig1.MaxTraceRecursionDepth;
     RaytracingPipelineConfig1.Flags = other.RaytracingPipelineConfig1.Flags;
     break;
   default:
@@ -93,7 +92,8 @@ void DxilSubobject::InternStrings() {
   m_Name = m_Owner.InternString(m_Name).data();
   switch (m_Kind) {
   case Kind::SubobjectToExportsAssociation:
-    SubobjectToExportsAssociation.Subobject = m_Owner.InternString(SubobjectToExportsAssociation.Subobject).data();
+    SubobjectToExportsAssociation.Subobject =
+        m_Owner.InternString(SubobjectToExportsAssociation.Subobject).data();
     for (auto &ptr : m_Exports)
       ptr = m_Owner.InternString(ptr).data();
     break;
@@ -107,9 +107,7 @@ void DxilSubobject::InternStrings() {
   }
 }
 
-DxilSubobject::~DxilSubobject() {
-}
-
+DxilSubobject::~DxilSubobject() {}
 
 // StateObjectConfig
 bool DxilSubobject::GetStateObjectConfig(uint32_t &Flags) const {
@@ -121,13 +119,13 @@ bool DxilSubobject::GetStateObjectConfig(uint32_t &Flags) const {
 }
 
 // Local/Global RootSignature
-bool DxilSubobject::GetRootSignature(
-    bool local, const void * &Data, uint32_t &Size, const char **pText) const {
+bool DxilSubobject::GetRootSignature(bool local, const void *&Data,
+                                     uint32_t &Size, const char **pText) const {
   Kind expected = local ? Kind::LocalRootSignature : Kind::GlobalRootSignature;
   if (m_Kind == expected) {
     Data = RootSignature.Data;
     Size = RootSignature.Size;
-    if (pText) 
+    if (pText)
       *pText = RootSignature.Text;
     return true;
   }
@@ -136,8 +134,7 @@ bool DxilSubobject::GetRootSignature(
 
 // SubobjectToExportsAssociation
 bool DxilSubobject::GetSubobjectToExportsAssociation(
-    llvm::StringRef &Subobject,
-    const char * const * &Exports,
+    llvm::StringRef &Subobject, const char *const *&Exports,
     uint32_t &NumExports) const {
   if (m_Kind == Kind::SubobjectToExportsAssociation) {
     Subobject = SubobjectToExportsAssociation.Subobject;
@@ -149,8 +146,8 @@ bool DxilSubobject::GetSubobjectToExportsAssociation(
 }
 
 // RaytracingShaderConfig
-bool DxilSubobject::GetRaytracingShaderConfig(uint32_t &MaxPayloadSizeInBytes,
-                                              uint32_t &MaxAttributeSizeInBytes) const {
+bool DxilSubobject::GetRaytracingShaderConfig(
+    uint32_t &MaxPayloadSizeInBytes, uint32_t &MaxAttributeSizeInBytes) const {
   if (m_Kind == Kind::RaytracingShaderConfig) {
     MaxPayloadSizeInBytes = RaytracingShaderConfig.MaxPayloadSizeInBytes;
     MaxAttributeSizeInBytes = RaytracingShaderConfig.MaxAttributeSizeInBytes;
@@ -170,7 +167,7 @@ bool DxilSubobject::GetRaytracingPipelineConfig(
 }
 
 // HitGroup
-bool DxilSubobject::GetHitGroup(DXIL::HitGroupType &hitGroupType, 
+bool DxilSubobject::GetHitGroup(DXIL::HitGroupType &hitGroupType,
                                 llvm::StringRef &AnyHit,
                                 llvm::StringRef &ClosestHit,
                                 llvm::StringRef &Intersection) const {
@@ -194,17 +191,12 @@ bool DxilSubobject::GetRaytracingPipelineConfig1(
   }
   return false;
 }
- 
-DxilSubobjects::DxilSubobjects()
-  : m_BytesStorage()
-  , m_Subobjects()
-{}
-DxilSubobjects::DxilSubobjects(DxilSubobjects &&other)
-  : m_BytesStorage(std::move(other.m_BytesStorage))
-  , m_Subobjects(std::move(other.m_Subobjects))
-{}
-DxilSubobjects::~DxilSubobjects() {}
 
+DxilSubobjects::DxilSubobjects() : m_BytesStorage(), m_Subobjects() {}
+DxilSubobjects::DxilSubobjects(DxilSubobjects &&other)
+    : m_BytesStorage(std::move(other.m_BytesStorage)),
+      m_Subobjects(std::move(other.m_Subobjects)) {}
+DxilSubobjects::~DxilSubobjects() {}
 
 llvm::StringRef DxilSubobjects::InternString(llvm::StringRef value) {
   auto it = m_BytesStorage.find(value);
@@ -212,7 +204,8 @@ llvm::StringRef DxilSubobjects::InternString(llvm::StringRef value) {
     return it->first;
 
   size_t size = value.size();
-  StoredBytes stored(std::make_pair(std::unique_ptr<char[]>(new char[size + 1]), size + 1));
+  StoredBytes stored(
+      std::make_pair(std::unique_ptr<char[]>(new char[size + 1]), size + 1));
   memcpy(stored.first.get(), value.data(), size);
   stored.first[size] = 0;
   llvm::StringRef key(stored.first.get(), size);
@@ -225,7 +218,8 @@ const void *DxilSubobjects::InternRawBytes(const void *ptr, size_t size) {
   if (it != m_BytesStorage.end())
     return it->first.data();
 
-  StoredBytes stored(std::make_pair(std::unique_ptr<char[]>(new char[size]), size));
+  StoredBytes stored(
+      std::make_pair(std::unique_ptr<char[]>(new char[size]), size));
   memcpy(stored.first.get(), ptr, size);
   llvm::StringRef key(stored.first.get(), size);
   m_BytesStorage[key] = std::move(stored);
@@ -245,11 +239,11 @@ void DxilSubobjects::RemoveSubobject(llvm::StringRef name) {
     m_Subobjects.erase(it);
 }
 
-DxilSubobject &DxilSubobjects::CloneSubobject(
-    const DxilSubobject &Subobject, llvm::StringRef Name) {
+DxilSubobject &DxilSubobjects::CloneSubobject(const DxilSubobject &Subobject,
+                                              llvm::StringRef Name) {
   Name = InternString(Name);
   DXASSERT(FindSubobject(Name) == nullptr,
-    "otherwise, name collision between subobjects");
+           "otherwise, name collision between subobjects");
   std::unique_ptr<DxilSubobject> ptr(new DxilSubobject(*this, Subobject, Name));
   DxilSubobject &ref = *ptr;
   m_Subobjects[Name] = std::move(ptr);
@@ -258,17 +252,20 @@ DxilSubobject &DxilSubobjects::CloneSubobject(
 
 // Create DxilSubobjects
 
-DxilSubobject &DxilSubobjects::CreateStateObjectConfig(
-    llvm::StringRef Name, uint32_t Flags) {
+DxilSubobject &DxilSubobjects::CreateStateObjectConfig(llvm::StringRef Name,
+                                                       uint32_t Flags) {
   DXASSERT_NOMSG(0 == ((~(uint32_t)DXIL::StateObjectFlags::ValidMask) & Flags));
   auto &obj = CreateSubobject(Kind::StateObjectConfig, Name);
   obj.StateObjectConfig.Flags = Flags;
   return obj;
 }
 
-DxilSubobject &DxilSubobjects::CreateRootSignature(
-    llvm::StringRef Name, bool local, const void *Data, uint32_t Size, llvm::StringRef *pText /*= nullptr*/) {
-  auto &obj = CreateSubobject(local ? Kind::LocalRootSignature : Kind::GlobalRootSignature, Name);
+DxilSubobject &
+DxilSubobjects::CreateRootSignature(llvm::StringRef Name, bool local,
+                                    const void *Data, uint32_t Size,
+                                    llvm::StringRef *pText /*= nullptr*/) {
+  auto &obj = CreateSubobject(
+      local ? Kind::LocalRootSignature : Kind::GlobalRootSignature, Name);
   obj.RootSignature.Data = InternRawBytes(Data, Size);
   obj.RootSignature.Size = Size;
   obj.RootSignature.Text = (pText ? InternString(*pText).data() : nullptr);
@@ -276,9 +273,7 @@ DxilSubobject &DxilSubobjects::CreateRootSignature(
 }
 
 DxilSubobject &DxilSubobjects::CreateSubobjectToExportsAssociation(
-    llvm::StringRef Name,
-    llvm::StringRef Subobject,
-    llvm::StringRef *Exports,
+    llvm::StringRef Name, llvm::StringRef Subobject, llvm::StringRef *Exports,
     uint32_t NumExports) {
   auto &obj = CreateSubobject(Kind::SubobjectToExportsAssociation, Name);
   Subobject = InternString(Subobject);
@@ -289,10 +284,10 @@ DxilSubobject &DxilSubobjects::CreateSubobjectToExportsAssociation(
   return obj;
 }
 
-DxilSubobject &DxilSubobjects::CreateRaytracingShaderConfig(
-    llvm::StringRef Name,
-    uint32_t MaxPayloadSizeInBytes,
-    uint32_t MaxAttributeSizeInBytes) {
+DxilSubobject &
+DxilSubobjects::CreateRaytracingShaderConfig(llvm::StringRef Name,
+                                             uint32_t MaxPayloadSizeInBytes,
+                                             uint32_t MaxAttributeSizeInBytes) {
   auto &obj = CreateSubobject(Kind::RaytracingShaderConfig, Name);
   obj.RaytracingShaderConfig.MaxPayloadSizeInBytes = MaxPayloadSizeInBytes;
   obj.RaytracingShaderConfig.MaxAttributeSizeInBytes = MaxAttributeSizeInBytes;
@@ -300,8 +295,7 @@ DxilSubobject &DxilSubobjects::CreateRaytracingShaderConfig(
 }
 
 DxilSubobject &DxilSubobjects::CreateRaytracingPipelineConfig(
-    llvm::StringRef Name,
-    uint32_t MaxTraceRecursionDepth) {
+    llvm::StringRef Name, uint32_t MaxTraceRecursionDepth) {
   auto &obj = CreateSubobject(Kind::RaytracingPipelineConfig, Name);
   obj.RaytracingPipelineConfig.MaxTraceRecursionDepth = MaxTraceRecursionDepth;
   return obj;
@@ -333,10 +327,13 @@ DxilSubobject &DxilSubobjects::CreateRaytracingPipelineConfig1(
   return obj;
 }
 
-DxilSubobject &DxilSubobjects::CreateSubobject(Kind kind, llvm::StringRef Name) {
+DxilSubobject &DxilSubobjects::CreateSubobject(Kind kind,
+                                               llvm::StringRef Name) {
   Name = InternString(Name);
-  IFTBOOLMSG(FindSubobject(Name) == nullptr, DXC_E_GENERAL_INTERNAL_ERROR, "Subobject name collision");
-  IFTBOOLMSG(!Name.empty(), DXC_E_GENERAL_INTERNAL_ERROR, "Empty Subobject name");
+  IFTBOOLMSG(FindSubobject(Name) == nullptr, DXC_E_GENERAL_INTERNAL_ERROR,
+             "Subobject name collision");
+  IFTBOOLMSG(!Name.empty(), DXC_E_GENERAL_INTERNAL_ERROR,
+             "Empty Subobject name");
   std::unique_ptr<DxilSubobject> ptr(new DxilSubobject(*this, kind, Name));
   DxilSubobject &ref = *ptr;
   m_Subobjects[Name] = std::move(ptr);
@@ -344,4 +341,3 @@ DxilSubobject &DxilSubobjects::CreateSubobject(Kind kind, llvm::StringRef Name) 
 }
 
 } // namespace hlsl
-

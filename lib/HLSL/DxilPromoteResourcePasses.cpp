@@ -7,17 +7,18 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilResourceBase.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/HLSL/HLModule.h"
-#include "dxc/DXIL/DxilResourceBase.h"
-#include "dxc/DXIL/DxilResource.h"
-#include "dxc/DXIL/DxilCBuffer.h"
-#include "dxc/DXIL/DxilOperations.h"
-#include "dxc/DXIL/DxilModule.h"
-#include "llvm/Pass.h"
-#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
@@ -25,9 +26,8 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Pass.h"
 
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Transforms/Utils/SSAUpdater.h"
@@ -43,13 +43,13 @@ using namespace hlsl;
 
 namespace {
 
-static const StringRef kStaticResourceLibErrorMsg = "non const static global resource use is disallowed in library exports.";
+static const StringRef kStaticResourceLibErrorMsg =
+    "non const static global resource use is disallowed in library exports.";
 
 class DxilPromoteStaticResources : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilPromoteStaticResources()
-      : ModulePass(ID) {}
+  explicit DxilPromoteStaticResources() : ModulePass(ID) {}
 
   StringRef getPassName() const override {
     return "DXIL Legalize Static Resource Use";
@@ -71,8 +71,7 @@ class DxilPromoteLocalResources : public FunctionPass {
 
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilPromoteLocalResources()
-      : FunctionPass(ID) {}
+  explicit DxilPromoteLocalResources() : FunctionPass(ID) {}
 
   StringRef getPassName() const override {
     return "DXIL Legalize Resource Use";
@@ -89,7 +88,7 @@ private:
 
 char DxilPromoteLocalResources::ID = 0;
 
-}
+} // namespace
 
 void DxilPromoteLocalResources::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
@@ -113,7 +112,8 @@ bool DxilPromoteLocalResources::PromoteLocalResource(Function &F) {
     // the entry node
     for (BasicBlock::iterator I = BB.begin(), E = --BB.end(); I != E; ++I)
       if (AllocaInst *AI = dyn_cast<AllocaInst>(I)) { // Is it an alloca?
-        if (dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(AI->getAllocatedType()))) {
+        if (dxilutil::IsHLSLObjectType(
+                dxilutil::GetArrayEltTy(AI->getAllocatedType()))) {
           if (isAllocaPromotable(AI))
             Allocas.push_back(AI);
         }
@@ -125,10 +125,10 @@ bool DxilPromoteLocalResources::PromoteLocalResource(Function &F) {
     // Report error and break.
     if (allocaSize == Allocas.size()) {
       //  TODO: Add test for this instance of the error: "local resource not
-      //  guaranteed to map to unique global resource." No test currently exists.
-      dxilutil::EmitErrorOnContext(
-          F.getContext(),
-          dxilutil::kResourceMapErrorMsg);
+      //  guaranteed to map to unique global resource." No test currently
+      //  exists.
+      dxilutil::EmitErrorOnContext(F.getContext(),
+                                   dxilutil::kResourceMapErrorMsg);
       break;
     }
     allocaSize = Allocas.size();
@@ -153,8 +153,7 @@ INITIALIZE_PASS_END(DxilPromoteLocalResources,
                     "hlsl-dxil-promote-local-resources",
                     "DXIL promote local resource use", false, true)
 
-bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
-    Module &M) {
+bool DxilPromoteStaticResources::PromoteStaticGlobalResources(Module &M) {
   if (M.GetOrCreateHLModule().GetShaderModel()->IsLib()) {
     // Read/write to global static resource is disallowed for libraries:
     // Resource use needs to be resolved to a single real global resource,
@@ -170,8 +169,8 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
     //  optimized away for the exported function.
     for (auto &GV : M.globals()) {
       if (GV.getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
-		!GV.isConstant() && 
-        dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
+          !GV.isConstant() &&
+          dxilutil::IsHLSLObjectType(dxilutil::GetArrayEltTy(GV.getType()))) {
         if (!GV.user_empty()) {
           if (Instruction *I = dyn_cast<Instruction>(*GV.user_begin())) {
             dxilutil::EmitErrorOnInstruction(I, kStaticResourceLibErrorMsg);
@@ -226,9 +225,8 @@ bool DxilPromoteStaticResources::PromoteStaticGlobalResources(
       //  TODO: Add test for this instance of the error: "local resource not
       //  guaranteed to map to unique global resource." No test currently
       //  exists.
-      dxilutil::EmitErrorOnContext(
-          M.getContext(),
-          dxilutil::kResourceMapErrorMsg);
+      dxilutil::EmitErrorOnContext(M.getContext(),
+                                   dxilutil::kResourceMapErrorMsg);
       break;
     }
     bModified = true;
@@ -416,7 +414,7 @@ void DxilMutateResourceToHandle::collectGlobalResource(
   // non-handle overloads of CreateHandleForLib and mutate/rewrite from there.
   // That's because we may have an already translated GV, but some load and
   // CreateHandleForLib calls use the wrong type from linked code.
-  Type *MTy = mutateToHandleTy(GV->getType(), /*bResType*/true);
+  Type *MTy = mutateToHandleTy(GV->getType(), /*bResType*/ true);
   if (GV->getType() != MTy) {
     // Save hlsl type before mutate to handle.
     Res->SetHLSLType(GV->getType());
@@ -439,7 +437,7 @@ void DxilMutateResourceToHandle::collectAlloca(
   }
 }
 
-}
+} // namespace
 
 SmallVector<Value *, 8>
 DxilMutateResourceToHandle::collectHlslObjects(Module &M) {
@@ -752,6 +750,5 @@ ModulePass *llvm::createDxilMutateResourceToHandlePass() {
   return new DxilMutateResourceToHandle();
 }
 
-INITIALIZE_PASS(DxilMutateResourceToHandle,
-                "hlsl-dxil-resources-to-handle",
+INITIALIZE_PASS(DxilMutateResourceToHandle, "hlsl-dxil-resources-to-handle",
                 "Mutate resource to handle", false, false)

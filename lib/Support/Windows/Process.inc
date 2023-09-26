@@ -156,6 +156,7 @@ Optional<std::string> Process::GetEnv(StringRef Name) {
   return std::string(Res.data());
 }
 
+#if 0 // HLSL Change - comment out unused function.
 static void AllocateAndPush(const SmallVectorImpl<char> &S,
                             SmallVectorImpl<const char *> &Vector,
                             SpecificBumpPtrAllocator<char> &Allocator) {
@@ -176,7 +177,6 @@ ConvertAndPushArg(const wchar_t *Arg, SmallVectorImpl<const char *> &Args,
   return std::error_code();
 }
 
-#if 0 // HLSL Change - comment out unused function.
 /// \brief Perform wildcard expansion of Arg, or just push it into Args if it
 /// doesn't have wildcards or doesn't match any files.
 static std::error_code

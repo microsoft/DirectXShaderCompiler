@@ -11,15 +11,15 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxcshadersourceinfo.h"
+#include "dxc/DxilCompression/DxilCompressionHelpers.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "llvm/Support/Path.h"
-#include "dxc/DxilCompression/DxilCompressionHelpers.h"
 
 #include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/WinIncludes.h"
 
 using namespace hlsl;
 using Buffer = SourceInfoWriter::Buffer;
@@ -32,7 +32,8 @@ static size_t PointerByteOffset(const void *a, const void *b) {
   return (const uint8_t *)a - (const uint8_t *)b;
 }
 
-bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sourceInfoSize) {
+bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo,
+                            unsigned sourceInfoSize) {
   if (sizeof(*SourceInfo) > sourceInfoSize)
     return false;
   if (SourceInfo->AlignedSizeInBytes > sourceInfoSize)
@@ -41,32 +42,35 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
   const hlsl::DxilSourceInfo *mainHeader = SourceInfo;
   const size_t totalSizeInBytes = mainHeader->AlignedSizeInBytes;
 
-  const hlsl::DxilSourceInfoSection *section = (const hlsl::DxilSourceInfoSection *)(SourceInfo+1);
+  const hlsl::DxilSourceInfoSection *section =
+      (const hlsl::DxilSourceInfoSection *)(SourceInfo + 1);
   for (unsigned i = 0; i < SourceInfo->SectionCount; i++) {
 
-    if (PointerByteOffset(section+1, mainHeader) > totalSizeInBytes)
+    if (PointerByteOffset(section + 1, mainHeader) > totalSizeInBytes)
       return false;
-    if (PointerByteOffset(section, mainHeader) + section->AlignedSizeInBytes > totalSizeInBytes)
+    if (PointerByteOffset(section, mainHeader) + section->AlignedSizeInBytes >
+        totalSizeInBytes)
       return false;
 
     const size_t sectionSizeInBytes = section->AlignedSizeInBytes;
 
     switch (section->Type) {
-    case hlsl::DxilSourceInfoSectionType::Args:
-    {
-      const hlsl::DxilSourceInfo_Args *header = (const hlsl::DxilSourceInfo_Args *)(section + 1);
+    case hlsl::DxilSourceInfoSectionType::Args: {
+      const hlsl::DxilSourceInfo_Args *header =
+          (const hlsl::DxilSourceInfo_Args *)(section + 1);
 
-      if (PointerByteOffset(header+1, section) > sectionSizeInBytes)
+      if (PointerByteOffset(header + 1, section) > sectionSizeInBytes)
         return false;
-      if (PointerByteOffset(header+1, section) + header->SizeInBytes > sectionSizeInBytes)
+      if (PointerByteOffset(header + 1, section) + header->SizeInBytes >
+          sectionSizeInBytes)
         return false;
 
       const char *ptr = (const char *)(header + 1);
       unsigned i = 0;
       while (i < header->SizeInBytes) {
 
-        // To learn more about the format of this data, check struct DxilSourceInfo_Args in DxilContainer.h
-        // Read the argument name
+        // To learn more about the format of this data, check struct
+        // DxilSourceInfo_Args in DxilContainer.h Read the argument name
         const char *argName = ptr + i;
         unsigned argNameLength = 0;
         for (; i < header->SizeInBytes; i++) {
@@ -100,69 +104,89 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
       }
     } break;
 
-    case hlsl::DxilSourceInfoSectionType::SourceNames:
-    {
-      const hlsl::DxilSourceInfo_SourceNames *header = (const hlsl::DxilSourceInfo_SourceNames *)(section + 1);
-      if (PointerByteOffset(header+1, section) > sectionSizeInBytes)
+    case hlsl::DxilSourceInfoSectionType::SourceNames: {
+      const hlsl::DxilSourceInfo_SourceNames *header =
+          (const hlsl::DxilSourceInfo_SourceNames *)(section + 1);
+      if (PointerByteOffset(header + 1, section) > sectionSizeInBytes)
         return false;
-      if (PointerByteOffset(header+1, section) + header->EntriesSizeInBytes > sectionSizeInBytes)
+      if (PointerByteOffset(header + 1, section) + header->EntriesSizeInBytes >
+          sectionSizeInBytes)
         return false;
 
       assert(m_Sources.size() == 0 || m_Sources.size() == header->Count);
       m_Sources.resize(header->Count);
 
-      const hlsl::DxilSourceInfo_SourceNamesEntry *firstEntry = (const hlsl::DxilSourceInfo_SourceNamesEntry *)(header+1);
+      const hlsl::DxilSourceInfo_SourceNamesEntry *firstEntry =
+          (const hlsl::DxilSourceInfo_SourceNamesEntry *)(header + 1);
       const hlsl::DxilSourceInfo_SourceNamesEntry *entry = firstEntry;
 
       for (unsigned i = 0; i < header->Count; i++) {
-        if (PointerByteOffset(entry+1, firstEntry) > header->EntriesSizeInBytes)
+        if (PointerByteOffset(entry + 1, firstEntry) >
+            header->EntriesSizeInBytes)
           return false;
-        if (PointerByteOffset(entry+1, firstEntry) + entry->NameSizeInBytes > header->EntriesSizeInBytes)
+        if (PointerByteOffset(entry + 1, firstEntry) + entry->NameSizeInBytes >
+            header->EntriesSizeInBytes)
           return false;
-        if (PointerByteOffset(entry, firstEntry) + entry->AlignedSizeInBytes > header->EntriesSizeInBytes)
+        if (PointerByteOffset(entry, firstEntry) + entry->AlignedSizeInBytes >
+            header->EntriesSizeInBytes)
           return false;
 
-        const void *ptr = entry+1;
+        const void *ptr = entry + 1;
         if (entry->NameSizeInBytes > 0) {
           // Fail if not null terminated
-          if (((const char *)ptr)[entry->NameSizeInBytes-1] != '\0')
+          if (((const char *)ptr)[entry->NameSizeInBytes - 1] != '\0')
             return false;
-          llvm::StringRef name = { (const char *)ptr, entry->NameSizeInBytes-1, };
+          llvm::StringRef name = {
+              (const char *)ptr,
+              entry->NameSizeInBytes - 1,
+          };
           m_Sources[i].Name = name;
         }
 
-        entry = (const hlsl::DxilSourceInfo_SourceNamesEntry *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
+        entry = (const hlsl::DxilSourceInfo_SourceNamesEntry
+                     *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
       }
 
     } break;
-    case hlsl::DxilSourceInfoSectionType::SourceContents:
-    {
-      const hlsl::DxilSourceInfo_SourceContents *header = (const hlsl::DxilSourceInfo_SourceContents *)(section + 1);
-      if (PointerByteOffset(header+1, section) > sectionSizeInBytes)
+    case hlsl::DxilSourceInfoSectionType::SourceContents: {
+      const hlsl::DxilSourceInfo_SourceContents *header =
+          (const hlsl::DxilSourceInfo_SourceContents *)(section + 1);
+      if (PointerByteOffset(header + 1, section) > sectionSizeInBytes)
         return false;
-      if (PointerByteOffset(header+1, section) + header->EntriesSizeInBytes > sectionSizeInBytes)
+      if (PointerByteOffset(header + 1, section) + header->EntriesSizeInBytes >
+          sectionSizeInBytes)
         return false;
 
       const hlsl::DxilSourceInfo_SourceContentsEntry *firstEntry = nullptr;
-      if (header->CompressType == hlsl::DxilSourceInfo_SourceContentsCompressType::Zlib) {
+      if (header->CompressType ==
+          hlsl::DxilSourceInfo_SourceContentsCompressType::Zlib) {
         m_UncompressedSources.resize(header->UncompressedEntriesSizeInBytes);
         {
           bool bDecompressSucc =
-            hlsl::ZlibResult::Success == ZlibDecompress(DxcGetThreadMallocNoRef(), header + 1, header->EntriesSizeInBytes, m_UncompressedSources.data(), m_UncompressedSources.size());
+              hlsl::ZlibResult::Success ==
+              ZlibDecompress(DxcGetThreadMallocNoRef(), header + 1,
+                             header->EntriesSizeInBytes,
+                             m_UncompressedSources.data(),
+                             m_UncompressedSources.size());
           assert(bDecompressSucc);
           if (!bDecompressSucc)
             return false;
         }
-        if (m_UncompressedSources.size() != header->UncompressedEntriesSizeInBytes)
+        if (m_UncompressedSources.size() !=
+            header->UncompressedEntriesSizeInBytes)
           return false;
-        firstEntry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)m_UncompressedSources.data();
-      }
-      else {
-        if (header->EntriesSizeInBytes != header->UncompressedEntriesSizeInBytes)
+        firstEntry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)
+                         m_UncompressedSources.data();
+      } else {
+        if (header->EntriesSizeInBytes !=
+            header->UncompressedEntriesSizeInBytes)
           return false;
-        if (PointerByteOffset(header+1, section) + header->UncompressedEntriesSizeInBytes > sectionSizeInBytes)
+        if (PointerByteOffset(header + 1, section) +
+                header->UncompressedEntriesSizeInBytes >
+            sectionSizeInBytes)
           return false;
-        firstEntry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)(header+1);
+        firstEntry =
+            (const hlsl::DxilSourceInfo_SourceContentsEntry *)(header + 1);
       }
 
       assert(m_Sources.size() == 0 || m_Sources.size() == header->Count);
@@ -170,40 +194,47 @@ bool SourceInfoReader::Init(const hlsl::DxilSourceInfo *SourceInfo, unsigned sou
 
       const hlsl::DxilSourceInfo_SourceContentsEntry *entry = firstEntry;
       for (unsigned i = 0; i < header->Count; i++) {
-        if (PointerByteOffset(entry+1, firstEntry) > header->UncompressedEntriesSizeInBytes)
+        if (PointerByteOffset(entry + 1, firstEntry) >
+            header->UncompressedEntriesSizeInBytes)
           return false;
-        if (PointerByteOffset(entry+1, firstEntry) + entry->ContentSizeInBytes > header->UncompressedEntriesSizeInBytes)
+        if (PointerByteOffset(entry + 1, firstEntry) +
+                entry->ContentSizeInBytes >
+            header->UncompressedEntriesSizeInBytes)
           return false;
-        if (PointerByteOffset(entry, firstEntry) + entry->AlignedSizeInBytes > header->UncompressedEntriesSizeInBytes)
+        if (PointerByteOffset(entry, firstEntry) + entry->AlignedSizeInBytes >
+            header->UncompressedEntriesSizeInBytes)
           return false;
 
-        const void *ptr = entry+1;
+        const void *ptr = entry + 1;
         if (entry->ContentSizeInBytes > 0) {
           // Fail if not null terminated
-          if (((const char *)ptr)[entry->ContentSizeInBytes-1] != '\0')
+          if (((const char *)ptr)[entry->ContentSizeInBytes - 1] != '\0')
             return false;
-          llvm::StringRef content = { (const char *)ptr, entry->ContentSizeInBytes-1, };
+          llvm::StringRef content = {
+              (const char *)ptr,
+              entry->ContentSizeInBytes - 1,
+          };
           m_Sources[i].Content = content;
         }
 
-        entry = (const hlsl::DxilSourceInfo_SourceContentsEntry *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
+        entry = (const hlsl::DxilSourceInfo_SourceContentsEntry
+                     *)((const uint8_t *)entry + entry->AlignedSizeInBytes);
       }
     } break;
     }
-    section = (const hlsl::DxilSourceInfoSection *)((const uint8_t *)section + section->AlignedSizeInBytes);
+    section =
+        (const hlsl::DxilSourceInfoSection *)((const uint8_t *)section +
+                                              section->AlignedSizeInBytes);
   }
 
   return true;
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Writer
 ///////////////////////////////////////////////////////////////////////////////
 
-static void Append(Buffer *buf, uint8_t c) {
-  buf->push_back(c);
-}
+static void Append(Buffer *buf, uint8_t c) { buf->push_back(c); }
 static void Append(Buffer *buf, const void *ptr, size_t size) {
   size_t OldSize = buf->size();
   buf->resize(OldSize + size);
@@ -228,8 +259,9 @@ static uint32_t PadBufferToFourBytes(Buffer *buf, uint32_t unpaddedSize) {
 
 static void AppendFileContentEntry(Buffer *buf, llvm::StringRef content) {
   hlsl::DxilSourceInfo_SourceContentsEntry header = {};
-  header.AlignedSizeInBytes = PadToFourBytes(sizeof(header) + content.size()+1);
-  header.ContentSizeInBytes = content.size()+1;
+  header.AlignedSizeInBytes =
+      PadToFourBytes(sizeof(header) + content.size() + 1);
+  header.ContentSizeInBytes = content.size() + 1;
 
   const size_t offset = buf->size();
   Append(buf, &header, sizeof(header));
@@ -250,7 +282,8 @@ static size_t BeginSection(Buffer *buf) {
   return sectionOffset;
 }
 
-static void FinishSection(Buffer *buf, const size_t sectionOffset, hlsl::DxilSourceInfoSectionType type) {
+static void FinishSection(Buffer *buf, const size_t sectionOffset,
+                          hlsl::DxilSourceInfoSectionType type) {
   hlsl::DxilSourceInfoSection sectionHeader = {};
 
   // Calculate and pad the size of the section.
@@ -269,12 +302,14 @@ struct SourceFile {
   llvm::StringRef Content;
 };
 
-static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr) {
+static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
+                                               clang::SourceManager &srcMgr) {
   std::vector<SourceFile> ret;
   std::map<std::string, llvm::StringRef> filesMap;
   {
     bool bFoundMainFile = false;
-    for (auto it = srcMgr.fileinfo_begin(), end = srcMgr.fileinfo_end(); it != end; ++it) {
+    for (auto it = srcMgr.fileinfo_begin(), end = srcMgr.fileinfo_end();
+         it != end; ++it) {
       if (it->first->isValid() && !it->second->IsSystemFile) {
         // If main file, write that to metadata first.
         // Add the rest to filesMap to sort by name.
@@ -285,7 +320,8 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts, cl
           file.Name = NormalizedPath.str();
           file.Content = it->second->getRawBuffer()->getBuffer();
           ret.push_back(file);
-          assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
+          assert(!bFoundMainFile &&
+                 "otherwise, more than one file matches main filename");
           bFoundMainFile = true;
         } else {
           filesMap[NormalizedPath.str()] =
@@ -305,7 +341,10 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts, cl
   return ret;
 }
 
-void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entryPoint, clang::CodeGenOptions &cgOpts, clang::SourceManager &srcMgr) {
+void SourceInfoWriter::Write(llvm::StringRef targetProfile,
+                             llvm::StringRef entryPoint,
+                             clang::CodeGenOptions &cgOpts,
+                             clang::SourceManager &srcMgr) {
   m_Buffer.clear();
 
   // Write an empty header first.
@@ -332,16 +371,18 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
       const size_t entryOffset = m_Buffer.size();
 
       // Write the header
-      hlsl::DxilSourceInfo_SourceNamesEntry entryHeader ={};
-      entryHeader.NameSizeInBytes = file.Name.size()+1;
-      entryHeader.ContentSizeInBytes = file.Content.size()+1;
-      entryHeader.AlignedSizeInBytes = PadToFourBytes(sizeof(entryHeader) + file.Name.size() + 1);
+      hlsl::DxilSourceInfo_SourceNamesEntry entryHeader = {};
+      entryHeader.NameSizeInBytes = file.Name.size() + 1;
+      entryHeader.ContentSizeInBytes = file.Content.size() + 1;
+      entryHeader.AlignedSizeInBytes =
+          PadToFourBytes(sizeof(entryHeader) + file.Name.size() + 1);
 
       Append(&m_Buffer, &entryHeader, sizeof(entryHeader));
       Append(&m_Buffer, file.Name.data(), file.Name.size());
       Append(&m_Buffer, 0); // Null terminator
 
-      const size_t paddedOffset = PadBufferToFourBytes(&m_Buffer, m_Buffer.size() - entryOffset);
+      const size_t paddedOffset =
+          PadBufferToFourBytes(&m_Buffer, m_Buffer.size() - entryOffset);
       (void)paddedOffset;
       assert(paddedOffset == entryHeader.AlignedSizeInBytes);
     }
@@ -351,7 +392,8 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     header.EntriesSizeInBytes = m_Buffer.size() - dataOffset;
     memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
 
-    FinishSection(&m_Buffer, sectionOffset, hlsl::DxilSourceInfoSectionType::SourceNames);
+    FinishSection(&m_Buffer, sectionOffset,
+                  hlsl::DxilSourceInfoSectionType::SourceNames);
     mainHeader.SectionCount++;
   }
 
@@ -378,14 +420,17 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     Append(&m_Buffer, &header, sizeof(header));
 
     const size_t sizeBeforeCompress = m_Buffer.size();
-    bool bCompressed = hlsl::ZlibResult::Success ==
-        ZlibCompressAppend(DxcGetThreadMallocNoRef(), uncompressedBuffer.data(), uncompressedBuffer.size(), m_Buffer);
+    bool bCompressed =
+        hlsl::ZlibResult::Success ==
+        ZlibCompressAppend(DxcGetThreadMallocNoRef(), uncompressedBuffer.data(),
+                           uncompressedBuffer.size(), m_Buffer);
 
     // If we compressed the content, go back to rewrite the header to write the
     // correct size in bytes.
     if (bCompressed) {
       header.EntriesSizeInBytes = m_Buffer.size() - sizeBeforeCompress;
-      header.CompressType = hlsl::DxilSourceInfo_SourceContentsCompressType::Zlib;
+      header.CompressType =
+          hlsl::DxilSourceInfo_SourceContentsCompressType::Zlib;
       memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
     }
     // Otherwise, just write the whole uncompressed
@@ -393,7 +438,8 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
       Append(&m_Buffer, uncompressedBuffer.data(), uncompressedBuffer.size());
     }
 
-    FinishSection(&m_Buffer, sectionOffset, hlsl::DxilSourceInfoSectionType::SourceContents);
+    FinishSection(&m_Buffer, sectionOffset,
+                  hlsl::DxilSourceInfoSectionType::SourceContents);
     mainHeader.SectionCount++;
   }
 
@@ -416,7 +462,8 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     unsigned missingIndex = 0;
     unsigned missingCount = 0;
     const llvm::opt::OptTable *optTable = hlsl::options::getHlslOptTable();
-    llvm::opt::InputArgList argList = optTable->ParseArgs(optPointers, missingIndex, missingCount);
+    llvm::opt::InputArgList argList =
+        optTable->ParseArgs(optPointers, missingIndex, missingCount);
 
     llvm::SmallString<64> argumentStorage;
     const size_t argumentsOffset = m_Buffer.size();
@@ -427,7 +474,6 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
         assert(arg->getNumValues() == 1);
         value = arg->getValue();
       }
-
 
       // If this is a positional argument, set the name to ""
       // explicitly.
@@ -461,7 +507,8 @@ void SourceInfoWriter::Write(llvm::StringRef targetProfile, llvm::StringRef entr
     header.SizeInBytes = m_Buffer.size() - argumentsOffset;
     memcpy(m_Buffer.data() + headerOffset, &header, sizeof(header));
 
-    FinishSection(&m_Buffer, sectionOffset, hlsl::DxilSourceInfoSectionType::Args);
+    FinishSection(&m_Buffer, sectionOffset,
+                  hlsl::DxilSourceInfoSectionType::Args);
     mainHeader.SectionCount++;
   }
 
@@ -480,8 +527,8 @@ const hlsl::DxilSourceInfo *hlsl::SourceInfoWriter::GetPart() const {
   if (!m_Buffer.size())
     return nullptr;
   assert(m_Buffer.size() >= sizeof(hlsl::DxilSourceInfo));
-  const hlsl::DxilSourceInfo *ret = (const hlsl::DxilSourceInfo *)m_Buffer.data();
+  const hlsl::DxilSourceInfo *ret =
+      (const hlsl::DxilSourceInfo *)m_Buffer.data();
   assert(ret->AlignedSizeInBytes == m_Buffer.size());
   return ret;
 }
-

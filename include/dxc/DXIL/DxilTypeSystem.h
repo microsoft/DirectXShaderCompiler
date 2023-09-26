@@ -10,12 +10,12 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/MapVector.h"
-#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilCompType.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInterpolationMode.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/StringRef.h"
 
 #include <memory>
 #include <string>
@@ -28,12 +28,16 @@ class Function;
 class MDNode;
 class Type;
 class StructType;
-}
-
+} // namespace llvm
 
 namespace hlsl {
 
-enum class MatrixOrientation { Undefined = 0, RowMajor, ColumnMajor, LastEntry };
+enum class MatrixOrientation {
+  Undefined = 0,
+  RowMajor,
+  ColumnMajor,
+  LastEntry
+};
 
 struct DxilMatrixAnnotation {
   unsigned Rows;
@@ -47,7 +51,7 @@ struct DxilMatrixAnnotation {
 class DxilFieldAnnotation {
 public:
   DxilFieldAnnotation();
-  
+
   bool IsPrecise() const;
   void SetPrecise(bool b = true);
 
@@ -106,7 +110,8 @@ private:
   std::string m_Semantic;
   InterpolationMode m_InterpMode;
   std::string m_FieldName;
-  bool m_bCBufferVarUsed; // true if this field represents a top level variable in CB structure, and it is used.
+  bool m_bCBufferVarUsed; // true if this field represents a top level variable
+                          // in CB structure, and it is used.
   std::vector<DxilFieldAnnotation> m_BitFields;
   unsigned m_BitFieldWidth; // For bit field. 0 means not bitfield.
   unsigned m_VectorSize;
@@ -152,26 +157,30 @@ public:
   unsigned GetNumTemplateArgs() const;
   void SetNumTemplateArgs(unsigned count);
   DxilTemplateArgAnnotation &GetTemplateArgAnnotation(unsigned argIdx);
-  const DxilTemplateArgAnnotation &GetTemplateArgAnnotation(unsigned argIdx) const;
+  const DxilTemplateArgAnnotation &
+  GetTemplateArgAnnotation(unsigned argIdx) const;
 
 private:
   const llvm::StructType *m_pStructType = nullptr;
   std::vector<DxilFieldAnnotation> m_FieldAnnotations;
-  unsigned m_CBufferSize = 0;  // The size of struct if inside constant buffer.
+  unsigned m_CBufferSize = 0; // The size of struct if inside constant buffer.
   std::vector<DxilTemplateArgAnnotation> m_TemplateAnnotations;
 
   // m_ResourcesContained property not stored to metadata
   void SetContainsResources();
   // HasResources::Only will be set on MarkEmptyStruct() when HasResources::True
-  enum class HasResources { True, False, Only } m_ResourcesContained = HasResources::False;
+  enum class HasResources {
+    True,
+    False,
+    Only
+  } m_ResourcesContained = HasResources::False;
 };
-
 
 /// Use this class to represent type annotation for DXR payload field.
 class DxilPayloadFieldAnnotation {
 public:
-
-  static unsigned GetBitOffsetForShaderStage(DXIL::PayloadAccessShaderStage shaderStage);
+  static unsigned
+  GetBitOffsetForShaderStage(DXIL::PayloadAccessShaderStage shaderStage);
 
   DxilPayloadFieldAnnotation() = default;
 
@@ -181,8 +190,10 @@ public:
 
   uint32_t GetPayloadFieldQualifierMask() const;
   void SetPayloadFieldQualifierMask(uint32_t fieldBitmask);
-  void AddPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage, DXIL::PayloadAccessQualifier qualifier);
-  DXIL::PayloadAccessQualifier GetPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage) const;
+  void AddPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage,
+                                DXIL::PayloadAccessQualifier qualifier);
+  DXIL::PayloadAccessQualifier
+  GetPayloadFieldQualifier(DXIL::PayloadAccessShaderStage shaderStage) const;
   bool HasAnnotations() const;
 
 private:
@@ -205,7 +216,6 @@ private:
   const llvm::StructType *m_pStructType;
   std::vector<DxilPayloadFieldAnnotation> m_FieldAnnotations;
 };
-
 
 enum class DxilParamInputQual {
   In,
@@ -235,6 +245,7 @@ public:
   void SetSemanticIndexVec(const std::vector<unsigned> &Vec);
   void AppendSemanticIndex(unsigned SemIdx);
   bool IsParamInputQualNode();
+
 private:
   DxilParamInputQual m_inputQual;
   std::vector<unsigned> m_semanticIndex;
@@ -247,7 +258,8 @@ class DxilFunctionAnnotation {
 public:
   unsigned GetNumParameters() const;
   DxilParameterAnnotation &GetParameterAnnotation(unsigned ParamIdx);
-  const DxilParameterAnnotation &GetParameterAnnotation(unsigned ParamIdx) const;
+  const DxilParameterAnnotation &
+  GetParameterAnnotation(unsigned ParamIdx) const;
   const llvm::Function *GetFunction() const;
   DxilParameterAnnotation &GetRetTypeAnnotation();
   const DxilParameterAnnotation &GetRetTypeAnnotation() const;
@@ -267,34 +279,49 @@ private:
 /// Use this class to represent structure type annotations in HL and DXIL.
 class DxilTypeSystem {
 public:
-  using StructAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilStructAnnotation> >;
-  using PayloadAnnotationMap = llvm::MapVector<const llvm::StructType *, std::unique_ptr<DxilPayloadAnnotation> >;
-  using FunctionAnnotationMap = llvm::MapVector<const llvm::Function *, std::unique_ptr<DxilFunctionAnnotation> >;
+  using StructAnnotationMap =
+      llvm::MapVector<const llvm::StructType *,
+                      std::unique_ptr<DxilStructAnnotation>>;
+  using PayloadAnnotationMap =
+      llvm::MapVector<const llvm::StructType *,
+                      std::unique_ptr<DxilPayloadAnnotation>>;
+  using FunctionAnnotationMap =
+      llvm::MapVector<const llvm::Function *,
+                      std::unique_ptr<DxilFunctionAnnotation>>;
 
   DxilTypeSystem(llvm::Module *pModule);
 
-  DxilStructAnnotation *AddStructAnnotation(const llvm::StructType *pStructType, unsigned numTemplateArgs = 0);
+  DxilStructAnnotation *AddStructAnnotation(const llvm::StructType *pStructType,
+                                            unsigned numTemplateArgs = 0);
   void FinishStructAnnotation(DxilStructAnnotation &SA);
-  DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType);
-  const DxilStructAnnotation *GetStructAnnotation(const llvm::StructType *pStructType) const;
+  DxilStructAnnotation *
+  GetStructAnnotation(const llvm::StructType *pStructType);
+  const DxilStructAnnotation *
+  GetStructAnnotation(const llvm::StructType *pStructType) const;
   void EraseStructAnnotation(const llvm::StructType *pStructType);
   void EraseUnusedStructAnnotations();
 
   StructAnnotationMap &GetStructAnnotationMap();
   const StructAnnotationMap &GetStructAnnotationMap() const;
 
-  DxilPayloadAnnotation *AddPayloadAnnotation(const llvm::StructType *pStructType);
-  DxilPayloadAnnotation *GetPayloadAnnotation(const llvm::StructType *pStructType);
-  const DxilPayloadAnnotation *GetPayloadAnnotation(const llvm::StructType *pStructType) const;
+  DxilPayloadAnnotation *
+  AddPayloadAnnotation(const llvm::StructType *pStructType);
+  DxilPayloadAnnotation *
+  GetPayloadAnnotation(const llvm::StructType *pStructType);
+  const DxilPayloadAnnotation *
+  GetPayloadAnnotation(const llvm::StructType *pStructType) const;
   void ErasePayloadAnnotation(const llvm::StructType *pStructType);
 
   PayloadAnnotationMap &GetPayloadAnnotationMap();
   const PayloadAnnotationMap &GetPayloadAnnotationMap() const;
 
-  DxilFunctionAnnotation *AddFunctionAnnotation(const llvm::Function *pFunction);
+  DxilFunctionAnnotation *
+  AddFunctionAnnotation(const llvm::Function *pFunction);
   void FinishFunctionAnnotation(DxilFunctionAnnotation &FA);
-  DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction);
-  const DxilFunctionAnnotation *GetFunctionAnnotation(const llvm::Function *pFunction) const;
+  DxilFunctionAnnotation *
+  GetFunctionAnnotation(const llvm::Function *pFunction);
+  const DxilFunctionAnnotation *
+  GetFunctionAnnotation(const llvm::Function *pFunction) const;
   void EraseFunctionAnnotation(const llvm::Function *pFunction);
 
   FunctionAnnotationMap &GetFunctionAnnotationMap();
@@ -327,9 +354,12 @@ private:
   llvm::StructType *GetNormFloatType(CompType CT, unsigned NumComps);
 };
 
-DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q, DXIL::ShaderKind SK, bool isPC);
+DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q,
+                                         DXIL::ShaderKind SK, bool isPC);
 
-void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo, DXIL::SigPointKind sigPoint, llvm::LLVMContext &Context);
+void RemapObsoleteSemantic(DxilParameterAnnotation &paramInfo,
+                           DXIL::SigPointKind sigPoint,
+                           llvm::LLVMContext &Context);
 
 class DxilStructTypeIterator {
 private:

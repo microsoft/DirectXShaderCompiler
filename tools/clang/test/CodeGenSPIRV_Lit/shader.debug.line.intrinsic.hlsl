@@ -82,8 +82,8 @@ void main() {
 // CHECK:                     DebugLine [[src]] %uint_87 %uint_87 %uint_35 %uint_47
 // CHECK-NEXT: [[idx:%[0-9]+]] = OpIAdd %uint
 // CHECK:                     DebugLine [[src]] %uint_87 %uint_87 %uint_3 %uint_48
-// CHECK-NEXT: [[v4i_0_0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %v4i %int_0
-// CHECK-NEXT:                OpStore [[v4i_0_0]] {{%[0-9]+}}
+// CHECK-NEXT: [[v4i_1:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %v4i %int_0
+// CHECK-NEXT:                OpStore [[v4i_1]] {{%[0-9]+}}
   v4i.x = NonUniformResourceIndex(v4i.y + v4i.z);
 
 // CHECK:      DebugLine [[src]] %uint_93 %uint_93 %uint_11 %uint_39
@@ -176,7 +176,7 @@ void main() {
 // CHECK-NEXT:                DebugLine [[src]] %uint_180 %uint_180 %uint_20 %uint_43
 // CHECK-NEXT:                OpExtInst %float {{%[0-9]+}} Sqrt [[abs]]
 // CHECK:      DebugLine [[src]] %uint_180 %uint_180 %uint_7 %uint_52
-// CHECK-NEXT: OpExtInst %uint {{%[0-9]+}} FindUMsb
+// CHECK-NEXT: OpExtInst %uint {{%[0-9]+}} FindSMsb
   max(firstbithigh(sqrt(abs(v2f.x * v4f.w)) + v4i.x),
 // CHECK:      DebugLine [[src]] %uint_183 %uint_183 %uint_7 %uint_16
 // CHECK-NEXT: OpExtInst %float {{%[0-9]+}} Cos

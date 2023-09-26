@@ -22,7 +22,7 @@
 namespace llvm {
 class Function;
 class Constant;
-}
+} // namespace llvm
 
 namespace hlsl {
 struct DxilFunctionProps {
@@ -107,33 +107,43 @@ struct DxilFunctionProps {
   std::vector<NodeIOProperties> InputNodes;
   std::vector<NodeIOProperties> OutputNodes;
 
-  // WaveSize is currently allowed only on compute shaders, but could be supported on other shader types in the future
+  // WaveSize is currently allowed only on compute shaders, but could be
+  // supported on other shader types in the future
   unsigned waveSize;
   // Save root signature for lib profile entry.
   std::vector<uint8_t> serializedRootSignature;
   void SetSerializedRootSignature(const uint8_t *pData, unsigned size) {
-    serializedRootSignature.assign(pData, pData+size);
+    serializedRootSignature.assign(pData, pData + size);
   }
 
   // TODO: Should we have an unmangled name here for ray tracing shaders?
-  bool IsPS() const     { return shaderKind == DXIL::ShaderKind::Pixel; }
-  bool IsVS() const     { return shaderKind == DXIL::ShaderKind::Vertex; }
-  bool IsGS() const     { return shaderKind == DXIL::ShaderKind::Geometry; }
-  bool IsHS() const     { return shaderKind == DXIL::ShaderKind::Hull; }
-  bool IsDS() const     { return shaderKind == DXIL::ShaderKind::Domain; }
-  bool IsCS() const     { return shaderKind == DXIL::ShaderKind::Compute; }
+  bool IsPS() const { return shaderKind == DXIL::ShaderKind::Pixel; }
+  bool IsVS() const { return shaderKind == DXIL::ShaderKind::Vertex; }
+  bool IsGS() const { return shaderKind == DXIL::ShaderKind::Geometry; }
+  bool IsHS() const { return shaderKind == DXIL::ShaderKind::Hull; }
+  bool IsDS() const { return shaderKind == DXIL::ShaderKind::Domain; }
+  bool IsCS() const { return shaderKind == DXIL::ShaderKind::Compute; }
   bool IsGraphics() const {
-    return (shaderKind >= DXIL::ShaderKind::Pixel && shaderKind <= DXIL::ShaderKind::Domain) ||
-           shaderKind == DXIL::ShaderKind::Mesh || shaderKind == DXIL::ShaderKind::Amplification;
+    return (shaderKind >= DXIL::ShaderKind::Pixel &&
+            shaderKind <= DXIL::ShaderKind::Domain) ||
+           shaderKind == DXIL::ShaderKind::Mesh ||
+           shaderKind == DXIL::ShaderKind::Amplification;
   }
-  bool IsRayGeneration() const { return shaderKind == DXIL::ShaderKind::RayGeneration; }
-  bool IsIntersection() const { return shaderKind == DXIL::ShaderKind::Intersection; }
+  bool IsRayGeneration() const {
+    return shaderKind == DXIL::ShaderKind::RayGeneration;
+  }
+  bool IsIntersection() const {
+    return shaderKind == DXIL::ShaderKind::Intersection;
+  }
   bool IsAnyHit() const { return shaderKind == DXIL::ShaderKind::AnyHit; }
-  bool IsClosestHit() const { return shaderKind == DXIL::ShaderKind::ClosestHit; }
+  bool IsClosestHit() const {
+    return shaderKind == DXIL::ShaderKind::ClosestHit;
+  }
   bool IsMiss() const { return shaderKind == DXIL::ShaderKind::Miss; }
   bool IsCallable() const { return shaderKind == DXIL::ShaderKind::Callable; }
   bool IsRay() const {
-    return (shaderKind >= DXIL::ShaderKind::RayGeneration && shaderKind <= DXIL::ShaderKind::Callable);
+    return (shaderKind >= DXIL::ShaderKind::RayGeneration &&
+            shaderKind <= DXIL::ShaderKind::Callable);
   }
   bool IsMS() const { return shaderKind == DXIL::ShaderKind::Mesh; }
   bool IsAS() const { return shaderKind == DXIL::ShaderKind::Amplification; }
@@ -141,7 +151,6 @@ struct DxilFunctionProps {
     return shaderKind == DXIL::ShaderKind::Node ||
            Node.LaunchType != DXIL::NodeLaunchType::Invalid;
   };
-
 };
 
 } // namespace hlsl

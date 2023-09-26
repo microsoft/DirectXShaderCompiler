@@ -82,7 +82,6 @@ TEST_F(DxilResourceTest, KindChecks) {
               Kinds[Idx].IsTextureCube);
     EXPECT_EQ(DxilResource::IsFeedbackTexture(Kinds[Idx].Kind),
               Kinds[Idx].IsFeedbackTexture);
-    EXPECT_EQ(DxilResource::IsArrayKind(Kinds[Idx].Kind),
-              Kinds[Idx].IsArray);
+    EXPECT_EQ(DxilResource::IsArrayKind(Kinds[Idx].Kind), Kinds[Idx].IsArray);
   }
 }

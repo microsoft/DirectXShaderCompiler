@@ -306,7 +306,7 @@ protected:
   /// Use the provided buffer as the raw_ostream buffer. This is intended for
   /// use only by subclasses which can arrange for the output to go directly
   /// into the desired output buffer, instead of being copied on each flush.
-  void SetBuffer(_Out_opt_ char *BufferStart, size_t Size) {  // HLSL Change - SAL
+  void SetBuffer(char *BufferStart, size_t Size) {
     SetBufferAndMode(BufferStart, Size, ExternalBuffer);
   }
 
@@ -322,7 +322,7 @@ protected:
   //===--------------------------------------------------------------------===//
 private:
   /// Install the given buffer and mode.
-  void SetBufferAndMode(_Out_opt_ char *BufferStart, size_t Size, BufferKind Mode);  // HLSL Change - SAL
+  void SetBufferAndMode(char *BufferStart, size_t Size, BufferKind Mode);
 
   /// Flush the current buffer, which is known to be non-empty. This outputs the
   /// currently buffered data and resets the buffer to empty.

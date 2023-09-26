@@ -9,18 +9,18 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilSignatureElement.h"
-#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilInstructions.h"
 
+#include "llvm/ADT/MapVector.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/ADT/MapVector.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -28,7 +28,6 @@ using namespace hlsl;
 namespace {
 class DxilEliminateOutputDynamicIndexing : public ModulePass {
 private:
-
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilEliminateOutputDynamicIndexing() : ModulePass(ID) {}
@@ -59,8 +58,10 @@ public:
   }
 
 private:
-  bool EliminateDynamicOutput(hlsl::OP *hlslOP, DXIL::OpCode opcode, DxilSignature &outputSig, Function *Entry);
-  void ReplaceDynamicOutput(ArrayRef<Value *> tmpSigElts, Value * sigID, Value *zero, Function *F);
+  bool EliminateDynamicOutput(hlsl::OP *hlslOP, DXIL::OpCode opcode,
+                              DxilSignature &outputSig, Function *Entry);
+  void ReplaceDynamicOutput(ArrayRef<Value *> tmpSigElts, Value *sigID,
+                            Value *zero, Function *F);
   void StoreTmpSigToOutput(ArrayRef<Value *> tmpSigElts, unsigned row,
                            Value *opcode, Value *sigID, Function *StoreOutput,
                            Function *Entry);
@@ -99,8 +100,7 @@ public:
 bool DxilEliminateOutputDynamicIndexing::EliminateDynamicOutput(
     hlsl::OP *hlslOP, DXIL::OpCode opcode, DxilSignature &outputSig,
     Function *Entry) {
-  auto &storeOutputs =
-      hlslOP->GetOpFuncList(opcode);
+  auto &storeOutputs = hlslOP->GetOpFuncList(opcode);
 
   MapVector<Value *, Type *> dynamicSigSet;
   for (auto it : storeOutputs) {
@@ -180,7 +180,7 @@ void DxilEliminateOutputDynamicIndexing::StoreTmpSigToOutput(
     if (ReturnInst *RI = dyn_cast<ReturnInst>(BB.getTerminator())) {
       IRBuilder<> Builder(RI);
       Value *zero = Builder.getInt32(0);
-      for (unsigned c = 0; c<tmpSigElts.size(); c++) {
+      for (unsigned c = 0; c < tmpSigElts.size(); c++) {
         Value *col = tmpSigElts[c];
         args[DXIL::OperandIndex::kStoreOutputColOpIdx] = Builder.getInt8(c);
         for (unsigned r = 0; r < row; r++) {
@@ -196,7 +196,7 @@ void DxilEliminateOutputDynamicIndexing::StoreTmpSigToOutput(
   }
 }
 
-}
+} // namespace
 
 char DxilEliminateOutputDynamicIndexing::ID = 0;
 

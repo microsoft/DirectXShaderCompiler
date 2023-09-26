@@ -13,14 +13,14 @@
 #define UNICODE
 #endif
 
-#include <memory>
-#include <vector>
-#include <string>
-#include <cassert>
-#include <sstream>
-#include <algorithm>
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
+#include <algorithm>
+#include <cassert>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
 #include "dxc/Test/HLSLTestData.h"
 #ifdef _WIN32
@@ -28,17 +28,19 @@
 #endif
 #include "dxc/Test/HlslTestUtils.h"
 
-#include "llvm/Support/raw_os_ostream.h"
-#include "llvm/ADT/STLExtras.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h"
-#include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/dxcapi.use.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/raw_os_ostream.h"
 
 #include <fstream>
 
 using namespace std;
 using namespace hlsl_test;
+using namespace hlsl;
 using namespace hlsl::options;
 
 /// Use this class to construct MainArgs from constants. Handy to use because
@@ -56,8 +58,8 @@ class OptionsTest : public ::testing::Test {
 #endif
 public:
   BEGIN_TEST_CLASS(OptionsTest)
-    TEST_CLASS_PROPERTY(L"Parallel", L"true")
-    TEST_METHOD_PROPERTY(L"Priority", L"0")
+  TEST_CLASS_PROPERTY(L"Parallel", L"true")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
   TEST_METHOD(ReadOptionsWhenDefinesThenInit)
@@ -76,11 +78,13 @@ public:
   TEST_METHOD(ConvertWhenFailThenThrow)
 
   TEST_METHOD(CopyOptionsWhenSingleThenOK)
-  //TEST_METHOD(CopyOptionsWhenMultipleThenOK)
+  // TEST_METHOD(CopyOptionsWhenMultipleThenOK)
 
   TEST_METHOD(ReadOptionsJoinedWithSpacesThenOK)
 
   TEST_METHOD(TestPreprocessOption)
+
+  TEST_METHOD(SerializeDxilFlags)
 
   std::unique_ptr<DxcOpts> ReadOptsTest(const MainArgs &mainArgs,
                                         unsigned flagsToInclude,
@@ -95,9 +99,8 @@ public:
     EXPECT_EQ(shouldMessage, !errorStream.str().empty());
     return opts;
   }
-  void ReadOptsTest(const MainArgs &mainArgs,
-                                        unsigned flagsToInclude,
-      const char *expectErrorMsg) {
+  void ReadOptsTest(const MainArgs &mainArgs, unsigned flagsToInclude,
+                    const char *expectErrorMsg) {
     std::string errorString;
     llvm::raw_string_ostream errorStream(errorString);
     std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
@@ -112,12 +115,12 @@ TEST_F(OptionsTest, ReadOptionsWhenExtensionsThenOK) {
   const wchar_t *Args[] = {
       L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
       L"hlsl.hlsl", L"-external", L"foo.dll", L"-external-fn", L"CreateObj"};
-  const wchar_t *ArgsNoLib[] = {
-    L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
-    L"hlsl.hlsl", L"-external-fn", L"CreateObj" };
-  const wchar_t *ArgsNoFn[] = {
-    L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
-    L"hlsl.hlsl", L"-external", L"foo.dll" };
+  const wchar_t *ArgsNoLib[] = {L"exe.exe",      L"/E",       L"main",
+                                L"/T",           L"ps_6_0",   L"hlsl.hlsl",
+                                L"-external-fn", L"CreateObj"};
+  const wchar_t *ArgsNoFn[] = {L"exe.exe",   L"/E",     L"main",
+                               L"/T",        L"ps_6_0", L"hlsl.hlsl",
+                               L"-external", L"foo.dll"};
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
@@ -130,45 +133,47 @@ TEST_F(OptionsTest, ReadOptionsWhenExtensionsThenOK) {
 }
 
 TEST_F(OptionsTest, ReadOptionsForOutputObject) {
-  const wchar_t *Args[] = {
-      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
-      L"hlsl.hlsl", L"-Fo", L"hlsl.dxbc"};
+  const wchar_t *Args[] = {L"exe.exe", L"/E",        L"main", L"/T",
+                           L"ps_6_0",  L"hlsl.hlsl", L"-Fo",  L"hlsl.dxbc"};
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
-  VERIFY_ARE_EQUAL_STR("hlsl.dxbc", o->OutputObject.data());  
+  VERIFY_ARE_EQUAL_STR("hlsl.dxbc", o->OutputObject.data());
 }
 
 TEST_F(OptionsTest, ReadOptionsConflict) {
-  const wchar_t *matrixArgs[] = {
-      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
-      L"-Zpr", L"-Zpc",
-      L"hlsl.hlsl"};
+  const wchar_t *matrixArgs[] = {L"exe.exe", L"/E",   L"main", L"/T",
+                                 L"ps_6_0",  L"-Zpr", L"-Zpc", L"hlsl.hlsl"};
   MainArgsArr ArgsArr(matrixArgs);
-  ReadOptsTest(ArgsArr, DxcFlags, "Cannot specify /Zpr and /Zpc together, use /? to get usage information");
+  ReadOptsTest(
+      ArgsArr, DxcFlags,
+      "Cannot specify /Zpr and /Zpc together, use /? to get usage information");
 
-  const wchar_t *controlFlowArgs[] = {
-      L"exe.exe",   L"/E",        L"main",    L"/T",           L"ps_6_0",
-      L"-Gfa", L"-Gfp",
-      L"hlsl.hlsl"};
+  const wchar_t *controlFlowArgs[] = {L"exe.exe", L"/E",       L"main",
+                                      L"/T",      L"ps_6_0",   L"-Gfa",
+                                      L"-Gfp",    L"hlsl.hlsl"};
   MainArgsArr controlFlowArr(controlFlowArgs);
-  ReadOptsTest(controlFlowArr, DxcFlags, "Cannot specify /Gfa and /Gfp together, use /? to get usage information");
+  ReadOptsTest(
+      controlFlowArr, DxcFlags,
+      "Cannot specify /Gfa and /Gfp together, use /? to get usage information");
 
-  const wchar_t *libArgs[] = {
-      L"exe.exe",   L"/E",        L"main",    L"/T",           L"lib_6_1",
-      L"hlsl.hlsl"};
+  const wchar_t *libArgs[] = {L"exe.exe", L"/E",      L"main",
+                              L"/T",      L"lib_6_1", L"hlsl.hlsl"};
   MainArgsArr libArr(libArgs);
-  ReadOptsTest(libArr, DxcFlags, "Must disable validation for unsupported lib_6_1 or lib_6_2 targets.");
+  ReadOptsTest(
+      libArr, DxcFlags,
+      "Must disable validation for unsupported lib_6_1 or lib_6_2 targets.");
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenHelpThenShortcut) {
-  const wchar_t *Args[] = { L"exe.exe", L"--help", L"--unknown-flag" };
+  const wchar_t *Args[] = {L"exe.exe", L"--help", L"--unknown-flag"};
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   EXPECT_EQ(true, o->ShowHelp);
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenValidThenOK) {
-  const wchar_t *Args[] = { L"exe.exe", L"/E", L"main", L"/T", L"ps_6_0", L"hlsl.hlsl" };
+  const wchar_t *Args[] = {L"exe.exe", L"/E",     L"main",
+                           L"/T",      L"ps_6_0", L"hlsl.hlsl"};
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
@@ -177,7 +182,7 @@ TEST_F(OptionsTest, ReadOptionsWhenValidThenOK) {
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenJoinedThenOK) {
-  const wchar_t *Args[] = { L"exe.exe", L"/Emain", L"/Tps_6_0", L"hlsl.hlsl" };
+  const wchar_t *Args[] = {L"exe.exe", L"/Emain", L"/Tps_6_0", L"hlsl.hlsl"};
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
@@ -188,7 +193,7 @@ TEST_F(OptionsTest, ReadOptionsWhenJoinedThenOK) {
 TEST_F(OptionsTest, ReadOptionsWhenNoEntryThenOK) {
   // It's not an error to omit the entry function name, but it's not
   // set to 'main' on behalf of callers either.
-  const wchar_t *Args[] = { L"exe.exe", L"/T", L"ps_6_0", L"hlsl.hlsl" };
+  const wchar_t *Args[] = {L"exe.exe", L"/T", L"ps_6_0", L"hlsl.hlsl"};
   MainArgsArr ArgsArr(Args);
   std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
   VERIFY_IS_TRUE(o->EntryPoint.empty());
@@ -199,13 +204,19 @@ TEST_F(OptionsTest, ReadOptionsWhenInvalidThenFail) {
   const wchar_t *ArgsNoInput[] = {L"exe.exe", L"/E", L"main", L"/T", L"ps_6_0"};
   const wchar_t *ArgsNoArg[] = {L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
                                 L"/T"};
-  const wchar_t *ArgsUnknown[] = { L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
-    (L"/T" L"ps_6_0"), L"--unknown"};
-  const wchar_t *ArgsUnknownButIgnore[] = { L"exe.exe", L"hlsl.hlsl", L"/E", L"main",
-    L"/T", L"ps_6_0", L"--unknown", L"-Qunused-arguments" };
-  MainArgsArr ArgsNoTargetArr(ArgsNoTarget),
-      ArgsNoInputArr(ArgsNoInput), ArgsNoArgArr(ArgsNoArg),
-    ArgsUnknownArr(ArgsUnknown), ArgsUnknownButIgnoreArr(ArgsUnknownButIgnore);
+  const wchar_t *ArgsUnknown[] = {L"exe.exe",
+                                  L"hlsl.hlsl",
+                                  L"/E",
+                                  L"main",
+                                  (L"/T"
+                                   L"ps_6_0"),
+                                  L"--unknown"};
+  const wchar_t *ArgsUnknownButIgnore[] = {
+      L"exe.exe", L"hlsl.hlsl", L"/E",        L"main",
+      L"/T",      L"ps_6_0",    L"--unknown", L"-Qunused-arguments"};
+  MainArgsArr ArgsNoTargetArr(ArgsNoTarget), ArgsNoInputArr(ArgsNoInput),
+      ArgsNoArgArr(ArgsNoArg), ArgsUnknownArr(ArgsUnknown),
+      ArgsUnknownButIgnoreArr(ArgsUnknownButIgnore);
   ReadOptsTest(ArgsNoTargetArr, DxcFlags, true, true);
   ReadOptsTest(ArgsNoInputArr, DxcFlags, true, true);
   ReadOptsTest(ArgsNoArgArr, DxcFlags, true, true);
@@ -214,10 +225,16 @@ TEST_F(OptionsTest, ReadOptionsWhenInvalidThenFail) {
 }
 
 TEST_F(OptionsTest, ReadOptionsWhenDefinesThenInit) {
-  const wchar_t *ArgsNoDefines[] = { L"exe.exe", L"/T", L"ps_6_0", L"/E", L"main", L"hlsl.hlsl" };
-  const wchar_t *ArgsOneDefine[] = { L"exe.exe", L"/DNAME1=1", L"/T", L"ps_6_0", L"/E", L"main", L"hlsl.hlsl" };
-  const wchar_t *ArgsTwoDefines[] = { L"exe.exe", L"/DNAME1=1", L"/T", L"ps_6_0", L"/D", L"NAME2=2", L"/E", L"main", L"/T", L"ps_6_0", L"hlsl.hlsl"};
-  const wchar_t *ArgsEmptyDefine[] = { L"exe.exe", L"/DNAME1", L"hlsl.hlsl", L"/E", L"main", L"/T", L"ps_6_0", };
+  const wchar_t *ArgsNoDefines[] = {L"exe.exe", L"/T",   L"ps_6_0",
+                                    L"/E",      L"main", L"hlsl.hlsl"};
+  const wchar_t *ArgsOneDefine[] = {
+      L"exe.exe", L"/DNAME1=1", L"/T", L"ps_6_0", L"/E", L"main", L"hlsl.hlsl"};
+  const wchar_t *ArgsTwoDefines[] = {
+      L"exe.exe", L"/DNAME1=1", L"/T", L"ps_6_0", L"/D",       L"NAME2=2",
+      L"/E",      L"main",      L"/T", L"ps_6_0", L"hlsl.hlsl"};
+  const wchar_t *ArgsEmptyDefine[] = {
+      L"exe.exe", L"/DNAME1", L"hlsl.hlsl", L"/E", L"main", L"/T", L"ps_6_0",
+  };
 
   MainArgsArr ArgsNoDefinesArr(ArgsNoDefines), ArgsOneDefineArr(ArgsOneDefine),
       ArgsTwoDefinesArr(ArgsTwoDefines), ArgsEmptyDefineArr(ArgsEmptyDefine);
@@ -225,7 +242,7 @@ TEST_F(OptionsTest, ReadOptionsWhenDefinesThenInit) {
   std::unique_ptr<DxcOpts> o;
   o = ReadOptsTest(ArgsNoDefinesArr, DxcFlags);
   EXPECT_EQ(0U, o->Defines.size());
-  
+
   o = ReadOptsTest(ArgsOneDefineArr, DxcFlags);
   EXPECT_EQ(1U, o->Defines.size());
   EXPECT_STREQW(L"NAME1", o->Defines.data()[0].Name);
@@ -246,8 +263,8 @@ TEST_F(OptionsTest, ReadOptionsWhenDefinesThenInit) {
 
 TEST_F(OptionsTest, ReadOptionsForDxcWhenApiArgMissingThenFail) {
   // When an argument specified through an API argument is not specified (eg the
-  // target model), for the command-line dxc.exe tool, then the validation should
-  // fail.
+  // target model), for the command-line dxc.exe tool, then the validation
+  // should fail.
   const wchar_t *Args[] = {L"exe.exe", L"/E", L"main", L"hlsl.hlsl"};
 
   MainArgsArr mainArgsArr(Args);
@@ -259,14 +276,13 @@ TEST_F(OptionsTest, ReadOptionsForDxcWhenApiArgMissingThenFail) {
 TEST_F(OptionsTest, ReadOptionsForApiWhenApiArgMissingThenOK) {
   // When an argument specified through an API argument is not specified (eg the
   // target model), for an API, then the validation should not fail.
-  const wchar_t *Args[] = { L"exe.exe", L"/E", L"main", L"hlsl.hlsl" };
+  const wchar_t *Args[] = {L"exe.exe", L"/E", L"main", L"hlsl.hlsl"};
 
   MainArgsArr mainArgsArr(Args);
 
   std::unique_ptr<DxcOpts> o;
   o = ReadOptsTest(mainArgsArr, CompilerFlags, false, false);
 }
-
 
 TEST_F(OptionsTest, ConvertWhenFailThenThrow) {
   std::wstring wstr;
@@ -275,8 +291,8 @@ TEST_F(OptionsTest, ConvertWhenFailThenThrow) {
   EXPECT_EQ(true, Unicode::UTF8ToWideString("test", &wstr));
   EXPECT_STREQW(L"test", wstr.data());
 
-  // Simple test to verify conversion works with actual UTF-8 and not just ASCII.
-  // n with tilde is Unicode 0x00F1, encoded in UTF-8 as 0xC3 0xB1
+  // Simple test to verify conversion works with actual UTF-8 and not just
+  // ASCII. n with tilde is Unicode 0x00F1, encoded in UTF-8 as 0xC3 0xB1
   EXPECT_EQ(true, Unicode::UTF8ToWideString("\xC3\xB1", &wstr));
   EXPECT_STREQW(L"\x00F1", wstr.data());
 
@@ -287,8 +303,7 @@ TEST_F(OptionsTest, ConvertWhenFailThenThrow) {
   bool thrown = false;
   try {
     Unicode::UTF8ToWideStringOrThrow("\xC3");
-  }
-  catch (...) {
+  } catch (...) {
     thrown = true;
   }
   EXPECT_EQ(true, thrown);
@@ -304,11 +319,16 @@ TEST_F(OptionsTest, CopyOptionsWhenSingleThenOK) {
   std::vector<std::wstring> outArgs;
   CopyArgsToWStrings(args, DxcFlags, outArgs);
   EXPECT_EQ(4U, outArgs.size()); // -unknown and hlsl.hlsl are missing
-  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/T")));
-  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"ps_6_0")));
-  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"/E")));
-  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"main")));
-  VERIFY_ARE_EQUAL    (outArgs.end(), std::find(outArgs.begin(), outArgs.end(), std::wstring(L"hlsl.hlsl")));
+  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(),
+                                                std::wstring(L"/T")));
+  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(),
+                                                std::wstring(L"ps_6_0")));
+  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(),
+                                                std::wstring(L"/E")));
+  VERIFY_ARE_NOT_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(),
+                                                std::wstring(L"main")));
+  VERIFY_ARE_EQUAL(outArgs.end(), std::find(outArgs.begin(), outArgs.end(),
+                                            std::wstring(L"hlsl.hlsl")));
 }
 
 TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
@@ -317,9 +337,9 @@ TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
     // between the option and the argument works, for these argument types:
     // - JoinedOrSeparateClass (-E, -T)
     // - SeparateClass (-external, -external-fn)
-    const wchar_t *Args[] = {
-      L"exe.exe",   L"-E main",    L"/T  ps_6_0",
-      L"hlsl.hlsl", L"-external foo.dll", L"-external-fn  CreateObj"};
+    const wchar_t *Args[] = {L"exe.exe",           L"-E main",
+                             L"/T  ps_6_0",        L"hlsl.hlsl",
+                             L"-external foo.dll", L"-external-fn  CreateObj"};
     MainArgsArr ArgsArr(Args);
     std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
     VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
@@ -331,9 +351,8 @@ TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
   {
     // Ignore trailing spaces in option name for JoinedOrSeparateClass
     // Otherwise error messages are not easy for user to interpret
-    const wchar_t *Args[] = {
-      L"exe.exe",   L"-E ", L"main",    L"/T  ", L"ps_6_0",
-      L"hlsl.hlsl"};
+    const wchar_t *Args[] = {L"exe.exe", L"-E ",    L"main",
+                             L"/T  ",    L"ps_6_0", L"hlsl.hlsl"};
     MainArgsArr ArgsArr(Args);
     std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
     VERIFY_ARE_EQUAL_STR("main", o->EntryPoint.data());
@@ -342,9 +361,10 @@ TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
   {
     // Ignore trailing spaces in option name for SeparateClass
     // Otherwise error messages are not easy for user to interpret
-    const wchar_t *Args[] = {
-      L"exe.exe",   L"-E", L"main",    L"/T", L"ps_6_0",
-      L"hlsl.hlsl", L"-external ", L"foo.dll", L"-external-fn  ", L"CreateObj"};
+    const wchar_t *Args[] = {L"exe.exe",    L"-E",      L"main",
+                             L"/T",         L"ps_6_0",  L"hlsl.hlsl",
+                             L"-external ", L"foo.dll", L"-external-fn  ",
+                             L"CreateObj"};
     MainArgsArr ArgsArr(Args);
     std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
     VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
@@ -379,4 +399,219 @@ TEST_F(OptionsTest, TestPreprocessOption) {
       "Warning: -P out.pp is deprecated, please use -P -Fi out.pp instead.\n";
   VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "out.pp", Warning);
   VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp ", "out.pp", Warning);
+}
+
+static void VerifySerializeDxilFlags(llvm::StringRef command,
+                                     uint32_t ExpectFlags) {
+  std::string errorString;
+  const llvm::opt::OptTable *optionTable = getHlslOptTable();
+  llvm::SmallVector<llvm::StringRef, 4> args;
+  command.split(args, " ", /*MaxSplit*/ -1, /*KeepEmpty*/ false);
+  args.emplace_back("-Tlib_6_3");
+  args.emplace_back("input.hlsl");
+  MainArgs argStrings(args);
+  DxcOpts dxcOpts;
+  llvm::raw_string_ostream errorStream(errorString);
+
+  int retVal =
+      ReadDxcOpts(optionTable, DxcFlags, argStrings, dxcOpts, errorStream);
+  EXPECT_EQ(retVal, 0);
+  errorStream.flush();
+  EXPECT_EQ(errorString.empty(), true);
+  EXPECT_EQ(
+      static_cast<uint32_t>(hlsl::options::ComputeSerializeDxilFlags(dxcOpts)),
+      ExpectFlags);
+}
+
+static uint32_t CombineFlags(llvm::ArrayRef<SerializeDxilFlags> flags) {
+  uint32_t result = 0;
+  for (SerializeDxilFlags f : flags)
+    result |= static_cast<uint32_t>(f);
+  return result;
+}
+
+struct SerializeDxilFlagsTest {
+  const char *command;
+  uint32_t flags;
+};
+
+using F = SerializeDxilFlags;
+
+TEST_F(OptionsTest, SerializeDxilFlags) {
+  // Test cases for SerializeDxilFlags
+  // These cases are generated by group flags and do a full combination.
+  // [("-Qstrip_rootsignature", {"F::StripRootSignature"}),\
+      // ("", set())]
+  // [("-Qkeep_reflect_in_dxil", set()),\
+      // ("", {"F::StripReflectionFromDxilPart"})]
+  // [("-Qstrip_reflect", {}), \
+    // ("", {"F::IncludeReflectionPart"})]
+  // [("-Zss -Zs", {"F::IncludeDebugNamePart","F::DebugNameDependOnSource"}),\
+      // ("-Zsb", {"F::IncludeDebugNamePart"}), \
+      // ("-FdDbgName.pdb", {"F::IncludeDebugNamePart"}), \
+      // ("-Zi", {"F::IncludeDebugNamePart"}), \
+      // ("-Zsb -Qembed_debug -Zi",
+  // {"F::IncludeDebugInfoPart","F::IncludeDebugNamePart"}), \
+      // ("-FdDbgName.pdb -Qembed_debug -Zi",
+  // {"F::IncludeDebugInfoPart","F::IncludeDebugNamePart"}), \
+      // ("", set())]
+
+  SerializeDxilFlagsTest Tests[] = {
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::DebugNameDependOnSource,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect "
+       "-FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb "
+       "-Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect "
+       "-FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil -Qstrip_reflect ",
+       CombineFlags({F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::DebugNameDependOnSource, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::IncludeDebugInfoPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  -FdDbgName.pdb "
+       "-Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::IncludeDebugInfoPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature -Qkeep_reflect_in_dxil  ",
+       CombineFlags({F::IncludeReflectionPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::DebugNameDependOnSource, F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect -FdDbgName.pdb -Qembed_debug "
+       "-Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature  -Qstrip_reflect ",
+       CombineFlags({F::StripReflectionFromDxilPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -Zss -Zs",
+       CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart,
+                     F::StripReflectionFromDxilPart, F::DebugNameDependOnSource,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripReflectionFromDxilPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripReflectionFromDxilPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::StripReflectionFromDxilPart, F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart,
+                     F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature   -FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeReflectionPart, F::IncludeDebugNamePart,
+                     F::StripReflectionFromDxilPart, F::IncludeDebugInfoPart,
+                     F::StripRootSignature})},
+      {"-Qstrip_rootsignature   ",
+       CombineFlags({F::IncludeReflectionPart, F::StripReflectionFromDxilPart,
+                     F::StripRootSignature})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::DebugNameDependOnSource})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb",
+       CombineFlags({F::IncludeDebugNamePart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zi",
+       CombineFlags({F::IncludeDebugNamePart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect -FdDbgName.pdb -Qembed_debug "
+       "-Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeDebugInfoPart})},
+      {"-Qkeep_reflect_in_dxil -Qstrip_reflect ",
+       CombineFlags({SerializeDxilFlags::None})},
+      {"-Qkeep_reflect_in_dxil  -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::DebugNameDependOnSource})},
+      {"-Qkeep_reflect_in_dxil  -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})},
+      {"-Qkeep_reflect_in_dxil  -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})},
+      {"-Qkeep_reflect_in_dxil  -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart})},
+      {"-Qkeep_reflect_in_dxil  -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::IncludeDebugInfoPart})},
+      {"-Qkeep_reflect_in_dxil  -FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::IncludeReflectionPart,
+                     F::IncludeDebugInfoPart})},
+      {"-Qkeep_reflect_in_dxil  ", CombineFlags({F::IncludeReflectionPart})},
+      {"-Qstrip_reflect -Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::DebugNameDependOnSource})},
+      {"-Qstrip_reflect -Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})},
+      {"-Qstrip_reflect -FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})},
+      {"-Qstrip_reflect -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart})},
+      {"-Qstrip_reflect -Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart})},
+      {"-Qstrip_reflect -FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart})},
+      {"-Qstrip_reflect ", CombineFlags({F::StripReflectionFromDxilPart})},
+      {"-Zss -Zs",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::DebugNameDependOnSource, F::IncludeReflectionPart})},
+      {"-Zsb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeReflectionPart})},
+      {"-FdDbgName.pdb",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeReflectionPart})},
+      {"-Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeReflectionPart})},
+      {"-Zsb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart, F::IncludeReflectionPart})},
+      {"-FdDbgName.pdb -Qembed_debug -Zi",
+       CombineFlags({F::IncludeDebugNamePart, F::StripReflectionFromDxilPart,
+                     F::IncludeDebugInfoPart, F::IncludeReflectionPart})},
+      {"", CombineFlags(
+               {F::StripReflectionFromDxilPart, F::IncludeReflectionPart})}};
+
+  for (const auto &T : Tests) {
+    VerifySerializeDxilFlags(T.command, T.flags);
+  }
 }
