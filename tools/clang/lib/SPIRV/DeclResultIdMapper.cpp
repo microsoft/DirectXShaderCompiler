@@ -3653,6 +3653,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to DXIL spec, the SampleIndex SV can only be used by PSIn.
   // According to Vulkan spec, the SampleId BuiltIn can only be used in PSIn.
   case hlsl::Semantic::Kind::SampleIndex: {
+    setInterlockExecutionMode(spv::ExecutionMode::SampleInterlockOrderedEXT);
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleId, isPrecise,
                                          srcLoc);
@@ -3776,6 +3777,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // VSOut, or PSIn. According to Vulkan spec, the FragSizeEXT BuiltIn can only
   // be used as VSOut, GSOut, MSOut or PSIn.
   case hlsl::Semantic::Kind::ShadingRate: {
+    setInterlockExecutionMode(
+        spv::ExecutionMode::ShadingRateInterlockOrderedEXT);
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
@@ -4202,6 +4205,20 @@ void DeclResultIdMapper::decorateStageVarWithIntrinsicAttrs(
         }
       };
   decorateWithIntrinsicAttrs(decl, varInst, checkBuiltInLocationDecoration);
+}
+
+void DeclResultIdMapper::setInterlockExecutionMode(spv::ExecutionMode mode) {
+  interlockExecutionMode = mode;
+}
+
+spv::ExecutionMode DeclResultIdMapper::getInterlockExecutionMode() {
+  switch (interlockExecutionMode) {
+  case spv::ExecutionMode::SampleInterlockOrderedEXT:
+  case spv::ExecutionMode::ShadingRateInterlockOrderedEXT:
+    return interlockExecutionMode;
+  default:
+    return spv::ExecutionMode::PixelInterlockOrderedEXT;
+  }
 }
 
 void DeclResultIdMapper::copyHullOutStageVarsToOutputPatch(

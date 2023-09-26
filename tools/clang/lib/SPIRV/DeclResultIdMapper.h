@@ -529,6 +529,11 @@ public:
                                   QualType outputControlPointType,
                                   SpirvInstruction *ptr);
 
+  /// \brief Returns the execution mode to use for rasterizer ordered views.
+  /// \returns PixelInterlockOrderedEXT, SampleInterlockOrderedEXT, or
+  /// ShadingRateInterlockOrderedEXT.
+  spv::ExecutionMode getInterlockExecutionMode();
+
 private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
@@ -780,6 +785,12 @@ private:
                                           StageVar *stageVar,
                                           SpirvVariable *varInst);
 
+  /// \brief Set the frequency mode for rasterizer ordered views.
+  /// This should be set to PixelInterlockOrderedEXT (default),
+  /// SampleInterlockOrderedEXT, or ShadingRateInterlockOrderedEXT, based on
+  /// which semantics are present in input variables.
+  void setInterlockExecutionMode(spv::ExecutionMode mode);
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
@@ -821,6 +832,9 @@ private:
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the SPIR-V type.
   llvm::DenseMap<const DeclContext *, const SpirvType *> ctBufferPCTypes;
+
+  /// The execution mode to use for rasterizer ordered views.
+  spv::ExecutionMode interlockExecutionMode;
 
   /// The SPIR-V builtin variables accessed by WaveGetLaneCount(),
   /// WaveGetLaneIndex() and ray tracing builtins.
