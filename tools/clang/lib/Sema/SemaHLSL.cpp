@@ -15175,6 +15175,44 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
   }
 }
 
+void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLMaxVertexCountAttr>()))
+    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "maxvertexcount";
+
+  return;
+}
+
+void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLPatchConstantFuncAttr>()))
+    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "patchconstantfunc";
+  
+  return;
+}
+
+void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "numthreads";
+  if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
+    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "outputtopology";
+  return;
+}
+
+void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "numthreads";
+
+  return;
+}
+
 void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                           bool isActiveEntry) {
   if (isActiveEntry) {
@@ -15419,6 +15457,14 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
   return;
 }
 
+// The DiagnoseEntry function does 3 things:
+// 1. Attempt to add the target profile as an implicit shader attribute which is
+// equivalent to determining whether or not this function is the current active
+// entry point or not. 
+// 2. Diagnose whether or not all entry point attributes on
+// the decl belong on the decl given the specific target profile being used.
+// 3. Given the specific target profile, verifying that all necessary attributes
+// that must accompany that target profile exist as attributes to the decl.
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   bool isActiveEntry = false;
   if (S.getLangOpts().IsHLSLLibrary) {
@@ -15442,14 +15488,22 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   switch (Stage) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
-  case DXIL::ShaderKind::Geometry:
-  case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Domain:
   case DXIL::ShaderKind::Library:
-  case DXIL::ShaderKind::Mesh:
-  case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Invalid:
     return;
+  case DXIL::ShaderKind::Amplification: {
+    return DiagnoseAmplificationEntry(S, FD, StageName);
+  }
+  case DXIL::ShaderKind::Mesh: {
+    return DiagnoseMeshEntry(S, FD, StageName);
+  }
+  case DXIL::ShaderKind::Hull: {
+    return DiagnoseHullEntry(S, FD, StageName);
+  }
+  case DXIL::ShaderKind::Geometry: {
+    return DiagnoseGeometryEntry(S, FD, StageName);
+  }
   case DXIL::ShaderKind::Callable: {
     return DiagnoseCallableEntry(S, FD, StageName);
   }
