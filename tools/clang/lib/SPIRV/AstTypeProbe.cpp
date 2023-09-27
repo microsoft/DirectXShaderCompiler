@@ -1187,6 +1187,25 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
   return false;
 }
 
+bool isRasterizerOrderedView(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    return name == "RasterizerOrderedBuffer" ||
+           name == "RasterizerOrderedByteAddressBuffer" ||
+           name == "RasterizerOrderedStructuredBuffer" ||
+           name == "RasterizerOrderedTexture1D" ||
+           name == "RasterizerOrderedTexture1DArray" ||
+           name == "RasterizerOrderedTexture2D" ||
+           name == "RasterizerOrderedTexture2DArray" ||
+           name == "RasterizerOrderedTexture3D";
+  }
+  return false;
+}
+
 /// Returns true if the given type is a bool or vector of bool type.
 bool isBoolOrVecOfBoolType(QualType type) {
   QualType elemType = {};
