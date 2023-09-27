@@ -8,7 +8,7 @@ struct RECORD {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
 void node01(RWDispatchNodeInputRecord<RECORD> input) {}
@@ -31,7 +31,7 @@ void node01(RWDispatchNodeInputRecord<RECORD> input) {}
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> struct RWDispatchNodeInputRecord definition
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1024,1,1)]
 void node02(RWGroupNodeInputRecords<RECORD> input) {}
 
@@ -70,7 +70,7 @@ void node02(RWGroupNodeInputRecords<RECORD> input) {}
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> struct RWGroupNodeInputRecords definition
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void node03(RWThreadNodeInputRecord<RECORD> input) {}
 
 //CHECK: ClassTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit RWThreadNodeInputRecord

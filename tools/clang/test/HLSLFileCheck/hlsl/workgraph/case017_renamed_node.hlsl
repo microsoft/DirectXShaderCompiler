@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 -default-linkage external %s | FileCheck %s
 // ==================================================================
-// CASE017
 // Renamed node, unnamed index defaults to 0
 // ==================================================================
 
@@ -12,7 +11,7 @@
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 [NodeID("new_node_name")]
 [NodeIsProgramEntry]
 void node017_renamed_node()
@@ -29,7 +28,7 @@ void node017_renamed_node()
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Thread (3)
+// Arg #4: thread (3)
 // Arg #5: NodeIsProgramEntry Tag (14)
 // Arg #6: True (1)
 // Arg #7: NodeId Tag (15)

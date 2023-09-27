@@ -19,7 +19,7 @@ struct RECORD
 };
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [numthreads(4,4,4)]
 void node01(RWGroupNodeInputRecords<RECORD> input)
 {

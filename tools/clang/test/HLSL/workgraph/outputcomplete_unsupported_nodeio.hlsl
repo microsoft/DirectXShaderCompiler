@@ -8,7 +8,7 @@ struct RECORD {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(1,1,1)]
 void node_dispatchinputrecord(DispatchNodeInputRecord<RECORD> nodeInputRecord)
@@ -17,7 +17,7 @@ void node_dispatchinputrecord(DispatchNodeInputRecord<RECORD> nodeInputRecord)
 }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(1,1,1)]
 void node_rwdispatchinputrecord(RWDispatchNodeInputRecord<RECORD> rwNodeInputRecord)
@@ -26,7 +26,7 @@ void node_rwdispatchinputrecord(RWDispatchNodeInputRecord<RECORD> rwNodeInputRec
 }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1,1,1)]
 void node_groupinputrecords(GroupNodeInputRecords<RECORD> nodeInputRecord)
 {
@@ -34,7 +34,7 @@ void node_groupinputrecords(GroupNodeInputRecords<RECORD> nodeInputRecord)
 }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1,1,1)]
 void node_rwgroupinputrecords(RWGroupNodeInputRecords<RECORD> rwNodeInputRecord)
 {
@@ -42,7 +42,7 @@ void node_rwgroupinputrecords(RWGroupNodeInputRecords<RECORD> rwNodeInputRecord)
 }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 [NumThreads(1,1,1)]
 void node_threadinputrecord(ThreadNodeInputRecord<RECORD> nodeInputRecord)
 {
@@ -50,7 +50,7 @@ void node_threadinputrecord(ThreadNodeInputRecord<RECORD> nodeInputRecord)
 }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 [NumThreads(1,1,1)]
 void node_rwthreadinputrecord(RWThreadNodeInputRecord<RECORD> rwNodeInputRecord)
 {
@@ -58,7 +58,7 @@ void node_rwthreadinputrecord(RWThreadNodeInputRecord<RECORD> rwNodeInputRecord)
 }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1,1,1)]
 void node_emptynodeinput([MaxRecords(5)] EmptyNodeInput emptyNodeInput)
 {
@@ -66,7 +66,7 @@ void node_emptynodeinput([MaxRecords(5)] EmptyNodeInput emptyNodeInput)
 }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(1,1,1)]
 void node_nodeoutput(NodeOutput<RECORD> nodeOutput)
@@ -75,7 +75,7 @@ void node_nodeoutput(NodeOutput<RECORD> nodeOutput)
 }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(1,1,1)]
 void node127_emptynodeoutput(EmptyNodeOutput emptyNodeOutput)

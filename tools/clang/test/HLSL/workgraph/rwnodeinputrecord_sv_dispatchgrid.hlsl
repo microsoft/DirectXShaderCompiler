@@ -13,7 +13,7 @@ struct RECORD
 // Check non-assignable fields
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1,1,1)]
 void node01(RWGroupNodeInputRecords<RECORD> input)
 {
@@ -23,7 +23,7 @@ void node01(RWGroupNodeInputRecords<RECORD> input)
 }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(2,1,1)]
 void node02(GroupNodeInputRecords<RECORD> input)
 {
@@ -32,7 +32,7 @@ void node02(GroupNodeInputRecords<RECORD> input)
 }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(4,1,1)]
 void node03([MaxRecords(4)] GroupNodeInputRecords<RECORD> input)
 {
@@ -41,7 +41,7 @@ void node03([MaxRecords(4)] GroupNodeInputRecords<RECORD> input)
 }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(8,1,1)]
 void node04(const RWGroupNodeInputRecords<RECORD> input) 
 {

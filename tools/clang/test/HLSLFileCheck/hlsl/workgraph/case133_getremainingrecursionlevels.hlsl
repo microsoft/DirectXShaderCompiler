@@ -1,13 +1,12 @@
 // RUN: %dxc -T lib_6_8 external %s | FileCheck %s
 // ==================================================================
-// CASE133
 // GetRemainingRecusionLevels() called
 // ==================================================================
 
 RWBuffer<uint> buf0;
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(8,1,1)]
 [NodeDispatchGrid(32,2,2)]
 [NodeMaxRecursionDepth(16)]
@@ -36,7 +35,7 @@ void node133_getremainingrecursionlevels()
 // Arg #1: Shader Kind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // ...
 // Arg #x: NodeMaxrecursionDepth Tag (19)
 // Arg #x+1: value (16)

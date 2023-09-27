@@ -327,7 +327,7 @@ struct [NodeTrackRWInputSharing] rec2
 };
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 [NodeLocalRootArgumentsTableIndex(2)]
 void Input2Output(
   RWThreadNodeInputRecord<rec0> Inputy,

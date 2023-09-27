@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 -enable-16bit-types %s | FileCheck %s
 // ==================================================================
-// CASE124
 // Read access of members of input/output record with different type
 // sizes - we check the function specializations generated
 // ==================================================================
@@ -25,7 +24,7 @@ struct RECORD
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node01(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().h;
@@ -36,7 +35,7 @@ void node01(DispatchNodeInputRecord<RECORD> input)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node02(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().f;
@@ -48,7 +47,7 @@ void node02(DispatchNodeInputRecord<RECORD> input)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node03(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().d;
@@ -60,7 +59,7 @@ void node03(DispatchNodeInputRecord<RECORD> input)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node04(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().b;
@@ -72,7 +71,7 @@ void node04(DispatchNodeInputRecord<RECORD> input)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node05(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().i16;
@@ -84,7 +83,7 @@ void node05(DispatchNodeInputRecord<RECORD> input)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node06(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().i;
@@ -96,7 +95,7 @@ void node06(DispatchNodeInputRecord<RECORD> input)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node07(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().i64;
@@ -108,7 +107,7 @@ void node07(DispatchNodeInputRecord<RECORD> input)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node08(DispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().u64;

@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 -enable-16bit-types %s | FileCheck %s
 // ==================================================================
-// CASE117
 // Barrier is called using a memory type argument
 // ==================================================================
 
@@ -9,7 +8,7 @@ static const int b = 2;
 static const int16_t c = 1;
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void node117_barrier_memoryarg()
 {
   // literal integer flag values
@@ -75,7 +74,7 @@ void node117_barrier_memoryarg()
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Thread (3)
+// Arg #4: thread (3)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS]] = !{

@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 -default-linkage external %s | FileCheck %s
 // ==================================================================
-// CASE008
 // Coalescing launch node with thread group defined in the shader
 // ==================================================================
 
@@ -12,7 +11,7 @@
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1024,1,1)]
 [NodeIsProgramEntry]
 void node008_coalescing_numthreads_shader()
@@ -29,7 +28,7 @@ void node008_coalescing_numthreads_shader()
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: coalescing (2)
 // Arg #5: NodeIsProgramEntry Tag (14)
 // Arg #6: True (1)
 // Arg #7: NodeId Tag (15)

@@ -297,7 +297,7 @@ struct rec1
 
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(25, 4, 1)]
 [NodeDispatchGrid(2, 8, 10)]
 export void depth18part0_wg_63_nodes_seed_255(

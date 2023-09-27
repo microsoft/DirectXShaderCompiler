@@ -23,7 +23,7 @@ void compute_only() { }
 // ==================================================================
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(9,7,8)]
 void node_only() { }

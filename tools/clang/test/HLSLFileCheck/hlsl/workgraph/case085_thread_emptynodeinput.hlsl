@@ -1,14 +1,13 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // RUN: %dxc -T lib_6_8 -Od %s | FileCheck %s
 // ==================================================================
-// CASE085
 // Thread launch node declares EmptyNodeInput<1>
 // ==================================================================
 
 RWBuffer<uint> buf0;
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NodeIsProgramEntry]
 [NumThreads(2,1,1)]
 void node085_thread_emptynodeinput(EmptyNodeInput input)
@@ -35,7 +34,7 @@ void node085_thread_emptynodeinput(EmptyNodeInput input)
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #2: Coalescing (2)
+// Arg #2: coalescing (2)
 // ...
 // Arg #n: NodeInputs Tag (20)
 // Arg #n+1: NodeInputs (metadata)
