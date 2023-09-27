@@ -15175,21 +15175,13 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
   }
 }
 
-void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
+                                llvm::StringRef StageName) {
 
-  if (!(FD->getAttr<HLSLMaxVertexCountAttr>()))
+  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
     S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
-        << StageName << "maxvertexcount";
+        << StageName << "numthreads";
 
-  return;
-}
-
-void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
-
-  if (!(FD->getAttr<HLSLPatchConstantFuncAttr>()))
-    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
-        << StageName << "patchconstantfunc";
-  
   return;
 }
 
@@ -15204,11 +15196,21 @@ void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   return;
 }
 
-void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
-  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+  if (!(FD->getAttr<HLSLPatchConstantFuncAttr>()))
     S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
-        << StageName << "numthreads";
+        << StageName << "patchconstantfunc";
+
+  return;
+}
+
+void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD,
+                           llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLMaxVertexCountAttr>()))
+    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "maxvertexcount";
 
   return;
 }
@@ -15460,7 +15462,7 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 // The DiagnoseEntry function does 3 things:
 // 1. Attempt to add the target profile as an implicit shader attribute which is
 // equivalent to determining whether or not this function is the current active
-// entry point or not. 
+// entry point or not.
 // 2. Diagnose whether or not all entry point attributes on
 // the decl belong on the decl given the specific target profile being used.
 // 3. Given the specific target profile, verifying that all necessary attributes
