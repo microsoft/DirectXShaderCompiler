@@ -99,7 +99,7 @@ public:
 class CShaderReflectionConstantBuffer;
 class CShaderReflectionType;
 
-enum class PublicAPI { D3D12 = 0, D3D11_47 = 1, D3D11_43 = 2 };
+enum class PublicAPI { D3D12 = 0, D3D11_47 = 1, D3D11_43 = 2, Invalid };
 
 #ifdef ADD_16_64_BIT_TYPES
 // Disable warning about value not being valid in enum
@@ -182,8 +182,10 @@ public:
   PublicAPI m_PublicAPI;
   void SetPublicAPI(PublicAPI value) { m_PublicAPI = value; }
   static PublicAPI IIDToAPI(REFIID iid) {
-    PublicAPI api = PublicAPI::D3D12;
-    if (IsEqualIID(IID_ID3D11ShaderReflection_43, iid))
+    PublicAPI api = PublicAPI::Invalid;
+    if (IsEqualIID(__uuidof(ID3D12ShaderReflection), iid))
+      api = PublicAPI::D3D12;
+    else if (IsEqualIID(IID_ID3D11ShaderReflection_43, iid))
       api = PublicAPI::D3D11_43;
     else if (IsEqualIID(IID_ID3D11ShaderReflection_47, iid))
       api = PublicAPI::D3D11_47;
@@ -193,17 +195,24 @@ public:
   DXC_MICROCOM_TM_CTOR(DxilShaderReflection)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
-    HRESULT hr =
-        DoBasicQueryInterface<ID3D12ShaderReflection>(this, iid, ppvObject);
-    if (hr == E_NOINTERFACE) {
-      // ID3D11ShaderReflection is identical to ID3D12ShaderReflection, except
-      // for some shorter data structures in some out parameters.
-      PublicAPI api = IIDToAPI(iid);
-      if (api == m_PublicAPI) {
-        *ppvObject = (ID3D12ShaderReflection *)this;
-        this->AddRef();
-        hr = S_OK;
-      }
+    HRESULT hr = E_NOINTERFACE;
+
+    // There is non-standard handling of QueryInterface:
+    // - although everything uses the same vtable as ID3D12ShaderReflection,
+    //   there are differences in behavior depending on the API version, and
+    //   there are 3 of these - it's not just d3d11 vs d3d12.
+    // - when the object is created the API version is fixed
+    // - from that point on, this object can only be QI'd for the matching API
+    //   version.
+    PublicAPI api = IIDToAPI(iid);
+    if (api == m_PublicAPI) {
+      *ppvObject = static_cast<ID3D12ShaderReflection *>(this);
+      this->AddRef();
+      hr = S_OK;
+    } else if (IsEqualIID(__uuidof(IUnknown), iid)) {
+      *ppvObject = static_cast<IUnknown *>(this);
+      this->AddRef();
+      hr = S_OK;
     }
     return hr;
   }
@@ -299,10 +308,16 @@ HRESULT CreateDxilShaderReflection(const DxilProgramHeader *pProgramHeader,
                                    void **ppvObject) {
   if (!ppvObject)
     return E_INVALIDARG;
+  PublicAPI api = DxilShaderReflection::IIDToAPI(iid);
+  if (api == PublicAPI::Invalid) {
+    if (IsEqualIID(__uuidof(IUnknown), iid))
+      api = PublicAPI::D3D12;
+    else
+      return E_NOINTERFACE;
+  }
   CComPtr<DxilShaderReflection> pReflection =
       DxilShaderReflection::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(pReflection.p);
-  PublicAPI api = DxilShaderReflection::IIDToAPI(iid);
   pReflection->SetPublicAPI(api);
   // pRDATPart to be used for transition.
   IFR(pReflection->Load(pProgramHeader, pRDATPart));
@@ -315,6 +330,9 @@ HRESULT CreateDxilLibraryReflection(const DxilProgramHeader *pProgramHeader,
                                     void **ppvObject) {
   if (!ppvObject)
     return E_INVALIDARG;
+  if (!IsEqualIID(__uuidof(ID3D12LibraryReflection), iid) &&
+      !IsEqualIID(__uuidof(IUnknown), iid))
+    return E_NOINTERFACE;
   CComPtr<DxilLibraryReflection> pReflection =
       DxilLibraryReflection::Alloc(DxcGetThreadMallocNoRef());
   IFROOM(pReflection.p);
@@ -2160,9 +2178,7 @@ void DxilShaderReflection::CreateReflectionObjectsForSignature(
     Desc.ComponentType =
         CompTypeToRegisterComponentType(SigElem->GetCompType());
     Desc.Mask = SigElem->GetColsAsMask();
-    // D3D11_43 does not have MinPrecison.
-    if (m_PublicAPI != PublicAPI::D3D11_43)
-      Desc.MinPrecision = CompTypeToMinPrecision(SigElem->GetCompType());
+    Desc.MinPrecision = CompTypeToMinPrecision(SigElem->GetCompType());
     if (m_bUsageInMetadata) {
       unsigned UsageMask = SigElem->GetUsageMask();
       if (SigElem->IsAllocated())
@@ -2585,7 +2601,8 @@ HRESULT DxilShaderReflection::GetInputParameterDesc(
   else
     memcpy(pDesc, &m_InputSignature[ParameterIndex],
            // D3D11_43 does not have MinPrecison.
-           sizeof(D3D12_SIGNATURE_PARAMETER_DESC) - sizeof(D3D_MIN_PRECISION));
+           offsetof(D3D12_SIGNATURE_PARAMETER_DESC, Stream) +
+               sizeof(D3D12_SIGNATURE_PARAMETER_DESC::Stream));
 
   return S_OK;
 }
@@ -2599,7 +2616,8 @@ HRESULT DxilShaderReflection::GetOutputParameterDesc(
   else
     memcpy(pDesc, &m_OutputSignature[ParameterIndex],
            // D3D11_43 does not have MinPrecison.
-           sizeof(D3D12_SIGNATURE_PARAMETER_DESC) - sizeof(D3D_MIN_PRECISION));
+           offsetof(D3D12_SIGNATURE_PARAMETER_DESC, Stream) +
+               sizeof(D3D12_SIGNATURE_PARAMETER_DESC::Stream));
 
   return S_OK;
 }
@@ -2613,7 +2631,8 @@ HRESULT DxilShaderReflection::GetPatchConstantParameterDesc(
   else
     memcpy(pDesc, &m_PatchConstantSignature[ParameterIndex],
            // D3D11_43 does not have MinPrecison.
-           sizeof(D3D12_SIGNATURE_PARAMETER_DESC) - sizeof(D3D_MIN_PRECISION));
+           offsetof(D3D12_SIGNATURE_PARAMETER_DESC, Stream) +
+               sizeof(D3D12_SIGNATURE_PARAMETER_DESC::Stream));
 
   return S_OK;
 }

@@ -102,6 +102,7 @@ public:
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckReflection1)
   TEST_METHOD(DxcUtils_CreateReflection)
+  TEST_METHOD(CheckReflectionQueryInterface)
   TEST_METHOD(CompileWhenOKThenIncludesFeatureInfo)
   TEST_METHOD(CompileWhenOKThenIncludesSignatures)
   TEST_METHOD(CompileWhenSigSquareThenIncludeSplit)
@@ -1907,6 +1908,300 @@ TEST_F(DxilContainerTest, DxcUtils_CreateReflection) {
       VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
       VerifyCreateReflectionLibrary(pProgram, false);
       VerifyStripReflection(pProgram, false);
+    }
+  }
+}
+
+TEST_F(DxilContainerTest, CheckReflectionQueryInterface) {
+  // Minimum version 1.3 required for library support.
+  if (m_ver.SkipDxilVersion(1, 3))
+    return;
+
+  // Check that QueryInterface for shader and library reflection accepts/rejects
+  // interfaces properly
+
+  // Also check that DxilShaderReflection::Get*ParameterDesc methods do not
+  // write out-of-bounds for earlier interface version.
+
+  // Use domain shader to test DxilShaderReflection::Get*ParameterDesc because
+  // it can use all three signatures.
+  const char *shaderSource = R"(
+struct PSInput {
+	noperspective float4 pos : SV_POSITION;
+};
+// Patch constant signature
+struct HS_CONSTANT_DATA_OUTPUT {
+	float edges[3] : SV_TessFactor;
+	float inside : SV_InsideTessFactor;
+};
+// Patch input signature
+struct HS_CONTROL_POINT {
+  float3 pos : POSITION;
+};
+// Domain shader
+[domain("tri")]
+void main(
+    OutputPatch<HS_CONTROL_POINT, 3> TrianglePatch,
+    HS_CONSTANT_DATA_OUTPUT pcIn,
+    float3 bary : SV_DomainLocation,
+    out PSInput output) {
+  output.pos = float4((bary.x * TrianglePatch[0].pos +
+                       bary.y * TrianglePatch[1].pos +
+                       bary.z * TrianglePatch[2].pos), 1);
+}
+  )";
+
+  CComPtr<IDxcUtils> pUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+  CComPtr<IDxcCompiler> pCompiler;
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+
+  struct TestDescStruct {
+    D3D12_SIGNATURE_PARAMETER_DESC paramDesc;
+    // `pad` is used to ensure Get*ParameterDesc does not write out-of-bounds.
+    // It should still have the 0xFE byte pattern.
+    uint32_t pad;
+
+    TestDescStruct() { Clear(); }
+    void Clear() {
+      // fill this structure with 0xFE bytes
+      memset(this, 0xFE, sizeof(TestDescStruct));
+    }
+    bool CheckRemainingBytes(size_t offset) {
+      // Check that bytes in this struct after offset are still 0xFE
+      uint8_t *pBytes = (uint8_t *)this;
+      for (size_t i = offset; i < sizeof(TestDescStruct); i++) {
+        if (pBytes[i] != 0xFE)
+          return false;
+      }
+      return true;
+    }
+    bool CheckBytesAfterStream() {
+      // Check that bytes in this struct after Stream are still 0xFE
+      return CheckRemainingBytes(offsetof(TestDescStruct, paramDesc.Stream) +
+                                 sizeof(paramDesc.Stream));
+    }
+    bool CheckBytesAfterParamDesc() {
+      // Check that bytes in this struct after paramDesc are still 0xFE
+      return CheckRemainingBytes(offsetof(TestDescStruct, paramDesc) +
+                                 sizeof(paramDesc));
+    }
+  };
+
+  // ID3D12LibraryReflection
+  {
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcResult> pResultV2;
+    CComPtr<IDxcBlob> pReflectionPart;
+    CComPtr<IDxcBlobEncoding> pSource;
+    CreateBlobFromText(Ref1_Shader, &pSource);
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"", L"lib_6_3",
+                                        nullptr, 0, nullptr, 0, nullptr,
+                                        &pResult));
+    VERIFY_SUCCEEDED(pResult->QueryInterface(&pResultV2));
+    VERIFY_SUCCEEDED(pResultV2->GetOutput(
+        DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionPart), nullptr));
+    DxcBuffer buffer = {pReflectionPart->GetBufferPointer(),
+                        pReflectionPart->GetBufferSize(), 0};
+
+    {
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_SUCCEEDED(
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pLibraryReflection)));
+
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection2;
+      VERIFY_SUCCEEDED(pLibraryReflection->QueryInterface(
+          IID_PPV_ARGS(&pLibraryReflection2)));
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(
+          pLibraryReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_FAILED(
+          pLibraryReflection->QueryInterface(IID_PPV_ARGS(&pShaderReflection)));
+    }
+
+    { // Allow IUnknown
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pUnknown)));
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_SUCCEEDED(
+          pUnknown->QueryInterface(IID_PPV_ARGS(&pLibraryReflection)));
+    }
+
+    { // Fail to create with incorrect interface
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_ARE_EQUAL(
+          E_NOINTERFACE,
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pShaderReflection)));
+    }
+  }
+
+  // Supported shader reflection interfaces defined by legacy APIs
+  const GUID IID_ID3D11ShaderReflection_43 = {
+      0x0a233719,
+      0x3960,
+      0x4578,
+      {0x9d, 0x7c, 0x20, 0x3b, 0x8b, 0x1d, 0x9c, 0xc1}};
+  const GUID IID_ID3D11ShaderReflection_47 = {
+      0x8d536ca1,
+      0x0cca,
+      0x4956,
+      {0xa8, 0x37, 0x78, 0x69, 0x63, 0x75, 0x55, 0x84}};
+
+  // Check ShaderReflection interface versions
+  {
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcResult> pResultV2;
+    CComPtr<IDxcBlob> pReflectionPart;
+    CComPtr<IDxcBlobEncoding> pSource;
+    CreateBlobFromText(shaderSource, &pSource);
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", L"main",
+                                        L"ds_6_0", nullptr, 0, nullptr, 0,
+                                        nullptr, &pResult));
+    VERIFY_SUCCEEDED(pResult->QueryInterface(&pResultV2));
+    VERIFY_SUCCEEDED(pResultV2->GetOutput(
+        DXC_OUT_REFLECTION, IID_PPV_ARGS(&pReflectionPart), nullptr));
+    DxcBuffer buffer = {pReflectionPart->GetBufferPointer(),
+                        pReflectionPart->GetBufferSize(), 0};
+
+    // The interface version supported for QI should only be the one used for
+    // creating the original reflection interface.
+
+    { // Verify with initial interface ID3D12ShaderReflection
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pShaderReflection)));
+
+      // Verify QI for same interface and IUnknown succeeds:
+      CComPtr<ID3D12ShaderReflection> pShaderReflection2;
+      VERIFY_SUCCEEDED(
+          pShaderReflection->QueryInterface(IID_PPV_ARGS(&pShaderReflection2)));
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(
+          pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
+
+      // Verify QI for wrong version of interface fails:
+      CComPtr<ID3D12ShaderReflection> pShaderReflection43;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection43));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection47;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection47));
+
+      // Verify QI for wrong interface fails:
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_FAILED(
+          pShaderReflection->QueryInterface(IID_PPV_ARGS(&pLibraryReflection)));
+
+      // Verify Get*ParameterDesc methods do not write out-of-bounds
+      TestDescStruct testParamDesc;
+      VERIFY_SUCCEEDED(pShaderReflection->GetInputParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterParamDesc());
+      VERIFY_SUCCEEDED(pShaderReflection->GetOutputParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterParamDesc());
+      VERIFY_SUCCEEDED(pShaderReflection->GetPatchConstantParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterParamDesc());
+    }
+
+    { // Verify with initial interface IID_ID3D11ShaderReflection_47
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(pUtils->CreateReflection(
+          &buffer, IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection));
+
+      // Verify QI for same interface and IUnknown succeeds:
+      CComPtr<ID3D12ShaderReflection> pShaderReflection2;
+      VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection2));
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(
+          pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
+
+      // Verify QI for wrong version of interface fails:
+      CComPtr<ID3D12ShaderReflection> pShaderReflection43;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection43));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection12;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_PPV_ARGS(&pShaderReflection12)));
+
+      // Verify QI for wrong interface fails:
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_FAILED(
+          pShaderReflection->QueryInterface(IID_PPV_ARGS(&pLibraryReflection)));
+
+      // Verify Get*ParameterDesc methods do not write out-of-bounds
+      TestDescStruct testParamDesc;
+      VERIFY_SUCCEEDED(pShaderReflection->GetInputParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterParamDesc());
+      VERIFY_SUCCEEDED(pShaderReflection->GetOutputParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterParamDesc());
+      VERIFY_SUCCEEDED(pShaderReflection->GetPatchConstantParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterParamDesc());
+    }
+
+    { // Verify with initial interface IID_ID3D11ShaderReflection_43
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(pUtils->CreateReflection(
+          &buffer, IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection));
+
+      // Verify QI for same interface and IUnknown succeeds:
+      CComPtr<ID3D12ShaderReflection> pShaderReflection2;
+      VERIFY_SUCCEEDED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_43, (void **)&pShaderReflection2));
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(
+          pShaderReflection->QueryInterface(IID_PPV_ARGS(&pUnknown)));
+
+      // Verify QI for wrong version of interface fails:
+      CComPtr<ID3D12ShaderReflection> pShaderReflection47;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_ID3D11ShaderReflection_47, (void **)&pShaderReflection47));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection12;
+      VERIFY_FAILED(pShaderReflection->QueryInterface(
+          IID_PPV_ARGS(&pShaderReflection12)));
+
+      // Verify QI for wrong interface fails:
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_FAILED(
+          pShaderReflection->QueryInterface(IID_PPV_ARGS(&pLibraryReflection)));
+
+      // Verify Get*ParameterDesc methods do not write out-of-bounds
+      // IID_ID3D11ShaderReflection_43 version of the structure does not have
+      // any feilds after Stream
+      TestDescStruct testParamDesc;
+      VERIFY_SUCCEEDED(pShaderReflection->GetInputParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterStream());
+      VERIFY_SUCCEEDED(pShaderReflection->GetOutputParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterStream());
+      VERIFY_SUCCEEDED(pShaderReflection->GetPatchConstantParameterDesc(
+          0, &testParamDesc.paramDesc));
+      VERIFY_IS_TRUE(testParamDesc.CheckBytesAfterStream());
+    }
+
+    { // Allow IUnknown for latest interface version
+      CComPtr<IUnknown> pUnknown;
+      VERIFY_SUCCEEDED(
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pUnknown)));
+      CComPtr<ID3D12ShaderReflection> pShaderReflection;
+      VERIFY_SUCCEEDED(
+          pUnknown->QueryInterface(IID_PPV_ARGS(&pShaderReflection)));
+    }
+
+    { // Fail to create with incorrect interface
+      CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+      VERIFY_ARE_EQUAL(
+          E_NOINTERFACE,
+          pUtils->CreateReflection(&buffer, IID_PPV_ARGS(&pLibraryReflection)));
     }
   }
 }
