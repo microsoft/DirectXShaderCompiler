@@ -1246,8 +1246,7 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
 CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
                                             DXIL::NodeIOKind Type,
                                             CXXRecordDecl *OutputType,
-                                            bool IsRecordTypeTemplate,
-                                            bool IsCompleteType) {
+                                            bool IsRecordTypeTemplate) {
   StringRef TypeName = HLSLNodeObjectAttr::ConvertRecordTypeToStr(Type);
   BuiltinTypeDeclBuilder Builder(Ctx.getTranslationUnitDecl(), TypeName,
                                  TagDecl::TagKind::TTK_Struct);
@@ -1296,10 +1295,7 @@ CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
       HLSLIntrinsicAttr::CreateImplicit(Ctx, OpcodeGroup, "", Opcode));
   methodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Ctx));
 
-  if (IsCompleteType)
-    return Builder.completeDefinition();
-
-  return Builder.getRecordDecl();
+  return Builder.completeDefinition();
 }
 
 VarDecl *hlsl::DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,

@@ -86,7 +86,7 @@ public:
   }
 
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
-  static const ShaderModel *GetByName(const char *pszName);
+  static const ShaderModel *GetByName(llvm::StringRef Name);
   static const char *GetKindName(Kind kind);
   static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
   static const llvm::StringRef FullNameFromKind(DXIL::ShaderKind sk);
