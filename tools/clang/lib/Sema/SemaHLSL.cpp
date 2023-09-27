@@ -11387,16 +11387,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (pEntryPointDecl) {
     const auto *shaderModel =
         hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
-
-    if (shaderModel->IsGS()) {
-      // Validate that GS has the maxvertexcount attribute
-      if (!pEntryPointDecl->hasAttr<HLSLMaxVertexCountAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "GS"
-            << "maxvertexcount";
-        return;
-      }
-    } else if (shaderModel->IsHS()) {
+          
+    if (shaderModel->IsHS()) {
       if (const HLSLPatchConstantFuncAttr *Attr =
               pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
         NameLookup NL = GetSingleFunctionDeclByName(
@@ -11409,34 +11401,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
           return;
         }
         pPatchFnDecl = NL.Found;
-      } else {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "HS"
-            << "patchconstantfunc";
-        return;
-      }
-    } else if (shaderModel->IsMS()) {
-      // Validate that MS has the numthreads attribute
-      if (!pEntryPointDecl->hasAttr<HLSLNumThreadsAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "MS"
-            << "numthreads";
-        return;
-      }
-      // Validate that MS has the outputtopology attribute
-      if (!pEntryPointDecl->hasAttr<HLSLOutputTopologyAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "MS"
-            << "outputtopology";
-        return;
-      }
-    } else if (shaderModel->IsAS()) {
-      // Validate that AS has the numthreads attribute
-      if (!pEntryPointDecl->hasAttr<HLSLNumThreadsAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "AS"
-            << "numthreads";
-        return;
       }
     }
 
