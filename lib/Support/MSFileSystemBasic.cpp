@@ -107,10 +107,10 @@ struct MSFileSystemHandle {
       stream; // For a file or console file handle, the stream interface.
   int fd;     // For a file handle, its file descriptor.
 
-  MSFileSystemHandle(int knownFD)
+  explicit MSFileSystemHandle(int knownFD)
       : kind(MSFileSystemHandleKind_FileHandle), fd(knownFD) {}
 
-  MSFileSystemHandle(IUnknown *pMapping)
+  explicit MSFileSystemHandle(IUnknown *pMapping)
       : kind(MSFileSystemHandleKind_FileMappingHandle), storage(pMapping),
         fd(0) {}
 
@@ -118,7 +118,7 @@ struct MSFileSystemHandle {
       : kind(MSFileSystemHandleKind_FileHandle), storage(pStorage),
         stream(pStream), fd(0) {}
 
-  MSFileSystemHandle(IEnumSTATSTG *pEnumSTATG)
+  explicit MSFileSystemHandle(IEnumSTATSTG *pEnumSTATG)
       : kind(MSFileSystemHandleKind_FindHandle), storage(pEnumSTATG) {}
 
   MSFileSystemHandle(MSFileSystemHandle &&other) {

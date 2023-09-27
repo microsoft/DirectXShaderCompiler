@@ -172,7 +172,7 @@ struct HhResultReply {
 };
 
 // Logging and tracing.
-static void HhTrace(LPWSTR pMessage) { wprintf(L"%s\n", pMessage); }
+static void HhTrace(LPCWSTR pMessage) { wprintf(L"%s\n", pMessage); }
 
 template <typename TInterface, typename TObject>
 HRESULT DoBasicQueryInterfaceWithRemote(TObject *self, REFIID iid,
