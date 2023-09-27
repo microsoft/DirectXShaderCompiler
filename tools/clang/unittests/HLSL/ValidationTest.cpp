@@ -152,9 +152,7 @@ public:
   TEST_METHOD(DuplicateSysValue)
   TEST_METHOD(FunctionAttributes)
   TEST_METHOD(GSMainMissingAttributeFail)
-  TEST_METHOD(GSOtherMissingAttributeFail)
-  TEST_METHOD(GSMissingMaxVertexCountFail)
-  TEST_METHOD(HSMissingPCFFail)
+  TEST_METHOD(GSOtherMissingAttributeFail)  
   TEST_METHOD(GetAttributeAtVertexInVSFail)
   TEST_METHOD(GetAttributeAtVertexIn60Fail)
   TEST_METHOD(GetAttributeAtVertexInterpFail)
@@ -3265,14 +3263,6 @@ TEST_F(ValidationTest, GSMainMissingAttributeFail) {
 
 TEST_F(ValidationTest, GSOtherMissingAttributeFail) {
   TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-other.hlsl");
-}
-
-TEST_F(ValidationTest, GSMissingMaxVertexCountFail) {
-  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-maxvertexcount.hlsl");
-}
-
-TEST_F(ValidationTest, HSMissingPCFFail) {
-  TestCheck(L"..\\CodeGenHLSL\\attributes-hs-no-pcf.hlsl");
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {

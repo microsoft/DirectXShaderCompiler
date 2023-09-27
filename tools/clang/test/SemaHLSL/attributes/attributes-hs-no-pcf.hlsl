@@ -1,6 +1,4 @@
-// RUN: %dxc -E main -T hs_6_0 %s | FileCheck %s
-
-// CHECK: error: hull entry point must have the patchconstantfunc attribute
+// RUN: %dxc -E main -T hs_6_0 -verify %s
 
 #define NumOutPoints 2
 
@@ -29,7 +27,7 @@ HsPcfOut pcf(InputPatch<HsCpIn, NumOutPoints> patch, uint patchId : SV_Primitive
 [partitioning("fractional_odd")]
 [outputtopology("triangle_ccw")]
 [outputcontrolpoints(NumOutPoints)]
-HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
+HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch, /* expected-error{{hull entry point must have the patchconstantfunc attribute}} */
              uint cpId : SV_OutputControlPointID,
              uint patchId : SV_PrimitiveID) {
     HsCpOut output;

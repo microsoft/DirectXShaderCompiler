@@ -15179,7 +15179,7 @@ void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
                                 llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLNumThreadsAttr>()))
-    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "numthreads";
 
   return;
@@ -15188,10 +15188,10 @@ void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLNumThreadsAttr>()))
-    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "numthreads";
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
-    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "outputtopology";
   return;
 }
@@ -15199,7 +15199,7 @@ void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLPatchConstantFuncAttr>()))
-    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "patchconstantfunc";
 
   return;
@@ -15209,7 +15209,7 @@ void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD,
                            llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLMaxVertexCountAttr>()))
-    S.Diag(FD->getLocation(), diag::err_hlsl_missing_attr)
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "maxvertexcount";
 
   return;
@@ -15459,14 +15459,15 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
   return;
 }
 
-// The DiagnoseEntry function does 3 things:
-// 1. Attempt to add the target profile as an implicit shader attribute which is
-// equivalent to determining whether or not this function is the current active
-// entry point or not.
-// 2. Diagnose whether or not all entry point attributes on
-// the decl belong on the decl given the specific target profile being used.
-// 3. Given the specific target profile, verifying that all necessary attributes
-// that must accompany that target profile exist as attributes to the decl.
+// The DiagnoseEntry function does 2 things:
+// 1. Determine whether this function is the current entry point for a
+// non-library compilation, add an implicit shader attribute if so.
+// 2. For an entry point function, now identified by the shader attribute,
+// diagnose entry point constraints:
+//   a. Diagnose whether or not all entry point attributes on the decl are
+//   allowed on the entry point type (ShaderKind) at all.
+//   b. Diagnose the full entry point decl for required attributes, constraints
+//   on or between attributes and parameters, and more.
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   bool isActiveEntry = false;
   if (S.getLangOpts().IsHLSLLibrary) {

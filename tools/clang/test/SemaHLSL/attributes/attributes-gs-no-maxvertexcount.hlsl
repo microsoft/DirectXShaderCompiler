@@ -1,6 +1,4 @@
-// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
-
-// CHECK: error: geometry entry point must have the maxvertexcount attribute
+// RUN: %dxc -E main -T gs_6_0 -verify %s
 
 struct GsOut {
     float4 pos : SV_Position;
@@ -13,7 +11,7 @@ void foo(inout LineStream<GsOut> param) {
 }
 
 // Missing maxvertexcount attribute
-void main(in triangle float4 pos[3] : SV_Position,
+void main(in triangle float4 pos[3] : SV_Position, /* expected-error{{geometry entry point must have the maxvertexcount attribute}} */
           inout LineStream<GsOut> outData) {
     GsOut vertex;
     vertex.pos = pos[0];
