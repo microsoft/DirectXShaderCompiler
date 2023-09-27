@@ -3878,69 +3878,71 @@ private:
             *m_context, "FeedbackTexture2DArray", "kind");
       } else if (kind == AR_OBJECT_EMPTY_NODE_INPUT) {
         recordDecl = DeclareNodeOrRecordType(
-            *m_context, "EmptyNodeInput",
+            *m_context, DXIL::NodeIOKind::EmptyInput,
             /*IsRecordTypeTemplate*/ false, /*IsConst*/ true,
             /*HasGetMethods*/ false,
             /*IsArray*/ false, /*IsCompleteType*/ false);
       } else if (kind == AR_OBJECT_DISPATCH_NODE_INPUT_RECORD) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "DispatchNodeInputRecord",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ true, /*HasGetMethods*/ true,
-                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::DispatchNodeInputRecord,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ true, /*HasGetMethods*/ true,
+            /*IsArray*/ false, /*IsCompleteType*/ true);
       } else if (kind == AR_OBJECT_RWDISPATCH_NODE_INPUT_RECORD) {
         recordDecl = DeclareNodeOrRecordType(
-            *m_context, "RWDispatchNodeInputRecord",
+            *m_context, DXIL::NodeIOKind::RWDispatchNodeInputRecord,
             /*IsRecordTypeTemplate*/ true, /*IsConst*/ false,
             /*HasGetMethods*/ true,
             /*IsArray*/ false, /*IsCompleteType*/ false);
       } else if (kind == AR_OBJECT_GROUP_NODE_INPUT_RECORDS) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "GroupNodeInputRecords",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ true, /*HasGetMethods*/ true,
-                                    /*IsArray*/ true, /*IsCompleteType*/ false);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::GroupNodeInputRecords,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ true, /*HasGetMethods*/ true,
+            /*IsArray*/ true, /*IsCompleteType*/ false);
       } else if (kind == AR_OBJECT_RWGROUP_NODE_INPUT_RECORDS) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "RWGroupNodeInputRecords",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ false, /*HasGetMethods*/ true,
-                                    /*IsArray*/ true, /*IsCompleteType*/ false);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::RWGroupNodeInputRecords,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ false, /*HasGetMethods*/ true,
+            /*IsArray*/ true, /*IsCompleteType*/ false);
       } else if (kind == AR_OBJECT_THREAD_NODE_INPUT_RECORD) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "ThreadNodeInputRecord",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ true, /*HasGetMethods*/ true,
-                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::ThreadNodeInputRecord,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ true, /*HasGetMethods*/ true,
+            /*IsArray*/ false, /*IsCompleteType*/ true);
       } else if (kind == AR_OBJECT_RWTHREAD_NODE_INPUT_RECORD) {
-        recordDecl =
-            DeclareNodeOrRecordType(*m_context, "RWThreadNodeInputRecord",
-                                    /*IsRecordTypeTemplate*/ true,
-                                    /*IsConst*/ false, /*HasGetMethods*/ true,
-                                    /*IsArray*/ false, /*IsCompleteType*/ true);
+        recordDecl = DeclareNodeOrRecordType(
+            *m_context, DXIL::NodeIOKind::RWThreadNodeInputRecord,
+            /*IsRecordTypeTemplate*/ true,
+            /*IsConst*/ false, /*HasGetMethods*/ true,
+            /*IsArray*/ false, /*IsCompleteType*/ true);
       } else if (kind == AR_OBJECT_NODE_OUTPUT) {
         recordDecl = DeclareNodeOrRecordType(
-            *m_context, "NodeOutput",
+            *m_context, DXIL::NodeIOKind::NodeOutput,
             /*IsRecordTypeTemplate*/ true, /*IsConst*/ true,
             /*HasGetMethods*/ false,
             /*IsArray*/ false, /*IsCompleteType*/ false);
         nodeOutputDecl = recordDecl;
       } else if (kind == AR_OBJECT_EMPTY_NODE_OUTPUT) {
         recordDecl = DeclareNodeOrRecordType(
-            *m_context, "EmptyNodeOutput",
+            *m_context, DXIL::NodeIOKind::EmptyOutput,
             /*IsRecordTypeTemplate*/ false, /*IsConst*/ true,
             /*HasGetMethods*/ false,
             /*IsArray*/ false, /*IsCompleteType*/ false);
         emptyNodeOutputDecl = recordDecl;
       } else if (kind == AR_OBJECT_NODE_OUTPUT_ARRAY) {
         assert(nodeOutputDecl != nullptr);
-        recordDecl = DeclareNodeOutputArray(*m_context, "NodeOutputArray",
+        recordDecl = DeclareNodeOutputArray(*m_context,
+                                            DXIL::NodeIOKind::NodeOutputArray,
                                             /* ItemType */ nodeOutputDecl,
                                             /*IsRecordTypeTemplate*/ true,
                                             /*IsCompleteType*/ true);
       } else if (kind == AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY) {
         assert(emptyNodeOutputDecl != nullptr);
-        recordDecl = DeclareNodeOutputArray(*m_context, "EmptyNodeOutputArray",
+        recordDecl = DeclareNodeOutputArray(*m_context,
+                                            DXIL::NodeIOKind::EmptyOutputArray,
                                             /* ItemType */ emptyNodeOutputDecl,
                                             /*IsRecordTypeTemplate*/ false,
                                             /*IsCompleteType*/ true);
@@ -5115,10 +5117,12 @@ public:
     AddSamplerFeedbackConstants(*m_context);
     AddBarrierConstants(*m_context);
 
-    AddHLSLNodeOutputRecordTemplate(*m_context, "GroupNodeOutputRecords",
+    AddHLSLNodeOutputRecordTemplate(*m_context,
+                                    DXIL::NodeIOKind::GroupNodeOutputRecords,
                                     &m_GroupNodeOutputRecordsTemplateDecl,
                                     /* isCompleteType */ false);
-    AddHLSLNodeOutputRecordTemplate(*m_context, "ThreadNodeOutputRecords",
+    AddHLSLNodeOutputRecordTemplate(*m_context,
+                                    DXIL::NodeIOKind::ThreadNodeOutputRecords,
                                     &m_ThreadNodeOutputRecordsTemplateDecl,
                                     /* isCompleteType */ false);
 
@@ -5357,16 +5361,7 @@ public:
       }
       return false;
 
-    } else if (templateName == "DispatchNodeInputRecord" ||
-               templateName == "RWDispatchNodeInputRecord" ||
-               templateName == "GroupNodeInputRecords" ||
-               templateName == "RWGroupNodeInputRecords" ||
-               templateName == "ThreadNodeInputRecord" ||
-               templateName == "RWThreadNodeInputRecord" ||
-               templateName == "NodeOutput" ||
-               templateName == "NodeOutputArray" ||
-               templateName == "GroupNodeOutputRecords" ||
-               templateName == "ThreadNodeOutputRecords") {
+    } else if (Template->getTemplatedDecl()->hasAttr<HLSLNodeObjectAttr>()) {
 
       DXASSERT(TemplateArgList.size() == 1,
                "otherwise the template has not been declared properly");
@@ -11299,6 +11294,34 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
+// This function diagnoses whether or not all entry-point attributes
+// should exist on this shader stage
+void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
+                                     FunctionDecl *entryPointDecl,
+                                     DXIL::ShaderKind shaderKind) {
+
+  if (entryPointDecl->hasAttrs()) {
+    for (Attr *pAttr : entryPointDecl->getAttrs()) {
+      switch (pAttr->getKind()) {
+
+      case clang::attr::HLSLWaveSize: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Compute:
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "WaveSize"
+              << "compute or node";
+          break;
+        }
+      }
+      }
+    }
+  }
+}
+
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
 
@@ -12773,6 +12796,38 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
                          A.getAttributeSpellingListIndex());
 }
 
+// This function validates the wave size attribute in a stand-alone way,
+// by directly determining whether the attribute is well formed or
+// allowed. It performs validation outside of the context
+// of other attributes that could exist on this decl, and immediately
+// upon detecting the attribute on the decl.
+HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
+                                             const AttributeList &A) {
+  // validate that the wavesize argument is a power of 2 between 4 and 128
+  // inclusive
+  HLSLWaveSizeAttr *pAttr = ::new (S.Context)
+      HLSLWaveSizeAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+                       A.getAttributeSpellingListIndex());
+
+  unsigned waveSize = pAttr->getSize();
+  if (!DXIL::IsValidWaveSizeValue(waveSize)) {
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
+        << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
+  }
+
+  // make sure there is not already an existing conflicting
+  // wavesize attribute on the decl
+  HLSLWaveSizeAttr *waveSizeAttr = D->getAttr<HLSLWaveSizeAttr>();
+  if (waveSizeAttr) {
+    if (waveSizeAttr->getSize() != pAttr->getSize()) {
+      S.Diag(A.getLoc(), diag::err_hlsl_conflicting_shader_attribute)
+          << pAttr->getSpelling() << waveSizeAttr->getSpelling();
+      S.Diag(waveSizeAttr->getLocation(), diag::note_conflicting_attribute);
+    }
+  }
+  return pAttr;
+}
+
 HLSLMaxRecordsSharedWithAttr *
 ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
                                        const AttributeList &A) {
@@ -13225,9 +13280,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLWaveSize:
-    declAttr = ::new (S.Context)
-        HLSLWaveSizeAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-                         A.getAttributeSpellingListIndex());
+    declAttr = ValidateWaveSizeAttributes(S, D, A);
     break;
   case AttributeList::AT_HLSLWaveOpsIncludeHelperLanes:
     declAttr = ::new (S.Context) HLSLWaveOpsIncludeHelperLanesAttr(
@@ -15101,25 +15154,45 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
 
 namespace hlsl {
 
-static bool nodeInputIsCompatible(StringRef &typeName,
+static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
                                   DXIL::NodeLaunchType launchType) {
-  return llvm::StringSwitch<bool>(typeName)
-      .Case("DispatchNodeInputRecord",
-            launchType == DXIL::NodeLaunchType::Broadcasting)
-      .Case("RWDispatchNodeInputRecord",
-            launchType == DXIL::NodeLaunchType::Broadcasting)
-      .Case("GroupNodeInputRecords",
-            launchType == DXIL::NodeLaunchType::Coalescing)
-      .Case("RWGroupNodeInputRecords",
-            launchType == DXIL::NodeLaunchType::Coalescing)
-      .Case("EmptyNodeInput", launchType == DXIL::NodeLaunchType::Coalescing)
-      .Case("ThreadNodeInputRecord", launchType == DXIL::NodeLaunchType::Thread)
-      .Case("RWThreadNodeInputRecord",
-            launchType == DXIL::NodeLaunchType::Thread)
-      .Default(false);
+  switch (IOType) {
+  case DXIL::NodeIOKind::DispatchNodeInputRecord:
+  case DXIL::NodeIOKind::RWDispatchNodeInputRecord:
+    return launchType == DXIL::NodeLaunchType::Broadcasting;
+
+  case DXIL::NodeIOKind::GroupNodeInputRecords:
+  case DXIL::NodeIOKind::RWGroupNodeInputRecords:
+  case DXIL::NodeIOKind::EmptyInput:
+    return launchType == DXIL::NodeLaunchType::Coalescing;
+
+  case DXIL::NodeIOKind::ThreadNodeInputRecord:
+  case DXIL::NodeIOKind::RWThreadNodeInputRecord:
+    return launchType == DXIL::NodeLaunchType::Thread;
+
+  default:
+    return false;
+  }
 }
 
-void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
+void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
+                          bool isActiveEntry) {
+  if (isActiveEntry) {
+    if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
+      std::string profile = S.getLangOpts().HLSLProfile;
+      const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+      if (!SM->IsSM66Plus()) {
+        S.Diags.Report(WaveSizeAttr->getRange().getBegin(),
+                       diag::err_hlsl_attribute_in_wrong_shader_model)
+            << "wavesize"
+            << "6.6";
+      }
+    }
+  }
+}
+
+void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
+                       bool isActiveEntry) {
 
   SourceLocation NodeLoc = SourceLocation();
   SourceLocation NodeLaunchLoc = SourceLocation();
@@ -15127,8 +15200,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   unsigned InputCount = 0;
 
   auto pAttr = FD->getAttr<HLSLShaderAttr>();
-  DXIL::ShaderKind shaderKind =
-      ShaderModel::KindFromFullName(pAttr->getStage());
+  DXIL::ShaderKind shaderKind = ShaderModel::KindFromFullName(StageName);
   if (shaderKind == DXIL::ShaderKind::Node) {
     NodeLoc = pAttr->getLocation();
   }
@@ -15166,6 +15238,19 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_node_attr)
         << FD->getName() << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy)
         << "numthreads";
+  }
+
+  if (isActiveEntry) {
+    if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
+      std::string profile = S.getLangOpts().HLSLProfile;
+      const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
+      if (!SM->IsSM66Plus()) {
+        S.Diags.Report(WaveSizeAttr->getRange().getBegin(),
+                       diag::err_hlsl_attribute_in_wrong_shader_model)
+            << "wavesize"
+            << "6.6";
+      }
+    }
   }
 
   auto *NodeDG = FD->getAttr<HLSLNodeDispatchGridAttr>();
@@ -15212,8 +15297,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
   }
 
   if (!FD->getReturnType()->isVoidType())
-    S.Diag(FD->getLocation(), diag::err_shader_must_return_void)
-        << Attr->getStage();
+    S.Diag(FD->getLocation(), diag::err_shader_must_return_void) << StageName;
 
   // Check parameter constraints
   for (unsigned Idx = 0; Idx < FD->getNumParams(); ++Idx) {
@@ -15222,12 +15306,13 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(Param->getType())) {
       InputCount++;
-      const RecordType *RT = Param->getType()->getAs<RecordType>();
-      StringRef TypeName = RT->getDecl()->getName();
       if (NodeLaunchTy != DXIL::NodeLaunchType::Invalid &&
-          !nodeInputIsCompatible(TypeName, NodeLaunchTy)) {
+          !nodeInputIsCompatible(GetNodeIOType(Param->getType()),
+                                 NodeLaunchTy)) {
+        const RecordType *RT = Param->getType()->getAs<RecordType>();
         S.Diags.Report(Param->getLocation(), diag::err_hlsl_wg_input_kind)
-            << TypeName << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy)
+            << RT->getDecl()->getName()
+            << ShaderModel::GetNodeLaunchTypeName(NodeLaunchTy)
             << (static_cast<unsigned>(NodeLaunchTy) - 1)
             << Param->getSourceRange();
         if (NodeLaunchLoc.isValid())
@@ -15277,7 +15362,17 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 
 // if this is the Entry FD, then try adding the target profile
 // shader attribute to the FD and carry on with validation
-void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
+void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
+                                       bool &isActiveEntry) {
+  // When isActiveEntry is true and this function is an entry point, this entry
+  // point is used in compilation. This is an important distinction when
+  // diagnosing certain types of errors based on the compilation parameters. For
+  // example, if isActiveEntry is false, diagnostics dependent on the shader
+  // model should not be performed. That way we won't raise an error about a
+  // feature used by the inactive entry that's not available in the current
+  // shader model. Since that entry point is not used, it may still be valid in
+  // another compilation where a different shader model is specified.
+  isActiveEntry = false;
   const std::string &EntryPointName = S.getLangOpts().HLSLEntryFunction;
 
   // if there's no defined entry point, just return
@@ -15320,18 +15415,30 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD) {
       HLSLShaderAttr::CreateImplicit(S.Context, fullName);
 
   FD->addAttr(pShaderAttr);
+  isActiveEntry = true;
   return;
 }
 
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
-  TryAddShaderAttrFromTargetProfile(S, FD);
+  bool isActiveEntry = false;
+  if (S.getLangOpts().IsHLSLLibrary) {
+    // TODO: Analyze -exports option to determine which entries
+    // are active for lib target.
+    // For now, assume all entries are active.
+    isActiveEntry = true;
+  } else {
+    TryAddShaderAttrFromTargetProfile(S, FD, isActiveEntry);
+  }
 
-  auto Attr = FD->getAttr<HLSLShaderAttr>();
+  HLSLShaderAttr *Attr = FD->getAttr<HLSLShaderAttr>();
   if (!Attr) {
     return;
   }
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
+  llvm::StringRef StageName = Attr->getStage();
+  DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
+
   switch (Stage) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
@@ -15344,23 +15451,26 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::Invalid:
     return;
   case DXIL::ShaderKind::Callable: {
-    return DiagnoseCallableEntry(S, FD, Attr);
+    return DiagnoseCallableEntry(S, FD, StageName);
   }
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::AnyHit: {
-    return DiagnoseMissOrAnyHitEntry(S, FD, Attr, Stage);
+    return DiagnoseMissOrAnyHitEntry(S, FD, StageName, Stage);
   }
   case DXIL::ShaderKind::RayGeneration:
   case DXIL::ShaderKind::Intersection: {
-    return DiagnoseRayGenerationOrIntersectionEntry(S, FD, Attr);
+    return DiagnoseRayGenerationOrIntersectionEntry(S, FD, StageName);
   }
   case DXIL::ShaderKind::ClosestHit: {
-    return DiagnoseClosestHitEntry(S, FD, Attr);
+    return DiagnoseClosestHitEntry(S, FD, StageName);
   }
-  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Compute: {
+    return DiagnoseComputeEntry(S, FD, StageName, isActiveEntry);
+  }
+
   case DXIL::ShaderKind::Node: {
     // A compute shader may also be a node, so we check it here
-    return DiagnoseNodeEntry(S, FD, Attr);
+    return DiagnoseNodeEntry(S, FD, StageName, isActiveEntry);
   }
   }
 }

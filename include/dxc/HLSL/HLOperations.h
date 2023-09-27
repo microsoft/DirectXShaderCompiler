@@ -293,6 +293,22 @@ const unsigned kSampleCmpOffsetArgIndex = 5;
 const unsigned kSampleCmpClampArgIndex = 6;
 const unsigned kSampleCmpStatusArgIndex = 7;
 
+
+// SampleCmpBias.
+const unsigned kSampleCmpBCmpValArgIndex = 4;
+const unsigned kSampleCmpBBiasArgIndex = 5;
+const unsigned kSampleCmpBOffsetArgIndex = 6;
+const unsigned kSampleCmpBClampArgIndex = 7;
+const unsigned kSampleCmpBStatusArgIndex = 8;
+
+// SampleCmpGrad.
+const unsigned kSampleCmpGCmpValArgIndex = 4;
+const unsigned kSampleCmpGDDXArgIndex = 5;
+const unsigned kSampleCmpGDDYArgIndex = 6;
+const unsigned kSampleCmpGOffsetArgIndex = 7;
+const unsigned kSampleCmpGClampArgIndex = 8;
+const unsigned kSampleCmpGStatusArgIndex = 9;
+
 // SampleBias.
 const unsigned kSampleBBiasArgIndex = 4;
 const unsigned kSampleBOffsetArgIndex = 5;

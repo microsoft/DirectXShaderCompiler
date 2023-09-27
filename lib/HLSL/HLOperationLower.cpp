@@ -3263,6 +3263,23 @@ SampleHelper::SampleHelper(CallInst *CI, OP::OpCode op,
     SetClamp(CI, HLOperandIndex::kSampleCmpClampArgIndex - cube);
     SetStatus(CI, HLOperandIndex::kSampleCmpStatusArgIndex - cube);
     break;
+  case OP::OpCode::SampleCmpBias:
+    SetBias(CI, HLOperandIndex::kSampleCmpBBiasArgIndex);
+    SetCompareValue(CI, HLOperandIndex::kSampleCmpBCmpValArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx
+                             : HLOperandIndex::kSampleCmpBOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleCmpBClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleCmpBStatusArgIndex - cube);
+    break;
+  case OP::OpCode::SampleCmpGrad:
+    SetDDX(CI, HLOperandIndex::kSampleCmpGDDXArgIndex);
+    SetDDY(CI, HLOperandIndex::kSampleCmpGDDYArgIndex);
+    SetCompareValue(CI, HLOperandIndex::kSampleCmpGCmpValArgIndex);
+    TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx
+                             : HLOperandIndex::kSampleCmpGOffsetArgIndex);
+    SetClamp(CI, HLOperandIndex::kSampleCmpGClampArgIndex - cube);
+    SetStatus(CI, HLOperandIndex::kSampleCmpGStatusArgIndex - cube);
+    break;
   case OP::OpCode::SampleCmpLevel:
     SetCompareValue(CI, HLOperandIndex::kSampleCmpCmpValArgIndex);
     TranslateOffset(CI, cube ? HLOperandIndex::kInvalidIdx
@@ -3439,6 +3456,40 @@ Value *TranslateSample(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
         sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
         // Bias.
         sampleHelper.bias,
+        // Clamp.
+        sampleHelper.clamp};
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
+  } break;
+  case OP::OpCode::SampleCmpBias: {
+    Value *sampleArgs[] = {
+        opArg, sampleHelper.texHandle, sampleHelper.samplerHandle,
+        // Coord.
+        sampleHelper.coord[0], sampleHelper.coord[1], sampleHelper.coord[2],
+        sampleHelper.coord[3],
+        // Offset.
+        sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
+        // CmpVal.
+        sampleHelper.compareValue,
+        // Bias.
+        sampleHelper.bias,
+        // Clamp.
+        sampleHelper.clamp};
+    GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
+  } break;
+  case OP::OpCode::SampleCmpGrad: {
+    Value *sampleArgs[] = {
+        opArg, sampleHelper.texHandle, sampleHelper.samplerHandle,
+        // Coord.
+        sampleHelper.coord[0], sampleHelper.coord[1], sampleHelper.coord[2],
+        sampleHelper.coord[3],
+        // Offset.
+        sampleHelper.offset[0], sampleHelper.offset[1], sampleHelper.offset[2],
+        // CmpVal.
+        sampleHelper.compareValue,
+        // Ddx.
+        sampleHelper.ddx[0], sampleHelper.ddx[1], sampleHelper.ddx[2],
+        // Ddy.
+        sampleHelper.ddy[0], sampleHelper.ddy[1], sampleHelper.ddy[2],
         // Clamp.
         sampleHelper.clamp};
     GenerateDxilSample(CI, F, sampleArgs, sampleHelper.status, hlslOP);
@@ -6710,6 +6761,10 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::MOP_Sample, TranslateSample, DXIL::OpCode::Sample},
     {IntrinsicOp::MOP_SampleBias, TranslateSample, DXIL::OpCode::SampleBias},
     {IntrinsicOp::MOP_SampleCmp, TranslateSample, DXIL::OpCode::SampleCmp},
+    {IntrinsicOp::MOP_SampleCmpBias, TranslateSample,
+     DXIL::OpCode::SampleCmpBias},
+    {IntrinsicOp::MOP_SampleCmpGrad, TranslateSample,
+     DXIL::OpCode::SampleCmpGrad},
     {IntrinsicOp::MOP_SampleCmpLevel, TranslateSample,
      DXIL::OpCode::SampleCmpLevel},
     {IntrinsicOp::MOP_SampleCmpLevelZero, TranslateSample,

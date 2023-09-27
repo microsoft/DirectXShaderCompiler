@@ -2350,6 +2350,8 @@ ID  Name                                                  Description
 251 AnnotateNodeRecordHandle                              annotate handle with node record properties
 252 NodeOutputIsValid                                     returns true if the specified output node is present in the work graph
 253 GetRemainingRecursionLevels                           returns how many levels of recursion remain
+254 SampleCmpGrad                                         samples a texture using a gradient and compares a single component against the specified comparison value
+255 SampleCmpBias                                         samples a texture after applying the input bias to the mipmap level and compares a single component against the specified comparison value
 === ===================================================== =======================================================================================================================================================================================================================
 
 

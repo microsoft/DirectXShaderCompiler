@@ -1834,38 +1834,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->ShaderProps.PS.EarlyDepthStencil = true;
   }
 
-  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
-    if (!m_pHLModule->GetShaderModel()->IsSM66Plus()) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute WaveSize only valid for shader model 6.6 and higher.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-    if (!isCS && !isNode) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "attribute WaveSize only valid for CS.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-    if (!isEntry && !isNode) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute WaveSize only valid on entry point function.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-    // validate that it is a power of 2 between 4 and 128
-    unsigned waveSize = Attr->getSize();
-    if (!DXIL::IsValidWaveSizeValue(waveSize)) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "WaveSize value must be between %0 and %1 and a power of 2.");
-      Diags.Report(Attr->getLocation(), DiagID)
-          << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
-    }
+  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>())
     funcProps->waveSize = Attr->getSize();
-  }
 
   // Node shader
   if (isNode) {
@@ -2515,24 +2485,24 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
                                /*isPatchConstantFunction*/ false);
     }
   }
-
-  // If InputNodes is empty, add an implicit input.
-  // - If MaxDispatchGrid is specified, we need a default record type with a
-  // single uint3 field for SV_DispatchGrid.
-  // - Otherwise, we use EmptyNodeInput
-  if (funcProps->InputNodes.size() == 0) {
-    if (funcProps->Node.MaxDispatchGrid[0] > 0) {
-      hlsl::NodeIOProperties defaultInput(
-          DXIL::NodeIOKind::DispatchNodeInputRecord);
-      defaultInput.RecordType.size = 12;
-      defaultInput.RecordType.SV_DispatchGrid.ByteOffset = 0;
-      defaultInput.RecordType.SV_DispatchGrid.ComponentType =
-          DXIL::ComponentType::U32;
-      defaultInput.RecordType.SV_DispatchGrid.NumComponents = 3;
-      funcProps->InputNodes.push_back(defaultInput);
-    } else {
-      hlsl::NodeIOProperties emptyInput(DXIL::NodeIOKind::EmptyInput);
-      funcProps->InputNodes.push_back(emptyInput);
+  
+  // Make sure that if "NodeMaxDispatchGrid" is used, that an input
+  // with the SV_DispatchGrid attribute is provided.
+  if (funcProps->Node.MaxDispatchGrid[0] > 0) {
+    bool found = false;
+    for (auto node : funcProps->InputNodes) {
+      if (node.RecordType.SV_DispatchGrid.NumComponents != 0) {
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "node shader '%0' with NodeMaxDispatchGrid attribute must declare an"
+          " input record containing a field with the SV_DispatchGrid semantic");
+      Diags.Report(FD->getLocation(), DiagID) << FD->getIdentifier()->getName();
     }
   }
 
