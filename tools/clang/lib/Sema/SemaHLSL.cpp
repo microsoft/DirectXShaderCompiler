@@ -3937,15 +3937,13 @@ private:
         recordDecl = DeclareNodeOutputArray(*m_context,
                                             DXIL::NodeIOKind::NodeOutputArray,
                                             /* ItemType */ nodeOutputDecl,
-                                            /*IsRecordTypeTemplate*/ true,
-                                            /*IsCompleteType*/ true);
+                                            /*IsRecordTypeTemplate*/ true);
       } else if (kind == AR_OBJECT_EMPTY_NODE_OUTPUT_ARRAY) {
         assert(emptyNodeOutputDecl != nullptr);
         recordDecl = DeclareNodeOutputArray(*m_context,
                                             DXIL::NodeIOKind::EmptyOutputArray,
                                             /* ItemType */ emptyNodeOutputDecl,
-                                            /*IsRecordTypeTemplate*/ false,
-                                            /*IsCompleteType*/ true);
+                                            /*IsRecordTypeTemplate*/ false);
       } else if (kind == AR_OBJECT_GROUP_NODE_OUTPUT_RECORDS) {
         recordDecl = m_GroupNodeOutputRecordsTemplateDecl->getTemplatedDecl();
       } else if (kind == AR_OBJECT_THREAD_NODE_OUTPUT_RECORDS) {

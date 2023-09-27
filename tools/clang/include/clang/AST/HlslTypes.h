@@ -402,8 +402,7 @@ DeclareNodeOrRecordType(clang::ASTContext &Ctx, DXIL::NodeIOKind Type,
 clang::CXXRecordDecl *DeclareNodeOutputArray(clang::ASTContext &Ctx,
                                              DXIL::NodeIOKind Type,
                                              clang::CXXRecordDecl *OutputType,
-                                             bool IsRecordTypeTemplate,
-                                             bool IsCompleteType);
+                                             bool IsRecordTypeTemplate);
 
 clang::CXXRecordDecl *
 DeclareRecordTypeWithHandleAndNoMemberFunctions(clang::ASTContext &context,
