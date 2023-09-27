@@ -152,7 +152,7 @@ public:
   TEST_METHOD(DuplicateSysValue)
   TEST_METHOD(FunctionAttributes)
   TEST_METHOD(GSMainMissingAttributeFail)
-  TEST_METHOD(GSOtherMissingAttributeFail)  
+  TEST_METHOD(GSOtherMissingAttributeFail)
   TEST_METHOD(GetAttributeAtVertexInVSFail)
   TEST_METHOD(GetAttributeAtVertexIn60Fail)
   TEST_METHOD(GetAttributeAtVertexInterpFail)

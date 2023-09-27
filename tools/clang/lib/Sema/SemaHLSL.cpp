@@ -11387,7 +11387,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (pEntryPointDecl) {
     const auto *shaderModel =
         hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
-          
+
     if (shaderModel->IsHS()) {
       if (const HLSLPatchConstantFuncAttr *Attr =
               pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
