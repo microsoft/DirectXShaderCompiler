@@ -2515,24 +2515,24 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
                                /*isPatchConstantFunction*/ false);
     }
   }
-
-  // If InputNodes is empty, add an implicit input.
-  // - If MaxDispatchGrid is specified, we need a default record type with a
-  // single uint3 field for SV_DispatchGrid.
-  // - Otherwise, we use EmptyNodeInput
-  if (funcProps->InputNodes.size() == 0) {
-    if (funcProps->Node.MaxDispatchGrid[0] > 0) {
-      hlsl::NodeIOProperties defaultInput(
-          DXIL::NodeIOKind::DispatchNodeInputRecord);
-      defaultInput.RecordType.size = 12;
-      defaultInput.RecordType.SV_DispatchGrid.ByteOffset = 0;
-      defaultInput.RecordType.SV_DispatchGrid.ComponentType =
-          DXIL::ComponentType::U32;
-      defaultInput.RecordType.SV_DispatchGrid.NumComponents = 3;
-      funcProps->InputNodes.push_back(defaultInput);
-    } else {
-      hlsl::NodeIOProperties emptyInput(DXIL::NodeIOKind::EmptyInput);
-      funcProps->InputNodes.push_back(emptyInput);
+  
+  // Make sure that if "NodeMaxDispatchGrid" is used, that an input
+  // with the SV_DispatchGrid attribute is provided.
+  if (funcProps->Node.MaxDispatchGrid[0] > 0) {
+    bool found = false;
+    for (auto node : funcProps->InputNodes) {
+      if (node.RecordType.SV_DispatchGrid.NumComponents != 0) {
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      unsigned DiagID = Diags.getCustomDiagID(
+          DiagnosticsEngine::Error,
+          "node shader '%0' with NodeMaxDispatchGrid attribute must declare an"
+          " input record containing a field with the SV_DispatchGrid semantic");
+      Diags.Report(FD->getLocation(), DiagID) << FD->getIdentifier()->getName();
     }
   }
 

@@ -40,9 +40,11 @@ void loadStressWorker(
 
 #define LOAD_STRESS_THREAD_GROUP_SIZE_16 1
 
-[Shader("node")][NodeMaxDispatchGrid(LOAD_STRESS_MAX_GRID_SIZE, 1, 1)]
+[Shader("node")]
+[NodeMaxDispatchGrid(LOAD_STRESS_MAX_GRID_SIZE, 1, 1)]
 [NumThreads(LOAD_STRESS_THREAD_GROUP_SIZE_16, 1, 1)]
-void loadStress_16 (NodeOutput<loadStressRecord> loadStressChild,
+void loadStress_16 (DispatchNodeInputRecord<loadStressRecord> input,
+                    NodeOutput<loadStressRecord> loadStressChild,
                     uint threadIndex : SV_GroupIndex )
 {
     loadStressWorker(threadIndex, LOAD_STRESS_THREAD_GROUP_SIZE_16, /*inputData, */loadStressChild);
