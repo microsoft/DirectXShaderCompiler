@@ -15245,13 +15245,15 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
     if (ParamTy->isArrayType()) {
       const ArrayType *AT = dyn_cast<ArrayType>(ParamTy);
       DXIL::NodeIOKind Kind = GetNodeIOType(AT->getElementType());
-      if (Kind == DXIL::NodeIOKind::NodeOutput ||
-          Kind == DXIL::NodeIOKind::EmptyOutput) {
-        S.Diags.Report(Param->getLocation(),
-                       diag::err_hlsl_nodeoutput_array_parameter)
-            << HLSLNodeObjectAttr::ConvertRecordTypeToStr(Kind)
-            << Param->getSourceRange();
+      if (Kind != DXIL::NodeIOKind::Invalid) {
         Param->setInvalidDecl();
+        S.Diags.Report(Param->getLocation(),
+                       diag::err_hlsl_array_entry_param_disallowed)
+            << ParamTy;
+        if (Kind == DXIL::NodeIOKind::NodeOutput ||
+            Kind == DXIL::NodeIOKind::EmptyOutput)
+          S.Diags.Report(Param->getLocation(), diag::note_hlsl_node_array)
+              << HLSLNodeObjectAttr::ConvertRecordTypeToStr(Kind);
       }
     }
 
