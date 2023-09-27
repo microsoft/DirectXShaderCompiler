@@ -188,10 +188,14 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
   // VALRULE-TEXT:END
 }
 
-const ShaderModel *ShaderModel::GetByName(const char *pszName) {
+const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {
   // [ps|vs|gs|hs|ds|cs|ms|as]_[major]_[minor]
   Kind kind;
-  switch (pszName[0]) {
+  if (Name.empty()) {
+    return GetInvalid();
+  }
+
+  switch (Name[0]) {
   case 'p':
     kind = Kind::Pixel;
     break;
@@ -224,16 +228,16 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   }
   unsigned Idx = 3;
   if (kind != Kind::Library) {
-    if (pszName[1] != 's' || pszName[2] != '_')
+    if (Name[1] != 's' || Name[2] != '_')
       return GetInvalid();
   } else {
-    if (pszName[1] != 'i' || pszName[2] != 'b' || pszName[3] != '_')
+    if (Name[1] != 'i' || Name[2] != 'b' || Name[3] != '_')
       return GetInvalid();
     Idx = 4;
   }
 
   unsigned Major;
-  switch (pszName[Idx++]) {
+  switch (Name[Idx++]) {
   case '4':
     Major = 4;
     break;
@@ -246,11 +250,11 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   default:
     return GetInvalid();
   }
-  if (pszName[Idx++] != '_')
+  if (Name[Idx++] != '_')
     return GetInvalid();
 
   unsigned Minor;
-  switch (pszName[Idx++]) {
+  switch (Name[Idx++]) {
   case '0':
     Minor = 0;
     break;
@@ -314,7 +318,8 @@ const ShaderModel *ShaderModel::GetByName(const char *pszName) {
   default:
     return GetInvalid();
   }
-  if (pszName[Idx++] != 0)
+  // make sure there isn't anything after the minor
+  if (Name.size() > Idx)
     return GetInvalid();
 
   return Get(kind, Major, Minor);

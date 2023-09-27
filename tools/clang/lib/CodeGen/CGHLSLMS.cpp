@@ -1834,38 +1834,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->ShaderProps.PS.EarlyDepthStencil = true;
   }
 
-  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
-    if (!m_pHLModule->GetShaderModel()->IsSM66Plus()) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute WaveSize only valid for shader model 6.6 and higher.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-    if (!isCS && !isNode) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error, "attribute WaveSize only valid for CS.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-    if (!isEntry && !isNode) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "attribute WaveSize only valid on entry point function.");
-      Diags.Report(Attr->getLocation(), DiagID);
-      return;
-    }
-    // validate that it is a power of 2 between 4 and 128
-    unsigned waveSize = Attr->getSize();
-    if (!DXIL::IsValidWaveSizeValue(waveSize)) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "WaveSize value must be between %0 and %1 and a power of 2.");
-      Diags.Report(Attr->getLocation(), DiagID)
-          << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
-    }
+  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>())
     funcProps->waveSize = Attr->getSize();
-  }
 
   // Node shader
   if (isNode) {

@@ -77,18 +77,18 @@ void DiagnoseRaytracingPayloadAccess(clang::Sema &S,
                                      clang::TranslationUnitDecl *TU);
 
 void DiagnoseCallableEntry(clang::Sema &S, clang::FunctionDecl *FD,
-                           clang::HLSLShaderAttr *Attr);
+                           llvm::StringRef StageName);
 
 void DiagnoseMissOrAnyHitEntry(clang::Sema &S, clang::FunctionDecl *FD,
-                               clang::HLSLShaderAttr *Attr,
+                               llvm::StringRef StageName,
                                DXIL::ShaderKind Stage);
 
 void DiagnoseRayGenerationOrIntersectionEntry(clang::Sema &S,
                                               clang::FunctionDecl *FD,
-                                              clang::HLSLShaderAttr *Attr);
+                                              llvm::StringRef StageName);
 
 void DiagnoseClosestHitEntry(clang::Sema &S, clang::FunctionDecl *FD,
-                             clang::HLSLShaderAttr *Attr);
+                             llvm::StringRef StageName);
 
 void DiagnoseEntry(clang::Sema &S, clang::FunctionDecl *FD);
 
