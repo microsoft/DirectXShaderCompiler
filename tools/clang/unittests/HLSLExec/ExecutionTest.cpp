@@ -3445,9 +3445,9 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
             bool isTop[4];
             bool isLeft[4];
             PerPixelData helperData;
-            memset(&helperData, sizeof(helperData), 0);
+            memset(&helperData, 0, sizeof(helperData));
             PerPixelData *layout[4]; // tl,tr,bl,br
-            memset(layout, sizeof(layout), 0);
+            memset(layout, 0, sizeof(layout));
             auto fnToLayout = [&](bool top, bool left) -> PerPixelData ** {
               int idx = top ? 0 : 2;
               idx += left ? 0 : 1;
@@ -5477,7 +5477,7 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
     return;
   }
 
-  char *pShaderModelStr;
+  const char *pShaderModelStr;
   if (shaderModel == D3D_SHADER_MODEL_6_1) {
     pShaderModelStr = "cs_6_1";
   } else if (shaderModel == D3D_SHADER_MODEL_6_3) {
@@ -5499,7 +5499,7 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
   char shader[sizeof(shaderTemplate) + 50];
 
   // Run simple shader with float data types
-  char *sTy = "float";
+  const char *sTy = "float";
   float inputFloatPairs[] = {1.5f, -2.8f, 3.23e-5f, 6.0f, 181.621f, 14.978f};
   VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
   WEX::Logging::Log::Comment(L"BasicShaderModel float");
@@ -10948,7 +10948,7 @@ void ExecutionTest::WaveSizeTest() {
           VERIFY_IS_TRUE(sizeof(WaveSizeTestData) * MAX_WAVESIZE <=
                          Data.size());
           WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
-          memset(&pInData, sizeof(WaveSizeTestData) * MAX_WAVESIZE, 0);
+          memset(pInData, 0, sizeof(WaveSizeTestData) * MAX_WAVESIZE);
         },
         ShaderOpSet);
 

@@ -768,8 +768,6 @@ private:
 
 int DxcBatchContext::BatchCompile(bool bMultiThread, bool bLibLink) {
   int retVal = 0;
-  DxcOpts tmp_Opts;
-  // tmp_Opts = m_Opts;
   SmallString<128> path(m_Opts.InputFile.begin(), m_Opts.InputFile.end());
   llvm::sys::path::remove_filename(path);
 

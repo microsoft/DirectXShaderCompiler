@@ -133,9 +133,9 @@ public:
       DXASSERT_NOMSG(false);
     }
     LiveRange(LiveRange &&other)
-        : id(other.id), numI(other.numI), numF(other.numF), numU(other.numU),
-          pNewType(other.pNewType), defs(std::move(other.defs)),
-          bitcastMap(std::move(other.bitcastMap)) {
+        : id(other.id), defs(std::move(other.defs)),
+          bitcastMap(std::move(other.bitcastMap)), numI(other.numI),
+          numF(other.numF), numU(other.numU), pNewType(other.pNewType) {
       DXASSERT_NOMSG(false);
     }
 

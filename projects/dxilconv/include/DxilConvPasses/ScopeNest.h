@@ -71,12 +71,12 @@ struct ScopeNestEvent {
   Type ElementType;
   BlockTy *Block;
 
-  ScopeNestEvent(BlockTy *B, Type T) : Block(B), ElementType(T) {}
+  ScopeNestEvent(BlockTy *B, Type T) : ElementType(T), Block(B) {}
   static ScopeNestEvent Invalid() {
     return ScopeNestEvent(nullptr, Type::Invalid);
   }
 
-  const bool IsBeginScope() const {
+  bool IsBeginScope() const {
     switch (ElementType) {
     case Type::TopLevel_Begin:
       return "TopLevel_Begin";
@@ -91,7 +91,7 @@ struct ScopeNestEvent {
     return false;
   }
 
-  const bool IsEndScope() const {
+  bool IsEndScope() const {
     switch (ElementType) {
     case Type::If_End:
     case Type::Switch_End:
