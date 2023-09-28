@@ -9,41 +9,40 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/Global.h"
-#include "dxc/Support/Unicode.h"
-#include "dxc/Support/microcom.h"
+#include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
-#include "dxc/Support/FileIOHelper.h"
-#include "dxc/DXIL/DxilModule.h"
-#include "llvm/Analysis/ReducibilityAnalysis.h"
-#include "dxc/HLSL/HLMatrixLowerPass.h"
-#include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/ComputeViewIdState.h"
-#include "llvm/Analysis/DxilValueCache.h"
-#include "dxc/DXIL/DxilUtil.h"
-#include "dxc/Support/dxcapi.impl.h"
-#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
-#include "dxc/DxilContainer/DxilContainerAssembler.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/HLSL/ComputeViewIdState.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/HLSL/HLMatrixLowerPass.h"
+#include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/Unicode.h"
+#include "dxc/Support/WinIncludes.h"
+#include "dxc/Support/dxcapi.impl.h"
+#include "dxc/Support/microcom.h"
+#include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/Analysis/ReducibilityAnalysis.h"
 
-#include "llvm/Pass.h"
-#include "llvm/PassInfo.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/IRReader/IRReader.h"
+#include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/Analysis/CFGPrinter.h"
+#include "llvm/IRReader/IRReader.h"
+#include "llvm/Pass.h"
+#include "llvm/PassInfo.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include <algorithm>
-#include <list>   // should change this for string_table
+#include <list> // should change this for string_table
 #include <vector>
 
 #include "llvm/PassPrinters/PassPrinters.h"
@@ -51,9 +50,7 @@
 using namespace llvm;
 using namespace hlsl;
 
-inline static bool wcseq(LPCWSTR a, LPCWSTR b) {
-  return 0 == wcscmp(a, b);
-}
+inline static bool wcseq(LPCWSTR a, LPCWSTR b) { return 0 == wcscmp(a, b); }
 inline static bool wcsstartswith(LPCWSTR value, LPCWSTR prefix) {
   while (*value && *prefix && *value == *prefix) {
     ++value;
@@ -64,7 +61,9 @@ inline static bool wcsstartswith(LPCWSTR value, LPCWSTR prefix) {
 
 #include "DxcOptimizer.inc"
 
-static void FatalErrorHandlerStreamWrite(void *user_data, const std::string& reason, bool gen_crash_diag) {
+static void FatalErrorHandlerStreamWrite(void *user_data,
+                                         const std::string &reason,
+                                         bool gen_crash_diag) {
   raw_ostream *OS = (raw_ostream *)user_data;
   *OS << reason;
   throw std::exception();
@@ -74,7 +73,7 @@ static HRESULT Utf8ToWideCoTaskMalloc(LPCSTR pValue, LPWSTR *ppResult) {
   if (ppResult == nullptr)
     return E_POINTER;
   int count = MultiByteToWideChar(CP_UTF8, 0, pValue, -1, nullptr, 0);
-  *ppResult = (wchar_t*)CoTaskMemAlloc(sizeof(wchar_t) * count);
+  *ppResult = (wchar_t *)CoTaskMemAlloc(sizeof(wchar_t) * count);
   if (*ppResult == nullptr)
     return E_OUTOFMEMORY;
   MultiByteToWideChar(CP_UTF8, 0, pValue, -1, *ppResult, count);
@@ -88,53 +87,69 @@ private:
   LPCSTR m_pDescription;
   ArrayRef<LPCSTR> m_pArgNames;
   ArrayRef<LPCSTR> m_pArgDescriptions;
+
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcOptimizerPass)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcOptimizerPass>(this, iid, ppvObject);
   }
 
-  HRESULT Initialize(LPCSTR pOptionName, LPCSTR pDescription, ArrayRef<LPCSTR> pArgNames, ArrayRef<LPCSTR> pArgDescriptions) {
-    DXASSERT(pArgNames.size() == pArgDescriptions.size(), "else lookup tables are out of alignment");
+  HRESULT Initialize(LPCSTR pOptionName, LPCSTR pDescription,
+                     ArrayRef<LPCSTR> pArgNames,
+                     ArrayRef<LPCSTR> pArgDescriptions) {
+    DXASSERT(pArgNames.size() == pArgDescriptions.size(),
+             "else lookup tables are out of alignment");
     m_pOptionName = pOptionName;
     m_pDescription = pDescription;
     m_pArgNames = pArgNames;
     m_pArgDescriptions = pArgDescriptions;
     return S_OK;
   }
-  static HRESULT Create(IMalloc *pMalloc, LPCSTR pOptionName, LPCSTR pDescription, ArrayRef<LPCSTR> pArgNames, ArrayRef<LPCSTR> pArgDescriptions, IDxcOptimizerPass **ppResult) {
+  static HRESULT Create(IMalloc *pMalloc, LPCSTR pOptionName,
+                        LPCSTR pDescription, ArrayRef<LPCSTR> pArgNames,
+                        ArrayRef<LPCSTR> pArgDescriptions,
+                        IDxcOptimizerPass **ppResult) {
     CComPtr<DxcOptimizerPass> result;
     *ppResult = nullptr;
     result = DxcOptimizerPass::Alloc(pMalloc);
     IFROOM(result);
-    IFR(result->Initialize(pOptionName, pDescription, pArgNames, pArgDescriptions));
+    IFR(result->Initialize(pOptionName, pDescription, pArgNames,
+                           pArgDescriptions));
     *ppResult = result.Detach();
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE GetOptionName(_COM_Outptr_ LPWSTR *ppResult) override {
+  HRESULT STDMETHODCALLTYPE GetOptionName(LPWSTR *ppResult) override {
     return Utf8ToWideCoTaskMalloc(m_pOptionName, ppResult);
   }
-  HRESULT STDMETHODCALLTYPE GetDescription(_COM_Outptr_ LPWSTR *ppResult) override {
+  HRESULT STDMETHODCALLTYPE GetDescription(LPWSTR *ppResult) override {
     return Utf8ToWideCoTaskMalloc(m_pDescription, ppResult);
   }
 
-  HRESULT STDMETHODCALLTYPE GetOptionArgCount(_Out_ UINT32 *pCount) override {
-    if (!pCount) return E_INVALIDARG;
+  HRESULT STDMETHODCALLTYPE GetOptionArgCount(UINT32 *pCount) override {
+    if (!pCount)
+      return E_INVALIDARG;
     *pCount = m_pArgDescriptions.size();
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE GetOptionArgName(UINT32 argIndex, LPWSTR *ppResult) override {
-    if (!ppResult) return E_INVALIDARG;
-    if (argIndex >= m_pArgNames.size()) return E_INVALIDARG;
+  HRESULT STDMETHODCALLTYPE GetOptionArgName(UINT32 argIndex,
+                                             LPWSTR *ppResult) override {
+    if (!ppResult)
+      return E_INVALIDARG;
+    if (argIndex >= m_pArgNames.size())
+      return E_INVALIDARG;
     return Utf8ToWideCoTaskMalloc(m_pArgNames[argIndex], ppResult);
   }
-  HRESULT STDMETHODCALLTYPE GetOptionArgDescription(UINT32 argIndex, LPWSTR *ppResult) override {
-    if (!ppResult) return E_INVALIDARG;
-    if (argIndex >= m_pArgDescriptions.size()) return E_INVALIDARG;
+  HRESULT STDMETHODCALLTYPE GetOptionArgDescription(UINT32 argIndex,
+                                                    LPWSTR *ppResult) override {
+    if (!ppResult)
+      return E_INVALIDARG;
+    if (argIndex >= m_pArgDescriptions.size())
+      return E_INVALIDARG;
     return Utf8ToWideCoTaskMalloc(m_pArgDescriptions[argIndex], ppResult);
   }
 };
@@ -144,38 +159,40 @@ private:
   DXC_MICROCOM_TM_REF_FIELDS()
   PassRegistry *m_registry;
   std::vector<const PassInfo *> m_passes;
+
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcOptimizer)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcOptimizer>(this, iid, ppvObject);
   }
 
   HRESULT Initialize();
   const PassInfo *getPassByID(llvm::AnalysisID PassID);
   const PassInfo *getPassByName(const char *pName);
-  HRESULT STDMETHODCALLTYPE GetAvailablePassCount(_Out_ UINT32 *pCount) override {
+  HRESULT STDMETHODCALLTYPE GetAvailablePassCount(UINT32 *pCount) override {
     return AssignToOut<UINT32>(m_passes.size(), pCount);
   }
-  HRESULT STDMETHODCALLTYPE GetAvailablePass(UINT32 index, _COM_Outptr_ IDxcOptimizerPass** ppResult) override;
-  HRESULT STDMETHODCALLTYPE RunOptimizer(IDxcBlob *pBlob,
-    _In_count_(optionCount) LPCWSTR *ppOptions, UINT32 optionCount,
-    _COM_Outptr_ IDxcBlob **ppOutputModule,
-    _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) override;
+  HRESULT STDMETHODCALLTYPE
+  GetAvailablePass(UINT32 index, IDxcOptimizerPass **ppResult) override;
+  HRESULT STDMETHODCALLTYPE RunOptimizer(
+      IDxcBlob *pBlob, LPCWSTR *ppOptions, UINT32 optionCount,
+      IDxcBlob **ppOutputModule, IDxcBlobEncoding **ppOutputText) override;
 };
 
 class CapturePassManager : public llvm::legacy::PassManagerBase {
 private:
   SmallVector<Pass *, 64> Passes;
+
 public:
   ~CapturePassManager() {
-    for (auto P : Passes) delete P;
+    for (auto P : Passes)
+      delete P;
   }
 
-  void add(Pass *P) override {
-    Passes.push_back(P);
-  }
+  void add(Pass *P) override { Passes.push_back(P); }
 
   size_t size() const { return Passes.size(); }
   StringRef getPassNameAt(size_t index) const {
@@ -192,7 +209,7 @@ HRESULT DxcOptimizer::Initialize() {
 
     struct PRL : public PassRegistrationListener {
       std::vector<const PassInfo *> *Passes;
-      void passEnumerate(const PassInfo * PI) override {
+      void passEnumerate(const PassInfo *PI) override {
         DXASSERT(nullptr != PI->getNormalCtor(), "else cannot construct");
         Passes->push_back(PI);
       }
@@ -213,8 +230,8 @@ const PassInfo *DxcOptimizer::getPassByName(const char *pName) {
   return m_registry->getPassInfo(StringRef(pName));
 }
 
-HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
-    UINT32 index, _COM_Outptr_ IDxcOptimizerPass **ppResult) {
+HRESULT STDMETHODCALLTYPE
+DxcOptimizer::GetAvailablePass(UINT32 index, IDxcOptimizerPass **ppResult) {
   IFR(AssignToOut(nullptr, ppResult));
   if (index >= m_passes.size())
     return E_INVALIDARG;
@@ -226,9 +243,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::GetAvailablePass(
 }
 
 HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
-    IDxcBlob *pBlob, _In_count_(optionCount) LPCWSTR *ppOptions,
-    UINT32 optionCount, _COM_Outptr_ IDxcBlob **ppOutputModule,
-    _COM_Outptr_opt_ IDxcBlobEncoding **ppOutputText) {
+    IDxcBlob *pBlob, LPCWSTR *ppOptions, UINT32 optionCount,
+    IDxcBlob **ppOutputModule, IDxcBlobEncoding **ppOutputText) {
   AssignToOutOpt(nullptr, ppOutputModule);
   AssignToOutOpt(nullptr, ppOutputText);
   if (pBlob == nullptr)
@@ -253,16 +269,19 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     SMDiagnostic Err;
     std::unique_ptr<MemoryBuffer> memBuf;
     std::unique_ptr<Module> M;
-    const char * pBlobContent = reinterpret_cast<const char *>(pBlob->GetBufferPointer());
+    const char *pBlobContent =
+        reinterpret_cast<const char *>(pBlob->GetBufferPointer());
     unsigned blobSize = pBlob->GetBufferSize();
     const DxilProgramHeader *pProgramHeader =
         reinterpret_cast<const DxilProgramHeader *>(pBlobContent);
-    const DxilContainerHeader *pContainerHeader = IsDxilContainerLike(pBlobContent, blobSize);
+    const DxilContainerHeader *pContainerHeader =
+        IsDxilContainerLike(pBlobContent, blobSize);
     bool bIsFullContainer = IsValidDxilContainer(pContainerHeader, blobSize);
 
     if (bIsFullContainer) {
       // Prefer debug module, if present.
-      pProgramHeader = GetDxilProgramHeader(pContainerHeader, DFCC_ShaderDebugInfoDXIL);
+      pProgramHeader =
+          GetDxilProgramHeader(pContainerHeader, DFCC_ShaderDebugInfoDXIL);
       if (!pProgramHeader)
         pProgramHeader = GetDxilProgramHeader(pContainerHeader, DFCC_DXIL);
     }
@@ -271,7 +290,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       std::string DiagStr;
       GetDxilProgramBitcode(pProgramHeader, &pBlobContent, &blobSize);
       M = hlsl::dxilutil::LoadModuleFromBitcode(
-        llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
+          llvm::StringRef(pBlobContent, blobSize), Context, DiagStr);
     } else if (!bIsFullContainer) {
       StringRef bufStrRef(pBlobContent, blobSize);
       memBuf = MemoryBuffer::getMemBufferCopy(bufStrRef);
@@ -285,8 +304,9 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     }
 
     if (bIsFullContainer) {
-      // Restore extra data from certain parts back into the module so that data isn't lost.
-      // Note: Only GetOrCreateDxilModule if one of these is present.
+      // Restore extra data from certain parts back into the module so that data
+      // isn't lost. Note: Only GetOrCreateDxilModule if one of these is
+      // present.
       // - Subobjects from RDAT
       // - RootSignature from RTS0
       // - ViewID and I/O dependency data from PSV0
@@ -296,7 +316,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       if (const DxilPartHeader *pPartHeader =
               GetDxilPartByType(pContainerHeader, DFCC_RuntimeData)) {
         DxilModule &DM = M->GetOrCreateDxilModule();
-        RDAT::DxilRuntimeData rdat(GetDxilPartData(pPartHeader), pPartHeader->PartSize);
+        RDAT::DxilRuntimeData rdat(GetDxilPartData(pPartHeader),
+                                   pPartHeader->PartSize);
         auto table = rdat.GetSubobjectTable();
         if (table && table.Count() > 0) {
           DM.ResetSubobjects(new DxilSubobjects());
@@ -310,8 +331,10 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
       if (const DxilPartHeader *pPartHeader =
               GetDxilPartByType(pContainerHeader, DFCC_RootSignature)) {
         DxilModule &DM = M->GetOrCreateDxilModule();
-        const uint8_t* pPartData = (const uint8_t*)GetDxilPartData(pPartHeader);
-        std::vector<uint8_t> partData(pPartData, pPartData + pPartHeader->PartSize);
+        const uint8_t *pPartData =
+            (const uint8_t *)GetDxilPartData(pPartHeader);
+        std::vector<uint8_t> partData(pPartData,
+                                      pPartData + pPartHeader->PartSize);
         DM.ResetSerializedRootSignature(partData);
       }
 
@@ -323,21 +346,24 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
         if (viewState.empty()) {
           DxilPipelineStateValidation PSV;
           PSV.InitFromPSV0(GetDxilPartData(pPartHeader), pPartHeader->PartSize);
-          unsigned OutputSizeInUInts = hlsl::LoadViewIDStateFromPSV(nullptr, 0, PSV);
+          unsigned OutputSizeInUInts =
+              hlsl::LoadViewIDStateFromPSV(nullptr, 0, PSV);
           if (OutputSizeInUInts) {
             viewState.assign(OutputSizeInUInts, 0);
-            hlsl::LoadViewIDStateFromPSV(viewState.data(), (unsigned)viewState.size(), PSV);
+            hlsl::LoadViewIDStateFromPSV(viewState.data(),
+                                         (unsigned)viewState.size(), PSV);
           }
         }
       }
 
       // STAT
-      if (const DxilPartHeader *pPartHeader = GetDxilPartByType(
-              pContainerHeader, DFCC_ShaderStatistics)) {
+      if (const DxilPartHeader *pPartHeader =
+              GetDxilPartByType(pContainerHeader, DFCC_ShaderStatistics)) {
         const DxilProgramHeader *pReflProgramHeader =
-          reinterpret_cast<const DxilProgramHeader*>(GetDxilPartData(pPartHeader));
+            reinterpret_cast<const DxilProgramHeader *>(
+                GetDxilPartData(pPartHeader));
         if (IsValidDxilProgramHeader(pReflProgramHeader,
-                                      pPartHeader->PartSize)) {
+                                     pPartHeader->PartSize)) {
           const char *pReflBitcode;
           uint32_t reflBitcodeLength;
           GetDxilProgramBitcode((const DxilProgramHeader *)pReflProgramHeader,
@@ -407,7 +433,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
         continue;
       }
 
-      // Handle some special cases where we can inject a redirected output stream.
+      // Handle some special cases where we can inject a redirected output
+      // stream.
       if (wcsstartswith(ppOptions[i], L"-print-module")) {
         LPCWSTR pName = ppOptions[i] + _countof(L"-print-module") - 1;
         std::string Banner;
@@ -424,7 +451,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
         continue;
       }
 
-      // Handle special switches to toggle per-function prepasses vs. module passes.
+      // Handle special switches to toggle per-function prepasses vs. module
+      // passes.
       if (wcseq(ppOptions[i], L"-opt-fn-passes")) {
         pPassManager = &FunctionPasses;
         continue;
@@ -454,7 +482,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
         return E_INVALIDARG;
       }
       while (pCursor < pEnd) {
-        // *pCursor is '\0' when we overwrite ',' to get a null-terminated string
+        // *pCursor is '\0' when we overwrite ',' to get a null-terminated
+        // string
         if (*pCursor && *pCursor != ArgDelim) {
           return E_INVALIDARG;
         }
@@ -469,24 +498,26 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
           return E_INVALIDARG;
         }
 
-        PassOption *OptionPos = std::lower_bound(options.begin(), options.end(), nameValue, PassOptionsCompare());
+        PassOption *OptionPos = std::lower_bound(
+            options.begin(), options.end(), nameValue, PassOptionsCompare());
         // If empty, remove if available; otherwise upsert.
         if (nameValue.second.empty()) {
-          if (OptionPos != options.end() && OptionPos->first == nameValue.first) {
+          if (OptionPos != options.end() &&
+              OptionPos->first == nameValue.first) {
             options.erase(OptionPos);
           }
-        }
-        else {
-          if (OptionPos != options.end() && OptionPos->first == nameValue.first) {
+        } else {
+          if (OptionPos != options.end() &&
+              OptionPos->first == nameValue.first) {
             OptionPos->second = nameValue.second;
-          }
-          else {
+          } else {
             options.insert(OptionPos, nameValue);
           }
         }
       }
 
-      DXASSERT(PassInf->getNormalCtor(), "else pass with no default .ctor was added");
+      DXASSERT(PassInf->getNormalCtor(),
+               "else pass with no default .ctor was added");
       Pass *pass = PassInf->getNormalCtor()();
       pass->setOSOverride(&outStream);
       pass->applyOptions(options);
@@ -497,7 +528,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
         PassKind Kind = pass->getPassKind();
         switch (Kind) {
         case PT_BasicBlock:
-          pPassManager->add(createBasicBlockPassPrinter(PassInf, outStream, Quiet));
+          pPassManager->add(
+              createBasicBlockPassPrinter(PassInf, outStream, Quiet));
           break;
         case PT_Region:
           pPassManager->add(createRegionPassPrinter(PassInf, outStream, Quiet));
@@ -506,10 +538,12 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
           pPassManager->add(createLoopPassPrinter(PassInf, outStream, Quiet));
           break;
         case PT_Function:
-          pPassManager->add(createFunctionPassPrinter(PassInf, outStream, Quiet));
+          pPassManager->add(
+              createFunctionPassPrinter(PassInf, outStream, Quiet));
           break;
         case PT_CallGraphSCC:
-          pPassManager->add(createCallGraphPassPrinter(PassInf, outStream, Quiet));
+          pPassManager->add(
+              createCallGraphPassPrinter(PassInf, outStream, Quiet));
           break;
         default:
           pPassManager->add(createModulePassPrinter(PassInf, outStream, Quiet));
@@ -527,7 +561,8 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
     // Now that we have all of the passes ready, run them.
     {
       raw_ostream *err_ostream = &outStream;
-      ScopedFatalErrorHandler errHandler(FatalErrorHandlerStreamWrite, err_ostream);
+      ScopedFatalErrorHandler errHandler(FatalErrorHandlerStreamWrite,
+                                         err_ostream);
 
       FunctionPasses.doInitialization();
       for (Function &F : *M.get())
@@ -556,7 +591,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
   return S_OK;
 }
 
-HRESULT CreateDxcOptimizer(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcOptimizer(REFIID riid, LPVOID *ppv) {
   CComPtr<DxcOptimizer> result = DxcOptimizer::Alloc(DxcGetThreadMallocNoRef());
   if (result == nullptr) {
     *ppv = nullptr;

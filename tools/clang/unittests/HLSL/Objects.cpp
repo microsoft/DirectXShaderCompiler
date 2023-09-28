@@ -27,29 +27,24 @@ namespace std {
 
 /// Returns the first element of the container.
 template <class Container>
-auto first(Container& cont) -> decltype (*begin(cont))
-{
+auto first(Container &cont) -> decltype(*begin(cont)) {
   auto iter = begin(cont);
   return *iter;
 }
 
 /// Returns the first element of the container or the default value if empty.
 template <typename Container, typename ElementType>
-ElementType first_or_default(
-  Container& cont,
-  const ElementType& defaultValue
-)
-{
+ElementType first_or_default(Container &cont, const ElementType &defaultValue) {
   auto iter = begin(cont);
   auto endIter = end(cont);
-  if (iter == endIter) return defaultValue;
+  if (iter == endIter)
+    return defaultValue;
   return *iter;
 }
 
-}
+} // namespace std
 
-template <typename TEnumeration>
-class EnumFlagsIterator {
+template <typename TEnumeration> class EnumFlagsIterator {
 private:
   unsigned long _value;
 
@@ -60,35 +55,30 @@ public:
   using pointer = value_type *;
   using reference = value_type &;
 
-  EnumFlagsIterator(TEnumeration value) : _value(value) { }
+  EnumFlagsIterator(TEnumeration value) : _value(value) {}
 
-  TEnumeration operator*() const
-  {
+  TEnumeration operator*() const {
     unsigned long l;
     _BitScanForward(&l, _value);
     return static_cast<TEnumeration>(1 << l);
   }
 
-  EnumFlagsIterator<TEnumeration>& operator++()
-  {
+  EnumFlagsIterator<TEnumeration> &operator++() {
     unsigned long l;
     _BitScanForward(&l, _value);
     _value = _value & ~(1 << l);
     return *this;
   }
 
-  bool equal(const EnumFlagsIterator<TEnumeration>& other)
-  {
+  bool equal(const EnumFlagsIterator<TEnumeration> &other) {
     return _value == other._value;
   }
 
-  bool operator==(const EnumFlagsIterator<TEnumeration>& other)
-  {
+  bool operator==(const EnumFlagsIterator<TEnumeration> &other) {
     return _value == other._value;
   }
 
-  bool operator!=(const EnumFlagsIterator<TEnumeration>& other)
-  {
+  bool operator!=(const EnumFlagsIterator<TEnumeration> &other) {
     return _value != other._value;
   }
 };
@@ -96,14 +86,9 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 // Shader model test data.
 
-enum ShaderModel
-{
-  ShaderModel4 = 4,
-  ShaderModel5 = 5
-};
+enum ShaderModel { ShaderModel4 = 4, ShaderModel5 = 5 };
 
-enum ShaderType
-{
+enum ShaderType {
   /// Vertex shader.
   ST_Vertex = 1 << 0,
 
@@ -137,11 +122,12 @@ enum ShaderType
 
 typedef EnumFlagsIterator<ShaderType> ShaderTypeIterator;
 ShaderTypeIterator begin(ShaderType value) { return ShaderTypeIterator(value); }
-ShaderTypeIterator end(ShaderType value) { return ShaderTypeIterator((ShaderType)0); }
+ShaderTypeIterator end(ShaderType value) {
+  return ShaderTypeIterator((ShaderType)0);
+}
 
 /// Enumerates types of shader objects like textures or buffers.
-enum ShaderObjectKind
-{
+enum ShaderObjectKind {
   /// Output buffer that appears as a stream the shader may append to.
   SOK_AppendStructuredBuffer,
 
@@ -153,10 +139,12 @@ enum ShaderObjectKind
   /// An input buffer that appears as a stream the shader may pull values from.
   SOK_ConsumeStructuredBuffer,
 
-  /// Represents an array of control points that are available to the hull shader as inputs.
+  /// Represents an array of control points that are available to the hull
+  /// shader as inputs.
   SOK_InputPatch,
 
-  /// Represents an array of output control points that are available to the hull shader's patch-constant function as well as the domain shader.
+  /// Represents an array of output control points that are available to the
+  /// hull shader's patch-constant function as well as the domain shader.
   SOK_OutputPatch,
 
   /// A read/write buffer.
@@ -183,13 +171,16 @@ enum ShaderObjectKind
   /// A read/write resource.
   SOK_RWTexture3D,
 
-  /// A stream-output object is a templated object that streams data out of the geometry-shader stage.
+  /// A stream-output object is a templated object that streams data out of the
+  /// geometry-shader stage.
   SOK_StreamOutputLine,
 
-  /// A stream-output object is a templated object that streams data out of the geometry-shader stage.
+  /// A stream-output object is a templated object that streams data out of the
+  /// geometry-shader stage.
   SOK_StreamOutputPoint,
 
-  /// A stream-output object is a templated object that streams data out of the geometry-shader stage.
+  /// A stream-output object is a templated object that streams data out of the
+  /// geometry-shader stage.
   SOK_StreamOutputTriangle,
 
   /// A read-only buffer, which can take a T type that is a structure.
@@ -223,51 +214,50 @@ enum ShaderObjectKind
   SOK_TextureCubeArray
 };
 
-struct ShaderObjectDataItem
-{
+struct ShaderObjectDataItem {
   ShaderObjectKind Kind;
-  const char* TypeName;
+  const char *TypeName;
   ShaderModel MinShaderModel;
   ShaderType ValidShaderTypes;
 };
 
-static const
-ShaderObjectDataItem ShaderObjectData[] = 
-{
-  { SOK_AppendStructuredBuffer, "AppendStructuredBuffer", ShaderModel5, ST_PixelCompute },
-  { SOK_Buffer, "Buffer", ShaderModel5, ST_All },
-  { SOK_ByteAddressBuffer, "ByteAddressBuffer", ShaderModel5, ST_All },
-  { SOK_ConsumeStructuredBuffer, "ConsumeStructuredBuffer", ShaderModel5, ST_PixelCompute },
-  { SOK_InputPatch, "InputPatch", ShaderModel5, ST_HullGeometry },
-  { SOK_OutputPatch, "OutputPatch", ShaderModel5, ST_HullDomain },
-  { SOK_RWBuffer, "RWBuffer", ShaderModel5, ST_PixelCompute },
-  { SOK_RWByteAddressBuffer, "RWByteAddressBuffer", ShaderModel5, ST_PixelCompute },
-  { SOK_RWStructuredBuffer, "RWStructuredBuffer", ShaderModel5, ST_PixelCompute },
-  { SOK_RWTexture1D, "RWTexture1D", ShaderModel5, ST_PixelCompute },
-  { SOK_RWTexture1DArray, "RWTexture1DArray", ShaderModel5, ST_PixelCompute },
-  { SOK_RWTexture2D, "RWTexture2D", ShaderModel5, ST_PixelCompute },
-  { SOK_RWTexture2DArray, "RWTexture2DArray", ShaderModel5, ST_PixelCompute },
-  { SOK_RWTexture3D, "RWTexture3D", ShaderModel5, ST_PixelCompute },
-  { SOK_StreamOutputLine, "LineStream", ShaderModel4, ST_Geometry },
-  { SOK_StreamOutputPoint, "PointStream", ShaderModel4, ST_Geometry },
-  { SOK_StreamOutputTriangle, "TriangleStream", ShaderModel4, ST_Geometry },
-  { SOK_StructuredBuffer, "StructuredBuffer", ShaderModel5, ST_All },
-  { SOK_Texture1D, "Texture1D", ShaderModel4, ST_All },
-  { SOK_Texture1DArray, "Texture1DArray", ShaderModel4, ST_All },
-  { SOK_Texture2D, "Texture2D", ShaderModel4, ST_All },
-  { SOK_Texture2DArray, "Texture2DArray", ShaderModel4, ST_All },
-  { SOK_Texture2DMS, "Texture2DMS", ShaderModel4, ST_All },
-  { SOK_Texture2DArrayMS, "Texture2DMSArray", ShaderModel4, ST_All },
-  { SOK_Texture3D, "Texture3D", ShaderModel4, ST_All },
-  { SOK_TextureCube, "TextureCube", ShaderModel4, ST_All },
-  { SOK_TextureCubeArray, "TextureCubeArray", ShaderModel4, ST_All }
-};
+static const ShaderObjectDataItem ShaderObjectData[] = {
+    {SOK_AppendStructuredBuffer, "AppendStructuredBuffer", ShaderModel5,
+     ST_PixelCompute},
+    {SOK_Buffer, "Buffer", ShaderModel5, ST_All},
+    {SOK_ByteAddressBuffer, "ByteAddressBuffer", ShaderModel5, ST_All},
+    {SOK_ConsumeStructuredBuffer, "ConsumeStructuredBuffer", ShaderModel5,
+     ST_PixelCompute},
+    {SOK_InputPatch, "InputPatch", ShaderModel5, ST_HullGeometry},
+    {SOK_OutputPatch, "OutputPatch", ShaderModel5, ST_HullDomain},
+    {SOK_RWBuffer, "RWBuffer", ShaderModel5, ST_PixelCompute},
+    {SOK_RWByteAddressBuffer, "RWByteAddressBuffer", ShaderModel5,
+     ST_PixelCompute},
+    {SOK_RWStructuredBuffer, "RWStructuredBuffer", ShaderModel5,
+     ST_PixelCompute},
+    {SOK_RWTexture1D, "RWTexture1D", ShaderModel5, ST_PixelCompute},
+    {SOK_RWTexture1DArray, "RWTexture1DArray", ShaderModel5, ST_PixelCompute},
+    {SOK_RWTexture2D, "RWTexture2D", ShaderModel5, ST_PixelCompute},
+    {SOK_RWTexture2DArray, "RWTexture2DArray", ShaderModel5, ST_PixelCompute},
+    {SOK_RWTexture3D, "RWTexture3D", ShaderModel5, ST_PixelCompute},
+    {SOK_StreamOutputLine, "LineStream", ShaderModel4, ST_Geometry},
+    {SOK_StreamOutputPoint, "PointStream", ShaderModel4, ST_Geometry},
+    {SOK_StreamOutputTriangle, "TriangleStream", ShaderModel4, ST_Geometry},
+    {SOK_StructuredBuffer, "StructuredBuffer", ShaderModel5, ST_All},
+    {SOK_Texture1D, "Texture1D", ShaderModel4, ST_All},
+    {SOK_Texture1DArray, "Texture1DArray", ShaderModel4, ST_All},
+    {SOK_Texture2D, "Texture2D", ShaderModel4, ST_All},
+    {SOK_Texture2DArray, "Texture2DArray", ShaderModel4, ST_All},
+    {SOK_Texture2DMS, "Texture2DMS", ShaderModel4, ST_All},
+    {SOK_Texture2DArrayMS, "Texture2DMSArray", ShaderModel4, ST_All},
+    {SOK_Texture3D, "Texture3D", ShaderModel4, ST_All},
+    {SOK_TextureCube, "TextureCube", ShaderModel4, ST_All},
+    {SOK_TextureCubeArray, "TextureCubeArray", ShaderModel4, ST_All}};
 
 /// Enumerates the template shapes.
 /// This is a crude simplification of what the type system could do,
 /// but it covers all cases without unused generality.
-enum ShaderObjectTemplateKind
-{
+enum ShaderObjectTemplateKind {
   /// No parameters.
   SOTK_NoParams,
 
@@ -284,8 +274,7 @@ enum ShaderObjectTemplateKind
   SOTK_SVCAndControlPointCountParams
 };
 
-struct ShaderObjectTemplateDataItem
-{
+struct ShaderObjectTemplateDataItem {
   ShaderObjectKind Kind;
   ShaderObjectTemplateKind TemplateKind;
   bool TemplateParamsOptional;
@@ -294,88 +283,91 @@ struct ShaderObjectTemplateDataItem
 static const bool OptionalTrue = true;
 static const bool OptionalFalse = false;
 
-static const
-ShaderObjectTemplateDataItem ShaderObjectTemplateData[] = 
-{
-  { SOK_AppendStructuredBuffer, SOTK_SingleSVCParam, OptionalFalse },
-  { SOK_Buffer, SOTK_SingleSVParam, OptionalFalse },
-  { SOK_ByteAddressBuffer, SOTK_NoParams, OptionalTrue },
-  { SOK_ConsumeStructuredBuffer, SOTK_SingleSVCParam, OptionalFalse },
-  { SOK_InputPatch, SOTK_SVCAndControlPointCountParams, OptionalFalse },
-  { SOK_OutputPatch, SOTK_SVCAndControlPointCountParams, OptionalFalse },
-  { SOK_RWBuffer, SOTK_SingleSVParam, OptionalFalse },
-  { SOK_RWByteAddressBuffer, SOTK_NoParams, OptionalTrue },
-  { SOK_RWStructuredBuffer, SOTK_SingleSVCParam, OptionalFalse },
-  { SOK_RWTexture1D, SOTK_SingleSVParam, OptionalFalse },
-  { SOK_RWTexture1DArray, SOTK_SingleSVParam, OptionalFalse },
-  { SOK_RWTexture2D, SOTK_SingleSVParam, OptionalFalse },
-  { SOK_RWTexture2DArray, SOTK_SingleSVParam, OptionalFalse },
-  { SOK_RWTexture3D, SOTK_SingleSVParam, OptionalFalse },
-  { SOK_StreamOutputLine, SOTK_SingleSVCParam, OptionalFalse },
-  { SOK_StreamOutputPoint, SOTK_SingleSVCParam, OptionalFalse },
-  { SOK_StreamOutputTriangle, SOTK_SingleSVCParam, OptionalFalse },
-  { SOK_StructuredBuffer, SOTK_SingleSVCParam, OptionalFalse },
-  { SOK_Texture1D, SOTK_SingleSVParam, OptionalTrue },
-  { SOK_Texture1DArray, SOTK_SingleSVParam, OptionalTrue },
-  { SOK_Texture2D, SOTK_SingleSVParam, OptionalTrue },
-  { SOK_Texture2DArray, SOTK_SingleSVParam, OptionalTrue },
-  { SOK_Texture2DMS, SOTK_SVAndSampleCountParams, OptionalFalse },
-  { SOK_Texture2DArrayMS, SOTK_SVAndSampleCountParams, OptionalFalse },
-  { SOK_Texture3D, SOTK_SingleSVParam, OptionalTrue },
-  { SOK_TextureCube, SOTK_SingleSVParam, OptionalTrue },
-  { SOK_TextureCubeArray, SOTK_SingleSVParam, OptionalTrue }
-};
+static const ShaderObjectTemplateDataItem ShaderObjectTemplateData[] = {
+    {SOK_AppendStructuredBuffer, SOTK_SingleSVCParam, OptionalFalse},
+    {SOK_Buffer, SOTK_SingleSVParam, OptionalFalse},
+    {SOK_ByteAddressBuffer, SOTK_NoParams, OptionalTrue},
+    {SOK_ConsumeStructuredBuffer, SOTK_SingleSVCParam, OptionalFalse},
+    {SOK_InputPatch, SOTK_SVCAndControlPointCountParams, OptionalFalse},
+    {SOK_OutputPatch, SOTK_SVCAndControlPointCountParams, OptionalFalse},
+    {SOK_RWBuffer, SOTK_SingleSVParam, OptionalFalse},
+    {SOK_RWByteAddressBuffer, SOTK_NoParams, OptionalTrue},
+    {SOK_RWStructuredBuffer, SOTK_SingleSVCParam, OptionalFalse},
+    {SOK_RWTexture1D, SOTK_SingleSVParam, OptionalFalse},
+    {SOK_RWTexture1DArray, SOTK_SingleSVParam, OptionalFalse},
+    {SOK_RWTexture2D, SOTK_SingleSVParam, OptionalFalse},
+    {SOK_RWTexture2DArray, SOTK_SingleSVParam, OptionalFalse},
+    {SOK_RWTexture3D, SOTK_SingleSVParam, OptionalFalse},
+    {SOK_StreamOutputLine, SOTK_SingleSVCParam, OptionalFalse},
+    {SOK_StreamOutputPoint, SOTK_SingleSVCParam, OptionalFalse},
+    {SOK_StreamOutputTriangle, SOTK_SingleSVCParam, OptionalFalse},
+    {SOK_StructuredBuffer, SOTK_SingleSVCParam, OptionalFalse},
+    {SOK_Texture1D, SOTK_SingleSVParam, OptionalTrue},
+    {SOK_Texture1DArray, SOTK_SingleSVParam, OptionalTrue},
+    {SOK_Texture2D, SOTK_SingleSVParam, OptionalTrue},
+    {SOK_Texture2DArray, SOTK_SingleSVParam, OptionalTrue},
+    {SOK_Texture2DMS, SOTK_SVAndSampleCountParams, OptionalFalse},
+    {SOK_Texture2DArrayMS, SOTK_SVAndSampleCountParams, OptionalFalse},
+    {SOK_Texture3D, SOTK_SingleSVParam, OptionalTrue},
+    {SOK_TextureCube, SOTK_SingleSVParam, OptionalTrue},
+    {SOK_TextureCubeArray, SOTK_SingleSVParam, OptionalTrue}};
 
-static
-const ShaderObjectTemplateDataItem& GetTemplateData(const ShaderObjectDataItem& sod)
-{
-  static_assert(
-    _countof(ShaderObjectTemplateData) == _countof(ShaderObjectData),
-    "otherwise lookup tables have different elements");
+static const ShaderObjectTemplateDataItem &
+GetTemplateData(const ShaderObjectDataItem &sod) {
+  static_assert(_countof(ShaderObjectTemplateData) ==
+                    _countof(ShaderObjectData),
+                "otherwise lookup tables have different elements");
   struct Unary {
     ShaderObjectKind ObjectKind;
-    Unary(ShaderObjectKind ok) : ObjectKind(ok) { }
-    bool operator()(const ShaderObjectTemplateDataItem& i) { return i.Kind == ObjectKind; }
+    Unary(ShaderObjectKind ok) : ObjectKind(ok) {}
+    bool operator()(const ShaderObjectTemplateDataItem &i) {
+      return i.Kind == ObjectKind;
+    }
   };
   Unary filter(sod.Kind);
-  auto iter = std::find_if(std::begin(ShaderObjectTemplateData), std::end(ShaderObjectTemplateData), filter);
+  auto iter = std::find_if(std::begin(ShaderObjectTemplateData),
+                           std::end(ShaderObjectTemplateData), filter);
   assert(iter != std::end(ShaderObjectTemplateData));
   return *iter;
 }
 
-static
-int CountOptionalTemplateArguments(const ShaderObjectTemplateDataItem& templateData)
-{
+static int CountOptionalTemplateArguments(
+    const ShaderObjectTemplateDataItem &templateData) {
   if (!templateData.TemplateParamsOptional) {
     return 0;
   }
 
   switch (templateData.TemplateKind) {
   default:
-  case SOTK_NoParams: return 0;
-  case SOTK_SingleSVParam: return 1;
-  case SOTK_SingleSVCParam: return 1;
-  case SOTK_SVAndSampleCountParams: return 2;
-  case SOTK_SVCAndControlPointCountParams: return 2;
- }
+  case SOTK_NoParams:
+    return 0;
+  case SOTK_SingleSVParam:
+    return 1;
+  case SOTK_SingleSVCParam:
+    return 1;
+  case SOTK_SVAndSampleCountParams:
+    return 2;
+  case SOTK_SVCAndControlPointCountParams:
+    return 2;
+  }
 }
 
-// - a RWBuffer supports globallycoherent storage class to generate memory barriers
+// - a RWBuffer supports globallycoherent storage class to generate memory
+// barriers
 // TODO: ByteAddressBuffer is supported on SM4 on compute shaders
 // TODO: RWByteAddressBuffer is supported on SM4 on compute shaders
 // TODO: RWStructuredBuffer is supported on SM4 on compute shaders
 
-#include "dxc/dxcapi.internal.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "dxc/dxcapi.internal.h"
 #include "gen_intrin_main_tables_15.h"
 
-struct ShaderObjectIntrinsicDataItem
-{
+struct ShaderObjectIntrinsicDataItem {
   // Kind of shader object described.
   ShaderObjectKind Kind;
 
   // Pointer to first intrinsic in table.
-  const HLSL_INTRINSIC* Intrinsics;
+  const HLSL_INTRINSIC *Intrinsics;
 
   // Count of elements in intrinsic table.
   size_t IntrinsicCount;
@@ -437,10 +429,11 @@ class ObjectTest : public ::testing::Test {
 #endif
 private:
   HlslIntellisenseSupport m_isenseSupport;
+
 public:
   BEGIN_TEST_CLASS(ObjectTest)
-    TEST_CLASS_PROPERTY(L"Parallel", L"true")
-    TEST_METHOD_PROPERTY(L"Priority", L"0")
+  TEST_CLASS_PROPERTY(L"Parallel", L"true")
+  TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
   TEST_CLASS_SETUP(ObjectTestSetup);
@@ -456,9 +449,9 @@ public:
   TEST_METHOD(TemplateArgConstraints)
   TEST_METHOD(FunctionInvoke)
 
-  void FormatTypeNameAndPreamble(const ShaderObjectDataItem& sod,
+  void FormatTypeNameAndPreamble(const ShaderObjectDataItem &sod,
                                  char (&typeName)[64],
-                                 const char** preambleDecl) {
+                                 const char **preambleDecl) {
     *preambleDecl = "";
 
     auto templateData = GetTemplateData(sod);
@@ -481,16 +474,18 @@ public:
     }
   }
 
-  std::string BuildDeclarationFunction(const ShaderObjectDataItem& sod) {
+  std::string BuildDeclarationFunction(const ShaderObjectDataItem &sod) {
     return BuildDeclarationFunction(sod, 0, false);
   }
 
-  std::string BuildDeclarationFunction(const ShaderObjectDataItem& sod, int missingTemplateCount,
+  std::string BuildDeclarationFunction(const ShaderObjectDataItem &sod,
+                                       int missingTemplateCount,
                                        bool collapseEmptyArgs) {
     char result[256];
 
     auto templateData = GetTemplateData(sod);
-    const char StructDecl[] = "struct MY_STRUCT { float4 f4; bool b; int3 i3; };\n";
+    const char StructDecl[] =
+        "struct MY_STRUCT { float4 f4; bool b; int3 i3; };\n";
     const char StructParam[] = "<MY_STRUCT>\n";
     const char VectorParam[] = "<float4>\n";
     const char VectorAndCountParam[] = "<float4, 4>\n";
@@ -498,16 +493,19 @@ public:
     const char MissingTemplateArgs[] = "";
 
     // Default setup for a 'SOTK_NoParams' case.
-    const char* StructDeclFragment = "";
-    const char* TemplateDeclFragment = MissingTemplateArgs;
+    const char *StructDeclFragment = "";
+    const char *TemplateDeclFragment = MissingTemplateArgs;
 
-    if (templateData.TemplateKind == SOTK_SingleSVParam && missingTemplateCount == 0) {
+    if (templateData.TemplateKind == SOTK_SingleSVParam &&
+        missingTemplateCount == 0) {
       TemplateDeclFragment = VectorParam;
-    } else if (templateData.TemplateKind == SOTK_SingleSVCParam && missingTemplateCount == 0) {
+    } else if (templateData.TemplateKind == SOTK_SingleSVCParam &&
+               missingTemplateCount == 0) {
       StructDeclFragment = StructDecl;
       TemplateDeclFragment = StructParam;
     } else if ((templateData.TemplateKind == SOTK_SVAndSampleCountParams ||
-                templateData.TemplateKind == SOTK_SVCAndControlPointCountParams)) {
+                templateData.TemplateKind ==
+                    SOTK_SVCAndControlPointCountParams)) {
       if (missingTemplateCount == 0) {
         TemplateDeclFragment = VectorAndCountParam;
       } else if (missingTemplateCount == 1) {
@@ -516,50 +514,62 @@ public:
     }
 
     // Allow 'Object<>' to collapse to 'Object' when collapseEmptyArgs is set.
-    if (templateData.TemplateKind != SOTK_NoParams && TemplateDeclFragment == MissingTemplateArgs) {
-      TemplateDeclFragment = collapseEmptyArgs ? MissingTemplateArgs : EmptyTemplateArgs;
+    if (templateData.TemplateKind != SOTK_NoParams &&
+        TemplateDeclFragment == MissingTemplateArgs) {
+      TemplateDeclFragment =
+          collapseEmptyArgs ? MissingTemplateArgs : EmptyTemplateArgs;
     }
 
-    sprintf_s(result, _countof(result), "%s"
+    sprintf_s(result, _countof(result),
+              "%s"
               "float ps(float4 color : COLOR) { %s%s localVar; return 0; }",
               StructDeclFragment, sod.TypeName, TemplateDeclFragment);
 
     return std::string(result);
   }
 
-  std::string BuildDeclarationFunctionTooManyArgs(const ShaderObjectDataItem& sod) {
+  std::string
+  BuildDeclarationFunctionTooManyArgs(const ShaderObjectDataItem &sod) {
     char result[256];
 
     auto templateData = GetTemplateData(sod);
     switch (templateData.TemplateKind) {
     case SOTK_NoParams:
-      sprintf_s(result, _countof(result),
-                "float ps(float4 color : COLOR) { %s localVar<float>; return 0; }", sod.TypeName);
+      sprintf_s(
+          result, _countof(result),
+          "float ps(float4 color : COLOR) { %s localVar<float>; return 0; }",
+          sod.TypeName);
       break;
     case SOTK_SingleSVParam:
       sprintf_s(result, _countof(result),
-                "float ps(float4 color : COLOR) { %s<float4, 1> localVar; return 0; }", sod.TypeName);
+                "float ps(float4 color : COLOR) { %s<float4, 1> localVar; "
+                "return 0; }",
+                sod.TypeName);
       break;
     case SOTK_SingleSVCParam:
       sprintf_s(result, _countof(result),
                 "struct MY_STRUCT { float4 f4; bool b; int3 i3; };\n"
-                "float ps(float4 color : COLOR) { %s<MY_STRUCT, 1> localVar; return 0; }", sod.TypeName);
+                "float ps(float4 color : COLOR) { %s<MY_STRUCT, 1> localVar; "
+                "return 0; }",
+                sod.TypeName);
       break;
     case SOTK_SVAndSampleCountParams:
     case SOTK_SVCAndControlPointCountParams:
     default:
       sprintf_s(result, _countof(result),
-                "float ps(float4 color : COLOR) { %s<float4, 4, 4> localVar; return 0; }", sod.TypeName);
+                "float ps(float4 color : COLOR) { %s<float4, 4, 4> localVar; "
+                "return 0; }",
+                sod.TypeName);
       break;
     }
 
     return std::string(result);
   }
-  
-  std::string BuildPassAsParameter(const ShaderObjectDataItem& sod) {
+
+  std::string BuildPassAsParameter(const ShaderObjectDataItem &sod) {
     char result[256];
     char typeName[64];
-    const char* preambleDecl;
+    const char *preambleDecl;
 
     FormatTypeNameAndPreamble(sod, typeName, &preambleDecl);
 
@@ -579,31 +589,33 @@ public:
     sprintf_s(result, _countof(result),
               "%s"
               "void f(%s parameter) { }\n"
-              "float ps(float4 color : COLOR) { %s localVar; f(localVar); return 0; }",
+              "float ps(float4 color : COLOR) { %s localVar; f(localVar); "
+              "return 0; }",
               preambleDecl, parmType.c_str(), typeName);
 
     return std::string(result);
   }
 
-  std::string BuildAssignment(const ShaderObjectDataItem& sod) {
+  std::string BuildAssignment(const ShaderObjectDataItem &sod) {
     char result[256];
     char typeName[64];
-    const char* preambleDecl;
+    const char *preambleDecl;
 
     FormatTypeNameAndPreamble(sod, typeName, &preambleDecl);
 
     sprintf_s(result, _countof(result),
               "%s"
-              "float ps(float4 color : COLOR) { %s lv1; %s lv2; lv1 = lv2; return 0; }",
+              "float ps(float4 color : COLOR) { %s lv1; %s lv2; lv1 = lv2; "
+              "return 0; }",
               preambleDecl, typeName, typeName);
 
     return std::string(result);
   }
-  
-  std::string BuildAssignmentFromResult(const ShaderObjectDataItem& sod) {
+
+  std::string BuildAssignmentFromResult(const ShaderObjectDataItem &sod) {
     char result[256];
     char typeName[64];
-    const char* preambleDecl;
+    const char *preambleDecl;
 
     FormatTypeNameAndPreamble(sod, typeName, &preambleDecl);
 
@@ -615,30 +627,28 @@ public:
 
     return std::string(result);
   }
-  
-  void CheckCompiles(const std::string& text, bool expected) {
+
+  void CheckCompiles(const std::string &text, bool expected) {
     CheckCompiles(text.c_str(), text.size(), expected);
   }
-  
-  void CheckCompiles(const char* text, size_t textLen, bool expected) {
+
+  void CheckCompiles(const char *text, size_t textLen, bool expected) {
     CompilationResult result(
-      CompilationResult::CreateForProgram(text, textLen));
+        CompilationResult::CreateForProgram(text, textLen));
 
     // Uncomment the line to print out the AST unconditionally.
     // printf("%s", result.BuildASTString().c_str());
 
-    if (expected != result.ParseSucceeded())
-    {
+    if (expected != result.ParseSucceeded()) {
       EXPECT_EQ(expected, result.ParseSucceeded());
       // TODO: log this out
-        //<< "for program " << text << "\n with AST\n" << result.BuildASTString()
-        //<< "and errors\n" << result.GetTextForErrors();
+      //<< "for program " << text << "\n with AST\n" << result.BuildASTString()
+      //<< "and errors\n" << result.GetTextForErrors();
     }
   }
 };
 
-bool ObjectTest::ObjectTestSetup()
-{
+bool ObjectTest::ObjectTestSetup() {
   m_isenseSupport.Initialize();
   return m_isenseSupport.IsEnabled();
 }
@@ -656,9 +666,9 @@ TEST_F(ObjectTest, OptionalTemplateArgs) {
   for (const auto &sod : ShaderObjectData) {
     // When shader models are validated, run through all of them.
     // for (const auto &st : sod.ValidShaderTypes)
-    //const auto st = std::first(sod.ValidShaderTypes);
+    // const auto st = std::first(sod.ValidShaderTypes);
 
-    const ShaderObjectTemplateDataItem& templateData = GetTemplateData(sod);
+    const ShaderObjectTemplateDataItem &templateData = GetTemplateData(sod);
     int argCount = CountOptionalTemplateArguments(templateData);
     if (argCount == 0) {
       continue;
@@ -676,7 +686,7 @@ TEST_F(ObjectTest, MissingTemplateArgs) {
     // for (const auto &st : sod.ValidShaderTypes)
     // const auto st = std::first(sod.ValidShaderTypes);
 
-    const ShaderObjectTemplateDataItem& templateData = GetTemplateData(sod);
+    const ShaderObjectTemplateDataItem &templateData = GetTemplateData(sod);
     int argCount = CountOptionalTemplateArguments(templateData);
     if (argCount == 0) {
       continue;
@@ -728,7 +738,8 @@ TEST_F(ObjectTest, AssignReturnResult) {
 
 TEST_F(ObjectTest, PassToInoutArgs) {
   for (const auto &sod : ShaderObjectData) {
-    // Speed up the test by building one large program with all inout parameter modifiers per object.
+    // Speed up the test by building one large program with all inout parameter
+    // modifiers per object.
     std::stringstream programText;
     unsigned uniqueId = 0;
     for (const auto &iop : InOutParameterModifierData) {
@@ -747,7 +758,7 @@ TEST_F(ObjectTest, PassToInoutArgs) {
       }
 
       char typeName[64];
-      const char* preambleDecl;
+      const char *preambleDecl;
 
       // When shader models are validated, run through all of them.
       // for (const auto &st : sod.ValidShaderTypes)
@@ -758,31 +769,29 @@ TEST_F(ObjectTest, PassToInoutArgs) {
         programText << preambleDecl << std::endl;
       }
 
-      programText <<
-        "float ps_" << uniqueId << "(" << iop.Keyword << " " << typeName << " o) { return 1.0f; }" << std::endl;
-      programText << "void caller_" << uniqueId << "() { " << typeName << " lv; ps_" << uniqueId << "(lv); }" << std::endl;
+      programText << "float ps_" << uniqueId << "(" << iop.Keyword << " "
+                  << typeName << " o) { return 1.0f; }" << std::endl;
+      programText << "void caller_" << uniqueId << "() { " << typeName
+                  << " lv; ps_" << uniqueId << "(lv); }" << std::endl;
       programText << std::endl;
       uniqueId++;
     }
-    
+
     std::string programTextStr(programText.str());
     CheckCompiles(programTextStr.c_str(), programTextStr.size(), true);
   }
 }
 
-class TemplateSampleDataItem
-{
+class TemplateSampleDataItem {
 public:
-  TemplateSampleDataItem() { }
-  TemplateSampleDataItem(const TemplateSampleDataItem& other)
-    : Preamble(other.Preamble), TypeName(other.TypeName), IsValid(other.IsValid)
-  {
-  }
+  TemplateSampleDataItem() {}
+  TemplateSampleDataItem(const TemplateSampleDataItem &other)
+      : Preamble(other.Preamble), TypeName(other.TypeName),
+        IsValid(other.IsValid) {}
 
-  TemplateSampleDataItem(const char* preamble, const char* typeName, bool isValid)
-    : Preamble(preamble), TypeName(typeName), IsValid(isValid)
-  {
-  }
+  TemplateSampleDataItem(const char *preamble, const char *typeName,
+                         bool isValid)
+      : Preamble(preamble), TypeName(typeName), IsValid(isValid) {}
 
   std::string Preamble;
   std::string TypeName;
@@ -790,15 +799,14 @@ public:
 };
 
 std::vector<TemplateSampleDataItem>
-CreateSampleDataForTemplateArg(
-  const ShaderObjectDataItem& sod,
-  int templateIndex)
-{
+CreateSampleDataForTemplateArg(const ShaderObjectDataItem &sod,
+                               int templateIndex) {
   std::vector<TemplateSampleDataItem> result;
   char typeName[64];
 
   auto templateData = GetTemplateData(sod);
-  assert(templateData.TemplateKind != SOTK_NoParams && "shouldn't call CreateSampleDataForTemplateArg");
+  assert(templateData.TemplateKind != SOTK_NoParams &&
+         "shouldn't call CreateSampleDataForTemplateArg");
   switch (templateData.TemplateKind) {
   case SOTK_NoParams:
     assert(!"shouldn't call CreateSampleDataForTemplateArg");
@@ -817,7 +825,8 @@ CreateSampleDataForTemplateArg(
       sprintf_s(typeName, _countof(typeName), "%s<float4, 4>", sod.TypeName);
       result.push_back(TemplateSampleDataItem("", typeName, true));
 
-      sprintf_s(typeName, _countof(typeName), "%s<SamplerState, 4>", sod.TypeName);
+      sprintf_s(typeName, _countof(typeName), "%s<SamplerState, 4>",
+                sod.TypeName);
       result.push_back(TemplateSampleDataItem("", typeName, false));
     } else {
       sprintf_s(typeName, _countof(typeName), "%s<float4, 1>", sod.TypeName);
@@ -827,11 +836,12 @@ CreateSampleDataForTemplateArg(
       result.push_back(TemplateSampleDataItem("", typeName, true));
 
       // These are deferred to back-end validation for now.
-      // bool largeNumberValid =  sod.Kind == SOK_InputPatch || sod.Kind == SOK_OutputPatch;
+      // bool largeNumberValid =  sod.Kind == SOK_InputPatch || sod.Kind ==
+      // SOK_OutputPatch;
       sprintf_s(typeName, _countof(typeName), "%s<float4, 129>", sod.TypeName);
       result.push_back(TemplateSampleDataItem("", typeName, false));
     }
-    
+
     break;
   }
 
@@ -844,7 +854,7 @@ TEST_F(ObjectTest, TemplateArgConstraints) {
     // for (const auto &st : sod.ValidShaderTypes)
     // const auto st = std::first(sod.ValidShaderTypes);
 
-    const ShaderObjectTemplateDataItem& templateData = GetTemplateData(sod);
+    const ShaderObjectTemplateDataItem &templateData = GetTemplateData(sod);
     int argCount = CountOptionalTemplateArguments(templateData);
     if (argCount == 0) {
       continue;
@@ -852,14 +862,16 @@ TEST_F(ObjectTest, TemplateArgConstraints) {
 
     for (int i = 0; i < argCount; i++) {
       std::vector<TemplateSampleDataItem> sampleData =
-        CreateSampleDataForTemplateArg(sod, i);
+          CreateSampleDataForTemplateArg(sod, i);
       for (auto sampleDataItem : sampleData) {
         char result[256];
         sprintf_s(result, _countof(result),
                   "%s"
-                  "float ps(float4 color : COLOR) { %s lv1; %s lv2; lv1 = lv2; return 0; }",
+                  "float ps(float4 color : COLOR) { %s lv1; %s lv2; lv1 = lv2; "
+                  "return 0; }",
                   sampleDataItem.Preamble.c_str(),
-                  sampleDataItem.TypeName.c_str(), sampleDataItem.TypeName.c_str());
+                  sampleDataItem.TypeName.c_str(),
+                  sampleDataItem.TypeName.c_str());
 
         CheckCompiles(result, strlen(result), sampleDataItem.IsValid);
       }

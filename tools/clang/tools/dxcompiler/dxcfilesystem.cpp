@@ -9,16 +9,16 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/DxilContainer/DxilContainer.h"
-#include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
-#include "llvm/Support/raw_ostream.h"
 #include "dxcutil.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include "dxc/Support/dxcfilesystem.h"
 #include "dxc/Support/Unicode.h"
+#include "dxc/Support/dxcfilesystem.h"
 #include "clang/Frontend/CompilerInstance.h"
 
 #ifndef _WIN32
@@ -35,27 +35,31 @@ namespace {
 #if defined(_MSC_VER)
 #include <io.h>
 #ifndef STDOUT_FILENO
-# define STDOUT_FILENO 1
+#define STDOUT_FILENO 1
 #endif
 #ifndef STDERR_FILENO
-# define STDERR_FILENO 2
+#define STDERR_FILENO 2
 #endif
 #endif
 
 #ifdef _WIN32
 #ifndef NDEBUG
 
-// This should be improved with global enabled mask rather than a compile-time mask.
-#define DXTRACE_MASK_ENABLED  0
-#define DXTRACE_MASK_APIFS    1
+// This should be improved with global enabled mask rather than a compile-time
+// mask.
+#define DXTRACE_MASK_ENABLED 0
+#define DXTRACE_MASK_APIFS 1
 #define DXTRACE_ENABLED(subsystem) (DXTRACE_MASK_ENABLED & subsystem)
 
 // DXTRACE_FMT formats a debugger trace message if DXTRACE_MASK allows it.
-#define DXTRACE_FMT(subsystem, fmt, ...) do { \
-  if (DXTRACE_ENABLED(subsystem)) OutputDebugFormatA(fmt, __VA_ARGS__); \
-} while (0)
+#define DXTRACE_FMT(subsystem, fmt, ...)                                       \
+  do {                                                                         \
+    if (DXTRACE_ENABLED(subsystem))                                            \
+      OutputDebugFormatA(fmt, __VA_ARGS__);                                    \
+  } while (0)
 /// DXTRACE_FMT_APIFS is used by the API-based virtual filesystem.
-#define DXTRACE_FMT_APIFS(fmt, ...) DXTRACE_FMT(DXTRACE_MASK_APIFS, fmt, __VA_ARGS__)
+#define DXTRACE_FMT_APIFS(fmt, ...)                                            \
+  DXTRACE_FMT(DXTRACE_MASK_APIFS, fmt, __VA_ARGS__)
 
 #else
 
@@ -66,14 +70,7 @@ namespace {
 #define DXTRACE_FMT_APIFS(...)
 #endif // _WIN32
 
-
-
-enum class HandleKind {
-  Special = 0,
-  File = 1,
-  FileDir = 2,
-  SearchDir = 3
-};
+enum class HandleKind { Special = 0, File = 1, FileDir = 2, SearchDir = 3 };
 enum class SpecialValue {
   Unknown = 0,
   StdOut = 1,
@@ -107,7 +104,8 @@ struct DxcArgsHandle {
     Handle = 0;
     Bits.Offset = (unsigned)V;
     Bits.Length = 0;
-    Bits.Kind = (unsigned)HandleKind::Special;;
+    Bits.Kind = (unsigned)HandleKind::Special;
+    ;
   }
 
   union {
@@ -119,7 +117,8 @@ struct DxcArgsHandle {
   bool IsFileKind() const { return GetKind() == HandleKind::File; }
   bool IsSpecialUnknown() const { return Handle == 0; }
   bool IsDirHandle() const {
-    return GetKind() == HandleKind::FileDir || GetKind() == HandleKind::SearchDir;
+    return GetKind() == HandleKind::FileDir ||
+           GetKind() == HandleKind::SearchDir;
   }
   bool IsStdHandle() const {
     return GetKind() == HandleKind::Special &&
@@ -137,20 +136,23 @@ struct DxcArgsHandle {
   unsigned Length() const { return Bits.Length; }
 };
 
-static_assert(sizeof(DxcArgsHandle) == sizeof(HANDLE), "else can't transparently typecast");
+static_assert(sizeof(DxcArgsHandle) == sizeof(HANDLE),
+              "else can't transparently typecast");
 
 const DxcArgsHandle UnknownHandle(SpecialValue::Unknown);
 const DxcArgsHandle StdOutHandle(SpecialValue::StdOut);
 const DxcArgsHandle StdErrHandle(SpecialValue::StdErr);
 const DxcArgsHandle OutputHandle(SpecialValue::Output);
 
-/// Max number of included files (1:1 to their directories) or search directories.
-/// If programs include more than a handful, DxcArgsFileSystem will need to do better than linear scans.
-/// If this is fired, ERROR_OUT_OF_STRUCTURES will be returned by an attempt to open a file.
+/// Max number of included files (1:1 to their directories) or search
+/// directories. If programs include more than a handful, DxcArgsFileSystem will
+/// need to do better than linear scans. If this is fired,
+/// ERROR_OUT_OF_STRUCTURES will be returned by an attempt to open a file.
 static const size_t MaxIncludedFiles = 1000;
 
 bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
-  if (!Path || !Path[0]) return FALSE;
+  if (!Path || !Path[0])
+    return FALSE;
   // Current dir-relative path.
   if (Path[0] == L'.') {
     return Path[1] == L'\0' || Path[1] == L'/' || Path[1] == L'\\';
@@ -164,34 +166,34 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
     return Path[1] == L'\\';
   }
 
-  #ifndef _WIN32
+#ifndef _WIN32
   // Absolute paths on unix systems start with '/'
   if (Path[0] == L'/') {
     return TRUE;
   }
-  #endif
+#endif
 
   //
-  // NOTE: there are a number of cases we don't handle, as they don't play well with the simple
-  // file system abstraction we use:
-  // - current directory on disk designator (eg, D:file.ext), requires per-disk current dir
+  // NOTE: there are a number of cases we don't handle, as they don't play well
+  // with the simple file system abstraction we use:
+  // - current directory on disk designator (eg, D:file.ext), requires per-disk
+  // current dir
   // - parent paths relative to current directory (eg, ..\\file.ext)
   //
-  // The current-directory support is available to help in-memory handlers. On-disk handlers
-  // will typically have absolute paths to begin with.
+  // The current-directory support is available to help in-memory handlers.
+  // On-disk handlers will typically have absolute paths to begin with.
   //
   return FALSE;
 }
 
-}
+} // namespace
 
 namespace dxcutil {
 
 void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
   if (IsAbsoluteOrCurDirRelativeW(Path)) {
     return;
-  }
-  else {
+  } else {
     PathStorage = L"./";
     PathStorage += Path;
     Path = PathStorage.c_str();
@@ -242,16 +244,20 @@ private:
     CComPtr<IStream> BlobStream;
     std::wstring Name;
     IncludedFile(std::wstring &&name, IDxcBlobUtf8 *pBlob, IStream *pStream)
-      : Blob(pBlob), BlobStream(pStream), Name(name) { }
+        : Blob(pBlob), BlobStream(pStream), Name(name) {}
   };
   llvm::SmallVector<IncludedFile, 4> m_includedFiles;
 
-  static bool IsDirOf(LPCWSTR lpDir, size_t dirLen, const std::wstring &fileName) {
-    if (fileName.size() <= dirLen) return false;
-    if (0 != wcsncmp(lpDir, fileName.data(), dirLen)) return false;
+  static bool IsDirOf(LPCWSTR lpDir, size_t dirLen,
+                      const std::wstring &fileName) {
+    if (fileName.size() <= dirLen)
+      return false;
+    if (0 != wcsncmp(lpDir, fileName.data(), dirLen))
+      return false;
 
     // Prefix matches, c:\\ to c:\\foo.hlsl or ./bar to ./bar/file.hlsl
-    // Ensure there are no additional characters, don't match ./ba if ./bar.hlsl exists
+    // Ensure there are no additional characters, don't match ./ba if ./bar.hlsl
+    // exists
     if (lpDir[dirLen - 1] == '\\' || lpDir[dirLen - 1] == '/') {
       // The file name was already terminated in a separator.
       return true;
@@ -260,8 +266,10 @@ private:
     return fileName.data()[dirLen] == '\\' || fileName.data()[dirLen] == '/';
   }
 
-  static bool IsDirPrefixOrSame(LPCWSTR lpDir, size_t dirLen, const std::wstring &path) {
-    if (0 == wcscmp(lpDir, path.c_str())) return true;
+  static bool IsDirPrefixOrSame(LPCWSTR lpDir, size_t dirLen,
+                                const std::wstring &path) {
+    if (0 == wcscmp(lpDir, path.c_str()))
+      return true;
     return IsDirOf(lpDir, dirLen, path);
   }
 
@@ -308,19 +316,20 @@ private:
         if (FAILED(hlsl::CreateReadOnlyBlobStream(fileBlobUtf8, &fileStream))) {
           return ERROR_UNHANDLED_EXCEPTION;
         }
-        m_includedFiles.emplace_back(std::wstring(lpFileName), fileBlobUtf8, fileStream);
+        m_includedFiles.emplace_back(std::wstring(lpFileName), fileBlobUtf8,
+                                     fileStream);
         index = m_includedFiles.size() - 1;
 
         if (m_bDisplayIncludeProcess) {
           std::string openFileStr;
           raw_string_ostream s(openFileStr);
           std::string fileName = Unicode::WideToUTF8StringOrThrow(lpFileName);
-          s << "Opening file [" << fileName << "], stack top [" << (index-1)
+          s << "Opening file [" << fileName << "], stack top [" << (index - 1)
             << "]\n";
           s.flush();
           ULONG cbWritten;
           IFT(m_pStdOutStream->Write(openFileStr.c_str(), openFileStr.size(),
-                                 &cbWritten));
+                                     &cbWritten));
         }
         return ERROR_SUCCESS;
       }
@@ -340,27 +349,28 @@ private:
   }
 
 public:
-  DxcArgsFileSystemImpl(_In_ IDxcBlobUtf8 *pSource, LPCWSTR pSourceName,
-                        _In_opt_ IDxcIncludeHandler *pHandler,
-                        _In_opt_ UINT32 defaultCodePage)
-      : m_pSource(pSource), m_pSourceName(pSourceName), m_pOutputStreamName(nullptr), m_includeLoader(pHandler),
+  DxcArgsFileSystemImpl(IDxcBlobUtf8 *pSource, LPCWSTR pSourceName,
+                        IDxcIncludeHandler *pHandler, UINT32 defaultCodePage)
+      : m_pSource(pSource), m_pSourceName(pSourceName),
+        m_pOutputStreamName(nullptr), m_includeLoader(pHandler),
         m_bDisplayIncludeProcess(false), m_DefaultCodePage(defaultCodePage) {
     MakeAbsoluteOrCurDirRelativeW(m_pSourceName, m_pAbsSourceName);
     IFT(CreateReadOnlyBlobStream(m_pSource, &m_pSourceStream));
-    m_includedFiles.push_back(IncludedFile(std::wstring(m_pSourceName), m_pSource, m_pSourceStream));
+    m_includedFiles.push_back(
+        IncludedFile(std::wstring(m_pSourceName), m_pSource, m_pSourceStream));
   }
   void EnableDisplayIncludeProcess() override {
     m_bDisplayIncludeProcess = true;
   }
   void WriteStdErrToStream(raw_string_ostream &s) override {
-    s.write((char*)m_pStdErrStream->GetPtr(), m_pStdErrStream->GetPtrSize());
+    s.write((char *)m_pStdErrStream->GetPtr(), m_pStdErrStream->GetPtrSize());
     s.flush();
   }
   void WriteStdOutToStream(raw_string_ostream &s) override {
     s.write((char *)m_pStdOutStream->GetPtr(), m_pStdOutStream->GetPtrSize());
     s.flush();
   }
-  HRESULT CreateStdStreams(_In_ IMalloc* pMalloc) override {
+  HRESULT CreateStdStreams(IMalloc *pMalloc) override {
     DXASSERT(m_pStdOutStream == nullptr, "else already created");
     CreateMemoryStream(pMalloc, &m_pStdOutStream);
     CreateMemoryStream(pMalloc, &m_pStdErrStream);
@@ -370,22 +380,19 @@ public:
     return S_OK;
   }
 
-  void GetStreamForFD(int fd, IStream** ppResult) {
+  void GetStreamForFD(int fd, IStream **ppResult) {
     return GetStreamForHandle(HandleFromFD(fd), ppResult);
   }
-  void GetStreamForHandle(HANDLE handle, IStream** ppResult) {
+  void GetStreamForHandle(HANDLE handle, IStream **ppResult) {
     CComPtr<IStream> stream;
     DxcArgsHandle argsHandle(handle);
     if (argsHandle == OutputHandle) {
       stream = m_pOutputStream;
-    }
-    else if (argsHandle == StdOutHandle) {
+    } else if (argsHandle == StdOutHandle) {
       stream = m_pStdOutStream;
-    }
-    else if (argsHandle == StdErrHandle) {
+    } else if (argsHandle == StdErrHandle) {
       stream = m_pStdErrStream;
-    }
-    else if (argsHandle.GetKind() == HandleKind::File) {
+    } else if (argsHandle.GetKind() == HandleKind::File) {
       stream = HandleToIncludedFile(handle).BlobStream;
     }
     *ppResult = stream.Detach();
@@ -400,20 +407,21 @@ public:
   }
 
   void SetupForCompilerInstance(clang::CompilerInstance &compiler) override {
-    DXASSERT(m_searchEntries.size() == 0, "else compiler instance being set twice");
+    DXASSERT(m_searchEntries.size() == 0,
+             "else compiler instance being set twice");
     // Turn these into UTF-16 to avoid converting later, and ensure they
     // are fully-qualified or relative to the current directory.
     const std::vector<clang::HeaderSearchOptions::Entry> &entries =
-      compiler.getHeaderSearchOpts().UserEntries;
+        compiler.getHeaderSearchOpts().UserEntries;
     if (entries.size() > MaxIncludedFiles) {
       throw hlsl::Exception(HRESULT_FROM_WIN32(ERROR_OUT_OF_STRUCTURES));
     }
     for (unsigned i = 0, e = entries.size(); i != e; ++i) {
       const clang::HeaderSearchOptions::Entry &E = entries[i];
       if (dxcutil::IsAbsoluteOrCurDirRelative(E.Path.c_str())) {
-        m_searchEntries.emplace_back(Unicode::UTF8ToWideStringOrThrow(E.Path.c_str()));
-      }
-      else {
+        m_searchEntries.emplace_back(
+            Unicode::UTF8ToWideStringOrThrow(E.Path.c_str()));
+      } else {
         std::wstring ws(L"./");
         ws += Unicode::UTF8ToWideStringOrThrow(E.Path.c_str());
         m_searchEntries.emplace_back(std::move(ws));
@@ -435,40 +443,34 @@ public:
     return S_OK;
   }
 
-  ~DxcArgsFileSystemImpl() override { };
-  BOOL FindNextFileW(
-    _In_   HANDLE hFindFile,
-    _Out_  LPWIN32_FIND_DATAW lpFindFileData) throw() override {
+  ~DxcArgsFileSystemImpl() override{};
+  BOOL FindNextFileW(HANDLE hFindFile,
+                     LPWIN32_FIND_DATAW lpFindFileData) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
-  HANDLE FindFirstFileW(
-    _In_   LPCWSTR lpFileName,
-    _Out_  LPWIN32_FIND_DATAW lpFindFileData) throw() override {
+  HANDLE FindFirstFileW(LPCWSTR lpFileName,
+                        LPWIN32_FIND_DATAW lpFindFileData) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
-  void FindClose(HANDLE findHandle) throw() override {
-    __debugbreak();
-  }
+  void FindClose(HANDLE findHandle) throw() override { __debugbreak(); }
 
-  HANDLE CreateFileW(
-    _In_      LPCWSTR lpFileName,
-    _In_      DWORD dwDesiredAccess,
-    _In_      DWORD dwShareMode,
-    _In_      DWORD dwCreationDisposition,
-    _In_      DWORD dwFlagsAndAttributes) throw() override {
+  HANDLE CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess,
+                     DWORD dwShareMode, DWORD dwCreationDisposition,
+                     DWORD dwFlagsAndAttributes) throw() override {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::CreateFileW %S\n", lpFileName);
     DWORD findError;
     {
-      std::wstring FileNameStore; // The destructor might release and set LastError to success.
+      std::wstring FileNameStore; // The destructor might release and set
+                                  // LastError to success.
       MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
 
       // Check for a match to the output file.
       if (m_pOutputStreamName != nullptr &&
-        0 == wcscmp(lpFileName, m_pOutputStreamName)) {
+          0 == wcscmp(lpFileName, m_pOutputStreamName)) {
         return OutputHandle.Handle;
       }
 
@@ -488,15 +490,16 @@ public:
     return INVALID_HANDLE_VALUE;
   }
 
-  BOOL SetFileTime(_In_ HANDLE hFile,
-    _In_opt_  const FILETIME *lpCreationTime,
-    _In_opt_  const FILETIME *lpLastAccessTime,
-    _In_opt_  const FILETIME *lpLastWriteTime) throw() override {
+  BOOL SetFileTime(HANDLE hFile, const FILETIME *lpCreationTime,
+                   const FILETIME *lpLastAccessTime,
+                   const FILETIME *lpLastWriteTime) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
-  BOOL GetFileInformationByHandle(_In_ HANDLE hFile, _Out_ LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override {
+  BOOL GetFileInformationByHandle(
+      HANDLE hFile,
+      LPBY_HANDLE_FILE_INFORMATION lpFileInformation) throw() override {
     DxcArgsHandle argsHandle(hFile);
     ZeroMemory(lpFileInformation, sizeof(*lpFileInformation));
     lpFileInformation->nFileIndexLow = (DWORD)(uintptr_t)hFile;
@@ -516,8 +519,7 @@ public:
       }
       lpFileInformation->nFileSizeLow = stat.cbSize.u.LowPart;
       return TRUE;
-    }
-    else if (argsHandle.IsDirHandle()) {
+    } else if (argsHandle.IsDirHandle()) {
       lpFileInformation->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
       lpFileInformation->nFileIndexHigh = 1;
       return TRUE;
@@ -526,7 +528,7 @@ public:
     return FALSE;
   }
 
-  DWORD GetFileType(_In_ HANDLE hFile) throw() override {
+  DWORD GetFileType(HANDLE hFile) throw() override {
     DxcArgsHandle argsHandle(hFile);
     if (argsHandle.IsStdHandle()) {
       return FILE_TYPE_CHAR;
@@ -540,19 +542,22 @@ public:
     return FILE_TYPE_UNKNOWN;
   }
 
-  BOOL CreateHardLinkW(_In_ LPCWSTR lpFileName, _In_ LPCWSTR lpExistingFileName) throw() override {
+  BOOL CreateHardLinkW(LPCWSTR lpFileName,
+                       LPCWSTR lpExistingFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  BOOL MoveFileExW(_In_ LPCWSTR lpExistingFileName, _In_opt_ LPCWSTR lpNewFileName, _In_ DWORD dwFlags) throw() override {
+  BOOL MoveFileExW(LPCWSTR lpExistingFileName, LPCWSTR lpNewFileName,
+                   DWORD dwFlags) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  DWORD GetFileAttributesW(_In_ LPCWSTR lpFileName) throw() override {
+  DWORD GetFileAttributesW(LPCWSTR lpFileName) throw() override {
     DXTRACE_FMT_APIFS("DxcArgsFileSystem::GetFileAttributesW %S\n", lpFileName);
     DWORD findError;
     {
-      std::wstring FileNameStore; // The destructor might release and set LastError to success.
+      std::wstring FileNameStore; // The destructor might release and set
+                                  // LastError to success.
       MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
       size_t sourceNameLen = wcslen(m_pSourceName);
       size_t fileNameLen = wcslen(lpFileName);
@@ -566,7 +571,7 @@ public:
 
       // Check for a perfect match to the output.
       if (m_pOutputStreamName != nullptr &&
-        0 == wcscmp(m_pOutputStreamName, lpFileName)) {
+          0 == wcscmp(m_pOutputStreamName, lpFileName)) {
         return FILE_ATTRIBUTE_NORMAL;
       }
 
@@ -585,7 +590,7 @@ public:
     return INVALID_FILE_ATTRIBUTES;
   }
 
-  BOOL CloseHandle(_In_ HANDLE hObject) throw() override {
+  BOOL CloseHandle(HANDLE hObject) throw() override {
     // Not actually closing handle. Would allow improper usage, but simplifies
     // query/open/usage patterns.
     if (IsKnownHandle(hObject)) {
@@ -595,100 +600,90 @@ public:
     SetLastError(ERROR_INVALID_HANDLE);
     return FALSE;
   }
-  BOOL DeleteFileW(_In_ LPCWSTR lpFileName) throw() override {
+  BOOL DeleteFileW(LPCWSTR lpFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  BOOL RemoveDirectoryW(_In_ LPCWSTR lpFileName) throw() override {
+  BOOL RemoveDirectoryW(LPCWSTR lpFileName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  BOOL CreateDirectoryW(_In_ LPCWSTR lpPathName) throw() override {
+  BOOL CreateDirectoryW(LPCWSTR lpPathName) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  _Success_(return != 0 && return < nBufferLength)
-    DWORD GetCurrentDirectoryW(_In_ DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override {
+  DWORD GetCurrentDirectoryW(DWORD nBufferLength,
+                             LPWSTR lpBuffer) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  _Success_(return != 0 && return < nSize)
-    DWORD GetMainModuleFileNameW(__out_ecount_part(nSize, return +1) LPWSTR lpFilename, DWORD nSize) throw() override {
+  DWORD GetMainModuleFileNameW(LPWSTR lpFilename,
+                               DWORD nSize) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  DWORD GetTempPathW(DWORD nBufferLength, _Out_writes_to_opt_(nBufferLength, return +1) LPWSTR lpBuffer) throw() override {
+  DWORD GetTempPathW(DWORD nBufferLength, LPWSTR lpBuffer) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  BOOLEAN CreateSymbolicLinkW(_In_ LPCWSTR lpSymlinkFileName, _In_ LPCWSTR lpTargetFileName, DWORD dwFlags) throw() override {
+  BOOLEAN CreateSymbolicLinkW(LPCWSTR lpSymlinkFileName,
+                              LPCWSTR lpTargetFileName,
+                              DWORD dwFlags) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  bool SupportsCreateSymbolicLink() throw() override {
-    return false;
-  }
-  BOOL ReadFile(_In_ HANDLE hFile, _Out_bytecap_(nNumberOfBytesToRead) LPVOID lpBuffer, _In_ DWORD nNumberOfBytesToRead, _Out_opt_ LPDWORD lpNumberOfBytesRead) throw() override {
+  bool SupportsCreateSymbolicLink() throw() override { return false; }
+  BOOL ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead,
+                LPDWORD lpNumberOfBytesRead) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
-  HANDLE CreateFileMappingW(
-    _In_      HANDLE hFile,
-    _In_      DWORD flProtect,
-    _In_      DWORD dwMaximumSizeHigh,
-    _In_      DWORD dwMaximumSizeLow) throw() override {
+  HANDLE CreateFileMappingW(HANDLE hFile, DWORD flProtect,
+                            DWORD dwMaximumSizeHigh,
+                            DWORD dwMaximumSizeLow) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return INVALID_HANDLE_VALUE;
   }
-  LPVOID MapViewOfFile(
-    _In_  HANDLE hFileMappingObject,
-    _In_  DWORD dwDesiredAccess,
-    _In_  DWORD dwFileOffsetHigh,
-    _In_  DWORD dwFileOffsetLow,
-    _In_  SIZE_T dwNumberOfBytesToMap) throw() override {
+  LPVOID MapViewOfFile(HANDLE hFileMappingObject, DWORD dwDesiredAccess,
+                       DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow,
+                       SIZE_T dwNumberOfBytesToMap) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return nullptr;
   }
-  BOOL UnmapViewOfFile(_In_ LPCVOID lpBaseAddress) throw() override {
+  BOOL UnmapViewOfFile(LPCVOID lpBaseAddress) throw() override {
     SetLastError(ERROR_NOT_CAPABLE);
     return FALSE;
   }
 
   // Console APIs.
-  bool FileDescriptorIsDisplayed(int fd) throw() override {
-    return false;
-  }
-  unsigned GetColumnCount(DWORD nStdHandle) throw() override {
-    return 80;
-  }
-  unsigned GetConsoleOutputTextAttributes() throw() override {
-    return 0;
-  }
+  bool FileDescriptorIsDisplayed(int fd) throw() override { return false; }
+  unsigned GetColumnCount(DWORD nStdHandle) throw() override { return 80; }
+  unsigned GetConsoleOutputTextAttributes() throw() override { return 0; }
   void SetConsoleOutputTextAttributes(unsigned) throw() override {
     __debugbreak();
   }
-  void ResetConsoleOutputTextAttributes() throw() override {
-    __debugbreak();
-  }
+  void ResetConsoleOutputTextAttributes() throw() override { __debugbreak(); }
 
   // CRT APIs - handles and file numbers can be mapped directly.
   HANDLE HandleFromFD(int fd) const {
-    if (fd == STDOUT_FILENO) return StdOutHandle.Handle;
-    if (fd == STDERR_FILENO) return StdErrHandle.Handle;
+    if (fd == STDOUT_FILENO)
+      return StdOutHandle.Handle;
+    if (fd == STDERR_FILENO)
+      return StdErrHandle.Handle;
     return (HANDLE)(uintptr_t)(fd);
   }
   int open_osfhandle(intptr_t osfhandle, int flags) throw() override {
     DxcArgsHandle H((HANDLE)osfhandle);
-    if (H == StdOutHandle.Handle) return STDOUT_FILENO;
-    if (H == StdErrHandle.Handle) return STDERR_FILENO;
+    if (H == StdOutHandle.Handle)
+      return STDOUT_FILENO;
+    if (H == StdErrHandle.Handle)
+      return STDERR_FILENO;
     return (int)(intptr_t)H.Handle;
   }
   intptr_t get_osfhandle(int fd) throw() override {
     return (intptr_t)HandleFromFD(fd);
   }
-  int close(int fd) throw() override {
-    return 0;
-  }
+  int close(int fd) throw() override { return 0; }
   long lseek(int fd, long offset, int origin) throw() override {
     CComPtr<IStream> stream;
     GetStreamForFD(fd, &stream);
@@ -709,13 +704,11 @@ public:
 
     return newOffset.u.LowPart;
   }
-  int setmode(int fd, int mode) throw() override {
+  int setmode(int fd, int mode) throw() override { return 0; }
+  errno_t resize_file(LPCWSTR path, uint64_t size) throw() override {
     return 0;
   }
-  errno_t resize_file(_In_ LPCWSTR path, uint64_t size) throw() override {
-    return 0;
-  }
-  int Read(int fd, _Out_bytecap_(count) void* buffer, unsigned int count) throw() override {
+  int Read(int fd, void *buffer, unsigned int count) throw() override {
     CComPtr<IStream> stream;
     GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
@@ -732,7 +725,7 @@ public:
 
     return (int)cbRead;
   }
-  int Write(int fd, _In_bytecount_(count) const void* buffer, unsigned int count) throw() override {
+  int Write(int fd, const void *buffer, unsigned int count) throw() override {
     CComPtr<IStream> stream;
     GetStreamForFD(fd, &stream);
     if (stream == nullptr) {
@@ -742,11 +735,11 @@ public:
 
 #ifndef NDEBUG
     if (fd == STDERR_FILENO) {
-        char* copyWithNull = new char[count+1];
-        strncpy(copyWithNull, (const char*)buffer, count);
-        copyWithNull[count] = '\0';
-        OutputDebugStringA(copyWithNull);
-        delete[] copyWithNull;
+      char *copyWithNull = new char[count + 1];
+      strncpy(copyWithNull, (const char *)buffer, count);
+      copyWithNull[count] = '\0';
+      OutputDebugStringA(copyWithNull);
+      delete[] copyWithNull;
     }
 #endif
 
@@ -768,17 +761,17 @@ public:
 
     memset(Status, 0, sizeof(*Status));
     switch (GetFileType(FileHandle)) {
-      default:
-        llvm_unreachable("Don't know anything about this file type");
-      case FILE_TYPE_DISK:
-        break;
-      case FILE_TYPE_CHAR:
-        Status->st_mode = S_IFCHR;
-        return 0;
-      case FILE_TYPE_PIPE:
-        Status->st_mode = S_IFIFO;
-        return 0;
-      }
+    default:
+      llvm_unreachable("Don't know anything about this file type");
+    case FILE_TYPE_DISK:
+      break;
+    case FILE_TYPE_CHAR:
+      Status->st_mode = S_IFCHR;
+      return 0;
+    case FILE_TYPE_PIPE:
+      Status->st_mode = S_IFIFO;
+      return 0;
+    }
 
     BY_HANDLE_FILE_INFORMATION Info;
     if (!GetFileInformationByHandle(FileHandle, &Info))
@@ -796,10 +789,12 @@ public:
     return 0;
   }
 
-  virtual int Open(const char *lpFileName, int flags, mode_t mode) throw() override {
-    HANDLE H = CreateFileW(CA2W(lpFileName, CP_UTF8), GENERIC_READ | GENERIC_WRITE,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE,
-                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
+  virtual int Open(const char *lpFileName, int flags,
+                   mode_t mode) throw() override {
+    HANDLE H =
+        CreateFileW(CA2W(lpFileName, CP_UTF8), GENERIC_READ | GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE, OPEN_EXISTING,
+                    FILE_ATTRIBUTE_NORMAL);
     if (H == INVALID_HANDLE_VALUE)
       return -1;
     int FD = open_osfhandle(intptr_t(H), 0);
@@ -809,16 +804,18 @@ public:
   }
 
   // fake my way toward as linux-y a file_status as I can get
-  virtual int Stat(const char *lpFileName, struct stat *Status) throw() override {
+  virtual int Stat(const char *lpFileName,
+                   struct stat *Status) throw() override {
     CA2W fileName_wide(lpFileName, CP_UTF8);
 
     DWORD attr = GetFileAttributesW(fileName_wide);
     if (attr == INVALID_FILE_ATTRIBUTES)
       return -1;
 
-    HANDLE H = CreateFileW(fileName_wide, 0, // Attributes only.
-                           FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
-                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
+    HANDLE H =
+        CreateFileW(fileName_wide, 0, // Attributes only.
+                    FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
     if (H == INVALID_HANDLE_VALUE)
       return -1;
 
@@ -830,17 +827,15 @@ public:
     return getStatus(FileHandle, Status);
   }
 #endif // _WIN32
-
 };
-}
+} // namespace dxcutil
 
 namespace dxcutil {
 
-DxcArgsFileSystem *
-CreateDxcArgsFileSystem(
-    _In_ IDxcBlobUtf8 *pSource, _In_ LPCWSTR pSourceName,
-                        _In_opt_ IDxcIncludeHandler *pIncludeHandler,
-                        _In_opt_ UINT32 defaultCodePage) {
+DxcArgsFileSystem *CreateDxcArgsFileSystem(IDxcBlobUtf8 *pSource,
+                                           LPCWSTR pSourceName,
+                                           IDxcIncludeHandler *pIncludeHandler,
+                                           UINT32 defaultCodePage) {
   return new DxcArgsFileSystemImpl(pSource, pSourceName, pIncludeHandler,
                                    defaultCodePage);
 }

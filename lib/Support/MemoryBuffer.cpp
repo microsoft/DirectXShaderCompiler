@@ -56,7 +56,7 @@ void MemoryBuffer::init(const char *BufStart, const char *BufEnd,
 
 /// CopyStringRef - Copies contents of a StringRef into a block of memory and
 /// null-terminates it.
-static void CopyStringRef(_Out_cap_x_(Data.size()+1) char *Memory, StringRef Data) {
+static void CopyStringRef(char *Memory, StringRef Data) {
   if (!Data.empty())
     memcpy(Memory, Data.data(), Data.size());
   Memory[Data.size()] = 0; // Null terminate string.
@@ -372,8 +372,10 @@ getOpenFileImpl(int FD, const Twine &Filename, uint64_t FileSize,
     std::unique_ptr<MemoryBuffer> Result(
         new (NamedBufferAlloc(Filename))
         MemoryBufferMMapFile(RequiresNullTerminator, FD, MapSize, Offset, EC));
-    if (!EC)
-      return Result; // HLSL Change - Fix redundant move warning.
+    if (!EC) {
+      return ErrorOr(
+          std::move(Result)); // HLSL Change - Fix redundant move warning.
+    }
   }
 
   std::unique_ptr<MemoryBuffer> Buf =
@@ -413,7 +415,7 @@ getOpenFileImpl(int FD, const Twine &Filename, uint64_t FileSize,
     BufPtr += NumRead;
   }
 
-  return Buf; // HLSL Change - Fix redundant move warning.
+  return ErrorOr(std::move(Buf)); // HLSL Change - Fix redundant move warning.
 }
 
 ErrorOr<std::unique_ptr<MemoryBuffer>>
