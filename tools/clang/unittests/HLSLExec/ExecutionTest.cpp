@@ -208,7 +208,7 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format,
   VERIFY_SUCCEEDED(pFactory->CreateBitmapFromMemory(
       m_width, m_height, pFormat->PixelFormat, m_width * pFormat->PixelSize,
       m_width * m_height * pFormat->PixelSize,
-      const_cast<BYTE *>((const BYTE*)(pPixels)), &pBitmap));
+      const_cast<BYTE *>((const BYTE *)(pPixels)), &pBitmap));
   VERIFY_SUCCEEDED(
       pFactory->CreateEncoder(GUID_ContainerFormatBmp, nullptr, &pEncoder));
   VERIFY_SUCCEEDED(SHCreateStreamOnFileEx(pFileName, STGM_WRITE, STGM_CREATE, 0,
@@ -4416,7 +4416,7 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
 }
 
 // Used to determine how an out of bounds offset should be converted
-#define CLAMPOFFSET(offset) (((unsigned)(offset)<<28)>>28)
+#define CLAMPOFFSET(offset) (((unsigned)(offset) << 28) >> 28)
 
 // Determine if the values in pPixels correspond to the expected locations
 // encoded into a uint based on the coordinates and offsets that were provided.
@@ -4883,7 +4883,7 @@ struct RawFloatTexture : public ExecutionTest::RawGatherTexture {
     float a = (float)(x + y) * 0.1f;
     RGBA[i].SetChannels(r, g, b, a);
   }
-  void *GetElements() override { return (void*)RGBA; }
+  void *GetElements() override { return (void *)RGBA; }
   unsigned GetXDim() override { return xdim; }
   unsigned GetYDim() override { return ydim; }
   DXGI_FORMAT GetFormat() override { return m_format; };
@@ -4947,7 +4947,7 @@ struct RawIntTexture : public ExecutionTest::RawGatherTexture {
     }
     RGBA[i].SetChannels((UINT)fr, (UINT)fg, (UINT)fb, (UINT)fa);
   }
-  void *GetElements() override { return (void*)RGBA; }
+  void *GetElements() override { return (void *)RGBA; }
   unsigned GetXDim() override { return xdim; }
   unsigned GetYDim() override { return ydim; }
   DXGI_FORMAT GetFormat() override { return m_format; };
@@ -5824,7 +5824,7 @@ struct TableParameter {
     BOOL_TABLE
   };
   TableParameter(LPCWSTR name, TableParameterType type, bool required)
-    : m_name(name), m_type(type), m_required(required) {}
+      : m_name(name), m_type(type), m_required(required) {}
   TableParameterType m_type;
   bool m_required; // required parameter
   int8_t m_int8;
