@@ -11287,6 +11287,22 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
         Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
         return true;
       }
+    } else if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
+               opCode ==
+                   hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
+      const auto *shaderModel =
+          hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
+      if (!shaderModel->IsSM68Plus()) {
+        QualType SamplerComparisonTy =
+            HLSLExternalSource::FromSema(this)->GetBasicKindType(
+                AR_OBJECT_SAMPLERCOMPARISON);
+        if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
+          Diags.Report(Loc,
+                       diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
+              << MD->getNameAsString() << "6.8";
+          return true;
+        }
+      }
     }
   }
   return false;
