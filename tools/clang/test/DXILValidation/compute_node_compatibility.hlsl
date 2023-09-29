@@ -14,24 +14,24 @@ struct RECORD {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(1, 1, 1)]
 [NumThreads(1,1,1)]
 void node01(DispatchNodeInputRecord<RECORD> input) { }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(1,1,1)]
 void node02(RWDispatchNodeInputRecord<RECORD> input) { }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(3, 1, 1)]
 [NumThreads(1,1,1)]
 void node03(NodeOutput<RECORD> output) { }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1,1,1)]
 void node04() { }
