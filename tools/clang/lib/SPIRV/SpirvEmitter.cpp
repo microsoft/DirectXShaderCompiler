@@ -3535,7 +3535,8 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
       // one member, S, then (T)<an-instance-of-S> is allowed, which essentially
       // constructs a new T instance using the instance of S as its only member.
       // Check whether we are handling that case here first.
-      if (field->getType().getCanonicalType() == initType.getCanonicalType()) {
+      if (!field->isBitField() &&
+          field->getType().getCanonicalType() == initType.getCanonicalType()) {
         fields.push_back(initInstr);
       } else {
         fields.push_back(processFlatConversion(field->getType(), initType,
@@ -8162,6 +8163,41 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
       return spvBuilder.createCompositeConstruct(toIntType, castedRows, srcLoc,
                                                  srcRange);
     }
+  }
+
+  if (const auto *recordType = fromType->getAs<RecordType>()) {
+    // This code is bogus but approximates the current (unspec'd)
+    // behavior for the DXIL target.
+    assert(recordType->isStructureType());
+
+    auto fieldDecl = recordType->getDecl()->field_begin();
+    QualType fieldType = fieldDecl->getType();
+    QualType elemType = {};
+    SpirvInstruction *firstField;
+
+    if (isVectorType(fieldType, &elemType)) {
+      fieldType = elemType;
+      firstField = spvBuilder.createCompositeExtract(fieldType, fromVal, {0, 0},
+                                                     srcLoc, srcRange);
+    } else {
+      firstField = spvBuilder.createCompositeExtract(fieldType, fromVal, {0},
+                                                     srcLoc, srcRange);
+      if (fieldDecl->isBitField()) {
+        auto offset = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                llvm::APInt(32, 0));
+        auto width = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy,
+            llvm::APInt(32, fieldDecl->getBitWidthValue(astContext)));
+        firstField = spvBuilder.createBitFieldExtract(
+            fieldType, firstField, offset, width,
+            toIntType->hasSignedIntegerRepresentation(), srcLoc);
+      }
+    }
+
+    SpirvInstruction *result =
+        castToInt(firstField, fieldType, toIntType, srcLoc, srcRange);
+    result->setLayoutRule(fromVal->getLayoutRule());
+    return result;
   }
 
   return nullptr;
