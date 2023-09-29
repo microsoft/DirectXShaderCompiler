@@ -3,6 +3,13 @@
 // - the x, y, z, component values must be in the range 1 to 2^16 - 1 (65,535) inclusive
 // - the product x * y * z must not exceed 2^24 - 1 (16,777,215)
 // - a warning should be generated for 2nd and subsequent occurances of these attributes
+// - node with NodeMaxDispatchGrid must have a input record with SV_DispatchGrid semantics
+//   on exactly one field
+
+struct MyStruct {
+    float a;
+    uint3 grid : SV_DispatchGrid;
+};
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
@@ -55,35 +62,35 @@ void node06()
 [NodeLaunch("Broadcasting")]
 [NodeMaxDispatchGrid(65535, 1, 1)]
 [NumThreads(32, 1, 1)]
-void node11()
+void node11(DispatchNodeInputRecord<MyStruct> input)
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeMaxDispatchGrid(1, 65536, 1)]    // expected-error {{'NodeMaxDispatchGrid' Y component value must be between 1 and 65,535 (2^16-1) inclusive}}
 [NumThreads(32, 1, 1)]
-void node12()
+void node12(DispatchNodeInputRecord<MyStruct> input)
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeMaxDispatchGrid(1, 1, 0)]        // expected-error {{'NodeMaxDispatchGrid' Z component value must be between 1 and 65,535 (2^16-1) inclusive}}
 [NumThreads(32, 1, 1)]
-void node13()
+void node13(DispatchNodeInputRecord<MyStruct> input)
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeMaxDispatchGrid(1, y, z)]        // expected-error {{'NodeMaxDispatchGrid' Z component value must be between 1 and 65,535 (2^16-1) inclusive}}
 [NumThreads(32, 1, 1)]
-void node14()
+void node14(DispatchNodeInputRecord<MyStruct> input)
 { }
 
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NodeMaxDispatchGrid(1, 65535, 257)]  // expected-error {{'NodeMaxDispatchGrid' X * Y * Z product may not exceed 16,777,215 (2^24-1)}}
 [NumThreads(32, 1, 1)]
-void node15()
+void node15(DispatchNodeInputRecord<MyStruct> input)
 { }
 
 [Shader("node")]
@@ -91,5 +98,43 @@ void node15()
 [NodeMaxDispatchGrid(256, 8, 8)]      // expected-warning {{attribute 'NodeMaxDispatchGrid' is already applied}}
 [NodeMaxDispatchGrid(64, 1, 1)]
 [NumThreads(32, 1, 1)]
-void node16()
+void node16(DispatchNodeInputRecord<MyStruct> input)
+{ }
+
+[Shader("node")]
+[NodeMaxDispatchGrid(3, 1, 1)]
+[NumThreads(17, 1, 1)]
+void cs_and_node()               // expected-error {{Broadcasting node shader 'cs_and_node' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+{ }
+
+struct MyStruct2 {
+    float3 b;
+};
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(256, 8, 8)]
+[NumThreads(32, 1, 1)]
+void node18(DispatchNodeInputRecord<MyStruct2> input)  // expected-error {{Broadcasting node shader 'node18' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+{ }
+
+struct A {
+    float a;
+    uint3 grid : SV_DispatchGrid;   // expected-error {{a field with SV_DispatchGrid has already been specified}}
+};
+
+struct B : A {
+    float b;
+};
+
+struct C : B {
+    float b;
+    int3 grid2 : SV_DispatchGrid;   // expected-note {{other SV_DispatchGrid defined here}}
+};
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(8, 4, 4)]      
+[NumThreads(32, 1, 1)]
+void node18(DispatchNodeInputRecord<C> input)
 { }

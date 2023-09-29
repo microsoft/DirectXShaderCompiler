@@ -15117,6 +15117,56 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
   }
 }
 
+// Diagnose input node record to make sure it has exactly one SV_DispatchGrid semantics.
+// Recursivelly walk all fields on the record and all of its base classes/structs
+void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
+                                           SourceLocation &DispatchGridLoc, bool &Found) {
+  // Iterate over fields of the input record struct
+  for (auto FieldDecl : InputRecordDecl->fields()) {
+    // Check if any of the fields have SV_DispatchGrid annotation
+    for (const hlsl::UnusualAnnotation *it :
+         FieldDecl->getUnusualAnnotations()) {
+      if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
+        const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
+        if (sd->SemanticName.equals("SV_DispatchGrid")) {
+          if (!Found) {
+            Found = true;
+            DispatchGridLoc = it->Loc;
+          } else {
+            // There should be just one SV_DispatchGrid in per record struct
+            S.Diags.Report(it->Loc,
+                diag::err_hlsl_dispatchgrid_semantic_already_specified);
+            S.Diags.Report(DispatchGridLoc, diag::note_defined_here)
+                << "other SV_DispatchGrid";
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // Walk up the inheritance chain and check all fields on base classes
+  for (CXXRecordDecl::base_class_iterator B = InputRecordDecl->bases_begin(),
+                                          BEnd = InputRecordDecl->bases_end();
+       B != BEnd; ++B) {
+
+    QualType BaseType = B->getType();
+    CXXRecordDecl *BaseTypeDecl =
+        dyn_cast<CXXRecordDecl>(BaseType->getAsStructureType()->getDecl());
+
+    DiagnoseMustHaveOneDispatchGridSemantics(S, BaseTypeDecl, DispatchGridLoc,
+                                             Found);
+  }
+}
+
+void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
+                                              CXXRecordDecl *InputRecordStruct,
+                                              bool &Found) {
+  SourceLocation DispatchGridLoc;
+  DiagnoseMustHaveOneDispatchGridSemantics(S, InputRecordStruct,
+                                           DispatchGridLoc, Found);
+}
+
 void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
 
   SourceLocation NodeLoc = SourceLocation();
@@ -15206,6 +15256,42 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, HLSLShaderAttr *Attr) {
           << NodeMDG->getRange();
       S.Diags.Report(NodeDG->getLocation(), diag::note_defined_here)
           << NodeDG->getSpelling();
+    }
+    // Node with NodeMaxDispatchGrid must have SV_DispatchGrid semantic.
+    if (NodeMDG) {
+      bool Found = false;
+      for (FunctionDecl::param_iterator I = FD->param_begin(),
+                                        E = FD->param_end();
+           I != E; ++I) {
+        QualType ParamType = (*I)->getType().getCanonicalType();
+
+        // Find parameter that is the node input record
+        if (hlsl::IsHLSLNodeInputType(ParamType)) {
+          // Node input records are template types
+          if (const RecordType *NodeInputRT = dyn_cast<RecordType>(ParamType)) {
+            if (const ClassTemplateSpecializationDecl *templateDecl =
+                    dyn_cast<ClassTemplateSpecializationDecl>(
+                        NodeInputRT->getDecl())) {
+
+              // Get the input record struct
+              auto &TemplateArgs = templateDecl->getTemplateArgs();
+              auto &StructArg = TemplateArgs.get(0);
+              QualType StructArgType = StructArg.getAsType();
+              CXXRecordDecl *NodeInputStructDecl = dyn_cast<CXXRecordDecl>(
+                  StructArgType->getAsStructureType()->getDecl());
+
+              // Make sure there is exactly one SV_DispatchGrid semantics
+              DiagnoseMustHaveOneDispatchGridSemantics(S, NodeInputStructDecl,
+                                                       Found);
+            }
+          }
+        }
+      }
+      if (!Found) {
+        S.Diags.Report(FD->getLocation(),
+                       diag::err_hlsl_missing_dispatchgrid_semantic)
+            << FD->getName();
+      }
     }
   }
 

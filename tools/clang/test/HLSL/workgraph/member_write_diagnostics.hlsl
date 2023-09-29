@@ -7,6 +7,7 @@ struct RECORD
 {
   uint3 a;
   bool b;
+  uint3 grid : SV_DispatchGrid;
 };
 
 [Shader("node")]
@@ -96,7 +97,7 @@ void node06(RWThreadNodeInputRecord<RECORD> input6)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
-[NodeMaxDispatchGrid(1024,1,1)]
+[NodeDispatchGrid(1024,1,1)]
 void node07(NodeOutput<RECORD> output7)
 {
   RECORD x;
@@ -110,7 +111,7 @@ void node07(NodeOutput<RECORD> output7)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("Broadcasting")]
-[NodeMaxDispatchGrid(1024,1,1)]
+[NodeDispatchGrid(1024,1,1)]
 void node08([MaxRecords(8)] NodeOutputArray<RECORD> output8)
 {
   RECORD x;

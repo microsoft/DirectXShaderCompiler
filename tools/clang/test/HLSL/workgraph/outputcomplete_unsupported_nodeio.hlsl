@@ -5,6 +5,7 @@
 
 struct RECORD {
   int i;
+  uint3 grid : SV_DispatchGrid;
 };
 
 [Shader("node")]
@@ -68,7 +69,7 @@ void node_emptynodeinput([MaxRecords(5)] EmptyNodeInput emptyNodeInput)
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
-[NodeMaxDispatchGrid(1,1,1)]
+[NodeDispatchGrid(1,1,1)]
 void node_nodeoutput(NodeOutput<RECORD> nodeOutput)
 {
   nodeOutput.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'NodeOutput<RECORD>'}}
@@ -77,7 +78,7 @@ void node_nodeoutput(NodeOutput<RECORD> nodeOutput)
 [Shader("node")]
 [NodeLaunch("Broadcasting")]
 [NumThreads(1,1,1)]
-[NodeMaxDispatchGrid(1,1,1)]
+[NodeDispatchGrid(1,1,1)]
 void node127_emptynodeoutput(EmptyNodeOutput emptyNodeOutput)
 {
   emptyNodeOutput.OutputComplete(); // expected-error {{no member named 'OutputComplete' in 'EmptyNodeOutput'}}
