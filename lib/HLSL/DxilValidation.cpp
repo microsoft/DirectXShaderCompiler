@@ -1658,7 +1658,9 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
   case DXIL::OpCode::CalculateLOD: {
     DxilInst_CalculateLOD lod(CI);
     Value *samplerHandle = lod.get_sampler();
-    if (GetSamplerKind(samplerHandle, ValCtx) != DXIL::SamplerKind::Default) {
+    if ((DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 8) <
+         0) &&
+        GetSamplerKind(samplerHandle, ValCtx) != DXIL::SamplerKind::Default) {
       ValCtx.EmitInstrError(CI, ValidationRule::InstrSamplerModeForLOD);
     }
     Value *handle = lod.get_handle();
