@@ -16,7 +16,7 @@ struct rec1
 };
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void InvalidRef(
   RWThreadNodeInputRecord<rec0> InputyMcInputFace,
   // MaxRecordsSharedWith referencing non-existant parameter

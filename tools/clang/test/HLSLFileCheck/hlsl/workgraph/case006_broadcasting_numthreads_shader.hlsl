@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 -default-linkage external %s | FileCheck %s
 // ==================================================================
-// CASE006
 // Broadcasting launch node with num threads defined in shader
 // ==================================================================
 
@@ -12,7 +11,7 @@
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2,3,2)]
 [NumThreads(1024,1,1)]
 [NodeIsProgramEntry]
@@ -30,7 +29,7 @@ void node006_broadcasting_numthreads_shader()
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // Arg #5: NodeIsProgramEntry Tag (14)
 // Arg #6: True (1)
 // Arg #7: NodeId Tag (15)

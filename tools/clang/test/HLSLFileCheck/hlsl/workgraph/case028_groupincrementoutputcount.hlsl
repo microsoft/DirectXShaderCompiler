@@ -1,12 +1,11 @@
 // RUN: %dxc -T lib_6_8 -default-linkage external %s | FileCheck %s
 // ==================================================================
-// CASE028
 // Node with EmptyNodeOutput calls GroupIncrementOutputCount
 // ==================================================================
 
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1024,1,1)]
 [NodeIsProgramEntry]
 void node028_incrementoutputcount([MaxRecords(20)] EmptyNodeOutput empty)
@@ -28,7 +27,7 @@ void node028_incrementoutputcount([MaxRecords(20)] EmptyNodeOutput empty)
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Coalescing (2)
+// Arg #4: coalescing (2)
 // ...
 // Arg #n: NodeOutputs Tag (21)
 // Arg #n+1: NodeOutputs (NodeOutputs metadata)

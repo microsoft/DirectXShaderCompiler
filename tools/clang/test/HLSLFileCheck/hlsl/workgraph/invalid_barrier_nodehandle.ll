@@ -110,7 +110,7 @@ attributes #2 = { nounwind readonly }
 
 ;[Shader("node")]
 ;[NumThreads(1024,1,1)]
-;[NodeLaunch("Broadcasting")]
+;[NodeLaunch("broadcasting")]
 ;void node01(DispatchNodeInputRecord<RECORD> input)
 ;{
 ;  Barrier(buf0,1,1);
@@ -118,7 +118,7 @@ attributes #2 = { nounwind readonly }
 
 ;[Shader("node")]
 ;[NumThreads(1024,1,1)]
-;[NodeLaunch("Broadcasting")]
+;[NodeLaunch("broadcasting")]
 ;void node02(DispatchNodeInputRecord<RECORD> input)
 ;{
 ;  Barrier(input,1,1);

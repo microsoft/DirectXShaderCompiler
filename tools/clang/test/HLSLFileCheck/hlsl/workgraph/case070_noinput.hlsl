@@ -5,18 +5,18 @@
 // ==================================================================
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeDispatchGrid(4,1,1)]
 void node070_broadcasting() { }
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1,1,1)]
 void node070_coalescing() { }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 [NumThreads(1,1,1)]
 void node070_thread() { }
 
@@ -29,7 +29,7 @@ void node070_thread() { }
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS_BROADCASTING]] = !{
@@ -45,7 +45,7 @@ void node070_thread() { }
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Coalescing (2)
+// Arg #4: coalescing (2)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS_COALESCING]] = !{
@@ -61,7 +61,7 @@ void node070_thread() { }
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Thread (3)
+// Arg #4: thread (3)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS_THREAD]] = !{

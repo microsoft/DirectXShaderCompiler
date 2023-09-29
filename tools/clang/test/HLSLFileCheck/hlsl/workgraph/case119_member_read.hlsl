@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // ==================================================================
-// CASE119
 // Read access to members of input/output records
 // ==================================================================
 
@@ -15,7 +14,7 @@ struct RECORD
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(16,1,1)]
 void node01(DispatchNodeInputRecord<RECORD> input)
 {
@@ -30,7 +29,7 @@ void node01(DispatchNodeInputRecord<RECORD> input)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(16,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node02(RWDispatchNodeInputRecord<RECORD> input)
 {
   buf0[0] = input.Get().b;

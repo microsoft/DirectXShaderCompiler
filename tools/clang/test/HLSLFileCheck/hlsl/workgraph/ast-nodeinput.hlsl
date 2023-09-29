@@ -8,7 +8,7 @@ struct RECORD {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(512,1,1)]
 void node01(DispatchNodeInputRecord<RECORD> input) {}
@@ -25,7 +25,7 @@ void node01(DispatchNodeInputRecord<RECORD> input) {}
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> struct DispatchNodeInputRecord definition
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1024,1,1)]
 void node02(GroupNodeInputRecords<RECORD> input) {}
 
@@ -55,7 +55,7 @@ void node02(GroupNodeInputRecords<RECORD> input) {}
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> struct GroupNodeInputRecords definition
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void node03(ThreadNodeInputRecord<RECORD> input) {}
 
 //CHECK: ClassTemplateDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit ThreadNodeInputRecord
@@ -70,6 +70,6 @@ void node03(ThreadNodeInputRecord<RECORD> input) {}
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> struct ThreadNodeInputRecord definition
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1024,1,1)]
 void node04(EmptyNodeInput input) {}

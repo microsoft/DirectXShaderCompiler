@@ -18,7 +18,7 @@ struct rec1
 };
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void BackwardRef(
   RWThreadNodeInputRecord<rec0> InputyMcInputFace,
   [MaxRecords(5)] NodeOutput<rec1> Output1,
@@ -27,7 +27,7 @@ void BackwardRef(
 }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void ForwardRef(
   RWThreadNodeInputRecord<rec0> InputyMcInputFace,
   [MaxRecordsSharedWith(Output2)] NodeOutput<rec1> Output1,
