@@ -15241,6 +15241,7 @@ void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
 
 void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                        bool isActiveEntry) {
+
   SourceLocation NodeLoc = SourceLocation();
   SourceLocation NodeLaunchLoc = SourceLocation();
   DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;

@@ -104,7 +104,7 @@ void node16(DispatchNodeInputRecord<MyStruct> input)
 [Shader("node")]
 [NodeMaxDispatchGrid(3, 1, 1)]
 [NumThreads(17, 1, 1)]
-void cs_and_node()               // expected-error {{Broadcasting node shader 'cs_and_node' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+void node17()               // expected-error {{Broadcasting node shader 'node17' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 { }
 
 struct MyStruct2 {
@@ -116,6 +116,19 @@ struct MyStruct2 {
 [NodeMaxDispatchGrid(256, 8, 8)]
 [NumThreads(32, 1, 1)]
 void node18(DispatchNodeInputRecord<MyStruct2> input)  // expected-error {{Broadcasting node shader 'node18' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+{ }
+
+struct MyStruct3 {
+    uint3 grid : SV_DispatchGrid;  // expected-note {{other SV_DispatchGrid defined here}}
+    float3 b;
+    int3 grid2 : SV_DispatchGrid;  // expected-error {{a field with SV_DispatchGrid has already been specified}}
+};
+
+[Shader("node")]
+[NodeLaunch("Broadcasting")]
+[NodeMaxDispatchGrid(256, 8, 8)]
+[NumThreads(32, 1, 1)]
+void node19(DispatchNodeInputRecord<MyStruct3> input)
 { }
 
 struct A {
@@ -136,5 +149,5 @@ struct C : B {
 [NodeLaunch("Broadcasting")]
 [NodeMaxDispatchGrid(8, 4, 4)]      
 [NumThreads(32, 1, 1)]
-void node18(DispatchNodeInputRecord<C> input)
+void node20(DispatchNodeInputRecord<C> input)
 { }
