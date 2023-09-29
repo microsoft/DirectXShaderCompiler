@@ -519,7 +519,7 @@ if(LLVM_USE_SANITIZER)
       endif()
     elseif (LLVM_USE_SANITIZER STREQUAL "Undefined")
       append_common_sanitizer_flags()
-      append("-fsanitize=undefined -fno-sanitize=vptr,function -fno-sanitize-recover=all"
+      append("-fsanitize=undefined -fno-sanitize=vptr,function,alignment -fno-sanitize-recover=all"
               CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     elseif (LLVM_USE_SANITIZER STREQUAL "Thread")
       append_common_sanitizer_flags()
