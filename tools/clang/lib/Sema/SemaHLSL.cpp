@@ -15117,10 +15117,13 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
   }
 }
 
-// Diagnose input node record to make sure it has exactly one SV_DispatchGrid semantics.
-// Recursivelly walk all fields on the record and all of its base classes/structs
-void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
-                                           SourceLocation &DispatchGridLoc, bool &Found) {
+// Diagnose input node record to make sure it has exactly one SV_DispatchGrid
+// semantics. Recursivelly walk all fields on the record and all of its base
+// classes/structs
+void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
+                                              CXXRecordDecl *InputRecordDecl,
+                                              SourceLocation &DispatchGridLoc,
+                                              bool &Found) {
   // Iterate over fields of the input record struct
   for (auto FieldDecl : InputRecordDecl->fields()) {
     // Check if any of the fields have SV_DispatchGrid annotation
@@ -15134,7 +15137,8 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecor
             DispatchGridLoc = it->Loc;
           } else {
             // There should be just one SV_DispatchGrid in per record struct
-            S.Diags.Report(it->Loc,
+            S.Diags.Report(
+                it->Loc,
                 diag::err_hlsl_dispatchgrid_semantic_already_specified);
             S.Diags.Report(DispatchGridLoc, diag::note_defined_here)
                 << "other SV_DispatchGrid";

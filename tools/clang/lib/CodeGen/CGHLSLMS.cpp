@@ -2515,7 +2515,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
                                /*isPatchConstantFunction*/ false);
     }
   }
-  
+
   // All output decls and param names are available and errors can be generated
   // and parameter output array indices that correspond to param names can be
   // added to the properties
@@ -2726,7 +2726,7 @@ void CGMSHLSLRuntime::AddHLSLNodeRecordTypeInfo(
                 clang::QualType FT = fieldDecl->getType();
                 auto &DL = CGM.getDataLayout();
                 auto &SDGRec = node.RecordType.SV_DispatchGrid;
-                
+
                 DXASSERT_NOMSG(SDGRec.NumComponents == 0);
 
                 unsigned fieldIdx = fieldDecl->getFieldIndex();
