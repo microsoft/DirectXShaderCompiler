@@ -21,7 +21,7 @@ struct MY_INPUT_RECORD
         float3 normal;
     };
 
-// CHECK:FunctionDecl 0x{{.*}} myFancyNode 'void (DispatchNodeInputRecord<MY_INPUT_RECORD>, NodeOutput<MY_RECORD>, NodeOutput<MY_RECORD>, NodeOutput<MY_MATERIAL_RECORD> [63], EmptyNodeOutput)'
+// CHECK:FunctionDecl 0x{{.*}} myFancyNode 'void (DispatchNodeInputRecord<MY_INPUT_RECORD>, NodeOutput<MY_RECORD>, NodeOutput<MY_RECORD>, NodeOutputArray<MY_MATERIAL_RECORD>, EmptyNodeOutput)'
 // CHECK-NEXT:ParmVarDecl 0x{{.*}} myInput 'DispatchNodeInputRecord<MY_INPUT_RECORD>':'DispatchNodeInputRecord<MY_INPUT_RECORD>'
 // CHECK-NEXT: HLSLMaxRecordsAttr 0x{{.*}} 4
 // CHECK-NEXT: ParmVarDecl 0x{{.*}} myFascinatingNode 'NodeOutput<MY_RECORD>':'NodeOutput<MY_RECORD>'
@@ -29,7 +29,7 @@ struct MY_INPUT_RECORD
 // CHECK-NEXT: ParmVarDecl 0x{{.*}} myRecords 'NodeOutput<MY_RECORD>':'NodeOutput<MY_RECORD>'
 // CHECK-NEXT: HLSLMaxRecordsAttr 0x{{.*}} 4
 // CHECK-NEXT: HLSLNodeIdAttr 0x{{.*}} "myNiftyNode" 3
-// CHECK-NEXT: ParmVarDecl 0x{{.*}} col:60 myMaterials 'NodeOutput<MY_MATERIAL_RECORD> [63]'
+// CHECK-NEXT: ParmVarDecl 0x{{.*}} col:65 myMaterials 'NodeOutputArray<MY_MATERIAL_RECORD>'
 // CHECK-NEXT:HLSLNodeArraySizeAttr 0x{{.*}} 63
 // CHECK-NEXT:HLSLAllowSparseNodesAttr 0x{{.*}}
 // CHECK-NEXT:HLSLMaxRecordsSharedWithAttr 0x{{.*}} myRecords
@@ -52,10 +52,9 @@ struct MY_INPUT_RECORD
 
         [NodeID("myNiftyNode",3)] [MaxRecords(4)] NodeOutput<MY_RECORD> myRecords,
 
-        // TODO: update to NodeOutputArray.
         [MaxRecordsSharedWith(myRecords)]
         [AllowSparseNodes]
-        [NodeArraySize(63)] NodeOutput<MY_MATERIAL_RECORD> myMaterials[63],
+        [NodeArraySize(63)] NodeOutputArray<MY_MATERIAL_RECORD> myMaterials,
 
         // an output that has empty record size
         [MaxRecords(20)] EmptyNodeOutput myProgressCounter

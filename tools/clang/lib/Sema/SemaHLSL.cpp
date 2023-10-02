@@ -15296,9 +15296,10 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
   // Check parameter constraints
   for (unsigned Idx = 0; Idx < FD->getNumParams(); ++Idx) {
     ParmVarDecl *Param = FD->getParamDecl(Idx);
+    clang::QualType ParamTy = Param->getType();
 
     // Check any node input is compatible with the node launch type
-    if (hlsl::IsHLSLNodeInputType(Param->getType())) {
+    if (hlsl::IsHLSLNodeInputType(ParamTy)) {
       InputCount++;
       if (NodeLaunchTy != DXIL::NodeLaunchType::Invalid &&
           !nodeInputIsCompatible(GetNodeIOType(Param->getType()),
@@ -15317,6 +15318,23 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
         S.Diags.Report(Param->getLocation(),
                        diag::err_hlsl_too_many_node_inputs)
             << FD->getName() << Param->getSourceRange();
+    }
+
+    // arrays of NodeOutput or EmptyNodeOutput are not supported as node
+    // parameters
+    if (ParamTy->isArrayType()) {
+      const ArrayType *AT = dyn_cast<ArrayType>(ParamTy);
+      DXIL::NodeIOKind Kind = GetNodeIOType(AT->getElementType());
+      if (Kind != DXIL::NodeIOKind::Invalid) {
+        Param->setInvalidDecl();
+        S.Diags.Report(Param->getLocation(),
+                       diag::err_hlsl_array_entry_param_disallowed)
+            << ParamTy;
+        if (Kind == DXIL::NodeIOKind::NodeOutput ||
+            Kind == DXIL::NodeIOKind::EmptyOutput)
+          S.Diags.Report(Param->getLocation(), diag::note_hlsl_node_array)
+              << HLSLNodeObjectAttr::ConvertRecordTypeToStr(Kind);
+      }
     }
 
     HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
