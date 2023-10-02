@@ -42,7 +42,7 @@
 // CHECK:        }
 // CHECK:        Outputs: <21:RecordArrayRef<IONode>[1]>  = {
 // CHECK:          [0]: <1:IONode> = {
-// CHECK:            IOFlagsAndKind: 6
+// CHECK:            IOFlagsAndKind: 22
 // CHECK:            Attribs: <14:RecordArrayRef<NodeShaderIOAttrib>[6]>  = {
 // CHECK:              [0]: <1:NodeShaderIOAttrib> = {
 // CHECK:                AttribKind: OutputID
@@ -163,7 +163,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:    <1:IONode> = {
-// CHECK:      IOFlagsAndKind: 6
+// CHECK:      IOFlagsAndKind: 22
 // CHECK:      Attribs: <14:RecordArrayRef<NodeShaderIOAttrib>[6]>  = {
 // CHECK:        [0]: <1:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: OutputID
@@ -220,7 +220,7 @@
 // CHECK:      }
 // CHECK:      Outputs: <21:RecordArrayRef<IONode>[1]>  = {
 // CHECK:        [0]: <1:IONode> = {
-// CHECK:          IOFlagsAndKind: 6
+// CHECK:          IOFlagsAndKind: 22
 // CHECK:          Attribs: <14:RecordArrayRef<NodeShaderIOAttrib>[6]>  = {
 // CHECK:            [0]: <1:NodeShaderIOAttrib> = {
 // CHECK:              AttribKind: OutputID
@@ -303,6 +303,6 @@ struct rec1
 [NodeDispatchGrid(2, 8, 10)]
 export void depth18part0_wg_63_nodes_seed_255(
   DispatchNodeInputRecord<rec0> InputyMcInputFace,
-  [MaxRecords(47)] [AllowSparseNodes] [NodeArraySize(2)] NodeOutput<rec1> OutputyMcOutputFace)
+  [MaxRecords(47)] [AllowSparseNodes] [NodeArraySize(2)] NodeOutputArray<rec1> OutputyMcOutputFace)
 {
 }
