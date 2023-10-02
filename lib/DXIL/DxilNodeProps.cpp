@@ -41,9 +41,18 @@ bool NodeFlags::IsInputRecord() const {
   return ((uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::Input) != 0;
 }
 
-bool NodeFlags::IsOutputNode() const {
+bool NodeFlags::IsOutput() const {
   return ((uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::Output) != 0;
 }
+
+bool NodeFlags::IsRecord() const {
+  return ((uint32_t)m_Flags &
+          (uint32_t)DXIL::NodeIOFlags::RecordGranularityMask) != 0;
+}
+
+bool NodeFlags::IsOutputNode() const { return IsOutput() && !IsRecord(); }
+
+bool NodeFlags::IsOutputRecord() const { return IsOutput() && IsRecord(); }
 
 bool NodeFlags::IsReadWrite() const {
   return ((uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::ReadWrite) != 0;
@@ -79,6 +88,16 @@ void NodeFlags::SetTrackRWInputSharing() {
 bool NodeFlags::GetTrackRWInputSharing() const {
   return ((uint32_t)m_Flags &
           (uint32_t)DXIL::NodeIOFlags::TrackRWInputSharing) != 0;
+}
+
+void NodeFlags::SetGloballyCoherent() {
+  m_Flags = (DXIL::NodeIOFlags)((uint32_t)m_Flags |
+                                (uint32_t)DXIL::NodeIOFlags::GloballyCoherent);
+}
+
+bool NodeFlags::GetGloballyCoherent() const {
+  return ((uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::GloballyCoherent) !=
+         0;
 }
 
 //------------------------------------------------------------------------------
