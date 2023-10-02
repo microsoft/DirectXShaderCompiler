@@ -9192,14 +9192,15 @@ struct DxilInst_SampleCmpBias {
   void set_clamp(llvm::Value *val) { Instr->setOperand(12, val); }
 };
 
-/// This instruction returns the BaseVertexLocation for DrawIndexedInstanced
-struct DxilInst_BaseVertexLocation {
+/// This instruction returns the BaseVertexLocation from DrawIndexedInstanced or
+/// StartVertexLocation from DrawInstanced
+struct DxilInst_StartVertexLocation {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_BaseVertexLocation(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_StartVertexLocation(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::BaseVertexLocation);
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::StartVertexLocation);
   }
   // Validation support
   bool isAllowed() const { return true; }
@@ -9212,7 +9213,7 @@ struct DxilInst_BaseVertexLocation {
   bool requiresUniformInputs() const { return false; }
 };
 
-/// This instruction returns the StartInstanceLocation for DrawIndexedInstanced
+/// This instruction returns the StartInstanceLocation from Draw*Instanced
 struct DxilInst_StartInstanceLocation {
   llvm::Instruction *Instr;
   // Construction and identification
@@ -9220,6 +9221,27 @@ struct DxilInst_StartInstanceLocation {
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(
         Instr, hlsl::OP::OpCode::StartInstanceLocation);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction returns the auto-incrementing index of the current indirect
+/// command opereation
+struct DxilInst_IndirectCommandIndex {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_IndirectCommandIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(
+        Instr, hlsl::OP::OpCode::IndirectCommandIndex);
   }
   // Validation support
   bool isAllowed() const { return true; }

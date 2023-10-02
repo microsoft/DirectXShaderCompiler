@@ -245,8 +245,9 @@ enum class SemanticKind : unsigned {
   Barycentrics,
   ShadingRate,
   CullPrimitive,
-  BaseVertexLocation,
+  StartVertexLocation,
   StartInstanceLocation,
+  IndirectCommandIndex,
   Invalid,
 };
 // SemanticKind-ENUM:END
@@ -556,11 +557,14 @@ enum class OpCode : unsigned {
   MakeDouble = 101,           // creates a double value
   SplitDouble = 102,          // splits a double into low and high parts
 
-  // DrawIndexedInstanced
-  BaseVertexLocation =
-      256, // returns the BaseVertexLocation for DrawIndexedInstanced
+  // Extended Command Information
+  IndirectCommandIndex = 258, // returns the auto-incrementing index of the
+                              // current indirect command opereation
   StartInstanceLocation =
-      257, // returns the StartInstanceLocation for DrawIndexedInstanced
+      257, // returns the StartInstanceLocation from Draw*Instanced
+  StartVertexLocation =
+      256, // returns the BaseVertexLocation from DrawIndexedInstanced or
+           // StartVertexLocation from DrawInstanced
 
   // Geometry shader
   CutStream =
@@ -968,7 +972,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
 
-  NumOpCodes = 258 // exclusive last value of enumeration
+  NumOpCodes = 259 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1048,9 +1052,10 @@ enum class OpCodeClass : unsigned {
   MakeDouble,
   SplitDouble,
 
-  // DrawIndexedInstanced
-  BaseVertexLocation,
+  // Extended Command Information
+  IndirectCommandIndex,
   StartInstanceLocation,
+  StartVertexLocation,
 
   // Geometry shader
   CutStream,
@@ -1283,7 +1288,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
 
-  NumOpClasses = 183 // exclusive last value of enumeration
+  NumOpClasses = 184 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

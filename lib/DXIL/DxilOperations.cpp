@@ -9,9 +9,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/Support/Global.h"
 
 #include "llvm/ADT/ArrayRef.h"
@@ -2583,13 +2583,13 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         Attribute::ReadOnly,
     },
 
-    // DrawIndexedInstanced void,     h,     f,     d,    i1,    i8,   i16, i32,
-    // i64,   udt,   obj ,  function attribute
+    // Extended Command Information void,     h,     f,     d,    i1,    i8,
+    // i16,   i32,   i64,   udt,   obj ,  function attribute
     {
-        OC::BaseVertexLocation,
-        "BaseVertexLocation",
-        OCC::BaseVertexLocation,
-        "baseVertexLocation",
+        OC::StartVertexLocation,
+        "StartVertexLocation",
+        OCC::StartVertexLocation,
+        "startVertexLocation",
         {false, false, false, false, false, false, false, true, false, false,
          false},
         Attribute::ReadNone,
@@ -2599,6 +2599,15 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "StartInstanceLocation",
         OCC::StartInstanceLocation,
         "startInstanceLocation",
+        {false, false, false, false, false, false, false, true, false, false,
+         false},
+        Attribute::ReadNone,
+    },
+    {
+        OC::IndirectCommandIndex,
+        "IndirectCommandIndex",
+        OCC::IndirectCommandIndex,
+        "indirectCommandIndex",
         {false, false, false, false, false, false, false, true, false, false,
          false},
         Attribute::ReadNone,
@@ -3212,8 +3221,9 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Node);
     return;
   }
-  // Instructions: BaseVertexLocation=256, StartInstanceLocation=257
-  if ((256 <= op && op <= 257)) {
+  // Instructions: StartVertexLocation=256, StartInstanceLocation=257,
+  // IndirectCommandIndex=258
+  if ((256 <= op && op <= 258)) {
     major = 6;
     minor = 8;
     mask = SFLAG(Vertex);
@@ -5365,12 +5375,16 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pF32);
     break;
 
-    // DrawIndexedInstanced
-  case OpCode::BaseVertexLocation:
+    // Extended Command Information
+  case OpCode::StartVertexLocation:
     A(pI32);
     A(pI32);
     break;
   case OpCode::StartInstanceLocation:
+    A(pI32);
+    A(pI32);
+    break;
+  case OpCode::IndirectCommandIndex:
     A(pI32);
     A(pI32);
     break;
@@ -5634,8 +5648,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::GeometryIndex:
   case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-  case OpCode::BaseVertexLocation:
+  case OpCode::StartVertexLocation:
   case OpCode::StartInstanceLocation:
+  case OpCode::IndirectCommandIndex:
     return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:

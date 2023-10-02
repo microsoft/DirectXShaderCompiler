@@ -704,8 +704,9 @@ ViewID                 NotInSig _61 NA       NotInSig _61 NotInSig _61 NA       
 Barycentrics           NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotPacked _61 NA            NA       NA       NA       NA        NA
 ShadingRate            NA           SV _64   NA           NA           SV _64   SV _64   NA         NA           SV _64   SV _64   SV _64   NA           SV _64   SV _64        NA            NA       NA       NA       SV        NA
 CullPrimitive          NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotInSig      NA            NA       NA       NA       NotPacked NA
-BaseVertexLocation     NotInSig _68 NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA       NA       NA        NA
-StartInstanceLocation  NotInSig _68 NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA       NA       NA        NA
+StartVertexLocation    NotInSig _68 NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA       NA       NA        NA
+StartInstanceLocation  NotInSig _68 Arb      NA           NA           Arb      Arb      NA         NA           Arb      Arb      Arb      NA           Arb      Arb           NA            NA       NA       NA       NA        NA
+IndirectCommandIndex   NotInSig _68 Arb      NA           NA           Arb      Arb      NA         NA           Arb      Arb      Arb      NA           Arb      Arb           NA            NA       NA       NA       NA        NA
 ====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ======== ======== ======== ========= ========
 
 .. SEMINT-TABLE-RST:END
@@ -2354,8 +2355,9 @@ ID  Name                                                  Description
 253 GetRemainingRecursionLevels                           returns how many levels of recursion remain
 254 SampleCmpGrad                                         samples a texture using a gradient and compares a single component against the specified comparison value
 255 SampleCmpBias                                         samples a texture after applying the input bias to the mipmap level and compares a single component against the specified comparison value
-256 BaseVertexLocation                                    returns the BaseVertexLocation for DrawIndexedInstanced
-257 StartInstanceLocation                                 returns the StartInstanceLocation for DrawIndexedInstanced
+256 StartVertexLocation                                   returns the BaseVertexLocation from DrawIndexedInstanced or StartVertexLocation from DrawInstanced
+257 StartInstanceLocation                                 returns the StartInstanceLocation from Draw*Instanced
+258 IndirectCommandIndex                                  returns the auto-incrementing index of the current indirect command opereation
 === ===================================================== =======================================================================================================================================================================================================================
 
 
