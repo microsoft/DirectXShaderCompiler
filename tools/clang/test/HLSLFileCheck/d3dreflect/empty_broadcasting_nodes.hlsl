@@ -277,6 +277,7 @@
 // CHECK:      Shader Version: <unknown> 6.8
 // CHECK:      Creator: <nullptr>
 // CHECK:      Flags: 0
+// CHECK:      RequiredFeatureFlags: 0
 // CHECK:      ConstantBuffers: 0
 // CHECK:      BoundResources: 0
 // CHECK:      FunctionParameterCount: 0
