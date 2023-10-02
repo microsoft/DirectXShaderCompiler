@@ -1337,6 +1337,38 @@ SpirvInstruction *SpirvEmitter::castToType(SpirvInstruction *value,
   return nullptr;
 }
 
+SpirvInstruction *
+SpirvEmitter::castVectorToVector(SpirvInstruction *input, QualType vectorType,
+                                 clang::SourceLocation location,
+                                 clang::SourceRange range) {
+  llvm::SmallVector<SpirvInstruction *, 4> elements;
+  const QualType elemType = hlsl::GetHLSLVecElementType(vectorType);
+  const auto resultSize = hlsl::GetHLSLVecSize(vectorType);
+  const auto inputSize = hlsl::GetHLSLVecSize(input->getAstResultType());
+
+  assert(inputSize >= resultSize && "Cannot cast to a larger vector size.");
+  if (inputSize == resultSize) {
+    return input;
+  }
+
+  for (uint32_t i = 0; i < resultSize; ++i) {
+    elements.push_back(spvBuilder.createCompositeExtract(elemType, input, {i},
+                                                         location, range));
+  }
+
+  auto *value = elements.front();
+  if (resultSize > 1) {
+    value = spvBuilder.createCompositeConstruct(vectorType, elements, location,
+                                                range);
+  }
+
+  if (!value)
+    return nullptr;
+
+  value->setRValue();
+  return value;
+}
+
 void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Forward declaration of a function inside another.
   if (!decl->isThisDeclarationADefinition()) {
@@ -3113,28 +3145,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
     return createVectorSplat(subExpr, size, range);
   }
   case CastKind::CK_HLSLVectorTruncationCast: {
-    const QualType toVecType = toType;
-    const QualType elemType = hlsl::GetHLSLVecElementType(toType);
-    const auto toSize = hlsl::GetHLSLVecSize(toType);
     auto *composite = doExpr(subExpr, range);
-    llvm::SmallVector<SpirvInstruction *, 4> elements;
-
-    for (uint32_t i = 0; i < toSize; ++i) {
-      elements.push_back(spvBuilder.createCompositeExtract(
-          elemType, composite, {i}, expr->getExprLoc(), range));
-    }
-
-    auto *value = elements.front();
-    if (toSize > 1) {
-      value = spvBuilder.createCompositeConstruct(toVecType, elements,
-                                                  expr->getExprLoc(), range);
-    }
-
-    if (!value)
-      return nullptr;
-
-    value->setRValue();
-    return value;
+    return castVectorToVector(composite, toType, expr->getExprLoc(), range);
   }
   case CastKind::CK_HLSLVectorToScalarCast: {
     // The underlying should already be a vector of size 1.
@@ -3495,6 +3507,13 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
     QualType elemType = {};
     uint32_t elemCount = {};
     if (isVectorType(type, &elemType, &elemCount)) {
+      if (isVectorType(initType)) {
+        // A conversion from a vector to a vector will truncate the vector if
+        // needed. There will be an error during parsing if |type| has more
+        // elements than |initType|.
+        return castVectorToVector(initInstr, type, srcLoc, range);
+      }
+
       auto *elem =
           processFlatConversion(elemType, initType, initInstr, srcLoc, range);
       llvm::SmallVector<SpirvInstruction *, 4> constituents(size_t(elemCount),

@@ -92,6 +92,15 @@ public:
                                QualType toType, SourceLocation,
                                SourceRange range = {});
 
+  // Returns a SpirvIntruction* whose result is the result if casting |input| to
+  // |vectorType|. The type of |input| must be a vector with at least as many
+  // elements as |vectorType|. Return nullptr is the cast could not be
+  // performed.
+  SpirvInstruction *castVectorToVector(SpirvInstruction *input,
+                                       QualType vectorType,
+                                       clang::SourceLocation location,
+                                       clang::SourceRange range);
+
   /// Returns true if the given VarDecl will be translated into a SPIR-V
   /// variable not in the Private or Function storage class.
   static inline bool isExternalVar(const VarDecl *var) {

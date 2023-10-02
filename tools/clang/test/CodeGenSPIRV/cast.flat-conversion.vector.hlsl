@@ -6,6 +6,20 @@ struct S {
 
 StructuredBuffer<S> MySB;
 
+struct S3 {
+  float3 vec;
+};
+
+struct S4 {
+  float4 vec;
+};
+
+
+StructuredBuffer<float4> input2;
+
+
+
+
 float4 main() : SV_TARGET
 {
 // CHECK:        [[ac:%\d+]] = OpAccessChain %_ptr_Uniform__arr_v2float_uint_2 %MySB %int_0 %uint_0 %int_0
@@ -19,5 +33,15 @@ float4 main() : SV_TARGET
 // CHECK-NEXT:  [[val:%\d+]] = OpCompositeConstruct %_arr_float_uint_4 [[v1]] [[v2]] [[v3]] [[v4]]
 // CHECK-NEXT:                 OpStore %data [[val]]
     float data[4] = (float[4])MySB[0].data;
+
+// CHECK: [[ac:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %input2 %int_0 %uint_0
+// CHECK-NEXT: [[ld:%\d+]] = OpLoad %v4float [[ac]]
+// CHECK-NEXT: [[elem0:%\d+]] = OpCompositeExtract %float [[ld]] 0
+// CHECK-NEXT: [[elem1:%\d+]] = OpCompositeExtract %float [[ld]] 1
+// CHECK-NEXT: [[elem2:%\d+]] = OpCompositeExtract %float [[ld]] 2
+// CHECK-NEXT: [[vec:%\d+]] = OpCompositeConstruct %v3float [[elem0]] [[elem1]] [[elem2]]
+// CHECK-NEXT: OpCompositeConstruct %S3 [[vec]]
+    S3 d3 = (S3)input2[0];
+
     return data[1];
 }
