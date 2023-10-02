@@ -327,7 +327,7 @@ public:
           D3D12_SHADER_VARIABLE_DESC testConst;
           pTestConst = pTestCB->GetVariableByIndex(vi);
           VERIFY_SUCCEEDED(pTestConst->GetDesc(&testConst));
-          VERIFY_ARE_EQUAL(variableMap.count(testConst.Name), 1);
+          VERIFY_ARE_EQUAL(variableMap.count(testConst.Name), 1u);
           D3D12_SHADER_VARIABLE_DESC baseConst = variableMap[testConst.Name];
           VERIFY_ARE_EQUAL(testConst.uFlags, baseConst.uFlags);
           VERIFY_ARE_EQUAL(testConst.StartOffset, baseConst.StartOffset);
@@ -336,7 +336,7 @@ public:
 
           ID3D12ShaderReflectionType *pTestType = pTestConst->GetType();
           VERIFY_IS_NOT_NULL(pTestType);
-          VERIFY_ARE_EQUAL(variableTypeMap.count(testConst.Name), 1);
+          VERIFY_ARE_EQUAL(variableTypeMap.count(testConst.Name), 1u);
           ID3D12ShaderReflectionType *pBaseType =
               variableTypeMap[testConst.Name];
 
