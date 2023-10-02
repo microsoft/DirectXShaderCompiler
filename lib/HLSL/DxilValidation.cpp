@@ -1658,7 +1658,7 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
   case DXIL::OpCode::CalculateLOD: {
     DxilInst_CalculateLOD lod(CI);
     Value *samplerHandle = lod.get_sampler();
-    DXIL::SamplerKind = samplerKind = GetSamplerKind(samplerHandle, ValCtx);
+    DXIL::SamplerKind samplerKind = GetSamplerKind(samplerHandle, ValCtx);
     if (samplerKind != DXIL::SamplerKind::Default) {
       // After SM68, Comparison is supported.
       if (!ValCtx.DxilMod.GetShaderModel()->IsSM68Plus() ||
