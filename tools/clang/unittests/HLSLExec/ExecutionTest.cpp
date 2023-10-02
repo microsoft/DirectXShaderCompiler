@@ -207,7 +207,8 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format,
   VERIFY_ARE_NOT_EQUAL(pFormat, Vals + _countof(Vals));
   VERIFY_SUCCEEDED(pFactory->CreateBitmapFromMemory(
       m_width, m_height, pFormat->PixelFormat, m_width * pFormat->PixelSize,
-      m_width * m_height * pFormat->PixelSize, (BYTE *)pPixels, &pBitmap));
+      m_width * m_height * pFormat->PixelSize,
+      const_cast<BYTE *>((const BYTE *)(pPixels)), &pBitmap));
   VERIFY_SUCCEEDED(
       pFactory->CreateEncoder(GUID_ContainerFormatBmp, nullptr, &pEncoder));
   VERIFY_SUCCEEDED(SHCreateStreamOnFileEx(pFileName, STGM_WRITE, STGM_CREATE, 0,
@@ -1988,7 +1989,6 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice,
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CComPtr<ID3D12DescriptorHeap> pUavHeap;
   CComPtr<ID3D12CommandAllocator> pCommandAllocator;
-  UINT uavDescriptorSize;
   FenceObj FO;
 
   const UINT valueSizeInBytes = (UINT)values.size() * sizeof(uint32_t);
@@ -2001,9 +2001,9 @@ void ExecutionTest::RunRWByteBufferComputeTest(ID3D12Device *pDevice,
   heapDesc.NumDescriptors = 1;
   heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
   heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
   VERIFY_SUCCEEDED(
       pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
-  uavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
 
   // Create root signature.
   CComPtr<ID3D12RootSignature> pRootSignature;
@@ -2860,7 +2860,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   CComPtr<ID3D12CommandQueue> pCommandQueue;
   CComPtr<ID3D12DescriptorHeap> pUavHeap;
   CComPtr<ID3D12CommandAllocator> pCommandAllocator;
-  UINT uavDescriptorSize;
   FenceObj FO;
   bool dxbc = UseDxbc();
 
@@ -2876,7 +2875,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsTest) {
   heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
   VERIFY_SUCCEEDED(
       pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
-  uavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
 
   // Create root signature.
   CComPtr<ID3D12RootSignature> pRootSignature;
@@ -3190,7 +3188,7 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   CComPtr<ID3D12GraphicsCommandList> pCommandList;
   CComPtr<ID3D12PipelineState> pPSO;
   CComPtr<ID3D12Resource> pRenderTarget, pReadBuffer;
-  UINT uavDescriptorSize, rtvDescriptorSize;
+  UINT rtvDescriptorSize;
   CComPtr<ID3D12Resource> pVertexBuffer;
   D3D12_VERTEX_BUFFER_VIEW vertexBufferView;
 
@@ -3212,7 +3210,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsInPSTest) {
   heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
   VERIFY_SUCCEEDED(
       pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pUavHeap)));
-  uavDescriptorSize = pDevice->GetDescriptorHandleIncrementSize(heapDesc.Type);
 
   CreateRtvDescriptorHeap(pDevice, 1, &pRtvHeap, &rtvDescriptorSize);
   CreateRenderTargetAndReadback(pDevice, pRtvHeap, RTHeight, RTWidth,
@@ -4419,7 +4416,7 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
 }
 
 // Used to determine how an out of bounds offset should be converted
-#define CLAMPOFFSET(offset) ((offset << 28) >> 28)
+#define CLAMPOFFSET(offset) (((unsigned)(offset) << 28) >> 28)
 
 // Determine if the values in pPixels correspond to the expected locations
 // encoded into a uint based on the coordinates and offsets that were provided.
@@ -4886,10 +4883,10 @@ struct RawFloatTexture : public ExecutionTest::RawGatherTexture {
     float a = (float)(x + y) * 0.1f;
     RGBA[i].SetChannels(r, g, b, a);
   }
-  virtual void *GetElements() { return (void *)RGBA; }
-  virtual unsigned GetXDim() { return xdim; }
-  virtual unsigned GetYDim() { return ydim; }
-  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+  void *GetElements() override { return (void *)RGBA; }
+  unsigned GetXDim() override { return xdim; }
+  unsigned GetYDim() override { return ydim; }
+  DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
 template <unsigned xdim, unsigned ydim>
@@ -4902,12 +4899,10 @@ struct RawFloatR11G11B10ATexture : public ExecutionTest::RawGatherTexture {
     float b = (float)(x + y) * 0.5f;
     RGBA[i].SetChannels(r, g, b, 0);
   }
-  virtual void *GetElements() { return (void *)RGBA; }
-  virtual unsigned GetXDim() { return xdim; }
-  virtual unsigned GetYDim() { return ydim; }
-  virtual DXGI_FORMAT GetFormat() override {
-    return DXGI_FORMAT_R11G11B10_FLOAT;
-  };
+  void *GetElements() override { return (void *)RGBA; }
+  unsigned GetXDim() override { return xdim; }
+  unsigned GetYDim() override { return ydim; }
+  DXGI_FORMAT GetFormat() override { return DXGI_FORMAT_R11G11B10_FLOAT; };
 };
 
 template <typename RGBAType, unsigned xdim, unsigned ydim>
@@ -4952,10 +4947,10 @@ struct RawIntTexture : public ExecutionTest::RawGatherTexture {
     }
     RGBA[i].SetChannels((UINT)fr, (UINT)fg, (UINT)fb, (UINT)fa);
   }
-  virtual void *GetElements() { return (void *)RGBA; }
-  virtual unsigned GetXDim() { return xdim; }
-  virtual unsigned GetYDim() { return ydim; }
-  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+  void *GetElements() override { return (void *)RGBA; }
+  unsigned GetXDim() override { return xdim; }
+  unsigned GetYDim() override { return ydim; }
+  DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
 template <unsigned xdim, unsigned ydim>
@@ -4988,14 +4983,14 @@ struct RawR10G10B10XRA2Texture : public ExecutionTest::RawGatherTexture {
 
     RGBA[i].SetChannels((float)fr, (float)fg, (float)fb, (float)fa);
   }
-  virtual void *GetElements() { return (void *)RGBA; }
-  virtual unsigned GetXDim() { return xdim; }
-  virtual unsigned GetYDim() { return ydim; }
-  virtual DXGI_FORMAT GetFormat() override { return m_format; };
+  void *GetElements() override { return (void *)RGBA; }
+  unsigned GetXDim() override { return xdim; }
+  unsigned GetYDim() override { return ydim; }
+  DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
-//#define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to vet
-//raw gather tests
+// #define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to
+// vet raw gather tests
 
 // Create a single resource of <resFormat> and alias it to a view of
 // <viewFormat> Then execute a shader that uses raw gather to copy the values
@@ -5256,7 +5251,6 @@ TEST_F(ExecutionTest, ATORawGather) {
 
   static const int NumThreadsX = 32;
   static const int NumThreadsY = 32;
-  static const int ThreadsPerGroup = NumThreadsX * NumThreadsY;
 
   // Create an array of texture variants with the raw texture base class
   // Then plug them into DoRawGather to perform the test and evaluate the
@@ -5477,14 +5471,14 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
     return;
   }
 
-  const char *pShaderModelStr;
+  std::string pShaderModelStr;
   if (shaderModel == D3D_SHADER_MODEL_6_1) {
     pShaderModelStr = "cs_6_1";
   } else if (shaderModel == D3D_SHADER_MODEL_6_3) {
     pShaderModelStr = "cs_6_3";
   } else {
     DXASSERT_NOMSG("Invalid Shader Model Parameter");
-    pShaderModelStr = nullptr;
+    pShaderModelStr = "";
   }
 
   const char shaderTemplate[] =
@@ -5503,19 +5497,19 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
   float inputFloatPairs[] = {1.5f, -2.8f, 3.23e-5f, 6.0f, 181.621f, 14.978f};
   VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
   WEX::Logging::Log::Comment(L"BasicShaderModel float");
-  RunBasicShaderModelTest<float>(pDevice, pShaderModelStr, shader,
+  RunBasicShaderModelTest<float>(pDevice, pShaderModelStr.c_str(), shader,
                                  inputFloatPairs,
                                  sizeof(inputFloatPairs) / (2 * sizeof(float)));
 
   // Run simple shader with double data types
   if (DoesDeviceSupportDouble(pDevice)) {
-    sTy = "double";
+    const char *sTy = "double";
     double inputDoublePairs[] = {1.5891020, -2.8,      3.23e-5,
                                  1 / 3,     181.91621, 14.654978};
     VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
     WEX::Logging::Log::Comment(L"BasicShaderModel double");
     RunBasicShaderModelTest<double>(
-        pDevice, pShaderModelStr, shader, inputDoublePairs,
+        pDevice, pShaderModelStr.c_str(), shader, inputDoublePairs,
         sizeof(inputDoublePairs) / (2 * sizeof(double)));
   } else {
     // Optional feature, so it's correct to not support it if declared as such.
@@ -5524,12 +5518,12 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
 
   // Run simple shader with int64 types
   if (DoesDeviceSupportInt64(pDevice)) {
-    sTy = "int64_t";
+    const char *sTy = "int64_t";
     int64_t inputInt64Pairs[] = {1, -100, 6814684, -9814810, 654, 1021248900};
     VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
     WEX::Logging::Log::Comment(L"BasicShaderModel int64_t");
     RunBasicShaderModelTest<int64_t>(
-        pDevice, pShaderModelStr, shader, inputInt64Pairs,
+        pDevice, pShaderModelStr.c_str(), shader, inputInt64Pairs,
         sizeof(inputInt64Pairs) / (2 * sizeof(int64_t)));
   } else {
     // Optional feature, so it's correct to not support it if declared as such.
@@ -5829,6 +5823,8 @@ struct TableParameter {
     UINT32_TABLE,
     BOOL_TABLE
   };
+  TableParameter(LPCWSTR name, TableParameterType type, bool required)
+      : m_name(name), m_type(type), m_required(required) {}
   TableParameterType m_type;
   bool m_required; // required parameter
   int8_t m_int8;
@@ -6352,25 +6348,6 @@ static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
   return S_OK;
 }
 
-static HRESULT ParseDataToInt(PCWSTR str, int &value) {
-  std::wstring wString(str);
-  wString.erase(std::remove(wString.begin(), wString.end(), L' '),
-                wString.end());
-  PCWSTR wstr = wString.data();
-  // evaluate the expression of string
-  if (_wcsicmp(wstr, L"0.0") == 0 || _wcsicmp(wstr, L"0") == 0) {
-    value = 0;
-    return S_OK;
-  }
-  int val = _wtoi(wstr);
-  if (val == 0) {
-    LogErrorFmt(L"Failed to parse parameter %s to int", wstr);
-    return E_FAIL;
-  }
-  value = val;
-  return S_OK;
-}
-
 static HRESULT ParseDataToUint(PCWSTR str, unsigned int &value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '),
@@ -6703,13 +6680,6 @@ static void VerifyOutputWithExpectedValueInt(int output, int ref,
 static void VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref,
                                               uint32_t tolerance) {
   VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
-}
-
-static void VerifyOutputWithExpectedValueUInt4(XMUINT4 output, XMUINT4 ref) {
-  VERIFY_ARE_EQUAL(output.x, ref.x);
-  VERIFY_ARE_EQUAL(output.y, ref.y);
-  VERIFY_ARE_EQUAL(output.z, ref.z);
-  VERIFY_ARE_EQUAL(output.w, ref.w);
 }
 
 static void VerifyOutputWithExpectedValueFloat(
@@ -9849,7 +9819,7 @@ static const char RawBufferTestGraphicsPixelShaderTemplate[] =
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
   RawBufferLdStTestData<int32_t> data = {
-      {1}, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT32 / 2}};
+      1, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT32 / 2}};
   RunComputeRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2,
                                        RawBufferLdStType::I32,
                                        "ComputeRawBufferLdSt32Bit", data);
@@ -9857,7 +9827,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStI32) {
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStFloat) {
   RawBufferLdStTestData<float> data = {
-      {3e-10f},
+      3e-10f,
       {1.5f, -1.99988f},
       {256.0f, -105.17f, 980.0f},
       {465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f}};
@@ -9868,7 +9838,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStFloat) {
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI64) {
   RawBufferLdStTestData<int64_t> data = {
-      {1}, {2, -1}, {256, -105171532, 980}, {465, 13, -89, MAXUINT64 / 2}};
+      1, {2, -1}, {256, -105171532, 980}, {465, 13, -89, MAXUINT64 / 2}};
   RunComputeRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3,
                                        RawBufferLdStType::I64,
                                        "ComputeRawBufferLdSt64Bit", data);
@@ -9876,7 +9846,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStI64) {
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStDouble) {
   RawBufferLdStTestData<double> data = {
-      {3e-10},
+      3e-10,
       {1.5, -1.99988},
       {256.0, -105.17, 980.0},
       {465.1652, -1.5694e2, -0.8543e-2, 1333.5}};
@@ -9887,7 +9857,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStDouble) {
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
   RawBufferLdStTestData<int16_t> data = {
-      {1}, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT16 / 2}};
+      1, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT16 / 2}};
   RunComputeRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2,
                                        RawBufferLdStType::I16,
                                        "ComputeRawBufferLdSt16Bit", data);
@@ -9895,7 +9865,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStI16) {
 
 TEST_F(ExecutionTest, ComputeRawBufferLdStHalf) {
   RawBufferLdStTestData<float> floatData = {
-      {3e-10f},
+      3e-10f,
       {1.5f, -1.99988f},
       {256.0f, 105.17f, 980.0f},
       {465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f}};
@@ -9911,7 +9881,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStHalf) {
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStI32) {
   RawBufferLdStTestData<int32_t> data = {
-      {1}, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT32 / 2}};
+      1, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT32 / 2}};
   RunGraphicsRawBufferLdStTest<int32_t>(D3D_SHADER_MODEL_6_2,
                                         RawBufferLdStType::I32,
                                         "GraphicsRawBufferLdSt32Bit", data);
@@ -9919,7 +9889,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStI32) {
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStFloat) {
   RawBufferLdStTestData<float> data = {
-      {3e-10f},
+      3e-10f,
       {1.5f, -1.99988f},
       {256.0f, -105.17f, 980.0f},
       {465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f}};
@@ -9930,7 +9900,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStFloat) {
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStI64) {
   RawBufferLdStTestData<int64_t> data = {
-      {1}, {2, -1}, {256, -105171532, 980}, {465, 13, -89, MAXUINT64 / 2}};
+      1, {2, -1}, {256, -105171532, 980}, {465, 13, -89, MAXUINT64 / 2}};
   RunGraphicsRawBufferLdStTest<int64_t>(D3D_SHADER_MODEL_6_3,
                                         RawBufferLdStType::I64,
                                         "GraphicsRawBufferLdSt64Bit", data);
@@ -9938,7 +9908,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStI64) {
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStDouble) {
   RawBufferLdStTestData<double> data = {
-      {3e-10},
+      3e-10,
       {1.5, -1.99988},
       {256.0, -105.17, 980.0},
       {465.1652, -1.5694e2, -0.8543e-2, 1333.5}};
@@ -9949,7 +9919,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStDouble) {
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStI16) {
   RawBufferLdStTestData<int16_t> data = {
-      {1}, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT16 / 2}};
+      1, {2, -1}, {256, -10517, 980}, {465, 13, -89, MAXUINT16 / 2}};
   RunGraphicsRawBufferLdStTest<int16_t>(D3D_SHADER_MODEL_6_2,
                                         RawBufferLdStType::I16,
                                         "GraphicsRawBufferLdSt16Bit", data);
@@ -9957,7 +9927,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStI16) {
 
 TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
   RawBufferLdStTestData<float> floatData = {
-      {3e-10f},
+      3e-10f,
       {1.5f, -1.99988f},
       {256.0f, 105.17f, 0.0f},
       {465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f}};
@@ -11005,11 +10975,11 @@ void ExecutionTest::WaveSizeTest() {
 bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
   if (memcmp(uResults, &gold, size)) {
     if (size == 4)
-      LogCommentFmt(L"  value %d is not %d", ((uint32_t *)uResults)[0],
+      LogCommentFmt(L"  value %d is not %d", ((const uint32_t *)uResults)[0],
                     (uint32_t)gold);
     else
-      LogCommentFmt(L"  value %lld is not %lld", ((uint64_t *)uResults)[0],
-                    gold);
+      LogCommentFmt(L"  value %lld is not %lld",
+                    ((const uint64_t *)uResults)[0], gold);
     return false;
   }
   return true;
@@ -11179,7 +11149,7 @@ void VerifyAtomicResults(const BYTE *uResults, const BYTE *sResults,
   // The lower bits are compared to the location index as well.
   LogCommentFmt(L"Verifying %d-bit integer atomic cmp/xchg results", bitSize);
   for (size_t i = 0; i < 64; i++) {
-    uint64_t val = *((uint64_t *)(pXchg + i * stride));
+    uint64_t val = *((const uint64_t *)(pXchg + i * stride));
     // Verify lower bits match location index exactly
     VERIFY_ARE_EQUAL(i, val & ((1ULL << shBits) - 1ULL));
     // Verify that upper bits contain original index that transforms to location
@@ -12547,7 +12517,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
       // Replace the above with what's below when IsSpecialFloat supports
       // doubles
       //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f64(i32
-      //8," }, { "@dx.op.isSpecialFloat.f32(i32 11,",
+      // 8," }, { "@dx.op.isSpecialFloat.f32(i32 11,",
       //"@dx.op.isSpecialFloat.f64(i32 11," },
       {"@dx.op.isSpecialFloat.f32(i32 8,"},
       {"@dx.op.isSpecialFloat.f32(i32 11,"}, m_support);
@@ -12700,7 +12670,7 @@ __declspec(dllexport) HRESULT WINAPI
 
     const char *pName = nullptr;
     CComPtr<IStream> pStream =
-        SHCreateMemStream((BYTE *)pText, (UINT)strlen(pText));
+        SHCreateMemStream((const BYTE *)pText, (UINT)strlen(pText));
     std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
         std::make_shared<st::ShaderOpSet>();
     st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());

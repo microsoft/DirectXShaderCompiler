@@ -194,15 +194,8 @@ void WaitForSignal(ID3D12CommandQueue *pCQ, ID3D12Fence *pFence, HANDLE hFence,
   }
 }
 
-static void SetupComputeValuePattern(std::vector<uint32_t> &values,
-                                     size_t count) {
-  values.resize(count); // one element per dispatch group, in bytes
-  for (size_t i = 0; i < count; ++i) {
-    values[i] = (uint32_t)i;
-  }
-}
-
 void MappedData::dump() const { OutputDebugBytes(m_pData, m_size); }
+
 void MappedData::reset() {
   if (m_pResource != nullptr) {
     m_pResource->Unmap(0, nullptr);
@@ -812,7 +805,7 @@ static bool TargetUsesDxil(LPCSTR pText) {
 }
 
 static void splitWStringIntoVectors(LPWSTR str, wchar_t delim,
-                                    std::vector<LPWSTR> &list) {
+                                    std::vector<LPCWSTR> &list) {
   if (str) {
     LPWSTR cur = str;
     list.push_back(cur);
@@ -861,7 +854,7 @@ void ShaderOpTest::CreateShaders() {
       CA2W targetW(S.Target, CP_UTF8);
       CA2W argumentsW(pArguments, CP_UTF8);
 
-      std::vector<LPWSTR> argumentsWList;
+      std::vector<LPCWSTR> argumentsWList;
       splitWStringIntoVectors(argumentsW, L' ', argumentsWList);
 
       HRESULT resultCode;
