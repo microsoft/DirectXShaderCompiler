@@ -112,7 +112,7 @@ struct MyStruct2 {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(256, 8, 8)]
 [NumThreads(32, 1, 1)]
 void node18(DispatchNodeInputRecord<MyStruct2> input)  // expected-error {{Broadcasting node shader 'node18' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
@@ -125,7 +125,7 @@ struct MyStruct3 {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(256, 8, 8)]
 [NumThreads(32, 1, 1)]
 void node19(DispatchNodeInputRecord<MyStruct3> input)
@@ -146,7 +146,7 @@ struct C : B {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(8, 4, 4)]      
 [NumThreads(32, 1, 1)]
 void node20(DispatchNodeInputRecord<C> input)
