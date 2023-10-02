@@ -4989,8 +4989,8 @@ struct RawR10G10B10XRA2Texture : public ExecutionTest::RawGatherTexture {
   DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
-//#define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to vet
-//raw gather tests
+// #define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to
+// vet raw gather tests
 
 // Create a single resource of <resFormat> and alias it to a view of
 // <viewFormat> Then execute a shader that uses raw gather to copy the values
@@ -5509,7 +5509,7 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
     VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
     WEX::Logging::Log::Comment(L"BasicShaderModel double");
     RunBasicShaderModelTest<double>(
-        pDevice, pShaderModelStr, shader, inputDoublePairs,
+        pDevice, pShaderModelStr.c_str(), shader, inputDoublePairs,
         sizeof(inputDoublePairs) / (2 * sizeof(double)));
   } else {
     // Optional feature, so it's correct to not support it if declared as such.
@@ -5523,7 +5523,7 @@ void ExecutionTest::RunBasicShaderModelTest(D3D_SHADER_MODEL shaderModel) {
     VERIFY_IS_TRUE(sprintf(shader, shaderTemplate, sTy, sTy, sTy) > 0);
     WEX::Logging::Log::Comment(L"BasicShaderModel int64_t");
     RunBasicShaderModelTest<int64_t>(
-        pDevice, pShaderModelStr, shader, inputInt64Pairs,
+        pDevice, pShaderModelStr.c_str(), shader, inputInt64Pairs,
         sizeof(inputInt64Pairs) / (2 * sizeof(int64_t)));
   } else {
     // Optional feature, so it's correct to not support it if declared as such.
@@ -10978,8 +10978,8 @@ bool AtomicResultMatches(const BYTE *uResults, uint64_t gold, size_t size) {
       LogCommentFmt(L"  value %d is not %d", ((const uint32_t *)uResults)[0],
                     (uint32_t)gold);
     else
-      LogCommentFmt(L"  value %lld is not %lld", ((const uint64_t *)uResults)[0],
-                    gold);
+      LogCommentFmt(L"  value %lld is not %lld",
+                    ((const uint64_t *)uResults)[0], gold);
     return false;
   }
   return true;
@@ -12517,7 +12517,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
       // Replace the above with what's below when IsSpecialFloat supports
       // doubles
       //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f64(i32
-      //8," }, { "@dx.op.isSpecialFloat.f32(i32 11,",
+      // 8," }, { "@dx.op.isSpecialFloat.f32(i32 11,",
       //"@dx.op.isSpecialFloat.f64(i32 11," },
       {"@dx.op.isSpecialFloat.f32(i32 8,"},
       {"@dx.op.isSpecialFloat.f32(i32 11,"}, m_support);
