@@ -1153,7 +1153,8 @@ Value *TranslateBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   hlsl::OP *OP = &helper.hlslOP;
   Value *HandleOrMemoryFlags =
       CI->getArgOperand(HLOperandIndex::kBarrierMemoryTypeFlagsOpIdx);
-  Value *SemanticFlags = CI->getArgOperand(HLOperandIndex::kBarrierSemanticFlagsOpIdx);
+  Value *SemanticFlags =
+      CI->getArgOperand(HLOperandIndex::kBarrierSemanticFlagsOpIdx);
   IRBuilder<> Builder(CI);
 
   if (HandleOrMemoryFlags->getType()->isIntegerTy()) {
