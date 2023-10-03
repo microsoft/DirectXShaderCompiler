@@ -753,7 +753,7 @@ void DxbcConverter::ExtractSignatureFromDDI(
 
       // For PS output, try to disambiguate semantic based on register index.
       if (m_pSM->IsPS() && SigHelper.IsOutput()) {
-        if (P.Register != (UINT)-1) {
+        if (P.Register != UINT_MAX) {
           // This must be SV_Target.
           E.SemanticName = "SV_Target";
           E.SemanticIndex = P.Register;
