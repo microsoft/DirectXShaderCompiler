@@ -511,8 +511,7 @@ public:
       if (committed.prim && committed.prim->leafType == LEAF_CUSTOM)
         ch = "chCustom";
       shade(ch, "miss");
-      if (committed.prim)
-      {
+      if (committed.prim) {
         if (committed.prim->leafType == LEAF_TRIS) {
           const Triangle *tri = (const Triangle *)committed.prim;
           expect({CLOSESTHIT, (int)tri->u, (int)tri->v});
