@@ -7813,6 +7813,8 @@ def err_hlsl_wg_attr_only_on_output : Error<
    "attribute %0 may only be used with output nodes">;
 def err_hlsl_wg_nodearraysize_conflict_unbounded : Error<
    "[%0(%1)] conflicts with [%2], which implies [%0(-1)]">;
+def err_hlsl_wg_attr_only_on_output_array : Error<
+   "attribute %0 may only be used with note output arrays (NodeOutputArray or EmptyNodeOutputArray)">;
 def err_hlsl_zero_sized_record : Error<
    "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<

@@ -15344,19 +15344,33 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
             << MaxRecordsAttr->getRange();
       }
 
-      InheritableAttr *OutputOnly[] = {MaxRecordsSharedWithAttr,
-                                       AllowSparseNodesAttr, NodeArraySizeAttr,
-                                       UnboundedSparseNodesAttr};
-      for (auto *Attr : OutputOnly) {
-        if (Attr) {
-          S.Diags.Report(Attr->getLocation(),
+      Attr *OutputOnly[] = {MaxRecordsSharedWithAttr, AllowSparseNodesAttr,
+                            NodeArraySizeAttr, UnboundedSparseNodesAttr};
+      for (auto *A : OutputOnly) {
+        if (A) {
+          S.Diags.Report(A->getLocation(),
                          diag::err_hlsl_wg_attr_only_on_output)
-              << Attr << Attr->getRange();
+              << A << A->getRange();
+        }
+      }
+    } else { // Node Output
+      // If node output is not an array, diagnose array only attributes
+      if (((uint32_t)GetNodeIOType(ParamTy) &
+           (uint32_t)DXIL::NodeIOFlags::NodeArray) == 0) {
+        Attr *ArrayAttrs[] = {AllowSparseNodesAttr, NodeArraySizeAttr,
+                              UnboundedSparseNodesAttr};
+        for (auto *A : ArrayAttrs) {
+          if (A) {
+            S.Diags.Report(A->getLocation(),
+                           diag::err_hlsl_wg_attr_only_on_output_array)
+                << A << A->getRange();
+          }
         }
       }
     }
 
-    if (UnboundedSparseNodesAttr && NodeArraySizeAttr && NodeArraySizeAttr->getCount() != -1) {
+    if (UnboundedSparseNodesAttr && NodeArraySizeAttr &&
+        NodeArraySizeAttr->getCount() != -1) {
       S.Diags.Report(NodeArraySizeAttr->getLocation(),
                      diag::err_hlsl_wg_nodearraysize_conflict_unbounded)
           << NodeArraySizeAttr->getSpelling() << NodeArraySizeAttr->getCount()

@@ -152,7 +152,7 @@ void node20(
   [NodeArraySize(12)]         // expected-error {{[NodeArraySize(12)] conflicts with [unboundedsparsenodes], which implies [NodeArraySize(-1)]}}
   [UnboundedSparseNodes]      // expected-note {{conflicting attribute is here}}
   [MaxRecords(23)]            // expected-note {{conflicting attribute is here}}
-  NodeOutput<SharedRecord> foo)
+  NodeOutputArray<SharedRecord> foo)
 { }
 
 [Shader("node")]
@@ -163,5 +163,24 @@ void node21(
   [MaxRecords(23)]            // expected-error {{attribute MaxRecords must only be used with node outputs or coalescing launch inputs}}
   [UnboundedSparseNodes]      // expected-error {{attribute 'unboundedsparsenodes' may only be used with output nodes}}
   DispatchNodeInputRecord<SharedRecord> nodeInput,
-  [MaxRecords(23)] NodeOutput<SharedRecord> foo)
+  [MaxRecords(23)] NodeOutputArray<SharedRecord> foo)
+{ }
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(32, 1, 1)]
+[NumThreads(32, 1, 1)]
+void node22(
+  [NodeArraySize(15)]         // expected-error {{attribute 'NodeArraySize' may only be used with note output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
+  [AllowSparseNodes]          // expected-error {{attribute 'allowsparsenodes' may only be used with note output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
+  NodeOutput<SharedRecord> foo)
+{ }
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(32, 1, 1)]
+[NumThreads(32, 1, 1)]
+void node23(
+  [UnboundedSparseNodes]      // expected-error {{attribute 'unboundedsparsenodes' may only be used with note output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
+  NodeOutput<SharedRecord> foo)
 { }
