@@ -4994,8 +4994,8 @@ struct RawR10G10B10XRA2Texture : public ExecutionTest::RawGatherTexture {
   virtual DXGI_FORMAT GetFormat() override { return m_format; };
 };
 
-//#define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to vet
-//raw gather tests
+// #define RAWGATHER_FALLBACK // Enable to use pre-6.7 fallback mechanisms to
+// vet raw gather tests
 
 // Create a single resource of <resFormat> and alias it to a view of
 // <viewFormat> Then execute a shader that uses raw gather to copy the values
@@ -12547,7 +12547,7 @@ TEST_F(ExecutionTest, IsNormalTest) {
       // Replace the above with what's below when IsSpecialFloat supports
       // doubles
       //{ "@dx.op.isSpecialFloat.f32(i32 8,",  "@dx.op.isSpecialFloat.f64(i32
-      //8," }, { "@dx.op.isSpecialFloat.f32(i32 11,",
+      // 8," }, { "@dx.op.isSpecialFloat.f32(i32 11,",
       //"@dx.op.isSpecialFloat.f64(i32 11," },
       {"@dx.op.isSpecialFloat.f32(i32 8,"},
       {"@dx.op.isSpecialFloat.f32(i32 11,"}, m_support);
