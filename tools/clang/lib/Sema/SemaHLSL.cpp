@@ -8814,6 +8814,11 @@ ExprResult HLSLExternalSource::MaybeConvertMemberAccess(clang::Expr *E) {
   }
 
   QualType targetType = NewSimpleAggregateType(AR_TOBJ_VECTOR, basic, 0, 1, 1);
+  if (E->getObjectKind() ==
+      OK_BitField) // if E is a bitfield, then generate an R value.
+    E = ImplicitCastExpr::Create(*m_context, E->getType(),
+                                 CastKind::CK_LValueToRValue, E, nullptr,
+                                 VK_RValue);
   return ImplicitCastExpr::Create(*m_context, targetType,
                                   CastKind::CK_HLSLVectorSplat, E, nullptr,
                                   E->getValueKind());

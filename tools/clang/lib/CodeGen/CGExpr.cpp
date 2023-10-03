@@ -3499,8 +3499,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
           LV.getExtVectorAddr(),
           {Builder.getInt32(0), VecElts->getAggregateElement((unsigned)0)});
     } else
-      // TODO: make sure all cases are supported.
-      assert(0 && "not implement cases");
+      assert(0 && "All other types should not be LValues at this point");
 
     QualType ToType = getContext().getLValueReferenceType(E->getType());
 
