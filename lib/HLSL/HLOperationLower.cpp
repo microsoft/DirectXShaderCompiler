@@ -1130,15 +1130,20 @@ Value *TranslateGetAttributeAtVertex(CallInst *CI, IntrinsicOp IOP,
 /*
 
 HLSL:
-void Barrier(uint MemoryTypeFlags, uint AccessFlags, uint SyncFlags)
-void Barrier(Object o, uint AccessFlags, uint SyncFlags)
-UAV:
-void @dx.op.barrierByMemoryType(i32 %Opcode, i32 %MemoryTypeFlags, i32
-%AccessFlags, i32 %SyncFlags) void @dx.op.barrierByMemoryHandle(i32 %Opcode,
-%dx.types.Handle %Object, i32 %AccessFlags, i32 %SyncFlags) DXIL: (For
-NodeRecords) void @dx.op.barrierByMemoryType(i32 %Opcode, i32 %MemoryTypeFlags,
-i32 %AccessFlags, i32 %SyncFlags) void @dx.op.barrierByMemoryHandle(i32 %Opcode,
-%dx.types.NodeRecordHandle %Object, i32 %AccessFlags, i32 %SyncFlags)
+void Barrier(uint MemoryTypeFlags, uint SemanticFlags)
+void Barrier(Object o, uint SemanticFlags)
+
+All UAVs and/or Node Records by types:
+void @dx.op.barrierByMemoryType(i32 %Opcode,
+  i32 %MemoryTypeFlags, i32 %SemanticFlags)
+
+UAV by handle:
+void @dx.op.barrierByMemoryHandle(i32 %Opcode,
+  %dx.types.Handle %Object, i32 %SemanticFlags)
+
+Node Record by handle:
+void @dx.op.barrierByMemoryHandle(i32 %Opcode,
+  %dx.types.NodeRecordHandle %Object, i32 %SemanticFlags)
 */
 
 Value *TranslateBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
@@ -1147,9 +1152,8 @@ Value *TranslateBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
                         bool &Translated) {
   hlsl::OP *OP = &helper.hlslOP;
   Value *HandleOrMemoryFlags =
-      CI->getArgOperand(HLOperandIndex::kMemoryTypeFlagsOpIdx);
-  Value *AccessFlags = CI->getArgOperand(HLOperandIndex::kAccessFlagsOpIdx);
-  Value *SyncFlags = CI->getArgOperand(HLOperandIndex::kSyncFlagsOpIdx);
+      CI->getArgOperand(HLOperandIndex::kBarrierMemoryTypeFlagsOpIdx);
+  Value *SemanticFlags = CI->getArgOperand(HLOperandIndex::kBarrierSemanticFlagsOpIdx);
   IRBuilder<> Builder(CI);
 
   if (HandleOrMemoryFlags->getType()->isIntegerTy()) {
@@ -1165,7 +1169,7 @@ Value *TranslateBarrier(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
   Function *dxilFunc = OP->GetOpFunc(op, CI->getType());
   Constant *opArg = OP->GetU32Const((unsigned)op);
 
-  Value *args[] = {opArg, HandleOrMemoryFlags, AccessFlags, SyncFlags};
+  Value *args[] = {opArg, HandleOrMemoryFlags, SemanticFlags};
 
   Builder.CreateCall(dxilFunc, args);
   return nullptr;

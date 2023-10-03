@@ -437,9 +437,8 @@ const unsigned kWaveMatLoadStoreAlignmentOpIdx = 6;
 
 const unsigned kIncrementOutputCountCountIdx = 2;
 
-const unsigned kMemoryTypeFlagsOpIdx = 1;
-const unsigned kAccessFlagsOpIdx = 2;
-const unsigned kSyncFlagsOpIdx = 3;
+const unsigned kBarrierMemoryTypeFlagsOpIdx = 1;
+const unsigned kBarrierSemanticFlagsOpIdx = 2;
 
 // Node Handles
 const unsigned kAllocateRecordNumRecordsIdx = 2;

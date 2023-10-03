@@ -682,14 +682,13 @@ void hlsl::AddBarrierConstants(ASTContext &context) {
        {"GROUP_SHARED_MEMORY",
         (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory},
        {"NODE_INPUT_MEMORY", (unsigned)DXIL::MemoryTypeFlag::NodeInputMemory},
-       {"NODE_OUTPUT_MEMORY",
-        (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory}});
+       {"NODE_OUTPUT_MEMORY", (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory},
+       {"ALL_MEMORY", (unsigned)DXIL::MemoryTypeFlag::AllMemory}});
   AddTypedefPseudoEnum(
-      context, "ACCESS_FLAG",
-      {{"DEVICE_VISIBLE", (unsigned)DXIL::AccessFlag::DeviceVisible},
-       {"GROUP_VISIBLE", (unsigned)DXIL::AccessFlag::GroupVisible}});
-  AddTypedefPseudoEnum(context, "SYNC_FLAG",
-                       {{"GROUP_SYNC", (unsigned)DXIL::SyncFlag::GroupSync}});
+      context, "BARRIER_SEMANTIC_FLAG",
+      {{"GROUP_SYNC", (unsigned)DXIL::BarrierSemanticFlag::GroupSync},
+       {"GROUP_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::GroupScope},
+       {"DEVICE_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::DeviceScope}});
 }
 
 static Expr *IntConstantAsBoolExpr(clang::Sema &sema, uint64_t value) {
