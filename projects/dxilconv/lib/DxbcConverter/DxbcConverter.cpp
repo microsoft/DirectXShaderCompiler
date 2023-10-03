@@ -1652,7 +1652,7 @@ void DxbcConverter::AnalyzeShader(
         break;
 
       default: {
-        unsigned NumUnits=0, Row=0;
+        unsigned NumUnits = 0, Row = 0;
         switch (Inst.m_Operands[0].m_IndexDimension) {
         case D3D10_SB_OPERAND_INDEX_1D:
           NumUnits = 0;
