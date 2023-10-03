@@ -84,8 +84,7 @@ void node12(GroupNodeInputRecords<RECORD> input)     // expected-error {{'GroupN
 
 [NodeLaunch("thread")]                               // expected-note  {{Launch type defined here}}
 [Shader("node")]
-void node13([MaxRecords(32)]
-            RWGroupNodeInputRecords<RECORD> input)   // expected-error {{'RWGroupNodeInputRecords' may not be used with thread nodes (only ThreadNodeInputRecord or RWThreadNodeInputRecord)}}
+void node13(RWGroupNodeInputRecords<RECORD> input)   // expected-error {{'RWGroupNodeInputRecords' may not be used with thread nodes (only ThreadNodeInputRecord or RWThreadNodeInputRecord)}}
 { }
 
 [Shader("node")]

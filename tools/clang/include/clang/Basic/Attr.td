@@ -1123,6 +1123,12 @@ def HLSLNodeArraySize : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLUnboundedSparseNodes : InheritableParamAttr {
+  let Spellings = [CXX11<"", "unboundedsparsenodes", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts

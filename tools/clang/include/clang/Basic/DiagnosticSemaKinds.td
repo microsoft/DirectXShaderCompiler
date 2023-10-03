@@ -7809,6 +7809,10 @@ def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
 def err_hlsl_wg_input_kind : Error<
    "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
    "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;
+def err_hlsl_wg_attr_only_on_output : Error<
+   "attribute %0 may only be used with output nodes">;
+def err_hlsl_wg_nodearraysize_conflict_unbounded : Error<
+   "[%0(%1)] conflicts with [%2], which implies [%0(-1)]">;
 def err_hlsl_zero_sized_record : Error<
    "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
@@ -7821,6 +7825,8 @@ def err_hlsl_maxrecordssharedwith_references_invalid_arg : Error<
     "attribute MaxRecordsSharedWith must reference a valid ouput parameter name.">;
 def err_hlsl_maxrecordssharedwith_references_itself : Error<
     "attribute MaxRecordsSharedWith must not reference the same parameter it is applied to.">;
+def err_hlsl_maxrecord_on_wrong_launch : Error<
+    "attribute MaxRecords must only be used with node outputs or coalescing launch inputs">;
 def err_hlsl_dispatchgrid_component : Error<
    "%0 %1 component value must be between 1 and 65,535 (2^16-1) inclusive">;
 def err_hlsl_dispatchgrid_product : Error<

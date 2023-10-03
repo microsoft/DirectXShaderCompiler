@@ -13101,6 +13101,10 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     declAttr = ::new (S.Context) HLSLAllowSparseNodesAttr(
         A.getRange(), S.Context, A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_HLSLUnboundedSparseNodes:
+    declAttr = ::new (S.Context) HLSLUnboundedSparseNodesAttr(
+        A.getRange(), S.Context, A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_HLSLNodeId:
     declAttr = ::new (S.Context) HLSLNodeIdAttr(
         A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr, 0),
@@ -14936,6 +14940,12 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     break;
   }
 
+  case clang::attr::HLSLUnboundedSparseNodes: {
+    Indent(Indentation, Out);
+    Out << "[UnboundedSparseNodes]\n";
+    break;
+  }
+
   default:
     A->printPretty(Out, Policy);
     break;
@@ -14999,6 +15009,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLMaxRecords:
   case clang::attr::HLSLNodeArraySize:
   case clang::attr::HLSLAllowSparseNodes:
+  case clang::attr::HLSLUnboundedSparseNodes:
   case clang::attr::HLSLNodeDispatchGrid:
   case clang::attr::HLSLNodeMaxDispatchGrid:
   case clang::attr::HLSLNodeMaxRecursionDepth:
@@ -15298,6 +15309,14 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     ParmVarDecl *Param = FD->getParamDecl(Idx);
     clang::QualType ParamTy = Param->getType();
 
+    auto *MaxRecordsAttr = Param->getAttr<HLSLMaxRecordsAttr>();
+    auto *MaxRecordsSharedWithAttr =
+        Param->getAttr<HLSLMaxRecordsSharedWithAttr>();
+    auto *AllowSparseNodesAttr = Param->getAttr<HLSLAllowSparseNodesAttr>();
+    auto *NodeArraySizeAttr = Param->getAttr<HLSLNodeArraySizeAttr>();
+    auto *UnboundedSparseNodesAttr =
+        Param->getAttr<HLSLUnboundedSparseNodesAttr>();
+
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(ParamTy)) {
       InputCount++;
@@ -15318,6 +15337,34 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
         S.Diags.Report(Param->getLocation(),
                        diag::err_hlsl_too_many_node_inputs)
             << FD->getName() << Param->getSourceRange();
+
+      if (MaxRecordsAttr && NodeLaunchTy != DXIL::NodeLaunchType::Coalescing) {
+        S.Diags.Report(MaxRecordsAttr->getLocation(),
+                       diag::err_hlsl_maxrecord_on_wrong_launch)
+            << MaxRecordsAttr->getRange();
+      }
+
+      InheritableAttr *OutputOnly[] = {MaxRecordsSharedWithAttr,
+                                       AllowSparseNodesAttr, NodeArraySizeAttr,
+                                       UnboundedSparseNodesAttr};
+      for (auto *Attr : OutputOnly) {
+        if (Attr) {
+          S.Diags.Report(Attr->getLocation(),
+                         diag::err_hlsl_wg_attr_only_on_output)
+              << Attr << Attr->getRange();
+        }
+      }
+    }
+
+    if (UnboundedSparseNodesAttr && NodeArraySizeAttr && NodeArraySizeAttr->getCount() != -1) {
+      S.Diags.Report(NodeArraySizeAttr->getLocation(),
+                     diag::err_hlsl_wg_nodearraysize_conflict_unbounded)
+          << NodeArraySizeAttr->getSpelling() << NodeArraySizeAttr->getCount()
+          << UnboundedSparseNodesAttr->getSpelling()
+          << NodeArraySizeAttr->getRange();
+      S.Diags.Report(UnboundedSparseNodesAttr->getLocation(),
+                     diag::note_conflicting_attribute)
+          << UnboundedSparseNodesAttr->getRange();
     }
 
     // arrays of NodeOutput or EmptyNodeOutput are not supported as node
