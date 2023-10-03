@@ -50,7 +50,8 @@ getMemBufferFromBlob(IDxcBlob *pBlob, const llvm::Twine &BufferName) {
 }
 
 std::unique_ptr<llvm::MemoryBuffer>
-getMemBufferFromStream(IStream *pStream, const llvm::Twine &BufferName) {
+getMemBufferFromStream(IStream *pStream, std::vector<char> &DataContainer,
+                       const llvm::Twine &BufferName) {
   CComPtr<IDxcBlob> pBlob;
   if (SUCCEEDED(pStream->QueryInterface(&pBlob))) {
     return getMemBufferFromBlob(pBlob, BufferName);
@@ -59,11 +60,13 @@ getMemBufferFromStream(IStream *pStream, const llvm::Twine &BufferName) {
   STATSTG statstg;
   IFT(pStream->Stat(&statstg, STATFLAG_NONAME));
   size_t size = statstg.cbSize.LowPart;
-  std::unique_ptr<llvm::MemoryBuffer> result(
-      llvm::MemoryBuffer::getNewUninitMemBuffer(size, BufferName));
-  char *pBuffer = (char *)result.get()->getBufferStart();
+
+  DataContainer.resize(size);
   ULONG read;
-  IFT(pStream->Read(pBuffer, size, &read));
+  IFT(pStream->Read(DataContainer.data(), size, &read));
+  llvm::StringRef Str(DataContainer.data(), size);
+  std::unique_ptr<llvm::MemoryBuffer> result(
+      llvm::MemoryBuffer::getMemBuffer(Str, BufferName.str(), false));
   return result;
 }
 } // namespace dxil_dia
@@ -110,8 +113,10 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(IStream *pInputIStream) {
     m_context = std::make_shared<llvm::LLVMContext>();
     llvm::MemoryBuffer *pBitcodeBuffer;
     std::unique_ptr<llvm::MemoryBuffer> pEmbeddedBuffer;
+
+    std::vector<char> DataContainer;
     std::unique_ptr<llvm::MemoryBuffer> pBuffer =
-        getMemBufferFromStream(pIStream, "data");
+        getMemBufferFromStream(pIStream, DataContainer, "data");
     size_t bufferSize = pBuffer->getBufferSize();
 
     // The buffer can hold LLVM bitcode for a module, or the ILDB
@@ -128,8 +133,8 @@ STDMETHODIMP dxil_dia::DataSource::loadDataFromIStream(IStream *pInputIStream) {
         return DXC_E_MALFORMED_CONTAINER;
       }
 
-      hlsl::DxilProgramHeader *pDxilProgramHeader =
-          (hlsl::DxilProgramHeader *)pBuffer->getBufferStart();
+      const hlsl::DxilProgramHeader *pDxilProgramHeader =
+          (const hlsl::DxilProgramHeader *)pBuffer->getBufferStart();
       if (pDxilProgramHeader->BitcodeHeader.DxilMagic != hlsl::DxilMagicValue) {
         return DXC_E_MALFORMED_CONTAINER;
       }

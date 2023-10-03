@@ -45,7 +45,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixConstType)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixConstType, IDxcPixType>(this, iid,
                                                                 ppvObject);
   }
@@ -75,7 +76,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixTypedefType)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixTypedefType, IDxcPixType>(this, iid,
                                                                   ppvObject);
   }
@@ -101,7 +103,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixScalarType)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixScalarType, IDxcPixType>(this, iid,
                                                                  ppvObject);
   }
@@ -141,7 +144,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixArrayType)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixArrayType, IDxcPixType>(this, iid,
                                                                 ppvObject);
   }
@@ -181,7 +185,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixStructType)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixStructType2, IDxcPixStructType,
                                  IDxcPixType>(this, iid, ppvObject);
   }
@@ -221,7 +226,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcPixStructField)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcPixStructField>(this, iid, ppvObject);
   }
 

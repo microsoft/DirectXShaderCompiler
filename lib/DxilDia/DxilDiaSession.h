@@ -75,7 +75,8 @@ public:
 
   HRESULT getSourceFileIdByName(llvm::StringRef fileName, DWORD *pRetVal);
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDiaSession, IDxcPixDxilDebugInfoFactory>(
         this, iid, ppvObject);
   }

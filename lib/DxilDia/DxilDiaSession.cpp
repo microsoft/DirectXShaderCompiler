@@ -302,7 +302,7 @@ STDMETHODIMP dxil_dia::Session::findLinesByLinenum(
   std::vector<const llvm::Instruction *> lines;
 
   std::function<bool(DWORD, DWORD)> column_matches =
-      [column](DWORD colStart, DWORD colEnd) -> bool { return true; };
+      [](DWORD colStart, DWORD colEnd) -> bool { return true; };
 
   if (column != 0) {
     column_matches = [column](DWORD colStart, DWORD colEnd) -> bool {
