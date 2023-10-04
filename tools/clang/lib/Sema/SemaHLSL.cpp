@@ -15206,12 +15206,15 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
                                           BEnd = InputRecordDecl->bases_end();
        B != BEnd; ++B) {
 
-    QualType BaseType = B->getType();
-    CXXRecordDecl *BaseTypeDecl =
-        dyn_cast<CXXRecordDecl>(BaseType->getAsStructureType()->getDecl());
-
-    DiagnoseMustHaveOneDispatchGridSemantics(S, BaseTypeDecl, DispatchGridLoc,
-                                             Found);
+    const RecordType *BaseStructType = B->getType()->getAsStructureType();
+    if (nullptr != BaseStructType) {
+      CXXRecordDecl *BaseTypeDecl =
+          dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
+      if (nullptr != BaseTypeDecl) {
+        DiagnoseMustHaveOneDispatchGridSemantics(S, BaseTypeDecl,
+                                                 DispatchGridLoc, Found);
+      }
+    }
   }
 }
 
@@ -15360,14 +15363,18 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
 
               // Get the input record struct
               auto &TemplateArgs = templateDecl->getTemplateArgs();
-              auto &StructArg = TemplateArgs.get(0);
-              QualType StructArgType = StructArg.getAsType();
-              CXXRecordDecl *NodeInputStructDecl = dyn_cast<CXXRecordDecl>(
-                  StructArgType->getAsStructureType()->getDecl());
-
-              // Make sure there is exactly one SV_DispatchGrid semantics
-              DiagnoseMustHaveOneDispatchGridSemantics(S, NodeInputStructDecl,
-                                                       Found);
+              DXASSERT_NOMSG(TemplateArgs.size() >= 1);
+              QualType Arg0Type = TemplateArgs.get(0).getAsType();
+              const RecordType *NodeInputStructType = Arg0Type->getAsStructureType();
+              if (nullptr != NodeInputStructType) {
+                CXXRecordDecl *NodeInputStructDecl =
+                    dyn_cast<CXXRecordDecl>(NodeInputStructType->getDecl());
+                if (nullptr != NodeInputStructDecl) {
+                  // Make sure there is exactly one SV_DispatchGrid semantics
+                  DiagnoseMustHaveOneDispatchGridSemantics(
+                      S, NodeInputStructDecl, Found);
+                }
+              }
             }
           }
         }
