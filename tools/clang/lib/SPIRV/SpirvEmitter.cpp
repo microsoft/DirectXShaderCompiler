@@ -764,6 +764,7 @@ void SpirvEmitter::beginInvocationInterlock(SourceLocation loc,
     interlockModeAdded = true;
   }
   spvBuilder.createBeginInvocationInterlockEXT(loc, range);
+  needsLegalization = true;
 }
 
 llvm::StringRef SpirvEmitter::getEntryPointName(const FunctionInfo *entryInfo) {
