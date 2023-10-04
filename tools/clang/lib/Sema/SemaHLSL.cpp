@@ -15365,7 +15365,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
               auto &TemplateArgs = templateDecl->getTemplateArgs();
               DXASSERT_NOMSG(TemplateArgs.size() >= 1);
               QualType Arg0Type = TemplateArgs.get(0).getAsType();
-              const RecordType *NodeInputStructType = Arg0Type->getAsStructureType();
+              const RecordType *NodeInputStructType =
+                  Arg0Type->getAsStructureType();
               if (nullptr != NodeInputStructType) {
                 CXXRecordDecl *NodeInputStructDecl =
                     dyn_cast<CXXRecordDecl>(NodeInputStructType->getDecl());
