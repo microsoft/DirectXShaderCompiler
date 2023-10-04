@@ -10,9 +10,9 @@ public:
   ShaderTesterImpl(ID3DBlob *blob);
   virtual ~ShaderTesterImpl();
 
-  virtual void setDevice(const std::wstring &namePrefix);
-  virtual void runShader(int initialShaderId, const std::vector<int> &input,
-                         std::vector<int> &output) override;
+  void setDevice(const std::wstring &namePrefix) override;
+  void runShader(int initialShaderId, const std::vector<int> &input,
+                 std::vector<int> &output) override;
 
 private:
   void init();

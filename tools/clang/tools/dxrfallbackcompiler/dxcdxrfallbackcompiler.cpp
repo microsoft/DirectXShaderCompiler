@@ -129,38 +129,41 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcDxrFallbackCompiler)
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcDxrFallbackCompiler>(this, iid, ppvObject);
   }
 
-  __override HRESULT STDMETHODCALLTYPE SetFindCalledShaders(bool val) {
+  HRESULT STDMETHODCALLTYPE SetFindCalledShaders(bool val) override {
     m_findCalledShaders = val;
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE SetDebugOutput(int val) {
+  HRESULT STDMETHODCALLTYPE SetDebugOutput(int val) override {
     m_debugOutput = val;
     return S_OK;
   }
 
-  __override HRESULT STDMETHODCALLTYPE PatchShaderBindingTables(
+  HRESULT STDMETHODCALLTYPE PatchShaderBindingTables(
       const LPCWSTR pEntryName, DxcShaderBytecode *pShaderBytecode,
-      void *pShaderInfo, IDxcOperationResult **ppResult);
+      void *pShaderInfo, IDxcOperationResult **ppResult) override;
 
-  __override HRESULT STDMETHODCALLTYPE RenameAndLink(
+  HRESULT STDMETHODCALLTYPE RenameAndLink(
       DxcShaderBytecode *pLibs, UINT32 libCount, DxcExportDesc *pExports,
-      UINT32 ExportCount, IDxcOperationResult **ppResult);
+      UINT32 ExportCount, IDxcOperationResult **ppResult) override;
 
-  __override HRESULT STDMETHODCALLTYPE Compile(
-      DxcShaderBytecode *pLibs, UINT32 libCount, const LPCWSTR *pShaderNames,
-      DxcShaderInfo *pShaderInfo, UINT32 shaderCount, UINT32 maxAttributeSize,
-      IDxcOperationResult **ppResult);
+  HRESULT STDMETHODCALLTYPE Compile(DxcShaderBytecode *pLibs, UINT32 libCount,
+                                    const LPCWSTR *pShaderNames,
+                                    DxcShaderInfo *pShaderInfo,
+                                    UINT32 shaderCount, UINT32 maxAttributeSize,
+                                    IDxcOperationResult **ppResult) override;
 
-  __override HRESULT STDMETHODCALLTYPE
-  Link(const LPCWSTR pEntryName, IDxcBlob **pLibs, UINT32 libCount,
-       const LPCWSTR *pShaderNames, DxcShaderInfo *pShaderInfo,
-       UINT32 shaderCount, UINT32 maxAttributeSize, UINT32 stackSizeInBytes,
-       IDxcOperationResult **ppResult);
+  HRESULT STDMETHODCALLTYPE Link(const LPCWSTR pEntryName, IDxcBlob **pLibs,
+                                 UINT32 libCount, const LPCWSTR *pShaderNames,
+                                 DxcShaderInfo *pShaderInfo, UINT32 shaderCount,
+                                 UINT32 maxAttributeSize,
+                                 UINT32 stackSizeInBytes,
+                                 IDxcOperationResult **ppResult) override;
 };
 
 // TODO: Stolen from Brandon's code, merge
