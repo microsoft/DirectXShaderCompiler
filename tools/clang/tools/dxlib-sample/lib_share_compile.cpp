@@ -160,7 +160,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     std::string processedHeader = "";
     std::vector<std::wstring> hashStrList;
     std::vector<LPCWSTR> hashList;
-//#define LIB_SHARE_DBG
+// #define LIB_SHARE_DBG
 #ifdef LIB_SHARE_DBG
     std::vector<std::wstring> defineList;
     defineList.emplace_back(L"");
