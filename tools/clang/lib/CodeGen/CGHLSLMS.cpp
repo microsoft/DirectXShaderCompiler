@@ -2485,26 +2485,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
                                /*isPatchConstantFunction*/ false);
     }
   }
-  
-  // Make sure that if "NodeMaxDispatchGrid" is used, that an input
-  // with the SV_DispatchGrid attribute is provided.
-  if (funcProps->Node.MaxDispatchGrid[0] > 0) {
-    bool found = false;
-    for (auto node : funcProps->InputNodes) {
-      if (node.RecordType.SV_DispatchGrid.NumComponents != 0) {
-        found = true;
-        break;
-      }
-    }
-    
-    if (!found) {
-      unsigned DiagID = Diags.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "node shader '%0' with NodeMaxDispatchGrid attribute must declare an"
-          " input record containing a field with the SV_DispatchGrid semantic");
-      Diags.Report(FD->getLocation(), DiagID) << FD->getIdentifier()->getName();
-    }
-  }
 
   // All output decls and param names are available and errors can be generated
   // and parameter output array indices that correspond to param names can be
@@ -2700,9 +2680,6 @@ void CGMSHLSLRuntime::AddHLSLNodeRecordTypeInfo(
         // Ex: For DispatchNodeInputRecord<MY_RECORD>, set size =
         // size(MY_RECORD)
         node.RecordType.size = CGM.getDataLayout().getTypeAllocSize(Type);
-        // If we find SV_DispatchGrid we'll remember the location for
-        // diagnostics
-        SourceLocation SV_DispatchGridLoc;
         // Iterate over fields of the MY_RECORD(example) struct
         for (auto fieldDecl : RD->fields()) {
           // Check if any of the fields have a semantic annotation =
@@ -2719,18 +2696,9 @@ void CGMSHLSLRuntime::AddHLSLNodeRecordTypeInfo(
                 clang::QualType FT = fieldDecl->getType();
                 auto &DL = CGM.getDataLayout();
                 auto &SDGRec = node.RecordType.SV_DispatchGrid;
-                if (SDGRec.NumComponents != 0) {
-                  DiagnosticsEngine &Diags = CGM.getDiags();
-                  unsigned DiagID = Diags.getCustomDiagID(
-                      DiagnosticsEngine::Error, "a field with SV_DispatchGrid "
-                                                "has already been specified");
-                  Diags.Report(it->Loc, DiagID);
-                  Diags.Report(SV_DispatchGridLoc, diag::note_defined_here)
-                      << "previously";
-                } else {
-                  // Set SV_DispatchGridLoc for use in diagnostics ;
-                  SV_DispatchGridLoc = it->Loc;
-                }
+
+                DXASSERT_NOMSG(SDGRec.NumComponents == 0);
+
                 unsigned fieldIdx = fieldDecl->getFieldIndex();
                 if (StructType *ST = dyn_cast<StructType>(Type)) {
                   SDGRec.ByteOffset =
