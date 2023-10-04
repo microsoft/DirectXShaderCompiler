@@ -371,7 +371,7 @@ bool HLModule::IsEntryThatUsesSignatures(llvm::Function *F) {
   auto propIter = m_DxilFunctionPropsMap.find(F);
   if (propIter != m_DxilFunctionPropsMap.end()) {
     DxilFunctionProps &props = *(propIter->second);
-    return props.IsGraphics() || props.IsCS() || props.IsNode();
+    return props.IsGraphics() || props.IsCS();
   }
   // Otherwise, return true if patch constant function
   return IsPatchConstantShader(F);

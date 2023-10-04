@@ -4228,7 +4228,8 @@ public:
 
       // Skip library function, except to LegalizeDxilInputOutputs
       if (&F != m_pHLModule->GetEntryFunction() &&
-          !m_pHLModule->IsEntryThatUsesSignatures(&F)) {
+          !m_pHLModule->IsEntryThatUsesSignatures(&F) &&
+          !m_pHLModule->IsNodeShader(&F)) {
         if (!F.isDeclaration())
           LegalizeDxilInputOutputs(&F, m_pHLModule->GetFunctionAnnotation(&F),
                                    DL, m_pHLModule->GetTypeSystem());
@@ -5911,7 +5912,8 @@ void SROA_Parameter_HLSL::createFlattenedFunction(Function *F) {
   DxilTypeSystem &typeSys = m_pHLModule->GetTypeSystem();
 
   DXASSERT(F == m_pHLModule->GetEntryFunction() ||
-               m_pHLModule->IsEntryThatUsesSignatures(F),
+               m_pHLModule->IsEntryThatUsesSignatures(F) ||
+               m_pHLModule->IsNodeShader(F),
            "otherwise, createFlattenedFunction called on library function "
            "that should not be flattened.");
 
