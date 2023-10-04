@@ -78,6 +78,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvStore)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNullaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
@@ -112,7 +113,6 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvRayTracingTerminateOpKHR)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvIntrinsicInstruction)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitMeshTasksEXT)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSetMeshOutputsEXT)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvInvocationInterlockEXT)
 
 #undef DEFINE_INVOKE_VISITOR_FOR_CLASS
 
@@ -849,6 +849,10 @@ void SpirvStore::setAlignment(uint32_t alignment) {
   memoryAlignment = alignment;
 }
 
+SpirvNullaryOp::SpirvNullaryOp(spv::Op opcode, SourceLocation loc,
+                               SourceRange range)
+    : SpirvInstruction(IK_NullaryOp, opcode, QualType(), loc, range) {}
+
 SpirvUnaryOp::SpirvUnaryOp(spv::Op opcode, QualType resultType,
                            SourceLocation loc, SpirvInstruction *op,
                            SourceRange range)
@@ -1125,12 +1129,6 @@ SpirvSetMeshOutputsEXT::SpirvSetMeshOutputsEXT(SpirvInstruction *vertCount,
     : SpirvInstruction(IK_SetMeshOutputsEXT, spv::Op::OpSetMeshOutputsEXT,
                        QualType(), loc, range),
       vertCount(vertCount), primCount(primCount) {}
-
-SpirvInvocationInterlockEXT::SpirvInvocationInterlockEXT(spv::Op opcode,
-                                                         SourceLocation loc,
-                                                         SourceRange range)
-    : SpirvInstruction(IK_InvocationInterlockEXT, opcode, QualType(), loc,
-                       range) {}
 
 } // namespace spirv
 } // namespace clang

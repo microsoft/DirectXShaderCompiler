@@ -1332,6 +1332,13 @@ bool EmitVisitor::visit(SpirvStore *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvNullaryOp *inst) {
+  initInstruction(inst);
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvUnaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
@@ -1987,13 +1994,6 @@ bool EmitVisitor::visit(SpirvSetMeshOutputsEXT *inst) {
       getOrAssignResultId<SpirvInstruction>(inst->getVertexCount()));
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getPrimitiveCount()));
-
-  finalizeInstruction(&mainBinary);
-  return true;
-}
-
-bool EmitVisitor::visit(SpirvInvocationInterlockEXT *inst) {
-  initInstruction(inst);
 
   finalizeInstruction(&mainBinary);
   return true;

@@ -1121,8 +1121,8 @@ void SpirvBuilder::createBeginInvocationInterlockEXT(SourceLocation loc,
                                                      SourceRange range) {
   assert(insertPoint && "null insert point");
 
-  auto *inst = new (context) SpirvInvocationInterlockEXT(
-      spv::Op::OpBeginInvocationInterlockEXT, loc, range);
+  auto *inst = new (context)
+      SpirvNullaryOp(spv::Op::OpBeginInvocationInterlockEXT, loc, range);
   insertPoint->addInstruction(inst);
 }
 
@@ -1130,8 +1130,8 @@ void SpirvBuilder::createEndInvocationInterlockEXT(SourceLocation loc,
                                                    SourceRange range) {
   assert(insertPoint && "null insert point");
 
-  auto *inst = new (context) SpirvInvocationInterlockEXT(
-      spv::Op::OpEndInvocationInterlockEXT, loc, range);
+  auto *inst = new (context)
+      SpirvNullaryOp(spv::Op::OpEndInvocationInterlockEXT, loc, range);
   insertPoint->addInstruction(inst);
 }
 

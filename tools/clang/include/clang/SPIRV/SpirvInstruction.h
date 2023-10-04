@@ -131,10 +131,9 @@ public:
     IK_SpecConstantUnaryOp,       // SpecConstant unary operations
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
+    IK_NullaryOp,                 // Nullary operations
     IK_VectorShuffle,             // OpVectorShuffle
     IK_SpirvIntrinsicInstruction, // Spirv Intrinsic Instructions
-
-    IK_InvocationInterlockEXT, // Op*InvocationInterlockEXT
 
     // For DebugInfo instructions defined in
     // OpenCL.DebugInfo.100 and NonSemantic.Shader.DebugInfo.100
@@ -1869,6 +1868,27 @@ private:
   llvm::Optional<uint32_t> memoryAlignment;
 };
 
+/// \brief Represents SPIR-V nullary operation instructions.
+///
+/// This class includes:
+/// ----------------------------------------------------------------------------
+/// OpBeginInvocationInterlockEXT // FragmentShader*InterlockEXT capability
+/// OpEndInvocationInterlockEXT // FragmentShader*InterlockEXT capability
+/// ----------------------------------------------------------------------------
+class SpirvNullaryOp : public SpirvInstruction {
+public:
+  SpirvNullaryOp(spv::Op opcode, SourceLocation loc, SourceRange range = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNullaryOp)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_NullaryOp;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+};
+
 /// \brief Represents SPIR-V unary operation instructions.
 ///
 /// This class includes:
@@ -2218,23 +2238,6 @@ public:
 private:
   SpirvInstruction *vertCount;
   SpirvInstruction *primCount;
-};
-
-/// \brief OpBeginInvocationInterlockEXT and OpEndInvocationInterlockEXT
-/// instructions.
-class SpirvInvocationInterlockEXT : public SpirvInstruction {
-public:
-  SpirvInvocationInterlockEXT(spv::Op opcode, SourceLocation loc,
-                              SourceRange range = {});
-
-  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvInvocationInterlockEXT)
-
-  // For LLVM-style RTTI
-  static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_InvocationInterlockEXT;
-  }
-
-  bool invokeVisitor(Visitor *v) override;
 };
 
 class SpirvDebugInfoNone : public SpirvDebugInstruction {

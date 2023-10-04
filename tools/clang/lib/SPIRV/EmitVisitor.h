@@ -269,6 +269,7 @@ public:
   bool visit(SpirvSpecConstantBinaryOp *) override;
   bool visit(SpirvSpecConstantUnaryOp *) override;
   bool visit(SpirvStore *) override;
+  bool visit(SpirvNullaryOp *) override;
   bool visit(SpirvUnaryOp *) override;
   bool visit(SpirvVectorShuffle *) override;
   bool visit(SpirvArrayLength *) override;
@@ -302,7 +303,6 @@ public:
   bool visit(SpirvIntrinsicInstruction *) override;
   bool visit(SpirvEmitMeshTasksEXT *) override;
   bool visit(SpirvSetMeshOutputsEXT *) override;
-  bool visit(SpirvInvocationInterlockEXT *) override;
 
   using Visitor::visit;
 
