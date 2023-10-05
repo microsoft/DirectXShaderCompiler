@@ -374,6 +374,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool has64Int = false;
   bool has16 = false;
   bool hasWaveOps = false;
+  bool hasTiledResources = false;
   bool hasCheckAccessFully = false;
   bool hasMSAD = false;
   bool hasStencilRef = false;
@@ -562,7 +563,6 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             }
           }
           break;
-        case DXIL::OpCode::SampleGrad:
         case DXIL::OpCode::SampleLevel:
         case DXIL::OpCode::SampleCmpLevelZero:
           if (!isa<Constant>(CI->getArgOperand(
@@ -572,6 +572,19 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
               !isa<Constant>(CI->getArgOperand(
                   DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
             hasAdvancedTextureOps = true;
+          break;
+        case DXIL::OpCode::SampleGrad:
+        case DXIL::OpCode::SampleCmpBias:
+        case DXIL::OpCode::SampleCmpGrad:
+          if (!isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+              !isa<Constant>(CI->getArgOperand(
+                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
+            hasAdvancedTextureOps = true;
+          if (!isa<UndefValue>(CI->getArgOperand(CI->getNumArgOperands() - 1)))
+            hasTiledResources = true;
           break;
         case DXIL::OpCode::Sample:
         case DXIL::OpCode::SampleBias:
@@ -583,6 +596,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
               !isa<Constant>(CI->getArgOperand(
                   DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
             hasAdvancedTextureOps = true;
+          if (!isa<UndefValue>(CI->getArgOperand(CI->getNumArgOperands() - 1)))
+            hasTiledResources = true;
           LLVM_FALLTHROUGH;
         case DXIL::OpCode::DerivFineX:
         case DXIL::OpCode::DerivFineY:
@@ -728,7 +743,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetLowPrecisionPresent(has16);
   flag.SetEnableDoubleExtensions(hasDoubleExtension);
   flag.SetWaveOps(hasWaveOps);
-  flag.SetTiledResources(hasCheckAccessFully);
+  flag.SetTiledResources(hasCheckAccessFully || hasTiledResources);
   flag.SetEnableMSAD(hasMSAD);
   flag.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
   flag.SetViewID(hasViewID);
