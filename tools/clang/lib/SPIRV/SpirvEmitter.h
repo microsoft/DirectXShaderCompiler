@@ -1219,6 +1219,13 @@ private:
   /// Returns true on success and false otherwise.
   bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
 
+  /// Adds the approparate deritvative group execution mode to the entry point.
+  /// The entry point must already have a LocalSize exectuion mode, which will
+  ///  be used to determine which execution mode (quad or linear) is required.
+  ///  This decision is made according to the rules in
+  ///  https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html.
+  void addDerivativeGroupExecutionMode();
+
 public:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.

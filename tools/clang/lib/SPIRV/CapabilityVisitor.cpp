@@ -876,6 +876,13 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
           spv::Capability::FragmentShaderShadingRateInterlockEXT,
       });
 
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::NV_compute_shader_derivatives,
+      {
+          spv::Capability::ComputeDerivativeGroupQuadsNV,
+          spv::Capability::ComputeDerivativeGroupLinearNV,
+      });
+
   // AccelerationStructureType or RayQueryType can be provided by both
   // ray_tracing and ray_query extension. By default, we select ray_query to
   // provide it. This is an arbitrary decision. If the user wants avoid one
