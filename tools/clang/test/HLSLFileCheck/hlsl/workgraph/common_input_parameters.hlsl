@@ -6,7 +6,7 @@
 // CHECK:  %[[ftid:.+]] = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)  ; FlattenedThreadIdInGroup()
 
 // CHECK:  %[[Hdl:.+]] = call %dx.types.NodeRecordHandle @dx.op.createNodeInputRecordHandle(i32 250, i32 0)  ; CreateNodeInputRecordHandle(MetadataIdx)
-// CHECK:  %[[annotHdl:.+]] = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %[[Hdl]], %dx.types.NodeRecordInfo { i32 69, i32 40 })  ; AnnotateNodeRecordHandle(noderecord,props)
+// CHECK:  %[[annotHdl:.+]] = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %[[Hdl]], %dx.types.NodeRecordInfo { i32 101, i32 52 })  ; AnnotateNodeRecordHandle(noderecord,props)
 
 // CHECK:  %[[tid_group_z:.+]] = call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 2)  ; ThreadIdInGroup(component)
 // CHECK:  %[[tid_group_y:.+]] = call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 1)  ; ThreadIdInGroup(component)
@@ -48,12 +48,14 @@ struct RECORD
   uint3 gid;
   uint gidx;
   uint3 gtid;
+  uint3 dg : SV_DispatchGrid;
 };
 
 [Shader("node")]
-[NodeLaunch("coalescing")]
 [numthreads(4,4,4)]
-void node01(RWGroupNodeInputRecords<RECORD> input,
+[NodeMaxDispatchGrid(4,4,4)]
+[NodeLaunch("broadcasting")]
+void node01(RWDispatchNodeInputRecord<RECORD> input,
  uint3 DTID : SV_DispatchThreadID,
  uint3 GID : SV_GroupID,
  uint GIdx : SV_GroupIndex,
