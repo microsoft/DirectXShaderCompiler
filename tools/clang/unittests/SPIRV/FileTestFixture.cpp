@@ -131,9 +131,13 @@ void FileTest::checkTestResult(llvm::StringRef filename, const bool compileOk,
 
     // HLSL Change: Explicit braces
     if (runValidation) {
-      EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
-                                             beforeHLSLLegalization, glLayout,
-                                             dxLayout, scalarLayout));
+      bool spirvIsValid = false;
+      if (utils::validateSpirvBinary(targetEnv, generatedBinary,
+                                     beforeHLSLLegalization, glLayout, dxLayout,
+                                     scalarLayout)) {
+        spirvIsValid = true;
+      }
+      EXPECT_TRUE(spirvIsValid);
     }
   } else if (expect == Expect::Warning) {
     ASSERT_TRUE(compileOk);

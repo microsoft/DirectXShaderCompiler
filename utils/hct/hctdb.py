@@ -2749,6 +2749,7 @@ class db_dxil(object):
         self.add_valrule_msg("Container.RootSignatureIncompatible", "Root Signature in DXIL Container must be compatible with shader", "Root Signature in DXIL container is not compatible with shader.")
 
         self.add_valrule("Meta.Required", "Required metadata missing.")
+        self.add_valrule_msg("Meta.Unexpected", "Unexpected metadata detected.", "Function '%0' has unexpected metadata.")
         self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown.")
         self.add_valrule("Meta.Used", "All metadata must be used by dxil.")
         self.add_valrule_msg("Meta.Target", "Target triple must be 'dxil-ms-dx'", "Unknown target triple '%0'.")
