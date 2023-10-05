@@ -4076,6 +4076,9 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
       spvBuilder.createImageQuery(spv::Op::OpImageQueryLod, queryResultType,
                                   expr->getExprLoc(), sampledImage, coordinate);
 
+  if (spvContext.isCS()) {
+    addDerivativeGroupExecutionMode();
+  }
   // The first component of the float2 contains the mipmap array layer.
   // The second component of the float2 represents the unclamped lod.
   return spvBuilder.createCompositeExtract(astContext.FloatTy, query,
@@ -5268,9 +5271,10 @@ SpirvInstruction *SpirvEmitter::createImageSample(
   // Otherwise we use implicit-lod instructions.
   const bool isExplicit = lod || (grad.first && grad.second);
 
-  // Implicit-lod instructions are only allowed in pixel shader.
-  if (!spvContext.isPS() && !isExplicit)
-    emitError("sampling with implicit lod is only allowed in fragment shaders",
+  // Implicit-lod instructions are only allowed in pixel and compute shaders.
+  if (!spvContext.isPS() && !spvContext.isCS() && !isExplicit)
+    emitError("sampling with implicit lod is only allowed in fragment and "
+              "compute shaders",
               loc);
 
   auto *retVal = spvBuilder.createImageSample(
@@ -5347,6 +5351,9 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
+    if (spvContext.isCS()) {
+      addDerivativeGroupExecutionMode();
+    }
     return createImageSample(retType, imageType, image, sampler, coordinate,
                              /*compareVal*/ nullptr, /*bias*/ nullptr,
                              /*lod*/ nullptr, std::make_pair(nullptr, nullptr),
@@ -5434,6 +5441,9 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
+  if (!lod && spvContext.isCS()) {
+    addDerivativeGroupExecutionMode();
+  }
   return createImageSample(
       retType, imageType, image, sampler, coordinate,
       /*compareVal*/ nullptr, bias, lod, std::make_pair(nullptr, nullptr),
@@ -5582,6 +5592,10 @@ SpirvEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();
+
+  if (!lod && spvContext.isCS()) {
+    addDerivativeGroupExecutionMode();
+  }
 
   return createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal,
@@ -14012,6 +14026,33 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
   }
 
   return tools.Validate(mod->data(), mod->size(), options);
+}
+
+void SpirvEmitter::addDerivativeGroupExecutionMode() {
+  assert(spvContext.isCS();
+
+  SpirvExecutionMode *numThreadsEm = spvBuilder.getModule()->findExecutionMode(
+      entryFunction, spv::ExecutionMode::LocalSize);
+  auto numThreads = numThreadsEm->getParams();
+
+  // The layout of the quad is determined by the numer of threads in each
+  // dimention. From the HLSL spec
+  // (https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html):
+  //
+  // Where numthreads has an X value divisible by 4 and Y and Z are both 1, the
+  // quad layouts are determined according to 1D quad rules. Where numthreads X
+  // and Y values are divisible by 2, the quad layouts are determined according
+  // to 2D quad rules. Using derivative operations in any numthreads
+  // configuration not matching either of these is invalid and will produce an
+  // error.
+  spv::ExecutionMode em = spv::ExecutionMode::DerivativeGroupQuadsNV;
+  if (numThreads[0] % 4 == 0 && numThreads[1] == 1 && numThreads[2] == 1) {
+    em = spv::ExecutionMode::DerivativeGroupLinearNV;
+  } else {
+    assert(numThreads[0] % 2 == 0 && numThreads[1] % 2 == 0);
+  }
+
+  spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());
 }
 
 bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
