@@ -800,27 +800,25 @@ public:
       unsigned DxilMinor = 0;
       DM.GetDxilVersion(DxilMajor, DxilMinor);
 
-      bool IsLib = DM.GetShaderModel()->IsLib();
+      DenseSet<unsigned> IllegalMDSet;
+      unsigned DxilTempMDKind =
+          M.getContext().getMDKindID(DxilMDHelper::kDxilTempAllocaMDName);
+      IllegalMDSet.insert(DxilTempMDKind);
+
       // Skip validation patch for lib.
+      bool IsLib = DM.GetShaderModel()->IsLib();
       if (!IsLib) {
-        unsigned DxilTempMDKind =
-            M.getContext().getMDKindID(DxilMDHelper::kDxilTempAllocaMDName);
         if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) <= 0) {
-          DenseSet<unsigned> IllegalMDSet;
           IllegalMDSet.insert(LLVMContext::MD_tbaa);
           IllegalMDSet.insert(LLVMContext::MD_prof);
           for (unsigned I = LLVMContext::MD_fpmath + 1;
                I <= LLVMContext::MD_dereferenceable_or_null; ++I) {
             IllegalMDSet.insert(I);
           }
-          IllegalMDSet.insert(DxilTempMDKind);
-          patchInstructionMetadata(M, IllegalMDSet);
-        } else {
-          DenseSet<unsigned> IllegalMDSet;
-          IllegalMDSet.insert(DxilTempMDKind);
-          patchInstructionMetadata(M, IllegalMDSet);
         }
       }
+
+      patchInstructionMetadata(M, IllegalMDSet);
 
       // Replace lifetime intrinsics if requested or necessary.
       const bool forceZeroStoreLifetimes = DM.GetForceZeroStoreLifetimes();
