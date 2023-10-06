@@ -3460,7 +3460,7 @@ static void ValidateNodeInputRecord(Function *F, ValidationContext &ValCtx) {
         break;
       default:
         llvm_unreachable("invalid launch type");
-			}
+      }
       ValCtx.EmitFnFormatError(
           F, ValidationRule::DeclNodeLaunchInputType,
           {ShaderModel::GetNodeLaunchTypeName(props.Node.LaunchType),
