@@ -603,7 +603,9 @@ public:
                                      const std::vector<llvm::StringRef> &name,
                                      llvm::StringRef content = "");
 
-  /// \brief Adds an execution mode to the module under construction.
+  /// \brief Adds an execution mode to the module under construction if it does
+  /// not already exist. Return the newly added instruction or the existing
+  /// instruction, if one already exists.
   inline SpirvInstruction *addExecutionMode(SpirvFunction *entryPoint,
                                             spv::ExecutionMode em,
                                             llvm::ArrayRef<uint32_t> params,
@@ -924,9 +926,17 @@ SpirvInstruction *
 SpirvBuilder::addExecutionMode(SpirvFunction *entryPoint, spv::ExecutionMode em,
                                llvm::ArrayRef<uint32_t> params,
                                SourceLocation loc, bool useIdParams) {
-  auto mode = new (context)
-      SpirvExecutionMode(loc, entryPoint, em, params, useIdParams);
-  mod->addExecutionMode(mode);
+  SpirvExecutionMode *mode = nullptr;
+  SpirvExecutionMode *existingInstruction =
+      mod->findExecutionMode(entryPoint, em);
+
+  if (!existingInstruction) {
+    mode = new (context)
+        SpirvExecutionMode(loc, entryPoint, em, params, useIdParams);
+    mod->addExecutionMode(mode);
+  } else {
+    mode = existingInstruction;
+  }
 
   return mode;
 }

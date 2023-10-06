@@ -623,8 +623,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
                    spirvOptions),
       entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
       seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
-      beforeHlslLegalization(false), interlockModeAdded(false),
-      mainSourceFile(nullptr) {
+      beforeHlslLegalization(false), mainSourceFile(nullptr) {
 
   // Get ShaderModel from command line hlsl profile option.
   const hlsl::ShaderModel *shaderModel =
@@ -758,11 +757,8 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
 
 void SpirvEmitter::beginInvocationInterlock(SourceLocation loc,
                                             SourceRange range) {
-  if (!interlockModeAdded) {
-    spvBuilder.addExecutionMode(
-        entryFunction, declIdMapper.getInterlockExecutionMode(), {}, loc);
-    interlockModeAdded = true;
-  }
+  spvBuilder.addExecutionMode(
+      entryFunction, declIdMapper.getInterlockExecutionMode(), {}, loc);
   spvBuilder.createBeginInvocationInterlockEXT(loc, range);
   needsLegalization = true;
 }

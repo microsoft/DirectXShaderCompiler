@@ -1395,10 +1395,6 @@ private:
   /// called from the entry point function.
   FunctionDecl *patchConstFunc;
 
-  /// Whether or not an Interlock execution mode has been added to the entry
-  /// function.
-  bool interlockModeAdded;
-
   /// The <result-id> of the OpString containing the main source file's path.
   SpirvString *mainSourceFile;
 };
