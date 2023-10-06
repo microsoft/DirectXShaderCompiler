@@ -4269,7 +4269,13 @@ TEST_F(ValidationTest, AtomicsInvalidDests) {
       "Non-groupshared or node record destination to atomic operation.", false);
 }
 
-// Check validation error for incompatible compute and node combinations
+// Errors are expected for compute shaders when:
+// - a broadcasting node has an input record and/or output records
+// - the launch type is not broadcasting
+// This test operates by changing the [Shader("node")] metadata entry
+// to [Shader("compute")] for each shader in turn.
+// It also changes the coalescing to thread in the 2nd to last test case,
+// after swapping out the shader kind to compute.
 TEST_F(ValidationTest, ComputeNodeCompatibility) {
   if (m_ver.SkipDxilVersion(1, 7))
     return;

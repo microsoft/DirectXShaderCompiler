@@ -1,11 +1,7 @@
 // ==================================================================
-// Errors are expected for compute shaders when:
-// - a broadcasting node has an input record and/or output records
-// - the launch type is not broadcasting
-// This test operates by changing the [Shader("node")] metadata entry
-// to [Shader("compute")] for each shader in turn.
-// It also changes the coalescing to thread in the final test case,
-// after swapping out the shader kind to compute.
+// This HLSL source is used by ValidationTest::ComputeNodeCompatibility,
+// which modifies metadata in this compiled library to verify 
+// validation rules related to node shader entry metadata.
 // The shader is compiled with "-T lib_6_8 -HV 2021"
 // ==================================================================
 

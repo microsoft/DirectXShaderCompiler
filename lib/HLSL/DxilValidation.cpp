@@ -3458,7 +3458,9 @@ static void ValidateNodeInputRecord(Function *F, ValidationContext &ValCtx) {
       case DXIL::NodeLaunchType::Thread:
         validInputs = "{RW}ThreadNodeInputRecord";
         break;
-      }
+      default:
+        llvm_unreachable("invalid launch type");
+			}
       ValCtx.EmitFnFormatError(
           F, ValidationRule::DeclNodeLaunchInputType,
           {ShaderModel::GetNodeLaunchTypeName(props.Node.LaunchType),
@@ -3492,10 +3494,9 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
         if (DM.HasDxilEntryProps(&F)) {
           DxilEntryProps &entryProps = DM.GetDxilEntryProps(&F);
           // Check that compute has no node metadata
-          if (entryProps.props.IsNode()) {             
-              ValCtx.EmitFnFormatError(&F, ValidationRule::MetaUnexpected,
-                                       {F.getName()});           
-          }
+          if (entryProps.props.IsNode()) {
+            ValCtx.EmitFnFormatError(&F, ValidationRule::MetaUnexpected,
+                                     {F.getName()});                     
         }
         break;
       }
