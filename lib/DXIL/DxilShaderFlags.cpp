@@ -359,6 +359,15 @@ DxilResource *GetResourceFromAnnotateHandle(
   return resource;
 }
 
+static bool hasNonConstantSampleOffsets(const CallInst *CI) {
+  return (!isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+          !isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+          !isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset2OpIdx)));
+}
+
 ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                                             const hlsl::DxilModule *M) {
   ShaderFlags flag;
@@ -565,23 +574,11 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           break;
         case DXIL::OpCode::SampleLevel:
         case DXIL::OpCode::SampleCmpLevelZero:
-          if (!isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
-            hasAdvancedTextureOps = true;
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
           break;
         case DXIL::OpCode::SampleGrad:
         case DXIL::OpCode::SampleCmpGrad:
-          if (!isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
-            hasAdvancedTextureOps = true;
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
           if (!isa<UndefValue>(CI->getArgOperand(CI->getNumArgOperands() - 1)))
             hasTiledResources = true;
           break;
@@ -589,13 +586,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::SampleBias:
         case DXIL::OpCode::SampleCmp:
         case DXIL::OpCode::SampleCmpBias:
-          if (!isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
-            hasAdvancedTextureOps = true;
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
           if (!isa<UndefValue>(CI->getArgOperand(CI->getNumArgOperands() - 1)))
             hasTiledResources = true;
           LLVM_FALLTHROUGH;
