@@ -5380,19 +5380,31 @@ public:
       }
 
       QualType ArgTy = Arg.getAsType();
+      // Allow DependentType for case like
+      // template <typename T> void foo(GroupNodeInputRecords<T> data) {}
+      if (argType->isDependentType())
+        return false;
+      if (auto *recordType = argType->getAs<RecordType>()) {
+        if (CXXRecordDecl *cxxRecordDecl =
+                dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+          if (ClassTemplateSpecializationDecl *templateSpecializationDecl =
+                  dyn_cast<ClassTemplateSpecializationDecl>(cxxRecordDecl)) {
+            if (templateSpecializationDecl->getSpecializationKind()  ==
+                TSK_Undeclared) {
+              // Make sure specialization is done before IsTypeNumeric.
+              // If not, argType might be treat as empty struct.
+              m_sema->RequireCompleteType(
+                  argLoc.getLocation(), argType,
+                  diag::err_typecheck_decl_incomplete_type);
+            }
+          }
+        }
+      }
       // The node record type must be compound - error if it is not.
       if (GetTypeObjectKind(ArgTy) != AR_TOBJ_COMPOUND) {
         m_sema->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_type)
             << ArgTy << ArgLoc.getSourceRange();
         return true;
-      }
-      if (auto *TST = dyn_cast<TemplateSpecializationType>(ArgTy)) {
-        // If ArgType is a template we force specialization of the it here.
-        GetOrCreateTemplateSpecialization(
-            *m_context, *m_sema,
-            cast<ClassTemplateDecl>(TST->getTemplateName().getAsTemplateDecl()),
-            llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
-                                             TST->getNumArgs()));
       }
 
       bool EmptyStruct = true;
@@ -12270,6 +12282,14 @@ bool FlattenedTypeIterator::pushTrackerForType(
 
     if (CXXRecordDecl *cxxRecordDecl =
             dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+        if (ClassTemplateSpecializationDecl* templateSpecializationDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(cxxRecordDecl)) {
+        ClassTemplateDecl *templateDecl =
+            templateSpecializationDecl->getSpecializedTemplate();
+        CXXRecordDecl * templatedDecl = templateDecl->getTemplatedDecl();
+        templatedDecl->field_begin();
+
+      }
       // We'll error elsewhere if the record has no definition,
       // just don't attempt to use it.
       if (cxxRecordDecl->hasDefinition()) {
