@@ -574,7 +574,6 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             hasAdvancedTextureOps = true;
           break;
         case DXIL::OpCode::SampleGrad:
-        case DXIL::OpCode::SampleCmpBias:
         case DXIL::OpCode::SampleCmpGrad:
           if (!isa<Constant>(CI->getArgOperand(
                   DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
@@ -589,6 +588,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::Sample:
         case DXIL::OpCode::SampleBias:
         case DXIL::OpCode::SampleCmp:
+        case DXIL::OpCode::SampleCmpBias:
           if (!isa<Constant>(CI->getArgOperand(
                   DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
               !isa<Constant>(CI->getArgOperand(
