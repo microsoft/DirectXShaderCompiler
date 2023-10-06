@@ -3161,6 +3161,7 @@ META.TARGET                               Target triple must be 'dxil-ms-dx'
 META.TESSELLATOROUTPUTPRIMITIVE           Invalid Tessellator Output Primitive specified. Must be point, line, triangleCW or triangleCCW.
 META.TESSELLATORPARTITION                 Invalid Tessellator Partitioning specified. Must be integer, pow2, fractional_odd or fractional_even.
 META.TEXTURETYPE                          elements of typed buffers and textures must fit in four 32-bit quantities.
+META.UNEXPECTED                           Unexpected metadata detected.
 META.USED                                 All metadata must be used by dxil.
 META.VALIDSAMPLERMODE                     Invalid sampler mode on sampler .
 META.VALUERANGE                           Metadata value must be within range.
