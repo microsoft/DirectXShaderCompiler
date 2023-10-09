@@ -3495,8 +3495,9 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
           DxilEntryProps &entryProps = DM.GetDxilEntryProps(&F);
           // Check that compute has no node metadata
           if (entryProps.props.IsNode()) {
-            ValCtx.EmitFnFormatError(&F, ValidationRule::MetaUnexpected,
-                                     {F.getName()});                     
+            ValCtx.EmitFnFormatError(&F, ValidationRule::MetaComputeWithNode,
+                                     {F.getName()});
+          }
         }
         break;
       }
