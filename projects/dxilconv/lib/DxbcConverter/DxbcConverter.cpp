@@ -557,7 +557,7 @@ void DxbcConverter::ExtractSignatureFromDXBC(
 #endif
 
   for (unsigned iElement = 0; iElement < uParamCount; iElement++) {
-    D3D11_INTERNALSHADER_PARAMETER_11_1 P = {0};
+    D3D11_INTERNALSHADER_PARAMETER_11_1 P = {};
     // Properly copy parameters for the serialized form into P.
     switch (uElemSize) {
     case sizeof(D3D11_INTERNALSHADER_PARAMETER_11_1):
@@ -753,7 +753,7 @@ void DxbcConverter::ExtractSignatureFromDDI(
 
       // For PS output, try to disambiguate semantic based on register index.
       if (m_pSM->IsPS() && SigHelper.IsOutput()) {
-        if (P.Register != -1) {
+        if (P.Register != UINT_MAX) {
           // This must be SV_Target.
           E.SemanticName = "SV_Target";
           E.SemanticIndex = P.Register;
@@ -802,7 +802,7 @@ void DxbcConverter::ExtractSignatureFromDDI(
     } else {
       E.SemanticName = string(DXBC::GetD3D10SBName(P.SystemValue));
       E.SemanticIndex = DXBC::GetD3D10SBSemanticIndex(P.SystemValue);
-      if (P.RegisterComponentType != D3D_REGISTER_COMPONENT_UNKNOWN) {
+      if (P.RegisterComponentType != D3D10_SB_REGISTER_COMPONENT_UNKNOWN) {
         E.ComponentType = DXBC::GetCompTypeWithMinPrec(
             (D3D_REGISTER_COMPONENT_TYPE)P.RegisterComponentType,
             (D3D11_SB_OPERAND_MIN_PRECISION)P.MinPrecision);
@@ -1652,7 +1652,7 @@ void DxbcConverter::AnalyzeShader(
         break;
 
       default: {
-        unsigned NumUnits, Row;
+        unsigned NumUnits = 0, Row = 0;
         switch (Inst.m_Operands[0].m_IndexDimension) {
         case D3D10_SB_OPERAND_INDEX_1D:
           NumUnits = 0;
@@ -2832,7 +2832,6 @@ void DxbcConverter::ConvertInstructions(
         LoadOperand(In, Inst, SrcIdx, WriteMask, CompType::getU32());
 
         OP::OpCode OpCode = OP::OpCode::LegacyF16ToF32;
-        CompType DstType = CompType::getF32();
         Function *F = m_pOP->GetOpFunc(OpCode, Type::getVoidTy(m_Ctx));
 
         for (BYTE c = 0; c < DXBC::kWidth; c++) {
@@ -3755,7 +3754,6 @@ void DxbcConverter::ConvertInstructions(
                       ValueType);
         }
 
-        CompType DstType = CompType::getI32();
         Type *pDstType = Type::getInt32PtrTy(m_Ctx, DXIL::kTGSMAddrSpace);
 
         // Value.
@@ -3776,8 +3774,6 @@ void DxbcConverter::ConvertInstructions(
           pRetVal = m_pBuilder->CreateAtomicCmpXchg(
               pPtr, InCompareValue[0], InValue[0], AtomicOrdering::Monotonic,
               AtomicOrdering::Monotonic);
-          Type *RetTypeFields[2] = {Type::getInt32Ty(m_Ctx),
-                                    Type::getInt1Ty(m_Ctx)};
           pRetVal = m_pBuilder->CreateExtractValue(pRetVal, 0);
         }
 
@@ -6181,10 +6177,6 @@ void DxbcConverter::StoreGetDimensionsOutput(
     R = &m_pPR->GetUAV(m_UAVRangeMap[RangeID]);
   }
 
-  // Return type.
-  CompType RetType = DXBC::GetCompTypeWithMinPrec(
-      CompType::getI32(), Inst.m_Operands[uOpOutput].m_MinPrecision);
-
   // Value type.
   CompType ValueType = CompType::getI32();
   bool bRcp = false;
@@ -8315,7 +8307,7 @@ Value *DxbcConverter::MarkPrecise(Value *pVal, BYTE Comp) {
 void DxbcConverter::SerializeDxil(SmallVectorImpl<char> &DxilBitcode) {
   raw_svector_ostream DxilStream(DxilBitcode);
   // a. Reserve header.
-  DxilProgramHeader Header = {0};
+  DxilProgramHeader Header = {};
   DxilStream.write((char *)&Header, sizeof(Header));
   // b. Bitcode.
   WriteBitcodeToFile(m_pModule.get(), DxilStream);

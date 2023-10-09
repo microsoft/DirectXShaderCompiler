@@ -140,8 +140,8 @@ private:
       return false;
     }
     std::string str = std::string(buffer, size);
-    size_t pos;
-    if ((pos = str.find_last_of("\\")) != std::string::npos) {
+    size_t pos = str.find_last_of("\\");
+    if (pos != std::string::npos) {
       str = str.substr(0, pos + 1);
     }
     binDir.assign(str);

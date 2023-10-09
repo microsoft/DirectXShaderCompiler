@@ -18,7 +18,7 @@
 
 namespace hlsl {
 
-#define DXIL_CONTAINER_BLOB_NOT_FOUND -1
+const uint32_t DXIL_CONTAINER_BLOB_NOT_FOUND = UINT_MAX;
 
 struct DxilContainerHeader;
 

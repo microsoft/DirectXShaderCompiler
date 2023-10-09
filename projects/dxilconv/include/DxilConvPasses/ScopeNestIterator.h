@@ -265,9 +265,7 @@ private: // ScopeNestIterator Implementation
   public:
     Scope(Type scopeType, Block *startBlock, BranchKind annotation)
         : m_type(scopeType), m_startAnnotation(annotation),
-          m_startBlock(startBlock), m_endBlock(nullptr), m_backedge(nullptr)
-
-    {
+          m_startBlock(startBlock), m_endBlock(nullptr), m_backedge(nullptr) {
       if (m_type == Type::If) {
         DXASSERT_NOMSG(startBlock &&
                        startBlock->getTerminator()->getNumSuccessors() == 2);
