@@ -2485,7 +2485,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
                                /*isPatchConstantFunction*/ false);
     }
   }
-  
+
   // Make sure that if "NodeMaxDispatchGrid" is used, that an input
   // with the SV_DispatchGrid attribute is provided.
   if (funcProps->Node.MaxDispatchGrid[0] > 0) {
@@ -2496,7 +2496,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
         break;
       }
     }
-    
+
     if (!found) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error,
