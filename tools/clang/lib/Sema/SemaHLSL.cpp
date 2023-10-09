@@ -15179,7 +15179,7 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
   }
 
   // Iterate over fields of the current struct
-  for (FieldDecl* FD : InputRecordDecl->fields()) {
+  for (FieldDecl *FD : InputRecordDecl->fields()) {
     // Check if any of the fields have SV_DispatchGrid annotation
     for (const hlsl::UnusualAnnotation *it : FD->getUnusualAnnotations()) {
       if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
@@ -15201,12 +15201,13 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
       }
     }
     // Check nested structs
-    const RecordType* FieldTypeAsStruct = FD->getType()->getAsStructureType();
+    const RecordType *FieldTypeAsStruct = FD->getType()->getAsStructureType();
     if (nullptr != FieldTypeAsStruct) {
       CXXRecordDecl *FieldTypeDecl =
           dyn_cast<CXXRecordDecl>(FieldTypeAsStruct->getDecl());
       if (nullptr != FieldTypeDecl) {
-        DiagnoseMustHaveOneDispatchGridSemantics(S, FieldTypeDecl, DispatchGridLoc, Found);
+        DiagnoseMustHaveOneDispatchGridSemantics(S, FieldTypeDecl,
+                                                 DispatchGridLoc, Found);
       }
     }
   }
