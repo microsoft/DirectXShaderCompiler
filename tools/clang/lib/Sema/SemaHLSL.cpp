@@ -5389,7 +5389,7 @@ public:
                 dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
           if (ClassTemplateSpecializationDecl *templateSpecializationDecl =
                   dyn_cast<ClassTemplateSpecializationDecl>(cxxRecordDecl)) {
-            if (templateSpecializationDecl->getSpecializationKind()  ==
+            if (templateSpecializationDecl->getSpecializationKind() ==
                 TSK_Undeclared) {
               // Make sure specialization is done before IsTypeNumeric.
               // If not, argType might be treat as empty struct.
@@ -12282,14 +12282,6 @@ bool FlattenedTypeIterator::pushTrackerForType(
 
     if (CXXRecordDecl *cxxRecordDecl =
             dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
-        if (ClassTemplateSpecializationDecl* templateSpecializationDecl =
-            dyn_cast<ClassTemplateSpecializationDecl>(cxxRecordDecl)) {
-        ClassTemplateDecl *templateDecl =
-            templateSpecializationDecl->getSpecializedTemplate();
-        CXXRecordDecl * templatedDecl = templateDecl->getTemplatedDecl();
-        templatedDecl->field_begin();
-
-      }
       // We'll error elsewhere if the record has no definition,
       // just don't attempt to use it.
       if (cxxRecordDecl->hasDefinition()) {
