@@ -194,7 +194,7 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxilShaderReflection)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
-                                           void **ppvObject) override {
+                                           void **ppvObject) noexcept override {
     HRESULT hr = E_NOINTERFACE;
 
     // There is non-standard handling of QueryInterface:
@@ -221,49 +221,50 @@ public:
                const DxilPartHeader *pRDATPart);
 
   // ID3D12ShaderReflection
-  STDMETHODIMP GetDesc(D3D12_SHADER_DESC *pDesc) override;
+  STDMETHODIMP GetDesc(D3D12_SHADER_DESC *pDesc) noexcept override;
 
   STDMETHODIMP_(ID3D12ShaderReflectionConstantBuffer *)
-  GetConstantBufferByIndex(UINT Index) override;
+  GetConstantBufferByIndex(UINT Index) noexcept override;
   STDMETHODIMP_(ID3D12ShaderReflectionConstantBuffer *)
-  GetConstantBufferByName(LPCSTR Name) override;
+  GetConstantBufferByName(LPCSTR Name) noexcept override;
 
   STDMETHODIMP
   GetResourceBindingDesc(UINT ResourceIndex,
-                         D3D12_SHADER_INPUT_BIND_DESC *pDesc) override;
+                         D3D12_SHADER_INPUT_BIND_DESC *pDesc) noexcept override;
 
-  STDMETHODIMP
-  GetInputParameterDesc(UINT ParameterIndex,
-                        D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
-  STDMETHODIMP
-  GetOutputParameterDesc(UINT ParameterIndex,
-                         D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
-  STDMETHODIMP
-  GetPatchConstantParameterDesc(UINT ParameterIndex,
-                                D3D12_SIGNATURE_PARAMETER_DESC *pDesc) override;
+  STDMETHODIMP GetInputParameterDesc(
+      UINT ParameterIndex,
+      D3D12_SIGNATURE_PARAMETER_DESC *pDesc) noexcept override;
+  STDMETHODIMP GetOutputParameterDesc(
+      UINT ParameterIndex,
+      D3D12_SIGNATURE_PARAMETER_DESC *pDesc) noexcept override;
+  STDMETHODIMP GetPatchConstantParameterDesc(
+      UINT ParameterIndex,
+      D3D12_SIGNATURE_PARAMETER_DESC *pDesc) noexcept override;
 
   STDMETHODIMP_(ID3D12ShaderReflectionVariable *)
-  GetVariableByName(LPCSTR Name) override;
+  GetVariableByName(LPCSTR Name) noexcept override;
 
+  STDMETHODIMP GetResourceBindingDescByName(
+      LPCSTR Name, D3D12_SHADER_INPUT_BIND_DESC *pDesc) noexcept override;
+
+  STDMETHODIMP_(UINT) GetMovInstructionCount(THIS) noexcept override;
+  STDMETHODIMP_(UINT) GetMovcInstructionCount(THIS) noexcept override;
+  STDMETHODIMP_(UINT) GetConversionInstructionCount(THIS) noexcept override;
+  STDMETHODIMP_(UINT) GetBitwiseInstructionCount(THIS) noexcept override;
+
+  STDMETHODIMP_(D3D_PRIMITIVE) GetGSInputPrimitive(THIS) noexcept override;
+  STDMETHODIMP_(BOOL) IsSampleFrequencyShader(THIS) noexcept override;
+
+  STDMETHODIMP_(UINT) GetNumInterfaceSlots(THIS) noexcept override;
   STDMETHODIMP
-  GetResourceBindingDescByName(LPCSTR Name,
-                               D3D12_SHADER_INPUT_BIND_DESC *pDesc) override;
-
-  STDMETHODIMP_(UINT) GetMovInstructionCount() override;
-  STDMETHODIMP_(UINT) GetMovcInstructionCount() override;
-  STDMETHODIMP_(UINT) GetConversionInstructionCount() override;
-  STDMETHODIMP_(UINT) GetBitwiseInstructionCount() override;
-
-  STDMETHODIMP_(D3D_PRIMITIVE) GetGSInputPrimitive() override;
-  STDMETHODIMP_(BOOL) IsSampleFrequencyShader() override;
-
-  STDMETHODIMP_(UINT) GetNumInterfaceSlots() override;
-  STDMETHODIMP GetMinFeatureLevel(enum D3D_FEATURE_LEVEL *pLevel) override;
+  GetMinFeatureLevel(D3D_FEATURE_LEVEL *pLevel) noexcept override;
 
   STDMETHODIMP_(UINT)
-  GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY, UINT *pSizeZ) override;
+  GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
+                     UINT *pSizeZ) noexcept override;
 
-  STDMETHODIMP_(UINT64) GetRequiresFlags() override;
+  STDMETHODIMP_(UINT64) GetRequiresFlags(THIS) noexcept override;
 };
 
 class CFunctionReflection;
@@ -287,7 +288,7 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxilLibraryReflection)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
-                                           void **ppvObject) override {
+                                           void **ppvObject) noexcept override {
     return DoBasicQueryInterface<ID3D12LibraryReflection>(this, iid, ppvObject);
   }
 
@@ -2316,7 +2317,8 @@ HRESULT DxilShaderReflection::Load(const DxilProgramHeader *pProgramHeader,
   CATCH_CPP_RETURN_HRESULT();
 }
 
-HRESULT DxilShaderReflection::GetDesc(D3D12_SHADER_DESC *pDesc) {
+HRESULT
+DxilShaderReflection::GetDesc(D3D12_SHADER_DESC *pDesc) noexcept {
   if (nullptr == pDesc)
     return E_POINTER;
   memcpy(pDesc, &m_Desc, sizeof(D3D12_SHADER_DESC));
@@ -2536,7 +2538,7 @@ void DxilShaderReflection::InitDesc() {
 }
 
 ID3D12ShaderReflectionConstantBuffer *
-DxilShaderReflection::GetConstantBufferByIndex(UINT Index) {
+DxilShaderReflection::GetConstantBufferByIndex(UINT Index) noexcept {
   return DxilModuleReflection::_GetConstantBufferByIndex(Index);
 }
 ID3D12ShaderReflectionConstantBuffer *
@@ -2548,7 +2550,7 @@ DxilModuleReflection::_GetConstantBufferByIndex(UINT Index) {
 }
 
 ID3D12ShaderReflectionConstantBuffer *
-DxilShaderReflection::GetConstantBufferByName(LPCSTR Name) {
+DxilShaderReflection::GetConstantBufferByName(LPCSTR Name) noexcept {
   return DxilModuleReflection::_GetConstantBufferByName(Name);
 }
 ID3D12ShaderReflectionConstantBuffer *
@@ -2575,7 +2577,7 @@ DxilModuleReflection::_GetConstantBufferByName(LPCSTR Name) {
 }
 
 HRESULT DxilShaderReflection::GetResourceBindingDesc(
-    UINT ResourceIndex, D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
+    UINT ResourceIndex, D3D12_SHADER_INPUT_BIND_DESC *pDesc) noexcept {
   return DxilModuleReflection::_GetResourceBindingDesc(ResourceIndex, pDesc,
                                                        m_PublicAPI);
 }
@@ -2593,7 +2595,7 @@ HRESULT DxilModuleReflection::_GetResourceBindingDesc(
 }
 
 HRESULT DxilShaderReflection::GetInputParameterDesc(
-    UINT ParameterIndex, D3D12_SIGNATURE_PARAMETER_DESC *pDesc) {
+    UINT ParameterIndex, D3D12_SIGNATURE_PARAMETER_DESC *pDesc) noexcept {
   IFRBOOL(pDesc != nullptr, E_INVALIDARG);
   IFRBOOL(ParameterIndex < m_InputSignature.size(), E_INVALIDARG);
   if (m_PublicAPI != PublicAPI::D3D11_43)
@@ -2608,7 +2610,7 @@ HRESULT DxilShaderReflection::GetInputParameterDesc(
 }
 
 HRESULT DxilShaderReflection::GetOutputParameterDesc(
-    UINT ParameterIndex, D3D12_SIGNATURE_PARAMETER_DESC *pDesc) {
+    UINT ParameterIndex, D3D12_SIGNATURE_PARAMETER_DESC *pDesc) noexcept {
   IFRBOOL(pDesc != nullptr, E_INVALIDARG);
   IFRBOOL(ParameterIndex < m_OutputSignature.size(), E_INVALIDARG);
   if (m_PublicAPI != PublicAPI::D3D11_43)
@@ -2622,8 +2624,9 @@ HRESULT DxilShaderReflection::GetOutputParameterDesc(
   return S_OK;
 }
 
-HRESULT DxilShaderReflection::GetPatchConstantParameterDesc(
-    UINT ParameterIndex, D3D12_SIGNATURE_PARAMETER_DESC *pDesc) {
+HRESULT
+DxilShaderReflection::GetPatchConstantParameterDesc(
+    UINT ParameterIndex, D3D12_SIGNATURE_PARAMETER_DESC *pDesc) noexcept {
   IFRBOOL(pDesc != nullptr, E_INVALIDARG);
   IFRBOOL(ParameterIndex < m_PatchConstantSignature.size(), E_INVALIDARG);
   if (m_PublicAPI != PublicAPI::D3D11_43)
@@ -2638,7 +2641,7 @@ HRESULT DxilShaderReflection::GetPatchConstantParameterDesc(
 }
 
 ID3D12ShaderReflectionVariable *
-DxilShaderReflection::GetVariableByName(LPCSTR Name) {
+DxilShaderReflection::GetVariableByName(LPCSTR Name) noexcept {
   return DxilModuleReflection::_GetVariableByName(Name);
 }
 ID3D12ShaderReflectionVariable *
@@ -2657,7 +2660,7 @@ DxilModuleReflection::_GetVariableByName(LPCSTR Name) {
 }
 
 HRESULT DxilShaderReflection::GetResourceBindingDescByName(
-    LPCSTR Name, D3D12_SHADER_INPUT_BIND_DESC *pDesc) {
+    LPCSTR Name, D3D12_SHADER_INPUT_BIND_DESC *pDesc) noexcept {
   return DxilModuleReflection::_GetResourceBindingDescByName(Name, pDesc,
                                                              m_PublicAPI);
 }
@@ -2679,32 +2682,34 @@ HRESULT DxilModuleReflection::_GetResourceBindingDescByName(
   return HRESULT_FROM_WIN32(ERROR_NOT_FOUND);
 }
 
-UINT DxilShaderReflection::GetMovInstructionCount() { return 0; }
-UINT DxilShaderReflection::GetMovcInstructionCount() { return 0; }
-UINT DxilShaderReflection::GetConversionInstructionCount() { return 0; }
-UINT DxilShaderReflection::GetBitwiseInstructionCount() { return 0; }
+UINT DxilShaderReflection::GetMovInstructionCount() noexcept { return 0; }
+UINT DxilShaderReflection::GetMovcInstructionCount() noexcept { return 0; }
+UINT DxilShaderReflection::GetConversionInstructionCount() noexcept {
+  return 0;
+}
+UINT DxilShaderReflection::GetBitwiseInstructionCount() noexcept { return 0; }
 
-D3D_PRIMITIVE DxilShaderReflection::GetGSInputPrimitive() {
+D3D_PRIMITIVE DxilShaderReflection::GetGSInputPrimitive() noexcept {
   if (!m_pDxilModule->GetShaderModel()->IsGS())
     return D3D_PRIMITIVE::D3D10_PRIMITIVE_UNDEFINED;
   return (D3D_PRIMITIVE)m_pDxilModule->GetInputPrimitive();
 }
 
-BOOL DxilShaderReflection::IsSampleFrequencyShader() {
+BOOL DxilShaderReflection::IsSampleFrequencyShader() noexcept {
   // TODO: determine correct value
   return FALSE;
 }
 
-UINT DxilShaderReflection::GetNumInterfaceSlots() { return 0; }
+UINT DxilShaderReflection::GetNumInterfaceSlots() noexcept { return 0; }
 
 HRESULT
-DxilShaderReflection::GetMinFeatureLevel(enum D3D_FEATURE_LEVEL *pLevel) {
+DxilShaderReflection::GetMinFeatureLevel(D3D_FEATURE_LEVEL *pLevel) noexcept {
   IFR(AssignToOut(D3D_FEATURE_LEVEL_12_0, pLevel));
   return S_OK;
 }
 
 UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
-                                              UINT *pSizeZ) {
+                                              UINT *pSizeZ) noexcept {
   if (!m_pDxilModule->GetShaderModel()->IsCS() &&
       !m_pDxilModule->GetShaderModel()->IsMS() &&
       !m_pDxilModule->GetShaderModel()->IsAS()) {
@@ -2722,7 +2727,7 @@ UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
   return x * y * z;
 }
 
-UINT64 DxilShaderReflection::GetRequiresFlags() {
+UINT64 DxilShaderReflection::GetRequiresFlags() noexcept {
   UINT64 result = m_pDxilModule->m_ShaderFlags.GetFeatureInfo();
   // FeatureInfo flags are identical, with the exception of a collision between:
   // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X
