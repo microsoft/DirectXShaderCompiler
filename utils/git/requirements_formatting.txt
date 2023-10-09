@@ -46,7 +46,7 @@ requests==2.31.0
     # via pygithub
 toml==0.10.2
     # via darker
-urllib3==2.0.4
+urllib3==2.0.6
     # via requests
 wrapt==1.15.0
     # via deprecated
