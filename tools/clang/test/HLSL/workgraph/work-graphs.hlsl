@@ -311,21 +311,16 @@ void node4_06(RWThreadNodeInputRecord<RECORD> input)
 
 struct R
 {
-  uint3 dtid: SV_DispatchThreadID;
-  uint3 gid: SV_GroupID;
-  uint gidx: SV_GroupIndex;
-  uint3 gtid: SV_GroupThreadID;
+  uint gidx;
+  uint3 gtid;
 };
 
 [Shader("node")]
 [NodeLaunch("coalescing")]
 [numthreads(4,4,4)]
 void node01(RWGroupNodeInputRecords<R> input,
- R r,
+ uint gidx: SV_GroupIndex,
+  uint3 gtid: SV_GroupThreadID,
  uint vid : SV_VertexID ) // TODO: verify error after https://github.com/microsoft/DirectXShaderCompiler/issues/5768 got fixed.
 {
-  input.Get().dtid = r.dtid;
-  input.Get().gid = r.gid;
-  input.Get().gidx = r.gidx;
-  input.Get().gtid = r.gtid + vid;
 }
