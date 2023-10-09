@@ -17,9 +17,9 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/IRBuilder.h"
 
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
@@ -75,9 +75,7 @@ bool CanSimplify(const llvm::Function *F) {
 ///
 /// If this call could not be simplified returns null.
 Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
-                        llvm::Instruction *I,
-                        bool MayInsert)
-{
+                        llvm::Instruction *I, bool MayInsert) {
   if (!F->getParent()->HasDxilModule()) {
     assert(!OP::IsDxilOpFunc(F) && "dx.op function with no dxil module?");
     return nullptr;

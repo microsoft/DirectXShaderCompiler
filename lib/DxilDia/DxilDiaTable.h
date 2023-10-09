@@ -42,11 +42,11 @@ HRESULT Create(
     /* [in] */ Session *pSession,
     /* [in] */ Kind kind,
     /* [out] */ IDiaTable **ppTable);
-}  // namespace Table
+} // namespace Table
 
 namespace impl {
 
-template<typename T, typename TItem>
+template <typename T, typename TItem>
 class TableBase : public IDiaTable, public T {
 public:
   // COM Interfaces do not have virtual destructors; they instead rely on
@@ -55,23 +55,16 @@ public:
   // and it also provides the base implementation of the COM's memory
   // management callbacks (which is not fine: once a table goes out of scope
   // a method in this class will invoke the object's destructor -- which, being
-  // non-virtual, will be this class' instead of the derived table's.) Therefore,
-  // we introduce a virtual destructor.
+  // non-virtual, will be this class' instead of the derived table's.)
+  // Therefore, we introduce a virtual destructor.
   virtual ~TableBase() {
     DXASSERT(m_dwRef == 0, "deleting COM table with active references");
   }
 
 protected:
   static constexpr LPCWSTR TableNames[] = {
-    L"Symbols",
-    L"SourceFiles",
-    L"LineNumbers",
-    L"Sections",
-    L"SegmentMap",
-    L"InjectedSource",
-    L"FrameData",
-    L"InputAssemblyFiles"
-  };
+      L"Symbols",    L"SourceFiles",    L"LineNumbers", L"Sections",
+      L"SegmentMap", L"InjectedSource", L"FrameData",   L"InputAssemblyFiles"};
 
   DXC_MICROCOM_TM_REF_FIELDS()
   CComPtr<Session> m_pSession;
@@ -83,7 +76,8 @@ public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
-    return DoBasicQueryInterface<IDiaTable, T, IEnumUnknown>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDiaTable, T, IEnumUnknown>(this, iid,
+                                                             ppvObject);
   }
 
   TableBase(IMalloc *pMalloc, Session *pSession, Table::Kind kind) {
@@ -95,10 +89,8 @@ public:
   }
 
   // IEnumUnknown implementation.
-  STDMETHODIMP Next(
-    _In_  ULONG celt,
-    _Out_writes_to_(celt, *pceltFetched)  IUnknown **rgelt,
-    _Out_opt_  ULONG *pceltFetched) override {
+  STDMETHODIMP Next(ULONG celt, IUnknown **rgelt,
+                    ULONG *pceltFetched) override {
     DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next < m_count) {
@@ -126,40 +118,36 @@ public:
     return S_OK;
   }
 
-  STDMETHODIMP Clone(IEnumUnknown **ppenum) override {
-    return ENotImpl();
-  }
+  STDMETHODIMP Clone(IEnumUnknown **ppenum) override { return ENotImpl(); }
 
   // IDiaTable implementation.
-  STDMETHODIMP get__NewEnum(IUnknown **pRetVal) override {
-    return ENotImpl();
-  }
+  STDMETHODIMP get__NewEnum(IUnknown **pRetVal) override { return ENotImpl(); }
 
   STDMETHODIMP get_name(BSTR *pRetVal) override {
     *pRetVal = SysAllocString(TableNames[(unsigned)m_kind]);
     return (*pRetVal) ? S_OK : E_OUTOFMEMORY;
   }
 
-  STDMETHODIMP get_Count(_Out_ LONG *pRetVal) override {
+  STDMETHODIMP get_Count(LONG *pRetVal) override {
     *pRetVal = m_count;
     return S_OK;
   }
 
-  STDMETHODIMP Item(DWORD index, _COM_Outptr_ IUnknown **table) override {
+  STDMETHODIMP Item(DWORD index, IUnknown **table) override {
     if (index >= m_count)
       return E_INVALIDARG;
     return GetItem(index, (TItem **)table);
   }
 
   // T implementation (partial).
-  STDMETHODIMP Clone(_COM_Outptr_ T **ppenum) override {
+  STDMETHODIMP Clone(T **ppenum) override {
     *ppenum = nullptr;
     return ENotImpl();
   }
   STDMETHODIMP Next(
-    /* [in] */ ULONG celt,
-    /* [out] */ TItem **rgelt,
-    /* [out] */ ULONG *pceltFetched) override {
+      /* [in] */ ULONG celt,
+      /* [out] */ TItem **rgelt,
+      /* [out] */ ULONG *pceltFetched) override {
     DxcThreadMalloc TM(m_pMalloc);
     ULONG fetched = 0;
     while (fetched < celt && m_next < m_count) {
@@ -174,8 +162,8 @@ public:
     return (fetched == celt) ? S_OK : S_FALSE;
   }
   STDMETHODIMP Item(
-    /* [in] */ DWORD index,
-    /* [retval][out] */ TItem **ppItem) override {
+      /* [in] */ DWORD index,
+      /* [retval][out] */ TItem **ppItem) override {
     DxcThreadMalloc TM(m_pMalloc);
     if (index >= m_count)
       return E_INVALIDARG;
@@ -184,5 +172,5 @@ public:
 
   virtual HRESULT GetItem(DWORD index, TItem **ppItem) = 0;
 };
-}  // namespace impl
-}  // namespace dxil_dia
+} // namespace impl
+} // namespace dxil_dia

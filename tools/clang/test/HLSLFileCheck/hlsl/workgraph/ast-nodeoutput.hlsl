@@ -11,7 +11,7 @@ struct RECORD {
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(8,1,1)]
 void node01(NodeOutput<RECORD> output)
 {
@@ -22,6 +22,7 @@ void node01(NodeOutput<RECORD> output)
 //CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> class recordType
 //CHECK-NEXT: CXXRecordDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit struct GroupNodeOutputRecords definition
 //CHECK-NEXT: FinalAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit final
+//CHECK-NEXT: HLSLNodeObjectAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit GroupNodeOutputRecords
 //CHECK-NEXT: FieldDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 //CHECK-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> operator[] 'recordType &(unsigned int)'
 //CHECK-NEXT: ParmVarDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> Index 'unsigned int'
@@ -52,6 +53,7 @@ void node01(NodeOutput<RECORD> output)
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> struct GroupNodeOutputRecords definition
 //CHECK-NEXT: TemplateArgument type 'RECORD'
 //CHECK-NEXT: FinalAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit final
+//CHECK-NEXT: HLSLNodeObjectAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit GroupNodeOutputRecords
 //CHECK-NEXT: FieldDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 //CHECK-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> operator[] 'RECORD &(unsigned int)'
 //CHECK-NEXT: ParmVarDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> Index 'unsigned int'
@@ -82,7 +84,7 @@ void node01(NodeOutput<RECORD> output)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(8,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node02(NodeOutput<RECORD> output)
 {
   ThreadNodeOutputRecords<RECORD> outrec = output.GetThreadNodeOutputRecords(1);
@@ -92,6 +94,7 @@ void node02(NodeOutput<RECORD> output)
 //CHECK-NEXT: TemplateTypeParmDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> class recordType
 //CHECK-NEXT: CXXRecordDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit struct ThreadNodeOutputRecords definition
 //CHECK-NEXT: FinalAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit final
+//CHECK-NEXT: HLSLNodeObjectAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit ThreadNodeOutputRecords
 //CHECK-NEXT: FieldDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 //CHECK-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> operator[] 'recordType &(unsigned int)'
 //CHECK-NEXT: ParmVarDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> Index 'unsigned int'
@@ -122,6 +125,7 @@ void node02(NodeOutput<RECORD> output)
 //CHECK-NEXT: ClassTemplateSpecializationDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> struct ThreadNodeOutputRecords definition
 //CHECK-NEXT: TemplateArgument type 'RECORD'
 //CHECK-NEXT: FinalAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit final
+//CHECK-NEXT: HLSLNodeObjectAttr {{0x[0-9a-fA-F]+}} <<invalid sloc>> Implicit ThreadNodeOutputRecords
 //CHECK-NEXT: FieldDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 //CHECK-NEXT: CXXMethodDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> operator[] 'RECORD &(unsigned int)'
 //CHECK-NEXT: ParmVarDecl {{0x[0-9a-fA-F]+}} <<invalid sloc>> <invalid sloc> Index 'unsigned int'

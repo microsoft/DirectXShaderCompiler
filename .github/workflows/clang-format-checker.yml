@@ -1,0 +1,38 @@
+name: 'PR clang-format checker'
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+jobs:
+  check-pr-formatting:
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Comparing PR against target branch
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+            echo Comparing $PR_NUMBER vs target branch
+            git fetch origin refs/pull/$PR_NUMBER/head:pull/$PR_NUMBER
+            git checkout pull/$PR_NUMBER
+            git diff -U0 --no-color $GITHUB_SHA..pull/$PR_NUMBER | clang-format-diff-15 -p1 | tee format.diff
+            if [ -s format.diff ]
+            then
+              echo PR contains clang-format violations. First 50 lines of the diff: >> message.txt
+              echo \`\`\`diff >> message.txt
+              cat format.diff | head -n 50 >> message.txt
+              echo \`\`\` >> message.txt
+              echo See [action log]\(https://github.com/microsoft/DirectXShaderCompiler/actions/runs/$GITHUB_RUN_ID/\) for the full diff.  >> message.txt
+              gh pr comment $PR_NUMBER --body-file message.txt
+              exit 1
+            fi

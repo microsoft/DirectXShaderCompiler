@@ -6,7 +6,7 @@
 // CHECK: ![[THREADDIM]] = !{i32 9, i32 1, i32 2}
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(9,1,2)]
 void compute_node() { }

@@ -3661,19 +3661,10 @@
         <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
       </RenderTarget>
     </RenderTargets>
-    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" />
-    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain">
+    <!-- Disable sink optimization to avoid issue #5744 -->
+    <Shader Name="VS" Target="vs_6_0" EntryPoint="VSMain" Text="@PS" Arguments="@PS"/>
+    <Shader Name="PS" Target="ps_6_0" EntryPoint="PSMain" Arguments="-opt-disable sink">
         <![CDATA[
-#ifdef ISHELPERLANE_PLACEHOLDER
-        bool ph_IsHelperLane(float4 pos, bool first_call) {
-            if (first_call) {
-                return pos.x < 1.0f && pos.y > 1.0f;
-            }
-            else {
-                return pos.x < 1.0f;
-            }
-        }
-#endif // ISHELPERLANE_PLACEHOLDER
 
         struct HelperLaneTestResult{
             int is_helper_00;
@@ -3713,11 +3704,7 @@
           bool isTop = (input.pos.y < 1.0f);
           
           for (int i = 0; i < 2; i++) {
-#ifdef ISHELPERLANE_PLACEHOLDER
-            int is_helper = ph_IsHelperLane(input.pos, i == 0);
-#else
             int is_helper = IsHelperLane();
-#endif
             int is_helper_accross_X = ReadAcrossX_DD(is_helper, isLeft);
             int is_helper_accross_Y = ReadAcrossY_DD(is_helper, isTop);
             int is_helper_accross_Diag = ReadAcrossDiagonal_DD(is_helper, isLeft, isTop);
@@ -3761,35 +3748,17 @@
               <Viewport Width="2.0" Height="2.0" MaxDepth="1.0"/>
           </RenderTarget>
       </RenderTargets>
-      <Shader Name="PS65" Target="ps_6_5" EntryPoint="PSMain65" Text="@CS"/>
-      <Shader Name="VS65" Target="vs_6_5" EntryPoint="VSMain65" Text="@CS"/>
-      <Shader Name="CS65" Target="cs_6_5" EntryPoint="CSMain65" Text="@CS"/>
-      <Shader Name="PS66" Target="ps_6_6" EntryPoint="PSMain65" Text="@CS"/>
-      <Shader Name="VS66" Target="vs_6_6" EntryPoint="VSMain65" Text="@CS"/>
-      <Shader Name="CS66" Target="cs_6_6" EntryPoint="CSMain65" Text="@CS"/>
-      <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS"/>
-      <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS"/>
-      <Shader Name="PS67" Target="ps_6_7" EntryPoint="PSMain65" Text="@CS"/>
-      <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain">
+      <Shader Name="PS65" Target="ps_6_5" EntryPoint="PSMain65" Text="@CS" Arguments="@CS"/>
+      <Shader Name="VS65" Target="vs_6_5" EntryPoint="VSMain65" Text="@CS" Arguments="@CS"/>
+      <Shader Name="CS65" Target="cs_6_5" EntryPoint="CSMain65" Text="@CS" Arguments="@CS"/>
+      <Shader Name="PS66" Target="ps_6_6" EntryPoint="PSMain65" Text="@CS" Arguments="@CS"/>
+      <Shader Name="VS66" Target="vs_6_6" EntryPoint="VSMain65" Text="@CS" Arguments="@CS"/>
+      <Shader Name="CS66" Target="cs_6_6" EntryPoint="CSMain65" Text="@CS" Arguments="@CS"/>
+      <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS" Arguments="@CS"/>
+      <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS" Arguments="@CS"/>
+      <Shader Name="PS67" Target="ps_6_7" EntryPoint="PSMain65" Text="@CS" Arguments="@CS"/>
+      <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain" Arguments="/Od">
         <![CDATA[
-#ifdef ISHELPERLANE_PLACEHOLDER
-        #define CALL(x) ph_##x
-        
-        bool ph_IsHelperLane() {
-            return false;
-        }
-
-        bool ph_IsHelperLane(float4 pos, bool first_call) {
-            if (first_call) {
-                return pos.x < 1.0f && pos.y > 1.0f;
-            }
-            else {
-                return pos.x < 1.0f;
-            }
-        }
-#else
-        #define CALL(x) x
-#endif
 
         // 6.0 wave ops
         struct HelperLaneWaveTestResult60 {
@@ -3844,7 +3813,7 @@
         
         HelperLaneWaveTestResult60 RunHelperLaneWaveTests60() {
             HelperLaneWaveTestResult60 tr;
-            bool is_helper = CALL(IsHelperLane());
+            bool is_helper = IsHelperLane();
             tr.anyTrue = WaveActiveAnyTrue(is_helper);
             tr.allTrue = WaveActiveAllTrue(!is_helper);
             tr.ballot = WaveActiveBallot(true);
@@ -3864,14 +3833,14 @@
             // Count active lanes and ensure none are helper lanes
             while (count < waveCount) {
                 count++;
-                if (WaveReadLaneFirst(!CALL(IsHelperLane())) && WaveIsFirstLane()) {
+                if (WaveReadLaneFirst(!IsHelperLane()) && WaveIsFirstLane()) {
                     break;
                 }
             }
 #endif
             tr.waterfallLoopCount = count;
             
-            is_helper = CALL(IsHelperLane());
+            is_helper = IsHelperLane();
             tr.allEqual = WaveActiveAllEqual(is_helper);
             tr.countBits = WaveActiveCountBits(true);
             tr.sum = WaveActiveSum(4);
@@ -3890,7 +3859,7 @@
         
         HelperLaneQuadTestResult RunHelperLaneQuadTests() {
             HelperLaneQuadTestResult tr;
-            int is_helper = CALL(IsHelperLane());
+            int is_helper = IsHelperLane();
 
             tr.is_helper_this = is_helper;
             tr.is_helper_across_X = QuadReadAcrossX(is_helper);
@@ -3900,24 +3869,10 @@
             return tr;
         }
         
-        #ifdef ISHELPERLANE_PLACEHOLDER
-        HelperLaneQuadTestResult ph_RunHelperLaneQuadTests_PS(float4 pos, bool first_call) {
-            HelperLaneQuadTestResult tr;
-            
-            int is_helper = ph_IsHelperLane(pos, first_call);
-            tr.is_helper_this = is_helper;
-            tr.is_helper_across_X = QuadReadAcrossX(is_helper);
-            tr.is_helper_across_Y = QuadReadAcrossY(is_helper);
-            tr.is_helper_across_Diag = QuadReadAcrossDiagonal(is_helper);
-            
-            return tr;
-        }
-        #endif
-
         HelperLaneWaveTestResult65 RunHelperLaneWaveTests65() {
             HelperLaneWaveTestResult65 tr;
             uint4 noMaskedBits = (uint4)0xFFFFFFFF;
-            bool is_helper = CALL(IsHelperLane());
+            bool is_helper = IsHelperLane();
 
             tr.match = WaveMatch(true);
             tr.mpCountBits = WaveMultiPrefixCountBits(1, noMaskedBits);
@@ -3967,12 +3922,7 @@
 
         uint4 PSMain(PSInput input) : SV_TARGET {
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
-            
-        #ifdef ISHELPERLANE_PLACEHOLDER
-            HelperLaneQuadTestResult tr60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, true);
-        #else
             HelperLaneQuadTestResult tr60_quad = RunHelperLaneQuadTests();
-        #endif
         
             if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
                 g_TestResults[PS_INDEX].sm60_wave = tr60;
@@ -3982,12 +3932,8 @@
                 discard;
                 
             HelperLaneWaveTestResult60 tr60_disc = RunHelperLaneWaveTests60();
-
-#ifdef ISHELPERLANE_PLACEHOLDER
-            HelperLaneQuadTestResult tr60_quad_disc  = ph_RunHelperLaneQuadTests_PS(input.pos, false);
-#else
             HelperLaneQuadTestResult tr60_quad_disc = RunHelperLaneQuadTests();
-#endif
+
             if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
                 g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_wave = tr60_disc;
                 g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_quad = tr60_quad_disc;
@@ -4001,11 +3947,7 @@
         uint4 PSMain65(PSInput input) : SV_TARGET {
             HelperLaneWaveTestResult tr;
             tr.sm60_wave = RunHelperLaneWaveTests60();
-#ifdef ISHELPERLANE_PLACEHOLDER
-            tr.sm60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, true);
-#else
             tr.sm60_quad = RunHelperLaneQuadTests();
-#endif
             tr.sm65_wave = RunHelperLaneWaveTests65();
             
             if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
@@ -4017,11 +3959,7 @@
                 
             HelperLaneWaveTestResult tr_disc;
             tr_disc.sm60_wave = RunHelperLaneWaveTests60();
-#ifdef ISHELPERLANE_PLACEHOLDER
-            tr_disc.sm60_quad = ph_RunHelperLaneQuadTests_PS(input.pos, false);
-#else
             tr_disc.sm60_quad = RunHelperLaneQuadTests();
-#endif
             tr_disc.sm65_wave = RunHelperLaneWaveTests65();
             
             if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results

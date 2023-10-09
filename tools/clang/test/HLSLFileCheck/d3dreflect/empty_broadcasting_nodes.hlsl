@@ -42,7 +42,7 @@
 // CHECK:        }
 // CHECK:        Outputs: <21:RecordArrayRef<IONode>[1]>  = {
 // CHECK:          [0]: <1:IONode> = {
-// CHECK:            IOFlagsAndKind: 6
+// CHECK:            IOFlagsAndKind: 22
 // CHECK:            Attribs: <14:RecordArrayRef<NodeShaderIOAttrib>[6]>  = {
 // CHECK:              [0]: <1:NodeShaderIOAttrib> = {
 // CHECK:                AttribKind: OutputID
@@ -163,7 +163,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:    <1:IONode> = {
-// CHECK:      IOFlagsAndKind: 6
+// CHECK:      IOFlagsAndKind: 22
 // CHECK:      Attribs: <14:RecordArrayRef<NodeShaderIOAttrib>[6]>  = {
 // CHECK:        [0]: <1:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: OutputID
@@ -220,7 +220,7 @@
 // CHECK:      }
 // CHECK:      Outputs: <21:RecordArrayRef<IONode>[1]>  = {
 // CHECK:        [0]: <1:IONode> = {
-// CHECK:          IOFlagsAndKind: 6
+// CHECK:          IOFlagsAndKind: 22
 // CHECK:          Attribs: <14:RecordArrayRef<NodeShaderIOAttrib>[6]>  = {
 // CHECK:            [0]: <1:NodeShaderIOAttrib> = {
 // CHECK:              AttribKind: OutputID
@@ -277,6 +277,7 @@
 // CHECK:      Shader Version: <unknown> 6.8
 // CHECK:      Creator: <nullptr>
 // CHECK:      Flags: 0
+// CHECK:      RequiredFeatureFlags: 0
 // CHECK:      ConstantBuffers: 0
 // CHECK:      BoundResources: 0
 // CHECK:      FunctionParameterCount: 0
@@ -297,11 +298,11 @@ struct rec1
 
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NumThreads(25, 4, 1)]
 [NodeDispatchGrid(2, 8, 10)]
 export void depth18part0_wg_63_nodes_seed_255(
   DispatchNodeInputRecord<rec0> InputyMcInputFace,
-  [MaxRecords(47)] [AllowSparseNodes] [NodeArraySize(2)] NodeOutput<rec1> OutputyMcOutputFace[2])
+  [MaxRecords(47)] [AllowSparseNodes] [NodeArraySize(2)] NodeOutputArray<rec1> OutputyMcOutputFace)
 {
 }

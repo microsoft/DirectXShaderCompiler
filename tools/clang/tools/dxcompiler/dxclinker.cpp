@@ -9,12 +9,12 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/WinFunctions.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/ErrorCodes.h"
-#include "dxc/Support/Global.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -25,24 +25,24 @@
 
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/HLSL/DxilValidation.h"
+#include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxcutil.h"
 #include "clang/Basic/Diagnostic.h"
+#include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
-#include "clang/Frontend/TextDiagnosticPrinter.h"
-#include "dxc/Support/HLSLOptions.h"
 
 using namespace hlsl;
 using namespace llvm;
 
 // This declaration is used for the locally-linked validator.
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 
 struct DeserializedDxilCompilerVersion {
   const hlsl::DxilCompilerVersion DCV;
@@ -92,25 +92,21 @@ public:
   DXC_MICROCOM_TM_CTOR(DxcLinker)
 
   // Register a library with name to ref it later.
-  HRESULT RegisterLibrary(
-      _In_opt_ LPCWSTR pLibName, // Name of the library.
-      _In_ IDxcBlob *pLib        // Library to add.
-  ) override;
+  HRESULT RegisterLibrary(LPCWSTR pLibName, // Name of the library.
+                          IDxcBlob *pLib    // Library to add.
+                          ) override;
 
   // Links the shader and produces a shader blob that the Direct3D runtime can
   // use.
   HRESULT STDMETHODCALLTYPE Link(
-      _In_opt_ LPCWSTR pEntryName, // Entry point name
-      _In_ LPCWSTR pTargetProfile, // shader profile to link
-      _In_count_(libCount)
-          const LPCWSTR *pLibNames, // Array of library names to link
-      UINT32 libCount,              // Number of libraries to link
-      _In_count_(argCount)
-          const LPCWSTR *pArguments, // Array of pointers to arguments
-      _In_ UINT32 argCount,          // Number of arguments
-      _COM_Outptr_ IDxcOperationResult *
-          *ppResult // Linker output status, buffer, and errors
-  ) override;
+      LPCWSTR pEntryName,            // Entry point name
+      LPCWSTR pTargetProfile,        // shader profile to link
+      const LPCWSTR *pLibNames,      // Array of library names to link
+      UINT32 libCount,               // Number of libraries to link
+      const LPCWSTR *pArguments,     // Array of pointers to arguments
+      UINT32 argCount,               // Number of arguments
+      IDxcOperationResult **ppResult // Linker output status, buffer, and errors
+      ) override;
 
   HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(
       IDxcContainerEventsHandler *pHandler, UINT64 *pCookie) override {
@@ -130,7 +126,8 @@ public:
     return S_OK;
   }
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) override {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcLinker>(this, riid, ppvObject);
   }
 
@@ -148,17 +145,18 @@ public:
                  partSize - sizeof(hlsl::DxilCompilerVersion) >=
                      pDCV->VersionStringListSizeInBytes;
     if (valid && pDCV->VersionStringListSizeInBytes) {
-        const char *vStr = (const char *)(pDCV + 1);
-        valid = vStr[pDCV->VersionStringListSizeInBytes - 1] == 0;
+      const char *vStr = (const char *)(pDCV + 1);
+      valid = vStr[pDCV->VersionStringListSizeInBytes - 1] == 0;
     }
 
     DXASSERT(valid, "DxilCompilerVersion part malformed");
     if (!valid)
-        return false;
+      return false;
 
     CW2A pUtf8LibName(libName, CP_UTF8);
     std::string libNameStr = std::string(pUtf8LibName);
-    auto result = m_uniqueCompilerVersions.insert(DeserializedDxilCompilerVersion(pDCV));    
+    auto result =
+        m_uniqueCompilerVersions.insert(DeserializedDxilCompilerVersion(pDCV));
     m_libNameToCompilerVersionPart[libNameStr] = &(*result.first);
 
     return true;
@@ -175,13 +173,14 @@ private:
   std::unique_ptr<DxilLinker> m_pLinker;
   CComPtr<IDxcContainerEventsHandler> m_pDxcContainerEventsHandler;
   std::vector<CComPtr<IDxcBlob>> m_blobs; // Keep blobs live for lazy load.
-  std::map<std::string, const DeserializedDxilCompilerVersion*> m_libNameToCompilerVersionPart;
+  std::map<std::string, const DeserializedDxilCompilerVersion *>
+      m_libNameToCompilerVersionPart;
   std::set<DeserializedDxilCompilerVersion> m_uniqueCompilerVersions;
 };
 
 HRESULT
-DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
-                           _In_ IDxcBlob *pBlob       // Library to add.
+DxcLinker::RegisterLibrary(LPCWSTR pLibName, // Name of the library.
+                           IDxcBlob *pBlob   // Library to add.
 ) {
   if (!pLibName || !pBlob)
     return E_INVALIDARG;
@@ -205,22 +204,21 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
         pBlob->GetBufferPointer(), pBlob->GetBufferSize(), pModule,
         pDebugModule, m_Ctx, m_Ctx, DiagStream));
 
-
     // add an entry into the library to compiler version part map
     const hlsl::DxilContainerHeader *pHeader = hlsl::IsDxilContainerLike(
         pBlob->GetBufferPointer(), pBlob->GetBufferSize());
     const DxilPartHeader *pDPH = hlsl::GetDxilPartByType(
         pHeader, hlsl::DxilFourCC::DFCC_CompilerVersion);
     if (pDPH) {
-        const hlsl::DxilCompilerVersion *pDCV =
-            (const hlsl::DxilCompilerVersion *)(pDPH + 1);
-        // If the compiler version string is non-empty, add the struct to the
-        // map
-        if (!AddCompilerVersionMapEntry(pLibName, pDCV, pDPH->PartSize)) {
-          return E_INVALIDARG;
-        }
+      const hlsl::DxilCompilerVersion *pDCV =
+          (const hlsl::DxilCompilerVersion *)(pDPH + 1);
+      // If the compiler version string is non-empty, add the struct to the
+      // map
+      if (!AddCompilerVersionMapEntry(pLibName, pDCV, pDPH->PartSize)) {
+        return E_INVALIDARG;
+      }
     }
-    
+
     if (m_pLinker->RegisterLib(pUtf8LibName.m_psz, std::move(pModule),
                                std::move(pDebugModule))) {
       m_blobs.emplace_back(pBlob);
@@ -236,16 +234,13 @@ DxcLinker::RegisterLibrary(_In_opt_ LPCWSTR pLibName, // Name of the library.
 // Links the shader and produces a shader blob that the Direct3D runtime can
 // use.
 HRESULT STDMETHODCALLTYPE DxcLinker::Link(
-    _In_opt_ LPCWSTR pEntryName, // Entry point name
-    _In_ LPCWSTR pTargetProfile, // shader profile to link
-    _In_count_(libCount)
-        const LPCWSTR *pLibNames, // Array of library names to link
-    UINT32 libCount,              // Number of libraries to link
-    _In_count_(argCount)
-        const LPCWSTR *pArguments, // Array of pointers to arguments
-    _In_ UINT32 argCount,          // Number of arguments
-    _COM_Outptr_ IDxcOperationResult *
-        *ppResult // Linker output status, buffer, and errors
+    LPCWSTR pEntryName,            // Entry point name
+    LPCWSTR pTargetProfile,        // shader profile to link
+    const LPCWSTR *pLibNames,      // Array of library names to link
+    UINT32 libCount,               // Number of libraries to link
+    const LPCWSTR *pArguments,     // Array of pointers to arguments
+    UINT32 argCount,               // Number of arguments
+    IDxcOperationResult **ppResult // Linker output status, buffer, and errors
 ) {
   if (!pTargetProfile || !pLibNames || libCount == 0 || !ppResult)
     return E_INVALIDARG;
@@ -284,8 +279,17 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       return S_OK;
     }
 
+    // IDxcResult output
+    CComPtr<DxcResult> pResult = DxcResult::Alloc(m_pMalloc);
+    IFT(pResult->SetEncoding(opts.DefaultTextCodePage));
+    IFT(pResult->SetOutputName(DXC_OUT_REFLECTION, opts.OutputReflectionFile));
+    IFT(pResult->SetOutputName(DXC_OUT_SHADER_HASH, opts.OutputShaderHashFile));
+    IFT(pResult->SetOutputName(DXC_OUT_ERRORS, opts.OutputWarningsFile));
+    IFT(pResult->SetOutputName(DXC_OUT_ROOT_SIGNATURE, opts.OutputRootSigFile));
+    IFT(pResult->SetOutputName(DXC_OUT_OBJECT, opts.OutputObject));
+
     std::string warnings;
-    //llvm::raw_string_ostream w(warnings);
+    // llvm::raw_string_ostream w(warnings);
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDiagStream));
     raw_stream_ostream DiagStream(pDiagStream);
     llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
@@ -293,15 +297,26 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     m_Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
                                &DiagContext, true);
 
-    if (opts.ValVerMajor != UINT32_MAX) {
-      m_pLinker->SetValidatorVersion(opts.ValVerMajor, opts.ValVerMinor);
+    unsigned valMajor = 0, valMinor = 0;
+    if (opts.ValVerMajor != UINT_MAX) {
+      // user-specified validator version override
+      valMajor = opts.ValVerMajor;
+      valMinor = opts.ValVerMinor;
+    } else {
+      // Version from dxil.dll, or internal validator if unavailable
+      dxcutil::GetValidatorVersion(&valMajor, &valMinor);
     }
+    m_pLinker->SetValidatorVersion(valMajor, valMinor);
+
+    // Root signature-only container validation is only supported on 1.5 and
+    // above.
+    bool validateRootSigContainer =
+        DXIL::CompareVersions(valMajor, valMinor, 1, 5) >= 0;
 
     bool needsValidation = !opts.DisableValidation;
     // Disable validation if ValVerMajor is 0 (offline target, never validate),
     // or pre-release library targets lib_6_1/lib_6_2.
-    if (opts.ValVerMajor == 0 ||
-        opts.TargetProfile == "lib_6_1" ||
+    if (opts.ValVerMajor == 0 || opts.TargetProfile == "lib_6_1" ||
         opts.TargetProfile == "lib_6_2") {
       needsValidation = false;
     }
@@ -318,7 +333,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
       CW2A pUtf8LibName(pLibNames[i], CP_UTF8);
       bSuccess &= m_pLinker->AttachLib(pUtf8LibName.m_psz);
 
-      cur_lib_name = std::string(pUtf8LibName);      
+      cur_lib_name = std::string(pUtf8LibName);
 
       // only libraries with compiler version parts are in the map
       auto result = m_libNameToCompilerVersionPart.find(cur_lib_name);
@@ -361,8 +376,8 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
 
     bool hasErrorOccurred = !bSuccess;
     if (bSuccess) {
-      std::unique_ptr<Module> pM = m_pLinker->Link(
-          opts.EntryPoint, pUtf8TargetProfile.m_psz, exportMap);
+      std::unique_ptr<Module> pM =
+          m_pLinker->Link(opts.EntryPoint, pUtf8TargetProfile.m_psz, exportMap);
       if (pM) {
         const IntrusiveRefCntPtr<clang::DiagnosticIDs> Diags(
             new clang::DiagnosticIDs);
@@ -378,22 +393,29 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         WriteBitcodeToFile(pM.get(), outStream);
         outStream.flush();
 
+        DxilShaderHash ShaderHashContent;
+        CComPtr<AbstractMemoryStream> pReflectionStream;
+        IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pReflectionStream));
+        CComPtr<AbstractMemoryStream> pRootSigStream;
+        IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pRootSigStream));
+
+        SerializeDxilFlags SerializeFlags =
+            hlsl::options::ComputeSerializeDxilFlags(opts);
         // Always save debug info. If lib has debug info, the link result will
         // have debug info.
-        SerializeDxilFlags SerializeFlags =
-            SerializeDxilFlags::IncludeDebugNamePart;
+        SerializeFlags |= SerializeDxilFlags::IncludeDebugNamePart;
         // Unless we want to strip it right away, include it in the container.
         if (!opts.StripDebug) {
           SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
-        if (opts.DebugNameForSource) {
-          SerializeFlags |= SerializeDxilFlags::DebugNameDependOnSource;
-        }
+
         // Validation.
         HRESULT valHR = S_OK;
         dxcutil::AssembleInputs inputs(
             std::move(pM), pOutputBlob, DxcGetThreadMallocNoRef(),
-            SerializeFlags, pOutputStream, opts.DebugFile, &Diag);
+            SerializeFlags, pOutputStream, opts.DebugFile, &Diag,
+            &ShaderHashContent, pReflectionStream, pRootSigStream, nullptr,
+            nullptr);
         if (needsValidation) {
           valHR = dxcutil::ValidateAndAssembleToContainer(inputs);
         } else {
@@ -410,6 +432,36 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
             }
           }
           // TODO: DFCC_ShaderDebugName
+
+          // DXC_OUT_REFLECTION
+          if (pReflectionStream && pReflectionStream->GetPtrSize()) {
+            CComPtr<IDxcBlob> pReflection;
+            IFT(pReflectionStream->QueryInterface(&pReflection));
+            IFT(pResult->SetOutputObject(DXC_OUT_REFLECTION, pReflection));
+          }
+
+          // DXC_OUT_ROOT_SIGNATURE
+          if (pRootSigStream && pRootSigStream->GetPtrSize()) {
+            CComPtr<IDxcBlob> pRootSignature;
+            IFT(pRootSigStream->QueryInterface(&pRootSignature));
+            if (validateRootSigContainer && needsValidation) {
+              CComPtr<IDxcBlobEncoding> pValErrors;
+              // Validation failure communicated through diagnostic error
+              dxcutil::ValidateRootSignatureInContainer(pRootSignature, &Diag);
+            }
+            IFT(pResult->SetOutputObject(DXC_OUT_ROOT_SIGNATURE,
+                                         pRootSignature));
+          }
+
+          // DXC_OUT_SHADER_HASH
+          CComPtr<IDxcBlob> pHashBlob;
+          IFT(hlsl::DxcCreateBlobOnHeapCopy(&ShaderHashContent,
+                                            (UINT32)sizeof(ShaderHashContent),
+                                            &pHashBlob));
+          IFT(pResult->SetOutputObject(DXC_OUT_SHADER_HASH, pHashBlob));
+
+          // DXC_OUT_OBJECT
+          IFT(pResult->SetOutputObject(DXC_OUT_OBJECT, pOutputBlob));
         }
 
         hasErrorOccurred = Diag.hasErrorOccurred();
@@ -420,14 +472,24 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     }
     DiagStream.flush();
     CComPtr<IStream> pStream = static_cast<CComPtr<IStream>>(pDiagStream);
-    dxcutil::CreateOperationResultFromOutputs(pOutputBlob, pStream, warnings,
-                                              hasErrorOccurred, ppResult);
+    CComPtr<IDxcBlob> pErrorBlob;
+    IFT(pStream.QueryInterface(&pErrorBlob));
+    if (IsBlobNullOrEmpty(pErrorBlob)) {
+      // Add std err to warnings.
+      IFT(pResult->SetOutputString(DXC_OUT_ERRORS, warnings.c_str(),
+                                   warnings.size()));
+    } else {
+      IFT(pResult->SetOutputObject(DXC_OUT_ERRORS, pErrorBlob));
+    }
+    IFT(pResult->SetStatusAndPrimaryResult(hasErrorOccurred ? E_FAIL : S_OK,
+                                           DXC_OUT_OBJECT));
+    IFT(pResult->QueryInterface(IID_PPV_ARGS(ppResult)));
   }
   CATCH_CPP_ASSIGN_HRESULT();
   return hr;
 }
 
-HRESULT CreateDxcLinker(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcLinker(REFIID riid, LPVOID *ppv) {
   *ppv = nullptr;
   try {
     CComPtr<DxcLinker> result(DxcLinker::Alloc(DxcGetThreadMallocNoRef()));

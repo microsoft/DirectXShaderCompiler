@@ -10,8 +10,8 @@
 #ifndef LLVM_ANALYSIS_DXILVALUECACHE_H
 #define LLVM_ANALYSIS_DXILVALUECACHE_H
 
-#include "llvm/Pass.h"
 #include "llvm/IR/ValueMap.h"
+#include "llvm/Pass.h"
 
 namespace llvm {
 
@@ -34,7 +34,10 @@ struct DxilValueCache : public ImmutablePass {
       WeakVH Value;
       ValueVH Self;
       ValueEntry() : Value(nullptr), Self(nullptr) {}
-      inline void Set(llvm::Value *Key, llvm::Value *V) { Self = Key; Value = V; }
+      inline void Set(llvm::Value *Key, llvm::Value *V) {
+        Self = Key;
+        Value = V;
+      }
       inline bool IsStale() const { return Self == nullptr; }
     };
     ValueMap<const Value *, ValueEntry> Map;
@@ -45,13 +48,13 @@ struct DxilValueCache : public ImmutablePass {
     void ResetUnknowns();
     void ResetAll();
     void dump() const;
+
   private:
     Value *GetSentinel(LLVMContext &Ctx);
     std::unique_ptr<PHINode> Sentinel;
   };
 
 private:
-
   WeakValueMap Map;
   bool (*ShouldSkipCallback)(Value *V) = nullptr;
 
@@ -68,24 +71,25 @@ private:
   Value *SimplifyAndCacheResult(Instruction *I, DominatorTree *DT);
 
 public:
-
   StringRef getPassName() const override;
   DxilValueCache();
   void getAnalysisUsage(AnalysisUsage &) const override;
 
   void dump() const;
-  Value *GetValue(Value *V, DominatorTree *DT=nullptr);
+  Value *GetValue(Value *V, DominatorTree *DT = nullptr);
   Constant *GetConstValue(Value *V, DominatorTree *DT = nullptr);
   ConstantInt *GetConstInt(Value *V, DominatorTree *DT = nullptr);
   void ResetUnknowns() { Map.ResetUnknowns(); }
   void ResetAll() { Map.ResetAll(); }
-  bool IsUnreachable(BasicBlock *BB, DominatorTree *DT=nullptr);
-  void SetShouldSkipCallback(bool (*Callback)(Value *V)) { ShouldSkipCallback = Callback; };
+  bool IsUnreachable(BasicBlock *BB, DominatorTree *DT = nullptr);
+  void SetShouldSkipCallback(bool (*Callback)(Value *V)) {
+    ShouldSkipCallback = Callback;
+  };
 };
 
 void initializeDxilValueCachePass(class llvm::PassRegistry &);
 Pass *createDxilValueCachePass();
 
-}
+} // namespace llvm
 
 #endif

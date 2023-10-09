@@ -12,7 +12,7 @@
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(256,1,1)]
 [NumThreads(1024,1,1)]
 [NodeID("node_array")]
@@ -27,7 +27,7 @@ void node055a_nodearray_indices_not_contiguous()
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(256,1,1)]
 [NumThreads(1024,1,1)]
 [NodeID("node_array", 5)]
@@ -46,7 +46,7 @@ void node055b_nodearray_indices_not_contiguous()
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // Arg #5: NodeIsProgramEntry Tag (14)
 // Arg #6: True (1)
 // Arg #7: NodeId Tag (15)
@@ -55,35 +55,33 @@ void node055b_nodearray_indices_not_contiguous()
 // Arg #10: Index (-1)
 // Arg #11: NodeDispatchGrid Tag (18)
 // Arg #12: NodeDispatchGrid (xyz metadata)
-// Arg #13: NodeInputs Tag (20)
-// Arg #14: NodeInputs (NodeInput metadata)
-// Arg #15: NumThreads Tag (4)
-// Arg #16: NumThreads (xyz metadata)
+// Arg #13: NumThreads Tag (4)
+// Arg #14: NumThreads (xyz metadata)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS0]] = !{
-// CHECK-SAME: i32 8, i32 15, i32 13, i32 1, i32 14, i1 true, i32 15, [[NODEID0:![0-9]+]], i32 16, i32 -1, i32 18, [[DISPATCHGRID:![0-9]+]], i32 20, !12, i32 4, [[NUMTHREADS:![0-9]+]]
+// CHECK-SAME: i32 8, i32 15, i32 13, i32 1, i32 14, i1 true, i32 15, [[NODEID0:![0-9]+]], i32 16, i32 -1, i32 18, [[DISPATCHGRID:![0-9]+]], i32 4, [[NUMTHREADS:![0-9]+]]
 // CHECK-SAME: }
 
 // NodeID
 // Arg #1: NodeID = "node_array"
 // Arg #2: Default Index (0)
 // ------------------------------------------------------------------
-// CHECK-DAG: [[NODEID0]] = !{!"node_array", i32 0}
+// CHECK: [[NODEID0]] = !{!"node_array", i32 0}
 
 // DispatchGrid
 // Arg #1: 256
 // Arg #2: 1
 // Arg #3: 1
 // ------------------------------------------------------------------
-// CHECK-DAG: [[DISPATCHGRID]] = !{i32 256, i32 1, i32 1}
+// CHECK: [[DISPATCHGRID]] = !{i32 256, i32 1, i32 1}
 
 // NumThreads
 // Arg #1: 1024
 // Arg #2: 1
 // Arg #3: 1
 // ------------------------------------------------------------------
-// CHECK-DAG: [[NUMTHREADS]] = !{i32 1024, i32 1, i32 1}
+// CHECK: [[NUMTHREADS]] = !{i32 1024, i32 1, i32 1}
 
 // Metadata for node 1
 // ------------------------------------------------------------------
@@ -93,7 +91,7 @@ void node055b_nodearray_indices_not_contiguous()
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // Arg #5: NodeIsProgramEntry Tag (14)
 // Arg #6: True (1)
 // Arg #7: NodeId Tag (15)
@@ -102,29 +100,14 @@ void node055b_nodearray_indices_not_contiguous()
 // Arg #10: Index (-1)
 // Arg #11: NodeDispatchGrid Tag (18)
 // Arg #12: NodeDispatchGrid (xyz metadata)
-// Arg #13: NodeInputs Tag (20)
-// Arg #14: NodeInputs (NodeInput metadata)
-// Arg #15: NumThreads Tag (4)
-// Arg #16: NumThreads (xyz metadata)
+// Arg #13: NumThreads Tag (4)
+// Arg #14: NumThreads (xyz metadata)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS1]] = !{
-// CHECK-SAME: i32 8, i32 15, i32 13, i32 1, i32 14, i1 true, i32 15, [[NODEID1:![0-9]+]], i32 16, i32 -1, i32 18, [[DISPATCHGRID:![0-9]+]], i32 20, !12, i32 4, [[NUMTHREADS]]
+
+// CHECK-SAME: i32 8, i32 15, i32 13, i32 1, i32 14, i1 true, i32 15, [[NODEID1:![0-9]+]], i32 16, i32 -1, i32 18, [[DISPATCHGRID:![0-9]+]], i32 4, [[NUMTHREADS]]
 // CHECK-SAME: }
-
-// DispatchGrid
-// Ath #1: 256
-// Arg #2: 1
-// Arg #3: 1
-// ------------------------------------------------------------------
-// XCHECK-DAG: [[DISPATCHGRID2]] = !{i32 256, i32 1, i32 1}
-
-// NumThreads
-// Arg #1: 1024
-// Arg #2: 1
-// Arg #3: 1
-// ------------------------------------------------------------------
-// XCHECK-DAG: [[NUMTHREADS2]] = !{i32 1024, i32 1, i32 1}
 
 // NodeID
 // Arg #1: NodeID = "node_array"

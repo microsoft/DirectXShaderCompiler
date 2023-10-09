@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // ==================================================================
-// CASE030
 // OutputComplete() is called with NodeOutput
 // ==================================================================
 
@@ -10,7 +9,7 @@ struct OUTPUT_RECORD
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(256,1,1)]
 [NumThreads(1024,1,1)]
 void node030_outputcomplete_nodeoutput(NodeOutput<OUTPUT_RECORD> output)
@@ -37,7 +36,7 @@ void node030_outputcomplete_nodeoutput(NodeOutput<OUTPUT_RECORD> output)
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // ...
 // Arg #n: NodeOutput Tag (21)
 // Arg #n+1: NodeOutput (metadata)
@@ -50,7 +49,7 @@ void node030_outputcomplete_nodeoutput(NodeOutput<OUTPUT_RECORD> output)
 // NodeOutputs
 // Arg #1: NodeIOKind Tag (1)
 // Arg #2: RWOutputRecord (6)
-// Arg #3: NodeRecordType Tag (3)
+// Arg #3: NodeRecordType Tag (2)
 // Arg #4: OUTPUT_RECORD (output metadata)
 // Arg #5: NodeOutputID (0)
 // Arg #6: NodeID (metadata)

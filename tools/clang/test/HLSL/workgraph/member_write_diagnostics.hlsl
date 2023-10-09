@@ -7,11 +7,12 @@ struct RECORD
 {
   uint3 a;
   bool b;
+  uint3 grid : SV_DispatchGrid;
 };
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(1024,1,1)]
 void node01(DispatchNodeInputRecord<RECORD> input1)
 {
@@ -25,7 +26,7 @@ void node01(DispatchNodeInputRecord<RECORD> input1)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(1024,1,1)]
 void node02(RWDispatchNodeInputRecord<RECORD> input2)
 {
@@ -82,7 +83,7 @@ void node05(ThreadNodeInputRecord<RECORD> input5)
 }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void node06(RWThreadNodeInputRecord<RECORD> input6)
 {
   RECORD x;
@@ -95,8 +96,8 @@ void node06(RWThreadNodeInputRecord<RECORD> input6)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
-[NodeMaxDispatchGrid(1024,1,1)]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(1024,1,1)]
 void node07(NodeOutput<RECORD> output7)
 {
   RECORD x;
@@ -109,8 +110,8 @@ void node07(NodeOutput<RECORD> output7)
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
-[NodeMaxDispatchGrid(1024,1,1)]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(1024,1,1)]
 void node08([MaxRecords(8)] NodeOutputArray<RECORD> output8)
 {
   RECORD x;

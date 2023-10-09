@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_2 -E main -enable-16bit-types
 
 // According to HLSL reference:
 // The 'log10' function can only operate on float, vector of float, and matrix of floats.
@@ -7,9 +7,10 @@
 // CHECK: %float_0_30103001 = OpConstant %float 0.30103001
 
 void main() {
-  float    a, log10_a;
-  float4   b, log10_b;
-  float2x3 c, log10_c;
+  float     a, log10_a;
+  float4    b, log10_b;
+  float2x3  c, log10_c;
+  float16_t d, log10_d;
 
 // CHECK:           [[a:%\d+]] = OpLoad %float %a
 // CHECK-NEXT: [[log2_a:%\d+]] = OpExtInst %float [[glsl]] Log2 [[a]]
@@ -32,4 +33,9 @@ void main() {
 // CHECK-NEXT:     [[log10_c:%\d+]] = OpMatrixTimesScalar %mat2v3float [[log2_c]] %float_0_30103
 // CHECK-NEXT:                        OpStore %log10_c [[log10_c]]
   log10_c = log10(c);
+  
+// CHECK:           [[d:%\d+]] = OpLoad %half %d
+// CHECK-NEXT: [[log2_d:%\d+]] = OpExtInst %half [[glsl]] Log2 [[d]]
+// CHECK-NEXT:[[log10_d:%\d+]] = OpFMul %half [[log2_d]] %half_0x1_344pn2
+  log10_d = log10(d);
 }

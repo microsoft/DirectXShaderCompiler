@@ -19,7 +19,7 @@
 namespace hlsl {
 class DxilModule;
 class OP;
-}
+} // namespace hlsl
 
 namespace llvm {
 

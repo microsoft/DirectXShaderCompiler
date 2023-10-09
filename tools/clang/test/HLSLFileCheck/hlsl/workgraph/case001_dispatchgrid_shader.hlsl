@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 -default-linkage external %s | FileCheck %s
 // ==================================================================
-// CASE001
 // Broadcasting launch node with dispatch grid defined in shader
 // ==================================================================
 
@@ -15,12 +14,11 @@ struct INPUT_NOGRID
 // ------------------------------------------------------------------
 // CHECK: define void @node001_dispatchgrid_shader()
 // CHECK-SAME: {
-// XCHECK:   {{%[0-9]+}} = %dx.types.NodeRecordHandle CreateInputRecordHandle(i32 <CreateInputRecordHandle>, 0)
 // CHECK:   ret void
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2,3,2)]
 [NumThreads(1024,1,1)]
 [NodeIsProgramEntry]
@@ -38,7 +36,7 @@ void node001_dispatchgrid_shader(DispatchNodeInputRecord<INPUT_NOGRID> input)
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // Arg #5: NodeIsProgramEntry Tag (14)
 // Arg #6: True (1)
 // Arg #7: NodeId Tag (15)
@@ -65,9 +63,9 @@ void node001_dispatchgrid_shader(DispatchNodeInputRecord<INPUT_NOGRID> input)
 // CHECK: [[DISPATCHGRID]] = !{i32 2, i32 3, i32 2}
 
 // NodeInputs
-// Arg #1: NodeIOKind Tag (1)
-// Arg #2: InputRecord(97)
-// Arg #3: NodeRecordType Tag (3)
+// Arg #1: NodeIOFlags Tag (1)
+// Arg #2: DispatchNodeInputRecord (97)
+// Arg #3: NodeRecordType Tag (2)
 // Arg #4: INPUT_NOGRID type
 // ------------------------------------------------------------------
 // CHECK: [[NODE_IN]] = !{[[INPUT0:![0-9]+]]}

@@ -15,7 +15,7 @@
 namespace llvm {
 class Instruction;
 class Function;
-}
+} // namespace llvm
 
 namespace hlsl {
 class HLModule;
@@ -27,5 +27,4 @@ void TranslateBuiltinOperations(
     std::unordered_set<llvm::Instruction *> &UpdateCounterSet);
 
 void LowerRecordAccessToGetNodeRecordPtr(HLModule &HLM);
-}
-
+} // namespace hlsl

@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // ==================================================================
-// CASE018
 // Renamed node with named index
 // ==================================================================
 
@@ -12,7 +11,7 @@
 // CHECK: }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 [NodeID("new_node_name", 2)]
 [NodeIsProgramEntry]
 void node018_renamed_node_index()
@@ -22,14 +21,14 @@ void node018_renamed_node_index()
 // Metadata for node
 // ------------------------------------------------------------------
 // CHECK: !dx.entryPoints = !{
-// CEHCK-SAME: }
+// CHECK-SAME: }
 // CHECK: = !{void ()* @node018_renamed_node_index, !"node018_renamed_node_index", null, null, [[ATTRS:![0-9]+]]}
 
 // Metadata for node attributes
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Thread (2)
+// Arg #4: thread (3)
 // Arg #5: NodeIsProgramEntry Tag (14)
 // Arg #6: True (1)
 // Arg #7: NodeId Tag (15)
@@ -37,7 +36,6 @@ void node018_renamed_node_index()
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS]] = !{
-// XCHECK-SAME: i32 8, i32 15, i32 13, i32 2, i32 14, i32 1,
 // CHECK-SAME: i32 8, i32 15, i32 13, i32 3, i32 14, i1 true, i32 15, [[NODEID:![0-9]+]]
 // CHECK-SAME: }
 

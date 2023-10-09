@@ -284,9 +284,7 @@ public:
     return accelerationStructureTypeNV;
   }
 
-  const RayQueryTypeKHR *getRayQueryTypeKHR() const {
-    return rayQueryTypeKHR;
-  }
+  const RayQueryTypeKHR *getRayQueryTypeKHR() const { return rayQueryTypeKHR; }
 
   const SpirvIntrinsicType *
   getSpirvIntrinsicType(unsigned typeId, unsigned typeOpCode,
@@ -473,7 +471,7 @@ private:
   llvm::DenseMap<const SpirvType *, SCToPtrTyMap> pointerTypes;
   llvm::SmallVector<const HybridPointerType *, 8> hybridPointerTypes;
   llvm::DenseSet<FunctionType *, FunctionTypeMapInfo> functionTypes;
-  llvm::DenseMap<unsigned, SpirvIntrinsicType*> spirvIntrinsicTypes;
+  llvm::DenseMap<unsigned, SpirvIntrinsicType *> spirvIntrinsicTypes;
   const AccelerationStructureTypeNV *accelerationStructureTypeNV;
   const RayQueryTypeKHR *rayQueryTypeKHR;
 

@@ -15,7 +15,7 @@ struct rec1
 };
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void DuplicateMax1(
   RWThreadNodeInputRecord<rec0> InputyMcInputFace,
   [MaxRecords(5)] NodeOutput<rec1> Output1,
@@ -28,7 +28,7 @@ void DuplicateMax1(
 }
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 void DuplicateMax2(
   RWThreadNodeInputRecord<rec0> InputyMcInputFace,
   [MaxRecords(1)] NodeOutput<rec1> Output1,
@@ -58,7 +58,7 @@ struct OUTPUT_RECORD
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(256,1,1)]
 [NumThreads(1,1,1)]
 [NodeIsProgramEntry]

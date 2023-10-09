@@ -11,8 +11,10 @@
 
 #pragma once
 
-#include "dxc/Support/D3DReflection.h"
+#include "dxc/WinAdapter.h"
+
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/Support/D3DReflection.h"
 
 namespace hlsl {
 using namespace RDAT;

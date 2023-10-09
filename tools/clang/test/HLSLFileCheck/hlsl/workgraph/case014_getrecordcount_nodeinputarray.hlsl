@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 external %s | FileCheck %s
 // ==================================================================
-// CASE014
 // GetInputRecordCount() called with NodeInputRecordArray
 // ==================================================================
 
@@ -12,13 +11,12 @@ struct INPUT_RECORD
 };
 
 [Shader("node")]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 [NumThreads(1024,1,1)]
 [NodeIsProgramEntry]
 void node014_getrecordcount([MaxRecords(256)] GroupNodeInputRecords<INPUT_RECORD> inputs)
 {
   uint numRecords = inputs.Count();
-  // Use Barrier as a way of preventing the unused numRecords being optimised away
   buf0[0] = numRecords;
 }
 
@@ -44,7 +42,7 @@ void node014_getrecordcount([MaxRecords(256)] GroupNodeInputRecords<INPUT_RECORD
 // Arg #1: Shader Kind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Coalescing (2)
+// Arg #4: coalescing (2)
 // ...
 // Arg #n: NodeInputs Tag (20)
 // Arg #n+1: NodeInputs (metadata)
@@ -62,9 +60,9 @@ void node014_getrecordcount([MaxRecords(256)] GroupNodeInputRecords<INPUT_RECORD
 // NodeInputs
 // Arg #1: NodeIOKind Tag (1)
 // Arg #2: InputRecord (65)
-// Arg #3: NodeInputMaxArraySize Tag (2)
+// Arg #3: NodeRecordType Tag Tag (2)
 // Arg #4: 256
-// Arg #5: NodeRecordType Tag (3)
+// Arg #5: NodeMaxRecords Tag Tag (3)
 // Arg #6: INPUT_RECORD Type
 // ------------------------------------------------------------------
 // CHECK-DAG: [[NODE_IN]] = !{[[INPUT0:![0-9]+]]}

@@ -7470,10 +7470,20 @@ def err_hlsl_attribute_expects_string_literal: Error<
   "attribute %0 must have a string literal argument">;
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
-def err_hlsl_attribute_mismatch: Error<
-  "invalid shader stage attribute combination">;
+def err_hlsl_attribute_unsupported_stage: Error<
+  "attribute %0 only allowed on %1 shaders">;
+def err_hlsl_attribute_in_wrong_shader_model: Error<
+  "attribute %0 requires shader model %1 or greater">;
+def err_hlsl_conflicting_shader_attribute: Error<
+  "shader attribute type '%0' conflicts with shader attribute type '%1'">;
+def note_hlsl_shader_attribute_here: Note<
+  "shader attribute is here">;
+def err_hlsl_profile_conflicts_with_shader_attribute : Error<
+  "entry type '%0' from profile '%1' conflicts with shader attribute type '%2' on entry function '%3'.">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
+def err_hlsl_wavesize_size: Error<
+  "WaveSize value must be between 4 and 128 and a power of 2">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<
@@ -7757,6 +7767,8 @@ def err_hlsl_unsupported_for_version_lower : Error<
    "%0 is only allowed for HLSL %1 and lower.">;
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
+def err_hlsl_intrinsic_overload_in_wrong_shader_model : Error<
+   "overload of intrinsic %0 requires shader model %1 or greater">;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<
@@ -7828,6 +7840,10 @@ def err_hlsl_missing_node_attr : Error<
    "Node shader '%0' with %1 launch type requires '%2' attribute">;
 def err_hlsl_missing_dispatchgrid_attr : Error<
    "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
+def err_hlsl_missing_dispatchgrid_semantic : Error<
+   "Broadcasting node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
+def err_hlsl_dispatchgrid_semantic_already_specified : Error<
+   "a field with SV_DispatchGrid has already been specified">;
 def err_hlsl_maxrecursiondepth_exceeded : Error<
    "NodeMaxRecursionDepth may not exceed 32">;
 def err_hlsl_too_many_node_inputs : Error<
@@ -7836,6 +7852,9 @@ def err_hlsl_node_record_type : Error<
    "%0 is not valid as a node record type - struct/class required">;
 def err_hlsl_node_record_object : Error<
    "object %0 may not appear in a node record">;
+def err_hlsl_array_entry_param_disallowed : Error<
+   "entry parameter of type %0 may not be an array">;
+def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

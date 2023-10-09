@@ -1,7 +1,7 @@
-#include "dxc/Support/Global.h"
 #include "dxc/DxilContainer/DxilRDATBuilder.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -16,8 +16,9 @@ uint32_t RDATTable::InsertImpl(const void *ptr, size_t size) {
   IFTBOOL(m_RecordStride <= size, DXC_E_GENERAL_INTERNAL_ERROR);
   size_t count = m_rows.size();
   if (count < (UINT32_MAX - 1)) {
-    const char *pData = (const char*)ptr;
-    auto result = m_map.insert(std::make_pair(std::string(pData, pData + m_RecordStride), count));
+    const char *pData = (const char *)ptr;
+    auto result = m_map.insert(
+        std::make_pair(std::string(pData, pData + m_RecordStride), count));
     if (!m_bDeduplicationEnabled || result.second) {
       m_rows.emplace_back(result.first->first);
       return count;
@@ -29,8 +30,9 @@ uint32_t RDATTable::InsertImpl(const void *ptr, size_t size) {
 }
 
 void RDATTable::Write(void *ptr) {
-  char *pCur = (char*)ptr;
-  RuntimeDataTableHeader &header = *reinterpret_cast<RuntimeDataTableHeader*>(pCur);
+  char *pCur = (char *)ptr;
+  RuntimeDataTableHeader &header =
+      *reinterpret_cast<RuntimeDataTableHeader *>(pCur);
   header.RecordCount = m_rows.size();
   header.RecordStride = m_RecordStride;
   pCur += sizeof(RuntimeDataTableHeader);
@@ -48,7 +50,9 @@ uint32_t RDATTable::GetPartSize() const {
 }
 
 uint32_t RawBytesPart::Insert(const void *pData, size_t dataSize) {
-  auto result = m_Map.insert(std::make_pair(std::string((const char *)pData, (const char *)pData + dataSize), m_Size));
+  auto result = m_Map.insert(std::make_pair(
+      std::string((const char *)pData, (const char *)pData + dataSize),
+      m_Size));
   auto iterator = result.first;
   if (result.second) {
     const std::string &key = iterator->first;
@@ -65,10 +69,8 @@ void RawBytesPart::Write(void *ptr) {
   }
 }
 
-DxilRDATBuilder::DxilRDATBuilder(bool allowRecordDuplication) :
-  m_bRecordDeduplicationEnabled(allowRecordDuplication)
-{
-}
+DxilRDATBuilder::DxilRDATBuilder(bool allowRecordDuplication)
+    : m_bRecordDeduplicationEnabled(allowRecordDuplication) {}
 
 DxilRDATBuilder::SizeInfo DxilRDATBuilder::ComputeSize() const {
   uint32_t totalSizeOfNonEmptyParts = 0;
@@ -77,13 +79,13 @@ DxilRDATBuilder::SizeInfo DxilRDATBuilder::ComputeSize() const {
     if (part->GetPartSize() == 0)
       continue;
     numNonEmptyParts++;
-    totalSizeOfNonEmptyParts += sizeof(RuntimeDataPartHeader) + PSVALIGN4(part->GetPartSize());
+    totalSizeOfNonEmptyParts +=
+        sizeof(RuntimeDataPartHeader) + PSVALIGN4(part->GetPartSize());
   }
 
-  uint32_t total =
-    sizeof(RuntimeDataHeader) +           // Header
-    numNonEmptyParts * sizeof(uint32_t) + // Offset array
-    totalSizeOfNonEmptyParts;             // Parts contents
+  uint32_t total = sizeof(RuntimeDataHeader) +           // Header
+                   numNonEmptyParts * sizeof(uint32_t) + // Offset array
+                   totalSizeOfNonEmptyParts;             // Parts contents
 
   SizeInfo ret = {};
   ret.numParts = numNonEmptyParts;
@@ -105,30 +107,33 @@ public:
   class buffer_overrun : public exception {
   public:
     buffer_overrun() noexcept {}
-    virtual const char * what() const noexcept override {
+    virtual const char *what() const noexcept override {
       return ("buffer_overrun");
     }
   };
   class buffer_overlap : public exception {
   public:
     buffer_overlap() noexcept {}
-    virtual const char * what() const noexcept override {
+    virtual const char *what() const noexcept override {
       return ("buffer_overlap");
     }
   };
 
-  CheckedWriter(void *ptr, size_t size) :
-    Ptr(reinterpret_cast<char*>(ptr)), Size(size), Offset(0) {}
+  CheckedWriter(void *ptr, size_t size)
+      : Ptr(reinterpret_cast<char *>(ptr)), Size(size), Offset(0) {}
 
   size_t GetOffset() const { return Offset; }
   void Reset(size_t offset = 0) {
-    if (offset >= Size) throw buffer_overrun{};
+    if (offset >= Size)
+      throw buffer_overrun{};
     Offset = offset;
   }
   // offset is absolute, ensure offset is >= current offset
   void Advance(size_t offset = 0) {
-    if (offset < Offset) throw buffer_overlap{};
-    if (offset >= Size) throw buffer_overrun{};
+    if (offset < Offset)
+      throw buffer_overlap{};
+    if (offset >= Size)
+      throw buffer_overrun{};
     Offset = offset;
   }
   void CheckBounds(size_t size) const {
@@ -136,46 +141,43 @@ public:
     if (size > Size - Offset)
       throw buffer_overrun{};
   }
-  template <typename T>
-  T *Cast(size_t size = 0) {
-    if (0 == size) size = sizeof(T);
+  template <typename T> T *Cast(size_t size = 0) {
+    if (0 == size)
+      size = sizeof(T);
     CheckBounds(size);
-    return reinterpret_cast<T*>(Ptr + Offset);
+    return reinterpret_cast<T *>(Ptr + Offset);
   }
 
   // Map and Write advance Offset:
-  template <typename T>
-  T &Map() {
+  template <typename T> T &Map() {
     const size_t size = sizeof(T);
-    T * p = Cast<T>(size);
+    T *p = Cast<T>(size);
     Offset += size;
     return *p;
   }
-  template <typename T>
-  T *MapArray(size_t count = 1) {
+  template <typename T> T *MapArray(size_t count = 1) {
     const size_t size = sizeof(T) * count;
     T *p = Cast<T>(size);
     Offset += size;
     return p;
   }
-  template <typename T>
-  void Write(const T &obj) {
+  template <typename T> void Write(const T &obj) {
     const size_t size = sizeof(T);
     *Cast<T>(size) = obj;
     Offset += size;
   }
-  template <typename T>
-  void WriteArray(const T *pArray, size_t count = 1) {
+  template <typename T> void WriteArray(const T *pArray, size_t count = 1) {
     const size_t size = sizeof(T) * count;
     memcpy(Cast<T>(size), pArray, size);
     Offset += size;
   }
 };
-}
+} // namespace
 
 // returns the offset of the name inserted
 uint32_t StringBufferPart::Insert(llvm::StringRef str) {
-  auto result = m_Map.insert(std::make_pair(std::string(str.data(), str.data() + str.size()), m_Size));
+  auto result = m_Map.insert(
+      std::make_pair(std::string(str.data(), str.data() + str.size()), m_Size));
 
   auto iterator = result.first;
   if (result.second) {
@@ -188,8 +190,8 @@ uint32_t StringBufferPart::Insert(llvm::StringRef str) {
 
 void StringBufferPart::Write(void *ptr) {
   for (llvm::StringRef &entry : m_List) {
-    memcpy(ptr, entry.data(), entry.size()+1/*null terminator*/);
-    ptr = (char *)ptr + entry.size()+1;
+    memcpy(ptr, entry.data(), entry.size() + 1 /*null terminator*/);
+    ptr = (char *)ptr + entry.size() + 1;
   }
 }
 
@@ -216,10 +218,8 @@ StringRef DxilRDATBuilder::FinalizeAndGetData() {
       char *bytes = W.MapArray<char>(partHeader.Size);
       part->Write(bytes);
     }
-  }
-  catch (CheckedWriter::exception e) {
+  } catch (CheckedWriter::exception e) {
     throw hlsl::Exception(DXC_E_GENERAL_INTERNAL_ERROR, e.what());
   }
   return llvm::StringRef(m_RDATBuffer.data(), m_RDATBuffer.size());
 }
-

@@ -107,9 +107,9 @@ struct TimeTraceProfiler {
       auto StartUs = duration_cast<microseconds>(E.Start - StartTime).count();
       auto DurUs = duration_cast<microseconds>(E.Duration).count();
       OS << "{ \"pid\":1, \"tid\":0, \"ph\":\"X\", \"ts\":" << StartUs
-          << ", \"dur\":" << DurUs << ", \"name\":\"" << escapeString(E.Name)
-          << "\", \"args\":{ \"detail\":\"" << escapeString(E.Detail)
-          << "\"} },\n";
+         << ", \"dur\":" << DurUs << ", \"name\":\"" << escapeString(E.Name)
+         << "\", \"args\":{ \"detail\":\"" << escapeString(E.Detail)
+         << "\"} },\n";
     }
 
     // Emit totals by section name as additional "thread" events, sorted from
@@ -127,17 +127,17 @@ struct TimeTraceProfiler {
     for (const auto &E : SortedTotals) {
       auto DurUs = duration_cast<microseconds>(E.second).count();
       OS << "{ \"pid\":1, \"tid\":" << Tid << ", \"ph\":\"X\", \"ts\":" << 0
-          << ", \"dur\":" << DurUs << ", \"name\":\"Total "
-          << escapeString(E.first)
-          << "\", \"args\":{ \"count\":" << CountPerName[E.first]
-          << ", \"avg ms\":" << (DurUs / CountPerName[E.first] / 1000)
-          << "} },\n";
+         << ", \"dur\":" << DurUs << ", \"name\":\"Total "
+         << escapeString(E.first)
+         << "\", \"args\":{ \"count\":" << CountPerName[E.first]
+         << ", \"avg ms\":" << (DurUs / CountPerName[E.first] / 1000)
+         << "} },\n";
       ++Tid;
     }
 
     // Emit metadata event with process name.
     OS << "{ \"cat\":\"\", \"pid\":1, \"tid\":0, \"ts\":0, \"ph\":\"M\", "
-           "\"name\":\"process_name\", \"args\":{ \"name\":\"clang\" } }\n";
+          "\"name\":\"process_name\", \"args\":{ \"name\":\"clang\" } }\n";
     OS << "] }\n";
   }
 

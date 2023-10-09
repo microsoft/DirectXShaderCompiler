@@ -1,11 +1,10 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // ==================================================================
-// CASE010 (pass)
 // Thread launch node may define NumThreads(1,1,1)
 // ==================================================================
 
 [Shader("node")]
-[NodeLaunch("Thread")]
+[NodeLaunch("thread")]
 [NumThreads(1,1,1)]
 [NodeIsProgramEntry]
 void node010_thread_numthreads_shader()

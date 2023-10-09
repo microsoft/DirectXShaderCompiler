@@ -16,7 +16,7 @@ struct RECORD
 // CHECK-LABEL: define void @node01
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(64,1,1)]
 void node01(RWDispatchNodeInputRecord<RECORD> input1)
 {
@@ -88,7 +88,7 @@ void node02([MaxRecords(4)] RWGroupNodeInputRecords<RECORD> input2)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeDispatchGrid(64,1,1)]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 void node03(NodeOutput<RECORD> output3)
 {
   ThreadNodeOutputRecords<RECORD> outrec = output3.GetThreadNodeOutputRecords(1);
@@ -115,7 +115,7 @@ void node03(NodeOutput<RECORD> output3)
 // CHECK-LABEL: define void @node04
 [Shader("node")]
 [NumThreads(1024,1,1)]
-[NodeLaunch("Coalescing")]
+[NodeLaunch("coalescing")]
 void node04([MaxOutputRecords(5)] NodeOutput<RECORD> outputs4)
 {
   GroupNodeOutputRecords<RECORD> outrec = outputs4.GetGroupNodeOutputRecords(1);

@@ -22,10 +22,10 @@ class Constant;
 class Value;
 class Instruction;
 class CallInst;
-}
-#include "llvm/IR/Attributes.h"
-#include "llvm/ADT/StringRef.h"
+} // namespace llvm
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Attributes.h"
 
 #include "DxilConstants.h"
 #include <unordered_map>
@@ -46,7 +46,8 @@ public:
   void FixOverloadNames();
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
-  const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &GetOpFuncList(OpCode OpCode) const;
+  const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &
+  GetOpFuncList(OpCode OpCode) const;
   bool IsDxilOpUsed(OpCode opcode) const;
   void RemoveFunction(llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
@@ -97,6 +98,7 @@ public:
   llvm::Constant *GetFloatConst(float v);
   llvm::Constant *GetDoubleConst(double v);
 
+  static OP::OpCode getOpCode(const llvm::Instruction *I);
   static llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   static OpCode GetDxilOpFuncCallInst(const llvm::Instruction *I);
   static const char *GetOpCodeName(OpCode OpCode);
@@ -121,10 +123,10 @@ public:
   static void GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
                                        unsigned &major, unsigned &minor,
                                        unsigned &mask);
-  static void GetMinShaderModelAndMask(const llvm::CallInst *CI, bool bWithTranslation,
-                                       unsigned valMajor, unsigned valMinor,
-                                       unsigned &major, unsigned &minor,
-                                       unsigned &mask);
+  static void GetMinShaderModelAndMask(const llvm::CallInst *CI,
+                                       bool bWithTranslation, unsigned valMajor,
+                                       unsigned valMinor, unsigned &major,
+                                       unsigned &minor, unsigned &mask);
 
 private:
   // Per-module properties.
@@ -152,7 +154,8 @@ private:
 
   static const unsigned kUserDefineTypeSlot = 9;
   static const unsigned kObjectTypeSlot = 10;
-  static const unsigned kNumTypeOverloads = 11; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj
+  static const unsigned kNumTypeOverloads =
+      11; // void, h,f,d, i1, i8,i16,i32,i64, udt, obj
 
   llvm::Type *m_pResRetType[kNumTypeOverloads];
   llvm::Type *m_pCBufferRetType[kNumTypeOverloads];
@@ -162,7 +165,8 @@ private:
   };
   OpCodeCacheItem m_OpCodeClassCache[(unsigned)OpCodeClass::NumOpClasses];
   std::unordered_map<const llvm::Function *, OpCodeClass> m_FunctionToOpClass;
-  void UpdateCache(OpCodeClass opClass, llvm::Type * Ty, llvm::Function *F);
+  void UpdateCache(OpCodeClass opClass, llvm::Type *Ty, llvm::Function *F);
+
 private:
   // Static properties.
   struct OpCodeProperty {
@@ -170,7 +174,8 @@ private:
     const char *pOpCodeName;
     OpCodeClass opCodeClass;
     const char *pOpCodeClassName;
-    bool bAllowOverload[kNumTypeOverloads];   // void, h,f,d, i1, i8,i16,i32,i64, udt
+    bool bAllowOverload[kNumTypeOverloads]; // void, h,f,d, i1, i8,i16,i32,i64,
+                                            // udt
     llvm::Attribute::AttrKind FuncAttr;
   };
   static const OpCodeProperty m_OpCodeProps[(unsigned)OpCode::NumOpCodes];
@@ -182,7 +187,8 @@ private:
   static unsigned GetTypeSlot(llvm::Type *pType);
   static const char *GetOverloadTypeName(unsigned TypeSlot);
   static llvm::StringRef GetTypeName(llvm::Type *Ty, std::string &str);
-  static llvm::StringRef ConstructOverloadName(llvm::Type *Ty, DXIL::OpCode opCode,
+  static llvm::StringRef ConstructOverloadName(llvm::Type *Ty,
+                                               DXIL::OpCode opCode,
                                                std::string &funcNameStorage);
 };
 

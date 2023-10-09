@@ -10,40 +10,40 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "DxilConvPasses/ScopeNestedCFG.h"
-#include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/Global.h"
+#include "llvm/Analysis/ReducibilityAnalysis.h"
 
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Pass.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/CFG.h"
+#include "llvm/ADT/BitVector.h"
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/ADT/BitVector.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
-#include <vector>
+#include <algorithm>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
-#include <set>
-#include <algorithm>
+#include <vector>
 
 using namespace llvm;
-using std::unique_ptr;
-using std::shared_ptr;
 using std::pair;
-using std::vector;
+using std::set;
+using std::shared_ptr;
+using std::unique_ptr;
 using std::unordered_map;
 using std::unordered_set;
-using std::set;
+using std::vector;
 
-#define SNCFG_DBG   0
+#define SNCFG_DBG 0
 
 //===----------------------------------------------------------------------===//
 //                    ScopeNested CFG Transformation
@@ -51,41 +51,48 @@ using std::set;
 //
 // The transformation requires the following LLVM passes:
 // -simplifycfg -loop-simplify -reg2mem_hlsl to be run on each function.
-// This is to rely on LLVM standard loop analysis info and to be able to clone 
+// This is to rely on LLVM standard loop analysis info and to be able to clone
 // basic blocks, if necessary.
 //
-// The core of the algorithm is the transformation of an acyclic CFG region into 
+// The core of the algorithm is the transformation of an acyclic CFG region into
 // a region that corresponds to control-flow with structured nested scopes.
 // Scoping information is conveyed by inserting helper basic blocks (BBs) and
 // annotating their terminators with the corresponding "dx.BranchKind" metadata
 // (see BranchKind enum in ScopeNestedCFG.h) to make it possible for clients
 // to recover the structure after the pass.
-// 
-// To handle loops, the algorithm transforms each loop nest from the deepest 
-// nested loop upwards. Each transformed loop is conceptually treated as a single loop node,
-// defined by LoopEntry and LoopExit (if there is an exit) BB pair.
-// A loop is made acyclic region by "removing" its backedge.
-// The process finishes with transforming function body starting from the entry basic block (BB).
+//
+// To handle loops, the algorithm transforms each loop nest from the deepest
+// nested loop upwards. Each transformed loop is conceptually treated as a
+// single loop node, defined by LoopEntry and LoopExit (if there is an exit) BB
+// pair. A loop is made acyclic region by "removing" its backedge. The process
+// finishes with transforming function body starting from the entry basic block
+// (BB).
 //
 // Tranforming an acyclic region.
 // 1. Topological ordering is done by DFS graph traversal.
 //    - Each BB is assigned an ID
 //    - For each BB, a set of all reachable BBs is computed.
-// 2. Using topological block order, reachable merge points are propagated along predecessors,
-//    and for each split point (if, switch), the closest merge point is determined, by intersecting 
-//    reachable merge point sets of the successor BBs. A switch uses a heuristic that picks
-//    the closest merge point reachable via majority of successors.
-// 3. The CFG is tranformed to have scope-nested structure. Here are some interesting details:
+// 2. Using topological block order, reachable merge points are propagated along
+// predecessors,
+//    and for each split point (if, switch), the closest merge point is
+//    determined, by intersecting reachable merge point sets of the successor
+//    BBs. A switch uses a heuristic that picks the closest merge point
+//    reachable via majority of successors.
+// 3. The CFG is tranformed to have scope-nested structure. Here are some
+// interesting details:
 //    - A custom scope-stack is used to recover scopes.
-//    - The tranformation operates on the original CFG, with its original structure preserved 
+//    - The tranformation operates on the original CFG, with its original
+//    structure preserved
 //      during transformation until the very last moment.
-//      Cloned BBs are inserted into the CFG and their terminators temporarily form self-loops.
-//      The implementation maintains a set of edges to instantiate as the final, which
-//      destroys the original CFG.
-//    - Loops are treated as a single loop node identified via two BBs: LoopBegin->LoopEnd.
+//      Cloned BBs are inserted into the CFG and their terminators temporarily
+//      form self-loops. The implementation maintains a set of edges to
+//      instantiate as the final, which destroys the original CFG.
+//    - Loops are treated as a single loop node identified via two BBs:
+//    LoopBegin->LoopEnd.
 //      There is a subroutine to clone an entire loop, if there is a need.
 //    - The branches are annotated with dx.BranchKind.
-//    - For a switch scope, the tranformation identifies switch breaks, and then recomputes merge points
+//    - For a switch scope, the tranformation identifies switch breaks, and then
+//    recomputes merge points
 //      for scopes nested inside the switch scope.
 //
 
@@ -95,9 +102,7 @@ class ScopeNestedCFG : public FunctionPass {
 public:
   static char ID;
 
-  explicit ScopeNestedCFG() 
-  : FunctionPass(ID)
-  , m_HelperExitCondIndex(0) {
+  explicit ScopeNestedCFG() : FunctionPass(ID), m_HelperExitCondIndex(0) {
     Clear();
     initializeScopeNestedCFGPass(*PassRegistry::getPassRegistry());
   }
@@ -111,10 +116,10 @@ public:
 
 private:
   struct LoopItem {
-    BasicBlock *pLB;  // Loop begin
-    BasicBlock *pLE;  // Loop end
-    BasicBlock *pLP;  // Loop preheader
-    BasicBlock *pLL;  // Loop latch
+    BasicBlock *pLB; // Loop begin
+    BasicBlock *pLE; // Loop end
+    BasicBlock *pLP; // Loop preheader
+    BasicBlock *pLL; // Loop latch
 
     LoopItem() { pLB = pLE = pLP = pLL = nullptr; }
   };
@@ -126,8 +131,8 @@ private:
   unsigned m_HelperExitCondIndex;
   BasicBlock *m_pLoopHeader;
   vector<Loop *> m_Loops;
-  unordered_map<BasicBlock*, LoopItem> m_LoopMap;
-  unordered_map<BasicBlock*, BasicBlock*> m_LE2LBMap;
+  unordered_map<BasicBlock *, LoopItem> m_LoopMap;
+  unordered_map<BasicBlock *, BasicBlock *> m_LE2LBMap;
 
   void Clear();
 
@@ -135,7 +140,8 @@ private:
   // Preliminary CFG transformations and related utilities.
   //
   void SanitizeBranches();
-  void SanitizeBranchesRec(BasicBlock *pBB, unordered_set<BasicBlock *> &VisitedBB);
+  void SanitizeBranchesRec(BasicBlock *pBB,
+                           unordered_set<BasicBlock *> &VisitedBB);
   void CollectUniqueSuccessors(const BasicBlock *pBB,
                                const BasicBlock *pSuccessorToExclude,
                                vector<BasicBlock *> &Successors);
@@ -149,19 +155,24 @@ private:
   BranchKind GetBranchAnnotation(const BasicBlock *pBB);
   void RemoveBranchAnnotation(BasicBlock *pBB);
 
-  void GetUniqueExitBlocks(const SmallVectorImpl<Loop::Edge> &ExitEdges, SmallVectorImpl<BasicBlock *> &ExitBlocks);
+  void GetUniqueExitBlocks(const SmallVectorImpl<Loop::Edge> &ExitEdges,
+                           SmallVectorImpl<BasicBlock *> &ExitBlocks);
   bool IsLoopBackedge(BasicBlock *pNode);
   bool IsAcyclicRegionTerminator(const BasicBlock *pBB);
 
   BasicBlock *GetEffectiveNodeToFollowSuccessor(BasicBlock *pBB);
   bool IsMergePoint(BasicBlock *pBB);
 
-  BasicBlock *SplitEdge(BasicBlock *pBB, unsigned SuccIdx, const Twine &Name, Loop *pLoop, BasicBlock *pToInsertBB);
-  BasicBlock *SplitEdge(BasicBlock *pBB, BasicBlock *pSucc, const Twine &Name, Loop *pLoop, BasicBlock *pToInsertBB);
-  /// Ensure that the latch node terminates by an unconditional branch. Return the latch node.
+  BasicBlock *SplitEdge(BasicBlock *pBB, unsigned SuccIdx, const Twine &Name,
+                        Loop *pLoop, BasicBlock *pToInsertBB);
+  BasicBlock *SplitEdge(BasicBlock *pBB, BasicBlock *pSucc, const Twine &Name,
+                        Loop *pLoop, BasicBlock *pToInsertBB);
+  /// Ensure that the latch node terminates by an unconditional branch. Return
+  /// the latch node.
   BasicBlock *SanitizeLoopLatch(Loop *pLoop);
   unsigned GetHelperExitCondIndex() { return m_HelperExitCondIndex++; }
-  /// Ensure that loop has either single exit or no exits. Return the exit node or nullptr.
+  /// Ensure that loop has either single exit or no exits. Return the exit node
+  /// or nullptr.
   BasicBlock *SanitizeLoopExits(Loop *pLoop);
   void SanitizeLoopContinues(Loop *pLoop);
   void AnnotateLoopBranches(Loop *pLoop, LoopItem *pLI);
@@ -184,41 +195,41 @@ private:
     struct BasicBlockState {
       BasicBlock *pBB;
       unique_ptr<BitVector> ReachableBBs;
-      BasicBlockState(BasicBlock *p, unique_ptr<BitVector> bv) : pBB(p), ReachableBBs(std::move(bv)) {}
+      BasicBlockState(BasicBlock *p, unique_ptr<BitVector> bv)
+          : pBB(p), ReachableBBs(std::move(bv)) {}
     };
     vector<BasicBlockState> m_BlockState;
     unordered_map<BasicBlock *, unsigned> m_BlockIdMap;
   };
-  void ComputeBlockTopologicalOrderAndReachability(BasicBlock *pEntry, BlockTopologicalOrderAndReachability &BTO);
-  void ComputeBlockTopologicalOrderAndReachabilityRec(BasicBlock *pNode,
-                                                      BlockTopologicalOrderAndReachability &BTO,
-                                                      unordered_map<BasicBlock *, unsigned> &Marks);
+  void ComputeBlockTopologicalOrderAndReachability(
+      BasicBlock *pEntry, BlockTopologicalOrderAndReachability &BTO);
+  void ComputeBlockTopologicalOrderAndReachabilityRec(
+      BasicBlock *pNode, BlockTopologicalOrderAndReachability &BTO,
+      unordered_map<BasicBlock *, unsigned> &Marks);
 
   //
   // Recovery of scope end points.
   //
   struct MergePointInfo {
-    unsigned MP;  // Index of the merge point, if known.
+    unsigned MP; // Index of the merge point, if known.
     set<unsigned> CandidateSet;
   };
-  using MergePointsMap = unordered_map<BasicBlock *, unique_ptr<MergePointInfo> >;
+  using MergePointsMap =
+      unordered_map<BasicBlock *, unique_ptr<MergePointInfo>>;
   using ScopeEndPointsMap = unordered_map<BasicBlock *, BasicBlock *>;
   using SwitchBreaksMap = unordered_map<BasicBlock *, BasicBlock *>;
 
-  void DetermineScopeEndPoints(BasicBlock *pEntry,
-                               bool bRecomputeSwitchScope,
+  void DetermineScopeEndPoints(BasicBlock *pEntry, bool bRecomputeSwitchScope,
                                const BlockTopologicalOrderAndReachability &BTO,
                                const SwitchBreaksMap &SwitchBreaks,
                                ScopeEndPointsMap &ScopeEndPoints,
                                ScopeEndPointsMap &DeltaScopeEndPoints);
-  void DetermineReachableMergePoints(BasicBlock *pEntry,
-                                     BasicBlock *pExit,
-                                     bool bRecomputeSwitchScope,
-                                     const BitVector *pReachableBBs,
-                                     const BlockTopologicalOrderAndReachability &BTO,
-                                     const SwitchBreaksMap &SwitchBreaks,
-                                     const ScopeEndPointsMap &OldScopeEndPoints,
-                                     MergePointsMap &MergePoints);
+  void DetermineReachableMergePoints(
+      BasicBlock *pEntry, BasicBlock *pExit, bool bRecomputeSwitchScope,
+      const BitVector *pReachableBBs,
+      const BlockTopologicalOrderAndReachability &BTO,
+      const SwitchBreaksMap &SwitchBreaks,
+      const ScopeEndPointsMap &OldScopeEndPoints, MergePointsMap &MergePoints);
   void DetermineSwitchBreaks(BasicBlock *pSwitchBegin,
                              const ScopeEndPointsMap &ScopeEndPoints,
                              const BlockTopologicalOrderAndReachability &BTO,
@@ -256,16 +267,10 @@ private:
     shared_ptr<SwitchBreaksMap> SwitchBreaks;
 
     ScopeStackItem()
-    : ScopeKind(Kind::Invalid)
-    , pScopeBeginBB(nullptr)
-    , pClonedScopeBeginBB(nullptr)
-    , pScopeEndBB(nullptr)
-    , pClonedScopeEndBB(nullptr)
-    , SuccIdx(0)
-    , pPrevSuccBB(nullptr)
-    , pClonedPrevSuccBB(nullptr)
-    , bRestoreIfScopeEndPoint(false)
-    {}
+        : ScopeKind(Kind::Invalid), pScopeBeginBB(nullptr),
+          pClonedScopeBeginBB(nullptr), pScopeEndBB(nullptr),
+          pClonedScopeEndBB(nullptr), SuccIdx(0), pPrevSuccBB(nullptr),
+          pClonedPrevSuccBB(nullptr), bRestoreIfScopeEndPoint(false) {}
   };
   vector<ScopeStackItem> m_ScopeStack;
 
@@ -276,28 +281,28 @@ private:
   void PopScope();
 
   // Cloning.
-  void AddEdge(BasicBlock *pClonedSrcBB, unsigned SuccSlotIdx, BasicBlock *pDstBB,
-               unordered_map<BasicBlock *, vector<BasicBlock *> > &Edges);
+  void AddEdge(BasicBlock *pClonedSrcBB, unsigned SuccSlotIdx,
+               BasicBlock *pDstBB,
+               unordered_map<BasicBlock *, vector<BasicBlock *>> &Edges);
   BasicBlock *CloneBasicBlockAndFixupValues(const BasicBlock *pBB,
                                             ValueToValueMapTy &RegionValueRemap,
                                             const Twine &NameSuffix = "");
-  BasicBlock *CloneNode(BasicBlock *pBB, 
-                        unordered_map<BasicBlock *, vector<BasicBlock *> > &BlockClones,
-                        ValueToValueMapTy &RegionValueRemap);
-  BasicBlock *CloneLoop(BasicBlock *pHeaderBB,
-                        BasicBlock *pClonedPreHeaderBB,
-                        unordered_map<BasicBlock *, vector<BasicBlock *> > &BlockClones,
-                        unordered_map<BasicBlock *, vector<BasicBlock *> > &Edges,
-                        ValueToValueMapTy &RegionValueRemap);
-  BasicBlock *CloneLoopRec(BasicBlock *pBB,
-                    BasicBlock *pClonedPredBB,
-                    unsigned ClonedPredIdx,
-                    unordered_map<BasicBlock *, vector<BasicBlock *> > &BlockClones,
-                    unordered_map<BasicBlock *, vector<BasicBlock *> > &Edges,
-                    unordered_set<BasicBlock *> &VisitedBlocks,
-                    const LoopItem &LI,
-                    LoopItem &ClonedLI,
-                    ValueToValueMapTy &RegionValueRemap);
+  BasicBlock *
+  CloneNode(BasicBlock *pBB,
+            unordered_map<BasicBlock *, vector<BasicBlock *>> &BlockClones,
+            ValueToValueMapTy &RegionValueRemap);
+  BasicBlock *
+  CloneLoop(BasicBlock *pHeaderBB, BasicBlock *pClonedPreHeaderBB,
+            unordered_map<BasicBlock *, vector<BasicBlock *>> &BlockClones,
+            unordered_map<BasicBlock *, vector<BasicBlock *>> &Edges,
+            ValueToValueMapTy &RegionValueRemap);
+  BasicBlock *
+  CloneLoopRec(BasicBlock *pBB, BasicBlock *pClonedPredBB,
+               unsigned ClonedPredIdx,
+               unordered_map<BasicBlock *, vector<BasicBlock *>> &BlockClones,
+               unordered_map<BasicBlock *, vector<BasicBlock *>> &Edges,
+               unordered_set<BasicBlock *> &VisitedBlocks, const LoopItem &LI,
+               LoopItem &ClonedLI, ValueToValueMapTy &RegionValueRemap);
 
   //
   // Utility functions.
@@ -314,7 +319,6 @@ private:
 
 char ScopeNestedCFG::ID = 0;
 
-
 bool ScopeNestedCFG::runOnFunction(Function &F) {
 #if SNCFG_DBG
   dbgs() << "ScopeNestedCFG: processing function " << F.getName();
@@ -330,7 +334,8 @@ bool ScopeNestedCFG::runOnFunction(Function &F) {
   SanitizeBranches();
 
   // Collect loops innermost to outermost.
-  for (auto itLoop = m_pLI->begin(), endLoop = m_pLI->end(); itLoop != endLoop; ++itLoop) {
+  for (auto itLoop = m_pLI->begin(), endLoop = m_pLI->end(); itLoop != endLoop;
+       ++itLoop) {
     Loop *pLoop = *itLoop;
     CollectLoopsRec(pLoop);
   }
@@ -392,7 +397,9 @@ bool ScopeNestedCFG::runOnFunction(Function &F) {
     BasicBlock *pHeader = pLoop->getHeader();
     LoopItem LI = m_LoopMap[pHeader];
     BasicBlock *pLatch = LI.pLL;
-    DXASSERT_LOCALVAR_NOMSG(pLatch, pLatch->getTerminator()->getNumSuccessors() == 1 && pLatch->getTerminator()->getSuccessor(0) == pHeader);
+    DXASSERT_LOCALVAR_NOMSG(
+        pLatch, pLatch->getTerminator()->getNumSuccessors() == 1 &&
+                    pLatch->getTerminator()->getSuccessor(0) == pHeader);
 
     m_pLoopHeader = pHeader;
 
@@ -417,7 +424,6 @@ void ScopeNestedCFG::Clear() {
   m_LE2LBMap.clear();
 }
 
-
 //-----------------------------------------------------------------------------
 // Preliminary CFG transformations and related utilities.
 //-----------------------------------------------------------------------------
@@ -426,14 +432,16 @@ void ScopeNestedCFG::SanitizeBranches() {
   SanitizeBranchesRec(m_pFunc->begin(), VisitedBB);
 }
 
-void ScopeNestedCFG::SanitizeBranchesRec(BasicBlock *pBB, unordered_set<BasicBlock *> &VisitedBB) {
+void ScopeNestedCFG::SanitizeBranchesRec(
+    BasicBlock *pBB, unordered_set<BasicBlock *> &VisitedBB) {
   // Mark pBB as visited, and return if pBB already has been visited.
   if (!VisitedBB.emplace(pBB).second)
     return;
 
   // Sanitize branch.
   if (BranchInst *I = dyn_cast<BranchInst>(pBB->getTerminator())) {
-    // a. Convert a conditional branch to unconditional, if successors are the same.
+    // a. Convert a conditional branch to unconditional, if successors are the
+    // same.
     if (I->isConditional()) {
       BasicBlock *pSucc1 = I->getSuccessor(0);
       BasicBlock *pSucc2 = I->getSuccessor(1);
@@ -442,8 +450,7 @@ void ScopeNestedCFG::SanitizeBranchesRec(BasicBlock *pBB, unordered_set<BasicBlo
         I->eraseFromParent();
       }
     }
-  }
-  else if (SwitchInst *I = dyn_cast<SwitchInst>(pBB->getTerminator())) {
+  } else if (SwitchInst *I = dyn_cast<SwitchInst>(pBB->getTerminator())) {
     // b. Group switch successors.
     struct SwitchCaseGroup {
       BasicBlock *pSuccBB;
@@ -453,7 +460,8 @@ void ScopeNestedCFG::SanitizeBranchesRec(BasicBlock *pBB, unordered_set<BasicBlo
     unordered_map<BasicBlock *, unsigned> BB2GroupIdMap;
     BasicBlock *pDefaultBB = I->getDefaultDest();
 
-    for (SwitchInst::CaseIt itCase = I->case_begin(), endCase = I->case_end(); itCase != endCase; ++itCase) {
+    for (SwitchInst::CaseIt itCase = I->case_begin(), endCase = I->case_end();
+         itCase != endCase; ++itCase) {
       BasicBlock *pSuccBB = itCase.getCaseSuccessor();
       ConstantInt *pCaseValue = itCase.getCaseValue();
 
@@ -462,7 +470,7 @@ void ScopeNestedCFG::SanitizeBranchesRec(BasicBlock *pBB, unordered_set<BasicBlo
         continue;
       }
 
-      auto itGroup = BB2GroupIdMap.insert( {pSuccBB, SwitchCaseGroups.size()} );
+      auto itGroup = BB2GroupIdMap.insert({pSuccBB, SwitchCaseGroups.size()});
       if (itGroup.second) {
         SwitchCaseGroups.emplace_back(SwitchCaseGroup{});
       }
@@ -478,7 +486,8 @@ void ScopeNestedCFG::SanitizeBranchesRec(BasicBlock *pBB, unordered_set<BasicBlo
       BranchInst::Create(pDefaultBB, I);
       I->eraseFromParent();
     } else {
-      // Rewrite switch instruction such that case labels are grouped by the successor.
+      // Rewrite switch instruction such that case labels are grouped by the
+      // successor.
       unsigned CaseIdx = 0;
       for (const SwitchCaseGroup &G : SwitchCaseGroups) {
         for (ConstantInt *pCaseValue : G.CaseValue) {
@@ -488,14 +497,15 @@ void ScopeNestedCFG::SanitizeBranchesRec(BasicBlock *pBB, unordered_set<BasicBlo
         }
       }
       // Remove unused case labels.
-      for (unsigned NumCases = I->getNumCases(); CaseIdx < NumCases; NumCases--) {
-        I->removeCase(SwitchInst::CaseIt{I, NumCases-1});
+      for (unsigned NumCases = I->getNumCases(); CaseIdx < NumCases;
+           NumCases--) {
+        I->removeCase(SwitchInst::CaseIt{I, NumCases - 1});
       }
     }
   }
 
   // Recurse, visiting each successor group once.
-  TerminatorInst * pTI = pBB->getTerminator();
+  TerminatorInst *pTI = pBB->getTerminator();
   BasicBlock *pPrevSuccBB = nullptr;
   for (unsigned i = 0; i < pTI->getNumSuccessors(); i++) {
     BasicBlock *pSuccBB = pTI->getSuccessor(i);
@@ -506,9 +516,9 @@ void ScopeNestedCFG::SanitizeBranchesRec(BasicBlock *pBB, unordered_set<BasicBlo
   }
 }
 
-void ScopeNestedCFG::CollectUniqueSuccessors(const BasicBlock *pBB,
-                                             const BasicBlock *pSuccessorToExclude,
-                                             vector<BasicBlock *> &Successors) {
+void ScopeNestedCFG::CollectUniqueSuccessors(
+    const BasicBlock *pBB, const BasicBlock *pSuccessorToExclude,
+    vector<BasicBlock *> &Successors) {
   DXASSERT_NOMSG(Successors.empty());
   const TerminatorInst *pTI = pBB->getTerminator();
   BasicBlock *pPrevSuccBB = nullptr;
@@ -524,12 +534,12 @@ void ScopeNestedCFG::CollectUniqueSuccessors(const BasicBlock *pBB,
   }
 }
 
-
 //-----------------------------------------------------------------------------
 // Loop region transformations.
 //-----------------------------------------------------------------------------
 void ScopeNestedCFG::CollectLoopsRec(Loop *pLoop) {
-  for (auto itLoop = pLoop->begin(), endLoop = pLoop->end(); itLoop != endLoop; ++itLoop ) {
+  for (auto itLoop = pLoop->begin(), endLoop = pLoop->end(); itLoop != endLoop;
+       ++itLoop) {
     Loop *pNestedLoop = *itLoop;
     CollectLoopsRec(pNestedLoop);
   }
@@ -539,7 +549,9 @@ void ScopeNestedCFG::CollectLoopsRec(Loop *pLoop) {
 
 void ScopeNestedCFG::AnnotateBranch(BasicBlock *pBB, BranchKind Kind) {
   TerminatorInst *pTI = pBB->getTerminator();
-  DXASSERT(dyn_cast<BranchInst>(pTI) != nullptr || dyn_cast<SwitchInst>(pTI) != nullptr, "annotate only branch and switch terminators");
+  DXASSERT(dyn_cast<BranchInst>(pTI) != nullptr ||
+               dyn_cast<SwitchInst>(pTI) != nullptr,
+           "annotate only branch and switch terminators");
 
   // Check that we are not changing the annotation.
   MDNode *pMD = pTI->getMetadata("dx.BranchKind");
@@ -547,13 +559,18 @@ void ScopeNestedCFG::AnnotateBranch(BasicBlock *pBB, BranchKind Kind) {
     ConstantAsMetadata *p1 = dyn_cast<ConstantAsMetadata>(pMD->getOperand(0));
     ConstantInt *pVal = dyn_cast<ConstantInt>(p1->getValue());
     BranchKind OldKind = (BranchKind)pVal->getZExtValue();
-    DXASSERT_LOCALVAR(OldKind, OldKind == Kind ||
-             (OldKind == BranchKind::IfBegin && Kind == BranchKind::IfNoEnd) ||
-             (OldKind == BranchKind::IfNoEnd && Kind == BranchKind::IfBegin),
-             "the algorithm should not be changing branch types implicitly (unless it is an if)");
+    DXASSERT_LOCALVAR(
+        OldKind,
+        OldKind == Kind ||
+            (OldKind == BranchKind::IfBegin && Kind == BranchKind::IfNoEnd) ||
+            (OldKind == BranchKind::IfNoEnd && Kind == BranchKind::IfBegin),
+        "the algorithm should not be changing branch types implicitly (unless "
+        "it is an if)");
   }
 
-  pTI->setMetadata("dx.BranchKind", MDNode::get(*m_pCtx, ConstantAsMetadata::get(GetI32Const((int)Kind))));
+  pTI->setMetadata(
+      "dx.BranchKind",
+      MDNode::get(*m_pCtx, ConstantAsMetadata::get(GetI32Const((int)Kind))));
 }
 
 BranchKind ScopeNestedCFG::GetBranchAnnotation(const BasicBlock *pBB) {
@@ -572,8 +589,9 @@ void ScopeNestedCFG::RemoveBranchAnnotation(BasicBlock *pBB) {
   pTI->setMetadata("dx.BranchKind", nullptr);
 }
 
-void ScopeNestedCFG::GetUniqueExitBlocks(const SmallVectorImpl<Loop::Edge> &ExitEdges,
-                                         SmallVectorImpl<BasicBlock *> &ExitBlocks) {
+void ScopeNestedCFG::GetUniqueExitBlocks(
+    const SmallVectorImpl<Loop::Edge> &ExitEdges,
+    SmallVectorImpl<BasicBlock *> &ExitBlocks) {
   DXASSERT_NOMSG(ExitBlocks.empty());
   unordered_set<BasicBlock *> S;
   for (size_t i = 0; i < ExitEdges.size(); i++) {
@@ -630,14 +648,15 @@ BasicBlock *ScopeNestedCFG::GetEffectiveNodeToFollowSuccessor(BasicBlock *pBB) {
 
 bool ScopeNestedCFG::IsMergePoint(BasicBlock *pBB) {
   unordered_set<BasicBlock *> UniquePredecessors;
-  for (auto itPred = pred_begin(pBB), endPred = pred_end(pBB); itPred != endPred; ++itPred) {
+  for (auto itPred = pred_begin(pBB), endPred = pred_end(pBB);
+       itPred != endPred; ++itPred) {
     BasicBlock *pPredBB = *itPred;
     if (IsLoopBackedge(pPredBB))
       continue;
 
     UniquePredecessors.insert(pPredBB);
   }
-      
+
   return UniquePredecessors.size() >= 2;
 }
 
@@ -657,13 +676,16 @@ bool ScopeNestedCFG::IsAcyclicRegionTerminator(const BasicBlock *pNode) {
   return false;
 }
 
-
-BasicBlock *ScopeNestedCFG::SplitEdge(BasicBlock *pBB, BasicBlock *pSucc, const Twine &Name, Loop *pLoop, BasicBlock *pToInsertBB) {
+BasicBlock *ScopeNestedCFG::SplitEdge(BasicBlock *pBB, BasicBlock *pSucc,
+                                      const Twine &Name, Loop *pLoop,
+                                      BasicBlock *pToInsertBB) {
   unsigned SuccIdx = GetSuccessorNumber(pBB, pSucc);
   return SplitEdge(pBB, SuccIdx, Name, pLoop, pToInsertBB);
 }
 
-BasicBlock *ScopeNestedCFG::SplitEdge(BasicBlock *pBB, unsigned SuccIdx, const Twine &Name, Loop *pLoop, BasicBlock *pToInsertBB) {
+BasicBlock *ScopeNestedCFG::SplitEdge(BasicBlock *pBB, unsigned SuccIdx,
+                                      const Twine &Name, Loop *pLoop,
+                                      BasicBlock *pToInsertBB) {
   BasicBlock *pNewBB = pToInsertBB;
   if (pToInsertBB == nullptr) {
     pNewBB = BasicBlock::Create(*m_pCtx, Name, m_pFunc, pBB->getNextNode());
@@ -680,7 +702,8 @@ BasicBlock *ScopeNestedCFG::SplitEdge(BasicBlock *pBB, unsigned SuccIdx, const T
     BranchInst::Create(pSucc, pNewBB);
   } else {
     TerminatorInst *pTI = pNewBB->getTerminator();
-    DXASSERT_NOMSG(dyn_cast<BranchInst>(pTI) != nullptr && pTI->getNumSuccessors() == 1);
+    DXASSERT_NOMSG(dyn_cast<BranchInst>(pTI) != nullptr &&
+                   pTI->getNumSuccessors() == 1);
     pTI->setSuccessor(0, pSucc);
   }
 
@@ -692,12 +715,12 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopLatch(Loop *pLoop) {
   BasicBlock *pLatch = pLoop->getLoopLatch();
 
   TerminatorInst *pTI = pLatch->getTerminator();
-  DXASSERT_NOMSG(pTI->getNumSuccessors() != 0 && dyn_cast<ReturnInst>(pTI) == nullptr);
+  DXASSERT_NOMSG(pTI->getNumSuccessors() != 0 &&
+                 dyn_cast<ReturnInst>(pTI) == nullptr);
 
   BasicBlock *pNewLatch = pLatch;
   // Make sure that latch node is empty and terminates with a 'br'.
-  if (dyn_cast<BranchInst>(pTI) == nullptr || 
-      (&*pLatch->begin()) != pTI ||
+  if (dyn_cast<BranchInst>(pTI) == nullptr || (&*pLatch->begin()) != pTI ||
       pTI->getNumSuccessors() > 1) {
     pNewLatch = SplitEdge(pLatch, pHeader, "dx.LoopLatch", pLoop, nullptr);
   }
@@ -719,18 +742,20 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopExits(Loop *pLoop) {
     // A loop without breaks.
     return nullptr;
   }
-  
+
   // Create the loop exit BB.
-  BasicBlock *pExit = BasicBlock::Create(*m_pCtx, "dx.LoopExit", m_pFunc, pLatch->getNextNode());
+  BasicBlock *pExit = BasicBlock::Create(*m_pCtx, "dx.LoopExit", m_pFunc,
+                                         pLatch->getNextNode());
   if (pOuterLoop != nullptr) {
     pOuterLoop->addBasicBlockToLoop(pExit, *m_pLI);
   }
-  
+
   // Create helper exit blocks.
   SmallVector<BasicBlock *, 8> HelperExitBBs;
   for (size_t iExitBB = 0; iExitBB < OldExitBBs.size(); iExitBB++) {
     BasicBlock *pOldExit = OldExitBBs[iExitBB];
-    BasicBlock *pNewExit = BasicBlock::Create(*m_pCtx, "dx.LoopExitHelper", m_pFunc, pLatch->getNextNode());
+    BasicBlock *pNewExit = BasicBlock::Create(*m_pCtx, "dx.LoopExitHelper",
+                                              m_pFunc, pLatch->getNextNode());
     HelperExitBBs.push_back(pNewExit);
 
     if (pOuterLoop != nullptr) {
@@ -739,7 +764,8 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopExits(Loop *pLoop) {
 
     // Adjust exit edges.
     SmallVector<BasicBlock *, 8> OldExitPredBBs;
-    for (auto itPred = pred_begin(pOldExit), endPred = pred_end(pOldExit); itPred != endPred; ++itPred) {
+    for (auto itPred = pred_begin(pOldExit), endPred = pred_end(pOldExit);
+         itPred != endPred; ++itPred) {
       OldExitPredBBs.push_back(*itPred);
     }
     for (size_t PredIdx = 0; PredIdx < OldExitPredBBs.size(); PredIdx++) {
@@ -767,9 +793,9 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopExits(Loop *pLoop) {
     BasicBlock *pOldExit = OldExitBBs[ExitIdx];
 
     // Declare helper-exit guard variable.
-    AllocaInst *pAI = new AllocaInst(Type::getInt1Ty(*m_pCtx), 
-                                     Twine("dx.LoopExitHelperCond"),
-                                     m_pFunc->begin()->begin());
+    AllocaInst *pAI =
+        new AllocaInst(Type::getInt1Ty(*m_pCtx), Twine("dx.LoopExitHelperCond"),
+                       m_pFunc->begin()->begin());
 
     // Initialize the guard to 'false' before the loop.
     new StoreInst(GetFalse(), pAI, pPreHeader->getTerminator());
@@ -778,7 +804,8 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopExits(Loop *pLoop) {
     new StoreInst(GetTrue(), pAI, pExitHelper->begin());
 
     // Insert an 'if' to conditionally guard exit execution.
-    BasicBlock *pIfBB = BasicBlock::Create(*m_pCtx, "dx.LoopExitHelperIf", m_pFunc, pExit->getNextNode());
+    BasicBlock *pIfBB = BasicBlock::Create(*m_pCtx, "dx.LoopExitHelperIf",
+                                           m_pFunc, pExit->getNextNode());
     if (pOuterLoop != nullptr) {
       pOuterLoop->addBasicBlockToLoop(pIfBB, *m_pLI);
     }
@@ -797,7 +824,8 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopExits(Loop *pLoop) {
     // Collect unique predecessors.
     SmallVector<BasicBlock *, 8> PredBBs;
     unordered_set<BasicBlock *> UniquePredBBs;
-    for (auto itPred = pred_begin(pHelperBB), endPred = pred_end(pHelperBB); itPred != endPred; ++itPred) {
+    for (auto itPred = pred_begin(pHelperBB), endPred = pred_end(pHelperBB);
+         itPred != endPred; ++itPred) {
       BasicBlock *pPredBB = *itPred;
       auto P = UniquePredBBs.insert(pPredBB);
       if (P.second) {
@@ -814,7 +842,9 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopExits(Loop *pLoop) {
         pOuterLoop->addBasicBlockToLoop(pClone, *m_pLI);
       }
       // Redirect predecessor successors.
-      for (unsigned PredSuccIdx = 0; PredSuccIdx < pPredBB->getTerminator()->getNumSuccessors(); PredSuccIdx++) {
+      for (unsigned PredSuccIdx = 0;
+           PredSuccIdx < pPredBB->getTerminator()->getNumSuccessors();
+           PredSuccIdx++) {
         if (pPredBB->getTerminator()->getSuccessor(PredSuccIdx) != pHelperBB)
           continue;
 
@@ -836,11 +866,14 @@ BasicBlock *ScopeNestedCFG::SanitizeLoopExits(Loop *pLoop) {
 void ScopeNestedCFG::SanitizeLoopContinues(Loop *pLoop) {
   BasicBlock *pLatch = pLoop->getLoopLatch();
   TerminatorInst *pLatchTI = pLatch->getTerminator();
-  DXASSERT_LOCALVAR_NOMSG(pLatchTI, dyn_cast<BranchInst>(pLatchTI) != nullptr && pLatchTI->getNumSuccessors() == 1 && (&*pLatch->begin()) == pLatchTI);
+  DXASSERT_LOCALVAR_NOMSG(pLatchTI, dyn_cast<BranchInst>(pLatchTI) != nullptr &&
+                                        pLatchTI->getNumSuccessors() == 1 &&
+                                        (&*pLatch->begin()) == pLatchTI);
 
   // Collect continue BBs.
   SmallVector<BasicBlock *, 8> LatchPredBBs;
-  for (auto itPred = pred_begin(pLatch), endPred = pred_end(pLatch); itPred != endPred; ++itPred) {
+  for (auto itPred = pred_begin(pLatch), endPred = pred_end(pLatch);
+       itPred != endPred; ++itPred) {
     BasicBlock *pPredBB = *itPred;
     LatchPredBBs.push_back(pPredBB);
   }
@@ -850,8 +883,10 @@ void ScopeNestedCFG::SanitizeLoopContinues(Loop *pLoop) {
   for (size_t i = 0; i < LatchPredBBs.size(); i++) {
     BasicBlock *pPredBB = LatchPredBBs[i];
 
-    BasicBlock *pContinue = SplitEdge(pPredBB, pLatch, "dx.LoopContinue", pLoop, nullptr);
-    DXASSERT_LOCALVAR_NOMSG(pContinue, pContinue->getTerminator()->getNumSuccessors() == 1);
+    BasicBlock *pContinue =
+        SplitEdge(pPredBB, pLatch, "dx.LoopContinue", pLoop, nullptr);
+    DXASSERT_LOCALVAR_NOMSG(
+        pContinue, pContinue->getTerminator()->getNumSuccessors() == 1);
     DXASSERT_NOMSG((++pred_begin(pContinue)) == pred_end(pContinue));
   }
 }
@@ -864,7 +899,8 @@ void ScopeNestedCFG::AnnotateLoopBranches(Loop *pLoop, LoopItem *pLI) {
     DXASSERT_NOMSG(pLI->pLE->getTerminator()->getNumSuccessors() == 1);
 
     // Record and annotate loop breaks.
-    for (auto itPred = pred_begin(pLI->pLE), endPred = pred_end(pLI->pLE); itPred != endPred; ++itPred) {
+    for (auto itPred = pred_begin(pLI->pLE), endPred = pred_end(pLI->pLE);
+         itPred != endPred; ++itPred) {
       BasicBlock *pPredBB = *itPred;
       DXASSERT_NOMSG(pPredBB->getTerminator()->getNumSuccessors() == 1);
       AnnotateBranch(pPredBB, BranchKind::LoopBreak);
@@ -874,7 +910,8 @@ void ScopeNestedCFG::AnnotateLoopBranches(Loop *pLoop, LoopItem *pLI) {
   }
 
   // Record and annotate loop continues.
-  for (auto itPred = pred_begin(pLI->pLL), endPred = pred_end(pLI->pLL); itPred != endPred; ++itPred) {
+  for (auto itPred = pred_begin(pLI->pLL), endPred = pred_end(pLI->pLL);
+       itPred != endPred; ++itPred) {
     BasicBlock *pPredBB = *itPred;
     DXASSERT_NOMSG(pPredBB->getTerminator()->getNumSuccessors() == 1);
     DXASSERT_NOMSG((++pred_begin(pPredBB)) == pred_end(pPredBB));
@@ -885,29 +922,31 @@ void ScopeNestedCFG::AnnotateLoopBranches(Loop *pLoop, LoopItem *pLI) {
   AnnotateBranch(pLI->pLL, BranchKind::LoopBackEdge);
 }
 
-
 //-----------------------------------------------------------------------------
 // BasicBlock topological order for acyclic region.
 //-----------------------------------------------------------------------------
-void ScopeNestedCFG::BlockTopologicalOrderAndReachability::AppendBlock(BasicBlock *pBB, 
-                                                                       unique_ptr<BitVector> ReachableBBs) {
+void ScopeNestedCFG::BlockTopologicalOrderAndReachability::AppendBlock(
+    BasicBlock *pBB, unique_ptr<BitVector> ReachableBBs) {
   unsigned Id = (unsigned)m_BlockState.size();
-  auto itp = m_BlockIdMap.insert( {pBB, Id } );
+  auto itp = m_BlockIdMap.insert({pBB, Id});
   DXASSERT_NOMSG(itp.second);
   ReachableBBs->set(Id);
   m_BlockState.emplace_back(BasicBlockState(pBB, std::move(ReachableBBs)));
 }
 
-unsigned ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetNumBlocks() const {
+unsigned
+ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetNumBlocks() const {
   DXASSERT_NOMSG(m_BlockState.size() < UINT32_MAX);
   return (unsigned)m_BlockState.size();
 }
 
-BasicBlock *ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetBlock(unsigned Id) const {
+BasicBlock *ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetBlock(
+    unsigned Id) const {
   return m_BlockState[Id].pBB;
 }
 
-unsigned ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetBlockId(BasicBlock *pBB) const { 
+unsigned ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetBlockId(
+    BasicBlock *pBB) const {
   const auto it = m_BlockIdMap.find(pBB);
   if (it != m_BlockIdMap.cend())
     return it->second;
@@ -915,15 +954,20 @@ unsigned ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetBlockId(BasicB
     return UINT32_MAX;
 }
 
-BitVector *ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetReachableBBs(BasicBlock *pBB) const {
+BitVector *
+ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetReachableBBs(
+    BasicBlock *pBB) const {
   return GetReachableBBs(GetBlockId(pBB));
 }
 
-BitVector *ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetReachableBBs(unsigned Id) const {
+BitVector *
+ScopeNestedCFG::BlockTopologicalOrderAndReachability::GetReachableBBs(
+    unsigned Id) const {
   return m_BlockState[Id].ReachableBBs.get();
 }
 
-void ScopeNestedCFG::BlockTopologicalOrderAndReachability::dump(raw_ostream &OS) const {
+void ScopeNestedCFG::BlockTopologicalOrderAndReachability::dump(
+    raw_ostream &OS) const {
   for (unsigned i = 0; i < GetNumBlocks(); i++) {
     BasicBlock *pBB = GetBlock(i);
     DXASSERT_NOMSG(GetBlockId(pBB) == i);
@@ -932,7 +976,8 @@ void ScopeNestedCFG::BlockTopologicalOrderAndReachability::dump(raw_ostream &OS)
     bool bFirst = true;
     for (unsigned j = 0; j < GetNumBlocks(); j++) {
       if (pReachableBBs->test(j)) {
-        if (!bFirst) OS << ", ";
+        if (!bFirst)
+          OS << ", ";
         OS << j;
         bFirst = false;
       }
@@ -941,20 +986,21 @@ void ScopeNestedCFG::BlockTopologicalOrderAndReachability::dump(raw_ostream &OS)
   }
 }
 
-void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachability(BasicBlock *pEntry, 
-                                                                 BlockTopologicalOrderAndReachability &BTO) {
+void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachability(
+    BasicBlock *pEntry, BlockTopologicalOrderAndReachability &BTO) {
   unordered_map<BasicBlock *, unsigned> WaterMarks;
   ComputeBlockTopologicalOrderAndReachabilityRec(pEntry, BTO, WaterMarks);
 
 #if SNCFG_DBG
-  dbgs() << "\nBB topological order and reachable BBs rooted at " << pEntry->getName() << ":\n";
+  dbgs() << "\nBB topological order and reachable BBs rooted at "
+         << pEntry->getName() << ":\n";
   BTO.dump(dbgs());
 #endif
 }
 
-void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachabilityRec(BasicBlock *pNode,
-                                                                    BlockTopologicalOrderAndReachability &BTO,
-                                                                    unordered_map<BasicBlock *, unsigned> &Marks) {
+void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachabilityRec(
+    BasicBlock *pNode, BlockTopologicalOrderAndReachability &BTO,
+    unordered_map<BasicBlock *, unsigned> &Marks) {
   auto itMarkBB = Marks.find(pNode);
   if (Marks.find(pNode) != Marks.end()) {
     DXASSERT(itMarkBB->second == 2, "acyclic component has a cycle");
@@ -970,7 +1016,8 @@ void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachabilityRec(BasicBlock *
     return;
   }
 
-  BasicBlock *pNodeToFollowSuccessors = GetEffectiveNodeToFollowSuccessor(pNode);
+  BasicBlock *pNodeToFollowSuccessors =
+      GetEffectiveNodeToFollowSuccessor(pNode);
 
   // Loop with no exit.
   if (pNodeToFollowSuccessors == nullptr) {
@@ -982,7 +1029,9 @@ void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachabilityRec(BasicBlock *
   Marks[pNode] = 1; // early watermark
 
   auto ReachableBBs = std::make_unique<BitVector>(NumBBs, false);
-  for (auto itSucc = succ_begin(pNodeToFollowSuccessors), endSucc = succ_end(pNodeToFollowSuccessors); itSucc != endSucc; ++itSucc) {
+  for (auto itSucc = succ_begin(pNodeToFollowSuccessors),
+            endSucc = succ_end(pNodeToFollowSuccessors);
+       itSucc != endSucc; ++itSucc) {
     BasicBlock *pSuccBB = *itSucc;
 
     ComputeBlockTopologicalOrderAndReachabilityRec(pSuccBB, BTO, Marks);
@@ -995,19 +1044,18 @@ void ScopeNestedCFG::ComputeBlockTopologicalOrderAndReachabilityRec(BasicBlock *
   BTO.AppendBlock(pNode, std::move(ReachableBBs));
 }
 
-
 //-----------------------------------------------------------------------------
 // Recovery of scope end points.
 //-----------------------------------------------------------------------------
-void ScopeNestedCFG::DetermineScopeEndPoints(BasicBlock *pEntry,
-                                             bool bRecomputeSwitchScope,
-                                             const BlockTopologicalOrderAndReachability &BTO,
-                                             const SwitchBreaksMap &SwitchBreaks,
-                                             ScopeEndPointsMap &ScopeEndPoints,
-                                             ScopeEndPointsMap &DeltaScopeEndPoints) {
+void ScopeNestedCFG::DetermineScopeEndPoints(
+    BasicBlock *pEntry, bool bRecomputeSwitchScope,
+    const BlockTopologicalOrderAndReachability &BTO,
+    const SwitchBreaksMap &SwitchBreaks, ScopeEndPointsMap &ScopeEndPoints,
+    ScopeEndPointsMap &DeltaScopeEndPoints) {
   DXASSERT_NOMSG(DeltaScopeEndPoints.empty());
 
-  // 1. Determine sets of reachable merge points and identifiable scope end points.
+  // 1. Determine sets of reachable merge points and identifiable scope end
+  // points.
   MergePointsMap MergePoints;
   BasicBlock *pExit = nullptr;
   BitVector *pReachableBBs = nullptr;
@@ -1018,8 +1066,9 @@ void ScopeNestedCFG::DetermineScopeEndPoints(BasicBlock *pEntry,
     }
     pReachableBBs = BTO.GetReachableBBs(pEntry);
   }
-  DetermineReachableMergePoints(pEntry, pExit, bRecomputeSwitchScope, pReachableBBs,
-                                BTO, SwitchBreaks, ScopeEndPoints, MergePoints);
+  DetermineReachableMergePoints(pEntry, pExit, bRecomputeSwitchScope,
+                                pReachableBBs, BTO, SwitchBreaks,
+                                ScopeEndPoints, MergePoints);
 
   // 2. Construct partial scope end points map.
   for (auto &itMPI : MergePoints) {
@@ -1032,7 +1081,8 @@ void ScopeNestedCFG::DetermineScopeEndPoints(BasicBlock *pEntry,
     }
 
     auto itOldEndPointBB = ScopeEndPoints.find(pBB);
-    if (itOldEndPointBB != ScopeEndPoints.end() && itOldEndPointBB->second != pEndBB) {
+    if (itOldEndPointBB != ScopeEndPoints.end() &&
+        itOldEndPointBB->second != pEndBB) {
       DeltaScopeEndPoints[pBB] = itOldEndPointBB->second;
       itOldEndPointBB->second = pEndBB;
     } else {
@@ -1055,14 +1105,12 @@ void ScopeNestedCFG::DetermineScopeEndPoints(BasicBlock *pEntry,
 #endif
 }
 
-void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
-                                                   BasicBlock *pExit,
-                                                   bool bRecomputeSwitchScope,
-                                                   const BitVector *pReachableBBs,
-                                                   const BlockTopologicalOrderAndReachability &BTO,
-                                                   const SwitchBreaksMap &SwitchBreaks,
-                                                   const ScopeEndPointsMap &OldScopeEndPoints,
-                                                   MergePointsMap &MergePoints) {
+void ScopeNestedCFG::DetermineReachableMergePoints(
+    BasicBlock *pEntry, BasicBlock *pExit, bool bRecomputeSwitchScope,
+    const BitVector *pReachableBBs,
+    const BlockTopologicalOrderAndReachability &BTO,
+    const SwitchBreaksMap &SwitchBreaks,
+    const ScopeEndPointsMap &OldScopeEndPoints, MergePointsMap &MergePoints) {
   DXASSERT_NOMSG(MergePoints.empty());
   unsigned MinBBIdx = 0;
   unsigned MaxBBIdx = BTO.GetNumBlocks() - 1;
@@ -1080,19 +1128,22 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
     BasicBlock *pBB = BTO.GetBlock(iBB);
     MergePoints[pBB] = unique_ptr<MergePointInfo>(new MergePointInfo);
     MergePointInfo &MPI = *MergePoints[pBB];
-    BasicBlock *pNodeToFollowSuccessors = GetEffectiveNodeToFollowSuccessor(pBB);
+    BasicBlock *pNodeToFollowSuccessors =
+        GetEffectiveNodeToFollowSuccessor(pBB);
 
     MPI.MP = UINT32_MAX;
 
-    if (!IsAcyclicRegionTerminator(pBB) && 
-        pNodeToFollowSuccessors != nullptr && 
+    if (!IsAcyclicRegionTerminator(pBB) && pNodeToFollowSuccessors != nullptr &&
         !IsLoopBackedge(pNodeToFollowSuccessors) &&
         !(bRecomputeSwitchScope && pBB == pExit)) {
       // a. Collect unique successors, excluding switch break.
       const auto itSwitchBreaks = SwitchBreaks.find(pBB);
-      const BasicBlock *pSwitchBreak = (itSwitchBreaks == SwitchBreaks.cend()) ? nullptr : itSwitchBreaks->second;
+      const BasicBlock *pSwitchBreak = (itSwitchBreaks == SwitchBreaks.cend())
+                                           ? nullptr
+                                           : itSwitchBreaks->second;
       vector<BasicBlock *> Successors;
-      CollectUniqueSuccessors(pNodeToFollowSuccessors, pSwitchBreak, Successors);
+      CollectUniqueSuccessors(pNodeToFollowSuccessors, pSwitchBreak,
+                              Successors);
 
       // b. Partition successors.
       struct Partition {
@@ -1103,7 +1154,8 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
 
       for (auto pSuccBB : Successors) {
         if (MergePoints.find(pSuccBB) == MergePoints.end()) {
-          DXASSERT_NOMSG(bRecomputeSwitchScope && BTO.GetBlockId(pSuccBB) < MinBBIdx);
+          DXASSERT_NOMSG(bRecomputeSwitchScope &&
+                         BTO.GetBlockId(pSuccBB) < MinBBIdx);
           MergePoints[pSuccBB] = std::make_unique<MergePointInfo>();
         }
         MergePointInfo &SuccMPI = *MergePoints[pSuccBB];
@@ -1112,9 +1164,10 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
         bool bFound = false;
         for (auto &P : Partitions) {
           set<unsigned> Intersection;
-          std::set_intersection(P.MPIndices.begin(), P.MPIndices.end(),
-                                SuccMPI.CandidateSet.begin(), SuccMPI.CandidateSet.end(),
-                                std::inserter(Intersection, Intersection.end()));
+          std::set_intersection(
+              P.MPIndices.begin(), P.MPIndices.end(),
+              SuccMPI.CandidateSet.begin(), SuccMPI.CandidateSet.end(),
+              std::inserter(Intersection, Intersection.end()));
           if (!Intersection.empty()) {
             swap(P.MPIndices, Intersection);
             P.Blocks.insert(pSuccBB);
@@ -1137,7 +1190,8 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
         auto &Intersection = Partitions[0].MPIndices;
         if (!Intersection.empty()) {
           MPI.MP = *Intersection.crbegin();
-          swap(MPI.CandidateSet, Intersection); // discard partition set, as we do not need it anymore.
+          swap(MPI.CandidateSet, Intersection); // discard partition set, as we
+                                                // do not need it anymore.
         } else {
           MPI.MP = UINT32_MAX;
         }
@@ -1146,7 +1200,8 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
         MPI.MP = UINT32_MAX;
 
         // For switch, select the largest partition with at least two elements.
-        if (SwitchInst *pSI = dyn_cast<SwitchInst>(pNodeToFollowSuccessors->getTerminator())) {
+        if (SwitchInst *pSI = dyn_cast<SwitchInst>(
+                pNodeToFollowSuccessors->getTerminator())) {
           size_t MaxPartSize = 0;
           size_t MaxPartIdx = 0;
           for (size_t i = 0; i < Partitions.size(); i++) {
@@ -1159,10 +1214,13 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
 
           if (MaxPartSize >= 2) {
             MPI.MP = *Partitions[MaxPartIdx].MPIndices.crbegin();
-            swap(MPI.CandidateSet, Partitions[MaxPartIdx].MPIndices); // discard partition set, as we do not need it anymore.
+            swap(
+                MPI.CandidateSet,
+                Partitions[MaxPartIdx].MPIndices); // discard partition set, as
+                                                   // we do not need it anymore.
           }
 
-          //TODO: during final testing consider to remove.
+          // TODO: during final testing consider to remove.
           if (MPI.MP == UINT32_MAX) {
             auto itOldMP = OldScopeEndPoints.find(pBB);
             if (itOldMP != OldScopeEndPoints.end()) {
@@ -1180,7 +1238,8 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
 
             set<unsigned> TmpSet;
             std::set_union(Union.begin(), Union.end(),
-                           SuccMPI.CandidateSet.begin(), SuccMPI.CandidateSet.end(),
+                           SuccMPI.CandidateSet.begin(),
+                           SuccMPI.CandidateSet.end(),
                            std::inserter(TmpSet, TmpSet.end()));
             swap(Union, TmpSet);
           }
@@ -1198,8 +1257,8 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
     }
   }
 
-  //TODO: during final testing consider to remove.
-  // Compensate switch end point.
+  // TODO: during final testing consider to remove.
+  //  Compensate switch end point.
   if (SwitchInst *pSI = dyn_cast<SwitchInst>(pEntry->getTerminator())) {
     auto itOldEP = OldScopeEndPoints.find(pEntry);
     auto itMP = MergePoints.find(pEntry);
@@ -1221,16 +1280,19 @@ void ScopeNestedCFG::DetermineReachableMergePoints(BasicBlock *pEntry,
   for (auto it = MergePoints.begin(); it != MergePoints.end(); ++it) {
     BasicBlock *pBB = it->first;
     MergePointInfo &MPI = *it->second;
-    dbgs() << it->first->getName() << ":  ID = " << BTO.GetBlockId(pBB) << ", MP = " << (int)MPI.MP << "\n";
-    dbgs() << "  CandidateSet = "; DumpIntSet(dbgs(), MPI.CandidateSet); dbgs() << "\n";
+    dbgs() << it->first->getName() << ":  ID = " << BTO.GetBlockId(pBB)
+           << ", MP = " << (int)MPI.MP << "\n";
+    dbgs() << "  CandidateSet = ";
+    DumpIntSet(dbgs(), MPI.CandidateSet);
+    dbgs() << "\n";
   }
 #endif
 }
 
-void ScopeNestedCFG::DetermineSwitchBreaks(BasicBlock *pSwitchBegin,
-                                           const ScopeEndPointsMap &ScopeEndPoints,
-                                           const BlockTopologicalOrderAndReachability &BTO,
-                                           SwitchBreaksMap &SwitchBreaks) {
+void ScopeNestedCFG::DetermineSwitchBreaks(
+    BasicBlock *pSwitchBegin, const ScopeEndPointsMap &ScopeEndPoints,
+    const BlockTopologicalOrderAndReachability &BTO,
+    SwitchBreaksMap &SwitchBreaks) {
   DXASSERT_NOMSG(SwitchBreaks.empty());
   TerminatorInst *pTI = pSwitchBegin->getTerminator();
   DXASSERT_LOCALVAR_NOMSG(pTI, dyn_cast<SwitchInst>(pTI) != nullptr);
@@ -1244,7 +1306,8 @@ void ScopeNestedCFG::DetermineSwitchBreaks(BasicBlock *pSwitchBegin,
     return;
 
   BitVector *pReachableFromSwitchBegin = BTO.GetReachableBBs(pSwitchBegin);
-  for (auto itPred = pred_begin(pSwitchEnd), endPred = pred_end(pSwitchEnd); itPred != endPred; ++itPred) {
+  for (auto itPred = pred_begin(pSwitchEnd), endPred = pred_end(pSwitchEnd);
+       itPred != endPred; ++itPred) {
     BasicBlock *pPredBB = *itPred;
     unsigned PredId = BTO.GetBlockId(pPredBB);
 
@@ -1254,7 +1317,7 @@ void ScopeNestedCFG::DetermineSwitchBreaks(BasicBlock *pSwitchBegin,
 
     // Record this switch break.
     if (pReachableFromSwitchBegin->test(PredId)) {
-      SwitchBreaks.insert( {pPredBB, pSwitchEnd} );
+      SwitchBreaks.insert({pPredBB, pSwitchEnd});
     }
   }
 
@@ -1270,13 +1333,12 @@ void ScopeNestedCFG::DetermineSwitchBreaks(BasicBlock *pSwitchBegin,
 #endif
 }
 
-
 //-----------------------------------------------------------------------------
 // Transformation of acyclic region.
 //-----------------------------------------------------------------------------
 void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
-  unordered_map<BasicBlock *, vector<BasicBlock *> > BlockClones;
-  unordered_map<BasicBlock *, vector<BasicBlock *> > Edges;
+  unordered_map<BasicBlock *, vector<BasicBlock *>> BlockClones;
+  unordered_map<BasicBlock *, vector<BasicBlock *>> Edges;
   ValueToValueMapTy RegionValueRemap;
 
   BlockTopologicalOrderAndReachability BTO;
@@ -1292,8 +1354,9 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
   EntryScope.ScopeEndPoints = std::make_shared<ScopeEndPointsMap>();
   EntryScope.DeltaScopeEndPoints = std::make_shared<ScopeEndPointsMap>();
   EntryScope.SwitchBreaks = std::make_shared<SwitchBreaksMap>();
-  DetermineScopeEndPoints(pEntry, false, BTO, SwitchBreaksMap{}, 
-                          *EntryScope.ScopeEndPoints.get(), *EntryScope.DeltaScopeEndPoints.get());
+  DetermineScopeEndPoints(pEntry, false, BTO, SwitchBreaksMap{},
+                          *EntryScope.ScopeEndPoints.get(),
+                          *EntryScope.DeltaScopeEndPoints.get());
 
   while (!m_ScopeStack.empty()) {
     ScopeStackItem Scope = *GetScope();
@@ -1320,8 +1383,10 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     switch (BeginScopeBranchKind) {
     case BranchKind::LoopBreak: {
       // Connect to loop exit.
-      TerminatorInst *pClonedScopeBeginTI = Scope.pClonedScopeBeginBB->getTerminator();
-      DXASSERT_LOCALVAR_NOMSG(pClonedScopeBeginTI, pClonedScopeBeginTI->getNumSuccessors() == 1);
+      TerminatorInst *pClonedScopeBeginTI =
+          Scope.pClonedScopeBeginBB->getTerminator();
+      DXASSERT_LOCALVAR_NOMSG(pClonedScopeBeginTI,
+                              pClonedScopeBeginTI->getNumSuccessors() == 1);
       DXASSERT_NOMSG(m_LoopMap.find(pEntry) != m_LoopMap.end());
       LoopItem &LI = m_LoopMap[pEntry];
       AddEdge(Scope.pClonedScopeBeginBB, 0, LI.pLE, Edges);
@@ -1330,15 +1395,17 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
 
     case BranchKind::LoopContinue: {
       // Connect to loop latch.
-      TerminatorInst *pClonedScopeBeginTI = Scope.pClonedScopeBeginBB->getTerminator();
-      DXASSERT_LOCALVAR_NOMSG(pClonedScopeBeginTI, pClonedScopeBeginTI->getNumSuccessors() == 1);
+      TerminatorInst *pClonedScopeBeginTI =
+          Scope.pClonedScopeBeginBB->getTerminator();
+      DXASSERT_LOCALVAR_NOMSG(pClonedScopeBeginTI,
+                              pClonedScopeBeginTI->getNumSuccessors() == 1);
       DXASSERT_NOMSG(m_LoopMap.find(pEntry) != m_LoopMap.end());
       LoopItem &LI = m_LoopMap[pEntry];
       AddEdge(Scope.pClonedScopeBeginBB, 0, LI.pLL, Edges);
       continue;
     }
 
-    default: ;  // Process further.
+    default:; // Process further.
     }
 
     // 1c. Loop latch node.
@@ -1347,8 +1414,10 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     }
 
     // 2. Clone a nested loop and proceed after the loop.
-    if (BeginScopeBranchKind == BranchKind::LoopBegin || BeginScopeBranchKind == BranchKind::LoopNoEnd) {
-      // The node is a loop preheader, which has been already cloned, if necessary.
+    if (BeginScopeBranchKind == BranchKind::LoopBegin ||
+        BeginScopeBranchKind == BranchKind::LoopNoEnd) {
+      // The node is a loop preheader, which has been already cloned, if
+      // necessary.
 
       // Original loop.
       BasicBlock *pPreheader = Scope.pScopeBeginBB;
@@ -1357,7 +1426,9 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
       LoopItem &Loop = m_LoopMap[pHeader];
 
       // Clone loop.
-      BasicBlock *pClonedHeader = CloneLoop(pHeader, Scope.pClonedScopeBeginBB, BlockClones, Edges, RegionValueRemap);
+      BasicBlock *pClonedHeader =
+          CloneLoop(pHeader, Scope.pClonedScopeBeginBB, BlockClones, Edges,
+                    RegionValueRemap);
 
       // Connect cloned preheader to cloned loop.
       AddEdge(Scope.pClonedScopeBeginBB, 0, pClonedHeader, Edges);
@@ -1390,16 +1461,17 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
       if (bSwitchScope) {
         // Detect switch breaks for switch scope.
         SwitchBreaksMap SwitchBreaks;
-        DetermineSwitchBreaks(Scope.pScopeBeginBB, *Scope.ScopeEndPoints.get(), BTO, SwitchBreaks);
+        DetermineSwitchBreaks(Scope.pScopeBeginBB, *Scope.ScopeEndPoints.get(),
+                              BTO, SwitchBreaks);
 
         if (!SwitchBreaks.empty()) {
-          // After switch breaks are known, recompute scope end points more precisely.
+          // After switch breaks are known, recompute scope end points more
+          // precisely.
           Scope.DeltaScopeEndPoints = std::make_shared<ScopeEndPointsMap>();
           Scope.SwitchBreaks = std::make_shared<SwitchBreaksMap>(SwitchBreaks);
-          DetermineScopeEndPoints(Scope.pScopeBeginBB, true, BTO, 
-                                  *Scope.SwitchBreaks.get(),
-                                  *Scope.ScopeEndPoints.get(),
-                                  *Scope.DeltaScopeEndPoints.get());
+          DetermineScopeEndPoints(
+              Scope.pScopeBeginBB, true, BTO, *Scope.SwitchBreaks.get(),
+              *Scope.ScopeEndPoints.get(), *Scope.DeltaScopeEndPoints.get());
         }
       }
 
@@ -1412,7 +1484,8 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
           BasicBlock *pCandidateEndScopeBB = nullptr;
           if (pParentScope != nullptr && pParentScope->pScopeEndBB != nullptr) {
             // Determine which branch has parent's end scope node.
-            unsigned ParentScopeEndId = BTO.GetBlockId(pParentScope->pScopeEndBB);
+            unsigned ParentScopeEndId =
+                BTO.GetBlockId(pParentScope->pScopeEndBB);
             for (unsigned i = 0; i < pScopeBeginTI->getNumSuccessors(); i++) {
               BasicBlock *pSucc = pScopeBeginTI->getSuccessor(i);
               // Skip a switch break.
@@ -1424,10 +1497,12 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
               BitVector *pReachableBBs = BTO.GetReachableBBs(pSucc);
               if (pReachableBBs->test(ParentScopeEndId)) {
                 if (!pCandidateEndScopeBB) {
-                  // Case1: one of IF's branches terminates only by region terminators.
+                  // Case1: one of IF's branches terminates only by region
+                  // terminators.
                   pCandidateEndScopeBB = pSucc;
                 } else {
-                  // Case2: both branches terminate only by region terminators (e.g., SWITCH breaks).
+                  // Case2: both branches terminate only by region terminators
+                  // (e.g., SWITCH breaks).
                   pCandidateEndScopeBB = nullptr;
                 }
               }
@@ -1440,8 +1515,10 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
               BasicBlock *pBegin = Scope.pScopeBeginBB;
               BasicBlock *pEnd = pCandidateEndScopeBB;
               dbgs() << "\nAdjusted IF's end: ";
-              dbgs() << pBegin->getName() << ", ID=" << BTO.GetBlockId(pBegin) << " -> ";
-              dbgs() << pEnd->getName() << ", ID=" << BTO.GetBlockId(pEnd) << "\n";
+              dbgs() << pBegin->getName() << ", ID=" << BTO.GetBlockId(pBegin)
+                     << " -> ";
+              dbgs() << pEnd->getName() << ", ID=" << BTO.GetBlockId(pEnd)
+                     << "\n";
 #endif
             }
           }
@@ -1452,16 +1529,22 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
       BranchKind ScopeBeginBranchKind = BranchKind::Invalid;
       BranchKind ScopeEndBranchKind = BranchKind::Invalid;
       auto itEndScope = Scope.ScopeEndPoints->find(Scope.pScopeBeginBB);
-      if (itEndScope != Scope.ScopeEndPoints->cend() && itEndScope->second != nullptr) {
+      if (itEndScope != Scope.ScopeEndPoints->cend() &&
+          itEndScope->second != nullptr) {
         Scope.pScopeEndBB = itEndScope->second;
-        Scope.pClonedScopeEndBB = BasicBlock::Create(*m_pCtx, bIfScope ? "dx.EndIfScope" : "dx.EndSwitchScope", m_pFunc, Scope.pScopeEndBB);
+        Scope.pClonedScopeEndBB = BasicBlock::Create(
+            *m_pCtx, bIfScope ? "dx.EndIfScope" : "dx.EndSwitchScope", m_pFunc,
+            Scope.pScopeEndBB);
         BranchInst::Create(Scope.pClonedScopeEndBB, Scope.pClonedScopeEndBB);
-        ScopeBeginBranchKind = bIfScope ? BranchKind::IfBegin : BranchKind::SwitchBegin;
-        ScopeEndBranchKind = bIfScope ? BranchKind::IfEnd : BranchKind::SwitchEnd;
+        ScopeBeginBranchKind =
+            bIfScope ? BranchKind::IfBegin : BranchKind::SwitchBegin;
+        ScopeEndBranchKind =
+            bIfScope ? BranchKind::IfEnd : BranchKind::SwitchEnd;
       } else {
         Scope.pScopeEndBB = nullptr;
         Scope.pClonedScopeEndBB = nullptr;
-        ScopeBeginBranchKind = bIfScope ? BranchKind::IfNoEnd : BranchKind::SwitchNoEnd;
+        ScopeBeginBranchKind =
+            bIfScope ? BranchKind::IfNoEnd : BranchKind::SwitchNoEnd;
       }
 
       // Annotate scope-begin and scope-end branches.
@@ -1474,7 +1557,7 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     }
 
     // 5. Push unfinished if and switch scopes onto the stack.
-    if ((bIfScope || bSwitchScope) && 
+    if ((bIfScope || bSwitchScope) &&
         Scope.SuccIdx < pScopeBeginTI->getNumSuccessors()) {
       ScopeStackItem &UnfinishedScope = RePushScope(Scope);
 
@@ -1483,7 +1566,8 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     }
 
     // 6. Finalize scope.
-    if ((bIfScope || bSwitchScope) && (Scope.SuccIdx == pScopeBeginTI->getNumSuccessors())) {
+    if ((bIfScope || bSwitchScope) &&
+        (Scope.SuccIdx == pScopeBeginTI->getNumSuccessors())) {
       if (Scope.pScopeEndBB != nullptr) {
         bool bEndScopeSharedWithParent = false;
 
@@ -1492,7 +1576,8 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
           if (Scope.pScopeEndBB == pParentScope->pScopeEndBB) {
             bEndScopeSharedWithParent = true;
             if (Scope.pClonedScopeEndBB != nullptr) {
-              AddEdge(Scope.pClonedScopeEndBB, 0, pParentScope->pClonedScopeEndBB, Edges);
+              AddEdge(Scope.pClonedScopeEndBB, 0,
+                      pParentScope->pClonedScopeEndBB, Edges);
             }
           }
         }
@@ -1500,11 +1585,13 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
         if (!bEndScopeSharedWithParent) {
           // Clone original end-of-scope BB.
           ScopeStackItem &AfterEndOfScopeScope = PushScope(Scope.pScopeEndBB);
-          AfterEndOfScopeScope.pClonedScopeBeginBB = CloneNode(Scope.pScopeEndBB, BlockClones, RegionValueRemap);
+          AfterEndOfScopeScope.pClonedScopeBeginBB =
+              CloneNode(Scope.pScopeEndBB, BlockClones, RegionValueRemap);
           AfterEndOfScopeScope.ScopeEndPoints = Scope.ScopeEndPoints;
           AfterEndOfScopeScope.DeltaScopeEndPoints = Scope.DeltaScopeEndPoints;
           AfterEndOfScopeScope.SwitchBreaks = Scope.SwitchBreaks;
-          AddEdge(Scope.pClonedScopeEndBB, 0, AfterEndOfScopeScope.pClonedScopeBeginBB, Edges);
+          AddEdge(Scope.pClonedScopeEndBB, 0,
+                  AfterEndOfScopeScope.pClonedScopeBeginBB, Edges);
         }
       }
 
@@ -1536,7 +1623,8 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     if (bIfScope || bSwitchScope) {
       if (pSuccBB == Scope.pPrevSuccBB) {
         DXASSERT_NOMSG(Scope.pClonedPrevSuccBB != nullptr);
-        AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx, Scope.pClonedPrevSuccBB, Edges);
+        AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx,
+                Scope.pClonedPrevSuccBB, Edges);
         continue;
       }
     }
@@ -1546,7 +1634,8 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
     if (pSuccBB == Scope.pScopeEndBB) {
       // 8a. Successor is end of current scope.
       bEndOfScope = true;
-      AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx, Scope.pClonedScopeEndBB, Edges);
+      AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx, Scope.pClonedScopeEndBB,
+              Edges);
     } else {
       // 8b. Successor is end of parent scope.
       ScopeStackItem *pParentScope = GetScope();
@@ -1556,20 +1645,25 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
         if (pSuccBB == pParentScope->pScopeEndBB) {
           bEndOfScope = true;
           if (!bSwitchBreak) {
-            AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx, pParentScope->pClonedScopeEndBB, Edges);
+            AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx,
+                    pParentScope->pClonedScopeEndBB, Edges);
           }
         }
         if (bSwitchBreak) {
           if (pSuccBB == it->second) {
             // Switch break.
             bEndOfScope = true;
-            ScopeStackItem *pSwitchScope = FindParentScope(ScopeStackItem::Kind::Switch);
+            ScopeStackItem *pSwitchScope =
+                FindParentScope(ScopeStackItem::Kind::Switch);
             DXASSERT_NOMSG(pSuccBB == pSwitchScope->pScopeEndBB);
-            BasicBlock *pSwitchBreakHelper = BasicBlock::Create(*m_pCtx, "dx.SwitchBreak", m_pFunc, pSuccBB);
+            BasicBlock *pSwitchBreakHelper =
+                BasicBlock::Create(*m_pCtx, "dx.SwitchBreak", m_pFunc, pSuccBB);
             BranchInst::Create(pSwitchBreakHelper, pSwitchBreakHelper);
             AnnotateBranch(pSwitchBreakHelper, BranchKind::SwitchBreak);
-            AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx, pSwitchBreakHelper, Edges);
-            AddEdge(pSwitchBreakHelper, 0, pSwitchScope->pClonedScopeEndBB, Edges);
+            AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx,
+                    pSwitchBreakHelper, Edges);
+            AddEdge(pSwitchBreakHelper, 0, pSwitchScope->pClonedScopeEndBB,
+                    Edges);
           }
         }
       }
@@ -1577,7 +1671,8 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
 
     // 9. Clone successor & push its record onto the stack.
     if (!bEndOfScope) {
-      BasicBlock *pClonedSucc = CloneNode(pSuccBB, BlockClones, RegionValueRemap);
+      BasicBlock *pClonedSucc =
+          CloneNode(pSuccBB, BlockClones, RegionValueRemap);
 
       if (bIfScope || bSwitchScope) {
         ScopeStackItem *pParentScope = GetScope();
@@ -1593,12 +1688,14 @@ void ScopeNestedCFG::TransformAcyclicRegion(BasicBlock *pEntry) {
       SuccScope.ScopeEndPoints = Scope.ScopeEndPoints;
       SuccScope.DeltaScopeEndPoints = Scope.DeltaScopeEndPoints;
       SuccScope.SwitchBreaks = Scope.SwitchBreaks;
-      AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx, SuccScope.pClonedScopeBeginBB, Edges);
+      AddEdge(Scope.pClonedScopeBeginBB, Scope.SuccIdx,
+              SuccScope.pClonedScopeBeginBB, Edges);
     }
   }
 
   // Fixup edges.
-  for (auto itEdge = Edges.begin(), endEdge = Edges.end(); itEdge != endEdge; ++itEdge) {
+  for (auto itEdge = Edges.begin(), endEdge = Edges.end(); itEdge != endEdge;
+       ++itEdge) {
     BasicBlock *pBB = itEdge->first;
     vector<BasicBlock *> &Successors = itEdge->second;
     TerminatorInst *pTI = pBB->getTerminator();
@@ -1619,18 +1716,20 @@ ScopeNestedCFG::ScopeStackItem &ScopeNestedCFG::PushScope(BasicBlock *pBB) {
     DXASSERT_NOMSG(!IsLoopBackedge(pBB));
     unsigned NumSucc = pBB->getTerminator()->getNumSuccessors();
     switch (NumSucc) {
-    case 1: SSI.ScopeKind = ScopeStackItem::Kind::Fallthrough;  break;
-    case 2: SSI.ScopeKind = ScopeStackItem::Kind::If;           break;
-    default: DXASSERT_NOMSG(false);
+    case 1:
+      SSI.ScopeKind = ScopeStackItem::Kind::Fallthrough;
+      break;
+    case 2:
+      SSI.ScopeKind = ScopeStackItem::Kind::If;
+      break;
+    default:
+      DXASSERT_NOMSG(false);
     }
-  }
-  else if (dyn_cast<ReturnInst>(pTI)) {
+  } else if (dyn_cast<ReturnInst>(pTI)) {
     SSI.ScopeKind = ScopeStackItem::Kind::Return;
-  }
-  else if (dyn_cast<SwitchInst>(pTI)) {
+  } else if (dyn_cast<SwitchInst>(pTI)) {
     SSI.ScopeKind = ScopeStackItem::Kind::Switch;
-  }
-  else {
+  } else {
     DXASSERT_NOMSG(false);
   }
 
@@ -1638,7 +1737,8 @@ ScopeNestedCFG::ScopeStackItem &ScopeNestedCFG::PushScope(BasicBlock *pBB) {
   return *GetScope();
 }
 
-ScopeNestedCFG::ScopeStackItem &ScopeNestedCFG::RePushScope(const ScopeStackItem &Scope) {
+ScopeNestedCFG::ScopeStackItem &
+ScopeNestedCFG::RePushScope(const ScopeStackItem &Scope) {
   m_ScopeStack.emplace_back(Scope);
   return *GetScope();
 }
@@ -1651,7 +1751,8 @@ ScopeNestedCFG::ScopeStackItem *ScopeNestedCFG::GetScope(unsigned Idx) {
   }
 }
 
-ScopeNestedCFG::ScopeStackItem *ScopeNestedCFG::FindParentScope(ScopeStackItem::Kind ScopeKind) {
+ScopeNestedCFG::ScopeStackItem *
+ScopeNestedCFG::FindParentScope(ScopeStackItem::Kind ScopeKind) {
   for (auto it = m_ScopeStack.rbegin(); it != m_ScopeStack.rend(); ++it) {
     ScopeStackItem &SSI = *it;
     if (SSI.ScopeKind == ScopeKind)
@@ -1662,12 +1763,11 @@ ScopeNestedCFG::ScopeStackItem *ScopeNestedCFG::FindParentScope(ScopeStackItem::
   return nullptr;
 }
 
-void ScopeNestedCFG::PopScope() {
-  m_ScopeStack.pop_back();
-}
+void ScopeNestedCFG::PopScope() { m_ScopeStack.pop_back(); }
 
-void ScopeNestedCFG::AddEdge(BasicBlock *pClonedSrcBB, unsigned SuccSlotIdx, BasicBlock *pDstBB,
-                             unordered_map<BasicBlock *, vector<BasicBlock *> > &Edges) {
+void ScopeNestedCFG::AddEdge(
+    BasicBlock *pClonedSrcBB, unsigned SuccSlotIdx, BasicBlock *pDstBB,
+    unordered_map<BasicBlock *, vector<BasicBlock *>> &Edges) {
   DXASSERT_NOMSG(pDstBB != nullptr);
   TerminatorInst *pTI = pClonedSrcBB->getTerminator();
   vector<BasicBlock *> *pSuccessors;
@@ -1682,9 +1782,9 @@ void ScopeNestedCFG::AddEdge(BasicBlock *pClonedSrcBB, unsigned SuccSlotIdx, Bas
   (*pSuccessors)[SuccSlotIdx] = pDstBB;
 }
 
-BasicBlock *ScopeNestedCFG::CloneBasicBlockAndFixupValues(const BasicBlock *pBB,
-                                                          ValueToValueMapTy &RegionValueRemap,
-                                                          const Twine &NameSuffix) {
+BasicBlock *ScopeNestedCFG::CloneBasicBlockAndFixupValues(
+    const BasicBlock *pBB, ValueToValueMapTy &RegionValueRemap,
+    const Twine &NameSuffix) {
   // Create a clone.
   ValueToValueMapTy CloneMap;
   BasicBlock *pCloneBB = CloneBasicBlock(pBB, CloneMap, NameSuffix);
@@ -1695,7 +1795,8 @@ BasicBlock *ScopeNestedCFG::CloneBasicBlockAndFixupValues(const BasicBlock *pBB,
   }
 
   // Fixup values.
-  for (auto itInst = pCloneBB->begin(), endInst = pCloneBB->end(); itInst != endInst; ++itInst) {
+  for (auto itInst = pCloneBB->begin(), endInst = pCloneBB->end();
+       itInst != endInst; ++itInst) {
     Instruction *pInst = itInst;
     for (unsigned i = 0; i < pInst->getNumOperands(); i++) {
       Value *V = pInst->getOperand(i);
@@ -1710,9 +1811,10 @@ BasicBlock *ScopeNestedCFG::CloneBasicBlockAndFixupValues(const BasicBlock *pBB,
   return pCloneBB;
 }
 
-BasicBlock *ScopeNestedCFG::CloneNode(BasicBlock *pBB,
-                                      unordered_map<BasicBlock *, vector<BasicBlock *> > &BlockClones,
-                                      ValueToValueMapTy &RegionValueRemap) {
+BasicBlock *ScopeNestedCFG::CloneNode(
+    BasicBlock *pBB,
+    unordered_map<BasicBlock *, vector<BasicBlock *>> &BlockClones,
+    ValueToValueMapTy &RegionValueRemap) {
   auto it = BlockClones.find(pBB);
   if (it == BlockClones.end()) {
     // First time we see this BB.
@@ -1735,35 +1837,35 @@ BasicBlock *ScopeNestedCFG::CloneNode(BasicBlock *pBB,
   return pCloneBB;
 }
 
-BasicBlock *ScopeNestedCFG::CloneLoop(BasicBlock *pHeaderBB,
-                                      BasicBlock *pClonedPreHeaderBB,
-                                      unordered_map<BasicBlock *, vector<BasicBlock *> > &BlockClones,
-                                      unordered_map<BasicBlock *, vector<BasicBlock *> > &Edges,
-                                      ValueToValueMapTy &RegionValueRemap) {
-  // 1. clone every reachable node from LoopHeader (not! preheader) to LoopExit (if not null).
+BasicBlock *ScopeNestedCFG::CloneLoop(
+    BasicBlock *pHeaderBB, BasicBlock *pClonedPreHeaderBB,
+    unordered_map<BasicBlock *, vector<BasicBlock *>> &BlockClones,
+    unordered_map<BasicBlock *, vector<BasicBlock *>> &Edges,
+    ValueToValueMapTy &RegionValueRemap) {
+  // 1. clone every reachable node from LoopHeader (not! preheader) to LoopExit
+  // (if not null).
   // 2. collect cloned edges along the way
-  // 3. update loop map [for this loop only] (in case we need to copy a cloned loop in the future).
+  // 3. update loop map [for this loop only] (in case we need to copy a cloned
+  // loop in the future).
   DXASSERT_NOMSG(m_LoopMap.find(pHeaderBB) != m_LoopMap.end());
   const LoopItem &LI = m_LoopMap.find(pHeaderBB)->second;
   unordered_set<BasicBlock *> VisitedBlocks;
   LoopItem ClonedLI;
   ClonedLI.pLP = pClonedPreHeaderBB;
 
-  CloneLoopRec(pHeaderBB, nullptr, 0, BlockClones, Edges, VisitedBlocks, LI, ClonedLI, RegionValueRemap);
+  CloneLoopRec(pHeaderBB, nullptr, 0, BlockClones, Edges, VisitedBlocks, LI,
+               ClonedLI, RegionValueRemap);
 
   m_LoopMap[ClonedLI.pLB] = ClonedLI;
   return ClonedLI.pLB;
 }
 
-BasicBlock *ScopeNestedCFG::CloneLoopRec(BasicBlock *pBB,
-                                  BasicBlock *pClonePredBB,
-                                  unsigned ClonedPredIdx,
-                                  unordered_map<BasicBlock *, vector<BasicBlock *> > &BlockClones,
-                                  unordered_map<BasicBlock *, vector<BasicBlock *> > &Edges,
-                                  unordered_set<BasicBlock *> &VisitedBlocks,
-                                  const LoopItem &LI,
-                                  LoopItem &ClonedLI,
-                                  ValueToValueMapTy &RegionValueRemap) {
+BasicBlock *ScopeNestedCFG::CloneLoopRec(
+    BasicBlock *pBB, BasicBlock *pClonePredBB, unsigned ClonedPredIdx,
+    unordered_map<BasicBlock *, vector<BasicBlock *>> &BlockClones,
+    unordered_map<BasicBlock *, vector<BasicBlock *>> &Edges,
+    unordered_set<BasicBlock *> &VisitedBlocks, const LoopItem &LI,
+    LoopItem &ClonedLI, ValueToValueMapTy &RegionValueRemap) {
   auto itBB = VisitedBlocks.find(pBB);
   if (itBB != VisitedBlocks.end()) {
     BasicBlock *pClonedBB = *BlockClones[*itBB].rbegin();
@@ -1804,8 +1906,9 @@ BasicBlock *ScopeNestedCFG::CloneLoopRec(BasicBlock *pBB,
   for (unsigned SuccIdx = 0; SuccIdx < pTI->getNumSuccessors(); SuccIdx++) {
     BasicBlock *pSuccBB = pTI->getSuccessor(SuccIdx);
     if (pSuccBB != pPrevSuccBB) {
-      pPrevClonedSuccBB = CloneLoopRec(pSuccBB, pClonedBB, SuccIdx, BlockClones, Edges, 
-                                       VisitedBlocks, LI, ClonedLI, RegionValueRemap);
+      pPrevClonedSuccBB =
+          CloneLoopRec(pSuccBB, pClonedBB, SuccIdx, BlockClones, Edges,
+                       VisitedBlocks, LI, ClonedLI, RegionValueRemap);
       pPrevSuccBB = pSuccBB;
     } else {
       AddEdge(pClonedBB, SuccIdx, pPrevClonedSuccBB, Edges);
@@ -1853,20 +1956,19 @@ void ScopeNestedCFG::DumpIntSet(raw_ostream &s, set<unsigned> Set) {
   s << "}";
 }
 
-}
-
+} // namespace ScopeNestedCFGNS
 
 using namespace ScopeNestedCFGNS;
 
-INITIALIZE_PASS_BEGIN(ScopeNestedCFG, "scopenested", "Scope-nested CFG transformation", false, false)
+INITIALIZE_PASS_BEGIN(ScopeNestedCFG, "scopenested",
+                      "Scope-nested CFG transformation", false, false)
 INITIALIZE_PASS_DEPENDENCY(ReducibilityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_END(ScopeNestedCFG, "scopenested", "Scope-nested CFG transformation", false, false)
+INITIALIZE_PASS_END(ScopeNestedCFG, "scopenested",
+                    "Scope-nested CFG transformation", false, false)
 
 namespace llvm {
 
-FunctionPass *createScopeNestedCFGPass() {
-  return new ScopeNestedCFG();
-}
+FunctionPass *createScopeNestedCFGPass() { return new ScopeNestedCFG(); }
 
-}
+} // namespace llvm

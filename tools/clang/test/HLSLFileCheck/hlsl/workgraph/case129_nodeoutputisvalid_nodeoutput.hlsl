@@ -1,6 +1,5 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
 // ==================================================================
-// CASE129
 // NodeOutputIsValid() is called with NodeOutput
 // ==================================================================
 
@@ -12,7 +11,7 @@ struct RECORD
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(256,1,1)]
 [NumThreads(1,1,1)]
 void node129_nodeoutputisvalid_nodeoutput(NodeOutput<RECORD> output)
@@ -40,7 +39,7 @@ void node129_nodeoutputisvalid_nodeoutput(NodeOutput<RECORD> output)
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: Broadcasting (1)
+// Arg #4: broadcasting (1)
 // ...
 // Arg #x: NodeOutputs Tag (21)
 // Arg #x+1: NodeOutputs (metadata)
@@ -54,7 +53,7 @@ void node129_nodeoutputisvalid_nodeoutput(NodeOutput<RECORD> output)
 // NodeOutputs
 // Arg #1: NodeIOKind Tag (1)
 // Arg #2: RWOutputRecord (6)
-// Arg #3: NodeRecordType Tag (3)
+// Arg #3: NodeRecordType Tag (2)
 // Arg #4: INPUT_RECORD type
 // Arg #5: NodeMaxOutputRecords Tag (4)
 // Arg #6: value (0) - TODO: shouldn't this be 1?

@@ -1116,9 +1116,10 @@ SpirvEmitMeshTasksEXT::SpirvEmitMeshTasksEXT(
                        QualType(), loc, range),
       xDim(xDim), yDim(yDim), zDim(zDim), payload(payload) {}
 
-SpirvSetMeshOutputsEXT::SpirvSetMeshOutputsEXT(
-    SpirvInstruction *vertCount, SpirvInstruction *primCount,
-    SourceLocation loc, SourceRange range)
+SpirvSetMeshOutputsEXT::SpirvSetMeshOutputsEXT(SpirvInstruction *vertCount,
+                                               SpirvInstruction *primCount,
+                                               SourceLocation loc,
+                                               SourceRange range)
     : SpirvInstruction(IK_SetMeshOutputsEXT, spv::Op::OpSetMeshOutputsEXT,
                        QualType(), loc, range),
       vertCount(vertCount), primCount(primCount) {}

@@ -11,10 +11,10 @@
 
 #pragma once
 
-#include "dxc/dxcapi.h"
 #include "dxc/Support/microcom.h"
-#include <memory>
+#include "dxc/dxcapi.h"
 #include "llvm/ADT/StringRef.h"
+#include <memory>
 
 #define DISABLE_GET_CUSTOM_DIAG_ID 1
 
@@ -43,8 +43,7 @@ class DxcOpts;
 namespace dxcutil {
 struct AssembleInputs {
   AssembleInputs(std::unique_ptr<llvm::Module> &&pM,
-                 CComPtr<IDxcBlob> &pOutputContainerBlob,
-                 IMalloc *pMalloc,
+                 CComPtr<IDxcBlob> &pOutputContainerBlob, IMalloc *pMalloc,
                  hlsl::SerializeDxilFlags SerializeFlags,
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
                  bool bDebugInfo = false,
@@ -66,25 +65,25 @@ struct AssembleInputs {
   hlsl::AbstractMemoryStream *pRootSigOut = nullptr;
 };
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
-HRESULT ValidateRootSignatureInContainer(
-    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr);
+HRESULT
+ValidateRootSignatureInContainer(IDxcBlob *pRootSigContainer,
+                                 clang::DiagnosticsEngine *pDiag = nullptr);
 void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
 void AssembleToContainer(AssembleInputs &inputs);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                          hlsl::options::DxcOpts &opts,
                          hlsl::AbstractMemoryStream *pOutputStream,
-                         _COM_Outptr_ IDxcOperationResult **ppResult,
-                         bool &finished);
+                         IDxcOperationResult **ppResult, bool &finished);
 void CreateOperationResultFromOutputs(
-    DXC_OUT_KIND resultKind, UINT32 textEncoding,
-    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
-    const std::string &warnings, bool hasErrorOccurred,
-    _COM_Outptr_ IDxcOperationResult **ppResult);
-void CreateOperationResultFromOutputs(
-    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
-    const std::string &warnings, bool hasErrorOccurred,
-    _COM_Outptr_ IDxcOperationResult **ppResult);
+    DXC_OUT_KIND resultKind, UINT32 textEncoding, IDxcBlob *pResultBlob,
+    CComPtr<IStream> &pErrorStream, const std::string &warnings,
+    bool hasErrorOccurred, IDxcOperationResult **ppResult);
+void CreateOperationResultFromOutputs(IDxcBlob *pResultBlob,
+                                      CComPtr<IStream> &pErrorStream,
+                                      const std::string &warnings,
+                                      bool hasErrorOccurred,
+                                      IDxcOperationResult **ppResult);
 
 bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
 

@@ -14,7 +14,7 @@ struct Record
 groupshared uint testLds[512];
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2, 1, 1)]
 [NumThreads(1,1,1)]
 void firstNode(DispatchNodeInputRecord<Record> inputData)
