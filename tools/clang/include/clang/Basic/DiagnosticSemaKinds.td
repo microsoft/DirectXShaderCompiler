@@ -7766,6 +7766,8 @@ def err_hlsl_unsupported_for_version_lower : Error<
    "%0 is only allowed for HLSL %1 and lower.">;
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
+def err_hlsl_intrinsic_overload_in_wrong_shader_model : Error<
+   "overload of intrinsic %0 requires shader model %1 or greater">;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<
@@ -7837,6 +7839,10 @@ def err_hlsl_missing_node_attr : Error<
    "Node shader '%0' with %1 launch type requires '%2' attribute">;
 def err_hlsl_missing_dispatchgrid_attr : Error<
    "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
+def err_hlsl_missing_dispatchgrid_semantic : Error<
+   "Broadcasting node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
+def err_hlsl_dispatchgrid_semantic_already_specified : Error<
+   "a field with SV_DispatchGrid has already been specified">;
 def err_hlsl_maxrecursiondepth_exceeded : Error<
    "NodeMaxRecursionDepth may not exceed 32">;
 def err_hlsl_too_many_node_inputs : Error<

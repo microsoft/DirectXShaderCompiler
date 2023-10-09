@@ -8814,6 +8814,11 @@ ExprResult HLSLExternalSource::MaybeConvertMemberAccess(clang::Expr *E) {
   }
 
   QualType targetType = NewSimpleAggregateType(AR_TOBJ_VECTOR, basic, 0, 1, 1);
+  if (E->getObjectKind() ==
+      OK_BitField) // if E is a bitfield, then generate an R value.
+    E = ImplicitCastExpr::Create(*m_context, E->getType(),
+                                 CastKind::CK_LValueToRValue, E, nullptr,
+                                 VK_RValue);
   return ImplicitCastExpr::Create(*m_context, targetType,
                                   CastKind::CK_HLSLVectorSplat, E, nullptr,
                                   E->getValueKind());
@@ -11287,6 +11292,22 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
         Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
         return true;
       }
+    } else if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
+               opCode ==
+                   hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
+      const auto *shaderModel =
+          hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
+      if (!shaderModel->IsSM68Plus()) {
+        QualType SamplerComparisonTy =
+            HLSLExternalSource::FromSema(this)->GetBasicKindType(
+                AR_OBJECT_SAMPLERCOMPARISON);
+        if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
+          Diags.Report(Loc,
+                       diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
+              << MD->getNameAsString() << "6.8";
+          return true;
+        }
+      }
     }
   }
   return false;
@@ -11386,15 +11407,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     const auto *shaderModel =
         hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
 
-    if (shaderModel->IsGS()) {
-      // Validate that GS has the maxvertexcount attribute
-      if (!pEntryPointDecl->hasAttr<HLSLMaxVertexCountAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "GS"
-            << "maxvertexcount";
-        return;
-      }
-    } else if (shaderModel->IsHS()) {
+    if (shaderModel->IsHS()) {
       if (const HLSLPatchConstantFuncAttr *Attr =
               pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
         NameLookup NL = GetSingleFunctionDeclByName(
@@ -11407,34 +11420,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
           return;
         }
         pPatchFnDecl = NL.Found;
-      } else {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "HS"
-            << "patchconstantfunc";
-        return;
-      }
-    } else if (shaderModel->IsMS()) {
-      // Validate that MS has the numthreads attribute
-      if (!pEntryPointDecl->hasAttr<HLSLNumThreadsAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "MS"
-            << "numthreads";
-        return;
-      }
-      // Validate that MS has the outputtopology attribute
-      if (!pEntryPointDecl->hasAttr<HLSLOutputTopologyAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "MS"
-            << "outputtopology";
-        return;
-      }
-    } else if (shaderModel->IsAS()) {
-      // Validate that AS has the numthreads attribute
-      if (!pEntryPointDecl->hasAttr<HLSLNumThreadsAttr>()) {
-        self->Diag(pEntryPointDecl->getLocation(), diag::err_hlsl_missing_attr)
-            << "AS"
-            << "numthreads";
-        return;
       }
     }
 
@@ -15169,6 +15154,103 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
   }
 }
 
+// Diagnose input node record to make sure it has exactly one SV_DispatchGrid
+// semantics. Recursivelly walk all fields on the record and all of its base
+// classes/structs
+void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
+                                              CXXRecordDecl *InputRecordDecl,
+                                              SourceLocation &DispatchGridLoc,
+                                              bool &Found) {
+  // Iterate over fields of the input record struct
+  for (auto FieldDecl : InputRecordDecl->fields()) {
+    // Check if any of the fields have SV_DispatchGrid annotation
+    for (const hlsl::UnusualAnnotation *it :
+         FieldDecl->getUnusualAnnotations()) {
+      if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
+        const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
+        if (sd->SemanticName.equals("SV_DispatchGrid")) {
+          if (!Found) {
+            Found = true;
+            DispatchGridLoc = it->Loc;
+          } else {
+            // There should be just one SV_DispatchGrid in per record struct
+            S.Diags.Report(
+                it->Loc,
+                diag::err_hlsl_dispatchgrid_semantic_already_specified);
+            S.Diags.Report(DispatchGridLoc, diag::note_defined_here)
+                << "other SV_DispatchGrid";
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // Walk up the inheritance chain and check all fields on base classes
+  for (CXXRecordDecl::base_class_iterator B = InputRecordDecl->bases_begin(),
+                                          BEnd = InputRecordDecl->bases_end();
+       B != BEnd; ++B) {
+
+    const RecordType *BaseStructType = B->getType()->getAsStructureType();
+    if (nullptr != BaseStructType) {
+      CXXRecordDecl *BaseTypeDecl =
+          dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
+      if (nullptr != BaseTypeDecl) {
+        DiagnoseMustHaveOneDispatchGridSemantics(S, BaseTypeDecl,
+                                                 DispatchGridLoc, Found);
+      }
+    }
+  }
+}
+
+void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
+                                              CXXRecordDecl *InputRecordStruct,
+                                              bool &Found) {
+  SourceLocation DispatchGridLoc;
+  DiagnoseMustHaveOneDispatchGridSemantics(S, InputRecordStruct,
+                                           DispatchGridLoc, Found);
+}
+
+void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
+                                llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "numthreads";
+
+  return;
+}
+
+void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "numthreads";
+  if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "outputtopology";
+  return;
+}
+
+void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLPatchConstantFuncAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "patchconstantfunc";
+
+  return;
+}
+
+void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD,
+                           llvm::StringRef StageName) {
+
+  if (!(FD->getAttr<HLSLMaxVertexCountAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "maxvertexcount";
+
+  return;
+}
+
 void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                           bool isActiveEntry) {
   if (isActiveEntry) {
@@ -15287,6 +15369,47 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
           << NodeMDG->getRange();
       S.Diags.Report(NodeDG->getLocation(), diag::note_defined_here)
           << NodeDG->getSpelling();
+    }
+    // Node with NodeMaxDispatchGrid must have SV_DispatchGrid semantic.
+    if (NodeMDG) {
+      bool Found = false;
+      for (FunctionDecl::param_iterator I = FD->param_begin(),
+                                        E = FD->param_end();
+           I != E; ++I) {
+        QualType ParamType = (*I)->getType().getCanonicalType();
+
+        // Find parameter that is the node input record
+        if (hlsl::IsHLSLNodeInputType(ParamType)) {
+          // Node input records are template types
+          if (const RecordType *NodeInputRT = dyn_cast<RecordType>(ParamType)) {
+            if (const ClassTemplateSpecializationDecl *templateDecl =
+                    dyn_cast<ClassTemplateSpecializationDecl>(
+                        NodeInputRT->getDecl())) {
+
+              // Get the input record struct
+              auto &TemplateArgs = templateDecl->getTemplateArgs();
+              DXASSERT_NOMSG(TemplateArgs.size() >= 1);
+              QualType Arg0Type = TemplateArgs.get(0).getAsType();
+              const RecordType *NodeInputStructType =
+                  Arg0Type->getAsStructureType();
+              if (nullptr != NodeInputStructType) {
+                CXXRecordDecl *NodeInputStructDecl =
+                    dyn_cast<CXXRecordDecl>(NodeInputStructType->getDecl());
+                if (nullptr != NodeInputStructDecl) {
+                  // Make sure there is exactly one SV_DispatchGrid semantics
+                  DiagnoseMustHaveOneDispatchGridSemantics(
+                      S, NodeInputStructDecl, Found);
+                }
+              }
+            }
+          }
+        }
+      }
+      if (!Found) {
+        S.Diags.Report(FD->getLocation(),
+                       diag::err_hlsl_missing_dispatchgrid_semantic)
+            << FD->getName();
+      }
     }
   }
 
@@ -15431,6 +15554,15 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
   return;
 }
 
+// The DiagnoseEntry function does 2 things:
+// 1. Determine whether this function is the current entry point for a
+// non-library compilation, add an implicit shader attribute if so.
+// 2. For an entry point function, now identified by the shader attribute,
+// diagnose entry point constraints:
+//   a. Diagnose whether or not all entry point attributes on the decl are
+//   allowed on the entry point type (ShaderKind) at all.
+//   b. Diagnose the full entry point decl for required attributes, constraints
+//   on or between attributes and parameters, and more.
 void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   bool isActiveEntry = false;
   if (S.getLangOpts().IsHLSLLibrary) {
@@ -15454,14 +15586,22 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   switch (Stage) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
-  case DXIL::ShaderKind::Geometry:
-  case DXIL::ShaderKind::Hull:
   case DXIL::ShaderKind::Domain:
   case DXIL::ShaderKind::Library:
-  case DXIL::ShaderKind::Mesh:
-  case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Invalid:
     return;
+  case DXIL::ShaderKind::Amplification: {
+    return DiagnoseAmplificationEntry(S, FD, StageName);
+  }
+  case DXIL::ShaderKind::Mesh: {
+    return DiagnoseMeshEntry(S, FD, StageName);
+  }
+  case DXIL::ShaderKind::Hull: {
+    return DiagnoseHullEntry(S, FD, StageName);
+  }
+  case DXIL::ShaderKind::Geometry: {
+    return DiagnoseGeometryEntry(S, FD, StageName);
+  }
   case DXIL::ShaderKind::Callable: {
     return DiagnoseCallableEntry(S, FD, StageName);
   }
