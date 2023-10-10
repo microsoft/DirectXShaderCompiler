@@ -33,7 +33,9 @@ typedef BAD_RECORD2 MyBadRecord;
 [NodeLaunch("broadcasting")]
 [NumThreads(8,1,1)]
 [NodeMaxDispatchGrid(8,1,1)]
-void node01(DispatchNodeInputRecord<int> input) // expected-error {{'int' is not valid as a node record type - struct/class required}}
+// expected-error@+2 {{'int' is not valid as a node record type - struct/class required}}
+// expected-error@+1 {{node shader 'node01' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+void node01(DispatchNodeInputRecord<int> input) 
 { }
 
 [Shader("node")]
@@ -51,7 +53,9 @@ void node03(ThreadNodeInputRecord<int2x2> input) // expected-error {{'int2x2' is
 [NodeLaunch("broadcasting")]
 [NumThreads(8,1,1)]
 [NodeMaxDispatchGrid(8,1,1)]
-void node04(RWDispatchNodeInputRecord<int[8]> input) // expected-error {{'int [8]' is not valid as a node record type - struct/class required}}
+// expected-error@+2 {{'int [8]' is not valid as a node record type - struct/class required}}
+// expected-error@+1 {{node shader 'node04' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+void node04(RWDispatchNodeInputRecord<int[8]> input)
 { }
 
 [Shader("node")]
@@ -109,13 +113,16 @@ void node14(ThreadNodeInputRecord<matrix<float,4,4> > input) // expected-error {
 [NodeLaunch("broadcasting")]
 [NumThreads(8,1,1)]
 [NodeMaxDispatchGrid(8,1,1)]
-void node15(NodeOutputArray<RaytracingAccelerationStructure> output) // expected-error {{'RaytracingAccelerationStructure' is not valid as a node record type - struct/class required}}
+// expected-error@+2 {{'RaytracingAccelerationStructure' is not valid as a node record type - struct/class}}
+// expected-error@+1 {{node shader 'node15' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+void node15(NodeOutputArray<RaytracingAccelerationStructure> output)
 { }
 
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(8,1,1)]
 [NodeMaxDispatchGrid(8,1,1)]
+// expected-error@+1 {{node shader 'node16' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 void node16()
 {
   GroupNodeOutputRecords<int> outrec1; // expected-error {{'int' is not valid as a node record type - struct/class required}}

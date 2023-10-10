@@ -72,9 +72,9 @@ void node07(NodeOutput<EMPTY> output) // expected-error {{record used in NodeOut
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
-
 [NodeMaxDispatchGrid(64, 1, 1)]
-void node08(NodeOutputArray<EMPTY> output) // expected-error {{record used in NodeOutputArray may not have zero size}}
+// expected-error@+1 {{Broadcasting node shader 'node08' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+void node08(NodeOutputArray<EMPTY3> output) // expected-error {{record used in NodeOutputArray may not have zero size}}
 {}
 
 [Shader("node")]
