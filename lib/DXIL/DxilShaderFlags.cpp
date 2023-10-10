@@ -359,6 +359,22 @@ DxilResource *GetResourceFromAnnotateHandle(
   return resource;
 }
 
+static bool hasNonConstantSampleOffsets(const CallInst *CI) {
+  return (!isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+          !isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+          !isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset2OpIdx)));
+}
+
+static bool hasSampleClamp(const CallInst *CI) {
+  Value *Clamp = CI->getArgOperand(CI->getNumArgOperands() - 1);
+  if (auto *Imm = dyn_cast<ConstantFP>(Clamp))
+    return !Imm->getValueAPF().isZero();
+  return !isa<UndefValue>(Clamp);
+}
+
 ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                                             const hlsl::DxilModule *M) {
   ShaderFlags flag;
@@ -374,6 +390,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool has64Int = false;
   bool has16 = false;
   bool hasWaveOps = false;
+  bool hasLodClamp = false;
   bool hasCheckAccessFully = false;
   bool hasMSAD = false;
   bool hasStencilRef = false;
@@ -413,6 +430,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   M->GetDxilVersion(dxilMajor, dxilMinor);
   bool canSetResMayNotAlias =
       DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 7) >= 0;
+
+  // HasLodClamp is only enabled after v1.8 validator.
+  bool canSetHasLodClamp = DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
@@ -562,27 +582,21 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             }
           }
           break;
-        case DXIL::OpCode::SampleGrad:
         case DXIL::OpCode::SampleLevel:
         case DXIL::OpCode::SampleCmpLevelZero:
-          if (!isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
-            hasAdvancedTextureOps = true;
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
+          break;
+        case DXIL::OpCode::SampleGrad:
+        case DXIL::OpCode::SampleCmpGrad:
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
+          hasLodClamp |= hasSampleClamp(CI);
           break;
         case DXIL::OpCode::Sample:
         case DXIL::OpCode::SampleBias:
         case DXIL::OpCode::SampleCmp:
-          if (!isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
-            hasAdvancedTextureOps = true;
+        case DXIL::OpCode::SampleCmpBias:
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
+          hasLodClamp |= hasSampleClamp(CI);
           LLVM_FALLTHROUGH;
         case DXIL::OpCode::DerivFineX:
         case DXIL::OpCode::DerivFineY:
@@ -728,7 +742,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetLowPrecisionPresent(has16);
   flag.SetEnableDoubleExtensions(hasDoubleExtension);
   flag.SetWaveOps(hasWaveOps);
-  flag.SetTiledResources(hasCheckAccessFully);
+  flag.SetTiledResources(hasCheckAccessFully ||
+                         (canSetHasLodClamp && hasLodClamp));
   flag.SetEnableMSAD(hasMSAD);
   flag.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
   flag.SetViewID(hasViewID);
