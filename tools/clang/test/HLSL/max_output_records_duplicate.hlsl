@@ -19,10 +19,10 @@ struct rec1
 void DuplicateMax1(
   RWThreadNodeInputRecord<rec0> InputyMcInputFace,
   [MaxRecords(5)] NodeOutput<rec1> Output1,
-  [MaxRecords(5)] [MaxRecordsSharedWith(Output1)] NodeOutput<rec1> Output2, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
-  [MaxRecords(5)] [MaxRecordsSharedWith(Output1)] NodeOutput<rec1> Output3, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
-  [MaxRecords(7)] [MaxRecordsSharedWith(Output6)] NodeOutput<rec1> Output4, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
-  [MaxRecords(7)] [MaxRecordsSharedWith(Output6)] NodeOutput<rec1> Output5, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecords(5)] [MaxRecordsSharedWith(Output1)] NodeOutput<rec1> Output2, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecords(5)] [MaxRecordsSharedWith(Output1)] NodeOutput<rec1> Output3, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecords(7)] [MaxRecordsSharedWith(Output6)] NodeOutput<rec1> Output4, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecords(7)] [MaxRecordsSharedWith(Output6)] NodeOutput<rec1> Output5, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
   [MaxRecords(7)] NodeOutput<rec1> Output6)
 {
 }
@@ -32,17 +32,17 @@ void DuplicateMax1(
 void DuplicateMax2(
   RWThreadNodeInputRecord<rec0> InputyMcInputFace,
   [MaxRecords(1)] NodeOutput<rec1> Output1,
-  [MaxRecordsSharedWith(Output1)] [MaxRecords(2)] NodeOutput<rec1> Output2, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
-  [MaxRecords(3)] [MaxRecordsSharedWith(Output1)] NodeOutput<rec1> Output3, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
-  [MaxRecordsSharedWith(Output6)] [MaxRecords(4)] NodeOutput<rec1> Output4, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
-  [MaxRecords(5)] [MaxRecordsSharedWith(Output2)] NodeOutput<rec1> Output5) /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */  
+  [MaxRecordsSharedWith(Output1)] [MaxRecords(2)] NodeOutput<rec1> Output2, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecords(3)] [MaxRecordsSharedWith(Output1)] NodeOutput<rec1> Output3, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecordsSharedWith(Output6)] [MaxRecords(4)] NodeOutput<rec1> Output4, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecords(5)] [MaxRecordsSharedWith(Output2)] NodeOutput<rec1> Output5) /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
 {
 }
 
 
 void DuplicateMaxSameAttr(
-[MaxRecords(6)] [MaxRecords(3)] NodeOutput<rec1> Output1, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
-  [MaxRecordsSharedWith(Output1)] [MaxRecordsSharedWith(Output2)] NodeOutput<rec1> Output3  /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
+[MaxRecords(6)] [MaxRecords(3)] NodeOutput<rec1> Output1, /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
+  [MaxRecordsSharedWith(Output1)] [MaxRecordsSharedWith(Output2)] NodeOutput<rec1> Output3  /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
   )
 {    
 }
@@ -64,7 +64,7 @@ struct OUTPUT_RECORD
 [NodeIsProgramEntry]
 void node092_maxoutputrecords_maxoutputrecordssharedwith(DispatchNodeInputRecord<INPUT_RECORD> input,
                                                          [MaxRecords(5)] NodeOutput<OUTPUT_RECORD> firstOut,
-                                                         [MaxRecords(5)][MaxRecordsSharedWith(firstOut)] NodeOutput<OUTPUT_RECORD> secondOut) /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */ /* expected-note {{conflicting attribute is here}} */
+                                                         [MaxRecords(5)][MaxRecordsSharedWith(firstOut)] NodeOutput<OUTPUT_RECORD> secondOut) /* expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}} */ /* expected-note {{conflicting attribute is here}} */
 {
 }
 

@@ -147,9 +147,8 @@ void node19(
 [NumThreads(32, 1, 1)]
 void node20(
   [MaxRecordsSharedWith(foo)] // expected-error {{only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.}}
-                              // expected-note@-1 {{conflicting attribute is here}}
   [AllowSparseNodes]
-  [NodeArraySize(12)]         // expected-error {{[NodeArraySize(12)] conflicts with [unboundedsparsenodes], which implies [NodeArraySize(-1)]}}
+  [NodeArraySize(12)]         // expected-error {{[NodeArraySize(12)] conflict: [UnboundedSparseNodes] implies [NodeArraySize(-1)]}}
   [UnboundedSparseNodes]      // expected-note {{conflicting attribute is here}}
   [MaxRecords(23)]            // expected-note {{conflicting attribute is here}}
   NodeOutputArray<SharedRecord> foo)
@@ -171,8 +170,8 @@ void node21(
 [NodeDispatchGrid(32, 1, 1)]
 [NumThreads(32, 1, 1)]
 void node22(
-  [NodeArraySize(15)]         // expected-error {{attribute 'NodeArraySize' may only be used with note output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
-  [AllowSparseNodes]          // expected-error {{attribute 'allowsparsenodes' may only be used with note output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
+  [NodeArraySize(15)]         // expected-error {{attribute 'NodeArraySize' may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
+  [AllowSparseNodes]          // expected-error {{attribute 'allowsparsenodes' may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
   NodeOutput<SharedRecord> foo)
 { }
 
@@ -181,6 +180,28 @@ void node22(
 [NodeDispatchGrid(32, 1, 1)]
 [NumThreads(32, 1, 1)]
 void node23(
-  [UnboundedSparseNodes]      // expected-error {{attribute 'unboundedsparsenodes' may only be used with note output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
+  [UnboundedSparseNodes]      // expected-error {{attribute 'unboundedsparsenodes' may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
   NodeOutput<SharedRecord> foo)
+{ }
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(32, 1, 1)]
+[NumThreads(32, 1, 1)]
+void node24(
+  NodeOutput<SharedRecord> foo,
+  [UnboundedSparseNodes]      // expected-error {{attribute 'unboundedsparsenodes' may only be used with output nodes}}
+  [AllowSparseNodes]          // expected-error {{attribute 'allowsparsenodes' may only be used with output nodes}}
+  [MaxRecordsSharedWith(foo)] // expected-error {{attribute 'maxrecordssharedwith' may only be used with output nodes}}
+  [NodeArraySize(0xFFFFFFFF)] // expected-error {{attribute 'NodeArraySize' may only be used with output nodes}}
+  uint3 gtid : SV_GroupThreadID)
+{ }
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(32, 1, 1)]
+[NumThreads(32, 1, 1)]
+void node25(
+  [MaxRecords(23)]            // expected-error {{attribute 'MaxRecords' may only be used with output nodes or input record objects}}
+  uint3 gtid : SV_GroupThreadID)
 { }

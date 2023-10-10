@@ -12780,7 +12780,6 @@ HLSLMaxRecordsAttr *ValidateMaxRecordsAttributes(Sema &S, Decl *D,
       clang::SourceLocation Loc = ExistingMRA ? ExistingMRA->getLocation()
                                               : ExistingMRSWA->getLocation();
       S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
-      S.Diag(A.getLoc(), diag::note_conflicting_attribute);
       S.Diag(Loc, diag::note_conflicting_attribute);
       return nullptr;
     }
@@ -12855,7 +12854,6 @@ ValidateMaxRecordsSharedWithAttributes(Sema &S, Decl *D,
       clang::SourceLocation Loc = ExistingMRA ? ExistingMRA->getLocation()
                                               : ExistingMRSWA->getLocation();
       S.Diag(A.getLoc(), diag::err_hlsl_maxrecord_attrs_on_same_arg);
-      S.Diag(A.getLoc(), diag::note_conflicting_attribute);
       S.Diag(Loc, diag::note_conflicting_attribute);
       return nullptr;
     }
@@ -15343,17 +15341,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                        diag::err_hlsl_maxrecord_on_wrong_launch)
             << MaxRecordsAttr->getRange();
       }
-
-      Attr *OutputOnly[] = {MaxRecordsSharedWithAttr, AllowSparseNodesAttr,
-                            NodeArraySizeAttr, UnboundedSparseNodesAttr};
-      for (auto *A : OutputOnly) {
-        if (A) {
-          S.Diags.Report(A->getLocation(),
-                         diag::err_hlsl_wg_attr_only_on_output)
-              << A << A->getRange();
-        }
-      }
-    } else { // Node Output
+    } else if (hlsl::IsHLSLNodeOutputType(ParamTy)) {
       // If node output is not an array, diagnose array only attributes
       if (((uint32_t)GetNodeIOType(ParamTy) &
            (uint32_t)DXIL::NodeIOFlags::NodeArray) == 0) {
@@ -15367,15 +15355,31 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
           }
         }
       }
+    } else {
+      if (MaxRecordsAttr) {
+        S.Diags.Report(MaxRecordsAttr->getLocation(),
+                       diag::err_hlsl_wg_attr_only_on_output_or_input_record)
+            << MaxRecordsAttr << MaxRecordsAttr->getRange();
+      }
+    }
+
+    if (!hlsl::IsHLSLNodeOutputType(ParamTy)) {
+      Attr *OutputOnly[] = {MaxRecordsSharedWithAttr, AllowSparseNodesAttr,
+                            NodeArraySizeAttr, UnboundedSparseNodesAttr};
+      for (auto *A : OutputOnly) {
+        if (A) {
+          S.Diags.Report(A->getLocation(),
+                         diag::err_hlsl_wg_attr_only_on_output)
+              << A << A->getRange();
+        }
+      }
     }
 
     if (UnboundedSparseNodesAttr && NodeArraySizeAttr &&
         NodeArraySizeAttr->getCount() != -1) {
       S.Diags.Report(NodeArraySizeAttr->getLocation(),
                      diag::err_hlsl_wg_nodearraysize_conflict_unbounded)
-          << NodeArraySizeAttr->getSpelling() << NodeArraySizeAttr->getCount()
-          << UnboundedSparseNodesAttr->getSpelling()
-          << NodeArraySizeAttr->getRange();
+          << NodeArraySizeAttr->getCount() << NodeArraySizeAttr->getRange();
       S.Diags.Report(UnboundedSparseNodesAttr->getLocation(),
                      diag::note_conflicting_attribute)
           << UnboundedSparseNodesAttr->getRange();

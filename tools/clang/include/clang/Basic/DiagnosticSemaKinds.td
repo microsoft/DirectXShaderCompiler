@@ -7811,10 +7811,14 @@ def err_hlsl_wg_input_kind : Error<
    "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;
 def err_hlsl_wg_attr_only_on_output : Error<
    "attribute %0 may only be used with output nodes">;
+def err_hlsl_wg_attr_only_on_output_or_input_record : Error<
+   "attribute %0 may only be used with output nodes or input record objects">;
 def err_hlsl_wg_nodearraysize_conflict_unbounded : Error<
-   "[%0(%1)] conflicts with [%2], which implies [%0(-1)]">;
+   "[NodeArraySize(%0)] conflict: [UnboundedSparseNodes] implies [NodeArraySize(-1)]">;
 def err_hlsl_wg_attr_only_on_output_array : Error<
-   "attribute %0 may only be used with note output arrays (NodeOutputArray or EmptyNodeOutputArray)">;
+   "attribute %0 may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)">;
+def err_hlsl_wg_attr_only_on_node: Error<
+   "attribute %0 may only be used on a node ">;
 def err_hlsl_zero_sized_record : Error<
    "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
