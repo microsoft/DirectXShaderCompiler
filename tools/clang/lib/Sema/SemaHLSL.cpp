@@ -15163,11 +15163,8 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
                                               bool &Found) {
 
   // Walk up the inheritance chain and check all fields on base classes
-  for (CXXRecordDecl::base_class_iterator B = InputRecordDecl->bases_begin(),
-                                          BEnd = InputRecordDecl->bases_end();
-       B != BEnd; ++B) {
-
-    const RecordType *BaseStructType = B->getType()->getAsStructureType();
+  for (auto &B : InputRecordDecl->bases()) {
+    const RecordType *BaseStructType = B.getType()->getAsStructureType();
     if (nullptr != BaseStructType) {
       CXXRecordDecl *BaseTypeDecl =
           dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
