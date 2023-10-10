@@ -35,7 +35,7 @@ void node04()
 [NodeMaxDispatchGrid(256, 64, 32)]   // expected-error {{Node shader 'node05' may not use both 'nodemaxdispatchgrid' and 'nodedispatchgrid'}}
 [NodeDispatchGrid(32, 1, 1)]         // expected-note  {{nodedispatchgrid defined here}}
 [NumThreads(32, 1, 1)]
-void node05()
+void node05()                        // expected-error {{Broadcasting node shader 'node05' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 { }
 
 // One of NodeDispatchGrid or NodeMaxDispatchGrid must be specified for a Broadcasting node
