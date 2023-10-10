@@ -15229,11 +15229,24 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
                                               CXXRecordDecl *InputRecordDecl,
                                               SourceLocation &DispatchGridLoc,
                                               bool &Found) {
-  // Iterate over fields of the input record struct
-  for (auto FieldDecl : InputRecordDecl->fields()) {
+
+  // Walk up the inheritance chain and check all fields on base classes
+  for (auto &B : InputRecordDecl->bases()) {
+    const RecordType *BaseStructType = B.getType()->getAsStructureType();
+    if (nullptr != BaseStructType) {
+      CXXRecordDecl *BaseTypeDecl =
+          dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
+      if (nullptr != BaseTypeDecl) {
+        DiagnoseMustHaveOneDispatchGridSemantics(S, BaseTypeDecl,
+                                                 DispatchGridLoc, Found);
+      }
+    }
+  }
+
+  // Iterate over fields of the current struct
+  for (FieldDecl *FD : InputRecordDecl->fields()) {
     // Check if any of the fields have SV_DispatchGrid annotation
-    for (const hlsl::UnusualAnnotation *it :
-         FieldDecl->getUnusualAnnotations()) {
+    for (const hlsl::UnusualAnnotation *it : FD->getUnusualAnnotations()) {
       if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
         const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
         if (sd->SemanticName.equals("SV_DispatchGrid")) {
@@ -15252,19 +15265,13 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
         }
       }
     }
-  }
-
-  // Walk up the inheritance chain and check all fields on base classes
-  for (CXXRecordDecl::base_class_iterator B = InputRecordDecl->bases_begin(),
-                                          BEnd = InputRecordDecl->bases_end();
-       B != BEnd; ++B) {
-
-    const RecordType *BaseStructType = B->getType()->getAsStructureType();
-    if (nullptr != BaseStructType) {
-      CXXRecordDecl *BaseTypeDecl =
-          dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
-      if (nullptr != BaseTypeDecl) {
-        DiagnoseMustHaveOneDispatchGridSemantics(S, BaseTypeDecl,
+    // Check nested structs
+    const RecordType *FieldTypeAsStruct = FD->getType()->getAsStructureType();
+    if (nullptr != FieldTypeAsStruct) {
+      CXXRecordDecl *FieldTypeDecl =
+          dyn_cast<CXXRecordDecl>(FieldTypeAsStruct->getDecl());
+      if (nullptr != FieldTypeDecl) {
+        DiagnoseMustHaveOneDispatchGridSemantics(S, FieldTypeDecl,
                                                  DispatchGridLoc, Found);
       }
     }
