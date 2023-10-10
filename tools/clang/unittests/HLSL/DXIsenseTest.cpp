@@ -13,9 +13,6 @@
 #include "dxc/Test/HLSLTestData.h"
 #include <stdint.h>
 
-#ifdef _WIN32
-#include "WexTestClass.h"
-#endif
 #include "dxc/Support/microcom.h"
 #include "dxc/Test/HlslTestUtils.h"
 

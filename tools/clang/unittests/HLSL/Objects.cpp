@@ -12,9 +12,6 @@
 #include "dxc/Test/HLSLTestData.h"
 #include <stdint.h>
 
-#ifdef _WIN32
-#include "WexTestClass.h"
-#endif
 #include "dxc/Test/HlslTestUtils.h"
 
 #include <exception>

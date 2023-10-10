@@ -34,7 +34,6 @@
 #include <atlbase.h>
 #include <atlfile.h>
 
-#include "WexTestClass.h"
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Test/DxcTestUtils.h"

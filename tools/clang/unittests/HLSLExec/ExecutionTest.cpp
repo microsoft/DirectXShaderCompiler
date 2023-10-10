@@ -35,7 +35,6 @@
 #include <bitset>
 
 #undef _read
-#include "WexTestClass.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
@@ -9870,7 +9869,7 @@ TEST_F(ExecutionTest, ComputeRawBufferLdStHalf) {
       {256.0f, 105.17f, 980.0f},
       {465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f}};
   RawBufferLdStTestData<uint16_t> halfData;
-  for (int i = 0; i < sizeof(floatData) / sizeof(float); i++) {
+  for (unsigned i = 0; i < sizeof(floatData) / sizeof(float); i++) {
     ((uint16_t *)&halfData)[i] =
         ConvertFloat32ToFloat16(((float *)&floatData)[i]);
   }
@@ -9932,7 +9931,7 @@ TEST_F(ExecutionTest, GraphicsRawBufferLdStHalf) {
       {256.0f, 105.17f, 0.0f},
       {465.1652f, -1.5694e2f, -0.8543e-2f, 1333.5f}};
   RawBufferLdStTestData<uint16_t> halfData;
-  for (int i = 0; i < sizeof(floatData) / sizeof(float); i++) {
+  for (unsigned i = 0; i < sizeof(floatData) / sizeof(float); i++) {
     ((uint16_t *)&halfData)[i] =
         ConvertFloat32ToFloat16(((float *)&floatData)[i]);
   }

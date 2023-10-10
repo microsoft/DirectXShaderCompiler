@@ -225,6 +225,10 @@ if "%1"=="-clang" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
   shift /1 & goto :parse_args
 )
+if "%1"=="-clang-cl" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -T ClangCL
+  shift /1 & goto :parse_args
+)
 if "%1"=="-update-generated-sources" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DHLSL_COPY_GENERATED_SOURCES=1
   shift /1 & goto :parse_args
