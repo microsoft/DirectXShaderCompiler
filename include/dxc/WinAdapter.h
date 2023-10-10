@@ -583,6 +583,16 @@ struct IUnknown {
 CROSS_PLATFORM_UUIDOF(INoMarshal, "ECC8691B-C1DB-4DC0-855E-65F6C551AF49")
 struct INoMarshal : public IUnknown {};
 
+CROSS_PLATFORM_UUIDOF(IMalloc, "00000002-0000-0000-C000-000000000046")
+struct IMalloc : public IUnknown {
+  virtual void *Alloc(SIZE_T size) = 0;
+  virtual void *Realloc(void *ptr, SIZE_T size) = 0;
+  virtual void Free(void *ptr) = 0;
+  virtual SIZE_T GetSize(void *pv) = 0;
+  virtual int DidAlloc(void *pv) = 0;
+  virtual void HeapMinimize(void) = 0;
+};
+
 CROSS_PLATFORM_UUIDOF(ISequentialStream, "0C733A30-2A1C-11CE-ADE5-00AA0044773D")
 struct ISequentialStream : public IUnknown {
   virtual HRESULT Read(void *pv, ULONG cb, ULONG *pcbRead) = 0;
