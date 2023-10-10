@@ -18,6 +18,7 @@ def note_previous_decl : Note<"%0 declared here">;
 def note_entity_declared_at : Note<"%0 declared here">;
 def note_callee_decl : Note<"%0 declared here">;
 def note_defined_here : Note<"%0 defined here">;
+def note_field_declared_here : Note<"%0 field declared here">;
 
 // For loop analysis
 def warn_variables_not_in_loop_body : Warning<
@@ -7847,6 +7848,10 @@ def err_hlsl_maxrecursiondepth_exceeded : Error<
    "NodeMaxRecursionDepth may not exceed 32">;
 def err_hlsl_too_many_node_inputs : Error<
    "Node shader '%0' may not have more than one input record">;
+def err_hlsl_node_record_type : Error<
+   "%0 is not valid as a node record type - struct/class required">;
+def err_hlsl_node_record_object : Error<
+   "object %0 may not appear in a node record">;
 def err_hlsl_array_entry_param_disallowed : Error<
    "entry parameter of type %0 may not be an array">;
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;

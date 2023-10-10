@@ -123,6 +123,7 @@ public:
   TEST_METHOD(RunInvalidNodeOutputCompleteDiags)
   TEST_METHOD(RunShaderMismatch)
   TEST_METHOD(RunMaxRecordsAttribute)
+  TEST_METHOD(RunInvalidNodeRecordTypeDiags)
   TEST_METHOD(RunNodeOutputArrayDiags)
 
   void CheckVerifies(const wchar_t *path) {
@@ -519,6 +520,10 @@ TEST_F(VerifierTest, RunWorkGraphAttributeDiags) {
 
 TEST_F(VerifierTest, RunInvalidNodeLaunchDiags) {
   CheckVerifiesHLSL(L"/workgraph/invalid_nodelaunch.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidNodeRecordTypeDiags) {
+  CheckVerifiesHLSL(L"/workgraph/invalid_node_record_type.hlsl");
 }
 
 TEST_F(VerifierTest, RunNodeOutputArrayDiags) {
