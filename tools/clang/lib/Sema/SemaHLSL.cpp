@@ -5382,9 +5382,9 @@ public:
       QualType ArgTy = Arg.getAsType();
       // Allow DependentType for case like
       // template <typename T> void foo(GroupNodeInputRecords<T> data) {}
-      if (argType->isDependentType())
+      if (ArgTy->isDependentType())
         return false;
-      if (auto *recordType = argType->getAs<RecordType>()) {
+      if (auto *recordType = ArgTy->getAs<RecordType>()) {
         if (CXXRecordDecl *cxxRecordDecl =
                 dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
           if (ClassTemplateSpecializationDecl *templateSpecializationDecl =
@@ -5392,9 +5392,9 @@ public:
             if (templateSpecializationDecl->getSpecializationKind() ==
                 TSK_Undeclared) {
               // Make sure specialization is done before IsTypeNumeric.
-              // If not, argType might be treat as empty struct.
+              // If not, ArgTy might be treat as empty struct.
               m_sema->RequireCompleteType(
-                  argLoc.getLocation(), argType,
+                  ArgLoc.getLocation(), ArgTy,
                   diag::err_typecheck_decl_incomplete_type);
             }
           }

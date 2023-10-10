@@ -14,7 +14,7 @@ template <typename T> void bar() {
 }
 
 template <typename T> void bar2() {
-  GroupNodeInputRecords<T > data; // expected-error{{'float' cannot be used as a type parameter where a struct/class is required}}
+  GroupNodeInputRecords<T > data; // expected-error{{'float' is not valid as a node record type - struct/class required}}
   foo(data);
 }
 
