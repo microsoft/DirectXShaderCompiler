@@ -5390,8 +5390,7 @@ public:
         // If ArgType is a template we force specialization of the it here.
         GetOrCreateTemplateSpecialization(
             *m_context, *m_sema,
-            cast<ClassTemplateDecl>(
-                TST->getTemplateName().getAsTemplateDecl()),
+            cast<ClassTemplateDecl>(TST->getTemplateName().getAsTemplateDecl()),
             llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
                                              TST->getNumArgs()));
       }
@@ -5408,7 +5407,6 @@ public:
         m_sema->Diag(RD->getLocation(), diag::note_defined_here)
             << "zero sized record";
         return true;
-
       }
       return false;
     }
@@ -11371,7 +11369,7 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   default:
     DXASSERT(false, "unreachable");
     return false;
-  }  
+  }
 }
 
 // This function diagnoses whether or not all entry-point attributes
