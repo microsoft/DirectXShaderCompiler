@@ -12875,9 +12875,9 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
          GetNodeIOType(DeclType) !=
              DXIL::NodeIOKind::RWDispatchNodeInputRecord)) {
       Diag(A->getLocation(), diag::err_hlsl_varmodifierna_decltype)
-          << A << DeclType->getCanonicalTypeUnqualified();
-      Diag(A->getLocation(), diag::note_hlsl_varmodifier_applies)
-          << A << "UAV or RWDispatchNodeInputRecord objects";
+          << A << DeclType->getCanonicalTypeUnqualified() << A->getRange();
+      Diag(A->getLocation(), diag::note_hlsl_globallycoherent_applies_to)
+          << A << A->getRange();
     }
     return;
   }

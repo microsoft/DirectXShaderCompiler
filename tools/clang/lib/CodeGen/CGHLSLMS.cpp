@@ -2435,9 +2435,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             node.MaxRecords =
                 parmDecl->getAttr<HLSLMaxRecordsAttr>()->getMaxCount();
           }
-          if (parmDecl->hasAttr<HLSLGloballyCoherentAttr>()) {
+          if (parmDecl->hasAttr<HLSLGloballyCoherentAttr>())
             node.Flags.SetGloballyCoherent();
-          }
 
           NodeInputRecordParams[ArgIt].RecordInfo = node.GetNodeRecordInfo();
           funcProps->InputNodes.push_back(node);
