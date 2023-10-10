@@ -3446,20 +3446,25 @@ static void ValidateNodeInputRecord(Function *F, ValidationContext &ValCtx) {
       // if there was no input specified
       if (input.Flags.IsEmptyInput())
         continue;
-      LPCSTR launchTypeStr = "Invalid";
+
+      llvm::StringRef validInputs = "";
       switch (props.Node.LaunchType) {
       case DXIL::NodeLaunchType::Broadcasting:
-        launchTypeStr = "Broadcasting";
+        validInputs = "{RW}DispatchNodeInputRecord";
         break;
       case DXIL::NodeLaunchType::Coalescing:
-        launchTypeStr = "Coalescing";
+        validInputs = "{RW}GroupNodeInputRecords or EmptyNodeInput";
         break;
       case DXIL::NodeLaunchType::Thread:
-        launchTypeStr = "Thread";
+        validInputs = "{RW}ThreadNodeInputRecord";
         break;
+      default:
+        llvm_unreachable("invalid launch type");
       }
-      ValCtx.EmitFnFormatError(F, ValidationRule::DeclNodeLaunchInputType,
-                               {launchTypeStr, F->getName()});
+      ValCtx.EmitFnFormatError(
+          F, ValidationRule::DeclNodeLaunchInputType,
+          {ShaderModel::GetNodeLaunchTypeName(props.Node.LaunchType),
+           F->getName(), validInputs});
     }
   }
 }
@@ -3488,35 +3493,10 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
         DxilModule &DM = ValCtx.DxilMod;
         if (DM.HasDxilEntryProps(&F)) {
           DxilEntryProps &entryProps = DM.GetDxilEntryProps(&F);
-          // Check compatibility when both compute and node are specified
+          // Check that compute has no node metadata
           if (entryProps.props.IsNode()) {
-            // Compute is only compatible with Broadcasting launch nodes
-            if (entryProps.props.Node.LaunchType !=
-                DXIL::NodeLaunchType::Broadcasting) {
-              ValCtx.EmitFnFormatError(
-                  &F, ValidationRule::FlowComputeNodeLaunchType,
-                  {F.getName(), entryProps.props.Node.LaunchType ==
-                                        DXIL::NodeLaunchType::Coalescing
-                                    ? "Coalescing"
-                                    : "Thread"});
-              break;
-            }
-            // Compute is not compatible with node input (other than an input
-            // added implicitly) or outputs (only produce this error if we
-            // haven't produced the one above) Implicitly added input may only
-            // be an EmptyNodeInput or a record with size of 12 bytes.
-            if (!(entryProps.props.InputNodes.empty() ||
-                  entryProps.props.InputNodes[0]
-                          .GetNodeRecordInfo()
-                          .RecordSize == 12 ||
-                  NodeFlags(entryProps.props.InputNodes[0]
-                                .GetNodeRecordInfo()
-                                .IOFlags)
-                      .IsEmptyInput()) ||
-                !entryProps.props.OutputNodes.empty()) {
-              ValCtx.EmitFnFormatError(&F, ValidationRule::FlowComputeNodeIO,
-                                       {F.getName()});
-            }
+            ValCtx.EmitFnFormatError(&F, ValidationRule::MetaComputeWithNode,
+                                     {F.getName()});
           }
         }
         break;

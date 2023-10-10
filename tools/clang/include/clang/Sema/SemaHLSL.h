@@ -54,6 +54,11 @@ clang::Sema::TemplateDeductionResult DeduceTemplateArgumentsForHLSL(
     clang::TemplateArgumentListInfo *, llvm::ArrayRef<clang::Expr *>,
     clang::FunctionDecl *&, clang::sema::TemplateDeductionInfo &);
 
+bool DiagnoseNodeStructArgument(clang::Sema *self,
+                                clang::TemplateArgumentLoc ArgLoc,
+                                clang::QualType ArgTy, bool &Empty,
+                                const clang::FieldDecl *FD = nullptr);
+
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
                                          clang::Expr *condExpr,
                                          llvm::StringRef StmtName);

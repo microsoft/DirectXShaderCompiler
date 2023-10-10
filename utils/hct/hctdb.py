@@ -2749,6 +2749,7 @@ class db_dxil(object):
         self.add_valrule_msg("Container.RootSignatureIncompatible", "Root Signature in DXIL Container must be compatible with shader", "Root Signature in DXIL container is not compatible with shader.")
 
         self.add_valrule("Meta.Required", "Required metadata missing.")
+        self.add_valrule_msg("Meta.ComputeWithNode", "Compute entry must not have node metadata", "Compute entry '%0' has unexpected node shader metadata")
         self.add_valrule_msg("Meta.Known", "Named metadata should be known", "Named metadata '%0' is unknown.")
         self.add_valrule("Meta.Used", "All metadata must be used by dxil.")
         self.add_valrule_msg("Meta.Target", "Target triple must be 'dxil-ms-dx'", "Unknown target triple '%0'.")
@@ -2999,8 +3000,6 @@ class db_dxil(object):
         self.add_valrule("Flow.NoRecusion", "Recursion is not permitted.")
         self.add_valrule("Flow.DeadLoop", "Loop must have break.")
         self.add_valrule_msg("Flow.FunctionCall", "Function with parameter is not permitted", "Function %0 with parameter is not permitted, it should be inlined.")
-        self.add_valrule_msg("Flow.ComputeNodeLaunchType", "Node launch type is not compatible with Compute", "Node %0 %1 launch type is not compatible with Compute")
-        self.add_valrule_msg("Flow.ComputeNodeIO", "Node with input or outputs is not compatible with Compute", "Node %0 with input/outputs is not compatible with Compute")
 
         self.add_valrule_msg("Decl.DxilNsReserved", "The DXIL reserved prefixes must only be used by built-in functions and types", "Declaration '%0' uses a reserved prefix.")
         self.add_valrule_msg("Decl.DxilFnExtern", "External function must be a DXIL function", "External function '%0' is not a DXIL function.")
@@ -3019,7 +3018,7 @@ class db_dxil(object):
         self.add_valrule_msg("Decl.ShaderReturnVoid", "Shader functions must return void", "Shader function '%0' must have void return type.")
         self.add_valrule_msg("Decl.ShaderMissingArg", "payload/params/attributes parameter is required for certain shader types", "%0 shader '%1' missing required %2 parameter.")
         self.add_valrule_msg("Decl.MultipleNodeInputs", "A node shader may not have more than one input record", "node shader '%0' may not have more than one input record (%1 are declared)")
-        self.add_valrule_msg("Decl.NodeLaunchInputType", "Invalid input record type for node launch type", "%0 node shader '%1' has input record type that is invalid for its launch type")
+        self.add_valrule_msg("Decl.NodeLaunchInputType", "Invalid input record type for node launch type", "%0 node shader '%1' has incompatible input record type (should be %2)")
 
 
         # Assign sensible category names and build up an enumeration description

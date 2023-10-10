@@ -3025,8 +3025,6 @@ DECL.SHADERMISSINGARG                     payload/params/attributes parameter is
 DECL.SHADERRETURNVOID                     Shader functions must return void
 DECL.USEDEXTERNALFUNCTION                 External function must be used
 DECL.USEDINTERNAL                         Internal declaration must be used
-FLOW.COMPUTENODEIO                        Node with input or outputs is not compatible with Compute
-FLOW.COMPUTENODELAUNCHTYPE                Node launch type is not compatible with Compute
 FLOW.DEADLOOP                             Loop must have break.
 FLOW.FUNCTIONCALL                         Function with parameter is not permitted
 FLOW.NORECUSION                           Recursion is not permitted.
@@ -3125,6 +3123,7 @@ META.BARYCENTRICSTWOPERSPECTIVES          There can only be up to two input attr
 META.BRANCHFLATTEN                        Can't use branch and flatten attributes together.
 META.CLIPCULLMAXCOMPONENTS                Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
 META.CLIPCULLMAXROWS                      Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
+META.COMPUTEWITHNODE                      Compute entry must not have node metadata
 META.CONTROLFLOWHINTNOTONCONTROLFLOW      Control flow hint only works on control flow inst.
 META.DENSERESIDS                          Resource identifiers must be zero-based and dense.
 META.DUPLICATESYSVALUE                    System value may only appear once in signature
