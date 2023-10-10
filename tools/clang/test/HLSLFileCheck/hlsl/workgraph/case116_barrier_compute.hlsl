@@ -9,7 +9,7 @@
 // CHECK: define void @node116_barrier_compute()
 // CHECK-SAME: {
 // CHECK:   call void @dx.op.barrierByMemoryType(i32
-// CHECK-SAME: , i32 1, i32 2, i32 1)
+// CHECK-SAME: , i32 1, i32 3)
 // CHECK:   ret void
 // CHECK: }
 
@@ -17,5 +17,5 @@
 [NumThreads(5,1,1)]
 void node116_barrier_compute()
 {
-  Barrier(1, 2, 1);
+  Barrier(UAV_MEMORY, GROUP_SYNC|GROUP_SCOPE);
 }
