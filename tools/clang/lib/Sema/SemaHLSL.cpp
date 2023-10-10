@@ -11371,6 +11371,8 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   default:
     DXASSERT(false, "unreachable");
     return false;
+  }  
+}
 
 // This function diagnoses whether or not all entry-point attributes
 // should exist on this shader stage
