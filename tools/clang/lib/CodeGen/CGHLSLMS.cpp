@@ -2455,6 +2455,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           } else {
             node.OutputArraySize = 0;
           }
+          if (parmDecl->hasAttr<HLSLUnboundedSparseNodesAttr>()) {
+            node.AllowSparseNodes = true;
+            node.OutputArraySize = UINT_MAX;
+          }
+
           // OutputID from attribute
           if (const auto *Attr = parmDecl->getAttr<HLSLNodeIdAttr>()) {
             node.OutputID.Name = Attr->getName().str();

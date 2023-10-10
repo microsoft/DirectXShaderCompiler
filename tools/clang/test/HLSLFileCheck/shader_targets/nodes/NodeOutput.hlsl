@@ -21,8 +21,8 @@ struct MY_INPUT_RECORD
         float3 normal;
     };
 
-// CHECK:FunctionDecl 0x{{.*}} myFancyNode 'void (DispatchNodeInputRecord<MY_INPUT_RECORD>, NodeOutput<MY_RECORD>, NodeOutput<MY_RECORD>, NodeOutputArray<MY_MATERIAL_RECORD>, EmptyNodeOutput)'
-// CHECK-NEXT:ParmVarDecl 0x{{.*}} myInput 'DispatchNodeInputRecord<MY_INPUT_RECORD>':'DispatchNodeInputRecord<MY_INPUT_RECORD>'
+// CHECK:FunctionDecl 0x{{.*}} myFancyNode 'void (GroupNodeInputRecords<MY_INPUT_RECORD>, NodeOutput<MY_RECORD>, NodeOutput<MY_RECORD>, NodeOutputArray<MY_MATERIAL_RECORD>, EmptyNodeOutput)'
+// CHECK-NEXT:ParmVarDecl 0x{{.*}} myInput 'GroupNodeInputRecords<MY_INPUT_RECORD>':'GroupNodeInputRecords<MY_INPUT_RECORD>'
 // CHECK-NEXT: HLSLMaxRecordsAttr 0x{{.*}} 4
 // CHECK-NEXT: ParmVarDecl 0x{{.*}} myFascinatingNode 'NodeOutput<MY_RECORD>':'NodeOutput<MY_RECORD>'
 // CHECK-NEXT: HLSLMaxRecordsAttr 0x{{.*}} 4
@@ -37,16 +37,14 @@ struct MY_INPUT_RECORD
 // CHECK-NEXT: HLSLMaxRecordsAttr 0x{{.*}} 20
 // CHECK-NEXT: CompoundStmt 0x
 // CHECK-NEXT: HLSLNumThreadsAttr 0x{{.*}} 4 5 6
-// CHECK-NEXT: HLSLNodeLaunchAttr 0x{{.*}} "broadcasting"
+// CHECK-NEXT: HLSLNodeLaunchAttr 0x{{.*}} "coalescing"
 // CHECK-NEXT: HLSLShaderAttr 0x{{.*}} "node"
-// CHECK-NEXT: HLSLNodeDispatchGridAttr 0x{{.*}} 4 2 1
-    [NodeDispatchGrid(4,2,1)]
     [Shader("node")]
-    [NodeLaunch("broadcasting")]
+    [NodeLaunch("coalescing")]
     [NumThreads(4,5,6)]
     void myFancyNode(
 
-        [MaxRecords(4)]  DispatchNodeInputRecord<MY_INPUT_RECORD> myInput,
+        [MaxRecords(4)] GroupNodeInputRecords<MY_INPUT_RECORD> myInput,
 
         [MaxRecords(4)] NodeOutput<MY_RECORD> myFascinatingNode,
 
