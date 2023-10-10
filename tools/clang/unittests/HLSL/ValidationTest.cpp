@@ -4303,8 +4303,7 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
       pArguments.data(), 2, nullptr, 0,
       {"!32 = !{i32 8, i32 15"}, // original: node shader
       {"!32 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Compute entry 'node04' has unexpected node shader metadata",
-      false);
+      "Compute entry 'node04' has unexpected node shader metadata", false);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
