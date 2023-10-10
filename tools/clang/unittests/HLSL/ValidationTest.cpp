@@ -4285,34 +4285,34 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
       pArguments.data(), 2, nullptr, 0,
       {"!11 = !{i32 8, i32 15"}, // original: node shader
       {"!11 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Node 'node01' with input/outputs is not compatible with compute", false);
+      "Compute entry 'node01' has unexpected node shader metadata", false);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
       {"!19 = !{i32 8, i32 15"}, // original: node shader
       {"!19 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Node 'node02' with input/outputs is not compatible with compute", false);
+      "Compute entry 'node02' has unexpected node shader metadata", false);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
       {"!25 = !{i32 8, i32 15"}, // original: node shader
       {"!25 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Node 'node03' with input/outputs is not compatible with compute", false);
+      "Compute entry 'node03' has unexpected node shader metadata", false);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!34 = !{i32 8, i32 15"}, // original: node shader
-      {"!34 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Node 'node04' coalescing launch type is not compatible with compute",
+      {"!32 = !{i32 8, i32 15"}, // original: node shader
+      {"!32 = !{i32 8, i32 5"},  // changed to: compute shader
+      "Compute entry 'node04' has unexpected node shader metadata",
       false);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!34 = !{i32 8, i32 15, i32 13, i32 2"}, // original: node shader,
+      {"!32 = !{i32 8, i32 15, i32 13, i32 2"}, // original: node shader,
                                                 // coalesing launch type
-      {"!34 = !{i32 8, i32 5, i32 13, i32 3"},  // changed to: compute shader,
+      {"!32 = !{i32 8, i32 5, i32 13, i32 3"},  // changed to: compute shader,
                                                 // thread launch type
-      "Node 'node04' thread launch type is not compatible with compute", false);
+      "Compute entry 'node04' has unexpected node shader metadata", false);
 }
 
 // Check validation error for incompatible node input record types
