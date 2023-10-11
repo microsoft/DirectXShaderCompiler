@@ -4415,7 +4415,7 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
 }
 
 // Used to determine how an out of bounds offset should be converted
-#define CLAMPOFFSET(offset) (((unsigned)(offset) << 28) >> 28)
+#define CLAMPOFFSET(offset) (((int)((unsigned)(offset) << 28)) >> 28)
 
 // Determine if the values in pPixels correspond to the expected locations
 // encoded into a uint based on the coordinates and offsets that were provided.
