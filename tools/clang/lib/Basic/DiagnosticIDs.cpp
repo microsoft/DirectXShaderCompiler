@@ -129,8 +129,8 @@ static const StaticDiagInfoRec *GetDiagInfo(unsigned DiagID) {
   unsigned ID = DiagID - DIAG_START_COMMON - 1;
   // HLSL Change: Added static_asserts to prevent overflow in each category.
 #define CATEGORY(NAME, PREV)                                                   \
-  static_assert(NUM_BUILTIN_##PREV##_DIAGNOSTICS < DIAG_START_##NAME &&        \
-                "otherwise, previous group overflows");                        \
+  static_assert(NUM_BUILTIN_##PREV##_DIAGNOSTICS < DIAG_START_##NAME,          \
+                "otherwise, " #PREV " diagnostic group overflows");            \
   if (DiagID > DIAG_START_##NAME) {                                            \
     Offset += NUM_BUILTIN_##PREV##_DIAGNOSTICS - DIAG_START_##PREV - 1;        \
     ID -= DIAG_START_##NAME - DIAG_START_##PREV;                               \
@@ -145,8 +145,8 @@ static const StaticDiagInfoRec *GetDiagInfo(unsigned DiagID) {
   CATEGORY(SEMA, COMMENT)
   CATEGORY(ANALYSIS, SEMA)
 #undef CATEGORY
-  static_assert(NUM_BUILTIN_ANALYSIS_DIAGNOSTICS < DIAG_UPPER_LIMIT &&
-                "otherwise, ANALYSIS group overflows");
+  static_assert(NUM_BUILTIN_ANALYSIS_DIAGNOSTICS < DIAG_UPPER_LIMIT,
+                "otherwise, ANALYSIS diagnostic group overflows");
 
   // Avoid out of bounds reads.
   if (ID + Offset >= StaticDiagInfoSize)
