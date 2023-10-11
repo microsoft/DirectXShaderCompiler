@@ -106,7 +106,10 @@ public:
   DXIL::NodeIOFlags GetNodeIOFlags() const;
 
   bool IsInputRecord() const;
+  bool IsRecord() const;
+  bool IsOutput() const;
   bool IsOutputNode() const;
+  bool IsOutputRecord() const;
   bool IsReadWrite() const;
   bool IsEmpty() const;
   bool IsEmptyInput() const;
@@ -115,6 +118,9 @@ public:
 
   void SetTrackRWInputSharing();
   bool GetTrackRWInputSharing() const;
+
+  void SetGloballyCoherent();
+  bool GetGloballyCoherent() const;
 
 private:
   DXIL::NodeIOFlags m_Flags;

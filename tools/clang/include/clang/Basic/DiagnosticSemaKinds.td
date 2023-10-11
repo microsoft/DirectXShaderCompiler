@@ -7655,6 +7655,10 @@ def err_hlsl_unsupported_longlong : Error<
   "long long is unsupported in HLSL">;
 def err_hlsl_varmodifierna : Error<
   "%0 is not a valid modifier for a %1">;
+def err_hlsl_varmodifierna_decltype : Error<
+  "%0 is not a valid modifier for a declaration of type %1">;
+def note_hlsl_globallycoherent_applies_to : Note<
+  "'globallycoherent' can only be applied to UAV or RWDispatchNodeInputRecord objects">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla

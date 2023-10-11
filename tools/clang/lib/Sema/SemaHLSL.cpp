@@ -12927,10 +12927,14 @@ void Sema::DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A) {
     while (DeclType->isArrayType())
       DeclType = QualType(DeclType->getArrayElementTypeNoTypeQual(), 0);
     if (ExtSource->GetTypeObjectKind(DeclType) != AR_TOBJ_OBJECT ||
-        hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
-            hlsl::DXIL::ResourceClass::UAV) {
-      Diag(A->getLocation(), diag::err_hlsl_varmodifierna)
-          << A << "non-UAV type";
+        (hlsl::GetResourceClassForType(getASTContext(), DeclType) !=
+             hlsl::DXIL::ResourceClass::UAV &&
+         GetNodeIOType(DeclType) !=
+             DXIL::NodeIOKind::RWDispatchNodeInputRecord)) {
+      Diag(A->getLocation(), diag::err_hlsl_varmodifierna_decltype)
+          << A << DeclType->getCanonicalTypeUnqualified() << A->getRange();
+      Diag(A->getLocation(), diag::note_hlsl_globallycoherent_applies_to)
+          << A << A->getRange();
     }
     return;
   }
@@ -12945,8 +12949,9 @@ void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
     SrcTy = QualType(SrcTy->getBaseElementTypeUnsafe(), 0);
     DstTy = QualType(DstTy->getBaseElementTypeUnsafe(), 0);
   }
-  if (hlsl::IsHLSLResourceType(DstTy) &&
-      !hlsl::IsHLSLDynamicResourceType(SrcTy)) {
+  if ((hlsl::IsHLSLResourceType(DstTy) &&
+       !hlsl::IsHLSLDynamicResourceType(SrcTy)) ||
+      GetNodeIOType(DstTy) == DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
     bool SrcGL = hlsl::HasHLSLGloballyCoherent(SrcTy);
     bool DstGL = hlsl::HasHLSLGloballyCoherent(DstTy);
     if (SrcGL != DstGL)

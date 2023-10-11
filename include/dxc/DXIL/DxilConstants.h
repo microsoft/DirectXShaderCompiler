@@ -1588,9 +1588,10 @@ enum class NodeIOFlags : uint32_t {
 
   TrackRWInputSharing = 0x100, // TrackRWInputSharing tracked on all non-empty
                                // input/output record/node types
+  GloballyCoherent = 0x200,    // applies to RWDispatchNodeInputRecord
 
   // Mask for node/record properties beyond NodeIOKind
-  RecordFlagsMask = 0x100,
+  RecordFlagsMask = 0x300,
   NodeFlagsMask = 0x100,
 };
 
