@@ -375,8 +375,8 @@ $type2 [[rn]] select(in bool<> cond, in $match<1, 2> any<> t, in $type2 f);
 $type2 [[rn]] select(in bool cond, in any_sampler t, in $type2 f);
 
 // Work Graph intrinsics
-void [[]] Barrier(in uint MemoryTypeFlags, in uint AccessFlags, in uint SyncFlags);
-void [[]] Barrier(in NodeRecordOrUAV o, in uint AccessFlags, in uint SyncFlags);
+void [[]] Barrier(in uint MemoryTypeFlags, in uint SemanticFlags);
+void [[]] Barrier(in NodeRecordOrUAV o, in uint SemanticFlags);
 
 uint [[]] GetRemainingRecursionLevels();
 

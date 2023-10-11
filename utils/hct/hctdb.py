@@ -2095,20 +2095,17 @@ class db_dxil(object):
         self.add_dxil_op("BarrierByMemoryType", next_op_idx, "BarrierByMemoryType", "Request a barrier for a set of memory types and/or thread group execution sync", "v", "nd", [
             retvoid_param,
             db_dxil_param(2, "i32", "MemoryTypeFlags", "memory type flags", is_const=True),
-            db_dxil_param(3, "i32", "AccessFlags", "access flags", is_const=True),
-            db_dxil_param(4, "i32", "SyncFlags", "synchonization flags", is_const=True)])
+            db_dxil_param(3, "i32", "SemanticFlags", "semantic flags", is_const=True)])
         next_op_idx += 1
         self.add_dxil_op("BarrierByMemoryHandle", next_op_idx, "BarrierByMemoryHandle", "Request a barrier for just the memory used by the specified object", "v", "nd", [
             retvoid_param,
             db_dxil_param(2, "res", "object", "handle of object"),
-            db_dxil_param(3, "i32", "AccessFlags", "access flags", is_const=True),
-            db_dxil_param(4, "i32", "SyncFlags", "synchonization flags", is_const=True)])
+            db_dxil_param(3, "i32", "SemanticFlags", "semantic flags", is_const=True)])
         next_op_idx += 1
         self.add_dxil_op("BarrierByNodeRecordHandle", next_op_idx, "BarrierByNodeRecordHandle", "Request a barrier for just the memory used by the node record", "v", "nd", [
             retvoid_param,
             db_dxil_param(2, "noderecordhandle", "object", "handle of object"),
-            db_dxil_param(3, "i32", "AccessFlags", "access flags"),
-            db_dxil_param(4, "i32", "SyncFlags", "synchonization flags")])
+            db_dxil_param(3, "i32", "SemanticFlags", "semantic flags")])
         next_op_idx += 1
         self.add_dxil_op("CreateNodeOutputHandle", next_op_idx, "createNodeOutputHandle", "Creates a handle to a NodeOutput", "v", "rn", [
             db_dxil_param(0, "nodehandle", "output", "handle of object"),

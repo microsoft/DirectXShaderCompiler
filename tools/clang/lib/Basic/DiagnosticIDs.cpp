@@ -127,21 +127,26 @@ static const StaticDiagInfoRec *GetDiagInfo(unsigned DiagID) {
   // memory at all.
   unsigned Offset = 0;
   unsigned ID = DiagID - DIAG_START_COMMON - 1;
-#define CATEGORY(NAME, PREV) \
-  if (DiagID > DIAG_START_##NAME) { \
-    Offset += NUM_BUILTIN_##PREV##_DIAGNOSTICS - DIAG_START_##PREV - 1; \
-    ID -= DIAG_START_##NAME - DIAG_START_##PREV; \
+  // HLSL Change: Added static_asserts to prevent overflow in each category.
+#define CATEGORY(NAME, PREV)                                                   \
+  static_assert(NUM_BUILTIN_##PREV##_DIAGNOSTICS < DIAG_START_##NAME,          \
+                "otherwise, " #PREV " diagnostic group overflows");            \
+  if (DiagID > DIAG_START_##NAME) {                                            \
+    Offset += NUM_BUILTIN_##PREV##_DIAGNOSTICS - DIAG_START_##PREV - 1;        \
+    ID -= DIAG_START_##NAME - DIAG_START_##PREV;                               \
   }
-CATEGORY(DRIVER, COMMON)
-CATEGORY(FRONTEND, DRIVER)
-CATEGORY(SERIALIZATION, FRONTEND)
-CATEGORY(LEX, SERIALIZATION)
-CATEGORY(PARSE, LEX)
-CATEGORY(AST, PARSE)
-CATEGORY(COMMENT, AST)
-CATEGORY(SEMA, COMMENT)
-CATEGORY(ANALYSIS, SEMA)
+  CATEGORY(DRIVER, COMMON)
+  CATEGORY(FRONTEND, DRIVER)
+  CATEGORY(SERIALIZATION, FRONTEND)
+  CATEGORY(LEX, SERIALIZATION)
+  CATEGORY(PARSE, LEX)
+  CATEGORY(AST, PARSE)
+  CATEGORY(COMMENT, AST)
+  CATEGORY(SEMA, COMMENT)
+  CATEGORY(ANALYSIS, SEMA)
 #undef CATEGORY
+  static_assert(NUM_BUILTIN_ANALYSIS_DIAGNOSTICS < DIAG_UPPER_LIMIT,
+                "otherwise, ANALYSIS diagnostic group overflows");
 
   // Avoid out of bounds reads.
   if (ID + Offset >= StaticDiagInfoSize)
@@ -540,7 +545,10 @@ static bool getDiagnosticsInGroup(diag::Flavor Flavor,
   // Add the members of the option diagnostic set.
   const int16_t *Member = DiagArrays + Group->Members;
   for (; *Member != -1; ++Member) {
-    if (GetDiagInfo(*Member)->getFlavor() == Flavor) {
+    // HLSL Change: Check result of GetDiagInfo
+    const StaticDiagInfoRec *Info = GetDiagInfo(*Member);
+    assert(Info && "otherwise, group contains invalid diag ID");
+    if (Info->getFlavor() == Flavor) {
       NotFound = false;
       Diags.push_back(*Member);
     }
