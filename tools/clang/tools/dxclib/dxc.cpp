@@ -803,10 +803,8 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
                            pIncludeHandler, &pResult));
   }
 
-#ifndef _WIN32
-  // FIXME: fix crash on linux when not detach pCompileSource.
+  // Detach pCompileSource because the data is owned by pPdbUtils.
   pCompileSource.Detach();
-#endif
 
   *ppCompileResult = pResult.Detach();
 }
