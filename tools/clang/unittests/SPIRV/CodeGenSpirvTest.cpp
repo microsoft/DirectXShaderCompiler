@@ -163,7 +163,6 @@ TEST_F(FileTest, LiteralVecTimesScalar) {
 
 // For variables
 TEST_F(FileTest, VarInitScalarVector) { runFileTest("var.init.hlsl"); }
-TEST_F(FileTest, VarInitStruct) { runFileTest("var.init.struct.hlsl"); }
 TEST_F(FileTest, VarInitArray) { runFileTest("var.init.array.hlsl"); }
 
 TEST_F(FileTest, VarInitCrossStorageClass) {
