@@ -61,7 +61,7 @@ void doSomething4(globallycoherent T data) {
 //  globallycoherent RWDispatchNodeInputRecord<T> local = data;
 //}
 //template <typename T>
-//void doSomething6(globallycoherent RWDispatchNodeInputRecord<T> data) {
+//void doSomething7(globallycoherent RWDispatchNodeInputRecord<T> data) {
 //  RWDispatchNodeInputRecord<T> local = data;
 //}
 
