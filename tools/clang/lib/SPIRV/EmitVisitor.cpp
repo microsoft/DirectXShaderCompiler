@@ -133,7 +133,9 @@ uint32_t getHeaderVersion(spv_target_env env) {
 
 // Read the file in |filePath| and returns its contents as a string.
 // This function will be used by DebugSource to get its source code.
-std::string ReadSourceCode(llvm::StringRef filePath) {
+std::string
+ReadSourceCode(llvm::StringRef filePath,
+               const clang::spirv::SpirvCodeGenOptions &spvOptions) {
   try {
     dxc::DxcDllSupport dllSupport;
     IFT(dllSupport.Initialize());
@@ -150,15 +152,21 @@ std::string ReadSourceCode(llvm::StringRef filePath) {
     return std::string(utf8Source->GetStringPointer(),
                        utf8Source->GetStringLength());
   } catch (...) {
-    // An exception has occured while reading the file
+    // An exception has occurred while reading the file
+    // return the original source (which may have been supplied directly)
+    if (!spvOptions.origSource.empty()) {
+      return spvOptions.origSource.c_str();
+    }
     return "";
   }
 }
 
 // Returns a vector of strings after chopping |inst| for the operand size
 // limitation of OpSource.
-llvm::SmallVector<std::string, 2> getChoppedSourceCode(SpirvSource *inst) {
-  std::string text = ReadSourceCode(inst->getFile()->getString());
+llvm::SmallVector<std::string, 2>
+getChoppedSourceCode(SpirvSource *inst,
+                     const clang::spirv::SpirvCodeGenOptions &spvOptions) {
+  std::string text = ReadSourceCode(inst->getFile()->getString(), spvOptions);
   if (text.empty()) {
     text = inst->getSource().str();
   }
@@ -654,7 +662,7 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   // Chop up the source into multiple segments if it is too long.
   llvm::SmallVector<std::string, 2> choppedSrcCode;
   if (spvOptions.debugInfoSource && inst->hasFile()) {
-    choppedSrcCode = getChoppedSourceCode(inst);
+    choppedSrcCode = getChoppedSourceCode(inst, spvOptions);
     if (!choppedSrcCode.empty()) {
       // Note: in order to improve performance and avoid multiple copies, we
       // encode this (potentially large) string directly into the
@@ -1440,7 +1448,7 @@ void EmitVisitor::generateChoppedSource(uint32_t fileId,
   if (spvOptions.debugInfoSource) {
     std::string text = inst->getContent();
     if (text.empty())
-      text = ReadSourceCode(inst->getFile());
+      text = ReadSourceCode(inst->getFile(), spvOptions);
     if (!text.empty()) {
       // Maximum characters for DebugSource and DebugSourceContinued
       // OpString literal minus terminating null.
@@ -1481,7 +1489,7 @@ bool EmitVisitor::visit(SpirvDebugSource *inst) {
   // NonSemantic.Shader.DebugInfo.100 logic above can be used for both cases.
   uint32_t textId = 0;
   if (spvOptions.debugInfoSource) {
-    auto text = ReadSourceCode(inst->getFile());
+    auto text = ReadSourceCode(inst->getFile(), spvOptions);
     if (!text.empty())
       textId = getOrCreateOpStringId(text);
   }
