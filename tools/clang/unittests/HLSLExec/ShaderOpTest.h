@@ -42,9 +42,6 @@ struct IDxcBlob;
 UINT GetByteSizeForFormat(DXGI_FORMAT value);
 HRESULT LogIfLost(HRESULT hr, ID3D12Device *pDevice);
 HRESULT LogIfLost(HRESULT hr, ID3D12Resource *pResource);
-bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName);
-void GetHardwareAdapter(IDXGIFactory2 *pFactory, LPCWSTR AdapterName,
-                        IDXGIAdapter1 **ppAdapter);
 void RecordTransitionBarrier(ID3D12GraphicsCommandList *pCommandList,
                              ID3D12Resource *pResource,
                              D3D12_RESOURCE_STATES before,
@@ -83,6 +80,10 @@ namespace st {
 
 typedef void(__stdcall *OutputStringFn)(void *, const wchar_t *);
 void SetOutputFn(void *pCtx, OutputStringFn F);
+
+bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName);
+void GetHardwareAdapter(IDXGIFactory2 *pFactory, LPCWSTR AdapterName,
+                        IDXGIAdapter1 **ppAdapter);
 
 // String table, used to unique strings.
 class string_table {
