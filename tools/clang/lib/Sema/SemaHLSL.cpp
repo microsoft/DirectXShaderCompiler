@@ -15601,7 +15601,7 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 // ValidateNoRecursionInTranslationUnit.
 //  (viable as in, is exported)
 std::pair<clang::FunctionDecl *, bool>
-hlsl::ValidateNoRecursion(clang::Sema *self, clang::FunctionDecl *FD) {
+ValidateNoRecursion(clang::Sema *self, clang::FunctionDecl *FD) {
   // Validate that there is no recursion; start with the entry function.
   // NOTE: the information gathered here could be used to bypass code generation
   // on functions that are unreachable (as an early form of dead code
@@ -15644,7 +15644,7 @@ hlsl::ValidateNoRecursion(clang::Sema *self, clang::FunctionDecl *FD) {
   return std::make_pair(nullptr, false);
 }
 
-void hlsl::ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
+void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
   std::vector<std::pair<FunctionDecl *, bool>> FDecls;
   for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
     // TODO: improve condition so that only exported functions are checked,
