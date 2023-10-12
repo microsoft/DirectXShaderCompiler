@@ -11838,7 +11838,9 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
     // Check if it's an entry function the hard way
     if (!FD->getDeclContext()->isNamespace() && FD->isGlobal()) {
       // Check if this is an entry function by comparing name
-      if (FD->getName() == sema.getLangOpts().HLSLEntryFunction) {
+      // TODO: Remove this once we put HLSLShaderAttr on all entry functions.
+      if (FD->getIdentifier() &&
+          FD->getName() == sema.getLangOpts().HLSLEntryFunction) {
         return true;
       }
 

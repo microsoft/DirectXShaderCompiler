@@ -246,10 +246,10 @@ public:
     DXASSERT(E->IsAllocated(),
              "otherwise signature elements were not set correctly");
     DXASSERT(E->GetStartRow() <= (int)Reg &&
-                 (int)Reg < E->GetStartRow() + E->GetRows(),
+                 Reg < E->GetStartRow() + E->GetRows(),
              "otherwise signature elements were not set correctly");
     DXASSERT(E->GetStartCol() <= (int)Comp &&
-                 (int)Comp < E->GetStartCol() + E->GetCols(),
+                 Comp < E->GetStartCol() + E->GetCols(),
              "otherwise signature elements were not set correctly");
     return E;
   }
@@ -290,7 +290,7 @@ protected:
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL();
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, LPVOID *ppv) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, LPVOID *ppv) override {
     return DoBasicQueryInterface<IDxbcConverter>(this, iid, ppv);
   }
 
@@ -300,18 +300,16 @@ public:
 
   ~DxbcConverter();
 
-  __override HRESULT STDMETHODCALLTYPE Convert(LPCVOID pDxbc, UINT32 DxbcSize,
-                                               LPCWSTR pExtraOptions,
-                                               LPVOID *ppDxil,
-                                               UINT32 *pDxilSize,
-                                               LPWSTR *ppDiag);
+  HRESULT STDMETHODCALLTYPE Convert(LPCVOID pDxbc, UINT32 DxbcSize,
+                                    LPCWSTR pExtraOptions, LPVOID *ppDxil,
+                                    UINT32 *pDxilSize, LPWSTR *ppDiag) override;
 
-  __override HRESULT STDMETHODCALLTYPE ConvertInDriver(
+  HRESULT STDMETHODCALLTYPE ConvertInDriver(
       const UINT32 *pBytecode, LPCVOID pInputSignature,
       UINT32 NumInputSignatureElements, LPCVOID pOutputSignature,
       UINT32 NumOutputSignatureElements, LPCVOID pPatchConstantSignature,
       UINT32 NumPatchConstantSignatureElements, LPCWSTR pExtraOptions,
-      IDxcBlob **ppDxilModule, LPWSTR *ppDiag);
+      IDxcBlob **ppDxilModule, LPWSTR *ppDiag) override;
 
 protected:
   LLVMContext m_Ctx;

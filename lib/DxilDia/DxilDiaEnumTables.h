@@ -37,12 +37,13 @@ protected:
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDiaEnumTables>(this, iid, ppvObject);
   }
 
   EnumTables(IMalloc *pMalloc, Session *pSession)
-      : m_pMalloc(pMalloc), m_pSession(pSession), m_dwRef(0), m_next(0) {
+      : m_dwRef(0), m_pMalloc(pMalloc), m_pSession(pSession), m_next(0) {
     m_tables.fill(nullptr);
   }
 

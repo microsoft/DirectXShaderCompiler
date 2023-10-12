@@ -56,8 +56,6 @@ BYTE CMask::ToByte() const {
   return m_Mask;
 }
 
-static bool IsSet(BYTE Mask, BYTE c) { return CMask(Mask).IsSet(c); }
-
 bool CMask::IsSet(BYTE c) const {
   DXASSERT(c < DXBC::kWidth, "otherwise the caller did not check");
   return (m_Mask & (1 << c)) != 0;
@@ -1353,20 +1351,25 @@ static_assert(D3D10_SB_4_COMPONENT_Y == 1, MSG);
 static_assert(D3D10_SB_4_COMPONENT_Z == 2, MSG);
 static_assert(D3D10_SB_4_COMPONENT_W == 3, MSG);
 
-static_assert(D3D_MIN_PRECISION_DEFAULT ==
-                  D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT,
-              MSG);
-static_assert(D3D_MIN_PRECISION_FLOAT_16 ==
-                  D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_16,
-              MSG);
+static_assert(
+    D3D_MIN_PRECISION_DEFAULT ==
+        static_cast<D3D_MIN_PRECISION>(D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT),
+    MSG);
+static_assert(
+    D3D_MIN_PRECISION_FLOAT_16 ==
+        static_cast<D3D_MIN_PRECISION>(D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_16),
+    MSG);
 static_assert(D3D_MIN_PRECISION_FLOAT_2_8 ==
-                  D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_2_8,
+                  static_cast<D3D_MIN_PRECISION>(
+                      D3D11_SB_OPERAND_MIN_PRECISION_FLOAT_2_8),
               MSG);
-static_assert(D3D_MIN_PRECISION_SINT_16 ==
-                  D3D11_SB_OPERAND_MIN_PRECISION_SINT_16,
-              MSG);
-static_assert(D3D_MIN_PRECISION_UINT_16 ==
-                  D3D11_SB_OPERAND_MIN_PRECISION_UINT_16,
-              MSG);
+static_assert(
+    D3D_MIN_PRECISION_SINT_16 ==
+        static_cast<D3D_MIN_PRECISION>(D3D11_SB_OPERAND_MIN_PRECISION_SINT_16),
+    MSG);
+static_assert(
+    D3D_MIN_PRECISION_UINT_16 ==
+        static_cast<D3D_MIN_PRECISION>(D3D11_SB_OPERAND_MIN_PRECISION_UINT_16),
+    MSG);
 
 } // namespace hlsl

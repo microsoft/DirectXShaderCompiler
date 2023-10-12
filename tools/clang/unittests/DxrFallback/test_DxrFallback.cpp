@@ -191,11 +191,11 @@ protected:
 
   bool checkResult(const std::vector<int> &output,
                    const std::vector<int> &expectedOutput) {
-    int count = output.empty() ? 0 : output[0];
+    const unsigned count = output.empty() ? 0 : output[0];
     std::cout << count << ": ";
 
     // print result
-    for (int i = 0; i < count; ++i)
+    for (unsigned i = 0; i < count; ++i)
       std::cout << output[i + 1] << " ";
     std::cout << "\n";
 
@@ -368,11 +368,9 @@ Custom *custom(const std::vector<Custom::Hit> &hits, int geomOpaque = 0,
 struct Payload {
   int val;
   int primIdx;
-  float t;
 
   bool operator!=(const Payload &other) {
-    return this->val != other.val || this->primIdx != other.primIdx ||
-           this->t != other.t;
+    return this->val != other.val || this->primIdx != other.primIdx;
   }
 };
 
@@ -441,7 +439,7 @@ public:
           float d = (instFlags & INSTANCE_FLAG_TRIANGLE_FRONT_COUNTERCLOCKWISE)
                         ? -tri->d
                         : tri->d;
-          if (committed.prim && (tri->t >= committed.t) ||
+          if ((committed.prim && (tri->t >= committed.t)) ||
               -d * computeCullFaceDir(instFlags, rayFlags) < 0)
             continue;
 
@@ -515,7 +513,7 @@ public:
       shade(ch, "miss");
       if (committed.prim) {
         if (committed.prim->leafType == LEAF_TRIS) {
-          Triangle *tri = (Triangle *)committed.prim;
+          const Triangle *tri = (const Triangle *)committed.prim;
           expect({CLOSESTHIT, (int)tri->u, (int)tri->v});
         } else {
           expect({CLOSESTHIT + 1, committed.hit->attr0, committed.hit->attr1});

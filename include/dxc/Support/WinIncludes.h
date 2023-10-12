@@ -66,6 +66,7 @@ template <class T> void swap(CComHeapPtr<T> &a, CComHeapPtr<T> &b) {
 #include "dxc/WinAdapter.h"
 
 #ifdef __cplusplus
+#if !defined(DEFINE_ENUM_FLAG_OPERATORS)
 // Define operator overloads to enable bit operations on enum values that are
 // used to define flags. Use DEFINE_ENUM_FLAG_OPERATORS(YOUR_TYPE) to enable
 // these operators on YOUR_TYPE.
@@ -113,6 +114,7 @@ template <class T> struct _ENUM_FLAG_SIZED_INTEGER {
                         ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b));        \
   }                                                                            \
   }
+#endif // !defined(DEFINE_ENUM_FLAG_OPERATORS)
 #else
 #define DEFINE_ENUM_FLAG_OPERATORS(ENUMTYPE) // NOP, C allows these operators.
 #endif
@@ -127,15 +129,7 @@ template <class T> struct _ENUM_FLAG_SIZED_INTEGER {
 #else // defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 
 #ifndef _WIN32
-CROSS_PLATFORM_UUIDOF(IMalloc, "00000002-0000-0000-C000-000000000046")
-struct IMalloc : public IUnknown {
-  virtual void *Alloc(SIZE_T size) = 0;
-  virtual void *Realloc(void *ptr, SIZE_T size) = 0;
-  virtual void Free(void *ptr) = 0;
-  virtual SIZE_T GetSize(void *pv) = 0;
-  virtual int DidAlloc(void *pv) = 0;
-  virtual void HeapMinimize(void) = 0;
-};
+struct IMalloc;
 #endif
 
 HRESULT DxcCoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc);

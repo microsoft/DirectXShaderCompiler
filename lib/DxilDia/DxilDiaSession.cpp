@@ -98,7 +98,7 @@ void dxil_dia::Session::Init(std::shared_ptr<llvm::LLVMContext> context,
   try {
     m_symsMgr.Init(this);
   } catch (const hlsl::Exception &) {
-    m_symsMgr = std::move(dxil_dia::SymbolManager());
+    m_symsMgr = dxil_dia::SymbolManager();
   }
 }
 
@@ -302,7 +302,7 @@ STDMETHODIMP dxil_dia::Session::findLinesByLinenum(
   std::vector<const llvm::Instruction *> lines;
 
   std::function<bool(DWORD, DWORD)> column_matches =
-      [column](DWORD colStart, DWORD colEnd) -> bool { return true; };
+      [](DWORD colStart, DWORD colEnd) -> bool { return true; };
 
   if (column != 0) {
     column_matches = [column](DWORD colStart, DWORD colEnd) -> bool {

@@ -243,7 +243,8 @@ void Converter::Run() {
 
     UINT uDxilBlob;
     IFT(dxilReader.FindFirstPartKind(hlsl::DFCC_DXIL, &uDxilBlob));
-    IFTBOOL(uDxilBlob != DXIL_CONTAINER_BLOB_NOT_FOUND, DXC_E_INCORRECT_DXBC);
+    IFTBOOL(uDxilBlob != hlsl::DXIL_CONTAINER_BLOB_NOT_FOUND,
+            DXC_E_INCORRECT_DXBC);
 
     const char *pDxilBlob;
     UINT32 DxilBlobSize;

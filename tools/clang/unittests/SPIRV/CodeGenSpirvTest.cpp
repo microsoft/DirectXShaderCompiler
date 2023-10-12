@@ -377,6 +377,7 @@ TEST_F(FileTest, CastImplicitVecToMat) {
   runFileTest("cast.vec-to-mat.implicit.hlsl");
 }
 TEST_F(FileTest, CastMatrixToVector) { runFileTest("cast.mat-to-vec.hlsl"); }
+TEST_F(FileTest, CastStructToInt) { runFileTest("cast.struct-to-int.hlsl"); }
 TEST_F(FileTest, CastBitwidth) { runFileTest("cast.bitwidth.hlsl"); }
 
 TEST_F(FileTest, CastLiteralTypeForArraySubscript) {
