@@ -22,3 +22,24 @@ void test() {
   bar<float>(); // expected-note{{in instantiation of function template specialization 'bar<float>' requested here}}
   bar2<float>();// expected-note{{in instantiation of function template specialization 'bar2<float>' requested here}}
 }
+
+template <typename T>
+class CFoo {
+  T var;
+  void foo(GroupNodeInputRecords<T> data) {} // expected-error{{'int' is not valid as a node record type - struct/class required}}
+};
+
+void testCFoo() {
+  CFoo<int> c; // expected-note{{in instantiation of template class 'CFoo<int>' requested here}}
+}
+
+
+template <typename T>
+class CBar {
+  T var;
+  void bar(GroupNodeInputRecords< Texture2D<T> > data) {} // expected-error{{'Texture2D<float>' is not valid as a node record type - struct/class required}}
+};
+
+void testCBar() {
+  CBar<float> c; // expected-note{{in instantiation of template class 'CBar<float>' requested here}}
+}
