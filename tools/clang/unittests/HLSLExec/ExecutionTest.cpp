@@ -918,7 +918,7 @@ public:
       HRESULT hr = WEX::TestExecution::RuntimeParameters::TryGetValue(
           L"Adapter", AdapterValue);
       if (SUCCEEDED(hr)) {
-        GetHardwareAdapter(factory, AdapterValue, &hardwareAdapter);
+        st::GetHardwareAdapter(factory, AdapterValue, &hardwareAdapter);
       } else {
         WEX::Logging::Log::Comment(
             L"Using default hardware adapter with D3D12 support.");
@@ -9026,6 +9026,8 @@ void LoadStoreMat(int M, int N, bool LEFT, int MEM_TYPE, uint32_t K, uint32_t k,
   }
 }
 
+// define WAVE_MMA types if building with SDK that does not support it yet
+#if !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 611)
 typedef enum D3D12_WAVE_MMA_INPUT_DATATYPE {
   D3D12_WAVE_MMA_INPUT_DATATYPE_INVALID = 0,
   D3D12_WAVE_MMA_INPUT_DATATYPE_BYTE =
@@ -9059,6 +9061,7 @@ typedef struct D3D12_FEATURE_DATA_WAVE_MMA {
   UINT RequiredWaveLaneCountMin;
   UINT RequiredWaveLaneCountMax;
 } D3D12_FEATURE_DATA_WAVE_MMA;
+#endif
 
 D3D12_FEATURE_DATA_WAVE_MMA checkWaveMMASupport(CComPtr<ID3D12Device> pDevice,
                                                 std::string &dataTypeInShader,
