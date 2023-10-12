@@ -32,7 +32,8 @@ for the configuration process.
 
 All of the most basic CMake configurations for DXC follow a similar format to:
 
-.. code:: sh
+.. code-block:: sh
+
   cmake <Repository Root> \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=<Build Type> \
@@ -52,7 +53,8 @@ Generating a Visual Studio Solution
 
 Open a Visual Stuido command prompt and run:
 
-.. code:: sh
+.. code-block:: sh
+
   cmake <Repository Root> \
     -B <Path to Output> \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
@@ -79,7 +81,8 @@ Generating Ninja or Makefiles
 
 In your preferred terminal run:
 
-.. code:: sh
+.. code-block:: sh
+
   cmake <Repository Root> \
     -B <Path to Output> \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \

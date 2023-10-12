@@ -982,7 +982,8 @@ bool isRWStructuredBuffer(QualType type) {
 }
 
 bool isRWAppendConsumeSBuffer(QualType type) {
-  return isRWStructuredBuffer(type) || isConsumeStructuredBuffer(type) || isAppendStructuredBuffer(type);
+  return isRWStructuredBuffer(type) || isConsumeStructuredBuffer(type) ||
+         isAppendStructuredBuffer(type);
 }
 
 bool isAKindOfStructuredOrByteBuffer(QualType type) {
@@ -1183,6 +1184,25 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
   if (const auto *ptrType = type->getAs<PointerType>())
     return isRelaxedPrecisionType(ptrType->getPointeeType(), opts);
 
+  return false;
+}
+
+bool isRasterizerOrderedView(QualType type) {
+  // Strip outer arrayness first
+  while (type->isArrayType())
+    type = type->getAsArrayTypeUnsafe()->getElementType();
+
+  if (const RecordType *recordType = type->getAs<RecordType>()) {
+    StringRef name = recordType->getDecl()->getName();
+    return name == "RasterizerOrderedBuffer" ||
+           name == "RasterizerOrderedByteAddressBuffer" ||
+           name == "RasterizerOrderedStructuredBuffer" ||
+           name == "RasterizerOrderedTexture1D" ||
+           name == "RasterizerOrderedTexture1DArray" ||
+           name == "RasterizerOrderedTexture2D" ||
+           name == "RasterizerOrderedTexture2DArray" ||
+           name == "RasterizerOrderedTexture3D";
+  }
   return false;
 }
 

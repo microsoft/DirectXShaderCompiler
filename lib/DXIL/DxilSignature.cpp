@@ -7,14 +7,13 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilSigPoint.h"
+#include "dxc/Support/Global.h"
 #include "llvm/ADT/STLExtras.h"
 
-using std::vector;
 using std::unique_ptr;
-
+using std::vector;
 
 namespace hlsl {
 
@@ -23,8 +22,7 @@ namespace hlsl {
 // Singnature methods.
 //
 DxilSignature::DxilSignature(DXIL::ShaderKind shaderKind,
-                             DXIL::SignatureKind sigKind,
-                             bool useMinPrecision)
+                             DXIL::SignatureKind sigKind, bool useMinPrecision)
     : m_sigPointKind(SigPoint::GetKind(shaderKind, sigKind,
                                        /*isPatchConstantFunction*/ false,
                                        /*isSpecialInput*/ false)),
@@ -32,8 +30,7 @@ DxilSignature::DxilSignature(DXIL::ShaderKind shaderKind,
 
 DxilSignature::DxilSignature(DXIL::SigPointKind sigPointKind,
                              bool useMinPrecision)
-    : m_sigPointKind(sigPointKind),
-      m_UseMinPrecision(useMinPrecision) {}
+    : m_sigPointKind(sigPointKind), m_UseMinPrecision(useMinPrecision) {}
 
 DxilSignature::DxilSignature(const DxilSignature &src)
     : m_sigPointKind(src.m_sigPointKind),
@@ -49,8 +46,7 @@ DxilSignature::DxilSignature(const DxilSignature &src)
   }
 }
 
-DxilSignature::~DxilSignature() {
-}
+DxilSignature::~DxilSignature() {}
 
 bool DxilSignature::IsInput() const {
   return SigPoint::GetSigPoint(m_sigPointKind)->IsInput();
@@ -64,7 +60,8 @@ unique_ptr<DxilSignatureElement> DxilSignature::CreateElement() {
   return std::make_unique<DxilSignatureElement>(m_sigPointKind);
 }
 
-unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE, bool bSetID) {
+unsigned DxilSignature::AppendElement(std::unique_ptr<DxilSignatureElement> pSE,
+                                      bool bSetID) {
   DXASSERT_NOMSG((unsigned)m_Elements.size() < UINT_MAX);
   unsigned Id = (unsigned)m_Elements.size();
   if (bSetID) {
@@ -82,7 +79,8 @@ const DxilSignatureElement &DxilSignature::GetElement(unsigned idx) const {
   return *m_Elements[idx];
 }
 
-const std::vector<std::unique_ptr<DxilSignatureElement> > &DxilSignature::GetElements() const {
+const std::vector<std::unique_ptr<DxilSignatureElement>> &
+DxilSignature::GetElements() const {
   return m_Elements;
 }
 
@@ -113,7 +111,8 @@ unsigned DxilSignature::NumVectorsUsed(unsigned streamIndex) const {
   unsigned NumVectors = 0;
   for (auto &SE : m_Elements) {
     if (SE->IsAllocated() && SE->GetOutputStream() == streamIndex)
-      NumVectors = std::max(NumVectors, (unsigned)SE->GetStartRow() + SE->GetRows());
+      NumVectors =
+          std::max(NumVectors, (unsigned)SE->GetStartRow() + SE->GetRows());
   }
   return NumVectors;
 }

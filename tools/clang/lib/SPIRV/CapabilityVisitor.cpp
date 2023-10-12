@@ -183,9 +183,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       break;
     }
 
-    if (imageType->isArrayedImage() && imageType->isMSImage())
-      addCapability(spv::Capability::ImageMSArray);
-
     if (const auto *sampledType = imageType->getSampledType()) {
       addCapabilityForType(sampledType, loc, sc);
       if (const auto *sampledIntType = dyn_cast<IntegerType>(sampledType)) {
@@ -309,7 +306,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     case spv::BuiltIn::PrimitiveId: {
       // PrimitiveID can be used as PSIn or MSPOut.
       if (shaderModel == spv::ExecutionModel::Fragment ||
-          shaderModel == spv::ExecutionModel::MeshNV   ||
+          shaderModel == spv::ExecutionModel::MeshNV ||
           shaderModel == spv::ExecutionModel::MeshEXT)
         addCapability(spv::Capability::Geometry);
       break;
@@ -327,7 +324,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
           addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshNV ||
                  shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
         addCapability(spv::Capability::Geometry);
@@ -347,7 +344,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::Geometry ||
-                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshNV ||
                  shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut.
         addCapability(spv::Capability::MultiViewport);
@@ -587,8 +584,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpSetMeshOutputsEXT:
   case spv::Op::OpEmitMeshTasksEXT: {
     if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
-      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader",
-                                     {});
+      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader", {});
       addCapability(spv::Capability::MeshShadingEXT);
       addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
     }

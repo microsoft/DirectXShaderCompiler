@@ -292,6 +292,9 @@ bool isOpaqueStructType(QualType type);
 /// operated on with a relaxed precision.
 bool isRelaxedPrecisionType(QualType, const SpirvCodeGenOptions &);
 
+/// Returns true if the given type is a rasterizer ordered view.
+bool isRasterizerOrderedView(QualType type);
+
 /// Returns true if the given type is a bool or vector of bool type.
 bool isBoolOrVecOfBoolType(QualType type);
 

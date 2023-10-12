@@ -19,8 +19,7 @@ namespace llvm {
 class Value;
 class Constant;
 class Type;
-}
-
+} // namespace llvm
 
 namespace hlsl {
 
@@ -70,16 +69,17 @@ protected:
   void SetClass(Class C);
 
 private:
-  Class m_Class;                  // Resource class (SRV, UAV, CBuffer, Sampler).
-  Kind m_Kind;                    // Detail resource kind( texture2D...).
-  unsigned m_ID;                  // Unique ID within the class.
-  unsigned m_SpaceID;             // Root signature space.
-  unsigned m_LowerBound;          // Range lower bound.
-  unsigned m_RangeSize;           // Range size in entries.
-  llvm::Constant *m_pSymbol;      // Global variable.
-  std::string m_Name;             // Unmangled name of the global variable.
-  llvm::Value *m_pHandle;         // Cached resource handle for SM5.0- (and maybe SM5.1).
-  llvm::Type *m_pHLSLTy;           // The original hlsl type for reflection.
+  Class m_Class;             // Resource class (SRV, UAV, CBuffer, Sampler).
+  Kind m_Kind;               // Detail resource kind( texture2D...).
+  unsigned m_ID;             // Unique ID within the class.
+  unsigned m_SpaceID;        // Root signature space.
+  unsigned m_LowerBound;     // Range lower bound.
+  unsigned m_RangeSize;      // Range size in entries.
+  llvm::Constant *m_pSymbol; // Global variable.
+  std::string m_Name;        // Unmangled name of the global variable.
+  llvm::Value
+      *m_pHandle;        // Cached resource handle for SM5.0- (and maybe SM5.1).
+  llvm::Type *m_pHLSLTy; // The original hlsl type for reflection.
 };
 
 const char *GetResourceKindName(DXIL::ResourceKind K);

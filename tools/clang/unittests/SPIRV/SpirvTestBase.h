@@ -74,4 +74,3 @@ private:
   clang::CompilerInstance compilerInstance;
   bool initialized;
 };
-

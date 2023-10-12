@@ -176,7 +176,7 @@ void main() {
 // CHECK-NEXT:                OpLine [[file]] 180 20
 // CHECK-NEXT:                OpExtInst %float {{%[0-9]+}} Sqrt [[abs]]
 // CHECK:      OpLine [[file]] 180 7
-// CHECK-NEXT: OpExtInst %uint {{%[0-9]+}} FindUMsb
+// CHECK-NEXT: OpExtInst %uint {{%[0-9]+}} FindSMsb
   max(firstbithigh(sqrt(abs(v2f.x * v4f.w)) + v4i.x),
 // CHECK:      OpLine [[file]] 183 7
 // CHECK-NEXT: OpExtInst %float {{%[0-9]+}} Cos

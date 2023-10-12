@@ -10,8 +10,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
+#include "dxc/DXIL/DxilSignature.h"
 
 namespace hlsl {
 
@@ -21,7 +21,6 @@ public:
   DxilFunctionProps props;
   DxilEntryProps(DxilFunctionProps &p, bool bUseMinPrecision)
       : sig(p.shaderKind, bUseMinPrecision), props(p) {}
-  DxilEntryProps(DxilEntryProps &p)
-      : sig(p.sig), props(p.props) {}
+  DxilEntryProps(DxilEntryProps &p) : sig(p.sig), props(p.props) {}
 };
-}
+} // namespace hlsl

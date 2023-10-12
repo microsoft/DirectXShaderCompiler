@@ -630,6 +630,10 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
 
   assert(type->isStructureOrClassType());
 
+  if (isRasterizerOrderedView(type)) {
+    emitError("rasterizer ordered views are unimplemented", srcLoc);
+  }
+
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();

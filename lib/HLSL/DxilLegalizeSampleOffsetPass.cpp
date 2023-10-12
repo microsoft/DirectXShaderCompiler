@@ -9,16 +9,16 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilGenerationPass.h"
-#include "llvm/Analysis/DxilValueCache.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
+#include "llvm/Analysis/DxilValueCache.h"
 
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
@@ -29,8 +29,8 @@
 
 #include <unordered_set>
 
-using std::vector;
 using std::unique_ptr;
+using std::vector;
 using namespace llvm;
 using namespace hlsl;
 
@@ -96,11 +96,10 @@ public:
 
 private:
   void TryUnrollLoop(std::vector<Offset> &illegalOffsets, Function &F);
-  void CollectIllegalOffsets(std::vector<Offset> &illegalOffsets,
-                             Function &F, hlsl::OP *hlslOP);
-  void CollectIllegalOffsets(std::vector<Offset> &illegalOffsets,
-                             Function &F, DXIL::OpCode opcode,
+  void CollectIllegalOffsets(std::vector<Offset> &illegalOffsets, Function &F,
                              hlsl::OP *hlslOP);
+  void CollectIllegalOffsets(std::vector<Offset> &illegalOffsets, Function &F,
+                             DXIL::OpCode opcode, hlsl::OP *hlslOP);
   void LegalizeOffsets(const std::vector<Offset> &illegalOffsets);
   void FinalCheck(Function &F, hlsl::OP *hlslOP);
 };
@@ -118,7 +117,8 @@ bool HasIllegalOffsetInLoop(std::vector<Offset> &illegalOffsets, LoopInfo &LI,
   for (auto it : illegalOffsets) {
     if (const Instruction *I = dyn_cast<Instruction>(it.offset)) {
       const BasicBlock *BB = I->getParent();
-      // TODO: determine whether values are actually loop dependent, not just in a loop
+      // TODO: determine whether values are actually loop dependent, not just in
+      // a loop
       if (LI.getLoopFor(BB)) {
         findOffset = true;
         break;
@@ -128,8 +128,8 @@ bool HasIllegalOffsetInLoop(std::vector<Offset> &illegalOffsets, LoopInfo &LI,
   return findOffset;
 }
 
-void GetOffsetRange(DXIL::OpCode opcode, unsigned &offsetStart, unsigned &offsetEnd)
-{
+void GetOffsetRange(DXIL::OpCode opcode, unsigned &offsetStart,
+                    unsigned &offsetEnd) {
   if (DXIL::OpCode::TextureLoad == opcode) {
     offsetStart = DXIL::OperandIndex::kTextureLoadOffset0OpIdx;
     offsetEnd = DXIL::OperandIndex::kTextureLoadOffset2OpIdx;
@@ -147,8 +147,7 @@ void CollectIllegalOffset(CallInst *CI, DXIL::OpCode opcode,
 
   GetOffsetRange(opcode, offsetStart, offsetEnd);
 
-  Value *offset0 =
-      CI->getArgOperand(offsetStart);
+  Value *offset0 = CI->getArgOperand(offsetStart);
   // No offsets
   if (isa<UndefValue>(offset0))
     return;
@@ -158,8 +157,7 @@ void CollectIllegalOffset(CallInst *CI, DXIL::OpCode opcode,
     if (Instruction *I = dyn_cast<Instruction>(offset)) {
       Offset offset = {I, CI};
       illegalOffsets.emplace_back(offset);
-    }
-    else if(ConstantInt *cOffset = dyn_cast<ConstantInt>(offset)) {
+    } else if (ConstantInt *cOffset = dyn_cast<ConstantInt>(offset)) {
       int64_t val = cOffset->getValue().getSExtValue();
       if (val > 7 || val < -8) {
         Offset offset = {cOffset, CI};
@@ -168,12 +166,10 @@ void CollectIllegalOffset(CallInst *CI, DXIL::OpCode opcode,
     }
   }
 }
-}
+} // namespace
 
 // Return true if the call instruction in pair a and b are the same
-bool InstEq(const Offset &a, const Offset &b) {
-  return a.call == b.call;
-}
+bool InstEq(const Offset &a, const Offset &b) { return a.call == b.call; }
 
 // Return true if the call instruction in pair a is before that in pair b
 bool InstLT(const Offset &a, const Offset &b) {
@@ -187,7 +183,8 @@ bool InstLT(const Offset &a, const Offset &b) {
     std::string bFile = bScope->getFilename();
     return aFile < bFile || (aFile == bFile && aLoc.getLine() < bLoc.getLine());
   }
-  // No line numbers, just compare pointers so that matching instructions will be adjacent
+  // No line numbers, just compare pointers so that matching instructions will
+  // be adjacent
   return a.call < b.call;
 }
 
@@ -197,7 +194,8 @@ void DxilLegalizeSampleOffsetPass::FinalCheck(Function &F, hlsl::OP *hlslOP) {
   CollectIllegalOffsets(finalIllegalOffsets, F, hlslOP);
 
   if (!finalIllegalOffsets.empty()) {
-    std::string errorMsg = "Offsets to texture access operations must be immediate values. ";
+    std::string errorMsg =
+        "Offsets to texture access operations must be immediate values. ";
 
     auto offsetBegin = finalIllegalOffsets.begin();
     auto offsetEnd = finalIllegalOffsets.end();
@@ -209,12 +207,16 @@ void DxilLegalizeSampleOffsetPass::FinalCheck(Function &F, hlsl::OP *hlslOP) {
       CallInst *CI = it->call;
       if (Instruction *offset = dyn_cast<Instruction>(it->offset)) {
         if (LI.getLoopFor(offset->getParent()))
-          dxilutil::EmitErrorOnInstruction(CI, errorMsg + "Unrolling the loop containing the offset value"
-                                           " manually and using -O3 may help in some cases.\n");
+          dxilutil::EmitErrorOnInstruction(
+              CI, errorMsg +
+                      "Unrolling the loop containing the offset value"
+                      " manually and using -O3 may help in some cases.\n");
         else
           dxilutil::EmitErrorOnInstruction(CI, errorMsg);
       } else {
-        dxilutil::EmitErrorOnInstruction(CI, "Offsets to texture access operations must be between -8 and 7. ");
+        dxilutil::EmitErrorOnInstruction(
+            CI,
+            "Offsets to texture access operations must be between -8 and 7. ");
       }
     }
   }
@@ -245,8 +247,7 @@ void DxilLegalizeSampleOffsetPass::TryUnrollLoop(
 }
 
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
-    std::vector<Offset> &illegalOffsets, Function &CurF,
-    hlsl::OP *hlslOP) {
+    std::vector<Offset> &illegalOffsets, Function &CurF, hlsl::OP *hlslOP) {
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::Sample, hlslOP);
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleBias, hlslOP);
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleCmp, hlslOP);
@@ -255,12 +256,13 @@ void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleGrad, hlslOP);
   CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::SampleLevel,
                         hlslOP);
-  CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::TextureLoad, hlslOP);
+  CollectIllegalOffsets(illegalOffsets, CurF, DXIL::OpCode::TextureLoad,
+                        hlslOP);
 }
 
 void DxilLegalizeSampleOffsetPass::CollectIllegalOffsets(
-    std::vector<Offset> &illegalOffsets, Function &CurF,
-    DXIL::OpCode opcode, hlsl::OP *hlslOP) {
+    std::vector<Offset> &illegalOffsets, Function &CurF, DXIL::OpCode opcode,
+    hlsl::OP *hlslOP) {
   auto &intrFuncList = hlslOP->GetOpFuncList(opcode);
   for (auto it : intrFuncList) {
     Function *intrFunc = it.second;
@@ -293,8 +295,9 @@ FunctionPass *llvm::createDxilLegalizeSampleOffsetPass() {
   return new DxilLegalizeSampleOffsetPass();
 }
 
-INITIALIZE_PASS_BEGIN(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
-                "DXIL legalize sample offset", false, false)
+INITIALIZE_PASS_BEGIN(DxilLegalizeSampleOffsetPass,
+                      "dxil-legalize-sample-offset",
+                      "DXIL legalize sample offset", false, false)
 INITIALIZE_PASS_DEPENDENCY(DxilValueCache)
 INITIALIZE_PASS_END(DxilLegalizeSampleOffsetPass, "dxil-legalize-sample-offset",
-                "DXIL legalize sample offset", false, false)
+                    "DXIL legalize sample offset", false, false)

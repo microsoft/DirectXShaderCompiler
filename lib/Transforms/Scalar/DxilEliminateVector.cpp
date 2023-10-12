@@ -10,16 +10,16 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Pass.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Module.h"
 
 #include "llvm/Analysis/DxilValueCache.h"
 
@@ -39,7 +39,8 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DxilValueCache>();
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.setPreservesAll(); // DxilValueCache is safe. CFG is not changed, so DT is okay.
+    AU.setPreservesAll(); // DxilValueCache is safe. CFG is not changed, so DT
+                          // is okay.
   }
 
   bool TryRewriteDebugInfoForVector(InsertElementInst *IE);
@@ -48,10 +49,9 @@ public:
 };
 
 char DxilEliminateVector::ID;
-}
+} // namespace
 
-static
-MetadataAsValue *GetAsMetadata(Instruction *I) {
+static MetadataAsValue *GetAsMetadata(Instruction *I) {
   if (auto *L = LocalAsMetadata::getIfExists(I)) {
     if (auto *DINode = MetadataAsValue::getIfExists(I->getContext(), L)) {
       return DINode;
@@ -65,8 +65,7 @@ static bool IsZeroInitializer(Value *V) {
   return C && C->isZeroValue();
 }
 
-static
-bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
+static bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
   if (InsertElementInst *IE = dyn_cast<InsertElementInst>(V)) {
 
     Value *Vec = IE->getOperand(0);
@@ -85,7 +84,7 @@ bool CollectVectorElements(Value *V, SmallVector<Value *, 4> &Elements) {
     uint64_t IdxValue = ConstIndex->getLimitedValue();
     if (IdxValue < 4) {
       if (Elements.size() <= IdxValue)
-        Elements.resize(IdxValue+1);
+        Elements.resize(IdxValue + 1);
       Elements[IdxValue] = Element;
     }
 
@@ -136,8 +135,10 @@ bool DxilEliminateVector::TryRewriteDebugInfoForVector(InsertElementInst *IE) {
 
       unsigned ElementSize = DL.getTypeSizeInBits(Elements[i]->getType());
       unsigned ElementAlign = DL.getTypeAllocSizeInBits(Elements[i]->getType());
-      DIExpression *Expr = DIB.createBitPieceExpression(BitpieceOffset + i * ElementAlign, ElementSize);
-      DIB.insertDbgValueIntrinsic(Elements[i], 0, DVI->getVariable(), Expr, DVI->getDebugLoc(), DVI);
+      DIExpression *Expr = DIB.createBitPieceExpression(
+          BitpieceOffset + i * ElementAlign, ElementSize);
+      DIB.insertDbgValueIntrinsic(Elements[i], 0, DVI->getVariable(), Expr,
+                                  DVI->getDebugLoc(), DVI);
 
       Changed = true;
     }
@@ -162,7 +163,8 @@ bool DxilEliminateVector::runOnFunction(Function &F) {
       if (isa<InsertElementInst>(&I) || isa<ExtractElementInst>(&I))
         VectorInsts.push_back(&I);
       else if (AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
-        if (AI->getAllocatedType()->isVectorTy() && llvm::isAllocaPromotable(AI))
+        if (AI->getAllocatedType()->isVectorTy() &&
+            llvm::isAllocaPromotable(AI))
           VectorAllocas.push_back(AI);
       }
   }
@@ -196,8 +198,7 @@ bool DxilEliminateVector::runOnFunction(Function &F) {
       if (Value *V = DVC->GetValue(I, DT)) {
         I->replaceAllUsesWith(V);
         Remove = true;
-      }
-      else if (I->user_empty()) {
+      } else if (I->user_empty()) {
         Remove = true;
       }
 
@@ -206,8 +207,7 @@ bool DxilEliminateVector::runOnFunction(Function &F) {
         LocalChange = true;
         I->eraseFromParent();
         VectorInsts.erase(VectorInsts.begin() + j);
-      }
-      else {
+      } else {
         j++;
       }
     }
@@ -224,4 +224,5 @@ Pass *llvm::createDxilEliminateVectorPass() {
   return new DxilEliminateVector();
 }
 
-INITIALIZE_PASS(DxilEliminateVector, "dxil-elim-vector", "Dxil Eliminate Vectors", false, false)
+INITIALIZE_PASS(DxilEliminateVector, "dxil-elim-vector",
+                "Dxil Eliminate Vectors", false, false)

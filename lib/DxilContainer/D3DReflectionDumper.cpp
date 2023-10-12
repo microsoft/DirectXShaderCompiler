@@ -9,41 +9,73 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/Test/D3DReflectionDumper.h"
-#include "dxc/Test/D3DReflectionStrings.h"
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Test/D3DReflectionStrings.h"
 #include "dxc/dxcapi.h"
 #include <sstream>
-
 
 namespace hlsl {
 namespace dump {
 
 void D3DReflectionDumper::DumpDefaultValue(LPCVOID pDefaultValue, UINT Size) {
-  WriteLn("DefaultValue: ", pDefaultValue ? "<present>" : "<nullptr>");    // TODO: Dump DefaultValue
+  WriteLn("DefaultValue: ",
+          pDefaultValue ? "<present>" : "<nullptr>"); // TODO: Dump DefaultValue
 }
 void D3DReflectionDumper::DumpShaderVersion(UINT Version) {
   const char *szType = "<unknown>";
   UINT Type = D3D12_SHVER_GET_TYPE(Version);
   switch (Type) {
-  case (UINT)hlsl::DXIL::ShaderKind::Pixel: szType = "Pixel"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Vertex: szType = "Vertex"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Geometry: szType = "Geometry"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Hull: szType = "Hull"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Domain: szType = "Domain"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Compute: szType = "Compute"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Library: szType = "Library"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::RayGeneration: szType = "RayGeneration"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Intersection: szType = "Intersection"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::AnyHit: szType = "AnyHit"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::ClosestHit: szType = "ClosestHit"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Miss: szType = "Miss"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Callable: szType = "Callable"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Mesh: szType = "Mesh"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Amplification: szType = "Amplification"; break;
-  case (UINT)hlsl::DXIL::ShaderKind::Invalid: szType = "Invalid"; break;
+  case (UINT)hlsl::DXIL::ShaderKind::Pixel:
+    szType = "Pixel";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Vertex:
+    szType = "Vertex";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Geometry:
+    szType = "Geometry";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Hull:
+    szType = "Hull";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Domain:
+    szType = "Domain";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Compute:
+    szType = "Compute";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Library:
+    szType = "Library";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::RayGeneration:
+    szType = "RayGeneration";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Intersection:
+    szType = "Intersection";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::AnyHit:
+    szType = "AnyHit";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::ClosestHit:
+    szType = "ClosestHit";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Miss:
+    szType = "Miss";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Callable:
+    szType = "Callable";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Mesh:
+    szType = "Mesh";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Amplification:
+    szType = "Amplification";
+    break;
+  case (UINT)hlsl::DXIL::ShaderKind::Invalid:
+    szType = "Invalid";
+    break;
   }
   UINT Major = D3D12_SHVER_GET_MAJOR(Version);
   UINT Minor = D3D12_SHVER_GET_MINOR(Version);
@@ -99,13 +131,16 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_INPUT_BIND_DESC &resDesc) {
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_SIGNATURE_PARAMETER_DESC &elDesc) {
-  WriteLn("D3D12_SIGNATURE_PARAMETER_DESC: SemanticName: ", elDesc.SemanticName, " SemanticIndex: ", elDesc.SemanticIndex);
+  WriteLn("D3D12_SIGNATURE_PARAMETER_DESC: SemanticName: ", elDesc.SemanticName,
+          " SemanticIndex: ", elDesc.SemanticIndex);
   Indent();
   WriteLn("Register: ", elDesc.Register);
   DumpEnum("SystemValueType", elDesc.SystemValueType);
   DumpEnum("ComponentType", elDesc.ComponentType);
-  WriteLn("Mask: ", CompMaskToString(elDesc.Mask), " (", (UINT)elDesc.Mask, ")");
-  WriteLn("ReadWriteMask: ", CompMaskToString(elDesc.ReadWriteMask), " (", (UINT)elDesc.ReadWriteMask, ") (AlwaysReads/NeverWrites)");
+  WriteLn("Mask: ", CompMaskToString(elDesc.Mask), " (", (UINT)elDesc.Mask,
+          ")");
+  WriteLn("ReadWriteMask: ", CompMaskToString(elDesc.ReadWriteMask), " (",
+          (UINT)elDesc.ReadWriteMask, ") (AlwaysReads/NeverWrites)");
   WriteLn("Stream: ", elDesc.Stream);
   DumpEnum("MinPrecision", elDesc.MinPrecision);
   Dedent();
@@ -115,12 +150,14 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
   Indent();
   DumpShaderVersion(Desc.Version);
   WriteLn("Creator: ", Desc.Creator ? Desc.Creator : "<nullptr>");
-  WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);  // TODO: fxc compiler flags
+  WriteLn("Flags: ", std::hex, std::showbase,
+          Desc.Flags); // TODO: fxc compiler flags
   WriteLn("ConstantBuffers: ", Desc.ConstantBuffers);
   WriteLn("BoundResources: ", Desc.BoundResources);
   WriteLn("InputParameters: ", Desc.InputParameters);
   WriteLn("OutputParameters: ", Desc.OutputParameters);
-  hlsl::DXIL::ShaderKind ShaderKind = (hlsl::DXIL::ShaderKind)D3D12_SHVER_GET_TYPE(Desc.Version);
+  hlsl::DXIL::ShaderKind ShaderKind =
+      (hlsl::DXIL::ShaderKind)D3D12_SHVER_GET_TYPE(Desc.Version);
   if (ShaderKind == hlsl::DXIL::ShaderKind::Geometry) {
     WriteLn("cGSInstanceCount: ", Desc.cGSInstanceCount);
     WriteLn("GSMaxOutputVertexCount: ", Desc.GSMaxOutputVertexCount);
@@ -141,7 +178,8 @@ void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
     DumpEnum("TessellatorDomain", Desc.TessellatorDomain);
   }
   if (ShaderKind == hlsl::DXIL::ShaderKind::Mesh) {
-    WriteLn("PatchConstantParameters: ", Desc.PatchConstantParameters, " (output primitive parameters for mesh shader)");
+    WriteLn("PatchConstantParameters: ", Desc.PatchConstantParameters,
+            " (output primitive parameters for mesh shader)");
   }
   // Instruction Counts
   WriteLn("InstructionCount: ", Desc.InstructionCount);
@@ -171,7 +209,8 @@ void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC &Desc) {
   DumpShaderVersion(Desc.Version);
   WriteLn("Creator: ", Desc.Creator ? Desc.Creator : "<nullptr>");
   WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
-  WriteLn("RequiredFeatureFlags: ", std::hex, std::showbase, Desc.RequiredFeatureFlags);
+  WriteLn("RequiredFeatureFlags: ", std::hex, std::showbase,
+          Desc.RequiredFeatureFlags);
   WriteLn("ConstantBuffers: ", Desc.ConstantBuffers);
   WriteLn("BoundResources: ", Desc.BoundResources);
   WriteLn("FunctionParameterCount: ", Desc.FunctionParameterCount);
@@ -219,7 +258,7 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflectionVariable *pVar) {
   }
   Dump(varDesc);
   Dump(pVar->GetType());
-  ID3D12ShaderReflectionConstantBuffer* pCB = pVar->GetBuffer();
+  ID3D12ShaderReflectionConstantBuffer *pCB = pVar->GetBuffer();
   D3D12_SHADER_BUFFER_DESC CBDesc;
   if (pCB && SUCCEEDED(pCB->GetDesc(&CBDesc))) {
     WriteLn("CBuffer: ", CBDesc.Name);
@@ -227,7 +266,8 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflectionVariable *pVar) {
   Dedent();
 }
 
-void D3DReflectionDumper::Dump(ID3D12ShaderReflectionConstantBuffer *pCBReflection) {
+void D3DReflectionDumper::Dump(
+    ID3D12ShaderReflectionConstantBuffer *pCBReflection) {
   WriteLn("ID3D12ShaderReflectionConstantBuffer:");
   Indent();
   D3D12_SHADER_BUFFER_DESC Desc;
@@ -244,7 +284,8 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflectionConstantBuffer *pCBReflecti
     for (UINT uVar = 0; uVar < Desc.Variables; uVar++) {
       if (m_bCheckByName)
         SetLastName();
-      ID3D12ShaderReflectionVariable *pVar = pCBReflection->GetVariableByIndex(uVar);
+      ID3D12ShaderReflectionVariable *pVar =
+          pCBReflection->GetVariableByIndex(uVar);
       Dump(pVar);
       if (m_bCheckByName) {
         if (pCBReflection->GetVariableByName(m_LastName) != pVar) {
@@ -278,7 +319,7 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
     Indent();
     for (UINT i = 0; i < Desc.InputParameters; ++i) {
       D3D12_SIGNATURE_PARAMETER_DESC elDesc;
-      if(FAILED(pShaderReflection->GetInputParameterDesc(i, &elDesc))) {
+      if (FAILED(pShaderReflection->GetInputParameterDesc(i, &elDesc))) {
         Failure("GetInputParameterDesc ", i);
         continue;
       }
@@ -291,7 +332,7 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
     Indent();
     for (UINT i = 0; i < Desc.OutputParameters; ++i) {
       D3D12_SIGNATURE_PARAMETER_DESC elDesc;
-      if(FAILED(pShaderReflection->GetOutputParameterDesc(i, &elDesc))) {
+      if (FAILED(pShaderReflection->GetOutputParameterDesc(i, &elDesc))) {
         Failure("GetOutputParameterDesc ", i);
         continue;
       }
@@ -304,7 +345,8 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
     Indent();
     for (UINT i = 0; i < Desc.PatchConstantParameters; ++i) {
       D3D12_SIGNATURE_PARAMETER_DESC elDesc;
-      if(FAILED(pShaderReflection->GetPatchConstantParameterDesc(i, &elDesc))) {
+      if (FAILED(
+              pShaderReflection->GetPatchConstantParameterDesc(i, &elDesc))) {
         Failure("GetPatchConstantParameterDesc ", i);
         continue;
       }
@@ -318,7 +360,8 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
     Indent();
     bool bCheckByNameFailed = false;
     for (UINT uCB = 0; uCB < Desc.ConstantBuffers; uCB++) {
-      ID3D12ShaderReflectionConstantBuffer *pCB = pShaderReflection->GetConstantBufferByIndex(uCB);
+      ID3D12ShaderReflectionConstantBuffer *pCB =
+          pShaderReflection->GetConstantBufferByIndex(uCB);
       if (!pCB) {
         Failure("GetConstantBufferByIndex ", uCB);
         continue;
@@ -349,7 +392,9 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
       Dump(bindDesc);
       if (m_bCheckByName && bindDesc.Name) {
         D3D12_SHADER_INPUT_BIND_DESC bindDesc2;
-        if (FAILED(pShaderReflection->GetResourceBindingDescByName(bindDesc.Name, &bindDesc2)) || bindDesc2.Name != bindDesc.Name) {
+        if (FAILED(pShaderReflection->GetResourceBindingDescByName(
+                bindDesc.Name, &bindDesc2)) ||
+            bindDesc2.Name != bindDesc.Name) {
           bCheckByNameFailed = true;
           Failure("GetResourceBindingDescByName ", bindDesc.Name);
         }
@@ -379,7 +424,8 @@ void D3DReflectionDumper::Dump(ID3D12FunctionReflection *pFunctionReflection) {
     Indent();
     bool bCheckByNameFailed = false;
     for (UINT uCB = 0; uCB < Desc.ConstantBuffers; uCB++) {
-      ID3D12ShaderReflectionConstantBuffer *pCB = pFunctionReflection->GetConstantBufferByIndex(uCB);
+      ID3D12ShaderReflectionConstantBuffer *pCB =
+          pFunctionReflection->GetConstantBufferByIndex(uCB);
       Dump(pCB);
       if (m_bCheckByName && m_LastName) {
         if (pFunctionReflection->GetConstantBufferByName(m_LastName) != pCB) {
@@ -399,12 +445,15 @@ void D3DReflectionDumper::Dump(ID3D12FunctionReflection *pFunctionReflection) {
     bool bCheckByNameFailed = false;
     for (UINT uRes = 0; uRes < Desc.BoundResources; uRes++) {
       D3D12_SHADER_INPUT_BIND_DESC bindDesc;
-      if (FAILED(pFunctionReflection->GetResourceBindingDesc(uRes, &bindDesc))) {
+      if (FAILED(
+              pFunctionReflection->GetResourceBindingDesc(uRes, &bindDesc))) {
       }
       Dump(bindDesc);
       if (m_bCheckByName && bindDesc.Name) {
         D3D12_SHADER_INPUT_BIND_DESC bindDesc2;
-        if (FAILED(pFunctionReflection->GetResourceBindingDescByName(bindDesc.Name, &bindDesc2)) || bindDesc2.Name != bindDesc.Name) {
+        if (FAILED(pFunctionReflection->GetResourceBindingDescByName(
+                bindDesc.Name, &bindDesc2)) ||
+            bindDesc2.Name != bindDesc.Name) {
           bCheckByNameFailed = true;
           Failure("GetResourceBindingDescByName ", bindDesc.Name);
         }

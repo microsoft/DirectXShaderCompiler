@@ -712,6 +712,10 @@ private:
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
                                                   bool useIdParams);
 
+  /// Processes the 'firstbit{high|low}' intrinsic functions.
+  SpirvInstruction *processIntrinsicFirstbit(const CallExpr *,
+                                             GLSLstd450 glslOpcode);
+
 private:
   /// Returns the <result-id> for constant value 0 of the given type.
   SpirvConstant *getValueZero(QualType type);
@@ -793,7 +797,8 @@ private:
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
 
   static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
-  static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk, bool);
+  static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk,
+                                                 bool);
 
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.

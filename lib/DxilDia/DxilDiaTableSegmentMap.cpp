@@ -14,8 +14,8 @@
 #include "DxilDiaSession.h"
 
 dxil_dia::SegmentMapTable::SegmentMapTable(IMalloc *pMalloc, Session *pSession)
-  : impl::TableBase<IDiaEnumSegments, IDiaSegment>(pMalloc, pSession, Table::Kind::SegmentMap) {
-}
+    : impl::TableBase<IDiaEnumSegments, IDiaSegment>(pMalloc, pSession,
+                                                     Table::Kind::SegmentMap) {}
 
 HRESULT dxil_dia::SegmentMapTable::GetItem(DWORD index, IDiaSegment **ppItem) {
   *ppItem = nullptr;

@@ -36,9 +36,12 @@ class DxilResourceBase;
 class DxilLinker {
 public:
   virtual ~DxilLinker() {}
-  static DxilLinker *CreateLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor);
+  static DxilLinker *CreateLinker(llvm::LLVMContext &Ctx, unsigned valMajor,
+                                  unsigned valMinor);
 
-  void SetValidatorVersion(unsigned valMajor, unsigned valMinor) { m_valMajor = valMajor, m_valMinor = valMinor; }
+  void SetValidatorVersion(unsigned valMajor, unsigned valMinor) {
+    m_valMajor = valMajor, m_valMinor = valMinor;
+  }
   virtual bool HasLibNameRegistered(llvm::StringRef name) = 0;
   virtual bool RegisterLib(llvm::StringRef name,
                            std::unique_ptr<llvm::Module> pModule,
@@ -48,10 +51,12 @@ public:
   virtual void DetachAll() = 0;
 
   virtual std::unique_ptr<llvm::Module>
-  Link(llvm::StringRef entry, llvm::StringRef profile, dxilutil::ExportMap &exportMap) = 0;
+  Link(llvm::StringRef entry, llvm::StringRef profile,
+       dxilutil::ExportMap &exportMap) = 0;
 
 protected:
-  DxilLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor) : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}
+  DxilLinker(llvm::LLVMContext &Ctx, unsigned valMajor, unsigned valMinor)
+      : m_ctx(Ctx), m_valMajor(valMajor), m_valMinor(valMinor) {}
   llvm::LLVMContext &m_ctx;
   unsigned m_valMajor, m_valMinor;
 };

@@ -68,10 +68,9 @@
 #define STDMETHODCALLTYPE
 #define STDMETHODIMP_(type) type STDMETHODCALLTYPE
 #define STDMETHODIMP STDMETHODIMP_(HRESULT)
-#define STDMETHOD_(type,name) virtual STDMETHODIMP_(type) name
+#define STDMETHOD_(type, name) virtual STDMETHODIMP_(type) name
 #define STDMETHOD(name) STDMETHOD_(HRESULT, name)
 #define EXTERN_C extern "C"
-
 
 #define UNREFERENCED_PARAMETER(P) (void)(P)
 
@@ -251,89 +250,30 @@
 #define _In_opt_
 #define _In_opt_count_(size)
 #define _In_opt_z_
-#define _In_reads_(size)
-#define _In_reads_bytes_(size)
-#define _In_reads_bytes_opt_(size)
-#define _In_reads_opt_(size)
-#define _In_reads_to_ptr_(ptr)
 #define _In_count_(size)
-#define _In_range_(lb, ub)
 #define _In_bytecount_(size)
-#define _In_opt_bytecount_(size)
-#define _In_NLS_string_(size)
-#define __in_bcount(size)
 
 #define _Out_
-#define _Out_bytecap_(nbytes)
-#define _Out_writes_to_(a, b)
-#define _Out_writes_to_opt_(a, b)
+#define _Out_opt_
 #define _Outptr_
 #define _Outptr_opt_
-#define _Outptr_opt_result_z_
-#define _Out_opt_
-#define _Out_writes_(size)
-#define _Out_write_bytes_(size)
-#define _Out_writes_z_(size)
-#define _Out_writes_all_(size)
-#define _Out_writes_bytes_(size)
-#define _Outref_result_buffer_(size)
-#define _Outptr_result_buffer_(size)
-#define _Out_cap_(size)
-#define _Out_cap_x_(size)
-#define _Out_range_(lb, ub)
 #define _Outptr_result_z_
-#define _Outptr_result_buffer_maybenull_(ptr)
+#define _Outptr_opt_result_z_
 #define _Outptr_result_maybenull_
 #define _Outptr_result_nullonfailure_
-
-#define __out_ecount_part(a, b)
-
-#define _Inout_
-#define _Inout_z_
-#define _Inout_opt_
-#define _Inout_cap_(size)
-#define _Inout_count_(size)
-#define _Inout_count_c_(size)
-#define _Inout_opt_count_c_(size)
-#define _Inout_bytecount_c_(size)
-#define _Inout_opt_bytecount_c_(size)
-
-#define _Ret_maybenull_
-#define _Ret_notnull_
-#define _Ret_opt_
-
-#define _Use_decl_annotations_
-#define __analysis_assume(expr)
-#define _Analysis_assume_(expr)
-#define _Analysis_assume_nullterminated_(x)
-#define _Success_(expr)
-
-#define __inexpressible_readableTo(size)
-#define __inexpressible_writableTo(size)
-
-#define _Printf_format_string_
-#define _Null_terminated_
-
-#define _Field_size_(size)
-#define _Field_size_full_(size)
-#define _Field_size_opt_(size)
-#define _Post_writable_byte_size_(size)
-#define _Post_readable_byte_size_(size)
-#define __drv_allocatesMem(mem)
+#define _Outptr_result_buffer_maybenull_(ptr)
+#define _Outptr_result_buffer_(ptr)
 
 #define _COM_Outptr_
 #define _COM_Outptr_opt_
 #define _COM_Outptr_result_maybenull_
 #define _COM_Outptr_opt_result_maybenull_
 
-#define _Null_
-#define _Notnull_
-#define _Maybenull_
 #define THIS_
 #define THIS
 #define PURE = 0
 
-#define _Outptr_result_bytebuffer_(size)
+#define _Maybenull_
 
 #define __debugbreak()
 
@@ -620,17 +560,18 @@ template <typename T> inline void **IID_PPV_ARGS_Helper(T **pp) {
 #endif // __EMULATE_UUID
 
 // Needed for d3d headers, but fail to create actual interfaces
-#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) const GUID name = { l, w1, w2, { b1, b2,  b3,  b4,  b5,  b6,  b7,  b8 } }
+#define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8)           \
+  const GUID name = {l, w1, w2, {b1, b2, b3, b4, b5, b6, b7, b8}}
 #define DECLSPEC_UUID(x)
 #define MIDL_INTERFACE(x) struct DECLSPEC_UUID(x)
-#define DECLARE_INTERFACE(iface)                struct iface
-#define DECLARE_INTERFACE_(iface, parent)       DECLARE_INTERFACE(iface) : parent
+#define DECLARE_INTERFACE(iface) struct iface
+#define DECLARE_INTERFACE_(iface, parent) DECLARE_INTERFACE(iface) : parent
 
 //===--------------------- COM Interfaces ---------------------------------===//
 
 CROSS_PLATFORM_UUIDOF(IUnknown, "00000000-0000-0000-C000-000000000046")
 struct IUnknown {
-  IUnknown() {};
+  IUnknown(){};
   virtual HRESULT QueryInterface(REFIID riid, void **ppvObject) = 0;
   virtual ULONG AddRef() = 0;
   virtual ULONG Release() = 0;
@@ -641,6 +582,16 @@ struct IUnknown {
 
 CROSS_PLATFORM_UUIDOF(INoMarshal, "ECC8691B-C1DB-4DC0-855E-65F6C551AF49")
 struct INoMarshal : public IUnknown {};
+
+CROSS_PLATFORM_UUIDOF(IMalloc, "00000002-0000-0000-C000-000000000046")
+struct IMalloc : public IUnknown {
+  virtual void *Alloc(SIZE_T size) = 0;
+  virtual void *Realloc(void *ptr, SIZE_T size) = 0;
+  virtual void Free(void *ptr) = 0;
+  virtual SIZE_T GetSize(void *pv) = 0;
+  virtual int DidAlloc(void *pv) = 0;
+  virtual void HeapMinimize(void) = 0;
+};
 
 CROSS_PLATFORM_UUIDOF(ISequentialStream, "0C733A30-2A1C-11CE-ADE5-00AA0044773D")
 struct ISequentialStream : public IUnknown {
@@ -674,8 +625,10 @@ struct IStream : public ISequentialStream {
 
 // These don't need stub implementations as they come from the DirectX Headers
 // They still need the __uuidof() though
-CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection, "8E349D19-54DB-4A56-9DC9-119D87BDB804")
-CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection, "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
+CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection,
+                      "8E349D19-54DB-4A56-9DC9-119D87BDB804")
+CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection,
+                      "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
 
 //===--------------------- COM Pointer Types ------------------------------===//
 
@@ -806,6 +759,14 @@ public:
     }
     return *this;
   }
+
+  // NOTE: This conversion constructor is not part of the official CComPtr spec;
+  // however, it is needed to convert CComPtr<Q> to CComPtr<T> where T derives
+  // from Q on Clang. MSVC compiles this conversion as first a call to
+  // CComPtr<Q>::operator T*, followed by CComPtr<T>(T*), but Clang fails to
+  // compile with error: no viable conversion from 'CComPtr<Q>' to 'CComPtr<T>'.
+  template <typename Q>
+  CComPtr(const CComPtr<Q> &lp) throw() : CComPtrBase<T>(lp.p) {}
 
   T *operator=(const CComPtr<T> &lp) throw() {
     if (*this != lp) {
@@ -1030,39 +991,27 @@ private:
   HANDLE m_h;
 };
 
-
 /////////////////////////////////////////////////////////////////////////////
 // CComBSTR
 
-class CComBSTR
-{
+class CComBSTR {
 public:
-    BSTR m_str;
-    CComBSTR() : m_str(nullptr) {};
-    CComBSTR(_In_ int nSize, LPCWSTR sz);
-    ~CComBSTR() throw() {
-      SysFreeString(m_str);
-    }
+  BSTR m_str;
+  CComBSTR() : m_str(nullptr){};
+  CComBSTR(int nSize, LPCWSTR sz);
+  ~CComBSTR() throw() { SysFreeString(m_str); }
 
-    operator BSTR() const throw()
-    {
-        return m_str;
-    }
+  operator BSTR() const throw() { return m_str; }
 
-    bool operator==(_In_ const CComBSTR& bstrSrc) const throw();
+  bool operator==(const CComBSTR &bstrSrc) const throw();
 
-    BSTR* operator&() throw()
-    {
-        return &m_str;
-    }
+  BSTR *operator&() throw() { return &m_str; }
 
-    BSTR Detach() throw()
-    {
-        BSTR s = m_str;
-        m_str = NULL;
-        return s;
-    }
-
+  BSTR Detach() throw() {
+    BSTR s = m_str;
+    m_str = NULL;
+    return s;
+  }
 };
 
 //===--------- Convert argv to wchar ----------------===//
@@ -1072,7 +1021,7 @@ class WArgV {
 
 public:
   WArgV(int argc, const char **argv);
-  const wchar_t **argv() { return WCharPtrVector.data();}
+  const wchar_t **argv() { return WCharPtrVector.data(); }
 };
 
 #endif // __cplusplus
