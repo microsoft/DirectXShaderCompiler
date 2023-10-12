@@ -3005,7 +3005,7 @@ private:
     }
     CallStack.erase(D);
     return nullptr;
-  }  
+  }
 
 public:
   void BuildForEntry(FunctionDecl *EntryFnDecl) {
@@ -11472,7 +11472,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   std::pair<clang::FunctionDecl *, bool> pResult =
       ValidateNoRecursion(self, pEntryPointDecl);
   if (pResult.first) {
-    if (pResult.second == false) {     
+    if (pResult.second == false) {
       self->Diag(pResult.first->getSourceRange().getBegin(),
                  diag::err_hlsl_no_recursion)
           << pResult.first->getName();
