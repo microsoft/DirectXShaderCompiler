@@ -15722,40 +15722,34 @@ ValidateNoRecursion(clang::Sema *self, clang::FunctionDecl *FD) {
 }
 
 void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
-  std::vector<std::pair<FunctionDecl *, bool>> FDecls;
+  std::set<std::pair<FunctionDecl *, bool>> FDecls;
+  std::vector<std::pair<FunctionDecl *, bool>> FDeclsVec;
   for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
     // TODO: improve condition so that only exported functions are checked,
     // instead of all functions
     if (FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
+      // returns the first recursive function declaration detected
+      // from this function declaration FD, and determines whether
+      // the recursion was detected in the patch-constant function
       std::pair<clang::FunctionDecl *, bool> pResult =
           ValidateNoRecursion(self, FD);
       // if there is a function that was detected to be recursive,
       // then make sure it is saved for later to emit a diagnostic
       if (pResult.first) {
-        FDecls.push_back(pResult);
+        FDecls.insert(pResult);
+        FDeclsVec.push_back(pResult);
       }
     }
   }
 
-  // minimize the list by removing FDecls that are called by other FDecls
-  unsigned int index = 0;
-  while (index + 1 < FDecls.size()) {
-    FunctionDecl *FD1 = FDecls[index].first;
-    FunctionDecl *FD2 = FDecls[index + 1].first;
-    hlsl::CallGraphWithRecurseGuard CG;
-    if (CG.CheckReachability(FD1, FD2)) {
-      FDecls.erase(FDecls.begin() + index + 1);
+  // iterate through FDeclsVec to maintain AST order, and delete
+  // from set FDecls as we go.
+  for (auto fdecl : FDeclsVec) {
+    if (FDecls.find(fdecl) == FDecls.end()) {
       continue;
     }
-    if (CG.CheckReachability(FD2, FD1)) {
-      FDecls.erase(FDecls.begin() + index);
-      continue;
-    }
-    index++;
-  }
-
-  for (auto fdecl : FDecls) {
     FunctionDecl *FD = fdecl.first;
+
     if (fdecl.second == false) {
       self->Diag(FD->getSourceRange().getBegin(), diag::err_hlsl_no_recursion)
           << FD->getName();
@@ -15766,6 +15760,7 @@ void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
                  diag::err_hlsl_no_recursion_via_patch)
           << FD->getName();
     }
+    FDecls.erase(fdecl);
   }
 }
 
