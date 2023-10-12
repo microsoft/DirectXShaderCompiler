@@ -5601,7 +5601,7 @@ static void ValidateCallGraph(ValidationContext &ValCtx) {
   depthMap[entryNode] = 0;
   if (CallGraphNode *N = CalculateCallDepth(entryNode, depthMap, callStack,
                                             ValCtx.entryFuncCallSet))
-    ValCtx.EmitFnError(N->getFunction(), ValidationRule::FlowNoRecusion);
+    ValCtx.EmitFnError(N->getFunction(), ValidationRule::FlowNoRecursion);
   if (ValCtx.DxilMod.GetShaderModel()->IsHS()) {
     CallGraphNode *patchConstantNode =
         CG[ValCtx.DxilMod.GetPatchConstantFunction()];
@@ -5610,7 +5610,7 @@ static void ValidateCallGraph(ValidationContext &ValCtx) {
     if (CallGraphNode *N =
             CalculateCallDepth(patchConstantNode, depthMap, callStack,
                                ValCtx.patchConstFuncCallSet))
-      ValCtx.EmitFnError(N->getFunction(), ValidationRule::FlowNoRecusion);
+      ValCtx.EmitFnError(N->getFunction(), ValidationRule::FlowNoRecursion);
   }
 }
 

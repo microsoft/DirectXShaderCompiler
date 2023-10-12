@@ -8110,7 +8110,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
   if (getLangOpts().HLSL && D.isFunctionDefinition() && D.hasName() &&
       NewFD->getDeclContext()->getRedeclContext()->isTranslationUnit()) {
-    hlsl::DiagnoseEntry(*this, NewFD);
+    hlsl::DiagnoseEntry(*this, NewFD);    
   }
 
   return NewFD;
