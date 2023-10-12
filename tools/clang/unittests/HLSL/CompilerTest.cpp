@@ -3720,7 +3720,9 @@ TEST_F(CompilerTest, CompileWhenRecursiveAlbeitStaticTermThenFail) {
       "float4 VS() : SV_Position{\r\n"
       "  return f(); // First call to 'f'\r\n"
       "}\r\n";
-  VerifyCompileFailed(ShaderText, L"vs_6_0", "recursive functions are not allowed: entry (or export) function calls recursive function 'f'",
+  VerifyCompileFailed(ShaderText, L"vs_6_0",
+                      "recursive functions are not allowed: entry (or export) "
+                      "function calls recursive function 'f'",
                       L"VS");
 }
 
