@@ -285,11 +285,11 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         // Replace bitcast argument with new value
         use.set(NewV);
       }
-
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       // Constant AddrSpaceCast, or BitCast
       if (CE->getOpcode() == Instruction::AddrSpaceCast) {
-        DXASSERT(CE->getType()->getPointerAddressSpace() != NewAddrSpace &&
+        DXASSERT(
+            CE->getType()->getPointerAddressSpace() != NewAddrSpace &&
                 OriginalAddrSpace == NewAddrSpace,
             "When replace Constant, V and NewV must have same address space");
         Constant *NewAC = ConstantExpr::getAddrSpaceCast(
