@@ -11357,12 +11357,8 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
           << FD->getType() << FD->getSourceRange();
     return true;
   case AR_TOBJ_DEPENDENT:
-    Empty = false;
-    self->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_type)
-        << ArgTy << ArgLoc.getSourceRange();
-    if (FD)
-      self->Diag(FD->getLocation(), diag::note_field_declared_here)
-          << FD->getType() << FD->getSourceRange();
+    llvm_unreachable("obj dependent should go dependent type path, not reach "
+                     "here");
     return true;
   case AR_TOBJ_COMPOUND: {
     bool ErrorFound = false;
