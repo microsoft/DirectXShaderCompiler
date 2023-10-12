@@ -1588,9 +1588,10 @@ enum class NodeIOFlags : uint32_t {
 
   TrackRWInputSharing = 0x100, // TrackRWInputSharing tracked on all non-empty
                                // input/output record/node types
+  GloballyCoherent = 0x200,    // applies to RWDispatchNodeInputRecord
 
   // Mask for node/record properties beyond NodeIOKind
-  RecordFlagsMask = 0x100,
+  RecordFlagsMask = 0x300,
   NodeFlagsMask = 0x100,
 };
 
@@ -1802,24 +1803,20 @@ enum class WaveMatrixScalarOpCode : unsigned {
 
 // Corresponds to MEMORY_TYPE_FLAG enums in HLSL
 enum class MemoryTypeFlag : uint32_t {
-  UavMemory = 0x00000001,
-  GroupSharedMemory = 0x00000002,
-  NodeInputMemory = 0x00000004,
-  NodeOutputMemory = 0x00000008,
+  UavMemory = 0x00000001,         // UAV_MEMORY
+  GroupSharedMemory = 0x00000002, // GROUP_SHARED_MEMORY
+  NodeInputMemory = 0x00000004,   // NODE_INPUT_MEMORY
+  NodeOutputMemory = 0x00000008,  // NODE_OUTPUT_MEMORY
+  AllMemory = 0x0000000F,         // ALL_MEMORY
   ValidMask = 0x0000000F
 };
 
-// Corresponds to ACCESS_FLAG enums in HLSL
-enum class AccessFlag : uint32_t {
-  DeviceVisible = 0x00000001, // implies group visible (smaller scope)
-  GroupVisible = 0x00000002,
-  ValidMask = 0x00000003
-};
-
-// Corresponds to SYNC_FLAG enum in HLSL
-enum class SyncFlag : uint32_t {
-  GroupSync = 0x00000001,
-  ValidMask = 0x00000001
+// Corresponds to SEMANTIC_FLAG enums in HLSL
+enum class BarrierSemanticFlag : uint32_t {
+  GroupSync = 0x00000001,   // GROUP_SYNC
+  GroupScope = 0x00000002,  // GROUP_SCOPE
+  DeviceScope = 0x00000004, // DEVICE_SCOPE
+  ValidMask = 0x00000007
 };
 
 // Constant for Container.

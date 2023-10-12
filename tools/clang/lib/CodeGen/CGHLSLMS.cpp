@@ -2435,6 +2435,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
             node.MaxRecords =
                 parmDecl->getAttr<HLSLMaxRecordsAttr>()->getMaxCount();
           }
+          if (parmDecl->hasAttr<HLSLGloballyCoherentAttr>())
+            node.Flags.SetGloballyCoherent();
 
           NodeInputRecordParams[ArgIt].RecordInfo = node.GetNodeRecordInfo();
           funcProps->InputNodes.push_back(node);
@@ -2447,14 +2449,18 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           if (parmDecl->hasAttr<HLSLAllowSparseNodesAttr>())
             node.AllowSparseNodes = true;
 
-          // OutputArraySize from declared arraysize
-          // FIXME: move to OutputNodeArray.
+          // OutputArraySize from NodeArraySize attribute
           if (parmDecl->hasAttr<HLSLNodeArraySizeAttr>()) {
             node.OutputArraySize =
                 parmDecl->getAttr<HLSLNodeArraySizeAttr>()->getCount();
           } else {
             node.OutputArraySize = 0;
           }
+          if (parmDecl->hasAttr<HLSLUnboundedSparseNodesAttr>()) {
+            node.AllowSparseNodes = true;
+            node.OutputArraySize = UINT_MAX;
+          }
+
           // OutputID from attribute
           if (const auto *Attr = parmDecl->getAttr<HLSLNodeIdAttr>()) {
             node.OutputID.Name = Attr->getName().str();

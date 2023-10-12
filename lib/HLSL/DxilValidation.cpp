@@ -2299,12 +2299,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DI.get_MemoryTypeFlags(),
                            (unsigned)hlsl::DXIL::MemoryTypeFlag::ValidMask,
                            "memory type", "BarrierByMemoryType");
-    ValidateBarrierFlagArg(ValCtx, CI, DI.get_AccessFlags(),
-                           (unsigned)hlsl::DXIL::AccessFlag::ValidMask,
-                           "access", "BarrierByMemoryType");
-    ValidateBarrierFlagArg(ValCtx, CI, DI.get_SyncFlags(),
-                           (unsigned)hlsl::DXIL::SyncFlag::ValidMask, "sync",
-                           "BarrierByMemoryType");
+    ValidateBarrierFlagArg(ValCtx, CI, DI.get_SemanticFlags(),
+                           (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
+                           "semantic", "BarrierByMemoryType");
 
   } break;
   case DXIL::OpCode::BarrierByNodeRecordHandle:
@@ -2313,12 +2310,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                              ? "barrierByNodeRecordHandle"
                              : "barrierByMemoryHandle";
     DxilInst_BarrierByMemoryHandle DIMH(CI);
-    ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_AccessFlags(),
-                           (unsigned)hlsl::DXIL::AccessFlag::ValidMask,
-                           "access", opName);
-    ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_SyncFlags(),
-                           (unsigned)hlsl::DXIL::SyncFlag::ValidMask, "sync",
-                           opName);
+    ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_SemanticFlags(),
+                           (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
+                           "semantic", opName);
   } break;
   case DXIL::OpCode::CreateHandleForLib:
     if (!ValCtx.isLibProfile) {

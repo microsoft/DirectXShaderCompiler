@@ -8750,7 +8750,7 @@ struct DxilInst_BarrierByMemoryType {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -8759,8 +8759,7 @@ struct DxilInst_BarrierByMemoryType {
   // Operand indexes
   enum OperandIdx {
     arg_MemoryTypeFlags = 1,
-    arg_AccessFlags = 2,
-    arg_SyncFlags = 3,
+    arg_SemanticFlags = 2,
   };
   // Accessors
   llvm::Value *get_MemoryTypeFlags() const { return Instr->getOperand(1); }
@@ -8774,25 +8773,14 @@ struct DxilInst_BarrierByMemoryType {
                              llvm::IntegerType::get(Instr->getContext(), 32),
                              llvm::APInt(32, (uint64_t)val)));
   }
-  llvm::Value *get_AccessFlags() const { return Instr->getOperand(2); }
-  void set_AccessFlags(llvm::Value *val) { Instr->setOperand(2, val); }
-  int32_t get_AccessFlags_val() const {
+  llvm::Value *get_SemanticFlags() const { return Instr->getOperand(2); }
+  void set_SemanticFlags(llvm::Value *val) { Instr->setOperand(2, val); }
+  int32_t get_SemanticFlags_val() const {
     return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))
                          ->getZExtValue());
   }
-  void set_AccessFlags_val(int32_t val) {
+  void set_SemanticFlags_val(int32_t val) {
     Instr->setOperand(2, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 32),
-                             llvm::APInt(32, (uint64_t)val)));
-  }
-  llvm::Value *get_SyncFlags() const { return Instr->getOperand(3); }
-  void set_SyncFlags(llvm::Value *val) { Instr->setOperand(3, val); }
-  int32_t get_SyncFlags_val() const {
-    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))
-                         ->getZExtValue());
-  }
-  void set_SyncFlags_val(int32_t val) {
-    Instr->setOperand(3, llvm::Constant::getIntegerValue(
                              llvm::IntegerType::get(Instr->getContext(), 32),
                              llvm::APInt(32, (uint64_t)val)));
   }
@@ -8811,7 +8799,7 @@ struct DxilInst_BarrierByMemoryHandle {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -8820,31 +8808,19 @@ struct DxilInst_BarrierByMemoryHandle {
   // Operand indexes
   enum OperandIdx {
     arg_object = 1,
-    arg_AccessFlags = 2,
-    arg_SyncFlags = 3,
+    arg_SemanticFlags = 2,
   };
   // Accessors
   llvm::Value *get_object() const { return Instr->getOperand(1); }
   void set_object(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_AccessFlags() const { return Instr->getOperand(2); }
-  void set_AccessFlags(llvm::Value *val) { Instr->setOperand(2, val); }
-  int32_t get_AccessFlags_val() const {
+  llvm::Value *get_SemanticFlags() const { return Instr->getOperand(2); }
+  void set_SemanticFlags(llvm::Value *val) { Instr->setOperand(2, val); }
+  int32_t get_SemanticFlags_val() const {
     return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))
                          ->getZExtValue());
   }
-  void set_AccessFlags_val(int32_t val) {
+  void set_SemanticFlags_val(int32_t val) {
     Instr->setOperand(2, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 32),
-                             llvm::APInt(32, (uint64_t)val)));
-  }
-  llvm::Value *get_SyncFlags() const { return Instr->getOperand(3); }
-  void set_SyncFlags(llvm::Value *val) { Instr->setOperand(3, val); }
-  int32_t get_SyncFlags_val() const {
-    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(3))
-                         ->getZExtValue());
-  }
-  void set_SyncFlags_val(int32_t val) {
-    Instr->setOperand(3, llvm::Constant::getIntegerValue(
                              llvm::IntegerType::get(Instr->getContext(), 32),
                              llvm::APInt(32, (uint64_t)val)));
   }
@@ -8864,7 +8840,7 @@ struct DxilInst_BarrierByNodeRecordHandle {
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
@@ -8873,16 +8849,13 @@ struct DxilInst_BarrierByNodeRecordHandle {
   // Operand indexes
   enum OperandIdx {
     arg_object = 1,
-    arg_AccessFlags = 2,
-    arg_SyncFlags = 3,
+    arg_SemanticFlags = 2,
   };
   // Accessors
   llvm::Value *get_object() const { return Instr->getOperand(1); }
   void set_object(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_AccessFlags() const { return Instr->getOperand(2); }
-  void set_AccessFlags(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_SyncFlags() const { return Instr->getOperand(3); }
-  void set_SyncFlags(llvm::Value *val) { Instr->setOperand(3, val); }
+  llvm::Value *get_SemanticFlags() const { return Instr->getOperand(2); }
+  void set_SemanticFlags(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
 /// This instruction Creates a handle to a NodeOutput

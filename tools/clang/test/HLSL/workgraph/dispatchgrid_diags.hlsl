@@ -133,7 +133,7 @@ void node19(DispatchNodeInputRecord<MyStruct3> input)
 
 struct A {
     float a;
-    uint3 grid : SV_DispatchGrid;   // expected-error {{a field with SV_DispatchGrid has already been specified}}
+    uint3 grid : SV_DispatchGrid;   // expected-note {{other SV_DispatchGrid defined here}}
 };
 
 struct B : A {
@@ -142,7 +142,7 @@ struct B : A {
 
 struct C : B {
     float b;
-    int3 grid2 : SV_DispatchGrid;   // expected-note {{other SV_DispatchGrid defined here}}
+    int3 grid2 : SV_DispatchGrid;   // expected-error {{a field with SV_DispatchGrid has already been specified}}
 };
 
 [Shader("node")]
@@ -150,4 +150,24 @@ struct C : B {
 [NodeMaxDispatchGrid(8, 4, 4)]      
 [NumThreads(32, 1, 1)]
 void node20(DispatchNodeInputRecord<C> input)
+{ }
+
+struct D {
+  uint4 grid1 : SV_DispatchGrid;   // expected-note {{other SV_DispatchGrid defined here}}
+};
+
+struct E {
+  D struct_field;
+};
+
+struct F : E {
+  uint4 grid2 : SV_DispatchGrid;   // expected-error {{a field with SV_DispatchGrid has already been specified}}
+  float data;
+};
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeMaxDispatchGrid(32, 16, 1)]
+[NumThreads(32, 1, 1)]
+void node21(DispatchNodeInputRecord<F> input)
 { }

@@ -7655,6 +7655,10 @@ def err_hlsl_unsupported_longlong : Error<
   "long long is unsupported in HLSL">;
 def err_hlsl_varmodifierna : Error<
   "%0 is not a valid modifier for a %1">;
+def err_hlsl_varmodifierna_decltype : Error<
+  "%0 is not a valid modifier for a declaration of type %1">;
+def note_hlsl_globallycoherent_applies_to : Note<
+  "'globallycoherent' can only be applied to UAV or RWDispatchNodeInputRecord objects">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla
@@ -7816,6 +7820,16 @@ def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
 def err_hlsl_wg_input_kind : Error<
    "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
    "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;
+def err_hlsl_wg_attr_only_on_output : Error<
+   "attribute %0 may only be used with output nodes">;
+def err_hlsl_wg_attr_only_on_output_or_input_record : Error<
+   "attribute %0 may only be used with output nodes or input record objects">;
+def err_hlsl_wg_nodearraysize_conflict_unbounded : Error<
+   "[NodeArraySize(%0)] conflict: [UnboundedSparseNodes] implies [NodeArraySize(-1)]">;
+def err_hlsl_wg_attr_only_on_output_array : Error<
+   "attribute %0 may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)">;
+def err_hlsl_wg_attr_only_on_node: Error<
+   "attribute %0 may only be used on a node ">;
 def err_hlsl_zero_sized_record : Error<
    "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
@@ -7828,6 +7842,8 @@ def err_hlsl_maxrecordssharedwith_references_invalid_arg : Error<
     "attribute MaxRecordsSharedWith must reference a valid ouput parameter name.">;
 def err_hlsl_maxrecordssharedwith_references_itself : Error<
     "attribute MaxRecordsSharedWith must not reference the same parameter it is applied to.">;
+def err_hlsl_maxrecord_on_wrong_launch : Error<
+    "attribute MaxRecords must only be used with node outputs or coalescing launch inputs">;
 def err_hlsl_dispatchgrid_component : Error<
    "%0 %1 component value must be between 1 and 65,535 (2^16-1) inclusive">;
 def err_hlsl_dispatchgrid_product : Error<

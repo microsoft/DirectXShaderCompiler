@@ -5243,20 +5243,17 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     A(pI32);
-    A(pI32);
     break;
   case OpCode::BarrierByMemoryHandle:
     A(pV);
     A(pI32);
     A(pRes);
     A(pI32);
-    A(pI32);
     break;
   case OpCode::BarrierByNodeRecordHandle:
     A(pV);
     A(pI32);
     A(pNodeRecordHandle);
-    A(pI32);
     A(pI32);
     break;
 

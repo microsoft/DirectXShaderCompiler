@@ -2014,7 +2014,13 @@ ASTUnit *ASTUnit::LoadFromCommandLine(
     // CXXPre1yCompatPedantic is included by CXX98Compat
     // CXX11CompatReservedUserDefinedLiteral
     for (size_t i = 0; i < _countof(groupNames); ++i) {
-      Diags->setSeverityForGroup(diag::Flavor::WarningOrError, StringRef(groupNames[i]), diag::Severity::Ignored);
+      if (Diags->setSeverityForGroup(diag::Flavor::WarningOrError,
+                                     StringRef(groupNames[i]),
+                                     diag::Severity::Ignored)) {
+        assert(false &&
+               "otherwise, there is a problem with diagnostic definitions.");
+        return nullptr;
+      }
     }
     Diags->setExtensionHandlingBehavior(diag::Severity::Ignored);
   }

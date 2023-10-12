@@ -31,24 +31,24 @@ define void @node01() {
   %1 = load %dx.types.Handle, %dx.types.Handle* @"\01?buf0@@3V?$RWBuffer@I@@A", align 4
   %2 = call %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32 160, %dx.types.Handle %1)  ; CreateHandleForLib(Resource)
   %3 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 4106, i32 261 })  ; AnnotateHandle(res,props)  resource: RWTypedBuffer<U32>
-  ; CHECK: error: Invalid access flags on DXIL operation 'barrierByMemoryHandle'
-  call void @dx.op.barrierByMemoryHandle(i32 245, %dx.types.Handle %3, i32 9, i32 1)  ; BarrierByMemoryHandle(object,AccessFlags,SyncFlags)
+  ; CHECK: error: Invalid semantic flags on DXIL operation 'barrierByMemoryHandle'
+  call void @dx.op.barrierByMemoryHandle(i32 245, %dx.types.Handle %3, i32 9)  ; BarrierByMemoryHandle(object,SemanticFlags)
   ret void
 }
 
 define void @node02() {
   %1 = call %dx.types.NodeRecordHandle @dx.op.createNodeInputRecordHandle(i32 250, i32 0)  ; CreateNodeInputRecordHandle(MetadataIdx)
   %2 = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %1, %dx.types.NodeRecordInfo { i32 97, i32 12 })  ; AnnotateNodeRecordHandle(noderecord,props)
-  ; CHECK: error: Invalid access flags on DXIL operation 'barrierByNodeRecordHandle'
-  call void @dx.op.barrierByNodeRecordHandle(i32 246, %dx.types.NodeRecordHandle %2, i32 9, i32 1)  ; BarrierByNodeRecordHandle(object,AccessFlags,SyncFlags)
+  ; CHECK: error: Invalid semantic flags on DXIL operation 'barrierByNodeRecordHandle'
+  call void @dx.op.barrierByNodeRecordHandle(i32 246, %dx.types.NodeRecordHandle %2, i32 9)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
   ret void
 }
 
 ; Function Attrs: noduplicate nounwind
-declare void @dx.op.barrierByMemoryHandle(i32, %dx.types.Handle, i32, i32) #0
+declare void @dx.op.barrierByMemoryHandle(i32, %dx.types.Handle, i32) #0
 
 ; Function Attrs: noduplicate nounwind
-declare void @dx.op.barrierByNodeRecordHandle(i32, %dx.types.NodeRecordHandle, i32, i32) #0
+declare void @dx.op.barrierByNodeRecordHandle(i32, %dx.types.NodeRecordHandle, i32) #0
 
 ; Function Attrs: nounwind readnone
 declare %dx.types.Handle @dx.op.annotateHandle(i32, %dx.types.Handle, %dx.types.ResourceProperties) #1
@@ -113,7 +113,7 @@ attributes #2 = { nounwind readonly }
 ;[NodeLaunch("broadcasting")]
 ;void node01(DispatchNodeInputRecord<RECORD> input)
 ;{
-;  Barrier(buf0,1,1);
+;  Barrier(buf0,3);
 ;}
 
 ;[Shader("node")]
@@ -121,5 +121,5 @@ attributes #2 = { nounwind readonly }
 ;[NodeLaunch("broadcasting")]
 ;void node02(DispatchNodeInputRecord<RECORD> input)
 ;{
-;  Barrier(input,1,1);
+;  Barrier(input,3);
 ;}
