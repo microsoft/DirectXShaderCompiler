@@ -778,7 +778,8 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
     IFT(pPdbUtils->GetSourceName(i, &pFileName));
     IFT(pIncludeHandler->insertIncludeFile(pFileName, pSourceFile, 0));
     if (pMainFileName == pFileName) {
-      pCompileSource.Attach(pSourceFile);
+      // Transfer pSourceFile to avoid pPdbUtils release it again.
+      pCompileSource.Attach(pSourceFile.Detach());
     }
   }
 
@@ -802,9 +803,6 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
                            NewDefines.data(), NewDefines.size(),
                            pIncludeHandler, &pResult));
   }
-
-  // Detach pCompileSource because the data is owned by pPdbUtils.
-  pCompileSource.Detach();
 
   *ppCompileResult = pResult.Detach();
 }
