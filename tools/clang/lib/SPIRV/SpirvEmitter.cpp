@@ -3535,7 +3535,8 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
       // one member, S, then (T)<an-instance-of-S> is allowed, which essentially
       // constructs a new T instance using the instance of S as its only member.
       // Check whether we are handling that case here first.
-      if (field->getType().getCanonicalType() == initType.getCanonicalType()) {
+      if (!field->isBitField() &&
+          field->getType().getCanonicalType() == initType.getCanonicalType()) {
         fields.push_back(initInstr);
       } else {
         fields.push_back(processFlatConversion(field->getType(), initType,
@@ -8164,6 +8165,41 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
     }
   }
 
+  if (const auto *recordType = fromType->getAs<RecordType>()) {
+    // This code is bogus but approximates the current (unspec'd)
+    // behavior for the DXIL target.
+    assert(recordType->isStructureType());
+
+    auto fieldDecl = recordType->getDecl()->field_begin();
+    QualType fieldType = fieldDecl->getType();
+    QualType elemType = {};
+    SpirvInstruction *firstField;
+
+    if (isVectorType(fieldType, &elemType)) {
+      fieldType = elemType;
+      firstField = spvBuilder.createCompositeExtract(fieldType, fromVal, {0, 0},
+                                                     srcLoc, srcRange);
+    } else {
+      firstField = spvBuilder.createCompositeExtract(fieldType, fromVal, {0},
+                                                     srcLoc, srcRange);
+      if (fieldDecl->isBitField()) {
+        auto offset = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                llvm::APInt(32, 0));
+        auto width = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy,
+            llvm::APInt(32, fieldDecl->getBitWidthValue(astContext)));
+        firstField = spvBuilder.createBitFieldExtract(
+            fieldType, firstField, offset, width,
+            toIntType->hasSignedIntegerRepresentation(), srcLoc);
+      }
+    }
+
+    SpirvInstruction *result =
+        castToInt(firstField, fieldType, toIntType, srcLoc, srcRange);
+    result->setLayoutRule(fromVal->getLayoutRule());
+    return result;
+  }
+
   return nullptr;
 }
 
@@ -12055,73 +12091,25 @@ SpirvConstant *SpirvEmitter::tryToEvaluateAsConst(const Expr *expr) {
 }
 
 hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
-  hlsl::ShaderModel::Kind smk;
-  switch (stageName[0]) {
-  case 'c':
-    switch (stageName[1]) {
-    case 'o':
-      smk = hlsl::ShaderModel::Kind::Compute;
-      break;
-    case 'l':
-      smk = hlsl::ShaderModel::Kind::ClosestHit;
-      break;
-    case 'a':
-      smk = hlsl::ShaderModel::Kind::Callable;
-      break;
-    default:
-      smk = hlsl::ShaderModel::Kind::Invalid;
-      break;
-    }
-    break;
-  case 'v':
-    smk = hlsl::ShaderModel::Kind::Vertex;
-    break;
-  case 'h':
-    smk = hlsl::ShaderModel::Kind::Hull;
-    break;
-  case 'd':
-    smk = hlsl::ShaderModel::Kind::Domain;
-    break;
-  case 'g':
-    smk = hlsl::ShaderModel::Kind::Geometry;
-    break;
-  case 'p':
-    smk = hlsl::ShaderModel::Kind::Pixel;
-    break;
-  case 'r':
-    smk = hlsl::ShaderModel::Kind::RayGeneration;
-    break;
-  case 'i':
-    smk = hlsl::ShaderModel::Kind::Intersection;
-    break;
-  case 'a':
-    switch (stageName[1]) {
-    case 'm':
-      smk = hlsl::ShaderModel::Kind::Amplification;
-      break;
-    case 'n':
-      smk = hlsl::ShaderModel::Kind::AnyHit;
-      break;
-    }
-    break;
-  case 'm':
-    switch (stageName[1]) {
-    case 'e':
-      smk = hlsl::ShaderModel::Kind::Mesh;
-      break;
-    case 'i':
-      smk = hlsl::ShaderModel::Kind::Miss;
-      break;
-    }
-    break;
-  default:
-    smk = hlsl::ShaderModel::Kind::Invalid;
-    break;
-  }
-  if (smk == hlsl::ShaderModel::Kind::Invalid) {
-    llvm_unreachable("unknown stage name");
-  }
-  return smk;
+  hlsl::ShaderModel::Kind SMK =
+      llvm::StringSwitch<hlsl::ShaderModel::Kind>(stageName)
+          .Case("pixel", hlsl::ShaderModel::Kind::Pixel)
+          .Case("vertex", hlsl::ShaderModel::Kind::Vertex)
+          .Case("geometry", hlsl::ShaderModel::Kind::Geometry)
+          .Case("hull", hlsl::ShaderModel::Kind::Hull)
+          .Case("domain", hlsl::ShaderModel::Kind::Domain)
+          .Case("compute", hlsl::ShaderModel::Kind::Compute)
+          .Case("raygeneration", hlsl::ShaderModel::Kind::RayGeneration)
+          .Case("intersection", hlsl::ShaderModel::Kind::Intersection)
+          .Case("anyhit", hlsl::ShaderModel::Kind::AnyHit)
+          .Case("closesthit", hlsl::ShaderModel::Kind::ClosestHit)
+          .Case("miss", hlsl::ShaderModel::Kind::Miss)
+          .Case("callable", hlsl::ShaderModel::Kind::Callable)
+          .Case("mesh", hlsl::ShaderModel::Kind::Mesh)
+          .Case("amplification", hlsl::ShaderModel::Kind::Amplification)
+          .Default(hlsl::ShaderModel::Kind::Invalid);
+  assert(SMK != hlsl::ShaderModel::Kind::Invalid);
+  return SMK;
 }
 
 spv::ExecutionModel

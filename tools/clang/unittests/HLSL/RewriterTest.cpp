@@ -465,8 +465,6 @@ TEST_F(RewriterTest, RunPredefines) {
                     L"rewriter\\correct_rewrites\\predefines_gold.hlsl");
 }
 
-static const UINT32 CP_UTF16 = 1200;
-
 TEST_F(RewriterTest, RunWideOneByte) {
   CComPtr<IDxcRewriter> pRewriter;
   VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));

@@ -37,7 +37,7 @@ private:
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  STDMETHODIMP QueryInterface(REFIID iid, void **ppvObject) {
+  STDMETHODIMP QueryInterface(REFIID iid, void **ppvObject) override {
     return DoBasicQueryInterface<IDiaLineNumber>(this, iid, ppvObject);
   }
 

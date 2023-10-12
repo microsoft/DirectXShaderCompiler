@@ -1524,7 +1524,7 @@ static void VerifyPdbUtil(
     D3D12_SHADER_DESC desc = {};
     VERIFY_SUCCEEDED(pRefl->GetDesc(&desc));
 
-    VERIFY_ARE_EQUAL(desc.ConstantBuffers, 1);
+    VERIFY_ARE_EQUAL(desc.ConstantBuffers, 1u);
     ID3D12ShaderReflectionConstantBuffer *pCB =
         pRefl->GetConstantBufferByIndex(0);
 
@@ -1532,7 +1532,7 @@ static void VerifyPdbUtil(
     VERIFY_SUCCEEDED(pCB->GetDesc(&cbDesc));
 
     VERIFY_IS_TRUE(0 == strcmp(cbDesc.Name, "MyCbuffer"));
-    VERIFY_ARE_EQUAL(cbDesc.Variables, 1);
+    VERIFY_ARE_EQUAL(cbDesc.Variables, 1u);
 
     ID3D12ShaderReflectionVariable *pVar = pCB->GetVariableByIndex(0);
     D3D12_SHADER_VARIABLE_DESC varDesc = {};
@@ -1655,7 +1655,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
     VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
     UINT32 uSourceCount = 0;
     VERIFY_SUCCEEDED(pPdbUtils->GetSourceCount(&uSourceCount));
-    VERIFY_ARE_EQUAL(uSourceCount, 0);
+    VERIFY_ARE_EQUAL(uSourceCount, 0u);
   }
 }
 
@@ -1806,21 +1806,21 @@ void CompilerTest::TestPdbUtils(bool bSlim, bool bSourceInDebugModule,
         VERIFY_SUCCEEDED(pPdbUtils_Again.QueryInterface(&pPdbUtils2_Again));
         VERIFY_ARE_EQUAL(pPdbUtils2_Again, pPdbUtils2);
 
-        VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 5);
-        VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 4);
+        VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 5u);
+        VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 4u);
       }
       VERIFY_ARE_EQUAL(pPdbUtils_Again, pPdbUtils);
 
-      VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 4);
-      VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 3);
+      VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 4u);
+      VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 3u);
     }
 
-    VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 3);
-    VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 2);
+    VERIFY_ARE_EQUAL(pPdbUtils2.p->AddRef(), 3u);
+    VERIFY_ARE_EQUAL(pPdbUtils2.p->Release(), 2u);
   }
 
-  VERIFY_ARE_EQUAL(pPdbUtils.p->AddRef(), 2);
-  VERIFY_ARE_EQUAL(pPdbUtils.p->Release(), 1);
+  VERIFY_ARE_EQUAL(pPdbUtils.p->AddRef(), 2u);
+  VERIFY_ARE_EQUAL(pPdbUtils.p->Release(), 1u);
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtils) {

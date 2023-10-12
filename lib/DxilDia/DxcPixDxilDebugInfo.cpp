@@ -202,6 +202,8 @@ dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
           S = ContainingScope;
         else
           S = S->getFile();
+      } else if (auto Subprogram = llvm::dyn_cast<llvm::DISubprogram>(S)) {
+        S = Subprogram->getFile();
       } else
         S = S->getScope().resolve(EmptyMap);
     }

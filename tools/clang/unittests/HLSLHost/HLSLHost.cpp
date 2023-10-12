@@ -121,7 +121,6 @@ public:
 };
 
 // Globals.
-static DWORD g_ProcessLocks;
 static const GUID
     CLSID_HLSLHostServer = // {7FD7A859-6C6B-4352-8F1E-C67BB62E774B}
     {0x7fd7a859,
@@ -139,12 +138,7 @@ static const DWORD ReadLogMsgId = 6;
 static const DWORD SetSizeMsgId = 7;
 static const DWORD SetParentWndMsgId = 8;
 static const DWORD GetPidMsgReplyId = 100 + GetPidMsgId;
-static const DWORD StartRendererMsgReplyId = 100 + StartRendererMsgId;
-static const DWORD StopRendererMsgReplyId = 100 + StopRendererMsgId;
-static const DWORD SetPayloadMsgReplyId = 100 + SetPayloadMsgId;
 static const DWORD ReadLogMsgReplyId = 100 + ReadLogMsgId;
-static const DWORD SetSizeMsgReplyId = 100 + SetSizeMsgId;
-static const DWORD SetParentWndMsgReplyId = 100 + SetParentWndMsgId;
 
 struct HhMessageHeader {
   DWORD Length;
@@ -172,7 +166,7 @@ struct HhResultReply {
 };
 
 // Logging and tracing.
-static void HhTrace(LPWSTR pMessage) { wprintf(L"%s\n", pMessage); }
+static void HhTrace(LPCWSTR pMessage) { wprintf(L"%s\n", pMessage); }
 
 template <typename TInterface, typename TObject>
 HRESULT DoBasicQueryInterfaceWithRemote(TObject *self, REFIID iid,
@@ -502,7 +496,7 @@ public:
       g_ShutdownServerEvent.SetEvent();
     }
   }
-  void SetPayload(LPSTR pText) {
+  void SetPayload(LPCSTR pText) {
     LPSTR textCopy = strdup(pText);
     LPSTR oldText =
         (LPSTR)InterlockedExchangePointer(&m_ShaderOpText, textCopy);
@@ -643,7 +637,8 @@ public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   ServerObj() : m_dwRef(0) {}
   ~ServerObj() {}
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterfaceWithRemote<IStream>(this, iid, ppvObject);
   }
 
@@ -705,9 +700,9 @@ public:
       WriteRequestResultReply(MsgKind, S_OK);
       break;
     case SetPayloadMsgId:
-      LPSTR pText;
+      LPCSTR pText;
       HhTrace(L"SetPayload message received");
-      pText = (LPSTR)(pHeader + 1);
+      pText = (LPCSTR)(pHeader + 1);
       m_renderer.SetPayload(pText);
       WriteRequestResultReply(MsgKind, S_OK);
       break;
@@ -856,11 +851,12 @@ private:
 public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   ServerFactory() : m_dwRef(0) {}
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterfaceWithRemote<IClassFactory>(this, iid, ppvObject);
   }
   HRESULT STDMETHODCALLTYPE CreateInstance(IUnknown *pUnk, REFIID riid,
-                                           void **ppvObj) {
+                                           void **ppvObj) override {
     if (pUnk)
       return CLASS_E_NOAGGREGATION;
     CComPtr<ServerObj> obj = new (std::nothrow) ServerObj();
@@ -868,7 +864,7 @@ public:
       return E_OUTOFMEMORY;
     return obj.p->QueryInterface(riid, ppvObj);
   }
-  HRESULT STDMETHODCALLTYPE LockServer(BOOL fLock) {
+  HRESULT STDMETHODCALLTYPE LockServer(BOOL fLock) override {
     // TODO: implement
     return S_OK;
   }

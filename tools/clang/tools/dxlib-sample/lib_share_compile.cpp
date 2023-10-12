@@ -160,7 +160,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
     std::string processedHeader = "";
     std::vector<std::wstring> hashStrList;
     std::vector<LPCWSTR> hashList;
-//#define LIB_SHARE_DBG
+// #define LIB_SHARE_DBG
 #ifdef LIB_SHARE_DBG
     std::vector<std::wstring> defineList;
     defineList.emplace_back(L"");
@@ -235,8 +235,8 @@ HRESULT WINAPI DxilD3DCompile(LPCVOID pSrcData, SIZE_T SrcDataSize,
     *ppErrorMsgs = nullptr;
 
   IFR(CreateLibrary(&library));
-  IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
-                                                CP_ACP, &source));
+  IFR(library->CreateBlobWithEncodingFromPinned(pSrcData, SrcDataSize, CP_ACP,
+                                                &source));
   HRESULT hr = S_OK;
   CComPtr<IMalloc> m_pMalloc(GetGlobalHeapMalloc());
   DxcThreadMalloc TM(m_pMalloc);
@@ -337,8 +337,8 @@ HRESULT WINAPI DxilD3DCompile2(
   *ppOperationResult = nullptr;
 
   IFR(CreateLibrary(&library));
-  IFR(library->CreateBlobWithEncodingFromPinned((LPBYTE)pSrcData, SrcDataSize,
-                                                CP_ACP, &source));
+  IFR(library->CreateBlobWithEncodingFromPinned(pSrcData, SrcDataSize, CP_ACP,
+                                                &source));
   HRESULT hr = S_OK;
   CComPtr<IMalloc> m_pMalloc(GetGlobalHeapMalloc());
   DxcThreadMalloc TM(m_pMalloc);

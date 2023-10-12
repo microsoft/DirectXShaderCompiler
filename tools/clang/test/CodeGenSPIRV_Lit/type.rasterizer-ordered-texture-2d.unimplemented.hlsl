@@ -1,9 +1,6 @@
-// RUN: not %dxc -T ps_6_6 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
-RasterizerOrderedTexture2D<uint> rot;
+// RUN: not %dxc -T ps_6_6 -E main -fcgl %s -spirv 2>&1 | FileCheck %s
 
-static const struct {
-  // CHECK: error: initializer for type 'RasterizerOrderedTexture2D<unsigned int>' unimplemented
-	RasterizerOrderedTexture2D<uint> rot_field;
-} cstruct = {rot};
+// CHECK: error: rasterizer ordered views are unimplemented
+RasterizerOrderedTexture2D<uint> rot;
 
 void main() { }

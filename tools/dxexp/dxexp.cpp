@@ -187,7 +187,7 @@ static const char *ShaderModelToStr(D3D_SHADER_MODEL SM) {
   }
 }
 
-static char *ViewInstancingTierToStr(D3D12_VIEW_INSTANCING_TIER Tier) {
+static const char *ViewInstancingTierToStr(D3D12_VIEW_INSTANCING_TIER Tier) {
   switch (Tier) {
   case D3D12_VIEW_INSTANCING_TIER_NOT_SUPPORTED:
     return "NO";
@@ -202,7 +202,7 @@ static char *ViewInstancingTierToStr(D3D12_VIEW_INSTANCING_TIER Tier) {
   }
 }
 
-static char *RaytracingTierToStr(D3D12_RAYTRACING_TIER Tier) {
+static const char *RaytracingTierToStr(D3D12_RAYTRACING_TIER Tier) {
   switch (Tier) {
   case D3D12_RAYTRACING_TIER_NOT_SUPPORTED:
     return "NO";
@@ -296,7 +296,7 @@ static HRESULT PrintAdapters() {
     hr = e.m_hr;
     json_printf("%c { \"err\": \"unable to print information for adapters - "
                 "0x%08x\" }\n",
-                comma, hr);
+                comma, (unsigned int)hr);
     text_printf("%s", "Unable to print information for adapters.\n");
   }
   json_printf("  ] }\n");
@@ -336,7 +336,8 @@ int main(int argc, const char *argv[]) {
   hRuntime = LoadLibraryW(L"d3d12.dll");
   if (hRuntime == NULL) {
     err = GetLastError();
-    printf("Failed to load library d3d12.dll - Win32 error %u\n", err);
+    printf("Failed to load library d3d12.dll - Win32 error %u\n",
+           (unsigned int)err);
     return 1;
   }
 
@@ -356,7 +357,8 @@ int main(int argc, const char *argv[]) {
   hRuntime = LoadLibraryW(L"d3d12.dll");
   if (hRuntime == NULL) {
     err = GetLastError();
-    printf("Failed to load library d3d12.dll - Win32 error %u\n", err);
+    printf("Failed to load library d3d12.dll - Win32 error %u\n",
+           (unsigned int)err);
     return 1;
   }
 
@@ -367,7 +369,7 @@ int main(int argc, const char *argv[]) {
     err = GetLastError();
     printf("Failed to find export 'D3D12EnableExperimentalFeatures' in "
            "d3d12.dll - Win32 error %u%s\n",
-           err,
+           (unsigned int)err,
            err == ERROR_PROC_NOT_FOUND
                ? " (The specified procedure could not be found.)"
                : "");
@@ -411,7 +413,7 @@ int main(int argc, const char *argv[]) {
   } else {
     text_printf("Experimental shader model feature failed with unexpected "
                 "HRESULT 0x%08x.\n",
-                hr);
+                (unsigned int)hr);
     json_printf("{ \"err\": \"0x%08x\" }", hr);
     json_printf("\n}\n");
     return 4;
