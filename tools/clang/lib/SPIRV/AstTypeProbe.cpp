@@ -864,7 +864,8 @@ bool isStructuredBuffer(QualType type) {
   if (!recordType)
     return false;
   const auto name = recordType->getDecl()->getName();
-  return name == "StructuredBuffer" || name == "RWStructuredBuffer";
+  return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+         name == "RasterizerOrderedStructuredBuffer";
 }
 
 bool isNonWritableStructuredBuffer(QualType type) {
@@ -884,7 +885,8 @@ bool isByteAddressBuffer(QualType type) {
 
 bool isRWBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == "RWBuffer";
+    const auto name = rt->getDecl()->getName();
+    return name == "RWBuffer" || name == "RasterizerOrderedBuffer";
   }
   return false;
 }
@@ -901,7 +903,11 @@ bool isRWTexture(QualType type) {
     const auto name = rt->getDecl()->getName();
     if (name == "RWTexture1D" || name == "RWTexture1DArray" ||
         name == "RWTexture2D" || name == "RWTexture2DArray" ||
-        name == "RWTexture3D")
+        name == "RWTexture3D" || name == "RasterizerOrderedTexture1D" ||
+        name == "RasterizerOrderedTexture1DArray" ||
+        name == "RasterizerOrderedTexture2D" ||
+        name == "RasterizerOrderedTexture2DArray" ||
+        name == "RasterizerOrderedTexture3D")
       return true;
   }
   return false;
@@ -940,7 +946,9 @@ bool isSampler(QualType type) {
 
 bool isRWByteAddressBuffer(QualType type) {
   if (const auto *rt = type->getAs<RecordType>()) {
-    return rt->getDecl()->getName() == "RWByteAddressBuffer";
+    const auto name = rt->getDecl()->getName();
+    return name == "RWByteAddressBuffer" ||
+           name == "RasterizerOrderedByteAddressBuffer";
   }
   return false;
 }
@@ -976,7 +984,8 @@ bool isRWStructuredBuffer(QualType type) {
 
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
-    return name == "RWStructuredBuffer";
+    return name == "RWStructuredBuffer" ||
+           name == "RasterizerOrderedStructuredBuffer";
   }
   return false;
 }
@@ -994,7 +1003,9 @@ bool isAKindOfStructuredOrByteBuffer(QualType type) {
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     return name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+           name == "RasterizerOrderedStructuredBuffer" ||
            name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+           name == "RasterizerOrderedByteAddressBuffer" ||
            name == "AppendStructuredBuffer" ||
            name == "ConsumeStructuredBuffer";
   }
@@ -1008,7 +1019,9 @@ bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+        name == "RasterizerOrderedStructuredBuffer" ||
         name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+        name == "RasterizerOrderedByteAddressBuffer" ||
         name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
       return true;
 
@@ -1032,27 +1045,33 @@ bool isOpaqueType(QualType type) {
   if (const auto *recordType = type->getAs<RecordType>()) {
     const auto name = recordType->getDecl()->getName();
 
-    if (name == "Texture1D" || name == "RWTexture1D")
+    if (name == "Texture1D" || name == "RWTexture1D" ||
+        name == "RasterizerOrderedTexture1D")
       return true;
-    if (name == "Texture2D" || name == "RWTexture2D")
+    if (name == "Texture2D" || name == "RWTexture2D" ||
+        name == "RasterizerOrderedTexture2D")
       return true;
     if (name == "Texture2DMS" || name == "RWTexture2DMS")
       return true;
-    if (name == "Texture3D" || name == "RWTexture3D")
+    if (name == "Texture3D" || name == "RWTexture3D" ||
+        name == "RasterizerOrderedTexture3D")
       return true;
     if (name == "TextureCube" || name == "RWTextureCube")
       return true;
 
-    if (name == "Texture1DArray" || name == "RWTexture1DArray")
+    if (name == "Texture1DArray" || name == "RWTexture1DArray" ||
+        name == "RasterizerOrderedTexture1DArray")
       return true;
-    if (name == "Texture2DArray" || name == "RWTexture2DArray")
+    if (name == "Texture2DArray" || name == "RWTexture2DArray" ||
+        name == "RasterizerOrderedTexture2DArray")
       return true;
     if (name == "Texture2DMSArray" || name == "RWTexture2DMSArray")
       return true;
     if (name == "TextureCubeArray" || name == "RWTextureCubeArray")
       return true;
 
-    if (name == "Buffer" || name == "RWBuffer")
+    if (name == "Buffer" || name == "RWBuffer" ||
+        name == "RasterizerOrderedBuffer")
       return true;
 
     if (name == "SamplerState" || name == "SamplerComparisonState")
@@ -1078,7 +1097,9 @@ std::string getHlslResourceTypeName(QualType type) {
   if (const RecordType *recordType = type->getAs<RecordType>()) {
     StringRef name = recordType->getDecl()->getName();
     if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+        name == "RasterizerOrderedStructuredBuffer" ||
         name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+        name == "RasterizerOrderedByteAddressBuffer" ||
         name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer" ||
         name == "Texture1D" || name == "Texture2D" || name == "Texture3D" ||
         name == "TextureCube" || name == "Texture1DArray" ||
@@ -1086,7 +1107,12 @@ std::string getHlslResourceTypeName(QualType type) {
         name == "Texture2DMSArray" || name == "TextureCubeArray" ||
         name == "RWTexture1D" || name == "RWTexture2D" ||
         name == "RWTexture3D" || name == "RWTexture1DArray" ||
-        name == "RWTexture2DArray" || name == "Buffer" || name == "RWBuffer" ||
+        name == "RWTexture2DArray" || name == "RasterizerOrderedTexture1D" ||
+        name == "RasterizerOrderedTexture1DArray" ||
+        name == "RasterizerOrderedTexture2D" ||
+        name == "RasterizerOrderedTexture2DArray" ||
+        name == "RasterizerOrderedTexture3D" || name == "Buffer" ||
+        name == "RWBuffer" || name == "RasterizerOrderedBuffer" ||
         name == "SubpassInput" || name == "SubpassInputMS" ||
         name == "InputPatch" || name == "OutputPatch") {
       // Get resource type name with template params. Operation is safe because
@@ -1169,7 +1195,12 @@ bool isRelaxedPrecisionType(QualType type, const SpirvCodeGenOptions &opts) {
         name == "Texture2DMSArray" || name == "TextureCubeArray" ||
         name == "RWTexture1D" || name == "RWTexture2D" ||
         name == "RWTexture3D" || name == "RWTexture1DArray" ||
-        name == "RWTexture2DArray" || name == "Buffer" || name == "RWBuffer" ||
+        name == "RWTexture2DArray" || name == "RasterizerOrderedTexture1D" ||
+        name == "RasterizerOrderedTexture1DArray" ||
+        name == "RasterizerOrderedTexture2D" ||
+        name == "RasterizerOrderedTexture2DArray" ||
+        name == "RasterizerOrderedTexture3D" || name == "Buffer" ||
+        name == "RWBuffer" || name == "RasterizerOrderedBuffer" ||
         name == "SubpassInput" || name == "SubpassInputMS") {
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       return isRelaxedPrecisionType(sampledType, opts);

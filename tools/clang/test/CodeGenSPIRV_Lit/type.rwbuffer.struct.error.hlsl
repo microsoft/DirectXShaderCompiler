@@ -8,6 +8,9 @@ struct S {
 // CHECK: error: cannot instantiate RWBuffer with struct type 'S'
 RWBuffer<S> MyRWBuffer;
 
+// CHECK: error: cannot instantiate RasterizerOrderedBuffer with struct type 'S'
+RasterizerOrderedBuffer<S> MyROVBuffer;
+
 float4 main() : A {
   return 1.0;
 }

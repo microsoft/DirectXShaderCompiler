@@ -943,7 +943,7 @@ def CounterStructuredBuffer : SubsetSubject<
        S->getType()->getAs<RecordType>()->getDecl()->getName() == "AppendStructuredBuffer" ||
        S->getType()->getAs<RecordType>()->getDecl()->getName() == "ConsumeStructuredBuffer")}]>;
 
-// Array of StructuredBuffer types that can have associated counters 
+// Array of StructuredBuffer types that can have associated counters
 def ArrayOfCounterStructuredBuffer
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
@@ -974,7 +974,7 @@ def ConstantTextureBuffer
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "TextureBuffer")}]>;
 
-// Global variable with "RWTexture" type
+// Global variable with "(RW|RasterizerOrdered)Texture" type
 def RWTexture
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -988,9 +988,19 @@ def RWTexture
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RWTexture2DArray" ||
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "RWTexture3D")}]>;
+                      "RWTexture3D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture3D")}]>;
 
-// Global variable of array of "RWTexture" type
+// Global variable of array of "(RW|RasterizerOrdered)Texture" type
 def ArrayOfRWTexture
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
@@ -1005,9 +1015,19 @@ def ArrayOfRWTexture
                   S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RWTexture2DArray" ||
                   S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "RWTexture3D")}]>;
+                      "RWTexture3D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture3D")}]>;
 
-// Global variable with "[RW]Buffer" type
+// Global variable with "[RW|RasterizerOrdered]Buffer" type
 def Buffer
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -1015,9 +1035,11 @@ def Buffer
                  (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "Buffer" ||
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "RWBuffer")}]>;
+                      "RWBuffer" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedBuffer")}]>;
 
-// Global variable or array of "[RW]Buffer" type
+// Global variable or array of "[RW|RasterizerOrdered]Buffer" type
 def ArrayOfBuffer
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
@@ -1026,7 +1048,9 @@ def ArrayOfBuffer
                  (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
                       "Buffer" ||
                   S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "RWBuffer")}]>;
+                      "RWBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedBuffer")}]>;
 
 // Global variable with "Texture" or "SamplerState" type
 def TextureOrSampler

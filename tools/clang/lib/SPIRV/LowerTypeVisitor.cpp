@@ -630,10 +630,6 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
 
   assert(type->isStructureOrClassType());
 
-  if (isRasterizerOrderedView(type)) {
-    emitError("rasterizer ordered views are unimplemented", srcLoc);
-  }
-
   const auto *recordType = type->getAs<RecordType>();
   assert(recordType);
   const llvm::StringRef name = recordType->getDecl()->getName();
@@ -672,11 +668,18 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     }
 
     // There is no RWTexture3DArray
-    if ((dim = spv::Dim::Dim1D, isArray = false, name == "RWTexture1D") ||
-        (dim = spv::Dim::Dim2D, isArray = false, name == "RWTexture2D") ||
-        (dim = spv::Dim::Dim3D, isArray = false, name == "RWTexture3D") ||
-        (dim = spv::Dim::Dim1D, isArray = true, name == "RWTexture1DArray") ||
-        (dim = spv::Dim::Dim2D, isArray = true, name == "RWTexture2DArray")) {
+    if ((dim = spv::Dim::Dim1D, isArray = false,
+         name == "RWTexture1D" || name == "RasterizerOrderedTexture1D") ||
+        (dim = spv::Dim::Dim2D, isArray = false,
+         name == "RWTexture2D" || name == "RasterizerOrderedTexture2D") ||
+        (dim = spv::Dim::Dim3D, isArray = false,
+         name == "RWTexture3D" || name == "RasterizerOrderedTexture3D") ||
+        (dim = spv::Dim::Dim1D, isArray = true,
+         name == "RWTexture1DArray" ||
+             name == "RasterizerOrderedTexture1DArray") ||
+        (dim = spv::Dim::Dim2D, isArray = true,
+         name == "RWTexture2DArray" ||
+             name == "RasterizerOrderedTexture2DArray")) {
       const auto sampledType = hlsl::GetHLSLResourceResultType(type);
       const auto format =
           translateSampledTypeToImageFormat(sampledType, srcLoc);
@@ -702,6 +705,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     return spvContext.getRayQueryTypeKHR();
 
   if (name == "StructuredBuffer" || name == "RWStructuredBuffer" ||
+      name == "RasterizerOrderedStructuredBuffer" ||
       name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer") {
     // StructureBuffer<S> will be translated into an OpTypeStruct with one
     // field, which is an OpTypeRuntimeArray of OpTypeStruct (S).
@@ -798,19 +802,11 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
     return spvStructType;
   }
 
-  // ByteAddressBuffer types.
-  if (name == "ByteAddressBuffer") {
-    const auto *bufferType =
-        spvContext.getByteAddressBufferType(/*isRW*/ false);
-    if (rule == SpirvLayoutRule::Void) {
-      // All byte address buffers are in the Uniform storage class.
-      return spvContext.getPointerType(bufferType, spv::StorageClass::Uniform);
-    }
-    return bufferType;
-  }
-  // RWByteAddressBuffer types.
-  if (name == "RWByteAddressBuffer") {
-    const auto *bufferType = spvContext.getByteAddressBufferType(/*isRW*/ true);
+  // ByteAddressBuffer and RWByteAddressBuffer types.
+  if (name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
+      name == "RasterizerOrderedByteAddressBuffer") {
+    const auto *bufferType = spvContext.getByteAddressBufferType(
+        /*isRW*/ name != "ByteAddressBuffer");
     if (rule == SpirvLayoutRule::Void) {
       // All byte address buffers are in the Uniform storage class.
       return spvContext.getPointerType(bufferType, spv::StorageClass::Uniform);
@@ -819,16 +815,18 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   }
 
   // Buffer and RWBuffer types
-  if (name == "Buffer" || name == "RWBuffer") {
+  if (name == "Buffer" || name == "RWBuffer" ||
+      name == "RasterizerOrderedBuffer") {
     const auto sampledType = hlsl::GetHLSLResourceResultType(type);
-    if (sampledType->isStructureType() && name.startswith("RW")) {
+    if (sampledType->isStructureType() &&
+        (name.startswith("RW") || name.startswith("RasterizerOrdered"))) {
       // Note: actually fxc supports RWBuffer over struct types. However, the
       // struct member must fit into a 4-component vector and writing to a
       // RWBuffer element must write all components. This is a feature that
       // are rarely used by developers. We just emit an error saying not
       // supported for now.
-      emitError("cannot instantiate RWBuffer with struct type %0", srcLoc)
-          << sampledType;
+      emitError("cannot instantiate %0 with struct type %1", srcLoc)
+          << name << sampledType;
       return 0;
     }
     const auto format = translateSampledTypeToImageFormat(sampledType, srcLoc);

@@ -131,6 +131,7 @@ public:
     IK_SpecConstantUnaryOp,       // SpecConstant unary operations
     IK_Store,                     // OpStore
     IK_UnaryOp,                   // Unary operations
+    IK_NullaryOp,                 // Nullary operations
     IK_VectorShuffle,             // OpVectorShuffle
     IK_SpirvIntrinsicInstruction, // Spirv Intrinsic Instructions
 
@@ -218,6 +219,9 @@ public:
   void setBitfieldInfo(const BitfieldInfo &info) { bitfieldInfo = info; }
   llvm::Optional<BitfieldInfo> getBitfieldInfo() const { return bitfieldInfo; }
 
+  void setRasterizerOrdered(bool ro = true) { isRasterizerOrdered_ = ro; }
+  bool isRasterizerOrdered() const { return isRasterizerOrdered_; }
+
   /// Legalization-specific code
   ///
   /// Note: the following two functions are currently needed in order to support
@@ -261,6 +265,7 @@ protected:
   bool isNonUniform_;
   bool isPrecise_;
   llvm::Optional<BitfieldInfo> bitfieldInfo;
+  bool isRasterizerOrdered_;
 };
 
 /// \brief OpCapability instruction
@@ -1861,6 +1866,27 @@ private:
   SpirvInstruction *object;
   llvm::Optional<spv::MemoryAccessMask> memoryAccess;
   llvm::Optional<uint32_t> memoryAlignment;
+};
+
+/// \brief Represents SPIR-V nullary operation instructions.
+///
+/// This class includes:
+/// ----------------------------------------------------------------------------
+/// OpBeginInvocationInterlockEXT // FragmentShader*InterlockEXT capability
+/// OpEndInvocationInterlockEXT // FragmentShader*InterlockEXT capability
+/// ----------------------------------------------------------------------------
+class SpirvNullaryOp : public SpirvInstruction {
+public:
+  SpirvNullaryOp(spv::Op opcode, SourceLocation loc, SourceRange range = {});
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNullaryOp)
+
+  // For LLVM-style RTTI
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_NullaryOp;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief Represents SPIR-V unary operation instructions.
