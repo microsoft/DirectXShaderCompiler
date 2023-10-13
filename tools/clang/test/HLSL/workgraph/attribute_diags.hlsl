@@ -171,7 +171,7 @@ void node21(
 [NumThreads(32, 1, 1)]
 void node22(
   [NodeArraySize(15)]         // expected-error {{attribute 'NodeArraySize' may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
-  [AllowSparseNodes]          // expected-error {{attribute 'allowsparsenodes' may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)}}
+  [AllowSparseNodes]
   NodeOutput<SharedRecord> foo)
 { }
 

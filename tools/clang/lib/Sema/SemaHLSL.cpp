@@ -15541,8 +15541,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       // If node output is not an array, diagnose array only attributes
       if (((uint32_t)GetNodeIOType(ParamTy) &
            (uint32_t)DXIL::NodeIOFlags::NodeArray) == 0) {
-        Attr *ArrayAttrs[] = {AllowSparseNodesAttr, NodeArraySizeAttr,
-                              UnboundedSparseNodesAttr};
+        Attr *ArrayAttrs[] = {NodeArraySizeAttr, UnboundedSparseNodesAttr};
         for (auto *A : ArrayAttrs) {
           if (A) {
             S.Diags.Report(A->getLocation(),
