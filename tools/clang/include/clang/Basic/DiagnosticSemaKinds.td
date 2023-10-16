@@ -7805,7 +7805,7 @@ def err_hlsl_ternary_scalar : Error<
 def err_hlsl_no_recursion : Error<
    "recursive functions are not allowed: entry (or export) function calls recursive function '%0'">;
 def err_hlsl_no_recursion_via_patch : Error<
-   "recursive functions are not allowed via patch constant functions: entry function calls recursive function '%0'">;
+   "recursive functions are not allowed: patch constant function calls recursive function '%0'">;
 def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
    "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
   InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
