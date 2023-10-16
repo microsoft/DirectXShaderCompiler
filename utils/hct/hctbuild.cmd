@@ -205,8 +205,7 @@ if "%1"=="-default-adapter" (
   shift /1 & goto :parse_args
 )
 if "%1"=="-sanitizer" (
-  set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_ENABLE_SANITIZER=Address
-  set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_USE_SANITIZER:BOOL=On
+  set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_USE_SANITIZER:STRING=Address
   shift /1 & goto :parse_args
 )
 
