@@ -1877,7 +1877,11 @@ public:
       return S_OK;
     }
 
+#ifdef _FORCE_EXPERIMENTAL_SHADERS
+    bool bExperimentalShaderModels = true;
+#else
     bool bExperimentalShaderModels = GetTestParamBool(L"ExperimentalShaders");
+#endif // _FORCE_EXPERIMENTAL_SHADERS
 
     HRESULT hr = S_FALSE;
     if (bExperimentalShaderModels) {
