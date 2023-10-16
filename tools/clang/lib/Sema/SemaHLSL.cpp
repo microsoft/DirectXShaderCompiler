@@ -5380,19 +5380,31 @@ public:
       }
 
       QualType ArgTy = Arg.getAsType();
+      // Ignore dependent types. Dependent argument types get expanded during
+      // template instantiation.
+      if (ArgTy->isDependentType())
+        return false;
+      if (auto *recordType = ArgTy->getAs<RecordType>()) {
+        if (CXXRecordDecl *cxxRecordDecl =
+                dyn_cast<CXXRecordDecl>(recordType->getDecl())) {
+          if (ClassTemplateSpecializationDecl *templateSpecializationDecl =
+                  dyn_cast<ClassTemplateSpecializationDecl>(cxxRecordDecl)) {
+            if (templateSpecializationDecl->getSpecializationKind() ==
+                TSK_Undeclared) {
+              // Make sure specialization is done before IsTypeNumeric.
+              // If not, ArgTy might be treat as empty struct.
+              m_sema->RequireCompleteType(
+                  ArgLoc.getLocation(), ArgTy,
+                  diag::err_typecheck_decl_incomplete_type);
+            }
+          }
+        }
+      }
       // The node record type must be compound - error if it is not.
       if (GetTypeObjectKind(ArgTy) != AR_TOBJ_COMPOUND) {
         m_sema->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_type)
             << ArgTy << ArgLoc.getSourceRange();
         return true;
-      }
-      if (auto *TST = dyn_cast<TemplateSpecializationType>(ArgTy)) {
-        // If ArgType is a template we force specialization of the it here.
-        GetOrCreateTemplateSpecialization(
-            *m_context, *m_sema,
-            cast<ClassTemplateDecl>(TST->getTemplateName().getAsTemplateDecl()),
-            llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
-                                             TST->getNumArgs()));
       }
 
       bool EmptyStruct = true;
@@ -11345,12 +11357,8 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
           << FD->getType() << FD->getSourceRange();
     return true;
   case AR_TOBJ_DEPENDENT:
-    Empty = false;
-    self->Diag(ArgLoc.getLocation(), diag::err_hlsl_node_record_type)
-        << ArgTy << ArgLoc.getSourceRange();
-    if (FD)
-      self->Diag(FD->getLocation(), diag::note_field_declared_here)
-          << FD->getType() << FD->getSourceRange();
+    llvm_unreachable("obj dependent should go dependent type path, not reach "
+                     "here");
     return true;
   case AR_TOBJ_COMPOUND: {
     bool ErrorFound = false;
