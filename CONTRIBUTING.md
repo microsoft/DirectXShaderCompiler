@@ -44,6 +44,8 @@ Here's a few things you should always do when making changes to the code base:
 
 The coding, style, and general engineering guidelines follow those described in the docs/CodingStandards.rst. For additional guidelines in code specific to HLSL, see the docs/HLSLChanges.rst file.
 
+DXC has adopted a clang-format requirement for all incoming changes. PRs to DXC should have the _changed code_ clang formatted to the LLVM style, and leave the remaining portions of the file unchanged. This can be done using the `git-clang-format` tool or IDE driven workflows. A GitHub action will run on all PRs to validate that the change is properly formatted.
+
 **Commit/Pull Request Format**
 
 ```
