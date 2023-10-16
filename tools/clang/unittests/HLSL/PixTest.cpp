@@ -3261,7 +3261,7 @@ void main()
       VERIFY_SUCCEEDED(type->QueryInterface(IID_PPV_ARGS(&structType)));
       DWORD fieldCount = 0;
       VERIFY_SUCCEEDED(structType->GetNumFields(&fieldCount));
-      VERIFY_ARE_EQUAL(fieldCount, 1);
+      VERIFY_ARE_EQUAL(fieldCount, 1u);
       // Just a crash test:
       CComPtr<IDxcPixStructField> structField;
       structType->GetFieldByName(L"", &structField);
@@ -3289,9 +3289,10 @@ public:
   DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
   DxcIncludeHandlerForInjectedSourcesForPix(
       PixTest *pixTest, std::vector<std::pair<std::wstring, std::string>> files)
-      : m_dwRef(0), m_pixTest(pixTest), m_files(files){};
+      : m_dwRef(0), m_files(files), m_pixTest(pixTest){};
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
   }
 
@@ -3913,7 +3914,7 @@ PixTest::TestableResults PixTest::TestStructAnnotationCase(
         for (ValueLocation const &valueLocation :
              passOutput.valueLocations) // For each allocas and dxil values
         {
-          if (CurRegIdx == valueLocation.base &&
+          if (CurRegIdx == (unsigned)valueLocation.base &&
               (unsigned)valueLocation.count == cover.countOfMembers) {
             VERIFY_IS_FALSE(found);
             found = true;
@@ -4335,7 +4336,7 @@ void main()
       VERIFY_ARE_EQUAL(0u, Testables.OffsetAndSizes[0].offset);
       VERIFY_ARE_EQUAL(4u * 32u, Testables.OffsetAndSizes[0].size);
     } else {
-      VERIFY_ARE_EQUAL(4, Testables.OffsetAndSizes.size());
+      VERIFY_ARE_EQUAL(4u, Testables.OffsetAndSizes.size());
       for (unsigned i = 0; i < 4; i++) {
         VERIFY_ARE_EQUAL(1u, Testables.OffsetAndSizes[i].countOfMembers);
         VERIFY_ARE_EQUAL(i * 32u, Testables.OffsetAndSizes[i].offset);
@@ -4381,7 +4382,7 @@ void main()
       VERIFY_ARE_EQUAL(0u, Testables.OffsetAndSizes[0].offset);
       VERIFY_ARE_EQUAL(2u * 32u, Testables.OffsetAndSizes[0].size);
     } else {
-      VERIFY_ARE_EQUAL(2, Testables.OffsetAndSizes.size());
+      VERIFY_ARE_EQUAL(2u, Testables.OffsetAndSizes.size());
       for (unsigned i = 0; i < 2; i++) {
         VERIFY_ARE_EQUAL(1u, Testables.OffsetAndSizes[i].countOfMembers);
         VERIFY_ARE_EQUAL(i * 32u, Testables.OffsetAndSizes[i].offset);
@@ -4491,7 +4492,7 @@ void main()
       VERIFY_ARE_EQUAL(0u, Testables.OffsetAndSizes[0].offset);
       VERIFY_ARE_EQUAL(5u * 32u, Testables.OffsetAndSizes[0].size);
     } else {
-      VERIFY_ARE_EQUAL(5, Testables.OffsetAndSizes.size());
+      VERIFY_ARE_EQUAL(5u, Testables.OffsetAndSizes.size());
       for (unsigned i = 0; i < 5; i++) {
         VERIFY_ARE_EQUAL(1u, Testables.OffsetAndSizes[i].countOfMembers);
         VERIFY_ARE_EQUAL(i * 32u, Testables.OffsetAndSizes[i].offset);
@@ -4650,7 +4651,7 @@ void main()
       VERIFY_ARE_EQUAL(32u * 3u, Testables.OffsetAndSizes[0].size);
     }
 
-    VERIFY_ARE_EQUAL(3, Testables.AllocaWrites.size());
+    VERIFY_ARE_EQUAL(3u, Testables.AllocaWrites.size());
     ValidateAllocaWrite(Testables.AllocaWrites, 0, "i32");
     ValidateAllocaWrite(Testables.AllocaWrites, 1, "e.f2.x");
     ValidateAllocaWrite(Testables.AllocaWrites, 2, "e.f2.y");

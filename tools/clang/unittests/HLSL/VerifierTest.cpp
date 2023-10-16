@@ -17,7 +17,6 @@
 #include <fstream>
 
 #ifdef _WIN32
-#include "WexTestClass.h"
 #define TEST_CLASS_DERIVATION
 #else
 #define TEST_CLASS_DERIVATION : public ::testing::Test

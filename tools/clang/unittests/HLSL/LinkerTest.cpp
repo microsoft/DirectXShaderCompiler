@@ -18,9 +18,6 @@
 
 #include <fstream>
 
-#ifdef _WIN32
-#include "WexTestClass.h"
-#endif
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h" // for IFT macro
 #include "dxc/Test/DxcTestUtils.h"

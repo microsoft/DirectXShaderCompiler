@@ -239,6 +239,11 @@ class COperandBase {
 public:
   COperandBase() { Clear(); }
   COperandBase(const COperandBase &Op) { memcpy(this, &Op, sizeof(*this)); }
+  COperandBase &operator=(const COperandBase &Op) {
+    if (this != &Op)
+      memcpy(this, &Op, sizeof(*this));
+    return *this;
+  }
   D3D10_SB_OPERAND_TYPE OperandType() const { return m_Type; }
   const COperandIndex *OperandIndex(UINT Index) const {
     return &m_Index[Index];

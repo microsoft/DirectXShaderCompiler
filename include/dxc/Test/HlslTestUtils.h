@@ -19,7 +19,18 @@
 #include <string>
 #include <vector>
 #ifdef _WIN32
+
+// Disable -Wignored-qualifiers for WexTestClass.h.
+// For const size_t GetSize() const; in TestData.h.
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wignored-qualifiers"
+#endif
 #include "WexTestClass.h"
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+
 #include <dxgiformat.h>
 #else
 #include "WEXAdapter.h"

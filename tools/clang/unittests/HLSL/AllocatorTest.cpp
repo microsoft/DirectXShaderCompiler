@@ -9,9 +9,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
-#ifdef _WIN32
-#include "WexTestClass.h"
-#endif
 #include "dxc/Test/HlslTestUtils.h"
 
 #include "dxc/HLSL/DxilSpanAllocator.h"
@@ -104,6 +101,7 @@ bool Align(unsigned &pos, unsigned end, unsigned align) {
 struct Element {
   Element() = default;
   Element(const Element &) = default;
+  Element &operator=(const Element &) = default;
   Element(unsigned id, unsigned start, unsigned end)
       : id(id), start(start), end(end) {}
   bool operator<(const Element &other) { return id < other.id; }

@@ -414,7 +414,7 @@ int main(int argc, const char *argv[]) {
     text_printf("Experimental shader model feature failed with unexpected "
                 "HRESULT 0x%08x.\n",
                 (unsigned int)hr);
-    json_printf("{ \"err\": \"0x%08x\" }", hr);
+    json_printf("{ \"err\": \"0x%08x\" }", (unsigned int)hr);
     json_printf("\n}\n");
     return 4;
   }

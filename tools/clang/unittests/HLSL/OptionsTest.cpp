@@ -23,9 +23,6 @@
 #include <vector>
 
 #include "dxc/Test/HLSLTestData.h"
-#ifdef _WIN32
-#include "WexTestClass.h"
-#endif
 #include "dxc/Test/HlslTestUtils.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
