@@ -43,3 +43,32 @@ class CBar {
 void testCBar() {
   CBar<float> c; // expected-note{{in instantiation of template class 'CBar<float>' requested here}}
 }
+
+struct ZeroSize {};
+
+template<typename T>
+struct RecordTemplate { T Value; }; // expected-note{{zero sized record defined here}}
+
+void oopsie() {
+  GroupNodeInputRecords<RecordTemplate<ZeroSize> > data; // expected-error{{record used in GroupNodeInputRecords may not have zero size}}
+  foo(data);
+}
+
+void woo() {
+  GroupNodeInputRecords<RecordTemplate<int> > data;
+  foo(data);
+}
+
+template<typename T>
+// expected-note@+1{{zero sized record defined here}}
+struct ForwardDecl; // expected-note{{template is declared here}}
+
+void woot() {
+  // Forward decl fails because forcing completion to check empty size for node object.
+  // expected-error@+1{{record used in GroupNodeInputRecords may not have zero size}}
+  GroupNodeInputRecords<ForwardDecl<int> > data; // expected-error{{implicit instantiation of undefined template 'ForwardDecl<int>'}}
+  foo(data);
+}
+
+template<typename T>
+struct ForwardDecl { T Val; };
