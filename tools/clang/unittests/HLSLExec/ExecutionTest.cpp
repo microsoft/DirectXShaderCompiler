@@ -4415,8 +4415,12 @@ TEST_F(ExecutionTest, ATOWriteMSAATest) {
         VERIFY_ARE_EQUAL(pData[ix++], j * k * (i + 1));
 }
 
-// Used to determine how an out of bounds offset should be converted
-#define CLAMPOFFSET(offset) (((unsigned)(offset) << 28) >> 28)
+// Used to determine how an out of bounds offset should be converted.
+// Offsets are signed and wrap in 4-bit space. These shifts will result in 
+// a change in the values of 8 -> -8 and -9 -> 7, but that's on purpose.
+// Compiler warns about this, so we need to disable the warning when this
+// macro is used.
+#define CLAMPOFFSET(offset) (((int)(offset) << 28) >> 28)
 
 // Determine if the values in pPixels correspond to the expected locations
 // encoded into a uint based on the coordinates and offsets that were provided.
@@ -4425,9 +4429,22 @@ void VerifyProgOffsetResults(unsigned *pPixels, bool bCheckDeriv) {
   unsigned ix = 0;
   int coords[18] = {100, 150, 200, 250, 300, 350, 400, 450, 500,
                     550, 600, 650, 700, 750, 800, 850, 900, 950};
+
+#ifdef __clang__
+// Intentionally silencing clang warning "-Wshift-negative-value"
+// See definition of CLAMPOFFSET for more info.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshift-negative-value"
+#endif // __clang__
+
   int offsets[18] = {
       CLAMPOFFSET(-9), -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7,
       CLAMPOFFSET(8)};
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif // __clang__
+
   for (unsigned y = 0; y < _countof(coords); y++) {
     for (unsigned x = 0; x < _countof(coords); x++) {
       unsigned cmp = (coords[y] + offsets[y]) * 1000 + coords[x] + offsets[x];
