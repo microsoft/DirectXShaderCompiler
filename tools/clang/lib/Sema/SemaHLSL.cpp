@@ -5380,8 +5380,6 @@ public:
       }
 
       QualType ArgTy = Arg.getAsType();
-      // Allow DependentType for case like
-      // template <typename T> void foo(GroupNodeInputRecords<T> data) {}
       // Ignore dependent types. Dependent argument types get expanded during
       // template instantiation.
       if (ArgTy->isDependentType())
