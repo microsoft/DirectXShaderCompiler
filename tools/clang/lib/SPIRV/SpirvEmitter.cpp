@@ -2688,7 +2688,7 @@ SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr,
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
-  if (indices.empty()) {
+  if (!info || indices.empty()) {
     return info;
   }
 

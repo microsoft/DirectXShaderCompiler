@@ -80,7 +80,12 @@ void InitListHandler::flatten(const InitListExpr *expr) {
                    init->IgnoreParenNoopCasts(theEmitter.getASTContext()))) {
       flatten(subInitList);
     } else {
-      initializers.push_back(theEmitter.loadIfGLValue(init));
+      auto *initializer = theEmitter.loadIfGLValue(init);
+      if (!initializer) {
+        initializers.clear();
+        return;
+      }
+      initializers.push_back(initializer);
     }
   }
 }
@@ -252,6 +257,10 @@ InitListHandler::createInitForBuiltinType(QualType type,
   // Keep splitting structs or arrays
   while (tryToSplitStruct() || tryToSplitConstantArray())
     ;
+
+  if (initializers.empty()) {
+    return nullptr;
+  }
 
   auto init = initializers.back();
   initializers.pop_back();
