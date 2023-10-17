@@ -187,9 +187,12 @@ def ftime_trace_EQ : Joined<["-"], "ftime-trace=">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Print hierchial time tracing to file">;
 
-def verify : Joined<["-"], "verify">,
+def verify : Flag<["-"], "verify">,
   Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Verify diagnostic output using comment directives">;
+def verify_ignore_unexpected_EQ : CommaJoined<["-"], "verify-ignore-unexpected=">,
+  Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Ignore unexpected diagnostic messages">;
 
 /*
 def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<hlslcomp_Group>,

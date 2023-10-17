@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
+// RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify -verify-ignore-unexpected=note %s
 
 void main()
 {

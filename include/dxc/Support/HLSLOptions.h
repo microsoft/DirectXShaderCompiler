@@ -54,6 +54,24 @@ enum HlslFlags {
   RewriteOption = (1 << 17),
 };
 
+/// \brief A bitmask representing the diagnostic levels used by
+/// VerifyDiagnosticConsumer.
+enum class DiagnosticLevelMask : unsigned {
+  None = 0,
+  Note = 1 << 0,
+  Remark = 1 << 1,
+  Warning = 1 << 2,
+  Error = 1 << 3,
+  All = Note | Remark | Warning | Error
+};
+
+inline DiagnosticLevelMask operator|(DiagnosticLevelMask LHS,
+                                     DiagnosticLevelMask RHS) {
+  using UT = std::underlying_type_t<DiagnosticLevelMask>;
+  return static_cast<DiagnosticLevelMask>(static_cast<UT>(LHS) |
+                                          static_cast<UT>(RHS));
+}
+
 enum ID {
   OPT_INVALID = 0, // This is not an option ID.
 #define OPTION(PREFIX, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,  \
@@ -226,6 +244,8 @@ public:
   bool TimeReport = false;              // OPT_ftime_report
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   bool VerifyDiagnostics = false;       // OPT_verify
+  DiagnosticLevelMask DiagMask =
+      DiagnosticLevelMask::None; // OPT_verify_ignore_unexpected_EQ
 
   // Optimization pass enables, disables and selects
   OptimizationToggles

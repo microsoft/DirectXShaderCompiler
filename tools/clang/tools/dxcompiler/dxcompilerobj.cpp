@@ -1334,6 +1334,8 @@ public:
     compiler.getDiagnosticOpts().ShowOptionNames = Opts.ShowOptionNames ? 1 : 0;
     compiler.getDiagnosticOpts().Warnings = std::move(Opts.Warnings);
     compiler.getDiagnosticOpts().VerifyDiagnostics = Opts.VerifyDiagnostics;
+    compiler.getDiagnosticOpts().setVerifyIgnoreUnexpected(
+        static_cast<clang::DiagnosticLevelMask>(Opts.DiagMask));
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);

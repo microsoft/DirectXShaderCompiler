@@ -269,6 +269,29 @@ static std::pair<std::string, std::string> ParseDefine(std::string &argVal) {
   return result;
 }
 
+static bool parseDiagnosticLevelMask(llvm::StringRef FlagName,
+                                     const std::vector<std::string> &Levels,
+                                     llvm::raw_ostream &errors,
+                                     DiagnosticLevelMask &M) {
+  bool Success = true;
+  for (const auto &Level : Levels) {
+    DiagnosticLevelMask const PM =
+        llvm::StringSwitch<DiagnosticLevelMask>(Level)
+            .Case("note", DiagnosticLevelMask::Note)
+            .Case("remark", DiagnosticLevelMask::Remark)
+            .Case("warning", DiagnosticLevelMask::Warning)
+            .Case("error", DiagnosticLevelMask::Error)
+            .Default(DiagnosticLevelMask::None);
+    if (PM == DiagnosticLevelMask::None) {
+      Success = false;
+      errors << "invalid value '" << Level << "' in '"
+             << "'" << FlagName << "'";
+    }
+    M = M | PM;
+  }
+  return Success;
+}
+
 // SPIRV Change Starts
 #ifdef ENABLE_SPIRV_CODEGEN
 /// Checks and collects the arguments for -fvk-{b|s|t|u}-shift into *shifts.
@@ -347,6 +370,7 @@ static const uint32_t kDefaultMaximumSourceLength = 0xFFFDu;
 static const uint32_t kTestingMaximumSourceLength = 13u;
 
 } // namespace
+
 #endif // ENABLE_SPIRV_CODEGEN
 // SPIRV Change Ends
 
@@ -820,6 +844,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
   opts.TimeTrace = Args.hasFlag(OPT_ftime_trace, OPT_INVALID, false) ? "-" : "";
   opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
+  if (Args.hasArg(OPT_verify_ignore_unexpected_EQ)) {
+    DiagnosticLevelMask DiagMask = DiagnosticLevelMask::None;
+    if (!parseDiagnosticLevelMask(
+            "-verify-ignore-unexpected=",
+            Args.getAllArgValues(OPT_verify_ignore_unexpected_EQ), errors,
+            DiagMask))
+      return 1;
+    opts.DiagMask = DiagMask;
+  }
+
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
   opts.EnablePayloadQualifiers =
