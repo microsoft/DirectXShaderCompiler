@@ -19,6 +19,7 @@ stages:
       matrix:
         VS2022_Release:
          configuration: Release
+         SANITIZER: -sanitizer
         VS2022_Debug:
          configuration: Debug
 
@@ -28,7 +29,7 @@ stages:
       submodules: true
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest
+        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) $(SANITIZER) -show-cmake-log -spirvtest
       displayName: 'Building'
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
