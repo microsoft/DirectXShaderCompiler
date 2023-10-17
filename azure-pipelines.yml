@@ -28,6 +28,7 @@ stages:
       clean: true
       submodules: true
     - script: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hctbuild.cmd -$(platform) -$(configuration) $(SANITIZER) -show-cmake-log -spirvtest
       displayName: 'Building'
