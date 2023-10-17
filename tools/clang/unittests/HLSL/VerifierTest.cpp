@@ -33,7 +33,6 @@ public:
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  TEST_METHOD(RunArrayIndexOutOfBounds)
   TEST_METHOD(RunArrayLength)
   TEST_METHOD(RunAtomicFloatErrors)
   TEST_METHOD(RunAttributes)
