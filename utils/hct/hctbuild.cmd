@@ -465,10 +465,8 @@ if "%DO_SETUP%"=="1" (
     echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
     "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
-    rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    rem but need CMAKE_BUILD_TYPE to generate lit cfg.
     echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1  %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
-    "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if %SHOW_CMAKE_LOG%==1 (
     echo ------- Start of %3\cmake-log.txt -------
