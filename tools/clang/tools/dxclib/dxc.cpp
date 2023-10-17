@@ -778,7 +778,7 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
     IFT(pPdbUtils->GetSourceName(i, &pFileName));
     IFT(pIncludeHandler->insertIncludeFile(pFileName, pSourceFile, 0));
     if (pMainFileName == pFileName) {
-      // Transfer pSourceFile to avoid pPdbUtils release it again.
+      // Transfer pSourceFile to avoid extra AddRef+Release.
       pCompileSource.Attach(pSourceFile.Detach());
     }
   }
