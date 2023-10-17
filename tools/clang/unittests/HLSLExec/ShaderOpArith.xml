@@ -3113,7 +3113,7 @@
       <Shader Name="VS"   Target="vs_6_0" EntryPoint="VSMain"   Text="@CS" Arguments="@CS"/>
       <Shader Name="PS"   Target="ps_6_0" EntryPoint="PSMain"   Text="@CS" Arguments="@CS"/>
       <Shader Name="PS67" Target="ps_6_7" EntryPoint="PSMain65" Text="@CS" Arguments="@CS"/>
-      <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain" Arguments="/Od">
+      <Shader Name="CS"   Target="cs_6_0" EntryPoint="CSMain" Arguments="/Od /HV 2018">
         <![CDATA[
 
         // 6.0 wave ops
@@ -3280,19 +3280,26 @@
             HelperLaneWaveTestResult60 tr60 = RunHelperLaneWaveTests60();
             HelperLaneQuadTestResult tr60_quad = RunHelperLaneQuadTests();
         
-            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
+            if (input.pos.x > 1.0f) {
+              if (input.pos.y > 1.0f) { // bottom right pixel writes results
                 g_TestResults[PS_INDEX].sm60_wave = tr60;
                 g_TestResults[PS_INDEX].sm60_quad = tr60_quad;
+              }
             }
-            if (input.pos.x < 1.0f && input.pos.y < 1.0f) // discard top left pixel
+            if (input.pos.x < 1.0f) {
+              if (input.pos.y < 1.0f) { // discard top left pixel
                 discard;
+              }
+            }
                 
             HelperLaneWaveTestResult60 tr60_disc = RunHelperLaneWaveTests60();
             HelperLaneQuadTestResult tr60_quad_disc = RunHelperLaneQuadTests();
 
-            if (input.pos.x > 1.0f && input.pos.y > 1.0f) { // bottom right pixel writes results
+            if (input.pos.x > 1.0f) {
+              if (input.pos.y > 1.0f) { // bottom right pixel writes results
                 g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_wave = tr60_disc;
                 g_TestResults[PS_INDEX_AFTER_DISCARD].sm60_quad = tr60_quad_disc;
+              }
             }
             return uint4(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 1);
         }
