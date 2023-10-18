@@ -552,7 +552,7 @@ FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport,
 
   IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
-  CComPtr<IDxcIncludeHandler> pIncludeHandler =
+  CComPtr<IncludeHandlerVFSOverlayForTest> pIncludeHandler =
       AllocVFSIncludeHandler(pLibrary, pVFS);
   IFT(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));
   IFT(pCompiler->Compile(pSource, CommandFileName, entry.c_str(),
@@ -873,7 +873,7 @@ FileRunCommandPart::RunDxr(dxc::DxcDllSupport &DllSupport,
 
   IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
-  CComPtr<IDxcIncludeHandler> pIncludeHandler =
+  CComPtr<IncludeHandlerVFSOverlayForTest> pIncludeHandler =
       AllocVFSIncludeHandler(pLibrary, pVFS);
   IFT(DllSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
   IFT(pRewriter->RewriteWithOptions(pSource, CommandFileName, flags.data(),
@@ -969,7 +969,7 @@ FileRunCommandPart::RunLink(dxc::DxcDllSupport &DllSupport,
   HRESULT resultStatus;
 
   IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
-  CComPtr<IDxcIncludeHandler> pIncludeHandler =
+  CComPtr<IncludeHandlerVFSOverlayForTest> pIncludeHandler =
       AllocVFSIncludeHandler(pLibrary, pVFS);
   IFT(DllSupport.CreateInstance(CLSID_DxcLinker, &pLinker));
   IFT(DllSupport.CreateInstance(CLSID_DxcCompiler, &pCompiler));

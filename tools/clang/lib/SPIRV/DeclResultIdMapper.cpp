@@ -1015,6 +1015,12 @@ SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
 SpirvVariable *
 DeclResultIdMapper::createFileVar(const VarDecl *var,
                                   llvm::Optional<SpirvInstruction *> init) {
+  // In the case of template specialization, the same VarDecl node in the AST
+  // may be traversed more than once.
+  if (astDecls[var].instr != nullptr) {
+    return cast<SpirvVariable>(astDecls[var].instr);
+  }
+
   const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
   const auto name = var->getName();
@@ -1025,8 +1031,6 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
   varInstr->setContainsAliasComponent(isAlias);
-
-  assert(astDecls[var].instr == nullptr);
   astDecls[var].instr = varInstr;
 
   createDebugGlobalVariable(varInstr, type, loc, name);
@@ -3653,6 +3657,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // According to DXIL spec, the SampleIndex SV can only be used by PSIn.
   // According to Vulkan spec, the SampleId BuiltIn can only be used in PSIn.
   case hlsl::Semantic::Kind::SampleIndex: {
+    setInterlockExecutionMode(spv::ExecutionMode::SampleInterlockOrderedEXT);
     stageVar->setIsSpirvBuiltin();
     return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::SampleId, isPrecise,
                                          srcLoc);
@@ -3776,6 +3781,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // VSOut, or PSIn. According to Vulkan spec, the FragSizeEXT BuiltIn can only
   // be used as VSOut, GSOut, MSOut or PSIn.
   case hlsl::Semantic::Kind::ShadingRate: {
+    setInterlockExecutionMode(
+        spv::ExecutionMode::ShadingRateInterlockOrderedEXT);
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
@@ -4202,6 +4209,15 @@ void DeclResultIdMapper::decorateStageVarWithIntrinsicAttrs(
         }
       };
   decorateWithIntrinsicAttrs(decl, varInst, checkBuiltInLocationDecoration);
+}
+
+void DeclResultIdMapper::setInterlockExecutionMode(spv::ExecutionMode mode) {
+  interlockExecutionMode = mode;
+}
+
+spv::ExecutionMode DeclResultIdMapper::getInterlockExecutionMode() {
+  return interlockExecutionMode.getValueOr(
+      spv::ExecutionMode::PixelInterlockOrderedEXT);
 }
 
 void DeclResultIdMapper::copyHullOutStageVarsToOutputPatch(

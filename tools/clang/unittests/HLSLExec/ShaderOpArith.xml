@@ -1085,7 +1085,12 @@
       -1.0f  1.0f 0, 1.0f  1.0f 0.0f, -1.0f -1.0f 0,
     </Resource>
     <Resource Name='CB0' Dimension='BUFFER' Width="256" InitialResourceState='COPY_DEST' Init='FromBytes'>
-      -inf, -1.5f, -denorm, -0, 0, denorm, 1.5f, inf, nan
+      -inf, -1.5f, -denorm, -0, 0, denorm, 1.5f, inf, nan,
+	  0,0,0,0,0,0,0,0,0,0,0,
+	  0,0,0,0,0,0,0,0,0,0,0,
+	  0,0,0,0,0,0,0,0,0,0,0,
+	  0,0,0,0,0,0,0,0,0,0,0,
+	  0,0,0,0,0,0,0,0,0,0,0
     </Resource>
     <Resource Name="U0" Dimension="BUFFER" Width="1280"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
@@ -1348,7 +1353,7 @@
   <ShaderOp Name="Triangle" PS="PS" VS="VS">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
 
-    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes">
+    <Resource Name="VBuffer" Dimension="BUFFER" Width="84" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes">
       { {   0.0f,  0.25f , 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
       { {  0.25f, -0.25f , 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
       { { -0.25f, -0.25f , 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
@@ -1397,7 +1402,7 @@
 
   <ShaderOp Name="TriangleHalf" PS="PS" VS="VS">
     <RootSignature>RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT)</RootSignature>
-    <Resource Name="VBuffer" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes">
+    <Resource Name="VBuffer" Dimension="BUFFER" Width="48" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" Init="FromBytes">
       { {   0.0h,  0.25h , 0.0h, 1.0h }, { 1.0h, 1.0h, 1.0h, 1.0h } },
       { {  0.25h, -0.25h , 0.0h, 1.0h }, { 1.0h, 1.0h, 1.0h, 1.0h } },
       { { -0.25h, -0.25h , 0.0h, 1.0h }, { 1.0h, 1.0h, 1.0h, 1.0h } }
@@ -2229,7 +2234,7 @@
     <Resource Name="U1" Dimension="BUFFER" Width="9216"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
-    <Resource Name="U2" Dimension="BUFFER" Width="256" Format="R32_TYPELESS"
+    <Resource Name="U2" Dimension="BUFFER" Width="64" Format="R32_TYPELESS"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
@@ -2245,12 +2250,12 @@
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <!-- 32-bit typed resources -->
-    <Resource Name="U6" Dimension="BUFFER" Width="256" Format="R32_UINT"
+    <Resource Name="U6" Dimension="BUFFER" Width="64" Format="R32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U7" Dimension="BUFFER" Width="256" Format="R32_SINT"
+    <Resource Name="U7" Dimension="BUFFER" Width="64" Format="R32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
@@ -2272,12 +2277,12 @@
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
     <!-- 64-bit typed resources -->
-    <Resource Name="U12" Dimension="BUFFER" Width="256" Format="R32G32_UINT"
+    <Resource Name="U12" Dimension="BUFFER" Width="64" Format="R32G32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U13" Dimension="BUFFER" Width="256" Format="R32G32_SINT"
+    <Resource Name="U13" Dimension="BUFFER" Width="64" Format="R32G32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
@@ -2285,12 +2290,12 @@
     <Resource Name="U14" Dimension="BUFFER" Width="1024" Format="R32G32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
-    <Resource Name="U15" Dimension="TEXTURE1D" Width="16" Format="R32G32_UINT"
+    <Resource Name="U15" Dimension="TEXTURE1D" Width="8" Format="R32G32_UINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
     </Resource>
-    <Resource Name="U16" Dimension="TEXTURE1D" Width="16" Format="R32G32_SINT"
+    <Resource Name="U16" Dimension="TEXTURE1D" Width="8" Format="R32G32_SINT"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="FromBytes" ReadBack="true" TransitionTo="UNORDERED_ACCESS" >
       { 0I, 0I, 99999999I, 99999999I, 0I, 0I, -1I, -1I, 0I, 0I, 0I, 0I, 42I, 42I, 42I, 42I }
@@ -2331,15 +2336,15 @@
                   NumElements="128"  Format="R32_UINT" />
       <!-- 64-bit typed resources -->
       <Descriptor Name="U12" Kind="UAV" ResName="U12" Dimension="BUFFER"
-                  NumElements="16"  Format="R32G32_UINT" />
+                  NumElements="8"  Format="R32G32_UINT" />
       <Descriptor Name="U13" Kind="UAV" ResName="U13" Dimension="BUFFER"
-                  NumElements="16"  Format="R32G32_UINT" />
+                  NumElements="8"  Format="R32G32_UINT" />
       <Descriptor Name="U14" Kind="UAV" ResName="U14" Dimension="BUFFER"
                   NumElements="128"  Format="R32G32_UINT" />
       <Descriptor Name="U15" Kind="UAV" ResName="U15" Dimension="TEXTURE1D"
-                  NumElements="16"  Format="R32G32_UINT" />
+                  NumElements="8"  Format="R32G32_UINT" />
       <Descriptor Name="U16" Kind="UAV" ResName="U16" Dimension="TEXTURE1D"
-                  NumElements="16"  Format="R32G32_UINT" />
+                  NumElements="8"  Format="R32G32_UINT" />
       <Descriptor Name="U17" Kind="UAV" ResName="U17" Dimension="TEXTURE1D"
                   NumElements="128"  Format="R32G32_UINT" />
     </DescriptorHeap>

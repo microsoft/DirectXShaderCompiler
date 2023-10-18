@@ -210,7 +210,15 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
     instruction->setContainsAliasComponent(false);
   }
 
+  if (pointer->isRasterizerOrdered()) {
+    createBeginInvocationInterlockEXT(loc, range);
+  }
+
   insertPoint->addInstruction(instruction);
+
+  if (pointer->isRasterizerOrdered()) {
+    createEndInvocationInterlockEXT(loc, range);
+  }
 
   const auto &bitfieldInfo = pointer->getBitfieldInfo();
   if (!bitfieldInfo.hasValue())
@@ -274,6 +282,10 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   // Safeguard. If this happens, it means we leak non-extracted bitfields.
   assert(false == value->getBitfieldInfo().hasValue());
 
+  if (address->isRasterizerOrdered()) {
+    createBeginInvocationInterlockEXT(loc, range);
+  }
+
   SpirvInstruction *source = value;
   const auto &bitfieldInfo = address->getBitfieldInfo();
   if (bitfieldInfo.hasValue()) {
@@ -300,6 +312,11 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   auto *instruction =
       new (context) SpirvStore(loc, address, source, llvm::None, range);
   insertPoint->addInstruction(instruction);
+
+  if (address->isRasterizerOrdered()) {
+    createEndInvocationInterlockEXT(loc, range);
+  }
+
   return instruction;
 }
 
@@ -1098,6 +1115,24 @@ SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
       retType, opcode, operands, extensions, set, capablities, loc);
   insertPoint->addInstruction(inst);
   return inst;
+}
+
+void SpirvBuilder::createBeginInvocationInterlockEXT(SourceLocation loc,
+                                                     SourceRange range) {
+  assert(insertPoint && "null insert point");
+
+  auto *inst = new (context)
+      SpirvNullaryOp(spv::Op::OpBeginInvocationInterlockEXT, loc, range);
+  insertPoint->addInstruction(inst);
+}
+
+void SpirvBuilder::createEndInvocationInterlockEXT(SourceLocation loc,
+                                                   SourceRange range) {
+  assert(insertPoint && "null insert point");
+
+  auto *inst = new (context)
+      SpirvNullaryOp(spv::Op::OpEndInvocationInterlockEXT, loc, range);
+  insertPoint->addInstruction(inst);
 }
 
 void SpirvBuilder::createRaytracingTerminateKHR(spv::Op opcode,

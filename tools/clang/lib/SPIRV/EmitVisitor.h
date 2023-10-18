@@ -269,6 +269,7 @@ public:
   bool visit(SpirvSpecConstantBinaryOp *) override;
   bool visit(SpirvSpecConstantUnaryOp *) override;
   bool visit(SpirvStore *) override;
+  bool visit(SpirvNullaryOp *) override;
   bool visit(SpirvUnaryOp *) override;
   bool visit(SpirvVectorShuffle *) override;
   bool visit(SpirvArrayLength *) override;

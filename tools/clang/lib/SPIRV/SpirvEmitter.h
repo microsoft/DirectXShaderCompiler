@@ -1176,6 +1176,10 @@ private:
   std::vector<SpirvVariable *>
   getInterfacesForEntryPoint(SpirvFunction *entryPoint);
 
+  /// \brief Emits OpBeginInvocationInterlockEXT and add the appropriate
+  /// execution mode, if it has not already been added.
+  void beginInvocationInterlock(SourceLocation loc, SourceRange range);
+
 private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates
   /// a FunctionInfo object for it, and inserts it into the workQueue. It also

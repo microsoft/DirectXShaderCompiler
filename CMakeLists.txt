@@ -1,7 +1,11 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
 
+
 cmake_minimum_required(VERSION 3.17.2) # HLSL Change - Require CMake 3.17.2.
 cmake_policy(SET CMP0091 NEW)
+message(CMAKE_BUILD_TYPE0!!!!!="${CMAKE_BUILD_TYPE}")
+message(CMAKE_CONFIGURATION_TYPES!!!!!="${CMAKE_CONFIGURATION_TYPES}")
+message(CMAKE_CXX_FLAGS_RELEASE!!!!!="${CMAKE_CXX_FLAGS_RELEASE}")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -9,10 +13,12 @@ if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
   include(${DXC_CMAKE_BEGINS_INCLUDE})
 endif()
 
+
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "No build type selected, default to Debug")
   set(CMAKE_BUILD_TYPE "Debug")
 endif()
+message(CMAKE_BUILD_TYPE1!!!!!="${CMAKE_BUILD_TYPE}")
 
 if(POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW) # automatic when 2.8.12 is required
@@ -316,11 +322,15 @@ option(LLVM_ENABLE_LIBCXXABI "Use libc++abi when using libc++." OFF)
 option(LLVM_ENABLE_PEDANTIC "Compile with pedantic enabled." ON)
 option(LLVM_ENABLE_WERROR "Fail and stop if a warning is triggered." OFF)
 
+message(uppercase_CMAKE_BUILD_TYPE!!!!!="${CMAKE_BUILD_TYPE}")
 if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
+  message(assertions OFF)
   option(LLVM_ENABLE_ASSERTIONS "Enable assertions" OFF)
 else()
+  message(assertions ON)
   option(LLVM_ENABLE_ASSERTIONS "Enable assertions" ON)
 endif()
+message(LLVM_ENABLE_ASSERTIONS!!!!!="${LLVM_ENABLE_ASSERTIONS}")
 
 set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")

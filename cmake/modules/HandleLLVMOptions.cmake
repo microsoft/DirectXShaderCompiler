@@ -56,6 +56,7 @@ int main() { return (float)x; }"
 endif()
 
 if( LLVM_ENABLE_ASSERTIONS )
+  message(how did I get here?)
   # MSVC doesn't like _DEBUG on release builds. See PR 4379.
   # HLSL Note: the above comment referrs to llvm.org problem, not pull request: 
   #            https://bugs.llvm.org/show_bug.cgi?id=4379
@@ -533,7 +534,11 @@ if(LLVM_USE_SANITIZER)
       message(WARNING "Unsupported value of LLVM_USE_SANITIZER: ${LLVM_USE_SANITIZER}")
     endif()
   else()
-    message(WARNING "LLVM_USE_SANITIZER is not supported on this platform.")
+    if (LLVM_USE_SANITIZER STREQUAL "Address")
+      append("-fsanitize=address" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    else()
+      message(WARNING "Unsupported value of LLVM_USE_SANITIZER: ${LLVM_USE_SANITIZER}")
+    endif()
   endif()
   if (LLVM_USE_SANITIZE_COVERAGE)
     append("-fsanitize-coverage=edge,indirect-calls,8bit-counters,trace-cmp" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)

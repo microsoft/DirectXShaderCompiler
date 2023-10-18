@@ -252,7 +252,7 @@ more than one shader_record_nv block statically used per shader entry point
 otherwise results are undefined."
 
 The official Khronos ray tracing extension also comes with a SPIR-V storage class
-that has the same functionality. The ``[[vk::shader_record_ext]]`` annotation can 
+that has the same functionality. The ``[[vk::shader_record_ext]]`` annotation can
 be used when targeting the SPV_KHR_ray_tracing extension.
 
 Builtin variables
@@ -1278,6 +1278,39 @@ will be translated into
 
   %myBuffer1 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
   %myBuffer2 = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
+
+Rasterizer Ordered Views
+------------------------
+
+The following types are rasterizer ordered views:
+
+* ``RasterizerOrderedBuffer``
+* ``RasterizerOrderedByteAddressBuffer``
+* ``RasterizerOrderedStructuredBuffer``
+* ``RasterizerOrderedTexture1D``
+* ``RasterizerOrderedTexture1DArray``
+* ``RasterizerOrderedTexture2D``
+* ``RasterizerOrderedTexture2DArray``
+* ``RasterizerOrderedTexture3D``
+
+These are translated to the same types as their equivalent RW* types - for
+example, a ``RasterizerOrderedBuffer`` is translated to the same SPIR-V type as
+an ``RWBuffer``. The sole difference lies in how loads and stores to these
+values are treated.
+
+The access order guarantee made by ROVs is implemented in SPIR-V using the
+`SPV_EXT_fragment_shader_interlock <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/EXT/SPV_EXT_fragment_shader_interlock.asciidoc>`_.
+When you load or store a value from or to a rasterizer ordered view, using
+either the ``Load*()`` or ``Store*()`` methods or the indexing operator,
+``OpBeginInvocationInterlockEXT`` will be inserted before the first access and
+``OpEndInvocationInterlockEXT`` will be inserted after the last access.
+
+An execution mode will be added to the entry point, depending on the sample
+frequency, which will be deduced based on the semantics inputted by the entry
+point. ``PixelInterlockOrderedEXT`` will be selected by default,
+``SampleInterlockOrderedEXT`` will be selected if the ``SV_SampleIndex``
+semantic is input, and ``ShadingRateInterlockOrderedEXT`` will be selected if
+the ``SV_ShadingRate`` semantic is input.
 
 HLSL Variables and Resources
 ============================
@@ -3858,14 +3891,14 @@ implicit ``vk`` namepsace.
 
   // Implicitly defined when compiling to SPIR-V.
   namespace vk {
-  
+
     const uint CrossDeviceScope = 0;
     const uint DeviceScope      = 1;
     const uint WorkgroupScope   = 2;
     const uint SubgroupScope    = 3;
     const uint InvocationScope  = 4;
     const uint QueueFamilyScope = 5;
-  
+
     uint64_t ReadClock(in uint scope);
     T        RawBufferLoad<T = uint>(in uint64_t deviceAddress,
                                      in uint alignment = 4);
@@ -3918,20 +3951,20 @@ functionality to HLSL:
 
 .. code:: hlsl
 
-  // RawBufferLoad and RawBufferStore use 'uint' for the default template argument. 
+  // RawBufferLoad and RawBufferStore use 'uint' for the default template argument.
   // The default alignment is 4. Note that 'alignment' must be a constant integer.
   T RawBufferLoad<T = uint>(in uint64_t deviceAddress, in uint alignment = 4);
   void RawBufferStore<T = uint>(in uint64_t deviceAddress, in T value, in uint alignment = 4);
 
 
-These intrinsics allow the shader program to load and store a single value with type T (int, float2, struct, etc...) 
+These intrinsics allow the shader program to load and store a single value with type T (int, float2, struct, etc...)
 from GPU accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
-Additionally, these intrinsics allow users to set the memory alignment for the underlying data. 
-We assume a 'uint' type when the template argument is missing, and we use a value of '4' for the default alignment. 
+Additionally, these intrinsics allow users to set the memory alignment for the underlying data.
+We assume a 'uint' type when the template argument is missing, and we use a value of '4' for the default alignment.
 Note that the alignment argument must be a constant integer if it is given.
 
-Though we do support setting the `alignment` of the data load and store, we do not currently 
-support setting the memory layout for the data. Since these intrinsics are supposed to load 
+Though we do support setting the `alignment` of the data load and store, we do not currently
+support setting the memory layout for the data. Since these intrinsics are supposed to load
 "arbitrary" data to or from a random device address, we assume that the program loads/stores some "bytes of data",
 but that its format or layout is unknown. Therefore, keep in mind that these intrinsics
 load or store ``sizeof(T)`` bytes of data, and that loading/storing data with a struct
