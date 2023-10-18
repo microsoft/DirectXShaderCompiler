@@ -33,7 +33,6 @@ enum class IntrinsicOp {
   IOP_GroupMemoryBarrierWithGroupSync,
   IOP_HitKind,
   IOP_IgnoreHit,
-  IOP_ImplicitRecordToStructCast,
   IOP_InstanceID,
   IOP_InstanceIndex,
   IOP_InterlockedAdd,

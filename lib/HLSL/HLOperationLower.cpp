@@ -6462,8 +6462,6 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::HitKind},
     {IntrinsicOp::IOP_IgnoreHit, TranslateNoArgNoReturnPreserveOutput,
      DXIL::OpCode::IgnoreHit},
-    {IntrinsicOp::IOP_ImplicitRecordToStructCast, EmptyLower,
-     DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_InstanceID, TrivialNoArgWithRetOperation,
      DXIL::OpCode::InstanceID},
     {IntrinsicOp::IOP_InstanceIndex, TrivialNoArgWithRetOperation,
