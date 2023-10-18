@@ -612,7 +612,9 @@ TEST_F(DxilModuleTest, CanonicalSystemValueSemantic) {
   // makes sure the string gets canonicalized when the signature elsement is
   // created.
 
-  std::unique_ptr<hlsl::DxilSignatureElement> newElt = std::make_unique<hlsl::DxilSignatureElement>(hlsl::DXIL::SigPointKind::VSOut);
+  std::unique_ptr<hlsl::DxilSignatureElement> newElt =
+      std::make_unique<hlsl::DxilSignatureElement>(
+          hlsl::DXIL::SigPointKind::VSOut);
   newElt->Initialize("sV_pOsItIoN", hlsl::CompType::getF32(),
                      hlsl::InterpolationMode(
                          hlsl::DXIL::InterpolationMode::LinearNoperspective),
