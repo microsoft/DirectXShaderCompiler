@@ -9098,7 +9098,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     Type *HandleTy = hlslOP->GetHandleType();
     if (ptr->getType() == hlslOP->GetNodeRecordHandleType()) {
       DXASSERT(false, "Shouldn't get here, NodeRecord subscripts should have "
-                      "generated ExtractRecordStructFromArray intrinsic");
+                          "generated ExtractRecordStructFromArray intrinsic");
       return;
     }
     if (ptr->getType() == HandleTy) {
@@ -9493,15 +9493,16 @@ void LowerRecordAccessToGetNodeRecordPtr(HLModule &HLM) {
     if (F->user_empty())
       continue;
     hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
-    if (group == HLOpcodeGroup::HLIntrinsic) {
+    if (group == HLOpcodeGroup::HLSubscript) {
       for (auto U = F->user_begin(); U != F->user_end();) {
         Value *User = *(U++);
         if (!isa<Instruction>(User))
           continue;
         // must be call inst
         CallInst *CI = cast<CallInst>(User);
-        IntrinsicOp opcode = static_cast<IntrinsicOp>(hlsl::GetHLOpcode(CI));
-        if (opcode != IntrinsicOp::IOP_ExtractRecordStructFromArray)
+        HLSubscriptOpcode opcode =
+            static_cast<HLSubscriptOpcode>(hlsl::GetHLOpcode(CI));
+        if (opcode != HLSubscriptOpcode::DefaultSubscript)
           continue;
         Value *Index = CI->getNumArgOperands() > 2
                            ? CI->getArgOperand(2)
