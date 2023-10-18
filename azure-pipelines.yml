@@ -22,21 +22,23 @@ stages:
          SANITIZER: -sanitizer
         VS2022_Debug:
          configuration: Debug
+         SANITIZER:
 
     steps:
     - checkout: self
       clean: true
       submodules: true
     - script: |
-        call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hctbuild.cmd -$(platform) -$(configuration) $(SANITIZER) -show-cmake-log -spirvtest
       displayName: 'Building'
     - script: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hcttest.cmd -$(configuration) noexec
       displayName: 'DXIL Tests'
     - script: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
         call utils\hct\hcttest.cmd -$(configuration) spirv_only
       displayName: 'SPIRV Tests'
