@@ -6441,9 +6441,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_EvaluateAttributeCentroid, TranslateEvalCentroid,
      DXIL::OpCode::EvalCentroid},
     {IntrinsicOp::IOP_EvaluateAttributeSnapped, TranslateEvalSnapped,
-     DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_ExtractRecordStructFromArray, EmptyLower,
-     DXIL::OpCode::NumOpCodes},
+     DXIL::OpCode::NumOpCodes},    
     {IntrinsicOp::IOP_GeometryIndex, TrivialNoArgWithRetOperation,
      DXIL::OpCode::GeometryIndex},
     {IntrinsicOp::IOP_GetAttributeAtVertex, TranslateGetAttributeAtVertex,
@@ -9098,7 +9096,7 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     Type *HandleTy = hlslOP->GetHandleType();
     if (ptr->getType() == hlslOP->GetNodeRecordHandleType()) {
       DXASSERT(false, "Shouldn't get here, NodeRecord subscripts should have "
-                          "generated ExtractRecordStructFromArray intrinsic");
+                          "generated DefaultSubscript intrinsic");
       return;
     }
     if (ptr->getType() == HandleTy) {

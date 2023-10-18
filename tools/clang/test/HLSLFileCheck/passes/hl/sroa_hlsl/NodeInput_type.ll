@@ -126,7 +126,7 @@ declare %dx.types.NodeHandle @"dx.hl.annotatenodehandle..%dx.types.NodeHandle (i
 declare %"struct.NodeOutput<loadStressRecord>" @"dx.hl.cast..%\22struct.NodeOutput<loadStressRecord>\22 (i32, %dx.types.NodeHandle)"(i32, %dx.types.NodeHandle) #2
 
 attributes #0 = { nounwind }
-attributes #1 = { nounwind "dx.hlls"="ExtractRecordStructFromArray" }
+attributes #1 = { nounwind "dx.hlls"="DefaultSubscript" }
 attributes #2 = { nounwind readnone }
 
 !llvm.module.flags = !{!0}
