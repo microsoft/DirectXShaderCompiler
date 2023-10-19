@@ -33,6 +33,10 @@ struct P {
     float z;
 };
 
+struct Q : O {
+  float z;
+};
+
 struct W {
   float4 color;
 };
@@ -63,6 +67,12 @@ void main() {
 // CHECK-NEXT: [[p:%[0-9]+]] = OpCompositeConstruct %P [[y]] %float_2
 // CHECK-NEXT: OpStore %p [[p]]
     P p = {1, 2.};
+
+    // Initalizer list for struct with inheritance.
+// CHECK:      [[y:%[0-9]+]] = OpCompositeConstruct %O %int_1
+// CHECK-NEXT: [[q:%[0-9]+]] = OpCompositeConstruct %Q [[y]] %float_2
+// CHECK-NEXT: OpStore %q [[q]]
+    Q q = {1, 2.};
 
     // Mixed case: use struct as a whole, decomposing struct, type casting
 
