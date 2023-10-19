@@ -461,6 +461,23 @@ static HRESULT ErrorWithString(const std::string &error, REFIID riid,
   return S_OK;
 }
 
+// Make sure clang::DiagnosticLevelMask and
+// hlsl::options::DiagnosticLevelMask match.
+static_assert(
+    static_cast<int>(clang::DiagnosticLevelMask::None) ==
+            static_cast<int>(hlsl::options::DiagnosticLevelMask::None) &&
+        static_cast<int>(clang::DiagnosticLevelMask::Note) ==
+            static_cast<int>(hlsl::options::DiagnosticLevelMask::Note) &&
+        static_cast<int>(clang::DiagnosticLevelMask::Remark) ==
+            static_cast<int>(hlsl::options::DiagnosticLevelMask::Remark) &&
+        static_cast<int>(clang::DiagnosticLevelMask::Warning) ==
+            static_cast<int>(hlsl::options::DiagnosticLevelMask::Warning) &&
+        static_cast<int>(clang::DiagnosticLevelMask::Error) ==
+            static_cast<int>(hlsl::options::DiagnosticLevelMask::Error) &&
+        static_cast<int>(clang::DiagnosticLevelMask::All) ==
+            static_cast<int>(hlsl::options::DiagnosticLevelMask::All),
+    "clang::DiagnosticLevelMask and DiagnosticLevelMask do not match");
+
 class DxcCompiler : public IDxcCompiler3,
                     public IDxcLangExtensions3,
                     public IDxcContainerEvent,
@@ -1334,22 +1351,6 @@ public:
     compiler.getDiagnosticOpts().ShowOptionNames = Opts.ShowOptionNames ? 1 : 0;
     compiler.getDiagnosticOpts().Warnings = std::move(Opts.Warnings);
     compiler.getDiagnosticOpts().VerifyDiagnostics = Opts.VerifyDiagnostics;
-    // Make sure clang::DiagnosticLevelMask and
-    // hlsl::options::DiagnosticLevelMask match.
-    static_assert(
-        static_cast<int>(clang::DiagnosticLevelMask::None) ==
-                static_cast<int>(hlsl::options::DiagnosticLevelMask::None) &&
-            static_cast<int>(clang::DiagnosticLevelMask::Note) ==
-                static_cast<int>(hlsl::options::DiagnosticLevelMask::Note) &&
-            static_cast<int>(clang::DiagnosticLevelMask::Remark) ==
-                static_cast<int>(hlsl::options::DiagnosticLevelMask::Remark) &&
-            static_cast<int>(clang::DiagnosticLevelMask::Warning) ==
-                static_cast<int>(hlsl::options::DiagnosticLevelMask::Warning) &&
-            static_cast<int>(clang::DiagnosticLevelMask::Error) ==
-                static_cast<int>(hlsl::options::DiagnosticLevelMask::Error) &&
-            static_cast<int>(clang::DiagnosticLevelMask::All) ==
-                static_cast<int>(hlsl::options::DiagnosticLevelMask::All),
-        "clang::DiagnosticLevelMask and DiagnosticLevelMask do not match");
     compiler.getDiagnosticOpts().setVerifyIgnoreUnexpected(
         static_cast<clang::DiagnosticLevelMask>(Opts.DiagMask));
     compiler.createDiagnostics(diagPrinter, false);
