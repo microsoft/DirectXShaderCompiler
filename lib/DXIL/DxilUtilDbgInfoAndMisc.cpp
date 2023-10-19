@@ -48,7 +48,7 @@ namespace {
 //      addrspacecast(gep(p0, gep_args0+gep_args1) to p1*)
 //
 Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP,
-                AddrSpaceCastOperator *AsCast = nullptr) {
+                AddrSpaceCastOperator *AsCast) {
   IRBuilder<> Builder(GEP->getContext());
   StringRef Name = "";
   if (Instruction *I = dyn_cast<Instruction>(GEP)) {
