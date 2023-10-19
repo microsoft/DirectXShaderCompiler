@@ -1334,6 +1334,13 @@ public:
     compiler.getDiagnosticOpts().ShowOptionNames = Opts.ShowOptionNames ? 1 : 0;
     compiler.getDiagnosticOpts().Warnings = std::move(Opts.Warnings);
     compiler.getDiagnosticOpts().VerifyDiagnostics = Opts.VerifyDiagnostics;
+    // Make sure clang::DiagnosticLevelMask and
+    // hlsl::options::DiagnosticLevelMask match.
+    static_assert(
+        std::is_same_v<
+            std::underlying_type_t<clang::DiagnosticLevelMask>,
+            std::underlying_type_t<hlsl::options::DiagnosticLevelMask>>,
+        "clang::DiagnosticLevelMask and DiagnosticLevelMask do not match");
     compiler.getDiagnosticOpts().setVerifyIgnoreUnexpected(
         static_cast<clang::DiagnosticLevelMask>(Opts.DiagMask));
     compiler.createDiagnostics(diagPrinter, false);
