@@ -1337,9 +1337,18 @@ public:
     // Make sure clang::DiagnosticLevelMask and
     // hlsl::options::DiagnosticLevelMask match.
     static_assert(
-        std::is_same_v<
-            std::underlying_type_t<clang::DiagnosticLevelMask>,
-            std::underlying_type_t<hlsl::options::DiagnosticLevelMask>>,
+        static_cast<int>(clang::DiagnosticLevelMask::None) ==
+                static_cast<int>(hlsl::options::DiagnosticLevelMask::None) &&
+            static_cast<int>(clang::DiagnosticLevelMask::Note) ==
+                static_cast<int>(hlsl::options::DiagnosticLevelMask::Note) &&
+            static_cast<int>(clang::DiagnosticLevelMask::Remark) ==
+                static_cast<int>(hlsl::options::DiagnosticLevelMask::Remark) &&
+            static_cast<int>(clang::DiagnosticLevelMask::Warning) ==
+                static_cast<int>(hlsl::options::DiagnosticLevelMask::Warning) &&
+            static_cast<int>(clang::DiagnosticLevelMask::Error) ==
+                static_cast<int>(hlsl::options::DiagnosticLevelMask::Error) &&
+            static_cast<int>(clang::DiagnosticLevelMask::All) ==
+                static_cast<int>(hlsl::options::DiagnosticLevelMask::All),
         "clang::DiagnosticLevelMask and DiagnosticLevelMask do not match");
     compiler.getDiagnosticOpts().setVerifyIgnoreUnexpected(
         static_cast<clang::DiagnosticLevelMask>(Opts.DiagMask));
