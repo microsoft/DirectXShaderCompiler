@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing
+// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 0 Offset 0
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 1 Offset 8

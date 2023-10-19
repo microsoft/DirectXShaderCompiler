@@ -1,22 +1,22 @@
-// RUN: %dxc -T vs_6_0 -E main -fspv-reflect
+// RUN: %dxc -T vs_6_0 -E main -fspv-reflect -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      OpDecorate [[aa_1:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[aa_plus_b_1:%\d+]] NoContraction
+// CHECK:      OpDecorate [[aa_1:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[aa_plus_b_1:%[0-9]+]] NoContraction
 
-// CHECK-NEXT: OpDecorate [[aa_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[aa_plus_b_2:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[aa_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[aa_plus_b_2:%[0-9]+]] NoContraction
 
-// CHECK-NEXT: OpDecorate [[ee:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ee_plus_f:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ee:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ee_plus_f:%[0-9]+]] NoContraction
 
-// CHECK-NEXT: OpDecorate [[cc_1:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[cc_plus_d_1:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[cc_1:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[cc_plus_d_1:%[0-9]+]] NoContraction
 
-// CHECK-NEXT: OpDecorate [[cc_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[cc_plus_d_2:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[cc_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[cc_plus_d_2:%[0-9]+]] NoContraction
 
-// CHECK-NEXT: OpDecorate [[cxcy_1:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[cxcy_plus_dz_1:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[cxcy_1:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[cxcy_plus_dz_1:%[0-9]+]] NoContraction
 
 // CHECK-NOT: OpDecorate [[cxcy_2]] NoContraction
 // CHECK-NOT: OpDecorate [[cxcy_plus_dz_2]] NoContraction
@@ -24,8 +24,8 @@
 // CHECK-NOT: OpDecorate [[cxcy_3]] NoContraction
 // CHECK-NOT: OpDecorate [[cxcy_plus_dz_3]] NoContraction
 
-// CHECK-NEXT: OpDecorate [[aa_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[aa_plus_b_3:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[aa_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[aa_plus_b_3:%[0-9]+]] NoContraction
 
 struct InnerInnerStruct {
   precise float4   position : SV_Position;      // -> BuiltIn Position in gl_Pervertex
@@ -95,14 +95,14 @@ float main(out VSOut  vsOut,
   
 // Output CullDistance builtin. culldis3 is NOT precise.
 //
-// CHECK:         [[cxcy_2:%\d+]] = OpFMul %float
-// CHECK: [[cxcy_plus_dz_2:%\d+]] = OpFAdd %float
+// CHECK:         [[cxcy_2:%[0-9]+]] = OpFMul %float
+// CHECK: [[cxcy_plus_dz_2:%[0-9]+]] = OpFAdd %float
   culldis3 = c.x * c.y + d.z;
   
 // Output CullDistance builtin. clipdis6 is NOT precise.
 //
-// CHECK:         [[cxcy_3:%\d+]] = OpFMul %float
-// CHECK: [[cxcy_plus_dz_3:%\d+]] = OpFAdd %float
+// CHECK:         [[cxcy_3:%[0-9]+]] = OpFMul %float
+// CHECK: [[cxcy_plus_dz_3:%[0-9]+]] = OpFAdd %float
   clipdis6 = c.x * c.y + d.z;
   
 // Position builtin is precise.

@@ -1,7 +1,7 @@
-// RUN: %dxc -T ms_6_5 -E main
+// RUN: %dxc -T ms_6_5 -E main -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability MeshShadingNV
 // CHECK:  OpExtension "SPV_NV_mesh_shader"
-// CHECK:  OpEntryPoint MeshNV %main "main" %gl_GlobalInvocationID %gl_Position [[primind:%\d+]] [[primcount:%\d+]]
+// CHECK:  OpEntryPoint MeshNV %main "main" %gl_GlobalInvocationID %gl_Position [[primind:%[0-9]+]] [[primcount:%[0-9]+]]
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 // CHECK:  OpExecutionMode %main OutputPoints
 // CHECK:  OpExecutionMode %main OutputVertices 256
@@ -36,12 +36,12 @@ void main(out vertices MeshPerVertex verts[MAX_VERT],
     SetMeshOutputCounts(MAX_VERT, MAX_PRIM);
 
 // CHECK:  OpLoad %uint %tid
-// CHECK:  OpAccessChain %_ptr_Output_v4float %gl_Position {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_v4float %gl_Position {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     verts[tid].position = float4(4.0,5.0,6.0,7.0);
 
 // CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] %int_6
-// CHECK:  OpStore {{%\d+}} %uint_2
+// CHECK:  OpStore {{%[0-9]+}} %uint_2
     primitiveInd[6] = 2;
 }
 

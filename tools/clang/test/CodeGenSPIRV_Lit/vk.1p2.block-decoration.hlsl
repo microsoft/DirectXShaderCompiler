@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 
 // We cannot use BufferBlock decoration for SPIR-V 1.4 or above.
 // Instead, we must use Block decorated StorageBuffer Storage Class.
@@ -28,11 +28,11 @@ RWStructuredBuffer<S> rwsb;
 
 [numthreads(1, 1, 1)]
 void main() {
-// CHECK:   [[vec:%\d+]] = OpAccessChain %_ptr_StorageBuffer_v4float %rwsb %int_0 %uint_2 %int_0 %int_1
-// CHECK:       {{%\d+}} = OpAccessChain %_ptr_StorageBuffer_float [[vec]] %int_0
+// CHECK:   [[vec:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_v4float %rwsb %int_0 %uint_2 %int_0 %int_1
+// CHECK:       {{%[0-9]+}} = OpAccessChain %_ptr_StorageBuffer_float [[vec]] %int_0
   float a = rwsb[2].f[1].x;
 
-// CHECK: [[counterPtr:%\d+]] = OpAccessChain %_ptr_StorageBuffer_int %counter_var_rwsb %uint_0
-// CHECK:            {{%\d+}} = OpAtomicIAdd %int [[counterPtr]] %uint_1 %uint_0 %int_1
+// CHECK: [[counterPtr:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %counter_var_rwsb %uint_0
+// CHECK:            {{%[0-9]+}} = OpAtomicIAdd %int [[counterPtr]] %uint_1 %uint_0 %int_1
   rwsb.IncrementCounter();
 }

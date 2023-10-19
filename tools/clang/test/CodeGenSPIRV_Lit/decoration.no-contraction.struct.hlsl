@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
             float4 a;
@@ -20,18 +20,18 @@ struct T {
 // CHECK:      OpName %w "w"
 // CHECK-NOT:  OpDecorate [[x_mul_x_1]] NoContraction
 // CHECK-NOT:  OpDecorate [[xx_plus_y_1]] NoContraction
-// CHECK-NEXT: OpDecorate [[x_mul_x_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[xx_plus_y_2:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[x_mul_x_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[xx_plus_y_2:%[0-9]+]] NoContraction
 
 // CHECK-NOT:  OpDecorate [[z2_mul_z3_1]] NoContraction
 // CHECK-NOT:  OpDecorate [[z2z3_plus_z4_1]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2_mul_z3_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_2:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[z2_mul_z3_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_2:%[0-9]+]] NoContraction
 
 // CHECK-NOT:  OpDecorate [[uu_row0_1]] NoContraction
 // CHECK-NOT:  OpDecorate [[uu_row1_1]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row0_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row1_2:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[uu_row0_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[uu_row1_2:%[0-9]+]] NoContraction
 
 // CHECK-NOT:  OpDecorate [[ww_row0_1]] NoContraction
 // CHECK-NOT:  OpDecorate [[ww_row1_1]] NoContraction
@@ -39,37 +39,37 @@ struct T {
 // CHECK-NOT:  OpDecorate [[ww_plus_w_row0_1]] NoContraction
 // CHECK-NOT:  OpDecorate [[ww_plus_w_row1_1]] NoContraction
 // CHECK-NOT:  OpDecorate [[ww_plus_w_row2_1]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row0_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row1_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row2_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_2:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_2:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row0_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row1_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row2_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_2:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_2:%[0-9]+]] NoContraction
 
-// CHECK-NEXT: OpDecorate [[x_mul_x_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[xx_plus_y_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[x_mul_x_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[xx_plus_y_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2_mul_z3_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2_mul_z3_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row0_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row1_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row0_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row1_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row0_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row1_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row2_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_3:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row0_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row1_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row2_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_4:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_4:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[x_mul_x_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[xx_plus_y_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[x_mul_x_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[xx_plus_y_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[z2_mul_z3_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[z2_mul_z3_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[uu_row0_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[uu_row1_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[uu_row0_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[uu_row1_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row0_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row1_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row2_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_3:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row0_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row1_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_row2_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_4:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_4:%[0-9]+]] NoContraction
 
 void main() {
   T t;
@@ -81,8 +81,8 @@ void main() {
 
 // 'a' is NOT precise.
 //
-// CHECK:   [[x_mul_x_1:%\d+]] = OpFMul %v4float
-// CHECK: [[xx_plus_y_1:%\d+]] = OpFAdd %v4float
+// CHECK:   [[x_mul_x_1:%[0-9]+]] = OpFMul %v4float
+// CHECK: [[xx_plus_y_1:%[0-9]+]] = OpFAdd %v4float
   t.sub2.a = x * x + y;
 
 // 'ap' is precise.
@@ -93,8 +93,8 @@ void main() {
 
 // 'b' is NOT precise.
 //
-// CHECK:    [[z2_mul_z3_1:%\d+]] = OpIMul %int
-// CHECK: [[z2z3_plus_z4_1:%\d+]] = OpIAdd %int
+// CHECK:    [[z2_mul_z3_1:%[0-9]+]] = OpIMul %int
+// CHECK: [[z2z3_plus_z4_1:%[0-9]+]] = OpIAdd %int
   t.sub2.b[1] = z[2] * z[3] + z[4];
 
 // 'bp' is precise.
@@ -105,8 +105,8 @@ void main() {
 
 // 'c' is NOT precise.
 //
-// CHECK: [[uu_row0_1:%\d+]] = OpIMul %v3int
-// CHECK: [[uu_row1_1:%\d+]] = OpIMul %v3int
+// CHECK: [[uu_row0_1:%[0-9]+]] = OpIMul %v3int
+// CHECK: [[uu_row1_1:%[0-9]+]] = OpIMul %v3int
   t.sub2.c[0][1][2] = u * u;
 
 // 'cp' is precise.
@@ -117,12 +117,12 @@ void main() {
 
 // 'd' is NOT precise.
 //
-// CHECK:        [[ww_row0_1:%\d+]] = OpFMul %v4float
-// CHECK:        [[ww_row1_1:%\d+]] = OpFMul %v4float
-// CHECK:        [[ww_row2_1:%\d+]] = OpFMul %v4float
-// CHECK: [[ww_plus_w_row0_1:%\d+]] = OpFAdd %v4float
-// CHECK: [[ww_plus_w_row1_1:%\d+]] = OpFAdd %v4float
-// CHECK: [[ww_plus_w_row2_1:%\d+]] = OpFAdd %v4float
+// CHECK:        [[ww_row0_1:%[0-9]+]] = OpFMul %v4float
+// CHECK:        [[ww_row1_1:%[0-9]+]] = OpFMul %v4float
+// CHECK:        [[ww_row2_1:%[0-9]+]] = OpFMul %v4float
+// CHECK: [[ww_plus_w_row0_1:%[0-9]+]] = OpFAdd %v4float
+// CHECK: [[ww_plus_w_row1_1:%[0-9]+]] = OpFAdd %v4float
+// CHECK: [[ww_plus_w_row2_1:%[0-9]+]] = OpFAdd %v4float
   t.sub2.d = w * w + w;
 
 // 'dp' is precise.

@@ -1,7 +1,7 @@
-// RUN: %dxc -T as_6_5 -fspv-target-env=vulkan1.1spirv1.4 -E main
+// RUN: %dxc -T as_6_5 -fspv-target-env=vulkan1.1spirv1.4 -E main -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability MeshShadingEXT
 // CHECK:  OpExtension "SPV_EXT_mesh_shader"
-// CHECK:  OpEntryPoint TaskEXT %main "main" [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %out_var_dummy %out_var_pos
+// CHECK:  OpEntryPoint TaskEXT %main "main" [[drawid:%[0-9]+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %out_var_dummy %out_var_pos
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 
 // CHECK:  OpDecorate [[drawid]] BuiltIn DrawIndex
@@ -47,20 +47,20 @@ void main(
 // CHECK:  %tid = OpFunctionParameter %_ptr_Function_uint
 // CHECK:  %tig = OpFunctionParameter %_ptr_Function_uint
 // 
-// CHECK:  [[a:%\d+]] = OpAccessChain %_ptr_Workgroup_v4float %pld %int_1
-// CHECK:  OpStore [[a]] {{%\d+}}
+// CHECK:  [[a:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_v4float %pld %int_1
+// CHECK:  OpStore [[a]] {{%[0-9]+}}
     pld.pos = float4(gtid.x, gid.y, tid, tig);
 
 // CHECK:  OpControlBarrier %uint_2 %uint_2 %uint_264
-// CHECK:  [[e:%\d+]] = OpLoad %MeshPayload %pld
-// CHECK:  [[f:%\d+]] = OpCompositeExtract %_arr_float_uint_10 [[e]] 0
+// CHECK:  [[e:%[0-9]+]] = OpLoad %MeshPayload %pld
+// CHECK:  [[f:%[0-9]+]] = OpCompositeExtract %_arr_float_uint_10 [[e]] 0
 // CHECK:  OpStore %out_var_dummy [[f]]
-// CHECK:  [[g:%\d+]] = OpCompositeExtract %v4float [[e]] 1
+// CHECK:  [[g:%[0-9]+]] = OpCompositeExtract %v4float [[e]] 1
 // CHECK:  OpStore %out_var_pos [[g]]
-// CHECK:  [[h:%\d+]] = OpLoad %int %drawId
-// CHECK:  [[i:%\d+]] = OpBitcast %uint [[h]]
-// CHECK:  [[j:%\d+]] = OpLoad %int %drawId
-// CHECK:  [[k:%\d+]] = OpBitcast %uint [[j]]
+// CHECK:  [[h:%[0-9]+]] = OpLoad %int %drawId
+// CHECK:  [[i:%[0-9]+]] = OpBitcast %uint [[h]]
+// CHECK:  [[j:%[0-9]+]] = OpLoad %int %drawId
+// CHECK:  [[k:%[0-9]+]] = OpBitcast %uint [[j]]
 // CHECK:  OpEmitMeshTasksEXT %uint_128 [[i]] [[k]]
    DispatchMesh(NUM_THREADS, drawId, drawId, pld);
 }

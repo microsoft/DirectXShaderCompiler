@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 min16uint foo(min12int param);
 
@@ -20,21 +20,21 @@ void main() {
 // CHECK-NEXT:         OpDecorate %i RelaxedPrecision
 // CHECK-NEXT:         OpDecorate %j RelaxedPrecision
 // CHECK-NEXT:         OpDecorate %param_var_param RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sb:%\d+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[sb:%[0-9]+]] RelaxedPrecision
 // Note: Decoration is missing for sa_plus_sb.
-// CHECK-NEXT:         OpDecorate [[sb2:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sb2_int:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sc:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sb_plus_sc:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sd:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[se:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sd_plus_se:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[sb3:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[foo_result:%\d+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[sb2:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[sb2_int:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[sc:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[sb_plus_sc:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[sd:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[se:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[sd_plus_se:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[sb3:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[foo_result:%[0-9]+]] RelaxedPrecision
 // CHECK-NEXT:         OpDecorate %foo RelaxedPrecision
 // CHECK-NEXT:         OpDecorate %param RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[param_value:%\d+]] RelaxedPrecision
-// CHECK-NEXT:         OpDecorate [[param_plus_1:%\d+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[param_value:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:         OpDecorate [[param_plus_1:%[0-9]+]] RelaxedPrecision
 
 // CHECK:         %S = OpTypeStruct %int %int %int %float %float %float
   S s;
@@ -44,30 +44,30 @@ void main() {
 // CHECK:              %j = OpVariable %_ptr_Function_uint Function
 // CHECK: param_var_param = OpVariable %_ptr_Function_int Function
 
-// CHECK:      [[s1ptr:%\d+]] = OpAccessChain %_ptr_Function_int %s %int_1
+// CHECK:      [[s1ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_int %s %int_1
 // CHECK:              [[sb]] = OpLoad %int [[s1ptr]]
-// CHECK: [[sa_plus_sb:%\d+]] = OpIAdd %int
+// CHECK: [[sa_plus_sb:%[0-9]+]] = OpIAdd %int
 // While s.b is RelaxedPrecision (min12int), s.a is not (int).
 // We can only annotate the OpIAdd as RelaxedPrecision if both were.
   int g = s.a + s.b;
 
-// CHECK:  [[s1ptr:%\d+]] = OpAccessChain %_ptr_Function_int %s %int_1
-// CHECK:         [[sb2]] = OpLoad %int [[s1ptr]]
+// CHECK:  [[s1ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_int %s %int_1
+// CHECK:         [[sb2]] = OpLoad %int [[s1ptr_0]]
 // CHECK:     [[sb2_int]] = OpBitcast %int [[sb2]]
-// CHECK:  [[s2ptr:%\d+]] = OpAccessChain %_ptr_Function_int %s %int_2
+// CHECK:  [[s2ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_int %s %int_2
 // CHECK:          [[sc]] = OpLoad %int [[s2ptr]]
 // CHECK:  [[sb_plus_sc]] = OpIAdd %int [[sb2_int]] [[sc]]
   min16int h = s.b + s.c;
 
-// CHECK:  [[s3ptr:%\d+]] = OpAccessChain %_ptr_Function_float %s %int_3
+// CHECK:  [[s3ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_float %s %int_3
 // CHECK:          [[sd]] = OpLoad %float [[s3ptr]]
-// CHECK:  [[s4ptr:%\d+]] = OpAccessChain %_ptr_Function_float %s %int_4
+// CHECK:  [[s4ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_float %s %int_4
 // CHECK:          [[se]] = OpLoad %float [[s4ptr]]
 // CHECK:  [[sd_plus_se]] = OpFAdd %float [[sd]] [[se]]
   min16float i = s.d + s.e;
 
-// CHECK:  [[s1ptr:%\d+]] = OpAccessChain %_ptr_Function_int %s %int_1
-// CHECK:         [[sb3]] = OpLoad %int [[s1ptr]]
+// CHECK:  [[s1ptr_1:%[0-9]+]] = OpAccessChain %_ptr_Function_int %s %int_1
+// CHECK:         [[sb3]] = OpLoad %int [[s1ptr_1]]
 // CHECK:  [[foo_result]] = OpFunctionCall %uint %foo %param_var_param
   min16uint j = foo(s.b);
 }

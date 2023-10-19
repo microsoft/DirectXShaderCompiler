@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_3 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_3 -E main -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 
 // Ignore "init" Expr of RayQuery in the AST traversal.
 
@@ -27,7 +27,7 @@ void main() {
   RayQuery<0> RayQ1 = RayQuery<0>();
 
 // CHECK: %RayQ2 = OpVariable %_ptr_Function_rayQueryKHR Function
-// CHECK: [[rayq0:%\w+]] = OpLoad {{%\w+}} %RayQ0
+// CHECK: [[rayq0:%[a-zA-Z0-9_]+]] = OpLoad {{%[a-zA-Z0-9_]+}} %RayQ0
 // CHECK: OpStore %RayQ2 [[rayq0]]
   RayQuery<0> RayQ2 = RayQ0;
 

@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing
+// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fcgl  %s -spirv | FileCheck %s
 
 struct T {
     float2 val[3];
@@ -32,14 +32,14 @@ struct Attribute { float a; };
 void main(inout Payload P) 
 {
    P.p = 
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float %srb %int_0
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float %srb %int_0
         srb.f1 +
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v3float %srb %int_1
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float [[ptr]] %int_2
+// CHECK: [[ptr:%[0-9]+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v3float %srb %int_1
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float [[ptr]] %int_2
         srb.f2.z +
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float %srb %int_2 %uint_1 %uint_2
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float %srb %int_2 %uint_1 %uint_2
         srb.f3[1][2] +
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v2float %srb %int_3 %int_0 %int_2
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float [[ptr]] %int_1
+// CHECK: [[ptr_0:%[0-9]+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v2float %srb %int_3 %int_0 %int_2
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float [[ptr_0]] %int_1
         srb.f4.val[2].y;
 }

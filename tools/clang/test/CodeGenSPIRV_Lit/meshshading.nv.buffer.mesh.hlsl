@@ -1,4 +1,4 @@
-// RUN: %dxc -T ms_6_5 -E main
+// RUN: %dxc -T ms_6_5 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:  OpCapability MeshShadingNV
 // CHECK:  OpExtension "SPV_NV_mesh_shader"
@@ -155,8 +155,8 @@ void main(
 {
     uint task = taskmem.submeshID[gid];
 // CHECK:  %submesh = OpVariable %_ptr_Function_SubMesh_0 Function
-// CHECK:  OpAccessChain %_ptr_Uniform_SubMesh %submeshes %int_0 [[task:%\d+]]
-// CHECK:  OpStore %submesh [[submeshVal:%\d+]]
+// CHECK:  OpAccessChain %_ptr_Uniform_SubMesh %submeshes %int_0 [[task:%[0-9]+]]
+// CHECK:  OpStore %submesh [[submeshVal:%[0-9]+]]
     SubMesh submesh = submeshes[task];
 // CHECK:  OpAccessChain %_ptr_Function_uint %submesh %int_0
     uint numPackedVertices = submesh.vertexCount;
@@ -170,11 +170,11 @@ void main(
 // CHECK:  OpAccessChain %_ptr_Function_uint %submesh %int_1
         uint svid = vid + submesh.vertexOffset;
         if (vid >= numPackedVertices) continue;
-// CHECK:  OpAccessChain %_ptr_Uniform_v2float %userVertices %int_0 [[svid_1:%\d+]] %int_1
+// CHECK:  OpAccessChain %_ptr_Uniform_v2float %userVertices %int_0 [[svid_1:%[0-9]+]] %int_1
         verts[vid].texcoord = userVertices[svid].texcoord;
-// CHECK:  OpAccessChain %_ptr_Uniform_v3float %userVertices %int_0 [[svid_2:%\d+]] %int_2
+// CHECK:  OpAccessChain %_ptr_Uniform_v3float %userVertices %int_0 [[svid_2:%[0-9]+]] %int_2
         verts[vid].color = userVertices[svid].color;
-// CHECK:  OpAccessChain %_ptr_Uniform_v3float %userVertices %int_0 [[svid_0:%\d+]] %int_0
+// CHECK:  OpAccessChain %_ptr_Uniform_v3float %userVertices %int_0 [[svid_0:%[0-9]+]] %int_0
         float3 position = userVertices[svid].position;
 // CHECK:  OpAccessChain %_ptr_Uniform_mat4v4float %UBO %int_0 
         verts[vid].position = mul(mvp, float4(position, 1.0));
@@ -188,14 +188,14 @@ void main(
 // CHECK:  OpAccessChain %_ptr_Function_uint %submesh %int_3
         uint sidxoff = submesh.indexOffset + didxoff;
         if (pid >= numPackedPrimitives) continue;
-// CHECK:  OpAccessChain %_ptr_Uniform_uint %userIndices %int_0 [[sidxoff_0:%\d+]]
-// CHECK:  OpAccessChain %_ptr_Uniform_uint %userIndices %int_0 [[sidxoff_1:%\d+]]
-// CHECK:  OpAccessChain %_ptr_Uniform_uint %userIndices %int_0 [[sidxoff_2:%\d+]]
+// CHECK:  OpAccessChain %_ptr_Uniform_uint %userIndices %int_0 [[sidxoff_0:%[0-9]+]]
+// CHECK:  OpAccessChain %_ptr_Uniform_uint %userIndices %int_0 [[sidxoff_1:%[0-9]+]]
+// CHECK:  OpAccessChain %_ptr_Uniform_uint %userIndices %int_0 [[sidxoff_2:%[0-9]+]]
         primIndices[pid] = uint3(userIndices[sidxoff], userIndices[sidxoff+1], userIndices[sidxoff+2]);
 // CHECK:  OpAccessChain %_ptr_Function_uint %submesh %int_1
-// CHECK:  OpAccessChain %_ptr_Uniform_uint %userIndices %int_0 [[ind:%\d+]]
+// CHECK:  OpAccessChain %_ptr_Uniform_uint %userIndices %int_0 [[ind:%[0-9]+]]
         uint providx = submesh.vertexOffset + userIndices[sidxoff + vertsPerPrim - 1U];
-// CHECK:  OpAccessChain %_ptr_Uniform_v3float %userVertices %int_0 [[providx:%\d+]] %int_2
+// CHECK:  OpAccessChain %_ptr_Uniform_v3float %userVertices %int_0 [[providx:%[0-9]+]] %int_2
         prims[pid].primcolor = float4(userVertices[providx].color, 1.0);
     }
 }

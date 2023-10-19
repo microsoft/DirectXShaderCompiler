@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // The purpose of this test is to make sure non-precise computations are *not*
 // decorated with NoContraction.
@@ -9,15 +9,15 @@
 void foo(float p) { p = p + 1; }
 
 // CHECK:      OpName %bb_entry_0 "bb.entry"
-// CHECK-NEXT: OpDecorate [[first_b_plus_c:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[first_b_plus_c:%[0-9]+]] NoContraction
 // CHECK-NOT:  OpDecorate [[first_a_mul_b]] NoContraction
 // CHECK-NOT:  OpDecorate [[ax_mul_bx]] NoContraction
-// CHECK-NEXT: OpDecorate [[second_a_mul_b:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[second_a_mul_b:%[0-9]+]] NoContraction
 // CHECK-NOT:  OpDecorate [[second_a_plus_b]] NoContraction
-// CHECK-NEXT: OpDecorate [[first_d_plus_e:%\d+]] NoContraction
-// CHECK-NEXT: OpDecorate [[c_mul_d:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[first_d_plus_e:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[c_mul_d:%[0-9]+]] NoContraction
 // CHECK-NOT:  OpDecorate [[second_d_plus_e]] NoContraction
-// CHECK-NEXT: OpDecorate [[r_plus_s:%\d+]] NoContraction
+// CHECK-NEXT: OpDecorate [[r_plus_s:%[0-9]+]] NoContraction
 
 void main() {
   float4 a, b, c, d, e;
@@ -35,13 +35,13 @@ void main() {
 // Even though this looks like the statement on line 52:
 // This changes "u", which does not affect "v" in any way. Not Precise.
 //
-// CHECK:      [[first_a_mul_b:%\d+]] = OpFMul %v3float
+// CHECK:      [[first_a_mul_b:%[0-9]+]] = OpFMul %v3float
 // CHECK-NEXT:                          OpStore %u
   u = float3((float3)a * (float3)b);
   
 // Does not affect the value of "v". Not Precise.
 //
-// CHECK:      [[ax_mul_bx:%\d+]] = OpFMul %float
+// CHECK:      [[ax_mul_bx:%[0-9]+]] = OpFMul %float
 // CHECK-NEXT:                      OpStore %param_var_p
   foo(a.x * b.x);
 
@@ -54,7 +54,7 @@ void main() {
 // Even though this looks identical to "a = b + c" above:
 // This can change the value of "a", BUT, this change will not affect "v". Not Precise.
 //
-// CHECK:      [[second_a_plus_b:%\d+]] = OpFAdd %v4float
+// CHECK:      [[second_a_plus_b:%[0-9]+]] = OpFAdd %v4float
 // CHECK-NEXT:                            OpStore %a %61
   a = b + c;
 
@@ -77,7 +77,7 @@ void main() {
 //
 // CHECK:                                 OpLoad %v4float %d
 // CHECK-NEXT:                            OpLoad %v4float %e
-// CHECK-NEXT: [[second_d_plus_e:%\d+]] = OpFAdd %v4float
+// CHECK-NEXT: [[second_d_plus_e:%[0-9]+]] = OpFAdd %v4float
 // CHECK-NEXT:                            OpStore %c
   c = d + e;
 
