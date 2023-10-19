@@ -508,7 +508,7 @@ public:
     return getVendor() == Triple::SCEI &&
            getOS() == Triple::PS4;
   }
-  
+
   // HLSL Change Begin - Add DXIL Triple.
   bool isDXIL() const {
     return getArch() == Triple::dxil || getArch() == Triple::dxil64;
