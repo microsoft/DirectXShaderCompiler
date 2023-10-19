@@ -7987,6 +7987,12 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
           indexing->getArg(0)->IgnoreParenNoopCasts(astContext);
 
       const auto thisBaseType = thisBase->getType();
+
+      // If the base type is user defined, return the call expr so that any
+      // user-defined overloads of operator[] are called.
+      if (hlsl::IsUserDefinedRecordType(thisBaseType))
+        return expr;
+
       const Expr *base = collectArrayStructIndices(
           thisBase, rawIndex, rawIndices, indices, isMSOutAttribute);
 
