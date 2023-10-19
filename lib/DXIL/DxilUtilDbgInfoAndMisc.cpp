@@ -86,7 +86,7 @@ Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP,
     }
 
     // Update the GEP in place if possible.
-    if (SrcGEP->getNumOperands() == 2) {
+    if (SrcGEP->getNumOperands() == 2 && !AsCast) {
       GEP->setOperand(0, SrcGEP->getOperand(0));
       GEP->setOperand(1, Sum);
       return GEP;
