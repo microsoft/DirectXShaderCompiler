@@ -13,3 +13,6 @@
 [submodule "external/SPIRV-Tools"]
 	path = external/SPIRV-Tools
 	url = git@github.com:Devsh-Graphics-Programming/SPIRV-Tools.git
+[submodule "external/SPIRV-Headers"]
+	path = external/SPIRV-Headers
+	url = git@github.com:Devsh-Graphics-Programming/SPIRV-Headers.git
