@@ -443,7 +443,7 @@ static void AddRecordAccessMethod(clang::ASTContext &Ctx,
   StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
   unsigned Opcode = static_cast<unsigned>(HLSubscriptOpcode::DefaultSubscript);
   MethodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      Ctx, OpcodeGroup, "DefaultSubscript", Opcode));
+      Ctx, OpcodeGroup, "", Opcode));
   MethodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Ctx));
 }
 

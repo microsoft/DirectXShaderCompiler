@@ -1,13 +1,6 @@
-; RUN: %opt %s -hlsl-passes-resume -scalarrepl-param-hlsl -S | FileCheck %s
+; RUN: %opt %s -hlsl-passes-resume scalarrepl-param-hlsl -S | FileCheck %s
 
-; This test ensures that NodeIO types don't get broken down to i32s by SROA.
-; SROA woulda have reduced the %inputData variable to an i32, but this pass should now keep the type the same.
-; Specifically, before the change associated with this new test, the CHECKs below would fail because
-; SROA would replace struct.DispatchNodeInputRecord<loadStressRecord> with i32.
-; 
-; CHECK: alloca %"struct.DispatchNodeInputRecord<loadStressRecord>"
-; CHECK: load %"struct.DispatchNodeInputRecord<loadStressRecord>", %"struct.DispatchNodeInputRecord<loadStressRecord>"*
-
+;
 ; Buffer Definitions:
 ;
 ; cbuffer $Globals
@@ -192,6 +185,3 @@ attributes #1 = { nounwind readnone }
 !45 = !DILocation(line: 19, column: 26, scope: !29, inlinedAt: !30)
 !46 = !DILocation(line: 20, column: 1, scope: !29, inlinedAt: !30)
 !47 = !DILocation(line: 29, column: 1, scope: !24)
-
-; The test was generated using the pass test generation script:
-; python3 ExtractIRForPassTest.py -p scalarrepl-param-hlsl -o outtest_without_nodeiotypecheck.ll %HLSL_SRC_DIR%\tools\clang\test\HLSLFileCheck\hlsl\workgraph\called_function_arg_record_object.hlsl -- -T lib_6_8
