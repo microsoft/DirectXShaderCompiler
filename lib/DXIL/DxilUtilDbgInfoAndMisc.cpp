@@ -109,7 +109,7 @@ Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP,
   // Wrap the new gep in an addrspacecast if needed.
   if (AsCast)
     newGEP = Builder.CreateAddrSpaceCast(
-        newGEP, PointerType::get(newGEP->getType()->getPointerElementType(),
+        newGEP, PointerType::get(GEP->getType()->getPointerElementType(),
                                  AsCast->getDestAddressSpace()));
   GEP->replaceAllUsesWith(newGEP);
   if (Instruction *I = dyn_cast<Instruction>(GEP))
