@@ -69,8 +69,8 @@ void DiagnosePackingOffset(clang::Sema *self, clang::SourceLocation loc,
 void DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
                           clang::QualType type, char registerType);
 
-std::pair<clang::FunctionDecl *, bool>
-ValidateNoRecursion(clang::Sema *self, clang::FunctionDecl *FD);
+clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
+                                         clang::FunctionDecl *FD);
 
 void ValidateNoRecursionInTranslationUnit(clang::Sema *self);
 
