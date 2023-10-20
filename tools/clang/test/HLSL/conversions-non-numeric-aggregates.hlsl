@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
 
 // Tests that conversions between numeric and non-numeric types/aggregates are disallowed.
 

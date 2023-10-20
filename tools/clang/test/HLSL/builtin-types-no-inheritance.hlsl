@@ -1,4 +1,18 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
+
+// expected-note@? {{'vector' declared here}}
+// expected-note@? {{'matrix' declared here}}
+// expected-note@? {{'Texture3D' declared here}}
+// expected-note@? {{'ByteAddressBuffer' declared here}}
+// expected-note@? {{'StructuredBuffer' declared here}}
+// expected-note@? {{'SamplerState' declared here}}
+// expected-note@? {{'TriangleStream' declared here}}
+// expected-note@? {{'InputPatch' declared here}}
+// expected-note@? {{'OutputPatch' declared here}}
+// expected-note@? {{'RayDesc' declared here}}
+// expected-note@? {{'BuiltInTriangleIntersectionAttributes' declared here}}
+// expected-note@? {{'RaytracingAccelerationStructure' declared here}}
+// expected-note@? {{'GlobalRootSignature' declared here}}
 
 struct F2 : float2 {}; // expected-error {{base 'vector' is marked 'final'}} fxc-error {{X3094: base type is not a struct, class or interface}}
 struct F4x4 : float4x4 {}; // expected-error {{base 'matrix' is marked 'final'}} fxc-error {{X3094: base type is not a struct, class or interface}}

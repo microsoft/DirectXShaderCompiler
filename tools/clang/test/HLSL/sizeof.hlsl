@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
 
 // Tests usage of the sizeof operator
 

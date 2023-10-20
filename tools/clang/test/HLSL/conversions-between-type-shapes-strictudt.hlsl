@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -HV 2021 -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
+// RUN: %clang_cc1 -HV 2021 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
 
 // Tests all implicit conversions and explicit casts between type shapes
 // (scalars, vectors, matrices, arrays and structs).
@@ -26,22 +26,99 @@ struct DerivedFrom_S2 : S2 {
     int c;
 };
 
-// Clang generates a bunch of "notes" about overload candidates here, but we're not testing for these
+// Clang generates a bunch of "notes" about overload candidates here, we're not testing for these
+// Just avoid use -verify-ignore-unexpected.
+
+// expected-note@+4 {{candidate function not viable: no known conversion from 'A1' (aka 'int [1]') to 'int' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'S1' to 'int' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'int' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S2' to 'int' for 1st argument}}
 void to_i(int i) {}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'int1' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'S2' to 'int1' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A1' (aka 'int [1]') to 'int1' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S1' to 'int1' for 1st argument}}
 void to_v1(int1 v) {}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'int2' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'S2' to 'int2' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A4' (aka 'int [4]') to 'int2' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S4' to 'int2' for 1st argument}}
 void to_v2(int2 v) {}
 void to_v4(int4 v) {}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'A1' (aka 'int [1]') to 'int1x1' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'S1' to 'int1x1' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'int1x1' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S2' to 'int1x1' for 1st argument}}
 void to_m1x1(int1x1 m) {}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'int1x2' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'S2' to 'int1x2' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A4' (aka 'int [4]') to 'int1x2' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S4' to 'int1x2' for 1st argument}}
 void to_m1x2(int1x2 m) {}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'S4' to 'int2x1' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'A4' (aka 'int [4]') to 'int2x1' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'S2' to 'int2x1' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'int2x1' for 1st argument}}
 void to_m2x1(int2x1 m) {}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'S5' to 'int2x2' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'A5' (aka 'int [5]') to 'int2x2' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'S4' to 'int2x2' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'A4' (aka 'int [4]') to 'int2x2' for 1st argument}}
 void to_m2x2(int2x2 m) {}
 void to_m3x3(int3x3 m) {}
+// expected-note@+8 {{candidate function not viable: no known conversion from 'int' to 'A1' (aka 'int [1]') for 1st argument}}
+// expected-note@+7 {{candidate function not viable: no known conversion from 'int1' to 'A1' (aka 'int [1]') for 1st argument}}
+// expected-note@+6 {{candidate function not viable: no known conversion from 'int1x1' to 'A1' (aka 'int [1]') for 1st argument}}
+// expected-note@+5 {{candidate function not viable: no known conversion from 'S1' to 'A1' (aka 'int [1]') for 1st argument}}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'int2' to 'A1' (aka 'int [1]') for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'int2x2' to 'A1' (aka 'int [1]') for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'A1' (aka 'int [1]') for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S2' to 'A1' (aka 'int [1]') for 1st argument}}
 void to_a1(A1 a) {}
+// expected-note@+14 {{candidate function not viable: no known conversion from 'int' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+13 {{candidate function not viable: no known conversion from 'int1' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+12 {{candidate function not viable: no known conversion from 'int1x1' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+11 {{candidate function not viable: no known conversion from 'int2' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+10 {{candidate function not viable: no known conversion from 'int1x2' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+9 {{candidate function not viable: no known conversion from 'int2x1' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+8 {{candidate function not viable: no known conversion from 'S2' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+7 {{candidate function not viable: no known conversion from 'int4' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+6 {{candidate function not viable: no known conversion from 'int1x3' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+5 {{candidate function not viable: no known conversion from 'int3x1' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'int2x2' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'int3x3' to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A4' (aka 'int [4]') to 'A2' (aka 'int [2]') for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S4' to 'A2' (aka 'int [2]') for 1st argument}}
 void to_a2(A2 a) {}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'int2x2' to 'A4' (aka 'int [4]') for 1st argument}}
 void to_a4(A4 a) {}
 void to_a5(A5 a) {}
+// expected-note@+8 {{candidate function not viable: no known conversion from 'int' to 'S1' for 1st argument}}
+// expected-note@+7 {{candidate function not viable: no known conversion from 'int1' to 'S1' for 1st argument}}
+// expected-note@+6 {{candidate function not viable: no known conversion from 'int1x1' to 'S1' for 1st argument}}
+// expected-note@+5 {{candidate function not viable: no known conversion from 'A1' (aka 'int [1]') to 'S1' for 1st argument}}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'int2' to 'S1' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'int2x2' to 'S1' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'S1' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S2' to 'S1' for 1st argument}}
 void to_s1(S1 s) {}
+// expected-note@+15 {{candidate function not viable: no known conversion from 'int' to 'S2' for 1st argument}}
+// expected-note@+14 {{candidate function not viable: no known conversion from 'int1' to 'S2' for 1st argument}}
+// expected-note@+13 {{candidate function not viable: no known conversion from 'int1x1' to 'S2' for 1st argument}}
+// expected-note@+12 {{candidate function not viable: no known conversion from 'int2' to 'S2' for 1st argument}}
+// expected-note@+11 {{candidate function not viable: no known conversion from 'int1x2' to 'S2' for 1st argument}}
+// expected-note@+10 {{candidate function not viable: no known conversion from 'int2x1' to 'S2' for 1st argument}}
+// expected-note@+9 {{candidate function not viable: no known conversion from 'A2' (aka 'int [2]') to 'S2' for 1st argument}}
+// expected-note@+8 {{candidate function not viable: no known conversion from 'Like_S2' to 'S2' for 1st argument}}
+// expected-note@+7 {{candidate function not viable: no known conversion from 'int4' to 'S2' for 1st argument}}
+// expected-note@+6 {{candidate function not viable: no known conversion from 'int1x3' to 'S2' for 1st argument}}
+// expected-note@+5 {{candidate function not viable: no known conversion from 'int3x1' to 'S2' for 1st argument}}
+// expected-note@+4 {{candidate function not viable: no known conversion from 'int2x2' to 'S2' for 1st argument}}
+// expected-note@+3 {{candidate function not viable: no known conversion from 'int3x3' to 'S2' for 1st argument}}
+// expected-note@+2 {{candidate function not viable: no known conversion from 'A4' (aka 'int [4]') to 'S2' for 1st argument}}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'S4' to 'S2' for 1st argument}}
 void to_s2(S2 s) {}
+// expected-note@+1 {{candidate function not viable: no known conversion from 'int2x2' to 'S4' for 1st argument}}
 void to_s4(S4 s) {}
 void to_s5(S5 s) {}
 
