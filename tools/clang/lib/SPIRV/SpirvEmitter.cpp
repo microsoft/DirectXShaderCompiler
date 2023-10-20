@@ -11173,11 +11173,12 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     case spv::Op::OpFwidth:
     case spv::Op::OpFwidthFine:
     case spv::Op::OpFwidthCoarse:
+      if (spvContext.isCS())
+        addDerivativeGroupExecutionMode();
       needsLegalization = true;
       break;
     default:
-      // Only the given opcodes need legalization. Anything else should preserve
-      // previous.
+      // Only the given opcodes need legalization and the execution mode.
       break;
     }
 
