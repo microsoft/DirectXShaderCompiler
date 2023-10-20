@@ -1688,149 +1688,6 @@ TEST_F(FileTest, DecorationUnique) { runFileTest("decoration.unique.hlsl"); }
 // For capability uniqueness
 TEST_F(FileTest, CapabilityUnique) { runFileTest("capability.unique.hlsl"); }
 
-// For extension uniqueness
-TEST_F(FileTest, ExtensionUnique) { runFileTest("extension.unique.hlsl"); }
-
-// For RelaxedPrecision decorations
-TEST_F(FileTest, DecorationRelaxedPrecisionBasic) {
-  runFileTest("decoration.relaxed-precision.basic.hlsl");
-}
-TEST_F(FileTest, DecorationRelaxedPrecisionStruct) {
-  runFileTest("decoration.relaxed-precision.struct.hlsl");
-}
-TEST_F(FileTest, DecorationRelaxedPrecisionImage) {
-  runFileTest("decoration.relaxed-precision.image.hlsl");
-}
-TEST_F(FileTest, DecorationRelaxedPrecisionBool) {
-  runFileTest("decoration.relaxed-precision.bool.hlsl");
-}
-TEST_F(FileTest, DecorationRelaxedPrecisionArray) {
-  runFileTest("decoration.relaxed-precision.array.hlsl");
-}
-TEST_F(FileTest, DecorationRelaxedPrecisionResourceInStruct) {
-  runFileTest("decoration.relaxed-precision.resource.in.struct.hlsl");
-}
-
-// For NoContraction decorations
-
-TEST_F(FileTest, DecorationNoContractionVariableReuse) {
-  runFileTest("decoration.no-contraction.variable-reuse.hlsl");
-}
-TEST_F(FileTest, DecorationNoContractionStruct) {
-  runFileTest("decoration.no-contraction.struct.hlsl");
-}
-TEST_F(FileTest, DecorationNoContractionStageVars) {
-  runFileTest("decoration.no-contraction.stage-vars.hlsl");
-}
-
-// For UserTypeGOOGLE decorations
-TEST_F(FileTest, DecorationUserTypeGOOGLE) {
-  runFileTest("decoration.user-type.hlsl");
-}
-
-TEST_F(FileTest, DecorationCoherent) {
-  runFileTest("decoration.coherent.hlsl");
-}
-
-// For pragmas
-TEST_F(FileTest, PragmaPackMatrix) { runFileTest("pragma.pack_matrix.hlsl"); }
-
-// Tests for [[vk::shader_record_nv]]
-TEST_F(FileTest, VulkanShaderRecordBufferNV) {
-  runFileTest("vk.shader-record-nv.hlsl");
-}
-TEST_F(FileTest, VulkanShaderRecordBufferNVOffset) {
-  // Checks the behavior of [[vk::offset]] with [[vk::shader_record_nv]]
-  runFileTest("vk.shader-record-nv.offset.hlsl");
-}
-// Tests for [[vk::shader_record_ext]]
-TEST_F(FileTest, VulkanShaderRecordBufferEXT) {
-  runFileTest("vk.shader-record-ext.hlsl");
-}
-TEST_F(FileTest, VulkanShaderRecordBufferEXTOffset) {
-  // Checks the behavior of [[vk::offset]] with [[vk::shader_record_ext]]
-  runFileTest("vk.shader-record-ext.offset.hlsl");
-}
-TEST_F(FileTest, VulkanShadingRateVs) {
-  runFileTest("vk.shading-rate.vs.hlsl");
-}
-TEST_F(FileTest, VulkanShadingRatePs) {
-  runFileTest("vk.shading-rate.ps.hlsl");
-}
-// Tests for [[vk::early_and_late_tests]]
-TEST_F(FileTest, VulkanEarlyAndLateTests) {
-  runFileTest("vk.early-and-lates-tests.hlsl");
-}
-TEST_F(FileTest, VulkanEarlyAndLateTestsDepthUnchanged) {
-  runFileTest("vk.early-and-lates-tests.depth-unchanged.hlsl");
-}
-TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefUnchangedFront) {
-  runFileTest("vk.early-and-lates-tests.stencil-ref-unchanged-front.hlsl");
-}
-TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefGreaterEqualFront) {
-  runFileTest("vk.early-and-lates-tests.stencil-ref-greater-equal-front.hlsl");
-}
-TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefLessEqualFront) {
-  runFileTest("vk.early-and-lates-tests.stencil-ref-less-equal-front.hlsl");
-}
-TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefUnchangedBack) {
-  runFileTest("vk.early-and-lates-tests.stencil-ref-unchanged-back.hlsl");
-}
-TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefGreaterEqualBack) {
-  runFileTest("vk.early-and-lates-tests.stencil-ref-greater-equal-back.hlsl");
-}
-TEST_F(FileTest, VulkanEarlyAndLateTestsStencilRefLessEqualBack) {
-  runFileTest("vk.early-and-lates-tests.stencil-ref-less-equal-back.hlsl");
-}
-
-// === MeshShading EXT examples ===
-TEST_F(FileTest, MeshShadingEXTMeshTriangle) {
-  runFileTest("meshshading.ext.triangle.mesh.hlsl");
-}
-
-TEST_F(FileTest, MeshShadingEXTAmplification) {
-  runFileTest("meshshading.ext.amplification.hlsl");
-}
-
-// === MeshShading NV examples ===
-TEST_F(FileTest, MeshShadingNVMeshTriangle) {
-  runFileTest("meshshading.nv.triangle.mesh.hlsl", Expect::Success);
-}
-TEST_F(FileTest, MeshShadingNVMeshLine) {
-  runFileTest("meshshading.nv.line.mesh.hlsl");
-}
-TEST_F(FileTest, MeshShadingNVMeshPoint) {
-  runFileTest("meshshading.nv.point.mesh.hlsl");
-}
-TEST_F(FileTest, MeshShadingNVMeshBuffer) {
-  runFileTest("meshshading.nv.buffer.mesh.hlsl", Expect::Success);
-}
-TEST_F(FileTest, MeshShadingNVAmplification) {
-  runFileTest("meshshading.nv.amplification.hlsl", Expect::Success);
-}
-TEST_F(FileTest, MeshShadingNVAmplificationFunCall) {
-  runFileTest("meshshading.nv.fncall.amplification.hlsl", Expect::Success);
-}
-
-TEST_F(FileTest, UseRValueForMemberExprOfArraySubscriptExpr) {
-  setBeforeHLSLLegalization();
-  runFileTest("use.rvalue.for.member-expr.of.array-subscript.hlsl",
-              Expect::Success);
-}
-
-TEST_F(FileTest, ReduceLoadSize) { runFileTest("reduce.load.size.hlsl"); }
-
-// Test OpEntryPoint in the Vulkan1.2 target environment
-TEST_F(FileTest, Vk1p2EntryPoint) { runFileTest("vk.1p2.entry-point.hlsl"); }
-
-// Test deprecation of BufferBlock decoration after SPIR-V 1.3.
-TEST_F(FileTest, Vk1p2BlockDecoration) {
-  runFileTest("vk.1p2.block-decoration.hlsl");
-}
-TEST_F(FileTest, Vk1p2RemoveBufferBlockRuntimeArray) {
-  runFileTest("vk.1p2.remove.bufferblock.runtimearray.hlsl");
-}
-
 // Test shaders that require Vulkan1.1 support with
 // -fspv-target-env=vulkan1.2 option to make sure that enabling
 // Vulkan1.2 also enables Vulkan1.1.
@@ -1860,11 +1717,6 @@ TEST_F(FileTest, CompatibilityWithVk1p1) {
   runFileTest("sm6.wave-read-lane-at.vulkan1.2.hlsl");
   runFileTest("sm6.wave-read-lane-first.vulkan1.2.hlsl");
   runFileTest("sm6.wave.builtin.no-dup.vulkan1.2.hlsl");
-}
-
-// Test the Vulkan1.3 target environment
-TEST_F(FileTest, Vk1p3DiscardToDemote) {
-  runFileTest("vk.1p3.discard.to-demote.hlsl");
 }
 
 TEST_F(FileTest, InlinedCodeTest) {
@@ -2008,22 +1860,6 @@ TEST_F(FileTest, PositionInVSWithInvalidMin10Float4Type) {
           "", "min10float4 x;", kInvalidPositionTypeForVSErrorMessage, true),
       Expect::Failure);
 }
-TEST_F(FileTest, RayQueryInitExpr) { runFileTest("rayquery_init_expr.hlsl"); }
-
-TEST_F(FileTest, VolatileInterfaceInRayGenVk1p1) {
-  runFileTest("volatile.interface.raygen.vk1p1.hlsl");
-}
-TEST_F(FileTest, VolatileInterfaceInRayGenVk1p2) {
-  runFileTest("volatile.interface.raygen.vk1p2.hlsl");
-}
-TEST_F(FileTest, VolatileInterfaceInRayGenVk1p3) {
-  runFileTest("volatile.interface.raygen.vk1p3.hlsl");
-}
-
-TEST_F(FileTest, SignaturePacking) { runFileTest("signature.packing.hlsl"); }
-TEST_F(FileTest, SignaturePackingHS) {
-  runFileTest("signature.packing.hs.hlsl");
-}
 TEST_F(FileTest, SourceCodeWithoutFilePath) {
   const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain -Zi)");
   const std::string code = command + R"(
@@ -2032,9 +1868,5 @@ float4 PSMain(float4 color : COLOR) : SV_TARGET { return color; }
 )";
   runCodeTest(code);
 }
-
-TEST_F(FileTest, RenameEntrypoint) { runFileTest("fspv-entrypoint-name.hlsl"); }
-
-TEST_F(FileTest, PrintAll) { runFileTest("fspv-print-all.hlsl"); }
 
 } // namespace
