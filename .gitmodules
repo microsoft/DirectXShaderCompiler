@@ -1,6 +1,3 @@
-[submodule "external/SPIRV-Headers"]
-	path = external/SPIRV-Headers
-	url = https://github.com/KhronosGroup/SPIRV-Headers
 [submodule "external/googletest"]
 	path = external/googletest
 	url = https://github.com/google/googletest
