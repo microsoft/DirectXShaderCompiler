@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 [[vk::constant_id(0)]] const uint kConst = 1;
 

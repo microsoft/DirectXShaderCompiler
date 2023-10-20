@@ -1,7 +1,7 @@
 // Test that the we can correctly compile the compute shader when the
 // subpass input is used in  PsSubpassTest, but not in the compute shader.
 
-// RUN: %dxc -T cs_6_0 -E CsTest
+// RUN: %dxc -T cs_6_0 -E CsTest -fcgl  %s -spirv | FileCheck %s
 
 // The subpass input variable should not be in the module.
 // CHECK-NOT: %subInput

@@ -1,12 +1,12 @@
-// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing
+// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
-// CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV
-// CHECK:  OpDecorate [[b:%\d+]] BuiltIn LaunchSizeNV
-// CHECK:  OpDecorate [[c:%\d+]] BuiltIn WorldRayOriginNV
-// CHECK:  OpDecorate [[d:%\d+]] BuiltIn WorldRayDirectionNV
-// CHECK:  OpDecorate [[e:%\d+]] BuiltIn RayTminNV
-// CHECK:  OpDecorate [[f:%\d+]] BuiltIn IncomingRayFlagsNV
+// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdNV
+// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeNV
+// CHECK:  OpDecorate [[c:%[0-9]+]] BuiltIn WorldRayOriginNV
+// CHECK:  OpDecorate [[d:%[0-9]+]] BuiltIn WorldRayDirectionNV
+// CHECK:  OpDecorate [[e:%[0-9]+]] BuiltIn RayTminNV
+// CHECK:  OpDecorate [[f:%[0-9]+]] BuiltIn IncomingRayFlagsNV
 
 // CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
 struct Payload

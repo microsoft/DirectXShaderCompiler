@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct T {
     float2 val[3];
@@ -25,14 +25,14 @@ S pcs;
 
 float main() : A {
     return
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_PushConstant_float %pcs %int_0
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_PushConstant_float %pcs %int_0
         pcs.f1 +
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_PushConstant_v3float %pcs %int_1
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_PushConstant_float [[ptr]] %int_2
+// CHECK: [[ptr:%[0-9]+]] = OpAccessChain %_ptr_PushConstant_v3float %pcs %int_1
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_PushConstant_float [[ptr]] %int_2
         pcs.f2.z +
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_PushConstant_float %pcs %int_2 %uint_1 %uint_2
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_PushConstant_float %pcs %int_2 %uint_1 %uint_2
         pcs.f3[1][2] +
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_PushConstant_v2float %pcs %int_3 %int_0 %int_2
-// CHECK:     {{%\d+}} = OpAccessChain %_ptr_PushConstant_float [[ptr]] %int_1
+// CHECK: [[ptr_0:%[0-9]+]] = OpAccessChain %_ptr_PushConstant_v2float %pcs %int_3 %int_0 %int_2
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_PushConstant_float [[ptr_0]] %int_1
         pcs.f4.val[2].y;
 }

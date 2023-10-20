@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -HV 2018 -E main
+// RUN: %dxc -T ps_6_0 -HV 2018 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %y SpecId 0
 [[vk::constant_id(0)]] const bool y = false;

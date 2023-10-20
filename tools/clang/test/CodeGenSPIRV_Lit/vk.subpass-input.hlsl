@@ -1,8 +1,8 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability InputAttachment
 
-// CHECK:  [[v2i00:%\d+]] = OpConstantComposite %v2int %int_0 %int_0
+// CHECK:  [[v2i00:%[0-9]+]] = OpConstantComposite %v2int %int_0 %int_0
 
 // CHECK: %type_subpass_image = OpTypeImage %float SubpassData 2 0 0 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image = OpTypePointer UniformConstant %type_subpass_image
@@ -41,44 +41,44 @@
 [[vk::input_attachment_index(13)]] SubpassInputMS<uint>   SIMS_u1;
 
 float4 main() : SV_Target {
-// CHECK:        [[img:%\d+]] = OpLoad %type_subpass_image %SI_f4
-// CHECK-NEXT: [[texel:%\d+]] = OpImageRead %v4float [[img]] [[v2i00]] None
+// CHECK:        [[img:%[0-9]+]] = OpLoad %type_subpass_image %SI_f4
+// CHECK-NEXT: [[texel:%[0-9]+]] = OpImageRead %v4float [[img]] [[v2i00]] None
 // CHECK-NEXT:                  OpStore %v0 [[texel]]
     float4 v0 = SI_f4.SubpassLoad();
-// CHECK:        [[img:%\d+]] = OpLoad %type_subpass_image_0 %SI_i3
-// CHECK-NEXT: [[texel:%\d+]] = OpImageRead %v4int [[img]] [[v2i00]] None
-// CHECK-NEXT:   [[val:%\d+]] = OpVectorShuffle %v3int [[texel]] [[texel]] 0 1 2
+// CHECK:        [[img_0:%[0-9]+]] = OpLoad %type_subpass_image_0 %SI_i3
+// CHECK-NEXT: [[texel_0:%[0-9]+]] = OpImageRead %v4int [[img_0]] [[v2i00]] None
+// CHECK-NEXT:   [[val:%[0-9]+]] = OpVectorShuffle %v3int [[texel_0]] [[texel_0]] 0 1 2
 // CHECK-NEXT:                  OpStore %v1 [[val]]
     int3   v1 = SI_i3.SubpassLoad();
-// CHECK:        [[img:%\d+]] = OpLoad %type_subpass_image_1 %SI_u2
-// CHECK-NEXT: [[texel:%\d+]] = OpImageRead %v4uint [[img]] [[v2i00]] None
-// CHECK-NEXT:   [[val:%\d+]] = OpVectorShuffle %v2uint [[texel]] [[texel]] 0 1
-// CHECK-NEXT:                  OpStore %v2 [[val]]
+// CHECK:        [[img_1:%[0-9]+]] = OpLoad %type_subpass_image_1 %SI_u2
+// CHECK-NEXT: [[texel_1:%[0-9]+]] = OpImageRead %v4uint [[img_1]] [[v2i00]] None
+// CHECK-NEXT:   [[val_0:%[0-9]+]] = OpVectorShuffle %v2uint [[texel_1]] [[texel_1]] 0 1
+// CHECK-NEXT:                  OpStore %v2 [[val_0]]
     uint2  v2 = SI_u2.SubpassLoad();
-// CHECK:        [[img:%\d+]] = OpLoad %type_subpass_image %SI_f1
-// CHECK-NEXT: [[texel:%\d+]] = OpImageRead %v4float [[img]] [[v2i00]] None
-// CHECK-NEXT:   [[val:%\d+]] = OpCompositeExtract %float [[texel]] 0
-// CHECK-NEXT:                  OpStore %v3 [[val]]
+// CHECK:        [[img_2:%[0-9]+]] = OpLoad %type_subpass_image %SI_f1
+// CHECK-NEXT: [[texel_2:%[0-9]+]] = OpImageRead %v4float [[img_2]] [[v2i00]] None
+// CHECK-NEXT:   [[val_1:%[0-9]+]] = OpCompositeExtract %float [[texel_2]] 0
+// CHECK-NEXT:                  OpStore %v3 [[val_1]]
     float  v3 = SI_f1.SubpassLoad();
 
-// CHECK:        [[img:%\d+]] = OpLoad %type_subpass_image_2 %SIMS_u4
-// CHECK-NEXT: [[texel:%\d+]] = OpImageRead %v4uint [[img]] [[v2i00]] Sample %int_1
-// CHECK-NEXT:                  OpStore %v10 [[texel]]
+// CHECK:        [[img_3:%[0-9]+]] = OpLoad %type_subpass_image_2 %SIMS_u4
+// CHECK-NEXT: [[texel_3:%[0-9]+]] = OpImageRead %v4uint [[img_3]] [[v2i00]] Sample %int_1
+// CHECK-NEXT:                  OpStore %v10 [[texel_3]]
     uint4  v10 = SIMS_u4.SubpassLoad(1);
-// CHECK:        [[img:%\d+]] = OpLoad %type_subpass_image_3 %SIMS_f3
-// CHECK-NEXT: [[texel:%\d+]] = OpImageRead %v4float [[img]] [[v2i00]] Sample %int_2
-// CHECK-NEXT:   [[val:%\d+]] = OpVectorShuffle %v3float [[texel]] [[texel]] 0 1 2
-// CHECK-NEXT:                  OpStore %v11 [[val]]
+// CHECK:        [[img_4:%[0-9]+]] = OpLoad %type_subpass_image_3 %SIMS_f3
+// CHECK-NEXT: [[texel_4:%[0-9]+]] = OpImageRead %v4float [[img_4]] [[v2i00]] Sample %int_2
+// CHECK-NEXT:   [[val_2:%[0-9]+]] = OpVectorShuffle %v3float [[texel_4]] [[texel_4]] 0 1 2
+// CHECK-NEXT:                  OpStore %v11 [[val_2]]
     float3 v11 = SIMS_f3.SubpassLoad(2);
-// CHECK:        [[img:%\d+]] = OpLoad %type_subpass_image_4 %SIMS_i2
-// CHECK-NEXT: [[texel:%\d+]] = OpImageRead %v4int [[img]] [[v2i00]] Sample %int_3
-// CHECK-NEXT:   [[val:%\d+]] = OpVectorShuffle %v2int [[texel]] [[texel]] 0 1
-// CHECK-NEXT:                  OpStore %v12 [[val]]
+// CHECK:        [[img_5:%[0-9]+]] = OpLoad %type_subpass_image_4 %SIMS_i2
+// CHECK-NEXT: [[texel_5:%[0-9]+]] = OpImageRead %v4int [[img_5]] [[v2i00]] Sample %int_3
+// CHECK-NEXT:   [[val_3:%[0-9]+]] = OpVectorShuffle %v2int [[texel_5]] [[texel_5]] 0 1
+// CHECK-NEXT:                  OpStore %v12 [[val_3]]
     int2   v12 = SIMS_i2.SubpassLoad(3);
-// CHECK:        [[img:%\d+]] = OpLoad %type_subpass_image_2 %SIMS_u1
-// CHECK-NEXT: [[texel:%\d+]] = OpImageRead %v4uint [[img]] [[v2i00]] Sample %int_4
-// CHECK-NEXT:   [[val:%\d+]] = OpCompositeExtract %uint [[texel]] 0
-// CHECK-NEXT:                  OpStore %v13 [[val]]
+// CHECK:        [[img_6:%[0-9]+]] = OpLoad %type_subpass_image_2 %SIMS_u1
+// CHECK-NEXT: [[texel_6:%[0-9]+]] = OpImageRead %v4uint [[img_6]] [[v2i00]] Sample %int_4
+// CHECK-NEXT:   [[val_4:%[0-9]+]] = OpCompositeExtract %uint [[texel_6]] 0
+// CHECK-NEXT:                  OpStore %v13 [[val_4]]
     uint   v13 = SIMS_u1.SubpassLoad(4);
 
     return v0.x + v1.y + v2.x + v3 + v10.x + v11.y + v12.x + v13;

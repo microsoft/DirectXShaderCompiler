@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_1 -E main
+// RUN: %dxc -T hs_6_1 -E main -fcgl  %s -spirv | FileCheck %s
 
 // Test: Both entry point and PCF Takes ViewID
 
@@ -6,11 +6,11 @@
 // CHECK:      OpExtension "SPV_KHR_multiview"
 
 // CHECK:      OpEntryPoint TessellationControl
-// CHECK-SAME: [[viewindex:%\d+]]
+// CHECK-SAME: [[viewindex:%[0-9]+]]
 
 // CHECK:      OpDecorate [[viewindex]] BuiltIn ViewIndex
 
-// CHECK:      [[pcfType:%\d+]] = OpTypeFunction %HsPcfOut %_ptr_Function_uint
+// CHECK:      [[pcfType:%[0-9]+]] = OpTypeFunction %HsPcfOut %_ptr_Function_uint
 // CHECK:         [[viewindex]] = OpVariable %_ptr_Input_uint Input
 
 #define NumOutPoints 2
@@ -45,12 +45,12 @@ HsCpOut main(InputPatch<HsCpIn, NumOutPoints> patch,
     HsCpOut output;
     output = (HsCpOut)0;
     return output;
-// CHECK:             %main = OpFunction %void None {{%\d+}}
+// CHECK:             %main = OpFunction %void None {{%[0-9]+}}
 // CHECK: %param_var_viewid = OpVariable %_ptr_Function_uint Function
 
-// CHECK:      [[val:%\d+]] = OpLoad %uint [[viewindex]]
+// CHECK:      [[val:%[0-9]+]] = OpLoad %uint [[viewindex]]
 // CHECK:                     OpStore %param_var_viewid [[val]]
-// CHECK:          {{%\d+}} = OpFunctionCall %HsPcfOut %pcf %param_var_viewid
+// CHECK:          {{%[0-9]+}} = OpFunctionCall %HsPcfOut %pcf %param_var_viewid
 
 // CHECK:              %pcf = OpFunction %HsPcfOut None [[pcfType]]
 // CHECK:           %viewid = OpFunctionParameter %_ptr_Function_uint

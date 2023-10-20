@@ -1,10 +1,10 @@
-// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fspv-extension=SPV_KHR_ray_query
+// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fspv-extension=SPV_KHR_ray_query -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
-// CHECK:  OpDecorate [[a:%\d+]] BuiltIn LaunchIdNV
-// CHECK:  OpDecorate [[b:%\d+]] BuiltIn LaunchSizeNV
+// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdNV
+// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeNV
 
-// CHECK-COUNT-1: [[rstype:%\d+]] = OpTypeAccelerationStructureNV
+// CHECK-COUNT-1: [[rstype:%[0-9]+]] = OpTypeAccelerationStructureNV
 RaytracingAccelerationStructure rs;
 
 struct Payload
@@ -31,7 +31,7 @@ void main() {
   rayDesc.Direction = float3(0.0f, 0.0f, -1.0f);
   rayDesc.TMin = 0.0f;
   rayDesc.TMax = 1000.0f;
-  // CHECK: OpTraceNV {{%\d+}} %uint_0 %uint_255 %uint_0 %uint_1 %uint_0 {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %uint_0
+  // CHECK: OpTraceNV {{%[0-9]+}} %uint_0 %uint_255 %uint_0 %uint_1 %uint_0 {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %uint_0
   TraceRay(rs, 0x0, 0xff, 0, 1, 0, rayDesc, myPayload);
   // CHECK: OpExecuteCallableNV %uint_0 %uint_0
   CallShader(0, myCallData);

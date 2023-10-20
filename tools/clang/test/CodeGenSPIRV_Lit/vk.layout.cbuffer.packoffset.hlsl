@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpMemberDecorate %type_MyCBuffer 0 Offset 0
 // CHECK: OpMemberDecorate %type_MyCBuffer 1 Offset 32

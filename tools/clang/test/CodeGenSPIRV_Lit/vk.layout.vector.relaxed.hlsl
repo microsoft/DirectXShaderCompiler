@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
     // For ConstantBuffer & cbuffer
 // CHECK: OpMemberDecorate %S 0 Offset 0

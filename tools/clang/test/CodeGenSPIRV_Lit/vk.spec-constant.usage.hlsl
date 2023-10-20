@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %specConst SpecId 10
 [[vk::constant_id(10)]]
@@ -14,7 +14,7 @@ cbuffer Data {
 };
 */
 
-// CHECK: [[add:%\d+]] = OpSpecConstantOp %int IAdd %specConst %int_3
+// CHECK: [[add:%[0-9]+]] = OpSpecConstantOp %int IAdd %specConst %int_3
 static const int val = specConst + 3;
 
 // CHECK-LABEL:  %main = OpFunction

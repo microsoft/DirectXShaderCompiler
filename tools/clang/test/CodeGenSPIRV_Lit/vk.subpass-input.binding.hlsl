@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %SI0 InputAttachmentIndex 0
 // CHECK: OpDecorate %SI1 InputAttachmentIndex 1

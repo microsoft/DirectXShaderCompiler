@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct HSCtrlPt {
   float4 ctrlPt : CONTROLPOINT;
@@ -17,13 +17,13 @@ HSPatchConstData HSPatchConstantFunc(const OutputPatch<HSCtrlPt, 3> input) {
 
 // CHECK: %input = OpFunctionParameter %_ptr_Function__arr_HSCtrlPt_uint_3
 
-// CHECK: [[OutCtrl0:%\d+]] = OpAccessChain %_ptr_Function_v4float %input %uint_0 %int_0
-// CHECK:   [[input0:%\d+]] = OpLoad %v4float [[OutCtrl0]]
-// CHECK: [[OutCtrl1:%\d+]] = OpAccessChain %_ptr_Function_v4float %input %uint_1 %int_0
-// CHECK:   [[input1:%\d+]] = OpLoad %v4float [[OutCtrl1]]
-// CHECK:      [[add:%\d+]] = OpFAdd %v4float [[input0]] [[input1]]
-// CHECK: [[OutCtrl2:%\d+]] = OpAccessChain %_ptr_Function_v4float %input %uint_2 %int_0
-// CHECK:   [[input2:%\d+]] = OpLoad %v4float [[OutCtrl2]]
+// CHECK: [[OutCtrl0:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %input %uint_0 %int_0
+// CHECK:   [[input0:%[0-9]+]] = OpLoad %v4float [[OutCtrl0]]
+// CHECK: [[OutCtrl1:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %input %uint_1 %int_0
+// CHECK:   [[input1:%[0-9]+]] = OpLoad %v4float [[OutCtrl1]]
+// CHECK:      [[add:%[0-9]+]] = OpFAdd %v4float [[input0]] [[input1]]
+// CHECK: [[OutCtrl2:%[0-9]+]] = OpAccessChain %_ptr_Function_v4float %input %uint_2 %int_0
+// CHECK:   [[input2:%[0-9]+]] = OpLoad %v4float [[OutCtrl2]]
 // CHECK:                     OpFAdd %v4float [[add]] [[input2]]
   data.constData = input[0].ctrlPt + input[1].ctrlPt + input[2].ctrlPt;
 

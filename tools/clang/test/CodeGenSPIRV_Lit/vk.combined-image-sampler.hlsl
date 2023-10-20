@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -O0
+// RUN: %dxc -T ps_6_0 -E main -O0  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %tex0 DescriptorSet 1
 // CHECK: OpDecorate %tex0 Binding 0
@@ -47,22 +47,22 @@ float4 sampleLevel(int i) {
 float4 main(int3 offset: A) : SV_Target {
   float4 ret = 0;
 
-// CHECK: [[tex0:%\w+]] = OpLoad %type_sampled_image %tex0
+// CHECK: [[tex0:%[a-zA-Z0-9_]+]] = OpLoad %type_sampled_image %tex0
 // CHECK: OpImageSampleExplicitLod %v4float [[tex0]]
   ret += sampleLevel(0);
 
-// CHECK: [[tex1:%\w+]] = OpLoad %type_sampled_image %tex1
+// CHECK: [[tex1:%[a-zA-Z0-9_]+]] = OpLoad %type_sampled_image %tex1
 // CHECK: OpImageSampleExplicitLod %v4float [[tex1]]
   ret += sampleLevel(1);
 
-// CHECK: [[tex2:%\w+]] = OpLoad %type_sampled_image %tex2
+// CHECK: [[tex2:%[a-zA-Z0-9_]+]] = OpLoad %type_sampled_image %tex2
 // CHECK: OpImageSampleExplicitLod %v4float [[tex2]]
   ret += sampleLevel(2);
 
-// CHECK: [[tex0:%\w+]] = OpLoad %type_sampled_image %tex0
-// CHECK: [[img_extracted_from_tex0:%\w+]] = OpImage %type_2d_image [[tex0]]
-// CHECK: [[sam3:%\w+]] = OpLoad %type_sampler %sam3
-// CHECK: [[sampled_image:%\w+]] = OpSampledImage %type_sampled_image [[img_extracted_from_tex0]] [[sam3]]
+// CHECK: [[tex0_0:%[a-zA-Z0-9_]+]] = OpLoad %type_sampled_image %tex0
+// CHECK: [[img_extracted_from_tex0:%[a-zA-Z0-9_]+]] = OpImage %type_2d_image [[tex0_0]]
+// CHECK: [[sam3:%[a-zA-Z0-9_]+]] = OpLoad %type_sampler %sam3
+// CHECK: [[sampled_image:%[a-zA-Z0-9_]+]] = OpSampledImage %type_sampled_image [[img_extracted_from_tex0]] [[sam3]]
 // CHECK: OpImageSampleExplicitLod %v4float [[sampled_image]]
   ret += getTexture(0).SampleLevel(getSampler(3), float2(1, 2), 10, 2);
 

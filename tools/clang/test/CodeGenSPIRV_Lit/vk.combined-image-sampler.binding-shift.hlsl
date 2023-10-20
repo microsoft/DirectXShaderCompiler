@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fvk-t-shift 10 0 -fvk-s-shift 20 0
+// RUN: %dxc -T ps_6_0 -E main -fvk-t-shift 10 0 -fvk-s-shift 20 0 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %sam DescriptorSet 0
 // CHECK: OpDecorate %sam Binding 10
