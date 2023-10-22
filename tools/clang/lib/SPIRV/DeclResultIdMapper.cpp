@@ -1018,6 +1018,12 @@ SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
 SpirvVariable *
 DeclResultIdMapper::createFileVar(const VarDecl *var,
                                   llvm::Optional<SpirvInstruction *> init) {
+  // In the case of template specialization, the same VarDecl node in the AST
+  // may be traversed more than once.
+  if (astDecls[var].instr != nullptr) {
+    return cast<SpirvVariable>(astDecls[var].instr);
+  }
+
   const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
   const auto name = var->getName();

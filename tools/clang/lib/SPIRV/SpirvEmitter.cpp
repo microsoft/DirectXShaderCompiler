@@ -11954,8 +11954,6 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   // types.
   // 2. User defined structure types, which may be used in function local
   // variables (AccessChain add index 0 at end)
-  // 3. Stage In Out variables: focus on boolType (NotEqual) and Extract (add
-  // index 0 at end)
   const auto exprLoc = expr->getExprLoc();
   const auto exprRange = expr->getSourceRange();
 

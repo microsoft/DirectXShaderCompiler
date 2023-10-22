@@ -159,9 +159,8 @@ PervertexInputVisitor::addFunctionTempVar(llvm::StringRef varName,
 
 ///< When use temp variables within a function, we need to add load/store ops.
 ///< TIP: A nointerpolated input or function parameter will be treated as
-///< input.vtx0
-///<      within current function, but would be treated as an array will pass to
-///<      a function call.
+///< input.vtx0 within current function, but would be treated as an array will
+///< pass to a function call.
 SpirvInstruction *
 PervertexInputVisitor::createVertexLoad(SpirvInstruction *base) {
   SpirvInstruction *loadPtr = new (context)
@@ -200,9 +199,9 @@ bool PervertexInputVisitor::visit(SpirvModule *m, Phase phase) {
 }
 
 bool PervertexInputVisitor::visit(SpirvEntryPoint *ep) {
-  // Add var mapping here. First function would be main.
+  // Add variable mapping here. First function would be main.
   currentFunc = ep->getEntryPoint();
-  /// Refine stg IO variables
+  /// Refine stage in/out variables
   for (auto *var : currentMod->getVariables()) {
     if (!var->isNoninterpolated() ||
         var->getStorageClass() != spv::StorageClass::Input)
@@ -216,7 +215,7 @@ bool PervertexInputVisitor::visit(SpirvEntryPoint *ep) {
 }
 
 bool PervertexInputVisitor::visit(SpirvFunction *sf, Phase phase) {
-  // Add var mapping here. First function would be main.
+  // Add variable mapping here. First function would be main.
   currentFunc = sf;
   inEntryFunctionWrapper = false;
   if (sf->isEntryFunctionWrapper()) {
@@ -249,7 +248,7 @@ bool PervertexInputVisitor::visit(SpirvFunction *sf, Phase phase) {
   return true;
 }
 
-/// Spirv Instruction check and ptr replacement if needed.
+/// Spirv Instruction check and pointer replacement if needed.
 bool PervertexInputVisitor::visit(SpirvVariable *inst) {
   if (expandNointerpVarAndParam(inst) &&
       inst->getStorageClass() == spv::StorageClass::Input)
@@ -297,16 +296,16 @@ bool PervertexInputVisitor::visit(SpirvAccessChain *inst) {
   return true;
 }
 
-// Only replace arg if not in entry function.
+// Only replace argument if not in entry function.
 // If an expanded variable/parameter is passed to a function,
-// recreate a pair of S/L instructions.
+// recreate a pair of Store/Load instructions.
 bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
   /// Replace each use of pervertex inputs with its vertex0 element within
   /// functions. But pass it as an array if meet function call.
   if (inEntryFunctionWrapper)
     return true;
-  /// Load/Store instructions related to this arg may have been replaced with
-  /// other instructions, so we need to get its original mapped variables.
+  /// Load/Store instructions related to this argument may have been replaced
+  /// with other instructions, so we need to get its original mapped variables.
   for (auto *arg : inst->getArgs())
     if (currentFunc->getMappedFuncParam(arg)) {
       createVertexStore(arg,
