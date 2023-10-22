@@ -171,9 +171,10 @@ public:
   // Invokes SPIR-V visitor on this instruction.
   virtual bool invokeVisitor(Visitor *) = 0;
 
-  // Replace operands with a function callable ref, and if needed, refresh instr result type.
-  // If current visitor is in entry func wrapper, avoid refresh its AST result type.
-  virtual void operandReplace(
+  // Replace operands with a function callable reference, and if needed,
+  // refresh instrunctions result type. If current visitor is in entry
+  // function wrapper, avoid refresh its AST result type.
+  virtual void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper){};
 
@@ -527,7 +528,6 @@ public:
   SpirvFunction *getTargetFunc() const { return targetFunction; }
   spv::Decoration getDecoration() const { return decoration; }
   llvm::ArrayRef<uint32_t> getParams() const { return params; }
-  void setParam(uint32_t p, uint32_t idx) { params[idx] = p; }
   llvm::ArrayRef<SpirvInstruction *> getIdParams() const { return idParams; }
   bool isMemberDecoration() const { return index.hasValue(); }
   uint32_t getMemberIndex() const { return index.getValue(); }
@@ -587,8 +587,8 @@ public:
   SpirvFunctionParameter(QualType resultType, bool isPrecise, bool isNointerp,
                          SourceLocation loc);
 
-  SpirvFunctionParameter(const SpirvType *spvType, bool isPrecise, bool isNointerp,
-                         SourceLocation loc);
+  SpirvFunctionParameter(const SpirvType *spvType, bool isPrecise,
+                         bool isNointerp, SourceLocation loc);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvFunctionParameter)
 
@@ -764,7 +764,7 @@ public:
   SpirvInstruction *getCondition() const { return condition; }
   SpirvBasicBlock *getTrueLabel() const { return trueLabel; }
   SpirvBasicBlock *getFalseLabel() const { return falseLabel; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     condition = remapOp(condition);
@@ -808,7 +808,7 @@ public:
 
   bool hasReturnValue() const { return returnValue != 0; }
   SpirvInstruction *getReturnValue() const { return returnValue; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     returnValue = remapOp(returnValue);
@@ -844,7 +844,7 @@ public:
   SpirvBasicBlock *getTargetLabelForLiteral(uint32_t) const;
   // Returns all possible branches that could be taken by the switch statement.
   llvm::ArrayRef<SpirvBasicBlock *> getTargetBranches() const override;
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     selector = remapOp(selector);
@@ -961,7 +961,7 @@ public:
     return memorySemanticUnequal;
   }
 
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     pointer = remapOp(pointer);
@@ -1090,7 +1090,7 @@ public:
   bool isSpecConstantOp() const {
     return getopcode() == spv::Op::OpSpecConstantOp;
   }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     operand1 = remapOp(operand1);
@@ -1117,7 +1117,7 @@ public:
   virtual SpirvInstruction *getBase() const { return base; }
   virtual SpirvInstruction *getOffset() const { return offset; }
   virtual SpirvInstruction *getCount() const { return count; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     count = remapOp(count);
@@ -1172,13 +1172,14 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getInsert() const { return insert; }
-  
-  void operandReplace(
+
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
-    SpirvBitField::operandReplace(remapOp, inEntryFunctionWrapper);
+    SpirvBitField::replaceOperand(remapOp, inEntryFunctionWrapper);
     insert = remapOp(insert);
   }
+
 private:
   SpirvInstruction *insert;
 };
@@ -1326,7 +1327,7 @@ public:
     return consituents;
   }
 
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     for (size_t idx = 0; idx < consituents.size(); idx++)
@@ -1388,7 +1389,7 @@ public:
   SpirvInstruction *getComposite() const { return composite; }
   SpirvInstruction *getObject() const { return object; }
   llvm::ArrayRef<uint32_t> getIndexes() const { return indices; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     composite = remapOp(composite);
@@ -1451,7 +1452,7 @@ public:
   uint32_t getInstruction() const { return instruction; }
   llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
 
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     for (size_t idx = 0; idx < operands.size(); idx++)
@@ -1483,7 +1484,7 @@ public:
 
   SpirvFunction *getFunction() const { return function; }
   llvm::ArrayRef<SpirvInstruction *> getArgs() const { return args; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     for (size_t idx = 0; idx < args.size(); idx++)
@@ -1532,7 +1533,7 @@ public:
 
   SpirvInstruction *getArg1() const { return arg1; }
   SpirvInstruction *getArg2() const { return arg2; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     arg1 = remapOp(arg1);
@@ -1581,7 +1582,7 @@ public:
   SpirvInstruction *getArg() const { return arg; }
   bool hasGroupOp() const { return groupOp.hasValue(); }
   spv::GroupOperation getGroupOp() const { return groupOp.getValue(); }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     arg = remapOp(arg);
@@ -1676,7 +1677,7 @@ public:
   SpirvInstruction *getMinLod() const { return minLod; }
   SpirvInstruction *getComponent() const { return component; }
   SpirvInstruction *getTexelToWrite() const { return texelToWrite; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     coordinate = remapOp(coordinate);
@@ -1738,7 +1739,7 @@ public:
   SpirvInstruction *getLod() const { return lod; }
   bool hasCoordinate() const { return coordinate != nullptr; }
   SpirvInstruction *getCoordinate() const { return coordinate; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     lod = remapOp(lod);
@@ -1795,7 +1796,7 @@ public:
   SpirvInstruction *getImage() const { return image; }
   SpirvInstruction *getCoordinate() const { return coordinate; }
   SpirvInstruction *getSample() const { return sample; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     coordinate = remapOp(coordinate);
@@ -1824,7 +1825,6 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getPointer() const { return pointer; }
-  void setPointer(SpirvInstruction *inst) { pointer = inst; }
   bool hasMemoryAccessSemantics() const { return memoryAccess.hasValue(); }
   spv::MemoryAccessMask getMemoryAccess() const {
     return memoryAccess.getValue();
@@ -1833,7 +1833,7 @@ public:
   void setAlignment(uint32_t alignment);
   bool hasAlignment() const { return memoryAlignment.hasValue(); }
   uint32_t getAlignment() const { return memoryAlignment.getValue(); }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     pointer = remapOp(pointer);
@@ -1863,7 +1863,7 @@ public:
   bool invokeVisitor(Visitor *v) override;
 
   SpirvInstruction *getPointer() const { return pointer; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     pointer = remapOp(pointer);
@@ -1921,7 +1921,7 @@ public:
   SpirvInstruction *getCondition() const { return condition; }
   SpirvInstruction *getTrueObject() const { return trueObject; }
   SpirvInstruction *getFalseObject() const { return falseObject; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     condition = remapOp(condition);
@@ -2011,13 +2011,15 @@ public:
   void setAlignment(uint32_t alignment);
   bool hasAlignment() const { return memoryAlignment.hasValue(); }
   uint32_t getAlignment() const { return memoryAlignment.getValue(); }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     pointer = remapOp(pointer);
     object = remapOp(object);
-    if (inEntryFunctionWrapper && object->getAstResultType() != pointer->getAstResultType() &&
-      isa<SpirvVariable>(pointer) && pointer->getStorageClass() == spv::StorageClass::Output)
+    if (inEntryFunctionWrapper &&
+        object->getAstResultType() != pointer->getAstResultType() &&
+        isa<SpirvVariable>(pointer) &&
+        pointer->getStorageClass() == spv::StorageClass::Output)
       pointer->setAstResultType(object->getAstResultType());
   }
 
@@ -2106,7 +2108,7 @@ public:
 
   SpirvInstruction *getOperand() const { return operand; }
   bool isConversionOp() const;
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     operand = remapOp(operand);
@@ -2136,7 +2138,7 @@ public:
   SpirvInstruction *getVec1() const { return vec1; }
   SpirvInstruction *getVec2() const { return vec2; }
   llvm::ArrayRef<uint32_t> getComponents() const { return components; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     vec1 = remapOp(vec1);
@@ -2303,7 +2305,7 @@ public:
   llvm::ArrayRef<std::string> getExtensions() const { return extensions; }
   SpirvExtInstImport *getInstructionSet() const { return instructionSet; }
   uint32_t getInstruction() const { return instruction; }
-  void operandReplace(
+  void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
     for (size_t idx = 0; idx < operands.size(); idx++)

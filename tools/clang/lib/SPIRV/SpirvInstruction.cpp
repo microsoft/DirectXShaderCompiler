@@ -123,7 +123,7 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
       layoutRule(SpirvLayoutRule::Void), containsAlias(false),
       storageClass(spv::StorageClass::Function), isRValue_(false),
       isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false),
-      isRasterizerOrdered_(false), isNoninterpolated_(false) {}
+      isNoninterpolated_(false), isRasterizerOrdered_(false) {}
 
 bool SpirvInstruction::isArithmeticInstruction() const {
   switch (opcode) {
@@ -291,8 +291,8 @@ bool SpirvDecoration::operator==(const SpirvDecoration &that) const {
 }
 
 SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
-                             spv::StorageClass sc, bool precise, bool isNointerp,
-                             SpirvInstruction *initializerInst)
+                             spv::StorageClass sc, bool precise,
+                             bool isNointerp, SpirvInstruction *initializerInst)
     : SpirvInstruction(IK_Variable, spv::Op::OpVariable, resultType, loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
       hlslUserType("") {
@@ -302,8 +302,8 @@ SpirvVariable::SpirvVariable(QualType resultType, SourceLocation loc,
 }
 
 SpirvVariable::SpirvVariable(const SpirvType *spvType, SourceLocation loc,
-                             spv::StorageClass sc, bool precise, bool isNointerp,
-                             SpirvInstruction *initializerInst)
+                             spv::StorageClass sc, bool precise,
+                             bool isNointerp, SpirvInstruction *initializerInst)
     : SpirvInstruction(IK_Variable, spv::Op::OpVariable, QualType(), loc),
       initializer(initializerInst), descriptorSet(-1), binding(-1),
       hlslUserType("") {

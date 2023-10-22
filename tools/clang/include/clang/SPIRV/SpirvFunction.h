@@ -59,10 +59,8 @@ public:
     return parameters;
   }
 
-  // Gets the vector of parameters.
-  std::vector<SpirvVariable *> getVariables() {
-    return variables;
-  }
+  // Gets the vector of variables.
+  std::vector<SpirvVariable *> getVariables() { return variables; }
 
   // Sets the SPIR-V type of the function
   void setFunctionType(SpirvType *type) { fnType = type; }
@@ -147,7 +145,7 @@ public:
   void addFuncParamVarEntry(SpirvInstruction *v, SpirvInstruction *p) {
     funcVarParamMap[v] = p;
   }
-  SpirvInstruction * getMappedFuncParam(SpirvInstruction *v) {
+  SpirvInstruction *getMappedFuncParam(SpirvInstruction *v) {
     return funcVarParamMap.lookup(v);
   }
 

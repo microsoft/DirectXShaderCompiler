@@ -1,4 +1,4 @@
-//===--- PervertexInputVisitor.h ---- PerVertex Input Visitor -------------------*- C++ -*-==//
+//===--- PervertexInputVisitor.h ---- PerVertex Input Visitor ----------------//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,63 +11,60 @@
 #define LLVM_CLANG_LIB_SPIRV_PERVERTEXINPUTVISITOR_H
 
 #include "clang/AST/ASTContext.h"
-#include "clang/SPIRV/SpirvContext.h"
-#include "clang/SPIRV/SpirvVisitor.h"
-#include "clang/SPIRV/SpirvModule.h"
 #include "clang/SPIRV/SpirvBuilder.h"
+#include "clang/SPIRV/SpirvContext.h"
+#include "clang/SPIRV/SpirvModule.h"
+#include "clang/SPIRV/SpirvVisitor.h"
 
 namespace clang {
 namespace spirv {
 
 class PervertexInputVisitor : public Visitor {
 public:
-  PervertexInputVisitor(SpirvBuilder &spvBuilder, ASTContext &astCtx, SpirvContext &spvCtx,
-                        const SpirvCodeGenOptions &opts)
+  PervertexInputVisitor(SpirvBuilder &spvBuilder, ASTContext &astCtx,
+                        SpirvContext &spvCtx, const SpirvCodeGenOptions &opts)
       : Visitor(opts, spvCtx), inEntryFunctionWrapper(false),
-        spirvBuilder(spvBuilder), astContext(astCtx),
-        currentMod(nullptr), currentFunc(nullptr) {}
+        spirvBuilder(spvBuilder), astContext(astCtx), currentMod(nullptr),
+        currentFunc(nullptr) {}
 
   ///< Don't add extra index to a simple vector/matrix elem access when base is
   ///< not expanded.
   bool isNotExpandedVectorAccess(QualType baseType, QualType resultType);
 
-  ///< After expanding inputs, location need reassignment.
-  void reassignInputsLocation();
-
   ///< Expand nointerpolation decorated variables/parameters.
-  ///< If a variable/parameter is passed from a decorated inputs, it should be treated as
-  ///< nointerpolated too.
+  ///< If a variable/parameter is passed from a decorated inputs, it should be
+  ///< treated as nointerpolated too.
   bool expandNointerpVarAndParam(SpirvInstruction *spvInst);
 
   bool expandNointerpStructure(QualType qtype, bool isVarDecoratedInterp);
 
-  ///< Add temp function variables, for operand replacement. An original usage to
-  ///< a nointerpolated variable/parameter should be treated as an access to
+  ///< Add temp function variables, for operand replacement. An original usage
+  ///< to a nointerpolated variable/parameter should be treated as an access to
   ///< its first element after expanding (data at first provoking vertex).
-  SpirvInstruction *
-  createFirstPerVertexVar(SpirvInstruction *base, llvm::StringRef varName);
+  SpirvInstruction *createFirstPerVertexVar(SpirvInstruction *base,
+                                            llvm::StringRef varName);
 
-  SpirvVariable* addFunctionTempVar(llvm::StringRef name, QualType valueType,
+  SpirvVariable *addFunctionTempVar(llvm::StringRef name, QualType valueType,
                                     SourceLocation loc, bool isPrecise);
 
-  SpirvInstruction* createProvokingVertexAccessChain(SpirvInstruction* base,
-                                                     uint32_t index, QualType resultType);
+  SpirvInstruction *createProvokingVertexAccessChain(SpirvInstruction *base,
+                                                     uint32_t index,
+                                                     QualType resultType);
 
-  ///< Get mapped operand used to replace original operand, if not exists, return itself.
+  ///< Get mapped operand used to replace original operand, if not exists,
+  ///< return itself.
   SpirvInstruction *getMappedReplaceInstr(SpirvInstruction *i);
 
-  ///< For bool type input, add extra NE and related ops to satisfy workaround in HLSL-SPIRV.
-  SpirvInstruction* getNEInstrForStgLoading(SpirvInstruction *instr);
-
-  ///< For expanded variables, we need to decide where to add an extra index zero for
-  ///< SpirvAccessChain and SpirvCompositeExtract.
-  ///< This comes to two access cases : 1. array element. 2. vector channel. 
+  ///< For expanded variables, we need to decide where to add an extra index
+  ///< zero for SpirvAccessChain and SpirvCompositeExtract. This comes to
+  ///< three access cases : 1. array element. 2. structure member 3. vector
+  ///< channel.
   int appendIndexZeroAt(QualType base, llvm::ArrayRef<uint32_t> index);
 
   ///< When use temp variables within a function, we need to add load/store ops.
-  ///< TIP: A nointerpolated input or function parameter will be treated as input.vtx0
-  ///<      within current function, but would be treated as an array will pass to a
-  ///<      function call.
+  ///< TIP: A nointerpolated input or function parameter will be treated as
+  ///< input.vtx0 within current function, but would be treated as an array will
+  ///< pass to a function call.
   SpirvInstruction *createVertexLoad(SpirvInstruction *base);
 
   void createVertexStore(SpirvInstruction *pt, SpirvInstruction *obj);
@@ -77,7 +74,6 @@ public:
   bool visit(SpirvModule *, Phase phase) override;
   bool visit(SpirvFunction *, Phase phase) override;
   bool visit(SpirvEntryPoint *) override;
-  bool visit(SpirvDecoration *) override;
   bool visit(SpirvVariable *) override;
   bool visit(SpirvFunctionParameter *) override;
   bool visit(SpirvAccessChain *) override;
@@ -86,9 +82,11 @@ public:
 
 #define REMAP_FUNC_OP(CLASS)                                                   \
   bool visit(Spirv##CLASS *op) override {                                      \
-    op->operandReplace([this](SpirvInstruction *inst) {                        \
-      return getMappedReplaceInstr(inst);                                      \
-    }, inEntryFunctionWrapper);                                                \
+    op->replaceOperand(                                                        \
+        [this](SpirvInstruction *inst) {                                       \
+          return getMappedReplaceInstr(inst);                                  \
+        },                                                                     \
+        inEntryFunctionWrapper);                                               \
     return true;                                                               \
   }
 
@@ -118,18 +116,16 @@ public:
 private:
   ///< Whether in entry function wrapper, which will influence replace steps.
   bool inEntryFunctionWrapper;
-  ///< Record inputs decoration info for location reassignment.
-  llvm::DenseMap<SpirvInstruction *, SpirvDecoration *> m_inputDecorationMap;
   ///< Instruction replacement mapper.
   ///< For AccessChain and CompositeExtract, will only add extra index.
   llvm::DenseMap<SpirvInstruction *, SpirvInstruction *> m_instrReplaceMap;
   ///< Global declared structure type is special,
   ///< we won't redeclare/expand it more than once.
-  llvm::SmallSet<const Type*, 4>                         m_expandedStructureType;
+  llvm::SmallSet<const Type *, 4> m_expandedStructureType;
   ///< Context related helpers, will use to modify spv instruction stream.
-  SpirvBuilder  &spirvBuilder;
-  ASTContext    &astContext;
-  SpirvModule   *currentMod;
+  SpirvBuilder &spirvBuilder;
+  ASTContext &astContext;
+  SpirvModule *currentMod;
   SpirvFunction *currentFunc;
 };
 

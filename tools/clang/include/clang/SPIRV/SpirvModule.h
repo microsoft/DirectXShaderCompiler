@@ -213,8 +213,7 @@ private:
 
   // Keep all rich DebugInfo instructions.
   llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
-
-  // Wether current mod directly call GetAttributeAtVertex
+  // Whether current module is in pervertex interpolation mode.
   bool perVertexInterp;
 };
 

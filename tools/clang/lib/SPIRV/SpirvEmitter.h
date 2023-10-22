@@ -174,8 +174,8 @@ private:
                          SpirvInstruction **aliasVarInstr,
                          SourceRange rangeOverride = {});
 
-  /// Check whether a member value has a nointerpolation qualifier in its type decl
-  /// or any parents' type decl recursively (for nested structure decl).
+  /// Check whether a member value has a nointerpolation qualifier in its type
+  /// declaration or any parents' type declaration recursively.
   bool isNoInterpMemberExpr(const MemberExpr *expr);
 
 private:
@@ -383,7 +383,8 @@ private:
   collectArrayStructIndices(const Expr *expr, bool rawIndex,
                             llvm::SmallVectorImpl<uint32_t> *rawIndices,
                             llvm::SmallVectorImpl<SpirvInstruction *> *indices,
-                            bool *isMSOutAttribute = nullptr);
+                            bool *isMSOutAttribute = nullptr,
+                            bool *isNointerp = nullptr);
 
   /// For L-values, creates an access chain to index into the given SPIR-V
   /// evaluation result and returns the new SPIR-V evaluation result.
@@ -672,7 +673,7 @@ private:
   void processMeshOutputCounts(const CallExpr *callExpr);
 
   /// Process GetAttributeAtVertex for barycentrics.
-  SpirvInstruction* processGetAttributeAtVertex(const CallExpr *expr);
+  SpirvInstruction *processGetAttributeAtVertex(const CallExpr *expr);
 
   /// Process ray query traceinline intrinsics.
   SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);

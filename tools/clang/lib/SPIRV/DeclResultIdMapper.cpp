@@ -979,8 +979,9 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   const auto name = var->getName();
   const bool isPrecise = var->hasAttr<HLSLPreciseAttr>();
   const bool isNointerp = var->hasAttr<HLSLNoInterpolationAttr>();
-  SpirvVariable *varInstr = spvBuilder.addFnVar(
-      type, loc, name, isPrecise, isNointerp, init.hasValue() ? init.getValue() : nullptr);
+  SpirvVariable *varInstr =
+      spvBuilder.addFnVar(type, loc, name, isPrecise, isNointerp,
+                          init.hasValue() ? init.getValue() : nullptr);
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
@@ -1017,19 +1018,12 @@ SpirvDebugGlobalVariable *DeclResultIdMapper::createDebugGlobalVariable(
 SpirvVariable *
 DeclResultIdMapper::createFileVar(const VarDecl *var,
                                   llvm::Optional<SpirvInstruction *> init) {
-  // In the case of template specialization, the same VarDecl node in the AST
-  // may be traversed more than once.
-  if (astDecls[var].instr != nullptr) {
-    return cast<SpirvVariable>(astDecls[var].instr);
-  }
-
   const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
   const auto name = var->getName();
-  SpirvVariable *varInstr =
-      spvBuilder.addModuleVar(type, spv::StorageClass::Private,
-                              var->hasAttr<HLSLPreciseAttr>(),
-          var->hasAttr<HLSLNoInterpolationAttr>(), name, init, loc);
+  SpirvVariable *varInstr = spvBuilder.addModuleVar(
+      type, spv::StorageClass::Private, var->hasAttr<HLSLPreciseAttr>(),
+      var->hasAttr<HLSLNoInterpolationAttr>(), name, init, loc);
 
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
@@ -1104,8 +1098,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   const auto name = var->getName();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       type, storageClass, var->hasAttr<HLSLPreciseAttr>(),
-      var->hasAttr<HLSLNoInterpolationAttr>(), name, llvm::None,
-      loc);
+      var->hasAttr<HLSLNoInterpolationAttr>(), name, llvm::None, loc);
   varInstr->setLayoutRule(rule);
 
   // If this variable has [[vk::combinedImageSampler]] and/or
@@ -1268,8 +1261,8 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
 
   // Create the variable for the whole struct / struct array.
   // The fields may be 'precise', but the structure itself is not.
-  SpirvVariable *var =
-      spvBuilder.addModuleVar(resultType, sc, /*isPrecise*/ false, /*isNoInterp*/ false, varName);
+  SpirvVariable *var = spvBuilder.addModuleVar(
+      resultType, sc, /*isPrecise*/ false, /*isNoInterp*/ false, varName);
 
   const SpirvLayoutRule layoutRule =
       (forCBuffer || forGlobals)
@@ -1902,7 +1895,6 @@ bool DeclResultIdMapper::assignLocations(
                                       0)) {
       return false;
     }
-    spvBuilder.setStgInputLocationInfo(location, locCount);
   }
   return true;
 }
@@ -1976,8 +1968,6 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
                                         idx)) {
         return false;
       }
-
-      spvBuilder.setStgInputLocationInfo(loc, var.getLocationCount());
     }
 
     return noError;
@@ -2792,8 +2782,8 @@ bool DeclResultIdMapper::createStageVars(
                                          constOne, constZero, thisSemantic.loc);
       }
       // Special handling of SV_Barycentrics, which is a float3, but the
-      // The 3 values are NOT guaranteed to add up to floating-point 1.0 exactly.
-      // Calculate the third element here.
+      // The 3 values are NOT guaranteed to add up to floating-point 1.0
+      // exactly. Calculate the third element here.
       else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
         const auto x = spvBuilder.createCompositeExtract(
             astContext.FloatTy, *value, {0}, thisSemantic.loc);
@@ -2966,10 +2956,10 @@ bool DeclResultIdMapper::createStageVars(
 
     for (const auto *field : structDecl->fields()) {
       SpirvInstruction *subValue = nullptr;
-      if (!createStageVars(sigPoint, field, asInput, field->getType(),
-                           arraySize, namePrefix, invocationId, &subValue,
-                           noWriteBack, semanticToUse,
-                           asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
+      if (!createStageVars(
+              sigPoint, field, asInput, field->getType(), arraySize, namePrefix,
+              invocationId, &subValue, noWriteBack, semanticToUse,
+              asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
         return false;
       subValues.push_back(subValue);
     }
@@ -3064,10 +3054,10 @@ bool DeclResultIdMapper::createStageVars(
           subValue->setNoninterpolated();
       }
 
-      if (!createStageVars(sigPoint, field, asInput, field->getType(),
-                           arraySize, namePrefix, invocationId, &subValue,
-                           noWriteBack, semanticToUse,
-                           asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
+      if (!createStageVars(
+              sigPoint, field, asInput, field->getType(), arraySize, namePrefix,
+              invocationId, &subValue, noWriteBack, semanticToUse,
+              asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
         return false;
     }
   }
@@ -3292,22 +3282,22 @@ DeclResultIdMapper::invertWIfRequested(SpirvInstruction *position,
   return position;
 }
 
-void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
-                                                   QualType type,
-                                                   SpirvVariable *varInstr,
-                                                   const SemanticInfo semanticInfo)
-{
+void DeclResultIdMapper::decorateInterpolationMode(
+    const NamedDecl *decl, QualType type, SpirvVariable *varInstr,
+    const SemanticInfo semanticInfo) {
   if (varInstr->getStorageClass() != spv::StorageClass::Input &&
       varInstr->getStorageClass() != spv::StorageClass::Output) {
     return;
   }
-  const bool isBaryCoord = (semanticInfo.getKind() == hlsl::Semantic::Kind::Barycentrics);
+  const bool isBaryCoord =
+      (semanticInfo.getKind() == hlsl::Semantic::Kind::Barycentrics);
   uint32_t semanticIndex = semanticInfo.index;
 
   if (isBaryCoord) {
     // BaryCentrics inputs cannot have attrib 'nointerpolation'.
     if (decl->getAttr<HLSLNoInterpolationAttr>()) {
-      emitError("SV_BaryCentrics inputs cannot have attribute 'nointerpolation'.",
+      emitError(
+          "SV_BaryCentrics inputs cannot have attribute 'nointerpolation'.",
           decl->getLocation());
     }
     // SV_BaryCentrics could only have two index and apply to different inputs.
@@ -3315,28 +3305,28 @@ void DeclResultIdMapper::decorateInterpolationMode(const NamedDecl *decl,
     // interpolation type.
     if (semanticIndex > 1) {
       emitError("The index SV_BaryCentrics semantics could only be 1 or 0.",
+                decl->getLocation());
+    } else if (noPerspBaryCentricsIndex < 2 && perspBaryCentricsIndex < 2) {
+      emitError(
+          "Cannot have more than 2 inputs with SV_BaryCentrics semantics.",
           decl->getLocation());
-    }
-    else if (noPerspBaryCentricsIndex < 2 && perspBaryCentricsIndex < 2) {
-      emitError("Cannot have more than 2 inputs with SV_BaryCentrics semantics.",
-          decl->getLocation());
-    }
-    else if (decl->getAttr<HLSLNoPerspectiveAttr>()) {
-      if (noPerspBaryCentricsIndex == 2 && perspBaryCentricsIndex != semanticIndex) {
+    } else if (decl->getAttr<HLSLNoPerspectiveAttr>()) {
+      if (noPerspBaryCentricsIndex == 2 &&
+          perspBaryCentricsIndex != semanticIndex) {
         noPerspBaryCentricsIndex = semanticIndex;
+      } else {
+        emitError("Cannot have more than 1 noperspective inputs with "
+                  "SV_BaryCentrics semantics.",
+                  decl->getLocation());
       }
-      else {
-        emitError("Cannot have more than 1 noperspective inputs with SV_BaryCentrics semantics.",
-          decl->getLocation());
-      }
-    }
-    else {
-      if (perspBaryCentricsIndex == 2 && noPerspBaryCentricsIndex != semanticIndex) {
+    } else {
+      if (perspBaryCentricsIndex == 2 &&
+          noPerspBaryCentricsIndex != semanticIndex) {
         perspBaryCentricsIndex = semanticIndex;
-      }
-      else{
-        emitError("Cannot have more than 1 perspective-correct inputs with SV_BaryCentrics semantics.",
-          decl->getLocation());
+      } else {
+        emitError("Cannot have more than 1 perspective-correct inputs with "
+                  "SV_BaryCentrics semantics.",
+                  decl->getLocation());
       }
     }
   }
@@ -3512,7 +3502,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSIn:
     case hlsl::SigPoint::Kind::PCOut:
     case hlsl::SigPoint::Kind::DSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, isNointerp, srcLoc);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise,
+                                      isNointerp, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
@@ -3558,7 +3549,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::GSVIn:
     case hlsl::SigPoint::Kind::GSOut:
     case hlsl::SigPoint::Kind::PSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, isNointerp, srcLoc);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise,
+                                      isNointerp, srcLoc);
     default:
       llvm_unreachable("invalid usage of SV_InstanceID sneaked in");
     }
@@ -3592,7 +3584,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::VSIn:
     case hlsl::SigPoint::Kind::PCOut:
     case hlsl::SigPoint::Kind::DSIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, isNointerp, srcLoc);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise,
+                                      isNointerp, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::HSCPIn:
     case hlsl::SigPoint::Kind::HSCPOut:
@@ -3614,7 +3607,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   case hlsl::Semantic::Kind::IsFrontFace: {
     switch (sigPointKind) {
     case hlsl::SigPoint::Kind::GSOut:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, isNointerp, srcLoc);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise,
+                                      isNointerp, srcLoc);
     case hlsl::SigPoint::Kind::PSIn:
       stageVar->setIsSpirvBuiltin();
       return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::FrontFacing,
@@ -3630,7 +3624,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   // An arbitrary semantic is defined by users. Generate normal Vulkan stage
   // input/output variables.
   case hlsl::Semantic::Kind::Arbitrary: {
-    return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, isNointerp, srcLoc);
+    return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, isNointerp,
+                                    srcLoc);
     // TODO: patch constant function in hull shader
   }
   // According to DXIL spec, the DispatchThreadID SV can only be used by CSIn.
@@ -3754,7 +3749,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::DSIn:
     case hlsl::SigPoint::Kind::DSCPIn:
     case hlsl::SigPoint::Kind::GSVIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, isNointerp, srcLoc);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise,
+                                      isNointerp, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();
@@ -3783,7 +3779,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     case hlsl::SigPoint::Kind::DSIn:
     case hlsl::SigPoint::Kind::DSCPIn:
     case hlsl::SigPoint::Kind::GSVIn:
-      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise, isNointerp, srcLoc);
+      return spvBuilder.addStageIOVar(type, sc, name.str(), isPrecise,
+                                      isNointerp, srcLoc);
     case hlsl::SigPoint::Kind::VSOut:
     case hlsl::SigPoint::Kind::DSOut:
       stageVar->setIsSpirvBuiltin();

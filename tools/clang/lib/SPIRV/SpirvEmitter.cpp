@@ -1449,8 +1449,8 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       // Remember the parameter for the 'this' object so later we can handle
       // CXXThisExpr correctly.
       curThis = spvBuilder.addFnParam(valueType, /*isPrecise*/ false,
-	                                  /*isNoInterp*/ false,
-                                      decl->getLocStart(), "param.this");
+                                      /*isNoInterp*/ false, decl->getLocStart(),
+                                      "param.this");
       if (isOrContainsAKindOfStructuredOrByteBuffer(valueType)) {
         curThis->setContainsAliasComponent(true);
         needsLegalization = true;
@@ -2683,8 +2683,10 @@ SpirvInstruction *
 SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr,
                                    SourceRange rangeOverride) {
   llvm::SmallVector<SpirvInstruction *, 4> indices;
-  const auto *base = collectArrayStructIndices(
-      expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
+  bool isNoInterp = false;
+  const auto *base = collectArrayStructIndices(expr, /*rawIndex*/ false,
+                                               /*rawIndices*/ nullptr, &indices,
+                                               nullptr, &isNoInterp);
   auto *info = loadIfAliasVarRef(base);
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
@@ -2693,8 +2695,12 @@ SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr,
     return info;
   }
 
-  return derefOrCreatePointerToValue(base->getType(), info, expr->getType(),
-                                     indices, base->getExprLoc(), range);
+  SpirvInstruction *loadVal =
+      derefOrCreatePointerToValue(base->getType(), info, expr->getType(),
+                                  indices, base->getExprLoc(), range);
+  if (!loadVal->isNoninterpolated())
+    loadVal->setNoninterpolated(isNoInterp);
+  return loadVal;
 }
 
 SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
@@ -2955,9 +2961,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       const bool isPrecise = false;
       const bool isNoInterp = param->hasAttr<HLSLNoInterpolationAttr>();
 
-      auto *tempVar =
-	      spvBuilder.addFnVar(varType, arg->getLocStart(), varName,
-                              isPrecise, isNoInterp);
+      auto *tempVar = spvBuilder.addFnVar(varType, arg->getLocStart(), varName,
+                                          isPrecise, isNoInterp);
 
       vars.push_back(tempVar);
       isTempVar.push_back(true);
@@ -6027,11 +6032,11 @@ bool SpirvEmitter::isNoInterpMemberExpr(const MemberExpr *expr) {
   while (D != nullptr) {
     if (D->hasAttr<HLSLNoInterpolationAttr>() ||
         D->getParent()->hasAttr<HLSLNoInterpolationAttr>()) {
-      ret = true;;
+      ret = true;
     }
     D = dyn_cast<FieldDecl>(D->getParent());
   }
-  auto* base = dyn_cast<MemberExpr>(expr->getBase());
+  auto *base = dyn_cast<MemberExpr>(expr->getBase());
   return ret || (base != nullptr && isNoInterpMemberExpr(base));
 }
 
@@ -6051,10 +6056,9 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
 
   const auto *fieldDecl = dyn_cast<FieldDecl>(expr->getMemberDecl());
   if (!fieldDecl || !fieldDecl->isBitField()) {
-    SpirvInstruction *retInstr =
-	    derefOrCreatePointerToValue(base->getType(), instr, expr->getType(),
-                                    indices, loc, range);
-    if(isNoInterpMemberExpr(expr))
+    SpirvInstruction *retInstr = derefOrCreatePointerToValue(
+        base->getType(), instr, expr->getType(), indices, loc, range);
+    if (isNoInterpMemberExpr(expr))
       retInstr->setNoninterpolated();
     return retInstr;
   }
@@ -7919,8 +7923,8 @@ SpirvEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
 const Expr *SpirvEmitter::collectArrayStructIndices(
     const Expr *expr, bool rawIndex,
     llvm::SmallVectorImpl<uint32_t> *rawIndices,
-    llvm::SmallVectorImpl<SpirvInstruction *> *indices,
-    bool *isMSOutAttribute) {
+    llvm::SmallVectorImpl<SpirvInstruction *> *indices, bool *isMSOutAttribute,
+    bool *isNointerp) {
   assert((rawIndex && rawIndices) || (!rawIndex && indices));
 
   if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
@@ -7932,6 +7936,9 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
             astContext, NestedNameSpecifierLoc(), SourceLocation(), varDecl,
             /*RefersToEnclosingVariableOrCapture=*/false, SourceLocation(),
             varDecl->getType(), VK_LValue);
+
+    if (isNointerp)
+      *isNointerp = *isNointerp || isNoInterpMemberExpr(indexing);
 
     const Expr *base = collectArrayStructIndices(
         indexing->getBase(), rawIndex, rawIndices, indices, isMSOutAttribute);
@@ -7979,8 +7986,8 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     // The base of an ArraySubscriptExpr has a wrapping LValueToRValue implicit
     // cast. We need to ingore it to avoid creating OpLoad.
     const Expr *thisBase = indexing->getBase()->IgnoreParenLValueCasts();
-    const Expr *base = collectArrayStructIndices(thisBase, rawIndex, rawIndices,
-                                                 indices, isMSOutAttribute);
+    const Expr *base = collectArrayStructIndices(
+        thisBase, rawIndex, rawIndices, indices, isMSOutAttribute, isNointerp);
     // The index into an array must be an integer number.
     const auto *idxExpr = indexing->getIdx();
     const auto idxExprType = idxExpr->getType();
@@ -8862,6 +8869,10 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                                            srcRange);
     break;
   }
+  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex: {
+    retVal = processGetAttributeAtVertex(callExpr);
+    break;
+  }
   case hlsl::IntrinsicOp::IOP_ufirstbithigh: {
     retVal = processIntrinsicFirstbit(callExpr, GLSLstd450::GLSLstd450FindUMsb);
     break;
@@ -8872,10 +8883,6 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   }
   case hlsl::IntrinsicOp::IOP_firstbitlow: {
     retVal = processIntrinsicFirstbit(callExpr, GLSLstd450::GLSLstd450FindILsb);
-    break;
-  }
-  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex: {
-    retVal = processGetAttributeAtVertex(callExpr);
     break;
   }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
@@ -11940,13 +11947,15 @@ void SpirvEmitter::processMeshOutputCounts(const CallExpr *callExpr) {
   }
 }
 
-SpirvInstruction*
+SpirvInstruction *
 SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   // Implicit type conversion should bound to two things:
-  // 1. Function Parameter, and recursively redecl mapped function called's var types.
-  // 2. User defined structure types, which may be used in function local variables
-  //    (AccessChain add index 0 at end)
-  // 3. Stage In Out variables: focus on boolType (NotEqual) and Extract (add index 0 at end)
+  // 1. Function Parameter, and recursively redecl mapped function called's var
+  // types.
+  // 2. User defined structure types, which may be used in function local
+  // variables (AccessChain add index 0 at end)
+  // 3. Stage In Out variables: focus on boolType (NotEqual) and Extract (add
+  // index 0 at end)
   const auto exprLoc = expr->getExprLoc();
   const auto exprRange = expr->getSourceRange();
 
@@ -11962,38 +11971,29 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   SpirvInstruction *paramDeclInstr = doExpr(arg0NoCast);
   // Hans't be redeclared before
   QualType elementType = paramDeclInstr->getAstResultType();
+
+  if (isBoolOrVecOfBoolType(elementType)) {
+    emitError("attribute evaluation can only be done "
+              "on values taken directly from inputs.",
+              {});
+  }
   // Change to access chain instr
   SpirvInstruction *accessChainPtr = paramDeclInstr;
-  SpirvConstant* vtxId =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, *vertexId));
+  SpirvConstant *vtxId = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                   llvm::APInt(32, *vertexId));
   if (isa<SpirvAccessChain>(accessChainPtr)) {
     auto *accessInstr = dyn_cast<SpirvAccessChain>(accessChainPtr);
     accessInstr->insertIndex(vtxId, accessInstr->getIndexes().size());
-  }
-  else
-    accessChainPtr =
-        spvBuilder.createAccessChain(elementType, accessChainPtr, vtxId, exprLoc, exprRange);
+  } else
+    accessChainPtr = spvBuilder.createAccessChain(elementType, accessChainPtr,
+                                                  vtxId, exprLoc, exprRange);
   dyn_cast<SpirvAccessChain>(accessChainPtr)->setNoninterpolated(false);
-  auto *loadPtr = spvBuilder.createLoad(elementType, accessChainPtr, exprLoc, exprRange);
-  // PerVertexKHR Decorator and type redecl will be done in later pervertex visitor.
+  auto *loadPtr =
+      spvBuilder.createLoad(elementType, accessChainPtr, exprLoc, exprRange);
+  // PerVertexKHR Decorator and type redecl will be done in later pervertex
+  // visitor.
   spvBuilder.setPerVertexInterpMode(true);
-  /// Cast back
-  if (isBoolOrVecOfBoolType(elementType)) {
-    if (elementType->isPointerType())
-      elementType = elementType->getPointeeType();
-    QualType elemType = {};
-    QualType retType = astContext.BoolTy;
-    uint32_t vecSize = 1;
-    if (isVectorType(elementType, &elemType, &vecSize)) {
-      retType = astContext.getExtVectorType(retType, vecSize);
-    }
-    auto *eqResult = castToBool(loadPtr, elementType, retType, exprLoc, exprRange);
-    QualType selectType = dyn_cast<CastExpr>(expr->getArg(0))->getType();
-    auto *result = castToType(eqResult, retType, selectType, exprLoc, exprRange);
-    return result;
-  } else {
-    return loadPtr;
-  }
+  return loadPtr;
 }
 
 SpirvConstant *SpirvEmitter::getValueZero(QualType type) {
@@ -13018,7 +13018,6 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                             param->hasAttr<HLSLPreciseAttr>(),
                             param->hasAttr<HLSLNoInterpolationAttr>());
 
-
     params.push_back(tempVar);
 
     // Create the stage input variable for parameter not marked as pure out and
@@ -13040,7 +13039,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       // Only initialize the temporary variable if the parameter is indeed used.
       if (param->isUsed()) {
         spvBuilder.createStore(tempVar, loadedValue, param->getLocation());
-        // param is mapped to store object. Coule be a componentConstruct or Load
+        // param is mapped to store object. Coule be a componentConstruct or
+        // Load
         if (spvContext.isPS())
           spvBuilder.addPerVertexStgInputFuncVarEntry(loadedValue, tempVar);
       }
@@ -13206,9 +13206,9 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
         const QualType type = param->getType();
         std::string tempVarName = "param.var." + param->getNameAsString();
         auto paramLoc = param->getLocation();
-        auto *tempVar = spvBuilder.addFnVar(type, paramLoc, tempVarName,
-                                            param->hasAttr<HLSLPreciseAttr>(),
-                                            param->hasAttr<HLSLNoInterpolationAttr>());
+        auto *tempVar = spvBuilder.addFnVar(
+            type, paramLoc, tempVarName, param->hasAttr<HLSLPreciseAttr>(),
+            param->hasAttr<HLSLNoInterpolationAttr>());
         SpirvInstruction *loadedValue = nullptr;
         declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
         spvBuilder.createStore(tempVar, loadedValue, paramLoc);

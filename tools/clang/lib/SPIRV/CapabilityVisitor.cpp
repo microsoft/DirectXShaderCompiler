@@ -247,7 +247,8 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     break;
   }
   case spv::Decoration::PerVertexKHR: {
-    addExtension(Extension::KHR_fragment_shader_barycentric, "PerVertexKHR", loc);
+    addExtension(Extension::KHR_fragment_shader_barycentric, "PerVertexKHR",
+                 loc);
     addCapability(spv::Capability::FragmentBarycentricKHR);
     break;
   }
