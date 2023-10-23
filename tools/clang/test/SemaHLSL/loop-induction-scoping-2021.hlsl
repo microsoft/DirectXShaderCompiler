@@ -1,4 +1,7 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2021 %s
+// RUN: %dxc -Tlib_6_3 -verify -HV 2021 %s
+// RUN: %dxc -Tps_6_0 -verify -HV 2021 %s
+
+// expected-no-diagnostics
 
 uint g_count1;
 uint g_count2;
