@@ -18,14 +18,16 @@
 // CHECK-NEXT: OpDecorate [[cxcy_1:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[cxcy_plus_dz_1:%[0-9]+]] NoContraction
 
-// CHECK-NOT: OpDecorate [[cxcy_2]] NoContraction
-// CHECK-NOT: OpDecorate [[cxcy_plus_dz_2]] NoContraction
+// IMPLICIT-CHECK-NOT: OpDecorate [[cxcy_2]] NoContraction
+// IMPLICIT-CHECK-NOT: OpDecorate [[cxcy_plus_dz_2]] NoContraction
 
-// CHECK-NOT: OpDecorate [[cxcy_3]] NoContraction
-// CHECK-NOT: OpDecorate [[cxcy_plus_dz_3]] NoContraction
+// IMPLICIT-CHECK-NOT: OpDecorate [[cxcy_3]] NoContraction
+// IMPLICIT-CHECK-NOT: OpDecorate [[cxcy_plus_dz_3]] NoContraction
 
 // CHECK-NEXT: OpDecorate [[aa_3:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[aa_plus_b_3:%[0-9]+]] NoContraction
+
+// CHECK-NOT: OpDecorate {{%[0-9]+}} NoContraction
 
 struct InnerInnerStruct {
   precise float4   position : SV_Position;      // -> BuiltIn Position in gl_Pervertex

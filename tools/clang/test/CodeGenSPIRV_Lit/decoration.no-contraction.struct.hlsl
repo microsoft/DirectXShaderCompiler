@@ -17,59 +17,61 @@ struct T {
 };
 
 
-// CHECK:      OpName %w "w"
-// CHECK-NOT:  OpDecorate [[x_mul_x_1]] NoContraction
-// CHECK-NOT:  OpDecorate [[xx_plus_y_1]] NoContraction
-// CHECK-NEXT: OpDecorate [[x_mul_x_2:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[xx_plus_y_2:%[0-9]+]] NoContraction
+// CHECK:               OpName %w "w"
+// IMPLICIT-CHECK-NOT:  OpDecorate [[x_mul_x_1]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[xx_plus_y_1]] NoContraction
+// CHECK-NEXT:          OpDecorate [[x_mul_x_2:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[xx_plus_y_2:%[0-9]+]] NoContraction
 
-// CHECK-NOT:  OpDecorate [[z2_mul_z3_1]] NoContraction
-// CHECK-NOT:  OpDecorate [[z2z3_plus_z4_1]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2_mul_z3_2:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_2:%[0-9]+]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[z2_mul_z3_1]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[z2z3_plus_z4_1]] NoContraction
+// CHECK-NEXT:          OpDecorate [[z2_mul_z3_2:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[z2z3_plus_z4_2:%[0-9]+]] NoContraction
 
-// CHECK-NOT:  OpDecorate [[uu_row0_1]] NoContraction
-// CHECK-NOT:  OpDecorate [[uu_row1_1]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row0_2:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row1_2:%[0-9]+]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[uu_row0_1]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[uu_row1_1]] NoContraction
+// CHECK-NEXT:          OpDecorate [[uu_row0_2:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[uu_row1_2:%[0-9]+]] NoContraction
 
-// CHECK-NOT:  OpDecorate [[ww_row0_1]] NoContraction
-// CHECK-NOT:  OpDecorate [[ww_row1_1]] NoContraction
-// CHECK-NOT:  OpDecorate [[ww_row2_1]] NoContraction
-// CHECK-NOT:  OpDecorate [[ww_plus_w_row0_1]] NoContraction
-// CHECK-NOT:  OpDecorate [[ww_plus_w_row1_1]] NoContraction
-// CHECK-NOT:  OpDecorate [[ww_plus_w_row2_1]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row0_2:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row1_2:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row2_2:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_2:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_2:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_2:%[0-9]+]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[ww_row0_1]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[ww_row1_1]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[ww_row2_1]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[ww_plus_w_row0_1]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[ww_plus_w_row1_1]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[ww_plus_w_row2_1]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row0_2:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row1_2:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row2_2:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row0_2:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row1_2:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row2_2:%[0-9]+]] NoContraction
 
-// CHECK-NEXT: OpDecorate [[x_mul_x_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[xx_plus_y_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[x_mul_x_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[xx_plus_y_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2_mul_z3_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2_mul_z3_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[z2z3_plus_z4_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row0_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row1_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row0_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[uu_row1_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row0_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row1_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row2_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_3:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row0_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row1_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_row2_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row0_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row1_4:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[ww_plus_w_row2_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[x_mul_x_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[xx_plus_y_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[x_mul_x_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[xx_plus_y_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[z2_mul_z3_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[z2z3_plus_z4_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[z2_mul_z3_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[z2z3_plus_z4_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[uu_row0_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[uu_row1_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[uu_row0_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[uu_row1_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row0_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row1_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row2_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row0_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row1_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row2_3:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row0_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row1_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_row2_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row0_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row1_4:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[ww_plus_w_row2_4:%[0-9]+]] NoContraction
+
+// CHECK-NOT:           OpDecorate {{%[0-9]+}} NoContraction
 
 void main() {
   T t;

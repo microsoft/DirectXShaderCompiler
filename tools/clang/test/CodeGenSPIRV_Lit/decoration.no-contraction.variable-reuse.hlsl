@@ -8,16 +8,17 @@
 
 void foo(float p) { p = p + 1; }
 
-// CHECK:      OpName %bb_entry_0 "bb.entry"
-// CHECK-NEXT: OpDecorate [[first_b_plus_c:%[0-9]+]] NoContraction
-// CHECK-NOT:  OpDecorate [[first_a_mul_b]] NoContraction
-// CHECK-NOT:  OpDecorate [[ax_mul_bx]] NoContraction
-// CHECK-NEXT: OpDecorate [[second_a_mul_b:%[0-9]+]] NoContraction
-// CHECK-NOT:  OpDecorate [[second_a_plus_b]] NoContraction
-// CHECK-NEXT: OpDecorate [[first_d_plus_e:%[0-9]+]] NoContraction
-// CHECK-NEXT: OpDecorate [[c_mul_d:%[0-9]+]] NoContraction
-// CHECK-NOT:  OpDecorate [[second_d_plus_e]] NoContraction
-// CHECK-NEXT: OpDecorate [[r_plus_s:%[0-9]+]] NoContraction
+// CHECK:               OpName %bb_entry_0 "bb.entry"
+// CHECK-NEXT:          OpDecorate [[first_b_plus_c:%[0-9]+]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[first_a_mul_b]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[ax_mul_bx]] NoContraction
+// CHECK-NEXT:          OpDecorate [[second_a_mul_b:%[0-9]+]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[second_a_plus_b]] NoContraction
+// CHECK-NEXT:          OpDecorate [[first_d_plus_e:%[0-9]+]] NoContraction
+// CHECK-NEXT:          OpDecorate [[c_mul_d:%[0-9]+]] NoContraction
+// IMPLICIT-CHECK-NOT:  OpDecorate [[second_d_plus_e]] NoContraction
+// CHECK-NEXT:          OpDecorate [[r_plus_s:%[0-9]+]] NoContraction
+// CHECK-NOT:           OpDecorate {{%[0-9]+}} NoContraction
 
 void main() {
   float4 a, b, c, d, e;
