@@ -34,6 +34,7 @@ bool ASTMergeAction::BeginSourceFileAction(CompilerInstance &CI,
 }
 
 void ASTMergeAction::ExecuteAction() {
+#if 0 // HLSL Change Starts - no support for serialization
   CompilerInstance &CI = getCompilerInstance();
   CI.getDiagnostics().getClient()->BeginSourceFile(
                                              CI.getASTContext().getLangOpts());
@@ -80,6 +81,7 @@ void ASTMergeAction::ExecuteAction() {
 
   AdaptedAction->ExecuteAction();
   CI.getDiagnostics().getClient()->EndSourceFile();
+#endif // HLSL Change Ends - no support for serialization
 }
 
 void ASTMergeAction::EndSourceFileAction() {
