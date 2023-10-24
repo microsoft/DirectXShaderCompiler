@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays -O3
+// RUN: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays -O3  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %AnotherTexture Binding 3
 // CHECK: OpDecorate %MySampler Binding 2

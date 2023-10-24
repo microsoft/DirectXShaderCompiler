@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // Note: The following is invalid SPIR-V code.
 //
@@ -32,50 +32,50 @@ float4 doStuff(S buffer) {
 float4 main(in float4 pos : SV_Position) : SV_Target
 {
 // Initializing a T with a TextureBuffer<T> is a copy
-// CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
-// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK:      [[val:%[0-9]+]] = OpLoad %type_TextureBuffer_S %myTBuffer
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeExtract %v4float [[val]] 0
+// CHECK-NEXT: [[tmp:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec]]
 // CHECK-NEXT:                OpStore %buffer1 [[tmp]]
     S buffer1 = myTBuffer;
 
 // Assigning a TextureBuffer<T> to a T is a copy
-// CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
-// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
-// CHECK-NEXT:                OpStore %buffer2 [[tmp]]
+// CHECK:      [[val_0:%[0-9]+]] = OpLoad %type_TextureBuffer_S %myTBuffer
+// CHECK-NEXT: [[vec_0:%[0-9]+]] = OpCompositeExtract %v4float [[val_0]] 0
+// CHECK-NEXT: [[tmp_0:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec_0]]
+// CHECK-NEXT:                OpStore %buffer2 [[tmp_0]]
     S buffer2;
     buffer2 = myTBuffer;
 
 // We have the same struct type here
-// CHECK:      [[val:%\d+]] = OpFunctionCall %S_0 %retStuff
-// CHECK-NEXT:                OpStore %buffer3 [[val]]
+// CHECK:      [[val_1:%[0-9]+]] = OpFunctionCall %S_0 %retStuff
+// CHECK-NEXT:                OpStore %buffer3 [[val_1]]
     S buffer3;
     buffer3 = retStuff();
 
 // TODO: The underlying struct type has the same layout but %type_TextureBuffer_S
 // has an additional BufferBlock decoration. So this causes an validation error.
-// CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_S %myASBuffer %uint_0 {{%\d+}}
-// CHECK-NEXT:  [[tb:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
-// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[tb]] 0
-// CHECK-NEXT: [[loc:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
-// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[loc]] 0
-// CHECK-NEXT: [[val:%\d+]] = OpCompositeConstruct %S [[vec]]
-// CHECK-NEXT:                OpStore [[ptr]] [[val]]
+// CHECK:      [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_S %myASBuffer %uint_0 {{%[0-9]+}}
+// CHECK-NEXT:  [[tb:%[0-9]+]] = OpLoad %type_TextureBuffer_S %myTBuffer
+// CHECK-NEXT: [[vec_1:%[0-9]+]] = OpCompositeExtract %v4float [[tb]] 0
+// CHECK-NEXT: [[loc:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec_1]]
+// CHECK-NEXT: [[vec_2:%[0-9]+]] = OpCompositeExtract %v4float [[loc]] 0
+// CHECK-NEXT: [[val_2:%[0-9]+]] = OpCompositeConstruct %S [[vec_2]]
+// CHECK-NEXT:                OpStore [[ptr]] [[val_2]]
     myASBuffer.Append(myTBuffer);
 
 // Passing a TextureBuffer<T> to a T parameter is a copy
-// CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
-// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[tmp:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
-// CHECK-NEXT:                OpStore %param_var_buffer [[tmp]]
+// CHECK:      [[val_3:%[0-9]+]] = OpLoad %type_TextureBuffer_S %myTBuffer
+// CHECK-NEXT: [[vec_3:%[0-9]+]] = OpCompositeExtract %v4float [[val_3]] 0
+// CHECK-NEXT: [[tmp_1:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec_3]]
+// CHECK-NEXT:                OpStore %param_var_buffer [[tmp_1]]
     return doStuff(myTBuffer);
 }
 
 S retStuff() {
 // Returning a TextureBuffer<T> as a T is a copy
-// CHECK:      [[val:%\d+]] = OpLoad %type_TextureBuffer_S %myTBuffer
-// CHECK-NEXT: [[vec:%\d+]] = OpCompositeExtract %v4float [[val]] 0
-// CHECK-NEXT: [[ret:%\d+]] = OpCompositeConstruct %S_0 [[vec]]
+// CHECK:      [[val_4:%[0-9]+]] = OpLoad %type_TextureBuffer_S %myTBuffer
+// CHECK-NEXT: [[vec_4:%[0-9]+]] = OpCompositeExtract %v4float [[val_4]] 0
+// CHECK-NEXT: [[ret:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec_4]]
 // CHECK-NEXT:                OpReturnValue [[ret]]
     return myTBuffer;
 }

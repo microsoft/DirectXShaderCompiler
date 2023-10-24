@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpDecorate %sampler1 DescriptorSet 1
 // CHECK-NEXT: OpDecorate %sampler1 Binding 0

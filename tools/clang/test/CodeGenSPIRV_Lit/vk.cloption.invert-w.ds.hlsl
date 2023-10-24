@@ -1,4 +1,4 @@
-// RUN: %dxc -T ds_6_0 -E main -fvk-use-dx-position-w
+// RUN: %dxc -T ds_6_0 -E main -fvk-use-dx-position-w -fcgl  %s -spirv | FileCheck %s
 
 // HS PCF output
 struct HsPcfOut {
@@ -26,4 +26,4 @@ DsCpOut main(OutputPatch<DsCpIn, 3> patch,
 
 // Make sure -fvk-use-dx-position-w is ignored for non-PS stages
 // CHECK:     OpLoad %_arr_v4float_uint_3 %gl_Position
-// CHECK-NOT: OpCompositeInsert %v4float {{%\d+}} {{%\d+}} 3
+// CHECK-NOT: OpCompositeInsert %v4float {{%[0-9]+}} {{%[0-9]+}} 3
