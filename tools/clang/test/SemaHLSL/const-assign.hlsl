@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value   -verify %s
+// RUN: %dxc -Tps_6_0  -Wno-unused-value   -verify %s
 
 float4 main() : SV_TARGET
 {

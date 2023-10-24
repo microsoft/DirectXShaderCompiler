@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3   -verify %s
+// RUN: %dxc -Tps_6_0   -verify %s
 // :FXC_VERIFY_ARGUMENTS: /E main /T ps_5_1
 
 // fxc error X3115: Conflicting register semantics: 's0' and 's1'

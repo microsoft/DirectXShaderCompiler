@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3   -verify  %s
+// RUN: %dxc -Tcs_6_0   -verify  %s
 
 // Verify that the first arg determines the overload and the others can be what they will
 

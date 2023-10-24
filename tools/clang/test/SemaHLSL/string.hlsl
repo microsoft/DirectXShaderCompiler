@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify %s
+// RUN: %dxc -Tps_6_0 -Wno-unused-value -verify %s
 
 static const string s_global1 = "my global string 1";
 /*verify-ast

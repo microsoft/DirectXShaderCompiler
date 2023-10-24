@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value   -verify %s
+// RUN: %dxc -Tps_6_0  -Wno-unused-value   -verify %s
 
 float g_float1;                                             /* expected-note {{variable 'g_float1' declared const here}} expected-note {{variable 'g_float1' declared const here}} fxc-pass {{}} */
 int4 g_vec1;                                                /* expected-note {{variable 'g_vec1' declared const here}} expected-note {{variable 'g_vec1' declared const here}} fxc-pass {{}} */

@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value  -verify -HV 2021 %s
+// RUN: %dxc -Tps_6_0  -Wno-unused-value  -verify -HV 2021 %s
 
 // This test checks that when we use undefined overloaded operator
 // dxcompiler generates error and no crashes are observed.

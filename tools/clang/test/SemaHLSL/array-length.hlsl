@@ -1,4 +1,6 @@
 // RUN: %dxc -Tlib_6_3   -verify -HV 2016  %s
+// RUN: %dxc -Tps_6_0   -verify -HV 2016  %s
+
 // :FXC_VERIFY_ARGUMENTS: /T ps_5_0 /E main
 
 float4 planes1[8];
