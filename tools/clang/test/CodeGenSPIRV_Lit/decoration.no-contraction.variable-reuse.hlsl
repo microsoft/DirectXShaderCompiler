@@ -1,7 +1,7 @@
-// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s --implicit-check-not "OpDecorate {{%[0-9]+}} NoContraction"
 
 // The purpose of this test is to make sure non-precise computations are *not*
-// decorated with NoContraction.
+// decorated with NoContraction. Note the --implicit-check-not flag above.
 //
 // To this end, we will perform the same computation twice, once when it
 // affects a precise variable, and once when it doesn't.
@@ -10,13 +10,9 @@ void foo(float p) { p = p + 1; }
 
 // CHECK:      OpName %bb_entry_0 "bb.entry"
 // CHECK-NEXT: OpDecorate [[first_b_plus_c:%[0-9]+]] NoContraction
-// CHECK-NOT:  OpDecorate [[first_a_mul_b]] NoContraction
-// CHECK-NOT:  OpDecorate [[ax_mul_bx]] NoContraction
 // CHECK-NEXT: OpDecorate [[second_a_mul_b:%[0-9]+]] NoContraction
-// CHECK-NOT:  OpDecorate [[second_a_plus_b]] NoContraction
 // CHECK-NEXT: OpDecorate [[first_d_plus_e:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[c_mul_d:%[0-9]+]] NoContraction
-// CHECK-NOT:  OpDecorate [[second_d_plus_e]] NoContraction
 // CHECK-NEXT: OpDecorate [[r_plus_s:%[0-9]+]] NoContraction
 
 void main() {
