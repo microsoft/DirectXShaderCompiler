@@ -4,7 +4,8 @@
 // CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdNV
 // CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeNV
 
-// CHECK-COUNT-1: [[rstype:%[0-9]+]] = OpTypeAccelerationStructureNV
+// CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
+// CHECK-NOT: OpTypeAccelerationStructureKHR
 RaytracingAccelerationStructure rs;
 
 struct Payload
