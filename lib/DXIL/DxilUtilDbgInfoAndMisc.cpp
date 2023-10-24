@@ -144,6 +144,17 @@ static Value *TryMegeWithNestedGEP(GEPOperator *GEP) {
       prevGEP = dyn_cast<GEPOperator>(AsCast->getPointerOperand());
   }
 
+  // If the addrspace cast changes the underlying type of the pointed to
+  // element then do not try to merge the geps. The geps cannot be merged
+  // by the existing MergeGEP when the shape of the underlying type changes
+  // (e.g. array to scalar value). Note that we could currently handle cases
+  // where the underlying type does not change shape, but it is not worth
+  // writing the extra checks to handle that for now.
+  if (AsCast &&
+      (AsCast->getPointerOperand()->getType()->getPointerElementType() !=
+       AsCast->getType()->getPointerElementType()))
+    return FailedToMerge;
+
   // Not a nested gep expression.
   if (!prevGEP)
     return FailedToMerge;
