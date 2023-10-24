@@ -10,6 +10,7 @@ struct S {
     float4 planes[2]; 
 };
 
+[shader("pixel")]
 [RootSignature("CBV(b0, space=0, visibility=SHADER_VISIBILITY_ALL)")]
 float main(S s:POSITION) : SV_Target {
     float4 planes3[] = {{ 1.0, 2.0, 3.0, 4.0 }};

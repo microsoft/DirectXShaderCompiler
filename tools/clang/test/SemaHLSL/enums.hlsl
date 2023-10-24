@@ -122,6 +122,7 @@ int getValueFromInt(int i) {                                /* expected-note {{c
   }
 }
 
+[shader("pixel")]
 int4 main() : SV_Target {
     int v0 = getValueFromInt(ZERO);
     int v1 = getValueFromInt(MyEnumClass::ONEC); /* expected-error {{no matching function for call to 'getValueFromInt'}} */

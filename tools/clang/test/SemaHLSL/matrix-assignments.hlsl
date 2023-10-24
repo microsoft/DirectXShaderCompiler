@@ -36,6 +36,7 @@ void fn3(inout float3 val)
   val.y += 2;
 }
 
+[shader("pixel")]
 float4 main() : SV_Target {
 
   float2 f2;

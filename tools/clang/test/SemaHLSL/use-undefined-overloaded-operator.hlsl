@@ -16,6 +16,7 @@ struct S2 {
     S1 s1;
 };
 
+[shader("pixel")]
 void main(float4 pos: SV_Position) {
     S1 s1;
     S2 s2;

@@ -696,6 +696,7 @@ void uniform_maxvertexcount2(triangle GSVertex v[3], inout TriangleStream<GSVert
 { stream.Append(v[0]); }
 
 
+[shader("pixel")]
 [earlydepthstencil]
 /*verify-ast
   HLSLEarlyDepthStencilAttr <col:2>

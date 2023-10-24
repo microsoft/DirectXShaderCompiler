@@ -634,6 +634,7 @@ float2 f2() {
   return 0;
 }
 
+[shader("pixel")]
 float4 main(float4 param4 : TEXCOORD0) : SV_Target0 {
   float f = OuterItem0 + OuterItem1 + InnerItem0;
   return g_txDiffuse.Sample(myVar_s, float2(1, f));

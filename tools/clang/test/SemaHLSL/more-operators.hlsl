@@ -492,6 +492,7 @@ float3 fn(float a, float b)
     return bar < 1 ? float3(foo) : bar;             // expected-error {{use of undeclared identifier 'foo'}} fxc-error {{X3004: undeclared identifier 'bar'}}
 }
 
+[shader("pixel")]
 float4 main(float2 coord : TEXCOORD) : SV_Target
 {
   return DoSample(tex12, fn(coord.x, coord.y).xy);

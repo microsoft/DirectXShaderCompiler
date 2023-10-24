@@ -100,6 +100,7 @@ TriangleHitGroup trHitGt2_8 = { s1, s4 };
 ProceduralPrimitiveHitGroup ppHitGt2_8 = { s1, "", s4 };
 ProceduralPrimitiveHitGroup ppHitGt2_9 = { "a", "b", ""};
 
+[shader("pixel")]
 int main(int i : INDEX) : SV_Target {
   return 1;
 }

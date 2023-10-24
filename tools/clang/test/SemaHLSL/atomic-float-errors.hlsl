@@ -10,6 +10,7 @@ RWBuffer<uint64_t> resBI64;
 
 RWByteAddressBuffer Rres;
 
+[shader("compute")]
 [numthreads(1,1,1)]
 void main( uint3 gtid : SV_GroupThreadID)
 {
