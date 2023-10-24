@@ -9463,25 +9463,26 @@ void EmitGetNodeRecordPtrAndUpdateUsers(HLOperationLowerHelper &helper,
   Value *opArg = nullptr;
   Value *Handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
   opArg = Builder.getInt32((unsigned)DXIL::OpCode::GetNodeRecordPtr);
-  StructType *origRecordUDT =
-      cast<StructType>(cast<PointerType>(CI->getType())->getElementType());
-  Type *getNodeRecordPtrRT = origRecordUDT;
-  // Translate node record type here
-  auto findIt = helper.loweredTypes.find(origRecordUDT);
-  if (findIt != helper.loweredTypes.end()) {
-    getNodeRecordPtrRT = findIt->second;
-  } else {
-    getNodeRecordPtrRT = GetLoweredUDT(origRecordUDT, &helper.dxilTypeSys);
-    if (origRecordUDT != getNodeRecordPtrRT)
-      helper.loweredTypes[origRecordUDT] = getNodeRecordPtrRT;
+  PointerType *pTy = cast<PointerType>(CI->getType());
+  if (StructType *origRecordUDT = dyn_cast<StructType>(pTy->getElementType())) {
+    Type *getNodeRecordPtrRT = origRecordUDT;
+    // Translate node record type here
+    auto findIt = helper.loweredTypes.find(origRecordUDT);
+    if (findIt != helper.loweredTypes.end()) {
+      getNodeRecordPtrRT = findIt->second;
+    } else {
+      getNodeRecordPtrRT = GetLoweredUDT(origRecordUDT, &helper.dxilTypeSys);
+      if (origRecordUDT != getNodeRecordPtrRT)
+        helper.loweredTypes[origRecordUDT] = getNodeRecordPtrRT;
+    }
+    getNodeRecordPtrRT =
+        getNodeRecordPtrRT->getPointerTo(DXIL::kNodeRecordAddrSpace);
+    Function *getNodeRecordPtr = helper.hlslOP.GetOpFunc(
+        DXIL::OpCode::GetNodeRecordPtr, getNodeRecordPtrRT);
+    Value *args[] = {opArg, Handle, ArrayIndex};
+    Value *NodeRecordPtr = Builder.CreateCall(getNodeRecordPtr, args);
+    ReplaceUsesForLoweredUDT(CI, NodeRecordPtr);
   }
-  getNodeRecordPtrRT =
-      getNodeRecordPtrRT->getPointerTo(DXIL::kNodeRecordAddrSpace);
-  Function *getNodeRecordPtr = helper.hlslOP.GetOpFunc(
-      DXIL::OpCode::GetNodeRecordPtr, getNodeRecordPtrRT);
-  Value *args[] = {opArg, Handle, ArrayIndex};
-  Value *NodeRecordPtr = Builder.CreateCall(getNodeRecordPtr, args);
-  ReplaceUsesForLoweredUDT(CI, NodeRecordPtr);
 }
 
 void LowerRecordAccessToGetNodeRecordPtr(HLModule &HLM) {
