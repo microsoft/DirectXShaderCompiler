@@ -7693,6 +7693,8 @@ def warn_hlsl_attribute_expects_uint_literal : Warning<
   InGroup<HLSLAttributeType>;
 def err_hlsl_attribute_expects_float_literal : Error<
   "attribute %0 must have a float literal argument">;
+def err_hlsl_wave_matrix_array : Error<
+  "Array of '%0' is not supported">;
 def warn_hlsl_comma_in_init : Warning<
   "comma expression used where a constructor list may have been intended">,
   InGroup<HLSLCommaInInit>;

@@ -13984,7 +13984,12 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     QualType eltQt(qt->getArrayElementTypeNoTypeQual(), 0);
     while (eltQt->isArrayType())
       eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
-
+    if (hlslSource->IsWaveMatrixType(eltQt)) {
+      std::string typeName(
+          g_ArBasicTypeNames[hlslSource->GetTypeElementKind(eltQt)]);
+      Diag(D.getLocStart(), diag::err_hlsl_wave_matrix_array) << typeName;
+      result = false;
+    }
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
       bIsObject = true;
     }
