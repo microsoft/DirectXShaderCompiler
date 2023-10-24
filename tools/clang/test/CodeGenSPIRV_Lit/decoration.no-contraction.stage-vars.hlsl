@@ -1,4 +1,6 @@
-// RUN: %dxc -T vs_6_0 -E main -fspv-reflect -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T vs_6_0 -E main -fspv-reflect -fcgl  %s -spirv | FileCheck %s --implicit-check-not "OpDecorate {{%[0-9]+}} NoContraction"
+
+// The --implicit-check-not option above checks that there are no `OpDecorate ... NoContraction` instructions other than those CHECKed below.
 
 // CHECK:      OpDecorate [[aa_1:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[aa_plus_b_1:%[0-9]+]] NoContraction
@@ -18,16 +20,8 @@
 // CHECK-NEXT: OpDecorate [[cxcy_1:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[cxcy_plus_dz_1:%[0-9]+]] NoContraction
 
-// IMPLICIT-CHECK-NOT: OpDecorate [[cxcy_2]] NoContraction
-// IMPLICIT-CHECK-NOT: OpDecorate [[cxcy_plus_dz_2]] NoContraction
-
-// IMPLICIT-CHECK-NOT: OpDecorate [[cxcy_3]] NoContraction
-// IMPLICIT-CHECK-NOT: OpDecorate [[cxcy_plus_dz_3]] NoContraction
-
 // CHECK-NEXT: OpDecorate [[aa_3:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[aa_plus_b_3:%[0-9]+]] NoContraction
-
-// CHECK-NOT: OpDecorate {{%[0-9]+}} NoContraction
 
 struct InnerInnerStruct {
   precise float4   position : SV_Position;      // -> BuiltIn Position in gl_Pervertex
