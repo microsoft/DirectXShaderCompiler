@@ -242,7 +242,11 @@ bool llvm::sys::RemoveFileOnSignal(StringRef Filename,
 // DontRemoveFileOnSignal - The public API
 void llvm::sys::DontRemoveFileOnSignal(StringRef Filename) {
   sys::SmartScopedLock<true> Guard(*SignalsMutex);
-  FileToRemoveList::erase(FilesToRemove, Filename.str());
+  std::vector<std::string>::reverse_iterator RI =
+    std::find(FilesToRemove->rbegin(), FilesToRemove->rend(), Filename);
+  std::vector<std::string>::iterator I = FilesToRemove->end();
+  if (RI != FilesToRemove->rend())
+    I = FilesToRemove->erase(RI.base()-1);
 }
 
 /// AddSignalHandler - Add a function to be called when a signal is delivered
