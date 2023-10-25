@@ -143,7 +143,7 @@ def main(args):
         # 6. Inserts RUN line with -hlsl-passes-resume and desired pass
         with open(args.output_file, "wt") as f:
             f.write(
-                "; RUN: %opt %s -hlsl-passes-resume {} -S | FileCheck %s\n\n".format(
+                "; RUN: %opt %s -hlsl-passes-resume -{} -S | FileCheck %s\n\n".format(
                     args.desired_pass
                 )
             )
