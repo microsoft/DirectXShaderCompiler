@@ -7869,7 +7869,7 @@ def err_hlsl_node_record_type : Error<
 def err_hlsl_node_record_object : Error<
    "object %0 may not appear in a node record">;
 def err_hlsl_array_disallowed : Error<
-   "%select{entry parameter of type| WaveMatrix type}1 %0 may not be an array">;
+   "%select{entry parameter|declaration}1 of type %0 may not be an array">;
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
 // HLSL Change Ends
 
