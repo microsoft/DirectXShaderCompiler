@@ -12581,6 +12581,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr),
         A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKSpvExecutionMode:
+    declAttr = ::new (S.Context) VKSpvExecutionModeAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKInstructionExt:
     declAttr = ::new (S.Context) VKInstructionExtAttr(
         A.getRange(), S.Context, ValidateAttributeIntArg(S, A),

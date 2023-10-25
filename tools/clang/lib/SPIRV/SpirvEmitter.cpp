@@ -12305,6 +12305,19 @@ SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk,
   }
 }
 
+void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
+  if (!decl->hasAttrs())
+    return;
+
+  for (auto &attr : decl->getAttrs()) {
+    if (auto *modeAttr = dyn_cast<VKSpvExecutionModeAttr>(attr)) {
+      spvBuilder.addExecutionMode(
+          entryFunction, spv::ExecutionMode(modeAttr->getExecutionMode()), {},
+          modeAttr->getLocation());
+    }
+  }
+}
+
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
                                                    uint32_t *arraySize) {
   bool success = true;
@@ -12898,6 +12911,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   auto &entryInfo = iter->second;
   assert(entryInfo->isEntryFunction);
   entryInfo->entryFunction = entryFunction;
+
+  processInlineSpirvAttributes(decl);
 
   if (spvContext.isRay()) {
     return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr,
