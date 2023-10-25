@@ -114,7 +114,8 @@ void main() {
   // CHECK:      [[c_long:%\d+]] = OpSelect %long {{%\d+}} %long_3000000000 %long_4000000000
   double c = cond ? 3000000000 : 4000000000;
 
-  // CHECK:      [[d_int:%\d+]] = OpSelect %uint {{%\d+}} %uint_1 %uint_0
+  // CHECK:      [[d_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
+  // CHECK:      {{%\d+}} = OpBitcast %uint [[d_int]]
   uint d = cond ? 1 : 0;
 
   float2x3 e;
@@ -135,8 +136,9 @@ void main() {
   // CHECK-NEXT:                OpStore %g [[temp]]
   float2x3 g = cond ? e : f;
 
-  // CHECK:      [[inner:%\d+]] = OpSelect %uint {{%\d+}} %uint_1 %uint_2
-  // CHECK-NEXT:       {{%\d+}} = OpSelect %uint {{%\d+}} %uint_9 [[inner]]
+  // CHECK:       [[inner:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_2
+  // CHECK-NEXT: [[outter:%\d+]] = OpSelect %int {{%\d+}} %int_9 [[inner]]
+  // CHECK-NEXT:        {{%\d+}} = OpBitcast %uint [[outter]]
   uint h = cond ? 9 : (cond ? 1 : 2);
 
   //CHECK:      [[i_int:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_0
@@ -221,7 +223,8 @@ void main() {
 //
 // The literal integer type should be deduced from the function return type.
 //
-// CHECK: OpSelect %uint {{%\d+}} %uint_1 %uint_2
+// CHECK:      [[result:%\d+]] = OpSelect %int {{%\d+}} %int_1 %int_2
+// CHECK-NEXT:                   OpBitcast %uint [[result]]
 uint zoo() {
   bool cond;
   return cond ? 1 : 2;

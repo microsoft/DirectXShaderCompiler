@@ -71,14 +71,19 @@ public:
   CounterIdAliasPair(SpirvVariable *var, bool alias)
       : counterVar(var), isAlias(alias) {}
 
+  /// Returns the pointer to the counter variable alias. This returns a pointer
+  /// that can be used as the address to a store instruction when storing to an
+  /// alias counter.
+  SpirvInstruction *getAliasAddress() const;
+
   /// Returns the pointer to the counter variable. Dereferences first if this is
   /// an alias to a counter variable.
-  SpirvInstruction *get(SpirvBuilder &builder, SpirvContext &spvContext) const;
+  SpirvInstruction *getCounterVariable(SpirvBuilder &builder,
+                                       SpirvContext &spvContext) const;
 
-  /// Stores the counter variable's pointer in srcPair to the curent counter
+  /// Stores the counter variable pointed to by src to the curent counter
   /// variable. The current counter variable must be an alias.
-  inline void assign(const CounterIdAliasPair &srcPair, SpirvBuilder &,
-                     SpirvContext &) const;
+  inline void assign(SpirvInstruction *src, SpirvBuilder &) const;
 
 private:
   SpirvVariable *counterVar;
@@ -298,16 +303,6 @@ public:
   /// to do an extra OpAccessChain to get its pointer from the SPIR-V variable
   /// standing for the whole buffer.
   SpirvVariable *createCTBuffer(const HLSLBufferDecl *decl);
-
-  /// \brief Creates a cbuffer/tbuffer from the given decl.
-  ///
-  /// In the AST, a variable whose type is ConstantBuffer/TextureBuffer is
-  /// represented as a VarDecl whose DeclContext is a HLSLBufferDecl. These
-  /// VarDecl's type is labelled as the struct upon which ConstantBuffer/
-  /// TextureBuffer is parameterized. For a such VarDecl, we need to create
-  /// a corresponding SPIR-V variable for it. Later referencing of such a
-  /// VarDecl does not need an extra OpAccessChain.
-  SpirvVariable *createCTBuffer(const VarDecl *decl);
 
   /// \brief Creates a PushConstant block from the given decl.
   SpirvVariable *createPushConstant(const VarDecl *decl);
@@ -533,6 +528,8 @@ public:
                                   SpirvConstant *ctrlPointID,
                                   QualType outputControlPointType,
                                   SpirvInstruction *ptr);
+
+  spv::ExecutionMode getInterlockExecutionMode();
 
 private:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -785,6 +782,10 @@ private:
                                           StageVar *stageVar,
                                           SpirvVariable *varInst);
 
+  /// \brief Records which execution mode should be used for rasterizer order
+  /// views.
+  void setInterlockExecutionMode(spv::ExecutionMode mode);
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
@@ -826,6 +827,14 @@ private:
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the SPIR-V type.
   llvm::DenseMap<const DeclContext *, const SpirvType *> ctBufferPCTypes;
+
+  /// The execution mode to use for rasterizer ordered views. Should be set to
+  /// PixelInterlockOrderedEXT (default), SampleInterlockOrderedEXT, or
+  /// ShadingRateInterlockOrderedEXT. This will be set based on which semantics
+  /// are present in input variables, and will be used to determine which
+  /// execution mode to attach to the entry point if it uses rasterizer ordered
+  /// views.
+  llvm::Optional<spv::ExecutionMode> interlockExecutionMode;
 
   /// The SPIR-V builtin variables accessed by WaveGetLaneCount(),
   /// WaveGetLaneIndex() and ray tracing builtins.
@@ -906,12 +915,10 @@ bool SemanticInfo::isTarget() const {
   return semantic && semantic->GetKind() == hlsl::Semantic::Kind::Target;
 }
 
-void CounterIdAliasPair::assign(const CounterIdAliasPair &srcPair,
-                                SpirvBuilder &builder,
-                                SpirvContext &context) const {
+void CounterIdAliasPair::assign(SpirvInstruction *src,
+                                SpirvBuilder &builder) const {
   assert(isAlias);
-  builder.createStore(counterVar, srcPair.get(builder, context),
-                      /* SourceLocation */ {});
+  builder.createStore(counterVar, src, /* SourceLocation */ {});
 }
 
 DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
@@ -933,7 +940,8 @@ bool DeclResultIdMapper::decorateStageIOLocations() {
     return true;
   }
   // Try both input and output even if input location assignment failed
-  return (int) finalizeStageIOLocations(true) & (int) finalizeStageIOLocations(false);
+  return (int)finalizeStageIOLocations(true) &
+         (int)finalizeStageIOLocations(false);
 }
 
 bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {

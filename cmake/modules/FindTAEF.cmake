@@ -41,21 +41,37 @@ set(TAEF_INCLUDE_DIRS ${TAEF_INCLUDE_DIR})
 set(TAEF_NUGET_BIN ${TAEF_INCLUDE_DIR}/../Binaries/Release)
 set(TAEF_SDK_BIN ${TAEF_INCLUDE_DIR}/../../Runtimes/TAEF)
 
-if(EXISTS "$ENV{HLSL_TAEF_DIR}/x64/te.exe" OR EXISTS "$ENV{HLSL_TAEF_DIR}/x86/te.exe")
-  # Use HLSL_TAEF_DIR for debug executable setting if set.
-  # we don't actually support multiple architectures in the same project.
-  set(TAEF_BIN_DIR "$ENV{HLSL_TAEF_DIR}")
-elseif(EXISTS "${TAEF_NUGET_BIN}/x64/te.exe" AND EXISTS "${TAEF_NUGET_BIN}/x86/te.exe")
-  set(TAEF_BIN_DIR "${TAEF_NUGET_BIN}")
-elseif(EXISTS "${TAEF_SDK_BIN}/x64/te.exe" AND EXISTS "${TAEF_SDK_BIN}/x86/te.exe")
-  set(TAEF_BIN_DIR "${TAEF_SDK_BIN}")
-elseif(EXISTS "${WINDOWS_KIT_10_PATH}")
-  message(ERROR "Unable to find TAEF binaries under Windows 10 SDK.")
-elseif(EXISTS "${WINDOWS_KIT_81_PATH}")
-  message(ERROR "Unable to find TAEF binaries under Windows 8.1 or 10 SDK.")
+if ((CMAKE_GENERATOR_PLATFORM STREQUAL "x64") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "x64"))
+  set(TAEF_BIN_ARCH "amd64")
+  set(TAEF_ARCH "x64")
+elseif ((CMAKE_GENERATOR_PLATFORM STREQUAL "x86") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "x86"))
+  set(TAEF_BIN_ARCH "x86")
+  set(TAEF_ARCH "x86")
+elseif ((CMAKE_GENERATOR_PLATFORM MATCHES "ARM64.*") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" MATCHES "ARM64.*"))
+  set(TAEF_BIN_ARCH "arm64")
+  set(TAEF_ARCH "arm64")
+elseif ((CMAKE_GENERATOR_PLATFORM MATCHES "ARM.*") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" MATCHES "ARM.*"))
+  set(TAEF_BIN_ARCH "arm")
+  set(TAEF_ARCH "arm")
+endif((CMAKE_GENERATOR_PLATFORM STREQUAL "x64") OR ("${CMAKE_C_COMPILER_ARCHITECTURE_ID}" STREQUAL "x64"))
+
+set (TAEF_ARCH ${TAEF_ARCH} CACHE INTERNAL "arch for taef test")
+find_program(TAEF_EXECUTABLE te.exe PATHS
+  $ENV{TAEF_PATH}
+  ${CMAKE_SOURCE_DIR}/external/taef/build/Binaries/${TAEF_BIN_ARCH}
+  $ENV{HLSL_TAEF_DIR}/${TAEF_BIN_ARCH}
+  ${TAEF_NUGET_BIN}/${TAEF_ARCH}
+  ${TAEF_SDK_BIN}/${TAEF_ARCH}
+  ${WINDOWS_KIT_10_PATH}
+  ${WINDOWS_KIT_81_PATH}
+  )
+
+if (TAEF_EXECUTABLE)
+  get_filename_component(TAEF_BIN_DIR ${TAEF_EXECUTABLE} DIRECTORY)
 else()
-  message(ERROR "Unable to find TAEF binaries or Windows 8.1 or 10 SDK.")
+  message(FATAL_ERROR "Unable to find TAEF binaries.")
 endif()
+
 
 include(FindPackageHandleStandardArgs)
 # handle the QUIETLY and REQUIRED arguments and set TAEF_FOUND to TRUE

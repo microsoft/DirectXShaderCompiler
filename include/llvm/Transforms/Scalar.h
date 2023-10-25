@@ -144,6 +144,9 @@ void initializeDxilInsertPreservesPass(PassRegistry&);
 Pass *createDxilFinalizePreservesPass();
 void initializeDxilFinalizePreservesPass(PassRegistry&);
 
+Pass *createDxilReinsertNopsPass();
+void initializeDxilReinsertNopsPass(PassRegistry&);
+
 Pass *createDxilPreserveToSelectPass();
 void initializeDxilPreserveToSelectPass(PassRegistry&);
 
@@ -214,6 +217,7 @@ Pass *createIndVarSimplifyPass();
 //    %Z = add int 2, %X
 //
 FunctionPass *createInstructionCombiningPass();
+FunctionPass *createInstructionCombiningPass(bool HLSLSkipSinkSelect); // HLSL Change
 
 //===----------------------------------------------------------------------===//
 //

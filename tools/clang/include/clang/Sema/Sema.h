@@ -2736,6 +2736,13 @@ private:
                              const ObjCObjectPointerType *OPT,
                              bool ErrorRecovery);
 
+  /// HLSL Change Begin - back ported from llvm-project/c601377b2376.
+  bool addInstantiatedParametersToScope(
+      FunctionDecl *Function, const FunctionDecl *PatternDecl,
+      LocalInstantiationScope &Scope,
+      const MultiLevelTemplateArgumentList &TemplateArgs);
+  /// HLSL Change End - back ported from llvm-project/c601377b2376.
+
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;
 
@@ -3794,6 +3801,9 @@ public:
   bool CheckHLSLUnaryExprOrTypeTraitOperand(QualType ExprType, SourceLocation Loc,
                                             UnaryExprOrTypeTrait ExprKind);
   void DiagnoseHLSLDeclAttr(const Decl *D, const Attr *A);
+  void DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
+                                        QualType TargetType,
+                                        SourceLocation Loc);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);
@@ -4072,10 +4082,7 @@ public:
     SourceLocation LBrace);
   void ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace);
   Decl* getActiveHLSLBuffer() const;
-  void ActOnStartHLSLBufferView();
   bool IsOnHLSLBufferView();
-  Decl *ActOnHLSLBufferView(Scope *bufferScope, SourceLocation KwLoc,
-                        DeclGroupPtrTy &dcl, bool iscbuf);
   // HLSL Change Ends
 
   //===---------------------------- C++ Features --------------------------===//
@@ -6973,6 +6980,12 @@ public:
                       const MultiLevelTemplateArgumentList &TemplateArgs,
                       SmallVectorImpl<QualType> &ParamTypes,
                       SmallVectorImpl<ParmVarDecl *> *OutParams = nullptr);
+  /// HLSL Change Begin - back ported from llvm-project/4409a83c2935.
+  bool SubstDefaultArgument(SourceLocation Loc, ParmVarDecl *Param,
+                            const MultiLevelTemplateArgumentList &TemplateArgs,
+                            bool ForCallExpr = false);
+  /// HLSL Change End - back ported from llvm-project/4409a83c2935.
+
   ExprResult SubstExpr(Expr *E,
                        const MultiLevelTemplateArgumentList &TemplateArgs);
 
@@ -9081,8 +9094,7 @@ public:
   // HLSL Change Begin - adjust this from T* to T&-like
   CXXThisExpr *genereateHLSLThis(SourceLocation Loc, QualType ThisType,
                                 bool isImplicit);
-  ClassTemplateSpecializationDecl *
-  getHLSLDefaultSpecialization(ClassTemplateDecl *Decl);
+  QualType getHLSLDefaultSpecialization(TemplateDecl *Decl);
   // HLSL Change End - adjust this from T* to T&-like
 };
 

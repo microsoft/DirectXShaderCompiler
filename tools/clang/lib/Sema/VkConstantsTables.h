@@ -21,12 +21,9 @@
 
 std::vector<std::pair<std::string, uint32_t>> GetVkIntegerConstants() {
   return {
-      {"CrossDeviceScope", 0u},
-      {"DeviceScope",      1u},
-      {"WorkgroupScope",   2u},
-      {"SubgroupScope",    3u},
-      {"InvocationScope",  4u},
-      {"QueueFamilyScope", 5u},
+      {"CrossDeviceScope", 0u}, {"DeviceScope", 1u},
+      {"WorkgroupScope", 2u},   {"SubgroupScope", 3u},
+      {"InvocationScope", 4u},  {"QueueFamilyScope", 5u},
   };
 }
 

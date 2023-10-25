@@ -1,5 +1,8 @@
 # See docs/CMake.html for instructions about how to build LLVM with CMake.
-cmake_minimum_required(VERSION 3.10) # HLSL Change - Require CMake 3.10.
+cmake_minimum_required(VERSION 3.17.2) # HLSL Change - Require CMake 3.17.2.
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (NOT "${DXC_CMAKE_BEGINS_INCLUDE}" STREQUAL "")
   include(${DXC_CMAKE_BEGINS_INCLUDE})
@@ -101,6 +104,9 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   add_definitions(-DSUPPORT_QUERY_GIT_COMMIT_INFO)
 endif()
 
+option(DXC_DISABLE_ALLOCATOR_OVERRIDES "Disable usage of allocator overrides" OFF)
+mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32 AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
@@ -111,6 +117,11 @@ if(WIN32)
 add_compile_options(/guard:cf)
 add_link_options(/guard:cf)
 endif(WIN32)
+
+# Enable CET Shadow Stack
+if(WIN32 AND NOT (CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "ARM.*"))
+  add_link_options(/CETCOMPAT)
+endif()
 
 # HLSL Change Ends
 
@@ -388,6 +399,8 @@ option(LLVM_BUILD_TESTS
   "Build LLVM unit tests. If OFF, just generate build targets." OFF)
 option(LLVM_INCLUDE_TESTS "Generate build targets for the LLVM unit tests." ON)
 
+option(HLSL_INCLUDE_TESTS  "Generate build targets for the HLSL unit tests." ON)
+
 option (LLVM_BUILD_DOCS "Build the llvm documentation." OFF)
 option (LLVM_INCLUDE_DOCS "Generate build targets for llvm documentation." ON)
 option (LLVM_ENABLE_DOXYGEN "Use doxygen to generate llvm API documentation." OFF)
@@ -564,6 +577,9 @@ configure_file(
 configure_file(
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/llvm-config.h.cmake
   ${LLVM_INCLUDE_DIR}/llvm/Config/llvm-config.h)
+configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/abi-breaking.h.cmake
+  ${LLVM_INCLUDE_DIR}/llvm/Config/abi-breaking.h)
 configure_file(
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Support/DataTypes.h.cmake
   ${LLVM_INCLUDE_DIR}/llvm/Support/DataTypes.h)
@@ -787,6 +803,26 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
 endif()
 
 include(CoverageReport)
+
+# HLSL Change begin - Set default distribution value.
+set(LLVM_DISTRIBUTION_COMPONENTS "dxc;dxcompiler;dxc-headers" CACHE STRING "")
+# HLSL Change end - Set default distribution value.
+
+# This must be at the end of the LLVM root CMakeLists file because it must run
+# after all targets are created.
+if(LLVM_DISTRIBUTION_COMPONENTS)
+  # HLSL Change - Deleted restriction for non-IDE builds. This works with Visual
+  # Studio for DXC because of the limited number of targets.
+  
+  add_custom_target(install-distribution)
+  foreach(target ${LLVM_DISTRIBUTION_COMPONENTS})
+    if(TARGET install-${target})
+      add_dependencies(install-distribution install-${target})
+    else()
+      message(FATAL_ERROR "Specified distribution component '${target}' doesn't have an install target")
+    endif()
+  endforeach()
+endif()
 
 # Disable regeneration target for official builds as they always fun a full clean build.
 # This should eliminate the race-condition issue with "Cannot restore timestamp".

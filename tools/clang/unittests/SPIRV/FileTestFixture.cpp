@@ -62,8 +62,8 @@ bool FileTest::parseCommand() {
   return true;
 }
 
-void FileTest::runFileTest(llvm::StringRef filename, Expect expect,
-                           bool runValidation) {
+void FileTest::runFileTest(llvm::StringRef filename, Expect expect) {
+  bool runValidation = true;
   if (beforeHLSLLegalization)
     assert(runValidation);
 
@@ -129,10 +129,12 @@ void FileTest::checkTestResult(llvm::StringRef filename, const bool compileOk,
     // All checks must have passed.
     ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
-    if (runValidation)
+    // HLSL Change: Explicit braces
+    if (runValidation) {
       EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
                                              beforeHLSLLegalization, glLayout,
                                              dxLayout, scalarLayout));
+    }
   } else if (expect == Expect::Warning) {
     ASSERT_TRUE(compileOk);
 
@@ -155,10 +157,12 @@ void FileTest::checkTestResult(llvm::StringRef filename, const bool compileOk,
     // All checks must have passed.
     ASSERT_EQ(result.status(), effcee::Result::Status::Ok);
 
-    if (runValidation)
+    // HLSL Change: explicit braces
+    if (runValidation) {
       EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
                                              beforeHLSLLegalization, glLayout,
                                              dxLayout, scalarLayout));
+    }
   } else if (expect == Expect::Failure) {
     ASSERT_FALSE(compileOk);
 

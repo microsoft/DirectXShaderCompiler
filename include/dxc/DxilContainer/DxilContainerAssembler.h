@@ -11,10 +11,11 @@
 
 #pragma once
 
-#include <functional>
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "llvm/ADT/StringRef.h"
+#include <functional>
 
+struct IDxcVersionInfo;
 struct IStream;
 class DxilPipelineStateValidation;
 
@@ -39,18 +40,21 @@ public:
   virtual void write(AbstractMemoryStream *pStream) = 0;
 };
 
-class DxilContainerWriter : public DxilPartWriter  {
+class DxilContainerWriter : public DxilPartWriter {
 public:
-  typedef std::function<void(AbstractMemoryStream*)> WriteFn;
+  typedef std::function<void(AbstractMemoryStream *)> WriteFn;
   virtual ~DxilContainerWriter() {}
   virtual void AddPart(uint32_t FourCC, uint32_t Size, WriteFn Write) = 0;
 };
 
-DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M, DXIL::SignatureKind Kind);
+DxilPartWriter *NewProgramSignatureWriter(const DxilModule &M,
+                                          DXIL::SignatureKind Kind);
 DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
-DxilPartWriter *NewPSVWriter(const DxilModule &M, uint32_t PSVVersion = UINT_MAX);
+DxilPartWriter *NewPSVWriter(const DxilModule &M,
+                             uint32_t PSVVersion = UINT_MAX);
 DxilPartWriter *NewRDATWriter(const DxilModule &M);
+DxilPartWriter *NewVersionWriter(IDxcVersionInfo *pVersionInfo);
 
 // Store serialized ViewID data from DxilModule to PipelineStateValidation.
 void StoreViewIDStateToPSV(const uint32_t *pInputData,
@@ -65,25 +69,27 @@ unsigned LoadViewIDStateFromPSV(unsigned *pOutputData,
 // Unaligned is for matching container for validator version < 1.7.
 DxilContainerWriter *NewDxilContainerWriter(bool bUnaligned = false);
 
-// Set validator version to 0,0 (not validated) then re-emit as much reflection metadata as possible.
+// Set validator version to 0,0 (not validated) then re-emit as much reflection
+// metadata as possible.
 void ReEmitLatestReflectionData(llvm::Module *pReflectionM);
 
 // Strip functions and serialize module.
-void StripAndCreateReflectionStream(llvm::Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes, AbstractMemoryStream **ppReflectionStreamOut);
+void StripAndCreateReflectionStream(
+    llvm::Module *pReflectionM, uint32_t *pReflectionPartSizeInBytes,
+    AbstractMemoryStream **ppReflectionStreamOut);
 
 void WriteProgramPart(const hlsl::ShaderModel *pModel,
-                      AbstractMemoryStream *pModuleBitcode,
-                      IStream *pStream);
+                      AbstractMemoryStream *pModuleBitcode, IStream *pStream);
 
 void SerializeDxilContainerForModule(
     hlsl::DxilModule *pModule, AbstractMemoryStream *pModuleBitcode,
-    AbstractMemoryStream *pStream, llvm::StringRef DebugName,
-    SerializeDxilFlags Flags, DxilShaderHash *pShaderHashOut = nullptr,
+    IDxcVersionInfo *DXCVersionInfo, AbstractMemoryStream *pStream,
+    llvm::StringRef DebugName, SerializeDxilFlags Flags,
+    DxilShaderHash *pShaderHashOut = nullptr,
     AbstractMemoryStream *pReflectionStreamOut = nullptr,
     AbstractMemoryStream *pRootSigStreamOut = nullptr,
-    void *pPrivateData = nullptr,
-    size_t PrivateDataSize = 0);
-void SerializeDxilContainerForRootSignature(hlsl::RootSignatureHandle *pRootSigHandle,
-                                     AbstractMemoryStream *pStream);
+    void *pPrivateData = nullptr, size_t PrivateDataSize = 0);
+void SerializeDxilContainerForRootSignature(
+    hlsl::RootSignatureHandle *pRootSigHandle, AbstractMemoryStream *pStream);
 
 } // namespace hlsl

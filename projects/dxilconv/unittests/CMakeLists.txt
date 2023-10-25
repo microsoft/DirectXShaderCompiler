@@ -23,7 +23,10 @@ target_include_directories(dxilconv-tests PRIVATE
   ${TAEF_INCLUDE_DIRS}
 )
 
-add_dependencies(dxilconv-tests dxilconv HLSLTestLib)
+# dxilconv-tests calls out to several external tools. Those need to be listed
+# here to ensure they build with dxilconv for our test target depencencies to be
+# correct.
+add_dependencies(dxilconv-tests dxilconv HLSLTestLib dxbc2dxil dxa opt)
 
 install(TARGETS dxilconv-tests
   RUNTIME DESTINATION bin)

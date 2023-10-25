@@ -3,7 +3,7 @@
   <PropertyGroup>
     <LocalDebuggerCommand>${DOS_TAEF_BIN_DIR}\$(PlatformTarget)\Te.exe</LocalDebuggerCommand>
     <LocalDebuggerCommand Condition="'$(PlatformTarget)' == 'x64' And Exists('${DOS_TAEF_BIN_DIR}\amd64\Te.exe')">${DOS_TAEF_BIN_DIR}\amd64\Te.exe</LocalDebuggerCommand>
-    <LocalDebuggerCommandArguments>$(TargetPath) /inproc /runIgnoredTests /p:"ExperimentalShaders=*" /name:*</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>$(TargetPath) /inproc /p:"ExperimentalShaders=*" /name:*</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

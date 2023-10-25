@@ -10,7 +10,7 @@
 // RUN: %dxc -T lib_6_3 -D INIT=agg -D ACCUM=agg.array[0]+agg.array[1] -D ARRAY %s | FileCheck %s -check-prefixes=CHECK,AGG
 // RUN: %dxc -T lib_6_3 -D INIT=s_agg -D ACCUM=s_agg.array[0]+s_agg.array[1] -D ARRAY %s | FileCheck %s -check-prefixes=CHECK,AGG
 
-// CHECK: define <3 x float> @"\01?main@@YA?AV?$vector@M$02@@XZ"()
+// CHECK: define <3 x float> @"\01?main{{[@$?.A-Za-z0-9_]+}}"()
 // VEC: alloca <3 x float>
 // VEC: alloca <3 x float>
 // AGG: alloca %struct.Agg

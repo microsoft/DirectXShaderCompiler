@@ -18,12 +18,14 @@
 
 // Require at least Windows 7 (Updated from XP)
 #define _WIN32_WINNT 0x0601
-#define _WIN32_IE    0x0800 // MinGW at it again.
+#define _WIN32_IE 0x0800 // MinGW at it again.
 
 #define NOATOM 1
 #define NOGDICAPMASKS 1
 #define NOMETAFILE 1
+#ifndef NOMINMAX
 #define NOMINMAX 1
+#endif
 #define NOOPENFILE 1
 #define NORASTEROPS 1
 #define NOSCROLL 1
@@ -38,12 +40,14 @@
 #define VC_EXTRALEAN 1
 #define NONAMELESSSTRUCT 1
 
-#include <windows.h>
-#include <unknwn.h>
-#include <atlbase.h> // atlbase.h needs to come before strsafe.h
-#include <strsafe.h>
-#include <intsafe.h>
 #include <ObjIdl.h>
+#include <atlbase.h> // atlbase.h needs to come before strsafe.h
+#include <intsafe.h>
+#include <strsafe.h>
+#include <unknwn.h>
+#include <windows.h>
+
+#include "dxc/config.h"
 
 // Support older atlbase.h if needed
 #ifndef _ATL_DECLSPEC_ALLOCATOR
@@ -59,54 +63,75 @@ template <class T> void swap(CComHeapPtr<T> &a, CComHeapPtr<T> &b) {
 
 #else // _MSC_VER
 
-#include "dxc/Support/WinAdapter.h"
+#include "dxc/WinAdapter.h"
 
 #ifdef __cplusplus
+#if !defined(DEFINE_ENUM_FLAG_OPERATORS)
 // Define operator overloads to enable bit operations on enum values that are
-// used to define flags. Use DEFINE_ENUM_FLAG_OPERATORS(YOUR_TYPE) to enable these
-// operators on YOUR_TYPE.
+// used to define flags. Use DEFINE_ENUM_FLAG_OPERATORS(YOUR_TYPE) to enable
+// these operators on YOUR_TYPE.
 extern "C++" {
-    template <size_t S>
-    struct _ENUM_FLAG_INTEGER_FOR_SIZE;
+template <size_t S> struct _ENUM_FLAG_INTEGER_FOR_SIZE;
 
-    template <>
-    struct _ENUM_FLAG_INTEGER_FOR_SIZE<1>
-    {
-        typedef int8_t type;
-    };
+template <> struct _ENUM_FLAG_INTEGER_FOR_SIZE<1> { typedef int8_t type; };
 
-    template <>
-    struct _ENUM_FLAG_INTEGER_FOR_SIZE<2>
-    {
-        typedef int16_t type;
-    };
+template <> struct _ENUM_FLAG_INTEGER_FOR_SIZE<2> { typedef int16_t type; };
 
-    template <>
-    struct _ENUM_FLAG_INTEGER_FOR_SIZE<4>
-    {
-        typedef int32_t type;
-    };
+template <> struct _ENUM_FLAG_INTEGER_FOR_SIZE<4> { typedef int32_t type; };
 
-    // used as an approximation of std::underlying_type<T>
-    template <class T>
-    struct _ENUM_FLAG_SIZED_INTEGER
-    {
-        typedef typename _ENUM_FLAG_INTEGER_FOR_SIZE<sizeof(T)>::type type;
-    };
-
+// used as an approximation of std::underlying_type<T>
+template <class T> struct _ENUM_FLAG_SIZED_INTEGER {
+  typedef typename _ENUM_FLAG_INTEGER_FOR_SIZE<sizeof(T)>::type type;
+};
 }
-#define DEFINE_ENUM_FLAG_OPERATORS(ENUMTYPE) \
-extern "C++" { \
-inline ENUMTYPE operator | (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) | ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline ENUMTYPE &operator |= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) |= ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline ENUMTYPE operator & (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) & ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline ENUMTYPE &operator &= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) &= ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline ENUMTYPE operator ~ (ENUMTYPE a) { return ENUMTYPE(~((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a)); } \
-inline ENUMTYPE operator ^ (ENUMTYPE a, ENUMTYPE b) { return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) ^ ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-inline ENUMTYPE &operator ^= (ENUMTYPE &a, ENUMTYPE b) { return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) ^= ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b)); } \
-}
+#define DEFINE_ENUM_FLAG_OPERATORS(ENUMTYPE)                                   \
+  extern "C++" {                                                               \
+  inline ENUMTYPE operator|(ENUMTYPE a, ENUMTYPE b) {                          \
+    return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) |            \
+                    ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b));            \
+  }                                                                            \
+  inline ENUMTYPE &operator|=(ENUMTYPE &a, ENUMTYPE b) {                       \
+    return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) |=     \
+                        ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b));        \
+  }                                                                            \
+  inline ENUMTYPE operator&(ENUMTYPE a, ENUMTYPE b) {                          \
+    return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) &            \
+                    ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b));            \
+  }                                                                            \
+  inline ENUMTYPE &operator&=(ENUMTYPE &a, ENUMTYPE b) {                       \
+    return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) &=     \
+                        ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b));        \
+  }                                                                            \
+  inline ENUMTYPE operator~(ENUMTYPE a) {                                      \
+    return ENUMTYPE(~((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a));           \
+  }                                                                            \
+  inline ENUMTYPE operator^(ENUMTYPE a, ENUMTYPE b) {                          \
+    return ENUMTYPE(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)a) ^            \
+                    ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b));            \
+  }                                                                            \
+  inline ENUMTYPE &operator^=(ENUMTYPE &a, ENUMTYPE b) {                       \
+    return (ENUMTYPE &)(((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type &)a) ^=     \
+                        ((_ENUM_FLAG_SIZED_INTEGER<ENUMTYPE>::type)b));        \
+  }                                                                            \
+  }
+#endif // !defined(DEFINE_ENUM_FLAG_OPERATORS)
 #else
 #define DEFINE_ENUM_FLAG_OPERATORS(ENUMTYPE) // NOP, C allows these operators.
 #endif
 
 #endif // _MSC_VER
+
+/// DxcCoGetMalloc
+#if defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+
+#define DxcCoGetMalloc CoGetMalloc
+
+#else // defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)
+
+#ifndef _WIN32
+struct IMalloc;
+#endif
+
+HRESULT DxcCoGetMalloc(DWORD dwMemContext, IMalloc **ppMalloc);
+
+#endif // defined(_WIN32) && !defined(DXC_DISABLE_ALLOCATOR_OVERRIDES)

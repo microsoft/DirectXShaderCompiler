@@ -22,6 +22,7 @@ jobs:
   # Build job
   build:
     runs-on: ubuntu-latest
+    if: github.repository == 'microsoft/DirectXShaderCompiler'
     timeout-minutes: 240
     steps:
       - name: Checkout
@@ -33,13 +34,15 @@ jobs:
       - name: Install dependencies
         run: sudo apt install -y ninja-build
       - name: Configure
-        run: cmake -B build -G Ninja -DLLVM_PARALLEL_LINK_JOBS=1 -DLLVM_USE_LINKER=lld -DCMAKE_BUILD_TYPE=Release -DDXC_USE_LIT=On -DDXC_COVERAGE=On -C ${{github.workspace}}/cmake/caches/PredefinedParams.cmake -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ${{github.workspace}}
+        run: cmake -B build -G Ninja -DLLVM_PARALLEL_LINK_JOBS=1 -DLLVM_USE_LINKER=lld -DCMAKE_BUILD_TYPE=Release -DDXC_COVERAGE=On -C ${{github.workspace}}/cmake/caches/PredefinedParams.cmake -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ ${{github.workspace}}
       - name: Build
         run: ninja -C build test-depends
       - name: Test
         run: ninja -C build check-all
       - name: Generate Report
         run: ninja -C build generate-coverage-report
+      - name: Force artifact permissions
+        run: chmod -c -R +rX ${{github.workspace}}/build/report
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
@@ -52,6 +55,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    if: github.repository == 'microsoft/DirectXShaderCompiler'
     needs: build
     steps:
       - name: Deploy to GitHub Pages

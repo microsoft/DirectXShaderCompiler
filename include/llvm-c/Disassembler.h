@@ -15,7 +15,7 @@
 #ifndef LLVM_C_DISASSEMBLER_H
 #define LLVM_C_DISASSEMBLER_H
 
-#include "dxc/Support/WinAdapter.h" // HLSL Change
+#include "dxc/WinAdapter.h" // HLSL Change
 #include "llvm/Support/DataTypes.h"
 #include <stddef.h>
 
@@ -242,7 +242,7 @@ void LLVMDisasmDispose(LLVMDisasmContextRef DC);
  */
 size_t LLVMDisasmInstruction(LLVMDisasmContextRef DC, uint8_t *Bytes,
                              uint64_t BytesSize, uint64_t PC,
-                             _Out_writes_z_(OutStringSize) char *OutString, size_t OutStringSize); // HLSL Change: annotation
+                             char *OutString, size_t OutStringSize);
 
 /**
  * @}

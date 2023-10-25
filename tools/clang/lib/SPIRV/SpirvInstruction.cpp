@@ -78,6 +78,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSelect)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantBinaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSpecConstantUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvStore)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNullaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUnaryOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvVectorShuffle)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvArrayLength)
@@ -121,7 +122,8 @@ SpirvInstruction::SpirvInstruction(Kind k, spv::Op op, QualType astType,
       srcRange(range), debugName(), resultType(nullptr), resultTypeId(0),
       layoutRule(SpirvLayoutRule::Void), containsAlias(false),
       storageClass(spv::StorageClass::Function), isRValue_(false),
-      isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false) {}
+      isRelaxedPrecision_(false), isNonUniform_(false), isPrecise_(false),
+      isRasterizerOrdered_(false) {}
 
 bool SpirvInstruction::isArithmeticInstruction() const {
   switch (opcode) {
@@ -847,6 +849,10 @@ void SpirvStore::setAlignment(uint32_t alignment) {
   memoryAlignment = alignment;
 }
 
+SpirvNullaryOp::SpirvNullaryOp(spv::Op opcode, SourceLocation loc,
+                               SourceRange range)
+    : SpirvInstruction(IK_NullaryOp, opcode, QualType(), loc, range) {}
+
 SpirvUnaryOp::SpirvUnaryOp(spv::Op opcode, QualType resultType,
                            SourceLocation loc, SpirvInstruction *op,
                            SourceRange range)
@@ -1116,9 +1122,10 @@ SpirvEmitMeshTasksEXT::SpirvEmitMeshTasksEXT(
                        QualType(), loc, range),
       xDim(xDim), yDim(yDim), zDim(zDim), payload(payload) {}
 
-SpirvSetMeshOutputsEXT::SpirvSetMeshOutputsEXT(
-    SpirvInstruction *vertCount, SpirvInstruction *primCount,
-    SourceLocation loc, SourceRange range)
+SpirvSetMeshOutputsEXT::SpirvSetMeshOutputsEXT(SpirvInstruction *vertCount,
+                                               SpirvInstruction *primCount,
+                                               SourceLocation loc,
+                                               SourceRange range)
     : SpirvInstruction(IK_SetMeshOutputsEXT, spv::Op::OpSetMeshOutputsEXT,
                        QualType(), loc, range),
       vertCount(vertCount), primCount(primCount) {}

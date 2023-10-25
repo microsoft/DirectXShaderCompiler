@@ -9,20 +9,20 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilExportMap.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
-#include "llvm/Support/raw_ostream.h"
+#include "dxc/DXIL/DxilUtil.h"
+#include "dxc/Support/Global.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Support/raw_ostream.h"
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
 
 using namespace llvm;
 using namespace hlsl;
@@ -30,14 +30,11 @@ using namespace hlsl;
 namespace hlsl {
 namespace dxilutil {
 
-void ExportMap::clear() {
-  m_ExportMap.clear();
-}
-bool ExportMap::empty() const {
-  return m_ExportMap.empty();
-}
+void ExportMap::clear() { m_ExportMap.clear(); }
+bool ExportMap::empty() const { return m_ExportMap.empty(); }
 
-bool ExportMap::ParseExports(const std::vector<std::string> &exportOpts, llvm::raw_ostream &errors) {
+bool ExportMap::ParseExports(const std::vector<std::string> &exportOpts,
+                             llvm::raw_ostream &errors) {
   for (auto &str : exportOpts) {
     llvm::StringRef exports = StoreString(str);
     size_t start = 0;
@@ -69,7 +66,7 @@ bool ExportMap::ParseExports(const std::vector<std::string> &exportOpts, llvm::r
 
       if (equals == 0 || internalName.empty()) {
         errors << "Invalid syntax for -exports: '" << exportDef
-          << "'.  Syntax is: export1[[,export2,...]=internal][;...]";
+               << "'.  Syntax is: export1[[,export2,...]=internal][;...]";
         return false;
       }
       if (end == llvm::StringRef::npos)
@@ -81,8 +78,8 @@ bool ExportMap::ParseExports(const std::vector<std::string> &exportOpts, llvm::r
 }
 
 void ExportMap::Add(llvm::StringRef exportName, llvm::StringRef internalName) {
-  // Incoming strings may be escaped (because they originally come from arguments)
-  // Unescape them here, if necessary
+  // Incoming strings may be escaped (because they originally come from
+  // arguments) Unescape them here, if necessary
   if (exportName.startswith("\\")) {
     std::string str;
     llvm::raw_string_ostream os(str);
@@ -102,14 +99,14 @@ void ExportMap::Add(llvm::StringRef exportName, llvm::StringRef internalName) {
   m_ExportMap[internalName].insert(exportName);
 }
 
-ExportMap::const_iterator ExportMap::GetExportsByName(llvm::StringRef Name) const {
+ExportMap::const_iterator
+ExportMap::GetExportsByName(llvm::StringRef Name) const {
   ExportMap::const_iterator it = m_ExportMap.find(Name);
   StringRef unmangled = DemangleFunctionName(Name);
   if (it == end()) {
     if (Name.startswith(ManglingPrefix)) {
       it = m_ExportMap.find(unmangled);
-    }
-    else if (Name.startswith(EntryPrefix)) {
+    } else if (Name.startswith(EntryPrefix)) {
       it = m_ExportMap.find(Name.substr(strlen(EntryPrefix)));
     }
   }
@@ -131,7 +128,8 @@ void ExportMap::BeginProcessing() {
   }
 }
 
-bool ExportMap::ProcessFunction(llvm::Function *F, bool collisionAvoidanceRenaming) {
+bool ExportMap::ProcessFunction(llvm::Function *F,
+                                bool collisionAvoidanceRenaming) {
   // Skip if already added.  This can happen due to patch constant functions.
   if (m_RenameMap.find(F) != m_RenameMap.end())
     return true;
@@ -174,10 +172,12 @@ bool ExportMap::ProcessFunction(llvm::Function *F, bool collisionAvoidanceRenami
     F->setName(tempName);
   }
 
-  for (auto itName = exportRenames.begin(); itName != exportRenames.end(); itName++) {
+  for (auto itName = exportRenames.begin(); itName != exportRenames.end();
+       itName++) {
     // Now add actual renames
     if (itName != itIdentity) {
-      StringRef newName = StoreString(dxilutil::ReplaceFunctionName(F->getName(), itName->getKey()));
+      StringRef newName = StoreString(
+          dxilutil::ReplaceFunctionName(F->getName(), itName->getKey()));
       renames.insert(newName);
       ExportName(newName);
     }
@@ -192,7 +192,7 @@ void ExportMap::RegisterExportedFunction(llvm::Function *F) {
     return;
   F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
   NameSet &renames = m_RenameMap[F];
-  (void)(renames);  // Don't actually add anything
+  (void)(renames); // Don't actually add anything
   ExportName(F->getName());
 }
 
@@ -217,5 +217,5 @@ llvm::StringRef ExportMap::StoreString(llvm::StringRef str) {
   return *m_StringStorage.insert(str).first;
 }
 
-} // dxilutil
-} // hlsl
+} // namespace dxilutil
+} // namespace hlsl

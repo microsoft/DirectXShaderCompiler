@@ -114,6 +114,11 @@ public:
   // Add an entry point to the module.
   void addEntryPoint(SpirvEntryPoint *);
 
+  // Returns an existing execution mode instruction that is the same as em if it
+  // exists. Return nullptr otherwise.
+  SpirvExecutionMode *findExecutionMode(SpirvFunction *entryPoint,
+                                        spv::ExecutionMode em);
+
   // Adds an execution mode to the module.
   void addExecutionMode(SpirvExecutionMode *);
 

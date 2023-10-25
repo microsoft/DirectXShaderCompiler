@@ -129,8 +129,7 @@ private:
                   SourceLocation loc, SourceRange range = {});
 
   /// Internal implementation for recordClipCullDistanceDecl().
-  bool doGlPerVertexFacts(const DeclaratorDecl *decl, QualType type,
-                          bool asInput);
+  bool doGlPerVertexFacts(const NamedDecl *decl, QualType type, bool asInput);
 
   /// Returns whether the type is a scalar, vector, or array that contains
   /// only scalars with float type.

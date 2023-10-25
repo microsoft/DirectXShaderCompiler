@@ -21,28 +21,28 @@ using namespace llvm;
 
 namespace hlsl {
 
-const char HLPrefixStr [] = "dx.hl";
-const char * const HLPrefix = HLPrefixStr;
+const char HLPrefixStr[] = "dx.hl";
+const char *const HLPrefix = HLPrefixStr;
 static const char HLLowerStrategyStr[] = "dx.hlls";
-static const char * const HLLowerStrategy = HLLowerStrategyStr;
+static const char *const HLLowerStrategy = HLLowerStrategyStr;
 
 static const char HLWaveSensitiveStr[] = "dx.wave-sensitive";
-static const char * const HLWaveSensitive = HLWaveSensitiveStr;
+static const char *const HLWaveSensitive = HLWaveSensitiveStr;
 
 static StringRef HLOpcodeGroupNames[]{
-    "notHLDXIL",   // NotHL,
-    "<ext>",       // HLExtIntrinsic - should always refer through extension
-    "op",          // HLIntrinsic,
-    "cast",        // HLCast,
-    "init",        // HLInit,
-    "binop",       // HLBinOp,
-    "unop",        // HLUnOp,
-    "subscript",   // HLSubscript,
-    "matldst",     // HLMatLoadStore,
-    "select",      // HLSelect,
-    "createhandle",// HLCreateHandle,
+    "notHLDXIL",     // NotHL,
+    "<ext>",         // HLExtIntrinsic - should always refer through extension
+    "op",            // HLIntrinsic,
+    "cast",          // HLCast,
+    "init",          // HLInit,
+    "binop",         // HLBinOp,
+    "unop",          // HLUnOp,
+    "subscript",     // HLSubscript,
+    "matldst",       // HLMatLoadStore,
+    "select",        // HLSelect,
+    "createhandle",  // HLCreateHandle,
     "annotatehandle" // HLAnnotateHandle,
-    "numOfHLDXIL", // NumOfHLOps
+    "numOfHLDXIL",   // NumOfHLOps
 };
 
 static StringRef HLOpcodeGroupFullNames[]{
@@ -56,9 +56,9 @@ static StringRef HLOpcodeGroupFullNames[]{
     "dx.hl.subscript", // HLSubscript,
     "dx.hl.matldst",   // HLMatLoadStore,
     "dx.hl.select",    // HLSelect,
-    "dx.hl.createhandle",  // HLCreateHandle,
-    "dx.hl.annotatehandle",      // HLAnnotateHandle,
-    "numOfHLDXIL",     // NumOfHLOps
+    "dx.hl.createhandle",   // HLCreateHandle,
+    "dx.hl.annotatehandle", // HLAnnotateHandle,
+    "numOfHLDXIL",          // NumOfHLOps
 };
 
 static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
@@ -146,7 +146,7 @@ StringRef GetHLOpcodeGroupName(HLOpcodeGroup op) {
     return HLOpcodeGroupNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
-    
+
     return "";
   }
 }
@@ -171,50 +171,75 @@ StringRef GetHLOpcodeGroupFullName(HLOpcodeGroup op) {
 
 llvm::StringRef GetHLOpcodeName(HLUnaryOpcode Op) {
   switch (Op) {
-  case HLUnaryOpcode::PostInc: return "++";
-  case HLUnaryOpcode::PostDec: return "--";
-  case HLUnaryOpcode::PreInc:  return "++";
-  case HLUnaryOpcode::PreDec:  return "--";
-  case HLUnaryOpcode::Plus:    return "+";
-  case HLUnaryOpcode::Minus:   return "-";
-  case HLUnaryOpcode::Not:     return "~";
-  case HLUnaryOpcode::LNot:    return "!";
+  case HLUnaryOpcode::PostInc:
+    return "++";
+  case HLUnaryOpcode::PostDec:
+    return "--";
+  case HLUnaryOpcode::PreInc:
+    return "++";
+  case HLUnaryOpcode::PreDec:
+    return "--";
+  case HLUnaryOpcode::Plus:
+    return "+";
+  case HLUnaryOpcode::Minus:
+    return "-";
+  case HLUnaryOpcode::Not:
+    return "~";
+  case HLUnaryOpcode::LNot:
+    return "!";
   case HLUnaryOpcode::Invalid:
   case HLUnaryOpcode::NumOfUO:
     // Invalid Unary Ops
     break;
   }
   llvm_unreachable("Unknown unary operator");
-
 }
 
 llvm::StringRef GetHLOpcodeName(HLBinaryOpcode Op) {
   switch (Op) {
-  case HLBinaryOpcode::Mul:       return "*";
+  case HLBinaryOpcode::Mul:
+    return "*";
   case HLBinaryOpcode::UDiv:
-  case HLBinaryOpcode::Div:       return "/";
+  case HLBinaryOpcode::Div:
+    return "/";
   case HLBinaryOpcode::URem:
-  case HLBinaryOpcode::Rem:       return "%";
-  case HLBinaryOpcode::Add:       return "+";
-  case HLBinaryOpcode::Sub:       return "-";
-  case HLBinaryOpcode::Shl:       return "<<";
+  case HLBinaryOpcode::Rem:
+    return "%";
+  case HLBinaryOpcode::Add:
+    return "+";
+  case HLBinaryOpcode::Sub:
+    return "-";
+  case HLBinaryOpcode::Shl:
+    return "<<";
   case HLBinaryOpcode::UShr:
-  case HLBinaryOpcode::Shr:       return ">>";
+  case HLBinaryOpcode::Shr:
+    return ">>";
   case HLBinaryOpcode::ULT:
-  case HLBinaryOpcode::LT:        return "<";
+  case HLBinaryOpcode::LT:
+    return "<";
   case HLBinaryOpcode::UGT:
-  case HLBinaryOpcode::GT:        return ">";
+  case HLBinaryOpcode::GT:
+    return ">";
   case HLBinaryOpcode::ULE:
-  case HLBinaryOpcode::LE:        return "<=";
+  case HLBinaryOpcode::LE:
+    return "<=";
   case HLBinaryOpcode::UGE:
-  case HLBinaryOpcode::GE:        return ">=";
-  case HLBinaryOpcode::EQ:        return "==";
-  case HLBinaryOpcode::NE:        return "!=";
-  case HLBinaryOpcode::And:       return "&";
-  case HLBinaryOpcode::Xor:       return "^";
-  case HLBinaryOpcode::Or:        return "|";
-  case HLBinaryOpcode::LAnd:      return "&&";
-  case HLBinaryOpcode::LOr:       return "||";
+  case HLBinaryOpcode::GE:
+    return ">=";
+  case HLBinaryOpcode::EQ:
+    return "==";
+  case HLBinaryOpcode::NE:
+    return "!=";
+  case HLBinaryOpcode::And:
+    return "&";
+  case HLBinaryOpcode::Xor:
+    return "^";
+  case HLBinaryOpcode::Or:
+    return "|";
+  case HLBinaryOpcode::LAnd:
+    return "&&";
+  case HLBinaryOpcode::LOr:
+    return "||";
   case HLBinaryOpcode::Invalid:
   case HLBinaryOpcode::NumOfBO:
     // Invalid Binary Ops
@@ -295,18 +320,21 @@ void SetHLLowerStrategy(Function *F, StringRef S) {
 }
 
 // Set function attribute indicating wave-sensitivity
-void SetHLWaveSensitive(Function *F) {
-  F->addFnAttr(HLWaveSensitive, "y");
-}
+void SetHLWaveSensitive(Function *F) { F->addFnAttr(HLWaveSensitive, "y"); }
 
-// Return if this Function is dependent on other wave members indicated by attribute
+// Return if this Function is dependent on other wave members indicated by
+// attribute
 bool IsHLWaveSensitive(Function *F) {
   AttributeSet attrSet = F->getAttributes();
   return attrSet.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive);
 }
 
-std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
-  assert(op != HLOpcodeGroup::HLExtIntrinsic && "else table name should be used");
+static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs);
+
+std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode,
+                          const AttributeSet &attribs = AttributeSet()) {
+  assert(op != HLOpcodeGroup::HLExtIntrinsic &&
+         "else table name should be used");
   std::string opName = GetHLOpcodeGroupFullName(op).str() + ".";
 
   switch (op) {
@@ -321,7 +349,7 @@ std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
   case HLOpcodeGroup::HLIntrinsic: {
     // intrinsic with same signature will share the funciton now
     // The opcode is in arg0.
-    return opName;
+    return opName + GetHLFunctionAttributeMangling(attribs);
   }
   case HLOpcodeGroup::HLMatLoadStore: {
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
@@ -329,25 +357,29 @@ std::string GetHLFullName(HLOpcodeGroup op, unsigned opcode) {
   }
   case HLOpcodeGroup::HLSubscript: {
     HLSubscriptOpcode subOp = static_cast<HLSubscriptOpcode>(opcode);
-    return opName + GetHLOpcodeName(subOp).str();
+    return opName + GetHLOpcodeName(subOp).str() + "." +
+           GetHLFunctionAttributeMangling(attribs);
   }
   case HLOpcodeGroup::HLCast: {
     HLCastOpcode castOp = static_cast<HLCastOpcode>(opcode);
     return opName + GetHLOpcodeName(castOp).str();
   }
-  default:
+  case HLOpcodeGroup::HLCreateHandle:
+  case HLOpcodeGroup::HLAnnotateHandle:
     return opName;
+  default:
+    return opName + GetHLFunctionAttributeMangling(attribs);
   }
 }
 
 // Get opcode from arg0 of function call.
-unsigned  GetHLOpcode(const CallInst *CI) {
+unsigned GetHLOpcode(const CallInst *CI) {
   Value *idArg = CI->getArgOperand(HLOperandIndex::kOpcodeIdx);
   Constant *idConst = cast<Constant>(idArg);
   return idConst->getUniqueInteger().getLimitedValue();
 }
 
-unsigned  GetRowMajorOpcode(HLOpcodeGroup group, unsigned opcode) {
+unsigned GetRowMajorOpcode(HLOpcodeGroup group, unsigned opcode) {
   switch (group) {
   case HLOpcodeGroup::HLMatLoadStore: {
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
@@ -417,38 +449,60 @@ HLBinaryOpcode GetUnsignedOpcode(HLBinaryOpcode opcode) {
   }
 }
 
-static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
-                                       unsigned opcode) {
-  F->addFnAttr(Attribute::NoUnwind);
+static AttributeSet GetHLFunctionAttributes(LLVMContext &C,
+                                            FunctionType *funcTy,
+                                            const AttributeSet &origAttribs,
+                                            HLOpcodeGroup group,
+                                            unsigned opcode) {
+  // Always add nounwind
+  AttributeSet attribs =
+      AttributeSet::get(C, AttributeSet::FunctionIndex,
+                        ArrayRef<Attribute::AttrKind>({Attribute::NoUnwind}));
+
+  auto addAttr = [&](Attribute::AttrKind Attr) {
+    if (!attribs.hasAttribute(AttributeSet::FunctionIndex, Attr))
+      attribs = attribs.addAttribute(C, AttributeSet::FunctionIndex, Attr);
+  };
+  auto copyAttr = [&](Attribute::AttrKind Attr) {
+    if (origAttribs.hasAttribute(AttributeSet::FunctionIndex, Attr))
+      addAttr(Attr);
+  };
+  auto copyStrAttr = [&](StringRef Kind) {
+    if (origAttribs.hasAttribute(AttributeSet::FunctionIndex, Kind))
+      attribs = attribs.addAttribute(
+          C, AttributeSet::FunctionIndex, Kind,
+          origAttribs.getAttribute(AttributeSet::FunctionIndex, Kind)
+              .getValueAsString());
+  };
+
+  // Copy attributes we preserve from the original function.
+  copyAttr(Attribute::ReadOnly);
+  copyAttr(Attribute::ReadNone);
+  copyStrAttr(HLWaveSensitive);
 
   switch (group) {
   case HLOpcodeGroup::HLUnOp:
   case HLOpcodeGroup::HLBinOp:
   case HLOpcodeGroup::HLCast:
   case HLOpcodeGroup::HLSubscript:
-    if (!F->hasFnAttribute(Attribute::ReadNone)) {
-      F->addFnAttr(Attribute::ReadNone);
-    }
+    addAttr(Attribute::ReadNone);
     break;
   case HLOpcodeGroup::HLInit:
-    if (!F->hasFnAttribute(Attribute::ReadNone))
-      if (!F->getReturnType()->isVoidTy()) {
-        F->addFnAttr(Attribute::ReadNone);
-      }
+    if (!funcTy->getReturnType()->isVoidTy()) {
+      addAttr(Attribute::ReadNone);
+    }
     break;
   case HLOpcodeGroup::HLMatLoadStore: {
     HLMatLoadStoreOpcode matOp = static_cast<HLMatLoadStoreOpcode>(opcode);
     if (matOp == HLMatLoadStoreOpcode::ColMatLoad ||
         matOp == HLMatLoadStoreOpcode::RowMatLoad)
-      if (!F->hasFnAttribute(Attribute::ReadOnly)) {
-        F->addFnAttr(Attribute::ReadOnly);
-      }
+      addAttr(Attribute::ReadOnly);
   } break;
   case HLOpcodeGroup::HLCreateHandle: {
-    F->addFnAttr(Attribute::ReadNone);
+    addAttr(Attribute::ReadNone);
   } break;
   case HLOpcodeGroup::HLAnnotateHandle: {
-    F->addFnAttr(Attribute::ReadNone);
+    addAttr(Attribute::ReadNone);
   } break;
   case HLOpcodeGroup::HLIntrinsic: {
     IntrinsicOp intrinsicOp = static_cast<IntrinsicOp>(opcode);
@@ -461,7 +515,7 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
     case IntrinsicOp::IOP_GroupMemoryBarrier:
     case IntrinsicOp::IOP_AllMemoryBarrierWithGroupSync:
     case IntrinsicOp::IOP_AllMemoryBarrier:
-      F->addFnAttr(Attribute::NoDuplicate);
+      addAttr(Attribute::NoDuplicate);
       break;
     }
   } break;
@@ -472,32 +526,107 @@ static void SetHLFunctionAttribute(Function *F, HLOpcodeGroup group,
     // No default attributes for these opcodes.
     break;
   }
+  assert(!(attribs.hasAttribute(AttributeSet::FunctionIndex,
+                                Attribute::ReadNone) &&
+           attribs.hasAttribute(AttributeSet::FunctionIndex,
+                                Attribute::ReadOnly)) &&
+         "conflicting ReadNone and ReadOnly attributes");
+  return attribs;
 }
 
+static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
+  std::string mangledName;
+  raw_string_ostream mangledNameStr(mangledName);
+
+  // Capture for adding in canonical order later.
+  bool ReadNone = false;
+  bool ReadOnly = false;
+  bool NoDuplicate = false;
+  bool WaveSensitive = false;
+
+  // Ensure every function attribute is recognized.
+  for (unsigned Slot = 0; Slot < attribs.getNumSlots(); Slot++) {
+    if (attribs.getSlotIndex(Slot) == AttributeSet::FunctionIndex) {
+      for (auto it = attribs.begin(Slot), e = attribs.end(Slot); it != e;
+           it++) {
+        if (it->isEnumAttribute()) {
+          switch (it->getKindAsEnum()) {
+          case Attribute::ReadNone:
+            ReadNone = true;
+            break;
+          case Attribute::ReadOnly:
+            ReadOnly = true;
+            break;
+          case Attribute::NoDuplicate:
+            NoDuplicate = true;
+            break;
+          case Attribute::NoUnwind:
+            // All intrinsics have this attribute, so mangling is unaffected.
+            break;
+          default:
+            assert(false && "unexpected attribute for HLOperation");
+          }
+        } else if (it->isStringAttribute()) {
+          StringRef Kind = it->getKindAsString();
+          if (Kind == HLWaveSensitive) {
+            assert(it->getValueAsString() == "y" &&
+                   "otherwise, unexpected value for WaveSensitive attribute");
+            WaveSensitive = true;
+          } else {
+            assert(false &&
+                   "unexpected string function attribute for HLOperation");
+          }
+        }
+      }
+    }
+  }
+
+  // Validate attribute combinations.
+  assert(!(ReadNone && ReadOnly) &&
+         "ReadNone and ReadOnly are mutually exclusive");
+
+  // Add mangling in canonical order
+  if (NoDuplicate)
+    mangledNameStr << "nd";
+  if (ReadNone)
+    mangledNameStr << "rn";
+  if (ReadOnly)
+    mangledNameStr << "ro";
+  if (WaveSensitive)
+    mangledNameStr << "wave";
+  return mangledName;
+}
 
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
                                 HLOpcodeGroup group, unsigned opcode) {
   AttributeSet attribs;
-  return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode, attribs);
+  return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode,
+                               attribs);
 }
 
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
                                 HLOpcodeGroup group, StringRef *groupName,
                                 StringRef *fnName, unsigned opcode) {
   AttributeSet attribs;
-  return GetOrCreateHLFunction(M, funcTy, group, groupName, fnName, opcode, attribs);
+  return GetOrCreateHLFunction(M, funcTy, group, groupName, fnName, opcode,
+                               attribs);
 }
 
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
                                 HLOpcodeGroup group, unsigned opcode,
                                 const AttributeSet &attribs) {
-  return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode, attribs);
+  return GetOrCreateHLFunction(M, funcTy, group, nullptr, nullptr, opcode,
+                               attribs);
 }
 
 Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
                                 HLOpcodeGroup group, StringRef *groupName,
                                 StringRef *fnName, unsigned opcode,
-                                const AttributeSet &attribs) {
+                                const AttributeSet &origAttribs) {
+  // Set/transfer all common attributes
+  AttributeSet attribs = GetHLFunctionAttributes(M.getContext(), funcTy,
+                                                 origAttribs, group, opcode);
+
   std::string mangledName;
   raw_string_ostream mangledNameStr(mangledName);
   if (group == HLOpcodeGroup::HLExtIntrinsic) {
@@ -506,32 +635,29 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
     mangledNameStr << *groupName;
     mangledNameStr << '.';
     mangledNameStr << *fnName;
-  }
-  else {
-    mangledNameStr << GetHLFullName(group, opcode);
-    // Need to add wave sensitivity to name to prevent clashes with non-wave intrinsic
-    if(attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
-        mangledNameStr << "wave";
+    attribs = attribs.addAttribute(M.getContext(), AttributeSet::FunctionIndex,
+                                   hlsl::HLPrefix, *groupName);
+  } else {
+    mangledNameStr << GetHLFullName(group, opcode, attribs);
     mangledNameStr << '.';
     funcTy->print(mangledNameStr);
   }
 
   mangledNameStr.flush();
 
-  Function *F = cast<Function>(M.getOrInsertFunction(mangledName, funcTy));
-  if (group == HLOpcodeGroup::HLExtIntrinsic) {
-    F->addFnAttr(hlsl::HLPrefix, *groupName);
+  // Avoid getOrInsertFunction to verify attributes and type without casting.
+  Function *F = cast_or_null<Function>(M.getNamedValue(mangledName));
+  if (F) {
+    assert(F->getFunctionType() == funcTy &&
+           "otherwise, function type mismatch not captured by mangling");
+    // Compare attribute mangling to ensure function attributes are as expected.
+    assert(
+        GetHLFunctionAttributeMangling(F->getAttributes().getFnAttributes()) ==
+            GetHLFunctionAttributeMangling(attribs) &&
+        "otherwise, function attribute mismatch not captured by mangling");
+  } else {
+    F = cast<Function>(M.getOrInsertFunction(mangledName, funcTy, attribs));
   }
-
-  SetHLFunctionAttribute(F, group, opcode);
-
-  // Copy attributes
-  if (attribs.hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadNone))
-    F->addFnAttr(Attribute::ReadNone);
-  if (attribs.hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadOnly))
-    F->addFnAttr(Attribute::ReadOnly);
-  if (attribs.hasAttribute(AttributeSet::FunctionIndex, HLWaveSensitive))
-    F->addFnAttr(HLWaveSensitive, "y");
 
   return F;
 }
@@ -541,36 +667,43 @@ Function *GetOrCreateHLFunction(Module &M, FunctionType *funcTy,
 Function *GetOrCreateHLFunctionWithBody(Module &M, FunctionType *funcTy,
                                         HLOpcodeGroup group, unsigned opcode,
                                         StringRef name) {
-  std::string operatorName = GetHLFullName(group, opcode);
+  // Set/transfer all common attributes
+  AttributeSet attribs = GetHLFunctionAttributes(M.getContext(), funcTy,
+                                                 AttributeSet(), group, opcode);
+
+  std::string operatorName = GetHLFullName(group, opcode, attribs);
   std::string mangledName = operatorName + "." + name.str();
   raw_string_ostream mangledNameStr(mangledName);
   funcTy->print(mangledNameStr);
   mangledNameStr.flush();
 
-  Function *F = cast<Function>(M.getOrInsertFunction(mangledName, funcTy));
-
-  SetHLFunctionAttribute(F, group, opcode);
+  Function *F =
+      cast<Function>(M.getOrInsertFunction(mangledName, funcTy, attribs));
 
   F->setLinkage(llvm::GlobalValue::LinkageTypes::InternalLinkage);
 
   return F;
 }
 
-Value *callHLFunction(Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
-      Type *RetTy, ArrayRef<Value*> Args, IRBuilder<> &Builder) {
+Value *callHLFunction(Module &Module, HLOpcodeGroup OpcodeGroup,
+                      unsigned Opcode, Type *RetTy, ArrayRef<Value *> Args,
+                      IRBuilder<> &Builder) {
   AttributeSet attribs;
-  return callHLFunction(Module, OpcodeGroup, Opcode, RetTy, Args, attribs, Builder);
+  return callHLFunction(Module, OpcodeGroup, Opcode, RetTy, Args, attribs,
+                        Builder);
 }
 
-Value *callHLFunction(Module &Module, HLOpcodeGroup OpcodeGroup, unsigned Opcode,
-      Type *RetTy, ArrayRef<Value*> Args, const AttributeSet &attribs, IRBuilder<> &Builder) {
-  SmallVector<Type*, 4> ArgTys;
+Value *callHLFunction(Module &Module, HLOpcodeGroup OpcodeGroup,
+                      unsigned Opcode, Type *RetTy, ArrayRef<Value *> Args,
+                      const AttributeSet &attribs, IRBuilder<> &Builder) {
+  SmallVector<Type *, 4> ArgTys;
   ArgTys.reserve(Args.size());
   for (Value *Arg : Args)
     ArgTys.emplace_back(Arg->getType());
 
   FunctionType *FuncTy = FunctionType::get(RetTy, ArgTys, /* isVarArg */ false);
-  Function *Func = GetOrCreateHLFunction(Module, FuncTy, OpcodeGroup, Opcode, attribs);
+  Function *Func =
+      GetOrCreateHLFunction(Module, FuncTy, OpcodeGroup, Opcode, attribs);
 
   return Builder.CreateCall(Func, Args);
 }

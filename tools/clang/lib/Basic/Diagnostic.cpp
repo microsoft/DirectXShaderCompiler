@@ -204,7 +204,7 @@ void DiagnosticsEngine::setSeverity(diag::kind Diag, diag::Severity Map,
     return;
   }
 
-  _Analysis_assume_(SourceMgr != nullptr); // SourceMgr==nullptr is only valid for invalid locations, which cause an earlier exit
+  assert(SourceMgr != nullptr); // SourceMgr==nullptr is only valid for invalid locations, which cause an earlier exit
   // Another common case; modifying diagnostic state in a source location
   // after the previous one.
   if ((Loc.isValid() && LastStateChangePos.isInvalid()) ||

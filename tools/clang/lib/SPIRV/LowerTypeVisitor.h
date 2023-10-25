@@ -71,6 +71,11 @@ private:
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
                                      SourceLocation);
 
+  /// Lowers the fields of a RecordDecl into SPIR-V StructType field
+  /// information.
+  llvm::SmallVector<StructType::FieldInfo, 4>
+  lowerStructFields(const RecordDecl *structType, SpirvLayoutRule rule);
+
   /// Lowers the given type defined in vk namespace into its SPIR-V type.
   const SpirvType *lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
                                             SpirvLayoutRule rule,

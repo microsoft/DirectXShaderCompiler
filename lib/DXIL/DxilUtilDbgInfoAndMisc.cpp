@@ -9,36 +9,46 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-
-#include "dxc/DXIL/DxilTypeSystem.h"
-#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilConvergentName.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/GetElementPtrTypeIterator.h"
 
 using namespace llvm;
 using namespace hlsl;
 
 namespace {
 
-Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
+// Attempt to merge the two GEPs into a single GEP.
+//
+// If `AsCast` is non-null the merged GEP will be wrapped
+// in an addrspacecast before replacing users. This allows
+// merging GEPs of the form
+//
+//      gep(addrspacecast(gep(p0, gep_args0) to p1*), gep_args1)
+// into
+//      addrspacecast(gep(p0, gep_args0+gep_args1) to p1*)
+//
+Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP,
+                AddrSpaceCastOperator *AsCast) {
   IRBuilder<> Builder(GEP->getContext());
   StringRef Name = "";
   if (Instruction *I = dyn_cast<Instruction>(GEP)) {
@@ -76,7 +86,7 @@ Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
     }
 
     // Update the GEP in place if possible.
-    if (SrcGEP->getNumOperands() == 2) {
+    if (SrcGEP->getNumOperands() == 2 && !AsCast) {
       GEP->setOperand(0, SrcGEP->getOperand(0));
       GEP->setOperand(1, Sum);
       return GEP;
@@ -95,14 +105,65 @@ Value *MergeGEP(GEPOperator *SrcGEP, GEPOperator *GEP) {
   DXASSERT(!Indices.empty(), "must merge");
   Value *newGEP =
       Builder.CreateInBoundsGEP(nullptr, SrcGEP->getOperand(0), Indices, Name);
+
+  // Wrap the new gep in an addrspacecast if needed.
+  if (AsCast)
+    newGEP = Builder.CreateAddrSpaceCast(
+        newGEP, PointerType::get(GEP->getType()->getPointerElementType(),
+                                 AsCast->getDestAddressSpace()));
   GEP->replaceAllUsesWith(newGEP);
   if (Instruction *I = dyn_cast<Instruction>(GEP))
     I->eraseFromParent();
   return newGEP;
 }
 
+// Examine the gep and try to merge it when the input pointer is
+// itself a gep. We handle two forms here:
+//
+//      gep(gep(p))
+//      gep(addrspacecast(gep(p)))
+//
+// If the gep was merged successfully then return the updated value, otherwise
+// return nullptr.
+//
+// When the gep is sucessfully merged we will delete the gep and also try to
+// delete the nested gep and addrspacecast.
+static Value *TryMegeWithNestedGEP(GEPOperator *GEP) {
+  // Sentinal value to return when we fail to merge.
+  Value *FailedToMerge = nullptr;
+
+  Value *Ptr = GEP->getPointerOperand();
+  GEPOperator *prevGEP = dyn_cast<GEPOperator>(Ptr);
+  AddrSpaceCastOperator *AsCast = nullptr;
+
+  // If there is no directly nested gep try looking through an addrspacecast to
+  // find one.
+  if (!prevGEP) {
+    AsCast = dyn_cast<AddrSpaceCastOperator>(Ptr);
+    if (AsCast)
+      prevGEP = dyn_cast<GEPOperator>(AsCast->getPointerOperand());
+  }
+
+  // Not a nested gep expression.
+  if (!prevGEP)
+    return FailedToMerge;
+
+  // Try merging the two geps.
+  Value *newGEP = MergeGEP(prevGEP, GEP, AsCast);
+  if (!newGEP)
+    return FailedToMerge;
+
+  // Delete the nested gep and addrspacecast if no more users.
+  if (AsCast && AsCast->user_empty() && isa<AddrSpaceCastInst>(AsCast))
+    cast<AddrSpaceCastInst>(AsCast)->eraseFromParent();
+
+  if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP))
+    cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
+
+  return newGEP;
 }
 
+} // namespace
 
 namespace hlsl {
 
@@ -124,7 +185,7 @@ bool MergeGepUse(Value *V) {
   addUsersToWorklist(V);
   while (worklist.size()) {
     V = worklist.pop_back_val();
-    if (BitCastOperator *BCO = dyn_cast<BitCastOperator>(V)) {
+    if (isa<BitCastOperator>(V)) {
       if (Value *NewV = dxilutil::TryReplaceBaseCastWithGep(V)) {
         changed = true;
         worklist.push_back(NewV);
@@ -132,24 +193,14 @@ bool MergeGepUse(Value *V) {
         // merge any GEP users of the untranslated bitcast
         addUsersToWorklist(V);
       }
+    } else if (isa<AddrSpaceCastOperator>(V)) {
+      addUsersToWorklist(V);
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
-      if (GEPOperator *prevGEP =
-              dyn_cast<GEPOperator>(GEP->getPointerOperand())) {
-        // merge the 2 GEPs, returns nullptr if couldn't merge
-        if (Value *newGEP = MergeGEP(prevGEP, GEP)) {
-          changed = true;
-          worklist.push_back(newGEP);
-          // delete prevGEP if no more users
-          if (prevGEP->user_empty() && isa<GetElementPtrInst>(prevGEP)) {
-            cast<GetElementPtrInst>(prevGEP)->eraseFromParent();
-          }
-        }
-        else {
-          addUsersToWorklist(GEP);
-        }
+      if (Value *newGEP = TryMegeWithNestedGEP(GEP)) {
+        changed = true;
+        worklist.push_back(newGEP);
       } else {
-        // nothing to merge yet, add GEP users
-        addUsersToWorklist(V);
+        addUsersToWorklist(GEP);
       }
     }
   }
@@ -330,9 +381,7 @@ void EmitNoteOnContext(LLVMContext &Ctx, Twine Msg) {
   EmitWarningOrErrorOnContext(Ctx, Msg, DiagnosticSeverity::DS_Note);
 }
 
-Value::user_iterator mdv_users_end(Value *V) {
-  return Value::user_iterator();
-}
+Value::user_iterator mdv_users_end(Value *V) { return Value::user_iterator(); }
 Value::user_iterator mdv_users_begin(Value *V) {
   if (auto *L = LocalAsMetadata::getIfExists(V)) {
     if (auto *MDV = MetadataAsValue::getIfExists(L->getContext(), L)) {
@@ -343,7 +392,8 @@ Value::user_iterator mdv_users_begin(Value *V) {
 }
 
 static DbgValueInst *FindDbgValueInst(Value *Val) {
-  for (auto it = mdv_users_begin(Val), end = mdv_users_end(Val); it != end; it++) {
+  for (auto it = mdv_users_begin(Val), end = mdv_users_end(Val); it != end;
+       it++) {
     if (DbgValueInst *DbgValInst = dyn_cast<DbgValueInst>(*it))
       return DbgValInst;
   }
@@ -426,9 +476,11 @@ namespace {
 class DxilLoadMetadata : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit DxilLoadMetadata () : ModulePass(ID) {}
+  explicit DxilLoadMetadata() : ModulePass(ID) {}
 
-  StringRef getPassName() const override { return "HLSL load DxilModule from metadata"; }
+  StringRef getPassName() const override {
+    return "HLSL load DxilModule from metadata";
+  }
 
   bool runOnModule(Module &M) override {
     if (!M.HasDxilModule()) {
@@ -439,7 +491,7 @@ public:
     return false;
   }
 };
-}
+} // namespace
 
 char DxilLoadMetadata::ID = 0;
 
@@ -447,4 +499,5 @@ ModulePass *llvm::createDxilLoadMetadataPass() {
   return new DxilLoadMetadata();
 }
 
-INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload", "HLSL load DxilModule from metadata", false, false)
+INITIALIZE_PASS(DxilLoadMetadata, "hlsl-dxilload",
+                "HLSL load DxilModule from metadata", false, false)

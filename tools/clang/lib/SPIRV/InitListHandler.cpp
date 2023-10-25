@@ -80,7 +80,12 @@ void InitListHandler::flatten(const InitListExpr *expr) {
                    init->IgnoreParenNoopCasts(theEmitter.getASTContext()))) {
       flatten(subInitList);
     } else {
-      initializers.push_back(theEmitter.loadIfGLValue(init));
+      auto *initializer = theEmitter.loadIfGLValue(init);
+      if (!initializer) {
+        initializers.clear();
+        return;
+      }
+      initializers.push_back(initializer);
     }
   }
 }
@@ -253,6 +258,10 @@ InitListHandler::createInitForBuiltinType(QualType type,
   while (tryToSplitStruct() || tryToSplitConstantArray())
     ;
 
+  if (initializers.empty()) {
+    return nullptr;
+  }
+
   auto init = initializers.back();
   initializers.pop_back();
 
@@ -366,13 +375,15 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
     while (tryToSplitConstantArray())
       ;
 
-    auto init = initializers.back();
-    // We can only avoid decomposing and reconstructing when the type is
-    // exactly the same.
-    if (type.getCanonicalType() ==
-        init->getAstResultType().getCanonicalType()) {
-      initializers.pop_back();
-      return init;
+    if (!initializers.empty()) {
+      auto init = initializers.back();
+      // We can only avoid decomposing and reconstructing when the type is
+      // exactly the same.
+      if (type.getCanonicalType() ==
+          init->getAstResultType().getCanonicalType()) {
+        initializers.pop_back();
+        return init;
+      }
     }
 
     // Otherwise, if the next initializer is a struct, it is not of the same
@@ -383,7 +394,30 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
   }
 
   llvm::SmallVector<SpirvInstruction *, 4> fields;
+
+  // Initialize base classes first.
+  llvm::SmallVector<SpirvInstruction *, 4> base_fields;
   const RecordDecl *structDecl = type->getAsStructureType()->getDecl();
+  if (auto *cxxStructDecl = dyn_cast<CXXRecordDecl>(structDecl)) {
+    for (CXXBaseSpecifier base : cxxStructDecl->bases()) {
+      QualType baseType = base.getType();
+      const RecordType *baseStructType = baseType->getAsStructureType();
+      if (baseStructType == nullptr) {
+        continue;
+      }
+      const RecordDecl *baseStructDecl = baseStructType->getDecl();
+      for (const auto *field : baseStructDecl->fields()) {
+        base_fields.push_back(
+            createInitForType(field->getType(), field->getLocation(), range));
+        if (!base_fields.back())
+          return nullptr;
+      }
+      fields.push_back(spvBuilder.createCompositeConstruct(
+          baseType, base_fields, srcLoc, range));
+      base_fields.clear();
+    }
+  }
+
   for (const auto *field : structDecl->fields()) {
     fields.push_back(
         createInitForType(field->getType(), field->getLocation(), range));

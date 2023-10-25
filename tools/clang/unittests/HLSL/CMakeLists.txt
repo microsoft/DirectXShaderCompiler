@@ -52,11 +52,9 @@ add_clang_library(ClangHLSLTests SHARED
   add_dependencies(ClangUnitTests ClangHLSLTests)
 else (WIN32)
 set(HLSL_IGNORE_SOURCES
-  LinkerTest.cpp
   MSFileSysTest.cpp
   PixTest.cpp
   RewriterTest.cpp
-  ShaderOpTest.cpp
   )
 
 add_clang_unittest(ClangHLSLTests
@@ -69,6 +67,7 @@ add_clang_unittest(ClangHLSLTests
   ExtensionTest.cpp
   FunctionTest.cpp
   HLSLTestOptions.cpp
+  LinkerTest.cpp
   Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp
@@ -114,7 +113,6 @@ include_directories(${CLANG_BINARY_DIR}/lib/Sema)
 add_dependencies(ClangHLSLTests dxcompiler)
 
 if (NOT CLANG_INCLUDE_TESTS)
-  set_target_properties(ClangHLSLTests PROPERTIES OUTPUT_NAME clang-hlsl-tests)
   set_output_directory(ClangHLSLTests
     ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
   if (NOT WIN32)

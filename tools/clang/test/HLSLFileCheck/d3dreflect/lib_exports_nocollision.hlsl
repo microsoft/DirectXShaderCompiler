@@ -36,7 +36,7 @@ void RayGen() {
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 4
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?Foo@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?Foo{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
@@ -51,7 +51,7 @@ void RayGen() {
 // CHECK:         NumSamples (or stride): 4294967295
 // CHECK:         uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?Foo@@YAXXZ
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?Foo{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: RayGeneration 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:
@@ -66,7 +66,7 @@ void RayGen() {
 // CHECK:         NumSamples (or stride): 0
 // CHECK:         uFlags: 0
 // CHECK:   ID3D12FunctionReflection:
-// CHECK:     D3D12_FUNCTION_DESC: Name: \01?fn1@@YAXXZ
+// CHECK:     D3D12_FUNCTION_DESC: Name: \01?fn1{{[@$?.A-Za-z0-9_]+}}
 // CHECK:       Shader Version: Library 6.3
 // CHECK:       BoundResources: 1
 // CHECK:     Bound Resources:

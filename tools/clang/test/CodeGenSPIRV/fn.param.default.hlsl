@@ -12,8 +12,7 @@ float4 main(uint vertex_id : SV_VertexID) : SV_Position
   // CHECK: OpStore %param_var_b %float_2
   // CHECK: [[first:%\d+]] = OpFunctionCall %float %test %param_var_a %param_var_b
   // CHECK: OpStore %param_var_a_0 %float_4
-  // CHECK: [[default:%\d+]] = OpConvertSToF %float %int_0
-  // CHECK: OpStore %param_var_b_0 [[default]]
+  // CHECK: OpStore %param_var_b_0 %float_0
   // CHECK: [[second:%\d+]] = OpFunctionCall %float %test %param_var_a_0 %param_var_b_0
   // CHECK: {{%\d+}} = OpCompositeConstruct %v4float [[first]] [[second]] %float_0 %float_0
   return float4(test<float>(1,2), test<float>(4), 0, 0);

@@ -3,7 +3,6 @@
 SamplerState      gSampler  : register(s5);
 Texture2D<float4> t         : register(t1);
 
-// CHECK: [[vi0:%\d+]] = OpConstantComposite %v2int %int_0 %int_0
 // CHECK: [[vi1:%\d+]] = OpConstantComposite %v2int %int_1 %int_1
 // CHECK: [[vi2:%\d+]] = OpConstantComposite %v2int %int_2 %int_2
 
@@ -12,7 +11,7 @@ float4 main(int2 offset: A) : SV_Target {
     float clamp = offset.x;
     float4 ret = 0;
 
-// CHECK: OpImageSampleExplicitLod %v4float {{%\d+}} {{%\d+}} Lod|ConstOffset %float_0 [[vi0]]
+// CHECK: OpImageSampleExplicitLod %v4float {{%\d+}} {{%\d+}} Lod %float_0
 // CHECK: OpImageSampleExplicitLod %v4float {{%\d+}} {{%\d+}} Lod|ConstOffset %float_0 [[vi1]]
 // CHECK: OpImageSampleExplicitLod %v4float {{%\d+}} {{%\d+}} Lod|ConstOffset %float_0 [[vi2]]
 

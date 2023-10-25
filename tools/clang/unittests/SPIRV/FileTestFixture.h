@@ -29,20 +29,16 @@ public:
 
   FileTest()
       : targetEnv(SPV_ENV_VULKAN_1_0), beforeHLSLLegalization(false),
-        glLayout(false), dxLayout(false) {}
+        glLayout(false), dxLayout(false), scalarLayout(false) {}
 
   void setBeforeHLSLLegalization() { beforeHLSLLegalization = true; }
-  void setGlLayout() { glLayout = true; }
-  void setDxLayout() { dxLayout = true; }
-  void setScalarLayout() { scalarLayout = true; }
 
   /// \brief Runs a test with the given input HLSL file.
   ///
   /// The first line of HLSL code must start with "// RUN:" and following DXC
   /// arguments to run the test. Next lines must be proper HLSL code for the
   /// test. It uses file check style output check e.g., "// CHECK: ...".
-  void runFileTest(llvm::StringRef path, Expect expect = Expect::Success,
-                   bool runValidation = true);
+  void runFileTest(llvm::StringRef path, Expect expect = Expect::Success);
 
   /// \brief Runs a test with the given HLSL code.
   ///

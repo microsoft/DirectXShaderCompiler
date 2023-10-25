@@ -53,6 +53,8 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 // HLSL Change Starts
+#include "dxc/HLSL/ComputeViewIdState.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/Support/Global.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/WinIncludes.h"
@@ -303,6 +305,9 @@ void initializePollyPasses(llvm::PassRegistry &Registry);
 #ifdef HAS_DXILCONV
 void __cdecl initializeDxilConvPasses(llvm::PassRegistry &);
 #endif
+namespace hlsl {
+HRESULT SetupRegistryPassForHLSL();
+} // namespace hlsl
 // HLSL Change End
 
 //===----------------------------------------------------------------------===//
@@ -340,7 +345,6 @@ int __cdecl main(int argc, char **argv) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeScalarOpts(Registry);
-  initializeReducibilityAnalysisPass(Registry); // HLSL Change: add ReducibilityAnalysis pass
   // initializeObjCARCOpts(Registry);    // HLSL Change: remove ObjC ARC passes
   // initializeVectorization(Registry);  // HLSL Change: remove vectorization passes
   initializeIPO(Registry);
@@ -359,7 +363,8 @@ int __cdecl main(int argc, char **argv) {
   //initializeDwarfEHPreparePass(Registry); // HLSL Change: remove EH passes
   //initializeSjLjEHPreparePass(Registry);  // HLSL Change: remove EH passes
   // HLSL Change Starts
-  initializeReducibilityAnalysisPass(Registry);
+  initializeDxilModuleInitPass(Registry);
+  hlsl::SetupRegistryPassForHLSL();
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif

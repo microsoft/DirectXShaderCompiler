@@ -2,7 +2,7 @@
 
 // Verify no phi on resource, handle, or anything
 
-// CHECK: define void @"\01?main@@YAXXZ"()
+// CHECK: define void @"\01?main{{[@$?.A-Za-z0-9_]+}}"()
 // CHECK-NOT: phi
 // CHECK: ret void
 

@@ -791,13 +791,13 @@ def HLSLSemantic : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
-def HLSLColumnMajor : InheritableAttr {
+def HLSLColumnMajor : TypeAttr {
   let Spellings = [CXX11<"", "column_major", 2015>];
   let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName]>;
   let Documentation = [Undocumented];
 }
 
-def HLSLRowMajor : InheritableAttr {
+def HLSLRowMajor : TypeAttr {
   let Spellings = [CXX11<"", "row_major", 2015>];
   let Subjects = SubjectList<[Function, Var, ParmVar, Field, TypedefName]>;
   let Documentation = [Undocumented];
@@ -847,7 +847,7 @@ def HLSLTriangleAdj : InheritableAttr {
 
 def HLSLGloballyCoherent : InheritableAttr {
   let Spellings = [CXX11<"", "globallycoherent", 2015>];
-  let Subjects = SubjectList<[Var]>;
+  let Subjects = SubjectList<[Var, Function]>;
   let Documentation = [Undocumented];
 }
 
@@ -917,6 +917,20 @@ def HLSLWaveOpsIncludeHelperLanes : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLMaybeUnused : InheritableAttr {
+  let Spellings = [CXX11<"", "maybe_unused", 2017>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+// This attribute has no spelling, it is attached to methods by the compiler for
+// methods that require C++ lookup rules.
+def HLSLCXXOverload : InheritableAttr {
+  let Spellings = [];
+  let Subjects = SubjectList<[CXXMethod]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
@@ -928,6 +942,19 @@ def CounterStructuredBuffer : SubsetSubject<
       (S->getType()->getAs<RecordType>()->getDecl()->getName() == "RWStructuredBuffer" ||
        S->getType()->getAs<RecordType>()->getDecl()->getName() == "AppendStructuredBuffer" ||
        S->getType()->getAs<RecordType>()->getDecl()->getName() == "ConsumeStructuredBuffer")}]>;
+
+// Array of StructuredBuffer types that can have associated counters
+def ArrayOfCounterStructuredBuffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                  (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWStructuredBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "AppendStructuredBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "ConsumeStructuredBuffer")}]>;
 
 // Global variable with "ConstantBuffer" type
 def ConstantBuffer
@@ -947,7 +974,7 @@ def ConstantTextureBuffer
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "TextureBuffer")}]>;
 
-// Global variable with "RWTexture" type
+// Global variable with "(RW|RasterizerOrdered)Texture" type
 def RWTexture
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -961,9 +988,46 @@ def RWTexture
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RWTexture2DArray" ||
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "RWTexture3D")}]>;
+                      "RWTexture3D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture3D")}]>;
 
-// Global variable with "[RW]Buffer" type
+// Global variable of array of "(RW|RasterizerOrdered)Texture" type
+def ArrayOfRWTexture
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                  (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture3D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture3D")}]>;
+
+// Global variable with "[RW|RasterizerOrdered]Buffer" type
 def Buffer
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -971,7 +1035,22 @@ def Buffer
                  (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "Buffer" ||
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "RWBuffer")}]>;
+                      "RWBuffer" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedBuffer")}]>;
+
+// Global variable or array of "[RW|RasterizerOrdered]Buffer" type
+def ArrayOfBuffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                 (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "Buffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedBuffer")}]>;
 
 // Global variable with "Texture" or "SamplerState" type
 def TextureOrSampler
@@ -1025,7 +1104,7 @@ def VKCapabilityExt : InheritableAttr {
 
 def VKCounterBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "counter_binding">];
-  let Subjects = SubjectList<[CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
+  let Subjects = SubjectList<[ArrayOfCounterStructuredBuffer, CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
   let Args = [IntArgument<"Binding">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1101,7 +1180,7 @@ def VKCombinedImageSampler : InheritableAttr {
 
 def VKImageFormat : InheritableAttr {
   let Spellings = [CXX11<"vk", "image_format">];
-  let Subjects = SubjectList<[RWTexture, Buffer],
+  let Subjects = SubjectList<[RWTexture, ArrayOfRWTexture, Buffer, ArrayOfBuffer],
                              ErrorDiag, "ExpectedRWTextureOrBuffer">;
   let Args = [EnumArgument<"ImageFormat", "ImageFormatType",
                            ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",

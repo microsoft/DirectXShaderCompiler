@@ -72,7 +72,7 @@ LLVMTargetRef LLVMGetTargetFromName(const char *Name);
 LLVMBool LLVMGetTargetFromTriple(
     const char* Triple, 
     LLVMTargetRef *T,
-    _Out_opt_ char **ErrorMessage);
+    char **ErrorMessage);
 
 /** Returns the name of a target. See llvm::Target::getName */
 const char *LLVMGetTargetName(LLVMTargetRef T);
@@ -128,13 +128,13 @@ void LLVMSetTargetMachineAsmVerbosity(LLVMTargetMachineRef T,
   wraps several c++ only classes (among them a file stream). Returns any
   error in ErrorMessage. Use LLVMDisposeMessage to dispose the message. */
 LLVMBool LLVMTargetMachineEmitToFile(LLVMTargetMachineRef T, LLVMModuleRef M,
-  _In_ char *Filename, LLVMCodeGenFileType codegen, 
-  _Out_opt_ char **ErrorMessage);
+  char *Filename, LLVMCodeGenFileType codegen, 
+  char **ErrorMessage);
 
 /** Compile the LLVM IR stored in \p M and store the result in \p OutMemBuf. */
 LLVMBool LLVMTargetMachineEmitToMemoryBuffer(LLVMTargetMachineRef T, LLVMModuleRef M,
     LLVMCodeGenFileType codegen, 
-    _Out_opt_ char** ErrorMessage, LLVMMemoryBufferRef *OutMemBuf);
+    char** ErrorMessage, LLVMMemoryBufferRef *OutMemBuf);
 
 /*===-- Triple ------------------------------------------------------------===*/
 /** Get a triple for the host machine as a string. The result needs to be

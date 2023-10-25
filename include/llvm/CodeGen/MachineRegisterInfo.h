@@ -807,8 +807,16 @@ public:
   /// when incrementing.
   template<bool ReturnUses, bool ReturnDefs, bool SkipDebug,
            bool ByOperand, bool ByInstr, bool ByBundle>
-  class defusechain_iterator
-    : public std::iterator<std::forward_iterator_tag, MachineInstr, ptrdiff_t> {
+  class defusechain_iterator {
+  
+  public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = MachineInstr;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
+  private:
     MachineOperand *Op;
     explicit defusechain_iterator(MachineOperand *op) : Op(op) {
       // If the first node isn't one we're interested in, advance to one that
@@ -842,11 +850,6 @@ public:
       }
     }
   public:
-    typedef std::iterator<std::forward_iterator_tag,
-                          MachineInstr, ptrdiff_t>::reference reference;
-    typedef std::iterator<std::forward_iterator_tag,
-                          MachineInstr, ptrdiff_t>::pointer pointer;
-
     defusechain_iterator() : Op(nullptr) {}
 
     bool operator==(const defusechain_iterator &x) const {
@@ -909,8 +912,16 @@ public:
   /// when incrementing.
   template<bool ReturnUses, bool ReturnDefs, bool SkipDebug,
            bool ByOperand, bool ByInstr, bool ByBundle>
-  class defusechain_instr_iterator
-    : public std::iterator<std::forward_iterator_tag, MachineInstr, ptrdiff_t> {
+  class defusechain_instr_iterator {
+  
+  public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = MachineInstr;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
+  private:
     MachineOperand *Op;
     explicit defusechain_instr_iterator(MachineOperand *op) : Op(op) {
       // If the first node isn't one we're interested in, advance to one that
@@ -944,11 +955,6 @@ public:
       }
     }
   public:
-    typedef std::iterator<std::forward_iterator_tag,
-                          MachineInstr, ptrdiff_t>::reference reference;
-    typedef std::iterator<std::forward_iterator_tag,
-                          MachineInstr, ptrdiff_t>::pointer pointer;
-
     defusechain_instr_iterator() : Op(nullptr) {}
 
     bool operator==(const defusechain_instr_iterator &x) const {

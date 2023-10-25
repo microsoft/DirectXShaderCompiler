@@ -210,18 +210,28 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
     instruction->setContainsAliasComponent(false);
   }
 
+  if (pointer->isRasterizerOrdered()) {
+    createBeginInvocationInterlockEXT(loc, range);
+  }
+
   insertPoint->addInstruction(instruction);
+
+  if (pointer->isRasterizerOrdered()) {
+    createEndInvocationInterlockEXT(loc, range);
+  }
 
   const auto &bitfieldInfo = pointer->getBitfieldInfo();
   if (!bitfieldInfo.hasValue())
     return instruction;
 
-  auto *offset =
-      getConstantInt(astContext.UnsignedIntTy,
-                     llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits), /* isSigned= */ false));
-  auto *count =
-      getConstantInt(astContext.UnsignedIntTy,
-                     llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits), /* isSigned= */ false));
+  auto *offset = getConstantInt(
+      astContext.UnsignedIntTy,
+      llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits),
+                  /* isSigned= */ false));
+  auto *count = getConstantInt(
+      astContext.UnsignedIntTy,
+      llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits),
+                  /* isSigned= */ false));
   return createBitFieldExtract(
       resultType, instruction, offset, count,
       pointer->getAstResultType()->isSignedIntegerOrEnumerationType(), loc);
@@ -272,6 +282,10 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   // Safeguard. If this happens, it means we leak non-extracted bitfields.
   assert(false == value->getBitfieldInfo().hasValue());
 
+  if (address->isRasterizerOrdered()) {
+    createBeginInvocationInterlockEXT(loc, range);
+  }
+
   SpirvInstruction *source = value;
   const auto &bitfieldInfo = address->getBitfieldInfo();
   if (bitfieldInfo.hasValue()) {
@@ -282,12 +296,14 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     context.addToInstructionsWithLoweredType(value);
 
     auto *base = createLoad(value->getResultType(), address, loc, range);
-    auto *offset =
-        getConstantInt(astContext.UnsignedIntTy,
-                       llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits), false));
-    auto *count =
-        getConstantInt(astContext.UnsignedIntTy,
-                       llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits), false));
+    auto *offset = getConstantInt(
+        astContext.UnsignedIntTy,
+        llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits),
+                    false));
+    auto *count = getConstantInt(
+        astContext.UnsignedIntTy,
+        llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits),
+                    false));
     source =
         createBitFieldInsert(/*QualType*/ {}, base, value, offset, count, loc);
     source->setResultType(value->getResultType());
@@ -296,6 +312,11 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   auto *instruction =
       new (context) SpirvStore(loc, address, source, llvm::None, range);
   insertPoint->addInstruction(instruction);
+
+  if (address->isRasterizerOrdered()) {
+    createEndInvocationInterlockEXT(loc, range);
+  }
+
   return instruction;
 }
 
@@ -369,10 +390,13 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op, QualType resultType,
                                           SpirvInstruction *operand,
                                           SourceLocation loc,
                                           SourceRange range) {
+  if (!operand)
+    return nullptr;
   assert(insertPoint && "null insert point");
   auto *instruction =
       new (context) SpirvUnaryOp(op, resultType, loc, operand, range);
   insertPoint->addInstruction(instruction);
+  instruction->setLayoutRule(operand->getLayoutRule());
   return instruction;
 }
 
@@ -380,8 +404,11 @@ SpirvUnaryOp *SpirvBuilder::createUnaryOp(spv::Op op,
                                           const SpirvType *resultType,
                                           SpirvInstruction *operand,
                                           SourceLocation loc) {
+  if (!operand)
+    return nullptr;
   assert(insertPoint && "null insert point");
   auto *instruction = new (context) SpirvUnaryOp(op, resultType, loc, operand);
+  instruction->setLayoutRule(operand->getLayoutRule());
   insertPoint->addInstruction(instruction);
   return instruction;
 }
@@ -879,26 +906,23 @@ void SpirvBuilder::createEndPrimitive(SourceLocation loc, SourceRange range) {
   insertPoint->addInstruction(inst);
 }
 /// \brief Creates an OpEmitMeshTasksEXT instruction.
-void SpirvBuilder::createEmitMeshTasksEXT(SpirvInstruction* xDim,
-                                          SpirvInstruction* yDim,
-                                          SpirvInstruction* zDim,
-                                          SourceLocation loc,
-                                          SpirvInstruction *payload,
-                                          SourceRange range) {
+void SpirvBuilder::createEmitMeshTasksEXT(
+    SpirvInstruction *xDim, SpirvInstruction *yDim, SpirvInstruction *zDim,
+    SourceLocation loc, SpirvInstruction *payload, SourceRange range) {
   assert(insertPoint && "null insert point");
-  auto *inst =
-      new (context) SpirvEmitMeshTasksEXT(xDim, yDim, zDim, payload, loc, range);
+  auto *inst = new (context)
+      SpirvEmitMeshTasksEXT(xDim, yDim, zDim, payload, loc, range);
   insertPoint->addInstruction(inst);
 }
 
 /// \brief Creates an OpSetMeshOutputsEXT instruction.
-void SpirvBuilder::createSetMeshOutputsEXT(SpirvInstruction* vertCount,
-                                           SpirvInstruction* primCount,
+void SpirvBuilder::createSetMeshOutputsEXT(SpirvInstruction *vertCount,
+                                           SpirvInstruction *primCount,
                                            SourceLocation loc,
                                            SourceRange range) {
   assert(insertPoint && "null insert point");
-  auto *inst = new (context)
-      SpirvSetMeshOutputsEXT(vertCount, primCount, loc, range);
+  auto *inst =
+      new (context) SpirvSetMeshOutputsEXT(vertCount, primCount, loc, range);
   insertPoint->addInstruction(inst);
 }
 SpirvArrayLength *SpirvBuilder::createArrayLength(QualType resultType,
@@ -1091,6 +1115,24 @@ SpirvInstruction *SpirvBuilder::createSpirvIntrInstExt(
       retType, opcode, operands, extensions, set, capablities, loc);
   insertPoint->addInstruction(inst);
   return inst;
+}
+
+void SpirvBuilder::createBeginInvocationInterlockEXT(SourceLocation loc,
+                                                     SourceRange range) {
+  assert(insertPoint && "null insert point");
+
+  auto *inst = new (context)
+      SpirvNullaryOp(spv::Op::OpBeginInvocationInterlockEXT, loc, range);
+  insertPoint->addInstruction(inst);
+}
+
+void SpirvBuilder::createEndInvocationInterlockEXT(SourceLocation loc,
+                                                   SourceRange range) {
+  assert(insertPoint && "null insert point");
+
+  auto *inst = new (context)
+      SpirvNullaryOp(spv::Op::OpEndInvocationInterlockEXT, loc, range);
+  insertPoint->addInstruction(inst);
 }
 
 void SpirvBuilder::createRaytracingTerminateKHR(spv::Op opcode,
