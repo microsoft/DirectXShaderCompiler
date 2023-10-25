@@ -1,13 +1,13 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability DrawParameters
 
 // CHECK: OpExtension "SPV_KHR_shader_draw_parameters"
 
 
-// CHECK: OpDecorate [[a:%\d+]] BuiltIn BaseVertex
-// CHECK: OpDecorate [[b:%\w+]] BuiltIn BaseInstance
-// CHECK: OpDecorate [[c:%\d+]] BuiltIn DrawIndex
+// CHECK: OpDecorate [[a:%[0-9]+]] BuiltIn BaseVertex
+// CHECK: OpDecorate [[b:%[a-zA-Z0-9_]+]] BuiltIn BaseInstance
+// CHECK: OpDecorate [[c:%[0-9]+]] BuiltIn DrawIndex
 
 float main(
 // CHECK: [[a]] = OpVariable %_ptr_Input_int Input

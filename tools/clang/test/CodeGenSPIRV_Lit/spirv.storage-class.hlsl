@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct VSOut {
     float4 out1: C;
@@ -20,7 +20,7 @@ VSOut main(float4 input: A /* Function */, uint index: B /* Function */) {
 // CHECK:      OpAccessChain %_ptr_Function_float %input
 // CHECK:      OpAccessChain %_ptr_Private_float %sgVar
 // CHECK:      OpAccessChain %_ptr_Private_float %slVar
-// CHECK:      OpAccessChain %_ptr_Function_float %ret %int_0 {{%\d+}}
+// CHECK:      OpAccessChain %_ptr_Function_float %ret %int_0 {{%[0-9]+}}
     ret.out1[index] = input[index] + sgVar[index] + slVar[index];
 
     return ret;
