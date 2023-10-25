@@ -13987,7 +13987,9 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     if (hlslSource->IsWaveMatrixType(eltQt)) {
       std::string typeName(
           g_ArBasicTypeNames[hlslSource->GetTypeElementKind(eltQt)]);
-      Diag(D.getLocStart(), diag::err_hlsl_wave_matrix_array) << typeName;
+      const int waveMatrixDiagSelect = 1;
+      Diag(D.getLocStart(), diag::err_hlsl_array_disallowed)
+          << typeName << waveMatrixDiagSelect;
       result = false;
     }
     if (hlsl::IsObjectType(this, eltQt, &bDeprecatedEffectObject)) {
@@ -15600,9 +15602,9 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       DXIL::NodeIOKind Kind = GetNodeIOType(AT->getElementType());
       if (Kind != DXIL::NodeIOKind::Invalid) {
         Param->setInvalidDecl();
-        S.Diags.Report(Param->getLocation(),
-                       diag::err_hlsl_array_entry_param_disallowed)
-            << ParamTy;
+        const int paramArrayDiagSelect = 0;
+        S.Diags.Report(Param->getLocation(), diag::err_hlsl_array_disallowed)
+            << ParamTy << paramArrayDiagSelect;
         if (Kind == DXIL::NodeIOKind::NodeOutput ||
             Kind == DXIL::NodeIOKind::EmptyOutput)
           S.Diags.Report(Param->getLocation(), diag::note_hlsl_node_array)

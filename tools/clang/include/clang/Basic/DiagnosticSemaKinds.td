@@ -7693,8 +7693,6 @@ def warn_hlsl_attribute_expects_uint_literal : Warning<
   InGroup<HLSLAttributeType>;
 def err_hlsl_attribute_expects_float_literal : Error<
   "attribute %0 must have a float literal argument">;
-def err_hlsl_wave_matrix_array : Error<
-  "Array of '%0' is not supported">;
 def warn_hlsl_comma_in_init : Warning<
   "comma expression used where a constructor list may have been intended">,
   InGroup<HLSLCommaInInit>;
@@ -7870,8 +7868,8 @@ def err_hlsl_node_record_type : Error<
    "%0 is not valid as a node record type - struct/class required">;
 def err_hlsl_node_record_object : Error<
    "object %0 may not appear in a node record">;
-def err_hlsl_array_entry_param_disallowed : Error<
-   "entry parameter of type %0 may not be an array">;
+def err_hlsl_array_disallowed : Error<
+   "%select{entry parameter of type| WaveMatrix type}1 %0 may not be an array">;
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
 // HLSL Change Ends
 

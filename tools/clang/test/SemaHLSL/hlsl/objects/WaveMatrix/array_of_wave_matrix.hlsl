@@ -2,10 +2,29 @@
 
 void foo() {
 
-WaveMatrixLeft<float, 16, 16> left[2];  // expected-error {{Array of 'WaveMatrixLeft' is not supported}}
-WaveMatrixRight<float, 16, 16> right[2]; // expected-error {{Array of 'WaveMatrixRight' is not supported}}
-WaveMatrixLeftColAcc<float, 16, 16> leftCol[2]; // expected-error {{Array of 'WaveMatrixLeftColAcc' is not supported}}
-WaveMatrixRightRowAcc<float, 16, 16> rightRow[2]; // expected-error {{Array of 'WaveMatrixRightRowAcc' is not supported}}
-WaveMatrixAccumulator<float, 16, 16> acc[2];  // expected-error {{Array of 'WaveMatrixAccumulator' is not supported}}
+WaveMatrixLeft<float, 16, 16> left[2];  // expected-error {{WaveMatrix type WaveMatrixLeft may not be an array}}
+WaveMatrixRight<float, 16, 16> right[2]; // expected-error {{WaveMatrix type WaveMatrixRight may not be an array}}
+WaveMatrixLeftColAcc<float, 16, 16> leftCol[2]; // expected-error {{WaveMatrix type WaveMatrixLeftColAcc may not be an array}}
+WaveMatrixRightRowAcc<float, 16, 16> rightRow[2]; // expected-error {{WaveMatrix type WaveMatrixRightRowAcc may not be an array}}
+WaveMatrixAccumulator<float, 16, 16> acc[2];  // expected-error {{WaveMatrix type WaveMatrixAccumulator may not be an array}}
 
 }
+
+void bar(
+WaveMatrixLeft<float, 16, 16> left[2],  // expected-error {{WaveMatrix type WaveMatrixLeft may not be an array}}
+WaveMatrixRight<float, 16, 16> right[2], // expected-error {{WaveMatrix type WaveMatrixRight may not be an array}}
+WaveMatrixLeftColAcc<float, 16, 16> leftCol[2], // expected-error {{WaveMatrix type WaveMatrixLeftColAcc may not be an array}}
+WaveMatrixRightRowAcc<float, 16, 16> rightRow[2], // expected-error {{WaveMatrix type WaveMatrixRightRowAcc may not be an array}}
+WaveMatrixAccumulator<float, 16, 16> acc[2]  // expected-error {{WaveMatrix type WaveMatrixAccumulator may not be an array}}
+) {
+    
+}
+
+struct S {
+WaveMatrixLeft<float, 16, 16> left[2];  // expected-error {{WaveMatrix type WaveMatrixLeft may not be an array}}
+WaveMatrixRight<float, 16, 16> right[2]; // expected-error {{WaveMatrix type WaveMatrixRight may not be an array}}
+WaveMatrixLeftColAcc<float, 16, 16> leftCol[2]; // expected-error {{WaveMatrix type WaveMatrixLeftColAcc may not be an array}}
+WaveMatrixRightRowAcc<float, 16, 16> rightRow[2]; // expected-error {{WaveMatrix type WaveMatrixRightRowAcc may not be an array}}
+WaveMatrixAccumulator<float, 16, 16> acc[2];  // expected-error {{WaveMatrix type WaveMatrixAccumulator may not be an array}}
+  
+};
