@@ -975,7 +975,7 @@ static void ValidateSampleInst(CallInst *CI, Value *srvHandle,
   isSampleCompTy |= compTy == DXIL::ComponentType::SNormF16;
   isSampleCompTy |= compTy == DXIL::ComponentType::UNormF16;
   const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
-  if (pSM->IsSM67Plus()) {
+  if (pSM->IsSM67Plus() && !IsSampleC) {
     isSampleCompTy |= compTy == DXIL::ComponentType::I16;
     isSampleCompTy |= compTy == DXIL::ComponentType::U16;
     isSampleCompTy |= compTy == DXIL::ComponentType::I32;

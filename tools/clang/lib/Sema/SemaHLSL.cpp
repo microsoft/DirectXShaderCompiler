@@ -5884,6 +5884,12 @@ bool HLSLExternalSource::IsValidObjectElement(LPCSTR tableName,
       return true;
     // 6.7 adds UINT sampler support
     if (IS_BASIC_UINT(kind) || IS_BASIC_SINT(kind)) {
+      bool IsSampleC = (op == IntrinsicOp::MOP_SampleCmp ||
+                        op == IntrinsicOp::MOP_SampleCmpLevel ||
+                        op == IntrinsicOp::MOP_SampleCmpLevelZero);
+      // SampleCmp* cannot support integer resource.
+      if (IsSampleC)
+        return false;
       const auto *SM = hlsl::ShaderModel::GetByName(
           m_sema->getLangOpts().HLSLProfile.c_str());
       return SM->IsSM67Plus();
