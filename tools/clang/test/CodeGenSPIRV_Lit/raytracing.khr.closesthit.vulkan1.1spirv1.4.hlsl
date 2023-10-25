@@ -21,6 +21,9 @@
 // CHECK:  OpDecorate [[m:%[0-9]+]] BuiltIn RayGeometryIndexKHR
 // CHECK:  OpDecorate [[n:%[0-9]+]] BuiltIn RayTmaxNV
 
+// CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
+// CHECK-NOT: OpTypeAccelerationStructureKHR
+
 // CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
 struct Payload
 {
@@ -37,7 +40,6 @@ struct Attribute
   float2 bary;
 };
 
-// CHECK-COUNT-1: [[rstype:%[0-9]+]] = OpTypeAccelerationStructureNV
 RaytracingAccelerationStructure rs;
 
 [shader("closesthit")]

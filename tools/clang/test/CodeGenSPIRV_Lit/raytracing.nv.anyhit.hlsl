@@ -17,6 +17,9 @@
 // CHECK:  OpDecorate [[l:%[0-9]+]] BuiltIn HitKindNV
 // CHECK:  OpDecorate [[m:%[0-9]+]] BuiltIn HitTNV
 
+// CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
+// CHECK-NOT: OpTypeAccelerationStructureKHR
+
 // CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
 struct Payload
 {
@@ -28,7 +31,6 @@ struct Attribute
   float2 bary;
 };
 
-// CHECK-COUNT-1: [[rstype:%[0-9]+]] = OpTypeAccelerationStructureNV
 RaytracingAccelerationStructure rs;
 
 [shader("anyhit")]

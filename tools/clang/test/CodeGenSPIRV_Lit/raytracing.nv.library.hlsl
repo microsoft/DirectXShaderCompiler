@@ -28,6 +28,8 @@
 // CHECK:  OpDecorate [[k:%[0-9]+]] BuiltIn WorldToObjectNV
 // CHECK:  OpDecorate [[l:%[0-9]+]] BuiltIn HitKindNV
 
+// CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
+// CHECK-NOT: OpTypeAccelerationStructureKHR
 
 // CHECK: OpTypePointer CallableDataNV %CallData
 struct CallData
@@ -44,7 +46,6 @@ struct Attribute
 {
   float2 bary;
 };
-// CHECK-COUNT-1: [[rstype:%[0-9]+]] = OpTypeAccelerationStructureNV
 RaytracingAccelerationStructure rs;
 
 
