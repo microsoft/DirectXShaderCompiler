@@ -2,14 +2,14 @@ from hctdb_instrhelp import get_db_dxil
 from hctdb_instrhelp import get_db_hlsl
 import argparse
 
+
 # user defined function
 def inst_query_dxil(insts, inst):
     # example
-    
+
     if inst.ret_type == "v" and inst.fn_attr != "":
         return True
     return False
-    
 
     # example
     """
@@ -57,18 +57,18 @@ class DxilInstructionWrapper:
         ops = []
         for op in dxil_inst.ops:
             ops.append(op.llvm_type)
-        
+
         if len(ops) > 0:
-            self.ret_type = ops[0] 
-        
+            self.ret_type = ops[0]
+
         if len(ops) > 1:
             self.args = ops[1:]
 
     def __init__(self, dxil_inst):
-        self.dxil_inst = dxil_inst # db_dxil_inst type, defined in hctdb.py
+        self.dxil_inst = dxil_inst  # db_dxil_inst type, defined in hctdb.py
         self.name = dxil_inst.name
         self.fn_attr = dxil_inst.fn_attr
-        self.wave = dxil_inst.is_wave # bool
+        self.wave = dxil_inst.is_wave  # bool
         self.ret_type = ""
         self.args = []
         self.set_ret_type_and_args(dxil_inst)
@@ -77,38 +77,38 @@ class DxilInstructionWrapper:
         str_args = ", ".join(self.args)
         return "[{}] {} {}({})".format(self.fn_attr, self.ret_type, self.name, str_args)
 
+
 class HLOperationWrapper:
     def set_ret_type_and_args(self, hl_op):
         ops = hl_op.params
         if len(ops) > 0:
-            self.ret_type = ops[0].type_name 
-        
+            self.ret_type = ops[0].type_name
+
         if len(ops) > 1:
             self.args = [x.name + " " + x.type_name for x in ops[1:]]
 
     def __init__(self, hl_op):
-        self.hl_op = hl_op # db_hlsl_intrinsic type, defined in hctdb.py
+        self.hl_op = hl_op  # db_hlsl_intrinsic type, defined in hctdb.py
         self.name = hl_op.name
         self.fn_attr = "rn" if hl_op.readnone else ""
-        self.fn_attr += "ro" if hl_op.readonly else ""        
-        self.wave = hl_op.wave # bool
+        self.fn_attr += "ro" if hl_op.readonly else ""
+        self.wave = hl_op.wave  # bool
         self.ret_type = ""
         self.args = []
         self.set_ret_type_and_args(hl_op)
 
     def __str__(self):
-        str_args = ", ".join(self.args)        
+        str_args = ", ".join(self.args)
         return "[{}] {} {}({})".format(self.fn_attr, self.ret_type, self.name, str_args)
 
 
 def parse_query_hlsl(db, options):
-
     HLInstructions = []
 
     # The query function should be using the HLOperationWrapper interface
     # because that is what's being loaded into the instructions list.
     for hl_op in db.intrinsics:
-        new_op = HLOperationWrapper(hl_op)    
+        new_op = HLOperationWrapper(hl_op)
         HLInstructions.append(new_op)
 
     # apply the query filter
@@ -117,9 +117,8 @@ def parse_query_hlsl(db, options):
         if inst_query_hlsl(HLInstructions, instruction):
             print(instruction)
 
+
 def parse_query_dxil(db, options):
-
-
     DxilInstructions = []
 
     # The query function should use the DxilInstructionWrapper interface
@@ -134,8 +133,11 @@ def parse_query_dxil(db, options):
         if inst_query_dxil(DxilInstructions, instruction):
             print(instruction)
 
+
 parser = argparse.ArgumentParser(description="Query instructions.")
-parser.add_argument("-query", choices=["dxil", "hlsl"], help="type of instructions to query.")
+parser.add_argument(
+    "-query", choices=["dxil", "hlsl"], help="type of instructions to query."
+)
 args = parser.parse_args()
 
 if args.query == "dxil":
