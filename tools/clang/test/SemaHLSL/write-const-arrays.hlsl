@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -verify %s
 
 // Array subscripts lost their qualifiers including const due to taking a different
 // path for HLSL on account of having no array to ptr decay

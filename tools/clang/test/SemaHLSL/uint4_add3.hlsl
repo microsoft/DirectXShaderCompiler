@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify %s
+// RUN: %dxc -Tps_6_0 -Wno-unused-value -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 uint4add3.hlsl
@@ -7,6 +8,7 @@
 // we use -Wno-unused-value because we generate some no-op expressions to yield errors
 // without also putting them in a static assertion
 
+[shader("pixel")]
 float4 main(float4 a : A, float3 c :C) : SV_TARGET {
   float4 b = a;
   b += a.xyz;         /* expected-error {{cannot convert from 'vector<float, 3>' to 'float4'}} fxc-error {{X3017: cannot implicitly convert from 'const float3' to 'float4'}} fxc-warning {{X3206: implicit truncation of vector type}} */

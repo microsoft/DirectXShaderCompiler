@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tps_6_0 -verify %s
 
 #include "Header1.hlsli"                                    /* expected-error {{'Header1.hlsli' file not found}} fxc-error {{X1507: failed to open source file: 'Header1.hlsli'}} */
 
@@ -17,6 +18,7 @@ struct PixelShaderInput
   float3 color : COLOR0;
 };
 
+[shader("pixel")]
 // Simple shader to do vertex processing on the GPU.
 PixelShaderInput main(VertexShaderInput input)              /* fxc-error {{X3000: unrecognized identifier 'VertexShaderInput'}} */
 {

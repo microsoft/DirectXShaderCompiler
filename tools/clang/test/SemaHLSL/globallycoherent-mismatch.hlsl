@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -verify %s
 
 RWByteAddressBuffer NonGCBuf;
 globallycoherent RWByteAddressBuffer GCBuf;

@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -Wno-unused-value -ffreestanding -fno-spell-checking -verify %s
+// RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify %s
+// RUN: %dxc -Tps_6_0 -Wno-unused-value -verify %s
 
 // we use -Wno-unused-value because we generate some no-op expressions to yield errors
 // without also putting them in a static assertion
@@ -9,6 +10,7 @@
 #define _Static_assert(a,b,c) ;
 #endif
 
+[shader("pixel")]
 float4 main() : SV_Target {
   if (WaveIsFirstLane()) {
     // Divergent, single thread executing here.

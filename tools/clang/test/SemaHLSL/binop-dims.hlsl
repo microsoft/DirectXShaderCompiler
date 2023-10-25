@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify %s
+// RUN: %dxc -Tps_6_0 -Wno-unused-value -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 uint4add3.hlsl
@@ -38,6 +39,7 @@ def gen_code():
     return lines
 </py>*/
 
+[shader("pixel")]
 float4 main(float4 a : A, float3 c :C) : SV_TARGET {
 
   // <py::lines('GENERATED_CODE')>modify(lines, gen_code())</py>

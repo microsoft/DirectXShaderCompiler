@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -HV 2021 -verify %s
+// RUN: %dxc -Tlib_6_3 -HV 2021 -verify %s
 
 ByteAddressBuffer In;
 RWBuffer<float> Out;

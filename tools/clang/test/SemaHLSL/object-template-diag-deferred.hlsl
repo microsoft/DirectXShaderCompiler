@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2021 %s
+// RUN: %dxc -Tlib_6_3 -verify -HV 2021 %s
 
 template<typename T>
 struct Foo {

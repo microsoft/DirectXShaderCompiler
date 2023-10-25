@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -HV 2021 -verify %s
+// RUN: %dxc -Tlib_6_3 -HV 2021 -verify %s
 
 struct [raypayload] Payload {
     int a : 1            : write(caller) : read(anyhit); // expected-error {{bitfields are not allowed with HLSL annotations}}
