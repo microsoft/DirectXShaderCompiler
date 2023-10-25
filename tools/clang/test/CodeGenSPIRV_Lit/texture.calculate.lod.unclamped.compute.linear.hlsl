@@ -1,8 +1,5 @@
 // RUN: %dxc -T cs_6_6 -E main -fspv-extension=SPV_NV_compute_shader_derivatives -fcgl  %s -spirv  2>&1 | FileCheck %s
 
-// This test checks tha hte execution mode is not added multiple times. Other
-// tests will verify that the code generation is correct.
-
 // CHECK: OpCapability ComputeDerivativeGroupLinearNV
 // CHECK: OpExtension "SPV_NV_compute_shader_derivatives"
 // CHECK: OpExecutionMode %main DerivativeGroupLinearNV
