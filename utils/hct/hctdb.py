@@ -1891,7 +1891,7 @@ class db_dxil(object):
             next_op_idx,
             "SampleCmp",
             "samples a texture and compares a single component against the specified comparison value",
-            "hfwi",
+            "hf",
             "ro",
             [
                 db_dxil_param(
@@ -1936,7 +1936,7 @@ class db_dxil(object):
             next_op_idx,
             "SampleCmpLevelZero",
             "samples a texture and compares a single component against the specified comparison value",
-            "hfwi",
+            "hf",
             "ro",
             [
                 db_dxil_param(
