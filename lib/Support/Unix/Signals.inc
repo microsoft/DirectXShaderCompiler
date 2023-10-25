@@ -253,7 +253,7 @@ void llvm::sys::DontRemoveFileOnSignal(StringRef Filename) {
   // requires a reallocation on the first call may have had the call to c_str()
   // made on insertion become invalid by being copied down an element.
   for (std::vector<std::string>::iterator E = FilesToRemove->end(); I != E; ++I)
-    I->c_str();
+    (void)I->c_str();
 }
 
 /// AddSignalHandler - Add a function to be called when a signal is delivered
