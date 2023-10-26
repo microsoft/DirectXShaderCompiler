@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3   -HV 2018 -verify %s
+// RUN: %dxc -Tps_6_0   -HV 2018 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 attributes.hlsl
