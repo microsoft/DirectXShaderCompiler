@@ -41,8 +41,20 @@ public:
   OP() = delete;
   OP(llvm::LLVMContext &Ctx, llvm::Module *pModule);
 
-  void RefreshCache();
+  // InitWithMinPrecision sets the low-precision mode and calls
+  // FixOverloadNames() and RefreshCache() to set up caches for any existing
+  // DXIL operations and types used in the module.
+  void InitWithMinPrecision(bool bMinPrecision);
+
+  // FixOverloadNames fixes the names of DXIL operation overloads, particularly
+  // when they depend on user defined type names. User defined type names can be
+  // modified by name collisions from multiple modules being loaded into the
+  // same llvm context, such as during module linking.
   void FixOverloadNames();
+
+  // RefreshCache places DXIL types and operation overloads from the module into
+  // caches.
+  void RefreshCache();
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &
@@ -73,8 +85,6 @@ public:
 
   // To check if operation uses strict precision types
   bool UseMinPrecision();
-  // Set if operation uses strict precision types or not.
-  void SetMinPrecision(bool bMinPrecision);
 
   // Get the size of the type for a given layout
   uint64_t GetAllocSizeForType(llvm::Type *Ty);

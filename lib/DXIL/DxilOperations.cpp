@@ -4796,7 +4796,7 @@ bool OP::UseMinPrecision() {
   return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
 }
 
-void OP::SetMinPrecision(bool bMinPrecision) {
+void OP::InitWithMinPrecision(bool bMinPrecision) {
   DXIL::LowPrecisionMode mode =
       bMinPrecision ? DXIL::LowPrecisionMode::UseMinPrecision
                     : DXIL::LowPrecisionMode::UseNativeLowPrecision;
