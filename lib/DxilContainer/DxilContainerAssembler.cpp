@@ -1293,7 +1293,7 @@ private:
                              uint32_t &resourceIndex) {
     uint32_t stringIndex = Builder.InsertString(resource.GetGlobalName());
     UpdateFunctionToResourceInfo(&resource, resourceIndex++);
-    RuntimeDataResourceInfo info = {};
+    RDAT::RuntimeDataResourceInfo info = {};
     info.ID = resource.GetID();
     info.Class = static_cast<uint32_t>(resourceClass);
     info.Kind = static_cast<uint32_t>(resource.GetKind());
@@ -1305,15 +1305,15 @@ private:
     if (ResourceClass::UAV == resourceClass) {
       DxilResource *pRes = static_cast<DxilResource *>(&resource);
       if (pRes->HasCounter())
-        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::UAVCounter);
+        info.Flags |= static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVCounter);
       if (pRes->IsGloballyCoherent())
         info.Flags |=
-            static_cast<uint32_t>(DxilResourceFlag::UAVGloballyCoherent);
+            static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVGloballyCoherent);
       if (pRes->IsROV())
         info.Flags |=
-            static_cast<uint32_t>(DxilResourceFlag::UAVRasterizerOrderedView);
+            static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVRasterizerOrderedView);
       if (pRes->HasAtomic64Use())
-        info.Flags |= static_cast<uint32_t>(DxilResourceFlag::Atomics64Use);
+        info.Flags |= static_cast<uint32_t>(RDAT::DxilResourceFlag::Atomics64Use);
       // TODO: add dynamic index flag
     }
     m_pResourceTable->Insert(info);
@@ -1467,15 +1467,10 @@ private:
 
   uint32_t AddShaderInfo(llvm::Function &function,
                          const DxilEntryProps &entryProps,
-                         RuntimeDataFunctionInfo2 &funcInfo,
+                         RuntimeDataFunctionInfo3 &funcInfo,
                          const ShaderFlags &flags, uint32_t tgsmSizeInBytes) {
     const DxilFunctionProps &props = entryProps.props;
     const DxilEntrySignature &sig = entryProps.sig;
-    if (props.waveSize) {
-      funcInfo.MinimumExpectedWaveLaneCount = props.waveSize;
-      funcInfo.MaximumExpectedWaveLaneCount = props.waveSize;
-    }
-    funcInfo.ShaderFlags = 0;
     if (flags.GetViewID())
       funcInfo.ShaderFlags |= (uint16_t)DxilShaderFlags::UsesViewID;
     uint32_t shaderFlags = 0;
@@ -1591,7 +1586,7 @@ private:
 
   uint32_t AddShaderNodeInfo(const DxilModule &DM, llvm::Function &function,
                              const DxilEntryProps &entryProps,
-                             RuntimeDataFunctionInfo3 &funcInfo,
+                             RuntimeDataFunctionInfo2 &funcInfo,
                              uint32_t tgsmSizeInBytes) {
     const DxilFunctionProps &props = entryProps.props;
 
@@ -1788,14 +1783,23 @@ private:
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
           shaderKind = (uint32_t)props.shaderKind;
-          if (pInfo2 && DM.HasDxilEntryProps(&function)) {
+          if (DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags,
-                                       TGSMInFunc[&function]);
-            if (pInfo3 && (entryProps.props.shaderKind == ShaderKind::Node ||
-                           entryProps.props.IsNode())) {
-              nodeInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo3,
-                                           TGSMInFunc[&function]);
+            if (pInfo2) {
+              unsigned waveSize = entryProps.props.waveSize;
+              if (waveSize) {
+                pInfo2->MinimumExpectedWaveLaneCount = waveSize;
+                pInfo2->MaximumExpectedWaveLaneCount = waveSize;
+              }
+              pInfo2->ShaderFlags = 0;
+              if (entryProps.props.IsNode()) {
+                nodeInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,
+                                             TGSMInFunc[&function]);
+              }
+            }
+            if (pInfo3) {
+              shaderInfo = AddShaderInfo(function, entryProps, *pInfo3, flags,
+                                         TGSMInFunc[&function]);
             }
           }
         }
@@ -1803,9 +1807,9 @@ private:
         info.UnmangledName = unmangledIndex;
         info.ShaderKind = shaderKind;
         if (pInfo2)
-          pInfo2->RawShaderRef = shaderInfo;
+          pInfo2->Node = nodeInfo;
         if (pInfo3)
-          pInfo3->Node = nodeInfo;
+          pInfo3->RawShaderRef = shaderInfo;
         info.Resources = resourceIndex;
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
@@ -1933,10 +1937,13 @@ public:
 
     // Instantiate the parts in the order that validator expects.
     Builder.GetStringBufferPart();
-    m_pResourceTable = Builder.GetOrAddTable<RuntimeDataResourceInfo>();
+    m_pResourceTable = Builder.GetOrAddTable<RDAT::RuntimeDataResourceInfo>();
     m_pFunctionTable = Builder.GetOrAddTable<RuntimeDataFunctionInfo>();
-    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
+    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) > 0) {
+      // Experimental support only.
       m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo3));
+    } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) == 0) {
+      m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
     } else {
       m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo));
     }

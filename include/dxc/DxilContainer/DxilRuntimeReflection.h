@@ -62,6 +62,16 @@ enum class RuntimeDataPartType : uint32_t {
   Last_1_4 = SubobjectTable,
 
   // PRERELEASE-TODO: assign values explicitly to all enums before release
+  NodeIDTable = 7,
+  NodeShaderIOAttribTable = 8,
+  NodeShaderFuncAttribTable = 9,
+  IONodeTable = 10,
+  NodeShaderInfoTable = 11,
+
+  Last_1_8 = NodeShaderInfoTable, // PRERELEASE-TODO: change to last
+                                  // necessary 1.8 part before release.
+
+  // Insert experimental here.
   SignatureElementTable,
   VSInfoTable,
   PSInfoTable,
@@ -71,16 +81,6 @@ enum class RuntimeDataPartType : uint32_t {
   CSInfoTable,
   MSInfoTable,
   ASInfoTable,
-
-  NodeIDTable,
-  NodeShaderIOAttribTable,
-  NodeShaderFuncAttribTable,
-  IONodeTable,
-  NodeShaderInfoTable,
-
-  Last_1_8 = NodeShaderInfoTable, // PRERELEASE-TODO: change to last
-                                  // necessary 1.8 part before release.
-  // Insert experimental here.
 
   LastPlus1,
   LastExperimental = LastPlus1 - 1,
@@ -110,15 +110,6 @@ enum class RecordTableIndex : unsigned {
   FunctionTable,
   SubobjectTable,
 
-  SignatureElementTable,
-  VSInfoTable,
-  PSInfoTable,
-  HSInfoTable,
-  DSInfoTable,
-  GSInfoTable,
-  CSInfoTable,
-  MSInfoTable,
-  ASInfoTable,
   NodeIDTable,
   NodeShaderIOAttribTable,
   NodeShaderFuncAttribTable,
@@ -128,6 +119,16 @@ enum class RecordTableIndex : unsigned {
   DxilPdbInfoTable,
   DxilPdbInfoSourceTable,
   DxilPdbInfoLibraryTable,
+
+  SignatureElementTable,
+  VSInfoTable,
+  PSInfoTable,
+  HSInfoTable,
+  DSInfoTable,
+  GSInfoTable,
+  CSInfoTable,
+  MSInfoTable,
+  ASInfoTable,
 
   RecordTableCount
 };
