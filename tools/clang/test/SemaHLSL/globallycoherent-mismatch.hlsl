@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tcs_6_0 -verify %s
 
 RWByteAddressBuffer NonGCBuf;
 globallycoherent RWByteAddressBuffer GCBuf;
@@ -78,6 +79,7 @@ void getNonGCBufArrParam(inout globallycoherent RWByteAddressBuffer PGCBufArr[2]
   PGCBufArr = NonGCBufArr; // expected-warning{{implicit conversion from 'RWByteAddressBuffer [2]' to 'globallycoherent RWByteAddressBuffer __restrict[2]' adds globallycoherent annotation}}
 }
 
+[shader("compute")]
 [numthreads(1, 1, 1)]
 void main()
 {
