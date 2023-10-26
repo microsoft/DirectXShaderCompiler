@@ -195,7 +195,8 @@ namespace ns_std_conversions {
     fn_f14(1);
 
     u = f11; // matrix single element conversion
-    u = f14; // matrix scalar truncation conversion // expected-warning {{implicit truncation of vector type}}
+    // expected-warning@+1 {{implicit truncation of vector type}}
+    u = f14; // matrix scalar truncation conversion
 
     u2 = f11; // matrix single element vector conversion
     u4 = f22; // matrix to vector conversion
@@ -203,9 +204,12 @@ namespace ns_std_conversions {
     //u3 = f12; // cannot convert if target has more
 
     u44 = f44; // matrix element-type conversion
-    u22 = f44; // can convert to smaller // expected-warning {{implicit truncation of vector type}}
-    u22 = f33; // can convert to smaller // expected-warning {{implicit truncation of vector type}}
-    f32 = f33; // can convert as long as each dimension is smaller // expected-warning {{implicit truncation of vector type}}
+    // expected-warning@+1 {{implicit truncation of vector type}}
+    u22 = f44; // can convert to smaller
+    // expected-warning@+1 {{implicit truncation of vector type}}
+    u22 = f33; // can convert to smaller
+    // expected-warning@+1 {{implicit truncation of vector type}}
+    f32 = f33; // can convert as long as each dimension is smaller
     //u44 = f22; // cannot convert to bigger
   }
 
@@ -313,7 +317,7 @@ namespace ns_overloading {
   int f_default_0(int a = 3);
   //int f_default_0(int a = 4); // error X3114: 'a': default parameters can only be provided in the first prototype
   int f_default(int a = 1) { return a; } // expected-note {{previous definition is here}}
-  int f_default(int a = 3); // // expected-error {{redefinition of default argument}}
+  int f_default(int a = 3); // expected-error {{redefinition of default argument}}
 //  int f_default_args(int a, int b = 0);
   int f_default_args(int a = 0, int b); // expected-error {{missing default argument on parameter 'b'}}
   int f_default_args() { return 1; }
