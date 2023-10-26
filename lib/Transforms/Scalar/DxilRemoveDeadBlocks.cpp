@@ -346,8 +346,7 @@ static void EnsureDxilModule(Module *M) {
     return;
   for (Function &F : *M) {
     if (OP::IsDxilOpFunc(&F)) {
-      bool bSkipInit = true; // Metadata is not necessarily valid yet.
-      M->GetOrCreateDxilModule(bSkipInit);
+      M->GetOrCreateDxilModule();
       break;
     }
   }
