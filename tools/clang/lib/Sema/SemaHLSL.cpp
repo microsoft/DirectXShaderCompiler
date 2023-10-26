@@ -13985,7 +13985,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
     while (eltQt->isArrayType())
       eltQt = QualType(eltQt->getArrayElementTypeNoTypeQual(), 0);
     if (hlslSource->IsWaveMatrixType(eltQt)) {
-      std::string typeName(
+      StringRef typeName(
           g_ArBasicTypeNames[hlslSource->GetTypeElementKind(eltQt)]);
       Diag(D.getLocStart(), diag::err_hlsl_array_disallowed)
           << typeName << /* declaration */ 1;
