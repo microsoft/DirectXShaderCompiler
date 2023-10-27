@@ -151,9 +151,6 @@ void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *GV,
   case Semantic::Kind::StartInstanceLocation:
     opcode = OP::OpCode::StartInstanceLocation;
     break;
-  case Semantic::Kind::IndirectCommandIndex:
-    opcode = OP::OpCode::IndirectCommandIndex;
-    break;
   default:
     DXASSERT(0, "invalid semantic");
     return;

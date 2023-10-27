@@ -14,23 +14,18 @@
 // VS: ; -------------------- ----- ------ -------- -------- ------- ------
 // VS: ; SV_Position              0   xyzw        0      POS   float   xyzw
 // VS: ; SV_StartInstanceLocation     0   x           1     NONE    uint   x
-// VS: ; SV_IndirectCommandIndex     0    y          1     NONE    uint    y
 
-// VS: %[[Index:.+]] = call i32 @dx.op.indirectCommandIndex.i32(i32 258)
 // VS: %[[Location:.+]] = call i32 @dx.op.startInstanceLocation.i32(i32 257)
 // VS: call void @dx.op.storeOutput.i32(i32 5, i32 1, i32 0, i8 0, i32 %[[Location]])
-// VS: call void @dx.op.storeOutput.i32(i32 5, i32 2, i32 0, i8 0, i32 %[[Index]])
 
 
-float4 vs_main(inout uint loc : SV_StartInstanceLocation
-		   , inout uint index : SV_IndirectCommandIndex) : SV_Position {
+float4 vs_main(inout uint loc : SV_StartInstanceLocation) : SV_Position {
   return 0;
 }
 
 
 struct PSSceneIn {
   uint loc : SV_StartInstanceLocation;
-  uint index : SV_IndirectCommandIndex;
   float4 pos : SV_Position;
 };
 
@@ -40,7 +35,6 @@ struct PSSceneIn {
 // CHECK: ; Name                 Index   Mask Register SysValue  Format   Used
 // CHECK: ; -------------------- ----- ------ -------- -------- ------- ------
 // CHECK: ; SV_StartInstanceLocation     0   x           0     NONE    uint   x
-// CHECK: ; SV_IndirectCommandIndex     0    y          0     NONE    uint    y
 // CHECK: ; SV_Position              0   xyzw        1      POS   float   xyzw
 
 // Make sure in output signature is not sysvalue
@@ -48,13 +42,10 @@ struct PSSceneIn {
 // CHECK: ; Name                 Index   Mask Register SysValue  Format   Used
 // CHECK: ; -------------------- ----- ------ -------- -------- ------- ------
 // CHECK: ; SV_StartInstanceLocation     0   x           0     NONE    uint   x
-// CHECK: ; SV_IndirectCommandIndex     0    y          0     NONE    uint    y
 // CHECK: ; SV_Position              0   xyzw        1      POS   float   xyzw
 
 // CHECK: %[[Location:.+]] = call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 0, i32 {{.*}})
-// CHECK: %[[Index:.+]] = call i32 @dx.op.loadInput.i32(i32 4, i32 1, i32 0, i8 0, i32 {{.*}})
 // CHECK: call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 %[[Location]])  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
-// CHECK: call void @dx.op.storeOutput.i32(i32 5, i32 1, i32 0, i8 0, i32 %[[Index]])
 
 
 struct HSPerVertexData {
@@ -111,7 +102,6 @@ HSPerVertexData hs_main( const uint id : SV_OutputControlPointID,
   // Compute interpolated coordinates
   v.pos = patch[0].v.pos * bary.x + patch[1].v.pos * bary.y + patch[2].v.pos * bary.z + perPatchData.edges[1];
   v.loc = patch[0].v.loc;
-  v.index = patch[0].v.index;
   return v;
 }
 
@@ -132,14 +122,10 @@ void gs_main(InputPatch<PSSceneIn, 2>points, inout PointStream<PSSceneIn> stream
 // PS: ; Name                 Index   Mask Register SysValue  Format   Used
 // PS: ; -------------------- ----- ------ -------- -------- ------- ------
 // PS: ; SV_StartInstanceLocation     0   x           0     NONE    uint   x
-// PS: ; SV_IndirectCommandIndex     0    y          0     NONE    uint    y
 
-// PS: %[[Index:.+]] = call i32 @dx.op.loadInput.i32(i32 4, i32 1, i32 0, i8 0, i32 undef)
 // PS: %[[Location:.+]] = call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 0, i32 undef)
 // PS: call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 0, i32 %[[Location]])
-// PS: call void @dx.op.storeOutput.i32(i32 5, i32 0, i32 0, i8 1, i32 %[[Index]])
 
-uint2 ps_main(uint loc : SV_StartInstanceLocation
-		   ,  uint index : SV_IndirectCommandIndex) : SV_Target {
-  return uint2(loc,index);		   
+uint ps_main(uint loc : SV_StartInstanceLocation) : SV_Target {
+  return loc;		   
 }

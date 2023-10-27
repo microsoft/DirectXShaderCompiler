@@ -144,7 +144,6 @@ const Semantic Semantic::ms_SemanticTable[kNumSemanticRecords] = {
     SP(Kind::CullPrimitive, "SV_CullPrimitive"),
     SP(Kind::StartVertexLocation, "SV_StartVertexLocation"),
     SP(Kind::StartInstanceLocation, "SV_StartInstanceLocation"),
-    SP(Kind::IndirectCommandIndex, "SV_IndirectCommandIndex"),
     SP(Kind::Invalid, nullptr),
 };
 

@@ -9232,26 +9232,5 @@ struct DxilInst_StartInstanceLocation {
   // Metadata
   bool requiresUniformInputs() const { return false; }
 };
-
-/// This instruction returns the auto-incrementing index of the current indirect
-/// command opereation
-struct DxilInst_IndirectCommandIndex {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_IndirectCommandIndex(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::IndirectCommandIndex);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-};
 // INSTR-HELPER:END
 } // namespace hlsl

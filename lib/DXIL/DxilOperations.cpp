@@ -9,9 +9,9 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/Support/Global.h"
 
 #include "llvm/ADT/ArrayRef.h"
@@ -2603,15 +2603,6 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadNone,
     },
-    {
-        OC::IndirectCommandIndex,
-        "IndirectCommandIndex",
-        OCC::IndirectCommandIndex,
-        "indirectCommandIndex",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
 };
 // OPCODE-OLOADS:END
 
@@ -3221,9 +3212,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Node);
     return;
   }
-  // Instructions: StartVertexLocation=256, StartInstanceLocation=257,
-  // IndirectCommandIndex=258
-  if ((256 <= op && op <= 258)) {
+  // Instructions: StartVertexLocation=256, StartInstanceLocation=257
+  if ((256 <= op && op <= 257)) {
     major = 6;
     minor = 8;
     mask = SFLAG(Vertex);
@@ -5384,10 +5374,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
-  case OpCode::IndirectCommandIndex:
-    A(pI32);
-    A(pI32);
-    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -5650,7 +5636,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
   case OpCode::StartVertexLocation:
   case OpCode::StartInstanceLocation:
-  case OpCode::IndirectCommandIndex:
     return IntegerType::get(Ctx, 32);
   case OpCode::CalculateLOD:
   case OpCode::DomainLocation:

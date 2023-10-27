@@ -2,7 +2,6 @@
 
 // CHECK: @main
 
-// CHECK: call i32 @dx.op.indirectCommandIndex.i32(i32 258)
 // CHECK: call i32 @dx.op.startInstanceLocation.i32(i32 257)
 // CHECK: call i32 @dx.op.startVertexLocation.i32(i32 256)
 
@@ -13,12 +12,10 @@
 
 float4 main(int loc : SV_StartVertexLocation
            , uint loc2 : SV_StartInstanceLocation
-		   , uint index : SV_IndirectCommandIndex
            ) : SV_Position
 {
     float4 r = 0;
     r += loc;
     r += loc2;
-	r += index;
     return r;
 }

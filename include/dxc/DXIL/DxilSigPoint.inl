@@ -132,8 +132,6 @@ const SigPoint SigPoint::ms_SigPoints[kNumSigPointRecords] = {
   ROW(StartVertexLocation, NotInSig _68, NA, NA, NA, NA, NA, NA, NA, NA, NA,   \
       NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)                                  \
   ROW(StartInstanceLocation, NotInSig _68, Arb, NA, NA, Arb, Arb, NA, NA, Arb, \
-      Arb, Arb, NA, Arb, Arb, NA, NA, NA, NA, NA, NA)                          \
-  ROW(IndirectCommandIndex, NotInSig _68, Arb, NA, NA, Arb, Arb, NA, NA, Arb,  \
       Arb, Arb, NA, Arb, Arb, NA, NA, NA, NA, NA, NA)
 // INTERPRETATION-TABLE:END
 

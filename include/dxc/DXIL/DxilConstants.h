@@ -247,7 +247,6 @@ enum class SemanticKind : unsigned {
   CullPrimitive,
   StartVertexLocation,
   StartInstanceLocation,
-  IndirectCommandIndex,
   Invalid,
 };
 // SemanticKind-ENUM:END
@@ -558,8 +557,6 @@ enum class OpCode : unsigned {
   SplitDouble = 102,          // splits a double into low and high parts
 
   // Extended Command Information
-  IndirectCommandIndex = 258, // returns the auto-incrementing index of the
-                              // current indirect command opereation
   StartInstanceLocation =
       257, // returns the StartInstanceLocation from Draw*Instanced
   StartVertexLocation =
@@ -972,7 +969,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
 
-  NumOpCodes = 259 // exclusive last value of enumeration
+  NumOpCodes = 258 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1053,7 +1050,6 @@ enum class OpCodeClass : unsigned {
   SplitDouble,
 
   // Extended Command Information
-  IndirectCommandIndex,
   StartInstanceLocation,
   StartVertexLocation,
 
@@ -1288,7 +1284,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
 
-  NumOpClasses = 184 // exclusive last value of enumeration
+  NumOpClasses = 183 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

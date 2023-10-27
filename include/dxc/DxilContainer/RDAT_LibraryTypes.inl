@@ -166,7 +166,6 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::SemanticKind, uint32_t)
   RDAT_ENUM_VALUE_NODEF(CullPrimitive)
   RDAT_ENUM_VALUE_NODEF(StartVertexLocation)
   RDAT_ENUM_VALUE_NODEF(StartInstanceLocation)
-  RDAT_ENUM_VALUE_NODEF(IndirectCommandIndex)
   RDAT_ENUM_VALUE_NODEF(Invalid)
   // SemanticKind-ENUM:END
 RDAT_ENUM_END()
