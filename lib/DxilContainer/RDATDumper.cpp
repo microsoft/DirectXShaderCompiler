@@ -93,7 +93,8 @@ void DumpRecordRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
       d.WriteLn(memberName, ": <", rr.Index, ":", storedTypeName, ">");
     }
   } else {
-    d.WriteLn(memberName, ": <", rr.Index, ":", storedTypeName, "> = <nullptr>");
+    d.WriteLn(memberName, ": <", rr.Index, ":", storedTypeName,
+              "> = <nullptr>");
   }
 }
 

@@ -1310,10 +1310,11 @@ private:
         info.Flags |=
             static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVGloballyCoherent);
       if (pRes->IsROV())
-        info.Flags |=
-            static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVRasterizerOrderedView);
+        info.Flags |= static_cast<uint32_t>(
+            RDAT::DxilResourceFlag::UAVRasterizerOrderedView);
       if (pRes->HasAtomic64Use())
-        info.Flags |= static_cast<uint32_t>(RDAT::DxilResourceFlag::Atomics64Use);
+        info.Flags |=
+            static_cast<uint32_t>(RDAT::DxilResourceFlag::Atomics64Use);
       // TODO: add dynamic index flag
     }
     m_pResourceTable->Insert(info);
@@ -1791,8 +1792,8 @@ private:
               }
               pInfo2->ShaderFlags = 0;
               if (entryProps.props.IsNode()) {
-                shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,
-                                             TGSMInFunc[&function]);
+                shaderInfo = AddShaderNodeInfo(DM, function, entryProps,
+                                               *pInfo2, TGSMInFunc[&function]);
               } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >
                          0) {
                 shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags,
