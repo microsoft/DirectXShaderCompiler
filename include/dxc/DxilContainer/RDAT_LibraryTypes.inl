@@ -115,6 +115,8 @@ RDAT_STRUCT_TABLE(RuntimeDataResourceInfo, ResourceTable)
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
+// ------------ RuntimeDataFunctionInfo ------------
+
 #define RECORD_TYPE RuntimeDataFunctionInfo
 RDAT_STRUCT_TABLE(RuntimeDataFunctionInfo, FunctionTable)
   // full function name
@@ -386,7 +388,32 @@ RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo2, RuntimeDataFunctionInfo,
   RDAT_VALUE(uint8_t, MaximumExpectedWaveLaneCount) // 0 = none specified
   RDAT_FLAGS(uint16_t, hlsl::RDAT::DxilShaderFlags, ShaderFlags)
 
-  RDAT_RECORD_REF(NodeShaderInfo, Node)
+  RDAT_UNION()
+    RDAT_UNION_IF(RawShaderRef,
+                    (getShaderKind() == hlsl::DXIL::ShaderKind::Invalid))
+      RDAT_VALUE(uint32_t, RawShaderRef)
+    RDAT_UNION_ELIF(Node, (getShaderKind() == hlsl::DXIL::ShaderKind::Node))
+      RDAT_RECORD_REF(NodeShaderInfo, Node)
+    // End of values supported by validator version 1.8
+    RDAT_UNION_ELIF(VS, (getShaderKind() == hlsl::DXIL::ShaderKind::Vertex))
+      RDAT_RECORD_REF(VSInfo, VS)
+    RDAT_UNION_ELIF(PS, (getShaderKind() == hlsl::DXIL::ShaderKind::Pixel))
+      RDAT_RECORD_REF(PSInfo, PS)
+    RDAT_UNION_ELIF(HS, (getShaderKind() == hlsl::DXIL::ShaderKind::Hull))
+      RDAT_RECORD_REF(HSInfo, HS)
+    RDAT_UNION_ELIF(DS, (getShaderKind() == hlsl::DXIL::ShaderKind::Domain))
+      RDAT_RECORD_REF(DSInfo, DS)
+    RDAT_UNION_ELIF(GS, (getShaderKind() == hlsl::DXIL::ShaderKind::Geometry))
+      RDAT_RECORD_REF(GSInfo, GS)
+    RDAT_UNION_ELIF(CS, (getShaderKind() == hlsl::DXIL::ShaderKind::Compute))
+      RDAT_RECORD_REF(CSInfo, CS)
+    RDAT_UNION_ELIF(MS, (getShaderKind() == hlsl::DXIL::ShaderKind::Mesh))
+      RDAT_RECORD_REF(MSInfo, MS)
+    RDAT_UNION_ELIF(AS,
+                    (getShaderKind() == hlsl::DXIL::ShaderKind::Amplification))
+      RDAT_RECORD_REF(ASInfo, AS)
+    RDAT_UNION_ENDIF()
+  RDAT_UNION_END()
 
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
@@ -397,8 +424,6 @@ RDAT_STRUCT_END()
 ///////////////////////////////////////////////////////////////////////////////
 // The following are experimental, and are not currently supported on any
 // validator version.
-
-// ------------ RuntimeDataFunctionInfo3 dependencies ------------
 
 #ifdef DEF_DXIL_ENUMS
 
@@ -623,39 +648,6 @@ RDAT_STRUCT_TABLE(ASInfo, ASInfoTable)
                                    // default value is 1
   RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
   RDAT_VALUE(uint32_t, PayloadSizeInBytes)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
-
-// ------------ RuntimeDataFunctionInfo3 ------------
-
-#define RECORD_TYPE RuntimeDataFunctionInfo3
-RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo3, RuntimeDataFunctionInfo2,
-                          FunctionTable)
-
-  RDAT_UNION()
-    RDAT_UNION_IF(VS, (getShaderKind() == hlsl::DXIL::ShaderKind::Vertex))
-      RDAT_RECORD_REF(VSInfo, VS)
-    RDAT_UNION_ELIF(PS, (getShaderKind() == hlsl::DXIL::ShaderKind::Pixel))
-      RDAT_RECORD_REF(PSInfo, PS)
-    RDAT_UNION_ELIF(HS, (getShaderKind() == hlsl::DXIL::ShaderKind::Hull))
-      RDAT_RECORD_REF(HSInfo, HS)
-    RDAT_UNION_ELIF(DS, (getShaderKind() == hlsl::DXIL::ShaderKind::Domain))
-      RDAT_RECORD_REF(DSInfo, DS)
-    RDAT_UNION_ELIF(GS, (getShaderKind() == hlsl::DXIL::ShaderKind::Geometry))
-      RDAT_RECORD_REF(GSInfo, GS)
-    RDAT_UNION_ELIF(CS, (getShaderKind() == hlsl::DXIL::ShaderKind::Compute))
-      RDAT_RECORD_REF(CSInfo, CS)
-    RDAT_UNION_ELIF(MS, (getShaderKind() == hlsl::DXIL::ShaderKind::Mesh))
-      RDAT_RECORD_REF(MSInfo, MS)
-    RDAT_UNION_ELIF(AS,
-                    (getShaderKind() == hlsl::DXIL::ShaderKind::Amplification))
-      RDAT_RECORD_REF(ASInfo, AS)
-    RDAT_UNION_ELIF(RawShaderRef,
-                    (getShaderKind() == hlsl::DXIL::ShaderKind::Invalid))
-      RDAT_VALUE(uint32_t, RawShaderRef)
-    RDAT_UNION_ENDIF()
-  RDAT_UNION_END()
-
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 

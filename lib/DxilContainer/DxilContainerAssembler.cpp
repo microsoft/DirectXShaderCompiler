@@ -1467,7 +1467,7 @@ private:
 
   uint32_t AddShaderInfo(llvm::Function &function,
                          const DxilEntryProps &entryProps,
-                         RuntimeDataFunctionInfo3 &funcInfo,
+                         RuntimeDataFunctionInfo2 &funcInfo,
                          const ShaderFlags &flags, uint32_t tgsmSizeInBytes) {
     const DxilFunctionProps &props = entryProps.props;
     const DxilEntrySignature &sig = entryProps.sig;
@@ -1681,9 +1681,12 @@ private:
     // We must select the appropriate shader mask for the validator version,
     // so we don't set any bits the validator doesn't recognize.
     unsigned ValidShaderMask =
-        (1 << ((unsigned)DXIL::ShaderKind::Amplification + 1)) - 1;
+        (1 << ((unsigned)DXIL::ShaderKind::Node + 1)) - 1;
     if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
       ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Callable + 1)) - 1;
+    } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0) {
+      ValidShaderMask =
+          (1 << ((unsigned)DXIL::ShaderKind::Amplification + 1)) - 1;
     }
     for (auto &function : M->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic() &&
@@ -1750,7 +1753,6 @@ private:
         uint32_t attrSizeInBytes = 0;
         uint32_t shaderKind = static_cast<uint32_t>(DXIL::ShaderKind::Library);
         uint32_t shaderInfo = RDAT_NULL_REF;
-        uint32_t nodeInfo = RDAT_NULL_REF;
 
         if (m_FuncToResNameOffset.find(&function) !=
             m_FuncToResNameOffset.end())
@@ -1761,13 +1763,9 @@ private:
           functionDependencies =
               Builder.InsertArray(m_FuncToDependencies[&function].begin(),
                                   m_FuncToDependencies[&function].end());
-        RuntimeDataFunctionInfo3 info_latest = {};
+        RuntimeDataFunctionInfo2 info_latest = {};
         RuntimeDataFunctionInfo &info = info_latest;
         RuntimeDataFunctionInfo2 *pInfo2 = (sizeof(RuntimeDataFunctionInfo2) <=
-                                            m_pFunctionTable->GetRecordStride())
-                                               ? &info_latest
-                                               : nullptr;
-        RuntimeDataFunctionInfo3 *pInfo3 = (sizeof(RuntimeDataFunctionInfo3) <=
                                             m_pFunctionTable->GetRecordStride())
                                                ? &info_latest
                                                : nullptr;
@@ -1793,13 +1791,13 @@ private:
               }
               pInfo2->ShaderFlags = 0;
               if (entryProps.props.IsNode()) {
-                nodeInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,
+                shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,
                                              TGSMInFunc[&function]);
+              } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >
+                         0) {
+                shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags,
+                                           TGSMInFunc[&function]);
               }
-            }
-            if (pInfo3) {
-              shaderInfo = AddShaderInfo(function, entryProps, *pInfo3, flags,
-                                         TGSMInFunc[&function]);
             }
           }
         }
@@ -1807,9 +1805,7 @@ private:
         info.UnmangledName = unmangledIndex;
         info.ShaderKind = shaderKind;
         if (pInfo2)
-          pInfo2->Node = nodeInfo;
-        if (pInfo3)
-          pInfo3->RawShaderRef = shaderInfo;
+          pInfo2->RawShaderRef = shaderInfo;
         info.Resources = resourceIndex;
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
@@ -1939,10 +1935,7 @@ public:
     Builder.GetStringBufferPart();
     m_pResourceTable = Builder.GetOrAddTable<RDAT::RuntimeDataResourceInfo>();
     m_pFunctionTable = Builder.GetOrAddTable<RuntimeDataFunctionInfo>();
-    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) > 0) {
-      // Experimental support only.
-      m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo3));
-    } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) == 0) {
+    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
       m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo2));
     } else {
       m_pFunctionTable->SetRecordStride(sizeof(RuntimeDataFunctionInfo));
