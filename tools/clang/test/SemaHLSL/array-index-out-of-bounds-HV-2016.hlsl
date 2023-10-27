@@ -1,5 +1,5 @@
-// RUN: %dxc -Tlib_6_3 -Wno-unused-value   -HV 2016 -verify %s
-// RUN: %dxc -Tvs_6_0 -verify %s
+// RUN: %dxc -Tlib_6_3 -Wno-unused-value -HV 2016 -verify %s
+// RUN: %dxc -Tvs_6_0 -Wno-unused-value -HV 2016 -verify %s
 
 void dead()
 {

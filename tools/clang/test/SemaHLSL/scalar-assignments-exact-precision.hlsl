@@ -1,5 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -enable-16bit-types   -verify -HV 2018 %s
-// RUN: %dxc -Tvs_6_0 -enable-16bit-types   -verify -HV 2018 %s
+// RUN: %dxc -Tvs_6_2 -enable-16bit-types   -verify -HV 2018 %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_5_1 scalar-assignments.hlsl
