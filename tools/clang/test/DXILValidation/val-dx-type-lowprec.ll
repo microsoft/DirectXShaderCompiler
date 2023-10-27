@@ -1,6 +1,8 @@
 ; RUN: %dxv %s
 
-;
+; Regression test for validator, it should pass validation.
+; See val-dx-type-minprec.hlsl for explanation.
+
 ; Note: shader requires additional functionality:
 ;       Tiled resources
 ;       Use native low precision
