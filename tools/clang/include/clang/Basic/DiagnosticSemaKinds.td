@@ -7868,8 +7868,8 @@ def err_hlsl_node_record_type : Error<
    "%0 is not valid as a node record type - struct/class required">;
 def err_hlsl_node_record_object : Error<
    "object %0 may not appear in a node record">;
-def err_hlsl_array_entry_param_disallowed : Error<
-   "entry parameter of type %0 may not be an array">;
+def err_hlsl_array_disallowed : Error<
+   "%select{entry parameter|declaration}1 of type %0 may not be an array">;
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
 // HLSL Change Ends
 
