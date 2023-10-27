@@ -158,7 +158,7 @@ void clang::ParseAST(Sema &S, bool PrintStats, bool SkipFunctionBodies) {
     for (Decl *D : S.WeakTopLevelDecls())
       Consumer->HandleTopLevelDecl(DeclGroupRef(D));
   }
-  
+
   // HLSL Change Starts
   // Provide the opportunity to generate translation-unit level validation
   // errors in the front-end, without relying on code generation being

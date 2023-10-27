@@ -9,21 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/TimeProfiler.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Transforms/Utils/Cloning.h"
-#include "dxc/DxilContainer/DxilContainer.h"
-#include "dxc/DXIL/DxilModule.h"
-#include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DXIL/DxilCounters.h"
 #include "dxc/DXIL/DxilEntryProps.h"

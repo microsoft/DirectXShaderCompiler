@@ -1111,7 +1111,7 @@ public:
           } // SUCCEEDED(valHR)
         }   // compileOK && !opts.CodeGenHighLevel
       }
-      
+
       std::string remarks;
       raw_string_ostream r(remarks);
       msfPtr->WriteStdOutToStream(r);

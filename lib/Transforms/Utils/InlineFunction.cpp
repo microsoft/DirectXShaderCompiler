@@ -13,9 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/Cloning.h"
+
+#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -24,13 +25,13 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Attributes.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -38,9 +39,9 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TimeProfiler.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 using namespace llvm;
 
@@ -292,9 +293,8 @@ static void HandleInlinedInvoke(InvokeInst *II, BasicBlock *FirstNewBlock,
 /// non-aliasing property communicated by the metadata could have
 /// call-site-specific control dependencies).
 static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
-  TimeTraceScope TimeScope("CloneAliasScopeMetadata", [&] {
-    return CS.getCalledFunction()->getName();
-  });
+  TimeTraceScope TimeScope("CloneAliasScopeMetadata",
+                           [&] { return CS.getCalledFunction()->getName(); });
   const Function *CalledFunc = CS.getCalledFunction();
   SetVector<const MDNode *> MD;
 
@@ -405,9 +405,8 @@ static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
 /// non-derived loads, stores and memory intrinsics with the new alias scopes.
 static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
                                   const DataLayout &DL, AliasAnalysis *AA) {
-  TimeTraceScope TimeScope("AddAliasScopeMetadata", [&] {
-    return CS.getCalledFunction()->getName();
-  });
+  TimeTraceScope TimeScope("AddAliasScopeMetadata",
+                           [&] { return CS.getCalledFunction()->getName(); });
   if (!EnableNoAliasConversion)
     return;
 
@@ -879,9 +878,7 @@ updateInlinedAtInfo(DebugLoc DL, DILocation *InlinedAtNode, LLVMContext &Ctx,
 /// to encode location where these instructions are inlined.
 static void fixupLineNumbers(Function *Fn, Function::iterator FI,
                              Instruction *TheCall) {
-  TimeTraceScope TimeScope("fixupLineNumbers", [&] {
-    return Fn->getName();
-  });
+  TimeTraceScope TimeScope("fixupLineNumbers", [&] { return Fn->getName(); });
   DebugLoc TheCallDL = TheCall->getDebugLoc();
 #if 0 // HLSL Change
   if (!TheCallDL)
