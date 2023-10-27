@@ -497,7 +497,6 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("vertex",)
             self.name_idx[i].shader_model = 6, 8
 
-
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
         # This is basically include\llvm\IR\Instruction.def
