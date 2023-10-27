@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify %s
+// RUN: %dxc -Tvs_6_0 -Wno-unused-value -verify %s
 
 // expected-note@? {{'vector' declared here}}
 // expected-note@? {{'matrix' declared here}}
@@ -31,4 +32,5 @@ struct BITIA : BuiltInTriangleIntersectionAttributes {}; // expected-error {{bas
 struct RTAS : RaytracingAccelerationStructure {}; // expected-error {{base 'RaytracingAccelerationStructure' is marked 'final'}} fxc-error {{X3000: syntax error: unexpected token 'RaytracingAccelerationStructure'}}
 struct GRS : GlobalRootSignature {}; // expected-error {{base 'GlobalRootSignature' is marked 'final'}} fxc-error {{X3000: syntax error: unexpected token 'GlobalRootSignature'}}
 
+[shader("vertex")]
 void main() {}

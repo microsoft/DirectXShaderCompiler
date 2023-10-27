@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify %s
+// RUN: %dxc -Tvs_6_0 -Wno-unused-value -verify %s
 
 // Tests usage of the sizeof operator
 
@@ -6,6 +7,7 @@ struct EmptyStruct {};
 struct SimpleStruct { int x; };
 struct StructWithResource { Buffer buf; int x; };
 
+[shader("vertex")]
 void main()
 {
   // Type vs expression argument

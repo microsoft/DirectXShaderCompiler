@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value  -verify %s
+// RUN: %dxc -Tvs_6_0 -Wno-unused-value -verify %s
 
 float overload1(float f) { return 1; }                        /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
 double overload1(double f) { return 2; }                       /* expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} expected-note {{candidate function}} fxc-pass {{}} */
@@ -381,5 +382,6 @@ void fn_ice() {
   float arr_vc_Two[vc_Two.x];  /* expected-error {{variable length arrays are not supported in HLSL}} fxc-pass {{}} */
 }
 
-void cs_main() {
+[shader("vertex")]
+void main() {
 }

@@ -1,9 +1,11 @@
 // RUN: %dxc -Tlib_6_3   -verify %s
+// RUN: %dxc -Tvs_6_0 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_5_1 scalar-assignments.hlsl
 // with vs_2_0 (the default) min16float usage produces a complaint that it's not supported
 
+[shader("vertex")]
 void main() {
 
 snorm snorm float ssf; // expected-warning {{attribute 'snorm' is already applied}} fxc-error {{X3000: syntax error: unexpected token 'snorm'}}
