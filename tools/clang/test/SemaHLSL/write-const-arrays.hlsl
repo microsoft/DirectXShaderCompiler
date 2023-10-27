@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tcs_6_0 -verify %s
 
 // Array subscripts lost their qualifiers including const due to taking a different
 // path for HLSL on account of having no array to ptr decay
@@ -15,6 +16,7 @@ uint g_cbuf[4];
 
 const groupshared uint gs_val[4];
 
+[shader("compute")]
 [NumThreads(1, 1, 1)]
 void main() {
   const uint local[4];
