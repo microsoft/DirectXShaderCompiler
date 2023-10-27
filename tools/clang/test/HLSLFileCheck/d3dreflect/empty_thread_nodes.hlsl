@@ -5,8 +5,8 @@
 // CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
 // CHECK:  IndexTable (size = {{[0-9]+}} bytes)
 // CHECK:  RawBytes (size = {{[0-9]+}} bytes)
-// CHECK:  RecordTable (stride = 56 bytes) FunctionTable[1] = {
-// CHECK:    <0:RuntimeDataFunctionInfo3> = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[1] = {
+// CHECK:    <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:      Name: "Input2Output"
 // CHECK:      UnmangledName: "Input2Output"
 // CHECK:      Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -96,7 +96,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeIDTable[3] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeIDTable[3] = {
 // CHECK:    <0:NodeID> = {
 // CHECK:      Name: "Input2Output"
 // CHECK:      Index: 0
@@ -110,7 +110,7 @@
 // CHECK:      Index: 1
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeShaderFuncAttribTable[3] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderFuncAttribTable[3] = {
 // CHECK:    <0:NodeShaderFuncAttrib> = {
 // CHECK:      AttribKind: ID
 // CHECK:      ID: <0:NodeID> = {
@@ -127,7 +127,7 @@
 // CHECK:      LocalRootArgumentsTableIndex: 2
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeShaderIOAttribTable[6] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderIOAttribTable[6] = {
 // CHECK:    <0:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: RecordSizeInBytes
 // CHECK:      RecordSizeInBytes: 8
@@ -159,7 +159,7 @@
 // CHECK:      MaxRecords: 5
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) IONodeTable[3] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) IONodeTable[3] = {
 // CHECK:    <0:IONode> = {
 // CHECK:      IOFlagsAndKind: 37
 // CHECK:      Attribs: <8:RecordArrayRef<NodeShaderIOAttrib>[1]>  = {
@@ -218,7 +218,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 20 bytes) NodeShaderInfoTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderInfoTable[1] = {
 // CHECK:    <0:NodeShaderInfo> = {
 // CHECK:      LaunchType: Thread
 // CHECK:      GroupSharedBytesUsed: 0

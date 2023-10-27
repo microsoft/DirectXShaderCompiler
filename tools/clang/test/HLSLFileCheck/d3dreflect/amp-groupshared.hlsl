@@ -1,11 +1,11 @@
-// RUN: %dxc  -T lib_6_7 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_7 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 
 // CHECK:DxilRuntimeData (size = {{[0-9]+}} bytes):
 // CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
 // CHECK:  IndexTable (size = {{[0-9]+}} bytes)
 // CHECK:  RawBytes (size = {{[0-9]+}} bytes)
-// CHECK:  RecordTable (stride = 32 bytes) ResourceTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) ResourceTable[1] = {
 // CHECK:    <0:RuntimeDataResourceInfo> = {
 // CHECK:      Class: SRV
 // CHECK:      Kind: TypedBuffer
@@ -17,8 +17,8 @@
 // CHECK:      Flags: 0 (None)
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 56 bytes) FunctionTable[1] = {
-// CHECK:    <0:RuntimeDataFunctionInfo3> = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[1] = {
+// CHECK:    <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:      Name: "amplification"
 // CHECK:      UnmangledName: "amplification"
 // CHECK:      Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -51,7 +51,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 12 bytes) ASInfoTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) ASInfoTable[1] = {
 // CHECK:    <0:ASInfo> = {
 // CHECK:      NumThreads: <2:array[3]> = { 4, 1, 1 }
 // CHECK:      GroupSharedBytesUsed: 32

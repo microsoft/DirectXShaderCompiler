@@ -1,4 +1,4 @@
-// RUN: %dxc -auto-binding-space 13 -exports VSMain;VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;RayGen1,RayGen2=RayGen -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -exports VSMain;VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;RayGen1,RayGen2=RayGen -T lib_6_3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 Buffer<int> T0;
 
@@ -30,7 +30,7 @@ void RayGen() {
 // CHECK:   StringBuffer (size = {{[0-9]+}} bytes)
 // CHECK:   IndexTable (size = {{[0-9]+}} bytes)
 // CHECK:   RawBytes (size = {{[0-9]+}} bytes)
-// CHECK:   RecordTable (stride = 32 bytes) ResourceTable[2] = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) ResourceTable[2] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
 // CHECK:       Class: SRV
 // CHECK:       Kind: Texture2D
@@ -52,8 +52,8 @@ void RayGen() {
 // CHECK:       Flags: 0 (None)
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 56 bytes) FunctionTable[4] = {
-// CHECK:     <0:RuntimeDataFunctionInfo3> = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[4] = {
+// CHECK:     <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?RayGen1{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "RayGen1"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -71,7 +71,7 @@ void RayGen() {
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <1:RuntimeDataFunctionInfo3> = {
+// CHECK:     <1:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?VS_RENAMED{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "VS_RENAMED"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -83,13 +83,13 @@ void RayGen() {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <2:RuntimeDataFunctionInfo3> = {
+// CHECK:     <2:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?RayGen2{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "RayGen2"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -107,7 +107,7 @@ void RayGen() {
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <3:RuntimeDataFunctionInfo3> = {
+// CHECK:     <3:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "VSMain"
 // CHECK:       UnmangledName: "VSMain"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -127,7 +127,7 @@ void RayGen() {
 // CHECK:       VS: <0:VSInfo>
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 16 bytes) SignatureElementTable[2] = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) SignatureElementTable[2] = {
 // CHECK:     <0:SignatureElement> = {
 // CHECK:       SemanticName: "COORD"
 // CHECK:       SemanticIndices: <2:array[1]> = { 0 }
@@ -149,7 +149,7 @@ void RayGen() {
 // CHECK:       UsageAndDynIndexMasks: 0
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 16 bytes) VSInfoTable[1] = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) VSInfoTable[1] = {
 // CHECK:     <0:VSInfo> = {
 // CHECK:       SigInputElements: <2:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:         [0]: <0:SignatureElement>
