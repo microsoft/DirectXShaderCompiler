@@ -678,16 +678,17 @@ unsigned hlsl::LoadViewIDStateFromPSV(unsigned *pOutputData,
 class DxilPSVWriter : public DxilPartWriter {
 private:
   const DxilModule &m_Module;
-  unsigned m_ValMajor, m_ValMinor;
+  unsigned m_ValMajor = 0, m_ValMinor = 0;
   PSVInitInfo m_PSVInitInfo;
   DxilPipelineStateValidation m_PSV;
-  uint32_t m_PSVBufferSize;
+  uint32_t m_PSVBufferSize = 0;
   SmallVector<char, 512> m_PSVBuffer;
   SmallVector<char, 256> m_StringBuffer;
   SmallVector<uint32_t, 8> m_SemanticIndexBuffer;
   std::vector<PSVSignatureElement0> m_SigInputElements;
   std::vector<PSVSignatureElement0> m_SigOutputElements;
   std::vector<PSVSignatureElement0> m_SigPatchConstOrPrimElements;
+  unsigned EntryFunctionName = 0;
 
   void SetPSVSigElement(PSVSignatureElement0 &E,
                         const DxilSignatureElement &SE) {
@@ -758,6 +759,9 @@ public:
     else if (PSVVersion > 1 &&
              DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
       m_PSVInitInfo.PSVVersion = 1;
+    else if (PSVVersion > 2 &&
+             DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0)
+      m_PSVInitInfo.PSVVersion = 2;
     else if (PSVVersion > MAX_PSV_VERSION)
       m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
 
@@ -794,6 +798,16 @@ public:
       for (auto &SE : m_Module.GetPatchConstOrPrimSignature().GetElements()) {
         SetPSVSigElement(m_SigPatchConstOrPrimElements[i++], *(SE.get()));
       }
+
+      // Add entry function name to string table in version 3 and above.
+      if (m_PSVInitInfo.PSVVersion > 2) {
+        EntryFunctionName = (uint32_t)m_StringBuffer.size();
+        StringRef Name(m_Module.GetEntryFunctionName());
+        m_StringBuffer.append(Name.size() + 1, '\0');
+        memcpy(m_StringBuffer.data() + EntryFunctionName, Name.data(),
+               Name.size());
+      }
+
       // Set String and SemanticInput Tables
       m_PSVInitInfo.StringTable.Table = m_StringBuffer.data();
       m_PSVInitInfo.StringTable.Size = m_StringBuffer.size();
@@ -821,6 +835,9 @@ public:
   uint32_t size() const override { return m_PSVBufferSize; }
 
   void write(AbstractMemoryStream *pStream) override {
+    // Do not add any data in write() which wasn't accounted for already in the
+    // constructor, where we compute the size based on m_PSVInitInfo.
+
     m_PSVBuffer.resize(m_PSVBufferSize);
     if (!m_PSV.InitNew(m_PSVInitInfo, m_PSVBuffer.data(), &m_PSVBufferSize)) {
       DXASSERT(false, "PSV InitNew failed!");
@@ -831,9 +848,13 @@ public:
     PSVRuntimeInfo0 *pInfo = m_PSV.GetPSVRuntimeInfo0();
     PSVRuntimeInfo1 *pInfo1 = m_PSV.GetPSVRuntimeInfo1();
     PSVRuntimeInfo2 *pInfo2 = m_PSV.GetPSVRuntimeInfo2();
+    PSVRuntimeInfo3 *pInfo3 = m_PSV.GetPSVRuntimeInfo3();
     const ShaderModel *SM = m_Module.GetShaderModel();
     pInfo->MinimumExpectedWaveLaneCount = 0;
     pInfo->MaximumExpectedWaveLaneCount = (UINT)-1;
+
+    if (pInfo3)
+      pInfo3->EntryFunctionName = EntryFunctionName;
 
     switch (SM->GetKind()) {
     case ShaderModel::Kind::Vertex: {
@@ -1091,6 +1112,14 @@ public:
                               m_PSV);
       }
     }
+
+    // Ensure that these buffers were not modified after m_PSVInitInfo was set.
+    DXASSERT((uint32_t)m_StringBuffer.size() == m_PSVInitInfo.StringTable.Size,
+             "otherwise m_StringBuffer modified after m_PSVInitInfo set.");
+    DXASSERT(
+        (uint32_t)m_SemanticIndexBuffer.size() ==
+            m_PSVInitInfo.SemanticIndexTable.Entries,
+        "otherwise m_SemanticIndexBuffer modified after m_PSVInitInfo set.");
 
     ULONG cbWritten;
     IFT(pStream->Write(m_PSVBuffer.data(), m_PSVBufferSize, &cbWritten));
