@@ -3,11 +3,9 @@
 
 // SM67:invalid semantic 'SV_StartVertexLocation' for vs 6.7
 // SM67:invalid semantic 'SV_StartInstanceLocation' for vs 6.7
-// SM67:invalid semantic 'SV_IndirectCommandIndex' for vs 6.7
 
 float4 main(int loc : SV_StartVertexLocation
            , uint loc2 : SV_StartInstanceLocation
-		   , uint index : SV_IndirectCommandIndex
            ) : SV_Position
 {
     float4 r = 0;

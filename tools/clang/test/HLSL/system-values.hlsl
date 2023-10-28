@@ -42,7 +42,6 @@
 #define Def_CullPrimitive DECLARE(bool cullprim : SV_CullPrimitive) USE(bool, cullprim)
 #define Def_StartVertexLocation DECLARE(uint svloc : SV_StartVertexLocation) USE(int, svloc)
 #define Def_StartInstanceLocation DECLARE(uint siloc : SV_StartInstanceLocation) USE(uint, siloc)
-#define Def_IndirectCommandIndex DECLARE(uint ici : SV_IndirectCommandIndex) USE(uint, ici)
 
 #define Domain_Quad 0
 #define Domain_Tri 1

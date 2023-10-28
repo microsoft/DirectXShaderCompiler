@@ -705,7 +705,7 @@ Barycentrics           NA           NA       NA           NA           NA       
 ShadingRate            NA           SV _64   NA           NA           SV _64   SV _64   NA         NA           SV _64   SV _64   SV _64   NA           SV _64   SV _64        NA            NA       NA       NA       SV        NA
 CullPrimitive          NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotInSig      NA            NA       NA       NA       NotPacked NA
 StartVertexLocation    NotInSig _68 NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA       NA       NA        NA
-StartInstanceLocation  NotInSig _68 Arb      NA           NA           Arb      Arb      NA         NA           Arb      Arb      Arb      NA           Arb      Arb           NA            NA       NA       NA       NA        NA
+StartInstanceLocation  NotInSig _68 NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA       NA       NA        NA
 ====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ======== ======== ======== ========= ========
 
 .. SEMINT-TABLE-RST:END

@@ -131,8 +131,8 @@ const SigPoint SigPoint::ms_SigPoints[kNumSigPointRecords] = {
       NotInSig, NA, NA, NA, NA, NotPacked, NA)                                 \
   ROW(StartVertexLocation, NotInSig _68, NA, NA, NA, NA, NA, NA, NA, NA, NA,   \
       NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)                                  \
-  ROW(StartInstanceLocation, NotInSig _68, Arb, NA, NA, Arb, Arb, NA, NA, Arb, \
-      Arb, Arb, NA, Arb, Arb, NA, NA, NA, NA, NA, NA)
+  ROW(StartInstanceLocation, NotInSig _68, NA, NA, NA, NA, NA, NA, NA, NA, NA, \
+      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
 // INTERPRETATION-TABLE:END
 
 const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(

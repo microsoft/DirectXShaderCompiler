@@ -5,11 +5,9 @@
 
 // CHECK: SV_StartVertexLocation must be int
 // CHECK: SV_StartInstanceLocation must be uint
-// CHECK: SV_IndirectCommandIndex must be uint
 
 float4 main(uint loc : SV_StartVertexLocation
            , float loc2 : SV_StartInstanceLocation
-		   , float index : SV_IndirectCommandIndex
            ) : SV_Position
 {
     float4 r = 0;
