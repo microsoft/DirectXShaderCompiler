@@ -56,7 +56,6 @@ else (WIN32)
 set(HLSL_IGNORE_SOURCES
   MSFileSysTest.cpp
   PixDiaTest.cpp
-  PixTest.cpp
   RewriterTest.cpp
   )
 
@@ -74,6 +73,7 @@ add_clang_unittest(ClangHLSLTests
   Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp
+  PixTest.cpp
   PixTestUtils.cpp
   SystemValueTest.cpp
   TestMain.cpp
@@ -99,6 +99,7 @@ target_link_libraries(ClangHLSLTests PRIVATE
 else(WIN32)
 target_link_libraries(ClangHLSLTests
   dxcompiler
+  LLVMDxilDia
   HLSLTestLib
   )
 endif(WIN32)

@@ -9,9 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-// This whole file is win32-only
-#ifdef _WIN32
-
 #ifndef UNICODE
 #define UNICODE
 #endif
@@ -31,7 +28,9 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 #include "dxc/dxcpix.h"
+#ifdef _WIN32
 #include <atlfile.h>
+#endif
 
 #include "dxc/DXIL/DxilModule.h"
 
@@ -86,7 +85,11 @@ static std::vector<std::string> Tokenize(const std::string &str,
   return tokens;
 }
 
+#ifdef _WIN32
 class PixTest {
+#else
+class PixTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(PixTest)
   TEST_CLASS_PROPERTY(L"Parallel", L"true")
@@ -2567,5 +2570,3 @@ void MyMiss(inout MyPayload payload)
   auto compiledLib = Compile(m_dllSupport, source, L"lib_6_6", {});
   RunDxilPIXDXRInvocationsLog(compiledLib);
 }
-
-#endif
