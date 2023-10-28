@@ -1334,7 +1334,7 @@ static void VerifyPdbUtil(
   {
     CComBSTR str;
     VERIFY_SUCCEEDED(pPdbUtils->GetTargetProfile(&str));
-    VERIFY_ARE_EQUAL(0, wcscmp(str.m_str, L"ps_6_0"));
+    VERIFY_ARE_EQUAL_WSTR(str.m_str, L"ps_6_0");
   }
 
   // Entry point
@@ -1342,9 +1342,9 @@ static void VerifyPdbUtil(
     CComBSTR str;
     VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&str));
     if (TestEntryPoint) {
-      VERIFY_ARE_EQUAL(0, wcscmp(str.m_str, L"main"));
+      VERIFY_ARE_EQUAL_WSTR(str.m_str, L"main");
     } else {
-      VERIFY_ARE_EQUAL(0, wcscmp(str.m_str, L"PSMain"));
+      VERIFY_ARE_EQUAL_WSTR(str.m_str, L"PSMain");
     }
   }
 
@@ -1363,7 +1363,7 @@ static void VerifyPdbUtil(
   {
     CComBSTR pPdbMainFileName;
     VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pPdbMainFileName));
-    VERIFY_ARE_EQUAL(0, wcscmp(pPdbMainFileName.m_str, pMainFileName));
+    VERIFY_ARE_EQUAL_WSTR(pPdbMainFileName.m_str, pMainFileName);
   }
 
   // There is hash and hash is not empty
@@ -2198,7 +2198,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
   CComBSTR pEntryName;
   VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&pEntryName));
 
-  VERIFY_ARE_EQUAL(0, wcscmp(pEntryName.m_str, L"main"));
+  VERIFY_ARE_EQUAL_WSTR(pEntryName.m_str, L"main");
 }
 
 TEST_F(CompilerTest, TestPdbUtilsWithEmptyDefine) {
