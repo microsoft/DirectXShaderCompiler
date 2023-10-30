@@ -29,6 +29,35 @@
 
 #include <unordered_map>
 
+namespace std {
+template <> struct hash<std::pair<llvm::DIScope *, llvm::DIScope *>> {
+  size_t
+  operator()(std::pair<llvm::DIScope *, llvm::DIScope *> const &p) const {
+    const uint64_t f = reinterpret_cast<uint64_t>(p.first);
+    const uint64_t s = reinterpret_cast<uint64_t>(p.second);
+    std::hash<uint64_t> h;
+    return (h(f) ^ h(s));
+  }
+};
+} // namespace std
+
+// If a function is inlined, then the scope of variables within that function
+// will be that scope. Since many such callers may inline the function, we
+// actually need a "scope" that's unique to each "instance" of that function.
+// The caller's scope would be unique, but would have the undesirable
+// side-effect of smushing all of the function's variables together with the
+// caller's variables, at least from the point of view of PIX. The pair of
+// scopes (the function's and the caller's) is both unique to that particular
+// inlining, and distinct from the caller's scope by itself.
+static std::pair<llvm::DIScope *, llvm::DIScope *>
+GetUniqueScopeForPossiblyInlinedFunction(llvm::DebugLoc const &DbgLoc,
+                                         llvm::DIScope *VariableScope) {
+  llvm::DIScope *inlinedScope =
+      llvm::dyn_cast<llvm::DIScope>(DbgLoc.getInlinedAtScope());
+  return std::pair<llvm::DIScope *, llvm::DIScope *>(VariableScope,
+                                                     std::move(inlinedScope));
+}
+
 // ValidateDbgDeclare ensures that all of the bits in
 // [FragmentSizeInBits, FragmentOffsetInBits) are currently
 // not assigned to a dxil alloca register -- i.e., it
@@ -61,7 +90,9 @@ struct dxil_debug_info::LiveVariables::Impl {
   using VariableInfoMap =
       std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableInfo>>;
 
-  using LiveVarsMap = std::unordered_map<llvm::DIScope *, VariableInfoMap>;
+  using LiveVarsMap =
+      std::unordered_map<std::pair<llvm::DIScope *, llvm::DIScope *>,
+                         VariableInfoMap>;
 
   IMalloc *m_pMalloc;
   DxcPixDxilDebugInfo *m_pDxilDebugInfo;
@@ -115,8 +146,9 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
     return;
   }
 
-  auto *S = Variable->getScope();
-  if (S == nullptr) {
+  auto S = GetUniqueScopeForPossiblyInlinedFunction(DbgDeclare->getDebugLoc(),
+                                                    Variable->getScope());
+  if (S.first == nullptr) {
     return;
   }
 
@@ -204,13 +236,13 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
     return E_FAIL;
   }
 
-  llvm::DIScope *S = DL->getScope();
-  if (S == nullptr) {
+  auto S = GetUniqueScopeForPossiblyInlinedFunction(DL, DL->getScope());
+  if (S.first == nullptr) {
     return E_FAIL;
   }
 
   const llvm::DITypeIdentifierMap EmptyMap;
-  while (S != nullptr) {
+  while (S.first != nullptr) {
     auto it = m_pImpl->m_LiveVarsDbgDeclare.find(S);
     if (it != m_pImpl->m_LiveVarsDbgDeclare.end()) {
       for (const auto &VarAndInfo : it->second) {
@@ -232,7 +264,8 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
         LiveVars.emplace_back(VarAndInfo.second.get());
       }
     }
-    S = S->getScope().resolve(EmptyMap);
+    S.second = nullptr;
+    S.first = S.first->getScope().resolve(EmptyMap);
   }
   for (const auto &VarAndInfo : m_pImpl->m_LiveGlobalVarsDbgDeclare) {
     if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {

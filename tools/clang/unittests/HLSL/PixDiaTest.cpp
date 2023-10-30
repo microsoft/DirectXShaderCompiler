@@ -177,6 +177,7 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
+  TEST_METHOD(DxcPixDxilDebugInfo_TwiceInlinedFunctions)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -2753,6 +2754,122 @@ void main()
 
 )";
   RunSubProgramsCase(hlsl);
+}
+
+static DWORD AdvanceUntilFunctionEntered(IDxcPixDxilDebugInfo *dxilDebugger,
+                                         DWORD instructionOffset,
+                                         wchar_t const *fnName) {
+  for (;;) {
+    CComBSTR FunctioName;
+    if (FAILED(dxilDebugger->GetFunctionName(instructionOffset, &FunctioName)))
+      return -1;
+    if (FunctioName == fnName)
+      break;
+    instructionOffset++;
+  }
+  return instructionOffset;
+}
+
+static DWORD AdvanceUntilNotInFunction(IDxcPixDxilDebugInfo *dxilDebugger,
+                                         DWORD instructionOffset,
+                                         wchar_t const *fnName) {
+  for (;;) {
+    CComBSTR FunctioName;
+    if (FAILED(dxilDebugger->GetFunctionName(instructionOffset, &FunctioName)))
+      return -1;
+    if (FunctioName != fnName)
+      break;
+    instructionOffset++;
+  }
+  return instructionOffset;
+}
+
+static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
+                                          DWORD instructionOffset,
+                                          wchar_t const *variableName,
+                                          wchar_t const *memberName) {
+  CComPtr<IDxcPixDxilLiveVariables> DxcPixDxilLiveVariables;
+  if(SUCCEEDED(dxilDebugger->GetLiveVariablesAt(
+      instructionOffset, &DxcPixDxilLiveVariables))) {
+    DWORD count = 42;
+    VERIFY_SUCCEEDED(DxcPixDxilLiveVariables->GetCount(&count));
+    for (DWORD i = 0; i < count; ++i) {
+      CComPtr<IDxcPixVariable> DxcPixVariable;
+      VERIFY_SUCCEEDED(
+          DxcPixDxilLiveVariables->GetVariableByIndex(i, &DxcPixVariable));
+      CComBSTR Name;
+      VERIFY_SUCCEEDED(DxcPixVariable->GetName(&Name));
+      if (Name == variableName) {
+        CComPtr<IDxcPixDxilStorage> DxcPixDxilStorage;
+        VERIFY_SUCCEEDED(DxcPixVariable->GetStorage(&DxcPixDxilStorage));
+        CComPtr<IDxcPixDxilStorage> DxcPixDxilMemberStorage;
+        VERIFY_SUCCEEDED(DxcPixDxilStorage->AccessField(
+            memberName, &DxcPixDxilMemberStorage));
+        DWORD RegisterNumber = 42;
+        VERIFY_SUCCEEDED(
+            DxcPixDxilMemberStorage->GetRegisterNumber(&RegisterNumber));
+        return RegisterNumber;
+      }
+    }
+  }
+  return -1;
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_TwiceInlinedFunctions) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+
+  const char *hlsl = R"(
+struct RayPayload
+{
+    float4 color;
+};
+
+RWStructuredBuffer<float4> floatRWUAV: register(u0);
+
+float4 InlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int offset)
+{
+  float4 color0 = floatRWUAV.Load(offset + attr.barycentrics.x);
+  float4 color1 = floatRWUAV.Load(offset + attr.barycentrics.y);
+  return color0 + color1;
+}
+
+[shader("closesthit")]
+void ClosestHitShader0(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    payload.color = InlinedFunction(attr, 0);
+}
+
+
+[shader("closesthit")]
+void ClosestHitShader1(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    payload.color = InlinedFunction(attr, 1);
+}
+)";
+
+  auto dxilDebugger =
+      CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+
+  struct SourceLocations {
+    CComBSTR Filename;
+    DWORD Column;
+    DWORD Line;
+  };
+
+  std::vector<SourceLocations> sourceLocations;
+  DWORD instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, 0, L"ClosestHitShader0");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD RegisterNumber0 = GetRegisterNumberForVariable(dxilDebugger, instructionOffset, L"color0", L"x");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"ClosestHitShader1");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD RegisterNumber1 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"color0", L"x");
+  VERIFY_ARE_NOT_EQUAL(RegisterNumber0, RegisterNumber1);
 }
 
 #endif
