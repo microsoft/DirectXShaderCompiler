@@ -2771,8 +2771,8 @@ static DWORD AdvanceUntilFunctionEntered(IDxcPixDxilDebugInfo *dxilDebugger,
 }
 
 static DWORD AdvanceUntilNotInFunction(IDxcPixDxilDebugInfo *dxilDebugger,
-                                         DWORD instructionOffset,
-                                         wchar_t const *fnName) {
+                                       DWORD instructionOffset,
+                                       wchar_t const *fnName) {
   for (;;) {
     CComBSTR FunctioName;
     if (FAILED(dxilDebugger->GetFunctionName(instructionOffset, &FunctioName)))
@@ -2789,8 +2789,8 @@ static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
                                           wchar_t const *variableName,
                                           wchar_t const *memberName) {
   CComPtr<IDxcPixDxilLiveVariables> DxcPixDxilLiveVariables;
-  if(SUCCEEDED(dxilDebugger->GetLiveVariablesAt(
-      instructionOffset, &DxcPixDxilLiveVariables))) {
+  if (SUCCEEDED(dxilDebugger->GetLiveVariablesAt(instructionOffset,
+                                                 &DxcPixDxilLiveVariables))) {
     DWORD count = 42;
     VERIFY_SUCCEEDED(DxcPixDxilLiveVariables->GetCount(&count));
     for (DWORD i = 0; i < count; ++i) {
@@ -2848,8 +2848,7 @@ void ClosestHitShader1(inout RayPayload payload, in BuiltInTriangleIntersectionA
 }
 )";
 
-  auto dxilDebugger =
-      CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
 
   struct SourceLocations {
     CComBSTR Filename;
@@ -2858,11 +2857,12 @@ void ClosestHitShader1(inout RayPayload payload, in BuiltInTriangleIntersectionA
   };
 
   std::vector<SourceLocations> sourceLocations;
-  DWORD instructionOffset = AdvanceUntilFunctionEntered(
-      dxilDebugger, 0, L"ClosestHitShader0");
+  DWORD instructionOffset =
+      AdvanceUntilFunctionEntered(dxilDebugger, 0, L"ClosestHitShader0");
   instructionOffset = AdvanceUntilFunctionEntered(
       dxilDebugger, instructionOffset, L"InlinedFunction");
-  DWORD RegisterNumber0 = GetRegisterNumberForVariable(dxilDebugger, instructionOffset, L"color0", L"x");
+  DWORD RegisterNumber0 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"color0", L"x");
   instructionOffset = AdvanceUntilFunctionEntered(
       dxilDebugger, instructionOffset, L"ClosestHitShader1");
   instructionOffset = AdvanceUntilFunctionEntered(
