@@ -153,6 +153,7 @@ void node20(DispatchNodeInputRecord<C> input)
 { }
 
 struct D {
+  // expected-error@+1 {{SV_DispatchGrid should be 32/16 bit uint scalar or vector/array up to 3 elements}}
   uint4 grid1 : SV_DispatchGrid;   // expected-note {{other SV_DispatchGrid defined here}}
 };
 

@@ -7860,6 +7860,8 @@ def err_hlsl_missing_dispatchgrid_semantic : Error<
    "Broadcasting node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
 def err_hlsl_dispatchgrid_semantic_already_specified : Error<
    "a field with SV_DispatchGrid has already been specified">;
+def err_hlsl_incompatible_dispatchgrid_semantic_type : Error<
+   "SV_DispatchGrid should be 32/16 bit uint scalar or vector/array up to 3 elements">;
 def err_hlsl_maxrecursiondepth_exceeded : Error<
    "NodeMaxRecursionDepth may not exceed 32">;
 def err_hlsl_too_many_node_inputs : Error<

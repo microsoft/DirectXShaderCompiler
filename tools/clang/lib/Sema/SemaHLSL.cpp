@@ -15273,6 +15273,32 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
         if (sd->SemanticName.equals("SV_DispatchGrid")) {
           if (!Found) {
             Found = true;
+            QualType Ty = FD->getType();
+            if (hlsl::IsVectorType(&S, Ty)) {
+              unsigned NumElt = hlsl::GetElementCount(Ty);
+              if (NumElt > 3) {
+                S.Diags.Report(
+                    it->Loc,
+                    diag::err_hlsl_incompatible_dispatchgrid_semantic_type);
+              }
+              Ty = hlsl::GetHLSLVecElementType(Ty);
+            } else if (const ArrayType *AT = Ty->getAsArrayTypeUnsafe()) {
+              if (auto *CAT = dyn_cast<ConstantArrayType>(AT)) {
+                if (CAT->getSize().getZExtValue() > 3) {
+                  S.Diags.Report(
+                      it->Loc,
+                      diag::err_hlsl_incompatible_dispatchgrid_semantic_type);
+                }
+              }
+              Ty = AT->getElementType();
+            }
+            Ty = Ty.getDesugaredType(S.getASTContext());
+            if (Ty != S.getASTContext().UnsignedIntTy &&
+                Ty != S.getASTContext().UnsignedShortTy) {
+              S.Diags.Report(
+                  it->Loc,
+                  diag::err_hlsl_incompatible_dispatchgrid_semantic_type);
+            }
             DispatchGridLoc = it->Loc;
           } else {
             // There should be just one SV_DispatchGrid in per record struct
