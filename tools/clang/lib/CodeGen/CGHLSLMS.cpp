@@ -5503,14 +5503,14 @@ static bool AreMatrixArrayOrientationMatching(ASTContext &Context,
                                               HLModule &Module, QualType LhsTy,
                                               QualType RhsTy) {
   while (const clang::ArrayType *LhsArrayTy = Context.getAsArrayType(LhsTy)) {
-    LhsTy = LhsArrayTy->getElementType();
-    RhsTy = Context.getAsArrayType(RhsTy)->getElementType();
+      LhsTy = LhsArrayTy->getElementType();
+      RhsTy = Context.getAsArrayType(RhsTy)->getElementType();
   }
 
   bool LhsRowMajor, RhsRowMajor;
   LhsRowMajor = RhsRowMajor = Module.GetHLOptions().bDefaultRowMajor;
   HasHLSLMatOrientation(LhsTy, &LhsRowMajor);
-  HasHLSLMatOrientation(RhsTy, &RhsRowMajor);
+    HasHLSLMatOrientation(RhsTy, &RhsRowMajor);
   return LhsRowMajor == RhsRowMajor;
 }
 
@@ -5542,7 +5542,7 @@ void CGMSHLSLRuntime::EmitHLSLAggregateCopy(
         IntegerType::get(Ty->getContext(), 32), APInt(32, 0));
     idxList.emplace_back(idx);
 
-    EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, SrcType, DestType,
+      EmitHLSLAggregateCopy(CGF, SrcPtr, DestPtr, idxList, SrcType, DestType,
                           PT->getElementType());
 
     idxList.pop_back();

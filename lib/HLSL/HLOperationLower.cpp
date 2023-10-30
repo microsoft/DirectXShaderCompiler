@@ -4878,7 +4878,7 @@ Value *ClampTessFactor(Value *input,
     DXASSERT(partitionMode == DXIL::TessellatorPartitioning::FractionalEven,
              "invalid partition mode");
     fMin = kTESSELLATOR_MIN_EVEN_TESSELLATION_FACTOR;
-    fMax = kTESSELLATOR_MAX_EVEN_TESSELLATION_FACTOR;
+      fMax = kTESSELLATOR_MAX_EVEN_TESSELLATION_FACTOR;
     break;
   }
   Type *f32Ty = input->getType()->getScalarType();
@@ -5005,10 +5005,10 @@ Value *ApplyTriTessFactorOp(Value *input, DXIL::OpCode opcode, hlsl::OP *hlslOP,
     return combined;
   } else {
     // Avg.
-    Value *temp = Builder.CreateFAdd(input0, input1);
+      Value *temp = Builder.CreateFAdd(input0, input1);
     Value *combined = Builder.CreateFAdd(temp, input2);
     Value *rcp = ConstantFP::get(input0->getType(), 1.0 / 3.0);
-    combined = Builder.CreateFMul(combined, rcp);
+      combined = Builder.CreateFMul(combined, rcp);
     return combined;
   }
 }
@@ -5059,7 +5059,7 @@ Value *Apply2DQuadTessFactorOp(Value *input, DXIL::OpCode opcode,
     return combined;
   } else {
     // Avg.
-    Value *temp0 = Builder.CreateFAdd(input0, input1);
+      Value *temp0 = Builder.CreateFAdd(input0, input1);
     Value *temp1 = Builder.CreateFAdd(input2, input3);
     Value *combined = UndefValue::get(VectorType::get(input0->getType(), 2));
     combined = Builder.CreateInsertElement(combined, temp0, (uint64_t)0);
