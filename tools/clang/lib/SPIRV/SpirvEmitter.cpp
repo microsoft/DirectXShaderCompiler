@@ -11161,7 +11161,8 @@ SpirvEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
 
 SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     const CallExpr *callExpr, spv::Op opcode, bool actPerRowForMatrices) {
-  // Certain opcodes are only allowed in pixel shader
+  // The derivative opcodes are only allowed in pixel shader, or in compute
+  // shaderers when the SPV_NV_compute_shader_derivatives is enabled.
   if (!spvContext.isPS())
     switch (opcode) {
     case spv::Op::OpDPdx:
