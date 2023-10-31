@@ -56,7 +56,6 @@ else (WIN32)
 set(HLSL_IGNORE_SOURCES
   MSFileSysTest.cpp
   PixDiaTest.cpp
-  RewriterTest.cpp
   )
 
 add_clang_unittest(ClangHLSLTests
@@ -73,6 +72,7 @@ add_clang_unittest(ClangHLSLTests
   Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp
+  RewriterTest.cpp
   PixTest.cpp
   PixTestUtils.cpp
   SystemValueTest.cpp
