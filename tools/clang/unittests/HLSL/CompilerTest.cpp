@@ -1334,7 +1334,7 @@ static void VerifyPdbUtil(
   {
     CComBSTR str;
     VERIFY_SUCCEEDED(pPdbUtils->GetTargetProfile(&str));
-    VERIFY_ARE_EQUAL_WSTR(str.m_str, L"ps_6_0");
+    VERIFY_ARE_EQUAL_WSTR(L"ps_6_0", str.m_str);
   }
 
   // Entry point
