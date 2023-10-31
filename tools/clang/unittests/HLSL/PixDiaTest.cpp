@@ -2857,10 +2857,9 @@ void ClosestHitShader1(inout RayPayload payload, in BuiltInTriangleIntersectionA
 }
 )";
 
-    CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
-      new DxcIncludeHandlerForInjectedSourcesForPix(
-          this, {{L"included.h",
-                  R"(
+  CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
+      new DxcIncludeHandlerForInjectedSourcesForPix(this, {{L"included.h",
+                                                            R"(
 
 namespace StressScopesEvenMore
 {
@@ -2878,9 +2877,8 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
 }
 )"}});
 
-
   auto dxilDebugger =
-        CompileAndCreateDxcDebug(hlsl, L"lib_6_6", pIncludeHandler);
+      CompileAndCreateDxcDebug(hlsl, L"lib_6_6", pIncludeHandler);
 
   struct SourceLocations {
     CComBSTR Filename;
