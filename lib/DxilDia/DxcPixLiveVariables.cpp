@@ -29,18 +29,6 @@
 
 #include <unordered_map>
 
-namespace std {
-template <> struct hash<std::pair<llvm::DIScope *, llvm::DIScope *>> {
-  size_t
-  operator()(std::pair<llvm::DIScope *, llvm::DIScope *> const &p) const {
-    const uint64_t f = reinterpret_cast<uint64_t>(p.first);
-    const uint64_t s = reinterpret_cast<uint64_t>(p.second);
-    std::hash<uint64_t> h;
-    return (h(f) ^ h(s));
-  }
-};
-} // namespace std
-
 // If a function is inlined, then the scope of variables within that function
 // will be that scope. Since many such callers may inline the function, we
 // actually need a "scope" that's unique to each "instance" of that function.
@@ -49,14 +37,49 @@ template <> struct hash<std::pair<llvm::DIScope *, llvm::DIScope *>> {
 // caller's variables, at least from the point of view of PIX. The pair of
 // scopes (the function's and the caller's) is both unique to that particular
 // inlining, and distinct from the caller's scope by itself.
-static std::pair<llvm::DIScope *, llvm::DIScope *>
-GetUniqueScopeForPossiblyInlinedFunction(llvm::DebugLoc const &DbgLoc,
-                                         llvm::DIScope *VariableScope) {
-  llvm::DIScope *inlinedScope =
-      llvm::dyn_cast<llvm::DIScope>(DbgLoc.getInlinedAtScope());
-  return std::pair<llvm::DIScope *, llvm::DIScope *>(VariableScope,
-                                                     inlinedScope);
-}
+class UniqueScopeForInlinedFunctions {
+  llvm::DIScope *FunctionScope;
+  llvm::DIScope *InlinedAtScope;
+
+public:
+  bool Valid() const { return FunctionScope != nullptr; }
+  void AscendScopeHierarchy() {
+    // DINamespace has a getScope member (that hides DIScope's)
+    // that returns a DIScope directly, but if that namespace
+    // is at file-level scope, it will return nullptr.
+    if (auto Namespace = llvm::dyn_cast<llvm::DINamespace>(FunctionScope)) {
+      if (auto *ContainingScope = Namespace->getScope()) {
+        FunctionScope = ContainingScope;
+        return;
+      }
+    }
+    const llvm::DITypeIdentifierMap EmptyMap;
+    FunctionScope = FunctionScope->getScope().resolve(EmptyMap);
+  }
+
+  static UniqueScopeForInlinedFunctions Create(llvm::DebugLoc const &DbgLoc,
+                                               llvm::DIScope *FunctionScope) {
+    UniqueScopeForInlinedFunctions ret;
+    ret.FunctionScope = FunctionScope;
+    ret.InlinedAtScope =
+        llvm::dyn_cast_or_null<llvm::DIScope>(DbgLoc.getInlinedAtScope());
+    return ret;
+  }
+
+  bool operator==(const UniqueScopeForInlinedFunctions &o) const {
+    return FunctionScope == o.FunctionScope &&
+           InlinedAtScope == o.InlinedAtScope;
+  }
+
+  std::size_t operator()(const UniqueScopeForInlinedFunctions &k) const {
+    using std::hash;
+    using std::size_t;
+    const uint64_t f = reinterpret_cast<uint64_t>(k.FunctionScope);
+    const uint64_t s = reinterpret_cast<uint64_t>(k.InlinedAtScope);
+    std::hash<uint64_t> h;
+    return (h(f) ^ h(s));
+  }
+};
 
 // ValidateDbgDeclare ensures that all of the bits in
 // [FragmentSizeInBits, FragmentOffsetInBits) are currently
@@ -91,8 +114,8 @@ struct dxil_debug_info::LiveVariables::Impl {
       std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableInfo>>;
 
   using LiveVarsMap =
-      std::unordered_map<std::pair<llvm::DIScope *, llvm::DIScope *>,
-                         VariableInfoMap>;
+      std::unordered_map<UniqueScopeForInlinedFunctions, VariableInfoMap,
+                         UniqueScopeForInlinedFunctions>;
 
   IMalloc *m_pMalloc;
   DxcPixDxilDebugInfo *m_pDxilDebugInfo;
@@ -146,9 +169,9 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
     return;
   }
 
-  auto S = GetUniqueScopeForPossiblyInlinedFunction(DbgDeclare->getDebugLoc(),
-                                                    Variable->getScope());
-  if (S.first == nullptr) {
+  auto S = UniqueScopeForInlinedFunctions::Create(DbgDeclare->getDebugLoc(),
+                                                  Variable->getScope());
+  if (!S.Valid()) {
     return;
   }
 
@@ -222,19 +245,6 @@ void dxil_debug_info::LiveVariables::Clear() {
   m_pImpl.reset(new dxil_debug_info::LiveVariables::Impl());
 }
 
-static llvm::DIScope *AscendScopeHierarchy(llvm::DIScope *S) {
-  // DINamespace has a getScope member (that hides DIScope's)
-  // that returns a DIScope directly, but if that namespace
-  // is at file-level scope, it will return nullptr.
-  if (auto Namespace = llvm::dyn_cast<llvm::DINamespace>(S)) {
-    if (auto *ContainingScope = Namespace->getScope()) {
-      return ContainingScope;
-    }
-  }
-  const llvm::DITypeIdentifierMap EmptyMap;
-  return S->getScope().resolve(EmptyMap);
-}
-
 HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
     llvm::Instruction *IP, IDxcPixDxilLiveVariables **ppResult) const {
   DXASSERT(IP != nullptr, "else IP should not be nullptr");
@@ -249,12 +259,12 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
     return E_FAIL;
   }
 
-  auto S = GetUniqueScopeForPossiblyInlinedFunction(DL, DL->getScope());
-  if (S.first == nullptr) {
+  auto S = UniqueScopeForInlinedFunctions::Create(DL, DL->getScope());
+  if (!S.Valid()) {
     return E_FAIL;
   }
 
-  while (S.first != nullptr) {
+  while (S.Valid()) {
     auto it = m_pImpl->m_LiveVarsDbgDeclare.find(S);
     if (it != m_pImpl->m_LiveVarsDbgDeclare.end()) {
       for (const auto &VarAndInfo : it->second) {
@@ -276,8 +286,7 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
         LiveVars.emplace_back(VarAndInfo.second.get());
       }
     }
-    S.second = nullptr;
-    S.first = AscendScopeHierarchy(S.first);
+    S.AscendScopeHierarchy();
   }
   for (const auto &VarAndInfo : m_pImpl->m_LiveGlobalVarsDbgDeclare) {
     if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {

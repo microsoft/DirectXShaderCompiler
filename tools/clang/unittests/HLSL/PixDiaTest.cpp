@@ -2761,23 +2761,12 @@ static DWORD AdvanceUntilFunctionEntered(IDxcPixDxilDebugInfo *dxilDebugger,
                                          wchar_t const *fnName) {
   for (;;) {
     CComBSTR FunctioName;
-    if (FAILED(dxilDebugger->GetFunctionName(instructionOffset, &FunctioName)))
+    if (FAILED(
+            dxilDebugger->GetFunctionName(instructionOffset, &FunctioName))) {
+      VERIFY_FAIL(L"Didn't find function");
       return -1;
+    }
     if (FunctioName == fnName)
-      break;
-    instructionOffset++;
-  }
-  return instructionOffset;
-}
-
-static DWORD AdvanceUntilNotInFunction(IDxcPixDxilDebugInfo *dxilDebugger,
-                                       DWORD instructionOffset,
-                                       wchar_t const *fnName) {
-  for (;;) {
-    CComBSTR FunctioName;
-    if (FAILED(dxilDebugger->GetFunctionName(instructionOffset, &FunctioName)))
-      return -1;
-    if (FunctioName != fnName)
       break;
     instructionOffset++;
   }
@@ -2812,6 +2801,7 @@ static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
       }
     }
   }
+  VERIFY_FAIL(L"Couldn't find register number");
   return -1;
 }
 
