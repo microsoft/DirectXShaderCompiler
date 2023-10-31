@@ -19,8 +19,6 @@
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/microcom.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MSFileSystem.h"
 
 #ifdef _WIN32
 #include "dxcetw.h"
