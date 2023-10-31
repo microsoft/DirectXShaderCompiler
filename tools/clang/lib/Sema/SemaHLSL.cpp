@@ -15290,7 +15290,8 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
                                ElTy != S.getASTContext().UnsignedShortTy)) {
               S.Diags.Report(
                   it->Loc,
-                  diag::err_hlsl_incompatible_dispatchgrid_semantic_type);
+                  diag::err_hlsl_incompatible_dispatchgrid_semantic_type)
+                  << Ty;
             }
             DispatchGridLoc = it->Loc;
           } else {
