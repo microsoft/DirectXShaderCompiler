@@ -161,6 +161,7 @@ bool LowerTypePass::runOnModule(Module &M) {
       HLModule::UpdateGlobalVariableDebugInfo(GV, Finder, NewGV);
     }
     // Replace users.
+    GV->removeDeadConstantUsers();
     lowerUseWithNewValue(GV, NewGV);
     // Remove GV.
     GV->removeDeadConstantUsers();

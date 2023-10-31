@@ -174,6 +174,10 @@ private:
                          SpirvInstruction **aliasVarInstr,
                          SourceRange rangeOverride = {});
 
+  /// Check whether a member value has a nointerpolation qualifier in its type
+  /// declaration or any parents' type declaration recursively.
+  bool isNoInterpMemberExpr(const MemberExpr *expr);
+
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
@@ -379,7 +383,8 @@ private:
   collectArrayStructIndices(const Expr *expr, bool rawIndex,
                             llvm::SmallVectorImpl<uint32_t> *rawIndices,
                             llvm::SmallVectorImpl<SpirvInstruction *> *indices,
-                            bool *isMSOutAttribute = nullptr);
+                            bool *isMSOutAttribute = nullptr,
+                            bool *isNointerp = nullptr);
 
   /// For L-values, creates an access chain to index into the given SPIR-V
   /// evaluation result and returns the new SPIR-V evaluation result.
@@ -667,6 +672,9 @@ private:
   /// Process mesh shader intrinsics.
   void processMeshOutputCounts(const CallExpr *callExpr);
 
+  /// Process GetAttributeAtVertex for barycentrics.
+  SpirvInstruction *processGetAttributeAtVertex(const CallExpr *expr);
+
   /// Process ray query traceinline intrinsics.
   SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);
 
@@ -799,6 +807,9 @@ private:
   static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
   static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk,
                                                  bool);
+
+  /// \brief Handle inline SPIR-V attributes for the entry function.
+  void processInlineSpirvAttributes(const FunctionDecl *entryFunction);
 
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
@@ -1218,6 +1229,13 @@ private:
   /// gets the info/warning/error messages via |messages|.
   /// Returns true on success and false otherwise.
   bool spirvToolsValidate(std::vector<uint32_t> *mod, std::string *messages);
+
+  /// Adds the appropriate derivative group execution mode to the entry point.
+  /// The entry point must already have a LocalSize execution mode, which will
+  ///  be used to determine which execution mode (quad or linear) is required.
+  ///  This decision is made according to the rules in
+  ///  https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html.
+  void addDerivativeGroupExecutionMode();
 
 public:
   /// \brief Wrapper method to create a fatal error message and report it

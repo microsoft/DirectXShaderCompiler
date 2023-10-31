@@ -663,7 +663,7 @@ private:
                        const llvm::StringRef namePrefix,
                        llvm::Optional<SpirvInstruction *> invocationId,
                        SpirvInstruction **value, bool noWriteBack,
-                       SemanticInfo *inheritSemantic);
+                       SemanticInfo *inheritSemantic, bool asNoInterp = false);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the instruction. Also sets whether the StageVar is a SPIR-V builtin and
@@ -711,7 +711,8 @@ private:
   /// Decorates varInstr of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
   void decorateInterpolationMode(const NamedDecl *decl, QualType asType,
-                                 SpirvVariable *varInstr);
+                                 SpirvVariable *varInstr,
+                                 const SemanticInfo semanticInfo);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
@@ -902,6 +903,8 @@ private:
   /// an additional SPIR-V optimization pass to flatten such structures.
   bool needsFlatteningCompositeResources;
 
+  uint32_t perspBaryCentricsIndex, noPerspBaryCentricsIndex;
+
 public:
   /// The gl_PerVertex structs for both input and output
   GlPerVertex glPerVertex;
@@ -931,6 +934,7 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
       needsLegalization(false), needsFlatteningCompositeResources(false),
+      perspBaryCentricsIndex(2), noPerspBaryCentricsIndex(2),
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {
