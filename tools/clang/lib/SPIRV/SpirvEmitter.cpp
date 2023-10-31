@@ -11193,8 +11193,14 @@ SpirvEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
 
 SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     const CallExpr *callExpr, spv::Op opcode, bool actPerRowForMatrices) {
-  // Certain opcodes are only allowed in pixel shader
-  if (!spvContext.isPS())
+  // The derivative opcodes are only allowed in pixel shader, or in compute
+  // shaderers when the SPV_NV_compute_shader_derivatives is enabled.
+  if (!spvContext.isPS()) {
+    // For cases where the instructions are known to be invalid, we turn on
+    // legalization expecting the invalid use to be optimized away. For compute
+    // shaders, we add the execution mode to enable the derivatives. We legalize
+    // in this case as well because that is what we did before the extension was
+    // used, and we do not want to change previous behaviour too much.
     switch (opcode) {
     case spv::Op::OpDPdx:
     case spv::Op::OpDPdy:
@@ -11205,13 +11211,15 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     case spv::Op::OpFwidth:
     case spv::Op::OpFwidthFine:
     case spv::Op::OpFwidthCoarse:
+      if (spvContext.isCS())
+        addDerivativeGroupExecutionMode();
       needsLegalization = true;
       break;
     default:
-      // Only the given opcodes need legalization. Anything else should preserve
-      // previous.
+      // Only the given opcodes need legalization and the execution mode.
       break;
     }
+  }
 
   const auto loc = callExpr->getExprLoc();
   const auto range = callExpr->getSourceRange();
