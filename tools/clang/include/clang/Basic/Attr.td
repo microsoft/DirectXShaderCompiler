@@ -1142,6 +1142,14 @@ def VKExtensionExt : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKSpvExecutionMode : InheritableAttr {
+  let Spellings = [CXX11<"vk", "spvexecutionmode">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [UnsignedArgument<"ExecutionMode">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKStorageClassExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_storage_class">];
   let Subjects = SubjectList<[Var, ParmVar], ErrorDiag>;
