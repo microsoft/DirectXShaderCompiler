@@ -55,7 +55,7 @@ GetUniqueScopeForPossiblyInlinedFunction(llvm::DebugLoc const &DbgLoc,
   llvm::DIScope *inlinedScope =
       llvm::dyn_cast<llvm::DIScope>(DbgLoc.getInlinedAtScope());
   return std::pair<llvm::DIScope *, llvm::DIScope *>(VariableScope,
-                                                     std::move(inlinedScope));
+                                                     inlinedScope);
 }
 
 // ValidateDbgDeclare ensures that all of the bits in
@@ -222,6 +222,19 @@ void dxil_debug_info::LiveVariables::Clear() {
   m_pImpl.reset(new dxil_debug_info::LiveVariables::Impl());
 }
 
+static llvm::DIScope *AscendScopeHierarchy(llvm::DIScope *S) {
+  // DINamespace has a getScope member (that hides DIScope's)
+  // that returns a DIScope directly, but if that namespace
+  // is at file-level scope, it will return nullptr.
+  if (auto Namespace = llvm::dyn_cast<llvm::DINamespace>(S)) {
+    if (auto *ContainingScope = Namespace->getScope()) {
+      return ContainingScope;
+    }
+  }
+  const llvm::DITypeIdentifierMap EmptyMap;
+  return S->getScope().resolve(EmptyMap);
+}
+
 HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
     llvm::Instruction *IP, IDxcPixDxilLiveVariables **ppResult) const {
   DXASSERT(IP != nullptr, "else IP should not be nullptr");
@@ -241,7 +254,6 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
     return E_FAIL;
   }
 
-  const llvm::DITypeIdentifierMap EmptyMap;
   while (S.first != nullptr) {
     auto it = m_pImpl->m_LiveVarsDbgDeclare.find(S);
     if (it != m_pImpl->m_LiveVarsDbgDeclare.end()) {
@@ -265,7 +277,7 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
       }
     }
     S.second = nullptr;
-    S.first = S.first->getScope().resolve(EmptyMap);
+    S.first = AscendScopeHierarchy(S.first);
   }
   for (const auto &VarAndInfo : m_pImpl->m_LiveGlobalVarsDbgDeclare) {
     if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {

@@ -2827,28 +2827,60 @@ struct RayPayload
 
 RWStructuredBuffer<float4> floatRWUAV: register(u0);
 
+namespace StressScopesABit
+{
+#include "included.h"
+}
+
+namespace StressScopesMore
+{
 float4 InlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int offset)
 {
-  float4 color0 = floatRWUAV.Load(offset + attr.barycentrics.x);
-  float4 color1 = floatRWUAV.Load(offset + attr.barycentrics.y);
-  return color0 + color1;
+  float4 loadedColor = floatRWUAV.Load(offset + attr.barycentrics.x + 42);
+  float4 color2 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, offset) + loadedColor;
+  float4 color3 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, offset+1);
+  return color2 + color3;
+}
 }
 
 [shader("closesthit")]
 void ClosestHitShader0(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
-    payload.color = InlinedFunction(attr, 0);
+    payload.color = StressScopesMore::InlinedFunction(attr, 0);
 }
 
 
 [shader("closesthit")]
 void ClosestHitShader1(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
-    payload.color = InlinedFunction(attr, 1);
+    payload.color = StressScopesMore::InlinedFunction(attr, 1);
 }
 )";
 
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+    CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
+      new DxcIncludeHandlerForInjectedSourcesForPix(
+          this, {{L"included.h",
+                  R"(
+
+namespace StressScopesEvenMore
+{
+float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int offset)
+{
+  float4 ret = float4(0,0,0,0);
+  for(int i =0; i < offset; ++i)
+  {
+    float4 color0 = floatRWUAV.Load(offset + attr.barycentrics.x);
+    float4 color1 = floatRWUAV.Load(offset + attr.barycentrics.y);
+    ret += color0 + color1;
+  }
+  return ret;
+}
+}
+)"}});
+
+
+  auto dxilDebugger =
+        CompileAndCreateDxcDebug(hlsl, L"lib_6_6", pIncludeHandler);
 
   struct SourceLocations {
     CComBSTR Filename;
@@ -2860,16 +2892,25 @@ void ClosestHitShader1(inout RayPayload payload, in BuiltInTriangleIntersectionA
   DWORD instructionOffset =
       AdvanceUntilFunctionEntered(dxilDebugger, 0, L"ClosestHitShader0");
   instructionOffset = AdvanceUntilFunctionEntered(
-      dxilDebugger, instructionOffset, L"InlinedFunction");
+      dxilDebugger, instructionOffset, L"DeeperInlinedFunction");
   DWORD RegisterNumber0 = GetRegisterNumberForVariable(
-      dxilDebugger, instructionOffset, L"color0", L"x");
+      dxilDebugger, instructionOffset, L"ret", L"x");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD RegisterNumber2 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"color2", L"x");
   instructionOffset = AdvanceUntilFunctionEntered(
       dxilDebugger, instructionOffset, L"ClosestHitShader1");
   instructionOffset = AdvanceUntilFunctionEntered(
-      dxilDebugger, instructionOffset, L"InlinedFunction");
+      dxilDebugger, instructionOffset, L"DeeperInlinedFunction");
   DWORD RegisterNumber1 = GetRegisterNumberForVariable(
-      dxilDebugger, instructionOffset, L"color0", L"x");
+      dxilDebugger, instructionOffset, L"ret", L"x");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD RegisterNumber3 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"color2", L"x");
   VERIFY_ARE_NOT_EQUAL(RegisterNumber0, RegisterNumber1);
+  VERIFY_ARE_NOT_EQUAL(RegisterNumber2, RegisterNumber3);
 }
 
 #endif
