@@ -81,4 +81,46 @@ struct Record6 {
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
 [NumThreads(32, 1, 1)]
-void node3(DispatchNodeInputRecord<Record6> input) {}
+void node6(DispatchNodeInputRecord<Record6> input) {}
+
+struct T2 {
+  uint3 a;
+};
+struct Record7 {
+// expected-error@+1{{SV_DispatchGrid should be 32/16 bit uint scalar or vector/array up to 3 elements}}
+  T2 grid : SV_DispatchGrid;
+  float data;
+};
+
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeMaxDispatchGrid(32, 16, 1)]
+[NumThreads(32, 1, 1)]
+void node7(DispatchNodeInputRecord<Record7> input) {}
+
+
+struct Record8 {
+// expected-error@+1{{SV_DispatchGrid should be 32/16 bit uint scalar or vector/array up to 3 elements}}
+  float grid : SV_DispatchGrid;
+  float data;
+};
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeMaxDispatchGrid(32, 16, 1)]
+[NumThreads(32, 1, 1)]
+void node8(DispatchNodeInputRecord<Record8> input) {}
+
+
+struct Record9 {
+// expected-error@+1{{SV_DispatchGrid should be 32/16 bit uint scalar or vector/array up to 3 elements}}
+  float3 grid : SV_DispatchGrid;
+  float data;
+};
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeMaxDispatchGrid(32, 16, 1)]
+[NumThreads(32, 1, 1)]
+void node9(DispatchNodeInputRecord<Record9> input) {}
