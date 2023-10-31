@@ -2063,20 +2063,11 @@ TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
 
-// Use UTF8 for linux.
-#ifdef _WIN32
-  std::wstring shader = LR"x(
-    [RootSignature("")] float PSMain() : SV_Target {
-      return 0;
-    }
-  )x";
-#else
   std::string shader = R"x(
     [RootSignature("")] float PSMain() : SV_Target  {
       return 0;
     }
   )x";
-#endif
 
   CComPtr<IDxcUtils> pUtils;
   VERIFY_SUCCEEDED(DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pUtils)));
@@ -2085,14 +2076,10 @@ TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
 
   std::wstring EntryPoint = L"PSMain";
   CComPtr<IDxcBlobEncoding> pShaderBlob;
-#ifdef _WIN32
-  UINT32 codePage = DXC_CP_UTF16;
-#else
-  UINT32 codePage = DXC_CP_UTF8;
-#endif
+
   VERIFY_SUCCEEDED(pUtils->CreateBlob(shader.data(),
                                       shader.size() * sizeof(shader[0]),
-                                      codePage, &pShaderBlob));
+                                      DXC_CP_UTF8, &pShaderBlob));
 
   const WCHAR *OtherInputs[] = {
       L"AnotherInput1",
