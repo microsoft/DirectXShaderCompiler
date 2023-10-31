@@ -145,6 +145,12 @@ void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *GV,
     GV->replaceAllUsesWith(ConstantInt::get(Ty, (uint64_t)0));
     return;
   } break;
+  case Semantic::Kind::StartVertexLocation:
+    opcode = OP::OpCode::StartVertexLocation;
+    break;
+  case Semantic::Kind::StartInstanceLocation:
+    opcode = OP::OpCode::StartInstanceLocation;
+    break;
   default:
     DXASSERT(0, "invalid semantic");
     return;

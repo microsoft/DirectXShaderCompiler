@@ -245,6 +245,8 @@ enum class SemanticKind : unsigned {
   Barycentrics,
   ShadingRate,
   CullPrimitive,
+  StartVertexLocation,
+  StartInstanceLocation,
   Invalid,
 };
 // SemanticKind-ENUM:END
@@ -553,6 +555,13 @@ enum class OpCode : unsigned {
   LegacyDoubleToUInt32 = 134, // legacy fuction to convert double to uint32
   MakeDouble = 101,           // creates a double value
   SplitDouble = 102,          // splits a double into low and high parts
+
+  // Extended Command Information
+  StartInstanceLocation =
+      257, // returns the StartInstanceLocation from Draw*Instanced
+  StartVertexLocation =
+      256, // returns the BaseVertexLocation from DrawIndexedInstanced or
+           // StartVertexLocation from DrawInstanced
 
   // Geometry shader
   CutStream =
@@ -960,7 +969,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
 
-  NumOpCodes = 256 // exclusive last value of enumeration
+  NumOpCodes = 258 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1039,6 +1048,10 @@ enum class OpCodeClass : unsigned {
   LegacyDoubleToUInt32,
   MakeDouble,
   SplitDouble,
+
+  // Extended Command Information
+  StartInstanceLocation,
+  StartVertexLocation,
 
   // Geometry shader
   CutStream,
@@ -1271,7 +1284,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
 
-  NumOpClasses = 181 // exclusive last value of enumeration
+  NumOpClasses = 183 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

@@ -492,6 +492,11 @@ class db_dxil(object):
             self.name_idx[i].category = "Comparison Samples"
             self.name_idx[i].shader_model = 6,8
 
+        for i in "StartVertexLocation,StartInstanceLocation".split(","):
+            self.name_idx[i].category = "Extended Command Information"
+            self.name_idx[i].shader_stages = ("vertex",)
+            self.name_idx[i].shader_model = 6, 8
+
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
         # This is basically include\llvm\IR\Instruction.def
@@ -2178,7 +2183,27 @@ class db_dxil(object):
             counters=('tex_cmp',))
         next_op_idx += 1
 
+        self.add_dxil_op(
+            "StartVertexLocation",
+            next_op_idx,
+            "StartVertexLocation",
+            "returns the BaseVertexLocation from DrawIndexedInstanced or StartVertexLocation from DrawInstanced",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "result")],
+        )
+        next_op_idx += 1
 
+        self.add_dxil_op(
+            "StartInstanceLocation",
+            next_op_idx,
+            "StartInstanceLocation",
+            "returns the StartInstanceLocation from Draw*Instanced",
+            "i",
+            "rn",
+            [db_dxil_param(0, "i32", "", "result")],
+        )
+        next_op_idx += 1
 
         # Set interesting properties.
         self.build_indices()
@@ -2566,40 +2591,46 @@ class db_dxil(object):
                 self.pass_idx_args.add(anarg.name)
 
     def build_semantics(self):
-        SemanticKind = db_dxil_enum("SemanticKind", "Semantic kind; Arbitrary or specific system value.", [
-            (0, "Arbitrary", ""),
-            (1, "VertexID", ""),
-            (2, "InstanceID", ""),
-            (3, "Position", ""),
-            (4, "RenderTargetArrayIndex", ""),
-            (5, "ViewPortArrayIndex", ""),
-            (6, "ClipDistance", ""),
-            (7, "CullDistance", ""),
-            (8, "OutputControlPointID", ""),
-            (9, "DomainLocation", ""),
-            (10, "PrimitiveID", ""),
-            (11, "GSInstanceID", ""),
-            (12, "SampleIndex", ""),
-            (13, "IsFrontFace", ""),
-            (14, "Coverage", ""),
-            (15, "InnerCoverage", ""),
-            (16, "Target", ""),
-            (17, "Depth", ""),
-            (18, "DepthLessEqual", ""),
-            (19, "DepthGreaterEqual", ""),
-            (20, "StencilRef", ""),
-            (21, "DispatchThreadID", ""),
-            (22, "GroupID", ""),
-            (23, "GroupIndex", ""),
-            (24, "GroupThreadID", ""),
-            (25, "TessFactor", ""),
-            (26, "InsideTessFactor", ""),
-            (27, "ViewID", ""),
-            (28, "Barycentrics", ""),
-            (29, "ShadingRate", ""),
-            (30, "CullPrimitive", ""),
-            (31, "Invalid", ""),
-            ])
+        SemanticKind = db_dxil_enum(
+            "SemanticKind",
+            "Semantic kind; Arbitrary or specific system value.",
+            [
+                (0, "Arbitrary", ""),
+                (1, "VertexID", ""),
+                (2, "InstanceID", ""),
+                (3, "Position", ""),
+                (4, "RenderTargetArrayIndex", ""),
+                (5, "ViewPortArrayIndex", ""),
+                (6, "ClipDistance", ""),
+                (7, "CullDistance", ""),
+                (8, "OutputControlPointID", ""),
+                (9, "DomainLocation", ""),
+                (10, "PrimitiveID", ""),
+                (11, "GSInstanceID", ""),
+                (12, "SampleIndex", ""),
+                (13, "IsFrontFace", ""),
+                (14, "Coverage", ""),
+                (15, "InnerCoverage", ""),
+                (16, "Target", ""),
+                (17, "Depth", ""),
+                (18, "DepthLessEqual", ""),
+                (19, "DepthGreaterEqual", ""),
+                (20, "StencilRef", ""),
+                (21, "DispatchThreadID", ""),
+                (22, "GroupID", ""),
+                (23, "GroupIndex", ""),
+                (24, "GroupThreadID", ""),
+                (25, "TessFactor", ""),
+                (26, "InsideTessFactor", ""),
+                (27, "ViewID", ""),
+                (28, "Barycentrics", ""),
+                (29, "ShadingRate", ""),
+                (30, "CullPrimitive", ""),
+                (31, "StartVertexLocation", ""),
+                (32, "StartInstanceLocation", ""),
+                (33, "Invalid", ""),
+            ],
+        )
         self.enums.append(SemanticKind)
         SigPointKind = db_dxil_enum("SigPointKind", "Signature Point is more specific than shader stage or signature as it is unique in both stage and item dimensionality or frequency.", [
             (0, "VSIn", "Ordinary Vertex Shader input from Input Assembler"),
@@ -2728,6 +2759,8 @@ class db_dxil(object):
             Barycentrics,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotPacked _61,NA,NA,NA,NA,NA,NA
             ShadingRate,NA,SV _64,NA,NA,SV _64,SV _64,NA,NA,SV _64,SV _64,SV _64,NA,SV _64,SV _64,NA,NA,NA,NA,SV,NA
             CullPrimitive,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NotInSig,NA,NA,NA,NA,NotPacked,NA
+            StartVertexLocation,NotInSig _68,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+            StartInstanceLocation,NotInSig _68,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
         """
         table = [list(map(str.strip, line.split(','))) for line in SemanticInterpretationCSV.splitlines() if line.strip()]
         for row in table[1:]: assert(len(row) == len(table[0])) # Ensure table is rectangular
