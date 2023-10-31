@@ -15274,27 +15274,20 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
           if (!Found) {
             Found = true;
             QualType Ty = FD->getType();
+            QualType ElTy = Ty;
+            unsigned NumElt = 1;
             if (hlsl::IsVectorType(&S, Ty)) {
-              unsigned NumElt = hlsl::GetElementCount(Ty);
-              if (NumElt > 3) {
-                S.Diags.Report(
-                    it->Loc,
-                    diag::err_hlsl_incompatible_dispatchgrid_semantic_type);
-              }
-              Ty = hlsl::GetHLSLVecElementType(Ty);
+              NumElt = hlsl::GetElementCount(Ty);
+              ElTy = hlsl::GetHLSLVecElementType(Ty);
             } else if (const ArrayType *AT = Ty->getAsArrayTypeUnsafe()) {
               if (auto *CAT = dyn_cast<ConstantArrayType>(AT)) {
-                if (CAT->getSize().getZExtValue() > 3) {
-                  S.Diags.Report(
-                      it->Loc,
-                      diag::err_hlsl_incompatible_dispatchgrid_semantic_type);
-                }
+                NumElt = CAT->getSize().getZExtValue();
+                ElTy = AT->getElementType();
               }
-              Ty = AT->getElementType();
             }
-            Ty = Ty.getDesugaredType(S.getASTContext());
-            if (Ty != S.getASTContext().UnsignedIntTy &&
-                Ty != S.getASTContext().UnsignedShortTy) {
+            ElTy = ElTy.getDesugaredType(S.getASTContext());
+            if (NumElt > 3 || (ElTy != S.getASTContext().UnsignedIntTy &&
+                               ElTy != S.getASTContext().UnsignedShortTy)) {
               S.Diags.Report(
                   it->Loc,
                   diag::err_hlsl_incompatible_dispatchgrid_semantic_type);
