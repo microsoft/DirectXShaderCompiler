@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -HV 2018 -verify %s
+// RUN: %dxc -Tps_6_0 -HV 2018 -verify %s
 
 // This file provides test cases that are cross-references to the HLSL
 // specification.
@@ -78,7 +79,7 @@ namespace ns_basic {
 //typedef int UNKA[]; // UNKA is an incomplete type ; fxc-error {{error X3072: array dimensions of type must be explicit}}
 //  cbuffer C; // fxc-error {{error X3000: syntax error: unexpected token ';'}}
 
-  string s = "my string";
+  string s = "my string"; // expected-error {{string declaration may only appear in global scope}}
   int int_var;
   uint uint_var;
   dword dword_var;
@@ -151,7 +152,7 @@ namespace ns_std_conversions {
     fn_f4(i);  // vector splat
     fn_u4(f4); // vector element
     fn_f4(u4); // vector element
-    f3 = f4;   // vector truncate
+    f3 = f4;   // expected-warning {{implicit truncation of vector type}}
     // f4 = f3; // fxc-error {{error X3017: cannot implicitly convert from 'float3' to 'float4'}}
     fn_iof(f1); // inout case (float1->float - vector single element conversion; float->float1 vector splat)
     fn_iof1(u); // inout case (uint->float1 - vector splat; float1->uint vector single element conversion)
@@ -194,6 +195,7 @@ namespace ns_std_conversions {
     fn_f14(1);
 
     u = f11; // matrix single element conversion
+    // expected-warning@+1 {{implicit truncation of vector type}}
     u = f14; // matrix scalar truncation conversion
 
     u2 = f11; // matrix single element vector conversion
@@ -202,8 +204,11 @@ namespace ns_std_conversions {
     //u3 = f12; // cannot convert if target has more
 
     u44 = f44; // matrix element-type conversion
+    // expected-warning@+1 {{implicit truncation of vector type}}
     u22 = f44; // can convert to smaller
+    // expected-warning@+1 {{implicit truncation of vector type}}
     u22 = f33; // can convert to smaller
+    // expected-warning@+1 {{implicit truncation of vector type}}
     f32 = f33; // can convert as long as each dimension is smaller
     //u44 = f22; // cannot convert to bigger
   }
@@ -307,14 +312,14 @@ namespace ns_std_conversions {
 namespace ns_overloading {
 // * Overloading
 // ** Overloadable declarations
-  int f(int a) { return a; }
-  int f(const int a) { return a; }
+  int f(int a) { return a; } // expected-note {{previous definition is here}}
+  int f(const int a) { return a; } // expected-error {{redefinition of 'f'}}
   int f_default_0(int a = 3);
   //int f_default_0(int a = 4); // error X3114: 'a': default parameters can only be provided in the first prototype
-  int f_default(int a = 1) { return a; }
-  int f_default(int a = 3); // TODO: after definition, declaration may provide default, and this is ignored
+  int f_default(int a = 1) { return a; } // expected-note {{previous definition is here}}
+  int f_default(int a = 3); // expected-error {{redefinition of default argument}}
 //  int f_default_args(int a, int b = 0);
-  int f_default_args(int a = 0, int b);
+  int f_default_args(int a = 0, int b); // expected-error {{missing default argument on parameter 'b'}}
   int f_default_args() { return 1; }
   int f_default_args_equiv(int a);
   int f_default_args_equiv(int a = 1);
