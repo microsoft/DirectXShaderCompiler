@@ -5,33 +5,67 @@ if (WIN32)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 endif (WIN32)
 
-add_llvm_library(LLVMDxilDia
-  DxcPixCompilationInfo.cpp
-  DxcPixDxilDebugInfo.cpp
-  DxcPixDxilStorage.cpp
-  DxcPixEntrypoints.cpp
-  DxcPixLiveVariables.cpp
-  DxcPixLiveVariables_FragmentIterator.cpp
-  DxcPixTypes.cpp
-  DxcPixVariables.cpp
-  DxilDia.cpp
-  DxilDiaDataSource.cpp
-  DxilDiaEnumTables.cpp
-  DxilDiaSession.cpp
-  DxilDiaSymbolManager.cpp
-  DxilDiaTable.cpp
-  DxilDiaTableFrameData.cpp
-  DxilDiaTableInjectedSources.cpp
-  DxilDiaTableInputAssemblyFile.cpp
-  DxilDiaTableLineNumbers.cpp
-  DxilDiaTableSections.cpp
-  DxilDiaTableSegmentMap.cpp
-  DxilDiaTableSourceFiles.cpp
-  DxilDiaTableSymbols.cpp
+if (WIN32)
+  add_llvm_library(LLVMDxilDia
+    DxcPixCompilationInfo.cpp
+    DxcPixDxilDebugInfo.cpp
+    DxcPixDxilStorage.cpp
+    DxcPixEntrypoints.cpp
+    DxcPixLiveVariables.cpp
+    DxcPixLiveVariables_FragmentIterator.cpp
+    DxcPixTypes.cpp
+    DxcPixVariables.cpp
+    DxilDia.cpp
+    DxilDiaDataSource.cpp
+    DxilDiaEnumTables.cpp
+    DxilDiaSession.cpp
+    DxilDiaSymbolManager.cpp
+    DxilDiaTable.cpp
+    DxilDiaTableFrameData.cpp
+    DxilDiaTableInjectedSources.cpp
+    DxilDiaTableInputAssemblyFile.cpp
+    DxilDiaTableLineNumbers.cpp
+    DxilDiaTableSections.cpp
+    DxilDiaTableSegmentMap.cpp
+    DxilDiaTableSourceFiles.cpp
+    DxilDiaTableSymbols.cpp
 
-  ADDITIONAL_HEADER_DIRS
-  ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
-)
+    ADDITIONAL_HEADER_DIRS
+    ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
+  )
+else(WIN32)
+  # DxcPixLiveVariables_FragmentIterator is not dependent on dia.
+  # It is used by PixTest.
+  set(HLSL_IGNORE_SOURCES
+    DxcPixCompilationInfo.cpp
+    DxcPixDxilDebugInfo.cpp
+    DxcPixDxilStorage.cpp
+    DxcPixEntrypoints.cpp
+    DxcPixLiveVariables.cpp
+    DxcPixTypes.cpp
+    DxcPixVariables.cpp
+    DxilDia.cpp
+    DxilDiaDataSource.cpp
+    DxilDiaEnumTables.cpp
+    DxilDiaSession.cpp
+    DxilDiaSymbolManager.cpp
+    DxilDiaTable.cpp
+    DxilDiaTableFrameData.cpp
+    DxilDiaTableInjectedSources.cpp
+    DxilDiaTableInputAssemblyFile.cpp
+    DxilDiaTableLineNumbers.cpp
+    DxilDiaTableSections.cpp
+    DxilDiaTableSegmentMap.cpp
+    DxilDiaTableSourceFiles.cpp
+    DxilDiaTableSymbols.cpp
+    )
+  add_llvm_library(LLVMDxilDia
+    DxcPixLiveVariables_FragmentIterator.cpp
+
+    ADDITIONAL_HEADER_DIRS
+    ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
+  )
+endif(WIN32)
 
 if (WIN32)
   target_link_libraries(LLVMDxilDia PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})

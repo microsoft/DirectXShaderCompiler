@@ -13,7 +13,9 @@
 #define __DXC_PIX__
 
 #include "dxc/dxcapi.h"
+#ifdef _WIN32
 #include "objidl.h"
+#endif
 
 struct __declspec(uuid("199d8c13-d312-4197-a2c1-07a532999727")) IDxcPixType
     : public IUnknown {
