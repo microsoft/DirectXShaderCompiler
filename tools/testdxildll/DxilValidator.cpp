@@ -9,9 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/IR/LLVMContext.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilValidation.h"
