@@ -15734,7 +15734,7 @@ clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
   if (FD) {
     hlsl::CallGraphWithRecurseGuard CG;
     CG.BuildForEntry(FD);
-    return CG.CheckRecursion(FD);    
+    return CG.CheckRecursion(FD);
   }
   return nullptr;
 }
