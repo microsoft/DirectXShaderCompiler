@@ -2826,8 +2826,8 @@ namespace StressScopesMore
 {
 float4 InlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int offset)
 {
-  float4 loadedColor = floatRWUAV.Load(offset + attr.barycentrics.x + 42);
-  float4 color2 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, offset) + loadedColor;
+  float4 ret = floatRWUAV.Load(offset + attr.barycentrics.x + 42);
+  float4 color2 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, offset) + ret;
   float4 color3 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, offset+1);
   return color2 + color3;
 }
@@ -2839,11 +2839,19 @@ void ClosestHitShader0(inout RayPayload payload, in BuiltInTriangleIntersectionA
     payload.color = StressScopesMore::InlinedFunction(attr, 0);
 }
 
-
 [shader("closesthit")]
 void ClosestHitShader1(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
     payload.color = StressScopesMore::InlinedFunction(attr, 1);
+}
+
+[shader("closesthit")]
+void ClosestHitShader2(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    float4 generateSomeLocalInstrucitons = floatRWUAV.Load(0);
+    float4 c0 = StressScopesMore::InlinedFunction(attr, 0);
+    float4 c1 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, 42);
+    payload.color = c0 + c1 + generateSomeLocalInstrucitons;
 }
 )";
 
@@ -2870,13 +2878,6 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
   auto dxilDebugger =
       CompileAndCreateDxcDebug(hlsl, L"lib_6_6", pIncludeHandler);
 
-  struct SourceLocations {
-    CComBSTR Filename;
-    DWORD Column;
-    DWORD Line;
-  };
-
-  std::vector<SourceLocations> sourceLocations;
   DWORD instructionOffset =
       AdvanceUntilFunctionEntered(dxilDebugger, 0, L"ClosestHitShader0");
   instructionOffset = AdvanceUntilFunctionEntered(
@@ -2899,6 +2900,21 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
       dxilDebugger, instructionOffset, L"color2", L"x");
   VERIFY_ARE_NOT_EQUAL(RegisterNumber0, RegisterNumber1);
   VERIFY_ARE_NOT_EQUAL(RegisterNumber2, RegisterNumber3);
+
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"ClosestHitShader2");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD ColorRegisterNumberWhenCalledFromOuterForInlined =
+      GetRegisterNumberForVariable(dxilDebugger, instructionOffset, L"ret",
+                                   L"x");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"DeeperInlinedFunction");
+  DWORD ColorRegisterNumberWhenCalledFromOuterForDeeper =
+      GetRegisterNumberForVariable(dxilDebugger, instructionOffset, L"ret",
+                                   L"x");
+  VERIFY_ARE_NOT_EQUAL(ColorRegisterNumberWhenCalledFromOuterForInlined,
+                       ColorRegisterNumberWhenCalledFromOuterForDeeper);
 }
 
 #endif
