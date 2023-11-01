@@ -18,10 +18,10 @@ struct vec {
   };
 };
 
-// CHECK: @dx.op.storeOutput.i32
+// CHECK: call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 2.000000e+00)
 float main() : OUT {
   vec s;
-  s.x = 1.0f;
+  s.y = 1.0f;
   s.b = 1.0f;
-  return s.x + s.b;
+  return s.y + s.b;
 }

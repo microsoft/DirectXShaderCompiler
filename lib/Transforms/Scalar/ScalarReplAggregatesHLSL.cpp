@@ -2564,8 +2564,19 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   SrcTy = SrcTy->getPointerElementType();
 
   if (!DstTy->isStructTy()) {
-    // This is an llvm.lifetime.* intrinsic. Replace bitcast by a bitcast for
-    // each element.
+    if (!onlyUsedByLifetimeMarkers(BCI) && SrcTy->isStructTy() &&
+        SrcTy->getStructNumElements() == 1) {
+      // We are probably dealing with a union in this case, so
+      // replace the bitcast with a new one using the correct types.
+      Value *Val = NewElts[0];
+      Val = new BitCastInst(Val, BCI->getDestTy(), "", BCI);
+      BCI->replaceAllUsesWith(Val);
+      BCI->eraseFromParent();
+      return;
+    }
+
+    // Only llvm.lifetime.* intrinsics should reach this point.
+    // Replace bitcast by a bitcast for each element.
     SmallVector<IntrinsicInst *, 16> ToReplace;
 
     DXASSERT(onlyUsedByLifetimeMarkers(BCI),
@@ -2621,13 +2632,33 @@ void SROA_Helper::RewriteBitCast(BitCastInst *BCI) {
   }
 
   if (!bTypeMatch) {
-    // If the layouts match, just replace the type
     SrcST = cast<StructType>(SrcTy);
-    if (SrcST->isLayoutIdentical(DstST)) {
-      BCI->mutateType(Val->getType());
-      BCI->replaceAllUsesWith(Val);
-      BCI->eraseFromParent();
-      return;
+    while (SrcST) {
+      // If the layouts match, just replace the type
+      if (SrcST->isLayoutIdentical(DstST)) {
+        // When handling unions replacing the type results in a broken GEP if
+        // the union contains a struct of multiple elements. To handle this
+        // union/bitcast scenario we replace the bitcast with the new allocation
+        if (NewElts.size() == 1) {
+          Type *ValTy = Val->getType();
+          if (ValTy->isPointerTy()) {
+            StructType *ValST =
+                dyn_cast<StructType>(ValTy->getPointerElementType());
+            if (ValST) {
+              BCI->mutateType(NewElts[0]->getType());
+              BCI->replaceAllUsesWith(NewElts[0]);
+              BCI->eraseFromParent();
+              return;
+            }
+          }
+        }
+        BCI->mutateType(Val->getType());
+        BCI->replaceAllUsesWith(Val);
+        BCI->eraseFromParent();
+        return;
+      }
+      Type *EltTy = SrcST->getElementType(0);
+      SrcST = dyn_cast<StructType>(EltTy);
     }
     assert(0 && "Type mismatch.");
     return;
