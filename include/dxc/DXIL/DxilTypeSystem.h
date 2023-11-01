@@ -144,8 +144,6 @@ public:
   void SetCBufferSize(unsigned size);
   void MarkEmptyStruct();
   bool IsEmptyStruct();
-  void MarkUnion();
-  bool IsUnion();
   // Since resources don't take real space, IsEmptyBesidesResources
   // determines if the structure is empty or contains only resources.
   bool IsEmptyBesidesResources();
