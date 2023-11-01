@@ -8740,6 +8740,11 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     }
     break;
   }
+  case hlsl::IntrinsicOp::IOP_dot4add_i8packed:
+  case hlsl::IntrinsicOp::IOP_dot4add_u8packed: {
+    retVal = processIntrinsicDP4a(callExpr, hlslOpcode);
+    break;
+  }
   case hlsl::IntrinsicOp::IOP_pack_s8:
   case hlsl::IntrinsicOp::IOP_pack_u8:
   case hlsl::IntrinsicOp::IOP_pack_clamp_s8:
@@ -11368,6 +11373,47 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
                                                : spv::Op::OpMatrixTimesScalar;
   return spvBuilder.createBinaryOp(scaleOp, returnType, log2, scale, loc,
                                    range);
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
+                                       hlsl::IntrinsicOp op) {
+  auto loc = callExpr->getExprLoc();
+  auto range = callExpr->getSourceRange();
+  assert(op == hlsl::IntrinsicOp::IOP_dot4add_i8packed ||
+         op == hlsl::IntrinsicOp::IOP_dot4add_u8packed);
+
+  // TODO: add comments on what's going on here
+  // TODO: fix/add the tests
+  
+  const bool isSigned = op == hlsl::IntrinsicOp::IOP_dot4add_i8packed;
+  const spv::Op spirvOp = isSigned ? spv::Op::OpSDot : spv::Op::OpUDot;
+
+  // TODO: validate the argument count and types?
+  const Expr *arg0 = callExpr->getArg(0);
+  const Expr *arg1 = callExpr->getArg(1);
+  const Expr *arg2 = callExpr->getArg(2);
+  auto *arg0Instr = doExpr(arg0);
+  auto *arg1Instr = doExpr(arg1);
+  auto *arg2Instr = doExpr(arg2);
+
+  const auto returnType = isSigned ? astContext.IntTy : astContext.UnsignedIntTy;
+
+  llvm::SmallVector<SpirvInstruction*, 2> operands;
+  llvm::SmallVector<uint32_t, 2> capabilities;
+  llvm::SmallVector<llvm::StringRef, 1> extensions;
+  llvm::StringRef instSet = "";
+
+  operands.push_back(arg0Instr);
+  operands.push_back(arg1Instr);
+  capabilities.push_back(uint32_t(spv::Capability::DotProduct));
+  capabilities.push_back(uint32_t(spv::Capability::DotProductInput4x8BitPacked));
+  extensions.push_back("SPV_KHR_integer_dot_product");
+
+  auto *dotResult = spvBuilder.createSpirvIntrInstExt(uint32_t(spirvOp), returnType, operands,
+    extensions, instSet, capabilities, loc);
+
+  return spvBuilder.createBinaryOp(spv::Op::OpIAdd, returnType, dotResult, arg2Instr, loc, range);
 }
 
 SpirvInstruction *
