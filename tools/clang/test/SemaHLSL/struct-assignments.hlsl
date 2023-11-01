@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tvs_6_0 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_5_1 struct-assignments.hlsl
@@ -71,6 +72,7 @@ float3 c_f3::get_inc() {
   return f3++;
 }
 
+[shader("vertex")]
 void main() {
 
   s_f2 zsf2_zero_cast = (s_f2)1;

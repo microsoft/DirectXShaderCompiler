@@ -1,5 +1,5 @@
 // RUN: %dxc -Tlib_6_3   -verify %s
-
+// RUN: %dxc -Tvs_6_0 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_5_1 matrix-syntax.hlsl
@@ -77,6 +77,7 @@ void matrix_unsigned() {
 
 }
 
+[shader("vertex")]
 void main() {
     // Multiple assignments in a chain.
     matrix<float, 4, 4> mymatrix;
