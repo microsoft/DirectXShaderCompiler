@@ -9,7 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilValidation.h"
 #include "dxc/Support/WinIncludes.h"
