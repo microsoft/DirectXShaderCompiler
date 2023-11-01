@@ -15246,10 +15246,9 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
 // Diagnose input node record to make sure it has exactly one SV_DispatchGrid
 // semantics. Recursivelly walk all fields on the record and all of its base
 // classes/structs
-void DiagnoseDispatchGridSemantics(Sema &S,
-                                              CXXRecordDecl *InputRecordDecl,
-                                              SourceLocation &DispatchGridLoc,
-                                              bool &Found) {
+void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
+                                   SourceLocation &DispatchGridLoc,
+                                   bool &Found) {
 
   // Walk up the inheritance chain and check all fields on base classes
   for (auto &B : InputRecordDecl->bases()) {
@@ -15258,8 +15257,7 @@ void DiagnoseDispatchGridSemantics(Sema &S,
       CXXRecordDecl *BaseTypeDecl =
           dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
       if (nullptr != BaseTypeDecl) {
-        DiagnoseDispatchGridSemantics(S, BaseTypeDecl,
-                                                 DispatchGridLoc, Found);
+        DiagnoseDispatchGridSemantics(S, BaseTypeDecl, DispatchGridLoc, Found);
       }
     }
   }
@@ -15312,19 +15310,16 @@ void DiagnoseDispatchGridSemantics(Sema &S,
       CXXRecordDecl *FieldTypeDecl =
           dyn_cast<CXXRecordDecl>(FieldTypeAsStruct->getDecl());
       if (nullptr != FieldTypeDecl) {
-        DiagnoseDispatchGridSemantics(S, FieldTypeDecl,
-                                                 DispatchGridLoc, Found);
+        DiagnoseDispatchGridSemantics(S, FieldTypeDecl, DispatchGridLoc, Found);
       }
     }
   }
 }
 
-void DiagnoseDispatchGridSemantics(Sema &S,
-                                              CXXRecordDecl *InputRecordStruct,
-                                              bool &Found) {
+void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordStruct,
+                                   bool &Found) {
   SourceLocation DispatchGridLoc;
-  DiagnoseDispatchGridSemantics(S, InputRecordStruct,
-                                           DispatchGridLoc, Found);
+  DiagnoseDispatchGridSemantics(S, InputRecordStruct, DispatchGridLoc, Found);
 }
 
 void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
@@ -15514,8 +15509,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                 if (nullptr != NodeInputStructDecl) {
                   // Make sure there is exactly one SV_DispatchGrid semantics
                   // and it has correct type.
-                  DiagnoseDispatchGridSemantics(
-                      S, NodeInputStructDecl, Found);
+                  DiagnoseDispatchGridSemantics(S, NodeInputStructDecl, Found);
                 }
               }
             }
