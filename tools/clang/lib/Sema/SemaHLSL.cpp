@@ -11497,39 +11497,38 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
   }
 
-  FunctionDecl *pResult = ValidateNoRecursion(self, pEntryPointDecl);
+  FunctionDecl *result = ValidateNoRecursion(self, pEntryPointDecl);
 
-  if (pResult) {
-    self->Diag(pResult->getSourceRange().getBegin(),
-               diag::err_hlsl_no_recursion)
-        << 0 << pResult->getName();
+  if (result) {
+    self->Diag(result->getSourceRange().getBegin(), diag::err_hlsl_no_recursion)
+        << 0 << result->getName();
   }
 
   const auto *shaderModel =
       hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
 
   if (shaderModel->IsHS()) {
-    if (const HLSLPatchConstantFuncAttr *Attr =
+    if (const HLSLPatchConstantFuncAttr *attr =
             pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
-      NameLookup NL = GetSingleFunctionDeclByName(self, Attr->getFunctionName(),
+      NameLookup NL = GetSingleFunctionDeclByName(self, attr->getFunctionName(),
                                                   /*checkPatch*/ true);
       if (!NL.Found || !NL.Found->hasBody()) {
-        self->Diag(Attr->getLocation(),
+        self->Diag(attr->getLocation(),
                    diag::err_hlsl_missing_patch_constant_function)
-            << Attr->getFunctionName();
+            << attr->getFunctionName();
       }
       pPatchFnDecl = NL.Found;
     }
   }
 
   if (pPatchFnDecl) {
-    FunctionDecl *pPatchResult = ValidateNoRecursion(self, pPatchFnDecl);
+    FunctionDecl *patchResult = ValidateNoRecursion(self, pPatchFnDecl);
 
     // In this case, recursion was detected in the patch-constant function
-    if (pPatchResult) {
-      self->Diag(pPatchResult->getSourceRange().getBegin(),
+    if (patchResult) {
+      self->Diag(patchResult->getSourceRange().getBegin(),
                  diag::err_hlsl_no_recursion)
-          << 2 << pPatchResult->getName();
+          << 2 << patchResult->getName();
     }
   }
 }
