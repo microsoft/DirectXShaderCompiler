@@ -11384,7 +11384,6 @@ SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
          op == hlsl::IntrinsicOp::IOP_dot4add_u8packed);
 
   // TODO: add comments on what's going on here
-  // TODO: fix/add the tests
   
   const bool isSigned = op == hlsl::IntrinsicOp::IOP_dot4add_i8packed;
   const spv::Op spirvOp = isSigned ? spv::Op::OpSDot : spv::Op::OpUDot;
