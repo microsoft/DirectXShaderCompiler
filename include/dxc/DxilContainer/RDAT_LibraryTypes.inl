@@ -24,40 +24,6 @@ RDAT_ENUM_START(DxilResourceFlag, uint32_t)
   RDAT_ENUM_VALUE(Atomics64Use, 1 << 4)
 RDAT_ENUM_END()
 
-RDAT_ENUM_START(DxilShaderFlags, uint32_t)
-  RDAT_ENUM_VALUE(None, 0)
-  RDAT_ENUM_VALUE(NodeProgramEntry, 1 << 0)
-  // End of values supported by validator version 1.8
-  RDAT_ENUM_VALUE(OutputPositionPresent, 1 << 1)
-  RDAT_ENUM_VALUE(DepthOutput, 1 << 2)
-  RDAT_ENUM_VALUE(SampleFrequency, 1 << 3)
-  RDAT_ENUM_VALUE(UsesViewID, 1 << 4)
-RDAT_ENUM_END()
-
-RDAT_ENUM_START(NodeFuncAttribKind, uint32_t)
-  RDAT_ENUM_VALUE(None, 0)
-  RDAT_ENUM_VALUE(ID, 1)
-  RDAT_ENUM_VALUE(NumThreads, 2)
-  RDAT_ENUM_VALUE(ShareInputOf, 3)
-  RDAT_ENUM_VALUE(DispatchGrid, 4)
-  RDAT_ENUM_VALUE(MaxRecursionDepth, 5)
-  RDAT_ENUM_VALUE(LocalRootArgumentsTableIndex, 6)
-  RDAT_ENUM_VALUE(MaxDispatchGrid, 7)
-  RDAT_ENUM_VALUE_NODEF(LastValue)
-RDAT_ENUM_END()
-
-RDAT_ENUM_START(NodeAttribKind, uint32_t)
-  RDAT_ENUM_VALUE(None, 0)
-  RDAT_ENUM_VALUE(OutputID, 1)
-  RDAT_ENUM_VALUE(MaxRecords, 2)
-  RDAT_ENUM_VALUE(MaxRecordsSharedWith, 3)
-  RDAT_ENUM_VALUE(RecordSizeInBytes, 4)
-  RDAT_ENUM_VALUE(RecordDispatchGrid, 5)
-  RDAT_ENUM_VALUE(OutputArraySize, 6)
-  RDAT_ENUM_VALUE(AllowSparseNodes, 7)
-  RDAT_ENUM_VALUE_NODEF(LastValue)
-RDAT_ENUM_END()
-
 #endif // DEF_RDAT_ENUMS
 
 #ifdef DEF_DXIL_ENUMS
@@ -132,116 +98,6 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::ShaderKind, uint32_t)
 #endif
 RDAT_ENUM_END()
 
-RDAT_DXIL_ENUM_START(hlsl::DXIL::SemanticKind, uint32_t)
-  /* <py::lines('SemanticKind-ENUM')>hctdb_instrhelp.get_rdat_enum_decl("SemanticKind", nodef=True)</py>*/
-  // SemanticKind-ENUM:BEGIN
-  RDAT_ENUM_VALUE_NODEF(Arbitrary)
-  RDAT_ENUM_VALUE_NODEF(VertexID)
-  RDAT_ENUM_VALUE_NODEF(InstanceID)
-  RDAT_ENUM_VALUE_NODEF(Position)
-  RDAT_ENUM_VALUE_NODEF(RenderTargetArrayIndex)
-  RDAT_ENUM_VALUE_NODEF(ViewPortArrayIndex)
-  RDAT_ENUM_VALUE_NODEF(ClipDistance)
-  RDAT_ENUM_VALUE_NODEF(CullDistance)
-  RDAT_ENUM_VALUE_NODEF(OutputControlPointID)
-  RDAT_ENUM_VALUE_NODEF(DomainLocation)
-  RDAT_ENUM_VALUE_NODEF(PrimitiveID)
-  RDAT_ENUM_VALUE_NODEF(GSInstanceID)
-  RDAT_ENUM_VALUE_NODEF(SampleIndex)
-  RDAT_ENUM_VALUE_NODEF(IsFrontFace)
-  RDAT_ENUM_VALUE_NODEF(Coverage)
-  RDAT_ENUM_VALUE_NODEF(InnerCoverage)
-  RDAT_ENUM_VALUE_NODEF(Target)
-  RDAT_ENUM_VALUE_NODEF(Depth)
-  RDAT_ENUM_VALUE_NODEF(DepthLessEqual)
-  RDAT_ENUM_VALUE_NODEF(DepthGreaterEqual)
-  RDAT_ENUM_VALUE_NODEF(StencilRef)
-  RDAT_ENUM_VALUE_NODEF(DispatchThreadID)
-  RDAT_ENUM_VALUE_NODEF(GroupID)
-  RDAT_ENUM_VALUE_NODEF(GroupIndex)
-  RDAT_ENUM_VALUE_NODEF(GroupThreadID)
-  RDAT_ENUM_VALUE_NODEF(TessFactor)
-  RDAT_ENUM_VALUE_NODEF(InsideTessFactor)
-  RDAT_ENUM_VALUE_NODEF(ViewID)
-  RDAT_ENUM_VALUE_NODEF(Barycentrics)
-  RDAT_ENUM_VALUE_NODEF(ShadingRate)
-  RDAT_ENUM_VALUE_NODEF(CullPrimitive)
-  RDAT_ENUM_VALUE_NODEF(Invalid)
-  // SemanticKind-ENUM:END
-RDAT_ENUM_END()
-
-RDAT_DXIL_ENUM_START(hlsl::DXIL::ComponentType, uint32_t)
-  RDAT_ENUM_VALUE_NODEF(Invalid)
-  RDAT_ENUM_VALUE_NODEF(I1)
-  RDAT_ENUM_VALUE_NODEF(I16)
-  RDAT_ENUM_VALUE_NODEF(U16)
-  RDAT_ENUM_VALUE_NODEF(I32)
-  RDAT_ENUM_VALUE_NODEF(U32)
-  RDAT_ENUM_VALUE_NODEF(I64)
-  RDAT_ENUM_VALUE_NODEF(U64)
-  RDAT_ENUM_VALUE_NODEF(F16)
-  RDAT_ENUM_VALUE_NODEF(F32)
-  RDAT_ENUM_VALUE_NODEF(F64)
-  RDAT_ENUM_VALUE_NODEF(SNormF16)
-  RDAT_ENUM_VALUE_NODEF(UNormF16)
-  RDAT_ENUM_VALUE_NODEF(SNormF32)
-  RDAT_ENUM_VALUE_NODEF(UNormF32)
-  RDAT_ENUM_VALUE_NODEF(SNormF64)
-  RDAT_ENUM_VALUE_NODEF(UNormF64)
-  RDAT_ENUM_VALUE_NODEF(PackedS8x32)
-  RDAT_ENUM_VALUE_NODEF(PackedU8x32)
-  RDAT_ENUM_VALUE_NODEF(LastEntry)
-#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::ComponentType::LastEntry == 19,
-                "otherwise, RDAT_DXIL_ENUM definition needs updating");
-#endif
-RDAT_ENUM_END()
-
-RDAT_DXIL_ENUM_START(hlsl::DXIL::InterpolationMode, uint32_t)
-  RDAT_ENUM_VALUE_NODEF(Undefined)
-  RDAT_ENUM_VALUE_NODEF(Constant)
-  RDAT_ENUM_VALUE_NODEF(Linear)
-  RDAT_ENUM_VALUE_NODEF(LinearCentroid)
-  RDAT_ENUM_VALUE_NODEF(LinearNoperspective)
-  RDAT_ENUM_VALUE_NODEF(LinearNoperspectiveCentroid)
-  RDAT_ENUM_VALUE_NODEF(LinearSample)
-  RDAT_ENUM_VALUE_NODEF(LinearNoperspectiveSample)
-  RDAT_ENUM_VALUE_NODEF(Invalid)
-#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::InterpolationMode::Invalid == 8,
-                "otherwise, RDAT_DXIL_ENUM definition needs updating");
-#endif
-RDAT_ENUM_END()
-
-RDAT_DXIL_ENUM_START(hlsl::DXIL::NodeIOKind, uint32_t)
-  RDAT_ENUM_VALUE_NODEF(EmptyInput)
-  RDAT_ENUM_VALUE_NODEF(NodeOutput)
-  RDAT_ENUM_VALUE_NODEF(NodeOutputArray)
-  RDAT_ENUM_VALUE_NODEF(EmptyOutput)
-  RDAT_ENUM_VALUE_NODEF(EmptyOutputArray)
-  RDAT_ENUM_VALUE_NODEF(DispatchNodeInputRecord)
-  RDAT_ENUM_VALUE_NODEF(RWDispatchNodeInputRecord)
-  RDAT_ENUM_VALUE_NODEF(GroupNodeInputRecords)
-  RDAT_ENUM_VALUE_NODEF(RWGroupNodeInputRecords)
-  RDAT_ENUM_VALUE_NODEF(ThreadNodeInputRecord)
-  RDAT_ENUM_VALUE_NODEF(RWThreadNodeInputRecord)
-  RDAT_ENUM_VALUE_NODEF(GroupNodeOutputRecords)
-  RDAT_ENUM_VALUE_NODEF(ThreadNodeOutputRecords)
-  RDAT_ENUM_VALUE_NODEF(Invalid)
-RDAT_ENUM_END()
-
-RDAT_DXIL_ENUM_START(hlsl::DXIL::NodeLaunchType, uint32_t)
-  RDAT_ENUM_VALUE_NODEF(Invalid)
-  RDAT_ENUM_VALUE_NODEF(Broadcasting)
-  RDAT_ENUM_VALUE_NODEF(Coalescing)
-  RDAT_ENUM_VALUE_NODEF(Thread)
-  RDAT_ENUM_VALUE_NODEF(LastEntry)
-#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::NodeLaunchType::LastEntry == 4,
-                "otherwise, RDAT_DXIL_ENUM definition needs updating");
-#endif
-RDAT_ENUM_END()
-
 #endif // DEF_DXIL_ENUMS
 
 #ifdef DEF_RDAT_TYPES
@@ -311,144 +167,86 @@ RDAT_STRUCT_TABLE(RuntimeDataFunctionInfo, FunctionTable)
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
-#define RECORD_TYPE SignatureElement
-RDAT_STRUCT_TABLE(SignatureElement, SignatureElementTable)
-  RDAT_STRING(SemanticName)
-  RDAT_INDEX_ARRAY_REF(SemanticIndices) // Rows = SemanticIndices.Count()
-  RDAT_ENUM(uint8_t, hlsl::DXIL::SemanticKind, SemanticKind)
-  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, ComponentType)
-  RDAT_ENUM(uint8_t, hlsl::DXIL::InterpolationMode, InterpolationMode)
-  RDAT_VALUE(
-      uint8_t,
-      StartRow) // Starting row of packed location if allocated, otherwise 0xFF
-  // TODO: use struct with bitfields or accessors for ColsAndStream and
-  // UsageAndDynIndexMasks
-  RDAT_VALUE(uint8_t, ColsAndStream) // 0:2 = (Cols-1) (0-3), 2:4 = StartCol
-                                     // (0-3), 4:6 = OutputStream (0-3)
-  RDAT_VALUE(uint8_t,
-             UsageAndDynIndexMasks) // 0:4 = UsageMask, 4:8 = DynamicIndexMask
-#if DEF_RDAT_TYPES == DEF_RDAT_TYPES_USE_HELPERS
-  uint8_t GetCols() const { return (ColsAndStream & 3) + 1; }
-  uint8_t GetStartCol() const { return (ColsAndStream >> 2) & 3; }
-  uint8_t GetOutputStream() const { return (ColsAndStream >> 4) & 3; }
-  uint8_t GetUsageMask() const { return UsageAndDynIndexMasks & 0xF; }
-  uint8_t GetDynamicIndexMask() const {
-    return (UsageAndDynIndexMasks >> 4) & 0xF;
-  }
-  void SetCols(unsigned cols) {
-    ColsAndStream &= ~3;
-    ColsAndStream |= (cols - 1) & 3;
-  }
-  void SetStartCol(unsigned col) {
-    ColsAndStream &= ~(3 << 2);
-    ColsAndStream |= (col & 3) << 2;
-  }
-  void SetOutputStream(unsigned stream) {
-    ColsAndStream &= ~(3 << 4);
-    ColsAndStream |= (stream & 3) << 4;
-  }
-  void SetUsageMask(unsigned mask) {
-    UsageAndDynIndexMasks &= ~0xF;
-    UsageAndDynIndexMasks |= mask & 0xF;
-  }
-  void SetDynamicIndexMask(unsigned mask) {
-    UsageAndDynIndexMasks &= ~(0xF << 4);
-    UsageAndDynIndexMasks |= (mask & 0xF) << 4;
-  }
+#endif // DEF_RDAT_TYPES
+
+
+//////////////////////////////////////////////////////////////////////
+// The following require validator version 1.8 and above.
+
+// ------------ RuntimeDataFunctionInfo2 dependencies ------------
+
+#ifdef DEF_RDAT_ENUMS
+
+RDAT_ENUM_START(DxilShaderFlags, uint32_t)
+  RDAT_ENUM_VALUE(None, 0)
+  RDAT_ENUM_VALUE(NodeProgramEntry, 1 << 0)
+  // End of values supported by validator version 1.8
+  RDAT_ENUM_VALUE(OutputPositionPresent, 1 << 1)
+  RDAT_ENUM_VALUE(DepthOutput, 1 << 2)
+  RDAT_ENUM_VALUE(SampleFrequency, 1 << 3)
+  RDAT_ENUM_VALUE(UsesViewID, 1 << 4)
+RDAT_ENUM_END()
+
+RDAT_ENUM_START(NodeFuncAttribKind, uint32_t)
+  RDAT_ENUM_VALUE(None, 0)
+  RDAT_ENUM_VALUE(ID, 1)
+  RDAT_ENUM_VALUE(NumThreads, 2)
+  RDAT_ENUM_VALUE(ShareInputOf, 3)
+  RDAT_ENUM_VALUE(DispatchGrid, 4)
+  RDAT_ENUM_VALUE(MaxRecursionDepth, 5)
+  RDAT_ENUM_VALUE(LocalRootArgumentsTableIndex, 6)
+  RDAT_ENUM_VALUE(MaxDispatchGrid, 7)
+  RDAT_ENUM_VALUE_NODEF(LastValue)
+RDAT_ENUM_END()
+
+RDAT_ENUM_START(NodeAttribKind, uint32_t)
+  RDAT_ENUM_VALUE(None, 0)
+  RDAT_ENUM_VALUE(OutputID, 1)
+  RDAT_ENUM_VALUE(MaxRecords, 2)
+  RDAT_ENUM_VALUE(MaxRecordsSharedWith, 3)
+  RDAT_ENUM_VALUE(RecordSizeInBytes, 4)
+  RDAT_ENUM_VALUE(RecordDispatchGrid, 5)
+  RDAT_ENUM_VALUE(OutputArraySize, 6)
+  RDAT_ENUM_VALUE(AllowSparseNodes, 7)
+  RDAT_ENUM_VALUE_NODEF(LastValue)
+RDAT_ENUM_END()
+
+#endif // DEF_RDAT_ENUMS
+
+#ifdef DEF_DXIL_ENUMS
+
+RDAT_DXIL_ENUM_START(hlsl::DXIL::NodeIOKind, uint32_t)
+  RDAT_ENUM_VALUE_NODEF(EmptyInput)
+  RDAT_ENUM_VALUE_NODEF(NodeOutput)
+  RDAT_ENUM_VALUE_NODEF(NodeOutputArray)
+  RDAT_ENUM_VALUE_NODEF(EmptyOutput)
+  RDAT_ENUM_VALUE_NODEF(EmptyOutputArray)
+  RDAT_ENUM_VALUE_NODEF(DispatchNodeInputRecord)
+  RDAT_ENUM_VALUE_NODEF(RWDispatchNodeInputRecord)
+  RDAT_ENUM_VALUE_NODEF(GroupNodeInputRecords)
+  RDAT_ENUM_VALUE_NODEF(RWGroupNodeInputRecords)
+  RDAT_ENUM_VALUE_NODEF(ThreadNodeInputRecord)
+  RDAT_ENUM_VALUE_NODEF(RWThreadNodeInputRecord)
+  RDAT_ENUM_VALUE_NODEF(GroupNodeOutputRecords)
+  RDAT_ENUM_VALUE_NODEF(ThreadNodeOutputRecords)
+  RDAT_ENUM_VALUE_NODEF(Invalid)
+RDAT_ENUM_END()
+
+RDAT_DXIL_ENUM_START(hlsl::DXIL::NodeLaunchType, uint32_t)
+  RDAT_ENUM_VALUE_NODEF(Invalid)
+  RDAT_ENUM_VALUE_NODEF(Broadcasting)
+  RDAT_ENUM_VALUE_NODEF(Coalescing)
+  RDAT_ENUM_VALUE_NODEF(Thread)
+  RDAT_ENUM_VALUE_NODEF(LastEntry)
+#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
+  static_assert((unsigned)hlsl::DXIL::NodeLaunchType::LastEntry == 4,
+                "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
+RDAT_ENUM_END()
 
-#define RECORD_TYPE VSInfo
-RDAT_STRUCT_TABLE(VSInfo, VSInfoTable)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
-  RDAT_BYTES(ViewIDOutputMask)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
+#endif // DEF_DXIL_ENUMS
 
-#define RECORD_TYPE PSInfo
-RDAT_STRUCT_TABLE(PSInfo, PSInfoTable)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
-
-#define RECORD_TYPE HSInfo
-RDAT_STRUCT_TABLE(HSInfo, HSInfoTable)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPatchConstOutputElements)
-  RDAT_BYTES(ViewIDOutputMask)
-  RDAT_BYTES(ViewIDPatchConstOutputMask)
-  RDAT_BYTES(InputToOutputMasks)
-  RDAT_BYTES(InputToPatchConstOutputMasks)
-  RDAT_VALUE(uint8_t, InputControlPointCount)
-  RDAT_VALUE(uint8_t, OutputControlPointCount)
-  RDAT_VALUE(uint8_t, TessellatorDomain)
-  RDAT_VALUE(uint8_t, TessellatorOutputPrimitive)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
-
-#define RECORD_TYPE DSInfo
-RDAT_STRUCT_TABLE(DSInfo, DSInfoTable)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPatchConstInputElements)
-  RDAT_BYTES(ViewIDOutputMask)
-  RDAT_BYTES(InputToOutputMasks)
-  RDAT_BYTES(PatchConstInputToOutputMasks)
-  RDAT_VALUE(uint8_t, InputControlPointCount)
-  RDAT_VALUE(uint8_t, TessellatorDomain)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
-
-#define RECORD_TYPE GSInfo
-RDAT_STRUCT_TABLE(GSInfo, GSInfoTable)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
-  RDAT_BYTES(ViewIDOutputMask)
-  RDAT_BYTES(InputToOutputMasks)
-  RDAT_VALUE(uint8_t, InputPrimitive)
-  RDAT_VALUE(uint8_t, OutputTopology)
-  RDAT_VALUE(uint8_t, MaxVertexCount)
-  RDAT_VALUE(uint8_t, OutputStreamMask)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
-
-#define RECORD_TYPE CSInfo
-RDAT_STRUCT_TABLE(CSInfo, CSInfoTable)
-  RDAT_INDEX_ARRAY_REF(NumThreads) // ref to array of X, Y, Z.  If < 3 elements,
-                                   // default value is 1
-  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
-
-#define RECORD_TYPE MSInfo
-RDAT_STRUCT_TABLE(MSInfo, MSInfoTable)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
-  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPrimOutputElements)
-  RDAT_BYTES(ViewIDOutputMask)
-  RDAT_BYTES(ViewIDPrimOutputMask)
-  RDAT_INDEX_ARRAY_REF(NumThreads) // ref to array of X, Y, Z.  If < 3 elements,
-                                   // default value is 1
-  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
-  RDAT_VALUE(uint32_t, GroupSharedBytesDependentOnViewID)
-  RDAT_VALUE(uint32_t, PayloadSizeInBytes)
-  RDAT_VALUE(uint16_t, MaxOutputVertices)
-  RDAT_VALUE(uint16_t, MaxOutputPrimitives)
-  RDAT_VALUE(uint8_t, MeshOutputTopology)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
-
-#define RECORD_TYPE ASInfo
-RDAT_STRUCT_TABLE(ASInfo, ASInfoTable)
-  RDAT_INDEX_ARRAY_REF(NumThreads) // ref to array of X, Y, Z.  If < 3 elements,
-                                   // default value is 1
-  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
-  RDAT_VALUE(uint32_t, PayloadSizeInBytes)
-RDAT_STRUCT_END()
-#undef RECORD_TYPE
+#ifdef DEF_RDAT_TYPES
 
 #define RECORD_TYPE RecordDispatchGrid
 RDAT_STRUCT(RecordDispatchGrid)
@@ -617,6 +415,239 @@ RDAT_STRUCT_TABLE_DERIVED(RuntimeDataFunctionInfo2, RuntimeDataFunctionInfo,
     RDAT_UNION_ENDIF()
   RDAT_UNION_END()
 
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#endif // DEF_RDAT_TYPES
+
+
+///////////////////////////////////////////////////////////////////////////////
+// The following are experimental, and are not currently supported on any
+// validator version.
+
+#ifdef DEF_DXIL_ENUMS
+
+RDAT_DXIL_ENUM_START(hlsl::DXIL::SemanticKind, uint32_t)
+  /* <py::lines('SemanticKind-ENUM')>hctdb_instrhelp.get_rdat_enum_decl("SemanticKind", nodef=True)</py>*/
+  // SemanticKind-ENUM:BEGIN
+  RDAT_ENUM_VALUE_NODEF(Arbitrary)
+  RDAT_ENUM_VALUE_NODEF(VertexID)
+  RDAT_ENUM_VALUE_NODEF(InstanceID)
+  RDAT_ENUM_VALUE_NODEF(Position)
+  RDAT_ENUM_VALUE_NODEF(RenderTargetArrayIndex)
+  RDAT_ENUM_VALUE_NODEF(ViewPortArrayIndex)
+  RDAT_ENUM_VALUE_NODEF(ClipDistance)
+  RDAT_ENUM_VALUE_NODEF(CullDistance)
+  RDAT_ENUM_VALUE_NODEF(OutputControlPointID)
+  RDAT_ENUM_VALUE_NODEF(DomainLocation)
+  RDAT_ENUM_VALUE_NODEF(PrimitiveID)
+  RDAT_ENUM_VALUE_NODEF(GSInstanceID)
+  RDAT_ENUM_VALUE_NODEF(SampleIndex)
+  RDAT_ENUM_VALUE_NODEF(IsFrontFace)
+  RDAT_ENUM_VALUE_NODEF(Coverage)
+  RDAT_ENUM_VALUE_NODEF(InnerCoverage)
+  RDAT_ENUM_VALUE_NODEF(Target)
+  RDAT_ENUM_VALUE_NODEF(Depth)
+  RDAT_ENUM_VALUE_NODEF(DepthLessEqual)
+  RDAT_ENUM_VALUE_NODEF(DepthGreaterEqual)
+  RDAT_ENUM_VALUE_NODEF(StencilRef)
+  RDAT_ENUM_VALUE_NODEF(DispatchThreadID)
+  RDAT_ENUM_VALUE_NODEF(GroupID)
+  RDAT_ENUM_VALUE_NODEF(GroupIndex)
+  RDAT_ENUM_VALUE_NODEF(GroupThreadID)
+  RDAT_ENUM_VALUE_NODEF(TessFactor)
+  RDAT_ENUM_VALUE_NODEF(InsideTessFactor)
+  RDAT_ENUM_VALUE_NODEF(ViewID)
+  RDAT_ENUM_VALUE_NODEF(Barycentrics)
+  RDAT_ENUM_VALUE_NODEF(ShadingRate)
+  RDAT_ENUM_VALUE_NODEF(CullPrimitive)
+  RDAT_ENUM_VALUE_NODEF(Invalid)
+  // SemanticKind-ENUM:END
+RDAT_ENUM_END()
+
+RDAT_DXIL_ENUM_START(hlsl::DXIL::ComponentType, uint32_t)
+  RDAT_ENUM_VALUE_NODEF(Invalid)
+  RDAT_ENUM_VALUE_NODEF(I1)
+  RDAT_ENUM_VALUE_NODEF(I16)
+  RDAT_ENUM_VALUE_NODEF(U16)
+  RDAT_ENUM_VALUE_NODEF(I32)
+  RDAT_ENUM_VALUE_NODEF(U32)
+  RDAT_ENUM_VALUE_NODEF(I64)
+  RDAT_ENUM_VALUE_NODEF(U64)
+  RDAT_ENUM_VALUE_NODEF(F16)
+  RDAT_ENUM_VALUE_NODEF(F32)
+  RDAT_ENUM_VALUE_NODEF(F64)
+  RDAT_ENUM_VALUE_NODEF(SNormF16)
+  RDAT_ENUM_VALUE_NODEF(UNormF16)
+  RDAT_ENUM_VALUE_NODEF(SNormF32)
+  RDAT_ENUM_VALUE_NODEF(UNormF32)
+  RDAT_ENUM_VALUE_NODEF(SNormF64)
+  RDAT_ENUM_VALUE_NODEF(UNormF64)
+  RDAT_ENUM_VALUE_NODEF(PackedS8x32)
+  RDAT_ENUM_VALUE_NODEF(PackedU8x32)
+  RDAT_ENUM_VALUE_NODEF(LastEntry)
+#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
+  static_assert((unsigned)hlsl::DXIL::ComponentType::LastEntry == 19,
+                "otherwise, RDAT_DXIL_ENUM definition needs updating");
+#endif
+RDAT_ENUM_END()
+
+RDAT_DXIL_ENUM_START(hlsl::DXIL::InterpolationMode, uint32_t)
+  RDAT_ENUM_VALUE_NODEF(Undefined)
+  RDAT_ENUM_VALUE_NODEF(Constant)
+  RDAT_ENUM_VALUE_NODEF(Linear)
+  RDAT_ENUM_VALUE_NODEF(LinearCentroid)
+  RDAT_ENUM_VALUE_NODEF(LinearNoperspective)
+  RDAT_ENUM_VALUE_NODEF(LinearNoperspectiveCentroid)
+  RDAT_ENUM_VALUE_NODEF(LinearSample)
+  RDAT_ENUM_VALUE_NODEF(LinearNoperspectiveSample)
+  RDAT_ENUM_VALUE_NODEF(Invalid)
+#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
+  static_assert((unsigned)hlsl::DXIL::InterpolationMode::Invalid == 8,
+                "otherwise, RDAT_DXIL_ENUM definition needs updating");
+#endif
+RDAT_ENUM_END()
+
+#endif // DEF_DXIL_ENUMS
+
+#ifdef DEF_RDAT_TYPES
+
+#define RECORD_TYPE SignatureElement
+RDAT_STRUCT_TABLE(SignatureElement, SignatureElementTable)
+  RDAT_STRING(SemanticName)
+  RDAT_INDEX_ARRAY_REF(SemanticIndices) // Rows = SemanticIndices.Count()
+  RDAT_ENUM(uint8_t, hlsl::DXIL::SemanticKind, SemanticKind)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::ComponentType, ComponentType)
+  RDAT_ENUM(uint8_t, hlsl::DXIL::InterpolationMode, InterpolationMode)
+  RDAT_VALUE(
+      uint8_t,
+      StartRow) // Starting row of packed location if allocated, otherwise 0xFF
+  // TODO: use struct with bitfields or accessors for ColsAndStream and
+  // UsageAndDynIndexMasks
+  RDAT_VALUE(uint8_t, ColsAndStream) // 0:2 = (Cols-1) (0-3), 2:4 = StartCol
+                                     // (0-3), 4:6 = OutputStream (0-3)
+  RDAT_VALUE(uint8_t,
+             UsageAndDynIndexMasks) // 0:4 = UsageMask, 4:8 = DynamicIndexMask
+#if DEF_RDAT_TYPES == DEF_RDAT_TYPES_USE_HELPERS
+  uint8_t GetCols() const { return (ColsAndStream & 3) + 1; }
+  uint8_t GetStartCol() const { return (ColsAndStream >> 2) & 3; }
+  uint8_t GetOutputStream() const { return (ColsAndStream >> 4) & 3; }
+  uint8_t GetUsageMask() const { return UsageAndDynIndexMasks & 0xF; }
+  uint8_t GetDynamicIndexMask() const {
+    return (UsageAndDynIndexMasks >> 4) & 0xF;
+  }
+  void SetCols(unsigned cols) {
+    ColsAndStream &= ~3;
+    ColsAndStream |= (cols - 1) & 3;
+  }
+  void SetStartCol(unsigned col) {
+    ColsAndStream &= ~(3 << 2);
+    ColsAndStream |= (col & 3) << 2;
+  }
+  void SetOutputStream(unsigned stream) {
+    ColsAndStream &= ~(3 << 4);
+    ColsAndStream |= (stream & 3) << 4;
+  }
+  void SetUsageMask(unsigned mask) {
+    UsageAndDynIndexMasks &= ~0xF;
+    UsageAndDynIndexMasks |= mask & 0xF;
+  }
+  void SetDynamicIndexMask(unsigned mask) {
+    UsageAndDynIndexMasks &= ~(0xF << 4);
+    UsageAndDynIndexMasks |= (mask & 0xF) << 4;
+  }
+#endif
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE VSInfo
+RDAT_STRUCT_TABLE(VSInfo, VSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE PSInfo
+RDAT_STRUCT_TABLE(PSInfo, PSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE HSInfo
+RDAT_STRUCT_TABLE(HSInfo, HSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPatchConstOutputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+  RDAT_BYTES(ViewIDPatchConstOutputMask)
+  RDAT_BYTES(InputToOutputMasks)
+  RDAT_BYTES(InputToPatchConstOutputMasks)
+  RDAT_VALUE(uint8_t, InputControlPointCount)
+  RDAT_VALUE(uint8_t, OutputControlPointCount)
+  RDAT_VALUE(uint8_t, TessellatorDomain)
+  RDAT_VALUE(uint8_t, TessellatorOutputPrimitive)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE DSInfo
+RDAT_STRUCT_TABLE(DSInfo, DSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPatchConstInputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+  RDAT_BYTES(InputToOutputMasks)
+  RDAT_BYTES(PatchConstInputToOutputMasks)
+  RDAT_VALUE(uint8_t, InputControlPointCount)
+  RDAT_VALUE(uint8_t, TessellatorDomain)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE GSInfo
+RDAT_STRUCT_TABLE(GSInfo, GSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigInputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+  RDAT_BYTES(InputToOutputMasks)
+  RDAT_VALUE(uint8_t, InputPrimitive)
+  RDAT_VALUE(uint8_t, OutputTopology)
+  RDAT_VALUE(uint8_t, MaxVertexCount)
+  RDAT_VALUE(uint8_t, OutputStreamMask)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE CSInfo
+RDAT_STRUCT_TABLE(CSInfo, CSInfoTable)
+  RDAT_INDEX_ARRAY_REF(NumThreads) // ref to array of X, Y, Z.  If < 3 elements,
+                                   // default value is 1
+  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE MSInfo
+RDAT_STRUCT_TABLE(MSInfo, MSInfoTable)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigOutputElements)
+  RDAT_RECORD_ARRAY_REF(SignatureElement, SigPrimOutputElements)
+  RDAT_BYTES(ViewIDOutputMask)
+  RDAT_BYTES(ViewIDPrimOutputMask)
+  RDAT_INDEX_ARRAY_REF(NumThreads) // ref to array of X, Y, Z.  If < 3 elements,
+                                   // default value is 1
+  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
+  RDAT_VALUE(uint32_t, GroupSharedBytesDependentOnViewID)
+  RDAT_VALUE(uint32_t, PayloadSizeInBytes)
+  RDAT_VALUE(uint16_t, MaxOutputVertices)
+  RDAT_VALUE(uint16_t, MaxOutputPrimitives)
+  RDAT_VALUE(uint8_t, MeshOutputTopology)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
+#define RECORD_TYPE ASInfo
+RDAT_STRUCT_TABLE(ASInfo, ASInfoTable)
+  RDAT_INDEX_ARRAY_REF(NumThreads) // ref to array of X, Y, Z.  If < 3 elements,
+                                   // default value is 1
+  RDAT_VALUE(uint32_t, GroupSharedBytesUsed)
+  RDAT_VALUE(uint32_t, PayloadSizeInBytes)
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
