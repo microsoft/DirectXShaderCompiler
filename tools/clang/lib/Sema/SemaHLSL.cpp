@@ -13429,6 +13429,10 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
         Diag(D.getLocStart(), diag::err_union_member_semantics);
         break;
       }
+      if (isParameter && pType->isUnionType()) {
+        Diag(D.getLocStart(), diag::err_union_object_semantics);
+        break;
+      }
     }
     switch ((*unusualIter)->getKind()) {
     case hlsl::UnusualAnnotation::UA_ConstantPacking: {
