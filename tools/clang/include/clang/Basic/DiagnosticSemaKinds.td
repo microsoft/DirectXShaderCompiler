@@ -7806,6 +7806,8 @@ def err_hlsl_no_recursion : Error<
    "recursive functions are not allowed: %select{entry|export|patch constant}0 function calls recursive function '%1'">;
 def err_hlsl_missing_patch_constant_function : Error<
     "patch constant function '%0' must be defined">;
+def err_hlsl_patch_reachability_not_allowed : Error<
+    "%select{patch constant|entry}0 function '%1' should not be reachable from %select{patch constant|entry}2 function '%3'">;
 def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
    "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
   InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;

@@ -3024,6 +3024,20 @@ public:
     }
   }
 
+  // return true if FD2 is reachable from FD1
+  bool CheckReachability(FunctionDecl *FD1, FunctionDecl *FD2) {
+    if (FD1 == FD2)
+      return true;
+    auto node = m_callNodes.find(FD1);
+    if (node != m_callNodes.end()) {
+      for (FunctionDecl *Callee : node->second.CalleeFns) {
+        if (CheckReachability(Callee, FD2))
+          return true;
+      }
+    }
+    return false;
+  }
+
   FunctionDecl *CheckRecursion(FunctionDecl *EntryFnDecl) const {
     FnCallStack CallStack;
     EntryFnDecl = getFunctionWithBody(EntryFnDecl);
@@ -11515,6 +11529,22 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       self->Diag(patchResult->getSourceRange().getBegin(),
                  diag::err_hlsl_no_recursion)
           << 2 << patchResult->getName();
+    }
+
+    // The patch function decl and the entry function decl should be
+    // disconnected with respect to the call graph.
+    hlsl::CallGraphWithRecurseGuard CG;
+    CG.BuildForEntry(pPatchFnDecl);
+    if (CG.CheckReachability(pPatchFnDecl, pEntryPointDecl)) {
+      self->Diag(pEntryPointDecl->getSourceRange().getBegin(),
+                 diag::err_hlsl_patch_reachability_not_allowed)
+          << 1 << pEntryPointDecl->getName() << 0 << pPatchFnDecl->getName();
+    }
+    CG.BuildForEntry(pEntryPointDecl);
+    if (CG.CheckReachability(pEntryPointDecl, pPatchFnDecl)) {
+      self->Diag(pEntryPointDecl->getSourceRange().getBegin(),
+                 diag::err_hlsl_patch_reachability_not_allowed)
+          << 0 << pPatchFnDecl->getName() << 1 << pEntryPointDecl->getName();
     }
   }
 }
