@@ -3407,6 +3407,9 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
     if (!subExprInstr)
       subExprInstr = loadIfGLValue(subExpr);
 
+    if (!subExprInstr)
+      return nullptr;
+
     auto *val = processFlatConversion(toType, evalType, subExprInstr,
                                       expr->getExprLoc(), range);
     val->setRValue();
