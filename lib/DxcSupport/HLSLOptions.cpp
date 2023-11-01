@@ -523,43 +523,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.EnableFXCCompatMode = true;
   }
 
-  // If the HLSL version is 2021, allow the 2021 features by default.
-  // If the HLSL version is 2016 or 2018, allow them only
-  // when the individual option is enabled.
-  // If the HLSL version is 2015, dissallow these features
-  if (opts.HLSLVersion >= hlsl::LangStd::v2021) {
-    // Enable Unions support
-    opts.EnableUnions = true;
-
-  } else {
-    opts.EnableUnions = Args.hasFlag(OPT_enable_unions, OPT_INVALID, false);
-    if (opts.HLSLVersion <= hlsl::LangStd::v2015) {
-      if (opts.EnableUnions)
-        errors << "/enable-unions is not supported with HLSL Version "
-               << (unsigned long)opts.HLSLVersion;
-
-      return 1;
-    }
-  }
-
-  // If the HLSL version is 202x, allow the 202x features by default.
-  // If the HLSL version is 2016 or 2018 or 2021, allow them only
-  // when the individual option is enabled.
-  // If the HLSL version is 2015, dissallow these features
-  if (opts.HLSLVersion >= hlsl::LangStd::v202x) {
-    // Enable Unions support
-    opts.EnableUnions = true;
-  } else {
-    opts.EnableUnions = Args.hasFlag(OPT_enable_unions, OPT_INVALID, false);
-
-    if (opts.HLSLVersion <= hlsl::LangStd::v2015) {
-      if (opts.EnableUnions)
-        errors << "/enable-unions is not supported with HLSL Version "
-               << (unsigned long)opts.HLSLVersion;
-      return 1;
-    }
-  }
-
   // AssemblyCodeHex not supported (Fx)
   // OutputLibrary not supported (Fl)
   opts.AssemblyCode = Args.getLastArgValue(OPT_Fc);
