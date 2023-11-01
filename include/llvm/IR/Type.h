@@ -71,7 +71,8 @@ public:
     StructTyID,      ///< 12: Structures
     ArrayTyID,       ///< 13: Arrays
     PointerTyID,     ///< 14: Pointers
-    VectorTyID       ///< 15: SIMD 'packed' format, or other vector type
+    VectorTyID,      ///< 15: SIMD 'packed' format, or other vector type
+    UnionTyID        ///< 16: Unions
   };
 
 private:
@@ -207,6 +208,10 @@ public:
   /// isStructTy - True if this is an instance of StructType.
   ///
   bool isStructTy() const { return getTypeID() == StructTyID; }
+
+  /// isUnionTy - True if this is an instance of UnionType.
+  ///
+  bool isUnionTy() const { return getTypeID() == UnionTyID; }
 
   /// isArrayTy - True if this is an instance of ArrayType.
   ///

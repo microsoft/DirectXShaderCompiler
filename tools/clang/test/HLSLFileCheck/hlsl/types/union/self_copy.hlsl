@@ -1,13 +1,13 @@
 // RUN: %dxc -E main -enable-unions -HV 2021 -T ps_6_0 %s | FileCheck %s
 
 // CHECK: @main
-struct N {
+union N {
   float n;
 };
 
-struct S {
-  float s;
+union S {
   N  n;
+  float s;
 };
 
 S s0;
