@@ -1,6 +1,6 @@
 // RUN: %dxc -T lib_6_5 %s | FileCheck %s
 
-// CHECK: error: recursive functions are not allowed: entry (or export) function calls recursive function 'recurse'
+// CHECK: error: recursive functions are not allowed: entry function calls recursive function 'recurse'
 void recurse(inout float4 f, float a) 
 {
     if (a > 1)

@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: error: recursive functions are not allowed: entry (or export) function calls recursive function 'test_ret'
+// CHECK: error: recursive functions are not allowed: entry function calls recursive function 'test_ret'
 
 float test_ret()
 {

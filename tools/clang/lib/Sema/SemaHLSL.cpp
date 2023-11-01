@@ -11502,7 +11502,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   if (pResult) {
     self->Diag(pResult->getSourceRange().getBegin(),
                diag::err_hlsl_no_recursion)
-        << pResult->getName();
+        << 0 << pResult->getName();
   }
 
   const auto *shaderModel =
@@ -11528,8 +11528,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     // In this case, recursion was detected in the patch-constant function
     if (pPatchResult) {
       self->Diag(pPatchResult->getSourceRange().getBegin(),
-                 diag::err_hlsl_no_recursion_via_patch)
-          << pPatchResult->getName();
+                 diag::err_hlsl_no_recursion)
+          << 2 << pPatchResult->getName();
     }
   }
 }
@@ -15734,10 +15734,7 @@ clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
   if (FD) {
     hlsl::CallGraphWithRecurseGuard CG;
     CG.BuildForEntry(FD);
-    FunctionDecl *pResult = CG.CheckRecursion(FD);
-    if (pResult) {
-      return pResult;
-    }
+    return CG.CheckRecursion(FD);    
   }
   return nullptr;
 }
@@ -15769,7 +15766,7 @@ void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
       continue;
     }
     self->Diag(fdecl->getSourceRange().getBegin(), diag::err_hlsl_no_recursion)
-        << fdecl->getName();
+        << 0 << fdecl->getName();
 
     FDecls.erase(fdecl);
   }
