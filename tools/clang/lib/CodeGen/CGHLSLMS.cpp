@@ -401,7 +401,7 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   opts.bFXCCompatMode = CGM.getLangOpts().EnableFXCCompatMode;
 
   m_pHLModule->SetHLOptions(opts);
-  m_pHLModule->GetOP()->SetMinPrecision(opts.bUseMinPrecision);
+  m_pHLModule->GetOP()->InitWithMinPrecision(opts.bUseMinPrecision);
   m_pHLModule->GetTypeSystem().SetMinPrecision(opts.bUseMinPrecision);
 
   m_pHLModule->SetAutoBindingSpace(CGM.getCodeGenOpts().HLSLDefaultSpace);

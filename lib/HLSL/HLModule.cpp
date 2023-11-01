@@ -512,6 +512,8 @@ void HLModule::LoadHLMetadata() {
           DxilMDHelper::ConstMDToUint32(options->getOperand(1)->getOperand(0)));
   }
 
+  m_pOP->InitWithMinPrecision(m_Options.bUseMinPrecision);
+
   m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);
 
   // Load Subobjects
