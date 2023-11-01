@@ -12901,7 +12901,8 @@ static bool IsUsageAttributeCompatible(AttributeList::Kind kind, bool &usageIn,
 
 // Diagnose valid/invalid modifiers for HLSL.
 bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
-                            TypeSourceInfo *TInfo, bool isParameter) {
+                            TypeSourceInfo *TInfo, bool isParameter,
+                            RecordDecl *Record) {
   assert(getLangOpts().HLSL &&
          "otherwise this is called without checking language first");
 
@@ -13423,6 +13424,12 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   auto &&unusualIter = D.UnusualAnnotations.begin();
   auto &&unusualEnd = D.UnusualAnnotations.end();
   for (; unusualIter != unusualEnd; ++unusualIter) {
+    if ((*unusualIter)->getKind()) {
+      if (Record && Record->isUnion() && isField) {
+        Diag(D.getLocStart(), diag::err_union_member_semantics);
+        break;
+      }
+    }
     switch ((*unusualIter)->getKind()) {
     case hlsl::UnusualAnnotation::UA_ConstantPacking: {
       hlsl::ConstantPacking *constantPacking =

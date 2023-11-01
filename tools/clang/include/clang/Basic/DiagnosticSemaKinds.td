@@ -6512,10 +6512,6 @@ def err_thread_nontrivial_dtor : Error<
 def note_use_thread_local : Note<
   "use 'thread_local' to allow this">;
 
-// HLSL Change Starts
-def err_union_member_semantics : Error<"Union members cannot have HLSL semantics applied to them">;
-def err_union_object_semantics : Error<"Union objects cannot have HLSL semantics applied to them">;
-// HLSL Change Ends
 // C++ anonymous unions and GNU anonymous structs/unions
 def ext_anonymous_union : Extension<
   "anonymous unions are a C11 extension">, InGroup<C11>;
@@ -7505,6 +7501,10 @@ def err_hlsl_matrix_member_zero_in_one_based: Error<
   "the digit '0' is used in '%0', but the syntax is for one-based rows and columns">;
 def err_hlsl_overloading_operator_disallowed: Error<
   "overloading %select{|non-member }1%0 is not allowed">;
+def err_union_member_semantics : Error<
+  "union members cannot have HLSL semantics applied to them">;
+def err_union_object_semantics : Error<
+  "union objects cannot have HLSL semantics applied to them">;
 def err_hlsl_vector_member_bad_format: Error<
   "invalid format for vector swizzle '%0'">;
 def err_hlsl_vector_member_empty: Error<

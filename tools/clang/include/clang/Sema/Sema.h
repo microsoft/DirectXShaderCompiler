@@ -9020,7 +9020,9 @@ private:
   mutable IdentifierInfo *Ident___float128;
 
   // HLSL Change Starts
-  bool DiagnoseHLSLDecl(Declarator& D, DeclContext* DC, Expr *BitWidth, TypeSourceInfo* TInfo, bool isParameter);
+  bool DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
+                        TypeSourceInfo *TInfo, bool isParameter,
+                        RecordDecl *Record);
   void TransferUnusualAttributes(Declarator& D, NamedDecl* NewDecl);
   // HLSL Change Ends
 
