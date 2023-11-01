@@ -1266,7 +1266,9 @@ void AggExprEmitter::VisitInitListExpr(InitListExpr *E) {
       // Make sure that it's really an empty and not a failure of
       // semantic analysis.
       for (const auto *Field : record->fields())
-        assert(Field->isUnnamedBitfield() && "Only unnamed bitfields allowed");
+        assert(
+            (Field->isUnnamedBitfield() || Field->isAnonymousStructOrUnion()) &&
+            "Only unnamed bitfields or anonymous class allowed");
 #endif
       return;
     }
