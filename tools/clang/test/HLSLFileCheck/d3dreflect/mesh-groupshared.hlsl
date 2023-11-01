@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.8 | %dxc -T lib_6_7 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_7 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // CHECK:DxilRuntimeData (size = {{[0-9]+}} bytes):
 // CHECK:  StringBuffer (size = {{[0-9]+}} bytes)

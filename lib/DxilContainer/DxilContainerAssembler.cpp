@@ -1682,12 +1682,12 @@ private:
     // We must select the appropriate shader mask for the validator version,
     // so we don't set any bits the validator doesn't recognize.
     unsigned ValidShaderMask =
-        (1 << ((unsigned)DXIL::ShaderKind::Node + 1)) - 1;
+        (1 << ((unsigned)DXIL::ShaderKind::LastValid + 1)) - 1;
     if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
-      ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Callable + 1)) - 1;
+      ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_4 + 1)) - 1;
     } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0) {
       ValidShaderMask =
-          (1 << ((unsigned)DXIL::ShaderKind::Amplification + 1)) - 1;
+          (1 << ((unsigned)DXIL::ShaderKind::Last_1_7 + 1)) - 1;
     }
     for (auto &function : M->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic() &&
@@ -1782,23 +1782,21 @@ private:
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
           shaderKind = (uint32_t)props.shaderKind;
-          if (DM.HasDxilEntryProps(&function)) {
+          if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            if (pInfo2) {
-              unsigned waveSize = entryProps.props.waveSize;
-              if (waveSize) {
-                pInfo2->MinimumExpectedWaveLaneCount = waveSize;
-                pInfo2->MaximumExpectedWaveLaneCount = waveSize;
-              }
-              pInfo2->ShaderFlags = 0;
-              if (entryProps.props.IsNode()) {
-                shaderInfo = AddShaderNodeInfo(DM, function, entryProps,
-                                               *pInfo2, TGSMInFunc[&function]);
-              } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >
-                         0) {
-                shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags,
-                                           TGSMInFunc[&function]);
-              }
+            unsigned waveSize = entryProps.props.waveSize;
+            if (waveSize) {
+              pInfo2->MinimumExpectedWaveLaneCount = waveSize;
+              pInfo2->MaximumExpectedWaveLaneCount = waveSize;
+            }
+            pInfo2->ShaderFlags = 0;
+            if (entryProps.props.IsNode()) {
+              shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,
+                                             TGSMInFunc[&function]);
+            } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >
+                       0) {
+              shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags,
+                                         TGSMInFunc[&function]);
             }
           }
         }
