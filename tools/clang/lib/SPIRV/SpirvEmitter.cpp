@@ -11378,17 +11378,31 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
 SpirvInstruction *
 SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
                                        hlsl::IntrinsicOp op) {
+  // Processing the `dot4add_i8packed` and `dot4add_u8packed` intrinsics.
+  // There is no direct substitution for them in SPIR-V, but the combination
+  // of OpSDot / OpUDot and OpIAdd works.
+  //
+  // int32 dot4add_i8packed(uint32 a, uint32 b, int32 acc);
+  //    A 4-dimensional signed integer dot-product with add. Multiplies together
+  //    each corresponding pair of signed 8-bit int bytes in the two input
+  //    DWORDs, and sums the results into the 32-bit signed integer accumulator.
+  //
+  // uint32 dot4add_u8packed(uint32 a, uint32 b, uint32 acc);
+  //    A 4-dimensional unsigned integer dot-product with add. Multiplies
+  //    together each corresponding pair of unsigned 8-bit int bytes in the two
+  //    input DWORDs, and sums the results into the 32-bit unsigned integer
+  //    accumulator.
+  
   auto loc = callExpr->getExprLoc();
   auto range = callExpr->getSourceRange();
   assert(op == hlsl::IntrinsicOp::IOP_dot4add_i8packed ||
          op == hlsl::IntrinsicOp::IOP_dot4add_u8packed);
 
-  // TODO: add comments on what's going on here
-  
-  const bool isSigned = op == hlsl::IntrinsicOp::IOP_dot4add_i8packed;
-  const spv::Op spirvOp = isSigned ? spv::Op::OpSDot : spv::Op::OpUDot;
+  // Validate the argument count - if it's wrong, the compiler won't get
+  // here anyway, so an assert should be fine.
+  assert(callExpr->getNumArgs() == 3u);
 
-  // TODO: validate the argument count and types?
+  // Prepare the three arguments.
   const Expr *arg0 = callExpr->getArg(0);
   const Expr *arg1 = callExpr->getArg(1);
   const Expr *arg2 = callExpr->getArg(2);
@@ -11396,8 +11410,9 @@ SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
   auto *arg1Instr = doExpr(arg1);
   auto *arg2Instr = doExpr(arg2);
 
-  const auto returnType = isSigned ? astContext.IntTy : astContext.UnsignedIntTy;
-
+  // Prepare the array inputs for createSpirvIntrInstExt below.
+  // Need to use this function because the OpSDot/OpUDot operations require
+  // two capabilities and an extension to be declared in the module.
   llvm::SmallVector<SpirvInstruction*, 2> operands;
   llvm::SmallVector<uint32_t, 2> capabilities;
   llvm::SmallVector<llvm::StringRef, 1> extensions;
@@ -11405,14 +11420,28 @@ SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
 
   operands.push_back(arg0Instr);
   operands.push_back(arg1Instr);
-  capabilities.push_back(uint32_t(spv::Capability::DotProduct));
-  capabilities.push_back(uint32_t(spv::Capability::DotProductInput4x8BitPacked));
+  capabilities.push_back(uint32_t(
+    spv::Capability::DotProduct));
+  capabilities.push_back(uint32_t(
+    spv::Capability::DotProductInput4x8BitPacked));
   extensions.push_back("SPV_KHR_integer_dot_product");
 
-  auto *dotResult = spvBuilder.createSpirvIntrInstExt(uint32_t(spirvOp), returnType, operands,
-    extensions, instSet, capabilities, loc);
+  // Pick the opcode and return type based on the instruction.
+  const bool isSigned = op == hlsl::IntrinsicOp::IOP_dot4add_i8packed;
+  const spv::Op spirvOp = isSigned
+    ? spv::Op::OpSDot
+    : spv::Op::OpUDot;
+  const auto returnType = isSigned
+    ? astContext.IntTy
+    : astContext.UnsignedIntTy;
 
-  return spvBuilder.createBinaryOp(spv::Op::OpIAdd, returnType, dotResult, arg2Instr, loc, range);
+  // Create the dot product instruction.
+  auto *dotResult = spvBuilder.createSpirvIntrInstExt(uint32_t(spirvOp),
+    returnType, operands, extensions, instSet, capabilities, loc);
+
+  // Create and return the integer addition instruction.
+  return spvBuilder.createBinaryOp(spv::Op::OpIAdd, returnType,
+    dotResult, arg2Instr, loc, range);
 }
 
 SpirvInstruction *
