@@ -15246,7 +15246,7 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
 // Diagnose input node record to make sure it has exactly one SV_DispatchGrid
 // semantics. Recursivelly walk all fields on the record and all of its base
 // classes/structs
-void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
+void DiagnoseDispatchGridSemantics(Sema &S,
                                               CXXRecordDecl *InputRecordDecl,
                                               SourceLocation &DispatchGridLoc,
                                               bool &Found) {
@@ -15258,7 +15258,7 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
       CXXRecordDecl *BaseTypeDecl =
           dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
       if (nullptr != BaseTypeDecl) {
-        DiagnoseMustHaveOneDispatchGridSemantics(S, BaseTypeDecl,
+        DiagnoseDispatchGridSemantics(S, BaseTypeDecl,
                                                  DispatchGridLoc, Found);
       }
     }
@@ -15312,18 +15312,18 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
       CXXRecordDecl *FieldTypeDecl =
           dyn_cast<CXXRecordDecl>(FieldTypeAsStruct->getDecl());
       if (nullptr != FieldTypeDecl) {
-        DiagnoseMustHaveOneDispatchGridSemantics(S, FieldTypeDecl,
+        DiagnoseDispatchGridSemantics(S, FieldTypeDecl,
                                                  DispatchGridLoc, Found);
       }
     }
   }
 }
 
-void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
+void DiagnoseDispatchGridSemantics(Sema &S,
                                               CXXRecordDecl *InputRecordStruct,
                                               bool &Found) {
   SourceLocation DispatchGridLoc;
-  DiagnoseMustHaveOneDispatchGridSemantics(S, InputRecordStruct,
+  DiagnoseDispatchGridSemantics(S, InputRecordStruct,
                                            DispatchGridLoc, Found);
 }
 
@@ -15513,7 +15513,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                     dyn_cast<CXXRecordDecl>(NodeInputStructType->getDecl());
                 if (nullptr != NodeInputStructDecl) {
                   // Make sure there is exactly one SV_DispatchGrid semantics
-                  DiagnoseMustHaveOneDispatchGridSemantics(
+                  // and it has correct type.
+                  DiagnoseDispatchGridSemantics(
                       S, NodeInputStructDecl, Found);
                 }
               }
