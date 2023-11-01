@@ -61,15 +61,12 @@ enum class RuntimeDataPartType : uint32_t {
   SubobjectTable = 6,
   Last_1_4 = SubobjectTable,
 
-  // PRERELEASE-TODO: assign values explicitly to all enums before release
   NodeIDTable = 7,
   NodeShaderIOAttribTable = 8,
   NodeShaderFuncAttribTable = 9,
   IONodeTable = 10,
   NodeShaderInfoTable = 11,
-
-  Last_1_8 = NodeShaderInfoTable, // PRERELEASE-TODO: change to last
-                                  // necessary 1.8 part before release.
+  Last_1_8 = NodeShaderInfoTable,
 
   // Insert experimental here.
   SignatureElementTable,
