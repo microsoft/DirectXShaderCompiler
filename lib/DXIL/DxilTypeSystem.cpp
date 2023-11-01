@@ -230,6 +230,7 @@ unsigned DxilStructAnnotation::GetNumFields() const {
 
 DxilFieldAnnotation &
 DxilStructAnnotation::GetFieldAnnotation(unsigned FieldIdx) {
+  DXASSERT(FieldIdx < m_FieldAnnotations.size(), "field index out of range");
   return m_FieldAnnotations[FieldIdx];
 }
 
