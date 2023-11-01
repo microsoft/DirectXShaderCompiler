@@ -1,4 +1,7 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-unions -HV 202x %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 202x %s | FileCheck %s
+
+// CHECK: %Foo = type { %union.U }
+// CHECK: %union.U = type { <4 x float> }
 
 // CHECK:define void @main
 union U {

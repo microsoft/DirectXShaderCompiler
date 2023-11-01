@@ -1029,7 +1029,7 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
       }
     }
     // TODO(?): Consider refactoring, as this duplicates fieldAnnotation code
-    // from the following branch.
+    // from the else branch.
     std::string fieldSemName = "";
     QualType fieldTy = fieldDecl->getType();
 

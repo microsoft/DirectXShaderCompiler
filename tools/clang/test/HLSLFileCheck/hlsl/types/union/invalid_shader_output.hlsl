@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -enable-unions -HV 202x -T vs_6_2 %s | FileCheck %s
+// RUN: %dxc -E main -HV 202x -T vs_6_2 %s | FileCheck %s
 
 union s0 {
   int a;

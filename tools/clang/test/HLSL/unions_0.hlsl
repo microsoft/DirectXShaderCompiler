@@ -1,4 +1,3 @@
-// RUN: %clang_cc1 -enable-unions -fsyntax-only -ffreestanding -verify %s
 // RUN: %clang_cc1 -HV 202x -fsyntax-only -ffreestanding -verify %s
 // expected-no-diagnostics
 

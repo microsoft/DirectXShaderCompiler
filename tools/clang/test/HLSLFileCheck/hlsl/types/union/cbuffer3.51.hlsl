@@ -1,6 +1,9 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-unions -HV 202x %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -HV 202x %s | FileCheck %s
 
-// CHECK: @main
+// CHECK: %dx.types.CBufRet.i32 = type { i32, i32, i32, i32 }
+// CHECK: %dx.types.CBufRet.f32 = type { float, float, float, float }
+// CHECK: %union.Foo = type { [16 x <4 x float>] }
+// CHECK: %union.Bar = type { [16 x <3 x i32>] }
 union Foo
 {
   float4 g1[16];
