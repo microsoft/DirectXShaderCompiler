@@ -7861,7 +7861,7 @@ def err_hlsl_missing_dispatchgrid_semantic : Error<
 def err_hlsl_dispatchgrid_semantic_already_specified : Error<
    "a field with SV_DispatchGrid has already been specified">;
 def err_hlsl_incompatible_dispatchgrid_semantic_type : Error<
-   "SV_DispatchGrid can only be applied to a declaration of unit/uint16_t scalar, vector, or array up to 3 elements, not %0">;
+   "SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not %0">;
 def err_hlsl_maxrecursiondepth_exceeded : Error<
    "NodeMaxRecursionDepth may not exceed 32">;
 def err_hlsl_too_many_node_inputs : Error<
