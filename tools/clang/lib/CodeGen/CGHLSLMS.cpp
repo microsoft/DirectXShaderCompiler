@@ -957,112 +957,87 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
 
   unsigned CBufferSize = CBufferOffset;
 
-  for (RecordDecl::field_iterator Field = RD->field_begin(),
-                                  FieldEnd = RD->field_end();
-       Field != FieldEnd;) {
-    if (Field->isBitField()) {
-      // TODO(?): Consider refactoring, as this branch duplicates much
-      // of the logic of CGRecordLowering::accumulateBitFields().
-      DXASSERT(CGM.getLangOpts().HLSLVersion > hlsl::LangStd::v2015,
-               "We should have already ensured we have no bitfields.");
-      CodeGenTypes &Types = CGM.getTypes();
-      ASTContext &Context = Types.getContext();
-      const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
-      const llvm::DataLayout &DataLayout = Types.getDataLayout();
-      RecordDecl::field_iterator End = Field;
-      for (++End; End != FieldEnd && End->isBitField(); ++End)
-        ;
+  // By this point the structType in the StructAnnotation has been stripped of
+  // excess fields if it is a union. As a result we must construct the
+  // annotation differently for unions and structs
+  if (RD->isUnion() && !RD->field_empty()) {
+    FieldDecl *fieldDecl = nullptr;
+    bool largestIsBitfield = false;
+    unsigned largestBitwidth = 0;
 
-      std::vector<DxilFieldAnnotation> BitFields;
+    for (FieldDecl *Field : RD->fields()) {
+      CBufferOffset = 0;
 
-      RecordDecl::field_iterator Run = End;
-      uint64_t StartBitOffset = Layout.getFieldOffset(Field->getFieldIndex());
-      uint64_t Tail = 0;
-      for (; Field != End; ++Field) {
-        uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
-        // Zero-width bitfields end runs.
-        if (Field->getBitWidthValue(Context) == 0) {
-          Run = End;
-          continue;
+      QualType fieldTy = Field->getType();
+
+      CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor,
+                                      CGM, dataLayout);
+
+      const hlsl::ConstantPacking *packOffset = nullptr;
+      for (const hlsl::UnusualAnnotation *it : Field->getUnusualAnnotations()) {
+        switch (it->getKind()) {
+        case hlsl::UnusualAnnotation::UA_ConstantPacking: {
+          packOffset = cast<hlsl::ConstantPacking>(it);
+          CBufferOffset = packOffset->Subcomponent << 2;
+          CBufferOffset += packOffset->ComponentOffset;
+          // Change to byte.
+          CBufferOffset <<= 2;
+        } break;
         }
+      }
 
-        llvm::Type *Type = Types.ConvertTypeForMem(Field->getType());
-        // If we don't have a run yet, or don't live within the previous run's
-        // allocated storage then we allocate some storage and start a new run.
-        if (Run == End || BitOffset >= Tail) {
-          // Add BitFields to current field.
-          if (BitOffset >= Tail && BitOffset > 0) {
-            DxilFieldAnnotation &curFieldAnnotation =
-                annotation->GetFieldAnnotation(fieldIdx - 1);
-            curFieldAnnotation.SetBitFields(BitFields);
-            BitFields.clear();
-          }
-
-          Run = Field;
-          StartBitOffset = BitOffset;
-          Tail = StartBitOffset + DataLayout.getTypeAllocSizeInBits(Type);
-
-          QualType fieldTy = Field->getType();
-
-          // Align offset.
-          CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset,
+      // Process field to make sure the size of field is ready.
+      unsigned arrayEltSize = 0;
+      unsigned size =
+          AddTypeAnnotation(Field->getType(), dxilTypeSys, arrayEltSize);
+      // Align offset.
+      if (size) {
+        unsigned offset = AlignBaseOffset(fieldTy, CBufferOffset,
                                           bDefaultRowMajor, CGM, dataLayout);
-
-          DxilFieldAnnotation &fieldAnnotation =
-              annotation->GetFieldAnnotation(fieldIdx++);
-          ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy,
-                                             bDefaultRowMajor);
-          fieldAnnotation.SetCBufferOffset(CBufferOffset);
-
-          unsigned arrayEltSize = 0;
-          // Process field to make sure the size of field is ready.
-          unsigned size = AddTypeAnnotation(fieldTy, dxilTypeSys, arrayEltSize);
-          // Update offset.
-          CBufferOffset += size;
+        if (packOffset && CBufferOffset != offset) {
+          // custom offset has an alignment problem, or this code does
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                                  "custom offset mis-aligned.");
+          Diags.Report(packOffset->Loc, DiagID);
+          return 0;
         }
-
-        DxilFieldAnnotation bitfieldAnnotation;
-
-        bitfieldAnnotation.SetBitFieldWidth(Field->getBitWidthValue(Context));
-        QualType FieldTy = Field->getType().getCanonicalType();
-        const BuiltinType *BTy = FieldTy->getAs<BuiltinType>();
-        if (!BTy) {
-          // Should be enum type.
-          EnumDecl *Decl = FieldTy->getAs<EnumType>()->getDecl();
-          BTy = Decl->getPromotionType()->getAs<BuiltinType>();
-        }
-        CompType::Kind kind =
-            BuiltinTyToCompTy(BTy, /*bSNorm*/ false, /*bUNorm*/ false);
-        bitfieldAnnotation.SetCompType(kind);
-        bitfieldAnnotation.SetFieldName(Field->getName());
-        bitfieldAnnotation.SetCBufferOffset(
-            (unsigned)(BitOffset - StartBitOffset));
-        BitFields.emplace_back(bitfieldAnnotation);
+        CBufferOffset = offset;
       }
 
-      if (!BitFields.empty()) {
-        DxilFieldAnnotation &curFieldAnnotation =
-            annotation->GetFieldAnnotation(fieldIdx - 1);
-        curFieldAnnotation.SetBitFields(BitFields);
-        BitFields.clear();
+      if (Field->isBitField() && largestIsBitfield) {
+        CodeGenTypes &Types = CGM.getTypes();
+        ASTContext &Context = Types.getContext();
+        unsigned bitWidth = Field->getBitWidthValue(Context);
+        if (bitWidth > largestBitwidth) {
+          largestBitwidth = bitWidth;
+          CBufferSize = CBufferOffset + size;
+          fieldDecl = Field;
+        }
+      } else if (CBufferOffset + size > CBufferSize) {
+        CBufferSize = CBufferOffset + size;
+        fieldDecl = Field;
+        if (Field->isBitField()) {
+          CodeGenTypes &Types = CGM.getTypes();
+          ASTContext &Context = Types.getContext();
+          unsigned bitWidth = Field->getBitWidthValue(Context);
+          largestIsBitfield = true;
+          largestBitwidth = bitWidth;
+        } else {
+          largestIsBitfield = false;
+        }
       }
-
-      CBufferSize = CBufferOffset;
-
-      continue; // Field has already been advanced past bitfields
     }
-
-    FieldDecl *fieldDecl = *Field;
+    // TODO(?): Consider refactoring, as this duplicates fieldAnnotation code
+    // from the following branch.
     std::string fieldSemName = "";
-
     QualType fieldTy = fieldDecl->getType();
 
     // Align offset.
     CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor,
                                     CGM, dataLayout);
 
-    DxilFieldAnnotation &fieldAnnotation =
-        annotation->GetFieldAnnotation(fieldIdx++);
+    DxilFieldAnnotation &fieldAnnotation = annotation->GetFieldAnnotation(0);
     ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy,
                                        bDefaultRowMajor);
 
@@ -1074,13 +1049,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
       case hlsl::UnusualAnnotation::UA_SemanticDecl: {
         const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
         fieldSemName = sd->SemanticName;
-      } break;
-      case hlsl::UnusualAnnotation::UA_ConstantPacking: {
-        packOffset = cast<hlsl::ConstantPacking>(it);
-        CBufferOffset = packOffset->Subcomponent << 2;
-        CBufferOffset += packOffset->ComponentOffset;
-        // Change to byte.
-        CBufferOffset <<= 2;
       } break;
       case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
         // register assignment only works on global constant.
@@ -1144,19 +1112,227 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
       if (m_PreciseOutputSet.count(StringRef(fieldSemName).lower()))
         fieldAnnotation.SetPrecise();
     }
-    if (RD->isUnion()) {
-      // Find maximum size of union fields
-      CBufferSize = std::max(CBufferSize, size);
-      CBufferOffset = CBufferSize;
-    } else {
+
+    if (fieldDecl->isBitField()) {
+
+      DXASSERT(CGM.getLangOpts().HLSLVersion > hlsl::LangStd::v2015,
+               "We should have already ensured we have no bitfields.");
+      CodeGenTypes &Types = CGM.getTypes();
+      ASTContext &Context = Types.getContext();
+
+      DxilFieldAnnotation bitfieldAnnotation;
+
+      bitfieldAnnotation.SetBitFieldWidth(fieldDecl->getBitWidthValue(Context));
+      const BuiltinType *BTy = fieldDecl->getType()->getAs<BuiltinType>();
+      CompType::Kind kind =
+          BuiltinTyToCompTy(BTy, /*bSNorm*/ false, /*bUNorm*/ false);
+      bitfieldAnnotation.SetCompType(kind);
+      bitfieldAnnotation.SetCBufferOffset(0);
+
+      std::vector<DxilFieldAnnotation> BitFields;
+      BitFields.emplace_back(bitfieldAnnotation);
+      fieldAnnotation.SetBitFields(BitFields);
+    }
+
+    CBufferSize = std::max(CBufferSize, CBufferOffset + size);
+  } else {
+    for (RecordDecl::field_iterator Field = RD->field_begin(),
+                                    FieldEnd = RD->field_end();
+         Field != FieldEnd;) {
+      if (Field->isBitField()) {
+        // TODO(?): Consider refactoring, as this branch duplicates much
+        // of the logic of CGRecordLowering::accumulateBitFields().
+        DXASSERT(CGM.getLangOpts().HLSLVersion > hlsl::LangStd::v2015,
+                 "We should have already ensured we have no bitfields.");
+        CodeGenTypes &Types = CGM.getTypes();
+        ASTContext &Context = Types.getContext();
+        const ASTRecordLayout &Layout = Context.getASTRecordLayout(RD);
+        const llvm::DataLayout &DataLayout = Types.getDataLayout();
+        RecordDecl::field_iterator End = Field;
+        for (++End; End != FieldEnd && End->isBitField(); ++End)
+          ;
+
+        std::vector<DxilFieldAnnotation> BitFields;
+
+        RecordDecl::field_iterator Run = End;
+        uint64_t StartBitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+        uint64_t Tail = 0;
+        for (; Field != End; ++Field) {
+          uint64_t BitOffset = Layout.getFieldOffset(Field->getFieldIndex());
+          // Zero-width bitfields end runs.
+          if (Field->getBitWidthValue(Context) == 0) {
+            Run = End;
+            continue;
+          }
+
+          llvm::Type *Type = Types.ConvertTypeForMem(Field->getType());
+          // If we don't have a run yet, or don't live within the previous run's
+          // allocated storage then we allocate some storage and start a new
+          // run.
+          if (Run == End || BitOffset >= Tail) {
+            // Add BitFields to current field.
+            if (BitOffset >= Tail && BitOffset > 0) {
+              DxilFieldAnnotation &curFieldAnnotation =
+                  annotation->GetFieldAnnotation(fieldIdx - 1);
+              curFieldAnnotation.SetBitFields(BitFields);
+              BitFields.clear();
+            }
+
+            Run = Field;
+            StartBitOffset = BitOffset;
+            Tail = StartBitOffset + DataLayout.getTypeAllocSizeInBits(Type);
+
+            QualType fieldTy = Field->getType();
+
+            // Align offset.
+            CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset,
+                                            bDefaultRowMajor, CGM, dataLayout);
+
+            DxilFieldAnnotation &fieldAnnotation =
+                annotation->GetFieldAnnotation(fieldIdx++);
+            ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy,
+                                               bDefaultRowMajor);
+            fieldAnnotation.SetCBufferOffset(CBufferOffset);
+
+            unsigned arrayEltSize = 0;
+            // Process field to make sure the size of field is ready.
+            unsigned size =
+                AddTypeAnnotation(fieldTy, dxilTypeSys, arrayEltSize);
+            // Update offset.
+            CBufferOffset += size;
+          }
+
+          DxilFieldAnnotation bitfieldAnnotation;
+
+          bitfieldAnnotation.SetBitFieldWidth(Field->getBitWidthValue(Context));
+          QualType FieldTy = Field->getType().getCanonicalType();
+          const BuiltinType *BTy = FieldTy->getAs<BuiltinType>();
+          if (!BTy) {
+            // Should be enum type.
+            EnumDecl *Decl = FieldTy->getAs<EnumType>()->getDecl();
+            BTy = Decl->getPromotionType()->getAs<BuiltinType>();
+          }
+          CompType::Kind kind =
+              BuiltinTyToCompTy(BTy, /*bSNorm*/ false, /*bUNorm*/ false);
+          bitfieldAnnotation.SetCompType(kind);
+          bitfieldAnnotation.SetFieldName(Field->getName());
+          bitfieldAnnotation.SetCBufferOffset(
+              (unsigned)(BitOffset - StartBitOffset));
+          BitFields.emplace_back(bitfieldAnnotation);
+        }
+
+        if (!BitFields.empty()) {
+          DxilFieldAnnotation &curFieldAnnotation =
+              annotation->GetFieldAnnotation(fieldIdx - 1);
+          curFieldAnnotation.SetBitFields(BitFields);
+          BitFields.clear();
+        }
+
+        CBufferSize = CBufferOffset;
+
+        continue; // Field has already been advanced past bitfields
+      }
+
+      FieldDecl *fieldDecl = *Field;
+      std::string fieldSemName = "";
+
+      QualType fieldTy = fieldDecl->getType();
+
+      // Align offset.
+      CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor,
+                                      CGM, dataLayout);
+
+      // This is the crashing lines for unions
+      DxilFieldAnnotation &fieldAnnotation =
+          annotation->GetFieldAnnotation(fieldIdx++);
+      ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy,
+                                         bDefaultRowMajor);
+
+      // Try to get info from fieldDecl.
+      const hlsl::ConstantPacking *packOffset = nullptr;
+      for (const hlsl::UnusualAnnotation *it :
+           fieldDecl->getUnusualAnnotations()) {
+        switch (it->getKind()) {
+        case hlsl::UnusualAnnotation::UA_SemanticDecl: {
+          const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
+          fieldSemName = sd->SemanticName;
+        } break;
+        case hlsl::UnusualAnnotation::UA_ConstantPacking: {
+          packOffset = cast<hlsl::ConstantPacking>(it);
+          CBufferOffset = packOffset->Subcomponent << 2;
+          CBufferOffset += packOffset->ComponentOffset;
+          // Change to byte.
+          CBufferOffset <<= 2;
+        } break;
+        case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
+          // register assignment only works on global constant.
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(
+              DiagnosticsEngine::Error,
+              "location semantics cannot be specified on members.");
+          Diags.Report(it->Loc, DiagID);
+          return 0;
+        } break;
+        case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
+          // Forward payload access qualifiers to fieldAnnotation.
+          if (payloadAnnotation) {
+            const hlsl::PayloadAccessAnnotation *annotation =
+                cast<hlsl::PayloadAccessAnnotation>(it);
+            DxilPayloadFieldAnnotation &payloadFieldAnnotation =
+                payloadAnnotation->GetFieldAnnotation(fieldIdx - 1);
+            payloadFieldAnnotation.SetCompType(
+                fieldAnnotation.GetCompType().GetKind());
+            for (auto stage : annotation->ShaderStages) {
+              payloadFieldAnnotation.AddPayloadFieldQualifier(
+                  stage, annotation->qualifier);
+            }
+          }
+        } break;
+        default:
+          llvm_unreachable("only semantic for input/output");
+          break;
+        }
+      }
+
+      // Process field to make sure the size of field is ready.
+      unsigned arrayEltSize = 0;
+      unsigned size =
+          AddTypeAnnotation(fieldDecl->getType(), dxilTypeSys, arrayEltSize);
+
+      // Align offset.
+      if (size) {
+        unsigned offset = AlignBaseOffset(fieldTy, CBufferOffset,
+                                          bDefaultRowMajor, CGM, dataLayout);
+        if (packOffset && CBufferOffset != offset) {
+          // custom offset has an alignment problem, or this code does
+          DiagnosticsEngine &Diags = CGM.getDiags();
+          unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                                  "custom offset mis-aligned.");
+          Diags.Report(packOffset->Loc, DiagID);
+          return 0;
+        }
+        CBufferOffset = offset;
+      }
+
+      ConstructFieldInterpolation(fieldAnnotation, fieldDecl);
+      if (fieldDecl->hasAttr<HLSLPreciseAttr>())
+        fieldAnnotation.SetPrecise();
+
+      fieldAnnotation.SetCBufferOffset(CBufferOffset);
+      fieldAnnotation.SetFieldName(fieldDecl->getName());
+      if (!fieldSemName.empty()) {
+        fieldAnnotation.SetSemanticString(fieldSemName);
+
+        if (m_PreciseOutputSet.count(StringRef(fieldSemName).lower()))
+          fieldAnnotation.SetPrecise();
+      }
       // Accumulate size of struct
       CBufferSize = std::max(CBufferSize, CBufferOffset + size);
       CBufferOffset = CBufferSize;
+
+      ++Field;
     }
-
-    ++Field;
   }
-
   annotation->SetCBufferSize(CBufferSize);
   dxilTypeSys.FinishStructAnnotation(*annotation);
   return CBufferSize;
