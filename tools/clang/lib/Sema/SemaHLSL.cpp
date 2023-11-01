@@ -3024,22 +3024,6 @@ public:
     }
   }
 
-  #if 0 // Just here for debuggability if you need it
-  // return true if FD2 is reachable from FD1
-  bool CheckReachability(FunctionDecl *FD1, FunctionDecl *FD2) {
-    if (FD1 == FD2)
-      return true;
-    auto node = m_callNodes.find(FD1);
-    if (node != m_callNodes.end()) {
-      for (FunctionDecl *Callee : node->second.CalleeFns) {
-        if (CheckReachability(Callee, FD2))
-          return true;
-      }
-    }
-    return false;
-  }
-#endif
-
   FunctionDecl *CheckRecursion(FunctionDecl *EntryFnDecl) const {
     FnCallStack CallStack;
     EntryFnDecl = getFunctionWithBody(EntryFnDecl);
