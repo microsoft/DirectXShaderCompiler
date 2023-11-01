@@ -893,7 +893,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
     const RecordDecl *RD, DxilTypeSystem &dxilTypeSys) {
   unsigned fieldIdx = 0;
   unsigned CBufferOffset = 0;
-  bool empty_union = false;
   bool bDefaultRowMajor = m_pHLModule->GetHLOptions().bDefaultRowMajor;
   if (const CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
 
@@ -1152,11 +1151,8 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
     ++Field;
   }
 
-  if (RD->isUnion() && CBufferSize == 0)
-    empty_union = true;
-
   annotation->SetCBufferSize(CBufferSize);
-  dxilTypeSys.FinishStructAnnotation(*annotation, empty_union);
+  dxilTypeSys.FinishStructAnnotation(*annotation);
   return CBufferSize;
 }
 
