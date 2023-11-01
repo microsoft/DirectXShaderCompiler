@@ -6513,7 +6513,8 @@ def note_use_thread_local : Note<
   "use 'thread_local' to allow this">;
 
 // HLSL Change Starts
-def err_anonymous_unions : Error<"anonymous unions are not supported in HLSL">;
+def err_union_member_semantics : Error<"Union members cannot have HLSL semantics applied to them">;
+def err_union_object_semantics : Error<"Union objects cannot have HLSL semantics applied to them">;
 // HLSL Change Ends
 // C++ anonymous unions and GNU anonymous structs/unions
 def ext_anonymous_union : Extension<

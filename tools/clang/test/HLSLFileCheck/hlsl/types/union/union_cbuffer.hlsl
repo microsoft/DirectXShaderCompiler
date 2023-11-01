@@ -2,8 +2,8 @@
 
 // CHECK:define void @main
 union U {
-  float4 v;
   uint x;
+  float4 v;
 };
 
 cbuffer Foo {

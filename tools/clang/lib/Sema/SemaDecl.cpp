@@ -4113,11 +4113,6 @@ Decl *Sema::BuildAnonymousStructOrUnion(Scope *S, DeclSpec &DS,
   // structs/unions.
   bool Invalid = false;
 
-  if (getLangOpts().HLSL && Record->isUnion()) {
-    Invalid = true;
-    Diag(Record->getLocation(), diag::err_anonymous_unions);
-  }
-
   if (getLangOpts().CPlusPlus) {
     const char *PrevSpec = nullptr;
     unsigned DiagID;

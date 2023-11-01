@@ -261,10 +261,8 @@ void CGRecordLowering::lower(bool NVBaseType) {
   // 8) Format the complete list of members in a way that can be consumed by
   //    CodeGenTypes::ComputeRecordLayout.
   CharUnits Size = NVBaseType ? Layout.getNonVirtualSize() : Layout.getSize();
-#if 0
   if (D->isUnion())
     return lowerUnion();
-#endif
   accumulateFields();
   // RD implies C++.
   if (RD) {
