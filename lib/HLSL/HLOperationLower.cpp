@@ -7363,7 +7363,7 @@ void TranslateCBGepLegacy(GetElementPtrInst *GEP, Value *handle,
 
       // Array always start from x channel.
       channel = 0;
-    } else if ((GEPIt->isStructTy()) || (GEPIt->isUnionTy())) {
+    } else if (GEPIt->isStructTy()) {
       StructType *ST = cast<StructType>(*GEPIt);
       DxilStructAnnotation *annotation = dxilTypeSys.GetStructAnnotation(ST);
       fieldAnnotation = &annotation->GetFieldAnnotation(immIdx);
