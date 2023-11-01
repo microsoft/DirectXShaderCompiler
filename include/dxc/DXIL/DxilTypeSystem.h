@@ -144,6 +144,8 @@ public:
   void SetCBufferSize(unsigned size);
   void MarkEmptyStruct();
   bool IsEmptyStruct();
+  void MarkUnion();
+  bool IsUnion();
   // Since resources don't take real space, IsEmptyBesidesResources
   // determines if the structure is empty or contains only resources.
   bool IsEmptyBesidesResources();
@@ -161,6 +163,7 @@ private:
   std::vector<DxilFieldAnnotation> m_FieldAnnotations;
   unsigned m_CBufferSize = 0; // The size of struct if inside constant buffer.
   std::vector<DxilTemplateArgAnnotation> m_TemplateAnnotations;
+  bool m_IsUnion = false;
 
   // m_ResourcesContained property not stored to metadata
   void SetContainsResources();
