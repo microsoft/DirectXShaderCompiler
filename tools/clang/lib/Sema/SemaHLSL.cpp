@@ -11533,18 +11533,21 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
     // The patch function decl and the entry function decl should be
     // disconnected with respect to the call graph.
-    hlsl::CallGraphWithRecurseGuard CG;
-    CG.BuildForEntry(pPatchFnDecl);
-    if (CG.CheckReachability(pPatchFnDecl, pEntryPointDecl)) {
-      self->Diag(pEntryPointDecl->getSourceRange().getBegin(),
-                 diag::err_hlsl_patch_reachability_not_allowed)
-          << 1 << pEntryPointDecl->getName() << 0 << pPatchFnDecl->getName();
-    }
-    CG.BuildForEntry(pEntryPointDecl);
-    if (CG.CheckReachability(pEntryPointDecl, pPatchFnDecl)) {
-      self->Diag(pEntryPointDecl->getSourceRange().getBegin(),
-                 diag::err_hlsl_patch_reachability_not_allowed)
-          << 0 << pPatchFnDecl->getName() << 1 << pEntryPointDecl->getName();
+    // Only check this if neither function decl is recursive
+    if (!result && !patchResult) {
+      hlsl::CallGraphWithRecurseGuard CG;
+      CG.BuildForEntry(pPatchFnDecl);
+      if (CG.CheckReachability(pPatchFnDecl, pEntryPointDecl)) {
+        self->Diag(pEntryPointDecl->getSourceRange().getBegin(),
+                   diag::err_hlsl_patch_reachability_not_allowed)
+            << 1 << pEntryPointDecl->getName() << 0 << pPatchFnDecl->getName();
+      }
+      CG.BuildForEntry(pEntryPointDecl);
+      if (CG.CheckReachability(pEntryPointDecl, pPatchFnDecl)) {
+        self->Diag(pEntryPointDecl->getSourceRange().getBegin(),
+                   diag::err_hlsl_patch_reachability_not_allowed)
+            << 0 << pPatchFnDecl->getName() << 1 << pEntryPointDecl->getName();
+      }
     }
   }
 }
