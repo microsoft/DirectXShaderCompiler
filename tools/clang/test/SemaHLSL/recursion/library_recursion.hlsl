@@ -1,6 +1,6 @@
-// RUN: %dxc -T lib_6_5 %s | FileCheck %s
+// RUN: dxc -Tlib_6_5 -verify %s 
 
-// CHECK: error: recursive functions are not allowed: entry function calls recursive function 'recurse'
+// expected-error@+1{{recursive functions are not allowed: entry function calls recursive function 'recurse'}}
 void recurse(inout float4 f, float a) 
 {
     if (a > 1)
@@ -14,4 +14,3 @@ float4 main(float a : A, float b:B) : SV_TARGET
   recurse(f, a);
   return f;
 }
-

@@ -1,6 +1,6 @@
-// RUN: %dxc -T lib_6_5 %s | FileCheck %s
+// RUN: %dxc -Tlib_6_5 %s -verify 
 
-// CHECK: error: recursive functions are not allowed: entry function calls recursive function 'recurse2'
+// expected-error@+1{{recursive functions are not allowed: entry function calls recursive function 'recurse2'}}
 void recurse2(inout float4 f, float a) {
   if (a > 0) {
     recurse2(f, a);
@@ -8,7 +8,7 @@ void recurse2(inout float4 f, float a) {
   f -= abs(f+a);
 }
 
-// CHECK: error: recursive functions are not allowed: entry function calls recursive function 'recurse'
+// expected-error@+1{{recursive functions are not allowed: entry function calls recursive function 'recurse'}}
 void recurse(inout float4 f, float a)
 {
     if (a > 1) {
