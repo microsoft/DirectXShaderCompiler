@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 -enable-unions -HV 2021 %s | FileCheck %s
+// RUN: %dxc -E main -T ps_6_0 -enable-unions -HV 202x %s | FileCheck %s
 
 // CHECK:define void @main
 union U {
@@ -12,5 +12,6 @@ cbuffer Foo {
 
 float4 main(int2 a
             : A) : SV_TARGET {
+  // CHECK:extractvalue %dx.types.CBufRet.f32 {{.*}}, 0
   return g.v;
 }

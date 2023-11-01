@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -enable-unions -HV 2021 -T ps_6_0 %s | FileCheck %s
+// RUN: %dxc -E main -enable-unions -HV 202x -T ps_6_0 %s | FileCheck %s
 
 // CHECK: @main
 union N {

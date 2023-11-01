@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -enable-unions -fsyntax-only -ffreestanding -verify %s
-// RUN: %clang_cc1 -HV 2021 -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -HV 202x -fsyntax-only -ffreestanding -verify %s
 union Base {
     float4 a;
     float4 b;

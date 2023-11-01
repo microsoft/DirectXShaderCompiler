@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -enable-unions -HV 2021 -T vs_6_2 %s | FileCheck %s
+// RUN: %dxc -E main -enable-unions -HV 202x -T vs_6_2 %s | FileCheck %s
 
 union s0 {
   uint abc;

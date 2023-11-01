@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -enable-unions -fsyntax-only -ffreestanding -verify %s
-// RUN: %clang_cc1 -HV 2021 -fsyntax-only -ffreestanding -verify %s
+// RUN: %clang_cc1 -HV 202x -fsyntax-only -ffreestanding -verify %s
 
 // Tests declarations and uses of anonymous unions.
 
