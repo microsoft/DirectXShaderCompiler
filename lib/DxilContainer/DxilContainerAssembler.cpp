@@ -1686,8 +1686,7 @@ private:
     if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
       ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_4 + 1)) - 1;
     } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0) {
-      ValidShaderMask =
-          (1 << ((unsigned)DXIL::ShaderKind::Last_1_7 + 1)) - 1;
+      ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_7 + 1)) - 1;
     }
     for (auto &function : M->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic() &&
