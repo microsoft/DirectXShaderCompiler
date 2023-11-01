@@ -11375,9 +11375,8 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
                                    range);
 }
 
-SpirvInstruction *
-SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
-                                       hlsl::IntrinsicOp op) {
+SpirvInstruction *SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
+                                                     hlsl::IntrinsicOp op) {
   // Processing the `dot4add_i8packed` and `dot4add_u8packed` intrinsics.
   // There is no direct substitution for them in SPIR-V, but the combination
   // of OpSDot / OpUDot and OpIAdd works.
@@ -11392,7 +11391,7 @@ SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
   //    together each corresponding pair of unsigned 8-bit int bytes in the two
   //    input DWORDs, and sums the results into the 32-bit unsigned integer
   //    accumulator.
-  
+
   auto loc = callExpr->getExprLoc();
   auto range = callExpr->getSourceRange();
   assert(op == hlsl::IntrinsicOp::IOP_dot4add_i8packed ||
@@ -11413,35 +11412,32 @@ SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
   // Prepare the array inputs for createSpirvIntrInstExt below.
   // Need to use this function because the OpSDot/OpUDot operations require
   // two capabilities and an extension to be declared in the module.
-  llvm::SmallVector<SpirvInstruction*, 2> operands;
+  llvm::SmallVector<SpirvInstruction *, 2> operands;
   llvm::SmallVector<uint32_t, 2> capabilities;
   llvm::SmallVector<llvm::StringRef, 1> extensions;
   llvm::StringRef instSet = "";
 
   operands.push_back(arg0Instr);
   operands.push_back(arg1Instr);
-  capabilities.push_back(uint32_t(
-    spv::Capability::DotProduct));
-  capabilities.push_back(uint32_t(
-    spv::Capability::DotProductInput4x8BitPacked));
+  capabilities.push_back(uint32_t(spv::Capability::DotProduct));
+  capabilities.push_back(
+      uint32_t(spv::Capability::DotProductInput4x8BitPacked));
   extensions.push_back("SPV_KHR_integer_dot_product");
 
   // Pick the opcode and return type based on the instruction.
   const bool isSigned = op == hlsl::IntrinsicOp::IOP_dot4add_i8packed;
-  const spv::Op spirvOp = isSigned
-    ? spv::Op::OpSDot
-    : spv::Op::OpUDot;
-  const auto returnType = isSigned
-    ? astContext.IntTy
-    : astContext.UnsignedIntTy;
+  const spv::Op spirvOp = isSigned ? spv::Op::OpSDot : spv::Op::OpUDot;
+  const auto returnType =
+      isSigned ? astContext.IntTy : astContext.UnsignedIntTy;
 
   // Create the dot product instruction.
-  auto *dotResult = spvBuilder.createSpirvIntrInstExt(uint32_t(spirvOp),
-    returnType, operands, extensions, instSet, capabilities, loc);
+  auto *dotResult =
+      spvBuilder.createSpirvIntrInstExt(uint32_t(spirvOp), returnType, operands,
+                                        extensions, instSet, capabilities, loc);
 
   // Create and return the integer addition instruction.
-  return spvBuilder.createBinaryOp(spv::Op::OpIAdd, returnType,
-    dotResult, arg2Instr, loc, range);
+  return spvBuilder.createBinaryOp(spv::Op::OpIAdd, returnType, dotResult,
+                                   arg2Instr, loc, range);
 }
 
 SpirvInstruction *
