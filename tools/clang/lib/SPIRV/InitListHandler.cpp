@@ -136,6 +136,9 @@ bool InitListHandler::tryToSplitStruct() {
     return false;
 
   auto *init = initializers.back();
+  if (!init)
+    return false;
+
   const QualType initType = init->getAstResultType();
   if (!initType->isStructureType() ||
       // Sampler types will pass the above check but we cannot split it.
@@ -171,6 +174,9 @@ bool InitListHandler::tryToSplitConstantArray() {
     return false;
 
   auto *init = initializers.back();
+  if (!init)
+    return false;
+
   const QualType initType = init->getAstResultType();
   if (!initType->isConstantArrayType())
     return false;
@@ -495,6 +501,9 @@ InitListHandler::createInitForBufferOrImageType(QualType type,
 
   auto init = initializers.back();
   initializers.pop_back();
+
+  if (!init)
+    return nullptr;
 
   if (init->getAstResultType().getCanonicalType() != type.getCanonicalType()) {
     emitError("Cannot cast initializer type %0 into variable type %1", srcLoc)

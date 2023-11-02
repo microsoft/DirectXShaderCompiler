@@ -956,8 +956,9 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc,
                                                       SourceRange range) {
-  if (hlsl::IsHLSLDynamicResourceType(decl->getType())) {
-    emitError("HLSL resource %0 not yet supported with -spirv",
+  if (hlsl::IsHLSLDynamicResourceType(decl->getType()) ||
+      hlsl::IsHLSLDynamicSamplerType(decl->getType())) {
+    emitError("HLSL object %0 not yet supported with -spirv",
               decl->getLocation())
         << decl->getName();
     return nullptr;

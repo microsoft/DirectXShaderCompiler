@@ -638,6 +638,14 @@ bool IsHLSLDynamicResourceType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLDynamicSamplerType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    return name == ".Sampler";
+  }
+  return false;
+}
+
 bool IsHLSLNodeType(clang::QualType type) {
   if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
     return true;
