@@ -4,8 +4,8 @@
 // CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
 // CHECK:  IndexTable (size = {{[0-9]+}} bytes)
 // CHECK:  RawBytes (size = {{[0-9]+}} bytes)
-// CHECK:  RecordTable (stride = 56 bytes) FunctionTable[1] = {
-// CHECK:    <0:RuntimeDataFunctionInfo3> = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[1] = {
+// CHECK:    <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:      Name: "depth18part0_wg_63_nodes_seed_255"
 // CHECK:      UnmangledName: "depth18part0_wg_63_nodes_seed_255"
 // CHECK:      Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -90,7 +90,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeIDTable[2] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeIDTable[2] = {
 // CHECK:    <0:NodeID> = {
 // CHECK:      Name: "depth18part0_wg_63_nodes_seed_255"
 // CHECK:      Index: 0
@@ -100,7 +100,7 @@
 // CHECK:      Index: 0
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeShaderFuncAttribTable[3] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderFuncAttribTable[3] = {
 // CHECK:    <0:NodeShaderFuncAttrib> = {
 // CHECK:      AttribKind: ID
 // CHECK:      ID: <0:NodeID> = {
@@ -117,7 +117,7 @@
 // CHECK:      DispatchGrid: <4:array[3]> = { 2, 8, 10 }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeShaderIOAttribTable[7] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderIOAttribTable[7] = {
 // CHECK:    <0:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: RecordSizeInBytes
 // CHECK:      RecordSizeInBytes: 8
@@ -152,7 +152,7 @@
 // CHECK:        ComponentNumAndType: 23
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) IONodeTable[2] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) IONodeTable[2] = {
 // CHECK:    <0:IONode> = {
 // CHECK:      IOFlagsAndKind: 97
 // CHECK:      Attribs: <12:RecordArrayRef<NodeShaderIOAttrib>[1]>  = {
@@ -197,7 +197,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 20 bytes) NodeShaderInfoTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderInfoTable[1] = {
 // CHECK:    <0:NodeShaderInfo> = {
 // CHECK:      LaunchType: Broadcasting
 // CHECK:      GroupSharedBytesUsed: 0

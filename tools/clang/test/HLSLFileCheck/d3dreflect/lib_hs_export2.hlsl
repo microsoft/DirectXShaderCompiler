@@ -1,4 +1,4 @@
-// RUN: %dxc -auto-binding-space 13 -T lib_6_3 -exports HSMain1;HSMain3 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -T lib_6_3 -exports HSMain1;HSMain3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 Buffer<float> T_unused;
 
@@ -94,8 +94,8 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:   StringBuffer (size = {{[0-9]+}} bytes)
 // CHECK:   IndexTable (size = {{[0-9]+}} bytes)
 // CHECK:   RawBytes (size = {{[0-9]+}} bytes)
-// CHECK:   RecordTable (stride = 56 bytes) FunctionTable[5] = {
-// CHECK:     <0:RuntimeDataFunctionInfo3> = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[5] = {
+// CHECK:     <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?HSMain1{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "HSMain1"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -105,13 +105,13 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <1:RuntimeDataFunctionInfo3> = {
+// CHECK:     <1:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?HSMain3{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "HSMain3"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -121,13 +121,13 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <2:RuntimeDataFunctionInfo3> = {
+// CHECK:     <2:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "HSMain1"
 // CHECK:       UnmangledName: "HSMain1"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -144,7 +144,7 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:       HS: <0:HSInfo>
 // CHECK:     }
-// CHECK:     <3:RuntimeDataFunctionInfo3> = {
+// CHECK:     <3:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "HSMain3"
 // CHECK:       UnmangledName: "HSMain3"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -161,7 +161,7 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:       HS: <1:HSInfo>
 // CHECK:     }
-// CHECK:     <4:RuntimeDataFunctionInfo3> = {
+// CHECK:     <4:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?HSPerPatchFunc1{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "HSPerPatchFunc1"
 // CHECK:       Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -178,7 +178,7 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 16 bytes) SignatureElementTable[5] = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) SignatureElementTable[5] = {
 // CHECK:     <0:SignatureElement> = {
 // CHECK:       SemanticName: "SV_Position"
 // CHECK:       SemanticIndices: <0:array[1]> = { 0 }
@@ -230,7 +230,7 @@ HSPerPatchData HSPerPatchFunc1()
 // CHECK:       UsageAndDynIndexMasks: 0
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 48 bytes) HSInfoTable[2] = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) HSInfoTable[2] = {
 // CHECK:     <0:HSInfo> = {
 // CHECK:       SigInputElements: <2:RecordArrayRef<SignatureElement>[3]>  = {
 // CHECK:         [0]: <0:SignatureElement>

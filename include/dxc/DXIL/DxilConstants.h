@@ -205,6 +205,13 @@ enum class ShaderKind {
   Amplification,
   Node,
   Invalid,
+
+  // Last* values identify the last shader kind recognized by the highest
+  // validator version before additional kinds were added.
+  Last_1_2 = Compute,
+  Last_1_4 = Callable,
+  Last_1_7 = Amplification,
+  LastValid = Node,
 };
 
 // clang-format off

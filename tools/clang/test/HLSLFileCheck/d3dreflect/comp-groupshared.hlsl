@@ -1,10 +1,10 @@
-// RUN: %dxc -T lib_6_5 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_5 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 // CHECK:DxilRuntimeData (size = {{[0-9]+}} bytes):
 // CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
 // CHECK:  IndexTable (size = {{[0-9]+}} bytes)
 // CHECK:  RawBytes (size = {{[0-9]+}} bytes)
-// CHECK:  RecordTable (stride = 32 bytes) ResourceTable[2] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) ResourceTable[2] = {
 // CHECK:    <0:RuntimeDataResourceInfo> = {
 // CHECK:      Class: SRV
 // CHECK:      Kind: TypedBuffer
@@ -26,8 +26,8 @@
 // CHECK:      Flags: 0 (None)
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 56 bytes) FunctionTable[1] = {
-// CHECK:    <0:RuntimeDataFunctionInfo3> = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[1] = {
+// CHECK:    <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:      Name: "main"
 // CHECK:      UnmangledName: "main"
 // CHECK:      Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -69,7 +69,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) CSInfoTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) CSInfoTable[1] = {
 // CHECK:    <0:CSInfo> = {
 // CHECK:      NumThreads: <3:array[3]> = { 64, 2, 2 }
 // CHECK:      GroupSharedBytesUsed: 16

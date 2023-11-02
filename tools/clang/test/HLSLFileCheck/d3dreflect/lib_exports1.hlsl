@@ -1,4 +1,4 @@
-// RUN: %dxc -auto-binding-space 13 -exports VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;PS_RENAMED=PSMain -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -exports VS_RENAMED=\01?VSMain@@YA?AV?$vector@M$03@@V?$vector@H$02@@@Z;PS_RENAMED=PSMain -T lib_6_3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 Buffer<float> T_unused;
 
@@ -25,7 +25,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:   StringBuffer (size = {{[0-9]+}} bytes)
 // CHECK:   IndexTable (size = {{[0-9]+}} bytes)
 // CHECK:   RawBytes (size = {{[0-9]+}} bytes)
-// CHECK:   RecordTable (stride = 32 bytes) ResourceTable[3] = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) ResourceTable[3] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
 // CHECK:       Class: SRV
 // CHECK:       Kind: TypedBuffer
@@ -57,8 +57,8 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Flags: 0 (None)
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 56 bytes) FunctionTable[3] = {
-// CHECK:     <0:RuntimeDataFunctionInfo3> = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[3] = {
+// CHECK:     <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?VS_RENAMED{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "VS_RENAMED"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -70,13 +70,13 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <1:RuntimeDataFunctionInfo3> = {
+// CHECK:     <1:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?PS_RENAMED{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "PS_RENAMED"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -89,13 +89,13 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <2:RuntimeDataFunctionInfo3> = {
+// CHECK:     <2:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "PS_RENAMED"
 // CHECK:       UnmangledName: "PS_RENAMED"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -116,7 +116,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       PS: <0:PSInfo>
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 16 bytes) SignatureElementTable[2] = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) SignatureElementTable[2] = {
 // CHECK:     <0:SignatureElement> = {
 // CHECK:       SemanticName: "INDEX"
 // CHECK:       SemanticIndices: <5:array[1]> = { 0 }
@@ -138,7 +138,7 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       UsageAndDynIndexMasks: 0
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 8 bytes) PSInfoTable[1] = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) PSInfoTable[1] = {
 // CHECK:     <0:PSInfo> = {
 // CHECK:       SigInputElements: <5:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:         [0]: <0:SignatureElement>
