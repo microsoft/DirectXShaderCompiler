@@ -4939,23 +4939,25 @@ Value *CGMSHLSLRuntime::EmitHLSLLiteralCast(CodeGenFunction &CGF, Value *Src,
     }
   } else if (ConstantFP *CF = dyn_cast<ConstantFP>(Src)) {
     APFloat v = CF->getValueAPF();
-    double dv = v.convertToDouble();
     if (llvm::IntegerType *IT = dyn_cast<llvm::IntegerType>(DstTy)) {
+      APSInt iv(IT->getBitWidth(), DstType->hasUnsignedIntegerRepresentation());
+      bool isExact;
+      v.convertToInteger(iv, APFloat::roundingMode::rmTowardZero, &isExact);
       switch (IT->getBitWidth()) {
       case 32:
-        return Builder.getInt32(dv);
+        return Builder.getInt32(iv.getExtValue());
       case 64:
-        return Builder.getInt64(dv);
+        return Builder.getInt64(iv.getExtValue());
       case 16:
-        return Builder.getInt16(dv);
+        return Builder.getInt16(iv.getExtValue());
       case 8:
-        return Builder.getInt8(dv);
+        return Builder.getInt8(iv.getExtValue());
       default:
         return nullptr;
       }
     } else {
       if (DstTy->isFloatTy()) {
-        float fv = dv;
+        float fv = v.convertToDouble();
         return ConstantFP::get(DstTy->getContext(), APFloat(fv));
       } else {
         return Builder.CreateFPTrunc(Src, DstTy);
