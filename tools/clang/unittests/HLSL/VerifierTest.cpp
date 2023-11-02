@@ -125,6 +125,18 @@ public:
   }
 };
 
+TEST_F(VerifierTest, RunShaderMismatch) {
+  CheckVerifiesHLSL(L"shader_attribute.hlsl");
+  CheckVerifiesHLSL(L"shader_attribute_no_mismatch.hlsl");
+}
+
+TEST_F(VerifierTest, RunMaxRecordsAttribute) {
+  CheckVerifiesHLSL(L"max_output_records_duplicate.hlsl");
+  CheckVerifiesHLSL(L"max_output_records_identical_duplicates.hlsl");
+  CheckVerifiesHLSL(L"max_output_records_invalidref.hlsl");
+  // TODO: CheckVerifiesHLSL(L"max_output_records_shared_with.hlsl");
+}
+
 TEST_F(VerifierTest, RunCppErrors) { CheckVerifiesHLSL(L"cpp-errors.hlsl"); }
 
 TEST_F(VerifierTest, RunCppErrorsHV2015) {
