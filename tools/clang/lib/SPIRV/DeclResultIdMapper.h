@@ -529,6 +529,8 @@ public:
                                   QualType outputControlPointType,
                                   SpirvInstruction *ptr);
 
+  spv::ExecutionMode getInterlockExecutionMode();
+
 private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
@@ -661,7 +663,7 @@ private:
                        const llvm::StringRef namePrefix,
                        llvm::Optional<SpirvInstruction *> invocationId,
                        SpirvInstruction **value, bool noWriteBack,
-                       SemanticInfo *inheritSemantic);
+                       SemanticInfo *inheritSemantic, bool asNoInterp = false);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the instruction. Also sets whether the StageVar is a SPIR-V builtin and
@@ -709,7 +711,8 @@ private:
   /// Decorates varInstr of the given asType with proper interpolation modes
   /// considering the attributes on the given decl.
   void decorateInterpolationMode(const NamedDecl *decl, QualType asType,
-                                 SpirvVariable *varInstr);
+                                 SpirvVariable *varInstr,
+                                 const SemanticInfo semanticInfo);
 
   /// Returns the proper SPIR-V storage class (Input or Output) for the given
   /// SigPoint.
@@ -780,6 +783,10 @@ private:
                                           StageVar *stageVar,
                                           SpirvVariable *varInst);
 
+  /// \brief Records which execution mode should be used for rasterizer order
+  /// views.
+  void setInterlockExecutionMode(spv::ExecutionMode mode);
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
@@ -821,6 +828,14 @@ private:
   /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
   /// to the SPIR-V type.
   llvm::DenseMap<const DeclContext *, const SpirvType *> ctBufferPCTypes;
+
+  /// The execution mode to use for rasterizer ordered views. Should be set to
+  /// PixelInterlockOrderedEXT (default), SampleInterlockOrderedEXT, or
+  /// ShadingRateInterlockOrderedEXT. This will be set based on which semantics
+  /// are present in input variables, and will be used to determine which
+  /// execution mode to attach to the entry point if it uses rasterizer ordered
+  /// views.
+  llvm::Optional<spv::ExecutionMode> interlockExecutionMode;
 
   /// The SPIR-V builtin variables accessed by WaveGetLaneCount(),
   /// WaveGetLaneIndex() and ray tracing builtins.
@@ -888,6 +903,8 @@ private:
   /// an additional SPIR-V optimization pass to flatten such structures.
   bool needsFlatteningCompositeResources;
 
+  uint32_t perspBaryCentricsIndex, noPerspBaryCentricsIndex;
+
 public:
   /// The gl_PerVertex structs for both input and output
   GlPerVertex glPerVertex;
@@ -917,6 +934,7 @@ DeclResultIdMapper::DeclResultIdMapper(ASTContext &context,
       spirvOptions(options), astContext(context), spvContext(spirvContext),
       diags(context.getDiagnostics()), entryFunction(nullptr),
       needsLegalization(false), needsFlatteningCompositeResources(false),
+      perspBaryCentricsIndex(2), noPerspBaryCentricsIndex(2),
       glPerVertex(context, spirvContext, spirvBuilder) {}
 
 bool DeclResultIdMapper::decorateStageIOLocations() {

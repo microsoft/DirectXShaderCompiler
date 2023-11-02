@@ -114,6 +114,11 @@ public:
   // Add an entry point to the module.
   void addEntryPoint(SpirvEntryPoint *);
 
+  // Returns an existing execution mode instruction that is the same as em if it
+  // exists. Return nullptr otherwise.
+  SpirvExecutionMode *findExecutionMode(SpirvFunction *entryPoint,
+                                        spv::ExecutionMode em);
+
   // Adds an execution mode to the module.
   void addExecutionMode(SpirvExecutionMode *);
 
@@ -158,6 +163,10 @@ public:
   llvm::ArrayRef<SpirvEntryPoint *> getEntryPoints() const {
     return entryPoints;
   }
+
+  void setPerVertexInterpMode(bool b) { perVertexInterp = b; }
+
+  bool isPerVertexInterpMode() const { return perVertexInterp; }
 
 private:
   // Use a set for storing capabilities. This will ensure there are no duplicate
@@ -204,6 +213,8 @@ private:
 
   // Keep all rich DebugInfo instructions.
   llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
+  // Whether current module is in pervertex interpolation mode.
+  bool perVertexInterp;
 };
 
 } // end namespace spirv

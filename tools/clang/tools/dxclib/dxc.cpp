@@ -778,7 +778,8 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
     IFT(pPdbUtils->GetSourceName(i, &pFileName));
     IFT(pIncludeHandler->insertIncludeFile(pFileName, pSourceFile, 0));
     if (pMainFileName == pFileName) {
-      pCompileSource.Attach(pSourceFile);
+      // Transfer pSourceFile to avoid extra AddRef+Release.
+      pCompileSource.Attach(pSourceFile.Detach());
     }
   }
 
@@ -802,11 +803,6 @@ void DxcContext::Recompile(IDxcBlob *pSource, IDxcLibrary *pLibrary,
                            NewDefines.data(), NewDefines.size(),
                            pIncludeHandler, &pResult));
   }
-
-#ifndef _WIN32
-  // FIXME: fix crash on linux when not detach pCompileSource.
-  pCompileSource.Detach();
-#endif
 
   *ppCompileResult = pResult.Detach();
 }

@@ -8297,8 +8297,6 @@ class db_hlsl(object):
             "ThreadNodeOutputRecords": "LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS",
         }
 
-        # TODO HEKOTAS remove old intrinsics - end
-
         self.trans_rowcol = {"r": "IA_R", "c": "IA_C", "r2": "IA_R2", "c2": "IA_C2"}
         self.param_qual = {
             "in": "AR_QUAL_IN",

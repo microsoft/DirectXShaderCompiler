@@ -6318,6 +6318,12 @@ bool HLSLExternalSource::IsValidObjectElement(LPCSTR tableName,
       return true;
     // 6.7 adds UINT sampler support
     if (IS_BASIC_UINT(kind) || IS_BASIC_SINT(kind)) {
+      bool IsSampleC = (op == IntrinsicOp::MOP_SampleCmp ||
+                        op == IntrinsicOp::MOP_SampleCmpLevel ||
+                        op == IntrinsicOp::MOP_SampleCmpLevelZero);
+      // SampleCmp* cannot support integer resource.
+      if (IsSampleC)
+        return false;
       const auto *SM = hlsl::ShaderModel::GetByName(
           m_sema->getLangOpts().HLSLProfile.c_str());
       return SM->IsSM67Plus();
@@ -13570,6 +13576,11 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
   case AttributeList::AT_VKExtensionExt:
     declAttr = ::new (S.Context) VKExtensionExtAttr(
         A.getRange(), S.Context, ValidateAttributeStringArg(S, A, nullptr),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKSpvExecutionMode:
+    declAttr = ::new (S.Context) VKSpvExecutionModeAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_VKInstructionExt:

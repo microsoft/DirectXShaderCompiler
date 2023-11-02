@@ -23,7 +23,6 @@
 #include "ShaderOpTest.h"
 
 #include "HlslTestUtils.h"          // LogCommentFmt
-#include "WexTestClass.h"           // TAEF
 #include "dxc/DXIL/DxilConstants.h" // ComponentType
 #include "dxc/Support/Global.h"     // OutputDebugBytes
 #include "dxc/Support/dxcapi.use.h" // DxcDllSupport

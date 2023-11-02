@@ -685,7 +685,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "SampleCmp",
         OCC::SampleCmp,
         "sampleCmp",
-        {false, true, true, false, false, false, true, true, false, false,
+        {false, true, true, false, false, false, false, false, false, false,
          false},
         Attribute::ReadOnly,
     },
@@ -694,7 +694,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "SampleCmpLevelZero",
         OCC::SampleCmpLevelZero,
         "sampleCmpLevelZero",
-        {false, true, true, false, false, false, true, true, false, false,
+        {false, true, true, false, false, false, false, false, false, false,
          false},
         Attribute::ReadOnly,
     },
@@ -3380,17 +3380,6 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
       PointerType::get(GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
                                              "dx.types.waveMatrix", pModule),
                        0);
-
-  // When loading a module into an existing context where types are merged,
-  // type names may change.  When this happens, any intrinsics overloaded on
-  // UDT types will no longer have matching overload names.
-  // This causes RefreshCache() to assert.
-  // This fixes the function names to they match the expected types,
-  // preventing RefreshCache() from failing due to this issue.
-  FixOverloadNames();
-
-  // Try to find existing intrinsic function.
-  RefreshCache();
 }
 
 void OP::RefreshCache() {
@@ -3487,16 +3476,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *pWaveMatPtr = GetWaveMatPtrType();
   Type *pGSEltPtrTy =
       pETy->isVoidTy() ? nullptr : pETy->getPointerTo(DXIL::kTGSMAddrSpace);
-
-  std::string funcName;
-  ConstructOverloadName(pOverloadType, opCode, funcName);
-
-  // Try to find exist function with the same name in the module.
-  if (Function *existF = m_pModule->getFunction(funcName)) {
-    F = existF;
-    UpdateCache(opClass, pOverloadType, F);
-    return F;
-  }
 
 #define A(_x) ArgTypes.emplace_back(_x)
 #define RRT(_y) A(GetResRetType(_y))
@@ -5387,6 +5366,21 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   pFT = FunctionType::get(
       ArgTypes[0], ArrayRef<Type *>(&ArgTypes[1], ArgTypes.size() - 1), false);
 
+  std::string funcName;
+  ConstructOverloadName(pOverloadType, opCode, funcName);
+
+  // Try to find existing function with the same name in the module.
+  // This needs to happen after the switch statement that constructs arguments
+  // and return values to ensure that ResRetType is constructed in the
+  // RefreshCache case.
+  if (Function *existF = m_pModule->getFunction(funcName)) {
+    DXASSERT(existF->getFunctionType() == pFT,
+             "existing function must have the expected function type");
+    F = existF;
+    UpdateCache(opClass, pOverloadType, F);
+    return F;
+  }
+
   F = cast<Function>(m_pModule->getOrInsertFunction(funcName, pFT));
 
   UpdateCache(opClass, pOverloadType, F);
@@ -5452,7 +5446,7 @@ bool OP::UseMinPrecision() {
   return m_LowPrecisionMode == DXIL::LowPrecisionMode::UseMinPrecision;
 }
 
-void OP::SetMinPrecision(bool bMinPrecision) {
+void OP::InitWithMinPrecision(bool bMinPrecision) {
   DXIL::LowPrecisionMode mode =
       bMinPrecision ? DXIL::LowPrecisionMode::UseMinPrecision
                     : DXIL::LowPrecisionMode::UseNativeLowPrecision;
@@ -5460,7 +5454,25 @@ void OP::SetMinPrecision(bool bMinPrecision) {
             m_LowPrecisionMode == DXIL::LowPrecisionMode::Undefined),
            "LowPrecisionMode should only be set once.");
 
-  m_LowPrecisionMode = mode;
+  if (mode != m_LowPrecisionMode) {
+    m_LowPrecisionMode = mode;
+
+    // The following FixOverloadNames() and RefreshCache() calls interact with
+    // the type cache, which can only be correctly constructed once we know
+    // the min precision mode.  That's why they are called here, rather than
+    // in the constructor.
+
+    // When loading a module into an existing context where types are merged,
+    // type names may change.  When this happens, any intrinsics overloaded on
+    // UDT types will no longer have matching overload names.
+    // This causes RefreshCache() to assert.
+    // This fixes the function names to they match the expected types,
+    // preventing RefreshCache() from failing due to this issue.
+    FixOverloadNames();
+
+    // Try to find existing intrinsic function.
+    RefreshCache();
+  }
 }
 
 uint64_t OP::GetAllocSizeForType(llvm::Type *Ty) {
@@ -5765,6 +5777,8 @@ Type *OP::GetCBufferRetType(Type *pOverloadType) {
   unsigned TypeSlot = GetTypeSlot(pOverloadType);
 
   if (m_pCBufferRetType[TypeSlot] == nullptr) {
+    DXASSERT(m_LowPrecisionMode != DXIL::LowPrecisionMode::Undefined,
+             "m_LowPrecisionMode must be set before constructing type.");
     string TypeName("dx.types.CBufRet.");
     TypeName += GetOverloadTypeName(TypeSlot);
     Type *i64Ty = Type::getInt64Ty(pOverloadType->getContext());

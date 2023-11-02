@@ -42,7 +42,9 @@ add_clang_library(ClangHLSLTests SHARED
   Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp
+  PixDiaTest.cpp
   PixTest.cpp
+  PixTestUtils.cpp
   RewriterTest.cpp
   SystemValueTest.cpp
   ValidationTest.cpp
@@ -53,8 +55,7 @@ add_clang_library(ClangHLSLTests SHARED
 else (WIN32)
 set(HLSL_IGNORE_SOURCES
   MSFileSysTest.cpp
-  PixTest.cpp
-  RewriterTest.cpp
+  PixDiaTest.cpp
   )
 
 add_clang_unittest(ClangHLSLTests
@@ -71,6 +72,9 @@ add_clang_unittest(ClangHLSLTests
   Objects.cpp
   OptimizerTest.cpp
   OptionsTest.cpp
+  RewriterTest.cpp
+  PixTest.cpp
+  PixTestUtils.cpp
   SystemValueTest.cpp
   TestMain.cpp
   ValidationTest.cpp
@@ -95,6 +99,7 @@ target_link_libraries(ClangHLSLTests PRIVATE
 else(WIN32)
 target_link_libraries(ClangHLSLTests
   dxcompiler
+  LLVMDxilDia
   HLSLTestLib
   )
 endif(WIN32)

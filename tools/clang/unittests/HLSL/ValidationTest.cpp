@@ -307,6 +307,9 @@ public:
   TEST_METHOD(NodeInputCompatibility)
   TEST_METHOD(NodeInputMultiplicity)
 
+  TEST_METHOD(CacheInitWithMinPrec)
+  TEST_METHOD(CacheInitWithLowPrec)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -944,12 +947,12 @@ TEST_F(ValidationTest, QuadOpInVS) {
       "struct PerThreadData { int "
       "input; int output; }; RWStructuredBuffer<PerThreadData> g_sb; "
       "void main(uint vid : SV_VertexID)"
-      "{ g_sb[vid].output = WaveActiveSum(g_sb[vid].input); }",
+      "{ g_sb[vid].output = WaveActiveBitAnd((uint)g_sb[vid].input); }",
       "vs_6_0",
-      {"@dx.op.waveActiveOp.i32(i32 119",
-       "declare i32 @dx.op.waveActiveOp.i32(i32, i32, i8, i8)"},
+      {"@dx.op.waveActiveBit.i32(i32 120",
+       "declare i32 @dx.op.waveActiveBit.i32(i32, i32, i8)"},
       {"@dx.op.quadOp.i32(i32 123",
-       "declare i32 @dx.op.quadOp.i32(i32, i32, i8, i8)"},
+       "declare i32 @dx.op.quadOp.i32(i32, i32, i8)"},
       "QuadOp not valid in shader model vs_6_0");
 }
 
@@ -4476,4 +4479,20 @@ TEST_F(ValidationTest, NodeInputMultiplicity) {
        "!14}"}, // extra EmptyNodeInput
       "node shader 'node03' may not have more than one input record (2 are "
       "declared)");
+}
+
+TEST_F(ValidationTest, CacheInitWithMinPrec) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+  // Ensures type cache is property initialized when in min-precision mode
+  TestCheck(L"..\\DXILValidation\\val-dx-type-minprec.ll");
+}
+
+TEST_F(ValidationTest, CacheInitWithLowPrec) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+  // Ensures type cache is property initialized when in exact low-precision mode
+  TestCheck(L"..\\DXILValidation\\val-dx-type-lowprec.ll");
 }
