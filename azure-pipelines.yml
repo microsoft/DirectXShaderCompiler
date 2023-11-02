@@ -49,7 +49,7 @@ stages:
           configuration: Release
           CC: clang
           CXX: clang++
-          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_ENABLE_SANITIZER=Address -DLLVM_ENABLE_LIBCXX=On -DLLVM_USE_LINKER=lld
+          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_USE_SANITIZER=Address -DLLVM_ENABLE_LIBCXX=On -DLLVM_USE_LINKER=lld
           OS: Linux
         Linux_Clang_Debug:
           image: ${{ variables.linux }}
