@@ -15246,10 +15246,9 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
 // Diagnose input node record to make sure it has exactly one SV_DispatchGrid
 // semantics. Recursivelly walk all fields on the record and all of its base
 // classes/structs
-void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
-                                              CXXRecordDecl *InputRecordDecl,
-                                              SourceLocation &DispatchGridLoc,
-                                              bool &Found) {
+void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
+                                   SourceLocation &DispatchGridLoc,
+                                   bool &Found) {
 
   // Walk up the inheritance chain and check all fields on base classes
   for (auto &B : InputRecordDecl->bases()) {
@@ -15258,8 +15257,7 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
       CXXRecordDecl *BaseTypeDecl =
           dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
       if (nullptr != BaseTypeDecl) {
-        DiagnoseMustHaveOneDispatchGridSemantics(S, BaseTypeDecl,
-                                                 DispatchGridLoc, Found);
+        DiagnoseDispatchGridSemantics(S, BaseTypeDecl, DispatchGridLoc, Found);
       }
     }
   }
@@ -15273,6 +15271,26 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
         if (sd->SemanticName.equals("SV_DispatchGrid")) {
           if (!Found) {
             Found = true;
+            QualType Ty = FD->getType();
+            QualType ElTy = Ty;
+            unsigned NumElt = 1;
+            if (hlsl::IsVectorType(&S, Ty)) {
+              NumElt = hlsl::GetElementCount(Ty);
+              ElTy = hlsl::GetHLSLVecElementType(Ty);
+            } else if (const ArrayType *AT = Ty->getAsArrayTypeUnsafe()) {
+              if (auto *CAT = dyn_cast<ConstantArrayType>(AT)) {
+                NumElt = CAT->getSize().getZExtValue();
+                ElTy = AT->getElementType();
+              }
+            }
+            ElTy = ElTy.getDesugaredType(S.getASTContext());
+            if (NumElt > 3 || (ElTy != S.getASTContext().UnsignedIntTy &&
+                               ElTy != S.getASTContext().UnsignedShortTy)) {
+              S.Diags.Report(
+                  it->Loc,
+                  diag::err_hlsl_incompatible_dispatchgrid_semantic_type)
+                  << Ty;
+            }
             DispatchGridLoc = it->Loc;
           } else {
             // There should be just one SV_DispatchGrid in per record struct
@@ -15292,19 +15310,16 @@ void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
       CXXRecordDecl *FieldTypeDecl =
           dyn_cast<CXXRecordDecl>(FieldTypeAsStruct->getDecl());
       if (nullptr != FieldTypeDecl) {
-        DiagnoseMustHaveOneDispatchGridSemantics(S, FieldTypeDecl,
-                                                 DispatchGridLoc, Found);
+        DiagnoseDispatchGridSemantics(S, FieldTypeDecl, DispatchGridLoc, Found);
       }
     }
   }
 }
 
-void DiagnoseMustHaveOneDispatchGridSemantics(Sema &S,
-                                              CXXRecordDecl *InputRecordStruct,
-                                              bool &Found) {
+void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordStruct,
+                                   bool &Found) {
   SourceLocation DispatchGridLoc;
-  DiagnoseMustHaveOneDispatchGridSemantics(S, InputRecordStruct,
-                                           DispatchGridLoc, Found);
+  DiagnoseDispatchGridSemantics(S, InputRecordStruct, DispatchGridLoc, Found);
 }
 
 void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
@@ -15493,8 +15508,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                     dyn_cast<CXXRecordDecl>(NodeInputStructType->getDecl());
                 if (nullptr != NodeInputStructDecl) {
                   // Make sure there is exactly one SV_DispatchGrid semantics
-                  DiagnoseMustHaveOneDispatchGridSemantics(
-                      S, NodeInputStructDecl, Found);
+                  // and it has correct type.
+                  DiagnoseDispatchGridSemantics(S, NodeInputStructDecl, Found);
                 }
               }
             }

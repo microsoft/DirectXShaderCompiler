@@ -153,7 +153,7 @@ void node20(DispatchNodeInputRecord<C> input)
 { }
 
 struct D {
-  uint4 grid1 : SV_DispatchGrid;   // expected-note {{other SV_DispatchGrid defined here}}
+  uint3 grid1 : SV_DispatchGrid;   // expected-note {{other SV_DispatchGrid defined here}}
 };
 
 struct E {
