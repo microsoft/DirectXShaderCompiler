@@ -4,26 +4,16 @@
 ; SROA woulda have reduced the %inputData variable to an i32, but this pass should now keep the type the same.
 ; Specifically, before the change associated with this new test, the CHECKs below would fail because
 ; SROA would replace struct.DispatchNodeInputRecord<loadStressRecord> with i32.
+
+; The test was generated using the pass test generation script:
+; python3 ExtractIRForPassTest.py -p scalarrepl-param-hlsl -o outtest_without_nodeiotypecheck.ll %HLSL_SRC_DIR%\tools\clang\test\HLSLFileCheck\hlsl\workgraph\called_function_arg_record_object.hlsl -- -T lib_6_8
+
 ; 
 ; CHECK: alloca %"struct.DispatchNodeInputRecord<loadStressRecord>"
+; CHECK: alloca %"struct.GroupNodeOutputRecords<loadStressRecord>"
 ; CHECK: load %"struct.DispatchNodeInputRecord<loadStressRecord>", %"struct.DispatchNodeInputRecord<loadStressRecord>"*
+; CHECK: load %"struct.GroupNodeOutputRecords<loadStressRecord>", %"struct.GroupNodeOutputRecords<loadStressRecord>"
 
-; Buffer Definitions:
-;
-; cbuffer $Globals
-; {
-;
-;   [0 x i8] (type annotation not present)
-;
-; }
-;
-;
-; Resource Bindings:
-;
-; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
-; ------------------------------ ---------- ------- ----------- ------- -------------- ------
-; $Globals                          cbuffer      NA          NA     CB0   cb4294967295     1
-;
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
@@ -192,6 +182,3 @@ attributes #1 = { nounwind readnone }
 !45 = !DILocation(line: 19, column: 26, scope: !29, inlinedAt: !30)
 !46 = !DILocation(line: 20, column: 1, scope: !29, inlinedAt: !30)
 !47 = !DILocation(line: 29, column: 1, scope: !24)
-
-; The test was generated using the pass test generation script:
-; python3 ExtractIRForPassTest.py -p scalarrepl-param-hlsl -o outtest_without_nodeiotypecheck.ll %HLSL_SRC_DIR%\tools\clang\test\HLSLFileCheck\hlsl\workgraph\called_function_arg_record_object.hlsl -- -T lib_6_8
