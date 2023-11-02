@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -HV 2021 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -HV 2021 -verify %s
+// RUN: %dxc -Tvs_6_0 -HV 2021 -verify %s
 
 typedef int T : 1; /* expected-error {{expected unqualified-id}} expected-error {{expected ';' after top level declarator}} */
 static int sb : 1; /* expected-error {{expected unqualified-id}} expected-error {{expected ';' after top level declarator}} */
@@ -31,7 +32,7 @@ struct A {
   uint bitY : 4;
   uint var;
 };
-
+[shader("vertex")]
 void main(A a : IN) {
   int x;
   x = sizeof(a.bitX); /* expected-error {{invalid application of 'sizeof' to bit-field}} */

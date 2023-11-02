@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2021 %s
+// RUN: %dxc -Tlib_6_3 -verify -HV 2021 %s
+// RUN: %dxc -Tvs_6_0 -verify -HV 2021 %s
 
 template<typename T>
 struct Foo {
@@ -11,6 +12,7 @@ struct MyStruct {
   float f;
 };
 
+[shader("vertex")]
 void main() {
   Foo<MyStruct> foo;                      /* expected-note {{in instantiation of template class 'Foo<MyStruct>' requested here}} */
 }

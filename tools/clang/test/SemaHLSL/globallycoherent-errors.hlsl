@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tps_6_0 -verify %s
 
 globallycoherent RWTexture1D<float4> uav1 : register(u3);
 RWBuffer<float4> uav2;
@@ -12,6 +13,7 @@ globallycoherent float One() { // expected-error{{'globallycoherent' is not a va
   return 1.0;
 }
 
+[shader("pixel")]
  float4 main(uint2 a : A, uint2 b : B) : SV_Target
 {
   globallycoherent  RWTexture1D<float4> uav3 = uav1;

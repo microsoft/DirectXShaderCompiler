@@ -1,4 +1,6 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tps_6_0 -verify %s
+
 // :FXC_VERIFY_ARGUMENTS: /E main /T ps_5_1 /Gec
 
 Texture2D tex : register(t1), tex2 : register(t2)
@@ -46,6 +48,7 @@ sampler S : register(s1) = sampler_state {texture=tex;};    /* expected-warning 
 */
 SamplerComparisonState SC : register(s3) = sampler_state {texture=tex;};    /* expected-warning {{effect sampler_state assignment ignored - effect syntax is deprecated}} fxc-pass {{}} */
 
+[shader("pixel")]
 float4 main() : SV_Target
 {
   StateBlock SB;                                            /* expected-error {{unknown type name 'StateBlock'}} fxc-error {{X3000: unrecognized identifier 'SB'}} fxc-error {{X3000: unrecognized identifier 'StateBlock'}} */

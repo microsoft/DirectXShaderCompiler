@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tps_6_0 -verify %s
 
 // Ensure that invalid unbounded multidimensional resource arrays of various kinds
 // Fail appropriately
@@ -116,6 +117,7 @@ AppendStructuredBuffer<float4>  ASBuf[3][2][] : register(u0, space25);    /* exp
 FeedbackTexture2D<SAMPLER_FEEDBACK_MIN_MIP>      FBTex2D[3][2][] : register(u0, space26);    /* expected-error {{array has incomplete element type 'FeedbackTexture2D<SAMPLER_FEEDBACK_MIN_MIP> []'}} expected-error {{invalid register specification, expected 'b', 'c', or 'i' binding}} fxc-error {{X3000: unrecognized identifier 'FeedbackTexture2D'}} */
 FeedbackTexture2DArray<SAMPLER_FEEDBACK_MIN_MIP> FBTex2DArr[3][2][] : register(u0, space27);    /* expected-error {{array has incomplete element type 'FeedbackTexture2DArray<SAMPLER_FEEDBACK_MIN_MIP> []'}} expected-error {{invalid register specification, expected 'b', 'c', or 'i' binding}} fxc-error {{X3000: unrecognized identifier 'FeedbackTexture2DArray'}} */
 
+[shader("pixel")]
 float4 main() : SV_Target {
   return 0.0;
 }

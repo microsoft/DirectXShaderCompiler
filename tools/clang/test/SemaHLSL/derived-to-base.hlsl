@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tvs_6_0 -verify %s
 
 struct Base {
     float4 a;
@@ -14,7 +15,7 @@ struct DerivedAgain : Derived {
     float4 c;
     float4 d;
 };
-
+[shader("vertex")]
 float main() : A {
     DerivedAgain da1, da2;
 

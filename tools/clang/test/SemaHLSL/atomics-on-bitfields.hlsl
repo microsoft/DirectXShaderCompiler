@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -HV 2021 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -HV 2021 -verify %s
+// RUN: %dxc -Tcs_6_0 -HV 2021 -verify %s
 
 // Ensure that atomic operations fail when used with bitfields
 // Use structured and typed buffers as the resources that can use structs
@@ -16,6 +17,7 @@ RWBuffer<TexCoords> buf;
 RWStructuredBuffer<TexCoords> str;
 groupshared TexCoords gs;
 
+[shader("compute")]
 [numthreads(8,8,1)]
 void main( uint2 tid : SV_DispatchThreadID) {
 

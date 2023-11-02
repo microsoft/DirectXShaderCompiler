@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify -HV 2018 %s
+// RUN: %dxc -Tlib_6_3 -verify -HV 2018 %s
+// RUN: %dxc -Tps_6_0 -verify -HV 2018 %s
 
 // Disable validation on fxc (/Vd) because
 // non-literal ternary with objects results in bad code.
@@ -52,7 +53,7 @@ float a4[8];
 void Select(out Texture2D TOut) { /* expected-note {{candidate function}} fxc-pass {{}} */
   TOut = b4.x ? T1 : T2;
 }
-
+[shader("pixel")]
 float4 main(float4 v0 : TEXCOORD) : SV_Target
 {
   float4 acc = 0.0F;

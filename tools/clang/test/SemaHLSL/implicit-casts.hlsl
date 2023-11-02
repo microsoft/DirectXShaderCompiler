@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -Wno-unused-value -fsyntax-only -ffreestanding -HV 2018 -verify %s
+// RUN: %dxc -Tlib_6_3 -Wno-unused-value -HV 2018 -verify %s
+// RUN: %dxc -Tps_6_0 -Wno-unused-value -HV 2018 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 implicit-casts.hlsl
@@ -987,6 +988,7 @@ bool1 stresstest() {
   */
 }
 
+[shader("pixel")]
 float4 main() : SV_Target
 {
   return test();

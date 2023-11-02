@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tgs_6_0 -verify %s
 
 struct GSOut {
   float2 uv : TEXCOORD0;
@@ -11,6 +12,7 @@ cbuffer b : register(b0) {
   float2 invViewportSize;
 };
 
+[shader("geometry")]
 // geometry shader that outputs 3 vertices from a point
 [maxvertexcount(3)]
 [instance(24)]
