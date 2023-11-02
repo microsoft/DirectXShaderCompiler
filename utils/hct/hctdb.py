@@ -3028,7 +3028,7 @@ class db_dxil(object):
         #self.add_valrule("Uni.NoWaveSensitiveGradient", "Gradient operations are not affected by wave-sensitive data or control flow.")
         
         self.add_valrule("Flow.Reducible", "Execution flow must be reducible.")
-        self.add_valrule("Flow.NoRecusion", "Recursion is not permitted.")
+        self.add_valrule("Flow.NoRecursion", "Recursion is not permitted.")
         self.add_valrule("Flow.DeadLoop", "Loop must have break.")
         self.add_valrule_msg("Flow.FunctionCall", "Function with parameter is not permitted", "Function %0 with parameter is not permitted, it should be inlined.")
 

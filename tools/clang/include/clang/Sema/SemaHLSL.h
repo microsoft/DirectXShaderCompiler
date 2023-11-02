@@ -69,6 +69,11 @@ void DiagnosePackingOffset(clang::Sema *self, clang::SourceLocation loc,
 void DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
                           clang::QualType type, char registerType);
 
+clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
+                                         clang::FunctionDecl *FD);
+
+void ValidateNoRecursionInTranslationUnit(clang::Sema *self);
+
 void DiagnoseTranslationUnit(clang::Sema *self);
 
 void DiagnoseUnusualAnnotationsForHLSL(

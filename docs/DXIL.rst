@@ -3031,7 +3031,7 @@ DECL.USEDEXTERNALFUNCTION                 External function must be used
 DECL.USEDINTERNAL                         Internal declaration must be used
 FLOW.DEADLOOP                             Loop must have break.
 FLOW.FUNCTIONCALL                         Function with parameter is not permitted
-FLOW.NORECUSION                           Recursion is not permitted.
+FLOW.NORECURSION                          Recursion is not permitted.
 FLOW.REDUCIBLE                            Execution flow must be reducible.
 INSTR.ALLOWED                             Instructions must be of an allowed type.
 INSTR.ATOMICCONST                         Constant destination to atomic.
