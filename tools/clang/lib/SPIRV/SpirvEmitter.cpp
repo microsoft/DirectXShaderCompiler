@@ -11968,7 +11968,7 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   // arg1 : vertexId
   const auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
   const auto *arg1ConstExpr = dyn_cast<SpirvConstantInteger>(arg1BaseExpr);
-  const auto *vertexId = arg1ConstExpr->getValue().getRawData();
+  const auto vertexId = arg1ConstExpr->getValue();
 
   // arg0 : <NoInterpolation> decorated input
   // Tip  : for input with boolean type, we need to ignore implicit cast first,
@@ -11985,8 +11985,8 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   }
   // Change to access chain instr
   SpirvInstruction *accessChainPtr = paramDeclInstr;
-  SpirvConstant *vtxId = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                   llvm::APInt(32, *vertexId));
+  SpirvConstant *vtxId = spvBuilder.getConstantInt(
+      astContext.UnsignedIntTy, llvm::APInt(32, *(vertexId.getRawData())));
   if (isa<SpirvAccessChain>(accessChainPtr)) {
     auto *accessInstr = dyn_cast<SpirvAccessChain>(accessChainPtr);
     accessInstr->insertIndex(vtxId, accessInstr->getIndexes().size());
