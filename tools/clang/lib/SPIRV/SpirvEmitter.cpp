@@ -11379,7 +11379,9 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
                                                      hlsl::IntrinsicOp op) {
   // Processing the `dot4add_i8packed` and `dot4add_u8packed` intrinsics.
   // There is no direct substitution for them in SPIR-V, but the combination
-  // of OpSDot / OpUDot and OpIAdd works.
+  // of OpSDot / OpUDot and OpIAdd works. Note that the OpSDotAccSat and
+  // OpUDotAccSat operations are not matching the HLSL intrinsics as there
+  // should not be any saturation.
   //
   // int32 dot4add_i8packed(uint32 a, uint32 b, int32 acc);
   //    A 4-dimensional signed integer dot-product with add. Multiplies together
@@ -11412,23 +11414,18 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
   // Prepare the array inputs for createSpirvIntrInstExt below.
   // Need to use this function because the OpSDot/OpUDot operations require
   // two capabilities and an extension to be declared in the module.
-  llvm::SmallVector<SpirvInstruction *, 2> operands;
-  llvm::SmallVector<uint32_t, 2> capabilities;
-  llvm::SmallVector<llvm::StringRef, 1> extensions;
+  SpirvInstruction *operands[]{arg0Instr, arg1Instr};
+  uint32_t capabilities[]{
+      uint32_t(spv::Capability::DotProduct),
+      uint32_t(spv::Capability::DotProductInput4x8BitPacked)};
+  llvm::StringRef extensions[]{"SPV_KHR_integer_dot_product"};
   llvm::StringRef instSet = "";
 
-  operands.push_back(arg0Instr);
-  operands.push_back(arg1Instr);
-  capabilities.push_back(uint32_t(spv::Capability::DotProduct));
-  capabilities.push_back(
-      uint32_t(spv::Capability::DotProductInput4x8BitPacked));
-  extensions.push_back("SPV_KHR_integer_dot_product");
-
-  // Pick the opcode and return type based on the instruction.
+  // Pick the opcode based on the instruction.
   const bool isSigned = op == hlsl::IntrinsicOp::IOP_dot4add_i8packed;
   const spv::Op spirvOp = isSigned ? spv::Op::OpSDot : spv::Op::OpUDot;
-  const auto returnType =
-      isSigned ? astContext.IntTy : astContext.UnsignedIntTy;
+
+  const auto returnType = callExpr->getType();
 
   // Create the dot product instruction.
   auto *dotResult =

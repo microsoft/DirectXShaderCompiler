@@ -1,9 +1,6 @@
 // RUN: %dxc -E main -T ps_6_4 -fspv-target-env=vulkan1.1 -fcgl  %s -spirv  2>&1 | FileCheck %s
 
-float2 f2;
-
 float2 main(uint4 inputs : Inputs0, uint acc0 : Acc0, int acc1 : Acc1) : SV_Target {
-// CHECK-LABEL: %bb_entry = OpLabel
   uint acc = 0;
 
 // CHECK:       [[input_x_ref:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %inputs %int_0
@@ -24,5 +21,5 @@ float2 main(uint4 inputs : Inputs0, uint acc0 : Acc0, int acc1 : Acc1) : SV_Targ
 // CHECK-NEXT:  [[t3:%[0-9]+]] = OpIAdd %int [[t2]] [[a1]]
   acc += dot4add_i8packed(inputs.z, inputs.w, acc1);
 
-  return f2 * acc;
+  return acc;
 }
