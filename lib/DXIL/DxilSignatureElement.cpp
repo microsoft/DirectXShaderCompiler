@@ -51,6 +51,9 @@ void DxilSignatureElement::Initialize(llvm::StringRef Name,
     m_SemanticStartIndex = IndexVector[0];
   // Find semantic in the table.
   m_pSemantic = Semantic::GetByName(m_SemanticName, m_sigPointKind);
+  // Replace semantic name with canonical name if it's a system value.
+  if (!m_pSemantic->IsInvalid() && !m_pSemantic->IsArbitrary())
+    m_SemanticName = m_pSemantic->GetName();
   SetCompType(ElementType);
   m_InterpMode = InterpMode;
   m_SemanticIndex = IndexVector;

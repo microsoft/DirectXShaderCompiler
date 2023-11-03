@@ -755,6 +755,14 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   return interfacesInVector;
 }
 
+void SpirvEmitter::beginInvocationInterlock(SourceLocation loc,
+                                            SourceRange range) {
+  spvBuilder.addExecutionMode(
+      entryFunction, declIdMapper.getInterlockExecutionMode(), {}, loc);
+  spvBuilder.createBeginInvocationInterlockEXT(loc, range);
+  needsLegalization = true;
+}
+
 llvm::StringRef SpirvEmitter::getEntryPointName(const FunctionInfo *entryInfo) {
   llvm::StringRef entrypointName = entryInfo->funcDecl->getName();
   // If this is the -E HLSL entrypoint and -fspv-entrypoint-name was set,
@@ -1441,7 +1449,8 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       // Remember the parameter for the 'this' object so later we can handle
       // CXXThisExpr correctly.
       curThis = spvBuilder.addFnParam(valueType, /*isPrecise*/ false,
-                                      decl->getLocStart(), "param.this");
+                                      /*isNoInterp*/ false, decl->getLocStart(),
+                                      "param.this");
       if (isOrContainsAKindOfStructuredOrByteBuffer(valueType)) {
         curThis->setContainsAliasComponent(true);
         needsLegalization = true;
@@ -2674,18 +2683,24 @@ SpirvInstruction *
 SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr,
                                    SourceRange rangeOverride) {
   llvm::SmallVector<SpirvInstruction *, 4> indices;
-  const auto *base = collectArrayStructIndices(
-      expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
+  bool isNoInterp = false;
+  const auto *base = collectArrayStructIndices(expr, /*rawIndex*/ false,
+                                               /*rawIndices*/ nullptr, &indices,
+                                               nullptr, &isNoInterp);
   auto *info = loadIfAliasVarRef(base);
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
-  if (indices.empty()) {
+  if (!info || indices.empty()) {
     return info;
   }
 
-  return derefOrCreatePointerToValue(base->getType(), info, expr->getType(),
-                                     indices, base->getExprLoc(), range);
+  SpirvInstruction *loadVal =
+      derefOrCreatePointerToValue(base->getType(), info, expr->getType(),
+                                  indices, base->getExprLoc(), range);
+  if (!loadVal->isNoninterpolated())
+    loadVal->setNoninterpolated(isNoInterp);
+  return loadVal;
 }
 
 SpirvInstruction *SpirvEmitter::doBinaryOperator(const BinaryOperator *expr) {
@@ -2944,9 +2959,10 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // inside the function, not the variables at the call sites. Therefore, we
       // do not need to mark the "param.var.*" variables as precise.
       const bool isPrecise = false;
+      const bool isNoInterp = param->hasAttr<HLSLNoInterpolationAttr>();
 
-      auto *tempVar =
-          spvBuilder.addFnVar(varType, arg->getLocStart(), varName, isPrecise);
+      auto *tempVar = spvBuilder.addFnVar(varType, arg->getLocStart(), varName,
+                                          isPrecise, isNoInterp);
 
       vars.push_back(tempVar);
       isTempVar.push_back(true);
@@ -4076,6 +4092,9 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
       spvBuilder.createImageQuery(spv::Op::OpImageQueryLod, queryResultType,
                                   expr->getExprLoc(), sampledImage, coordinate);
 
+  if (spvContext.isCS()) {
+    addDerivativeGroupExecutionMode();
+  }
   // The first component of the float2 contains the mipmap array layer.
   // The second component of the float2 represents the unclamped lod.
   return spvBuilder.createCompositeExtract(astContext.FloatTy, query,
@@ -4250,6 +4269,11 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
          isRWTexture(type) || isSubpassInput(type) || isSubpassInputMS(type));
 
   const bool doFetch = isBuffer(type) || isTexture(type);
+  const bool rasterizerOrdered = isRasterizerOrderedView(type);
+
+  if (rasterizerOrdered) {
+    beginInvocationInterlock(loc, range);
+  }
 
   auto *objectInfo = loadIfGLValue(object, range);
 
@@ -4313,6 +4337,10 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
       varOffset, /*constOffsets*/ nullptr, sampleNumber, residencyCode, loc,
       range);
 
+  if (rasterizerOrdered) {
+    spvBuilder.createEndInvocationInterlockEXT(loc, range);
+  }
+
   // If the result type is a vec1, vec2, or vec3, some extra processing
   // (extraction) is required.
   auto *retVal = extractVecFromVec4(texel, elemCount, elemType, loc, range);
@@ -4368,19 +4396,30 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
 
   const auto range = expr->getSourceRange();
 
+  const bool rasterizerOrder = isRasterizerOrderedView(object->getType());
+
   if (isTemplatedLoadOrStore) {
     // Templated load. Need to (potentially) perform more
     // loads/casts/composite-constructs.
+    if (rasterizerOrder) {
+      beginInvocationInterlock(expr->getLocStart(), range);
+    }
+
     if (doStore) {
       auto *values = doExpr(expr->getArg(1));
       RawBufferHandler(*this).processTemplatedStoreToBuffer(
           values, objectInfo, byteAddress, expr->getArg(1)->getType(), range);
-      return nullptr;
+      result = nullptr;
     } else {
       RawBufferHandler rawBufferHandler(*this);
-      return rawBufferHandler.processTemplatedLoadFromBuffer(
+      result = rawBufferHandler.processTemplatedLoadFromBuffer(
           objectInfo, byteAddress, expr->getType(), range);
     }
+
+    if (rasterizerOrder) {
+      spvBuilder.createEndInvocationInterlockEXT(expr->getLocStart(), range);
+    }
+    return result;
   }
 
   // Do a OpShiftRightLogical by 2 (divide by 4 to get aligned memory
@@ -4394,6 +4433,10 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
 
   // We might be able to reduce duplication by handling this with
   // processTemplatedLoadFromBuffer
+
+  if (rasterizerOrder) {
+    beginInvocationInterlock(expr->getLocStart(), range);
+  }
 
   // Perform access chain into the RWByteAddressBuffer.
   // First index must be zero (member 0 of the struct is a
@@ -4457,11 +4500,16 @@ SpirvInstruction *SpirvEmitter::processByteAddressBufferLoadStore(
           astContext.getExtVectorType(addressType, numWords);
       result = spvBuilder.createCompositeConstruct(resultType, values,
                                                    expr->getLocStart(), range);
-      if (!result)
-        return nullptr;
-
-      result->setRValue();
+      if (!result) {
+        result = nullptr;
+      } else {
+        result->setRValue();
+      }
     }
+  }
+
+  if (rasterizerOrder) {
+    spvBuilder.createEndInvocationInterlockEXT(expr->getLocStart(), range);
   }
 
   return result;
@@ -5268,9 +5316,10 @@ SpirvInstruction *SpirvEmitter::createImageSample(
   // Otherwise we use implicit-lod instructions.
   const bool isExplicit = lod || (grad.first && grad.second);
 
-  // Implicit-lod instructions are only allowed in pixel shader.
-  if (!spvContext.isPS() && !isExplicit)
-    emitError("sampling with implicit lod is only allowed in fragment shaders",
+  // Implicit-lod instructions are only allowed in pixel and compute shaders.
+  if (!spvContext.isPS() && !spvContext.isCS() && !isExplicit)
+    emitError("sampling with implicit lod is only allowed in fragment and "
+              "compute shaders",
               loc);
 
   auto *retVal = spvBuilder.createImageSample(
@@ -5347,6 +5396,9 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
+    if (spvContext.isCS()) {
+      addDerivativeGroupExecutionMode();
+    }
     return createImageSample(retType, imageType, image, sampler, coordinate,
                              /*compareVal*/ nullptr, /*bias*/ nullptr,
                              /*lod*/ nullptr, std::make_pair(nullptr, nullptr),
@@ -5434,6 +5486,9 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
+  if (!lod && spvContext.isCS()) {
+    addDerivativeGroupExecutionMode();
+  }
   return createImageSample(
       retType, imageType, image, sampler, coordinate,
       /*compareVal*/ nullptr, bias, lod, std::make_pair(nullptr, nullptr),
@@ -5582,6 +5637,10 @@ SpirvEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();
+
+  if (!lod && spvContext.isCS()) {
+    addDerivativeGroupExecutionMode();
+  }
 
   return createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal,
@@ -5967,6 +6026,20 @@ SpirvInstruction *SpirvEmitter::doInitListExpr(const InitListExpr *expr,
   return result;
 }
 
+bool SpirvEmitter::isNoInterpMemberExpr(const MemberExpr *expr) {
+  bool ret = false;
+  FieldDecl *D = dyn_cast<FieldDecl>(expr->getMemberDecl());
+  while (D != nullptr) {
+    if (D->hasAttr<HLSLNoInterpolationAttr>() ||
+        D->getParent()->hasAttr<HLSLNoInterpolationAttr>()) {
+      ret = true;
+    }
+    D = dyn_cast<FieldDecl>(D->getParent());
+  }
+  auto *base = dyn_cast<MemberExpr>(expr->getBase());
+  return ret || (base != nullptr && isNoInterpMemberExpr(base));
+}
+
 SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
                                              SourceRange rangeOverride) {
   llvm::SmallVector<SpirvInstruction *, 4> indices;
@@ -5983,8 +6056,11 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
 
   const auto *fieldDecl = dyn_cast<FieldDecl>(expr->getMemberDecl());
   if (!fieldDecl || !fieldDecl->isBitField()) {
-    return derefOrCreatePointerToValue(base->getType(), instr, expr->getType(),
-                                       indices, loc, range);
+    SpirvInstruction *retInstr = derefOrCreatePointerToValue(
+        base->getType(), instr, expr->getType(), indices, loc, range);
+    if (isNoInterpMemberExpr(expr))
+      retInstr->setNoninterpolated();
+    return retInstr;
   }
 
   auto baseType = expr->getBase()->getType();
@@ -6793,7 +6869,7 @@ void SpirvEmitter::initOnce(QualType varType, std::string varName,
 
   // Create a file/module visible variable to hold the initialization state.
   SpirvVariable *initDoneVar = spvBuilder.addModuleVar(
-      astContext.BoolTy, spv::StorageClass::Private, /*isPrecise*/ false,
+      astContext.BoolTy, spv::StorageClass::Private, /*isPrecise*/ false, false,
       varName, spvBuilder.getConstantBool(false));
 
   auto *condition = spvBuilder.createLoad(astContext.BoolTy, initDoneVar, loc);
@@ -7392,10 +7468,20 @@ SpirvInstruction *SpirvEmitter::tryToAssignToRWBufferRWTexture(
     auto *loc = doExpr(indexExpr, range);
     const QualType imageType = baseExpr->getType();
     auto *baseInfo = doExpr(baseExpr, range);
+
+    const bool rasterizerOrder = isRasterizerOrderedView(imageType);
+    if (rasterizerOrder) {
+      beginInvocationInterlock(baseExpr->getExprLoc(), range);
+    }
+
     auto *image = spvBuilder.createLoad(imageType, baseInfo,
                                         baseExpr->getExprLoc(), range);
     spvBuilder.createImageWrite(imageType, image, loc, rhs, lhs->getExprLoc(),
                                 range);
+
+    if (rasterizerOrder) {
+      spvBuilder.createEndInvocationInterlockEXT(baseExpr->getExprLoc(), range);
+    }
     return rhs;
   }
   return nullptr;
@@ -7837,8 +7923,8 @@ SpirvEmitter::processMatrixBinaryOp(const Expr *lhs, const Expr *rhs,
 const Expr *SpirvEmitter::collectArrayStructIndices(
     const Expr *expr, bool rawIndex,
     llvm::SmallVectorImpl<uint32_t> *rawIndices,
-    llvm::SmallVectorImpl<SpirvInstruction *> *indices,
-    bool *isMSOutAttribute) {
+    llvm::SmallVectorImpl<SpirvInstruction *> *indices, bool *isMSOutAttribute,
+    bool *isNointerp) {
   assert((rawIndex && rawIndices) || (!rawIndex && indices));
 
   if (const auto *indexing = dyn_cast<MemberExpr>(expr)) {
@@ -7850,6 +7936,9 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
             astContext, NestedNameSpecifierLoc(), SourceLocation(), varDecl,
             /*RefersToEnclosingVariableOrCapture=*/false, SourceLocation(),
             varDecl->getType(), VK_LValue);
+
+    if (isNointerp)
+      *isNointerp = *isNointerp || isNoInterpMemberExpr(indexing);
 
     const Expr *base = collectArrayStructIndices(
         indexing->getBase(), rawIndex, rawIndices, indices, isMSOutAttribute);
@@ -7897,8 +7986,8 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     // The base of an ArraySubscriptExpr has a wrapping LValueToRValue implicit
     // cast. We need to ingore it to avoid creating OpLoad.
     const Expr *thisBase = indexing->getBase()->IgnoreParenLValueCasts();
-    const Expr *base = collectArrayStructIndices(thisBase, rawIndex, rawIndices,
-                                                 indices, isMSOutAttribute);
+    const Expr *base = collectArrayStructIndices(
+        thisBase, rawIndex, rawIndices, indices, isMSOutAttribute, isNointerp);
     // The index into an array must be an integer number.
     const auto *idxExpr = indexing->getIdx();
     const auto idxExprType = idxExpr->getType();
@@ -7940,6 +8029,12 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
           indexing->getArg(0)->IgnoreParenNoopCasts(astContext);
 
       const auto thisBaseType = thisBase->getType();
+
+      // If the base type is user defined, return the call expr so that any
+      // user-defined overloads of operator[] are called.
+      if (hlsl::IsUserDefinedRecordType(thisBaseType))
+        return expr;
+
       const Expr *base = collectArrayStructIndices(
           thisBase, rawIndex, rawIndices, indices, isMSOutAttribute);
 
@@ -8028,26 +8123,33 @@ SpirvInstruction *SpirvEmitter::derefOrCreatePointerToValue(
     QualType baseType, SpirvInstruction *base, QualType elemType,
     const llvm::SmallVector<SpirvInstruction *, 4> &indices, SourceLocation loc,
     SourceRange range) {
+  SpirvInstruction *value = nullptr;
+
   if (base->isLValue()) {
-    return spvBuilder.createAccessChain(elemType, base, indices, loc, range);
+    value = spvBuilder.createAccessChain(elemType, base, indices, loc, range);
+  } else {
+
+    // If this is a rvalue, we need a temporary object to hold it
+    // so that we can get access chain from it.
+    SpirvVariable *variable = turnIntoLValue(baseType, base, loc);
+    SpirvInstruction *chain =
+        spvBuilder.createAccessChain(elemType, variable, indices, loc, range);
+
+    // Okay, this part seems weird, but it is intended:
+    // If the base is originally a rvalue, the whole AST involving the base
+    // is consistently set up to handle rvalues. By copying the base into
+    // a temporary variable and grab an access chain from it, we are breaking
+    // the consistency by turning the base from rvalue into lvalue. Keep in
+    // mind that there will be no LValueToRValue casts in the AST for us
+    // to rely on to load the access chain if a rvalue is expected. Therefore,
+    // we must do the load here. Otherwise, it's up to the consumer of this
+    // access chain to do the load, and that can be everywhere.
+    value = spvBuilder.createLoad(elemType, chain, loc);
   }
 
-  // If this is a rvalue, we need a temporary object to hold it
-  // so that we can get access chain from it.
-  SpirvVariable *variable = turnIntoLValue(baseType, base, loc);
-  SpirvInstruction *chain =
-      spvBuilder.createAccessChain(elemType, variable, indices, loc, range);
+  value->setRasterizerOrdered(isRasterizerOrderedView(baseType));
 
-  // Okay, this part seems weird, but it is intended:
-  // If the base is originally a rvalue, the whole AST involving the base
-  // is consistently set up to handle rvalues. By copying the base into
-  // a temporary variable and grab an access chain from it, we are breaking
-  // the consistency by turning the base from rvalue into lvalue. Keep in
-  // mind that there will be no LValueToRValue casts in the AST for us
-  // to rely on to load the access chain if a rvalue is expected. Therefore,
-  // we must do the load here. Otherwise, it's up to the consumer of this
-  // access chain to do the load, and that can be everywhere.
-  return spvBuilder.createLoad(elemType, chain, loc);
+  return value;
 }
 
 SpirvInstruction *SpirvEmitter::castToBool(SpirvInstruction *fromVal,
@@ -8765,6 +8867,10 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
                      : GLSLstd450::GLSLstd450UMax;
     retVal = processIntrinsicUsingGLSLInst(callExpr, glslOpcode, true, srcLoc,
                                            srcRange);
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex: {
+    retVal = processGetAttributeAtVertex(callExpr);
     break;
   }
   case hlsl::IntrinsicOp::IOP_ufirstbithigh: {
@@ -11087,8 +11193,14 @@ SpirvEmitter::processIntrinsicF32ToF16(const CallExpr *callExpr) {
 
 SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     const CallExpr *callExpr, spv::Op opcode, bool actPerRowForMatrices) {
-  // Certain opcodes are only allowed in pixel shader
-  if (!spvContext.isPS())
+  // The derivative opcodes are only allowed in pixel shader, or in compute
+  // shaderers when the SPV_NV_compute_shader_derivatives is enabled.
+  if (!spvContext.isPS()) {
+    // For cases where the instructions are known to be invalid, we turn on
+    // legalization expecting the invalid use to be optimized away. For compute
+    // shaders, we add the execution mode to enable the derivatives. We legalize
+    // in this case as well because that is what we did before the extension was
+    // used, and we do not want to change previous behaviour too much.
     switch (opcode) {
     case spv::Op::OpDPdx:
     case spv::Op::OpDPdy:
@@ -11099,13 +11211,15 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     case spv::Op::OpFwidth:
     case spv::Op::OpFwidthFine:
     case spv::Op::OpFwidthCoarse:
+      if (spvContext.isCS())
+        addDerivativeGroupExecutionMode();
       needsLegalization = true;
       break;
     default:
-      // Only the given opcodes need legalization. Anything else should preserve
-      // previous.
+      // Only the given opcodes need legalization and the execution mode.
       break;
     }
+  }
 
   const auto loc = callExpr->getExprLoc();
   const auto range = callExpr->getSourceRange();
@@ -11841,6 +11955,53 @@ void SpirvEmitter::processMeshOutputCounts(const CallExpr *callExpr) {
   }
 }
 
+SpirvInstruction *
+SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
+  // Implicit type conversion should bound to two things:
+  // 1. Function Parameter, and recursively redecl mapped function called's var
+  // types.
+  // 2. User defined structure types, which may be used in function local
+  // variables (AccessChain add index 0 at end)
+  const auto exprLoc = expr->getExprLoc();
+  const auto exprRange = expr->getSourceRange();
+
+  // arg1 : vertexId
+  const auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
+  const auto *arg1ConstExpr = dyn_cast<SpirvConstantInteger>(arg1BaseExpr);
+  const auto *vertexId = arg1ConstExpr->getValue().getRawData();
+
+  // arg0 : <NoInterpolation> decorated input
+  // Tip  : for input with boolean type, we need to ignore implicit cast first,
+  //        to match surrounded workaround cast expr.
+  auto *arg0NoCast = expr->getArg(0)->IgnoreCasts();
+  SpirvInstruction *paramDeclInstr = doExpr(arg0NoCast);
+  // Hans't be redeclared before
+  QualType elementType = paramDeclInstr->getAstResultType();
+
+  if (isBoolOrVecOfBoolType(elementType)) {
+    emitError("attribute evaluation can only be done "
+              "on values taken directly from inputs.",
+              {});
+  }
+  // Change to access chain instr
+  SpirvInstruction *accessChainPtr = paramDeclInstr;
+  SpirvConstant *vtxId = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                   llvm::APInt(32, *vertexId));
+  if (isa<SpirvAccessChain>(accessChainPtr)) {
+    auto *accessInstr = dyn_cast<SpirvAccessChain>(accessChainPtr);
+    accessInstr->insertIndex(vtxId, accessInstr->getIndexes().size());
+  } else
+    accessChainPtr = spvBuilder.createAccessChain(elementType, accessChainPtr,
+                                                  vtxId, exprLoc, exprRange);
+  dyn_cast<SpirvAccessChain>(accessChainPtr)->setNoninterpolated(false);
+  auto *loadPtr =
+      spvBuilder.createLoad(elementType, accessChainPtr, exprLoc, exprRange);
+  // PerVertexKHR Decorator and type redecl will be done in later pervertex
+  // visitor.
+  spvBuilder.setPerVertexInterpMode(true);
+  return loadPtr;
+}
+
 SpirvConstant *SpirvEmitter::getValueZero(QualType type) {
   {
     QualType scalarType = {};
@@ -12149,6 +12310,19 @@ SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk,
   default:
     llvm_unreachable("invalid shader model kind");
     break;
+  }
+}
+
+void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
+  if (!decl->hasAttrs())
+    return;
+
+  for (auto &attr : decl->getAttrs()) {
+    if (auto *modeAttr = dyn_cast<VKSpvExecutionModeAttr>(attr)) {
+      spvBuilder.addExecutionMode(
+          entryFunction, spv::ExecutionMode(modeAttr->getExecutionMode()), {},
+          modeAttr->getLocation());
+    }
   }
 }
 
@@ -12478,7 +12652,8 @@ bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
     std::string tempVarName = "param.var." + param->getNameAsString();
     auto *tempVar =
         spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName,
-                            param->hasAttr<HLSLPreciseAttr>());
+                            param->hasAttr<HLSLPreciseAttr>(),
+                            param->hasAttr<HLSLNoInterpolationAttr>());
 
     SpirvVariable *curStageVar = nullptr;
 
@@ -12745,6 +12920,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   assert(entryInfo->isEntryFunction);
   entryInfo->entryFunction = entryFunction;
 
+  processInlineSpirvAttributes(decl);
+
   if (spvContext.isRay()) {
     return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr,
                                                  debugFunction);
@@ -12859,7 +13036,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     std::string tempVarName = "param.var." + param->getNameAsString();
     auto *tempVar =
         spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName,
-                            param->hasAttr<HLSLPreciseAttr>());
+                            param->hasAttr<HLSLPreciseAttr>(),
+                            param->hasAttr<HLSLNoInterpolationAttr>());
 
     params.push_back(tempVar);
 
@@ -12882,6 +13060,10 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       // Only initialize the temporary variable if the parameter is indeed used.
       if (param->isUsed()) {
         spvBuilder.createStore(tempVar, loadedValue, param->getLocation());
+        // param is mapped to store object. Coule be a componentConstruct or
+        // Load
+        if (spvContext.isPS())
+          spvBuilder.addPerVertexStgInputFuncVarEntry(loadedValue, tempVar);
       }
 
       // Record the temporary variable holding SV_OutputControlPointID,
@@ -13045,8 +13227,9 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
         const QualType type = param->getType();
         std::string tempVarName = "param.var." + param->getNameAsString();
         auto paramLoc = param->getLocation();
-        auto *tempVar = spvBuilder.addFnVar(type, paramLoc, tempVarName,
-                                            param->hasAttr<HLSLPreciseAttr>());
+        auto *tempVar = spvBuilder.addFnVar(
+            type, paramLoc, tempVarName, param->hasAttr<HLSLPreciseAttr>(),
+            param->hasAttr<HLSLNoInterpolationAttr>());
         SpirvInstruction *loadedValue = nullptr;
         declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
         spvBuilder.createStore(tempVar, loadedValue, paramLoc);
@@ -14012,6 +14195,33 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
   }
 
   return tools.Validate(mod->data(), mod->size(), options);
+}
+
+void SpirvEmitter::addDerivativeGroupExecutionMode() {
+  assert(spvContext.isCS());
+
+  SpirvExecutionMode *numThreadsEm = spvBuilder.getModule()->findExecutionMode(
+      entryFunction, spv::ExecutionMode::LocalSize);
+  auto numThreads = numThreadsEm->getParams();
+
+  // The layout of the quad is determined by the numer of threads in each
+  // dimention. From the HLSL spec
+  // (https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html):
+  //
+  // Where numthreads has an X value divisible by 4 and Y and Z are both 1, the
+  // quad layouts are determined according to 1D quad rules. Where numthreads X
+  // and Y values are divisible by 2, the quad layouts are determined according
+  // to 2D quad rules. Using derivative operations in any numthreads
+  // configuration not matching either of these is invalid and will produce an
+  // error.
+  spv::ExecutionMode em = spv::ExecutionMode::DerivativeGroupQuadsNV;
+  if (numThreads[0] % 4 == 0 && numThreads[1] == 1 && numThreads[2] == 1) {
+    em = spv::ExecutionMode::DerivativeGroupLinearNV;
+  } else {
+    assert(numThreads[0] % 2 == 0 && numThreads[1] % 2 == 0);
+  }
+
+  spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());
 }
 
 bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,

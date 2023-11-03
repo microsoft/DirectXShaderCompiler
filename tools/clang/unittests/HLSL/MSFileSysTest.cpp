@@ -13,7 +13,6 @@
 // Includes on Windows are highly order dependent.
 #include <stdint.h>
 #include "dxc/Support/WinIncludes.h"
-#include "WexTestClass.h"
 #include "dxc/Test/HlslTestUtils.h"
 
 #include "llvm/Support/MSFileSystem.h"
@@ -38,14 +37,15 @@ private:                                                                       \
   volatile std::atomic<llvm::sys::cas_flag> m_dwRef;                           \
                                                                                \
 public:                                                                        \
-  ULONG STDMETHODCALLTYPE AddRef() { return (ULONG)++m_dwRef; }                \
-  ULONG STDMETHODCALLTYPE Release() {                                          \
+  ULONG STDMETHODCALLTYPE AddRef() override { return (ULONG)++m_dwRef; }       \
+  ULONG STDMETHODCALLTYPE Release() override {                                 \
     ULONG result = (ULONG)--m_dwRef;                                           \
     if (result == 0)                                                           \
       delete this;                                                             \
     return result;                                                             \
   }                                                                            \
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {     \
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject)       \
+      override {                                                               \
     if (ppvObject == nullptr)                                                  \
       return E_POINTER;                                                        \
     if (IsEqualIID(iid, __uuidof(IUnknown)) ||                                 \
@@ -100,12 +100,12 @@ public:
       m_items[i].pwcsName = CoTaskMemDup(m_items[i].pwcsName);
     }
   }
-  ~FixedEnumSTATSTG() {
+  virtual ~FixedEnumSTATSTG() {
     for (auto &item : m_items)
       CoTaskMemFree(item.pwcsName);
   }
-  virtual HRESULT STDMETHODCALLTYPE Next(ULONG celt, STATSTG *rgelt,
-                                         ULONG *pceltFetched) {
+  HRESULT STDMETHODCALLTYPE Next(ULONG celt, STATSTG *rgelt,
+                                 ULONG *pceltFetched) override {
     if (celt != 1 || pceltFetched == nullptr)
       return E_NOTIMPL;
     if (m_index >= m_items.size()) {
@@ -119,22 +119,20 @@ public:
     ++m_index;
     return S_OK;
   }
-  virtual HRESULT STDMETHODCALLTYPE Skip(ULONG celt) { return E_NOTIMPL; }
-  virtual HRESULT STDMETHODCALLTYPE Reset(void) { return E_NOTIMPL; }
-  virtual HRESULT STDMETHODCALLTYPE Clone(IEnumSTATSTG **) { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Skip(ULONG celt) override { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Reset(void) override { return E_NOTIMPL; }
+  HRESULT STDMETHODCALLTYPE Clone(IEnumSTATSTG **) override {
+    return E_NOTIMPL;
+  }
 };
 
 class MockDxcSystemAccess : public IDxcSystemAccess {
   SIMPLE_IUNKNOWN_IMPL1(IDxcSystemAccess)
-private:
-  LPCSTR m_fileName;
-  LPCSTR m_contents;
-  unsigned m_length;
 
 public:
   unsigned findCount;
   MockDxcSystemAccess() : m_dwRef(0), findCount(1) {}
-
+  virtual ~MockDxcSystemAccess() {}
   static HRESULT Create(MockDxcSystemAccess **pResult) {
     *pResult = new (std::nothrow) MockDxcSystemAccess();
     if (*pResult == nullptr)
@@ -143,8 +141,8 @@ public:
     return S_OK;
   }
 
-  virtual HRESULT STDMETHODCALLTYPE EnumFiles(LPCWSTR fileName,
-                                              IEnumSTATSTG **pResult) override {
+  HRESULT STDMETHODCALLTYPE EnumFiles(LPCWSTR fileName,
+                                      IEnumSTATSTG **pResult) override {
     wchar_t hlslName[] = L"filename.hlsl";
     wchar_t fxName[] = L"filename2.fx";
     STATSTG items[] = {{hlslName,
@@ -180,94 +178,96 @@ public:
     *pResult = resultEnum;
     return S_OK;
   }
-  virtual HRESULT STDMETHODCALLTYPE OpenStorage(LPCWSTR lpFileName,
-                                                DWORD dwDesiredAccess,
-                                                DWORD dwShareMode,
-                                                DWORD dwCreationDisposition,
-                                                DWORD dwFlagsAndAttributes,
-                                                IUnknown **pResult) override {
+  HRESULT STDMETHODCALLTYPE OpenStorage(LPCWSTR lpFileName,
+                                        DWORD dwDesiredAccess,
+                                        DWORD dwShareMode,
+                                        DWORD dwCreationDisposition,
+                                        DWORD dwFlagsAndAttributes,
+                                        IUnknown **pResult) override {
     *pResult = SHCreateMemStream(nullptr, 0);
     return (*pResult == nullptr) ? E_OUTOFMEMORY : S_OK;
   }
-  virtual HRESULT STDMETHODCALLTYPE
+  HRESULT STDMETHODCALLTYPE
   SetStorageTime(IUnknown *storage, const FILETIME *lpCreationTime,
                  const FILETIME *lpLastAccessTime,
                  const FILETIME *lpLastWriteTime) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE GetFileInformationForStorage(
+  HRESULT STDMETHODCALLTYPE GetFileInformationForStorage(
       IUnknown *storage,
       LPBY_HANDLE_FILE_INFORMATION lpFileInformation) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE
-  GetFileTypeForStorage(IUnknown *storage, DWORD *fileType) override {
+  HRESULT STDMETHODCALLTYPE GetFileTypeForStorage(IUnknown *storage,
+                                                  DWORD *fileType) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE CreateHardLinkInStorage(
+  HRESULT STDMETHODCALLTYPE CreateHardLinkInStorage(
       LPCWSTR lpFileName, LPCWSTR lpExistingFileName) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE MoveStorage(LPCWSTR lpExistingFileName,
-                                                LPCWSTR lpNewFileName,
-                                                DWORD dwFlags) override {
+  HRESULT STDMETHODCALLTYPE MoveStorage(LPCWSTR lpExistingFileName,
+                                        LPCWSTR lpNewFileName,
+                                        DWORD dwFlags) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE
+  HRESULT STDMETHODCALLTYPE
   GetFileAttributesForStorage(LPCWSTR lpFileName, DWORD *pResult) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE DeleteStorage(LPCWSTR lpFileName) override {
+  HRESULT STDMETHODCALLTYPE DeleteStorage(LPCWSTR lpFileName) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE
+  HRESULT STDMETHODCALLTYPE
   RemoveDirectoryStorage(LPCWSTR lpFileName) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE
+  HRESULT STDMETHODCALLTYPE
   CreateDirectoryStorage(LPCWSTR lpPathName) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE GetCurrentDirectoryForStorage(
-      DWORD nBufferLength, LPWSTR lpBuffer, DWORD *len) override {
+  HRESULT STDMETHODCALLTYPE GetCurrentDirectoryForStorage(DWORD nBufferLength,
+                                                          LPWSTR lpBuffer,
+                                                          DWORD *len) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE GetMainModuleFileNameW(
-      DWORD nBufferLength, LPWSTR lpBuffer, DWORD *len) override {
+  HRESULT STDMETHODCALLTYPE GetMainModuleFileNameW(DWORD nBufferLength,
+                                                   LPWSTR lpBuffer,
+                                                   DWORD *len) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE GetTempStoragePath(DWORD nBufferLength,
-                                                       LPWSTR lpBuffer,
-                                                       DWORD *len) override {
+  HRESULT STDMETHODCALLTYPE GetTempStoragePath(DWORD nBufferLength,
+                                               LPWSTR lpBuffer,
+                                               DWORD *len) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE
-  SupportsCreateSymbolicLink(BOOL *pResult) override {
+  HRESULT STDMETHODCALLTYPE SupportsCreateSymbolicLink(BOOL *pResult) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE CreateSymbolicLinkInStorage(
+  HRESULT STDMETHODCALLTYPE CreateSymbolicLinkInStorage(
       LPCWSTR lpSymlinkFileName, LPCWSTR lpTargetFileName,
       DWORD dwFlags) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE CreateStorageMapping(
-      IUnknown *hFile, DWORD flProtect, DWORD dwMaximumSizeHigh,
-      DWORD dwMaximumSizeLow, IUnknown **pResult) override {
+  HRESULT STDMETHODCALLTYPE CreateStorageMapping(IUnknown *hFile,
+                                                 DWORD flProtect,
+                                                 DWORD dwMaximumSizeHigh,
+                                                 DWORD dwMaximumSizeLow,
+                                                 IUnknown **pResult) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT MapViewOfFile(IUnknown *hFileMappingObject,
-                                DWORD dwDesiredAccess, DWORD dwFileOffsetHigh,
-                                DWORD dwFileOffsetLow,
-                                SIZE_T dwNumberOfBytesToMap,
-                                ID3D10Blob **pResult) override {
+  HRESULT MapViewOfFile(IUnknown *hFileMappingObject, DWORD dwDesiredAccess,
+                        DWORD dwFileOffsetHigh, DWORD dwFileOffsetLow,
+                        SIZE_T dwNumberOfBytesToMap,
+                        ID3D10Blob **pResult) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE
-  OpenStdStorage(int standardFD, IUnknown **pResult) override {
+  HRESULT STDMETHODCALLTYPE OpenStdStorage(int standardFD,
+                                           IUnknown **pResult) override {
     return E_NOTIMPL;
   }
-  virtual HRESULT STDMETHODCALLTYPE
-  GetStreamDisplay(ITextFont **textFont, unsigned *columnCount) override {
+  HRESULT STDMETHODCALLTYPE GetStreamDisplay(ITextFont **textFont,
+                                             unsigned *columnCount) override {
     return E_NOTIMPL;
   }
 };
@@ -306,7 +306,7 @@ void MSFileSysTest::FindFirstWhenInvokedThenFailsIfNoMatch() {
   CreateMSFileSystemForIface(access, &fileSystem);
   WIN32_FIND_DATAW findData;
   HANDLE h = fileSystem->FindFirstFileW(L"foobar", &findData);
-  VERIFY_ARE_EQUAL(ERROR_FILE_NOT_FOUND, GetLastError());
+  VERIFY_ARE_EQUAL(ERROR_FILE_NOT_FOUND, (long)GetLastError());
   VERIFY_ARE_EQUAL(INVALID_HANDLE_VALUE, h);
   VERIFY_ARE_EQUAL_WSTR(L"", findData.cFileName);
   delete fileSystem;
@@ -323,7 +323,7 @@ void MSFileSysTest::FindNextWhenLastThenNoMatch() {
   VERIFY_ARE_NOT_EQUAL(INVALID_HANDLE_VALUE, h);
   BOOL findNext = fileSystem->FindNextFileW(h, &findData);
   VERIFY_IS_FALSE(findNext);
-  VERIFY_ARE_EQUAL(ERROR_FILE_NOT_FOUND, GetLastError());
+  VERIFY_ARE_EQUAL(ERROR_FILE_NOT_FOUND, (long)GetLastError());
   fileSystem->FindClose(h);
   delete fileSystem;
 }
@@ -357,7 +357,7 @@ void MSFileSysTest::OpenWhenNewThenZeroSize() {
   char buf[4];
   DWORD bytesRead;
   VERIFY_IS_TRUE(fileSystem->ReadFile(h, buf, _countof(buf), &bytesRead));
-  VERIFY_ARE_EQUAL(0, bytesRead);
+  VERIFY_ARE_EQUAL(0u, bytesRead);
   fileSystem->CloseHandle(h);
   delete fileSystem;
 }

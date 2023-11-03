@@ -71,6 +71,8 @@ public:
 
   TEST_METHOD(PayloadQualifier)
 
+  TEST_METHOD(CanonicalSystemValueSemantic)
+
   void VerifyValidatorVersionFails(LPCWSTR shaderModel,
                                    const std::vector<LPCWSTR> &arguments,
                                    const std::vector<LPCSTR> &expectedErrors);
@@ -598,4 +600,24 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
                            DXIL::PayloadAccessShaderStage::Anyhit));
     }
   }
+}
+
+TEST_F(DxilModuleTest, CanonicalSystemValueSemantic) {
+  // Verify that the semantic name is canonicalized.
+
+  // This is difficult to do from a FileCheck test because system value
+  // semantics get canonicallized during the metadata emit.  However, having a
+  // non-canonical semantic name at earlier stages can lead to inconsistency
+  // between the strings used earlier and the final canonicalized version.  This
+  // makes sure the string gets canonicalized when the signature elsement is
+  // created.
+
+  std::unique_ptr<hlsl::DxilSignatureElement> newElt =
+      std::make_unique<hlsl::DxilSignatureElement>(
+          hlsl::DXIL::SigPointKind::VSOut);
+  newElt->Initialize("sV_pOsItIoN", hlsl::CompType::getF32(),
+                     hlsl::InterpolationMode(
+                         hlsl::DXIL::InterpolationMode::LinearNoperspective),
+                     1, 4, 0, 0, 0, {0});
+  VERIFY_ARE_EQUAL_STR("SV_Position", newElt->GetSemanticName().data());
 }

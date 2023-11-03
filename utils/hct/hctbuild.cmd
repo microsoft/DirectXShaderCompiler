@@ -204,6 +204,12 @@ if "%1"=="-default-adapter" (
   shift /1
   shift /1 & goto :parse_args
 )
+if "%1"=="-sanitizer" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_USE_SANITIZER:STRING=Address
+  shift /1 & goto :parse_args
+)
+
+
 rem Begin SPIRV change
 if "%1"=="-spirv" (
   echo SPIR-V codegen is enabled.
@@ -223,6 +229,10 @@ if "%1"=="-ninja" (
 )
 if "%1"=="-clang" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
+  shift /1 & goto :parse_args
+)
+if "%1"=="-clang-cl" (
+  set CMAKE_OPTS=%CMAKE_OPTS% -T ClangCL
   shift /1 & goto :parse_args
 )
 if "%1"=="-update-generated-sources" (
@@ -461,10 +471,10 @@ if "%DO_SETUP%"=="1" (
     echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
     "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
-    rem -DCMAKE_BUILD_TYPE:STRING=%1 is not necessary for multi-config generators like VS
-    rem but need CMAKE_BUILD_TYPE to generate lit cfg.
+    rem BUILD_TYPE is mostly ignored in this path as VS generates multiple targets
+    rem it is still needed to satisfy cmake file expectations
     echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1  %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
-    "%CMAKE_PATH%" %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if %SHOW_CMAKE_LOG%==1 (
     echo ------- Start of %3\cmake-log.txt -------

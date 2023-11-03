@@ -74,7 +74,9 @@ template <typename T> void DxcCallDestructor(T *obj) { obj->T::~T(); }
 #define DXC_MICROCOM_REF_FIELD(m_dwRef)                                        \
   volatile std::atomic<llvm::sys::cas_flag> m_dwRef = {0};
 #define DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                      \
-  ULONG STDMETHODCALLTYPE AddRef() override { return (ULONG)++m_dwRef; }
+  ULONG STDMETHODCALLTYPE AddRef() noexcept override {                         \
+    return (ULONG)++m_dwRef;                                                   \
+  }
 #define DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)                              \
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                            \
   ULONG STDMETHODCALLTYPE Release() override {                                 \
@@ -107,7 +109,7 @@ inline T *CreateOnMalloc(IMalloc *pMalloc, Args &&...args) {
 
 #define DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()                                  \
   DXC_MICROCOM_ADDREF_IMPL(m_dwRef)                                            \
-  ULONG STDMETHODCALLTYPE Release() override {                                 \
+  ULONG STDMETHODCALLTYPE Release() noexcept override {                        \
     ULONG result = (ULONG)--m_dwRef;                                           \
     if (result == 0) {                                                         \
       CComPtr<IMalloc> pTmp(m_pMalloc);                                        \

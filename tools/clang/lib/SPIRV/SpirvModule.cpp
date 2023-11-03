@@ -17,7 +17,8 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}), debugInstructions({}) {}
+      constants({}), variables({}), functions({}), debugInstructions({}),
+      perVertexInterp(false) {}
 
 SpirvModule::~SpirvModule() {
   for (auto *cap : capabilities)
@@ -275,6 +276,18 @@ bool SpirvModule::promoteAddressingModel(spv::AddressingModel addrModel) {
 void SpirvModule::addEntryPoint(SpirvEntryPoint *ep) {
   assert(ep && "cannot add null as an entry point");
   entryPoints.push_back(ep);
+}
+
+SpirvExecutionMode *SpirvModule::findExecutionMode(SpirvFunction *entryPoint,
+                                                   spv::ExecutionMode em) {
+  for (SpirvExecutionMode *cem : executionModes) {
+    if (cem->getEntryPoint() != entryPoint)
+      continue;
+    if (cem->getExecutionMode() != em)
+      continue;
+    return cem;
+  }
+  return nullptr;
 }
 
 void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {

@@ -4,7 +4,8 @@
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 
-// CHECK-COUNT-1: [[rs:%\d+]] = OpTypeAccelerationStructureNV
+// CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
+// CHECK-NOT: OpTypeAccelerationStructureKHR
 RaytracingAccelerationStructure AccelerationStructure : register(t0);
 RayDesc MakeRayDesc()
 {
