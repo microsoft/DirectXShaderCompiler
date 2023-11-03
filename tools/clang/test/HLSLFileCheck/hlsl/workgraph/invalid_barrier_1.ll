@@ -18,13 +18,13 @@ target triple = "dxil-ms-dx"
 define void @node01() #0 {
   
   ; CHECK: Invalid memory type flag  
-  call void @dx.op.barrierByMemoryType(i32 244, i32 16, i32 1, i32 1)  ; BarrierByMemoryType(MemoryTypeFlags,AccessFlags,SyncFlags)
+  call void @dx.op.barrierByMemoryType(i32 244, i32 16, i32 5)  ; BarrierByMemoryType(MemoryTypeFlags,AccessFlags,SemanticFlags)
 
   ret void
 }
 
 ; Function Attrs: noduplicate nounwind
-declare void @dx.op.barrierByMemoryType(i32, i32, i32, i32) #1
+declare void @dx.op.barrierByMemoryType(i32, i32, i32) #1
 
 attributes #0 = { nounwind }
 attributes #1 = { noduplicate nounwind }
