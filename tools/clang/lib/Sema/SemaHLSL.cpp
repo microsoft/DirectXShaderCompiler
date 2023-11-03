@@ -13147,6 +13147,10 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
             << pAttr->getRange();
         result = false;
       }
+      if (TInfo->getType().getTypePtr()->isUnionType()) {
+        Diag(pAttr->getLoc(), diag::err_union_groupshared);
+        result = false;
+      }
       break;
     case AttributeList::AT_HLSLGloballyCoherent: // Handled elsewhere
       break;
