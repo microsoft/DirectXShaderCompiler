@@ -30,16 +30,22 @@ RWBuffer<float4> Buf_r8;
 RWBuffer<float4> Buf_rg16snorm;
 
 [[vk::image_format("rgba32i")]]
-RWBuffer<float4> Buf_rgba32i;
+RWBuffer<int4> Buf_rgba32i;
 
 [[vk::image_format("rg8i")]]
-RWBuffer<float4> Buf_rg8i;
+RWBuffer<int2> Buf_rg8i;
 
 [[vk::image_format("rgba16ui")]]
-RWBuffer<float4> Buf_rgba16ui;
+RWBuffer<uint4> Buf_rgba16ui;
 
 [[vk::image_format("rgb10a2ui")]]
-RWBuffer<float4> Buf_rgb10a2ui;
+RWBuffer<uint4> Buf_rgb10a2ui;
+
+[[vk::image_format("r64i")]]
+RWBuffer<int64_t> Buf_r64i;
+
+[[vk::image_format("r64ui")]]
+RWBuffer<uint64_t> Buf_r64ui;
 
 struct S {
     RWBuffer<float4> b;

@@ -30,6 +30,85 @@ namespace spirv {
 
 namespace {
 
+// Returns true if the image format is compatible with the sampled type. This is
+// determined according to the same at
+// https://docs.vulkan.org/spec/latest/appendices/spirvenv.html#spirvenv-format-type-matching.
+bool areFormatAndTypeCompatible(spv::ImageFormat format, QualType sampledType) {
+  if (format == spv::ImageFormat::Unknown) {
+    return true;
+  }
+
+  if (hlsl::IsHLSLVecType(sampledType)) {
+    // For vectors, we need to check if the element type is compatible. We do
+    // not check the number of elements because it is possible that the number
+    // of elements in the sampled type is different. I could not find in the
+    // spec what should happen in that case.
+    sampledType = hlsl::GetHLSLVecElementType(sampledType);
+  }
+
+  const Type *desugaredType = sampledType->getUnqualifiedDesugaredType();
+  const BuiltinType *builtinType = dyn_cast<BuiltinType>(desugaredType);
+  if (!builtinType) {
+    return false;
+  }
+
+  switch (format) {
+  case spv::ImageFormat::Rgba32f:
+  case spv::ImageFormat::Rg32f:
+  case spv::ImageFormat::R32f:
+  case spv::ImageFormat::Rgba16f:
+  case spv::ImageFormat::Rg16f:
+  case spv::ImageFormat::R16f:
+  case spv::ImageFormat::Rgba16:
+  case spv::ImageFormat::Rg16:
+  case spv::ImageFormat::R16:
+  case spv::ImageFormat::Rgba16Snorm:
+  case spv::ImageFormat::Rg16Snorm:
+  case spv::ImageFormat::R16Snorm:
+  case spv::ImageFormat::Rgb10A2:
+  case spv::ImageFormat::R11fG11fB10f:
+  case spv::ImageFormat::Rgba8:
+  case spv::ImageFormat::Rg8:
+  case spv::ImageFormat::R8:
+  case spv::ImageFormat::Rgba8Snorm:
+  case spv::ImageFormat::Rg8Snorm:
+  case spv::ImageFormat::R8Snorm:
+    // 32-bit float
+    return builtinType->getKind() == BuiltinType::Float;
+  case spv::ImageFormat::Rgba32i:
+  case spv::ImageFormat::Rg32i:
+  case spv::ImageFormat::R32i:
+  case spv::ImageFormat::Rgba16i:
+  case spv::ImageFormat::Rg16i:
+  case spv::ImageFormat::R16i:
+  case spv::ImageFormat::Rgba8i:
+  case spv::ImageFormat::Rg8i:
+  case spv::ImageFormat::R8i:
+    // signed 32-bit int
+    return builtinType->getKind() == BuiltinType::Int;
+  case spv::ImageFormat::Rgba32ui:
+  case spv::ImageFormat::Rg32ui:
+  case spv::ImageFormat::R32ui:
+  case spv::ImageFormat::Rgba16ui:
+  case spv::ImageFormat::Rg16ui:
+  case spv::ImageFormat::R16ui:
+  case spv::ImageFormat::Rgb10a2ui:
+  case spv::ImageFormat::Rgba8ui:
+  case spv::ImageFormat::Rg8ui:
+  case spv::ImageFormat::R8ui:
+    // unsigned 32-bit int
+    return builtinType->getKind() == BuiltinType::UInt;
+  case spv::ImageFormat::R64i:
+    // signed 64-bit int
+    return builtinType->getKind() == BuiltinType::LongLong;
+  case spv::ImageFormat::R64ui:
+    // unsigned 64-bit int
+    return builtinType->getKind() == BuiltinType::ULongLong;
+  }
+
+  return true;
+}
+
 uint32_t getVkBindingAttrSet(const VKBindingAttr *attr, uint32_t defaultSet) {
   // If the [[vk::binding(x)]] attribute is provided without the descriptor set,
   // we should use the default descriptor set.
@@ -1122,6 +1201,18 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   if (vkImgFeatures.isCombinedImageSampler ||
       vkImgFeatures.format != spv::ImageFormat::Unknown) {
     spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
+  }
+
+  if (hlsl::IsHLSLResourceType(type)) {
+    if (!areFormatAndTypeCompatible(vkImgFeatures.format,
+                                    hlsl::GetHLSLResourceResultType(type))) {
+      emitError("The image format and the sampled type are not compatible.\n"
+                "For the table of compatible types, see "
+                "https://docs.vulkan.org/spec/latest/appendices/"
+                "spirvenv.html#spirvenv-format-type-matching.",
+                loc);
+      return nullptr;
+    }
   }
 
   astDecls[var] = createDeclSpirvInfo(varInstr);
