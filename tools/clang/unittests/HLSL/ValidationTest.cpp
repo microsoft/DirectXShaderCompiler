@@ -4257,7 +4257,10 @@ TEST_F(ValidationTest, AtomicsConsts) {
 
 // Check validation error for non-groupshared dest
 TEST_F(ValidationTest, AtomicsInvalidDests) {
-  if (m_ver.SkipDxilVersion(1, 7))
+  // Technically, an error is generated for validator version 1.7, however,
+  // the error message was updated in validator version 1.8, so this test now
+  // requires version 1.8.
+  if (m_ver.SkipDxilVersion(1, 8))
     return;
   std::vector<LPCWSTR> pArguments = {L"-HV", L"2021", L"-Zi"};
   RewriteAssemblyCheckMsg(

@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 
 ; Not all invalid uses are checked because the usage lists aren't guaranteed to be ordered.
 ; However, this also tests the validator won't crash with a more complex case.
