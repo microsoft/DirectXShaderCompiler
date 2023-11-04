@@ -1,4 +1,4 @@
-; RUN: not %dxv %s | FileCheck %s
+; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 
 ; Test that appropriate errors are produced for unknown node IO Tags
 

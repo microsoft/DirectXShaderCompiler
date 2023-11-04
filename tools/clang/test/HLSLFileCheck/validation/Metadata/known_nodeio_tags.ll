@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 
 ; Test that all valid node IO tags are accepted
 

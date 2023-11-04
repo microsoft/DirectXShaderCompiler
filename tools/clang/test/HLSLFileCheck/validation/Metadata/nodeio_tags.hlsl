@@ -2,6 +2,10 @@
 // and the altered unknown_nodeio_tags.ll
 // Not intended for indpendent testing
 
+// Run line required in this location, so we'll verify compilation succeeds.
+// RUN: %dxc -T lib_6_8 %s | FileCheck %s
+// CHECK: define void @main()
+
 struct MY_INPUT_RECORD {
   float foo;
 };
