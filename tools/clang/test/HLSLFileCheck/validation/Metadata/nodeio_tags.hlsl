@@ -2,6 +2,10 @@
 // and the altered unknown_nodeio_tags.ll
 // Not intended for indpendent testing
 
+// Run line required in this location, so we'll verify compilation succeeds.
+// RUN: %dxc -T lib_6_8 %s | FileCheck %s
+// CHECK: define void @main()
+
 struct MY_INPUT_RECORD {
   float foo;
 };
@@ -15,12 +19,11 @@ struct MY_MATERIAL_RECORD {
 };
 
 [Shader("node")]
-[NodeLaunch("Broadcasting")]
+[NodeLaunch("broadcasting")]
 [NodeDispatchGrid(2,3,2)]
 [NumThreads(1024,1,1)]
 [NodeIsProgramEntry]
-void main([MaxRecords(7)] DispatchNodeInputRecord<MY_INPUT_RECORD> myInput,
-              [NodeArraySize(42)]
+void main(DispatchNodeInputRecord<MY_INPUT_RECORD> myInput,
               [MaxRecords(7)]
               NodeOutput<MY_RECORD> myFascinatingNode,
               [MaxRecordsSharedWith(myFascinatingNode)]

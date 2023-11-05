@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 ; 
 
 ; shader hash: 736cf97c50b38ecbe5281c2034e9b6c5

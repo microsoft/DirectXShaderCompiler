@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 
 ; The DXIL was modified from:
 ; dxc verify_output_complete.hlsl -T lib_6_8

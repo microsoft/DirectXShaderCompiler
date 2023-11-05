@@ -1,4 +1,4 @@
-// RUN: dxc -Tps_6_8 %s | FileCheck %s
+// RUN: %dxc -Tps_6_8 %s | FileCheck %s
 
 SamplerComparisonState samp1;
 
