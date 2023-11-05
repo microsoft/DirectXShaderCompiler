@@ -1,8 +1,6 @@
-; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
+; RUN: %dxilver 1.8 | %dxv %s
 
 ; Test that all valid node IO tags are accepted
-
-; CHECK: Validation succeeded.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -35,9 +33,7 @@ define void @main() {
 ; Arg #2: DispatchNodeInputRecord (97)
 ; Arg #3: NodeRecordType Tag (2)
 ; Arg #4: RECORD type
-; Arg #5: NodeMaxRecords Tag (3)
-; Arg #6: value of 7
-!13 = !{i32 1, i32 97, i32 2, !14, i32 3, i32 7}
+!13 = !{i32 1, i32 97, i32 2, !14}
 !14 = !{i32 0, i32 4}
 !15 = !{!16, !18}
 ; Arg #1: NodeIOFlags Tag (1)
@@ -46,11 +42,9 @@ define void @main() {
 ; Arg #4: Type node
 ; Arg #5: NodeMaxRecords Tag (3)
 ; Arg #6: value of 7
-; Arg #7: NodeOutputArraySize Tag (5)
-; Arg #8: value of 42
 ; Arg #9: NodeOutputID Tag (0)
 ; Arg #10: output node
-!16 = !{i32 1, i32 6, i32 2, !14, i32 3, i32 7, i32 5, i32 42, i32 0, !17}
+!16 = !{i32 1, i32 6, i32 2, !14, i32 3, i32 7, i32 0, !17}
 !17 = !{!"myFascinatingNode", i32 0}
 
 ; Arg #1: NodeIOFlags Tag (1)

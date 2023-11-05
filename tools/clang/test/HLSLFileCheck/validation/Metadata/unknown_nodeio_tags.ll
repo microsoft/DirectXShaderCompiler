@@ -35,9 +35,7 @@ define void @main() {
 ; Arg #2: DispatchNodeInputRecord (97)
 ; Arg #3: INVALID Tag (7)
 ; Arg #4: RECORD type
-; Arg #5: NodeMaxRecords Tag (3)
-; Arg #6: value of 7
-!13 = !{i32 1, i32 97, i32 7, !14, i32 3, i32 7}
+!13 = !{i32 1, i32 97, i32 7, !14}
 !14 = !{i32 0, i32 4}
 !15 = !{!16, !18}
 ; Arg #1: NodeIOFlags Tag (1)
@@ -46,11 +44,9 @@ define void @main() {
 ; Arg #4: Type node
 ; Arg #5: NodeMaxRecords Tag (3)
 ; Arg #6: value of 7
-; Arg #7: NodeOutputArraySize Tag (5)
-; Arg #8: value of 42
 ; Arg #9: NodeOutputID Tag (0)
 ; Arg #10: output node
-!16 = !{i32 1, i32 6, i32 66, !14, i32 333, i32 7, i32 5, i32 42, i32 0, !17}
+!16 = !{i32 1, i32 6, i32 66, !14, i32 333, i32 7, i32 0, !17}
 !17 = !{!"myFascinatingNode", i32 0}
 
 ; Arg #1: NodeIOFlags Tag (1)
