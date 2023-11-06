@@ -45,10 +45,10 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
-#include "dxc/DXIL/DxilUtil.h" // HLSL Change - special handling of convergent marker
 #include "dxc/DXIL/DxilInstructions.h" // HLSL Change - DxilInst_OutputComplete usage
-#include "dxc/DXIL/DxilOperations.h" // HLSL Change - Get HLSL Opcodes
+#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - combine dxil metadata.
+#include "dxc/DXIL/DxilOperations.h"     // HLSL Change - Get HLSL Opcodes
+#include "dxc/DXIL/DxilUtil.h" // HLSL Change - special handling of convergent marker
 
 using namespace llvm;
 
@@ -336,9 +336,9 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
       return C->isNullValue() || isa<UndefValue>(C);
 
   // HLSL Change - Verify that function has no side effects
-  if (hlsl::dxilutil::FunctionHasNoSideEffects(I)) 
+  if (hlsl::dxilutil::FunctionHasNoSideEffects(I))
     return true;
-  
+
   // HLSL Change End
 
   return false;
