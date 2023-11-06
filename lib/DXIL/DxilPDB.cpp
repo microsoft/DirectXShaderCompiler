@@ -155,12 +155,6 @@ struct MSFWriter {
   static constexpr uint32_t kBlockAddrStart = 3;
 
   void WriteToStream(raw_ostream &OS) {
-    // There are three blocks before the BlockAddr:
-    // - super block
-    // - FPM1
-    // - FPM2
-    const uint32_t NumBlocksBeforeBlockAddr = 3;
-
     const uint32_t StreamDirectorySizeInBytes = CalculateStreamDirectorySize();
     const uint32_t StreamDirectoryNumBlocks =
         GetNumBlocks(StreamDirectorySizeInBytes);
