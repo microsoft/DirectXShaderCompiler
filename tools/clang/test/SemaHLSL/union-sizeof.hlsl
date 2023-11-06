@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -HV 202x -Wno-unused-value -fsyntax-only -ffreestanding -verify -verify-ignore-unexpected=note %s
+// RUN: %dxc -Tlib_6_3 -HV 202x -Wno-unused-value -verify -verify-ignore-unexpected=note %s
+// RUN: %dxc -Tcs_6_3 -HV 202x -Wno-unused-value -verify -verify-ignore-unexpected=note %s
 
 // Tests usage of the sizeof operator
 
@@ -11,6 +12,8 @@ union UnionWithResource {
   int x;
 };
 
+[shader("compute")]
+[numthreads(1,1,1)]
 void main() {
   // Type vs expression argument
   sizeof(int);

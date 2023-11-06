@@ -35,9 +35,6 @@ public:
 
   TEST_METHOD(RunCppErrors)
   TEST_METHOD(RunCppErrorsHV2015)
-  TEST_METHOD(RunUnionDerivedToBase)
-  TEST_METHOD(RunUnionSizeOf)
-  TEST_METHOD(RunUnions0)
 
   void CheckVerifies(const wchar_t *path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -119,13 +116,3 @@ TEST_F(VerifierTest, RunCppErrors) { CheckVerifiesHLSL(L"cpp-errors.hlsl"); }
 TEST_F(VerifierTest, RunCppErrorsHV2015) {
   CheckVerifiesHLSL(L"cpp-errors-hv2015.hlsl");
 }
-
-TEST_F(VerifierTest, RunUnionDerivedToBase) {
-  CheckVerifiesHLSL(L"union-derived-to-base.hlsl");
-}
-
-TEST_F(VerifierTest, RunUnionSizeOf) {
-  CheckVerifiesHLSL(L"union-sizeof.hlsl");
-}
-
-TEST_F(VerifierTest, RunUnions0) { CheckVerifiesHLSL(L"unions_0.hlsl"); }

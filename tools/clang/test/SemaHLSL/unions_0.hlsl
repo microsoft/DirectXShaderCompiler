@@ -1,10 +1,13 @@
-// RUN: %clang_cc1 -HV 202x -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_3 -HV 202x -verify %s
+// RUN: %dxc -Tcs_6_3 -HV 202x -verify %s
 // expected-no-diagnostics
 
 union C {
   static uint f1;
   uint f2;
 };
+
+[shader("compute")]
 [numthreads(1,1,1)]
 void main() {
   C c;

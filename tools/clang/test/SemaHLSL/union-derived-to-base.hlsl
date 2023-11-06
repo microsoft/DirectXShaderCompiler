@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -HV 202x -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tcs_6_3 -HV 202x -verify %s
 union Base {
     float4 a;
     float4 b;
