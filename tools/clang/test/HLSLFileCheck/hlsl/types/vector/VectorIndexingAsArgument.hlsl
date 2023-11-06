@@ -21,7 +21,7 @@ groupshared uint2 gs_Dims;
 
 void foo(uint i, out uint, out uint, out uint);
 
-
+[shader("compute")]
 [numthreads(1,1,1)]
 void main() {
   uint iMips = (uint)(0);

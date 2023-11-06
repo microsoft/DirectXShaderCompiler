@@ -8108,8 +8108,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     AddToScope = false;
   }
 
-  if (getLangOpts().HLSL) {
-    hlsl::DiagnoseRaytracingEntry(*this, NewFD);
+  if (getLangOpts().HLSL && D.isFunctionDefinition() && D.hasName() &&
+      NewFD->getDeclContext()->getRedeclContext()->isTranslationUnit()) {
+    hlsl::DiagnoseEntry(*this, NewFD);
   }
 
   return NewFD;

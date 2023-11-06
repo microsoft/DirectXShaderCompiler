@@ -194,6 +194,9 @@ public:
   void SetWriteableMSAATextures(bool flag) { m_bWriteableMSAATextures = flag; }
   bool GetWriteableMSAATextures() const { return m_bWriteableMSAATextures; }
 
+  void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
+  bool GetWaveMMA() const { return m_bWaveMMA; }
+
 private:
   unsigned
       m_bDisableOptimizations : 1; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
@@ -260,6 +263,7 @@ private:
   unsigned
       m_bAtomicInt64OnHeapResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_DESCRIPTOR_HEAP_RESOURCE
 
+  // SM 6.7+
   // Global flag indicating that any UAV may not alias any other UAV.
   // Set if UAVs are used, unless -res-may-alias was specified.
   // For modules compiled against validator version < 1.7, this flag will be
@@ -270,7 +274,10 @@ private:
   unsigned
       m_bWriteableMSAATextures : 1; // SHADER_FEATURE_WRITEABLE_MSAA_TEXTURES
 
-  uint32_t m_align1 : 28; // align to 64 bit.
+  // SM 6.8+
+  unsigned m_bWaveMMA : 1; // SHADER_FEATURE_WAVE_MMA
+
+  uint32_t m_align1 : 27; // align to 64 bit.
 };
 
 } // namespace hlsl

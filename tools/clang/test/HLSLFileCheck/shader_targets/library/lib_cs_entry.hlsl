@@ -23,6 +23,7 @@ void StoreOutputMat(float2x2  m, uint gidx);
 float2x2 LoadInputMat(uint x, uint y);
 float2x2 RotateMat(float2x2 m, uint x, uint y);
 
+[shader("compute")]
 [numthreads(8,8,1)]
 void entry( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex )
 {

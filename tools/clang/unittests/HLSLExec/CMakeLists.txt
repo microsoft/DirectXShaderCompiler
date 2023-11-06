@@ -24,6 +24,9 @@ include_directories(${TAEF_INCLUDE_DIRS})
 include_directories(${DIASDK_INCLUDE_DIRS})
 include_directories(${D3D12_INCLUDE_DIRS})
 include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Test)
+# Using include path with subdirectories here to allow '#include "d3dx12.h"'
+# to get use a different (newer) d3dx12.h in when building in Direct3D repo
+include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Support)
 
 add_dependencies(ExecHLSLTests dxcompiler)
 

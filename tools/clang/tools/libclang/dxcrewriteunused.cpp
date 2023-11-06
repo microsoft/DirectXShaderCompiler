@@ -285,9 +285,8 @@ public:
 
     for (auto *field : RD->fields()) {
       QualType Ty = field->getType();
-      if (hlsl::IsHLSLResourceType(Ty))
-        continue;
-      if (hlsl::IsHLSLVecMatType(Ty))
+      if (hlsl::IsHLSLResourceType(Ty) || hlsl::IsHLSLNodeType(Ty) ||
+          hlsl::IsHLSLVecMatType(Ty))
         continue;
 
       TraverseType(Ty);

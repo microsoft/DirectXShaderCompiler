@@ -155,6 +155,7 @@ public:
   bool IsGraphicsShader(llvm::Function *F); // vs,hs,ds,gs,ps
   bool IsPatchConstantShader(llvm::Function *F);
   bool IsComputeShader(llvm::Function *F);
+  bool IsNodeShader(llvm::Function *F);
 
   // Is an entry function that uses input/output signature conventions?
   // Includes: vs/hs/ds/gs/ps/cs as well as the patch constant function.

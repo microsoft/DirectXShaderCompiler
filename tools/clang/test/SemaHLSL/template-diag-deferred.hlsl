@@ -6,7 +6,7 @@ template<typename T> void neverInstantiated(uint2 pos) {
 
 template<typename T> void doSomething(uint2 pos) {
    globallycoherent RWTexture2D<T> output = ResourceDescriptorHeap[0];
-   globallycoherent T Val = 0.0f; // expected-error {{'globallycoherent' is not a valid modifier for a non-UAV type}}
+   globallycoherent T Val = 0.0f; // expected-error {{'globallycoherent' is not a valid modifier for a declaration of type 'float'}} expected-note {{'globallycoherent' can only be applied to UAV or RWDispatchNodeInputRecord objects}}
    output[pos] = Val;
 }
 

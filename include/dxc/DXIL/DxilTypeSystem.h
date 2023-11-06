@@ -59,6 +59,9 @@ public:
   const DxilMatrixAnnotation &GetMatrixAnnotation() const;
   void SetMatrixAnnotation(const DxilMatrixAnnotation &MA);
 
+  unsigned GetVectorSize() const;
+  void SetVectorSize(unsigned size);
+
   // Currently, ResourceProperties is only used to capture resource type
   // information during CodeGen for the annotate handle generated during
   // AddOpcodeParamForIntrinsic.
@@ -111,6 +114,7 @@ private:
                           // in CB structure, and it is used.
   std::vector<DxilFieldAnnotation> m_BitFields;
   unsigned m_BitFieldWidth; // For bit field. 0 means not bitfield.
+  unsigned m_VectorSize;
 };
 
 class DxilTemplateArgAnnotation {
@@ -228,6 +232,7 @@ enum class DxilParamInputQual {
   OutVertices,
   OutPrimitives,
   InPayload,
+  NodeIO
 };
 
 /// Use this class to represent type annotation for function parameter.
@@ -239,6 +244,7 @@ public:
   const std::vector<unsigned> &GetSemanticIndexVec() const;
   void SetSemanticIndexVec(const std::vector<unsigned> &Vec);
   void AppendSemanticIndex(unsigned SemIdx);
+  bool IsParamInputQualNode();
 
 private:
   DxilParamInputQual m_inputQual;
