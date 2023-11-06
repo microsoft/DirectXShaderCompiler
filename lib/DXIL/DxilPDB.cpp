@@ -36,41 +36,14 @@
 
 using namespace llvm;
 
-// MSF header
-static const char kMsfMagic[] = {
-    'M', 'i', 'c',  'r',  'o',    's', 'o', 'f',  't',  ' ', 'C',
-    '/', 'C', '+',  '+',  ' ',    'M', 'S', 'F',  ' ',  '7', '.',
-    '0', '0', '\r', '\n', '\x1a', 'D', 'S', '\0', '\0', '\0'};
-
 static const uint32_t kPdbStreamIndex =
     1; // This is the fixed stream index where the PDB stream header is
 static const uint32_t kDataStreamIndex =
     5; // This is the fixed stream index where we will store our custom data.
 static const uint32_t kMsfBlockSize = 512;
 
-// The superblock is overlaid at the beginning of the file (offset 0).
-// It starts with a magic header and is followed by information which
-// describes the layout of the file system.
-struct MSF_SuperBlock {
-  char MagicBytes[sizeof(kMsfMagic)];
-  // The file system is split into a variable number of fixed size elements.
-  // These elements are referred to as blocks.  The size of a block may vary
-  // from system to system.
-  support::ulittle32_t BlockSize;
-  // The index of the free block map.
-  support::ulittle32_t FreeBlockMapBlock;
-  // This contains the number of blocks resident in the file system.  In
-  // practice, NumBlocks * BlockSize is equivalent to the size of the MSF
-  // file.
-  support::ulittle32_t NumBlocks;
-  // This contains the number of bytes which make up the directory.
-  support::ulittle32_t NumDirectoryBytes;
-  // This field's purpose is not yet known.
-  support::ulittle32_t Unknown1;
-  // This contains the block # of the block map.
-  support::ulittle32_t BlockMapAddr;
-};
-static_assert(sizeof(MSF_SuperBlock) <= kMsfBlockSize, "MSF Block too small.");
+static_assert(sizeof(hlsl::pdb::MSF_SuperBlock) <= kMsfBlockSize,
+              "MSF Block too small.");
 
 // Calculate how many blocks are needed
 static uint32_t CalculateNumBlocks(uint32_t BlockSize, uint32_t Size) {
@@ -92,7 +65,7 @@ struct MSFWriter {
     unsigned NumBlocks = 0;
   };
   struct StreamLayout {
-    MSF_SuperBlock SB;
+    hlsl::pdb::MSF_SuperBlock SB;
   };
 
   int m_NumStreamBlocks = 0;
@@ -211,9 +184,9 @@ struct MSFWriter {
     const uint32_t StreamStart =
         StreamDirectoryStart + StreamDirectoryNumBlocks;
 
-    MSF_SuperBlock SB = {};
+    hlsl::pdb::MSF_SuperBlock SB = {};
     {
-      memcpy(SB.MagicBytes, kMsfMagic, sizeof(kMsfMagic));
+      memcpy(SB.MagicBytes, hlsl::pdb::kMsfMagic, sizeof(hlsl::pdb::kMsfMagic));
       SB.BlockSize = kMsfBlockSize;
       SB.NumDirectoryBytes = StreamDirectorySizeInBytes;
       SB.NumBlocks = kBlockAddrStart /*super block + FPM1 + FPM2*/ + m_NumStreamBlocks +
@@ -378,7 +351,7 @@ struct PDBReader {
   IStream *m_pStream = nullptr;
   IMalloc *m_pMalloc = nullptr;
   UINT32 m_uOriginalOffset = 0;
-  MSF_SuperBlock m_SB = {};
+  hlsl::pdb::MSF_SuperBlock m_SB = {};
   HRESULT m_Status = S_OK;
 
   HRESULT SetPosition(INT32 sOffset) {
@@ -399,9 +372,10 @@ struct PDBReader {
 
   HRESULT GetStatus() { return m_Status; }
 
-  HRESULT ReadSuperblock(MSF_SuperBlock *pSB) {
+  HRESULT ReadSuperblock(hlsl::pdb::MSF_SuperBlock *pSB) {
     IFR(ReadAllBytes(m_pStream, pSB, sizeof(*pSB)));
-    if (memcmp(pSB->MagicBytes, kMsfMagic, sizeof(kMsfMagic)) != 0)
+    if (memcmp(pSB->MagicBytes, hlsl::pdb::kMsfMagic,
+               sizeof(hlsl::pdb::kMsfMagic)) != 0)
       return E_FAIL;
 
     return S_OK;

@@ -27,6 +27,7 @@
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/D3DReflection.h"
+#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/dxcapi.h"
 #ifdef _WIN32
 #include "dxc/dxcpix.h"
@@ -2075,7 +2076,7 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
       float main() : SV_Target {
         float ret = 0;
         [unroll]
-        for (int i = 0; i < 256; i++) {
+        for (int i = 0; i < 1024; i++) {
           ret += t0.Load(i);
         }
         return ret;
@@ -2105,6 +2106,9 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
       {source_1, {L"/Tps_6_0", L"/Zs", L"Od"}},
   };
 
+  CComPtr<IDxcPdbUtils2> pPdbUtils;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+
   for (Profile &p : profiles) {
     DxcBuffer SourceBuf = {};
     SourceBuf.Ptr = p.src.data();
@@ -2120,40 +2124,21 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
     VERIFY_SUCCEEDED(
         pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
 
-    static const char kMsfMagic[] = {
-        'M', 'i', 'c',  'r',  'o',    's', 'o', 'f',  't',  ' ', 'C',
-        '/', 'C', '+',  '+',  ' ',    'M', 'S', 'F',  ' ',  '7', '.',
-        '0', '0', '\r', '\n', '\x1a', 'D', 'S', '\0', '\0', '\0'};
-    struct MSF_SuperBlock {
-      char MagicBytes[sizeof(kMsfMagic)];
-      // The file system is split into a variable number of fixed size elements.
-      // These elements are referred to as blocks.  The size of a block may vary
-      // from system to system.
-      llvm::support::ulittle32_t BlockSize;
-      // The index of the free block map.
-      llvm::support::ulittle32_t FreeBlockMapBlock;
-      // This contains the number of blocks resident in the file system.  In
-      // practice, NumBlocks * BlockSize is equivalent to the size of the MSF
-      // file.
-      llvm::support::ulittle32_t NumBlocks;
-      // This contains the number of bytes which make up the directory.
-      llvm::support::ulittle32_t NumDirectoryBytes;
-      // This field's purpose is not yet known.
-      llvm::support::ulittle32_t Unknown1;
-      // This contains the block # of the block map.
-      llvm::support::ulittle32_t BlockMapAddr;
-    };
+    VERIFY_IS_LESS_THAN_OR_EQUAL(sizeof(hlsl::pdb::MSF_SuperBlock),
+                                 pPdb->GetBufferSize());
+    VERIFY_ARE_EQUAL(0, memcmp(pPdb->GetBufferPointer(), hlsl::pdb::kMsfMagic,
+                               sizeof(hlsl::pdb::kMsfMagic)));
 
-    VERIFY_IS_LESS_THAN_OR_EQUAL(sizeof(MSF_SuperBlock), pPdb->GetBufferSize());
-    VERIFY_ARE_EQUAL(
-        0, memcmp(pPdb->GetBufferPointer(), kMsfMagic, sizeof(kMsfMagic)));
-
-    const MSF_SuperBlock *pSuperBlock =
-        (const MSF_SuperBlock *)pPdb->GetBufferPointer();
+    const hlsl::pdb::MSF_SuperBlock *pSuperBlock =
+        (const hlsl::pdb::MSF_SuperBlock *)pPdb->GetBufferPointer();
     const uint32_t NumBlocks = pSuperBlock->NumBlocks;
     const uint32_t BlockSize = pSuperBlock->BlockSize;
 
     VERIFY_ARE_EQUAL(BlockSize * NumBlocks, pPdb->GetBufferSize());
+
+    // Verify that the stream and block descriptions are correct by
+    // checking that PdbUtils can read out of the PDB.
+    VERIFY_SUCCEEDED(pPdbUtils->Load(pPdb));
   }
 }
 
