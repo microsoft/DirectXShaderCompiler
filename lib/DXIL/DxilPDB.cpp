@@ -182,6 +182,12 @@ struct MSFWriter {
   static constexpr uint32_t kBlockAddrStart = 3;
 
   void WriteToStream(raw_ostream &OS) {
+    // There are three blocks before the BlockAddr:
+    // - super block
+    // - FPM1
+    // - FPM2
+    const uint32_t NumBlocksBeforeBlockAddr = 3;
+
     const uint32_t StreamDirectorySizeInBytes = CalculateStreamDirectorySize();
     const uint32_t StreamDirectoryNumBlocks =
         GetNumBlocks(StreamDirectorySizeInBytes);
@@ -235,7 +241,7 @@ struct MSFWriter {
       }
       assert(BlockAddrSizeInBytes == sizeof(BlockAddr[0]) * BlockAddr.size());
       Writer.WriteBlocks(BlockAddrNumBlocks, BlockAddr.data(),
-                         BlockAddr.size());
+                         BlockAddr.size() * sizeof(BlockAddr[0]));
     }
 
     // Stream Directory. Describes where all the streams are
