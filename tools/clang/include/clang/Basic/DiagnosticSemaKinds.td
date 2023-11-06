@@ -6512,6 +6512,9 @@ def err_thread_nontrivial_dtor : Error<
 def note_use_thread_local : Note<
   "use 'thread_local' to allow this">;
 
+// HLSL Change Starts
+def err_anonymous_unions : Error<"anonymous unions are not supported in HLSL">;
+// HLSL Change Ends
 // C++ anonymous unions and GNU anonymous structs/unions
 def ext_anonymous_union : Extension<
   "anonymous unions are a C11 extension">, InGroup<C11>;

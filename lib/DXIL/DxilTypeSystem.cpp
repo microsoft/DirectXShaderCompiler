@@ -383,24 +383,26 @@ DxilTypeSystem::DxilTypeSystem(Module *pModule)
 
 DxilStructAnnotation *
 DxilTypeSystem::AddStructAnnotation(const StructType *pStructType,
-                                    unsigned numTemplateArgs) {
+                                    unsigned numTemplateArgs, bool isunion) {
   DXASSERT_NOMSG(m_StructAnnotations.find(pStructType) ==
                  m_StructAnnotations.end());
   DxilStructAnnotation *pA = new DxilStructAnnotation();
   m_StructAnnotations[pStructType] = unique_ptr<DxilStructAnnotation>(pA);
   pA->m_pStructType = pStructType;
-  pA->m_FieldAnnotations.resize(pStructType->getNumElements());
+  pA->m_FieldAnnotations.resize(isunion ? 1 : pStructType->getNumElements());
   pA->SetNumTemplateArgs(numTemplateArgs);
   return pA;
 }
 
-void DxilTypeSystem::FinishStructAnnotation(DxilStructAnnotation &SA) {
+void DxilTypeSystem::FinishStructAnnotation(DxilStructAnnotation &SA,
+                                            bool empty_union) {
   const llvm::StructType *ST = SA.GetStructType();
   DXASSERT(SA.GetNumFields() == ST->getNumElements(),
            "otherwise, mismatched field count.");
 
   // Update resource containment
-  for (unsigned i = 0; i < SA.GetNumFields() && !SA.ContainsResources(); i++) {
+  for (unsigned i = 0;
+       i < SA.GetNumFields() && !SA.ContainsResources() && !empty_union; i++) {
     if (IsResourceContained(ST->getElementType(i)))
       SA.SetContainsResources();
   }

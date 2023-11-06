@@ -226,6 +226,7 @@ public:
   bool TimeReport = false;              // OPT_ftime_report
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   bool VerifyDiagnostics = false;       // OPT_verify
+  bool EnableUnions = false;            // OPT_enable_unions
 
   // Optimization pass enables, disables and selects
   OptimizationToggles
