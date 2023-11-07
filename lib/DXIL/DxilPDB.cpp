@@ -163,15 +163,23 @@ struct MSFWriter {
     // where the stream directory lives.
     const uint32_t BlockAddrSizeInBytes =
         StreamDirectoryNumBlocks * sizeof(support::ulittle32_t);
+
+    // TODO: Dynamically adjust block size based on size.
+    //
     // The block addr itself should be only one block. If we end up with
     // a stream directory so large that block addr won't fit in one block,
     // we would have to adjust the block size.
     //
-    // However, with our block size as 512 bytes, we can fit 128 uint32's
-    // in there, each one point to one block for the stream directory would
-    // mean 128 * 512 -> 65536 bytes for the stream directory. Let's say
-    // only half of that size can be used to point stream blocks (in reality
-    // most of them are used for stream blocks), that's 65536/2 * 512 -> 16777216
+    // However, with our block size as 512 bytes, we can only fit 128 uint32's
+    // in there, each one points to one block for the stream directory would
+    // mean 128 * 512 -> 65536 bytes -> 16384 uint32's for the stream directory.
+    // Let's say only half of that size can be used to point stream blocks (in
+    // reality most of them are used for stream blocks), that's 16384/2 * 512 ->
+    // 4194304 -> ~4MB for streams.
+    //
+    // If we encounter sizes bigger than that, we would need to calculate the
+    // correct adjust the block size to fit the block addr into a single block.
+    //
     const uint32_t BlockAddrNumBlocks = GetNumBlocks(BlockAddrSizeInBytes);
 
     const uint32_t StreamDirectoryStart = kBlockAddrStart + BlockAddrNumBlocks;
@@ -183,8 +191,9 @@ struct MSFWriter {
       memcpy(SB.MagicBytes, hlsl::pdb::kMsfMagic, sizeof(hlsl::pdb::kMsfMagic));
       SB.BlockSize = kMsfBlockSize;
       SB.NumDirectoryBytes = StreamDirectorySizeInBytes;
-      SB.NumBlocks = kBlockAddrStart /*super block + FPM1 + FPM2*/ + m_NumStreamBlocks +
-                     StreamDirectoryNumBlocks + BlockAddrNumBlocks;
+      SB.NumBlocks = kBlockAddrStart /*super block + FPM1 + FPM2*/ +
+                     m_NumStreamBlocks + StreamDirectoryNumBlocks +
+                     BlockAddrNumBlocks;
       SB.FreeBlockMapBlock = 1;
       SB.BlockMapAddr = kBlockAddrStart;
     }
