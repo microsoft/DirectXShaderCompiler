@@ -4,8 +4,8 @@
 // CHECK: %union.U = type { i32 }
 union U {
   int x: 8;
-  int y: 8;
-  int z: 16;
+  int y: 16;
+  int z: 8;
 };
 
 cbuffer Foo {

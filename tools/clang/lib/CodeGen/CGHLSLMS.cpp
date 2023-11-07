@@ -959,7 +959,9 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
 
   // By this point the structType in the StructAnnotation has been stripped of
   // excess fields if it is a union. As a result we must construct the
-  // annotation differently for unions and structs
+  // slightly annotation differently for unions and structs
+  // TODO: This currently introduces some duplication and would be good to
+  // refactor where possible
   if (RD->isUnion() && !RD->field_empty()) {
     FieldDecl *fieldDecl = nullptr;
     bool largestIsBitfield = false;
@@ -973,19 +975,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
       CBufferOffset = AlignBaseOffset(fieldTy, CBufferOffset, bDefaultRowMajor,
                                       CGM, dataLayout);
 
-      const hlsl::ConstantPacking *packOffset = nullptr;
-      for (const hlsl::UnusualAnnotation *it : Field->getUnusualAnnotations()) {
-        switch (it->getKind()) {
-        case hlsl::UnusualAnnotation::UA_ConstantPacking: {
-          packOffset = cast<hlsl::ConstantPacking>(it);
-          CBufferOffset = packOffset->Subcomponent << 2;
-          CBufferOffset += packOffset->ComponentOffset;
-          // Change to byte.
-          CBufferOffset <<= 2;
-        } break;
-        }
-      }
-
       // Process field to make sure the size of field is ready.
       unsigned arrayEltSize = 0;
       unsigned size =
@@ -994,14 +983,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
       if (size) {
         unsigned offset = AlignBaseOffset(fieldTy, CBufferOffset,
                                           bDefaultRowMajor, CGM, dataLayout);
-        if (packOffset && CBufferOffset != offset) {
-          // custom offset has an alignment problem, or this code does
-          DiagnosticsEngine &Diags = CGM.getDiags();
-          unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                                  "custom offset mis-aligned.");
-          Diags.Report(packOffset->Loc, DiagID);
-          return 0;
-        }
         CBufferOffset = offset;
       }
 
@@ -1041,45 +1022,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
     ConstructFieldAttributedAnnotation(fieldAnnotation, fieldTy,
                                        bDefaultRowMajor);
 
-    // Try to get info from fieldDecl.
-    const hlsl::ConstantPacking *packOffset = nullptr;
-    for (const hlsl::UnusualAnnotation *it :
-         fieldDecl->getUnusualAnnotations()) {
-      switch (it->getKind()) {
-      case hlsl::UnusualAnnotation::UA_SemanticDecl: {
-        const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
-        fieldSemName = sd->SemanticName;
-      } break;
-      case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
-        // register assignment only works on global constant.
-        DiagnosticsEngine &Diags = CGM.getDiags();
-        unsigned DiagID = Diags.getCustomDiagID(
-            DiagnosticsEngine::Error,
-            "location semantics cannot be specified on members.");
-        Diags.Report(it->Loc, DiagID);
-        return 0;
-      } break;
-      case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
-        // Forward payload access qualifiers to fieldAnnotation.
-        if (payloadAnnotation) {
-          const hlsl::PayloadAccessAnnotation *annotation =
-              cast<hlsl::PayloadAccessAnnotation>(it);
-          DxilPayloadFieldAnnotation &payloadFieldAnnotation =
-              payloadAnnotation->GetFieldAnnotation(fieldIdx - 1);
-          payloadFieldAnnotation.SetCompType(
-              fieldAnnotation.GetCompType().GetKind());
-          for (auto stage : annotation->ShaderStages) {
-            payloadFieldAnnotation.AddPayloadFieldQualifier(
-                stage, annotation->qualifier);
-          }
-        }
-      } break;
-      default:
-        llvm_unreachable("only semantic for input/output");
-        break;
-      }
-    }
-
     // Process field to make sure the size of field is ready.
     unsigned arrayEltSize = 0;
     unsigned size =
@@ -1089,14 +1031,6 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
     if (size) {
       unsigned offset = AlignBaseOffset(fieldTy, CBufferOffset,
                                         bDefaultRowMajor, CGM, dataLayout);
-      if (packOffset && CBufferOffset != offset) {
-        // custom offset has an alignment problem, or this code does
-        DiagnosticsEngine &Diags = CGM.getDiags();
-        unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                                "custom offset mis-aligned.");
-        Diags.Report(packOffset->Loc, DiagID);
-        return 0;
-      }
       CBufferOffset = offset;
     }
 
