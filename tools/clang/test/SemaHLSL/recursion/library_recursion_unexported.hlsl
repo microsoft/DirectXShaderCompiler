@@ -14,7 +14,7 @@
 // for library shaders, so we expect errors on unreachable functions
 // that are recursive
 
-// expected-error@+1{{recursive functions are not allowed: entry function calls recursive function 'unreachable_unexported_recurse_external'}}
+// expected-error@+1{{recursive functions are not allowed: export function calls recursive function 'unreachable_unexported_recurse_external'}}
 void unreachable_unexported_recurse_external(inout float4 f, float a) 
 {
     if (a > 1)
@@ -29,7 +29,7 @@ static void unreachable_unexported_recurse(inout float4 f, float a)
     f = abs(f+a);
 }
 
-// expected-error@+1{{recursive functions are not allowed: entry function calls recursive function 'unexported_recurse'}}
+// expected-error@+1{{recursive functions are not allowed: export function calls recursive function 'unexported_recurse'}}
 static void unexported_recurse(inout float4 f, float a) 
 {
     if (a > 1)
@@ -37,7 +37,7 @@ static void unexported_recurse(inout float4 f, float a)
     f = abs(f+a);
 }
 
-// expected-error@+1{{recursive functions are not allowed: entry function calls recursive function 'exported_recurse'}}
+// expected-error@+1{{recursive functions are not allowed: export function calls recursive function 'exported_recurse'}}
 export void exported_recurse(inout float4 f, float a) 
 {
     if (a > 1)
