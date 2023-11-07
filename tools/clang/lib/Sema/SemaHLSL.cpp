@@ -13430,11 +13430,11 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   for (; unusualIter != unusualEnd; ++unusualIter) {
     if ((*unusualIter)->getKind()) {
       if (Record && Record->isUnion() && isField) {
-        Diag(D.getLocStart(), diag::err_union_member_semantics);
+        Diag(D.getLocStart(), diag::err_union_member_annotations);
         break;
       }
       if (isParameter && pType->isUnionType()) {
-        Diag(D.getLocStart(), diag::err_union_object_semantics);
+        Diag(D.getLocStart(), diag::err_union_object_annotations);
         break;
       }
     }

@@ -4,7 +4,7 @@ union MyUnion {
   int X;
 };
 
-int a(MyUnion U : A) { // CHECK: error: union objects cannot have HLSL semantics applied to them
+int a(MyUnion U : A) { // CHECK: error: union objects cannot have HLSL annotations applied to them
   return U.X;
 }
 
