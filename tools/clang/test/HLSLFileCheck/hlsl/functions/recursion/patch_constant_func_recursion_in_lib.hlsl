@@ -15,7 +15,7 @@ HSPerPatchData fooey()
   d.edges[1] = -6;
   d.edges[2] = -7;
   d.inside = -8;
-  // CHECK: error: recursive functions are not allowed: entry function calls recursive function 'fooey'
+  // CHECK: error: recursive functions are not allowed: export function calls recursive function 'fooey'
   fooey();
   return d;
 }
