@@ -11401,16 +11401,83 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   }
 }
 
+bool IsExported(Sema *self, clang::FunctionDecl *FD) {        
+  if (FD->hasAttr<HLSLShaderAttr>()) {
+		return true;
+	}
+  
+  bool isMarkedStatic = false;
+  bool isMarkedExport = false;
+
+  if (auto cDecl = dyn_cast<CXXMethodDecl>(FD)) {
+    if (cDecl->isStatic()) {
+        isMarkedStatic = true;
+    }
+  }
+
+  if (FD->hasAttr<HLSLExportAttr>()) {
+    isMarkedExport = true;
+  }
+
+  if (isMarkedStatic && isMarkedExport) {
+    self->Diag(FD->getLocation(), diag::err_hlsl_varmodifiersna)
+        << "static"
+        << "export"
+        << "function";
+		return false;
+	}
+
+
+  Linkage L = FD->getLinkageAndVisibility().getLinkage();
+
+  
+  const auto *shaderModel =
+      hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
+  // case 1 requires special assignments to linkage
+  if (L != ExternalLinkage && L != InternalLinkage) {
+    if (shaderModel->IsSM60Plus()) {
+      L = ExternalLinkage;
+    }
+		else {
+      L = InternalLinkage;
+    }
+  }   
+  
+  // now case 2 and 3 can apply and we can determine 
+  // whether the function is exported.
+  if (L == InternalLinkage && isMarkedExport) {
+    return true;
+  }
+
+  if (L == ExternalLinkage && isMarkedStatic) {
+    return false;
+  }
+
+  if (L == InternalLinkage) {
+    return false;
+  }
+
+  if (L == ExternalLinkage) {
+    return true;
+  }
+  // unreachable but necessary to prevent warnings
+  return true;
+}
+
 // validates that for every function in the translation unit, if it
 // references a patch constant function, there exists a function declaration
 // that could serve as a candidate to that patch constant function.
 void ValidatePatchConstantFunctionsExist(clang::Sema *self) {
+  
   for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
     // TODO: improve condition so that only exported functions are checked,
     // instead of all functions. Issue: #5857
     if (FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
       // If there is no patch constant function, then we don't need to validate
       // anything.
+      if (!IsExported(self, FD)) {
+        continue;
+      }
       if (const HLSLPatchConstantFuncAttr *Attr =
               FD->getAttr<HLSLPatchConstantFuncAttr>()) {
         NameLookup NL =
