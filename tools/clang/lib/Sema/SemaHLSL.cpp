@@ -11428,11 +11428,10 @@ bool IsExported(Sema *self, clang::FunctionDecl *FD) {
 
   Linkage L = FD->getLinkageAndVisibility().getLinkage();
 
-  const auto *shaderModel =
-      hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
   // case 1 requires special assignments to linkage
   if (L != ExternalLinkage && L != InternalLinkage) {
-    if (shaderModel->IsSM60Plus()) {
+    // the condition below implies the shader stage is lib_6_x
+    if (self->getLangOpts().IsHLSLLibrary) {
       L = ExternalLinkage;
     } else {
       L = InternalLinkage;
@@ -15871,6 +15870,9 @@ void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
       // returns the first recursive function declaration detected
       // from this function declaration FD, and determines whether
       // the recursion was detected in the patch-constant function
+      if (!IsExported(self, FD)) {
+        continue;
+      }
       FunctionDecl *pResult = ValidateNoRecursion(self, FD);
       // if there is a function that was detected to be recursive,
       // then make sure it is saved for later to emit a diagnostic
