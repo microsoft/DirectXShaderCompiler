@@ -11464,14 +11464,12 @@ bool IsExported(Sema *self, clang::FunctionDecl *FD) {
 void ValidatePatchConstantFunctionsExist(clang::Sema *self) {
 
   for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
-    // TODO: improve condition so that only exported functions are checked,
-    // instead of all functions. Issue: #5857
     if (FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
-      // If there is no patch constant function, then we don't need to validate
-      // anything.
       if (!IsExported(self, FD)) {
         continue;
       }
+      // If there is no patch constant function, then we don't need to validate
+      // anything.
       if (const HLSLPatchConstantFuncAttr *Attr =
               FD->getAttr<HLSLPatchConstantFuncAttr>()) {
         NameLookup NL =
@@ -15859,12 +15857,13 @@ clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
   return nullptr;
 }
 
+// There is an assumption being made that this function will only be called
+// on library shader stages.Thus, there is no entry point, only exported
+// functions
 void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
   std::set<FunctionDecl *> FDecls;
   std::vector<FunctionDecl *> FDeclsVec;
   for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
-    // TODO: improve condition so that only exported functions are checked,
-    // instead of all functions. Issue: #5857
     if (FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
       // returns the first recursive function declaration detected
       // from this function declaration FD, and determines whether
@@ -15889,7 +15888,7 @@ void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
       continue;
     }
     self->Diag(fdecl->getSourceRange().getBegin(), diag::err_hlsl_no_recursion)
-        << 0 << fdecl->getName();
+        << 1 << fdecl->getName();
 
     FDecls.erase(fdecl);
   }
