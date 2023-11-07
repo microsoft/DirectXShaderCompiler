@@ -177,8 +177,8 @@ struct MSFWriter {
     // reality most of them are used for stream blocks), that's 16384/2 * 512 ->
     // 4194304 -> ~4MB for streams.
     //
-    // If we encounter sizes bigger than that, we would need to calculate the
-    // correct adjust the block size to fit the block addr into a single block.
+    // If we encounter sizes bigger than that, we would need to djust the block
+    // size to fit the block addr into a single block.
     //
     const uint32_t BlockAddrNumBlocks = GetNumBlocks(BlockAddrSizeInBytes);
 
