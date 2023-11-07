@@ -1,6 +1,6 @@
 // RUN: %dxc -Tlib_6_5 -verify %s 
 
-// expected-error@+1{{recursive functions are not allowed: entry function calls recursive function 'recurse'}}
+// expected-error@+1{{recursive functions are not allowed: export function calls recursive function 'recurse'}}
 void recurse(inout float4 f, float a) 
 {
     if (a > 1)
