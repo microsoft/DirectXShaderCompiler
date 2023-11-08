@@ -60,6 +60,20 @@ void node06()
 
 [Shader("node")]
 [NodeLaunch("broadcasting")]
+[NodeDispatchGrid(65535, 65535, 65535)] // expected-error {{'NodeDispatchGrid' X * Y * Z product may not exceed 16,777,215 (2^24-1)}}
+[NumThreads(32, 1, 1)]
+void node07()
+{ }
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(32768, 512, 512)] // expected-error {{'NodeDispatchGrid' X * Y * Z product may not exceed 16,777,215 (2^24-1)}}
+[NumThreads(32, 1, 1)]
+void node08()
+{ }
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(65535, 1, 1)]
 [NumThreads(32, 1, 1)]
 void node11(DispatchNodeInputRecord<MyStruct> input)
