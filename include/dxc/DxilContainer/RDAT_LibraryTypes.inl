@@ -9,6 +9,10 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// clang-format off
+// Macro indentation makes this file easier to read, but clang-format flattens
+// everything.  Turn off clang-format for this file.
+
 #ifdef DEF_RDAT_ENUMS
 
 RDAT_ENUM_START(DxilResourceFlag, uint32_t)
