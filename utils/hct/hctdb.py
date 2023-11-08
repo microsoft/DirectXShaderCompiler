@@ -7952,7 +7952,7 @@ class db_dxil(object):
             "Function '%0' uses resource in function signature.",
         )
         self.add_valrule_msg(
-            "Decl.RayQyeryInFnSig",
+            "Decl.RayQueryInFnSig",
             "Rayquery objects not allowed in function signatures",
             "Function '%0' uses rayquery object in function signature.",
         )
