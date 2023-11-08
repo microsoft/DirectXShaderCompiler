@@ -976,10 +976,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   llvm::StringRef valSelectStr = Args.getLastArgValue(OPT_select_validator);
   if (!valSelectStr.empty()) {
     opts.SelectValidator = llvm::StringSwitch<ValidatorSelection>(valSelectStr)
-     .Case("auto", ValidatorSelection::Auto)
-     .Case("internal", ValidatorSelection::Internal)
-     .Case("external", ValidatorSelection::External)
-     .Default(ValidatorSelection::Invalid);
+                               .Case("auto", ValidatorSelection::Auto)
+                               .Case("internal", ValidatorSelection::Internal)
+                               .Case("external", ValidatorSelection::External)
+                               .Default(ValidatorSelection::Invalid);
     if (opts.SelectValidator == ValidatorSelection::Invalid) {
       errors << "Unsupported value '" << valSelectStr
              << "for -select-validator option.";
