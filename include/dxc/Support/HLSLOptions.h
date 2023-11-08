@@ -115,9 +115,10 @@ struct RewriterOpts {
 };
 
 enum class ValidatorSelection : int {
-  Auto,     // Try DXIL.dll; fallback to internal validator
-  Internal, // Force internal validator (even if DXIL.dll is present)
-  External  // Use DXIL.dll, failing compilation if not available
+  Auto,        // Try DXIL.dll; fallback to internal validator
+  Internal,    // Force internal validator (even if DXIL.dll is present)
+  External,    // Use DXIL.dll, failing compilation if not available
+  Invalid = -1 // Invalid
 };
 
 /// Use this class to capture all options.
