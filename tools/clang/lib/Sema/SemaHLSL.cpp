@@ -11429,12 +11429,28 @@ void ValidatePatchConstantFunctionsExist(clang::Sema *self) {
 // should exist on this shader stage
 void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
                                      FunctionDecl *entryPointDecl,
-                                     DXIL::ShaderKind shaderKind) {
+                                     DXIL::ShaderKind shaderKind,
+                                     bool isActiveEntry) {
 
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
       switch (pAttr->getKind()) {
-
+      // if this is a "node" shader and the target stage isn't compute nor
+      // library, emit a diagnostic
+      case clang::attr::HLSLShader: {
+        if (shaderKind == DXIL::ShaderKind::Node) {
+          const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(
+              self->getLangOpts().HLSLProfile.c_str());
+          // check for validity to prevent verifier tests from emitting this
+          if (!SM->IsCS() && !SM->IsLib() && SM->IsValid() && isActiveEntry) {
+            self->Diag(pAttr->getRange().getBegin(),
+                       diag::err_hlsl_attribute_unsupported_stage)
+                << "node"
+                << "compute or library";
+          }
+        }
+        break;
+      }
       case clang::attr::HLSLWaveSize: {
         switch (shaderKind) {
         case DXIL::ShaderKind::Compute:
@@ -11447,6 +11463,103 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
               << "compute or node";
           break;
         }
+        break;
+      }
+      case clang::attr::HLSLNodeLaunch: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "NodeLaunch"
+              << "node";
+        }
+        break;
+      }
+      case clang::attr::HLSLNodeIsProgramEntry: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "NodeIsProgramEntry"
+              << "node";
+        }
+        break;
+      }
+      case clang::attr::HLSLNodeId: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "NodeId"
+              << "node";
+        }
+        break;
+      }
+      case clang::attr::HLSLNodeLocalRootArgumentsTableIndex: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "NodeLocalRootArgumentsTableIndex"
+              << "node";
+        }
+        break;
+      }
+      case clang::attr::HLSLNodeShareInputOf: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "NodeShareInputOf"
+              << "node";
+        }
+        break;
+      }
+      case clang::attr::HLSLNodeDispatchGrid: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "NodeDispatchGrid"
+              << "node";
+        }
+        break;
+      }
+      case clang::attr::HLSLNodeMaxDispatchGrid: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "NodeMaxDispatchGrid"
+              << "node";
+        }
+        break;
+      }
+      case clang::attr::HLSLNodeMaxRecursionDepth: {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Node:
+          break;
+        default:
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << "NodeMaxRecursionDepth"
+              << "node";
+        }
+        break;
       }
       }
     }
@@ -15598,7 +15711,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     auto *NodeArraySizeAttr = Param->getAttr<HLSLNodeArraySizeAttr>();
     auto *UnboundedSparseNodesAttr =
         Param->getAttr<HLSLUnboundedSparseNodesAttr>();
-
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(ParamTy)) {
       InputCount++;
@@ -15683,12 +15795,11 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
               << HLSLNodeObjectAttr::ConvertRecordTypeToStr(Kind);
       }
     }
-
+    unsigned int ArgIdx = 0;
     HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
         Param->getAttr<HLSLMaxRecordsSharedWithAttr>();
     if (ExistingMRSWA) {
       StringRef sharedName = ExistingMRSWA->getName()->getName();
-      unsigned int ArgIdx = 0;
       bool Found = false;
       while (ArgIdx < FD->getNumParams()) {
         const ParmVarDecl *ParamDecl = FD->getParamDecl(ArgIdx);
@@ -15714,6 +15825,29 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
         S.Diag(ExistingMRSWA->getLocation(),
                diag::err_hlsl_maxrecordssharedwith_references_invalid_arg);
       }
+    }
+    // Make sure NodeTrackRWInputSharing attribute cannot be applied to
+    // Input Records that are not RWDispatchNodeInputRecord
+
+    ArgIdx = 0;
+    while (ArgIdx < FD->getNumParams()) {
+      // is an input record
+      if (hlsl::IsHLSLNodeInputType(ParamTy)) {
+        const ParmVarDecl *ParamDecl = FD->getParamDecl(ArgIdx);
+        hlsl::NodeFlags nodeFlags;
+        if (GetHLSLNodeIORecordType(ParamDecl, nodeFlags)) {
+          hlsl::NodeIOProperties node(nodeFlags);
+          // has track rw input sharing attribute
+          if (node.Flags.GetTrackRWInputSharing()) {
+            // if this input record with the NodeTrackRWInputSharing attribute
+            // is not a RWDispatchNodeInputRecord, then report an error
+            if (ParamDecl->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
+              S.Diags.Report(ParamDecl->getLocation(),
+                             diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
+          }
+        }
+      }
+      ArgIdx++;
     }
   }
   return;
@@ -15755,15 +15889,18 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
   }
 
   HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
-  // Don't add the attribute if it already exists as an attribute on the decl.
-  // In the special case that the target profile is compute and the
-  // entry decl already has a node shader attr, don't do anything
+  // Don't add the attribute if it already exists as an attribute on the decl,
+  // and emit an error. In the special case that the target profile is compute
+  // and the entry decl already has a node shader attr, don't do anything
   if (currentShaderAttr) {
     llvm::StringRef currentFullName = currentShaderAttr->getStage();
     if (currentFullName != fullName) {
-      S.Diag(currentShaderAttr->getLocation(),
-             diag::err_hlsl_profile_conflicts_with_shader_attribute)
-          << fullName << profile << currentFullName << EntryPointName;
+      if (!(SM->IsCS() && strcmp(currentFullName.data(), "node") == 0)) {
+        S.Diag(currentShaderAttr->getLocation(),
+               diag::err_hlsl_profile_conflicts_with_shader_attribute)
+            << fullName << profile << currentFullName << EntryPointName;
+        return;
+      }
     }
     // Don't add another attr if one exists, to prevent
     // more unrelated errors down the line.
@@ -15857,7 +15994,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
   llvm::StringRef StageName = Attr->getStage();
-  DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
+  DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage, isActiveEntry);
 
   switch (Stage) {
   case DXIL::ShaderKind::Pixel:

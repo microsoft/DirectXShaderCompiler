@@ -13,11 +13,11 @@
 [NumThreads(1, 1, 1)]
 void secondNode()
 {
-    // CHECK-DAG: Attribute nodeisprogramentry only applies to node shaders (indicated with '[shader("node")]')
-    // CHECK-DAG: Attribute nodeid only applies to node shaders (indicated with '[shader("node")]')
-    // CHECK-DAG: Attribute nodelocalrootargumentstableindex only applies to node shaders (indicated with '[shader("node")]')
-    // CHECK-DAG: Attribute nodeshareinputof only applies to node shaders (indicated with '[shader("node")]')
-    // CHECK-DAG: Attribute nodemaxrecursiondepth only applies to node shaders (indicated with '[shader("node")]')
-    // CHECK-DAG: Attribute nodedispatchgrid only applies to node shaders (indicated with '[shader("node")]')
-    // CHECK-DAG: Attribute nodemaxdispatchgrid only applies to node shaders (indicated with '[shader("node")]')
+    // CHECK-DAG: attribute NodeIsProgramEntry only allowed on node shaders
+    // CHECK-DAG: attribute NodeId only allowed on node shaders
+    // CHECK-DAG: attribute NodeLocalRootArgumentsTableIndex only allowed on node shaders
+    // CHECK-DAG: attribute NodeShareInputOf only allowed on node shaders
+    // CHECK-DAG: attribute NodeMaxRecursionDepth only allowed on node shaders
+    // CHECK-DAG: attribute NodeDispatchGrid only allowed on node shaders
+    // CHECK-DAG: attribute NodeMaxDispatchGrid only allowed on node shaders
 }

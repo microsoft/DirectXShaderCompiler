@@ -7819,6 +7819,8 @@ def err_hlsl_numthreads_group_size : Error<
    "NumThreads group size may not exceed 1024 (x * y * z)">;
 def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
    "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
+def err_hlsl_wg_nodetrackrwinputsharing_invalid : Error<
+   "NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord">;
 def err_hlsl_wg_input_kind : Error<
    "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
    "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;

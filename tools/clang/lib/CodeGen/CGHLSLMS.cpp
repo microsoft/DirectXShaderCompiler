@@ -1402,15 +1402,6 @@ static DxilResource::Kind KeywordToKind(StringRef keyword) {
   return DxilResource::Kind::Invalid;
 }
 
-static void ReportMissingNodeDiag(DiagnosticsEngine &Diags,
-                                  const InheritableAttr *a) {
-  SourceLocation loc = a->getLocation();
-  unsigned DiagID = Diags.getCustomDiagID(
-      DiagnosticsEngine::Error, "Attribute %0 only applies to node shaders "
-                                "(indicated with '[shader(\"node\")]')");
-  Diags.Report(loc, DiagID) << a->getSpelling();
-}
-
 void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   // Add hlsl intrinsic attr
   unsigned intrinsicOpcode;
@@ -1522,20 +1513,16 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   };
 
   // Some diagnostic assumptions for shader attribute:
-  // - multiple shader attributes may exist in HLSL
   // - duplicate attribute of same kind is ok
-  // - node attribute only combinable with compute
   // - all attributes parsed before set from insertion or target shader model
-
   auto DiagShaderStage = [&priorShaderAttrLoc,
                           &Diags](clang::SourceLocation diagLoc,
                                   llvm::StringRef shaderStage,
-                                  ShaderStageSource source, bool bConflict) {
+                                  ShaderStageSource source) {
     bool bFromProfile = source == ShaderStageSource::Profile;
     unsigned DiagID = Diags.getCustomDiagID(
-        DiagnosticsEngine::Error,
-        "%select{Invalid|Conflicting}0 shader %select{profile|attribute}1");
-    Diags.Report(diagLoc, DiagID) << bConflict << bFromProfile;
+        DiagnosticsEngine::Error, "Invalid shader %select{profile|attribute}0");
+    Diags.Report(diagLoc, DiagID) << bFromProfile;
     if (priorShaderAttrLoc.isValid()) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Note, "See conflicting shader attribute");
@@ -1547,25 +1534,13 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       [&](clang::SourceLocation diagLoc, DXIL::ShaderKind shaderKind,
           llvm::StringRef shaderStage, ShaderStageSource source) {
         if (!SetStageFlag(shaderKind)) {
-          DiagShaderStage(diagLoc, shaderStage, source, false);
+          DiagShaderStage(diagLoc, shaderStage, source);
         }
         if (isEntry && isRay) {
           unsigned DiagID = Diags.getCustomDiagID(
               DiagnosticsEngine::Error,
               "Ray function cannot be used as a global entry point");
           Diags.Report(diagLoc, DiagID);
-        }
-        if (isEntry && isNode && !SM->IsCS()) {
-          unsigned DiagID =
-              Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                                    "Node function as global entry point must "
-                                    "be compiled to compute shader target");
-          Diags.Report(diagLoc, DiagID);
-        }
-        if (funcProps->shaderKind != DXIL::ShaderKind::Invalid &&
-            funcProps->shaderKind != shaderKind) {
-          // Different kinds and not the node case, so it's a conflict.
-          DiagShaderStage(diagLoc, shaderStage, source, true);
         }
         // Update shaderKind, unless we would be overriding one with node, so
         // when node+compute, kind = compute.  Other conflicts are diagnosed
@@ -1848,25 +1823,18 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (isNode)
       funcProps->Node.LaunchType =
           ShaderModel::NodeLaunchTypeFromName(pAttr->getLaunchType());
-    else
-      ReportMissingNodeDiag(Diags, pAttr);
   }
 
   if (const auto *pAttr = FD->getAttr<HLSLNodeIsProgramEntryAttr>()) {
     if (isNode)
       funcProps->Node.IsProgramEntry = true;
-    else
-      ReportMissingNodeDiag(Diags, pAttr);
   }
 
   if (const auto *pAttr = FD->getAttr<HLSLNodeIdAttr>()) {
     if (isNode) {
       funcProps->NodeShaderID.Name = pAttr->getName().str();
       funcProps->NodeShaderID.Index = pAttr->getArrayIndex();
-    } else {
-      ReportMissingNodeDiag(Diags, pAttr);
     }
-
   } else {
     if (isNode) {
       funcProps->NodeShaderID.Name = FD->getName().str();
@@ -1877,15 +1845,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
           FD->getAttr<HLSLNodeLocalRootArgumentsTableIndexAttr>()) {
     if (isNode)
       funcProps->Node.LocalRootArgumentsTableIndex = pAttr->getIndex();
-    else
-      ReportMissingNodeDiag(Diags, pAttr);
   }
   if (const auto *pAttr = FD->getAttr<HLSLNodeShareInputOfAttr>()) {
     if (isNode) {
       funcProps->NodeShaderSharedInput.Name = pAttr->getName().str();
       funcProps->NodeShaderSharedInput.Index = pAttr->getArrayIndex();
-    } else {
-      ReportMissingNodeDiag(Diags, pAttr);
     }
   }
   if (const auto *pAttr = FD->getAttr<HLSLNodeDispatchGridAttr>()) {
@@ -1893,8 +1857,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->Node.DispatchGrid[0] = pAttr->getX();
       funcProps->Node.DispatchGrid[1] = pAttr->getY();
       funcProps->Node.DispatchGrid[2] = pAttr->getZ();
-    } else {
-      ReportMissingNodeDiag(Diags, pAttr);
     }
   }
   if (const auto *pAttr = FD->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
@@ -1902,15 +1864,11 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       funcProps->Node.MaxDispatchGrid[0] = pAttr->getX();
       funcProps->Node.MaxDispatchGrid[1] = pAttr->getY();
       funcProps->Node.MaxDispatchGrid[2] = pAttr->getZ();
-    } else {
-      ReportMissingNodeDiag(Diags, pAttr);
     }
   }
   if (const auto *pAttr = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
     if (isNode)
       funcProps->Node.MaxRecursionDepth = pAttr->getCount();
-    else
-      ReportMissingNodeDiag(Diags, pAttr);
   }
   if (!FD->getAttr<HLSLNumThreadsAttr>()) {
     if (isNode) {
@@ -1926,13 +1884,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
 
   const unsigned profileAttributes =
       isCS + isHS + isDS + isGS + isVS + isPS + isRay + isMS + isAS + isNode;
-
-  // TODO: check this in front-end and report error.
-  if (profileAttributes > 1)
-    Diags.Report(
-        FD->getLocation(),
-        Diags.getCustomDiagID(DiagnosticsEngine::Error,
-                              "Invalid shader stage attribute combination"));
 
   if (isEntry) {
     switch (funcProps->shaderKind) {
