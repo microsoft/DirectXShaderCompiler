@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value   -verify %s
+// RUN: %dxc -Tps_6_0  -Wno-unused-value   -verify %s
 
 float g_float1;                                             /* expected-note {{variable 'g_float1' declared const here}} expected-note {{variable 'g_float1' declared const here}} fxc-pass {{}} */
 int4 g_vec1;                                                /* expected-note {{variable 'g_vec1' declared const here}} expected-note {{variable 'g_vec1' declared const here}} fxc-pass {{}} */
@@ -41,6 +42,7 @@ TextureBuffer<FWDDeclStruct> g_texture_buffer3;             /* expected-error {{
 ConstantBuffer<FWDDeclClass> g_const_buffer4;               /* expected-error {{variable has incomplete type 'FWDDeclClass'}} */
 TextureBuffer<FWDDeclClass> g_texture_buffer4;              /* expected-error {{variable has incomplete type 'FWDDeclClass'}} */
 
+[shader("pixel")]
 float4 main() : SV_TARGET
 {
     g_float1 = g_float1 + 10.0;                             /* expected-error {{cannot assign to variable 'g_float1' with const-qualified type 'const float'}} fxc-error {{X3025: global variables are implicitly constant, enable compatibility mode to allow modification}} */

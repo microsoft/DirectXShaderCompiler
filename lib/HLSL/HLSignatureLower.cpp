@@ -145,6 +145,12 @@ void replaceInputOutputWithIntrinsic(DXIL::SemanticKind semKind, Value *GV,
     GV->replaceAllUsesWith(ConstantInt::get(Ty, (uint64_t)0));
     return;
   } break;
+  case Semantic::Kind::StartVertexLocation:
+    opcode = OP::OpCode::StartVertexLocation;
+    break;
+  case Semantic::Kind::StartInstanceLocation:
+    opcode = OP::OpCode::StartInstanceLocation;
+    break;
   default:
     DXASSERT(0, "invalid semantic");
     return;
@@ -1240,11 +1246,12 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
   }
 }
 
-void HLSignatureLower::GenerateDxilCSInputs() {
+void HLSignatureLower::GenerateDxilComputeAndNodeCommonInputs() {
   OP *hlslOP = HLM.GetOP();
 
   DxilFunctionAnnotation *funcAnnotation = HLM.GetFunctionAnnotation(Entry);
   DXASSERT(funcAnnotation, "must find annotation for entry function");
+  auto &funcProps = HLM.GetDxilFunctionProps(Entry);
   IRBuilder<> Builder(Entry->getEntryBlock().getFirstInsertionPt());
 
   for (Argument &arg : Entry->args()) {
@@ -1252,7 +1259,10 @@ void HLSignatureLower::GenerateDxilCSInputs() {
         funcAnnotation->GetParameterAnnotation(arg.getArgNo());
 
     llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
+
     if (semanticStr.empty()) {
+      if (funcProps.IsNode() && paramAnnotation.IsParamInputQualNode())
+        continue;
       dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
                                     "Semantic must be defined for all "
                                     "parameters of an entry function or patch "
@@ -1791,8 +1801,8 @@ void HLSignatureLower::Run() {
     if (props.IsMS()) {
       GenerateDxilPrimOutputs();
     }
-  } else if (props.IsCS()) {
-    GenerateDxilCSInputs();
+  } else if (props.IsCS() || props.IsNode()) {
+    GenerateDxilComputeAndNodeCommonInputs();
   }
 
   if (props.IsDS() || props.IsHS())

@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value  -HV 2018 -verify %s
+// RUN: %dxc -Tvs_6_0  -Wno-unused-value  -HV 2018 -verify %s
 
 // __decltype is the GCC way of saying 'decltype', but doesn't require C++11
 // _Static_assert is the C11 way of saying 'static_assert', but doesn't require C++11
@@ -263,7 +264,8 @@ void inout_calls() {
   fn_uint_oload3(f2.x); // this selects the in version over inout or out
 }
 
-void cs_main() {
+[shader("vertex")]
+void main() {
   float2 f2 = float2(1, 2);
   float arr2[2] = { 1, 2 };
   fn_float_arr(f2); // expected-error {{no matching function for call to 'fn_float_arr'}} fxc-error {{X3017: 'fn_float_arr': cannot convert from 'float2' to 'float[2]'}}

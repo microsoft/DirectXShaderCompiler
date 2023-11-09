@@ -52,7 +52,7 @@ private:
   void GenerateDxilOutputs();
   void GenerateDxilPrimOutputs();
   void GenerateDxilInputsOutputs(DXIL::SignatureKind SK);
-  void GenerateDxilCSInputs();
+  void GenerateDxilComputeAndNodeCommonInputs();
   void GenerateDxilPatchConstantLdSt();
   void GenerateDxilPatchConstantFunctionInputs();
   void GenerateClipPlanesForVS(llvm::Value *outPosition);

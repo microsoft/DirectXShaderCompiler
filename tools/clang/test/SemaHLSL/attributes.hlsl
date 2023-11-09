@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3   -HV 2018 -verify %s
+// RUN: %dxc -Tps_6_0   -HV 2018 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 attributes.hlsl
@@ -696,6 +697,7 @@ void uniform_maxvertexcount2(triangle GSVertex v[3], inout TriangleStream<GSVert
 { stream.Append(v[0]); }
 
 
+[shader("pixel")]
 [earlydepthstencil]
 /*verify-ast
   HLSLEarlyDepthStencilAttr <col:2>

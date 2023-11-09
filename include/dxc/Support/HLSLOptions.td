@@ -311,6 +311,8 @@ def print_before_all : Flag<["-", "/"], "print-before-all">, Group<hlslcomp_Grou
   HelpText<"Print LLVM IR before each pass.">;
 def print_before : Separate<["-", "/"], "print-before">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR before a specific pass. May be specificied multiple times.">;
+def select_validator : Separate<["-", "/"], "select-validator">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
+  HelpText<"Select validator: auto: (default) use DXIL.dll if found, otherwise use internal;  internal: internal non-signing validator;  external: use DXIL.dll if found, otherwise fail compilation.">;
 def print_after_all : Flag<["-", "/"], "print-after-all">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Print LLVM IR after each pass.">;
 def print_after : Separate<["-", "/"], "print-after">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
@@ -410,7 +412,7 @@ def fvk_allow_rwstructuredbuffer_arrays: Flag<["-"], "fvk-allow-rwstructuredbuff
 def target_profile : JoinedOrSeparate<["-", "/"], "T">, Flags<[CoreOption]>, Group<hlslcomp_Group>, MetaVarName<"<profile>">,
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_target_profiles()</py>*/
   // VALRULE-TEXT:BEGIN
-  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, ps_6_6, ps_6_7, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, vs_6_6, vs_6_7, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, gs_6_6, gs_6_7, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, hs_6_6, hs_6_7, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, ds_6_6, ds_6_7, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, cs_6_6, cs_6_7, \n\t\t lib_6_1, lib_6_2, lib_6_3, lib_6_4, lib_6_5, lib_6_6, lib_6_7, \n\t\t ms_6_5, ms_6_6, ms_6_7, \n\t\t as_6_5, as_6_6, as_6_7, \n\t\t ">;
+  HelpText<"Set target profile. \n\t<profile>: ps_6_0, ps_6_1, ps_6_2, ps_6_3, ps_6_4, ps_6_5, ps_6_6, ps_6_7, ps_6_8, \n\t\t vs_6_0, vs_6_1, vs_6_2, vs_6_3, vs_6_4, vs_6_5, vs_6_6, vs_6_7, vs_6_8, \n\t\t gs_6_0, gs_6_1, gs_6_2, gs_6_3, gs_6_4, gs_6_5, gs_6_6, gs_6_7, gs_6_8, \n\t\t hs_6_0, hs_6_1, hs_6_2, hs_6_3, hs_6_4, hs_6_5, hs_6_6, hs_6_7, hs_6_8, \n\t\t ds_6_0, ds_6_1, ds_6_2, ds_6_3, ds_6_4, ds_6_5, ds_6_6, ds_6_7, ds_6_8, \n\t\t cs_6_0, cs_6_1, cs_6_2, cs_6_3, cs_6_4, cs_6_5, cs_6_6, cs_6_7, cs_6_8, \n\t\t lib_6_1, lib_6_2, lib_6_3, lib_6_4, lib_6_5, lib_6_6, lib_6_7, lib_6_8, \n\t\t ms_6_5, ms_6_6, ms_6_7, ms_6_8, \n\t\t as_6_5, as_6_6, as_6_7, as_6_8, \n\t\t ">;
   // VALRULE-TEXT:END
 def entrypoint :  JoinedOrSeparate<["-", "/"], "E">, Flags<[CoreOption, RewriteOption]>, Group<hlslcomp_Group>,
   HelpText<"Entry point name">;

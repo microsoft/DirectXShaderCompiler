@@ -37,6 +37,7 @@
 #include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilWaveMatrix.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/HLSL/DxilExportMap.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
@@ -88,6 +89,71 @@ Value *CreateHandleFromResPtr(Value *ResPtr, HLModule &HLM,
   return Handle;
 }
 
+Value *CreateNodeOutputHandle(HLModule &HLM, llvm::Type *HandleTy,
+                              IRBuilder<> &Builder, unsigned index) {
+  Module &M = *HLM.GetModule();
+  HLOpcodeGroup opCodeGroup = HLOpcodeGroup::HLCreateNodeOutputHandle;
+  unsigned opCode =
+      static_cast<unsigned>(HLOpcodeGroup::HLCreateNodeOutputHandle);
+  Value *mdIndex = Builder.getInt32(index);
+  Value *args[] = {mdIndex};
+  CallInst *Handle =
+      HLM.EmitHLOperationCall(Builder, opCodeGroup, opCode, HandleTy, args, M);
+  return Handle;
+}
+
+Value *CreateAnnotateNodeHandle(HLModule &HLM, Value *NodeHandle,
+                                IRBuilder<> &Builder, NodeInfo Info) {
+  llvm::Type *NodeHandleTy = HLM.GetOP()->GetNodeHandleType();
+  llvm::Type *NodeInfoTy = HLM.GetOP()->GetNodePropertiesType();
+  Module &M = *HLM.GetModule();
+  StructType *ST = cast<StructType>(NodeInfoTy);
+  Constant *NodeProperties[] = {
+      ConstantInt::get(ST->getElementType(0), Info.IOFlags),
+      ConstantInt::get(ST->getElementType(1), Info.RecordSize)};
+  Constant *NodeInfo = ConstantStruct::get(ST, NodeProperties);
+  Value *args[] = {NodeHandle, NodeInfo};
+  Value *Handle = HLM.EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLAnnotateNodeHandle,
+      static_cast<unsigned>(HLOpcodeGroup::HLAnnotateNodeHandle), NodeHandleTy,
+      args, M);
+  return Handle;
+}
+
+Value *CreateNodeInputRecordHandle(Value *NodeArg, HLModule &HLM,
+                                   llvm::Type *HandleTy, IRBuilder<> &Builder,
+                                   unsigned index) {
+  Module &M = *HLM.GetModule();
+  HLOpcodeGroup opCodeGroup = HLOpcodeGroup::HLCreateNodeInputRecordHandle;
+  auto opCode =
+      static_cast<unsigned>(HLOpcodeGroup::HLCreateNodeInputRecordHandle);
+  DXASSERT_NOMSG(index == 0);
+  Value *mdIndex = Builder.getInt32(index);
+  Value *args[] = {mdIndex};
+  CallInst *Handle =
+      HLM.EmitHLOperationCall(Builder, opCodeGroup, opCode, HandleTy, args, M);
+  return Handle;
+}
+
+Value *CreateAnnotateNodeRecordHandle(HLModule &HLM, Value *NodeRecordHandle,
+                                      IRBuilder<> &Builder,
+                                      NodeRecordInfo Info) {
+  llvm::Type *NodeRecordHandleTy = HLM.GetOP()->GetNodeRecordHandleType();
+  llvm::Type *NodeRecordInfoTy = HLM.GetOP()->GetNodeRecordPropertiesType();
+  Module &M = *HLM.GetModule();
+  StructType *ST = cast<StructType>(NodeRecordInfoTy);
+  Constant *NodeRecordProperties[] = {
+      ConstantInt::get(ST->getElementType(0), Info.IOFlags),
+      ConstantInt::get(ST->getElementType(1), Info.RecordSize)};
+  Constant *NodeRecordInfo = ConstantStruct::get(ST, NodeRecordProperties);
+  Value *args[] = {NodeRecordHandle, NodeRecordInfo};
+  Value *Handle = HLM.EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLAnnotateNodeRecordHandle,
+      static_cast<unsigned>(HLOpcodeGroup::HLAnnotateNodeRecordHandle),
+      NodeRecordHandleTy, args, M);
+  return Handle;
+}
+
 template <typename BuilderTy>
 Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
                             DxilResourceProperties &RP, llvm::Type *ResTy,
@@ -108,6 +174,18 @@ Value *CastHandleToRes(HLModule &HLM, Value *Handle, llvm::Type *ResTy,
                                      (unsigned)HLCastOpcode::HandleToResCast,
                                      ResTy, {Handle}, *HLM.GetModule());
   return Res;
+}
+
+CallInst *CreateAnnotateWaveMatrix(HLModule &HLM, Value *WaveMatrixPtr,
+                                   DxilWaveMatrixProperties &WMP,
+                                   IRBuilder<> &Builder) {
+  Constant *WMPConstant = wavemat_helper::GetAsConstant(
+      WMP, HLM.GetOP()->GetWaveMatrixPropertiesType());
+  CallInst *CI = HLM.EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLWaveMatrix_Annotate,
+      (unsigned)HLOpcodeGroup::HLWaveMatrix_Annotate, WaveMatrixPtr->getType(),
+      {WaveMatrixPtr, WMPConstant}, *HLM.GetModule());
+  return CI;
 }
 
 // Lower CBV bitcast use to handle use.
@@ -671,37 +749,119 @@ GetResourcePropsFromIntrinsicObjectArg(Value *arg, HLModule &HLM,
   return RP;
 }
 
+void AddAnnotateWaveMatrix(HLModule &HLM,
+                           DxilObjectProperties &objectProperties) {
+  for (auto it : objectProperties.waveMatMap) {
+    Value *V = it.first;
+    DxilWaveMatrixProperties &WMP = it.second;
+    // annotate Alloca, Param, or Global
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+      // Insert annotation after alloca
+      IRBuilder<> Builder(AI->getNextNode());
+      CreateAnnotateWaveMatrix(HLM, V, WMP, Builder);
+    } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
+      // Insert annotation in each function's entry block with users
+      SmallSetVector<Function *, 4> functions;
+      for (auto U : GV->users())
+        if (Instruction *I = dyn_cast<Instruction>(U))
+          functions.insert(I->getParent()->getParent());
+
+      for (auto F : functions) {
+        IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
+        CreateAnnotateWaveMatrix(HLM, V, WMP, Builder);
+      }
+    } else if (Argument *Arg = dyn_cast<Argument>(V)) {
+      IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(Arg->getParent()));
+      CreateAnnotateWaveMatrix(HLM, V, WMP, Builder);
+    } else {
+      llvm_unreachable("WaveMatrix value is unexpected type");
+    }
+  }
+}
+
 void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
-                                llvm::Type *HandleTy,
                                 DxilObjectProperties &objectProperties) {
   llvm::Module &M = *HLM.GetModule();
   llvm::FunctionType *oldFuncTy = F->getFunctionType();
+  llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
+  llvm::Type *NodeRecordHandleTy = HLM.GetOP()->GetNodeRecordHandleType();
+  llvm::Type *NodeOutputHandleTy = HLM.GetOP()->GetNodeHandleType();
+
+  HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
 
   SmallVector<llvm::Type *, 4> paramTyList;
   // Add the opcode param
   llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
   paramTyList.emplace_back(opcodeTy);
 
-  bool bRetHandle = false;
+  // Create a vector of the types of the original Intrinsic's
+  // parameters. In the case of an intrinsic returning a struct
+  bool bSRetHandle = false;
+  bool bNodeRecordRet = false;
+  bool bNodeOutputRet = false;
+  bool bNodeOutputMethod = false;
+  bool bNodeOutputArrayMethod = false;
+  unsigned bRetArgIndex = 0;
   for (unsigned i = 0; i < oldFuncTy->getNumParams(); i++) {
     llvm::Type *Ty = oldFuncTy->getParamType(i);
+
+    if (i == 0 && Ty->isPointerTy() &&
+        dxilutil::IsHLSLNodeOutputType(Ty->getPointerElementType()))
+      bNodeOutputMethod = true;
+
+    if (i == 0 && Ty->isPointerTy() &&
+        dxilutil::IsHLSLNodeOutputArrayType(Ty->getPointerElementType()))
+      bNodeOutputArrayMethod = true;
+
+    if (i == 1 && bNodeOutputMethod && Ty->isPointerTy() &&
+        dxilutil::IsHLSLNodeOutputRecordType(Ty->getPointerElementType())) {
+      // Skip for return type from a method.
+      // NodeOutput<recType>::GetGroupNodeOutputRecords
+      // NodeOutput<recType>::GetThreadNodeOutputRecords
+      bSRetHandle = true;
+      bNodeRecordRet = true;
+      bRetArgIndex = 1;
+      continue;
+    }
+
+    if (i == 1 && bNodeOutputArrayMethod && Ty->isPointerTy() &&
+        dxilutil::IsHLSLNodeOutputType(Ty->getPointerElementType())) {
+      // Skip for return type from a method
+      bSRetHandle = true;
+      bNodeOutputRet = true;
+      bRetArgIndex = 1;
+      continue;
+    }
+
     if (Ty->isPointerTy()) {
       llvm::Type *PtrEltTy = Ty->getPointerElementType();
-      if (dxilutil::IsHLSLResourceType(PtrEltTy)) {
+
+      if (dxilutil::IsHLSLResourceType(PtrEltTy) ||
+          dxilutil::IsHLSLNodeRecordType(PtrEltTy) ||
+          dxilutil::IsHLSLNodeOutputType(PtrEltTy) ||
+          dxilutil::IsHLSLNodeOutputArrayType(PtrEltTy)) {
         // Skip for return type.
         if (i == 0 && F->arg_begin()->hasStructRetAttr()) {
-          bRetHandle = true;
+          bSRetHandle = true;
+          if (dxilutil::IsHLSLNodeRecordType(PtrEltTy)) {
+            bNodeRecordRet = true;
+          }
           continue;
         }
-        // Use handle type for resource type.
+        // Use handle type for resource, Node(Input/Output) Record type.
         // This will make sure temp object variable only used by createHandle.
-        Ty = HandleTy;
+        if (dxilutil::IsHLSLResourceType(PtrEltTy))
+          Ty = HandleTy;
+        else if (dxilutil::IsHLSLNodeRecordType(PtrEltTy))
+          Ty = NodeRecordHandleTy;
+        else if (dxilutil::IsHLSLNodeOutputType(PtrEltTy))
+          Ty = NodeOutputHandleTy;
+        else if (dxilutil::IsHLSLNodeOutputArrayType(PtrEltTy))
+          Ty = NodeOutputHandleTy;
       }
     }
     paramTyList.emplace_back(Ty);
   }
-
-  HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
 
   if (group == HLOpcodeGroup::HLSubscript &&
       opcode == static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)) {
@@ -727,10 +887,15 @@ void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
       opcode == static_cast<unsigned>(HLSubscriptOpcode::DoubleSubscript);
 
   llvm::Type *RetTy = oldFuncTy->getReturnType();
-  if (bRetHandle) {
+  if (bSRetHandle) {
     DXASSERT(RetTy->isVoidTy(), "else invalid return type");
     RetTy = HandleTy;
+    if (bNodeRecordRet)
+      RetTy = NodeRecordHandleTy;
+    else if (bNodeOutputRet)
+      RetTy = NodeOutputHandleTy;
   }
+
   if (isDoubleSubscriptFunc) {
     CallInst *doubleSub = cast<CallInst>(*F->user_begin());
 
@@ -791,11 +956,19 @@ void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
     Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
     opcodeParamList.emplace_back(opcodeConst);
     Value *retHandleArg = nullptr;
-    if (!bRetHandle) {
+    Value *nodeRecordArg = nullptr;
+    if (!bSRetHandle) {
       opcodeParamList.append(oldCI->arg_operands().begin(),
                              oldCI->arg_operands().end());
     } else {
       auto it = oldCI->arg_operands().begin();
+      unsigned argIndex = 0;
+      auto start = it;
+      while (argIndex < bRetArgIndex) {
+        it++;
+        argIndex++;
+      }
+      opcodeParamList.append(start, it);
       retHandleArg = *(it++);
       opcodeParamList.append(it, oldCI->arg_operands().end());
     }
@@ -847,7 +1020,7 @@ void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
       // Insert new call before secSub to make sure idx is ready to use.
       Builder.SetInsertPoint(secSub);
     }
-
+    unsigned recordSizeWAR = 0;
     for (unsigned i = 1; i < opcodeParamList.size(); i++) {
       Value *arg = opcodeParamList[i];
       llvm::Type *Ty = arg->getType();
@@ -874,16 +1047,111 @@ void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
           Handle = CreateAnnotateHandle(HLM, Handle, RP, ResTy, Builder);
           opcodeParamList[i] = Handle;
         }
+        if (dxilutil::IsHLSLNodeRecordType(Ty)) {
+          nodeRecordArg = arg;
+          Value *ldObj = Builder.CreateLoad(arg);
+          Value *Handle = EmitHLOperationCall(
+              HLM, Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::NodeRecordToHandleCast,
+              NodeRecordHandleTy, {ldObj}, *HLM.GetModule());
+          opcodeParamList[i] = Handle;
+        }
+        if (dxilutil::IsHLSLNodeOutputArrayType(Ty)) {
+          Value *ldObj = Builder.CreateLoad(arg);
+          Value *Handle = EmitHLOperationCall(
+              HLM, Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::NodeOutputToHandleCast,
+              NodeOutputHandleTy, {ldObj}, *HLM.GetModule());
+          opcodeParamList[i] = Handle;
+          // WAR for record size computation
+          if (!dxilutil::IsHLSLEmptyNodeOutputArrayType(Ty)) {
+            DxilStructAnnotation *pAnno =
+                HLM.GetTypeSystem().GetStructAnnotation(
+                    dyn_cast<llvm::StructType>(Ty));
+            assert(pAnno != nullptr && pAnno->GetNumTemplateArgs() == 1 &&
+                   "otherwise the node template is not declared properly");
+            llvm::Type *pRecType = const_cast<llvm::Type *>(
+                pAnno->GetTemplateArgAnnotation(0).GetType());
+            recordSizeWAR = M.getDataLayout().getTypeAllocSize(pRecType);
+          }
+        }
+        if (dxilutil::IsHLSLNodeOutputType(Ty)) {
+          Value *ldObj = Builder.CreateLoad(arg);
+          Value *Handle = EmitHLOperationCall(
+              HLM, Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::NodeOutputToHandleCast,
+              NodeOutputHandleTy, {ldObj}, *HLM.GetModule());
+          opcodeParamList[i] = Handle;
+        }
       }
     }
 
     Value *CI = Builder.CreateCall(opFunc, opcodeParamList);
+    if (group == HLOpcodeGroup::HLIntrinsic &&
+        opcode == static_cast<unsigned>(IntrinsicOp::MOP_OutputComplete)) {
+      DXASSERT_NOMSG(nodeRecordArg->getType()->isPointerTy());
+      Type *T = nodeRecordArg->getType()->getPointerElementType();
+      Builder.CreateStore(Constant::getNullValue(T), nodeRecordArg);
+    }
     if (retHandleArg) {
       Type *ResTy = retHandleArg->getType()->getPointerElementType();
-      Value *Res = HLM.EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLCast,
-          (unsigned)HLCastOpcode::HandleToResCast, ResTy, {CI}, M);
-      Builder.CreateStore(Res, retHandleArg);
+      if (dxilutil::IsHLSLNodeOutputRecordType(ResTy)) {
+        CallInst *GetOpRecordCall = cast<CallInst>(CI);
+        DXASSERT_NOMSG(group == HLOpcodeGroup::HLIntrinsic);
+        IntrinsicOp opcode =
+            static_cast<IntrinsicOp>(hlsl::GetHLOpcode(GetOpRecordCall));
+        DXIL::NodeIOKind kind;
+        if (opcode == IntrinsicOp::MOP_GetGroupNodeOutputRecords)
+          kind = DXIL::NodeIOKind::GroupNodeOutputRecords;
+        else
+          kind = DXIL::NodeIOKind::ThreadNodeOutputRecords;
+
+        // Get record size from the node output record template argument
+
+        DxilStructAnnotation *pAnno = HLM.GetTypeSystem().GetStructAnnotation(
+            dyn_cast<llvm::StructType>(ResTy));
+        assert(pAnno != nullptr && pAnno->GetNumTemplateArgs() == 1 &&
+               "otherwise the node record template is not declared properly");
+        llvm::Type *pRecType = const_cast<llvm::Type *>(
+            pAnno->GetTemplateArgAnnotation(0).GetType());
+        unsigned recordSize = M.getDataLayout().getTypeAllocSize(pRecType);
+        NodeRecordInfo Info(kind, recordSize);
+
+        CI = CreateAnnotateNodeRecordHandle(HLM, CI, Builder, Info);
+        Value *Res = HLM.EmitHLOperationCall(
+            Builder, HLOpcodeGroup::HLCast,
+            (unsigned)HLCastOpcode::HandleToNodeRecordCast, ResTy, {CI}, M);
+        Builder.CreateStore(Res, retHandleArg);
+      } else if (dxilutil::IsHLSLNodeOutputType(ResTy)) {
+        DXASSERT_NOMSG(group == HLOpcodeGroup::HLIndexNodeHandle);
+        DXIL::NodeIOKind kind = DXIL::NodeIOKind::NodeOutputArray;
+        unsigned recordSize;
+        if (dxilutil::IsHLSLEmptyNodeOutputType(ResTy)) {
+          kind = DXIL::NodeIOKind::EmptyOutputArray;
+          recordSize = 0;
+        } else {
+          // TODO FIX AddStructAnnotation
+          /*DxilStructAnnotation* pAnno =
+          HLM.GetTypeSystem().GetStructAnnotation(dyn_cast<llvm::StructType>(ResTy));
+          assert(pAnno != nullptr && pAnno->GetNumTemplateArgs() == 1 &&
+          "otherwise the node template is not declared properly"); llvm::Type*
+          pRecType = (llvm::Type*)pAnno->GetTemplateArgAnnotation(0).GetType();
+          recordSize = M.getDataLayout().getTypeAllocSize(pRecType);*/
+          recordSize = recordSizeWAR;
+        }
+        NodeInfo Info(kind, recordSize);
+
+        CI = CreateAnnotateNodeHandle(HLM, CI, Builder, Info);
+        Value *Res = HLM.EmitHLOperationCall(
+            Builder, HLOpcodeGroup::HLCast,
+            (unsigned)HLCastOpcode::HandleToNodeOutputCast, ResTy, {CI}, M);
+        Builder.CreateStore(Res, retHandleArg);
+      } else {
+        Value *Res = HLM.EmitHLOperationCall(
+            Builder, HLOpcodeGroup::HLCast,
+            (unsigned)HLCastOpcode::HandleToResCast, ResTy, {CI}, M);
+        Builder.CreateStore(Res, retHandleArg);
+      }
       oldCI->eraseFromParent();
       continue;
     }
@@ -909,7 +1177,7 @@ void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
 void AddOpcodeParamForIntrinsics(
     HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
     DxilObjectProperties &objectProperties) {
-  llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
+
   for (auto mapIter : intrinsicMap) {
     Function *F = mapIter.first;
     if (F->user_empty()) {
@@ -919,7 +1187,7 @@ void AddOpcodeParamForIntrinsics(
     }
 
     unsigned opcode = mapIter.second;
-    AddOpcodeParamForIntrinsic(HLM, F, opcode, HandleTy, objectProperties);
+    AddOpcodeParamForIntrinsic(HLM, F, opcode, objectProperties);
   }
 }
 
@@ -2661,6 +2929,59 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
     pConstructorFunc->eraseFromParent();
   }
 }
+
+void TranslateInputNodeRecordArgToHandle(
+    hlsl::HLModule &HLM,
+    llvm::MapVector<llvm::Argument *, NodeInputRecordProps> &NodeParams) {
+
+  llvm::Module &Module = *HLM.GetModule();
+  Type *HandleTy = HLM.GetOP()->GetNodeRecordHandleType();
+
+  for (auto it : NodeParams) {
+    NodeInputRecordProps Props = it.second;
+    Argument *NodeParam = it.first;
+    if (NodeParam->user_empty())
+      continue;
+
+    IRBuilder<> Builder(
+        NodeParam->getParent()->getEntryBlock().getFirstInsertionPt());
+    Value *Handle = CreateNodeInputRecordHandle(NodeParam, HLM, HandleTy,
+                                                Builder, Props.MetadataIdx);
+    Handle =
+        CreateAnnotateNodeRecordHandle(HLM, Handle, Builder, Props.RecordInfo);
+    llvm::Type *RetTy = NodeParam->getType()->getPointerElementType();
+    Value *Res =
+        HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
+                                (unsigned)HLCastOpcode::HandleToNodeRecordCast,
+                                RetTy, {Handle}, Module);
+    Builder.CreateStore(Res, NodeParam);
+  }
+}
+
+void TranslateNodeOutputParamToHandle(
+    hlsl::HLModule &HLM,
+    llvm::MapVector<llvm::Argument *, NodeProps> &NodeParams) {
+  Type *HandleTy = HLM.GetOP()->GetNodeHandleType();
+
+  for (auto it : NodeParams) {
+    NodeProps Props = it.second;
+    Argument *NodeParam = it.first;
+    if (NodeParam->user_empty())
+      continue;
+
+    IRBuilder<> Builder(
+        NodeParam->getParent()->getEntryBlock().getFirstInsertionPt());
+    Value *Handle =
+        CreateNodeOutputHandle(HLM, HandleTy, Builder, Props.MetadataIdx);
+    Handle = CreateAnnotateNodeHandle(HLM, Handle, Builder, Props.Info);
+    Value *Res =
+        HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
+                                (unsigned)HLCastOpcode::HandleToNodeOutputCast,
+                                NodeParam->getType()->getPointerElementType(),
+                                {Handle}, *HLM.GetModule());
+    Builder.CreateStore(Res, NodeParam);
+  }
+}
 } // namespace CGHLSLMSHelper
 
 namespace {
@@ -3256,6 +3577,10 @@ void FinishIntrinsics(
   LowerGetResourceFromHeap(HLM, intrinsicMap);
   // Lower bitcast use of CBV into cbSubscript.
   LowerDynamicCBVUseToHandle(HLM, objectProperties);
+
+  // Add AnnotateWaveMatrix
+  AddAnnotateWaveMatrix(HLM, objectProperties);
+
   // translate opcode into parameter for intrinsic functions
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
@@ -3768,6 +4093,29 @@ void DxilObjectProperties::updateGLC(llvm::Value *V) {
     return;
 
   it->second.Basic.IsGloballyCoherent ^= 1;
+}
+
+bool DxilObjectProperties::AddWaveMatrix(
+    llvm::Value *V, const hlsl::DxilWaveMatrixProperties &WMP) {
+  if (WMP.isValid()) {
+    DXASSERT(!GetWaveMatrix(V).isValid() || GetWaveMatrix(V) == WMP,
+             "otherwise, property conflict");
+    waveMatMap[V] = WMP;
+    return true;
+  }
+  return false;
+}
+
+bool DxilObjectProperties::IsWaveMatrix(llvm::Value *V) {
+  return waveMatMap.count(V) != 0;
+}
+
+hlsl::DxilWaveMatrixProperties
+DxilObjectProperties::GetWaveMatrix(llvm::Value *V) {
+  auto it = waveMatMap.find(V);
+  if (it != waveMatMap.end())
+    return it->second;
+  return DxilWaveMatrixProperties();
 }
 
 } // namespace CGHLSLMSHelper

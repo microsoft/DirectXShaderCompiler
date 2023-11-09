@@ -35,34 +35,21 @@ public:
 
   TEST_METHOD(RunCppErrors)
   TEST_METHOD(RunCppErrorsHV2015)
-  TEST_METHOD(RunVectorSyntax)
-  TEST_METHOD(RunVectorSyntaxExactPrecision)
-  TEST_METHOD(RunTypemodsSyntax)
-  TEST_METHOD(RunSemantics)
-  TEST_METHOD(RunImplicitCasts)
-  TEST_METHOD(RunDerivedToBaseCasts)
-  TEST_METHOD(RunLiterals)
-  TEST_METHOD(RunEffectsSyntax)
-  TEST_METHOD(RunVectorConditional)
-  TEST_METHOD(RunUint4Add3)
-  TEST_METHOD(RunBadInclude)
-  TEST_METHOD(RunWave)
-  TEST_METHOD(RunBinopDims)
-  TEST_METHOD(RunBitfields)
-  TEST_METHOD(RunVectorSelect)
-  TEST_METHOD(RunVectorAnd)
-  TEST_METHOD(RunVectorOr)
-  TEST_METHOD(RunArrayConstAssign)
-  TEST_METHOD(RunInputPatchConst)
-  TEST_METHOD(RunWriteConstArrays)
-  TEST_METHOD(RunAtomicsOnBitfields)
-  TEST_METHOD(RunUnboundedResourceArrays)
-  TEST_METHOD(GloballyCoherentErrors)
-  TEST_METHOD(GloballyCoherentMismatch)
-  TEST_METHOD(GloballyCoherentTemplateErrors)
-  TEST_METHOD(RunBitFieldAnnotations)
-  TEST_METHOD(RunUDTByteAddressBufferLoad)
-  TEST_METHOD(RunObjectTemplateDiagDeferred)
+
+  TEST_METHOD(RunWorkGraphs)
+  TEST_METHOD(RunWorkGraphMemberWriteDiags)
+  TEST_METHOD(RunWorkGraphNodeSVDispatchGridDiags)
+  TEST_METHOD(RunWorkGraphDispatchGridDiags)
+  TEST_METHOD(RunNodeInputCompatibilityDiags)
+  TEST_METHOD(RunNodeZeroSizedRecordDiags)
+  TEST_METHOD(RunWorkGraphAttributeDiags)
+  TEST_METHOD(RunInvalidNodeLaunchDiags)
+  TEST_METHOD(RunInvalidNodeOutputCompleteDiags)
+  TEST_METHOD(RunShaderMismatch)
+  TEST_METHOD(RunMaxRecordsAttribute)
+  TEST_METHOD(RunInvalidNodeRecordTypeDiags)
+  TEST_METHOD(RunNodeOutputArrayDiags)
+
   void CheckVerifies(const wchar_t *path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -138,102 +125,64 @@ public:
   }
 };
 
+TEST_F(VerifierTest, RunShaderMismatch) {
+  CheckVerifiesHLSL(L"shader_attribute.hlsl");
+  CheckVerifiesHLSL(L"shader_attribute_no_mismatch.hlsl");
+}
+
+TEST_F(VerifierTest, RunMaxRecordsAttribute) {
+  CheckVerifiesHLSL(L"max_output_records_duplicate.hlsl");
+  CheckVerifiesHLSL(L"max_output_records_identical_duplicates.hlsl");
+  CheckVerifiesHLSL(L"max_output_records_invalidref.hlsl");
+  // TODO: CheckVerifiesHLSL(L"max_output_records_shared_with.hlsl");
+}
+
 TEST_F(VerifierTest, RunCppErrors) { CheckVerifiesHLSL(L"cpp-errors.hlsl"); }
 
 TEST_F(VerifierTest, RunCppErrorsHV2015) {
   CheckVerifiesHLSL(L"cpp-errors-hv2015.hlsl");
 }
 
-TEST_F(VerifierTest, RunVectorSyntax) {
-  CheckVerifiesHLSL(L"vector-syntax.hlsl");
+TEST_F(VerifierTest, RunWorkGraphs) {
+  CheckVerifiesHLSL(L"workgraph/work-graphs.hlsl");
 }
 
-TEST_F(VerifierTest, RunVectorSyntaxExactPrecision) {
-  CheckVerifiesHLSL(L"vector-syntax-exact-precision.hlsl");
+TEST_F(VerifierTest, RunWorkGraphMemberWriteDiags) {
+  CheckVerifiesHLSL(L"/workgraph/member_write_diagnostics.hlsl");
 }
 
-TEST_F(VerifierTest, RunTypemodsSyntax) {
-  CheckVerifiesHLSL(L"typemods-syntax.hlsl");
+TEST_F(VerifierTest, RunWorkGraphNodeSVDispatchGridDiags) {
+  CheckVerifiesHLSL(L"/workgraph/rwnodeinputrecord_sv_dispatchgrid.hlsl");
 }
 
-TEST_F(VerifierTest, RunSemantics) { CheckVerifiesHLSL(L"semantics.hlsl"); }
-
-TEST_F(VerifierTest, RunImplicitCasts) {
-  CheckVerifiesHLSL(L"implicit-casts.hlsl");
+TEST_F(VerifierTest, RunWorkGraphDispatchGridDiags) {
+  CheckVerifiesHLSL(L"/workgraph/dispatchgrid_diags.hlsl");
 }
 
-TEST_F(VerifierTest, RunDerivedToBaseCasts) {
-  CheckVerifiesHLSL(L"derived-to-base.hlsl");
+TEST_F(VerifierTest, RunNodeInputCompatibilityDiags) {
+  CheckVerifiesHLSL(L"/workgraph/node_input_compatibility.hlsl");
 }
 
-TEST_F(VerifierTest, RunLiterals) { CheckVerifiesHLSL(L"literals.hlsl"); }
-
-TEST_F(VerifierTest, RunEffectsSyntax) {
-  CheckVerifiesHLSL(L"effects-syntax.hlsl");
+TEST_F(VerifierTest, RunNodeZeroSizedRecordDiags) {
+  CheckVerifiesHLSL(L"/workgraph/zero_sized_node_record.hlsl");
 }
 
-TEST_F(VerifierTest, RunVectorConditional) {
-  CheckVerifiesHLSL(L"vector-conditional.hlsl");
+TEST_F(VerifierTest, RunWorkGraphAttributeDiags) {
+  CheckVerifiesHLSL(L"/workgraph/attribute_diags.hlsl");
 }
 
-TEST_F(VerifierTest, RunVectorSelect) {
-  CheckVerifiesHLSL(L"vector-select.hlsl");
+TEST_F(VerifierTest, RunInvalidNodeLaunchDiags) {
+  CheckVerifiesHLSL(L"/workgraph/invalid_nodelaunch.hlsl");
 }
 
-TEST_F(VerifierTest, RunVectorAnd) { CheckVerifiesHLSL(L"vector-and.hlsl"); }
-
-TEST_F(VerifierTest, RunVectorOr) { CheckVerifiesHLSL(L"vector-or.hlsl"); }
-
-TEST_F(VerifierTest, RunUint4Add3) { CheckVerifiesHLSL(L"uint4_add3.hlsl"); }
-
-TEST_F(VerifierTest, RunBadInclude) { CheckVerifiesHLSL(L"bad-include.hlsl"); }
-
-TEST_F(VerifierTest, RunWave) { CheckVerifiesHLSL(L"wave.hlsl"); }
-
-TEST_F(VerifierTest, RunBinopDims) { CheckVerifiesHLSL(L"binop-dims.hlsl"); }
-
-TEST_F(VerifierTest, RunBitfields) { CheckVerifiesHLSL(L"bitfields.hlsl"); }
-
-TEST_F(VerifierTest, RunArrayConstAssign) {
-  CheckVerifiesHLSL(L"array-const-assign.hlsl");
+TEST_F(VerifierTest, RunInvalidNodeRecordTypeDiags) {
+  CheckVerifiesHLSL(L"/workgraph/invalid_node_record_type.hlsl");
 }
 
-TEST_F(VerifierTest, RunInputPatchConst) {
-  CheckVerifiesHLSL(L"InputPatch-const.hlsl");
+TEST_F(VerifierTest, RunNodeOutputArrayDiags) {
+  CheckVerifiesHLSL(L"/workgraph/nodeoutput_array.hlsl");
 }
 
-TEST_F(VerifierTest, RunWriteConstArrays) {
-  CheckVerifiesHLSL(L"write-const-arrays.hlsl");
-}
-
-TEST_F(VerifierTest, RunAtomicsOnBitfields) {
-  CheckVerifiesHLSL(L"atomics-on-bitfields.hlsl");
-}
-
-TEST_F(VerifierTest, RunUnboundedResourceArrays) {
-  CheckVerifiesHLSL(L"invalid-unbounded-resource-arrays.hlsl");
-}
-
-TEST_F(VerifierTest, GloballyCoherentErrors) {
-  CheckVerifiesHLSL(L"globallycoherent-errors.hlsl");
-}
-
-TEST_F(VerifierTest, GloballyCoherentMismatch) {
-  CheckVerifiesHLSL(L"globallycoherent-mismatch.hlsl");
-}
-
-TEST_F(VerifierTest, GloballyCoherentTemplateErrors) {
-  CheckVerifiesHLSL(L"globallycoherent-template-errors.hlsl");
-}
-
-TEST_F(VerifierTest, RunBitFieldAnnotations) {
-  CheckVerifiesHLSL(L"bitfields-and-annotations.hlsl");
-}
-
-TEST_F(VerifierTest, RunUDTByteAddressBufferLoad) {
-  CheckVerifiesHLSL(L"template-udt-load.hlsl");
-}
-
-TEST_F(VerifierTest, RunObjectTemplateDiagDeferred) {
-  CheckVerifiesHLSL(L"object-template-diag-deferred.hlsl");
+TEST_F(VerifierTest, RunInvalidNodeOutputCompleteDiags) {
+  CheckVerifiesHLSL(L"/workgraph/outputcomplete_unsupported_nodeio.hlsl");
 }

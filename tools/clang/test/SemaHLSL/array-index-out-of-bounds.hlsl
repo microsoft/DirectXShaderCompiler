@@ -1,5 +1,7 @@
-// RUN: %dxc -Tlib_6_3 -Wno-unused-value   -verify %s
+// RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify %s
+// RUN: %dxc -Tvs_6_0  -Wno-unused-value -verify %s
 
+[shader("vertex")]
 void main()
 {
     // expected-note@+2 {{array 'array' declared here}}

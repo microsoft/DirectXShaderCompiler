@@ -174,6 +174,10 @@ private:
                          SpirvInstruction **aliasVarInstr,
                          SourceRange rangeOverride = {});
 
+  /// Check whether a member value has a nointerpolation qualifier in its type
+  /// declaration or any parents' type declaration recursively.
+  bool isNoInterpMemberExpr(const MemberExpr *expr);
+
 private:
   /// Translates the given frontend binary operator into its SPIR-V equivalent
   /// taking consideration of the operand type.
@@ -379,7 +383,8 @@ private:
   collectArrayStructIndices(const Expr *expr, bool rawIndex,
                             llvm::SmallVectorImpl<uint32_t> *rawIndices,
                             llvm::SmallVectorImpl<SpirvInstruction *> *indices,
-                            bool *isMSOutAttribute = nullptr);
+                            bool *isMSOutAttribute = nullptr,
+                            bool *isNointerp = nullptr);
 
   /// For L-values, creates an access chain to index into the given SPIR-V
   /// evaluation result and returns the new SPIR-V evaluation result.
@@ -644,6 +649,10 @@ private:
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 
+  /// Processes the SM 6.4 dot4add_{i|u}8packed intrinsic functions.
+  SpirvInstruction *processIntrinsicDP4a(const CallExpr *callExpr,
+                                         hlsl::IntrinsicOp op);
+
   /// Processes the SM 6.6 pack_{s|u}8 and pack_clamp_{s|u}8 intrinsic
   /// functions.
   SpirvInstruction *processIntrinsic8BitPack(const CallExpr *,
@@ -666,6 +675,9 @@ private:
 
   /// Process mesh shader intrinsics.
   void processMeshOutputCounts(const CallExpr *callExpr);
+
+  /// Process GetAttributeAtVertex for barycentrics.
+  SpirvInstruction *processGetAttributeAtVertex(const CallExpr *expr);
 
   /// Process ray query traceinline intrinsics.
   SpirvInstruction *processTraceRayInline(const CXXMemberCallExpr *expr);
@@ -799,6 +811,9 @@ private:
   static hlsl::ShaderModel::Kind getShaderModelKind(StringRef stageName);
   static spv::ExecutionModel getSpirvShaderStage(hlsl::ShaderModel::Kind smk,
                                                  bool);
+
+  /// \brief Handle inline SPIR-V attributes for the entry function.
+  void processInlineSpirvAttributes(const FunctionDecl *entryFunction);
 
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.

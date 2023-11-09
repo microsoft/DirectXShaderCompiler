@@ -36,21 +36,29 @@ RWBuffer<float4> Buf_r8;
 [[vk::image_format("rg16snorm")]]
 RWBuffer<float4> Buf_rg16snorm;
 
-//CHECK: OpTypeImage %float Buffer 2 0 0 2 Rgba32i
+//CHECK: OpTypeImage %int Buffer 2 0 0 2 Rgba32i
 [[vk::image_format("rgba32i")]]
-RWBuffer<float4> Buf_rgba32i;
+RWBuffer<int4> Buf_rgba32i;
 
-//CHECK: OpTypeImage %float Buffer 2 0 0 2 Rg8i
+//CHECK: OpTypeImage %int Buffer 2 0 0 2 Rg8i
 [[vk::image_format("rg8i")]]
-RWBuffer<float4> Buf_rg8i;
+RWBuffer<int2> Buf_rg8i;
 
-//CHECK: OpTypeImage %float Buffer 2 0 0 2 Rgba16ui
+//CHECK: OpTypeImage %uint Buffer 2 0 0 2 Rgba16ui
 [[vk::image_format("rgba16ui")]]
-RWBuffer<float4> Buf_rgba16ui;
+RWBuffer<uint4> Buf_rgba16ui;
 
-//CHECK: OpTypeImage %float Buffer 2 0 0 2 Rgb10a2ui
+//CHECK: OpTypeImage %uint Buffer 2 0 0 2 Rgb10a2ui
 [[vk::image_format("rgb10a2ui")]]
-RWBuffer<float4> Buf_rgb10a2ui;
+RWBuffer<uint4> Buf_rgb10a2ui;
+
+//CHECK: OpTypeImage %long Buffer 2 0 0 2 R64i
+[[vk::image_format("r64i")]]
+RWBuffer<int64_t> Buf_r64i;
+
+//CHECK: OpTypeImage %ulong Buffer 2 0 0 2 R64ui
+[[vk::image_format("r64ui")]]
+RWBuffer<uint64_t> Buf_r64ui;
 
 struct S {
     RWBuffer<float4> b;

@@ -17,7 +17,8 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}), debugInstructions({}) {}
+      constants({}), variables({}), functions({}), debugInstructions({}),
+      perVertexInterp(false) {}
 
 SpirvModule::~SpirvModule() {
   for (auto *cap : capabilities)

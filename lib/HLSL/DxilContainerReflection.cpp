@@ -986,6 +986,23 @@ HRESULT CShaderReflectionType::InitializeEmpty() {
   return S_OK;
 }
 
+// Returns true if type is array and/or vec with matching number of elements.
+static bool MatchVectorOrMatrixType(llvm::Type *type, unsigned count,
+                                    int maxDepth) {
+  if (type->isArrayTy()) {
+    unsigned arraySize = (unsigned)type->getArrayNumElements();
+    if (maxDepth < 1 || count < arraySize || (count % arraySize) != 0)
+      return false;
+    return MatchVectorOrMatrixType(type->getArrayElementType(),
+                                   count / arraySize, maxDepth - 1);
+  } else if (type->isVectorTy()) {
+    if (maxDepth < 1)
+      return false;
+    return type->getVectorNumElements() == count;
+  }
+  return count == 1;
+}
+
 // Main logic for translating an LLVM type and associated
 // annotations into a D3D shader reflection type.
 HRESULT CShaderReflectionType::Initialize(
@@ -996,6 +1013,7 @@ HRESULT CShaderReflectionType::Initialize(
   DXASSERT_NOMSG(inType);
 
   // Set a bunch of fields to default values, to avoid duplication.
+  m_Desc.Class = D3D_SVC_SCALAR;
   m_Desc.Rows = 0;
   m_Desc.Columns = 0;
   m_Desc.Elements = 0;
@@ -1026,32 +1044,75 @@ HRESULT CShaderReflectionType::Initialize(
   // at the element type.
   llvm::Type *type = inType;
 
-  while (type->isArrayTy()) {
-    llvm::Type *elementType = type->getArrayElementType();
+  // Arrays can be a bit difficult, since some types are translated to arrays.
+  // Additionally, matrices have multiple potential forms, so we must pay
+  // attention to the field annotation to determine when we have reached the
+  // element type that may be a matrix or a vector.
 
-    // Note: At this point an HLSL matrix type may appear as an ordinary
-    // array (not wrapped in a `struct`), so `dxilutil::IsHLSLMatrixType()`
-    // is not sufficient. Instead we need to check the field annotation.
-    //
-    // We might have an array of matrices, though, so we only exit if
-    // the field annotation says we have a matrix, and we've bottomed
-    // out at one array level, since matrix will be in the format:
-    // [rows x <cols x float>]
-    //
-    // This is in storage orientation, so rows/cols are swapped
-    // when the matrix is column_major.
-    //
-    // However, when the matrix has a row size of 1 in storage orientation,
-    // this array dimension appears to be missing.
-    // To properly count the array dimensions for this case,
-    // we must not break out of the loop one array early when rows == 1.
-    if (typeAnnotation.HasMatrixAnnotation() && !elementType->isArrayTy() &&
-        !HLMatrixType::isa(elementType)) {
-      const DxilMatrixAnnotation &mat = typeAnnotation.GetMatrixAnnotation();
-      unsigned rows =
-          mat.Orientation == MatrixOrientation::RowMajor ? mat.Rows : mat.Cols;
-      // when rows == 1, in storage orientation, the row array is missing.
-      if (rows > 1)
+  // There are several possible matrix encodings:
+  //  High level: struct { [rows x <cols x float>] }
+  //  High level struct stripped: [rows x <cols x float>]
+  //  High level struct stripped, one row: <cols x float>
+  //  Vector as array: [rows x [cols x float]]
+  //  Vector as array, one row: [cols x float]
+  //  Flattened vector: <(rows*cols) x float>
+  //  Flattened vector as array: [(rows*cols) x float]
+  // And vector may use llvm vector, or be translated to array:
+  //  <cols x float>  <->  [cols x float]
+  // Use type annotation to determine if we have a vector or matrix first,
+  // so we can stop multiplying in array dims at the right time.
+
+  if (typeAnnotation.HasMatrixAnnotation()) {
+    // We can extract the details from the annotation.
+    DxilMatrixAnnotation const &matrixAnnotation =
+        typeAnnotation.GetMatrixAnnotation();
+
+    switch (matrixAnnotation.Orientation) {
+    default:
+#ifndef NDEBUG
+      OutputDebugStringA(
+          "DxilContainerReflection.cpp: error: unknown matrix orientation\n");
+#endif
+      // Note: column-major layout is the default
+      LLVM_FALLTHROUGH; // HLSL Change
+    case hlsl::MatrixOrientation::Undefined:
+    case hlsl::MatrixOrientation::ColumnMajor:
+      m_Desc.Class = D3D_SVC_MATRIX_COLUMNS;
+      break;
+
+    case hlsl::MatrixOrientation::RowMajor:
+      m_Desc.Class = D3D_SVC_MATRIX_ROWS;
+      break;
+    }
+
+    m_Desc.Rows = matrixAnnotation.Rows;
+    m_Desc.Columns = matrixAnnotation.Cols;
+
+    cbRows = m_Desc.Rows;
+    cbCols = m_Desc.Columns;
+    if (m_Desc.Class == D3D_SVC_MATRIX_COLUMNS) {
+      std::swap(cbRows, cbCols);
+    }
+  } else if (unsigned cols = typeAnnotation.GetVectorSize()) {
+    // Older format lacks this size, but the type will be a vector,
+    // so that will be handled later by original code path.
+    m_Desc.Class = D3D_SVC_VECTOR;
+    m_Desc.Rows = 1;
+    m_Desc.Columns = cols;
+
+    cbRows = m_Desc.Rows;
+    cbCols = m_Desc.Columns;
+  }
+
+  while (type->isArrayTy()) {
+    // Already determined that this is a vector or matrix, so break if the
+    // number of remaining array and/or vector elements matches.
+    if (m_Desc.Class != D3D_SVC_SCALAR) {
+      // max depth is 1 for vector, and 2 for matrix, unless rows in storage
+      // orientation is 1.
+      if (MatchVectorOrMatrixType(
+              type, cbRows * cbCols,
+              (m_Desc.Class == D3D_SVC_VECTOR || cbRows == 1) ? 1 : 2))
         break;
     }
 
@@ -1065,11 +1126,8 @@ HRESULT CShaderReflectionType::Initialize(
     // but for now we do the expedient thing of multiplying out all their
     // dimensions.
     m_Desc.Elements *= type->getArrayNumElements();
-    type = elementType;
+    type = type->getArrayElementType();
   }
-
-  // Default to a scalar type, just to avoid some duplication later.
-  m_Desc.Class = D3D_SVC_SCALAR;
 
   // Look at the annotation to try to determine the basic type of value.
   //
@@ -1165,40 +1223,13 @@ HRESULT CShaderReflectionType::Initialize(
   }
   m_Desc.Type = componentType;
 
-  // A matrix type is encoded as a vector type, plus annotations, so we
-  // need to check for this case before other vector cases.
-  if (typeAnnotation.HasMatrixAnnotation()) {
-    // We can extract the details from the annotation.
-    DxilMatrixAnnotation const &matrixAnnotation =
-        typeAnnotation.GetMatrixAnnotation();
-
-    switch (matrixAnnotation.Orientation) {
-    default:
-#ifndef NDEBUG
-      OutputDebugStringA(
-          "DxilContainerReflection.cpp: error: unknown matrix orientation\n");
-#endif
-      // Note: column-major layout is the default
-      LLVM_FALLTHROUGH; // HLSL Change
-    case hlsl::MatrixOrientation::Undefined:
-    case hlsl::MatrixOrientation::ColumnMajor:
-      m_Desc.Class = D3D_SVC_MATRIX_COLUMNS;
-      break;
-
-    case hlsl::MatrixOrientation::RowMajor:
-      m_Desc.Class = D3D_SVC_MATRIX_ROWS;
-      break;
-    }
-
-    m_Desc.Rows = matrixAnnotation.Rows;
-    m_Desc.Columns = matrixAnnotation.Cols;
-    m_Name += std::to_string(matrixAnnotation.Rows) + "x" +
-              std::to_string(matrixAnnotation.Cols);
-
-    cbRows = m_Desc.Rows;
-    cbCols = m_Desc.Columns;
-    if (m_Desc.Class == D3D_SVC_MATRIX_COLUMNS) {
-      std::swap(cbRows, cbCols);
+  if (m_Desc.Class != D3D_SVC_SCALAR) {
+    // matrix or explicit vector already handled, except for name.
+    if (m_Desc.Class == D3D_SVC_VECTOR) {
+      m_Name += std::to_string(m_Desc.Columns);
+    } else {
+      m_Name +=
+          std::to_string(m_Desc.Rows) + "x" + std::to_string(m_Desc.Columns);
     }
   } else if (FixedVectorType *VT = dyn_cast<FixedVectorType>(type)) {
     // We assume that LLVM vectors either represent matrices (handled above)

@@ -6,8 +6,7 @@
 // The SCCP pass replaces the recursive call with an undef value,
 // which is why validation fails with a non-obvious error.
 
-// CHECK: validation errors
-// CHECK: Instructions should not read uninitialized value
+// CHECK: error: recursive functions are not allowed: entry function calls recursive function 'func'
 
 struct S
 {

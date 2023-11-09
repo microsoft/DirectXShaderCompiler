@@ -1,5 +1,7 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value   -verify %s
+// RUN: %dxc -Tps_6_0  -Wno-unused-value   -verify %s
 
+[shader("pixel")]
 float4 main() : SV_TARGET
 {
     const float c = 2.0; // expected-note {{variable 'c' declared const here}} expected-note {{variable 'c' declared const here}} fxc-pass {{}}

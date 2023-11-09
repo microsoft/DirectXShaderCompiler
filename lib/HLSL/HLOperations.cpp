@@ -11,6 +11,7 @@
 
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -30,20 +31,29 @@ static const char HLWaveSensitiveStr[] = "dx.wave-sensitive";
 static const char *const HLWaveSensitive = HLWaveSensitiveStr;
 
 static StringRef HLOpcodeGroupNames[]{
-    "notHLDXIL",     // NotHL,
-    "<ext>",         // HLExtIntrinsic - should always refer through extension
-    "op",            // HLIntrinsic,
-    "cast",          // HLCast,
-    "init",          // HLInit,
-    "binop",         // HLBinOp,
-    "unop",          // HLUnOp,
-    "subscript",     // HLSubscript,
-    "matldst",       // HLMatLoadStore,
-    "select",        // HLSelect,
-    "createhandle",  // HLCreateHandle,
-    "annotatehandle" // HLAnnotateHandle,
-    "numOfHLDXIL",   // NumOfHLOps
+    "notHLDXIL",    // NotHL,
+    "<ext>",        // HLExtIntrinsic - should always refer through extension
+    "op",           // HLIntrinsic,
+    "cast",         // HLCast,
+    "init",         // HLInit,
+    "binop",        // HLBinOp,
+    "unop",         // HLUnOp,
+    "subscript",    // HLSubscript,
+    "matldst",      // HLMatLoadStore,
+    "select",       // HLSelect,
+    "createhandle", // HLCreateHandle,
+    "createnodeoutputhandle",      // HLCreateNodeOutputHandle
+    "indexnodehandle",             // HLIndexNodeHandle:
+    "createnodeinputrecordhandle", // HLCreateNodeInputRecordHandle
+    "annotatehandle",              // HLAnnotateHandle,
+    "wavematrix_annotate",         // HLWaveMatrix_Annotate,
+    "annotatenodehandle",          // HLAnnotateNodeHandle
+    "annotatenoderecordhandle",    // HLAnnotateNodeRecordHandle
+    "numOfHLDXIL",                 // NumOfHLOps
 };
+static_assert(_countof(HLOpcodeGroupNames) ==
+                  1 + (size_t)HLOpcodeGroup::NumOfHLOps,
+              "otherwise, tables out of sync");
 
 static StringRef HLOpcodeGroupFullNames[]{
     "notHLDXIL",       // NotHL,
@@ -56,46 +66,43 @@ static StringRef HLOpcodeGroupFullNames[]{
     "dx.hl.subscript", // HLSubscript,
     "dx.hl.matldst",   // HLMatLoadStore,
     "dx.hl.select",    // HLSelect,
-    "dx.hl.createhandle",   // HLCreateHandle,
-    "dx.hl.annotatehandle", // HLAnnotateHandle,
-    "numOfHLDXIL",          // NumOfHLOps
+    "dx.hl.createhandle",                // HLCreateHandle,
+    "dx.hl.createnodeoutputhandle",      // HLCreateNodeHandle
+    "dx.hl.indexnodehandle",             // HLIndexNodeHandle
+    "dx.hl.createnodeinputrecordhandle", // HLCreateNodeInputRecordHandle
+    "dx.hl.annotatehandle",              // HLAnnotateHandle,
+    "dx.hl.wavematrix_annotate",         // HLWaveMatrix_Annotate,
+    "dx.hl.annotatenodehandle",          // HLAnnotateNodeHandle,
+    "dx.hl.annotatenoderecordhandle",    // HLAnnotateNodeRecordHandle
+    "numOfHLDXIL",                       // NumOfHLOps
 };
+static_assert(_countof(HLOpcodeGroupFullNames) ==
+                  1 + (size_t)HLOpcodeGroup::NumOfHLOps,
+              "otherwise, tables out of sync");
 
 static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
-  if (!group.empty()) {
-    switch (group[0]) {
-    case 'o': // op
-      return HLOpcodeGroup::HLIntrinsic;
-    case 'c': // cast
-      switch (group[1]) {
-      case 'a': // cast
-        return HLOpcodeGroup::HLCast;
-      case 'r': // createhandle
-        return HLOpcodeGroup::HLCreateHandle;
-      }
-      llvm_unreachable("unrecognized group code");
-    case 'i': // init
-      return HLOpcodeGroup::HLInit;
-    case 'b': // binaryOp
-      return HLOpcodeGroup::HLBinOp;
-    case 'u': // unaryOp
-      return HLOpcodeGroup::HLUnOp;
-    case 's': // subscript
-      switch (group[1]) {
-      case 'u':
-        return HLOpcodeGroup::HLSubscript;
-      case 'e':
-        return HLOpcodeGroup::HLSelect;
-      }
-      llvm_unreachable("unrecognized group code");
-    case 'm': // matldst
-      return HLOpcodeGroup::HLMatLoadStore;
-    case 'a': // annotatehandle
-      return HLOpcodeGroup::HLAnnotateHandle;
-    }
-  }
-  return HLOpcodeGroup::NotHL;
+  return llvm::StringSwitch<HLOpcodeGroup>(group)
+      .Case("op", HLOpcodeGroup::HLIntrinsic)
+      .Case("cast", HLOpcodeGroup::HLCast)
+      .Case("init", HLOpcodeGroup::HLInit)
+      .Case("binop", HLOpcodeGroup::HLBinOp)
+      .Case("unop", HLOpcodeGroup::HLUnOp)
+      .Case("subscript", HLOpcodeGroup::HLSubscript)
+      .Case("matldst", HLOpcodeGroup::HLMatLoadStore)
+      .Case("select", HLOpcodeGroup::HLSelect)
+      .Case("createhandle", HLOpcodeGroup::HLCreateHandle)
+      .Case("createnodeoutputhandle", HLOpcodeGroup::HLCreateNodeOutputHandle)
+      .Case("indexnodehandle", HLOpcodeGroup::HLIndexNodeHandle)
+      .Case("createnodeinputrecordhandle",
+            HLOpcodeGroup::HLCreateNodeInputRecordHandle)
+      .Case("annotatehandle", HLOpcodeGroup::HLAnnotateHandle)
+      .Case("wavematrix_annotate", HLOpcodeGroup::HLWaveMatrix_Annotate)
+      .Case("annotatenodehandle", HLOpcodeGroup::HLAnnotateNodeHandle)
+      .Case("annotatenoderecordhandle",
+            HLOpcodeGroup::HLAnnotateNodeRecordHandle)
+      .Default(HLOpcodeGroup::NotHL);
 }
+
 // GetHLOpGroup by function name.
 HLOpcodeGroup GetHLOpcodeGroupByName(const Function *F) {
   StringRef name = F->getName();
@@ -108,8 +115,10 @@ HLOpcodeGroup GetHLOpcodeGroupByName(const Function *F) {
   }
 
   const unsigned prefixSize = sizeof(HLPrefixStr);
+  const unsigned groupEnd = name.find_first_of('.', prefixSize);
 
-  StringRef group = name.substr(prefixSize);
+  StringRef group = name.substr(prefixSize, groupEnd - prefixSize);
+
   return GetHLOpcodeGroupInternal(group);
 }
 
@@ -142,7 +151,13 @@ StringRef GetHLOpcodeGroupName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLMatLoadStore:
   case HLOpcodeGroup::HLSelect:
   case HLOpcodeGroup::HLCreateHandle:
+  case HLOpcodeGroup::HLCreateNodeOutputHandle:
+  case HLOpcodeGroup::HLIndexNodeHandle:
+  case HLOpcodeGroup::HLCreateNodeInputRecordHandle:
   case HLOpcodeGroup::HLAnnotateHandle:
+  case HLOpcodeGroup::HLWaveMatrix_Annotate:
+  case HLOpcodeGroup::HLAnnotateNodeHandle:
+  case HLOpcodeGroup::HLAnnotateNodeRecordHandle:
     return HLOpcodeGroupNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
@@ -161,7 +176,13 @@ StringRef GetHLOpcodeGroupFullName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLMatLoadStore:
   case HLOpcodeGroup::HLSelect:
   case HLOpcodeGroup::HLCreateHandle:
+  case HLOpcodeGroup::HLCreateNodeOutputHandle:
+  case HLOpcodeGroup::HLIndexNodeHandle:
+  case HLOpcodeGroup::HLCreateNodeInputRecordHandle:
   case HLOpcodeGroup::HLAnnotateHandle:
+  case HLOpcodeGroup::HLWaveMatrix_Annotate:
+  case HLOpcodeGroup::HLAnnotateNodeHandle:
+  case HLOpcodeGroup::HLAnnotateNodeRecordHandle:
     return HLOpcodeGroupFullNames[static_cast<unsigned>(op)];
   default:
     llvm_unreachable("invalid op");
@@ -504,6 +525,9 @@ static AttributeSet GetHLFunctionAttributes(LLVMContext &C,
   case HLOpcodeGroup::HLAnnotateHandle: {
     addAttr(Attribute::ReadNone);
   } break;
+  case HLOpcodeGroup::HLWaveMatrix_Annotate: {
+    addAttr(Attribute::ArgMemOnly);
+  } break;
   case HLOpcodeGroup::HLIntrinsic: {
     IntrinsicOp intrinsicOp = static_cast<IntrinsicOp>(opcode);
     switch (intrinsicOp) {
@@ -541,6 +565,7 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
   // Capture for adding in canonical order later.
   bool ReadNone = false;
   bool ReadOnly = false;
+  bool ArgMemOnly = false;
   bool NoDuplicate = false;
   bool WaveSensitive = false;
 
@@ -556,6 +581,9 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
             break;
           case Attribute::ReadOnly:
             ReadOnly = true;
+            break;
+          case Attribute::ArgMemOnly:
+            ArgMemOnly = true;
             break;
           case Attribute::NoDuplicate:
             NoDuplicate = true;
@@ -573,7 +601,7 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
                    "otherwise, unexpected value for WaveSensitive attribute");
             WaveSensitive = true;
           } else {
-            assert(false &&
+            assert(Kind == "dx.hlls" &&
                    "unexpected string function attribute for HLOperation");
           }
         }
@@ -582,8 +610,8 @@ static std::string GetHLFunctionAttributeMangling(const AttributeSet &attribs) {
   }
 
   // Validate attribute combinations.
-  assert(!(ReadNone && ReadOnly) &&
-         "ReadNone and ReadOnly are mutually exclusive");
+  assert(!(ReadNone && ReadOnly && ArgMemOnly) &&
+         "ReadNone, ReadOnly, and ArgMemOnly are mutually exclusive");
 
   // Add mangling in canonical order
   if (NoDuplicate)

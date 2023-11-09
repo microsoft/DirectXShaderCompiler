@@ -142,6 +142,8 @@ const Semantic Semantic::ms_SemanticTable[kNumSemanticRecords] = {
     SP(Kind::Barycentrics, "SV_Barycentrics"),
     SP(Kind::ShadingRate, "SV_ShadingRate"),
     SP(Kind::CullPrimitive, "SV_CullPrimitive"),
+    SP(Kind::StartVertexLocation, "SV_StartVertexLocation"),
+    SP(Kind::StartInstanceLocation, "SV_StartInstanceLocation"),
     SP(Kind::Invalid, nullptr),
 };
 

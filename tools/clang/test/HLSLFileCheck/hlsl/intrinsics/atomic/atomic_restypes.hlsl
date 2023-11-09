@@ -51,8 +51,8 @@ void main(uint ix : SV_GroupIndex) {
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedAdd'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedAdd(DEST IDX, val);
   InterlockedAdd(DEST IDX, val, orig);
 
@@ -61,8 +61,8 @@ void main(uint ix : SV_GroupIndex) {
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedMin'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedMin(DEST IDX, val);
   InterlockedMin(DEST IDX, val, orig);
 
@@ -71,8 +71,8 @@ void main(uint ix : SV_GroupIndex) {
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedMax'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedMax(DEST IDX, val);
   InterlockedMax(DEST IDX, val, orig);
 
@@ -81,8 +81,8 @@ void main(uint ix : SV_GroupIndex) {
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedAnd'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedAnd(DEST IDX, val);
   InterlockedAnd(DEST IDX, val, orig);
 
@@ -91,8 +91,8 @@ void main(uint ix : SV_GroupIndex) {
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedOr'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedOr(DEST IDX, val);
   InterlockedOr(DEST IDX, val, orig);
 
@@ -101,27 +101,27 @@ void main(uint ix : SV_GroupIndex) {
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
   // CHECK: error: no matching function for call to 'InterlockedXor'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedXor(DEST IDX, val);
   InterlockedXor(DEST IDX, val, orig);
 
   // compareStore
   // CHECK: error: no matching function for call to 'InterlockedCompareStore'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedCompareStore(DEST IDX, comp, val);
 
   // exchange
   // CHECK: error: no matching function for call to 'InterlockedExchange'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedExchange(DEST IDX, val, orig);
 
   // compareExchange
   // CHECK: error: no matching function for call to 'InterlockedCompareExchange'
   // CHKRES: note: candidate function not viable: 1st argument {{.*}} would lose const qualifier
-  // CHKLOC: error: Atomic operation targets must be groupshared or UAV
+  // CHKLOC: error: Atomic operation targets must be groupshared, Node Record or UAV
   InterlockedCompareExchange(DEST IDX, comp, val, orig);
 
   output[ix] = (float)DEST IDX;

@@ -59,6 +59,9 @@ public:
     return parameters;
   }
 
+  // Gets the vector of variables.
+  std::vector<SpirvVariable *> getVariables() { return variables; }
+
   // Sets the SPIR-V type of the function
   void setFunctionType(SpirvType *type) { fnType = type; }
   // Returns the SPIR-V type of the function
@@ -98,6 +101,21 @@ public:
     basicBlocks[0]->addFirstInstruction(inst);
   }
 
+  /// Adds instructions to a cache array.
+  void addToInstructionCache(SpirvInstruction *inst) {
+    instructionsCache.push_back(inst);
+  }
+
+  /// Adds cached instructions to the front of current function.
+  void addInstrCacheToFront() {
+    int cacheSize = instructionsCache.size();
+    for (int i = 0; i < cacheSize; i++) {
+      auto *inst = instructionsCache.back();
+      addFirstInstruction(inst);
+      instructionsCache.pop_back();
+    }
+    instructionsCache.clear();
+  }
   /// Legalization-specific code
   ///
   /// Note: the following methods are used for properly handling aliasing.
@@ -122,6 +140,15 @@ public:
     return parameters[0]->getDebugName() == "param.this";
   }
 
+  /// Get or set a record for relationship between
+  /// a function parameter and variable within current function.
+  void addFuncParamVarEntry(SpirvInstruction *v, SpirvInstruction *p) {
+    funcVarParamMap[v] = p;
+  }
+  SpirvInstruction *getMappedFuncParam(SpirvInstruction *v) {
+    return funcVarParamMap.lookup(v);
+  }
+
 private:
   uint32_t functionId;         ///< This function's <result-id>
   QualType astReturnType;      ///< The return type
@@ -130,6 +157,9 @@ private:
   bool relaxedPrecision; ///< Whether the return type is at relaxed precision
   bool precise;          ///< Whether the return value is 'precise'
   bool noInline;         ///< The function is marked as no inline
+  ///< An instructions cache vector. Would be used to help insert instructions
+  ///< at the beginning of a function.
+  std::vector<SpirvInstruction *> instructionsCache;
 
   /// Legalization-specific code
   ///
@@ -164,6 +194,9 @@ private:
 
   /// DebugDeclare instructions for parameters to this function.
   llvm::SmallVector<SpirvDebugDeclare *, 8> debugDeclares;
+
+  /// Record relationship between a function parameter and its mapped variable.
+  llvm::DenseMap<SpirvInstruction *, SpirvInstruction *> funcVarParamMap;
 };
 
 } // end namespace spirv

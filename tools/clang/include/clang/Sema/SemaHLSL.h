@@ -15,6 +15,7 @@
 #define LLVM_CLANG_SEMA_SEMAHLSL_H
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Overload.h"
@@ -53,6 +54,11 @@ clang::Sema::TemplateDeductionResult DeduceTemplateArgumentsForHLSL(
     clang::TemplateArgumentListInfo *, llvm::ArrayRef<clang::Expr *>,
     clang::FunctionDecl *&, clang::sema::TemplateDeductionInfo &);
 
+bool DiagnoseNodeStructArgument(clang::Sema *self,
+                                clang::TemplateArgumentLoc ArgLoc,
+                                clang::QualType ArgTy, bool &Empty,
+                                const clang::FieldDecl *FD = nullptr);
+
 void DiagnoseControlFlowConditionForHLSL(clang::Sema *self,
                                          clang::Expr *condExpr,
                                          llvm::StringRef StmtName);
@@ -62,6 +68,11 @@ void DiagnosePackingOffset(clang::Sema *self, clang::SourceLocation loc,
 
 void DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
                           clang::QualType type, char registerType);
+
+clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
+                                         clang::FunctionDecl *FD);
+
+void ValidateNoRecursionInTranslationUnit(clang::Sema *self);
 
 void DiagnoseTranslationUnit(clang::Sema *self);
 
@@ -75,7 +86,21 @@ void DiagnosePayloadAccessQualifierAnnotations(
 void DiagnoseRaytracingPayloadAccess(clang::Sema &S,
                                      clang::TranslationUnitDecl *TU);
 
-void DiagnoseRaytracingEntry(clang::Sema &S, clang::FunctionDecl *FD);
+void DiagnoseCallableEntry(clang::Sema &S, clang::FunctionDecl *FD,
+                           llvm::StringRef StageName);
+
+void DiagnoseMissOrAnyHitEntry(clang::Sema &S, clang::FunctionDecl *FD,
+                               llvm::StringRef StageName,
+                               DXIL::ShaderKind Stage);
+
+void DiagnoseRayGenerationOrIntersectionEntry(clang::Sema &S,
+                                              clang::FunctionDecl *FD,
+                                              llvm::StringRef StageName);
+
+void DiagnoseClosestHitEntry(clang::Sema &S, clang::FunctionDecl *FD,
+                             llvm::StringRef StageName);
+
+void DiagnoseEntry(clang::Sema &S, clang::FunctionDecl *FD);
 
 /// <summary>Finds the best viable function on this overload set, if it
 /// exists.</summary>

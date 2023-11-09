@@ -28,11 +28,15 @@
 #include <cassert>
 #include <sstream>
 #include <algorithm>
+#ifdef _WIN32
 #include <windows.h>
 #include <unknwn.h>
+#endif
 #include "dxc/dxcapi.h"
+#ifdef _WIN32
 #include <atlbase.h>
 #include <atlfile.h>
+#endif
 
 #include "dxc/Test/HLSLTestData.h"
 #include "dxc/Test/HlslTestUtils.h"
@@ -47,50 +51,56 @@
 using namespace std;
 using namespace hlsl_test;
 
+#ifdef _WIN32
 class RewriterTest {
+#else
+class RewriterTest : public ::testing::Test {
+#endif
 public:
   BEGIN_TEST_CLASS(RewriterTest)
   TEST_CLASS_PROPERTY(L"Parallel", L"true")
   TEST_METHOD_PROPERTY(L"Priority", L"0")
   END_TEST_CLASS()
 
-  TEST_METHOD(RunArrayLength);
-  TEST_METHOD(RunAttributes);
-  TEST_METHOD(RunAnonymousStruct);
-  TEST_METHOD(RunCppErrors);
-  TEST_METHOD(RunForceExtern);
-  TEST_METHOD(RunIndexingOperator);
-  TEST_METHOD(RunIntrinsicExamples);
-  TEST_METHOD(RunMatrixAssignments);
-  TEST_METHOD(RunMatrixPackOrientation);
-  TEST_METHOD(RunMatrixSyntax);
-  TEST_METHOD(RunPackReg);
-  TEST_METHOD(RunScalarAssignments);
-  TEST_METHOD(RunShared);
-  TEST_METHOD(RunStructAssignments);
-  TEST_METHOD(RunTemplateChecks);
-  TEST_METHOD(RunTypemodsSyntax);
-  TEST_METHOD(RunVarmodsSyntax);
-  TEST_METHOD(RunVectorAssignments);
-  TEST_METHOD(RunVectorSyntaxMix);
-  TEST_METHOD(RunVectorSyntax);
-  TEST_METHOD(RunIncludes);
-  TEST_METHOD(RunSpirv);
-  TEST_METHOD(RunStructMethods);
-  TEST_METHOD(RunPredefines);
-  TEST_METHOD(RunWideOneByte);
-  TEST_METHOD(RunWideTwoByte);
-  TEST_METHOD(RunWideThreeByteBadChar);
-  TEST_METHOD(RunWideThreeByte);
-  TEST_METHOD(RunNonUnicode);
-  TEST_METHOD(RunEffect);
-  TEST_METHOD(RunSemanticDefines);
-  TEST_METHOD(RunNoFunctionBody);
-  TEST_METHOD(RunNoFunctionBodyInclude);
-  TEST_METHOD(RunNoStatic);
-  TEST_METHOD(RunKeepUserMacro);
-  TEST_METHOD(RunExtractUniforms);
-  TEST_METHOD(RunGlobalsUsedInMethod);
+  TEST_CLASS_SETUP(InitSupport);
+
+  TEST_METHOD(RunArrayLength)
+  TEST_METHOD(RunAttributes)
+  TEST_METHOD(RunAnonymousStruct)
+  TEST_METHOD(RunCppErrors)
+  TEST_METHOD(RunForceExtern)
+  TEST_METHOD(RunIndexingOperator)
+  TEST_METHOD(RunIntrinsicExamples)
+  TEST_METHOD(RunMatrixAssignments)
+  TEST_METHOD(RunMatrixPackOrientation)
+  TEST_METHOD(RunMatrixSyntax)
+  TEST_METHOD(RunPackReg)
+  TEST_METHOD(RunScalarAssignments)
+  TEST_METHOD(RunShared)
+  TEST_METHOD(RunStructAssignments)
+  TEST_METHOD(RunTemplateChecks)
+  TEST_METHOD(RunTypemodsSyntax)
+  TEST_METHOD(RunVarmodsSyntax)
+  TEST_METHOD(RunVectorAssignments)
+  TEST_METHOD(RunVectorSyntaxMix)
+  TEST_METHOD(RunVectorSyntax)
+  TEST_METHOD(RunIncludes)
+  TEST_METHOD(RunSpirv)
+  TEST_METHOD(RunStructMethods)
+  TEST_METHOD(RunPredefines)
+  TEST_METHOD(RunWideOneByte)
+  TEST_METHOD(RunWideTwoByte)
+  TEST_METHOD(RunWideThreeByteBadChar)
+  TEST_METHOD(RunWideThreeByte)
+  TEST_METHOD(RunNonUnicode)
+  TEST_METHOD(RunEffect)
+  TEST_METHOD(RunSemanticDefines)
+  TEST_METHOD(RunNoFunctionBody)
+  TEST_METHOD(RunNoFunctionBodyInclude)
+  TEST_METHOD(RunNoStatic)
+  TEST_METHOD(RunKeepUserMacro)
+  TEST_METHOD(RunExtractUniforms)
+  TEST_METHOD(RunGlobalsUsedInMethod)
   TEST_METHOD(RunRewriterFails)
 
   dxc::DxcDllSupport m_dllSupport;
@@ -141,13 +151,6 @@ public:
   }
 
   HRESULT CreateRewriter(IDxcRewriter **pRewriter) {
-    if (!m_dllSupport.IsEnabled()) {
-      VERIFY_SUCCEEDED(m_dllSupport.Initialize());
-
-      CComPtr<IDxcLibrary> library;
-      VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
-      VERIFY_SUCCEEDED(library->CreateIncludeHandler(&m_pIncludeHandler));
-    }
     return m_dllSupport.CreateInstance(CLSID_DxcRewriter, pRewriter);
   }
 
@@ -168,33 +171,21 @@ public:
   }
 
   struct FileWithBlob {
-    CAtlFile file;
-    CAtlFileMapping<char> mapping;
     CComPtr<IDxcBlobEncoding> BlobEncoding;
 
     FileWithBlob(dxc::DxcDllSupport &support, LPCWSTR path) {
-      IFT(file.Create(path, GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING));
-      IFT(mapping.MapFile(file));
       CComPtr<IDxcLibrary> library;
       IFT(support.CreateInstance(CLSID_DxcLibrary, &library));
-      IFT(library->CreateBlobWithEncodingFromPinned(
-          mapping.GetData(), mapping.GetMappingSize(), CP_UTF8, &BlobEncoding));
+      UINT32 codePage = CP_UTF8;
+      IFT(library->CreateBlobFromFile(path, &codePage, &BlobEncoding));
     }
   };
 
   bool CompareGold(std::string &firstPass, LPCWSTR goldPath) {
-    HANDLE goldHandle =
-        CreateFileW(goldPath, GENERIC_READ, 0, 0, OPEN_EXISTING, 0, 0);
-    VERIFY_ARE_NOT_EQUAL(goldHandle, INVALID_HANDLE_VALUE);
-    CHandle checkedGoldHandle(goldHandle);
-
-    DWORD gFileSize = GetFileSize(goldHandle, NULL);
-    CComHeapPtr<char> gReadBuff;
-    VERIFY_IS_TRUE(gReadBuff.AllocateBytes(gFileSize));
-    DWORD gnumActualRead;
-    VERIFY_WIN32_BOOL_SUCCEEDED(ReadFile(checkedGoldHandle, gReadBuff.m_pData,
-                                         gFileSize, &gnumActualRead, NULL));
-    std::string gold = std::string((LPSTR)gReadBuff, gnumActualRead);
+    FileWithBlob goldBlob(m_dllSupport, goldPath);
+    std::string gold =
+        std::string((LPSTR)goldBlob.BlobEncoding->GetBufferPointer(),
+                    goldBlob.BlobEncoding->GetBufferSize());
     gold.erase(std::remove(gold.begin(), gold.end(), '\r'), gold.end());
 
     // Kept because useful for debugging
@@ -265,9 +256,16 @@ public:
     TestFileName = TestFileName.substr(index1 + 1, index2 - (index1 + 1));
 
     wchar_t TempPath[MAX_PATH];
+#ifdef _WIN32
     DWORD length = GetTempPathW(MAX_PATH, TempPath);
     VERIFY_WIN32_BOOL_SUCCEEDED(length != 0);
-
+#else
+    const char *TempDir = std::getenv("TMPDIR");
+    if (TempDir == nullptr) {
+      TempDir = "/tmp";
+    }
+    mbstowcs(TempPath, TempDir, strlen(TempDir) + 1);
+#endif
     std::wstring PrintName(TempPath);
     PrintName += TestFileName;
     PrintName += L"_rewrite_test_pass.txt";
@@ -313,6 +311,16 @@ public:
     return CompareGold(rewriteText, GetPathToHlslDataFile(goldPath).c_str());
   }
 };
+
+bool RewriterTest::InitSupport() {
+  if (!m_dllSupport.IsEnabled()) {
+    VERIFY_SUCCEEDED(m_dllSupport.Initialize());
+    CComPtr<IDxcLibrary> library;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &library));
+    VERIFY_SUCCEEDED(library->CreateIncludeHandler(&m_pIncludeHandler));
+  }
+  return true;
+}
 
 TEST_F(RewriterTest, RunArrayLength) {
   CheckVerifiesHLSL(L"rewriter\\array-length-rw.hlsl",
@@ -561,7 +569,12 @@ TEST_F(RewriterTest, RunWideThreeByte) {
       0); // const added by default
 }
 
+#ifdef _WIN32
 TEST_F(RewriterTest, RunNonUnicode) {
+#else
+// Need to enable ANSI Greek support.
+TEST_F(RewriterTest, DISABLED_RunNonUnicode) {
+#endif
   CComPtr<IDxcRewriter> pRewriter;
   VERIFY_SUCCEEDED(CreateRewriter(&pRewriter));
   CComPtr<IDxcOperationResult> pRewriteResult;

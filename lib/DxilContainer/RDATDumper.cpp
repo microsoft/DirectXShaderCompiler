@@ -84,12 +84,17 @@ void DumpRecordRef(const hlsl::RDAT::RDATContext &ctx, DumpContext &d,
   if (nullptr == storedTypeName)
     storedTypeName = tyName;
   // Unique visit location is based on end of struct so derived are not skipped
-  if (d.Visit(rr.Get(ctx))) {
-    d.WriteLn(memberName, ": <", rr.Index, ":", storedTypeName, "> = {");
-    rrDumper.Dump(ctx, d);
-    d.WriteLn("}");
+  if (rr.Get(ctx)) {
+    if (d.Visit(rr.Get(ctx))) {
+      d.WriteLn(memberName, ": <", rr.Index, ":", storedTypeName, "> = {");
+      rrDumper.Dump(ctx, d);
+      d.WriteLn("}");
+    } else {
+      d.WriteLn(memberName, ": <", rr.Index, ":", storedTypeName, ">");
+    }
   } else {
-    d.WriteLn(memberName, ": <", rr.Index, ":", storedTypeName, ">");
+    d.WriteLn(memberName, ": <", rr.Index, ":", storedTypeName,
+              "> = <nullptr>");
   }
 }
 

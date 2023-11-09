@@ -29,7 +29,7 @@ namespace DXIL {
 const unsigned kDxilMajor = 1;
 /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_dxil_version_minor()</py>*/
 // VALRULE-TEXT:BEGIN
-const unsigned kDxilMinor = 7;
+const unsigned kDxilMinor = 8;
 // VALRULE-TEXT:END
 
 inline unsigned MakeDxilVersion(unsigned DxilMajor, unsigned DxilMinor) {
@@ -203,7 +203,15 @@ enum class ShaderKind {
   Callable,
   Mesh,
   Amplification,
+  Node,
   Invalid,
+
+  // Last* values identify the last shader kind recognized by the highest
+  // validator version before additional kinds were added.
+  Last_1_2 = Compute,
+  Last_1_4 = Callable,
+  Last_1_7 = Amplification,
+  LastValid = Node,
 };
 
 // clang-format off
@@ -244,6 +252,8 @@ enum class SemanticKind : unsigned {
   Barycentrics,
   ShadingRate,
   CullPrimitive,
+  StartVertexLocation,
+  StartInstanceLocation,
   Invalid,
 };
 // SemanticKind-ENUM:END
@@ -495,13 +505,30 @@ enum class OpCode : unsigned {
   BitcastI32toF32 = 126, // bitcast between different sizes
   BitcastI64toF64 = 128, // bitcast between different sizes
 
-  // Compute/Mesh/Amplification shader
+  // Comparison Samples
+  SampleCmpBias = 255, // samples a texture after applying the input bias to the
+                       // mipmap level and compares a single component against
+                       // the specified comparison value
+  SampleCmpGrad =
+      254, // samples a texture using a gradient and compares a single component
+           // against the specified comparison value
+
+  // Compute/Mesh/Amplification/Node shader
   FlattenedThreadIdInGroup = 96, // provides a flattened index for a given
                                  // thread within a given group (SV_GroupIndex)
   GroupId = 94,                  // reads the group ID (SV_GroupID)
   ThreadId = 93,                 // reads the thread ID
   ThreadIdInGroup =
       95, // reads the thread ID within the group (SV_GroupThreadID)
+
+  // Create/Annotate Node Handles
+  AllocateNodeOutputRecords = 238, // returns a handle for the output records
+  AnnotateNodeHandle = 249,        // annotate handle with node properties
+  AnnotateNodeRecordHandle = 251, // annotate handle with node record properties
+  CreateNodeInputRecordHandle = 250, // create a handle for an InputRecord
+  CreateNodeOutputHandle = 247,      // Creates a handle to a NodeOutput
+  IndexNodeHandle = 248, // returns the handle for the location in the output
+                         // node array at the indicated index
 
   // Derivatives
   CalculateLOD = 81, // calculates the level of detail
@@ -536,12 +563,23 @@ enum class OpCode : unsigned {
   MakeDouble = 101,           // creates a double value
   SplitDouble = 102,          // splits a double into low and high parts
 
+  // Extended Command Information
+  StartInstanceLocation =
+      257, // returns the StartInstanceLocation from Draw*Instanced
+  StartVertexLocation =
+      256, // returns the BaseVertexLocation from DrawIndexedInstanced or
+           // StartVertexLocation from DrawInstanced
+
   // Geometry shader
   CutStream =
       98, // completes the current primitive topology at the specified stream
   EmitStream = 97,        // emits a vertex to a given stream
   EmitThenCutStream = 99, // equivalent to an EmitStream followed by a CutStream
   GSInstanceID = 100,     // GSInstanceID
+
+  // Get Pointer to Node Record in Address Space 6
+  GetNodeRecordPtr =
+      239, // retrieve node input/output record pointer in address space 6
 
   // Get handle from heap
   AnnotateHandle = 216,          // annotate handle with resource properties
@@ -794,6 +832,12 @@ enum class OpCode : unsigned {
   AtomicBinOp = 78,           // performs an atomic operation on two operands
   AtomicCompareExchange = 79, // atomic compare and exchange to memory
   Barrier = 80,               // inserts a memory barrier in the shader
+  BarrierByMemoryHandle =
+      245, // Request a barrier for just the memory used by the specified object
+  BarrierByMemoryType = 244, // Request a barrier for a set of memory types
+                             // and/or thread group execution sync
+  BarrierByNodeRecordHandle =
+      246, // Request a barrier for just the memory used by the node record
 
   // Temporary, indexable, input, output registers
   LoadInput = 4,        // Loads the value from shader input
@@ -887,6 +931,42 @@ enum class OpCode : unsigned {
   WaveReadLaneAt = 117,    // returns the value from the specified lane
   WaveReadLaneFirst = 118, // returns the value from the first lane
 
+  // WaveMatrix
+  WaveMatrix_Add = 237, // Element-wise accumulate, or broadcast add of fragment
+                        // into accumulator
+  WaveMatrix_Annotate =
+      226, // Annotate a wave matrix pointer with the type information
+  WaveMatrix_Depth =
+      227,               // Returns depth (K) value for matrix of specified type
+  WaveMatrix_Fill = 228, // Fill wave matrix with scalar value
+  WaveMatrix_LoadGroupShared = 230, // Load wave matrix from group shared array
+  WaveMatrix_LoadRawBuf = 229,      // Load wave matrix from raw buffer
+  WaveMatrix_Multiply =
+      233, // Mutiply left and right wave matrix and store in accumulator
+  WaveMatrix_MultiplyAccumulate =
+      234, // Mutiply left and right wave matrix and accumulate into accumulator
+  WaveMatrix_ScalarOp =
+      235, // Perform scalar operation on each element of wave matrix
+  WaveMatrix_StoreGroupShared = 232, // Store wave matrix to group shared array
+  WaveMatrix_StoreRawBuf = 231,      // Store wave matrix to raw buffer
+  WaveMatrix_SumAccumulate = 236, // Sum rows or columns of an input matrix into
+                                  // an existing accumulator fragment matrix
+
+  // Work Graph intrinsics
+  FinishedCrossGroupSharing = 243, // returns true if the current thread group
+                                   // is the last to access the input
+  GetInputRecordCount = 242, // returns the number of records that have been
+                             // coalesced into the current thread group
+  GetRemainingRecursionLevels =
+      253, // returns how many levels of recursion remain
+  IncrementOutputCount =
+      240, // Select the next logical output count for an EmptyNodeOutput for
+           // the whole group or per thread.
+  NodeOutputIsValid = 252, // returns true if the specified output node is
+                           // present in the work graph
+  OutputComplete =
+      241, // indicates all outputs for a given records are complete
+
   NumOpCodes_Dxil_1_0 = 137,
   NumOpCodes_Dxil_1_1 = 139,
   NumOpCodes_Dxil_1_2 = 141,
@@ -896,7 +976,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
 
-  NumOpCodes = 226 // exclusive last value of enumeration
+  NumOpCodes = 258 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -931,11 +1011,23 @@ enum class OpCodeClass : unsigned {
   BitcastI32toF32,
   BitcastI64toF64,
 
-  // Compute/Mesh/Amplification shader
+  // Comparison Samples
+  SampleCmpBias,
+  SampleCmpGrad,
+
+  // Compute/Mesh/Amplification/Node shader
   FlattenedThreadIdInGroup,
   GroupId,
   ThreadId,
   ThreadIdInGroup,
+
+  // Create/Annotate Node Handles
+  AllocateNodeOutputRecords,
+  AnnotateNodeHandle,
+  AnnotateNodeRecordHandle,
+  CreateNodeInputRecordHandle,
+  IndexNodeHandle,
+  createNodeOutputHandle,
 
   // Derivatives
   CalculateLOD,
@@ -964,11 +1056,18 @@ enum class OpCodeClass : unsigned {
   MakeDouble,
   SplitDouble,
 
+  // Extended Command Information
+  StartInstanceLocation,
+  StartVertexLocation,
+
   // Geometry shader
   CutStream,
   EmitStream,
   EmitThenCutStream,
   GSInstanceID,
+
+  // Get Pointer to Node Record in Address Space 6
+  GetNodeRecordPtr,
 
   // Get handle from heap
   AnnotateHandle,
@@ -1121,6 +1220,9 @@ enum class OpCodeClass : unsigned {
   AtomicBinOp,
   AtomicCompareExchange,
   Barrier,
+  BarrierByMemoryHandle,
+  BarrierByMemoryType,
+  BarrierByNodeRecordHandle,
 
   // Temporary, indexable, input, output registers
   LoadInput,
@@ -1160,6 +1262,26 @@ enum class OpCodeClass : unsigned {
   WaveReadLaneAt,
   WaveReadLaneFirst,
 
+  // WaveMatrix
+  WaveMatrix_Accumulate,
+  WaveMatrix_Annotate,
+  WaveMatrix_Depth,
+  WaveMatrix_Fill,
+  WaveMatrix_LoadGroupShared,
+  WaveMatrix_LoadRawBuf,
+  WaveMatrix_Multiply,
+  WaveMatrix_ScalarOp,
+  WaveMatrix_StoreGroupShared,
+  WaveMatrix_StoreRawBuf,
+
+  // Work Graph intrinsics
+  FinishedCrossGroupSharing,
+  GetInputRecordCount,
+  GetRemainingRecursionLevels,
+  IncrementOutputCount,
+  NodeOutputIsValid,
+  OutputComplete,
+
   NumOpClasses_Dxil_1_0 = 93,
   NumOpClasses_Dxil_1_1 = 95,
   NumOpClasses_Dxil_1_2 = 97,
@@ -1169,7 +1291,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
 
-  NumOpClasses = 153 // exclusive last value of enumeration
+  NumOpClasses = 183 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1359,6 +1481,7 @@ const unsigned kCBufferAddrSpace = 2;
 const unsigned kTGSMAddrSpace = 3;
 const unsigned kGenericPointerAddrSpace = 4;
 const unsigned kImmediateCBufferAddrSpace = 5;
+const unsigned kNodeRecordAddrSpace = 6;
 
 // Input primitive, must match D3D_PRIMITIVE
 enum class InputPrimitive : unsigned {
@@ -1456,6 +1579,80 @@ enum class TessellatorPartitioning : unsigned {
   FractionalEven,
 
   LastEntry,
+};
+
+enum class NodeLaunchType {
+  Invalid = 0,
+  Broadcasting,
+  Coalescing,
+  Thread,
+
+  LastEntry
+};
+
+enum class NodeIOFlags : uint32_t {
+  None = 0x0,
+  Input = 0x1,
+  Output = 0x2,
+  ReadWrite = 0x4,
+  EmptyRecord = 0x8, // EmptyNodeOutput[Array], EmptyNodeInput
+  NodeArray = 0x10,  // NodeOutputArray, EmptyNodeOutputArray
+
+  // Record granularity (enum in 2 bits)
+  ThreadRecord = 0x20,   // [RW]ThreadNodeInputRecord, ThreadNodeOutputRecords
+  GroupRecord = 0x40,    // [RW]GroupNodeInputRecord, GroupNodeOutputRecords
+  DispatchRecord = 0x60, // [RW]DispatchNodeInputRecord
+  RecordGranularityMask = 0x60,
+
+  NodeIOKindMask = 0x7F,
+
+  TrackRWInputSharing = 0x100, // TrackRWInputSharing tracked on all non-empty
+                               // input/output record/node types
+  GloballyCoherent = 0x200,    // applies to RWDispatchNodeInputRecord
+
+  // Mask for node/record properties beyond NodeIOKind
+  RecordFlagsMask = 0x300,
+  NodeFlagsMask = 0x100,
+};
+
+enum class NodeIOKind : uint32_t {
+  Invalid = 0,
+
+  EmptyInput =
+      (uint32_t)NodeIOFlags::EmptyRecord | (uint32_t)NodeIOFlags::Input,
+  NodeOutput = (uint32_t)NodeIOFlags::ReadWrite | (uint32_t)NodeIOFlags::Output,
+  NodeOutputArray = (uint32_t)NodeIOFlags::ReadWrite |
+                    (uint32_t)NodeIOFlags::Output |
+                    (uint32_t)NodeIOFlags::NodeArray,
+  EmptyOutput =
+      (uint32_t)NodeIOFlags::EmptyRecord | (uint32_t)NodeIOFlags::Output,
+  EmptyOutputArray = (uint32_t)NodeIOFlags::EmptyRecord |
+                     (uint32_t)NodeIOFlags::Output |
+                     (uint32_t)NodeIOFlags::NodeArray,
+
+  DispatchNodeInputRecord =
+      (uint32_t)NodeIOFlags::Input | (uint32_t)NodeIOFlags::DispatchRecord,
+  GroupNodeInputRecords =
+      (uint32_t)NodeIOFlags::Input | (uint32_t)NodeIOFlags::GroupRecord,
+  ThreadNodeInputRecord =
+      (uint32_t)NodeIOFlags::Input | (uint32_t)NodeIOFlags::ThreadRecord,
+
+  RWDispatchNodeInputRecord = (uint32_t)NodeIOFlags::ReadWrite |
+                              (uint32_t)NodeIOFlags::Input |
+                              (uint32_t)NodeIOFlags::DispatchRecord,
+  RWGroupNodeInputRecords = (uint32_t)NodeIOFlags::ReadWrite |
+                            (uint32_t)NodeIOFlags::Input |
+                            (uint32_t)NodeIOFlags::GroupRecord,
+  RWThreadNodeInputRecord = (uint32_t)NodeIOFlags::ReadWrite |
+                            (uint32_t)NodeIOFlags::Input |
+                            (uint32_t)NodeIOFlags::ThreadRecord,
+
+  GroupNodeOutputRecords = (uint32_t)NodeIOFlags::ReadWrite |
+                           (uint32_t)NodeIOFlags::Output |
+                           (uint32_t)NodeIOFlags::GroupRecord,
+  ThreadNodeOutputRecords = (uint32_t)NodeIOFlags::ReadWrite |
+                            (uint32_t)NodeIOFlags::Output |
+                            (uint32_t)NodeIOFlags::ThreadRecord,
 };
 
 // Kind of quad-level operation
@@ -1601,6 +1798,47 @@ enum class SamplerFeedbackType : uint8_t {
   LastEntry = 2
 };
 
+enum class WaveMatrixKind : uint8_t {
+  Left = 0,
+  Right = 1,
+  LeftColAcc = 2,
+  RightRowAcc = 3,
+  Accumulator = 4,
+  NumKinds = 5,
+  MaskSide = 1,
+  MaskClass = 6, // 0 = Left/Right, 2 = Fragment, 4 = Accumulator
+};
+
+/* <py::lines('WAVEMATRIXSCALAROPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("WaveMatrixScalarOpCode")</py>*/
+// WAVEMATRIXSCALAROPCODE-ENUM:BEGIN
+// Operation for WaveMatrix_ScalarOp
+enum class WaveMatrixScalarOpCode : unsigned {
+  Add = 0,
+  Divide = 3,
+  Invalid = 4,
+  Multiply = 2,
+  Subtract = 1,
+};
+// WAVEMATRIXSCALAROPCODE-ENUM:END
+
+// Corresponds to MEMORY_TYPE_FLAG enums in HLSL
+enum class MemoryTypeFlag : uint32_t {
+  UavMemory = 0x00000001,         // UAV_MEMORY
+  GroupSharedMemory = 0x00000002, // GROUP_SHARED_MEMORY
+  NodeInputMemory = 0x00000004,   // NODE_INPUT_MEMORY
+  NodeOutputMemory = 0x00000008,  // NODE_OUTPUT_MEMORY
+  AllMemory = 0x0000000F,         // ALL_MEMORY
+  ValidMask = 0x0000000F
+};
+
+// Corresponds to SEMANTIC_FLAG enums in HLSL
+enum class BarrierSemanticFlag : uint32_t {
+  GroupSync = 0x00000001,   // GROUP_SYNC
+  GroupScope = 0x00000002,  // GROUP_SCOPE
+  DeviceScope = 0x00000004, // DEVICE_SCOPE
+  ValidMask = 0x00000007
+};
+
 // Constant for Container.
 const uint8_t DxilProgramSigMaskX = 1;
 const uint8_t DxilProgramSigMaskY = 2;
@@ -1645,6 +1883,10 @@ const uint64_t ShaderFeatureInfo_AtomicInt64OnHeapResource = 0x10000000;
 // SM 6.7+
 const uint64_t ShaderFeatureInfo_AdvancedTextureOps = 0x20000000;
 const uint64_t ShaderFeatureInfo_WriteableMSAATextures = 0x40000000;
+
+// SM 6.8+
+// WaveMMA slots in between two SM 6.6 feature bits.
+const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
 
 const unsigned ShaderFeatureInfoCount = 31;
 

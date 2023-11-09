@@ -692,25 +692,6 @@ TEST_F(FileTest, SemanticViewportArrayIndexPS) {
 TEST_F(FileTest, SemanticViewportArrayIndexCoreVS) {
   runFileTest("semantic.viewport-array-index-core.vs.hlsl");
 }
-TEST_F(FileTest, SemanticBarycentricsSmoothPS) {
-  runFileTest("semantic.barycentrics.ps.s.hlsl");
-}
-TEST_F(FileTest, SemanticBarycentricsSmoothCentroidPS) {
-  runFileTest("semantic.barycentrics.ps.s-c.hlsl");
-}
-TEST_F(FileTest, SemanticBarycentricsSmoothSamplePS) {
-  runFileTest("semantic.barycentrics.ps.s-s.hlsl");
-}
-TEST_F(FileTest, SemanticBarycentricsNoPerspectivePS) {
-  runFileTest("semantic.barycentrics.ps.np.hlsl");
-}
-TEST_F(FileTest, SemanticBarycentricsNoPerspectiveCentroidPS) {
-  runFileTest("semantic.barycentrics.ps.np-c.hlsl");
-}
-TEST_F(FileTest, SemanticBarycentricsNoPerspectiveSamplePS) {
-  runFileTest("semantic.barycentrics.ps.np-s.hlsl");
-}
-
 TEST_F(FileTest, SemanticCoveragePS) {
   runFileTest("semantic.coverage.ps.hlsl");
 }
@@ -943,7 +924,6 @@ TEST_F(FileTest, IntrinsicsAbs) { runFileTest("intrinsics.abs.hlsl"); }
 TEST_F(FileTest, IntrinsicsCross) { runFileTest("intrinsics.cross.hlsl"); }
 TEST_F(FileTest, IntrinsicsCeil) { runFileTest("intrinsics.ceil.hlsl"); }
 TEST_F(FileTest, IntrinsicsClamp) { runFileTest("intrinsics.clamp.hlsl"); }
-TEST_F(FileTest, IntrinsicsClip) { runFileTest("intrinsics.clip.hlsl"); }
 TEST_F(FileTest, IntrinsicsD3DCOLORtoUBYTE4) {
   runFileTest("intrinsics.D3DCOLORtoUBYTE4.hlsl");
 }
@@ -1104,7 +1084,6 @@ TEST_F(FileTest, IntrinsicsCheckAccessFullyMappedWithoutSampler) {
 TEST_F(FileTest, IntrinsicsNonUniformResourceIndex) {
   runFileTest("intrinsics.non-uniform-resource-index.hlsl");
 }
-
 // Vulkan-specific intrinsic functions
 TEST_F(FileTest, IntrinsicsVkCrossDeviceScope) {
   runFileTest("intrinsics.vkcrossdevicescope.hlsl");

@@ -12,7 +12,7 @@
 // We need to keep & fix these warnings to integrate smoothly with HLK
 #pragma warning(error : 4100 4146 4242 4244 4267 4701 4389)
 
-#include "dxc/Support/d3dx12.h"
+#include "d3dx12.h"
 #include <atlbase.h>
 #include <atlenc.h>
 #include <d3d12.h>
@@ -118,46 +118,6 @@ HRESULT LogIfLost(HRESULT hr, ID3D12Resource *pResource) {
   return hr;
 }
 
-bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName) {
-  if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
-    // Don't select the Basic Render Driver adapter.
-    return false;
-  }
-
-  if (!AdapterName)
-    return true;
-  return hlsl_test::IsStarMatchWide(AdapterName, wcslen(AdapterName),
-                                    desc.Description, wcslen(desc.Description));
-}
-
-void GetHardwareAdapter(IDXGIFactory2 *pFactory, LPCWSTR AdapterName,
-                        IDXGIAdapter1 **ppAdapter) {
-  CComPtr<IDXGIAdapter1> adapter;
-  *ppAdapter = nullptr;
-
-  for (UINT adapterIndex = 0;
-       DXGI_ERROR_NOT_FOUND != pFactory->EnumAdapters1(adapterIndex, &adapter);
-       ++adapterIndex) {
-    DXGI_ADAPTER_DESC1 desc;
-    adapter->GetDesc1(&desc);
-
-    if (!UseHardwareDevice(desc, AdapterName)) {
-      adapter.Release();
-      continue;
-    }
-
-    // Check to see if the adapter supports Direct3D 12, but don't create the
-    // actual device yet.
-    if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0,
-                                    _uuidof(ID3D12Device), nullptr))) {
-      break;
-    }
-    adapter.Release();
-  }
-
-  *ppAdapter = adapter.Detach();
-}
-
 void RecordTransitionBarrier(ID3D12GraphicsCommandList *pCommandList,
                              ID3D12Resource *pResource,
                              D3D12_RESOURCE_STATES before,
@@ -220,6 +180,46 @@ void MappedData::reset(ID3D12Resource *pResource, UINT32 sizeInBytes) {
 // ShaderOpTest library implementation.
 
 namespace st {
+
+bool UseHardwareDevice(const DXGI_ADAPTER_DESC1 &desc, LPCWSTR AdapterName) {
+  if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
+    // Don't select the Basic Render Driver adapter.
+    return false;
+  }
+
+  if (!AdapterName)
+    return true;
+  return hlsl_test::IsStarMatchWide(AdapterName, wcslen(AdapterName),
+                                    desc.Description, wcslen(desc.Description));
+}
+
+void GetHardwareAdapter(IDXGIFactory2 *pFactory, LPCWSTR AdapterName,
+                        IDXGIAdapter1 **ppAdapter) {
+  CComPtr<IDXGIAdapter1> adapter;
+  *ppAdapter = nullptr;
+
+  for (UINT adapterIndex = 0;
+       DXGI_ERROR_NOT_FOUND != pFactory->EnumAdapters1(adapterIndex, &adapter);
+       ++adapterIndex) {
+    DXGI_ADAPTER_DESC1 desc;
+    adapter->GetDesc1(&desc);
+
+    if (!UseHardwareDevice(desc, AdapterName)) {
+      adapter.Release();
+      continue;
+    }
+
+    // Check to see if the adapter supports Direct3D 12, but don't create the
+    // actual device yet.
+    if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0,
+                                    _uuidof(ID3D12Device), nullptr))) {
+      break;
+    }
+    adapter.Release();
+  }
+
+  *ppAdapter = adapter.Detach();
+}
 
 LPCSTR string_table::insert(LPCSTR pValue) {
   std::unordered_set<LPCSTR, HashStr, PredStr>::iterator i =

@@ -5,11 +5,11 @@
 
 // CHECK-NOT: CBufUnused
 
-// CHECK: DxilRuntimeData (size = 320 bytes):
-// CHECK:   StringBuffer (size = 44 bytes)
-// CHECK:   IndexTable (size = 20 bytes)
-// CHECK:   RawBytes (size = 0 bytes)
-// CHECK:   RecordTable (stride = 32 bytes) ResourceTable[3] = {
+// CHECK: DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:   StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:   IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:   RawBytes (size = {{[0-9]+}} bytes)
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) ResourceTable[3] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
 // CHECK:       Class: CBuffer
 // CHECK:       Kind: CBuffer
@@ -41,8 +41,8 @@
 // CHECK:       Flags: 0 (None)
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 44 bytes) FunctionTable[2] = {
-// CHECK:     <0:RuntimeDataFunctionInfo> = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[2] = {
+// CHECK:     <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?foo{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "foo"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[1]>  = {
@@ -54,10 +54,13 @@
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <1:RuntimeDataFunctionInfo> = {
+// CHECK:     <1:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "main"
 // CHECK:       UnmangledName: "main"
 // CHECK:       Resources: <2:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -72,6 +75,9 @@
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 2
 // CHECK:       MinShaderTarget: 65632
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
 // CHECK:   }
 
