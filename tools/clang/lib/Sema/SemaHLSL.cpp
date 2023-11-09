@@ -11406,18 +11406,8 @@ bool IsExported(Sema *self, clang::FunctionDecl *FD) {
     return true;
   }
 
-  bool isMarkedStatic = false;
-  bool isMarkedExport = false;
-
-  if (auto cDecl = dyn_cast<CXXMethodDecl>(FD)) {
-    if (cDecl->isStatic()) {
-      isMarkedStatic = true;
-    }
-  }
-
-  if (FD->hasAttr<HLSLExportAttr>()) {
-    isMarkedExport = true;
-  }
+  const bool isMarkedStatic = FD->getStorageClass() == SC_Static;
+  const bool isMarkedExport = FD->hasAttr<HLSLExportAttr>();
 
   if (isMarkedStatic && isMarkedExport) {
     self->Diag(FD->getLocation(), diag::err_hlsl_varmodifiersna) << "static"
@@ -11430,8 +11420,11 @@ bool IsExported(Sema *self, clang::FunctionDecl *FD) {
 
   // case 1 requires special assignments to linkage
   if (L != ExternalLinkage && L != InternalLinkage) {
-    // the condition below implies the shader stage is lib_6_x
-    if (self->getLangOpts().IsHLSLLibrary) {
+    const hlsl::ShaderModel *SM =
+        hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
+    bool isLib6x =
+        SM->IsLib() && SM->GetMinor() == hlsl::ShaderModel::kOfflineMinor;
+    if (isLib6x) {
       L = ExternalLinkage;
     } else {
       L = InternalLinkage;
@@ -11440,21 +11433,18 @@ bool IsExported(Sema *self, clang::FunctionDecl *FD) {
 
   // now case 2 and 3 can apply and we can determine
   // whether the function is exported.
-  if (L == InternalLinkage && isMarkedExport) {
+  if (L == InternalLinkage && isMarkedExport)
     return true;
-  }
 
-  if (L == ExternalLinkage && isMarkedStatic) {
+  if (L == ExternalLinkage && isMarkedStatic)
     return false;
-  }
 
-  if (L == InternalLinkage) {
+  if (L == InternalLinkage)
     return false;
-  }
 
-  if (L == ExternalLinkage) {
+  if (L == ExternalLinkage)
     return true;
-  }
+
   // unreachable but necessary to prevent warnings
   return true;
 }
