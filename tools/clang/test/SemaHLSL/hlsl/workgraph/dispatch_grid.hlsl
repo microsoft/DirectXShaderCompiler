@@ -240,3 +240,58 @@ struct Record18 {
 [NodeMaxDispatchGrid(32, 16, 1)]
 [NumThreads(32, 1, 1)]
 void node18(DispatchNodeInputRecord<Record18> input) {}
+
+template<typename T>
+struct OutputRecord {
+// expected-error@+16{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'float'}}
+// expected-error@+15{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'vector<float, 3>'}}
+// expected-error@+14{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'int'}}
+// expected-error@+13{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'vector<int, 3>'}}
+// expected-error@+12{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'vector<unsigned int, 4>'}}
+// expected-error@+11{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'unsigned int [4]'}}
+// expected-error@+10{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'half'}}
+// expected-error@+9{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'vector<half, 3>'}}
+// expected-error@+8{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'int16_t'}}
+// expected-error@+7{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'vector<int16_t, 3>'}}
+// expected-error@+6{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'vector<uint16_t, 4>'}}
+// expected-error@+5{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'uint16_t [4]'}}
+// expected-error@+4{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'vector<int16_t, 4>'}}
+// expected-error@+3{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'matrix<int16_t, 2, 2>'}}
+// expected-error@+2{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'S<int>'}}
+// expected-error@+1{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'S<float>'}}
+  T grid : SV_DispatchGrid;
+  float data;
+};
+
+#define OUTPUT_NODE_ENTRY(T,N) \
+[Shader("node")] \
+[NodeLaunch("broadcasting")] \
+[NodeDispatchGrid(1,1,1)] \
+[NumThreads(32, 1, 1)] \
+void node_output_N(NodeOutput<OutputRecord< T > > output) {}
+
+
+OUTPUT_NODE_ENTRY(float, 0);
+OUTPUT_NODE_ENTRY(float3, 1);
+OUTPUT_NODE_ENTRY(int, 2);
+OUTPUT_NODE_ENTRY(int3, 3);
+OUTPUT_NODE_ENTRY(uint4, 4);
+OUTPUT_NODE_ENTRY(uint[4], 5);
+OUTPUT_NODE_ENTRY(half, 6);
+OUTPUT_NODE_ENTRY(half3, 7);
+OUTPUT_NODE_ENTRY(int16_t, 8);
+OUTPUT_NODE_ENTRY(int16_t3, 9);
+OUTPUT_NODE_ENTRY(uint16_t4, 10);
+OUTPUT_NODE_ENTRY(uint16_t[4], 11);
+
+OUTPUT_NODE_ENTRY(int16_t4, 12);
+OUTPUT_NODE_ENTRY(int16_t2x2, 13);
+OUTPUT_NODE_ENTRY(uint16_t3 , 14);
+OUTPUT_NODE_ENTRY(uint16_t[3] , 15);
+
+template<typename T>
+struct S {
+  T a;
+};
+OUTPUT_NODE_ENTRY(S<int> , 16);
+OUTPUT_NODE_ENTRY(S<float> , 17);
