@@ -1,4 +1,4 @@
-// RUN: %dxc /dumpbin %S/Inputs/old_pdb.pdb | FileCheck %s
+// RUN: %dxc -dumpbin %S/Inputs/old_pdb.pdb | FileCheck %s
 
 // CHECK: define void @main
 
