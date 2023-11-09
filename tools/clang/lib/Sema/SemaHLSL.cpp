@@ -15683,11 +15683,10 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
             auto &TemplateArgs = templateDecl->getTemplateArgs();
             DXASSERT_NOMSG(TemplateArgs.size() >= 1);
             QualType Arg0Type = TemplateArgs.get(0).getAsType();
-            const RecordType *NodeStructType = Arg0Type->getAsStructureType();
-            if (nullptr != NodeStructType) {
-              CXXRecordDecl *NodeStructDecl =
-                  dyn_cast<CXXRecordDecl>(NodeStructType->getDecl());
-              if (nullptr != NodeStructDecl) {
+            if (const RecordType *NodeStructType =
+                    Arg0Type->getAsStructureType()) {
+              if (CXXRecordDecl *NodeStructDecl =
+                      dyn_cast<CXXRecordDecl>(NodeStructType->getDecl())) {
                 bool OutputFound = false;
                 // Make sure there is exactly one SV_DispatchGrid semantics
                 // and it has correct type.
