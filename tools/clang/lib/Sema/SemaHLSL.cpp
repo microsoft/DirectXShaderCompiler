@@ -11466,90 +11466,13 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
         }
         break;
       }
-      case clang::attr::HLSLNodeLaunch: {
-        switch (shaderKind) {
-        case DXIL::ShaderKind::Node:
-          break;
-        default:
-          self->Diag(pAttr->getRange().getBegin(),
-                     diag::err_hlsl_attribute_unsupported_stage)
-              << "NodeLaunch"
-              << "node";
-        }
-        break;
-      }
-      case clang::attr::HLSLNodeIsProgramEntry: {
-        switch (shaderKind) {
-        case DXIL::ShaderKind::Node:
-          break;
-        default:
-          self->Diag(pAttr->getRange().getBegin(),
-                     diag::err_hlsl_attribute_unsupported_stage)
-              << "NodeIsProgramEntry"
-              << "node";
-        }
-        break;
-      }
-      case clang::attr::HLSLNodeId: {
-        switch (shaderKind) {
-        case DXIL::ShaderKind::Node:
-          break;
-        default:
-          self->Diag(pAttr->getRange().getBegin(),
-                     diag::err_hlsl_attribute_unsupported_stage)
-              << "NodeId"
-              << "node";
-        }
-        break;
-      }
-      case clang::attr::HLSLNodeLocalRootArgumentsTableIndex: {
-        switch (shaderKind) {
-        case DXIL::ShaderKind::Node:
-          break;
-        default:
-          self->Diag(pAttr->getRange().getBegin(),
-                     diag::err_hlsl_attribute_unsupported_stage)
-              << "NodeLocalRootArgumentsTableIndex"
-              << "node";
-        }
-        break;
-      }
-      case clang::attr::HLSLNodeShareInputOf: {
-        switch (shaderKind) {
-        case DXIL::ShaderKind::Node:
-          break;
-        default:
-          self->Diag(pAttr->getRange().getBegin(),
-                     diag::err_hlsl_attribute_unsupported_stage)
-              << "NodeShareInputOf"
-              << "node";
-        }
-        break;
-      }
-      case clang::attr::HLSLNodeDispatchGrid: {
-        switch (shaderKind) {
-        case DXIL::ShaderKind::Node:
-          break;
-        default:
-          self->Diag(pAttr->getRange().getBegin(),
-                     diag::err_hlsl_attribute_unsupported_stage)
-              << "NodeDispatchGrid"
-              << "node";
-        }
-        break;
-      }
-      case clang::attr::HLSLNodeMaxDispatchGrid: {
-        switch (shaderKind) {
-        case DXIL::ShaderKind::Node:
-          break;
-        default:
-          self->Diag(pAttr->getRange().getBegin(),
-                     diag::err_hlsl_attribute_unsupported_stage)
-              << "NodeMaxDispatchGrid"
-              << "node";
-        }
-        break;
-      }
+      case clang::attr::HLSLNodeLaunch:
+      case clang::attr::HLSLNodeIsProgramEntry:
+      case clang::attr::HLSLNodeId:
+      case clang::attr::HLSLNodeLocalRootArgumentsTableIndex:
+      case clang::attr::HLSLNodeShareInputOf:
+      case clang::attr::HLSLNodeDispatchGrid:
+      case clang::attr::HLSLNodeMaxDispatchGrid:
       case clang::attr::HLSLNodeMaxRecursionDepth: {
         switch (shaderKind) {
         case DXIL::ShaderKind::Node:
@@ -11557,7 +11480,7 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
         default:
           self->Diag(pAttr->getRange().getBegin(),
                      diag::err_hlsl_attribute_unsupported_stage)
-              << "NodeMaxRecursionDepth"
+              << pAttr->getName()
               << "node";
         }
         break;
