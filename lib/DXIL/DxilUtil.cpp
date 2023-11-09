@@ -626,7 +626,6 @@ bool IsHLSLResourceDescType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.
@@ -645,7 +644,6 @@ bool IsHLSLNodeOutputType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.
@@ -661,7 +659,6 @@ bool IsHLSLNodeOutputArrayType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.
@@ -678,7 +675,6 @@ bool IsHLSLEmptyNodeOutputType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.
@@ -694,7 +690,6 @@ bool IsHLSLEmptyNodeOutputArrayType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.
@@ -710,7 +705,6 @@ bool IsHLSLNodeInputRecordType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.
@@ -732,7 +726,6 @@ bool IsHLSLNodeEmptyInputRecordType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.
@@ -748,7 +741,6 @@ bool IsHLSLNodeEmptyOutputRecordType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.
@@ -764,7 +756,6 @@ bool IsHLSLRWNodeInputRecordType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     if (name.startswith("RWDispatchNodeInputRecord<") ||
@@ -781,7 +772,6 @@ bool IsHLSLNodeOutputRecordType(llvm::Type *Ty) {
       return false;
     StringRef name = ST->getName();
 
-    ConsumePrefix(name, "class.");
     ConsumePrefix(name, "struct.");
 
     // TODO: don't check names.

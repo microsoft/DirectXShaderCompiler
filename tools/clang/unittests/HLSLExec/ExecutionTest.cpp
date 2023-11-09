@@ -531,17 +531,9 @@ public:
                        L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
   END_TEST_METHOD()
 
-  BEGIN_TEST_METHOD(WaveMatrixLoadStoreTests)
-  TEST_METHOD_PROPERTY(L"Priority", L"2")
-  END_TEST_METHOD()
-
-  BEGIN_TEST_METHOD(WaveMatrixScalarTests)
-  TEST_METHOD_PROPERTY(L"Priority", L"2")
-  END_TEST_METHOD()
-
-  BEGIN_TEST_METHOD(WaveMatrixMathTests)
-  TEST_METHOD_PROPERTY(L"Priority", L"2")
-  END_TEST_METHOD()
+  TEST_METHOD(WaveMatrixLoadStoreTests);
+  TEST_METHOD(WaveMatrixScalarTests);
+  TEST_METHOD(WaveMatrixMathTests);
 
   dxc::DxcDllSupport m_support;
 

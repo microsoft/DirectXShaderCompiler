@@ -16,12 +16,12 @@
 #ifdef DEF_RDAT_ENUMS
 
 RDAT_ENUM_START(DxilResourceFlag, uint32_t)
-  RDAT_ENUM_VALUE(None, 0)
-  RDAT_ENUM_VALUE(UAVGloballyCoherent, 1 << 0)
-  RDAT_ENUM_VALUE(UAVCounter, 1 << 1)
+  RDAT_ENUM_VALUE(None,                     0)
+  RDAT_ENUM_VALUE(UAVGloballyCoherent,      1 << 0)
+  RDAT_ENUM_VALUE(UAVCounter,               1 << 1)
   RDAT_ENUM_VALUE(UAVRasterizerOrderedView, 1 << 2)
-  RDAT_ENUM_VALUE(DynamicIndexing, 1 << 3)
-  RDAT_ENUM_VALUE(Atomics64Use, 1 << 4)
+  RDAT_ENUM_VALUE(DynamicIndexing,          1 << 3)
+  RDAT_ENUM_VALUE(Atomics64Use,             1 << 4)
 RDAT_ENUM_END()
 
 #endif // DEF_RDAT_ENUMS

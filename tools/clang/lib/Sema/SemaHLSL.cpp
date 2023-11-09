@@ -396,8 +396,8 @@ enum ArBasicKind {
 
 #define IS_BPROP_WAVE_MATRIX_INPUT(_Props)                                     \
   (((_Props) & BPROP_WAVE_MATRIX_INPUT) != 0)
-#define IS_BPROP_WAVE_MATRIX_ACC(_Props) 																		 \
-	(((_Props) & BPROP_WAVE_MATRIX_ACC) != 0)
+#define IS_BPROP_WAVE_MATRIX_ACC(_Props)                                       \
+  (((_Props) & BPROP_WAVE_MATRIX_ACC) != 0)
 
 const UINT g_uBasicKindProps[] = {
     BPROP_PRIMITIVE | BPROP_BOOLEAN | BPROP_INTEGER | BPROP_NUMERIC |

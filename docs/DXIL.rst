@@ -3023,7 +3023,7 @@ DECL.NODELAUNCHINPUTTYPE                  Invalid input record type for node lau
 DECL.NOTUSEDEXTERNAL                      External declaration should not be used
 DECL.PARAMSTRUCT                          Callable function parameter must be struct type
 DECL.PAYLOADSTRUCT                        Payload parameter must be struct type
-DECL.RAYQYERYINFNSIG                      Rayquery objects not allowed in function signatures
+DECL.RAYQUERYINFNSIG                      Rayquery objects not allowed in function signatures
 DECL.RESOURCEINFNSIG                      Resources not allowed in function signatures
 DECL.SHADERMISSINGARG                     payload/params/attributes parameter is required for certain shader types
 DECL.SHADERRETURNVOID                     Shader functions must return void

@@ -833,31 +833,31 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLUnroll:
     case AttributeList::AT_HLSLWaveSize:
     case AttributeList::AT_NoInline:
-    // The following are not accepted in [attribute(param)] syntax:
-    //case AttributeList::AT_HLSLCentroid:
-    //case AttributeList::AT_HLSLGroupShared:
-    //case AttributeList::AT_HLSLIn:
-    //case AttributeList::AT_HLSLInOut:
-    //case AttributeList::AT_HLSLLinear:
-    //case AttributeList::AT_HLSLCenter:
-    //case AttributeList::AT_HLSLNoInterpolation:
-    //case AttributeList::AT_HLSLNoPerspective:
-    //case AttributeList::AT_HLSLOut:
-    //case AttributeList::AT_HLSLPrecise:
-    //case AttributeList::AT_HLSLSample:
-    //case AttributeList::AT_HLSLSemantic:
-    //case AttributeList::AT_HLSLShared:
-    //case AttributeList::AT_HLSLUniform:
-    //case AttributeList::AT_HLSLPoint:
-    //case AttributeList::AT_HLSLLine:
-    //case AttributeList::AT_HLSLLineAdj:
-    //case AttributeList::AT_HLSLTriangle:
-    //case AttributeList::AT_HLSLTriangleAdj:
-    //case AttributeList::AT_HLSLIndices:
-    //case AttributeList::AT_HLSLVertices:
-    //case AttributeList::AT_HLSLPrimitives:
-    //case AttributeList::AT_HLSLPayload:
-    //case AttributeList::AT_HLSLAllowSparseNodes:
+      // The following are not accepted in [attribute(param)] syntax:
+      // case AttributeList::AT_HLSLCentroid:
+      // case AttributeList::AT_HLSLGroupShared:
+      // case AttributeList::AT_HLSLIn:
+      // case AttributeList::AT_HLSLInOut:
+      // case AttributeList::AT_HLSLLinear:
+      // case AttributeList::AT_HLSLCenter:
+      // case AttributeList::AT_HLSLNoInterpolation:
+      // case AttributeList::AT_HLSLNoPerspective:
+      // case AttributeList::AT_HLSLOut:
+      // case AttributeList::AT_HLSLPrecise:
+      // case AttributeList::AT_HLSLSample:
+      // case AttributeList::AT_HLSLSemantic:
+      // case AttributeList::AT_HLSLShared:
+      // case AttributeList::AT_HLSLUniform:
+      // case AttributeList::AT_HLSLPoint:
+      // case AttributeList::AT_HLSLLine:
+      // case AttributeList::AT_HLSLLineAdj:
+      // case AttributeList::AT_HLSLTriangle:
+      // case AttributeList::AT_HLSLTriangleAdj:
+      // case AttributeList::AT_HLSLIndices:
+      // case AttributeList::AT_HLSLVertices:
+      // case AttributeList::AT_HLSLPrimitives:
+      // case AttributeList::AT_HLSLPayload:
+      // case AttributeList::AT_HLSLAllowSparseNodes:
       goto GenericAttributeParse;
     default:
       Diag(AttrNameLoc, diag::warn_unknown_attribute_ignored) << AttrName;

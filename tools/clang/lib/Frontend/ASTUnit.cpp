@@ -2017,8 +2017,7 @@ ASTUnit *ASTUnit::LoadFromCommandLine(
       if (Diags->setSeverityForGroup(diag::Flavor::WarningOrError,
                                      StringRef(groupNames[i]),
                                      diag::Severity::Ignored)) {
-        assert(false &&
-               "otherwise, there is a problem with diagnostic definitions.");
+        llvm_unreachable("there is a problem with diagnostic definitions.");
         return nullptr;
       }
     }

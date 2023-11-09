@@ -20,7 +20,6 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 
-
 using namespace llvm;
 
 namespace hlsl {

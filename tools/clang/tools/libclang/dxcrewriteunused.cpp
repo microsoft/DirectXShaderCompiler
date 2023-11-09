@@ -1756,13 +1756,6 @@ public:
       ::llvm::sys::fs::AutoPerThreadSystem pts(msf.get());
       IFTLLVM(pts.error_code());
 
-      StringRef Data(utf8Source->GetStringPointer(),
-                     utf8Source->GetStringLength());
-      std::unique_ptr<llvm::MemoryBuffer> pBuffer(
-          llvm::MemoryBuffer::getMemBufferCopy(Data, fName));
-      std::unique_ptr<ASTUnit::RemappedFile> pRemap(
-          new ASTUnit::RemappedFile(fName, pBuffer.release()));
-
       hlsl::options::MainArgs mainArgs(argCount, pArguments, 0);
 
       hlsl::options::DxcOpts opts;
@@ -1772,6 +1765,13 @@ public:
         // Looks odd, but this call succeeded enough to allocate a result
         return S_OK;
       }
+
+      StringRef Data(utf8Source->GetStringPointer(),
+                     utf8Source->GetStringLength());
+      std::unique_ptr<llvm::MemoryBuffer> pBuffer(
+          llvm::MemoryBuffer::getMemBufferCopy(Data, fName));
+      std::unique_ptr<ASTUnit::RemappedFile> pRemap(
+          new ASTUnit::RemappedFile(fName, pBuffer.release()));
 
       if (opts.RWOpt.DeclGlobalCB) {
         std::string errors;
