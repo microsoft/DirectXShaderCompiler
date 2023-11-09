@@ -25,14 +25,14 @@ namespace hlsl {
 CompType::CompType() : m_Kind(Kind::Invalid) {}
 
 CompType::CompType(Kind K) : m_Kind(K) {
-  DXASSERT(m_Kind >= Kind::Invalid && m_Kind < Kind::LastEntry,
+    DXASSERT(m_Kind >= Kind::Invalid && m_Kind < Kind::LastEntry,
            "otherwise the caller passed out-of-range value");
 }
 
 CompType::CompType(unsigned int K) : CompType((Kind)K) {}
 
 bool CompType::operator==(const CompType &o) const {
-  return m_Kind == o.m_Kind;
+     return m_Kind == o.m_Kind;
 }
 
 CompType::Kind CompType::GetKind() const { return m_Kind; }
