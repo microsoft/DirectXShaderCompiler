@@ -8740,6 +8740,11 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     }
     break;
   }
+  case hlsl::IntrinsicOp::IOP_dot4add_i8packed:
+  case hlsl::IntrinsicOp::IOP_dot4add_u8packed: {
+    retVal = processIntrinsicDP4a(callExpr, hlslOpcode);
+    break;
+  }
   case hlsl::IntrinsicOp::IOP_pack_s8:
   case hlsl::IntrinsicOp::IOP_pack_u8:
   case hlsl::IntrinsicOp::IOP_pack_clamp_s8:
@@ -10127,7 +10132,22 @@ SpirvInstruction *SpirvEmitter::processIntrinsicClip(const CallExpr *callExpr) {
   spvBuilder.setMergeTarget(mergeBB);
   // Handle the then branch
   spvBuilder.setInsertPoint(thenBB);
-  spvBuilder.createKill(loc, range);
+  if (featureManager.isExtensionEnabled(
+          Extension::EXT_demote_to_helper_invocation) ||
+      featureManager.isTargetEnvVulkan1p3OrAbove()) {
+    // OpDemoteToHelperInvocation(EXT) provided by SPIR-V 1.6 or
+    // SPV_EXT_demote_to_helper_invocation SPIR-V extension allow shaders to
+    // "demote" a fragment shader invocation to behave like a helper invocation
+    // for its duration. The demoted invocation will have no further side
+    // effects and will not output to the framebuffer, but remains active and
+    // can participate in computing derivatives and in subgroup operations. This
+    // is a better match for the "clip" instruction in HLSL.
+    spvBuilder.createDemoteToHelperInvocation(loc);
+    spvBuilder.createBranch(mergeBB, loc, nullptr, nullptr,
+                            spv::LoopControlMask::MaskNone, range);
+  } else {
+    spvBuilder.createKill(loc, range);
+  }
   spvBuilder.addSuccessor(mergeBB);
   // From now on, we'll emit instructions into the merge block.
   spvBuilder.setInsertPoint(mergeBB);
@@ -11370,6 +11390,68 @@ SpirvEmitter::processIntrinsicLog10(const CallExpr *callExpr) {
                                    range);
 }
 
+SpirvInstruction *SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
+                                                     hlsl::IntrinsicOp op) {
+  // Processing the `dot4add_i8packed` and `dot4add_u8packed` intrinsics.
+  // There is no direct substitution for them in SPIR-V, but the combination
+  // of OpSDot / OpUDot and OpIAdd works. Note that the OpSDotAccSat and
+  // OpUDotAccSat operations are not matching the HLSL intrinsics as there
+  // should not be any saturation.
+  //
+  // int32 dot4add_i8packed(uint32 a, uint32 b, int32 acc);
+  //    A 4-dimensional signed integer dot-product with add. Multiplies together
+  //    each corresponding pair of signed 8-bit int bytes in the two input
+  //    DWORDs, and sums the results into the 32-bit signed integer accumulator.
+  //
+  // uint32 dot4add_u8packed(uint32 a, uint32 b, uint32 acc);
+  //    A 4-dimensional unsigned integer dot-product with add. Multiplies
+  //    together each corresponding pair of unsigned 8-bit int bytes in the two
+  //    input DWORDs, and sums the results into the 32-bit unsigned integer
+  //    accumulator.
+
+  auto loc = callExpr->getExprLoc();
+  auto range = callExpr->getSourceRange();
+  assert(op == hlsl::IntrinsicOp::IOP_dot4add_i8packed ||
+         op == hlsl::IntrinsicOp::IOP_dot4add_u8packed);
+
+  // Validate the argument count - if it's wrong, the compiler won't get
+  // here anyway, so an assert should be fine.
+  assert(callExpr->getNumArgs() == 3u);
+
+  // Prepare the three arguments.
+  const Expr *arg0 = callExpr->getArg(0);
+  const Expr *arg1 = callExpr->getArg(1);
+  const Expr *arg2 = callExpr->getArg(2);
+  auto *arg0Instr = doExpr(arg0);
+  auto *arg1Instr = doExpr(arg1);
+  auto *arg2Instr = doExpr(arg2);
+
+  // Prepare the array inputs for createSpirvIntrInstExt below.
+  // Need to use this function because the OpSDot/OpUDot operations require
+  // two capabilities and an extension to be declared in the module.
+  SpirvInstruction *operands[]{arg0Instr, arg1Instr};
+  uint32_t capabilities[]{
+      uint32_t(spv::Capability::DotProduct),
+      uint32_t(spv::Capability::DotProductInput4x8BitPacked)};
+  llvm::StringRef extensions[]{"SPV_KHR_integer_dot_product"};
+  llvm::StringRef instSet = "";
+
+  // Pick the opcode based on the instruction.
+  const bool isSigned = op == hlsl::IntrinsicOp::IOP_dot4add_i8packed;
+  const spv::Op spirvOp = isSigned ? spv::Op::OpSDot : spv::Op::OpUDot;
+
+  const auto returnType = callExpr->getType();
+
+  // Create the dot product instruction.
+  auto *dotResult =
+      spvBuilder.createSpirvIntrInstExt(uint32_t(spirvOp), returnType, operands,
+                                        extensions, instSet, capabilities, loc);
+
+  // Create and return the integer addition instruction.
+  return spvBuilder.createBinaryOp(spv::Op::OpIAdd, returnType, dotResult,
+                                   arg2Instr, loc, range);
+}
+
 SpirvInstruction *
 SpirvEmitter::processIntrinsic8BitPack(const CallExpr *callExpr,
                                        hlsl::IntrinsicOp op) {
@@ -11968,7 +12050,7 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   // arg1 : vertexId
   const auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
   const auto *arg1ConstExpr = dyn_cast<SpirvConstantInteger>(arg1BaseExpr);
-  const auto *vertexId = arg1ConstExpr->getValue().getRawData();
+  const auto vertexId = arg1ConstExpr->getValue();
 
   // arg0 : <NoInterpolation> decorated input
   // Tip  : for input with boolean type, we need to ignore implicit cast first,
@@ -11985,8 +12067,8 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   }
   // Change to access chain instr
   SpirvInstruction *accessChainPtr = paramDeclInstr;
-  SpirvConstant *vtxId = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                   llvm::APInt(32, *vertexId));
+  SpirvConstant *vtxId = spvBuilder.getConstantInt(
+      astContext.UnsignedIntTy, llvm::APInt(32, *(vertexId.getRawData())));
   if (isa<SpirvAccessChain>(accessChainPtr)) {
     auto *accessInstr = dyn_cast<SpirvAccessChain>(accessChainPtr);
     accessInstr->insertIndex(vtxId, accessInstr->getIndexes().size());

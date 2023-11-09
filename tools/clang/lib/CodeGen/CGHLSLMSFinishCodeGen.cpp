@@ -774,7 +774,7 @@ void AddAnnotateWaveMatrix(HLModule &HLM,
       IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(Arg->getParent()));
       CreateAnnotateWaveMatrix(HLM, V, WMP, Builder);
     } else {
-      DXASSERT(false, "WaveMatrix value is unexpected type");
+      llvm_unreachable("WaveMatrix value is unexpected type");
     }
   }
 }

@@ -34,7 +34,7 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::SubobjectKind, uint32_t)
   RDAT_ENUM_VALUE_NODEF(HitGroup)
   RDAT_ENUM_VALUE_NODEF(RaytracingPipelineConfig1)
   // No need to define this here
-  // RDAT_ENUM_VALUE_NODEF(NumKinds)
+  //RDAT_ENUM_VALUE_NODEF(NumKinds)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
   static_assert((unsigned)hlsl::DXIL::SubobjectKind::NumKinds == 13,
                 "otherwise, RDAT_DXIL_ENUM definition needs updating");
@@ -46,8 +46,8 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::StateObjectFlags, uint32_t)
   RDAT_ENUM_VALUE_NODEF(AllowExternalDependenciesOnLocalDefinitions)
   RDAT_ENUM_VALUE_NODEF(AllowStateObjectAdditions)
   // No need to define these masks here
-  // RDAT_ENUM_VALUE_NODEF(ValidMask_1_4)
-  // RDAT_ENUM_VALUE_NODEF(ValidMask)
+  //RDAT_ENUM_VALUE_NODEF(ValidMask_1_4)
+  //RDAT_ENUM_VALUE_NODEF(ValidMask)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
   static_assert((unsigned)hlsl::DXIL::StateObjectFlags::ValidMask == 0x7,
                 "otherwise, RDAT_DXIL_ENUM definition needs updating");
