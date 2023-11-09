@@ -32,7 +32,7 @@ CompType::CompType(Kind K) : m_Kind(K) {
 CompType::CompType(unsigned int K) : CompType((Kind)K) {}
 
 bool CompType::operator==(const CompType &o) const {
-      return m_Kind == o.m_Kind;
+  return m_Kind == o.m_Kind;
 }
 
 CompType::Kind CompType::GetKind() const { return m_Kind; }
@@ -41,7 +41,7 @@ uint8_t CompType::GetSizeInBits() const {
   switch (m_Kind) {
   case Kind::Invalid:
     return 0;
-    case Kind::I1:
+  case Kind::I1:
     return 1;
   case Kind::SNormF16:
   case Kind::UNormF16:
