@@ -11480,8 +11480,7 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
         default:
           self->Diag(pAttr->getRange().getBegin(),
                      diag::err_hlsl_attribute_unsupported_stage)
-              << pAttr->getName()
-              << "node";
+              << pAttr->getSpelling() << "node";
         }
         break;
       }
