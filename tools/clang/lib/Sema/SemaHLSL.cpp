@@ -15827,9 +15827,9 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                diag::err_hlsl_maxrecordssharedwith_references_invalid_arg);
       }
     }
+
     // Make sure NodeTrackRWInputSharing attribute cannot be applied to
     // Input Records that are not RWDispatchNodeInputRecord
-
     ArgIdx = 0;
     while (ArgIdx < FD->getNumParams()) {
       // is an input record
@@ -15838,13 +15838,14 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
         hlsl::NodeFlags nodeFlags;
         if (GetHLSLNodeIORecordType(ParamDecl, nodeFlags)) {
           hlsl::NodeIOProperties node(nodeFlags);
-          // has track rw input sharing attribute
-          if (node.Flags.GetTrackRWInputSharing()) {
-            // if this input record with the NodeTrackRWInputSharing attribute
-            // is not a RWDispatchNodeInputRecord, then report an error
-            if (ParamDecl->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
-              S.Diags.Report(ParamDecl->getLocation(),
-                             diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
+
+          // Emit a diagnostic if the record is not RWDispatchNode and
+          // if it has the NodeTrackRWInputSharing attribute
+          if (node.Flags.GetTrackRWInputSharing() &&
+              node.Flags.GetNodeIOKind() !=
+                  DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
+            S.Diags.Report(ParamDecl->getLocation(),
+                           diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
           }
         }
       }

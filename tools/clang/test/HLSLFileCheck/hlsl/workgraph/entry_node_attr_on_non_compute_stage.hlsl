@@ -1,6 +1,6 @@
-// RUN: %dxc -T cs_6_6 -E main %s | FileCheck %s
+// RUN: %dxc -T ps_6_6 -E main %s | FileCheck %s
 
-struct [NodeTrackRWInputSharing] loadStressRecord {
+struct loadStressRecord {
     uint x : SV_DispatchGrid;
 };
 
@@ -12,7 +12,7 @@ void loadStressWorker(NodeOutput<loadStressRecord> x) {
 [NodeMaxDispatchGrid(3, 1, 1)]
 [NumThreads(16, 1, 1)]
 void main(
-    // CHECK: error: NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord
+    // CHECK: error: entry type 'pixel' from profile 'ps_6_6' conflicts with shader attribute type 'node' on entry function 'main'.
     DispatchNodeInputRecord<loadStressRecord> input,
     [MaxRecords(16)] NodeOutput<loadStressRecord> loadStressChild
 )
