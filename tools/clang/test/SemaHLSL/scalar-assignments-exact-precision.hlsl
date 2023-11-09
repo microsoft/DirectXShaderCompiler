@@ -480,4 +480,151 @@ unorm min10float left1125;  min10float right1125; left1125 = right1125;  // expe
 unorm min10float left1126; snorm min10float right1126; left1126 = right1126;  // expected-warning {{'min10float' is promoted to 'half'}} expected-warning {{'min10float' is promoted to 'half'}} fxc-pass {{}} //
 unorm min10float left1127; unorm min10float right1127; left1127 = right1127;  // expected-warning {{'min10float' is promoted to 'half'}} expected-warning {{'min10float' is promoted to 'half'}} fxc-pass {{}} //
 
+
+// Test additional types
+
+/*<py>
+import re
+rxComments = re.compile(r'(//.*|/\*.*?\*\/)')
+def strip_comments(line):
+    line = rxComments.sub('', line)
+    return line.strip()
+def save_error_comments(lines):
+    saved = {}
+    for line in lines:
+        key = strip_comments(line)
+        if key and line.strip() != key:
+            saved[key] = line
+    return saved
+def restore_error_comments(saved, lines):
+    return [saved.get(line.strip(), line) for line in lines]
+def modify(lines, newlines):
+    return restore_error_comments(save_error_comments(lines), newlines)
+def gen_code(template, combos):
+    return [
+        template.format(left = left, right = right)
+        for left, right in combos]
+</py>*/
+
+/*<py>
+types1 = 'uint16_t int16_t float16_t'.split()
+types2 = 'uint64_t int8_t4_packed uint8_t4_packed'.split()
+types = types1 + types2
+new_type_combos = [(left, right) for left in types1 for right in types2]
+new_type_combos += [(left, right) for left in types2 for right in types]
+</py>*/
+
+// <py::lines('GENERATED_CODE')>modify(lines, gen_code('{{ {left} left; {right} right; left = right; }}', new_type_combos))</py>
+// GENERATED_CODE:BEGIN
+{ uint16_t left; uint64_t right; left = right; }                              /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'uint16_t', possible loss of data}} */
+{ uint16_t left; int8_t4_packed right; left = right; }                        /* expected-warning {{conversion from larger type 'int8_t4_packed' to smaller type 'uint16_t', possible loss of data}} */
+{ uint16_t left; uint8_t4_packed right; left = right; }                       /* expected-warning {{conversion from larger type 'uint8_t4_packed' to smaller type 'uint16_t', possible loss of data}} */
+{ int16_t left; uint64_t right; left = right; }                               /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'int16_t', possible loss of data}} */
+{ int16_t left; int8_t4_packed right; left = right; }                         /* expected-warning {{conversion from larger type 'int8_t4_packed' to smaller type 'int16_t', possible loss of data}} */
+{ int16_t left; uint8_t4_packed right; left = right; }                        /* expected-warning {{conversion from larger type 'uint8_t4_packed' to smaller type 'int16_t', possible loss of data}} */
+{ float16_t left; uint64_t right; left = right; }                             /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'float16_t', possible loss of data}} */
+{ float16_t left; int8_t4_packed right; left = right; }                       /* expected-warning {{conversion from larger type 'int8_t4_packed' to smaller type 'float16_t', possible loss of data}} */
+{ float16_t left; uint8_t4_packed right; left = right; }                      /* expected-warning {{conversion from larger type 'uint8_t4_packed' to smaller type 'float16_t', possible loss of data}} */
+{ uint64_t left; uint16_t right; left = right; }
+{ uint64_t left; int16_t right; left = right; }
+{ uint64_t left; float16_t right; left = right; }
+{ uint64_t left; uint64_t right; left = right; }
+{ uint64_t left; int8_t4_packed right; left = right; }
+{ uint64_t left; uint8_t4_packed right; left = right; }
+{ int8_t4_packed left; uint16_t right; left = right; }
+{ int8_t4_packed left; int16_t right; left = right; }
+{ int8_t4_packed left; float16_t right; left = right; }
+{ int8_t4_packed left; uint64_t right; left = right; }                        /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'int8_t4_packed', possible loss of data}} */
+{ int8_t4_packed left; int8_t4_packed right; left = right; }
+{ int8_t4_packed left; uint8_t4_packed right; left = right; }
+{ uint8_t4_packed left; uint16_t right; left = right; }
+{ uint8_t4_packed left; int16_t right; left = right; }
+{ uint8_t4_packed left; float16_t right; left = right; }
+{ uint8_t4_packed left; uint64_t right; left = right; }                       /* expected-warning {{conversion from larger type 'uint64_t' to smaller type 'uint8_t4_packed', possible loss of data}} */
+{ uint8_t4_packed left; int8_t4_packed right; left = right; }
+{ uint8_t4_packed left; uint8_t4_packed right; left = right; }
+// GENERATED_CODE:END
+
+// Constant assignments
+
+/*<py>
+constant_ints = '0 -1 2U 3L 4ULL 3000000000 -3000000000 10000000000'.split()
+constant_floats = '0.5 -0.5F'.split()
+constants = constant_ints + constant_floats
+# types2 assignments already tested in scalar-assignments.hlsl
+constant_assignment_combos = [(left, right) for left in types1 for right in constants]
+</py>*/
+
+// Catch bugs with SemaHLSL GetUnsignedLimit/GetSignedLimit
+
+// <py::lines('GENERATED_CODE')>modify(lines, gen_code('{{ {left} left = {right}; }}', constant_assignment_combos))</py>
+// GENERATED_CODE:BEGIN
+{ uint16_t left = 0; }
+{ uint16_t left = -1; }
+{ uint16_t left = 2U; }
+{ uint16_t left = 3L; }
+{ uint16_t left = 4ULL; }
+{ uint16_t left = 3000000000; }                                               /* expected-warning {{implicit conversion from 'literal int' to 'uint16_t' changes value from 3000000000 to 24064}} */
+{ uint16_t left = -3000000000; }                                              /* expected-warning {{implicit conversion from 'literal int' to 'uint16_t' changes value from -3000000000 to 41472}} */
+{ uint16_t left = 10000000000; }                                              /* expected-warning {{implicit conversion from 'literal int' to 'uint16_t' changes value from 10000000000 to 58368}} */
+{ uint16_t left = 0.5; }                                                      /* expected-warning {{implicit conversion from 'literal float' to 'uint16_t' changes value from 0.5 to 0}} */
+{ uint16_t left = -0.5F; }                                                    /* expected-warning {{conversion from larger type 'float' to smaller type 'uint16_t', possible loss of data}} expected-warning {{implicit conversion from 'float' to 'uint16_t' changes value from 0.5 to 0}} */
+{ int16_t left = 0; }
+{ int16_t left = -1; }
+{ int16_t left = 2U; }
+{ int16_t left = 3L; }
+{ int16_t left = 4ULL; }
+{ int16_t left = 3000000000; }                                                /* expected-warning {{implicit conversion from 'literal int' to 'int16_t' changes value from 3000000000 to 24064}} */
+{ int16_t left = -3000000000; }                                               /* expected-warning {{implicit conversion from 'literal int' to 'int16_t' changes value from -3000000000 to -24064}} */
+{ int16_t left = 10000000000; }                                               /* expected-warning {{implicit conversion from 'literal int' to 'int16_t' changes value from 10000000000 to -7168}} */
+{ int16_t left = 0.5; }                                                       /* expected-warning {{implicit conversion from 'literal float' to 'int16_t' changes value from 0.5 to 0}} */
+{ int16_t left = -0.5F; }                                                     /* expected-warning {{conversion from larger type 'float' to smaller type 'int16_t', possible loss of data}} expected-warning {{implicit conversion from 'float' to 'int16_t' changes value from 0.5 to 0}} */
+{ float16_t left = 0; }
+{ float16_t left = -1; }
+{ float16_t left = 2U; }
+{ float16_t left = 3L; }
+{ float16_t left = 4ULL; }
+{ float16_t left = 3000000000; }
+{ float16_t left = -3000000000; }
+{ float16_t left = 10000000000; }
+{ float16_t left = 0.5; }
+{ float16_t left = -0.5F; }                                                   /* expected-warning {{conversion from larger type 'float' to smaller type 'float16_t', possible loss of data}} */
+// GENERATED_CODE:END
+
+// Catch bugs with clang type ranges when adding custom types
+
+// <py::lines('GENERATED_CODE')>modify(lines, gen_code('{{ {left} left[2]; left[1] = {right}; }}', constant_assignment_combos))</py>
+// GENERATED_CODE:BEGIN
+{ uint16_t left[2]; left[1] = 0; }
+{ uint16_t left[2]; left[1] = -1; }
+{ uint16_t left[2]; left[1] = 2U; }
+{ uint16_t left[2]; left[1] = 3L; }
+{ uint16_t left[2]; left[1] = 4ULL; }
+{ uint16_t left[2]; left[1] = 3000000000; }                                   /* expected-warning {{implicit conversion from 'literal int' to 'uint16_t' changes value from 3000000000 to 24064}} */
+{ uint16_t left[2]; left[1] = -3000000000; }                                  /* expected-warning {{implicit conversion from 'literal int' to 'uint16_t' changes value from -3000000000 to 41472}} */
+{ uint16_t left[2]; left[1] = 10000000000; }                                  /* expected-warning {{implicit conversion from 'literal int' to 'uint16_t' changes value from 10000000000 to 58368}} */
+{ uint16_t left[2]; left[1] = 0.5; }                                          /* expected-warning {{implicit conversion from 'literal float' to 'uint16_t' changes value from 0.5 to 0}} */
+{ uint16_t left[2]; left[1] = -0.5F; }                                        /* expected-warning {{conversion from larger type 'float' to smaller type 'uint16_t', possible loss of data}} expected-warning {{implicit conversion from 'float' to 'uint16_t' changes value from 0.5 to 0}} */
+{ int16_t left[2]; left[1] = 0; }
+{ int16_t left[2]; left[1] = -1; }
+{ int16_t left[2]; left[1] = 2U; }
+{ int16_t left[2]; left[1] = 3L; }
+{ int16_t left[2]; left[1] = 4ULL; }
+{ int16_t left[2]; left[1] = 3000000000; }                                    /* expected-warning {{implicit conversion from 'literal int' to 'int16_t' changes value from 3000000000 to 24064}} */
+{ int16_t left[2]; left[1] = -3000000000; }                                   /* expected-warning {{implicit conversion from 'literal int' to 'int16_t' changes value from -3000000000 to -24064}} */
+{ int16_t left[2]; left[1] = 10000000000; }                                   /* expected-warning {{implicit conversion from 'literal int' to 'int16_t' changes value from 10000000000 to -7168}} */
+{ int16_t left[2]; left[1] = 0.5; }                                           /* expected-warning {{implicit conversion from 'literal float' to 'int16_t' changes value from 0.5 to 0}} */
+{ int16_t left[2]; left[1] = -0.5F; }                                         /* expected-warning {{conversion from larger type 'float' to smaller type 'int16_t', possible loss of data}} expected-warning {{implicit conversion from 'float' to 'int16_t' changes value from 0.5 to 0}} */
+{ float16_t left[2]; left[1] = 0; }
+{ float16_t left[2]; left[1] = -1; }
+{ float16_t left[2]; left[1] = 2U; }
+{ float16_t left[2]; left[1] = 3L; }
+{ float16_t left[2]; left[1] = 4ULL; }
+{ float16_t left[2]; left[1] = 3000000000; }
+{ float16_t left[2]; left[1] = -3000000000; }
+{ float16_t left[2]; left[1] = 10000000000; }
+{ float16_t left[2]; left[1] = 0.5; }
+{ float16_t left[2]; left[1] = -0.5F; }                                       /* expected-warning {{conversion from larger type 'float' to smaller type 'float16_t', possible loss of data}} */
+// GENERATED_CODE:END
+
 }

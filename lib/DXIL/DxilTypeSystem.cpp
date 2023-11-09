@@ -38,7 +38,7 @@ DxilMatrixAnnotation::DxilMatrixAnnotation()
 //
 DxilFieldAnnotation::DxilFieldAnnotation()
     : m_bPrecise(false), m_CBufferOffset(UINT_MAX), m_bCBufferVarUsed(false),
-      m_BitFieldWidth(0) {}
+      m_BitFieldWidth(0), m_VectorSize(0) {}
 
 bool DxilFieldAnnotation::IsPrecise() const { return m_bPrecise; }
 void DxilFieldAnnotation::SetPrecise(bool b) { m_bPrecise = b; }
@@ -51,6 +51,8 @@ const DxilMatrixAnnotation &DxilFieldAnnotation::GetMatrixAnnotation() const {
 void DxilFieldAnnotation::SetMatrixAnnotation(const DxilMatrixAnnotation &MA) {
   m_Matrix = MA;
 }
+unsigned DxilFieldAnnotation::GetVectorSize() const { return m_VectorSize; }
+void DxilFieldAnnotation::SetVectorSize(unsigned size) { m_VectorSize = size; }
 bool DxilFieldAnnotation::HasResourceProperties() const {
   return m_ResourceProps.isValid();
 }
@@ -315,6 +317,10 @@ void DxilParameterAnnotation::SetSemanticIndexVec(
 
 void DxilParameterAnnotation::AppendSemanticIndex(unsigned SemIdx) {
   m_semanticIndex.emplace_back(SemIdx);
+}
+
+bool DxilParameterAnnotation::IsParamInputQualNode() {
+  return (m_inputQual == DxilParamInputQual::NodeIO);
 }
 
 //------------------------------------------------------------------------------

@@ -232,7 +232,8 @@ public:
               llvm::make_unique<DxilEntryProps>(
                   props, m_pHLModule->GetHLOptions().bUseMinPrecision);
           if (m_pHLModule->IsGraphicsShader(&F) ||
-              m_pHLModule->IsComputeShader(&F)) {
+              m_pHLModule->IsComputeShader(&F) ||
+              m_pHLModule->IsNodeShader(&F)) {
             HLSignatureLower sigLower(&F, *m_pHLModule, pProps->sig);
             // TODO: BUG: This will lower patch constant function sigs twice if
             // used by two hull shaders!
@@ -243,7 +244,11 @@ public:
       }
     }
 
+    LowerHLAnnotateWaveMatrix(M);
+
     std::unordered_set<Instruction *> UpdateCounterSet;
+
+    LowerRecordAccessToGetNodeRecordPtr(*m_pHLModule);
 
     GenerateDxilOperations(M, UpdateCounterSet);
 
@@ -268,18 +273,20 @@ public:
         }
       }
     }
+
     // Translate precise on allocas into function call to keep the information
     // after mem2reg. The function calls will be removed after propagate precise
     // attribute.
     TranslatePreciseAttribute();
 
     // High-level metadata should now be turned into low-level metadata.
-    const bool SkipInit = true;
-    hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);
     DxilFunctionProps *pProps = nullptr;
     if (!SM->IsLib()) {
       pProps = &EntryPropsMap.begin()->second->props;
     }
+
+    const bool SkipInit = true;
+    hlsl::DxilModule &DxilMod = M.GetOrCreateDxilModule(SkipInit);
     InitDxilModuleFromHLModule(*m_pHLModule, DxilMod, m_HasDbgInfo);
     DxilMod.ResetEntryPropsMap(std::move(EntryPropsMap));
     if (!SM->IsLib()) {
@@ -312,6 +319,7 @@ private:
                          std::unordered_set<Instruction *> &UpdateCounterSet);
   void LowerHLCreateHandle(
       std::unordered_map<CallInst *, Type *> &HandleToResTypeMap);
+  void LowerHLAnnotateWaveMatrix(Module &M);
 
   // Translate precise attribute into HL function call.
   void TranslatePreciseAttribute();
@@ -360,6 +368,105 @@ void TranslateHLCreateHandle(Function *F, hlsl::OP &hlslOP) {
   }
 }
 
+void TranslateHLCreateNodeOutputHandle(Function *F, hlsl::OP &hlslOP) {
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    // must be call inst
+    CallInst *CI = cast<CallInst>(user);
+    Value *idx = CI->getArgOperand(HLOperandIndex::kNodeOutputMetadataIDIdx);
+
+    auto DxilOpcode = DXIL::OpCode::CreateNodeOutputHandle;
+    Value *opArg =
+        hlslOP.GetU32Const((unsigned)DXIL::OpCode::CreateNodeOutputHandle);
+
+    IRBuilder<> Builder(CI);
+    Function *createHandle = hlslOP.GetOpFunc(DxilOpcode, Builder.getVoidTy());
+    Value *newHandle = Builder.CreateCall(createHandle, {opArg, idx});
+
+    CI->replaceAllUsesWith(newHandle);
+    CI->eraseFromParent();
+  }
+}
+
+void TranslateHLIndexNodeHandle(Function *F, hlsl::OP &hlslOP) {
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    CallInst *CI = cast<CallInst>(user);
+    Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+    Value *arrayidx =
+        CI->getArgOperand(HLOperandIndex::kIndexNodeHandleArrayIDIdx);
+
+    auto DxilOpcode = DXIL::OpCode::IndexNodeHandle;
+    Value *opArg = hlslOP.GetU32Const((unsigned)DXIL::OpCode::IndexNodeHandle);
+
+    IRBuilder<> Builder(CI);
+    Function *createHandle = hlslOP.GetOpFunc(DxilOpcode, Builder.getVoidTy());
+    Value *newHandle =
+        Builder.CreateCall(createHandle, {opArg, handle, arrayidx});
+    CI->replaceAllUsesWith(newHandle);
+    CI->eraseFromParent();
+  }
+}
+
+void TranslateHLCreateNodeInputRecordHandle(Function *F, hlsl::OP &hlslOP) {
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    // must be a call inst
+    CallInst *CI = cast<CallInst>(user);
+    Value *idx =
+        CI->getArgOperand(HLOperandIndex::kNodeInputRecordMetadataIDIdx);
+    auto DxilOpcode = DXIL::OpCode::CreateNodeInputRecordHandle;
+    Value *opArg =
+        hlslOP.GetU32Const((unsigned)DXIL::OpCode::CreateNodeInputRecordHandle);
+    IRBuilder<> Builder(CI);
+    Function *createHandle = hlslOP.GetOpFunc(DxilOpcode, Builder.getVoidTy());
+    Value *newHandle = Builder.CreateCall(createHandle, {opArg, idx});
+
+    CI->replaceAllUsesWith(newHandle);
+    CI->eraseFromParent();
+  }
+}
+
+void TranslateHLAnnotateNodeRecordHandle(Function *F, hlsl::OP &hlslOP) {
+  Value *opArg =
+      hlslOP.GetU32Const((unsigned)DXIL::OpCode::AnnotateNodeRecordHandle);
+
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    // must be call inst
+    CallInst *CI = cast<CallInst>(user);
+    Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+    Value *NP = CI->getArgOperand(
+        HLOperandIndex::kAnnotateNodeRecordHandleNodeRecordPropIdx);
+
+    IRBuilder<> Builder(CI);
+    // put annotateHandle near the Handle it annotated.
+    if (Instruction *I = dyn_cast<Instruction>(handle)) {
+      if (isa<PHINode>(I))
+        Builder.SetInsertPoint(I->getParent()->getFirstInsertionPt());
+      else
+        Builder.SetInsertPoint(I->getNextNode());
+    } else if (Argument *Arg = dyn_cast<Argument>(handle)) {
+      Builder.SetInsertPoint(
+          Arg->getParent()->getEntryBlock().getFirstInsertionPt());
+    }
+    Function *annotateHandle = hlslOP.GetOpFunc(
+        DXIL::OpCode::AnnotateNodeRecordHandle, Builder.getVoidTy());
+    CallInst *newHandle =
+        Builder.CreateCall(annotateHandle, {opArg, handle, NP});
+    CI->replaceAllUsesWith(newHandle);
+    CI->eraseFromParent();
+  }
+}
+
 void TranslateHLAnnotateHandle(
     Function *F, hlsl::OP &hlslOP,
     std::unordered_map<CallInst *, Type *> &HandleToResTypeMap) {
@@ -371,8 +478,7 @@ void TranslateHLAnnotateHandle(
       continue;
     // must be call inst
     CallInst *CI = cast<CallInst>(user);
-    Value *handle =
-        CI->getArgOperand(HLOperandIndex::kAnnotateHandleHandleOpIdx);
+    Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
     Value *RP = CI->getArgOperand(
         HLOperandIndex::kAnnotateHandleResourcePropertiesOpIdx);
     Type *ResTy =
@@ -400,7 +506,41 @@ void TranslateHLAnnotateHandle(
   }
 }
 
-void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP) {
+void TranslateHLAnnotateNodeHandle(Function *F, hlsl::OP &hlslOP) {
+  Value *opArg = hlslOP.GetU32Const((unsigned)DXIL::OpCode::AnnotateNodeHandle);
+
+  for (auto U = F->user_begin(); U != F->user_end();) {
+    Value *user = *(U++);
+    if (!isa<Instruction>(user))
+      continue;
+    // must be call inst
+    CallInst *CI = cast<CallInst>(user);
+    Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+    Value *NP =
+        CI->getArgOperand(HLOperandIndex::kAnnotateNodeHandleNodePropIdx);
+
+    IRBuilder<> Builder(CI);
+    // put AnnotateNodeHandle near the Handle it annotated.
+    if (Instruction *I = dyn_cast<Instruction>(handle)) {
+      if (isa<PHINode>(I))
+        Builder.SetInsertPoint(I->getParent()->getFirstInsertionPt());
+      else
+        Builder.SetInsertPoint(I->getNextNode());
+    } else if (Argument *Arg = dyn_cast<Argument>(handle)) {
+      Builder.SetInsertPoint(
+          Arg->getParent()->getEntryBlock().getFirstInsertionPt());
+    }
+    Function *annotateHandle =
+        hlslOP.GetOpFunc(DXIL::OpCode::AnnotateNodeHandle, Builder.getVoidTy());
+    CallInst *newHandle =
+        Builder.CreateCall(annotateHandle, {opArg, handle, NP});
+    CI->replaceAllUsesWith(newHandle);
+    CI->eraseFromParent();
+  }
+}
+
+void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP,
+                                const llvm::DataLayout &DL) {
   for (auto U = F->user_begin(); U != F->user_end();) {
     Value *User = *(U++);
     if (!isa<Instruction>(User))
@@ -410,6 +550,37 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP) {
     IRBuilder<> Builder(CI);
     HLCastOpcode opcode = static_cast<HLCastOpcode>(hlsl::GetHLOpcode(CI));
     switch (opcode) {
+    case HLCastOpcode::HandleToNodeOutputCast: {
+      // Do Nothing for now
+      // Perhaps we need to replace the recordtohandle cast users
+      // with the handle argument here.
+    } break;
+    case HLCastOpcode::NodeOutputToHandleCast: {
+      Value *NodeOutputHandle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+      Constant *C = dyn_cast<Constant>(NodeOutputHandle);
+      if (C && C->isZeroValue()) {
+        NodeOutputHandle = Constant::getNullValue(hlslOP.GetNodeHandleType());
+      } else if (auto *CastI = dyn_cast<CallInst>(NodeOutputHandle)) {
+        DXASSERT_NOMSG(hlsl::GetHLOpcodeGroup(CastI->getCalledFunction()) ==
+                       HLOpcodeGroup::HLCast);
+        NodeOutputHandle = CastI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+      }
+      CI->replaceAllUsesWith(NodeOutputHandle);
+    } break;
+    case HLCastOpcode::NodeRecordToHandleCast: {
+      Value *OutputRecordHandle =
+          CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+      Constant *C = dyn_cast<Constant>(OutputRecordHandle);
+      if (C && C->isZeroValue()) {
+        OutputRecordHandle =
+            Constant::getNullValue(hlslOP.GetNodeRecordHandleType());
+      } else if (auto *CastI = dyn_cast<CallInst>(OutputRecordHandle)) {
+        DXASSERT_NOMSG(hlsl::GetHLOpcodeGroup(CastI->getCalledFunction()) ==
+                       HLOpcodeGroup::HLCast);
+        OutputRecordHandle = CastI->getArgOperand(HLOperandIndex::kHandleOpIdx);
+      }
+      CI->replaceAllUsesWith(OutputRecordHandle);
+    } break;
     case HLCastOpcode::HandleToResCast: {
       Value *Handle = CI->getArgOperand(HLOperandIndex::kUnaryOpSrc0Idx);
       for (auto HandleU = CI->user_begin(); HandleU != CI->user_end();) {
@@ -424,10 +595,10 @@ void TranslateHLCastHandleToRes(Function *F, hlsl::OP &hlslOP) {
           HandleCI->eraseFromParent();
         }
       }
-      if (CI->user_empty()) {
-        CI->eraseFromParent();
-      }
     } break;
+    }
+    if (CI->user_empty()) {
+      CI->eraseFromParent();
     }
   }
 }
@@ -437,13 +608,14 @@ void DxilGenerationPass::LowerHLCreateHandle(
     std::unordered_map<CallInst *, Type *> &HandleToResTypeMap) {
   Module *M = m_pHLModule->GetModule();
   hlsl::OP &hlslOP = *m_pHLModule->GetOP();
-  // Lower cast handle to res used by hl.createhandle.
+  // Lower cast handle to res/node used by hl.createhandle.
   for (iplist<Function>::iterator F : M->getFunctionList()) {
     if (F->user_empty())
       continue;
     hlsl::HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
     if (group == HLOpcodeGroup::HLCast) {
-      TranslateHLCastHandleToRes(F, hlslOP);
+      auto DL = M->getDataLayout();
+      TranslateHLCastHandleToRes(F, hlslOP, DL);
     }
   }
   // generate dxil operation
@@ -458,9 +630,55 @@ void DxilGenerationPass::LowerHLCreateHandle(
 
       TranslateHLCreateHandle(F, hlslOP);
       break;
+    case HLOpcodeGroup::HLCreateNodeOutputHandle:
+      TranslateHLCreateNodeOutputHandle(F, hlslOP);
+      break;
+    case HLOpcodeGroup::HLIndexNodeHandle:
+      TranslateHLIndexNodeHandle(F, hlslOP);
+      break;
+    case HLOpcodeGroup::HLCreateNodeInputRecordHandle:
+      TranslateHLCreateNodeInputRecordHandle(F, hlslOP);
+      break;
     case HLOpcodeGroup::HLAnnotateHandle:
       TranslateHLAnnotateHandle(F, hlslOP, HandleToResTypeMap);
       break;
+    case HLOpcodeGroup::HLAnnotateNodeHandle:
+      TranslateHLAnnotateNodeHandle(F, hlslOP);
+      break;
+    case HLOpcodeGroup::HLAnnotateNodeRecordHandle:
+      TranslateHLAnnotateNodeRecordHandle(F, hlslOP);
+      break;
+    }
+  }
+}
+
+void DxilGenerationPass::LowerHLAnnotateWaveMatrix(Module &M) {
+  hlsl::OP &hlslOP = *m_pHLModule->GetOP();
+  Value *opArg =
+      hlslOP.GetU32Const((unsigned)DXIL::OpCode::WaveMatrix_Annotate);
+  for (iplist<Function>::iterator F : M.getFunctionList()) {
+    if (F->user_empty())
+      continue;
+    if (hlsl::GetHLOpcodeGroup(F) == HLOpcodeGroup::HLWaveMatrix_Annotate) {
+      for (auto U = F->user_begin(); U != F->user_end();) {
+        Value *User = *(U++);
+        if (!isa<Instruction>(User))
+          continue;
+        // must be call inst
+        CallInst *CI = cast<CallInst>(User);
+        IRBuilder<> Builder(CI);
+        Value *waveMatPtr =
+            CI->getArgOperand(HLOperandIndex::kAnnotateWaveMatrixPtrOpIdx);
+        Value *WMP = CI->getArgOperand(
+            HLOperandIndex::kAnnotateWaveMatrixPropertiesOpIdx);
+        Function *annotateWaveMatrix = hlslOP.GetOpFunc(
+            DXIL::OpCode::WaveMatrix_Annotate, Builder.getVoidTy());
+        CallInst *newCI =
+            Builder.CreateCall(annotateWaveMatrix, {opArg, waveMatPtr, WMP});
+        if (!CI->user_empty())
+          CI->replaceAllUsesWith(Builder.CreateBitCast(newCI, CI->getType()));
+        CI->eraseFromParent();
+      }
     }
   }
 }

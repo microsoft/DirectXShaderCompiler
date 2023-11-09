@@ -853,7 +853,7 @@ def HLSLGloballyCoherent : InheritableAttr {
 
 def HLSLShader : InheritableAttr {
   let Spellings = [CXX11<"", "shader", 2017>];
-  let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geomery
+  let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geometry, node
   let Documentation = [Undocumented];
 }
 
@@ -928,6 +928,204 @@ def HLSLMaybeUnused : InheritableAttr {
 def HLSLCXXOverload : InheritableAttr {
   let Spellings = [];
   let Subjects = SubjectList<[CXXMethod]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeLaunch : InheritableAttr {
+  let Spellings = [CXX11<"", "nodelaunch", 2017>];
+  let Args = [StringArgument<"LaunchType">]; // one of broadcasting, coalescing, thread
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeIsProgramEntry : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeisprogramentry", 2017>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeId : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeid", 2017>];
+  let Args = [StringArgument<"Name">,DefaultIntArgument<"ArrayIndex", 0>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeLocalRootArgumentsTableIndex : InheritableAttr {
+  let Spellings = [CXX11<"", "nodelocalrootargumentstableindex", 2017>];
+  let Args = [UnsignedArgument<"Index">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeShareInputOf : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeshareinputof", 2017>];
+  let Args = [StringArgument<"Name">,UnsignedArgument<"ArrayIndex", 1>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeDispatchGrid: InheritableAttr {
+  let Spellings = [CXX11<"", "nodedispatchgrid", 2015>];
+  let Args = [UnsignedArgument<"X">, UnsignedArgument<"Y">, UnsignedArgument<"Z">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeMaxDispatchGrid: InheritableAttr {
+  let Spellings = [CXX11<"", "nodemaxdispatchgrid", 2015>];
+  let Args = [UnsignedArgument<"X">, UnsignedArgument<"Y">, UnsignedArgument<"Z">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeMaxRecursionDepth : InheritableAttr {
+  let Spellings = [CXX11<"", "nodemaxrecursiondepth", 2017>];
+  let Args = [UnsignedArgument<"Count">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeTrackRWInputSharing : InheritableAttr {
+  let Spellings = [CXX11<"", "nodetrackrwinputsharing", 2017>];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+
+  let Args = [EnumArgument<"Type", "RecordType",
+                           ["DispatchNodeInputRecord",
+                           "RWDispatchNodeInputRecord",
+                           "GroupNodeInputRecords",
+                           "RWGroupNodeInputRecords",
+                           "ThreadNodeInputRecord",
+                           "RWThreadNodeInputRecord",
+                           "EmptyNodeInput",
+                           "NodeOutput",
+                           "EmptyNodeOutput",
+                           "NodeOutputArray",
+                           "EmptyNodeOutputArray",
+                           "GroupNodeOutputRecords",
+                           "ThreadNodeOutputRecords"],
+                           ["DispatchNodeInputRecord",
+                           "RWDispatchNodeInputRecord",
+                           "GroupNodeInputRecords",
+                           "RWGroupNodeInputRecords",
+                           "ThreadNodeInputRecord",
+                           "RWThreadNodeInputRecord",
+                           "EmptyNodeInput",
+                           "NodeOutput",
+                           "EmptyNodeOutput",
+                           "NodeOutputArray",
+                           "EmptyNodeOutputArray",
+                           "GroupNodeOutputRecords",
+                           "ThreadNodeOutputRecords"]>];
+
+  let AdditionalMembers =
+  [{hlsl::DXIL::NodeIOKind getNodeIOType() const {
+      switch (type) {
+      case DispatchNodeInputRecord:
+        return hlsl::DXIL::NodeIOKind::DispatchNodeInputRecord;
+      case RWDispatchNodeInputRecord:
+        return hlsl::DXIL::NodeIOKind::RWDispatchNodeInputRecord;
+      case GroupNodeInputRecords:
+        return hlsl::DXIL::NodeIOKind::GroupNodeInputRecords;
+      case RWGroupNodeInputRecords:
+        return hlsl::DXIL::NodeIOKind::RWGroupNodeInputRecords;
+      case ThreadNodeInputRecord:
+        return hlsl::DXIL::NodeIOKind::ThreadNodeInputRecord;
+      case RWThreadNodeInputRecord:
+        return hlsl::DXIL::NodeIOKind::RWThreadNodeInputRecord;
+      case EmptyNodeInput:
+        return hlsl::DXIL::NodeIOKind::EmptyInput;
+      case NodeOutput:
+        return hlsl::DXIL::NodeIOKind::NodeOutput;
+      case EmptyNodeOutput:
+        return hlsl::DXIL::NodeIOKind::EmptyOutput;
+      case NodeOutputArray:
+        return hlsl::DXIL::NodeIOKind::NodeOutputArray;
+      case EmptyNodeOutputArray:
+        return hlsl::DXIL::NodeIOKind::EmptyOutputArray;
+      case GroupNodeOutputRecords:
+        return hlsl::DXIL::NodeIOKind::GroupNodeOutputRecords;
+      case ThreadNodeOutputRecords:
+        return hlsl::DXIL::NodeIOKind::ThreadNodeOutputRecords;
+      }
+      llvm_unreachable("all cases exhausted");
+      return hlsl::DXIL::NodeIOKind::Invalid;
+    }
+
+    static RecordType toAttrType(hlsl::DXIL::NodeIOKind Type) {
+      switch (Type) {
+      case hlsl::DXIL::NodeIOKind::DispatchNodeInputRecord:
+        return DispatchNodeInputRecord;
+      case hlsl::DXIL::NodeIOKind::RWDispatchNodeInputRecord:
+        return RWDispatchNodeInputRecord;
+      case hlsl::DXIL::NodeIOKind::GroupNodeInputRecords:
+        return GroupNodeInputRecords;
+      case hlsl::DXIL::NodeIOKind::RWGroupNodeInputRecords:
+        return RWGroupNodeInputRecords;
+      case hlsl::DXIL::NodeIOKind::ThreadNodeInputRecord:
+        return ThreadNodeInputRecord;
+      case hlsl::DXIL::NodeIOKind::RWThreadNodeInputRecord:
+        return RWThreadNodeInputRecord;
+      case hlsl::DXIL::NodeIOKind::EmptyInput:
+        return EmptyNodeInput;
+      case hlsl::DXIL::NodeIOKind::NodeOutput:
+        return NodeOutput;
+      case hlsl::DXIL::NodeIOKind::EmptyOutput:
+        return EmptyNodeOutput;
+      case hlsl::DXIL::NodeIOKind::NodeOutputArray:
+        return NodeOutputArray;
+      case hlsl::DXIL::NodeIOKind::EmptyOutputArray:
+        return EmptyNodeOutputArray;
+      case hlsl::DXIL::NodeIOKind::GroupNodeOutputRecords:
+        return GroupNodeOutputRecords;
+      case hlsl::DXIL::NodeIOKind::ThreadNodeOutputRecords:
+        return ThreadNodeOutputRecords;
+      }
+      llvm_unreachable("all cases exhausted");
+    }
+
+    static HLSLNodeObjectAttr *CreateImplicit(ASTContext &Ctx,
+                                              hlsl::DXIL::NodeIOKind Type,
+                                              SourceRange Loc = SourceRange()) {
+      return CreateImplicit(Ctx, toAttrType(Type), Loc);
+    }
+
+    static const char *ConvertRecordTypeToStr(hlsl::DXIL::NodeIOKind Type) {
+      return ConvertRecordTypeToStr(toAttrType(Type));
+    }
+    }];
+}
+
+
+// HLSL Parameter Attributes
+
+def HLSLMaxRecords : InheritableAttr {
+  let Spellings = [CXX11<"", "MaxRecords", 2015>];
+  let Args = [IntArgument<"maxCount">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLMaxRecordsSharedWith : InheritableParamAttr {
+  let Spellings = [CXX11<"", "maxrecordssharedwith", 2015>];
+  let Args = [IdentifierArgument<"Name">];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLAllowSparseNodes : InheritableParamAttr {
+  let Spellings = [CXX11<"", "allowsparsenodes", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeArraySize : InheritableAttr {
+  let Spellings = [CXX11<"", "NodeArraySize", 2015>];
+  let Args = [IntArgument<"count">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLUnboundedSparseNodes : InheritableParamAttr {
+  let Spellings = [CXX11<"", "unboundedsparsenodes", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
   let Documentation = [Undocumented];
 }
 

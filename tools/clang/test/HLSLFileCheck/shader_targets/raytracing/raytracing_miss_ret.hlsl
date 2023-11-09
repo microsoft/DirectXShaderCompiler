@@ -9,7 +9,7 @@ struct MyPayload {
 [shader("miss")]
 void miss_nop( inout MyPayload payload ) {}
 
-// CHECK: error: return type for ray tracing shaders must be void
+// CHECK: error: return type for 'miss' shaders must be void
 
 [shader("miss")]
 float miss_ret() { return 1.0; }

@@ -26,7 +26,9 @@ struct GlobalStruct {
 
 static GlobalStruct globalStruct;
 
-[numthreads(1, 1, 1)] void main() {
+[shader("compute")]
+[numthreads(1, 1, 1)]
+void main() {
   globalStruct.IntArray[0] = floatRWUAV[0];
   globalStruct.IntArray[1] = floatRWUAV[1];
   globalStruct.FloatArray[0] = floatRWUAV[2];

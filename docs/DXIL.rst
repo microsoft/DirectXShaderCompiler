@@ -704,6 +704,8 @@ ViewID                 NotInSig _61 NA       NotInSig _61 NotInSig _61 NA       
 Barycentrics           NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotPacked _61 NA            NA       NA       NA       NA        NA
 ShadingRate            NA           SV _64   NA           NA           SV _64   SV _64   NA         NA           SV _64   SV _64   SV _64   NA           SV _64   SV _64        NA            NA       NA       NA       SV        NA
 CullPrimitive          NA           NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NotInSig      NA            NA       NA       NA       NotPacked NA
+StartVertexLocation    NotInSig _68 NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA       NA       NA        NA
+StartInstanceLocation  NotInSig _68 NA       NA           NA           NA       NA       NA         NA           NA       NA       NA       NA           NA       NA            NA            NA       NA       NA       NA        NA
 ====================== ============ ======== ============ ============ ======== ======== ========== ============ ======== ======== ======== ============ ======== ============= ============= ======== ======== ======== ========= ========
 
 .. SEMINT-TABLE-RST:END
@@ -2322,6 +2324,38 @@ ID  Name                                                  Description
 223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
 224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
 225 TextureStoreSample                                    stores texel data at specified sample index
+226 WaveMatrix_Annotate                                   Annotate a wave matrix pointer with the type information
+227 WaveMatrix_Depth                                      Returns depth (K) value for matrix of specified type
+228 WaveMatrix_Fill                                       Fill wave matrix with scalar value
+229 WaveMatrix_LoadRawBuf                                 Load wave matrix from raw buffer
+230 WaveMatrix_LoadGroupShared                            Load wave matrix from group shared array
+231 WaveMatrix_StoreRawBuf                                Store wave matrix to raw buffer
+232 WaveMatrix_StoreGroupShared                           Store wave matrix to group shared array
+233 WaveMatrix_Multiply                                   Mutiply left and right wave matrix and store in accumulator
+234 WaveMatrix_MultiplyAccumulate                         Mutiply left and right wave matrix and accumulate into accumulator
+235 WaveMatrix_ScalarOp                                   Perform scalar operation on each element of wave matrix
+236 WaveMatrix_SumAccumulate                              Sum rows or columns of an input matrix into an existing accumulator fragment matrix
+237 WaveMatrix_Add                                        Element-wise accumulate, or broadcast add of fragment into accumulator
+238 AllocateNodeOutputRecords                             returns a handle for the output records
+239 GetNodeRecordPtr                                      retrieve node input/output record pointer in address space 6
+240 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput for the whole group or per thread.
+241 OutputComplete                                        indicates all outputs for a given records are complete
+242 GetInputRecordCount                                   returns the number of records that have been coalesced into the current thread group
+243 FinishedCrossGroupSharing                             returns true if the current thread group is the last to access the input
+244 BarrierByMemoryType                                   Request a barrier for a set of memory types and/or thread group execution sync
+245 BarrierByMemoryHandle                                 Request a barrier for just the memory used by the specified object
+246 BarrierByNodeRecordHandle                             Request a barrier for just the memory used by the node record
+247 CreateNodeOutputHandle                                Creates a handle to a NodeOutput
+248 IndexNodeHandle                                       returns the handle for the location in the output node array at the indicated index
+249 AnnotateNodeHandle                                    annotate handle with node properties
+250 CreateNodeInputRecordHandle                           create a handle for an InputRecord
+251 AnnotateNodeRecordHandle                              annotate handle with node record properties
+252 NodeOutputIsValid                                     returns true if the specified output node is present in the work graph
+253 GetRemainingRecursionLevels                           returns how many levels of recursion remain
+254 SampleCmpGrad                                         samples a texture using a gradient and compares a single component against the specified comparison value
+255 SampleCmpBias                                         samples a texture after applying the input bias to the mipmap level and compares a single component against the specified comparison value
+256 StartVertexLocation                                   returns the BaseVertexLocation from DrawIndexedInstanced or StartVertexLocation from DrawInstanced
+257 StartInstanceLocation                                 returns the StartInstanceLocation from Draw*Instanced
 === ===================================================== =======================================================================================================================================================================================================================
 
 
@@ -2984,9 +3018,12 @@ DECL.EXTRAARGS                            Extra arguments not allowed for shader
 DECL.FNATTRIBUTE                          Functions should only contain known function attributes
 DECL.FNFLATTENPARAM                       Function parameters must not use struct types
 DECL.FNISCALLED                           Functions can only be used by call instructions
+DECL.MULTIPLENODEINPUTS                   A node shader may not have more than one input record
+DECL.NODELAUNCHINPUTTYPE                  Invalid input record type for node launch type
 DECL.NOTUSEDEXTERNAL                      External declaration should not be used
 DECL.PARAMSTRUCT                          Callable function parameter must be struct type
 DECL.PAYLOADSTRUCT                        Payload parameter must be struct type
+DECL.RAYQUERYINFNSIG                      Rayquery objects not allowed in function signatures
 DECL.RESOURCEINFNSIG                      Resources not allowed in function signatures
 DECL.SHADERMISSINGARG                     payload/params/attributes parameter is required for certain shader types
 DECL.SHADERRETURNVOID                     Shader functions must return void
@@ -2994,16 +3031,18 @@ DECL.USEDEXTERNALFUNCTION                 External function must be used
 DECL.USEDINTERNAL                         Internal declaration must be used
 FLOW.DEADLOOP                             Loop must have break.
 FLOW.FUNCTIONCALL                         Function with parameter is not permitted
-FLOW.NORECUSION                           Recursion is not permitted.
+FLOW.NORECURSION                          Recursion is not permitted.
 FLOW.REDUCIBLE                            Execution flow must be reducible.
 INSTR.ALLOWED                             Instructions must be of an allowed type.
 INSTR.ATOMICCONST                         Constant destination to atomic.
 INSTR.ATOMICINTRINNONUAV                  Non-UAV destination to atomic intrinsic.
-INSTR.ATOMICOPNONGROUPSHARED              Non-groupshared destination to atomic operation.
+INSTR.ATOMICOPNONGROUPSHAREDORRECORD      Non-groupshared or node record destination to atomic operation.
 INSTR.ATTRIBUTEATVERTEXNOINTERPOLATION    Attribute %0 must have nointerpolation mode in order to use GetAttributeAtVertex function.
-INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Mesh Shader must only sync UAV (sync_uglobal).
+INSTR.BARRIERFLAGINVALID                  Invalid %0 flags on DXIL operation '%1'
+INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Mesh/Node Shader must only sync UAV (sync_uglobal).
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
 INSTR.BARRIERMODEUSELESSUGROUP            sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
+INSTR.BARRIERNONCONSTANTFLAGARGUMENT      Memory type, access, or sync flag is not constant
 INSTR.BUFFERUPDATECOUNTERONRESHASCOUNTER  BufferUpdateCounter valid only when HasCounter is true.
 INSTR.BUFFERUPDATECOUNTERONUAV            BufferUpdateCounter valid only on UAV.
 INSTR.CALLOLOAD                           Call to DXIL intrinsic must match overload signature
@@ -3029,6 +3068,7 @@ INSTR.MIPONUAVLOAD                        uav load don't support mipLevel/sample
 INSTR.MISSINGSETMESHOUTPUTCOUNTS          Missing SetMeshOutputCounts call.
 INSTR.MULTIPLEGETMESHPAYLOAD              GetMeshPayload cannot be called multiple times.
 INSTR.MULTIPLESETMESHOUTPUTCOUNTS         SetMeshOUtputCounts cannot be called multiple times.
+INSTR.NODERECORDHANDLEUSEAFTERCOMPLETE    Invalid use of completed record handle.
 INSTR.NOGENERICPTRADDRSPACECAST           Address space cast between pointer types must have one part to be generic address space.
 INSTR.NOIDIVBYZERO                        No signed integer division by zero.
 INSTR.NOINDEFINITEACOS                    No indefinite arccosine.
@@ -3087,6 +3127,7 @@ META.BARYCENTRICSTWOPERSPECTIVES          There can only be up to two input attr
 META.BRANCHFLATTEN                        Can't use branch and flatten attributes together.
 META.CLIPCULLMAXCOMPONENTS                Combined elements of SV_ClipDistance and SV_CullDistance must fit in 8 components
 META.CLIPCULLMAXROWS                      Combined elements of SV_ClipDistance and SV_CullDistance must fit in two rows.
+META.COMPUTEWITHNODE                      Compute entry must not have node metadata
 META.CONTROLFLOWHINTNOTONCONTROLFLOW      Control flow hint only works on control flow inst.
 META.DENSERESIDS                          Resource identifiers must be zero-based and dense.
 META.DUPLICATESYSVALUE                    System value may only appear once in signature

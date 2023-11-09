@@ -2985,6 +2985,8 @@ public:
                                    ObjCMethodDecl *Overridden,
                                    bool IsProtocolMethodDecl);
 
+  void ValidateShaderAttributes(Decl *D, const AttributeList *A);
+
   /// WarnExactTypedMethods - This routine issues a warning if method
   /// implementation declaration matches exactly that of its declaration.
   void WarnExactTypedMethods(ObjCMethodDecl *Method,
@@ -3804,6 +3806,7 @@ public:
   void DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
                                         QualType TargetType,
                                         SourceLocation Loc);
+  bool DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);

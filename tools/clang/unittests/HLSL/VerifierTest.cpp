@@ -36,6 +36,20 @@ public:
   TEST_METHOD(RunCppErrors)
   TEST_METHOD(RunCppErrorsHV2015)
 
+  TEST_METHOD(RunWorkGraphs)
+  TEST_METHOD(RunWorkGraphMemberWriteDiags)
+  TEST_METHOD(RunWorkGraphNodeSVDispatchGridDiags)
+  TEST_METHOD(RunWorkGraphDispatchGridDiags)
+  TEST_METHOD(RunNodeInputCompatibilityDiags)
+  TEST_METHOD(RunNodeZeroSizedRecordDiags)
+  TEST_METHOD(RunWorkGraphAttributeDiags)
+  TEST_METHOD(RunInvalidNodeLaunchDiags)
+  TEST_METHOD(RunInvalidNodeOutputCompleteDiags)
+  TEST_METHOD(RunShaderMismatch)
+  TEST_METHOD(RunMaxRecordsAttribute)
+  TEST_METHOD(RunInvalidNodeRecordTypeDiags)
+  TEST_METHOD(RunNodeOutputArrayDiags)
+
   void CheckVerifies(const wchar_t *path) {
     WEX::TestExecution::SetVerifyOutput verifySettings(
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
@@ -111,8 +125,64 @@ public:
   }
 };
 
+TEST_F(VerifierTest, RunShaderMismatch) {
+  CheckVerifiesHLSL(L"shader_attribute.hlsl");
+  CheckVerifiesHLSL(L"shader_attribute_no_mismatch.hlsl");
+}
+
+TEST_F(VerifierTest, RunMaxRecordsAttribute) {
+  CheckVerifiesHLSL(L"max_output_records_duplicate.hlsl");
+  CheckVerifiesHLSL(L"max_output_records_identical_duplicates.hlsl");
+  CheckVerifiesHLSL(L"max_output_records_invalidref.hlsl");
+  // TODO: CheckVerifiesHLSL(L"max_output_records_shared_with.hlsl");
+}
+
 TEST_F(VerifierTest, RunCppErrors) { CheckVerifiesHLSL(L"cpp-errors.hlsl"); }
 
 TEST_F(VerifierTest, RunCppErrorsHV2015) {
   CheckVerifiesHLSL(L"cpp-errors-hv2015.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphs) {
+  CheckVerifiesHLSL(L"workgraph/work-graphs.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphMemberWriteDiags) {
+  CheckVerifiesHLSL(L"/workgraph/member_write_diagnostics.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphNodeSVDispatchGridDiags) {
+  CheckVerifiesHLSL(L"/workgraph/rwnodeinputrecord_sv_dispatchgrid.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphDispatchGridDiags) {
+  CheckVerifiesHLSL(L"/workgraph/dispatchgrid_diags.hlsl");
+}
+
+TEST_F(VerifierTest, RunNodeInputCompatibilityDiags) {
+  CheckVerifiesHLSL(L"/workgraph/node_input_compatibility.hlsl");
+}
+
+TEST_F(VerifierTest, RunNodeZeroSizedRecordDiags) {
+  CheckVerifiesHLSL(L"/workgraph/zero_sized_node_record.hlsl");
+}
+
+TEST_F(VerifierTest, RunWorkGraphAttributeDiags) {
+  CheckVerifiesHLSL(L"/workgraph/attribute_diags.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidNodeLaunchDiags) {
+  CheckVerifiesHLSL(L"/workgraph/invalid_nodelaunch.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidNodeRecordTypeDiags) {
+  CheckVerifiesHLSL(L"/workgraph/invalid_node_record_type.hlsl");
+}
+
+TEST_F(VerifierTest, RunNodeOutputArrayDiags) {
+  CheckVerifiesHLSL(L"/workgraph/nodeoutput_array.hlsl");
+}
+
+TEST_F(VerifierTest, RunInvalidNodeOutputCompleteDiags) {
+  CheckVerifiesHLSL(L"/workgraph/outputcomplete_unsupported_nodeio.hlsl");
 }

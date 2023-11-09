@@ -343,7 +343,7 @@ PCSTR g_pFeatureInfoNames[] = {
     "Derivatives in mesh and amplification shaders",
     "Resource descriptor heap indexing",
     "Sampler descriptor heap indexing",
-    "<RESERVED>",
+    "Wave Matrix",
     "64-bit Atomics on Heap Resources",
     "Advanced Texture Ops",
     "Writeable MSAA Textures",

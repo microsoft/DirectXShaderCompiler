@@ -1,4 +1,4 @@
-// RUN: %dxc -auto-binding-space 13 -exports PSMain,PSMain_Clone1,PSMain_Clone2=PSMain -T lib_6_3 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -auto-binding-space 13 -exports PSMain,PSMain_Clone1,PSMain_Clone2=PSMain -T lib_6_3 -Vd -validator-version 0.0 %s | %D3DReflect %s | FileCheck %s
 
 Buffer<int> T0;
 
@@ -17,11 +17,11 @@ float4 PSMain(int idx : INDEX) : SV_Target {
   return T2[T0.Load(idx)].f;
 }
 
-// CHECK: DxilRuntimeData (size = 572 bytes):
-// CHECK:   StringBuffer (size = 160 bytes)
-// CHECK:   IndexTable (size = 12 bytes)
-// CHECK:   RawBytes (size = 0 bytes)
-// CHECK:   RecordTable (stride = 32 bytes) ResourceTable[2] = {
+// CHECK: DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:   StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:   IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:   RawBytes (size = {{[0-9]+}} bytes)
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) ResourceTable[2] = {
 // CHECK:     <0:RuntimeDataResourceInfo> = {
 // CHECK:       Class: SRV
 // CHECK:       Kind: TypedBuffer
@@ -43,8 +43,8 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       Flags: 0 (None)
 // CHECK:     }
 // CHECK:   }
-// CHECK:   RecordTable (stride = 44 bytes) FunctionTable[6] = {
-// CHECK:     <0:RuntimeDataFunctionInfo> = {
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[6] = {
+// CHECK:     <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?PSMain{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "PSMain"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -57,10 +57,13 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <1:RuntimeDataFunctionInfo> = {
+// CHECK:     <1:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?PSMain_Clone1{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "PSMain_Clone1"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -73,10 +76,13 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <2:RuntimeDataFunctionInfo> = {
+// CHECK:     <2:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "\01?PSMain_Clone2{{[@$?.A-Za-z0-9_]+}}"
 // CHECK:       UnmangledName: "PSMain_Clone2"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -89,10 +95,13 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 32767
+// CHECK:       ShaderStageFlag: 65535
 // CHECK:       MinShaderTarget: 393312
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
 // CHECK:     }
-// CHECK:     <3:RuntimeDataFunctionInfo> = {
+// CHECK:     <3:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "PSMain"
 // CHECK:       UnmangledName: "PSMain"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -107,8 +116,19 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 1
 // CHECK:       MinShaderTarget: 96
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
+// CHECK:       PS: <0:PSInfo> = {
+// CHECK:         SigInputElements: <3:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:           [0]: <0:SignatureElement>
+// CHECK:         }
+// CHECK:         SigOutputElements: <5:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:           [0]: <1:SignatureElement>
+// CHECK:         }
+// CHECK:       }
 // CHECK:     }
-// CHECK:     <4:RuntimeDataFunctionInfo> = {
+// CHECK:     <4:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "PSMain_Clone1"
 // CHECK:       UnmangledName: "PSMain_Clone1"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -123,8 +143,12 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 1
 // CHECK:       MinShaderTarget: 96
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
+// CHECK:       PS: <0:PSInfo>
 // CHECK:     }
-// CHECK:     <5:RuntimeDataFunctionInfo> = {
+// CHECK:     <5:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:       Name: "PSMain_Clone2"
 // CHECK:       UnmangledName: "PSMain_Clone2"
 // CHECK:       Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[2]>  = {
@@ -139,6 +163,42 @@ float4 PSMain(int idx : INDEX) : SV_Target {
 // CHECK:       FeatureInfo2: 0
 // CHECK:       ShaderStageFlag: 1
 // CHECK:       MinShaderTarget: 96
+// CHECK:       MinimumExpectedWaveLaneCount: 0
+// CHECK:       MaximumExpectedWaveLaneCount: 0
+// CHECK:       ShaderFlags: 0 (None)
+// CHECK:       PS: <0:PSInfo>
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) SignatureElementTable[2] = {
+// CHECK:     <0:SignatureElement> = {
+// CHECK:       SemanticName: "INDEX"
+// CHECK:       SemanticIndices: <3:array[1]> = { 0 }
+// CHECK:       SemanticKind: Arbitrary
+// CHECK:       ComponentType: I32
+// CHECK:       InterpolationMode: Constant
+// CHECK:       StartRow: 0
+// CHECK:       ColsAndStream: 0
+// CHECK:       UsageAndDynIndexMasks: 0
+// CHECK:     }
+// CHECK:     <1:SignatureElement> = {
+// CHECK:       SemanticName: "SV_Target"
+// CHECK:       SemanticIndices: <3:array[1]> = { 0 }
+// CHECK:       SemanticKind: Target
+// CHECK:       ComponentType: F32
+// CHECK:       InterpolationMode: Undefined
+// CHECK:       StartRow: 0
+// CHECK:       ColsAndStream: 3
+// CHECK:       UsageAndDynIndexMasks: 0
+// CHECK:     }
+// CHECK:   }
+// CHECK:   RecordTable (stride = {{[0-9]+}} bytes) PSInfoTable[1] = {
+// CHECK:     <0:PSInfo> = {
+// CHECK:       SigInputElements: <3:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:         [0]: <0:SignatureElement>
+// CHECK:       }
+// CHECK:       SigOutputElements: <5:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:         [0]: <1:SignatureElement>
+// CHECK:       }
 // CHECK:     }
 // CHECK:   }
 

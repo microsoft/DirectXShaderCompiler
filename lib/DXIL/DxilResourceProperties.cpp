@@ -86,7 +86,7 @@ bool DxilResourceProperties::operator!=(
 namespace resource_helper {
 
 // The constant is as struct with int32 fields.
-// ShaderModel 6.6 has 2 fileds.
+// ShaderModel 6.6 has 2 fields.
 Constant *getAsConstant(const DxilResourceProperties &RP, Type *Ty,
                         const ShaderModel &) {
   StructType *ST = cast<StructType>(Ty);

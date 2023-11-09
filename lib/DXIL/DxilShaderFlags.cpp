@@ -45,7 +45,7 @@ ShaderFlags::ShaderFlags()
       m_bSamplerDescriptorHeapIndexing(false),
       m_bAtomicInt64OnHeapResource(false), m_bResMayNotAlias(false),
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
-      m_align1(0) {
+      m_bWaveMMA(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
@@ -123,6 +123,8 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
                ? hlsl::DXIL::ShaderFeatureInfo_WriteableMSAATextures
                : 0;
 
+  Flags |= m_bWaveMMA ? hlsl::DXIL::ShaderFeatureInfo_WaveMMA : 0;
+
   return Flags;
 }
 
@@ -182,6 +184,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetResMayNotAlias(true);
   Flags.SetAdvancedTextureOps(true);
   Flags.SetWriteableMSAATextures(true);
+  Flags.SetWaveMMA(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -356,6 +359,22 @@ DxilResource *GetResourceFromAnnotateHandle(
   return resource;
 }
 
+static bool hasNonConstantSampleOffsets(const CallInst *CI) {
+  return (!isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
+          !isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
+          !isa<Constant>(CI->getArgOperand(
+              DXIL::OperandIndex::kTextureSampleOffset2OpIdx)));
+}
+
+static bool hasSampleClamp(const CallInst *CI) {
+  Value *Clamp = CI->getArgOperand(CI->getNumArgOperands() - 1);
+  if (auto *Imm = dyn_cast<ConstantFP>(Clamp))
+    return !Imm->getValueAPF().isZero();
+  return !isa<UndefValue>(Clamp);
+}
+
 ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                                             const hlsl::DxilModule *M) {
   ShaderFlags flag;
@@ -371,6 +390,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool has64Int = false;
   bool has16 = false;
   bool hasWaveOps = false;
+  bool hasLodClamp = false;
   bool hasCheckAccessFully = false;
   bool hasMSAD = false;
   bool hasStencilRef = false;
@@ -395,6 +415,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasAdvancedTextureOps = false;
   bool hasWriteableMSAATextures = false;
 
+  bool hasWaveMMA = false;
+
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
@@ -408,6 +430,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   M->GetDxilVersion(dxilMajor, dxilMinor);
   bool canSetResMayNotAlias =
       DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 7) >= 0;
+
+  // HasLodClamp is only enabled after v1.8 validator.
+  bool canSetHasLodClamp = DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
@@ -557,27 +582,21 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             }
           }
           break;
-        case DXIL::OpCode::SampleGrad:
         case DXIL::OpCode::SampleLevel:
         case DXIL::OpCode::SampleCmpLevelZero:
-          if (!isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
-            hasAdvancedTextureOps = true;
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
+          break;
+        case DXIL::OpCode::SampleGrad:
+        case DXIL::OpCode::SampleCmpGrad:
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
+          hasLodClamp |= hasSampleClamp(CI);
           break;
         case DXIL::OpCode::Sample:
         case DXIL::OpCode::SampleBias:
         case DXIL::OpCode::SampleCmp:
-          if (!isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset0OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset1OpIdx)) ||
-              !isa<Constant>(CI->getArgOperand(
-                  DXIL::OperandIndex::kTextureSampleOffset2OpIdx)))
-            hasAdvancedTextureOps = true;
+        case DXIL::OpCode::SampleCmpBias:
+          hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
+          hasLodClamp |= hasSampleClamp(CI);
           LLVM_FALLTHROUGH;
         case DXIL::OpCode::DerivFineX:
         case DXIL::OpCode::DerivFineY:
@@ -610,6 +629,20 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::SampleCmpLevel:
         case DXIL::OpCode::TextureGatherRaw:
           hasAdvancedTextureOps = true;
+          break;
+        case DXIL::OpCode::WaveMatrix_Add:
+        case DXIL::OpCode::WaveMatrix_Annotate:
+        case DXIL::OpCode::WaveMatrix_Depth:
+        case DXIL::OpCode::WaveMatrix_Fill:
+        case DXIL::OpCode::WaveMatrix_LoadGroupShared:
+        case DXIL::OpCode::WaveMatrix_LoadRawBuf:
+        case DXIL::OpCode::WaveMatrix_Multiply:
+        case DXIL::OpCode::WaveMatrix_MultiplyAccumulate:
+        case DXIL::OpCode::WaveMatrix_ScalarOp:
+        case DXIL::OpCode::WaveMatrix_StoreGroupShared:
+        case DXIL::OpCode::WaveMatrix_StoreRawBuf:
+        case DXIL::OpCode::WaveMatrix_SumAccumulate:
+          hasWaveMMA = true;
           break;
         default:
           // Normal opcodes.
@@ -709,7 +742,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetLowPrecisionPresent(has16);
   flag.SetEnableDoubleExtensions(hasDoubleExtension);
   flag.SetWaveOps(hasWaveOps);
-  flag.SetTiledResources(hasCheckAccessFully);
+  flag.SetTiledResources(hasCheckAccessFully ||
+                         (canSetHasLodClamp && hasLodClamp));
   flag.SetEnableMSAD(hasMSAD);
   flag.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
   flag.SetViewID(hasViewID);
@@ -726,6 +760,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
   flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
   flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
+  flag.SetWaveMMA(hasWaveMMA);
 
   // Only bother setting the flag when there are UAVs.
   flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
