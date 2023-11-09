@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 // ==================================================================
 // zero-sized-node-record (expected error)
 // An error diagnostic is generated for a zero sized record used in

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 // NodeDispatchGrid and NodeMaxDispatchGrid validation diagnostics:
 // - the x, y, z, component values must be in the range 1 to 2^16 - 1 (65,535) inclusive
 // - the product x * y * z must not exceed 2^24 - 1 (16,777,215)

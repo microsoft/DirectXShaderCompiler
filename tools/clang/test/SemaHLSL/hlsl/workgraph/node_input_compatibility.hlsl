@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 // ==================================================================
 // Errors are generated for node inputs that are not compatible with
 // the launch type

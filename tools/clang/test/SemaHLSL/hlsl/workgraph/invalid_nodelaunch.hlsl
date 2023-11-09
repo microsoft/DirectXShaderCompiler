@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 // ==================================================================
 // Invalid NodeLaunch value
 // This failure prevents some other diagnostics being produced so

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 // ==================================================================
 // Errors are generated for writes to members of read-only records
 // ==================================================================
