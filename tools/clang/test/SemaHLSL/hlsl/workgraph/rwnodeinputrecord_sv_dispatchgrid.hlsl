@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 
 // Check that a RWNodeInputRecord field that has the SV_DispatchGrid semantic
 // is not assignable.

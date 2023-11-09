@@ -1,4 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
+// RUN: %dxc -Tcs_6_0 -ECCMain -verify %s
 
 [shader("compute")] 
 [shader("compute")] 

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -HV 2021 -verify %s
+// RUN: %dxc -Tlib_6_8 -HV 2021 -verify %s
 
 struct RECORD
 {

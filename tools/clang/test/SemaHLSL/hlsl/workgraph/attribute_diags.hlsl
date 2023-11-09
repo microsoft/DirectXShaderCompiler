@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 
 // NodeDispatchGrid and NodeMaxDispatchGrid may only be used with Broadcasting launch nodes
 

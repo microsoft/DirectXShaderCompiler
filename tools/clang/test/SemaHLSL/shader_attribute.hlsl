@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 
 [shader("compute")] /* expected-error {{shader attribute type 'compute' conflicts with shader attribute type 'vertex'}} */
 [shader("vertex")]  /* expected-note {{conflicting attribute is here}} */ 

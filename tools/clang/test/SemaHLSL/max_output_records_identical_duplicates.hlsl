@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 
 // Duplicate MaxRecords info with mismatching limits
 

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 // NodeOutputArray and EmptyNodeOutputArray are provided in place of
 // NodeOutput and EmptyNodeOutput native array parameters.
 // Check error diagnostics are produced for such native array parameters.

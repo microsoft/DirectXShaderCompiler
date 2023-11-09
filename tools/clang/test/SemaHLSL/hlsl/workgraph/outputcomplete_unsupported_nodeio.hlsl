@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 // ==================================================================
 // OutputComplete() is called with unsupported node i/o types
 // ==================================================================

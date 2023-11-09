@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -ffreestanding -verify %s
+// RUN: %dxc -Tlib_6_8 -verify %s
 
 // Test maxoutputrecordssharedwith with invalid references
 // copied from tools\clang\test\HLSLFileCheck\shader_targets\nodes\max_output_records_invalidref.hlsl
