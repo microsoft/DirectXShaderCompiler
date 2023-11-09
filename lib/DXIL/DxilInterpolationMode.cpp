@@ -21,9 +21,9 @@ InterpolationMode::InterpolationMode() : m_Kind(Kind::Undefined) {}
 InterpolationMode::InterpolationMode(Kind Kind) : m_Kind(Kind) {}
 
 InterpolationMode::InterpolationMode(unsigned long long kind) {
-  m_Kind = (Kind)kind;
+    m_Kind = (Kind)kind;
   if (m_Kind >= Kind::Invalid) {
-    m_Kind = Kind::Invalid;
+      m_Kind = Kind::Invalid;
   }
 }
 
