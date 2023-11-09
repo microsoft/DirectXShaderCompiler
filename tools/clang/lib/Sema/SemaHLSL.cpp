@@ -15838,14 +15838,40 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
         hlsl::NodeFlags nodeFlags;
         if (GetHLSLNodeIORecordType(ParamDecl, nodeFlags)) {
           hlsl::NodeIOProperties node(nodeFlags);
+          bool hasNodeTrackRWInputSharing = false;
 
-          // Emit a diagnostic if the record is not RWDispatchNode and
-          // if it has the NodeTrackRWInputSharing attribute
-          if (node.Flags.GetTrackRWInputSharing() &&
-              node.Flags.GetNodeIOKind() !=
-                  DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
-            S.Diags.Report(ParamDecl->getLocation(),
-                           diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
+          // determine if the NodeTrackRWInputSharing is an attribute on the
+          // template type
+          if (ParamTy->isStructureOrClassType()) {
+            if (const CXXRecordDecl *CXXRD =
+                    ParamTy.getCanonicalType()->getAsCXXRecordDecl()) {
+
+              if (const ClassTemplateSpecializationDecl *templateDecl =
+                      dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
+
+                auto &TemplateArgs = templateDecl->getTemplateArgs();
+                DXASSERT(
+                    TemplateArgs.size() == 1,
+                    "Input record types need to have one template argument");
+                auto &Rec = TemplateArgs.get(0);
+                clang::QualType RecType = Rec.getAsType();
+                if (RecordDecl *RD = RecType->getAs<RecordType>()->getDecl()) {
+
+                  if (RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
+                    hasNodeTrackRWInputSharing = true;
+
+                  // Emit a diagnostic if the record is not RWDispatchNode and
+                  // if it has the NodeTrackRWInputSharing attribute
+                  if (hasNodeTrackRWInputSharing &&
+                      node.Flags.GetNodeIOKind() !=
+                          DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
+                    S.Diags.Report(
+                        ParamDecl->getLocation(),
+                        diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
+                  }
+                }
+              }
+            }
           }
         }
       }

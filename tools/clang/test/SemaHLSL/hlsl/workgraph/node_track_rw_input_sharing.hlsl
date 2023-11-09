@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -HV 2021 -verify %s
+// RUN: %dxc -T lib_6_8 -HV 2021 %s -verify
 
 struct RECORD
 {
@@ -28,5 +28,4 @@ struct [NodeTrackRWInputSharing] TRACKED_RECORD
 [NodeDispatchGrid(8,1,1)]
 // expected-error@+1{{NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord}}
 void node4_01(DispatchNodeInputRecord<TRACKED_RECORD> input) {
-  input.FinishedCrossGroupSharing(); // no error 
 }
