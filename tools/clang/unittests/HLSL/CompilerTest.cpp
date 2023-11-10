@@ -2124,8 +2124,7 @@ TEST_F(CompilerTest, CompileThenTestPdbIntegrity) {
     VERIFY_SUCCEEDED(
         pResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
 
-    VERIFY_IS_LESS_THAN_OR_EQUAL(sizeof(hlsl::pdb::MSF_SuperBlock),
-                                 pPdb->GetBufferSize());
+    VERIFY_IS_TRUE(sizeof(hlsl::pdb::MSF_SuperBlock) <= pPdb->GetBufferSize());
     VERIFY_ARE_EQUAL(0, memcmp(pPdb->GetBufferPointer(), hlsl::pdb::kMsfMagic,
                                sizeof(hlsl::pdb::kMsfMagic)));
 
