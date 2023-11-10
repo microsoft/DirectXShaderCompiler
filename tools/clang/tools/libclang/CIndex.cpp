@@ -2943,6 +2943,9 @@ void clang_toggleCrashRecovery(unsigned isEnabled) {
 
 CXTranslationUnit clang_createTranslationUnit(CXIndex CIdx,
                                               const char *ast_filename) {
+#if 1 // HLSL Change Starts - no support for serialization
+  return CXTranslationUnit();
+#else
   CXTranslationUnit TU;
   enum CXErrorCode Result =
       clang_createTranslationUnit2(CIdx, ast_filename, &TU);
@@ -2950,6 +2953,7 @@ CXTranslationUnit clang_createTranslationUnit(CXIndex CIdx,
   assert((TU && Result == CXError_Success) ||
          (!TU && Result != CXError_Success));
   return TU;
+#endif // HLSL Change Ends - no support for serialization
 }
 
 enum CXErrorCode clang_createTranslationUnit2(CXIndex CIdx,
