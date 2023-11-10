@@ -15845,12 +15845,11 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
   if (currentShaderAttr) {
     llvm::StringRef currentFullName = currentShaderAttr->getStage();
     if (currentFullName != fullName) {
-      if (!(SM->IsCS() && strstr(currentFullName.data(), "node"))) {
-        S.Diag(currentShaderAttr->getLocation(),
-               diag::err_hlsl_profile_conflicts_with_shader_attribute)
-            << fullName << profile << currentFullName << EntryPointName;
-        return;
-      }
+
+      S.Diag(currentShaderAttr->getLocation(),
+             diag::err_hlsl_profile_conflicts_with_shader_attribute)
+          << fullName << profile << currentFullName << EntryPointName;
+      return;
     }
     // Don't add another attr if one exists, to prevent
     // more unrelated errors down the line.
