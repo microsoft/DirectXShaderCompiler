@@ -56,6 +56,18 @@ View the diff from {self.name} here.
 ``````````
 
 </details>
+
+<details>
+<summary>
+If above diff looks good, add @apply-format to beginning of this comment to apply:
+</summary>
+
+`
+Click the 'Update comment' button
+Change '<!--LLVM' to '@apply-format<!--LLVM'
+`
+
+</details>
 """
 
     def find_comment(
