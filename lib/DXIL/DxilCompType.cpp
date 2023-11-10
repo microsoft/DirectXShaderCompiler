@@ -89,7 +89,7 @@ CompType CompType::getU32() { return CompType(Kind::U32); }
 
 CompType CompType::getU64() { return CompType(Kind::U64); }
 
-CompType CompType::getI1() { return CompType(Kind::I1); }
+CompType CompType::getI1() {    return CompType(Kind::I1); }
 
 CompType CompType::getSNormF16() { return CompType(Kind::SNormF16); }
 
@@ -297,8 +297,8 @@ PointerType *CompType::GetLLVMPtrType(LLVMContext &Ctx,
   return nullptr;
 }
 
-Type *CompType::GetLLVMBaseType(llvm::LLVMContext &Ctx) const {
-  return GetBaseCompType().GetLLVMType(Ctx);
+Type *CompType::GetLLVMBaseType(llvm::LLVMContext &C) const {
+     return GetBaseCompType().GetLLVMType(C);
 }
 
 CompType CompType::GetCompType(Type *type) {
