@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   apply_diff:
-    if: ${{ startsWith(github.event.comment.body, '@apply-format<!--LLVM CODE FORMAT COMMENT:') }}
+    if: ${{ endsWith(github.event.comment.body, '- [x] Check this box to apply formatting changes to this branch.') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v3

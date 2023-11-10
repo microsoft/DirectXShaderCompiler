@@ -57,17 +57,7 @@ View the diff from {self.name} here.
 
 </details>
 
-<details>
-<summary>
-If above diff looks good, add @apply-format to beginning of this comment to apply:
-</summary>
-
-`
-Change '<!--LLVM' to '@apply-format<!--LLVM'
-`
-
-</details>
-"""
+- [ ] Check this box to apply formatting changes to this branch."""
 
     def find_comment(
         self, pr: PullRequest.PullRequest
