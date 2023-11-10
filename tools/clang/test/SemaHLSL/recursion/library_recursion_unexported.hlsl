@@ -10,11 +10,11 @@
 // be tested for recursion in library shaders. 
 // In this case, unreachable_unexported_recurse is an example, and we 
 // do not expect any compilation errors for that function.
-// Finally, functions with unspecified linkage will default to external
-// for library shaders, so we expect errors on unreachable functions
-// that are recursive
+// Finally, functions with unspecified linkage will default to internal
+// for library shaders, so we expect no errors on unreachable functions
+// that are recursive without export or static keywords. 
+// unreachable_unexported_recurse_external suffices as an example.
 
-// expected-error@+1{{recursive functions are not allowed: export function calls recursive function 'unreachable_unexported_recurse_external'}}
 void unreachable_unexported_recurse_external(inout float4 f, float a) 
 {
     if (a > 1)

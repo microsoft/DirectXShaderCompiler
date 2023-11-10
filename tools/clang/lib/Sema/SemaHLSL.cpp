@@ -11425,7 +11425,8 @@ static bool IsTargetProfileLib6x(Sema &S) {
   // Remaining functions are exported only if target is 'lib_6_x'.
   const hlsl::ShaderModel *SM =
       hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
-  bool isLib6x = SM->IsLib() && SM->GetMajor() == 6u;
+  bool isLib6x =
+      SM->IsLib() && SM->GetMinor() == hlsl::ShaderModel::kOfflineMinor;
   return isLib6x;
 }
 
@@ -11498,7 +11499,7 @@ void ValidatePatchConstantFunctions(clang::Sema *self) {
         if (pResultHull) {
           self->Diag(pResultHull->getSourceRange().getBegin(),
                      diag::err_hlsl_no_recursion)
-              << 2 << pResultHull->getName();
+              << 0 << pResultHull->getName();
         }
 
         // now validate that the patch constant function and the hull shader
@@ -15901,22 +15902,47 @@ clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
 void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
   std::set<FunctionDecl *> FDecls;
   std::vector<FunctionDecl *> FDeclsVec;
+  std::vector<FunctionDecl *> AllExportedFDecls;
+
   for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
     if (FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
-      // returns the first recursive function declaration detected
-      // from this function declaration FD, and determines whether
-      // the recursion was detected in the patch-constant function
       if (!FD->hasBody() ||
           !IsExported(self, FD, getDefaultLinkageExternal(self))) {
         continue;
       }
-      FunctionDecl *pResult = ValidateNoRecursion(self, FD);
-      // if there is a function that was detected to be recursive,
-      // then make sure it is saved for later to emit a diagnostic
-      if (pResult) {
-        FDecls.insert(pResult);
-        FDeclsVec.push_back(pResult);
+      AllExportedFDecls.push_back(FD);
+    } else if (DeclContext *declContext = dyn_cast<DeclContext>(decl)) {
+      // Loop through all declarations inside the class or namespace
+      for (DeclContext::decl_iterator j = declContext->decls_begin(),
+                                      e = declContext->decls_end();
+           j != e; ++j) {
+        // Check if the declaration is a function declaration
+        if (FunctionDecl *functionDecl = dyn_cast<FunctionDecl>(*j)) {
+          if (!functionDecl->hasBody() ||
+              !IsExported(self, functionDecl,
+                          getDefaultLinkageExternal(self))) {
+            continue;
+          }
+          AllExportedFDecls.push_back(functionDecl);
+        }
       }
+    }
+  }
+
+  for (auto FD : AllExportedFDecls) {
+    // returns the first recursive function declaration detected
+    // from this function declaration FD, and determines whether
+    // the recursion was detected in the patch-constant function
+    if (!FD->hasBody() ||
+        !IsExported(self, FD, getDefaultLinkageExternal(self))) {
+      continue;
+    }
+    FunctionDecl *pResult = ValidateNoRecursion(self, FD);
+    // if there is a function that was detected to be recursive,
+    // then make sure it is saved for later to emit a diagnostic
+    if (pResult) {
+      FDecls.insert(pResult);
+      FDeclsVec.push_back(pResult);
     }
   }
 
