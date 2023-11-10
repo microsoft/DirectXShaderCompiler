@@ -13,7 +13,7 @@ struct S
   int func() { return func(); }
 };
 
-int main() : OUT
+export int main() : OUT
 {
   S s;
   return s.func();
