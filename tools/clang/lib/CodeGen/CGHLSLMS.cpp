@@ -1816,62 +1816,46 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (isNode) {
     // Default launch type is defined to be Broadcasting.
     funcProps->Node.LaunchType = DXIL::NodeLaunchType::Broadcasting;
-  }
 
-  // Assign function properties for all "node" attributes.
-  if (const auto *pAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
-    if (isNode)
+    // Assign function properties for all "node" attributes.
+    if (const auto *pAttr = FD->getAttr<HLSLNodeLaunchAttr>()) {
       funcProps->Node.LaunchType =
           ShaderModel::NodeLaunchTypeFromName(pAttr->getLaunchType());
-  }
+    }
 
-  if (const auto *pAttr = FD->getAttr<HLSLNodeIsProgramEntryAttr>()) {
-    if (isNode)
+    if (const auto *pAttr = FD->getAttr<HLSLNodeIsProgramEntryAttr>()) {
       funcProps->Node.IsProgramEntry = true;
-  }
+    }
 
-  if (const auto *pAttr = FD->getAttr<HLSLNodeIdAttr>()) {
-    if (isNode) {
+    if (const auto *pAttr = FD->getAttr<HLSLNodeIdAttr>()) {
       funcProps->NodeShaderID.Name = pAttr->getName().str();
       funcProps->NodeShaderID.Index = pAttr->getArrayIndex();
-    }
-  } else {
-    if (isNode) {
+    } else {
       funcProps->NodeShaderID.Name = FD->getName().str();
       funcProps->NodeShaderID.Index = 0;
     }
-  }
-  if (const auto *pAttr =
-          FD->getAttr<HLSLNodeLocalRootArgumentsTableIndexAttr>()) {
-    if (isNode)
+    if (const auto *pAttr =
+            FD->getAttr<HLSLNodeLocalRootArgumentsTableIndexAttr>()) {
       funcProps->Node.LocalRootArgumentsTableIndex = pAttr->getIndex();
-  }
-  if (const auto *pAttr = FD->getAttr<HLSLNodeShareInputOfAttr>()) {
-    if (isNode) {
+    }
+    if (const auto *pAttr = FD->getAttr<HLSLNodeShareInputOfAttr>()) {
       funcProps->NodeShaderSharedInput.Name = pAttr->getName().str();
       funcProps->NodeShaderSharedInput.Index = pAttr->getArrayIndex();
     }
-  }
-  if (const auto *pAttr = FD->getAttr<HLSLNodeDispatchGridAttr>()) {
-    if (isNode) {
+    if (const auto *pAttr = FD->getAttr<HLSLNodeDispatchGridAttr>()) {
       funcProps->Node.DispatchGrid[0] = pAttr->getX();
       funcProps->Node.DispatchGrid[1] = pAttr->getY();
       funcProps->Node.DispatchGrid[2] = pAttr->getZ();
     }
-  }
-  if (const auto *pAttr = FD->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
-    if (isNode) {
+    if (const auto *pAttr = FD->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
       funcProps->Node.MaxDispatchGrid[0] = pAttr->getX();
       funcProps->Node.MaxDispatchGrid[1] = pAttr->getY();
       funcProps->Node.MaxDispatchGrid[2] = pAttr->getZ();
     }
-  }
-  if (const auto *pAttr = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
-    if (isNode)
+    if (const auto *pAttr = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
       funcProps->Node.MaxRecursionDepth = pAttr->getCount();
-  }
-  if (!FD->getAttr<HLSLNumThreadsAttr>()) {
-    if (isNode) {
+    }
+    if (!FD->getAttr<HLSLNumThreadsAttr>()) {
       // NumThreads wasn't specified.
       // For a Thread launch node the default is (1,1,1,) which we set here.
       // Other node launch types require NumThreads and an error will have
