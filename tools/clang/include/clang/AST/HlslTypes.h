@@ -440,6 +440,7 @@ const clang::ExtVectorType *
 ConvertHLSLVecMatTypeToExtVectorType(const clang::ASTContext &,
                                      clang::QualType);
 bool IsHLSLVecMatType(clang::QualType);
+clang::RecordDecl *getRecordTypeFromParameterType(clang::QualType ParamTy);
 bool IsHLSLVecType(clang::QualType type);
 bool IsHLSLMatType(clang::QualType type);
 clang::QualType GetElementTypeOrType(clang::QualType type);

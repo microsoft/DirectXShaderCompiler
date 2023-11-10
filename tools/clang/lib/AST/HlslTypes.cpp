@@ -68,6 +68,29 @@ bool IsHLSLVecMatType(clang::QualType type) {
   return false;
 }
 
+clang::RecordDecl *getRecordTypeFromParameterType(clang::QualType ParamTy) {
+
+  if (ParamTy->isStructureOrClassType()) {
+    if (const CXXRecordDecl *CXXRD =
+            ParamTy.getCanonicalType()->getAsCXXRecordDecl()) {
+
+      if (const ClassTemplateSpecializationDecl *templateDecl =
+              dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
+
+        auto &TemplateArgs = templateDecl->getTemplateArgs();
+        DXASSERT(TemplateArgs.size() == 1,
+                 "Input record types need to have one template argument");
+        auto &Rec = TemplateArgs.get(0);
+        clang::QualType RecType = Rec.getAsType();
+        if (RecordDecl *RD = RecType->getAs<RecordType>()->getDecl()) {
+          return RD;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
 bool IsHLSLMatType(clang::QualType type) {
   const clang::Type *Ty = type.getCanonicalType().getTypePtr();
   if (const RecordType *RT = dyn_cast<RecordType>(Ty)) {

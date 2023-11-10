@@ -11436,22 +11436,6 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
       switch (pAttr->getKind()) {
-      // if this is a "node" shader and the target stage isn't compute nor
-      // library, emit a diagnostic
-      case clang::attr::HLSLShader: {
-        if (shaderKind == DXIL::ShaderKind::Node) {
-          const hlsl::ShaderModel *SM = hlsl::ShaderModel::GetByName(
-              self->getLangOpts().HLSLProfile.c_str());
-          // check for validity to prevent verifier tests from emitting this
-          if (!SM->IsCS() && !SM->IsLib() && SM->IsValid() && isActiveEntry) {
-            self->Diag(pAttr->getRange().getBegin(),
-                       diag::err_hlsl_attribute_unsupported_stage)
-                << "node"
-                << "compute or library";
-          }
-        }
-        break;
-      }
       case clang::attr::HLSLWaveSize: {
         switch (shaderKind) {
         case DXIL::ShaderKind::Compute:
@@ -15724,8 +15708,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     if (ExistingMRSWA) {
       StringRef sharedName = ExistingMRSWA->getName()->getName();
       bool Found = false;
-      while (ArgIdx < FD->getNumParams()) {
-        const ParmVarDecl *ParamDecl = FD->getParamDecl(ArgIdx);
+      for (const ParmVarDecl *ParamDecl : FD->params()) {
         // validation that MRSW doesn't reference its own parameter is
         // already done at
         // SemaHLSL.cpp:ValidateMaxRecordsSharedWithAttributes so we don't
@@ -15741,7 +15724,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
             }
           }
         }
-        ArgIdx++;
       }
 
       if (!Found) {
@@ -15752,52 +15734,25 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
 
     // Make sure NodeTrackRWInputSharing attribute cannot be applied to
     // Input Records that are not RWDispatchNodeInputRecord
-    ArgIdx = 0;
-    while (ArgIdx < FD->getNumParams()) {
-      // is an input record
-      if (hlsl::IsHLSLNodeInputType(ParamTy)) {
-        const ParmVarDecl *ParamDecl = FD->getParamDecl(ArgIdx);
-        hlsl::NodeFlags nodeFlags;
-        if (GetHLSLNodeIORecordType(ParamDecl, nodeFlags)) {
-          hlsl::NodeIOProperties node(nodeFlags);
-          bool hasNodeTrackRWInputSharing = false;
+    if (hlsl::IsHLSLNodeInputType(ParamTy)) {
+      hlsl::NodeFlags nodeFlags;
+      if (GetHLSLNodeIORecordType(Param, nodeFlags)) {
+        hlsl::NodeIOProperties node(nodeFlags);
 
-          // determine if the NodeTrackRWInputSharing is an attribute on the
-          // template type
-          if (ParamTy->isStructureOrClassType()) {
-            if (const CXXRecordDecl *CXXRD =
-                    ParamTy.getCanonicalType()->getAsCXXRecordDecl()) {
-
-              if (const ClassTemplateSpecializationDecl *templateDecl =
-                      dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
-
-                auto &TemplateArgs = templateDecl->getTemplateArgs();
-                DXASSERT(
-                    TemplateArgs.size() == 1,
-                    "Input record types need to have one template argument");
-                auto &Rec = TemplateArgs.get(0);
-                clang::QualType RecType = Rec.getAsType();
-                if (RecordDecl *RD = RecType->getAs<RecordType>()->getDecl()) {
-
-                  if (RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>())
-                    hasNodeTrackRWInputSharing = true;
-
-                  // Emit a diagnostic if the record is not RWDispatchNode and
-                  // if it has the NodeTrackRWInputSharing attribute
-                  if (hasNodeTrackRWInputSharing &&
-                      node.Flags.GetNodeIOKind() !=
-                          DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
-                    S.Diags.Report(
-                        ParamDecl->getLocation(),
-                        diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
-                  }
-                }
-              }
-            }
+        // determine if the NodeTrackRWInputSharing is an attribute on the
+        // template type
+        clang::RecordDecl *RD = hlsl::getRecordTypeFromParameterType(ParamTy);
+        if (RD) {
+          // Emit a diagnostic if the record is not RWDispatchNode and
+          // if it has the NodeTrackRWInputSharing attribute
+          if (RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>() &&
+              node.Flags.GetNodeIOKind() !=
+                  DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
+            S.Diags.Report(Param->getLocation(),
+                           diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
           }
         }
       }
-      ArgIdx++;
     }
   }
   return;
