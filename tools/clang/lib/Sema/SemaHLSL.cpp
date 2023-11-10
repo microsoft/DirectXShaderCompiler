@@ -2918,6 +2918,7 @@ typedef ::llvm::DenseMap<FunctionDecl *, CallNode> CallNodes;
 typedef ::llvm::SmallPtrSet<Decl *, 8> FnCallStack;
 typedef ::llvm::SmallPtrSet<FunctionDecl *, 128> FunctionSet;
 typedef ::llvm::SmallVector<FunctionDecl *, 32> PendingFunctions;
+typedef ::llvm::DenseMap<FunctionDecl *, FunctionDecl *> FunctionMap;
 
 // Returns the definition of a function.
 // This serves two purposes - ignore built-in functions, and pick
@@ -2992,19 +2993,26 @@ class CallGraphWithRecurseGuard {
 private:
   CallNodes m_callNodes;
   FunctionSet m_visitedFunctions;
+  FunctionMap m_functionsCheckedForRecursion;
 
-  FunctionDecl *CheckRecursion(FnCallStack &CallStack, FunctionDecl *D) const {
+  FunctionDecl *CheckRecursion(FnCallStack &CallStack, FunctionDecl *D) {
+    auto it = m_functionsCheckedForRecursion.find(D);
+    if (it != m_functionsCheckedForRecursion.end())
+      return it->second;
     if (CallStack.insert(D).second == false)
       return D;
     auto node = m_callNodes.find(D);
     if (node != m_callNodes.end()) {
       for (FunctionDecl *Callee : node->second.CalleeFns) {
         FunctionDecl *pResult = CheckRecursion(CallStack, Callee);
-        if (pResult)
+        if (pResult) {
+          m_functionsCheckedForRecursion[D] = pResult;
           return pResult;
+        }
       }
     }
     CallStack.erase(D);
+    m_functionsCheckedForRecursion[D] = nullptr;
     return nullptr;
   }
 
@@ -3039,7 +3047,7 @@ public:
     return false;
   }
 
-  FunctionDecl *CheckRecursion(FunctionDecl *EntryFnDecl) const {
+  FunctionDecl *CheckRecursion(FunctionDecl *EntryFnDecl) {
     FnCallStack CallStack;
     EntryFnDecl = getFunctionWithBody(EntryFnDecl);
     return CheckRecursion(CallStack, EntryFnDecl);
@@ -3149,6 +3157,8 @@ private:
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
 
   UsedIntrinsicStore m_usedIntrinsics;
+
+  CallGraphWithRecurseGuard m_callGraph;
 
   /// <summary>Add all base QualTypes for each hlsl scalar types.</summary>
   void AddBaseTypes();
@@ -4144,6 +4154,14 @@ public:
   void ForgetSema() override { m_sema = nullptr; }
 
   Sema *getSema() { return m_sema; }
+
+  void BuildCallGraphForEntry(FunctionDecl *EntryFnDecl) {
+    m_callGraph.BuildForEntry(EntryFnDecl);
+  }
+
+  FunctionDecl *CheckForCallGraphRecursion(FunctionDecl *EntryFnDecl) {
+    return m_callGraph.CheckRecursion(EntryFnDecl);
+  }
 
   TypedefDecl *LookupScalarTypeDef(HLSLScalarType scalarType) {
     // We shouldn't create Typedef for built in scalar types.
@@ -5793,6 +5811,8 @@ public:
 
     return method;
   }
+
+  CallGraphWithRecurseGuard getCallGraph() { return m_callGraph; }
 
   // Overload support.
   UINT64 ScoreCast(QualType leftType, QualType rightType);
@@ -11401,62 +11421,53 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   }
 }
 
-bool IsExported(Sema *self, clang::FunctionDecl *FD) {
-  if (FD->hasAttr<HLSLShaderAttr>()) {
-    return true;
-  }
+static bool IsTargetProfileLib6x(Sema &S) {
+  // Remaining functions are exported only if target is 'lib_6_x'.
+  const hlsl::ShaderModel *SM =
+      hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
+  bool isLib6x = SM->IsLib() && SM->GetMajor() == 6u;
+  return isLib6x;
+}
 
-  const bool isMarkedStatic = FD->getStorageClass() == SC_Static;
-  const bool isMarkedExport = FD->hasAttr<HLSLExportAttr>();
-
-  if (isMarkedStatic && isMarkedExport) {
-    self->Diag(FD->getLocation(), diag::err_hlsl_varmodifiersna) << "static"
-                                                                 << "export"
-                                                                 << "function";
-    return false;
-  }
-
-  Linkage L = FD->getLinkageAndVisibility().getLinkage();
-
-  // case 1 requires special assignments to linkage
-  if (L != ExternalLinkage && L != InternalLinkage) {
-    const hlsl::ShaderModel *SM =
-        hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
-    bool isLib6x =
-        SM->IsLib() && SM->GetMinor() == hlsl::ShaderModel::kOfflineMinor;
-    if (isLib6x) {
-      L = ExternalLinkage;
-    } else {
-      L = InternalLinkage;
-    }
-  }
-
-  // now case 2 and 3 can apply and we can determine
-  // whether the function is exported.
-  if (L == InternalLinkage && isMarkedExport)
+bool IsExported(Sema *self, clang::FunctionDecl *FD,
+                bool isDefaultLinkageExternal) {
+  // Entry points are exported.
+  if (FD->hasAttr<HLSLShaderAttr>())
     return true;
 
-  if (L == ExternalLinkage && isMarkedStatic)
+  // Internal linkage functions include functions marked 'static'.
+  if (FD->getLinkageAndVisibility().getLinkage() == InternalLinkage)
     return false;
 
-  if (L == InternalLinkage)
-    return false;
-
-  if (L == ExternalLinkage)
+  // Explicit 'export' functions are exported.
+  if (FD->hasAttr<HLSLExportAttr>())
     return true;
 
-  // unreachable but necessary to prevent warnings
-  return true;
+  return isDefaultLinkageExternal;
+}
+
+bool getDefaultLinkageExternal(clang::Sema *self) {
+  const LangOptions &opts = self->getLangOpts();
+  bool isDefaultLinkageExternal =
+      opts.DefaultLinkage == DXIL::DefaultLinkage::External;
+  if (opts.DefaultLinkage == DXIL::DefaultLinkage::Default &&
+      !opts.ExportShadersOnly && IsTargetProfileLib6x(*self))
+    isDefaultLinkageExternal = true;
+  return isDefaultLinkageExternal;
 }
 
 // validates that for every function in the translation unit, if it
 // references a patch constant function, there exists a function declaration
 // that could serve as a candidate to that patch constant function.
-void ValidatePatchConstantFunctionsExist(clang::Sema *self) {
+// Further, it will validate that if a patch constant function is declared,
+// it isn't recursive, and that it and the hull shader function that references
+// it cannot reach each other in the call graph.
+void ValidatePatchConstantFunctions(clang::Sema *self) {
 
   for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
     if (FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
-      if (!IsExported(self, FD)) {
+      if (!FD->hasBody() ||
+          !IsExported(self, FD, getDefaultLinkageExternal(self))) {
         continue;
       }
       // If there is no patch constant function, then we don't need to validate
@@ -11470,6 +11481,42 @@ void ValidatePatchConstantFunctionsExist(clang::Sema *self) {
           self->Diag(Attr->getLocation(),
                      diag::err_hlsl_missing_patch_constant_function)
               << Attr->getFunctionName();
+          continue;
+        }
+        // the patch constant function is NL.Found
+        // now validate that the patch constant function isn't recursive
+        FunctionDecl *pResultPatch = ValidateNoRecursion(self, NL.Found);
+        if (pResultPatch) {
+          self->Diag(pResultPatch->getSourceRange().getBegin(),
+                     diag::err_hlsl_no_recursion)
+              << 2 << pResultPatch->getName();
+        }
+
+        // validate that the hull shader function that references the patch
+        // constant function isn't recursive
+        FunctionDecl *pResultHull = ValidateNoRecursion(self, FD);
+        if (pResultHull) {
+          self->Diag(pResultHull->getSourceRange().getBegin(),
+                     diag::err_hlsl_no_recursion)
+              << 2 << pResultHull->getName();
+        }
+
+        // now validate that the patch constant function and the hull shader
+        // function that references it cannot reach each other in the call graph
+        if (!pResultHull && !pResultPatch) {
+          HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(self);
+          hlslSource->getCallGraph().BuildForEntry(NL.Found);
+          if (hlslSource->getCallGraph().CheckReachability(NL.Found, FD)) {
+            self->Diag(FD->getSourceRange().getBegin(),
+                       diag::err_hlsl_patch_reachability_not_allowed)
+                << 1 << FD->getName() << 0 << NL.Found->getName();
+          }
+          hlslSource->getCallGraph().BuildForEntry(FD);
+          if (hlslSource->getCallGraph().CheckReachability(FD, NL.Found)) {
+            self->Diag(FD->getSourceRange().getBegin(),
+                       diag::err_hlsl_patch_reachability_not_allowed)
+                << 0 << NL.Found->getName() << 1 << FD->getName();
+          }
         }
       }
     }
@@ -11526,7 +11573,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   }
 
   if (self->getLangOpts().IsHLSLLibrary) {
-    ValidatePatchConstantFunctionsExist(self);
+    ValidatePatchConstantFunctions(self);
     ValidateNoRecursionInTranslationUnit(self);
     return;
   }
@@ -15841,9 +15888,9 @@ clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
   // on functions that are unreachable (as an early form of dead code
   // elimination).
   if (FD) {
-    hlsl::CallGraphWithRecurseGuard CG;
-    CG.BuildForEntry(FD);
-    return CG.CheckRecursion(FD);
+    HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(self);
+    hlslSource->BuildCallGraphForEntry(FD);
+    return hlslSource->CheckForCallGraphRecursion(FD);
   }
   return nullptr;
 }
@@ -15859,7 +15906,8 @@ void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
       // returns the first recursive function declaration detected
       // from this function declaration FD, and determines whether
       // the recursion was detected in the patch-constant function
-      if (!IsExported(self, FD)) {
+      if (!FD->hasBody() ||
+          !IsExported(self, FD, getDefaultLinkageExternal(self))) {
         continue;
       }
       FunctionDecl *pResult = ValidateNoRecursion(self, FD);

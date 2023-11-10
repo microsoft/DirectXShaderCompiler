@@ -15,12 +15,13 @@
 #ifndef LLVM_CLANG_BASIC_LANGOPTIONS_H
 #define LLVM_CLANG_BASIC_LANGOPTIONS_H
 
+#include "dxc/DXIL/DxilConstants.h" // For DXIL::DefaultLinkage
+#include "dxc/Support/HLSLVersion.h"
 #include "clang/Basic/CommentOptions.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Basic/Visibility.h"
-#include "dxc/Support/HLSLVersion.h"
 #include <string>
 #include <vector>
 
@@ -152,6 +153,7 @@ public:
 
   // HLSL Change Starts
   hlsl::LangStd HLSLVersion = hlsl::LangStd::vLatest;
+  std::vector<std::string> HLSLLibraryExports;
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
   unsigned RootSigMajor = 1;
@@ -162,6 +164,9 @@ public:
   bool EnableFXCCompatMode = false;
   bool EnablePayloadAccessQualifiers = false;
   bool DumpImplicitTopLevelDecls = true;
+  bool ExportShadersOnly = false;
+  hlsl::DXIL::DefaultLinkage DefaultLinkage =
+      hlsl::DXIL::DefaultLinkage::Default;
   /// Whether use row major as default matrix major.
   bool HLSLDefaultRowMajor = false;
   // HLSL Change Ends
