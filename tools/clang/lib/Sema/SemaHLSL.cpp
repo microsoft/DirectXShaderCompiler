@@ -15702,7 +15702,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
               << HLSLNodeObjectAttr::ConvertRecordTypeToStr(Kind);
       }
     }
-    unsigned int ArgIdx = 0;
     HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
         Param->getAttr<HLSLMaxRecordsSharedWithAttr>();
     if (ExistingMRSWA) {
@@ -15712,7 +15711,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
         // validation that MRSW doesn't reference its own parameter is
         // already done at
         // SemaHLSL.cpp:ValidateMaxRecordsSharedWithAttributes so we don't
-        // need to check that ArgIdx != Idx.
+        // need to check that we are on the same argument.
         if (ParamDecl->getName() == sharedName) {
           // now we need to check that this parameter has an output record type.
           hlsl::NodeFlags nodeFlags;
