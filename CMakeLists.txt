@@ -34,9 +34,6 @@ endif()
 
 project(LLVM)
 
-# This requires a more recent version than CMake 3.4 but is a noop in prior versions. # HLSL Change
-set(VS_STARTUP_PROJECT "dndxc" CACHE STRING "VS startup project in solution")         # HLSL Change
-
 # The following only works with the Ninja generator in CMake >= 3.0.
 set(LLVM_PARALLEL_COMPILE_JOBS "" CACHE STRING
   "Define the maximum number of concurrent compilation jobs.")
