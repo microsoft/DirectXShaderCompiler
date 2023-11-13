@@ -40,8 +40,10 @@ public:
 
 #else
 
-#define LANGOPT(Name, Bits, Default, Description) static const unsigned Name = Default;
-#define LANGOPT_BOOL(Name, Default, Description) static const bool Name = static_cast<bool>( Default );
+#define LANGOPT(Name, Bits, Default, Description)                              \
+  static const unsigned Name = Default;
+#define LANGOPT_BOOL(Name, Default, Description)                               \
+  static const bool Name = static_cast<bool>(Default);
 #define ENUM_LANGOPT(Name, Type, Bits, Default, Description)
 #include "clang/Basic/LangOptions.fixed.def"
 
@@ -52,16 +54,16 @@ protected:
   // have accessors (below).
 #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 #define LANGOPT(Name, Bits, Default, Description)
-#define ENUM_LANGOPT(Name, Type, Bits, Default, Description) \
+#define ENUM_LANGOPT(Name, Type, Bits, Default, Description)                   \
   unsigned Name : Bits;
 #include "clang/Basic/LangOptions.def"
 #endif
 };
 
 // #ifndef MS_SUPPORT_VARIABLE_LANGOPTS
-// #define LANGOPT(Name, Bits, Default, Description) __declspec(selectany) unsigned LangOptionsBase::#Name = Default;
-// #define ENUM_LANGOPT(Name, Type, Bits, Default, Description)
-// #include "clang/Basic/LangOptions.fixed.def"
+// #define LANGOPT(Name, Bits, Default, Description) __declspec(selectany)
+// unsigned LangOptionsBase::#Name = Default; #define ENUM_LANGOPT(Name, Type,
+// Bits, Default, Description) #include "clang/Basic/LangOptions.fixed.def"
 // #endif
 
 /// \brief Keeps track of the various options that can be
@@ -69,14 +71,14 @@ protected:
 class LangOptions : public LangOptionsBase {
 public:
   typedef clang::Visibility Visibility;
-  
+
   enum GCMode { NonGC, GCOnly, HybridGC };
   enum StackProtectorMode { SSPOff, SSPOn, SSPStrong, SSPReq };
-  
+
   enum SignedOverflowBehaviorTy {
-    SOB_Undefined,  // Default C standard behavior.
-    SOB_Defined,    // -fwrapv
-    SOB_Trapping    // -ftrapv
+    SOB_Undefined, // Default C standard behavior.
+    SOB_Defined,   // -fwrapv
+    SOB_Trapping   // -ftrapv
   };
 
   enum PragmaMSPointersToMembersKind {
@@ -106,7 +108,7 @@ public:
   clang::ObjCRuntime ObjCRuntime;
 
   std::string ObjCConstantStringClass;
-  
+
   /// \brief The name of the handler function to be called when -ftrapv is
   /// specified.
   ///
@@ -129,24 +131,24 @@ public:
 
   /// \brief Options for parsing comments.
   CommentOptions CommentOpts;
-  
+
   LangOptions();
 
   // Define accessors/mutators for language options of enumeration type.
 #ifdef MS_SUPPORT_VARIABLE_LANGOPTS
 
-#define LANGOPT(Name, Bits, Default, Description) 
-#define ENUM_LANGOPT(Name, Type, Bits, Default, Description) \
-  Type get##Name() const { return static_cast<Type>(Name); } \
-  void set##Name(Type Value) { Name = static_cast<unsigned>(Value); }  
+#define LANGOPT(Name, Bits, Default, Description)
+#define ENUM_LANGOPT(Name, Type, Bits, Default, Description)                   \
+  Type get##Name() const { return static_cast<Type>(Name); }                   \
+  void set##Name(Type Value) { Name = static_cast<unsigned>(Value); }
 #include "clang/Basic/LangOptions.def"
-  
+
 #else
 
-#define LANGOPT(Name, Bits, Default, Description) 
-#define ENUM_LANGOPT(Name, Type, Bits, Default, Description) \
-  Type get##Name() const { return static_cast<Type>(Default); } \
-  void set##Name(Type Value) { assert(Value == Default); }  
+#define LANGOPT(Name, Bits, Default, Description)
+#define ENUM_LANGOPT(Name, Type, Bits, Default, Description)                   \
+  Type get##Name() const { return static_cast<Type>(Default); }                \
+  void set##Name(Type Value) { assert(Value == Default); }
 #include "clang/Basic/LangOptions.fixed.def"
 
 #endif
@@ -170,12 +172,12 @@ public:
   bool HLSLDefaultRowMajor = false;
   // HLSL Change Ends
 
-  bool SPIRV = false;  // SPIRV Change
-  
+  bool SPIRV = false; // SPIRV Change
+
   bool isSignedOverflowDefined() const {
     return getSignedOverflowBehavior() == SOB_Defined;
   }
-  
+
   bool isSubscriptPointerArithmetic() const {
     return ObjCRuntime.isSubscriptPointerArithmetic() &&
            !ObjCSubscriptingLegacyRuntime;
@@ -197,18 +199,18 @@ public:
 
   FPOptions() : fp_contract(0) {}
 
-  FPOptions(const LangOptions &LangOpts) :
-    fp_contract(LangOpts.DefaultFPContract) {}
+  FPOptions(const LangOptions &LangOpts)
+      : fp_contract(LangOpts.DefaultFPContract) {}
 };
 
 /// \brief OpenCL volatile options
 class OpenCLOptions {
 public:
-#define OPENCLEXT(nm)  unsigned nm : 1;
+#define OPENCLEXT(nm) unsigned nm : 1;
 #include "clang/Basic/OpenCLExtensions.def"
 
   OpenCLOptions() {
-#define OPENCLEXT(nm)   nm = 0;
+#define OPENCLEXT(nm) nm = 0;
 #include "clang/Basic/OpenCLExtensions.def"
   }
 };
@@ -223,7 +225,7 @@ enum TranslationUnitKind {
   /// \brief The translation unit is a module.
   TU_Module
 };
-  
-}  // end namespace clang
+
+} // end namespace clang
 
 #endif
