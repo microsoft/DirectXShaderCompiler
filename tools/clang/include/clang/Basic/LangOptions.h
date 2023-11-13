@@ -153,7 +153,6 @@ public:
 
   // HLSL Change Starts
   hlsl::LangStd HLSLVersion = hlsl::LangStd::vLatest;
-  std::vector<std::string> HLSLLibraryExports;
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
   unsigned RootSigMajor = 1;
