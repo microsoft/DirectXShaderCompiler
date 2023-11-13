@@ -15666,37 +15666,21 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     }
     // Diagnose dispatch grid semantics.
     bool Found = false;
-    for (FunctionDecl::param_iterator I = FD->param_begin(),
-                                      E = FD->param_end();
-         I != E; ++I) {
-      QualType ParamType = (*I)->getType().getCanonicalType();
+    for (ParmVarDecl *PD : FD->params()) {
+      QualType ParamType = PD->getType().getCanonicalType();
 
       // Find parameter that is the node input record
       if (hlsl::IsHLSLNodeType(ParamType)) {
         // Node records are template types
-        if (const RecordType *NodeRT = dyn_cast<RecordType>(ParamType)) {
-          if (const ClassTemplateSpecializationDecl *templateDecl =
-                  dyn_cast<ClassTemplateSpecializationDecl>(
-                      NodeRT->getDecl())) {
-
-            // Get the record struct
-            auto &TemplateArgs = templateDecl->getTemplateArgs();
-            DXASSERT_NOMSG(TemplateArgs.size() >= 1);
-            QualType Arg0Type = TemplateArgs.get(0).getAsType();
-            if (const RecordType *NodeStructType =
-                    Arg0Type->getAsStructureType()) {
-              if (CXXRecordDecl *NodeStructDecl =
-                      dyn_cast<CXXRecordDecl>(NodeStructType->getDecl())) {
-                bool OutputFound = false;
-                // Make sure there is exactly one SV_DispatchGrid semantics
-                // and it has correct type.
-                DiagnoseDispatchGridSemantics(
-                    S, NodeStructDecl,
-                    hlsl::IsHLSLNodeOutputType(ParamType) ? OutputFound
-                                                          : Found);
-              }
-            }
-          }
+        if (CXXRecordDecl *NodeStructDecl =
+                hlsl::GetHLSLNodeRecordDecl(ParamType)) {
+          // Diagnose any SV_DispatchGrid semantics used in record.
+          // OutputFound provides the output needed by
+          // DiagnoseDispatchGridSemantics, but isn't used otherwise.
+          bool OutputFound = false;
+          DiagnoseDispatchGridSemantics(
+              S, NodeStructDecl,
+              hlsl::IsHLSLNodeOutputType(ParamType) ? OutputFound : Found);
         }
       }
     }

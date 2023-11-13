@@ -975,6 +975,26 @@ QualType GetHLSLResourceTemplateParamType(QualType type) {
 QualType GetHLSLInputPatchElementType(QualType type) {
   return GetHLSLResourceTemplateParamType(type);
 }
+
+CXXRecordDecl *GetHLSLNodeRecordDecl(clang::QualType type) {
+  type = type.getCanonicalType();
+  const RecordType *RT = cast<RecordType>(type);
+  const ClassTemplateSpecializationDecl *templateDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
+  if (!templateDecl)
+    return nullptr;
+  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+  DXASSERT_NOMSG(argList.size() >= 1);
+  QualType TemplateParamTy = argList[0].getAsType();
+  if (const RecordType *NodeStructType =
+          TemplateParamTy->getAsStructureType()) {
+    if (CXXRecordDecl *NodeStructDecl =
+            dyn_cast<CXXRecordDecl>(NodeStructType->getDecl()))
+      return NodeStructDecl;
+  }
+  return nullptr;
+}
+
 unsigned GetHLSLInputPatchCount(QualType type) {
   type = type.getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);
