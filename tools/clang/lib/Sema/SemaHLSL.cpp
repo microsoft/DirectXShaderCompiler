@@ -11596,9 +11596,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       }
     }
 
-    const auto *shaderModel =
-        hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
-
     if (const HLSLPatchConstantFuncAttr *attr =
             FDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
       NameLookup NL = GetSingleFunctionDeclByName(self, attr->getFunctionName(),
