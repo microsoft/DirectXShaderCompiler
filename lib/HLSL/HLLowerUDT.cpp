@@ -178,26 +178,6 @@ hlsl::TranslateInitForLoweredUDT(Constant *Init, Type *NewTy,
   return Init;
 }
 
-static Constant *InsertAddrSpaceCastIfRequired(Constant *C,
-                                               unsigned AddrSpace) {
-  Type *Ty = C->getType();
-  DXASSERT_NOMSG(Ty->isPointerTy());
-  if (AddrSpace != Ty->getPointerAddressSpace())
-    return ConstantExpr::getAddrSpaceCast(
-        C, PointerType::get(Ty->getPointerElementType(), AddrSpace));
-  return C;
-}
-
-static Value *InsertAddrSpaceCastIfRequired(IRBuilder<> &Builder, Value *V,
-                                            unsigned AddrSpace) {
-  Type *Ty = V->getType();
-  DXASSERT_NOMSG(Ty->isPointerTy());
-  if (AddrSpace != Ty->getPointerAddressSpace())
-    return Builder.CreateAddrSpaceCast(
-        V, PointerType::get(Ty->getPointerElementType(), AddrSpace));
-  return V;
-}
-
 void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
   Type *Ty = V->getType();
   Type *NewTy = NewV->getType();
@@ -214,6 +194,10 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
   DXASSERT_NOMSG(Ty->isPointerTy() && NewTy->isPointerTy());
   unsigned OriginalAddrSpace = Ty->getPointerAddressSpace();
   unsigned NewAddrSpace = NewTy->getPointerAddressSpace();
+  DXASSERT((OriginalAddrSpace == NewAddrSpace) ||
+               NewAddrSpace == DXIL::kNodeRecordAddrSpace,
+           "Only DXIL::kNodeRecordAddrSpace are allowed when address space "
+           "mismatch");
   Ty = Ty->getPointerElementType();
   NewTy = NewTy->getPointerElementType();
 
@@ -285,11 +269,10 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
     } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
       // Address space cast
       IRBuilder<> Builder(AC);
-      ReplaceUsesForLoweredUDT(
-          user, InsertAddrSpaceCastIfRequired(
-                    Builder, NewV, AC->getType()->getPointerAddressSpace()));
+      Value *NewAC = Builder.CreateAddrSpaceCast(
+          NewV, PointerType::get(Ty, AC->getType()->getPointerAddressSpace()));
+      ReplaceUsesForLoweredUDT(user, NewAC);
       AC->eraseFromParent();
-
     } else if (BitCastInst *BC = dyn_cast<BitCastInst>(user)) {
       IRBuilder<> Builder(BC);
       if (BC->getType()->getPointerElementType() == NewTy) {
@@ -302,14 +285,17 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         // Replace bitcast argument with new value
         use.set(NewV);
       }
-
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(user)) {
       // Constant AddrSpaceCast, or BitCast
       if (CE->getOpcode() == Instruction::AddrSpaceCast) {
-        ReplaceUsesForLoweredUDT(
-            user,
-            InsertAddrSpaceCastIfRequired(
-                cast<Constant>(NewV), CE->getType()->getPointerAddressSpace()));
+        DXASSERT(
+            CE->getType()->getPointerAddressSpace() != NewAddrSpace &&
+                OriginalAddrSpace == NewAddrSpace,
+            "When replace Constant, V and NewV must have same address space");
+        Constant *NewAC = ConstantExpr::getAddrSpaceCast(
+            cast<Constant>(NewV),
+            PointerType::get(Ty, CE->getType()->getPointerAddressSpace()));
+        ReplaceUsesForLoweredUDT(user, NewAC);
       } else if (CE->getOpcode() == Instruction::BitCast) {
         if (CE->getType()->getPointerElementType() == NewTy) {
           // if alreday bitcast to new type, just replace the bitcast
