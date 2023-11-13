@@ -66,7 +66,7 @@ target triple = "dxil-ms-dx"
 
 %hostlayout.s = type { %hostlayout.struct.S2 }
 
-%hostlayout.struct.S2 = type { [4 x <3 x i32>], [2 x [3 x <1 x i32>]], <3 x i32> }
+%hostlayout.struct.S2 = type { [4 x <3 x i32>], [2 x [1 x <3 x i32>]], <3 x i32> }
 
 @s_legacy = external global %hostlayout.s
 
