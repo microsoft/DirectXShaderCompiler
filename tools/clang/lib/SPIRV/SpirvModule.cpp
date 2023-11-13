@@ -207,8 +207,8 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
       if (!var->invokeVisitor(visitor))
         return false;
 
-    for (auto *debugInstruction : debugInstructions)
-      if (!debugInstruction->invokeVisitor(visitor))
+    for (size_t i = 0; i < debugInstructions.size(); i++)
+      if (!debugInstructions[i]->invokeVisitor(visitor))
         return false;
 
     for (auto fn : functions)
