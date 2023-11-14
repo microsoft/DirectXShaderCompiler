@@ -11488,10 +11488,6 @@ std::vector<FunctionDecl *> GetAllExportedFDecls(clang::Sema *self) {
     DeclContext *DC = Worklist.front();
     Worklist.pop_front();
     if (auto *FD = dyn_cast<FunctionDecl>(DC)) {
-      if (!FD->hasBody() ||
-          !IsExported(self, FD, getDefaultLinkageExternal(self))) {
-        continue;
-      }
       AllExportedFDecls.push_back(FD);
     } else {
       for (auto *D : DC->decls()) {
@@ -11638,12 +11634,15 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
       // In this case, recursion was detected in the patch-constant function
       if (patchResult) {
-        self->Diag(patchResult->getSourceRange().getBegin(),
-                   diag::err_hlsl_no_recursion)
-            << pPatchFnDecl->getQualifiedNameAsString()
-            << patchResult->getQualifiedNameAsString();
-        self->Diag(patchResult->getSourceRange().getBegin(),
-                   diag::note_hlsl_no_recursion);
+        if (DiagnosedDecls.find(patchResult) == DiagnosedDecls.end()) {
+          DiagnosedDecls.insert(patchResult);
+          self->Diag(patchResult->getSourceRange().getBegin(),
+                     diag::err_hlsl_no_recursion)
+              << pPatchFnDecl->getQualifiedNameAsString()
+              << patchResult->getQualifiedNameAsString();
+          self->Diag(patchResult->getSourceRange().getBegin(),
+                     diag::note_hlsl_no_recursion);
+        }
       }
 
       // The patch function decl and the entry function decl should be
