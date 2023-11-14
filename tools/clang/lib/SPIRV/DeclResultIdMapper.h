@@ -432,19 +432,6 @@ public:
   /// buffers. Returns nullptr if it does not.
   const CounterVarFields *getCounterVarFields(const DeclaratorDecl *decl);
 
-  /// \brief Returns the <type-id> for the given cbuffer, tbuffer,
-  /// ConstantBuffer, TextureBuffer, or push constant block.
-  ///
-  /// Note: we need this method because constant/texture buffers and push
-  /// constant blocks are all represented as normal struct types upon which
-  /// they are parameterized. That is different from structured buffers,
-  /// for which we can tell they are not normal structs by investigating
-  /// the name. But for constant/texture buffers and push constant blocks,
-  /// we need to have the additional Block/BufferBlock decoration to keep
-  /// type consistent. Normal translation path for structs via TypeTranslator
-  /// won't attach Block/BufferBlock decoration.
-  const SpirvType *getCTBufferPushConstantType(const DeclContext *decl);
-
   /// \brief Returns all defined stage (builtin/input/ouput) variables for the
   /// entry point function entryPoint in this mapper.
   std::vector<SpirvVariable *>
@@ -824,10 +811,6 @@ private:
   /// This is used to defer creation of counter for RWStructuredBuffer
   /// until a Increment/DecrementCounter method is called on it.
   llvm::DenseMap<const DeclaratorDecl *, SpirvInstruction *> declRWSBuffers;
-
-  /// Mapping from cbuffer/tbuffer/ConstantBuffer/TextureBufer/push-constant
-  /// to the SPIR-V type.
-  llvm::DenseMap<const DeclContext *, const SpirvType *> ctBufferPCTypes;
 
   /// The execution mode to use for rasterizer ordered views. Should be set to
   /// PixelInterlockOrderedEXT (default), SampleInterlockOrderedEXT, or

@@ -25,13 +25,13 @@ struct T {
     row_major    float3x2 f3[2];
 };
 
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 0 Offset 0
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 1 Offset 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 2 Offset 32
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 3 Offset 224
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 4 Offset 256
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 4 MatrixStride 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 4 ColMajor
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 0 Offset 0
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 1 Offset 16
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 2 Offset 32
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 3 Offset 224
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 4 Offset 256
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 4 MatrixStride 16
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 4 ColMajor
 
 struct S {
               float    f1;
@@ -44,7 +44,7 @@ struct S {
 [[vk::shader_record_nv]]
 ConstantBuffer<S> cbuf;
 
-// CHECK: OpDecorate %type_ShaderRecordBufferNV_S Block
+// CHECK: OpDecorate %type_ConstantBuffer_S Block
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 0 Offset 0
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 1 Offset 16
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 2 Offset 32
