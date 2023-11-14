@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# ====- code-format-diff-apply, apply diff from comment --*- python -*-------==#
+# ====- code-format-save-diff, save diff from comment --*- python -*---------==#
 #
 # Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
@@ -23,9 +23,9 @@ LF = '\n'
 CRLF = '\r\n'
 CR = '\r'
 
-diff_pat = re.compile(r"``````````diff(?P<DIFF>.+)``````````", re.DOTALL)
 
 def get_diff_from_comment(comment: IssueComment.IssueComment) -> str:
+    diff_pat = re.compile(r"``````````diff(?P<DIFF>.+)``````````", re.DOTALL)
     m = re.search(diff_pat, comment.body)
     if m is None:
         raise Exception(f"Could not find diff in comment {comment.id}")
@@ -54,25 +54,13 @@ def apply_patches(args: argparse.Namespace) -> None:
     diff = get_diff_from_comment(comment)
 
     # write diff to temporary file and apply
-    with tempfile.NamedTemporaryFile() as tmp:
+    if os.path.exists(args.tmp_diff_file):
+        os.remove(args.tmp_diff_file)
+    
+    with open(args.tmp_diff_file, 'w+') as tmp:
         tmp.write(diff.encode("utf-8"))
         tmp.flush()
-
-        # run git apply tmp.name
-        apply_cmd = [
-            "git",
-            "apply",
-            tmp.name
-        ]
-        run_cmd(apply_cmd)
-
-    # run git add .
-    add_cmd = [
-        "git",
-        "add",
-        "."
-    ]
-    run_cmd(add_cmd)
+        tmp.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -87,6 +75,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--issue-number", type=int, required=True)
     parser.add_argument("--comment-id", type=int, required=True)
+    parser.add_argument(
+        "--tmp-diff-file",
+        type=str,
+        required=True,
+        help="Temporary file to write diff to",
+    )
 
     args = parser.parse_args()
 
