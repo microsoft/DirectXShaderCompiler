@@ -15740,7 +15740,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
 
         // determine if the NodeTrackRWInputSharing is an attribute on the
         // template type
-        clang::RecordDecl *RD = hlsl::getRecordTypeFromParameterType(ParamTy);
+        clang::RecordDecl *RD = hlsl::getRecordTypeFromNodeObjectType(ParamTy);
         if (RD) {
           // Emit a diagnostic if the record is not RWDispatchNode and
           // if it has the NodeTrackRWInputSharing attribute

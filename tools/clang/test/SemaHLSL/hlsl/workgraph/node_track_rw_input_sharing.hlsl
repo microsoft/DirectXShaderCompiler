@@ -1,18 +1,5 @@
 // RUN: %dxc -T lib_6_8 -HV 2021 %s -verify
 
-struct RECORD
-{
-  uint a;
-  bool b;
-  uint3 grid : SV_DispatchGrid;
-};
-
-struct RECORD2
-{
-  uint a;
-  bool b;
-};
-
 struct [NodeTrackRWInputSharing] TRACKED_RECORD
 {
   uint a;
