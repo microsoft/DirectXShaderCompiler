@@ -7803,7 +7803,9 @@ def err_hlsl_logical_binop_scalar : Error<
 def err_hlsl_ternary_scalar : Error<
    "condition for short-circuiting ternary operator must be scalar, for non-scalar types use 'select'">;
 def err_hlsl_no_recursion : Error<
-   "recursive functions are not allowed: %select{entry|export|patch constant}0 function calls recursive function '%1'">;
+   "recursive functions are not allowed: function '%0' calls recursive function '%1'">;
+def note_hlsl_no_recursion : Note<
+   "recursive function located here:">;
 def err_hlsl_missing_patch_constant_function : Error<
     "patch constant function '%0' must be defined">;
 def err_hlsl_patch_reachability_not_allowed : Error<

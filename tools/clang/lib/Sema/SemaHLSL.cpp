@@ -4155,14 +4155,6 @@ public:
 
   Sema *getSema() { return m_sema; }
 
-  void BuildCallGraphForEntry(FunctionDecl *EntryFnDecl) {
-    m_callGraph.BuildForEntry(EntryFnDecl);
-  }
-
-  FunctionDecl *CheckForCallGraphRecursion(FunctionDecl *EntryFnDecl) {
-    return m_callGraph.CheckRecursion(EntryFnDecl);
-  }
-
   TypedefDecl *LookupScalarTypeDef(HLSLScalarType scalarType) {
     // We shouldn't create Typedef for built in scalar types.
     // For built in scalar types, this funciton may be called for
@@ -5812,7 +5804,7 @@ public:
     return method;
   }
 
-  CallGraphWithRecurseGuard getCallGraph() { return m_callGraph; }
+  CallGraphWithRecurseGuard &getCallGraph() { return m_callGraph; }
 
   // Overload support.
   UINT64 ScoreCast(QualType leftType, QualType rightType);
@@ -11517,6 +11509,38 @@ std::vector<FunctionDecl *> GetAllExportedFDecls(clang::Sema *self) {
   return AllExportedFDecls;
 }
 
+std::string getFQFunctionName(FunctionDecl *FD) {
+  std::string name = "";
+  if (!FD) {
+    return name;
+  }
+  if (FD->getName().empty()) {
+    // Anonymous functions are not supported.
+    return name;
+  }
+  name = FD->getName();
+  while (!FD->isGlobal()) {
+    DeclContext *parent = FD->getParent();
+    if (NamespaceDecl *ns = dyn_cast<NamespaceDecl>(parent)) {
+      // function declaration is in a namespace
+      name = ns->getName().str() + "::" + name;
+    } else if (RecordDecl *record = dyn_cast<RecordDecl>(parent)) {
+      // function declaration is in a record or class
+			name = record->getName().str() + "::" + name;
+    } else if (FunctionDecl *parentFunc = dyn_cast<FunctionDecl>(parent)) {
+      // function declaration is in a nested function
+			name = parentFunc->getName().str() + "::" + name;
+      FD = parentFunc;
+    }
+    else {
+			// function declaration is in an unknown scope
+			name = "unknown::" + name;
+		}
+  }
+
+  return name;
+}
+
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
 
@@ -11589,10 +11613,12 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       // if A and B call recursive function C, only emit 1 diagnostic for C.
       if (DiagnosedDecls.find(result) == DiagnosedDecls.end()) {
         DiagnosedDecls.insert(result);
-        int errorType = self->getLangOpts().IsHLSLLibrary ? 1 : 0;
         self->Diag(result->getSourceRange().getBegin(),
                    diag::err_hlsl_no_recursion)
-            << errorType << result->getName();
+            << FDecl->getQualifiedNameAsString()
+            << result->getQualifiedNameAsString();
+        self->Diag(result->getSourceRange().getBegin(),
+                   diag::note_hlsl_no_recursion);
       }
     }
 
@@ -11615,7 +11641,10 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       if (patchResult) {
         self->Diag(patchResult->getSourceRange().getBegin(),
                    diag::err_hlsl_no_recursion)
-            << 2 << patchResult->getName();
+            << pPatchFnDecl->getQualifiedNameAsString()
+            << patchResult->getQualifiedNameAsString();
+        self->Diag(patchResult->getSourceRange().getBegin(),
+                   diag::note_hlsl_no_recursion);
       }
 
       // The patch function decl and the entry function decl should be
@@ -11633,8 +11662,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         if (CG.CheckReachability(FDecl, pPatchFnDecl)) {
           self->Diag(FDecl->getSourceRange().getBegin(),
                      diag::err_hlsl_patch_reachability_not_allowed)
-              << 0 << pPatchFnDecl->getName() << 1
-              << pEntryPointDecl->getName();
+              << 0 << pPatchFnDecl->getName() << 1 << FDecl->getName();
         }
       }
     }
@@ -15866,8 +15894,8 @@ clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
   // elimination).
   if (FD) {
     HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(self);
-    hlslSource->BuildCallGraphForEntry(FD);
-    return hlslSource->CheckForCallGraphRecursion(FD);
+    hlslSource->getCallGraph().BuildForEntry(FD);
+    return hlslSource->getCallGraph().CheckRecursion(FD);
   }
   return nullptr;
 }

@@ -29,7 +29,8 @@ static void unreachable_unexported_recurse(inout float4 f, float a)
     f = abs(f+a);
 }
 
-// expected-error@+1{{recursive functions are not allowed: export function calls recursive function 'unexported_recurse'}}
+// expected-error@+2{{recursive functions are not allowed: function 'exported_recurse_2' calls recursive function 'unexported_recurse'}}
+// expected-note@+1{{recursive function located here:}}
 static void unexported_recurse(inout float4 f, float a) 
 {
     if (a > 1)
@@ -37,7 +38,8 @@ static void unexported_recurse(inout float4 f, float a)
     f = abs(f+a);
 }
 
-// expected-error@+1{{recursive functions are not allowed: export function calls recursive function 'exported_recurse'}}
+// expected-error@+2{{recursive functions are not allowed: function 'exported_recurse' calls recursive function 'exported_recurse'}}
+// expected-note@+1{{recursive function located here:}}
 export void exported_recurse(inout float4 f, float a) 
 {
     if (a > 1)

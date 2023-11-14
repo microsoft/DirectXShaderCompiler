@@ -5,7 +5,8 @@
 // that are recursive without export or static keywords. 
 // unreachable_unexported_recurse_external suffices as an example.
 
-// expected-error@+1{{recursive functions are not allowed: export function calls recursive function 'unreachable_unexported_recurse_external'}}
+// expected-error@+2{{recursive functions are not allowed: function 'unreachable_unexported_recurse_external' calls recursive function 'unreachable_unexported_recurse_external'}}
+// expected-note@+1{{recursive function located here:}}
 void unreachable_unexported_recurse_external(inout float4 f, float a) 
 {
     if (a > 1)

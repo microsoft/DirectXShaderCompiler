@@ -10,7 +10,7 @@ void recurse2(inout float4 f, float a) {
   f -= abs(f+a);
 }
 
-// CHECK: error: recursive functions are not allowed: export function calls recursive function 'recurse'
+// CHECK: error: recursive functions are not allowed: function 'main' calls recursive function 'recurse'
 void recurse(inout float4 f, float a)
 {
     if (a > 1) {
@@ -34,7 +34,7 @@ HSPerPatchData HSPerPatchFunc1()
   d.edges[1] = -6;
   d.edges[2] = -7;
   d.inside = -8;
-  // CHECK: error: recursive functions are not allowed: patch constant function calls recursive function 'HSPerPatchFunc1'
+  // CHECK: error: recursive functions are not allowed: function 'HSPerPatchFunc1' calls recursive function 'HSPerPatchFunc1'
   HSPerPatchFunc1();
   return d;
 }
