@@ -11565,7 +11565,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   // Validate that the entry point is available.
   DiagnosticsEngine &Diags = self->getDiagnostics();
   FunctionDecl *pEntryPointDecl = nullptr;
-  FunctionDecl *pPatchFnDecl = nullptr;
   std::vector<FunctionDecl *> FDeclsToCheck;
   if (self->getLangOpts().IsHLSLLibrary) {
     FDeclsToCheck = GetAllExportedFDecls(self);
@@ -11617,6 +11616,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       }
     }
 
+    FunctionDecl *pPatchFnDecl = nullptr;
     if (const HLSLPatchConstantFuncAttr *attr =
             FDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
       NameLookup NL = GetSingleFunctionDeclByName(self, attr->getFunctionName(),
