@@ -11526,16 +11526,15 @@ std::string getFQFunctionName(FunctionDecl *FD) {
       name = ns->getName().str() + "::" + name;
     } else if (RecordDecl *record = dyn_cast<RecordDecl>(parent)) {
       // function declaration is in a record or class
-			name = record->getName().str() + "::" + name;
+      name = record->getName().str() + "::" + name;
     } else if (FunctionDecl *parentFunc = dyn_cast<FunctionDecl>(parent)) {
       // function declaration is in a nested function
-			name = parentFunc->getName().str() + "::" + name;
+      name = parentFunc->getName().str() + "::" + name;
       FD = parentFunc;
+    } else {
+      // function declaration is in an unknown scope
+      name = "unknown::" + name;
     }
-    else {
-			// function declaration is in an unknown scope
-			name = "unknown::" + name;
-		}
   }
 
   return name;
