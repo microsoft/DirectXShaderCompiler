@@ -177,6 +177,7 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
+  TEST_METHOD(DxcPixDxilDebugInfo_TwiceInlinedFunctions)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -2756,6 +2757,167 @@ void main()
 
 )";
   RunSubProgramsCase(hlsl);
+}
+
+static DWORD AdvanceUntilFunctionEntered(IDxcPixDxilDebugInfo *dxilDebugger,
+                                         DWORD instructionOffset,
+                                         wchar_t const *fnName) {
+  for (;;) {
+    CComBSTR FunctioName;
+    if (FAILED(
+            dxilDebugger->GetFunctionName(instructionOffset, &FunctioName))) {
+      VERIFY_FAIL(L"Didn't find function");
+      return -1;
+    }
+    if (FunctioName == fnName)
+      break;
+    instructionOffset++;
+  }
+  return instructionOffset;
+}
+
+static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
+                                          DWORD instructionOffset,
+                                          wchar_t const *variableName,
+                                          wchar_t const *memberName) {
+  CComPtr<IDxcPixDxilLiveVariables> DxcPixDxilLiveVariables;
+  if (SUCCEEDED(dxilDebugger->GetLiveVariablesAt(instructionOffset,
+                                                 &DxcPixDxilLiveVariables))) {
+    DWORD count = 42;
+    VERIFY_SUCCEEDED(DxcPixDxilLiveVariables->GetCount(&count));
+    for (DWORD i = 0; i < count; ++i) {
+      CComPtr<IDxcPixVariable> DxcPixVariable;
+      VERIFY_SUCCEEDED(
+          DxcPixDxilLiveVariables->GetVariableByIndex(i, &DxcPixVariable));
+      CComBSTR Name;
+      VERIFY_SUCCEEDED(DxcPixVariable->GetName(&Name));
+      if (Name == variableName) {
+        CComPtr<IDxcPixDxilStorage> DxcPixDxilStorage;
+        VERIFY_SUCCEEDED(DxcPixVariable->GetStorage(&DxcPixDxilStorage));
+        CComPtr<IDxcPixDxilStorage> DxcPixDxilMemberStorage;
+        VERIFY_SUCCEEDED(DxcPixDxilStorage->AccessField(
+            memberName, &DxcPixDxilMemberStorage));
+        DWORD RegisterNumber = 42;
+        VERIFY_SUCCEEDED(
+            DxcPixDxilMemberStorage->GetRegisterNumber(&RegisterNumber));
+        return RegisterNumber;
+      }
+    }
+  }
+  VERIFY_FAIL(L"Couldn't find register number");
+  return -1;
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_TwiceInlinedFunctions) {
+  if (m_ver.SkipDxilVersion(1, 2))
+    return;
+
+  const char *hlsl = R"(
+struct RayPayload
+{
+    float4 color;
+};
+
+RWStructuredBuffer<float4> floatRWUAV: register(u0);
+
+namespace StressScopesABit
+{
+#include "included.h"
+}
+
+namespace StressScopesMore
+{
+float4 InlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int offset)
+{
+  float4 ret = floatRWUAV.Load(offset + attr.barycentrics.x + 42);
+  float4 color2 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, offset) + ret;
+  float4 color3 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, offset+1);
+  return color2 + color3;
+}
+}
+
+[shader("closesthit")]
+void ClosestHitShader0(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    payload.color = StressScopesMore::InlinedFunction(attr, 0);
+}
+
+[shader("closesthit")]
+void ClosestHitShader1(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    payload.color = StressScopesMore::InlinedFunction(attr, 1);
+}
+
+[shader("closesthit")]
+void ClosestHitShader2(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    float4 generateSomeLocalInstrucitons = floatRWUAV.Load(0);
+    float4 c0 = StressScopesMore::InlinedFunction(attr, 0);
+    float4 c1 = StressScopesABit::StressScopesEvenMore::DeeperInlinedFunction(attr, 42);
+    payload.color = c0 + c1 + generateSomeLocalInstrucitons;
+}
+)";
+
+  CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
+      new DxcIncludeHandlerForInjectedSourcesForPix(this, {{L"included.h",
+                                                            R"(
+
+namespace StressScopesEvenMore
+{
+float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int offset)
+{
+  float4 ret = float4(0,0,0,0);
+  for(int i =0; i < offset; ++i)
+  {
+    float4 color0 = floatRWUAV.Load(offset + attr.barycentrics.x);
+    float4 color1 = floatRWUAV.Load(offset + attr.barycentrics.y);
+    ret += color0 + color1;
+  }
+  return ret;
+}
+}
+)"}});
+
+  auto dxilDebugger =
+      CompileAndCreateDxcDebug(hlsl, L"lib_6_6", pIncludeHandler);
+
+  DWORD instructionOffset =
+      AdvanceUntilFunctionEntered(dxilDebugger, 0, L"ClosestHitShader0");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"DeeperInlinedFunction");
+  DWORD RegisterNumber0 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"ret", L"x");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD RegisterNumber2 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"color2", L"x");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"ClosestHitShader1");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"DeeperInlinedFunction");
+  DWORD RegisterNumber1 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"ret", L"x");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD RegisterNumber3 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"color2", L"x");
+  VERIFY_ARE_NOT_EQUAL(RegisterNumber0, RegisterNumber1);
+  VERIFY_ARE_NOT_EQUAL(RegisterNumber2, RegisterNumber3);
+
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"ClosestHitShader2");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD ColorRegisterNumberWhenCalledFromOuterForInlined =
+      GetRegisterNumberForVariable(dxilDebugger, instructionOffset, L"ret",
+                                   L"x");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"DeeperInlinedFunction");
+  DWORD ColorRegisterNumberWhenCalledFromOuterForDeeper =
+      GetRegisterNumberForVariable(dxilDebugger, instructionOffset, L"ret",
+                                   L"x");
+  VERIFY_ARE_NOT_EQUAL(ColorRegisterNumberWhenCalledFromOuterForInlined,
+                       ColorRegisterNumberWhenCalledFromOuterForDeeper);
 }
 
 #endif
