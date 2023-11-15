@@ -9,6 +9,8 @@
 
 #include "DeclResultIdMapper.h"
 
+#include <algorithm>
+#include <optional>
 #include <sstream>
 
 #include "dxc/DXIL/DxilConstants.h"
@@ -1802,51 +1804,85 @@ class LocationSet {
 public:
   /// Maximum number of indices supported
   const static uint32_t kMaxIndex = 2;
-  /// Maximum number of locations supported
-  // Typically we won't have that many stage input or output variables.
-  // Using 64 should be fine here.
-  const static uint32_t kMaxLoc = 64;
 
   LocationSet() {
     for (uint32_t i = 0; i < kMaxIndex; ++i) {
-      usedLocs[i].resize(kMaxLoc);
-      nextLoc[i] = 0;
+      // Default size. 64 should cover most cases without having to resize.
+      usedLocations[i].resize(64);
+      nextAvailableLocation[i] = 0;
     }
   }
 
-  /// Uses the given location.
+  /// Marks a given location as used.
   void useLoc(uint32_t loc, uint32_t index = 0) {
     assert(index < kMaxIndex);
-    usedLocs[index].set(loc);
+
+    auto &set = usedLocations[index];
+    if (loc <= set.size()) {
+      set.resize(std::max<size_t>(loc + 1, set.size() * 2));
+    }
+    set.set(loc);
+
+    // Maybe the bit marked is the next available one.
+    // Otherwise, there is a hole, ignoring.
+    if (loc == nextAvailableLocation[index]) {
+      ++nextAvailableLocation[index];
+    }
   }
 
-  /// Uses the next |count| available location.
+  // Find the first range of size |count| of unused locations,
+  // and marks them as used.
+  // Returns the first index of this range.
   int useNextLocs(uint32_t count, uint32_t index = 0) {
-    assert(index < kMaxIndex);
-    auto &locs = usedLocs[index];
-    auto &next = nextLoc[index];
-    while (locs[next])
-      next++;
+    auto res = find_unused_range(index, count);
+    auto &locations = usedLocations[index];
 
-    int toUse = next;
-
-    for (uint32_t i = 0; i < count; ++i) {
-      assert(!locs[next]);
-      locs.set(next++);
+    // Simple case: no hole large enough left, resizing.
+    if (res == std::nullopt) {
+      res = locations.size();
+      locations.resize(
+          std::max<size_t>(locations.size() + count, locations.size() * 2));
     }
 
-    return toUse;
+    for (uint32_t i = res.value(); i < res.value() + count; i++) {
+      locations.set(i);
+    }
+    return res.value();
   }
 
   /// Returns true if the given location number is already used.
   bool isLocUsed(uint32_t loc, uint32_t index = 0) {
     assert(index < kMaxIndex);
-    return usedLocs[index][loc];
+    if (loc >= usedLocations[index].size())
+      return false;
+    return usedLocations[index][loc];
   }
 
 private:
-  llvm::SmallBitVector usedLocs[kMaxIndex]; ///< All previously used locations
-  uint32_t nextLoc[kMaxIndex];              ///< Next available location
+  // Find the first unused range of size |size| in the given set.
+  // If the set contains such range, returns the first usable index.
+  // Otherwise, nullopt is returned.
+  std::optional<uint32_t> find_unused_range(uint32_t index, uint32_t size) {
+    assert(index < kMaxIndex);
+    const auto &locations = usedLocations[index];
+    uint32_t slot_size = 0;
+    for (uint32_t i = nextAvailableLocation[index]; i < locations.size(); i++) {
+      if (locations[i])
+        slot_size = 0;
+      else
+        ++slot_size;
+
+      if (slot_size == size)
+        return i + 1 - slot_size;
+    }
+
+    return std::nullopt;
+  }
+
+  /// All previously used locations
+  llvm::SmallBitVector usedLocations[kMaxIndex];
+  /// Next available location
+  uint32_t nextAvailableLocation[kMaxIndex];
 };
 
 /// A class for managing resource bindings to avoid duplicate uses of the same
@@ -2035,13 +2071,6 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       const auto locCount = var.getLocationCount();
       const auto attrLoc = attr->getLocation(); // Attr source code location
       const auto idx = var.getIndexAttr() ? var.getIndexAttr()->getNumber() : 0;
-
-      if ((const unsigned)loc >= LocationSet::kMaxLoc) {
-        emitError("stage %select{output|input}0 location #%1 too large",
-                  attrLoc)
-            << forInput << loc;
-        return false;
-      }
 
       // Make sure the same location is not assigned more than once
       for (uint32_t l = loc; l < loc + locCount; ++l) {
