@@ -119,14 +119,14 @@ void node16()
 
 [Shader("node")]
 [NodeLaunch("coalescing")]
-[NumThreads(1025,1,1)] // expected-error {{NumThreads group size may not exceed 1024 (x * y * z)}}
-void node17()
+[NumThreads(1025,1,1)] // expected-warning {{Group size of 1025 (1025 * 1 * 1) is outside of valid range [1..1024] - attribute will be ignored}}
+void node17() // expected-error {{Node shader 'node17' with coalescing launch type requires 'numthreads' attribute}}
 { }
 
 [Shader("node")]
-[NumThreads(128,8,2)] // expected-error {{NumThreads group size may not exceed 1024 (x * y * z)}}
+[NumThreads(128,8,2)] // expected-warning {{Group size of 2048 (128 * 8 * 2) is outside of valid range [1..1024] - attribute will be ignored}}
 [NodeLaunch("coalescing")]
-void node18()
+void node18() // expected-error {{Node shader 'node18' with coalescing launch type requires 'numthreads' attribute}}
 { }
 
 [Shader("node")]

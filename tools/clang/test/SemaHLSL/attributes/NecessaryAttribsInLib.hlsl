@@ -55,3 +55,7 @@ void MSmain(out vertices myvert verts[32],
   myvert v = {0.0, 0.0, 0.0, 0.0};
   verts[ix] = v;
 }
+
+// expected-error@+2{{compute entry point must have the numthreads attribute}}
+[shader("compute")]
+void CSmain() {}
