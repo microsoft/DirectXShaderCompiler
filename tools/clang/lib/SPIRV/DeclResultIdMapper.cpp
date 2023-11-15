@@ -1818,7 +1818,7 @@ public:
     assert(index < kMaxIndex);
 
     auto &set = usedLocations[index];
-    if (loc <= set.size()) {
+    if (loc >= set.size()) {
       set.resize(std::max<size_t>(loc + 1, set.size() * 2));
     }
     set.set(loc);
@@ -1827,6 +1827,8 @@ public:
     // Otherwise, there is a hole, ignoring.
     if (loc == nextAvailableLocation[index]) {
       ++nextAvailableLocation[index];
+    } else {
+      nextAvailableLocation[index] = std::max(loc + 1, nextAvailableLocation[index]);
     }
   }
 
@@ -1839,14 +1841,17 @@ public:
 
     // Simple case: no hole large enough left, resizing.
     if (res == std::nullopt) {
-      res = locations.size();
-      locations.resize(
-          std::max<size_t>(locations.size() + count, locations.size() * 2));
+      const uint32_t spaceLeft = locations.size() - nextAvailableLocation[index];
+      assert(spaceLeft < count && "There is a bug.");
+      const uint32_t requiredAlloc = count - spaceLeft;;
+      locations.resize(locations.size() + requiredAlloc);
+      res = nextAvailableLocation[index];
     }
 
     for (uint32_t i = res.value(); i < res.value() + count; i++) {
       locations.set(i);
     }
+    nextAvailableLocation[index] = std::max(res.value() + count, nextAvailableLocation[index]);
     return res.value();
   }
 
