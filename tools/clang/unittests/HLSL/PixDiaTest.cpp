@@ -177,7 +177,7 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
-  TEST_METHOD(DxcPixDxilDebugInfo_TwiceInlinedFunctions)
+  TEST_METHOD(DxcPixDxilDebugInfo_InlinedFunctions_TwiceInlinedFunctions)
   TEST_METHOD(DxcPixDxilDebugInfo_InlinedFunctions_CalledTwiceInSameCaller)
 
   dxc::DxcDllSupport m_dllSupport;
@@ -2809,7 +2809,7 @@ static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
   return -1;
 }
 
-TEST_F(PixDiaTest, DxcPixDxilDebugInfo_TwiceInlinedFunctions) {
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_InlinedFunctions_TwiceInlinedFunctions) {
   if (m_ver.SkipDxilVersion(1, 2))
     return;
 
