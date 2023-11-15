@@ -13319,15 +13319,20 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNumThreads: {
-    auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-        ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
-        A.getAttributeSpellingListIndex());
-    if (numThreads->getX() * numThreads->getY() * numThreads->getZ() > 1024)
-      S.Diags.Report(numThreads->getLocation(),
-                     diag::err_hlsl_numthreads_group_size)
-          << numThreads->getRange();
-    declAttr = numThreads;
+    int X = ValidateAttributeIntArg(S, A, 0);
+    int Y = ValidateAttributeIntArg(S, A, 1);
+    int Z = ValidateAttributeIntArg(S, A, 2);
+    int N = X * Y * Z;
+    if (N > 0 && N <= 1024) {
+      auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(
+          A.getRange(), S.Context, X, Y, Z, A.getAttributeSpellingListIndex());
+      declAttr = numThreads;
+    } else {
+      // If the number of threads is invalid, diagnose and drop the attribute.
+      S.Diags.Report(A.getLoc(), diag::warn_hlsl_numthreads_group_size)
+          << N << X << Y << Z << A.getRange();
+      return;
+    }
     break;
   }
   case AttributeList::AT_HLSLRootSignature:
@@ -15425,6 +15430,9 @@ void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD,
 void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                           bool isActiveEntry) {
   if (isActiveEntry) {
+    if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+      S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+          << StageName << "numthreads";
     if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
       std::string profile = S.getLangOpts().HLSLProfile;
       const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
@@ -15755,6 +15763,10 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
     return;
   }
 
+  // At this point, we've found the active entry, so we'll take a note of that
+  // and try to add the shader attr.
+  isActiveEntry = true;
+
   HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
   // Don't add the attribute if it already exists as an attribute on the decl.
   // In the special case that the target profile is compute and the
@@ -15775,7 +15787,6 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
       HLSLShaderAttr::CreateImplicit(S.Context, fullName);
 
   FD->addAttr(pShaderAttr);
-  isActiveEntry = true;
   return;
 }
 

@@ -7785,7 +7785,7 @@ def err_hlsl_no_struct_user_defined_type: Error<
 def err_hlsl_ray_desc_required: Error<
    "Argument type must be struct RayDesc.">;
 def err_hlsl_missing_attr: Error<
-   "%0 entry point must have the %1 attribute">;
+   "%0 entry point must have a valid %1 attribute">;
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
 def err_hlsl_unsupported_string_decl: Error<
@@ -7815,8 +7815,10 @@ def err_hlsl_wg_intrinsic_launch_type : Error<
    "%0 may only be used by nodes with %1 launch type">;
 def err_hlsl_wg_thread_launch_group_size : Error<
    "Thread launch nodes must have a thread group size of (1,1,1)">;
-def err_hlsl_numthreads_group_size : Error<
-   "NumThreads group size may not exceed 1024 (x * y * z)">;
+def warn_hlsl_numthreads_group_size : Warning<
+   "Group size of %0 (%1 * %2 * %3) is outside of valid range [1..1024] - "
+   "attribute will be ignored">,
+   InGroup<IgnoredAttributes>;
 def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
    "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
 def err_hlsl_wg_input_kind : Error<
