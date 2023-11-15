@@ -56,6 +56,11 @@ int PervertexInputVisitor::appendIndexZeroAt(
 ///< treated as nointerpolated too.
 bool PervertexInputVisitor::expandNointerpVarAndParam(
     SpirvInstruction *spvInst) {
+  // If the spirv type has no AST type (hybrid struct for ex), no need to expand
+  // it.
+  if (!spvInst->hasAstResultType())
+    return true;
+
   QualType type = spvInst->getAstResultType();
   bool isExpanded = false;
   auto typePtr = type.getTypePtr();
