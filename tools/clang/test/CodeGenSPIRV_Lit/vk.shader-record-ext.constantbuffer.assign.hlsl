@@ -1,5 +1,9 @@
 // RUN: %dxc -T lib_6_7 -fspv-target-env=vulkan1.1spirv1.4 -E main -fcgl  %s -spirv | FileCheck %s
 
+// CHECK: OpCapability RayTracingKHR
+// CHECK: OpExtension "SPV_KHR_ray_query"
+// CHECK: OpExtension "SPV_KHR_ray_tracing"
+
 struct Foo
 {
     float m_x;
