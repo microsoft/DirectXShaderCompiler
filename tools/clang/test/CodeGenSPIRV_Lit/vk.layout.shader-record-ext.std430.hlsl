@@ -45,13 +45,13 @@ struct S {
 ConstantBuffer<S> cbuf;
 
 // CHECK: OpDecorate %type_ConstantBuffer_S Block
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 0 Offset 0
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 1 Offset 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 2 Offset 32
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 3 Offset 224
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 4 Offset 256
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 4 MatrixStride 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferEXT_block 4 ColMajor
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferKHR_block 0 Offset 0
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferKHR_block 1 Offset 16
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferKHR_block 2 Offset 32
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferKHR_block 3 Offset 224
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferKHR_block 4 Offset 256
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferKHR_block 4 MatrixStride 16
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferKHR_block 4 ColMajor
 
 
 [[vk::shader_record_ext]]
@@ -63,7 +63,7 @@ cbuffer block {
     row_major float2x3 f3;
 }
 
-// CHECK: OpDecorate %type_ShaderRecordBufferEXT_block Block
+// CHECK: OpDecorate %type_ShaderRecordBufferKHR_block Block
 struct Payload { float p; };
 struct Attr    { float a; };
 

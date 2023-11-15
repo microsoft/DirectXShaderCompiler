@@ -1297,7 +1297,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forShaderRecordNV =
       usageKind == ContextUsageKind::ShaderRecordBufferNV;
   const bool forShaderRecordEXT =
-      usageKind == ContextUsageKind::ShaderRecordBufferEXT;
+      usageKind == ContextUsageKind::ShaderRecordBufferKHR;
 
   const auto &declGroup = collectDeclsInDeclContext(decl);
 
@@ -1438,7 +1438,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   const QualType type = decl->getType();
   const auto *recordType = type->getAs<RecordType>();
 
-  SpirvVariable *var;
+  SpirvVariable *var = nullptr;
 
   if (isConstantBuffer(type)) {
     // Constant buffers already have Block decoration. The variable will need
@@ -1480,10 +1480,10 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
       hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
   assert(recordType);
 
-  assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
+  assert(kind == ContextUsageKind::ShaderRecordBufferKHR ||
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
-  SpirvVariable *var;
+  SpirvVariable *var = nullptr;
   if (isConstantBuffer(type)) {
     // Constant buffers already have Block decoration. The variable will need
     // the appropriate storage class.
@@ -1503,8 +1503,8 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
     var->setHlslUserType("");
     var->setLayoutRule(layoutRule);
   } else {
-    const auto typeName = kind == ContextUsageKind::ShaderRecordBufferEXT
-                              ? "type.ShaderRecordBufferEXT."
+    const auto typeName = kind == ContextUsageKind::ShaderRecordBufferKHR
+                              ? "type.ShaderRecordBufferKHR."
                               : "type.ShaderRecordBufferNV.";
 
     const std::string structName =
@@ -1526,11 +1526,11 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
                                              ContextUsageKind kind) {
-  assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
+  assert(kind == ContextUsageKind::ShaderRecordBufferKHR ||
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
-  const auto typeName = kind == ContextUsageKind::ShaderRecordBufferEXT
-                            ? "type.ShaderRecordBufferEXT."
+  const auto typeName = kind == ContextUsageKind::ShaderRecordBufferKHR
+                            ? "type.ShaderRecordBufferKHR."
                             : "type.ShaderRecordBufferNV.";
 
   const std::string structName = typeName + decl->getName().str();

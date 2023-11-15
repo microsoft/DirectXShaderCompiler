@@ -352,7 +352,7 @@ public:
     PushConstant,
     Globals,
     ShaderRecordBufferNV,
-    ShaderRecordBufferEXT
+    ShaderRecordBufferKHR
   };
 
   /// Raytracing specific functions
