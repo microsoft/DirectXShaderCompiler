@@ -1828,7 +1828,8 @@ public:
     if (loc == nextAvailableLocation[index]) {
       ++nextAvailableLocation[index];
     } else {
-      nextAvailableLocation[index] = std::max(loc + 1, nextAvailableLocation[index]);
+      nextAvailableLocation[index] =
+          std::max(loc + 1, nextAvailableLocation[index]);
     }
   }
 
@@ -1841,9 +1842,11 @@ public:
 
     // Simple case: no hole large enough left, resizing.
     if (res == std::nullopt) {
-      const uint32_t spaceLeft = locations.size() - nextAvailableLocation[index];
+      const uint32_t spaceLeft =
+          locations.size() - nextAvailableLocation[index];
       assert(spaceLeft < count && "There is a bug.");
-      const uint32_t requiredAlloc = count - spaceLeft;;
+      const uint32_t requiredAlloc = count - spaceLeft;
+      ;
       locations.resize(locations.size() + requiredAlloc);
       res = nextAvailableLocation[index];
     }
@@ -1851,7 +1854,8 @@ public:
     for (uint32_t i = res.value(); i < res.value() + count; i++) {
       locations.set(i);
     }
-    nextAvailableLocation[index] = std::max(res.value() + count, nextAvailableLocation[index]);
+    nextAvailableLocation[index] =
+        std::max(res.value() + count, nextAvailableLocation[index]);
     return res.value();
   }
 
