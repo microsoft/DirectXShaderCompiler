@@ -11430,8 +11430,7 @@ void ValidatePatchConstantFunctionsExist(clang::Sema *self) {
 // should exist on this shader stage
 void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
                                      FunctionDecl *entryPointDecl,
-                                     DXIL::ShaderKind shaderKind,
-                                     bool isActiveEntry) {
+                                     DXIL::ShaderKind shaderKind) {
 
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
@@ -15740,7 +15739,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
 
         // determine if the NodeTrackRWInputSharing is an attribute on the
         // template type
-        clang::RecordDecl *RD = hlsl::getRecordTypeFromNodeObjectType(ParamTy);
+        clang::RecordDecl *RD = hlsl::GetRecordDeclFromNodeObjectType(ParamTy);
         if (RD) {
           // Emit a diagnostic if the record is not RWDispatchNode and
           // if it has the NodeTrackRWInputSharing attribute
@@ -15783,6 +15782,8 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
     return;
   }
 
+  isActiveEntry = true;
+
   std::string profile = S.getLangOpts().HLSLProfile;
   const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
   const llvm::StringRef fullName = ShaderModel::FullNameFromKind(SM->GetKind());
@@ -15794,8 +15795,7 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 
   HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
   // Don't add the attribute if it already exists as an attribute on the decl,
-  // and emit an error. In the special case that the target profile is compute
-  // and the entry decl already has a node shader attr, don't do anything
+  // and emit an error.
   if (currentShaderAttr) {
     llvm::StringRef currentFullName = currentShaderAttr->getStage();
     if (currentFullName != fullName) {
@@ -15803,7 +15803,6 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
       S.Diag(currentShaderAttr->getLocation(),
              diag::err_hlsl_profile_conflicts_with_shader_attribute)
           << fullName << profile << currentFullName << EntryPointName;
-      return;
     }
     // Don't add another attr if one exists, to prevent
     // more unrelated errors down the line.
@@ -15814,7 +15813,6 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
       HLSLShaderAttr::CreateImplicit(S.Context, fullName);
 
   FD->addAttr(pShaderAttr);
-  isActiveEntry = true;
   return;
 }
 
@@ -15897,7 +15895,7 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
   DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(Attr->getStage());
   llvm::StringRef StageName = Attr->getStage();
-  DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage, isActiveEntry);
+  DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
 
   switch (Stage) {
   case DXIL::ShaderKind::Pixel:
