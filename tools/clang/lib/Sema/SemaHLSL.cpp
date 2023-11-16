@@ -15758,6 +15758,10 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
     return;
   }
 
+  // At this point, we've found the active entry, so we'll take a note of that
+  // and try to add the shader attr.
+  isActiveEntry = true;
+
   HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
   // Don't add the attribute if it already exists as an attribute on the decl.
   // In the special case that the target profile is compute and the
@@ -15778,7 +15782,6 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
       HLSLShaderAttr::CreateImplicit(S.Context, fullName);
 
   FD->addAttr(pShaderAttr);
-  isActiveEntry = true;
   return;
 }
 
