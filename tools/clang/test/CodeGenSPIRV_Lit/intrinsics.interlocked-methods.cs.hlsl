@@ -1,7 +1,8 @@
-// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T cs_6_6 -E main -fcgl  %s -spirv | FileCheck %s
 
 groupshared int dest_i;
 groupshared uint dest_u;
+groupshared float dest_f;
 
 RWBuffer<uint> buff;
 RWBuffer<uint> getDest() {
@@ -13,9 +14,11 @@ void main()
 {
   uint original_u_val;
   int original_i_val;
+  float original_f_val;
 
   int   val1;
   int   val2;
+  float val_f1;
 
   //////////////////////////////////////////////////////////////////////////
   ///////      Test all Interlocked* functions on primitive types     //////
@@ -67,4 +70,9 @@ void main()
 // CHECK-NEXT:  [[ace35:%[0-9]+]] = OpAtomicExchange %int %dest_i %uint_1 %uint_0 [[val2_35]]
 // CHECK-NEXT:                   OpStore %original_i_val [[ace35]]
   InterlockedExchange(dest_i, val2, original_i_val);
+
+// CHECK:      [[val_f:%[0-9]+]] = OpLoad %float %val_f1
+// CHECK-NEXT:  [[ace36:%[0-9]+]] = OpAtomicExchange %float %dest_f %uint_1 %uint_0 [[val_f]]
+// CHECK-NEXT:                   OpStore %original_f_val [[ace36]]
+  InterlockedExchange(dest_f, val_f1, original_f_val);
 }
