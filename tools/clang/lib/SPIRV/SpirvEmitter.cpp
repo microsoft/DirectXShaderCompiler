@@ -6408,6 +6408,10 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
   if (!lhsPtr || !rhsVal)
     return;
 
+  if (lhsPtr->getStorageClass() == spv::StorageClass::Input) {
+    emitError("cannot assign to input variable", loc);
+  }
+
   if (const auto *refType = lhsValType->getAs<ReferenceType>())
     lhsValType = refType->getPointeeType();
 
