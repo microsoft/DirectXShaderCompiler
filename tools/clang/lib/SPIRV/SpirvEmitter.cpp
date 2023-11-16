@@ -2756,6 +2756,8 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
       return processSpvIntrinsicTypeDef(callExpr);
     else if (funcDecl->hasAttr<VKExtBuiltinInputAttr>())
       return processInlineSpirvBuiltinInput(callExpr);
+    else if (funcDecl->hasAttr<VKExtBuiltinOutputAttr>())
+      return processInlineSpirvBuiltinOutput(callExpr);
   }
   // Intrinsic functions such as 'dot' or 'mul'
   if (hlsl::IsIntrinsicOp(funcDecl)) {
@@ -12413,19 +12415,46 @@ void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
 SpirvInstruction *
 SpirvEmitter::processInlineSpirvBuiltinInput(const CallExpr *expr) {
   const auto *funcDecl = expr->getDirectCallee();
-  auto *builtinAttr = funcDecl->getAttr<VKExtBuiltinInputAttr>();
+  const auto *builtinAttr = funcDecl->getAttr<VKExtBuiltinInputAttr>();
 
   assert(builtinAttr != nullptr &&
          "processInlineSpirvBuiltinInput must be passed a CallExpr for a "
          "function declared with the [[vk::ext_builtin_input]] attribute");
+
   if (expr->getNumArgs() > 0) {
-    emitError("builtin input function cannot take arguments",
-              expr->getArg(0)->getExprLoc());
+    emitError("function with vk::ext_builtin_input cannot take arguments",
+              funcDecl->getParamDecl(0)->getLocStart());
   }
 
   return declIdMapper.getBuiltinVar(
       spv::BuiltIn(builtinAttr->getBuiltInID()), funcDecl->getReturnType(),
       funcDecl->getLocStart(), spv::StorageClass::Input);
+}
+
+SpirvInstruction *
+SpirvEmitter::processInlineSpirvBuiltinOutput(const CallExpr *expr) {
+  const auto *funcDecl = expr->getDirectCallee();
+  const auto *builtinAttr = funcDecl->getAttr<VKExtBuiltinOutputAttr>();
+
+  assert(builtinAttr != nullptr &&
+         "processInlineSpirvBuiltinOutput must be passed a CallExpr for a "
+         "function declared with the [[vk::ext_builtin_output]] attribute");
+
+  if (expr->getNumArgs() != 1) {
+    emitError(
+        "function with vk::ext_builtin_output must take exactly one attribute",
+        funcDecl->getLocStart());
+  }
+
+  SpirvInstruction *builtin = declIdMapper.getBuiltinVar(
+      spv::BuiltIn(builtinAttr->getBuiltInID()), expr->getArg(0)->getType(),
+      funcDecl->getLocStart(), spv::StorageClass::Output);
+
+  SpirvInstruction *argValue = doExpr(expr->getArg(0));
+  storeValue(builtin, argValue, funcDecl->getReturnType(),
+             funcDecl->getLocStart());
+
+  return builtin;
 }
 
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,

@@ -818,6 +818,9 @@ private:
   /// Process inline SPIR-V builtin input.
   SpirvInstruction *processInlineSpirvBuiltinInput(const CallExpr *expr);
 
+  /// Process inline SPIR-V builtin output.
+  SpirvInstruction *processInlineSpirvBuiltinOutput(const CallExpr *expr);
+
   /// \brief Adds necessary execution modes for the hull/domain shaders based on
   /// the HLSL attributes of the entry point function.
   /// In the case of hull shaders, also writes the number of output control
