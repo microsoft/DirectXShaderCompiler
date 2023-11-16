@@ -15790,7 +15790,7 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 
   // don't add the attribute for an invalid profile, like library
   if (fullName.empty()) {
-    return;
+    llvm_unreachable("invalid shader kind");
   }
 
   HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();

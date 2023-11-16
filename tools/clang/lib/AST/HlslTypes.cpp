@@ -625,12 +625,6 @@ DXIL::NodeIOKind GetNodeIOType(clang::QualType type) {
   return DXIL::NodeIOKind::Invalid;
 }
 
-bool IsHLSLNodeType(clang::QualType type) {
-  if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
-    return true;
-  return false;
-}
-
 bool IsHLSLNodeInputType(clang::QualType type) {
   return (static_cast<uint32_t>(GetNodeIOType(type)) &
           static_cast<uint32_t>(DXIL::NodeIOFlags::Input)) != 0;
@@ -641,6 +635,12 @@ bool IsHLSLDynamicResourceType(clang::QualType type) {
     StringRef name = RT->getDecl()->getName();
     return name == ".Resource";
   }
+  return false;
+}
+
+bool IsHLSLNodeType(clang::QualType type) {
+  if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
+    return true;
   return false;
 }
 
@@ -862,21 +862,18 @@ bool GetHLSLSubobjectKind(clang::QualType type,
 clang::RecordDecl *GetRecordDeclFromNodeObjectType(clang::QualType ObjectTy) {
   ObjectTy = ObjectTy.getCanonicalType();
   DXASSERT(IsHLSLNodeType(ObjectTy), "Expected Node Object type");
-  if (ObjectTy->isStructureOrClassType()) {
-    if (const CXXRecordDecl *CXXRD =
-            ObjectTy.getCanonicalType()->getAsCXXRecordDecl()) {
+  if (const CXXRecordDecl *CXXRD = ObjectTy->getAsCXXRecordDecl()) {
 
-      if (const ClassTemplateSpecializationDecl *templateDecl =
-              dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
 
-        auto &TemplateArgs = templateDecl->getTemplateArgs();
-        clang::QualType RecType = TemplateArgs[0].getAsType();
-        if (RecordDecl *RD = RecType->getAs<RecordType>()->getDecl()) {
-          return RD;
-        }
-      }
+      auto &TemplateArgs = templateDecl->getTemplateArgs();
+      clang::QualType RecType = TemplateArgs[0].getAsType();
+      if (const RecordType *RT = RecType->getAs<RecordType>())
+        return RT->getDecl();
     }
   }
+
   return nullptr;
 }
 
