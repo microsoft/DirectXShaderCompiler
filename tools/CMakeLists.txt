@@ -25,7 +25,7 @@ if (WIN32)
 # This target can currently only be built on Windows.
 add_llvm_tool_subdirectory(dxexp)
 endif (WIN32)
-add_llvm_tool_subdirectory(testdxildll)
+add_llvm_tool_subdirectory(no-sig-dxillib)
 # HLSL Change ends
 
 # add_llvm_tool_subdirectory(llc) # HLSL Change
