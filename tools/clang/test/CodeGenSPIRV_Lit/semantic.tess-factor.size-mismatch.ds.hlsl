@@ -1,4 +1,4 @@
-// RUN: %dxc -T ds_6_0 -E BezierEvalDS
+// RUN: %dxc -T ds_6_0 -E BezierEvalDS -fcgl  %s -spirv | FileCheck %s
 
 // Test handling of built-in size mismatch (reading in from the built-ins):
 // The HLSL SV_TessFactor is a float3, but the SPIR-V equivalent is a float4.
@@ -12,14 +12,14 @@
 // CHECK: %gl_TessLevelOuter = OpVariable %_ptr_Input__arr_float_uint_4 Input
 // CHECK: %gl_TessLevelInner = OpVariable %_ptr_Input__arr_float_uint_2 Input
 
-// CHECK:         [[gl_TessLevelOuter:%\d+]] = OpLoad %_arr_float_uint_4 %gl_TessLevelOuter
-// CHECK-NEXT:   [[gl_TessLevelOuter0:%\d+]] = OpCompositeExtract %float [[gl_TessLevelOuter]] 0
-// CHECK-NEXT:   [[gl_TessLevelOuter1:%\d+]] = OpCompositeExtract %float [[gl_TessLevelOuter]] 1
-// CHECK-NEXT:   [[gl_TessLevelOuter2:%\d+]] = OpCompositeExtract %float [[gl_TessLevelOuter]] 2
-// CHECK-NEXT:   [[tessLevelOuterArr3:%\d+]] = OpCompositeConstruct %_arr_float_uint_3 [[gl_TessLevelOuter0]] [[gl_TessLevelOuter1]] [[gl_TessLevelOuter2]]
-// CHECK-NEXT:    [[gl_TessLevelInner:%\d+]] = OpLoad %_arr_float_uint_2 %gl_TessLevelInner
-// CHECK-NEXT: [[tessLevelOuterScalar:%\d+]] = OpCompositeExtract %float [[gl_TessLevelInner]] 0
-// CHECK-NEXT:                      {{%\d+}} = OpCompositeConstruct %HS_CONSTANT_DATA_OUTPUT [[tessLevelOuterArr3]] [[tessLevelOuterScalar]]
+// CHECK:         [[gl_TessLevelOuter:%[0-9]+]] = OpLoad %_arr_float_uint_4 %gl_TessLevelOuter
+// CHECK-NEXT:   [[gl_TessLevelOuter0:%[0-9]+]] = OpCompositeExtract %float [[gl_TessLevelOuter]] 0
+// CHECK-NEXT:   [[gl_TessLevelOuter1:%[0-9]+]] = OpCompositeExtract %float [[gl_TessLevelOuter]] 1
+// CHECK-NEXT:   [[gl_TessLevelOuter2:%[0-9]+]] = OpCompositeExtract %float [[gl_TessLevelOuter]] 2
+// CHECK-NEXT:   [[tessLevelOuterArr3:%[0-9]+]] = OpCompositeConstruct %_arr_float_uint_3 [[gl_TessLevelOuter0]] [[gl_TessLevelOuter1]] [[gl_TessLevelOuter2]]
+// CHECK-NEXT:    [[gl_TessLevelInner:%[0-9]+]] = OpLoad %_arr_float_uint_2 %gl_TessLevelInner
+// CHECK-NEXT: [[tessLevelOuterScalar:%[0-9]+]] = OpCompositeExtract %float [[gl_TessLevelInner]] 0
+// CHECK-NEXT:                      {{%[0-9]+}} = OpCompositeConstruct %HS_CONSTANT_DATA_OUTPUT [[tessLevelOuterArr3]] [[tessLevelOuterScalar]]
 
 
 struct HS_CONSTANT_DATA_OUTPUT

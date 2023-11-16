@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T vs_6_0 -spirv -fspv-target-env=vulkan1.2
+// RUN: %dxc -E main -T vs_6_0 -spirv -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpCapability ShaderViewportIndex
 // CHECK-NOT:  OpExtension "SPV_EXT_shader_viewport_index_layer"

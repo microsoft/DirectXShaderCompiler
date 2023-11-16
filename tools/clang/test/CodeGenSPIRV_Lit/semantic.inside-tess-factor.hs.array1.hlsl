@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 #define NumOutPoints 2
 
@@ -31,10 +31,10 @@ HsPcfOut pcf() {
 [outputcontrolpoints(NumOutPoints)]
 [patchconstantfunc("pcf")]
 HsCpOut main(uint cpId : SV_OutputControlPointID, uint patchId : SV_PrimitiveID) {
-// CHECK:      [[ret:%\d+]] = OpFunctionCall %HsPcfOut %pcf
-// CHECK:      [[itf:%\d+]] = OpCompositeExtract %_arr_float_uint_1 [[ret]] 1
-// CHECK-NEXT: [[ptr:%\d+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelInner %uint_0
-// CHECK-NEXT:  [[e0:%\d+]] = OpCompositeExtract %float [[itf]] 0
+// CHECK:      [[ret:%[0-9]+]] = OpFunctionCall %HsPcfOut %pcf
+// CHECK:      [[itf:%[0-9]+]] = OpCompositeExtract %_arr_float_uint_1 [[ret]] 1
+// CHECK-NEXT: [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelInner %uint_0
+// CHECK-NEXT:  [[e0:%[0-9]+]] = OpCompositeExtract %float [[itf]] 0
 // CHECK-NEXT: OpStore [[ptr]] [[e0]]
     HsCpOut output;
     output = (HsCpOut)0;
