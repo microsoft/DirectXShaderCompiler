@@ -447,16 +447,17 @@ public:
     HRESULT hrStatus = S_OK;
     VERIFY_SUCCEEDED(pResult->GetStatus(&hrStatus));
     if (FAILED(hrStatus)) {
-      LogErrorFmt(L"%s failed with hr %d.", operation);
       CComPtr<IDxcBlobEncoding> pErrorBuffer;
-      VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrorBuffer));
-      if (pErrorBuffer->GetBufferSize()) {
+      if (SUCCEEDED(pResult->GetErrorBuffer(&pErrorBuffer)) &&
+          pErrorBuffer->GetBufferSize()) {
         CComPtr<IDxcUtils> pUtils;
         VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
         CComPtr<IDxcBlobWide> pErrorBufferW;
         VERIFY_SUCCEEDED(pUtils->GetBlobAsWide(pErrorBuffer, &pErrorBufferW));
-        LogErrorFmt(L"Error Buffer:\n%s", operation, hrStatus,
-                    pErrorBufferW->GetStringPointer());
+        LogErrorFmt(L"%s failed with hr %d. Error Buffer:\n%s", operation,
+                    hrStatus, pErrorBufferW->GetStringPointer());
+      } else {
+        LogErrorFmt(L"%s failed with hr %d.", operation, hrStatus);
       }
     }
     VERIFY_SUCCEEDED(hrStatus);
