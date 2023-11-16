@@ -1,4 +1,4 @@
-// RUN: %dxc -T gs_6_1 -E main
+// RUN: %dxc -T gs_6_1 -E main -fcgl  %s -spirv | FileCheck %s
 
 
 // GS per-vertex input
@@ -15,7 +15,7 @@ struct GsVOut {
 // CHECK:      OpExtension "SPV_KHR_multiview"
 
 // CHECK:      OpEntryPoint Geometry
-// CHECK-SAME: [[viewindex:%\d+]]
+// CHECK-SAME: [[viewindex:%[0-9]+]]
 
 // CHECK:      OpDecorate [[viewindex]] BuiltIn ViewIndex
 
