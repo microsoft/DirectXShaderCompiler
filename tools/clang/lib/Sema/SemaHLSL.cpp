@@ -15425,6 +15425,9 @@ void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD,
 void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                           bool isActiveEntry) {
   if (isActiveEntry) {
+    if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+      S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+          << StageName << "numthreads";
     if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
       std::string profile = S.getLangOpts().HLSLProfile;
       const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
