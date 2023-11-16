@@ -12584,19 +12584,12 @@ void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
 }
 
 void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
-  // If not explicitly specified, x, y, and z should be defaulted to 1.
-  uint32_t x = 1, y = 1, z = 1;
+  auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>();
+  assert(numThreadsAttr && "thread group size missing from entry-point");
 
-  if (auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>()) {
-    x = static_cast<uint32_t>(numThreadsAttr->getX());
-    y = static_cast<uint32_t>(numThreadsAttr->getY());
-    z = static_cast<uint32_t>(numThreadsAttr->getZ());
-  } else {
-    emitError("thread group size [numthreads(x,y,z)] is missing from the "
-              "entry-point function",
-              decl->getLocation());
-    return;
-  }
+  uint32_t x = static_cast<uint32_t>(numThreadsAttr->getX());
+  uint32_t y = static_cast<uint32_t>(numThreadsAttr->getY());
+  uint32_t z = static_cast<uint32_t>(numThreadsAttr->getZ());
 
   spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
                               {x, y, z}, decl->getLocation());

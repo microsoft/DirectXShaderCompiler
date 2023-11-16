@@ -1,3 +1,7 @@
+trigger:
+  - main
+  - release*
+  
 resources:
 - repo: self
 
