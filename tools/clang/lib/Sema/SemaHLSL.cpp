@@ -13319,15 +13319,20 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNumThreads: {
-    auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-        ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
-        A.getAttributeSpellingListIndex());
-    if (numThreads->getX() * numThreads->getY() * numThreads->getZ() > 1024)
-      S.Diags.Report(numThreads->getLocation(),
-                     diag::err_hlsl_numthreads_group_size)
-          << numThreads->getRange();
-    declAttr = numThreads;
+    int X = ValidateAttributeIntArg(S, A, 0);
+    int Y = ValidateAttributeIntArg(S, A, 1);
+    int Z = ValidateAttributeIntArg(S, A, 2);
+    int N = X * Y * Z;
+    if (N > 0 && N <= 1024) {
+      auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(
+          A.getRange(), S.Context, X, Y, Z, A.getAttributeSpellingListIndex());
+      declAttr = numThreads;
+    } else {
+      // If the number of threads is invalid, diagnose and drop the attribute.
+      S.Diags.Report(A.getLoc(), diag::warn_hlsl_numthreads_group_size)
+          << N << X << Y << Z << A.getRange();
+      return;
+    }
     break;
   }
   case AttributeList::AT_HLSLRootSignature:
