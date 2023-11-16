@@ -3722,8 +3722,8 @@ TEST_F(CompilerTest, CompileWhenRecursiveAlbeitStaticTermThenFail) {
       "  return f(); // First call to 'f'\r\n"
       "}\r\n";
   VerifyCompileFailed(ShaderText, L"vs_6_0",
-                      "recursive functions are not allowed: entry "
-                      "function calls recursive function 'f'",
+                      "recursive functions are not allowed: function "
+                      "'VS' calls recursive function 'f'",
                       L"VS");
 }
 
@@ -3736,8 +3736,8 @@ TEST_F(CompilerTest, CompileWhenRecursiveThenFail) {
       "  return f(); // First call to 'f'\r\n"
       "}\r\n";
   VerifyCompileFailed(ShaderTextSimple, L"vs_6_0",
-                      "recursive functions are not allowed: entry "
-                      "function calls recursive function 'f'");
+                      "recursive functions are not allowed: "
+                      "function 'main' calls recursive function 'f'");
 
   const char ShaderTextIndirect[] =
       "float4 f(); // Forward declaration\r\n"
@@ -3747,15 +3747,15 @@ TEST_F(CompilerTest, CompileWhenRecursiveThenFail) {
       "  return f(); // First call to 'f'\r\n"
       "}\r\n";
   VerifyCompileFailed(ShaderTextIndirect, L"vs_6_0",
-                      "recursive functions are not allowed: entry "
-                      "function calls recursive function 'f'");
+                      "recursive functions are not allowed: "
+                      "function 'main' calls recursive function 'f'");
 
   const char ShaderTextSelf[] = "float4 main() : SV_Position{\r\n"
                                 "  return main();\r\n"
                                 "}\r\n";
   VerifyCompileFailed(ShaderTextSelf, L"vs_6_0",
-                      "recursive functions are not allowed: entry "
-                      "function calls recursive function 'main'");
+                      "recursive functions are not allowed: "
+                      "function 'main' calls recursive function 'main'");
 
   const char ShaderTextMissing[] = "float4 mainz() : SV_Position{\r\n"
                                    "  return 1;\r\n"

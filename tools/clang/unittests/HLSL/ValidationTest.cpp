@@ -77,8 +77,6 @@ public:
   TEST_METHOD(UAVStoreMaskGap2)
   TEST_METHOD(UAVStoreMaskGap3)
   TEST_METHOD(Recursive)
-  TEST_METHOD(Recursive2)
-  TEST_METHOD(Recursive3)
   TEST_METHOD(ResourceRangeOverlap0)
   TEST_METHOD(ResourceRangeOverlap1)
   TEST_METHOD(ResourceRangeOverlap2)
@@ -1293,14 +1291,6 @@ TEST_F(ValidationTest, UAVStoreMaskGap3) {
 TEST_F(ValidationTest, Recursive) {
   // Includes coverage for user-defined functions.
   TestCheck(L"..\\CodeGenHLSL\\recursive.ll");
-}
-
-TEST_F(ValidationTest, Recursive2) {
-  TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
-}
-
-TEST_F(ValidationTest, Recursive3) {
-  TestCheck(L"..\\CodeGenHLSL\\recursive3.hlsl");
 }
 
 TEST_F(ValidationTest, ResourceRangeOverlap0) {

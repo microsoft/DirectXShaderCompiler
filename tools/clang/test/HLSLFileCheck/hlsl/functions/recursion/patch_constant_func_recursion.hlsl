@@ -42,7 +42,7 @@ HSPerPatchData patchfn()
 [outputtopology("triangle_cw")]
 [outputcontrolpoints(3)]
 [patchconstantfunc("patchfn")]
-// CHECK: error: recursive functions are not allowed: patch constant function calls recursive function 'recurse'
+// CHECK: error: recursive functions are not allowed: function 'patchfn' calls recursive function 'recurse'
 void HSmain(uint ix : SV_OutputControlPointID)
 {
   return;

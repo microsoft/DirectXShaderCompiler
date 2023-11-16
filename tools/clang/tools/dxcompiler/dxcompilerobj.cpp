@@ -1564,6 +1564,7 @@ public:
 
     // only export shader functions for library
     compiler.getCodeGenOpts().ExportShadersOnly = Opts.ExportShadersOnly;
+    compiler.getLangOpts().ExportShadersOnly = Opts.ExportShadersOnly;
 
     if (Opts.DefaultLinkage.empty()) {
       compiler.getCodeGenOpts().DefaultLinkage = DXIL::DefaultLinkage::Default;
@@ -1572,6 +1573,8 @@ public:
     } else if (Opts.DefaultLinkage.equals_lower("external")) {
       compiler.getCodeGenOpts().DefaultLinkage = DXIL::DefaultLinkage::External;
     }
+    compiler.getLangOpts().DefaultLinkage =
+        compiler.getCodeGenOpts().DefaultLinkage;
   }
 
   // IDxcVersionInfo
