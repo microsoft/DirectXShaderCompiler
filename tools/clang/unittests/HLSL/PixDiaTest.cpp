@@ -2923,7 +2923,8 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
                        ColorRegisterNumberWhenCalledFromOuterForDeeper);
 }
 
-TEST_F(PixDiaTest, DxcPixDxilDebugInfo_InlinedFunctions_CalledTwiceInSameCaller) {
+TEST_F(PixDiaTest,
+       DxcPixDxilDebugInfo_InlinedFunctions_CalledTwiceInSameCaller) {
   if (m_ver.SkipDxilVersion(1, 2))
     return;
 
@@ -2952,8 +2953,7 @@ void ClosestHitShader3(inout RayPayload payload, in BuiltInTriangleIntersectionA
 }
 )";
 
-  auto dxilDebugger =
-      CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
 
   // Case: same function called from two places in same top-level function.
   // In this case, we expect the storage for the variable to be in the same
