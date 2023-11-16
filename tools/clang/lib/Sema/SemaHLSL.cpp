@@ -395,9 +395,8 @@ enum ArBasicKind {
 #define IS_BPROP_ENUM(_Props) (((_Props)&BPROP_ENUM) != 0)
 
 #define IS_BPROP_WAVE_MATRIX_INPUT(_Props)                                     \
-  (((_Props) & BPROP_WAVE_MATRIX_INPUT) != 0)
-#define IS_BPROP_WAVE_MATRIX_ACC(_Props)                                       \
-  (((_Props) & BPROP_WAVE_MATRIX_ACC) != 0)
+  (((_Props)&BPROP_WAVE_MATRIX_INPUT) != 0)
+#define IS_BPROP_WAVE_MATRIX_ACC(_Props) (((_Props)&BPROP_WAVE_MATRIX_ACC) != 0)
 
 const UINT g_uBasicKindProps[] = {
     BPROP_PRIMITIVE | BPROP_BOOLEAN | BPROP_INTEGER | BPROP_NUMERIC |
@@ -15427,6 +15426,7 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
 // semantics. Recursivelly walk all fields on the record and all of its base
 // classes/structs
 void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
+                                   SourceLocation NodeRecordLoc,
                                    SourceLocation &DispatchGridLoc,
                                    bool &Found) {
 
@@ -15437,7 +15437,8 @@ void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
       CXXRecordDecl *BaseTypeDecl =
           dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
       if (nullptr != BaseTypeDecl) {
-        DiagnoseDispatchGridSemantics(S, BaseTypeDecl, DispatchGridLoc, Found);
+        DiagnoseDispatchGridSemantics(S, BaseTypeDecl, NodeRecordLoc,
+                                      DispatchGridLoc, Found);
       }
     }
   }
@@ -15470,6 +15471,8 @@ void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
                   it->Loc,
                   diag::err_hlsl_incompatible_dispatchgrid_semantic_type)
                   << Ty;
+              S.Diags.Report(NodeRecordLoc, diag::note_defined_here)
+                  << "NodeInput/Output record";
             }
             DispatchGridLoc = it->Loc;
           } else {
@@ -15490,16 +15493,18 @@ void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
       CXXRecordDecl *FieldTypeDecl =
           dyn_cast<CXXRecordDecl>(FieldTypeAsStruct->getDecl());
       if (nullptr != FieldTypeDecl) {
-        DiagnoseDispatchGridSemantics(S, FieldTypeDecl, DispatchGridLoc, Found);
+        DiagnoseDispatchGridSemantics(S, FieldTypeDecl, NodeRecordLoc,
+                                      DispatchGridLoc, Found);
       }
     }
   }
 }
 
-void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordStruct,
-                                   bool &Found) {
+void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *NodeRecordStruct,
+                                   SourceLocation NodeRecordLoc, bool &Found) {
   SourceLocation DispatchGridLoc;
-  DiagnoseDispatchGridSemantics(S, InputRecordStruct, DispatchGridLoc, Found);
+  DiagnoseDispatchGridSemantics(S, NodeRecordStruct, NodeRecordLoc,
+                                DispatchGridLoc, Found);
 }
 
 void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
@@ -15670,17 +15675,13 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       QualType ParamType = PD->getType().getCanonicalType();
 
       // Find parameter that is the node input record
-      if (hlsl::IsHLSLNodeType(ParamType)) {
+      if (hlsl::IsHLSLNodeInputType(ParamType)) {
         // Node records are template types
         if (CXXRecordDecl *NodeStructDecl =
                 hlsl::GetHLSLNodeRecordDecl(ParamType)) {
           // Diagnose any SV_DispatchGrid semantics used in record.
-          // OutputFound provides the output needed by
-          // DiagnoseDispatchGridSemantics, but isn't used otherwise.
-          bool OutputFound = false;
-          DiagnoseDispatchGridSemantics(
-              S, NodeStructDecl,
-              hlsl::IsHLSLNodeOutputType(ParamType) ? OutputFound : Found);
+          DiagnoseDispatchGridSemantics(S, NodeStructDecl, PD->getLocation(),
+                                        Found);
         }
       }
     }
@@ -15689,6 +15690,23 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       S.Diags.Report(FD->getLocation(),
                      diag::err_hlsl_missing_dispatchgrid_semantic)
           << FD->getName();
+    }
+  }
+
+  // Dignose node output.
+  for (ParmVarDecl *PD : FD->params()) {
+    QualType ParamType = PD->getType().getCanonicalType();
+
+    // Find parameter that is the node input record
+    if (hlsl::IsHLSLNodeOutputType(ParamType)) {
+      // Node records are template types
+      if (CXXRecordDecl *NodeStructDecl =
+              hlsl::GetHLSLNodeRecordDecl(ParamType)) {
+        // Diagnose any SV_DispatchGrid semantics used in record.
+        bool OutputFound = false;
+        DiagnoseDispatchGridSemantics(S, NodeStructDecl, PD->getLocation(),
+                                      OutputFound);
+      }
     }
   }
 
