@@ -1713,7 +1713,7 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     if (isEntry && SM->IsHS()) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Error,
-          "HS entry point must have the patchconstantfunc attribute");
+          "HS entry point must have a valid patchconstantfunc attribute");
       Diags.Report(FD->getLocation(), DiagID);
       return;
     }

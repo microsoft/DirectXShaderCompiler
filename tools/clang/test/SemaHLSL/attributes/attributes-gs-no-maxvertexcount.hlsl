@@ -11,7 +11,7 @@ void foo(inout LineStream<GsOut> param) {
 }
 
 // Missing maxvertexcount attribute
-void main(in triangle float4 pos[3] : SV_Position, /* expected-error{{geometry entry point must have the maxvertexcount attribute}} */
+void main(in triangle float4 pos[3] : SV_Position, /* expected-error{{geometry entry point must have a valid maxvertexcount attribute}} */
           inout LineStream<GsOut> outData) {
     GsOut vertex;
     vertex.pos = pos[0];

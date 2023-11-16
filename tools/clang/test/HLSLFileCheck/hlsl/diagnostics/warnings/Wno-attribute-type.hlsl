@@ -11,4 +11,4 @@ void main() {
 }
 
 // CHECK: warning: Group size of 0
-// CHECK: error: compute entry point must have the numthreads attribute
+// CHECK: error: compute entry point must have a valid numthreads attribute

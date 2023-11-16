@@ -6,7 +6,7 @@ struct Payload {
 
 //[numthreads(8, 1, 1)]
 [shader("amplification")]
-/* expected-error@+1{{amplification entry point must have the numthreads attribute}} */
+/* expected-error@+1{{amplification entry point must have a valid numthreads attribute}} */
 void ASmain()
 {
     Payload pld;
@@ -20,7 +20,7 @@ void ASmain()
 [outputtopology("triangle_cw")]
 [outputcontrolpoints(3)]
 //[patchconstantfunc("HSPatch")]
-/* expected-error@+1{{hull entry point must have the patchconstantfunc attribute}} */
+/* expected-error@+1{{hull entry point must have a valid patchconstantfunc attribute}} */
 float4 HSmain(uint ix : SV_OutputControlPointID)
 {
   return 0;
@@ -32,7 +32,7 @@ struct VSOut {
 
 //[maxvertexcount(3)]
 [shader("geometry")]
-/* expected-error@+1{{geometry entry point must have the maxvertexcount attribute}} */
+/* expected-error@+1{{geometry entry point must have a valid maxvertexcount attribute}} */
 void GSmain(inout TriangleStream<VSOut> stream) {
   VSOut v = {0.0, 0.0, 0.0, 0.0};
   stream.Append(v);
@@ -47,8 +47,8 @@ struct myvert {
 [shader("mesh")]
 //[NumThreads(8, 8, 2)]
 //[OutputTopology("triangle")]
-// expected-error@+2{{mesh entry point must have the numthreads attribute}}
-// expected-error@+1{{mesh entry point must have the outputtopology attribute}}
+// expected-error@+2{{mesh entry point must have a valid numthreads attribute}}
+// expected-error@+1{{mesh entry point must have a valid outputtopology attribute}}
 void MSmain(out vertices myvert verts[32],
           uint ix : SV_GroupIndex) {
   SetMeshOutputCounts(32, 16);
@@ -56,6 +56,6 @@ void MSmain(out vertices myvert verts[32],
   verts[ix] = v;
 }
 
-// expected-error@+2{{compute entry point must have the numthreads attribute}}
+// expected-error@+2{{compute entry point must have a valid numthreads attribute}}
 [shader("compute")]
 void CSmain() {}

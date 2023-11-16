@@ -7785,7 +7785,7 @@ def err_hlsl_no_struct_user_defined_type: Error<
 def err_hlsl_ray_desc_required: Error<
    "Argument type must be struct RayDesc.">;
 def err_hlsl_missing_attr: Error<
-   "%0 entry point must have the %1 attribute">;
+   "%0 entry point must have a valid %1 attribute">;
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
 def err_hlsl_unsupported_string_decl: Error<
