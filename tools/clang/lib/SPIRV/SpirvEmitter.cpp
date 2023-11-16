@@ -1795,6 +1795,13 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     return;
   }
 
+  if (decl->hasAttr<VKExtBuiltinInputAttr>() ||
+      decl->hasAttr<VKExtBuiltinOutputAttr>()) {
+    // This is a declaration of a builtin; do nothing and let the variable
+    // reference create the builtin.
+    return;
+  }
+
   // We can have VarDecls inside cbuffer/tbuffer. For those VarDecls, we need
   // to emit their cbuffer/tbuffer as a whole and access each individual one
   // using access chains.

@@ -954,6 +954,14 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc,
                                                       SourceRange range) {
+  if (auto *builtinAttr = decl->getAttr<VKExtBuiltinInputAttr>()) {
+    return getBuiltinVar(spv::BuiltIn(builtinAttr->getBuiltInID()),
+                         decl->getType(), spv::StorageClass::Input, loc);
+  } else if (auto *builtinAttr = decl->getAttr<VKExtBuiltinOutputAttr>()) {
+    return getBuiltinVar(spv::BuiltIn(builtinAttr->getBuiltInID()),
+                         decl->getType(), spv::StorageClass::Output, loc);
+  }
+
   const DeclSpirvInfo *info = getDeclSpirvInfo(decl);
 
   // If DeclSpirvInfo is not found for this decl, it might be because it is an

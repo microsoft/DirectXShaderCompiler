@@ -5,11 +5,12 @@
 
 // CHECK: [[fragStencilVar]] = OpVariable %_ptr_Output_int Output
 
-[[vk::ext_extension("SPV_EXT_shader_stencil_export")]]
+//[[vk::ext_extension("SPV_EXT_shader_stencil_export")]]
 [[vk::ext_builtin_output(/* FragStencilRefEXT */ 5014)]]
-void gl_FragStencilRefARB(int);
+static int gl_FragStencilRefARB;
 
+[[vk::ext_extension("SPV_EXT_shader_stencil_export")]]
 void main() {
   // CHECK: OpStore [[fragStencilVar]] %int_10
-  gl_FragStencilRefARB(10);
+  gl_FragStencilRefARB = 10;
 }

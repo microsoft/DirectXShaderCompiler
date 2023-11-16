@@ -1269,7 +1269,7 @@ def VKBuiltIn : InheritableAttr {
 
 def VKExtBuiltinInput : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_builtin_input">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Var], ErrorDiag>;
   let Args = [IntArgument<"BuiltInID">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1277,7 +1277,7 @@ def VKExtBuiltinInput : InheritableAttr {
 
 def VKExtBuiltinOutput : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_builtin_output">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Var], ErrorDiag>;
   let Args = [IntArgument<"BuiltInID">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
