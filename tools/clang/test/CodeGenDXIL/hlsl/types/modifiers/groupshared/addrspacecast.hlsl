@@ -15,7 +15,7 @@
 // Make sure addrspacecast is generated.
 // CAST: @[[GS:.+]] = external addrspace(3) global %struct.GSStruct
 // CAST: define void @main
-// CAST: call void @"dx.hl.op..void (i32, i32, i32, i32, %struct.MeshPayload*)"(i32 12, i32 1, i32 1, i32 1, %struct.MeshPayload* addrspacecast (%struct.MeshPayload addrspace(3)* getelementptr inbounds (%struct.GSStruct, %struct.GSStruct addrspace(3)* @[[GS]], i32 0, i32 1) to %struct.MeshPayload*))
+// CAST: call void @"dx.hl.op..void (i32, i32, i32, i32, %struct.MeshPayload*)"(i32 {{[0-9]+}}, i32 1, i32 1, i32 1, %struct.MeshPayload* addrspacecast (%struct.MeshPayload addrspace(3)* getelementptr inbounds (%struct.GSStruct, %struct.GSStruct addrspace(3)* @[[GS]], i32 0, i32 1) to %struct.MeshPayload*))
 
 
 struct MeshPayload
