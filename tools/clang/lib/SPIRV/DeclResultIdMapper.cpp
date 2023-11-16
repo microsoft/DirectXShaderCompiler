@@ -3459,8 +3459,8 @@ void DeclResultIdMapper::decorateInterpolationMode(
 
 SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
                                                  QualType type,
-                                                 SourceLocation loc,
-                                                 spv::StorageClass sc) {
+                                                 spv::StorageClass sc,
+                                                 SourceLocation loc) {
   // Guarantee uniqueness
   uint32_t spvBuiltinId = static_cast<uint32_t>(builtIn);
   const auto builtInVar = builtinToVarMap.find(spvBuiltinId);
@@ -3535,6 +3535,12 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   // Store in map for re-use
   builtinToVarMap[spvBuiltinId] = var;
   return var;
+}
+
+SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
+                                                 QualType type,
+                                                 SourceLocation loc) {
+  return getBuiltinVar(builtIn, type, spv::StorageClass::Max, loc);
 }
 
 SpirvVariable *DeclResultIdMapper::createSpirvStageVar(

@@ -12428,7 +12428,7 @@ SpirvEmitter::processInlineSpirvBuiltinInput(const CallExpr *expr) {
 
   return declIdMapper.getBuiltinVar(
       spv::BuiltIn(builtinAttr->getBuiltInID()), funcDecl->getReturnType(),
-      funcDecl->getLocStart(), spv::StorageClass::Input);
+      spv::StorageClass::Input, funcDecl->getLocStart());
 }
 
 SpirvInstruction *
@@ -12448,7 +12448,7 @@ SpirvEmitter::processInlineSpirvBuiltinOutput(const CallExpr *expr) {
 
   SpirvInstruction *builtin = declIdMapper.getBuiltinVar(
       spv::BuiltIn(builtinAttr->getBuiltInID()), expr->getArg(0)->getType(),
-      funcDecl->getLocStart(), spv::StorageClass::Output);
+      spv::StorageClass::Output, funcDecl->getLocStart());
 
   SpirvInstruction *argValue = doExpr(expr->getArg(0));
   storeValue(builtin, argValue, funcDecl->getReturnType(),
