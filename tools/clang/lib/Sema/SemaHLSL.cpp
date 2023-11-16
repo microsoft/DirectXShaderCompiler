@@ -1650,9 +1650,10 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
 }
 
 static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
-                          SmallVectorImpl<hlsl::ParameterModifier> &paramMods) {
+                          SmallVectorImpl<hlsl::ParameterModifier> &paramMods,
+                          size_t uNumArgsWithVariadic = 0u) {
   // The first argument is the return value, which isn't included.
-  UINT i = 1, size = paramMods.size();
+  UINT i = 1;
   for (; i < pIntrinsic->uNumArgs; ++i) {
     // Once we reach varargs we can break out of this loop.
     if (IsVariadicArgument(pIntrinsic->pArgs[i]))
@@ -1663,7 +1664,7 @@ static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
   // For variadic functions, any argument not explicitly specified will be
   // considered an input argument.
   if (IsVariadicIntrinsicFunction(pIntrinsic)) {
-    for (; i < size; ++i) {
+    for (; i < uNumArgsWithVariadic; ++i) {
       paramMods.push_back(
           hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In));
     }
@@ -1732,13 +1733,9 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
 
   SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
 
-  if (isVariadic) {
-    // For variadic functions, the number of arguments is larger than the
-    // function declaration signature.
-    paramMods.resize(functionArgTypeCount);
-  }
-
-  InitParamMods(pIntrinsic, paramMods);
+  // For variadic functions, the number of arguments is larger than the
+  // function declaration signature.
+  InitParamMods(pIntrinsic, paramMods, isVariadic ? functionArgTypeCount : 0u);
 
   for (size_t i = 1; i < functionArgTypeCount; i++) {
     // Change out/inout param to reference type.
