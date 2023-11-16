@@ -2810,7 +2810,7 @@ static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_InlinedFunctions_TwiceInlinedFunctions) {
-  if (m_ver.SkipDxilVersion(1, 2))
+  if (m_ver.SkipDxilVersion(1, 6))
     return;
 
   const char *hlsl = R"(
@@ -2925,7 +2925,7 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
 
 TEST_F(PixDiaTest,
        DxcPixDxilDebugInfo_InlinedFunctions_CalledTwiceInSameCaller) {
-  if (m_ver.SkipDxilVersion(1, 2))
+  if (m_ver.SkipDxilVersion(1, 6))
     return;
 
   const char *hlsl = R"(
