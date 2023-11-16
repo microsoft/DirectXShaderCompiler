@@ -3459,7 +3459,8 @@ void DeclResultIdMapper::decorateInterpolationMode(
 
 SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
                                                  QualType type,
-                                                 SourceLocation loc) {
+                                                 SourceLocation loc,
+                                                 spv::StorageClass sc) {
   // Guarantee uniqueness
   uint32_t spvBuiltinId = static_cast<uint32_t>(builtIn);
   const auto builtInVar = builtinToVarMap.find(spvBuiltinId);
@@ -3467,7 +3468,6 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
     return builtInVar->second;
   }
   bool mayNeedFlatDecoration = false;
-  spv::StorageClass sc = spv::StorageClass::Max;
   // Valid builtins supported
   switch (builtIn) {
   case spv::BuiltIn::HelperInvocation:
@@ -3508,8 +3508,9 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
     sc = spv::StorageClass::Output;
     break;
   default:
-    assert(false && "unsupported SPIR-V builtin");
-    return nullptr;
+    assert(sc != spv::StorageClass::Max &&
+           "cannot infer storage class for SPIR-V builtin");
+    break;
   }
 
   // Create a dummy StageVar for this builtin variable

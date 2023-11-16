@@ -2754,6 +2754,8 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
       return processSpvIntrinsicCallExpr(callExpr);
     else if (funcDecl->hasAttr<VKTypeDefExtAttr>())
       return processSpvIntrinsicTypeDef(callExpr);
+    else if (funcDecl->hasAttr<VKExtBuiltinInputAttr>())
+      return processInlineSpirvBuiltinInput(callExpr);
   }
   // Intrinsic functions such as 'dot' or 'mul'
   if (hlsl::IsIntrinsicOp(funcDecl)) {
@@ -12406,6 +12408,24 @@ void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
           modeAttr->getLocation());
     }
   }
+}
+
+SpirvInstruction *
+SpirvEmitter::processInlineSpirvBuiltinInput(const CallExpr *expr) {
+  const auto *funcDecl = expr->getDirectCallee();
+  auto *builtinAttr = funcDecl->getAttr<VKExtBuiltinInputAttr>();
+
+  assert(builtinAttr != nullptr &&
+         "processInlineSpirvBuiltinInput must be passed a CallExpr for a "
+         "function declared with the [[vk::ext_builtin_input]] attribute");
+  if (expr->getNumArgs() > 0) {
+    emitError("builtin input function cannot take arguments",
+              expr->getArg(0)->getExprLoc());
+  }
+
+  return declIdMapper.getBuiltinVar(
+      spv::BuiltIn(builtinAttr->getBuiltInID()), funcDecl->getReturnType(),
+      funcDecl->getLocStart(), spv::StorageClass::Input);
 }
 
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,

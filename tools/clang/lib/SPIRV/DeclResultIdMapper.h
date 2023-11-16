@@ -195,9 +195,11 @@ public:
                             FeatureManager &features,
                             const SpirvCodeGenOptions &spirvOptions);
 
-  /// \brief Returns the SPIR-V builtin variable.
+  /// \brief Returns the SPIR-V builtin variable. Uses sc as default storage
+  /// class if it can not be inferred from the builtin.
   SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn, QualType type,
-                               SourceLocation);
+                               SourceLocation,
+                               spv::StorageClass sc = spv::StorageClass::Max);
 
   /// \brief Creates the stage output variables by parsing the semantics
   /// attached to the given function's parameter or return value and returns
