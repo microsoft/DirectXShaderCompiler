@@ -6,7 +6,7 @@ uint getValue() {
   return 0;
 }
 
-uint getVector() {
+uint2 getVector() {
   uint2 output;
   return output;
 }

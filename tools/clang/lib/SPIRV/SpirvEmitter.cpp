@@ -8978,12 +8978,15 @@ SpirvEmitter::processIntrinsicFirstbit(const CallExpr *callExpr,
                                        srcRange);
 }
 
-// Determines if the given expression is a valid output parameter to pass to
-// interlock* functions. Ideally, we could just check if the passed value is a
-// reference, but the HLSL frontend allows integers to be passed as output
-// parameters, without being marked as reference in the AST. This means we need
-// to walk the expression a bit to determine if it it a valid output parameter.
-// This function might miss some cases.
+// Returns true is the given expression can be used as an output parameter.
+//
+// Warning: this function could return false negatives.
+// HLSL had no references, and the AST handling of lvalues and rvalues is not
+// to be trusted for this usage.
+//  - output variables can be passed but marked as rvalues.
+//  - rvalues can becomes lvalues due to an operator call.
+// This means we need to walk the expression, and explicitly allow some cases.
+// I might have missed a valid use-case, hence the risk of false-negative.
 bool isValidOutputArgument(const Expr *expr) {
   // This could be either a member from an R-value, or an L-value. Checking
   // struct.
@@ -9004,7 +9007,7 @@ bool isValidOutputArgument(const Expr *expr) {
     return isValidOutputArgument(cast->getSubExpr());
 
   // For call operators, we trust the LValue() method.
-  // Haven't find cases where this one lies.
+  // Haven't found a cases where this is not true.
   if (const CXXOperatorCallExpr *call = dyn_cast<CXXOperatorCallExpr>(expr))
     return call->isLValue();
   if (const CallExpr *call = dyn_cast<CallExpr>(expr))

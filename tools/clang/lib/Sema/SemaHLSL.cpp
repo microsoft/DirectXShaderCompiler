@@ -1838,23 +1838,15 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
 }
 
 static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
-                          SmallVectorImpl<hlsl::ParameterModifier> &paramMods) {
-  // The first argument is the return value, which isn't included.
-  UINT i = 1, size = paramMods.size();
-  for (; i < pIntrinsic->uNumArgs; ++i) {
-    // Once we reach varargs we can break out of this loop.
-    if (IsVariadicArgument(pIntrinsic->pArgs[i]))
-      break;
-    paramMods.push_back(ParamModsFromIntrinsicArg(&pIntrinsic->pArgs[i]));
-  }
-
-  // For variadic functions, any argument not explicitly specified will be
-  // considered an input argument.
-  if (IsVariadicIntrinsicFunction(pIntrinsic)) {
-    for (; i < size; ++i) {
-      paramMods.push_back(
-          hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In));
-    }
+                          SmallVectorImpl<hlsl::ParameterModifier> &paramMods,
+                          size_t uVariadicArgumentCount = 0) {
+  const size_t argumentCount = pIntrinsic->uNumArgs + uVariadicArgumentCount;
+  // The first argument is the return value. Skipping.
+  for (size_t i = 1; i < argumentCount; i++) {
+    if (i < pIntrinsic->uNumArgs && !IsVariadicArgument(pIntrinsic->pArgs[i]))
+      paramMods.push_back(ParamModsFromIntrinsicArg(&pIntrinsic->pArgs[i]));
+    else
+      paramMods.push_back(hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In));
   }
 }
 
@@ -1919,14 +1911,7 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
            "otherwise g_MaxIntrinsicParamCount should be larger");
 
   SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
-
-  if (isVariadic) {
-    // For variadic functions, the number of arguments is larger than the
-    // function declaration signature.
-    paramMods.resize(functionArgTypeCount);
-  }
-
-  InitParamMods(pIntrinsic, paramMods);
+  InitParamMods(pIntrinsic, paramMods, functionArgTypeCount - pIntrinsic->uNumArgs);
 
   for (size_t i = 1; i < functionArgTypeCount; i++) {
     // Change out/inout param to reference type.
