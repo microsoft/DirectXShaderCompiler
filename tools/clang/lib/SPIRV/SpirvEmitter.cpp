@@ -9012,9 +9012,9 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
   const auto srcLoc = expr->getExprLoc();
   const auto baseType = dest->getType()->getCanonicalTypeUnqualified();
 
-  if (!baseType->isIntegerType()) {
-    emitError("can only perform atomic operations on scalar integer values",
-              dest->getLocStart());
+  if (!baseType->isIntegerType() && !baseType->isFloatingType()) {
+    llvm_unreachable("Unexpected type for atomic operation. Expecting a scalar "
+                     "integer or float values");
     return nullptr;
   }
 
