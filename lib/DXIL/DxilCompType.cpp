@@ -25,14 +25,14 @@ namespace hlsl {
 CompType::CompType() : m_Kind(Kind::Invalid) {}
 
 CompType::CompType(Kind K) : m_Kind(K) {
-    DXASSERT(m_Kind >= Kind::Invalid && m_Kind < Kind::LastEntry,
+  DXASSERT(m_Kind >= Kind::Invalid && m_Kind < Kind::LastEntry,
            "otherwise the caller passed out-of-range value");
 }
 
 CompType::CompType(unsigned int K) : CompType((Kind)K) {}
 
 bool CompType::operator==(const CompType &o) const {
-     return m_Kind == o.m_Kind;
+  return m_Kind == o.m_Kind;
 }
 
 CompType::Kind CompType::GetKind() const { return m_Kind; }
@@ -89,7 +89,7 @@ CompType CompType::getU32() { return CompType(Kind::U32); }
 
 CompType CompType::getU64() { return CompType(Kind::U64); }
 
-CompType CompType::getI1() {    return CompType(Kind::I1); }
+CompType CompType::getI1() { return CompType(Kind::I1); }
 
 CompType CompType::getSNormF16() { return CompType(Kind::SNormF16); }
 
@@ -298,7 +298,7 @@ PointerType *CompType::GetLLVMPtrType(LLVMContext &Ctx,
 }
 
 Type *CompType::GetLLVMBaseType(llvm::LLVMContext &C) const {
-     return GetBaseCompType().GetLLVMType(C);
+  return GetBaseCompType().GetLLVMType(C);
 }
 
 CompType CompType::GetCompType(Type *type) {
