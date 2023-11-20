@@ -307,7 +307,7 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
   /// Load/Store instructions related to this argument may have been replaced
   /// with other instructions, so we need to get its original mapped variables.
   unsigned argIndex = 0;
-  for (auto *arg : inst->getArgs())
+  for (auto *arg : inst->getArgs()) {
     if (currentFunc->getMappedFuncParam(arg)) {
       createVertexStore(arg,
                         createVertexLoad(currentFunc->getMappedFuncParam(arg)));
