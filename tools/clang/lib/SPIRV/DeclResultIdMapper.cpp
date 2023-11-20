@@ -938,7 +938,8 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
   } else {
     return createStageVars(sigPoint, paramDecl, /*asInput=*/true, type,
                            arraySize, "in.var", llvm::None, loadedValue,
-                           /*noWriteBack=*/false, &inheritSemantic);
+                           /*noWriteBack=*/false, &inheritSemantic,
+                           , paramDecl->hasAttr<HLSLNoInterpolationAttr>());
   }
 }
 

@@ -306,11 +306,33 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
     return true;
   /// Load/Store instructions related to this argument may have been replaced
   /// with other instructions, so we need to get its original mapped variables.
+  unsigned argIndex = 0;
   for (auto *arg : inst->getArgs())
     if (currentFunc->getMappedFuncParam(arg)) {
       createVertexStore(arg,
                         createVertexLoad(currentFunc->getMappedFuncParam(arg)));
     }
+    auto funcParam = inst->getFunction()->getParameters()[argIndex];
+    if (arg->isNoninterpolated()) {
+      /// Broadcast nointerpolated flag to each called function which uses a
+      /// nointerpolated variable as its functionCall parameter within a call chain.
+      funcParam->setNoninterpolated();
+    }
+    paramCaller[funcParam].push_back(arg);
+    if (funcParam->isNoninterpolated()) {
+      /// Error: this broadcast process is from top to lower, hence this argument
+      ///        should be noninterpolated (will be expanded) here.
+      ///        When any matched param is noninterpolated, it means one or more
+      ///        noninterpolated variable will be passed as an expanded array here.
+      for (auto caller : paramCaller[funcParam])
+        if (!caller->isNoninterpolated()) {
+          emitError("Current function could only use noninterpolated variable as input.",
+              caller->getSourceLocation());
+          return 0;
+        }
+    }
+    argIndex++;
+  }
   currentFunc->addInstrCacheToFront();
   return true;
 }
