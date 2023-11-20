@@ -11457,10 +11457,7 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
       case clang::attr::HLSLNodeDispatchGrid:
       case clang::attr::HLSLNodeMaxDispatchGrid:
       case clang::attr::HLSLNodeMaxRecursionDepth: {
-        switch (shaderKind) {
-        case DXIL::ShaderKind::Node:
-          break;
-        default:
+        if (shaderKind != DXIL::ShaderKind::Node) {
           self->Diag(pAttr->getRange().getBegin(),
                      diag::err_hlsl_attribute_unsupported_stage)
               << pAttr->getSpelling() << "node";
