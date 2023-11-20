@@ -8,13 +8,15 @@ if (NOT HLSL_ENABLE_DEBUG_ITERATORS)
 endif (NOT HLSL_ENABLE_DEBUG_ITERATORS)
 
 # Need DirectX-Headers module if not on windows
-if (NOT WIN32)
-  if (IS_DIRECTORY "${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers")
-    set(DIRECTX_HEADER_INCLUDE_DIR ${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers/include PARENT_SCOPE)
-  else()
-    message(FATAL_ERROR "DirectX-Headers was not found - required for reflection support on *nix see https://github.com/microsoft/DirectX-Headers")
-  endif()
-endif (NOT WIN32)
+if (NOT DIRECTX_HEADER_INCLUDE_DIR)
+  if (NOT WIN32)
+    if (IS_DIRECTORY "${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers")
+      set(DIRECTX_HEADER_INCLUDE_DIR ${DXC_EXTERNAL_ROOT_DIR}/DirectX-Headers/include PARENT_SCOPE)
+    else()
+      message(FATAL_ERROR "DirectX-Headers was not found - required for reflection support on *nix see https://github.com/microsoft/DirectX-Headers")
+    endif()
+  endif (NOT WIN32)
+endif(NOT DIRECTX_HEADER_INCLUDE_DIR)
 
 # Enabling SPIR-V codegen requires SPIRV-Headers for spirv.hpp and
 # SPIRV-Tools for SPIR-V disassembling functionality.
