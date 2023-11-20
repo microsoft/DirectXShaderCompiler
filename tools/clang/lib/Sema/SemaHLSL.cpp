@@ -1648,13 +1648,11 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   DXASSERT(pArg->qwUsage & AR_QUAL_IN, "else usage is incorrect");
   return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
 }
-
-static SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount>
-createParamMods(const HLSL_INTRINSIC *pIntrinsic,
-                size_t uVariadicArgumentCount = 0u) {
-  SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
+                          SmallVectorImpl<hlsl::ParameterModifier> &paramMods,
+                          size_t VariadicArgumentCount = 0u) {
   // The first argument is the return value, which isn't included.
-  for (UINT i = 1; i < pIntrinsic->uNumArgs; ++i) {
+  for (unsigned i = 1; i < pIntrinsic->uNumArgs; ++i) {
     // Once we reach varargs we can break out of this loop.
     if (IsVariadicArgument(pIntrinsic->pArgs[i]))
       break;
@@ -1662,11 +1660,10 @@ createParamMods(const HLSL_INTRINSIC *pIntrinsic,
   }
   // For variadic functions, any argument not explicitly specified will be
   // considered an input argument.
-  for (UINT i = 0; i < uVariadicArgumentCount; ++i) {
+  for (unsigned i = 0; i < VariadicArgumentCount; ++i) {
     paramMods.push_back(
         hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In));
   }
-  return paramMods;
 }
 
 static bool IsBuiltinTable(LPCSTR tableName) {
@@ -1727,12 +1724,13 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
   const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
   // For variadic functions, the number of arguments is larger than the
   // function declaration signature.
-  const size_t uVariadicArgumentCount =
+  const size_t VariadicArgumentCount =
       isVariadic ? (functionArgTypeCount - (pIntrinsic->uNumArgs - 1)) : 0;
   DXASSERT(isVariadic || functionArgTypeCount - 1 <= g_MaxIntrinsicParamCount,
            "otherwise g_MaxIntrinsicParamCount should be larger");
 
-  auto paramMods = createParamMods(pIntrinsic, uVariadicArgumentCount);
+  SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+  InitParamMods(pIntrinsic, paramMods, VariadicArgumentCount);
 
   for (size_t i = 1; i < functionArgTypeCount; i++) {
     // Change out/inout param to reference type.
@@ -3025,7 +3023,8 @@ private:
         &templateParamNamedDeclsCount);
     // }
 
-    auto paramMods = createParamMods(intrinsic);
+    SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+    InitParamMods(intrinsic, paramMods);
 
     // Consider adding more cases where return type can be handled a priori.
     // Ultimately #260431 should do significantly better.
@@ -3461,7 +3460,8 @@ private:
       // Get types for parameters.
       SmallVector<QualType, 2> paramTypes =
           VkIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
-      auto paramMods = createParamMods(intrinsic);
+      SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+      InitParamMods(intrinsic, paramMods);
 
       // Create FunctionDecl.
       QualType fnType = VkIntrinsicFunctionType(paramTypes, paramMods);
@@ -5270,7 +5270,8 @@ public:
       parameterTypes[0] = m_context->getLValueReferenceType(retTy);
 
     // Create a new specialization.
-    auto paramMods = createParamMods(intrinsic);
+    SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+    InitParamMods(intrinsic, paramMods);
 
     for (unsigned int i = 1; i < parameterTypeCount; i++) {
       // Change out/inout parameter type to rvalue reference type.
