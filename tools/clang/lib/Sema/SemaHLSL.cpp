@@ -15425,20 +15425,21 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
 // Diagnose input node record to make sure it has exactly one SV_DispatchGrid
 // semantics. Recursivelly walk all fields on the record and all of its base
 // classes/structs
-void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
+void DiagnoseDispatchGridSemantics(Sema &S, RecordDecl *InputRecordDecl,
                                    SourceLocation NodeRecordLoc,
                                    SourceLocation &DispatchGridLoc,
                                    bool &Found) {
-
-  // Walk up the inheritance chain and check all fields on base classes
-  for (auto &B : InputRecordDecl->bases()) {
-    const RecordType *BaseStructType = B.getType()->getAsStructureType();
-    if (nullptr != BaseStructType) {
-      CXXRecordDecl *BaseTypeDecl =
-          dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
-      if (nullptr != BaseTypeDecl) {
-        DiagnoseDispatchGridSemantics(S, BaseTypeDecl, NodeRecordLoc,
-                                      DispatchGridLoc, Found);
+  if (auto *CXXInputRecordDecl = dyn_cast<CXXRecordDecl>(InputRecordDecl)) {
+    // Walk up the inheritance chain and check all fields on base classes
+    for (auto &B : CXXInputRecordDecl->bases()) {
+      const RecordType *BaseStructType = B.getType()->getAsStructureType();
+      if (nullptr != BaseStructType) {
+        CXXRecordDecl *BaseTypeDecl =
+            dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
+        if (nullptr != BaseTypeDecl) {
+          DiagnoseDispatchGridSemantics(S, BaseTypeDecl, NodeRecordLoc,
+                                        DispatchGridLoc, Found);
+        }
       }
     }
   }
@@ -15500,7 +15501,7 @@ void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
   }
 }
 
-void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *NodeRecordStruct,
+void DiagnoseDispatchGridSemantics(Sema &S, RecordDecl *NodeRecordStruct,
                                    SourceLocation NodeRecordLoc, bool &Found) {
   SourceLocation DispatchGridLoc;
   DiagnoseDispatchGridSemantics(S, NodeRecordStruct, NodeRecordLoc,
@@ -15677,8 +15678,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       // Find parameter that is the node input record
       if (hlsl::IsHLSLNodeInputType(ParamType)) {
         // Node records are template types
-        if (CXXRecordDecl *NodeStructDecl =
-                hlsl::GetHLSLNodeRecordDecl(ParamType)) {
+        if (RecordDecl *NodeStructDecl =
+                hlsl::GetRecordDeclFromNodeObjectType(ParamType)) {
           // Diagnose any SV_DispatchGrid semantics used in record.
           DiagnoseDispatchGridSemantics(S, NodeStructDecl, PD->getLocation(),
                                         Found);
@@ -15700,8 +15701,8 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     // Find parameter that is the node input record
     if (hlsl::IsHLSLNodeOutputType(ParamType)) {
       // Node records are template types
-      if (CXXRecordDecl *NodeStructDecl =
-              hlsl::GetHLSLNodeRecordDecl(ParamType)) {
+      if (RecordDecl *NodeStructDecl =
+              hlsl::GetRecordDeclFromNodeObjectType(ParamType)) {
         // Diagnose any SV_DispatchGrid semantics used in record.
         bool OutputFound = false;
         DiagnoseDispatchGridSemantics(S, NodeStructDecl, PD->getLocation(),
