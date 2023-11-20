@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 void main() {
   int a, b;
@@ -6,12 +6,12 @@ void main() {
 
 // CHECK:      OpBranch %while_check
 // CHECK-NEXT: %while_check = OpLabel
-// CHECK-NEXT: [[cond:%\d+]] = OpLoad %bool %cond
+// CHECK-NEXT: [[cond:%[0-9]+]] = OpLoad %bool %cond
 // CHECK-NEXT: OpLoopMerge %while_merge %while_continue None
 // CHECK-NEXT: OpBranchConditional [[cond]] %while_body %while_merge
   while(cond) {
 // CHECK-NEXT: %while_body = OpLabel
-// CHECK-NEXT: [[b:%\d+]] = OpLoad %int %b
+// CHECK-NEXT: [[b:%[0-9]+]] = OpLoad %int %b
 // CHECK-NEXT: OpSelectionMerge %switch_merge None
 // CHECK-NEXT: OpSwitch [[b]] %switch_default 1 %switch_1 2 %switch_2 5 %switch_5
     switch(b) {
@@ -43,12 +43,12 @@ void main() {
 // CHECK-NEXT: OpBranch %for_check
       default:
       // CHECK-NEXT: %for_check = OpLabel
-      // CHECK:      [[i_lt_10:%\d+]] = OpSLessThan %bool {{%\d+}} %int_10
+      // CHECK:      [[i_lt_10:%[0-9]+]] = OpSLessThan %bool {{%[0-9]+}} %int_10
       // CHECK-NEXT: OpLoopMerge %for_merge %for_continue None
       // CHECK-NEXT: OpBranchConditional [[i_lt_10]] %for_body %for_merge
         for (int i=0; i<10; ++i) {
         // CHECK-NEXT: %for_body = OpLabel
-        // CHECK-NEXT: [[cond1:%\d+]] = OpLoad %bool %cond
+        // CHECK-NEXT: [[cond1:%[0-9]+]] = OpLoad %bool %cond
         // CHECK-NEXT: OpSelectionMerge %if_merge None
         // CHECK-NEXT: OpBranchConditional [[cond1]] %if_true %if_false
           if (cond) {

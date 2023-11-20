@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
     float4 m : MMM;
@@ -22,49 +22,49 @@ struct Derived : Base {
 };
 
 void main(in Derived input, out Derived output) {
-// CHECK:         [[a:%\d+]] = OpLoad %v4float %in_var_AAA
-// CHECK-NEXT:    [[b:%\d+]] = OpLoad %v4float %in_var_BBB
+// CHECK:         [[a:%[0-9]+]] = OpLoad %v4float %in_var_AAA
+// CHECK-NEXT:    [[b:%[0-9]+]] = OpLoad %v4float %in_var_BBB
 
-// CHECK-NEXT:    [[m:%\d+]] = OpLoad %v4float %in_var_MMM
-// CHECK-NEXT:    [[s:%\d+]] = OpCompositeConstruct %S [[m]]
+// CHECK-NEXT:    [[m:%[0-9]+]] = OpLoad %v4float %in_var_MMM
+// CHECK-NEXT:    [[s:%[0-9]+]] = OpCompositeConstruct %S [[m]]
 
-// CHECK-NEXT:  [[pos:%\d+]] = OpLoad %v4float %in_var_SV_Position
+// CHECK-NEXT:  [[pos:%[0-9]+]] = OpLoad %v4float %in_var_SV_Position
 
-// CHECK-NEXT: [[base:%\d+]] = OpCompositeConstruct %Base [[a]] [[b]] [[s]] [[pos]]
+// CHECK-NEXT: [[base:%[0-9]+]] = OpCompositeConstruct %Base [[a]] [[b]] [[s]] [[pos]]
 
-// CHECK-NEXT:    [[n:%\d+]] = OpLoad %v3float %in_var_NNN
-// CHECK-NEXT:    [[t:%\d+]] = OpCompositeConstruct %T [[n]]
+// CHECK-NEXT:    [[n:%[0-9]+]] = OpLoad %v3float %in_var_NNN
+// CHECK-NEXT:    [[t:%[0-9]+]] = OpCompositeConstruct %T [[n]]
 
-// CHECK-NEXT:    [[c:%\d+]] = OpLoad %v4float %in_var_CCC
-// CHECK-NEXT:    [[d:%\d+]] = OpLoad %v4float %in_var_DDD
+// CHECK-NEXT:    [[c:%[0-9]+]] = OpLoad %v4float %in_var_CCC
+// CHECK-NEXT:    [[d:%[0-9]+]] = OpLoad %v4float %in_var_DDD
 
-// CHECK-NEXT:  [[drv:%\d+]] = OpCompositeConstruct %Derived [[base]] [[t]] [[c]] [[d]]
+// CHECK-NEXT:  [[drv:%[0-9]+]] = OpCompositeConstruct %Derived [[base]] [[t]] [[c]] [[d]]
 // CHECK-NEXT:                 OpStore %param_var_input [[drv]]
 
-// CHECK-NEXT:      {{%\d+}} = OpFunctionCall %void %src_main %param_var_input %param_var_output
+// CHECK-NEXT:      {{%[0-9]+}} = OpFunctionCall %void %src_main %param_var_input %param_var_output
 
-// CHECK-NEXT:  [[drv:%\d+]] = OpLoad %Derived %param_var_output
+// CHECK-NEXT:  [[drv_0:%[0-9]+]] = OpLoad %Derived %param_var_output
 
-// CHECK-NEXT: [[base:%\d+]] = OpCompositeExtract %Base [[drv]] 0
-// CHECK-NEXT:    [[a:%\d+]] = OpCompositeExtract %v4float [[base]] 0
-// CHECK-NEXT:                 OpStore %out_var_AAA [[a]]
-// CHECK-NEXT:    [[b:%\d+]] = OpCompositeExtract %v4float [[base]] 1
-// CHECK-NEXT:                 OpStore %out_var_BBB [[b]]
+// CHECK-NEXT: [[base_0:%[0-9]+]] = OpCompositeExtract %Base [[drv_0]] 0
+// CHECK-NEXT:    [[a_0:%[0-9]+]] = OpCompositeExtract %v4float [[base_0]] 0
+// CHECK-NEXT:                 OpStore %out_var_AAA [[a_0]]
+// CHECK-NEXT:    [[b_0:%[0-9]+]] = OpCompositeExtract %v4float [[base_0]] 1
+// CHECK-NEXT:                 OpStore %out_var_BBB [[b_0]]
 
-// CHECK-NEXT:    [[s:%\d+]] = OpCompositeExtract %S [[base]] 2
-// CHECK-NEXT:    [[m:%\d+]] = OpCompositeExtract %v4float [[s]] 0
-// CHECK-NEXT:                 OpStore %out_var_MMM [[m]]
+// CHECK-NEXT:    [[s_0:%[0-9]+]] = OpCompositeExtract %S [[base_0]] 2
+// CHECK-NEXT:    [[m_0:%[0-9]+]] = OpCompositeExtract %v4float [[s_0]] 0
+// CHECK-NEXT:                 OpStore %out_var_MMM [[m_0]]
 
-// CHECK-NEXT:  [[pos:%\d+]] = OpCompositeExtract %v4float [[base]] 3
-// CHECK-NEXT:                 OpStore %gl_Position [[pos]]
+// CHECK-NEXT:  [[pos_0:%[0-9]+]] = OpCompositeExtract %v4float [[base_0]] 3
+// CHECK-NEXT:                 OpStore %gl_Position [[pos_0]]
 
-// CHECK-NEXT:    [[t:%\d+]] = OpCompositeExtract %T [[drv]] 1
-// CHECK-NEXT:    [[n:%\d+]] = OpCompositeExtract %v3float [[t]] 0
-// CHECK-NEXT:                 OpStore %out_var_NNN [[n]]
+// CHECK-NEXT:    [[t_0:%[0-9]+]] = OpCompositeExtract %T [[drv_0]] 1
+// CHECK-NEXT:    [[n_0:%[0-9]+]] = OpCompositeExtract %v3float [[t_0]] 0
+// CHECK-NEXT:                 OpStore %out_var_NNN [[n_0]]
 
-// CHECK-NEXT:    [[c:%\d+]] = OpCompositeExtract %v4float [[drv]] 2
-// CHECK-NEXT:                 OpStore %out_var_CCC [[c]]
-// CHECK-NEXT:    [[d:%\d+]] = OpCompositeExtract %v4float [[drv]] 3
-// CHECK-NEXT:                 OpStore %out_var_DDD [[d]]
+// CHECK-NEXT:    [[c_0:%[0-9]+]] = OpCompositeExtract %v4float [[drv_0]] 2
+// CHECK-NEXT:                 OpStore %out_var_CCC [[c_0]]
+// CHECK-NEXT:    [[d_0:%[0-9]+]] = OpCompositeExtract %v4float [[drv_0]] 3
+// CHECK-NEXT:                 OpStore %out_var_DDD [[d_0]]
     output = input;
 }
