@@ -8978,6 +8978,51 @@ SpirvEmitter::processIntrinsicFirstbit(const CallExpr *callExpr,
                                        srcRange);
 }
 
+// Returns true is the given expression can be used as an output parameter.
+//
+// Warning: this function could return false negatives.
+// HLSL had no references, and the AST handling of lvalues and rvalues is not
+// to be trusted for this usage.
+//  - output variables can be passed but marked as rvalues.
+//  - rvalues can becomes lvalues due to an operator call.
+// This means we need to walk the expression, and explicitly allow some cases.
+// I might have missed a valid use-case, hence the risk of false-negative.
+bool isValidOutputArgument(const Expr *expr) {
+  // This could be either a member from an R-value, or an L-value. Checking
+  // struct.
+  if (const MemberExpr *member = dyn_cast<MemberExpr>(expr))
+    return isValidOutputArgument(member->getBase());
+
+  // This could be either a subscript into an R-value, or an L-value. Checking
+  // array.
+  if (const ArraySubscriptExpr *item = dyn_cast<ArraySubscriptExpr>(expr))
+    return isValidOutputArgument(item->getBase());
+
+  // Accessor to HLSL vectors.
+  if (const HLSLVectorElementExpr *vec = dyn_cast<HLSLVectorElementExpr>(expr))
+    return isValidOutputArgument(vec->getBase());
+
+  // Going through implicit casts.
+  if (const ImplicitCastExpr *cast = dyn_cast<ImplicitCastExpr>(expr))
+    return isValidOutputArgument(cast->getSubExpr());
+
+  // For call operators, we trust the LValue() method.
+  // Haven't found a cases where this is not true.
+  if (const CXXOperatorCallExpr *call = dyn_cast<CXXOperatorCallExpr>(expr))
+    return call->isLValue();
+  if (const CallExpr *call = dyn_cast<CallExpr>(expr))
+    return call->isLValue();
+
+  // If we have a declaration, only accept l-values/variables.
+  if (const DeclRefExpr *ref = dyn_cast<DeclRefExpr>(expr)) {
+    if (!ref->isLValue())
+      return false;
+    return dyn_cast<VarDecl>(ref->getDecl()) != nullptr;
+  }
+
+  return false;
+}
+
 SpirvInstruction *
 SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
                                                 hlsl::IntrinsicOp opcode) {
@@ -9039,7 +9084,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
                                        const CallExpr *callExpr,
                                        uint32_t outputArgIndex) {
     const auto outputArg = callExpr->getArg(outputArgIndex);
-    if (dyn_cast<DeclRefExpr>(outputArg) == nullptr) {
+    if (!isValidOutputArgument(outputArg)) {
       emitError(
           "InterlockedCompareExchange requires a reference as output parameter",
           outputArg->getExprLoc());
