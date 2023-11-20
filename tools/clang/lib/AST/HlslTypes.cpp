@@ -867,6 +867,24 @@ bool GetHLSLSubobjectKind(clang::QualType type,
   return false;
 }
 
+clang::RecordDecl *GetRecordDeclFromNodeObjectType(clang::QualType ObjectTy) {
+  ObjectTy = ObjectTy.getCanonicalType();
+  DXASSERT(IsHLSLNodeType(ObjectTy), "Expected Node Object type");
+  if (const CXXRecordDecl *CXXRD = ObjectTy->getAsCXXRecordDecl()) {
+
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
+
+      auto &TemplateArgs = templateDecl->getTemplateArgs();
+      clang::QualType RecType = TemplateArgs[0].getAsType();
+      if (const RecordType *RT = RecType->getAs<RecordType>())
+        return RT->getDecl();
+    }
+  }
+
+  return nullptr;
+}
+
 bool IsHLSLRayQueryType(clang::QualType type) {
   type = type.getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {

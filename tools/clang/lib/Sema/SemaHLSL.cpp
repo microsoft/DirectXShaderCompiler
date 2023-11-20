@@ -11458,7 +11458,6 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
       switch (pAttr->getKind()) {
-
       case clang::attr::HLSLWaveSize: {
         switch (shaderKind) {
         case DXIL::ShaderKind::Compute:
@@ -11471,6 +11470,22 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
               << "compute or node";
           break;
         }
+        break;
+      }
+      case clang::attr::HLSLNodeLaunch:
+      case clang::attr::HLSLNodeIsProgramEntry:
+      case clang::attr::HLSLNodeId:
+      case clang::attr::HLSLNodeLocalRootArgumentsTableIndex:
+      case clang::attr::HLSLNodeShareInputOf:
+      case clang::attr::HLSLNodeDispatchGrid:
+      case clang::attr::HLSLNodeMaxDispatchGrid:
+      case clang::attr::HLSLNodeMaxRecursionDepth: {
+        if (shaderKind != DXIL::ShaderKind::Node) {
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << pAttr->getSpelling() << "node";
+        }
+        break;
       }
       }
     }
@@ -15707,7 +15722,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     auto *NodeArraySizeAttr = Param->getAttr<HLSLNodeArraySizeAttr>();
     auto *UnboundedSparseNodesAttr =
         Param->getAttr<HLSLUnboundedSparseNodesAttr>();
-
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(ParamTy)) {
       InputCount++;
@@ -15792,19 +15806,16 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
               << HLSLNodeObjectAttr::ConvertRecordTypeToStr(Kind);
       }
     }
-
     HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
         Param->getAttr<HLSLMaxRecordsSharedWithAttr>();
     if (ExistingMRSWA) {
       StringRef sharedName = ExistingMRSWA->getName()->getName();
-      unsigned int ArgIdx = 0;
       bool Found = false;
-      while (ArgIdx < FD->getNumParams()) {
-        const ParmVarDecl *ParamDecl = FD->getParamDecl(ArgIdx);
+      for (const ParmVarDecl *ParamDecl : FD->params()) {
         // validation that MRSW doesn't reference its own parameter is
         // already done at
         // SemaHLSL.cpp:ValidateMaxRecordsSharedWithAttributes so we don't
-        // need to check that ArgIdx != Idx.
+        // need to check that we are on the same argument.
         if (ParamDecl->getName() == sharedName) {
           // now we need to check that this parameter has an output record type.
           hlsl::NodeFlags nodeFlags;
@@ -15816,12 +15827,34 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
             }
           }
         }
-        ArgIdx++;
       }
 
       if (!Found) {
         S.Diag(ExistingMRSWA->getLocation(),
                diag::err_hlsl_maxrecordssharedwith_references_invalid_arg);
+      }
+    }
+
+    // Make sure NodeTrackRWInputSharing attribute cannot be applied to
+    // Input Records that are not RWDispatchNodeInputRecord
+    if (hlsl::IsHLSLNodeInputType(ParamTy)) {
+      hlsl::NodeFlags nodeFlags;
+      if (GetHLSLNodeIORecordType(Param, nodeFlags)) {
+        hlsl::NodeIOProperties node(nodeFlags);
+
+        // determine if the NodeTrackRWInputSharing is an attribute on the
+        // template type
+        clang::RecordDecl *RD = hlsl::GetRecordDeclFromNodeObjectType(ParamTy);
+        if (RD) {
+          // Emit a diagnostic if the record is not RWDispatchNode and
+          // if it has the NodeTrackRWInputSharing attribute
+          if (RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>() &&
+              node.Flags.GetNodeIOKind() !=
+                  DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
+            S.Diags.Report(Param->getLocation(),
+                           diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
+          }
+        }
       }
     }
   }
@@ -15854,13 +15887,15 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
     return;
   }
 
+  isActiveEntry = true;
+
   std::string profile = S.getLangOpts().HLSLProfile;
   const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
   const llvm::StringRef fullName = ShaderModel::FullNameFromKind(SM->GetKind());
 
   // don't add the attribute for an invalid profile, like library
   if (fullName.empty()) {
-    return;
+    llvm_unreachable("invalid shader kind");
   }
 
   // At this point, we've found the active entry, so we'll take a note of that
@@ -15868,12 +15903,12 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
   isActiveEntry = true;
 
   HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
-  // Don't add the attribute if it already exists as an attribute on the decl.
-  // In the special case that the target profile is compute and the
-  // entry decl already has a node shader attr, don't do anything
+  // Don't add the attribute if it already exists as an attribute on the decl,
+  // and emit an error.
   if (currentShaderAttr) {
     llvm::StringRef currentFullName = currentShaderAttr->getStage();
     if (currentFullName != fullName) {
+
       S.Diag(currentShaderAttr->getLocation(),
              diag::err_hlsl_profile_conflicts_with_shader_attribute)
           << fullName << profile << currentFullName << EntryPointName;
