@@ -23,7 +23,7 @@ set(SOURCES
   DxilLib.cpp
   DxilLib.def
   DxilContainerBuilder.cpp
-  DxilValidator.cpp
+  DxilLibValidator.cpp
 )
 
 add_llvm_library(testdxil SHARED ${SOURCES})
