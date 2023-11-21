@@ -18,9 +18,9 @@ add_dependencies(DxilLibTests dxil dxcompiler)
 
 
 if(WIN32)
-  set(SUBDIR, $<CONFIGURATION>)
+  set(SUBDIR $<CONFIGURATION>)
 else(WIN32)
-  set(SUBDIR, '.')
+  set(SUBDIR '.')
 endif(WIN32)
 
 add_custom_command(TARGET DxilLibTests POST_BUILD

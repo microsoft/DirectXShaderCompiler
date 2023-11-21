@@ -71,9 +71,9 @@ void CompileSomething(dxc::DxcDllSupport &compilerLib,
   ASSERT_TRUE(
       SUCCEEDED(compiler->Compile(sourceBlob, L"hlsl.hlsl", L"main", L"ps_6_0",
                                   nullptr, 0, nullptr, 0, nullptr, &result)));
-  HRESULT status;
+  HRESULT status = S_OK;
   ASSERT_TRUE(SUCCEEDED(result->GetStatus(&status)));
-  ASSERT_TRUE(SUCCEEDED(status));
+  EXPECT_TRUE(SUCCEEDED(status));
   *outResult = result.Detach();
 }
 
@@ -99,8 +99,9 @@ TEST(DxilLibTest, LoadFromCompiler) {
   CComPtr<IDxcBlobEncoding> errBuf;
   ASSERT_TRUE(SUCCEEDED(result->GetErrorBuffer(&errBuf)));
 
-  EXPECT_EQ(errBuf->GetBufferSize(), 0U)
-      << "Unexpected warning found in compiler error buffer: "
+  if (errBuf)
+    EXPECT_EQ(errBuf->GetBufferSize(), 0U)
+      << "Unexpected diagnostics found in compiler error buffer: "
       << (const char *)errBuf->GetBufferPointer();
 }
 
@@ -131,22 +132,24 @@ TEST(DxilLibTest, LoadFromValidator) {
   ASSERT_TRUE(SUCCEEDED(compileResult->GetResult(&blob)));
 
   CComPtr<IDxcOperationResult> validationResult1;
-  HRESULT status1;
+  HRESULT status1 = S_OK;
   CComPtr<IDxcBlobEncoding> errBuf1;
   ASSERT_TRUE(SUCCEEDED(validator1->Validate(blob, DxcValidatorFlags_Default,
                                              &validationResult1)));
   ASSERT_TRUE(SUCCEEDED(validationResult1->GetStatus(&status1)));
   EXPECT_TRUE(SUCCEEDED(status1));
   ASSERT_TRUE(SUCCEEDED(validationResult1->GetErrorBuffer(&errBuf1)));
-  EXPECT_EQ(errBuf1->GetBufferSize(), 0U);
+  if (errBuf1)
+    EXPECT_EQ(errBuf1->GetBufferSize(), 0U) << "Unexpected diagnostics found in validator1 error buffer: " << (const char *)errBuf1->GetBufferPointer();
 
   CComPtr<IDxcOperationResult> validationResult2;
-  HRESULT status2;
+  HRESULT status2 = S_OK;
   CComPtr<IDxcBlobEncoding> errBuf2;
   ASSERT_TRUE(SUCCEEDED(validator2->Validate(blob, DxcValidatorFlags_Default,
                                              &validationResult2)));
   ASSERT_TRUE(SUCCEEDED(validationResult2->GetStatus(&status2)));
   EXPECT_TRUE(SUCCEEDED(status2));
   ASSERT_TRUE(SUCCEEDED(validationResult2->GetErrorBuffer(&errBuf2)));
-  EXPECT_EQ(errBuf2->GetBufferSize(), 0U);
+  if (errBuf2)
+    EXPECT_EQ(errBuf2->GetBufferSize(), 0U) << "Unexpected diagnostics found in validator2 error buffer: " << (const char *)errBuf2->GetBufferPointer();
 }
