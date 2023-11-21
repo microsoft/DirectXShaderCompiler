@@ -9,8 +9,15 @@
 [[vk::ext_builtin_output(/* FragStencilRefEXT */ 5014)]]
 static int gl_FragStencilRefARB;
 
+void assign(out int val) {
+  val = 123;
+}
+
 [[vk::ext_extension("SPV_EXT_shader_stencil_export")]]
 void main() {
   // CHECK: OpStore [[fragStencilVar]] %int_10
   gl_FragStencilRefARB = 10;
+
+  // CHECK: OpFunctionCall %void %assign [[fragStencilVar]]
+  assign(gl_FragStencilRefARB);
 }
