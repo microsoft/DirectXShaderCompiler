@@ -2628,6 +2628,62 @@ bool DeclResultIdMapper::validateShaderStageVar(SemanticInfo *semantic,
   return true;
 }
 
+SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
+    const NamedDecl *decl, QualType evalType, QualType type,
+    SemanticInfo *semanticToUse, const hlsl::SigPoint *sigPoint) {
+  const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
+  auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
+      type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
+      decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
+  StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
+                     getLocationAndComponentCount(astContext, type));
+  stageVar2.setSpirvInstr(baseInstanceVar);
+  stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
+  stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
+  stageVar2.setIsSpirvBuiltin();
+  stageVars.push_back(stageVar2);
+  return baseInstanceVar;
+}
+
+SpirvVariable *DeclResultIdMapper::createSpirvStageVariable(
+    const hlsl::SigPoint *sigPoint, SemanticInfo *semanticToUse,
+    const NamedDecl *decl, QualType evalType, QualType type, bool asNoInterp,
+    const llvm::StringRef namePrefix) {
+  const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
+  StageVar stageVar(
+      sigPoint, *semanticToUse, builtinAttr, evalType,
+      // For HS/DS/GS, we have already stripped the outmost arrayness on type.
+      getLocationAndComponentCount(astContext, type));
+  const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
+  SpirvVariable *varInstr =
+      createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
+
+  if (!varInstr)
+    return nullptr;
+
+  if (asNoInterp)
+    varInstr->setNoninterpolated();
+
+  stageVar.setSpirvInstr(varInstr);
+  stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
+  stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+      stageVar.getStorageClass() == spv::StorageClass::Output) {
+    stageVar.setEntryPoint(entryFunction);
+  }
+  decorateStageVarWithIntrinsicAttrs(decl, &stageVar, varInstr);
+  stageVars.push_back(stageVar);
+
+  // Emit OpDecorate* instructions to link this stage variable with the HLSL
+  // semantic it is created for
+  spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
+
+  // We have semantics attached to this decl, which means it must be a
+  // function/parameter/variable. All are DeclaratorDecls.
+  stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
+  return varInstr;
+}
+
 QualType DeclResultIdMapper::getTypeForSpirvStageVariable(
     QualType type, hlsl::Semantic::Kind semanticKind,
     hlsl::SigPoint::Kind sigPointKind, const NamedDecl *decl,
@@ -2803,8 +2859,6 @@ bool DeclResultIdMapper::createStageVars(
       return false;
     }
 
-    const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
-
     // Special handling of certain mappings between HLSL semantics and
     // SPIR-V builtins:
     // * SV_CullDistance/SV_ClipDistance are outsourced to GlPerVertex.
@@ -2818,46 +2872,19 @@ bool DeclResultIdMapper::createStageVars(
     QualType evalType = getTypeForSpirvStageVariable(
         type, semanticKind, sigPointKind, decl, arraySize);
 
-    StageVar stageVar(
-        sigPoint, *semanticToUse, builtinAttr, evalType,
-        // For HS/DS/GS, we have already stripped the outmost arrayness on type.
-        getLocationAndComponentCount(astContext, type));
-    const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
-    SpirvVariable *varInstr =
-        createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
-
-    if (!varInstr)
+    SpirvVariable *varInstr = createSpirvStageVariable(
+        sigPoint, semanticToUse, decl, evalType, type, asNoInterp, namePrefix);
+    if (!varInstr) {
       return false;
-
-    if (asNoInterp)
-      varInstr->setNoninterpolated();
-
-    stageVar.setSpirvInstr(varInstr);
-    stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
-    stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
-    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
-        stageVar.getStorageClass() == spv::StorageClass::Output) {
-      stageVar.setEntryPoint(entryFunction);
     }
-    decorateStageVarWithIntrinsicAttrs(decl, &stageVar, varInstr);
-    stageVars.push_back(stageVar);
-
-    // Emit OpDecorate* instructions to link this stage variable with the HLSL
-    // semantic it is created for
-    spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
-
-    // We have semantics attached to this decl, which means it must be a
-    // function/parameter/variable. All are DeclaratorDecls.
-    stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
 
     // Special case: The DX12 SV_InstanceID always counts from 0, even if the
     // StartInstanceLocation parameter is non-zero. gl_InstanceIndex, however,
     // starts from firstInstance. Thus it doesn't emulate actual DX12 shader
     // behavior. To make it equivalent, SPIR-V codegen should emit:
     // SV_InstanceID = gl_InstanceIndex - gl_BaseInstance
-    // Unfortunately, this means that there is no 1-to-1 mapping of the HLSL
-    // semantic to the SPIR-V builtin. As a result, we have to manually create
-    // a second stage variable for this specific case.
+    // As a result, we have to manually create a second stage variable for this
+    // specific case.
     //
     // According to the Vulkan spec on builtin variables:
     // www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables
@@ -2880,19 +2907,11 @@ bool DeclResultIdMapper::createStageVars(
       // The above call to createSpirvStageVar creates the gl_InstanceIndex.
       // We should now manually create the gl_BaseInstance variable and do the
       // subtraction.
-      auto *instanceIndexVar = varInstr;
-      auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
-          type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
-          decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
-      StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
-                         getLocationAndComponentCount(astContext, type));
-      stageVar2.setSpirvInstr(baseInstanceVar);
-      stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
-      stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
-      stageVar2.setIsSpirvBuiltin();
-      stageVars.push_back(stageVar2);
+      auto *baseInstanceVar = getBaseInstanceVariable(decl, evalType, type,
+                                                      semanticToUse, sigPoint);
 
       // SPIR-V code fore 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
+      auto *instanceIndexVar = varInstr;
       auto *instanceIdVar =
           spvBuilder.addFnVar(type, semanticToUse->loc, "SV_InstanceID");
       auto *instanceIndexValue =
