@@ -14007,11 +14007,12 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
   return retVal;
 }
 
-SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
-    llvm::ArrayRef<const Attr *> attrs, QualType retType,
-    const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr,
-    SourceLocation loc) {
-  llvm::SmallVector<uint32_t, 2> capbilities;
+SpirvInstruction *
+SpirvEmitter::createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs,
+                                     QualType retType,
+                                     llvm::ArrayRef<SpirvInstruction *> spvArgs,
+                                     bool isInstr, SourceLocation loc) {
+  llvm::SmallVector<uint32_t, 2> capabilities;
   llvm::SmallVector<llvm::StringRef, 2> extensions;
   llvm::StringRef instSet = "";
   // For [[vk::ext_type_def]], we use dummy OpNop with no semantic meaning,
@@ -14019,7 +14020,7 @@ SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
   uint32_t op = static_cast<unsigned>(spv::Op::OpNop);
   for (auto &attr : attrs) {
     if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
-      capbilities.push_back(capAttr->getCapability());
+      capabilities.push_back(capAttr->getCapability());
     } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
       extensions.push_back(extAttr->getName());
     }
@@ -14032,7 +14033,7 @@ SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
   }
 
   SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
-      op, retType, spvArgs, extensions, instSet, capbilities, loc);
+      op, retType, spvArgs, extensions, instSet, capabilities, loc);
   if (!retVal)
     return nullptr;
 
