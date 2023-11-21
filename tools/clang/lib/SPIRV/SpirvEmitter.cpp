@@ -25,8 +25,10 @@
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/String.h"
 #include "clang/Sema/Sema.h"
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Casting.h"
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 #include "clang/Basic/Version.h"
@@ -13422,7 +13424,7 @@ bool SpirvEmitter::allSwitchCasesAreIntegerLiterals(const Stmt *root) {
 
 void SpirvEmitter::discoverAllCaseStmtInSwitchStmt(
     const Stmt *root, SpirvBasicBlock **defaultBB,
-    std::vector<std::pair<uint32_t, SpirvBasicBlock *>> *targets) {
+    std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> *targets) {
   if (!root)
     return;
 
@@ -13442,7 +13444,7 @@ void SpirvEmitter::discoverAllCaseStmtInSwitchStmt(
   }
 
   std::string caseLabel;
-  uint32_t caseValue = 0;
+  llvm::APInt caseValue;
   if (defaultStmt) {
     // This is the default branch.
     caseLabel = "switch.default";
@@ -13452,15 +13454,10 @@ void SpirvEmitter::discoverAllCaseStmtInSwitchStmt(
     // case <literal_integer>: {...; break;}
     const Expr *caseExpr = caseStmt->getLHS();
     assert(caseExpr && caseExpr->isEvaluatable(astContext));
-    auto bitWidth = astContext.getIntWidth(caseExpr->getType());
-    if (bitWidth != 32)
-      emitError(
-          "non-32bit integer case value in switch statement unimplemented",
-          caseExpr->getExprLoc());
     Expr::EvalResult evalResult;
     caseExpr->EvaluateAsRValue(evalResult, astContext);
-    const int64_t value = evalResult.Val.getInt().getSExtValue();
-    caseValue = static_cast<uint32_t>(value);
+    caseValue = evalResult.Val.getInt();
+    const int64_t value = caseValue.getSExtValue();
     caseLabel = "switch." + std::string(value < 0 ? "n" : "") +
                 llvm::itostr(std::abs(value));
   }
@@ -13535,6 +13532,13 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
     doDeclStmt(condVarDeclStmt);
 
   auto *cond = switchStmt->getCond();
+  if (llvm::dyn_cast<IntegerLiteral>(cond)) {
+    emitError(
+        "integer literal selectors in switch statements not yet implemented",
+        cond->getLocStart());
+    return;
+  }
+
   auto *selector = doExpr(cond);
 
   // We need a merge block regardless of the number of switch cases.
@@ -13547,7 +13551,7 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
   auto *defaultBB = mergeBB;
 
   // (literal, labelId) pairs to pass to the OpSwitch instruction.
-  std::vector<std::pair<uint32_t, SpirvBasicBlock *>> targets;
+  std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> targets;
   discoverAllCaseStmtInSwitchStmt(switchStmt->getBody(), &defaultBB, &targets);
 
   // Create the OpSelectionMerge and OpSwitch.
