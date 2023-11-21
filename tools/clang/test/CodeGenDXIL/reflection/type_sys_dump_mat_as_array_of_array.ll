@@ -20,7 +20,7 @@
 ; CHECK-NEXT:                Type: D3D_SVT_VOID
 ; CHECK-NEXT:                Elements: 0
 ; CHECK-NEXT:                Rows: 1
-; CHECK-NEXT:                Columns: 42
+; CHECK-NEXT:                Columns: 48
 ; CHECK-NEXT:                Members: 6
 ; CHECK-NEXT:                Offset: 0
 ; CHECK-NEXT:              {
@@ -46,7 +46,7 @@
 ; CHECK-NEXT:                  D3D12_SHADER_TYPE_DESC: Name: int3x1
 ; CHECK-NEXT:                    Class: D3D_SVC_MATRIX_COLUMNS
 ; CHECK-NEXT:                    Type: D3D_SVT_INT
-; CHECK-NEXT:                    Elements: 0
+; CHECK-NEXT:                    Elements: 3
 ; CHECK-NEXT:                    Rows: 3
 ; CHECK-NEXT:                    Columns: 1
 ; CHECK-NEXT:                    Members: 0
