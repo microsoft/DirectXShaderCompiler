@@ -6,7 +6,7 @@ struct Record1 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -19,7 +19,7 @@ struct Record2 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -33,7 +33,7 @@ struct Record3 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -47,7 +47,7 @@ struct Record4 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -60,7 +60,7 @@ struct Record5 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -76,7 +76,7 @@ struct Record6 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -92,13 +92,12 @@ struct Record7 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
 [NumThreads(32, 1, 1)]
 void node7(DispatchNodeInputRecord<Record7> input) {}
-
 
 struct Record8 {
 // expected-error@+1{{SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not 'float'}}
@@ -106,6 +105,7 @@ struct Record8 {
   float data;
 };
 
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -119,6 +119,7 @@ struct Record9 {
   float data;
 };
 
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -131,6 +132,7 @@ struct Record10 {
   float data;
 };
 
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -144,6 +146,7 @@ struct Record11 {
   float data;
 };
 
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -156,7 +159,7 @@ struct Record12 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -169,7 +172,7 @@ struct Record13 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -183,7 +186,7 @@ struct Record14 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -197,7 +200,7 @@ struct Record15 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]
@@ -210,7 +213,7 @@ struct Record16 {
   float data;
 };
 
-
+// expected-note@+5{{NodeInput/Output record defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeMaxDispatchGrid(32, 16, 1)]

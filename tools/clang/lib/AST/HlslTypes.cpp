@@ -975,6 +975,7 @@ QualType GetHLSLResourceTemplateParamType(QualType type) {
 QualType GetHLSLInputPatchElementType(QualType type) {
   return GetHLSLResourceTemplateParamType(type);
 }
+
 unsigned GetHLSLInputPatchCount(QualType type) {
   type = type.getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);

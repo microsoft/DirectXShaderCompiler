@@ -460,6 +460,7 @@ bool IsHLSLNodeInputType(clang::QualType type);
 bool IsHLSLDynamicResourceType(clang::QualType type);
 bool IsHLSLDynamicSamplerType(clang::QualType type);
 bool IsHLSLNodeType(clang::QualType type);
+
 bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type);
 bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);
