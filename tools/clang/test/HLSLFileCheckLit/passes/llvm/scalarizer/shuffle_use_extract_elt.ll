@@ -3,13 +3,11 @@
 ; CHECK: %[[B:.+]] = load <2 x float>, <2 x float>* %b, align 4
 ; CHECK: %[[BX0:.+]] = extractelement <2 x float> %[[B]], i32 0
 ; CHECK: %[[BY0:.+]] = extractelement <2 x float> %[[B]], i32 1
-; CHECK: %[[BX1:.+]] = extractelement <2 x float> %[[B]], i32 0
-; CHECK: %[[BY1:.+]] = extractelement <2 x float> %[[B]], i32 1
 
 ; CHECK: %[[X:.+]] = insertelement <4 x float> undef, float %[[BX0]], i32 0
 ; CHECK: %[[Y:.+]] = insertelement <4 x float> %[[X]], float %[[BY0]], i32 1
-; CHECK: %[[Z:.+]] = insertelement <4 x float> %[[Y]], float %[[BX1]], i32 2
-; CHECK: %[[W:.+]] = insertelement <4 x float> %[[Z]], float %[[BY1]], i32 3
+; CHECK: %[[Z:.+]] = insertelement <4 x float> %[[Y]], float %[[BX0]], i32 2
+; CHECK: %[[W:.+]] = insertelement <4 x float> %[[Z]], float %[[BY0]], i32 3
 ; CHECK: ret <4 x float> %[[W]]
 
 declare void @foo(<2 x float>, <2 x float>* dereferenceable(8))
