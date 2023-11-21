@@ -865,6 +865,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
+  if (context.getDiagnostics().hasErrorOccurred())
+    return;
 
   // Check the existance of Texture and Sampler with
   // [[vk::combinedImageSampler]] for the same descriptor set and binding.
