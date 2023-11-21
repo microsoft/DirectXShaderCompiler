@@ -7,7 +7,7 @@
 // CHECK: %gl_SampleID = OpVariable %_ptr_Input_int Input
 
 [[vk::ext_builtin_input(/* SampleID */ 18)]]
-int gl_SampleID;
+static int gl_SampleID;
 
 void main() {
   // CHECK: {{%[0-9]+}} = OpLoad %int %gl_SampleID
