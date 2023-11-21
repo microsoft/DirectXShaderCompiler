@@ -1,17 +1,6 @@
 ; RUN: %dxa %s -o %t
 ; RUN: %dxa %t -dumpreflection | FileCheck %s
 
-;struct S {
-;    row_major int4x3 m;
-;	int1x3 m1[2];
-;	int3x1 m2;
-;    int4x3 m3;
-;  row_major int1x3 m4[2];
-;  row_major int3x1 m5;
-;};
-
-; Make sure cbuffer reflection is correct with Vector as array: [rows x [cols x float]] and Vector as array, one row: [cols x float]
-
 ; CHECK: ID3D12ShaderReflectionConstantBuffer:
 ; CHECK-NEXT:        D3D12_SHADER_BUFFER_DESC: Name: s
 ; CHECK-NEXT:          Type: D3D_CT_CBUFFER
@@ -100,7 +89,21 @@ target triple = "dxil-ms-dx"
 %dx.types.ResourceProperties = type { i32, i32 }
 %dx.types.CBufRet.i32 = type { i32, i32, i32, i32 }
 %s = type { %struct.S }
-%struct.S = type { [4 x [3 x i32]], [2 x [3 x i32]], [3 x [1 x i32]], [4 x [3 x i32]], [2 x [1 x [3 x i32]]], [3 x i32] }
+
+;struct S {
+;    row_major int4x3 m;
+;	int1x3 m1[2];
+;	int3x1 m2;
+;    int4x3 m3;
+;  row_major int1x3 m4[2];
+;  row_major int3x1 m5;
+;};
+
+; Make sure cbuffer reflection is correct with
+; Vector as array: [rows x [cols x float]] and
+; Vector as array, one row: [cols x float] for m1.
+
+%struct.S = type { [4 x [3 x i32]], [2 x [3 x i32]], [3 x [1 x i32]], [4 x [3 x i32]], [2 x [1 x [3 x i32]]], [3 x [1 x i32]] }
 
 @s = external constant %dx.types.Handle
 
