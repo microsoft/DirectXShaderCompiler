@@ -2628,6 +2628,78 @@ bool DeclResultIdMapper::validateShaderStageVar(SemanticInfo *semantic,
   return true;
 }
 
+QualType DeclResultIdMapper::getTypeForSpirvStageVariable(
+    QualType type, hlsl::Semantic::Kind semanticKind,
+    hlsl::SigPoint::Kind sigPointKind, const NamedDecl *decl,
+    uint32_t arraySize) {
+  QualType evalType = type;
+  switch (semanticKind) {
+  case hlsl::Semantic::Kind::DomainLocation:
+    // SV_DomainLocation can refer to a float2, whereas TessCoord is a float3.
+    // To ensure SPIR-V validity, we must create a float3 and  extract a
+    // float2 from it before passing it to the main function.
+    evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
+    break;
+  case hlsl::Semantic::Kind::TessFactor:
+    // SV_TessFactor is an array of size 2 for isoline patch, array of size 3
+    // for tri patch, and array of size 4 for quad patch, but it must always
+    // be an array of size 4 in SPIR-V for Vulkan.
+    evalType = astContext.getConstantArrayType(
+        astContext.FloatTy, llvm::APInt(32, 4), clang::ArrayType::Normal, 0);
+    break;
+  case hlsl::Semantic::Kind::InsideTessFactor:
+    // SV_InsideTessFactor is a single float for tri patch, and an array of
+    // size 2 for a quad patch, but it must always be an array of size 2 in
+    // SPIR-V for Vulkan.
+    evalType = astContext.getConstantArrayType(
+        astContext.FloatTy, llvm::APInt(32, 2), clang::ArrayType::Normal, 0);
+    break;
+  case hlsl::Semantic::Kind::Coverage:
+    // SV_Coverage is an uint value, but the SPIR-V builtin it corresponds to,
+    // SampleMask, must be an array of integers.
+    evalType = astContext.getConstantArrayType(astContext.UnsignedIntTy,
+                                               llvm::APInt(32, 1),
+                                               clang::ArrayType::Normal, 0);
+    break;
+  case hlsl::Semantic::Kind::InnerCoverage:
+    // SV_InnerCoverage is an uint value, but the corresponding SPIR-V builtin,
+    // FullyCoveredEXT, must be an boolean value.
+    evalType = astContext.BoolTy;
+    break;
+  case hlsl::Semantic::Kind::Barycentrics:
+    evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
+    break;
+  case hlsl::Semantic::Kind::DispatchThreadID:
+  case hlsl::Semantic::Kind::GroupThreadID:
+  case hlsl::Semantic::Kind::GroupID:
+    // SV_DispatchThreadID, SV_GroupThreadID, and SV_GroupID are allowed to be
+    // uint, uint2, or uint3, but the corresponding SPIR-V builtins
+    // (GlobalInvocationId, LocalInvocationId, WorkgroupId) must be a uint3.
+    // Keep the original integer signedness
+    evalType = astContext.getExtVectorType(
+        hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type,
+        3);
+    break;
+  default:
+    // Other semantic kinds can keep the original type.
+    break;
+  }
+
+  // Boolean stage I/O variables must be represented as unsigned integers.
+  // Boolean built-in variables are represented as bool.
+  if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
+    evalType = getUintTypeWithSourceComponents(astContext, type);
+  }
+
+  // Handle the extra arrayness
+  if (arraySize != 0) {
+    evalType = astContext.getConstantArrayType(
+        evalType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+  }
+
+  return evalType;
+}
+
 bool DeclResultIdMapper::validateShaderStageVarType(
     hlsl::Semantic::Kind semanticKind, QualType type,
     clang::SourceLocation loc) {
@@ -2689,9 +2761,6 @@ bool DeclResultIdMapper::createStageVars(
     return true;
   }
 
-  // The type the variable is evaluated as for SPIR-V.
-  QualType evalType = type;
-
   // We have several cases regarding HLSL semantics to handle here:
   // * If the current decl inherits a semantic from some enclosing entity,
   //   use the inherited semantic no matter whether there is a semantic
@@ -2739,75 +2808,15 @@ bool DeclResultIdMapper::createStageVars(
     // Special handling of certain mappings between HLSL semantics and
     // SPIR-V builtins:
     // * SV_CullDistance/SV_ClipDistance are outsourced to GlPerVertex.
-    // * SV_DomainLocation can refer to a float2, whereas TessCoord is a float3.
-    //   To ensure SPIR-V validity, we must create a float3 and  extract a
-    //   float2 from it before passing it to the main function.
-    // * SV_TessFactor is an array of size 2 for isoline patch, array of size 3
-    //   for tri patch, and array of size 4 for quad patch, but it must always
-    //   be an array of size 4 in SPIR-V for Vulkan.
-    // * SV_InsideTessFactor is a single float for tri patch, and an array of
-    //   size 2 for a quad patch, but it must always be an array of size 2 in
-    //   SPIR-V for Vulkan.
-    // * SV_Coverage is an uint value, but the builtin it corresponds to,
-    //   SampleMask, must be an array of integers.
-    // * SV_InnerCoverage is an uint value, but the corresponding builtin,
-    //   FullyCoveredEXT, must be an boolean value.
-    // * SV_DispatchThreadID, SV_GroupThreadID, and SV_GroupID are allowed to be
-    //   uint, uint2, or uint3, but the corresponding builtins
-    //   (GlobalInvocationId, LocalInvocationId, WorkgroupId) must be a uint3.
 
     if (glPerVertex.tryToAccess(sigPointKind, semanticKind,
                                 semanticToUse->index, invocationId, value,
                                 noWriteBack, /*vecComponent=*/nullptr, loc))
       return true;
 
-    switch (semanticKind) {
-    case hlsl::Semantic::Kind::DomainLocation:
-      evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
-      break;
-    case hlsl::Semantic::Kind::TessFactor:
-      evalType = astContext.getConstantArrayType(
-          astContext.FloatTy, llvm::APInt(32, 4), clang::ArrayType::Normal, 0);
-      break;
-    case hlsl::Semantic::Kind::InsideTessFactor:
-      evalType = astContext.getConstantArrayType(
-          astContext.FloatTy, llvm::APInt(32, 2), clang::ArrayType::Normal, 0);
-      break;
-    case hlsl::Semantic::Kind::Coverage:
-      evalType = astContext.getConstantArrayType(astContext.UnsignedIntTy,
-                                                 llvm::APInt(32, 1),
-                                                 clang::ArrayType::Normal, 0);
-      break;
-    case hlsl::Semantic::Kind::InnerCoverage:
-      evalType = astContext.BoolTy;
-      break;
-    case hlsl::Semantic::Kind::Barycentrics:
-      evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
-      break;
-    case hlsl::Semantic::Kind::DispatchThreadID:
-    case hlsl::Semantic::Kind::GroupThreadID:
-    case hlsl::Semantic::Kind::GroupID:
-      // Keep the original integer signedness
-      evalType = astContext.getExtVectorType(
-          hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type,
-          3);
-      break;
-    default:
-      // Only the semantic kinds mentioned above are handled.
-      break;
-    }
-
-    // Boolean stage I/O variables must be represented as unsigned integers.
-    // Boolean built-in variables are represented as bool.
-    if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
-      evalType = getUintTypeWithSourceComponents(astContext, type);
-    }
-
-    // Handle the extra arrayness
-    if (arraySize != 0) {
-      evalType = astContext.getConstantArrayType(
-          evalType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
-    }
+    // The type the variable is evaluated as for SPIR-V.
+    QualType evalType = getTypeForSpirvStageVariable(
+        type, semanticKind, sigPointKind, decl, arraySize);
 
     StageVar stageVar(
         sigPoint, *semanticToUse, builtinAttr, evalType,
@@ -3180,7 +3189,7 @@ bool DeclResultIdMapper::createStageVars(
     }
 
     if (arraySize == 0) {
-      *value = spvBuilder.createCompositeConstruct(evalType, subValues, loc);
+      *value = spvBuilder.createCompositeConstruct(type, subValues, loc);
       for (auto *subInstr : subValues)
         spvBuilder.addPerVertexStgInputFuncVarEntry(subInstr, *value);
       return true;

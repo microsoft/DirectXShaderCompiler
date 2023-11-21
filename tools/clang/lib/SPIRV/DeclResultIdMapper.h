@@ -652,6 +652,11 @@ private:
                        SpirvInstruction **value, bool noWriteBack,
                        SemanticInfo *inheritSemantic, bool asNoInterp = false);
 
+  QualType getTypeForSpirvStageVariable(QualType type,
+                                        hlsl::Semantic::Kind semanticKind,
+                                        hlsl::SigPoint::Kind sigPointKind,
+                                        const NamedDecl *decl,
+                                        uint32_t arraySize);
   bool validateShaderStageVarType(hlsl::Semantic::Kind semanticKind,
                                   QualType type, clang::SourceLocation loc);
   bool validateShaderStageVar(SemanticInfo *semantic,
