@@ -3,6 +3,7 @@
 #pragma once
 
 #include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilNodeProps.h"
 #include "dxc/Support/HLSLVersion.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/MapVector.h"
