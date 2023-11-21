@@ -652,6 +652,9 @@ private:
                        SpirvInstruction **value, bool noWriteBack,
                        SemanticInfo *inheritSemantic, bool asNoInterp = false);
 
+  SpirvVariable *replaceInstanceIndexWithInstanceId(
+      const NamedDecl *decl, SpirvVariable *instanceIndexVar,
+      SpirvVariable *baseInstanceVar, QualType type);
   SpirvVariable *getBaseInstanceVariable(const NamedDecl *decl,
                                          QualType evalType, QualType type,
                                          SemanticInfo *semanticToUse,

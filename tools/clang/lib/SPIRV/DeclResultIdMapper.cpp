@@ -2628,6 +2628,23 @@ bool DeclResultIdMapper::validateShaderStageVar(SemanticInfo *semantic,
   return true;
 }
 
+SpirvVariable *DeclResultIdMapper::replaceInstanceIndexWithInstanceId(
+    const NamedDecl *decl, SpirvVariable *instanceIndexVar,
+    SpirvVariable *baseInstanceVar, QualType type) {
+  auto *instanceIdVar =
+      spvBuilder.addFnVar(type, decl->getLocation(), "SV_InstanceID");
+  auto *instanceIndexValue =
+      spvBuilder.createLoad(type, instanceIndexVar, decl->getLocation());
+  auto *baseInstanceValue =
+      spvBuilder.createLoad(type, baseInstanceVar, decl->getLocation());
+  auto *instanceIdValue =
+      spvBuilder.createBinaryOp(spv::Op::OpISub, type, instanceIndexValue,
+                                baseInstanceValue, decl->getLocation());
+  spvBuilder.createStore(instanceIdVar, instanceIdValue, decl->getLocation());
+  stageVarInstructions[cast<DeclaratorDecl>(decl)] = instanceIdVar;
+  return instanceIdVar;
+}
+
 SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
     const NamedDecl *decl, QualType evalType, QualType type,
     SemanticInfo *semanticToUse, const hlsl::SigPoint *sigPoint) {
@@ -2910,21 +2927,9 @@ bool DeclResultIdMapper::createStageVars(
       auto *baseInstanceVar = getBaseInstanceVariable(decl, evalType, type,
                                                       semanticToUse, sigPoint);
 
-      // SPIR-V code fore 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
-      auto *instanceIndexVar = varInstr;
-      auto *instanceIdVar =
-          spvBuilder.addFnVar(type, semanticToUse->loc, "SV_InstanceID");
-      auto *instanceIndexValue =
-          spvBuilder.createLoad(type, instanceIndexVar, semanticToUse->loc);
-      auto *baseInstanceValue =
-          spvBuilder.createLoad(type, baseInstanceVar, semanticToUse->loc);
-      auto *instanceIdValue =
-          spvBuilder.createBinaryOp(spv::Op::OpISub, type, instanceIndexValue,
-                                    baseInstanceValue, semanticToUse->loc);
-      spvBuilder.createStore(instanceIdVar, instanceIdValue,
-                             semanticToUse->loc);
-      stageVarInstructions[cast<DeclaratorDecl>(decl)] = instanceIdVar;
-      varInstr = instanceIdVar;
+      // SPIR-V code for 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
+      varInstr = replaceInstanceIndexWithInstanceId(decl, varInstr,
+                                                    baseInstanceVar, type);
     }
 
     // Mark that we have used one index for this semantic
