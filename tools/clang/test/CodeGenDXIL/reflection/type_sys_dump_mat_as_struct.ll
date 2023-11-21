@@ -111,7 +111,7 @@ target triple = "dxil-ms-dx"
 ; Function Attrs: nounwind readonly
 define float @"\01?foo@@YAMXZ"() #0 {
 ; force use cb.
-  %0 = load %dx.types.Handle, %dx.types.Handle* @s, align 4
+  %1 = load %dx.types.Handle, %dx.types.Handle* @s, align 4
   ret float 1.000000e+00
 }
 
