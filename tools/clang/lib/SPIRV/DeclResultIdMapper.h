@@ -622,11 +622,11 @@ private:
       llvm::StringRef typeName, llvm::StringRef varName);
 
   /// Creates all the stage variables mapped from semantics on the given decl.
-  /// Returns true on sucess.
+  /// Returns true on success.
   ///
   /// If decl is of struct type, this means flattening it and create stand-
   /// alone variables for each field. If arraySize is not zero, the created
-  /// stage variables will have an additional arrayness over its original type.
+  /// stage variables will be arrays of the original type and the given size.
   /// This is for supporting HS/DS/GS, which takes in primitives containing
   /// multiple vertices. asType should be the type we are treating decl as;
   /// For HS/DS/GS, the outermost arrayness should be discarded and use
@@ -651,6 +651,15 @@ private:
                        llvm::Optional<SpirvInstruction *> invocationId,
                        SpirvInstruction **value, bool noWriteBack,
                        SemanticInfo *inheritSemantic, bool asNoInterp = false);
+
+  bool validateShaderStageVarType(hlsl::Semantic::Kind semanticKind,
+                                  QualType type, clang::SourceLocation loc);
+  bool validateShaderStageVar(SemanticInfo *semantic,
+                              const hlsl::SigPoint *sigPoint,
+                              const NamedDecl *decl, QualType type);
+  bool isValidSemanticInShaderModel(hlsl::Semantic::Kind semanticKind,
+                                    hlsl::SigPoint::Kind sigPointKind,
+                                    const NamedDecl *decl);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the instruction. Also sets whether the StageVar is a SPIR-V builtin and

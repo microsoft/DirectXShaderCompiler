@@ -2601,6 +2601,76 @@ bool DeclResultIdMapper::decorateResourceCoherent() {
   return true;
 }
 
+bool DeclResultIdMapper::validateShaderStageVar(SemanticInfo *semantic,
+                                                const hlsl::SigPoint *sigPoint,
+                                                const NamedDecl *decl,
+                                                QualType type) {
+  const auto semanticKind = semantic->getKind();
+  const auto sigPointKind = sigPoint->GetKind();
+
+  if (!validateVKAttributes(decl))
+    return false;
+
+  if (!isValidSemanticInShaderModel(semanticKind, sigPointKind, decl)) {
+    emitError("invalid usage of semantic '%0' in shader profile %1",
+              decl->getLocation())
+        << semantic->str
+        << hlsl::ShaderModel::GetKindName(
+               spvContext.getCurrentShaderModelKind());
+    return false;
+  }
+
+  if (!validateVKBuiltins(decl, sigPoint))
+    return false;
+
+  if (!validateShaderStageVarType(semanticKind, type, decl->getLocation()))
+    return false;
+  return true;
+}
+
+bool DeclResultIdMapper::validateShaderStageVarType(
+    hlsl::Semantic::Kind semanticKind, QualType type,
+    clang::SourceLocation loc) {
+
+  switch (semanticKind) {
+  case hlsl::Semantic::Kind::InnerCoverage:
+    if (!type->isSpecificBuiltinType(BuiltinType::UInt)) {
+      emitError("SV_InnerCoverage must be of uint type.", loc);
+      return false;
+    }
+    break;
+  default:
+    break;
+  }
+  return true;
+}
+
+bool DeclResultIdMapper::isValidSemanticInShaderModel(
+    hlsl::Semantic::Kind semanticKind, hlsl::SigPoint::Kind sigPointKind,
+    const NamedDecl *decl) {
+  // Error out when the given semantic is invalid in this shader model
+  if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPointKind,
+                                        spvContext.getMajorVersion(),
+                                        spvContext.getMinorVersion()) ==
+      hlsl::DXIL::SemanticInterpretationKind::NA) {
+    // Special handle MSIn/ASIn allowing VK-only builtin "DrawIndex".
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::MSIn:
+    case hlsl::SigPoint::Kind::ASIn:
+      if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
+        const llvm::StringRef builtin = builtinAttr->getBuiltIn();
+        if (builtin == "DrawIndex") {
+          break;
+        }
+      }
+      LLVM_FALLTHROUGH;
+    default:
+      return false;
+    }
+  }
+  return true;
+}
+
 bool DeclResultIdMapper::createStageVars(
     const hlsl::SigPoint *sigPoint, const NamedDecl *decl, bool asInput,
     QualType type, uint32_t arraySize, const llvm::StringRef namePrefix,
@@ -2623,12 +2693,12 @@ bool DeclResultIdMapper::createStageVars(
   QualType evalType = type;
 
   // We have several cases regarding HLSL semantics to handle here:
-  // * If the currrent decl inherits a semantic from some enclosing entity,
+  // * If the current decl inherits a semantic from some enclosing entity,
   //   use the inherited semantic no matter whether there is a semantic
   //   attached to the current decl.
   // * If there is no semantic to inherit,
   //   * If the current decl is a struct,
-  //     * If the current decl has a semantic, all its members inhert this
+  //     * If the current decl has a semantic, all its members inherit this
   //       decl's semantic, with the index sequentially increasing;
   //     * If the current decl does not have a semantic, all its members
   //       should have semantics attached;
@@ -2657,39 +2727,12 @@ bool DeclResultIdMapper::createStageVars(
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
 
-    if (!validateVKAttributes(decl))
-      return false;
-
     const auto semanticKind = semanticToUse->getKind();
     const auto sigPointKind = sigPoint->GetKind();
 
-    // Error out when the given semantic is invalid in this shader model
-    if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPointKind,
-                                          spvContext.getMajorVersion(),
-                                          spvContext.getMinorVersion()) ==
-        hlsl::DXIL::SemanticInterpretationKind::NA) {
-      // Special handle MSIn/ASIn allowing VK-only builtin "DrawIndex".
-      switch (sigPointKind) {
-      case hlsl::SigPoint::Kind::MSIn:
-      case hlsl::SigPoint::Kind::ASIn:
-        if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
-          const llvm::StringRef builtin = builtinAttr->getBuiltIn();
-          if (builtin == "DrawIndex") {
-            break;
-          }
-        }
-        LLVM_FALLTHROUGH;
-      default:
-        emitError("invalid usage of semantic '%0' in shader profile %1", loc)
-            << semanticToUse->str
-            << hlsl::ShaderModel::GetKindName(
-                   spvContext.getCurrentShaderModelKind());
-        return false;
-      }
-    }
-
-    if (!validateVKBuiltins(decl, sigPoint))
+    if (!validateShaderStageVar(semanticToUse, sigPoint, decl, type)) {
       return false;
+    }
 
     const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
 
@@ -2736,10 +2779,6 @@ bool DeclResultIdMapper::createStageVars(
                                                  clang::ArrayType::Normal, 0);
       break;
     case hlsl::Semantic::Kind::InnerCoverage:
-      if (!type->isSpecificBuiltinType(BuiltinType::UInt)) {
-        emitError("SV_InnerCoverage must be of uint type.", loc);
-        return false;
-      }
       evalType = astContext.BoolTy;
       break;
     case hlsl::Semantic::Kind::Barycentrics:
