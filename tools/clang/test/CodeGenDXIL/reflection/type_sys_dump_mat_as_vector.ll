@@ -92,11 +92,11 @@ target triple = "dxil-ms-dx"
 
 ;struct S {
 ;    row_major int4x3 m;
-;	int1x3 m1[2];
-;	int3x1 m2;
+;    int1x3 m1[2];
+;    int3x1 m2;
 ;    int4x3 m3;
-;  row_major int1x3 m4[2];
-;  row_major int3x1 m5;
+;    row_major int1x3 m4[2];
+;    row_major int3x1 m5;
 ;};
 
 ; Make sure cbuffer reflection is correct with Flattened vector: <(rows*cols) x float>
