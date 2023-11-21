@@ -1641,6 +1641,16 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
     }
   }
 
+  // a VarDecl should have only one of vk::ext_builtin_input or
+  // vk::ext_builtin_output
+  if (decl->hasAttr<VKExtBuiltinInputAttr>() &&
+      decl->hasAttr<VKExtBuiltinOutputAttr>()) {
+    emitError("vk::ext_builtin_input cannot be used together with "
+              "vk::ext_builtin_output",
+              decl->getAttr<VKExtBuiltinOutputAttr>()->getLocation());
+    success = false;
+  }
+
   return success;
 }
 
