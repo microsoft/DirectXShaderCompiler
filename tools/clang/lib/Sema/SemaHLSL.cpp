@@ -2918,6 +2918,7 @@ typedef ::llvm::DenseMap<FunctionDecl *, CallNode> CallNodes;
 typedef ::llvm::SmallPtrSet<Decl *, 8> FnCallStack;
 typedef ::llvm::SmallPtrSet<FunctionDecl *, 128> FunctionSet;
 typedef ::llvm::SmallVector<FunctionDecl *, 32> PendingFunctions;
+typedef ::llvm::DenseMap<FunctionDecl *, FunctionDecl *> FunctionMap;
 
 // Returns the definition of a function.
 // This serves two purposes - ignore built-in functions, and pick
@@ -2992,19 +2993,26 @@ class CallGraphWithRecurseGuard {
 private:
   CallNodes m_callNodes;
   FunctionSet m_visitedFunctions;
+  FunctionMap m_functionsCheckedForRecursion;
 
-  FunctionDecl *CheckRecursion(FnCallStack &CallStack, FunctionDecl *D) const {
+  FunctionDecl *CheckRecursion(FnCallStack &CallStack, FunctionDecl *D) {
+    auto it = m_functionsCheckedForRecursion.find(D);
+    if (it != m_functionsCheckedForRecursion.end())
+      return it->second;
     if (CallStack.insert(D).second == false)
       return D;
     auto node = m_callNodes.find(D);
     if (node != m_callNodes.end()) {
       for (FunctionDecl *Callee : node->second.CalleeFns) {
         FunctionDecl *pResult = CheckRecursion(CallStack, Callee);
-        if (pResult)
+        if (pResult) {
+          m_functionsCheckedForRecursion[D] = pResult;
           return pResult;
+        }
       }
     }
     CallStack.erase(D);
+    m_functionsCheckedForRecursion[D] = nullptr;
     return nullptr;
   }
 
@@ -3039,7 +3047,7 @@ public:
     return false;
   }
 
-  FunctionDecl *CheckRecursion(FunctionDecl *EntryFnDecl) const {
+  FunctionDecl *CheckRecursion(FunctionDecl *EntryFnDecl) {
     FnCallStack CallStack;
     EntryFnDecl = getFunctionWithBody(EntryFnDecl);
     return CheckRecursion(CallStack, EntryFnDecl);
@@ -3149,6 +3157,8 @@ private:
   ObjectTypeDeclMapType m_objectTypeDeclsMap;
 
   UsedIntrinsicStore m_usedIntrinsics;
+
+  CallGraphWithRecurseGuard m_callGraph;
 
   /// <summary>Add all base QualTypes for each hlsl scalar types.</summary>
   void AddBaseTypes();
@@ -5793,6 +5803,8 @@ public:
 
     return method;
   }
+
+  CallGraphWithRecurseGuard &getCallGraph() { return m_callGraph; }
 
   // Overload support.
   UINT64 ScoreCast(QualType leftType, QualType rightType);
@@ -11401,29 +11413,40 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   }
 }
 
-// validates that for every function in the translation unit, if it
-// references a patch constant function, there exists a function declaration
-// that could serve as a candidate to that patch constant function.
-void ValidatePatchConstantFunctionsExist(clang::Sema *self) {
-  for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
-    // TODO: improve condition so that only exported functions are checked,
-    // instead of all functions. Issue: #5857
-    if (FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
-      // If there is no patch constant function, then we don't need to validate
-      // anything.
-      if (const HLSLPatchConstantFuncAttr *Attr =
-              FD->getAttr<HLSLPatchConstantFuncAttr>()) {
-        NameLookup NL =
-            GetSingleFunctionDeclByName(self, Attr->getFunctionName(),
-                                        /*checkPatch*/ true);
-        if (!NL.Found || !NL.Found->hasBody()) {
-          self->Diag(Attr->getLocation(),
-                     diag::err_hlsl_missing_patch_constant_function)
-              << Attr->getFunctionName();
-        }
-      }
-    }
-  }
+static bool IsTargetProfileLib6x(Sema &S) {
+  // Remaining functions are exported only if target is 'lib_6_x'.
+  const hlsl::ShaderModel *SM =
+      hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
+  bool isLib6x =
+      SM->IsLib() && SM->GetMinor() == hlsl::ShaderModel::kOfflineMinor;
+  return isLib6x;
+}
+
+bool IsExported(Sema *self, clang::FunctionDecl *FD,
+                bool isDefaultLinkageExternal) {
+  // Entry points are exported.
+  if (FD->hasAttr<HLSLShaderAttr>())
+    return true;
+
+  // Internal linkage functions include functions marked 'static'.
+  if (FD->getLinkageAndVisibility().getLinkage() == InternalLinkage)
+    return false;
+
+  // Explicit 'export' functions are exported.
+  if (FD->hasAttr<HLSLExportAttr>())
+    return true;
+
+  return isDefaultLinkageExternal;
+}
+
+bool getDefaultLinkageExternal(clang::Sema *self) {
+  const LangOptions &opts = self->getLangOpts();
+  bool isDefaultLinkageExternal =
+      opts.DefaultLinkage == DXIL::DefaultLinkage::External;
+  if (opts.DefaultLinkage == DXIL::DefaultLinkage::Default &&
+      !opts.ExportShadersOnly && IsTargetProfileLib6x(*self))
+    isDefaultLinkageExternal = true;
+  return isDefaultLinkageExternal;
 }
 
 // This function diagnoses whether or not all entry-point attributes
@@ -11435,7 +11458,6 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
   if (entryPointDecl->hasAttrs()) {
     for (Attr *pAttr : entryPointDecl->getAttrs()) {
       switch (pAttr->getKind()) {
-
       case clang::attr::HLSLWaveSize: {
         switch (shaderKind) {
         case DXIL::ShaderKind::Compute:
@@ -11448,10 +11470,85 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
               << "compute or node";
           break;
         }
+        break;
+      }
+      case clang::attr::HLSLNodeLaunch:
+      case clang::attr::HLSLNodeIsProgramEntry:
+      case clang::attr::HLSLNodeId:
+      case clang::attr::HLSLNodeLocalRootArgumentsTableIndex:
+      case clang::attr::HLSLNodeShareInputOf:
+      case clang::attr::HLSLNodeDispatchGrid:
+      case clang::attr::HLSLNodeMaxDispatchGrid:
+      case clang::attr::HLSLNodeMaxRecursionDepth: {
+        if (shaderKind != DXIL::ShaderKind::Node) {
+          self->Diag(pAttr->getRange().getBegin(),
+                     diag::err_hlsl_attribute_unsupported_stage)
+              << pAttr->getSpelling() << "node";
+        }
+        break;
       }
       }
     }
   }
+}
+
+std::vector<FunctionDecl *> GetAllExportedFDecls(clang::Sema *self) {
+  // Add to the end, process from the beginning, to ensure AllExportedFDecls
+  // will contain functions in decl order.
+  std::vector<FunctionDecl *> AllExportedFDecls;
+
+  std::deque<DeclContext *> Worklist;
+  Worklist.push_back(self->getASTContext().getTranslationUnitDecl());
+  while (Worklist.size()) {
+    DeclContext *DC = Worklist.front();
+    Worklist.pop_front();
+    if (auto *FD = dyn_cast<FunctionDecl>(DC)) {
+      AllExportedFDecls.push_back(FD);
+    } else {
+      for (auto *D : DC->decls()) {
+        if (auto *FD = dyn_cast<FunctionDecl>(D)) {
+          if (FD->hasBody() &&
+              IsExported(self, FD, getDefaultLinkageExternal(self)))
+            Worklist.push_back(FD);
+        } else if (auto *DC2 = dyn_cast<DeclContext>(D)) {
+          Worklist.push_back(DC2);
+        }
+      }
+    }
+  }
+
+  return AllExportedFDecls;
+}
+
+std::string getFQFunctionName(FunctionDecl *FD) {
+  std::string name = "";
+  if (!FD) {
+    return name;
+  }
+  if (FD->getName().empty()) {
+    // Anonymous functions are not supported.
+    return name;
+  }
+  name = FD->getName();
+  while (!FD->isGlobal()) {
+    DeclContext *parent = FD->getParent();
+    if (NamespaceDecl *ns = dyn_cast<NamespaceDecl>(parent)) {
+      // function declaration is in a namespace
+      name = ns->getName().str() + "::" + name;
+    } else if (RecordDecl *record = dyn_cast<RecordDecl>(parent)) {
+      // function declaration is in a record or class
+      name = record->getName().str() + "::" + name;
+    } else if (FunctionDecl *parentFunc = dyn_cast<FunctionDecl>(parent)) {
+      // function declaration is in a nested function
+      name = parentFunc->getName().str() + "::" + name;
+      FD = parentFunc;
+    } else {
+      // function declaration is in an unknown scope
+      name = "unknown::" + name;
+    }
+  }
+
+  return name;
 }
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
@@ -11475,56 +11572,68 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
   }
 
-  if (self->getLangOpts().IsHLSLLibrary) {
-    ValidatePatchConstantFunctionsExist(self);
-    ValidateNoRecursionInTranslationUnit(self);
-    return;
-  }
+  // Now check for recursion, and check for patch constant function
+  // reachabililty Validation methods differ depending on whether this is a
+  // library shader or not.
 
   // TODO: make these error 'real' errors rather than on-the-fly things
   // Validate that the entry point is available.
   DiagnosticsEngine &Diags = self->getDiagnostics();
   FunctionDecl *pEntryPointDecl = nullptr;
-  FunctionDecl *pPatchFnDecl = nullptr;
-  const std::string &EntryPointName = self->getLangOpts().HLSLEntryFunction;
-  if (!EntryPointName.empty()) {
-    NameLookup NL =
-        GetSingleFunctionDeclByName(self, EntryPointName, /*checkPatch*/ false);
-    if (NL.Found && NL.Other) {
-      // NOTE: currently we cannot hit this codepath when CodeGen is enabled,
-      // because CodeGenModule::getMangledName will mangle the entry point name
-      // into the bare string, and so ambiguous points will produce an error
-      // earlier on.
-      unsigned id =
-          Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-                                "ambiguous entry point function");
-      Diags.Report(NL.Found->getSourceRange().getBegin(), id);
-      Diags.Report(NL.Other->getLocation(), diag::note_previous_definition);
-      return;
-    }
-    pEntryPointDecl = NL.Found;
-    if (!pEntryPointDecl || !pEntryPointDecl->hasBody()) {
-      unsigned id =
-          Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
-                                "missing entry point definition");
-      Diags.Report(id);
-      return;
+  std::vector<FunctionDecl *> FDeclsToCheck;
+  if (self->getLangOpts().IsHLSLLibrary) {
+    FDeclsToCheck = GetAllExportedFDecls(self);
+  } else {
+    const std::string &EntryPointName = self->getLangOpts().HLSLEntryFunction;
+    if (!EntryPointName.empty()) {
+      NameLookup NL = GetSingleFunctionDeclByName(self, EntryPointName,
+                                                  /*checkPatch*/ false);
+      if (NL.Found && NL.Other) {
+        // NOTE: currently we cannot hit this codepath when CodeGen is enabled,
+        // because CodeGenModule::getMangledName will mangle the entry point
+        // name into the bare string, and so ambiguous points will produce an
+        // error earlier on.
+        unsigned id =
+            Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+                                  "ambiguous entry point function");
+        Diags.Report(NL.Found->getSourceRange().getBegin(), id);
+        Diags.Report(NL.Other->getLocation(), diag::note_previous_definition);
+        return;
+      }
+      pEntryPointDecl = NL.Found;
+      if (!pEntryPointDecl || !pEntryPointDecl->hasBody()) {
+        unsigned id =
+            Diags.getCustomDiagID(clang::DiagnosticsEngine::Level::Error,
+                                  "missing entry point definition");
+        Diags.Report(id);
+        return;
+      }
+      FDeclsToCheck.push_back(NL.Found);
     }
   }
 
-  FunctionDecl *result = ValidateNoRecursion(self, pEntryPointDecl);
+  std::set<FunctionDecl *> DiagnosedDecls;
+  // for each FDecl, check for recursion
+  for (FunctionDecl *FDecl : FDeclsToCheck) {
+    FunctionDecl *result = ValidateNoRecursion(self, FDecl);
 
-  if (result) {
-    self->Diag(result->getSourceRange().getBegin(), diag::err_hlsl_no_recursion)
-        << 0 << result->getName();
-  }
+    if (result) {
+      // don't emit duplicate diagnostics for the same recursive function
+      // if A and B call recursive function C, only emit 1 diagnostic for C.
+      if (DiagnosedDecls.find(result) == DiagnosedDecls.end()) {
+        DiagnosedDecls.insert(result);
+        self->Diag(result->getSourceRange().getBegin(),
+                   diag::err_hlsl_no_recursion)
+            << FDecl->getQualifiedNameAsString()
+            << result->getQualifiedNameAsString();
+        self->Diag(result->getSourceRange().getBegin(),
+                   diag::note_hlsl_no_recursion);
+      }
+    }
 
-  const auto *shaderModel =
-      hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
-
-  if (shaderModel->IsHS()) {
+    FunctionDecl *pPatchFnDecl = nullptr;
     if (const HLSLPatchConstantFuncAttr *attr =
-            pEntryPointDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
+            FDecl->getAttr<HLSLPatchConstantFuncAttr>()) {
       NameLookup NL = GetSingleFunctionDeclByName(self, attr->getFunctionName(),
                                                   /*checkPatch*/ true);
       if (!NL.Found || !NL.Found->hasBody()) {
@@ -11534,34 +11643,40 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       }
       pPatchFnDecl = NL.Found;
     }
-  }
 
-  if (pPatchFnDecl) {
-    FunctionDecl *patchResult = ValidateNoRecursion(self, pPatchFnDecl);
+    if (pPatchFnDecl) {
+      FunctionDecl *patchResult = ValidateNoRecursion(self, pPatchFnDecl);
 
-    // In this case, recursion was detected in the patch-constant function
-    if (patchResult) {
-      self->Diag(patchResult->getSourceRange().getBegin(),
-                 diag::err_hlsl_no_recursion)
-          << 2 << patchResult->getName();
-    }
-
-    // The patch function decl and the entry function decl should be
-    // disconnected with respect to the call graph.
-    // Only check this if neither function decl is recursive
-    if (!result && !patchResult) {
-      hlsl::CallGraphWithRecurseGuard CG;
-      CG.BuildForEntry(pPatchFnDecl);
-      if (CG.CheckReachability(pPatchFnDecl, pEntryPointDecl)) {
-        self->Diag(pEntryPointDecl->getSourceRange().getBegin(),
-                   diag::err_hlsl_patch_reachability_not_allowed)
-            << 1 << pEntryPointDecl->getName() << 0 << pPatchFnDecl->getName();
+      // In this case, recursion was detected in the patch-constant function
+      if (patchResult) {
+        if (DiagnosedDecls.find(patchResult) == DiagnosedDecls.end()) {
+          DiagnosedDecls.insert(patchResult);
+          self->Diag(patchResult->getSourceRange().getBegin(),
+                     diag::err_hlsl_no_recursion)
+              << pPatchFnDecl->getQualifiedNameAsString()
+              << patchResult->getQualifiedNameAsString();
+          self->Diag(patchResult->getSourceRange().getBegin(),
+                     diag::note_hlsl_no_recursion);
+        }
       }
-      CG.BuildForEntry(pEntryPointDecl);
-      if (CG.CheckReachability(pEntryPointDecl, pPatchFnDecl)) {
-        self->Diag(pEntryPointDecl->getSourceRange().getBegin(),
-                   diag::err_hlsl_patch_reachability_not_allowed)
-            << 0 << pPatchFnDecl->getName() << 1 << pEntryPointDecl->getName();
+
+      // The patch function decl and the entry function decl should be
+      // disconnected with respect to the call graph.
+      // Only check this if neither function decl is recursive
+      if (!result && !patchResult) {
+        hlsl::CallGraphWithRecurseGuard CG;
+        CG.BuildForEntry(pPatchFnDecl);
+        if (CG.CheckReachability(pPatchFnDecl, FDecl)) {
+          self->Diag(FDecl->getSourceRange().getBegin(),
+                     diag::err_hlsl_patch_reachability_not_allowed)
+              << 1 << FDecl->getName() << 0 << pPatchFnDecl->getName();
+        }
+        CG.BuildForEntry(FDecl);
+        if (CG.CheckReachability(FDecl, pPatchFnDecl)) {
+          self->Diag(FDecl->getSourceRange().getBegin(),
+                     diag::err_hlsl_patch_reachability_not_allowed)
+              << 0 << pPatchFnDecl->getName() << 1 << FDecl->getName();
+        }
       }
     }
   }
@@ -13319,15 +13434,20 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNumThreads: {
-    auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-        ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
-        A.getAttributeSpellingListIndex());
-    if (numThreads->getX() * numThreads->getY() * numThreads->getZ() > 1024)
-      S.Diags.Report(numThreads->getLocation(),
-                     diag::err_hlsl_numthreads_group_size)
-          << numThreads->getRange();
-    declAttr = numThreads;
+    int X = ValidateAttributeIntArg(S, A, 0);
+    int Y = ValidateAttributeIntArg(S, A, 1);
+    int Z = ValidateAttributeIntArg(S, A, 2);
+    int N = X * Y * Z;
+    if (N > 0 && N <= 1024) {
+      auto numThreads = ::new (S.Context) HLSLNumThreadsAttr(
+          A.getRange(), S.Context, X, Y, Z, A.getAttributeSpellingListIndex());
+      declAttr = numThreads;
+    } else {
+      // If the number of threads is invalid, diagnose and drop the attribute.
+      S.Diags.Report(A.getLoc(), diag::warn_hlsl_numthreads_group_size)
+          << N << X << Y << Z << A.getRange();
+      return;
+    }
     break;
   }
   case AttributeList::AT_HLSLRootSignature:
@@ -15316,18 +15436,21 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
 // Diagnose input node record to make sure it has exactly one SV_DispatchGrid
 // semantics. Recursivelly walk all fields on the record and all of its base
 // classes/structs
-void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
+void DiagnoseDispatchGridSemantics(Sema &S, RecordDecl *InputRecordDecl,
+                                   SourceLocation NodeRecordLoc,
                                    SourceLocation &DispatchGridLoc,
                                    bool &Found) {
-
-  // Walk up the inheritance chain and check all fields on base classes
-  for (auto &B : InputRecordDecl->bases()) {
-    const RecordType *BaseStructType = B.getType()->getAsStructureType();
-    if (nullptr != BaseStructType) {
-      CXXRecordDecl *BaseTypeDecl =
-          dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
-      if (nullptr != BaseTypeDecl) {
-        DiagnoseDispatchGridSemantics(S, BaseTypeDecl, DispatchGridLoc, Found);
+  if (auto *CXXInputRecordDecl = dyn_cast<CXXRecordDecl>(InputRecordDecl)) {
+    // Walk up the inheritance chain and check all fields on base classes
+    for (auto &B : CXXInputRecordDecl->bases()) {
+      const RecordType *BaseStructType = B.getType()->getAsStructureType();
+      if (nullptr != BaseStructType) {
+        CXXRecordDecl *BaseTypeDecl =
+            dyn_cast<CXXRecordDecl>(BaseStructType->getDecl());
+        if (nullptr != BaseTypeDecl) {
+          DiagnoseDispatchGridSemantics(S, BaseTypeDecl, NodeRecordLoc,
+                                        DispatchGridLoc, Found);
+        }
       }
     }
   }
@@ -15360,6 +15483,8 @@ void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
                   it->Loc,
                   diag::err_hlsl_incompatible_dispatchgrid_semantic_type)
                   << Ty;
+              S.Diags.Report(NodeRecordLoc, diag::note_defined_here)
+                  << "NodeInput/Output record";
             }
             DispatchGridLoc = it->Loc;
           } else {
@@ -15380,16 +15505,18 @@ void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordDecl,
       CXXRecordDecl *FieldTypeDecl =
           dyn_cast<CXXRecordDecl>(FieldTypeAsStruct->getDecl());
       if (nullptr != FieldTypeDecl) {
-        DiagnoseDispatchGridSemantics(S, FieldTypeDecl, DispatchGridLoc, Found);
+        DiagnoseDispatchGridSemantics(S, FieldTypeDecl, NodeRecordLoc,
+                                      DispatchGridLoc, Found);
       }
     }
   }
 }
 
-void DiagnoseDispatchGridSemantics(Sema &S, CXXRecordDecl *InputRecordStruct,
-                                   bool &Found) {
+void DiagnoseDispatchGridSemantics(Sema &S, RecordDecl *NodeRecordStruct,
+                                   SourceLocation NodeRecordLoc, bool &Found) {
   SourceLocation DispatchGridLoc;
-  DiagnoseDispatchGridSemantics(S, InputRecordStruct, DispatchGridLoc, Found);
+  DiagnoseDispatchGridSemantics(S, NodeRecordStruct, NodeRecordLoc,
+                                DispatchGridLoc, Found);
 }
 
 void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
@@ -15435,6 +15562,9 @@ void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD,
 void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                           bool isActiveEntry) {
   if (isActiveEntry) {
+    if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+      S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+          << StageName << "numthreads";
     if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
       std::string profile = S.getLangOpts().HLSLProfile;
       const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
@@ -15551,45 +15681,43 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       S.Diags.Report(NodeDG->getLocation(), diag::note_defined_here)
           << NodeDG->getSpelling();
     }
-    // Node with NodeMaxDispatchGrid must have SV_DispatchGrid semantic.
-    if (NodeMDG) {
-      bool Found = false;
-      for (FunctionDecl::param_iterator I = FD->param_begin(),
-                                        E = FD->param_end();
-           I != E; ++I) {
-        QualType ParamType = (*I)->getType().getCanonicalType();
+    // Diagnose dispatch grid semantics.
+    bool Found = false;
+    for (ParmVarDecl *PD : FD->params()) {
+      QualType ParamType = PD->getType().getCanonicalType();
 
-        // Find parameter that is the node input record
-        if (hlsl::IsHLSLNodeInputType(ParamType)) {
-          // Node input records are template types
-          if (const RecordType *NodeInputRT = dyn_cast<RecordType>(ParamType)) {
-            if (const ClassTemplateSpecializationDecl *templateDecl =
-                    dyn_cast<ClassTemplateSpecializationDecl>(
-                        NodeInputRT->getDecl())) {
-
-              // Get the input record struct
-              auto &TemplateArgs = templateDecl->getTemplateArgs();
-              DXASSERT_NOMSG(TemplateArgs.size() >= 1);
-              QualType Arg0Type = TemplateArgs.get(0).getAsType();
-              const RecordType *NodeInputStructType =
-                  Arg0Type->getAsStructureType();
-              if (nullptr != NodeInputStructType) {
-                CXXRecordDecl *NodeInputStructDecl =
-                    dyn_cast<CXXRecordDecl>(NodeInputStructType->getDecl());
-                if (nullptr != NodeInputStructDecl) {
-                  // Make sure there is exactly one SV_DispatchGrid semantics
-                  // and it has correct type.
-                  DiagnoseDispatchGridSemantics(S, NodeInputStructDecl, Found);
-                }
-              }
-            }
-          }
+      // Find parameter that is the node input record
+      if (hlsl::IsHLSLNodeInputType(ParamType)) {
+        // Node records are template types
+        if (RecordDecl *NodeStructDecl =
+                hlsl::GetRecordDeclFromNodeObjectType(ParamType)) {
+          // Diagnose any SV_DispatchGrid semantics used in record.
+          DiagnoseDispatchGridSemantics(S, NodeStructDecl, PD->getLocation(),
+                                        Found);
         }
       }
-      if (!Found) {
-        S.Diags.Report(FD->getLocation(),
-                       diag::err_hlsl_missing_dispatchgrid_semantic)
-            << FD->getName();
+    }
+    // Node with NodeMaxDispatchGrid must have SV_DispatchGrid semantic.
+    if (NodeMDG && !Found) {
+      S.Diags.Report(FD->getLocation(),
+                     diag::err_hlsl_missing_dispatchgrid_semantic)
+          << FD->getName();
+    }
+  }
+
+  // Dignose node output.
+  for (ParmVarDecl *PD : FD->params()) {
+    QualType ParamType = PD->getType().getCanonicalType();
+
+    // Find parameter that is the node input record
+    if (hlsl::IsHLSLNodeOutputType(ParamType)) {
+      // Node records are template types
+      if (RecordDecl *NodeStructDecl =
+              hlsl::GetRecordDeclFromNodeObjectType(ParamType)) {
+        // Diagnose any SV_DispatchGrid semantics used in record.
+        bool OutputFound = false;
+        DiagnoseDispatchGridSemantics(S, NodeStructDecl, PD->getLocation(),
+                                      OutputFound);
       }
     }
   }
@@ -15609,7 +15737,6 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     auto *NodeArraySizeAttr = Param->getAttr<HLSLNodeArraySizeAttr>();
     auto *UnboundedSparseNodesAttr =
         Param->getAttr<HLSLUnboundedSparseNodesAttr>();
-
     // Check any node input is compatible with the node launch type
     if (hlsl::IsHLSLNodeInputType(ParamTy)) {
       InputCount++;
@@ -15694,19 +15821,16 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
               << HLSLNodeObjectAttr::ConvertRecordTypeToStr(Kind);
       }
     }
-
     HLSLMaxRecordsSharedWithAttr *ExistingMRSWA =
         Param->getAttr<HLSLMaxRecordsSharedWithAttr>();
     if (ExistingMRSWA) {
       StringRef sharedName = ExistingMRSWA->getName()->getName();
-      unsigned int ArgIdx = 0;
       bool Found = false;
-      while (ArgIdx < FD->getNumParams()) {
-        const ParmVarDecl *ParamDecl = FD->getParamDecl(ArgIdx);
+      for (const ParmVarDecl *ParamDecl : FD->params()) {
         // validation that MRSW doesn't reference its own parameter is
         // already done at
         // SemaHLSL.cpp:ValidateMaxRecordsSharedWithAttributes so we don't
-        // need to check that ArgIdx != Idx.
+        // need to check that we are on the same argument.
         if (ParamDecl->getName() == sharedName) {
           // now we need to check that this parameter has an output record type.
           hlsl::NodeFlags nodeFlags;
@@ -15718,12 +15842,34 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
             }
           }
         }
-        ArgIdx++;
       }
 
       if (!Found) {
         S.Diag(ExistingMRSWA->getLocation(),
                diag::err_hlsl_maxrecordssharedwith_references_invalid_arg);
+      }
+    }
+
+    // Make sure NodeTrackRWInputSharing attribute cannot be applied to
+    // Input Records that are not RWDispatchNodeInputRecord
+    if (hlsl::IsHLSLNodeInputType(ParamTy)) {
+      hlsl::NodeFlags nodeFlags;
+      if (GetHLSLNodeIORecordType(Param, nodeFlags)) {
+        hlsl::NodeIOProperties node(nodeFlags);
+
+        // determine if the NodeTrackRWInputSharing is an attribute on the
+        // template type
+        clang::RecordDecl *RD = hlsl::GetRecordDeclFromNodeObjectType(ParamTy);
+        if (RD) {
+          // Emit a diagnostic if the record is not RWDispatchNode and
+          // if it has the NodeTrackRWInputSharing attribute
+          if (RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>() &&
+              node.Flags.GetNodeIOKind() !=
+                  DXIL::NodeIOKind::RWDispatchNodeInputRecord) {
+            S.Diags.Report(Param->getLocation(),
+                           diag::err_hlsl_wg_nodetrackrwinputsharing_invalid);
+          }
+        }
       }
     }
   }
@@ -15756,22 +15902,28 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
     return;
   }
 
+  isActiveEntry = true;
+
   std::string profile = S.getLangOpts().HLSLProfile;
   const ShaderModel *SM = hlsl::ShaderModel::GetByName(profile.c_str());
   const llvm::StringRef fullName = ShaderModel::FullNameFromKind(SM->GetKind());
 
   // don't add the attribute for an invalid profile, like library
   if (fullName.empty()) {
-    return;
+    llvm_unreachable("invalid shader kind");
   }
 
+  // At this point, we've found the active entry, so we'll take a note of that
+  // and try to add the shader attr.
+  isActiveEntry = true;
+
   HLSLShaderAttr *currentShaderAttr = FD->getAttr<HLSLShaderAttr>();
-  // Don't add the attribute if it already exists as an attribute on the decl.
-  // In the special case that the target profile is compute and the
-  // entry decl already has a node shader attr, don't do anything
+  // Don't add the attribute if it already exists as an attribute on the decl,
+  // and emit an error.
   if (currentShaderAttr) {
     llvm::StringRef currentFullName = currentShaderAttr->getStage();
     if (currentFullName != fullName) {
+
       S.Diag(currentShaderAttr->getLocation(),
              diag::err_hlsl_profile_conflicts_with_shader_attribute)
           << fullName << profile << currentFullName << EntryPointName;
@@ -15785,7 +15937,6 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
       HLSLShaderAttr::CreateImplicit(S.Context, fullName);
 
   FD->addAttr(pShaderAttr);
-  isActiveEntry = true;
   return;
 }
 
@@ -15801,44 +15952,11 @@ clang::FunctionDecl *ValidateNoRecursion(clang::Sema *self,
   // on functions that are unreachable (as an early form of dead code
   // elimination).
   if (FD) {
-    hlsl::CallGraphWithRecurseGuard CG;
-    CG.BuildForEntry(FD);
-    return CG.CheckRecursion(FD);
+    HLSLExternalSource *hlslSource = HLSLExternalSource::FromSema(self);
+    hlslSource->getCallGraph().BuildForEntry(FD);
+    return hlslSource->getCallGraph().CheckRecursion(FD);
   }
   return nullptr;
-}
-
-void ValidateNoRecursionInTranslationUnit(clang::Sema *self) {
-  std::set<FunctionDecl *> FDecls;
-  std::vector<FunctionDecl *> FDeclsVec;
-  for (auto decl : self->getASTContext().getTranslationUnitDecl()->decls()) {
-    // TODO: improve condition so that only exported functions are checked,
-    // instead of all functions. Issue: #5857
-    if (FunctionDecl *FD = dyn_cast<FunctionDecl>(decl)) {
-      // returns the first recursive function declaration detected
-      // from this function declaration FD, and determines whether
-      // the recursion was detected in the patch-constant function
-      FunctionDecl *pResult = ValidateNoRecursion(self, FD);
-      // if there is a function that was detected to be recursive,
-      // then make sure it is saved for later to emit a diagnostic
-      if (pResult) {
-        FDecls.insert(pResult);
-        FDeclsVec.push_back(pResult);
-      }
-    }
-  }
-
-  // iterate through FDeclsVec to maintain AST order, and delete
-  // from set FDecls as we go.
-  for (FunctionDecl *fdecl : FDeclsVec) {
-    if (FDecls.find(fdecl) == FDecls.end()) {
-      continue;
-    }
-    self->Diag(fdecl->getSourceRange().getBegin(), diag::err_hlsl_no_recursion)
-        << 0 << fdecl->getName();
-
-    FDecls.erase(fdecl);
-  }
 }
 
 // The DiagnoseEntry function does 2 things:

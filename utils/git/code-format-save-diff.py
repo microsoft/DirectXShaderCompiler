@@ -58,7 +58,7 @@ def apply_patches(args: argparse.Namespace) -> None:
         os.remove(args.tmp_diff_file)
     
     with open(args.tmp_diff_file, 'w+') as tmp:
-        tmp.write(diff.encode("utf-8"))
+        tmp.write(diff)
         tmp.flush()
         tmp.close()
 

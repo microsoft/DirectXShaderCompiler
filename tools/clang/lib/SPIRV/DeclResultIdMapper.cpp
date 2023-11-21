@@ -9,6 +9,8 @@
 
 #include "DeclResultIdMapper.h"
 
+#include <algorithm>
+#include <optional>
 #include <sstream>
 
 #include "dxc/DXIL/DxilConstants.h"
@@ -962,6 +964,14 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                          decl->getType(), spv::StorageClass::Output, loc);
   }
 
+  if (hlsl::IsHLSLDynamicResourceType(decl->getType()) ||
+      hlsl::IsHLSLDynamicSamplerType(decl->getType())) {
+    emitError("HLSL object %0 not yet supported with -spirv",
+              decl->getLocation())
+        << decl->getName();
+    return nullptr;
+  }
+
   const DeclSpirvInfo *info = getDeclSpirvInfo(decl);
 
   // If DeclSpirvInfo is not found for this decl, it might be because it is an
@@ -1003,7 +1013,7 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
     }
   }
 
-  emitFatalError("found unregistered decl", decl->getLocation())
+  emitFatalError("found unregistered decl %0", decl->getLocation())
       << decl->getName();
   emitNote("please file a bug report on "
            "https://github.com/Microsoft/DirectXShaderCompiler/issues with "
@@ -1810,51 +1820,97 @@ class LocationSet {
 public:
   /// Maximum number of indices supported
   const static uint32_t kMaxIndex = 2;
-  /// Maximum number of locations supported
-  // Typically we won't have that many stage input or output variables.
-  // Using 64 should be fine here.
-  const static uint32_t kMaxLoc = 64;
 
+  // Creates an empty set.
   LocationSet() {
     for (uint32_t i = 0; i < kMaxIndex; ++i) {
-      usedLocs[i].resize(kMaxLoc);
-      nextLoc[i] = 0;
+      // Default size. 64 should cover most cases without having to resize.
+      usedLocations[i].resize(64);
+      nextAvailableLocation[i] = 0;
     }
   }
 
-  /// Uses the given location.
-  void useLoc(uint32_t loc, uint32_t index = 0) {
+  /// Marks a given location as used.
+  void useLocation(uint32_t loc, uint32_t index = 0) {
     assert(index < kMaxIndex);
-    usedLocs[index].set(loc);
+
+    auto &set = usedLocations[index];
+    if (loc >= set.size()) {
+      set.resize(std::max<size_t>(loc + 1, set.size() * 2));
+    }
+    set.set(loc);
+    nextAvailableLocation[index] =
+        std::max(loc + 1, nextAvailableLocation[index]);
   }
 
-  /// Uses the next |count| available location.
-  int useNextLocs(uint32_t count, uint32_t index = 0) {
-    assert(index < kMaxIndex);
-    auto &locs = usedLocs[index];
-    auto &next = nextLoc[index];
-    while (locs[next])
-      next++;
+  // Find the first range of size |count| of unused locations,
+  // and marks them as used.
+  // Returns the first index of this range.
+  int useNextNLocations(uint32_t count, uint32_t index = 0) {
+    auto res = findUnusedRange(index, count);
+    auto &locations = usedLocations[index];
 
-    int toUse = next;
+    // Simple case: no hole large enough left, resizing.
+    if (res == std::nullopt) {
+      const uint32_t spaceLeft =
+          locations.size() - nextAvailableLocation[index];
+      assert(spaceLeft < count && "There is a bug.");
 
-    for (uint32_t i = 0; i < count; ++i) {
-      assert(!locs[next]);
-      locs.set(next++);
+      const uint32_t requiredAlloc = count - spaceLeft;
+      locations.resize(locations.size() + requiredAlloc);
+      res = nextAvailableLocation[index];
     }
 
-    return toUse;
+    for (uint32_t i = res.value(); i < res.value() + count; i++) {
+      locations.set(i);
+    }
+
+    nextAvailableLocation[index] =
+        std::max(res.value() + count, nextAvailableLocation[index]);
+    return res.value();
   }
 
   /// Returns true if the given location number is already used.
-  bool isLocUsed(uint32_t loc, uint32_t index = 0) {
+  bool isLocationUsed(uint32_t loc, uint32_t index = 0) {
     assert(index < kMaxIndex);
-    return usedLocs[index][loc];
+    if (loc >= usedLocations[index].size())
+      return false;
+    return usedLocations[index][loc];
   }
 
 private:
-  llvm::SmallBitVector usedLocs[kMaxIndex]; ///< All previously used locations
-  uint32_t nextLoc[kMaxIndex];              ///< Next available location
+  // Find the first unused range of size |size| in the given set.
+  // If the set contains such range, returns the first usable index.
+  // Otherwise, nullopt is returned.
+  std::optional<uint32_t> findUnusedRange(uint32_t index, uint32_t size) {
+    if (size == 0) {
+      return 0;
+    }
+
+    assert(index < kMaxIndex);
+    const auto &locations = usedLocations[index];
+
+    uint32_t required_size = size;
+    uint32_t start = 0;
+    for (uint32_t i = 0; i < locations.size() && required_size > 0; i++) {
+      if (!locations[i]) {
+        --required_size;
+        continue;
+      }
+
+      required_size = size;
+      start = i + 1;
+    }
+
+    return required_size == 0 ? std::optional(start) : std::nullopt;
+  }
+
+  // The sets to remember used locations. A set bit means the location is used.
+  /// All previously used locations
+  llvm::SmallBitVector usedLocations[kMaxIndex];
+
+  // The position of the last bit set in the usedLocation vector.
+  uint32_t nextAvailableLocation[kMaxIndex];
 };
 
 /// A class for managing resource bindings to avoid duplicate uses of the same
@@ -2044,16 +2100,9 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
       const auto attrLoc = attr->getLocation(); // Attr source code location
       const auto idx = var.getIndexAttr() ? var.getIndexAttr()->getNumber() : 0;
 
-      if ((const unsigned)loc >= LocationSet::kMaxLoc) {
-        emitError("stage %select{output|input}0 location #%1 too large",
-                  attrLoc)
-            << forInput << loc;
-        return false;
-      }
-
       // Make sure the same location is not assigned more than once
       for (uint32_t l = loc; l < loc + locCount; ++l) {
-        if (locSet.isLocUsed(l, idx)) {
+        if (locSet.isLocationUsed(l, idx)) {
           emitError("stage %select{output|input}0 location #%1 already "
                     "consumed by semantic '%2'",
                     attrLoc)
@@ -2061,7 +2110,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
           noError = false;
         }
 
-        locSet.useLoc(l, idx);
+        locSet.useLocation(l, idx);
       }
 
       spvBuilder.decorateLocation(var.getSpirvInstr(), loc);
@@ -2103,7 +2152,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     // semantic string index.
     if (semaInfo.isTarget()) {
       spvBuilder.decorateLocation(var.getSpirvInstr(), semaInfo.index);
-      locSet.useLoc(semaInfo.index);
+      locSet.useLocation(semaInfo.index);
 
       if (!isDuplicatedStageVarLocation(&stageVariableLocationInfo, var,
                                         semaInfo.index, 0)) {
@@ -2118,7 +2167,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
     return true;
 
   auto nextLocs = [&locSet](uint32_t locCount) {
-    return locSet.useNextLocs(locCount);
+    return locSet.useNextNLocations(locCount);
   };
 
   // If alphabetical ordering was requested, sort by semantic string.

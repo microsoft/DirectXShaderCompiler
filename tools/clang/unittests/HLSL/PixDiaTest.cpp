@@ -177,7 +177,8 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
-  TEST_METHOD(DxcPixDxilDebugInfo_TwiceInlinedFunctions)
+  TEST_METHOD(DxcPixDxilDebugInfo_InlinedFunctions_TwiceInlinedFunctions)
+  TEST_METHOD(DxcPixDxilDebugInfo_InlinedFunctions_CalledTwiceInSameCaller)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -2808,8 +2809,8 @@ static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
   return -1;
 }
 
-TEST_F(PixDiaTest, DxcPixDxilDebugInfo_TwiceInlinedFunctions) {
-  if (m_ver.SkipDxilVersion(1, 2))
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_InlinedFunctions_TwiceInlinedFunctions) {
+  if (m_ver.SkipDxilVersion(1, 6))
     return;
 
   const char *hlsl = R"(
@@ -2881,6 +2882,7 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
   auto dxilDebugger =
       CompileAndCreateDxcDebug(hlsl, L"lib_6_6", pIncludeHandler);
 
+  // Case: same functions called from two different top-level callers
   DWORD instructionOffset =
       AdvanceUntilFunctionEntered(dxilDebugger, 0, L"ClosestHitShader0");
   instructionOffset = AdvanceUntilFunctionEntered(
@@ -2904,8 +2906,9 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
   VERIFY_ARE_NOT_EQUAL(RegisterNumber0, RegisterNumber1);
   VERIFY_ARE_NOT_EQUAL(RegisterNumber2, RegisterNumber3);
 
-  instructionOffset = AdvanceUntilFunctionEntered(
-      dxilDebugger, instructionOffset, L"ClosestHitShader2");
+  // Case: two different functions called from same top-level function
+  instructionOffset =
+      AdvanceUntilFunctionEntered(dxilDebugger, 0, L"ClosestHitShader2");
   instructionOffset = AdvanceUntilFunctionEntered(
       dxilDebugger, instructionOffset, L"InlinedFunction");
   DWORD ColorRegisterNumberWhenCalledFromOuterForInlined =
@@ -2918,6 +2921,59 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
                                    L"x");
   VERIFY_ARE_NOT_EQUAL(ColorRegisterNumberWhenCalledFromOuterForInlined,
                        ColorRegisterNumberWhenCalledFromOuterForDeeper);
+}
+
+TEST_F(PixDiaTest,
+       DxcPixDxilDebugInfo_InlinedFunctions_CalledTwiceInSameCaller) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  const char *hlsl = R"(
+struct RayPayload
+{
+    float4 color;
+};
+
+RWStructuredBuffer<float4> floatRWUAV: register(u0);
+
+float4 InlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int offset)
+{
+  float4 ret = floatRWUAV.Load(offset + attr.barycentrics.x);
+  return ret;
+}
+
+[shader("closesthit")]
+void ClosestHitShader3(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
+{
+    float4 generateSomeLocalInstrucitons = floatRWUAV.Load(0);
+    float4 c0 = InlinedFunction(attr, 2);
+    float4 generateSomeMoreLocalInstrucitons = floatRWUAV.Load(1);
+    float4 c1 = InlinedFunction(attr, 3);
+    payload.color = c0 + c1 + generateSomeLocalInstrucitons + generateSomeMoreLocalInstrucitons;
+}
+)";
+
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+
+  // Case: same function called from two places in same top-level function.
+  // In this case, we expect the storage for the variable to be in the same
+  // place for both "instances" of the function: as a thread proceeds through
+  // the caller, it will write new values into the variable's storage during
+  // the second or subsequent invocations of the inlined function.
+  DWORD instructionOffset =
+      AdvanceUntilFunctionEntered(dxilDebugger, 0, L"ClosestHitShader3");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD callsite0 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset, L"ret", L"x");
+  // advance until we're out of InlinedFunction before we call it a second time
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"ClosestHitShader3");
+  instructionOffset = AdvanceUntilFunctionEntered(
+      dxilDebugger, instructionOffset, L"InlinedFunction");
+  DWORD callsite1 = GetRegisterNumberForVariable(
+      dxilDebugger, instructionOffset++, L"ret", L"x");
+  VERIFY_ARE_EQUAL(callsite0, callsite1);
 }
 
 #endif

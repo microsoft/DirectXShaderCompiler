@@ -9002,7 +9002,7 @@ void LoadStoreMat(int M, int N, bool LEFT, int MEM_TYPE, uint32_t K, uint32_t k,
 }
 
 // define WAVE_MMA types if building with SDK that does not support it yet
-#if !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 611)
+#if !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 613)
 typedef enum D3D12_WAVE_MMA_INPUT_DATATYPE {
   D3D12_WAVE_MMA_INPUT_DATATYPE_INVALID = 0,
   D3D12_WAVE_MMA_INPUT_DATATYPE_BYTE =
