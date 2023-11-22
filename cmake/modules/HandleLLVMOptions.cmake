@@ -78,6 +78,11 @@ if( LLVM_ENABLE_ASSERTIONS )
         "${flags_var_to_scrub}" "${${flags_var_to_scrub}}")
     endforeach()
   endif()
+else()
+  # Disable assertions in Debug builds
+  if( uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
+    add_definitions( -DNDEBUG )
+  endif()
 endif()
 
 string(TOUPPER "${LLVM_ABI_BREAKING_CHECKS}" uppercase_LLVM_ABI_BREAKING_CHECKS)
