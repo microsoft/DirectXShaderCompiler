@@ -919,7 +919,7 @@ private:
   /// method panics if it finds a case value that is not an integer literal.
   void discoverAllCaseStmtInSwitchStmt(
       const Stmt *root, SpirvBasicBlock **defaultBB,
-      std::vector<std::pair<uint32_t, SpirvBasicBlock *>> *targets);
+      std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> *targets);
 
   /// Flattens structured AST of the given switch statement into a vector of AST
   /// nodes and stores into flatSwitch.

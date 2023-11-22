@@ -114,6 +114,8 @@ public:
   void emitFloatLiteral(const SpirvConstantFloat *, vecType &outInst);
   template <typename vecType>
   void emitIntLiteral(const SpirvConstantInteger *, vecType &outInst);
+  template <typename vecType>
+  void emitIntLiteral(const llvm::APInt &literalVal, vecType &outInst);
 
 private:
   void initTypeInstruction(spv::Op op);

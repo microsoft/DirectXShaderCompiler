@@ -357,4 +357,31 @@ void main() {
     break;
   }
 
+
+  /////////////////////////////////////////
+  // 64-bit integer variable as selector //
+  /////////////////////////////////////////
+  int64_t longsel;
+// CHECK:       [[longSelector:%[0-9]+]] = OpLoad %long %longsel
+// CHECK-NEXT:                          OpSelectionMerge %switch_merge_10 None
+// CHECK-NEXT:                          OpSwitch [[longSelector]] %switch_merge_10 -1 %switch_n1
+  switch (longsel) {
+  case -1:
+    result = 0;
+    break;
+  }
+
+
+  //////////////////////////////////////////////////
+  // 64-bit unsigned integer variable as selector //
+  //////////////////////////////////////////////////
+  uint64_t ulongsel;
+// CHECK:      [[ulongSelector:%[0-9]+]] = OpLoad %ulong %ulongsel
+// CHECK-NEXT:                          OpSelectionMerge %switch_merge_11 None
+// CHECK-NEXT:                          OpSwitch [[ulongSelector]] %switch_merge_11 12345678910 %switch_12345678910
+  switch (ulongsel) {
+  case 12345678910:
+    result = 0;
+    break;
+  }
 }

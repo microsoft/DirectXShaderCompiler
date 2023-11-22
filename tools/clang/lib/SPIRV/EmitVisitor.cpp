@@ -846,7 +846,7 @@ bool EmitVisitor::visit(SpirvSwitch *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvBasicBlock>(inst->getDefaultLabel()));
   for (const auto &target : inst->getTargets()) {
-    curInst.push_back(target.first);
+    typeHandler.emitIntLiteral(target.first, curInst);
     curInst.push_back(getOrAssignResultId<SpirvBasicBlock>(target.second));
   }
   finalizeInstruction(&mainBinary);
@@ -2611,6 +2611,12 @@ template <typename vecType>
 void EmitTypeHandler::emitIntLiteral(const SpirvConstantInteger *intLiteral,
                                      vecType &outInst) {
   const auto &literalVal = intLiteral->getValue();
+  emitIntLiteral(literalVal, outInst);
+}
+
+template <typename vecType>
+void EmitTypeHandler::emitIntLiteral(const llvm::APInt &literalVal,
+                                     vecType &outInst) {
   bool positive = !literalVal.isNegative();
   if (literalVal.getBitWidth() <= 32) {
     outInst.push_back(positive ? literalVal.getZExtValue()
