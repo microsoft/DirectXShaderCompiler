@@ -106,10 +106,10 @@ public:
 
   /// Create SpirvIntrinsicInstruction for arbitrary SPIR-V instructions
   /// specified by [[vk::ext_instruction(..)]] or [[vk::ext_type_def(..)]]
-  SpirvInstruction *createSpirvIntrInstExt(
-      llvm::ArrayRef<const Attr *> attrs, QualType retType,
-      llvm::ArrayRef<SpirvInstruction *> spvArgs, bool isInstr,
-      SourceLocation loc);
+  SpirvInstruction *
+  createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs, QualType retType,
+                         llvm::ArrayRef<SpirvInstruction *> spvArgs,
+                         bool isInstr, SourceLocation loc);
 
 private:
   void doFunctionDecl(const FunctionDecl *decl);
