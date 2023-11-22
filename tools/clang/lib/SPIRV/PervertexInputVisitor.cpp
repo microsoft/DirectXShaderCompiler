@@ -237,7 +237,8 @@ bool PervertexInputVisitor::visit(SpirvFunction *sf, Phase phase) {
       m_instrReplaceMap[var] = vtx0;
     }
     for (auto *param : currentFunc->getParameters()) {
-      if (!param->isNoninterpolated())
+      if (!param->isNoninterpolated() ||
+          param->getAstResultType().getTypePtr()->isStructureType())
         continue;
       auto *vtx0 =
           createProvokingVertexAccessChain(param, 0, param->getAstResultType());
