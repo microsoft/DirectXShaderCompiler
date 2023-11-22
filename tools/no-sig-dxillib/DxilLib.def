@@ -1,4 +1,4 @@
-LIBRARY testdxil
+LIBRARY dxil
 
 EXPORTS
     DxcCreateInstance

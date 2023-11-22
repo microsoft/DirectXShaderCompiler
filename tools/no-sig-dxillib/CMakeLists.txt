@@ -26,9 +26,9 @@ set(SOURCES
   DxilLibValidator.cpp
 )
 
-add_llvm_library(testdxil SHARED ${SOURCES})
+add_llvm_library(dxil SHARED ${SOURCES})
 
 if(WIN32)
-  add_dependencies(testdxil DxcRuntimeEtw)
+  add_dependencies(dxil DxcRuntimeEtw)
 endif(WIN32)
 
