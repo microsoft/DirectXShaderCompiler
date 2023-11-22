@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T cs_6_2
+// RUN: %dxc -E main -T cs_6_2 -fcgl  %s -spirv | FileCheck %s
 
 
 struct StructA

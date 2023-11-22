@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
     float  f;
@@ -17,36 +17,36 @@ TextureBuffer<T> MyTB : register(t1);
 TextureBuffer<T> MyTBArray[5] : register(t2);
 
 float main() : A {
-// CHECK:      [[a:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_0
-// CHECK-NEXT:   {{%\d+}} = OpLoad %float [[a]]
+// CHECK:      [[a:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_0
+// CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[a]]
 
-// CHECK:       [[b:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %MyTB %int_1
-// CHECK-NEXT: [[b0:%\d+]] = OpAccessChain %_ptr_Uniform_float [[b]] %int_0
-// CHECK-NEXT:    {{%\d+}} = OpLoad %float [[b0]]
+// CHECK:       [[b:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v2float %MyTB %int_1
+// CHECK-NEXT: [[b0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[b]] %int_0
+// CHECK-NEXT:    {{%[0-9]+}} = OpLoad %float [[b0]]
 
-// CHECK:      [[c12:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_2 %uint_1 %uint_2
-// CHECK-NEXT:     {{%\d+}} = OpLoad %float [[c12]]
+// CHECK:      [[c12:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_2 %uint_1 %uint_2
+// CHECK-NEXT:     {{%[0-9]+}} = OpLoad %float [[c12]]
 
-// CHECK:      [[s:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_3 %int_0
-// CHECK-NEXT:   {{%\d+}} = OpLoad %float [[s]]
+// CHECK:      [[s:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_3 %int_0
+// CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[s]]
 
-// CHECK:      [[t:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_4 %int_3
-// CHECK-NEXT:   {{%\d+}} = OpLoad %float [[t]]
+// CHECK:      [[t:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_4 %int_3
+// CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[t]]
   return MyTB.a         + MyTB.b.x         + MyTB.c[1][2]         + MyTB.s.f         + MyTB.t[3] +
-// CHECK:      [[a:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_4 %int_0
-// CHECK-NEXT:   {{%\d+}} = OpLoad %float [[a]]
+// CHECK:      [[a_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_4 %int_0
+// CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[a_0]]
 
-// CHECK:       [[b:%\d+]] = OpAccessChain %_ptr_Uniform_v2float %MyTBArray %int_3 %int_1
-// CHECK-NEXT: [[b0:%\d+]] = OpAccessChain %_ptr_Uniform_float [[b]] %int_0
-// CHECK-NEXT:    {{%\d+}} = OpLoad %float [[b0]]
+// CHECK:       [[b_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v2float %MyTBArray %int_3 %int_1
+// CHECK-NEXT: [[b0_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[b_0]] %int_0
+// CHECK-NEXT:    {{%[0-9]+}} = OpLoad %float [[b0_0]]
 
-// CHECK:      [[c12:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_2 %int_2 %uint_1 %uint_2
-// CHECK-NEXT:     {{%\d+}} = OpLoad %float [[c12]]
+// CHECK:      [[c12_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_2 %int_2 %uint_1 %uint_2
+// CHECK-NEXT:     {{%[0-9]+}} = OpLoad %float [[c12_0]]
 
-// CHECK:      [[s:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_1 %int_3 %int_0
-// CHECK-NEXT:   {{%\d+}} = OpLoad %float [[s]]
+// CHECK:      [[s_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_1 %int_3 %int_0
+// CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[s_0]]
 
-// CHECK:      [[t:%\d+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_0 %int_4 %int_3
-// CHECK-NEXT:   {{%\d+}} = OpLoad %float [[t]]
+// CHECK:      [[t_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_0 %int_4 %int_3
+// CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[t_0]]
          MyTBArray[4].a + MyTBArray[3].b.x + MyTBArray[2].c[1][2] + MyTBArray[1].s.f + MyTBArray[0].t[3];
 }
