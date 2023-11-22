@@ -20,7 +20,7 @@
 ; CHECK-NEXT:                Type: D3D_SVT_VOID
 ; CHECK-NEXT:                Elements: 0
 ; CHECK-NEXT:                Rows: 1
-; CHECK-NEXT:                Columns: 48
+; CHECK-NEXT:                Columns: 42
 ; CHECK-NEXT:                Members: 6
 ; CHECK-NEXT:                Offset: 0
 ; CHECK-NEXT:              {
@@ -46,7 +46,7 @@
 ; CHECK-NEXT:                  D3D12_SHADER_TYPE_DESC: Name: int3x1
 ; CHECK-NEXT:                    Class: D3D_SVC_MATRIX_COLUMNS
 ; CHECK-NEXT:                    Type: D3D_SVT_INT
-; CHECK-NEXT:                    Elements: 3
+; CHECK-NEXT:                    Elements: 0
 ; CHECK-NEXT:                    Rows: 3
 ; CHECK-NEXT:                    Columns: 1
 ; CHECK-NEXT:                    Members: 0
@@ -103,7 +103,7 @@ target triple = "dxil-ms-dx"
 ; High level struct stripped: [rows x <cols x float>] and
 ;High level struct stripped, one row: <cols x float> for m1.
 
-%struct.S = type { [4 x <3 x i32>], [2 x <3 x i32>], [3 x <1 x i32>], [4 x <3 x i32>], [2 x [1 x <3 x i32>]], [3 x <1 x i32>] }
+%struct.S = type { [4 x <3 x i32>], [2 x <3 x i32>], [3 x i32], [4 x <3 x i32>], [2 x [1 x <3 x i32>]], [3 x <1 x i32>] }
 
 @s = external constant %dx.types.Handle
 
