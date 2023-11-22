@@ -103,7 +103,7 @@ target triple = "dxil-ms-dx"
 ; High level struct stripped: [rows x <cols x float>] and
 ;High level struct stripped, one row: <cols x float> for m1.
 
-%struct.S = type { [4 x <3 x i32>], [2 x <3 x i32>], [3 x i32], [4 x <3 x i32>], [2 x [1 x <3 x i32>]], [3 x <1 x i32>] }
+%struct.S = type { [4 x <3 x i32>], [2 x <3 x i32>], [3 x i32], [4 x <3 x i32>], [2 x <3 x i32>], [3 x <1 x i32>] }
 
 @s = external constant %dx.types.Handle
 
