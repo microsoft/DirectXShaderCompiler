@@ -1307,7 +1307,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forShaderRecordNV =
       usageKind == ContextUsageKind::ShaderRecordBufferNV;
   const bool forShaderRecordEXT =
-      usageKind == ContextUsageKind::ShaderRecordBufferEXT;
+      usageKind == ContextUsageKind::ShaderRecordBufferKHR;
 
   const auto &declGroup = collectDeclsInDeclContext(decl);
 
@@ -1356,9 +1356,6 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
                                                   /*ArrayStride*/ llvm::None);
     }
   }
-
-  // Register the <type-id> for this decl
-  ctBufferPCTypes[decl] = resultType;
 
   const auto sc = forPC               ? spv::StorageClass::PushConstant
                   : forShaderRecordNV ? spv::StorageClass::ShaderRecordBufferNV
@@ -1451,18 +1448,30 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   const QualType type = decl->getType();
   const auto *recordType = type->getAs<RecordType>();
 
+  SpirvVariable *var = nullptr;
+
   if (isConstantBuffer(type)) {
-    // Get the templated type for ConstantBuffer.
-    recordType = hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
+    // Constant buffers already have Block decoration. The variable will need
+    // the PushConstant storage class.
+
+    // Create the variable for the whole struct / struct array.
+    // The fields may be 'precise', but the structure itself is not.
+    var = spvBuilder.addModuleVar(type, spv::StorageClass::PushConstant,
+                                  /*isPrecise*/ false,
+                                  /*isNoInterp*/ false, decl->getName());
+
+    const SpirvLayoutRule layoutRule = spirvOptions.sBufferLayoutRule;
+
+    var->setHlslUserType("");
+    var->setLayoutRule(layoutRule);
+  } else {
+    assert(recordType);
+    const std::string structName =
+        "type.PushConstant." + recordType->getDecl()->getName().str();
+    var = createStructOrStructArrayVarOfExplicitLayout(
+        recordType->getDecl(), /*arraySize*/ 0, ContextUsageKind::PushConstant,
+        structName, decl->getName());
   }
-
-  assert(recordType);
-
-  const std::string structName =
-      "type.PushConstant." + recordType->getDecl()->getName().str();
-  SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
-      recordType->getDecl(), /*arraySize*/ 0, ContextUsageKind::PushConstant,
-      structName, decl->getName());
 
   // Register the VarDecl
   astDecls[decl] = createDeclSpirvInfo(var);
@@ -1476,22 +1485,44 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
                                              ContextUsageKind kind) {
+  const QualType type = decl->getType();
   const auto *recordType =
-      hlsl::GetHLSLResourceResultType(decl->getType())->getAs<RecordType>();
+      hlsl::GetHLSLResourceResultType(type)->getAs<RecordType>();
   assert(recordType);
 
-  assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
+  assert(kind == ContextUsageKind::ShaderRecordBufferKHR ||
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
-  const auto typeName = kind == ContextUsageKind::ShaderRecordBufferEXT
-                            ? "type.ShaderRecordBufferEXT."
-                            : "type.ShaderRecordBufferNV.";
+  SpirvVariable *var = nullptr;
+  if (isConstantBuffer(type)) {
+    // Constant buffers already have Block decoration. The variable will need
+    // the appropriate storage class.
 
-  const std::string structName =
-      typeName + recordType->getDecl()->getName().str();
-  SpirvVariable *var = createStructOrStructArrayVarOfExplicitLayout(
-      recordType->getDecl(), /*arraySize*/ 0, kind, structName,
-      decl->getName());
+    const auto sc = kind == ContextUsageKind::ShaderRecordBufferNV
+                        ? spv::StorageClass::ShaderRecordBufferNV
+                        : spv::StorageClass::ShaderRecordBufferKHR;
+
+    // Create the variable for the whole struct / struct array.
+    // The fields may be 'precise', but the structure itself is not.
+    var = spvBuilder.addModuleVar(type, sc,
+                                  /*isPrecise*/ false,
+                                  /*isNoInterp*/ false, decl->getName());
+
+    const SpirvLayoutRule layoutRule = spirvOptions.sBufferLayoutRule;
+
+    var->setHlslUserType("");
+    var->setLayoutRule(layoutRule);
+  } else {
+    const auto typeName = kind == ContextUsageKind::ShaderRecordBufferKHR
+                              ? "type.ShaderRecordBufferKHR."
+                              : "type.ShaderRecordBufferNV.";
+
+    const std::string structName =
+        typeName + recordType->getDecl()->getName().str();
+    var = createStructOrStructArrayVarOfExplicitLayout(
+        recordType->getDecl(), /*arraySize*/ 0, kind, structName,
+        decl->getName());
+  }
 
   // Register the VarDecl
   astDecls[decl] = createDeclSpirvInfo(var);
@@ -1505,11 +1536,11 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
 SpirvVariable *
 DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
                                              ContextUsageKind kind) {
-  assert(kind == ContextUsageKind::ShaderRecordBufferEXT ||
+  assert(kind == ContextUsageKind::ShaderRecordBufferKHR ||
          kind == ContextUsageKind::ShaderRecordBufferNV);
 
-  const auto typeName = kind == ContextUsageKind::ShaderRecordBufferEXT
-                            ? "type.ShaderRecordBufferEXT."
+  const auto typeName = kind == ContextUsageKind::ShaderRecordBufferKHR
+                            ? "type.ShaderRecordBufferKHR."
                             : "type.ShaderRecordBufferNV.";
 
   const std::string structName = typeName + decl->getName().str();
@@ -1767,13 +1798,6 @@ void DeclResultIdMapper::createFieldCounterVars(
 
     indices->pop_back();
   }
-}
-
-const SpirvType *
-DeclResultIdMapper::getCTBufferPushConstantType(const DeclContext *decl) {
-  const auto found = ctBufferPCTypes.find(decl);
-  assert(found != ctBufferPCTypes.end());
-  return found->second;
 }
 
 std::vector<SpirvVariable *>

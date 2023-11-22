@@ -4,24 +4,24 @@ struct T {
     float2 val[3];
 };
 
-// CHECK: OpName %type_ShaderRecordBufferNV_S "type.ShaderRecordBufferNV.S"
-// CHECK: OpMemberName %type_ShaderRecordBufferNV_S 0 "f1"
-// CHECK: OpMemberName %type_ShaderRecordBufferNV_S 1 "f2"
-// CHECK: OpMemberName %type_ShaderRecordBufferNV_S 2 "f3"
-// CHECK: OpMemberName %type_ShaderRecordBufferNV_S 3 "f4"
+// CHECK: OpName %type_ConstantBuffer_S "type.ConstantBuffer.S"
+// CHECK: OpMemberName %type_ConstantBuffer_S 0 "f1"
+// CHECK: OpMemberName %type_ConstantBuffer_S 1 "f2"
+// CHECK: OpMemberName %type_ConstantBuffer_S 2 "f3"
+// CHECK: OpMemberName %type_ConstantBuffer_S 3 "f4"
 // CHECK-NOT: OpDecorate %srb DescriptorSet
 // CHECK-NOT: OpDecorate %srb Binding
 
-// CHECK: %type_ShaderRecordBufferNV_S = OpTypeStruct %float %v3float %mat2v3float %T
+// CHECK: %type_ConstantBuffer_S = OpTypeStruct %float %v3float %mat2v3float %T
 struct S {
     float    f1;
     float3   f2;
     float2x3 f3;
     T        f4;
 };
-// CHECK: %_ptr_ShaderRecordBufferNV_type_ShaderRecordBufferNV_S = OpTypePointer ShaderRecordBufferNV %type_ShaderRecordBufferNV_S
+// CHECK: %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_S = OpTypePointer ShaderRecordBufferNV %type_ConstantBuffer_S
 
-// CHECK: %srb = OpVariable %_ptr_ShaderRecordBufferNV_type_ShaderRecordBufferNV_S ShaderRecordBufferNV
+// CHECK: %srb = OpVariable %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_S ShaderRecordBufferNV
 [[vk::shader_record_nv]]
 ConstantBuffer<S> srb;
 
@@ -29,9 +29,9 @@ struct Payload { float p; };
 struct Attribute { float a; };
 
 [shader("miss")]
-void main(inout Payload P) 
+void main(inout Payload P)
 {
-   P.p = 
+   P.p =
 // CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float %srb %int_0
         srb.f1 +
 // CHECK: [[ptr:%[0-9]+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v3float %srb %int_1

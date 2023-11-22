@@ -1677,7 +1677,7 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   } else if (bufferDecl->hasAttr<VKShaderRecordEXTAttr>()) {
     (void)declIdMapper.createShaderRecordBuffer(
         bufferDecl,
-        DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferEXT);
+        DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
   } else {
     (void)declIdMapper.createCTBuffer(bufferDecl);
   }
@@ -1793,7 +1793,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
 
   if (decl->hasAttr<VKShaderRecordEXTAttr>()) {
     (void)declIdMapper.createShaderRecordBuffer(
-        decl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferEXT);
+        decl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
     return;
   }
 
