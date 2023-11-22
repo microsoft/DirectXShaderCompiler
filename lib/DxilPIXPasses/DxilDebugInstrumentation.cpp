@@ -894,13 +894,12 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
   }
 
   std::uint32_t RegNum;
-  if (!pix_dxil::PixDxilReg::FromInst(Inst, &RegNum))
-    if (Inst->getOpcode() == Instruction::Ret) {
+  if (!pix_dxil::PixDxilReg::FromInst(Inst, &RegNum)) {
+    if (Inst->getOpcode() == Instruction::Ret)
       addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepTerminator,
                                 BC, InstNum, nullptr, 0, 0);
-      return;
-    }
-
+    return;
+  }
   addStepDebugEntryValue(BC, InstNum, Inst, RegNum, BC.Builder.getInt32(0));
 }
 
