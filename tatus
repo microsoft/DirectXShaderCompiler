@@ -1,0 +1,164 @@
+[1mdiff --git a/tools/clang/lib/SPIRV/PervertexInputVisitor.cpp b/tools/clang/lib/SPIRV/PervertexInputVisitor.cpp[m
+[1mindex feaaa9c8d..351adab47 100644[m
+[1m--- a/tools/clang/lib/SPIRV/PervertexInputVisitor.cpp[m
+[1m+++ b/tools/clang/lib/SPIRV/PervertexInputVisitor.cpp[m
+[36m@@ -125,14 +125,11 @@[m [mPervertexInputVisitor::createFirstPerVertexVar(SpirvInstruction *base,[m
+   createVertexStore(vtx, createVertexLoad(base));[m
+   return vtx;[m
+ }[m
+[31m-[m
+[31m-SpirvInstruction *PervertexInputVisitor::createProvokingVertexAccessChain([m
+[31m-    SpirvInstruction *base, uint32_t index, QualType resultType) {[m
+[32m+[m[32mSpirvInstruction *PervertexInputVisitor::createVertexAccessChain([m
+[32m+[m[32m    QualType resultType, SpirvInstruction *base,[m
+[32m+[m[32m    llvm::ArrayRef<SpirvInstruction *> indexes) {[m
+   auto loc = base->getSourceLocation();[m
+   auto range = base->getSourceRange();[m
+[31m-  llvm::SmallVector<SpirvInstruction *, 1> indexes;[m
+[31m-  indexes.push_back(spirvBuilder.getConstantInt(astContext.UnsignedIntTy,[m
+[31m-                                                llvm::APInt(32, index)));[m
+   SpirvInstruction *instruction =[m
+       new (context) SpirvAccessChain(resultType, loc, base, indexes, range);[m
+   instruction->setStorageClass(spv::StorageClass::Function);[m
+[36m@@ -143,6 +140,18 @@[m [mSpirvInstruction *PervertexInputVisitor::createProvokingVertexAccessChain([m
+   return instruction;[m
+ }[m
+ [m
+[32m+[m[32mSpirvInstruction *[m
+[32m+[m[32mPervertexInputVisitor::createProvokingVertexAccessChain(SpirvInstruction *base,[m
+[32m+[m[32m                                                        uint32_t index,[m
+[32m+[m[32m                                                        QualType resultType) {[m
+[32m+[m[32m  llvm::SmallVector<SpirvInstruction *, 1> indexes;[m
+[32m+[m[32m  indexes.push_back(spirvBuilder.getConstantInt(astContext.UnsignedIntTy,[m
+[32m+[m[32m                                                llvm::APInt(32, index)));[m
+[32m+[m[32m  SpirvInstruction *instruction =[m
+[32m+[m[32m      createVertexAccessChain(resultType, base, indexes);[m
+[32m+[m[32m  return instruction;[m
+[32m+[m[32m}[m
+[32m+[m
+ SpirvVariable *[m
+ PervertexInputVisitor::addFunctionTempVar(llvm::StringRef varName,[m
+                                           QualType valueType,[m
+[36m@@ -309,9 +318,30 @@[m [mbool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {[m
+   /// with other instructions, so we need to get its original mapped variables.[m
+   unsigned argIndex = 0;[m
+   for (auto *arg : inst->getArgs()) {[m
+[31m-    if (currentFunc->getMappedFuncParam(arg)) {[m
+[31m-      createVertexStore(arg,[m
+[31m-                        createVertexLoad(currentFunc->getMappedFuncParam(arg)));[m
+[32m+[m[32m    if (currentFunc->getMappedFuncParam(arg))[m
+[32m+[m[32m    {[m
+[32m+[m[32m      auto paramVar = currentFunc->getMappedFuncParam(arg);[m
+[32m+[m[32m      if (isa<SpirvAccessChain>(paramVar)) {[m
+[32m+[m[32m        auto tempVar = paramVar;[m
+[32m+[m[32m        while (isa<SpirvAccessChain>(tempVar)) {[m
+[32m+[m[32m          tempVar = dyn_cast<SpirvAccessChain>(tempVar)->getBase();[m
+[32m+[m[32m        }[m
+[32m+[m[32m        if (tempVar->isNoninterpolated()) {[m
+[32m+[m[32m          /// For Structure type, expanded param needs restore to[m
+[32m+[m[32m          /// its related local variable as an array.[m
+[32m+[m[32m          auto paramAccessChain = dyn_cast<SpirvAccessChain>(paramVar);[m
+[32m+[m[32m          auto indexes = paramAccessChain->getIndexes();[m
+[32m+[m[32m          auto elemType = astContext.getConstantArrayType([m
+[32m+[m[32m              paramAccessChain->getAstResultType(), llvm::APInt(32, 3),[m
+[32m+[m[32m              clang::ArrayType::Normal, 0);[m
+[32m+[m[32m          llvm::SmallVector<SpirvInstruction *, 4>[m
+[32m+[m[32m              indices(indexes.begin(), indexes.end());[m
+[32m+[m[32m          indices.pop_back();[m
+[32m+[m[32m          paramVar =[m
+[32m+[m[32m              createVertexAccessChain(elemType, paramAccessChain->getBase(), indices);[m
+[32m+[m[32m        }[m
+[32m+[m[32m      }[m
+[32m+[m[32m      createVertexStore(arg, createVertexLoad(paramVar));[m
+     }[m
+     auto funcParam = inst->getFunction()->getParameters()[argIndex];[m
+     if (arg->isNoninterpolated()) {[m
+[36m@@ -328,9 +358,10 @@[m [mbool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {[m
+       ///        noninterpolated variable will be passed as an expanded array[m
+       for (auto caller : paramCaller[funcParam])[m
+         if (!caller->isNoninterpolated()) {[m
+[31m-          emitError("Current function could only use noninterpolated variable "[m
+[32m+[m[32m          emitError("Function '%0' could only use noninterpolated variable "[m
+                     "as input.",[m
+[31m-                    caller->getSourceLocation());[m
+[32m+[m[32m                    caller->getSourceLocation())[m
+[32m+[m[32m                    << inst->getFunction()->getFunctionName().data();[m
+           return 0;[m
+         }[m
+     }[m
+[1mdiff --git a/tools/clang/lib/SPIRV/PervertexInputVisitor.h b/tools/clang/lib/SPIRV/PervertexInputVisitor.h[m
+[1mindex e46c989e1..d006a0776 100644[m
+[1m--- a/tools/clang/lib/SPIRV/PervertexInputVisitor.h[m
+[1m+++ b/tools/clang/lib/SPIRV/PervertexInputVisitor.h[m
+[36m@@ -69,6 +69,9 @@[m [mpublic:[m
+ [m
+   void createVertexStore(SpirvInstruction *pt, SpirvInstruction *obj);[m
+ [m
+[32m+[m[32m  SpirvInstruction * createVertexAccessChain(QualType resultType, SpirvInstruction *base,[m
+[32m+[m[32m                          llvm::ArrayRef<SpirvInstruction *> indexes);[m
+[32m+[m
+   ///< Visit different SPIR-V constructs for emitting.[m
+   using Visitor::visit;[m
+   bool visit(SpirvModule *, Phase phase) override;[m
+[1mdiff --git a/tools/clang/lib/SPIRV/SpirvBuilder.cpp b/tools/clang/lib/SPIRV/SpirvBuilder.cpp[m
+[1mindex 933fe3f40..fa3ddcc66 100644[m
+[1m--- a/tools/clang/lib/SPIRV/SpirvBuilder.cpp[m
+[1m+++ b/tools/clang/lib/SPIRV/SpirvBuilder.cpp[m
+[36m@@ -319,10 +319,14 @@[m [mSpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,[m
+     createEndInvocationInterlockEXT(loc, range);[m
+   }[m
+ [m
+[31m-  if (isa<SpirvLoad>(value) && isa<SpirvVariable>(address)) {[m
+[31m-    if (isa<SpirvFunctionParameter>(dyn_cast<SpirvLoad>(value)->getPointer()))[m
+[31m-      function->addFuncParamVarEntry(address,[m
+[31m-                                     dyn_cast<SpirvLoad>(value)->getPointer());[m
+[32m+[m[32m  if (isa<SpirvLoad>(value) && isa<SpirvVariable>(address))[m
+[32m+[m[32m  {[m
+[32m+[m[32m    auto paramPtr = dyn_cast<SpirvLoad>(value)->getPointer();[m
+[32m+[m[32m    while (isa<SpirvAccessChain>(paramPtr)) {[m
+[32m+[m[32m      paramPtr = dyn_cast<SpirvAccessChain>(paramPtr)->getBase();[m
+[32m+[m[32m    }[m
+[32m+[m[32m    if (isa<SpirvFunctionParameter>(paramPtr))[m
+[32m+[m[32m      function->addFuncParamVarEntry(address, dyn_cast<SpirvLoad>(value)->getPointer());[m
+   }[m
+   return instruction;[m
+ }[m
+[1mdiff --git a/tools/clang/test/CodeGenSPIRV_Lit/intrinsics.get-attribute-at-vertex.s.funcParam.hlsl b/tools/clang/test/CodeGenSPIRV_Lit/intrinsics.get-attribute-at-vertex.s.funcParam.hlsl[m
+[1mindex 7a0040864..5ef805cfe 100644[m
+[1m--- a/tools/clang/test/CodeGenSPIRV_Lit/intrinsics.get-attribute-at-vertex.s.funcParam.hlsl[m
+[1m+++ b/tools/clang/test/CodeGenSPIRV_Lit/intrinsics.get-attribute-at-vertex.s.funcParam.hlsl[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-// RUN: %dxc -T ps_6_1 -E main  %s -spirv -Od 2>&1 | FileCheck %s[m
+[32m+[m[32m// RUN: %dxc -T ps_6_1 -E main  %s -spirv -fcgl 2>&1 | FileCheck %s[m
+ [m
+ struct S {[m
+   float4 a : COLOR;[m
+[36m@@ -15,7 +15,10 @@[m [mfloat4 main(nointerpolation S s) : SV_TARGET[m
+ [m
+ // CHECK: [[param_var_a:%[a-zA-Z0-9_]+]] = OpVariable %_ptr_Function__arr_v4float_uint_3 Function[m
+ // CHECK: [[inst32:%[0-9_]+]] = OpAccessChain %_ptr_Function_v4float [[param_var_a]] %uint_0[m
+[31m-// CHECK: [[inst33:%[0-9_]+]] = OpAccessChain %_ptr_Function_v4float [[s:%[a-zA-Z0-9_]+]] %int_0 %uint_0[m
+[31m-// CHECK: [[inst34:%[0-9_]+]] = OpLoad %v4float [[inst33]][m
+[31m-// CHECK: OpStore [[inst32]] [[inst34]][m
+[31m-// CHECK: [[inst35:%[0-9_]+]] = OpFunctionCall %float %compute [[param_var_a]][m
+\ No newline at end of file[m
+[32m+[m[32m// CHECK: [[inst33:%[0-9_]+]] = OpAccessChain %_ptr_Function__arr_v4float_uint_3 [[s:%[a-zA-Z0-9_]+]] %int_0[m
+[32m+[m[32m// CHECK: [[inst34:%[0-9_]+]] = OpLoad %_arr_v4float_uint_3 [[inst33]][m
+[32m+[m[32m// CHECK: OpStore [[param_var_a]] [[inst34]][m
+[32m+[m[32m// CHECK: [[inst35:%[0-9_]+]] = OpAccessChain %_ptr_Function_v4float [[s]] %int_0 %uint_0[m
+[32m+[m[32m// CHECK: [[inst36:%[0-9_]+]] = OpLoad %v4float [[inst35]][m
+[32m+[m[32m// CHECK: OpStore [[inst32]] [[inst36]][m
+[32m+[m[32m// CHECK: [[inst37:%[0-9_]+]] = OpFunctionCall %float %compute [[param_var_a]][m
+\ No newline at end of file[m
+[1mdiff --git a/tools/clang/test/CodeGenSPIRV_Lit/intrinsics.get-attribute-at-vertex.s.funcParam.neg.hlsl b/tools/clang/test/CodeGenSPIRV_Lit/intrinsics.get-attribute-at-vertex.s.funcParam.neg.hlsl[m
+[1mindex bf75be7f2..13ad2d23f 100644[m
+[1m--- a/tools/clang/test/CodeGenSPIRV_Lit/intrinsics.get-attribute-at-vertex.s.funcParam.neg.hlsl[m
+[1m+++ b/tools/clang/test/CodeGenSPIRV_Lit/intrinsics.get-attribute-at-vertex.s.funcParam.neg.hlsl[m
+[36m@@ -13,4 +13,4 @@[m [mfloat4 main(nointerpolation S s, float4 b : COLOR2) : SV_TARGET[m
+   return float4(0, 0, compute(b), compute(s.a));[m
+ }[m
+ [m
+[31m-// CHECK: error: Current function could only use noninterpolated variable as input.[m
+\ No newline at end of file[m
+[32m+[m[32m// CHECK: error: Function 'compute' could only use noninterpolated variable as input.[m
+\ No newline at end of file[m

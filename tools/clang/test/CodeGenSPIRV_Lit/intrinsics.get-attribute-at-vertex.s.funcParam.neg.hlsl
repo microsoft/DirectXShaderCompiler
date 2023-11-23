@@ -13,4 +13,4 @@ float4 main(nointerpolation S s, float4 b : COLOR2) : SV_TARGET
   return float4(0, 0, compute(b), compute(s.a));
 }
 
-// CHECK: error: Current function could only use noninterpolated variable as input.
+// CHECK: error: Function 'compute' could only use noninterpolated variable as input.

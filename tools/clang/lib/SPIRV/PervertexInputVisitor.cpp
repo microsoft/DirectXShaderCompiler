@@ -125,14 +125,11 @@ PervertexInputVisitor::createFirstPerVertexVar(SpirvInstruction *base,
   createVertexStore(vtx, createVertexLoad(base));
   return vtx;
 }
-
-SpirvInstruction *PervertexInputVisitor::createProvokingVertexAccessChain(
-    SpirvInstruction *base, uint32_t index, QualType resultType) {
+SpirvInstruction *PervertexInputVisitor::createVertexAccessChain(
+    QualType resultType, SpirvInstruction *base,
+    llvm::ArrayRef<SpirvInstruction *> indexes) {
   auto loc = base->getSourceLocation();
   auto range = base->getSourceRange();
-  llvm::SmallVector<SpirvInstruction *, 1> indexes;
-  indexes.push_back(spirvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                llvm::APInt(32, index)));
   SpirvInstruction *instruction =
       new (context) SpirvAccessChain(resultType, loc, base, indexes, range);
   instruction->setStorageClass(spv::StorageClass::Function);
@@ -140,6 +137,18 @@ SpirvInstruction *PervertexInputVisitor::createProvokingVertexAccessChain(
   instruction->setContainsAliasComponent(base->containsAliasComponent());
   instruction->setNoninterpolated(false);
   currentFunc->addToInstructionCache(instruction);
+  return instruction;
+}
+
+SpirvInstruction *
+PervertexInputVisitor::createProvokingVertexAccessChain(SpirvInstruction *base,
+                                                        uint32_t index,
+                                                        QualType resultType) {
+  llvm::SmallVector<SpirvInstruction *, 1> indexes;
+  indexes.push_back(spirvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                llvm::APInt(32, index)));
+  SpirvInstruction *instruction =
+      createVertexAccessChain(resultType, base, indexes);
   return instruction;
 }
 
@@ -309,9 +318,30 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
   /// with other instructions, so we need to get its original mapped variables.
   unsigned argIndex = 0;
   for (auto *arg : inst->getArgs()) {
-    if (currentFunc->getMappedFuncParam(arg)) {
-      createVertexStore(arg,
-                        createVertexLoad(currentFunc->getMappedFuncParam(arg)));
+    if (currentFunc->getMappedFuncParam(arg))
+    {
+      auto paramVar = currentFunc->getMappedFuncParam(arg);
+      if (isa<SpirvAccessChain>(paramVar)) {
+        auto tempVar = paramVar;
+        while (isa<SpirvAccessChain>(tempVar)) {
+          tempVar = dyn_cast<SpirvAccessChain>(tempVar)->getBase();
+        }
+        if (tempVar->isNoninterpolated()) {
+          /// For Structure type, expanded param needs restore to
+          /// its related local variable as an array.
+          auto paramAccessChain = dyn_cast<SpirvAccessChain>(paramVar);
+          auto indexes = paramAccessChain->getIndexes();
+          auto elemType = astContext.getConstantArrayType(
+              paramAccessChain->getAstResultType(), llvm::APInt(32, 3),
+              clang::ArrayType::Normal, 0);
+          llvm::SmallVector<SpirvInstruction *, 4>
+              indices(indexes.begin(), indexes.end());
+          indices.pop_back();
+          paramVar =
+              createVertexAccessChain(elemType, paramAccessChain->getBase(), indices);
+        }
+      }
+      createVertexStore(arg, createVertexLoad(paramVar));
     }
     auto funcParam = inst->getFunction()->getParameters()[argIndex];
     if (arg->isNoninterpolated()) {
@@ -328,9 +358,10 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
       ///        noninterpolated variable will be passed as an expanded array
       for (auto caller : paramCaller[funcParam])
         if (!caller->isNoninterpolated()) {
-          emitError("Current function could only use noninterpolated variable "
+          emitError("Function '%0' could only use noninterpolated variable "
                     "as input.",
-                    caller->getSourceLocation());
+                    caller->getSourceLocation())
+                    << inst->getFunction()->getFunctionName().data();
           return 0;
         }
     }
