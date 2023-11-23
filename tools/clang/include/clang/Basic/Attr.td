@@ -1310,7 +1310,7 @@ def VKBinding : InheritableAttr {
 
 def VKCapabilityExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_capability">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Function, Var], ErrorDiag>;
   let Args = [IntArgument<"capability">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1350,7 +1350,7 @@ def VKDecorateStringExt : InheritableAttr {
 
 def VKExtensionExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_extension">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Function, Var], ErrorDiag>;
   let Args = [StringArgument<"name">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];

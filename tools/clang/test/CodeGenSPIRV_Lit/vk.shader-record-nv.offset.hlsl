@@ -1,8 +1,8 @@
 // RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 0 Offset 0
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 1 Offset 8
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 2 Offset 32
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 0 Offset 0
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 1 Offset 8
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 2 Offset 32
 
 struct S {
     float a;

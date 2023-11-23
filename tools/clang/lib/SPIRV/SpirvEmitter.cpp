@@ -25,8 +25,10 @@
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/String.h"
 #include "clang/Sema/Sema.h"
+#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/Casting.h"
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 #include "clang/Basic/Version.h"
@@ -865,6 +867,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
+  if (context.getDiagnostics().hasErrorOccurred())
+    return;
 
   // Check the existance of Texture and Sampler with
   // [[vk::combinedImageSampler]] for the same descriptor set and binding.
@@ -1697,7 +1701,7 @@ void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   } else if (bufferDecl->hasAttr<VKShaderRecordEXTAttr>()) {
     (void)declIdMapper.createShaderRecordBuffer(
         bufferDecl,
-        DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferEXT);
+        DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
   } else {
     (void)declIdMapper.createCTBuffer(bufferDecl);
   }
@@ -1813,7 +1817,7 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
 
   if (decl->hasAttr<VKShaderRecordEXTAttr>()) {
     (void)declIdMapper.createShaderRecordBuffer(
-        decl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferEXT);
+        decl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
     return;
   }
 
@@ -13484,7 +13488,7 @@ bool SpirvEmitter::allSwitchCasesAreIntegerLiterals(const Stmt *root) {
 
 void SpirvEmitter::discoverAllCaseStmtInSwitchStmt(
     const Stmt *root, SpirvBasicBlock **defaultBB,
-    std::vector<std::pair<uint32_t, SpirvBasicBlock *>> *targets) {
+    std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> *targets) {
   if (!root)
     return;
 
@@ -13504,7 +13508,7 @@ void SpirvEmitter::discoverAllCaseStmtInSwitchStmt(
   }
 
   std::string caseLabel;
-  uint32_t caseValue = 0;
+  llvm::APInt caseValue;
   if (defaultStmt) {
     // This is the default branch.
     caseLabel = "switch.default";
@@ -13514,15 +13518,10 @@ void SpirvEmitter::discoverAllCaseStmtInSwitchStmt(
     // case <literal_integer>: {...; break;}
     const Expr *caseExpr = caseStmt->getLHS();
     assert(caseExpr && caseExpr->isEvaluatable(astContext));
-    auto bitWidth = astContext.getIntWidth(caseExpr->getType());
-    if (bitWidth != 32)
-      emitError(
-          "non-32bit integer case value in switch statement unimplemented",
-          caseExpr->getExprLoc());
     Expr::EvalResult evalResult;
     caseExpr->EvaluateAsRValue(evalResult, astContext);
-    const int64_t value = evalResult.Val.getInt().getSExtValue();
-    caseValue = static_cast<uint32_t>(value);
+    caseValue = evalResult.Val.getInt();
+    const int64_t value = caseValue.getSExtValue();
     caseLabel = "switch." + std::string(value < 0 ? "n" : "") +
                 llvm::itostr(std::abs(value));
   }
@@ -13597,6 +13596,13 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
     doDeclStmt(condVarDeclStmt);
 
   auto *cond = switchStmt->getCond();
+  if (llvm::dyn_cast<IntegerLiteral>(cond)) {
+    emitError(
+        "integer literal selectors in switch statements not yet implemented",
+        cond->getLocStart());
+    return;
+  }
+
   auto *selector = doExpr(cond);
 
   // We need a merge block regardless of the number of switch cases.
@@ -13609,7 +13615,7 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
   auto *defaultBB = mergeBB;
 
   // (literal, labelId) pairs to pass to the OpSwitch instruction.
-  std::vector<std::pair<uint32_t, SpirvBasicBlock *>> targets;
+  std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> targets;
   discoverAllCaseStmtInSwitchStmt(switchStmt->getBody(), &defaultBB, &targets);
 
   // Create the OpSelectionMerge and OpSwitch.
@@ -14069,11 +14075,12 @@ SpirvEmitter::processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
   return retVal;
 }
 
-SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
-    llvm::ArrayRef<const Attr *> attrs, QualType retType,
-    const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr,
-    SourceLocation loc) {
-  llvm::SmallVector<uint32_t, 2> capbilities;
+SpirvInstruction *
+SpirvEmitter::createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs,
+                                     QualType retType,
+                                     llvm::ArrayRef<SpirvInstruction *> spvArgs,
+                                     bool isInstr, SourceLocation loc) {
+  llvm::SmallVector<uint32_t, 2> capabilities;
   llvm::SmallVector<llvm::StringRef, 2> extensions;
   llvm::StringRef instSet = "";
   // For [[vk::ext_type_def]], we use dummy OpNop with no semantic meaning,
@@ -14081,7 +14088,7 @@ SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
   uint32_t op = static_cast<unsigned>(spv::Op::OpNop);
   for (auto &attr : attrs) {
     if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
-      capbilities.push_back(capAttr->getCapability());
+      capabilities.push_back(capAttr->getCapability());
     } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
       extensions.push_back(extAttr->getName());
     }
@@ -14094,7 +14101,7 @@ SpirvInstruction *SpirvEmitter::createSpirvIntrInstExt(
   }
 
   SpirvInstruction *retVal = spvBuilder.createSpirvIntrInstExt(
-      op, retType, spvArgs, extensions, instSet, capbilities, loc);
+      op, retType, spvArgs, extensions, instSet, capabilities, loc);
   if (!retVal)
     return nullptr;
 

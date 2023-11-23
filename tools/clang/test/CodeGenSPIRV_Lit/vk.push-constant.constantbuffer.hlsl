@@ -6,8 +6,8 @@ struct StructA
     float3 two;
 };
 
-// CHECK: %type_PushConstant_StructA = OpTypeStruct %v3float %v3float
-// CHECK: %PushConstants = OpVariable %_ptr_PushConstant_type_PushConstant_StructA PushConstant
+// CHECK: %type_ConstantBuffer_StructA = OpTypeStruct %v3float %v3float
+// CHECK: %PushConstants = OpVariable %_ptr_PushConstant_type_ConstantBuffer_StructA PushConstant
 [[vk::push_constant]] ConstantBuffer<StructA> PushConstants;
 
 void main()

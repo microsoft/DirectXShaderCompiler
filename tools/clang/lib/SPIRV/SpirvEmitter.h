@@ -104,6 +104,13 @@ public:
                : (var->getAttr<HLSLGroupSharedAttr>() != nullptr);
   }
 
+  /// Create SpirvIntrinsicInstruction for arbitrary SPIR-V instructions
+  /// specified by [[vk::ext_instruction(..)]] or [[vk::ext_type_def(..)]]
+  SpirvInstruction *
+  createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs, QualType retType,
+                         llvm::ArrayRef<SpirvInstruction *> spvArgs,
+                         bool isInstr, SourceLocation loc);
+
 private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
@@ -685,13 +692,6 @@ private:
   /// Process ray query intrinsics
   SpirvInstruction *processRayQueryIntrinsics(const CXXMemberCallExpr *expr,
                                               hlsl::IntrinsicOp opcode);
-
-  /// Create SpirvIntrinsicInstruction for arbitrary SPIR-V instructions
-  /// specified by [[vk::ext_instruction(..)]] or [[vk::ext_type_def(..)]]
-  SpirvInstruction *createSpirvIntrInstExt(
-      llvm::ArrayRef<const Attr *> attrs, QualType retType,
-      const llvm::SmallVectorImpl<SpirvInstruction *> &spvArgs, bool isInstr,
-      SourceLocation loc);
   /// Process spirv intrinsic instruction
   SpirvInstruction *processSpvIntrinsicCallExpr(const CallExpr *expr);
 
@@ -919,7 +919,7 @@ private:
   /// method panics if it finds a case value that is not an integer literal.
   void discoverAllCaseStmtInSwitchStmt(
       const Stmt *root, SpirvBasicBlock **defaultBB,
-      std::vector<std::pair<uint32_t, SpirvBasicBlock *>> *targets);
+      std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> *targets);
 
   /// Flattens structured AST of the given switch statement into a vector of AST
   /// nodes and stores into flatSwitch.
