@@ -69,7 +69,8 @@ public:
 
   void createVertexStore(SpirvInstruction *pt, SpirvInstruction *obj);
 
-  SpirvInstruction * createVertexAccessChain(QualType resultType, SpirvInstruction *base,
+  SpirvInstruction *
+  createVertexAccessChain(QualType resultType, SpirvInstruction *base,
                           llvm::ArrayRef<SpirvInstruction *> indexes);
 
   ///< Visit different SPIR-V constructs for emitting.

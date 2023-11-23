@@ -319,14 +319,14 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     createEndInvocationInterlockEXT(loc, range);
   }
 
-  if (isa<SpirvLoad>(value) && isa<SpirvVariable>(address))
-  {
+  if (isa<SpirvLoad>(value) && isa<SpirvVariable>(address)) {
     auto paramPtr = dyn_cast<SpirvLoad>(value)->getPointer();
     while (isa<SpirvAccessChain>(paramPtr)) {
       paramPtr = dyn_cast<SpirvAccessChain>(paramPtr)->getBase();
     }
     if (isa<SpirvFunctionParameter>(paramPtr))
-      function->addFuncParamVarEntry(address, dyn_cast<SpirvLoad>(value)->getPointer());
+      function->addFuncParamVarEntry(address,
+                                     dyn_cast<SpirvLoad>(value)->getPointer());
   }
   return instruction;
 }

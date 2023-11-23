@@ -141,9 +141,8 @@ SpirvInstruction *PervertexInputVisitor::createVertexAccessChain(
 }
 
 SpirvInstruction *
-PervertexInputVisitor::createProvokingVertexAccessChain(SpirvInstruction *base,
-                                                        uint32_t index,
-                                                        QualType resultType) {
+PervertexInputVisitor::createProvokingVertexAccessChain(
+    SpirvInstruction *base, uint32_t index, QualType resultType) {
   llvm::SmallVector<SpirvInstruction *, 1> indexes;
   indexes.push_back(spirvBuilder.getConstantInt(astContext.UnsignedIntTy,
                                                 llvm::APInt(32, index)));
@@ -318,8 +317,7 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
   /// with other instructions, so we need to get its original mapped variables.
   unsigned argIndex = 0;
   for (auto *arg : inst->getArgs()) {
-    if (currentFunc->getMappedFuncParam(arg))
-    {
+    if (currentFunc->getMappedFuncParam(arg)) {
       auto paramVar = currentFunc->getMappedFuncParam(arg);
       if (isa<SpirvAccessChain>(paramVar)) {
         auto tempVar = paramVar;
@@ -334,11 +332,11 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
           auto elemType = astContext.getConstantArrayType(
               paramAccessChain->getAstResultType(), llvm::APInt(32, 3),
               clang::ArrayType::Normal, 0);
-          llvm::SmallVector<SpirvInstruction *, 4>
-              indices(indexes.begin(), indexes.end());
+          llvm::SmallVector<SpirvInstruction *, 4> indices(indexes.begin(),
+                                                           indexes.end());
           indices.pop_back();
-          paramVar =
-              createVertexAccessChain(elemType, paramAccessChain->getBase(), indices);
+          paramVar = createVertexAccessChain(
+              elemType, paramAccessChain->getBase(), indices);
         }
       }
       createVertexStore(arg, createVertexLoad(paramVar));
@@ -361,7 +359,7 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
           emitError("Function '%0' could only use noninterpolated variable "
                     "as input.",
                     caller->getSourceLocation())
-                    << inst->getFunction()->getFunctionName().data();
+              << inst->getFunction()->getFunctionName().data();
           return 0;
         }
     }
