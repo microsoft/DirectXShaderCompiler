@@ -1662,7 +1662,18 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
        decl->hasAttr<VKExtBuiltinOutputAttr>()) &&
       cast<VarDecl>(decl)->getStorageClass() != StorageClass::SC_Static) {
     emitError("vk::ext_builtin_input and vk::ext_builtin_output can only be "
-              "applied to static variable",
+              "applied to a static variable",
+              decl->getLocation());
+    success = false;
+  }
+
+  // vk::ext_builtin_input and vk::ext_builtin_output must only be used for a
+  // static variable. We only allow them to be attached to variables, so it
+  // should be fine to cast here.
+  if (decl->hasAttr<VKExtBuiltinInputAttr>() &&
+      !cast<VarDecl>(decl)->getType().isConstQualified()) {
+    emitError("vk::ext_builtin_input can only be applied to a const-qualified "
+              "variable",
               decl->getLocation());
     success = false;
   }

@@ -6,7 +6,7 @@
 // CHECK: %gl_NumWorkGroups = OpVariable %_ptr_Input_v3uint Input
 
 [[vk::ext_builtin_input(/* NumWorkgroups */ 24)]]
-static uint3 gl_NumWorkGroups;
+static const uint3 gl_NumWorkGroups;
 
 uint square_x(uint3 v) {
   return v.x * v.x;
