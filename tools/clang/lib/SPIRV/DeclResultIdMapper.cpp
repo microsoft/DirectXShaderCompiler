@@ -956,6 +956,12 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc,
                                                       SourceRange range) {
+  if (decl->hasAttr<VKExtensionExtAttr>() ||
+      decl->hasAttr<VKCapabilityExtAttr>()) {
+    theEmitter.createSpirvIntrInstExt(decl->getAttrs(), QualType(),
+                                      /* spvArgs */ {}, /* isInst */ false,
+                                      loc);
+  }
   if (hlsl::IsHLSLDynamicResourceType(decl->getType()) ||
       hlsl::IsHLSLDynamicSamplerType(decl->getType())) {
     emitError("HLSL object %0 not yet supported with -spirv",
