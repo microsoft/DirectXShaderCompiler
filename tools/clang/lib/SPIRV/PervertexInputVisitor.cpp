@@ -140,8 +140,7 @@ SpirvInstruction *PervertexInputVisitor::createVertexAccessChain(
   return instruction;
 }
 
-SpirvInstruction *
-PervertexInputVisitor::createProvokingVertexAccessChain(
+SpirvInstruction *PervertexInputVisitor::createProvokingVertexAccessChain(
     SpirvInstruction *base, uint32_t index, QualType resultType) {
   llvm::SmallVector<SpirvInstruction *, 1> indexes;
   indexes.push_back(spirvBuilder.getConstantInt(astContext.UnsignedIntTy,
