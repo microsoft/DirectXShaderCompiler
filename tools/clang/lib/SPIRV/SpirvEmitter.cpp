@@ -865,6 +865,20 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (!declIdMapper.decorateResourceCoherent())
     return;
 
+  // Add source instruction(s)
+  if ((spirvOptions.debugInfoSource || spirvOptions.debugInfoFile) &&
+      !spirvOptions.debugInfoVulkan) {
+    std::vector<llvm::StringRef> fileNames;
+    fileNames.clear();
+    const auto &sm = context.getSourceManager();
+    // Add each include file from preprocessor output
+    for (unsigned int i = 0; i < sm.getNumLineTableFilenames(); i++) {
+      fileNames.push_back(sm.getLineTableFilename(i));
+    }
+    spvBuilder.setDebugSource(spvContext.getMajorVersion(),
+                              spvContext.getMinorVersion(), fileNames);
+  }
+
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
   if (context.getDiagnostics().hasErrorOccurred())
