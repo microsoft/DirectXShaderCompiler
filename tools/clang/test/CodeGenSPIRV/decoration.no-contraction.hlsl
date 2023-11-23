@@ -13,6 +13,8 @@ float func4(float i, float j, precise out float k);
 // CHECK-NEXT: OpDecorate [[aw_mul_bw:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[cw_mul_dw:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[awbw_plus_cwdw:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func_ax_mul_bx:%[0-9]+]] NoContraction
+// CHECK-NEXT: OpDecorate [[func_cx_mul_dx:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[func2_e_mul_f:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[func2_g_mul_h:%[0-9]+]] NoContraction
 // CHECK-NEXT: OpDecorate [[func2_ef_plus_gh:%[0-9]+]] NoContraction
@@ -63,7 +65,13 @@ void main() {
   // Even though v.x is precise, values computed inside func4 are not forced to
   // be precise. Meaning, precise-ness does not cross function boundary.
   v.x = func3(a.x, b.x, c.x, d.x);
-  
+
+// Because the precise keyword is on the output parameter in func4, the formal input parameters will get marked as precise as well. This should propagate to the actual parameters.
+// CHECK: [[func_ax_mul_bx]] = OpFMul
+// CHECK: OpStore %param_var_i [[func_ax_mul_bx]]
+// CHECK: [[func_cx_mul_dx]] = OpFMul
+// CHECK: OpStore %param_var_j [[func_cx_mul_dx]]
+// CHECK: OpFunctionCall %float %func4 %param_var_i %param_var_j
   func4(a.x * b.x, c.x * d.x, v.x);
 }
 
