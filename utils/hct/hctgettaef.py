@@ -10,8 +10,7 @@ zipfile_name = os.path.join(
 src_dir = os.environ["HLSL_SRC_DIR"]
 taef_dir = os.path.join(src_dir, "external", "taef")
 
-if not os.path.isdir(taef_dir):
-    os.makedirs(taef_dir)
+os.makedirs(taef_dir, exist_ok=True)
 
 try:
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
