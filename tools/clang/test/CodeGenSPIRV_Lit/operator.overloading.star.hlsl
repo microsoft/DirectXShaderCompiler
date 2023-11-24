@@ -1,11 +1,11 @@
-// RUN: %dxc -T ps_6_0 -E main -HV 2021
+// RUN: %dxc -T ps_6_0 -E main -HV 2021 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:           %a = OpVariable %_ptr_Function_Number Function
 // CHECK:           %b = OpVariable %_ptr_Function_Number Function
 // CHECK: %param_var_x = OpVariable %_ptr_Function_Number Function
-// CHECK:   [[b:%\w+]] = OpLoad %Number %b
+// CHECK:   [[b:%[a-zA-Z0-9_]+]] = OpLoad %Number %b
 // CHECK:                OpStore %param_var_x [[b]]
-// CHECK: [[call:%\w+]] = OpFunctionCall %int %Number_operator_Star %a %param_var_x
+// CHECK: [[call:%[a-zA-Z0-9_]+]] = OpFunctionCall %int %Number_operator_Star %a %param_var_x
 // CHECK:                OpReturnValue [[call]]
 
 // CHECK: %Number_operator_Star = OpFunction %int None

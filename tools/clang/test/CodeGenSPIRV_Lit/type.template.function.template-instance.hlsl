@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -HV 2021
+// RUN: %dxc -T ps_6_0 -E main -HV 2021 -fcgl  %s -spirv | FileCheck %s
 
 template <typename T>
 T square(T number) {
@@ -19,11 +19,11 @@ void main() {
   int x;
   float y;
 
-// CHECK: [[fn_param_int_ret_int:%\w+]] = OpTypeFunction %int %_ptr_Function_int
-// CHECK: [[fn_param_float_ret_float:%\w+]] = OpTypeFunction %float %_ptr_Function_float
-// CHECK: [[fn_param_double_ret_double:%\w+]] = OpTypeFunction %double %_ptr_Function_double
-// CHECK: [[fn_param_int_ret_bool:%\w+]] = OpTypeFunction %bool %_ptr_Function_int
-// CHECK: [[fn_param_double_ret_int:%\w+]] = OpTypeFunction %int %_ptr_Function_double
+// CHECK: [[fn_param_int_ret_int:%[a-zA-Z0-9_]+]] = OpTypeFunction %int %_ptr_Function_int
+// CHECK: [[fn_param_float_ret_float:%[a-zA-Z0-9_]+]] = OpTypeFunction %float %_ptr_Function_float
+// CHECK: [[fn_param_double_ret_double:%[a-zA-Z0-9_]+]] = OpTypeFunction %double %_ptr_Function_double
+// CHECK: [[fn_param_int_ret_bool:%[a-zA-Z0-9_]+]] = OpTypeFunction %bool %_ptr_Function_int
+// CHECK: [[fn_param_double_ret_int:%[a-zA-Z0-9_]+]] = OpTypeFunction %int %_ptr_Function_double
 
 // CHECK: OpFunction %int None [[fn_param_int_ret_int]]
 // CHECK: OpFunctionParameter %_ptr_Function_int

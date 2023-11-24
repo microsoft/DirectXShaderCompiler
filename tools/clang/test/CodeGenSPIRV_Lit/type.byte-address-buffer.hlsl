@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpName %type_ByteAddressBuffer "type.ByteAddressBuffer"
 // CHECK: OpName %type_RWByteAddressBuffer "type.RWByteAddressBuffer"
