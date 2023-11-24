@@ -652,6 +652,17 @@ private:
                        SpirvInstruction **value, bool noWriteBack,
                        SemanticInfo *inheritSemantic, bool asNoInterp = false);
 
+  void storeToShaderInputVariable(
+      SpirvVariable *varInstr, hlsl::Semantic::Kind semanticKind, QualType type,
+      SpirvInstruction *value, llvm::Optional<SpirvInstruction *> invocationId,
+      hlsl::SigPoint::Kind sigPointKind, const NamedDecl *decl,
+      SourceLocation loc);
+  SpirvInstruction *loadShaderInputVariable(SpirvVariable *varInstr,
+                                            hlsl::Semantic::Kind semanticKind,
+                                            hlsl::SigPoint::Kind sigPointKind,
+                                            QualType type,
+                                            const NamedDecl *decl,
+                                            SourceLocation loc);
   SpirvVariable *replaceInstanceIndexWithInstanceId(
       const NamedDecl *decl, SpirvVariable *instanceIndexVar,
       SpirvVariable *baseInstanceVar, QualType type);
@@ -659,12 +670,12 @@ private:
                                          QualType evalType, QualType type,
                                          SemanticInfo *semanticToUse,
                                          const hlsl::SigPoint *sigPoint);
-  SpirvVariable *createSpirvStageVariable(const hlsl::SigPoint *sigPoint,
-                                          SemanticInfo *semanticToUse,
-                                          const NamedDecl *decl,
-                                          QualType evalType, QualType type,
-                                          bool asNoInterp,
-                                          const llvm::StringRef namePrefix);
+  SpirvVariable *createSpirvInterfaceVariable(const hlsl::SigPoint *sigPoint,
+                                              SemanticInfo *semanticToUse,
+                                              const NamedDecl *decl,
+                                              QualType evalType, QualType type,
+                                              bool asNoInterp,
+                                              const llvm::StringRef namePrefix);
   QualType getTypeForSpirvStageVariable(QualType type,
                                         hlsl::Semantic::Kind semanticKind,
                                         hlsl::SigPoint::Kind sigPointKind,
