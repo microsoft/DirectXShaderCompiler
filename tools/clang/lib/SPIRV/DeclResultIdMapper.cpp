@@ -2601,6 +2601,87 @@ bool DeclResultIdMapper::decorateResourceCoherent() {
   return true;
 }
 
+SpirvInstruction *DeclResultIdMapper::createStructureInputVar(
+    QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
+    llvm::Optional<SpirvInstruction *> invocationId,
+    const llvm::StringRef namePrefix, bool asNoInterp, bool noWriteBack,
+    SemanticInfo *semanticToUse, SourceLocation loc) {
+  // If this decl translates into multiple stage input variables, we need to
+  // load their values into a composite.
+  llvm::SmallVector<SpirvInstruction *, 4> subValues;
+
+  // If we have base classes, we need to handle them first.
+  if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+    for (auto base : cxxDecl->bases()) {
+      SpirvInstruction *subValue = nullptr;
+      if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(), true,
+                           base.getType(), arraySize, namePrefix, invocationId,
+                           &subValue, noWriteBack, semanticToUse))
+        return nullptr;
+      subValues.push_back(subValue);
+    }
+  }
+
+  const auto *structDecl = type->getAs<RecordType>()->getDecl();
+  for (const auto *field : structDecl->fields()) {
+    SpirvInstruction *subValue = nullptr;
+    if (!createStageVars(
+            sigPoint, field, true, field->getType(), arraySize, namePrefix,
+            invocationId, &subValue, noWriteBack, semanticToUse,
+            asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
+      return nullptr;
+    subValues.push_back(subValue);
+  }
+
+  if (arraySize == 0) {
+    SpirvInstruction *value =
+        spvBuilder.createCompositeConstruct(type, subValues, loc);
+    for (auto *subInstr : subValues)
+      spvBuilder.addPerVertexStgInputFuncVarEntry(subInstr, value);
+    return value;
+  }
+
+  // Handle the extra level of arrayness.
+
+  // We need to return an array of structs. But we get arrays of fields
+  // from visiting all fields. So now we need to extract all the elements
+  // at the same index of each field arrays and compose a new struct out
+  // of them.
+  const auto structType = type;
+  const auto arrayType = astContext.getConstantArrayType(
+      structType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+
+  llvm::SmallVector<SpirvInstruction *, 16> arrayElements;
+
+  for (uint32_t arrayIndex = 0; arrayIndex < arraySize; ++arrayIndex) {
+    llvm::SmallVector<SpirvInstruction *, 8> fields;
+
+    // If we have base classes, we need to handle them first.
+    if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+      uint32_t baseIndex = 0;
+      for (auto base : cxxDecl->bases()) {
+        const auto baseType = base.getType();
+        fields.push_back(spvBuilder.createCompositeExtract(
+            baseType, subValues[baseIndex++], {arrayIndex}, loc));
+      }
+    }
+
+    // Extract the element at index arrayIndex from each field
+    for (const auto *field : structDecl->fields()) {
+      const auto fieldType = field->getType();
+      fields.push_back(spvBuilder.createCompositeExtract(
+          fieldType,
+          subValues[getNumBaseClasses(type) + field->getFieldIndex()],
+          {arrayIndex}, loc));
+    }
+    // Compose a new struct out of them
+    arrayElements.push_back(
+        spvBuilder.createCompositeConstruct(structType, fields, loc));
+  }
+
+  return spvBuilder.createCompositeConstruct(arrayType, arrayElements, loc);
+}
+
 void DeclResultIdMapper::storeToShaderInputVariable(
     SpirvVariable *varInstr, hlsl::Semantic::Kind semanticKind, QualType type,
     SpirvInstruction *value, llvm::Optional<SpirvInstruction *> invocationId,
@@ -3160,6 +3241,9 @@ bool DeclResultIdMapper::createStageVars(
     if (asInput) {
       *value = loadShaderInputVariable(varInstr, semanticKind, sigPointKind,
                                        type, decl, loc);
+      if ((decl->hasAttr<HLSLNoInterpolationAttr>() || asNoInterp) &&
+          sigPointKind == hlsl::SigPoint::Kind::PSIn)
+        spvBuilder.addPerVertexStgInputFuncVarEntry(varInstr, *value);
 
     } else {
       if (noWriteBack)
@@ -3171,9 +3255,6 @@ bool DeclResultIdMapper::createStageVars(
                                  invocationId, sigPointKind, decl, loc);
     }
 
-    if ((decl->hasAttr<HLSLNoInterpolationAttr>() || asNoInterp) &&
-        sigPointKind == hlsl::SigPoint::Kind::PSIn)
-      spvBuilder.addPerVertexStgInputFuncVarEntry(varInstr, *value);
     return true;
   }
 
@@ -3191,79 +3272,10 @@ bool DeclResultIdMapper::createStageVars(
   const auto *structDecl = type->getAs<RecordType>()->getDecl();
 
   if (asInput) {
-    // If this decl translates into multiple stage input variables, we need to
-    // load their values into a composite.
-    llvm::SmallVector<SpirvInstruction *, 4> subValues;
-
-    // If we have base classes, we need to handle them first.
-    if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
-      for (auto base : cxxDecl->bases()) {
-        SpirvInstruction *subValue = nullptr;
-        if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(),
-                             asInput, base.getType(), arraySize, namePrefix,
-                             invocationId, &subValue, noWriteBack,
-                             semanticToUse))
-          return false;
-        subValues.push_back(subValue);
-      }
-    }
-
-    for (const auto *field : structDecl->fields()) {
-      SpirvInstruction *subValue = nullptr;
-      if (!createStageVars(
-              sigPoint, field, asInput, field->getType(), arraySize, namePrefix,
-              invocationId, &subValue, noWriteBack, semanticToUse,
-              asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
-        return false;
-      subValues.push_back(subValue);
-    }
-
-    if (arraySize == 0) {
-      *value = spvBuilder.createCompositeConstruct(type, subValues, loc);
-      for (auto *subInstr : subValues)
-        spvBuilder.addPerVertexStgInputFuncVarEntry(subInstr, *value);
-      return true;
-    }
-
-    // Handle the extra level of arrayness.
-
-    // We need to return an array of structs. But we get arrays of fields
-    // from visiting all fields. So now we need to extract all the elements
-    // at the same index of each field arrays and compose a new struct out
-    // of them.
-    const auto structType = type;
-    const auto arrayType = astContext.getConstantArrayType(
-        structType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
-
-    llvm::SmallVector<SpirvInstruction *, 16> arrayElements;
-
-    for (uint32_t arrayIndex = 0; arrayIndex < arraySize; ++arrayIndex) {
-      llvm::SmallVector<SpirvInstruction *, 8> fields;
-
-      // If we have base classes, we need to handle them first.
-      if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
-        uint32_t baseIndex = 0;
-        for (auto base : cxxDecl->bases()) {
-          const auto baseType = base.getType();
-          fields.push_back(spvBuilder.createCompositeExtract(
-              baseType, subValues[baseIndex++], {arrayIndex}, loc));
-        }
-      }
-
-      // Extract the element at index arrayIndex from each field
-      for (const auto *field : structDecl->fields()) {
-        const auto fieldType = field->getType();
-        fields.push_back(spvBuilder.createCompositeExtract(
-            fieldType,
-            subValues[getNumBaseClasses(type) + field->getFieldIndex()],
-            {arrayIndex}, loc));
-      }
-      // Compose a new struct out of them
-      arrayElements.push_back(
-          spvBuilder.createCompositeConstruct(structType, fields, loc));
-    }
-
-    *value = spvBuilder.createCompositeConstruct(arrayType, arrayElements, loc);
+    *value = createStructureInputVar(type, sigPoint, arraySize, invocationId,
+                                     namePrefix, asNoInterp, noWriteBack,
+                                     semanticToUse, loc);
+    return (*value) != nullptr;
   } else {
     // If we have base classes, we need to handle them first.
     if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {

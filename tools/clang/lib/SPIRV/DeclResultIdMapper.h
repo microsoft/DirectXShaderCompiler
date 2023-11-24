@@ -652,6 +652,11 @@ private:
                        SpirvInstruction **value, bool noWriteBack,
                        SemanticInfo *inheritSemantic, bool asNoInterp = false);
 
+  SpirvInstruction *createStructureInputVar(
+      QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
+      llvm::Optional<SpirvInstruction *> invocationId,
+      const llvm::StringRef namePrefix, bool asNoInterp, bool noWriteBack,
+      SemanticInfo *semanticToUse, SourceLocation loc);
   void storeToShaderInputVariable(
       SpirvVariable *varInstr, hlsl::Semantic::Kind semanticKind, QualType type,
       SpirvInstruction *value, llvm::Optional<SpirvInstruction *> invocationId,
