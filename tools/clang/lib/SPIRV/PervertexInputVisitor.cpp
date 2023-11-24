@@ -316,16 +316,31 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
   /// with other instructions, so we need to get its original mapped variables.
   unsigned argIndex = 0;
   for (auto *arg : inst->getArgs()) {
-    if (currentFunc->getMappedFuncParam(arg)) {
-      auto paramVar = currentFunc->getMappedFuncParam(arg);
+    auto paramVar = currentFunc->getMappedFuncParam(arg);
+    if (paramVar) {
       if (isa<SpirvAccessChain>(paramVar)) {
         auto tempVar = paramVar;
         while (isa<SpirvAccessChain>(tempVar)) {
           tempVar = dyn_cast<SpirvAccessChain>(tempVar)->getBase();
         }
         if (tempVar->isNoninterpolated()) {
-          /// For Structure type, expanded param needs restore to
-          /// its related local variable as an array.
+          /// When function parameters have a structure type, some local
+          /// variables may be created and mapped to an stage inputs
+          /// in 'src.main' block.
+          ///
+          /// We use first vertex value of those non-interpolated inputs to
+          /// replace normal usage of those local variables in HLSL and SPIRV.
+          ///
+          /// But when those variables are then used in a function call as
+          /// its arguments, we need to copy the values for all of the vertices
+          /// to the local variable. This means copying an entire array.
+          ///
+          /// At this point, original access chain to those member variables
+          /// have been appended an zero index at the end to access first
+          /// vertex for replacement before.
+          ///
+          /// Hence we need to recreate a new access chain instruction and
+          /// and pass argument as an array to this function call.
           auto paramAccessChain = dyn_cast<SpirvAccessChain>(paramVar);
           auto indexes = paramAccessChain->getIndexes();
           auto elemType = astContext.getConstantArrayType(
