@@ -2601,6 +2601,64 @@ bool DeclResultIdMapper::decorateResourceCoherent() {
   return true;
 }
 
+bool DeclResultIdMapper::createStructureOutputVar(
+    QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
+    llvm::Optional<SpirvInstruction *> invocationId,
+    const llvm::StringRef namePrefix, SemanticInfo *semanticToUse,
+    bool noWriteBack, bool asNoInterp, SpirvInstruction *value,
+    SourceLocation loc) {
+  // If we have base classes, we need to handle them first.
+  if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+    uint32_t baseIndex = 0;
+    for (auto base : cxxDecl->bases()) {
+      SpirvInstruction *subValue = nullptr;
+      if (!noWriteBack)
+        subValue = spvBuilder.createCompositeExtract(base.getType(), value,
+                                                     {baseIndex++}, loc);
+
+      if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(),
+                           false, base.getType(), arraySize, namePrefix,
+                           invocationId, &subValue, noWriteBack, semanticToUse))
+        return false;
+    }
+  }
+
+  // Unlike reading, which may require us to read stand-alone builtins and
+  // stage input variables and compose an array of structs out of them,
+  // it happens that we don't need to write an array of structs in a bunch
+  // for all shader stages:
+  //
+  // * VS: output is a single struct, without extra arrayness
+  // * HS: output is an array of structs, with extra arrayness,
+  //       but we only write to the struct at the InvocationID index
+  // * DS: output is a single struct, without extra arrayness
+  // * GS: output is controlled by OpEmitVertex, one vertex per time
+  // * MS: output is an array of structs, with extra arrayness
+  //
+  // The interesting shader stage is HS. We need the InvocationID to write
+  // out the value to the correct array element.
+  const auto *structDecl = type->getAs<RecordType>()->getDecl();
+  for (const auto *field : structDecl->fields()) {
+    const auto fieldType = field->getType();
+    SpirvInstruction *subValue = nullptr;
+    if (!noWriteBack) {
+      subValue = spvBuilder.createCompositeExtract(
+          fieldType, value, {getNumBaseClasses(type) + field->getFieldIndex()},
+          loc);
+      if (field->hasAttr<HLSLNoInterpolationAttr>() ||
+          structDecl->hasAttr<HLSLNoInterpolationAttr>())
+        subValue->setNoninterpolated();
+    }
+
+    if (!createStageVars(
+            sigPoint, field, false, field->getType(), arraySize, namePrefix,
+            invocationId, &subValue, noWriteBack, semanticToUse,
+            asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
+      return false;
+  }
+  return true;
+}
+
 SpirvInstruction *DeclResultIdMapper::createStructureInputVar(
     QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
     llvm::Optional<SpirvInstruction *> invocationId,
@@ -3269,66 +3327,16 @@ bool DeclResultIdMapper::createStageVars(
     return false;
   }
 
-  const auto *structDecl = type->getAs<RecordType>()->getDecl();
-
   if (asInput) {
     *value = createStructureInputVar(type, sigPoint, arraySize, invocationId,
                                      namePrefix, asNoInterp, noWriteBack,
                                      semanticToUse, loc);
     return (*value) != nullptr;
   } else {
-    // If we have base classes, we need to handle them first.
-    if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
-      uint32_t baseIndex = 0;
-      for (auto base : cxxDecl->bases()) {
-        SpirvInstruction *subValue = nullptr;
-        if (!noWriteBack)
-          subValue = spvBuilder.createCompositeExtract(base.getType(), *value,
-                                                       {baseIndex++}, loc);
-
-        if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(),
-                             asInput, base.getType(), arraySize, namePrefix,
-                             invocationId, &subValue, noWriteBack,
-                             semanticToUse))
-          return false;
-      }
-    }
-
-    // Unlike reading, which may require us to read stand-alone builtins and
-    // stage input variables and compose an array of structs out of them,
-    // it happens that we don't need to write an array of structs in a bunch
-    // for all shader stages:
-    //
-    // * VS: output is a single struct, without extra arrayness
-    // * HS: output is an array of structs, with extra arrayness,
-    //       but we only write to the struct at the InvocationID index
-    // * DS: output is a single struct, without extra arrayness
-    // * GS: output is controlled by OpEmitVertex, one vertex per time
-    // * MS: output is an array of structs, with extra arrayness
-    //
-    // The interesting shader stage is HS. We need the InvocationID to write
-    // out the value to the correct array element.
-    for (const auto *field : structDecl->fields()) {
-      const auto fieldType = field->getType();
-      SpirvInstruction *subValue = nullptr;
-      if (!noWriteBack) {
-        subValue = spvBuilder.createCompositeExtract(
-            fieldType, *value,
-            {getNumBaseClasses(type) + field->getFieldIndex()}, loc);
-        if (field->hasAttr<HLSLNoInterpolationAttr>() ||
-            structDecl->hasAttr<HLSLNoInterpolationAttr>())
-          subValue->setNoninterpolated();
-      }
-
-      if (!createStageVars(
-              sigPoint, field, asInput, field->getType(), arraySize, namePrefix,
-              invocationId, &subValue, noWriteBack, semanticToUse,
-              asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
-        return false;
-    }
+    return createStructureOutputVar(type, sigPoint, arraySize, invocationId,
+                                    namePrefix, semanticToUse, noWriteBack,
+                                    asNoInterp, *value, loc);
   }
-
-  return true;
 }
 
 bool DeclResultIdMapper::createPayloadStageVars(

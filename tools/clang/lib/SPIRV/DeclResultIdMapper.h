@@ -652,6 +652,13 @@ private:
                        SpirvInstruction **value, bool noWriteBack,
                        SemanticInfo *inheritSemantic, bool asNoInterp = false);
 
+  bool createStructureOutputVar(QualType type, const hlsl::SigPoint *sigPoint,
+                                uint32_t arraySize,
+                                llvm::Optional<SpirvInstruction *> invocationId,
+                                const llvm::StringRef namePrefix,
+                                SemanticInfo *semanticToUse, bool noWriteBack,
+                                bool asNoInterp, SpirvInstruction *value,
+                                SourceLocation loc);
   SpirvInstruction *createStructureInputVar(
       QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
       llvm::Optional<SpirvInstruction *> invocationId,
