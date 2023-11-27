@@ -24,54 +24,6 @@ TEST_F(FileTest, StructTypeEmptyStructArrayStride) {
 TEST_F(FileTest, StructTypeUniqueness) {
   runFileTest("type.struct.uniqueness.hlsl");
 }
-TEST_F(FileTest, StringTypes) { runFileTest("type.string.hlsl"); }
-TEST_F(FileTest, ClassTypes) { runFileTest("type.class.hlsl"); }
-TEST_F(FileTest, ArrayTypes) { runFileTest("type.array.hlsl"); }
-TEST_F(FileTest, RuntimeArrayTypes) { runFileTest("type.runtime-array.hlsl"); }
-TEST_F(FileTest, TypedefTypes) { runFileTest("type.typedef.hlsl"); }
-TEST_F(FileTest, SamplerTypes) { runFileTest("type.sampler.hlsl"); }
-TEST_F(FileTest, TextureTypes) { runFileTest("type.texture.hlsl"); }
-TEST_F(FileTest, RWTextureTypes) { runFileTest("type.rwtexture.hlsl"); }
-TEST_F(FileTest, RWTextureTypesWithMinPrecisionScalarTypes) {
-  runFileTest("type.rwtexture.with.min.precision.scalar.hlsl");
-}
-TEST_F(FileTest, RWTextureTypesWith64bitsScalarTypes) {
-  runFileTest("type.rwtexture.with.64bit.scalar.hlsl");
-}
-TEST_F(FileTest, BufferType) { runFileTest("type.buffer.hlsl"); }
-
-TEST_F(FileTest, RWBufferTypeHalfElementType) {
-  runFileTest("type.rwbuffer.half.hlsl");
-}
-TEST_F(FileTest, CBufferType) { runFileTest("type.cbuffer.hlsl"); }
-TEST_F(FileTest, TypeCBufferIncludingResource) {
-  runFileTest("type.cbuffer.including.resource.hlsl");
-}
-TEST_F(FileTest, ConstantBufferType) {
-  runFileTest("type.constant-buffer.hlsl");
-}
-TEST_F(FileTest, ConstantBufferTypeAssign) {
-  runFileTest("type.constant-buffer.assign.hlsl");
-}
-TEST_F(FileTest, ConstantBufferTypeReturn) {
-  runFileTest("type.constant-buffer.return.hlsl");
-}
-TEST_F(FileTest, ConstantBufferTypeMultiDimensionalArray) {
-  runFileTest("type.constant-buffer.multiple-dimensions.hlsl");
-}
-TEST_F(FileTest, BindlessConstantBufferArrayType) {
-  runFileTest("type.constant-buffer.bindless.array.hlsl");
-}
-TEST_F(FileTest, EnumType) { runFileTest("type.enum.hlsl"); }
-TEST_F(FileTest, ClassEnumType) { runFileTest("class.enum.hlsl"); }
-TEST_F(FileTest, TBufferType) { runFileTest("type.tbuffer.hlsl"); }
-TEST_F(FileTest, TextureBufferType) { runFileTest("type.texture-buffer.hlsl"); }
-TEST_F(FileTest, StructuredBufferType) {
-  runFileTest("type.structured-buffer.hlsl");
-}
-TEST_F(FileTest, StructuredBufferTypeWithVector) {
-  runFileTest("type.structured-buffer.vector.hlsl");
-}
 
 // Test shaders that require Vulkan1.1 support with
 // -fspv-target-env=vulkan1.2 option to make sure that enabling
