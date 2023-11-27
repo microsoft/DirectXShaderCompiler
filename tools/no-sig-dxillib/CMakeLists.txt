@@ -20,10 +20,10 @@ include_directories(
 )
 
 set(SOURCES
-  DxilLib.cpp
-  DxilLib.def
+  NoSigDxilLib.cpp
+  NoSigDxilLib.def
   DxilContainerBuilder.cpp
-  DxilLibValidator.cpp
+  NoSigDxilLibValidator.cpp
 )
 
 add_llvm_library(dxil SHARED ${SOURCES})

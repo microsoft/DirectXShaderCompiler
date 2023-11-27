@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilLibValidator.cpp                                                      //
+// NoSigDxilLibValidator.cpp                                                 //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -15,15 +15,15 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 
-class DxilLibValidator : public DxilValidator, public IDxcVersionInfo
+class NoSigDxilLibValidator : public DxilValidator, public IDxcVersionInfo
 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  DxilLibValidator(IMalloc *pMalloc) : DxilValidator(pMalloc), m_dwRef(0), m_pMalloc(pMalloc) {}
-  DXC_MICROCOM_TM_ALLOC(DxilLibValidator)
+  NoSigDxilLibValidator(IMalloc *pMalloc) : DxilValidator(pMalloc), m_dwRef(0), m_pMalloc(pMalloc) {}
+  DXC_MICROCOM_TM_ALLOC(NoSigDxilLibValidator)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
@@ -36,7 +36,7 @@ public:
 
 };
 
-HRESULT STDMETHODCALLTYPE DxilLibValidator::GetVersion(UINT32 *pMajor,
+HRESULT STDMETHODCALLTYPE NoSigDxilLibValidator::GetVersion(UINT32 *pMajor,
                                                    UINT32 *pMinor) {
   if (pMajor == nullptr || pMinor == nullptr)
     return E_INVALIDARG;
@@ -44,7 +44,7 @@ HRESULT STDMETHODCALLTYPE DxilLibValidator::GetVersion(UINT32 *pMajor,
   return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE DxilLibValidator::GetFlags(UINT32 *pFlags) {
+HRESULT STDMETHODCALLTYPE NoSigDxilLibValidator::GetFlags(UINT32 *pFlags) {
   if (pFlags == nullptr)
     return E_INVALIDARG;
   *pFlags = DxcVersionInfoFlags_None;
@@ -56,8 +56,8 @@ HRESULT STDMETHODCALLTYPE DxilLibValidator::GetFlags(UINT32 *pFlags) {
 
 HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv) {
   try {
-    CComPtr<DxilLibValidator> result(
-        DxilLibValidator::Alloc(DxcGetThreadMallocNoRef()));
+    CComPtr<NoSigDxilLibValidator> result(
+        NoSigDxilLibValidator::Alloc(DxcGetThreadMallocNoRef()));
     IFROOM(result.p);
     return result.p->QueryInterface(riid, ppv);
   }
