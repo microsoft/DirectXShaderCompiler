@@ -14,48 +14,6 @@ using clang::spirv::FileTest;
 
 // === Partial output tests ===
 
-// For types
-TEST_F(FileTest, ScalarTypes) { runFileTest("type.scalar.hlsl"); }
-TEST_F(FileTest, VectorTypes) { runFileTest("type.vector.hlsl"); }
-TEST_F(FileTest, StructTypes) { runFileTest("type.struct.hlsl"); }
-TEST_F(FileTest, StructTypeEmptyStructArrayStride) {
-  runFileTest("type.struct.empty-struct.array-stride.hlsl");
-}
-TEST_F(FileTest, StructTypeUniqueness) {
-  runFileTest("type.struct.uniqueness.hlsl");
-}
-
-// Test shaders that require Vulkan1.1 support with
-// -fspv-target-env=vulkan1.2 option to make sure that enabling
-// Vulkan1.2 also enables Vulkan1.1.
-TEST_F(FileTest, CompatibilityWithVk1p1) {
-  runFileTest("sm6.quad-read-across-diagonal.vulkan1.2.hlsl");
-  runFileTest("sm6.quad-read-across-x.vulkan1.2.hlsl");
-  runFileTest("sm6.quad-read-across-y.vulkan1.2.hlsl");
-  runFileTest("sm6.quad-read-lane-at.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-all-equal.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-all-true.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-any-true.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-ballot.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-bit-and.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-bit-or.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-bit-xor.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-count-bits.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-max.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-min.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-product.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-active-sum.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-get-lane-count.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-get-lane-index.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-is-first-lane.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-prefix-count-bits.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-prefix-product.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-prefix-sum.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-read-lane-at.vulkan1.2.hlsl");
-  runFileTest("sm6.wave-read-lane-first.vulkan1.2.hlsl");
-  runFileTest("sm6.wave.builtin.no-dup.vulkan1.2.hlsl");
-}
-
 TEST_F(FileTest, InlinedCodeTest) {
   const std::string command(R"(// RUN: %dxc -T ps_6_0 -E PSMain)");
   const std::string code = command + R"(
