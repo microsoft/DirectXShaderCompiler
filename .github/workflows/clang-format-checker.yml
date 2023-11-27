@@ -29,7 +29,7 @@ jobs:
         env: LISTED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
           echo "Formatting files:"
-          echo $LISTED_FILES
+          echo &quot;$LISTED_FILES&quot;
 
       - name: Install clang-format
         uses: aminya/setup-cpp@v1
