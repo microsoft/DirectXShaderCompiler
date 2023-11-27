@@ -2604,9 +2604,8 @@ bool DeclResultIdMapper::decorateResourceCoherent() {
 bool DeclResultIdMapper::createStructureOutputVar(
     QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
     llvm::Optional<SpirvInstruction *> invocationId,
-    const llvm::StringRef namePrefix, SemanticInfo *semanticToUse,
-    bool noWriteBack, bool asNoInterp, SpirvInstruction *value,
-    SourceLocation loc) {
+    const llvm::StringRef namePrefix, SemanticInfo *semantic, bool noWriteBack,
+    bool asNoInterp, SpirvInstruction *value, SourceLocation loc) {
   // If we have base classes, we need to handle them first.
   if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
     uint32_t baseIndex = 0;
@@ -2618,7 +2617,7 @@ bool DeclResultIdMapper::createStructureOutputVar(
 
       if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(),
                            false, base.getType(), arraySize, namePrefix,
-                           invocationId, &subValue, noWriteBack, semanticToUse))
+                           invocationId, &subValue, noWriteBack, semantic))
         return false;
     }
   }
@@ -2652,7 +2651,7 @@ bool DeclResultIdMapper::createStructureOutputVar(
 
     if (!createStageVars(
             sigPoint, field, false, field->getType(), arraySize, namePrefix,
-            invocationId, &subValue, noWriteBack, semanticToUse,
+            invocationId, &subValue, noWriteBack, semantic,
             asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
       return false;
   }
@@ -2661,7 +2660,6 @@ bool DeclResultIdMapper::createStructureOutputVar(
 
 SpirvInstruction *DeclResultIdMapper::createStructureInputVar(
     QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
-    llvm::Optional<SpirvInstruction *> invocationId,
     const llvm::StringRef namePrefix, bool asNoInterp, bool noWriteBack,
     SemanticInfo *semanticToUse, SourceLocation loc) {
   // If this decl translates into multiple stage input variables, we need to
@@ -2673,8 +2671,9 @@ SpirvInstruction *DeclResultIdMapper::createStructureInputVar(
     for (auto base : cxxDecl->bases()) {
       SpirvInstruction *subValue = nullptr;
       if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(), true,
-                           base.getType(), arraySize, namePrefix, invocationId,
-                           &subValue, noWriteBack, semanticToUse))
+                           base.getType(), arraySize, namePrefix,
+                           llvm::Optional<SpirvInstruction *>(), &subValue,
+                           noWriteBack, semanticToUse))
         return nullptr;
       subValues.push_back(subValue);
     }
@@ -2683,10 +2682,11 @@ SpirvInstruction *DeclResultIdMapper::createStructureInputVar(
   const auto *structDecl = type->getAs<RecordType>()->getDecl();
   for (const auto *field : structDecl->fields()) {
     SpirvInstruction *subValue = nullptr;
-    if (!createStageVars(
-            sigPoint, field, true, field->getType(), arraySize, namePrefix,
-            invocationId, &subValue, noWriteBack, semanticToUse,
-            asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
+    if (!createStageVars(sigPoint, field, true, field->getType(), arraySize,
+                         namePrefix, llvm::Optional<SpirvInstruction *>(),
+                         &subValue, noWriteBack, semanticToUse,
+                         asNoInterp ||
+                             field->hasAttr<HLSLNoInterpolationAttr>()))
       return nullptr;
     subValues.push_back(subValue);
   }
@@ -2740,7 +2740,7 @@ SpirvInstruction *DeclResultIdMapper::createStructureInputVar(
   return spvBuilder.createCompositeConstruct(arrayType, arrayElements, loc);
 }
 
-void DeclResultIdMapper::storeToShaderInputVariable(
+void DeclResultIdMapper::storeToShaderOutputVariable(
     SpirvVariable *varInstr, hlsl::Semantic::Kind semanticKind, QualType type,
     SpirvInstruction *value, llvm::Optional<SpirvInstruction *> invocationId,
     hlsl::SigPoint::Kind sigPointKind, const NamedDecl *decl,
@@ -2970,44 +2970,49 @@ bool DeclResultIdMapper::validateShaderStageVar(SemanticInfo *semantic,
   return true;
 }
 
-SpirvVariable *DeclResultIdMapper::replaceInstanceIndexWithInstanceId(
-    const NamedDecl *decl, SpirvVariable *instanceIndexVar,
-    SpirvVariable *baseInstanceVar, QualType type) {
-  auto *instanceIdVar =
-      spvBuilder.addFnVar(type, decl->getLocation(), "SV_InstanceID");
-  auto *instanceIndexValue =
-      spvBuilder.createLoad(type, instanceIndexVar, decl->getLocation());
-  auto *baseInstanceValue =
-      spvBuilder.createLoad(type, baseInstanceVar, decl->getLocation());
-  auto *instanceIdValue =
-      spvBuilder.createBinaryOp(spv::Op::OpISub, type, instanceIndexValue,
-                                baseInstanceValue, decl->getLocation());
-  spvBuilder.createStore(instanceIdVar, instanceIdValue, decl->getLocation());
-  stageVarInstructions[cast<DeclaratorDecl>(decl)] = instanceIdVar;
+SpirvVariable *DeclResultIdMapper::getInstanceIdFromIndexAndBase(
+    SpirvVariable *instanceIndexVar, SpirvVariable *baseInstanceVar) {
+  QualType type = instanceIndexVar->getAstResultType();
+  auto *instanceIdVar = spvBuilder.addFnVar(
+      type, instanceIndexVar->getSourceLocation(), "SV_InstanceID");
+  auto *instanceIndexValue = spvBuilder.createLoad(
+      type, instanceIndexVar, instanceIndexVar->getSourceLocation());
+  auto *baseInstanceValue = spvBuilder.createLoad(
+      type, baseInstanceVar, instanceIndexVar->getSourceLocation());
+  auto *instanceIdValue = spvBuilder.createBinaryOp(
+      spv::Op::OpISub, type, instanceIndexValue, baseInstanceValue,
+      instanceIndexVar->getSourceLocation());
+  spvBuilder.createStore(instanceIdVar, instanceIdValue,
+                         instanceIndexVar->getSourceLocation());
   return instanceIdVar;
 }
 
-SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
-    const NamedDecl *decl, QualType evalType, QualType type,
-    SemanticInfo *semanticToUse, const hlsl::SigPoint *sigPoint) {
-  const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
+SpirvVariable *
+DeclResultIdMapper::getBaseInstanceVariable(SemanticInfo *semantic,
+                                            const hlsl::SigPoint *sigPoint) {
+
+  QualType type = astContext.IntTy;
   auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
-      type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
-      decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
-  StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
-                     getLocationAndComponentCount(astContext, type));
-  stageVar2.setSpirvInstr(baseInstanceVar);
-  stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
-  stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
-  stageVar2.setIsSpirvBuiltin();
-  stageVars.push_back(stageVar2);
+      type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance, false,
+      semantic->loc);
+  StageVar var(sigPoint, *semantic, nullptr, type,
+               getLocationAndComponentCount(astContext, type));
+  var.setSpirvInstr(baseInstanceVar);
+  var.setIsSpirvBuiltin();
+  stageVars.push_back(var);
   return baseInstanceVar;
 }
 
 SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
     const hlsl::SigPoint *sigPoint, SemanticInfo *semanticToUse,
-    const NamedDecl *decl, QualType evalType, QualType type, bool asNoInterp,
+    const NamedDecl *decl, QualType type, uint32_t arraySize, bool asNoInterp,
     const llvm::StringRef namePrefix) {
+  // The evalType will be the type of the interface variable in SPIR-V.
+  // The type of the variable used in the body of the function will still be
+  // `type`.
+  QualType evalType = getTypeForSpirvStageVariable(
+      type, semanticToUse->getKind(), sigPoint->GetKind(), decl, arraySize);
+
   const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
   StageVar stageVar(
       sigPoint, *semanticToUse, builtinAttr, evalType,
@@ -3055,10 +3060,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
       (spvContext.isVS() && sigPoint->IsOutput()))
     decorateInterpolationMode(decl, type, varInstr, *semanticToUse);
 
-  // We have semantics attached to this decl, which means it must be a
-  // function/parameter/variable. All are DeclaratorDecls.
-  stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
-
   // Special case: The DX12 SV_InstanceID always counts from 0, even if the
   // StartInstanceLocation parameter is non-zero. gl_InstanceIndex, however,
   // starts from firstInstance. Thus it doesn't emulate actual DX12 shader
@@ -3088,13 +3089,16 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
     // The above call to createSpirvStageVar creates the gl_InstanceIndex.
     // We should now manually create the gl_BaseInstance variable and do the
     // subtraction.
-    auto *baseInstanceVar =
-        getBaseInstanceVariable(decl, evalType, type, semanticToUse, sigPoint);
+    auto *baseInstanceVar = getBaseInstanceVariable(semanticToUse, sigPoint);
 
     // SPIR-V code for 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
-    varInstr = replaceInstanceIndexWithInstanceId(decl, varInstr,
-                                                  baseInstanceVar, type);
+    varInstr = getInstanceIdFromIndexAndBase(varInstr, baseInstanceVar);
   }
+
+  // We have semantics attached to this decl, which means it must be a
+  // function/parameter/variable. All are DeclaratorDecls.
+  stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
+
   return varInstr;
 }
 
@@ -3281,14 +3285,8 @@ bool DeclResultIdMapper::createStageVars(
                                 noWriteBack, /*vecComponent=*/nullptr, loc))
       return true;
 
-    // The evalType will be the type of the interface variable in SPIR-V.
-    // The type of the variable used in the body of the function will still be
-    // `type`.
-    QualType evalType = getTypeForSpirvStageVariable(
-        type, semanticKind, sigPointKind, decl, arraySize);
-
     SpirvVariable *varInstr = createSpirvInterfaceVariable(
-        sigPoint, semanticToUse, decl, evalType, type, asNoInterp, namePrefix);
+        sigPoint, semanticToUse, decl, type, arraySize, asNoInterp, namePrefix);
     if (!varInstr) {
       return false;
     }
@@ -3309,8 +3307,8 @@ bool DeclResultIdMapper::createStageVars(
       // Negate SV_Position.y if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
         *value = invertYIfRequested(*value, thisSemantic.loc);
-      storeToShaderInputVariable(varInstr, semanticKind, type, *value,
-                                 invocationId, sigPointKind, decl, loc);
+      storeToShaderOutputVariable(varInstr, semanticKind, type, *value,
+                                  invocationId, sigPointKind, decl, loc);
     }
 
     return true;
@@ -3328,9 +3326,9 @@ bool DeclResultIdMapper::createStageVars(
   }
 
   if (asInput) {
-    *value = createStructureInputVar(type, sigPoint, arraySize, invocationId,
-                                     namePrefix, asNoInterp, noWriteBack,
-                                     semanticToUse, loc);
+    *value =
+        createStructureInputVar(type, sigPoint, arraySize, namePrefix,
+                                asNoInterp, noWriteBack, semanticToUse, loc);
     return (*value) != nullptr;
   } else {
     return createStructureOutputVar(type, sigPoint, arraySize, invocationId,
