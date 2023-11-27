@@ -10,6 +10,14 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+#define DXC_API_IMPORT __declspec(dllexport)
+#else
+#define DXC_API_IMPORT __attribute__((visibility("default")))
+#endif
+
+#include "dxc/DxilContainer/DxcContainerBuilder.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/FileSystem.h"
@@ -18,12 +26,6 @@
 #ifdef _WIN32
 #include "Tracing/DxcRuntimeEtw.h"
 #include "dxc/Tracing/dxcetw.h"
-#endif
-
-#ifdef _WIN32
-#define DXC_API_IMPORT
-#else
-#define DXC_API_IMPORT __attribute__((visibility("default")))
 #endif
 
 #include "dxc/dxcisense.h"
@@ -147,4 +149,13 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(_In_ IMalloc *pMalloc,
   hr = ThreadMallocDxcCreateInstance(rclsid, riid, ppv);
   DxcEtw_DXCompilerCreateInstance_Stop(hr);
   return hr;
+}
+
+HRESULT CreateDxcContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+  *ppv = nullptr;
+  CComPtr<DxcContainerBuilder> Result(
+      DxcContainerBuilder::Alloc(DxcGetThreadMallocNoRef()));
+  IFROOM(Result.p);
+  Result->Init();
+  return Result->QueryInterface(riid, ppv);
 }

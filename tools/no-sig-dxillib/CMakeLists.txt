@@ -22,7 +22,6 @@ include_directories(
 set(SOURCES
   NoSigDxilLib.cpp
   NoSigDxilLib.def
-  DxilContainerBuilder.cpp
   NoSigDxilLibValidator.cpp
 )
 
