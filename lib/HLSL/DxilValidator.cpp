@@ -21,8 +21,8 @@
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
-#include "dxc/dxcapi.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/dxcapi.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 #ifdef _WIN32
@@ -219,7 +219,7 @@ HRESULT DxilValidator::RunValidation(
 
 HRESULT
 DxilValidator::RunRootSignatureValidation(IDxcBlob *pShader,
-                                         AbstractMemoryStream *pDiagStream) {
+                                          AbstractMemoryStream *pDiagStream) {
 
   const DxilContainerHeader *pDxilContainer = IsDxilContainerLike(
       pShader->GetBufferPointer(), pShader->GetBufferSize());
@@ -275,4 +275,3 @@ HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
   return pInternalValidator->ValidateWithOptModules(pShader, Flags, pModule,
                                                     pDebugModule, ppResult);
 }
-

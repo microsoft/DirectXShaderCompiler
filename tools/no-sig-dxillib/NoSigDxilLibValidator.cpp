@@ -10,34 +10,34 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilValidator.h"
 #include "dxc/HLSL/DxilValidation.h"
+#include "dxc/HLSL/DxilValidator.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 
-class NoSigDxilLibValidator : public DxilValidator, public IDxcVersionInfo
-{
+class NoSigDxilLibValidator : public DxilValidator, public IDxcVersionInfo {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
-  NoSigDxilLibValidator(IMalloc *pMalloc) : DxilValidator(pMalloc), m_dwRef(0), m_pMalloc(pMalloc) {}
+  NoSigDxilLibValidator(IMalloc *pMalloc)
+      : DxilValidator(pMalloc), m_dwRef(0), m_pMalloc(pMalloc) {}
   DXC_MICROCOM_TM_ALLOC(NoSigDxilLibValidator)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcValidator, IDxcValidator2, IDxcVersionInfo>(this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcValidator, IDxcValidator2,
+                                 IDxcVersionInfo>(this, iid, ppvObject);
   }
 
   // IDxcVersionInfo
   HRESULT STDMETHODCALLTYPE GetVersion(UINT32 *pMajor, UINT32 *pMinor) override;
   HRESULT STDMETHODCALLTYPE GetFlags(UINT32 *pFlags) override;
-
 };
 
 HRESULT STDMETHODCALLTYPE NoSigDxilLibValidator::GetVersion(UINT32 *pMajor,
-                                                   UINT32 *pMinor) {
+                                                            UINT32 *pMinor) {
   if (pMajor == nullptr || pMinor == nullptr)
     return E_INVALIDARG;
   hlsl::GetValidationVersion(pMajor, pMinor);
