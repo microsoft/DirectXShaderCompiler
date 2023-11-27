@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK-NOT: OpDecorate %buf3
 
@@ -42,19 +42,19 @@ cbuffer buf3 : register(b2) {
 }
 
 float4 main(float2 uv : TEXCOORD) : SV_TARGET {
-// CHECK: [[ptr_x:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %buf2 %int_0
-// CHECK: [[x:%\d+]] = OpLoad %v4float [[ptr_x]]
+// CHECK: [[ptr_x:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float %buf2 %int_0
+// CHECK: [[x:%[0-9]+]] = OpLoad %v4float [[ptr_x]]
 
-// CHECK: [[y:%\d+]] = OpLoad %type_2d_image %y
-// CHECK: [[z:%\d+]] = OpLoad %type_sampler %z
-// CHECK: [[yz:%\d+]] = OpSampledImage %type_sampled_image [[y]] [[z]]
-// CHECK: [[sample0:%\d+]] = OpImageSampleImplicitLod %v4float [[yz]]
-// CHECK: [[add0:%\d+]] = OpFAdd %v4float [[x]] [[sample0]]
+// CHECK: [[y:%[0-9]+]] = OpLoad %type_2d_image %y
+// CHECK: [[z:%[0-9]+]] = OpLoad %type_sampler %z
+// CHECK: [[yz:%[0-9]+]] = OpSampledImage %type_sampled_image [[y]] [[z]]
+// CHECK: [[sample0:%[0-9]+]] = OpImageSampleImplicitLod %v4float [[yz]]
+// CHECK: [[add0:%[0-9]+]] = OpFAdd %v4float [[x]] [[sample0]]
 
-// CHECK: [[y:%\d+]] = OpLoad %type_2d_image %y
-// CHECK: [[w:%\d+]] = OpLoad %type_sampler %w
-// CHECK: [[yw:%\d+]] = OpSampledImage %type_sampled_image [[y]] [[w]]
-// CHECK: [[sample1:%\d+]] = OpImageSampleImplicitLod %v4float [[yw]]
+// CHECK: [[y_0:%[0-9]+]] = OpLoad %type_2d_image %y
+// CHECK: [[w:%[0-9]+]] = OpLoad %type_sampler %w
+// CHECK: [[yw:%[0-9]+]] = OpSampledImage %type_sampled_image [[y_0]] [[w]]
+// CHECK: [[sample1:%[0-9]+]] = OpImageSampleImplicitLod %v4float [[yw]]
 // CHECK: OpFAdd %v4float [[add0]] [[sample1]]
   return x + y.Sample(z, uv) + y.Sample(w, uv);
 }
