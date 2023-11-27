@@ -4,14 +4,13 @@ on:
     types: [opened,synchronize]
   issue_comment:
     types: edited
-permissions:
-  pull-requests: write
-  contents: write
 
 jobs:
   code_formatter:
     if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
+  permissions:
+    pull-requests: write
     steps:
       - name: Fetch LLVM sources
         uses: actions/checkout@v4
@@ -64,6 +63,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TMP_DIFF_FILE: /tmp/diff.patch
+    permissions:
+      pull-requests: write
+      contents: write
     steps:
       - uses: actions/github-script@v3
         id: get-pr
