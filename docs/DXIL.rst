@@ -90,9 +90,9 @@ The shader model is specified as a named metadata in DXIL::
 
 The following values of <shaderModelName>_<major>_<minor> are supported:
 
-====================      ===================================== ===========
+========================= ===================================== ===========
 Target                    Legacy Models                         DXIL Models
-====================      ===================================== ===========
+========================= ===================================== ===========
 Vertex shader (VS)        vs_4_0, vs_4_1, vs_5_0, vs_5_1        vs_6_0
 Hull shader (HS)          hs_5_0, hs_5_1                        hs_6_0
 Domain shader (DS)        ds_5_0, ds_5_1                        ds_6_0
