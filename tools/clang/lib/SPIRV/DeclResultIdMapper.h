@@ -672,12 +672,12 @@ private:
   // interpolated. value: The value to be written to the newly create variable.
   // loc: The location of the variable in the source code.
   bool createStructOutputVar(QualType type, const hlsl::SigPoint *sigPoint,
-                                uint32_t arraySize,
-                                llvm::Optional<SpirvInstruction *> invocationId,
-                                const llvm::StringRef namePrefix,
-                                SemanticInfo *semantic, bool noWriteBack,
-                                bool asNoInterp, SpirvInstruction *value,
-                                SourceLocation loc);
+                             uint32_t arraySize,
+                             llvm::Optional<SpirvInstruction *> invocationId,
+                             const llvm::StringRef namePrefix,
+                             SemanticInfo *semantic, bool noWriteBack,
+                             bool asNoInterp, SpirvInstruction *value,
+                             SourceLocation loc);
 
   // Creates a variable to represent the input variable, which must be a
   // structure. The value is loaded and the instruction with the final value is
@@ -693,9 +693,9 @@ private:
   // loc: The location of the variable in the source code.
   SpirvInstruction *
   createStructInputVar(QualType type, const hlsl::SigPoint *sigPoint,
-                          uint32_t arraySize, const llvm::StringRef namePrefix,
-                          bool asNoInterp, bool noWriteBack,
-                          SemanticInfo *semantic, SourceLocation loc);
+                       uint32_t arraySize, const llvm::StringRef namePrefix,
+                       bool asNoInterp, bool noWriteBack,
+                       SemanticInfo *semantic, SourceLocation loc);
 
   // Store `value` to the shader output variable `varInstr`. Since the type
   // could be different, other data is used to know how to convert `value` into

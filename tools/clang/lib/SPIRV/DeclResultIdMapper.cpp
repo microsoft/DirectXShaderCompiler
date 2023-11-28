@@ -3326,14 +3326,13 @@ bool DeclResultIdMapper::createStageVars(
   }
 
   if (asInput) {
-    *value =
-        createStructInputVar(type, sigPoint, arraySize, namePrefix,
-                                asNoInterp, noWriteBack, semanticToUse, loc);
+    *value = createStructInputVar(type, sigPoint, arraySize, namePrefix,
+                                  asNoInterp, noWriteBack, semanticToUse, loc);
     return (*value) != nullptr;
   } else {
     return createStructOutputVar(type, sigPoint, arraySize, invocationId,
-                                    namePrefix, semanticToUse, noWriteBack,
-                                    asNoInterp, *value, loc);
+                                 namePrefix, semanticToUse, noWriteBack,
+                                 asNoInterp, *value, loc);
   }
 }
 
