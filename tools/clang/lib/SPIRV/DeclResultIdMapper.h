@@ -671,7 +671,7 @@ private:
   // be written or not. asNoInterp: True if the variable is not to be
   // interpolated. value: The value to be written to the newly create variable.
   // loc: The location of the variable in the source code.
-  bool createStructureOutputVar(QualType type, const hlsl::SigPoint *sigPoint,
+  bool createStructOutputVar(QualType type, const hlsl::SigPoint *sigPoint,
                                 uint32_t arraySize,
                                 llvm::Optional<SpirvInstruction *> invocationId,
                                 const llvm::StringRef namePrefix,
@@ -692,7 +692,7 @@ private:
   // semantic: the HLSL semantic for this variable.
   // loc: The location of the variable in the source code.
   SpirvInstruction *
-  createStructureInputVar(QualType type, const hlsl::SigPoint *sigPoint,
+  createStructInputVar(QualType type, const hlsl::SigPoint *sigPoint,
                           uint32_t arraySize, const llvm::StringRef namePrefix,
                           bool asNoInterp, bool noWriteBack,
                           SemanticInfo *semantic, SourceLocation loc);

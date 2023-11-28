@@ -2601,7 +2601,7 @@ bool DeclResultIdMapper::decorateResourceCoherent() {
   return true;
 }
 
-bool DeclResultIdMapper::createStructureOutputVar(
+bool DeclResultIdMapper::createStructOutputVar(
     QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
     llvm::Optional<SpirvInstruction *> invocationId,
     const llvm::StringRef namePrefix, SemanticInfo *semantic, bool noWriteBack,
@@ -2658,7 +2658,7 @@ bool DeclResultIdMapper::createStructureOutputVar(
   return true;
 }
 
-SpirvInstruction *DeclResultIdMapper::createStructureInputVar(
+SpirvInstruction *DeclResultIdMapper::createStructInputVar(
     QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
     const llvm::StringRef namePrefix, bool asNoInterp, bool noWriteBack,
     SemanticInfo *semanticToUse, SourceLocation loc) {
@@ -3327,11 +3327,11 @@ bool DeclResultIdMapper::createStageVars(
 
   if (asInput) {
     *value =
-        createStructureInputVar(type, sigPoint, arraySize, namePrefix,
+        createStructInputVar(type, sigPoint, arraySize, namePrefix,
                                 asNoInterp, noWriteBack, semanticToUse, loc);
     return (*value) != nullptr;
   } else {
-    return createStructureOutputVar(type, sigPoint, arraySize, invocationId,
+    return createStructOutputVar(type, sigPoint, arraySize, invocationId,
                                     namePrefix, semanticToUse, noWriteBack,
                                     asNoInterp, *value, loc);
   }
