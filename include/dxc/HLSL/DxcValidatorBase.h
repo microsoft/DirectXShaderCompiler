@@ -1,3 +1,14 @@
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// DxcValidatorBase.h                                                        //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
+//                                                                           //
+// Implements the DirectX Validator base validation functionality            //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
+
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/microcom.h"
@@ -11,7 +22,7 @@ namespace hlsl {
 class AbstractMemoryStream;
 }
 
-class DxilValidator : public IDxcValidator2 {
+class DxcValidatorBase : public IDxcValidator2 {
 private:
   CComPtr<IMalloc> m_pMalloc;
   HRESULT RunValidation(
@@ -25,7 +36,7 @@ private:
                                      hlsl::AbstractMemoryStream *pDiagStream);
 
 public:
-  DxilValidator(IMalloc *pMalloc) : m_pMalloc(pMalloc) {}
+  DxcValidatorBase(IMalloc *pMalloc) : m_pMalloc(pMalloc) {}
 
   // For internal use only.
   HRESULT ValidateWithOptModules(

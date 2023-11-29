@@ -1,11 +1,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilValidator.cpp                                                         //
+// DxcValidatorBase.cpp                                                      //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Implements the DirectX Validator object.                                  //
+// Implements the DirectX Validator base validation functionality            //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -14,8 +14,8 @@
 #include "llvm/IR/Module.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/HLSL/DxcValidatorBase.h"
 #include "dxc/HLSL/DxilValidation.h"
-#include "dxc/HLSL/DxilValidator.h"
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
@@ -49,7 +49,7 @@ struct DiagRestore {
 };
 
 // Compile a single entry point to the target shader model
-HRESULT STDMETHODCALLTYPE DxilValidator::Validate(
+HRESULT STDMETHODCALLTYPE DxcValidatorBase::Validate(
     IDxcBlob *pShader, // Shader to validate.
     UINT32 Flags,      // Validation flags.
     IDxcOperationResult *
@@ -68,7 +68,7 @@ HRESULT STDMETHODCALLTYPE DxilValidator::Validate(
   return ValidateWithOptModules(pShader, Flags, nullptr, nullptr, ppResult);
 }
 
-HRESULT STDMETHODCALLTYPE DxilValidator::ValidateWithDebug(
+HRESULT STDMETHODCALLTYPE DxcValidatorBase::ValidateWithDebug(
     IDxcBlob *pShader,           // Shader to validate.
     UINT32 Flags,                // Validation flags.
     DxcBuffer *pOptDebugBitcode, // Optional debug module bitcode to provide
@@ -114,7 +114,7 @@ HRESULT STDMETHODCALLTYPE DxilValidator::ValidateWithDebug(
   return hr;
 }
 
-HRESULT DxilValidator::ValidateWithOptModules(
+HRESULT DxcValidatorBase::ValidateWithOptModules(
     IDxcBlob *pShader,          // Shader to validate.
     UINT32 Flags,               // Validation flags.
     llvm::Module *pModule,      // Module to validate, if available.
@@ -161,7 +161,7 @@ HRESULT DxilValidator::ValidateWithOptModules(
   return hr;
 }
 
-HRESULT DxilValidator::RunValidation(
+HRESULT DxcValidatorBase::RunValidation(
     IDxcBlob *pShader,
     UINT32 Flags,               // Validation flags.
     llvm::Module *pModule,      // Module to validate, if available.
@@ -218,8 +218,8 @@ HRESULT DxilValidator::RunValidation(
 }
 
 HRESULT
-DxilValidator::RunRootSignatureValidation(IDxcBlob *pShader,
-                                          AbstractMemoryStream *pDiagStream) {
+DxcValidatorBase::RunRootSignatureValidation(
+    IDxcBlob *pShader, AbstractMemoryStream *pDiagStream) {
 
   const DxilContainerHeader *pDxilContainer = IsDxilContainerLike(
       pShader->GetBufferPointer(), pShader->GetBufferSize());
@@ -271,7 +271,7 @@ HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
   DXASSERT_NOMSG(pShader != nullptr);
   DXASSERT_NOMSG(ppResult != nullptr);
 
-  DxilValidator *pInternalValidator = (DxilValidator *)pValidator;
+  DxcValidatorBase *pInternalValidator = (DxcValidatorBase *)pValidator;
   return pInternalValidator->ValidateWithOptModules(pShader, Flags, pModule,
                                                     pDebugModule, ppResult);
 }

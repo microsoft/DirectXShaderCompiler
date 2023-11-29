@@ -10,19 +10,19 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/HLSL/DxcValidatorBase.h"
 #include "dxc/HLSL/DxilValidation.h"
-#include "dxc/HLSL/DxilValidator.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 
-class NoSigDxilLibValidator : public DxilValidator, public IDxcVersionInfo {
+class NoSigDxilLibValidator : public DxcValidatorBase, public IDxcVersionInfo {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   NoSigDxilLibValidator(IMalloc *pMalloc)
-      : DxilValidator(pMalloc), m_dwRef(0), m_pMalloc(pMalloc) {}
+      : DxcValidatorBase(pMalloc), m_dwRef(0), m_pMalloc(pMalloc) {}
   DXC_MICROCOM_TM_ALLOC(NoSigDxilLibValidator)
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,

@@ -8,6 +8,7 @@ add_llvm_library(LLVMHLSL
   ComputeViewIdState.cpp
   ComputeViewIdStateBuilder.cpp
   ControlDependence.cpp
+  DxcValidatorBase.cpp
   DxilCondenseResources.cpp
   DxilContainerReflection.cpp
   DxilConvergent.cpp
@@ -33,7 +34,6 @@ add_llvm_library(LLVMHLSL
   DxilTranslateRawBuffer.cpp
   DxilExportMap.cpp
   DxilValidation.cpp
-  DxilValidator.cpp
   DxcOptimizer.cpp
   HLDeadFunctionElimination.cpp
   HLExpandStoreIntrinsics.cpp

@@ -14,7 +14,7 @@ add_llvm_unittest(DxilLibTests
   DxilLibTest.cpp
   )
 
-add_dependencies(DxilLibTests dxil dxcompiler)
+add_dependencies(DxilLibTests testdxil dxcompiler)
 
 
 if(WIN32)
@@ -24,7 +24,7 @@ else(WIN32)
 endif(WIN32)
 
 add_custom_command(TARGET DxilLibTests POST_BUILD
-   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:dxil> ${CMAKE_CURRENT_BINARY_DIR}/${SUBDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}dxil${CMAKE_SHARED_LIBRARY_SUFFIX}
+   COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:testdxil> ${CMAKE_CURRENT_BINARY_DIR}/${SUBDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}dxil${CMAKE_SHARED_LIBRARY_SUFFIX}
    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:dxcompiler> ${CMAKE_CURRENT_BINARY_DIR}/${SUBDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}dxcompiler${CMAKE_SHARED_LIBRARY_SUFFIX}
 )
 

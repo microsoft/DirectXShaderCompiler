@@ -16,11 +16,11 @@
 #include "llvm/IR/LLVMContext.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/HLSL/DxcValidatorBase.h"
 #include "dxc/HLSL/DxilValidation.h"
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/HLSL/DxilValidator.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.impl.h"
@@ -37,7 +37,7 @@
 #include "clang/Basic/Version.h"
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
-class DxcValidator : public DxilValidator,
+class DxcValidator : public DxcValidatorBase,
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
                      public IDxcVersionInfo2
 #else
@@ -50,14 +50,14 @@ private:
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_ALLOC(DxcValidator)
-  DxcValidator(IMalloc *pMalloc) : DxilValidator(pMalloc), m_dwRef(0), m_pMalloc(pMalloc) {}
+  DxcValidator(IMalloc *pMalloc)
+      : DxcValidatorBase(pMalloc), m_dwRef(0), m_pMalloc(pMalloc) {}
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcValidator, IDxcValidator2, IDxcVersionInfo>(this, iid,
-                                                                ppvObject);
+    return DoBasicQueryInterface<IDxcValidator, IDxcValidator2,
+                                 IDxcVersionInfo>(this, iid, ppvObject);
   }
-
 
   // IDxcVersionInfo
   HRESULT STDMETHODCALLTYPE GetVersion(UINT32 *pMajor, UINT32 *pMinor) override;
