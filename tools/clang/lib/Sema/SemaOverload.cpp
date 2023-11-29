@@ -9498,6 +9498,7 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
               .isBad())
         return DiagnoseBadConversion(S, Cand, I, Cand->Conversions[I],
                                      OpLoc); // HLSL Change: add OpLoc
+      // HLSL Change: check in and out, check out conversions
       if (Cand->OutConversions[I].isInitialized() &&
           Cand->OutConversions[I]
               .isBad())
