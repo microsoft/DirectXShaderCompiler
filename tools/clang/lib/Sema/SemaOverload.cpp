@@ -9492,14 +9492,15 @@ static void NoteFunctionCandidate(Sema &S, OverloadCandidate *Cand,
   case ovl_fail_bad_conversion: {
     unsigned I = (Cand->IgnoreObjectArgument ? 1 : 0);
     for (unsigned N = Cand->NumConversions; I != N; ++I) {
+      // HLSL Change: check in and out, check out conversions
       if (Cand->Conversions[I].isInitialized() &&
           Cand->Conversions[I]
-              .isBad()) // HLSL Change: check in and out, check out conversions
+              .isBad())
         return DiagnoseBadConversion(S, Cand, I, Cand->Conversions[I],
                                      OpLoc); // HLSL Change: add OpLoc
       if (Cand->OutConversions[I].isInitialized() &&
           Cand->OutConversions[I]
-              .isBad()) // HLSL Change: check in and out, check out conversions
+              .isBad())
         return DiagnoseBadConversion(S, Cand, I, Cand->OutConversions[I],
                                      OpLoc); // HLSL Change: add OpLoc
     }
