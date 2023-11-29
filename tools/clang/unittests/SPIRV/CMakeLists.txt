@@ -34,7 +34,7 @@ target_link_libraries(ClangSPIRVTests
 add_dependencies(ClangSPIRVTests dxcompiler)
 
 target_include_directories(ClangSPIRVTests
-  PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR} ${DXC_EFFCEE_DIR})
+  PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})
 
 if (NOT CLANG_INCLUDE_TESTS)
   set_output_directory(ClangSPIRVTests

@@ -72,49 +72,4 @@ if (${ENABLE_SPIRV_CODEGEN})
     set_property(TARGET ${target} PROPERTY FOLDER "External dependencies")
   endforeach()
 
-  # We need Effcee for SPIR-V codegen testing.
-  if (${SPIRV_BUILD_TESTS})
-    # re2 is needed since it's required by effcee.
-    set(DXC_RE2_DIR "${DXC_EXTERNAL_ROOT_DIR}/re2" CACHE STRING "Location of RE2 source")
-    set(DXC_EFFCEE_DIR "${DXC_EXTERNAL_ROOT_DIR}/effcee" CACHE STRING "Location of Effcee source")
-
-    if (NOT TARGET re2)
-      if (IS_DIRECTORY ${DXC_RE2_DIR})
-        # Avoid exception handling warning from MSVC.
-        # This add_compile_options() will only affect the current directory and its subdirectories.
-        if (WIN32)
-          add_compile_options(/EHs)
-        else(WIN32)
-          # Disable all warnings in subproject RE2
-          add_compile_options(-w)
-        endif(WIN32)
-        # Don't build/run re2's tests.
-        set(RE2_BUILD_TESTING OFF CACHE BOOL "Skip RE2 tests")
-        add_subdirectory(${DXC_RE2_DIR} EXCLUDE_FROM_ALL)
-      endif()
-    endif()
-
-    if (NOT TARGET effcee)
-      if (IS_DIRECTORY ${DXC_EFFCEE_DIR})
-        # Configure effcee
-        set(EFFCEE_RE2_DIR "${DXC_RE2_DIR}" CACHE STRING "Location of RE2 for effcee")
-        set(EFFCEE_ENABLE_SHARED_CRT ON CACHE BOOL "Enable using shared C Runtime")
-        # Don't build/run effcee's tests.
-        set(EFFCEE_BUILD_TESTING OFF CACHE BOOL "Skip effcee tests")
-        set(EFFCEE_BUILD_SAMPLES OFF CACHE BOOL "Skip building effcee examples")
-        add_subdirectory(${DXC_EFFCEE_DIR} EXCLUDE_FROM_ALL)
-      endif()
-    endif()
-
-    # Organize these targets better in Visual Studio
-    set(SPIRV_TEST_DEP_TARGETS
-      effcee
-      re2
-    )
-    foreach(target ${SPIRV_TEST_DEP_TARGETS})
-      set_property(TARGET ${target} PROPERTY FOLDER "External dependencies")
-    endforeach()
-
-  endif()
-
 endif()
