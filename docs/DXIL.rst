@@ -88,21 +88,29 @@ The shader model is specified as a named metadata in DXIL::
   !dx.shaderModel = !{ !0 }
   !0 = !{ !"<shadelModelName>", i32 <major>, i32 <minor> }
 
-The following values of <shaderModelName>_<major>_<minor> are supported:
+The following values of ``<shaderModelName>``, ``<major>``, ``<minor>`` are supported:
 
-====================      ===================================== ===========
-Target                    Legacy Models                         DXIL Models
-====================      ===================================== ===========
-Vertex shader (VS)        vs_4_0, vs_4_1, vs_5_0, vs_5_1        vs_6_0
-Hull shader (HS)          hs_5_0, hs_5_1                        hs_6_0
-Domain shader (DS)        ds_5_0, ds_5_1                        ds_6_0
-Geometry shader (GS)      gs_4_0, gs_4_1, gs_5_0, gs_5_1        gs_6_0
-Pixel shader (PS)         ps_4_0, ps_4_1, ps_5_0, ps_5_1        ps_6_0
-Compute shader (CS)       cs_5_0 (cs_4_0 is mapped onto cs_5_0) cs_6_0
-Shader library            no support                            lib_6_1
-Mesh shader (MS)          no support                            ms_6_5
-Amplification shader (AS) no support                            as_6_5
-========================= ===================================== ===========
++-----------------------+---------------------------------------+-------------+
+| Target                |   Legacy Models                       | DXIL Models |
++=======================+=======================================+=============+
+| Vertex shader (VS)    | vs_4_0, vs_4_1, vs_5_0, vs_5_1        | vs_6_0      |
++-----------------------+---------------------------------------+-------------+
+| Hull shader (HS)      | hs_5_0, hs_5_1                        | hs_6_0      | 
++-----------------------+---------------------------------------+-------------+
+| Domain shader (DS)    | ds_5_0, ds_5_1                        | ds_6_0      | 
++-----------------------+---------------------------------------+-------------+
+| Geometry shader (GS)  | gs_4_0, gs_4_1, gs_5_0, gs_5_1        | gs_6_0      | 
++-----------------------+---------------------------------------+-------------+
+| Pixel shader (PS)     | ps_4_0, ps_4_1, ps_5_0, ps_5_1        | ps_6_0      | 
++-----------------------+---------------------------------------+-------------+
+| Compute shader (CS)   | cs_5_0 (cs_4_0 is mapped onto cs_5_0) | cs_6_0      |
++-----------------------+---------------------------------------+-------------+
+| Shader library        | no support                            | lib_6_1     |
++-----------------------+---------------------------------------+-------------+
+| Mesh shader (MS)      | no support                            | ms_6_5      |
++-----------------------+---------------------------------------+-------------+
+| Amplification shader (AS) | no support                        | as_6_5      |
++-----------------------+---------------------------------------+-------------+
 
 The DXIL verifier ensures that DXIL conforms to the specified shader model.
 
