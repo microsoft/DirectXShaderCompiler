@@ -126,7 +126,7 @@ static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid,
   return REGDB_E_CLASSNOTREG;
 }
 
-__declspec(dllexport) HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid,
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid,
                                                    REFIID riid,
                                                    LPVOID *ppv) {
   HRESULT hr = S_OK;
@@ -137,7 +137,7 @@ __declspec(dllexport) HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid,
   return hr;
 }
 
-__declspec(dllexport) HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
                                                     REFCLSID rclsid,
                                                     REFIID riid,
                                                     LPVOID *ppv) {
