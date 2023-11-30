@@ -2601,6 +2601,766 @@ bool DeclResultIdMapper::decorateResourceCoherent() {
   return true;
 }
 
+bool DeclResultIdMapper::createStructOutputVar(
+    QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
+    llvm::Optional<SpirvInstruction *> invocationId,
+    const llvm::StringRef namePrefix, SemanticInfo *semantic, bool noWriteBack,
+    bool asNoInterp, SpirvInstruction *value, SourceLocation loc) {
+  // If we have base classes, we need to handle them first.
+  if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+    uint32_t baseIndex = 0;
+    for (auto base : cxxDecl->bases()) {
+      SpirvInstruction *subValue = nullptr;
+      if (!noWriteBack)
+        subValue = spvBuilder.createCompositeExtract(base.getType(), value,
+                                                     {baseIndex++}, loc);
+
+      if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(),
+                           false, base.getType(), arraySize, namePrefix,
+                           invocationId, &subValue, noWriteBack, semantic))
+        return false;
+    }
+  }
+
+  // Unlike reading, which may require us to read stand-alone builtins and
+  // stage input variables and compose an array of structs out of them,
+  // it happens that we don't need to write an array of structs in a bunch
+  // for all shader stages:
+  //
+  // * VS: output is a single struct, without extra arrayness
+  // * HS: output is an array of structs, with extra arrayness,
+  //       but we only write to the struct at the InvocationID index
+  // * DS: output is a single struct, without extra arrayness
+  // * GS: output is controlled by OpEmitVertex, one vertex per time
+  // * MS: output is an array of structs, with extra arrayness
+  //
+  // The interesting shader stage is HS. We need the InvocationID to write
+  // out the value to the correct array element.
+  const auto *structDecl = type->getAs<RecordType>()->getDecl();
+  for (const auto *field : structDecl->fields()) {
+    const auto fieldType = field->getType();
+    SpirvInstruction *subValue = nullptr;
+    if (!noWriteBack) {
+      subValue = spvBuilder.createCompositeExtract(
+          fieldType, value, {getNumBaseClasses(type) + field->getFieldIndex()},
+          loc);
+      if (field->hasAttr<HLSLNoInterpolationAttr>() ||
+          structDecl->hasAttr<HLSLNoInterpolationAttr>())
+        subValue->setNoninterpolated();
+    }
+
+    if (!createStageVars(
+            sigPoint, field, false, field->getType(), arraySize, namePrefix,
+            invocationId, &subValue, noWriteBack, semantic,
+            asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
+      return false;
+  }
+  return true;
+}
+
+SpirvInstruction *DeclResultIdMapper::createStructInputVar(
+    QualType type, const hlsl::SigPoint *sigPoint, uint32_t arraySize,
+    const llvm::StringRef namePrefix, bool asNoInterp, bool noWriteBack,
+    SemanticInfo *semanticToUse, SourceLocation loc) {
+  // If this decl translates into multiple stage input variables, we need to
+  // load their values into a composite.
+  llvm::SmallVector<SpirvInstruction *, 4> subValues;
+
+  // If we have base classes, we need to handle them first.
+  if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+    for (auto base : cxxDecl->bases()) {
+      SpirvInstruction *subValue = nullptr;
+      if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(), true,
+                           base.getType(), arraySize, namePrefix,
+                           llvm::Optional<SpirvInstruction *>(), &subValue,
+                           noWriteBack, semanticToUse))
+        return nullptr;
+      subValues.push_back(subValue);
+    }
+  }
+
+  const auto *structDecl = type->getAs<RecordType>()->getDecl();
+  for (const auto *field : structDecl->fields()) {
+    SpirvInstruction *subValue = nullptr;
+    if (!createStageVars(sigPoint, field, true, field->getType(), arraySize,
+                         namePrefix, llvm::Optional<SpirvInstruction *>(),
+                         &subValue, noWriteBack, semanticToUse,
+                         asNoInterp ||
+                             field->hasAttr<HLSLNoInterpolationAttr>()))
+      return nullptr;
+    subValues.push_back(subValue);
+  }
+
+  if (arraySize == 0) {
+    SpirvInstruction *value =
+        spvBuilder.createCompositeConstruct(type, subValues, loc);
+    for (auto *subInstr : subValues)
+      spvBuilder.addPerVertexStgInputFuncVarEntry(subInstr, value);
+    return value;
+  }
+
+  // Handle the extra level of arrayness.
+
+  // We need to return an array of structs. But we get arrays of fields
+  // from visiting all fields. So now we need to extract all the elements
+  // at the same index of each field arrays and compose a new struct out
+  // of them.
+  const auto structType = type;
+  const auto arrayType = astContext.getConstantArrayType(
+      structType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+
+  llvm::SmallVector<SpirvInstruction *, 16> arrayElements;
+
+  for (uint32_t arrayIndex = 0; arrayIndex < arraySize; ++arrayIndex) {
+    llvm::SmallVector<SpirvInstruction *, 8> fields;
+
+    // If we have base classes, we need to handle them first.
+    if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
+      uint32_t baseIndex = 0;
+      for (auto base : cxxDecl->bases()) {
+        const auto baseType = base.getType();
+        fields.push_back(spvBuilder.createCompositeExtract(
+            baseType, subValues[baseIndex++], {arrayIndex}, loc));
+      }
+    }
+
+    // Extract the element at index arrayIndex from each field
+    for (const auto *field : structDecl->fields()) {
+      const auto fieldType = field->getType();
+      fields.push_back(spvBuilder.createCompositeExtract(
+          fieldType,
+          subValues[getNumBaseClasses(type) + field->getFieldIndex()],
+          {arrayIndex}, loc));
+    }
+    // Compose a new struct out of them
+    arrayElements.push_back(
+        spvBuilder.createCompositeConstruct(structType, fields, loc));
+  }
+
+  return spvBuilder.createCompositeConstruct(arrayType, arrayElements, loc);
+}
+
+void DeclResultIdMapper::storeToShaderOutputVariable(
+    SpirvVariable *varInstr, hlsl::Semantic::Kind semanticKind, QualType type,
+    SpirvInstruction *value, llvm::Optional<SpirvInstruction *> invocationId,
+    hlsl::SigPoint::Kind sigPointKind, const NamedDecl *decl,
+    SourceLocation loc) {
+  SpirvInstruction *ptr = varInstr;
+
+  // Special handling of SV_TessFactor HS patch constant output.
+  // TessLevelOuter is always an array of size 4 in SPIR-V, but
+  // SV_TessFactor could be an array of size 2, 3, or 4 in HLSL. Only the
+  // relevant indexes must be written to.
+  if (semanticKind == hlsl::Semantic::Kind::TessFactor &&
+      hlsl::GetArraySize(type) != 4) {
+    const auto tessFactorSize = hlsl::GetArraySize(type);
+    for (uint32_t i = 0; i < tessFactorSize; ++i) {
+      ptr = spvBuilder.createAccessChain(
+          astContext.FloatTy, varInstr,
+          {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                     llvm::APInt(32, i))},
+          loc);
+      spvBuilder.createStore(ptr,
+                             spvBuilder.createCompositeExtract(
+                                 astContext.FloatTy, value, {i}, loc),
+                             loc);
+    }
+  }
+  // Special handling of SV_InsideTessFactor HS patch constant output.
+  // TessLevelInner is always an array of size 2 in SPIR-V, but
+  // SV_InsideTessFactor could be an array of size 1 (scalar) or size 2 in
+  // HLSL. If SV_InsideTessFactor is a scalar, only write to index 0 of
+  // TessLevelInner.
+  else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
+           // Some developers use float[1] instead of a scalar float.
+           (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
+    ptr = spvBuilder.createAccessChain(
+        astContext.FloatTy, varInstr,
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0)),
+        loc);
+    if (type->isArrayType()) // float[1]
+      value = spvBuilder.createCompositeExtract(astContext.FloatTy, value, {0},
+                                                loc);
+    spvBuilder.createStore(ptr, value, loc);
+  }
+  // Special handling of SV_Coverage, which is an unit value. We need to
+  // write it to the first element in the SampleMask builtin.
+  else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
+    ptr = spvBuilder.createAccessChain(
+        type, varInstr,
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0)),
+        loc);
+    ptr->setStorageClass(spv::StorageClass::Output);
+    spvBuilder.createStore(ptr, value, loc);
+  }
+  // Special handling of HS ouput, for which we write to only one
+  // element in the per-vertex data array: the one indexed by
+  // SV_ControlPointID.
+  else if (invocationId.hasValue() && invocationId.getValue() != nullptr) {
+    // Remove the arrayness to get the element type.
+    assert(isa<ConstantArrayType>(varInstr->getAstResultType()));
+    const auto elementType =
+        astContext.getAsArrayType(varInstr->getAstResultType())
+            ->getElementType();
+    auto index = invocationId.getValue();
+    ptr = spvBuilder.createAccessChain(elementType, varInstr, index, loc);
+    ptr->setStorageClass(spv::StorageClass::Output);
+    spvBuilder.createStore(ptr, value, loc);
+  }
+  // Since boolean output stage variables are represented as unsigned
+  // integers, we must cast the value to uint before storing.
+  else if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
+    value =
+        theEmitter.castToType(value, type, varInstr->getAstResultType(), loc);
+    spvBuilder.createStore(ptr, value, loc);
+  }
+  // For all normal cases
+  else {
+    spvBuilder.createStore(ptr, value, loc);
+  }
+}
+
+SpirvInstruction *DeclResultIdMapper::loadShaderInputVariable(
+    SpirvVariable *varInstr, hlsl::Semantic::Kind semanticKind,
+    hlsl::SigPoint::Kind sigPointKind, QualType type, const NamedDecl *decl,
+    SourceLocation loc) {
+  SpirvInstruction *load =
+      spvBuilder.createLoad(varInstr->getAstResultType(), varInstr, loc);
+  // Fix ups for corner cases
+
+  // Special handling of SV_TessFactor DS patch constant input.
+  // TessLevelOuter is always an array of size 4 in SPIR-V, but
+  // SV_TessFactor could be an array of size 2, 3, or 4 in HLSL. Only the
+  // relevant indexes must be loaded.
+  if (semanticKind == hlsl::Semantic::Kind::TessFactor &&
+      hlsl::GetArraySize(type) != 4) {
+    llvm::SmallVector<SpirvInstruction *, 4> components;
+    const auto tessFactorSize = hlsl::GetArraySize(type);
+    const auto arrType = astContext.getConstantArrayType(
+        astContext.FloatTy, llvm::APInt(32, tessFactorSize),
+        clang::ArrayType::Normal, 0);
+    for (uint32_t i = 0; i < tessFactorSize; ++i)
+      components.push_back(spvBuilder.createCompositeExtract(astContext.FloatTy,
+                                                             load, {i}, loc));
+    load = spvBuilder.createCompositeConstruct(arrType, components, loc);
+  }
+  // Special handling of SV_InsideTessFactor DS patch constant input.
+  // TessLevelInner is always an array of size 2 in SPIR-V, but
+  // SV_InsideTessFactor could be an array of size 1 (scalar) or size 2 in
+  // HLSL. If SV_InsideTessFactor is a scalar, only extract index 0 of
+  // TessLevelInner.
+  else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
+           // Some developers use float[1] instead of a scalar float.
+           (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
+    load =
+        spvBuilder.createCompositeExtract(astContext.FloatTy, load, {0}, loc);
+    if (type->isArrayType()) { // float[1]
+      const auto arrType = astContext.getConstantArrayType(
+          astContext.FloatTy, llvm::APInt(32, 1), clang::ArrayType::Normal, 0);
+      load = spvBuilder.createCompositeConstruct(arrType, {load}, loc);
+    }
+  }
+  // SV_DomainLocation can refer to a float2 or a float3, whereas TessCoord
+  // is always a float3. To ensure SPIR-V validity, a float3 stage variable
+  // is created, and we must extract a float2 from it before passing it to
+  // the main function.
+  else if (semanticKind == hlsl::Semantic::Kind::DomainLocation &&
+           hlsl::GetHLSLVecSize(type) != 3) {
+    const auto domainLocSize = hlsl::GetHLSLVecSize(type);
+    load = spvBuilder.createVectorShuffle(
+        astContext.getExtVectorType(astContext.FloatTy, domainLocSize), load,
+        load, {0, 1}, loc);
+  }
+  // Special handling of SV_Coverage, which is an uint value. We need to
+  // read SampleMask and extract its first element.
+  else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
+    load = spvBuilder.createCompositeExtract(type, load, {0}, loc);
+  }
+  // Special handling of SV_InnerCoverage, which is an uint value. We need
+  // to read FullyCoveredEXT, which is a boolean value, and convert it to an
+  // uint value. According to D3D12 "Conservative Rasterization" doc: "The
+  // Pixel Shader has a 32-bit scalar integer System Generate Value
+  // available: InnerCoverage. This is a bit-field that has bit 0 from the
+  // LSB set to 1 for a given conservatively rasterized pixel, only when
+  // that pixel is guaranteed to be entirely inside the current primitive.
+  // All other input register bits must be set to 0 when bit 0 is not set,
+  // but are undefined when bit 0 is set to 1 (essentially, this bit-field
+  // represents a Boolean value where false must be exactly 0, but true can
+  // be any odd (i.e. bit 0 set) non-zero value)."
+  else if (semanticKind == hlsl::Semantic::Kind::InnerCoverage) {
+    const auto constOne =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 1));
+    const auto constZero =
+        spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
+    load = spvBuilder.createSelect(astContext.UnsignedIntTy, load, constOne,
+                                   constZero, loc);
+  }
+  // Special handling of SV_Barycentrics, which is a float3, but the
+  // The 3 values are NOT guaranteed to add up to floating-point 1.0
+  // exactly. Calculate the third element here.
+  else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
+    const auto x =
+        spvBuilder.createCompositeExtract(astContext.FloatTy, load, {0}, loc);
+    const auto y =
+        spvBuilder.createCompositeExtract(astContext.FloatTy, load, {1}, loc);
+    const auto xy = spvBuilder.createBinaryOp(spv::Op::OpFAdd,
+                                              astContext.FloatTy, x, y, loc);
+    const auto z = spvBuilder.createBinaryOp(
+        spv::Op::OpFSub, astContext.FloatTy,
+        spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(1.0f)),
+        xy, loc);
+    load = spvBuilder.createCompositeConstruct(
+        astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z}, loc);
+  }
+  // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
+  // be a uint or uint2, but the underlying stage input variable is a uint3.
+  // The last component(s) should be discarded in needed.
+  else if ((semanticKind == hlsl::Semantic::Kind::DispatchThreadID ||
+            semanticKind == hlsl::Semantic::Kind::GroupThreadID ||
+            semanticKind == hlsl::Semantic::Kind::GroupID) &&
+           (!hlsl::IsHLSLVecType(type) || hlsl::GetHLSLVecSize(type) != 3)) {
+    const auto srcVecElemType =
+        hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type;
+    const auto vecSize =
+        hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
+    if (vecSize == 1)
+      load = spvBuilder.createCompositeExtract(srcVecElemType, load, {0}, loc);
+    else if (vecSize == 2)
+      load = spvBuilder.createVectorShuffle(
+          astContext.getExtVectorType(srcVecElemType, 2), load, load, {0, 1},
+          loc);
+  }
+
+  // Reciprocate SV_Position.w if requested
+  if (semanticKind == hlsl::Semantic::Kind::Position)
+    load = invertWIfRequested(load, loc);
+
+  // Since boolean stage input variables are represented as unsigned
+  // integers, after loading them, we should cast them to boolean.
+  if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
+    load = theEmitter.castToType(load, varInstr->getAstResultType(), type, loc);
+  }
+  return load;
+}
+
+bool DeclResultIdMapper::validateShaderStageVar(SemanticInfo *semantic,
+                                                const hlsl::SigPoint *sigPoint,
+                                                const NamedDecl *decl,
+                                                QualType type) {
+  const auto semanticKind = semantic->getKind();
+  const auto sigPointKind = sigPoint->GetKind();
+
+  if (!validateVKAttributes(decl))
+    return false;
+
+  if (!isValidSemanticInShaderModel(semanticKind, sigPointKind, decl)) {
+    emitError("invalid usage of semantic '%0' in shader profile %1",
+              decl->getLocation())
+        << semantic->str
+        << hlsl::ShaderModel::GetKindName(
+               spvContext.getCurrentShaderModelKind());
+    return false;
+  }
+
+  if (!validateVKBuiltins(decl, sigPoint))
+    return false;
+
+  if (!validateShaderStageVarType(semanticKind, type, decl->getLocation()))
+    return false;
+  return true;
+}
+
+bool DeclResultIdMapper::validateVKAttributes(const NamedDecl *decl) {
+  bool success = true;
+  if (const auto *idxAttr = decl->getAttr<VKIndexAttr>()) {
+    if (!spvContext.isPS()) {
+      emitError("vk::index only allowed in pixel shader",
+                idxAttr->getLocation());
+      success = false;
+    }
+
+    const auto *locAttr = decl->getAttr<VKLocationAttr>();
+
+    if (!locAttr) {
+      emitError("vk::index should be used together with vk::location for "
+                "dual-source blending",
+                idxAttr->getLocation());
+      success = false;
+    } else {
+      const auto locNumber = locAttr->getNumber();
+      if (locNumber != 0) {
+        emitError("dual-source blending should use vk::location 0",
+                  locAttr->getLocation());
+        success = false;
+      }
+    }
+
+    const auto idxNumber = idxAttr->getNumber();
+    if (idxNumber != 0 && idxNumber != 1) {
+      emitError("dual-source blending only accepts 0 or 1 as vk::index",
+                idxAttr->getLocation());
+      success = false;
+    }
+  }
+
+  return success;
+}
+
+bool DeclResultIdMapper::validateVKBuiltins(const NamedDecl *decl,
+                                            const hlsl::SigPoint *sigPoint) {
+  bool success = true;
+
+  if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
+    // The front end parsing only allows vk::builtin to be attached to a
+    // function/parameter/variable; all of them are DeclaratorDecls.
+    const auto declType = getTypeOrFnRetType(cast<DeclaratorDecl>(decl));
+    const auto loc = builtinAttr->getLocation();
+
+    if (decl->hasAttr<VKLocationAttr>()) {
+      emitError("cannot use vk::builtin and vk::location together", loc);
+      success = false;
+    }
+
+    const llvm::StringRef builtin = builtinAttr->getBuiltIn();
+
+    if (builtin == "HelperInvocation") {
+      if (!declType->isBooleanType()) {
+        emitError("HelperInvocation builtin must be of boolean type", loc);
+        success = false;
+      }
+
+      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::PSIn) {
+        emitError(
+            "HelperInvocation builtin can only be used as pixel shader input",
+            loc);
+        success = false;
+      }
+    } else if (builtin == "PointSize") {
+      if (!declType->isFloatingType()) {
+        emitError("PointSize builtin must be of float type", loc);
+        success = false;
+      }
+
+      switch (sigPoint->GetKind()) {
+      case hlsl::SigPoint::Kind::VSOut:
+      case hlsl::SigPoint::Kind::HSCPIn:
+      case hlsl::SigPoint::Kind::HSCPOut:
+      case hlsl::SigPoint::Kind::DSCPIn:
+      case hlsl::SigPoint::Kind::DSOut:
+      case hlsl::SigPoint::Kind::GSVIn:
+      case hlsl::SigPoint::Kind::GSOut:
+      case hlsl::SigPoint::Kind::PSIn:
+      case hlsl::SigPoint::Kind::MSOut:
+        break;
+      default:
+        emitError("PointSize builtin cannot be used as %0", loc)
+            << sigPoint->GetName();
+        success = false;
+      }
+    } else if (builtin == "BaseVertex" || builtin == "BaseInstance" ||
+               builtin == "DrawIndex") {
+      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
+          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
+        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
+            << builtin;
+        success = false;
+      }
+
+      switch (sigPoint->GetKind()) {
+      case hlsl::SigPoint::Kind::VSIn:
+        break;
+      case hlsl::SigPoint::Kind::MSIn:
+      case hlsl::SigPoint::Kind::ASIn:
+        if (builtin != "DrawIndex") {
+          emitError("%0 builtin cannot be used as %1", loc)
+              << builtin << sigPoint->GetName();
+          success = false;
+        }
+        break;
+      default:
+        emitError("%0 builtin cannot be used as %1", loc)
+            << builtin << sigPoint->GetName();
+        success = false;
+      }
+    } else if (builtin == "DeviceIndex") {
+      if (getStorageClassForSigPoint(sigPoint) != spv::StorageClass::Input) {
+        emitError("%0 builtin can only be used as shader input", loc)
+            << builtin;
+        success = false;
+      }
+      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
+          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
+        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
+            << builtin;
+        success = false;
+      }
+    } else if (builtin == "ViewportMaskNV") {
+      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::MSPOut) {
+        emitError("%0 builtin can only be used as 'primitives' output in MS",
+                  loc)
+            << builtin;
+        success = false;
+      }
+      if (!declType->isArrayType() ||
+          !declType->getArrayElementTypeNoTypeQual()->isSpecificBuiltinType(
+              BuiltinType::Kind::Int)) {
+        emitError("%0 builtin must be of type array of integers", loc)
+            << builtin;
+        success = false;
+      }
+    }
+  }
+
+  return success;
+}
+
+bool DeclResultIdMapper::validateShaderStageVarType(
+    hlsl::Semantic::Kind semanticKind, QualType type,
+    clang::SourceLocation loc) {
+
+  switch (semanticKind) {
+  case hlsl::Semantic::Kind::InnerCoverage:
+    if (!type->isSpecificBuiltinType(BuiltinType::UInt)) {
+      emitError("SV_InnerCoverage must be of uint type.", loc);
+      return false;
+    }
+    break;
+  default:
+    break;
+  }
+  return true;
+}
+
+bool DeclResultIdMapper::isValidSemanticInShaderModel(
+    hlsl::Semantic::Kind semanticKind, hlsl::SigPoint::Kind sigPointKind,
+    const NamedDecl *decl) {
+  // Error out when the given semantic is invalid in this shader model
+  if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPointKind,
+                                        spvContext.getMajorVersion(),
+                                        spvContext.getMinorVersion()) ==
+      hlsl::DXIL::SemanticInterpretationKind::NA) {
+    // Special handle MSIn/ASIn allowing VK-only builtin "DrawIndex".
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::MSIn:
+    case hlsl::SigPoint::Kind::ASIn:
+      if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
+        const llvm::StringRef builtin = builtinAttr->getBuiltIn();
+        if (builtin == "DrawIndex") {
+          break;
+        }
+      }
+      LLVM_FALLTHROUGH;
+    default:
+      return false;
+    }
+  }
+  return true;
+}
+
+SpirvVariable *DeclResultIdMapper::getInstanceIdFromIndexAndBase(
+    SpirvVariable *instanceIndexVar, SpirvVariable *baseInstanceVar) {
+  QualType type = instanceIndexVar->getAstResultType();
+  auto *instanceIdVar = spvBuilder.addFnVar(
+      type, instanceIndexVar->getSourceLocation(), "SV_InstanceID");
+  auto *instanceIndexValue = spvBuilder.createLoad(
+      type, instanceIndexVar, instanceIndexVar->getSourceLocation());
+  auto *baseInstanceValue = spvBuilder.createLoad(
+      type, baseInstanceVar, instanceIndexVar->getSourceLocation());
+  auto *instanceIdValue = spvBuilder.createBinaryOp(
+      spv::Op::OpISub, type, instanceIndexValue, baseInstanceValue,
+      instanceIndexVar->getSourceLocation());
+  spvBuilder.createStore(instanceIdVar, instanceIdValue,
+                         instanceIndexVar->getSourceLocation());
+  return instanceIdVar;
+}
+
+SpirvVariable *
+DeclResultIdMapper::getBaseInstanceVariable(SemanticInfo *semantic,
+                                            const hlsl::SigPoint *sigPoint) {
+
+  QualType type = astContext.IntTy;
+  auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
+      type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance, false,
+      semantic->loc);
+  StageVar var(sigPoint, *semantic, nullptr, type,
+               getLocationAndComponentCount(astContext, type));
+  var.setSpirvInstr(baseInstanceVar);
+  var.setIsSpirvBuiltin();
+  stageVars.push_back(var);
+  return baseInstanceVar;
+}
+
+SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
+    const hlsl::SigPoint *sigPoint, SemanticInfo *semanticToUse,
+    const NamedDecl *decl, QualType type, uint32_t arraySize, bool asNoInterp,
+    const llvm::StringRef namePrefix) {
+  // The evalType will be the type of the interface variable in SPIR-V.
+  // The type of the variable used in the body of the function will still be
+  // `type`.
+  QualType evalType = getTypeForSpirvStageVariable(
+      type, semanticToUse->getKind(), sigPoint->GetKind(), decl, arraySize);
+
+  const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
+  StageVar stageVar(
+      sigPoint, *semanticToUse, builtinAttr, evalType,
+      // For HS/DS/GS, we have already stripped the outmost arrayness on type.
+      getLocationAndComponentCount(astContext, type));
+  const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
+  SpirvVariable *varInstr =
+      createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
+
+  if (!varInstr)
+    return nullptr;
+
+  if (asNoInterp)
+    varInstr->setNoninterpolated();
+
+  stageVar.setSpirvInstr(varInstr);
+  stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
+  stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
+  if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+      stageVar.getStorageClass() == spv::StorageClass::Output) {
+    stageVar.setEntryPoint(entryFunction);
+  }
+  decorateStageVarWithIntrinsicAttrs(decl, &stageVar, varInstr);
+  stageVars.push_back(stageVar);
+
+  // Emit OpDecorate* instructions to link this stage variable with the HLSL
+  // semantic it is created for
+  spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
+
+  // TODO: the following may not be correct?
+  if (sigPoint->GetSignatureKind() ==
+      hlsl::DXIL::SignatureKind::PatchConstOrPrim) {
+    if (sigPoint->GetKind() == hlsl::SigPoint::Kind::MSPOut) {
+      // Decorate with PerPrimitiveNV for per-primitive out variables.
+      spvBuilder.decoratePerPrimitiveNV(varInstr,
+                                        varInstr->getSourceLocation());
+    } else {
+      spvBuilder.decoratePatch(varInstr, varInstr->getSourceLocation());
+    }
+  }
+
+  // Decorate with interpolation modes for pixel shader input variables
+  // or vertex shader output variables.
+  if ((spvContext.isPS() && sigPoint->IsInput()) ||
+      (spvContext.isVS() && sigPoint->IsOutput()))
+    decorateInterpolationMode(decl, type, varInstr, *semanticToUse);
+
+  // Special case: The DX12 SV_InstanceID always counts from 0, even if the
+  // StartInstanceLocation parameter is non-zero. gl_InstanceIndex, however,
+  // starts from firstInstance. Thus it doesn't emulate actual DX12 shader
+  // behavior. To make it equivalent, SPIR-V codegen should emit:
+  // SV_InstanceID = gl_InstanceIndex - gl_BaseInstance
+  // As a result, we have to manually create a second stage variable for this
+  // specific case.
+  //
+  // According to the Vulkan spec on builtin variables:
+  // www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables
+  //
+  // InstanceIndex:
+  //   Decorating a variable in a vertex shader with the InstanceIndex
+  //   built-in decoration will make that variable contain the index of the
+  //   instance that is being processed by the current vertex shader
+  //   invocation. InstanceIndex begins at the firstInstance.
+  // BaseInstance
+  //   Decorating a variable with the BaseInstance built-in will make that
+  //   variable contain the integer value corresponding to the first instance
+  //   that was passed to the command that invoked the current vertex shader
+  //   invocation. BaseInstance is the firstInstance parameter to a direct
+  //   drawing command or the firstInstance member of a structure consumed by
+  //   an indirect drawing command.
+  if (spirvOptions.supportNonzeroBaseInstance &&
+      semanticToUse->getKind() == hlsl::Semantic::Kind::InstanceID &&
+      sigPoint->GetKind() == hlsl::SigPoint::Kind::VSIn) {
+    // The above call to createSpirvStageVar creates the gl_InstanceIndex.
+    // We should now manually create the gl_BaseInstance variable and do the
+    // subtraction.
+    auto *baseInstanceVar = getBaseInstanceVariable(semanticToUse, sigPoint);
+
+    // SPIR-V code for 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
+    varInstr = getInstanceIdFromIndexAndBase(varInstr, baseInstanceVar);
+  }
+
+  // We have semantics attached to this decl, which means it must be a
+  // function/parameter/variable. All are DeclaratorDecls.
+  stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
+
+  return varInstr;
+}
+
+QualType DeclResultIdMapper::getTypeForSpirvStageVariable(
+    QualType type, hlsl::Semantic::Kind semanticKind,
+    hlsl::SigPoint::Kind sigPointKind, const NamedDecl *decl,
+    uint32_t arraySize) {
+  QualType evalType = type;
+  switch (semanticKind) {
+  case hlsl::Semantic::Kind::DomainLocation:
+    // SV_DomainLocation can refer to a float2, whereas TessCoord is a float3.
+    // To ensure SPIR-V validity, we must create a float3 and  extract a
+    // float2 from it before passing it to the main function.
+    evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
+    break;
+  case hlsl::Semantic::Kind::TessFactor:
+    // SV_TessFactor is an array of size 2 for isoline patch, array of size 3
+    // for tri patch, and array of size 4 for quad patch, but it must always
+    // be an array of size 4 in SPIR-V for Vulkan.
+    evalType = astContext.getConstantArrayType(
+        astContext.FloatTy, llvm::APInt(32, 4), clang::ArrayType::Normal, 0);
+    break;
+  case hlsl::Semantic::Kind::InsideTessFactor:
+    // SV_InsideTessFactor is a single float for tri patch, and an array of
+    // size 2 for a quad patch, but it must always be an array of size 2 in
+    // SPIR-V for Vulkan.
+    evalType = astContext.getConstantArrayType(
+        astContext.FloatTy, llvm::APInt(32, 2), clang::ArrayType::Normal, 0);
+    break;
+  case hlsl::Semantic::Kind::Coverage:
+    // SV_Coverage is an uint value, but the SPIR-V builtin it corresponds to,
+    // SampleMask, must be an array of integers.
+    evalType = astContext.getConstantArrayType(astContext.UnsignedIntTy,
+                                               llvm::APInt(32, 1),
+                                               clang::ArrayType::Normal, 0);
+    break;
+  case hlsl::Semantic::Kind::InnerCoverage:
+    // SV_InnerCoverage is an uint value, but the corresponding SPIR-V builtin,
+    // FullyCoveredEXT, must be an boolean value.
+    evalType = astContext.BoolTy;
+    break;
+  case hlsl::Semantic::Kind::Barycentrics:
+    evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
+    break;
+  case hlsl::Semantic::Kind::DispatchThreadID:
+  case hlsl::Semantic::Kind::GroupThreadID:
+  case hlsl::Semantic::Kind::GroupID:
+    // SV_DispatchThreadID, SV_GroupThreadID, and SV_GroupID are allowed to be
+    // uint, uint2, or uint3, but the corresponding SPIR-V builtins
+    // (GlobalInvocationId, LocalInvocationId, WorkgroupId) must be a uint3.
+    // Keep the original integer signedness
+    evalType = astContext.getExtVectorType(
+        hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type,
+        3);
+    break;
+  default:
+    // Other semantic kinds can keep the original type.
+    break;
+  }
+
+  // Boolean stage I/O variables must be represented as unsigned integers.
+  // Boolean built-in variables are represented as bool.
+  if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
+    evalType = getUintTypeWithSourceComponents(astContext, type);
+  }
+
+  // Handle the extra arrayness
+  if (arraySize != 0) {
+    evalType = astContext.getConstantArrayType(
+        evalType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
+  }
+
+  return evalType;
+}
+
 bool DeclResultIdMapper::createStageVars(
     const hlsl::SigPoint *sigPoint, const NamedDecl *decl, bool asInput,
     QualType type, uint32_t arraySize, const llvm::StringRef namePrefix,
@@ -2619,16 +3379,13 @@ bool DeclResultIdMapper::createStageVars(
     return true;
   }
 
-  // The type the variable is evaluated as for SPIR-V.
-  QualType evalType = type;
-
   // We have several cases regarding HLSL semantics to handle here:
-  // * If the currrent decl inherits a semantic from some enclosing entity,
+  // * If the current decl inherits a semantic from some enclosing entity,
   //   use the inherited semantic no matter whether there is a semantic
   //   attached to the current decl.
   // * If there is no semantic to inherit,
   //   * If the current decl is a struct,
-  //     * If the current decl has a semantic, all its members inhert this
+  //     * If the current decl has a semantic, all its members inherit this
   //       decl's semantic, with the index sequentially increasing;
   //     * If the current decl does not have a semantic, all its members
   //       should have semantics attached;
@@ -2657,445 +3414,47 @@ bool DeclResultIdMapper::createStageVars(
     // Found semantic attached directly to this Decl. This means we need to
     // map this decl to a single stage variable.
 
-    if (!validateVKAttributes(decl))
-      return false;
-
     const auto semanticKind = semanticToUse->getKind();
     const auto sigPointKind = sigPoint->GetKind();
 
-    // Error out when the given semantic is invalid in this shader model
-    if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPointKind,
-                                          spvContext.getMajorVersion(),
-                                          spvContext.getMinorVersion()) ==
-        hlsl::DXIL::SemanticInterpretationKind::NA) {
-      // Special handle MSIn/ASIn allowing VK-only builtin "DrawIndex".
-      switch (sigPointKind) {
-      case hlsl::SigPoint::Kind::MSIn:
-      case hlsl::SigPoint::Kind::ASIn:
-        if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
-          const llvm::StringRef builtin = builtinAttr->getBuiltIn();
-          if (builtin == "DrawIndex") {
-            break;
-          }
-        }
-        LLVM_FALLTHROUGH;
-      default:
-        emitError("invalid usage of semantic '%0' in shader profile %1", loc)
-            << semanticToUse->str
-            << hlsl::ShaderModel::GetKindName(
-                   spvContext.getCurrentShaderModelKind());
-        return false;
-      }
-    }
-
-    if (!validateVKBuiltins(decl, sigPoint))
+    if (!validateShaderStageVar(semanticToUse, sigPoint, decl, type)) {
       return false;
-
-    const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>();
+    }
 
     // Special handling of certain mappings between HLSL semantics and
     // SPIR-V builtins:
     // * SV_CullDistance/SV_ClipDistance are outsourced to GlPerVertex.
-    // * SV_DomainLocation can refer to a float2, whereas TessCoord is a float3.
-    //   To ensure SPIR-V validity, we must create a float3 and  extract a
-    //   float2 from it before passing it to the main function.
-    // * SV_TessFactor is an array of size 2 for isoline patch, array of size 3
-    //   for tri patch, and array of size 4 for quad patch, but it must always
-    //   be an array of size 4 in SPIR-V for Vulkan.
-    // * SV_InsideTessFactor is a single float for tri patch, and an array of
-    //   size 2 for a quad patch, but it must always be an array of size 2 in
-    //   SPIR-V for Vulkan.
-    // * SV_Coverage is an uint value, but the builtin it corresponds to,
-    //   SampleMask, must be an array of integers.
-    // * SV_InnerCoverage is an uint value, but the corresponding builtin,
-    //   FullyCoveredEXT, must be an boolean value.
-    // * SV_DispatchThreadID, SV_GroupThreadID, and SV_GroupID are allowed to be
-    //   uint, uint2, or uint3, but the corresponding builtins
-    //   (GlobalInvocationId, LocalInvocationId, WorkgroupId) must be a uint3.
-
     if (glPerVertex.tryToAccess(sigPointKind, semanticKind,
                                 semanticToUse->index, invocationId, value,
                                 noWriteBack, /*vecComponent=*/nullptr, loc))
       return true;
 
-    switch (semanticKind) {
-    case hlsl::Semantic::Kind::DomainLocation:
-      evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
-      break;
-    case hlsl::Semantic::Kind::TessFactor:
-      evalType = astContext.getConstantArrayType(
-          astContext.FloatTy, llvm::APInt(32, 4), clang::ArrayType::Normal, 0);
-      break;
-    case hlsl::Semantic::Kind::InsideTessFactor:
-      evalType = astContext.getConstantArrayType(
-          astContext.FloatTy, llvm::APInt(32, 2), clang::ArrayType::Normal, 0);
-      break;
-    case hlsl::Semantic::Kind::Coverage:
-      evalType = astContext.getConstantArrayType(astContext.UnsignedIntTy,
-                                                 llvm::APInt(32, 1),
-                                                 clang::ArrayType::Normal, 0);
-      break;
-    case hlsl::Semantic::Kind::InnerCoverage:
-      if (!type->isSpecificBuiltinType(BuiltinType::UInt)) {
-        emitError("SV_InnerCoverage must be of uint type.", loc);
-        return false;
-      }
-      evalType = astContext.BoolTy;
-      break;
-    case hlsl::Semantic::Kind::Barycentrics:
-      evalType = astContext.getExtVectorType(astContext.FloatTy, 3);
-      break;
-    case hlsl::Semantic::Kind::DispatchThreadID:
-    case hlsl::Semantic::Kind::GroupThreadID:
-    case hlsl::Semantic::Kind::GroupID:
-      // Keep the original integer signedness
-      evalType = astContext.getExtVectorType(
-          hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecElementType(type) : type,
-          3);
-      break;
-    default:
-      // Only the semantic kinds mentioned above are handled.
-      break;
-    }
-
-    // Boolean stage I/O variables must be represented as unsigned integers.
-    // Boolean built-in variables are represented as bool.
-    if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
-      evalType = getUintTypeWithSourceComponents(astContext, type);
-    }
-
-    // Handle the extra arrayness
-    if (arraySize != 0) {
-      evalType = astContext.getConstantArrayType(
-          evalType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
-    }
-
-    StageVar stageVar(
-        sigPoint, *semanticToUse, builtinAttr, evalType,
-        // For HS/DS/GS, we have already stripped the outmost arrayness on type.
-        getLocationAndComponentCount(astContext, type));
-    const auto name = namePrefix.str() + "." + stageVar.getSemanticStr();
-    SpirvVariable *varInstr =
-        createSpirvStageVar(&stageVar, decl, name, semanticToUse->loc);
-
-    if (!varInstr)
+    SpirvVariable *varInstr = createSpirvInterfaceVariable(
+        sigPoint, semanticToUse, decl, type, arraySize, asNoInterp, namePrefix);
+    if (!varInstr) {
       return false;
-
-    if (asNoInterp)
-      varInstr->setNoninterpolated();
-
-    stageVar.setSpirvInstr(varInstr);
-    stageVar.setLocationAttr(decl->getAttr<VKLocationAttr>());
-    stageVar.setIndexAttr(decl->getAttr<VKIndexAttr>());
-    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
-        stageVar.getStorageClass() == spv::StorageClass::Output) {
-      stageVar.setEntryPoint(entryFunction);
-    }
-    decorateStageVarWithIntrinsicAttrs(decl, &stageVar, varInstr);
-    stageVars.push_back(stageVar);
-
-    // Emit OpDecorate* instructions to link this stage variable with the HLSL
-    // semantic it is created for
-    spvBuilder.decorateHlslSemantic(varInstr, stageVar.getSemanticStr());
-
-    // We have semantics attached to this decl, which means it must be a
-    // function/parameter/variable. All are DeclaratorDecls.
-    stageVarInstructions[cast<DeclaratorDecl>(decl)] = varInstr;
-
-    // Special case: The DX12 SV_InstanceID always counts from 0, even if the
-    // StartInstanceLocation parameter is non-zero. gl_InstanceIndex, however,
-    // starts from firstInstance. Thus it doesn't emulate actual DX12 shader
-    // behavior. To make it equivalent, SPIR-V codegen should emit:
-    // SV_InstanceID = gl_InstanceIndex - gl_BaseInstance
-    // Unfortunately, this means that there is no 1-to-1 mapping of the HLSL
-    // semantic to the SPIR-V builtin. As a result, we have to manually create
-    // a second stage variable for this specific case.
-    //
-    // According to the Vulkan spec on builtin variables:
-    // www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#interfaces-builtin-variables
-    //
-    // InstanceIndex:
-    //   Decorating a variable in a vertex shader with the InstanceIndex
-    //   built-in decoration will make that variable contain the index of the
-    //   instance that is being processed by the current vertex shader
-    //   invocation. InstanceIndex begins at the firstInstance.
-    // BaseInstance
-    //   Decorating a variable with the BaseInstance built-in will make that
-    //   variable contain the integer value corresponding to the first instance
-    //   that was passed to the command that invoked the current vertex shader
-    //   invocation. BaseInstance is the firstInstance parameter to a direct
-    //   drawing command or the firstInstance member of a structure consumed by
-    //   an indirect drawing command.
-    if (spirvOptions.supportNonzeroBaseInstance && asInput &&
-        semanticKind == hlsl::Semantic::Kind::InstanceID &&
-        sigPointKind == hlsl::SigPoint::Kind::VSIn) {
-      // The above call to createSpirvStageVar creates the gl_InstanceIndex.
-      // We should now manually create the gl_BaseInstance variable and do the
-      // subtraction.
-      auto *instanceIndexVar = varInstr;
-      auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
-          type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance,
-          decl->hasAttr<HLSLPreciseAttr>(), semanticToUse->loc);
-      StageVar stageVar2(sigPoint, *semanticToUse, builtinAttr, evalType,
-                         getLocationAndComponentCount(astContext, type));
-      stageVar2.setSpirvInstr(baseInstanceVar);
-      stageVar2.setLocationAttr(decl->getAttr<VKLocationAttr>());
-      stageVar2.setIndexAttr(decl->getAttr<VKIndexAttr>());
-      stageVar2.setIsSpirvBuiltin();
-      stageVars.push_back(stageVar2);
-
-      // SPIR-V code fore 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
-      auto *instanceIdVar =
-          spvBuilder.addFnVar(type, semanticToUse->loc, "SV_InstanceID");
-      auto *instanceIndexValue =
-          spvBuilder.createLoad(type, instanceIndexVar, semanticToUse->loc);
-      auto *baseInstanceValue =
-          spvBuilder.createLoad(type, baseInstanceVar, semanticToUse->loc);
-      auto *instanceIdValue =
-          spvBuilder.createBinaryOp(spv::Op::OpISub, type, instanceIndexValue,
-                                    baseInstanceValue, semanticToUse->loc);
-      spvBuilder.createStore(instanceIdVar, instanceIdValue,
-                             semanticToUse->loc);
-      stageVarInstructions[cast<DeclaratorDecl>(decl)] = instanceIdVar;
-      varInstr = instanceIdVar;
     }
 
     // Mark that we have used one index for this semantic
     ++semanticToUse->index;
 
-    // TODO: the following may not be correct?
-    if (sigPoint->GetSignatureKind() ==
-        hlsl::DXIL::SignatureKind::PatchConstOrPrim) {
-      if (sigPointKind == hlsl::SigPoint::Kind::MSPOut) {
-        // Decorate with PerPrimitiveNV for per-primitive out variables.
-        spvBuilder.decoratePerPrimitiveNV(varInstr,
-                                          varInstr->getSourceLocation());
-      } else {
-        spvBuilder.decoratePatch(varInstr, varInstr->getSourceLocation());
-      }
-    }
-
-    // Decorate with interpolation modes for pixel shader input variables
-    // or vertex shader output variables.
-    if ((spvContext.isPS() && sigPoint->IsInput()) ||
-        (spvContext.isVS() && sigPoint->IsOutput()))
-      decorateInterpolationMode(decl, type, varInstr, *semanticToUse);
-
     if (asInput) {
-      *value = spvBuilder.createLoad(evalType, varInstr, loc);
+      *value = loadShaderInputVariable(varInstr, semanticKind, sigPointKind,
+                                       type, decl, loc);
+      if ((decl->hasAttr<HLSLNoInterpolationAttr>() || asNoInterp) &&
+          sigPointKind == hlsl::SigPoint::Kind::PSIn)
+        spvBuilder.addPerVertexStgInputFuncVarEntry(varInstr, *value);
 
-      // Fix ups for corner cases
-
-      // Special handling of SV_TessFactor DS patch constant input.
-      // TessLevelOuter is always an array of size 4 in SPIR-V, but
-      // SV_TessFactor could be an array of size 2, 3, or 4 in HLSL. Only the
-      // relevant indexes must be loaded.
-      if (semanticKind == hlsl::Semantic::Kind::TessFactor &&
-          hlsl::GetArraySize(type) != 4) {
-        llvm::SmallVector<SpirvInstruction *, 4> components;
-        const auto tessFactorSize = hlsl::GetArraySize(type);
-        const auto arrType = astContext.getConstantArrayType(
-            astContext.FloatTy, llvm::APInt(32, tessFactorSize),
-            clang::ArrayType::Normal, 0);
-        for (uint32_t i = 0; i < tessFactorSize; ++i)
-          components.push_back(spvBuilder.createCompositeExtract(
-              astContext.FloatTy, *value, {i}, thisSemantic.loc));
-        *value = spvBuilder.createCompositeConstruct(arrType, components,
-                                                     thisSemantic.loc);
-      }
-      // Special handling of SV_InsideTessFactor DS patch constant input.
-      // TessLevelInner is always an array of size 2 in SPIR-V, but
-      // SV_InsideTessFactor could be an array of size 1 (scalar) or size 2 in
-      // HLSL. If SV_InsideTessFactor is a scalar, only extract index 0 of
-      // TessLevelInner.
-      else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
-               // Some developers use float[1] instead of a scalar float.
-               (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
-        *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
-                                                   {0}, thisSemantic.loc);
-        if (type->isArrayType()) { // float[1]
-          const auto arrType = astContext.getConstantArrayType(
-              astContext.FloatTy, llvm::APInt(32, 1), clang::ArrayType::Normal,
-              0);
-          *value = spvBuilder.createCompositeConstruct(arrType, {*value},
-                                                       thisSemantic.loc);
-        }
-      }
-      // SV_DomainLocation can refer to a float2 or a float3, whereas TessCoord
-      // is always a float3. To ensure SPIR-V validity, a float3 stage variable
-      // is created, and we must extract a float2 from it before passing it to
-      // the main function.
-      else if (semanticKind == hlsl::Semantic::Kind::DomainLocation &&
-               hlsl::GetHLSLVecSize(type) != 3) {
-        const auto domainLocSize = hlsl::GetHLSLVecSize(type);
-        *value = spvBuilder.createVectorShuffle(
-            astContext.getExtVectorType(astContext.FloatTy, domainLocSize),
-            *value, *value, {0, 1}, thisSemantic.loc);
-      }
-      // Special handling of SV_Coverage, which is an uint value. We need to
-      // read SampleMask and extract its first element.
-      else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
-        *value = spvBuilder.createCompositeExtract(type, *value, {0},
-                                                   thisSemantic.loc);
-      }
-      // Special handling of SV_InnerCoverage, which is an uint value. We need
-      // to read FullyCoveredEXT, which is a boolean value, and convert it to an
-      // uint value. According to D3D12 "Conservative Rasterization" doc: "The
-      // Pixel Shader has a 32-bit scalar integer System Generate Value
-      // available: InnerCoverage. This is a bit-field that has bit 0 from the
-      // LSB set to 1 for a given conservatively rasterized pixel, only when
-      // that pixel is guaranteed to be entirely inside the current primitive.
-      // All other input register bits must be set to 0 when bit 0 is not set,
-      // but are undefined when bit 0 is set to 1 (essentially, this bit-field
-      // represents a Boolean value where false must be exactly 0, but true can
-      // be any odd (i.e. bit 0 set) non-zero value)."
-      else if (semanticKind == hlsl::Semantic::Kind::InnerCoverage) {
-        const auto constOne = spvBuilder.getConstantInt(
-            astContext.UnsignedIntTy, llvm::APInt(32, 1));
-        const auto constZero = spvBuilder.getConstantInt(
-            astContext.UnsignedIntTy, llvm::APInt(32, 0));
-        *value = spvBuilder.createSelect(astContext.UnsignedIntTy, *value,
-                                         constOne, constZero, thisSemantic.loc);
-      }
-      // Special handling of SV_Barycentrics, which is a float3, but the
-      // The 3 values are NOT guaranteed to add up to floating-point 1.0
-      // exactly. Calculate the third element here.
-      else if (semanticKind == hlsl::Semantic::Kind::Barycentrics) {
-        const auto x = spvBuilder.createCompositeExtract(
-            astContext.FloatTy, *value, {0}, thisSemantic.loc);
-        const auto y = spvBuilder.createCompositeExtract(
-            astContext.FloatTy, *value, {1}, thisSemantic.loc);
-        const auto xy = spvBuilder.createBinaryOp(
-            spv::Op::OpFAdd, astContext.FloatTy, x, y, thisSemantic.loc);
-        const auto z = spvBuilder.createBinaryOp(
-            spv::Op::OpFSub, astContext.FloatTy,
-            spvBuilder.getConstantFloat(astContext.FloatTy,
-                                        llvm::APFloat(1.0f)),
-            xy, thisSemantic.loc);
-        *value = spvBuilder.createCompositeConstruct(
-            astContext.getExtVectorType(astContext.FloatTy, 3), {x, y, z},
-            thisSemantic.loc);
-      }
-      // Special handling of SV_DispatchThreadID and SV_GroupThreadID, which may
-      // be a uint or uint2, but the underlying stage input variable is a uint3.
-      // The last component(s) should be discarded in needed.
-      else if ((semanticKind == hlsl::Semantic::Kind::DispatchThreadID ||
-                semanticKind == hlsl::Semantic::Kind::GroupThreadID ||
-                semanticKind == hlsl::Semantic::Kind::GroupID) &&
-               (!hlsl::IsHLSLVecType(type) ||
-                hlsl::GetHLSLVecSize(type) != 3)) {
-        const auto srcVecElemType = hlsl::IsHLSLVecType(type)
-                                        ? hlsl::GetHLSLVecElementType(type)
-                                        : type;
-        const auto vecSize =
-            hlsl::IsHLSLVecType(type) ? hlsl::GetHLSLVecSize(type) : 1;
-        if (vecSize == 1)
-          *value = spvBuilder.createCompositeExtract(srcVecElemType, *value,
-                                                     {0}, thisSemantic.loc);
-        else if (vecSize == 2)
-          *value = spvBuilder.createVectorShuffle(
-              astContext.getExtVectorType(srcVecElemType, 2), *value, *value,
-              {0, 1}, thisSemantic.loc);
-      }
-
-      // Reciprocate SV_Position.w if requested
-      if (semanticKind == hlsl::Semantic::Kind::Position)
-        *value = invertWIfRequested(*value, thisSemantic.loc);
-
-      // Since boolean stage input variables are represented as unsigned
-      // integers, after loading them, we should cast them to boolean.
-      if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
-        *value =
-            theEmitter.castToType(*value, evalType, type, thisSemantic.loc);
-      }
     } else {
       if (noWriteBack)
         return true;
-
       // Negate SV_Position.y if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
         *value = invertYIfRequested(*value, thisSemantic.loc);
-
-      SpirvInstruction *ptr = varInstr;
-
-      // Special handling of SV_TessFactor HS patch constant output.
-      // TessLevelOuter is always an array of size 4 in SPIR-V, but
-      // SV_TessFactor could be an array of size 2, 3, or 4 in HLSL. Only the
-      // relevant indexes must be written to.
-      if (semanticKind == hlsl::Semantic::Kind::TessFactor &&
-          hlsl::GetArraySize(type) != 4) {
-        const auto tessFactorSize = hlsl::GetArraySize(type);
-        for (uint32_t i = 0; i < tessFactorSize; ++i) {
-          ptr = spvBuilder.createAccessChain(
-              astContext.FloatTy, varInstr,
-              {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                         llvm::APInt(32, i))},
-              thisSemantic.loc);
-          spvBuilder.createStore(
-              ptr,
-              spvBuilder.createCompositeExtract(astContext.FloatTy, *value, {i},
-                                                thisSemantic.loc),
-              thisSemantic.loc);
-        }
-      }
-      // Special handling of SV_InsideTessFactor HS patch constant output.
-      // TessLevelInner is always an array of size 2 in SPIR-V, but
-      // SV_InsideTessFactor could be an array of size 1 (scalar) or size 2 in
-      // HLSL. If SV_InsideTessFactor is a scalar, only write to index 0 of
-      // TessLevelInner.
-      else if (semanticKind == hlsl::Semantic::Kind::InsideTessFactor &&
-               // Some developers use float[1] instead of a scalar float.
-               (!type->isArrayType() || hlsl::GetArraySize(type) == 1)) {
-        ptr = spvBuilder.createAccessChain(
-            astContext.FloatTy, varInstr,
-            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, 0)),
-            thisSemantic.loc);
-        if (type->isArrayType()) // float[1]
-          *value = spvBuilder.createCompositeExtract(astContext.FloatTy, *value,
-                                                     {0}, thisSemantic.loc);
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
-      }
-      // Special handling of SV_Coverage, which is an unit value. We need to
-      // write it to the first element in the SampleMask builtin.
-      else if (semanticKind == hlsl::Semantic::Kind::Coverage) {
-        ptr = spvBuilder.createAccessChain(
-            type, varInstr,
-            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, 0)),
-            thisSemantic.loc);
-        ptr->setStorageClass(spv::StorageClass::Output);
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
-      }
-      // Special handling of HS ouput, for which we write to only one
-      // element in the per-vertex data array: the one indexed by
-      // SV_ControlPointID.
-      else if (invocationId.hasValue() && invocationId.getValue() != nullptr) {
-        // Remove the arrayness to get the element type.
-        assert(isa<ConstantArrayType>(evalType));
-        const auto elementType =
-            astContext.getAsArrayType(evalType)->getElementType();
-        auto index = invocationId.getValue();
-        ptr = spvBuilder.createAccessChain(elementType, varInstr, index,
-                                           thisSemantic.loc);
-        ptr->setStorageClass(spv::StorageClass::Output);
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
-      }
-      // Since boolean output stage variables are represented as unsigned
-      // integers, we must cast the value to uint before storing.
-      else if (isBooleanStageIOVar(decl, type, semanticKind, sigPointKind)) {
-        *value =
-            theEmitter.castToType(*value, type, evalType, thisSemantic.loc);
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
-      }
-      // For all normal cases
-      else {
-        spvBuilder.createStore(ptr, *value, thisSemantic.loc);
-      }
+      storeToShaderOutputVariable(varInstr, semanticKind, type, *value,
+                                  invocationId, sigPointKind, decl, loc);
     }
-    if ((decl->hasAttr<HLSLNoInterpolationAttr>() || asNoInterp) &&
-        sigPointKind == hlsl::SigPoint::Kind::PSIn)
-      spvBuilder.addPerVertexStgInputFuncVarEntry(varInstr, *value);
+
     return true;
   }
 
@@ -3110,135 +3469,15 @@ bool DeclResultIdMapper::createStageVars(
     return false;
   }
 
-  const auto *structDecl = type->getAs<RecordType>()->getDecl();
-
   if (asInput) {
-    // If this decl translates into multiple stage input variables, we need to
-    // load their values into a composite.
-    llvm::SmallVector<SpirvInstruction *, 4> subValues;
-
-    // If we have base classes, we need to handle them first.
-    if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
-      for (auto base : cxxDecl->bases()) {
-        SpirvInstruction *subValue = nullptr;
-        if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(),
-                             asInput, base.getType(), arraySize, namePrefix,
-                             invocationId, &subValue, noWriteBack,
-                             semanticToUse))
-          return false;
-        subValues.push_back(subValue);
-      }
-    }
-
-    for (const auto *field : structDecl->fields()) {
-      SpirvInstruction *subValue = nullptr;
-      if (!createStageVars(
-              sigPoint, field, asInput, field->getType(), arraySize, namePrefix,
-              invocationId, &subValue, noWriteBack, semanticToUse,
-              asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
-        return false;
-      subValues.push_back(subValue);
-    }
-
-    if (arraySize == 0) {
-      *value = spvBuilder.createCompositeConstruct(evalType, subValues, loc);
-      for (auto *subInstr : subValues)
-        spvBuilder.addPerVertexStgInputFuncVarEntry(subInstr, *value);
-      return true;
-    }
-
-    // Handle the extra level of arrayness.
-
-    // We need to return an array of structs. But we get arrays of fields
-    // from visiting all fields. So now we need to extract all the elements
-    // at the same index of each field arrays and compose a new struct out
-    // of them.
-    const auto structType = type;
-    const auto arrayType = astContext.getConstantArrayType(
-        structType, llvm::APInt(32, arraySize), clang::ArrayType::Normal, 0);
-
-    llvm::SmallVector<SpirvInstruction *, 16> arrayElements;
-
-    for (uint32_t arrayIndex = 0; arrayIndex < arraySize; ++arrayIndex) {
-      llvm::SmallVector<SpirvInstruction *, 8> fields;
-
-      // If we have base classes, we need to handle them first.
-      if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
-        uint32_t baseIndex = 0;
-        for (auto base : cxxDecl->bases()) {
-          const auto baseType = base.getType();
-          fields.push_back(spvBuilder.createCompositeExtract(
-              baseType, subValues[baseIndex++], {arrayIndex}, loc));
-        }
-      }
-
-      // Extract the element at index arrayIndex from each field
-      for (const auto *field : structDecl->fields()) {
-        const auto fieldType = field->getType();
-        fields.push_back(spvBuilder.createCompositeExtract(
-            fieldType,
-            subValues[getNumBaseClasses(type) + field->getFieldIndex()],
-            {arrayIndex}, loc));
-      }
-      // Compose a new struct out of them
-      arrayElements.push_back(
-          spvBuilder.createCompositeConstruct(structType, fields, loc));
-    }
-
-    *value = spvBuilder.createCompositeConstruct(arrayType, arrayElements, loc);
+    *value = createStructInputVar(type, sigPoint, arraySize, namePrefix,
+                                  asNoInterp, noWriteBack, semanticToUse, loc);
+    return (*value) != nullptr;
   } else {
-    // If we have base classes, we need to handle them first.
-    if (const auto *cxxDecl = type->getAsCXXRecordDecl()) {
-      uint32_t baseIndex = 0;
-      for (auto base : cxxDecl->bases()) {
-        SpirvInstruction *subValue = nullptr;
-        if (!noWriteBack)
-          subValue = spvBuilder.createCompositeExtract(base.getType(), *value,
-                                                       {baseIndex++}, loc);
-
-        if (!createStageVars(sigPoint, base.getType()->getAsCXXRecordDecl(),
-                             asInput, base.getType(), arraySize, namePrefix,
-                             invocationId, &subValue, noWriteBack,
-                             semanticToUse))
-          return false;
-      }
-    }
-
-    // Unlike reading, which may require us to read stand-alone builtins and
-    // stage input variables and compose an array of structs out of them,
-    // it happens that we don't need to write an array of structs in a bunch
-    // for all shader stages:
-    //
-    // * VS: output is a single struct, without extra arrayness
-    // * HS: output is an array of structs, with extra arrayness,
-    //       but we only write to the struct at the InvocationID index
-    // * DS: output is a single struct, without extra arrayness
-    // * GS: output is controlled by OpEmitVertex, one vertex per time
-    // * MS: output is an array of structs, with extra arrayness
-    //
-    // The interesting shader stage is HS. We need the InvocationID to write
-    // out the value to the correct array element.
-    for (const auto *field : structDecl->fields()) {
-      const auto fieldType = field->getType();
-      SpirvInstruction *subValue = nullptr;
-      if (!noWriteBack) {
-        subValue = spvBuilder.createCompositeExtract(
-            fieldType, *value,
-            {getNumBaseClasses(type) + field->getFieldIndex()}, loc);
-        if (field->hasAttr<HLSLNoInterpolationAttr>() ||
-            structDecl->hasAttr<HLSLNoInterpolationAttr>())
-          subValue->setNoninterpolated();
-      }
-
-      if (!createStageVars(
-              sigPoint, field, asInput, field->getType(), arraySize, namePrefix,
-              invocationId, &subValue, noWriteBack, semanticToUse,
-              asNoInterp || field->hasAttr<HLSLNoInterpolationAttr>()))
-        return false;
-    }
+    return createStructOutputVar(type, sigPoint, arraySize, invocationId,
+                                 namePrefix, semanticToUse, noWriteBack,
+                                 asNoInterp, *value, loc);
   }
-
-  return true;
 }
 
 bool DeclResultIdMapper::createPayloadStageVars(
@@ -4051,150 +4290,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   }
 
   return 0;
-}
-
-bool DeclResultIdMapper::validateVKAttributes(const NamedDecl *decl) {
-  bool success = true;
-  if (const auto *idxAttr = decl->getAttr<VKIndexAttr>()) {
-    if (!spvContext.isPS()) {
-      emitError("vk::index only allowed in pixel shader",
-                idxAttr->getLocation());
-      success = false;
-    }
-
-    const auto *locAttr = decl->getAttr<VKLocationAttr>();
-
-    if (!locAttr) {
-      emitError("vk::index should be used together with vk::location for "
-                "dual-source blending",
-                idxAttr->getLocation());
-      success = false;
-    } else {
-      const auto locNumber = locAttr->getNumber();
-      if (locNumber != 0) {
-        emitError("dual-source blending should use vk::location 0",
-                  locAttr->getLocation());
-        success = false;
-      }
-    }
-
-    const auto idxNumber = idxAttr->getNumber();
-    if (idxNumber != 0 && idxNumber != 1) {
-      emitError("dual-source blending only accepts 0 or 1 as vk::index",
-                idxAttr->getLocation());
-      success = false;
-    }
-  }
-
-  return success;
-}
-
-bool DeclResultIdMapper::validateVKBuiltins(const NamedDecl *decl,
-                                            const hlsl::SigPoint *sigPoint) {
-  bool success = true;
-
-  if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
-    // The front end parsing only allows vk::builtin to be attached to a
-    // function/parameter/variable; all of them are DeclaratorDecls.
-    const auto declType = getTypeOrFnRetType(cast<DeclaratorDecl>(decl));
-    const auto loc = builtinAttr->getLocation();
-
-    if (decl->hasAttr<VKLocationAttr>()) {
-      emitError("cannot use vk::builtin and vk::location together", loc);
-      success = false;
-    }
-
-    const llvm::StringRef builtin = builtinAttr->getBuiltIn();
-
-    if (builtin == "HelperInvocation") {
-      if (!declType->isBooleanType()) {
-        emitError("HelperInvocation builtin must be of boolean type", loc);
-        success = false;
-      }
-
-      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::PSIn) {
-        emitError(
-            "HelperInvocation builtin can only be used as pixel shader input",
-            loc);
-        success = false;
-      }
-    } else if (builtin == "PointSize") {
-      if (!declType->isFloatingType()) {
-        emitError("PointSize builtin must be of float type", loc);
-        success = false;
-      }
-
-      switch (sigPoint->GetKind()) {
-      case hlsl::SigPoint::Kind::VSOut:
-      case hlsl::SigPoint::Kind::HSCPIn:
-      case hlsl::SigPoint::Kind::HSCPOut:
-      case hlsl::SigPoint::Kind::DSCPIn:
-      case hlsl::SigPoint::Kind::DSOut:
-      case hlsl::SigPoint::Kind::GSVIn:
-      case hlsl::SigPoint::Kind::GSOut:
-      case hlsl::SigPoint::Kind::PSIn:
-      case hlsl::SigPoint::Kind::MSOut:
-        break;
-      default:
-        emitError("PointSize builtin cannot be used as %0", loc)
-            << sigPoint->GetName();
-        success = false;
-      }
-    } else if (builtin == "BaseVertex" || builtin == "BaseInstance" ||
-               builtin == "DrawIndex") {
-      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
-          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
-        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
-            << builtin;
-        success = false;
-      }
-
-      switch (sigPoint->GetKind()) {
-      case hlsl::SigPoint::Kind::VSIn:
-        break;
-      case hlsl::SigPoint::Kind::MSIn:
-      case hlsl::SigPoint::Kind::ASIn:
-        if (builtin != "DrawIndex") {
-          emitError("%0 builtin cannot be used as %1", loc)
-              << builtin << sigPoint->GetName();
-          success = false;
-        }
-        break;
-      default:
-        emitError("%0 builtin cannot be used as %1", loc)
-            << builtin << sigPoint->GetName();
-        success = false;
-      }
-    } else if (builtin == "DeviceIndex") {
-      if (getStorageClassForSigPoint(sigPoint) != spv::StorageClass::Input) {
-        emitError("%0 builtin can only be used as shader input", loc)
-            << builtin;
-        success = false;
-      }
-      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
-          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
-        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
-            << builtin;
-        success = false;
-      }
-    } else if (builtin == "ViewportMaskNV") {
-      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::MSPOut) {
-        emitError("%0 builtin can only be used as 'primitives' output in MS",
-                  loc)
-            << builtin;
-        success = false;
-      }
-      if (!declType->isArrayType() ||
-          !declType->getArrayElementTypeNoTypeQual()->isSpecificBuiltinType(
-              BuiltinType::Kind::Int)) {
-        emitError("%0 builtin must be of type array of integers", loc)
-            << builtin;
-        success = false;
-      }
-    }
-  }
-
-  return success;
 }
 
 spv::StorageClass
