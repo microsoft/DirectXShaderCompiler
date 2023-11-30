@@ -2970,6 +2970,193 @@ bool DeclResultIdMapper::validateShaderStageVar(SemanticInfo *semantic,
   return true;
 }
 
+bool DeclResultIdMapper::validateVKAttributes(const NamedDecl *decl) {
+  bool success = true;
+  if (const auto *idxAttr = decl->getAttr<VKIndexAttr>()) {
+    if (!spvContext.isPS()) {
+      emitError("vk::index only allowed in pixel shader",
+                idxAttr->getLocation());
+      success = false;
+    }
+
+    const auto *locAttr = decl->getAttr<VKLocationAttr>();
+
+    if (!locAttr) {
+      emitError("vk::index should be used together with vk::location for "
+                "dual-source blending",
+                idxAttr->getLocation());
+      success = false;
+    } else {
+      const auto locNumber = locAttr->getNumber();
+      if (locNumber != 0) {
+        emitError("dual-source blending should use vk::location 0",
+                  locAttr->getLocation());
+        success = false;
+      }
+    }
+
+    const auto idxNumber = idxAttr->getNumber();
+    if (idxNumber != 0 && idxNumber != 1) {
+      emitError("dual-source blending only accepts 0 or 1 as vk::index",
+                idxAttr->getLocation());
+      success = false;
+    }
+  }
+
+  return success;
+}
+
+bool DeclResultIdMapper::validateVKBuiltins(const NamedDecl *decl,
+                                            const hlsl::SigPoint *sigPoint) {
+  bool success = true;
+
+  if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
+    // The front end parsing only allows vk::builtin to be attached to a
+    // function/parameter/variable; all of them are DeclaratorDecls.
+    const auto declType = getTypeOrFnRetType(cast<DeclaratorDecl>(decl));
+    const auto loc = builtinAttr->getLocation();
+
+    if (decl->hasAttr<VKLocationAttr>()) {
+      emitError("cannot use vk::builtin and vk::location together", loc);
+      success = false;
+    }
+
+    const llvm::StringRef builtin = builtinAttr->getBuiltIn();
+
+    if (builtin == "HelperInvocation") {
+      if (!declType->isBooleanType()) {
+        emitError("HelperInvocation builtin must be of boolean type", loc);
+        success = false;
+      }
+
+      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::PSIn) {
+        emitError(
+            "HelperInvocation builtin can only be used as pixel shader input",
+            loc);
+        success = false;
+      }
+    } else if (builtin == "PointSize") {
+      if (!declType->isFloatingType()) {
+        emitError("PointSize builtin must be of float type", loc);
+        success = false;
+      }
+
+      switch (sigPoint->GetKind()) {
+      case hlsl::SigPoint::Kind::VSOut:
+      case hlsl::SigPoint::Kind::HSCPIn:
+      case hlsl::SigPoint::Kind::HSCPOut:
+      case hlsl::SigPoint::Kind::DSCPIn:
+      case hlsl::SigPoint::Kind::DSOut:
+      case hlsl::SigPoint::Kind::GSVIn:
+      case hlsl::SigPoint::Kind::GSOut:
+      case hlsl::SigPoint::Kind::PSIn:
+      case hlsl::SigPoint::Kind::MSOut:
+        break;
+      default:
+        emitError("PointSize builtin cannot be used as %0", loc)
+            << sigPoint->GetName();
+        success = false;
+      }
+    } else if (builtin == "BaseVertex" || builtin == "BaseInstance" ||
+               builtin == "DrawIndex") {
+      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
+          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
+        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
+            << builtin;
+        success = false;
+      }
+
+      switch (sigPoint->GetKind()) {
+      case hlsl::SigPoint::Kind::VSIn:
+        break;
+      case hlsl::SigPoint::Kind::MSIn:
+      case hlsl::SigPoint::Kind::ASIn:
+        if (builtin != "DrawIndex") {
+          emitError("%0 builtin cannot be used as %1", loc)
+              << builtin << sigPoint->GetName();
+          success = false;
+        }
+        break;
+      default:
+        emitError("%0 builtin cannot be used as %1", loc)
+            << builtin << sigPoint->GetName();
+        success = false;
+      }
+    } else if (builtin == "DeviceIndex") {
+      if (getStorageClassForSigPoint(sigPoint) != spv::StorageClass::Input) {
+        emitError("%0 builtin can only be used as shader input", loc)
+            << builtin;
+        success = false;
+      }
+      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
+          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
+        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
+            << builtin;
+        success = false;
+      }
+    } else if (builtin == "ViewportMaskNV") {
+      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::MSPOut) {
+        emitError("%0 builtin can only be used as 'primitives' output in MS",
+                  loc)
+            << builtin;
+        success = false;
+      }
+      if (!declType->isArrayType() ||
+          !declType->getArrayElementTypeNoTypeQual()->isSpecificBuiltinType(
+              BuiltinType::Kind::Int)) {
+        emitError("%0 builtin must be of type array of integers", loc)
+            << builtin;
+        success = false;
+      }
+    }
+  }
+
+  return success;
+}
+
+bool DeclResultIdMapper::validateShaderStageVarType(
+    hlsl::Semantic::Kind semanticKind, QualType type,
+    clang::SourceLocation loc) {
+
+  switch (semanticKind) {
+  case hlsl::Semantic::Kind::InnerCoverage:
+    if (!type->isSpecificBuiltinType(BuiltinType::UInt)) {
+      emitError("SV_InnerCoverage must be of uint type.", loc);
+      return false;
+    }
+    break;
+  default:
+    break;
+  }
+  return true;
+}
+
+bool DeclResultIdMapper::isValidSemanticInShaderModel(
+    hlsl::Semantic::Kind semanticKind, hlsl::SigPoint::Kind sigPointKind,
+    const NamedDecl *decl) {
+  // Error out when the given semantic is invalid in this shader model
+  if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPointKind,
+                                        spvContext.getMajorVersion(),
+                                        spvContext.getMinorVersion()) ==
+      hlsl::DXIL::SemanticInterpretationKind::NA) {
+    // Special handle MSIn/ASIn allowing VK-only builtin "DrawIndex".
+    switch (sigPointKind) {
+    case hlsl::SigPoint::Kind::MSIn:
+    case hlsl::SigPoint::Kind::ASIn:
+      if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
+        const llvm::StringRef builtin = builtinAttr->getBuiltIn();
+        if (builtin == "DrawIndex") {
+          break;
+        }
+      }
+      LLVM_FALLTHROUGH;
+    default:
+      return false;
+    }
+  }
+  return true;
+}
+
 SpirvVariable *DeclResultIdMapper::getInstanceIdFromIndexAndBase(
     SpirvVariable *instanceIndexVar, SpirvVariable *baseInstanceVar) {
   QualType type = instanceIndexVar->getAstResultType();
@@ -3172,49 +3359,6 @@ QualType DeclResultIdMapper::getTypeForSpirvStageVariable(
   }
 
   return evalType;
-}
-
-bool DeclResultIdMapper::validateShaderStageVarType(
-    hlsl::Semantic::Kind semanticKind, QualType type,
-    clang::SourceLocation loc) {
-
-  switch (semanticKind) {
-  case hlsl::Semantic::Kind::InnerCoverage:
-    if (!type->isSpecificBuiltinType(BuiltinType::UInt)) {
-      emitError("SV_InnerCoverage must be of uint type.", loc);
-      return false;
-    }
-    break;
-  default:
-    break;
-  }
-  return true;
-}
-
-bool DeclResultIdMapper::isValidSemanticInShaderModel(
-    hlsl::Semantic::Kind semanticKind, hlsl::SigPoint::Kind sigPointKind,
-    const NamedDecl *decl) {
-  // Error out when the given semantic is invalid in this shader model
-  if (hlsl::SigPoint::GetInterpretation(semanticKind, sigPointKind,
-                                        spvContext.getMajorVersion(),
-                                        spvContext.getMinorVersion()) ==
-      hlsl::DXIL::SemanticInterpretationKind::NA) {
-    // Special handle MSIn/ASIn allowing VK-only builtin "DrawIndex".
-    switch (sigPointKind) {
-    case hlsl::SigPoint::Kind::MSIn:
-    case hlsl::SigPoint::Kind::ASIn:
-      if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
-        const llvm::StringRef builtin = builtinAttr->getBuiltIn();
-        if (builtin == "DrawIndex") {
-          break;
-        }
-      }
-      LLVM_FALLTHROUGH;
-    default:
-      return false;
-    }
-  }
-  return true;
 }
 
 bool DeclResultIdMapper::createStageVars(
@@ -4146,150 +4290,6 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
   }
 
   return 0;
-}
-
-bool DeclResultIdMapper::validateVKAttributes(const NamedDecl *decl) {
-  bool success = true;
-  if (const auto *idxAttr = decl->getAttr<VKIndexAttr>()) {
-    if (!spvContext.isPS()) {
-      emitError("vk::index only allowed in pixel shader",
-                idxAttr->getLocation());
-      success = false;
-    }
-
-    const auto *locAttr = decl->getAttr<VKLocationAttr>();
-
-    if (!locAttr) {
-      emitError("vk::index should be used together with vk::location for "
-                "dual-source blending",
-                idxAttr->getLocation());
-      success = false;
-    } else {
-      const auto locNumber = locAttr->getNumber();
-      if (locNumber != 0) {
-        emitError("dual-source blending should use vk::location 0",
-                  locAttr->getLocation());
-        success = false;
-      }
-    }
-
-    const auto idxNumber = idxAttr->getNumber();
-    if (idxNumber != 0 && idxNumber != 1) {
-      emitError("dual-source blending only accepts 0 or 1 as vk::index",
-                idxAttr->getLocation());
-      success = false;
-    }
-  }
-
-  return success;
-}
-
-bool DeclResultIdMapper::validateVKBuiltins(const NamedDecl *decl,
-                                            const hlsl::SigPoint *sigPoint) {
-  bool success = true;
-
-  if (const auto *builtinAttr = decl->getAttr<VKBuiltInAttr>()) {
-    // The front end parsing only allows vk::builtin to be attached to a
-    // function/parameter/variable; all of them are DeclaratorDecls.
-    const auto declType = getTypeOrFnRetType(cast<DeclaratorDecl>(decl));
-    const auto loc = builtinAttr->getLocation();
-
-    if (decl->hasAttr<VKLocationAttr>()) {
-      emitError("cannot use vk::builtin and vk::location together", loc);
-      success = false;
-    }
-
-    const llvm::StringRef builtin = builtinAttr->getBuiltIn();
-
-    if (builtin == "HelperInvocation") {
-      if (!declType->isBooleanType()) {
-        emitError("HelperInvocation builtin must be of boolean type", loc);
-        success = false;
-      }
-
-      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::PSIn) {
-        emitError(
-            "HelperInvocation builtin can only be used as pixel shader input",
-            loc);
-        success = false;
-      }
-    } else if (builtin == "PointSize") {
-      if (!declType->isFloatingType()) {
-        emitError("PointSize builtin must be of float type", loc);
-        success = false;
-      }
-
-      switch (sigPoint->GetKind()) {
-      case hlsl::SigPoint::Kind::VSOut:
-      case hlsl::SigPoint::Kind::HSCPIn:
-      case hlsl::SigPoint::Kind::HSCPOut:
-      case hlsl::SigPoint::Kind::DSCPIn:
-      case hlsl::SigPoint::Kind::DSOut:
-      case hlsl::SigPoint::Kind::GSVIn:
-      case hlsl::SigPoint::Kind::GSOut:
-      case hlsl::SigPoint::Kind::PSIn:
-      case hlsl::SigPoint::Kind::MSOut:
-        break;
-      default:
-        emitError("PointSize builtin cannot be used as %0", loc)
-            << sigPoint->GetName();
-        success = false;
-      }
-    } else if (builtin == "BaseVertex" || builtin == "BaseInstance" ||
-               builtin == "DrawIndex") {
-      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
-          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
-        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
-            << builtin;
-        success = false;
-      }
-
-      switch (sigPoint->GetKind()) {
-      case hlsl::SigPoint::Kind::VSIn:
-        break;
-      case hlsl::SigPoint::Kind::MSIn:
-      case hlsl::SigPoint::Kind::ASIn:
-        if (builtin != "DrawIndex") {
-          emitError("%0 builtin cannot be used as %1", loc)
-              << builtin << sigPoint->GetName();
-          success = false;
-        }
-        break;
-      default:
-        emitError("%0 builtin cannot be used as %1", loc)
-            << builtin << sigPoint->GetName();
-        success = false;
-      }
-    } else if (builtin == "DeviceIndex") {
-      if (getStorageClassForSigPoint(sigPoint) != spv::StorageClass::Input) {
-        emitError("%0 builtin can only be used as shader input", loc)
-            << builtin;
-        success = false;
-      }
-      if (!declType->isSpecificBuiltinType(BuiltinType::Kind::Int) &&
-          !declType->isSpecificBuiltinType(BuiltinType::Kind::UInt)) {
-        emitError("%0 builtin must be of 32-bit scalar integer type", loc)
-            << builtin;
-        success = false;
-      }
-    } else if (builtin == "ViewportMaskNV") {
-      if (sigPoint->GetKind() != hlsl::SigPoint::Kind::MSPOut) {
-        emitError("%0 builtin can only be used as 'primitives' output in MS",
-                  loc)
-            << builtin;
-        success = false;
-      }
-      if (!declType->isArrayType() ||
-          !declType->getArrayElementTypeNoTypeQual()->isSpecificBuiltinType(
-              BuiltinType::Kind::Int)) {
-        emitError("%0 builtin must be of type array of integers", loc)
-            << builtin;
-        success = false;
-      }
-    }
-  }
-
-  return success;
 }
 
 spv::StorageClass

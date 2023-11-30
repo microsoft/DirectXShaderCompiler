@@ -786,16 +786,23 @@ private:
                                         const NamedDecl *decl,
                                         uint32_t arraySize);
 
-  // Returns true if the type and semantic kind are compatible. Issues an error
-  // and returns false otherwise.
-  bool validateShaderStageVarType(hlsl::Semantic::Kind semanticKind,
-                                  QualType type, clang::SourceLocation loc);
-
   // Returns true if all of the information is consistent with a valid shader
   // stage variable. Issues an error and returns false otherwise.
   bool validateShaderStageVar(SemanticInfo *semantic,
                               const hlsl::SigPoint *sigPoint,
                               const NamedDecl *decl, QualType type);
+
+  /// Returns true if all vk:: attributes usages are valid.
+  bool validateVKAttributes(const NamedDecl *decl);
+
+  /// Returns true if all vk::builtin usages are valid.
+  bool validateVKBuiltins(const NamedDecl *decl,
+                          const hlsl::SigPoint *sigPoint);
+
+  // Returns true if the type and semantic kind are compatible. Issues an error
+  // and returns false otherwise.
+  bool validateShaderStageVarType(hlsl::Semantic::Kind semanticKind,
+                                  QualType type, clang::SourceLocation loc);
 
   // Returns true if the semantic can be used with the given signature point.
   // The declaration is used to get the builtin attribute to augment the
@@ -811,13 +818,6 @@ private:
   SpirvVariable *createSpirvStageVar(StageVar *, const NamedDecl *decl,
                                      const llvm::StringRef name,
                                      SourceLocation);
-
-  /// Returns true if all vk:: attributes usages are valid.
-  bool validateVKAttributes(const NamedDecl *decl);
-
-  /// Returns true if all vk::builtin usages are valid.
-  bool validateVKBuiltins(const NamedDecl *decl,
-                          const hlsl::SigPoint *sigPoint);
 
   /// Methods for creating counter variables associated with the given decl.
 
