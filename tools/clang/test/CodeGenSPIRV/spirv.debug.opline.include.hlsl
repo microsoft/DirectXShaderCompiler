@@ -13,7 +13,9 @@
 // CHECK-SAME: spirv.debug.opline.include-file-3.hlsli
 // CHECK-NEXT: OpSource HLSL 600 [[file3]] "int b;
 
-// CHECK:                  OpLine [[main]] 65 1
+// CHECK:                  OpLine [[main]] 67 1
+// CHECK-NEXT: %main = OpFunction %void None
+// CHECK:                  OpLine [[main]] 67 1
 // CHECK-NEXT: %src_main = OpFunction %void None
 
 #include "spirv.debug.opline.include-file-1.hlsli"
@@ -63,7 +65,7 @@ int callFunction3() {
 }
 
 void main() {
-// CHECK:      OpLine [[main]] 68 3
+// CHECK:      OpLine [[main]] 70 3
 // CHECK-NEXT: OpFunctionCall %int %callFunction1
   callFunction1();
 
@@ -81,11 +83,11 @@ void main() {
   // line
   // in
   // OpSource.
-// CHECK:      OpLine [[main]] 86 3
+// CHECK:      OpLine [[main]] 88 3
 // CHECK-NEXT: OpFunctionCall %int %callFunction2
   callFunction2();
 
-// CHECK:      OpLine [[main]] 90 3
+// CHECK:      OpLine [[main]] 92 3
 // CHECK-NEXT: OpFunctionCall %int %callFunction3
   callFunction3();
 }

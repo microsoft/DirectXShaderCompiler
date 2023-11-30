@@ -7,6 +7,8 @@ float4 main(float2 a : TEXCOORD0,
             float3 b : NORMAL,
             float4 c : COLOR) : SV_Target {
 // CHECK:                  OpLine [[file]] 6 1
+// CHECK-NEXT: %main = OpFunction %void None
+// CHECK:                  OpLine [[file]] 6 1
 // CHECK-NEXT: %src_main = OpFunction %v4float None
 // CHECK-NEXT:             OpLine [[file]] 6 20
 // CHECK-NEXT:        %a = OpFunctionParameter %_ptr_Function_v2float
