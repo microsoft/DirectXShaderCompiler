@@ -69,14 +69,18 @@ The following principles are used to ease reuse with LLVM components and aid ext
 * Additional information is conveyed via metadata, LLVM intrinsics or external functions.
 * Name prefixes: 'llvm.dx.', 'llvm.dxil.', 'dx.', and 'dxil.' are reserved.
 
-LLVM IR has three equivalent forms: human-readable, binary (bitcode), and in-memory. DXIL is a binary format and is based on a subset of LLVM IR bitcode format. The document uses only human-readable form to describe DXIL.
-
 Versioning
 ==========
 
 There are three versioning mechanisms in DXIL shaders: shader model, DXIL version, and LLVM bitcode version.
 
-At a high-level, the shader model describes the target execution model and environment; DXIL version provides a mechanism to specify supported program features (including rules around supported data types and operations); and LLVM bitcode version provides a way to encode a DXIL program.
+At a high-level, the shader model describes the target execution model and environment.
+
+DXIL defines the rules for expressing Direct3D shader programs using a subset of standard LLVM IR. LLVM IR has three equivalent forms: human-readable, binary (bitcode), and in-memory. DXIL programs are encoded using a subset of LLVM IR bitcode format. This document uses only human-readable form to describe DXIL.
+
+DXIL versioning allows for changes to the rules over time. The LLVM bitcode version is currently fixed at LLVM 3.7 for all DXIL versions.
+
+A given DXIL version can support up to the latest shader model defined at the time that DXIL version was finalized. However, the DXIL version for a shader is typically set based on the shader model to ensure that any device supporting that particular shader model will be able to interpret the DXIL properly, without needing to know about any newer DXIL versions.
 
 Shader Model (SM)
 -----------------
