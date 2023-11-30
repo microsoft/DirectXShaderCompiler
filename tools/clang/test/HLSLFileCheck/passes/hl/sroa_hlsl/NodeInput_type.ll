@@ -8,22 +8,6 @@
 ; CHECK: alloca %"struct.DispatchNodeInputRecord<loadStressRecord>"
 ; CHECK: load %"struct.DispatchNodeInputRecord<loadStressRecord>", %"struct.DispatchNodeInputRecord<loadStressRecord>"*
 
-; Buffer Definitions:
-;
-; cbuffer $Globals
-; {
-;
-;   [0 x i8] (type annotation not present)
-;
-; }
-;
-;
-; Resource Bindings:
-;
-; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
-; ------------------------------ ---------- ------- ----------- ------- -------------- ------
-; $Globals                          cbuffer      NA          NA     CB0   cb4294967295     1
-;
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
