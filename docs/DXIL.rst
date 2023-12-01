@@ -15,9 +15,9 @@ Prior to being converted into the low-level DXIL IR, a higher level IR is genera
 
 LLVM is quickly becoming a de facto standard in modern compilation technology. The LLVM framework offers several distinct features, such as a vibrant ecosystem, complete compilation framework, modular design, and reasonable documentation. We can leverage these to achieve two important objectives.
 
-First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion the current HLSL IL, called DXBC IL in this document, to DXIL.
+First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion of the legacy HLSL IL, called DXBC IL in this document, to DXIL.
 
-Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL verifier to check consistency of generated DXIL.
+Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL validator to check consistency of generated DXIL.
 
 The following diagram shows how some of these components tie together::
 
@@ -44,9 +44,9 @@ The following diagram shows how some of these components tie together::
    +------------+----------------------+-----------+
                 |                      |
                 v                      v
-        Driver Compiler             Verifier
+        Driver Compiler             Validator
 
-The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes the high level IR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Verifier* element is a public component that verifies and signs DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
+The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes the high level IR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Validator* element is a public component that verifies and signs DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
 
 DXIL does not support the following HLSL features that were present in prior implementations.
 
@@ -69,17 +69,21 @@ The following principles are used to ease reuse with LLVM components and aid ext
 * Additional information is conveyed via metadata, LLVM intrinsics or external functions.
 * Name prefixes: 'llvm.dx.', 'llvm.dxil.', 'dx.', and 'dxil.' are reserved.
 
-LLVM IR has three equivalent forms: human-readable, binary (bitcode), and in-memory. DXIL is a binary format and is based on a subset of LLVM IR bitcode format. The document uses only human-readable form to describe DXIL.
-
 Versioning
 ==========
 
 There are three versioning mechanisms in DXIL shaders: shader model, DXIL version, and LLVM bitcode version.
 
-At a high-level, the shader model describes the target execution model and environment; DXIL provides a mechanism to express programs (including rules around expressing data types and operations); and LLVM bitcode provides a way to encode a DXIL program.
+At a high-level, the shader model describes the target execution model and environment.
 
-Shader Model
-------------
+DXIL defines the rules for expressing Direct3D shader programs using a subset of standard LLVM IR. LLVM IR has three equivalent forms: human-readable, binary (bitcode), and in-memory. DXIL programs are encoded using a subset of LLVM IR bitcode format. This document uses only human-readable form to describe DXIL.
+
+DXIL versioning allows for changes to the rules over time. The LLVM bitcode version is currently fixed at LLVM 3.7 for all DXIL versions.
+
+A given DXIL version can support up to the latest shader model defined at the time that DXIL version was finalized. However, the DXIL version for a shader is typically set based on the shader model to ensure that any device supporting that particular shader model will be able to interpret the DXIL properly, without needing to know about any newer DXIL versions.
+
+Shader Model (SM)
+-----------------
 
 The shader model in DXIL is similar to DXBC shader model. A shader model specifies the execution model, the set of capabilities that shader instructions can use and the constraints that a shader program must adhere to.
 
@@ -90,31 +94,29 @@ The shader model is specified as a named metadata in DXIL::
 
 The following values of ``<shaderModelName>``, ``<major>``, ``<minor>`` are supported:
 
-+-----------------------+---------------------------------------+-------------+
-| Target                |   Legacy Models                       | DXIL Models |
-+=======================+=======================================+=============+
-| Vertex shader (VS)    | vs_4_0, vs_4_1, vs_5_0, vs_5_1        | vs_6_0      |
-+-----------------------+---------------------------------------+-------------+
-| Hull shader (HS)      | hs_5_0, hs_5_1                        | hs_6_0      | 
-+-----------------------+---------------------------------------+-------------+
-| Domain shader (DS)    | ds_5_0, ds_5_1                        | ds_6_0      | 
-+-----------------------+---------------------------------------+-------------+
-| Geometry shader (GS)  | gs_4_0, gs_4_1, gs_5_0, gs_5_1        | gs_6_0      | 
-+-----------------------+---------------------------------------+-------------+
-| Pixel shader (PS)     | ps_4_0, ps_4_1, ps_5_0, ps_5_1        | ps_6_0      | 
-+-----------------------+---------------------------------------+-------------+
-| Compute shader (CS)   | cs_5_0 (cs_4_0 is mapped onto cs_5_0) | cs_6_0      |
-+-----------------------+---------------------------------------+-------------+
-| Shader library        | no support                            | lib_6_1     |
-+-----------------------+---------------------------------------+-------------+
-| Mesh shader (MS)      | no support                            | ms_6_5      |
-+-----------------------+---------------------------------------+-------------+
-| Amplification shader (AS) | no support                        | as_6_5      |
-+-----------------------+---------------------------------------+-------------+
++---------------------------+------------------------------+----------------------+
+| Shader Tyoe               |   shaderModelName            | Minimum major, minor |
++===========================+==============================+======================+
+| Vertex shader (VS)        | vs                           | 6, 0                 |
++---------------------------+------------------------------+----------------------+
+| Hull shader (HS)          | hs                           | 6, 0                 | 
++---------------------------+------------------------------+----------------------+
+| Domain shader (DS)        | ds                           | 6, 0                 | 
++---------------------------+------------------------------+----------------------+
+| Geometry shader (GS)      | gs                           | 6, 0                 | 
++---------------------------+------------------------------+----------------------+
+| Pixel shader (PS)         | ps                           | 6, 0                 | 
++---------------------------+------------------------------+----------------------+
+| Compute shader (CS)       | cs                           | 6, 0                 |
++---------------------------+------------------------------+----------------------+
+| Mesh shader (MS)          | ms                           | 6, 5                 |
++---------------------------+------------------------------+----------------------+
+| Amplification shader (AS) | as                           | 6, 5                 |
++---------------------------+------------------------------+----------------------+
+| DXIL library              | lib                          | 6, 3                 |
++---------------------------+------------------------------+----------------------+
 
-The DXIL verifier ensures that DXIL conforms to the specified shader model.
-
-For shader models prior to 6.0, only the rules applicable to the DXIL representation are valid. For example, the limits on maximum number of resources is honored, but the limits on registers aren't because DXIL does not have a representation for registers.
+The DXIL validator ensures that DXIL conforms to the specified shader model.
 
 DXIL version
 ------------
@@ -1240,7 +1242,7 @@ Both indices can be dynamic for SM6 and later to provide flexibility in usage of
 
 Resources/samplers used in such a way must reside in descriptor tables (cannot be root descriptors); this will be validated during shader and root signature setup.
 
-The DXIL verifier will ensure that all leaf-ranges (a and b above) of such a resource/sampler live-range have the same resource/sampler type and element type. If applicable, this constraint may be relaxed in the future. In particular, it is logical from HLSL programmer point of view to issue loads on compatible resource types, e.g., Texture2D, RWTexture2D, ROVTexture2D::
+The DXIL validator will ensure that all leaf-ranges (a and b above) of such a resource/sampler live-range have the same resource/sampler type and element type. If applicable, this constraint may be relaxed in the future. In particular, it is logical from HLSL programmer point of view to issue loads on compatible resource types, e.g., Texture2D, RWTexture2D, ROVTexture2D::
 
   Texture2D<float4> a[8];
   RWTexture2D<float4> b[6];
@@ -1965,7 +1967,7 @@ TODO: enumerate all additional resource range properties, e.g., ROV, Texture2DMS
 
 Operations
 ==========
-DXIL operations are represented in two ways: using LLVM instructions and using LLVM external functions. The reference list of operations as well as their overloads can be found in the attached Excel spreadsheet "DXIL Operations".
+DXIL operations are represented in two ways: using LLVM instructions and using LLVM external functions.
 
 Operations via instructions
 ---------------------------
