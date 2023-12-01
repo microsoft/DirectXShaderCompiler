@@ -15,7 +15,7 @@ Prior to being converted into the low-level DXIL IR, a higher level IR is genera
 
 LLVM is quickly becoming a de facto standard in modern compilation technology. The LLVM framework offers several distinct features, such as a vibrant ecosystem, complete compilation framework, modular design, and reasonable documentation. We can leverage these to achieve two important objectives.
 
-First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion of the current HLSL IL, called DXBC IL in this document, to DXIL.
+First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion of the legacy HLSL IL, called DXBC IL in this document, to DXIL.
 
 Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL validator to check consistency of generated DXIL.
 
