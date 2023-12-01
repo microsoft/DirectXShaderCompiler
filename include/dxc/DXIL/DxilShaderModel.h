@@ -44,9 +44,6 @@ public:
   bool IsDS() const { return m_Kind == Kind::Domain; }
   bool IsCS() const { return m_Kind == Kind::Compute; }
   bool IsLib() const { return m_Kind == Kind::Library; }
-  bool IsRay() const {
-    return m_Kind >= Kind::RayGeneration && m_Kind <= Kind::Callable;
-  }
   bool IsMS() const { return m_Kind == Kind::Mesh; }
   bool IsAS() const { return m_Kind == Kind::Amplification; }
   bool IsValid() const;

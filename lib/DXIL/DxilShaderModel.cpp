@@ -76,7 +76,8 @@ bool ShaderModel::IsValidForDxil() const {
 
 bool ShaderModel::IsValidForModule() const {
   // Ray tracing shader model should only be used on functions in a lib
-  return IsValid() && !IsRay();
+  return IsValid() &&
+         !(m_Kind >= Kind::RayGeneration && m_Kind <= Kind::Callable);
 }
 
 const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
