@@ -13134,7 +13134,7 @@ void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
 
 void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
                                 const AttributeList &A, Attr *declAttr) {
-  unsigned x = 1, y = 1, z = 1;
+  unsigned long long int x = 1, y = 1, z = 1;
   if (HLSLNodeDispatchGridAttr *pA =
           dyn_cast<HLSLNodeDispatchGridAttr>(declAttr)) {
     x = pA->getX();
