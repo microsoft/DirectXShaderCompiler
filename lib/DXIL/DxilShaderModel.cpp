@@ -74,12 +74,6 @@ bool ShaderModel::IsValidForDxil() const {
   return false;
 }
 
-bool ShaderModel::IsValidForModule() const {
-  // Ray tracing shader model should only be used on functions in a lib
-  return IsValid() &&
-         !(m_Kind >= Kind::RayGeneration && m_Kind <= Kind::Callable);
-}
-
 const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_shader_model_get()</py>*/
   // VALRULE-TEXT:BEGIN

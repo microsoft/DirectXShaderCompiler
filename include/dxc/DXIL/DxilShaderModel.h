@@ -48,7 +48,6 @@ public:
   bool IsAS() const { return m_Kind == Kind::Amplification; }
   bool IsValid() const;
   bool IsValidForDxil() const;
-  bool IsValidForModule() const;
 
   Kind GetKind() const { return m_Kind; }
   unsigned GetMajor() const { return m_Major; }
