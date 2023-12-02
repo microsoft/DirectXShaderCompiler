@@ -13134,7 +13134,7 @@ void Sema::DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
 
 void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
                                 const AttributeList &A, Attr *declAttr) {
-  unsigned long long int x = 1, y = 1, z = 1;
+  unsigned x = 1, y = 1, z = 1;
   if (HLSLNodeDispatchGridAttr *pA =
           dyn_cast<HLSLNodeDispatchGridAttr>(declAttr)) {
     x = pA->getX();
@@ -13170,7 +13170,8 @@ void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
         << A.getName() << "Z" << A.getRange();
     z = 0;
   }
-  if (x * y * z > MaxProductValue)
+  uint64_t product = (uint64_t)x * (uint64_t)y * (uint64_t)z;
+  if (product > MaxProductValue)
     Diags.Report(A.getLoc(), diag::err_hlsl_dispatchgrid_product)
         << A.getName() << A.getRange();
 }
