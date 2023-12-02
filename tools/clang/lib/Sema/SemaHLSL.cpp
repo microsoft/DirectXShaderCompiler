@@ -13170,7 +13170,8 @@ void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
         << A.getName() << "Z" << A.getRange();
     z = 0;
   }
-  if (x * y * z > MaxProductValue)
+  uint64_t product = (uint64_t)x * (uint64_t)y * (uint64_t)z;
+  if (product > MaxProductValue)
     Diags.Report(A.getLoc(), diag::err_hlsl_dispatchgrid_product)
         << A.getName() << A.getRange();
 }
