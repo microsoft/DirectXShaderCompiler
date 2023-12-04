@@ -2988,12 +2988,6 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     if (const auto *declRefExpr = dyn_cast<DeclRefExpr>(arg)) {
       argInfo = declIdMapper.getDeclEvalInfo(declRefExpr->getDecl(),
                                              arg->getLocStart());
-
-      if (canActAsOutParmVar(param) &&
-          declRefExpr->getDecl()->hasAttr<VKExtBuiltinInputAttr>()) {
-        emitError("cannot use builtin input as inout argument",
-                  arg->getExprLoc());
-      }
     }
 
     auto *argInst = doExpr(arg);
@@ -6478,10 +6472,6 @@ void SpirvEmitter::storeValue(SpirvInstruction *lhsPtr,
   // user.
   if (!lhsPtr || !rhsVal)
     return;
-
-  if (lhsPtr->getStorageClass() == spv::StorageClass::Input) {
-    emitError("cannot assign to input variable", loc);
-  }
 
   if (const auto *refType = lhsValType->getAs<ReferenceType>())
     lhsValType = refType->getPointeeType();
