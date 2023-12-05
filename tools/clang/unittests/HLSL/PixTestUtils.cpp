@@ -274,6 +274,58 @@ PassOutput RunAnnotationPasses(dxc::DxcDllSupport &dllSupport, IDxcBlob *dxil,
           Tokenize(outputText.c_str(), "\n")};
 }
 
+class InstructionOffsetSeekerImpl : public InstructionOffsetSeeker {
+
+  std::map<std::wstring, DWORD> m_labelToInstructionOffset;
+
+  public:
+  InstructionOffsetSeekerImpl(DebuggerInterfaces &debuggerInterfaces) {
+    DWORD SourceFileOrdinal = 0;
+    CComBSTR fileName;
+    CComBSTR fileContent;
+    while (SUCCEEDED(debuggerInterfaces.compilationInfo->GetSourceFile(
+        SourceFileOrdinal, &fileName, &fileContent))) {
+      auto lines = strtok(std::wstring(fileContent), L"\n");
+      for (size_t line = 0; line < lines.size(); ++line) {
+        const wchar_t DebugLocLabel[] = L"debug-loc(";
+        auto DebugLocPos = lines[line].find(DebugLocLabel);
+        if (DebugLocPos != std::wstring::npos) {
+          auto StartLabelPos = DebugLocPos + (_countof(DebugLocLabel) - 1);
+          auto CloseDebugLocPos =
+              lines[line].find(L")", StartLabelPos);
+          VERIFY_ARE_NOT_EQUAL(CloseDebugLocPos, std::string::npos);
+          auto Label = lines[line].substr(StartLabelPos,
+                                          CloseDebugLocPos - StartLabelPos);
+          CComPtr<IDxcPixDxilInstructionOffsets> InstructionOffsets;
+          VERIFY_SUCCEEDED(debuggerInterfaces.debugInfo
+                               ->InstructionOffsetsFromSourceLocation(
+                                   fileName, line + 1, 0, &InstructionOffsets));
+          auto InstructionOffsetCount = InstructionOffsets->GetCount();
+          VERIFY_IS_TRUE(InstructionOffsetCount > 0);
+          // No duplicate labels:
+          VERIFY_IS_TRUE(m_labelToInstructionOffset.find(Label) ==
+                         m_labelToInstructionOffset.end());
+          // Just the last offset is sufficient:
+          m_labelToInstructionOffset[Label] =
+              InstructionOffsets->GetOffsetByIndex(InstructionOffsetCount-1);
+        }
+      }
+      SourceFileOrdinal++;
+      fileName = nullptr;
+      fileContent = nullptr;
+    }
+  }
+
+  virtual DWORD FindInstructionOffsetForLabel(const wchar_t* label) override {
+    return m_labelToInstructionOffset[label];
+  }
+};
+
+std::unique_ptr<pix_test::InstructionOffsetSeeker>
+GatherDebugLocLabelsFromDxcUtils(DebuggerInterfaces &debuggerInterfaces) {
+  return std::make_unique<InstructionOffsetSeekerImpl>(debuggerInterfaces);
+}
+
 CComPtr<IDxcBlob> GetDebugPart(dxc::DxcDllSupport &dllSupport,
                                IDxcBlob *container) {
 

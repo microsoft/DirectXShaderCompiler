@@ -14,7 +14,6 @@
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/dxcapi.h"
 
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HLSLTestData.h"
@@ -128,11 +127,6 @@ static HRESULT UnAliasType(IDxcPixType *MaybeAlias,
   *OriginalType = Tmp.Detach();
   return S_OK;
 }
-
-struct DebuggerInterfaces {
-  CComPtr<IDxcPixDxilDebugInfo> debugInfo;
-  CComPtr<IDxcPixCompilationInfo> compilationInfo;
-};
 
 class PixDiaTest {
 public:
@@ -2790,67 +2784,6 @@ static DWORD AdvanceUntilFunctionEntered(IDxcPixDxilDebugInfo *dxilDebugger,
   return instructionOffset;
 }
 
-struct FilenameAndLineNumber {
-  CComBSTR FileName;
-  DWORD LineNumber;
-};
-
-static FilenameAndLineNumber GetFileNameAndLineNumberForInstructionOffset(
-    DebuggerInterfaces &debuggerInterfaces, DWORD instructionOffset) {
-  CComPtr<IDxcPixDxilSourceLocations> SourceLocations;
-  if (FAILED(debuggerInterfaces.debugInfo->SourceLocationsFromInstructionOffset(
-          instructionOffset, &SourceLocations))) {
-    VERIFY_FAIL(L"Didn't find source ");
-    return {};
-  }
-  FilenameAndLineNumber ret{};
-  if (SourceLocations->GetCount() > 0) {
-    if (FAILED(SourceLocations->GetFileNameByIndex(0, &ret.FileName))) {
-      VERIFY_FAIL(L"Couldn't get line number");
-      return {};
-    }
-    ret.LineNumber = SourceLocations->GetLineNumberByIndex(0);
-  }
-  return ret;
-}
-
-static DWORD AdvanceUntilLineContains(DebuggerInterfaces &debuggerInterfaces,
-                                      DWORD instructionOffset,
-                                      wchar_t const *lineContents) {
-  for (;;) {
-    auto CurrentNameAndNumber = GetFileNameAndLineNumberForInstructionOffset(
-        debuggerInterfaces, instructionOffset);
-    if (CurrentNameAndNumber.FileName != nullptr) {
-      DWORD sourceOrdinal = 0;
-      CComBSTR fileName;
-      CComBSTR fileContent;
-      while (SUCCEEDED(debuggerInterfaces.compilationInfo->GetSourceFile(
-          sourceOrdinal++, &fileName, &fileContent))) {
-        if (fileName == CurrentNameAndNumber.FileName) {
-          auto lines = strtok(std::wstring(fileContent), L"\n");
-          // VERIFY_IS_TRUE(CurrentNameAndNumber.LineNumber >= 1);
-          // VERIFY_IS_TRUE(CurrentNameAndNumber.LineNumber - 1 <
-          //               static_cast<DWORD>(lines.size()));
-          std::wostringstream s;
-          s << "Seeking line number " << CurrentNameAndNumber.LineNumber
-            << " at Instruction offsset " << instructionOffset
-            << ": Checking line " << lines[CurrentNameAndNumber.LineNumber - 1]
-            << "\n";
-          OutputDebugStringW(s.str().c_str());
-          if (lines[CurrentNameAndNumber.LineNumber - 1].find(lineContents) !=
-              std::wstring::npos)
-            return instructionOffset;
-        }
-      }
-      fileName = nullptr;
-      fileContent = nullptr;
-    }
-    instructionOffset++;
-  }
-  VERIFY_FAIL(L"Couldn't get line number");
-  return (DWORD)-1;
-}
-
 static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
                                           DWORD instructionOffset,
                                           wchar_t const *variableName,
@@ -3094,19 +3027,20 @@ TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_ForScopes) {
 /*04*/void CSMain()
 /*05*/{
 /*06*/    int zero = intRWUAV.Load(0);
-/*07*/    int two = zero * 2; // CheckVariableExistsHere
+/*07*/    int two = zero * 2; // debug-loc(CheckVariableExistsHere)
 /*08*/    int three = zero * 3;
 /*09*/    for(int i =0; i < two; ++ i)
 /*10*/    {
 /*11*/        int one = intRWUAV.Load(i);
-/*12*/        three += one; // Stop inside loop
+/*12*/        three += one; // debug-loc(Stop inside loop)
 /*13*/    }
-/*14*/    intRWUAV[0] = three; // Stop here
+/*14*/    intRWUAV[0] = three; // debug-loc(Stop here)
 /*15*/}
 )";
 
   auto debugInterfaces = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
   auto dxilDebugger = debugInterfaces.debugInfo;
+  auto Labels = GatherDebugLocLabelsFromDxcUtils(debugInterfaces);
 
   // Case: same function called from two places in same top-level function.
   // In this case, we expect the storage for the variable to be in the same
@@ -3116,18 +3050,16 @@ TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_ForScopes) {
   DWORD instructionOffset =
       AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// CheckVariableExistsHere");
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"CheckVariableExistsHere");
   CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                        L"zero");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// Stop inside loop");
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"Stop inside loop");
   CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                        L"zero");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// Stop here");
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
   CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                               L"one");
 }
@@ -3143,16 +3075,17 @@ TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_ScopeBraces) {
 /*04*/void CSMain()
 /*05*/{
 /*06*/    int zero = intRWUAV.Load(0);
-/*07*/    int two = zero * 2; // CheckVariableExistsHere
+/*07*/    int two = zero * 2; // debug-loc(CheckVariableExistsHere)
 /*08*/    { 
 /*09*/        int one = intRWUAV.Load(1);
-/*10*/        two += one; // Stop inside loop
+/*10*/        two += one; // debug-loc(Stop inside loop)
 /*11*/    }
-/*12*/    intRWUAV[0] = two; // Stop here
+/*12*/    intRWUAV[0] = two; // debug-loc(Stop here)
 /*13*/}
 )";
 
   auto debugInterfaces = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto Labels = GatherDebugLocLabelsFromDxcUtils(debugInterfaces);
   auto dxilDebugger = debugInterfaces.debugInfo;
 
   // Case: same function called from two places in same top-level function.
@@ -3163,18 +3096,17 @@ TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_ScopeBraces) {
   DWORD instructionOffset =
       AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// CheckVariableExistsHere");
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"CheckVariableExistsHere");
   CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                        L"zero");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// Stop inside loop");
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"Stop inside loop");
   CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                        L"zero");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// Stop here");
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
   CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                               L"one");
 }
@@ -3186,7 +3118,7 @@ TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_Function) {
   const char *hlsl =
       R"(/*01*/RWStructuredBuffer<int> intRWUAV: register(u0);
 /*02*/int Square(int i) {
-/*03*/  int i2 = i * i; // Stop in subroutine
+/*03*/  int i2 = i * i; // debug-loc(Stop in subroutine)
 /*04*/  return i2;
 /*05*/}
 /*06*/[shader("compute")]
@@ -3195,11 +3127,12 @@ TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_Function) {
 /*09*/{
 /*10*/    int zero = intRWUAV.Load(0);
 /*11*/    int two = Square(zero);
-/*12*/    intRWUAV[0] = two; // Stop here
+/*12*/    intRWUAV[0] = two; // debug-loc(Stop here)
 /*13*/}
 )";
 
   auto debugInterfaces = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto Labels = GatherDebugLocLabelsFromDxcUtils(debugInterfaces);
   auto dxilDebugger = debugInterfaces.debugInfo;
 
   // Case: same function called from two places in same top-level function.
@@ -3210,13 +3143,12 @@ TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_Function) {
   DWORD instructionOffset =
       AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// Stop in subroutine");
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"Stop in subroutine");
   CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                               L"zero");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// Stop here");
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
   CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                               L"i2");
   CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
@@ -3233,7 +3165,7 @@ struct Struct {
   int i;
   int Getter() {
       int q = i;
-      return q; //inside member fn
+      return q; //debug-loc(inside member fn)
   }
 };
 [shader("compute")]
@@ -3243,11 +3175,12 @@ void CSMain()
     Struct s;
     s.i = intRWUAV.Load(0);
     int j = s.Getter();
-    intRWUAV[0] = j; // Stop here
+    intRWUAV[0] = j; // debug-loc(Stop here)
 }
 )";
 
   auto debugInterfaces = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto Labels = GatherDebugLocLabelsFromDxcUtils(debugInterfaces);
   auto dxilDebugger = debugInterfaces.debugInfo;
 
   // Case: same function called from two places in same top-level function.
@@ -3258,15 +3191,14 @@ void CSMain()
   DWORD instructionOffset =
       AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"inside member fn");
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"inside member fn");
   CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                               L"s");
   CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                        L"q");
 
-  instructionOffset = AdvanceUntilLineContains(
-      debugInterfaces, instructionOffset, L"// Stop here");
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
   CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                               L"i");
   CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
