@@ -3050,7 +3050,8 @@ TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_ForScopes) {
   DWORD instructionOffset =
       AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
 
-  instructionOffset = Labels->FindInstructionOffsetForLabel(L"CheckVariableExistsHere");
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"CheckVariableExistsHere");
   CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                        L"zero");
 
@@ -3195,14 +3196,12 @@ void CSMain()
       Labels->FindInstructionOffsetForLabel(L"inside member fn");
   CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                               L"s");
-  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
-                                       L"q");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset, L"q");
 
   instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
   CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
                                               L"i");
-  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
-      L"j");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset, L"j");
 }
 
 #endif

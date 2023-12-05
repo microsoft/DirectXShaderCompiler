@@ -14,9 +14,9 @@
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcpix.h"
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 namespace dxc {
 class DxcDllSupport;

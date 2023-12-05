@@ -278,7 +278,7 @@ class InstructionOffsetSeekerImpl : public InstructionOffsetSeeker {
 
   std::map<std::wstring, DWORD> m_labelToInstructionOffset;
 
-  public:
+public:
   InstructionOffsetSeekerImpl(DebuggerInterfaces &debuggerInterfaces) {
     DWORD SourceFileOrdinal = 0;
     CComBSTR fileName;
@@ -291,8 +291,7 @@ class InstructionOffsetSeekerImpl : public InstructionOffsetSeeker {
         auto DebugLocPos = lines[line].find(DebugLocLabel);
         if (DebugLocPos != std::wstring::npos) {
           auto StartLabelPos = DebugLocPos + (_countof(DebugLocLabel) - 1);
-          auto CloseDebugLocPos =
-              lines[line].find(L")", StartLabelPos);
+          auto CloseDebugLocPos = lines[line].find(L")", StartLabelPos);
           VERIFY_ARE_NOT_EQUAL(CloseDebugLocPos, std::string::npos);
           auto Label = lines[line].substr(StartLabelPos,
                                           CloseDebugLocPos - StartLabelPos);
@@ -307,7 +306,7 @@ class InstructionOffsetSeekerImpl : public InstructionOffsetSeeker {
                          m_labelToInstructionOffset.end());
           // Just the last offset is sufficient:
           m_labelToInstructionOffset[Label] =
-              InstructionOffsets->GetOffsetByIndex(InstructionOffsetCount-1);
+              InstructionOffsets->GetOffsetByIndex(InstructionOffsetCount - 1);
         }
       }
       SourceFileOrdinal++;
@@ -316,7 +315,7 @@ class InstructionOffsetSeekerImpl : public InstructionOffsetSeeker {
     }
   }
 
-  virtual DWORD FindInstructionOffsetForLabel(const wchar_t* label) override {
+  virtual DWORD FindInstructionOffsetForLabel(const wchar_t *label) override {
     return m_labelToInstructionOffset[label];
   }
 };
