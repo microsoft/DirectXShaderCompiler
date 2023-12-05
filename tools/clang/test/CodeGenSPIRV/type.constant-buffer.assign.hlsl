@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpName %type_ConstantBuffer_S "type.ConstantBuffer.S"
 // CHECK-NEXT: OpMemberName %type_ConstantBuffer_S 0 "someFloat"
@@ -24,7 +24,7 @@ void main()
 {
 // CHECK:           %local = OpVariable %_ptr_Function_type_ConstantBuffer_S Function
 
-// CHECK: [[val:%\d+]] = OpLoad %type_ConstantBuffer_S %buffer
+// CHECK: [[val:%[0-9]+]] = OpLoad %type_ConstantBuffer_S %buffer
 // CHECK:                OpStore %local [[val]]
   ConstantBuffer<S> local;
   local = buffer;

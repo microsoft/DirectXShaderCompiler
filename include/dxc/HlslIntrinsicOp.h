@@ -23,7 +23,6 @@ enum class IntrinsicOp {
   IOP_EvaluateAttributeAtSample,
   IOP_EvaluateAttributeCentroid,
   IOP_EvaluateAttributeSnapped,
-  IOP_ExtractRecordStructFromArray,
   IOP_GeometryIndex,
   IOP_GetAttributeAtVertex,
   IOP_GetRemainingRecursionLevels,

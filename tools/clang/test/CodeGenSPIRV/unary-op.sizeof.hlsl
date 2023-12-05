@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_2 -E main -HV 2018 -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -HV 2018 -enable-16bit-types -fcgl  %s -spirv | FileCheck %s
 
 struct PSInput
 {
@@ -56,6 +56,6 @@ int3 main(PSInput input) : SV_TARGET
 // CHECK: OpStore %foo %int_8
   foo = sizeof(complexStruct);
 
-// CHECK: OpIMul %uint {{%\d+}} %uint_12
+// CHECK: OpIMul %uint {{%[0-9]+}} %uint_12
   return g_meshData[input.color.x].Load3(input.color.y * sizeof(float3));
 }

@@ -1,4 +1,4 @@
-// RUN: %dxc -T gs_6_0 -E main
+// RUN: %dxc -T gs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpEntryPoint Geometry %main "main"
 // CHECK-SAME: %gl_Position %out_var_COLOR0 %out_var_TEXCOORD0
@@ -16,7 +16,7 @@
 // CHECK:    %out_var_COLOR0 = OpVariable %_ptr_Output_v4float Output
 // CHECK: %out_var_TEXCOORD0 = OpVariable %_ptr_Output_v2float Output
 
-// CHECK:  %src_main = OpFunction %void None {{%\d+}}
+// CHECK:  %src_main = OpFunction %void None {{%[0-9]+}}
 // CHECK:        %id = OpFunctionParameter %_ptr_Function__arr_v4float_uint_3
 // CHECK: %outstream = OpFunctionParameter %_ptr_Function_GS_OUT
 

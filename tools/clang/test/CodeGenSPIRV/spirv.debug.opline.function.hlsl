@@ -6,7 +6,7 @@
 void foo(in float4 a, out float3 b);
 
 // CHECK:                  OpLine [[file]] 28 1
-// CHECK-NEXT: %src_main = OpFunction %void None
+// CHECK-NEXT: %main = OpFunction %void None
 
 void bar(int a, in float b, inout bool2 c, const float3 d, out uint4 e) {
 }

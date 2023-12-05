@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -E main -fspv-flatten-resource-arrays -fvk-allow-rwstructuredbuffer-arrays
+// RUN: %dxc -T ps_6_6 -E main -fspv-flatten-resource-arrays -fvk-allow-rwstructuredbuffer-arrays -fcgl  %s -spirv | FileCheck %s
 
 // TODO: This test should add `-O0` to make sure that the resource arrays are correctly flattened.
 // DXC is currently generating the correct code, but the spirv-tools passes are failing on the counter
@@ -21,14 +21,14 @@ RWStructuredBuffer<uint> g_rwbuffer[5] : register(u0, space2);
 float4 main(PSInput input) : SV_TARGET
 {
 // Correctly increment the counter.
-// CHECK: [[ac1:%\w+]] = OpAccessChain %_ptr_Uniform_type_ACSBuffer_counter %counter_var_g_rwbuffer {{%\d+}}
-// CHECK: [[ac2:%\w+]] = OpAccessChain %_ptr_Uniform_int [[ac1]] %uint_0
+// CHECK: [[ac1:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Uniform_type_ACSBuffer_counter %counter_var_g_rwbuffer {{%[0-9]+}}
+// CHECK: [[ac2:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Uniform_int [[ac1]] %uint_0
 // CHECK: OpAtomicIAdd %int [[ac2]] %uint_1 %uint_0 %int_1
     g_rwbuffer[input.idx].IncrementCounter();
 
 // Correctly access the buffer.
-// CHECK: [[ac1:%\w+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer {{%\d+}}
-// CHECK: [[ac2:%\w+]] = OpAccessChain %_ptr_Uniform_uint [[ac1]] %int_0 %uint_0
-// CHECK: OpLoad %uint [[ac2]]
+// CHECK: [[ac1_0:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer {{%[0-9]+}}
+// CHECK: [[ac2_0:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Uniform_uint [[ac1_0]] %int_0 %uint_0
+// CHECK: OpLoad %uint [[ac2_0]]
     return g_rwbuffer[input.idx][0];
 }

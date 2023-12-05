@@ -1,48 +1,48 @@
-// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: [[ext:%\d+]] = OpExtInstImport "GLSL.std.450"
+// CHECK: [[ext:%[0-9]+]] = OpExtInstImport "GLSL.std.450"
 
 void main() {
-// CHECK:      [[a:%\d+]] = OpLoad %bool %a
-// CHECK-NEXT: [[b:%\d+]] = OpSelect %half [[a]] %half_0x1p_0 %half_0x0p_0
+// CHECK:      [[a:%[0-9]+]] = OpLoad %bool %a
+// CHECK-NEXT: [[b:%[0-9]+]] = OpSelect %half [[a]] %half_0x1p_0 %half_0x0p_0
 // CHECK-NEXT:              OpStore %b [[b]]
   bool a;
   half b = a;
 
-// CHECK:      [[c:%\d+]] = OpLoad %v2bool %c
-// CHECK-NEXT: [[d:%\d+]] = OpSelect %v2half [[c]] {{%\d+}} {{%\d+}}
+// CHECK:      [[c:%[0-9]+]] = OpLoad %v2bool %c
+// CHECK-NEXT: [[d:%[0-9]+]] = OpSelect %v2half [[c]] {{%[0-9]+}} {{%[0-9]+}}
 // CHECK-NEXT:              OpStore %d [[d]]
   bool2 c;
   half2 d = c;
 
-// CHECK:      [[d:%\d+]] = OpLoad %v2half %d
-// CHECK-NEXT: [[e:%\d+]] = OpExtInst %v2half [[ext]] FClamp [[d]] {{%\d+}} {{%\d+}}
+// CHECK:      [[d_0:%[0-9]+]] = OpLoad %v2half %d
+// CHECK-NEXT: [[e:%[0-9]+]] = OpExtInst %v2half [[ext]] FClamp [[d_0]] {{%[0-9]+}} {{%[0-9]+}}
 // CHECK-NEXT:              OpStore %e [[e]]
   half2 e = saturate(d);
 
-// CHECK:      [[b:%\d+]] = OpLoad %half %b
-// CHECK-NEXT: [[f:%\d+]] = OpExtInst %half [[ext]] FClamp [[b]] %half_0x0p_0 %half_0x1p_0
+// CHECK:      [[b_0:%[0-9]+]] = OpLoad %half %b
+// CHECK-NEXT: [[f:%[0-9]+]] = OpExtInst %half [[ext]] FClamp [[b_0]] %half_0x0p_0 %half_0x1p_0
 // CHECK-NEXT:              OpStore %f [[f]]
   half f = saturate(b);
 
-// CHECK:      [[a:%\d+]] = OpLoad %bool %a
-// CHECK-NEXT: [[x:%\d+]] = OpSelect %float [[a]] %float_1 %float_0
-// CHECK-NEXT: [[y:%\d+]] = OpExtInst %float [[ext]] FClamp [[x]] %float_0 %float_1
-// CHECK-NEXT: [[g:%\d+]] = OpFConvert %half [[y]]
+// CHECK:      [[a_0:%[0-9]+]] = OpLoad %bool %a
+// CHECK-NEXT: [[x:%[0-9]+]] = OpSelect %float [[a_0]] %float_1 %float_0
+// CHECK-NEXT: [[y:%[0-9]+]] = OpExtInst %float [[ext]] FClamp [[x]] %float_0 %float_1
+// CHECK-NEXT: [[g:%[0-9]+]] = OpFConvert %half [[y]]
 // CHECK-NEXT:              OpStore %g [[g]]
   half g = (half)saturate(a);
 
-// CHECK:      [[h:%\d+]] = OpLoad %v2int %h
-// CHECK-NEXT: [[x:%\d+]] = OpConvertSToF %v2float [[h]]
-// CHECK-NEXT: [[y:%\d+]] = OpExtInst %v2float [[ext]] FClamp [[x]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT: [[i:%\d+]] = OpFConvert %v2half [[y]]
+// CHECK:      [[h:%[0-9]+]] = OpLoad %v2int %h
+// CHECK-NEXT: [[x_0:%[0-9]+]] = OpConvertSToF %v2float [[h]]
+// CHECK-NEXT: [[y_0:%[0-9]+]] = OpExtInst %v2float [[ext]] FClamp [[x_0]] {{%[0-9]+}} {{%[0-9]+}}
+// CHECK-NEXT: [[i:%[0-9]+]] = OpFConvert %v2half [[y_0]]
 // CHECK-NEXT:              OpStore %i [[i]]
   int2 h;
   half2 i = (half2)saturate(h);
 
-// CHECK:      [[j:%\d+]] = OpLoad %v2float %j
-// CHECK-NEXT: [[x:%\d+]] = OpExtInst %v2float [[ext]] FClamp [[j]] {{%\d+}} {{%\d+}}
-// CHECK-NEXT: [[k:%\d+]] = OpFConvert %v2half [[x]]
+// CHECK:      [[j:%[0-9]+]] = OpLoad %v2float %j
+// CHECK-NEXT: [[x_1:%[0-9]+]] = OpExtInst %v2float [[ext]] FClamp [[j]] {{%[0-9]+}} {{%[0-9]+}}
+// CHECK-NEXT: [[k:%[0-9]+]] = OpFConvert %v2half [[x_1]]
 // CHECK-NEXT:              OpStore %k [[k]]
   float2 j;
   half2 k = (half2)saturate(j);

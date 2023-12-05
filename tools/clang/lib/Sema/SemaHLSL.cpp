@@ -1836,25 +1836,21 @@ ParamModsFromIntrinsicArg(const HLSL_INTRINSIC_ARGUMENT *pArg) {
   DXASSERT(qwUsage & AR_QUAL_IN, "else usage is incorrect");
   return hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In);
 }
-
 static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
-                          SmallVectorImpl<hlsl::ParameterModifier> &paramMods) {
+                          SmallVectorImpl<hlsl::ParameterModifier> &paramMods,
+                          size_t VariadicArgumentCount = 0u) {
   // The first argument is the return value, which isn't included.
-  UINT i = 1, size = paramMods.size();
-  for (; i < pIntrinsic->uNumArgs; ++i) {
+  for (unsigned i = 1; i < pIntrinsic->uNumArgs; ++i) {
     // Once we reach varargs we can break out of this loop.
     if (IsVariadicArgument(pIntrinsic->pArgs[i]))
       break;
     paramMods.push_back(ParamModsFromIntrinsicArg(&pIntrinsic->pArgs[i]));
   }
-
   // For variadic functions, any argument not explicitly specified will be
   // considered an input argument.
-  if (IsVariadicIntrinsicFunction(pIntrinsic)) {
-    for (; i < size; ++i) {
-      paramMods.push_back(
-          hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In));
-    }
+  for (unsigned i = 0; i < VariadicArgumentCount; ++i) {
+    paramMods.push_back(
+        hlsl::ParameterModifier(hlsl::ParameterModifier::Kind::In));
   }
 }
 
@@ -1913,20 +1909,16 @@ AddHLSLIntrinsicFunction(ASTContext &context, NamespaceDecl *NS,
   DeclContext *currentDeclContext = context.getTranslationUnitDecl();
   std::vector<QualType> &functionArgQualTypes = *functionArgQualTypesVector;
   const size_t functionArgTypeCount = functionArgQualTypes.size();
-
   const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
+  // For variadic functions, the number of arguments is larger than the
+  // function declaration signature.
+  const size_t VariadicArgumentCount =
+      isVariadic ? (functionArgTypeCount - (pIntrinsic->uNumArgs - 1)) : 0;
   DXASSERT(isVariadic || functionArgTypeCount - 1 <= g_MaxIntrinsicParamCount,
            "otherwise g_MaxIntrinsicParamCount should be larger");
 
   SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
-
-  if (isVariadic) {
-    // For variadic functions, the number of arguments is larger than the
-    // function declaration signature.
-    paramMods.resize(functionArgTypeCount);
-  }
-
-  InitParamMods(pIntrinsic, paramMods);
+  InitParamMods(pIntrinsic, paramMods, VariadicArgumentCount);
 
   for (size_t i = 1; i < functionArgTypeCount; i++) {
     // Change out/inout param to reference type.
@@ -3733,7 +3725,7 @@ private:
       // Get types for parameters.
       SmallVector<QualType, 2> paramTypes =
           VkIntrinsicFunctionParamTypes(intrinsic, templateTypeParmDecls);
-      SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+      SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
       InitParamMods(intrinsic, paramMods);
 
       // Create FunctionDecl.
@@ -5723,7 +5715,7 @@ public:
       parameterTypes[0] = m_context->getLValueReferenceType(retTy);
 
     // Create a new specialization.
-    SmallVector<ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
+    SmallVector<hlsl::ParameterModifier, g_MaxIntrinsicParamCount> paramMods;
     InitParamMods(intrinsic, paramMods);
 
     for (unsigned int i = 1; i < parameterTypeCount; i++) {
@@ -13178,7 +13170,8 @@ void ValidateDispatchGridValues(DiagnosticsEngine &Diags,
         << A.getName() << "Z" << A.getRange();
     z = 0;
   }
-  if (x * y * z > MaxProductValue)
+  uint64_t product = (uint64_t)x * (uint64_t)y * (uint64_t)z;
+  if (product > MaxProductValue)
     Diags.Report(A.getLoc(), diag::err_hlsl_dispatchgrid_product)
         << A.getName() << A.getRange();
 }

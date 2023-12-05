@@ -758,6 +758,12 @@ public:
       return nullptr;
     }
 
+    if (!DoesDeviceSupportWaveMatrix(pDevice)) {
+      LogCommentFmt(L"WaveMatrix not supported on this device.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return nullptr;
+    }
+
     CComPtr<IStream> pStream;
     ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
 
@@ -1624,6 +1630,19 @@ public:
             (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
       return false;
     return O9.AtomicInt64OnGroupSharedSupported != FALSE;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
+  bool DoesDeviceSupportWaveMatrix(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport(
+            (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
+      return false;
+    return O9.WaveMMATier >= D3D12_WAVE_MMA_TIER_1_0;
 #else
     UNREFERENCED_PARAMETER(pDevice);
     return false;
@@ -9002,7 +9021,8 @@ void LoadStoreMat(int M, int N, bool LEFT, int MEM_TYPE, uint32_t K, uint32_t k,
 }
 
 // define WAVE_MMA types if building with SDK that does not support it yet
-#if !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 613)
+// For now: Force this on, until we know the version.
+#if 1 // !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 613)
 typedef enum D3D12_WAVE_MMA_INPUT_DATATYPE {
   D3D12_WAVE_MMA_INPUT_DATATYPE_INVALID = 0,
   D3D12_WAVE_MMA_INPUT_DATATYPE_BYTE =

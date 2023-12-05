@@ -1,7 +1,18 @@
 # Find the Win10 SDK path.
 if ("$ENV{WIN10_SDK_PATH}$ENV{WIN10_SDK_VERSION}" STREQUAL "" )
   get_filename_component(WIN10_SDK_PATH "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot10]" ABSOLUTE CACHE)
-  set (WIN10_SDK_VERSION ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION})
+  if (CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
+    set (WIN10_SDK_VERSION ${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION})
+  else()
+    # CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION may not be defined if, for example,
+    # the Ninja generator is used instead of Visual Studio. Attempt to retrieve the
+    # most recent SDK version from the list of paths under "${WIN10_SDK_PATH}/Include/".
+    file(GLOB sdk_dirs RELATIVE "${WIN10_SDK_PATH}/Include/" "${WIN10_SDK_PATH}/Include/10.*")
+    if (sdk_dirs)
+      list(POP_BACK sdk_dirs WIN10_SDK_VERSION)
+    endif()
+    unset(sdk_dirs)
+  endif()
 elseif(TRUE)
   set (WIN10_SDK_PATH $ENV{WIN10_SDK_PATH})
   set (WIN10_SDK_VERSION $ENV{WIN10_SDK_VERSION})
