@@ -292,18 +292,25 @@ public:
         if (DebugLocPos != std::wstring::npos) {
           auto StartLabelPos = DebugLocPos + (_countof(DebugLocLabel) - 1);
           auto CloseDebugLocPos = lines[line].find(L")", StartLabelPos);
-          VERIFY_ARE_NOT_EQUAL(CloseDebugLocPos, std::string::npos);
+          if (CloseDebugLocPos == std::string::npos) {
+            VERIFY_ARE_NOT_EQUAL(CloseDebugLocPos, std::string::npos);
+          }
           auto Label = lines[line].substr(StartLabelPos,
                                           CloseDebugLocPos - StartLabelPos);
           CComPtr<IDxcPixDxilInstructionOffsets> InstructionOffsets;
-          VERIFY_SUCCEEDED(debuggerInterfaces.debugInfo
-                               ->InstructionOffsetsFromSourceLocation(
-                                   fileName, line + 1, 0, &InstructionOffsets));
+          if (FAILED((debuggerInterfaces.debugInfo
+                          ->InstructionOffsetsFromSourceLocation(
+                              fileName, line + 1, 0, &InstructionOffsets)))) {
+            VERIFY_FAIL(L"InstructionOffsetsFromSourceLocation failed");
+          }
           auto InstructionOffsetCount = InstructionOffsets->GetCount();
-          VERIFY_IS_TRUE(InstructionOffsetCount > 0);
-          // No duplicate labels:
-          VERIFY_IS_TRUE(m_labelToInstructionOffset.find(Label) ==
-                         m_labelToInstructionOffset.end());
+          if (InstructionOffsetCount == 0) {
+            VERIFY_FAIL(L"Instruction offset count was zero");
+          }
+          if (m_labelToInstructionOffset.find(Label) !=
+              m_labelToInstructionOffset.end()) {
+            VERIFY_FAIL(L"Duplicate label found!");
+          }
           // Just the last offset is sufficient:
           m_labelToInstructionOffset[Label] =
               InstructionOffsets->GetOffsetByIndex(InstructionOffsetCount - 1);
@@ -316,6 +323,8 @@ public:
   }
 
   virtual DWORD FindInstructionOffsetForLabel(const wchar_t *label) override {
+    VERIFY_ARE_NOT_EQUAL(m_labelToInstructionOffset.find(label),
+                         m_labelToInstructionOffset.end());
     return m_labelToInstructionOffset[label];
   }
 };
