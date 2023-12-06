@@ -49,12 +49,19 @@ public:
     // is at file-level scope, it will return nullptr.
     if (auto Namespace = llvm::dyn_cast<llvm::DINamespace>(FunctionScope)) {
       if (auto *ContainingScope = Namespace->getScope()) {
-        FunctionScope = ContainingScope;
+        if (FunctionScope == InlinedAtScope)
+          InlinedAtScope = FunctionScope = ContainingScope;
+        else
+          FunctionScope = ContainingScope;
         return;
       }
     }
     const llvm::DITypeIdentifierMap EmptyMap;
-    FunctionScope = FunctionScope->getScope().resolve(EmptyMap);
+    if (FunctionScope == InlinedAtScope)
+      InlinedAtScope = FunctionScope =
+          FunctionScope->getScope().resolve(EmptyMap);
+    else
+      FunctionScope = FunctionScope->getScope().resolve(EmptyMap);
   }
 
   static UniqueScopeForInlinedFunctions Create(llvm::DebugLoc const &DbgLoc,
