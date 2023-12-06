@@ -1015,6 +1015,11 @@ public:
     m_str = NULL;
     return s;
   }
+
+  void Empty() throw() {
+    SysFreeString(m_str);
+    m_str = NULL;
+  }
 };
 
 //===--------- Convert argv to wchar ----------------===//

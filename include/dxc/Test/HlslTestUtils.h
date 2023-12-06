@@ -115,6 +115,7 @@ using namespace std;
 #endif // VERIFY_ARE_EQUAL
 
 static constexpr char whitespaceChars[] = " \t\r\n";
+static constexpr wchar_t wideWhitespaceChars[] = L" \t\r\n";
 
 inline std::string strltrim(const std::string &value) {
   size_t first = value.find_first_not_of(whitespaceChars);
@@ -143,6 +144,25 @@ inline std::vector<std::string>
 strtok(const std::string &value, const char *delimiters = whitespaceChars) {
   size_t searchOffset = 0;
   std::vector<std::string> tokens;
+  while (searchOffset != value.size()) {
+    size_t tokenStartIndex = value.find_first_not_of(delimiters, searchOffset);
+    if (tokenStartIndex == std::string::npos)
+      break;
+    size_t tokenEndIndex = value.find_first_of(delimiters, tokenStartIndex);
+    if (tokenEndIndex == std::string::npos)
+      tokenEndIndex = value.size();
+    tokens.emplace_back(
+        value.substr(tokenStartIndex, tokenEndIndex - tokenStartIndex));
+    searchOffset = tokenEndIndex;
+  }
+  return tokens;
+}
+
+inline std::vector<std::wstring>
+strtok(const std::wstring &value,
+       const wchar_t *delimiters = wideWhitespaceChars) {
+  size_t searchOffset = 0;
+  std::vector<std::wstring> tokens;
   while (searchOffset != value.size()) {
     size_t tokenStartIndex = value.find_first_not_of(delimiters, searchOffset);
     if (tokenStartIndex == std::string::npos)
