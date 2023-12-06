@@ -51,10 +51,6 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/SpirvTestOptions.h
     )
 
-if(WIN32)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj") # otherwise will hit fatal error C1128 on windows x64
-endif(WIN32)
-
 if (NOT CLANG_INCLUDE_TESTS)
   add_test(NAME test-spirv-codegen COMMAND $<TARGET_FILE:ClangSPIRVTests>)
 endif()
