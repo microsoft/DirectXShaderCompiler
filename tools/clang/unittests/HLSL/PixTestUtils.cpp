@@ -317,8 +317,8 @@ public:
         }
       }
       SourceFileOrdinal++;
-      fileName = nullptr;
-      fileContent = nullptr;
+      fileName.Empty();
+      fileContent.Empty();
     }
   }
 
