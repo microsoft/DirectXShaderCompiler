@@ -11478,10 +11478,20 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
   auto *arg1Instr = doExpr(arg1);
   auto *arg2Instr = doExpr(arg2);
 
+  // OpSDot/OpUDot need a Packed Vector Format operand when Vector 1 and
+  // Vector 2 are scalar integer types.
+  SpirvConstant *formatConstant = spvBuilder.getConstantInt(
+      astContext.UnsignedIntTy,
+      llvm::APInt(32,
+                  uint32_t(spv::PackedVectorFormat::PackedVectorFormat4x8Bit)));
+  // Make sure that the format is emitted as a literal constant and not
+  // an instruction reference.
+  formatConstant->setLiteral(true);
+
   // Prepare the array inputs for createSpirvIntrInstExt below.
   // Need to use this function because the OpSDot/OpUDot operations require
   // two capabilities and an extension to be declared in the module.
-  SpirvInstruction *operands[]{arg0Instr, arg1Instr};
+  SpirvInstruction *operands[]{arg0Instr, arg1Instr, formatConstant};
   uint32_t capabilities[]{
       uint32_t(spv::Capability::DotProduct),
       uint32_t(spv::Capability::DotProductInput4x8BitPacked)};
