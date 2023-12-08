@@ -381,7 +381,7 @@ private:
     int indexInCTBuffer;
   };
 
-  /// The struct contianing the data needed to create the input and output
+  /// The struct containing the data needed to create the input and output
   /// variables for the decl.
   struct StageVarDataBundle {
   public:
