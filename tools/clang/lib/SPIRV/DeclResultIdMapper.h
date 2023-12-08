@@ -661,7 +661,7 @@ private:
       const DeclContext *decl, int arraySize, ContextUsageKind usageKind,
       llvm::StringRef typeName, llvm::StringRef varName);
 
-  /// Creates all of the stage variables that must be generated for the give
+  /// Creates all of the stage variables that must be generated for the given
   /// stage variable data. Returns true on success.
   ///
   /// stageVarData: See the definition of StageVarDataBundle to see how that
