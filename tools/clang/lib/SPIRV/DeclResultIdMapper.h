@@ -392,7 +392,7 @@ private:
 
     // The HLSL semantic to apply to the variable. Note that this could be
     // different than the semantic attached to decl because it could inherit
-    // the semantic from the parent declaration if this declarion is a member.
+    // the semantic from the parent declaration if this declaration is a member.
     SemanticInfo *semantic;
 
     // True if the variable it no suppose to be interpolated. Note that we
