@@ -391,7 +391,7 @@ private:
     const NamedDecl *decl;
 
     // The HLSL semantic to apply to the variable. Note that this could be
-    // different thant hte semantic attached to decl because it could inherit
+    // different than the semantic attached to decl because it could inherit
     // the semantic from the parent declaration if this declarion is a member.
     SemanticInfo *semantic;
 
