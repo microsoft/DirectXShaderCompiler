@@ -395,7 +395,7 @@ private:
     // the semantic from the parent declaration if this declaration is a member.
     SemanticInfo *semantic;
 
-    // True if the variable it no suppose to be interpolated. Note that we
+    // True if the variable is not suppose to be interpolated. Note that we
     // cannot just look at decl to determine this because the attribute might
     // have been applied to a parent declaration.
     bool asNoInterp;
