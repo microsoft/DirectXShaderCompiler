@@ -381,6 +381,46 @@ private:
     int indexInCTBuffer;
   };
 
+  /// The struct containing the data needed to create the input and output
+  /// variables for the decl.
+  struct StageVarDataBundle {
+  public:
+    StageVarDataBundle() = default;
+    // The declaration of the variable for which we need to create the stage
+    // variables.
+    const NamedDecl *decl;
+
+    // The HLSL semantic to apply to the variable. Note that this could be
+    // different than the semantic attached to decl because it could inherit
+    // the semantic from the parent declaration if this declaration is a member.
+    SemanticInfo *semantic;
+
+    // True if the variable is not suppose to be interpolated. Note that we
+    // cannot just look at decl to determine this because the attribute might
+    // have been applied to a parent declaration.
+    bool asNoInterp;
+
+    // The sigPoint is the shader stage that this variable should be added to,
+    // and whether it is an input or output.
+    const hlsl::SigPoint *sigPoint;
+
+    // The type to use for the new variable. There are cases where the type
+    // might be different. See the call sites for createStageVars.
+    QualType type;
+
+    // If the shader stage for the variable is HS, DS, or GS, the SPIR-V
+    // requires that the stage variable is an array of type. The arraySize gives
+    // the size for that array.
+    uint32_t arraySize;
+
+    // A prefix to use for the name of the variable.
+    llvm::StringRef namePrefix;
+
+    // If arraySize is not zero, invocationId gives the index to used when
+    // generating a write to the stage variable.
+    llvm::Optional<SpirvInstruction *> invocationId;
+  };
+
   /// \brief Returns the SPIR-V information for the given decl.
   /// Returns nullptr if no such decl was previously registered.
   const DeclSpirvInfo *getDeclSpirvInfo(const ValueDecl *decl) const;
@@ -621,113 +661,75 @@ private:
       const DeclContext *decl, int arraySize, ContextUsageKind usageKind,
       llvm::StringRef typeName, llvm::StringRef varName);
 
-  /// Creates all the stage variables mapped from semantics on the given decl.
-  /// Returns true on success.
+  /// Creates all of the stage variables that must be generated for the given
+  /// stage variable data. Returns true on success.
   ///
-  /// If decl is of struct type, this means flattening it and create stand-
-  /// alone variables for each field. If arraySize is not zero, the created
-  /// stage variables will be arrays of the original type and the given size.
-  /// This is for supporting HS/DS/GS, which takes in primitives containing
-  /// multiple vertices. asType should be the type we are treating decl as;
-  /// For HS/DS/GS, the outermost arrayness should be discarded and use
-  /// arraySize instead.
+  /// stageVarData: See the definition of StageVarDataBundle to see how that
+  /// data is used.
   ///
-  /// Also performs reading the stage variables and compose a temporary value
-  /// of the given type and writing into *value, if asInput is true. Otherwise,
-  /// Decomposes the *value according to type and writes back into the stage
-  /// output variables, unless noWriteBack is set to true. noWriteBack is used
-  /// by GS since in GS we manually control write back using .Append() method.
+  /// asInput: True if the stage variable is an input.
   ///
-  /// invocationId is only used for HS to indicate the index of the output
-  /// array element to write to.
+  /// TODO(s-perron): a variable that is an input or an output depending on
+  /// value of a flag is very hard to read. This function should be split up
+  /// and flag variables removed.
   ///
-  /// Assumes the decl has semantic attached to itself or to its fields.
-  /// If inheritSemantic is valid, it will override all semantics attached to
-  /// the children of this decl, and the children of this decl will be using
-  /// the semantic in inheritSemantic, with index increasing sequentially.
-  bool createStageVars(const hlsl::SigPoint *sigPoint, const NamedDecl *decl,
-                       bool asInput, QualType asType, uint32_t arraySize,
-                       const llvm::StringRef namePrefix,
-                       llvm::Optional<SpirvInstruction *> invocationId,
-                       SpirvInstruction **value, bool noWriteBack,
-                       SemanticInfo *inheritSemantic, bool asNoInterp = false);
+  /// [in/out] value: If `asInput` is true, this is an
+  /// output, and will be an instruction that loads the stage variable. If
+  /// `asInput` is false, then it is an input to createStageVars, and contains
+  /// the value to be stored in the new stage variable.
+  ///
+  /// noWriteBack: If true, the newly created stage variable will not be written
+  /// to.
+  bool createStageVars(StageVarDataBundle &stageVarData, bool asInput,
+                       SpirvInstruction **value, bool noWriteBack);
 
   // Creates a variable to represent the output variable, which must be a
   // structure. If `noWriteBack` is false, then `value` will be written to the
   // new variable. Returns true if successful.
   //
-  // TODO(s-perron): All of the parameters associated with the HLSL
-  // representation of the variable should be grouped in a struct. This struct
-  // should be used in all of the function below to reduce the number of
-  // parameters.
+  // stageVarData: The data needed to create the stage variable.
   //
-  // type: The type of the variable in the HLSL.
-  // sigPoint: The signature point for the variable.
-  // arraySize: The size of the array when the SPIR-V variable must become an
-  // array of type, 0 otherwise. invocationId: when arraySize is not 0,
-  // invocationId is the index at which `value` should be written. namePrefix: a
-  // prefix to apply to the name of the variable. semantic: the HLSL semantic
-  // for this variable. noWriteBack: A flag to indicate if the variable should
-  // be written or not. asNoInterp: True if the variable is not to be
-  // interpolated. value: The value to be written to the newly create variable.
-  // loc: The location of the variable in the source code.
-  bool createStructOutputVar(QualType type, const hlsl::SigPoint *sigPoint,
-                             uint32_t arraySize,
-                             llvm::Optional<SpirvInstruction *> invocationId,
-                             const llvm::StringRef namePrefix,
-                             SemanticInfo *semantic, bool noWriteBack,
-                             bool asNoInterp, SpirvInstruction *value,
-                             SourceLocation loc);
+  // noWriteBack: A flag to indicate if the variable should be written or not.
+  //
+  // value: The value to be written to the newly create variable.
+  bool createStructOutputVar(const StageVarDataBundle &stageVarData,
+                             SpirvInstruction *value, bool noWriteBack);
 
   // Creates a variable to represent the input variable, which must be a
   // structure. The value is loaded and the instruction with the final value is
   // return.
   //
-  // type: The type of the variable in the HLSL.
-  // sigPoint: The signature point for the variable.
-  // arraySize: The size of the array when the SPIR-V variable must become an
-  // array of type, 0 otherwise. namePrefix: a prefix to apply to the name of
-  // the variable. asNoInterp: True if the variable is not to be interpolated.
+  // stageVarData: The data needed to create the stage variable.
+  //
   // noWriteBack: A flag to indicate if the variable should be written or not.
-  // semantic: the HLSL semantic for this variable.
-  // loc: The location of the variable in the source code.
-  SpirvInstruction *
-  createStructInputVar(QualType type, const hlsl::SigPoint *sigPoint,
-                       uint32_t arraySize, const llvm::StringRef namePrefix,
-                       bool asNoInterp, bool noWriteBack,
-                       SemanticInfo *semantic, SourceLocation loc);
+  SpirvInstruction *createStructInputVar(const StageVarDataBundle &stageVarData,
+                                         bool noWriteBack);
 
   // Store `value` to the shader output variable `varInstr`. Since the type
-  // could be different, other data is used to know how to convert `value` into
-  // the correct type for `varInstr`.
+  // could be different, stageVarData is used to know how to convert `value`
+  // into the correct type for `varInstr`.
   //
-  // varInstr: the output variable that corresponds to `decl`. It must not be a
-  // struct. semanticKind: the HLSL semantic for this variable. type: The type
-  // of the variable in the HLSL. value: The value to be written to the create
-  // variable. invocationId: when arraySize is not 0, invocationId is the index
-  // at which `value` should be written. sigPointKind: The signature point for
-  // the variable. decl: The original declaration of the variable. loc: The
-  // location of the variable in the source code.
-  void storeToShaderOutputVariable(
-      SpirvVariable *varInstr, hlsl::Semantic::Kind semanticKind, QualType type,
-      SpirvInstruction *value, llvm::Optional<SpirvInstruction *> invocationId,
-      hlsl::SigPoint::Kind sigPointKind, const NamedDecl *decl,
-      SourceLocation loc);
+  // varInstr: the output variable that corresponds to `stageVarData`. It must
+  // not be a struct.
+  //
+  // value: The value to be written to the create variable.
+  //
+  // stageVarData: The data that was used to create `varInstr`.
+  void storeToShaderOutputVariable(SpirvVariable *varInstr,
+                                   SpirvInstruction *value,
+                                   const StageVarDataBundle &stageVarData);
 
-  // Loads shader input variable `varInstr`, and modifies it to match `type`.
-  // Other data is used to know how to convert `varInstr` into the correct type.
+  // Loads shader input variable `varInstr`, and modifies the value to match the
+  // type in stageVarData. The struct stageVarData is used to know how to
+  // convert the value loaded from `varInstr` into the correct type.
   //
-  // varInstr: the input variable that corresponds to `decl`. It must not be a
-  // struct. semanticKind: the HLSL semantic for this variable. sigPointKind:
-  // The signature point for the variable. type: The type of the variable in the
-  // HLSL. decl: The original declaration of the variable. loc: The location of
-  // the variable in the source code.
-  SpirvInstruction *loadShaderInputVariable(SpirvVariable *varInstr,
-                                            hlsl::Semantic::Kind semanticKind,
-                                            hlsl::SigPoint::Kind sigPointKind,
-                                            QualType type,
-                                            const NamedDecl *decl,
-                                            SourceLocation loc);
+  // varInstr: the input variable that corresponds to `stageVarData`. It must
+  // not be a struct.
+  //
+  // stageVarData: The data that was used to create `varInstr`.
+  SpirvInstruction *
+  loadShaderInputVariable(SpirvVariable *varInstr,
+                          const StageVarDataBundle &stageVarData);
 
   // Creates a function scope variable to represent the "SV_InstanceID"
   // semantic, which it not immediately available in SPIR-V. Its value will be
@@ -735,8 +737,10 @@ private:
   // variables.
   //
   // instanceIndexVar: The SPIR-V input variable that decorated with
-  // InstanceIndex baseInstanceVar: The SPIR-V input variable that is decorated
-  // with BaseInstance.
+  // InstanceIndex.
+  //
+  // baseInstanceVar: The SPIR-V input variable that is decorated with
+  // BaseInstance.
   SpirvVariable *getInstanceIdFromIndexAndBase(SpirvVariable *instanceIndexVar,
                                                SpirvVariable *baseInstanceVar);
 
@@ -750,6 +754,7 @@ private:
   // with reflection.
   //
   // semantic: the semantic to attach to this variable
+  //
   // sigPoint: the signature point identifying which shader stage the variable
   // will be used in.
   SpirvVariable *getBaseInstanceVariable(SemanticInfo *semantic,
@@ -759,57 +764,34 @@ private:
   // The new variable with be add to `this->StageVars`.
   //
   //
-  // sigPoint: the signature point identifying which shader stage the variable
-  // will be used in. semantic: the HLSL semantic for the variable. decl: the
-  // declaration of the variable. type: the HLSL type of the variable arraySize:
-  // the size of the array if `type` should be turned into an array. 0 if `type`
-  // should not be turned into and array.
-  SpirvVariable *createSpirvInterfaceVariable(const hlsl::SigPoint *sigPoint,
-                                              SemanticInfo *semantic,
-                                              const NamedDecl *decl,
-                                              QualType type, uint32_t arraySize,
-                                              bool asNoInterp,
-                                              const llvm::StringRef namePrefix);
+  // stageVarData: the data needed to create the interface variable. See the
+  // declaration of StageVarDataBundle for the details.
+  SpirvVariable *
+  createSpirvInterfaceVariable(const StageVarDataBundle &stageVarData);
 
   // Returns the type that the SPIR-V input or output variable must have to
   // correspond to a variable with the given information.
   //
-  // type: The type of the variable in HLSL.
-  // semanticKind: The semantic attached to the variable.
-  // sigPointKind: The signature point (shader, input or output) of the
-  // variable. decl: The declaration of the variable. arraySize: The size of the
-  // array the variable should be converted to. 0 if it should not be turned
-  // into an array.
-  QualType getTypeForSpirvStageVariable(QualType type,
-                                        hlsl::Semantic::Kind semanticKind,
-                                        hlsl::SigPoint::Kind sigPointKind,
-                                        const NamedDecl *decl,
-                                        uint32_t arraySize);
+  // stageVarData: the data needed to create the interface variable. See the
+  // declaration of StageVarDataBundle for the details.
+  QualType getTypeForSpirvStageVariable(const StageVarDataBundle &stageVarData);
 
-  // Returns true if all of the information is consistent with a valid shader
-  // stage variable. Issues an error and returns false otherwise.
-  bool validateShaderStageVar(SemanticInfo *semantic,
-                              const hlsl::SigPoint *sigPoint,
-                              const NamedDecl *decl, QualType type);
+  // Returns true if all of the stage variable data is consistent with a valid
+  // shader stage variable. Issues an error and returns false otherwise.
+  bool validateShaderStageVar(const StageVarDataBundle &stageVarData);
 
   /// Returns true if all vk:: attributes usages are valid.
   bool validateVKAttributes(const NamedDecl *decl);
 
   /// Returns true if all vk::builtin usages are valid.
-  bool validateVKBuiltins(const NamedDecl *decl,
-                          const hlsl::SigPoint *sigPoint);
+  bool validateVKBuiltins(const StageVarDataBundle &stageVarData);
 
-  // Returns true if the type and semantic kind are compatible. Issues an error
-  // and returns false otherwise.
-  bool validateShaderStageVarType(hlsl::Semantic::Kind semanticKind,
-                                  QualType type, clang::SourceLocation loc);
+  // Returns true if the type in stageVarData is compatible with the rest of the
+  // data. Issues an error and returns false otherwise.
+  bool validateShaderStageVarType(const StageVarDataBundle &stageVarData);
 
-  // Returns true if the semantic can be used with the given signature point.
-  // The declaration is used to get the builtin attribute to augment the
-  // semantic.
-  bool isValidSemanticInShaderModel(hlsl::Semantic::Kind semanticKind,
-                                    hlsl::SigPoint::Kind sigPointKind,
-                                    const NamedDecl *decl);
+  // Returns true if the semantic is consistent wit the rest of the given data.
+  bool isValidSemanticInShaderModel(const StageVarDataBundle &stageVarData);
 
   /// Creates the SPIR-V variable instruction for the given StageVar and returns
   /// the instruction. Also sets whether the StageVar is a SPIR-V builtin and
@@ -824,6 +806,7 @@ private:
   /// Creates assoicated counter variables for all AssocCounter cases (see the
   /// comment of CounterVarFields).
   void createCounterVarForDecl(const DeclaratorDecl *decl);
+
   /// Creates the associated counter variable for final RW/Append/Consume
   /// structured buffer. Handles AssocCounter#1 and AssocCounter#2 (see the
   /// comment of CounterVarFields).
