@@ -93,6 +93,15 @@ You may substitute ``Ninja`` for ``Unix Makefiles`` to generate a makefile
 build. After generation completes you can run ``ninja`` or ``make`` as
 appropriate.
 
+To avoid some build failures such as missing `external/SPIRV-Headers`, make
+sure that you initialise the git submodules before running `ninja` or `make`:
+
+.. code-block:: sh
+
+  git submodule init
+  git submodule update
+
+
 Building and Running Tests
 --------------------------
 
