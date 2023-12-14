@@ -7,9 +7,6 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_clang_unittest(ClangSPIRVTests
-  CodeGenSpirvTest.cpp
-  FileTestFixture.cpp
-  FileTestUtils.cpp
   SpirvBasicBlockTest.cpp
   SpirvContextTest.cpp
   SpirvTestOptions.cpp
@@ -28,7 +25,6 @@ target_link_libraries(ClangSPIRVTests
   clangSPIRV
   clangTooling
   dxcompiler
-  effcee
   SPIRV-Tools
   )
 
@@ -38,7 +34,7 @@ target_link_libraries(ClangSPIRVTests
 add_dependencies(ClangSPIRVTests dxcompiler)
 
 target_include_directories(ClangSPIRVTests
-  PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR} ${DXC_EFFCEE_DIR})
+  PRIVATE ${SPIRV_TOOLS_INCLUDE_DIR})
 
 if (NOT CLANG_INCLUDE_TESTS)
   set_output_directory(ClangSPIRVTests
