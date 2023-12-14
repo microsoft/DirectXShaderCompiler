@@ -384,8 +384,6 @@ private:
   /// The struct containing the data needed to create the input and output
   /// variables for the decl.
   struct StageVarDataBundle {
-  public:
-    StageVarDataBundle() = default;
     // The declaration of the variable for which we need to create the stage
     // variables.
     const NamedDecl *decl;
