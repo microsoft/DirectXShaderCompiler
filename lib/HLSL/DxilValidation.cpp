@@ -2333,7 +2333,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
             DXIL::ResourceClass::UAV)
       ValCtx.EmitInstrError(CI, ValidationRule::InstrAtomicIntrinNonUAV);
   } break;
-  case DXIL::OpCode::CreateHandle:
+  case DXIL::OpCode::CreateHandle: {
     if (ValCtx.isLibProfile) {
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"CreateHandle", "non-library targets"});
@@ -2345,7 +2345,83 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
           CI, ValidationRule::SmOpcodeInInvalidFunction,
           {"CreateHandle", "Shader model 6.5 and below"});
     }
+  } break;
+    
+  // this intrinsic is generated when the SV_DispatchThreadID system value is used
+  case DXIL::OpCode::ThreadId: {  
+    // get the node launch type
+    DxilModule &DM = ValCtx.DxilMod;
+    if (!DM.HasDxilEntryProps(F)) {
+      break;
+    }
+
+    DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+    DXIL::NodeLaunchType NLT = entryProps.props.Node.LaunchType;
+    if (NLT == DXIL::NodeLaunchType::Thread || NLT == DXIL::NodeLaunchType::Coalescing) {
+			ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrInvalidSVInFunction,
+          {"ThreadId", NLT ==
+              DXIL::NodeLaunchType::Thread
+          ? "Thread"
+          : "Coalescing"});
+		}
+	} break;                
+  // this intrinsic is generated when the SV_GroupId
+  // system value is used
+  
+	case DXIL::OpCode::GroupId: {  
+    // get the node launch type
+    DxilModule &DM = ValCtx.DxilMod;
+    if (!DM.HasDxilEntryProps(F)) {
+      break;
+    }
+
+    DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+    DXIL::NodeLaunchType NLT = entryProps.props.Node.LaunchType;
+    if (NLT == DXIL::NodeLaunchType::Thread || NLT == DXIL::NodeLaunchType::Coalescing) {
+			ValCtx.EmitInstrFormatError(CI, ValidationRule::InstrInvalidSVInFunction,
+          {"GroupId", NLT ==
+              DXIL::NodeLaunchType::Thread
+          ? "Thread"
+          : "Coalescing"});
+		}
+  }
     break;
+
+  // this intrinsic is generated when the SV_GroupThreadID
+  // system value is used
+  case DXIL::OpCode::ThreadIdInGroup: {
+    // get the node launch type
+    DxilModule &DM = ValCtx.DxilMod;
+    if (!DM.HasDxilEntryProps(F)) {
+                        break;
+    }
+
+    DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+    DXIL::NodeLaunchType NLT = entryProps.props.Node.LaunchType;
+    if (NLT == DXIL::NodeLaunchType::Thread) {
+                        ValCtx.EmitInstrFormatError(
+                            CI, ValidationRule::InstrInvalidSVInFunction,
+                            {"ThreadIdInGroup", "Thread"});
+    }
+  } break;
+
+// this intrinsic is generated when the SV_GroupIndex
+// system value is used
+  case DXIL::OpCode::FlattenedThreadIdInGroup: {
+    // get the node launch type
+    DxilModule &DM = ValCtx.DxilMod;
+    if (!DM.HasDxilEntryProps(F)) {
+                        break;
+    }
+
+    DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+    DXIL::NodeLaunchType NLT = entryProps.props.Node.LaunchType;
+    if (NLT == DXIL::NodeLaunchType::Thread) {
+                        ValCtx.EmitInstrFormatError(
+                            CI, ValidationRule::InstrInvalidSVInFunction,
+                            {"FlattenedThreadIdInGroup", "Thread"});
+    }
+  } break;
   default:
     // TODO: make sure every opcode is checked.
     // Skip opcodes don't need special check.
@@ -3463,6 +3539,62 @@ static void ValidateNodeInputRecord(Function *F, ValidationContext &ValCtx) {
   }
 }
 
+static void ValidateFunctionArgs(Function& F, unsigned numUDTShaderArgs, DXIL::ShaderKind shaderKind, ValidationContext& ValCtx) {
+  
+  auto ArgFormatError = [&](Function &F, Argument &arg, ValidationRule rule) {
+      if (arg.hasName())
+        ValCtx.EmitFnFormatError(&F, rule, {arg.getName().str(), F.getName()});
+      else
+        ValCtx.EmitFnFormatError(&F, rule,
+                                 {std::to_string(arg.getArgNo()), F.getName()});
+  };
+
+  unsigned numArgs = 0;
+  for (auto &arg : F.args()) {
+    Type *argTy = arg.getType();
+    if (argTy->isPointerTy())
+      argTy = argTy->getPointerElementType();
+
+    numArgs++;
+    if (numUDTShaderArgs) {
+      if (arg.getArgNo() >= numUDTShaderArgs) {
+        ArgFormatError(F, arg, ValidationRule::DeclExtraArgs);
+      } else if (!argTy->isStructTy()) {
+        switch (shaderKind) {
+        case DXIL::ShaderKind::Callable:
+          ArgFormatError(F, arg, ValidationRule::DeclParamStruct);
+          break;
+        default:
+          ArgFormatError(F, arg,
+                         arg.getArgNo() == 0 ? ValidationRule::DeclPayloadStruct
+                                             : ValidationRule::DeclAttrStruct);
+        }
+      }
+      continue;
+    }
+
+    while (argTy->isArrayTy()) {
+      argTy = argTy->getArrayElementType();
+    }
+
+    if (argTy->isStructTy() && !ValCtx.isLibProfile) {
+      ArgFormatError(F, arg, ValidationRule::DeclFnFlattenParam);
+      break;
+    }
+  }
+
+  if (numArgs < numUDTShaderArgs && shaderKind != DXIL::ShaderKind::Node) {
+    StringRef argType[2] = {
+        shaderKind == DXIL::ShaderKind::Callable ? "params" : "payload",
+        "attributes"};
+    for (unsigned i = numArgs; i < numUDTShaderArgs; i++) {
+      ValCtx.EmitFnFormatError(
+          &F, ValidationRule::DeclShaderMissingArg,
+          {ShaderModel::GetKindName(shaderKind), F.getName(), argType[i]});
+    }
+  }
+}
+
 static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
   if (F.isDeclaration()) {
     ValidateExternalFunction(&F, ValCtx);
@@ -3494,7 +3626,7 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
           }
         }
         break;
-      }
+      }  	  
       default:
         break;
       }
@@ -3510,62 +3642,10 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
     // Shader functions should return void.
     if (isShader && !F.getReturnType()->isVoidTy())
       ValCtx.EmitFnFormatError(&F, ValidationRule::DeclShaderReturnVoid,
-                               {F.getName()});
-
-    auto ArgFormatError = [&](Function &F, Argument &arg, ValidationRule rule) {
-      if (arg.hasName())
-        ValCtx.EmitFnFormatError(&F, rule, {arg.getName().str(), F.getName()});
-      else
-        ValCtx.EmitFnFormatError(&F, rule,
-                                 {std::to_string(arg.getArgNo()), F.getName()});
-    };
+                               {F.getName()});    
 
     // Validate parameter type.
-    unsigned numArgs = 0;
-    for (auto &arg : F.args()) {
-      Type *argTy = arg.getType();
-      if (argTy->isPointerTy())
-        argTy = argTy->getPointerElementType();
-
-      numArgs++;
-      if (numUDTShaderArgs) {
-        if (arg.getArgNo() >= numUDTShaderArgs) {
-          ArgFormatError(F, arg, ValidationRule::DeclExtraArgs);
-        } else if (!argTy->isStructTy()) {
-          switch (shaderKind) {
-          case DXIL::ShaderKind::Callable:
-            ArgFormatError(F, arg, ValidationRule::DeclParamStruct);
-            break;
-          default:
-            ArgFormatError(F, arg,
-                           arg.getArgNo() == 0
-                               ? ValidationRule::DeclPayloadStruct
-                               : ValidationRule::DeclAttrStruct);
-          }
-        }
-        continue;
-      }
-
-      while (argTy->isArrayTy()) {
-        argTy = argTy->getArrayElementType();
-      }
-
-      if (argTy->isStructTy() && !ValCtx.isLibProfile) {
-        ArgFormatError(F, arg, ValidationRule::DeclFnFlattenParam);
-        break;
-      }
-    }
-
-    if (numArgs < numUDTShaderArgs && shaderKind != DXIL::ShaderKind::Node) {
-      StringRef argType[2] = {
-          shaderKind == DXIL::ShaderKind::Callable ? "params" : "payload",
-          "attributes"};
-      for (unsigned i = numArgs; i < numUDTShaderArgs; i++) {
-        ValCtx.EmitFnFormatError(
-            &F, ValidationRule::DeclShaderMissingArg,
-            {ShaderModel::GetKindName(shaderKind), F.getName(), argType[i]});
-      }
-    }
+    ValidateFunctionArgs(F, numUDTShaderArgs, shaderKind, ValCtx);
 
     if (ValCtx.DxilMod.HasDxilFunctionProps(&F) &&
         ValCtx.DxilMod.GetDxilFunctionProps(&F).IsNode()) {

@@ -7552,6 +7552,11 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.AtomicIntrinNonUAV", "Non-UAV destination to atomic intrinsic."
         )
+        self.add_valrule_msg(
+            "Instr.InvalidSVInFunction",
+            "An SV value was used on a parameter to a node shader function that isn't compatible.",
+            "Call to DXIL intrinsic %0 is not allowed in node shader launch type %1"
+        )
         self.add_valrule("Instr.AtomicConst", "Constant destination to atomic.")
 
         # Work-Graphs
