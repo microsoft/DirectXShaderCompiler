@@ -25,6 +25,9 @@ stages:
          configuration: Release
         VS2022_Debug:
          configuration: Debug
+        VS2022_ClangCL:
+         configuration: Release
+         clang-cl: -clang-cl
 
     steps:
     - checkout: self
@@ -32,7 +35,7 @@ stages:
       submodules: true
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
-        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) -show-cmake-log -spirvtest
+        call utils\hct\hctbuild.cmd -$(platform) -$(configuration) $(clang-cl) -show-cmake-log -spirvtest
       displayName: 'Building'
     - script: |
         call utils\hct\hctstart.cmd %HLSL_SRC_DIR% %HLSL_BLD_DIR%
