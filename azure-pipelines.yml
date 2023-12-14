@@ -23,8 +23,10 @@ stages:
       matrix:
         VS2022_Release:
          configuration: Release
+         clang-cl: 
         VS2022_Debug:
          configuration: Debug
+         clang-cl: 
         VS2022_ClangCL:
          configuration: Release
          clang-cl: -clang-cl
