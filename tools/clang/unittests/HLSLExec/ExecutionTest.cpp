@@ -6895,13 +6895,6 @@ static bool VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref,
       CompareOutputWithExpectedValueUInt(output, ref, tolerance));
 }
 
-static void VerifyOutputWithExpectedValueUInt4(XMUINT4 output, XMUINT4 ref) {
-  VERIFY_ARE_EQUAL(output.x, ref.x);
-  VERIFY_ARE_EQUAL(output.y, ref.y);
-  VERIFY_ARE_EQUAL(output.z, ref.z);
-  VERIFY_ARE_EQUAL(output.w, ref.w);
-}
-
 enum class ToleranceType {
   EPSILON,
   RELATIVE_EPSILON,
