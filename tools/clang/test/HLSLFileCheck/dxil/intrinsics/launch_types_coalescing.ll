@@ -3,9 +3,9 @@
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
-; CHECK: Function: entry3: error: Call to DXIL intrinsic ThreadId is not allowed in node shader launch type Coalescing
+; CHECK: Function: entry3: error: Call to DXIL intrinsic ThreadId (SV_DispatchThreadID) is not allowed in node shader launch type Coalescing
 ; CHECK: note: at '%1 = call i32 @dx.op.threadId.i32(i32 93, i32 1)' in block '#0' of function 'entry3'.
-; CHECK: Function: entry3: error: Call to DXIL intrinsic GroupId is not allowed in node shader launch type Coalescing
+; CHECK: Function: entry3: error: Call to DXIL intrinsic GroupId (SV_GroupId) is not allowed in node shader launch type Coalescing
 ; CHECK: note: at '%2 = call i32 @dx.op.groupId.i32(i32 94, i32 2)' in block '#0' of function 'entry3'.
 
 define void @entry3() {
