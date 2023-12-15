@@ -3071,7 +3071,6 @@ INSTR.FAILTORESLOVETGSMPOINTER            TGSM pointers must originate from an u
 INSTR.HANDLENOTFROMCREATEHANDLE           Resource handle should returned by createHandle.
 INSTR.IMMBIASFORSAMPLEB                   bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                      Access to out-of-bounds memory is disallowed.
-INSTR.INVALIDSVINFUNCTION                 An SV value was used on a parameter to a node shader function that isn't compatible.
 INSTR.MINPRECISIONNOTPRECISE              Instructions marked precise may not refer to minprecision values.
 INSTR.MINPRECISONBITCAST                  Bitcast on minprecison types is not allowed.
 INSTR.MIPLEVELFORGETDIMENSION             Use mip level on buffer when GetDimensions.
@@ -3125,6 +3124,7 @@ INSTR.SAMPLERMODEFORSAMPLEC               sample_c_*/gather_c instructions requi
 INSTR.SIGNATUREOPERATIONNOTINENTRY        Dxil operation for input output signature must be in entryPoints.
 INSTR.STATUS                              Resource status should only be used by CheckAccessFullyMapped.
 INSTR.STRUCTBITCAST                       Bitcast on struct types is not allowed.
+INSTR.SVCONFLICTINGLAUNCHMODE             Input system values are compatible with node shader launch mode.
 INSTR.TEXTUREOFFSET                       offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 INSTR.TGSMRACECOND                        Race condition writing to shared memory detected, consider making this write conditional.
 INSTR.UNDEFINEDVALUEFORUAVSTORE           Assignment of undefined values to UAV.

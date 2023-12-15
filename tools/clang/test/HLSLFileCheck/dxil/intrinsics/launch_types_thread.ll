@@ -53,5 +53,3 @@ declare i32 @dx.op.threadIdInGroup.i32(i32, i32) #0
 
 ; Function Attrs: nounwind readnone
 declare i32 @dx.op.flattenedThreadIdInGroup.i32(i32) #0
-
-; this file comes from compiling launch_types.hlsl with:
