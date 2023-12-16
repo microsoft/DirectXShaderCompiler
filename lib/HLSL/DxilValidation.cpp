@@ -2143,13 +2143,12 @@ std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
   case DXIL::NodeLaunchType::Thread:
     return "Thread";
   case DXIL::NodeLaunchType::Invalid:
-    return "Invalid";
   case DXIL::NodeLaunchType::LastEntry:
-    return "LastEntry";
-	
-	default:
-		return "Unknown";
-	}
+    return "Invalid";
+
+        default:
+    return "Invalid";
+        }
 }
 
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
@@ -2176,11 +2175,11 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
 
   // get the node launch type
   DxilModule &DM = ValCtx.DxilMod;
-  DXIL::NodeLaunchType NLT = DXIL::NodeLaunchType::Invalid;
+  DXIL::NodeLaunchType nodeLaunchType = DXIL::NodeLaunchType::Invalid;
 
   if (DM.HasDxilEntryProps(F)) {
     DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
-    NLT = entryProps.props.Node.LaunchType;
+    nodeLaunchType = entryProps.props.Node.LaunchType;
   }
 
   ValidateHandleArgs(CI, opcode, ValCtx);
@@ -2360,7 +2359,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
             DXIL::ResourceClass::UAV)
       ValCtx.EmitInstrError(CI, ValidationRule::InstrAtomicIntrinNonUAV);
   } break;
-  case DXIL::OpCode::CreateHandle: {
+  case DXIL::OpCode::CreateHandle:
     if (ValCtx.isLibProfile) {
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"CreateHandle", "non-library targets"});
@@ -2372,19 +2371,20 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
           CI, ValidationRule::SmOpcodeInInvalidFunction,
           {"CreateHandle", "Shader model 6.5 and below"});
     }
-  } break;
-      
+    break;
+
   case DXIL::OpCode::ThreadId: { // SV_DispatchThreadID
     if (shaderKind != DXIL::ShaderKind::Node) {
       break;
     }
 
-    if (NLT == DXIL::NodeLaunchType::Broadcasting) {
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting) {
       // good
     } else {
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrSVConflictingLaunchMode,
-          {"ThreadId", "SV_DispatchThreadID", GetLaunchTypeStr(NLT)});
+      ValCtx.EmitInstrFormatError(CI,
+                                  ValidationRule::InstrSVConflictingLaunchMode,
+                                  {"ThreadId", "SV_DispatchThreadID",
+                                   GetLaunchTypeStr(nodeLaunchType)});
     }
   } break;
   
@@ -2393,12 +2393,12 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     }
 
-    if (NLT == DXIL::NodeLaunchType::Broadcasting) {
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting) {
       // good
     } else {
       ValCtx.EmitInstrFormatError(
           CI, ValidationRule::InstrSVConflictingLaunchMode,
-          {"GroupId", "SV_GroupId", GetLaunchTypeStr(NLT)});
+          {"GroupId", "SV_GroupId", GetLaunchTypeStr(nodeLaunchType)});
     }
   } break;
   
@@ -2407,13 +2407,14 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     }
 
-    if (NLT == DXIL::NodeLaunchType::Broadcasting ||
-        NLT == DXIL::NodeLaunchType::Coalescing) {
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing) {
       // good
     } else {
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrSVConflictingLaunchMode,
-          {"ThreadIdInGroup", "SV_GroupThreadID", GetLaunchTypeStr(NLT)});
+      ValCtx.EmitInstrFormatError(CI,
+                                  ValidationRule::InstrSVConflictingLaunchMode,
+                                  {"ThreadIdInGroup", "SV_GroupThreadID",
+                                   GetLaunchTypeStr(nodeLaunchType)});
     }
   } break;
   
@@ -2422,13 +2423,14 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     }
 
-    if (NLT == DXIL::NodeLaunchType::Broadcasting ||
-        NLT == DXIL::NodeLaunchType::Coalescing) {
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing) {
       // good
     } else {
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrSVConflictingLaunchMode,
-          {"FlattenedThreadIdInGroup", "SV_GroupIndex", GetLaunchTypeStr(NLT)});
+      ValCtx.EmitInstrFormatError(CI,
+                                  ValidationRule::InstrSVConflictingLaunchMode,
+                                  {"FlattenedThreadIdInGroup", "SV_GroupIndex",
+                                   GetLaunchTypeStr(nodeLaunchType)});
     }
   } break;
   default:
@@ -3595,7 +3597,7 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
     // Shader functions should return void.
     if (isShader && !F.getReturnType()->isVoidTy())
       ValCtx.EmitFnFormatError(&F, ValidationRule::DeclShaderReturnVoid,
-                               {F.getName()});    
+                               {F.getName()});
 
     // Validate parameter type.
     auto ArgFormatError = [&](Function &F, Argument &arg, ValidationRule rule) {
