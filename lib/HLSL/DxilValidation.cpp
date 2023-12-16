@@ -2146,9 +2146,9 @@ std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
   case DXIL::NodeLaunchType::LastEntry:
     return "Invalid";
 
-        default:
+  default:
     return "Invalid";
-        }
+  }
 }
 
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
@@ -2158,10 +2158,14 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   DXIL::ShaderKind shaderKind =
       pSM ? pSM->GetKind() : DXIL::ShaderKind::Invalid;
   llvm::Function *F = CI->getParent()->getParent();
+  DXIL::NodeLaunchType nodeLaunchType = DXIL::NodeLaunchType::Invalid;
   if (DXIL::ShaderKind::Library == shaderKind) {
-    if (ValCtx.DxilMod.HasDxilFunctionProps(F))
+    if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
+      DxilModule &DM = ValCtx.DxilMod;
+      DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+      DXIL::NodeLaunchType nodeLaunchType = entryProps.props.Node.LaunchType;
       shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
-    else if (ValCtx.DxilMod.IsPatchConstantShader(F))
+    } else if (ValCtx.DxilMod.IsPatchConstantShader(F))
       shaderKind = DXIL::ShaderKind::Hull;
   }
 
@@ -2174,13 +2178,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   bool isLibFunc = shaderKind == DXIL::ShaderKind::Library;
 
   // get the node launch type
-  DxilModule &DM = ValCtx.DxilMod;
-  DXIL::NodeLaunchType nodeLaunchType = DXIL::NodeLaunchType::Invalid;
-
-  if (DM.HasDxilEntryProps(F)) {
-    DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
-    nodeLaunchType = entryProps.props.Node.LaunchType;
-  }
 
   ValidateHandleArgs(CI, opcode, ValCtx);
 
@@ -3599,7 +3596,6 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
       ValCtx.EmitFnFormatError(&F, ValidationRule::DeclShaderReturnVoid,
                                {F.getName()});
 
-    // Validate parameter type.
     auto ArgFormatError = [&](Function &F, Argument &arg, ValidationRule rule) {
       if (arg.hasName())
         ValCtx.EmitFnFormatError(&F, rule, {arg.getName().str(), F.getName()});
