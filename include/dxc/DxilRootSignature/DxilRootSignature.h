@@ -71,7 +71,7 @@ enum class DxilDescriptorRangeFlags : unsigned {
   DataStaticWhileSetAtExecute = 0x4,
   DataStatic = 0x8,
   DescriptorsStaticKeepingBufferBoundsChecks = 0x10000,
-  ValidFlags = 0x1000f,
+  ValidFlags = 0x10000f,
   ValidSamplerFlags = DescriptorsVolatile
 };
 enum class DxilDescriptorRangeType : unsigned {
