@@ -2163,7 +2163,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
       DxilModule &DM = ValCtx.DxilMod;
       DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
-      DXIL::NodeLaunchType nodeLaunchType = entryProps.props.Node.LaunchType;
+      nodeLaunchType = entryProps.props.Node.LaunchType;
       shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
     } else if (ValCtx.DxilMod.IsPatchConstantShader(F))
       shaderKind = DXIL::ShaderKind::Hull;
