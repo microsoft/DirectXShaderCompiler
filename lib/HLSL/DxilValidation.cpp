@@ -2136,19 +2136,17 @@ static void ValidateBarrierFlagArg(ValidationContext &ValCtx, CallInst *CI,
 
 std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
   switch (LT) {
-	case DXIL::NodeLaunchType::Broadcasting:
-		return "Broadcasting";
+  case DXIL::NodeLaunchType::Broadcasting:
+    return "Broadcasting";
   case DXIL::NodeLaunchType::Coalescing:
-		return "Coalescing";
+    return "Coalescing";
   case DXIL::NodeLaunchType::Thread:
     return "Thread";
   case DXIL::NodeLaunchType::Invalid:
   case DXIL::NodeLaunchType::LastEntry:
     return "Invalid";
-
-  default:
-    return "Invalid";
   }
+  llvm_unreachable("invalid launch type");
 }
 
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
@@ -2161,8 +2159,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   DXIL::NodeLaunchType nodeLaunchType = DXIL::NodeLaunchType::Invalid;
   if (DXIL::ShaderKind::Library == shaderKind) {
     if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
-      DxilModule &DM = ValCtx.DxilMod;
-      DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+      DxilEntryProps &entryProps = ValCtx.DxilMod.GetDxilEntryProps(F);
       nodeLaunchType = entryProps.props.Node.LaunchType;
       shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
     } else if (ValCtx.DxilMod.IsPatchConstantShader(F))
@@ -2176,8 +2173,6 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                   shaderKind == DXIL::ShaderKind::Node;
   // Is called from a library function
   bool isLibFunc = shaderKind == DXIL::ShaderKind::Library;
-
-  // get the node launch type
 
   ValidateHandleArgs(CI, opcode, ValCtx);
 
@@ -2375,60 +2370,57 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     }
 
-    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting) {
-      // good
-    } else {
-      ValCtx.EmitInstrFormatError(CI,
-                                  ValidationRule::InstrSVConflictingLaunchMode,
-                                  {"ThreadId", "SV_DispatchThreadID",
-                                   GetLaunchTypeStr(nodeLaunchType)});
-    }
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting)
+      break;
+
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrSVConflictingLaunchMode,
+        {"ThreadId", "SV_DispatchThreadID", GetLaunchTypeStr(nodeLaunchType)});
   } break;
-  
+
   case DXIL::OpCode::GroupId: { // SV_GroupId
     if (shaderKind != DXIL::ShaderKind::Node) {
       break;
     }
 
-    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting) {
-      // good
-    } else {
-      ValCtx.EmitInstrFormatError(
-          CI, ValidationRule::InstrSVConflictingLaunchMode,
-          {"GroupId", "SV_GroupId", GetLaunchTypeStr(nodeLaunchType)});
-    }
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting)
+      break;
+
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrSVConflictingLaunchMode,
+        {"GroupId", "SV_GroupId", GetLaunchTypeStr(nodeLaunchType)});
   } break;
-  
+
   case DXIL::OpCode::ThreadIdInGroup: { // SV_GroupThreadID
     if (shaderKind != DXIL::ShaderKind::Node) {
       break;
     }
 
     if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
-        nodeLaunchType == DXIL::NodeLaunchType::Coalescing) {
-      // good
-    } else {
-      ValCtx.EmitInstrFormatError(CI,
-                                  ValidationRule::InstrSVConflictingLaunchMode,
-                                  {"ThreadIdInGroup", "SV_GroupThreadID",
-                                   GetLaunchTypeStr(nodeLaunchType)});
-    }
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing)
+      break;
+
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrSVConflictingLaunchMode,
+                                {"ThreadIdInGroup", "SV_GroupThreadID",
+                                 GetLaunchTypeStr(nodeLaunchType)});
+
   } break;
-  
+
   case DXIL::OpCode::FlattenedThreadIdInGroup: { // SV_GroupIndex
     if (shaderKind != DXIL::ShaderKind::Node) {
       break;
     }
 
     if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
-        nodeLaunchType == DXIL::NodeLaunchType::Coalescing) {
-      // good
-    } else {
-      ValCtx.EmitInstrFormatError(CI,
-                                  ValidationRule::InstrSVConflictingLaunchMode,
-                                  {"FlattenedThreadIdInGroup", "SV_GroupIndex",
-                                   GetLaunchTypeStr(nodeLaunchType)});
-    }
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing)
+      break;
+
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrSVConflictingLaunchMode,
+                                {"FlattenedThreadIdInGroup", "SV_GroupIndex",
+                                 GetLaunchTypeStr(nodeLaunchType)});
+
   } break;
   default:
     // TODO: make sure every opcode is checked.
