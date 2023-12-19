@@ -2365,7 +2365,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     }
     break;
 
-  case DXIL::OpCode::ThreadId: { // SV_DispatchThreadID
+  case DXIL::OpCode::ThreadId: // SV_DispatchThreadID
     if (shaderKind != DXIL::ShaderKind::Node) {
       break;
     }
@@ -2376,9 +2376,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrSVConflictingLaunchMode,
         {"ThreadId", "SV_DispatchThreadID", GetLaunchTypeStr(nodeLaunchType)});
-  } break;
+    break;
 
-  case DXIL::OpCode::GroupId: { // SV_GroupId
+  case DXIL::OpCode::GroupId: // SV_GroupId
     if (shaderKind != DXIL::ShaderKind::Node) {
       break;
     }
@@ -2389,9 +2389,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValCtx.EmitInstrFormatError(
         CI, ValidationRule::InstrSVConflictingLaunchMode,
         {"GroupId", "SV_GroupId", GetLaunchTypeStr(nodeLaunchType)});
-  } break;
+    break;
 
-  case DXIL::OpCode::ThreadIdInGroup: { // SV_GroupThreadID
+  case DXIL::OpCode::ThreadIdInGroup: // SV_GroupThreadID
     if (shaderKind != DXIL::ShaderKind::Node) {
       break;
     }
@@ -2405,9 +2405,9 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                 {"ThreadIdInGroup", "SV_GroupThreadID",
                                  GetLaunchTypeStr(nodeLaunchType)});
 
-  } break;
+    break;
 
-  case DXIL::OpCode::FlattenedThreadIdInGroup: { // SV_GroupIndex
+  case DXIL::OpCode::FlattenedThreadIdInGroup: // SV_GroupIndex
     if (shaderKind != DXIL::ShaderKind::Node) {
       break;
     }
@@ -2421,7 +2421,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                 {"FlattenedThreadIdInGroup", "SV_GroupIndex",
                                  GetLaunchTypeStr(nodeLaunchType)});
 
-  } break;
+    break;
+
   default:
     // TODO: make sure every opcode is checked.
     // Skip opcodes don't need special check.
