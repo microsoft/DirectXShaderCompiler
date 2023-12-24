@@ -186,7 +186,6 @@ HRESULT DxcValidatorBase::RunValidation(
   }
 
   if (!pModule) {
-    DXASSERT_NOMSG(pDebugModule == nullptr);
     if (Flags & DxcValidatorFlags_ModuleOnly) {
       return ValidateDxilBitcode((const char *)pShader->GetBufferPointer(),
                                  (uint32_t)pShader->GetBufferSize(),
