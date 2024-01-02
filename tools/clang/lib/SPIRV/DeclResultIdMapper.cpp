@@ -3220,6 +3220,8 @@ SpirvVariable *DeclResultIdMapper::getInstanceIdFromIndexAndBase(
 
 SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
     SemanticInfo *semantic, const hlsl::SigPoint *sigPoint, QualType type) {
+  assert(type->isSpecificBuiltinType(BuiltinType::Kind::Int) ||
+         type->isSpecificBuiltinType(BuiltinType::Kind::UInt));
   auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
       type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance, false,
       semantic->loc);

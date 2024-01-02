@@ -761,6 +761,8 @@ private:
   //
   // sigPoint: the signature point identifying which shader stage the variable
   // will be used in.
+  //
+  // type: The type to use for the new variable. Must be int or unsigned int.
   SpirvVariable *getBaseInstanceVariable(SemanticInfo *semantic,
                                          const hlsl::SigPoint *sigPoint,
                                          QualType type);
