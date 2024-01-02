@@ -1267,6 +1267,22 @@ def VKBuiltIn : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def VKExtBuiltinInput : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_builtin_input">];
+  let Subjects = SubjectList<[Var], ErrorDiag>;
+  let Args = [IntArgument<"BuiltInID">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKExtBuiltinOutput : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_builtin_output">];
+  let Subjects = SubjectList<[Var], ErrorDiag>;
+  let Args = [IntArgument<"BuiltInID">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
 def VKLocation : InheritableAttr {
   let Spellings = [CXX11<"vk", "location">];
   let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;

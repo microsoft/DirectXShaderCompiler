@@ -13585,6 +13585,16 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
                           "DrawIndex,DeviceIndex,ViewportMaskNV"),
                       A.getAttributeSpellingListIndex());
     break;
+  case AttributeList::AT_VKExtBuiltinInput:
+    declAttr = ::new (S.Context) VKExtBuiltinInputAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
+  case AttributeList::AT_VKExtBuiltinOutput:
+    declAttr = ::new (S.Context) VKExtBuiltinOutputAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getAttributeSpellingListIndex());
+    break;
   case AttributeList::AT_VKLocation:
     declAttr = ::new (S.Context)
         VKLocationAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),

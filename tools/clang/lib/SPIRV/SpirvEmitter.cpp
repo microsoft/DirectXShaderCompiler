@@ -1645,6 +1645,39 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
     }
   }
 
+  // a VarDecl should have only one of vk::ext_builtin_input or
+  // vk::ext_builtin_output
+  if (decl->hasAttr<VKExtBuiltinInputAttr>() &&
+      decl->hasAttr<VKExtBuiltinOutputAttr>()) {
+    emitError("vk::ext_builtin_input cannot be used together with "
+              "vk::ext_builtin_output",
+              decl->getAttr<VKExtBuiltinOutputAttr>()->getLocation());
+    success = false;
+  }
+
+  // vk::ext_builtin_input and vk::ext_builtin_output must only be used for a
+  // static variable. We only allow them to be attached to variables, so it
+  // should be fine to cast here.
+  if ((decl->hasAttr<VKExtBuiltinInputAttr>() ||
+       decl->hasAttr<VKExtBuiltinOutputAttr>()) &&
+      cast<VarDecl>(decl)->getStorageClass() != StorageClass::SC_Static) {
+    emitError("vk::ext_builtin_input and vk::ext_builtin_output can only be "
+              "applied to a static variable",
+              decl->getLocation());
+    success = false;
+  }
+
+  // vk::ext_builtin_input and vk::ext_builtin_output must only be used for a
+  // static variable. We only allow them to be attached to variables, so it
+  // should be fine to cast here.
+  if (decl->hasAttr<VKExtBuiltinInputAttr>() &&
+      !cast<VarDecl>(decl)->getType().isConstQualified()) {
+    emitError("vk::ext_builtin_input can only be applied to a const-qualified "
+              "variable",
+              decl->getLocation());
+    success = false;
+  }
+
   return success;
 }
 
@@ -1796,6 +1829,38 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   if (decl->hasAttr<VKShaderRecordEXTAttr>()) {
     (void)declIdMapper.createShaderRecordBuffer(
         decl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
+    return;
+  }
+
+  // Handle vk::ext_builtin_input and vk::ext_builtin_input by using
+  // getBuiltinVar to create the builtin and validate the storage class
+  if (decl->hasAttr<VKExtBuiltinInputAttr>()) {
+    auto *builtinAttr = decl->getAttr<VKExtBuiltinInputAttr>();
+    int builtinId = builtinAttr->getBuiltInID();
+    SpirvVariable *builtinVar =
+        declIdMapper.getBuiltinVar(spv::BuiltIn(builtinId), decl->getType(),
+                                   spv::StorageClass::Input, loc);
+    if (builtinVar->getStorageClass() != spv::StorageClass::Input) {
+      emitError("cannot redefine builtin %0 as an input",
+                builtinAttr->getLocation())
+          << builtinId;
+      emitWarning("previous definition is here",
+                  builtinVar->getSourceLocation());
+    }
+    return;
+  } else if (decl->hasAttr<VKExtBuiltinOutputAttr>()) {
+    auto *builtinAttr = decl->getAttr<VKExtBuiltinOutputAttr>();
+    int builtinId = builtinAttr->getBuiltInID();
+    SpirvVariable *builtinVar =
+        declIdMapper.getBuiltinVar(spv::BuiltIn(builtinId), decl->getType(),
+                                   spv::StorageClass::Output, loc);
+    if (builtinVar->getStorageClass() != spv::StorageClass::Output) {
+      emitError("cannot redefine builtin %0 as an output",
+                builtinAttr->getLocation())
+          << builtinId;
+      emitWarning("previous definition is here",
+                  builtinVar->getSourceLocation());
+    }
     return;
   }
 

@@ -968,6 +968,15 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                       /* spvArgs */ {}, /* isInst */ false,
                                       loc);
   }
+
+  if (auto *builtinAttr = decl->getAttr<VKExtBuiltinInputAttr>()) {
+    return getBuiltinVar(spv::BuiltIn(builtinAttr->getBuiltInID()),
+                         decl->getType(), spv::StorageClass::Input, loc);
+  } else if (auto *builtinAttr = decl->getAttr<VKExtBuiltinOutputAttr>()) {
+    return getBuiltinVar(spv::BuiltIn(builtinAttr->getBuiltInID()),
+                         decl->getType(), spv::StorageClass::Output, loc);
+  }
+
   if (hlsl::IsHLSLDynamicResourceType(decl->getType()) ||
       hlsl::IsHLSLDynamicSamplerType(decl->getType())) {
     emitError("HLSL object %0 not yet supported with -spirv",
@@ -3808,6 +3817,7 @@ void DeclResultIdMapper::decorateInterpolationMode(
 
 SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
                                                  QualType type,
+                                                 spv::StorageClass sc,
                                                  SourceLocation loc) {
   // Guarantee uniqueness
   uint32_t spvBuiltinId = static_cast<uint32_t>(builtIn);
@@ -3815,16 +3825,52 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   if (builtInVar != builtinToVarMap.end()) {
     return builtInVar->second;
   }
-  bool mayNeedFlatDecoration = false;
-  spv::StorageClass sc = spv::StorageClass::Max;
-  // Valid builtins supported
   switch (builtIn) {
   case spv::BuiltIn::HelperInvocation:
   case spv::BuiltIn::SubgroupSize:
   case spv::BuiltIn::SubgroupLocalInvocationId:
     needsLegalization = true;
-    mayNeedFlatDecoration = true;
-    LLVM_FALLTHROUGH;
+    break;
+  }
+
+  // Create a dummy StageVar for this builtin variable
+  auto var = spvBuilder.addStageBuiltinVar(type, sc, builtIn,
+                                           /*isPrecise*/ false, loc);
+
+  if (spvContext.isPS() && sc == spv::StorageClass::Input) {
+    if (isUintOrVecMatOfUintType(type) || isSintOrVecMatOfSintType(type) ||
+        isBoolOrVecMatOfBoolType(type)) {
+      spvBuilder.decorateFlat(var, loc);
+    }
+  }
+
+  const hlsl::SigPoint *sigPoint =
+      hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
+          hlsl::DxilParamInputQual::In, spvContext.getCurrentShaderModelKind(),
+          /*isPatchConstant=*/false));
+
+  StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
+                    /*locAndComponentCount=*/{0, 0, false});
+
+  stageVar.setIsSpirvBuiltin();
+  stageVar.setSpirvInstr(var);
+  stageVars.push_back(stageVar);
+
+  // Store in map for re-use
+  builtinToVarMap[spvBuiltinId] = var;
+  return var;
+}
+
+SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
+                                                 QualType type,
+                                                 SourceLocation loc) {
+  spv::StorageClass sc = spv::StorageClass::Max;
+
+  // Valid builtins supported
+  switch (builtIn) {
+  case spv::BuiltIn::HelperInvocation:
+  case spv::BuiltIn::SubgroupSize:
+  case spv::BuiltIn::SubgroupLocalInvocationId:
   case spv::BuiltIn::HitTNV:
   case spv::BuiltIn::RayTmaxNV:
   case spv::BuiltIn::RayTminNV:
@@ -3857,32 +3903,11 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
     sc = spv::StorageClass::Output;
     break;
   default:
-    assert(false && "unsupported SPIR-V builtin");
-    return nullptr;
+    assert(false && "cannot infer storage class for SPIR-V builtin");
+    break;
   }
 
-  // Create a dummy StageVar for this builtin variable
-  auto var = spvBuilder.addStageBuiltinVar(type, sc, builtIn,
-                                           /*isPrecise*/ false, loc);
-  if (mayNeedFlatDecoration && spvContext.isPS()) {
-    spvBuilder.decorateFlat(var, loc);
-  }
-
-  const hlsl::SigPoint *sigPoint =
-      hlsl::SigPoint::GetSigPoint(hlsl::SigPointFromInputQual(
-          hlsl::DxilParamInputQual::In, spvContext.getCurrentShaderModelKind(),
-          /*isPatchConstant=*/false));
-
-  StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                    /*locAndComponentCount=*/{0, 0, false});
-
-  stageVar.setIsSpirvBuiltin();
-  stageVar.setSpirvInstr(var);
-  stageVars.push_back(stageVar);
-
-  // Store in map for re-use
-  builtinToVarMap[spvBuiltinId] = var;
-  return var;
+  return getBuiltinVar(builtIn, type, sc, loc);
 }
 
 SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
