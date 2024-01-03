@@ -8,15 +8,25 @@
 // CHECK-NEXT: ;
 // CHECK-NEXT: ; Name                 Index   Mask Register SysValue  Format   Used
 // CHECK-NEXT: ; -------------------- ----- ------ -------- -------- ------- ------
+// Out.foo[0].a
 // CHECK-NEXT: ; OUT                      0   x           0     NONE   float   x
+// Out.foo[0].b[0]
 // CHECK-NEXT: ; OUT                      1    y          0     NONE   float    y
+// Out.foo[1].a
 // CHECK-NEXT: ; OUT                      3   x           1     NONE   float   x
+// Out.foo[0].b[1]
 // CHECK-NEXT: ; OUT                      2    y          1     NONE   float    y
+// Out.foo[2].a
 // CHECK-NEXT: ; OUT                      6   x           2     NONE   float   x
+// Out.foo[1].b[0]
 // CHECK-NEXT: ; OUT                      4    y          2     NONE   float    y
+// Out.foo[1].b[1]
 // CHECK-NEXT: ; OUT                      5    y          3     NONE   float    y
+// Out.foo[2].b[0]
 // CHECK-NEXT: ; OUT                      7    y          4     NONE   float    y
+// Out.foo[2].b[1]
 // CHECK-NEXT: ; OUT                      8    y          5     NONE   float    y
+// Out.pos
 // CHECK-NEXT: ; OUT                      9   xyzw        6     NONE   float   xyzw
 
 // CHECK: !dx.entryPoints = !{![[main:[0-9]+]]}
