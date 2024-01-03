@@ -1285,6 +1285,650 @@
     </Shader>
   </ShaderOp>
 
+  <ShaderOp Name="WaveMatrixOp" CS="CS" DispatchX="1" DispatchY="1" DispatchZ="1">
+    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2), UAV(u3), UAV(u4), UAV(u5)</RootSignature>
+    <Resource Name="g_bufIn" Dimension="BUFFER" Width="32768" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" />
+    <Resource Name="g_bufInAccum" Dimension="BUFFER" Width="32768" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" />
+    <Resource Name="g_bufOut" Dimension="BUFFER" Width="1441738" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutRowCol" Dimension="BUFFER" Width="720869" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutAccumulator" Dimension="BUFFER" Width="720869" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutMatrixDepth" Dimension="BUFFER" Width="32" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+      <RootValues>
+      <RootValue Index="0" ResName="g_bufIn" />
+      <RootValue Index="1" ResName="g_bufInAccum" />
+      <RootValue Index="2" ResName="g_bufOut" />
+      <RootValue Index="3" ResName="g_bufOutRowCol" />
+      <RootValue Index="4" ResName="g_bufOutAccumulator" />
+      <RootValue Index="5" ResName="g_bufOutMatrixDepth" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_8">
+      <![CDATA[
+        RWByteAddressBuffer g_bufIn : register(u0);
+        RWByteAddressBuffer g_bufInAccum : register(u1);
+        RWByteAddressBuffer g_bufOut : register(u2);
+        RWByteAddressBuffer g_bufOutRowCol : register(u3);
+        RWByteAddressBuffer g_bufOutAccumulator : register(u4);
+        RWByteAddressBuffer g_bufOutMatrixDepth : register(u5);
+
+        #ifdef GROUPSHARED
+          #if TEST_LOAD_STORE_LR
+            groupshared DATATYPE gsharedArr[MAX_NUM_ELEMENTS];
+
+            void ClearGShared(uint threadX)
+            {
+              GroupMemoryBarrierWithGroupSync();
+              if (threadX == 0)
+              {
+                for (uint i = 0; i < MAX_NUM_ELEMENTS; ++i)
+                {
+                  gsharedArr[i] = (DATATYPE)0;
+                }
+              }
+              GroupMemoryBarrierWithGroupSync();
+            }
+
+            void FillSource(uint threadX)
+            {
+              GroupMemoryBarrierWithGroupSync();
+              if (threadX == 0)
+              {
+                uint j = 0;
+                for (uint i = 0; i < MAX_NUM_ELEMENTS; ++i, j += sizeof(DATATYPE))
+                {
+                  // There is only a special case for loading fp16.
+                  // for loading packed u/int8 data, we load in packs of 4.
+                  // This loads more data than is used, but it should not affect the result.
+                  gsharedArr[i] = g_bufIn.Load<DATATYPE>(j);
+                }
+              }
+              GroupMemoryBarrierWithGroupSync();
+            }
+
+
+            void FillDest(uint start, uint threadX)
+            {
+              GroupMemoryBarrierWithGroupSync();
+              if (threadX == 0)
+              {
+                for (uint i = 0; i < MAX_NUM_ELEMENTS; ++i)
+                {
+                  g_bufOut.Store<DATATYPE>(start + i * sizeof(DATATYPE), gsharedArr[i]);
+                  // Also clear output so we don't write garbage if the whole buffer is not filled
+                  gsharedArr[i] = 0;
+                }
+              }
+              GroupMemoryBarrierWithGroupSync();
+            }
+
+          #elif TEST_LOAD_STORE_ACCUMULATOR
+            groupshared TYPE_ACC gsharedArrAccumulator[MAX_NUM_ELEMENTS];
+
+            void ClearGShared(uint threadX)
+            {
+              GroupMemoryBarrierWithGroupSync();
+              if (threadX == 0)
+              {
+                for (uint i = 0; i < MAX_NUM_ELEMENTS; ++i)
+                {
+                  gsharedArrAccumulator[i] = (TYPE_ACC)0;
+                }
+              }
+              GroupMemoryBarrierWithGroupSync();
+            }
+
+            void FillSource(uint threadX)
+            {
+              GroupMemoryBarrierWithGroupSync();
+              if (threadX == 0)
+              {
+                uint j = 0;
+                for (uint i = 0; i < MAX_NUM_ELEMENTS; ++i, j += sizeof(TYPE_ACC))
+                {
+                  gsharedArrAccumulator[i] = g_bufInAccum.Load<TYPE_ACC>(j);
+                }
+              }
+              GroupMemoryBarrierWithGroupSync();
+            }
+
+            void FillDest(uint start, uint threadX)
+            {
+              GroupMemoryBarrierWithGroupSync();
+              if (threadX == 0)
+              {
+                for (uint i = 0; i < MAX_NUM_ELEMENTS; ++i)
+                {
+                  g_bufOutAccumulator.Store<TYPE_ACC>(start + i * sizeof(TYPE_ACC), gsharedArrAccumulator[i]);
+                  gsharedArrAccumulator[i] = 0;
+                }
+              }
+              GroupMemoryBarrierWithGroupSync();
+            }
+
+            void FillDestRowCol(uint start, uint threadX)
+            {
+              GroupMemoryBarrierWithGroupSync();
+              if (threadX == 0)
+              {
+                for (uint i = 0; i < MAX_NUM_ELEMENTS; ++i)
+                {
+                  g_bufOutRowCol.Store(start + i * sizeof(TYPE_ACC), gsharedArrAccumulator[i]);
+                }
+              }
+              ClearGShared(threadX);
+            }
+          #endif
+
+          #define LOAD_SOURCE gsharedArr
+          #define LOAD_SOURCE_ACCUM gsharedArrAccumulator
+          #define STORE_DEST gsharedArr
+          #define STORE_DEST_ROWCOL gsharedArrAccumulator
+          #define STORE_DEST_ACCUM gsharedArrAccumulator
+
+          // Start/Stride/Offset are all given in bytes, and converted to array elements in the macros.
+
+          #define TEST_LOAD_LEFT(mat, k, start, stride, alignment, transp, dest, destOffset) \
+            mat.Load(gsharedArr, (start)/sizeof(DATATYPE), (stride)/sizeof(DATATYPE), transp); \
+            mat.Store(g_bufOut, destOffset, lStride, false);
+
+          #define TEST_LOAD_RIGHT(mat, k, start, stride, alignment, transp, dest, destOffset) \
+            mat.Load(gsharedArr, (start)/sizeof(DATATYPE), (stride)/sizeof(DATATYPE), transp); \
+            mat.Store(g_bufOut, destOffset, rStride, false);
+
+          #define TEST_LOAD_LEFT_COL(mat, k, start, stride, alignment, dest, destOffset) \
+            mat.Load(gsharedArrAccumulator, (start)/sizeof(TYPE_ACC), (stride)/sizeof(TYPE_ACC)); \
+            mat.Store(g_bufOutRowCol, destOffset, 1 * sizeof(TYPE_ACC));
+
+          #define TEST_LOAD_RIGHT_ROW(mat, k, start, stride, alignment, dest, destOffset) \
+            mat.Load(gsharedArrAccumulator, (start)/sizeof(TYPE_ACC), (stride)/sizeof(TYPE_ACC)); \
+            mat.Store(g_bufOutRowCol, destOffset, 1 * sizeof(TYPE_ACC));
+
+          #define TEST_LOAD_ACCUMULATOR(mata, k, start, stride, alignment, transp, dest, destOffset) \
+            mata.Load(gsharedArrAccumulator, (start)/sizeof(TYPE_ACC), (stride)/sizeof(TYPE_ACC), transp); \
+            mata.Store(g_bufOutAccumulator, destOffset, aStride, false);
+
+          #define TEST_STORE_LEFT(matl, k, stride, offset, transp, dest, destOffset) \
+            matl.Load(g_bufIn, 0, lStride, false); \
+            matl.Store(gsharedArr, (offset)/sizeof(DATATYPE), (stride)/sizeof(DATATYPE), transp); \
+            FillDest(destOffset, groupThreadID.x);
+
+          #define TEST_STORE_RIGHT(matr, k, stride, offset, transp, dest, destOffset) \
+            matr.Load(g_bufIn, 0, rStride, false); \
+            matr.Store(gsharedArr, (offset)/sizeof(DATATYPE), (stride)/sizeof(DATATYPE), transp); \
+            FillDest(destOffset, groupThreadID.x);
+
+          #define TEST_STORE_LEFT_COL(mat, k, stride, offset, dest, destOffset) \
+            mat.Load(g_bufInAccum, 0, 1 * sizeof(TYPE_ACC)); \
+            mat.Store(gsharedArrAccumulator, (offset)/sizeof(TYPE_ACC), (stride)/sizeof(TYPE_ACC)); \
+            FillDestRowCol(destOffset, groupThreadID.x);
+
+          #define TEST_STORE_RIGHT_ROW(mat, k, stride, offset, dest, destOffset) \
+            mat.Load(g_bufInAccum, 0, 1 * sizeof(TYPE_ACC)); \
+            mat.Store(gsharedArrAccumulator, (offset)/sizeof(TYPE_ACC), (stride)/sizeof(TYPE_ACC)); \
+            FillDestRowCol(destOffset, groupThreadID.x);
+
+          #define TEST_STORE_ACCUMULATOR(mata, k, stride, offset, transp, dest, destOffset) \
+            mata.Load(g_bufInAccum, 0, aStride, false); \
+            mata.Store(gsharedArrAccumulator, (offset)/sizeof(TYPE_ACC), (stride)/sizeof(TYPE_ACC), transp); \
+            FillDest(destOffset, groupThreadID.x);
+
+        #else
+          #define LOAD_SOURCE g_bufIn
+          #define LOAD_SOURCE_ACCUM g_bufInAccum
+          #define STORE_DEST g_bufOut
+          #define STORE_DEST_ROWCOL g_bufOutRowCol
+          #define STORE_DEST_ACCUM g_bufOutAccumulator
+
+          void FillSource(uint threadX) {} // no-op
+          void FillDest(uint start, uint threadX) {}
+          void FillDestRowCol(uint start, uint threadX) {}
+          void ClearGShared(uint threadX) {}
+
+          #define TEST_LOAD_LEFT(mat, k, start, stride, alignment, transp, dest, destOffset) \
+            mat.Load(LOAD_SOURCE, start, stride, transp, alignment); \
+            mat.Store(dest, destOffset, lStride, false);
+
+          #define TEST_LOAD_RIGHT(mat, k, start, stride, alignment, transp, dest, destOffset) \
+            mat.Load(LOAD_SOURCE, start, stride, transp, alignment); \
+            mat.Store(dest, destOffset, rStride, false);
+
+          #define TEST_LOAD_LEFT_COL(mat, k, start, stride, alignment, dest, destOffset) \
+            mat.Load(LOAD_SOURCE_ACCUM, start, stride, alignment); \
+            mat.Store(dest, destOffset, (int)sizeof(TYPE_ACC));
+
+          #define TEST_LOAD_RIGHT_ROW(mat, k, start, stride, alignment, dest, destOffset) \
+            mat.Load(LOAD_SOURCE_ACCUM, start, stride, alignment); \
+            mat.Store(dest, destOffset, (int)sizeof(TYPE_ACC));
+
+          #define TEST_LOAD_ACCUMULATOR(mata, k, start, stride, alignment, transp, dest, destOffset) \
+            mata.Load(LOAD_SOURCE_ACCUM, start, stride, transp, alignment); \
+            mata.Store(dest, destOffset, aStride, false);
+
+          #define TEST_STORE_LEFT(matl, k, stride, alignment, transp, dest, destOffset) \
+            matl.Load(LOAD_SOURCE, 0, lStride, false); \
+            matl.Store(dest, destOffset, stride, transp, alignment);
+
+          #define TEST_STORE_RIGHT(matr, k, stride, alignment, transp, dest, destOffset) \
+            matr.Load(LOAD_SOURCE, 0, rStride, false); \
+            matr.Store(dest, destOffset, stride, transp, alignment);
+
+          #define TEST_STORE_LEFT_COL(mat, k, stride, alignment, dest, destOffset) \
+            mat.Load(LOAD_SOURCE_ACCUM, 0, (int)sizeof(TYPE_ACC)); \
+            mat.Store(dest, destOffset, stride, alignment);
+
+          #define TEST_STORE_RIGHT_ROW(mat, k, stride, alignment, dest, destOffset) \
+            mat.Load(LOAD_SOURCE_ACCUM, 0, (int)sizeof(TYPE_ACC)); \
+            mat.Store(dest, destOffset, stride, alignment);
+
+          #define TEST_STORE_ACCUMULATOR(mata, k, stride, alignment, transp, dest, destOffset) \
+            mata.Load(LOAD_SOURCE_ACCUM, 0, aStride, false); \
+            mata.Store(dest, destOffset, stride, transp, alignment);
+
+        #endif // GROUPSHARED if/else
+
+        [WaveSize(NUM_LANES)]
+        #ifdef GROUPSHARED
+        [numthreads(NUM_LANES,1,1)]
+        #else
+        [numthreads(NUM_LANES * 2,1,1)]
+        #endif
+        void main(uint3 groupThreadID : SV_GroupThreadID)
+        {
+          uint rowColSize = 64 * 64 * sizeof(TYPE_ACC);
+          uint size = 2 * 64 * 64 * ELEMENTSIZE;
+
+          // Calculate strides and offsets in bytes.
+          uint s = 16 * ELEMENTSIZE; // start
+          uint lStride = (DIM_K * ELEMENTSIZE);
+          uint rStride = (DIM_N * ELEMENTSIZE);
+          uint ltStride = (DIM_M * ELEMENTSIZE);
+          uint rtStride = (DIM_K * ELEMENTSIZE);
+          uint a = 4; // Alignment. For groupshared, tests store offset.
+
+          // For accumulator
+          uint sizeAcc = 2 * 64 * 64 * sizeof(TYPE_ACC);
+          uint s2 = 16 * sizeof(TYPE_ACC); // start
+          uint aStride = (DIM_N * sizeof(TYPE_ACC));
+          uint atStride = (DIM_M * sizeof(TYPE_ACC));
+          uint accElemStride = sizeof(TYPE_ACC);
+
+          uint groupOffset = (groupThreadID.x/NUM_LANES) * 22;
+
+          uint LOAD_LEFT_START       = 0 + groupOffset;
+          uint LOAD_RIGHT_START      = 1 + groupOffset;
+          uint LOAD_LEFT_STRIDE_P4   = 2 + groupOffset;
+          uint LOAD_RIGHT_STRIDE_P4  = 3 + groupOffset;
+          uint LOAD_LEFT_STRIDE_X2   = 4 + groupOffset;
+          uint LOAD_RIGHT_STRIDE_X2  = 5 + groupOffset;
+          uint LOAD_LEFT_ALIGNMENT   = 6 + groupOffset;
+          uint LOAD_RIGHT_ALIGNMENT  = 7 + groupOffset;
+          uint LOAD_LEFT_TRANSPOSE   = 8 + groupOffset;
+          uint LOAD_RIGHT_TRANSPOSE  = 9 + groupOffset;
+          uint LOAD_LEFT_ALLPARAMS   = 10 + groupOffset;
+          uint LOAD_RIGHT_ALLPARAMS  = 11 + groupOffset;
+          uint STORE_LEFT_STRIDE_P4  = 12 + groupOffset;
+          uint STORE_RIGHT_STRIDE_P4 = 13 + groupOffset;
+          uint STORE_LEFT_STRIDE_X2  = 14 + groupOffset;
+          uint STORE_RIGHT_STRIDE_X2 = 15 + groupOffset;
+          uint STORE_LEFT_ALIGNMENT  = 16 + groupOffset;
+          uint STORE_RIGHT_ALIGNMENT = 17 + groupOffset;
+          uint STORE_LEFT_TRANSPOSE  = 18 + groupOffset;
+          uint STORE_RIGHT_TRANSPOSE = 19 + groupOffset;
+          uint STORE_LEFT_ALLPARAMS  = 20 + groupOffset;
+          uint STORE_RIGHT_ALLPARAMS = 21 + groupOffset;
+
+#if TEST_LOAD_STORE_LR
+          WaveMatrixLeft<DATATYPE, DIM_M, DIM_N> matLeft;
+          WaveMatrixRight<DATATYPE, DIM_M, DIM_N> matRight;
+
+          if (groupThreadID.x == 0)
+          {
+            g_bufOutMatrixDepth.Store(0, matLeft.MatrixDepth());
+            g_bufOutMatrixDepth.Store(0 + sizeof(uint), matRight.MatrixDepth());
+          }
+
+          ClearGShared(groupThreadID.x);
+          FillSource(groupThreadID.x);
+
+          /////////////////////////
+          // Left/Right Matrices //
+          /////////////////////////
+          TEST_LOAD_LEFT(matLeft, DIM_K, s, lStride    , 0, false, STORE_DEST, LOAD_LEFT_START * size);
+          TEST_LOAD_RIGHT(matRight, DIM_K, s, rStride    , 0, false, STORE_DEST, LOAD_RIGHT_START * size);
+
+          TEST_LOAD_LEFT(matLeft, DIM_K, 0, lStride + 4, 0, false, STORE_DEST, LOAD_LEFT_STRIDE_P4 * size);
+          TEST_LOAD_RIGHT(matRight, DIM_K, 0, rStride + 4, 0, false, STORE_DEST, LOAD_RIGHT_STRIDE_P4 * size);
+
+          TEST_LOAD_LEFT(matLeft, DIM_K, 0, lStride * 2, 0, false, STORE_DEST, LOAD_LEFT_STRIDE_X2 * size);
+          TEST_LOAD_RIGHT(matRight, DIM_K, 0, rStride * 2, 0, false, STORE_DEST, LOAD_RIGHT_STRIDE_X2 * size);
+
+          TEST_LOAD_LEFT(matLeft, DIM_K, 0, lStride    , a, false, STORE_DEST, LOAD_LEFT_ALIGNMENT * size);
+          TEST_LOAD_RIGHT(matRight, DIM_K, 0, rStride    , a, false, STORE_DEST, LOAD_RIGHT_ALIGNMENT * size);
+
+          TEST_LOAD_LEFT(matLeft, DIM_K, 0, ltStride    , 0, true , STORE_DEST, LOAD_LEFT_TRANSPOSE * size);
+          TEST_LOAD_RIGHT(matRight, DIM_K, 0, rtStride    , 0, true , STORE_DEST, LOAD_RIGHT_TRANSPOSE * size);
+
+          TEST_LOAD_LEFT(matLeft, DIM_K, s, ltStride + 4, a, true , STORE_DEST, LOAD_LEFT_ALLPARAMS * size);
+          TEST_LOAD_RIGHT(matRight, DIM_K, s, rtStride + 4, a, true , STORE_DEST, LOAD_RIGHT_ALLPARAMS * size);
+
+          ClearGShared(groupThreadID.x);
+
+          TEST_STORE_LEFT(matLeft, DIM_K, lStride + 4, 0, false, STORE_DEST, STORE_LEFT_STRIDE_P4 * size);
+          TEST_STORE_RIGHT(matRight, DIM_K, rStride + 4, 0, false, STORE_DEST, STORE_RIGHT_STRIDE_P4 * size);
+
+          TEST_STORE_LEFT(matLeft, DIM_K, lStride * 2, 0, false, STORE_DEST, STORE_LEFT_STRIDE_X2 * size);
+          TEST_STORE_RIGHT(matRight, DIM_K, rStride * 2, 0, false, STORE_DEST, STORE_RIGHT_STRIDE_X2 * size);
+
+          TEST_STORE_LEFT(matLeft, DIM_K, lStride    , a, false, STORE_DEST, STORE_LEFT_ALIGNMENT * size);
+          TEST_STORE_RIGHT(matRight, DIM_K, rStride    , a, false, STORE_DEST, STORE_RIGHT_ALIGNMENT * size);
+
+          TEST_STORE_LEFT(matLeft, DIM_K, ltStride    , 0, true , STORE_DEST, STORE_LEFT_TRANSPOSE * size);
+          TEST_STORE_RIGHT(matRight, DIM_K, rtStride    , 0, true , STORE_DEST, STORE_RIGHT_TRANSPOSE * size);
+
+          TEST_STORE_LEFT(matLeft, DIM_K, ltStride + 4, a, true , STORE_DEST, STORE_LEFT_ALLPARAMS * size);
+          TEST_STORE_RIGHT(matRight, DIM_K, rtStride + 4, a, true , STORE_DEST, STORE_RIGHT_ALLPARAMS * size);
+
+#endif
+#if TEST_LOAD_STORE_ACCUMULATOR
+          ///////////////////////
+          // Accumulator Types //
+          ///////////////////////
+          WaveMatrixLeftColAcc<TYPE_ACC, DIM_M, DIM_N> matLeftColAcc;
+          WaveMatrixRightRowAcc<TYPE_ACC, DIM_M, DIM_N> matRightRowAcc;
+          WaveMatrixAccumulator<TYPE_ACC, DIM_M, DIM_N> matAccum;
+  #if FRAGS_ENABLE
+          ClearGShared(groupThreadID.x);
+          FillSource(groupThreadID.x);
+
+          TEST_LOAD_LEFT_COL(matLeftColAcc, 1, s2, accElemStride    , 0, STORE_DEST_ROWCOL, LOAD_LEFT_START * rowColSize);
+          TEST_LOAD_RIGHT_ROW(matRightRowAcc, 1, s2, accElemStride    , 0, STORE_DEST_ROWCOL, LOAD_RIGHT_START * rowColSize);
+
+          TEST_LOAD_LEFT_COL(matLeftColAcc, 1, 0, accElemStride + 4, 0, STORE_DEST_ROWCOL, LOAD_LEFT_STRIDE_P4 * rowColSize);
+          TEST_LOAD_RIGHT_ROW(matRightRowAcc, 1, 0, accElemStride + 4, 0, STORE_DEST_ROWCOL, LOAD_RIGHT_STRIDE_P4 * rowColSize);
+
+          TEST_LOAD_LEFT_COL(matLeftColAcc, 1, 0, accElemStride * 2, 0, STORE_DEST_ROWCOL, LOAD_LEFT_STRIDE_X2 * rowColSize);
+          TEST_LOAD_RIGHT_ROW(matRightRowAcc, 1, 0, accElemStride * 2, 0, STORE_DEST_ROWCOL, LOAD_RIGHT_STRIDE_X2 * rowColSize);
+
+          TEST_LOAD_LEFT_COL(matLeftColAcc, 1, 0, accElemStride    , a, STORE_DEST_ROWCOL, LOAD_LEFT_ALIGNMENT * rowColSize);
+          TEST_LOAD_RIGHT_ROW(matRightRowAcc, 1, 0, accElemStride    , a, STORE_DEST_ROWCOL, LOAD_RIGHT_ALIGNMENT * rowColSize);
+
+          TEST_LOAD_LEFT_COL(matLeftColAcc, 1, 0, accElemStride    , 0, STORE_DEST_ROWCOL, LOAD_LEFT_TRANSPOSE * rowColSize);
+          TEST_LOAD_RIGHT_ROW(matRightRowAcc, 1, 0, accElemStride    , 0, STORE_DEST_ROWCOL, LOAD_RIGHT_TRANSPOSE * rowColSize);
+
+          TEST_LOAD_LEFT_COL(matLeftColAcc, 1, s2, accElemStride + 4, a, STORE_DEST_ROWCOL, LOAD_LEFT_ALLPARAMS * rowColSize);
+          TEST_LOAD_RIGHT_ROW(matRightRowAcc, 1, s2, accElemStride + 4, a, STORE_DEST_ROWCOL, LOAD_RIGHT_ALLPARAMS * rowColSize);
+
+          ClearGShared(groupThreadID.x);
+
+          TEST_STORE_LEFT_COL(matLeftColAcc, 1, accElemStride + 4, 0, STORE_DEST_ROWCOL, STORE_LEFT_STRIDE_P4 * rowColSize);
+          TEST_STORE_RIGHT_ROW(matRightRowAcc, 1, accElemStride + 4, 0, STORE_DEST_ROWCOL, STORE_RIGHT_STRIDE_P4 * rowColSize);
+
+          TEST_STORE_LEFT_COL(matLeftColAcc, 1, accElemStride * 2, 0, STORE_DEST_ROWCOL, STORE_LEFT_STRIDE_X2 * rowColSize);
+          TEST_STORE_RIGHT_ROW(matRightRowAcc, 1, accElemStride * 2, 0, STORE_DEST_ROWCOL, STORE_RIGHT_STRIDE_X2 * rowColSize);
+
+          TEST_STORE_LEFT_COL(matLeftColAcc, 1, accElemStride    , a, STORE_DEST_ROWCOL, STORE_LEFT_ALIGNMENT * rowColSize);
+          TEST_STORE_RIGHT_ROW(matRightRowAcc, 1, accElemStride    , a, STORE_DEST_ROWCOL, STORE_RIGHT_ALIGNMENT * rowColSize);
+
+          TEST_STORE_LEFT_COL(matLeftColAcc, 1, accElemStride    , 0, STORE_DEST_ROWCOL, STORE_LEFT_TRANSPOSE * rowColSize);
+          TEST_STORE_RIGHT_ROW(matRightRowAcc, 1, accElemStride    , 0, STORE_DEST_ROWCOL, STORE_RIGHT_TRANSPOSE * rowColSize);
+
+          TEST_STORE_LEFT_COL(matLeftColAcc, 1, accElemStride + 4, a, STORE_DEST_ROWCOL, STORE_LEFT_ALLPARAMS * rowColSize);
+          TEST_STORE_RIGHT_ROW(matRightRowAcc, 1, accElemStride + 4, a, STORE_DEST_ROWCOL, STORE_RIGHT_ALLPARAMS * rowColSize);
+  #endif // #if FRAGS_ENABLE
+
+          groupOffset = (groupThreadID.x/NUM_LANES) * 11;
+          uint LOAD_START      = 0 + groupOffset;
+          uint LOAD_STRIDE_P4  = 1 + groupOffset;
+          uint LOAD_STRIDE_X2  = 2 + groupOffset;
+          uint LOAD_ALIGNMENT  = 3 + groupOffset;
+          uint LOAD_TRANSPOSE  = 4 + groupOffset;
+          uint LOAD_ALLPARAMS  = 5 + groupOffset;
+          uint STORE_STRIDE_P4 = 6 + groupOffset;
+          uint STORE_STRIDE_X2 = 7 + groupOffset;
+          uint STORE_ALIGNMENT = 8 + groupOffset;
+          uint STORE_TRANSPOSE = 9 + groupOffset;
+          uint STORE_ALLPARAMS = 10 + groupOffset;
+
+          ClearGShared(groupThreadID.x);
+          FillSource(groupThreadID.x);
+
+          TEST_LOAD_ACCUMULATOR (matAccum, DIM_K, s2, aStride    , 0, false, g_bufOutAccumulator, LOAD_START * sizeAcc);
+          TEST_LOAD_ACCUMULATOR (matAccum, DIM_K, 0 , aStride + 4, 0, false, g_bufOutAccumulator, LOAD_STRIDE_P4 * sizeAcc);
+          TEST_LOAD_ACCUMULATOR (matAccum, DIM_K, 0 , aStride * 2, 0, false, g_bufOutAccumulator, LOAD_STRIDE_X2 * sizeAcc);
+          TEST_LOAD_ACCUMULATOR (matAccum, DIM_K, 0 , aStride    , a, false, g_bufOutAccumulator, LOAD_ALIGNMENT * sizeAcc);
+          TEST_LOAD_ACCUMULATOR (matAccum, DIM_K, 0 , atStride    , 0, true , g_bufOutAccumulator, LOAD_TRANSPOSE * sizeAcc);
+          TEST_LOAD_ACCUMULATOR (matAccum, DIM_K, s2, atStride + 4, a, true , g_bufOutAccumulator, LOAD_ALLPARAMS * sizeAcc);
+
+          ClearGShared(groupThreadID.x);
+
+          TEST_STORE_ACCUMULATOR(matAccum, DIM_K, aStride + 4, 0, false, STORE_DEST_ACCUM, STORE_STRIDE_P4 * sizeAcc);
+          TEST_STORE_ACCUMULATOR(matAccum, DIM_K, aStride * 2, 0, false, STORE_DEST_ACCUM, STORE_STRIDE_X2 * sizeAcc);
+          TEST_STORE_ACCUMULATOR(matAccum, DIM_K, aStride    , a, false, STORE_DEST_ACCUM, STORE_ALIGNMENT * sizeAcc);
+          TEST_STORE_ACCUMULATOR(matAccum, DIM_K, atStride    , 0, true , STORE_DEST_ACCUM, STORE_TRANSPOSE * sizeAcc);
+          TEST_STORE_ACCUMULATOR(matAccum, DIM_K, atStride + 4, a, true , STORE_DEST_ACCUM, STORE_ALLPARAMS * sizeAcc);
+#endif // #if TEST_LOAD_STORE_ACCUMULATOR
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+    <ShaderOp Name="WaveMatrixOpScalar" CS="CS" DispatchX="6" DispatchY="1" DispatchZ="1">
+    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2), UAV(u3), UAV(u4), UAV(u5), UAV(u6)</RootSignature>
+    <Resource Name="g_bufInScalar" Dimension="BUFFER" Width="36" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" />
+    <Resource Name="g_bufInAccumulator" Dimension="BUFFER" Width="1474560" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufInLeftColAcc" Dimension="BUFFER" Width="23040" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufInRightRowAcc" Dimension="BUFFER" Width="23040" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutAccumulator" Dimension="BUFFER" Width="1474560" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutLeftColAcc" Dimension="BUFFER" Width="23040" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutRightRowAcc" Dimension="BUFFER" Width="23040" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="g_bufInScalar" />
+      <RootValue Index="1" ResName="g_bufInAccumulator" />
+      <RootValue Index="2" ResName="g_bufInLeftColAcc" />
+      <RootValue Index="3" ResName="g_bufInRightRowAcc" />
+      <RootValue Index="4" ResName="g_bufOutAccumulator" />
+      <RootValue Index="5" ResName="g_bufOutLeftColAcc" />
+      <RootValue Index="6" ResName="g_bufOutRightRowAcc" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_8">
+      <![CDATA[
+        #define NUM_ACCUMULATOR_ELEMENTS (DIM_M * DIM_N)
+
+        //----------------------------------------------------------
+
+        RWByteAddressBuffer g_bufInScalar : register(u0);
+        RWByteAddressBuffer g_bufInAccumulator : register(u1);
+        RWByteAddressBuffer g_bufInLeftColAcc : register(u2);
+        RWByteAddressBuffer g_bufInRightRowAcc : register(u3);
+        RWByteAddressBuffer g_bufOutAccumulator : register(u4);
+        RWByteAddressBuffer g_bufOutLeftColAcc : register(u5);
+        RWByteAddressBuffer g_bufOutRightRowAcc : register(u6);
+
+        [WaveSize(NUM_LANES)]
+        [numthreads(NUM_LANES * 2,1,1)]
+        void main(uint3 groupThreadID : SV_GroupThreadID, uint3 groupID : SV_GroupID)
+        {
+          int scalarMulOffset  = (groupID.x * 5 + 0) * sizeof(TYPE_ACC);
+          int scalarDivOffset  = (groupID.x * 5 + 1) * sizeof(TYPE_ACC);
+          int scalarAddOffset  = (groupID.x * 5 + 2) * sizeof(TYPE_ACC);
+          int scalarSubOffset  = (groupID.x * 5 + 3) * sizeof(TYPE_ACC);
+          int scalarFillOffset = (groupID.x * 5 + 4) * sizeof(TYPE_ACC);
+
+          // This will offset to the second half of the buffer.
+          // We want to ensure that different waves produce the same result when given the same input.
+          uint laneOffset = (groupThreadID.x/NUM_LANES) * 6 * 5 * sizeof(TYPE_ACC);
+
+          int outScalarMulOffset  = laneOffset + scalarMulOffset;
+          int outScalarDivOffset  = laneOffset + scalarDivOffset;
+          int outScalarAddOffset  = laneOffset + scalarAddOffset;
+          int outScalarSubOffset  = laneOffset + scalarSubOffset;
+          int outScalarFillOffset = laneOffset + scalarFillOffset;
+
+          WaveMatrixLeftColAcc<TYPE_ACC, DIM_M, DIM_N> leftCol;
+          WaveMatrixRightRowAcc<TYPE_ACC, DIM_M, DIM_N> rightRow;
+          WaveMatrixAccumulator<TYPE_ACC, DIM_M, DIM_N> accumulator;
+
+          TYPE_ACC scalar = g_bufInScalar.Load<TYPE_ACC>(groupID.x * sizeof(TYPE_ACC));
+
+          const uint lStride = (uint)(DIM_K * sizeof(TYPE_ACC));
+          const uint rStride = (uint)(DIM_N * sizeof(TYPE_ACC));
+          const uint aStride = (uint)(DIM_N * sizeof(TYPE_ACC));
+
+          ///////////
+          // Accumulator
+          ///////////
+
+          accumulator.Load(g_bufInAccumulator, scalarMulOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+          accumulator.ScalarMultiply(scalar);
+          accumulator.Store(g_bufOutAccumulator, outScalarMulOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+
+          accumulator.Load(g_bufInAccumulator, scalarDivOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+          accumulator.ScalarDivide(scalar);
+          accumulator.Store(g_bufOutAccumulator, outScalarDivOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+
+          accumulator.Load(g_bufInAccumulator, scalarAddOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+          accumulator.ScalarAdd(scalar);
+          accumulator.Store(g_bufOutAccumulator, outScalarAddOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+
+          accumulator.Load(g_bufInAccumulator, scalarSubOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+          accumulator.ScalarSubtract(scalar);
+          accumulator.Store(g_bufOutAccumulator, outScalarSubOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+
+          accumulator.Load(g_bufInAccumulator, scalarFillOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+          accumulator.Fill(scalar);
+          accumulator.Store(g_bufOutAccumulator, outScalarFillOffset * NUM_ACCUMULATOR_ELEMENTS, aStride, false);
+
+#if FRAGS_ENABLE
+
+          ///////////
+          // Left Col
+          ///////////
+
+          // We load and store the left col transposed (as a row) to save space
+          leftCol.Load (g_bufInLeftColAcc, scalarMulOffset * DIM_M, (int)sizeof(TYPE_ACC));
+          leftCol.ScalarMultiply(scalar);
+          leftCol.Store(g_bufOutLeftColAcc, outScalarMulOffset * DIM_M, (int)sizeof(TYPE_ACC));
+
+          leftCol.Load (g_bufInLeftColAcc, scalarDivOffset * DIM_M, (int)sizeof(TYPE_ACC));
+          leftCol.ScalarDivide(scalar);
+          leftCol.Store(g_bufOutLeftColAcc, outScalarDivOffset * DIM_M, (int)sizeof(TYPE_ACC));
+
+          leftCol.Load (g_bufInLeftColAcc, scalarAddOffset * DIM_M, (int)sizeof(TYPE_ACC));
+          leftCol.ScalarAdd(scalar);
+          leftCol.Store(g_bufOutLeftColAcc, outScalarAddOffset * DIM_M, (int)sizeof(TYPE_ACC));
+
+          leftCol.Load (g_bufInLeftColAcc, scalarSubOffset * DIM_M, (int)sizeof(TYPE_ACC));
+          leftCol.ScalarSubtract(scalar);
+          leftCol.Store(g_bufOutLeftColAcc, outScalarSubOffset * DIM_M, (int)sizeof(TYPE_ACC));
+
+          leftCol.Load (g_bufInLeftColAcc, scalarFillOffset * DIM_M, (int)sizeof(TYPE_ACC));
+          leftCol.Fill(scalar);
+          leftCol.Store(g_bufOutLeftColAcc, outScalarFillOffset * DIM_M, (int)sizeof(TYPE_ACC));
+
+          ///////////
+          // Right Row
+          ///////////
+
+          rightRow.Load (g_bufInRightRowAcc, scalarMulOffset * DIM_N, (int)sizeof(TYPE_ACC));
+          rightRow.ScalarMultiply(scalar);
+          rightRow.Store(g_bufOutRightRowAcc, outScalarMulOffset * DIM_N, (int)sizeof(TYPE_ACC));
+
+          rightRow.Load (g_bufInRightRowAcc, scalarDivOffset * DIM_N, (int)sizeof(TYPE_ACC));
+          rightRow.ScalarDivide(scalar);
+          rightRow.Store(g_bufOutRightRowAcc, outScalarDivOffset * DIM_N, (int)sizeof(TYPE_ACC));
+
+          rightRow.Load (g_bufInRightRowAcc, scalarAddOffset * DIM_N, (int)sizeof(TYPE_ACC));
+          rightRow.ScalarAdd(scalar);
+          rightRow.Store(g_bufOutRightRowAcc, outScalarAddOffset * DIM_N, (int)sizeof(TYPE_ACC));
+
+          rightRow.Load (g_bufInRightRowAcc, scalarSubOffset * DIM_N, (int)sizeof(TYPE_ACC));
+          rightRow.ScalarSubtract(scalar);
+          rightRow.Store(g_bufOutRightRowAcc, outScalarSubOffset * DIM_N, (int)sizeof(TYPE_ACC));
+
+          rightRow.Load (g_bufInRightRowAcc, scalarFillOffset * DIM_N, (int)sizeof(TYPE_ACC));
+          rightRow.Fill(scalar);
+          rightRow.Store(g_bufOutRightRowAcc, outScalarFillOffset * DIM_N, (int)sizeof(TYPE_ACC));
+#endif // #if FRAGS_ENABLE
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
+      <ShaderOp Name="WaveMatrixOpMath" CS="CS" DispatchX="1" DispatchY="1" DispatchZ="1">
+    <RootSignature>RootFlags(0), UAV(u0), UAV(u1), UAV(u2)</RootSignature>
+    <Resource Name="g_bufInMatrices" Dimension="BUFFER" Width="49152" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" />
+    <Resource Name="g_bufOutMatrices" Dimension="BUFFER" Width="163840" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <Resource Name="g_bufOutRowCols" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />
+    <RootValues>
+      <RootValue Index="0" ResName="g_bufInMatrices" />
+      <RootValue Index="1" ResName="g_bufOutMatrices" />
+      <RootValue Index="2" ResName="g_bufOutRowCols" />
+    </RootValues>
+    <Shader Name="CS" Target="cs_6_8">
+      <![CDATA[
+        RWByteAddressBuffer g_bufInMatrices : register(u0);
+        RWByteAddressBuffer g_bufOutMatrices : register(u1);
+        RWByteAddressBuffer g_bufOutRowCols : register(u2);
+
+        [WaveSize(NUM_LANES)]
+        [numthreads(NUM_LANES * 2,1,1)]
+        void main(uint3 groupThreadID : SV_GroupThreadID)
+        {
+          int groupThreadIDOffset = (groupThreadID.x/NUM_LANES) * 5;
+
+          int outMulMatrix             = 0 + groupThreadIDOffset;
+          int outMulAccumulateMatrix   = 1 + groupThreadIDOffset;
+          int outAddMatrix             = 2 + groupThreadIDOffset;
+          int outBroadcastAddColMatrix = 3 + groupThreadIDOffset;
+          int outBroadcastAddRowMatrix = 4 + groupThreadIDOffset;
+          int outRowColOffset = (groupThreadID.x/NUM_LANES) * 2 * 64 * sizeof(TYPE_ACC);
+
+          WaveMatrixLeft<DATATYPE, DIM_M, DIM_N> leftMatrix;
+          WaveMatrixRight<DATATYPE2, DIM_M, DIM_N> rightMatrix;
+          WaveMatrixLeftColAcc<TYPE_ACC, DIM_M, DIM_N> leftCol;
+          WaveMatrixRightRowAcc<TYPE_ACC, DIM_M, DIM_N> rightRow;
+          WaveMatrixAccumulator<TYPE_ACC, DIM_M, DIM_N> accumulator;
+          WaveMatrixAccumulator<TYPE_ACC, DIM_M, DIM_N> outAccumulator;
+
+          const uint lStride = (uint)(DIM_K * ELEMENTSIZE);
+          const uint rStride = (uint)(DIM_N * ELEMENTSIZE);
+          const uint aStride = (uint)(DIM_N * sizeof(TYPE_ACC));
+
+          leftMatrix.Load(g_bufInMatrices, 0, lStride, false);
+          rightMatrix.Load(g_bufInMatrices, MATRIX_BUFFER_STRIDE_IN_ELEMENTS * ELEMENTSIZE, rStride, false);
+          accumulator.Load(g_bufInMatrices, 2 * MATRIX_BUFFER_STRIDE_IN_ELEMENTS * ELEMENTSIZE, aStride, false);
+
+          outAccumulator.Multiply(leftMatrix, rightMatrix);
+          outAccumulator.Store(g_bufOutMatrices, outMulMatrix * MATRIX_BUFFER_STRIDE_IN_ELEMENTS * sizeof(TYPE_ACC), aStride, false);
+
+          outAccumulator.Fill(42);
+          outAccumulator.MultiplyAccumulate(leftMatrix, rightMatrix);
+          outAccumulator.Store(g_bufOutMatrices, outMulAccumulateMatrix * MATRIX_BUFFER_STRIDE_IN_ELEMENTS * sizeof(TYPE_ACC), aStride, false);
+
+          outAccumulator.Fill(42);
+          outAccumulator.Add(accumulator);
+          outAccumulator.Store(g_bufOutMatrices, outAddMatrix * MATRIX_BUFFER_STRIDE_IN_ELEMENTS * sizeof(TYPE_ACC), aStride, false);
+#if FRAGS_ENABLE
+          leftCol.Load(g_bufInMatrices, 2 * MATRIX_BUFFER_STRIDE_IN_ELEMENTS * ELEMENTSIZE, (int)sizeof(TYPE_ACC));
+          rightRow.Load(g_bufInMatrices, 2 * MATRIX_BUFFER_STRIDE_IN_ELEMENTS * ELEMENTSIZE, (int)sizeof(TYPE_ACC));
+
+          outAccumulator.Fill(0);
+          outAccumulator.Add(leftCol);
+          outAccumulator.Store(g_bufOutMatrices, outBroadcastAddColMatrix * MATRIX_BUFFER_STRIDE_IN_ELEMENTS * sizeof(TYPE_ACC), aStride, false);
+
+          outAccumulator.Fill(0);
+          outAccumulator.Add(rightRow);
+          outAccumulator.Store(g_bufOutMatrices, outBroadcastAddRowMatrix * MATRIX_BUFFER_STRIDE_IN_ELEMENTS * sizeof(TYPE_ACC), aStride, false);
+
+          leftCol.SumAccumulate(leftMatrix);
+          rightRow.SumAccumulate(rightMatrix);
+          leftCol.Store(g_bufOutRowCols, outRowColOffset, (int)sizeof(TYPE_ACC));
+          rightRow.Store(g_bufOutRowCols, outRowColOffset + 64 * sizeof(TYPE_ACC), (int)sizeof(TYPE_ACC));
+#endif //#if FRAGS_ENABLE
+        };
+      ]]>
+    </Shader>
+  </ShaderOp>
+
   <ShaderOp Name="Dot2AddHalfOp" CS="CS" DispatchX="8" DispatchY="8">
     <RootSignature>RootFlags(0), UAV(u0)</RootSignature>
     <Resource Name="SDot2AddHalfOp" Dimension="BUFFER" Width="1024" Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST" TransitionTo="UNORDERED_ACCESS" Init="ByName" ReadBack="true" />

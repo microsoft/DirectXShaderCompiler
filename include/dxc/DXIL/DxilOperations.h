@@ -16,6 +16,7 @@ class LLVMContext;
 class Module;
 class Type;
 class StructType;
+class PointerType;
 class Function;
 class Constant;
 class Value;
@@ -41,8 +42,20 @@ public:
   OP() = delete;
   OP(llvm::LLVMContext &Ctx, llvm::Module *pModule);
 
-  void RefreshCache();
+  // InitWithMinPrecision sets the low-precision mode and calls
+  // FixOverloadNames() and RefreshCache() to set up caches for any existing
+  // DXIL operations and types used in the module.
+  void InitWithMinPrecision(bool bMinPrecision);
+
+  // FixOverloadNames fixes the names of DXIL operation overloads, particularly
+  // when they depend on user defined type names. User defined type names can be
+  // modified by name collisions from multiple modules being loaded into the
+  // same llvm context, such as during module linking.
   void FixOverloadNames();
+
+  // RefreshCache places DXIL types and operation overloads from the module into
+  // caches.
+  void RefreshCache();
 
   llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &
@@ -51,7 +64,11 @@ public:
   void RemoveFunction(llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
   llvm::Type *GetHandleType() const;
+  llvm::Type *GetNodeHandleType() const;
+  llvm::Type *GetNodeRecordHandleType() const;
   llvm::Type *GetResourcePropertiesType() const;
+  llvm::Type *GetNodePropertiesType() const;
+  llvm::Type *GetNodeRecordPropertiesType() const;
   llvm::Type *GetResourceBindingType() const;
   llvm::Type *GetDimensionsType() const;
   llvm::Type *GetSamplePosType() const;
@@ -60,6 +77,8 @@ public:
   llvm::Type *GetSplitDoubleType() const;
   llvm::Type *GetFourI32Type() const;
   llvm::Type *GetFourI16Type() const;
+  llvm::StructType *GetWaveMatrixPropertiesType() const;
+  llvm::PointerType *GetWaveMatPtrType() const;
 
   llvm::Type *GetResRetType(llvm::Type *pOverloadType);
   llvm::Type *GetCBufferRetType(llvm::Type *pOverloadType);
@@ -73,8 +92,6 @@ public:
 
   // To check if operation uses strict precision types
   bool UseMinPrecision();
-  // Set if operation uses strict precision types or not.
-  void SetMinPrecision(bool bMinPrecision);
 
   // Get the size of the type for a given layout
   uint64_t GetAllocSizeForType(llvm::Type *Ty);
@@ -91,6 +108,7 @@ public:
   llvm::Constant *GetFloatConst(float v);
   llvm::Constant *GetDoubleConst(double v);
 
+  static OP::OpCode getOpCode(const llvm::Instruction *I);
   static llvm::Type *GetOverloadType(OpCode OpCode, llvm::Function *F);
   static OpCode GetDxilOpFuncCallInst(const llvm::Instruction *I);
   static const char *GetOpCodeName(OpCode OpCode);
@@ -126,7 +144,11 @@ private:
   llvm::Module *m_pModule;
 
   llvm::Type *m_pHandleType;
+  llvm::Type *m_pNodeHandleType;
+  llvm::Type *m_pNodeRecordHandleType;
   llvm::Type *m_pResourcePropertiesType;
+  llvm::Type *m_pNodePropertiesType;
+  llvm::Type *m_pNodeRecordPropertiesType;
   llvm::Type *m_pResourceBindingType;
   llvm::Type *m_pDimensionsType;
   llvm::Type *m_pSamplePosType;
@@ -135,6 +157,8 @@ private:
   llvm::Type *m_pSplitDoubleType;
   llvm::Type *m_pFourI32Type;
   llvm::Type *m_pFourI16Type;
+  llvm::StructType *m_pWaveMatInfoType;
+  llvm::PointerType *m_pWaveMatPtrType;
 
   DXIL::LowPrecisionMode m_LowPrecisionMode;
 

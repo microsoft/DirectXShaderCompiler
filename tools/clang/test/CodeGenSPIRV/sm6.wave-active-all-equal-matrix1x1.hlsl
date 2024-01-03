@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -HV 2018 -E main -fspv-target-env=vulkan1.1
+// RUN: %dxc -T cs_6_0 -HV 2018 -E main -fspv-target-env=vulkan1.1 -fcgl  %s -spirv | FileCheck %s
 
 struct S {
     float1x1 val;
@@ -14,8 +14,8 @@ void main(uint3 id: SV_DispatchThreadID) {
 
 // For a 1x1 matrix, the spirv type should become a scalar because Spir-V cannot have a 1x1 matrix.
 
-// CHECK: [[ld:%\w+]] = OpLoad %float %32
-// CHECK: [[res:%\w+]] = OpGroupNonUniformAllEqual %bool %uint_3 [[ld]]
+// CHECK: [[ld:%[a-zA-Z0-9_]+]] = OpLoad %float %32
+// CHECK: [[res:%[a-zA-Z0-9_]+]] = OpGroupNonUniformAllEqual %bool %uint_3 [[ld]]
 // CHECK: OpSelect %uint [[res]] %uint_1 %uint_0
     values[id.x].res = all(WaveActiveAllEqual(values[id.x].val));
 }

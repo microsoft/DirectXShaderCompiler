@@ -51,7 +51,15 @@ BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui) {
 
   return strOut;
 }
+//===--------------------------- BSTR Length ------------------------------===//
+unsigned int SysStringLen(const BSTR bstrString) {
+  if (!bstrString)
+    return 0;
 
+  uint32_t *blobIn = (uint32_t *)((uintptr_t)bstrString - sizeof(uint32_t));
+
+  return blobIn[0] / sizeof(OLECHAR);
+}
 //===---------------------- Char converstion ------------------------------===//
 
 const char *CPToLocale(uint32_t CodePage) {

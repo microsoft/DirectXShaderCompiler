@@ -40,7 +40,7 @@ void anyhit_param8( inout RayDesc D1) { }
 void anyhit_param9( inout RayDesc D1, RayDesc D2, float f) { }
 
 [shader("anyhit")]
-float anyhit_param10( in out RayDesc D1, RayDesc D2 ) { } // expected-error{{return type for ray tracing shaders must be void}}
+float anyhit_param10( in out RayDesc D1, RayDesc D2 ) { } // expected-error{{return type for 'anyhit' shaders must be void}}
 
 // expected-error@+2{{intersection attributes parameter 'D2' must be 'in'}}
 [shader("anyhit")]
@@ -86,7 +86,7 @@ void closesthit_payload7( inout RayDesc D1) { }
 void closesthit_payload8( inout RayDesc D1, RayDesc attr, float f) { }
 
 [shader("closesthit")]
-float closesthit_payload9( inout RayDesc payload, RayDesc attr ) {} // expected-error{{return type for ray tracing shaders must be void}}
+float closesthit_payload9( inout RayDesc payload, RayDesc attr ) {} // expected-error{{return type for 'closesthit' shaders must be void}}
 
 // expected-error@+2{{intersection attributes parameter 'attr' must be 'in'}}
 [shader("closesthit")]
@@ -127,18 +127,18 @@ void miss_payload6( ) { }
 void miss_payload7(inout RayDesc payload, float f1, float f2 ) { }
 
 [shader("miss")]
-float miss_payload8( inout RayDesc payload) { } // expected-error{{return type for ray tracing shaders must be void}}
+float miss_payload8( inout RayDesc payload) { } // expected-error{{return type for 'miss' shaders must be void}}
 
 // expected-error@+2{{incorrect number of entry parameters for raytracing stage 'intersection': 1 parameter(s) provided, expected no parameters}}
 [shader("intersection")]
-float intersection_param(float4 extra) // expected-error{{return type for ray tracing shaders must be void}}
+float intersection_param(float4 extra) // expected-error{{return type for 'intersection' shaders must be void}}
 {
   return extra.x;
 }
 
 // expected-error@+2{{incorrect number of entry parameters for raytracing stage 'raygeneration': 1 parameter(s) provided, expected no parameters}}
 [shader("raygeneration")]
-float raygen_param(float4 extra) // expected-error{{return type for ray tracing shaders must be void}}
+float raygen_param(float4 extra) // expected-error{{return type for 'raygeneration' shaders must be void}}
 {
   return extra.x;
 }
@@ -180,4 +180,4 @@ void callable6(inout MyPayload payload) {}
 void callable7(inout MyPayload payload, float F) {}
 
 [shader("callable")]
-float callable8(inout MyPayload payload) {} // expected-error{{return type for ray tracing shaders must be void}}
+float callable8(inout MyPayload payload) {} // expected-error{{return type for 'callable' shaders must be void}}

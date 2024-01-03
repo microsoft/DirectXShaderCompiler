@@ -86,7 +86,8 @@ public:
   /// \brief Creates and registers a function parameter of the given pointer
   /// type in the current function and returns its pointer.
   SpirvFunctionParameter *addFnParam(QualType ptrType, bool isPrecise,
-                                     SourceLocation, llvm::StringRef name = "");
+                                     bool isNointerp, SourceLocation,
+                                     llvm::StringRef name = "");
 
   /// \brief Creates a local variable of the given type in the current
   /// function and returns it.
@@ -95,6 +96,7 @@ public:
   /// this method for the variable itself.
   SpirvVariable *addFnVar(QualType valueType, SourceLocation,
                           llvm::StringRef name = "", bool isPrecise = false,
+                          bool isNointerp = false,
                           SpirvInstruction *init = nullptr);
 
   /// \brief Ends building of the current function. All basic blocks constructed
@@ -375,7 +377,7 @@ public:
   void
   createSwitch(SpirvBasicBlock *mergeLabel, SpirvInstruction *selector,
                SpirvBasicBlock *defaultLabel,
-               llvm::ArrayRef<std::pair<uint32_t, SpirvBasicBlock *>> target,
+               llvm::ArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>> target,
                SourceLocation, SourceRange);
 
   /// \brief Creates a fragment-shader discard via by emitting OpKill.
@@ -628,7 +630,7 @@ public:
   /// constructed in this method.
   SpirvVariable *addStageIOVar(QualType type, spv::StorageClass storageClass,
                                llvm::StringRef name, bool isPrecise,
-                               SourceLocation loc);
+                               bool isNointerp, SourceLocation loc);
 
   /// \brief Adds a stage builtin variable whose value is of the given type.
   ///
@@ -646,12 +648,12 @@ public:
   /// constructed in this method.
   SpirvVariable *
   addModuleVar(QualType valueType, spv::StorageClass storageClass,
-               bool isPrecise, llvm::StringRef name = "",
+               bool isPrecise, bool isNointerp, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
   SpirvVariable *
   addModuleVar(const SpirvType *valueType, spv::StorageClass storageClass,
-               bool isPrecise, llvm::StringRef name = "",
+               bool isPrecise, bool isNointerp, llvm::StringRef name = "",
                llvm::Optional<SpirvInstruction *> init = llvm::None,
                SourceLocation loc = {});
 
@@ -711,6 +713,9 @@ public:
   void decoratePerTaskNV(SpirvInstruction *target, uint32_t offset,
                          SourceLocation);
 
+  /// \brief Decorates the given target with PerVertexKHR
+  void decoratePerVertexKHR(SpirvInstruction *argInst, SourceLocation);
+
   /// \brief Decorates the given target with Coherent
   void decorateCoherent(SpirvInstruction *target, SourceLocation);
 
@@ -757,6 +762,13 @@ public:
   const HybridPointerType *getPhysicalStorageBufferType(QualType pointee);
   const SpirvPointerType *
   getPhysicalStorageBufferType(const SpirvType *pointee);
+
+  void setPerVertexInterpMode(bool b);
+  bool isPerVertexInterpMode();
+
+  void addPerVertexStgInputFuncVarEntry(SpirvInstruction *k,
+                                        SpirvInstruction *v);
+  SpirvInstruction *getPerVertexStgInput(SpirvInstruction *k);
 
 public:
   std::vector<uint32_t> takeModule();
@@ -863,6 +875,10 @@ private:
   /// clone variables. We need it to avoid multiple clone variables for the same
   /// CTBuffer.
   llvm::DenseMap<SpirvVariable *, SpirvVariable *> fxcCTBufferToClone;
+
+  /// Mapping of a temporary stage parameter variable to real stage input
+  /// variables, only when the declaration has attribute `nointerpolation`
+  llvm::DenseMap<SpirvInstruction *, SpirvInstruction *> perVertexInputVarMap;
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {

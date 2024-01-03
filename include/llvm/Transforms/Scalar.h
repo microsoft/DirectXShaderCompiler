@@ -181,6 +181,11 @@ void initializeMultiDimArrayToOneDimArrayPass(PassRegistry&);
 //
 ModulePass *createResourceToHandlePass();
 void initializeResourceToHandlePass(PassRegistry&);
+//===----------------------------------------------------------------------===//
+// Flatten resource into handle.
+//
+ModulePass *createLowerWaveMatTypePass();
+void initializeLowerWaveMatTypePass(PassRegistry &);
 
 //===----------------------------------------------------------------------===//
 // Hoist a local array initialized with constant values to a global array with

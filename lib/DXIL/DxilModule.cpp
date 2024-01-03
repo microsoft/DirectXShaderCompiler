@@ -117,13 +117,11 @@ void DxilModule::SetShaderModel(const ShaderModel *pSM, bool bUseMinPrecision) {
            "shader model must not change for the module");
   DXASSERT(pSM != nullptr && pSM->IsValidForDxil(),
            "shader model must be valid");
-  DXASSERT(pSM->IsValidForModule(),
-           "shader model must be valid for top-level module use");
   m_pSM = pSM;
   m_pSM->GetDxilVersion(m_DxilMajor, m_DxilMinor);
   m_pMDHelper->SetShaderModel(m_pSM);
   m_bUseMinPrecision = bUseMinPrecision;
-  m_pOP->SetMinPrecision(m_bUseMinPrecision);
+  m_pOP->InitWithMinPrecision(m_bUseMinPrecision);
   m_pTypeSystem->SetMinPrecision(m_bUseMinPrecision);
 
   if (!m_pSM->IsLib()) {
@@ -380,12 +378,9 @@ void DxilModule::SetNumThreads(unsigned x, unsigned y, unsigned z) {
            "only works for CS/MS/AS profiles");
   DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
   DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
-  unsigned *numThreads = props.IsCS()   ? props.ShaderProps.CS.numThreads
-                         : props.IsMS() ? props.ShaderProps.MS.numThreads
-                                        : props.ShaderProps.AS.numThreads;
-  numThreads[0] = x;
-  numThreads[1] = y;
-  numThreads[2] = z;
+  props.numThreads[0] = x;
+  props.numThreads[1] = y;
+  props.numThreads[2] = z;
 }
 unsigned DxilModule::GetNumThreads(unsigned idx) const {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 &&
@@ -397,10 +392,7 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
     return 0;
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
   DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
-  const unsigned *numThreads = props.IsCS()   ? props.ShaderProps.CS.numThreads
-                               : props.IsMS() ? props.ShaderProps.MS.numThreads
-                                              : props.ShaderProps.AS.numThreads;
-  return numThreads[idx];
+  return props.numThreads[idx];
 }
 
 void DxilModule::SetWaveSize(unsigned size) {
@@ -1237,7 +1229,7 @@ bool DxilModule::IsEntryThatUsesSignatures(const llvm::Function *F) const {
   auto propIter = m_DxilEntryPropsMap.find(F);
   if (propIter != m_DxilEntryPropsMap.end()) {
     DxilFunctionProps &props = propIter->second->props;
-    return props.IsGraphics() || props.IsCS();
+    return props.IsGraphics() || props.IsCS() || props.IsNode();
   }
   // Otherwise, return true if patch constant function
   return IsPatchConstantShader(F);

@@ -98,6 +98,7 @@ public:
   TEST_METHOD(CompileWhenDebugSourceThenSourceMatters)
   TEST_METHOD(CompileAS_CheckPSV0)
   TEST_METHOD(CompileGS_CheckPSV0_ViewID)
+  TEST_METHOD(Compile_CheckPSV0_EntryFunctionName)
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckReflection1)
@@ -442,6 +443,26 @@ public:
   }
 #endif // _WIN32 - DXBC Unsupported
 
+  void CheckResult(LPCWSTR operation, IDxcOperationResult *pResult) {
+    HRESULT hrStatus = S_OK;
+    VERIFY_SUCCEEDED(pResult->GetStatus(&hrStatus));
+    if (FAILED(hrStatus)) {
+      CComPtr<IDxcBlobEncoding> pErrorBuffer;
+      if (SUCCEEDED(pResult->GetErrorBuffer(&pErrorBuffer)) &&
+          pErrorBuffer->GetBufferSize()) {
+        CComPtr<IDxcUtils> pUtils;
+        VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+        CComPtr<IDxcBlobWide> pErrorBufferW;
+        VERIFY_SUCCEEDED(pUtils->GetBlobAsWide(pErrorBuffer, &pErrorBufferW));
+        LogErrorFmt(L"%s failed with hr %d. Error Buffer:\n%s", operation,
+                    hrStatus, pErrorBufferW->GetStringPointer());
+      } else {
+        LogErrorFmt(L"%s failed with hr %d.", operation, hrStatus);
+      }
+    }
+    VERIFY_SUCCEEDED(hrStatus);
+  }
+
   void CompileToProgram(LPCSTR program, LPCWSTR entryPoint, LPCWSTR target,
                         LPCWSTR *pArguments, UINT32 argCount,
                         IDxcBlob **ppProgram,
@@ -456,10 +477,37 @@ public:
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"hlsl.hlsl", entryPoint,
                                         target, pArguments, argCount, nullptr,
                                         0, nullptr, &pResult));
+    CheckResult(L"compilation", pResult);
     VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
     *ppProgram = pProgram.Detach();
     if (ppResult)
       *ppResult = pResult.Detach();
+  }
+
+  void AssembleToProgram(LPCSTR program, IDxcBlob **ppProgram) {
+    // Assemble program
+    CComPtr<IDxcAssembler> pAssembler;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+
+    CComPtr<IDxcBlobEncoding> pSource;
+    CreateBlobFromText(program, &pSource);
+
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlob> pProgram;
+    VERIFY_SUCCEEDED(pAssembler->AssembleToContainer(pSource, &pResult));
+    CheckResult(L"assembly", pResult);
+    VERIFY_SUCCEEDED(pResult->GetResult(&pProgram));
+
+    pResult.Release(); // Release pResult for re-use
+
+    CComPtr<IDxcValidator> pValidator;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+    VERIFY_SUCCEEDED(pValidator->Validate(
+        pProgram, DxcValidatorFlags_InPlaceEdit, &pResult));
+    CheckResult(L"assembly validation", pResult);
+    *ppProgram = pProgram.Detach();
   }
 
   bool DoesValidatorSupportDebugName() {
@@ -1154,6 +1202,158 @@ TEST_F(DxilContainerTest, CompileGS_CheckPSV0_ViewID) {
   }
 }
 
+TEST_F(DxilContainerTest, Compile_CheckPSV0_EntryFunctionName) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+
+  auto CheckEntryFunctionNameForProgram = [&](const char *EntryPointName,
+                                              CComPtr<IDxcBlob> pProgram) {
+    // Get PSV0 part
+    CComPtr<IDxcContainerReflection> containerReflection;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection,
+                                                 &containerReflection));
+    VERIFY_SUCCEEDED(containerReflection->Load(pProgram));
+    uint32_t partIdx = 0;
+    VERIFY_SUCCEEDED(containerReflection->FindFirstPartKind(
+        (uint32_t)hlsl::DxilFourCC::DFCC_PipelineStateValidation, &partIdx));
+    CComPtr<IDxcBlob> pBlob;
+    VERIFY_SUCCEEDED(containerReflection->GetPartContent(partIdx, &pBlob));
+
+    // Look up EntryFunctionName in PSV0
+    DxilPipelineStateValidation PSV;
+    PSV.InitFromPSV0(pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+
+    // We should have a valid PSVRuntimeInfo3 structure
+    PSVRuntimeInfo3 *pInfo3 = PSV.GetPSVRuntimeInfo3();
+    VERIFY_IS_NOT_NULL(pInfo3);
+
+    // Finally, verify that the entry function name in PSV0 matches
+    VERIFY_ARE_EQUAL_STR(EntryPointName, PSV.GetEntryFunctionName());
+  };
+
+  auto CheckEntryFunctionNameForHLSL = [&](const char *EntryPointName,
+                                           const char *Source,
+                                           const char *Profile) {
+    CComPtr<IDxcBlob> pProgram;
+    CA2W wEntryPointName(EntryPointName);
+    CA2W wProfile(Profile);
+    CompileToProgram(Source, wEntryPointName, wProfile, nullptr, 0, &pProgram);
+    CheckEntryFunctionNameForProgram(EntryPointName, pProgram);
+  };
+  auto CheckEntryFunctionNameForLL = [&](const char *EntryPointName,
+                                         const char *Source) {
+    CComPtr<IDxcBlob> pProgram;
+    AssembleToProgram(Source, &pProgram);
+    CheckEntryFunctionNameForProgram(EntryPointName, pProgram);
+  };
+
+  const char src_PSMain[] = "float MyPSMain() : SV_Target { return 0; }";
+  const char src_VSMain[] = "float4 MyVSMain() : SV_Position { return 0; }";
+  const char src_CSMain[] = "[numthreads(1,1,1)] void MyCSMain() {}";
+
+  CheckEntryFunctionNameForHLSL("MyPSMain", src_PSMain, "ps_6_0");
+  CheckEntryFunctionNameForHLSL("MyVSMain", src_VSMain, "vs_6_0");
+  CheckEntryFunctionNameForHLSL("MyCSMain", src_CSMain, "cs_6_0");
+
+  // HS is interesting because of the passthrough case, where the main control
+  // point function body can be eliminated.
+  const char src_HSMain[] = R"(
+    struct HSInputOutput { float4 pos : POSITION; };
+    struct HSPerPatchData {
+      float edges[3] : SV_TessFactor;
+      float inside   : SV_InsideTessFactor;
+    };
+    [domain("tri")] [partitioning("integer")] [outputtopology("triangle_cw")]
+    [outputcontrolpoints(3)] [patchconstantfunc("MyPatchConstantFunc")]
+    HSInputOutput MyHSMain(InputPatch<HSInputOutput, 3> input,
+                           uint id : SV_OutputControlPointID) {
+      HSInputOutput output;
+      output.pos = input[id].pos * id;
+      return output;
+    }
+    [domain("tri")] [partitioning("integer")] [outputtopology("triangle_cw")]
+    [outputcontrolpoints(3)] [patchconstantfunc("MyPatchConstantFunc")]
+    HSInputOutput MyHSMainPassthrough(InputPatch<HSInputOutput, 3> input,
+                                      uint id : SV_OutputControlPointID) {
+      return input[id];
+    }
+    void MyPatchConstantFunc(out HSPerPatchData output) {
+      output.edges[0] = 1;
+      output.edges[1] = 2;
+      output.edges[2] = 3;
+      output.inside = 4;
+    }
+)";
+
+  CheckEntryFunctionNameForHLSL("MyHSMain", src_HSMain, "hs_6_0");
+  CheckEntryFunctionNameForHLSL("MyHSMainPassthrough", src_HSMain, "hs_6_0");
+
+  // Because DXC currently won't eliminate the main HS function body for the
+  // passthrough case, we must construct the IR manually to test that.
+
+  // TODO: There are problems blocking the real pass-through control point
+  // function case.
+  // See: https://github.com/microsoft/DirectXShaderCompiler/issues/6001
+  // Update this code once this case is fixed.
+
+  const char ll_HSPassthrough[] = R"!!!(
+target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+define void @MyHSMainPassthrough() {
+  ret void
+}
+
+define void @"\01?MyPatchConstantFunc@@YAXUHSPerPatchData@@@Z"() {
+entry:
+  call void @dx.op.storePatchConstant.f32(i32 106, i32 0, i32 0, i8 0, float 1.000000e+00)
+  call void @dx.op.storePatchConstant.f32(i32 106, i32 0, i32 1, i8 0, float 2.000000e+00)
+  call void @dx.op.storePatchConstant.f32(i32 106, i32 0, i32 2, i8 0, float 3.000000e+00)
+  call void @dx.op.storePatchConstant.f32(i32 106, i32 1, i32 0, i8 0, float 4.000000e+00)
+  ret void
+}
+
+; Function Attrs: nounwind
+declare void @dx.op.storePatchConstant.f32(i32, i32, i32, i8, float) #1
+
+attributes #0 = { nounwind readnone }
+attributes #1 = { nounwind }
+
+!llvm.ident = !{!0}
+!dx.version = !{!1}
+!dx.valver = !{!2}
+!dx.shaderModel = !{!3}
+!dx.typeAnnotations = !{!4}
+!dx.viewIdState = !{!8}
+!dx.entryPoints = !{!9}
+
+!0 = !{!"dxc(private) 1.7.0.4190 (psv0-add-entryname, f73dd2937)"}
+!1 = !{i32 1, i32 0}
+!2 = !{i32 1, i32 8}
+!3 = !{!"hs", i32 6, i32 0}
+!4 = !{i32 1, void ()* @"\01?MyPatchConstantFunc@@YAXUHSPerPatchData@@@Z", !5, void ()* @MyHSMainPassthrough, !5}
+!5 = !{!6}
+!6 = !{i32 0, !7, !7}
+!7 = !{}
+!8 = !{[11 x i32] [i32 4, i32 4, i32 1, i32 2, i32 4, i32 8, i32 13, i32 0, i32 0, i32 0, i32 0]}
+!9 = !{void ()* @MyHSMainPassthrough, !"MyHSMainPassthrough", !10, null, !20}
+!10 = !{!11, !11, !15}
+!11 = !{!12}
+!12 = !{i32 0, !"POSITION", i8 9, i8 0, !13, i8 2, i32 1, i8 4, i32 0, i8 0, !14}
+!13 = !{i32 0}
+!14 = !{i32 3, i32 15}
+!15 = !{!16, !19}
+!16 = !{i32 0, !"SV_TessFactor", i8 9, i8 25, !17, i8 0, i32 3, i8 1, i32 0, i8 3, !18}
+!17 = !{i32 0, i32 1, i32 2}
+!18 = !{i32 3, i32 1}
+!19 = !{i32 1, !"SV_InsideTessFactor", i8 9, i8 26, !13, i8 0, i32 1, i8 1, i32 3, i8 0, !18}
+!20 = !{i32 3, !21}
+!21 = !{void ()* @"\01?MyPatchConstantFunc@@YAXUHSPerPatchData@@@Z", i32 3, i32 3, i32 2, i32 1, i32 3, float 6.400000e+01}
+)!!!";
+
+  CheckEntryFunctionNameForLL("MyHSMainPassthrough", ll_HSPassthrough);
+}
+
 TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
   if (m_ver.SkipDxilVersion(1, 3))
     return;
@@ -1289,88 +1489,6 @@ TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {
         }
       }
       VERIFY_ARE_EQUAL(resTable.Count(), 8U);
-      // This is validation test for DxilRuntimeReflection implemented on
-      // DxilRuntimeReflection.inl
-      unique_ptr<DxilRuntimeReflection> pReflection(
-          CreateDxilRuntimeReflection());
-      VERIFY_IS_TRUE(pReflection->InitFromRDAT(pBlob->GetBufferPointer(),
-                                               pBlob->GetBufferSize()));
-      DxilLibraryDesc lib_reflection = pReflection->GetLibraryReflection();
-      VERIFY_ARE_EQUAL(lib_reflection.NumFunctions, 4U);
-      for (uint32_t j = 0; j < 3; ++j) {
-        DxilFunctionDesc function = lib_reflection.pFunction[j];
-        std::string cur_str = str;
-        cur_str.push_back('0' + j);
-        if (cur_str.compare("function0") == 0) {
-          hlsl::ShaderFlags flag;
-          flag.SetUAVLoadAdditionalFormats(true);
-          flag.SetLowPrecisionPresent(true);
-          uint64_t rawFlag = flag.GetFeatureInfo();
-          uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2)
-                                 << 32;
-          featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
-          VERIFY_ARE_EQUAL(featureFlag, rawFlag);
-          VERIFY_ARE_EQUAL(function.NumResources, 1U);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
-          const DxilResourceDesc &resource = *function.Resources[0];
-          VERIFY_ARE_EQUAL(resource.Class,
-                           (uint32_t)hlsl::DXIL::ResourceClass::UAV);
-          VERIFY_ARE_EQUAL(resource.Kind,
-                           (uint32_t)hlsl::DXIL::ResourceKind::Texture1D);
-          std::wstring wName = resource.Name;
-          VERIFY_ARE_EQUAL(wName.compare(L"tex"), 0);
-        } else if (cur_str.compare("function1") == 0) {
-          hlsl::ShaderFlags flag;
-          flag.SetLowPrecisionPresent(true);
-          uint64_t rawFlag = flag.GetFeatureInfo();
-          uint64_t featureFlag = static_cast<uint64_t>(function.FeatureInfo2)
-                                 << 32;
-          featureFlag |= static_cast<uint64_t>(function.FeatureInfo1);
-          VERIFY_ARE_EQUAL(featureFlag, rawFlag);
-          VERIFY_ARE_EQUAL(function.NumResources, 3U);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
-          std::unordered_set<std::wstring> stringSet = {L"$Globals", L"b_buf",
-                                                        L"tex2"};
-          for (uint32_t j = 0; j < 3; ++j) {
-            const DxilResourceDesc &resource = *function.Resources[j];
-            std::wstring compareName = resource.Name;
-            VERIFY_IS_TRUE(stringSet.find(compareName) != stringSet.end());
-          }
-        } else if (cur_str.compare("function2") == 0) {
-          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0U);
-          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0U);
-          VERIFY_ARE_EQUAL(function.NumResources, 0U);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 1U);
-          std::wstring dependency = function.FunctionDependencies[0];
-          VERIFY_IS_TRUE(dependency.find(L"function_import") !=
-                         std::wstring::npos);
-        } else if (cur_str.compare("function3") == 0) {
-          VERIFY_ARE_EQUAL(function.FeatureInfo1, 0U);
-          VERIFY_ARE_EQUAL(function.FeatureInfo2, 0U);
-          VERIFY_ARE_EQUAL(function.NumResources, numResFlagCheck);
-          VERIFY_ARE_EQUAL(function.NumFunctionDependencies, 0U);
-          for (unsigned i = 0; i < function.NumResources; ++i) {
-            const DxilResourceDesc *res = function.Resources[i];
-            VERIFY_ARE_EQUAL(res->Class, static_cast<uint32_t>(
-                                             hlsl::DXIL::ResourceClass::UAV));
-            unsigned j = 0;
-            for (; j < numResFlagCheck; ++j) {
-              CA2W WName(resFlags[j].name.c_str());
-              std::wstring compareName(WName);
-              if (compareName.compare(res->Name) == 0)
-                break;
-            }
-            VERIFY_IS_LESS_THAN(j, numResFlagCheck);
-            VERIFY_ARE_EQUAL(res->Kind,
-                             static_cast<uint32_t>(resFlags[j].kind));
-            VERIFY_ARE_EQUAL(res->Flags,
-                             static_cast<uint32_t>(resFlags[j].flag));
-          }
-        } else {
-          IFTBOOLMSG(false, E_FAIL, "unknown function name");
-        }
-      }
-      VERIFY_IS_TRUE(lib_reflection.NumResources == 8);
     }
   }
   IFTBOOLMSG(blobFound, E_FAIL, "failed to find RDAT blob after compiling");

@@ -17,6 +17,7 @@
 #define LLVM_CLANG_AST_HLSLTYPES_H
 
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilNodeProps.h"
 #include "dxc/WinAdapter.h"
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/Type.h" // needs QualType
@@ -38,6 +39,7 @@ class FunctionDecl;
 class FunctionTemplateDecl;
 class InheritableAttr;
 class NamedDecl;
+class ParmVarDecl;
 class Sema;
 class TypeSourceInfo;
 class TypedefDecl;
@@ -341,11 +343,18 @@ void AddHLSLMatrixTemplate(clang::ASTContext &context,
 void AddHLSLVectorTemplate(clang::ASTContext &context,
                            clang::ClassTemplateDecl **vectorTemplateDecl);
 
+void AddHLSLNodeOutputRecordTemplate(
+    clang::ASTContext &context, DXIL::NodeIOKind Type,
+    _Outptr_ clang::ClassTemplateDecl **outputRecordTemplateDecl,
+    bool isCompleteType = true);
+
 clang::CXXRecordDecl *DeclareRecordTypeWithHandle(clang::ASTContext &context,
-                                                  llvm::StringRef name);
+                                                  llvm::StringRef name,
+                                                  bool isCompleteType = true);
 
 void AddRaytracingConstants(clang::ASTContext &context);
 void AddSamplerFeedbackConstants(clang::ASTContext &context);
+void AddBarrierConstants(clang::ASTContext &context);
 
 /// <summary>Adds the implementation for std::is_equal.</summary>
 void AddStdIsEqualImplementation(clang::ASTContext &context, clang::Sema &sema);
@@ -358,28 +367,47 @@ void AddStdIsEqualImplementation(clang::ASTContext &context, clang::Sema &sema);
 /// <parm name="templateArgCount">Number of template arguments (one or
 /// two).</param> <parm name="defaultTypeArgValue">If assigned, the default
 /// argument for the element template.</param>
-clang::CXXRecordDecl *
-DeclareTemplateTypeWithHandle(clang::ASTContext &context, llvm::StringRef name,
-                              uint8_t templateArgCount,
-                              clang::TypeSourceInfo *defaultTypeArgValue);
+clang::CXXRecordDecl *DeclareTemplateTypeWithHandle(
+    clang::ASTContext &context, llvm::StringRef name,
+    uint8_t templateArgCount = 1,
+    clang::TypeSourceInfo *defaultTypeArgValue = nullptr);
 
 clang::CXXRecordDecl *DeclareTemplateTypeWithHandleInDeclContext(
     clang::ASTContext &context, clang::DeclContext *declContext,
     llvm::StringRef name, uint8_t templateArgCount,
     clang::TypeSourceInfo *defaultTypeArgValue);
 
-clang::CXXRecordDecl *
-DeclareUIntTemplatedTypeWithHandle(clang::ASTContext &context,
-                                   llvm::StringRef typeName,
-                                   llvm::StringRef templateParamName);
+clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandle(
+    clang::ASTContext &context, llvm::StringRef typeName,
+    llvm::StringRef templateParamName,
+    clang::TagTypeKind tagKind = clang::TagTypeKind::TTK_Class);
 clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandleInDeclContext(
     clang::ASTContext &context, clang::DeclContext *declContext,
-    llvm::StringRef typeName, llvm::StringRef templateParamName);
+    llvm::StringRef typeName, llvm::StringRef templateParamName,
+    clang::TagTypeKind tagKind = clang::TagTypeKind::TTK_Class);
 clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext &context,
                                                     bool bTBuf);
 clang::CXXRecordDecl *DeclareRayQueryType(clang::ASTContext &context);
+clang::CXXRecordDecl *DeclareWaveMatrixType(clang::ASTContext &context,
+                                            DXIL::WaveMatrixKind kind);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
                                           bool bSampler);
+
+clang::CXXRecordDecl *
+DeclareNodeOrRecordType(clang::ASTContext &Ctx, DXIL::NodeIOKind Type,
+                        bool IsRecordTypeTemplate = false, bool IsConst = false,
+                        bool HasGetMethods = false, bool IsArray = false,
+                        bool IsCompleteType = false);
+
+clang::CXXRecordDecl *DeclareNodeOutputArray(clang::ASTContext &Ctx,
+                                             DXIL::NodeIOKind Type,
+                                             clang::CXXRecordDecl *OutputType,
+                                             bool IsRecordTypeTemplate);
+
+clang::CXXRecordDecl *
+DeclareRecordTypeWithHandleAndNoMemberFunctions(clang::ASTContext &context,
+                                                llvm::StringRef name);
+
 clang::VarDecl *DeclareBuiltinGlobal(llvm::StringRef name, clang::QualType Ty,
                                      clang::ASTContext &context);
 
@@ -412,6 +440,7 @@ const clang::ExtVectorType *
 ConvertHLSLVecMatTypeToExtVectorType(const clang::ASTContext &,
                                      clang::QualType);
 bool IsHLSLVecMatType(clang::QualType);
+clang::RecordDecl *GetRecordDeclFromNodeObjectType(clang::QualType ObjectTy);
 bool IsHLSLVecType(clang::QualType type);
 bool IsHLSLMatType(clang::QualType type);
 clang::QualType GetElementTypeOrType(clang::QualType type);
@@ -427,8 +456,19 @@ bool IsHLSLLineStreamType(clang::QualType type);
 bool IsHLSLTriangleStreamType(clang::QualType type);
 bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
+bool IsHLSLNodeInputType(clang::QualType type);
 bool IsHLSLDynamicResourceType(clang::QualType type);
-bool IsHLSLBufferViewType(clang::QualType type);
+bool IsHLSLDynamicSamplerType(clang::QualType type);
+bool IsHLSLNodeType(clang::QualType type);
+
+bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type);
+bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
+bool IsHLSLRWNodeInputRecordType(clang::QualType type);
+bool IsHLSLRONodeInputRecordType(clang::QualType type);
+bool IsHLSLNodeOutputType(clang::QualType type);
+
+DXIL::NodeIOKind GetNodeIOType(clang::QualType type);
+
 bool IsHLSLStructuredBufferType(clang::QualType type);
 bool IsHLSLNumericOrAggregateOfNumericType(clang::QualType type);
 bool IsHLSLNumericUserDefinedType(clang::QualType type);
@@ -450,6 +490,8 @@ bool GetHLSLSubobjectKind(clang::QualType type,
                           DXIL::SubobjectKind &subobjectKind,
                           DXIL::HitGroupType &ghType);
 bool IsHLSLRayQueryType(clang::QualType type);
+bool GetHLSLNodeIORecordType(const clang::ParmVarDecl *parmDecl,
+                             NodeFlags &nodeKind);
 
 bool IsArrayConstantStringType(const clang::QualType type);
 bool IsPointerStringType(const clang::QualType type);
@@ -471,6 +513,7 @@ bool GetIntrinsicOp(const clang::FunctionDecl *FD, unsigned &opcode,
                     llvm::StringRef &group);
 bool GetIntrinsicLowering(const clang::FunctionDecl *FD, llvm::StringRef &S);
 
+llvm::StringRef GetWaveMatrixName(DXIL::WaveMatrixKind kind);
 bool IsUserDefinedRecordType(clang::QualType type);
 bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
                                       clang::OverloadedOperatorKind opc,

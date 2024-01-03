@@ -11,6 +11,7 @@ float4 FetchFromIndexMap( uniform Texture2D Tex, uniform SamplerState SS, const 
 struct S { float f; };
 
 RWByteAddressBuffer uav1 : register(u3);
+[shader("pixel")]
 float4 RWByteAddressBufferMain(uint2 a : A, uint2 b : B) : SV_Target
 {
   float4 r = 0;
@@ -97,6 +98,7 @@ uint64_t4 g_u64;
 
 // TODO: currently compiler is not handling intrinsics correctly after we found overloaded intrinsic function before.
 // Uncomment errors below after fixing it.
+[shader("pixel")]
 float4 BitCastMain() : SV_Target {
   float4 f1 = 0;
   f1 += asfloat(g_f);

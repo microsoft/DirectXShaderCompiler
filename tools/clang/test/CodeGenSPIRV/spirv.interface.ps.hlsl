@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-reflect
+// RUN: %dxc -T ps_6_0 -E main -fspv-reflect -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability ClipDistance
 // CHECK: OpCapability CullDistance
@@ -54,43 +54,43 @@ float4 main(   PsIn   psIn,
 //   cull1: 3 floats, offset 0
 //   cull2: 2 floats, offset 3
 
-// CHECK:        [[pos:%\d+]] = OpLoad %v4float %gl_FragCoord
+// CHECK:        [[pos:%[0-9]+]] = OpLoad %v4float %gl_FragCoord
 
-// CHECK-NEXT:  [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_0
-// CHECK-NEXT:  [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:  [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_1
-// CHECK-NEXT:  [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT: [[clip0:%\d+]] = OpCompositeConstruct %v2float [[val0]] [[val1]]
+// CHECK-NEXT:  [[ptr0:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_0
+// CHECK-NEXT:  [[val0:%[0-9]+]] = OpLoad %float [[ptr0]]
+// CHECK-NEXT:  [[ptr1:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_1
+// CHECK-NEXT:  [[val1:%[0-9]+]] = OpLoad %float [[ptr1]]
+// CHECK-NEXT: [[clip0:%[0-9]+]] = OpCompositeConstruct %v2float [[val0]] [[val1]]
 
-// CHECK-NEXT:  [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_3
-// CHECK-NEXT:  [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:  [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_4
-// CHECK-NEXT:  [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT: [[cull2:%\d+]] = OpCompositeConstruct %v2float [[val0]] [[val1]]
+// CHECK-NEXT:  [[ptr0_0:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_3
+// CHECK-NEXT:  [[val0_0:%[0-9]+]] = OpLoad %float [[ptr0_0]]
+// CHECK-NEXT:  [[ptr1_0:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_4
+// CHECK-NEXT:  [[val1_0:%[0-9]+]] = OpLoad %float [[ptr1_0]]
+// CHECK-NEXT: [[cull2:%[0-9]+]] = OpCompositeConstruct %v2float [[val0_0]] [[val1_0]]
 
-// CHECK-NEXT:   [[foo:%\d+]] = OpLoad %v3float %in_var_FOO
+// CHECK-NEXT:   [[foo:%[0-9]+]] = OpLoad %v3float %in_var_FOO
 
-// CHECK-NEXT: [[inner:%\d+]] = OpCompositeConstruct %Inner [[cull2]] [[foo]]
+// CHECK-NEXT: [[inner:%[0-9]+]] = OpCompositeConstruct %Inner [[cull2]] [[foo]]
 
-// CHECK-NEXT:  [[psin:%\d+]] = OpCompositeConstruct %PsIn [[pos]] [[clip0]] [[inner]]
+// CHECK-NEXT:  [[psin:%[0-9]+]] = OpCompositeConstruct %PsIn [[pos]] [[clip0]] [[inner]]
 // CHECK-NEXT:                  OpStore %param_var_psIn [[psin]]
 
-// CHECK-NEXT:   [[ptr:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_2
-// CHECK-NEXT: [[clip1:%\d+]] = OpLoad %float [[ptr]]
+// CHECK-NEXT:   [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_2
+// CHECK-NEXT: [[clip1:%[0-9]+]] = OpLoad %float [[ptr]]
 // CHECK-NEXT:                  OpStore %param_var_clip1 [[clip1]]
 
-// CHECK-NEXT:  [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0
-// CHECK-NEXT:  [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:  [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1
-// CHECK-NEXT:  [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT:  [[ptr2:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2
-// CHECK-NEXT:  [[val2:%\d+]] = OpLoad %float [[ptr2]]
-// CHECK-NEXT: [[cull1:%\d+]] = OpCompositeConstruct %v3float [[val0]] [[val1]] [[val2]]
+// CHECK-NEXT:  [[ptr0_1:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0
+// CHECK-NEXT:  [[val0_1:%[0-9]+]] = OpLoad %float [[ptr0_1]]
+// CHECK-NEXT:  [[ptr1_1:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1
+// CHECK-NEXT:  [[val1_1:%[0-9]+]] = OpLoad %float [[ptr1_1]]
+// CHECK-NEXT:  [[ptr2:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2
+// CHECK-NEXT:  [[val2:%[0-9]+]] = OpLoad %float [[ptr2]]
+// CHECK-NEXT: [[cull1:%[0-9]+]] = OpCompositeConstruct %v3float [[val0_1]] [[val1_1]] [[val2]]
 // CHECK-NEXT:                  OpStore %param_var_cull1 [[cull1]]
 
-// CHECK-NEXT:   [[bar:%\d+]] = OpLoad %float %in_var_BAR
+// CHECK-NEXT:   [[bar:%[0-9]+]] = OpLoad %float %in_var_BAR
 // CHECK-NEXT:                  OpStore %param_var_bar [[bar]]
 
-// CHECK-NEXT:   [[ret:%\d+]] = OpFunctionCall %v4float %src_main %param_var_psIn %param_var_clip1 %param_var_cull1 %param_var_bar
+// CHECK-NEXT:   [[ret:%[0-9]+]] = OpFunctionCall %v4float %src_main %param_var_psIn %param_var_clip1 %param_var_cull1 %param_var_bar
 // CHECK-NEXT:                  OpStore %out_var_SV_Target [[ret]]
 }

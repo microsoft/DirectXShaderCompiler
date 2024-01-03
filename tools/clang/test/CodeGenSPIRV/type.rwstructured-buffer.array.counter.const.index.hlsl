@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -E main -fvk-allow-rwstructuredbuffer-arrays
+// RUN: %dxc -T ps_6_6 -E main -fvk-allow-rwstructuredbuffer-arrays -fcgl  %s -spirv | FileCheck %s
 
 struct PSInput
 {
@@ -17,14 +17,14 @@ RWStructuredBuffer<uint> g_rwbuffer[5] : register(u0, space2);
 float4 main(PSInput input) : SV_TARGET
 {
 // Correctly increment the counter.
-// CHECK: [[ac1:%\d+]] = OpAccessChain %_ptr_Uniform_type_ACSBuffer_counter %counter_var_g_rwbuffer %int_3
-// CHECK: [[ac2:%\d+]] = OpAccessChain %_ptr_Uniform_int [[ac1]] %uint_0
+// CHECK: [[ac1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_ACSBuffer_counter %counter_var_g_rwbuffer %int_3
+// CHECK: [[ac2:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int [[ac1]] %uint_0
 // CHECK: OpAtomicIAdd %int [[ac2]] %uint_1 %uint_0 %int_1
     g_rwbuffer[3].IncrementCounter();
 
 // Correctly access the buffer.
-// CHECK: [[ac1:%\w+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer %int_2
-// CHECK: [[ac2:%\w+]] = OpAccessChain %_ptr_Uniform_uint [[ac1]] %int_0 %uint_0
-// CHECK: OpLoad %uint [[ac2]]
+// CHECK: [[ac1_0:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer %int_2
+// CHECK: [[ac2_0:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Uniform_uint [[ac1_0]] %int_0 %uint_0
+// CHECK: OpLoad %uint [[ac2_0]]
     return g_rwbuffer[2][0];
 }

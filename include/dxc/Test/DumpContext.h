@@ -112,7 +112,7 @@ public:
 
   // Return true if ptr has not yet been visited, prevents recursive dumping
   bool Visit(size_t value) { return m_visited.insert(value).second; }
-  bool Visit(const void *ptr) { return Visit((size_t)ptr); }
+  bool Visit(const void *ptr) { return ptr ? Visit((size_t)ptr) : false; }
   void VisitReset() { m_visited.clear(); }
 };
 

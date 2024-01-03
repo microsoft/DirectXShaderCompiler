@@ -110,6 +110,7 @@ enum DebugShaderModifierRecordType {
   DebugShaderModifierRecordTypeRegisterRelativeIndex0,
   DebugShaderModifierRecordTypeRegisterRelativeIndex1,
   DebugShaderModifierRecordTypeRegisterRelativeIndex2,
+  DebugShaderModifierRecordTypeDXILStepTerminator = 250,
   DebugShaderModifierRecordTypeDXILStepVoid = 251,
   DebugShaderModifierRecordTypeDXILStepFloat = 252,
   DebugShaderModifierRecordTypeDXILStepUint32 = 253,
@@ -834,7 +835,8 @@ void DxilDebugInstrumentation::addStepEntryForType(
   addDebugEntryValue(BC, values.InvocationId);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(InstNum));
 
-  if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid) {
+  if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid &&
+      RecordType != DebugShaderModifierRecordTypeDXILStepTerminator) {
     addDebugEntryValue(BC, V);
 
     IRBuilder<> &B = BC.Builder;
@@ -886,16 +888,18 @@ void DxilDebugInstrumentation::addStepDebugEntry(BuilderContext &BC,
     return;
   }
 
-  std::uint32_t RegNum;
-  if (!pix_dxil::PixDxilReg::FromInst(Inst, &RegNum)) {
-    return;
-  }
-
   std::uint32_t InstNum;
   if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
     return;
   }
 
+  std::uint32_t RegNum;
+  if (!pix_dxil::PixDxilReg::FromInst(Inst, &RegNum)) {
+    if (Inst->getOpcode() == Instruction::Ret)
+      addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepTerminator,
+                                BC, InstNum, nullptr, 0, 0);
+    return;
+  }
   addStepDebugEntryValue(BC, InstNum, Inst, RegNum, BC.Builder.getInt32(0));
 }
 

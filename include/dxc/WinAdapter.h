@@ -903,6 +903,9 @@ void SysFreeString(BSTR bstrString);
 // Allocate string with length prefix
 BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui);
 
+//===--------------------------- BSTR Length ------------------------------===//
+unsigned int SysStringLen(const BSTR bstrString);
+
 //===--------------------- UTF-8 Related Types ----------------------------===//
 
 // Code Page
@@ -1000,7 +1003,7 @@ public:
   CComBSTR() : m_str(nullptr){};
   CComBSTR(int nSize, LPCWSTR sz);
   ~CComBSTR() throw() { SysFreeString(m_str); }
-
+  unsigned int Length() const throw() { return SysStringLen(m_str); }
   operator BSTR() const throw() { return m_str; }
 
   bool operator==(const CComBSTR &bstrSrc) const throw();
@@ -1011,6 +1014,11 @@ public:
     BSTR s = m_str;
     m_str = NULL;
     return s;
+  }
+
+  void Empty() throw() {
+    SysFreeString(m_str);
+    m_str = NULL;
   }
 };
 

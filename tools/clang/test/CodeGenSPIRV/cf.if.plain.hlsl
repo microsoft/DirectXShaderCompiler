@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
@@ -6,20 +6,20 @@ void main() {
     int val;
 
     // Both then and else
-// CHECK:      [[c0:%\d+]] = OpLoad %bool %c
+// CHECK:      [[c0:%[0-9]+]] = OpLoad %bool %c
 // CHECK-NEXT: OpSelectionMerge %if_merge Flatten
 // CHECK-NEXT: OpBranchConditional [[c0]] %if_true %if_false
     [flatten] if (c) {
 // CHECK-LABEL: %if_true = OpLabel
-// CHECK-NEXT: [[val0:%\d+]] = OpLoad %int %val
-// CHECK-NEXT: [[val1:%\d+]] = OpIAdd %int [[val0]] %int_1
+// CHECK-NEXT: [[val0:%[0-9]+]] = OpLoad %int %val
+// CHECK-NEXT: [[val1:%[0-9]+]] = OpIAdd %int [[val0]] %int_1
 // CHECK-NEXT: OpStore %val [[val1]]
 // CHECK-NEXT: OpBranch %if_merge
         val = val + 1;
     } else {
 // CHECK-LABEL: %if_false = OpLabel
-// CHECK-NEXT: [[val2:%\d+]] = OpLoad %int %val
-// CHECK-NEXT: [[val3:%\d+]] = OpIAdd %int [[val2]] %int_2
+// CHECK-NEXT: [[val2:%[0-9]+]] = OpLoad %int %val
+// CHECK-NEXT: [[val3:%[0-9]+]] = OpIAdd %int [[val2]] %int_2
 // CHECK-NEXT: OpStore %val [[val3]]
 // CHECK-NEXT: OpBranch %if_merge
         val = val + 2;
@@ -27,7 +27,7 @@ void main() {
 // CHECK-LABEL: %if_merge = OpLabel
 
     // No else
-// CHECK-NEXT: [[c1:%\d+]] = OpLoad %bool %c
+// CHECK-NEXT: [[c1:%[0-9]+]] = OpLoad %bool %c
 // CHECK-NEXT: OpSelectionMerge %if_merge_0 None
 // CHECK-NEXT: OpBranchConditional [[c1]] %if_true_0 %if_merge_0
     if (c)
@@ -38,7 +38,7 @@ void main() {
 // CHECK-LABEL: %if_merge_0 = OpLabel
 
     // Empty then
-// CHECK-NEXT: [[c2:%\d+]] = OpLoad %bool %c
+// CHECK-NEXT: [[c2:%[0-9]+]] = OpLoad %bool %c
 // CHECK-NEXT: OpSelectionMerge %if_merge_1 None
 // CHECK-NEXT: OpBranchConditional [[c2]] %if_true_1 %if_false_0
     if (c) {
@@ -53,7 +53,7 @@ void main() {
 // CHECK-LABEL: %if_merge_1 = OpLabel
 
     // Null body
-// CHECK-NEXT: [[c3:%\d+]] = OpLoad %bool %c
+// CHECK-NEXT: [[c3:%[0-9]+]] = OpLoad %bool %c
 // CHECK-NEXT: OpSelectionMerge %if_merge_2 None
 // CHECK-NEXT: OpBranchConditional [[c3]] %if_true_2 %if_merge_2
     if (c)
@@ -63,10 +63,10 @@ void main() {
 
 // CHECK-LABEL: %if_merge_2 = OpLabel
 
-// CHECK-NEXT: [[val4:%\d+]] = OpLoad %int %val
+// CHECK-NEXT: [[val4:%[0-9]+]] = OpLoad %int %val
 // CHECK-NEXT: OpStore %d [[val4]]
-// CHECK-NEXT: [[d:%\d+]] = OpLoad %int %d
-// CHECK-NEXT: [[cmp:%\d+]] = OpINotEqual %bool [[d]] %int_0
+// CHECK-NEXT: [[d:%[0-9]+]] = OpLoad %int %d
+// CHECK-NEXT: [[cmp:%[0-9]+]] = OpINotEqual %bool [[d]] %int_0
 // CHECK-NEXT: OpSelectionMerge %if_merge_3 DontFlatten
 // CHECK-NEXT: OpBranchConditional [[cmp]] %if_true_3 %if_merge_3
     [branch] if (int d = val) {

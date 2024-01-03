@@ -16,6 +16,7 @@
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInterpolationMode.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilNodeProps.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilSampler.h"

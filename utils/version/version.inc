@@ -13,7 +13,7 @@
 #ifdef RC_VERSION_FIELD_2
 #undef RC_VERSION_FIELD_2
 #endif
-#define RC_VERSION_FIELD_2 7
+#define RC_VERSION_FIELD_2 8
 
 #ifdef RC_VERSION_FIELD_3
 #undef RC_VERSION_FIELD_3
@@ -33,7 +33,7 @@
 #ifdef RC_FILE_DESCRIPTION
 #undef RC_FILE_DESCRIPTION
 #endif
-#define RC_FILE_DESCRIPTION "DirectX Compiler - Out Of Band"
+#define RC_FILE_DESCRIPTION "DirectX Compiler - Out Of Band - Preview"
 
 #ifdef RC_COPYRIGHT
 #undef RC_COPYRIGHT
@@ -43,7 +43,8 @@
 #ifdef RC_PRODUCT_NAME
 #undef RC_PRODUCT_NAME
 #endif
-#define RC_PRODUCT_NAME "Microsoft(r) DirectX for Windows(r) - Out Of Band"
+#define RC_PRODUCT_NAME                                                        \
+  "Microsoft(r) DirectX for Windows(r) - Out Of Band - Preview"
 
 #ifdef RC_PRODUCT_VERSION
 #undef RC_PRODUCT_VERSION

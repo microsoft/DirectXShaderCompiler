@@ -813,6 +813,17 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLNumThreads:
     case AttributeList::AT_HLSLShader:
     case AttributeList::AT_HLSLExperimental:
+    case AttributeList::AT_HLSLNodeLaunch:
+    case AttributeList::AT_HLSLNodeId:
+    case AttributeList::AT_HLSLNodeIsProgramEntry:
+    case AttributeList::AT_HLSLNodeLocalRootArgumentsTableIndex:
+    case AttributeList::AT_HLSLNodeShareInputOf:
+    case AttributeList::AT_HLSLNodeDispatchGrid:
+    case AttributeList::AT_HLSLNodeMaxDispatchGrid:
+    case AttributeList::AT_HLSLNodeMaxRecursionDepth:
+    case AttributeList::AT_HLSLMaxRecordsSharedWith:
+    case AttributeList::AT_HLSLMaxRecords:
+    case AttributeList::AT_HLSLNodeArraySize:
     case AttributeList::AT_HLSLRootSignature:
     case AttributeList::AT_HLSLOutputControlPoints:
     case AttributeList::AT_HLSLOutputTopology:
@@ -822,30 +833,31 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLUnroll:
     case AttributeList::AT_HLSLWaveSize:
     case AttributeList::AT_NoInline:
-    // The following are not accepted in [attribute(param)] syntax:
-    //case AttributeList::AT_HLSLCentroid:
-    //case AttributeList::AT_HLSLGroupShared:
-    //case AttributeList::AT_HLSLIn:
-    //case AttributeList::AT_HLSLInOut:
-    //case AttributeList::AT_HLSLLinear:
-    //case AttributeList::AT_HLSLCenter:
-    //case AttributeList::AT_HLSLNoInterpolation:
-    //case AttributeList::AT_HLSLNoPerspective:
-    //case AttributeList::AT_HLSLOut:
-    //case AttributeList::AT_HLSLPrecise:
-    //case AttributeList::AT_HLSLSample:
-    //case AttributeList::AT_HLSLSemantic:
-    //case AttributeList::AT_HLSLShared:
-    //case AttributeList::AT_HLSLUniform:
-    //case AttributeList::AT_HLSLPoint:
-    //case AttributeList::AT_HLSLLine:
-    //case AttributeList::AT_HLSLLineAdj:
-    //case AttributeList::AT_HLSLTriangle:
-    //case AttributeList::AT_HLSLTriangleAdj:
-    //case AttributeList::AT_HLSLIndices:
-    //case AttributeList::AT_HLSLVertices:
-    //case AttributeList::AT_HLSLPrimitives:
-    //case AttributeList::AT_HLSLPayload:
+      // The following are not accepted in [attribute(param)] syntax:
+      // case AttributeList::AT_HLSLCentroid:
+      // case AttributeList::AT_HLSLGroupShared:
+      // case AttributeList::AT_HLSLIn:
+      // case AttributeList::AT_HLSLInOut:
+      // case AttributeList::AT_HLSLLinear:
+      // case AttributeList::AT_HLSLCenter:
+      // case AttributeList::AT_HLSLNoInterpolation:
+      // case AttributeList::AT_HLSLNoPerspective:
+      // case AttributeList::AT_HLSLOut:
+      // case AttributeList::AT_HLSLPrecise:
+      // case AttributeList::AT_HLSLSample:
+      // case AttributeList::AT_HLSLSemantic:
+      // case AttributeList::AT_HLSLShared:
+      // case AttributeList::AT_HLSLUniform:
+      // case AttributeList::AT_HLSLPoint:
+      // case AttributeList::AT_HLSLLine:
+      // case AttributeList::AT_HLSLLineAdj:
+      // case AttributeList::AT_HLSLTriangle:
+      // case AttributeList::AT_HLSLTriangleAdj:
+      // case AttributeList::AT_HLSLIndices:
+      // case AttributeList::AT_HLSLVertices:
+      // case AttributeList::AT_HLSLPrimitives:
+      // case AttributeList::AT_HLSLPayload:
+      // case AttributeList::AT_HLSLAllowSparseNodes:
       goto GenericAttributeParse;
     default:
       Diag(AttrNameLoc, diag::warn_unknown_attribute_ignored) << AttrName;

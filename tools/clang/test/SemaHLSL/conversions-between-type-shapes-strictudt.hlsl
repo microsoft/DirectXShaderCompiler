@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -HV 2021 -Wno-unused-value -verify %s
+// RUN: %dxc -Tvs_6_0 -HV 2021 -Wno-unused-value -verify %s
 
 // Tests all implicit conversions and explicit casts between type shapes
 // (scalars, vectors, matrices, arrays and structs).
@@ -122,6 +123,7 @@ void to_s2(S2 s) {}
 void to_s4(S4 s) {}
 void to_s5(S5 s) {}
 
+[shader("vertex")]
 void main()
 {
     int i = 0;

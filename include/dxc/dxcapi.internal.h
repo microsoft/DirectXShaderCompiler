@@ -28,6 +28,7 @@ typedef struct ID3D10Blob ID3D10Blob;
 #define AR_QUAL_CONST 0x0000000000000200ULL
 #define AR_QUAL_ROWMAJOR 0x0000000000000400ULL
 #define AR_QUAL_COLMAJOR 0x0000000000000800ULL
+#define AR_QUAL_GROUPSHARED 0x0000000000001000ULL
 
 #define AR_QUAL_IN_OUT (AR_QUAL_IN | AR_QUAL_OUT)
 
@@ -44,14 +45,20 @@ enum LEGAL_INTRINSIC_TEMPLATES {
   LITEMPLATE_ANY =
       4, // Any one of scalar, vector or matrix types (but not object).
   LITEMPLATE_OBJECT = 5, // Object types.
+  LITEMPLATE_ARRAY = 6,  // Scalar array.
 
-  LITEMPLATE_COUNT = 6
+  LITEMPLATE_COUNT = 7
 };
 
 // INTRIN_COMPTYPE_FROM_TYPE_ELT0 is for object method intrinsics to indicate
 // that the component type of the type is taken from the first subelement of the
 // object's template type; see for example Texture2D.Gather
 static const BYTE INTRIN_COMPTYPE_FROM_TYPE_ELT0 = 0xff;
+
+// INTRIN_COMPTYPE_FROM_NODEOUTPUT is for intrinsics to indicate that the
+// component type of the type is taken from the component type of the specified
+// argument type. See for example the intrinsics Get*NodeOutputRecords()
+static const BYTE INTRIN_COMPTYPE_FROM_NODEOUTPUT = 0xfe;
 
 enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_VOID = 0,       // void, used for function returns
@@ -110,7 +117,22 @@ enum LEGAL_INTRINSIC_COMPTYPES {
   LICOMPTYPE_ANY_INT16_OR_32 = 42,
   LICOMPTYPE_SINT16_OR_32_ONLY = 43,
   LICOMPTYPE_ANY_SAMPLER = 44,
-  LICOMPTYPE_COUNT = 45
+
+  LICOMPTYPE_BYTEADDRESSBUFFER = 45,
+  LICOMPTYPE_RWBYTEADDRESSBUFFER = 46,
+
+  LICOMPTYPE_WAVE_MATRIX_LEFT = 47,
+  LICOMPTYPE_WAVE_MATRIX_RIGHT = 48,
+  LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC = 49,
+  LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC = 50,
+  LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR = 51,
+
+  LICOMPTYPE_NODE_RECORD_OR_UAV = 52,
+  LICOMPTYPE_ANY_NODE_OUTPUT_RECORD = 53,
+  LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS = 54,
+  LICOMPTYPE_THREAD_NODE_OUTPUT_RECORDS = 55,
+
+  LICOMPTYPE_COUNT = 56
 };
 
 static const BYTE IA_SPECIAL_BASE = 0xf0;

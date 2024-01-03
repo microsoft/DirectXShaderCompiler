@@ -3,6 +3,7 @@
 #pragma once
 
 #include "dxc/DXIL/DxilCBuffer.h"
+#include "dxc/DXIL/DxilNodeProps.h"
 #include "dxc/Support/HLSLVersion.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/MapVector.h"
@@ -36,6 +37,7 @@ template <typename T, unsigned N> class SmallVector;
 namespace hlsl {
 class HLModule;
 struct DxilResourceProperties;
+struct DxilWaveMatrixProperties;
 struct DxilFunctionProps;
 class DxilFieldAnnotation;
 enum class IntrinsicOp;
@@ -151,7 +153,7 @@ private:
   clang::SourceLocation sourceLoc;
 };
 
-// Map from value to resource properties.
+// Map from value to resource/wave matrix properties.
 // This only collect object variables(global/local/parameter), not object fields
 // inside struct. Object fields inside struct is saved by TypeAnnotation.
 struct DxilObjectProperties {
@@ -160,8 +162,13 @@ struct DxilObjectProperties {
   hlsl::DxilResourceProperties GetResource(llvm::Value *V);
   void updateGLC(llvm::Value *V);
 
+  bool AddWaveMatrix(llvm::Value *V, const hlsl::DxilWaveMatrixProperties &WMP);
+  bool IsWaveMatrix(llvm::Value *V);
+  hlsl::DxilWaveMatrixProperties GetWaveMatrix(llvm::Value *V);
+
   // MapVector for deterministic iteration order.
   llvm::MapVector<llvm::Value *, hlsl::DxilResourceProperties> resMap;
+  llvm::MapVector<llvm::Value *, hlsl::DxilWaveMatrixProperties> waveMatMap;
 };
 
 void CopyAndAnnotateResourceArgument(llvm::Value *Src, llvm::Value *Dest,
@@ -226,7 +233,12 @@ void CollectCtorFunctions(llvm::Module &M, llvm::StringRef globalName,
                           clang::CodeGen::CodeGenModule &CGM);
 
 void TranslateRayQueryConstructor(hlsl::HLModule &HLM);
-
+void TranslateInputNodeRecordArgToHandle(
+    hlsl::HLModule &HLM,
+    llvm::MapVector<llvm::Argument *, hlsl::NodeInputRecordProps> &NodeParams);
+void TranslateNodeOutputParamToHandle(
+    hlsl::HLModule &HLM,
+    llvm::MapVector<llvm::Argument *, hlsl::NodeProps> &NodeParams);
 void UpdateLinkage(
     hlsl::HLModule &HLM, clang::CodeGen::CodeGenModule &CGM,
     hlsl::dxilutil::ExportMap &exportMap,

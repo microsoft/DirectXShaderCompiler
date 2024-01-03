@@ -183,8 +183,6 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::AMD_gpu_shader_half_float)
       .Case("SPV_AMD_shader_early_and_late_fragment_tests",
             Extension::AMD_shader_early_and_late_fragment_tests)
-      .Case("SPV_AMD_shader_explicit_vertex_parameter",
-            Extension::AMD_shader_explicit_vertex_parameter)
       .Case("SPV_GOOGLE_hlsl_functionality1",
             Extension::GOOGLE_hlsl_functionality1)
       .Case("SPV_GOOGLE_user_type", Extension::GOOGLE_user_type)
@@ -199,6 +197,10 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
       .Case("SPV_KHR_physical_storage_buffer",
             Extension::KHR_physical_storage_buffer)
       .Case("SPV_KHR_vulkan_memory_model", Extension::KHR_vulkan_memory_model)
+      .Case("SPV_NV_compute_shader_derivatives",
+            Extension::NV_compute_shader_derivatives)
+      .Case("SPV_KHR_fragment_shader_barycentric",
+            Extension::KHR_fragment_shader_barycentric)
       .Default(Extension::Unknown);
 }
 
@@ -242,8 +244,6 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_AMD_gpu_shader_half_float";
   case Extension::AMD_shader_early_and_late_fragment_tests:
     return "SPV_AMD_shader_early_and_late_fragment_tests";
-  case Extension::AMD_shader_explicit_vertex_parameter:
-    return "SPV_AMD_shader_explicit_vertex_parameter";
   case Extension::GOOGLE_hlsl_functionality1:
     return "SPV_GOOGLE_hlsl_functionality1";
   case Extension::GOOGLE_user_type:
@@ -262,6 +262,10 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_physical_storage_buffer";
   case Extension::KHR_vulkan_memory_model:
     return "SPV_KHR_vulkan_memory_model";
+  case Extension::NV_compute_shader_derivatives:
+    return "SPV_NV_compute_shader_derivatives";
+  case Extension::KHR_fragment_shader_barycentric:
+    return "SPV_KHR_fragment_shader_barycentric";
   default:
     break;
   }

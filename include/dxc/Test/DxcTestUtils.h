@@ -218,7 +218,7 @@ void WideToBlob(dxc::DxcDllSupport &dllSupport, const std::wstring &val,
                 IDxcBlobEncoding **ppBlob);
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, LPCWSTR pArgs,
-                    IDxcBlob **ppResult);
+                     IDxcBlob **ppResult);
 void VerifyCompileOK(dxc::DxcDllSupport &dllSupport, LPCSTR pText,
                      LPCWSTR pTargetProfile, std::vector<LPCWSTR> &args,
                      IDxcBlob **ppResult);

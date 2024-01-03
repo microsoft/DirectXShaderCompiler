@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main -HV 2021
+// RUN: %dxc -T cs_6_0 -E main -HV 2021 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability PhysicalStorageBufferAddresses
 // CHECK: OpExtension "SPV_KHR_physical_storage_buffer"
@@ -32,24 +32,24 @@ void main(uint3 tid : SV_DispatchThreadID) {
   // CHECK: %tmp = OpVariable %_ptr_Function_S Function
   S tmp;
 
-  // CHECK: [[tmp:%\d+]] = OpAccessChain %_ptr_Function_uint %tmp %int_0
+  // CHECK: [[tmp:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %tmp %int_0
   // CHECK: OpStore [[tmp]] %uint_2
   tmp.f1 = 2;
 
-  // CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_uint %tmp %int_1
-  // CHECK: [[tmp:%\d+]] = OpLoad %uint [[ptr]]
-  // CHECK: [[tmp:%\d+]] = OpBitFieldInsert %uint [[tmp]] %uint_1 %uint_0 %uint_1
-  // CHECK: OpStore [[ptr]] [[tmp]]
+  // CHECK: [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %tmp %int_1
+  // CHECK: [[tmp_0:%[0-9]+]] = OpLoad %uint [[ptr]]
+  // CHECK: [[tmp_1:%[0-9]+]] = OpBitFieldInsert %uint [[tmp_0]] %uint_1 %uint_0 %uint_1
+  // CHECK: OpStore [[ptr]] [[tmp_1]]
   tmp.f2 = 1;
 
-  // CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_Function_uint %tmp %int_1
-  // CHECK: [[tmp:%\d+]] = OpLoad %uint [[ptr]]
-  // CHECK: [[tmp:%\d+]] = OpBitFieldInsert %uint [[tmp]] %uint_0 %uint_1 %uint_3
-  // CHECK: OpStore [[ptr]] [[tmp]]
+  // CHECK: [[ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %tmp %int_1
+  // CHECK: [[tmp_2:%[0-9]+]] = OpLoad %uint [[ptr_0]]
+  // CHECK: [[tmp_3:%[0-9]+]] = OpBitFieldInsert %uint [[tmp_2]] %uint_0 %uint_1 %uint_3
+  // CHECK: OpStore [[ptr_0]] [[tmp_3]]
   tmp.f3 = 0;
 
-  // CHECK: [[tmp:%\d+]] = OpAccessChain %_ptr_Function_uint %tmp %int_2
-  // CHECK: OpStore [[tmp]] %uint_3
+  // CHECK: [[tmp_4:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %tmp %int_2
+  // CHECK: OpStore [[tmp_4]] %uint_3
   tmp.f4 = 3;
   vk::RawBufferStore<S>(Address, tmp);
 }

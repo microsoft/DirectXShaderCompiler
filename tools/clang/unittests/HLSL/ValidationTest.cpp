@@ -77,8 +77,6 @@ public:
   TEST_METHOD(UAVStoreMaskGap2)
   TEST_METHOD(UAVStoreMaskGap3)
   TEST_METHOD(Recursive)
-  TEST_METHOD(Recursive2)
-  TEST_METHOD(Recursive3)
   TEST_METHOD(ResourceRangeOverlap0)
   TEST_METHOD(ResourceRangeOverlap1)
   TEST_METHOD(ResourceRangeOverlap2)
@@ -153,8 +151,6 @@ public:
   TEST_METHOD(FunctionAttributes)
   TEST_METHOD(GSMainMissingAttributeFail)
   TEST_METHOD(GSOtherMissingAttributeFail)
-  TEST_METHOD(GSMissingMaxVertexCountFail)
-  TEST_METHOD(HSMissingPCFFail)
   TEST_METHOD(GetAttributeAtVertexInVSFail)
   TEST_METHOD(GetAttributeAtVertexIn60Fail)
   TEST_METHOD(GetAttributeAtVertexInterpFail)
@@ -305,6 +301,12 @@ public:
 
   TEST_METHOD(AtomicsConsts)
   TEST_METHOD(AtomicsInvalidDests)
+  TEST_METHOD(ComputeNodeCompatibility)
+  TEST_METHOD(NodeInputCompatibility)
+  TEST_METHOD(NodeInputMultiplicity)
+
+  TEST_METHOD(CacheInitWithMinPrec)
+  TEST_METHOD(CacheInitWithLowPrec)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -943,12 +945,12 @@ TEST_F(ValidationTest, QuadOpInVS) {
       "struct PerThreadData { int "
       "input; int output; }; RWStructuredBuffer<PerThreadData> g_sb; "
       "void main(uint vid : SV_VertexID)"
-      "{ g_sb[vid].output = WaveActiveSum(g_sb[vid].input); }",
+      "{ g_sb[vid].output = WaveActiveBitAnd((uint)g_sb[vid].input); }",
       "vs_6_0",
-      {"@dx.op.waveActiveOp.i32(i32 119",
-       "declare i32 @dx.op.waveActiveOp.i32(i32, i32, i8, i8)"},
+      {"@dx.op.waveActiveBit.i32(i32 120",
+       "declare i32 @dx.op.waveActiveBit.i32(i32, i32, i8)"},
       {"@dx.op.quadOp.i32(i32 123",
-       "declare i32 @dx.op.quadOp.i32(i32, i32, i8, i8)"},
+       "declare i32 @dx.op.quadOp.i32(i32, i32, i8)"},
       "QuadOp not valid in shader model vs_6_0");
 }
 
@@ -1051,8 +1053,8 @@ TEST_F(ValidationTest, SimpleHs1Fail) {
           "Constant data",
           // TODO: enable this after support pass thru hull shader.
           //"For pass thru hull shader, input control point count must match
-          //output control point count", "Total number of scalars across all HS
-          //output control points must not exceed",
+          // output control point count", "Total number of scalars across all HS
+          // output control points must not exceed",
       });
 }
 TEST_F(ValidationTest, SimpleHs3Fail) {
@@ -1289,14 +1291,6 @@ TEST_F(ValidationTest, UAVStoreMaskGap3) {
 TEST_F(ValidationTest, Recursive) {
   // Includes coverage for user-defined functions.
   TestCheck(L"..\\CodeGenHLSL\\recursive.ll");
-}
-
-TEST_F(ValidationTest, Recursive2) {
-  TestCheck(L"..\\CodeGenHLSL\\recursive2.hlsl");
-}
-
-TEST_F(ValidationTest, Recursive3) {
-  TestCheck(L"..\\CodeGenHLSL\\recursive3.hlsl");
 }
 
 TEST_F(ValidationTest, ResourceRangeOverlap0) {
@@ -1953,7 +1947,7 @@ float4 main(uint vid : SV_VertexID, uint iid : SV_InstanceID) : SV_Position { \
                           "vs_6_0", "!{i32 1, !\"SV_InstanceID\", i8 5, i8 2,",
                           "!{i32 1, !\"\", i8 5, i8 1,",
                           //"System value SV_VertexID appears more than once in
-                          //the same signature.");
+                          // the same signature.");
                           "Semantic 'SV_VertexID' overlap at 0");
 }
 
@@ -2338,7 +2332,7 @@ Vertex main(uint id : SV_OutputControlPointID, InputPatch< Vertex, 4 > patch) { 
     ",
       "hs_6_0",
       //!{i32 0, !"SV_TessFactor", i8 9, i8 25, !23, i8 0, i32 4, i8 1, i32 0,
-      //!i8 3, null}
+      //! i8 3, null}
       {"!{i32 1, !\"SV_InsideTessFactor\", i8 9, i8 26, !([0-9]+), i8 0, i32 "
        "2, i8 1, i32 4, i8 3, (.*)}",
        "?!dx.viewIdState ="},
@@ -3262,14 +3256,6 @@ TEST_F(ValidationTest, GSMainMissingAttributeFail) {
 
 TEST_F(ValidationTest, GSOtherMissingAttributeFail) {
   TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-inout-other.hlsl");
-}
-
-TEST_F(ValidationTest, GSMissingMaxVertexCountFail) {
-  TestCheck(L"..\\CodeGenHLSL\\attributes-gs-no-maxvertexcount.hlsl");
-}
-
-TEST_F(ValidationTest, HSMissingPCFFail) {
-  TestCheck(L"..\\CodeGenHLSL\\attributes-hs-no-pcf.hlsl");
 }
 
 TEST_F(ValidationTest, GetAttributeAtVertexInVSFail) {
@@ -4261,17 +4247,245 @@ TEST_F(ValidationTest, AtomicsConsts) {
 
 // Check validation error for non-groupshared dest
 TEST_F(ValidationTest, AtomicsInvalidDests) {
-  if (m_ver.SkipDxilVersion(1, 7))
+  // Technically, an error is generated for validator version 1.7, however,
+  // the error message was updated in validator version 1.8, so this test now
+  // requires version 1.8.
+  if (m_ver.SkipDxilVersion(1, 8))
     return;
   std::vector<LPCWSTR> pArguments = {L"-HV", L"2021", L"-Zi"};
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\atomics.hlsl", "lib_6_3", pArguments.data(), 2,
       nullptr, 0, {"atomicrmw add i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
       {"atomicrmw add i32* %res"},
-      "Non-groupshared destination to atomic operation.", false);
+      "Non-groupshared or node record destination to atomic operation.", false);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\atomics.hlsl", "lib_6_3", pArguments.data(), 2,
       nullptr, 0, {"cmpxchg i32 addrspace(3)* @\"\\01?gs_var@@3IA\""},
-      {"cmpxchg i32* %res"}, "Non-groupshared destination to atomic operation.",
-      false);
+      {"cmpxchg i32* %res"},
+      "Non-groupshared or node record destination to atomic operation.", false);
+}
+
+// Errors are expected for compute shaders when:
+// - a broadcasting node has an input record and/or output records
+// - the launch type is not broadcasting
+// This test operates by changing the [Shader("node")] metadata entry
+// to [Shader("compute")] for each shader in turn.
+// It also changes the coalescing to thread in the 2nd to last test case,
+// after swapping out the shader kind to compute.
+TEST_F(ValidationTest, ComputeNodeCompatibility) {
+  if (m_ver.SkipDxilVersion(1, 7))
+    return;
+  std::vector<LPCWSTR> pArguments = {L"-HV", L"2021"};
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!11 = !{i32 8, i32 15"}, // original: node shader
+      {"!11 = !{i32 8, i32 5"},  // changed to: compute shader
+      "Compute entry 'node01' has unexpected node shader metadata", false);
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!19 = !{i32 8, i32 15"}, // original: node shader
+      {"!19 = !{i32 8, i32 5"},  // changed to: compute shader
+      "Compute entry 'node02' has unexpected node shader metadata", false);
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!25 = !{i32 8, i32 15"}, // original: node shader
+      {"!25 = !{i32 8, i32 5"},  // changed to: compute shader
+      "Compute entry 'node03' has unexpected node shader metadata", false);
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!32 = !{i32 8, i32 15"}, // original: node shader
+      {"!32 = !{i32 8, i32 5"},  // changed to: compute shader
+      "Compute entry 'node04' has unexpected node shader metadata", false);
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!32 = !{i32 8, i32 15, i32 13, i32 2"}, // original: node shader,
+                                                // coalesing launch type
+      {"!32 = !{i32 8, i32 5, i32 13, i32 3"},  // changed to: compute shader,
+                                                // thread launch type
+      "Compute entry 'node04' has unexpected node shader metadata", false);
+}
+
+// Check validation error for incompatible node input record types
+TEST_F(ValidationTest, NodeInputCompatibility) {
+  if (m_ver.SkipDxilVersion(1, 7))
+    return;
+  std::vector<LPCWSTR> pArguments = {L"-HV", L"2021"};
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!13 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"!13 = !{i32 1, i32 65"}, // GroupNodeInputRecords
+      "broadcasting node shader 'node01' has incompatible input record type "
+      "(should be {RW}DispatchNodeInputRecord)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!13 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"!13 = !{i32 1, i32 69"}, // RWGroupNodeInputRecords
+      "broadcasting node shader 'node01' has incompatible input record type "
+      "(should be {RW}DispatchNodeInputRecord)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!13 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"!13 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
+      "broadcasting node shader 'node01' has incompatible input record type "
+      "(should be {RW}DispatchNodeInputRecord)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!13 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"!13 = !{i32 1, i32 37"}, // RWThreadNodeInputRecord
+      "broadcasting node shader 'node01' has incompatible input record type "
+      "(should be {RW}DispatchNodeInputRecord)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!20 = !{i32 1, i32 65"}, // GroupNodeInputRecords
+      {"!20 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      "coalescing node shader 'node02' has incompatible input record type "
+      "(should be {RW}GroupNodeInputRecords or EmptyNodeInput)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!20 = !{i32 1, i32 65"},  // GroupNodeInputRecords
+      {"!20 = !{i32 1, i32 101"}, // RWDispatchNodeInputRecord
+      "coalescing node shader 'node02' has incompatible input record type "
+      "(should be {RW}GroupNodeInputRecords or EmptyNodeInput)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!20 = !{i32 1, i32 65"}, // GroupNodeInputRecords
+      {"!20 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
+      "coalescing node shader 'node02' has incompatible input record type "
+      "(should be {RW}GroupNodeInputRecords or EmptyNodeInput)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!20 = !{i32 1, i32 65"}, // GroupNodeInputRecords
+      {"!20 = !{i32 1, i32 37"}, // RWThreadNodeInputRecord
+      "coalescing node shader 'node02' has incompatible input record type "
+      "(should be {RW}GroupNodeInputRecords or EmptyNodeInput)");
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\node_input_compatibility.hlsl",
+                          "lib_6_8", pArguments.data(), 2, nullptr, 0,
+                          {"!25 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
+                          {"!25 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
+                          "thread node shader 'node03' has incompatible input "
+                          "record type (should be {RW}ThreadNodeInputRecord)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!25 = !{i32 1, i32 33"},  // ThreadNodeInputRecord
+      {"!25 = !{i32 1, i32 101"}, // RWDispatchNodeInputRecord
+      "thread node shader 'node03' has incompatible input record type (should "
+      "be {RW}ThreadNodeInputRecord)");
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\node_input_compatibility.hlsl",
+                          "lib_6_8", pArguments.data(), 2, nullptr, 0,
+                          {"!25 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
+                          {"!25 = !{i32 1, i32 65"}, // GroupNodeInputRecords
+                          "thread node shader 'node03' has incompatible input "
+                          "record type (should be {RW}ThreadNodeInputRecord)");
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\node_input_compatibility.hlsl",
+                          "lib_6_8", pArguments.data(), 2, nullptr, 0,
+                          {"!25 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
+                          {"!25 = !{i32 1, i32 69"}, // RWGroupNodeInputRecords
+                          "thread node shader 'node03' has incompatible input "
+                          "record type (should be {RW}ThreadNodeInputRecord)");
+  RewriteAssemblyCheckMsg(L"..\\DXILValidation\\node_input_compatibility.hlsl",
+                          "lib_6_8", pArguments.data(), 2, nullptr, 0,
+                          {"!25 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
+                          {"!25 = !{i32 1, i32 69"}, // RWGroupNodeInputRecords
+                          "thread node shader 'node03' has incompatible input "
+                          "record type (should be {RW}ThreadNodeInputRecord)");
+}
+
+// Check validation error for multiple input nodes of different types
+TEST_F(ValidationTest, NodeInputMultiplicity) {
+  if (m_ver.SkipDxilVersion(1, 7))
+    return;
+  std::vector<LPCWSTR> pArguments = {L"-HV", L"2021"};
+
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!12 = !{!13}",                          // input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
+      {"!12 = !{!13, !100}",                    // multiple input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 97, i32 2, "
+       "!14}"}, // extra DispatchNodeInputRecord
+      "node shader 'node01' may not have more than one input record (2 are "
+      "declared)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!12 = !{!13}",                          // input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
+      {"!12 = !{!13, !100}",                    // multiple input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 9, i32 2, "
+       "!14}"}, // extra EmptyNodeInput
+      "node shader 'node01' may not have more than one input record (2 are "
+      "declared)");
+
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!19 = !{!20}",                          // input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
+      {"!19 = !{!20, !100}",                    // multiple input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 65, i32 2, "
+       "!14}"}, // extra GroupNodeInputRecords
+      "node shader 'node02' may not have more than one input record (2 are "
+      "declared)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!19 = !{!20}",                          // input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
+      {"!19 = !{!20, !100}",                    // multiple input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 9, i32 2, "
+       "!14}"}, // extra EmptyNodeInput
+      "node shader 'node02' may not have more than one input record (2 are "
+      "declared)");
+
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!24 = !{!25}",                          // input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
+      {"!24 = !{!25, !100}",                    // multiple input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 33, i32 2, "
+       "!14}"}, // extra ThreadNodeInputRecord
+      "node shader 'node03' may not have more than one input record (2 are "
+      "declared)");
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"!24 = !{!25}",                          // input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
+      {"!24 = !{!25, !100}",                    // multiple input records
+       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 9, i32 2, "
+       "!14}"}, // extra EmptyNodeInput
+      "node shader 'node03' may not have more than one input record (2 are "
+      "declared)");
+}
+
+TEST_F(ValidationTest, CacheInitWithMinPrec) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+  // Ensures type cache is property initialized when in min-precision mode
+  TestCheck(L"..\\DXILValidation\\val-dx-type-minprec.ll");
+}
+
+TEST_F(ValidationTest, CacheInitWithLowPrec) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+  // Ensures type cache is property initialized when in exact low-precision mode
+  TestCheck(L"..\\DXILValidation\\val-dx-type-lowprec.ll");
 }

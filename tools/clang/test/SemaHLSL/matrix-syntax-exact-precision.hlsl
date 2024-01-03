@@ -1,5 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -enable-16bit-types   -verify -HV 2018 %s
-
+// RUN: %dxc -Tvs_6_2 -enable-16bit-types   -verify -HV 2018 %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_5_1 matrix-syntax.hlsl
@@ -80,6 +80,7 @@ void matrix_unsigned() {
    unsigned int64_t1x4 uint64_tMatrix1;                       /* fxc-error {{X3000: syntax error: unexpected token 'int64_t1x4'}} */
 }
 
+[shader("vertex")]
 void main() {
     // Multiple assignments in a chain.
     matrix<float, 4, 4> mymatrix;

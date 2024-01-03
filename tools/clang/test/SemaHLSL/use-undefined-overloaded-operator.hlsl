@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value  -verify -HV 2021 %s
+// RUN: %dxc -Tps_6_0  -Wno-unused-value  -verify -HV 2021 %s
 
 // This test checks that when we use undefined overloaded operator
 // dxcompiler generates error and no crashes are observed.
@@ -15,6 +16,7 @@ struct S2 {
     S1 s1;
 };
 
+[shader("pixel")]
 void main(float4 pos: SV_Position) {
     S1 s1;
     S2 s2;

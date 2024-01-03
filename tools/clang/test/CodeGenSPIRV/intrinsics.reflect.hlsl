@@ -1,12 +1,12 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // HLSL reflect() only operates on vectors of floats.
 
-// CHECK:      [[glsl:%\d+]] = OpExtInstImport "GLSL.std.450"
+// CHECK:      [[glsl:%[0-9]+]] = OpExtInstImport "GLSL.std.450"
 
 void main() {
   float4 a1,a2,result;
 
-// CHECK: {{%\d+}} = OpExtInst %v4float [[glsl]] Reflect {{%\d+}} {{%\d+}}
+// CHECK: {{%[0-9]+}} = OpExtInst %v4float [[glsl]] Reflect {{%[0-9]+}} {{%[0-9]+}}
   result = reflect(a1,a2);
 }

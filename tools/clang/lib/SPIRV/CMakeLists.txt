@@ -19,6 +19,7 @@ add_clang_library(clangSPIRV
   SortDebugInfoVisitor.cpp
   NonUniformVisitor.cpp
   PreciseVisitor.cpp
+  PervertexInputVisitor.cpp
   RawBufferMethods.cpp
   RelaxedPrecisionVisitor.cpp
   RemoveBufferBlockVisitor.cpp
