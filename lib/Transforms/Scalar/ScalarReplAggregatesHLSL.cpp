@@ -4563,6 +4563,10 @@ static unsigned AllocateSemanticIndex(
       Type *EltTy = Ty->getStructElementType(i);
       argIdx = AllocateSemanticIndex(EltTy, semIndex, argIdx, endArgIdx,
                                      FlatAnnotationList);
+      // Unwrap array types when checking whether this is a leaf node,
+      // otherwise, array of struct will be misinterpreted as a leaf node.
+      while (EltTy->isArrayTy())
+        EltTy = EltTy->getArrayElementType();
       if (!(EltTy->isStructTy() && !HLMatrixType::isa(EltTy))) {
         // Update argIdx only when it is a leaf node.
         argIdx++;
