@@ -736,27 +736,6 @@ bool CapabilityVisitor::visit(SpirvExtInstImport *instr) {
   return true;
 }
 
-bool CapabilityVisitor::visit(SpirvExtInst *instr) {
-  // OpExtInst using the GLSL extended instruction allows only 32-bit types by
-  // default for interpolation instructions. The AMD_gpu_shader_half_float
-  // extension adds support for 16-bit floating-point component types for these
-  // instructions:
-  // InterpolateAtCentroid, InterpolateAtSample, InterpolateAtOffset
-  if (SpirvType::isOrContainsType<FloatType, 16>(instr->getResultType()))
-    switch (instr->getInstruction()) {
-    case GLSLstd450::GLSLstd450InterpolateAtCentroid:
-    case GLSLstd450::GLSLstd450InterpolateAtSample:
-    case GLSLstd450::GLSLstd450InterpolateAtOffset:
-      addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float",
-                   instr->getSourceLocation());
-      break;
-    default:
-      break;
-    }
-
-  return visitInstruction(instr);
-}
-
 bool CapabilityVisitor::visit(SpirvAtomic *instr) {
   if (instr->hasValue() && SpirvType::isOrContainsType<IntegerType, 64>(
                                instr->getValue()->getResultType())) {
