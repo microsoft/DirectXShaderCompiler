@@ -176,13 +176,13 @@ public:
   const CallNodes &GetCallGraph() { return m_callNodes; }
 
   void dump() const {
-    llvm::dbgs() << "Call Nodes:\r\n";
+    llvm::dbgs() << "Call Nodes:\n";
     for (auto &node : m_callNodes) {
       llvm::dbgs() << node.first->getName().str().c_str() << " ["
-                   << (void *)node.first << "]:\r\n";
+                   << (void *)node.first << "]:\n";
       for (auto callee : node.second.CalleeFns) {
         llvm::dbgs() << "    " << callee->getName().str().c_str() << " ["
-                     << (void *)callee << "]\r\n";
+                     << (void *)callee << "]\n";
       }
     }
   }
@@ -278,6 +278,31 @@ std::vector<FunctionDecl *> GetAllExportedFDecls(clang::Sema *self) {
   return AllExportedFDecls;
 }
 
+std::vector<FunctionDecl *> GeHlslIntrinsicFDecls(clang::Sema *self) {
+  // Add to the end, process from the beginning, to ensure AllExportedFDecls
+  // will contain functions in decl order.
+  std::vector<FunctionDecl *> IntrinsicFDecls;
+
+  std::deque<DeclContext *> Worklist;
+  Worklist.push_back(self->getASTContext().getTranslationUnitDecl());
+  while (Worklist.size()) {
+    DeclContext *DC = Worklist.front();
+    Worklist.pop_front();
+    if (auto *FD = dyn_cast<FunctionDecl>(DC)) {
+      if (FD->hasAttr<HLSLIntrinsicAttr>())
+        IntrinsicFDecls.push_back(FD);
+    } else {
+      for (auto *D : DC->decls()) {
+        if (auto *FD = dyn_cast<FunctionDecl>(D))
+          continue;
+        else if (auto *DC2 = dyn_cast<DeclContext>(D))
+          Worklist.push_back(DC2);
+      }
+    }
+  }
+  return IntrinsicFDecls;
+}
+
 // in the non-library case, this function will be run only once,
 // but in the library case, this function will be run for each
 // viable top-level function declaration by
@@ -316,6 +341,12 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       DiagnoseRaytracingPayloadAccess(*self, TU);
     }
   }
+
+  std::vector<FunctionDecl *> intrinsicFDecls = GeHlslIntrinsicFDecls(self);
+  // Check illegal with shader model, check function and call graph.
+  // shader model is part of check function.
+  // Collect illegal intrinsic calls, then emit diag if it is visited thru call
+  // graph.
 
   // Now check for recursion, and check for patch constant function
   // reachabililty Validation methods differ depending on whether this is a
