@@ -342,16 +342,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
   }
 
-  std::vector<FunctionDecl *> intrinsicFDecls = GeHlslIntrinsicFDecls(self);
-  // Check illegal with shader model, check function and call graph.
-  // shader model is part of check function.
-  // Collect illegal intrinsic calls, then emit diag if it is visited thru call
-  // graph.
-
-  // Now check for recursion, and check for patch constant function
-  // reachabililty Validation methods differ depending on whether this is a
-  // library shader or not.
-
   // TODO: make these error 'real' errors rather than on-the-fly things
   // Validate that the entry point is available.
   DiagnosticsEngine &Diags = self->getDiagnostics();
