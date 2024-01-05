@@ -1411,8 +1411,8 @@ Texture1DArray      2 (c0, c1 = array slice)         1 (o0)
 Texture2D           2 (c0, c1)                       2 (o0, o1)
 Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
 Texture3D           3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBE         3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 3 (o0, o1, o2)
+TextureCUBE         3 (c0, c1, c2)                   0
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0
 =================== ================================ ===================
 
 SampleBias
@@ -1435,7 +1435,7 @@ The following signature shows the operation syntax::
       float,                ; bias: in [-16.f,15.99f]
       float)                ; clamp
 
-Valid resource types and active components/offsets are the same as for the sample operation.
+Valid resource types and active coordinates/offsets are the same as for the sample operation.
 
 SampleLevel
 ~~~~~~~~~~~
@@ -1456,7 +1456,7 @@ The following signature shows the operation syntax::
       i32,                  ; offset o2
       float)                ; LOD
 
-Valid resource types and active components/offsets are the same as for the sample operation.
+Valid resource types and active coordinates/offsets are the same as for the sample operation.
 
 SampleGrad
 ~~~~~~~~~~
@@ -1483,7 +1483,17 @@ The following signature shows the operation syntax::
       float,                ; ddy2
       float)                ; clamp
 
-Valid resource types and active components and offsets are the same as for the sample operation. Valid active ddx and ddy are   the same as offsets.
+=================== ================================ =================== ====================================
+Valid resource type # of active coordinates          # of active offsets # of active gradients
+=================== ================================ =================== ====================================
+Texture1D           1 (c0)                           1 (o0)               1 (ddx0/ddy0)
+Texture1DArray      2 (c0, c1 = array slice)         1 (o0)               1 (ddx0/ddy0)
+Texture2D           2 (c0, c1)                       2 (o0, o1)           2 (ddx0/ddy0, ddx1/ddy1)
+Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)           2 (ddx0/ddy0, ddx1/ddy1)
+Texture3D           3 (c0, c1, c2)                   3 (o0, o1, o2)       3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+TextureCUBE         3 (c0, c1, c2)                   0                    3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0                    3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+=================== ================================ =================== ====================================
 
 SampleCmp
 ~~~~~~~~~
@@ -1512,8 +1522,8 @@ Texture1D           1 (c0)                           1 (o0)
 Texture1DArray      2 (c0, c1 = array slice)         1 (o0)
 Texture2D           2 (c0, c1)                       2 (o0, o1)
 Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
-TextureCUBE         3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 3 (o0, o1, o2)
+TextureCUBE         3 (c0, c1, c2)                   0
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0
 =================== ================================ ===================
 
 SampleCmpLevelZero
@@ -1535,7 +1545,7 @@ The following signature shows the operation syntax::
       i32,                  ; offset o2
       float)                ; compare value
 
-Valid resource types and active components/offsets are the same as for the sampleCmp operation.
+Valid resource types and active coordinates/offsets are the same as for the sampleCmp operation.
 
 TextureLoad
 ~~~~~~~~~~~
@@ -1679,7 +1689,7 @@ The following signature shows the operation syntax::
       i32,                  ; channel, constant in {0=red,1=green,2=blue,3=alpha}
       float)                ; compare value
 
-Valid resource types and active components/offsets are the same as for the textureGather operation.
+Valid resource types and active coordinates/offsets are the same as for the textureGather operation.
 
 Texture2DMSGetSamplePosition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
