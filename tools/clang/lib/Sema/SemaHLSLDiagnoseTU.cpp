@@ -29,7 +29,7 @@ using namespace hlsl;
 // - merge graph visiting with checking for recursion
 // - track global variables and types used (NYI)
 //
-namespace hlsl {
+namespace {
 struct CallNode {
   FunctionDecl *CallerFn;
   ::llvm::SmallPtrSet<FunctionDecl *, 4> CalleeFns;
@@ -43,7 +43,7 @@ typedef ::llvm::DenseMap<FunctionDecl *, FunctionDecl *> FunctionMap;
 // Returns the definition of a function.
 // This serves two purposes - ignore built-in functions, and pick
 // a single Decl * to be used in maps and sets.
-static FunctionDecl *getFunctionWithBody(FunctionDecl *F) {
+FunctionDecl *getFunctionWithBody(FunctionDecl *F) {
   if (!F)
     return nullptr;
   if (F->doesThisDeclarationHaveABody())
@@ -187,15 +187,14 @@ public:
     }
   }
 };
-} // namespace hlsl
 
 struct NameLookup {
   FunctionDecl *Found;
   FunctionDecl *Other;
 };
 
-static NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name,
-                                              bool checkPatch) {
+NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name,
+                                       bool checkPatch) {
   auto DN = DeclarationName(&self->getASTContext().Idents.get(Name));
   FunctionDecl *pFoundDecl = nullptr;
   for (auto idIter = self->IdResolver.begin(DN), idEnd = self->IdResolver.end();
@@ -214,7 +213,7 @@ static NameLookup GetSingleFunctionDeclByName(clang::Sema *self, StringRef Name,
   return NameLookup{pFoundDecl, nullptr};
 }
 
-static bool IsTargetProfileLib6x(Sema &S) {
+bool IsTargetProfileLib6x(Sema &S) {
   // Remaining functions are exported only if target is 'lib_6_x'.
   const hlsl::ShaderModel *SM =
       hlsl::ShaderModel::GetByName(S.getLangOpts().HLSLProfile.c_str());
@@ -278,31 +277,6 @@ std::vector<FunctionDecl *> GetAllExportedFDecls(clang::Sema *self) {
   return AllExportedFDecls;
 }
 
-std::vector<FunctionDecl *> GeHlslIntrinsicFDecls(clang::Sema *self) {
-  // Add to the end, process from the beginning, to ensure AllExportedFDecls
-  // will contain functions in decl order.
-  std::vector<FunctionDecl *> IntrinsicFDecls;
-
-  std::deque<DeclContext *> Worklist;
-  Worklist.push_back(self->getASTContext().getTranslationUnitDecl());
-  while (Worklist.size()) {
-    DeclContext *DC = Worklist.front();
-    Worklist.pop_front();
-    if (auto *FD = dyn_cast<FunctionDecl>(DC)) {
-      if (FD->hasAttr<HLSLIntrinsicAttr>())
-        IntrinsicFDecls.push_back(FD);
-    } else {
-      for (auto *D : DC->decls()) {
-        if (auto *FD = dyn_cast<FunctionDecl>(D))
-          continue;
-        else if (auto *DC2 = dyn_cast<DeclContext>(D))
-          Worklist.push_back(DC2);
-      }
-    }
-  }
-  return IntrinsicFDecls;
-}
-
 // in the non-library case, this function will be run only once,
 // but in the library case, this function will be run for each
 // viable top-level function declaration by
@@ -320,6 +294,8 @@ clang::FunctionDecl *ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
   }
   return nullptr;
 }
+
+} // namespace
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXASSERT_NOMSG(self != nullptr);
@@ -431,7 +407,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       // disconnected with respect to the call graph.
       // Only check this if neither function decl is recursive
       if (!result && !patchResult) {
-        hlsl::CallGraphWithRecurseGuard CG;
+        CallGraphWithRecurseGuard CG;
         CG.BuildForEntry(pPatchFnDecl);
         if (CG.CheckReachability(pPatchFnDecl, FDecl)) {
           self->Diag(FDecl->getSourceRange().getBegin(),
