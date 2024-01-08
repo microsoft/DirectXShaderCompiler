@@ -41,6 +41,7 @@ HSPerPatchData HSPerPatchFunc1()
 
 [shader("hull")]
 [patchconstantfunc("HSPerPatchFunc1")]
+[outputtopology("point")]
 float4 main(float a : A, float b:B) : SV_TARGET
 {
   float4 f = b;

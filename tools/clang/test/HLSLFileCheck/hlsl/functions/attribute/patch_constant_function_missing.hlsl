@@ -14,6 +14,7 @@ float4 fooey()
 [shader("hull")]
 // CHECK: error: patch constant function 'NotFooey' must be defined
 [patchconstantfunc("NotFooey")]
+[outputtopology("point")]
 float4 main(float a : A, float b:B) : SV_TARGET
 {
   float4 f = b;
