@@ -2144,9 +2144,11 @@ std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
     return "Thread";
   case DXIL::NodeLaunchType::Invalid:
   case DXIL::NodeLaunchType::LastEntry:
-    return "Invalid";
+    return "";
+
+  default:
+    return "";
   }
-  llvm_unreachable("invalid launch type");
 }
 
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
@@ -2160,8 +2162,10 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   if (DXIL::ShaderKind::Library == shaderKind) {
     if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
       DxilEntryProps &entryProps = ValCtx.DxilMod.GetDxilEntryProps(F);
-      nodeLaunchType = entryProps.props.Node.LaunchType;
       shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
+      if (shaderKind == DXIL::ShaderKind::Node)
+        nodeLaunchType = entryProps.props.Node.LaunchType;
+
     } else if (ValCtx.DxilMod.IsPatchConstantShader(F))
       shaderKind = DXIL::ShaderKind::Hull;
   }
