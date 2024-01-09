@@ -2766,6 +2766,23 @@ void DeclResultIdMapper::storeToShaderOutputVariable(
     const StageVarDataBundle &stageVarData) {
   SpirvInstruction *ptr = varInstr;
 
+  // Since boolean output stage variables are represented as unsigned
+  // integers, we must cast the value to uint before storing.
+  if (isBooleanStageIOVar(stageVarData.decl, stageVarData.type,
+                          stageVarData.semantic->getKind(),
+                          stageVarData.sigPoint->GetKind())) {
+    QualType finalType = varInstr->getAstResultType();
+    if (stageVarData.arraySize != 0) {
+      // We assume that we will only have to write to a single value of the
+      // array, so we have to cast to the element type of the array, and not the
+      // array type.
+      assert(stageVarData.invocationId.hasValue());
+      finalType = finalType->getAsArrayTypeUnsafe()->getElementType();
+    }
+    value = theEmitter.castToType(value, stageVarData.type, finalType,
+                                  stageVarData.decl->getLocation());
+  }
+
   // Special handling of SV_TessFactor HS patch constant output.
   // TessLevelOuter is always an array of size 4 in SPIR-V, but
   // SV_TessFactor could be an array of size 2, 3, or 4 in HLSL. Only the
@@ -2829,16 +2846,6 @@ void DeclResultIdMapper::storeToShaderOutputVariable(
     ptr = spvBuilder.createAccessChain(elementType, varInstr, index,
                                        stageVarData.decl->getLocation());
     ptr->setStorageClass(spv::StorageClass::Output);
-    spvBuilder.createStore(ptr, value, stageVarData.decl->getLocation());
-  }
-  // Since boolean output stage variables are represented as unsigned
-  // integers, we must cast the value to uint before storing.
-  else if (isBooleanStageIOVar(stageVarData.decl, stageVarData.type,
-                               stageVarData.semantic->getKind(),
-                               stageVarData.sigPoint->GetKind())) {
-    value = theEmitter.castToType(value, stageVarData.type,
-                                  varInstr->getAstResultType(),
-                                  stageVarData.decl->getLocation());
     spvBuilder.createStore(ptr, value, stageVarData.decl->getLocation());
   }
   // For all normal cases
@@ -2983,9 +2990,30 @@ SpirvInstruction *DeclResultIdMapper::loadShaderInputVariable(
   if (isBooleanStageIOVar(stageVarData.decl, stageVarData.type,
                           stageVarData.semantic->getKind(),
                           stageVarData.sigPoint->GetKind())) {
-    load = theEmitter.castToType(load, varInstr->getAstResultType(),
-                                 stageVarData.type,
-                                 stageVarData.decl->getLocation());
+
+    if (stageVarData.arraySize == 0) {
+      load = theEmitter.castToType(load, varInstr->getAstResultType(),
+                                   stageVarData.type,
+                                   stageVarData.decl->getLocation());
+    } else {
+      llvm::SmallVector<SpirvInstruction *, 8> fields;
+      SourceLocation loc = stageVarData.decl->getLocation();
+      QualType originalScalarType = varInstr->getAstResultType()
+                                        ->castAsArrayTypeUnsafe()
+                                        ->getElementType();
+      for (uint32_t idx = 0; idx < stageVarData.arraySize; ++idx) {
+        SpirvInstruction *field = spvBuilder.createCompositeExtract(
+            originalScalarType, load, {idx}, loc);
+        field = theEmitter.castToType(field, field->getAstResultType(),
+                                      stageVarData.type, loc);
+        fields.push_back(field);
+      }
+
+      QualType finalType = astContext.getConstantArrayType(
+          stageVarData.type, llvm::APInt(32, stageVarData.arraySize),
+          clang::ArrayType::Normal, 0);
+      load = spvBuilder.createCompositeConstruct(finalType, fields, loc);
+    }
   }
   return load;
 }
@@ -3237,7 +3265,7 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
     const StageVarDataBundle &stageVarData) {
   // The evalType will be the type of the interface variable in SPIR-V.
   // The type of the variable used in the body of the function will still be
-  // `type`.
+  // `stageVarData.type`.
   QualType evalType = getTypeForSpirvStageVariable(stageVarData);
 
   const auto *builtinAttr = stageVarData.decl->getAttr<VKBuiltInAttr>();
