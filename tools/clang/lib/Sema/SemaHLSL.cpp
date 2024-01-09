@@ -15144,7 +15144,7 @@ void DiagnoseDomainEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
       continue;
     if (hlsl::GetHLSLInputPatchCount(param->getType()) > 0)
       continue;
-    S.Diags.Report(param->getLocation(), diag::err_hlsl_inputpatch_size);
+    S.Diags.Report(param->getLocation(), diag::err_hlsl_outputpatch_size);
   }
   return;
 }
