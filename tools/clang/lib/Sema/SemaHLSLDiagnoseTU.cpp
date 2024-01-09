@@ -9,7 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "SemaHLSLHelper.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
@@ -301,32 +300,14 @@ clang::FunctionDecl *ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
   return nullptr;
 }
 
-bool DiagnoseHLSLMethodCall(CXXMemberCallExpr *CE, clang::Sema *self) {
-  const CXXMethodDecl *MD = CE->getMethodDecl();
-  if (MD->hasAttr<clang::HLSLIntrinsicAttr>()) {
-    hlsl::IntrinsicOp opCode =
-        (IntrinsicOp)MD->getAttr<clang::HLSLIntrinsicAttr>()->getOpcode();
-    if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
-        opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
-      if (isIllegalIntrinsic(MD, opCode, self)) {
-        self->Diags.Report(
-            CE->getExprLoc(),
-            diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
-            << MD->getNameAsString() << "6.8";
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 class HLSLMethodCallDiagnoseVisitor
     : public RecursiveASTVisitor<HLSLMethodCallDiagnoseVisitor> {
 public:
   explicit HLSLMethodCallDiagnoseVisitor(Sema *S) : sema(S) {}
 
   bool VisitCXXMemberCallExpr(CXXMemberCallExpr *CE) {
-    DiagnoseHLSLMethodCall(CE, sema);
+    sema->DiagnoseHLSLMethodCall(CE->getMethodDecl(), CE->getExprLoc(),
+                                 /*SkipUnused*/ true);
     return true;
   }
 

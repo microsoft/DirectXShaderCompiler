@@ -41,7 +41,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
-#include "SemaHLSLHelper.h"
 #include <algorithm>
 #include <array>
 #include <bitset>
@@ -11118,26 +11117,46 @@ void hlsl::DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
 }
 
 // Check HLSL member call constraints
-bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
+bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc,
+                                  bool SkipUnused) {
   if (MD->hasAttr<HLSLIntrinsicAttr>()) {
-    // If this is a call to FinishedCrossGroupSharing then the Input record
-    // must have the NodeTrackRWInputSharing attribute
     hlsl::IntrinsicOp opCode =
         (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
-    if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
-      const CXXRecordDecl *NodeRecDecl = MD->getParent();
-      // Node I/O records are templateTypes
-      const ClassTemplateSpecializationDecl *templateDecl =
-          cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
-      auto &TemplateArgs = templateDecl->getTemplateArgs();
-      DXASSERT(TemplateArgs.size() == 1,
-               "Input record types need to have one template argument");
-      auto &Rec = TemplateArgs.get(0);
-      clang::QualType RecType = Rec.getAsType();
-      RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
-      if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
-        Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
-        return true;
+    if (SkipUnused) {
+      if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
+          opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
+        const auto *shaderModel =
+            hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
+        if (!shaderModel->IsSM68Plus()) {
+          QualType SamplerComparisonTy =
+              HLSLExternalSource::FromSema(this)->GetBasicKindType(
+                  AR_OBJECT_SAMPLERCOMPARISON);
+          if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
+            Diags.Report(
+                Loc, diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
+                << MD->getNameAsString() << "6.8";
+            return true;
+          }
+        }
+      }
+    } else {
+      // If this is a call to FinishedCrossGroupSharing then the Input record
+      // must have the NodeTrackRWInputSharing attribute
+      if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
+        const CXXRecordDecl *NodeRecDecl = MD->getParent();
+        // Node I/O records are templateTypes
+        const ClassTemplateSpecializationDecl *templateDecl =
+            cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
+        auto &TemplateArgs = templateDecl->getTemplateArgs();
+        DXASSERT(TemplateArgs.size() == 1,
+                 "Input record types need to have one template argument");
+        auto &Rec = TemplateArgs.get(0);
+        clang::QualType RecType = Rec.getAsType();
+        RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
+        if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
+          Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
+          return true;
+        }
       }
     }
   }
@@ -15594,29 +15613,6 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
     return DiagnoseNodeEntry(S, FD, StageName, isActiveEntry);
   }
   }
-}
-
-// Check if intrinsic function is illegal in current shader model.
-bool isIllegalIntrinsic(const CXXMethodDecl *MD, IntrinsicOp opCode,
-                        clang::Sema *sema) {
-  switch (opCode) {
-  default:
-    break;
-  case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail:
-  case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped: {
-    const auto *shaderModel =
-        hlsl::ShaderModel::GetByName(sema->getLangOpts().HLSLProfile.c_str());
-    if (!shaderModel->IsSM68Plus()) {
-      QualType SamplerComparisonTy =
-          HLSLExternalSource::FromSema(sema)->GetBasicKindType(
-              AR_OBJECT_SAMPLERCOMPARISON);
-      if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
-        return true;
-      }
-    }
-  } break;
-  }
-  return false;
 }
 
 } // namespace hlsl
