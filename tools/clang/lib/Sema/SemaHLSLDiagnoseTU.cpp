@@ -9,15 +9,19 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "SemaHLSLHelper.h"
 #include "dxc/DXIL/DxilShaderModel.h"
+#include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Support/Debug.h"
 
 using namespace clang;
+using namespace llvm;
 using namespace hlsl;
 
 //
@@ -175,6 +179,8 @@ public:
 
   const CallNodes &GetCallGraph() { return m_callNodes; }
 
+  const FunctionSet GetVisitedFunctions() { return m_visitedFunctions; }
+
   void dump() const {
     llvm::dbgs() << "Call Nodes:\n";
     for (auto &node : m_callNodes) {
@@ -294,6 +300,39 @@ clang::FunctionDecl *ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
   }
   return nullptr;
 }
+
+bool DiagnoseHLSLMethodCall(CXXMemberCallExpr *CE, clang::Sema *self) {
+  const CXXMethodDecl *MD = CE->getMethodDecl();
+  if (MD->hasAttr<clang::HLSLIntrinsicAttr>()) {
+    hlsl::IntrinsicOp opCode =
+        (IntrinsicOp)MD->getAttr<clang::HLSLIntrinsicAttr>()->getOpcode();
+    if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
+        opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
+      if (isIllegalIntrinsic(MD, opCode, self)) {
+        self->Diags.Report(
+            CE->getExprLoc(),
+            diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
+            << MD->getNameAsString() << "6.8";
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+class HLSLMethodCallDiagnoseVisitor
+    : public RecursiveASTVisitor<HLSLMethodCallDiagnoseVisitor> {
+public:
+  explicit HLSLMethodCallDiagnoseVisitor(Sema *S) : sema(S) {}
+
+  bool VisitCXXMemberCallExpr(CXXMemberCallExpr *CE) {
+    DiagnoseHLSLMethodCall(CE, sema);
+    return true;
+  }
+
+private:
+  clang::Sema *sema;
+};
 
 } // namespace
 
@@ -422,5 +461,12 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
       }
     }
+  }
+
+  // Visit all visited functions in call graph to collect illegal intrinsic
+  // calls.
+  for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
+    HLSLMethodCallDiagnoseVisitor Visitor(self);
+    Visitor.TraverseDecl(FD);
   }
 }
