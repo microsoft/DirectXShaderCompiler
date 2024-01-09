@@ -15138,12 +15138,30 @@ void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   return;
 }
 
+void DiagnoseDomainEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+  for (const auto *param : FD->params()) {
+    if (!hlsl::IsHLSLOutputPatchType(param->getType()))
+      continue;
+    if (hlsl::GetHLSLInputPatchCount(param->getType()) > 0)
+      continue;
+    S.Diags.Report(param->getLocation(), diag::err_hlsl_inputpatch_size);
+  }
+  return;
+}
+
 void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   HLSLPatchConstantFuncAttr *Attr = FD->getAttr<HLSLPatchConstantFuncAttr>();
   if (!Attr)
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "patchconstantfunc";
 
+  for (const auto *param : FD->params()) {
+    if (!hlsl::IsHLSLInputPatchType(param->getType()))
+      continue;
+    if (hlsl::GetHLSLInputPatchCount(param->getType()) > 0)
+      continue;
+    S.Diags.Report(param->getLocation(), diag::err_hlsl_inputpatch_size);
+  }
   return;
 }
 
@@ -15570,7 +15588,6 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   switch (Stage) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
-  case DXIL::ShaderKind::Domain:
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Invalid:
     return;
@@ -15580,6 +15597,8 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::Mesh: {
     return DiagnoseMeshEntry(S, FD, StageName);
   }
+  case DXIL::ShaderKind::Domain:
+    return DiagnoseDomainEntry(S, FD, StageName);
   case DXIL::ShaderKind::Hull: {
     return DiagnoseHullEntry(S, FD, StageName);
   }
