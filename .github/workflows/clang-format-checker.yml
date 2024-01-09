@@ -25,7 +25,8 @@ jobs:
           fetch_depth: 100 # Fetches only the last 10 commits
 
       - name: "Listed files"
-        env: LISTED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+        env:
+          LISTED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
           echo "Formatting files:"
           echo "$LISTED_FILES"
