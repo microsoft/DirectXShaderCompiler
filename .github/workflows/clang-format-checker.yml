@@ -19,7 +19,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v39
+        uses: tj-actions/changed-files@v41
         with:
           separator: ","
           fetch_depth: 100 # Fetches only the last 10 commits
