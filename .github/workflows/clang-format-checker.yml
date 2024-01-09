@@ -9,8 +9,8 @@ jobs:
   code_formatter:
     if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
-  permissions:
-    pull-requests: write
+    permissions:
+      pull-requests: write
     steps:
       - name: Fetch LLVM sources
         uses: actions/checkout@v4
