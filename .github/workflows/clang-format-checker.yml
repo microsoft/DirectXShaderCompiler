@@ -9,8 +9,8 @@ jobs:
   code_formatter:
     if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
-  permissions:
-    pull-requests: write
+    permissions:
+      pull-requests: write
     steps:
       - name: Fetch LLVM sources
         uses: actions/checkout@v4
@@ -25,7 +25,8 @@ jobs:
           fetch_depth: 100 # Fetches only the last 10 commits
 
       - name: "Listed files"
-        env: LISTED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+        env:
+          LISTED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
         run: |
           echo "Formatting files:"
           echo "$LISTED_FILES"
