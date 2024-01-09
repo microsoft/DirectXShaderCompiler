@@ -1,5 +1,5 @@
-// RUN: not %dxc -T hs_6_0 -E main %s 2>&1 | FileCheck %s
-// RUN: not %dxc -T hs_6_0 -E main %s -spirv 2>&1 | FileCheck %s
+// RUN: %dxc -T hs_6_0 -E main %s | FileCheck %s
+// RUN: %dxc -T hs_6_0 -E main %s -spirv | FileCheck %s
 
 struct ControlPoint {
   float position : MY_BOOL;
