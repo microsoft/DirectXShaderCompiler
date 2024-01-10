@@ -15143,6 +15143,9 @@ void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   if (!Attr)
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "patchconstantfunc";
+  if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "outputtopology";
 
   return;
 }

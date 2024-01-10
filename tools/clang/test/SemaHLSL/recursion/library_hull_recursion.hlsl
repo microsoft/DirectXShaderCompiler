@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_5 %s | FileCheck %s
+// RUN: %dxc -T lib_6_5 -verify %s
 
 
 // no error, because this function isn't exported. 
@@ -10,8 +10,8 @@ void recurse2(inout float4 f, float a) {
   f -= abs(f+a);
 }
 
-// CHECK: error: recursive functions are not allowed: function 'main' calls recursive function 'recurse'
-void recurse(inout float4 f, float a)
+void recurse(inout float4 f, float a) /* expected-error{{recursive functions are not allowed: function 'main' calls recursive function 'recurse'}}
+                                         expected-note{{recursive function located here:}} */
 {
     if (a > 1) {
       recurse(f, a-1);
@@ -26,7 +26,8 @@ struct HSPerPatchData
   float inside   : SV_InsideTessFactor;
 };
 
-HSPerPatchData HSPerPatchFunc1()
+HSPerPatchData HSPerPatchFunc1() /* expected-error{{recursive functions are not allowed: function 'HSPerPatchFunc1' calls recursive function 'HSPerPatchFunc1'}}
+                                    expected-note{{recursive function located here:}} */
 {
   HSPerPatchData d;
 
@@ -34,13 +35,13 @@ HSPerPatchData HSPerPatchFunc1()
   d.edges[1] = -6;
   d.edges[2] = -7;
   d.inside = -8;
-  // CHECK: error: recursive functions are not allowed: function 'HSPerPatchFunc1' calls recursive function 'HSPerPatchFunc1'
   HSPerPatchFunc1();
   return d;
 }
 
 [shader("hull")]
 [patchconstantfunc("HSPerPatchFunc1")]
+[outputtopology("point")]
 float4 main(float a : A, float b:B) : SV_TARGET
 {
   float4 f = b;
