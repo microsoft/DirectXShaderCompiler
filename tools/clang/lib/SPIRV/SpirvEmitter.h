@@ -979,7 +979,6 @@ private:
   /// statement.
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
-private:
   /// Handles the offset argument in the given method call at the given argument
   /// index. Panics if the argument at the given index does not exist. Writes
   /// the <result-id> to either *constOffset or *varOffset, depending on the
@@ -1157,7 +1156,6 @@ private:
                                             const CXXMethodDecl *memberFn,
                                             SourceLocation loc);
 
-private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
   /// or 4. Creates a CompositeExtract or VectorShuffle instruction to extract
   /// a scalar or smaller vector from the beginning of the input vector if
@@ -1195,7 +1193,6 @@ private:
   /// execution mode, if it has not already been added.
   void beginInvocationInterlock(SourceLocation loc, SourceRange range);
 
-private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates
   /// a FunctionInfo object for it, and inserts it into the workQueue. It also
   /// updates the functionInfoMap with the proper mapping.
@@ -1240,6 +1237,16 @@ private:
   ///  This decision is made according to the rules in
   ///  https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html.
   void addDerivativeGroupExecutionMode();
+
+  /// Creates an input variable for `param` that will be used by the patch
+  /// constant function. The parameter is also added to the patch constant
+  /// function. The wrapper function will copy the input variable to the
+  /// parameter.
+  SpirvVariable *
+  createPCFParmVarAndInitFromStageInputVar(const ParmVarDecl *param);
+
+  /// Returns a function scope parameter with the same type as |param|.
+  SpirvVariable *createFunctionScopeTempFromParameter(const ParmVarDecl *param);
 
 public:
   /// \brief Wrapper method to create a fatal error message and report it
