@@ -12523,6 +12523,13 @@ void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
           modeAttr->getLocation());
     }
   }
+
+  // Handle extension and capability attrs
+  if (decl->hasAttr<VKExtensionExtAttr>() ||
+      decl->hasAttr<VKCapabilityExtAttr>()) {
+    createSpirvIntrInstExt(decl->getAttrs(), QualType(), /* spvArgs */ {},
+                           /* isInst */ false, decl->getLocStart());
+  }
 }
 
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
@@ -13112,8 +13119,6 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   assert(entryInfo->isEntryFunction);
   entryInfo->entryFunction = entryFunction;
 
-  processInlineSpirvAttributes(decl);
-
   if (spvContext.isRay()) {
     return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr,
                                                  debugFunction);
@@ -13190,6 +13195,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
+
+  processInlineSpirvAttributes(decl);
 
   // Add DebugFunctionDefinition if we are emitting
   // NonSemantic.Shader.DebugInfo.100 debug info.
