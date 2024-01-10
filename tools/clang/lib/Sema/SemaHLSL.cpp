@@ -11117,50 +11117,65 @@ void hlsl::DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
 }
 
 // Check HLSL member call constraints
-bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc,
-                                  bool SkipUnused) {
+bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   if (MD->hasAttr<HLSLIntrinsicAttr>()) {
     hlsl::IntrinsicOp opCode =
         (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
-    if (SkipUnused) {
-      if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
-          opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
-        const auto *shaderModel =
-            hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
-        if (!shaderModel->IsSM68Plus()) {
-          QualType SamplerComparisonTy =
-              HLSLExternalSource::FromSema(this)->GetBasicKindType(
-                  AR_OBJECT_SAMPLERCOMPARISON);
-          if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
-            Diags.Report(
-                Loc, diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
-                << MD->getNameAsString() << "6.8";
-            return true;
-          }
-        }
-      }
-    } else {
-      // If this is a call to FinishedCrossGroupSharing then the Input record
-      // must have the NodeTrackRWInputSharing attribute
-      if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
-        const CXXRecordDecl *NodeRecDecl = MD->getParent();
-        // Node I/O records are templateTypes
-        const ClassTemplateSpecializationDecl *templateDecl =
-            cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
-        auto &TemplateArgs = templateDecl->getTemplateArgs();
-        DXASSERT(TemplateArgs.size() == 1,
-                 "Input record types need to have one template argument");
-        auto &Rec = TemplateArgs.get(0);
-        clang::QualType RecType = Rec.getAsType();
-        RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
-        if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
-          Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
-          return true;
-        }
+    // If this is a call to FinishedCrossGroupSharing then the Input record
+    // must have the NodeTrackRWInputSharing attribute
+    if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
+      const CXXRecordDecl *NodeRecDecl = MD->getParent();
+      // Node I/O records are templateTypes
+      const ClassTemplateSpecializationDecl *templateDecl =
+          cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
+      auto &TemplateArgs = templateDecl->getTemplateArgs();
+      DXASSERT(TemplateArgs.size() == 1,
+               "Input record types need to have one template argument");
+      auto &Rec = TemplateArgs.get(0);
+      clang::QualType RecType = Rec.getAsType();
+      RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
+      if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
+        Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
+        return true;
       }
     }
   }
   return false;
+}
+
+// Check HLSL member call constraints for used functions.
+bool Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
+                                      SourceLocation Loc,
+                                      const hlsl::ShaderModel *SM,
+                                      DXIL::ShaderKind EntrySK) {
+  bool bError = false;
+  if (MD->hasAttr<HLSLIntrinsicAttr>()) {
+    hlsl::IntrinsicOp opCode =
+        (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
+
+    if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
+        opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
+
+      if (!SM->IsSM68Plus()) {
+        QualType SamplerComparisonTy =
+            HLSLExternalSource::FromSema(this)->GetBasicKindType(
+                AR_OBJECT_SAMPLERCOMPARISON);
+        if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
+          Diags.Report(Loc,
+                       diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
+              << MD->getNameAsString() << "6.8";
+          bError = true;
+        }
+      }
+      if (!hlsl::ShaderModel::AllowDerivatives(EntrySK)) {
+        Diags.Report(Loc,
+                     diag::err_hlsl_derivatives_intrinsic_in_wrong_shader_kind)
+            << MD->getNameAsString();
+        bError = true;
+      }
+    }
+  }
+  return bError;
 }
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,

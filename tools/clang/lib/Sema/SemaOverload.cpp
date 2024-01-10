@@ -11923,8 +11923,7 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
                       DiagnoseUseOfDecl(Method, UnresExpr->getNameLoc()))
         return ExprError();
       // HLSL Change Start - Check method constraints
-      if (DiagnoseHLSLMethodCall(Method, MemExprE->getLocStart(),
-                                 /*WithCallGraph*/ false))
+      if (DiagnoseHLSLMethodCall(Method, MemExprE->getLocStart()))
         return ExprError();
       // HLSL Change End
       break;

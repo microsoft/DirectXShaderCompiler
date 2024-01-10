@@ -13,6 +13,7 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Sema/SemaDiagnostic.h"
@@ -303,16 +304,20 @@ clang::FunctionDecl *ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
 class HLSLMethodCallDiagnoseVisitor
     : public RecursiveASTVisitor<HLSLMethodCallDiagnoseVisitor> {
 public:
-  explicit HLSLMethodCallDiagnoseVisitor(Sema *S) : sema(S) {}
+  explicit HLSLMethodCallDiagnoseVisitor(Sema *S, const hlsl::ShaderModel *SM,
+                                         DXIL::ShaderKind EntrySK)
+      : sema(S), SM(SM), EntrySK(EntrySK) {}
 
   bool VisitCXXMemberCallExpr(CXXMemberCallExpr *CE) {
-    sema->DiagnoseHLSLMethodCall(CE->getMethodDecl(), CE->getExprLoc(),
-                                 /*SkipUnused*/ true);
+    sema->DiagnoseUsedHLSLMethodCall(CE->getMethodDecl(), CE->getExprLoc(), SM,
+                                     EntrySK);
     return true;
   }
 
 private:
   clang::Sema *sema;
+  const hlsl::ShaderModel *SM;
+  DXIL::ShaderKind EntrySK;
 };
 
 } // namespace
@@ -374,10 +379,14 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
   }
 
-  CallGraphWithRecurseGuard callGraph;
+  const auto *shaderModel =
+      hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
+  DXIL::ShaderKind shaderKind = shaderModel->GetKind();
+
   std::set<FunctionDecl *> DiagnosedDecls;
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
+    CallGraphWithRecurseGuard callGraph;
     FunctionDecl *result = ValidateNoRecursion(callGraph, FDecl);
 
     if (result) {
@@ -442,12 +451,19 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
       }
     }
-  }
 
-  // Visit all visited functions in call graph to collect illegal intrinsic
-  // calls.
-  for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
-    HLSLMethodCallDiagnoseVisitor Visitor(self);
-    Visitor.TraverseDecl(FD);
+    DXIL::ShaderKind EntrySK = shaderKind;
+    if (EntrySK == DXIL::ShaderKind::Library) {
+      // For library, check if the exported function is entry with shader
+      // attribute.
+      if (const auto *Attr = FDecl->getAttr<clang::HLSLShaderAttr>())
+        EntrySK = ShaderModel::KindFromFullName(Attr->getStage());
+    }
+    // Visit all visited functions in call graph to collect illegal intrinsic
+    // calls.
+    for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
+      HLSLMethodCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK);
+      Visitor.TraverseDecl(FD);
+    }
   }
 }
