@@ -3808,7 +3808,7 @@ public:
                                         QualType TargetType,
                                         SourceLocation Loc);
   bool DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc);
-  bool DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc,
+  void DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc,
                                   const hlsl::ShaderModel *SM,
                                   hlsl::DXIL::ShaderKind EntrySK);
   // HLSL Change Ends

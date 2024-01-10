@@ -11144,15 +11144,13 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 }
 
 // Check HLSL member call constraints for used functions.
-bool Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
+void Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
                                       SourceLocation Loc,
                                       const hlsl::ShaderModel *SM,
                                       DXIL::ShaderKind EntrySK) {
-  bool bError = false;
   if (MD->hasAttr<HLSLIntrinsicAttr>()) {
     hlsl::IntrinsicOp opCode =
         (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
-
     switch (opCode) {
     case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail:
     case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped: {
@@ -11164,21 +11162,18 @@ bool Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
           Diags.Report(Loc,
                        diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
               << MD->getNameAsString() << "6.8";
-          bError = true;
         }
       }
       if (!hlsl::ShaderModel::AllowDerivatives(EntrySK)) {
         Diags.Report(Loc,
                      diag::err_hlsl_derivatives_intrinsic_in_wrong_shader_kind)
             << MD->getNameAsString();
-        bError = true;
       }
     } break;
     default:
       break;
     }
   }
-  return bError;
 }
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
