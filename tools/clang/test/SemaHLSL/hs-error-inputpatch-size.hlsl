@@ -1,5 +1,5 @@
-// RUN: %dxc -T hs_6_0 -E main %s | FileCheck %s
-// RUN: %dxc -T hs_6_0 -E main %s -spirv | FileCheck %s
+// RUN: %dxc -T hs_6_0 -E main -verify %s
+// RUN: %dxc -T hs_6_0 -E main -verify %s -spirv
 
 struct ControlPoint {
   float position : MY_BOOL;
@@ -17,7 +17,7 @@ PatchData HullConst () { return (PatchData)0; }
 [outputtopology("triangle_cw")]
 [patchconstantfunc("HullConst")]
 [outputcontrolpoints(3)]
-ControlPoint main(InputPatch<ControlPoint, 0> v, uint id : SV_OutputControlPointID) {
-  // CHECK: error: InputPatch element count must be greater than 0
+ControlPoint main(InputPatch<ControlPoint, 0> v, // expected-error {{InputPatch element count must be greater than 0}}
+                  uint id : SV_OutputControlPointID) {
   return v[id];
 }
