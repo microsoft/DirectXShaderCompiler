@@ -11153,9 +11153,9 @@ bool Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
     hlsl::IntrinsicOp opCode =
         (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
 
-    if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
-        opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
-
+    switch (opCode) {
+    case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail:
+    case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped: {
       if (!SM->IsSM68Plus()) {
         QualType SamplerComparisonTy =
             HLSLExternalSource::FromSema(this)->GetBasicKindType(
@@ -11173,6 +11173,9 @@ bool Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
             << MD->getNameAsString();
         bError = true;
       }
+    } break;
+    default:
+      break;
     }
   }
   return bError;
@@ -15629,5 +15632,4 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   }
   }
 }
-
 } // namespace hlsl
