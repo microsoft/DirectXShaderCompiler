@@ -11164,7 +11164,7 @@ void Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
               << MD->getNameAsString() << "6.8";
         }
       }
-      if (!hlsl::ShaderModel::AllowDerivatives(EntrySK)) {
+      if (!SM->AllowDerivatives(EntrySK)) {
         Diags.Report(Loc,
                      diag::err_hlsl_derivatives_intrinsic_in_wrong_shader_kind)
             << MD->getNameAsString();

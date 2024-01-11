@@ -494,14 +494,16 @@ const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
   }
 }
 
-bool ShaderModel::AllowDerivatives(DXIL::ShaderKind sk) {
+bool ShaderModel::AllowDerivatives(DXIL::ShaderKind sk) const {
   switch (sk) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Library:
+    return true;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
-    return true;
+  case DXIL::ShaderKind::Node:
+    return IsSM66Plus();
   }
   return false;
 }

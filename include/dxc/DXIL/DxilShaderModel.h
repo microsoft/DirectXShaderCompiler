@@ -59,6 +59,7 @@ public:
   }
   bool IsSM50Plus() const { return IsSMAtLeast(5, 0); }
   bool IsSM51Plus() const { return IsSMAtLeast(5, 1); }
+  bool AllowDerivatives(DXIL::ShaderKind sk) const;
   // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_is_shader_model_plus()</py>*/
@@ -86,7 +87,6 @@ public:
   static const char *GetKindName(Kind kind);
   static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
   static const llvm::StringRef FullNameFromKind(DXIL::ShaderKind sk);
-  static bool AllowDerivatives(DXIL::ShaderKind sk);
   static const char *GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy);
   static DXIL::NodeLaunchType NodeLaunchTypeFromName(llvm::StringRef name);
 
