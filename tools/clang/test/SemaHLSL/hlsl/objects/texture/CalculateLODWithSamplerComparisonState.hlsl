@@ -37,8 +37,8 @@ float ps(float a:A) : SV_Target {
 
 [shader("vertex")]
 float4 vs(float a:A) : SV_Position {
-  // expected-error@+1 {{Derivatives intrinsic CalculateLevelOfDetail only works in lib/ps/cs/as/ms}}
+  // expected-error@+1 {{Derivatives intrinsic CalculateLevelOfDetail only works in ps and cs_6.6+/as_6.6+/ms_6.6+/node}}
   return t.CalculateLevelOfDetail(s, a) + // expected-error {{overload of intrinsic CalculateLevelOfDetail requires shader model 6.8 or greater}}
-  // expected-error@+1 {{Derivatives intrinsic CalculateLevelOfDetailUnclamped only works in lib/ps/cs/as/ms}}
+  // expected-error@+1 {{Derivatives intrinsic CalculateLevelOfDetailUnclamped only works in ps and cs_6.6+/as_6.6+/ms_6.6+/node}}
     t.CalculateLevelOfDetailUnclamped(s, a); // expected-error {{overload of intrinsic CalculateLevelOfDetailUnclamped requires shader model 6.8 or greater}}
 }

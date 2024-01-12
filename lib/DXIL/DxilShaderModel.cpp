@@ -498,11 +498,11 @@ bool ShaderModel::AllowDerivatives(DXIL::ShaderKind sk) const {
   switch (sk) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Library:
+  case DXIL::ShaderKind::Node:
     return true;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
-  case DXIL::ShaderKind::Node:
     return IsSM66Plus();
   }
   return false;
