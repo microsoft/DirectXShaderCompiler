@@ -67,8 +67,7 @@ def writeCodeTag(args):
 
 def openOutput(args):
     outputDir = os.path.dirname(os.path.realpath(args.output))
-    if not os.path.exists(outputDir):
-        os.makedirs(outputDir)
+    os.makedirs(outputDir, exist_ok=True)
     return open(args.output, "w", newline=getNewline(args))
 
 

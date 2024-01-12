@@ -11,7 +11,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 // We need to keep & fix these warnings to integrate smoothly with HLK
-#pragma warning(error : 4100 4146 4242 4244 4267 4701 4389)
+#pragma warning(error : 4100 4146 4242 4244 4267 4701 4389 4018)
 
 // *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
 
@@ -21,6 +21,7 @@
 #include <memory>
 #include <array>
 #include <vector>
+#include <array>
 #include <string>
 #include <map>
 #include <unordered_set>
@@ -32,6 +33,7 @@
 #include <atlcoll.h>
 #include <locale>
 #include <algorithm>
+#include <type_traits>
 #include <bitset>
 
 #undef _read
@@ -57,6 +59,7 @@
 #include <wincodec.h>
 #include "ShaderOpTest.h"
 #include <libloaderapi.h>
+#include <DirectXPackedVector.h>
 // clang-format on
 
 #pragma comment(lib, "d3dcompiler.lib")
@@ -528,6 +531,10 @@ public:
                        L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
   END_TEST_METHOD()
 
+  TEST_METHOD(WaveMatrixLoadStoreTests);
+  TEST_METHOD(WaveMatrixScalarTests);
+  TEST_METHOD(WaveMatrixMathTests);
+
   dxc::DxcDllSupport m_support;
 
   bool m_D3DInitCompleted = false;
@@ -641,9 +648,10 @@ public:
     D3D_SHADER_MODEL_6_5 = 0x65,
     D3D_SHADER_MODEL_6_6 = 0x66,
     D3D_SHADER_MODEL_6_7 = 0x67,
+    D3D_SHADER_MODEL_6_8 = 0x68,
   } D3D_SHADER_MODEL;
 
-  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_7;
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_8;
 
   bool UseDxbc() {
 #ifdef _HLK_CONF
@@ -736,6 +744,64 @@ public:
                                Ty *pInputDataPairs, unsigned inputDataCount);
 
   template <class Ty> const wchar_t *BasicShaderModelTest_GetFormatString();
+
+  CComPtr<ID3D12Device>
+  WaveMatrixTestCommonSetup(std::vector<int> &dimMs, std::vector<int> &dimNs,
+                            std::shared_ptr<st::ShaderOpSet> &shaderOpSet) {
+    WEX::TestExecution::SetVerifyOutput verifySettings(
+        WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+    CComPtr<ID3D12Device> pDevice;
+    D3D_SHADER_MODEL model = D3D_SHADER_MODEL_6_8;
+
+    if (!CreateDevice(&pDevice, model)) {
+      return nullptr;
+    }
+
+    if (!DoesDeviceSupportWaveMatrix(pDevice)) {
+      LogCommentFmt(L"WaveMatrix not supported on this device.");
+      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+      return nullptr;
+    }
+
+    CComPtr<IStream> pStream;
+    ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+
+    shaderOpSet = std::make_shared<st::ShaderOpSet>();
+    st::ParseShaderOpSetFromStream(pStream, shaderOpSet.get());
+
+    dimMs = {16, 64};
+    dimNs = {16, 64};
+
+    std::wstring split;
+
+    // Parse DimM
+    WEX::Common::String dimMList;
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"Wmma_DimM", dimMList);
+
+    if (!dimMList.IsEmpty()) {
+      dimMs.clear();
+      wstringstream ss((const wchar_t *)dimMList);
+
+      while (std::getline(ss, split, L',')) {
+        dimMs.emplace_back(std::stoi(split));
+      }
+    }
+
+    // Parse DimN
+    WEX::Common::String dimNList;
+    WEX::TestExecution::RuntimeParameters::TryGetValue(L"Wmma_DimN", dimNList);
+    if (!dimNList.IsEmpty()) {
+      dimNs.clear();
+      wstringstream ss((const wchar_t *)dimNList);
+
+      while (std::getline(ss, split, L',')) {
+        dimNs.emplace_back(std::stoi(split));
+      }
+    }
+
+    return pDevice;
+  }
 
   void CompileFromText(LPCSTR pText, LPCWSTR pEntryPoint,
                        LPCWSTR pTargetProfile, ID3DBlob **ppBlob,
@@ -850,11 +916,12 @@ public:
       HRESULT hr = WEX::TestExecution::RuntimeParameters::TryGetValue(
           L"Adapter", AdapterValue);
       if (SUCCEEDED(hr)) {
-        GetHardwareAdapter(factory, AdapterValue, &hardwareAdapter);
+        st::GetHardwareAdapter(factory, AdapterValue, &hardwareAdapter);
       } else {
         WEX::Logging::Log::Comment(
             L"Using default hardware adapter with D3D12 support.");
       }
+
       VERIFY_SUCCEEDED(D3D12CreateDevice(
           hardwareAdapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
     }
@@ -1569,6 +1636,19 @@ public:
 #endif
   }
 
+  bool DoesDeviceSupportWaveMatrix(ID3D12Device *pDevice) {
+#if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
+    D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
+    if (FAILED(pDevice->CheckFeatureSupport(
+            (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS9, &O9, sizeof(O9))))
+      return false;
+    return O9.WaveMMATier >= D3D12_WAVE_MMA_TIER_1_0;
+#else
+    UNREFERENCED_PARAMETER(pDevice);
+    return false;
+#endif
+  }
+
   bool DoesDeviceSupportAdvancedTexOps(ID3D12Device *pDevice) {
 #if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
     D3D12_FEATURE_DATA_D3D12_OPTIONS14 O14;
@@ -1807,7 +1887,11 @@ public:
       return S_OK;
     }
 
+#ifdef _FORCE_EXPERIMENTAL_SHADERS
+    bool bExperimentalShaderModels = true;
+#else
     bool bExperimentalShaderModels = GetTestParamBool(L"ExperimentalShaders");
+#endif // _FORCE_EXPERIMENTAL_SHADERS
 
     HRESULT hr = S_FALSE;
     if (bExperimentalShaderModels) {
@@ -5723,6 +5807,106 @@ struct STertiaryUint16Op {
   unsigned short input3;
   unsigned short output;
 };
+
+namespace WMMA {
+#define MEM_TYPE_NAMES(XMAC)                                                   \
+  XMAC(BUFFER)                                                                 \
+  XMAC(GROUPSHARED)
+
+#define FRAGMENT_OP_NAMES(XMAC)                                                \
+  XMAC(LEFT_COL_SUMACCUMULATE)                                                 \
+  XMAC(RIGHT_ROW_SUMACCUMULATE)
+
+#define MATH_OP_NAMES(XMAC)                                                    \
+  XMAC(MULTIPLY)                                                               \
+  XMAC(MULTIPLY_ACCUMULATE)                                                    \
+  XMAC(ADD_MATRIX)                                                             \
+  XMAC(BROADCAST_ADD_LEFT_COL)                                                 \
+  XMAC(BROADCAST_ADD_RIGHT_ROW)
+
+#define LOAD_STORE_OP_NAMES(XMAC)                                              \
+  XMAC(LOAD_LEFT_START)                                                        \
+  XMAC(LOAD_RIGHT_START)                                                       \
+  XMAC(LOAD_LEFT_STRIDE_P4)                                                    \
+  XMAC(LOAD_RIGHT_STRIDE_P4)                                                   \
+  XMAC(LOAD_LEFT_STRIDE_X2)                                                    \
+  XMAC(LOAD_RIGHT_STRIDE_X2)                                                   \
+  XMAC(LOAD_LEFT_ALIGNMENT)                                                    \
+  XMAC(LOAD_RIGHT_ALIGNMENT)                                                   \
+  XMAC(LOAD_LEFT_TRANSPOSE)                                                    \
+  XMAC(LOAD_RIGHT_TRANSPOSE)                                                   \
+  XMAC(LOAD_LEFT_ALLPARAMS)                                                    \
+  XMAC(LOAD_RIGHT_ALLPARAMS)                                                   \
+  XMAC(STORE_LEFT_STRIDE_P4)                                                   \
+  XMAC(STORE_RIGHT_STRIDE_P4)                                                  \
+  XMAC(STORE_LEFT_STRIDE_X2)                                                   \
+  XMAC(STORE_RIGHT_STRIDE_X2)                                                  \
+  XMAC(STORE_LEFT_ALIGNMENT)                                                   \
+  XMAC(STORE_RIGHT_ALIGNMENT)                                                  \
+  XMAC(STORE_LEFT_TRANSPOSE)                                                   \
+  XMAC(STORE_RIGHT_TRANSPOSE)                                                  \
+  XMAC(STORE_LEFT_ALLPARAMS)                                                   \
+  XMAC(STORE_RIGHT_ALLPARAMS)
+
+#define LOAD_STORE_ACCUM_OP_NAMES(XMAC)                                        \
+  XMAC(LOAD_START)                                                             \
+  XMAC(LOAD_STRIDE_P4)                                                         \
+  XMAC(LOAD_STRIDE_X2)                                                         \
+  XMAC(LOAD_ALIGNMENT)                                                         \
+  XMAC(LOAD_TRANSPOSE)                                                         \
+  XMAC(LOAD_ALLPARAMS)                                                         \
+  XMAC(STORE_STRIDE_P4)                                                        \
+  XMAC(STORE_STRIDE_X2)                                                        \
+  XMAC(STORE_ALIGNMENT)                                                        \
+  XMAC(STORE_TRANSPOSE)                                                        \
+  XMAC(STORE_ALLPARAMS)
+
+#define SCALAR_OP_NAMES(XMAC)                                                  \
+  XMAC(SCALAR_MUL)                                                             \
+  XMAC(SCALAR_DIV)                                                             \
+  XMAC(SCALAR_ADD)                                                             \
+  XMAC(SCALAR_SUB)                                                             \
+  XMAC(SCALAR_FILL)
+
+#define XMACENUM(name) name,
+#define XMACSTRING(name) #name,
+
+enum : int { MEM_TYPE_NAMES(XMACENUM) NUM_MEM_TYPES };
+
+enum : int { FRAGMENT_OP_NAMES(XMACENUM) NUM_ROWCOL_OPS };
+
+enum : int { MATH_OP_NAMES(XMACENUM) NUM_MATRIX_OPS };
+
+enum : int { LOAD_STORE_OP_NAMES(XMACENUM) TOTAL_LOAD_STORE_OUTPUTS };
+
+enum : int {
+  LOAD_STORE_ACCUM_OP_NAMES(XMACENUM) TOTAL_ACCUM_LOAD_STORE_OUTPUTS
+};
+
+enum : int { SCALAR_OP_NAMES(XMACENUM) SCALAR_NUM_OUTPUTS };
+
+const char *memTypeStrs[2] = {MEM_TYPE_NAMES(XMACSTRING)};
+
+const char *rowColEnumStrs[NUM_ROWCOL_OPS] = {FRAGMENT_OP_NAMES(XMACSTRING)};
+
+const char *mathOpEnumStrs[NUM_MATRIX_OPS] = {MATH_OP_NAMES(XMACSTRING)};
+
+const char *loadStoreEnumStrs[TOTAL_LOAD_STORE_OUTPUTS] = {
+    LOAD_STORE_OP_NAMES(XMACSTRING)};
+
+const char *accumLoadStoreEnumStrs[TOTAL_ACCUM_LOAD_STORE_OUTPUTS] = {
+    LOAD_STORE_ACCUM_OP_NAMES(XMACSTRING)};
+
+const char *scalarEnumStrs[SCALAR_NUM_OUTPUTS] = {SCALAR_OP_NAMES(XMACSTRING)};
+
+#undef MATH_OP_NAMES
+#undef LOAD_STORE_OP_NAMES
+#undef LOAD_STORE_ACCUM_OP_NAMES
+#undef SCALAR_OP_NAMES
+#undef XMACENUM
+#undef XMACSTRING
+} // namespace WMMA
+
 // representation for HLSL float vectors
 struct SDotOp {
   XMFLOAT4 input1;
@@ -6154,6 +6338,16 @@ static TableParameter TertiaryUint16OpParameters[] = {
     {L"Validation.Tolerance", TableParameter::INT32, true},
 };
 
+static TableParameter WaveMatrixOpParameters[] = {
+    {L"Validation.Type", TableParameter::STRING, true},
+    {L"Validation.Tolerance", TableParameter::DOUBLE, true},
+    {L"ShaderOp.Target", TableParameter::STRING, true},
+    {L"LoadStoreShaderOp.Text", TableParameter::STRING, true},
+    {L"ScalarShaderOp.Text", TableParameter::STRING, true},
+    {L"MathShaderOp.Text", TableParameter::STRING, true},
+    {L"ScalarValidation.Scalar", TableParameter::STRING_TABLE, true},
+};
+
 static TableParameter DotOpParameters[] = {
     {L"ShaderOp.Target", TableParameter::STRING, true},
     {L"ShaderOp.Text", TableParameter::STRING, true},
@@ -6316,6 +6510,8 @@ static bool IsHexString(PCWSTR str, uint16_t *value) {
 static HRESULT ParseDataToFloat(PCWSTR str, float &value) {
   std::wstring wString(str);
   wString.erase(std::remove(wString.begin(), wString.end(), L' '),
+                wString.end());
+  wString.erase(std::remove(wString.begin(), wString.end(), L'\n'),
                 wString.end());
   PCWSTR wstr = wString.data();
   if (_wcsicmp(wstr, L"NaN") == 0) {
@@ -6674,29 +6870,65 @@ HRESULT TableParameterHandler::ParseTableRow() {
   return S_OK;
 }
 
-static void VerifyOutputWithExpectedValueInt(int output, int ref,
+static bool CompareOutputWithExpectedValueInt(int output, int ref,
+                                              int tolerance) {
+  return ((output - ref) <= tolerance) && ((ref - output) <= tolerance);
+}
+
+static bool VerifyOutputWithExpectedValueInt(int output, int ref,
                                              int tolerance) {
-  VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
+  return VERIFY_IS_TRUE(
+      CompareOutputWithExpectedValueInt(output, ref, tolerance));
 }
 
-static void VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref,
+static bool CompareOutputWithExpectedValueUInt(uint32_t output, uint32_t ref,
+                                               uint32_t tolerance) {
+  if (output > ref)
+    return output - ref <= tolerance;
+  else
+    return ref - output <= tolerance;
+}
+
+static bool VerifyOutputWithExpectedValueUInt(uint32_t output, uint32_t ref,
                                               uint32_t tolerance) {
-  VERIFY_IS_TRUE(output - ref <= tolerance && ref - output <= tolerance);
+  return VERIFY_IS_TRUE(
+      CompareOutputWithExpectedValueUInt(output, ref, tolerance));
 }
 
-static void VerifyOutputWithExpectedValueFloat(
-    float output, float ref, LPCWSTR type, double tolerance,
+enum class ToleranceType {
+  EPSILON,
+  RELATIVE_EPSILON,
+  ULP,
+  TOLERANCE_TYPE_COUNT
+};
+
+ToleranceType ToleranceStringToEnum(LPCWSTR toleranceType) {
+  if (_wcsicmp(toleranceType, L"Relative") == 0) {
+    return ToleranceType::RELATIVE_EPSILON;
+  } else if (_wcsicmp(toleranceType, L"Epsilon") == 0) {
+    return ToleranceType::EPSILON;
+  } else if (_wcsicmp(toleranceType, L"ULP") == 0) {
+    return ToleranceType::ULP;
+  } else {
+    LogErrorFmt(L"Failed to read comparison type %S", toleranceType);
+    return ToleranceType::TOLERANCE_TYPE_COUNT;
+  }
+}
+
+static bool CompareOutputWithExpectedValueFloat(
+    float output, float ref, ToleranceType type, double tolerance,
     hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
-  if (_wcsicmp(type, L"Relative") == 0) {
-    VERIFY_IS_TRUE(
-        CompareFloatRelativeEpsilon(output, ref, (int)tolerance, mode));
-  } else if (_wcsicmp(type, L"Epsilon") == 0) {
-    VERIFY_IS_TRUE(CompareFloatEpsilon(output, ref, (float)tolerance, mode));
-  } else if (_wcsicmp(type, L"ULP") == 0) {
-    VERIFY_IS_TRUE(CompareFloatULP(output, ref, (int)tolerance, mode));
+  if (type == ToleranceType::RELATIVE_EPSILON) {
+    return CompareFloatRelativeEpsilon(output, ref, (int)tolerance, mode);
+  } else if (type == ToleranceType::EPSILON) {
+    return CompareFloatEpsilon(output, ref, (float)tolerance, mode);
+  } else if (type == ToleranceType::ULP) {
+    return CompareFloatULP(output, ref, (int)tolerance, mode);
   } else {
     LogErrorFmt(L"Failed to read comparison type %S", type);
   }
+
+  return false;
 }
 
 static bool CompareOutputWithExpectedValueFloat(
@@ -6710,22 +6942,120 @@ static bool CompareOutputWithExpectedValueFloat(
     return CompareFloatULP(output, ref, (int)tolerance, mode);
   } else {
     LogErrorFmt(L"Failed to read comparison type %S", type);
+  }
+
+  return false;
+}
+
+static bool VerifyOutputWithExpectedValueFloat(
+    float output, float ref, LPCWSTR type, double tolerance,
+    hlsl::DXIL::Float32DenormMode mode = hlsl::DXIL::Float32DenormMode::Any) {
+  return VERIFY_IS_TRUE(
+      CompareOutputWithExpectedValueFloat(output, ref, type, tolerance, mode));
+}
+
+static bool CompareOutputWithExpectedValueHalf(uint16_t output, uint16_t ref,
+                                               ToleranceType type,
+                                               double tolerance) {
+  if (type == ToleranceType::RELATIVE_EPSILON) {
+    return CompareHalfRelativeEpsilon(output, ref, (int)tolerance);
+  } else if (type == ToleranceType::EPSILON) {
+    return CompareHalfEpsilon(output, ref, (float)tolerance);
+  } else if (type == ToleranceType::ULP) {
+    return CompareHalfULP(output, ref, (float)tolerance);
+  } else {
+    LogErrorFmt(L"Failed to read comparison type %S", type);
     return false;
   }
 }
 
-static void VerifyOutputWithExpectedValueHalf(uint16_t output, uint16_t ref,
-                                              LPCWSTR type, double tolerance) {
+static bool CompareOutputWithExpectedValueHalf(uint16_t output, uint16_t ref,
+                                               LPCWSTR type, double tolerance) {
   if (_wcsicmp(type, L"Relative") == 0) {
-    VERIFY_IS_TRUE(CompareHalfRelativeEpsilon(output, ref, (int)tolerance));
+    return CompareHalfRelativeEpsilon(output, ref, (int)tolerance);
   } else if (_wcsicmp(type, L"Epsilon") == 0) {
-    VERIFY_IS_TRUE(CompareHalfEpsilon(output, ref, (float)tolerance));
+    return CompareHalfEpsilon(output, ref, (float)tolerance);
   } else if (_wcsicmp(type, L"ULP") == 0) {
-    VERIFY_IS_TRUE(CompareHalfULP(output, ref, (float)tolerance));
+    return CompareHalfULP(output, ref, (float)tolerance);
   } else {
     LogErrorFmt(L"Failed to read comparison type %S", type);
+    return false;
   }
 }
+
+static bool VerifyOutputWithExpectedValueHalf(uint16_t output, uint16_t ref,
+                                              LPCWSTR type, double tolerance) {
+  return VERIFY_IS_TRUE(
+      CompareOutputWithExpectedValueHalf(output, ref, type, tolerance));
+}
+
+template <typename T>
+static bool CompareOutputWithExpectedValue(T output, T ref,
+                                           ToleranceType toleranceType,
+                                           double tolerance) {
+  if (std::is_same<T, DirectX::PackedVector::HALF>::value) { // uint16 treated
+                                                             // as half
+    return CompareOutputWithExpectedValueHalf((uint16_t)output, (uint16_t)ref,
+                                              toleranceType, tolerance);
+  } else if (std::is_integral<T>::value &&
+             std::is_signed<T>::value) { // signed ints
+    return CompareOutputWithExpectedValueInt((int)output, (int)ref,
+                                             (int)tolerance);
+  } else if (std::is_integral<T>::value) { // unsigned ints
+    return CompareOutputWithExpectedValueUInt((uint32_t)output, (uint32_t)ref,
+                                              (uint32_t)tolerance);
+  } else if (std::is_floating_point<T>::value) { // floating point
+    return CompareOutputWithExpectedValueFloat((float)output, (float)ref,
+                                               toleranceType, tolerance);
+  }
+
+  DXASSERT_NOMSG("Invalid Parameter Type");
+}
+
+template <typename T>
+static bool CompareOutputWithExpectedValue(T output, T ref,
+                                           LPCWSTR toleranceType,
+                                           double tolerance) {
+  if (std::is_same<T, DirectX::PackedVector::HALF>::value) { // uint16 treated
+                                                             // as half
+    return CompareOutputWithExpectedValueHalf((uint16_t)output, (uint16_t)ref,
+                                              toleranceType, tolerance);
+  } else if (std::is_integral<T>::value &&
+             std::is_signed<T>::value) { // signed ints
+    return CompareOutputWithExpectedValueInt((int)output, (int)ref,
+                                             (int)tolerance);
+  } else if (std::is_integral<T>::value) { // unsigned ints
+    return CompareOutputWithExpectedValueUInt((uint32_t)output, (uint32_t)ref,
+                                              (uint32_t)tolerance);
+  } else if (std::is_floating_point<T>::value) { // floating point
+    return CompareOutputWithExpectedValueFloat((float)output, (float)ref,
+                                               toleranceType, tolerance);
+  }
+
+  DXASSERT_NOMSG("Invalid Parameter Type");
+}
+
+// Check an array of values against an array of expected values. verify they
+// match within the given constraints.
+template <typename T>
+bool VerifyArrayWithExpectedValue(T *arr, T *expected, size_t num_elements,
+                                  LPCWSTR type, double tolerance) {
+  ToleranceType toleranceType = ToleranceStringToEnum(type);
+
+  bool passed = true;
+  for (size_t i = 0; i < num_elements; ++i) {
+    passed = CompareOutputWithExpectedValue<T>(arr[i], expected[i],
+                                               toleranceType, tolerance) &&
+             passed;
+
+    if (!passed) {
+      break;
+    }
+  }
+  VERIFY_IS_TRUE(passed);
+
+  return passed;
+};
 
 TEST_F(ExecutionTest, UnaryFloatOpTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
@@ -8169,6 +8499,1968 @@ TEST_F(ExecutionTest, TertiaryUint16OpTest) {
                   i, p->input1, p->input1, p->input2, p->input2, p->input3,
                   p->input3, p->output, p->output, val1, val1);
     VerifyOutputWithExpectedValueInt(p->output, val1, Validation_Tolerance);
+  }
+}
+
+template <typename T1, typename T2, typename TYPE_ACC>
+void MatrixMultiplyAndAddMatrix(int DIM_M, int DIM_N, int dim_k, T1 *leftMatrix,
+                                T2 *rightMatrix, TYPE_ACC *resultMatrix) {
+  using namespace DirectX::PackedVector;
+  using T1_PROMOTED =
+      typename std::conditional<std::is_same<T1, HALF>::value, float, T1>::type;
+  using T2_PROMOTED =
+      typename std::conditional<std::is_same<T2, HALF>::value, float, T2>::type;
+
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+
+      for (int k = 0; k < dim_k; ++k) {
+        int ik = i * dim_k + k;
+        int kj = k * DIM_N + j;
+
+        T1_PROMOTED leftMatrixVal = leftMatrix[ik];
+        T2_PROMOTED rightMatrixVal = rightMatrix[kj];
+        if (typeid(T1) == typeid(HALF)) {
+          DXASSERT_NOMSG(typeid(T2) == typeid(HALF));
+          leftMatrixVal = static_cast<T1_PROMOTED>(
+              ConvertFloat16ToFloat32(static_cast<HALF>(leftMatrix[ik])));
+          rightMatrixVal = static_cast<T2_PROMOTED>(
+              ConvertFloat16ToFloat32(static_cast<HALF>(rightMatrix[kj])));
+        }
+
+        if (typeid(TYPE_ACC) == typeid(HALF)) {
+          resultMatrix[ij] = ConvertFloat32ToFloat16(
+              ConvertFloat16ToFloat32(static_cast<HALF>(resultMatrix[ij])) +
+              ConvertFloat16ToFloat32(
+                  ConvertFloat32ToFloat16(static_cast<float>(leftMatrixVal) *
+                                          static_cast<float>(rightMatrixVal))));
+        } else {
+          resultMatrix[ij] += static_cast<TYPE_ACC>(leftMatrixVal) *
+                              static_cast<TYPE_ACC>(rightMatrixVal);
+        }
+      }
+    }
+  }
+}
+
+template <typename T1, typename T2, typename TYPE_ACC>
+void MatrixMultiplyByMatrix(int DIM_M, int DIM_N, int k, T1 *leftMatrix,
+                            T2 *rightMatrix, TYPE_ACC *resultMatrix) {
+  memset(resultMatrix, 0, DIM_M * DIM_N * sizeof(TYPE_ACC));
+  MatrixMultiplyAndAddMatrix<T1, T2, TYPE_ACC>(DIM_M, DIM_N, k, leftMatrix,
+                                               rightMatrix, resultMatrix);
+}
+
+template <typename T>
+void MatrixAddMatrix(int DIM_M, int DIM_N, T *matrixToAdd, T *resultMatrix) {
+  using namespace DirectX::PackedVector;
+
+  for (size_t i = 0; i < (size_t)(DIM_M * DIM_N); ++i) {
+    if (typeid(T) == typeid(HALF)) {
+      resultMatrix[i] = ConvertFloat32ToFloat16(
+          ConvertFloat16ToFloat32(static_cast<HALF>(resultMatrix[i])) +
+          ConvertFloat16ToFloat32(static_cast<HALF>(matrixToAdd[i])));
+    } else {
+      resultMatrix[i] += matrixToAdd[i];
+    }
+  }
+}
+
+template <typename T>
+void MatrixAddColumn(int DIM_M, int DIM_N, T *leftCol, T *resultMatrix) {
+  using namespace DirectX::PackedVector;
+
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+
+      if (typeid(T) == typeid(HALF)) {
+        resultMatrix[ij] = ConvertFloat32ToFloat16(
+            ConvertFloat16ToFloat32(static_cast<HALF>(resultMatrix[ij])) +
+            ConvertFloat16ToFloat32(static_cast<HALF>(leftCol[i])));
+      } else {
+        resultMatrix[ij] += leftCol[i];
+      }
+    }
+  }
+}
+
+template <typename T>
+void MatrixAddRow(int DIM_M, int DIM_N, T *rightRow, T *resultMatrix) {
+  using namespace DirectX::PackedVector;
+
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      if (typeid(T) == typeid(HALF)) {
+        resultMatrix[ij] = ConvertFloat32ToFloat16(
+            ConvertFloat16ToFloat32(static_cast<HALF>(resultMatrix[ij])) +
+            ConvertFloat16ToFloat32(static_cast<HALF>(rightRow[j])));
+      } else {
+        resultMatrix[ij] += rightRow[j];
+      }
+    }
+  }
+}
+
+template <typename TYPE_ACC, typename T>
+void MatrixSumColumns(int DIM_M, int k, TYPE_ACC *leftCol, T *inMatrix) {
+  using namespace DirectX::PackedVector;
+  using T_PROMOTED =
+      typename std::conditional<std::is_same<T, HALF>::value, float, T>::type;
+
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < k; ++j) {
+      int ij = i * k + j;
+      T_PROMOTED inMatrixP = static_cast<T_PROMOTED>(inMatrix[ij]);
+
+      if (typeid(T) == typeid(HALF)) {
+        inMatrixP = static_cast<T_PROMOTED>(
+            ConvertFloat16ToFloat32(static_cast<HALF>(inMatrix[ij])));
+      }
+
+      if (typeid(TYPE_ACC) == typeid(HALF)) {
+        leftCol[i] = ConvertFloat32ToFloat16(
+            ConvertFloat16ToFloat32(static_cast<HALF>(leftCol[i])) + inMatrixP);
+      } else {
+        leftCol[i] += static_cast<TYPE_ACC>(inMatrixP);
+      }
+    }
+  }
+}
+
+template <typename TYPE_ACC, typename T>
+void MatrixSumRows(int DIM_N, int k, TYPE_ACC *rightRow, T *inMatrix) {
+  using namespace DirectX::PackedVector;
+  using T_PROMOTED =
+      typename std::conditional<std::is_same<T, HALF>::value, float, T>::type;
+
+  for (int i = 0; i < k; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      T_PROMOTED inMatrixP = static_cast<T_PROMOTED>(inMatrix[ij]);
+
+      if (typeid(T) == typeid(HALF)) {
+        inMatrixP = static_cast<T_PROMOTED>(
+            ConvertFloat16ToFloat32(static_cast<HALF>(inMatrix[ij])));
+      }
+
+      if (typeid(TYPE_ACC) == typeid(HALF)) {
+        rightRow[j] = ConvertFloat32ToFloat16(
+            ConvertFloat16ToFloat32(static_cast<HALF>(rightRow[j])) +
+            inMatrixP);
+      } else {
+        rightRow[j] += static_cast<TYPE_ACC>(inMatrixP);
+      }
+    }
+  }
+}
+
+template <typename T>
+void MatrixMultiplyByScalar(int DIM_M, int DIM_N, T scalar, T *resultMatrix) {
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      resultMatrix[ij] *= scalar;
+    }
+  }
+}
+
+template <>
+void MatrixMultiplyByScalar<DirectX::PackedVector::HALF>(
+    int DIM_M, int DIM_N, DirectX::PackedVector::HALF scalar,
+    DirectX::PackedVector::HALF *resultMatrix) {
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      resultMatrix[ij] =
+          ConvertFloat32ToFloat16(ConvertFloat16ToFloat32(resultMatrix[ij]) *
+                                  ConvertFloat16ToFloat32(scalar));
+    }
+  }
+}
+
+template <typename T>
+void MatrixDivideByScalar(int DIM_M, int DIM_N, T scalar, T *resultMatrix) {
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      resultMatrix[ij] /= scalar;
+    }
+  }
+}
+
+template <>
+void MatrixDivideByScalar<DirectX::PackedVector::HALF>(
+    int DIM_M, int DIM_N, DirectX::PackedVector::HALF scalar,
+    DirectX::PackedVector::HALF *resultMatrix) {
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      resultMatrix[ij] =
+          ConvertFloat32ToFloat16(ConvertFloat16ToFloat32(resultMatrix[ij]) /
+                                  ConvertFloat16ToFloat32(scalar));
+    }
+  }
+}
+
+template <typename T>
+void MatrixAddScalar(int DIM_M, int DIM_N, T scalar, T *resultMatrix) {
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      resultMatrix[ij] += scalar;
+    }
+  }
+}
+
+template <>
+void MatrixAddScalar<DirectX::PackedVector::HALF>(
+    int DIM_M, int DIM_N, DirectX::PackedVector::HALF scalar,
+    DirectX::PackedVector::HALF *resultMatrix) {
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      resultMatrix[ij] =
+          ConvertFloat32ToFloat16(ConvertFloat16ToFloat32(resultMatrix[ij]) +
+                                  ConvertFloat16ToFloat32(scalar));
+    }
+  }
+}
+
+template <typename T>
+void MatrixSubtractScalar(int DIM_M, int DIM_N, T scalar, T *resultMatrix) {
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      resultMatrix[ij] -= scalar;
+    }
+  }
+}
+
+template <>
+void MatrixSubtractScalar<DirectX::PackedVector::HALF>(
+    int DIM_M, int DIM_N, DirectX::PackedVector::HALF scalar,
+    DirectX::PackedVector::HALF *resultMatrix) {
+  for (int i = 0; i < DIM_M; ++i) {
+    for (int j = 0; j < DIM_N; ++j) {
+      int ij = i * DIM_N + j;
+      resultMatrix[ij] =
+          ConvertFloat32ToFloat16(ConvertFloat16ToFloat32(resultMatrix[ij]) -
+                                  ConvertFloat16ToFloat32(scalar));
+    }
+  }
+}
+
+template <typename T>
+void VectorMultiplyByScalar(int DIM, T scalar, T *rowCol) {
+  for (int i = 0; i < DIM; ++i) {
+    rowCol[i] *= scalar;
+  }
+}
+
+template <>
+void VectorMultiplyByScalar<DirectX::PackedVector::HALF>(
+    int DIM, DirectX::PackedVector::HALF scalar,
+    DirectX::PackedVector::HALF *rowCol) {
+  for (int i = 0; i < DIM; ++i) {
+    rowCol[i] = ConvertFloat32ToFloat16(ConvertFloat16ToFloat32(rowCol[i]) *
+                                        ConvertFloat16ToFloat32(scalar));
+  }
+}
+
+template <typename T> void VectorDivideByScalar(int DIM, T scalar, T *rowCol) {
+  for (int i = 0; i < DIM; ++i) {
+    rowCol[i] /= scalar;
+  }
+}
+
+template <>
+void VectorDivideByScalar<DirectX::PackedVector::HALF>(
+    int DIM, DirectX::PackedVector::HALF scalar,
+    DirectX::PackedVector::HALF *rowCol) {
+  for (int i = 0; i < DIM; ++i) {
+    rowCol[i] = ConvertFloat32ToFloat16(ConvertFloat16ToFloat32(rowCol[i]) /
+                                        ConvertFloat16ToFloat32(scalar));
+  }
+}
+
+template <typename T> void VectorAddScalar(int DIM, T scalar, T *rowCol) {
+  for (int i = 0; i < DIM; ++i) {
+    rowCol[i] += scalar;
+  }
+}
+
+template <>
+void VectorAddScalar<DirectX::PackedVector::HALF>(
+    int DIM, DirectX::PackedVector::HALF scalar,
+    DirectX::PackedVector::HALF *rowCol) {
+  for (int i = 0; i < DIM; ++i) {
+    rowCol[i] = ConvertFloat32ToFloat16(ConvertFloat16ToFloat32(rowCol[i]) +
+                                        ConvertFloat16ToFloat32(scalar));
+  }
+}
+
+template <typename T> void VectorSubtractScalar(int DIM, T scalar, T *rowCol) {
+  for (int i = 0; i < DIM; ++i) {
+    rowCol[i] -= scalar;
+  }
+}
+
+template <>
+void VectorSubtractScalar<DirectX::PackedVector::HALF>(
+    int DIM, DirectX::PackedVector::HALF scalar,
+    DirectX::PackedVector::HALF *rowCol) {
+  for (int i = 0; i < DIM; ++i) {
+    rowCol[i] = ConvertFloat32ToFloat16(ConvertFloat16ToFloat32(rowCol[i]) -
+                                        ConvertFloat16ToFloat32(scalar));
+  }
+}
+
+template <typename T>
+void GenerateMatrix(T *dst, size_t num_elements, double start_val,
+                    double end_val) {
+  for (size_t i = 0; i < num_elements; ++i) {
+    double t = i / (num_elements - 1.0);
+    dst[i] = static_cast<T>((1.0 - t) * start_val + t * end_val);
+  }
+}
+
+template <>
+void GenerateMatrix<DirectX::PackedVector::HALF>(
+    DirectX::PackedVector::HALF *dst, size_t num_elements, double start_val,
+    double end_val) {
+  std::vector<DirectX::PackedVector::HALF> matrix(num_elements);
+
+  for (size_t i = 0; i < num_elements; ++i) {
+    double t = i / (num_elements - 1.0);
+    dst[i] =
+        ConvertFloat32ToFloat16((float)((1.0 - t) * start_val + t * end_val));
+  }
+}
+
+template <typename T> void FillMatrix(T *dst, size_t num_elements, T val) {
+  for (size_t i = 0; i < num_elements; ++i) {
+    dst[i] = val;
+  }
+}
+
+void ConvertRangeFloatToHalf(DirectX::PackedVector::HALF *dst, float *src,
+                             size_t count) {
+  for (size_t i = 0u; i < count; ++i) {
+    *dst = ConvertFloat32ToFloat16(*src);
+    ++dst;
+    ++src;
+  }
+}
+
+void ConvertRangeHalfToFloat(float *dst, DirectX::PackedVector::HALF *src,
+                             size_t count) {
+  for (size_t i = 0u; i < count; ++i) {
+    *dst = ConvertFloat16ToFloat32(*src);
+    ++dst;
+    ++src;
+  }
+}
+
+#ifndef NDEBUG
+// Fuction to print out a matrix, used for debugging
+template <typename T> void PrintMat(T *mat, int rows = 16, int cols = 16) {
+  std::cout << "====================\n";
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      if (typeid(T) == typeid(unsigned char))
+        std::cout << (unsigned)mat[i * cols + j] << ", ";
+      else if (typeid(T) == typeid(signed char))
+        std::cout << (signed)mat[i * cols + j] << ", ";
+      else if (typeid(T) == typeid(DirectX::PackedVector::HALF))
+        std::cout << ConvertFloat16ToFloat32(
+                         static_cast<DirectX::PackedVector::HALF>(
+                             mat[i * cols + j]))
+                  << ", ";
+      else
+        std::cout << mat[i * cols + j] << ", ";
+    }
+    std::cout << std::endl;
+  }
+
+  std::cout << "====================\n";
+}
+// Force instantion to enable calling of PrintMat from debugger
+template void PrintMat<float>(float *mat, int rows, int cols);
+template void PrintMat<int32_t>(int32_t *mat, int rows, int cols);
+template void PrintMat<unsigned char>(unsigned char *mat, int rows, int cols);
+template void PrintMat<signed char>(signed char *mat, int rows, int cols);
+template void
+PrintMat<DirectX::PackedVector::HALF>(DirectX::PackedVector::HALF *mat,
+                                      int rows, int cols);
+#endif
+
+template <typename T>
+void LoadStoreRowCol(int M, int N, bool LEFT, int MEM_TYPE, size_t start,
+                     uint32_t alignmentOrGsharedOffset, uint32_t elementStride,
+                     BYTE *src, BYTE *dst, bool testStore = false) {
+
+  // For groupshared we repurpose the alignment arg to give coverage to store
+  // offsets.
+  if (testStore && MEM_TYPE == WMMA::GROUPSHARED) {
+    dst += alignmentOrGsharedOffset;
+  }
+
+  // Left matrix is MxK, right is KxN
+  uint32_t elementsToProcess = LEFT ? M : N;
+  size_t bytesToLoadNextElement = testStore ? sizeof(T) : elementStride;
+  size_t bytesToStoreNextElement = testStore ? elementStride : sizeof(T);
+
+  // we don't test "start" param for stores because in the shaders
+  // it's already tested because we store to an offset in the output buffer
+  size_t curElementLoadOffset = (testStore ? 0 : start);
+  size_t curElementStoreOffset = 0;
+
+  for (size_t i = 0; i < elementsToProcess; ++i) {
+    // This could just be a memcpy but not sure about the state of elementStride
+    // yet which may be a parameter
+    memcpy(dst + curElementStoreOffset, src + curElementLoadOffset, sizeof(T));
+
+    curElementLoadOffset += bytesToLoadNextElement;
+    curElementStoreOffset += bytesToStoreNextElement;
+  }
+}
+
+template <typename T>
+void LoadStoreMat(int M, int N, bool LEFT, int MEM_TYPE, uint32_t K, uint32_t k,
+                  size_t start, uint32_t stride,
+                  uint32_t alignmentOrGsharedOffset, bool transpose, BYTE *src,
+                  BYTE *dst, bool testStore = false) {
+
+  // For groupshared we repurpose the alignment arg to give coverage to store
+  // offsets.
+  if (testStore && MEM_TYPE == WMMA::GROUPSHARED) {
+    dst += alignmentOrGsharedOffset;
+  }
+
+  const size_t lStride = (K * sizeof(T));
+  const size_t rStride = (N * sizeof(T));
+  size_t bytesToLoadNextElement = sizeof(T);
+  size_t bytesToStoreNextElement = sizeof(T);
+
+  uint32_t rows; // first dimension iterated over
+  uint32_t cols; // second dimension iterated over
+  size_t bytesToLoadNextArray;
+  size_t bytesToStoreNextArray;
+
+  if (LEFT) {
+    // Left matrix is MxK, right is KxN
+    rows = M;
+    cols = k;
+
+    if (testStore) // test storing to left matrix
+    {
+      bytesToLoadNextArray = lStride;
+      bytesToStoreNextArray = stride;
+    } else // test loading from left matrix
+    {
+      bytesToLoadNextArray = stride;
+      bytesToStoreNextArray = lStride;
+    }
+  } else {
+    // Right matrix is KxN
+    rows = k;
+    cols = N;
+
+    if (testStore) // test storing to right matrix
+    {
+      bytesToLoadNextArray = rStride;
+      bytesToStoreNextArray = stride;
+    } else // test loading from right matrix
+    {
+      bytesToLoadNextArray = stride;
+      bytesToStoreNextArray = rStride;
+    }
+  }
+
+  if (transpose) {
+    if (testStore) // we store transposed, but load normally
+    {
+      std::swap(bytesToStoreNextArray, bytesToStoreNextElement);
+    } else // we load transposed, but store normally
+    {
+      std::swap(bytesToLoadNextArray, bytesToLoadNextElement);
+    }
+  }
+
+  // we don't test "start" param for stores because in the shaders
+  // it's already tested because we store to an offset in the output buffer
+  size_t curArrayLoadOffset = (testStore ? 0 : start);
+  size_t curArrayStoreOffset = 0;
+
+  for (size_t i = 0; i < rows; ++i) {
+    size_t curElementLoadOffset = curArrayLoadOffset;
+    size_t curElementStoreOffset = curArrayStoreOffset;
+
+    for (size_t j = 0; j < cols; ++j) {
+      memcpy(dst + curElementStoreOffset, src + curElementLoadOffset,
+             sizeof(T));
+
+      // we load from and store to next column
+      curElementLoadOffset += bytesToLoadNextElement;
+      curElementStoreOffset += bytesToStoreNextElement;
+    }
+
+    curArrayLoadOffset += bytesToLoadNextArray;
+    curArrayStoreOffset += bytesToStoreNextArray;
+  }
+}
+
+// define WAVE_MMA types if building with SDK that does not support it yet
+// For now: Force this on, until we know the version.
+#if 1 // !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 613)
+typedef enum D3D12_WAVE_MMA_INPUT_DATATYPE {
+  D3D12_WAVE_MMA_INPUT_DATATYPE_INVALID = 0,
+  D3D12_WAVE_MMA_INPUT_DATATYPE_BYTE =
+      (D3D12_WAVE_MMA_INPUT_DATATYPE_INVALID + 1),
+  D3D12_WAVE_MMA_INPUT_DATATYPE_FLOAT16 =
+      (D3D12_WAVE_MMA_INPUT_DATATYPE_BYTE + 1),
+  D3D12_WAVE_MMA_INPUT_DATATYPE_FLOAT =
+      (D3D12_WAVE_MMA_INPUT_DATATYPE_FLOAT16 + 1)
+} D3D12_WAVE_MMA_INPUT_DATATYPE;
+
+typedef enum D3D12_WAVE_MMA_DIMENSION {
+  D3D12_WAVE_MMA_DIMENSION_INVALID = 0,
+  D3D12_WAVE_MMA_DIMENSION_16 = (D3D12_WAVE_MMA_DIMENSION_INVALID + 1),
+  D3D12_WAVE_MMA_DIMENSION_64 = (D3D12_WAVE_MMA_DIMENSION_16 + 1)
+} D3D12_WAVE_MMA_DIMENSION;
+
+typedef enum D3D12_WAVE_MMA_ACCUM_DATATYPE {
+  D3D12_WAVE_MMA_ACCUM_DATATYPE_NONE = 0,
+  D3D12_WAVE_MMA_ACCUM_DATATYPE_INT32 = 0x1,
+  D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT16 = 0x2,
+  D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT = 0x4
+} D3D12_WAVE_MMA_ACCUM_DATATYPE;
+
+typedef struct D3D12_FEATURE_DATA_WAVE_MMA {
+  D3D12_WAVE_MMA_INPUT_DATATYPE InputDataType;
+  D3D12_WAVE_MMA_DIMENSION M;
+  D3D12_WAVE_MMA_DIMENSION N;
+  BOOL Supported;
+  UINT K;
+  D3D12_WAVE_MMA_ACCUM_DATATYPE AccumDataTypes;
+  UINT RequiredWaveLaneCountMin;
+  UINT RequiredWaveLaneCountMax;
+} D3D12_FEATURE_DATA_WAVE_MMA;
+#endif
+
+D3D12_FEATURE_DATA_WAVE_MMA checkWaveMMASupport(CComPtr<ID3D12Device> pDevice,
+                                                std::string &dataTypeInShader,
+                                                int DIM_M, int DIM_N) {
+  D3D12_FEATURE_DATA_WAVE_MMA waveMmaSupport = {};
+
+  if (dataTypeInShader == "float" || dataTypeInShader == "float32_t") {
+    waveMmaSupport.InputDataType = D3D12_WAVE_MMA_INPUT_DATATYPE_FLOAT;
+    waveMmaSupport.AccumDataTypes = D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT;
+  } else if (dataTypeInShader == "half" || dataTypeInShader == "float16_t") {
+    waveMmaSupport.InputDataType = D3D12_WAVE_MMA_INPUT_DATATYPE_FLOAT16;
+    waveMmaSupport.AccumDataTypes = D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT16;
+  } else if (dataTypeInShader == "uint8_t4_packed" ||
+             dataTypeInShader == "int8_t4_packed" ||
+             dataTypeInShader == "uint" || dataTypeInShader == "int") {
+    waveMmaSupport.InputDataType = D3D12_WAVE_MMA_INPUT_DATATYPE_BYTE;
+    waveMmaSupport.AccumDataTypes = D3D12_WAVE_MMA_ACCUM_DATATYPE_INT32;
+  }
+
+  switch (DIM_M) {
+  case 16:
+    waveMmaSupport.M = D3D12_WAVE_MMA_DIMENSION_16;
+    break;
+  case 64:
+    waveMmaSupport.M = D3D12_WAVE_MMA_DIMENSION_64;
+    break;
+  default:
+    DXASSERT_NOMSG(false);
+  }
+  switch (DIM_N) {
+  case 16:
+    waveMmaSupport.N = D3D12_WAVE_MMA_DIMENSION_16;
+    break;
+  case 64:
+    waveMmaSupport.N = D3D12_WAVE_MMA_DIMENSION_64;
+    break;
+  default:
+    DXASSERT_NOMSG(false);
+  }
+
+  // Defaults, to be overwritten by the call
+  waveMmaSupport.K = 16;
+  waveMmaSupport.Supported = false;
+  waveMmaSupport.RequiredWaveLaneCountMin = 0;
+  waveMmaSupport.RequiredWaveLaneCountMax = 0;
+
+  // In preview, D3D12_FEATURE_WAVE_MMA = 38,
+  uint32_t D3D12_FEATURE_WAVE_MMA = 38;
+  pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_WAVE_MMA,
+                               &waveMmaSupport,
+                               sizeof(D3D12_FEATURE_DATA_WAVE_MMA));
+
+  int waveSize;
+  if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
+          L"Wmma_ForceWaveSize", waveSize))) {
+    waveMmaSupport.RequiredWaveLaneCountMin = waveSize;
+    waveMmaSupport.RequiredWaveLaneCountMax = waveSize;
+  }
+
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 O;
+  HRESULT hr = pDevice->CheckFeatureSupport(
+      (D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1, &O, sizeof(O));
+  VERIFY_SUCCEEDED(hr);
+
+  if (waveMmaSupport.RequiredWaveLaneCountMin == 0) {
+    waveMmaSupport.RequiredWaveLaneCountMin = O.WaveLaneCountMin;
+  }
+
+  if (waveMmaSupport.RequiredWaveLaneCountMax == 0) {
+    waveMmaSupport.RequiredWaveLaneCountMax = O.WaveLaneCountMax;
+  }
+
+  int forceK;
+  if (SUCCEEDED(WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
+          L"Wmma_ForceK", forceK))) {
+    waveMmaSupport.K = forceK;
+  }
+
+  return waveMmaSupport;
+}
+
+template <typename T> std::string TypeIdToHlsl() {
+  if (typeid(T) == typeid(float))
+    return "float32_t";
+  else if (typeid(T) == typeid(DirectX::PackedVector::HALF))
+    return "float16_t";
+  else if (typeid(T) == typeid(uint8_t))
+    return "uint8_t4_packed";
+  else if (typeid(T) == typeid(int8_t))
+    return "int8_t4_packed";
+  else if (typeid(T) == typeid(int32_t))
+    return "int32_t";
+
+  DXASSERT_NOMSG(false);
+  return "";
+}
+
+template <typename T> bool ArgContainsDataType(std::wstring argName) {
+  std::string dTypeName = TypeIdToHlsl<T>();
+  std::wstring wdTypeName(dTypeName.begin(), dTypeName.end());
+  WEX::Common::String dataTypeList;
+  WEX::TestExecution::RuntimeParameters::TryGetValue(argName.c_str(),
+                                                     dataTypeList);
+
+  if (!dataTypeList.IsEmpty()) {
+    dataTypeList.ToLower();
+    return dataTypeList.Find(wdTypeName.c_str()) != -1;
+  }
+
+  // No datatype arg arg means it contains all datatypes
+  return true;
+}
+
+template <typename T, typename TYPE_ACC>
+void WaveMatrixLoadStoreTest(int DIM_M, int DIM_N, int MEM_TYPE,
+                             CComPtr<ID3D12Device> pDevice,
+                             std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                             dxc::DxcDllSupport &support,
+                             PCWSTR Validation_type, double tolerance) {
+  using namespace DirectX::PackedVector;
+  using namespace WMMA;
+  std::string dataTypeInShader = TypeIdToHlsl<T>();
+
+  string typeAcc = TypeIdToHlsl<TYPE_ACC>();
+  D3D12_FEATURE_DATA_WAVE_MMA waveMmaSupport =
+      checkWaveMMASupport(pDevice, dataTypeInShader, DIM_M, DIM_N);
+
+  std::string groupName = std::string("WMMALoadStore/") +
+                          memTypeStrs[MEM_TYPE] + "/M" + std::to_string(DIM_M) +
+                          "/N" + std::to_string(DIM_N) + "/" +
+                          TypeIdToHlsl<T>() + "/Accum" + typeAcc;
+  WEX::Logging::Log::StartGroup(CA2W(groupName.c_str()));
+
+  bool accTypeSupported =
+      (typeid(TYPE_ACC) == typeid(HALF) &&
+       (waveMmaSupport.AccumDataTypes &
+        D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT16)) ||
+      (typeid(TYPE_ACC) == typeid(float) &&
+       (waveMmaSupport.AccumDataTypes & D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT)) ||
+      (typeid(TYPE_ACC) == typeid(int32_t) &&
+       (waveMmaSupport.AccumDataTypes & D3D12_WAVE_MMA_ACCUM_DATATYPE_INT32));
+
+  // We need to predict type acc as float16/32 with a template. So we try both
+  // and return early from the incorrect prediction.
+  if (!ArgContainsDataType<T>(L"Wmma_Type") ||
+      !ArgContainsDataType<TYPE_ACC>(L"Wmma_AccumType") || !accTypeSupported ||
+      !waveMmaSupport.Supported) {
+
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    WEX::Logging::Log::EndGroup(CA2W(groupName.c_str()));
+    return;
+  }
+
+  int disableFragmentTests = 0;
+  WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
+      L"Wmma_DisableFragmentTests", disableFragmentTests);
+
+  int DIM_K = waveMmaSupport.K; // Get K dim
+
+  // We store left/right matrices in the same array so we just assume a maximum
+  // size. This size applies to accumulators as well.
+  constexpr int NUM_ELEMENTS = 64 * 64;
+
+  // Create zeroed arrays for expected results. make room for 2x the normal size
+  // in each expected result so we have room to test offsetted loads
+  std::array<std::array<T, 2 * NUM_ELEMENTS>, TOTAL_LOAD_STORE_OUTPUTS>
+      expectedMatrices{{}};
+  std::array<std::array<TYPE_ACC, 1 * NUM_ELEMENTS>, TOTAL_LOAD_STORE_OUTPUTS>
+      expectedRowCols{{}};
+  std::array<std::array<TYPE_ACC, 2 * NUM_ELEMENTS>,
+             TOTAL_ACCUM_LOAD_STORE_OUTPUTS>
+      expectedAccumulatorMatrices{{}};
+
+  // Specify defines in the shader for datatype and size, (and wave size later)
+  std::stringstream argsStream;
+  argsStream << " -DDIM_M=" << DIM_M << " -DDIM_N=" << DIM_N
+             << " -DDIM_K=" << DIM_K << " -DDATATYPE=" << dataTypeInShader
+             << " -DELEMENTSIZE=" << sizeof(T) << " -enable-16bit-types"
+             << " -DTYPE_ACC=" << typeAcc << " -DFRAGS_ENABLE="
+             << static_cast<int>(disableFragmentTests == 0)
+             << " -DNUM_LANES=" << waveMmaSupport.RequiredWaveLaneCountMin;
+
+  bool doLeftRightTest = true;
+  bool doAccumTest = true;
+  std::stringstream argsStream2;
+  std::string initialArgsString = argsStream.str();
+  std::string argsString;
+
+  // this callback is called when the test
+  // is creating the resource to run the test
+  auto callback = [&](LPCSTR Name, std::vector<BYTE> &Data,
+                      st::ShaderOp *pShaderOp) {
+    if (0 == _stricmp(Name, "g_bufIn") && doLeftRightTest) {
+      std::fill(Data.begin(), Data.end(), (BYTE)0);
+      GenerateMatrix<T>((T *)Data.data(), NUM_ELEMENTS * 2, 0,
+                        NUM_ELEMENTS * 2);
+
+      BYTE *src = (BYTE *)Data.data();
+      uint32_t a = 4; // alignment OR if MEM_TYPE is groupshared, acts as
+                      // additional storage offset in elements.
+      size_t s = 16 * sizeof(T); // start
+      uint32_t lStride = DIM_K * sizeof(T);
+      uint32_t rStride = DIM_N * sizeof(T);
+      uint32_t ltStride = DIM_M * sizeof(T);
+      uint32_t rtStride = DIM_K * sizeof(T);
+      uint32_t lStrideP4 = lStride + 4;
+      uint32_t rStrideP4 = rStride + 4;
+      uint32_t ltStrideP4 = ltStride + 4;
+      uint32_t rtStrideP4 = rtStride + 4;
+
+      // Generate expected values
+
+      // Load
+      LoadStoreMat<T>(DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, s, lStride, 0,
+                      false, src,
+                      (BYTE *)expectedMatrices[LOAD_LEFT_START].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, s, rStride,
+                      0, false, src,
+                      (BYTE *)expectedMatrices[LOAD_RIGHT_START].data());
+
+      LoadStoreMat<T>(DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0, lStrideP4,
+                      0, false, src,
+                      (BYTE *)expectedMatrices[LOAD_LEFT_STRIDE_P4].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStrideP4,
+                      0, false, src,
+                      (BYTE *)expectedMatrices[LOAD_RIGHT_STRIDE_P4].data());
+
+      LoadStoreMat<T>(DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0,
+                      lStride * 2, 0, false, src,
+                      (BYTE *)expectedMatrices[LOAD_LEFT_STRIDE_X2].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0,
+                      rStride * 2, 0, false, src,
+                      (BYTE *)expectedMatrices[LOAD_RIGHT_STRIDE_X2].data());
+
+      LoadStoreMat<T>(DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0, lStride, a,
+                      false, src,
+                      (BYTE *)expectedMatrices[LOAD_LEFT_ALIGNMENT].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride,
+                      a, false, src,
+                      (BYTE *)expectedMatrices[LOAD_RIGHT_ALIGNMENT].data());
+
+      LoadStoreMat<T>(DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0, ltStride,
+                      0, true, src,
+                      (BYTE *)expectedMatrices[LOAD_LEFT_TRANSPOSE].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStride,
+                      0, true, src,
+                      (BYTE *)expectedMatrices[LOAD_RIGHT_TRANSPOSE].data());
+
+      LoadStoreMat<T>(DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, s, ltStrideP4,
+                      a, true, src,
+                      (BYTE *)expectedMatrices[LOAD_LEFT_ALLPARAMS].data());
+      LoadStoreMat<T>(DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, s,
+                      rtStrideP4, a, true, src,
+                      (BYTE *)expectedMatrices[LOAD_RIGHT_ALLPARAMS].data());
+
+      // Store
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0, lStrideP4, 0, false,
+          src, (BYTE *)expectedMatrices[STORE_LEFT_STRIDE_P4].data(), true);
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStrideP4, 0, false,
+          src, (BYTE *)expectedMatrices[STORE_RIGHT_STRIDE_P4].data(), true);
+
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0, lStride * 2, 0, false,
+          src, (BYTE *)expectedMatrices[STORE_LEFT_STRIDE_X2].data(), true);
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride * 2, 0, false,
+          src, (BYTE *)expectedMatrices[STORE_RIGHT_STRIDE_X2].data(), true);
+
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0, lStride, a, false, src,
+          (BYTE *)expectedMatrices[STORE_LEFT_ALIGNMENT].data(), true);
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rStride, a, false,
+          src, (BYTE *)expectedMatrices[STORE_RIGHT_ALIGNMENT].data(), true);
+
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0, ltStride, 0, true, src,
+          (BYTE *)expectedMatrices[STORE_LEFT_TRANSPOSE].data(), true);
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStride, 0, true,
+          src, (BYTE *)expectedMatrices[STORE_RIGHT_TRANSPOSE].data(), true);
+
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_K, DIM_K, 0, ltStrideP4, a, true,
+          src, (BYTE *)expectedMatrices[STORE_LEFT_ALLPARAMS].data(), true);
+      LoadStoreMat<T>(
+          DIM_M, DIM_N, false, MEM_TYPE, DIM_K, DIM_K, 0, rtStrideP4, a, true,
+          src, (BYTE *)expectedMatrices[STORE_RIGHT_ALLPARAMS].data(), true);
+
+    } else if (0 == _stricmp(Name, "g_bufInAccum") && doAccumTest) {
+      std::fill(Data.begin(), Data.end(), (BYTE)0);
+      GenerateMatrix<TYPE_ACC>((TYPE_ACC *)Data.data(), NUM_ELEMENTS * 2,
+                               static_cast<TYPE_ACC>(0),
+                               static_cast<TYPE_ACC>(NUM_ELEMENTS * 2));
+
+      BYTE *src = (BYTE *)Data.data();
+      uint32_t a = 4; // alignment OR if MEM_TYPE is groupshared, acts as
+                      // additional storage offset in elements.
+      size_t s = 16 * sizeof(TYPE_ACC); // start
+      uint32_t aStride = DIM_N * sizeof(TYPE_ACC);
+      uint32_t atStride = DIM_M * sizeof(TYPE_ACC);
+      uint32_t aStrideP4 = aStride + 4;
+      uint32_t atStrideP4 = atStride + 4;
+      uint32_t elemStride = sizeof(TYPE_ACC);
+      uint32_t elemStrideP4 = sizeof(TYPE_ACC) + 4;
+
+      if (disableFragmentTests == 0) {
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, s, 0, elemStride, src,
+            (BYTE *)expectedRowCols[LOAD_LEFT_START].data());
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, s, 0, elemStride, src,
+            (BYTE *)expectedRowCols[LOAD_RIGHT_START].data());
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, 0, elemStrideP4, src,
+            (BYTE *)expectedRowCols[LOAD_LEFT_STRIDE_P4].data());
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStrideP4, src,
+            (BYTE *)expectedRowCols[LOAD_RIGHT_STRIDE_P4].data());
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, 0, elemStride * 2, src,
+            (BYTE *)expectedRowCols[LOAD_LEFT_STRIDE_X2].data());
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride * 2, src,
+            (BYTE *)expectedRowCols[LOAD_RIGHT_STRIDE_X2].data());
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, a, elemStride, src,
+            (BYTE *)expectedRowCols[LOAD_LEFT_ALIGNMENT].data());
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStride, src,
+            (BYTE *)expectedRowCols[LOAD_RIGHT_ALIGNMENT].data());
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, 0, elemStride, src,
+            (BYTE *)expectedRowCols[LOAD_LEFT_TRANSPOSE].data());
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride, src,
+            (BYTE *)expectedRowCols[LOAD_RIGHT_TRANSPOSE].data());
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, s, a, elemStrideP4, src,
+            (BYTE *)expectedRowCols[LOAD_LEFT_ALLPARAMS].data());
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, s, a, elemStrideP4, src,
+            (BYTE *)expectedRowCols[LOAD_RIGHT_ALLPARAMS].data());
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, 0, elemStrideP4, src,
+            (BYTE *)expectedRowCols[STORE_LEFT_STRIDE_P4].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStrideP4, src,
+            (BYTE *)expectedRowCols[STORE_RIGHT_STRIDE_P4].data(), true);
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, 0, elemStride * 2, src,
+            (BYTE *)expectedRowCols[STORE_LEFT_STRIDE_X2].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride * 2, src,
+            (BYTE *)expectedRowCols[STORE_RIGHT_STRIDE_X2].data(), true);
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, a, elemStride, src,
+            (BYTE *)expectedRowCols[STORE_LEFT_ALIGNMENT].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStride, src,
+            (BYTE *)expectedRowCols[STORE_RIGHT_ALIGNMENT].data(), true);
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, 0, elemStride, src,
+            (BYTE *)expectedRowCols[STORE_LEFT_TRANSPOSE].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, 0, elemStride, src,
+            (BYTE *)expectedRowCols[STORE_RIGHT_TRANSPOSE].data(), true);
+
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, true, MEM_TYPE, 0, a, elemStrideP4, src,
+            (BYTE *)expectedRowCols[STORE_LEFT_ALLPARAMS].data(), true);
+        LoadStoreRowCol<TYPE_ACC>(
+            DIM_M, DIM_N, false, MEM_TYPE, 0, a, elemStrideP4, src,
+            (BYTE *)expectedRowCols[STORE_RIGHT_ALLPARAMS].data(), true);
+      }
+
+      // Accumulator
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, s, aStride, 0, false, src,
+          (BYTE *)expectedAccumulatorMatrices[LOAD_START].data());
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStrideP4, 0, false,
+          src, (BYTE *)expectedAccumulatorMatrices[LOAD_STRIDE_P4].data());
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride * 2, 0, false,
+          src, (BYTE *)expectedAccumulatorMatrices[LOAD_STRIDE_X2].data());
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride, a, false, src,
+          (BYTE *)expectedAccumulatorMatrices[LOAD_ALIGNMENT].data());
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStride, 0, true, src,
+          (BYTE *)expectedAccumulatorMatrices[LOAD_TRANSPOSE].data());
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, s, atStrideP4, a, true,
+          src, (BYTE *)expectedAccumulatorMatrices[LOAD_ALLPARAMS].data());
+
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStrideP4, 0, false,
+          src, (BYTE *)expectedAccumulatorMatrices[STORE_STRIDE_P4].data(),
+          true);
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride * 2, 0, false,
+          src, (BYTE *)expectedAccumulatorMatrices[STORE_STRIDE_X2].data(),
+          true);
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, aStride, a, false, src,
+          (BYTE *)expectedAccumulatorMatrices[STORE_ALIGNMENT].data(), true);
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStride, 0, true, src,
+          (BYTE *)expectedAccumulatorMatrices[STORE_TRANSPOSE].data(), true);
+      LoadStoreMat<TYPE_ACC>(
+          DIM_M, DIM_N, true, MEM_TYPE, DIM_N, DIM_N, 0, atStrideP4, a, true,
+          src, (BYTE *)expectedAccumulatorMatrices[STORE_ALLPARAMS].data(),
+          true);
+    } else {
+      std::fill(Data.begin(), Data.end(), (BYTE)0);
+    }
+
+    argsStream2.str("");
+    argsStream2 << initialArgsString;
+
+    if (MEM_TYPE == GROUPSHARED) {
+      argsStream2 << " -DGROUPSHARED=1";
+      if (doAccumTest) {
+        argsStream2 << " -DMAX_NUM_ELEMENTS=" << 2 * DIM_M * DIM_N;
+      } else if (doLeftRightTest) {
+        argsStream2 << " -DMAX_NUM_ELEMENTS="
+                    << std::max(2 * DIM_M * DIM_K, 2 * DIM_K * DIM_N);
+      }
+    }
+
+    if (doAccumTest) {
+      argsStream2 << " -DTEST_LOAD_STORE_ACCUMULATOR=1";
+    }
+
+    if (doLeftRightTest) {
+      argsStream2 << " -DTEST_LOAD_STORE_LR=1";
+    }
+
+    argsString = argsStream2.str();
+    pShaderOp->Shaders.at(0).Arguments = argsString.c_str();
+  };
+
+  std::shared_ptr<ShaderOpTestResult> test;
+  std::shared_ptr<ShaderOpTestResult> test2;
+
+  if (MEM_TYPE == GROUPSHARED) {
+    doLeftRightTest = true;
+    doAccumTest = false;
+    test = RunShaderOpTestAfterParse(pDevice, support, "WaveMatrixOp", callback,
+                                     ShaderOpSet);
+
+    doLeftRightTest = false;
+    doAccumTest = true;
+    test2 = RunShaderOpTestAfterParse(pDevice, support, "WaveMatrixOp",
+                                      callback, ShaderOpSet);
+  } else {
+    // Non groupshared can test both at once
+    test = RunShaderOpTestAfterParse(pDevice, support, "WaveMatrixOp", callback,
+                                     ShaderOpSet);
+    test2 = test;
+  }
+
+  // Get read back data for wave matrix
+  MappedData matrixData;
+  test->Test->GetReadBackData("g_bufOut", &matrixData);
+  T *readBackMatrixData = (T *)matrixData.data();
+  T *readBackMatrixData2 =
+      readBackMatrixData + expectedMatrices.size() * expectedMatrices[0].size();
+
+  // Verify matrix depth function output is equal to K
+  MappedData matrixDepthData;
+  test->Test->GetReadBackData("g_bufOutMatrixDepth", &matrixDepthData);
+  uint32_t *readBackMatrixDepthData = (uint32_t *)matrixDepthData.data();
+  VerifyOutputWithExpectedValueUInt(readBackMatrixDepthData[0], DIM_K, 0);
+  VerifyOutputWithExpectedValueUInt(readBackMatrixDepthData[1], DIM_K, 0);
+
+  WEX::TestExecution::DisableVerifyExceptions dve;
+  // For left/right wave matrix results
+  for (size_t i = 0; i < expectedMatrices.size(); ++i) {
+    auto &expectedMatrix = expectedMatrices[i];
+    std::string comment = std::string("Matrix/") + loadStoreEnumStrs[i] + ":";
+    WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+
+    VerifyArrayWithExpectedValue(readBackMatrixData, expectedMatrix.data(),
+                                 expectedMatrix.size(), Validation_type,
+                                 tolerance);
+    readBackMatrixData += expectedMatrix.size();
+
+    if (MEM_TYPE != GROUPSHARED) {
+      VerifyArrayWithExpectedValue(readBackMatrixData2, expectedMatrix.data(),
+                                   expectedMatrix.size(), Validation_type,
+                                   tolerance);
+      readBackMatrixData2 += expectedMatrix.size();
+    }
+  }
+
+  // Get read back data for rows / cols
+  MappedData rowColData;
+  test2->Test->GetReadBackData("g_bufOutRowCol", &rowColData);
+  TYPE_ACC *readBackRowColData = (TYPE_ACC *)rowColData.data();
+
+  // get read back data for accumulators
+  MappedData accumulatorData;
+  test2->Test->GetReadBackData("g_bufOutAccumulator", &accumulatorData);
+  TYPE_ACC *readBackAccumulatorData = (TYPE_ACC *)accumulatorData.data();
+
+  // For verifying that both waves produce the same output given the same input
+  TYPE_ACC *readBackRowColData2 =
+      readBackRowColData + expectedRowCols.size() * expectedRowCols[0].size();
+  TYPE_ACC *readBackAccumulatorData2 =
+      readBackAccumulatorData + expectedAccumulatorMatrices.size() *
+                                    expectedAccumulatorMatrices[0].size();
+
+  // For LeftColAcc/RightRowAcc results
+  for (size_t i = 0; i < expectedRowCols.size(); ++i) {
+    auto &expectedRowCol = expectedRowCols[i];
+    std::string comment = std::string("RowCol/") + loadStoreEnumStrs[i] + ":";
+    WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+
+    VerifyArrayWithExpectedValue(readBackRowColData, expectedRowCol.data(),
+                                 expectedRowCol.size(), Validation_type,
+                                 tolerance);
+    readBackRowColData += expectedRowCol.size();
+
+    if (MEM_TYPE != GROUPSHARED) {
+      VerifyArrayWithExpectedValue(readBackRowColData2, expectedRowCol.data(),
+                                   expectedRowCol.size(), Validation_type,
+                                   tolerance);
+      readBackRowColData2 += expectedRowCol.size();
+    }
+  }
+
+  // For accumulator results
+  for (size_t i = 0; i < expectedAccumulatorMatrices.size(); ++i) {
+    auto &expectedAccumulatorMatrix = expectedAccumulatorMatrices[i];
+    std::string comment =
+        std::string("Accumulator/") + loadStoreEnumStrs[i] + ":";
+    WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+
+    VerifyArrayWithExpectedValue(
+        readBackAccumulatorData, expectedAccumulatorMatrix.data(),
+        expectedAccumulatorMatrix.size(), Validation_type, tolerance);
+    readBackAccumulatorData += expectedAccumulatorMatrix.size();
+
+    if (MEM_TYPE != GROUPSHARED) {
+      VerifyArrayWithExpectedValue(
+          readBackAccumulatorData2, expectedAccumulatorMatrix.data(),
+          expectedAccumulatorMatrix.size(), Validation_type, tolerance);
+      readBackAccumulatorData2 += expectedAccumulatorMatrix.size();
+    }
+  }
+
+  WEX::Logging::Log::EndGroup(CA2W(groupName.c_str()));
+}
+
+template <typename T, typename T2, typename TYPE_ACC>
+void WaveMatrixMathTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
+                        std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                        dxc::DxcDllSupport &support, PCWSTR Validation_type,
+                        double tolerance) {
+  using namespace WMMA;
+  using namespace DirectX::PackedVector;
+  DXASSERT_NOMSG(sizeof(T) == sizeof(T2));
+
+  std::string dataTypeInShader1 = TypeIdToHlsl<T>();
+  std::string dataTypeInShader2 = TypeIdToHlsl<T2>();
+  std::string typeAcc = TypeIdToHlsl<TYPE_ACC>();
+
+  std::string groupName = "WMMAMath/M" + std::to_string(DIM_M) + "/N" +
+                          std::to_string(DIM_N) + "/" + dataTypeInShader1 +
+                          "/" + dataTypeInShader2 + "/Accum" + typeAcc;
+  WEX::Logging::Log::StartGroup(CA2W(groupName.c_str()));
+
+  D3D12_FEATURE_DATA_WAVE_MMA waveMmaSupport =
+      checkWaveMMASupport(pDevice, dataTypeInShader1, DIM_M, DIM_N);
+  D3D12_FEATURE_DATA_WAVE_MMA waveMmaSupport2 =
+      checkWaveMMASupport(pDevice, dataTypeInShader2, DIM_M, DIM_N);
+
+  bool accTypeSupported =
+      (typeid(TYPE_ACC) == typeid(HALF) &&
+       (waveMmaSupport.AccumDataTypes &
+        D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT16)) ||
+      (typeid(TYPE_ACC) == typeid(float) &&
+       (waveMmaSupport.AccumDataTypes & D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT)) ||
+      (typeid(TYPE_ACC) == typeid(int32_t) &&
+       (waveMmaSupport.AccumDataTypes & D3D12_WAVE_MMA_ACCUM_DATATYPE_INT32));
+
+  if (!ArgContainsDataType<T>(L"Wmma_Type") ||
+      !ArgContainsDataType<T2>(L"Wmma_Type") ||
+      !ArgContainsDataType<TYPE_ACC>(L"Wmma_AccumType") || !accTypeSupported ||
+      !waveMmaSupport.Supported || !waveMmaSupport2.Supported) {
+
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    WEX::Logging::Log::EndGroup(CA2W(groupName.c_str()));
+    return;
+  }
+
+  int disableFragmentTests = 0;
+  WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
+      L"Wmma_DisableFragmentTests", disableFragmentTests);
+
+  int DIM_K = waveMmaSupport.K; // Get K dim
+
+  // We store left/right matrices in the same array so we just assume a maximum
+  // size. This size applies to accumulators as well.
+  int matrixBufferStrideInElements = 64 * 64;
+
+  // We store rows/cols in the same array so we just assume an easy maximum
+  // size.
+  constexpr int numRowColElements = 64;
+
+  std::stringstream argsStream;
+  argsStream << "-DDIM_M=" << DIM_M << " -DDIM_N=" << DIM_N
+             << " -DDIM_K=" << DIM_K << " -DDATATYPE=" << dataTypeInShader1
+             << " -DDATATYPE2=" << dataTypeInShader2
+             << " -DELEMENTSIZE=" << sizeof(T) << " -enable-16bit-types"
+             << " -DTYPE_ACC=" << typeAcc << " -DFRAGS_ENABLE="
+             << static_cast<int>(disableFragmentTests == 0)
+             << " -DNUM_LANES=" << waveMmaSupport.RequiredWaveLaneCountMin
+             << " -DMATRIX_BUFFER_STRIDE_IN_ELEMENTS="
+             << matrixBufferStrideInElements;
+
+  std::string arguments = argsStream.str();
+
+  // Create zeroed arrays for expected results.
+  std::array<std::vector<TYPE_ACC>, NUM_MATRIX_OPS> expectedMatrices;
+  for (std::vector<TYPE_ACC> &vec : expectedMatrices) {
+    vec.resize(matrixBufferStrideInElements);
+    std::fill(vec.begin(), vec.end(), (TYPE_ACC)0);
+  }
+
+  std::array<std::vector<TYPE_ACC>, NUM_ROWCOL_OPS> expectedRowCols;
+  for (std::vector<TYPE_ACC> &vec : expectedRowCols) {
+    vec.resize(numRowColElements);
+    std::fill(vec.begin(), vec.end(), (TYPE_ACC)0);
+  }
+
+  std::vector<T> leftMatrix(DIM_M * DIM_K);
+  std::vector<T2> rightMatrix(DIM_K * DIM_N);
+  std::vector<TYPE_ACC> accumulatorMatrix(DIM_M * DIM_N);
+  std::vector<TYPE_ACC> leftCol(DIM_M);
+  std::vector<TYPE_ACC> rightRow(DIM_N);
+
+  // Sum needs higher tolerance
+  double sumTolerance = 0.08;
+  LPCWSTR sumValidationType = Validation_type;
+
+  if (typeid(TYPE_ACC) == typeid(DirectX::PackedVector::HALF) ||
+      typeid(T) == typeid(DirectX::PackedVector::HALF)) {
+    // Tolerance and sum tolerance is much higher for FP16
+    tolerance = 0.08;
+    double startUlp = 5; // Default tolerance
+    double mulAddLossyOperations = DIM_K * 2;
+    sumTolerance = startUlp * mulAddLossyOperations;
+    sumValidationType = L"ulp";
+  }
+
+  // Generate input data
+  if (typeid(TYPE_ACC) == typeid(DirectX::PackedVector::HALF)) {
+    GenerateMatrix<TYPE_ACC>(accumulatorMatrix.data(), accumulatorMatrix.size(),
+                             -1.0, 2.0);
+    accumulatorMatrix[0] = static_cast<T>(
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::infinity()));
+    accumulatorMatrix[1] = static_cast<T>(
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::quiet_NaN()));
+    accumulatorMatrix[2] = static_cast<T>(ConvertFloat32ToFloat16(-0.0f));
+    accumulatorMatrix[3] = static_cast<T>(
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::denorm_min()));
+  } else if (typeid(TYPE_ACC) == typeid(float)) {
+    GenerateMatrix<TYPE_ACC>(accumulatorMatrix.data(), accumulatorMatrix.size(),
+                             -(float)accumulatorMatrix.size() / 2,
+                             (float)accumulatorMatrix.size() / 2);
+    accumulatorMatrix[0] =
+        static_cast<TYPE_ACC>(std::numeric_limits<float>::infinity());
+    accumulatorMatrix[1] =
+        static_cast<TYPE_ACC>(std::numeric_limits<float>::quiet_NaN());
+    accumulatorMatrix[2] = static_cast<TYPE_ACC>(-0.0f);
+    accumulatorMatrix[3] =
+        static_cast<TYPE_ACC>(std::numeric_limits<float>::denorm_min());
+  } else {
+    GenerateMatrix<TYPE_ACC>(accumulatorMatrix.data(), accumulatorMatrix.size(),
+                             -(float)accumulatorMatrix.size() / 2,
+                             (float)accumulatorMatrix.size() / 2);
+  }
+
+  // if T is half, T2 will be half
+  if (typeid(T) == typeid(DirectX::PackedVector::HALF)) {
+    DXASSERT_NOMSG(typeid(T2) == typeid(DirectX::PackedVector::HALF));
+    GenerateMatrix<T>(leftMatrix.data(), leftMatrix.size(), -1.0, 2.0);
+    GenerateMatrix<T2>(rightMatrix.data(), rightMatrix.size(), 3.0, -1.0);
+
+    leftMatrix[0] = rightMatrix[0] = static_cast<T>(
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::infinity()));
+    leftMatrix[1] = rightMatrix[1] = static_cast<T>(
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::quiet_NaN()));
+    leftMatrix[2] = rightMatrix[2] =
+        static_cast<T>(ConvertFloat32ToFloat16(-0.0f));
+    leftMatrix[3] = rightMatrix[3] = static_cast<T>(
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::denorm_min()));
+  } else if (typeid(TYPE_ACC) == typeid(float)) {
+    GenerateMatrix<T>(leftMatrix.data(), leftMatrix.size(),
+                      -(float)leftMatrix.size() / 2,
+                      (float)leftMatrix.size() / 2);
+    GenerateMatrix<T2>(rightMatrix.data(), rightMatrix.size(),
+                       (float)rightMatrix.size() / 2,
+                       -(float)rightMatrix.size() / 2);
+
+    if (typeid(T) == typeid(float)) {
+      DXASSERT_NOMSG(typeid(T) == typeid(T2));
+      leftMatrix[0] = rightMatrix[0] =
+          static_cast<T>(std::numeric_limits<float>::infinity());
+      leftMatrix[1] = rightMatrix[1] =
+          static_cast<T>(std::numeric_limits<float>::quiet_NaN());
+      leftMatrix[2] = rightMatrix[2] = static_cast<T>(-0.0f);
+      leftMatrix[3] = rightMatrix[3] =
+          static_cast<T>(std::numeric_limits<float>::denorm_min());
+    }
+  } else {
+    GenerateMatrix<T>(leftMatrix.data(), leftMatrix.size(),
+                      -(float)leftMatrix.size() / 2,
+                      (float)leftMatrix.size() / 2);
+    GenerateMatrix<T2>(rightMatrix.data(), rightMatrix.size(),
+                       (float)rightMatrix.size(), -(float)rightMatrix.size());
+  }
+
+  // Get row/col test data from accum matrix
+  memcpy(leftCol.data(), accumulatorMatrix.data(),
+         leftCol.size() * sizeof(leftCol[0]));
+  memcpy(rightRow.data(), accumulatorMatrix.data(),
+         rightRow.size() * sizeof(rightRow[0]));
+
+  // Generate MULTIPLY_ACCUMULATE initial value
+  if (typeid(TYPE_ACC) == typeid(DirectX::PackedVector::HALF)) {
+    FillMatrix<TYPE_ACC>(expectedMatrices[MULTIPLY_ACCUMULATE].data(),
+                         accumulatorMatrix.size(),
+                         ConvertFloat32ToFloat16(42.0f));
+  } else {
+    FillMatrix<TYPE_ACC>(expectedMatrices[MULTIPLY_ACCUMULATE].data(),
+                         accumulatorMatrix.size(), (TYPE_ACC)42);
+  }
+
+  // Generate ADD_MATRIX initial value
+  if (typeid(TYPE_ACC) == typeid(DirectX::PackedVector::HALF)) {
+    FillMatrix<TYPE_ACC>(expectedMatrices[ADD_MATRIX].data(),
+                         accumulatorMatrix.size(),
+                         ConvertFloat32ToFloat16(42.0f));
+  } else {
+    FillMatrix<TYPE_ACC>(expectedMatrices[ADD_MATRIX].data(),
+                         accumulatorMatrix.size(), (TYPE_ACC)42);
+  }
+
+  // Generate expected outputs
+  MatrixAddMatrix<TYPE_ACC>(DIM_M, DIM_N, accumulatorMatrix.data(),
+                            expectedMatrices[ADD_MATRIX].data());
+  MatrixMultiplyByMatrix<T, T2, TYPE_ACC>(DIM_M, DIM_N, DIM_K,
+                                          leftMatrix.data(), rightMatrix.data(),
+                                          expectedMatrices[MULTIPLY].data());
+  MatrixMultiplyAndAddMatrix<T, T2, TYPE_ACC>(
+      DIM_M, DIM_N, DIM_K, leftMatrix.data(), rightMatrix.data(),
+      expectedMatrices[MULTIPLY_ACCUMULATE].data());
+  MatrixAddColumn<TYPE_ACC>(DIM_M, DIM_N, leftCol.data(),
+                            expectedMatrices[BROADCAST_ADD_LEFT_COL].data());
+  MatrixAddRow<TYPE_ACC>(DIM_M, DIM_N, rightRow.data(),
+                         expectedMatrices[BROADCAST_ADD_RIGHT_ROW].data());
+
+  // Copy left col into expected output (Note that the array is zeroed out in
+  // the beginning)
+  memcpy(expectedRowCols[LEFT_COL_SUMACCUMULATE].data(), leftCol.data(),
+         leftCol.size() * sizeof(leftCol[0]));
+
+  // Sum accumulate the left input matrix onto the left col
+  MatrixSumColumns<TYPE_ACC, T>(DIM_M, DIM_K,
+                                expectedRowCols[LEFT_COL_SUMACCUMULATE].data(),
+                                leftMatrix.data());
+
+  // copy right row into expected output
+  memcpy(expectedRowCols[RIGHT_ROW_SUMACCUMULATE].data(), rightRow.data(),
+         rightRow.size() * sizeof(rightRow[0]));
+
+  // Sum accumulate the right input matrix onto the right row
+  MatrixSumRows<TYPE_ACC, T2>(DIM_N, DIM_K,
+                              expectedRowCols[RIGHT_ROW_SUMACCUMULATE].data(),
+                              rightMatrix.data());
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+      pDevice, support, "WaveMatrixOpMath",
+      // this callback is called when the test
+      // is creating the resource to run the test
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        if (0 == _stricmp(Name, "g_bufInMatrices")) {
+
+          T *pInMatrices = (T *)Data.data();
+
+          // Copy left matrix to buffer
+          memcpy(pInMatrices, leftMatrix.data(),
+                 leftMatrix.size() * sizeof(leftMatrix[0]));
+
+          pInMatrices += matrixBufferStrideInElements;
+
+          // Copy right matrix to buffer
+          memcpy(pInMatrices, rightMatrix.data(),
+                 rightMatrix.size() * sizeof(rightMatrix[0]));
+
+          pInMatrices += matrixBufferStrideInElements;
+
+          // Copy accumulator matrix to buffer
+          memcpy(pInMatrices, accumulatorMatrix.data(),
+                 accumulatorMatrix.size() * sizeof(accumulatorMatrix[0]));
+        } else if (0 == _stricmp(Name, "g_bufOutMatrices")) {
+          TYPE_ACC *outMatrices = (TYPE_ACC *)Data.data();
+          memset(outMatrices, 0,
+                 expectedMatrices.size() * expectedMatrices[0].size() *
+                     sizeof(expectedMatrices[0][0]));
+        } else if (0 == _stricmp(Name, "g_bufOutRowCols")) {
+          TYPE_ACC *outRowCols = (TYPE_ACC *)Data.data();
+          memset(outRowCols, 0,
+                 expectedRowCols.size() * expectedRowCols[0].size() *
+                     sizeof(expectedRowCols[0][0]));
+        }
+
+        // update compilation arguments
+        pShaderOp->Shaders.at(0).Arguments = arguments.c_str();
+      },
+      ShaderOpSet);
+
+  MappedData outMatrixData;
+  test->Test->GetReadBackData("g_bufOutMatrices", &outMatrixData);
+  TYPE_ACC *readBackMatrixData = (TYPE_ACC *)outMatrixData.data();
+
+  MappedData outRowColData;
+  test->Test->GetReadBackData("g_bufOutRowCols", &outRowColData);
+  TYPE_ACC *readBackRowColData = (TYPE_ACC *)outRowColData.data();
+
+  WEX::TestExecution::DisableVerifyExceptions dve;
+
+  for (uint32_t i = 0u; i < 2; ++i) {
+    std::string comment =
+        std::string("Matrix/") + mathOpEnumStrs[MULTIPLY] + ":";
+    WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+    VerifyArrayWithExpectedValue(
+        readBackMatrixData + (matrixBufferStrideInElements * MULTIPLY),
+        expectedMatrices[MULTIPLY].data(), matrixBufferStrideInElements,
+        sumValidationType, sumTolerance);
+
+    comment =
+        std::string("Matrix/") + mathOpEnumStrs[MULTIPLY_ACCUMULATE] + ":";
+    WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+    VerifyArrayWithExpectedValue(
+        readBackMatrixData +
+            (matrixBufferStrideInElements * MULTIPLY_ACCUMULATE),
+        expectedMatrices[MULTIPLY_ACCUMULATE].data(),
+        matrixBufferStrideInElements, sumValidationType, sumTolerance);
+
+    comment = std::string("Matrix/") + mathOpEnumStrs[ADD_MATRIX] + ":";
+    WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+    VerifyArrayWithExpectedValue(
+        readBackMatrixData + (matrixBufferStrideInElements * ADD_MATRIX),
+        expectedMatrices[ADD_MATRIX].data(), matrixBufferStrideInElements,
+        Validation_type, tolerance);
+
+    if (disableFragmentTests == 0) {
+      comment =
+          std::string("RowCol/") + mathOpEnumStrs[BROADCAST_ADD_LEFT_COL] + ":";
+      WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+      VerifyArrayWithExpectedValue(
+          readBackMatrixData +
+              (matrixBufferStrideInElements * BROADCAST_ADD_LEFT_COL),
+          expectedMatrices[BROADCAST_ADD_LEFT_COL].data(),
+          matrixBufferStrideInElements, Validation_type, tolerance);
+
+      comment = std::string("RowCol/") +
+                mathOpEnumStrs[BROADCAST_ADD_RIGHT_ROW] + ":";
+      WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+      VerifyArrayWithExpectedValue(
+          readBackMatrixData +
+              (matrixBufferStrideInElements * BROADCAST_ADD_RIGHT_ROW),
+          expectedMatrices[BROADCAST_ADD_RIGHT_ROW].data(),
+          matrixBufferStrideInElements, Validation_type, tolerance);
+
+      comment =
+          std::string("RowCol/") + mathOpEnumStrs[LEFT_COL_SUMACCUMULATE] + ":";
+      WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+      VerifyArrayWithExpectedValue(
+          readBackRowColData + (numRowColElements * LEFT_COL_SUMACCUMULATE),
+          expectedRowCols[LEFT_COL_SUMACCUMULATE].data(), numRowColElements,
+          sumValidationType, sumTolerance);
+
+      comment = std::string("RowCol/") +
+                mathOpEnumStrs[RIGHT_ROW_SUMACCUMULATE] + ":";
+      WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+      VerifyArrayWithExpectedValue(
+          readBackRowColData + (numRowColElements * RIGHT_ROW_SUMACCUMULATE),
+          expectedRowCols[RIGHT_ROW_SUMACCUMULATE].data(), numRowColElements,
+          sumValidationType, sumTolerance);
+    }
+
+    // For verifying that both waves produce the same output given the same
+    // input
+    readBackMatrixData += expectedMatrices.size() * expectedMatrices[0].size();
+    readBackRowColData += expectedRowCols.size() * expectedRowCols[0].size();
+  }
+
+  WEX::Logging::Log::EndGroup(CA2W(groupName.c_str()));
+}
+
+template <typename T>
+void WaveMatrixScalarTest(int DIM_M, int DIM_N, CComPtr<ID3D12Device> pDevice,
+                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                          dxc::DxcDllSupport &support,
+                          std::string dataTypeInShader, PCWSTR Validation_type,
+                          double tolerance, std::vector<float> &floatScalars) {
+  using namespace DirectX::PackedVector;
+  using namespace WMMA;
+
+  std::string typeAcc = TypeIdToHlsl<T>();
+  std::string groupName = "WMMAScalar/M" + std::to_string(DIM_M) + "/N" +
+                          std::to_string(DIM_N) + "/AB" + dataTypeInShader +
+                          "/Accum" + typeAcc;
+  WEX::Logging::Log::StartGroup(CA2W(groupName.c_str()));
+
+  D3D12_FEATURE_DATA_WAVE_MMA waveMmaSupport =
+      checkWaveMMASupport(pDevice, dataTypeInShader, DIM_M, DIM_N);
+
+  bool accTypeSupported =
+      (typeid(T) == typeid(HALF) && (waveMmaSupport.AccumDataTypes &
+                                     D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT16)) ||
+      (typeid(T) == typeid(float) &&
+       (waveMmaSupport.AccumDataTypes & D3D12_WAVE_MMA_ACCUM_DATATYPE_FLOAT)) ||
+      (typeid(T) == typeid(int32_t) &&
+       (waveMmaSupport.AccumDataTypes & D3D12_WAVE_MMA_ACCUM_DATATYPE_INT32));
+
+  if (!ArgContainsDataType<T>(L"Wmma_AccumType") || !accTypeSupported ||
+      !waveMmaSupport.Supported) {
+
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    WEX::Logging::Log::EndGroup(CA2W(groupName.c_str()));
+    return;
+  }
+
+  int disableFragmentTests = 0;
+  WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
+      L"Wmma_DisableFragmentTests", disableFragmentTests);
+
+  // Convert scalars to template type (This is not used in half test).
+  std::vector<T> scalars(floatScalars.size());
+
+  for (size_t i = 0; i < scalars.size(); ++i) {
+    if (typeid(T) == typeid(HALF)) {
+      scalars[i] = static_cast<T>(ConvertFloat32ToFloat16(floatScalars[i]));
+    } else if (typeid(T) != typeid(float) &&
+               static_cast<T>(floatScalars[i]) == 0) {
+      // avoid 0
+      scalars[i] = static_cast<T>(std::signbit(floatScalars[i]) * 2 - 1);
+    } else {
+      scalars[i] = static_cast<T>(floatScalars[i]);
+    }
+  }
+
+  std::stringstream argsStream;
+  argsStream << "-DDIM_M=" << DIM_M << " -DDIM_N=" << DIM_N
+             << " -enable-16bit-types"
+             << " -DFRAGS_ENABLE="
+             << static_cast<int>(disableFragmentTests == 0)
+             << " -DDIM_K=" << waveMmaSupport.K
+             << " -DNUM_LANES=" << waveMmaSupport.RequiredWaveLaneCountMin
+             << " -DTYPE_ACC=" << typeAcc;
+
+  std::string arguments = argsStream.str();
+
+  // We store left/right matrices in the same array so we just assume a
+  // maximum size. This size applies to accumulators as well.
+  uint32_t numElements = DIM_M * DIM_N;
+  std::vector<std::vector<T>> matrices(SCALAR_NUM_OUTPUTS * scalars.size(),
+                                       std::vector<T>(numElements, (T)0));
+  std::vector<std::vector<T>> leftCols(SCALAR_NUM_OUTPUTS * scalars.size(),
+                                       std::vector<T>(DIM_M, (T)0));
+  std::vector<std::vector<T>> rightRows(SCALAR_NUM_OUTPUTS * scalars.size(),
+                                        std::vector<T>(DIM_N, (T)0));
+
+  // Generate inputs
+  for (size_t i = 0; i < scalars.size(); ++i) {
+    for (size_t j = 0; j < SCALAR_NUM_OUTPUTS; ++j) {
+      size_t curr = i * SCALAR_NUM_OUTPUTS + j;
+      size_t start = curr;
+      DXASSERT_NOMSG(start < numElements);
+      size_t end = numElements - start;
+
+      if (typeid(T) == typeid(DirectX::PackedVector::HALF)) {
+        GenerateMatrix<T>(matrices[curr].data(), numElements, (float)start,
+                          (float)end);
+        GenerateMatrix<T>(leftCols[curr].data(), DIM_M, (float)start,
+                          (float)end);
+        GenerateMatrix<T>(rightRows[curr].data(), DIM_N, (float)start,
+                          (float)end);
+      } else {
+        GenerateMatrix<T>(matrices[curr].data(), numElements, (T)start, (T)end);
+        GenerateMatrix<T>(leftCols[curr].data(), DIM_M, (T)start, (T)end);
+        GenerateMatrix<T>(rightRows[curr].data(), DIM_N, (T)start, (T)end);
+      }
+    }
+  }
+
+  if (typeid(T) == typeid(HALF)) {
+    tolerance = 3;
+    Validation_type = L"ulp";
+    matrices[0][0] = leftCols[0][0] = rightRows[0][0] =
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::infinity());
+    matrices[1][0] = leftCols[1][0] = rightRows[1][0] =
+        ConvertFloat32ToFloat16(-std::numeric_limits<float>::infinity());
+    matrices[2][0] = leftCols[2][0] = rightRows[2][0] =
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::quiet_NaN());
+    matrices[3][0] = leftCols[3][0] = rightRows[3][0] =
+        ConvertFloat32ToFloat16(-0.0f);
+    matrices[4][0] = leftCols[4][0] = rightRows[4][0] =
+        ConvertFloat32ToFloat16(std::numeric_limits<float>::denorm_min());
+  } else if (typeid(T) == typeid(float)) {
+    matrices[0][0] = leftCols[0][0] = rightRows[0][0] =
+        (T)std::numeric_limits<float>::infinity();
+    matrices[1][0] = leftCols[1][0] = rightRows[1][0] =
+        (T)-std::numeric_limits<float>::infinity();
+    matrices[2][0] = leftCols[2][0] = rightRows[2][0] =
+        (T)std::numeric_limits<float>::quiet_NaN();
+    matrices[3][0] = leftCols[3][0] = rightRows[3][0] = (T)-0.0f;
+    matrices[4][0] = leftCols[4][0] = rightRows[4][0] =
+        std::numeric_limits<T>::denorm_min();
+  }
+
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+      pDevice, support, "WaveMatrixOpScalar",
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        if (0 == _stricmp(Name, "g_bufInScalar")) {
+          T *bufferScalars = (T *)Data.data();
+
+          for (size_t i = 0; i < scalars.size(); ++i) {
+            bufferScalars[i] = scalars[i];
+          }
+        } else if (0 == _stricmp(Name, "g_bufInAccumulator")) {
+          // Copy input values to buffer
+          size_t mtxSize = matrices[0].size() * sizeof(*matrices[0].data());
+          for (size_t i = 0; i < matrices.size(); ++i) {
+            memcpy(Data.data() + mtxSize * i, matrices[i].data(), mtxSize);
+          }
+
+          // Process CPU side input values in place into expected values
+          for (size_t i = 0; i < scalars.size(); ++i) {
+            MatrixMultiplyByScalar<T>(
+                DIM_M, DIM_N, scalars[i],
+                matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
+            MatrixDivideByScalar<T>(
+                DIM_M, DIM_N, scalars[i],
+                matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
+            MatrixAddScalar<T>(
+                DIM_M, DIM_N, scalars[i],
+                matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
+            MatrixSubtractScalar<T>(
+                DIM_M, DIM_N, scalars[i],
+                matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
+            FillMatrix<T>(matrices[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(),
+                          DIM_M * DIM_N, scalars[i]);
+          }
+        } else if (0 == _stricmp(Name, "g_bufInLeftColAcc")) {
+          // Copy input values to buffer
+          size_t lcSize = leftCols[0].size() * sizeof(*leftCols[0].data());
+          for (size_t i = 0; i < leftCols.size(); ++i) {
+            memcpy(Data.data() + lcSize * i, leftCols[i].data(), lcSize);
+          }
+
+          // Process CPU side input values in place into expected values
+          for (size_t i = 0; i < scalars.size(); ++i) {
+            VectorMultiplyByScalar<T>(
+                DIM_M, scalars[i],
+                leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
+            VectorDivideByScalar<T>(
+                DIM_M, scalars[i],
+                leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
+            VectorAddScalar<T>(
+                DIM_M, scalars[i],
+                leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
+            VectorSubtractScalar<T>(
+                DIM_M, scalars[i],
+                leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
+            FillMatrix<T>(leftCols[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(),
+                          DIM_M, scalars[i]);
+          }
+        } else if (0 == _stricmp(Name, "g_bufInRightRowAcc")) {
+          // Copy input values to buffer
+          size_t rrSize = rightRows[0].size() * sizeof(*rightRows[0].data());
+          for (size_t i = 0; i < rightRows.size(); ++i) {
+            memcpy(Data.data() + rrSize * i, rightRows[i].data(), rrSize);
+          }
+
+          // Process CPU side input values in place into expected values
+          for (size_t i = 0; i < scalars.size(); ++i) {
+            VectorMultiplyByScalar<T>(
+                DIM_N, scalars[i],
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_MUL].data());
+            VectorDivideByScalar<T>(
+                DIM_N, scalars[i],
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_DIV].data());
+            VectorAddScalar<T>(
+                DIM_N, scalars[i],
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_ADD].data());
+            VectorSubtractScalar<T>(
+                DIM_N, scalars[i],
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_SUB].data());
+            FillMatrix<T>(
+                rightRows[i * SCALAR_NUM_OUTPUTS + SCALAR_FILL].data(), DIM_N,
+                scalars[i]);
+          }
+        } else {
+          std::fill(Data.begin(), Data.end(), (BYTE)0);
+        }
+
+        // update compilation arguments
+        pShaderOp->Shaders.at(0).Arguments = arguments.c_str();
+      },
+      ShaderOpSet);
+
+  MappedData matricesData;
+  test->Test->GetReadBackData("g_bufOutAccumulator", &matricesData);
+  T *readBackMatrixData = (T *)matricesData.data();
+
+  MappedData leftColData;
+  test->Test->GetReadBackData("g_bufOutLeftColAcc", &leftColData);
+  T *readBackLeftColData = (T *)leftColData.data();
+
+  MappedData rightRowData;
+  test->Test->GetReadBackData("g_bufOutRightRowAcc", &rightRowData);
+  T *readBackRightRowData = (T *)rightRowData.data();
+
+  // For verifying that both waves produce the same output
+  T *readBackRightRowData2 =
+      readBackRightRowData + rightRows.size() * rightRows[0].size();
+  T *readBackLeftColData2 =
+      readBackLeftColData + leftCols.size() * leftCols[0].size();
+  T *readBackMatrixData2 =
+      readBackMatrixData + matrices.size() * matrices[0].size();
+
+  WEX::TestExecution::DisableVerifyExceptions dve;
+  for (size_t i = 0; i < matrices.size(); ++i) {
+    auto &expectedMatrix = matrices[i];
+    std::string comment =
+        std::string("Matrix/") + scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
+    WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+
+    VerifyArrayWithExpectedValue(readBackMatrixData, expectedMatrix.data(),
+                                 expectedMatrix.size(), Validation_type,
+                                 tolerance);
+
+    readBackMatrixData += expectedMatrix.size();
+
+    VerifyArrayWithExpectedValue(readBackMatrixData2, expectedMatrix.data(),
+                                 expectedMatrix.size(), Validation_type,
+                                 tolerance);
+
+    readBackMatrixData2 += expectedMatrix.size();
+  }
+
+  if (disableFragmentTests == 0) {
+    for (size_t i = 0; i < leftCols.size(); ++i) {
+      auto &expectedLeftColAcc = leftCols[i];
+      std::string comment = std::string("LeftCol/") +
+                            scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
+      WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+
+      VerifyArrayWithExpectedValue(
+          readBackLeftColData, expectedLeftColAcc.data(),
+          expectedLeftColAcc.size(), Validation_type, tolerance);
+
+      readBackLeftColData += expectedLeftColAcc.size();
+
+      VerifyArrayWithExpectedValue(
+          readBackLeftColData2, expectedLeftColAcc.data(),
+          expectedLeftColAcc.size(), Validation_type, tolerance);
+
+      readBackLeftColData2 += expectedLeftColAcc.size();
+    }
+
+    for (size_t i = 0; i < rightRows.size(); ++i) {
+      auto &expectedRightRowAcc = rightRows[i];
+      std::string comment = std::string("RightRow/") +
+                            scalarEnumStrs[i % SCALAR_NUM_OUTPUTS] + ":";
+      WEX::Logging::Log::Comment(CA2W(comment.c_str()));
+
+      VerifyArrayWithExpectedValue(
+          readBackRightRowData, expectedRightRowAcc.data(),
+          expectedRightRowAcc.size(), Validation_type, tolerance);
+
+      readBackRightRowData += expectedRightRowAcc.size();
+
+      VerifyArrayWithExpectedValue(
+          readBackRightRowData2, expectedRightRowAcc.data(),
+          expectedRightRowAcc.size(), Validation_type, tolerance);
+
+      readBackRightRowData2 += expectedRightRowAcc.size();
+    }
+  }
+
+  WEX::Logging::Log::EndGroup(CA2W(groupName.c_str()));
+}
+
+// TAEF Params and their defaults:
+// /p:Wmma_DisableFragmentTests=0 (Disable all row/col fragment tests)
+// /p:Wmma_DisableLoadStoreTests=0
+// /p:Wmma_DisableScalarTests=0
+// /p:Wmma_DisableMathTests=0
+// /p:"Wmma_ForceK=16" (Override K with specified value)
+// /p:"Wmma_ForceWaveSize=0" (defaults to WaveLaneCountMin using
+// CheckFeatureSupport) /p:"Wmma_MemType=buffer,groupshared"
+// /p:"Wmma_DimM=16,64"
+// /p:"Wmma_DimN=16,64"
+// /p:"Wmma_Type=float32_t,float16_t,uint8_t4_packed,int8_t4_packed"
+// /p:"Wmma_AccumType=float32_t,float16_t,int32_t"
+TEST_F(ExecutionTest, WaveMatrixLoadStoreTests) {
+  using namespace WMMA;
+  using namespace DirectX::PackedVector;
+
+  std::vector<int> dimMs;
+  std::vector<int> dimNs;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
+
+  CComPtr<ID3D12Device> pDevice =
+      WaveMatrixTestCommonSetup(dimMs, dimNs, ShaderOpSet);
+
+  if (pDevice == nullptr) {
+    return;
+  }
+
+  // Check if the tests are enabled
+  int disableLoadStoreTests = 0;
+  WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
+      L"Wmma_DisableLoadStoreTests", disableLoadStoreTests);
+
+  if (disableLoadStoreTests == 1) {
+    LogCommentFmt(L"Wave matrix load store tests are disabled, skipping.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Parse mem types
+  std::vector<int> memTypes = {BUFFER, GROUPSHARED};
+  std::wstring split;
+  WEX::Common::String memTypeList;
+  WEX::TestExecution::RuntimeParameters::TryGetValue(L"Wmma_MemType",
+                                                     memTypeList);
+  if (!memTypeList.IsEmpty()) {
+    memTypeList.ToLower();
+    memTypes.clear();
+    wstringstream ss((const wchar_t *)memTypeList);
+
+    while (std::getline(ss, split, L',')) {
+      if (split == L"buffer") {
+        memTypes.emplace_back(BUFFER);
+      } else if (split == L"groupshared") {
+        memTypes.emplace_back(GROUPSHARED);
+      } else {
+        throw std::exception("Incorrect args given for mem type");
+      }
+    }
+  }
+
+  // Run matrix load store tests for supported types
+  PCWSTR validationType = L"epsilon";
+  double tolerance = 0; // 0 tolerance for load store
+
+  for (int dimM : dimMs) {
+    for (int dimN : dimNs) {
+      for (int memType : memTypes) {
+        WaveMatrixLoadStoreTest<float, float>(dimM, dimN, memType, pDevice,
+                                              ShaderOpSet, m_support,
+                                              validationType, tolerance);
+        WaveMatrixLoadStoreTest<HALF, float>(dimM, dimN, memType, pDevice,
+                                             ShaderOpSet, m_support,
+                                             validationType, tolerance);
+        WaveMatrixLoadStoreTest<HALF, HALF>(dimM, dimN, memType, pDevice,
+                                            ShaderOpSet, m_support,
+                                            validationType, tolerance);
+        WaveMatrixLoadStoreTest<uint8_t, int32_t>(dimM, dimN, memType, pDevice,
+                                                  ShaderOpSet, m_support,
+                                                  validationType, tolerance);
+        WaveMatrixLoadStoreTest<int8_t, int32_t>(dimM, dimN, memType, pDevice,
+                                                 ShaderOpSet, m_support,
+                                                 validationType, tolerance);
+      }
+    }
+  }
+}
+
+TEST_F(ExecutionTest, WaveMatrixScalarTests) {
+  using namespace WMMA;
+  using namespace DirectX::PackedVector;
+
+  std::vector<int> dimMs;
+  std::vector<int> dimNs;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
+  CComPtr<ID3D12Device> pDevice =
+      WaveMatrixTestCommonSetup(dimMs, dimNs, ShaderOpSet);
+
+  if (pDevice == nullptr) {
+    return;
+  }
+
+  // Check if the tests are enabled
+  int disableScalarTests = 0;
+  WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
+      L"Wmma_DisableScalarTests", disableScalarTests);
+
+  if (disableScalarTests == 1) {
+    LogCommentFmt(L"Wave matrix scalar tests are disabled, skipping.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Run the matrix scalar tests for supported types
+  PCWSTR validationType = L"epsilon";
+  double tolerance = 0.008;
+  std::vector<float> scalars = {-100.0f, 20.0f, -50.0f, -0.0f, 0.0f, 42.0f};
+
+  for (uint32_t dimM : dimMs) {
+    for (uint32_t dimN : dimNs) {
+      std::string hlslType = "float32_t";
+      WaveMatrixScalarTest<float>(dimM, dimN, pDevice, ShaderOpSet, m_support,
+                                  hlslType, validationType, tolerance, scalars);
+
+      // hlslType is used for the CheckFeatureSupport query.
+      // Only one of the two below scalar tests will run, depending on the
+      // accumulator precision returned by CheckFeatureSupport.
+      hlslType = "float16_t";
+      WaveMatrixScalarTest<float>(dimM, dimN, pDevice, ShaderOpSet, m_support,
+                                  hlslType, validationType, tolerance, scalars);
+      WaveMatrixScalarTest<HALF>(dimM, dimN, pDevice, ShaderOpSet, m_support,
+                                 hlslType, validationType, tolerance, scalars);
+
+      hlslType = "uint8_t4_packed";
+      WaveMatrixScalarTest<int32_t>(dimM, dimN, pDevice, ShaderOpSet, m_support,
+                                    hlslType, validationType, tolerance,
+                                    scalars);
+
+      hlslType = "int8_t4_packed";
+      WaveMatrixScalarTest<int32_t>(dimM, dimN, pDevice, ShaderOpSet, m_support,
+                                    hlslType, validationType, tolerance,
+                                    scalars);
+    }
+  }
+}
+
+TEST_F(ExecutionTest, WaveMatrixMathTests) {
+  using namespace WMMA;
+  using namespace DirectX::PackedVector;
+
+  std::vector<int> dimMs;
+  std::vector<int> dimNs;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet;
+  CComPtr<ID3D12Device> pDevice =
+      WaveMatrixTestCommonSetup(dimMs, dimNs, ShaderOpSet);
+
+  if (pDevice == nullptr) {
+    return;
+  }
+
+  // Check if the tests are enabled
+  int disableMathTests = 0;
+  WEX::TestExecution::RuntimeParameters::TryGetValue<int>(
+      L"Wmma_DisableMathTests", disableMathTests);
+
+  if (disableMathTests == 1) {
+    LogCommentFmt(L"Wave matrix math tests are disabled, skipping.");
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Run the matrix math tests for supported types
+  PCWSTR validationType = L"epsilon";
+  double tolerance = 0.008;
+
+  for (uint32_t dimM : dimMs) {
+    for (uint32_t dimN : dimNs) {
+      WaveMatrixMathTest<float, float, float>(dimM, dimN, pDevice, ShaderOpSet,
+                                              m_support, validationType,
+                                              tolerance);
+      WaveMatrixMathTest<HALF, HALF, float>(dimM, dimN, pDevice, ShaderOpSet,
+                                            m_support, validationType,
+                                            tolerance);
+      WaveMatrixMathTest<HALF, HALF, HALF>(dimM, dimN, pDevice, ShaderOpSet,
+                                           m_support, validationType,
+                                           tolerance);
+      WaveMatrixMathTest<uint8_t, uint8_t, int32_t>(dimM, dimN, pDevice,
+                                                    ShaderOpSet, m_support,
+                                                    validationType, tolerance);
+      WaveMatrixMathTest<uint8_t, int8_t, int32_t>(dimM, dimN, pDevice,
+                                                   ShaderOpSet, m_support,
+                                                   validationType, tolerance);
+      WaveMatrixMathTest<int8_t, int8_t, int32_t>(dimM, dimN, pDevice,
+                                                  ShaderOpSet, m_support,
+                                                  validationType, tolerance);
+      WaveMatrixMathTest<int8_t, uint8_t, int32_t>(dimM, dimN, pDevice,
+                                                   ShaderOpSet, m_support,
+                                                   validationType, tolerance);
+    }
   }
 }
 

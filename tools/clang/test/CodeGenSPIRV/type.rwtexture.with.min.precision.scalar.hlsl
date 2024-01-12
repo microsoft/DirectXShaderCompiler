@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: %type_2d_image = OpTypeImage %float 2D 2 0 0 2 Rgba16f
 // CHECK: %_ptr_UniformConstant_type_2d_image = OpTypePointer UniformConstant %type_2d_image

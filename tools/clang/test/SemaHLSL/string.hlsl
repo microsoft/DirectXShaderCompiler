@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -Wno-unused-value -verify %s
+// RUN: %dxc -Tps_6_0 -Wno-unused-value -verify %s
 
 static const string s_global1 = "my global string 1";
 /*verify-ast
@@ -62,6 +63,7 @@ struct test {
   string field;                                             /* expected-error {{string declaration may only appear in global scope}} fxc-pass {{}} */
 };
 
+[shader("pixel")]
 float4 main() : SV_Target0 {                                /* */
   string str;                                               /* expected-error {{string declaration may only appear in global scope}} fxc-pass {{}} */
   str = s_global2;                                          /* expected-error {{use of undeclared identifier 'str'}} fxc-pass {{}} */

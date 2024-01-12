@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3  -Wno-unused-value  -verify %s
+// RUN: %dxc -Tps_6_0  -Wno-unused-value  -verify %s
 
 // This file includes operator tests that target specific cases that are not
 // otherwise covered by the other generated files.
@@ -491,7 +492,8 @@ float3 fn(float a, float b)
     return bar < 1 ? float3(foo) : bar;             // expected-error {{use of undeclared identifier 'foo'}} fxc-error {{X3004: undeclared identifier 'bar'}}
 }
 
-float4 main2(float2 coord : TEXCOORD) : SV_Target
+[shader("pixel")]
+float4 main(float2 coord : TEXCOORD) : SV_Target
 {
   return DoSample(tex12, fn(coord.x, coord.y).xy);
 }

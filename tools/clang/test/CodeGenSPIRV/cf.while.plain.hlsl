@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 int foo() { return true; }
 
@@ -13,13 +13,13 @@ void main() {
 // CHECK:      OpBranch %while_check
 // CHECK-NEXT: %while_check = OpLabel
 
-// CHECK-NEXT: [[i:%\d+]] = OpLoad %int %i
-// CHECK-NEXT: [[i_lt_10:%\d+]] = OpSLessThan %bool [[i]] %int_10
+// CHECK-NEXT: [[i:%[0-9]+]] = OpLoad %int %i
+// CHECK-NEXT: [[i_lt_10:%[0-9]+]] = OpSLessThan %bool [[i]] %int_10
 // CHECK-NEXT: OpLoopMerge %while_merge %while_continue None
 // CHECK-NEXT: OpBranchConditional [[i_lt_10]] %while_body %while_merge
   while (i < 10) {
 // CHECK-NEXT: %while_body = OpLabel
-// CHECK-NEXT: [[i1:%\d+]] = OpLoad %int %i
+// CHECK-NEXT: [[i1:%[0-9]+]] = OpLoad %int %i
 // CHECK-NEXT: OpStore %val [[i1]]
       val = i;
 // CHECK-NEXT: OpBranch %while_continue
@@ -56,8 +56,8 @@ void main() {
     //////////////////////////
 
 // CHECK-NEXT: %while_check_1 = OpLabel
-// CHECK-NEXT: [[val1:%\d+]] = OpLoad %int %val
-// CHECK-NEXT: [[val_lt_20:%\d+]] = OpSLessThan %bool [[val1]] %int_20
+// CHECK-NEXT: [[val1:%[0-9]+]] = OpLoad %int %val
+// CHECK-NEXT: [[val_lt_20:%[0-9]+]] = OpSLessThan %bool [[val1]] %int_20
 // CHECK-NEXT: OpLoopMerge %while_merge_1 %while_continue_1 None
 // CHECK-NEXT: OpBranchConditional [[val_lt_20]] %while_body_1 %while_merge_1
   while (val < 20)
@@ -77,15 +77,15 @@ void main() {
     ////////////////////////////////////////////////////////////////
 
 // CHECK-NEXT: %while_check_2 = OpLabel
-// CHECK-NEXT: [[foo:%\d+]] = OpFunctionCall %int %foo
+// CHECK-NEXT: [[foo:%[0-9]+]] = OpFunctionCall %int %foo
 // CHECK-NEXT: OpStore %a [[foo]]
-// CHECK-NEXT: [[a:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[is_a_true:%\d+]] = OpINotEqual %bool [[a]] %int_0
+// CHECK-NEXT: [[a:%[0-9]+]] = OpLoad %int %a
+// CHECK-NEXT: [[is_a_true:%[0-9]+]] = OpINotEqual %bool [[a]] %int_0
 // CHECK-NEXT: OpLoopMerge %while_merge_2 %while_continue_2 None
 // CHECK-NEXT: OpBranchConditional [[is_a_true]] %while_body_2 %while_merge_2
   while (int a = foo()) {
 // CHECK-NEXT: %while_body_2 = OpLabel
-// CHECK-NEXT: [[a1:%\d+]] = OpLoad %int %a
+// CHECK-NEXT: [[a1:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpStore %val [[a1]]
     val = a;
 // CHECK-NEXT: OpBranch %while_continue_2

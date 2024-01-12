@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 //CHECK:      %First = OpVariable %_ptr_Private_int Private %int_0
 //CHECK-NEXT: %Second = OpVariable %_ptr_Private_int Private %int_1
@@ -15,7 +15,7 @@ enum Number {
 //CHECK-NEXT: %b = OpVariable %_ptr_Workgroup_int Workgroup
 //CHECK-NEXT: %c = OpVariable %_ptr_Uniform_type_AppendStructuredBuffer_ Uniform
 
-//CHECK:      [[second:%\d+]] = OpLoad %int %Second
+//CHECK:      [[second:%[0-9]+]] = OpLoad %int %Second
 //CHECK-NEXT:                   OpStore %a [[second]]
 static ::Number a = Second;
 groupshared Number b;
@@ -26,26 +26,26 @@ void testParamTypeCast(int param) {}
 
 [numthreads(1, 1, 1)]
 void main() {
-//CHECK:      [[a:%\d+]] = OpLoad %int %a
+//CHECK:      [[a:%[0-9]+]] = OpLoad %int %a
 //CHECK-NEXT:              OpStore %foo [[a]]
   int foo = a;
 
-//CHECK:      [[fourth:%\d+]] = OpLoad %int %Fourth
+//CHECK:      [[fourth:%[0-9]+]] = OpLoad %int %Fourth
 //CHECK-NEXT:                   OpStore %b [[fourth]]
   b = Fourth;
 
-//CHECK:          [[c:%\d+]] = OpAccessChain %_ptr_Uniform_int %c %uint_0
-//CHECK-NEXT: [[third:%\d+]] = OpLoad %int %Third
+//CHECK:          [[c:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %c %uint_0
+//CHECK-NEXT: [[third:%[0-9]+]] = OpLoad %int %Third
 //CHECK-NEXT:                  OpStore [[c]] [[third]]
   c.Append(Third);
 
-//CHECK:          [[c:%\d+]] = OpAccessChain %_ptr_Uniform_int %c %uint_0 %57
-//CHECK-NEXT: [[third:%\d+]] = OpLoad %int %Third
-//CHECK-NEXT:                  OpStore [[c]] [[third]]
+//CHECK:          [[c_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %c %uint_0 %57
+//CHECK-NEXT: [[third_0:%[0-9]+]] = OpLoad %int %Third
+//CHECK-NEXT:                  OpStore [[c_0]] [[third_0]]
   c.Append(Number::Third);
 
   Number d;
-//CHECK:      [[d:%\d+]] = OpLoad %int %d
+//CHECK:      [[d:%[0-9]+]] = OpLoad %int %d
 //CHECK-NEXT:              OpSelectionMerge %switch_merge None
 //CHECK-NEXT:              OpSwitch [[d]] %switch_default 0 %switch_0 1 %switch_1
   switch (d) {
@@ -60,39 +60,39 @@ void main() {
       break;
   }
 
-//CHECK:      [[fourth:%\d+]] = OpLoad %int %Fourth
-//CHECK-NEXT:                   OpStore %e [[fourth]]
+//CHECK:      [[fourth_0:%[0-9]+]] = OpLoad %int %Fourth
+//CHECK-NEXT:                   OpStore %e [[fourth_0]]
   static ::Number e = Fourth;
 
-//CHECK:          [[d:%\d+]] = OpLoad %int %d
-//CHECK-NEXT: [[third:%\d+]] = OpLoad %int %Third
-//CHECK-NEXT:                  OpSLessThan %bool [[d]] [[third]]
+//CHECK:          [[d_0:%[0-9]+]] = OpLoad %int %d
+//CHECK-NEXT: [[third_1:%[0-9]+]] = OpLoad %int %Third
+//CHECK-NEXT:                  OpSLessThan %bool [[d_0]] [[third_1]]
   if (d < Third) {
-//CHECK:       [[first:%\d+]] = OpLoad %int %First
-//CHECK-NEXT: [[second:%\d+]] = OpLoad %int %Second
-//CHECK-NEXT:    [[add:%\d+]] = OpIAdd %int [[first]] [[second]]
+//CHECK:       [[first:%[0-9]+]] = OpLoad %int %First
+//CHECK-NEXT: [[second_0:%[0-9]+]] = OpLoad %int %Second
+//CHECK-NEXT:    [[add:%[0-9]+]] = OpIAdd %int [[first]] [[second_0]]
 //CHECK-NEXT:                   OpStore %d [[add]]
     d = First + Second;
   }
 
-//CHECK:      [[foo:%\d+]] = OpLoad %int %foo
-//CHECK-NEXT: [[foo:%\d+]] = OpBitcast %int [[foo]]
-//CHECK-NEXT:                OpStore %d [[foo]]
+//CHECK:      [[foo:%[0-9]+]] = OpLoad %int %foo
+//CHECK-NEXT: [[foo_0:%[0-9]+]] = OpBitcast %int [[foo]]
+//CHECK-NEXT:                OpStore %d [[foo_0]]
   if (First < Third)
     d = (Number)foo;
 
-//CHECK:      [[a:%\d+]] = OpLoad %int %a
-//CHECK-NEXT:              OpStore %param_var_param [[a]]
+//CHECK:      [[a_0:%[0-9]+]] = OpLoad %int %a
+//CHECK-NEXT:              OpStore %param_var_param [[a_0]]
 //CHECK-NEXT:              OpFunctionCall %void %testParam %param_var_param
   testParam(a);
 
-//CHECK:      [[second:%\d+]] = OpLoad %int %Second
-//CHECK-NEXT:                   OpStore %param_var_param_0 [[second]]
+//CHECK:      [[second_1:%[0-9]+]] = OpLoad %int %Second
+//CHECK-NEXT:                   OpStore %param_var_param_0 [[second_1]]
 //CHECK-NEXT:                   OpFunctionCall %void %testParam %param_var_param_0
   testParam(Second);
 
-//CHECK:      [[a:%\d+]] = OpLoad %int %a
-//CHECK-NEXT:              OpStore %param_var_param_1 [[a]]
+//CHECK:      [[a_1:%[0-9]+]] = OpLoad %int %a
+//CHECK-NEXT:              OpStore %param_var_param_1 [[a_1]]
 //CHECK-NEXT:              OpFunctionCall %void %testParamTypeCast %param_var_param_1
   testParamTypeCast(a);
 
@@ -100,9 +100,9 @@ void main() {
 //CHECK-NEXT: OpFunctionCall %void %testParamTypeCast %param_var_param_2
   testParamTypeCast(Second);
 
-//CHECK:        [[a:%\d+]] = OpLoad %int %a
-//CHECK-NEXT:   [[a:%\d+]] = OpBitcast %float [[a]]
-//CHECK-NEXT: [[sin:%\d+]] = OpExtInst %float {{%\d+}} Sin [[a]]
+//CHECK:        [[a_2:%[0-9]+]] = OpLoad %int %a
+//CHECK-NEXT:   [[a_3:%[0-9]+]] = OpBitcast %float [[a_2]]
+//CHECK-NEXT: [[sin:%[0-9]+]] = OpExtInst %float {{%[0-9]+}} Sin [[a_3]]
 //CHECK-NEXT:                OpStore %bar [[sin]]
   float bar = sin(a);
 }

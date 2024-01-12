@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -O3 -fspv-preserve-interface
+// RUN: %dxc -T ps_6_0 -E main -O3 -fspv-preserve-interface  %s -spirv | FileCheck %s
 
 float4 main(float2 a : A, /* unused */ float3 b : B, float2 c : C) : SV_Target {
   return float4(a, c);

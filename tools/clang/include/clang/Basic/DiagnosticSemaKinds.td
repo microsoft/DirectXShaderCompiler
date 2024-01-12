@@ -18,6 +18,7 @@ def note_previous_decl : Note<"%0 declared here">;
 def note_entity_declared_at : Note<"%0 declared here">;
 def note_callee_decl : Note<"%0 declared here">;
 def note_defined_here : Note<"%0 defined here">;
+def note_field_declared_here : Note<"%0 field declared here">;
 
 // For loop analysis
 def warn_variables_not_in_loop_body : Warning<
@@ -7469,8 +7470,20 @@ def err_hlsl_attribute_expects_string_literal: Error<
   "attribute %0 must have a string literal argument">;
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
+def err_hlsl_attribute_unsupported_stage: Error<
+  "attribute %0 only allowed on %1 shaders">;
+def err_hlsl_attribute_in_wrong_shader_model: Error<
+  "attribute %0 requires shader model %1 or greater">;
+def err_hlsl_conflicting_shader_attribute: Error<
+  "shader attribute type '%0' conflicts with shader attribute type '%1'">;
+def note_hlsl_shader_attribute_here: Note<
+  "shader attribute is here">;
+def err_hlsl_profile_conflicts_with_shader_attribute : Error<
+  "entry type '%0' from profile '%1' conflicts with shader attribute type '%2' on entry function '%3'.">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
+def err_hlsl_wavesize_size: Error<
+  "WaveSize value must be between 4 and 128 and a power of 2">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<
@@ -7597,8 +7610,8 @@ def err_attributes_requiers_in : Error<
   "intersection attributes parameter %0 must be 'in'">;
 def err_payload_attrs_must_be_udt : Error<
   "%select{payload|attributes|callable}0 parameter %1 must be a user-defined type composed of only numeric types">;
-def err_raytracing_must_return_void : Error<
-  "return type for ray tracing shaders must be void">;
+def err_shader_must_return_void : Error<
+  "return type for '%0' shaders must be void">;
 def err_raytracing_entry_param_count : Error<
   "incorrect number of entry parameters for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
 def err_payload_fields_not_qualified : Error<
@@ -7642,6 +7655,10 @@ def err_hlsl_unsupported_longlong : Error<
   "long long is unsupported in HLSL">;
 def err_hlsl_varmodifierna : Error<
   "%0 is not a valid modifier for a %1">;
+def err_hlsl_varmodifierna_decltype : Error<
+  "%0 is not a valid modifier for a declaration of type %1">;
+def note_hlsl_globallycoherent_applies_to : Note<
+  "'globallycoherent' can only be applied to UAV or RWDispatchNodeInputRecord objects">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla
@@ -7754,6 +7771,8 @@ def err_hlsl_unsupported_for_version_lower : Error<
    "%0 is only allowed for HLSL %1 and lower.">;
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
+def err_hlsl_intrinsic_overload_in_wrong_shader_model : Error<
+   "overload of intrinsic %0 requires shader model %1 or greater">;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<
@@ -7766,7 +7785,7 @@ def err_hlsl_no_struct_user_defined_type: Error<
 def err_hlsl_ray_desc_required: Error<
    "Argument type must be struct RayDesc.">;
 def err_hlsl_missing_attr: Error<
-   "%0 entry point must have the %1 attribute">;
+   "%0 entry point must have a valid %1 attribute">;
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
 def err_hlsl_unsupported_string_decl: Error<
@@ -7783,9 +7802,89 @@ def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
    "condition for short-circuiting ternary operator must be scalar, for non-scalar types use 'select'">;
+def err_hlsl_no_recursion : Error<
+   "recursive functions are not allowed: function '%0' calls recursive function '%1'">;
+def note_hlsl_no_recursion : Note<
+   "recursive function located here:">;
+def err_hlsl_missing_patch_constant_function : Error<
+    "patch constant function '%0' must be defined">;
+def err_hlsl_patch_reachability_not_allowed : Error<
+    "%select{patch constant|entry}0 function '%1' should not be reachable from %select{patch constant|entry}2 function '%3'">;
 def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
    "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
   InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
+def err_hlsl_wg_intrinsic_launch_type : Error<
+   "%0 may only be used by nodes with %1 launch type">;
+def err_hlsl_wg_thread_launch_group_size : Error<
+   "Thread launch nodes must have a thread group size of (1,1,1)">;
+def warn_hlsl_numthreads_group_size : Warning<
+   "Group size of %0 (%1 * %2 * %3) is outside of valid range [1..1024] - "
+   "attribute will be ignored">,
+   InGroup<IgnoredAttributes>;
+def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
+   "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
+def err_hlsl_wg_nodetrackrwinputsharing_invalid : Error<
+   "NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord">;
+def err_hlsl_wg_input_kind : Error<
+   "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
+   "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;
+def err_hlsl_wg_attr_only_on_output : Error<
+   "attribute %0 may only be used with output nodes">;
+def err_hlsl_wg_attr_only_on_output_or_input_record : Error<
+   "attribute %0 may only be used with output nodes or input record objects">;
+def err_hlsl_wg_nodearraysize_conflict_unbounded : Error<
+   "[NodeArraySize(%0)] conflict: [UnboundedSparseNodes] implies [NodeArraySize(-1)]">;
+def err_hlsl_wg_attr_only_on_output_array : Error<
+   "attribute %0 may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)">;
+def err_hlsl_wg_attr_only_on_node: Error<
+   "attribute %0 may only be used on a node ">;
+def err_hlsl_zero_sized_record : Error<
+   "record used in %0 may not have zero size">;
+def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
+   "a RWNodeInputRecord field with SV_DispatchGrid semantic is not assignable">;
+def err_hlsl_maxarraysize_template_arg : Error<
+   "the %0 maxArraySize template argument must be an integer constant expression with value >= 1">;
+def err_hlsl_maxrecord_attrs_on_same_arg : Error<
+    "only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.">;
+def err_hlsl_maxrecordssharedwith_references_invalid_arg : Error<
+    "attribute MaxRecordsSharedWith must reference a valid ouput parameter name.">;
+def err_hlsl_maxrecordssharedwith_references_itself : Error<
+    "attribute MaxRecordsSharedWith must not reference the same parameter it is applied to.">;
+def err_hlsl_maxrecord_on_wrong_launch : Error<
+    "attribute MaxRecords must only be used with node outputs or coalescing launch inputs">;
+def err_hlsl_dispatchgrid_component : Error<
+   "%0 %1 component value must be between 1 and 65,535 (2^16-1) inclusive">;
+def err_hlsl_dispatchgrid_product : Error<
+   "%0 X * Y * Z product may not exceed 16,777,215 (2^24-1)">;
+def err_hlsl_compute_launch_compatibility : Error<
+   "Node shader '%0' with %1 launch type is not compatible with compute (must be broadcasting)">;
+def err_hlsl_compute_io_compatibility : Error<
+   "Node shader '%0' with node input/output is not compatible with compute">;
+def err_hlsl_launch_type_attr : Error<
+   "'%0' may only be used with %1 nodes">;
+def err_hlsl_incompatible_node_attr : Error<
+   "Node shader '%0' may not use both '%1' and '%2'">;
+def err_hlsl_missing_node_attr : Error<
+   "Node shader '%0' with %1 launch type requires '%2' attribute">;
+def err_hlsl_missing_dispatchgrid_attr : Error<
+   "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
+def err_hlsl_missing_dispatchgrid_semantic : Error<
+   "Broadcasting node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
+def err_hlsl_dispatchgrid_semantic_already_specified : Error<
+   "a field with SV_DispatchGrid has already been specified">;
+def err_hlsl_incompatible_dispatchgrid_semantic_type : Error<
+   "SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not %0">;
+def err_hlsl_maxrecursiondepth_exceeded : Error<
+   "NodeMaxRecursionDepth may not exceed 32">;
+def err_hlsl_too_many_node_inputs : Error<
+   "Node shader '%0' may not have more than one input record">;
+def err_hlsl_node_record_type : Error<
+   "%0 is not valid as a node record type - struct/class required">;
+def err_hlsl_node_record_object : Error<
+   "object %0 may not appear in a node record">;
+def err_hlsl_array_disallowed : Error<
+   "%select{entry parameter|declaration}1 of type %0 may not be an array">;
+def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

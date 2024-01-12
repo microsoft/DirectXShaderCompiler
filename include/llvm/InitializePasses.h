@@ -258,6 +258,7 @@ void initializeLowerStaticGlobalIntoAllocaPass(PassRegistry&);
 void initializeDynamicIndexingVectorToArrayPass(PassRegistry&);
 void initializeMultiDimArrayToOneDimArrayPass(PassRegistry&);
 void initializeResourceToHandlePass(PassRegistry&);
+void initializeLowerWaveMatTypePass(PassRegistry &);
 void initializeSROA_SSAUp_HLSLPass(PassRegistry&);
 void initializeHoistConstantArrayPass(PassRegistry&);
 void initializeDxilLoopUnrollPass(PassRegistry&);

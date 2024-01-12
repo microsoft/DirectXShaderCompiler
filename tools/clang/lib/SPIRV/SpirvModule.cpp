@@ -17,7 +17,8 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}), debugInstructions({}) {}
+      constants({}), variables({}), functions({}), debugInstructions({}),
+      perVertexInterp(false) {}
 
 SpirvModule::~SpirvModule() {
   for (auto *cap : capabilities)
@@ -206,8 +207,8 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
       if (!var->invokeVisitor(visitor))
         return false;
 
-    for (auto *debugInstruction : debugInstructions)
-      if (!debugInstruction->invokeVisitor(visitor))
+    for (size_t i = 0; i < debugInstructions.size(); i++)
+      if (!debugInstructions[i]->invokeVisitor(visitor))
         return false;
 
     for (auto fn : functions)

@@ -1078,8 +1078,8 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     }
 
     return true;
-  }
-  else if (hlsl::IsHLSLResourceType(QualTy) || hlsl::IsHLSLStreamOutputType(QualTy)) {
+  } else if (hlsl::IsHLSLResourceType(QualTy) || hlsl::IsHLSLNodeType(QualTy) ||
+             hlsl::IsHLSLStreamOutputType(QualTy)) {
     // Should appear as having no members rather than exposing our internal handles.
     return true;
   }

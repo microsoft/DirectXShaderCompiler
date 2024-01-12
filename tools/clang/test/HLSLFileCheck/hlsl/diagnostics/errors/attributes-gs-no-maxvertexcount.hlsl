@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
 
-// CHECK: :16:6: error: GS entry point must have the maxvertexcount attribute
+// CHECK: error: geometry entry point must have a valid maxvertexcount attribute
 
 struct GsOut {
     float4 pos : SV_Position;

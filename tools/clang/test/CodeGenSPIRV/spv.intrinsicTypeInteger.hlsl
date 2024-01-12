@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -spirv
+// RUN: %dxc -T ps_6_0 -E main -spirv -fcgl  %s -spirv | FileCheck %s
 
 [[vk::ext_type_def(0, 21)]]
 void createTypeInt([[vk::ext_literal]] int sizeInBits,

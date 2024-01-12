@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3   -verify %s
+// RUN: %dxc -Tps_6_0   -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_2_0 matrix-assignments.hlsl
@@ -35,6 +36,7 @@ void fn3(inout float3 val)
   val.y += 2;
 }
 
+[shader("pixel")]
 float4 main() : SV_Target {
 
   float2 f2;

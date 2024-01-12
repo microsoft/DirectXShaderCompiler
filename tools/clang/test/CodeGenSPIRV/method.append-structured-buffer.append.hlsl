@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
     float    a;
@@ -13,32 +13,32 @@ AppendStructuredBuffer<S>      buffer2;
 ConsumeStructuredBuffer<float4> buffer3;
 
 void main(float4 vec: A) {
-// CHECK:      [[counter:%\d+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer1 %uint_0
-// CHECK-NEXT: [[index:%\d+]] = OpAtomicIAdd %int [[counter]] %uint_1 %uint_0 %int_1
-// CHECK-NEXT: [[buffer1:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %buffer1 %uint_0 [[index]]
-// CHECK-NEXT: [[vec:%\d+]] = OpLoad %v4float %vec
+// CHECK:      [[counter:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer1 %uint_0
+// CHECK-NEXT: [[index:%[0-9]+]] = OpAtomicIAdd %int [[counter]] %uint_1 %uint_0 %int_1
+// CHECK-NEXT: [[buffer1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float %buffer1 %uint_0 [[index]]
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpLoad %v4float %vec
 // CHECK-NEXT: OpStore [[buffer1]] [[vec]]
     buffer1.Append(vec);
 
     S s; // Will use a separate S type without layout decorations
 
-// CHECK-NEXT: [[counter:%\d+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer2 %uint_0
-// CHECK-NEXT: [[index:%\d+]] = OpAtomicIAdd %int [[counter]] %uint_1 %uint_0 %int_1
+// CHECK-NEXT: [[counter_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int %counter_var_buffer2 %uint_0
+// CHECK-NEXT: [[index_0:%[0-9]+]] = OpAtomicIAdd %int [[counter_0]] %uint_1 %uint_0 %int_1
 
-// CHECK-NEXT: [[buffer2:%\d+]] = OpAccessChain %_ptr_Uniform_S %buffer2 %uint_0 [[index]]
-// CHECK-NEXT: [[s:%\d+]] = OpLoad %S_0 %s
+// CHECK-NEXT: [[buffer2:%[0-9]+]] = OpAccessChain %_ptr_Uniform_S %buffer2 %uint_0 [[index_0]]
+// CHECK-NEXT: [[s:%[0-9]+]] = OpLoad %S_0 %s
 
-// CHECK-NEXT: [[s_a:%\d+]] = OpCompositeExtract %float [[s]] 0
-// CHECK-NEXT: [[s_b:%\d+]] = OpCompositeExtract %v3float [[s]] 1
-// CHECK-NEXT: [[s_c:%\d+]] = OpCompositeExtract %mat2v3float [[s]] 2
+// CHECK-NEXT: [[s_a:%[0-9]+]] = OpCompositeExtract %float [[s]] 0
+// CHECK-NEXT: [[s_b:%[0-9]+]] = OpCompositeExtract %v3float [[s]] 1
+// CHECK-NEXT: [[s_c:%[0-9]+]] = OpCompositeExtract %mat2v3float [[s]] 2
 
-// CHECK-NEXT: [[val:%\d+]] = OpCompositeConstruct %S [[s_a]] [[s_b]] [[s_c]]
+// CHECK-NEXT: [[val:%[0-9]+]] = OpCompositeConstruct %S [[s_a]] [[s_b]] [[s_c]]
 // CHECK-NEXT: OpStore [[buffer2]] [[val]]
     buffer2.Append(s);
 
-// CHECK:           [[buffer1:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %buffer1 %uint_0 {{%\d+}}
-// CHECK:      [[consumed_ptr:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %buffer3 %uint_0 {{%\d+}}
-// CHECK-NEXT:     [[consumed:%\d+]] = OpLoad %v4float [[consumed_ptr]]
-// CHECK-NEXT:                         OpStore [[buffer1]] [[consumed]]
+// CHECK:           [[buffer1_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float %buffer1 %uint_0 {{%[0-9]+}}
+// CHECK:      [[consumed_ptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float %buffer3 %uint_0 {{%[0-9]+}}
+// CHECK-NEXT:     [[consumed:%[0-9]+]] = OpLoad %v4float [[consumed_ptr]]
+// CHECK-NEXT:                         OpStore [[buffer1_0]] [[consumed]]
     buffer1.Append(buffer3.Consume());
 }

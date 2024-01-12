@@ -14,6 +14,7 @@ add_llvm_library(LLVMDXIL
   DxilMetadataHelper.cpp
   DxilModule.cpp
   DxilModuleHelper.cpp
+  DxilNodeProps.cpp
   DxilOperations.cpp
   DxilResource.cpp
   DxilResourceBase.cpp
@@ -30,6 +31,7 @@ add_llvm_library(LLVMDXIL
   DxilUtil.cpp
   DxilUtilDbgInfoAndMisc.cpp
   DxilPDB.cpp
+  DxilWaveMatrix.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -E main -O0 -fvk-allow-rwstructuredbuffer-arrays
+// RUN: %dxc -T ps_6_6 -E main -O0 -fvk-allow-rwstructuredbuffer-arrays  %s -spirv | FileCheck %s
 
 struct PSInput
 {
@@ -20,13 +20,13 @@ void func(RWStructuredBuffer<uint> local) {
 
 float4 main(PSInput input) : SV_TARGET
 {
-// CHECK: [[ac1:%\d+]] = OpAccessChain %_ptr_Uniform_type_ACSBuffer_counter %counter_var_g_rwbuffer {{%\d+}}
-// CHECK: [[ac2:%\d+]] = OpAccessChain %_ptr_Uniform_int [[ac1]] %uint_0
+// CHECK: [[ac1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_ACSBuffer_counter %counter_var_g_rwbuffer {{%[0-9]+}}
+// CHECK: [[ac2:%[0-9]+]] = OpAccessChain %_ptr_Uniform_int [[ac1]] %uint_0
 // CHECK: OpAtomicIAdd %int [[ac2]] %uint_1 %uint_0 %int_1
     func(g_rwbuffer[input.idx]);
 
-// CHECK: [[ac1:%\d+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer {{%\d+}}
-// CHECK: [[ac2:%\d+]] = OpAccessChain %_ptr_Uniform_uint [[ac1]] %int_0 %uint_0
-// CHECK: OpLoad %uint [[ac2]]
+// CHECK: [[ac1_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_RWStructuredBuffer_uint %g_rwbuffer {{%[0-9]+}}
+// CHECK: [[ac2_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint [[ac1_0]] %int_0 %uint_0
+// CHECK: OpLoad %uint [[ac2_0]]
     return g_rwbuffer[input.idx][0];
 }

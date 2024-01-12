@@ -10,14 +10,18 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "dxc/DXIL/DxilConstants.h"
-#include "dxc/DXIL/DxilResourceProperties.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/IR/Constants.h"
 #include <memory>
 #include <string>
 #include <unordered_set>
+
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/IR/IRBuilder.h"
+
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 namespace llvm {
 class Type;
@@ -39,6 +43,7 @@ class DebugLoc;
 class DIGlobalVariable;
 class ConstantInt;
 class SwitchInst;
+class GEPOperator;
 
 ModulePass *createDxilLoadMetadataPass();
 void initializeDxilLoadMetadataPass(llvm::PassRegistry &);
@@ -157,16 +162,30 @@ GetHLSLResourceProperties(llvm::Type *Ty);
 bool IsHLSLResourceType(llvm::Type *Ty);
 bool IsHLSLObjectType(llvm::Type *Ty);
 bool IsHLSLRayQueryType(llvm::Type *Ty);
+bool IsHLSLWaveMatrixType(llvm::Type *Ty,
+                          DXIL::WaveMatrixKind *pKind = nullptr);
 bool IsHLSLResourceDescType(llvm::Type *Ty);
 bool IsResourceSingleComponent(llvm::Type *Ty);
 uint8_t GetResourceComponentCount(llvm::Type *Ty);
 bool IsSplat(llvm::ConstantDataVector *cdv);
+bool IsHLSLNodeIOType(llvm::Type *Ty);
+bool IsHLSLNodeOutputType(llvm::Type *Ty);
+bool IsHLSLNodeOutputArrayType(llvm::Type *Ty);
+bool IsHLSLEmptyNodeOutputType(llvm::Type *Ty);
+bool IsHLSLEmptyNodeOutputArrayType(llvm::Type *Ty);
+bool IsHLSLNodeInputRecordType(llvm::Type *Ty);
+bool IsHLSLRWNodeInputRecordType(llvm::Type *Ty);
+bool IsHLSLNodeOutputRecordType(llvm::Type *Ty);
+bool IsHLSLGSNodeOutputRecordType(llvm::Type *Ty);
+bool IsHLSLNodeRecordType(llvm::Type *Ty);
+bool IsHLSLNodeInputOutputType(llvm::Type *Ty);
 
 llvm::Type *
 StripArrayTypes(llvm::Type *Ty,
                 llvm::SmallVectorImpl<unsigned> *OuterToInnerLengths = nullptr);
 llvm::Type *WrapInArrayTypes(llvm::Type *Ty,
                              llvm::ArrayRef<unsigned> OuterToInnerLengths);
+llvm::Value *MirrorGEP(llvm::GEPOperator *GEP, llvm::Value *NewBasePtr);
 
 llvm::CallInst *TranslateCallRawBufferLoadToBufferLoad(
     llvm::CallInst *CI, llvm::Function *newFunction, hlsl::OP *op);
@@ -189,7 +208,7 @@ llvm::Value *GetConvergentSource(llvm::Value *V);
 /// This can enhance SROA and other transforms that want type-safe pointers,
 /// and enables merging with other getelementptr's.
 llvm::Value *TryReplaceBaseCastWithGep(llvm::Value *V);
-
+bool FunctionHasNoSideEffects(llvm::Instruction *I);
 llvm::Value::user_iterator mdv_users_end(llvm::Value *V);
 llvm::Value::user_iterator mdv_users_begin(llvm::Value *V);
 inline bool mdv_user_empty(llvm::Value *V) {
@@ -200,6 +219,10 @@ inline bool mdv_user_empty(llvm::Value *V) {
 /// These allocas hold on to values that do not contribute to the
 /// shader's results.
 bool DeleteDeadAllocas(llvm::Function &F);
+
+llvm::Value *GEPIdxToOffset(llvm::GetElementPtrInst *GEP,
+                            llvm::IRBuilder<> &Builder, hlsl::OP *OP,
+                            const llvm::DataLayout &DL);
 } // namespace dxilutil
 
 } // namespace hlsl

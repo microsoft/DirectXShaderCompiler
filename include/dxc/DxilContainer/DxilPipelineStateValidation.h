@@ -132,6 +132,7 @@ enum class PSVShaderKind : uint8_t // DXIL::ShaderKind
   Callable,
   Mesh,
   Amplification,
+  Node,
   Invalid,
 };
 
@@ -160,6 +161,10 @@ struct PSVRuntimeInfo2 : public PSVRuntimeInfo1 {
   uint32_t NumThreadsX;
   uint32_t NumThreadsY;
   uint32_t NumThreadsZ;
+};
+
+struct PSVRuntimeInfo3 : public PSVRuntimeInfo2 {
+  uint32_t EntryFunctionName;
 };
 
 enum class PSVResourceType {
@@ -428,7 +433,7 @@ public:
   }
 };
 
-#define MAX_PSV_VERSION 2
+#define MAX_PSV_VERSION 3
 
 struct PSVInitInfo {
   PSVInitInfo(uint32_t psvVersion) : PSVVersion(psvVersion) {}
@@ -445,17 +450,19 @@ struct PSVInitInfo {
   uint8_t SigPatchConstOrPrimVectors = 0;
   uint8_t SigOutputVectors[PSV_GS_MAX_STREAMS] = {0, 0, 0, 0};
 
-  static_assert(MAX_PSV_VERSION == 2, "otherwise this needs updating.");
+  static_assert(MAX_PSV_VERSION == 3, "otherwise this needs updating.");
   uint32_t RuntimeInfoSize() const {
     switch (PSVVersion) {
     case 0:
       return sizeof(PSVRuntimeInfo0);
     case 1:
       return sizeof(PSVRuntimeInfo1);
+    case 2:
+      return sizeof(PSVRuntimeInfo2);
     default:
       break;
     }
-    return sizeof(PSVRuntimeInfo2);
+    return sizeof(PSVRuntimeInfo3);
   }
   uint32_t ResourceBindInfoSize() const {
     if (PSVVersion < 2)
@@ -470,6 +477,7 @@ class DxilPipelineStateValidation {
   PSVRuntimeInfo0 *m_pPSVRuntimeInfo0 = nullptr;
   PSVRuntimeInfo1 *m_pPSVRuntimeInfo1 = nullptr;
   PSVRuntimeInfo2 *m_pPSVRuntimeInfo2 = nullptr;
+  PSVRuntimeInfo3 *m_pPSVRuntimeInfo3 = nullptr;
   uint32_t m_uResourceCount = 0;
   uint32_t m_uPSVResourceBindInfoSize = 0;
   void *m_pPSVResourceBindInfo = nullptr;
@@ -574,6 +582,8 @@ public:
   PSVRuntimeInfo1 *GetPSVRuntimeInfo1() const { return m_pPSVRuntimeInfo1; }
 
   PSVRuntimeInfo2 *GetPSVRuntimeInfo2() const { return m_pPSVRuntimeInfo2; }
+
+  PSVRuntimeInfo3 *GetPSVRuntimeInfo3() const { return m_pPSVRuntimeInfo3; }
 
   uint32_t GetBindCount() const { return m_uResourceCount; }
 
@@ -716,6 +726,11 @@ public:
       return true;
     }
     return false;
+  }
+  const char *GetEntryFunctionName() const {
+    return m_pPSVRuntimeInfo3
+               ? m_StringTable.Get(m_pPSVRuntimeInfo3->EntryFunctionName)
+               : "";
   }
 };
 
@@ -877,6 +892,8 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
   AssignDerived(&m_pPSVRuntimeInfo1, m_pPSVRuntimeInfo0,
                 m_uPSVRuntimeInfoSize); // failure ok
   AssignDerived(&m_pPSVRuntimeInfo2, m_pPSVRuntimeInfo0,
+                m_uPSVRuntimeInfoSize); // failure ok
+  AssignDerived(&m_pPSVRuntimeInfo3, m_pPSVRuntimeInfo0,
                 m_uPSVRuntimeInfoSize); // failure ok
 
   // In RWMode::CalcSize, use temp runtime info to hold needed values from

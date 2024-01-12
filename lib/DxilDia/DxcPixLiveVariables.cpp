@@ -29,6 +29,65 @@
 
 #include <unordered_map>
 
+// If a function is inlined, then the scope of variables within that function
+// will be that scope. Since many such callers may inline the function, we
+// actually need a "scope" that's unique to each "instance" of that function.
+// The caller's scope would be unique, but would have the undesirable
+// side-effect of smushing all of the function's variables together with the
+// caller's variables, at least from the point of view of PIX. The pair of
+// scopes (the function's and the caller's) is both unique to that particular
+// inlining, and distinct from the caller's scope by itself.
+class UniqueScopeForInlinedFunctions {
+  llvm::DIScope *FunctionScope;
+  llvm::DIScope *InlinedAtScope;
+
+public:
+  bool Valid() const { return FunctionScope != nullptr; }
+  void AscendScopeHierarchy() {
+    // DINamespace has a getScope member (that hides DIScope's)
+    // that returns a DIScope directly, but if that namespace
+    // is at file-level scope, it will return nullptr.
+    if (auto Namespace = llvm::dyn_cast<llvm::DINamespace>(FunctionScope)) {
+      if (auto *ContainingScope = Namespace->getScope()) {
+        if (FunctionScope == InlinedAtScope)
+          InlinedAtScope = FunctionScope = ContainingScope;
+        else
+          FunctionScope = ContainingScope;
+        return;
+      }
+    }
+    const llvm::DITypeIdentifierMap EmptyMap;
+    if (FunctionScope == InlinedAtScope)
+      InlinedAtScope = FunctionScope =
+          FunctionScope->getScope().resolve(EmptyMap);
+    else
+      FunctionScope = FunctionScope->getScope().resolve(EmptyMap);
+  }
+
+  static UniqueScopeForInlinedFunctions Create(llvm::DebugLoc const &DbgLoc,
+                                               llvm::DIScope *FunctionScope) {
+    UniqueScopeForInlinedFunctions ret;
+    ret.FunctionScope = FunctionScope;
+    ret.InlinedAtScope =
+        llvm::dyn_cast_or_null<llvm::DIScope>(DbgLoc.getInlinedAtScope());
+    return ret;
+  }
+
+  bool operator==(const UniqueScopeForInlinedFunctions &o) const {
+    return FunctionScope == o.FunctionScope &&
+           InlinedAtScope == o.InlinedAtScope;
+  }
+
+  std::size_t operator()(const UniqueScopeForInlinedFunctions &k) const {
+    using std::hash;
+    using std::size_t;
+    const uint64_t f = reinterpret_cast<uint64_t>(k.FunctionScope);
+    const uint64_t s = reinterpret_cast<uint64_t>(k.InlinedAtScope);
+    std::hash<uint64_t> h;
+    return (h(f) ^ h(s));
+  }
+};
+
 // ValidateDbgDeclare ensures that all of the bits in
 // [FragmentSizeInBits, FragmentOffsetInBits) are currently
 // not assigned to a dxil alloca register -- i.e., it
@@ -61,7 +120,9 @@ struct dxil_debug_info::LiveVariables::Impl {
   using VariableInfoMap =
       std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableInfo>>;
 
-  using LiveVarsMap = std::unordered_map<llvm::DIScope *, VariableInfoMap>;
+  using LiveVarsMap =
+      std::unordered_map<UniqueScopeForInlinedFunctions, VariableInfoMap,
+                         UniqueScopeForInlinedFunctions>;
 
   IMalloc *m_pMalloc;
   DxcPixDxilDebugInfo *m_pDxilDebugInfo;
@@ -115,8 +176,9 @@ void dxil_debug_info::LiveVariables::Impl::Init_DbgDeclare(
     return;
   }
 
-  auto *S = Variable->getScope();
-  if (S == nullptr) {
+  auto S = UniqueScopeForInlinedFunctions::Create(DbgDeclare->getDebugLoc(),
+                                                  Variable->getScope());
+  if (!S.Valid()) {
     return;
   }
 
@@ -204,13 +266,12 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
     return E_FAIL;
   }
 
-  llvm::DIScope *S = DL->getScope();
-  if (S == nullptr) {
+  auto S = UniqueScopeForInlinedFunctions::Create(DL, DL->getScope());
+  if (!S.Valid()) {
     return E_FAIL;
   }
 
-  const llvm::DITypeIdentifierMap EmptyMap;
-  while (S != nullptr) {
+  while (S.Valid()) {
     auto it = m_pImpl->m_LiveVarsDbgDeclare.find(S);
     if (it != m_pImpl->m_LiveVarsDbgDeclare.end()) {
       for (const auto &VarAndInfo : it->second) {
@@ -232,7 +293,7 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
         LiveVars.emplace_back(VarAndInfo.second.get());
       }
     }
-    S = S->getScope().resolve(EmptyMap);
+    S.AscendScopeHierarchy();
   }
   for (const auto &VarAndInfo : m_pImpl->m_LiveGlobalVarsDbgDeclare) {
     if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {

@@ -251,5 +251,19 @@ bool PreciseVisitor::visit(SpirvExtInst *inst) {
   return true;
 }
 
+bool PreciseVisitor::visit(SpirvFunctionCall *call) {
+  // If a formal parameter for the function is precise, then the corresponding
+  // actual parameter should be marked as precise.
+  auto function = call->getFunction();
+  for (uint32_t i = 0; i < call->getArgs().size(); ++i) {
+    auto formalParameter = function->getParameters()[i];
+    if (!formalParameter->isPrecise()) {
+      continue;
+    }
+    call->getArgs()[i]->setPrecise();
+  }
+  return true;
+}
+
 } // end namespace spirv
 } // end namespace clang

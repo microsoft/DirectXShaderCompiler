@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // Note: The proper way to translate HLSL 'discard' to SPIR-V is using the
 // 'OpDemoteToHelperInvocationEXT' instruction, which requires the

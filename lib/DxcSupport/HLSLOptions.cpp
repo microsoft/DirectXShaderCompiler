@@ -973,6 +973,20 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.ValVerMinor = (unsigned long)minor64;
   }
 
+  llvm::StringRef valSelectStr = Args.getLastArgValue(OPT_select_validator);
+  if (!valSelectStr.empty()) {
+    opts.SelectValidator = llvm::StringSwitch<ValidatorSelection>(valSelectStr)
+                               .Case("auto", ValidatorSelection::Auto)
+                               .Case("internal", ValidatorSelection::Internal)
+                               .Case("external", ValidatorSelection::External)
+                               .Default(ValidatorSelection::Invalid);
+    if (opts.SelectValidator == ValidatorSelection::Invalid) {
+      errors << "Unsupported value '" << valSelectStr
+             << "for -select-validator option.";
+      return 1;
+    }
+  }
+
   if (opts.IsLibraryProfile() && Minor == 0xF) {
     if (opts.ValVerMajor != UINT_MAX && opts.ValVerMajor != 0) {
       errors << "Offline library profile cannot be used with non-zero "

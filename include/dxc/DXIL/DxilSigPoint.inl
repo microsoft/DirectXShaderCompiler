@@ -128,7 +128,11 @@ const SigPoint SigPoint::ms_SigPoints[kNumSigPointRecords] = {
   ROW(ShadingRate, NA, SV _64, NA, NA, SV _64, SV _64, NA, NA, SV _64, SV _64, \
       SV _64, NA, SV _64, SV _64, NA, NA, NA, NA, SV, NA)                      \
   ROW(CullPrimitive, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA,       \
-      NotInSig, NA, NA, NA, NA, NotPacked, NA)
+      NotInSig, NA, NA, NA, NA, NotPacked, NA)                                 \
+  ROW(StartVertexLocation, NotInSig _68, NA, NA, NA, NA, NA, NA, NA, NA, NA,   \
+      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)                                  \
+  ROW(StartInstanceLocation, NotInSig _68, NA, NA, NA, NA, NA, NA, NA, NA, NA, \
+      NA, NA, NA, NA, NA, NA, NA, NA, NA, NA)
 // INTERPRETATION-TABLE:END
 
 const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(
@@ -138,6 +142,7 @@ const VersionedSemanticInterpretation SigPoint::ms_SemanticInterpretationTable[(
 #define _61 , 6, 1
 #define _64 , 6, 4
 #define _65 , 6, 5
+#define _68 , 6, 8
 #define DO_ROW(SEM, VSIn, VSOut, PCIn, HSIn, HSCPIn, HSCPOut, PCOut, DSIn,     \
                DSCPIn, DSOut, GSVIn, GSIn, GSOut, PSIn, PSOut, CSIn, MSIn,     \
                MSOut, MSPOut, ASIn)                                            \

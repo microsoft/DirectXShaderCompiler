@@ -1,10 +1,10 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: [[glsl:%\d+]] = OpExtInstImport "GLSL.std.450"
+// CHECK: [[glsl:%[0-9]+]] = OpExtInstImport "GLSL.std.450"
 
 void main() {
-// CHECK:      [[swizzle:%\d+]] = OpLoad %v3int %v3i
-// CHECK-NEXT:  [[vector:%\d+]] = OpVectorShuffle %v3int [[swizzle]] {{%\d+}} 3 4 2
+// CHECK:      [[swizzle:%[0-9]+]] = OpLoad %v3int %v3i
+// CHECK-NEXT:  [[vector:%[0-9]+]] = OpVectorShuffle %v3int [[swizzle]] {{%[0-9]+}} 3 4 2
 // CHECK-NEXT:                    OpStore %v3i [[vector]]
   float2 v2f;
   int3 v3i = 0;

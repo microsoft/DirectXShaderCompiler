@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // Execution scope : Workgroup = 0x2 = 2
 // Memory scope : Device = 0x1 = 1

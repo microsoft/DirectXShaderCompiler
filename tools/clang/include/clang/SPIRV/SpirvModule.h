@@ -164,6 +164,10 @@ public:
     return entryPoints;
   }
 
+  void setPerVertexInterpMode(bool b) { perVertexInterp = b; }
+
+  bool isPerVertexInterpMode() const { return perVertexInterp; }
+
 private:
   // Use a set for storing capabilities. This will ensure there are no duplicate
   // capabilities. Although the set stores pointers, the provided
@@ -209,6 +213,8 @@ private:
 
   // Keep all rich DebugInfo instructions.
   llvm::SmallVector<SpirvDebugInstruction *, 32> debugInstructions;
+  // Whether current module is in pervertex interpolation mode.
+  bool perVertexInterp;
 };
 
 } // end namespace spirv

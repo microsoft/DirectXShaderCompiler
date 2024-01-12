@@ -20,6 +20,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 
+#include "..\DxilPIXPasses\PixPassHelpers.h"
 #include "DxilDia.h"
 #include "DxilDiaEnumTables.h"
 #include "DxilDiaTable.h"
@@ -63,7 +64,9 @@ void dxil_dia::Session::Init(std::shared_ptr<llvm::LLVMContext> context,
 
   // Build up a linear list of instructions. The index will be used as the
   // RVA.
-  for (llvm::Function &fn : m_module->functions()) {
+  std::vector<llvm::Function *> allInstrumentableFunctions =
+      PIXPassHelpers::GetAllInstrumentableFunctions(*m_dxilModule.get());
+  for (auto fn : allInstrumentableFunctions) {
     for (llvm::inst_iterator it = inst_begin(fn), end = inst_end(fn); it != end;
          ++it) {
       llvm::Instruction &i = *it;

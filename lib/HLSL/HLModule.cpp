@@ -364,11 +364,14 @@ bool HLModule::IsPatchConstantShader(llvm::Function *F) {
 bool HLModule::IsComputeShader(llvm::Function *F) {
   return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsCS();
 }
+bool HLModule::IsNodeShader(llvm::Function *F) {
+  return HasDxilFunctionProps(F) && GetDxilFunctionProps(F).IsNode();
+}
 bool HLModule::IsEntryThatUsesSignatures(llvm::Function *F) {
   auto propIter = m_DxilFunctionPropsMap.find(F);
   if (propIter != m_DxilFunctionPropsMap.end()) {
     DxilFunctionProps &props = *(propIter->second);
-    return props.IsGraphics() || props.IsCS();
+    return props.IsGraphics() || props.IsCS() || props.IsNode();
   }
   // Otherwise, return true if patch constant function
   return IsPatchConstantShader(F);
@@ -511,6 +514,8 @@ void HLModule::LoadHLMetadata() {
       SetAutoBindingSpace(
           DxilMDHelper::ConstMDToUint32(options->getOperand(1)->getOperand(0)));
   }
+
+  m_pOP->InitWithMinPrecision(m_Options.bUseMinPrecision);
 
   m_pMDHelper->LoadRootSignature(m_SerializedRootSignature);
 

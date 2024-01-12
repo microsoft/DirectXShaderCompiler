@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability PhysicalStorageBufferAddresses
 // CHECK: OpExtension "SPV_KHR_physical_storage_buffer"
@@ -6,40 +6,33 @@
 
 uint64_t Address;
 float4 main() : SV_Target0 {
-  // CHECK:      [[addr:%\d+]] = OpLoad %ulong
-  // CHECK-NEXT: [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_float [[addr]]
-  // CHECK-NEXT: [[load:%\d+]] = OpLoad %float [[buf]] Aligned 4
+  // CHECK:      [[addr:%[0-9]+]] = OpLoad %ulong
+  // CHECK-NEXT: [[buf:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_float [[addr]]
+  // CHECK-NEXT: [[load:%[0-9]+]] = OpLoad %float [[buf]] Aligned 4
   // CHECK-NEXT: OpStore %x [[load]]
   float x = vk::RawBufferLoad<float>(Address);
 
-  // CHECK:      [[addr:%\d+]] = OpLoad %ulong
-  // CHECK-NEXT: [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_double [[addr]]
-  // CHECK-NEXT: [[load:%\d+]] = OpLoad %double [[buf]] Aligned 8
-  // CHECK-NEXT: OpStore %y [[load]]
+  // CHECK:      [[addr_0:%[0-9]+]] = OpLoad %ulong
+  // CHECK-NEXT: [[buf_0:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_double [[addr_0]]
+  // CHECK-NEXT: [[load_0:%[0-9]+]] = OpLoad %double [[buf_0]] Aligned 8
+  // CHECK-NEXT: OpStore %y [[load_0]]
   double y = vk::RawBufferLoad<double>(Address, 8);
 
-  // CHECK:      [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_uint
-  // CHECK-NEXT: [[load:%\d+]] = OpLoad %uint [[buf]] Aligned 4
-  // CHECK-NEXT: [[z:%\d+]] = OpINotEqual %bool [[load]] %uint_0
+  // CHECK:      [[buf_1:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_uint
+  // CHECK-NEXT: [[load_1:%[0-9]+]] = OpLoad %uint [[buf_1]] Aligned 4
+  // CHECK-NEXT: [[z:%[0-9]+]] = OpINotEqual %bool [[load_1]] %uint_0
   // CHECK-NEXT: OpStore %z [[z]]
   bool z = vk::RawBufferLoad<bool>(Address, 4);
 
-  // CHECK:      [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_v2float
-  // CHECK-NEXT: [[load:%\d+]] = OpLoad %v2float [[buf]] Aligned 8
-  // CHECK-NEXT: OpStore %w [[load]]
+  // CHECK:      [[buf_2:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_v2float
+  // CHECK-NEXT: [[load_2:%[0-9]+]] = OpLoad %v2float [[buf_2]] Aligned 8
+  // CHECK-NEXT: OpStore %w [[load_2]]
   float2 w = vk::RawBufferLoad<float2>(Address, 8);
 
-  // CHECK:      [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_uint
-  // CHECK-NEXT: [[load:%\d+]] = OpLoad %uint [[buf]] Aligned 4
-  // CHECK-NEXT: OpStore %v [[load]]
+  // CHECK:      [[buf_3:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_uint
+  // CHECK-NEXT: [[load_3:%[0-9]+]] = OpLoad %uint [[buf_3]] Aligned 4
+  // CHECK-NEXT: OpStore %v [[load_3]]
   uint v = vk::RawBufferLoad(Address);
-
-  // CHECK:      [[addr:%\d+]] = OpLoad %ulong
-  // CHECK-NEXT: [[buf:%\d+]] = OpBitcast %_ptr_PhysicalStorageBuffer_float [[addr]]
-  // CHECK-NEXT: [[load:%\d+]] = OpLoad %float [[buf]] Aligned 4
-  // CHECK-NEXT: OpStore %u [[load]]
-  const uint alignment = 4;
-  float u = vk::RawBufferLoad<float>(Address, alignment);
 
   return float4(w.x, x, y, z);
 }

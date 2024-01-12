@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_2 -E main -enable-16bit-types -fvk-use-dx-layout
+// RUN: %dxc -T cs_6_2 -E main -enable-16bit-types -fvk-use-dx-layout -fcgl  %s -spirv | FileCheck %s
 
 ByteAddressBuffer buf;
 RWByteAddressBuffer buf2;
@@ -114,9 +114,9 @@ void main(uint3 tid : SV_DispatchThreadId) {
 //  ...
 // }
 
-// CHECK:    [[tidX:%\d+]] = OpAccessChain %_ptr_Function_uint %tid %int_0
-// CHECK: [[basePtr:%\d+]] = OpLoad %uint [[tidX]]
-// CHECK:   [[index:%\d+]] = OpShiftRightLogical %uint [[basePtr]] %uint_2
+// CHECK:    [[tidX:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %tid %int_0
+// CHECK: [[basePtr:%[0-9]+]] = OpLoad %uint [[tidX]]
+// CHECK:   [[index:%[0-9]+]] = OpShiftRightLogical %uint [[basePtr]] %uint_2
 //
 // Access to member 0 starts at offset 0.
 //
@@ -146,7 +146,7 @@ void main(uint3 tid : SV_DispatchThreadId) {
 //
 // Member 0 of the second struct starts at offset 64 bytes (16 words).
 //
-// CHECK: [[secondStructPtr:%\d+]] = OpIAdd %uint [[basePtr]] %uint_64
+// CHECK: [[secondStructPtr:%[0-9]+]] = OpIAdd %uint [[basePtr]] %uint_64
 //
 // The rest of the members have offsets similar to the previous struct,
 // But the base addres is different.

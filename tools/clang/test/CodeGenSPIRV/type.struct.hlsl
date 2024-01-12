@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpName %N "N"
 
@@ -13,7 +13,7 @@
 // CHECK-NEXT: OpMemberName %T 2 "z"
 
 // CHECK:      %X = OpTypeStruct %v4float %v3float
-// CHECK:      %_struct_[[num:\d+]] = OpTypeStruct %v2float
+// CHECK:      %_struct_[[num:[0-9]+]] = OpTypeStruct %v2float
 // CHECK:      %type_MyCBuffer = OpTypeStruct %X %_struct_[[num]]
 cbuffer MyCBuffer {
   struct X {

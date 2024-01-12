@@ -1352,6 +1352,13 @@ Metadata *DxilMDHelper::EmitDxilFieldAnnotation(const DxilFieldAnnotation &FA) {
       MDVals.emplace_back(Uint32ToConstMD(FA.GetBitFieldWidth()));
     }
   }
+
+  if (FA.GetVectorSize() &&
+      DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 8) >= 0) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilFieldAnnotationVectorSizeTag));
+    MDVals.emplace_back(Uint32ToConstMD(FA.GetVectorSize()));
+  }
+
   return MDNode::get(m_Ctx, MDVals);
 }
 
@@ -1425,6 +1432,9 @@ void DxilMDHelper::LoadDxilFieldAnnotation(const MDOperand &MDO,
       }
       FA.SetBitFieldWidth(ConstMDToUint32(MDO));
       break;
+    case kDxilFieldAnnotationVectorSizeTag:
+      FA.SetVectorSize(ConstMDToUint32(MDO));
+      break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");
       m_bExtraMetadata = true;
@@ -1453,16 +1463,19 @@ DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
   DXIL::ShaderKind shaderKind =
       static_cast<DXIL::ShaderKind>(ConstMDToUint32(pProps->getOperand(idx++)));
 
+  auto DeserializeNumThreads = [&]() {
+    props->numThreads[0] = ConstMDToUint32(pProps->getOperand(idx++));
+    props->numThreads[1] = ConstMDToUint32(pProps->getOperand(idx++));
+    props->numThreads[2] = ConstMDToUint32(pProps->getOperand(idx++));
+  };
+
   bool bRayAttributes = false;
   props->shaderKind = shaderKind;
   switch (shaderKind) {
   case DXIL::ShaderKind::Compute:
-    props->ShaderProps.CS.numThreads[0] =
-        ConstMDToUint32(pProps->getOperand(idx++));
-    props->ShaderProps.CS.numThreads[1] =
-        ConstMDToUint32(pProps->getOperand(idx++));
-    props->ShaderProps.CS.numThreads[2] =
-        ConstMDToUint32(pProps->getOperand(idx++));
+    DeserializeNumThreads();
+    if (props->IsNode())
+      DeserializeNodeProps(pProps, idx, props);
     break;
   case DXIL::ShaderKind::Geometry:
     props->ShaderProps.GS.inputPrimitive =
@@ -1518,12 +1531,7 @@ DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
           ConstMDToUint32(pProps->getOperand(idx++));
     break;
   case DXIL::ShaderKind::Mesh:
-    props->ShaderProps.MS.numThreads[0] =
-        ConstMDToUint32(pProps->getOperand(idx++));
-    props->ShaderProps.MS.numThreads[1] =
-        ConstMDToUint32(pProps->getOperand(idx++));
-    props->ShaderProps.MS.numThreads[2] =
-        ConstMDToUint32(pProps->getOperand(idx++));
+    DeserializeNumThreads();
     props->ShaderProps.MS.maxVertexCount =
         ConstMDToUint32(pProps->getOperand(idx++));
     props->ShaderProps.MS.maxPrimitiveCount =
@@ -1534,14 +1542,14 @@ DxilMDHelper::LoadDxilFunctionProps(const MDTuple *pProps,
         ConstMDToUint32(pProps->getOperand(idx++));
     break;
   case DXIL::ShaderKind::Amplification:
-    props->ShaderProps.AS.numThreads[0] =
-        ConstMDToUint32(pProps->getOperand(idx++));
-    props->ShaderProps.AS.numThreads[1] =
-        ConstMDToUint32(pProps->getOperand(idx++));
-    props->ShaderProps.AS.numThreads[2] =
-        ConstMDToUint32(pProps->getOperand(idx++));
+    DeserializeNumThreads();
     props->ShaderProps.AS.payloadSizeInBytes =
         ConstMDToUint32(pProps->getOperand(idx++));
+    break;
+  case DXIL::ShaderKind::Node:
+    DeserializeNumThreads();
+    // Node specific attributes
+    DeserializeNodeProps(pProps, idx, props);
     break;
   default:
     break;
@@ -1575,15 +1583,17 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
         Uint32ToConstMD(static_cast<unsigned>(props.shaderKind)));
   }
 
+  if (props.IsNode())
+    EmitDxilNodeState(MDVals, props);
+
   switch (props.shaderKind) {
-  // Compute shader.
+    // Compute shader.
   case DXIL::ShaderKind::Compute: {
-    auto &CS = props.ShaderProps.CS;
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNumThreadsTag));
     vector<Metadata *> NumThreadVals;
-    NumThreadVals.emplace_back(Uint32ToConstMD(CS.numThreads[0]));
-    NumThreadVals.emplace_back(Uint32ToConstMD(CS.numThreads[1]));
-    NumThreadVals.emplace_back(Uint32ToConstMD(CS.numThreads[2]));
+    NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[0]));
+    NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[1]));
+    NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[2]));
     MDVals.emplace_back(MDNode::get(m_Ctx, NumThreadVals));
 
     if (props.waveSize != 0) {
@@ -1593,7 +1603,7 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
       MDVals.emplace_back(MDNode::get(m_Ctx, WaveSizeVal));
     }
   } break;
-  // Geometry shader.
+    // Geometry shader.
   case DXIL::ShaderKind::Geometry: {
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilGSStateTag));
     DXIL::PrimitiveTopology topo = DXIL::PrimitiveTopology::Undefined;
@@ -1615,14 +1625,14 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
                         topo, props.ShaderProps.GS.instanceCount);
     MDVals.emplace_back(pMDTuple);
   } break;
-  // Domain shader.
+    // Domain shader.
   case DXIL::ShaderKind::Domain: {
     auto &DS = props.ShaderProps.DS;
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilDSStateTag));
     MDTuple *pMDTuple = EmitDxilDSState(DS.domain, DS.inputControlPoints);
     MDVals.emplace_back(pMDTuple);
   } break;
-  // Hull shader.
+    // Hull shader.
   case DXIL::ShaderKind::Hull: {
     auto &HS = props.ShaderProps.HS;
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilHSStateTag));
@@ -1631,7 +1641,7 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
         HS.domain, HS.partition, HS.outputPrimitive, HS.maxTessFactor);
     MDVals.emplace_back(pMDTuple);
   } break;
-  // Raytracing.
+    // Raytracing.
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit: {
     MDVals.emplace_back(Uint32ToConstMD(kDxilRayPayloadSizeTag));
@@ -1652,16 +1662,29 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
   case DXIL::ShaderKind::Mesh: {
     auto &MS = props.ShaderProps.MS;
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilMSStateTag));
-    MDTuple *pMDTuple =
-        EmitDxilMSState(MS.numThreads, MS.maxVertexCount, MS.maxPrimitiveCount,
-                        MS.outputTopology, MS.payloadSizeInBytes);
+    MDTuple *pMDTuple = EmitDxilMSState(props.numThreads, MS.maxVertexCount,
+                                        MS.maxPrimitiveCount, MS.outputTopology,
+                                        MS.payloadSizeInBytes);
     MDVals.emplace_back(pMDTuple);
   } break;
   case DXIL::ShaderKind::Amplification: {
     auto &AS = props.ShaderProps.AS;
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilASStateTag));
-    MDTuple *pMDTuple = EmitDxilASState(AS.numThreads, AS.payloadSizeInBytes);
+    MDTuple *pMDTuple =
+        EmitDxilASState(props.numThreads, AS.payloadSizeInBytes);
     MDVals.emplace_back(pMDTuple);
+  } break;
+  case DXIL::ShaderKind::Node: {
+    // The Node specific properties have already been handled by
+    // EmitDxilNodeState function above. Here we emit the metadata for those
+    // Node shader attributes that are shared with other shader types (only CS
+    // for now)
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNumThreadsTag));
+    vector<Metadata *> NumThreadVals;
+    NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[0]));
+    NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[1]));
+    NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[2]));
+    MDVals.emplace_back(MDNode::get(m_Ctx, NumThreadVals));
   } break;
   default:
     break;
@@ -1705,6 +1728,7 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     props.shaderKind = DXIL::ShaderKind::Library;
   }
 
+  bool hasNodeTag = false;
   for (unsigned iNode = 0; iNode < pTupleMD->getNumOperands(); iNode += 2) {
     unsigned Tag = DxilMDHelper::ConstMDToUint32(pTupleMD->getOperand(iNode));
     const MDOperand &MDO = pTupleMD->getOperand(iNode + 1);
@@ -1719,12 +1743,12 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     } break;
 
     case DxilMDHelper::kDxilNumThreadsTag: {
-      DXASSERT(props.IsCS(), "else invalid shader kind");
-      auto &CS = props.ShaderProps.CS;
+      DXASSERT(props.IsCS() || props.shaderKind == DXIL::ShaderKind::Node,
+               "else invalid shader kind");
       MDNode *pNode = cast<MDNode>(MDO.get());
-      CS.numThreads[0] = ConstMDToUint32(pNode->getOperand(0));
-      CS.numThreads[1] = ConstMDToUint32(pNode->getOperand(1));
-      CS.numThreads[2] = ConstMDToUint32(pNode->getOperand(2));
+      props.numThreads[0] = ConstMDToUint32(pNode->getOperand(0));
+      props.numThreads[1] = ConstMDToUint32(pNode->getOperand(1));
+      props.numThreads[2] = ConstMDToUint32(pNode->getOperand(2));
     } break;
 
     case DxilMDHelper::kDxilGSStateTag: {
@@ -1787,23 +1811,90 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     case DxilMDHelper::kDxilMSStateTag: {
       DXASSERT(props.IsMS(), "else invalid shader kind");
       auto &MS = props.ShaderProps.MS;
-      LoadDxilMSState(MDO, MS.numThreads, MS.maxVertexCount,
+      LoadDxilMSState(MDO, props.numThreads, MS.maxVertexCount,
                       MS.maxPrimitiveCount, MS.outputTopology,
                       MS.payloadSizeInBytes);
     } break;
     case DxilMDHelper::kDxilASStateTag: {
       DXASSERT(props.IsAS(), "else invalid shader kind");
       auto &AS = props.ShaderProps.AS;
-      LoadDxilASState(MDO, AS.numThreads, AS.payloadSizeInBytes);
+      LoadDxilASState(MDO, props.numThreads, AS.payloadSizeInBytes);
     } break;
     case DxilMDHelper::kDxilWaveSizeTag: {
-      DXASSERT(props.IsCS(), "else invalid shader kind");
+      DXASSERT(props.IsCS() || props.IsNode(), "else invalid shader kind");
       MDNode *pNode = cast<MDNode>(MDO.get());
       props.waveSize = ConstMDToUint32(pNode->getOperand(0));
     } break;
     case DxilMDHelper::kDxilEntryRootSigTag: {
       MDNode *pNode = cast<MDNode>(MDO.get());
       LoadSerializedRootSignature(pNode, props.serializedRootSignature, m_Ctx);
+    } break;
+    case DxilMDHelper::kDxilNodeLaunchTypeTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      Node.LaunchType = static_cast<DXIL::NodeLaunchType>(ConstMDToUint32(MDO));
+    } break;
+    case DxilMDHelper::kDxilNodeIsProgramEntryTag: {
+      hasNodeTag = true;
+      props.Node.IsProgramEntry = ConstMDToBool(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeIdTag: {
+      hasNodeTag = true;
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      props.NodeShaderID.Name = StringMDToString(pNode->getOperand(0));
+      props.NodeShaderID.Index = ConstMDToUint32(pNode->getOperand(1));
+    } break;
+    case DxilMDHelper::kDxilNodeLocalRootArgumentsTableIndexTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      Node.LocalRootArgumentsTableIndex = ConstMDToUint32(MDO);
+    } break;
+    case DxilMDHelper::kDxilShareInputOfTag: {
+      hasNodeTag = true;
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      props.NodeShaderSharedInput.Name = StringMDToString(pNode->getOperand(0));
+      props.NodeShaderSharedInput.Index = ConstMDToUint32(pNode->getOperand(1));
+    } break;
+    case DxilMDHelper::kDxilNodeDispatchGridTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      Node.DispatchGrid[0] = ConstMDToUint32(pNode->getOperand(0));
+      Node.DispatchGrid[1] = ConstMDToUint32(pNode->getOperand(1));
+      Node.DispatchGrid[2] = ConstMDToUint32(pNode->getOperand(2));
+    } break;
+    case DxilMDHelper::kDxilNodeMaxDispatchGridTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      Node.MaxDispatchGrid[0] = ConstMDToUint32(pNode->getOperand(0));
+      Node.MaxDispatchGrid[1] = ConstMDToUint32(pNode->getOperand(1));
+      Node.MaxDispatchGrid[2] = ConstMDToUint32(pNode->getOperand(2));
+    } break;
+    case DxilMDHelper::kDxilNodeMaxRecursionDepthTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      Node.MaxRecursionDepth = ConstMDToUint32(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeInputsTag: {
+      hasNodeTag = true;
+      const MDTuple *pNodeInputs = dyn_cast<MDTuple>(MDO.get());
+      IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+      for (unsigned i = 0; i != pNodeInputs->getNumOperands(); ++i) {
+        const MDOperand &NodeInput = pNodeInputs->getOperand(i);
+        IFTBOOL(NodeInput.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+        props.InputNodes.push_back(LoadDxilNodeIOState(NodeInput));
+      }
+    } break;
+    case DxilMDHelper::kDxilNodeOutputsTag: {
+      hasNodeTag = true;
+      const MDTuple *pNodeOutputs = dyn_cast<MDTuple>(MDO.get());
+      IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+      for (unsigned i = 0; i != pNodeOutputs->getNumOperands(); ++i) {
+        const MDOperand &NodeOutput = pNodeOutputs->getOperand(i);
+        IFTBOOL(NodeOutput.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+        props.OutputNodes.push_back(LoadDxilNodeIOState(NodeOutput));
+      }
     } break;
     default:
       DXASSERT(false, "Unknown extended shader properties tag");
@@ -1812,9 +1903,116 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     }
   }
 
+  DXASSERT(!hasNodeTag ||
+               props.Node.LaunchType != DXIL::NodeLaunchType::Invalid,
+           "else invalid shader kind");
+
   if (bEarlyDepth) {
     DXASSERT(props.IsPS(), "else invalid shader kind");
     props.ShaderProps.PS.EarlyDepthStencil = true;
+  }
+}
+
+void DxilMDHelper::SerializeNodeProps(SmallVectorImpl<llvm::Metadata *> &MDVals,
+                                      unsigned &valIdx,
+                                      const hlsl::DxilFunctionProps *props) {
+  auto &NodeProps = props->Node;
+
+  MDVals.push_back(
+      Uint32ToConstMD(static_cast<unsigned>((NodeProps.LaunchType))));
+  MDVals.push_back(BoolToConstMD(NodeProps.IsProgramEntry));
+  MDVals.push_back(MDString::get(m_Ctx, props->NodeShaderID.Name));
+  MDVals.push_back(Uint32ToConstMD(props->NodeShaderID.Index));
+  MDVals.push_back(MDString::get(m_Ctx, props->NodeShaderSharedInput.Name));
+  MDVals.push_back(Uint32ToConstMD(props->NodeShaderSharedInput.Index));
+  MDVals.push_back(Uint32ToConstMD(NodeProps.LocalRootArgumentsTableIndex));
+  MDVals.push_back(Uint32ToConstMD(NodeProps.DispatchGrid[0]));
+  MDVals.push_back(Uint32ToConstMD(NodeProps.DispatchGrid[1]));
+  MDVals.push_back(Uint32ToConstMD(NodeProps.DispatchGrid[2]));
+  MDVals.push_back(Uint32ToConstMD(NodeProps.MaxDispatchGrid[0]));
+  MDVals.push_back(Uint32ToConstMD(NodeProps.MaxDispatchGrid[1]));
+  MDVals.push_back(Uint32ToConstMD(NodeProps.MaxDispatchGrid[2]));
+  MDVals.push_back(Uint32ToConstMD(NodeProps.MaxRecursionDepth));
+  for (auto &nodeinput : props->InputNodes) {
+    MDVals.push_back(Uint32ToConstMD(nodeinput.Flags));
+    MDVals.push_back(Uint32ToConstMD(nodeinput.MaxRecords));
+    MDVals.push_back(Uint32ToConstMD(nodeinput.RecordType.size));
+    MDVals.push_back(
+        Uint32ToConstMD(nodeinput.RecordType.SV_DispatchGrid.ByteOffset));
+    MDVals.push_back(Uint32ToConstMD(static_cast<unsigned>(
+        nodeinput.RecordType.SV_DispatchGrid.ComponentType)));
+    MDVals.push_back(
+        Uint32ToConstMD(nodeinput.RecordType.SV_DispatchGrid.NumComponents));
+  }
+  for (auto &nodeoutput : props->OutputNodes) {
+    MDVals.push_back(Uint32ToConstMD(nodeoutput.Flags));
+    MDVals.push_back(Uint32ToConstMD(nodeoutput.RecordType.size));
+    MDVals.push_back(
+        Uint32ToConstMD(nodeoutput.RecordType.SV_DispatchGrid.ByteOffset));
+    MDVals.push_back(Uint32ToConstMD(static_cast<unsigned>(
+        nodeoutput.RecordType.SV_DispatchGrid.ComponentType)));
+    MDVals.push_back(
+        Uint32ToConstMD(nodeoutput.RecordType.SV_DispatchGrid.NumComponents));
+    MDVals.push_back(MDString::get(m_Ctx, nodeoutput.OutputID.Name));
+    MDVals.push_back(Uint32ToConstMD(nodeoutput.OutputID.Index));
+    MDVals.push_back(Uint32ToConstMD(nodeoutput.MaxRecords));
+    MDVals.push_back(Int32ToConstMD(nodeoutput.MaxRecordsSharedWith));
+    MDVals.push_back(Uint32ToConstMD(nodeoutput.OutputArraySize));
+    MDVals.push_back(BoolToConstMD(nodeoutput.AllowSparseNodes));
+  }
+}
+
+void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
+                                        hlsl::DxilFunctionProps *props) {
+  auto &NodeProps = props->Node;
+
+  NodeProps.LaunchType = static_cast<DXIL::NodeLaunchType>(
+      ConstMDToUint32(pProps->getOperand(idx++)));
+  NodeProps.IsProgramEntry = ConstMDToBool(pProps->getOperand(idx++));
+  props->NodeShaderID.Name = StringMDToString(pProps->getOperand(idx++));
+  props->NodeShaderID.Index = ConstMDToUint32(pProps->getOperand(idx++));
+  props->NodeShaderSharedInput.Name =
+      StringMDToString(pProps->getOperand(idx++));
+  props->NodeShaderSharedInput.Index =
+      ConstMDToUint32(pProps->getOperand(idx++));
+  NodeProps.LocalRootArgumentsTableIndex =
+      ConstMDToUint32(pProps->getOperand(idx++));
+  NodeProps.DispatchGrid[0] = ConstMDToUint32(pProps->getOperand(idx++));
+  NodeProps.DispatchGrid[1] = ConstMDToUint32(pProps->getOperand(idx++));
+  NodeProps.DispatchGrid[2] = ConstMDToUint32(pProps->getOperand(idx++));
+  NodeProps.MaxDispatchGrid[0] = ConstMDToUint32(pProps->getOperand(idx++));
+  NodeProps.MaxDispatchGrid[1] = ConstMDToUint32(pProps->getOperand(idx++));
+  NodeProps.MaxDispatchGrid[2] = ConstMDToUint32(pProps->getOperand(idx++));
+  NodeProps.MaxRecursionDepth = ConstMDToUint32(pProps->getOperand(idx++));
+  for (auto &nodeinput : props->InputNodes) {
+    nodeinput.Flags = NodeFlags(ConstMDToUint32(pProps->getOperand(idx++)));
+    nodeinput.MaxRecords = ConstMDToUint32(pProps->getOperand(idx++));
+    nodeinput.RecordType.size = ConstMDToUint32(pProps->getOperand(idx++));
+    nodeinput.RecordType.SV_DispatchGrid.ByteOffset =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    nodeinput.RecordType.SV_DispatchGrid.ComponentType =
+        static_cast<DXIL::ComponentType>(
+            ConstMDToUint32(pProps->getOperand(idx++)));
+    nodeinput.RecordType.SV_DispatchGrid.NumComponents =
+        ConstMDToUint32(pProps->getOperand(idx++));
+  }
+
+  for (auto &nodeoutput : props->OutputNodes) {
+    nodeoutput.Flags = NodeFlags(ConstMDToUint32(pProps->getOperand(idx++)));
+    nodeoutput.RecordType.size = ConstMDToUint32(pProps->getOperand(idx++));
+    nodeoutput.RecordType.SV_DispatchGrid.ByteOffset =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    nodeoutput.RecordType.SV_DispatchGrid.ComponentType =
+        static_cast<DXIL::ComponentType>(
+            ConstMDToUint32(pProps->getOperand(idx++)));
+    nodeoutput.RecordType.SV_DispatchGrid.NumComponents =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    nodeoutput.OutputID.Name = StringMDToString(pProps->getOperand(idx++));
+    nodeoutput.OutputID.Index = ConstMDToUint32(pProps->getOperand(idx++));
+    nodeoutput.MaxRecords = ConstMDToUint32(pProps->getOperand(idx++));
+    nodeoutput.MaxRecordsSharedWith = ConstMDToInt32(pProps->getOperand(idx++));
+    nodeoutput.OutputArraySize = ConstMDToUint32(pProps->getOperand(idx++));
+    nodeoutput.AllowSparseNodes = ConstMDToBool(pProps->getOperand(idx++));
   }
 }
 
@@ -1824,13 +2022,20 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
   bool bRayAttributes = false;
   SmallVector<Metadata *, 35> MDVals;
 
+  auto SerializeNumThreads = [&]() {
+    MDVals.push_back(Uint32ToConstMD(props->numThreads[0]));
+    MDVals.push_back(Uint32ToConstMD(props->numThreads[1]));
+    MDVals.push_back(Uint32ToConstMD(props->numThreads[2]));
+  };
+
+  unsigned valIdx = 0;
   MDVals.push_back(ValueAsMetadata::get(const_cast<Function *>(F)));
   MDVals.push_back(Uint32ToConstMD(static_cast<unsigned>(props->shaderKind)));
   switch (props->shaderKind) {
   case DXIL::ShaderKind::Compute:
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.CS.numThreads[0]));
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.CS.numThreads[1]));
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.CS.numThreads[2]));
+    SerializeNumThreads();
+    if (props->IsNode())
+      SerializeNodeProps(MDVals, valIdx, props);
     break;
   case DXIL::ShaderKind::Geometry:
     MDVals.push_back(
@@ -1875,9 +2080,7 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
           Uint32ToConstMD(props->ShaderProps.Ray.attributeSizeInBytes));
     break;
   case DXIL::ShaderKind::Mesh:
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.numThreads[0]));
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.numThreads[1]));
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.numThreads[2]));
+    SerializeNumThreads();
     MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.maxVertexCount));
     MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.maxPrimitiveCount));
     MDVals.push_back(
@@ -1885,10 +2088,13 @@ DxilMDHelper::EmitDxilFunctionProps(const hlsl::DxilFunctionProps *props,
     MDVals.push_back(Uint32ToConstMD(props->ShaderProps.MS.payloadSizeInBytes));
     break;
   case DXIL::ShaderKind::Amplification:
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.AS.numThreads[0]));
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.AS.numThreads[1]));
-    MDVals.push_back(Uint32ToConstMD(props->ShaderProps.AS.numThreads[2]));
+    SerializeNumThreads();
     MDVals.push_back(Uint32ToConstMD(props->ShaderProps.AS.payloadSizeInBytes));
+    break;
+  case DXIL::ShaderKind::Node:
+    SerializeNumThreads();
+    // Node specific properties
+    SerializeNodeProps(MDVals, valIdx, props);
     break;
   default:
     break;
@@ -2426,6 +2632,220 @@ void DxilMDHelper::LoadDxilASState(const MDOperand &MDO, unsigned *NumThreads,
   NumThreads[2] = ConstMDToUint32(pNode->getOperand(2));
   payloadSizeInBytes =
       ConstMDToUint32(pTupleMD->getOperand(kDxilASStatePayloadSizeInBytes));
+}
+
+void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
+                                     const DxilFunctionProps &props) {
+  auto &Node = props.Node;
+
+  // Required Fields
+  MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeLaunchTypeTag));
+  MDVals.emplace_back(Uint32ToConstMD(static_cast<unsigned>(Node.LaunchType)));
+
+  // Optional Fields
+
+  if (props.waveSize != 0) {
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilWaveSizeTag));
+    vector<Metadata *> WaveSizeVal;
+    WaveSizeVal.emplace_back(Uint32ToConstMD(props.waveSize));
+    MDVals.emplace_back(MDNode::get(m_Ctx, WaveSizeVal));
+  }
+
+  if (Node.IsProgramEntry) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeIsProgramEntryTag));
+    MDVals.emplace_back(BoolToConstMD(true));
+  }
+
+  if (!props.NodeShaderID.Name.empty()) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilNodeIdTag));
+    vector<Metadata *> NodeIDVals;
+    NodeIDVals.emplace_back(MDString::get(m_Ctx, props.NodeShaderID.Name));
+    NodeIDVals.emplace_back(Uint32ToConstMD(props.NodeShaderID.Index));
+    MDVals.emplace_back(MDNode::get(m_Ctx, NodeIDVals));
+  }
+
+  MDVals.emplace_back(
+      Uint32ToConstMD(DxilMDHelper::kDxilNodeLocalRootArgumentsTableIndexTag));
+  MDVals.emplace_back(Uint32ToConstMD(Node.LocalRootArgumentsTableIndex));
+
+  if (!props.NodeShaderSharedInput.Name.empty()) {
+    MDVals.emplace_back(Uint32ToConstMD(kDxilShareInputOfTag));
+    vector<Metadata *> NodeIDVals;
+    NodeIDVals.emplace_back(
+        MDString::get(m_Ctx, props.NodeShaderSharedInput.Name));
+    NodeIDVals.emplace_back(Uint32ToConstMD(props.NodeShaderSharedInput.Index));
+    MDVals.emplace_back(MDNode::get(m_Ctx, NodeIDVals));
+  }
+
+  if (Node.DispatchGrid[0] || Node.DispatchGrid[1] || Node.DispatchGrid[2]) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeDispatchGridTag));
+    vector<Metadata *> DispatchGridVals;
+    DispatchGridVals.emplace_back(Uint32ToConstMD(Node.DispatchGrid[0]));
+    DispatchGridVals.emplace_back(Uint32ToConstMD(Node.DispatchGrid[1]));
+    DispatchGridVals.emplace_back(Uint32ToConstMD(Node.DispatchGrid[2]));
+    MDVals.emplace_back(MDNode::get(m_Ctx, DispatchGridVals));
+  }
+
+  if (Node.MaxDispatchGrid[0] || Node.MaxDispatchGrid[1] ||
+      Node.MaxDispatchGrid[2]) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxDispatchGridTag));
+    vector<Metadata *> MaxDispatchGridVals;
+    MaxDispatchGridVals.emplace_back(Uint32ToConstMD(Node.MaxDispatchGrid[0]));
+    MaxDispatchGridVals.emplace_back(Uint32ToConstMD(Node.MaxDispatchGrid[1]));
+    MaxDispatchGridVals.emplace_back(Uint32ToConstMD(Node.MaxDispatchGrid[2]));
+    MDVals.emplace_back(MDNode::get(m_Ctx, MaxDispatchGridVals));
+  }
+
+  if (Node.MaxRecursionDepth) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecursionDepthTag));
+    MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecursionDepth));
+  }
+
+  if (props.InputNodes.size()) {
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeInputsTag));
+    vector<Metadata *> NodeInputVals;
+    for (auto &InputNode : props.InputNodes)
+      NodeInputVals.emplace_back(EmitDxilNodeIOState(InputNode));
+    MDVals.emplace_back(MDNode::get(m_Ctx, NodeInputVals));
+  }
+
+  if (props.OutputNodes.size()) {
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeOutputsTag));
+    vector<Metadata *> NodeOutputVals;
+    for (auto &OutputNode : props.OutputNodes)
+      NodeOutputVals.emplace_back(EmitDxilNodeIOState(OutputNode));
+    MDVals.emplace_back(MDNode::get(m_Ctx, NodeOutputVals));
+  }
+}
+
+llvm::MDTuple *
+DxilMDHelper::EmitDxilNodeIOState(const hlsl::NodeIOProperties &Node) {
+  vector<Metadata *> MDVals;
+  MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeIOFlagsTag));
+  MDVals.emplace_back(Uint32ToConstMD(Node.Flags));
+
+  if (Node.RecordType.size) {
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeRecordTypeTag));
+    vector<Metadata *> NodeRecordTypeVals;
+    NodeRecordTypeVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeRecordSizeTag));
+    NodeRecordTypeVals.emplace_back(Uint32ToConstMD(Node.RecordType.size));
+    // If the record has a SV_DispatchGrid field
+    if (Node.RecordType.SV_DispatchGrid.NumComponents) {
+      NodeRecordTypeVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilNodeSVDispatchGridTag));
+      vector<Metadata *> SVDispatchGridVals;
+      SVDispatchGridVals.emplace_back(
+          Uint32ToConstMD(Node.RecordType.SV_DispatchGrid.ByteOffset));
+      SVDispatchGridVals.emplace_back(Uint32ToConstMD(static_cast<unsigned>(
+          Node.RecordType.SV_DispatchGrid.ComponentType)));
+      SVDispatchGridVals.emplace_back(
+          Uint32ToConstMD(Node.RecordType.SV_DispatchGrid.NumComponents));
+      NodeRecordTypeVals.emplace_back(MDNode::get(m_Ctx, SVDispatchGridVals));
+    }
+    MDVals.emplace_back(MDNode::get(m_Ctx, NodeRecordTypeVals));
+  }
+
+  if (Node.Flags.IsOutputNode()) {
+    // Required Field
+    MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsTag));
+    MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecords));
+
+    if (Node.OutputArraySize) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilNodeOutputArraySizeTag));
+      MDVals.emplace_back(Uint32ToConstMD(Node.OutputArraySize));
+    }
+
+    if (Node.MaxRecordsSharedWith >= 0) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsSharedWithTag));
+      MDVals.emplace_back(Int32ToConstMD(Node.MaxRecordsSharedWith));
+    }
+
+    if (Node.AllowSparseNodes) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilNodeAllowSparseNodesTag));
+      MDVals.emplace_back(BoolToConstMD((uint32_t)Node.AllowSparseNodes));
+    }
+
+    if (!Node.OutputID.Name.empty()) {
+      MDVals.emplace_back(Uint32ToConstMD(kDxilNodeOutputIDTag));
+      vector<Metadata *> NodeOpIDVals;
+      NodeOpIDVals.emplace_back(MDString::get(m_Ctx, Node.OutputID.Name));
+      NodeOpIDVals.emplace_back(Uint32ToConstMD(Node.OutputID.Index));
+      MDVals.emplace_back(MDNode::get(m_Ctx, NodeOpIDVals));
+    }
+  } else {
+    DXASSERT(Node.Flags.IsInputRecord(), "Invalid NodeIO Kind");
+    if (Node.MaxRecords) {
+      MDVals.emplace_back(
+          Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecordsTag));
+      MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecords));
+    }
+  }
+  return MDNode::get(m_Ctx, MDVals);
+}
+
+NodeIOProperties DxilMDHelper::LoadDxilNodeIOState(const llvm::MDOperand &MDO) {
+  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
+  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL((pTupleMD->getNumOperands() & 0x1) == 0,
+          DXC_E_INCORRECT_DXIL_METADATA);
+
+  NodeIOProperties Node = {};
+  for (unsigned iNode = 0; iNode < pTupleMD->getNumOperands(); iNode += 2) {
+    unsigned Tag = DxilMDHelper::ConstMDToUint32(pTupleMD->getOperand(iNode));
+    const MDOperand &MDO = pTupleMD->getOperand(iNode + 1);
+    IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+
+    switch (Tag) {
+    case DxilMDHelper::kDxilNodeIOFlagsTag: {
+      Node.Flags = NodeFlags(ConstMDToUint32(MDO));
+    } break;
+    case DxilMDHelper::kDxilNodeRecordTypeTag: {
+      MDTuple *pTupleMD = cast<MDTuple>(MDO.get());
+      Node.RecordType.size = ConstMDToUint32(pTupleMD->getOperand(1));
+      if (pTupleMD->getNumOperands() > 2) {
+        DXASSERT(pTupleMD->getNumOperands() == 4,
+                 "incorrect number of operands");
+        MDTuple *pSVDTupleMD = cast<MDTuple>(pTupleMD->getOperand(3));
+        Node.RecordType.SV_DispatchGrid.ByteOffset =
+            ConstMDToUint32(pSVDTupleMD->getOperand(0));
+        Node.RecordType.SV_DispatchGrid.ComponentType =
+            static_cast<DXIL::ComponentType>(
+                ConstMDToUint32(pSVDTupleMD->getOperand(1)));
+        Node.RecordType.SV_DispatchGrid.NumComponents =
+            ConstMDToUint32(pSVDTupleMD->getOperand(2));
+      }
+    } break;
+    case DxilMDHelper::kDxilNodeOutputArraySizeTag: {
+      Node.OutputArraySize = ConstMDToUint32(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeMaxRecordsTag: {
+      Node.MaxRecords = ConstMDToUint32(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeMaxRecordsSharedWithTag: {
+      Node.MaxRecordsSharedWith = ConstMDToInt32(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeAllowSparseNodesTag: {
+      Node.AllowSparseNodes = ConstMDToBool(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeOutputIDTag: {
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      Node.OutputID.Name = StringMDToString(pNode->getOperand(0));
+      Node.OutputID.Index = ConstMDToUint32(pNode->getOperand(1));
+    } break;
+    default:
+      m_bExtraMetadata = true;
+      break;
+    }
+  }
+  return Node;
 }
 
 void DxilMDHelper::AddCounterIfNonZero(uint32_t value, StringRef name,

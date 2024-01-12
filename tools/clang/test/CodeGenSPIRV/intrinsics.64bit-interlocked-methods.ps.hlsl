@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability Int64
 // CHECK: OpCapability Int64Atomics
@@ -16,18 +16,18 @@ void main() {
 
   uint  index;
 
-// CHECK:           [[index:%\d+]] = OpLoad %uint %index
-// CHECK-NEXT:        [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_ulong %rwb_u64 %int_0 [[index]]
-// CHECK-NEXT:     [[in_u64:%\d+]] = OpLoad %ulong %in_u64
-// CHECK-NEXT: [[atomic_add:%\d+]] = OpAtomicIAdd %ulong [[ptr]] %uint_1 %uint_0 [[in_u64]]
+// CHECK:           [[index:%[0-9]+]] = OpLoad %uint %index
+// CHECK-NEXT:        [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_ulong %rwb_u64 %int_0 [[index]]
+// CHECK-NEXT:     [[in_u64:%[0-9]+]] = OpLoad %ulong %in_u64
+// CHECK-NEXT: [[atomic_add:%[0-9]+]] = OpAtomicIAdd %ulong [[ptr]] %uint_1 %uint_0 [[in_u64]]
 // CHECK-NEXT:                       OpStore %out_u64 [[atomic_add]]
   InterlockedAdd(rwb_u64[index], in_u64, out_u64);
 
-// CHECK:           [[index:%\d+]] = OpLoad %uint %index
-// CHECK-NEXT:        [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_long %rwb_i64 %int_0 [[index]]
-// CHECK-NEXT:     [[in_i64:%\d+]] = OpLoad %long %in_i64
-// CHECK-NEXT: [[atomic_add:%\d+]] = OpAtomicIAdd %long [[ptr]] %uint_1 %uint_0 [[in_i64]]
-// CHECK-NEXT:                       OpStore %out_i64 [[atomic_add]]
+// CHECK:           [[index_0:%[0-9]+]] = OpLoad %uint %index
+// CHECK-NEXT:        [[ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_long %rwb_i64 %int_0 [[index_0]]
+// CHECK-NEXT:     [[in_i64:%[0-9]+]] = OpLoad %long %in_i64
+// CHECK-NEXT: [[atomic_add_0:%[0-9]+]] = OpAtomicIAdd %long [[ptr_0]] %uint_1 %uint_0 [[in_i64]]
+// CHECK-NEXT:                       OpStore %out_i64 [[atomic_add_0]]
   InterlockedAdd(rwb_i64[index], in_i64, out_i64);
 }
 

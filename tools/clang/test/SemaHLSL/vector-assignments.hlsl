@@ -1,4 +1,5 @@
 // RUN: %dxc -Tlib_6_3 -verify %s
+// RUN: %dxc -Tvs_6_0 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T vs_2_0 vector-assignments.hlsl
@@ -7,6 +8,7 @@ float pick_one(float2 f2) {
   return f2.x;
 }
 
+[shader("vertex")]
 void main() {
 
 // No initialization.

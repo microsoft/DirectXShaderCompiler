@@ -1249,7 +1249,6 @@ TEST_F(CompilerTest, CompileThenTestReflectionThreadSizeMS) {
   CompileThenTestReflectionThreadSize(source, L"ms_6_5", 2, 3, 1);
 }
 
-#ifdef _WIN32 // No PDBUtil support
 static void VerifyPdbUtil(
     dxc::DxcDllSupport &dllSupport, IDxcBlob *pBlob, IDxcPdbUtils *pPdbUtils,
     const WCHAR *pMainFileName,
@@ -1335,7 +1334,7 @@ static void VerifyPdbUtil(
   {
     CComBSTR str;
     VERIFY_SUCCEEDED(pPdbUtils->GetTargetProfile(&str));
-    VERIFY_ARE_EQUAL(str, L"ps_6_0");
+    VERIFY_ARE_EQUAL_WSTR(L"ps_6_0", str.m_str);
   }
 
   // Entry point
@@ -1343,9 +1342,9 @@ static void VerifyPdbUtil(
     CComBSTR str;
     VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&str));
     if (TestEntryPoint) {
-      VERIFY_ARE_EQUAL(str, L"main");
+      VERIFY_ARE_EQUAL_WSTR(L"main", str.m_str);
     } else {
-      VERIFY_ARE_EQUAL(str, L"PSMain");
+      VERIFY_ARE_EQUAL_WSTR(L"PSMain", str.m_str);
     }
   }
 
@@ -1362,9 +1361,9 @@ static void VerifyPdbUtil(
 
   // Main file name
   {
-    CComBSTR pMainFileName;
-    VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
-    VERIFY_ARE_EQUAL(pMainFileName, pMainFileName);
+    CComBSTR pPdbMainFileName;
+    VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pPdbMainFileName));
+    VERIFY_ARE_EQUAL_WSTR(pMainFileName, pPdbMainFileName.m_str);
   }
 
   // There is hash and hash is not empty
@@ -1550,6 +1549,8 @@ static void VerifyPdbUtil(
     VERIFY_IS_FALSE(pPdbUtils->IsFullPDB());
   }
 
+// Limit dia tests to Windows.
+#ifdef _WIN32
   // Now, test that dia interface doesn't crash (even if it fails).
   {
     CComPtr<IDiaDataSource> pDataSource;
@@ -1594,6 +1595,7 @@ static void VerifyPdbUtil(
       }
     }
   }
+#endif
 }
 
 TEST_F(CompilerTest, CompileThenTestPdbUtilsStripped) {
@@ -2061,8 +2063,8 @@ TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
   CComPtr<IDxcCompiler> pCompiler;
   VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
 
-  std::wstring shader = LR"x(
-    [RootSignature("")] float PSMain() : SV_Target {
+  std::string shader = R"x(
+    [RootSignature("")] float PSMain() : SV_Target  {
       return 0;
     }
   )x";
@@ -2074,9 +2076,10 @@ TEST_F(CompilerTest, CompileSameFilenameAndEntryThenTestPdbUtilsArgs) {
 
   std::wstring EntryPoint = L"PSMain";
   CComPtr<IDxcBlobEncoding> pShaderBlob;
+
   VERIFY_SUCCEEDED(pUtils->CreateBlob(shader.data(),
                                       shader.size() * sizeof(shader[0]),
-                                      DXC_CP_UTF16, &pShaderBlob));
+                                      DXC_CP_UTF8, &pShaderBlob));
 
   const WCHAR *OtherInputs[] = {
       L"AnotherInput1",
@@ -2182,7 +2185,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsEmptyEntry) {
   CComBSTR pEntryName;
   VERIFY_SUCCEEDED(pPdbUtils->GetEntryPoint(&pEntryName));
 
-  VERIFY_ARE_EQUAL(pEntryName, L"main");
+  VERIFY_ARE_EQUAL_WSTR(L"main", pEntryName.m_str);
 }
 
 TEST_F(CompilerTest, TestPdbUtilsWithEmptyDefine) {
@@ -2206,8 +2209,6 @@ TEST_F(CompilerTest, TestPdbUtilsWithEmptyDefine) {
     VERIFY_SUCCEEDED(pPdbUtils->GetDefine(i, &pDefine));
   }
 }
-
-#endif //  _WIN32 - No PDBUtil support
 
 void CompilerTest::TestResourceBindingImpl(const char *bindingFileContent,
                                            const std::wstring &errors,
@@ -3720,7 +3721,9 @@ TEST_F(CompilerTest, CompileWhenRecursiveAlbeitStaticTermThenFail) {
       "float4 VS() : SV_Position{\r\n"
       "  return f(); // First call to 'f'\r\n"
       "}\r\n";
-  VerifyCompileFailed(ShaderText, L"vs_6_0", "recursive functions not allowed",
+  VerifyCompileFailed(ShaderText, L"vs_6_0",
+                      "recursive functions are not allowed: function "
+                      "'VS' calls recursive function 'f'",
                       L"VS");
 }
 
@@ -3733,7 +3736,8 @@ TEST_F(CompilerTest, CompileWhenRecursiveThenFail) {
       "  return f(); // First call to 'f'\r\n"
       "}\r\n";
   VerifyCompileFailed(ShaderTextSimple, L"vs_6_0",
-                      "recursive functions not allowed");
+                      "recursive functions are not allowed: "
+                      "function 'main' calls recursive function 'f'");
 
   const char ShaderTextIndirect[] =
       "float4 f(); // Forward declaration\r\n"
@@ -3743,13 +3747,15 @@ TEST_F(CompilerTest, CompileWhenRecursiveThenFail) {
       "  return f(); // First call to 'f'\r\n"
       "}\r\n";
   VerifyCompileFailed(ShaderTextIndirect, L"vs_6_0",
-                      "recursive functions not allowed");
+                      "recursive functions are not allowed: "
+                      "function 'main' calls recursive function 'f'");
 
   const char ShaderTextSelf[] = "float4 main() : SV_Position{\r\n"
                                 "  return main();\r\n"
                                 "}\r\n";
   VerifyCompileFailed(ShaderTextSelf, L"vs_6_0",
-                      "recursive functions not allowed");
+                      "recursive functions are not allowed: "
+                      "function 'main' calls recursive function 'main'");
 
   const char ShaderTextMissing[] = "float4 mainz() : SV_Position{\r\n"
                                    "  return 1;\r\n"
@@ -4127,6 +4133,7 @@ TEST_F(CompilerTest, LibGVStore) {
       RWByteAddressBuffer outputBuffer;
       RWByteAddressBuffer outputBuffer2;
 
+      [shader("compute")]
       [numthreads(8, 8, 1)]
       void main( uint2 id : SV_DispatchThreadID )
       {

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ds_6_0 -E BezierEvalDS
+// RUN: %dxc -T ds_6_0 -E BezierEvalDS -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpEntryPoint TessellationEvaluation %BezierEvalDS "BezierEvalDS"
 // CHECK-SAME: %gl_TessLevelInner

@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS -fcgl  %s -spirv | FileCheck %s
 
 // Test handling of built-in size mismatch (writing out to the built-ins):
 // The HLSL SV_TessFactor is a float3, but the SPIR-V equivalent is a float4.
@@ -13,24 +13,24 @@
 // CHECK: %gl_TessLevelOuter = OpVariable %_ptr_Output__arr_float_uint_4 Output
 // CHECK: %gl_TessLevelInner = OpVariable %_ptr_Output__arr_float_uint_2 Output
 
-// CHECK:                      [[pcfRet:%\d+]] = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %SubDToBezierConstantsHS %param_var_ip %param_var_PatchID
+// CHECK:                      [[pcfRet:%[0-9]+]] = OpFunctionCall %HS_CONSTANT_DATA_OUTPUT %SubDToBezierConstantsHS %param_var_ip %param_var_PatchID
 
-// CHECK-NEXT:       [[pcfRetTessFactor:%\d+]] = OpCompositeExtract %_arr_float_uint_3 [[pcfRet]] 0
-// CHECK-NEXT: [[gl_TessLevelOuter_loc0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelOuter %uint_0
-// CHECK-NEXT:      [[pcfRetTessFactor0:%\d+]] = OpCompositeExtract %float [[pcfRetTessFactor]] 0
+// CHECK-NEXT:       [[pcfRetTessFactor:%[0-9]+]] = OpCompositeExtract %_arr_float_uint_3 [[pcfRet]] 0
+// CHECK-NEXT: [[gl_TessLevelOuter_loc0:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelOuter %uint_0
+// CHECK-NEXT:      [[pcfRetTessFactor0:%[0-9]+]] = OpCompositeExtract %float [[pcfRetTessFactor]] 0
 // CHECK-NEXT:                                   OpStore [[gl_TessLevelOuter_loc0]] [[pcfRetTessFactor0]]
 
-// CHECK-NEXT: [[gl_TessLevelOuter_loc1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelOuter %uint_1
-// CHECK-NEXT:      [[pcfRetTessFactor1:%\d+]] = OpCompositeExtract %float [[pcfRetTessFactor]] 1
+// CHECK-NEXT: [[gl_TessLevelOuter_loc1:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelOuter %uint_1
+// CHECK-NEXT:      [[pcfRetTessFactor1:%[0-9]+]] = OpCompositeExtract %float [[pcfRetTessFactor]] 1
 // CHECK-NEXT:                                   OpStore [[gl_TessLevelOuter_loc1]] [[pcfRetTessFactor1]]
 
-// CHECK-NEXT: [[gl_TessLevelOuter_loc2:%\d+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelOuter %uint_2
-// CHECK-NEXT:      [[pcfRetTessFactor2:%\d+]] = OpCompositeExtract %float [[pcfRetTessFactor]] 2
+// CHECK-NEXT: [[gl_TessLevelOuter_loc2:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelOuter %uint_2
+// CHECK-NEXT:      [[pcfRetTessFactor2:%[0-9]+]] = OpCompositeExtract %float [[pcfRetTessFactor]] 2
 // CHECK-NEXT:                                   OpStore [[gl_TessLevelOuter_loc2]] [[pcfRetTessFactor2]]
 
 
-// CHECK-NEXT: [[pcfRetInsideTessFactor:%\d+]] = OpCompositeExtract %float [[pcfRet]] 1
-// CHECK-NEXT: [[gl_TessLevelInner_loc0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelInner %uint_0
+// CHECK-NEXT: [[pcfRetInsideTessFactor:%[0-9]+]] = OpCompositeExtract %float [[pcfRet]] 1
+// CHECK-NEXT: [[gl_TessLevelInner_loc0:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_TessLevelInner %uint_0
 // CHECK-NEXT:                                   OpStore [[gl_TessLevelInner_loc0]] [[pcfRetInsideTessFactor]]
 
 #define MAX_POINTS 3
