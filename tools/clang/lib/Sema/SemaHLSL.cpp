@@ -11160,13 +11160,13 @@ void Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
                 AR_OBJECT_SAMPLERCOMPARISON);
         if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
           Diags.Report(Loc,
-                       diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
+                       diag::warn_hlsl_intrinsic_overload_in_wrong_shader_model)
               << MD->getNameAsString() << "6.8";
         }
       }
       if (!SM->AllowDerivatives(EntrySK)) {
         Diags.Report(Loc,
-                     diag::err_hlsl_derivatives_intrinsic_in_wrong_shader_kind)
+                     diag::warn_hlsl_derivatives_intrinsic_in_wrong_shader_kind)
             << MD->getNameAsString();
       }
     } break;
