@@ -3,11 +3,11 @@
 // CHECK:      [[set:%[0-9]+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
 // CHECK: rich.debug.function.parent.hlsl
+// CHECK: spirv.debug.opline.include-file-1.hlsli
+// CHECK: spirv.debug.opline.include-file-2.hlsli
 // CHECK: spirv.debug.opline.include-file-3.hlsli
 // CHECK: [[f3:%[0-9]+]] = OpString "function3"
-// CHECK: spirv.debug.opline.include-file-2.hlsli
 // CHECK: [[f2:%[0-9]+]] = OpString "function2"
-// CHECK: spirv.debug.opline.include-file-1.hlsli
 // CHECK: [[f1:%[0-9]+]] = OpString "function1"
 
 
