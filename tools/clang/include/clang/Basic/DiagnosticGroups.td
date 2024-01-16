@@ -800,5 +800,5 @@ def HLSLPayloadAccessQualifer: DiagGroup<"payload-access-qualifier", [
 def HLSLSemanticIdentifierCollision : DiagGroup<"semantic-identifier-collision">;
 def HLSLStructurizeExitsLifetimeMarkersConflict: DiagGroup<"structurize-exits-lifetime-markers-conflict">;
 def HLSLParameterUsage : DiagGroup<"parameter-usage">;
-def HLSLIntrinsicCall : DiagGroup<"intrinsic-call">;
+def HLSLAvailability: DiagGroup<"hlsl-availability">;
 // HLSL Change Ends

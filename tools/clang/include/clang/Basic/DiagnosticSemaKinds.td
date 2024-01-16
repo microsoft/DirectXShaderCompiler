@@ -7773,10 +7773,10 @@ def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
 def warn_hlsl_derivatives_intrinsic_in_wrong_shader_kind : Warning<
    "Derivatives intrinsic %0 only works in ps and cs_6.6+/as_6.6+/ms_6.6+/node">,
-    DefaultError, InGroup<HLSLIntrinsicCall>;
+    DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
    "overload of intrinsic %0 requires shader model %1 or greater">, 
-    DefaultError, InGroup<HLSLIntrinsicCall>;
+    DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<

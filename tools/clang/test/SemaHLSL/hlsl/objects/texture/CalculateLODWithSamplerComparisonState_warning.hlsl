@@ -1,9 +1,11 @@
-// RUN: dxc -Tlib_6_7 -Wno-intrinsic-call  %s -verify
+// RUN: dxc -Tlib_6_7 -Wno-hlsl-availability  %s -verify
+// TODO: Enable -Wno-error=hlsl-availability after support -Wno-error=
+// XFAIL: dxc -Tlib_6_7 -Wno-error=hlsl-availability  %s -verify
 
 SamplerComparisonState s;
 Texture1D t;
 
-// Make sure -Wno-intrinsic-call suppresses the error.
+// Make sure -Wno-hlsl-availability suppresses the error.
 // expected-no-diagnostics
 
 export
