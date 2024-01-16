@@ -2721,7 +2721,7 @@ Loads the value from shader input
 Log
 ~~~
 
-Returns log base 2. Note that hlsl log intrinsic returns natural log.
+Returns log base e. Note that hlsl log intrinsic returns natural log.
 
 +----------+------+------------+---------+----+----+---------+------------+------+-----+
 | src      | -inf | -F         | -denorm | -0 | +0 | +denorm | +F         | +inf | NaN |
