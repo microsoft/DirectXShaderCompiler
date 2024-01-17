@@ -391,7 +391,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
 
   const auto *shaderModel =
       hlsl::ShaderModel::GetByName(self->getLangOpts().HLSLProfile.c_str());
-  DXIL::ShaderKind shaderKind = shaderModel->GetKind();
 
   std::set<FunctionDecl *> DiagnosedDecls;
   std::set<CXXMemberCallExpr *> DiagnosedCalls;
@@ -463,7 +462,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       }
     }
 
-    DXIL::ShaderKind EntrySK = shaderKind;
+    DXIL::ShaderKind EntrySK = shaderModel->GetKind();
     if (EntrySK == DXIL::ShaderKind::Library) {
       // For library, check if the exported function is entry with shader
       // attribute.
