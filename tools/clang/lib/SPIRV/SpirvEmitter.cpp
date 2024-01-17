@@ -13196,6 +13196,10 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
 
+  // Handle vk::execution_mode, vk::ext_extension and vk::ext_capability
+  // attributes. Uses pseudo-instructions for extensions and capabilities, which
+  // are added to the beginning of the entry basic block, so must be called
+  // after the basic block is created and insert point is set.
   processInlineSpirvAttributes(decl);
 
   // Add DebugFunctionDefinition if we are emitting
