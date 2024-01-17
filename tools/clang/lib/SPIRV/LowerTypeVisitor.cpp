@@ -8,6 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "LowerTypeVisitor.h"
+
+#include "ConstEvaluator.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/HlslTypes.h"
@@ -31,6 +33,26 @@ hlsl::ConstantPacking *getPackOffset(const clang::NamedDecl *decl) {
 inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
   assert(pow2 != 0);
   return (val + pow2 - 1) & ~(pow2 - 1);
+}
+
+/// If the given expression is a call to vk::ext_literal, return the argument.
+Expr *getVkExtLiteralValue(Expr *expr) {
+  auto *callExpr = dyn_cast<CallExpr>(expr);
+  if (!callExpr)
+    return nullptr;
+
+  auto *funcDecl = callExpr->getDirectCallee();
+  auto *nsDecl = dyn_cast<NamespaceDecl>(funcDecl->getDeclContext());
+  if (!nsDecl)
+    return nullptr;
+
+  if (!nsDecl->getName().equals("vk") ||
+      !funcDecl->getName().equals("ext_literal"))
+    return nullptr;
+
+  // the frontend should ensure there is a single argument
+  assert(callExpr->getNumArgs() == 1);
+  return callExpr->getArg(0);
 }
 
 } // end anonymous namespace
@@ -514,7 +536,8 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     // (ClassTemplateSpecializationDecl is a subclass of CXXRecordDecl, which
     // is then a subclass of RecordDecl.) So we need to check them before
     // checking the general struct type.
-    if (const auto *spvType = lowerResourceType(type, rule, srcLoc)) {
+    if (const auto *spvType =
+            lowerResourceType(type, rule, isRowMajor, srcLoc)) {
       spvContext.registerStructDeclForSpirvType(spvType, decl);
       return spvType;
     }
@@ -604,10 +627,115 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
   return 0;
 }
 
-const SpirvType *
-LowerTypeVisitor::lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
-                                           SpirvLayoutRule rule,
-                                           SourceLocation srcLoc) {
+QualType LowerTypeVisitor::createASTTypeFromTemplateName(TemplateName name) {
+  auto *decl = name.getAsTemplateDecl();
+  if (decl == nullptr) {
+    return QualType();
+  }
+
+  auto *classTemplateDecl = dyn_cast<ClassTemplateDecl>(decl);
+  if (classTemplateDecl == nullptr) {
+    return QualType();
+  }
+
+  TemplateParameterList *parameters =
+      classTemplateDecl->getTemplateParameters();
+  if (parameters->size() != 1) {
+    return QualType();
+  }
+
+  auto *parmDecl = dyn_cast<TemplateTypeParmDecl>(parameters->getParam(0));
+  if (parmDecl == nullptr) {
+    return QualType();
+  }
+
+  if (!parmDecl->hasDefaultArgument()) {
+    return QualType();
+  }
+
+  TemplateArgument *arg =
+      new (context) TemplateArgument(parmDecl->getDefaultArgument());
+
+  auto *specialized = ClassTemplateSpecializationDecl::Create(
+      astContext, TagDecl::TagKind::TTK_Class,
+      classTemplateDecl->getDeclContext(), classTemplateDecl->getLocStart(),
+      classTemplateDecl->getLocStart(), classTemplateDecl, /* Args */ arg,
+      /* NumArgs */ 1,
+      /* PrevDecl */ nullptr);
+  QualType type = astContext.getTypeDeclType(specialized);
+
+  return type;
+}
+
+const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
+    QualType type, llvm::StringRef name, SpirvLayoutRule rule,
+    llvm::Optional<bool> isRowMajor, SourceLocation srcLoc) {
+  if (name == "SpirvType" || name == "SpirvOpaqueType") {
+
+    auto opcode = hlsl::GetHLSLResourceTemplateUInt(type);
+    SmallVector<SpvIntrinsicTypeOperand, 4> operands;
+
+    const auto *specType = type->getAs<TemplateSpecializationType>();
+    assert(specType);
+
+    // Lower each operand argument
+
+    size_t firstOperand = 1;
+    if (name == "SpirvType")
+      firstOperand = 3;
+
+    for (size_t i = firstOperand; i < specType->getNumArgs(); i++) {
+      const TemplateArgument &arg = specType->getArg(i);
+      switch (arg.getKind()) {
+      case TemplateArgument::ArgKind::Type: {
+        QualType typeArg = arg.getAsType();
+        operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
+        break;
+      }
+      case TemplateArgument::ArgKind::Template: {
+        // Handle HLSL template types that allow the omission of < and >; for
+        // example, Texture2D
+        TemplateName templateName = arg.getAsTemplate();
+        QualType typeArg = createASTTypeFromTemplateName(templateName);
+        if (typeArg.isNull()) {
+          emitError("%0 is not a valid HLSL type (did you forget the template "
+                    "arguments?)",
+                    srcLoc)
+              << templateName;
+          return nullptr;
+        }
+
+        operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
+        break;
+      }
+      case TemplateArgument::ArgKind::Expression: {
+        auto *exprArg = arg.getAsExpr();
+
+        auto *literal = getVkExtLiteralValue(exprArg);
+        if (literal)
+          exprArg = literal;
+
+        SpirvConstant *constant = ConstEvaluator(astContext, spvBuilder)
+                                      .tryToEvaluateAsConst(exprArg, false);
+        if (constant == nullptr) {
+          emitError(
+              "template argument for %0 must evaluate to a constant rvalue",
+              exprArg->getLocStart())
+              << specType->getTemplateName();
+          return nullptr;
+        }
+        constant->setLiteral(literal);
+        visitInstruction(constant);
+        operands.emplace_back(constant);
+        break;
+      }
+      default:
+        emitError("template argument kind %0 unimplemented", srcLoc)
+            << arg.getKind();
+      }
+    }
+    return spvContext.getSpirvIntrinsicType(opcode, operands);
+  }
   if (name == "ext_type") {
     auto typeId = hlsl::GetHLSLResourceTemplateUInt(type);
     return spvContext.getCreatedSpirvIntrinsicType(typeId);
@@ -620,9 +748,10 @@ LowerTypeVisitor::lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
   return nullptr;
 }
 
-const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
-                                                     SpirvLayoutRule rule,
-                                                     SourceLocation srcLoc) {
+const SpirvType *
+LowerTypeVisitor::lowerResourceType(QualType type, SpirvLayoutRule rule,
+                                    llvm::Optional<bool> isRowMajor,
+                                    SourceLocation srcLoc) {
   // Resource types are either represented like C struct or C++ class in the
   // AST. Samplers are represented like C struct, so isStructureType() will
   // return true for it; textures are represented like C++ class, so
@@ -635,7 +764,7 @@ const SpirvType *LowerTypeVisitor::lowerResourceType(QualType type,
   const llvm::StringRef name = recordType->getDecl()->getName();
 
   if (isTypeInVkNamespace(recordType)) {
-    return lowerVkTypeInVkNamespace(type, name, rule, srcLoc);
+    return lowerVkTypeInVkNamespace(type, name, rule, isRowMajor, srcLoc);
   }
 
   // TODO: avoid string comparison once hlsl::IsHLSLResouceType() does that.

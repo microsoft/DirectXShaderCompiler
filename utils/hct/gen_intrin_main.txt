@@ -393,6 +393,7 @@ void [[]] RawBufferStore(in u64 addr, in $funcT value);
 void [[]] RawBufferStore(in u64 addr, in $funcT value, in uint alignment);
 void [[]] ext_execution_mode(in uint mode, ...);
 void [[]] ext_execution_mode_id(in uint mode, ...);
+void [[]] ext_literal(in any<> value);
 
 } namespace
 // SPIRV Change Ends

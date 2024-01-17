@@ -1241,6 +1241,26 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
   return Builder.getRecordDecl();
 }
 
+#ifdef ENABLE_SPIRV_CODEGEN
+CXXRecordDecl *hlsl::DeclareInlineSpirvType(clang::ASTContext &context,
+                                            clang::DeclContext *declContext,
+                                            llvm::StringRef typeName,
+                                            bool opaque) {
+  // template<uint opcode> vk::SpirvType { ... }
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName,
+                                         clang::TagTypeKind::TTK_Class);
+  typeDeclBuilder.addIntegerTemplateParam("opcode", context.UnsignedIntTy);
+  if (!opaque) {
+    typeDeclBuilder.addIntegerTemplateParam("size", context.UnsignedIntTy);
+    typeDeclBuilder.addIntegerTemplateParam("alignment", context.UnsignedIntTy);
+  }
+  typeDeclBuilder.startDefinition();
+  typeDeclBuilder.addField(
+      "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+  return typeDeclBuilder.getRecordDecl();
+}
+#endif
+
 CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
                                             DXIL::NodeIOKind Type,
                                             CXXRecordDecl *OutputType,

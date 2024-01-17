@@ -241,6 +241,9 @@ enum class IntrinsicOp {
 #ifdef ENABLE_SPIRV_CODEGEN
   IOP_Vkext_execution_mode_id,
 #endif // ENABLE_SPIRV_CODEGEN
+#ifdef ENABLE_SPIRV_CODEGEN
+  IOP_Vkext_literal,
+#endif // ENABLE_SPIRV_CODEGEN
   MOP_Append,
   MOP_RestartStrip,
   MOP_CalculateLevelOfDetail,

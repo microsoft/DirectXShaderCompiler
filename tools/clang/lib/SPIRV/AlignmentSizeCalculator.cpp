@@ -9,6 +9,7 @@
 
 #include "AlignmentSizeCalculator.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/DeclTemplate.h"
 
 namespace {
 
@@ -146,6 +147,21 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
   if (desugaredType != type) {
     auto result = getAlignmentAndSize(desugaredType, rule, isRowMajor, stride);
     return result;
+  }
+
+  const auto *recordType = type->getAs<RecordType>();
+  if (recordType != nullptr) {
+    const llvm::StringRef name = recordType->getDecl()->getName();
+
+    if (isTypeInVkNamespace(recordType) && name == "SpirvType") {
+      const ClassTemplateSpecializationDecl *templateDecl =
+          cast<ClassTemplateSpecializationDecl>(recordType->getDecl());
+      const uint64_t size =
+          templateDecl->getTemplateArgs()[1].getAsIntegral().getZExtValue();
+      const uint64_t alignment =
+          templateDecl->getTemplateArgs()[2].getAsIntegral().getZExtValue();
+      return {alignment, size};
+    }
   }
 
   if (isEnumType(type))

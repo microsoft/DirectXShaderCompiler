@@ -12,6 +12,7 @@
 
 #include "AlignmentSizeCalculator.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/SPIRV/SpirvBuilder.h"
 #include "clang/SPIRV/SpirvContext.h"
 #include "clang/SPIRV/SpirvVisitor.h"
 #include "llvm/ADT/Optional.h"
@@ -23,9 +24,10 @@ namespace spirv {
 class LowerTypeVisitor : public Visitor {
 public:
   LowerTypeVisitor(ASTContext &astCtx, SpirvContext &spvCtx,
-                   const SpirvCodeGenOptions &opts)
+                   const SpirvCodeGenOptions &opts, SpirvBuilder &builder)
       : Visitor(opts, spvCtx), astContext(astCtx), spvContext(spvCtx),
-        alignmentCalc(astCtx, opts), useArrayForMat1xN(false) {}
+        alignmentCalc(astCtx, opts), useArrayForMat1xN(false),
+        spvBuilder(builder) {}
 
   // Visiting different SPIR-V constructs.
   bool visit(SpirvModule *, Phase) override { return true; }
@@ -69,6 +71,7 @@ private:
 
   /// Lowers the given HLSL resource type into its SPIR-V type.
   const SpirvType *lowerResourceType(QualType type, SpirvLayoutRule rule,
+                                     llvm::Optional<bool> isRowMajor,
                                      SourceLocation);
 
   /// Lowers the fields of a RecordDecl into SPIR-V StructType field
@@ -76,9 +79,14 @@ private:
   llvm::SmallVector<StructType::FieldInfo, 4>
   lowerStructFields(const RecordDecl *structType, SpirvLayoutRule rule);
 
+  /// Creates the default AST type from a TemplateName for HLSL templates
+  /// which have optional parameters (e.g. Texture2D).
+  QualType createASTTypeFromTemplateName(TemplateName templateName);
+
   /// Lowers the given type defined in vk namespace into its SPIR-V type.
   const SpirvType *lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
                                             SpirvLayoutRule rule,
+                                            llvm::Optional<bool> isRowMajor,
                                             SourceLocation srcLoc);
 
   /// For the given sampled type, returns the corresponding image format
@@ -107,6 +115,7 @@ private:
   SpirvContext &spvContext;              /// SPIR-V context
   AlignmentSizeCalculator alignmentCalc; /// alignment calculator
   bool useArrayForMat1xN;                /// SPIR-V array for HLSL Matrix 1xN
+  SpirvBuilder &spvBuilder;
 };
 
 } // end namespace spirv

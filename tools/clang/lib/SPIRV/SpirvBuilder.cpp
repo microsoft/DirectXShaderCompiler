@@ -293,7 +293,7 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   if (bitfieldInfo.hasValue()) {
     // Generate SPIR-V type for value. This is required to know the final
     // layout.
-    LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions, *this);
     lowerTypeVisitor.visitInstruction(value);
     context.addToInstructionsWithLoweredType(value);
 
@@ -1313,7 +1313,7 @@ SpirvBuilder::initializeCloneVarForFxcCTBuffer(SpirvInstruction *instr) {
   auto astType = var->getAstResultType();
   const auto *spvType = var->getResultType();
 
-  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions, *this);
   lowerTypeVisitor.visitInstruction(var);
   context.addToInstructionsWithLoweredType(instr);
   if (!lowerTypeVisitor.useSpvArrayForHlslMat1xN()) {
@@ -1791,7 +1791,7 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
 
   // Run necessary visitor passes first
   LiteralTypeVisitor literalTypeVisitor(astContext, context, spirvOptions);
-  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions);
+  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions, *this);
   CapabilityVisitor capabilityVisitor(astContext, context, spirvOptions, *this,
                                       featureManager);
   RelaxedPrecisionVisitor relaxedPrecisionVisitor(context, spirvOptions);
