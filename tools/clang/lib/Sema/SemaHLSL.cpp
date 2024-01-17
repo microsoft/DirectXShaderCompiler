@@ -11147,7 +11147,8 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 void Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
                                       SourceLocation Loc,
                                       const hlsl::ShaderModel *SM,
-                                      DXIL::ShaderKind EntrySK) {
+                                      DXIL::ShaderKind EntrySK,
+                                      const FunctionDecl *EntryDecl) {
   if (MD->hasAttr<HLSLIntrinsicAttr>()) {
     hlsl::IntrinsicOp opCode =
         (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
@@ -11161,13 +11162,49 @@ void Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
         if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
           Diags.Report(Loc,
                        diag::warn_hlsl_intrinsic_overload_in_wrong_shader_model)
-              << MD->getNameAsString() << "6.8";
+              << MD->getNameAsString() + " with SamplerComparisonState"
+              << "6.8";
         }
       }
       if (!SM->AllowDerivatives(EntrySK)) {
-        Diags.Report(Loc,
-                     diag::warn_hlsl_derivatives_intrinsic_in_wrong_shader_kind)
+        Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
             << MD->getNameAsString();
+      }
+      switch (EntrySK) {
+      default:
+        break;
+      case DXIL::ShaderKind::Compute:
+      case DXIL::ShaderKind::Amplification:
+      case DXIL::ShaderKind::Mesh: {
+        if (!SM->IsSM66Plus()) {
+          Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_model)
+              << MD->getNameAsString();
+        }
+      } break;
+      case DXIL::ShaderKind::Node: {
+        if (const auto *pAttr = EntryDecl->getAttr<HLSLNodeLaunchAttr>()) {
+          if (pAttr->getLaunchType() != "broadcasting") {
+            Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
+                << MD->getNameAsString();
+          }
+        }
+      } break;
+      }
+      if (const HLSLNumThreadsAttr *Attr =
+              EntryDecl->getAttr<HLSLNumThreadsAttr>()) {
+        bool invalidNumThreads = false;
+        if (Attr->getZ() != 1) {
+          invalidNumThreads = true;
+        } else if (Attr->getY() != 1) {
+          invalidNumThreads =
+              !((Attr->getX() % 2) == 0 && (Attr->getY() % 2) == 0);
+        } else {
+          invalidNumThreads = (Attr->getX() % 4) != 0;
+        }
+        if (invalidNumThreads) {
+          Diags.Report(Loc, diag::warn_hlsl_derivatives_wrong_numthreads)
+              << MD->getNameAsString() << EntryDecl->getNameAsString();
+        }
       }
     } break;
     default:

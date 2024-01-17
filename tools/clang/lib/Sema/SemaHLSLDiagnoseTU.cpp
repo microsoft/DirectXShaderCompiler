@@ -304,13 +304,21 @@ clang::FunctionDecl *ValidateNoRecursion(CallGraphWithRecurseGuard &callGraph,
 class HLSLMethodCallDiagnoseVisitor
     : public RecursiveASTVisitor<HLSLMethodCallDiagnoseVisitor> {
 public:
-  explicit HLSLMethodCallDiagnoseVisitor(Sema *S, const hlsl::ShaderModel *SM,
-                                         DXIL::ShaderKind EntrySK)
-      : sema(S), SM(SM), EntrySK(EntrySK) {}
+  explicit HLSLMethodCallDiagnoseVisitor(
+      Sema *S, const hlsl::ShaderModel *SM, DXIL::ShaderKind EntrySK,
+      const FunctionDecl *EntryDecl,
+      std::set<CXXMemberCallExpr *> &DiagnosedCalls)
+      : sema(S), SM(SM), EntrySK(EntrySK), EntryDecl(EntryDecl),
+        DiagnosedCalls(DiagnosedCalls) {}
 
   bool VisitCXXMemberCallExpr(CXXMemberCallExpr *CE) {
-    sema->DiagnoseUsedHLSLMethodCall(CE->getMethodDecl(), CE->getExprLoc(), SM,
-                                     EntrySK);
+    // Skip if already diagnosed.
+    if (DiagnosedCalls.count(CE))
+      return true;
+    DiagnosedCalls.insert(CE);
+
+    sema->DiagnoseUsedHLSLMethodCall(CE->getMethodDecl(), CE->getExprLoc(),
+                                         SM, EntrySK, EntryDecl);
     return true;
   }
 
@@ -318,6 +326,8 @@ private:
   clang::Sema *sema;
   const hlsl::ShaderModel *SM;
   DXIL::ShaderKind EntrySK;
+  const FunctionDecl *EntryDecl;
+  std::set<CXXMemberCallExpr *> &DiagnosedCalls;
 };
 
 } // namespace
@@ -384,6 +394,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
   DXIL::ShaderKind shaderKind = shaderModel->GetKind();
 
   std::set<FunctionDecl *> DiagnosedDecls;
+  std::set<CXXMemberCallExpr *> DiagnosedCalls;
   // for each FDecl, check for recursion
   for (FunctionDecl *FDecl : FDeclsToCheck) {
     CallGraphWithRecurseGuard callGraph;
@@ -462,7 +473,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
     for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
-      HLSLMethodCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK);
+      HLSLMethodCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, FDecl,
+                                            DiagnosedCalls);
       Visitor.TraverseDecl(FD);
     }
   }

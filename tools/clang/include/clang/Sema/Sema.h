@@ -3810,7 +3810,8 @@ public:
   bool DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc);
   void DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc,
                                   const hlsl::ShaderModel *SM,
-                                  hlsl::DXIL::ShaderKind EntrySK);
+                                  hlsl::DXIL::ShaderKind EntrySK,
+                                  const FunctionDecl *EntryDecl);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);
