@@ -317,8 +317,8 @@ public:
       return true;
     DiagnosedCalls.insert(CE);
 
-    sema->DiagnoseUsedHLSLMethodCall(CE->getMethodDecl(), CE->getExprLoc(),
-                                         SM, EntrySK, EntryDecl);
+    sema->DiagnoseUsedHLSLMethodCall(CE->getMethodDecl(), CE->getExprLoc(), SM,
+                                     EntrySK, EntryDecl);
     return true;
   }
 
