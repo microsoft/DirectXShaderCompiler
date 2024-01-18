@@ -5,7 +5,7 @@ typedef vk::SpirvType</* OpTypeInt */ 21, /* size */ 1, /* alignment */ 32, vk::
 typedef vk::SpirvType</* OpTypeInt */ 21, /* size */ 32, /* alignment */ 1, vk::ext_literal(8), vk::ext_literal(false)> type3;
 
 // CHECK: OpDecorate %_arr_spirvIntrinsicType_uint_3 ArrayStride 16
-// CHECK: OpDecorate %_arr_spirvIntrinsicType_0_uint_3 ArrayStride 32
+// CHECK: OpDecorate %_arr_spirvIntrinsicType_uint_3_0 ArrayStride 32
 
 // CHECK: OpMemberDecorate %type__Globals 0 Offset 0
 type1 a;
@@ -13,24 +13,23 @@ type1 a;
 // CHECK: OpMemberDecorate %type__Globals 1 Offset 16
 type1 a_arr[3];
 
-// CHECK: OpMemberDecorate %type__Globals 0 Offset 64
+// CHECK: OpMemberDecorate %type__Globals 2 Offset 64
 type2 b;
 
-// CHECK: OpMemberDecorate %type__Globals 1 Offset 96
+// CHECK: OpMemberDecorate %type__Globals 3 Offset 96
 type2 b_arr[3];
 
-// CHECK: OpMemberDecorate %type__Globals 0 Offset 192
+// CHECK: OpMemberDecorate %type__Globals 4 Offset 192
 type3 c;
 
-// CHECK: OpMemberDecorate %type__Globals 1 Offset 224
+// CHECK: OpMemberDecorate %type__Globals 5 Offset 224
 type3 c_arr[3];
 
-// CHECK: OpMemberDecorate %type__Globals 4 Offset 320
+// CHECK: OpMemberDecorate %type__Globals 6 Offset 320
 int end;
 
 
 // CHECK: %spirvIntrinsicType = OpTypeInt 8 0
-// CHECK: %spirvIntrinsicType_0 = OpTypeInt 16 0
 
 [[vk::ext_capability(/* Int8 */ 39), vk::ext_capability(/* Int16 */ 22)]]
 void main() {
