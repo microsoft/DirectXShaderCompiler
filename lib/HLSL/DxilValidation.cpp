@@ -5257,11 +5257,29 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
       ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeNeedsDxil16Plus,
                                {});
     }
-    if (!DXIL::IsValidWaveSizeValue(props.waveMinSize)) {
+    if (!DXIL::IsValidWaveSizeValue(props.waveMinSize, props.waveMaxSize,
+                                    props.wavePreferredSize)) {
       ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
                                {std::to_string(props.waveMinSize),
                                 std::to_string(DXIL::kMinWaveSize),
                                 std::to_string(DXIL::kMaxWaveSize)});
+    }
+
+    bool prefInRange = props.wavePreferredSize == 0
+                           ? true
+                           : props.wavePreferredSize >= props.waveMinSize &&
+                                 props.wavePreferredSize <= props.waveMaxSize;
+    if (!prefInRange) {
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizePreferredOutOfRange,
+                               {std::to_string(props.wavePreferredSize),
+                                std::to_string(props.waveMinSize),
+                                std::to_string(props.waveMaxSize)});
+    }
+
+    if (props.waveMaxSize != 0 && props.waveMinSize >= props.waveMaxSize) {
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeMinGEQMax,
+                               {std::to_string(props.waveMinSize),
+                                std::to_string(props.waveMaxSize)});
     }
   }
 

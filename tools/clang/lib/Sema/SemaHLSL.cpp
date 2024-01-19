@@ -12625,17 +12625,34 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
       ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
       A.getAttributeSpellingListIndex());
 
-  unsigned waveSize = pAttr->getMin();
-  if (!DXIL::IsValidWaveSizeValue(waveSize)) {
+  unsigned minWave = pAttr->getMin();
+  unsigned maxWave = pAttr->getMax();
+  unsigned prefWave = pAttr->getPreferred();
+
+  if (!DXIL::IsValidWaveSizeValue(minWave, maxWave, prefWave)) {
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
         << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
+  }
+
+  bool prefInRange =
+      prefWave == 0 ? true : prefWave >= minWave && prefWave <= maxWave;
+  if (!prefInRange) {
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_pref_size_out_of_range)
+        << prefWave << minWave << maxWave;
+  }
+  
+  if (maxWave != 0 && minWave >= maxWave) {
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_min_geq_max)
+        << minWave << maxWave;
   }
 
   // make sure there is not already an existing conflicting
   // wavesize attribute on the decl
   HLSLWaveSizeAttr *waveSizeAttr = D->getAttr<HLSLWaveSizeAttr>();
   if (waveSizeAttr) {
-    if (waveSizeAttr->getMin() != pAttr->getMin()) {
+    if (waveSizeAttr->getMin() != pAttr->getMin() ||
+        waveSizeAttr->getMax() != pAttr->getMax() ||
+        waveSizeAttr->getPreferred() != pAttr->getPreferred()) {
       S.Diag(A.getLoc(), diag::err_hlsl_conflicting_shader_attribute)
           << pAttr->getSpelling() << waveSizeAttr->getSpelling();
       S.Diag(waveSizeAttr->getLocation(), diag::note_conflicting_attribute);
