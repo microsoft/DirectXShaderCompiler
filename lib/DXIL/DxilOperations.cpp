@@ -3160,18 +3160,6 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 7;
     return;
   }
-  // Instructions: WaveMatrix_Annotate=226, WaveMatrix_Depth=227,
-  // WaveMatrix_Fill=228, WaveMatrix_LoadRawBuf=229,
-  // WaveMatrix_LoadGroupShared=230, WaveMatrix_StoreRawBuf=231,
-  // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
-  // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
-  // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
-  if ((226 <= op && op <= 237)) {
-    major = 6;
-    minor = 7;
-    mask = SFLAG(Library) | SFLAG(Compute);
-    return;
-  }
   // Instructions: QuadVote=222
   if (op == 222) {
     if (bWithTranslation) {
@@ -3217,6 +3205,18 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     major = 6;
     minor = 8;
     mask = SFLAG(Vertex);
+    return;
+  }
+  // Instructions: WaveMatrix_Annotate=226, WaveMatrix_Depth=227,
+  // WaveMatrix_Fill=228, WaveMatrix_LoadRawBuf=229,
+  // WaveMatrix_LoadGroupShared=230, WaveMatrix_StoreRawBuf=231,
+  // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
+  // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
+  // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
+  if ((226 <= op && op <= 237)) {
+    major = 6;
+    minor = 9;
+    mask = SFLAG(Library) | SFLAG(Compute);
     return;
   }
   // OPCODE-SMMASK:END
