@@ -7,6 +7,7 @@ SamplerState ss : register(s2);
 RWStructuredBuffer<uint> o;
 Texture1D        <float>  t1;
 
+// expected-note@+3{{declared here}}
 [numthreads(3,8,1)]
 [shader("compute")]
 void foo(uint3 id : SV_GroupThreadID)
@@ -15,7 +16,7 @@ void foo(uint3 id : SV_GroupThreadID)
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
 }
 
-
+// expected-note@+3{{declared here}}
 [numthreads(3,1,1)]
 [shader("compute")]
 void bar(uint3 id : SV_GroupThreadID)
@@ -24,6 +25,7 @@ void bar(uint3 id : SV_GroupThreadID)
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
 }
 
+// expected-note@+4{{declared here}}
 [shader("mesh")]
 [numthreads(3,1,1)]
 [outputtopology("triangle")]
@@ -37,6 +39,7 @@ struct Payload {
     float2 dummy;
 };
 
+// expected-note@+3{{declared here}}
 [numthreads(3, 2, 1)]
 [shader("amplification")]
 void ASmain()
@@ -52,6 +55,7 @@ struct RECORD {
   uint a;
 };
 
+// expected-note@+5{{declared here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeDispatchGrid(1, 1, 1)]
@@ -61,13 +65,14 @@ void node01(DispatchNodeInputRecord<RECORD> input) {
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
  }
 
+// expected-note@+5{{declared here}}
 [Shader("node")]
 [NodeLaunch("coalescing")]
 [NumThreads(1024,1,1)]
 [NodeIsProgramEntry]
-void node008_coalescing_numthreads_shader()
+void node02()
 {
-    // expected-error@+1 {{Intrinsic CalculateLevelOfDetail requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+    // expected-error@+1 {{Intrinsic CalculateLevelOfDetail called by node02 requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
 }
 

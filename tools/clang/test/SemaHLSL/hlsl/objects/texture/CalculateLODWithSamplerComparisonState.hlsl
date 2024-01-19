@@ -35,10 +35,12 @@ float ps(float a:A) : SV_Target {
     t.CalculateLevelOfDetailUnclamped(s, a); // expected-error {{overload of intrinsic CalculateLevelOfDetailUnclamped with SamplerComparisonState requires shader model 6.8 or greater}}
 }
 
+// expected-note@+3{{declared here}}
+// expected-note@+2{{declared here}}
 [shader("vertex")]
 float4 vs(float a:A) : SV_Position {
-  // expected-error@+1 {{Intrinsic CalculateLevelOfDetail requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+  // expected-error@+1 {{Intrinsic CalculateLevelOfDetail called by vs requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
   return t.CalculateLevelOfDetail(s, a) + // expected-error {{overload of intrinsic CalculateLevelOfDetail with SamplerComparisonState requires shader model 6.8 or greater}}
-  // expected-error@+1 {{Intrinsic CalculateLevelOfDetailUnclamped requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+  // expected-error@+1 {{Intrinsic CalculateLevelOfDetailUnclamped called by vs requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
     t.CalculateLevelOfDetailUnclamped(s, a); // expected-error {{overload of intrinsic CalculateLevelOfDetailUnclamped with SamplerComparisonState requires shader model 6.8 or greater}}
 }

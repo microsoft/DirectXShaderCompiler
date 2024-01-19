@@ -11166,26 +11166,30 @@ void Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
               << "6.8";
         }
       }
-      if (!SM->AllowDerivatives(EntrySK)) {
-        Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
-            << MD->getNameAsString();
-      }
+
       switch (EntrySK) {
-      default:
-        break;
+      default: {
+        if (!SM->AllowDerivatives(EntrySK)) {
+          Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
+              << MD->getNameAsString() << EntryDecl->getNameAsString();
+          Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
+        }
+      } break;
       case DXIL::ShaderKind::Compute:
       case DXIL::ShaderKind::Amplification:
       case DXIL::ShaderKind::Mesh: {
         if (!SM->IsSM66Plus()) {
           Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_model)
-              << MD->getNameAsString();
+              << MD->getNameAsString() << EntryDecl->getNameAsString();
+          Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
         }
       } break;
       case DXIL::ShaderKind::Node: {
         if (const auto *pAttr = EntryDecl->getAttr<HLSLNodeLaunchAttr>()) {
           if (pAttr->getLaunchType() != "broadcasting") {
             Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
-                << MD->getNameAsString();
+                << MD->getNameAsString() << EntryDecl->getNameAsString();
+            Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
           }
         }
       } break;
@@ -11204,6 +11208,7 @@ void Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
         if (invalidNumThreads) {
           Diags.Report(Loc, diag::warn_hlsl_derivatives_wrong_numthreads)
               << MD->getNameAsString() << EntryDecl->getNameAsString();
+          Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
         }
       }
     } break;
