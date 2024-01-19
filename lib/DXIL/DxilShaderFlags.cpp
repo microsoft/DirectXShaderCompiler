@@ -45,7 +45,7 @@ ShaderFlags::ShaderFlags()
       m_bSamplerDescriptorHeapIndexing(false),
       m_bAtomicInt64OnHeapResource(false), m_bResMayNotAlias(false),
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
-      m_bWaveMMA(false), m_align1(0) {
+      m_bWaveMMA(false), m_bSampleCmpGradientOrBias(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
@@ -125,6 +125,10 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
 
   Flags |= m_bWaveMMA ? hlsl::DXIL::ShaderFeatureInfo_WaveMMA : 0;
 
+  Flags |= m_bSampleCmpGradientOrBias
+                 ? hlsl::DXIL::ShaderFeatureInfo_SampleCmpGradientOrBias
+                 : 0;
+
   return Flags;
 }
 
@@ -185,6 +189,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetAdvancedTextureOps(true);
   Flags.SetWriteableMSAATextures(true);
   Flags.SetWaveMMA(true);
+  Flags.SetSampleCmpGradientOrBias(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -414,6 +419,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
 
   bool hasAdvancedTextureOps = false;
   bool hasWriteableMSAATextures = false;
+  bool hasSampleCmpGradientOrBias = false;
 
   bool hasWaveMMA = false;
 
@@ -590,6 +596,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::SampleCmpGrad:
           hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
           hasLodClamp |= hasSampleClamp(CI);
+          hasSampleCmpGradientOrBias = dxilOp == DXIL::OpCode::SampleCmpGrad;
           break;
         case DXIL::OpCode::Sample:
         case DXIL::OpCode::SampleBias:
@@ -597,6 +604,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::SampleCmpBias:
           hasAdvancedTextureOps |= hasNonConstantSampleOffsets(CI);
           hasLodClamp |= hasSampleClamp(CI);
+          hasSampleCmpGradientOrBias = dxilOp == DXIL::OpCode::SampleCmpBias;
           LLVM_FALLTHROUGH;
         case DXIL::OpCode::DerivFineX:
         case DXIL::OpCode::DerivFineY:
@@ -761,7 +769,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
   flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
   flag.SetWaveMMA(hasWaveMMA);
-
+  flag.SetSampleCmpGradientOrBias(hasSampleCmpGradientOrBias);
   // Only bother setting the flag when there are UAVs.
   flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
                          !M->GetResMayAlias());

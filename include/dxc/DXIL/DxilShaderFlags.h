@@ -197,6 +197,13 @@ public:
   void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
   bool GetWaveMMA() const { return m_bWaveMMA; }
 
+  void SetSampleCmpGradientOrBias(bool flag) {
+    m_bSampleCmpGradientOrBias = flag;
+  }
+  bool GetSampleCmpGradientOrBias() const {
+    return m_bSampleCmpGradientOrBias;
+  }
+
 private:
   unsigned
       m_bDisableOptimizations : 1; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
@@ -276,8 +283,9 @@ private:
 
   // SM 6.8+
   unsigned m_bWaveMMA : 1; // SHADER_FEATURE_WAVE_MMA
+  unsigned m_bSampleCmpGradientOrBias : 1; // SHADER_FEATURE_SAMPLE_CMP_GRADIENT_OR_BIAS
 
-  uint32_t m_align1 : 27; // align to 64 bit.
+  uint32_t m_align1 : 26; // align to 64 bit.
 };
 
 } // namespace hlsl

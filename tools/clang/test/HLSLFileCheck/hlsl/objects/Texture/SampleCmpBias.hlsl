@@ -1,5 +1,6 @@
 // RUN: %dxc -Tps_6_8 %s | FileCheck %s
 
+// CHECK: SampleCmpGradientOrBias
 SamplerComparisonState samp1;
 Texture1D<float4> tex1d;
 Texture1DArray<float4> tex1d_array;
