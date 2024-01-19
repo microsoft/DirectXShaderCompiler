@@ -1248,6 +1248,26 @@ private:
   /// Returns a function scope parameter with the same type as |param|.
   SpirvVariable *createFunctionScopeTempFromParameter(const ParmVarDecl *param);
 
+  /// Returns a vector of SpirvInstruction that is the decompostion of `inst`
+  /// into scalars. This is recursive. For example, a struct of a 4 element
+  /// vector will return 4 scalars.
+  std::vector<SpirvInstruction *> decomposeToScalars(SpirvInstruction *inst);
+
+  /// Returns a spirv instruction with the value of the given type and layout
+  /// rule that is obtained by assigning each scalar in `type` to corresponding
+  /// value in `scalars`. This is the inverse of `decomposeToScalars`.
+  SpirvInstruction *
+  GenerateFromScalars(QualType type, std::vector<SpirvInstruction *> &scalars,
+                      SpirvLayoutRule layoutRule);
+
+  /// Returns a spirv instruction with the value of the given type and layout
+  /// rule that is obtained by assigning `scalar` each scalar in `type`. This is
+  /// the same as calling `GenerateFromScalars` with a sufficiently large vector
+  /// where every element is `scalar`.
+  SpirvInstruction *SplatScalarToGenerate(QualType type,
+                                          SpirvInstruction *scalar,
+                                          SpirvLayoutRule rule);
+
 public:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.

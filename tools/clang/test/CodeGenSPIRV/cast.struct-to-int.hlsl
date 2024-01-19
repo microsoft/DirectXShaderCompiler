@@ -83,22 +83,21 @@ void main()
 // CHECK: [[COLORS:%[^ ]*]] = OpLoad [[TWOCOLORS]]
 // CHECK: [[COLORS0:%[^ ]*]] = OpCompositeExtract [[COLORRGBA]] [[COLORS]] 0
 // CHECK: [[COLORS00:%[^ ]*]] = OpCompositeExtract [[UINT]] [[COLORS0]] 0
-// CHECK: [[COLORS000:%[^ ]*]] = OpBitFieldUExtract [[UINT]] [[COLORS00]] [[U0]] [[U8]]
 // CHECK: [[BUF00:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[BUF]] [[I0]] [[U0]]
-// CHECK: OpStore [[BUF00]] [[COLORS000]]
+// CHECK: OpStore [[BUF00]] [[COLORS00]]
 
     buf[0] -= (uint) rgb;
 // CHECK: [[RGB:%[^ ]*]] = OpLoad [[COLORRGB]]
 // CHECK: [[RGB0:%[^ ]*]] = OpCompositeExtract [[UINT]] [[RGB]] 0
-// CHECK: [[RGB00:%[^ ]*]] = OpBitFieldUExtract [[UINT]] [[RGB0]] [[U0]] [[U8]]
 // CHECK: [[BUF00_0:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[BUF]] [[I0]] [[U0]]
 // CHECK: [[V1:%[^ ]*]] = OpLoad [[UINT]] [[BUF00_0]]
-// CHECK: [[V2:%[^ ]*]] = OpISub [[UINT]] [[V1]] [[RGB00]]
+// CHECK: [[V2:%[^ ]*]] = OpISub [[UINT]] [[V1]] [[RGB0]]
 // CHECK: OpStore [[BUF00_0]] [[V2]]
 
     lbuf[0] = (uint64_t) v;
 // CHECK: [[VECS:%[^ ]*]] = OpLoad [[VECTORS]]
-// CHECK: [[VECS00:%[^ ]*]] = OpCompositeExtract [[UINT]] [[VECS]] 0 0
+// CHECK: [[VECS0:%[^ ]*]] = OpCompositeExtract {{%v2uint}} [[VECS]] 0
+// CHECK: [[VECS00:%[^ ]*]] = OpCompositeExtract [[UINT]] [[VECS0]] 0
 // CHECK: [[V1_0:%[^ ]*]] = OpUConvert [[ULONG]] [[VECS00]]
 // CHECK: [[LBUF00:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[LBUF]] [[I0]] [[U0]]
 // CHECK: OpStore [[LBUF00]] [[V1_0]]

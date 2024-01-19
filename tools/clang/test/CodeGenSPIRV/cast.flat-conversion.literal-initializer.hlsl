@@ -9,6 +9,11 @@ struct S {
   uint64_t f;
 };
 
+struct T {
+  int32_t i;
+  int64_t j;
+};
+
 void main() {
 
 // CHECK:              [[inf:%[0-9]+]] = OpFDiv %float %float_1 %float_0
@@ -47,4 +52,11 @@ void main() {
 // CHECK-NEXT:           {{%[0-9]+}} = OpCompositeConstruct %S [[a2_float]] [[a_float_0]] [[a2_double]] [[a]] [[a_int64]] [[a_uint64]]
   double a;
   S s1 = (S)(a);
+
+// TODO(6188): This is wrong because we lose most significant bits in the literal.
+// CHECK: [[lit:%[0-9]+]] = OpIAdd %int %int_0 %int_1
+// CHECK: [[longLit:%[0-9]+]] = OpSConvert %long [[lit]]
+// CHECK: [[t:%[0-9]+]] = OpCompositeConstruct %T [[lit]] [[longLit]]
+// CHECK: OpStore %t [[t]]
+  T t = (T)(0x100000000+1);
 }

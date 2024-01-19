@@ -3540,132 +3540,34 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
 SpirvInstruction *SpirvEmitter::processFlatConversion(
     const QualType type, const QualType initType, SpirvInstruction *initInstr,
     SourceLocation srcLoc, SourceRange range) {
-  if (isConstantTextureBuffer(initType)) {
-    return reconstructValue(initInstr, type, SpirvLayoutRule::Void, srcLoc,
-                            range);
+
+  // If the same literal is used in multiple instructions, then the literal
+  // visitor may not be able to pick the correct type for the literal. The
+  // happens when say one instruction uses the literal as a float and another
+  // uses it as a double. We solve this by setting the type for the literal to
+  // its 32-bit equivalent.
+  //
+  // TODO(6188): This is wrong when the literal it too large to be held in
+  // the the 32-bit type. We do this because it is consistent with the long
+  // standing behaviour. Changing now would result in more 64-bit arithmetic,
+  // which the optimizer does not handle as well.
+  QualType resultType = initInstr->getAstResultType();
+  if (resultType->isSpecificBuiltinType(BuiltinType::LitFloat)) {
+    initInstr->setAstResultType(astContext.FloatTy);
+  } else if (resultType->isSpecificBuiltinType(BuiltinType::LitInt)) {
+    if (resultType->isSignedIntegerType())
+      initInstr->setAstResultType(astContext.IntTy);
+    else
+      initInstr->setAstResultType(astContext.UnsignedIntTy);
   }
 
-  // Try to translate the canonical type first
-  const auto canonicalType = type.getCanonicalType();
-  if (canonicalType != type)
-    return processFlatConversion(canonicalType, initType, initInstr, srcLoc,
-                                 range);
+  // Decompose `initInstr`.
+  std::vector<SpirvInstruction *> flatValues = decomposeToScalars(initInstr);
 
-  // Primitive types
-  {
-    QualType ty = {};
-    if (isScalarType(type, &ty)) {
-      if (const auto *builtinType = ty->getAs<BuiltinType>()) {
-        switch (builtinType->getKind()) {
-        case BuiltinType::Void: {
-          emitError("cannot create a constant of void type", srcLoc);
-          return 0;
-        }
-        case BuiltinType::Bool:
-          return castToBool(initInstr, initType, ty, srcLoc, range);
-        // Target type is an integer variant.
-        case BuiltinType::Int:
-        case BuiltinType::Short:
-        case BuiltinType::Min12Int:
-        case BuiltinType::Min16Int:
-        case BuiltinType::Min16UInt:
-        case BuiltinType::UShort:
-        case BuiltinType::UInt:
-        case BuiltinType::Long:
-        case BuiltinType::LongLong:
-        case BuiltinType::ULong:
-        case BuiltinType::ULongLong:
-        case BuiltinType::Int8_4Packed:
-        case BuiltinType::UInt8_4Packed:
-          return castToInt(initInstr, initType, ty, srcLoc, range);
-        // Target type is a float variant.
-        case BuiltinType::Double:
-        case BuiltinType::Float:
-        case BuiltinType::Half:
-        case BuiltinType::HalfFloat:
-        case BuiltinType::Min10Float:
-        case BuiltinType::Min16Float:
-          return castToFloat(initInstr, initType, ty, srcLoc, range);
-        default:
-          emitError("flat conversion of type %0 unimplemented", srcLoc)
-              << builtinType->getTypeClassName();
-          return 0;
-        }
-      }
-    }
+  if (flatValues.size() == 1) {
+    return SplatScalarToGenerate(type, flatValues[0], SpirvLayoutRule::Void);
   }
-  // Vector types
-  {
-    QualType elemType = {};
-    uint32_t elemCount = {};
-    if (isVectorType(type, &elemType, &elemCount)) {
-      auto *elem =
-          processFlatConversion(elemType, initType, initInstr, srcLoc, range);
-      llvm::SmallVector<SpirvInstruction *, 4> constituents(size_t(elemCount),
-                                                            elem);
-      return spvBuilder.createCompositeConstruct(type, constituents, srcLoc,
-                                                 range);
-    }
-  }
-
-  // Matrix types
-  {
-    QualType elemType = {};
-    uint32_t rowCount = 0, colCount = 0;
-    if (isMxNMatrix(type, &elemType, &rowCount, &colCount)) {
-      // By default HLSL matrices are row major, while SPIR-V matrices are
-      // column major. We are mapping what HLSL semantically mean a row into a
-      // column here.
-      const QualType vecType = astContext.getExtVectorType(elemType, colCount);
-      auto *elem =
-          processFlatConversion(elemType, initType, initInstr, srcLoc, range);
-      const llvm::SmallVector<SpirvInstruction *, 4> constituents(
-          size_t(colCount), elem);
-      auto *col = spvBuilder.createCompositeConstruct(vecType, constituents,
-                                                      srcLoc, range);
-      const llvm::SmallVector<SpirvInstruction *, 4> rows(size_t(rowCount),
-                                                          col);
-      return spvBuilder.createCompositeConstruct(type, rows, srcLoc, range);
-    }
-  }
-
-  // Struct type
-  if (const auto *structType = type->getAs<RecordType>()) {
-    const auto *decl = structType->getDecl();
-    llvm::SmallVector<SpirvInstruction *, 4> fields;
-
-    for (const auto *field : decl->fields()) {
-      // There is a special case for FlatConversion. If T is a struct with only
-      // one member, S, then (T)<an-instance-of-S> is allowed, which essentially
-      // constructs a new T instance using the instance of S as its only member.
-      // Check whether we are handling that case here first.
-      if (!field->isBitField() &&
-          field->getType().getCanonicalType() == initType.getCanonicalType()) {
-        fields.push_back(initInstr);
-      } else {
-        fields.push_back(processFlatConversion(field->getType(), initType,
-                                               initInstr, srcLoc, range));
-      }
-    }
-
-    return spvBuilder.createCompositeConstruct(type, fields, srcLoc, range);
-  }
-
-  // Array type
-  if (const auto *arrayType = astContext.getAsConstantArrayType(type)) {
-    const auto size =
-        static_cast<uint32_t>(arrayType->getSize().getZExtValue());
-    auto *elem = processFlatConversion(arrayType->getElementType(), initType,
-                                       initInstr, srcLoc, range);
-    llvm::SmallVector<SpirvInstruction *, 4> constituents(size_t(size), elem);
-    return spvBuilder.createCompositeConstruct(type, constituents, srcLoc,
-                                               range);
-  }
-
-  emitError("flat conversion of type %0 unimplemented", {})
-      << type->getTypeClassName();
-  type->dump();
-  return 0;
+  return GenerateFromScalars(type, flatValues, SpirvLayoutRule::Void);
 }
 
 SpirvInstruction *
@@ -14628,6 +14530,264 @@ SpirvEmitter::doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr) {
                                               llvm::APInt(32, size));
   sizeConst->setRValue();
   return sizeConst;
+}
+
+std::vector<SpirvInstruction *>
+SpirvEmitter::decomposeToScalars(SpirvInstruction *inst) {
+  QualType elementType;
+  uint32_t elementCount = 0;
+  uint32_t numOfRows = 0;
+  uint32_t numOfCols = 0;
+
+  QualType resultType = inst->getAstResultType();
+  if (hlsl::IsHLSLResourceType(resultType)) {
+    resultType = hlsl::GetHLSLResourceResultType(resultType);
+  }
+
+  // switch(inst->getAstResultType()->getKind())
+  if (isScalarType(resultType)) {
+    return {inst};
+  } else if (isVectorType(resultType, &elementType, &elementCount)) {
+    std::vector<SpirvInstruction *> result;
+    for (uint32_t i = 0; i < elementCount; i++) {
+      auto *element = spvBuilder.createCompositeExtract(
+          elementType, inst, {i}, inst->getSourceLocation());
+      element->setLayoutRule(inst->getLayoutRule());
+      result.push_back(element);
+    }
+    return result;
+  } else if (isMxNMatrix(resultType, &elementType, &numOfRows, &numOfCols)) {
+    std::vector<SpirvInstruction *> result;
+    for (uint32_t i = 0; i < numOfRows; i++) {
+      for (uint32_t j = 0; j < numOfCols; j++) {
+        auto *element = spvBuilder.createCompositeExtract(
+            elementType, inst, {i, j}, inst->getSourceLocation());
+        element->setLayoutRule(inst->getLayoutRule());
+        result.push_back(element);
+      }
+    }
+    return result;
+  } else if (isArrayType(resultType, &elementType, &elementCount)) {
+    std::vector<SpirvInstruction *> result;
+    for (uint32_t i = 0; i < elementCount; i++) {
+      auto *element = spvBuilder.createCompositeExtract(
+          elementType, inst, {i}, inst->getSourceLocation());
+      element->setLayoutRule(inst->getLayoutRule());
+      auto decomposedElement = decomposeToScalars(element);
+
+      // See how we can improve the performance by avoiding this copy.
+      result.insert(result.end(), decomposedElement.begin(),
+                    decomposedElement.end());
+    }
+    return result;
+  }
+
+  if (const RecordType *recordType = resultType->getAs<RecordType>()) {
+    std::vector<SpirvInstruction *> result;
+
+    const SpirvType *type = nullptr;
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    type = lowerTypeVisitor.lowerType(resultType, inst->getLayoutRule(), false,
+                                      inst->getSourceLocation());
+
+    forEachSpirvField(
+        recordType, dyn_cast<StructType>(type),
+        [this, inst, &result](size_t spirvFieldIndex, const QualType &fieldType,
+                              const StructType::FieldInfo &fieldInfo) {
+          auto *field = spvBuilder.createCompositeExtract(
+              fieldType, inst, {fieldInfo.fieldIndex},
+              inst->getSourceLocation());
+          field->setLayoutRule(inst->getLayoutRule());
+          auto decomposedField = decomposeToScalars(field);
+
+          // See how we can improve the performance by avoiding this copy.
+          result.insert(result.end(), decomposedField.begin(),
+                        decomposedField.end());
+          return true;
+        });
+    return result;
+  }
+
+  else {
+    resultType->dump();
+    llvm_unreachable("Trying to decompose a type that we cannot decompose");
+  }
+  return {};
+}
+
+SpirvInstruction *
+SpirvEmitter::GenerateFromScalars(QualType type,
+                                  std::vector<SpirvInstruction *> &scalars,
+                                  SpirvLayoutRule layoutRule) {
+  QualType elementType;
+  uint32_t elementCount = 0;
+  uint32_t numOfRows = 0;
+  uint32_t numOfCols = 0;
+
+  if (isScalarType(type)) {
+    // If the type if bool with a non-void layout rule, then it should be
+    // treated as a uint.
+    assert(layoutRule == SpirvLayoutRule::Void &&
+           "If the layout type is not void, then we should cast to an int when "
+           "type is a boolean.");
+    QualType sourceType = scalars[0]->getAstResultType();
+    if (sourceType->isBooleanType() &&
+        scalars[0]->getLayoutRule() != SpirvLayoutRule::Void) {
+      sourceType = astContext.UnsignedIntTy;
+    }
+
+    SpirvInstruction *result = castToType(scalars[0], sourceType, type,
+                                          scalars[0]->getSourceLocation());
+    scalars.erase(scalars.begin());
+    return result;
+  } else if (isVectorType(type, &elementType, &elementCount)) {
+    assert(elementCount <= scalars.size());
+    std::vector<SpirvInstruction *> elements;
+    for (uint32_t i = 0; i < elementCount; ++i) {
+      elements.push_back(castToType(scalars[i], scalars[i]->getAstResultType(),
+                                    elementType,
+                                    scalars[i]->getSourceLocation()));
+    }
+    SpirvInstruction *result = spvBuilder.createCompositeConstruct(
+        type, elements, scalars[0]->getSourceLocation());
+    result->setLayoutRule(layoutRule);
+    scalars.erase(scalars.begin(), scalars.begin() + elementCount);
+    return result;
+  } else if (isMxNMatrix(type, &elementType, &numOfRows, &numOfCols)) {
+    std::vector<SpirvInstruction *> rows;
+    SourceLocation loc = scalars[0]->getSourceLocation();
+    QualType rowType = astContext.getExtVectorType(elementType, numOfCols);
+    for (uint32_t i = 0; i < numOfRows; i++) {
+      std::vector<SpirvInstruction *> row;
+      for (uint32_t j = 0; j < numOfCols; j++) {
+        row.push_back(castToType(scalars[j], scalars[j]->getAstResultType(),
+                                 elementType, scalars[j]->getSourceLocation()));
+      }
+      scalars.erase(scalars.begin(), scalars.begin() + numOfCols);
+      SpirvInstruction *r = spvBuilder.createCompositeConstruct(
+          rowType, row, scalars[0]->getSourceLocation());
+      r->setLayoutRule(layoutRule);
+      rows.push_back(r);
+    }
+    SpirvInstruction *result =
+        spvBuilder.createCompositeConstruct(type, rows, loc);
+    result->setLayoutRule(layoutRule);
+    return result;
+  } else if (isArrayType(type, &elementType, &elementCount)) {
+    std::vector<SpirvInstruction *> elements;
+    for (uint32_t i = 0; i < elementCount; i++) {
+      elements.push_back(GenerateFromScalars(elementType, scalars, layoutRule));
+    }
+    SpirvInstruction *result = spvBuilder.createCompositeConstruct(
+        type, elements, scalars[0]->getSourceLocation());
+    result->setLayoutRule(layoutRule);
+    return result;
+  } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
+    SourceLocation loc = scalars[0]->getSourceLocation();
+    std::vector<SpirvInstruction *> elements;
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    const SpirvType *spirvType =
+        lowerTypeVisitor.lowerType(type, layoutRule, false, loc);
+
+    forEachSpirvField(recordType, dyn_cast<StructType>(spirvType),
+                      [this, &elements, &scalars, layoutRule](
+                          size_t spirvFieldIndex, const QualType &fieldType,
+                          const StructType::FieldInfo &fieldInfo) {
+                        elements.push_back(GenerateFromScalars(
+                            fieldType, scalars, layoutRule));
+                        return true;
+                      });
+    SpirvInstruction *result =
+        spvBuilder.createCompositeConstruct(type, elements, loc);
+    result->setLayoutRule(layoutRule);
+    return result;
+  } else {
+    llvm_unreachable("Trying to generate a type that we cannot generate");
+  }
+  return {};
+}
+
+SpirvInstruction *
+SpirvEmitter::SplatScalarToGenerate(QualType type, SpirvInstruction *scalar,
+                                    SpirvLayoutRule layoutRule) {
+  QualType elementType;
+  uint32_t elementCount = 0;
+  uint32_t numOfRows = 0;
+  uint32_t numOfCols = 0;
+
+  if (isScalarType(type)) {
+    // If the type if bool with a non-void layout rule, then it should be
+    // treated as a uint.
+    assert(layoutRule == SpirvLayoutRule::Void &&
+           "If the layout type is not void, then we should cast to an int when "
+           "type is a boolean.");
+    QualType sourceType = scalar->getAstResultType();
+    if (sourceType->isBooleanType() &&
+        scalar->getLayoutRule() != SpirvLayoutRule::Void) {
+      sourceType = astContext.UnsignedIntTy;
+    }
+
+    SpirvInstruction *result =
+        castToType(scalar, sourceType, type, scalar->getSourceLocation());
+    return result;
+  } else if (isVectorType(type, &elementType, &elementCount)) {
+    SpirvInstruction *element =
+        castToType(scalar, scalar->getAstResultType(), elementType,
+                   scalar->getSourceLocation());
+    std::vector<SpirvInstruction *> elements(elementCount, element);
+    SpirvInstruction *result = spvBuilder.createCompositeConstruct(
+        type, elements, scalar->getSourceLocation());
+    result->setLayoutRule(layoutRule);
+    return result;
+  } else if (isMxNMatrix(type, &elementType, &numOfRows, &numOfCols)) {
+    SourceLocation loc = scalar->getSourceLocation();
+
+    SpirvInstruction *element =
+        castToType(scalar, scalar->getAstResultType(), elementType,
+                   scalar->getSourceLocation());
+    assert(element);
+    std::vector<SpirvInstruction *> row(numOfCols, element);
+
+    QualType rowType = astContext.getExtVectorType(elementType, numOfCols);
+    SpirvInstruction *r =
+        spvBuilder.createCompositeConstruct(rowType, row, loc);
+    r->setLayoutRule(layoutRule);
+    std::vector<SpirvInstruction *> rows(numOfRows, r);
+    SpirvInstruction *result =
+        spvBuilder.createCompositeConstruct(type, rows, loc);
+    result->setLayoutRule(layoutRule);
+    return result;
+  } else if (isArrayType(type, &elementType, &elementCount)) {
+    SpirvInstruction *element =
+        SplatScalarToGenerate(elementType, scalar, layoutRule);
+    std::vector<SpirvInstruction *> elements(elementCount, element);
+    SpirvInstruction *result = spvBuilder.createCompositeConstruct(
+        type, elements, scalar->getSourceLocation());
+    result->setLayoutRule(layoutRule);
+    return result;
+  } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
+    SourceLocation loc = scalar->getSourceLocation();
+    std::vector<SpirvInstruction *> elements;
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    const SpirvType *spirvType =
+        lowerTypeVisitor.lowerType(type, SpirvLayoutRule::Void, false, loc);
+
+    forEachSpirvField(recordType, dyn_cast<StructType>(spirvType),
+                      [this, &elements, &scalar, layoutRule](
+                          size_t spirvFieldIndex, const QualType &fieldType,
+                          const StructType::FieldInfo &fieldInfo) {
+                        elements.push_back(SplatScalarToGenerate(
+                            fieldType, scalar, layoutRule));
+                        return true;
+                      });
+    SpirvInstruction *result =
+        spvBuilder.createCompositeConstruct(type, elements, loc);
+    result->setLayoutRule(layoutRule);
+    return result;
+  } else {
+    llvm_unreachable("Trying to generate a type that we cannot generate");
+  }
+  return {};
 }
 
 } // end namespace spirv
