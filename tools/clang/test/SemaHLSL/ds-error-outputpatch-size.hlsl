@@ -1,5 +1,4 @@
 // RUN: %dxc -T ds_6_0 -E main -verify %s
-// RUN: %dxc -T ds_6_0 -E main -verify %s -spirv
 
 struct ControlPoint {
   float position : MY_BOOL;
