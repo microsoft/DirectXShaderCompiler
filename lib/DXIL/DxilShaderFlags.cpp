@@ -45,7 +45,8 @@ ShaderFlags::ShaderFlags()
       m_bSamplerDescriptorHeapIndexing(false),
       m_bAtomicInt64OnHeapResource(false), m_bResMayNotAlias(false),
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
-      m_bWaveMMA(false), m_bSampleCmpGradientOrBias(false), m_align1(0) {
+      m_bWaveMMA(false), m_bSampleCmpGradientOrBias(false),
+      m_bExtendedCommandInfo(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
@@ -129,6 +130,10 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
                  ? hlsl::DXIL::ShaderFeatureInfo_SampleCmpGradientOrBias
                  : 0;
 
+  Flags |= m_bExtendedCommandInfo
+                 ? hlsl::DXIL::ShaderFeatureInfo_ExtendedCommandInfo
+                 : 0;
+
   return Flags;
 }
 
@@ -190,6 +195,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetWriteableMSAATextures(true);
   Flags.SetWaveMMA(true);
   Flags.SetSampleCmpGradientOrBias(true);
+  Flags.SetExtendedCommandInfo(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -422,6 +428,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasSampleCmpGradientOrBias = false;
 
   bool hasWaveMMA = false;
+  bool hasExtendedCommandInfo = false;
 
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
@@ -652,6 +659,10 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::WaveMatrix_SumAccumulate:
           hasWaveMMA = true;
           break;
+        case DXIL::OpCode::StartVertexLocation:
+        case DXIL::OpCode::StartInstanceLocation:
+          hasExtendedCommandInfo = true;
+          break;
         default:
           // Normal opcodes.
           break;
@@ -773,6 +784,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   // Only bother setting the flag when there are UAVs.
   flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
                          !M->GetResMayAlias());
+  flag.SetExtendedCommandInfo(hasExtendedCommandInfo);
 
   return flag;
 }

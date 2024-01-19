@@ -348,6 +348,7 @@ PCSTR g_pFeatureInfoNames[] = {
     "Advanced Texture Ops",
     "Writeable MSAA Textures",
     "SampleCmpGradientOrBias",
+    "ExtendedCommandInfo",
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount,
               "g_pFeatureInfoNames needs to be updated");
