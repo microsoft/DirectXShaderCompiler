@@ -11,8 +11,8 @@
 // The input should be null
 // CHECK: ![[SIG]] = !{null,
 
-// tag 0: ShaderFlags, ExtendedCommandInfo = SampleCmpGradientOrBias
-// CHECK: ![[extAttr]] = !{i32 0, i64 ExtendedCommandInfo}
+// tag 0: ShaderFlags, 274877906944 = SampleCmpGradientOrBias
+// CHECK: ![[extAttr]] = !{i32 0, i64 274877906944}
 
 float4 main(int loc : SV_StartVertexLocation
            , uint loc2 : SV_StartInstanceLocation
