@@ -7772,13 +7772,13 @@ def err_hlsl_unsupported_for_version_lower : Error<
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
 def warn_hlsl_derivatives_in_wrong_shader_kind: Warning<
-   "Intrinsic %0 called by %1 requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders.">,
+   "Intrinsic %0 potentially used by %1 requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders.">,
     DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_derivatives_in_wrong_shader_model: Warning<
-   "Intrinsic %0 called by %1 requires derivatives - shader model 6.6 or greater is required for use in compute, amplification, or mesh shaders.">,
+   "Intrinsic %0 potentially used by %1 requires derivatives - shader model 6.6 or greater is required for use in compute, amplification, or mesh shaders.">,
     DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_derivatives_wrong_numthreads : Warning<
-   "Intrinsic %0 called by %1 requires derivatives - when used in compute/amplification/mesh shaders"
+   "Intrinsic %0 potentially used by %1 requires derivatives - when used in compute/amplification/mesh shaders"
     " or broadcast nodes, numthreads must be either 1D with X as a multiple of 4 or"
     " both X and Y must be multiples of 2.">,
     DefaultError, InGroup<HLSLAvailability>;

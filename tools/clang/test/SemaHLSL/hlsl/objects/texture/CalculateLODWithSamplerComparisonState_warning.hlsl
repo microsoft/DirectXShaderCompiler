@@ -45,8 +45,8 @@ float ps(float a:A) : SV_Target {
 // expected-note@+2{{declared here}}
 [shader("vertex")]
 float4 vs(float a:A) : SV_Position {
-  // expected-warning@+1 {{Intrinsic CalculateLevelOfDetail called by vs requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+  // expected-warning@+1 {{Intrinsic CalculateLevelOfDetail potentially used by vs requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
   return t.CalculateLevelOfDetail(s, a) + // expected-warning {{overload of intrinsic CalculateLevelOfDetail with SamplerComparisonState requires shader model 6.8 or greater}}
-  // expected-warning@+1 {{Intrinsic CalculateLevelOfDetailUnclamped called by vs requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+  // expected-warning@+1 {{Intrinsic CalculateLevelOfDetailUnclamped potentially used by vs requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
     t.CalculateLevelOfDetailUnclamped(s, a); // expected-warning {{overload of intrinsic CalculateLevelOfDetailUnclamped with SamplerComparisonState requires shader model 6.8 or greater}}
 }
