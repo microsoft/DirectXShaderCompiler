@@ -127,12 +127,12 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
   Flags |= m_bWaveMMA ? hlsl::DXIL::ShaderFeatureInfo_WaveMMA : 0;
 
   Flags |= m_bSampleCmpGradientOrBias
-                 ? hlsl::DXIL::ShaderFeatureInfo_SampleCmpGradientOrBias
-                 : 0;
+               ? hlsl::DXIL::ShaderFeatureInfo_SampleCmpGradientOrBias
+               : 0;
 
   Flags |= m_bExtendedCommandInfo
-                 ? hlsl::DXIL::ShaderFeatureInfo_ExtendedCommandInfo
-                 : 0;
+               ? hlsl::DXIL::ShaderFeatureInfo_ExtendedCommandInfo
+               : 0;
 
   return Flags;
 }
