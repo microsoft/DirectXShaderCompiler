@@ -908,7 +908,7 @@ def HLSLWaveSensitive : InheritableAttr {
 
 def HLSLWaveSize : InheritableAttr {
   let Spellings = [CXX11<"", "wavesize", 2017>];
-  let Args = [IntArgument<"Size">];
+  let Args = [IntArgument<"Min">, DefaultIntArgument<"Max", 0>, DefaultIntArgument<"Preferred", 0>];
   let Documentation = [Undocumented];
 }
 

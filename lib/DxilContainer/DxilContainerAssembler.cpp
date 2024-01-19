@@ -1812,11 +1812,10 @@ private:
           shaderKind = (uint32_t)props.shaderKind;
           if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            unsigned waveSize = entryProps.props.waveSize;
-            if (waveSize) {
-              pInfo2->MinimumExpectedWaveLaneCount = waveSize;
-              pInfo2->MaximumExpectedWaveLaneCount = waveSize;
-            }
+            pInfo2->MinimumExpectedWaveLaneCount = entryProps.props.waveMinSize;
+            pInfo2->MaximumExpectedWaveLaneCount =
+                entryProps.props.waveMaxSize > 0 ? entryProps.props.waveMaxSize
+                                                 : entryProps.props.waveMinSize;
             pInfo2->ShaderFlags = 0;
             if (entryProps.props.IsNode()) {
               shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,

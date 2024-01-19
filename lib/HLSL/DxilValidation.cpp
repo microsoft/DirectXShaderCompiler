@@ -5251,15 +5251,15 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
 
   // validate wave size (currently allowed only on CS but might be supported on
   // other shader types in the future)
-  if (props.waveSize != 0) {
+  if (props.waveMinSize != 0) {
     if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 6) <
         0) {
       ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeNeedsDxil16Plus,
                                {});
     }
-    if (!DXIL::IsValidWaveSizeValue(props.waveSize)) {
+    if (!DXIL::IsValidWaveSizeValue(props.waveMinSize)) {
       ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
-                               {std::to_string(props.waveSize),
+                               {std::to_string(props.waveMinSize),
                                 std::to_string(DXIL::kMinWaveSize),
                                 std::to_string(DXIL::kMaxWaveSize)});
     }
