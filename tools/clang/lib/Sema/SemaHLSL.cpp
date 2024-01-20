@@ -12625,9 +12625,9 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
       ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
       A.getAttributeSpellingListIndex());
 
-  unsigned minWave = pAttr->getMin();
-  unsigned maxWave = pAttr->getMax();
-  unsigned prefWave = pAttr->getPreferred();
+  int minWave = pAttr->getMin();
+  int maxWave = pAttr->getMax();
+  int prefWave = pAttr->getPreferred();
 
   if (!DXIL::IsValidWaveSizeValue(minWave, maxWave, prefWave)) {
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
@@ -12638,12 +12638,12 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
       prefWave == 0 ? true : prefWave >= minWave && prefWave <= maxWave;
   if (!prefInRange) {
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_pref_size_out_of_range)
-        << prefWave << minWave << maxWave;
+        << (unsigned)prefWave << (unsigned)minWave << (unsigned)maxWave;
   }
   
   if (maxWave != 0 && minWave >= maxWave) {
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_min_geq_max)
-        << minWave << maxWave;
+        << (unsigned)minWave << (unsigned)maxWave;
   }
 
   // make sure there is not already an existing conflicting
