@@ -1836,7 +1836,7 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     } break;
     case DxilMDHelper::kDxilRangedWaveSizeTag: {
       // if we're here, we're using the range variant.
-      // Extra metadata is used is SM < 6.8
+      // Extra metadata is used if SM < 6.8
       if (!m_pSM->IsSMAtLeast(6, 8))
         m_bExtraMetadata = true;
       MDNode *pNode = cast<MDNode>(MDO.get());

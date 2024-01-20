@@ -7483,7 +7483,11 @@ def err_hlsl_profile_conflicts_with_shader_attribute : Error<
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
 def err_hlsl_wavesize_size: Error<
-  "WaveSize value must be between 4 and 128 and a power of 2">;
+  "WaveSize arguments must be between 4 and 128 and a power of 2">;
+def err_hlsl_wavesize_min_geq_max: Error<
+  "Minimum WaveSize value %0 must be less than maximum WaveSize value %1">;
+def err_hlsl_wavesize_pref_size_out_of_range: Error<
+  "Preferred WaveSize value %0 must be between %1 and %2">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<

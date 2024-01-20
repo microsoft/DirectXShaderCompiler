@@ -23,7 +23,7 @@ void node01(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
 /* expected-error@+2{{Preferred WaveSize value 32 must be between 16 and 16}} */
-/* expected-error@+1{{Minimum WaveSize value 16 must be less than Maximum WaveSize value 16}} */
+/* expected-error@+1{{Minimum WaveSize value 16 must be less than maximum WaveSize value 16}} */
 [WaveSize(16, 16, 32)]
 void node02(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
@@ -31,7 +31,7 @@ void node02(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-[WaveSize(16, 16, 16)] /* expected-error{{Minimum WaveSize value 16 must be less than Maximum WaveSize value 16}} */
+[WaveSize(16, 16, 16)] /* expected-error{{Minimum WaveSize value 16 must be less than maximum WaveSize value 16}} */
 void node03(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
 // the non-power of 2 diagnostic gets emitted once, regardless of how many arguments aren't powers of 2.
