@@ -12658,7 +12658,7 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_pref_size_out_of_range)
         << (unsigned)prefWave << (unsigned)minWave << (unsigned)maxWave;
   }
-  
+
   if (maxWave != 0 && minWave >= maxWave) {
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_min_geq_max)
         << (unsigned)minWave << (unsigned)maxWave;
