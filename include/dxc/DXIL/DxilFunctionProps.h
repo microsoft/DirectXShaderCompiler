@@ -34,7 +34,9 @@ struct DxilFunctionProps {
     memset(&Node, 0, sizeof(Node));
     Node.LaunchType = DXIL::NodeLaunchType::Invalid;
     Node.LocalRootArgumentsTableIndex = -1;
-    waveSize = 0;
+    waveMinSize = 0;
+    waveMaxSize = 0;
+    wavePreferredSize = 0;
   }
   union {
     // Geometry shader.
@@ -107,9 +109,11 @@ struct DxilFunctionProps {
   std::vector<NodeIOProperties> InputNodes;
   std::vector<NodeIOProperties> OutputNodes;
 
-  // WaveSize is currently allowed only on compute shaders, but could be
-  // supported on other shader types in the future
-  unsigned waveSize;
+  // SM 6.6 allows WaveSize specification for only a single required size. SM
+  // 6.8+ allows specification of WaveSize as a min, max and preferred value.
+  unsigned waveMinSize;
+  unsigned waveMaxSize;
+  unsigned wavePreferredSize;
   // Save root signature for lib profile entry.
   std::vector<uint8_t> serializedRootSignature;
   void SetSerializedRootSignature(const uint8_t *pData, unsigned size) {

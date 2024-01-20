@@ -5251,17 +5251,43 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
 
   // validate wave size (currently allowed only on CS but might be supported on
   // other shader types in the future)
-  if (props.waveSize != 0) {
+  if (props.waveMinSize != 0) {
+
+    if (props.waveMaxSize != 0) {
+      if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 8) <
+          0) {
+        ValCtx.EmitFnFormatError(
+            F, ValidationRule::SmWaveSizeRangeNeedsDxil18Plus, {});
+      }
+    }
     if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 6) <
         0) {
       ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeNeedsDxil16Plus,
                                {});
     }
-    if (!DXIL::IsValidWaveSizeValue(props.waveSize)) {
+    if (!DXIL::IsValidWaveSizeValue(props.waveMinSize, props.waveMaxSize,
+                                    props.wavePreferredSize)) {
       ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
-                               {std::to_string(props.waveSize),
+                               {std::to_string(props.waveMinSize),
                                 std::to_string(DXIL::kMinWaveSize),
                                 std::to_string(DXIL::kMaxWaveSize)});
+    }
+
+    bool prefInRange = props.wavePreferredSize == 0
+                           ? true
+                           : props.wavePreferredSize >= props.waveMinSize &&
+                                 props.wavePreferredSize <= props.waveMaxSize;
+    if (!prefInRange) {
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizePreferredOutOfRange,
+                               {std::to_string(props.wavePreferredSize),
+                                std::to_string(props.waveMinSize),
+                                std::to_string(props.waveMaxSize)});
+    }
+
+    if (props.waveMaxSize != 0 && props.waveMinSize >= props.waveMaxSize) {
+      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeMinGEQMax,
+                               {std::to_string(props.waveMinSize),
+                                std::to_string(props.waveMaxSize)});
     }
   }
 

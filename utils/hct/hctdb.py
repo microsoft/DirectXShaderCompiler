@@ -7661,8 +7661,20 @@ class db_dxil(object):
             "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.",
         )
         self.add_valrule(
+            "Sm.WaveSizePreferredOutOfRange",
+            "Preferred WaveSize %0 outside valid range [%1..%2]",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeMinGEQMax",
+            "Declared Minimum WaveSize %0 greater or equal to declared Maximum Wavesize %1",
+        )
+        self.add_valrule(
             "Sm.WaveSizeNeedsDxil16Plus",
             "WaveSize is valid only for DXIL version 1.6 and higher.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeRangeNeedsDxil18Plus",
+            "WaveSize Range is valid only for DXIL version 1.8 and higher.",
         )
         self.add_valrule(
             "Sm.ROVOnlyInPS",
