@@ -7488,6 +7488,8 @@ def err_hlsl_wavesize_min_geq_max: Error<
   "Minimum WaveSize value %0 must be less than maximum WaveSize value %1">;
 def err_hlsl_wavesize_pref_size_out_of_range: Error<
   "Preferred WaveSize value %0 must be between %1 and %2">;
+def err_hlsl_wavesize_insufficient_shader_model: Error<
+  "WaveSize only takes multiple arguments in Shader Model 6.8 or higher">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<

@@ -15221,7 +15221,7 @@ void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
       }
       if (!SM->IsSM68Plus() && WaveSizeAttr->getSpelledArgsCount() > 1)
         S.Diags.Report(WaveSizeAttr->getRange().getBegin(),
-                       diag::err_attribute_too_many_arguments)
+                       diag::err_hlsl_wavesize_insufficient_shader_model)
             << "wavesize" << 1;
     }
   }
