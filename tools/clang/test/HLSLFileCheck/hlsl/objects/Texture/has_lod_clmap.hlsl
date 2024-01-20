@@ -1,28 +1,23 @@
-// RUN: %dxilver 1.8 | %dxc -E test_sample -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_sampleb -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_sampleg -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_samplec -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_samplecb -T ps_6_8 %s | FileCheck %s -check-prefix=CMPBG
-// RUN: %dxilver 1.8 | %dxc -E test_samplecg -T ps_6_8 %s | FileCheck %s -check-prefix=CMPBG
+// RUN: %dxilver 1.8 | %dxc -E test_sample -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_sampleb -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_sampleg -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplec -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplecb -T ps_6_8 %s | FileCheck %s -check-prefixes=CMPBG,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplecg -T ps_6_8 %s | FileCheck %s -check-prefixes=CMPBG,CHECK
 
 // LOD clamp requires TiledResources feature
 // From DXC disassembly comment:
 // CHECK: Note: shader requires additional functionality:
-// CMPBG: Note: shader requires additional functionality:
 // CHECK-NEXT: Tiled resources
-// CMPBG-NEXT: Tiled resources
 // CMPBG-NEXT: SampleCmpGradientOrBias
 
 // CHECK:define void @[[name:[a-z_]+]]()
-// CMPBG:define void @[[name:[a-z_]+]]()
 
 // CHECK: !dx.entryPoints = !{![[entryPoints:[0-9]+]]}
-// CMPBG: !dx.entryPoints = !{![[entryPoints:[0-9]+]]}
 // CHECK: ![[entryPoints]] = !{void ()* @[[name]], !"[[name]]", !{{[0-9]+}}, !{{[0-9]+}}, ![[extAttr:[0-9]+]]}
-// CMPBG: ![[entryPoints]] = !{void ()* @[[name]], !"[[name]]", !{{[0-9]+}}, !{{[0-9]+}}, ![[extAttr:[0-9]+]]}
 
 // tag 0: ShaderFlags, 4096 = Tiled resources
-// CHECK: ![[extAttr]] = !{i32 0, i64 4096}
+// NRM: ![[extAttr]] = !{i32 0, i64 4096}
 
 // tag 0: ShaderFlags, 137438957568 = Tiled resources and SampleCmpGradientOrBias
 // CMPBG: ![[extAttr]] = !{i32 0, i64 137438957568}
