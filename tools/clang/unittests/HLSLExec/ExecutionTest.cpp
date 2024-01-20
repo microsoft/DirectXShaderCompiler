@@ -649,9 +649,10 @@ public:
     D3D_SHADER_MODEL_6_6 = 0x66,
     D3D_SHADER_MODEL_6_7 = 0x67,
     D3D_SHADER_MODEL_6_8 = 0x68,
+    D3D_SHADER_MODEL_6_9 = 0x69,
   } D3D_SHADER_MODEL;
 
-  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_8;
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_9;
 
   bool UseDxbc() {
 #ifdef _HLK_CONF
@@ -752,7 +753,7 @@ public:
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
     CComPtr<ID3D12Device> pDevice;
-    D3D_SHADER_MODEL model = D3D_SHADER_MODEL_6_8;
+    D3D_SHADER_MODEL model = D3D_SHADER_MODEL_6_9;
 
     if (!CreateDevice(&pDevice, model)) {
       return nullptr;
