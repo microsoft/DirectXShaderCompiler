@@ -14,7 +14,7 @@
 // Make sure no tile resources when no lod clamp or clamp is 0.
 
 // CHECK-NOT: Tiled resources
-// CMPBG: SampleCmpGradientOrBias
+// CMPBG: SampleCmp with gradient or bias
 
 // CHECK:define void @[[name:[a-z_]+]]()
 

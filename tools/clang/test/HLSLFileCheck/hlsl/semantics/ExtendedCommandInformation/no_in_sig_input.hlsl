@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T vs_6_8 %s | FileCheck %s
 
-// CHECK: ExtendedCommandInfo
+// CHECK: Extended command info
 // CHECK: @main
 
 // CHECK: call i32 @dx.op.startInstanceLocation.i32(i32 257)

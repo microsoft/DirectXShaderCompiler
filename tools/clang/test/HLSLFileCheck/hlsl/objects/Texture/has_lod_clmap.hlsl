@@ -9,7 +9,7 @@
 // From DXC disassembly comment:
 // CHECK: Note: shader requires additional functionality:
 // CHECK-NEXT: Tiled resources
-// CMPBG-NEXT: SampleCmpGradientOrBias
+// CMPBG-NEXT: SampleCmp with gradient or bias
 
 // CHECK:define void @[[name:[a-z_]+]]()
 

@@ -1,6 +1,6 @@
 // RUN: %dxc -Tps_6_8 %s | FileCheck %s
 
-// CHECK: SampleCmpGradientOrBias
+// CHECK: SampleCmp with gradient or bias
 SamplerComparisonState samp1;
 
 Texture2D<float4> tex2d;
