@@ -12629,22 +12629,6 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
   int maxWave = pAttr->getMax();
   int prefWave = pAttr->getPreferred();
 
-  // canonicalize degenerate cases.
-  if (maxWave == minWave) {
-    pAttr->setMax(0);
-    maxWave = 0;
-  }
-  if (maxWave == 0 && prefWave != 0) {
-    if (prefWave == minWave) {
-      pAttr->setPreferred(0);
-      prefWave = 0;
-    }
-    else{
-      S.Diag(A.getLoc(), diag::err_hlsl_wavesize_pref_size_out_of_range)
-          << (unsigned)prefWave << (unsigned)minWave << (unsigned)maxWave;
-    }
-  }
-
   // validate attribute arguments.
   if (!DXIL::IsValidWaveSizeValue(minWave, maxWave, prefWave)) {
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)

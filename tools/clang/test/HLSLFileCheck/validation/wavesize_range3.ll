@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxv %s %dxilver 1.8 | FileCheck %s
 
 ; This tests the validator on emitting errors for invalid 
 ; arguments in the wavesize range attribute for entry point functions.

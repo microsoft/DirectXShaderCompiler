@@ -1,4 +1,4 @@
-; RUN: %dxv %s | FileCheck %s
+; RUN: %dxv %s %dxilver 1.8 | FileCheck %s
 
 ; This tests the validator on emitting errors for invalid 
 ; arguments in the wavesize range attribute for entry point functions.
@@ -39,8 +39,8 @@ define void @node01() {
 !7 = !{null, !"", null, null, null}
 !8 = !{void ()* @node01, !"node01", null, null, !9}
 !9 = !{i32 8, i32 15, i32 13, i32 1, i32 23, !10, i32 15, !11, i32 16, i32 -1, i32 22, !12, i32 20, !13, i32 4, !17, i32 5, !18}
-; CHECK: error: Preferred WaveSize 32 outside valid range [4..16]
-!10 = !{i32 4, i32 16, i32 32}
+; CHECK: error: Declared Minimum WaveSize 16 greater or equal to declared Maximum Wavesize 16
+!10 = !{i32 16, i32 16, i32 16}
 !11 = !{!"node01", i32 0}
 !12 = !{i32 32, i32 1, i32 1}
 !13 = !{!14}
