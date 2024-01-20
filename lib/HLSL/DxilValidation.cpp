@@ -5256,8 +5256,8 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     if (props.waveMaxSize != 0) {
       if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 8) <
           0) {
-        ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeRangeNeedsDxil18Plus,
-                                 {});
+        ValCtx.EmitFnFormatError(
+            F, ValidationRule::SmWaveSizeRangeNeedsDxil18Plus, {});
       }
     }
     if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 6) <

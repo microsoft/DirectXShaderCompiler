@@ -12635,7 +12635,6 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
         << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
   }
 
-
   bool prefInRange =
       prefWave == 0 ? true : prefWave >= minWave && prefWave <= maxWave;
   if (!prefInRange) {
