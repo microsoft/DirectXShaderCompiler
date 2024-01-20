@@ -1,11 +1,11 @@
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DCOMP=float -DCOMP_IN=float -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=9 -DDIMM=16 -DDIMN=16 -DOLOAD=f32
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DCOMP=float -DCOMP_IN=float16_t -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=8 -DDIMM=16 -DDIMN=16 -DOLOAD=f32
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DCOMP=float16_t -DCOMP_IN=float16_t -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=8 -DCOMP_IN=8 -DDIMM=16 -DDIMN=16 -DOLOAD=f16
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DCOMP=int -DCOMP_IN=int8_t4_packed -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=4 -DCOMP_IN=17 -DDIMM=16 -DDIMN=16 -DOLOAD=i32
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DCOMP=int -DCOMP_IN=uint8_t4_packed -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=4 -DCOMP_IN=18 -DDIMM=16 -DDIMN=16 -DOLOAD=i32
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DCOMP=float -DCOMP_IN=float -DDIMM=64 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=9 -DDIMM=64 -DDIMN=16 -DOLOAD=f32
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DCOMP=float -DCOMP_IN=float -DDIMM=16 -DDIMN=64 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=9 -DDIMM=16 -DDIMN=64 -DOLOAD=f32
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DCOMP=float -DCOMP_IN=float -DDIMM=64 -DDIMN=64 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=9 -DDIMM=64 -DDIMN=64 -DOLOAD=f32
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DCOMP=float -DCOMP_IN=float -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=9 -DDIMM=16 -DDIMN=16 -DOLOAD=f32
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DCOMP=float -DCOMP_IN=float16_t -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=8 -DDIMM=16 -DDIMN=16 -DOLOAD=f32
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DCOMP=float16_t -DCOMP_IN=float16_t -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=8 -DCOMP_IN=8 -DDIMM=16 -DDIMN=16 -DOLOAD=f16
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DCOMP=int -DCOMP_IN=int8_t4_packed -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=4 -DCOMP_IN=17 -DDIMM=16 -DDIMN=16 -DOLOAD=i32
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DCOMP=int -DCOMP_IN=uint8_t4_packed -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=4 -DCOMP_IN=18 -DDIMM=16 -DDIMN=16 -DOLOAD=i32
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DCOMP=float -DCOMP_IN=float -DDIMM=64 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=9 -DDIMM=64 -DDIMN=16 -DOLOAD=f32
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DCOMP=float -DCOMP_IN=float -DDIMM=16 -DDIMN=64 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=9 -DDIMM=16 -DDIMN=64 -DOLOAD=f32
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DCOMP=float -DCOMP_IN=float -DDIMM=64 -DDIMN=64 %s | FileCheck %s -DCOMP=9 -DCOMP_IN=9 -DDIMM=64 -DDIMN=64 -DOLOAD=f32
 
 // CHECK: ; Note: shader requires additional functionality:
 // CHECK: ;       Wave level operations

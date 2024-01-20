@@ -646,7 +646,7 @@ class db_dxil(object):
             + "WaveMatrix_SumAccumulate,WaveMatrix_Add"
         ).split(","):
             self.name_idx[i].category = "WaveMatrix"
-            self.name_idx[i].shader_model = 6, 7
+            self.name_idx[i].shader_model = 6, 9
             self.name_idx[i].shader_stages = (
                 "library",
                 "compute",
@@ -5658,6 +5658,13 @@ class db_dxil(object):
             [db_dxil_param(0, "i32", "", "result")],
         )
         next_op_idx += 1
+
+        # End of DXIL 1.8 opcodes.
+        self.set_op_count_for_version(1, 8, next_op_idx)
+        assert next_op_idx == 258, (
+            "258 is expected next operation index but encountered %d and thus opcodes are broken"
+            % next_op_idx
+        )
 
         # Set interesting properties.
         self.build_indices()
