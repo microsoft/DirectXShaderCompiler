@@ -403,7 +403,7 @@ void DxilModule::SetWaveSize(unsigned size) {
   props.waveMinSize = size;
 }
 
-unsigned DxilModule::GetWaveSize() const {
+unsigned DxilModule::GetMinWaveSize() const {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
            "only works for CS profiles");
   if (!m_pSM->IsCS())
@@ -411,6 +411,16 @@ unsigned DxilModule::GetWaveSize() const {
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
   DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
   return props.waveMinSize;
+}
+
+unsigned DxilModule::GetMaxWaveSize() const {
+  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
+           "only works for CS profiles");
+  if (!m_pSM->IsCS())
+    return 0;
+  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
+  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
+  return props.waveMaxSize;
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {

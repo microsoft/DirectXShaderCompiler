@@ -7666,6 +7666,10 @@ class db_dxil(object):
             "WaveSize is valid only for DXIL version 1.6 and higher.",
         )
         self.add_valrule(
+            "Sm.WaveSizeRangeNeedsDxil18Plus",
+            "WaveSize Range is valid only for DXIL version 1.8 and higher.",
+        )        
+        self.add_valrule(
             "Sm.ROVOnlyInPS",
             "RasterizerOrdered objects are only allowed in 5.0+ pixel shaders.",
         )

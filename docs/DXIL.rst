@@ -3264,6 +3264,7 @@ SM.VIEWIDNEEDSSLOT                        ViewID requires compatible space in pi
 SM.WAVESIZEMINGEQMAX                      Declared Minimum WaveSize %0 greater or equal to declared Maximum Wavesize %1
 SM.WAVESIZENEEDSDXIL16PLUS                WaveSize is valid only for DXIL version 1.6 and higher.
 SM.WAVESIZEPREFERREDOUTOFRANGE            Preferred WaveSize %0 outside valid range [%1..%2]
+SM.WAVESIZERANGENEEDSDXIL18PLUS           WaveSize Range is valid only for DXIL version 1.8 and higher.
 SM.WAVESIZEVALUE                          Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.
 SM.ZEROHSINPUTCONTROLPOINTWITHINPUT       When HS input control point count is 0, no input signature should exist.
 TYPES.DEFINED                             Type must be defined based on DXIL primitives

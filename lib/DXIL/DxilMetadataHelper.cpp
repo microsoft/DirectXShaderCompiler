@@ -1598,6 +1598,9 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
 
     if (props.waveMinSize != 0) {
       bool UseRange = props.waveMaxSize != 0;
+      if (UseRange)
+        DXASSERT(DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 8) >= 0,
+                 "DXIL version must be > 1.8");
       MDVals.emplace_back(
           Uint32ToConstMD(UseRange ? DxilMDHelper::kDxilRangedWaveSizeTag
                                    : DxilMDHelper::kDxilWaveSizeTag));
@@ -1828,12 +1831,14 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       LoadDxilASState(MDO, props.numThreads, AS.payloadSizeInBytes);
     } break;
     case DxilMDHelper::kDxilWaveSizeTag: {
-      DXASSERT(props.IsCS() || props.IsNode(), "else invalid shader kind");
       MDNode *pNode = cast<MDNode>(MDO.get());
       props.waveMinSize = ConstMDToUint32(pNode->getOperand(0));
     } break;
     case DxilMDHelper::kDxilRangedWaveSizeTag: {
-      DXASSERT(props.IsCS() || props.IsNode(), "else invalid shader kind");
+      // if we're here, we're using the range variant.
+      // Extra metadata is used is SM < 6.8
+      if (!m_pSM->IsSMAtLeast(6, 8))
+        m_bExtraMetadata = true;
       MDNode *pNode = cast<MDNode>(MDO.get());
       props.waveMinSize = ConstMDToUint32(pNode->getOperand(0));
       props.waveMaxSize = ConstMDToUint32(pNode->getOperand(1));

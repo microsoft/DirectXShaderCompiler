@@ -256,7 +256,8 @@ public:
 
   // Compute shader
   void SetWaveSize(unsigned size);
-  unsigned GetWaveSize() const;
+  unsigned GetMinWaveSize() const;
+  unsigned GetMaxWaveSize() const;
 
   // Geometry shader.
   DXIL::InputPrimitive GetInputPrimitive() const;

@@ -1,7 +1,6 @@
 // RUN: %dxc -T lib_6_8 -verify %s
 
-// Check the WaveSize attribute is accepted by work graph nodes
-// and appears in the metadata
+// Check the WaveSize attribute emits diagnostics in a variety of cases.
 
 struct INPUT_RECORD
 {

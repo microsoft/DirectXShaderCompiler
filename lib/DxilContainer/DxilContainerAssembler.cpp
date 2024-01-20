@@ -941,10 +941,11 @@ public:
       break;
     }
     case ShaderModel::Kind::Compute: {
-      UINT waveSize = (UINT)m_Module.GetWaveSize();
-      if (waveSize != 0) {
-        pInfo->MinimumExpectedWaveLaneCount = waveSize;
-        pInfo->MaximumExpectedWaveLaneCount = waveSize;
+      UINT waveMinSize = (UINT)m_Module.GetMinWaveSize();
+      UINT waveMaxSize = (UINT)m_Module.GetMaxWaveSize();
+      if (waveMinSize != 0) {
+        pInfo->MinimumExpectedWaveLaneCount = waveMinSize;
+        pInfo->MaximumExpectedWaveLaneCount = waveMaxSize;
       }
       break;
     }

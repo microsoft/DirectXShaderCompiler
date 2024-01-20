@@ -456,7 +456,8 @@ inline bool IsValidWaveSizeValue(unsigned min_wave, unsigned max_wave,
   bool minIsValid = min_wave >= kMinWaveSize && min_wave <= kMaxWaveSize &&
                     isPowerOf2(min_wave);
   if (max_wave == 0)
-    return true;
+    return minIsValid;
+
   bool maxIsValid = max_wave >= kMinWaveSize && max_wave <= kMaxWaveSize &&
                     isPowerOf2(max_wave);
   // 0 is a valid value for the preferred wave size
