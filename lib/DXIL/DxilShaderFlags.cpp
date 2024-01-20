@@ -780,10 +780,10 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
   flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
   flag.SetWaveMMA(hasWaveMMA);
-  flag.SetSampleCmpGradientOrBias(hasSampleCmpGradientOrBias);
   // Only bother setting the flag when there are UAVs.
   flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
                          !M->GetResMayAlias());
+  flag.SetSampleCmpGradientOrBias(hasSampleCmpGradientOrBias);
   flag.SetExtendedCommandInfo(hasExtendedCommandInfo);
 
   return flag;
