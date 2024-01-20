@@ -910,6 +910,14 @@ def HLSLWaveSize : InheritableAttr {
   let Spellings = [CXX11<"", "wavesize", 2017>];
   let Args = [IntArgument<"Min">, DefaultIntArgument<"Max", 0>, DefaultIntArgument<"Preferred", 0>];
   let Documentation = [Undocumented];
+
+  let AdditionalMembers = [{
+    private:
+    int SpelledArgsCount = 0;
+    public:
+      int getSpelledArgsCount() const { return SpelledArgsCount; }
+      void setSpelledArgsCount(int C) { SpelledArgsCount = C; }
+  }];
 }
 
 def HLSLWaveOpsIncludeHelperLanes : InheritableAttr {

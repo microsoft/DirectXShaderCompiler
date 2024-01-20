@@ -12625,6 +12625,7 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
       ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
       A.getAttributeSpellingListIndex());
 
+  pAttr->setSpelledArgsCount(A.getNumArgs());
   int minWave = pAttr->getMin();
   int maxWave = pAttr->getMax();
   int prefWave = pAttr->getPreferred();
@@ -15218,6 +15219,10 @@ void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
             << "wavesize"
             << "6.6";
       }
+      if (!SM->IsSM68Plus() && WaveSizeAttr->getSpelledArgsCount() > 1)
+        S.Diags.Report(WaveSizeAttr->getRange().getBegin(),
+                       diag::err_attribute_too_many_arguments)
+            << "wavesize" << 1;
     }
   }
 }
