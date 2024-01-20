@@ -2,8 +2,8 @@
 
 ; This tests the validator on emitting errors for invalid 
 ; arguments in the wavesize range attribute for entry point functions.
-; This test tests that when the preferred value lies outside of the given
-; minimum and maximum value range, an error is emitted.
+; This test tests that when a wavesize argument is not valid 
+; (in this case, not a power of 2), a diagnostic is emitted
 
 ; shader hash: e935848c1a904483af91f615705c305c
 ;
