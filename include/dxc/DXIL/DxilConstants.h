@@ -1890,7 +1890,10 @@ const uint64_t ShaderFeatureInfo_WriteableMSAATextures = 0x40000000;
 // WaveMMA slots in between two SM 6.6 feature bits.
 const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
 
-const unsigned ShaderFeatureInfoCount = 31;
+const uint64_t ShaderFeatureInfo_SampleCmpGradientOrBias = 0x80000000;
+const uint64_t ShaderFeatureInfo_ExtendedCommandInfo = 0x100000000;
+
+const unsigned ShaderFeatureInfoCount = 33;
 
 // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
 // certain values reserved, since they cannot be used from Dxil.
