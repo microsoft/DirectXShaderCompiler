@@ -11144,7 +11144,7 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 }
 
 // Check HLSL member call constraints for used functions.
-void Sema::DiagnoseUsedHLSLMethodCall(const CXXMethodDecl *MD,
+void Sema::DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
                                       SourceLocation Loc,
                                       const hlsl::ShaderModel *SM,
                                       DXIL::ShaderKind EntrySK,
