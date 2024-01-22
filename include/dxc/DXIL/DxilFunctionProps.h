@@ -42,9 +42,9 @@ struct DxilWaveSize {
     return Min == other.Min && Max == other.Max && Preferred == other.Preferred;
   }
 
-  // Encode valid DxilWaveSize, handling potential degenerate cases.
-  static DxilWaveSize Encode(unsigned min, unsigned max = 0,
-                             unsigned preferred = 0) {
+  // Create DxilWaveSize, translating potential degenerate cases.
+  static DxilWaveSize Translate(unsigned min, unsigned max = 0,
+                                unsigned preferred = 0) {
     if (max == min)
       max = 0;
     if (max == 0 && preferred == min)
@@ -56,10 +56,13 @@ struct DxilWaveSize {
   static bool IsValidValue(unsigned Value) {
     return (Value >= 4 && Value <= 128 && ((Value & (Value - 1)) == 0));
   }
-  // Valid encodings:
+  // Valid representations:
+  //    (not to be confused with encodings in metadata, PSV0, or RDAT)
   //  0, 0, 0: Not defined
   //  Min, 0, 0: single WaveSize (SM 6.6/6.7)
+  //    (single WaveSize is represented in metadata with the single Min value)
   //  Min, Max (> Min), 0 or Preferred (>= Min and <= Max): Range (SM 6.8+)
+  //    (WaveSizeRange represenation in metadata is the same)
   enum class ValidationResult {
     Success,
     InvalidMin,
@@ -100,9 +103,9 @@ struct DxilWaveSize {
   bool IsRange() const { return Max != 0; }
   bool HasPreferred() const { return Preferred != 0; }
 
-  // Decode for range used for runtime data.
+  // Translate to range used for runtime data.
   // Writes results and returns true if a valid size or range was defined.
-  bool DecodeMinMax(unsigned &min, unsigned &max) const {
+  bool TranslateToMinMax(unsigned &min, unsigned &max) const {
     if (!IsValid() || !IsDefined()) {
       return false;
     }

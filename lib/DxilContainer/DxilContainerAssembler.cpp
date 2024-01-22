@@ -950,7 +950,7 @@ public:
                "wave size range requires SM 6.8 or above");
       if (waveSize.IsDefined() && m_PSVInitInfo.PSVVersion >= 2) {
         unsigned waveSizeMin = 0, waveSizeMax = 0;
-        waveSize.DecodeMinMax(waveSizeMin, waveSizeMax);
+        waveSize.TranslateToMinMax(waveSizeMin, waveSizeMax);
         if (m_PSVInitInfo.PSVVersion < 3)
           waveSizeMax = waveSizeMin;
         pInfo->MinimumExpectedWaveLaneCount = waveSizeMin;
@@ -1833,7 +1833,7 @@ private:
           if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
             unsigned waveSizeMin = 0, waveSizeMax = 0;
-            waveSize.DecodeMinMax(waveSizeMin, waveSizeMax);
+            waveSize.TranslateToMinMax(waveSizeMin, waveSizeMax);
             pInfo2->MinimumExpectedWaveLaneCount = waveSizeMin;
             pInfo2->MaximumExpectedWaveLaneCount = waveSizeMax;
             pInfo2->ShaderFlags = 0;
