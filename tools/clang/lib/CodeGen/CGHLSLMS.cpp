@@ -1810,9 +1810,8 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   }
 
   if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
-    funcProps->waveMinSize = Attr->getMin();
-    funcProps->waveMaxSize = Attr->getMax();
-    funcProps->wavePreferredSize = Attr->getPreferred();
+    funcProps->WaveSize = DxilWaveSize::Encode(Attr->getMin(), Attr->getMax(),
+                                               Attr->getPreferred());
   }
 
   // Node shader

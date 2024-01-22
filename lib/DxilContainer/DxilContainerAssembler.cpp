@@ -941,11 +941,20 @@ public:
       break;
     }
     case ShaderModel::Kind::Compute: {
-      UINT waveMinSize = (UINT)m_Module.GetMinWaveSize();
-      UINT waveMaxSize = (UINT)m_Module.GetMaxWaveSize();
-      if (waveMinSize != 0) {
-        pInfo->MinimumExpectedWaveLaneCount = waveMinSize;
-        pInfo->MaximumExpectedWaveLaneCount = waveMaxSize;
+      const DxilWaveSize &waveSize = m_Module.GetWaveSize();
+      // Can't assert valid or validation tests will assert during assembly
+      // DXASSERT(waveSize.IsValid(), "wave size should be valid");
+      DXASSERT(!waveSize.IsDefined() || m_PSVInitInfo.PSVVersion >= 2,
+               "wave size requires SM 6.6 or above");
+      DXASSERT(!waveSize.IsRange() || m_PSVInitInfo.PSVVersion >= 3,
+               "wave size range requires SM 6.8 or above");
+      if (waveSize.IsDefined() && m_PSVInitInfo.PSVVersion >= 2) {
+        unsigned waveSizeMin = 0, waveSizeMax = 0;
+        waveSize.DecodeMinMax(waveSizeMin, waveSizeMax);
+        if (m_PSVInitInfo.PSVVersion < 3)
+          waveSizeMax = waveSizeMin;
+        pInfo->MinimumExpectedWaveLaneCount = waveSizeMin;
+        pInfo->MaximumExpectedWaveLaneCount = waveSizeMax;
       }
       break;
     }
@@ -1800,6 +1809,7 @@ private:
                                                ? &info_latest
                                                : nullptr;
         ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
+        DxilWaveSize waveSize;
         if (DM.HasDxilFunctionProps(&function)) {
           const auto &props = DM.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
@@ -1811,12 +1821,21 @@ private:
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
           shaderKind = (uint32_t)props.shaderKind;
+          waveSize = props.WaveSize;
+          // Can't assert valid or validation tests will assert during assembly
+          // DXASSERT(waveSize.IsValid(), "wave size should be valid");
+          DXASSERT(!waveSize.IsDefined() ||
+                       DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) >= 0,
+                   "wave size requires SM 6.6 or above");
+          DXASSERT(!waveSize.IsRange() ||
+                       DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0,
+                   "wave size range requires SM 6.8 or above");
           if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            pInfo2->MinimumExpectedWaveLaneCount = entryProps.props.waveMinSize;
-            pInfo2->MaximumExpectedWaveLaneCount =
-                entryProps.props.waveMaxSize > 0 ? entryProps.props.waveMaxSize
-                                                 : entryProps.props.waveMinSize;
+            unsigned waveSizeMin = 0, waveSizeMax = 0;
+            waveSize.DecodeMinMax(waveSizeMin, waveSizeMax);
+            pInfo2->MinimumExpectedWaveLaneCount = waveSizeMin;
+            pInfo2->MaximumExpectedWaveLaneCount = waveSizeMax;
             pInfo2->ShaderFlags = 0;
             if (entryProps.props.IsNode()) {
               shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,

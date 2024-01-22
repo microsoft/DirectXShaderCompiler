@@ -7656,17 +7656,34 @@ class db_dxil(object):
         self.add_valrule(
             "Sm.TGSMUnsupported", "Thread Group Shared Memory not supported %0."
         )
-        self.add_valrule(
+        self.add_valrule_msg(
             "Sm.WaveSizeValue",
-            "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.",
+            "WaveSize value must be a power of 2 in range [4..128]",
+            "WaveSize %0 (%1) outside valid range [%2..%3], or not a power of 2.",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeAllZeroWhenUndefined",
+            "WaveSize Max and Preferred must be 0 when Min is 0",
+            "WaveSize Max (%0) and Preferred (%1) must be 0 when Min is 0",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeMaxAndPreferredZeroWhenNoRange",
+            "WaveSize Max and Preferred must be 0 to encode min==max",
+            "WaveSize Max (%0) and Preferred (%1) must be 0 to encode min==max",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeMaxGreaterThanMin",
+            "WaveSize Max must greater than Min",
+            "WaveSize Max (%0) is less than Min (%1)",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizePreferredInRange",
+            "WaveSize Preferred must be within Min..Max range",
+            "WaveSize Preferred (%0) outside Min..Max range [%1..%2]",
         )
         self.add_valrule(
-            "Sm.WaveSizePreferredOutOfRange",
-            "Preferred WaveSize %0 outside valid range [%1..%2]",
-        )
-        self.add_valrule(
-            "Sm.WaveSizeMinGEQMax",
-            "Declared Minimum WaveSize %0 greater or equal to declared Maximum Wavesize %1",
+            "Sm.WaveSizeOnComputeOrNode",
+            "WaveSize only allowed on compute or node shaders",
         )
         self.add_valrule(
             "Sm.WaveSizeNeedsDxil16Plus",

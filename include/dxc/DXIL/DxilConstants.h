@@ -448,26 +448,6 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
          ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
 }
 
-inline bool isPowerOf2(unsigned x) { return (x & (x - 1)) == 0; }
-
-inline bool IsValidWaveSizeValue(unsigned min_wave, unsigned max_wave,
-                                 unsigned pref_wave) {
-  // must be power of 2 between 4 and 128
-  bool minIsValid = min_wave >= kMinWaveSize && min_wave <= kMaxWaveSize &&
-                    isPowerOf2(min_wave);
-  if (max_wave == 0)
-    return minIsValid;
-
-  bool maxIsValid = max_wave >= kMinWaveSize && max_wave <= kMaxWaveSize &&
-                    isPowerOf2(max_wave);
-  // 0 is a valid value for the preferred wave size
-  bool prefIsValid =
-      pref_wave == 0 || (pref_wave >= kMinWaveSize &&
-                         pref_wave <= kMaxWaveSize && isPowerOf2(pref_wave));
-
-  return minIsValid && maxIsValid && prefIsValid;
-}
-
 // TODO: change opcodes.
 /* <py::lines('OPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("OpCode")</py>*/
 // OPCODE-ENUM:BEGIN
