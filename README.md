@@ -1,19 +1,10 @@
 # DirectX Shader Compiler
 
-[![Build status](https://ci.appveyor.com/api/projects/status/6sx47j66g4dbyem9/branch/main?svg=true)](https://ci.appveyor.com/project/dnovillo/directxshadercompiler/branch/main)
-
 The DirectX Shader Compiler project includes a compiler and related tools used to compile High-Level Shader Language (HLSL) programs into DirectX Intermediate Language (DXIL) representation. Applications that make use of DirectX for graphics, games, and computation can use it to generate shader programs.
 
 For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderCompiler/wiki).
 
 Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-page/) for more resources for DirectX developers.
-
-## Downloads
-You can download the latest successful build's artifacts (built by Appveyor) for the main branch:
-| Downloads |        |
-|-----------|--------|
-| Windows   | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2FRelease%2Fdxc-artifacts.zip?branch=main&pr=false&job=image%3A%20Visual%20Studio%202022) |
-| Ubuntu    | [⬇](https://ci.appveyor.com/api/projects/dnovillo/directxshadercompiler/artifacts/build%2Fdxc-artifacts.tar.gz?branch=main&pr=false&job=image%3A%20Ubuntu) |
 
 ## Features and Goals
 
@@ -35,7 +26,7 @@ The goal of the project is to allow the broader community of shader developers t
 
 ### Pre-built Releases
 
-Binary packages containing the output of this project are available from appveyor. Development kits containing only the dxc.exe driver app, the dxcompiler.dll, and the dxil.dll signing binary are available [here](https://github.com/microsoft/DirectXShaderCompiler/wiki/Releases), or in the [releases tab](https://github.com/microsoft/DirectXShaderCompiler/releases).
+Development kits containing only the dxc.exe driver app, the dxcompiler.dll, and the dxil.dll signing binary are available [here](https://github.com/microsoft/DirectXShaderCompiler/wiki/Releases), or in the [releases tab](https://github.com/microsoft/DirectXShaderCompiler/releases).
 
 ### SPIR-V CodeGen
 
