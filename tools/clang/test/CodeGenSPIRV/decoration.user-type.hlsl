@@ -97,6 +97,20 @@ ByteAddressBuffer bab;
 // CHECK: OpDecorateString %rwbab UserTypeGOOGLE "rwbyteaddressbuffer"
 RWByteAddressBuffer rwbab;
 
+// CHECK: OpDecorateString %rs UserTypeGOOGLE "raytracingaccelerationstructure"
+RaytracingAccelerationStructure rs;
+
+struct S {
+    float  f1;
+    float3 f2;
+};
+
+// CHECK: OpDecorateString %cb UserTypeGOOGLE "constantbuffer:<S>"
+ConstantBuffer<S> cb;
+
+// CHECK: OpDecorateString %tb UserTypeGOOGLE "texturebuffer:<S>"
+TextureBuffer<S> tb;
+
 float4 main() : SV_Target{
     return 0.0.xxxx;
 }
