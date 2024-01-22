@@ -6,18 +6,6 @@ For more information, see the [Wiki](https://github.com/microsoft/DirectXShaderC
 
 Visit the [DirectX Landing Page](https://devblogs.microsoft.com/directx/landing-page/) for more resources for DirectX developers.
 
-## Downloads
-
-> [!CAUTION]
-> Latest project builds are temporarily unavailable. See [Issue #6175](https://github.com/microsoft/DirectXShaderCompiler/issues/6175).
-
-You can download the latest successful build's artifacts for the main branch:
-| Downloads |        |
-|-----------|--------|
-| Windows   | [⬇]() |
-| Ubuntu    | [⬇]() |
-
-
 ## Features and Goals
 
 The starting point of the project is a fork of the [LLVM](http://llvm.org/) and [Clang](http://clang.llvm.org/) projects, modified to accept HLSL and emit a validated container that can be consumed by GPU drivers.
