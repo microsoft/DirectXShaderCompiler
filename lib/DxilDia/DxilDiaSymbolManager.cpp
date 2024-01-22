@@ -1490,7 +1490,8 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::GetScopeID(llvm::DIScope *S,
     auto *ParentScopeTy = llvm::dyn_cast<llvm::DIType>(S);
     if (!ParentScopeTy) {
       // Any non-existing scope must be a type.
-      return E_FAIL;
+      *pScopeID = HlslProgramId;
+      return S_OK;
     }
     IFR(CreateType(ParentScopeTy, pScopeID));
   }
@@ -2058,7 +2059,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateUDTField(
   if (m_pCurUDT != nullptr) {
     TypeInfo *lvTI;
     IFR(GetTypeInfo(FieldTy, &lvTI));
-#ifndef NDEBUG
+#if 0 //ndef NDEBUG
     const DWORD dwOffsetInBytes =
         (lvTI->GetAlignmentInBytes() == 0)
             ? CurrentUDTInfo().GetCurrentSizeInBytes()

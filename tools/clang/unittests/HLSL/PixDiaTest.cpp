@@ -176,6 +176,13 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
+  TEST_METHOD(DxcPixDxilDebugInfo_Alignment_ConstInt)
+  TEST_METHOD(DxcPixDxilDebugInfo_Alignment_MinTypes)
+  TEST_METHOD(DxcPixDxilDebugInfo_Alignment_MinTypesDisabled)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Simple)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Derived)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Bool)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Mess)
   TEST_METHOD(
       DxcPixDxilDebugInfo_VariableScopes_InlinedFunctions_TwiceInlinedFunctions)
   TEST_METHOD(
@@ -2738,6 +2745,243 @@ void main()
 
 )";
   RunSubProgramsCase(hlsl);
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Simple) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+struct Bitfields
+{
+    unsigned int first : 17;
+    unsigned int second : 15; // consume all 32 bits of first dword
+    unsigned int third : 3; // should be at bit offset 32
+    unsigned int fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource, {L"-Od"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Derived) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+struct Bitfields
+{
+    uint first : 17;
+    uint second : 15; // consume all 32 bits of first dword
+    uint third : 3; // should be at bit offset 32
+    uint fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource, {L"-Od"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Bool) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+struct Bitfields
+{
+    bool first : 1;
+    bool second : 1;
+    bool third : 3; // just to be weird
+    uint fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource, {L"-Od"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Alignment_ConstInt) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  const uint c = UAV[0];
+  UAV[16] = c;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource,
+                                          {L"-Od"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Alignment_MinTypes) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+struct Struct
+{
+    min12int first;
+    min16float second;
+    unsigned int lastField;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Struct s;
+  s.first = UAV[0];
+  s.second = UAV[1];
+  s.lastField = UAV[2];
+  UAV[16] = s.first + s.second + s.lastField;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource,
+                                          {L"-Od", L"-enable-16bit-types"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Alignment_MinTypesDisabled) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+struct Struct
+{
+    min12int first;
+    min16float second;
+    unsigned int lastField;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Struct s;
+  s.first = UAV[0];
+  s.second = UAV[1];
+  s.lastField = UAV[2];
+  UAV[16] = s.first + s.second + s.lastField;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource,
+                                          {L"-Od"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Mess) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+struct MaterialFlags
+{
+    uint instanceMask : 8;
+    uint type : 4; // corresponds to rt_shared.h:enum MaterialType // [G-AI comment]
+    uint lod : 3;
+    bool _32bitIndices : 1;
+    bool _32bitUvs : 1;
+    bool secondUV : 1;
+    bool thirdUV : 1;
+    bool fourthUV : 1;
+    bool worldSpaceUV0 : 1;
+    bool bufferNormal : 1;
+    bool bufferTangent : 1;
+    bool bufferSelectUV2 : 1;
+    bool bufferUV : 1;
+    bool textureAlbedo : 1;
+    bool textureNormal : 1;
+    bool textureSurface : 1;
+    bool vertexColours : 1;
+    bool sponsorUV : 1;
+    bool worldSpaceLightmap : 1;
+};
+
+struct ShaderTableMaterial
+{   
+    float4x4 objectToWorld;
+    MaterialFlags materialFlags;
+    uint startIndex;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  ShaderTableMaterial stm;
+  stm.startIndex = UAV[0];
+  UAV[1] = stm.startIndex;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource, {L"-Od"});
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_SubProgramsInNamespaces) {
