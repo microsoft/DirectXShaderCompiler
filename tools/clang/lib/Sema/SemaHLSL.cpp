@@ -11145,10 +11145,10 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
 
 // Check HLSL member call constraints for used functions.
 void Sema::DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
-                                      SourceLocation Loc,
-                                      const hlsl::ShaderModel *SM,
-                                      DXIL::ShaderKind EntrySK,
-                                      const FunctionDecl *EntryDecl) {
+                                           SourceLocation Loc,
+                                           const hlsl::ShaderModel *SM,
+                                           DXIL::ShaderKind EntrySK,
+                                           const FunctionDecl *EntryDecl) {
   if (MD->hasAttr<HLSLIntrinsicAttr>()) {
     hlsl::IntrinsicOp opCode =
         (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
