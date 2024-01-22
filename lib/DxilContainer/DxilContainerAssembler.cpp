@@ -941,20 +941,13 @@ public:
       break;
     }
     case ShaderModel::Kind::Compute: {
-      const DxilWaveSize &waveSize = m_Module.GetWaveSize();
-      // Can't assert valid or validation tests will assert during assembly
-      // DXASSERT(waveSize.IsValid(), "wave size should be valid");
-      DXASSERT(!waveSize.IsDefined() || m_PSVInitInfo.PSVVersion >= 2,
-               "wave size requires SM 6.6 or above");
-      DXASSERT(!waveSize.IsRange() || m_PSVInitInfo.PSVVersion >= 3,
-               "wave size range requires SM 6.8 or above");
-      if (waveSize.IsDefined() && m_PSVInitInfo.PSVVersion >= 2) {
-        unsigned waveSizeMin = 0, waveSizeMax = 0;
-        waveSize.TranslateToMinMax(waveSizeMin, waveSizeMax);
-        if (m_PSVInitInfo.PSVVersion < 3)
-          waveSizeMax = waveSizeMin;
-        pInfo->MinimumExpectedWaveLaneCount = waveSizeMin;
-        pInfo->MaximumExpectedWaveLaneCount = waveSizeMax;
+      DxilWaveSize waveSize = m_Module.GetWaveSize();
+      pInfo->MinimumExpectedWaveLaneCount = 0;
+      pInfo->MaximumExpectedWaveLaneCount = UINT32_MAX;
+      if (waveSize.IsDefined()) {
+        pInfo->MinimumExpectedWaveLaneCount = waveSize.Min;
+        pInfo->MaximumExpectedWaveLaneCount =
+            waveSize.IsRange() ? waveSize.Max : waveSize.Min;
       }
       break;
     }
@@ -1822,20 +1815,14 @@ private:
           }
           shaderKind = (uint32_t)props.shaderKind;
           waveSize = props.WaveSize;
-          // Can't assert valid or validation tests will assert during assembly
-          // DXASSERT(waveSize.IsValid(), "wave size should be valid");
-          DXASSERT(!waveSize.IsDefined() ||
-                       DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) >= 0,
-                   "wave size requires SM 6.6 or above");
-          DXASSERT(!waveSize.IsRange() ||
-                       DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0,
-                   "wave size range requires SM 6.8 or above");
           if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            unsigned waveSizeMin = 0, waveSizeMax = 0;
-            waveSize.TranslateToMinMax(waveSizeMin, waveSizeMax);
-            pInfo2->MinimumExpectedWaveLaneCount = waveSizeMin;
-            pInfo2->MaximumExpectedWaveLaneCount = waveSizeMax;
+            if (waveSize.IsDefined()) {
+              pInfo2->MinimumExpectedWaveLaneCount = (uint8_t)waveSize.Min;
+              pInfo2->MaximumExpectedWaveLaneCount =
+                  (waveSize.IsRange()) ? (uint8_t)waveSize.Max
+                                       : (uint8_t)waveSize.Min;
+            }
             pInfo2->ShaderFlags = 0;
             if (entryProps.props.IsNode()) {
               shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,

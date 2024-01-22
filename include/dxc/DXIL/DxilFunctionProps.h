@@ -102,17 +102,6 @@ struct DxilWaveSize {
   bool IsDefined() const { return Min != 0; }
   bool IsRange() const { return Max != 0; }
   bool HasPreferred() const { return Preferred != 0; }
-
-  // Translate to range used for runtime data.
-  // Writes results and returns true if a valid size or range was defined.
-  bool TranslateToMinMax(unsigned &min, unsigned &max) const {
-    if (!IsValid() || !IsDefined()) {
-      return false;
-    }
-    min = Min;
-    max = IsRange() ? Max : Min;
-    return true;
-  }
 };
 
 struct DxilFunctionProps {
