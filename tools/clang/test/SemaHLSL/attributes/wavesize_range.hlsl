@@ -22,7 +22,6 @@ void node01(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-/* expected-error@+2{{Preferred WaveSize value 32 must be between 16 and 16}} */
 /* expected-error@+1{{Minimum WaveSize value 16 must be less than maximum WaveSize value 16}} */
 [WaveSize(16, 16, 32)]
 void node02(DispatchNodeInputRecord<INPUT_RECORD> input) { }
@@ -40,8 +39,7 @@ void node03(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-/* expected-error@+2{{WaveSize arguments must be between 4 and 128 and a power of 2}} */
-/* expected-error@+1{{Preferred WaveSize value 32 must be between 15 and 17}} */
+/* expected-error@+1{{WaveSize arguments must be between 4 and 128 and a power of 2}} */
 [WaveSize(15, 17, 32)]
 void node04(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
@@ -76,7 +74,9 @@ void node07(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-[WaveSize(4, 8, node07)] /* expected-error{{'WaveSize' attribute requires an integer constant}} */
+// expected-error@+2{{WaveSize arguments must be between 4 and 128 and a power of 2}}
+// expected-error@+1{{'WaveSize' attribute requires an integer constant}}
+[WaveSize(4, 8, node07)]
 void node08(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
 

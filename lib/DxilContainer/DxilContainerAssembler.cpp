@@ -941,11 +941,13 @@ public:
       break;
     }
     case ShaderModel::Kind::Compute: {
-      UINT waveMinSize = (UINT)m_Module.GetMinWaveSize();
-      UINT waveMaxSize = (UINT)m_Module.GetMaxWaveSize();
-      if (waveMinSize != 0) {
-        pInfo->MinimumExpectedWaveLaneCount = waveMinSize;
-        pInfo->MaximumExpectedWaveLaneCount = waveMaxSize;
+      DxilWaveSize waveSize = m_Module.GetWaveSize();
+      pInfo->MinimumExpectedWaveLaneCount = 0;
+      pInfo->MaximumExpectedWaveLaneCount = UINT32_MAX;
+      if (waveSize.IsDefined()) {
+        pInfo->MinimumExpectedWaveLaneCount = waveSize.Min;
+        pInfo->MaximumExpectedWaveLaneCount =
+            waveSize.IsRange() ? waveSize.Max : waveSize.Min;
       }
       break;
     }
@@ -1800,6 +1802,7 @@ private:
                                                ? &info_latest
                                                : nullptr;
         ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
+        DxilWaveSize waveSize;
         if (DM.HasDxilFunctionProps(&function)) {
           const auto &props = DM.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
@@ -1811,12 +1814,15 @@ private:
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
           shaderKind = (uint32_t)props.shaderKind;
+          waveSize = props.WaveSize;
           if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            pInfo2->MinimumExpectedWaveLaneCount = entryProps.props.waveMinSize;
-            pInfo2->MaximumExpectedWaveLaneCount =
-                entryProps.props.waveMaxSize > 0 ? entryProps.props.waveMaxSize
-                                                 : entryProps.props.waveMinSize;
+            if (waveSize.IsDefined()) {
+              pInfo2->MinimumExpectedWaveLaneCount = (uint8_t)waveSize.Min;
+              pInfo2->MaximumExpectedWaveLaneCount =
+                  (waveSize.IsRange()) ? (uint8_t)waveSize.Max
+                                       : (uint8_t)waveSize.Min;
+            }
             pInfo2->ShaderFlags = 0;
             if (entryProps.props.IsNode()) {
               shaderInfo = AddShaderNodeInfo(DM, function, entryProps, *pInfo2,

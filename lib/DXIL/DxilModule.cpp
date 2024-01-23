@@ -395,32 +395,16 @@ unsigned DxilModule::GetNumThreads(unsigned idx) const {
   return props.numThreads[idx];
 }
 
-void DxilModule::SetWaveSize(unsigned size) {
+DxilWaveSize &DxilModule::GetWaveSize() {
+  return const_cast<DxilWaveSize &>(
+      static_cast<const DxilModule *>(this)->GetWaveSize());
+}
+const DxilWaveSize &DxilModule::GetWaveSize() const {
   DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
            "only works for CS profile");
-  DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
-  props.waveMinSize = size;
-}
-
-unsigned DxilModule::GetMinWaveSize() const {
-  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
-           "only works for CS profiles");
-  if (!m_pSM->IsCS())
-    return 0;
   const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
   DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
-  return props.waveMinSize;
-}
-
-unsigned DxilModule::GetMaxWaveSize() const {
-  DXASSERT(m_DxilEntryPropsMap.size() == 1 && m_pSM->IsCS(),
-           "only works for CS profiles");
-  if (!m_pSM->IsCS())
-    return 0;
-  const DxilFunctionProps &props = m_DxilEntryPropsMap.begin()->second->props;
-  DXASSERT_NOMSG(m_pSM->GetKind() == props.shaderKind);
-  return props.waveMaxSize;
+  return props.WaveSize;
 }
 
 DXIL::InputPrimitive DxilModule::GetInputPrimitive() const {

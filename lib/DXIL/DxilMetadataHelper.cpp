@@ -1596,19 +1596,18 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
     NumThreadVals.emplace_back(Uint32ToConstMD(props.numThreads[2]));
     MDVals.emplace_back(MDNode::get(m_Ctx, NumThreadVals));
 
-    if (props.waveMinSize != 0) {
-      bool UseRange = props.waveMaxSize != 0;
-      if (UseRange)
+    if (props.WaveSize.IsDefined()) {
+      if (props.WaveSize.IsRange())
         DXASSERT(DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 8) >= 0,
                  "DXIL version must be > 1.8");
-      MDVals.emplace_back(
-          Uint32ToConstMD(UseRange ? DxilMDHelper::kDxilRangedWaveSizeTag
+      MDVals.emplace_back(Uint32ToConstMD(
+          props.WaveSize.IsRange() ? DxilMDHelper::kDxilRangedWaveSizeTag
                                    : DxilMDHelper::kDxilWaveSizeTag));
       SmallVector<Metadata *, 3> WaveSizeVal;
-      WaveSizeVal.emplace_back(Uint32ToConstMD(props.waveMinSize));
-      if (UseRange) {
-        WaveSizeVal.emplace_back(Uint32ToConstMD(props.waveMaxSize));
-        WaveSizeVal.emplace_back(Uint32ToConstMD(props.wavePreferredSize));
+      WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Min));
+      if (props.WaveSize.IsRange()) {
+        WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Max));
+        WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Preferred));
       }
       MDVals.emplace_back(MDNode::get(m_Ctx, WaveSizeVal));
     }
@@ -1832,7 +1831,7 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     } break;
     case DxilMDHelper::kDxilWaveSizeTag: {
       MDNode *pNode = cast<MDNode>(MDO.get());
-      props.waveMinSize = ConstMDToUint32(pNode->getOperand(0));
+      props.WaveSize.Min = ConstMDToUint32(pNode->getOperand(0));
     } break;
     case DxilMDHelper::kDxilRangedWaveSizeTag: {
       // if we're here, we're using the range variant.
@@ -1840,9 +1839,9 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       if (!m_pSM->IsSMAtLeast(6, 8))
         m_bExtraMetadata = true;
       MDNode *pNode = cast<MDNode>(MDO.get());
-      props.waveMinSize = ConstMDToUint32(pNode->getOperand(0));
-      props.waveMaxSize = ConstMDToUint32(pNode->getOperand(1));
-      props.wavePreferredSize = ConstMDToUint32(pNode->getOperand(2));
+      props.WaveSize.Min = ConstMDToUint32(pNode->getOperand(0));
+      props.WaveSize.Max = ConstMDToUint32(pNode->getOperand(1));
+      props.WaveSize.Preferred = ConstMDToUint32(pNode->getOperand(2));
     } break;
     case DxilMDHelper::kDxilEntryRootSigTag: {
       MDNode *pNode = cast<MDNode>(MDO.get());
@@ -2663,16 +2662,15 @@ void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
 
   // Optional Fields
 
-  if (props.waveMinSize != 0) {
-    bool UseRange = props.waveMaxSize != 0;
-    MDVals.emplace_back(
-        Uint32ToConstMD(UseRange ? DxilMDHelper::kDxilRangedWaveSizeTag
+  if (props.WaveSize.IsDefined()) {
+    MDVals.emplace_back(Uint32ToConstMD(
+        props.WaveSize.IsRange() ? DxilMDHelper::kDxilRangedWaveSizeTag
                                  : DxilMDHelper::kDxilWaveSizeTag));
     SmallVector<Metadata *, 3> WaveSizeVal;
-    WaveSizeVal.emplace_back(Uint32ToConstMD(props.waveMinSize));
-    if (UseRange) {
-      WaveSizeVal.emplace_back(Uint32ToConstMD(props.waveMaxSize));
-      WaveSizeVal.emplace_back(Uint32ToConstMD(props.wavePreferredSize));
+    WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Min));
+    if (props.WaveSize.IsRange()) {
+      WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Max));
+      WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Preferred));
     }
     MDVals.emplace_back(MDNode::get(m_Ctx, WaveSizeVal));
   }

@@ -12,6 +12,7 @@
 
 #include "clang/Sema/SemaHLSL.h"
 #include "VkConstantsTables.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
@@ -12626,26 +12627,49 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
       A.getAttributeSpellingListIndex());
 
   pAttr->setSpelledArgsCount(A.getNumArgs());
-  int minWave = pAttr->getMin();
-  int maxWave = pAttr->getMax();
-  int prefWave = pAttr->getPreferred();
 
-  // validate attribute arguments.
-  if (!DXIL::IsValidWaveSizeValue(minWave, maxWave, prefWave)) {
+  hlsl::DxilWaveSize waveSize(pAttr->getMin(), pAttr->getMax(),
+                              pAttr->getPreferred());
+
+  DxilWaveSize::ValidationResult validationResult = waveSize.Validate();
+
+  // WaveSize validation succeeds when not defined, but since we have an
+  // attribute, this means min was zero, which is invalid for min.
+  if (validationResult == DxilWaveSize::ValidationResult::Success &&
+      !waveSize.IsDefined())
+    validationResult = DxilWaveSize::ValidationResult::InvalidMin;
+
+  // It is invalid to explicitly specify degenerate cases.
+  if (A.getNumArgs() > 1 && waveSize.Max == 0)
+    validationResult = DxilWaveSize::ValidationResult::InvalidMax;
+  else if (A.getNumArgs() > 2 && waveSize.Preferred == 0)
+    validationResult = DxilWaveSize::ValidationResult::InvalidPreferred;
+
+  switch (validationResult) {
+  case DxilWaveSize::ValidationResult::Success:
+    break;
+  case DxilWaveSize::ValidationResult::InvalidMin:
+  case DxilWaveSize::ValidationResult::InvalidMax:
+  case DxilWaveSize::ValidationResult::InvalidPreferred:
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
         << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
-  }
-
-  bool prefInRange =
-      prefWave == 0 ? true : prefWave >= minWave && prefWave <= maxWave;
-  if (!prefInRange) {
-    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_pref_size_out_of_range)
-        << (unsigned)prefWave << (unsigned)minWave << (unsigned)maxWave;
-  }
-
-  if (maxWave != 0 && minWave >= maxWave) {
+    break;
+  case DxilWaveSize::ValidationResult::MaxEqualsMin:
+  case DxilWaveSize::ValidationResult::MaxLessThanMin:
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_min_geq_max)
-        << (unsigned)minWave << (unsigned)maxWave;
+        << (unsigned)waveSize.Min << (unsigned)waveSize.Max;
+    break;
+  case DxilWaveSize::ValidationResult::PreferredOutOfRange:
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_pref_size_out_of_range)
+        << (unsigned)waveSize.Preferred << (unsigned)waveSize.Min
+        << (unsigned)waveSize.Max;
+    break;
+  case DxilWaveSize::ValidationResult::MaxOrPreferredWhenUndefined:
+  case DxilWaveSize::ValidationResult::PreferredWhenNoRange:
+    llvm_unreachable("Should have hit InvalidMax or InvalidPreferred instead.");
+    break;
+  default:
+    llvm_unreachable("Unknown ValidationResult");
   }
 
   // make sure there is not already an existing conflicting
