@@ -1,5 +1,5 @@
-// RUN: %dxc -E main -T cs_6_7 %s | FileCheck %s 
-// RUN: %dxc -E main -T cs_6_8 %s | FileCheck %s
+// RUN: %dxc -E main -T cs_6_7 -select-validator internal %s | FileCheck %s 
+// RUN: %dxc -E main -T cs_6_8 -select-validator internal %s | FileCheck %s
 
 // CHECK-NOT: define void @main()
 
