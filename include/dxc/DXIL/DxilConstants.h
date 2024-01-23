@@ -448,12 +448,6 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
          ResourceKind == DXIL::ResourceKind::FeedbackTexture2DArray;
 }
 
-inline bool IsValidWaveSizeValue(unsigned size) {
-  // must be power of 2 between 4 and 128
-  return size >= kMinWaveSize && size <= kMaxWaveSize &&
-         (size & (size - 1)) == 0;
-}
-
 // TODO: change opcodes.
 /* <py::lines('OPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("OpCode")</py>*/
 // OPCODE-ENUM:BEGIN
@@ -975,6 +969,7 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_5 = 216,
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
+  NumOpCodes_Dxil_1_8 = 258,
 
   NumOpCodes = 258 // exclusive last value of enumeration
 };
@@ -1290,6 +1285,7 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_5 = 143,
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
+  NumOpClasses_Dxil_1_8 = 183,
 
   NumOpClasses = 183 // exclusive last value of enumeration
 };
@@ -1888,7 +1884,10 @@ const uint64_t ShaderFeatureInfo_WriteableMSAATextures = 0x40000000;
 // WaveMMA slots in between two SM 6.6 feature bits.
 const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
 
-const unsigned ShaderFeatureInfoCount = 31;
+const uint64_t ShaderFeatureInfo_SampleCmpGradientOrBias = 0x80000000;
+const uint64_t ShaderFeatureInfo_ExtendedCommandInfo = 0x100000000;
+
+const unsigned ShaderFeatureInfoCount = 33;
 
 // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
 // certain values reserved, since they cannot be used from Dxil.

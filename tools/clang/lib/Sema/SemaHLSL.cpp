@@ -12,6 +12,7 @@
 
 #include "clang/Sema/SemaHLSL.h"
 #include "VkConstantsTables.h"
+#include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/HLSL/HLOperations.h"
 #include "dxc/HlslIntrinsicOp.h"
@@ -12622,21 +12623,64 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
                                              const AttributeList &A) {
   // validate that the wavesize argument is a power of 2 between 4 and 128
   // inclusive
-  HLSLWaveSizeAttr *pAttr = ::new (S.Context)
-      HLSLWaveSizeAttr(A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-                       A.getAttributeSpellingListIndex());
+  HLSLWaveSizeAttr *pAttr = ::new (S.Context) HLSLWaveSizeAttr(
+      A.getRange(), S.Context, ValidateAttributeIntArg(S, A, 0),
+      ValidateAttributeIntArg(S, A, 1), ValidateAttributeIntArg(S, A, 2),
+      A.getAttributeSpellingListIndex());
 
-  unsigned waveSize = pAttr->getSize();
-  if (!DXIL::IsValidWaveSizeValue(waveSize)) {
+  pAttr->setSpelledArgsCount(A.getNumArgs());
+
+  hlsl::DxilWaveSize waveSize(pAttr->getMin(), pAttr->getMax(),
+                              pAttr->getPreferred());
+
+  DxilWaveSize::ValidationResult validationResult = waveSize.Validate();
+
+  // WaveSize validation succeeds when not defined, but since we have an
+  // attribute, this means min was zero, which is invalid for min.
+  if (validationResult == DxilWaveSize::ValidationResult::Success &&
+      !waveSize.IsDefined())
+    validationResult = DxilWaveSize::ValidationResult::InvalidMin;
+
+  // It is invalid to explicitly specify degenerate cases.
+  if (A.getNumArgs() > 1 && waveSize.Max == 0)
+    validationResult = DxilWaveSize::ValidationResult::InvalidMax;
+  else if (A.getNumArgs() > 2 && waveSize.Preferred == 0)
+    validationResult = DxilWaveSize::ValidationResult::InvalidPreferred;
+
+  switch (validationResult) {
+  case DxilWaveSize::ValidationResult::Success:
+    break;
+  case DxilWaveSize::ValidationResult::InvalidMin:
+  case DxilWaveSize::ValidationResult::InvalidMax:
+  case DxilWaveSize::ValidationResult::InvalidPreferred:
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
         << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
+    break;
+  case DxilWaveSize::ValidationResult::MaxEqualsMin:
+  case DxilWaveSize::ValidationResult::MaxLessThanMin:
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_min_geq_max)
+        << (unsigned)waveSize.Min << (unsigned)waveSize.Max;
+    break;
+  case DxilWaveSize::ValidationResult::PreferredOutOfRange:
+    S.Diag(A.getLoc(), diag::err_hlsl_wavesize_pref_size_out_of_range)
+        << (unsigned)waveSize.Preferred << (unsigned)waveSize.Min
+        << (unsigned)waveSize.Max;
+    break;
+  case DxilWaveSize::ValidationResult::MaxOrPreferredWhenUndefined:
+  case DxilWaveSize::ValidationResult::PreferredWhenNoRange:
+    llvm_unreachable("Should have hit InvalidMax or InvalidPreferred instead.");
+    break;
+  default:
+    llvm_unreachable("Unknown ValidationResult");
   }
 
   // make sure there is not already an existing conflicting
   // wavesize attribute on the decl
   HLSLWaveSizeAttr *waveSizeAttr = D->getAttr<HLSLWaveSizeAttr>();
   if (waveSizeAttr) {
-    if (waveSizeAttr->getSize() != pAttr->getSize()) {
+    if (waveSizeAttr->getMin() != pAttr->getMin() ||
+        waveSizeAttr->getMax() != pAttr->getMax() ||
+        waveSizeAttr->getPreferred() != pAttr->getPreferred()) {
       S.Diag(A.getLoc(), diag::err_hlsl_conflicting_shader_attribute)
           << pAttr->getSpelling() << waveSizeAttr->getSpelling();
       S.Diag(waveSizeAttr->getLocation(), diag::note_conflicting_attribute);
@@ -14611,7 +14655,13 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Attr *noconst = const_cast<Attr *>(A);
     HLSLWaveSizeAttr *ACast = static_cast<HLSLWaveSizeAttr *>(noconst);
     Indent(Indentation, Out);
-    Out << "[wavesize(" << ACast->getSize() << ")]\n";
+    Out << "[wavesize(" << ACast->getMin();
+    if (ACast->getMax() > 0) {
+      Out << ", " << ACast->getMax();
+      if (ACast->getPreferred() > 0)
+        Out << ", " << ACast->getPreferred();
+    }
+    Out << ")]\n";
     break;
   }
 
@@ -15140,12 +15190,33 @@ void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   return;
 }
 
+void DiagnoseDomainEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+  for (const auto *param : FD->params()) {
+    if (!hlsl::IsHLSLOutputPatchType(param->getType()))
+      continue;
+    if (hlsl::GetHLSLInputPatchCount(param->getType()) > 0)
+      continue;
+    S.Diags.Report(param->getLocation(), diag::err_hlsl_outputpatch_size);
+  }
+  return;
+}
+
 void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   HLSLPatchConstantFuncAttr *Attr = FD->getAttr<HLSLPatchConstantFuncAttr>();
   if (!Attr)
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "patchconstantfunc";
+  if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "outputtopology";
 
+  for (const auto *param : FD->params()) {
+    if (!hlsl::IsHLSLInputPatchType(param->getType()))
+      continue;
+    if (hlsl::GetHLSLInputPatchCount(param->getType()) > 0)
+      continue;
+    S.Diags.Report(param->getLocation(), diag::err_hlsl_inputpatch_size);
+  }
   return;
 }
 
@@ -15174,6 +15245,10 @@ void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
             << "wavesize"
             << "6.6";
       }
+      if (!SM->IsSM68Plus() && WaveSizeAttr->getSpelledArgsCount() > 1)
+        S.Diags.Report(WaveSizeAttr->getRange().getBegin(),
+                       diag::err_hlsl_wavesize_insufficient_shader_model)
+            << "wavesize" << 1;
     }
   }
 }
@@ -15572,7 +15647,6 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   switch (Stage) {
   case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
-  case DXIL::ShaderKind::Domain:
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Invalid:
     return;
@@ -15582,6 +15656,8 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   case DXIL::ShaderKind::Mesh: {
     return DiagnoseMeshEntry(S, FD, StageName);
   }
+  case DXIL::ShaderKind::Domain:
+    return DiagnoseDomainEntry(S, FD, StageName);
   case DXIL::ShaderKind::Hull: {
     return DiagnoseHullEntry(S, FD, StageName);
   }

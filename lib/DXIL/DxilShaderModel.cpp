@@ -256,7 +256,7 @@ const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {
   case '1':
     Minor = 1;
     break;
-  // clang-format off
+    // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_shader_model_by_name()</py>*/
   // clang-format on
@@ -369,7 +369,7 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor,
   DXASSERT(IsValidForDxil(), "invalid shader model");
   ValMajor = 1;
   switch (m_Minor) {
-  // clang-format off
+    // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_min_validator_version()</py>*/
   // clang-format on

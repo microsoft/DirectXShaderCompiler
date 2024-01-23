@@ -255,8 +255,8 @@ public:
   unsigned GetNumThreads(unsigned idx) const;
 
   // Compute shader
-  void SetWaveSize(unsigned size);
-  unsigned GetWaveSize() const;
+  DxilWaveSize &GetWaveSize();
+  const DxilWaveSize &GetWaveSize() const;
 
   // Geometry shader.
   DXIL::InputPrimitive GetInputPrimitive() const;

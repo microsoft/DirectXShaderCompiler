@@ -5243,27 +5243,81 @@ static void ValidatePassThruHS(ValidationContext &ValCtx,
   }
 }
 
+// validate wave size (currently allowed only on CS and node shaders but might
+// be supported on other shader types in the future)
+static void ValidateWaveSize(ValidationContext &ValCtx,
+                             const DxilEntryProps &entryProps, Function *F) {
+  const DxilFunctionProps &props = entryProps.props;
+  const hlsl::DxilWaveSize &waveSize = props.WaveSize;
+
+  switch (waveSize.Validate()) {
+  case hlsl::DxilWaveSize::ValidationResult::Success:
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::InvalidMin:
+    ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
+                             {"Min", std::to_string(waveSize.Min),
+                              std::to_string(DXIL::kMinWaveSize),
+                              std::to_string(DXIL::kMaxWaveSize)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::InvalidMax:
+    ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
+                             {"Max", std::to_string(waveSize.Max),
+                              std::to_string(DXIL::kMinWaveSize),
+                              std::to_string(DXIL::kMaxWaveSize)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::InvalidPreferred:
+    ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
+                             {"Preferred", std::to_string(waveSize.Preferred),
+                              std::to_string(DXIL::kMinWaveSize),
+                              std::to_string(DXIL::kMaxWaveSize)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::MaxOrPreferredWhenUndefined:
+    ValCtx.EmitFnFormatError(
+        F, ValidationRule::SmWaveSizeAllZeroWhenUndefined,
+        {std::to_string(waveSize.Max), std::to_string(waveSize.Preferred)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::PreferredWhenNoRange:
+  case hlsl::DxilWaveSize::ValidationResult::MaxEqualsMin:
+    ValCtx.EmitFnFormatError(
+        F, ValidationRule::SmWaveSizeMaxAndPreferredZeroWhenNoRange,
+        {std::to_string(waveSize.Max), std::to_string(waveSize.Preferred)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::MaxLessThanMin:
+    ValCtx.EmitFnFormatError(
+        F, ValidationRule::SmWaveSizeMaxGreaterThanMin,
+        {std::to_string(waveSize.Max), std::to_string(waveSize.Min)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::PreferredOutOfRange:
+    ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizePreferredInRange,
+                             {std::to_string(waveSize.Preferred),
+                              std::to_string(waveSize.Min),
+                              std::to_string(waveSize.Max)});
+    break;
+  }
+
+  // Check shader model and kind.
+  if (waveSize.IsDefined()) {
+    if (waveSize.IsRange()) {
+      if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 8) <
+          0) {
+        ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeRangeNeedsDxil18Plus);
+      }
+    } else if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1,
+                                     6) < 0) {
+      ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeNeedsDxil16Plus);
+    } else if (!props.IsCS() && !props.IsNode()) {
+      ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeOnComputeOrNode);
+    }
+  }
+}
+
 static void ValidateEntryProps(ValidationContext &ValCtx,
                                const DxilEntryProps &entryProps,
                                EntryStatus &Status, Function *F) {
   const DxilFunctionProps &props = entryProps.props;
   DXIL::ShaderKind ShaderType = props.shaderKind;
 
-  // validate wave size (currently allowed only on CS but might be supported on
-  // other shader types in the future)
-  if (props.waveSize != 0) {
-    if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 6) <
-        0) {
-      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeNeedsDxil16Plus,
-                               {});
-    }
-    if (!DXIL::IsValidWaveSizeValue(props.waveSize)) {
-      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
-                               {std::to_string(props.waveSize),
-                                std::to_string(DXIL::kMinWaveSize),
-                                std::to_string(DXIL::kMaxWaveSize)});
-    }
-  }
+  ValidateWaveSize(ValCtx, entryProps, F);
 
   if (ShaderType == DXIL::ShaderKind::Compute || props.IsNode()) {
     unsigned x = props.numThreads[0];

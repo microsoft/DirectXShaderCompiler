@@ -941,10 +941,13 @@ public:
       break;
     }
     case ShaderModel::Kind::Compute: {
-      UINT waveSize = (UINT)m_Module.GetWaveSize();
-      if (waveSize != 0) {
-        pInfo->MinimumExpectedWaveLaneCount = waveSize;
-        pInfo->MaximumExpectedWaveLaneCount = waveSize;
+      DxilWaveSize waveSize = m_Module.GetWaveSize();
+      pInfo->MinimumExpectedWaveLaneCount = 0;
+      pInfo->MaximumExpectedWaveLaneCount = UINT32_MAX;
+      if (waveSize.IsDefined()) {
+        pInfo->MinimumExpectedWaveLaneCount = waveSize.Min;
+        pInfo->MaximumExpectedWaveLaneCount =
+            waveSize.IsRange() ? waveSize.Max : waveSize.Min;
       }
       break;
     }
@@ -1799,6 +1802,7 @@ private:
                                                ? &info_latest
                                                : nullptr;
         ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
+        DxilWaveSize waveSize;
         if (DM.HasDxilFunctionProps(&function)) {
           const auto &props = DM.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
@@ -1810,12 +1814,14 @@ private:
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
           shaderKind = (uint32_t)props.shaderKind;
+          waveSize = props.WaveSize;
           if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            unsigned waveSize = entryProps.props.waveSize;
-            if (waveSize) {
-              pInfo2->MinimumExpectedWaveLaneCount = waveSize;
-              pInfo2->MaximumExpectedWaveLaneCount = waveSize;
+            if (waveSize.IsDefined()) {
+              pInfo2->MinimumExpectedWaveLaneCount = (uint8_t)waveSize.Min;
+              pInfo2->MaximumExpectedWaveLaneCount =
+                  (waveSize.IsRange()) ? (uint8_t)waveSize.Max
+                                       : (uint8_t)waveSize.Min;
             }
             pInfo2->ShaderFlags = 0;
             if (entryProps.props.IsNode()) {

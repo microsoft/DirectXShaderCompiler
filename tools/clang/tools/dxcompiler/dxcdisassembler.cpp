@@ -347,6 +347,8 @@ PCSTR g_pFeatureInfoNames[] = {
     "64-bit Atomics on Heap Resources",
     "Advanced Texture Ops",
     "Writeable MSAA Textures",
+    "SampleCmp with gradient or bias",
+    "Extended command info",
 };
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount,
               "g_pFeatureInfoNames needs to be updated");

@@ -1809,8 +1809,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     funcProps->ShaderProps.PS.EarlyDepthStencil = true;
   }
 
-  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>())
-    funcProps->waveSize = Attr->getSize();
+  if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
+    funcProps->WaveSize = DxilWaveSize::Translate(
+        Attr->getMin(), Attr->getMax(), Attr->getPreferred());
+  }
 
   // Node shader
   if (isNode) {
@@ -2600,8 +2602,7 @@ void CGMSHLSLRuntime::AddHLSLNodeRecordTypeInfo(
         auto &Rec = TemplateArgs.get(0);
         clang::QualType RecType = Rec.getAsType();
         llvm::Type *Type = CGM.getTypes().ConvertType(RecType);
-        const RecordType *recordtype = RecType->getAsStructureType();
-        RecordDecl *RD = recordtype->getDecl();
+        CXXRecordDecl *RD = RecType->getAsCXXRecordDecl();
 
         // Get the TrackRWInputSharing flag from the record attribute
         if (RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {

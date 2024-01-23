@@ -646,7 +646,7 @@ class db_dxil(object):
             + "WaveMatrix_SumAccumulate,WaveMatrix_Add"
         ).split(","):
             self.name_idx[i].category = "WaveMatrix"
-            self.name_idx[i].shader_model = 6, 7
+            self.name_idx[i].shader_model = 6, 9
             self.name_idx[i].shader_stages = (
                 "library",
                 "compute",
@@ -5659,6 +5659,13 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        # End of DXIL 1.8 opcodes.
+        self.set_op_count_for_version(1, 8, next_op_idx)
+        assert next_op_idx == 258, (
+            "258 is expected next operation index but encountered %d and thus opcodes are broken"
+            % next_op_idx
+        )
+
         # Set interesting properties.
         self.build_indices()
         for (
@@ -7649,13 +7656,42 @@ class db_dxil(object):
         self.add_valrule(
             "Sm.TGSMUnsupported", "Thread Group Shared Memory not supported %0."
         )
-        self.add_valrule(
+        self.add_valrule_msg(
             "Sm.WaveSizeValue",
-            "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.",
+            "WaveSize value must be a power of 2 in range [4..128]",
+            "WaveSize %0 (%1) outside valid range [%2..%3], or not a power of 2.",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeAllZeroWhenUndefined",
+            "WaveSize Max and Preferred must be 0 when Min is 0",
+            "WaveSize Max (%0) and Preferred (%1) must be 0 when Min is 0",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeMaxAndPreferredZeroWhenNoRange",
+            "WaveSize Max and Preferred must be 0 to encode min==max",
+            "WaveSize Max (%0) and Preferred (%1) must be 0 to encode min==max",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeMaxGreaterThanMin",
+            "WaveSize Max must greater than Min",
+            "WaveSize Max (%0) is less than Min (%1)",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizePreferredInRange",
+            "WaveSize Preferred must be within Min..Max range",
+            "WaveSize Preferred (%0) outside Min..Max range [%1..%2]",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeOnComputeOrNode",
+            "WaveSize only allowed on compute or node shaders",
         )
         self.add_valrule(
             "Sm.WaveSizeNeedsDxil16Plus",
             "WaveSize is valid only for DXIL version 1.6 and higher.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeRangeNeedsDxil18Plus",
+            "WaveSize Range is valid only for DXIL version 1.8 and higher.",
         )
         self.add_valrule(
             "Sm.ROVOnlyInPS",

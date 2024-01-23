@@ -865,6 +865,20 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (!declIdMapper.decorateResourceCoherent())
     return;
 
+  // Add source instruction(s)
+  if ((spirvOptions.debugInfoSource || spirvOptions.debugInfoFile) &&
+      !spirvOptions.debugInfoVulkan) {
+    std::vector<llvm::StringRef> fileNames;
+    fileNames.clear();
+    const auto &sm = context.getSourceManager();
+    // Add each include file from preprocessor output
+    for (unsigned int i = 0; i < sm.getNumLineTableFilenames(); i++) {
+      fileNames.push_back(sm.getLineTableFilename(i));
+    }
+    spvBuilder.setDebugSource(spvContext.getMajorVersion(),
+                              spvContext.getMinorVersion(), fileNames);
+  }
+
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
   if (context.getDiagnostics().hasErrorOccurred())
@@ -968,7 +982,9 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 }
 
 void SpirvEmitter::doDecl(const Decl *decl) {
-  if (isa<EmptyDecl>(decl) || isa<TypedefDecl>(decl))
+  if (isa<EmptyDecl>(decl) || isa<TypedefDecl>(decl) ||
+      isa<TypeAliasDecl>(decl) || isa<TypeAliasTemplateDecl>(decl) ||
+      isa<VarTemplateDecl>(decl))
     return;
 
   // Implicit decls are lazily created when needed.
@@ -11543,10 +11559,20 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
   auto *arg1Instr = doExpr(arg1);
   auto *arg2Instr = doExpr(arg2);
 
+  // OpSDot/OpUDot need a Packed Vector Format operand when Vector 1 and
+  // Vector 2 are scalar integer types.
+  SpirvConstant *formatConstant = spvBuilder.getConstantInt(
+      astContext.UnsignedIntTy,
+      llvm::APInt(32,
+                  uint32_t(spv::PackedVectorFormat::PackedVectorFormat4x8Bit)));
+  // Make sure that the format is emitted as a literal constant and not
+  // an instruction reference.
+  formatConstant->setLiteral(true);
+
   // Prepare the array inputs for createSpirvIntrInstExt below.
   // Need to use this function because the OpSDot/OpUDot operations require
   // two capabilities and an extension to be declared in the module.
-  SpirvInstruction *operands[]{arg0Instr, arg1Instr};
+  SpirvInstruction *operands[]{arg0Instr, arg1Instr, formatConstant};
   uint32_t capabilities[]{
       uint32_t(spv::Capability::DotProduct),
       uint32_t(spv::Capability::DotProductInput4x8BitPacked)};
@@ -12523,6 +12549,13 @@ void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
           modeAttr->getLocation());
     }
   }
+
+  // Handle extension and capability attrs
+  if (decl->hasAttr<VKExtensionExtAttr>() ||
+      decl->hasAttr<VKCapabilityExtAttr>()) {
+    createSpirvIntrInstExt(decl->getAttrs(), QualType(), /* spvArgs */ {},
+                           /* isInst */ false, decl->getLocStart());
+  }
 }
 
 bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
@@ -13112,8 +13145,6 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   assert(entryInfo->isEntryFunction);
   entryInfo->entryFunction = entryFunction;
 
-  processInlineSpirvAttributes(decl);
-
   if (spvContext.isRay()) {
     return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr,
                                                  debugFunction);
@@ -13190,6 +13221,12 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
+
+  // Handle vk::execution_mode, vk::ext_extension and vk::ext_capability
+  // attributes. Uses pseudo-instructions for extensions and capabilities, which
+  // are added to the beginning of the entry basic block, so must be called
+  // after the basic block is created and insert point is set.
+  processInlineSpirvAttributes(decl);
 
   // Add DebugFunctionDefinition if we are emitting
   // NonSemantic.Shader.DebugInfo.100 debug info.
@@ -13409,25 +13446,6 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   const QualType pcfRetType = patchConstFunc->getReturnType();
 
   std::vector<SpirvInstruction *> pcfParams;
-
-  // A lambda for creating a stage input variable and its associated temporary
-  // variable for function call. Also initializes the temporary variable using
-  // the contents loaded from the stage input variable. Returns the <result-id>
-  // of the temporary variable.
-  const auto createParmVarAndInitFromStageInputVar =
-      [this](const ParmVarDecl *param) {
-        const QualType type = param->getType();
-        std::string tempVarName = "param.var." + param->getNameAsString();
-        auto paramLoc = param->getLocation();
-        auto *tempVar = spvBuilder.addFnVar(
-            type, paramLoc, tempVarName, param->hasAttr<HLSLPreciseAttr>(),
-            param->hasAttr<HLSLNoInterpolationAttr>());
-        SpirvInstruction *loadedValue = nullptr;
-        declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
-        spvBuilder.createStore(tempVar, loadedValue, paramLoc);
-        return tempVar;
-      };
-
   for (const auto *param : patchConstFunc->parameters()) {
     // Note: According to the HLSL reference, the PCF takes an InputPatch of
     // ControlPoints as well as the PatchID (PrimitiveID). This does not
@@ -13439,14 +13457,19 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
       pcfParams.push_back(hullMainOutputPatch);
     } else if (hasSemantic(param, hlsl::DXIL::SemanticKind::PrimitiveID)) {
       if (!primitiveId) {
-        primitiveId = createParmVarAndInitFromStageInputVar(param);
+        primitiveId = createPCFParmVarAndInitFromStageInputVar(param);
       }
       pcfParams.push_back(primitiveId);
     } else if (hasSemantic(param, hlsl::DXIL::SemanticKind::ViewID)) {
       if (!viewId) {
-        viewId = createParmVarAndInitFromStageInputVar(param);
+        viewId = createPCFParmVarAndInitFromStageInputVar(param);
       }
       pcfParams.push_back(viewId);
+    } else if (param->hasAttr<HLSLOutAttr>()) {
+      // Create a temporary function scope variable to pass to the PCF function
+      // for the output. The value of this variable should be copied to an
+      // output variable for the param after the function call.
+      pcfParams.push_back(createFunctionScopeTempFromParameter(param));
     } else {
       emitError("patch constant function parameter '%0' unknown",
                 param->getLocation())
@@ -13458,6 +13481,18 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   if (!declIdMapper.createStageOutputVar(patchConstFunc, pcfResultId,
                                          /*forPCF*/ true))
     return false;
+
+  // Traverse all of the parameters for the patch constant function and copy out
+  // all of the output variables.
+  for (uint32_t idx = 0; idx < patchConstFunc->parameters().size(); idx++) {
+    const auto *param = patchConstFunc->parameters()[idx];
+    if (param->hasAttr<HLSLOutAttr>()) {
+      SpirvInstruction *pcfParam = pcfParams[idx];
+      SpirvInstruction *loadedValue = spvBuilder.createLoad(
+          pcfParam->getAstResultType(), pcfParam, param->getLocation());
+      declIdMapper.createStageOutputVar(param, loadedValue, /*forPCF*/ true);
+    }
+  }
 
   spvBuilder.createBranch(mergeBB, locEnd);
   spvBuilder.addSuccessor(mergeBB);
@@ -14417,6 +14452,31 @@ void SpirvEmitter::addDerivativeGroupExecutionMode() {
   }
 
   spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());
+}
+
+SpirvVariable *SpirvEmitter::createPCFParmVarAndInitFromStageInputVar(
+    const ParmVarDecl *param) {
+  const QualType type = param->getType();
+  std::string tempVarName = "param.var." + param->getNameAsString();
+  auto paramLoc = param->getLocation();
+  auto *tempVar = spvBuilder.addFnVar(
+      type, paramLoc, tempVarName, param->hasAttr<HLSLPreciseAttr>(),
+      param->hasAttr<HLSLNoInterpolationAttr>());
+  SpirvInstruction *loadedValue = nullptr;
+  declIdMapper.createStageInputVar(param, &loadedValue, /*forPCF*/ true);
+  spvBuilder.createStore(tempVar, loadedValue, paramLoc);
+  return tempVar;
+}
+
+SpirvVariable *
+SpirvEmitter::createFunctionScopeTempFromParameter(const ParmVarDecl *param) {
+  const QualType type = param->getType();
+  std::string tempVarName = "param.var." + param->getNameAsString();
+  auto paramLoc = param->getLocation();
+  auto *tempVar = spvBuilder.addFnVar(
+      type, paramLoc, tempVarName, param->hasAttr<HLSLPreciseAttr>(),
+      param->hasAttr<HLSLNoInterpolationAttr>());
+  return tempVar;
 }
 
 bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,

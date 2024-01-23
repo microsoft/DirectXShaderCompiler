@@ -263,7 +263,7 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   // created by DXC. We do not want to emit line information for their
   // instructions. To prevent spirv-opt from removing all debug info, we emit
   // OpLines to specify the beginning and end of the function.
-  if (inEntryFunctionWrapper && 
+  if (inEntryFunctionWrapper &&
       (op != spv::Op::OpReturn && op != spv::Op::OpFunction))
     return;
 
@@ -377,22 +377,10 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
     debugColumnEnd = columnEnd;
   }
 
-  if (emittedSource[fileId] == 0) {
-    if (!spvOptions.debugInfoVulkan) {
-      SpirvString *fileNameInst =
-          new (context) SpirvString(/*SourceLocation*/ {}, fileName);
-      visit(fileNameInst);
-      SpirvSource *src = new (context)
-          SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL,
-                      hlslVersion, fileNameInst, "");
-      visit(src);
-      spvInstructions.push_back(src);
-      spvInstructions.push_back(fileNameInst);
-    } else {
-      SpirvDebugSource *src = new (context) SpirvDebugSource(fileName, "");
-      visit(src);
-      spvInstructions.push_back(src);
-    }
+  if ((emittedSource[fileId] == 0) && (spvOptions.debugInfoVulkan)) {
+    SpirvDebugSource *src = new (context) SpirvDebugSource(fileName, "");
+    visit(src);
+    spvInstructions.push_back(src);
   }
 
   curInst.clear();

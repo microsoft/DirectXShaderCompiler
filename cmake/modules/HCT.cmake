@@ -117,6 +117,11 @@ function(add_hlsl_hctgen mode)
                       COMMENT "Updating ${ARG_OUTPUT}..."
                       )
   endif()
-  add_custom_target(${mode} ${verification} DEPENDS ${output})
+
+  add_custom_target(${mode}
+                    COMMAND ${verification}
+                    DEPENDS ${output}
+                    COMMENT "Verifying clang-format results...")
+
   add_dependencies(HCTGen ${mode})
 endfunction()
