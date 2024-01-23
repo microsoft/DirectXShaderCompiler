@@ -13216,11 +13216,20 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         ValidateAttributeStringArg(S, A, /*validate strings*/ nullptr),
         A.getAttributeSpellingListIndex());
     break;
-  case AttributeList::AT_HLSLOutputControlPoints:
-    declAttr = ::new (S.Context) HLSLOutputControlPointsAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
-        A.getAttributeSpellingListIndex());
+  case AttributeList::AT_HLSLOutputControlPoints: {
+    // Hull shader output must be between 1 and 32 control points.
+    int outputControlPoints = ValidateAttributeIntArg(S, A);
+    if (outputControlPoints >= 1 && outputControlPoints <= 32) {
+      declAttr = ::new (S.Context) HLSLOutputControlPointsAttr(
+          A.getRange(), S.Context, outputControlPoints,
+          A.getAttributeSpellingListIndex());
+    } else {
+      S.Diags.Report(A.getLoc(), diag::err_hlsl_controlpoints_size)
+          << outputControlPoints << A.getRange();
+      return;
+    }
     break;
+  }
   case AttributeList::AT_HLSLOutputTopology:
     declAttr = ::new (S.Context) HLSLOutputTopologyAttr(
         A.getRange(), S.Context,
@@ -15325,6 +15334,9 @@ void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "outputtopology";
+  if (!(FD->getAttr<HLSLOutputControlPointsAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "outputcontrolpoints";
 
   for (const auto *param : FD->params()) {
     if (!hlsl::IsHLSLInputPatchType(param->getType()))

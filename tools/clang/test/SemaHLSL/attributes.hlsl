@@ -380,7 +380,7 @@ Texture2D<float4> tex1[10] : register( t20, space10 );
 [domain(123)]     // expected-error {{attribute 'domain' must have a string literal argument}} fxc-pass {{}}
 [partitioning()]  // expected-error {{'partitioning' attribute takes one argument}} fxc-error {{X3000: syntax error: unexpected token ')'}}
 [outputtopology("not_triangle_cw")] // expected-error {{attribute 'outputtopology' must have one of these values: point,line,triangle,triangle_cw,triangle_ccw}} fxc-pass {{}}
-[outputcontrolpoints(-1)] // expected-warning {{attribute 'outputcontrolpoints' must have a uint literal argument}} fxc-pass {{}}
+[outputcontrolpoints(-1)] // expected-warning {{attribute 'outputcontrolpoints' must have a uint literal argument}} expected-error {{number of control points -1 is outside the valid range of [1..32]}} fxc-pass {{}}
 [patchconstantfunc("PatchFoo", "ExtraArgument")] // expected-error {{'patchconstantfunc' attribute takes one argument}} fxc-pass {{}}
 
 void all_wrong() { }

@@ -42,6 +42,7 @@ HSPerPatchData HSPerPatchFunc1() /* expected-error{{recursive functions are not 
 [shader("hull")]
 [patchconstantfunc("HSPerPatchFunc1")]
 [outputtopology("point")]
+[outputcontrolpoints(1)]
 float4 main(float a : A, float b:B) : SV_TARGET
 {
   float4 f = b;

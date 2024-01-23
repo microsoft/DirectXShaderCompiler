@@ -7913,6 +7913,8 @@ def err_hlsl_inputpatch_size: Error<
 def err_hlsl_outputpatch_size: Error<
    "OutputPatch element count must be greater than 0">;
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
+def err_hlsl_controlpoints_size: Error<
+  "number of control points %0 is outside the valid range of [1..32]">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
