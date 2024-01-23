@@ -592,6 +592,7 @@ public:
 
   // === SPIR-V Module Structure ===
   inline void setMemoryModel(spv::AddressingModel, spv::MemoryModel);
+  inline SpirvMemoryModel *getMemoryModel();
 
   /// \brief Adds an entry point for the module under construction. We only
   /// support a single entry point per module for now.
@@ -902,6 +903,10 @@ void SpirvBuilder::requireExtension(llvm::StringRef ext, SourceLocation loc) {
 void SpirvBuilder::setMemoryModel(spv::AddressingModel addrModel,
                                   spv::MemoryModel memModel) {
   mod->setMemoryModel(new (context) SpirvMemoryModel(addrModel, memModel));
+}
+
+SpirvMemoryModel *SpirvBuilder::getMemoryModel() {
+  return mod->getMemoryModel();
 }
 
 void SpirvBuilder::addEntryPoint(spv::ExecutionModel em, SpirvFunction *target,

@@ -741,6 +741,9 @@ bool CapabilityVisitor::visit(SpirvAtomic *instr) {
                                instr->getValue()->getResultType())) {
     addCapability(spv::Capability::Int64Atomics, instr->getSourceLocation());
   }
+
+  visitMemoryScope(instr->getScope());
+
   return true;
 }
 
@@ -751,6 +754,16 @@ bool CapabilityVisitor::visit(SpirvDemoteToHelperInvocation *inst) {
     addExtension(Extension::EXT_demote_to_helper_invocation, "discard",
                  inst->getSourceLocation());
   }
+  return true;
+}
+
+bool CapabilityVisitor::visit(SpirvBarrier *instr) {
+  visitMemoryScope(instr->getMemoryScope());
+  return true;
+}
+
+bool CapabilityVisitor::visit(SpirvGroupNonUniformOp *instr) {
+  visitMemoryScope(instr->getExecutionScope());
   return true;
 }
 
@@ -879,6 +892,18 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   }
 
   return true;
+}
+
+void CapabilityVisitor::visitMemoryScope(spv::Scope scope) {
+  // If the Vulkan memory model is declared and any instruction uses Device
+  // scope, the VulkanMemoryModelDeviceScope capability must be declared.
+  if (scope != spv::Scope::Device)
+    return;
+  if (SpirvMemoryModel *model = spvBuilder.getMemoryModel()) {
+    if (model->getMemoryModel() == spv::MemoryModel::Vulkan) {
+      addCapability(spv::Capability::VulkanMemoryModelDeviceScope);
+    }
+  }
 }
 
 } // end namespace spirv

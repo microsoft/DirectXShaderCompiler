@@ -40,6 +40,8 @@ public:
   bool visit(SpirvDemoteToHelperInvocation *) override;
   bool visit(SpirvIsHelperInvocationEXT *) override;
   bool visit(SpirvReadClock *) override;
+  bool visit(SpirvBarrier *) override;
+  bool visit(SpirvGroupNonUniformOp *) override;
 
   using Visitor::visit;
 
@@ -88,6 +90,8 @@ private:
   /// need VulkanMemoryModel capability.
   void AddVulkanMemoryModelForVolatile(SpirvDecoration *decor,
                                        SourceLocation loc);
+
+  void visitMemoryScope(spv::Scope scope);
 
 private:
   SpirvBuilder &spvBuilder;        ///< SPIR-V builder

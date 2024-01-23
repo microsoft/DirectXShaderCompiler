@@ -244,6 +244,8 @@ void SpirvModule::setMemoryModel(SpirvMemoryModel *model) {
   memoryModel = model;
 }
 
+SpirvMemoryModel *SpirvModule::getMemoryModel() { return memoryModel; }
+
 bool SpirvModule::promoteAddressingModel(spv::AddressingModel addrModel) {
   assert(memoryModel && "base memory model must be set first");
   auto getPriority = [](spv::AddressingModel am) -> int {
