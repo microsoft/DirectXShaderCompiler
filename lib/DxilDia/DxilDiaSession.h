@@ -499,7 +499,7 @@ private:
   std::unordered_map<const llvm::Instruction *, RVA>
       m_rvaMap; // Map instruction to its RVA.
   LineToInfoMap m_lineToInfoMap;
-  SymbolManager m_symsMgr;
+  std::unique_ptr<SymbolManager> m_symsMgr;
 
 private:
   CComPtr<IDiaEnumTables> m_pEnumTables;

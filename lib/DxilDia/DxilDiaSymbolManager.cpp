@@ -2343,8 +2343,7 @@ dxil_dia::SymbolManager::SymbolManager() = default;
 dxil_dia::SymbolManager::~SymbolManager() { m_pSession = nullptr; }
 
 void dxil_dia::SymbolManager::Init(Session *pSes) {
-  if (m_pSession != nullptr)
-    return; // Already initialized
+  DXASSERT(m_pSession == nullptr, "SymbolManager already initialized");
   m_pSession = pSes;
   m_symbolCtors.clear();
   m_parentToChildren.clear();

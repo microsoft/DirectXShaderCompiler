@@ -99,12 +99,15 @@ void dxil_dia::Session::Init(std::shared_ptr<llvm::LLVMContext> context,
 }
 
 const dxil_dia::SymbolManager &dxil_dia::Session::SymMgr() {
-  try {
-    m_symsMgr.Init(this);
-  } catch (const hlsl::Exception &) {
-    m_symsMgr = dxil_dia::SymbolManager();
+  if (!m_symsMgr) {
+    try {
+      m_symsMgr.reset(new dxil_dia::SymbolManager());
+      m_symsMgr->Init(this);
+    } catch (const hlsl::Exception &) {
+      m_symsMgr.reset(new dxil_dia::SymbolManager());
+    }
   }
-  return m_symsMgr;
+  return *m_symsMgr;
 }
 
 HRESULT dxil_dia::Session::getSourceFileIdByName(llvm::StringRef fileName,
