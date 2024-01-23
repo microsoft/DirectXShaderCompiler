@@ -61,7 +61,7 @@ public:
   hlsl::DxilModule &DxilModuleRef() { return *m_dxilModule.get(); }
   llvm::Module &ModuleRef() { return *m_module.get(); }
   llvm::DebugInfoFinder &InfoRef() { return *m_finder.get(); }
-  const SymbolManager &SymMgr() const { return m_symsMgr; }
+  const SymbolManager &SymMgr();
   const RVAMap &InstructionsRef() const { return m_instructions; }
   const std::vector<const llvm::Instruction *> &InstructionLinesRef() const {
     return m_instructionLines;
