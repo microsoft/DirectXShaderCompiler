@@ -623,8 +623,9 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
       spvBuilder(astContext, spvContext, spirvOptions, featureManager),
       declIdMapper(astContext, spvContext, spvBuilder, *this, featureManager,
                    spirvOptions),
-      entryFunction(nullptr), curFunction(nullptr), curThis(nullptr),
-      seenPushConstantAt(), isSpecConstantMode(false), needsLegalization(false),
+      constEvaluator(astContext, spvBuilder), entryFunction(nullptr),
+      curFunction(nullptr), curThis(nullptr), seenPushConstantAt(),
+      isSpecConstantMode(false), needsLegalization(false),
       beforeHlslLegalization(false), mainSourceFile(nullptr) {
 
   // Get ShaderModel from command line hlsl profile option.
@@ -1153,10 +1154,12 @@ SpirvInstruction *SpirvEmitter::doExpr(const Expr *expr,
         spvBuilder.getConstantBool(boolLiteral->getValue(), isSpecConstantMode);
     result->setRValue();
   } else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
-    result = translateAPInt(intLiteral->getValue(), expr->getType());
+    result = constEvaluator.translateAPInt(intLiteral->getValue(),
+                                           expr->getType(), isSpecConstantMode);
     result->setRValue();
   } else if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
-    result = translateAPFloat(floatLiteral->getValue(), expr->getType());
+    result = constEvaluator.translateAPFloat(
+        floatLiteral->getValue(), expr->getType(), isSpecConstantMode);
     result->setRValue();
   } else if (const auto *stringLiteral = dyn_cast<StringLiteral>(expr)) {
     result = spvBuilder.getString(stringLiteral->getString());
@@ -1935,7 +1938,8 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
     }
     // Function local variables. Just emit OpStore at the current insert point.
     else if (const Expr *init = decl->getInit()) {
-      if (auto *constInit = tryToEvaluateAsConst(init)) {
+      if (auto *constInit =
+              constEvaluator.tryToEvaluateAsConst(init, isSpecConstantMode)) {
         spvBuilder.createStore(var, constInit, loc, range);
       } else {
         storeValue(var, loadIfGLValue(init), decl->getType(), loc, range);
@@ -3159,7 +3163,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
     // a 64bit constant and then explicit casting in SPIR-V requires Int64
     // capability. We should avoid introducing unnecessary capabilities to
     // our best.
-    if (auto *value = tryToEvaluateAsConst(expr)) {
+    if (auto *value =
+            constEvaluator.tryToEvaluateAsConst(expr, isSpecConstantMode)) {
       value->setRValue();
       return value;
     }
@@ -3178,7 +3183,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
   case CastKind::CK_HLSLCC_IntegralToFloating: {
     // First try to see if we can do constant folding for floating point
     // numbers like what we are doing for integers in the above.
-    if (auto *value = tryToEvaluateAsConst(expr)) {
+    if (auto *value =
+            constEvaluator.tryToEvaluateAsConst(expr, isSpecConstantMode)) {
       value->setRValue();
       return value;
     }
@@ -3196,7 +3202,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
   case CastKind::CK_HLSLCC_IntegralToBoolean:
   case CastKind::CK_HLSLCC_FloatingToBoolean: {
     // First try to see if we can do constant folding.
-    if (auto *value = tryToEvaluateAsConst(expr)) {
+    if (auto *value =
+            constEvaluator.tryToEvaluateAsConst(expr, isSpecConstantMode)) {
       value->setRValue();
       return value;
     }
@@ -3438,7 +3445,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
 
     // Try to evaluate float literals as float rather than double.
     if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(subExpr)) {
-      subExprInstr = tryToEvaluateAsFloat32(floatLiteral->getValue());
+      subExprInstr = constEvaluator.tryToEvaluateAsFloat32(
+          floatLiteral->getValue(), isSpecConstantMode);
       if (subExprInstr)
         evalType = astContext.FloatTy;
     }
@@ -3452,7 +3460,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
     // Try to evaluate integer literals as 32-bit int rather than 64-bit int.
     else if (const auto *intLiteral = dyn_cast<IntegerLiteral>(subExpr)) {
       const bool isSigned = subExprType->isSignedIntegerType();
-      subExprInstr = tryToEvaluateAsInt32(intLiteral->getValue(), isSigned);
+      subExprInstr =
+          constEvaluator.tryToEvaluateAsInt32(intLiteral->getValue(), isSigned);
       if (subExprInstr)
         evalType = isSigned ? astContext.IntTy : astContext.UnsignedIntTy;
     }
@@ -4245,10 +4254,14 @@ SpirvInstruction *SpirvEmitter::processTextureGatherRGBACmpRGBA(
     // The offset arg is not optional.
     handleOffsetInMethodCall(expr, 2 + isCmp, &constOffset, &varOffset);
   } else if (numOffsetArgs == 4) {
-    auto *offset0 = tryToEvaluateAsConst(expr->getArg(2 + isCmp));
-    auto *offset1 = tryToEvaluateAsConst(expr->getArg(3 + isCmp));
-    auto *offset2 = tryToEvaluateAsConst(expr->getArg(4 + isCmp));
-    auto *offset3 = tryToEvaluateAsConst(expr->getArg(5 + isCmp));
+    auto *offset0 = constEvaluator.tryToEvaluateAsConst(expr->getArg(2 + isCmp),
+                                                        isSpecConstantMode);
+    auto *offset1 = constEvaluator.tryToEvaluateAsConst(expr->getArg(3 + isCmp),
+                                                        isSpecConstantMode);
+    auto *offset2 = constEvaluator.tryToEvaluateAsConst(expr->getArg(4 + isCmp),
+                                                        isSpecConstantMode);
+    auto *offset3 = constEvaluator.tryToEvaluateAsConst(expr->getArg(5 + isCmp),
+                                                        isSpecConstantMode);
 
     // If any of the offsets is not constant, we then need to emulate the call
     // using 4 OpImageGather instructions. Otherwise, we can leverage the
@@ -5186,7 +5199,8 @@ void SpirvEmitter::handleOffsetInMethodCall(const CXXMemberCallExpr *expr,
   assert(index < expr->getNumArgs());
 
   *constOffset = *varOffset = nullptr; // Initialize both first
-  if ((*constOffset = tryToEvaluateAsConst(expr->getArg(index))))
+  if ((*constOffset = constEvaluator.tryToEvaluateAsConst(expr->getArg(index),
+                                                          isSpecConstantMode)))
     return; // Constant offset
   else
     *varOffset = doExpr(expr->getArg(index));
@@ -6098,7 +6112,8 @@ SpirvEmitter::doHLSLVectorElementExpr(const HLSLVectorElementExpr *expr,
 
 SpirvInstruction *SpirvEmitter::doInitListExpr(const InitListExpr *expr,
                                                SourceRange rangeOverride) {
-  if (auto *id = tryToEvaluateAsConst(expr)) {
+  if (auto *id =
+          constEvaluator.tryToEvaluateAsConst(expr, isSpecConstantMode)) {
     id->setRValue();
     return id;
   }
@@ -7173,7 +7188,8 @@ SpirvInstruction *SpirvEmitter::createVectorSplat(const Expr *scalarExpr,
 
   // Try to evaluate the element as constant first. If successful, then we
   // can generate constant instructions for this vector splat.
-  if ((scalarVal = tryToEvaluateAsConst(scalarExpr))) {
+  if ((scalarVal = constEvaluator.tryToEvaluateAsConst(scalarExpr,
+                                                       isSpecConstantMode))) {
     if (!scalarVal)
       return nullptr;
     scalarVal->setRValue();
@@ -12353,129 +12369,6 @@ SpirvConstant *SpirvEmitter::getMaskForBitwidthValue(QualType type) {
   return nullptr;
 }
 
-SpirvConstant *SpirvEmitter::translateAPValue(const APValue &value,
-                                              const QualType targetType) {
-  SpirvConstant *result = nullptr;
-
-  if (targetType->isBooleanType()) {
-    result = spvBuilder.getConstantBool(value.getInt().getBoolValue(),
-                                        isSpecConstantMode);
-  } else if (targetType->isIntegerType()) {
-    result = translateAPInt(value.getInt(), targetType);
-  } else if (targetType->isFloatingType()) {
-    result = translateAPFloat(value.getFloat(), targetType);
-  } else if (hlsl::IsHLSLVecType(targetType)) {
-    const QualType elemType = hlsl::GetHLSLVecElementType(targetType);
-    const auto numElements = value.getVectorLength();
-    // Special case for vectors of size 1. SPIR-V doesn't support this vector
-    // size so we need to translate it to scalar values.
-    if (numElements == 1) {
-      result = translateAPValue(value.getVectorElt(0), elemType);
-    } else {
-      llvm::SmallVector<SpirvConstant *, 4> elements;
-      for (uint32_t i = 0; i < numElements; ++i) {
-        elements.push_back(translateAPValue(value.getVectorElt(i), elemType));
-      }
-      result = spvBuilder.getConstantComposite(targetType, elements);
-    }
-  }
-
-  if (result)
-    return result;
-
-  emitError("APValue of type %0 unimplemented", {}) << value.getKind();
-  value.dump();
-  return 0;
-}
-
-SpirvConstant *SpirvEmitter::translateAPInt(const llvm::APInt &intValue,
-                                            QualType targetType) {
-  return spvBuilder.getConstantInt(targetType, intValue, isSpecConstantMode);
-}
-
-bool SpirvEmitter::isLiteralLargerThan32Bits(const Expr *expr) {
-  if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
-    const bool isSigned = expr->getType()->isSignedIntegerType();
-    const llvm::APInt &value = intLiteral->getValue();
-    return (isSigned && !value.isSignedIntN(32)) ||
-           (!isSigned && !value.isIntN(32));
-  }
-
-  if (const auto *floatLiteral = dyn_cast<FloatingLiteral>(expr)) {
-    llvm::APFloat value = floatLiteral->getValue();
-    const auto &semantics = value.getSemantics();
-    // regular 'half' and 'float' can be represented in 32 bits.
-    if (&semantics == &llvm::APFloat::IEEEsingle ||
-        &semantics == &llvm::APFloat::IEEEhalf)
-      return true;
-
-    // See if 'double' value can be represented in 32 bits without losing info.
-    bool losesInfo = false;
-    const auto convertStatus =
-        value.convert(llvm::APFloat::IEEEsingle,
-                      llvm::APFloat::rmNearestTiesToEven, &losesInfo);
-    if (convertStatus != llvm::APFloat::opOK &&
-        convertStatus != llvm::APFloat::opInexact)
-      return true;
-  }
-
-  return false;
-}
-
-SpirvConstant *SpirvEmitter::tryToEvaluateAsInt32(const llvm::APInt &intValue,
-                                                  bool isSigned) {
-  if (isSigned && intValue.isSignedIntN(32)) {
-    return spvBuilder.getConstantInt(astContext.IntTy, intValue);
-  }
-  if (!isSigned && intValue.isIntN(32)) {
-    return spvBuilder.getConstantInt(astContext.UnsignedIntTy, intValue);
-  }
-
-  // Couldn't evaluate as a 32-bit int without losing information.
-  return nullptr;
-}
-
-SpirvConstant *
-SpirvEmitter::tryToEvaluateAsFloat32(const llvm::APFloat &floatValue) {
-  const auto &semantics = floatValue.getSemantics();
-  // If the given value is already a 32-bit float, there is no need to convert.
-  if (&semantics == &llvm::APFloat::IEEEsingle) {
-    return spvBuilder.getConstantFloat(astContext.FloatTy, floatValue,
-                                       isSpecConstantMode);
-  }
-
-  // Try to see if this literal float can be represented in 32-bit.
-  // Since the convert function below may modify the fp value, we call it on a
-  // temporary copy.
-  llvm::APFloat eval = floatValue;
-  bool losesInfo = false;
-  const auto convertStatus =
-      eval.convert(llvm::APFloat::IEEEsingle,
-                   llvm::APFloat::rmNearestTiesToEven, &losesInfo);
-  if (convertStatus == llvm::APFloat::opOK && !losesInfo)
-    return spvBuilder.getConstantFloat(astContext.FloatTy,
-                                       llvm::APFloat(eval.convertToFloat()));
-
-  // Couldn't evaluate as a 32-bit float without losing information.
-  return nullptr;
-}
-
-SpirvConstant *SpirvEmitter::translateAPFloat(llvm::APFloat floatValue,
-                                              QualType targetType) {
-  return spvBuilder.getConstantFloat(targetType, floatValue,
-                                     isSpecConstantMode);
-}
-
-SpirvConstant *SpirvEmitter::tryToEvaluateAsConst(const Expr *expr) {
-  Expr::EvalResult evalResult;
-  if (expr->EvaluateAsRValue(evalResult, astContext) &&
-      !evalResult.HasSideEffects) {
-    return translateAPValue(evalResult.Val, expr->getType());
-  }
-
-  return nullptr;
-}
-
 hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
   hlsl::ShaderModel::Kind SMK =
       llvm::StringSwitch<hlsl::ShaderModel::Kind>(stageName)
@@ -13842,7 +13735,8 @@ SpirvEmitter::processTraceRayInline(const CXXMemberCallExpr *expr) {
   const auto accelStructure = doExpr(args[0]);
   SpirvInstruction *rayFlags = nullptr;
 
-  if ((rayFlags = tryToEvaluateAsConst(args[1]))) {
+  if ((rayFlags =
+           constEvaluator.tryToEvaluateAsConst(args[1], isSpecConstantMode))) {
     rayFlags->setRValue();
   } else {
     rayFlags = doExpr(args[1]);
@@ -14614,7 +14508,8 @@ SpirvEmitter::doUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *expr) {
     return nullptr;
   }
 
-  if (auto *constExpr = tryToEvaluateAsConst(expr)) {
+  if (auto *constExpr =
+          constEvaluator.tryToEvaluateAsConst(expr, isSpecConstantMode)) {
     constExpr->setRValue();
     return constExpr;
   }

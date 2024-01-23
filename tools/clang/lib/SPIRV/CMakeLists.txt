@@ -7,6 +7,7 @@ add_clang_library(clangSPIRV
   AstTypeProbe.cpp
   BlockReadableOrder.cpp
   CapabilityVisitor.cpp
+  ConstEvaluator.cpp
   DeclResultIdMapper.cpp
   DebugTypeVisitor.cpp
   EmitSpirvAction.cpp
