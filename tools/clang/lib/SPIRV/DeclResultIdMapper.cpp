@@ -2836,7 +2836,8 @@ void DeclResultIdMapper::storeToShaderOutputVariable(
   // element in the per-vertex data array: the one indexed by
   // SV_ControlPointID.
   else if (stageVarData.invocationId.hasValue() &&
-           stageVarData.invocationId.getValue() != nullptr) {
+           stageVarData.invocationId.getValue() != nullptr &&
+           stageVarData.arraySize != 0) {
     // Remove the arrayness to get the element type.
     assert(isa<ConstantArrayType>(varInstr->getAstResultType()));
     const auto elementType =
@@ -3441,7 +3442,7 @@ bool DeclResultIdMapper::createStageVars(StageVarDataBundle &stageVarData,
   assert(value);
   // invocationId should only be used for handling HS per-vertex output.
   if (stageVarData.invocationId.hasValue()) {
-    assert(spvContext.isHS() && stageVarData.arraySize != 0 && !asInput);
+    assert(spvContext.isHS() && !asInput);
   }
 
   assert(stageVarData.semantic);

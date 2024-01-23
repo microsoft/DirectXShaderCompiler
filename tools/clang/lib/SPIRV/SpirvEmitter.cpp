@@ -13381,13 +13381,6 @@ bool SpirvEmitter::processHSEntryPointOutputAndPCF(
   auto loc = hullMainFuncDecl->getLocation();
   auto locEnd = hullMainFuncDecl->getLocEnd();
 
-  // For Hull shaders, the real output is an array of size
-  // numOutputControlPoints. The results of the main should be written to the
-  // correct offset in the array (based on InvocationID).
-  if (!numOutputControlPoints) {
-    emitError("number of output control points cannot be zero", loc);
-    return false;
-  }
   // TODO: We should be able to handle cases where the SV_OutputControlPointID
   // is not provided.
   if (!outputControlPointId) {
