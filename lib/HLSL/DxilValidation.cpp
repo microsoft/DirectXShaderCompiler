@@ -2142,12 +2142,8 @@ std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
     return "Coalescing";
   case DXIL::NodeLaunchType::Thread:
     return "Thread";
-  case DXIL::NodeLaunchType::Invalid:
-  case DXIL::NodeLaunchType::LastEntry:
-    return "";
-
   default:
-    return "";
+    return "Invalid";
   }
 }
 
