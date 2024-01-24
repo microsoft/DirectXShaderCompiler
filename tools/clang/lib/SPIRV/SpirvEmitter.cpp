@@ -14296,8 +14296,8 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
   }
 
   auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
-  spvContext.getSpirvIntrinsicType(typeDefAttr->getId(),
-                                   typeDefAttr->getOpcode(), operands);
+  spvContext.getOrCreateSpirvIntrinsicType(typeDefAttr->getId(),
+                                           typeDefAttr->getOpcode(), operands);
 
   return createSpirvIntrInstExt(
       funcDecl->getAttrs(), QualType(),

@@ -286,13 +286,12 @@ public:
 
   const RayQueryTypeKHR *getRayQueryTypeKHR() const { return rayQueryTypeKHR; }
 
-  const SpirvIntrinsicType *
-  getSpirvIntrinsicType(unsigned typeId, unsigned typeOpCode,
-                        llvm::ArrayRef<SpvIntrinsicTypeOperand> operands);
+  const SpirvIntrinsicType *getOrCreateSpirvIntrinsicType(
+      unsigned typeId, unsigned typeOpCode,
+      llvm::ArrayRef<SpvIntrinsicTypeOperand> operands);
 
-  const SpirvIntrinsicType *
-  getSpirvIntrinsicType(unsigned typeOpCode,
-                        llvm::ArrayRef<SpvIntrinsicTypeOperand> operands);
+  const SpirvIntrinsicType *getOrCreateSpirvIntrinsicType(
+      unsigned typeOpCode, llvm::ArrayRef<SpvIntrinsicTypeOperand> operands);
 
   SpirvIntrinsicType *getCreatedSpirvIntrinsicType(unsigned typeId);
 

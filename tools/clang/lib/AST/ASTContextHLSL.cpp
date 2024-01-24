@@ -1246,7 +1246,8 @@ CXXRecordDecl *hlsl::DeclareInlineSpirvType(clang::ASTContext &context,
                                             clang::DeclContext *declContext,
                                             llvm::StringRef typeName,
                                             bool opaque) {
-  // template<uint opcode> vk::SpirvType { ... }
+  // template<uint opcode, int size, int alignment> vk::SpirvType { ... }
+  // template<uint opcode> vk::SpirvOpaqueType { ... }
   BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName,
                                          clang::TagTypeKind::TTK_Class);
   typeDeclBuilder.addIntegerTemplateParam("opcode", context.UnsignedIntTy);

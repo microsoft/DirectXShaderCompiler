@@ -538,7 +538,7 @@ void SpirvContext::moveDebugTypesToModule(SpirvModule *module) {
   typeTemplateParams.clear();
 }
 
-const SpirvIntrinsicType *SpirvContext::getSpirvIntrinsicType(
+const SpirvIntrinsicType *SpirvContext::getOrCreateSpirvIntrinsicType(
     unsigned typeId, unsigned typeOpCode,
     llvm::ArrayRef<SpvIntrinsicTypeOperand> operands) {
   if (spirvIntrinsicTypesById[typeId] == nullptr) {
@@ -548,7 +548,7 @@ const SpirvIntrinsicType *SpirvContext::getSpirvIntrinsicType(
   return spirvIntrinsicTypesById[typeId];
 }
 
-const SpirvIntrinsicType *SpirvContext::getSpirvIntrinsicType(
+const SpirvIntrinsicType *SpirvContext::getOrCreateSpirvIntrinsicType(
     unsigned typeOpCode, llvm::ArrayRef<SpvIntrinsicTypeOperand> operands) {
   SpirvIntrinsicType type(typeOpCode, operands);
 

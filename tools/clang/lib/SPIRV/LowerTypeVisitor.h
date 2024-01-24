@@ -83,6 +83,14 @@ private:
   /// which have optional parameters (e.g. Texture2D).
   QualType createASTTypeFromTemplateName(TemplateName templateName);
 
+  /// Lowers the given vk::SpirvType or vk::SpirvOpaqueType into its SPIR-V
+  /// type.
+  const SpirvType *
+  lowerInlineSpirvType(llvm::StringRef name, unsigned int opcode,
+                       const TemplateSpecializationType *specType,
+                       SpirvLayoutRule rule, llvm::Optional<bool> isRowMajor,
+                       SourceLocation srcLoc);
+
   /// Lowers the given type defined in vk namespace into its SPIR-V type.
   const SpirvType *lowerVkTypeInVkNamespace(QualType type, llvm::StringRef name,
                                             SpirvLayoutRule rule,

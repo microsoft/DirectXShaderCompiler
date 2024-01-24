@@ -667,74 +667,86 @@ QualType LowerTypeVisitor::createASTTypeFromTemplateName(TemplateName name) {
   return type;
 }
 
+const SpirvType *LowerTypeVisitor::lowerInlineSpirvType(
+    llvm::StringRef name, unsigned int opcode,
+    const TemplateSpecializationType *specType, SpirvLayoutRule rule,
+    llvm::Optional<bool> isRowMajor, SourceLocation srcLoc) {
+  assert(specType);
+
+  SmallVector<SpvIntrinsicTypeOperand, 4> operands;
+
+  // Lower each operand argument
+
+  size_t firstOperand = 1;
+  if (name == "SpirvType")
+    firstOperand = 3;
+
+  for (size_t i = firstOperand; i < specType->getNumArgs(); i++) {
+    const TemplateArgument &arg = specType->getArg(i);
+    switch (arg.getKind()) {
+    case TemplateArgument::ArgKind::Type: {
+      QualType typeArg = arg.getAsType();
+      operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
+      break;
+    }
+    case TemplateArgument::ArgKind::Template: {
+      // Handle HLSL template types that allow the omission of < and >; for
+      // example, Texture2D
+      TemplateName templateName = arg.getAsTemplate();
+      QualType typeArg = createASTTypeFromTemplateName(templateName);
+      if (typeArg.isNull()) {
+        emitError("%0 is not a valid HLSL type (did you forget the template "
+                  "arguments?)",
+                  srcLoc)
+            << templateName;
+        return nullptr;
+      }
+
+      operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
+      break;
+    }
+    case TemplateArgument::ArgKind::Expression: {
+      auto *exprArg = arg.getAsExpr();
+
+      // If the argument is a call to vk::ext_literal, use the expression
+      // passed in
+      auto *literal = getVkExtLiteralValue(exprArg);
+      if (literal)
+        exprArg = literal;
+
+      SpirvConstant *constant = ConstEvaluator(astContext, spvBuilder)
+                                    .tryToEvaluateAsConst(exprArg, false);
+      if (constant == nullptr) {
+        emitError("template argument for %0 must evaluate to a constant rvalue",
+                  exprArg->getLocStart())
+            << specType->getTemplateName();
+        return nullptr;
+      }
+      // If vk::ext_literal was called, set the SpirvConstant `literal` flag,
+      // which will make the constant be emitted as an immediate literal value
+      // rather than an OpConstant instruction.
+      constant->setLiteral(literal != nullptr);
+      visitInstruction(constant);
+      operands.emplace_back(constant);
+      break;
+    }
+    default:
+      emitError("template argument kind %0 unimplemented", srcLoc)
+          << arg.getKind();
+    }
+  }
+  return spvContext.getOrCreateSpirvIntrinsicType(opcode, operands);
+}
+
 const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     QualType type, llvm::StringRef name, SpirvLayoutRule rule,
     llvm::Optional<bool> isRowMajor, SourceLocation srcLoc) {
   if (name == "SpirvType" || name == "SpirvOpaqueType") {
-
     auto opcode = hlsl::GetHLSLResourceTemplateUInt(type);
-    SmallVector<SpvIntrinsicTypeOperand, 4> operands;
-
     const auto *specType = type->getAs<TemplateSpecializationType>();
-    assert(specType);
 
-    // Lower each operand argument
-
-    size_t firstOperand = 1;
-    if (name == "SpirvType")
-      firstOperand = 3;
-
-    for (size_t i = firstOperand; i < specType->getNumArgs(); i++) {
-      const TemplateArgument &arg = specType->getArg(i);
-      switch (arg.getKind()) {
-      case TemplateArgument::ArgKind::Type: {
-        QualType typeArg = arg.getAsType();
-        operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
-        break;
-      }
-      case TemplateArgument::ArgKind::Template: {
-        // Handle HLSL template types that allow the omission of < and >; for
-        // example, Texture2D
-        TemplateName templateName = arg.getAsTemplate();
-        QualType typeArg = createASTTypeFromTemplateName(templateName);
-        if (typeArg.isNull()) {
-          emitError("%0 is not a valid HLSL type (did you forget the template "
-                    "arguments?)",
-                    srcLoc)
-              << templateName;
-          return nullptr;
-        }
-
-        operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
-        break;
-      }
-      case TemplateArgument::ArgKind::Expression: {
-        auto *exprArg = arg.getAsExpr();
-
-        auto *literal = getVkExtLiteralValue(exprArg);
-        if (literal)
-          exprArg = literal;
-
-        SpirvConstant *constant = ConstEvaluator(astContext, spvBuilder)
-                                      .tryToEvaluateAsConst(exprArg, false);
-        if (constant == nullptr) {
-          emitError(
-              "template argument for %0 must evaluate to a constant rvalue",
-              exprArg->getLocStart())
-              << specType->getTemplateName();
-          return nullptr;
-        }
-        constant->setLiteral(literal);
-        visitInstruction(constant);
-        operands.emplace_back(constant);
-        break;
-      }
-      default:
-        emitError("template argument kind %0 unimplemented", srcLoc)
-            << arg.getKind();
-      }
-    }
-    return spvContext.getSpirvIntrinsicType(opcode, operands);
+    return lowerInlineSpirvType(name, opcode, specType, rule, isRowMajor,
+                                srcLoc);
   }
   if (name == "ext_type") {
     auto typeId = hlsl::GetHLSLResourceTemplateUInt(type);
