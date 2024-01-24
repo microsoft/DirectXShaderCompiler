@@ -331,7 +331,7 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
       fprintf(stderr, fmt, __VA_ARGS__);                                       \
       assert(false);                                                           \
     }                                                                          \
-  } while (0);
+  } while (0)
 
 #define DXASSERT(expr, msg)                                                    \
   do {                                                                         \
@@ -339,17 +339,21 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
       fprintf(stderr, msg);                                                    \
       assert(false && msg);                                                    \
     }                                                                          \
-  } while (0);
+  } while (0)
 
 #endif // _WIN32
 
 #else // NDEBUG
 
 // DXASSERT_ARGS is disabled in free builds.
-#define DXASSERT_ARGS(exp, s, ...)
+#define DXASSERT_ARGS(exp, s, ...)                                             \
+  do {                                                                         \
+  } while (0)
 
 // DXASSERT is disabled in free builds.
-#define DXASSERT(exp, msg)
+#define DXASSERT(exp, msg)                                                     \
+  do {                                                                         \
+  } while (0)
 
 // DXASSERT_LOCALVAR is disabled in free builds, but we keep the local
 // referenced to avoid a warning.
@@ -360,7 +364,9 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 #define DXASSERT_LOCALVAR_NOMSG(local, exp) DXASSERT_LOCALVAR(local, exp, "")
 
 // DXASSERT_NOMSG is disabled in free builds.
-#define DXASSERT_NOMSG(exp)
+#define DXASSERT_NOMSG(exp)                                                    \
+  do {                                                                         \
+  } while (0)
 
 // DXVERIFY is patterned after NT_VERIFY and will evaluate the expression
 #define DXVERIFY_NOMSG(exp)                                                    \
