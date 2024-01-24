@@ -14341,15 +14341,16 @@ SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr,
   uint32_t exeMode = 0;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
-    const auto *intLiteral =
-        dyn_cast<IntegerLiteral>(args[i]->IgnoreImplicit());
-    if (intLiteral == nullptr) {
+    uint32_t argInteger;
+
+    Expr::EvalResult evalResult;
+    if (args[i]->EvaluateAsRValue(evalResult, astContext) &&
+        !evalResult.HasSideEffects && evalResult.Val.isInt()) {
+      argInteger = evalResult.Val.getInt().getZExtValue();
+    } else {
       emitError("argument should be constant integer", expr->getExprLoc());
       return nullptr;
     }
-
-    uint32_t argInteger =
-        static_cast<uint32_t>(intLiteral->getValue().getZExtValue());
 
     if (i > 0)
       execModesParams.push_back(argInteger);
