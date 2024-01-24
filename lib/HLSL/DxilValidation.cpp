@@ -2134,6 +2134,19 @@ static void ValidateBarrierFlagArg(ValidationContext &ValCtx, CallInst *CI,
   }
 }
 
+std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
+  switch (LT) {
+  case DXIL::NodeLaunchType::Broadcasting:
+    return "Broadcasting";
+  case DXIL::NodeLaunchType::Coalescing:
+    return "Coalescing";
+  case DXIL::NodeLaunchType::Thread:
+    return "Thread";
+  default:
+    return "Invalid";
+  }
+}
+
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                                DXIL::OpCode opcode,
                                                const ShaderModel *pSM,
@@ -2141,10 +2154,15 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   DXIL::ShaderKind shaderKind =
       pSM ? pSM->GetKind() : DXIL::ShaderKind::Invalid;
   llvm::Function *F = CI->getParent()->getParent();
+  DXIL::NodeLaunchType nodeLaunchType = DXIL::NodeLaunchType::Invalid;
   if (DXIL::ShaderKind::Library == shaderKind) {
-    if (ValCtx.DxilMod.HasDxilFunctionProps(F))
+    if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
+      DxilEntryProps &entryProps = ValCtx.DxilMod.GetDxilEntryProps(F);
       shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
-    else if (ValCtx.DxilMod.IsPatchConstantShader(F))
+      if (shaderKind == DXIL::ShaderKind::Node)
+        nodeLaunchType = entryProps.props.Node.LaunchType;
+
+    } else if (ValCtx.DxilMod.IsPatchConstantShader(F))
       shaderKind = DXIL::ShaderKind::Hull;
   }
 
@@ -2346,6 +2364,65 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
           {"CreateHandle", "Shader model 6.5 and below"});
     }
     break;
+
+  case DXIL::OpCode::ThreadId: // SV_DispatchThreadID
+    if (shaderKind != DXIL::ShaderKind::Node) {
+      break;
+    }
+
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting)
+      break;
+
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrSVConflictingLaunchMode,
+        {"ThreadId", "SV_DispatchThreadID", GetLaunchTypeStr(nodeLaunchType)});
+    break;
+
+  case DXIL::OpCode::GroupId: // SV_GroupId
+    if (shaderKind != DXIL::ShaderKind::Node) {
+      break;
+    }
+
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting)
+      break;
+
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrSVConflictingLaunchMode,
+        {"GroupId", "SV_GroupId", GetLaunchTypeStr(nodeLaunchType)});
+    break;
+
+  case DXIL::OpCode::ThreadIdInGroup: // SV_GroupThreadID
+    if (shaderKind != DXIL::ShaderKind::Node) {
+      break;
+    }
+
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing)
+      break;
+
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrSVConflictingLaunchMode,
+                                {"ThreadIdInGroup", "SV_GroupThreadID",
+                                 GetLaunchTypeStr(nodeLaunchType)});
+
+    break;
+
+  case DXIL::OpCode::FlattenedThreadIdInGroup: // SV_GroupIndex
+    if (shaderKind != DXIL::ShaderKind::Node) {
+      break;
+    }
+
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing)
+      break;
+
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrSVConflictingLaunchMode,
+                                {"FlattenedThreadIdInGroup", "SV_GroupIndex",
+                                 GetLaunchTypeStr(nodeLaunchType)});
+
+    break;
+
   default:
     // TODO: make sure every opcode is checked.
     // Skip opcodes don't need special check.
@@ -3520,7 +3597,6 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
                                  {std::to_string(arg.getArgNo()), F.getName()});
     };
 
-    // Validate parameter type.
     unsigned numArgs = 0;
     for (auto &arg : F.args()) {
       Type *argTy = arg.getType();

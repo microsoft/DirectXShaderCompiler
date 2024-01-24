@@ -11122,10 +11122,10 @@ void hlsl::DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
 // Check HLSL member call constraints
 bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   if (MD->hasAttr<HLSLIntrinsicAttr>()) {
-    // If this is a call to FinishedCrossGroupSharing then the Input record
-    // must have the NodeTrackRWInputSharing attribute
     hlsl::IntrinsicOp opCode =
         (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
+    // If this is a call to FinishedCrossGroupSharing then the Input record
+    // must have the NodeTrackRWInputSharing attribute
     if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
       const CXXRecordDecl *NodeRecDecl = MD->getParent();
       // Node I/O records are templateTypes
@@ -11141,25 +11141,84 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
         Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
         return true;
       }
-    } else if (opCode == hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail ||
-               opCode ==
-                   hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped) {
-      const auto *shaderModel =
-          hlsl::ShaderModel::GetByName(getLangOpts().HLSLProfile.c_str());
-      if (!shaderModel->IsSM68Plus()) {
+    }
+  }
+  return false;
+}
+
+// Check HLSL member call constraints for used functions.
+void Sema::DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
+                                           SourceLocation Loc,
+                                           const hlsl::ShaderModel *SM,
+                                           DXIL::ShaderKind EntrySK,
+                                           const FunctionDecl *EntryDecl) {
+  if (MD->hasAttr<HLSLIntrinsicAttr>()) {
+    hlsl::IntrinsicOp opCode =
+        (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
+    switch (opCode) {
+    case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail:
+    case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped: {
+      if (!SM->IsSM68Plus()) {
         QualType SamplerComparisonTy =
             HLSLExternalSource::FromSema(this)->GetBasicKindType(
                 AR_OBJECT_SAMPLERCOMPARISON);
         if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
           Diags.Report(Loc,
-                       diag::err_hlsl_intrinsic_overload_in_wrong_shader_model)
-              << MD->getNameAsString() << "6.8";
-          return true;
+                       diag::warn_hlsl_intrinsic_overload_in_wrong_shader_model)
+              << MD->getNameAsString() + " with SamplerComparisonState"
+              << "6.8";
         }
       }
+
+      switch (EntrySK) {
+      default: {
+        if (!SM->AllowDerivatives(EntrySK)) {
+          Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
+              << MD->getNameAsString() << EntryDecl->getNameAsString();
+          Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
+        }
+      } break;
+      case DXIL::ShaderKind::Compute:
+      case DXIL::ShaderKind::Amplification:
+      case DXIL::ShaderKind::Mesh: {
+        if (!SM->IsSM66Plus()) {
+          Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_model)
+              << MD->getNameAsString() << EntryDecl->getNameAsString();
+          Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
+        }
+      } break;
+      case DXIL::ShaderKind::Node: {
+        if (const auto *pAttr = EntryDecl->getAttr<HLSLNodeLaunchAttr>()) {
+          if (pAttr->getLaunchType() != "broadcasting") {
+            Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
+                << MD->getNameAsString() << EntryDecl->getNameAsString();
+            Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
+          }
+        }
+      } break;
+      }
+      if (const HLSLNumThreadsAttr *Attr =
+              EntryDecl->getAttr<HLSLNumThreadsAttr>()) {
+        bool invalidNumThreads = false;
+        if (Attr->getZ() != 1) {
+          invalidNumThreads = true;
+        } else if (Attr->getY() != 1) {
+          invalidNumThreads =
+              !((Attr->getX() % 2) == 0 && (Attr->getY() % 2) == 0);
+        } else {
+          invalidNumThreads = (Attr->getX() % 4) != 0;
+        }
+        if (invalidNumThreads) {
+          Diags.Report(Loc, diag::warn_hlsl_derivatives_wrong_numthreads)
+              << MD->getNameAsString() << EntryDecl->getNameAsString();
+          Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
+        }
+      }
+    } break;
+    default:
+      break;
     }
   }
-  return false;
 }
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
