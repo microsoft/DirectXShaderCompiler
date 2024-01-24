@@ -494,6 +494,20 @@ const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
   }
 }
 
+bool ShaderModel::AllowDerivatives(DXIL::ShaderKind sk) const {
+  switch (sk) {
+  case DXIL::ShaderKind::Pixel:
+  case DXIL::ShaderKind::Library:
+  case DXIL::ShaderKind::Node:
+    return true;
+  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Amplification:
+  case DXIL::ShaderKind::Mesh:
+    return IsSM66Plus();
+  }
+  return false;
+}
+
 typedef ShaderModel SM;
 typedef Semantic SE;
 const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
