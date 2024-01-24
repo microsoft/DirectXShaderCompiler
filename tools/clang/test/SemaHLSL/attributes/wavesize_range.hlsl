@@ -22,7 +22,7 @@ void node01(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-/* expected-error@+1{{Minimum WaveSize value 16 must be less than maximum WaveSize value 16}} */
+/* expected-error@+1{{Minimum WaveSize value 16 must be unequal to maximum WaveSize value 16}} */
 [WaveSize(16, 16, 32)]
 void node02(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
@@ -30,7 +30,7 @@ void node02(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-[WaveSize(16, 16, 16)] /* expected-error{{Minimum WaveSize value 16 must be less than maximum WaveSize value 16}} */
+[WaveSize(16, 16, 16)] /* expected-error{{Minimum WaveSize value 16 must be unequal to maximum WaveSize value 16}} */
 void node03(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
 // the non-power of 2 diagnostic gets emitted once, regardless of how many arguments aren't powers of 2.
@@ -113,7 +113,6 @@ void node10(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 void node11(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
 
-
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
@@ -123,3 +122,21 @@ void node11(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [WaveSize(4, 8, 4)]
 [WaveSize(4)]
 void node12(DispatchNodeInputRecord<INPUT_RECORD> input) { }
+
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NumThreads(1,1,1)]
+[NodeMaxDispatchGrid(32,1,1)]
+/* expected-error@+1{{Minimum WaveSize value 4 must be unequal to maximum WaveSize value 4}} */
+[WaveSize(4, 4, 4)]
+void node13(DispatchNodeInputRecord<INPUT_RECORD> input) { }
+
+
+[Shader("node")]
+[NodeLaunch("broadcasting")]
+[NumThreads(1,1,1)]
+[NodeMaxDispatchGrid(32,1,1)]
+/* expected-error@+1{{WaveSize arguments must be between 4 and 128 and a power of 2}} */
+[WaveSize(0, 0, 0)]
+void node14(DispatchNodeInputRecord<INPUT_RECORD> input) { }

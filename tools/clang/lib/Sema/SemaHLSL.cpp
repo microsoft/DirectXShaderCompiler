@@ -12710,10 +12710,14 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
   case DxilWaveSize::ValidationResult::InvalidMin:
   case DxilWaveSize::ValidationResult::InvalidMax:
   case DxilWaveSize::ValidationResult::InvalidPreferred:
+  case DxilWaveSize::ValidationResult::NoRangeOrMin:
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
         << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
     break;
   case DxilWaveSize::ValidationResult::MaxEqualsMin:
+    S.Diag(A.getLoc(), diag::warn_hlsl_wavesize_min_geq_max)
+        << (unsigned)waveSize.Min << (unsigned)waveSize.Max;
+    break;
   case DxilWaveSize::ValidationResult::MaxLessThanMin:
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_min_geq_max)
         << (unsigned)waveSize.Min << (unsigned)waveSize.Max;
