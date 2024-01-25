@@ -105,9 +105,6 @@ public:
   // Set the memory model of the module.
   void setMemoryModel(SpirvMemoryModel *model);
 
-  // Get the memory model of the module.
-  SpirvMemoryModel *getMemoryModel();
-
   // Increases addressing model requirement for the module:
   // Logical -> Physical32 -> Physical64 -> PhysicalStorageBuffer64.
   // Requires setMemoryModel() to be called first to set the base memory model.
