@@ -7486,7 +7486,7 @@ def err_hlsl_wavesize_size: Error<
   "WaveSize arguments must be between 4 and 128 and a power of 2">;
 def err_hlsl_wavesize_min_geq_max: Error<
   "Minimum WaveSize value %0 must be less than maximum WaveSize value %1">;
-def warn_hlsl_wavesize_min_geq_max:  Warning<
+def warn_hlsl_wavesize_min_eq_max:  Warning<
   "Minimum WaveSize value %0 must be unequal to maximum WaveSize value %1">,
   InGroup<HLSLAttributeStatement>, DefaultError;
 def err_hlsl_wavesize_pref_size_out_of_range: Error<
