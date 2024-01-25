@@ -24,19 +24,36 @@ class ConstEvaluator {
 public:
   ConstEvaluator(ASTContext &astContext, SpirvBuilder &spvBuilder)
       : astContext(astContext), spvBuilder(spvBuilder) {}
+  /// Translates the given frontend APInt into its SPIR-V equivalent for the
+  /// given targetType.
   SpirvConstant *translateAPInt(const llvm::APInt &intValue,
                                 const QualType targetType,
                                 bool isSpecConstantMode);
+
+  /// Translates the given frontend APFloat into its SPIR-V equivalent for the
+  /// given targetType.
   SpirvConstant *translateAPFloat(llvm::APFloat floatValue, QualType targetType,
                                   bool isSpecConstantMode);
+
+  /// Tries to evaluate the given APInt as a 32-bit integer. If the evaluation
+  /// can be performed without loss, it returns the <result-id> of the SPIR-V
+  /// constant for that value.
   SpirvConstant *tryToEvaluateAsInt32(const llvm::APInt &intValue,
                                       bool isSigned);
+
+  /// Tries to evaluate the given APFloat as a 32-bit float. If the evaluation
+  /// can be performed without loss, it returns the <result-id> of the SPIR-V
   SpirvConstant *tryToEvaluateAsFloat32(const llvm::APFloat &floatValue,
                                         bool isSpecConstantMode);
+
+  /// Tries to evaluate the given Expr as a constant and returns the <result-id>
+  /// if success. Otherwise, returns 0.
   SpirvConstant *tryToEvaluateAsConst(const Expr *expr,
                                       bool isSpecConstantMode);
 
 private:
+  /// Translates the given frontend APValue into its SPIR-V equivalent for the
+  /// given targetType.
   SpirvConstant *translateAPValue(const APValue &value,
                                   const QualType targetType,
                                   bool isSpecConstantMode);

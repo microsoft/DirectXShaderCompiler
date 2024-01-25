@@ -16,6 +16,10 @@
 namespace clang {
 namespace spirv {
 
+/// Returns true iff the given expression is a literal integer that cannot be
+/// represented in a 32-bit integer type or a literal float that cannot be
+/// represented in a 32-bit float type without losing info. Returns false
+/// otherwise.
 bool isLiteralLargerThan32Bits(const Expr *expr) {
   if (const auto *intLiteral = dyn_cast<IntegerLiteral>(expr)) {
     const bool isSigned = expr->getType()->isSignedIntegerType();
