@@ -64,22 +64,20 @@ void LibTest::checkTestResult(const bool compileOk, Expect expect,
   generatedSpirvAsm = "";
   if (expect == Expect::Failure) {
     EXPECT_FALSE(compileOk);
-  } else {
-    EXPECT_TRUE(compileOk);
-    if (!compileOk) {
-      return;
-    }
+    return;
+  }
 
-    // Disassemble the generated SPIR-V binary.
-    EXPECT_TRUE(
-        utils::disassembleSpirvBinary(generatedBinary, &generatedSpirvAsm,
-                                      true /* generateHeader */, targetEnv));
+  ASSERT_TRUE(compileOk);
 
-    if (runValidation) {
-      EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
-                                             beforeHLSLLegalization, glLayout,
-                                             dxLayout, scalarLayout));
-    }
+  // Disassemble the generated SPIR-V binary.
+  ASSERT_TRUE(utils::disassembleSpirvBinary(generatedBinary, &generatedSpirvAsm,
+                                            true /* generateHeader */,
+                                            targetEnv));
+
+  if (runValidation) {
+    EXPECT_TRUE(utils::validateSpirvBinary(targetEnv, generatedBinary,
+                                           beforeHLSLLegalization, glLayout,
+                                           dxLayout, scalarLayout));
   }
 }
 

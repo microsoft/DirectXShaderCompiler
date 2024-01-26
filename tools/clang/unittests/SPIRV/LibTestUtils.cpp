@@ -81,19 +81,7 @@ bool processRunCommandArgs(const llvm::StringRef runCommandLine,
       *entryPoint = tokens[i];
     } else if (tokens[i].substr(0, 17) == "-fspv-target-env=") {
       std::string targetEnvStr = tokens[i].substr(17);
-      if (targetEnvStr == "vulkan1.0")
-        *targetEnv = SPV_ENV_VULKAN_1_0;
-      else if (targetEnvStr == "vulkan1.1")
-        *targetEnv = SPV_ENV_VULKAN_1_1;
-      else if (targetEnvStr == "vulkan1.1spirv1.4")
-        *targetEnv = SPV_ENV_VULKAN_1_1_SPIRV_1_4;
-      else if (targetEnvStr == "vulkan1.2")
-        *targetEnv = SPV_ENV_VULKAN_1_2;
-      else if (targetEnvStr == "vulkan1.3")
-        *targetEnv = SPV_ENV_UNIVERSAL_1_6;
-      else if (targetEnvStr == "universal1.5")
-        *targetEnv = SPV_ENV_UNIVERSAL_1_5;
-      else {
+      if (!spvParseTargetEnv(targetEnvStr.c_str(), targetEnv)) {
         fprintf(stderr, "Error: Found unknown target environment.\n");
         return false;
       }
@@ -140,8 +128,6 @@ bool compileCodeWithSpirvGeneration(const llvm::StringRef code,
   std::vector<std::wstring> rest;
   for (const auto &arg : restArgs)
     rest.emplace_back(arg.begin(), arg.end());
-
-  bool success = true;
 
   try {
     dxc::DxcDllSupport dllSupport;
@@ -206,21 +192,17 @@ bool compileCodeWithSpirvGeneration(const llvm::StringRef code,
                                   pErrorBuffer->GetBufferSize());
     *errorMessages = diagnostics;
 
-    if (SUCCEEDED(resultStatus)) {
-      CComPtr<IDxcBlobEncoding> pStdErr;
-      IFT(pResult->GetResult(&pCompiledBlob));
-      convertIDxcBlobToUint32(pCompiledBlob, generatedBinary);
-      success = true;
-    } else {
-      success = false;
+    if (!SUCCEEDED(resultStatus)) {
+      return false;
     }
-  } catch (...) {
-    // An exception has occurred while running the compiler with SPIR-V
-    // Generation
-    success = false;
-  }
 
-  return success;
+    CComPtr<IDxcBlobEncoding> pStdErr;
+    IFT(pResult->GetResult(&pCompiledBlob));
+    convertIDxcBlobToUint32(pCompiledBlob, generatedBinary);
+    return true;
+  } catch (...) {
+  }
+  return false;
 }
 
 } // end namespace utils
