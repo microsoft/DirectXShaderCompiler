@@ -3982,7 +3982,7 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
       } else {
         if (llvmNamedMeta.count(name) == 0) {
           ValCtx.EmitFormatError(ValidationRule::MetaKnown, {name.str()});
-        }        
+        }
       }
     }
   }
@@ -4046,7 +4046,6 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
       }
     }
   }
-
 
   if (!SM->IsValidForDxil()) {
     ValCtx.EmitFormatError(ValidationRule::SmName,

@@ -108,7 +108,7 @@ struct DxilWaveSize {
   bool IsRange() const { return Max != 0; }
   bool HasPreferred() const { return Preferred != 0; }
   bool IsLegacy() const { return isLegacy; }
-  void SetIsLegacy(bool b) {isLegacy = b; }
+  void SetIsLegacy(bool b) { isLegacy = b; }
 };
 
 struct DxilFunctionProps {
