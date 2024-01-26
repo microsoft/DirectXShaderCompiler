@@ -531,9 +531,11 @@ public:
                        L"Table:ShaderOpArithTable.xml#PackUnpackOpTable")
   END_TEST_METHOD()
 
+#ifdef D3D12_EXPERIMENTAL_WAVE_MATRIX
   TEST_METHOD(WaveMatrixLoadStoreTests);
   TEST_METHOD(WaveMatrixScalarTests);
   TEST_METHOD(WaveMatrixMathTests);
+#endif // D3D12_EXPERIMENTAL_WAVE_MATRIX
 
   dxc::DxcDllSupport m_support;
 
@@ -746,6 +748,7 @@ public:
 
   template <class Ty> const wchar_t *BasicShaderModelTest_GetFormatString();
 
+#ifdef D3D12_EXPERIMENTAL_WAVE_MATRIX
   CComPtr<ID3D12Device>
   WaveMatrixTestCommonSetup(std::vector<int> &dimMs, std::vector<int> &dimNs,
                             std::shared_ptr<st::ShaderOpSet> &shaderOpSet) {
@@ -803,6 +806,7 @@ public:
 
     return pDevice;
   }
+#endif // D3D12_EXPERIMENTAL_WAVE_MATRIX
 
   void CompileFromText(LPCSTR pText, LPCWSTR pEntryPoint,
                        LPCWSTR pTargetProfile, ID3DBlob **ppBlob,
@@ -1637,6 +1641,7 @@ public:
 #endif
   }
 
+#ifdef D3D12_EXPERIMENTAL_WAVE_MATRIX
   bool DoesDeviceSupportWaveMatrix(ID3D12Device *pDevice) {
 #if defined(NTDDI_WIN10_FE) && WDK_NTDDI_VERSION >= NTDDI_WIN10_FE
     D3D12_FEATURE_DATA_D3D12_OPTIONS9 O9;
@@ -1649,6 +1654,7 @@ public:
     return false;
 #endif
   }
+#endif // D3D12_EXPERIMENTAL_WAVE_MATRIX
 
   bool DoesDeviceSupportAdvancedTexOps(ID3D12Device *pDevice) {
 #if defined(NTDDI_WIN10_CU) && WDK_NTDDI_VERSION >= NTDDI_WIN10_CU
@@ -6339,6 +6345,7 @@ static TableParameter TertiaryUint16OpParameters[] = {
     {L"Validation.Tolerance", TableParameter::INT32, true},
 };
 
+#ifdef D3D12_EXPERIMENTAL_WAVE_MATRIX
 static TableParameter WaveMatrixOpParameters[] = {
     {L"Validation.Type", TableParameter::STRING, true},
     {L"Validation.Tolerance", TableParameter::DOUBLE, true},
@@ -6348,6 +6355,7 @@ static TableParameter WaveMatrixOpParameters[] = {
     {L"MathShaderOp.Text", TableParameter::STRING, true},
     {L"ScalarValidation.Scalar", TableParameter::STRING_TABLE, true},
 };
+#endif //D3D12_EXPERIMENTAL_WAVE_MATRIX
 
 static TableParameter DotOpParameters[] = {
     {L"ShaderOp.Target", TableParameter::STRING, true},
@@ -8503,6 +8511,7 @@ TEST_F(ExecutionTest, TertiaryUint16OpTest) {
   }
 }
 
+#ifdef D3D12_EXPERIMENTAL_WAVE_MATRIX
 template <typename T1, typename T2, typename TYPE_ACC>
 void MatrixMultiplyAndAddMatrix(int DIM_M, int DIM_N, int dim_k, T1 *leftMatrix,
                                 T2 *rightMatrix, TYPE_ACC *resultMatrix) {
@@ -9014,9 +9023,6 @@ void LoadStoreMat(int M, int N, bool LEFT, int MEM_TYPE, uint32_t K, uint32_t k,
   }
 }
 
-// define WAVE_MMA types if building with SDK that does not support it yet
-// For now: Force this on, until we know the version.
-#if 1 // !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 613)
 typedef enum D3D12_WAVE_MMA_INPUT_DATATYPE {
   D3D12_WAVE_MMA_INPUT_DATATYPE_INVALID = 0,
   D3D12_WAVE_MMA_INPUT_DATATYPE_BYTE =
@@ -9050,7 +9056,6 @@ typedef struct D3D12_FEATURE_DATA_WAVE_MMA {
   UINT RequiredWaveLaneCountMin;
   UINT RequiredWaveLaneCountMax;
 } D3D12_FEATURE_DATA_WAVE_MMA;
-#endif
 
 D3D12_FEATURE_DATA_WAVE_MMA checkWaveMMASupport(CComPtr<ID3D12Device> pDevice,
                                                 std::string &dataTypeInShader,
@@ -10464,6 +10469,7 @@ TEST_F(ExecutionTest, WaveMatrixMathTests) {
     }
   }
 }
+#endif // D3D12_EXPERIMENTAL_WAVE_MATRIX
 
 TEST_F(ExecutionTest, DotTest) {
   WEX::TestExecution::SetVerifyOutput verifySettings(
