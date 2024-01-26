@@ -9052,7 +9052,7 @@ typedef struct D3D12_FEATURE_DATA_WAVE_MMA {
   UINT RequiredWaveLaneCountMin;
   UINT RequiredWaveLaneCountMax;
 } D3D12_FEATURE_DATA_WAVE_MMA;
-#endif //!defined(D3D12_EXPERIMENTAL_WAVE_MATRIX)
+#endif //! defined(D3D12_EXPERIMENTAL_WAVE_MATRIX)
 
 D3D12_FEATURE_DATA_WAVE_MMA checkWaveMMASupport(CComPtr<ID3D12Device> pDevice,
                                                 std::string &dataTypeInShader,
