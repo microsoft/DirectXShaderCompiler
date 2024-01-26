@@ -4030,14 +4030,14 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
           if (SM->IsSM66Plus() && !SM->IsSM68Plus()) {
             if (tagValue == DxilMDHelper::kDxilRangedWaveSizeTag) {
               ValCtx.EmitFormatError(
-                  ValidationRule::SmWaveSizeRangeNeedsDxil18Plus, {});
+                  ValidationRule::SmWaveSizeRangeNeedsSM68Plus, {});
               return;
             }
           } else {
             // if the shader model is anything but 6.6 or 6.7, then we do not
             // expect to encounter the legacy wave size tag.
             if (tagValue == DxilMDHelper::kDxilWaveSizeTag) {
-              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeNeedsDxil16Or17,
+              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeNeedsSM66or67,
                                      {});
               return;
             }
@@ -5435,11 +5435,11 @@ static void ValidateWaveSize(ValidationContext &ValCtx,
     if (waveSize.IsRange()) {
       if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 8) <
           0) {
-        ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeRangeNeedsDxil18Plus);
+        ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeRangeNeedsSM68Plus);
       }
     } else if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1,
                                      6) < 0) {
-      ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeNeedsDxil16Or17);
+      ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeNeedsSM66or67);
     } else if (!props.IsCS() && !props.IsNode()) {
       ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeOnComputeOrNode);
     }
