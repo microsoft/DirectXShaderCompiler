@@ -3571,11 +3571,6 @@ void Verifier::verifyBitPieceExpression(const DbgInfoIntrinsic &I,
   if (V->isArtificial())
     return;
 
-  if (0 == V->getName().compare("Ashift"))
-  {
-      __debugbreak();
-  }
-
   // If there's no size, the type is broken, but that should be checked
   // elsewhere.
   uint64_t VarSize = getVariableSize(*V, TypeRefs);

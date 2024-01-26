@@ -877,13 +877,11 @@ GetOrCreateTemplateSpecialization(ASTContext &context, Sema &sema,
       templateDecl, templateArgsForDecl.data(), templateArgsForDecl.size(),
       nullptr);
   // InstantiateClassTemplateSpecialization returns true if it finds an error.
-  #if 0
   DXVERIFY_NOMSG(false ==
                  sema.InstantiateClassTemplateSpecialization(
                      NoLoc, specializationDecl,
                      TemplateSpecializationKind::TSK_ImplicitInstantiation,
                      true));
-  #endif
   templateDecl->AddSpecialization(specializationDecl, InsertPos);
   specializationDecl->setImplicit(true);
 
@@ -924,7 +922,7 @@ static QualType GetOrCreateMatrixSpecialization(
       context, *sema, matrixTemplateDecl,
       ArrayRef<TemplateArgument>(templateArgs));
 
-#if 0 //ndef NDEBUG
+#ifndef NDEBUG
   // Verify that we can read the field member from the template record.
   DXASSERT(matrixSpecializationType->getAsCXXRecordDecl(),
            "type of non-dependent specialization is not a RecordType");
@@ -959,7 +957,7 @@ GetOrCreateVectorSpecialization(ASTContext &context, Sema *sema,
       context, *sema, vectorTemplateDecl,
       ArrayRef<TemplateArgument>(templateArgs));
 
-#if 0 //ndef NDEBUG
+#ifndef NDEBUG
   // Verify that we can read the field member from the template record.
   DXASSERT(vectorSpecializationType->getAsCXXRecordDecl(),
            "type of non-dependent specialization is not a RecordType");
