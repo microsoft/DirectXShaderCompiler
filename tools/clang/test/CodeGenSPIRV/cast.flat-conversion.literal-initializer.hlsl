@@ -14,6 +14,11 @@ struct T {
   int64_t j;
 };
 
+struct UT {
+  uint32_t i;
+  uint64_t j;
+};
+
 void main() {
 
 // CHECK:              [[inf:%[0-9]+]] = OpFDiv %float %float_1 %float_0
@@ -59,4 +64,20 @@ void main() {
 // CHECK: [[t:%[0-9]+]] = OpCompositeConstruct %T [[lit]] [[longLit]]
 // CHECK: OpStore %t [[t]]
   T t = (T)(0x100000000+1);
+
+// TODO(6188): This is wrong because we lose most significant bits in the literal.
+// CHECK: [[lit:%[0-9]+]] = OpIAdd %uint %uint_0 %uint_1
+// CHECK: [[longLit:%[0-9]+]] = OpUConvert %ulong [[lit]]
+// CHECK: [[t:%[0-9]+]] = OpCompositeConstruct %UT [[lit]] [[longLit]]
+// CHECK: OpStore %ut [[t]]
+  UT ut = (UT)(0x100000000ul+1);
+
+// TODO(6188): This is wrong because we lose most significant bits in the literal.
+// CHECK: [[longLit:%[0-9]+]] = OpIAdd %ulong %ulong_4294967296 %ulong_1
+// CHECK: [[lit:%[0-9]+]] = OpUConvert %uint [[longLit]]
+// CHECK: [[lit2:%[0-9]+]] = OpBitcast %int [[lit]]
+// CHECK: [[longLit2:%[0-9]+]] = OpBitcast %long [[longLit]]
+// CHECK: [[t:%[0-9]+]] = OpCompositeConstruct %T [[lit2]] [[longLit2]]
+// CHECK: OpStore %t2 [[t]]
+  T t2 = (T)(0x100000000ull+1);
 }

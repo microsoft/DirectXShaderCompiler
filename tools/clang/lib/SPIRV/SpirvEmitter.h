@@ -1257,14 +1257,14 @@ private:
   /// rule that is obtained by assigning each scalar in `type` to corresponding
   /// value in `scalars`. This is the inverse of `decomposeToScalars`.
   SpirvInstruction *
-  GenerateFromScalars(QualType type, std::vector<SpirvInstruction *> &scalars,
+  generateFromScalars(QualType type, std::vector<SpirvInstruction *> &scalars,
                       SpirvLayoutRule layoutRule);
 
   /// Returns a spirv instruction with the value of the given type and layout
   /// rule that is obtained by assigning `scalar` each scalar in `type`. This is
-  /// the same as calling `GenerateFromScalars` with a sufficiently large vector
+  /// the same as calling `generateFromScalars` with a sufficiently large vector
   /// where every element is `scalar`.
-  SpirvInstruction *SplatScalarToGenerate(QualType type,
+  SpirvInstruction *splatScalarToGenerate(QualType type,
                                           SpirvInstruction *scalar,
                                           SpirvLayoutRule rule);
 
