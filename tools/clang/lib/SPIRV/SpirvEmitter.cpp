@@ -3552,12 +3552,12 @@ SpirvInstruction *SpirvEmitter::processFlatConversion(
     SourceLocation srcLoc, SourceRange range) {
 
   // If the same literal is used in multiple instructions, then the literal
-  // visitor may not be able to pick the correct type for the literal. The
+  // visitor may not be able to pick the correct type for the literal. That
   // happens when say one instruction uses the literal as a float and another
   // uses it as a double. We solve this by setting the type for the literal to
   // its 32-bit equivalent.
   //
-  // TODO(6188): This is wrong when the literal it too large to be held in
+  // TODO(6188): This is wrong when the literal is too large to be held in
   // the the 32-bit type. We do this because it is consistent with the long
   // standing behaviour. Changing now would result in more 64-bit arithmetic,
   // which the optimizer does not handle as well.
@@ -14641,7 +14641,7 @@ SpirvEmitter::generateFromScalars(QualType type,
   uint32_t numOfCols = 0;
 
   if (isScalarType(type)) {
-    // If the type if bool with a non-void layout rule, then it should be
+    // If the type is bool with a non-void layout rule, then it should be
     // treated as a uint.
     assert(layoutRule == SpirvLayoutRule::Void &&
            "If the layout type is not void, then we should cast to an int when "
