@@ -3986,12 +3986,12 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
       }
     }
   }
-  
+
   const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
-  // validate that any wavesize tags don't appear outside their expected shader models
-  // don't do this validation if the shader is non-compute
+  // validate that any wavesize tags don't appear outside their expected shader
+  // models don't do this validation if the shader is non-compute
   if (SM->IsCS() || SM->IsLib()) {
-  
+
     NamedMDNode *TA = pModule->getNamedMetadata("dx.entryPoints");
     if (TA != nullptr) {
       for (unsigned i = 0, end = TA->getNumOperands(); i < end; ++i) {
@@ -4000,8 +4000,8 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
           ValCtx.EmitMetaError(TANode, ValidationRule::MetaWellFormed);
           return;
         }
-        // get access to the digit that represents the metadata number that would
-        // store entry properties
+        // get access to the digit that represents the metadata number that
+        // would store entry properties
         const llvm::MDOperand &mOp =
             TANode->getOperand(TANode->getNumOperands() - 1);
         // the final operand to the entry points tuple should be a constant int.
@@ -4015,11 +4015,13 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
             dyn_cast<MDTuple>(TANode->getOperand(TANode->getNumOperands() - 1));
         // find any incompatible tags inside the entry properties
         // increment j by 2 to only analyze tags, not values
-        for (unsigned j = 0, end2 = TANode2->getNumOperands(); j < end2; j+=2) {
+        for (unsigned j = 0, end2 = TANode2->getNumOperands(); j < end2;
+             j += 2) {
           const MDOperand &mOp2 = TANode2->getOperand(j);
-          // note, we are only looking for tags, which will be a constant integer
-          if (mOp2 == nullptr ||
-              (mOp2.get())->getMetadataID() != Metadata::ConstantAsMetadataKind) {
+          // note, we are only looking for tags, which will be a constant
+          // integer
+          if (mOp2 == nullptr || (mOp2.get())->getMetadataID() !=
+                                     Metadata::ConstantAsMetadataKind) {
             continue;
           }
           ConstantInt *tag = mdconst::extract<ConstantInt>(mOp2);
