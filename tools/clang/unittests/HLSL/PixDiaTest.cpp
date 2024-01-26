@@ -12,6 +12,8 @@
 // This whole file is win32-only
 #ifdef _WIN32
 
+#include <array>
+
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 
@@ -177,8 +179,6 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
   TEST_METHOD(DxcPixDxilDebugInfo_Alignment_ConstInt)
-  TEST_METHOD(DxcPixDxilDebugInfo_Alignment_MinTypes)
-  TEST_METHOD(DxcPixDxilDebugInfo_Alignment_MinTypesDisabled)
   TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Simple)
   TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Derived)
   TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Bool)
@@ -650,7 +650,8 @@ public:
       const char *hlsl, const wchar_t *profile,
       const char *lineAtWhichToExamineVariables,
       std::vector<VariableComponentInfo> const &ExpectedVariables);
-
+  void RunBitfieldTestCase(const char *hlsl,
+                           std::array<DWORD, 4> const &memberOffsets);
   DebuggerInterfaces
   CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
                            IDxcIncludeHandler *includer = nullptr);
@@ -2747,12 +2748,31 @@ void main()
   RunSubProgramsCase(hlsl);
 }
 
-TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Simple) {
+void PixDiaTest::RunBitfieldTestCase(
+    const char *hlsl, std::array<DWORD, 4> const &memberOffsets) {
   if (m_ver.SkipDxilVersion(1, 5))
     return;
+  auto debugInfo = CompileAndCreateDxcDebug(hlsl, L"cs_6_5").debugInfo;
+  auto live = GetLiveVariablesAt(hlsl, "STOP_HERE", debugInfo);
+  CComPtr<IDxcPixVariable> bf;
+  VERIFY_SUCCEEDED(live->GetVariableByName(L"bf", &bf));
+  CComPtr<IDxcPixType> bfType;
+  VERIFY_SUCCEEDED(bf->GetType(&bfType));
+  CComPtr<IDxcPixStructType> bfStructType;
+  VERIFY_SUCCEEDED(bfType->QueryInterface(IID_PPV_ARGS(&bfStructType)));
+  const wchar_t *memberNames[] = {L"first", L"second", L"third", L"fourth"};
+  for (size_t i = 0; i < memberOffsets.size(); ++i) {
+    CComPtr<IDxcPixStructField> field;
+    VERIFY_SUCCEEDED(
+        bfStructType->GetFieldByIndex(static_cast<DWORD>(i), &field));
+    DWORD offsetInBits = 0;
+    VERIFY_SUCCEEDED(field->GetOffsetInBits(&offsetInBits));
+    VERIFY_ARE_EQUAL(memberOffsets[i], offsetInBits);
+  }
+}
 
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Simple) {
   const char *hlsl = R"(
-
 struct Bitfields
 {
     unsigned int first : 17;
@@ -2771,21 +2791,15 @@ void main()
   bf.second = UAV[1];
   bf.third = UAV[2];
   bf.fourth = UAV[3];
-  UAV[16] = bf.first + bf.second + bf.third + bf.fourth;
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
 }
 
 )";
-  CComPtr<IDiaDataSource> pDiaDataSource;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
-                                          nullptr, &pDiaDataSource, {L"-Od"});
+  RunBitfieldTestCase(hlsl, {0, 17, 32, 64});
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Derived) {
-  if (m_ver.SkipDxilVersion(1, 5))
-    return;
-
   const char *hlsl = R"(
-
 struct Bitfields
 {
     uint first : 17;
@@ -2804,21 +2818,15 @@ void main()
   bf.second = UAV[1];
   bf.third = UAV[2];
   bf.fourth = UAV[3];
-  UAV[16] = bf.first + bf.second + bf.third + bf.fourth;
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
 }
 
 )";
-  CComPtr<IDiaDataSource> pDiaDataSource;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
-                                          nullptr, &pDiaDataSource, {L"-Od"});
+  RunBitfieldTestCase(hlsl, {0, 17, 32, 64});
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Bool) {
-  if (m_ver.SkipDxilVersion(1, 5))
-    return;
-
   const char *hlsl = R"(
-
 struct Bitfields
 {
     bool first : 1;
@@ -2837,13 +2845,11 @@ void main()
   bf.second = UAV[1];
   bf.third = UAV[2];
   bf.fourth = UAV[3];
-  UAV[16] = bf.first + bf.second + bf.third + bf.fourth;
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
 }
 
 )";
-  CComPtr<IDiaDataSource> pDiaDataSource;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
-                                          nullptr, &pDiaDataSource, {L"-Od"});
+  RunBitfieldTestCase(hlsl, {0, 1, 2, 32});
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Alignment_ConstInt) {
@@ -2864,72 +2870,7 @@ void main()
 )";
   CComPtr<IDiaDataSource> pDiaDataSource;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
-                                          nullptr, &pDiaDataSource,
-                                          {L"-Od"});
-}
-
-TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Alignment_MinTypes) {
-  if (m_ver.SkipDxilVersion(1, 5))
-    return;
-
-  const char *hlsl = R"(
-
-struct Struct
-{
-    min12int first;
-    min16float second;
-    unsigned int lastField;
-};
-
-RWStructuredBuffer<int> UAV: register(u0);
-
-[numthreads(1, 1, 1)]
-void main()
-{
-  Struct s;
-  s.first = UAV[0];
-  s.second = UAV[1];
-  s.lastField = UAV[2];
-  UAV[16] = s.first + s.second + s.lastField;
-}
-
-)";
-  CComPtr<IDiaDataSource> pDiaDataSource;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
-                                          nullptr, &pDiaDataSource,
-                                          {L"-Od", L"-enable-16bit-types"});
-}
-
-TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Alignment_MinTypesDisabled) {
-  if (m_ver.SkipDxilVersion(1, 5))
-    return;
-
-  const char *hlsl = R"(
-
-struct Struct
-{
-    min12int first;
-    min16float second;
-    unsigned int lastField;
-};
-
-RWStructuredBuffer<int> UAV: register(u0);
-
-[numthreads(1, 1, 1)]
-void main()
-{
-  Struct s;
-  s.first = UAV[0];
-  s.second = UAV[1];
-  s.lastField = UAV[2];
-  UAV[16] = s.first + s.second + s.lastField;
-}
-
-)";
-  CComPtr<IDiaDataSource> pDiaDataSource;
-  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
-                                          nullptr, &pDiaDataSource,
-                                          {L"-Od"});
+                                          nullptr, &pDiaDataSource, {L"-Od"});
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Mess) {

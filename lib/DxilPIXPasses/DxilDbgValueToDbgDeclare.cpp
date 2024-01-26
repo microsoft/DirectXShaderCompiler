@@ -125,28 +125,6 @@ class OffsetManager {
     return AlignMask;
   }
 
-  unsigned DescendTypeToGetSize(llvm::DIType *Ty) {
-    unsigned Size = Ty->getSizeInBits();
-
-    auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty);
-    if (DerivedTy != nullptr) {
-      const llvm::DITypeIdentifierMap EmptyMap;
-      switch (DerivedTy->getTag()) {
-      case llvm::dwarf::DW_TAG_member:
-      case llvm::dwarf::DW_TAG_restrict_type:
-      case llvm::dwarf::DW_TAG_reference_type:
-      case llvm::dwarf::DW_TAG_const_type:
-      case llvm::dwarf::DW_TAG_typedef: {
-        llvm::DIType *baseType = DerivedTy->getBaseType().resolve(EmptyMap);
-        if (baseType != nullptr) {
-          return DescendTypeToGetSize(baseType);
-        }
-      }
-      }
-    }
-    return Size;
-  }
-
 public:
   OffsetManager() = default;
 
@@ -992,7 +970,12 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
 
         auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
         if (AllocaInst == nullptr) {
+#if 0 
+          // This assert can/should be re-enabled when
+          // https://github.com/microsoft/DirectXShaderCompiler/issues/6159
+          // is fixed, and bitfields can be handled correctly.
           // assert(!"Failed to find alloca for var[offset]");
+#endif
           continue;
         }
 
@@ -1333,6 +1316,7 @@ void VariableRegisters::PopulateAllocaMap_StructType(
   m_Offsets.AlignTo(Ty);
   const OffsetInBits StructStart = m_Offsets.GetCurrentAlignedOffset();
   (void)StructStart;
+  const llvm::DITypeIdentifierMap EmptyMap;
 
   for (auto OffsetAndMember : SortedMembers) {
     VALUE_TO_DECLARE_LOG("Member: %s at aligned offset %d",
@@ -1342,13 +1326,23 @@ void VariableRegisters::PopulateAllocaMap_StructType(
     // should always result in the current aligned offset being the
     // same as the member's offset.
     m_Offsets.AlignTo(OffsetAndMember.second);
-    assert(m_Offsets.GetCurrentAlignedOffset() ==
-               StructStart + OffsetAndMember.first &&
-           "Offset mismatch in DIStructType");
-    if (IsResourceObject(OffsetAndMember.second)) {
-      m_Offsets.AddResourceType(OffsetAndMember.second);
-    } else {
+    if (BaseTypeIfItIsBasicAndLarger(OffsetAndMember.second)) {
+      // This is the bitfields case (i.e. a field that is smaller
+      // than the type in which it resides). If we were to take
+      // the base type, then the information about the member's
+      // size would be lost
       PopulateAllocaMap(OffsetAndMember.second);
+    }
+    else {
+      assert(m_Offsets.GetCurrentAlignedOffset() ==
+                 StructStart + OffsetAndMember.first &&
+             "Offset mismatch in DIStructType");
+      if (IsResourceObject(OffsetAndMember.second)) {
+        m_Offsets.AddResourceType(OffsetAndMember.second);
+      } else {
+        PopulateAllocaMap(
+            OffsetAndMember.second->getBaseType().resolve(EmptyMap));
+      }
     }
   }
 }
