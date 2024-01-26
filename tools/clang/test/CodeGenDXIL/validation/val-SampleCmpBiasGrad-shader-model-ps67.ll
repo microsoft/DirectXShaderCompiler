@@ -25,9 +25,6 @@
 ;
 ;
 
-; CHECK: Opcode SampleCmpBias not valid in shader model ps_6_7
-; CHECK: Opcode SampleCmpGrad not valid in shader model ps_6_7
-; CHECK: lod instruction requires sampler declared in default mode
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
@@ -62,6 +59,9 @@ define void @main() {
   %14 = extractvalue %dx.types.CBufRet.f32 %12, 0
   %15 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 2, i32 1028 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xI32>
   %16 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 32782, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerComparisonState
+
+; CHECK: Opcode SampleCmpBias not valid in shader model ps_6_7
+
   %17 = call %dx.types.ResRet.f32 @dx.op.sampleCmpBias.f32(i32 255, %dx.types.Handle %15, %dx.types.Handle %16, float %7, float %8, float undef, float undef, i32 -5, i32 7, i32 undef, float %14, float %13, float %11)  ; SampleCmpBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,bias,clamp)
   %18 = extractvalue %dx.types.ResRet.f32 %17, 0
   %19 = extractvalue %dx.types.CBufRet.f32 %10, 0
@@ -69,16 +69,18 @@ define void @main() {
   %21 = extractvalue %dx.types.CBufRet.f32 %12, 2
   %22 = extractvalue %dx.types.CBufRet.f32 %12, 3
   %23 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 7, i32 1028 })  ; AnnotateHandle(res,props)  resource: Texture2DArray<4xI32>
+
+; CHECK: Opcode SampleCmpGrad not valid in shader model ps_6_7
+
   %24 = call %dx.types.ResRet.f32 @dx.op.sampleCmpGrad.f32(i32 254, %dx.types.Handle %23, %dx.types.Handle %16, float %7, float %8, float %9, float undef, i32 -4, i32 1, i32 undef, float %14, float %21, float %22, float undef, float %19, float %20, float undef, float 5.000000e-01)  ; SampleCmpGrad(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,ddx0,ddx1,ddx2,ddy0,ddy1,ddy2,clamp)
   %25 = extractvalue %dx.types.ResRet.f32 %24, 0
   %26 = fadd fast float %25, %18
   %27 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
   %28 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 32782, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerComparisonState
+
+; CHECK: lod instruction requires sampler declared in default mode
+
   %29 = call float @dx.op.calculateLOD.f32(i32 81, %dx.types.Handle %27, %dx.types.Handle %28, float %7, float %8, float undef, i1 true)  ; CalculateLOD(handle,sampler,coord0,coord1,coord2,clamped)
-  %30 = fadd fast float %26, %29
-  %31 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 4098, i32 1033 })  ; AnnotateHandle(res,props)  resource: RWTexture2D<4xF32>
-  call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle %31, i32 0, i32 0, i32 undef, float %30, float %30, float %30, float %30, i8 15)  ; TextureStore(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask)
-  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %30)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   ret void
 }
 

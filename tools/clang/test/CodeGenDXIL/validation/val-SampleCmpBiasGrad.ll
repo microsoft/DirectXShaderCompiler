@@ -23,15 +23,6 @@
 ;   return r;
 ; }
 
-; CHECK: bias amount for sample_b must be in the range [-16.000000,15.990000], but 150.000000 was specified as an immediate
-; CHECK: sample_c_*/gather_c instructions require sampler declared in comparison mode
-; CHECK: sample, lod and gather should be on srv resource
-; CHECK: sample_c_*/gather_c instructions require sampler declared in comparison mode
-; CHECK: sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT
-; CHECK: samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
-; CHECK: lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray
-
-
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
@@ -80,6 +71,11 @@ define void @main() {
   %25 = extractvalue %dx.types.CBufRet.f32 %24, 0
   %26 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
   %27 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 14, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerComparisonState
+
+; CHECK: bias amount for sample_b must be in the range [-16.000000,15.990000], but 150.000000 was specified as an immediate
+; CHECK: sample_c_*/gather_c instructions require sampler declared in comparison mode
+; CHECK: sample, lod and gather should be on srv resource
+
   %28 = call %dx.types.ResRet.f32 @dx.op.sampleCmpBias.f32(i32 255, %dx.types.Handle %21, %dx.types.Handle %27, float %8, float %9, float undef, float undef, i32 -5, i32 7, i32 undef, float %25, float 1.500000e+2, float %23)  ; SampleCmpBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,bias,clamp)
   %29 = extractvalue %dx.types.ResRet.f32 %28, 0
   %30 = extractvalue %dx.types.CBufRet.f32 %22, 0
@@ -87,14 +83,20 @@ define void @main() {
   %32 = extractvalue %dx.types.CBufRet.f32 %24, 2
   %33 = extractvalue %dx.types.CBufRet.f32 %24, 3
   %34 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 3, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2DArray<4xF32>
+
+; CHECK: sample_c_*/gather_c instructions require sampler declared in comparison mode
+; CHECK: sample_* instructions require resource to be declared to return UNORM, SNORM or FLOAT
+; CHECK: samplec requires resource declared as texture1D/2D/Cube/1DArray/2DArray/CubeArray
+
   %35 = call %dx.types.ResRet.f32 @dx.op.sampleCmpGrad.f32(i32 254, %dx.types.Handle %11, %dx.types.Handle %27, float %8, float %9, float undef, float undef, i32 -4, i32 1, i32 undef, float %25, float %32, float %33, float undef, float %30, float %31, float undef, float 5.000000e-01)  ; SampleCmpGrad(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,ddx0,ddx1,ddx2,ddy0,ddy1,ddy2,clamp)
   %36 = extractvalue %dx.types.ResRet.f32 %35, 0
   %37 = fadd fast float %36, %29
   %38 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 3, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
   %39 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %5, %dx.types.ResourceProperties { i32 32782, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerComparisonState
+
+; CHECK: lod requires resource declared as texture1D/2D/3D/Cube/CubeArray/1DArray/2DArray
+
   %40 = call float @dx.op.calculateLOD.f32(i32 81, %dx.types.Handle %38, %dx.types.Handle %39, float %8, float %9, float undef, i1 true)  ; CalculateLOD(handle,sampler,coord0,coord1,coord2,clamped)
-  %41 = fadd fast float %37, %40
-  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %41)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   ret void
 }
 
