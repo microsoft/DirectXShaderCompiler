@@ -3982,11 +3982,11 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
       } else {
         if (llvmNamedMeta.count(name) == 0) {
           ValCtx.EmitFormatError(ValidationRule::MetaKnown, {name.str()});
-        }        
+        }
       }
     }
   }
-  
+
   const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
 
   NamedMDNode *TA = pModule->getNamedMetadata("dx.entryPoints");
@@ -4041,7 +4041,6 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
       }
     }
   }
-
 
   const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
   if (!SM->IsValidForDxil()) {
