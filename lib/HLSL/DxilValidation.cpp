@@ -3982,10 +3982,66 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
       } else {
         if (llvmNamedMeta.count(name) == 0) {
           ValCtx.EmitFormatError(ValidationRule::MetaKnown, {name.str()});
+        }        
+      }
+    }
+  }
+  
+  const ShaderModel *pSM = ValCtx.DxilMod.GetShaderModel();
+
+  NamedMDNode *TA = pModule->getNamedMetadata("dx.entryPoints");
+  if (TA != nullptr) {
+    for (unsigned i = 0, end = TA->getNumOperands(); i < end; ++i) {
+      MDTuple *TANode = dyn_cast<MDTuple>(TA->getOperand(i));
+      if (TANode->getNumOperands() < 5) {
+        ValCtx.EmitMetaError(TANode, ValidationRule::MetaWellFormed);
+        return;
+      }
+      // get access to the digit that represents the metadata number that would
+      // store entry properties
+      const llvm::MDOperand &mOp =
+          TANode->getOperand(TANode->getNumOperands() - 1);
+      // the final operand to the entry points tuple should be a constant int.
+      if (mOp == nullptr ||
+          (mOp.get())->getMetadataID() != Metadata::MDTupleKind) {
+        continue;
+      }
+
+      // get access to the node that stores entry properties
+      MDTuple *TANode2 =
+          dyn_cast<MDTuple>(TANode->getOperand(TANode->getNumOperands() - 1));
+      // find any incompatible tags inside the entry properties
+      for (unsigned j = 0, end2 = TANode2->getNumOperands(); j < end2; ++j) {
+        const MDOperand &mOp2 = TANode2->getOperand(j);
+        // note, we are only looking for tags, which will be a constant integer
+        if (mOp2 == nullptr ||
+            (mOp2.get())->getMetadataID() != Metadata::ConstantAsMetadataKind) {
+          continue;
+        }
+        ConstantInt *tag = mdconst::extract<ConstantInt>(mOp2);
+        uint64_t tagValue = tag->getZExtValue();
+
+        // legacy wavesize is only supported between 6.6 and 6.7, so we
+        // should fail if we find the ranged wave size metadata tag
+        if (pSM->IsSM66Plus() && !pSM->IsSM68Plus()) {
+          if (tagValue == DxilMDHelper::kDxilRangedWaveSizeTag) {
+            ValCtx.EmitFormatError(
+                ValidationRule::SmWaveSizeRangeNeedsDxil18Plus, {});
+            return;
+          }
+        } else {
+          // if the shader model is anything but 6.6 or 6.7, then we do not
+          // expect to encounter the legacy wave size tag.
+          if (tagValue == DxilMDHelper::kDxilWaveSizeTag) {
+            ValCtx.EmitFormatError(ValidationRule::SmWaveSizeNeedsDxil16Or17,
+                                   {});
+            return;
+          }
         }
       }
     }
   }
+
 
   const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
   if (!SM->IsValidForDxil()) {
@@ -5380,7 +5436,7 @@ static void ValidateWaveSize(ValidationContext &ValCtx,
       }
     } else if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1,
                                      6) < 0) {
-      ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeNeedsDxil16Plus);
+      ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeNeedsDxil16Or17);
     } else if (!props.IsCS() && !props.IsNode()) {
       ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeOnComputeOrNode);
     }

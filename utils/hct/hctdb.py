@@ -7691,8 +7691,8 @@ class db_dxil(object):
             "WaveSize only allowed on compute or node shaders",
         )
         self.add_valrule(
-            "Sm.WaveSizeNeedsDxil16Plus",
-            "WaveSize is valid only for DXIL version 1.6 and higher.",
+            "Sm.WaveSizeNeedsDxil16Or17",
+            "WaveSize is valid only for DXIL version 1.6 and 1.7.",
         )
         self.add_valrule(
             "Sm.WaveSizeRangeNeedsDxil18Plus",

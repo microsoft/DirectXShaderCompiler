@@ -1600,12 +1600,14 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
       if (props.WaveSize.IsRange())
         DXASSERT(DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 8) >= 0,
                  "DXIL version must be > 1.8");
+      const hlsl::ShaderModel *SM = GetShaderModel();
+
       MDVals.emplace_back(Uint32ToConstMD(
-          props.WaveSize.IsRange() ? DxilMDHelper::kDxilRangedWaveSizeTag
-                                   : DxilMDHelper::kDxilWaveSizeTag));
+          SM->IsSM68Plus() ? DxilMDHelper::kDxilRangedWaveSizeTag
+                           : DxilMDHelper::kDxilWaveSizeTag));
       SmallVector<Metadata *, 3> WaveSizeVal;
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Min));
-      if (props.WaveSize.IsRange()) {
+      if (SM->IsSM68Plus()) {
         WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Max));
         WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Preferred));
       }
@@ -2663,12 +2665,15 @@ void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
   // Optional Fields
 
   if (props.WaveSize.IsDefined()) {
-    MDVals.emplace_back(Uint32ToConstMD(
-        props.WaveSize.IsRange() ? DxilMDHelper::kDxilRangedWaveSizeTag
-                                 : DxilMDHelper::kDxilWaveSizeTag));
+
+    const hlsl::ShaderModel *SM = GetShaderModel();
+
+    MDVals.emplace_back(
+        Uint32ToConstMD(SM->IsSM68Plus() ? DxilMDHelper::kDxilRangedWaveSizeTag
+                                         : DxilMDHelper::kDxilWaveSizeTag));
     SmallVector<Metadata *, 3> WaveSizeVal;
     WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Min));
-    if (props.WaveSize.IsRange()) {
+    if (SM->IsSM68Plus()) {
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Max));
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Preferred));
     }

@@ -3265,7 +3265,7 @@ SM.VIEWIDNEEDSSLOT                        ViewID requires compatible space in pi
 SM.WAVESIZEALLZEROWHENUNDEFINED           WaveSize Max and Preferred must be 0 when Min is 0
 SM.WAVESIZEMAXANDPREFERREDZEROWHENNORANGE WaveSize Max and Preferred must be 0 to encode min==max
 SM.WAVESIZEMAXGREATERTHANMIN              WaveSize Max must greater than Min
-SM.WAVESIZENEEDSDXIL16PLUS                WaveSize is valid only for DXIL version 1.6 and higher.
+SM.WAVESIZENEEDSDXIL16OR17                WaveSize is valid only for DXIL version 1.6 and 1.7.
 SM.WAVESIZEONCOMPUTEORNODE                WaveSize only allowed on compute or node shaders
 SM.WAVESIZEPREFERREDINRANGE               WaveSize Preferred must be within Min..Max range
 SM.WAVESIZERANGENEEDSDXIL18PLUS           WaveSize Range is valid only for DXIL version 1.8 and higher.
