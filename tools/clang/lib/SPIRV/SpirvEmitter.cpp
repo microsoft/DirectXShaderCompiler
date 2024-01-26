@@ -13286,8 +13286,9 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       if (!declIdMapper.createStageInputVar(param, &loadedValue, false))
         return false;
 
-      // Only initialize the temporary variable if the parameter is indeed used.
-      if (param->isUsed()) {
+      // Only initialize the temporary variable if the parameter is indeed used,
+      // or if it is an inout parameter.
+      if (param->isUsed() || param->hasAttr<HLSLInOutAttr>()) {
         spvBuilder.createStore(tempVar, loadedValue, param->getLocation());
         // param is mapped to store object. Coule be a componentConstruct or
         // Load
@@ -13342,12 +13343,13 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       SpirvInstruction *loadedParam = nullptr;
 
       // No need to write back the value if the parameter is not used at all in
-      // the original entry function.
+      // the original entry function, unless it is an inout paramter.
       //
       // Write back of stage output variables in GS is manually controlled by
       // .Append() intrinsic method. No need to load the parameter since we
       // won't need to write back here.
-      if (param->isUsed() && !spvContext.isGS())
+      if ((param->isUsed() || param->hasAttr<HLSLInOutAttr>()) &&
+          !spvContext.isGS())
         loadedParam = spvBuilder.createLoad(param->getType(), params[i],
                                             param->getLocStart());
 
