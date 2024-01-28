@@ -279,9 +279,7 @@ private:
       CComPtr<::IDxcBlob> fileBlob;
 
       std::wstring NormalizedFileName = hlsl::NormalizePathForPdbW(lpFileName);
-      lpFileName = NormalizedFileName.c_str();
-
-      HRESULT hr = m_includeLoader->LoadSource(lpFileName, &fileBlob);
+      HRESULT hr = m_includeLoader->LoadSource(NormalizedFileName.c_str(), &fileBlob);
       if (FAILED(hr)) {
         return ERROR_UNHANDLED_EXCEPTION;
       }
@@ -538,6 +536,7 @@ public:
       std::wstring FileNameStore; // The destructor might release and set
                                   // LastError to success.
       MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
+
       size_t sourceNameLen = wcslen(m_pSourceName);
       size_t fileNameLen = wcslen(lpFileName);
 

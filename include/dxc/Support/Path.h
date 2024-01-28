@@ -2,6 +2,7 @@
 
 #include <string>
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Path.h"
 
 namespace hlsl {
 
@@ -76,8 +77,13 @@ inline StringTy NormalizePathForPdbImpl(const CharT *Path, size_t Length,
                                         bool PrefixWithDot) {
   StringTy PathCopy(Path, Length);
   for (unsigned i = 0; i < PathCopy.size(); i++) {
+#ifdef LLVM_ON_WIN32
+    if (PathCopy[i] == '/')
+      PathCopy[i] = '\\';
+#else
     if (PathCopy[i] == '\\')
       PathCopy[i] = '/';
+#endif
   }
   if (IsAbsoluteOrCurDirRelativeShared<CharT>(PathCopy.c_str())) {
     return PathCopy;
