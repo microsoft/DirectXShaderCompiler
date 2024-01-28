@@ -242,9 +242,7 @@ StringRef CGDebugInfo::getClassName(const RecordDecl *RD) {
 std::string CGDebugInfo::HLSLNormalizeDbgFileName(StringRef Str) {
   if (!CGM.getLangOpts().HLSL || CGM.getLangOpts().HLSLMainFile == Str)
     return Str;
-
-  std::string NullTermStorage = Str;
-  return hlsl::NormalizePathForPdb(NullTermStorage.c_str());
+  return hlsl::NormalizePathForPdb(Str);
 }
 // HLSL Change - end
 

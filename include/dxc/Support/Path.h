@@ -49,7 +49,8 @@ inline bool IsAbsoluteOrCurDirRelative(const char *Path) {
   return IsAbsoluteOrCurDirRelativeShared<char>(Path);
 }
 
-inline void MakeAbsoluteOrCurDirRelativeW(const wchar_t *&Path, std::wstring &PathStorage) {
+inline void MakeAbsoluteOrCurDirRelativeW(const wchar_t *&Path,
+                                          std::wstring &PathStorage) {
   if (IsAbsoluteOrCurDirRelativeW(Path)) {
     return;
   } else {
@@ -59,7 +60,8 @@ inline void MakeAbsoluteOrCurDirRelativeW(const wchar_t *&Path, std::wstring &Pa
   }
 }
 
-inline void MakeAbsoluteOrCurDirRelative(const char * &Path, std::string &PathStorage) {
+inline void MakeAbsoluteOrCurDirRelative(const char *&Path,
+                                         std::string &PathStorage) {
   if (IsAbsoluteOrCurDirRelative(Path)) {
     return;
   } else {
@@ -69,9 +71,10 @@ inline void MakeAbsoluteOrCurDirRelative(const char * &Path, std::string &PathSt
   }
 }
 
-template<typename CharT, typename StringTy>
-inline StringTy NormalizePathForPdbImpl(const CharT *Path, bool PrefixWithDot) {
-  StringTy PathCopy = Path;
+template <typename CharT, typename StringTy>
+inline StringTy NormalizePathForPdbImpl(const CharT *Path, size_t Length,
+                                        bool PrefixWithDot) {
+  StringTy PathCopy(Path, Length);
   for (unsigned i = 0; i < PathCopy.size(); i++) {
     if (PathCopy[i] == '\\')
       PathCopy[i] = '/';
@@ -81,17 +84,25 @@ inline StringTy NormalizePathForPdbImpl(const CharT *Path, bool PrefixWithDot) {
   }
 
   if (PrefixWithDot)
-    return StringTy(1,CharT('.')) + StringTy(1,CharT('/')) + PathCopy;
+    return StringTy(1, CharT('.')) + StringTy(1, CharT('/')) + PathCopy;
 
   return PathCopy;
 }
 
-inline std::string NormalizePathForPdb(const char *Path, bool PrefixWithDot=true) {
-  return NormalizePathForPdbImpl<char, std::string>(Path, PrefixWithDot);
+inline std::string NormalizePathForPdb(const char *Path,
+                                       bool PrefixWithDot = true) {
+  return NormalizePathForPdbImpl<char, std::string>(Path, ::strlen(Path),
+                                                    PrefixWithDot);
 }
-inline std::wstring NormalizePathForPdbW(const wchar_t *Path, bool PrefixWithDot=true) {
-  return NormalizePathForPdbImpl<wchar_t, std::wstring>(Path, PrefixWithDot);
+inline std::wstring NormalizePathForPdbW(const wchar_t *Path,
+                                         bool PrefixWithDot = true) {
+  return NormalizePathForPdbImpl<wchar_t, std::wstring>(Path, ::wcslen(Path),
+                                                        PrefixWithDot);
+}
+inline std::string NormalizePathForPdb(llvm::StringRef Path,
+                                       bool PrefixWithDot = true) {
+  return NormalizePathForPdbImpl<char, std::string>(Path.data(), Path.size(),
+                                                    PrefixWithDot);
 }
 
-}
-
+} // namespace hlsl

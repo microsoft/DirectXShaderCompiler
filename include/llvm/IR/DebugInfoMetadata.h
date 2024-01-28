@@ -471,17 +471,6 @@ class DIFile : public DIScope {
   static DIFile *getImpl(LLVMContext &Context, StringRef Filename,
                          StringRef Directory, StorageType Storage,
                          bool ShouldCreate = true) {
-#if 0
-    // HLSL Change - begin
-    std::string NormalizedBuf;
-    std::string NullTerminated = Filename;
-    {
-      const char *Path = NullTerminated.c_str();
-      hlsl::MakeAbsoluteOrCurDirRelative(Path, NormalizedBuf);
-      Filename = Path;
-    }
-    // HLSL Change - end
-#endif
     return getImpl(Context, getCanonicalMDString(Context, Filename),
                    getCanonicalMDString(Context, Directory), Storage,
                    ShouldCreate);

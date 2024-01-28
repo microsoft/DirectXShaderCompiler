@@ -150,51 +150,6 @@ const DxcArgsHandle OutputHandle(SpecialValue::Output);
 /// need to do better than linear scans. If this is fired,
 /// ERROR_OUT_OF_STRUCTURES will be returned by an attempt to open a file.
 static const size_t MaxIncludedFiles = 1000;
-#if 0
-template <typename CharTy>
-bool IsAbsoluteOrCurDirRelativeShared(const CharTy *Path) {
-  if (!Path || !Path[0])
-    return false;
-  // Current dir-relative path.
-  if (Path[0] == '.') {
-    return Path[1] == '\0' || Path[1] == '/' || Path[1] == '\\';
-  }
-  // Disk designator, then absolute path.
-  if (Path[1] == ':' && (Path[2] == '\\' || Path[2] == '/')) {
-    return true;
-  }
-  // UNC name
-  if (Path[0] == '\\') {
-    return Path[1] == '\\';
-  }
-
-#ifndef _WIN32
-  // Absolute paths on unix systems start with '/'
-  if (Path[0] == '/') {
-    return true;
-  }
-#endif
-
-  //
-  // NOTE: there are a number of cases we don't handle, as they don't play well
-  // with the simple file system abstraction we use:
-  // - current directory on disk designator (eg, D:file.ext), requires per-disk
-  // current dir
-  // - parent paths relative to current directory (eg, ..\\file.ext)
-  //
-  // The current-directory support is available to help in-memory handlers.
-  // On-disk handlers will typically have absolute paths to begin with.
-  //
-  return false;
-}
-
-bool IsAbsoluteOrCurDirRelativeW(const WCHAR *Path) {
-  return IsAbsoluteOrCurDirRelativeShared<WCHAR>(Path);
-}
-bool IsAbsoluteOrCurDirRelative(const char *Path) {
-  return IsAbsoluteOrCurDirRelativeShared<char>(Path);
-}
-#endif
 
 } // namespace
 
@@ -325,9 +280,6 @@ private:
 
       std::wstring NormalizedFileName = hlsl::NormalizePathForPdbW(lpFileName);
       lpFileName = NormalizedFileName.c_str();
-      OutputDebugStringW(L"INCLUDE: ");
-      OutputDebugStringW(lpFileName);
-      OutputDebugStringW(L"\n");
 
       HRESULT hr = m_includeLoader->LoadSource(lpFileName, &fileBlob);
       if (FAILED(hr)) {
