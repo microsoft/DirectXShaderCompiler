@@ -40,6 +40,7 @@
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#include "dxc/Support/Path.h" // HLSL Change
 using namespace clang;
 using namespace clang::CodeGen;
 
@@ -237,6 +238,16 @@ StringRef CGDebugInfo::getClassName(const RecordDecl *RD) {
   return internString(Name);
 }
 
+// HLSL Change - begin
+std::string CGDebugInfo::HLSLNormalizeDbgFileName(StringRef Str) {
+  if (!CGM.getLangOpts().HLSL || CGM.getLangOpts().HLSLMainFile == Str)
+    return Str;
+
+  std::string NullTermStorage = Str;
+  return hlsl::NormalizePathForPdb(NullTermStorage.c_str());
+}
+// HLSL Change - end
+
 llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
   if (!Loc.isValid())
     // If Location is not valid then use main input file.
@@ -260,7 +271,7 @@ llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
   }
 
   llvm::DIFile *F =
-      DBuilder.createFile(PLoc.getFilename(), getCurrentDirname());
+      DBuilder.createFile(HLSLNormalizeDbgFileName(PLoc.getFilename()), getCurrentDirname()); // HLSL Change
 
   DIFileCache[fname].reset(F);
   return F;

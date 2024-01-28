@@ -50,5 +50,6 @@ DxcArgsFileSystem *CreateDxcArgsFileSystem(IDxcBlobUtf8 *pSource,
                                            UINT32 defaultCodePage = CP_ACP);
 
 void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage);
+void MakeAbsoluteOrCurDirRelative(LPCSTR &Path, std::string &PathStorage);
 
 } // namespace dxcutil

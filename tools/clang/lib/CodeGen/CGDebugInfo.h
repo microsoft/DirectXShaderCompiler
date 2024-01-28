@@ -260,6 +260,8 @@ private:
   bool TryCollectHLSLRecordElements(const RecordType *Ty,
                                     llvm::DICompositeType *DITy,
                                     SmallVectorImpl<llvm::Metadata *> &Elements);
+
+  std::string HLSLNormalizeDbgFileName(StringRef Str);
   // HLSL Change Ends
 
 public:

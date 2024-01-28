@@ -19,6 +19,7 @@
 
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/dxcfilesystem.h"
+#include "dxc/Support/Path.h"
 #include "clang/Frontend/CompilerInstance.h"
 
 #ifndef _WIN32
@@ -149,27 +150,28 @@ const DxcArgsHandle OutputHandle(SpecialValue::Output);
 /// need to do better than linear scans. If this is fired,
 /// ERROR_OUT_OF_STRUCTURES will be returned by an attempt to open a file.
 static const size_t MaxIncludedFiles = 1000;
-
-bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
+#if 0
+template <typename CharTy>
+bool IsAbsoluteOrCurDirRelativeShared(const CharTy *Path) {
   if (!Path || !Path[0])
-    return FALSE;
+    return false;
   // Current dir-relative path.
-  if (Path[0] == L'.') {
-    return Path[1] == L'\0' || Path[1] == L'/' || Path[1] == L'\\';
+  if (Path[0] == '.') {
+    return Path[1] == '\0' || Path[1] == '/' || Path[1] == '\\';
   }
   // Disk designator, then absolute path.
-  if (Path[1] == L':' && (Path[2] == L'\\' || Path[2] == L'/')) {
-    return TRUE;
+  if (Path[1] == ':' && (Path[2] == '\\' || Path[2] == '/')) {
+    return true;
   }
   // UNC name
-  if (Path[0] == L'\\') {
-    return Path[1] == L'\\';
+  if (Path[0] == '\\') {
+    return Path[1] == '\\';
   }
 
 #ifndef _WIN32
   // Absolute paths on unix systems start with '/'
-  if (Path[0] == L'/') {
-    return TRUE;
+  if (Path[0] == '/') {
+    return true;
   }
 #endif
 
@@ -183,18 +185,36 @@ bool IsAbsoluteOrCurDirRelativeW(LPCWSTR Path) {
   // The current-directory support is available to help in-memory handlers.
   // On-disk handlers will typically have absolute paths to begin with.
   //
-  return FALSE;
+  return false;
 }
+
+bool IsAbsoluteOrCurDirRelativeW(const WCHAR *Path) {
+  return IsAbsoluteOrCurDirRelativeShared<WCHAR>(Path);
+}
+bool IsAbsoluteOrCurDirRelative(const char *Path) {
+  return IsAbsoluteOrCurDirRelativeShared<char>(Path);
+}
+#endif
 
 } // namespace
 
 namespace dxcutil {
 
 void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
-  if (IsAbsoluteOrCurDirRelativeW(Path)) {
+  if (::IsAbsoluteOrCurDirRelativeW(Path)) {
     return;
   } else {
     PathStorage = L"./";
+    PathStorage += Path;
+    Path = PathStorage.c_str();
+  }
+}
+
+void MakeAbsoluteOrCurDirRelative(LPCSTR &Path, std::string &PathStorage) {
+  if (IsAbsoluteOrCurDirRelative(Path)) {
+    return;
+  } else {
+    PathStorage = "./";
     PathStorage += Path;
     Path = PathStorage.c_str();
   }
@@ -302,6 +322,13 @@ private:
       }
 
       CComPtr<::IDxcBlob> fileBlob;
+
+      std::wstring NormalizedFileName = hlsl::NormalizePathForPdbW(lpFileName);
+      lpFileName = NormalizedFileName.c_str();
+      OutputDebugStringW(L"INCLUDE: ");
+      OutputDebugStringW(lpFileName);
+      OutputDebugStringW(L"\n");
+
       HRESULT hr = m_includeLoader->LoadSource(lpFileName, &fileBlob);
       if (FAILED(hr)) {
         return ERROR_UNHANDLED_EXCEPTION;

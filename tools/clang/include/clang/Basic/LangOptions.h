@@ -155,6 +155,7 @@ public:
   hlsl::LangStd HLSLVersion = hlsl::LangStd::vLatest;
   std::string HLSLEntryFunction;
   std::string HLSLProfile;
+  std::string HLSLMainFile;
   unsigned RootSigMajor = 1;
   unsigned RootSigMinor = 1;
   bool IsHLSLLibrary = false;

@@ -31,6 +31,7 @@
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
+#include "dxc/Support/Path.h"
 #include "dxc/dxcapi.h"
 #include "dxc/dxcapi.internal.h"
 
@@ -414,7 +415,6 @@ private:
 
   HRESULT AddSource(StringRef name, StringRef content) {
     Source_File source;
-    IFR(Utf8ToBlobWide(name, &source.Name));
     IFR(hlsl::DxcCreateBlob(content.data(), content.size(),
                             /*bPinned*/ false, /*bCopy*/ true,
                             /*encodingKnown*/ true, CP_UTF8, m_pMalloc,
@@ -422,7 +422,12 @@ private:
 
     // First file is the main file
     if (m_SourceFiles.empty()) {
+      IFR(Utf8ToBlobWide(name, &source.Name));
       m_MainFileName = source.Name;
+    } else {
+      std::string nullTermStorage = name;
+      std::string normalizedPath = hlsl::NormalizePathForPdb(nullTermStorage.c_str());
+      IFR(Utf8ToBlobWide(normalizedPath, &source.Name));
     }
 
     m_SourceFiles.push_back(std::move(source));

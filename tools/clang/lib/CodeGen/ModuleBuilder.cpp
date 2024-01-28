@@ -27,6 +27,7 @@
 #include <memory>
 #include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
 #include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
+#include "dxc/Support/Path.h" // HLSL Change
 #include "llvm/Support/Path.h"
 using namespace clang;
 
@@ -277,14 +278,18 @@ namespace {
           if (it->first->isValid() && !it->second->IsSystemFile) {
             // If main file, write that to metadata first.
             // Add the rest to filesMap to sort by name.
-            llvm::SmallString<128> NormalizedPath;
-            llvm::sys::path::native(it->first->getName(), NormalizedPath);
             if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
+              llvm::SmallString<128> NormalizedPath;
+              llvm::sys::path::native(it->first->getName(), NormalizedPath);
               assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
               AddFile(NormalizedPath, it->second->getRawBuffer()->getBuffer());
               bFoundMainFile = true;
             } else {
-              filesMap[NormalizedPath.str()] =
+              // We want the include file paths to match the values passed into the include
+              // handlers exactly. The SourceManager entries should match it except the
+              // call to MakeAbsoluteOrCurDirRelative.
+              std::string path = hlsl::NormalizePathForPdb(it->first->getName());
+              filesMap[path] =
                   it->second->getRawBuffer()->getBuffer();
             }
           }
