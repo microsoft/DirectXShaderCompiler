@@ -59,7 +59,14 @@ private:
   std::string checkCommands;             ///< CHECK commands that verify output
   std::string generatedSpirvAsm;         ///< Disassembled binary (SPIR-V code)
   spv_target_env targetEnv;              ///< Environment to validate against
+
+  /// If true, the before-hlsl-legalization flag will be passed to the
+  /// validator. This relaxes the SPIR-V validation rules to account for known
+  /// invalid code that DXC generates when optimizations are turned off.
   bool beforeHLSLLegalization;
+
+  /// The next three flags are used to tell the validator which layout rules to
+  /// use.
   bool glLayout;
   bool dxLayout;
   bool scalarLayout;
