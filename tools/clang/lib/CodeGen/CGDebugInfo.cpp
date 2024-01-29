@@ -17,6 +17,7 @@
 #include "CGObjCRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "dxc/Support/Path.h" // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclFriend.h"
 #include "clang/AST/DeclObjC.h"
@@ -40,7 +41,6 @@
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#include "dxc/Support/Path.h" // HLSL Change
 using namespace clang;
 using namespace clang::CodeGen;
 
@@ -269,7 +269,8 @@ llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
   }
 
   llvm::DIFile *F =
-      DBuilder.createFile(HLSLNormalizeDbgFileName(PLoc.getFilename()), getCurrentDirname()); // HLSL Change
+      DBuilder.createFile(HLSLNormalizeDbgFileName(PLoc.getFilename()),
+                          getCurrentDirname()); // HLSL Change
 
   DIFileCache[fname].reset(F);
   return F;

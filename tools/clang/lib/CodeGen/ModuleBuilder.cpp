@@ -14,6 +14,9 @@
 #include "clang/CodeGen/ModuleBuilder.h"
 #include "CGDebugInfo.h"
 #include "CodeGenModule.h"
+#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
+#include "dxc/Support/Path.h" // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/Expr.h"
@@ -25,9 +28,6 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include <memory>
-#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
-#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
-#include "dxc/Support/Path.h" // HLSL Change
 #include "llvm/Support/Path.h"
 using namespace clang;
 
@@ -285,12 +285,12 @@ namespace {
               AddFile(NormalizedPath, it->second->getRawBuffer()->getBuffer());
               bFoundMainFile = true;
             } else {
-              // We want the include file paths to match the values passed into the include
-              // handlers exactly. The SourceManager entries should match it except the
-              // call to MakeAbsoluteOrCurDirRelative.
-              std::string path = hlsl::NormalizePathForPdb(it->first->getName());
-              filesMap[path] =
-                  it->second->getRawBuffer()->getBuffer();
+              // We want the include file paths to match the values passed into
+              // the include handlers exactly. The SourceManager entries should
+              // match it except the call to MakeAbsoluteOrCurDirRelative.
+              std::string path =
+                  hlsl::NormalizePathForPdb(it->first->getName());
+              filesMap[path] = it->second->getRawBuffer()->getBuffer();
             }
           }
         }

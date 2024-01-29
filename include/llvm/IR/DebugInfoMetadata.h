@@ -14,9 +14,9 @@
 #ifndef LLVM_IR_DEBUGINFOMETADATA_H
 #define LLVM_IR_DEBUGINFOMETADATA_H
 
+#include "dxc/Support/Path.h" // HLSL Change
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Dwarf.h"
-#include "dxc/Support/Path.h" // HLSL Change
 
 // Helper macros for defining get() overrides.
 #define DEFINE_MDNODE_GET_UNPACK_IMPL(...) __VA_ARGS__

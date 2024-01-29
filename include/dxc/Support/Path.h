@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
+#include <string>
 
 namespace hlsl {
 

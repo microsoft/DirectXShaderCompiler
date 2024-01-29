@@ -326,7 +326,8 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
                  "otherwise, more than one file matches main filename");
           bFoundMainFile = true;
         } else {
-          std::string NormalizedBuf = hlsl::NormalizePathForPdb(it->first->getName());
+          std::string NormalizedBuf =
+              hlsl::NormalizePathForPdb(it->first->getName());
           filesMap[NormalizedBuf] = it->second->getRawBuffer()->getBuffer();
         }
       }

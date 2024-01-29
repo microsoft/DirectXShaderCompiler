@@ -17,9 +17,9 @@
 #include "dxcutil.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "dxc/Support/Path.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/dxcfilesystem.h"
-#include "dxc/Support/Path.h"
 #include "clang/Frontend/CompilerInstance.h"
 
 #ifndef _WIN32
@@ -279,7 +279,8 @@ private:
       CComPtr<::IDxcBlob> fileBlob;
 
       std::wstring NormalizedFileName = hlsl::NormalizePathForPdbW(lpFileName);
-      HRESULT hr = m_includeLoader->LoadSource(NormalizedFileName.c_str(), &fileBlob);
+      HRESULT hr =
+          m_includeLoader->LoadSource(NormalizedFileName.c_str(), &fileBlob);
       if (FAILED(hr)) {
         return ERROR_UNHANDLED_EXCEPTION;
       }
