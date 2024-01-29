@@ -33,6 +33,7 @@
 #include "clang/SPIRV/SpirvContext.h"
 #include "llvm/ADT/STLExtras.h"
 
+#include "ConstEvaluator.h"
 #include "DeclResultIdMapper.h"
 
 namespace spvtools {
@@ -768,42 +769,6 @@ private:
                                           SourceRange range = {});
 
 private:
-  /// Translates the given frontend APValue into its SPIR-V equivalent for the
-  /// given targetType.
-  SpirvConstant *translateAPValue(const APValue &value,
-                                  const QualType targetType);
-
-  /// Translates the given frontend APInt into its SPIR-V equivalent for the
-  /// given targetType.
-  SpirvConstant *translateAPInt(const llvm::APInt &intValue,
-                                QualType targetType);
-
-  /// Translates the given frontend APFloat into its SPIR-V equivalent for the
-  /// given targetType.
-  SpirvConstant *translateAPFloat(llvm::APFloat floatValue,
-                                  QualType targetType);
-
-  /// Tries to evaluate the given Expr as a constant and returns the <result-id>
-  /// if success. Otherwise, returns 0.
-  SpirvConstant *tryToEvaluateAsConst(const Expr *expr);
-
-  /// Tries to evaluate the given APFloat as a 32-bit float. If the evaluation
-  /// can be performed without loss, it returns the <result-id> of the SPIR-V
-  /// constant for that value. Returns zero otherwise.
-  SpirvConstant *tryToEvaluateAsFloat32(const llvm::APFloat &);
-
-  /// Tries to evaluate the given APInt as a 32-bit integer. If the evaluation
-  /// can be performed without loss, it returns the <result-id> of the SPIR-V
-  /// constant for that value.
-  SpirvConstant *tryToEvaluateAsInt32(const llvm::APInt &, bool isSigned);
-
-  /// Returns true iff the given expression is a literal integer that cannot be
-  /// represented in a 32-bit integer type or a literal float that cannot be
-  /// represented in a 32-bit float type without losing info. Returns false
-  /// otherwise.
-  bool isLiteralLargerThan32Bits(const Expr *expr);
-
-private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
   /// Emits an error if the given attribute is not a loop attribute.
   spv::LoopControlMask translateLoopAttribute(const Stmt *, const Attr &);
@@ -1317,6 +1282,7 @@ private:
   FeatureManager featureManager;
   SpirvBuilder spvBuilder;
   DeclResultIdMapper declIdMapper;
+  ConstEvaluator constEvaluator;
 
   /// \brief A map of funcDecl to its FunctionInfo. Consists of all entry
   /// functions followed by all reachable functions from the entry functions.
