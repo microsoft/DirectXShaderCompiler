@@ -14,9 +14,9 @@
 #include "clang/CodeGen/ModuleBuilder.h"
 #include "CGDebugInfo.h"
 #include "CodeGenModule.h"
-#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
+#include "dxc/DXIL/DxilMetadataHelper.h"         // HLSL Change - dx source info
 #include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
-#include "dxc/Support/Path.h" // HLSL Change
+#include "dxc/Support/Path.h"                    // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/Expr.h"
@@ -27,8 +27,8 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include <memory>
 #include "llvm/Support/Path.h"
+#include <memory>
 using namespace clang;
 
 namespace {
@@ -288,8 +288,7 @@ namespace {
               // We want the include file paths to match the values passed into
               // the include handlers exactly. The SourceManager entries should
               // match it except the call to MakeAbsoluteOrCurDirRelative.
-              std::string path =
-                  hlsl::NormalizePath(it->first->getName());
+              std::string path = hlsl::NormalizePath(it->first->getName());
               filesMap[path] = it->second->getRawBuffer()->getBuffer();
             }
           }

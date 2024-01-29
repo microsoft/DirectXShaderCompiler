@@ -19,8 +19,8 @@
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Path.h"
+#include "dxc/Support/WinIncludes.h"
 
 using namespace hlsl;
 using Buffer = SourceInfoWriter::Buffer;
@@ -326,8 +326,7 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
                  "otherwise, more than one file matches main filename");
           bFoundMainFile = true;
         } else {
-          std::string NormalizedBuf =
-              hlsl::NormalizePath(it->first->getName());
+          std::string NormalizedBuf = hlsl::NormalizePath(it->first->getName());
           filesMap[NormalizedBuf] = it->second->getRawBuffer()->getBuffer();
         }
       }

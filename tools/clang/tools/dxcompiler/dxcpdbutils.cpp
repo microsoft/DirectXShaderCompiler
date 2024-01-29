@@ -17,10 +17,10 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "dxc/DXIL/DxilMetadataHelper.h"
@@ -426,8 +426,7 @@ private:
       m_MainFileName = source.Name;
     } else {
       std::string nullTermStorage = name;
-      std::string normalizedPath =
-          hlsl::NormalizePath(nullTermStorage.c_str());
+      std::string normalizedPath = hlsl::NormalizePath(nullTermStorage.c_str());
       IFR(Utf8ToBlobWide(normalizedPath, &source.Name));
     }
 

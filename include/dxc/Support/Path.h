@@ -51,7 +51,7 @@ inline bool IsAbsoluteOrCurDirRelative(const char *Path) {
 
 template <typename CharT, typename StringTy>
 inline StringTy NormalizePathImpl(const CharT *Path, size_t Length,
-                                        bool PrefixWithDot) {
+                                  bool PrefixWithDot) {
   StringTy PathCopy(Path, Length);
   for (unsigned i = 0; i < PathCopy.size(); i++) {
 #ifdef LLVM_ON_WIN32
@@ -72,20 +72,19 @@ inline StringTy NormalizePathImpl(const CharT *Path, size_t Length,
   return PathCopy;
 }
 
-inline std::string NormalizePath(const char *Path,
-                                       bool PrefixWithDot = true) {
+inline std::string NormalizePath(const char *Path, bool PrefixWithDot = true) {
   return NormalizePathImpl<char, std::string>(Path, ::strlen(Path),
-                                                    PrefixWithDot);
+                                              PrefixWithDot);
 }
 inline std::wstring NormalizePathW(const wchar_t *Path,
-                                         bool PrefixWithDot = true) {
+                                   bool PrefixWithDot = true) {
   return NormalizePathImpl<wchar_t, std::wstring>(Path, ::wcslen(Path),
-                                                        PrefixWithDot);
+                                                  PrefixWithDot);
 }
 inline std::string NormalizePath(llvm::StringRef Path,
-                                       bool PrefixWithDot = true) {
+                                 bool PrefixWithDot = true) {
   return NormalizePathImpl<char, std::string>(Path.data(), Path.size(),
-                                                    PrefixWithDot);
+                                              PrefixWithDot);
 }
 
 } // namespace hlsl
