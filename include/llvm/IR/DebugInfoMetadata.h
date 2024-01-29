@@ -14,7 +14,6 @@
 #ifndef LLVM_IR_DEBUGINFOMETADATA_H
 #define LLVM_IR_DEBUGINFOMETADATA_H
 
-#include "dxc/Support/Path.h" // HLSL Change
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Dwarf.h"
 

@@ -53,21 +53,25 @@ template <typename CharT, typename StringTy>
 inline StringTy NormalizePathImpl(const CharT *Path, size_t Length,
                                   bool PrefixWithDot) {
   StringTy PathCopy(Path, Length);
-  for (unsigned i = 0; i < PathCopy.size(); i++) {
+
 #ifdef _WIN32
-    if (PathCopy[i] == '/')
-      PathCopy[i] = '\\';
+  constexpr CharT SlashFrom = '/';
+  constexpr CharT SlashTo = '\\';
 #else
-    if (PathCopy[i] == '\\')
-      PathCopy[i] = '/';
+  constexpr CharT SlashFrom = '\\';
+  constexpr CharT SlashTo = '/';
 #endif
+
+  for (unsigned i = 0; i < PathCopy.size(); i++) {
+    if (PathCopy[i] == SlashFrom)
+      PathCopy[i] = SlashTo;
   }
   if (IsAbsoluteOrCurDirRelativeShared<CharT>(PathCopy.c_str())) {
     return PathCopy;
   }
 
   if (PrefixWithDot)
-    return StringTy(1, CharT('.')) + StringTy(1, CharT('/')) + PathCopy;
+    return StringTy(1, CharT('.')) + StringTy(1, SlashTo) + PathCopy;
 
   return PathCopy;
 }

@@ -175,6 +175,7 @@ public:
   TEST_METHOD(CompileWhenIncludeAbsoluteThenLoadAbsolute)
   TEST_METHOD(CompileWhenIncludeLocalThenLoadRelative)
   TEST_METHOD(CompileWhenIncludeSystemThenLoadNotRelative)
+  TEST_METHOD(CompileWhenAllIncludeCombinations)
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
@@ -2860,6 +2861,157 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
   VERIFY_ARE_EQUAL_WSTR(L".\\helper.h;", pInclude->GetAllFileNames().c_str());
+}
+
+TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
+  class SimpleIncludeHanlder : public IDxcIncludeHandler {
+    DXC_MICROCOM_REF_FIELD(m_dwRef)
+  public:
+    DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+    dxc::DxcDllSupport &m_dllSupport;
+    HRESULT m_defaultErrorCode = E_FAIL;
+    SimpleIncludeHanlder(dxc::DxcDllSupport &dllSupport)
+        : m_dwRef(0), m_dllSupport(dllSupport) {}
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                             void **ppvObject) override {
+      return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+    }
+
+    std::wstring Path;
+    std::string Content;
+
+    HRESULT STDMETHODCALLTYPE LoadSource(
+        LPCWSTR pFilename,         // Filename as written in #include statement
+        IDxcBlob **ppIncludeSource // Resultant source object for included file
+        ) override {
+      if (pFilename == Path) {
+        MultiByteStringToBlob(m_dllSupport, Content, CP_UTF8, ppIncludeSource);
+        return S_OK;
+      }
+      return E_FAIL;
+    }
+  };
+  struct File {
+    std::wstring name;
+    std::string content;
+  };
+  struct TestCase {
+    std::wstring mainFileArg;
+    File mainFile;
+    File includeFile;
+    std::vector<const WCHAR *> extraArgs;
+  };
+  std::string commonIncludeFile = "float foo() { return 10; }";
+  TestCase tests[] = {
+      {L"main.hlsl",
+       {L"main.hlsl",
+        R"(#include "include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\include.h", commonIncludeFile}},
+
+      {L"./main.hlsl",
+       {L".\\main.hlsl",
+        R"(#include "include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\include.h", commonIncludeFile}},
+
+      {L"../main.hlsl",
+       {L"..\\main.hlsl",
+        R"(#include "include.h"\n
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\..\\include.h", commonIncludeFile}},
+
+      {L"../main.hlsl",
+       {L"..\\main.hlsl",
+        R"(#include "include_dir/include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\..\\include_dir\\include.h", commonIncludeFile}},
+
+      {L"../main.hlsl",
+       {L"..\\main.hlsl",
+        R"(#include "../include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\..\\..\\include.h", commonIncludeFile}},
+
+      {L"../main.hlsl",
+       {L"..\\main.hlsl",
+        R"(#include "second_dir/include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\..\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
+       {L"-I", L"../my_include_dir"}},
+
+      {L"../main.hlsl",
+       {L"..\\main.hlsl",
+        R"(#include "second_dir/include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
+       {L"-I", L"my_include_dir"}},
+  };
+
+  for (TestCase &t : tests) {
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    CComPtr<SimpleIncludeHanlder> pInclude;
+
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    CreateBlobFromText(t.mainFile.content.c_str(), &pSource);
+
+    pInclude = new SimpleIncludeHanlder(m_dllSupport);
+    pInclude->Content = t.includeFile.content;
+    pInclude->Path = t.includeFile.name;
+
+    std::vector<const WCHAR *> args = {L"-Zi", L"-Qembed_debug"};
+    args.insert(args.end(), t.extraArgs.begin(), t.extraArgs.end());
+
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, t.mainFileArg.c_str(), L"main",
+                                        L"ps_6_0", args.data(), args.size(),
+                                        nullptr, 0, pInclude, &pResult));
+    VerifyOperationSucceeded(pResult);
+
+    CComPtr<IDxcBlob> pPdb;
+    CComPtr<IDxcBlob> pDxil;
+    CComPtr<IDxcResult> pRealResult;
+    VERIFY_SUCCEEDED(pResult.QueryInterface(&pRealResult));
+    VERIFY_SUCCEEDED(
+        pRealResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+    VERIFY_SUCCEEDED(
+        pRealResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxil), nullptr));
+
+    IDxcBlob *debugBlobs[] = {pPdb, pDxil};
+    for (IDxcBlob *pDbgBlob : debugBlobs) {
+      CComPtr<IDxcPdbUtils> pPdbUtils;
+      VERIFY_SUCCEEDED(
+          m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+      VERIFY_SUCCEEDED(pPdbUtils->Load(pDbgBlob));
+
+      CComBSTR pMainFileName;
+      VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
+      VERIFY_ARE_EQUAL(pMainFileName, t.mainFile.name.c_str());
+
+      pMainFileName = nullptr;
+      VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(0, &pMainFileName));
+      VERIFY_ARE_EQUAL(pMainFileName, t.mainFile.name.c_str());
+
+      CComBSTR pIncludeName;
+      VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(1, &pIncludeName));
+      VERIFY_ARE_EQUAL(pIncludeName, t.includeFile.name.c_str());
+
+      CComPtr<IDxcBlobEncoding> pMainSource;
+      VERIFY_SUCCEEDED(pPdbUtils->GetSource(0, &pMainSource));
+
+      CComPtr<SimpleIncludeHanlder> pRecompileInclude =
+          new SimpleIncludeHanlder(m_dllSupport);
+      pRecompileInclude->Content = t.includeFile.content;
+      pRecompileInclude->Path = pIncludeName;
+
+      CComPtr<IDxcOperationResult> pRecompileOpResult;
+      VERIFY_SUCCEEDED(pCompiler->Compile(
+          pMainSource, pMainFileName, L"main", L"ps_6_0", args.data(),
+          args.size(), nullptr, 0, pRecompileInclude, &pRecompileOpResult));
+      VerifyOperationSucceeded(pRecompileOpResult);
+    }
+  }
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeAbsoluteThenLoadAbsolute) {

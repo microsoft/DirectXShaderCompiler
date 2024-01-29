@@ -279,10 +279,9 @@ namespace {
             // If main file, write that to metadata first.
             // Add the rest to filesMap to sort by name.
             if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
-              llvm::SmallString<128> NormalizedPath;
-              llvm::sys::path::native(it->first->getName(), NormalizedPath);
               assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
-              AddFile(NormalizedPath, it->second->getRawBuffer()->getBuffer());
+              AddFile(hlsl::NormalizePath(it->first->getName(), /*PrefixWithDot*/false),
+                      it->second->getRawBuffer()->getBuffer());
               bFoundMainFile = true;
             } else {
               // We want the include file paths to match the values passed into

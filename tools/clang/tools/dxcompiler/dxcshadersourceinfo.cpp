@@ -315,11 +315,9 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
         // If main file, write that to metadata first.
         // Add the rest to filesMap to sort by name.
         if (cgOpts.MainFileName.compare(it->first->getName()) == 0) {
-          llvm::SmallString<128> NormalizedPath;
-          llvm::sys::path::native(it->first->getName(), NormalizedPath);
-
           SourceFile file;
-          file.Name = NormalizedPath.str();
+          file.Name = hlsl::NormalizePath(it->first->getName(),
+                                          /*PrefixWithDot*/ false);
           file.Content = it->second->getRawBuffer()->getBuffer();
           ret.push_back(file);
           assert(!bFoundMainFile &&
