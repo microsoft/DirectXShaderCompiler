@@ -1,4 +1,4 @@
-; RUN: not %dxv %s 2>&1 | FileCheck %s
+; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 
 ;
 ;  Modified base on output of
