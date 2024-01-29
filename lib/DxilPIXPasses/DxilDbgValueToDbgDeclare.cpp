@@ -51,6 +51,10 @@ using namespace llvm;
 namespace {
 using OffsetInBits = unsigned;
 using SizeInBits = unsigned;
+struct Offsets {
+  OffsetInBits Aligned;
+  OffsetInBits Packed;
+};
 
 // DITypePeelTypeAlias peels const, typedef, and other alias types off of Ty,
 // returning the unalised type.
@@ -162,7 +166,7 @@ public:
 
   // Add is used to "add" an aggregate element (struct field, array element)
   // at the current aligned/packed offsets, bumping them by Ty's size.
-  OffsetInBits Add(llvm::DIBasicType *Ty, unsigned sizeOverride) {
+  Offsets Add(llvm::DIBasicType *Ty, unsigned sizeOverride) {
     VALUE_TO_DECLARE_LOG("Adding known type at aligned %d / packed %d, size %d",
                          m_CurrentAlignedOffset, m_CurrentPackedOffset,
                          Ty->getSizeInBits());
@@ -172,7 +176,7 @@ public:
     m_AlignedOffsetToPackedOffset[m_CurrentAlignedOffset] =
         m_CurrentPackedOffset;
 
-    const OffsetInBits Ret = m_CurrentAlignedOffset;
+    const Offsets Ret = {m_CurrentAlignedOffset, m_CurrentPackedOffset};
     unsigned size = sizeOverride != 0 ? sizeOverride : Ty->getSizeInBits();
     m_CurrentPackedOffset += size;
     m_CurrentAlignedOffset += size;
@@ -275,7 +279,8 @@ private:
   llvm::DILocation *GetVariableLocation() const;
   llvm::Value *GetMetadataAsValue(llvm::Metadata *M) const;
   llvm::DIExpression *GetDIExpression(llvm::DIType *Ty, OffsetInBits Offset,
-                                      SizeInBits ParentSize) const;
+                                      SizeInBits ParentSize,
+                                      unsigned sizeOverride) const;
 
   llvm::DebugLoc const &m_dbgLoc;
   llvm::DIVariable *m_Variable = nullptr;
@@ -970,12 +975,7 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
 
         auto *AllocaInst = Register->GetRegisterForAlignedOffset(AlignedOffset);
         if (AllocaInst == nullptr) {
-#if 0 
-          // This assert can/should be re-enabled when
-          // https://github.com/microsoft/DirectXShaderCompiler/issues/6159
-          // is fixed, and bitfields can be handled correctly.
-          // assert(!"Failed to find alloca for var[offset]");
-#endif
+          assert(!"Failed to find alloca for var[offset]");
           continue;
         }
 
@@ -1239,22 +1239,22 @@ void VariableRegisters::PopulateAllocaMap_BasicType(llvm::DIBasicType *Ty,
     return;
   }
 
-  const OffsetInBits AlignedOffset = m_Offsets.Add(Ty, sizeOverride);
+  const auto offsets = m_Offsets.Add(Ty, sizeOverride);
 
-  if (sizeOverride == 0) {
-    llvm::Type *AllocaTy = llvm::ArrayType::get(AllocaElementTy, 1);
-    llvm::AllocaInst *&Alloca = m_AlignedOffsetToAlloca[AlignedOffset];
+  llvm::Type *AllocaTy = llvm::ArrayType::get(AllocaElementTy, 1);
+  llvm::AllocaInst *&Alloca = m_AlignedOffsetToAlloca[offsets.Aligned];
+  if (Alloca == nullptr) {
     Alloca = m_B.CreateAlloca(AllocaTy, m_B.getInt32(0));
     Alloca->setDebugLoc(llvm::DebugLoc());
-
-    auto *Storage = GetMetadataAsValue(llvm::ValueAsMetadata::get(Alloca));
-    auto *Variable = GetMetadataAsValue(m_Variable);
-    auto *Expression = GetMetadataAsValue(
-        GetDIExpression(Ty, AlignedOffset, GetVariableSizeInbits(m_Variable)));
-    auto *DbgDeclare =
-        m_B.CreateCall(m_DbgDeclareFn, {Storage, Variable, Expression});
-    DbgDeclare->setDebugLoc(m_dbgLoc);
   }
+
+  auto *Storage = GetMetadataAsValue(llvm::ValueAsMetadata::get(Alloca));
+  auto *Variable = GetMetadataAsValue(m_Variable);
+  auto *Expression = GetMetadataAsValue(GetDIExpression(
+      Ty, offsets.Packed, GetVariableSizeInbits(m_Variable), sizeOverride));
+  auto *DbgDeclare =
+      m_B.CreateCall(m_DbgDeclareFn, {Storage, Variable, Expression});
+  DbgDeclare->setDebugLoc(m_dbgLoc);
 }
 
 static unsigned NumArrayElements(llvm::DICompositeType *Array) {
@@ -1332,8 +1332,7 @@ void VariableRegisters::PopulateAllocaMap_StructType(
       // the base type, then the information about the member's
       // size would be lost
       PopulateAllocaMap(OffsetAndMember.second);
-    }
-    else {
+    } else {
       assert(m_Offsets.GetCurrentAlignedOffset() ==
                  StructStart + OffsetAndMember.first &&
              "Offset mismatch in DIStructType");
@@ -1366,12 +1365,14 @@ llvm::Value *VariableRegisters::GetMetadataAsValue(llvm::Metadata *M) const {
 
 llvm::DIExpression *
 VariableRegisters::GetDIExpression(llvm::DIType *Ty, OffsetInBits Offset,
-                                   SizeInBits ParentSize) const {
+                                   SizeInBits ParentSize,
+                                   unsigned sizeOverride) const {
   llvm::SmallVector<uint64_t, 3> ExpElements;
   if (Offset != 0 || Ty->getSizeInBits() != ParentSize) {
     ExpElements.emplace_back(llvm::dwarf::DW_OP_bit_piece);
     ExpElements.emplace_back(Offset);
-    ExpElements.emplace_back(Ty->getSizeInBits());
+    ExpElements.emplace_back(sizeOverride != 0 ? sizeOverride
+                                               : Ty->getSizeInBits());
   }
   return llvm::DIExpression::get(m_B.getContext(), ExpElements);
 }
