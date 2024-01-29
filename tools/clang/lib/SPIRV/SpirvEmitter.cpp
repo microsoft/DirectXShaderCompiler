@@ -3505,8 +3505,8 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
     if (!subExprInstr)
       return nullptr;
 
-    auto *val = processFlatConversion(toType, evalType, subExprInstr,
-                                      expr->getExprLoc(), range);
+    auto *val =
+        processFlatConversion(toType, subExprInstr, expr->getExprLoc(), range);
     val->setRValue();
     return val;
   }
@@ -3547,9 +3547,10 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
   }
 }
 
-SpirvInstruction *SpirvEmitter::processFlatConversion(
-    const QualType type, const QualType initType, SpirvInstruction *initInstr,
-    SourceLocation srcLoc, SourceRange range) {
+SpirvInstruction *
+SpirvEmitter::processFlatConversion(const QualType type,
+                                    SpirvInstruction *initInstr,
+                                    SourceLocation srcLoc, SourceRange range) {
 
   // If the same literal is used in multiple instructions, then the literal
   // visitor may not be able to pick the correct type for the literal. That

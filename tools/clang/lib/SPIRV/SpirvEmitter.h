@@ -759,10 +759,8 @@ private:
 
 private:
   /// \brief Performs a FlatConversion implicit cast. Fills an instance of the
-  /// given type with initializer <result-id>. The initializer is of type
-  /// initType.
+  /// given type with initializer <result-id>.
   SpirvInstruction *processFlatConversion(const QualType type,
-                                          const QualType initType,
                                           SpirvInstruction *initId,
                                           SourceLocation,
                                           SourceRange range = {});
