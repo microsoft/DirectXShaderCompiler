@@ -2631,7 +2631,7 @@ public:
   HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename,
                                        IDxcBlob **ppIncludeSource) override {
     for (auto const &file : m_files) {
-      std::wstring prependedWithDotHack = L"./" + file.first;
+      std::wstring prependedWithDotHack = L".\\" + file.first;
       if (prependedWithDotHack == std::wstring(pFilename)) {
         CComPtr<IDxcBlobEncoding> blob;
         CreateBlobFromText(m_pixTest->m_dllSupport, file.second.c_str(), &blob);
@@ -2646,10 +2646,10 @@ public:
 void PixDiaTest::RunSubProgramsCase(const char *hlsl) {
   CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
       new DxcIncludeHandlerForInjectedSourcesForPix(
-          this, {{L"../include1/samefilename.h",
+          this, {{L"..\\include1\\samefilename.h",
                   "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
                   "sqrt(v); return v; } "},
-                 {L"../include2/samefilename.h",
+                 {L"..\\include2\\samefilename.h",
                   R"(
 float4 fn2( float3 f3, float d, bool sanitize = true )
 {
@@ -2697,9 +2697,9 @@ float4 fn2( float3 f3, float d, bool sanitize = true )
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
   // Then have a bunch of "../include2/samefilename.h"
-  VERIFY_ARE_EQUAL_WSTR(L"./../include2/samefilename.h", it->Filename);
+  VERIFY_ARE_EQUAL_WSTR(L".\\..\\include2\\samefilename.h", it->Filename);
   while (it != sourceLocations.end() &&
-         it->Filename == L"./../include2/samefilename.h")
+         it->Filename == L".\\..\\include2\\samefilename.h")
     it++;
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
