@@ -54,7 +54,7 @@ inline StringTy NormalizePathImpl(const CharT *Path, size_t Length,
                                   bool PrefixWithDot) {
   StringTy PathCopy(Path, Length);
   for (unsigned i = 0; i < PathCopy.size(); i++) {
-#ifdef LLVM_ON_WIN32
+#ifdef _WIN32
     if (PathCopy[i] == '/')
       PathCopy[i] = '\\';
 #else
