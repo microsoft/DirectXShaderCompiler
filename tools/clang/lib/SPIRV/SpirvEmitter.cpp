@@ -585,7 +585,7 @@ void forEachSpirvField(
     std::function<bool(size_t spirvFieldIndex, const QualType &fieldType,
                        const StructType::FieldInfo &field)>
         operation,
-    bool includeMerged) {
+    bool includeMerged = false) {
   const auto *cxxDecl = recordType->getAsCXXRecordDecl();
   const auto *recordDecl = recordType->getDecl();
 
@@ -6625,8 +6625,7 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
               reconstructValue(subSrcVal, fieldType, dstLR, loc, range));
 
           return true;
-        },
-        false);
+        });
 
     auto *result = spvBuilder.createCompositeConstruct(
         valType, elements, srcVal->getSourceLocation(), range);
@@ -7163,31 +7162,29 @@ SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType astStructType,
   uint32_t vectorIndex = 0;
   uint32_t elemCount = 1;
   llvm::SmallVector<SpirvInstruction *, 4> members;
-  forEachSpirvField(
-      astStructType->getAs<RecordType>(), spirvStructType,
-      [&](size_t spirvFieldIndex, const QualType &fieldType,
-          const auto &field) {
-        if (isScalarType(fieldType)) {
-          members.push_back(spvBuilder.createCompositeExtract(
-              elemType, vector, {vectorIndex++}, loc, range));
-          return true;
-        }
+  forEachSpirvField(astStructType->getAs<RecordType>(), spirvStructType,
+                    [&](size_t spirvFieldIndex, const QualType &fieldType,
+                        const auto &field) {
+                      if (isScalarType(fieldType)) {
+                        members.push_back(spvBuilder.createCompositeExtract(
+                            elemType, vector, {vectorIndex++}, loc, range));
+                        return true;
+                      }
 
-        if (isVectorType(fieldType, nullptr, &elemCount)) {
-          llvm::SmallVector<uint32_t, 4> indices;
-          for (uint32_t i = 0; i < elemCount; ++i)
-            indices.push_back(vectorIndex++);
+                      if (isVectorType(fieldType, nullptr, &elemCount)) {
+                        llvm::SmallVector<uint32_t, 4> indices;
+                        for (uint32_t i = 0; i < elemCount; ++i)
+                          indices.push_back(vectorIndex++);
 
-          members.push_back(spvBuilder.createVectorShuffle(
-              astContext.getExtVectorType(elemType, elemCount), vector, vector,
-              indices, loc, range));
-          return true;
-        }
+                        members.push_back(spvBuilder.createVectorShuffle(
+                            astContext.getExtVectorType(elemType, elemCount),
+                            vector, vector, indices, loc, range));
+                        return true;
+                      }
 
-        assert(false && "unhandled type");
-        return false;
-      },
-      false);
+                      assert(false && "unhandled type");
+                      return false;
+                    });
 
   return spvBuilder.createCompositeConstruct(
       astStructType, members, vector->getSourceLocation(), range);
@@ -14709,7 +14706,7 @@ SpirvEmitter::generateFromScalars(QualType type,
                       [this, &elements, &scalars, layoutRule](
                           size_t spirvFieldIndex, const QualType &fieldType,
                           const StructType::FieldInfo &fieldInfo) {
-                        elements.push_back(GenerateFromScalars(
+                        elements.push_back(generateFromScalars(
                             fieldType, scalars, layoutRule));
                         return true;
                       });
@@ -14723,9 +14720,9 @@ SpirvEmitter::generateFromScalars(QualType type,
   return {};
 }
 
-SpirvInstruction *SpirvEmitter::splatScalarToGenerate(QualType type,
-                                                      SpirvInstruction *scalar,
-                                                      SpirvLayoutRule rule) {
+SpirvInstruction *
+SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
+                                    SpirvLayoutRule layoutRule) {
   QualType elementType;
   uint32_t elementCount = 0;
   uint32_t numOfRows = 0;
@@ -14734,7 +14731,7 @@ SpirvInstruction *SpirvEmitter::splatScalarToGenerate(QualType type,
   if (isScalarType(type)) {
     // If the type if bool with a non-void layout rule, then it should be
     // treated as a uint.
-    assert(rule == SpirvLayoutRule::Void &&
+    assert(layoutRule == SpirvLayoutRule::Void &&
            "If the layout type is not void, then we should cast to an int when "
            "type is a boolean.");
     QualType sourceType = scalar->getAstResultType();
@@ -14753,7 +14750,7 @@ SpirvInstruction *SpirvEmitter::splatScalarToGenerate(QualType type,
     std::vector<SpirvInstruction *> elements(elementCount, element);
     SpirvInstruction *result = spvBuilder.createCompositeConstruct(
         type, elements, scalar->getSourceLocation());
-    result->setLayoutRule(rule);
+    result->setLayoutRule(layoutRule);
     return result;
   } else if (isMxNMatrix(type, &elementType, &numOfRows, &numOfCols)) {
     SourceLocation loc = scalar->getSourceLocation();
@@ -14767,19 +14764,19 @@ SpirvInstruction *SpirvEmitter::splatScalarToGenerate(QualType type,
     QualType rowType = astContext.getExtVectorType(elementType, numOfCols);
     SpirvInstruction *r =
         spvBuilder.createCompositeConstruct(rowType, row, loc);
-    r->setLayoutRule(rule);
+    r->setLayoutRule(layoutRule);
     std::vector<SpirvInstruction *> rows(numOfRows, r);
     SpirvInstruction *result =
         spvBuilder.createCompositeConstruct(type, rows, loc);
-    result->setLayoutRule(rule);
+    result->setLayoutRule(layoutRule);
     return result;
   } else if (isArrayType(type, &elementType, &elementCount)) {
     SpirvInstruction *element =
-        splatScalarToGenerate(elementType, scalar, rule);
+        splatScalarToGenerate(elementType, scalar, layoutRule);
     std::vector<SpirvInstruction *> elements(elementCount, element);
     SpirvInstruction *result = spvBuilder.createCompositeConstruct(
         type, elements, scalar->getSourceLocation());
-    result->setLayoutRule(rule);
+    result->setLayoutRule(layoutRule);
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
     SourceLocation loc = scalar->getSourceLocation();
@@ -14792,13 +14789,13 @@ SpirvInstruction *SpirvEmitter::splatScalarToGenerate(QualType type,
                       [this, &elements, &scalar, layoutRule](
                           size_t spirvFieldIndex, const QualType &fieldType,
                           const StructType::FieldInfo &fieldInfo) {
-                        elements.push_back(SplatScalarToGenerate(
+                        elements.push_back(splatScalarToGenerate(
                             fieldType, scalar, layoutRule));
                         return true;
                       });
     SpirvInstruction *result =
         spvBuilder.createCompositeConstruct(type, elements, loc);
-    result->setLayoutRule(rule);
+    result->setLayoutRule(layoutRule);
     return result;
   } else {
     llvm_unreachable("Trying to generate a type that we cannot generate");
