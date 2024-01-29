@@ -289,7 +289,7 @@ namespace {
               // the include handlers exactly. The SourceManager entries should
               // match it except the call to MakeAbsoluteOrCurDirRelative.
               std::string path =
-                  hlsl::NormalizePathForPdb(it->first->getName());
+                  hlsl::NormalizePath(it->first->getName());
               filesMap[path] = it->second->getRawBuffer()->getBuffer();
             }
           }

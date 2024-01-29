@@ -327,7 +327,7 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
           bFoundMainFile = true;
         } else {
           std::string NormalizedBuf =
-              hlsl::NormalizePathForPdb(it->first->getName());
+              hlsl::NormalizePath(it->first->getName());
           filesMap[NormalizedBuf] = it->second->getRawBuffer()->getBuffer();
         }
       }

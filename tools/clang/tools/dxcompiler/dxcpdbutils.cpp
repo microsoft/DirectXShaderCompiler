@@ -427,7 +427,7 @@ private:
     } else {
       std::string nullTermStorage = name;
       std::string normalizedPath =
-          hlsl::NormalizePathForPdb(nullTermStorage.c_str());
+          hlsl::NormalizePath(nullTermStorage.c_str());
       IFR(Utf8ToBlobWide(normalizedPath, &source.Name));
     }
 

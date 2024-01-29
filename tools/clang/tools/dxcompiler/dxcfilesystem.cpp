@@ -156,7 +156,7 @@ static const size_t MaxIncludedFiles = 1000;
 namespace dxcutil {
 
 void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
-  if (::IsAbsoluteOrCurDirRelativeW(Path)) {
+  if (hlsl::IsAbsoluteOrCurDirRelativeW(Path)) {
     return;
   } else {
     PathStorage = L"./";
@@ -166,7 +166,7 @@ void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
 }
 
 void MakeAbsoluteOrCurDirRelative(LPCSTR &Path, std::string &PathStorage) {
-  if (IsAbsoluteOrCurDirRelative(Path)) {
+  if (hlsl::IsAbsoluteOrCurDirRelative(Path)) {
     return;
   } else {
     PathStorage = "./";
@@ -278,7 +278,7 @@ private:
 
       CComPtr<::IDxcBlob> fileBlob;
 
-      std::wstring NormalizedFileName = hlsl::NormalizePathForPdbW(lpFileName);
+      std::wstring NormalizedFileName = hlsl::NormalizePathW(lpFileName);
       HRESULT hr =
           m_includeLoader->LoadSource(NormalizedFileName.c_str(), &fileBlob);
       if (FAILED(hr)) {
