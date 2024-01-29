@@ -165,16 +165,6 @@ void MakeAbsoluteOrCurDirRelativeW(LPCWSTR &Path, std::wstring &PathStorage) {
   }
 }
 
-void MakeAbsoluteOrCurDirRelative(LPCSTR &Path, std::string &PathStorage) {
-  if (hlsl::IsAbsoluteOrCurDirRelative(Path)) {
-    return;
-  } else {
-    PathStorage = "./";
-    PathStorage += Path;
-    Path = PathStorage.c_str();
-  }
-}
-
 /// File system based on API arguments. Support being added incrementally.
 ///
 /// DxcArgsFileSystem emulates a file system to clang/llvm based on API
@@ -537,7 +527,6 @@ public:
       std::wstring FileNameStore; // The destructor might release and set
                                   // LastError to success.
       MakeAbsoluteOrCurDirRelativeW(lpFileName, FileNameStore);
-
       size_t sourceNameLen = wcslen(m_pSourceName);
       size_t fileNameLen = wcslen(lpFileName);
 

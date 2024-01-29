@@ -425,8 +425,7 @@ private:
       IFR(Utf8ToBlobWide(name, &source.Name));
       m_MainFileName = source.Name;
     } else {
-      std::string nullTermStorage = name;
-      std::string normalizedPath = hlsl::NormalizePath(nullTermStorage.c_str());
+      std::string normalizedPath = hlsl::NormalizePath(name);
       IFR(Utf8ToBlobWide(normalizedPath, &source.Name));
     }
 

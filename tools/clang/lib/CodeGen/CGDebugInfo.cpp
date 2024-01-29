@@ -240,6 +240,8 @@ StringRef CGDebugInfo::getClassName(const RecordDecl *RD) {
 
 // HLSL Change - begin
 std::string CGDebugInfo::HLSLNormalizeDbgFileName(StringRef Str) {
+  // For HLSL, we want to keep the main file name exactly as is. Everything
+  // else should be formatted in a standard way.
   if (!CGM.getLangOpts().HLSL || CGM.getLangOpts().HLSLMainFile == Str)
     return Str;
   return hlsl::NormalizePath(Str);
