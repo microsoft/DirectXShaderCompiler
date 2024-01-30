@@ -342,6 +342,29 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   bool hasCSRawAndStructuredViaShader4X =
       hasRawAndStructuredBuffer && m_pSM->GetMajor() == 4 && m_pSM->IsCS();
   Flags.SetCSRawAndStructuredViaShader4X(hasCSRawAndStructuredViaShader4X);
+
+  if (!Flags.GetRaytracingTier1_1()) {
+    if (const DxilSubobjects *pSubobjects = GetSubobjects()) {
+      for (const auto &it : pSubobjects->GetSubobjects()) {
+        switch (it.second->GetKind()) {
+        case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+          Flags.SetRaytracingTier1_1(true);
+          break;
+        case DXIL::SubobjectKind::StateObjectConfig: {
+          uint32_t configFlags;
+          if (it.second->GetStateObjectConfig(configFlags) &&
+              ((configFlags &
+                ~(unsigned)DXIL::StateObjectFlags::ValidMask_1_4) != 0))
+            Flags.SetRaytracingTier1_1(true);
+        } break;
+        default:
+          break;
+        }
+        if (Flags.GetRaytracingTier1_1())
+          break;
+      }
+    }
+  }
 }
 
 void DxilModule::CollectShaderFlagsForModule() {
