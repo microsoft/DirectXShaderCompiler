@@ -211,7 +211,8 @@ enum class ShaderKind {
   Last_1_2 = Compute,
   Last_1_4 = Callable,
   Last_1_7 = Amplification,
-  LastValid = Node,
+  Last_1_8 = Node,
+  LastValid = Last_1_8,
 };
 
 // clang-format off
