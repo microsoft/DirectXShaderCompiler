@@ -3249,23 +3249,24 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
   if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) < 0) {
     // validator 1.4 didn't exclude wave ops in mask
     if (IsDxilOpWave(opcode))
-      mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
-    // These shader models don't exist before 1.5
-    mask &= ~(SFLAG(Amplification) | SFLAG(Mesh));
+      mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Mesh) - 1;
     // validator 1.4 didn't have any additional rules applied:
     return;
   }
 
   // Additional rules are applied manually here.
 
-  // Barrier with mode != UAVFenceGlobal requires compute, amplification, or
-  // mesh Instructions: Barrier=80
+  // Barrier with mode != UAVFenceGlobal requires compute, amplification,
+  // mesh, or node. Instructions: Barrier=80
   if (opcode == DXIL::OpCode::Barrier) {
-    DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
-    unsigned mode = barrier.get_barrierMode_val();
-    if (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal) {
-      mask =
-          SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
+    // Barrier mode should be a constant, but be robust to non-constants here.
+    if (isa<ConstantInt>(CI->getArgOperand(DxilInst_Barrier::arg_barrierMode))) {
+      DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
+      unsigned mode = barrier.get_barrierMode_val();
+      if (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal) {
+        mask &= SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
+                SFLAG(Mesh) | SFLAG(Node);
+      }
     }
     return;
   }
