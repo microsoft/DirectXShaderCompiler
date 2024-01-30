@@ -251,9 +251,10 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override final {
-    return SetupAndRun(m_pMalloc,
+    return SetupAndRun(
+        m_pMalloc,
         std::mem_fn(&Entrypoint<IInterface, IParent>::QueryInterfaceImpl),
-                       ThisPtr(this), iid, CheckNotNull(OutParam(ppvObject)));
+        ThisPtr(this), iid, CheckNotNull(OutParam(ppvObject)));
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterfaceImpl(REFIID iid, void **ppvObject) {

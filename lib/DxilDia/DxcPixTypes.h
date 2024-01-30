@@ -209,7 +209,7 @@ public:
 };
 
 struct __declspec(uuid("6c707d08-7995-4a84-bae5-e6d8291f3b78"))
-    PreviousDxcPixStructField {}; 
+    PreviousDxcPixStructField {};
 
 class DxcPixStructField : public IDxcPixStructField {
 private:
@@ -237,8 +237,7 @@ public:
       return S_OK;
     }
 
-    return DoBasicQueryInterface<IDxcPixStructField>(
-        this, iid, ppvObject);
+    return DoBasicQueryInterface<IDxcPixStructField>(this, iid, ppvObject);
   }
 
   STDMETHODIMP GetName(BSTR *Name) override;

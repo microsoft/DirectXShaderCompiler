@@ -2788,7 +2788,7 @@ void main()
   VERIFY_SUCCEEDED(bfStructType->GetFieldByIndex(1, &field));
   CComPtr<IDxcPixStructField0> mike;
   VERIFY_SUCCEEDED(field->QueryInterface(IID_PPV_ARGS(&mike)));
-  DWORD secondFieldOffset= 0;
+  DWORD secondFieldOffset = 0;
   VERIFY_SUCCEEDED(mike->GetOffsetInBits(&secondFieldOffset));
   VERIFY_ARE_EQUAL(32, secondFieldOffset);
 }
