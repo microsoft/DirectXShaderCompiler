@@ -3260,7 +3260,8 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
   // mesh, or node. Instructions: Barrier=80
   if (opcode == DXIL::OpCode::Barrier) {
     // Barrier mode should be a constant, but be robust to non-constants here.
-    if (isa<ConstantInt>(CI->getArgOperand(DxilInst_Barrier::arg_barrierMode))) {
+    if (isa<ConstantInt>(
+            CI->getArgOperand(DxilInst_Barrier::arg_barrierMode))) {
       DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
       unsigned mode = barrier.get_barrierMode_val();
       if (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal) {

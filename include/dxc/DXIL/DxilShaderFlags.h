@@ -327,7 +327,7 @@ private:
   unsigned m_bUsesDerivatives : 1; // SHADER_FEATURE_OPT_USES_DERIVATIVES
                                    // (OptFeatureInfo_UsesDerivatives)
 
-  uint32_t m_align1 : 24;              // align to 64 bit.
+  uint32_t m_align1 : 24; // align to 64 bit.
 };
 
 } // namespace hlsl

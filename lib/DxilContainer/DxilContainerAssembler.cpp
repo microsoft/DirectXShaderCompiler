@@ -1872,8 +1872,7 @@ private:
   }
 
 public:
-  DxilRDATWriter(DxilModule &mod)
-      : Builder(GetRecordDuplicationAllowed(mod)) {
+  DxilRDATWriter(DxilModule &mod) : Builder(GetRecordDuplicationAllowed(mod)) {
     // Keep track of validator version so we can make a compatible RDAT
     mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
     RDAT::RuntimeDataPartType maxAllowedType =

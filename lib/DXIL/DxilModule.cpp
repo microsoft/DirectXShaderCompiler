@@ -2125,9 +2125,7 @@ bool DxilModule::ShaderCompatInfo::Merge(ShaderCompatInfo &other) {
   return changed;
 }
 
-void DxilModule::ClearShaderCompatInfo() {
-  m_FuncToShaderCompat.clear();
-}
+void DxilModule::ClearShaderCompatInfo() { m_FuncToShaderCompat.clear(); }
 
 void DxilModule::ComputeShaderCompatInfo() {
   // Initialize worklist with functions with callers
