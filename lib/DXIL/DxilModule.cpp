@@ -2264,5 +2264,4 @@ DxilModule::GetCompatInfoForFunction(const llvm::Function *F) const {
   return nullptr;
 }
 
-
 } // namespace hlsl
