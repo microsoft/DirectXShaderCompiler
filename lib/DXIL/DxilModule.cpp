@@ -289,10 +289,17 @@ unsigned DxilModule::GetGlobalFlags() const {
 }
 
 void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
-  for (Function &F : GetModule()->functions()) {
-    ShaderFlags funcFlags = ShaderFlags::CollectShaderFlags(&F, this);
-    Flags.CombineShaderFlags(funcFlags);
-  };
+  ComputeShaderCompatInfo();
+  for (auto &itInfo : m_FuncToShaderCompat)
+    Flags.CombineShaderFlags(itInfo.second.shaderFlags);
+
+  // Clear UsesDerivatives flag on non-library, making sure
+  // DerivativesInMeshAndAmpShaders is set for MS/AS.
+  if (Flags.GetUsesDerivatives() && !m_pSM->IsLib()) {
+    Flags.SetUsesDerivatives(false);
+    if (m_pSM->IsMS() || m_pSM->IsAS())
+      Flags.SetDerivativesInMeshAndAmpShaders(true);
+  }
 
   const ShaderModel *SM = GetShaderModel();
 
@@ -2103,5 +2110,161 @@ bool DxilModule::IsPrecise(const Instruction *inst) const {
   else
     return false;
 }
+
+bool DxilModule::ShaderCompatInfo::Merge(ShaderCompatInfo &other) {
+  bool changed = DXIL::MaxOfShaderModels(minMajor, minMinor, other.minMajor,
+                                         other.minMinor);
+  if ((mask & other.mask) != mask) {
+    mask &= other.mask;
+    changed = true;
+  }
+  uint64_t rawBefore = shaderFlags.GetShaderFlagsRaw();
+  shaderFlags.CombineShaderFlags(other.shaderFlags);
+  if (rawBefore != shaderFlags.GetShaderFlagsRaw())
+    changed = true;
+  return changed;
+}
+
+void DxilModule::ClearShaderCompatInfo() {
+  m_FuncToShaderCompat.clear();
+}
+
+void DxilModule::ComputeShaderCompatInfo() {
+  // Initialize worklist with functions with callers
+  SmallSetVector<llvm::Function *, 8> worklist;
+
+  for (auto &function : GetModule()->getFunctionList()) {
+    if (function.isDeclaration() && !function.isIntrinsic() &&
+        function.getLinkage() ==
+            llvm::GlobalValue::LinkageTypes::ExternalLinkage &&
+        OP::IsDxilOpFunc(&function)) {
+      // update min shader model and shader stage mask per function
+      UpdateFunctionToShaderCompat(&function);
+    } else if (!function.isDeclaration()) {
+      // Initialize worklist with functions with callers.
+      // only used for validator version 1.8+
+      if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0 &&
+          !function.user_empty())
+        worklist.insert(&function);
+
+      // Skip functions with shader flags already set
+      if (m_FuncToShaderCompat.count(&function) != 0)
+        continue;
+
+      // Collect shader flags for function
+      ShaderCompatInfo &info = m_FuncToShaderCompat[&function];
+      info.shaderFlags = ShaderFlags::CollectShaderFlags(&function, this);
+    }
+  }
+
+  // Propagate ShaderCompatInfo to callers, limit to 1.8+ for compatibility
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
+    while (!worklist.empty()) {
+      llvm::Function *F = worklist.pop_back_val();
+      ShaderCompatInfo &calleeInfo = m_FuncToShaderCompat[F];
+      // Update callers
+      for (auto U : F->users()) {
+        if (CallInst *CI = dyn_cast<CallInst>(U)) {
+          llvm::Function *caller = CI->getParent()->getParent();
+          // Merge info, if changed and called, add to worklist so we update
+          // any callers of caller as well.
+          if (m_FuncToShaderCompat[caller].Merge(calleeInfo) &&
+              !caller->user_empty())
+            worklist.insert(caller);
+        }
+      }
+    }
+  }
+
+  // We must select the appropriate shader mask for the validator version,
+  // so we don't set any bits the validator doesn't recognize.
+  unsigned ValidShaderMask =
+      (1 << ((unsigned)DXIL::ShaderKind::LastValid + 1)) - 1;
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
+    ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_4 + 1)) - 1;
+  } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0) {
+    ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_7 + 1)) - 1;
+  } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
+    ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_8 + 1)) - 1;
+  }
+
+  for (auto &function : GetModule()->getFunctionList()) {
+    if (!function.isDeclaration()) {
+      ShaderCompatInfo &info = m_FuncToShaderCompat[&function];
+      DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Library;
+      const DxilFunctionProps *props = nullptr;
+      if (HasDxilFunctionProps(&function)) {
+        props = &GetDxilFunctionProps(&function);
+        shaderKind = props->shaderKind;
+      }
+
+      if (shaderKind == DXIL::ShaderKind::Library)
+        info.mask &= ValidShaderMask;
+      else
+        info.mask &= (1U << static_cast<unsigned>(shaderKind));
+
+      // Increase min target based on features used:
+      ShaderFlags &flags = info.shaderFlags;
+      if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
+        // This handles WaveSize requirement as well.
+        flags = flags.AdjustMinimumShaderModelAndFlags(props, info.minMajor,
+                                                       info.minMinor);
+      } else {
+        // Match prior versions that were missing some feature detection.
+        if (flags.GetUseNativeLowPrecision() && flags.GetLowPrecisionPresent())
+          DXIL::MaxOfShaderModels(info.minMajor, info.minMinor, 6, 2);
+        else if (flags.GetBarycentrics() || flags.GetViewID())
+          DXIL::MaxOfShaderModels(info.minMajor, info.minMinor, 6, 1);
+      }
+    }
+  }
+}
+
+void DxilModule::UpdateFunctionToShaderCompat(const llvm::Function *dxilFunc) {
+  const bool bWithTranslation = GetShaderModel()->IsLib();
+#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
+  for (const llvm::User *user : dxilFunc->users()) {
+    if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
+      // Find calling function
+      const llvm::Function *F =
+          cast<const llvm::Function>(CI->getParent()->getParent());
+      // Insert or lookup info
+      ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+      unsigned major, minor, mask;
+      OP::GetMinShaderModelAndMask(CI, bWithTranslation, m_ValMajor, m_ValMinor,
+                                   major, minor, mask);
+      DXIL::MaxOfShaderModels(info.minMajor, info.minMinor, major, minor);
+      info.mask &= mask;
+    } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
+      // If loading a groupshared variable, limit to CS/AS/MS
+      if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+        const llvm::Function *F =
+            cast<const llvm::Function>(LI->getParent()->getParent());
+        ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+        info.mask &=
+            (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Node));
+      }
+    } else if (const llvm::StoreInst *SI = dyn_cast<StoreInst>(user)) {
+      // If storing to a groupshared variable, limit to CS/AS/MS
+      if (SI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
+        const llvm::Function *F =
+            cast<const llvm::Function>(SI->getParent()->getParent());
+        ShaderCompatInfo &info = m_FuncToShaderCompat[F];
+        info.mask &=
+            (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Node));
+      }
+    }
+  }
+#undef SFLAG
+}
+
+const DxilModule::ShaderCompatInfo *
+DxilModule::GetCompatInfoForFunction(const llvm::Function *F) const {
+  auto it = m_FuncToShaderCompat.find(F);
+  if (it != m_FuncToShaderCompat.end())
+    return &it->second;
+  return nullptr;
+}
+
 
 } // namespace hlsl

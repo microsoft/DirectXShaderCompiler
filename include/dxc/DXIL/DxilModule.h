@@ -404,6 +404,31 @@ private:
                        std::unique_ptr<T> pRes);
   void LoadDxilSignature(const llvm::MDTuple *pSigTuple, DxilSignature &Sig,
                          bool bInput);
+
+public:
+  // Compute ShaderCompatInfo for all functions in module.
+  void ComputeShaderCompatInfo();
+
+  // Clear previous ShaderCompatInfo for recomputation.
+  void ClearShaderCompatInfo();
+
+  // ShaderCompatInfo tracks requirements per-function, subsequently merged into
+  // final entry function requirements.
+  struct ShaderCompatInfo {
+    unsigned minMajor = 6, minMinor = 0;
+    unsigned mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+    ShaderFlags shaderFlags;
+    bool Merge(ShaderCompatInfo &other);
+  };
+
+  const ShaderCompatInfo *
+  GetCompatInfoForFunction(const llvm::Function *F) const;
+
+private:
+  typedef std::unordered_map<const llvm::Function *, ShaderCompatInfo>
+      FunctionShaderCompatMap;
+  FunctionShaderCompatMap m_FuncToShaderCompat;
+  void UpdateFunctionToShaderCompat(const llvm::Function *dxilFunc);
 };
 
 } // namespace hlsl
