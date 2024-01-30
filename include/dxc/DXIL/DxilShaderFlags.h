@@ -125,24 +125,29 @@ public:
   void SetUAVsAtEveryStage(bool flag) { m_UAVsAtEveryStage = flag; }
   bool GetUAVsAtEveryStage() const { return m_UAVsAtEveryStage; }
 
+  // SM 6.1+
   void SetViewID(bool flag) { m_bViewID = flag; }
   bool GetViewID() const { return m_bViewID; }
 
   void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
   bool GetBarycentrics() const { return m_bBarycentrics; }
 
+  // SM 6.2+
   void SetUseNativeLowPrecision(bool flag) { m_bUseNativeLowPrecision = flag; }
   bool GetUseNativeLowPrecision() const { return m_bUseNativeLowPrecision; }
 
+  // SM 6.4+
   void SetShadingRate(bool flag) { m_bShadingRate = flag; }
   bool GetShadingRate() const { return m_bShadingRate; }
 
+  // SM 6.5+
   void SetRaytracingTier1_1(bool flag) { m_bRaytracingTier1_1 = flag; }
   bool GetRaytracingTier1_1() const { return m_bRaytracingTier1_1; }
 
   void SetSamplerFeedback(bool flag) { m_bSamplerFeedback = flag; }
   bool GetSamplerFeedback() const { return m_bSamplerFeedback; }
 
+  // SM 6.6+
   void SetAtomicInt64OnTypedResource(bool flag) {
     m_bAtomicInt64OnTypedResource = flag;
   }
@@ -160,7 +165,7 @@ public:
   void SetDerivativesInMeshAndAmpShaders(bool flag) {
     m_bDerivativesInMeshAndAmpShaders = flag;
   }
-  bool GetDerivativesInMeshAndAmpShaders() {
+  bool GetDerivativesInMeshAndAmpShaders() const {
     return m_bDerivativesInMeshAndAmpShaders;
   }
 
@@ -185,6 +190,7 @@ public:
     return m_bSamplerDescriptorHeapIndexing;
   }
 
+  // SM 6.7+
   void SetResMayNotAlias(bool flag) { m_bResMayNotAlias = flag; }
   bool GetResMayNotAlias() const { return m_bResMayNotAlias; }
 
@@ -194,9 +200,7 @@ public:
   void SetWriteableMSAATextures(bool flag) { m_bWriteableMSAATextures = flag; }
   bool GetWriteableMSAATextures() const { return m_bWriteableMSAATextures; }
 
-  void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
-  bool GetWaveMMA() const { return m_bWaveMMA; }
-
+  // SM 6.8+
   void SetSampleCmpGradientOrBias(bool flag) {
     m_bSampleCmpGradientOrBias = flag;
   }
@@ -204,6 +208,10 @@ public:
 
   void SetExtendedCommandInfo(bool flag) { m_bExtendedCommandInfo = flag; }
   bool GetExtendedCommandInfo() const { return m_bExtendedCommandInfo; }
+
+  // Experimental SM 6.9+ - Reserved, not yet supported.
+  void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
+  bool GetWaveMMA() const { return m_bWaveMMA; }
 
 private:
   unsigned
@@ -245,16 +253,22 @@ private:
   unsigned m_bROVS : 1;         // SHADER_FEATURE_ROVS
   unsigned m_bWaveOps : 1;      // SHADER_FEATURE_WAVE_OPS
   unsigned m_bInt64Ops : 1;     // SHADER_FEATURE_INT64_OPS
+
+  // SM 6.1+
   unsigned m_bViewID : 1;       // SHADER_FEATURE_VIEWID
   unsigned m_bBarycentrics : 1; // SHADER_FEATURE_BARYCENTRICS
 
+  // SM 6.2+
   unsigned m_bUseNativeLowPrecision : 1;
 
+  // SM 6.4+
   unsigned m_bShadingRate : 1; // SHADER_FEATURE_SHADINGRATE
 
+  // SM 6.5+
   unsigned m_bRaytracingTier1_1 : 1; // SHADER_FEATURE_RAYTRACING_TIER_1_1
   unsigned m_bSamplerFeedback : 1;   // SHADER_FEATURE_SAMPLER_FEEDBACK
 
+  // SM 6.6+
   unsigned
       m_bAtomicInt64OnTypedResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_TYPED_RESOURCE
   unsigned
@@ -282,8 +296,10 @@ private:
   unsigned
       m_bWriteableMSAATextures : 1; // SHADER_FEATURE_WRITEABLE_MSAA_TEXTURES
 
-  // SM 6.8+
+  // Experimental SM 6.9+ - Reserved, not yet supported.
   unsigned m_bWaveMMA : 1; // SHADER_FEATURE_WAVE_MMA
+
+  // SM 6.8+
   unsigned
       m_bSampleCmpGradientOrBias : 1; // SHADER_FEATURE_SAMPLE_CMP_GRADIENT_OR_BIAS
   unsigned m_bExtendedCommandInfo : 1; // SHADER_FEATURE_EXTENDED_COMMAND_INFO

@@ -1863,12 +1863,22 @@ const uint64_t
         0x2000;
 const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
 const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
+
+// SM 6.1+
 const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
 const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
+
+// SM 6.2+
 const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
+
+// SM 6.4+
 const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
+
+// SM 6.5+
 const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
 const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
+
+// SM 6.6+
 const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
 const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
 const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders = 0x1000000;
@@ -1882,11 +1892,12 @@ const uint64_t ShaderFeatureInfo_AdvancedTextureOps = 0x20000000;
 const uint64_t ShaderFeatureInfo_WriteableMSAATextures = 0x40000000;
 
 // SM 6.8+
-// WaveMMA slots in between two SM 6.6 feature bits.
-const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
-
 const uint64_t ShaderFeatureInfo_SampleCmpGradientOrBias = 0x80000000;
 const uint64_t ShaderFeatureInfo_ExtendedCommandInfo = 0x100000000;
+
+// Experimental SM 6.9+ - Reserved, not yet supported.
+// WaveMMA slots in between two SM 6.6 feature bits.
+const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
 
 const unsigned ShaderFeatureInfoCount = 33;
 
