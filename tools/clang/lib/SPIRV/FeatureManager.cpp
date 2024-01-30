@@ -85,6 +85,7 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n "
              "vulkan1.1spirv1.4\n vulkan1.2\n vulkan1.3\n universal1.5",
              {});
+    return;
   }
   targetEnv = *targetEnvOpt;
 
