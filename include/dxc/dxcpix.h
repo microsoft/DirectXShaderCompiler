@@ -46,6 +46,15 @@ struct __declspec(uuid("9ba0d9d3-457b-426f-8019-9f3849982aa2")) IDxcPixArrayType
   GetElementType(_COM_Outptr_ IDxcPixType **ppElementType) = 0;
 };
 
+struct __declspec(uuid("6c707d08-7995-4a84-bae5-e6d8291f3b78"))
+    IDxcPixStructField0 : public IUnknown {
+  virtual STDMETHODIMP GetName(_Outptr_result_z_ BSTR *Name) = 0;
+
+  virtual STDMETHODIMP GetType(_COM_Outptr_ IDxcPixType **ppType) = 0;
+
+  virtual STDMETHODIMP GetOffsetInBits(_Out_ DWORD *pOffsetInBits) = 0;
+};
+
 struct __declspec(uuid("de45597c-5869-4f97-a77b-d6650b9a16cf"))
     IDxcPixStructField : public IUnknown {
   virtual STDMETHODIMP GetName(_Outptr_result_z_ BSTR *Name) = 0;

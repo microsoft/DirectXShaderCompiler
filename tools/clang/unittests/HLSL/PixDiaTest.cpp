@@ -179,6 +179,7 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
   TEST_METHOD(DxcPixDxilDebugInfo_Alignment_ConstInt)
+  TEST_METHOD(DxcPixDxilDebugInfo_QIOldFieldInterface)
   TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Simple)
   TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Derived)
   TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Bool)
@@ -2756,6 +2757,42 @@ void main()
   RunSubProgramsCase(hlsl);
 }
 
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_QIOldFieldInterface) {
+  const char *hlsl = R"(
+struct Struct
+{
+    unsigned int first;
+    unsigned int second;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Struct s;
+  s.second = UAV[0];
+  UAV[16] = s.second; //STOP_HERE
+}
+)";
+
+  auto debugInfo = CompileAndCreateDxcDebug(hlsl, L"cs_6_5", nullptr).debugInfo;
+  auto live = GetLiveVariablesAt(hlsl, "STOP_HERE", debugInfo);
+  CComPtr<IDxcPixVariable> bf;
+  VERIFY_SUCCEEDED(live->GetVariableByName(L"s", &bf));
+  CComPtr<IDxcPixType> bfType;
+  VERIFY_SUCCEEDED(bf->GetType(&bfType));
+  CComPtr<IDxcPixStructType> bfStructType;
+  VERIFY_SUCCEEDED(bfType->QueryInterface(IID_PPV_ARGS(&bfStructType)));
+  CComPtr<IDxcPixStructField> field;
+  VERIFY_SUCCEEDED(bfStructType->GetFieldByIndex(1, &field));
+  CComPtr<IDxcPixStructField0> mike;
+  VERIFY_SUCCEEDED(field->QueryInterface(IID_PPV_ARGS(&mike)));
+  DWORD secondFieldOffset= 0;
+  VERIFY_SUCCEEDED(mike->GetOffsetInBits(&secondFieldOffset));
+  VERIFY_ARE_EQUAL(32, secondFieldOffset);
+}
+
 void PixDiaTest::RunSizeAndOffsetTestCase(
     const char *hlsl, std::array<DWORD, 4> const &memberOffsets,
     std::array<DWORD, 4> const &memberSizes,
@@ -2974,8 +3011,7 @@ void main()
 
 
 )";
-  RunSizeAndOffsetTestCase(hlsl, {0, 32, 64, 96}, {16, 16, 16, 16},
-                           {L"-Od"});
+  RunSizeAndOffsetTestCase(hlsl, {0, 32, 64, 96}, {16, 16, 16, 16}, {L"-Od"});
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_SubProgramsInNamespaces) {

@@ -232,7 +232,7 @@ HRESULT CreateEntrypointWrapper(IMalloc *pMalloc, IUnknown *pReal, REFIID iid,
 // Entrypoint is the base class for all entrypoints, providing
 // the default QueryInterface implementation, as well as a
 // more convenient way of calling SetupAndRun.
-template <typename I> class Entrypoint : public I {
+template <typename I, typename IParent = I> class Entrypoint : public I {
 protected:
   using IInterface = I;
 
@@ -252,14 +252,14 @@ public:
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override final {
     return SetupAndRun(m_pMalloc,
-                       std::mem_fn(&Entrypoint<IInterface>::QueryInterfaceImpl),
+        std::mem_fn(&Entrypoint<IInterface, IParent>::QueryInterfaceImpl),
                        ThisPtr(this), iid, CheckNotNull(OutParam(ppvObject)));
   }
 
   HRESULT STDMETHODCALLTYPE QueryInterfaceImpl(REFIID iid, void **ppvObject) {
     // Special-casing so we don't need to create a new wrapper.
-    if (iid == __uuidof(IInterface) || iid == __uuidof(IUnknown) ||
-        iid == __uuidof(INoMarshal)) {
+    if (iid == __uuidof(IInterface) || iid == __uuidof(IParent) ||
+        iid == __uuidof(IUnknown) || iid == __uuidof(INoMarshal)) {
       this->AddRef();
       *ppvObject = this;
       return S_OK;
@@ -273,6 +273,11 @@ public:
 
 #define DEFINE_ENTRYPOINT_BOILERPLATE(Name)                                    \
   Name(IMalloc *M, IInterface *pI) : Entrypoint<IInterface>(M, pI) {}          \
+  DXC_MICROCOM_TM_ALLOC(Name)
+
+#define DEFINE_ENTRYPOINT_BOILERPLATE2(Name, ParentIFace)                      \
+  Name(IMalloc *M, IInterface *pI)                                             \
+      : Entrypoint<IInterface, ParentIFace>(M, pI) {}                          \
   DXC_MICROCOM_TM_ALLOC(Name)
 
 struct IUnknownEntrypoint : public Entrypoint<IUnknown> {
@@ -390,8 +395,10 @@ struct IDxcPixArrayTypeEntrypoint : public Entrypoint<IDxcPixArrayType> {
 };
 DEFINE_ENTRYPOINT_WRAPPER_TRAIT(IDxcPixArrayType);
 
-struct IDxcPixStructFieldEntrypoint : public Entrypoint<IDxcPixStructField> {
-  DEFINE_ENTRYPOINT_BOILERPLATE(IDxcPixStructFieldEntrypoint);
+struct IDxcPixStructFieldEntrypoint
+    : public Entrypoint<IDxcPixStructField, IDxcPixStructField0> {
+  DEFINE_ENTRYPOINT_BOILERPLATE2(IDxcPixStructFieldEntrypoint,
+                                 IDxcPixStructField0);
 
   STDMETHODIMP GetName(BSTR *Name) override {
     return InvokeOnReal(&IInterface::GetName, CheckNotNull(OutParam(Name)));
