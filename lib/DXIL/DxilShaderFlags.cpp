@@ -46,7 +46,7 @@ ShaderFlags::ShaderFlags()
       m_bAtomicInt64OnHeapResource(false), m_bResMayNotAlias(false),
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
       m_bWaveMMA(false), m_bSampleCmpGradientOrBias(false),
-      m_bExtendedCommandInfo(false), m_align1(0) {
+      m_bExtendedCommandInfo(false), m_bUsesDerivatives(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
@@ -134,6 +134,8 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
                ? hlsl::DXIL::ShaderFeatureInfo_ExtendedCommandInfo
                : 0;
 
+  Flags |= m_bUsesDerivatives ? hlsl::DXIL::OptFeatureInfo_UsesDerivatives : 0;
+
   return Flags;
 }
 
@@ -196,6 +198,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetWaveMMA(true);
   Flags.SetSampleCmpGradientOrBias(true);
   Flags.SetExtendedCommandInfo(true);
+  Flags.SetUsesDerivatives(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -430,6 +433,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasWaveMMA = false;
   bool hasExtendedCommandInfo = false;
 
+  // UsesDerivatives is used to indicate any derivative use per-function, before
+  // flags are combined from called functions. Later, the flags are adjusted for
+  // each entry point function in AdjustMinimumShaderModelAndFlags.  This will
+  // set DerivativesInMeshAndAmpShaders if the entry point function or shader
+  // model is mesh or amplification shader.
+  bool hasDerivatives = false;
+
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
@@ -618,9 +628,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::DerivCoarseX:
         case DXIL::OpCode::DerivCoarseY:
         case DXIL::OpCode::CalculateLOD: {
-          const ShaderModel *pSM = M->GetShaderModel();
-          if (pSM->IsAS() || pSM->IsMS())
-            hasDerivativesInMeshAndAmpShaders = true;
+          hasDerivatives = true;
         } break;
         case DXIL::OpCode::CreateHandleFromHeap: {
           ConstantInt *isSamplerVal = dyn_cast<ConstantInt>(CI->getArgOperand(
@@ -730,6 +738,12 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         break;
       }
     }
+
+    // If we know this function is MS or AS, go ahead and set this flag now.
+    if (hasDerivatives &&
+        (entryProps.props.IsMS() || entryProps.props.IsAS())) {
+      hasDerivativesInMeshAndAmpShaders = true;
+    }
   }
 
   if (!hasRaytracingTier1_1) {
@@ -752,6 +766,16 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           break;
       }
     }
+  }
+
+  if (hasDerivatives && DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0) {
+    // Before validator version 1.8, UsesDerivatives flag was not set, and we
+    // set the DerivativesInMeshAndAmpShaders only if the shader model in the
+    // module is mesh or amplification.
+    hasDerivatives = false;
+    const ShaderModel *SM = M->GetShaderModel();
+    if (!(SM->IsMS() || SM->IsAS()))
+      hasDerivativesInMeshAndAmpShaders = false;
   }
 
   flag.SetEnableDoublePrecision(hasDouble);
@@ -785,6 +809,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                          !M->GetResMayAlias());
   flag.SetSampleCmpGradientOrBias(hasSampleCmpGradientOrBias);
   flag.SetExtendedCommandInfo(hasExtendedCommandInfo);
+  flag.SetUsesDerivatives(hasDerivatives);
 
   return flag;
 }

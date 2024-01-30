@@ -213,6 +213,9 @@ public:
   void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
   bool GetWaveMMA() const { return m_bWaveMMA; }
 
+  void SetUsesDerivatives(bool flag) { m_bUsesDerivatives = flag; }
+  bool GetUsesDerivatives() const { return m_bUsesDerivatives; }
+
 private:
   unsigned
       m_bDisableOptimizations : 1; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
@@ -303,7 +306,12 @@ private:
   unsigned
       m_bSampleCmpGradientOrBias : 1; // SHADER_FEATURE_SAMPLE_CMP_GRADIENT_OR_BIAS
   unsigned m_bExtendedCommandInfo : 1; // SHADER_FEATURE_EXTENDED_COMMAND_INFO
-  uint32_t m_align1 : 25;              // align to 64 bit.
+
+  // Per-function flag
+  unsigned m_bUsesDerivatives : 1; // SHADER_FEATURE_OPT_USES_DERIVATIVES
+                                   // (OptFeatureInfo_UsesDerivatives)
+
+  uint32_t m_align1 : 24;              // align to 64 bit.
 };
 
 } // namespace hlsl

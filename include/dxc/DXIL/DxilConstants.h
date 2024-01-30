@@ -1899,7 +1899,22 @@ const uint64_t ShaderFeatureInfo_ExtendedCommandInfo = 0x100000000;
 // WaveMMA slots in between two SM 6.6 feature bits.
 const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
 
+// Maximum count without rolling over into another 64-bit field is 40,
+// so the last flag we can use for a feature requirement is: 0x8000000000
+// This is because of the following set of flags, considered optional
+// and ignored by the runtime if not recognized:
+// D3D11_OPTIONAL_FEATURE_FLAGS 0x7FFFFF0000000000
 const unsigned ShaderFeatureInfoCount = 33;
+
+// This section is for flags that do not directly indicate a required feature,
+// but are used to indicate something about the shader.
+
+// Create flag here for any derivative use.  This allows call-graph validation
+// in the runtime to detect misuse of derivatives for an entry point that cannot
+// support it, or to determine when the flag
+// ShaderFeatureInfo_DerivativesInMeshAndAmpShaders is required.
+const uint64_t OptFeatureInfo_UsesDerivatives = 0x0000010000000000ULL;
+const unsigned OptFeatureInfoCount = 1;
 
 // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
 // certain values reserved, since they cannot be used from Dxil.
