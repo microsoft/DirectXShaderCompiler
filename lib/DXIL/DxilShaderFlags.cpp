@@ -454,8 +454,11 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool canSetResMayNotAlias =
       DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 7) >= 0;
 
-  // HasLodClamp is only enabled after v1.8 validator.
-  bool canSetHasLodClamp = DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
+  // Use of LodClamp requires tiled resources, but a bug in validator 1.7 and
+  // lower didn't recognize this.  So, if validator version < 1.8, don't set
+  // tiled resources flag based on LodClamp.
+  bool canSetTiledResourcesBasedOnLodClamp =
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
@@ -786,7 +789,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetEnableDoubleExtensions(hasDoubleExtension);
   flag.SetWaveOps(hasWaveOps);
   flag.SetTiledResources(hasCheckAccessFully ||
-                         (canSetHasLodClamp && hasLodClamp));
+                         (canSetTiledResourcesBasedOnLodClamp && hasLodClamp));
   flag.SetEnableMSAD(hasMSAD);
   flag.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
   flag.SetViewID(hasViewID);
