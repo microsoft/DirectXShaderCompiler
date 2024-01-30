@@ -401,6 +401,11 @@ struct IDxcPixStructFieldEntrypoint : public Entrypoint<IDxcPixStructField> {
     return InvokeOnReal(&IInterface::GetType, CheckNotNull(OutParam(ppType)));
   }
 
+  STDMETHODIMP GetFieldSizeInBits(DWORD *pFieldSizeInBits) override {
+    return InvokeOnReal(&IInterface::GetFieldSizeInBits,
+                        CheckNotNull(OutParam(pFieldSizeInBits)));
+  }
+
   STDMETHODIMP GetOffsetInBits(DWORD *pOffsetInBits) override {
     return InvokeOnReal(&IInterface::GetOffsetInBits,
                         CheckNotNull(OutParam(pOffsetInBits)));

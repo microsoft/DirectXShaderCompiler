@@ -1250,8 +1250,9 @@ void VariableRegisters::PopulateAllocaMap_BasicType(llvm::DIBasicType *Ty,
 
   auto *Storage = GetMetadataAsValue(llvm::ValueAsMetadata::get(Alloca));
   auto *Variable = GetMetadataAsValue(m_Variable);
-  auto *Expression = GetMetadataAsValue(GetDIExpression(
-      Ty, offsets.Packed, GetVariableSizeInbits(m_Variable), sizeOverride));
+  auto *Expression = GetMetadataAsValue(
+      GetDIExpression(Ty, sizeOverride == 0 ? offsets.Aligned : offsets.Packed,
+                      GetVariableSizeInbits(m_Variable), sizeOverride));
   auto *DbgDeclare =
       m_B.CreateCall(m_DbgDeclareFn, {Storage, Variable, Expression});
   DbgDeclare->setDebugLoc(m_dbgLoc);
