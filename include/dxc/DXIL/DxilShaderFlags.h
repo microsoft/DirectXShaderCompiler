@@ -15,6 +15,7 @@
 
 namespace hlsl {
 class DxilModule;
+struct DxilFunctionProps;
 }
 
 namespace llvm {
@@ -37,6 +38,21 @@ public:
   uint64_t GetShaderFlagsRaw() const;
   void SetShaderFlagsRaw(uint64_t data);
   void CombineShaderFlags(const ShaderFlags &other);
+
+  // Adjust flags based on function properties; compute minimum shader model
+  // Library functions use flags to capture properties that may or may not be
+  // used in the final shader, depending on that final shader's shader model.
+  // These flags will be combined up a call graph until we hit an entry,
+  // function, at which point, we might have to remove flags that no longer
+  // apply, or adjust the minimum shader model.
+  // For instance: derivatives are allowed in CS/MS/AS in 6.6+, and for MS/AS,
+  // a feature bit is required.  Libary functions will capture any derivative
+  // use into this feature bit, which is used to calculate the final
+  // requirements once we reach an entry function.
+  ShaderFlags
+  AdjustMinimumShaderModelAndFlags(const hlsl::DxilFunctionProps *props,
+                                   unsigned &minMajor,
+                                   unsigned &minMinor) const;
 
   void SetDisableOptimizations(bool flag) { m_bDisableOptimizations = flag; }
   bool GetDisableOptimizations() const { return m_bDisableOptimizations; }

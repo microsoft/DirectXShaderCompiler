@@ -60,6 +60,22 @@ inline int CompareVersions(unsigned Major1, unsigned Minor1, unsigned Major2,
   return 0;
 }
 
+// Utility for updating major,minor to max of current and new.
+inline bool MaxOfShaderModels(unsigned &major, unsigned &minor,
+                              unsigned newMajor, unsigned newMinor) {
+  if (newMajor > major) {
+    major = newMajor;
+    minor = newMinor;
+    return true;
+  } else if (newMajor == major) {
+    if (newMinor > minor) {
+      minor = newMinor;
+      return true;
+    }
+  }
+  return false;
+}
+
 // Shader flags.
 const unsigned kDisableOptimizations =
     0x00000001; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
