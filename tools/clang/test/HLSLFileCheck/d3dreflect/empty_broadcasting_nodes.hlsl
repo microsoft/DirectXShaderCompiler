@@ -16,7 +16,7 @@
 // CHECK:      FeatureInfo1: 0
 // CHECK:      FeatureInfo2: 0
 // CHECK:      ShaderStageFlag: 32768
-// CHECK:      MinShaderTarget: 983136
+// CHECK:      MinShaderTarget: 983144
 // CHECK:      MinimumExpectedWaveLaneCount: 0
 // CHECK:      MaximumExpectedWaveLaneCount: 0
 // CHECK:      ShaderFlags: 0 (None)
