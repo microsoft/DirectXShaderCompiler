@@ -391,6 +391,21 @@ static bool hasSampleClamp(const CallInst *CI) {
 
 ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                                             const hlsl::DxilModule *M) {
+  // NOTE: This function is meant to compute shader flags for a single function,
+  // potentially not knowing the final shader stage for the entry that may call
+  // this function.
+  // As such, do not depend on the shader model in the module, except for
+  // compatibility purposes.  Doing so will fail to encode flags properly for
+  // libraries.  The real, final shader flags will be adjusted after walking
+  // called functions and combining flags.
+  // For example, the use of derivatives impacts an optional flag when used from
+  // a mesh or amplification shader.  It also impacts the minimum shader model
+  // for a compute shader. We do not make assumptions about that context here.
+  // Instead, we simply set a new UsesDerivatives flag to indicate that
+  // derivatives are used, then rely on AdjustMinimumShaderModelAndFlags to set
+  // the final flags correctly once we've merged all called functions.
+  // Place module-level detection in DxilModule::CollectShaderFlagsForModule.
+
   ShaderFlags flag;
   // Module level options
   flag.SetUseNativeLowPrecision(!M->GetUseMinPrecision());
@@ -423,11 +438,10 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasSamplerDescriptorHeapIndexing = false;
   bool hasAtomicInt64OnHeapResource = false;
 
-  // Used to determine whether to set ResMayNotAlias flag.
-  bool hasUAVs = M->GetUAVs().size() > 0;
+  bool hasUAVsGlobally = M->GetUAVs().size() > 0;
 
   bool hasAdvancedTextureOps = false;
-  bool hasWriteableMSAATextures = false;
+  bool hasWriteableMSAATexturesGlobal = false;
   bool hasSampleCmpGradientOrBias = false;
 
   bool hasWaveMMA = false;
@@ -460,6 +474,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool canSetTiledResourcesBasedOnLodClamp =
       DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
 
+  // Used to determine whether to set ResMayNotAlias flag.
+  // Prior to validator version 1.8, we based this on global presence of UAVs.
+  // Now, we base it on the use of UAVs in the function.
+  bool hasUAVs = DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0
+                     ? hasUAVsGlobally
+                     : false;
+
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
 
@@ -469,10 +490,41 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
     ResourceKey key = {(uint8_t)res->GetClass(), res->GetSpaceID(),
                        res->GetLowerBound(), res->GetUpperBound()};
     resMap.insert({key, res.get()});
+
+    // The flag was set for this function if any RWTexture2DMS[Array] resources
+    // existed in the module.  Now, for compatibility, we need to track this
+    // flag so we can set it if validator version is < 1.8.
     if (res->GetKind() == DXIL::ResourceKind::Texture2DMS ||
         res->GetKind() == DXIL::ResourceKind::Texture2DMSArray)
-      hasWriteableMSAATextures = true;
+      hasWriteableMSAATexturesGlobal = true;
   }
+
+  // Before validator version 1.8, we set the WriteableMSAATextures flag based
+  // on the presence of RWTexture2DMS[Array] resources in the module.
+  bool setWriteableMSAATexturesBasedOnGlobal =
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0;
+  bool hasWriteableMSAATextures = setWriteableMSAATexturesBasedOnGlobal
+                                      ? hasWriteableMSAATexturesGlobal
+                                      : false;
+
+  auto checkUsedResourceProps = [&](DxilResourceProperties RP) {
+    if (hasUAVs && hasWriteableMSAATextures)
+      return;
+    if (RP.isUAV()) {
+      hasUAVs = true;
+      if (RP.getResourceKind() == DXIL::ResourceKind::Texture2DMS ||
+          RP.getResourceKind() == DXIL::ResourceKind::Texture2DMSArray)
+        hasWriteableMSAATextures = true;
+    }
+  };
+  auto checkUsedHandle = [&](Value *resHandle) {
+    if (hasUAVs && hasWriteableMSAATextures)
+      return;
+    CallInst *handleCall = FindCallToCreateHandle(resHandle);
+    DxilResourceProperties RP =
+        GetResourcePropertyFromHandleCall(M, handleCall);
+    checkUsedResourceProps(RP);
+  };
 
   for (const BasicBlock &BB : F->getBasicBlockList()) {
     for (const Instruction &I : BB.getInstList()) {
@@ -649,6 +701,11 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             }
           }
         } break;
+        case DXIL::OpCode::CreateHandle:
+        case DXIL::OpCode::CreateHandleForLib:
+        case DXIL::OpCode::AnnotateHandle:
+          checkUsedHandle(const_cast<CallInst *>(CI));
+          break;
         case DXIL::OpCode::TextureStoreSample:
           hasWriteableMSAATextures = true;
           LLVM_FALLTHROUGH;
@@ -805,7 +862,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetSamplerDescriptorHeapIndexing(hasSamplerDescriptorHeapIndexing);
   flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
   flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
-  flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
+  flag.SetWriteableMSAATextures(setWriteableMSAATexturesBasedOnGlobal
+                                    ? hasWriteableMSAATexturesGlobal
+                                    : hasWriteableMSAATextures);
   flag.SetWaveMMA(hasWaveMMA);
   // Only bother setting the flag when there are UAVs.
   flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
