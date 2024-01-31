@@ -21,6 +21,11 @@
 // RDAT18:   FeatureInfo2: 256
 // Old: deriv use not tracked
 // RDAT17:   FeatureInfo2: 0
+// Pixel(0), Compute(5), Library(6), Mesh(13), Amplification(14) = 0x6061 = 24673
+// RDAT18: ShaderStageFlag: 24673
+// Old would not report Compute, Mesh, or Amplification compatibility.
+// Pixel(0), Library(6) = 0x41 = 65
+// RDAT17: ShaderStageFlag: 65
 // MinShaderTarget: (Library(6) << 16) + (SM 6.0 ((6 << 4) + 0)) = 0x60060 = 393312
 // RDAT: MinShaderTarget: 393312
 
@@ -40,6 +45,8 @@ void deriv_in_func(float2 uv) {
 // RDAT18:   FeatureInfo2: 256
 // Old: deriv use not tracked
 // RDAT17:   FeatureInfo2: 0
+// Mesh(13) = 0x2000 = 8192
+// RDAT: ShaderStageFlag: 8192
 // MinShaderTarget: (Mesh(13) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0xD0066 = 852070
 // RDAT18: MinShaderTarget: 852070
 // Old: 6.0
@@ -60,6 +67,8 @@ void deriv_in_mesh(uint3 DTid : SV_DispatchThreadID) {
 // Old: deriv use not tracked
 // RDAT17:   FeatureInfo2: 0
 // MinShaderTarget: (Compute(5) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x50066 = 327782
+// Compute(5) = 0x20 = 32
+// RDAT: ShaderStageFlag: 32
 // RDAT18: MinShaderTarget: 327782
 // Old: 6.0
 // RDAT17: MinShaderTarget: 327776
@@ -77,6 +86,8 @@ void deriv_in_compute(uint3 DTid : SV_DispatchThreadID) {
 // RDAT18:   FeatureInfo2: 256
 // Old: deriv use not tracked
 // RDAT17:   FeatureInfo2: 0
+// Pixel(0) = 0x1 = 1
+// RDAT: ShaderStageFlag: 1
 // MinShaderTarget: (Pixel(0) << 16) + (SM 6.0 ((6 << 4) + 0)) = 0x60 = 96
 // RDAT: MinShaderTarget: 96
 

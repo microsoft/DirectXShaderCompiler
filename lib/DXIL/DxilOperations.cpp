@@ -3230,20 +3230,18 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
   GetMinShaderModelAndMask(opcode, bWithTranslation, major, minor, mask);
 
   unsigned op = (unsigned)opcode;
-  // These ops cannot indicate support for CS, AS, or MS,
-  // otherwise, it's saying these are guaranteed to be supported
-  // on the lowest shader model returned by this function
-  // for these shader stages.  For CS, SM 6.6 is required,
-  // and for AS/MS, an optional feature is required.
-  // This also breaks compatibility for existing validators.
-  // We need a different mechanism to be supported in functions
-  // for runtime linking.
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
-  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
-      (83 <= op && op <= 86)) {
-    mask &= ~(SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh));
-    return;
+  if (DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0) {
+    // In prior validator versions, these ops excluded CS/MS/AS from mask.
+    // In 1.8, we now have a mechanism to indicate derivative use with an
+    // independent feature bit.  This allows us to fix up the min shader model
+    // once all bits have been marged from the call graph to the entry point.
+    // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+    // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
+    if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
+        (83 <= op && op <= 86)) {
+      mask &= ~(SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh));
+      return;
+    }
   }
 
   if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) < 0) {
