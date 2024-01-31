@@ -931,9 +931,12 @@ unsigned CGMSHLSLRuntime::ConstructStructAnnotation(
             annotation->GetTemplateArgAnnotation(i);
         const clang::TemplateArgument &arg = args[i];
         switch (arg.getKind()) {
-        case clang::TemplateArgument::ArgKind::Type:
-          argAnnotation.SetType(CGM.getTypes().ConvertType(arg.getAsType()));
-          break;
+        case clang::TemplateArgument::ArgKind::Type: {
+          auto argTy = arg.getAsType();
+          unsigned arrayEltSize = 0;
+          AddTypeAnnotation(argTy, dxilTypeSys, arrayEltSize);
+          argAnnotation.SetType(CGM.getTypes().ConvertType(argTy));
+        } break;
         case clang::TemplateArgument::ArgKind::Integral:
           argAnnotation.SetIntegral(arg.getAsIntegral().getExtValue());
           break;
@@ -1261,7 +1264,7 @@ static bool ValidatePayloadDecl(const RecordDecl *Decl,
 unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
                                             DxilTypeSystem &dxilTypeSys,
                                             unsigned &arrayEltSize) {
-  if (Ty.isNull())
+  if (Ty.isNull() || Ty->isVoidType())
     return 0;
 
   QualType paramTy = Ty.getCanonicalType();
@@ -1313,6 +1316,29 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
       payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
     unsigned size = ConstructStructAnnotation(annotation, payloadAnnotation, RD,
                                               dxilTypeSys);
+
+    // For HLSL node object, add type annotations for any method return types.
+    if (CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
+      if (static_cast<uint32_t>(GetNodeIOType(Ty)) != 0) {
+        for (auto subDecl : CXXRD->decls()) {
+          if (auto functiontemplatedecl =
+                  dyn_cast<FunctionTemplateDecl>(subDecl)) {
+            for (auto funcSpec : functiontemplatedecl->specializations()) {
+              if (auto method = dyn_cast<CXXMethodDecl>(funcSpec)) {
+                unsigned arrayEltSizeForMethod = 0;
+                AddTypeAnnotation(method->getReturnType(), dxilTypeSys,
+                                  arrayEltSizeForMethod);
+              }
+            }
+          } else if (auto method = dyn_cast<CXXMethodDecl>(subDecl)) {
+            unsigned arrayEltSizeForMethod = 0;
+            AddTypeAnnotation(method->getReturnType(), dxilTypeSys,
+                              arrayEltSizeForMethod);
+          }
+        }
+      }
+    }
+
     // Resources don't count towards cbuffer size.
     return IsHLSLResourceType(Ty) ? 0 : size;
   } else if (IsStringType(Ty)) {
