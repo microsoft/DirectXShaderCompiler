@@ -416,6 +416,10 @@ public:
   // final entry function requirements.
   struct ShaderCompatInfo {
     unsigned minMajor = 6, minMinor = 0;
+    // 'mask' is a set of bits representing each compatible shader kind.
+    // Mapping is: 1 << (unsigned)DXIL::ShaderKind::<kind>.
+    // Starts out with all kinds valid, will be masked down based on features
+    // used and by known shader kinds for a particular validation version.
     unsigned mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
     ShaderFlags shaderFlags;
     bool Merge(ShaderCompatInfo &other);
