@@ -1025,6 +1025,10 @@ void SpirvEmitter::doDecl(const Decl *decl) {
     doClassTemplateDecl(classTemplateDecl);
   } else if (isa<FunctionTemplateDecl>(decl)) {
     // nothing to do.
+  } else if (isa<UsingDecl>(decl)) {
+    // nothing to do.
+  } else if (isa<UsingDirectiveDecl>(decl)) {
+    // nothing to do.
   } else {
     emitError("decl type %0 unimplemented", decl->getLocation())
         << decl->getDeclKindName();
