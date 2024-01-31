@@ -46,9 +46,6 @@
 // DEF_RDAT_TYPES and DEF_RDAT_ENUMS - define structural validation
 #define DEF_RDAT_STRUCT_VALIDATION 13
 
-// PRERELEASE-TODO: deeper validation for DxilValidation (limiting enum values
-// and other such things)
-
 // clang-format off
 #define CLOSE_COMPOUND_DECL };
 // clang-format on
