@@ -2112,8 +2112,8 @@ bool DxilModule::IsPrecise(const Instruction *inst) const {
 }
 
 bool DxilModule::ShaderCompatInfo::Merge(ShaderCompatInfo &other) {
-  bool changed = DXIL::MaxOfShaderModels(minMajor, minMinor, other.minMajor,
-                                         other.minMinor);
+  bool changed = DXIL::UpdateToMaxOfVersions(minMajor, minMinor, other.minMajor,
+                                             other.minMinor);
   if ((mask & other.mask) != mask) {
     mask &= other.mask;
     changed = true;
@@ -2210,9 +2210,9 @@ void DxilModule::ComputeShaderCompatInfo() {
       } else {
         // Match prior versions that were missing some feature detection.
         if (flags.GetUseNativeLowPrecision() && flags.GetLowPrecisionPresent())
-          DXIL::MaxOfShaderModels(info.minMajor, info.minMinor, 6, 2);
+          DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, 6, 2);
         else if (flags.GetBarycentrics() || flags.GetViewID())
-          DXIL::MaxOfShaderModels(info.minMajor, info.minMinor, 6, 1);
+          DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, 6, 1);
       }
     }
   }
@@ -2231,7 +2231,7 @@ void DxilModule::UpdateFunctionToShaderCompat(const llvm::Function *dxilFunc) {
       unsigned major, minor, mask;
       OP::GetMinShaderModelAndMask(CI, bWithTranslation, m_ValMajor, m_ValMinor,
                                    major, minor, mask);
-      DXIL::MaxOfShaderModels(info.minMajor, info.minMinor, major, minor);
+      DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, major, minor);
       info.mask &= mask;
     } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
       // If loading a groupshared variable, limit to CS/AS/MS

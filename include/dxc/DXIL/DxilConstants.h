@@ -61,8 +61,8 @@ inline int CompareVersions(unsigned Major1, unsigned Minor1, unsigned Major2,
 }
 
 // Utility for updating major,minor to max of current and new.
-inline bool MaxOfShaderModels(unsigned &major, unsigned &minor,
-                              unsigned newMajor, unsigned newMinor) {
+inline bool UpdateToMaxOfVersions(unsigned &major, unsigned &minor,
+                                  unsigned newMajor, unsigned newMinor) {
   if (newMajor > major) {
     major = newMajor;
     minor = newMinor;

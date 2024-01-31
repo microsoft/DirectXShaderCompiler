@@ -875,51 +875,51 @@ ShaderFlags::AdjustMinimumShaderModelAndFlags(const DxilFunctionProps *props,
     if (GetUsesDerivatives()) {
       if (props->IsCS()) {
         // Always supported if SM 6.6+.
-        DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 6);
+        DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 6);
       } else if (props->IsMS() || props->IsAS()) {
         // Requires flag for support on SM 6.6+.
         flags.SetDerivativesInMeshAndAmpShaders(true);
-        DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 6);
+        DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 6);
       }
     }
 
     // If function has WaveSize, this also constrains the minimum shader model.
     if (props->WaveSize.IsDefined()) {
       if (props->WaveSize.IsRange())
-        DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 8);
+        DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 8);
       else
-        DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 6);
+        DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 6);
     }
 
     // Adjust minimum shader model based on shader stage.
     if (props->IsMS() || props->IsAS())
-      DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 5);
+      DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 5);
     else if (props->IsRay())
-      DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 3);
+      DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 3);
     else if (props->IsNode())
-      DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 8);
+      DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 8);
   }
 
   // Adjust minimum shader model based on flags.
   if (GetWaveMMA())
-    DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 9);
+    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 9);
   else if (GetSampleCmpGradientOrBias() || GetExtendedCommandInfo())
-    DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 8);
+    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 8);
   else if (GetAdvancedTextureOps() || GetWriteableMSAATextures())
-    DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 7);
+    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 7);
   else if (GetAtomicInt64OnTypedResource() || GetAtomicInt64OnGroupShared() ||
            GetAtomicInt64OnHeapResource() ||
            GetResourceDescriptorHeapIndexing() ||
            GetSamplerDescriptorHeapIndexing())
-    DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 6);
+    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 6);
   else if (GetRaytracingTier1_1() || GetSamplerFeedback())
-    DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 5);
+    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 5);
   else if (GetShadingRate())
-    DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 4);
+    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 4);
   else if (GetLowPrecisionPresent() && GetUseNativeLowPrecision())
-    DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 2);
+    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 2);
   else if (GetViewID() || GetBarycentrics())
-    DXIL::MaxOfShaderModels(minMajor, minMinor, 6, 1);
+    DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 1);
 
   return flags;
 }
