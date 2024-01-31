@@ -139,8 +139,8 @@ bool isReferencingNonAliasStructuredOrByteBuffer(const Expr *expr) {
   } else if (const auto *callExpr = dyn_cast<CallExpr>(expr)) {
     if (isAKindOfStructuredOrByteBuffer(callExpr->getType()))
       return true;
-  } else if (const auto *arrSubExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
-    return isReferencingNonAliasStructuredOrByteBuffer(arrSubExpr->getBase());
+  } else if (isa<ArraySubscriptExpr>(expr)) {
+    return isAKindOfStructuredOrByteBuffer(expr->getType());
   }
   return false;
 }
