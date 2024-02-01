@@ -5460,8 +5460,10 @@ static void ValidateWaveSize(ValidationContext &ValCtx,
         F, ValidationRule::SmWaveSizeAllZeroWhenUndefined,
         {std::to_string(waveSize.Max), std::to_string(waveSize.Preferred)});
     break;
-  case hlsl::DxilWaveSize::ValidationResult::PreferredWhenNoRange:
   case hlsl::DxilWaveSize::ValidationResult::MaxEqualsMin:
+    // This case is allowed because users may disable the ErrorDefault warning.
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::PreferredWhenNoRange:
     ValCtx.EmitFnFormatError(
         F, ValidationRule::SmWaveSizeMaxAndPreferredZeroWhenNoRange,
         {std::to_string(waveSize.Max), std::to_string(waveSize.Preferred)});
