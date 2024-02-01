@@ -3589,9 +3589,9 @@ SpirvEmitter::processFlatConversion(const QualType type,
     initInstr->setAstResultType(astContext.FloatTy);
   } else if (resultType->isSpecificBuiltinType(BuiltinType::LitInt)) {
     if (resultType->isSignedIntegerType())
-      initInstr->setAstResultType(astContext.IntTy);
+      initInstr->setAstResultType(astContext.LongLongTy);
     else
-      initInstr->setAstResultType(astContext.UnsignedIntTy);
+      initInstr->setAstResultType(astContext.UnsignedLongLongTy);
   }
 
   // Decompose `initInstr`.
