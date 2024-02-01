@@ -86,7 +86,7 @@ void LiteralTypeVisitor::tryToUpdateInstLitType(SpirvInstruction *inst,
   // Since LiteralTypeVisitor is run before lowering the types, we can simply
   // update the AST result-type of the instruction to the new type. In the case
   // of the instruction being a constant instruction, since we do not have
-  // unique constants at this point, chaing the QualType of the constant
+  // unique constants at this point, changing the QualType of the constant
   // instruction is safe.
   inst->setAstResultType(newType);
 }
@@ -164,7 +164,7 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
   case spv::Op::OpShiftLeftLogical: {
     // Base (arg1) should have the same type as result type
     tryToUpdateInstLitType(inst->getOperand1(), resultType);
-    // The shitf amount (arg2) cannot be a 64-bit type for a 32-bit base!
+    // The shift amount (arg2) cannot be a 64-bit type for a 32-bit base!
     tryToUpdateInstLitType(inst->getOperand2(), resultType);
     return true;
   }
@@ -227,6 +227,16 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
                            inst->getOperand1()->getAstResultType());
     return true;
   }
+
+  case spv::Op::OpVectorTimesScalar: {
+    QualType elemType;
+    if (isVectorType(operand1->getAstResultType(), &elemType) &&
+        elemType->isFloatingType()) {
+      tryToUpdateInstLitType(inst->getOperand2(), elemType);
+    }
+    return true;
+  }
+
   default:
     break;
   }
