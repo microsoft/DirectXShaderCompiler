@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_x %S\node-object-export-1.hlsl -Fo %t.1
+// RUN: %dxc -T lib_6_x %S/node-object-export-1.hlsl -Fo %t.1
 // RUN: %dxc -T lib_6_x %s -Fo %t.2
 // RUN: %dxc -T lib_6_x -link "%t.1;%t.2" | FileCheck %s
 
