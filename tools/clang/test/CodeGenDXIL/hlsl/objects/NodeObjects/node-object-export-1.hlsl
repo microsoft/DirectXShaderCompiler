@@ -60,17 +60,17 @@ void bar(DispatchNodeInputRecord<RECORD> input, out DispatchNodeInputRecord<RECO
 // AST: | |     `-ImplicitCastExpr 0x{{.+}} <col:16> 'DispatchNodeInputRecord<RECORD>':'DispatchNodeInputRecord<RECORD>' <LValueToRValue>
 // AST: | |       `-DeclRefExpr 0x{{.+}} <col:16> 'DispatchNodeInputRecord<RECORD>':'DispatchNodeInputRecord<RECORD>' lvalue ParmVar 0x[[BarInput]] 'input' 'DispatchNodeInputRecord<RECORD>':'DispatchNodeInputRecord<RECORD>'
 // AST: | `-HLSLExportAttr
-// FCGL:  %tmp = alloca %"struct.DispatchNodeInputRecord<RECORD>", align 4
-// FCGL:  call void @"\01?foo@@YA?AU?$DispatchNodeInputRecord@URECORD@@@@U1@@Z"(%"struct.DispatchNodeInputRecord<RECORD>"* sret %tmp, %"struct.DispatchNodeInputRecord<RECORD>"* %input)
-// FCGL:  %[[BarLd:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %tmp
+// FCGL:  %[[TMP:.+]] = alloca %"struct.DispatchNodeInputRecord<RECORD>", align 4
+// FCGL:  call void @"\01?foo@@YA?AU?$DispatchNodeInputRecord@URECORD@@@@U1@@Z"(%"struct.DispatchNodeInputRecord<RECORD>"* sret %[[TMP]], %"struct.DispatchNodeInputRecord<RECORD>"* %input)
+// FCGL:  %[[BarLd:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %[[TMP]]
 // FCGL:  store %"struct.DispatchNodeInputRecord<RECORD>" %[[BarLd]], %"struct.DispatchNodeInputRecord<RECORD>"* %output
-// O3: %tmp = alloca %"struct.DispatchNodeInputRecord<RECORD>", align 8
-// O3: call void @"\01?foo@@YA?AU?$DispatchNodeInputRecord@URECORD@@@@U1@@Z"(%"struct.DispatchNodeInputRecord<RECORD>"* nonnull sret %tmp, %"struct.DispatchNodeInputRecord<RECORD>"* %input)
-// O3: %[[BarLd:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %tmp, align 8
+// O3: %[[TMP:.+]] = alloca %"struct.DispatchNodeInputRecord<RECORD>", align 8
+// O3: call void @"\01?foo@@YA?AU?$DispatchNodeInputRecord@URECORD@@@@U1@@Z"(%"struct.DispatchNodeInputRecord<RECORD>"* nonnull sret %[[TMP]], %"struct.DispatchNodeInputRecord<RECORD>"* %input)
+// O3: %[[BarLd:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %[[TMP]], align 8
 // O3: store %"struct.DispatchNodeInputRecord<RECORD>" %[[BarLd]], %"struct.DispatchNodeInputRecord<RECORD>"* %output, align 4
-// Od:   %tmp = alloca %"struct.DispatchNodeInputRecord<RECORD>", align 4
-// Od:   call void @"\01?foo@@YA?AU?$DispatchNodeInputRecord@URECORD@@@@U1@@Z"(%"struct.DispatchNodeInputRecord<RECORD>"* sret %tmp, %"struct.DispatchNodeInputRecord<RECORD>"* %input)
-// Od:   %[[BarLd:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %tmp
+// Od:   %[[TMP:.+]] = alloca %"struct.DispatchNodeInputRecord<RECORD>", align 4
+// Od:   call void @"\01?foo@@YA?AU?$DispatchNodeInputRecord@URECORD@@@@U1@@Z"(%"struct.DispatchNodeInputRecord<RECORD>"* sret %[[TMP]], %"struct.DispatchNodeInputRecord<RECORD>"* %input)
+// Od:   %[[BarLd:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %[[TMP]]
 // Od:   store %"struct.DispatchNodeInputRecord<RECORD>" %[[BarLd]], %"struct.DispatchNodeInputRecord<RECORD>"* %output
   output = foo(input);
 }
@@ -107,9 +107,9 @@ void bar2(DispatchNodeInputRecord<RECORD> input, out DispatchNodeInputRecord<REC
 // AST:   |     | `-DeclRefExpr 0x{{.+}} <col:12> 'DispatchNodeInputRecord<RECORD> (DispatchNodeInputRecord<RECORD>)' lvalue Function 0x[[FOO2]] 'foo2' 'DispatchNodeInputRecord<RECORD> (DispatchNodeInputRecord<RECORD>)'
 // AST:   |     `-ImplicitCastExpr 0x{{.+}} <col:17> 'DispatchNodeInputRecord<RECORD>':'DispatchNodeInputRecord<RECORD>' <LValueToRValue>
 // AST:   |       `-DeclRefExpr 0x{{.+}} <col:17> 'DispatchNodeInputRecord<RECORD>':'DispatchNodeInputRecord<RECORD>' lvalue ParmVar 0x[[Bar2Input]] 'input' 'DispatchNodeInputRecord<RECORD>':'DispatchNodeInputRecord<RECORD>'
-// FCGL: %tmp = alloca %"struct.DispatchNodeInputRecord<RECORD>", align 4
-// FCGL: call void @"\01?foo2@@YA?AU?$DispatchNodeInputRecord@URECORD@@@@U1@@Z"(%"struct.DispatchNodeInputRecord<RECORD>"* sret %tmp, %"struct.DispatchNodeInputRecord<RECORD>"* %input)
-// FCGL: %[[Bar2Ld:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %tmp
+// FCGL: %[[TMP:.+]] = alloca %"struct.DispatchNodeInputRecord<RECORD>", align 4
+// FCGL: call void @"\01?foo2@@YA?AU?$DispatchNodeInputRecord@URECORD@@@@U1@@Z"(%"struct.DispatchNodeInputRecord<RECORD>"* sret %[[TMP]], %"struct.DispatchNodeInputRecord<RECORD>"* %input)
+// FCGL: %[[Bar2Ld:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %[[TMP]]
 // FCGL: store %"struct.DispatchNodeInputRecord<RECORD>" %[[Bar2Ld]], %"struct.DispatchNodeInputRecord<RECORD>"* %output
 // O3:   %[[Bar2Ld:.+]] = load %"struct.DispatchNodeInputRecord<RECORD>", %"struct.DispatchNodeInputRecord<RECORD>"* %input, align 4, !noalias !17
 // O3:   store %"struct.DispatchNodeInputRecord<RECORD>" %[[Bar2Ld]], %"struct.DispatchNodeInputRecord<RECORD>"* %output, align 4
