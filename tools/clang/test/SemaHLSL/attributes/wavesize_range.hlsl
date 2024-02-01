@@ -22,15 +22,14 @@ void node01(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-/* expected-error@+1{{Minimum WaveSize value 16 must be unequal to maximum WaveSize value 16}} */
-[WaveSize(16, 16, 32)]
+[WaveSize(16, 16, 32)] /* expected-error{{Wave Size Range minimum and maximum are equal}} */
 void node02(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-[WaveSize(16, 16, 16)] /* expected-error{{Minimum WaveSize value 16 must be unequal to maximum WaveSize value 16}} */
+[WaveSize(16, 16, 16)] /* expected-error{{Wave Size Range minimum and maximum are equal}} */
 void node03(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
 // the non-power of 2 diagnostic gets emitted once, regardless of how many arguments aren't powers of 2.
@@ -127,7 +126,7 @@ void node12(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-/* expected-error@+1{{Minimum WaveSize value 4 must be unequal to maximum WaveSize value 4}} */
+/* expected-error@+1{{Wave Size Range minimum and maximum are equal}} */
 [WaveSize(4, 4, 4)]
 void node13(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 
@@ -165,7 +164,7 @@ void node16(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(32,1,1)]
-/* expected-warning@+1{{attribute 'WaveSize' must have a uint literal argument}} */
+// no errors expected
 [WaveSize(4, 16, 3+5)]
 void node17(DispatchNodeInputRecord<INPUT_RECORD> input) { }
 

@@ -1841,6 +1841,10 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       if (!m_pSM->IsSMAtLeast(6, 8))
         m_bExtraMetadata = true;
       MDNode *pNode = cast<MDNode>(MDO.get());
+      // TODO: Issue #6239 we need to validate that there are 3 integer
+      // parameters here, and emit a diagnostic if not.
+      DXASSERT(pNode->getNumOperands() == 3,
+               "else wavesize range tag has incorrect number of parameters");
       props.WaveSize.Min = ConstMDToUint32(pNode->getOperand(0));
       props.WaveSize.Max = ConstMDToUint32(pNode->getOperand(1));
       props.WaveSize.Preferred = ConstMDToUint32(pNode->getOperand(2));

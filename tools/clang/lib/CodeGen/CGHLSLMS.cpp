@@ -1812,8 +1812,6 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
   if (const HLSLWaveSizeAttr *Attr = FD->getAttr<HLSLWaveSizeAttr>()) {
     funcProps->WaveSize = DxilWaveSize::Translate(
         Attr->getMin(), Attr->getMax(), Attr->getPreferred());
-    // The legacy wavesize tag was used if there is only one spelled argument.
-    funcProps->WaveSize.SetIsLegacy(Attr->getSpelledArgsCount() == 1);
   }
 
   // Node shader

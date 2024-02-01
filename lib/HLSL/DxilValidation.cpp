@@ -3989,7 +3989,8 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
 
   const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
   // validate that any wavesize tags don't appear outside their expected shader
-  // models don't do this validation if the shader is non-compute
+  // models. Validate only 1 tag exists per entry point.
+  // Don't do this validation if the shader is non-compute
   if (SM->IsCS() || SM->IsLib()) {
 
     NamedMDNode *TA = pModule->getNamedMetadata("dx.entryPoints");
@@ -4015,8 +4016,12 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
             dyn_cast<MDTuple>(TANode->getOperand(TANode->getNumOperands() - 1));
         // find any incompatible tags inside the entry properties
         // increment j by 2 to only analyze tags, not values
+        bool foundTag = false;
         for (unsigned j = 0, end2 = TANode2->getNumOperands(); j < end2;
              j += 2) {
+          // if this tag is already present in the current entry point, emit an
+          // error
+
           const MDOperand &mOp2 = TANode2->getOperand(j);
           // note, we are only looking for tags, which will be a constant
           // integer
@@ -4029,16 +4034,58 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
 
           // legacy wavesize is only supported between 6.6 and 6.7, so we
           // should fail if we find the ranged wave size metadata tag
-          if (SM->IsSM66Plus() && !SM->IsSM68Plus()) {
-            if (tagValue == DxilMDHelper::kDxilRangedWaveSizeTag) {
+          if (tagValue == DxilMDHelper::kDxilRangedWaveSizeTag) {
+            if (foundTag) {
+              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeTagDuplicate,
+                                     {});
+              return;
+            }
+            foundTag = true;
+            if (SM->IsSM66Plus() && !SM->IsSM68Plus()) {
+
               ValCtx.EmitFormatError(
                   ValidationRule::SmWaveSizeRangeNeedsSM68Plus, {});
               return;
             }
-          } else {
+            // get the metadata that contains the parameters to the wavesize
+            // attribute
+            MDTuple *TANode3 = dyn_cast<MDTuple>(TANode2->getOperand(j + 1));
+            if (TANode3->getNumOperands() != 3) {
+              ValCtx.EmitFormatError(
+                  ValidationRule::SmWaveSizeRangeExpectsThreeParams, {});
+              return;
+            }
+            for (int k = 0; k < 3; k++) {
+              const MDOperand &param = TANode3->getOperand(k);
+              if (param->getMetadataID() != Metadata::ConstantAsMetadataKind) {
+                ValCtx.EmitFormatError(
+                    ValidationRule::SmWaveSizeNeedsConstantOperands, {});
+                return;
+              }
+            }
+
+          } else if (tagValue == DxilMDHelper::kDxilWaveSizeTag) {
             // if the shader model is anything but 6.6 or 6.7, then we do not
             // expect to encounter the legacy wave size tag.
-            if (tagValue == DxilMDHelper::kDxilWaveSizeTag) {
+            if (foundTag) {
+              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeTagDuplicate,
+                                     {});
+              return;
+            }
+            foundTag = true;
+            MDTuple *TANode3 = dyn_cast<MDTuple>(TANode2->getOperand(j + 1));
+            if (TANode3->getNumOperands() != 1) {
+              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeExpectsOneParam,
+                                     {});
+              return;
+            }
+            const MDOperand &param = TANode3->getOperand(0);
+            if (param->getMetadataID() != Metadata::ConstantAsMetadataKind) {
+              ValCtx.EmitFormatError(
+                  ValidationRule::SmWaveSizeNeedsConstantOperands, {});
+              return;
+            }
+            if (!(SM->IsSM66Plus() && !SM->IsSM68Plus())) {
               ValCtx.EmitFormatError(ValidationRule::SmWaveSizeNeedsSM66or67,
                                      {});
               return;
@@ -5434,15 +5481,7 @@ static void ValidateWaveSize(ValidationContext &ValCtx,
 
   // Check shader model and kind.
   if (waveSize.IsDefined()) {
-    if (waveSize.IsRange()) {
-      if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 8) <
-          0) {
-        ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeRangeNeedsSM68Plus);
-      }
-    } else if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1,
-                                     6) < 0) {
-      ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeNeedsSM66or67);
-    } else if (!props.IsCS() && !props.IsNode()) {
+    if (!props.IsCS() && !props.IsNode()) {
       ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeOnComputeOrNode);
     }
   }
