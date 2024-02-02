@@ -337,11 +337,11 @@ void node_EmptyNodeOutputArray(
 // AST: | | |-HLSLMaxRecordsAttr 0x{{.+}} <col:27, col:40> 64
 // AST: | | `-HLSLNodeArraySizeAttr 0x{{.+}} <col:6, col:23> 128
 // call to wrapper
-// AST: CallExpr 0x{{.+}} <col:6, col:20> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>'
-// AST: |-ImplicitCastExpr 0x{{.+}} <col:6> 'GroupNodeOutputRecords<RECORD1> (*)(GroupNodeOutputRecords<RECORD1>)' <FunctionToPointerDecay>
-// AST: | `-DeclRefExpr 0x{{.+}} <col:6> 'GroupNodeOutputRecords<RECORD1> (GroupNodeOutputRecords<RECORD1>)' lvalue Function 0x{{.+}} 'wrapper' 'GroupNodeOutputRecords<RECORD1> (GroupNodeOutputRecords<RECORD1>)' (FunctionTemplate 0x{{.+}} 'wrapper')
-// AST: `-ImplicitCastExpr 0x{{.+}} <col:14> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>' <LValueToRValue>
-// AST: `-DeclRefExpr 0x{{.+}} <col:14> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>' lvalue Var 0x{{.+}} 'outRec' 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>'
+// AST: CallExpr 0x{{.+}} <col:9, col:23> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>'
+// AST: |-ImplicitCastExpr 0x{{.+}} <col:9> 'GroupNodeOutputRecords<RECORD1> (*)(GroupNodeOutputRecords<RECORD1>)' <FunctionToPointerDecay>
+// AST: | `-DeclRefExpr 0x{{.+}} <col:9> 'GroupNodeOutputRecords<RECORD1> (GroupNodeOutputRecords<RECORD1>)' lvalue Function 0x{{.+}} 'wrapper' 'GroupNodeOutputRecords<RECORD1> (GroupNodeOutputRecords<RECORD1>)' (FunctionTemplate 0x{{.+}} 'wrapper')
+// AST: `-ImplicitCastExpr 0x{{.+}} <col:17> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>' <LValueToRValue>
+// AST: `-DeclRefExpr 0x{{.+}} <col:17> 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>' lvalue Var 0x{{.+}} 'outRec' 'GroupNodeOutputRecords<RECORD1>':'GroupNodeOutputRecords<RECORD1>'
 // attributes.
 // AST: | |-HLSLNumThreadsAttr 0x{{.+}} 128 1 1
 // AST: | |-HLSLNodeDispatchGridAttr 0x{{.+}} 1 1 1
