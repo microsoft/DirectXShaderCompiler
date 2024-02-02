@@ -22,23 +22,27 @@
 // CHECK: %type_subpass_image_4 = OpTypeImage %int SubpassData 2 0 1 2 Unknown
 // CHECK: %_ptr_UniformConstant_type_subpass_image_4 = OpTypePointer UniformConstant %type_subpass_image_4
 
-// CHCK:   %SI_f4 = OpVariable %_ptr_UniformConstant_type_subpass_image UniformConstant
+// CHECK:   %SI_f4 = OpVariable %_ptr_UniformConstant_type_subpass_image UniformConstant
 [[vk::input_attachment_index(0)]]  SubpassInput           SI_f4;
-// CHCK:   %SI_i3 = OpVariable %_ptr_UniformConstant_type_subpass_image_0 UniformConstant
+// CHECK:   %SI_i3 = OpVariable %_ptr_UniformConstant_type_subpass_image_0 UniformConstant
 [[vk::input_attachment_index(1)]]  SubpassInput<int3>     SI_i3;
-// CHCK:   %SI_u2 = OpVariable %_ptr_UniformConstant_type_subpass_image_1 UniformConstant
+// CHECK:   %SI_u2 = OpVariable %_ptr_UniformConstant_type_subpass_image_1 UniformConstant
 [[vk::input_attachment_index(2)]]  SubpassInput<uint2>    SI_u2;
-// CHCK:   %SI_f1 = OpVariable %_ptr_UniformConstant_type_subpass_image UniformConstant
+// CHECK:   %SI_f1 = OpVariable %_ptr_UniformConstant_type_subpass_image UniformConstant
 [[vk::input_attachment_index(3)]]  SubpassInput<float>    SI_f1;
 
-// CHCK: %SIMS_u4 = OpVariable %_ptr_UniformConstant_type_subpass_image_2 UniformConstant
+// CHECK: %SIMS_u4 = OpVariable %_ptr_UniformConstant_type_subpass_image_2 UniformConstant
 [[vk::input_attachment_index(10)]] SubpassInputMS<uint4>  SIMS_u4;
-// CHCK: %SIMS_f3 = OpVariable %_ptr_UniformConstant_type_subpass_image_3 UniformConstant
+// CHECK: %SIMS_f3 = OpVariable %_ptr_UniformConstant_type_subpass_image_3 UniformConstant
 [[vk::input_attachment_index(11)]] SubpassInputMS<float3> SIMS_f3;
-// CHCK: %SIMS_i2 = OpVariable %_ptr_UniformConstant_type_subpass_image_4 UniformConstant
+// CHECK: %SIMS_i2 = OpVariable %_ptr_UniformConstant_type_subpass_image_4 UniformConstant
 [[vk::input_attachment_index(12)]] SubpassInputMS<int2>   SIMS_i2;
-// CHCK: %SIMS_u1 = OpVariable %_ptr_UniformConstant_type_subpass_image_2 UniformConstant
+// CHECK: %SIMS_u1 = OpVariable %_ptr_UniformConstant_type_subpass_image_2 UniformConstant
 [[vk::input_attachment_index(13)]] SubpassInputMS<uint>   SIMS_u1;
+
+float4 ReadSourceFromTile(SubpassInput spi) {
+  return spi.SubpassLoad() ;
+}
 
 float4 main() : SV_Target {
 // CHECK:        [[img:%[0-9]+]] = OpLoad %type_subpass_image %SI_f4
@@ -60,6 +64,10 @@ float4 main() : SV_Target {
 // CHECK-NEXT:   [[val_1:%[0-9]+]] = OpCompositeExtract %float [[texel_2]] 0
 // CHECK-NEXT:                  OpStore %v3 [[val_1]]
     float  v3 = SI_f1.SubpassLoad();
+// CHECK:        [[val_2:%[0-9]+]] = OpFunctionCall %v4float %ReadSourceFromTile %param_var_spi
+// CHECK-NEXT:                    OpStore %v4 [[val_2]]
+    SubpassInput si = SI_f4;
+    float4 v4 = ReadSourceFromTile(si);
 
 // CHECK:        [[img_3:%[0-9]+]] = OpLoad %type_subpass_image_2 %SIMS_u4
 // CHECK-NEXT: [[texel_3:%[0-9]+]] = OpImageRead %v4uint [[img_3]] [[v2i00]] Sample %int_1
@@ -81,5 +89,5 @@ float4 main() : SV_Target {
 // CHECK-NEXT:                  OpStore %v13 [[val_4]]
     uint   v13 = SIMS_u1.SubpassLoad(4);
 
-    return v0.x + v1.y + v2.x + v3 + v10.x + v11.y + v12.x + v13;
+    return v0.x + v1.y + v2.x + v3 + v4.x + v10.x + v11.y + v12.x + v13;
 }

@@ -15,6 +15,9 @@
 // CHECK: OpDecorate %SI0 DescriptorSet 0
 // CHECK: OpDecorate %SI0 Binding 0
 
+// CHECK: OpDecorate %SI3 DescriptorSet 0
+// CHECK: OpDecorate %SI3 Binding 1
+
 [[vk::input_attachment_index(0)]]
 SubpassInput SI0;
 
