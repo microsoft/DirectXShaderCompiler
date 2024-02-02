@@ -1,4 +1,6 @@
 // RUN: %dxc -T lib_6_x %s | FileCheck %s
+
+// Not supported yet.
 // XFAIL: *
 
 struct RECORD

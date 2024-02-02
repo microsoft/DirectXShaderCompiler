@@ -1,4 +1,6 @@
 // RUN: %dxc -T lib_6_8 %s | FileCheck %s
+
+// Not supported yet.
 // XFAIL: *
 
 [noinline]
