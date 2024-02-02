@@ -1,7 +1,7 @@
 // RUN: %dxc -T ms_6_5 -E main -fspv-target-env=vulkan1.1spirv1.4 %s -spirv | FileCheck %s
 // CHECK:  OpCapability MeshShadingEXT
 // CHECK:  OpExtension "SPV_EXT_mesh_shader"
-// CHECK:  OpEntryPoint MeshEXT %main "main" {{(%gl_GlobalInvocationID )?}}%gl_Position [[primind:%[0-9]+]]
+// CHECK:  OpEntryPoint MeshEXT %main "main" %gl_Position [[primind:%[0-9]+]]
 // CHECK:  OpExecutionMode %main LocalSize 64 1 1
 // CHECK:  OpExecutionMode %main OutputTrianglesNV
 // CHECK:  OpExecutionMode %main OutputVertices 81
