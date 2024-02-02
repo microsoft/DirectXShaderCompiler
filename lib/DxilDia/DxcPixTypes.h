@@ -208,6 +208,9 @@ public:
   STDMETHODIMP GetBaseType(IDxcPixType **ppType) override;
 };
 
+struct __declspec(uuid("6c707d08-7995-4a84-bae5-e6d8291f3b78"))
+    PreviousDxcPixStructField {};
+
 class DxcPixStructField : public IDxcPixStructField {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
@@ -228,6 +231,12 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) override {
+    if (IsEqualIID(iid, __uuidof(PreviousDxcPixStructField))) {
+      *(IDxcPixStructField **)ppvObject = this;
+      this->AddRef();
+      return S_OK;
+    }
+
     return DoBasicQueryInterface<IDxcPixStructField>(this, iid, ppvObject);
   }
 
@@ -236,5 +245,7 @@ public:
   STDMETHODIMP GetType(IDxcPixType **ppType) override;
 
   STDMETHODIMP GetOffsetInBits(DWORD *pOffsetInBits) override;
+
+  STDMETHODIMP GetFieldSizeInBits(DWORD *pFieldSizeInBits) override;
 };
 } // namespace dxil_debug_info
