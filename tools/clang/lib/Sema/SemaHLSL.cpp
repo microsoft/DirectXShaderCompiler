@@ -12283,8 +12283,7 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
     } else {
       if (ArgNum.isInt()) {
         value = ArgNum.getInt().getSExtValue();
-        llvm::StringRef stmtClassType = E->getType().getAsString();
-        if (!(stmtClassType == llvm::StringRef("literal int")) && value < 0) {
+        if (!(E->getType()->isIntegralType(S.Context)) || value < 0) {
           S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
               << Attr.getName();
         }
