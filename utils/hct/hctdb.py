@@ -7708,7 +7708,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Sm.WaveSizeTagDuplicate",
-            "WaveSize (Range) tag may only appear once per entry point.",
+            "WaveSize or WaveSizeRange tag may only appear once per entry point.",
         )
         self.add_valrule(
             "Sm.WaveSizeNeedsConstantOperands",

@@ -3272,7 +3272,7 @@ SM.WAVESIZEONCOMPUTEORNODE                WaveSize only allowed on compute or no
 SM.WAVESIZEPREFERREDINRANGE               WaveSize Preferred must be within Min..Max range
 SM.WAVESIZERANGEEXPECTSTHREEPARAMS        WaveSize Range tag expects exactly 3 parameters.
 SM.WAVESIZERANGENEEDSSM68PLUS             WaveSize Range is valid only for Shader Model 6.8 and higher.
-SM.WAVESIZETAGDUPLICATE                   WaveSize (Range) tag may only appear once per entry point.
+SM.WAVESIZETAGDUPLICATE                   WaveSize or WaveSizeRange tag may only appear once per entry point.
 SM.WAVESIZEVALUE                          WaveSize value must be a power of 2 in range [4..128]
 SM.ZEROHSINPUTCONTROLPOINTWITHINPUT       When HS input control point count is 0, no input signature should exist.
 TYPES.DEFINED                             Type must be defined based on DXIL primitives

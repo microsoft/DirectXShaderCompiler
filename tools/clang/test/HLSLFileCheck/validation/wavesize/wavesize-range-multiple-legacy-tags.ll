@@ -29,7 +29,7 @@ define void @node01() {
 !7 = !{null, !"", null, null, null}
 !8 = !{void ()* @node01, !"node01", null, null, !9}
 !9 = !{i32 8, i32 15, i32 13, i32 1, i32 11, !10, i32 11, !10, i32 15, !11, i32 16, i32 -1, i32 22, !12, i32 20, !13, i32 4, !17, i32 5, !18}
-; CHECK: error: WaveSize (Range) tag may only appear once per entry point.
+; CHECK: error: WaveSize or WaveSizeRange tag may only appear once per entry point.
 !10 = !{i32 4}
 !11 = !{!"node01", i32 0}
 !12 = !{i32 32, i32 1, i32 1}
