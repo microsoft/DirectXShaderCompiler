@@ -17,7 +17,7 @@ define void @node01() {
 !dx.valver = !{!1}
 !dx.shaderModel = !{!2}
 !dx.typeAnnotations = !{!3}
-!dx.entryPoints = !{!7, !8}
+!dx.entryPoints = !{!7}
 
 !0 = !{!"dxc(private) 1.7.0.4390 (dxil_validation_on_sv_value_node_launch, 6a52940e2258)"}
 !1 = !{i32 1, i32 8}
@@ -26,16 +26,15 @@ define void @node01() {
 !4 = !{!5}
 !5 = !{i32 0, !6, !6}
 !6 = !{}
-!7 = !{null, !"", null, null, null}
-!8 = !{void ()* @node01, !"node01", null, null, !9}
-!9 = !{i32 8, i32 15, i32 13, i32 1, i32 11, !10, i32 11, !10, i32 15, !11, i32 16, i32 -1, i32 22, !12, i32 20, !13, i32 4, !17, i32 5, !18}
+!7 = !{void ()* @node01, !"node01", null, null, !8}
+!8 = !{i32 8, i32 15, i32 13, i32 1, i32 11, !9, i32 11, !9, i32 15, !10, i32 16, i32 -1, i32 22, !11, i32 20, !12, i32 4, !16, i32 5, !17}
 ; CHECK: error: WaveSize or WaveSizeRange tag may only appear once per entry point.
-!10 = !{i32 4}
-!11 = !{!"node01", i32 0}
-!12 = !{i32 32, i32 1, i32 1}
-!13 = !{!14}
-!14 = !{i32 1, i32 97, i32 2, !15}
-!15 = !{i32 0, i32 12, i32 1, !16}
-!16 = !{i32 0, i32 5, i32 1}
-!17 = !{i32 1, i32 1, i32 1}
-!18 = !{i32 0}
+!9 = !{i32 4}
+!10 = !{!"node01", i32 0}
+!11 = !{i32 32, i32 1, i32 1}
+!12 = !{!13}
+!13 = !{i32 1, i32 97, i32 2, !14}
+!14 = !{i32 0, i32 12, i32 1, !15}
+!15 = !{i32 0, i32 5, i32 1}
+!16 = !{i32 1, i32 1, i32 1}
+!17 = !{i32 0}

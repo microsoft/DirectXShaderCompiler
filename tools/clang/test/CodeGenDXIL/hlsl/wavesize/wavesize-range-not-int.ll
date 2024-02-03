@@ -1,4 +1,8 @@
 ; XFAIL:*
+; This test is expected to fail because DxilMetadataHelper.cpp assumes that 
+; all parameters in the wavesize tuple will be integers. This is an assumption we need to remove
+; from DxilMetadatahelper.cpp, and the issue is described here:
+; https://github.com/microsoft/DirectXShaderCompiler/issues/6239
 ; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 
 ; This tests the validator on emitting errors for invalid
