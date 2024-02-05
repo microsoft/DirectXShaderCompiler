@@ -479,7 +479,7 @@ void HLSignatureLower::CreateDxilSignatures() {
                     isPatchConstantFunctionFalse, bForOutFasle, bHasClipPlane);
   }
 
-  if (bHasClipPlane) {
+  if (bHasClipPlane && !pSM->IsLib()) {
     dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
                                   "Cannot use clipplanes attribute without "
                                   "specifying a 4-component SV_Position "
