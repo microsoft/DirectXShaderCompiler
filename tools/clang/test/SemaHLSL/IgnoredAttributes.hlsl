@@ -21,3 +21,17 @@ OutputType main()
 	OutputType output = {outputData};
 	return output;
 }
+
+
+[domain("quad")] /* expected-warning{{attribute domain ignored without accompanying shader attribute}} */
+[partitioning("integer")] /* expected-warning{{attribute partitioning ignored without accompanying shader attribute}} */
+[outputtopology("triangle_cw")] /* expected-warning{{attribute outputtopology ignored without accompanying shader attribute}} */
+[outputcontrolpoints(16)] /* expected-warning{{attribute outputcontrolpoints ignored without accompanying shader attribute}} */
+[patchconstantfunc("PatchFoo")] /* expected-warning{{attribute patchconstantfunc ignored without accompanying shader attribute}} */
+void HSMain( 
+              uint i : SV_OutputControlPointID,
+              uint PatchID : SV_PrimitiveID )
+{
+    
+}
+
