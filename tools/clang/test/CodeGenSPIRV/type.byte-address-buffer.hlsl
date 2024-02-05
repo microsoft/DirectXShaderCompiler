@@ -14,25 +14,25 @@
 // CHECK: %type_RWByteAddressBuffer = OpTypeStruct %_runtimearr_uint
 // CHECK: %_ptr_Uniform_type_RWByteAddressBuffer = OpTypePointer Uniform %type_RWByteAddressBuffer
 // CHECK: %Buffer0 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
-// CHECK: %BufferArary = OpVariable %_ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 Uniform
+// CHECK: %BufferArray = OpVariable %_ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 Uniform
 // CHECK: %BufferOut = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
 
 ByteAddressBuffer Buffer0;
-ByteAddressBuffer BufferArary[2];
+ByteAddressBuffer BufferArray[2];
 RWByteAddressBuffer BufferOut;
 
 // CHECK: %src_main = OpFunction
 [numthreads(1, 1, 1)]
 void main() {
-// CHECK: %LocalArary = OpVariable %_ptr_Function__ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 Function
+// CHECK: %LocalArray = OpVariable %_ptr_Function__ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 Function
 // CHECK: %Local = OpVariable %_ptr_Function__ptr_Uniform_type_ByteAddressBuffer Function
   ByteAddressBuffer LocalArary[2];
 
-// CHECK: OpStore %LocalArary %BufferArary
-  LocalArary = BufferArary;
+// CHECK: OpStore %LocalArray %BufferArray
+  LocalArray = BufferArray;
 
-// CHECK: [[array:%[0-9]+]] = OpLoad %_ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 %LocalArary
+// CHECK: [[array:%[0-9]+]] = OpLoad %_ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 %LocalArray
 // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_ByteAddressBuffer [[array]] %int_0
 // CHECK: OpStore %Local [[ac]]
-  ByteAddressBuffer Local = LocalArary[0];
+  ByteAddressBuffer Local = LocalArray[0];
 }
