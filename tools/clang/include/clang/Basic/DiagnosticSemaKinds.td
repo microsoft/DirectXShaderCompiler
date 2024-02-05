@@ -7787,7 +7787,7 @@ def warn_hlsl_derivatives_wrong_numthreads : Warning<
    "Intrinsic %0 potentially used by %1 requires derivatives - when used in compute/amplification/mesh shaders"
     " or broadcast nodes, numthreads must be either 1D with X as a multiple of 4 or"
     " both X and Y must be multiples of 2.">,
-    InGroup<HLSLAvailability>;
+    DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
    "overload of intrinsic %0 requires shader model %1 or greater">, 
     DefaultError, InGroup<HLSLAvailability>;
