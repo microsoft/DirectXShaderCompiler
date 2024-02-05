@@ -2857,9 +2857,9 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // OPCODE-GRADIENT:BEGIN
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
-  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
+  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175, SampleCmpBias=255
   return (60 <= op && op <= 61) || op == 64 || op == 81 ||
-         (83 <= op && op <= 86) || (174 <= op && op <= 175);
+         (83 <= op && op <= 86) || (174 <= op && op <= 175) || op == 255;
   // OPCODE-GRADIENT:END
 }
 
@@ -2925,7 +2925,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: QuadReadLaneAt=122, QuadOp=123
   if ((122 <= op && op <= 123)) {
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel);
+           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
   // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
@@ -2941,15 +2941,10 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
-  // Instructions: CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
-  // DerivFineX=85, DerivFineY=86
-  if (op == 81 || (83 <= op && op <= 86)) {
-    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
-           SFLAG(Amplification) | SFLAG(Mesh);
-    return;
-  }
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64
-  if ((60 <= op && op <= 61) || op == 64) {
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
+  if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
+      (83 <= op && op <= 86)) {
     mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
            SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
@@ -3170,7 +3165,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       minor = 7;
     }
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel);
+           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
   // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,

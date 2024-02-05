@@ -21,9 +21,9 @@
 // RDAT18:   FeatureInfo2: 256
 // Old: deriv use not tracked
 // RDAT17:   FeatureInfo2: 0
-// Pixel(0), Compute(5), Library(6), Mesh(13), Amplification(14) = 0x6061 = 24673
-// RDAT18: ShaderStageFlag: 24673
-// Old would not report Compute, Mesh, or Amplification compatibility.
+// Pixel(0), Compute(5), Library(6), Mesh(13), Amplification(14), Node(15) = 0xE061 = 57441
+// RDAT18: ShaderStageFlag: 57441
+// Old would not report Compute, Mesh, Amplification, or Node compatibility.
 // Pixel(0), Library(6) = 0x41 = 65
 // RDAT17: ShaderStageFlag: 65
 // MinShaderTarget: (Library(6) << 16) + (SM 6.0 ((6 << 4) + 0)) = 0x60060 = 393312

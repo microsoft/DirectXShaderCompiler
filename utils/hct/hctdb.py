@@ -366,6 +366,7 @@ class db_dxil(object):
                 "compute",
                 "amplification",
                 "mesh",
+                "node",
             )
         for (
             i
@@ -448,6 +449,7 @@ class db_dxil(object):
                     "amplification",
                     "mesh",
                     "pixel",
+                    "node",
                 )
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
@@ -5670,7 +5672,7 @@ class db_dxil(object):
         self.build_indices()
         for (
             i
-        ) in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(
+        ) in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,SampleCmpBias".split(
             ","
         ):
             self.name_idx[i].is_gradient = True
