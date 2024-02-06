@@ -2876,6 +2876,124 @@ bool OP::IsDxilOpFeedback(OpCode C) {
   // OPCODE-FEEDBACK:END
 }
 
+bool OP::IsDxilOpBarrier(OpCode C) {
+  unsigned op = (unsigned)C;
+  // clang-format off
+  // Python lines need to be not formatted.
+  /* <py::lines('OPCODE-BARRIER')>hctdb_instrhelp.get_instrs_pred("op", "is_barrier")</py>*/
+  // clang-format on
+  // OPCODE-BARRIER:BEGIN
+  // Instructions: Barrier=80, BarrierByMemoryType=244,
+  // BarrierByMemoryHandle=245, BarrierByNodeRecordHandle=246
+  return op == 80 || (244 <= op && op <= 246);
+  // OPCODE-BARRIER:END
+}
+
+bool OP::BarrierRequiresGroup(const llvm::CallInst *CI) {
+  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (opcode) {
+  case OpCode::Barrier: {
+    DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_barrierMode())) {
+      unsigned mode = barrier.get_barrierMode_val();
+      return (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal);
+    }
+    return false;
+  }
+  case OpCode::BarrierByMemoryType: {
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
+      unsigned memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
+      if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory)
+        return true;
+    }
+  }
+    LLVM_FALLTHROUGH;
+  case OpCode::BarrierByMemoryHandle:
+  case OpCode::BarrierByNodeRecordHandle: {
+    // BarrierByMemoryType, BarrierByMemoryHandle, and BarrierByNodeRecordHandle
+    // all have semanticFlags as the second operand.
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
+      unsigned semanticFlags = barrier.get_SemanticFlags_val();
+      if (semanticFlags & ((unsigned)DXIL::BarrierSemanticFlag::GroupScope |
+                           (unsigned)DXIL::BarrierSemanticFlag::GroupSync))
+        return true;
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
+
+bool OP::BarrierRequiresNode(const llvm::CallInst *CI) {
+  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (opcode) {
+  case OpCode::BarrierByNodeRecordHandle:
+    return true;
+  case OpCode::BarrierByMemoryType: {
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
+      unsigned memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
+      return memoryTypeFlags &
+             ((unsigned)DXIL::MemoryTypeFlag::NodeInputMemory |
+              (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory);
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
+
+DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
+  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (opcode) {
+  case OpCode::Barrier: {
+    DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_barrierMode())) {
+      unsigned mode = barrier.get_barrierMode_val();
+      return static_cast<DXIL::BarrierMode>(mode);
+    }
+    return DXIL::BarrierMode::Invalid;
+  }
+  case OpCode::BarrierByMemoryType: {
+    unsigned memoryTypeFlags = 0;
+    unsigned semanticFlags = 0;
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
+      memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
+    }
+    if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
+      semanticFlags = barrier.get_SemanticFlags_val();
+    }
+    if (memoryTypeFlags & ((unsigned)DXIL::MemoryTypeFlag::NodeInputMemory |
+                           (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory))
+      return DXIL::BarrierMode::Invalid;
+    if ((semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::GroupScope) &&
+        (semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::DeviceScope))
+      return DXIL::BarrierMode::Invalid;
+    unsigned mode = 0;
+    if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory)
+      mode |= (unsigned)DXIL::BarrierMode::TGSMFence;
+    if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::UavMemory) {
+      if (semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::DeviceScope) {
+        mode |= (unsigned)DXIL::BarrierMode::UAVFenceGlobal;
+      } else if (semanticFlags &
+                 (unsigned)DXIL::BarrierSemanticFlag::GroupScope) {
+        mode |= (unsigned)DXIL::BarrierMode::UAVFenceThreadGroup;
+      }
+    }
+    if (semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::GroupSync)
+      mode |= (unsigned)DXIL::BarrierMode::SyncThreadGroup;
+    return static_cast<DXIL::BarrierMode>(mode);
+  }
+  default:
+    return DXIL::BarrierMode::Invalid;
+  }
+}
+
 #define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
 void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
                                   unsigned &major, unsigned &minor,
@@ -3168,9 +3286,8 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
-  // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,
-  // BarrierByNodeRecordHandle=246, SampleCmpGrad=254
-  if ((244 <= op && op <= 246) || op == 254) {
+  // Instructions: BarrierByMemoryHandle=245, SampleCmpGrad=254
+  if (op == 245 || op == 254) {
     major = 6;
     minor = 8;
     return;
@@ -3185,11 +3302,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   }
   // Instructions: AllocateNodeOutputRecords=238, GetNodeRecordPtr=239,
   // IncrementOutputCount=240, OutputComplete=241, GetInputRecordCount=242,
-  // FinishedCrossGroupSharing=243, CreateNodeOutputHandle=247,
-  // IndexNodeHandle=248, AnnotateNodeHandle=249,
+  // FinishedCrossGroupSharing=243, BarrierByNodeRecordHandle=246,
+  // CreateNodeOutputHandle=247, IndexNodeHandle=248, AnnotateNodeHandle=249,
   // CreateNodeInputRecordHandle=250, AnnotateNodeRecordHandle=251,
   // NodeOutputIsValid=252, GetRemainingRecursionLevels=253
-  if ((238 <= op && op <= 243) || (247 <= op && op <= 253)) {
+  if ((238 <= op && op <= 243) || (246 <= op && op <= 253)) {
     major = 6;
     minor = 8;
     mask = SFLAG(Node);
@@ -3200,6 +3317,17 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     major = 6;
     minor = 8;
     mask = SFLAG(Vertex);
+    return;
+  }
+  // Instructions: BarrierByMemoryType=244
+  if (op == 244) {
+    if (bWithTranslation) {
+      major = 6;
+      minor = 0;
+    } else {
+      major = 6;
+      minor = 8;
+    }
     return;
   }
   // Instructions: WaveMatrix_Annotate=226, WaveMatrix_Depth=227,
@@ -3249,20 +3377,23 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
 
   // Additional rules are applied manually here.
 
-  // Barrier with mode != UAVFenceGlobal requires compute, amplification,
-  // mesh, or node. Instructions: Barrier=80
-  if (opcode == DXIL::OpCode::Barrier) {
-    // Barrier mode should be a constant, but be robust to non-constants here.
-    if (isa<ConstantInt>(
-            CI->getArgOperand(DxilInst_Barrier::arg_barrierMode))) {
-      DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
-      unsigned mode = barrier.get_barrierMode_val();
-      if (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal) {
-        mask &= SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-                SFLAG(Mesh) | SFLAG(Node);
+  // Barrier requiring node or group limit shdaer kinds.
+  if (IsDxilOpBarrier(opcode)) {
+    // TODO: if BarrierByMemoryType, check if translatable, or set min to 6.8.
+    if (bWithTranslation && opcode == DXIL::OpCode::BarrierByMemoryType) {
+      if (TranslateToBarrierMode(CI) == DXIL::BarrierMode::Invalid) {
+        major = 6;
+        minor = 8;
       }
     }
-    return;
+    if (BarrierRequiresNode(CI)) {
+      mask &= SFLAG(Library) | SFLAG(Node);
+      return;
+    } else if (BarrierRequiresGroup(CI)) {
+      mask &= SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
+              SFLAG(Mesh) | SFLAG(Node);
+      return;
+    }
   }
 
   // 64-bit integer atomic ops require 6.6

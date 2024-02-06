@@ -1484,6 +1484,7 @@ enum class AtomicBinOpCode : unsigned {
 
 // Barrier/fence modes.
 enum class BarrierMode : unsigned {
+  Invalid = 0,
   SyncThreadGroup = 0x00000001,
   UAVFenceGlobal = 0x00000002,
   UAVFenceThreadGroup = 0x00000004,
