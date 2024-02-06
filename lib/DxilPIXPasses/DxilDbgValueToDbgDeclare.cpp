@@ -948,15 +948,6 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
   }
 }
 
-class ScopedInstruction {
-  llvm::Instruction *m_Instruction;
-
-public:
-  ScopedInstruction(llvm::Instruction *I) : m_Instruction(I) {}
-  ~ScopedInstruction() { delete m_Instruction; }
-  llvm::Instruction *Get() const { return m_Instruction; }
-};
-
 struct GlobalVariableAndStorage {
   llvm::DIGlobalVariable *DIGV;
   OffsetInBits Offset;
