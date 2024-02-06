@@ -608,16 +608,7 @@ private:
           llvm::MDTuple *tup = cast<llvm::MDTuple>(node.getOperand(i));
           MDString *md_name = cast<MDString>(tup->getOperand(0));
           MDString *md_content = cast<MDString>(tup->getOperand(1));
-
-          // File name
-          Source_File file;
-          IFR(Utf8ToBlobWide(md_name->getString(), &file.Name));
-          IFR(hlsl::DxcCreateBlob(
-              md_content->getString().data(), md_content->getString().size(),
-              /*bPinned*/ false, /*bCopy*/ true,
-              /*encodingKnown*/ true, CP_UTF8, m_pMalloc, &file.Content));
-
-          m_SourceFiles.push_back(std::move(file));
+          AddSource(md_name->getString(), md_content->getString());
         }
       }
       // dx.source.mainFileName
@@ -626,7 +617,10 @@ private:
                    hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName) {
         MDTuple *tup = cast<MDTuple>(node.getOperand(0));
         MDString *str = cast<MDString>(tup->getOperand(0));
-        IFR(Utf8ToBlobWide(str->getString(), &m_MainFileName));
+        std::string normalized =
+            hlsl::NormalizePath(str->getString(), /*PrefixWithDot*/ false);
+        m_MainFileName = nullptr;
+        IFR(Utf8ToBlobWide(normalized, &m_MainFileName));
       }
       // dx.source.args
       else if (node_name == hlsl::DxilMDHelper::kDxilSourceArgsMDName ||

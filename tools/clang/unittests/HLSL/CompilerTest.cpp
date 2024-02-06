@@ -2907,31 +2907,36 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
        {L"main.hlsl",
         R"(#include "include.h"
            float main() : SV_Target { return foo(); } )"},
-       {L".\\include.h", commonIncludeFile}},
+       {L".\\include.h", commonIncludeFile},
+       {}},
 
       {L"./main.hlsl",
        {L".\\main.hlsl",
         R"(#include "include.h"
            float main() : SV_Target { return foo(); } )"},
-       {L".\\include.h", commonIncludeFile}},
+       {L".\\include.h", commonIncludeFile},
+       {}},
 
       {L"../main.hlsl",
        {L"..\\main.hlsl",
         R"(#include "include.h"\n
            float main() : SV_Target { return foo(); } )"},
-       {L".\\..\\include.h", commonIncludeFile}},
+       {L".\\..\\include.h", commonIncludeFile},
+       {}},
 
       {L"../main.hlsl",
        {L"..\\main.hlsl",
         R"(#include "include_dir/include.h"
            float main() : SV_Target { return foo(); } )"},
-       {L".\\..\\include_dir\\include.h", commonIncludeFile}},
+       {L".\\..\\include_dir\\include.h", commonIncludeFile},
+       {}},
 
       {L"../main.hlsl",
        {L"..\\main.hlsl",
         R"(#include "../include.h"
            float main() : SV_Target { return foo(); } )"},
-       {L".\\..\\..\\include.h", commonIncludeFile}},
+       {L".\\..\\..\\include.h", commonIncludeFile},
+       {}},
 
       {L"../main.hlsl",
        {L"..\\main.hlsl",
