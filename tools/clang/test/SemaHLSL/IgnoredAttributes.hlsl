@@ -15,13 +15,46 @@ struct OutputType{
 
 
 [clipplanes(clipPlane1,clipPlane2)] /* expected-warning{{attribute clipplanes ignored without accompanying shader attribute}} */
-OutputType main()
+OutputType clipplanesmain()
 {
 	float4 outputData = clipPlane1 + clipPlane2;
 	OutputType output = {outputData};
 	return output;
 }
 
+struct PSSceneIn {
+  float4 pos : SV_Position;
+  float2 tex : TEXCOORD0;
+  float3 norm : NORMAL;
+
+uint   RTIndex      : SV_RenderTargetArrayIndex;
+};
+
+struct HSPerVertexData {
+  // This is just the original vertex verbatim. In many real life cases this would be a
+  // control point instead
+  PSSceneIn v;
+};
+
+struct HSPerPatchData {
+  // We at least have to specify tess factors per patch
+  // As we're tesselating triangles, there will be 4 tess factors
+  // In real life case this might contain face normal, for example
+  float edges[3] : SV_TessFactor;
+  float inside : SV_InsideTessFactor;
+};
+
+HSPerPatchData PatchFoo( const InputPatch< PSSceneIn, 3 > points, OutputPatch<HSPerVertexData, 3> outp)
+{
+    HSPerPatchData d;
+
+    d.edges[ 0 ] = 1;
+    d.edges[ 1 ] = 1;
+    d.edges[ 2 ] = 1;
+    d.inside = 1;
+
+    return d;
+}
 
 [domain("quad")] /* expected-warning{{attribute domain ignored without accompanying shader attribute}} */
 [partitioning("integer")] /* expected-warning{{attribute partitioning ignored without accompanying shader attribute}} */
@@ -35,3 +68,36 @@ void HSMain(
     
 }
 
+[earlydepthstencil] /* expected-warning{{attribute earlydepthstencil ignored without accompanying shader attribute}} */
+float4 EDSmain() : SV_Target0 {
+	float4 x = {2.0,2.0,2.0,2.0};;
+    	return x;
+}
+
+[instance(1)] /* expected-warning{{attribute instance ignored without accompanying shader attribute}} */ 
+int instance_fn() { return 1; } 
+
+[maxtessfactor(1)] /* expected-warning{{attribute maxtessfactor ignored without accompanying shader attribute}} */ 
+int maxtessfactor_fn() { return 1; }
+
+[numthreads(4,4,4)] /* expected-warning{{attribute numthreads ignored without accompanying shader attribute}} */ 
+int numthreads_fn() { return 1; }   
+
+[RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)")] /* expected-warning{{attribute RootSignature ignored without accompanying shader attribute}} */ 
+void rootsig_fn(){}
+
+[experimental("foo", "bar")] /* expected-warning{{attribute experimental ignored without accompanying shader attribute}} */ 
+void experimental_fn(){}
+
+[maxvertexcount(12)] /* expected-warning{{attribute maxvertexcount ignored without accompanying shader attribute}} */ 
+void maxvertexcount_fn(){}
+
+[wavesize(4,32,16)] /* expected-warning{{attribute wavesize ignored without accompanying shader attribute}} */ 
+void wavesize_fn(){}
+
+[nodelaunch("thread")] /* expected-warning{{attribute nodelaunch ignored without accompanying shader attribute}} */ 
+void nodelaunch_fn(){}
+
+// note that this attribute doesn't take a string as an argument, but the warning gets emitted immediately and then 
+[nodeisprogramentry] /* expected-warning{{attribute nodeisprogramentry ignored without accompanying shader attribute}} */ 
+void nodeisprogramentry_fn(){}
