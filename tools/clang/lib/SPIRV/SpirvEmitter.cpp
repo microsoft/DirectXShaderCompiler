@@ -1560,16 +1560,6 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
   bool success = true;
 
-  if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
-    const auto varType = varDecl->getType();
-    if ((isSubpassInput(varType) || isSubpassInputMS(varType)) &&
-        !varDecl->hasAttr<VKInputAttachmentIndexAttr>()) {
-      emitError("missing vk::input_attachment_index attribute",
-                varDecl->getLocation());
-      success = false;
-    }
-  }
-
   if (decl->getAttr<VKInputAttachmentIndexAttr>()) {
     if (!decl->isExternallyVisible()) {
       emitError("SubpassInput(MS) must be externally visible",
