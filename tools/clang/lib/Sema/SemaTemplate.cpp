@@ -3989,6 +3989,7 @@ bool Sema::CheckTemplateArgumentList(TemplateDecl *Template,
     // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
     // Ignore arity mismatch for vk::SpirvType and vk::SpirvOpaqueType
+    // TODO(6246): this breaks if the frontend tries to desugar the type
     NamedDecl *TemplatedDecl = Template->getTemplatedDecl();
     llvm::StringRef TemplateName = TemplatedDecl->getName();
     llvm::StringRef Namespace = "";
