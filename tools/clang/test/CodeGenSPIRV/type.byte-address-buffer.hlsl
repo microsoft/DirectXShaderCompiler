@@ -26,7 +26,7 @@ RWByteAddressBuffer BufferOut;
 void main() {
 // CHECK: %LocalArray = OpVariable %_ptr_Function__ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 Function
 // CHECK: %Local = OpVariable %_ptr_Function__ptr_Uniform_type_ByteAddressBuffer Function
-  ByteAddressBuffer LocalArary[2];
+  ByteAddressBuffer LocalArray[2];
 
 // CHECK: OpStore %LocalArray %BufferArray
   LocalArray = BufferArray;
