@@ -15741,8 +15741,8 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
     return;
   }
 
-
-  DXIL::ShaderKind Stage = ShaderModel::KindFromFullName(shaderAttr->getStage());
+  DXIL::ShaderKind Stage =
+      ShaderModel::KindFromFullName(shaderAttr->getStage());
   llvm::StringRef StageName = shaderAttr->getStage();
   DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
 
