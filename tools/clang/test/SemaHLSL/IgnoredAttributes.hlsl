@@ -98,6 +98,23 @@ void wavesize_fn(){}
 [nodelaunch("thread")] /* expected-warning{{attribute nodelaunch ignored without accompanying shader attribute}} */ 
 void nodelaunch_fn(){}
 
-// note that this attribute doesn't take a string as an argument, but the warning gets emitted immediately and then 
 [nodeisprogramentry] /* expected-warning{{attribute nodeisprogramentry ignored without accompanying shader attribute}} */ 
 void nodeisprogramentry_fn(){}
+
+[nodeid("launch")] /* expected-warning{{attribute nodeid ignored without accompanying shader attribute}} */ 
+void nodeid_fn(){}
+
+[NodeLocalRootArgumentsTableIndex(2)] /* expected-warning{{attribute nodelocalrootargumentstableindex ignored without accompanying shader attribute}} */ 
+void NodeLocalRootArgumentsTableIndex_fn(){}
+
+[NodeShareInputOf("launch")] /* expected-warning{{attribute nodeshareinputof ignored without accompanying shader attribute}} */ 
+void NodeShareInputOf_fn(){}
+
+[NodeDispatchGrid(1,2,3)] /* expected-warning{{attribute nodedispatchgrid ignored without accompanying shader attribute}} */ 
+void NodeDispatchGrid_fn(){}
+
+[NodeMaxDispatchGrid(1,2,3)] /* expected-warning{{attribute nodemaxdispatchgrid ignored without accompanying shader attribute}} */ 
+void NodeMaxDispatchGrid_fn(){}
+
+[NodeMaxRecursionDepth(12)] /* expected-warning{{attribute nodemaxrecursiondepth ignored without accompanying shader attribute}} */ 
+void NodeMaxRecursionDepth_fn(){}
