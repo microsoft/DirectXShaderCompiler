@@ -83,7 +83,7 @@ void node_1_1(
 // CHECK-NEXT:|   | |-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> OutputComplete 'TResult () const'
 // CHECK-NEXT:|   | `-CXXMethodDecl 0x[[OutComplete:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used OutputComplete 'void ()' extern
 // CHECK-NEXT:|   |   |-TemplateArgument type 'void'
-// CHECK-NEXT:|   |   `-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "op" "" 340
+// CHECK-NEXT:|   |   `-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "op" "" {{[0-9]+}}
 // CHECK-NEXT:|   `-CXXDestructorDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit referenced ~ThreadNodeOutputRecords 'void () noexcept' inline
 
 // CHECK:|-ClassTemplateDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit NodeOutput
@@ -124,7 +124,7 @@ void node_1_1(
 // CHECK-NEXT:|   |   |-TemplateArgument type 'ThreadNodeOutputRecords<RECORD1>':'ThreadNodeOutputRecords<RECORD1>'
 // CHECK-NEXT:|   |   |-TemplateArgument type 'unsigned int'
 // CHECK-NEXT:|   |   |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> GetThreadNodeOutputRecords 'unsigned int'
-// CHECK-NEXT:|   |   `-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "op" "" 336
+// CHECK-NEXT:|   |   `-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "op" "" {{[0-9]+}}
 // CHECK-NEXT:|   |-FunctionTemplateDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> IsValid
 // CHECK-NEXT:|   | |-TemplateTypeParmDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> class TResult
 // CHECK-NEXT:|   | `-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> IsValid 'TResult () const'
@@ -138,7 +138,7 @@ void node_1_1(
 // CHECK-NEXT:| | |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:| | `-CXXMethodDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> operator[] 'NodeOutput<recordtype> (unsigned int)'
 // CHECK-NEXT:| |   |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> index 'unsigned int'
-// CHECK-NEXT:| |   |-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "indexnodehandle" "" 12
+// CHECK-NEXT:| |   |-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "indexnodehandle" "" {{[0-9]+}}
 // CHECK-NEXT:| |   `-HLSLCXXOverloadAttr 0x{{.+}} <<invalid sloc>> Implicit
 // CHECK-NEXT:| `-ClassTemplateSpecializationDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> struct NodeOutputArray definition
 // CHECK-NEXT:|   |-TemplateArgument type 'RECORD1'
@@ -147,7 +147,7 @@ void node_1_1(
 // CHECK-NEXT:|   |-FieldDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> implicit h 'int'
 // CHECK-NEXT:|   `-CXXMethodDecl 0x[[SUB:[0-9a-f]+]] <<invalid sloc>> <invalid sloc> used operator[] 'NodeOutput<RECORD1> (unsigned int)'
 // CHECK-NEXT:|     |-ParmVarDecl 0x{{.+}} <<invalid sloc>> <invalid sloc> index 'unsigned int'
-// CHECK-NEXT:|     |-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "indexnodehandle" "" 12
+// CHECK-NEXT:|     |-HLSLIntrinsicAttr 0x{{.+}} <<invalid sloc>> Implicit "indexnodehandle" "" {{[0-9]+}}
 // CHECK-NEXT:|     `-HLSLCXXOverloadAttr 0x{{.+}} <<invalid sloc>> Implicit
 
 // CHECK:`-FunctionDecl 0x{{.+}} <line:16:1, line:21:1> line:16:6 node_1_1 'void (NodeOutputArray<RECORD1>)'
