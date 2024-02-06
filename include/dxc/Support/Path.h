@@ -50,7 +50,7 @@ inline bool IsAbsoluteOrCurDirRelative(const char *Path) {
 }
 
 template <typename CharT, typename StringTy>
-inline StringTy NormalizePathImpl(const CharT *Path, size_t Length,
+StringTy NormalizePathImpl(const CharT *Path, size_t Length,
                                   bool PrefixWithDot) {
   StringTy PathCopy(Path, Length);
 
