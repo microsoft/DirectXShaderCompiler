@@ -72,7 +72,7 @@ void node01(DispatchNodeInputRecord<RECORD> input) {
 [NodeIsProgramEntry]
 void node02()
 {
-    // expected-warning@+1 {{Intrinsic CalculateLevelOfDetail potentially used by node02 requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+    // expected-error@+1 {{Intrinsic CalculateLevelOfDetail potentially used by node02 requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
 }
 
@@ -81,7 +81,19 @@ void node02()
 float4 vs(float2 a :A) :SV_POSTION {
   float r = 0;
   if (1>3)
-    // expected-warning@+1 {{Intrinsic CalculateLevelOfDetail potentially used by vs requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+    // expected-error@+1 {{Intrinsic CalculateLevelOfDetail potentially used by vs requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
     r = t1.CalculateLevelOfDetail(ss, 0.5).x;
   return r;
+}
+
+SamplerComparisonState s;
+Texture1D t;
+// expected-note@+3{{declared here}}
+// expected-note@+2{{declared here}}
+[shader("vertex")]
+float4 vs2(float a:A) : SV_Position {
+  // expected-error@+1 {{Intrinsic CalculateLevelOfDetail potentially used by vs2 requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+  return t.CalculateLevelOfDetail(s, a) +
+  // expected-error@+1 {{Intrinsic CalculateLevelOfDetailUnclamped potentially used by vs2 requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
+    t.CalculateLevelOfDetailUnclamped(ss, a);
 }
