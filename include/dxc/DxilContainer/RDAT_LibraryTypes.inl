@@ -154,10 +154,10 @@ RDAT_STRUCT_TABLE(RuntimeDataFunctionInfo, FunctionTable)
 
 #if DEF_RDAT_TYPES == DEF_RDAT_READER_DECL
   // uint64_t GetFeatureFlags() convenience method
-  uint64_t GetFeatureFlags();
+  uint64_t GetFeatureFlags() const;
 #elif DEF_RDAT_TYPES == DEF_RDAT_READER_IMPL
   // uint64_t GetFeatureFlags() convenience method
-  uint64_t RuntimeDataFunctionInfo_Reader::GetFeatureFlags() {
+  uint64_t RuntimeDataFunctionInfo_Reader::GetFeatureFlags() const {
     return asRecord() ? (((uint64_t)asRecord()->FeatureInfo2 << 32) |
                          (uint64_t)asRecord()->FeatureInfo1)
                       : 0;
