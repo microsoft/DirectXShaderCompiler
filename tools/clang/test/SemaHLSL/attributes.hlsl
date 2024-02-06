@@ -350,11 +350,11 @@ int uav() {
   return i;
 }
 
-[domain] int domain_fn_missing() { return 1; }          // expected-error {{'domain' attribute takes one argument}} fxc-pass {{}}
+[domain] [shader("pixel")]int domain_fn_missing() { return 1; }          // expected-error {{'domain' attribute takes one argument}} fxc-pass {{}}
 [domain()] int domain_fn_empty() { return 1; }          // expected-error {{'domain' attribute takes one argument}} fxc-error {{X3000: syntax error: unexpected token ')'}}
-[domain("blerch")] int domain_fn_bad() { return 1; }    // expected-error {{attribute 'domain' must have one of these values: tri,quad,isoline}} fxc-pass {{}}
-[domain("quad")] int domain_fn() { return 1; }          /* fxc-warning {{X3554: unknown attribute domain, or attribute invalid for this statement}} */
-[domain(1)] int domain_fn_int() { return 1; }           // expected-error {{attribute 'domain' must have a string literal argument}} fxc-pass {{}}
+[domain("blerch")] [shader("pixel")] int domain_fn_bad() { return 1; }    // expected-error {{attribute 'domain' must have one of these values: tri,quad,isoline}} fxc-pass {{}}
+[domain("quad")] [shader("pixel")] int domain_fn() { return 1; }          /* fxc-warning {{X3554: unknown attribute domain, or attribute invalid for this statement}} */
+[domain(1)] [shader("pixel")] int domain_fn_int() { return 1; }           // expected-error {{attribute 'domain' must have a string literal argument}} fxc-pass {{}}
 [domain("quad","quad")] int domain_fn_mul() { return 1; } // expected-error {{'domain' attribute takes one argument}} fxc-pass {{}}
 [instance] int instance_fn() { return 1; }             // expected-error {{'instance' attribute takes one argument}} fxc-warning {{X3554: unknown attribute instance, or attribute invalid for this statement}}
 [maxtessfactor] int maxtessfactor_fn() { return 1; }   // expected-error {{'maxtessfactor' attribute takes one argument}} fxc-warning {{X3554: unknown attribute maxtessfactor, or attribute invalid for this statement}}
@@ -364,7 +364,7 @@ int uav() {
 [partitioning] int partitioning_fn() { return 1; }     // expected-error {{'partitioning' attribute takes one argument}} fxc-warning {{X3554: unknown attribute partitioning, or attribute invalid for this statement}}
 [patchconstantfunc] int patchconstantfunc_fn() { return 1; } // expected-error {{'patchconstantfunc' attribute takes one argument}} fxc-warning {{X3554: unknown attribute patchconstantfunc, or attribute invalid for this statement}}
 
-[partitioning("fractional_even")] int partitioning_fn_ok() { return 1; }
+[partitioning("fractional_even")] [shader("pixel")] int partitioning_fn_ok() { return 1; }
 
 struct HSFoo
 {
@@ -382,6 +382,7 @@ Texture2D<float4> tex1[10] : register( t20, space10 );
 [outputtopology("not_triangle_cw")] // expected-error {{attribute 'outputtopology' must have one of these values: point,line,triangle,triangle_cw,triangle_ccw}} fxc-pass {{}}
 [outputcontrolpoints(-1)] // expected-warning {{attribute 'outputcontrolpoints' must have a uint literal argument}} fxc-pass {{}}
 [patchconstantfunc("PatchFoo", "ExtraArgument")] // expected-error {{'patchconstantfunc' attribute takes one argument}} fxc-pass {{}}
+[shader("pixel")]
 void all_wrong() { }
 
 [domain("quad")]
@@ -392,6 +393,7 @@ void all_wrong() { }
 [outputtopology("triangle_cw")]
 [outputcontrolpoints(16)]
 [patchconstantfunc("PatchFoo")]
+[shader("pixel")]
 HSFoo HSMain( InputPatch<HSFoo, 16> p,
 /*verify-ast
   FunctionDecl <col:1, line:468:1> line:394:7 HSMain 'HSFoo (InputPatch<HSFoo, 16>, uint, uint)'
@@ -624,6 +626,7 @@ float4 clipplanes_good_parens();
 // fxc error comments on the line.
 struct GSVertex { float4 pos : SV_Position; };
 [maxvertexcount (12)]
+[shader("pixel")]
 /*verify-ast
   HLSLMaxVertexCountAttr <col:2, col:20> 12
 */
@@ -632,6 +635,7 @@ void maxvertexcount_valid1(triangle GSVertex v[3], inout TriangleStream<GSVertex
 
 static const int sc_count = 12;
 [maxvertexcount (sc_count)]
+[shader("pixel")]
 /*verify-ast
   HLSLMaxVertexCountAttr <col:2, col:26> 12
 */
@@ -639,6 +643,7 @@ void maxvertexcount_valid2(triangle GSVertex v[3], inout TriangleStream<GSVertex
 { stream.Append(v[0]); }
 
 [maxvertexcount (sc_count + 3)]
+[shader("pixel")]
 /*verify-ast
   HLSLMaxVertexCountAttr <col:2, col:30> 15
 */
@@ -649,6 +654,7 @@ static const int4 sc_count4 = int4(3,6,9,12);
 
 // The following passes fxc, but fails clang.
 [maxvertexcount (sc_count4.w)]          /* expected-error {{'maxvertexcount' attribute requires an integer constant}} fxc-pass {{}} */
+[shader("pixel")]
 /*verify-ast
   HLSLMaxVertexCountAttr <col:2, col:29> 0
 */
@@ -658,6 +664,7 @@ void maxvertexcount_valid4(triangle GSVertex v[3], inout TriangleStream<GSVertex
 // fxc:
 // error X3084: cannot match attribute maxvertexcount, non-uint parameters found
 [maxvertexcount (-12)]                  /* expected-warning {{attribute 'maxvertexcount' must have a uint literal argument}} fxc-pass {{}} */
+[shader("pixel")]
 void negative_maxvertexcount(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
 { stream.Append(v[0]); }
 
@@ -666,6 +673,7 @@ void negative_maxvertexcount(triangle GSVertex v[3], inout TriangleStream<GSVert
 // warning X3554: unknown attribute maxvertexcount, or attribute invalid for this statement, valid attributes are: maxvertexcount, MaxVertexCount, instance, RootSignature
 // error X3514: 'float_maxvertexcount1' must have a max vertex count
 [maxvertexcount (1.5)]                  /* expected-warning {{attribute 'maxvertexcount' must have a uint literal argument}} fxc-pass {{}} */
+[shader("pixel")]
 void float_maxvertexcount1(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
 { stream.Append(v[0]); }
 
@@ -675,6 +683,7 @@ void float_maxvertexcount1(triangle GSVertex v[3], inout TriangleStream<GSVertex
 // error X3514: 'float_maxvertexcount2' must have a max vertex count
 static const float sc_float = 1.5;
 [maxvertexcount (sc_float)]             /* expected-error {{'maxvertexcount' attribute requires an integer constant}} fxc-pass {{}} */
+[shader("pixel")]
 void float_maxvertexcount2(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
 { stream.Append(v[0]); }
 
@@ -685,6 +694,7 @@ float f_count;
 // error X3084: non-literal parameter(s) found for attribute maxvertexcount
 // error X3514: 'uniform_maxvertexcount1' must have a max vertex count
 [maxvertexcount (i_count)]              /* expected-error {{'maxvertexcount' attribute requires an integer constant}} fxc-pass {{}} */
+[shader("pixel")]
 void uniform_maxvertexcount1(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
 { stream.Append(v[0]); }
 
@@ -693,6 +703,7 @@ void uniform_maxvertexcount1(triangle GSVertex v[3], inout TriangleStream<GSVert
 // warning X3554: unknown attribute maxvertexcount, or attribute invalid for this statement, valid attributes are: maxvertexcount, MaxVertexCount, instance, RootSignature
 // error X3514: 'uniform_maxvertexcount2' must have a max vertex count
 [maxvertexcount (f_count)]              /* expected-error {{'maxvertexcount' attribute requires an integer constant}} fxc-pass {{}} */
+[shader("pixel")]
 void uniform_maxvertexcount2(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
 { stream.Append(v[0]); }
 
@@ -824,6 +835,7 @@ bool Test_Call() {
 
 // Test EarlyDepthStencil
 [EarlyDepthStencil]
+[shader("pixel")]
 bool Test_EarlyDepthStencil() {
   return true;
 }
@@ -855,66 +867,77 @@ bool Test_Loop() {
 // Test ClipPlanes
 float4 ClipPlanesVal;
 [ClipPlanes(ClipPlanesVal)]
+[shader("pixel")]
 bool Test_ClipPlanes() {
   return true;
 }
 
 // Test Domain
 [Domain("tri")]
+[shader("pixel")]
 bool Test_Domain() {
   return true;
 }
 
 // Test Instance
 [Instance(1)]
+[shader("pixel")]
 bool Test_Instance() {
   return true;
 }
 
 // Test MaxTessFactor
 [MaxTessFactor(1)]
+[shader("pixel")]
 bool Test_MaxTessFactor() {
   return true;
 }
 
 // Test MaxVertexCount
 [MaxVertexCount(1)]
+[shader("pixel")]
 bool Test_MaxVertexCount() {
   return true;
 }
 
 // Test NumThreads
 [NumThreads(1,2,3)]
+[shader("pixel")]
 bool Test_NumThreads() {
   return true;
 }
 
 // Test OutputControlPoints
 [OutputControlPoints(2)]
+[shader("pixel")]
 bool Test_OutputControlPoints() {
   return true;
 }
 
 // Test OutputTopology
 [OutputTopology("line")]
+[shader("pixel")]
 bool Test_OutputTopology() {
   return true;
 }
 
 // Test Partitioning
 [Partitioning("integer")]
+[shader("pixel")]
 bool Test_Partitioning() {
   return true;
 }
 
 // Test PatchConstantFunc
 [PatchConstantFunc("Test_Partitioning")]
+[shader("pixel")]
 bool Test_PatchConstantFunc() {
   return true;
 }
 
 // Test RootSignature
 [RootSignature("")]
+[shader("pixel")]
 bool Test_RootSignature() {
   return true;
 }

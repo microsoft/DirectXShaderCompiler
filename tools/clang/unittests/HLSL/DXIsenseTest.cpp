@@ -458,6 +458,7 @@ TEST_F(DXIntellisenseTest, TUWhenUnsaveFileThenOK) {
   // works.
   const char fileName[] = "filename.hlsl";
   char program[] = "[numthreads(1, 1, 1)]\r\n"
+                   "[shader(\"compute\")]\r\n"
                    "void main( uint3 DTid : SV_DispatchThreadID )\r\n"
                    "{\r\n"
                    "}";
@@ -516,7 +517,7 @@ TEST_F(DXIntellisenseTest, TUWhenUnsaveFileThenOK) {
     }
     // Format for a location is line:col@offset
     VERIFY_ARE_EQUAL_WSTR(
-        L"main(uint3) - spelling 2:6@28 - extent 2:1@23 .. 4:2@74\n",
+        L"main(uint3) - spelling 3:6@49 - extent 3:1@44 .. 5:2@95\n",
         offsetStream.str().c_str());
   }
 }
