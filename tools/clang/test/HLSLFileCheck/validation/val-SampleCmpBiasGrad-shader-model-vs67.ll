@@ -1,4 +1,4 @@
-; RUN: not %dxv %s 2>&1 | FileCheck %s
+; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 
 ;
 ;  Modified base on output of
@@ -60,7 +60,7 @@ define void @main() {
   %15 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 2, i32 1028 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xI32>
   %16 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 32782, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerComparisonState
 
-; CHECK: Opcode SampleCmpBias not valid in shader model ps_6_7
+; CHECK: Opcode SampleCmpBias not valid in shader model vs_6_7
 
   %17 = call %dx.types.ResRet.f32 @dx.op.sampleCmpBias.f32(i32 255, %dx.types.Handle %15, %dx.types.Handle %16, float %7, float %8, float undef, float undef, i32 -5, i32 7, i32 undef, float %14, float %13, float %11)  ; SampleCmpBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,bias,clamp)
   %18 = extractvalue %dx.types.ResRet.f32 %17, 0
@@ -70,7 +70,7 @@ define void @main() {
   %22 = extractvalue %dx.types.CBufRet.f32 %12, 3
   %23 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %3, %dx.types.ResourceProperties { i32 7, i32 1028 })  ; AnnotateHandle(res,props)  resource: Texture2DArray<4xI32>
 
-; CHECK: Opcode SampleCmpGrad not valid in shader model ps_6_7
+; CHECK: Opcode SampleCmpGrad not valid in shader model vs_6_7
 
   %24 = call %dx.types.ResRet.f32 @dx.op.sampleCmpGrad.f32(i32 254, %dx.types.Handle %23, %dx.types.Handle %16, float %7, float %8, float %9, float undef, i32 -4, i32 1, i32 undef, float %14, float %21, float %22, float undef, float %19, float %20, float undef, float 5.000000e-01)  ; SampleCmpGrad(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,ddx0,ddx1,ddx2,ddy0,ddy1,ddy2,clamp)
   %25 = extractvalue %dx.types.ResRet.f32 %24, 0
@@ -78,7 +78,7 @@ define void @main() {
   %27 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 2, i32 1033 })  ; AnnotateHandle(res,props)  resource: Texture2D<4xF32>
   %28 = call %dx.types.Handle @dx.op.annotateHandle(i32 216, %dx.types.Handle %4, %dx.types.ResourceProperties { i32 32782, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerComparisonState
 
-; CHECK: lod instruction requires sampler declared in default mode
+; CHECK: Opcode CalculateLOD not valid in shader model vs_6_7
 
   %29 = call float @dx.op.calculateLOD.f32(i32 81, %dx.types.Handle %27, %dx.types.Handle %28, float %7, float %8, float undef, i1 true)  ; CalculateLOD(handle,sampler,coord0,coord1,coord2,clamped)
   ret void
@@ -125,7 +125,7 @@ attributes #2 = { nounwind readonly }
 
 !0 = !{!"dxc(private) 1.7.0.4396 (test_time, 849f8b884-dirty)"}
 !1 = !{i32 1, i32 7}
-!2 = !{!"ps", i32 6, i32 7}
+!2 = !{!"vs", i32 6, i32 7}
 !3 = !{!4, !8, !10, !12}
 !4 = !{!5, !7}
 !5 = !{i32 0, %"class.Texture2DArray<vector<float, 4> >"* undef, !"", i32 0, i32 0, i32 1, i32 8, i32 0, !6}
@@ -136,7 +136,7 @@ attributes #2 = { nounwind readonly }
 !10 = !{!11}
 !11 = !{i32 0, %"$Globals"* undef, !"", i32 0, i32 0, i32 1, i32 28, null}
 !12 = !{!13}
-!13 = !{i32 0, %struct.SamplerComparisonState* undef, !"", i32 0, i32 0, i32 1, i32 1, null}
+!13 = !{i32 0, %struct.SamplerComparisonState* undef, !"", i32 0, i32 0, i32 1, i32 0, null}
 !14 = !{[6 x i32] [i32 4, i32 1, i32 1, i32 1, i32 1, i32 0]}
 !15 = !{void ()* @main, !"main", !16, !3, !24}
 !16 = !{!17, !21, null}

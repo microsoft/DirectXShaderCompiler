@@ -213,8 +213,10 @@ For example:
 
   [[vk::input_attachment_index(i)]] SubpassInput input;
 
-An ``vk::input_attachment_index`` of ``i`` selects the ith entry in the input
-pass list. (See Vulkan API spec for more information.)
+A ``vk::input_attachment_index`` of ``i`` selects the ith entry in the input
+pass list. A subpass input without a ``vk::input_attachment_index`` will be
+associated with the depth/stencil attachment. (See Vulkan API spec for more
+information.)
 
 Push constants
 ~~~~~~~~~~~~~~

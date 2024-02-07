@@ -67,15 +67,6 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     : diags(de) {
   allowedExtensions.resize(static_cast<unsigned>(Extension::Unknown) + 1);
 
-  if (opts.allowedExtensions.empty()) {
-    // If no explicit extension control from command line, use the default mode:
-    // allowing all extensions that are enabled by default.
-    allowAllKnownExtensions();
-  } else {
-    for (auto ext : opts.allowedExtensions)
-      allowExtension(ext);
-  }
-
   targetEnvStr = opts.targetEnv;
 
   llvm::Optional<spv_target_env> targetEnvOpt =
@@ -85,13 +76,17 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
     emitNote("allowed options are:\n vulkan1.0\n vulkan1.1\n "
              "vulkan1.1spirv1.4\n vulkan1.2\n vulkan1.3\n universal1.5",
              {});
+    return;
   }
   targetEnv = *targetEnvOpt;
 
-  // Override the default mesh extension to SPV_EXT_mesh_shader when the
-  // target environment is SPIR-V 1.4 or above
-  if (isTargetEnvSpirv1p4OrAbove()) {
-    allowExtension("SPV_EXT_mesh_shader");
+  if (opts.allowedExtensions.empty()) {
+    // If no explicit extension control from command line, use the default mode:
+    // allowing all extensions that are enabled by default.
+    allowAllKnownExtensions();
+  } else {
+    for (auto ext : opts.allowedExtensions)
+      allowExtension(ext);
   }
 }
 
@@ -348,7 +343,7 @@ bool FeatureManager::enabledByDefault(Extension ext) {
   case Extension::EXT_mesh_shader:
     // Enabling EXT_mesh_shader only when the target environment is SPIR-V 1.4
     // or above
-    return false;
+    return isTargetEnvSpirv1p4OrAbove();
   default:
     return true;
   }

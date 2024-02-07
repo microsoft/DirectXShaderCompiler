@@ -30,14 +30,24 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 // Initializing a T with a ConstantBuffer<T> is a copy
 // CHECK:      [[val:%[0-9]+]] = OpLoad %type_ConstantBuffer_S %myCBuffer
 // CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeExtract %v4float [[val]] 0
+// CHECK-NEXT: [[e0:%[0-9]+]] = OpCompositeExtract %float [[vec]] 0
+// CHECK-NEXT: [[e1:%[0-9]+]] = OpCompositeExtract %float [[vec]] 1
+// CHECK-NEXT: [[e2:%[0-9]+]] = OpCompositeExtract %float [[vec]] 2
+// CHECK-NEXT: [[e3:%[0-9]+]] = OpCompositeExtract %float [[vec]] 3
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeConstruct %v4float  [[e0]] [[e1]] [[e2]] [[e3]]
 // CHECK-NEXT: [[tmp:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec]]
 // CHECK-NEXT:                OpStore %buffer1 [[tmp]]
     S buffer1 = myCBuffer;
 
 // Assigning a ConstantBuffer<T> to a T is a copy
 // CHECK:      [[val_0:%[0-9]+]] = OpLoad %type_ConstantBuffer_S %myCBuffer
-// CHECK-NEXT: [[vec_0:%[0-9]+]] = OpCompositeExtract %v4float [[val_0]] 0
-// CHECK-NEXT: [[tmp_0:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec_0]]
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeExtract %v4float [[val_0]] 0
+// CHECK-NEXT: [[e0:%[0-9]+]] = OpCompositeExtract %float [[vec]] 0
+// CHECK-NEXT: [[e1:%[0-9]+]] = OpCompositeExtract %float [[vec]] 1
+// CHECK-NEXT: [[e2:%[0-9]+]] = OpCompositeExtract %float [[vec]] 2
+// CHECK-NEXT: [[e3:%[0-9]+]] = OpCompositeExtract %float [[vec]] 3
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeConstruct %v4float  [[e0]] [[e1]] [[e2]] [[e3]]
+// CHECK-NEXT: [[tmp_0:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec]]
 // CHECK-NEXT:                OpStore %buffer2 [[tmp_0]]
     S buffer2;
     buffer2 = myCBuffer;
@@ -51,8 +61,13 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 // Write out each component recursively
 // CHECK:      [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_S %myASBuffer %uint_0 {{%[0-9]+}}
 // CHECK-NEXT: [[val_2:%[0-9]+]] = OpLoad %type_ConstantBuffer_S %myCBuffer
-// CHECK-NEXT: [[vec_1:%[0-9]+]] = OpCompositeExtract %v4float [[val_2]] 0
-// CHECK-NEXT: [[tmp_1:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec_1]]
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeExtract %v4float [[val_2]] 0
+// CHECK-NEXT: [[e0:%[0-9]+]] = OpCompositeExtract %float [[vec]] 0
+// CHECK-NEXT: [[e1:%[0-9]+]] = OpCompositeExtract %float [[vec]] 1
+// CHECK-NEXT: [[e2:%[0-9]+]] = OpCompositeExtract %float [[vec]] 2
+// CHECK-NEXT: [[e3:%[0-9]+]] = OpCompositeExtract %float [[vec]] 3
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeConstruct %v4float  [[e0]] [[e1]] [[e2]] [[e3]]
+// CHECK-NEXT: [[tmp_1:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec]]
 // CHECK-NEXT: [[vec_2:%[0-9]+]] = OpCompositeExtract %v4float [[tmp_1]] 0
 // CHECK-NEXT: [[tmp_2:%[0-9]+]] = OpCompositeConstruct %S [[vec_2]]
 // CHECK-NEXT:                OpStore [[ptr]] [[tmp_2]]
@@ -60,8 +75,13 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 
 // Passing a ConstantBuffer<T> to a T parameter is a copy
 // CHECK:      [[val_3:%[0-9]+]] = OpLoad %type_ConstantBuffer_S %myCBuffer
-// CHECK-NEXT: [[vec_3:%[0-9]+]] = OpCompositeExtract %v4float [[val_3]] 0
-// CHECK-NEXT: [[tmp_3:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec_3]]
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeExtract %v4float [[val_3]] 0
+// CHECK-NEXT: [[e0:%[0-9]+]] = OpCompositeExtract %float [[vec]] 0
+// CHECK-NEXT: [[e1:%[0-9]+]] = OpCompositeExtract %float [[vec]] 1
+// CHECK-NEXT: [[e2:%[0-9]+]] = OpCompositeExtract %float [[vec]] 2
+// CHECK-NEXT: [[e3:%[0-9]+]] = OpCompositeExtract %float [[vec]] 3
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeConstruct %v4float  [[e0]] [[e1]] [[e2]] [[e3]]
+// CHECK-NEXT: [[tmp_3:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec]]
 // CHECK-NEXT:                OpStore %param_var_buffer [[tmp_3]]
     return doStuff(myCBuffer);
 }
@@ -69,8 +89,13 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 S retStuff() {
 // Returning a ConstantBuffer<T> as a T is a copy
 // CHECK:      [[val_4:%[0-9]+]] = OpLoad %type_ConstantBuffer_S %myCBuffer
-// CHECK-NEXT: [[vec_4:%[0-9]+]] = OpCompositeExtract %v4float [[val_4]] 0
-// CHECK-NEXT: [[ret:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec_4]]
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeExtract %v4float [[val_4]] 0
+// CHECK-NEXT: [[e0:%[0-9]+]] = OpCompositeExtract %float [[vec]] 0
+// CHECK-NEXT: [[e1:%[0-9]+]] = OpCompositeExtract %float [[vec]] 1
+// CHECK-NEXT: [[e2:%[0-9]+]] = OpCompositeExtract %float [[vec]] 2
+// CHECK-NEXT: [[e3:%[0-9]+]] = OpCompositeExtract %float [[vec]] 3
+// CHECK-NEXT: [[vec:%[0-9]+]] = OpCompositeConstruct %v4float  [[e0]] [[e1]] [[e2]] [[e3]]
+// CHECK-NEXT: [[ret:%[0-9]+]] = OpCompositeConstruct %S_0 [[vec]]
 // CHECK-NEXT:                OpReturnValue [[ret]]
     return myCBuffer;
 }
