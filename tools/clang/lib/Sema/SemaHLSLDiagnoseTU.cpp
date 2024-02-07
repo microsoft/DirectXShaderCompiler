@@ -9,7 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
@@ -485,7 +484,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         if (const auto *NodeLaunchAttr =
                 FDecl->getAttr<clang::HLSLNodeLaunchAttr>()) {
           llvm::StringRef NodeLaunchTyStr = NodeLaunchAttr->getLaunchType();
-          DXIL::NodeLaunchType NodeLaunchTy =
+          hlsl::DXIL::NodeLaunchType NodeLaunchTy =
               ShaderModel::NodeLaunchTypeFromName(
                   NodeLaunchAttr->getLaunchType());
           Visitor.getSema()->DiagnoseSVForLaunchType(FD, NodeLaunchTy);

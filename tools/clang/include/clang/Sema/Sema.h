@@ -15,7 +15,6 @@
 #ifndef LLVM_CLANG_SEMA_SEMA_H
 #define LLVM_CLANG_SEMA_SEMA_H
 
-#include "dxc/DXIL/DxilConstants.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/Expr.h"
