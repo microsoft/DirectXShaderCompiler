@@ -1,0 +1,4 @@
+# DXC release branches require approval from `hlsl-release` group starting from
+# the release AskMode date.
+
+* @microsoft/hlsl-release
