@@ -13,6 +13,18 @@
 #define UNICODE
 #endif
 
+#ifdef _WIN32
+#define SLASH_W L"\\"
+#define SLASH "\\"
+#define PP_SLASH_W L"\\\\"
+#define PP_SLASH "\\\\"
+#else
+#define SLASH_W L"/"
+#define SLASH "/"
+#define PP_SLASH_W L"/"
+#define PP_SLASH "/"
+#endif
+
 // clang-format off
 // Includes on Windows are highly order dependent.
 #include <memory>
@@ -1258,6 +1270,15 @@ static void VerifyPdbUtil(
     bool HasVersion, bool IsFullPDB, bool HasHashAndPdbName,
     bool TestReflection, bool TestEntryPoint, const std::string &MainSource,
     const std::string &IncludedFile) {
+
+  std::wstring MainFileName;
+#ifdef _WIN32
+  MainFileName += L".\\";
+#else
+  MainFileName += L"./";
+#endif
+  MainFileName += pMainFileName;
+
   VERIFY_SUCCEEDED(pPdbUtils->Load(pBlob));
 
   // Compiler version comparison
@@ -1363,7 +1384,7 @@ static void VerifyPdbUtil(
   {
     CComBSTR pPdbMainFileName;
     VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pPdbMainFileName));
-    VERIFY_ARE_EQUAL_WSTR(pMainFileName, pPdbMainFileName.m_str);
+    VERIFY_ARE_EQUAL(MainFileName, pPdbMainFileName.m_str);
   }
 
   // There is hash and hash is not empty
@@ -1391,7 +1412,7 @@ static void VerifyPdbUtil(
       llvm::StringRef FileContentRef(pFileContentUtf8->GetStringPointer(),
                                      pFileContentUtf8->GetStringLength());
 
-      if (0 == wcscmp(pFileName, pMainFileName)) {
+      if (MainFileName == pFileName.m_str) {
         VERIFY_ARE_EQUAL(FileContentRef, MainSource);
       } else {
         VERIFY_ARE_EQUAL(FileContentRef, IncludedFile);
@@ -1940,7 +1961,12 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
     CComBSTR pMainFileName;
     VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
     std::wstring mainFileName = static_cast<const wchar_t *>(pMainFileName);
-    VERIFY_ARE_EQUAL(mainFileName, L"hlsl.hlsl");
+#ifdef _WIN32
+    VERIFY_ARE_EQUAL(mainFileName, L".\\hlsl.hlsl");
+#else
+    VERIFY_ARE_EQUAL(mainFileName, L"./hlsl.hlsl");
+#endif
+
   };
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
@@ -2902,9 +2928,10 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
     std::vector<const WCHAR *> extraArgs;
   };
   std::string commonIncludeFile = "float foo() { return 10; }";
+
   TestCase tests[] = {
       {L"main.hlsl",
-       {L"main.hlsl",
+       {L".\\main.hlsl",
         R"(#include "include.h"
            float main() : SV_Target { return foo(); } )"},
        {L".\\include.h", commonIncludeFile},
@@ -2918,35 +2945,35 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
        {}},
 
       {L"../main.hlsl",
-       {L"..\\main.hlsl",
+       {L".\\..\\main.hlsl",
         R"(#include "include.h"\n
            float main() : SV_Target { return foo(); } )"},
        {L".\\..\\include.h", commonIncludeFile},
        {}},
 
       {L"../main.hlsl",
-       {L"..\\main.hlsl",
+       {L".\\..\\main.hlsl",
         R"(#include "include_dir/include.h"
            float main() : SV_Target { return foo(); } )"},
        {L".\\..\\include_dir\\include.h", commonIncludeFile},
        {}},
 
       {L"../main.hlsl",
-       {L"..\\main.hlsl",
+       {L".\\..\\main.hlsl",
         R"(#include "../include.h"
            float main() : SV_Target { return foo(); } )"},
        {L".\\..\\..\\include.h", commonIncludeFile},
        {}},
 
       {L"../main.hlsl",
-       {L"..\\main.hlsl",
+       {L".\\..\\main.hlsl",
         R"(#include "second_dir/include.h"
            float main() : SV_Target { return foo(); } )"},
        {L".\\..\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
        {L"-I", L"../my_include_dir"}},
 
       {L"../main.hlsl",
-       {L"..\\main.hlsl",
+       {L".\\..\\main.hlsl",
         R"(#include "second_dir/include.h"
            float main() : SV_Target { return foo(); } )"},
        {L".\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
@@ -2990,17 +3017,33 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
           m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
       VERIFY_SUCCEEDED(pPdbUtils->Load(pDbgBlob));
 
+      static auto NormalizeForPlatform = [](std::wstring s) -> std::wstring {
+#ifdef _WIN32
+        wchar_t From = L'/';
+        wchar_t To = L'\\';
+#else
+        wchar_t From = L'\\';
+        wchar_t To = L'/';
+#endif
+        std::wstring ret = s;
+        for (wchar_t &c : s) {
+          if (c == From)
+            c = To;
+        }
+        return ret;
+      };
+
       CComBSTR pMainFileName;
       VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
-      VERIFY_ARE_EQUAL(pMainFileName, t.mainFile.name.c_str());
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.mainFile.name), pMainFileName.m_str);
 
-      pMainFileName = nullptr;
+      pMainFileName.Empty();
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(0, &pMainFileName));
-      VERIFY_ARE_EQUAL(pMainFileName, t.mainFile.name.c_str());
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.mainFile.name), pMainFileName.m_str);
 
       CComBSTR pIncludeName;
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(1, &pIncludeName));
-      VERIFY_ARE_EQUAL(pIncludeName, t.includeFile.name.c_str());
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.includeFile.name), pIncludeName.m_str);
 
       CComPtr<IDxcBlobEncoding> pMainSource;
       VERIFY_SUCCEEDED(pPdbUtils->GetSource(0, &pMainSource));
@@ -4360,7 +4403,7 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
                        "\n"
                        "int g_int = 123;\n"
                        "\n"
@@ -4407,14 +4450,13 @@ TEST_F(CompilerTest, PreprocessWhenExpandTokenPastingOperandThenAccept) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR(R"(#line 1 "file.hlsl"
-#line 12 "file.hlsl"
-    Texture2D<float4> resource_set_10_bind_5_tex;
-
-  float4 main() : SV_Target{
-    return resource_set_10_bind_5_tex[uint2(1, 2)];
-  }
-)",
+  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
+                       "#line 12 \"." PP_SLASH "file.hlsl\"\n"
+                       "    Texture2D<float4> resource_set_10_bind_5_tex;\n"
+                       "\n"
+                       "  float4 main() : SV_Target{\n"
+                       "    return resource_set_10_bind_5_tex[uint2(1, 2)];\n"
+                       "  }\n",
                        text.c_str());
 }
 
@@ -4449,7 +4491,7 @@ TEST_F(CompilerTest, PreprocessWithDebugOptsThenOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
                        "\n"
                        "int g_int = 123;\n"
                        "\n"
@@ -4476,7 +4518,7 @@ TEST_F(CompilerTest, PreprocessCheckBuiltinIsOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n\n", text.c_str());
+  VERIFY_ARE_EQUAL_STR("#line 1 \"."PP_SLASH"file.hlsl\"\n\n", text.c_str());
 }
 
 TEST_F(CompilerTest, CompileOtherModesWithDebugOptsThenOk) {

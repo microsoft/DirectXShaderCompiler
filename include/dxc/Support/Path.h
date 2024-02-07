@@ -6,7 +6,7 @@
 namespace hlsl {
 
 template <typename CharTy>
-bool IsAbsoluteOrCurDirRelativeShared(const CharTy *Path) {
+bool IsAbsoluteOrCurDirRelativeImpl(const CharTy *Path) {
   if (!Path || !Path[0])
     return false;
   // Current dir-relative path.
@@ -43,15 +43,14 @@ bool IsAbsoluteOrCurDirRelativeShared(const CharTy *Path) {
 }
 
 inline bool IsAbsoluteOrCurDirRelativeW(const wchar_t *Path) {
-  return IsAbsoluteOrCurDirRelativeShared<wchar_t>(Path);
+  return IsAbsoluteOrCurDirRelativeImpl<wchar_t>(Path);
 }
 inline bool IsAbsoluteOrCurDirRelative(const char *Path) {
-  return IsAbsoluteOrCurDirRelativeShared<char>(Path);
+  return IsAbsoluteOrCurDirRelativeImpl<char>(Path);
 }
 
 template <typename CharT, typename StringTy>
-StringTy NormalizePathImpl(const CharT *Path, size_t Length,
-                                  bool PrefixWithDot) {
+StringTy NormalizePathImpl(const CharT *Path, size_t Length) {
   StringTy PathCopy(Path, Length);
 
 #ifdef _WIN32
@@ -66,29 +65,39 @@ StringTy NormalizePathImpl(const CharT *Path, size_t Length,
     if (PathCopy[i] == SlashFrom)
       PathCopy[i] = SlashTo;
   }
-  if (IsAbsoluteOrCurDirRelativeShared<CharT>(PathCopy.c_str())) {
-    return PathCopy;
+
+  // Remove double slashes.
+  bool SeenNonSlash = false;
+  for (unsigned i = 0; i < PathCopy.size();) {
+    // Remove this slash if:
+    // 1. It is preceded by another slash.
+    // 2. It is NOT part of a series of leading slashes. (E.G. \\, which on
+    // windows is a network path).
+    if (PathCopy[i] == SlashTo && i > 0 && PathCopy[i - 1] == SlashTo &&
+        SeenNonSlash) {
+      PathCopy.erase(PathCopy.begin() + i);
+      continue;
+    }
+    SeenNonSlash |= PathCopy[i] != SlashTo;
+    i++;
   }
 
-  if (PrefixWithDot)
+  // If relative path, prefix with dot.
+  if (IsAbsoluteOrCurDirRelativeImpl<CharT>(PathCopy.c_str())) {
+    return PathCopy;
+  } else {
     return StringTy(1, CharT('.')) + StringTy(1, SlashTo) + PathCopy;
-
-  return PathCopy;
+  }
 }
 
-inline std::string NormalizePath(const char *Path, bool PrefixWithDot = true) {
-  return NormalizePathImpl<char, std::string>(Path, ::strlen(Path),
-                                              PrefixWithDot);
+inline std::string NormalizePath(const char *Path) {
+  return NormalizePathImpl<char, std::string>(Path, ::strlen(Path));
 }
-inline std::wstring NormalizePathW(const wchar_t *Path,
-                                   bool PrefixWithDot = true) {
-  return NormalizePathImpl<wchar_t, std::wstring>(Path, ::wcslen(Path),
-                                                  PrefixWithDot);
+inline std::wstring NormalizePathW(const wchar_t *Path) {
+  return NormalizePathImpl<wchar_t, std::wstring>(Path, ::wcslen(Path));
 }
-inline std::string NormalizePath(llvm::StringRef Path,
-                                 bool PrefixWithDot = true) {
-  return NormalizePathImpl<char, std::string>(Path.data(), Path.size(),
-                                              PrefixWithDot);
+inline std::string NormalizePath(llvm::StringRef Path) {
+  return NormalizePathImpl<char, std::string>(Path.data(), Path.size());
 }
 
 } // namespace hlsl

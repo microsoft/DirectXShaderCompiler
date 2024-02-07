@@ -280,8 +280,7 @@ namespace {
             // Add the rest to filesMap to sort by name.
             if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
               assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
-              AddFile(hlsl::NormalizePath(it->first->getName(),
-                                          /*PrefixWithDot*/ false),
+              AddFile(hlsl::NormalizePath(it->first->getName()),
                       it->second->getRawBuffer()->getBuffer());
               bFoundMainFile = true;
             } else {

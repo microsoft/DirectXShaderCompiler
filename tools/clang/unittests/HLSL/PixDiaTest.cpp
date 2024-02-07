@@ -814,7 +814,8 @@ PixDiaTest::GetLiveVariablesAt(const char *hlsl,
        ++InterestingLine) {
     CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
     if (SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
-            defaultFilename, InterestingLine, 0, &instructionOffsets))) {
+            (std::wstring(L".\\") + defaultFilename).c_str(), InterestingLine,
+            0, &instructionOffsets))) {
       if (instructionOffsets->GetCount() > 0) {
         auto instructionOffset = instructionOffsets->GetOffsetByIndex(0);
         if (SUCCEEDED(dxilDebugger->GetLiveVariablesAt(instructionOffset,
@@ -907,7 +908,7 @@ TEST_F(PixDiaTest, CompileWhenDebugThenDIPresent) {
                             L"lexicalParent: id=2, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(
-      wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
+      wcsstr(diaDump.c_str(), L"length: 99, filename: .\\source.hlsl"));
   std::wstring diaFileContent = GetDebugFileContent(pDiaSource).c_str();
   VERIFY_IS_NOT_NULL(
       wcsstr(diaFileContent.c_str(),
@@ -1493,7 +1494,7 @@ TEST_F(PixDiaTest, PixDebugCompileInfo) {
 
   CComBSTR entryPointFile;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPointFile(&entryPointFile));
-  VERIFY_ARE_EQUAL(std::wstring(L"source.hlsl"), std::wstring(entryPointFile));
+  VERIFY_ARE_EQUAL(std::wstring(L".\\source.hlsl"), std::wstring(entryPointFile));
 
   CComBSTR entryPointFunction;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPoint(&entryPointFunction));
@@ -2009,7 +2010,7 @@ void ASMain()
 
   CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
   VERIFY_SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
-      L"source.hlsl", DispatchMeshLine, 0, &instructionOffsets));
+      L".\\source.hlsl", DispatchMeshLine, 0, &instructionOffsets));
   VERIFY_IS_TRUE(instructionOffsets->GetCount() > 0);
   DWORD InstructionOrdinal = instructionOffsets->GetOffsetByIndex(0);
   CComPtr<IDxcPixDxilLiveVariables> liveVariables;
@@ -2692,7 +2693,7 @@ float4 fn2( float3 f3, float d, bool sanitize = true )
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
   // The list of source locations should start with the containing file:
-  while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
+  while (it != sourceLocations.end() && it->Filename == L".\\source.hlsl")
     it++;
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
@@ -2704,8 +2705,8 @@ float4 fn2( float3 f3, float d, bool sanitize = true )
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
   // Then some more main file:
-  VERIFY_ARE_EQUAL_WSTR(L"source.hlsl", it->Filename);
-  while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
+  VERIFY_ARE_EQUAL_WSTR(L".\\source.hlsl", it->Filename);
+  while (it != sourceLocations.end() && it->Filename == L".\\source.hlsl")
     it++;
 
   // And that should be the end:

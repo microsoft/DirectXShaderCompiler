@@ -316,8 +316,7 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
         // Add the rest to filesMap to sort by name.
         if (cgOpts.MainFileName.compare(it->first->getName()) == 0) {
           SourceFile file;
-          file.Name = hlsl::NormalizePath(it->first->getName(),
-                                          /*PrefixWithDot*/ false);
+          file.Name = hlsl::NormalizePath(it->first->getName());
           file.Content = it->second->getRawBuffer()->getBuffer();
           ret.push_back(file);
           assert(!bFoundMainFile &&

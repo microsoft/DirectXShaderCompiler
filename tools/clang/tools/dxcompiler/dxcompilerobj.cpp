@@ -37,6 +37,7 @@
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcfilesystem.h"
+#include "dxc/Support/Path.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxcutil.h"
 
@@ -592,6 +593,9 @@ public:
       // Formerly API values.
       const char *pUtf8SourceName =
           opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
+      std::string NormalizedSourceName = hlsl::NormalizePath(pUtf8SourceName);
+      pUtf8SourceName = NormalizedSourceName.c_str();
+
       CA2W pWideSourceName(pUtf8SourceName, CP_UTF8);
       const char *pUtf8EntryPoint =
           opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
