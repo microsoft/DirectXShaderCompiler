@@ -14501,7 +14501,8 @@ SpirvEmitter::decomposeToScalars(SpirvInstruction *inst) {
     std::vector<SpirvInstruction *> result;
 
     const SpirvType *type = nullptr;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     type = lowerTypeVisitor.lowerType(resultType, inst->getLayoutRule(), false,
                                       inst->getSourceLocation());
 
@@ -14599,7 +14600,8 @@ SpirvEmitter::generateFromScalars(QualType type,
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
     std::vector<SpirvInstruction *> elements;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     const SpirvType *spirvType =
         lowerTypeVisitor.lowerType(type, layoutRule, false, sourceLocation);
 
@@ -14681,7 +14683,8 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
     std::vector<SpirvInstruction *> elements;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     const SpirvType *spirvType = lowerTypeVisitor.lowerType(
         type, SpirvLayoutRule::Void, false, sourceLocation);
 
