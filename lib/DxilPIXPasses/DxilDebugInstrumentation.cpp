@@ -317,8 +317,19 @@ private:
                            BuilderContext &BC, std::uint32_t InstNum, Value *V,
                            std::uint32_t ValueOrdinal,
                            Value *ValueOrdinalIndex);
-  std::vector<InstructionAndType>
+  struct InstructionToInstrument {
+    Value *ValueToWriteToDebugMemory;
+    DebugShaderModifierRecordType ValueType;
+    Instruction *InstructionAfterWhichToAddWrite;
+  };
+  struct BlockInstrumentationData {
+    uint32_t FirstInstructionOrdinalInBlock;
+    std::vector<InstructionToInstrument> Instructions;
+  };
+  BlockInstrumentationData
   FindInstrumentableInstructionsInBlock(BasicBlock &BB);
+  uint32_t
+  CountBlockPayloadBytes(std::vector<InstructionToInstrument> const &IsAndTs);
 };
 
 void DxilDebugInstrumentation::applyOptions(PassOptions O) {
@@ -828,7 +839,8 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
                      WriteMask_X});
 
     m_RemainingReservedSpaceInBytes -= 4;
-    assert(m_RemainingReservedSpaceInBytes < 1024); // check for underflow
+    assert(m_RemainingReservedSpaceInBytes <
+           1024 * 1024); // check for underflow
 
     if (m_RemainingReservedSpaceInBytes != 0) {
       values.CurrentIndex =
@@ -1044,6 +1056,10 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
 bool DxilDebugInstrumentation::runOnModule(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
 
+  // There is no point running this pass if it can't return its report:
+  if (OSOverride == nullptr)
+    return false;
+
   auto ShaderModel = DM.GetShaderModel();
   auto shaderKind = ShaderModel->GetKind();
 
@@ -1063,20 +1079,6 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
   return modified;
 }
 
-std::vector<InstructionAndType>
-DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
-    BasicBlock &BB) {
-  std::vector<InstructionAndType> ret;
-  auto &Is = BB.getInstList();
-  for (auto &Inst : Is) {
-    auto IandT = addStepDebugEntry(nullptr, &Inst);
-    if (IandT && IandT->Type != DebugShaderModifierRecordTypeDXILStepVoid &&
-        IandT->Type != DebugShaderModifierRecordTypeDXILStepTerminator)
-      ret.push_back(*IandT);
-  }
-  return ret;
-}
-
 struct RecordTypeDatum {
   DebugShaderModifierRecordType Type;
   uint32_t PayloadSize;
@@ -1092,20 +1094,20 @@ static const RecordTypeDatum RecordTypeData[] = {
     {DebugShaderModifierRecordTypeDXILStepDouble, 8, "d"}};
 
 std::optional<RecordTypeDatum const *>
-FindDatum(InstructionAndType const &IandT) {
+FindDatum(DebugShaderModifierRecordType RecordType) {
   for (auto const &datum : RecordTypeData) {
-    if (datum.Type == IandT.Type) {
+    if (datum.Type == RecordType) {
       return &datum;
     }
   }
   return std::nullopt;
 }
 
-uint32_t
-CountBlockPayloadBytes(std::vector<InstructionAndType> const &IsAndTs) {
+uint32_t DxilDebugInstrumentation::CountBlockPayloadBytes(
+    std::vector<InstructionToInstrument> const &IsAndTs) {
   uint32_t count = 0;
   for (auto const &IandT : IsAndTs) {
-    auto datum = FindDatum(IandT);
+    auto datum = FindDatum(IandT.ValueType);
     if (datum)
       count += (*datum)->PayloadSize;
   }
@@ -1113,11 +1115,88 @@ CountBlockPayloadBytes(std::vector<InstructionAndType> const &IsAndTs) {
 }
 
 const char *TypeString(InstructionAndType const &IandT) {
-  auto datum = FindDatum(IandT);
+  auto datum = FindDatum(IandT.Type);
   if (datum)
     return (*datum)->AsString;
   assert(false);
   return "v";
+}
+
+// This function reports a textual representation of the format
+// of the debug data that will be output by the instructions
+// added by this pass.
+// The string has one or more lines of the exemplary form
+//      Block#3:5,f,22,a;7,f,22,s,20;9,f,22,s,20;10,f,23,a;12,f,23,s,21;
+// The integer after the Block# is the first instruction number in the
+// block.
+// Instructions are delimited by ; The fields within the instruction
+// (delimited by ,) are, in order:
+// -instruction ordinal
+// -data type
+// -scalar register number
+// -alloca/scalar indicator:
+// a == scalar is being created and assigned a value, and that
+//      value is in the debug output.
+// s == Existing scalar is being assigned via static alloca index.
+//      Index is appended to this instruction record. No
+//      corresponding data in the debug output.
+// d == A dynamic index added to the static base index. Base index
+//      is appended to this record. The corresponding debug entry is
+//      the dynamic index into that alloca.
+DxilDebugInstrumentation::BlockInstrumentationData
+DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
+    BasicBlock &BB) {
+  BlockInstrumentationData ret{};
+  auto &Is = BB.getInstList();
+  *OSOverride << "Block#";
+  bool FoundFirstInstruction = false;
+  for (auto &Inst : Is) {
+    if (!FoundFirstInstruction) {
+      std::uint32_t InstNum;
+      if (pix_dxil::PixDxilInstNum::FromInst(&Inst, &InstNum)) {
+        *OSOverride << std::to_string(InstNum) << ":";
+        ret.FirstInstructionOrdinalInBlock = InstNum;
+        FoundFirstInstruction = true;
+      }
+    }
+    auto IandT = addStepDebugEntry(nullptr, &Inst);
+    if (IandT && IandT->Type != DebugShaderModifierRecordTypeDXILStepVoid &&
+        IandT->Type != DebugShaderModifierRecordTypeDXILStepTerminator) {
+      InstructionToInstrument DebugOutputForThisInstruction{};
+      DebugOutputForThisInstruction.ValueType = IandT->Type;
+      DebugOutputForThisInstruction.InstructionAfterWhichToAddWrite = &Inst;
+      const char *IndexingToken = nullptr;
+      std::optional<std::uint32_t> RegisterOrStaticIndex;
+      if (IandT->AllocaWriteIndex != nullptr) {
+        if (ConstantInt *IndexAsConstant =
+                dyn_cast<ConstantInt>(IandT->AllocaWriteIndex)) {
+          RegisterOrStaticIndex = IandT->AllocaBase;
+          IndexingToken = "s"; // static indexing, no debug output required
+        } else {
+          IndexingToken = "d"; // dynamic indexing
+          RegisterOrStaticIndex =
+              IandT->AllocaBase + IndexAsConstant->getLimitedValue();
+          DebugOutputForThisInstruction.ValueToWriteToDebugMemory =
+              IandT->AllocaWriteIndex;
+        }
+      } else {
+        IndexingToken = "a"; // meaning an SSA assignment
+        DebugOutputForThisInstruction.ValueToWriteToDebugMemory = IandT->Inst;
+      }
+      *OSOverride << std::to_string(IandT->InstructionOrdinal) << ","
+                  << TypeString(*IandT) << ","
+                  << std::to_string(IandT->RegisterNumber) << ","
+                  << IndexingToken;
+      if (RegisterOrStaticIndex) {
+        *OSOverride << "," << std::to_string(*RegisterOrStaticIndex) << ";";
+      } else
+        *OSOverride << ";";
+      if (DebugOutputForThisInstruction.ValueToWriteToDebugMemory)
+        ret.Instructions.push_back(std::move(DebugOutputForThisInstruction));
+    }
+  }
+  *OSOverride << "\n";
+  return ret;
 }
 
 Instruction *FindFirstNonPhiInstruction(Instruction *I) {
@@ -1281,88 +1360,34 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
 
   // Instrument original instructions:
   for (auto &BB : AllBasicBlocks) {
-    auto InstrumentableInstructionInThisBlock =
-        FindInstrumentableInstructionsInBlock(*BB);
+    auto BlockInstrumentation = FindInstrumentableInstructionsInBlock(*BB);
 
-    // Test size>1 to trivially reject single-instruction branch blocks:
-    if (InstrumentableInstructionInThisBlock.size() > 1) {
-      uint32_t BlockPayloadBytes =
-          CountBlockPayloadBytes(InstrumentableInstructionInThisBlock);
-      if (BlockPayloadBytes > 0) {
-        if (OSOverride != nullptr) {
-          *OSOverride << "Block:";
-        }
-        IRBuilder<> Builder(FindFirstNonPhiInstruction(
-            InstrumentableInstructionInThisBlock.at(0).Inst));
-        BuilderContext BCForBlock{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
+    uint32_t BlockPayloadBytes =
+        CountBlockPayloadBytes(BlockInstrumentation.Instructions);
+    if (BlockPayloadBytes > 0) {
+      IRBuilder<> Builder(BlockInstrumentation.Instructions.at(0)
+                              .InstructionAfterWhichToAddWrite);
+      BuilderContext BCForBlock{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
 
-        DebugShaderModifierRecordDXILBlock step = {};
-        auto FullRecordSize = sizeof(step) + BlockPayloadBytes;
-        reserveDebugEntrySpace(BCForBlock, FullRecordSize);
-        step.Header.Details.CountOfInstructions =
-            static_cast<uint16_t>(InstrumentableInstructionInThisBlock.size());
-        step.Header.Details.Type =
-            static_cast<uint8_t>(DebugShaderModifierRecordTypeDXILStepBlock);
-        addDebugEntryValue(
-            BCForBlock, BCForBlock.HlslOP->GetU32Const(step.Header.u32Header));
-        addDebugEntryValue(BCForBlock, values.InvocationId);
-        addDebugEntryValue(
-            BCForBlock,
-            BCForBlock.HlslOP->GetU32Const(
-                InstrumentableInstructionInThisBlock.at(0).InstructionOrdinal));
+      DebugShaderModifierRecordDXILBlock step = {};
+      auto FullRecordSize = sizeof(step) + BlockPayloadBytes;
+      reserveDebugEntrySpace(BCForBlock, FullRecordSize);
+      step.Header.Details.CountOfInstructions =
+          static_cast<uint16_t>(BlockInstrumentation.Instructions.size());
+      step.Header.Details.Type =
+          static_cast<uint8_t>(DebugShaderModifierRecordTypeDXILStepBlock);
+      addDebugEntryValue(BCForBlock,
+                         BCForBlock.HlslOP->GetU32Const(step.Header.u32Header));
+      addDebugEntryValue(BCForBlock, values.InvocationId);
+      addDebugEntryValue(
+          BCForBlock, BCForBlock.HlslOP->GetU32Const(
+                          BlockInstrumentation.FirstInstructionOrdinalInBlock));
 
-        for (auto const &IandT : InstrumentableInstructionInThisBlock) {
-          if (OSOverride != nullptr) {
-            // The returned data is a string with one or more lines of the
-            // exemplary form
-            //      Block:5,f,22,a;7,f,22,s,20;9,f,22,s,20;10,f,23,a;12,f,23,s,21;
-            // and describes the format of the data written by the debug
-            // instrumentation. Instructions are delimited by ; The fields
-            // within the instruction (delimited by ,) are, in order:
-            // -instruction ordinal
-            // -data type
-            // -scalar register number
-            // -alloca/scalar indicator:
-            // a == scalar is being created and assigned a value, and that
-            //      value is in the debug output.
-            // s == Existing scalar is being assigned via static alloca index.
-            //      Index is appended to this instruction record. No
-            //      corresponding data in the debug output.
-            // d == A dynamic index added to the static base index that is
-            //      appended to this record. The corresponding debug entry is
-            //      the dynamic index into that alloca.
-            const char *IndexingToken = "a"; // meaning an SSA assignment
-            std::optional<std::uint32_t> RegisterOrStaticIndex;
-            if (IandT.AllocaWriteIndex != nullptr) {
-              RegisterOrStaticIndex = IandT.AllocaBase;
-              if (ConstantInt *IndexAsConstant =
-                      dyn_cast<ConstantInt>(IandT.AllocaWriteIndex)) {
-                IndexingToken = "s"; // static indexing
-              } else {
-                IndexingToken = "d"; // dynamic indexing
-                *RegisterOrStaticIndex += IndexAsConstant->getLimitedValue();
-              }
-            }
-            *OSOverride << std::to_string(IandT.InstructionOrdinal) << ","
-                        << TypeString(IandT) << ","
-                        << std::to_string(IandT.RegisterNumber) << ","
-                        << IndexingToken;
-            if (RegisterOrStaticIndex)
-              *OSOverride << "," << std::to_string(*RegisterOrStaticIndex)
-                          << ";";
-            else
-              *OSOverride << ";";
-          }
-          IRBuilder<> Builder(IandT.Inst->getNextNode());
-          BuilderContext BC2{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
-          if (IandT.AllocaWriteIndex != nullptr)
-            addDebugEntryValue(BC2, IandT.AllocaWriteIndex);
-          else
-            addDebugEntryValue(BC2, IandT.Inst);
-        }
-        if (OSOverride != nullptr) {
-          *OSOverride << "\n";
-        }
+      for (auto &Inst : BlockInstrumentation.Instructions) {
+        IRBuilder<> Builder(
+            Inst.InstructionAfterWhichToAddWrite->getNextNode());
+        BuilderContext BC2{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
+        addDebugEntryValue(BC2, Inst.ValueToWriteToDebugMemory);
       }
     }
   }
