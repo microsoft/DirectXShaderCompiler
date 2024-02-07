@@ -63,7 +63,8 @@ float4 main(in float4 pos : SV_Position) : SV_Target
 // CHECK-NEXT:      {{%[0-9]+}} = OpLoad %v4float [[ptr2_0]]
         localRWSBuffer[2].f +
 // CHECK:      [[ptr1_1:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_S %localRWSBuffer
-// CHECK-NEXT: [[ptr2_1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[ptr1_1]] %int_0 %uint_33 %int_1 %int_44
+// CHECK-NEXT: [[base:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_float_uint_128 [[ptr1_1]] %int_0 %uint_33 %int_1
+// CHECK-NEXT: [[ptr2_1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[base]] %int_44
 // CHECK-NEXT:      {{%[0-9]+}} = OpLoad %float [[ptr2_1]]
         localRWSBuffer[33].v[44] +
 // CHECK:      [[ptr1_2:%[0-9]+]] = OpLoad %_ptr_Uniform_type_RWStructuredBuffer_v4float %localv4f32RWSBuffer
