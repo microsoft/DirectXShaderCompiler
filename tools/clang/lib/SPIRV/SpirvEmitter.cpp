@@ -14530,6 +14530,9 @@ SpirvEmitter::generateFromScalars(QualType type,
   uint32_t numOfRows = 0;
   uint32_t numOfCols = 0;
 
+  assert(!scalars.empty());
+  auto sourceLocation = scalars[0]->getSourceLocation();
+
   if (isScalarType(type)) {
     // If the type is bool with a non-void layout rule, then it should be
     // treated as a uint.
@@ -14542,8 +14545,8 @@ SpirvEmitter::generateFromScalars(QualType type,
       sourceType = astContext.UnsignedIntTy;
     }
 
-    SpirvInstruction *result = castToType(scalars[0], sourceType, type,
-                                          scalars[0]->getSourceLocation());
+    SpirvInstruction *result =
+        castToType(scalars[0], sourceType, type, sourceLocation);
     scalars.erase(scalars.begin());
     return result;
   } else if (isVectorType(type, &elementType, &elementCount)) {
@@ -14554,14 +14557,13 @@ SpirvEmitter::generateFromScalars(QualType type,
                                     elementType,
                                     scalars[i]->getSourceLocation()));
     }
-    SpirvInstruction *result = spvBuilder.createCompositeConstruct(
-        type, elements, scalars[0]->getSourceLocation());
+    SpirvInstruction *result =
+        spvBuilder.createCompositeConstruct(type, elements, sourceLocation);
     result->setLayoutRule(layoutRule);
     scalars.erase(scalars.begin(), scalars.begin() + elementCount);
     return result;
   } else if (isMxNMatrix(type, &elementType, &numOfRows, &numOfCols)) {
     std::vector<SpirvInstruction *> rows;
-    SourceLocation loc = scalars[0]->getSourceLocation();
     QualType rowType = astContext.getExtVectorType(elementType, numOfCols);
     for (uint32_t i = 0; i < numOfRows; i++) {
       std::vector<SpirvInstruction *> row;
@@ -14570,13 +14572,13 @@ SpirvEmitter::generateFromScalars(QualType type,
                                  elementType, scalars[j]->getSourceLocation()));
       }
       scalars.erase(scalars.begin(), scalars.begin() + numOfCols);
-      SpirvInstruction *r = spvBuilder.createCompositeConstruct(
-          rowType, row, scalars[0]->getSourceLocation());
+      SpirvInstruction *r =
+          spvBuilder.createCompositeConstruct(rowType, row, sourceLocation);
       r->setLayoutRule(layoutRule);
       rows.push_back(r);
     }
     SpirvInstruction *result =
-        spvBuilder.createCompositeConstruct(type, rows, loc);
+        spvBuilder.createCompositeConstruct(type, rows, sourceLocation);
     result->setLayoutRule(layoutRule);
     return result;
   } else if (isArrayType(type, &elementType, &elementCount)) {
@@ -14584,16 +14586,15 @@ SpirvEmitter::generateFromScalars(QualType type,
     for (uint32_t i = 0; i < elementCount; i++) {
       elements.push_back(generateFromScalars(elementType, scalars, layoutRule));
     }
-    SpirvInstruction *result = spvBuilder.createCompositeConstruct(
-        type, elements, scalars[0]->getSourceLocation());
+    SpirvInstruction *result =
+        spvBuilder.createCompositeConstruct(type, elements, sourceLocation);
     result->setLayoutRule(layoutRule);
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
-    SourceLocation loc = scalars[0]->getSourceLocation();
     std::vector<SpirvInstruction *> elements;
     LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
     const SpirvType *spirvType =
-        lowerTypeVisitor.lowerType(type, layoutRule, false, loc);
+        lowerTypeVisitor.lowerType(type, layoutRule, false, sourceLocation);
 
     forEachSpirvField(recordType, dyn_cast<StructType>(spirvType),
                       [this, &elements, &scalars, layoutRule](
@@ -14604,7 +14605,7 @@ SpirvEmitter::generateFromScalars(QualType type,
                         return true;
                       });
     SpirvInstruction *result =
-        spvBuilder.createCompositeConstruct(type, elements, loc);
+        spvBuilder.createCompositeConstruct(type, elements, sourceLocation);
     result->setLayoutRule(layoutRule);
     return result;
   } else {
@@ -14620,6 +14621,8 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
   uint32_t elementCount = 0;
   uint32_t numOfRows = 0;
   uint32_t numOfCols = 0;
+
+  SourceLocation sourceLocation = scalar->getSourceLocation();
 
   if (isScalarType(type)) {
     // If the type if bool with a non-void layout rule, then it should be
@@ -14646,8 +14649,6 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
     result->setLayoutRule(layoutRule);
     return result;
   } else if (isMxNMatrix(type, &elementType, &numOfRows, &numOfCols)) {
-    SourceLocation loc = scalar->getSourceLocation();
-
     SpirvInstruction *element =
         castToType(scalar, scalar->getAstResultType(), elementType,
                    scalar->getSourceLocation());
@@ -14656,11 +14657,11 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
 
     QualType rowType = astContext.getExtVectorType(elementType, numOfCols);
     SpirvInstruction *r =
-        spvBuilder.createCompositeConstruct(rowType, row, loc);
+        spvBuilder.createCompositeConstruct(rowType, row, sourceLocation);
     r->setLayoutRule(layoutRule);
     std::vector<SpirvInstruction *> rows(numOfRows, r);
     SpirvInstruction *result =
-        spvBuilder.createCompositeConstruct(type, rows, loc);
+        spvBuilder.createCompositeConstruct(type, rows, sourceLocation);
     result->setLayoutRule(layoutRule);
     return result;
   } else if (isArrayType(type, &elementType, &elementCount)) {
@@ -14672,11 +14673,10 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
     result->setLayoutRule(layoutRule);
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
-    SourceLocation loc = scalar->getSourceLocation();
     std::vector<SpirvInstruction *> elements;
     LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
-    const SpirvType *spirvType =
-        lowerTypeVisitor.lowerType(type, SpirvLayoutRule::Void, false, loc);
+    const SpirvType *spirvType = lowerTypeVisitor.lowerType(
+        type, SpirvLayoutRule::Void, false, sourceLocation);
 
     forEachSpirvField(recordType, dyn_cast<StructType>(spirvType),
                       [this, &elements, &scalar, layoutRule](
@@ -14687,7 +14687,7 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
                         return true;
                       });
     SpirvInstruction *result =
-        spvBuilder.createCompositeConstruct(type, elements, loc);
+        spvBuilder.createCompositeConstruct(type, elements, sourceLocation);
     result->setLayoutRule(layoutRule);
     return result;
   } else {
