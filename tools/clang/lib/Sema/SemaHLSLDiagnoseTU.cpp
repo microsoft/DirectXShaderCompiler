@@ -9,6 +9,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
@@ -322,6 +323,8 @@ public:
     return true;
   }
 
+  clang::Sema *getSema() { return sema; }
+
 private:
   clang::Sema *sema;
   const hlsl::ShaderModel *SM;
@@ -475,6 +478,19 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       HLSLMethodCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, FDecl,
                                             DiagnosedCalls);
       Visitor.TraverseDecl(FD);
+
+      // diagnose any node functions that have incompatible launch types with
+      // the present SV semantics on each parameter.
+      if (EntrySK == DXIL::ShaderKind::Node) {
+        if (const auto *NodeLaunchAttr =
+                FDecl->getAttr<clang::HLSLNodeLaunchAttr>()) {
+          llvm::StringRef NodeLaunchTyStr = NodeLaunchAttr->getLaunchType();
+          DXIL::NodeLaunchType NodeLaunchTy =
+              ShaderModel::NodeLaunchTypeFromName(
+                  NodeLaunchAttr->getLaunchType());
+          Visitor.getSema()->DiagnoseSVForLaunchType(FD, NodeLaunchTy);
+        }
+      }
     }
   }
 }
