@@ -485,8 +485,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
                 FDecl->getAttr<clang::HLSLNodeLaunchAttr>()) {
           llvm::StringRef NodeLaunchTyStr = NodeLaunchAttr->getLaunchType();
           hlsl::DXIL::NodeLaunchType NodeLaunchTy =
-              ShaderModel::NodeLaunchTypeFromName(
-                  NodeLaunchAttr->getLaunchType());
+              ShaderModel::NodeLaunchTypeFromName(NodeLaunchTyStr);
           Visitor.getSema()->DiagnoseSVForLaunchType(FD, NodeLaunchTy);
         }
       }
