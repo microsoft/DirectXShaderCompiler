@@ -11232,9 +11232,6 @@ void Sema::DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
       } break;
       case DXIL::ShaderKind::Node: {
         if (const auto *pAttr = EntryDecl->getAttr<HLSLNodeLaunchAttr>()) {
-          llvm::StringRef LaunchTyStr = pAttr->getLaunchType();
-          DXIL::NodeLaunchType NodeLaunchTy =
-              ShaderModel::NodeLaunchTypeFromName(LaunchTyStr);
           if (pAttr->getLaunchType() != "broadcasting") {
             Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
                 << MD->getNameAsString() << EntryDecl->getNameAsString();
