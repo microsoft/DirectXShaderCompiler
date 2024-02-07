@@ -2,7 +2,7 @@
 
 // Check cs/as/mesh and node.
 
-SamplerState ss : register(s2);
+SamplerComparisonState ss : register(s2);
 
 RWStructuredBuffer<uint> o;
 Texture1D        <float>  t1;
