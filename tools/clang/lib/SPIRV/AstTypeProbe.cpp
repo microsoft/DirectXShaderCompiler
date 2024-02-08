@@ -1114,14 +1114,12 @@ std::string getHlslResourceTypeName(QualType type) {
         name == "RasterizerOrderedTexture3D" || name == "Buffer" ||
         name == "RWBuffer" || name == "RasterizerOrderedBuffer" ||
         name == "SubpassInput" || name == "SubpassInputMS" ||
-        name == "InputPatch" || name == "OutputPatch") {
+        name == "InputPatch" || name == "OutputPatch" ||
+        name == "ConstantBuffer" || name == "TextureBuffer" ||
+        name == "RaytracingAccelerationStructure") {
       // Get resource type name with template params. Operation is safe because
       // type has already been null checked.
       return type.getLocalUnqualifiedType().getAsString();
-    } else if (name == "ConstantBuffer") {
-      return "cbuffer";
-    } else if (name == "TextureBuffer") {
-      return "tbuffer";
     }
   }
 

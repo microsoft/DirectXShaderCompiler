@@ -47,12 +47,23 @@ struct __declspec(uuid("9ba0d9d3-457b-426f-8019-9f3849982aa2")) IDxcPixArrayType
 };
 
 struct __declspec(uuid("6c707d08-7995-4a84-bae5-e6d8291f3b78"))
+    IDxcPixStructField0 : public IUnknown {
+  virtual STDMETHODIMP GetName(_Outptr_result_z_ BSTR *Name) = 0;
+
+  virtual STDMETHODIMP GetType(_COM_Outptr_ IDxcPixType **ppType) = 0;
+
+  virtual STDMETHODIMP GetOffsetInBits(_Out_ DWORD *pOffsetInBits) = 0;
+};
+
+struct __declspec(uuid("de45597c-5869-4f97-a77b-d6650b9a16cf"))
     IDxcPixStructField : public IUnknown {
   virtual STDMETHODIMP GetName(_Outptr_result_z_ BSTR *Name) = 0;
 
   virtual STDMETHODIMP GetType(_COM_Outptr_ IDxcPixType **ppType) = 0;
 
   virtual STDMETHODIMP GetOffsetInBits(_Out_ DWORD *pOffsetInBits) = 0;
+
+  virtual STDMETHODIMP GetFieldSizeInBits(_Out_ DWORD *pFieldSizeInBits) = 0;
 };
 
 struct __declspec(uuid("24c08c44-684b-4b1c-b41b-f8772383d074"))

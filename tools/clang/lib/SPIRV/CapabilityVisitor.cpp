@@ -878,6 +878,10 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
                                          {spv::Capability::RayTracingKHR});
   }
 
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::KHR_vulkan_memory_model,
+      {spv::Capability::VulkanMemoryModelDeviceScope});
+
   return true;
 }
 

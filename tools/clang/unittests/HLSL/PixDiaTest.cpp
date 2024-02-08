@@ -12,6 +12,8 @@
 // This whole file is win32-only
 #ifdef _WIN32
 
+#include <array>
+
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
 
@@ -176,6 +178,14 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
+  TEST_METHOD(DxcPixDxilDebugInfo_Alignment_ConstInt)
+  TEST_METHOD(DxcPixDxilDebugInfo_QIOldFieldInterface)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Simple)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Derived)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Bool)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Overlap)
+  TEST_METHOD(DxcPixDxilDebugInfo_Min16SizesAndOffsets_Enabled)
+  TEST_METHOD(DxcPixDxilDebugInfo_Min16SizesAndOffsets_Disabled)
   TEST_METHOD(
       DxcPixDxilDebugInfo_VariableScopes_InlinedFunctions_TwiceInlinedFunctions)
   TEST_METHOD(
@@ -627,12 +637,13 @@ public:
   void CompileAndRunAnnotationAndGetDebugPart(
       dxc::DxcDllSupport &dllSupport, const char *source,
       const wchar_t *profile, IDxcIncludeHandler *includer,
-      IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs = {});
+      IDxcBlob **ppDebugPart,
+      std::vector<const wchar_t *> extraArgs = {L"-Od"});
   void CompileAndRunAnnotationAndLoadDiaSource(
       dxc::DxcDllSupport &dllSupport, const char *source,
       const wchar_t *profile, IDxcIncludeHandler *includer,
       IDiaDataSource **ppDataSource,
-      std::vector<const wchar_t *> extraArgs = {});
+      std::vector<const wchar_t *> extraArgs = {L"-Od"});
 
   struct VariableComponentInfo {
     std::wstring Name;
@@ -643,10 +654,15 @@ public:
       const char *hlsl, const wchar_t *profile,
       const char *lineAtWhichToExamineVariables,
       std::vector<VariableComponentInfo> const &ExpectedVariables);
-
+  void RunSizeAndOffsetTestCase(const char *hlsl,
+                                std::array<DWORD, 4> const &memberOffsets,
+                                std::array<DWORD, 4> const &memberSizes,
+                                std::vector<const wchar_t *> extraArgs = {
+                                    L"-Od"});
   DebuggerInterfaces
   CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
-                           IDxcIncludeHandler *includer = nullptr);
+                           IDxcIncludeHandler *includer = nullptr,
+                           std::vector<const wchar_t *> extraArgs = {L"-Od"});
 
   CComPtr<IDxcPixDxilLiveVariables>
   GetLiveVariablesAt(const char *hlsl,
@@ -777,11 +793,12 @@ void PixDiaTest::CompileAndRunAnnotationAndGetDebugPart(
 
 DebuggerInterfaces
 PixDiaTest::CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
-                                     IDxcIncludeHandler *includer) {
+                                     IDxcIncludeHandler *includer,
+                                     std::vector<const wchar_t *> extraArgs) {
 
   CComPtr<IDiaDataSource> pDiaDataSource;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, profile, includer,
-                                          &pDiaDataSource, {L"-Od"});
+                                          &pDiaDataSource, extraArgs);
 
   CComPtr<IDiaSession> session;
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&session));
@@ -2740,6 +2757,263 @@ void main()
   RunSubProgramsCase(hlsl);
 }
 
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_QIOldFieldInterface) {
+  const char *hlsl = R"(
+struct Struct
+{
+    unsigned int first;
+    unsigned int second;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Struct s;
+  s.second = UAV[0];
+  UAV[16] = s.second; //STOP_HERE
+}
+)";
+
+  auto debugInfo = CompileAndCreateDxcDebug(hlsl, L"cs_6_5", nullptr).debugInfo;
+  auto live = GetLiveVariablesAt(hlsl, "STOP_HERE", debugInfo);
+  CComPtr<IDxcPixVariable> bf;
+  VERIFY_SUCCEEDED(live->GetVariableByName(L"s", &bf));
+  CComPtr<IDxcPixType> bfType;
+  VERIFY_SUCCEEDED(bf->GetType(&bfType));
+  CComPtr<IDxcPixStructType> bfStructType;
+  VERIFY_SUCCEEDED(bfType->QueryInterface(IID_PPV_ARGS(&bfStructType)));
+  CComPtr<IDxcPixStructField> field;
+  VERIFY_SUCCEEDED(bfStructType->GetFieldByIndex(1, &field));
+  CComPtr<IDxcPixStructField0> mike;
+  VERIFY_SUCCEEDED(field->QueryInterface(IID_PPV_ARGS(&mike)));
+  DWORD secondFieldOffset = 0;
+  VERIFY_SUCCEEDED(mike->GetOffsetInBits(&secondFieldOffset));
+  VERIFY_ARE_EQUAL(32, secondFieldOffset);
+}
+
+void PixDiaTest::RunSizeAndOffsetTestCase(
+    const char *hlsl, std::array<DWORD, 4> const &memberOffsets,
+    std::array<DWORD, 4> const &memberSizes,
+    std::vector<const wchar_t *> extraArgs) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+  auto debugInfo =
+      CompileAndCreateDxcDebug(hlsl, L"cs_6_5", nullptr, extraArgs).debugInfo;
+  auto live = GetLiveVariablesAt(hlsl, "STOP_HERE", debugInfo);
+  CComPtr<IDxcPixVariable> bf;
+  VERIFY_SUCCEEDED(live->GetVariableByName(L"bf", &bf));
+  CComPtr<IDxcPixType> bfType;
+  VERIFY_SUCCEEDED(bf->GetType(&bfType));
+  CComPtr<IDxcPixStructType> bfStructType;
+  VERIFY_SUCCEEDED(bfType->QueryInterface(IID_PPV_ARGS(&bfStructType)));
+  const wchar_t *memberNames[] = {L"first", L"second", L"third", L"fourth"};
+  for (size_t i = 0; i < memberOffsets.size(); ++i) {
+    CComPtr<IDxcPixStructField> field;
+    VERIFY_SUCCEEDED(
+        bfStructType->GetFieldByIndex(static_cast<DWORD>(i), &field));
+    DWORD offsetInBits = 0;
+    VERIFY_SUCCEEDED(field->GetOffsetInBits(&offsetInBits));
+    VERIFY_ARE_EQUAL(memberOffsets[i], offsetInBits);
+    DWORD sizeInBits = 0;
+    VERIFY_SUCCEEDED(field->GetFieldSizeInBits(&sizeInBits));
+    VERIFY_ARE_EQUAL(memberSizes[i], sizeInBits);
+  }
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Simple) {
+  const char *hlsl = R"(
+struct Bitfields
+{
+    unsigned int first : 17;
+    unsigned int second : 15; // consume all 32 bits of first dword
+    unsigned int third : 3; // should be at bit offset 32
+    unsigned int fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 17, 32, 64}, {17, 15, 3, 32});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Derived) {
+  const char *hlsl = R"(
+struct Bitfields
+{
+    uint first : 17;
+    uint second : 15; // consume all 32 bits of first dword
+    uint third : 3; // should be at bit offset 32
+    uint fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 17, 32, 64}, {17, 15, 3, 32});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Bool) {
+  const char *hlsl = R"(
+struct Bitfields
+{
+    bool first : 1;
+    bool second : 1;
+    bool third : 3; // just to be weird
+    uint fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 1, 2, 32}, {1, 1, 3, 32});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Overlap) {
+  const char *hlsl = R"(
+struct Bitfields
+{
+    unsigned int first : 20;
+    unsigned int second : 20; // should end up in second DWORD
+    unsigned int third : 3; // should shader second DWORD
+    unsigned int fourth; // should be in third DWORD
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 32, 52, 64}, {20, 20, 3, 32});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Alignment_ConstInt) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  const uint c = UAV[0];
+  UAV[16] = c;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource, {L"-Od"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Min16SizesAndOffsets_Enabled) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+struct Mins
+{
+    min16uint first;
+    min16int second;
+    min12int third;
+    min16float fourth;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Mins bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 16, 32, 48}, {16, 16, 16, 16},
+                           {L"-Od", L"-enable-16bit-types"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Min16SizesAndOffsets_Disabled) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+struct Mins
+{
+    min16uint first;
+    min16int second;
+    min12int third;
+    min16float fourth;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Mins bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 32, 64, 96}, {16, 16, 16, 16}, {L"-Od"});
+}
+
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_SubProgramsInNamespaces) {
   if (m_ver.SkipDxilVersion(1, 2))
     return;
@@ -3006,7 +3280,8 @@ void ClosestHitShader3(inout RayPayload payload, in BuiltInTriangleIntersectionA
       dxilDebugger, instructionOffset, L"InlinedFunction");
   DWORD callsite0 = GetRegisterNumberForVariable(
       dxilDebugger, instructionOffset, L"ret", L"x");
-  // advance until we're out of InlinedFunction before we call it a second time
+  // advance until we're out of InlinedFunction before we call it a second
+  // time
   instructionOffset = AdvanceUntilFunctionEntered(
       dxilDebugger, instructionOffset, L"ClosestHitShader3");
   instructionOffset = AdvanceUntilFunctionEntered(

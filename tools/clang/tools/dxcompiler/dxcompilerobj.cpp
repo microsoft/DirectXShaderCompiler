@@ -613,13 +613,21 @@ public:
                               nullptr, &pSourceEncoding));
 
 #ifdef ENABLE_SPIRV_CODEGEN
-      // We want to embed the preprocessed source code in the final SPIR-V if
-      // debug information is enabled. Therefore, we invoke Preprocess() here
+      // We want to embed the original source code in the final SPIR-V if
+      // debug information is enabled. But the compiled source requires
+      // pre-seeding with #line directives. We invoke Preprocess() here
       // first for such case. Then we invoke the compilation process over the
-      // preprocessed source code, so that line numbers are consistent with the
-      // embedded source code.
+      // preprocessed source code.
       if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo &&
           !opts.SpirvOptions.debugInfoVulkan) {
+        // Convert source code encoding
+        CComPtr<IDxcBlobUtf8> pOrigUtf8Source;
+        IFC(hlsl::DxcGetBlobAsUtf8(pSourceEncoding, m_pMalloc,
+                                   &pOrigUtf8Source));
+        opts.SpirvOptions.origSource.assign(
+            static_cast<const char *>(pOrigUtf8Source->GetStringPointer()),
+            pOrigUtf8Source->GetStringLength());
+
         CComPtr<IDxcResult> pSrcCodeResult;
         std::vector<LPCWSTR> PreprocessArgs;
         PreprocessArgs.reserve(argCount + 1);

@@ -1774,6 +1774,28 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         /*IsSampleC*/ false, ValCtx);
     ValidateDerivativeOp(CI, ValCtx);
   } break;
+  case DXIL::OpCode::SampleCmpBias: {
+    DxilInst_SampleCmpBias sample(CI);
+    Value *bias = sample.get_bias();
+    if (ConstantFP *cBias = dyn_cast<ConstantFP>(bias)) {
+      float fBias = cBias->getValueAPF().convertToFloat();
+      if (fBias < DXIL::kMinMipLodBias || fBias > DXIL::kMaxMipLodBias) {
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrImmBiasForSampleB,
+            {std::to_string(DXIL::kMinMipLodBias),
+             std::to_string(DXIL::kMaxMipLodBias),
+             std::to_string(cBias->getValueAPF().convertToFloat())});
+      }
+    }
+
+    ValidateSampleInst(
+        CI, sample.get_srv(), sample.get_sampler(),
+        {sample.get_coord0(), sample.get_coord1(), sample.get_coord2(),
+         sample.get_coord3()},
+        {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
+        /*IsSampleC*/ true, ValCtx);
+    ValidateDerivativeOp(CI, ValCtx);
+  } break;
   case DXIL::OpCode::SampleGrad: {
     DxilInst_SampleGrad sample(CI);
     ValidateSampleInst(
@@ -1782,6 +1804,15 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
          sample.get_coord3()},
         {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
         /*IsSampleC*/ false, ValCtx);
+  } break;
+  case DXIL::OpCode::SampleCmpGrad: {
+    DxilInst_SampleCmpGrad sample(CI);
+    ValidateSampleInst(
+        CI, sample.get_srv(), sample.get_sampler(),
+        {sample.get_coord0(), sample.get_coord1(), sample.get_coord2(),
+         sample.get_coord3()},
+        {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
+        /*IsSampleC*/ true, ValCtx);
   } break;
   case DXIL::OpCode::SampleLevel: {
     DxilInst_SampleLevel sample(CI);
@@ -2198,6 +2229,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::SampleCmpLevelZero:
   case DXIL::OpCode::SampleBias:
   case DXIL::OpCode::SampleGrad:
+  case DXIL::OpCode::SampleCmpBias:
+  case DXIL::OpCode::SampleCmpGrad:
   case DXIL::OpCode::SampleLevel:
   case DXIL::OpCode::CheckAccessFullyMapped:
   case DXIL::OpCode::BufferStore:

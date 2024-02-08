@@ -118,10 +118,14 @@ function(add_hlsl_hctgen mode)
                       )
   endif()
 
+  add_custom_command(OUTPUT ${temp_output}.stamp
+                     COMMAND ${verification}
+                     COMMAND ${CMAKE_COMMAND} -E touch ${temp_output}.stamp
+                     DEPENDS ${output}
+                     COMMENT "Verifying clang-format results...")
+
   add_custom_target(${mode}
-                    COMMAND ${verification}
-                    DEPENDS ${output}
-                    COMMENT "Verifying clang-format results...")
+                    DEPENDS ${temp_output}.stamp)
 
   add_dependencies(HCTGen ${mode})
 endfunction()
