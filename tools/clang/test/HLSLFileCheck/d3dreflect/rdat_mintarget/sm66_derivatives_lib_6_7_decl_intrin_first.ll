@@ -165,11 +165,11 @@ attributes #3 = { nounwind readonly }
 
 !llvm.ident = !{!0}
 !dx.version = !{!1}
-!dx.valver = !{!2}
-!dx.shaderModel = !{!3}
-!dx.resources = !{!4}
-!dx.typeAnnotations = !{!7}
-!dx.entryPoints = !{!15, !17, !21, !24}
+!dx.valver = !{!1}
+!dx.shaderModel = !{!2}
+!dx.resources = !{!3}
+!dx.typeAnnotations = !{!6}
+!dx.entryPoints = !{!14, !16, !20, !23}
 
 !0 = !{!"dxc(private) 1.7.0.4429 (rdat-minsm-check-flags, 9d3b6ba57)"}
 !1 = !{i32 1, i32 7}
