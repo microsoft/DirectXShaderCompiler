@@ -2,6 +2,32 @@
 // RUN: %dxilver 1.7 | %dxc -T lib_6_7 -validator-version 1.7 %s | %D3DReflect %s | FileCheck %s -check-prefixes=RDAT,RDAT17
 // RUN: %dxilver 1.6 | %dxc -T lib_6_6 -validator-version 1.6 %s | %D3DReflect %s | FileCheck %s -check-prefixes=RDAT,RDAT16
 
+// Compile to DXIL to check ShaderFlags.
+// RUN: %dxilver 1.8 | %dxc -T lib_6_8 %s | %FileCheck %s -check-prefixes=DXIL,DXIL18
+// RUN: %dxilver 1.7 | %dxc -T lib_6_7 -validator-version 1.7 %s | FileCheck %s -check-prefixes=DXIL,DXIL17
+// RUN: %dxilver 1.6 | %dxc -T lib_6_6 -validator-version 1.6 %s | FileCheck %s -check-prefixes=DXIL,DXIL16
+
+///////////////////////////////////////////////////////////////////////////////
+// DXIL checks
+// Ensure ShaderFlags do not include UsedsDerivatives, but do include
+// DerivativesInMeshAndAmpShaders in validator version 1.8 only.  1.8 should
+// no longer include UAVsAtEveryStage, since that shouldn't have applied to
+// library profile, only VS, HS, DS, and GS profiles.
+// These flag values are raw shader flags, so they are not the same as the
+// feature flag values.
+
+// DXIL: !dx.entryPoints = !{![[lib_entry:[0-9]+]],
+// DXIL: ![[lib_entry]] = !{null, !"", null, !{{.*}}, ![[shader_flags:[0-9]+]]}
+// 65552 = 0x10010 = EnableRawAndStructuredBuffers(0x10) + UAVsAtEveryStage(0x10000)
+// DXIL16: ![[shader_flags]] = !{i32 0, i64 65552}
+// 8590000144 = 0x200010010 = 0x10010 + ResMayNotAlias(0x200000000)
+// DXIL17: ![[shader_flags]] = !{i32 0, i64 8590000144}
+// 9126805520 = 0x220000010 = 0x200010010 - UAVsAtEveryStage(0x10000) +
+//    DerivativesInMeshAndAmpShaders(0x20000000)
+// DXIL18: ![[shader_flags]] = !{i32 0, i64 9126805520}
+
+///////////////////////////////////////////////////////////////////////////////
+// RDAT checks
 // Ensure min shader target incorporates optional features used
 
 // RDAT: FunctionTable[{{.*}}] = {

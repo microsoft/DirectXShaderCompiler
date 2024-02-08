@@ -234,6 +234,7 @@ public:
   bool GetUsesDerivatives() const { return m_bUsesDerivatives; }
 
 private:
+  // Bit: 0
   unsigned
       m_bDisableOptimizations : 1; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
   unsigned
@@ -242,6 +243,8 @@ private:
       m_bEnableDoublePrecision : 1; // D3D11_SB_GLOBAL_FLAG_ENABLE_DOUBLE_PRECISION_FLOAT_OPS
   unsigned
       m_bForceEarlyDepthStencil : 1; // D3D11_SB_GLOBAL_FLAG_FORCE_EARLY_DEPTH_STENCIL
+
+  // Bit: 4
   unsigned
       m_bEnableRawAndStructuredBuffers : 1; // D3D11_SB_GLOBAL_FLAG_ENABLE_RAW_AND_STRUCTURED_BUFFERS
   unsigned
@@ -249,12 +252,16 @@ private:
   unsigned
       m_bEnableDoubleExtensions : 1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_DOUBLE_EXTENSIONS
   unsigned m_bEnableMSAD : 1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_SHADER_EXTENSIONS
+
+  // Bit: 8
   unsigned m_bAllResourcesBound : 1; // D3D12_SB_GLOBAL_FLAG_ALL_RESOURCES_BOUND
 
   unsigned
       m_bViewportAndRTArrayIndex : 1; // SHADER_FEATURE_VIEWPORT_AND_RT_ARRAY_INDEX_FROM_ANY_SHADER_FEEDING_RASTERIZER
   unsigned m_bInnerCoverage : 1;  // SHADER_FEATURE_INNER_COVERAGE
   unsigned m_bStencilRef : 1;     // SHADER_FEATURE_STENCIL_REF
+
+  // Bit: 12
   unsigned m_bTiledResources : 1; // SHADER_FEATURE_TILED_RESOURCES
   unsigned
       m_bUAVLoadAdditionalFormats : 1; // SHADER_FEATURE_TYPED_UAV_LOAD_ADDITIONAL_FORMATS
@@ -263,6 +270,8 @@ private:
                                         // SHADER_FEATURE_11_1_SHADER_EXTENSIONS
                                         // shared with EnableMSAD
   unsigned m_b64UAVs : 1;          // SHADER_FEATURE_64_UAVS
+
+  // Bit: 16
   unsigned m_UAVsAtEveryStage : 1; // SHADER_FEATURE_UAVS_AT_EVERY_STAGE
   unsigned
       m_bCSRawAndStructuredViaShader4X : 1; // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X
@@ -270,9 +279,12 @@ private:
   // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X
   // is specifically about shader model 4.x.
 
-  unsigned m_bROVS : 1;         // SHADER_FEATURE_ROVS
+  // Bit: 18
+  unsigned m_bROVS : 1;    // SHADER_FEATURE_ROVS
   unsigned m_bWaveOps : 1;      // SHADER_FEATURE_WAVE_OPS
-  unsigned m_bInt64Ops : 1;     // SHADER_FEATURE_INT64_OPS
+
+  // Bit: 20
+  unsigned m_bInt64Ops : 1; // SHADER_FEATURE_INT64_OPS
 
   // SM 6.1+
   unsigned m_bViewID : 1;       // SHADER_FEATURE_VIEWID
@@ -282,26 +294,32 @@ private:
   unsigned m_bUseNativeLowPrecision : 1;
 
   // SM 6.4+
+  // Bit: 24
   unsigned m_bShadingRate : 1; // SHADER_FEATURE_SHADINGRATE
 
   // SM 6.5+
+  // Bit: 25
   unsigned m_bRaytracingTier1_1 : 1; // SHADER_FEATURE_RAYTRACING_TIER_1_1
   unsigned m_bSamplerFeedback : 1;   // SHADER_FEATURE_SAMPLER_FEEDBACK
 
   // SM 6.6+
+  // Bit: 27
   unsigned
       m_bAtomicInt64OnTypedResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_TYPED_RESOURCE
   unsigned
       m_bAtomicInt64OnGroupShared : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_GROUP_SHARED
 
+  // Bit: 29
   unsigned
       m_bDerivativesInMeshAndAmpShaders : 1; // SHADER_FEATURE_DERIVATIVES_IN_MESH_AND_AMPLIFICATION_SHADERS
 
+  // Bit: 30
   unsigned
       m_bResourceDescriptorHeapIndexing : 1; // SHADER_FEATURE_RESOURCE_DESCRIPTOR_HEAP_INDEXING
   unsigned
       m_bSamplerDescriptorHeapIndexing : 1; // SHADER_FEATURE_SAMPLER_DESCRIPTOR_HEAP_INDEXING
 
+  // Bit: 32
   unsigned
       m_bAtomicInt64OnHeapResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_DESCRIPTOR_HEAP_RESOURCE
 
@@ -310,21 +328,26 @@ private:
   // Set if UAVs are used, unless -res-may-alias was specified.
   // For modules compiled against validator version < 1.7, this flag will be
   // cleared, and it must be assumed that UAV resources may alias.
+  // Bit: 33
   unsigned m_bResMayNotAlias : 1;
 
+  // Bit: 34
   unsigned m_bAdvancedTextureOps : 1; // SHADER_FEATURE_ADVANCED_TEXTURE_OPS
   unsigned
       m_bWriteableMSAATextures : 1; // SHADER_FEATURE_WRITEABLE_MSAA_TEXTURES
 
   // Experimental SM 6.9+ - Reserved, not yet supported.
+  // Bit: 36
   unsigned m_bWaveMMA : 1; // SHADER_FEATURE_WAVE_MMA
 
   // SM 6.8+
+  // Bit: 37
   unsigned
       m_bSampleCmpGradientOrBias : 1; // SHADER_FEATURE_SAMPLE_CMP_GRADIENT_OR_BIAS
   unsigned m_bExtendedCommandInfo : 1; // SHADER_FEATURE_EXTENDED_COMMAND_INFO
 
   // Per-function flag
+  // Bit: 39
   unsigned m_bUsesDerivatives : 1; // SHADER_FEATURE_OPT_USES_DERIVATIVES
                                    // (OptFeatureInfo_UsesDerivatives)
 

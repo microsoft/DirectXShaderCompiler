@@ -314,9 +314,9 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   for (auto &itInfo : m_FuncToShaderCompat)
     Flags.CombineShaderFlags(itInfo.second.shaderFlags);
 
-  // Clear UsesDerivatives flag on non-library, making sure
+  // Clear UsesDerivatives flag for module, making sure
   // DerivativesInMeshAndAmpShaders is set for MS/AS.
-  if (Flags.GetUsesDerivatives() && !m_pSM->IsLib()) {
+  if (Flags.GetUsesDerivatives()) {
     Flags.SetUsesDerivatives(false);
     if (m_pSM->IsMS() || m_pSM->IsAS())
       Flags.SetDerivativesInMeshAndAmpShaders(true);
@@ -350,8 +350,18 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   else
     Flags.Set64UAVs(NumUAVs > kSmallUAVCount);
 
-  if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
-    Flags.SetUAVsAtEveryStage(true);
+  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0) {
+    // For 1.7 compatibility, set UAVsAtEveryStage if there are UAVs
+    // and the shader model is not CS or PS.
+    if (NumUAVs && !(SM->IsCS() || SM->IsPS()))
+      Flags.SetUAVsAtEveryStage(true);
+  } else {
+    // Starting with 1.8, UAVsAtEveryStage is only set when the shader model is
+    // a graphics stage where it mattered. It was unnecessary to set it for
+    // library profiles, or MS/AS profiles.
+    if (NumUAVs && (SM->IsVS() || SM->IsHS() || SM->IsDS() || SM->IsGS()))
+      Flags.SetUAVsAtEveryStage(true);
+  }
 
   for (auto &SRV : m_SRVs) {
     switch (SRV->GetKind()) {
