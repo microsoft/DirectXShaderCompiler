@@ -276,19 +276,19 @@ namespace {
                  end = Ctx.getSourceManager().fileinfo_end();
              it != end; ++it) {
           if (it->first->isValid() && !it->second->IsSystemFile) {
+            std::string path = hlsl::NormalizePath(it->first->getName());
+            StringRef contentBuffer = it->second->getRawBuffer()->getBuffer();
             // If main file, write that to metadata first.
             // Add the rest to filesMap to sort by name.
             if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
               assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
-              AddFile(hlsl::NormalizePath(it->first->getName()),
-                      it->second->getRawBuffer()->getBuffer());
+              AddFile(path, contentBuffer);
               bFoundMainFile = true;
             } else {
               // We want the include file paths to match the values passed into
               // the include handlers exactly. The SourceManager entries should
               // match it except the call to MakeAbsoluteOrCurDirRelative.
-              std::string path = hlsl::NormalizePath(it->first->getName());
-              filesMap[path] = it->second->getRawBuffer()->getBuffer();
+              filesMap[path] = contentBuffer;
             }
           }
         }
