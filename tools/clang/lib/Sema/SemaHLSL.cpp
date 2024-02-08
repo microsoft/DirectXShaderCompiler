@@ -11154,10 +11154,7 @@ void Sema::DiagnoseSVForLaunchType(const FunctionDecl *FD,
         // if the node launch type is Thread, then there are no system values
         // allowed
         if (LaunchTy == DXIL::NodeLaunchType::Thread) {
-          if (sd->SemanticName.equals("SV_GroupThreadID") ||
-              sd->SemanticName.equals("SV_GroupIndex") ||
-              sd->SemanticName.equals("SV_GroupID") ||
-              sd->SemanticName.equals("SV_DispatchThreadID")) {
+          if (sd->SemanticName.startswith("SV_")) {
             // emit diagnostic
             unsigned DiagID = Diags.getCustomDiagID(
                 DiagnosticsEngine::Error,
@@ -11167,11 +11164,11 @@ void Sema::DiagnoseSVForLaunchType(const FunctionDecl *FD,
           }
         }
 
-        // if the node launch type is Coalescing, then
+        // if the node launch type is Coalescing, then only
         // SV_GroupIndex and SV_GroupThreadID are allowed
         else if (LaunchTy == DXIL::NodeLaunchType::Coalescing) {
-          if (sd->SemanticName.equals("SV_GroupID") ||
-              sd->SemanticName.equals("SV_DispatchThreadID")) {
+          if (!(sd->SemanticName.equals("SV_GroupIndex") ||
+              sd->SemanticName.equals("SV_GroupThreadID"))) {
             // emit diagnostic
             unsigned DiagID = Diags.getCustomDiagID(
                 DiagnosticsEngine::Error,
