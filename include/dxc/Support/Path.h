@@ -22,7 +22,8 @@ bool IsAbsoluteOrCurDirRelativeImpl(const CharTy *Path, size_t Len) {
     return Path[1] == '\0' || Path[1] == '/' || Path[1] == '\\';
   }
   // Disk designator, then absolute path.
-  if (Len >= 3 && Path[1] && Path[1] == ':' && (Path[2] == '\\' || Path[2] == '/')) {
+  if (Len >= 3 && Path[1] && Path[1] == ':' &&
+      (Path[2] == '\\' || Path[2] == '/')) {
     return true;
   }
   // UNC name
@@ -110,7 +111,8 @@ StringTy NormalizePathImpl(const CharT *Path, size_t Length) {
   }
 
   // If relative path, prefix with dot.
-  if (IsAbsoluteOrCurDirRelativeImpl<CharT>(PathCopy.c_str(), PathCopy.size())) {
+  if (IsAbsoluteOrCurDirRelativeImpl<CharT>(PathCopy.c_str(),
+                                            PathCopy.size())) {
     return PathCopy;
   } else {
     return StringTy(1, CharT('.')) + StringTy(1, SlashTo) + PathCopy;
