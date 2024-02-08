@@ -1430,7 +1430,6 @@ public:
         Opts.EnablePayloadQualifiers;
     compiler.getLangOpts().HLSLProfile = compiler.getCodeGenOpts().HLSLProfile =
         Opts.TargetProfile;
-    compiler.getLangOpts().HLSLMainFile = pMainFile;
 
     // Enable dumping implicit top level decls either if it was specifically
     // requested or if we are not dumping the ast from the command line. That
