@@ -17,9 +17,11 @@ namespace hlsl {
 
 template <typename CharTy>
 bool IsAbsoluteOrCurDirRelativeImpl(const CharTy *Path, size_t Len) {
+  if (Len == 1 && Path[0] == '.')
+    return true;
   // Current dir-relative path.
-  if (Len >= 2 && Path[0] == '.') {
-    return Path[1] == '\0' || Path[1] == '/' || Path[1] == '\\';
+  if (Len >= 2 && Path[0] == '.' && (Path[1] == '/' || Path[1] == '\\')) {
+    return true;
   }
   // Disk designator, then absolute path.
   if (Len >= 3 && Path[1] && Path[1] == ':' &&
