@@ -616,7 +616,11 @@ private:
         MDTuple *tup = cast<MDTuple>(node.getOperand(0));
         MDString *str = cast<MDString>(tup->getOperand(0));
         std::string normalized = hlsl::NormalizePath(str->getString());
-        m_MainFileName = nullptr;
+        m_MainFileName =
+            nullptr; // This may already be set from reading dx.source content.
+                     // If we have a dx.source.mainFileName, we want to use that
+                     // here as the source of truth. Set it to nullptr to avoid
+                     // leak (and assert).
         IFR(Utf8ToBlobWide(normalized, &m_MainFileName));
       }
       // dx.source.args
