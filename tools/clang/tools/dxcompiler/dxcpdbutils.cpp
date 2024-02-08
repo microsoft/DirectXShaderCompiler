@@ -420,13 +420,11 @@ private:
                             /*encodingKnown*/ true, CP_UTF8, m_pMalloc,
                             &source.Content));
 
+    std::string normalizedPath = hlsl::NormalizePath(name);
+    IFR(Utf8ToBlobWide(name, &source.Name));
     // First file is the main file
     if (m_SourceFiles.empty()) {
-      IFR(Utf8ToBlobWide(name, &source.Name));
       m_MainFileName = source.Name;
-    } else {
-      std::string normalizedPath = hlsl::NormalizePath(name);
-      IFR(Utf8ToBlobWide(normalizedPath, &source.Name));
     }
 
     m_SourceFiles.push_back(std::move(source));

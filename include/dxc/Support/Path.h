@@ -65,6 +65,12 @@ inline bool IsAbsoluteOrCurDirRelative(const char *Path) {
 // 2. All repeated slashes are removed (except for leading slashes, so windows UNC paths are not broken)
 // 3. All relative paths (including ones that begin with ..) are prepended with ./ or .\ if not already
 //
+// Examples:
+//   F:\\\my_path////\\/my_shader.hlsl   ->  F:\my_path\my_shader.hlsl
+//   my_path/my_shader.hlsl              ->  .\my_path\my_shader.hlsl
+//   ..\\.//.\\\my_path/my_shader.hlsl   ->  .\..\.\.\my_path\my_shader.hlsl
+//   \\my_network_path/my_shader.hlsl    ->  \\my_network_path\my_shader.hlsl
+//
 template <typename CharT, typename StringTy>
 StringTy NormalizePathImpl(const CharT *Path, size_t Length) {
   StringTy PathCopy(Path, Length);
