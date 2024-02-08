@@ -11170,7 +11170,7 @@ void Sema::DiagnoseSVForLaunchType(const FunctionDecl *FD,
         // SV_GroupIndex and SV_GroupThreadID are allowed
         else if (LaunchTy == DXIL::NodeLaunchType::Coalescing) {
           if (!(sd->SemanticName.equals("SV_GroupIndex") ||
-              sd->SemanticName.equals("SV_GroupThreadID"))) {
+                sd->SemanticName.equals("SV_GroupThreadID"))) {
             // emit diagnostic
             unsigned DiagID = Diags.getCustomDiagID(
                 DiagnosticsEngine::Error,
