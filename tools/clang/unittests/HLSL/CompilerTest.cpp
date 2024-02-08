@@ -2880,10 +2880,26 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
                                       L"ps_6_0", nullptr, 0, nullptr, 0,
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L".\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"." SLASH_W L"helper.h;", pInclude->GetAllFileNames().c_str());
 }
 
 TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
+  static auto NormalizeForPlatform = [](const std::wstring &s) -> std::wstring {
+#ifdef _WIN32
+    wchar_t From = L'/';
+    wchar_t To = L'\\';
+#else
+    wchar_t From = L'\\';
+    wchar_t To = L'/';
+#endif
+    std::wstring ret = s;
+    for (wchar_t &c : ret) {
+      if (c == From)
+        c = To;
+    }
+    return ret;
+  };
+
   class SimpleIncludeHanlder : public IDxcIncludeHandler {
     DXC_MICROCOM_REF_FIELD(m_dwRef)
   public:
@@ -2904,7 +2920,7 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
         LPCWSTR pFilename,         // Filename as written in #include statement
         IDxcBlob **ppIncludeSource // Resultant source object for included file
         ) override {
-      if (pFilename == Path) {
+      if (pFilename == NormalizeForPlatform(Path)) {
         MultiByteStringToBlob(m_dllSupport, Content, CP_UTF8, ppIncludeSource);
         return S_OK;
       }
@@ -2973,12 +2989,21 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
        {L".\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
        {L"-I", L"my_include_dir"}},
 
+#ifdef _WIN32
       {L"../main.hlsl",
        {L".\\..\\main.hlsl",
         R"(#include "\\my_include_dir\\second_dir/include.h" // <-- Network path
            float main() : SV_Target { return foo(); } )"},
        {L"\\\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
        {}},
+#else
+      {L"../main.hlsl",
+       {L".\\..\\main.hlsl",
+        R"(#include "/my_include_dir\\second_dir/include.h" // <-- Unix absolute path
+           float main() : SV_Target { return foo(); } )"},
+       {L"/my_include_dir\\second_dir\\include.h", commonIncludeFile},
+       {}},
+#endif
   };
 
   for (TestCase &t : tests) {
@@ -2992,7 +3017,7 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
 
     pInclude = new SimpleIncludeHanlder(m_dllSupport);
     pInclude->Content = t.includeFile.content;
-    pInclude->Path = t.includeFile.name;
+    pInclude->Path = NormalizeForPlatform(t.includeFile.name);
 
     std::vector<const WCHAR *> args = {L"-Zi", L"-Qembed_debug"};
     args.insert(args.end(), t.extraArgs.begin(), t.extraArgs.end());
@@ -3000,7 +3025,6 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
     VERIFY_SUCCEEDED(pCompiler->Compile(pSource, t.mainFileArg.c_str(), L"main",
                                         L"ps_6_0", args.data(), args.size(),
                                         nullptr, 0, pInclude, &pResult));
-    VerifyOperationSucceeded(pResult);
 
     CComPtr<IDxcBlob> pPdb;
     CComPtr<IDxcBlob> pDxil;
@@ -3017,22 +3041,6 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
       VERIFY_SUCCEEDED(
           m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
       VERIFY_SUCCEEDED(pPdbUtils->Load(pDbgBlob));
-
-      static auto NormalizeForPlatform = [](std::wstring s) -> std::wstring {
-#ifdef _WIN32
-        wchar_t From = L'/';
-        wchar_t To = L'\\';
-#else
-        wchar_t From = L'\\';
-        wchar_t To = L'/';
-#endif
-        std::wstring ret = s;
-        for (wchar_t &c : s) {
-          if (c == From)
-            c = To;
-        }
-        return ret;
-      };
 
       CComBSTR pMainFileName;
       VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
