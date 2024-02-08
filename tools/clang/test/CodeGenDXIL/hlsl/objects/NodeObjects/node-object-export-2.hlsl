@@ -1,6 +1,7 @@
 // RUN: %dxc -T lib_6_x %s | FileCheck %s
 
 // Not supported yet.
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6258
 // XFAIL: *
 
 struct RECORD
