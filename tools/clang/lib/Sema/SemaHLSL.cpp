@@ -11144,6 +11144,8 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
+// Produce diagnostics for any system values attached to `FD` function
+// that are invalid for the `LaunchTy` launch type
 void Sema::DiagnoseSVForLaunchType(const FunctionDecl *FD,
                                    DXIL::NodeLaunchType LaunchTy) {
   // Validate Compute Shader system value inputs per launch mode
