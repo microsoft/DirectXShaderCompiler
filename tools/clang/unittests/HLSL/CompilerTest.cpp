@@ -3175,8 +3175,13 @@ TEST_F(CompilerTest, CompileWhenIncludeSystemMissingThenLoadAttempt) {
       std::string::npos,
       failLog.find("<angled>")); // error message should prompt to use <angled>
                                  // rather than "quotes"
+#ifdef _WIN32
   VERIFY_ARE_EQUAL_WSTR(L".\\subdir\\other\\file.h;.\\subdir\\other\\helper.h;",
                         pInclude->GetAllFileNames().c_str());
+#else
+  VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./subdir/other/helper.h;",
+                        pInclude->GetAllFileNames().c_str());
+#endif
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeFlagsThenIncludeUsed) {
@@ -3366,7 +3371,8 @@ TEST_F(CompilerTest, CompileWhenIncludeEmptyThenOK) {
                                       L"ps_6_0", nullptr, 0, nullptr, 0,
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L".\\empty.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"." SLASH_W L"empty.h;",
+                        pInclude->GetAllFileNames().c_str());
 }
 
 static const char EmptyCompute[] = "[numthreads(8,8,1)] void main() { }";
