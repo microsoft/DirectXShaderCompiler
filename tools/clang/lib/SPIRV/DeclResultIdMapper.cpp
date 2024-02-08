@@ -3310,10 +3310,11 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
     }
   }
 
-  // Decorate with interpolation modes for pixel shader input variables
-  // or vertex shader output variables.
+  // Decorate with interpolation modes for pixel shader input variables, vertex
+  // shader output variables, or mesh shader output variables.
   if ((spvContext.isPS() && stageVarData.sigPoint->IsInput()) ||
-      (spvContext.isVS() && stageVarData.sigPoint->IsOutput()))
+      (spvContext.isVS() && stageVarData.sigPoint->IsOutput()) ||
+      (spvContext.isMS() && stageVarData.sigPoint->IsOutput()))
     decorateInterpolationMode(stageVarData.decl, stageVarData.type, varInstr,
                               *stageVarData.semantic);
 
