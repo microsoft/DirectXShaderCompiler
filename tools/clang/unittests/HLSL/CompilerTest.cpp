@@ -13,18 +13,6 @@
 #define UNICODE
 #endif
 
-#ifdef _WIN32
-#define SLASH_W L"\\"
-#define SLASH "\\"
-#define PP_SLASH_W L"\\\\"
-#define PP_SLASH "\\\\"
-#else
-#define SLASH_W L"/"
-#define SLASH "/"
-#define PP_SLASH_W L"/"
-#define PP_SLASH "/"
-#endif
-
 // clang-format off
 // Includes on Windows are highly order dependent.
 #include <memory>
@@ -72,6 +60,22 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
 // clang-format on
+
+// These are helper macros for adding slashes down below
+// based on platform. The PP_ prefixed ones are for matching
+// slashes in preprocessed HLSLs, since backslashes that
+// appear in #line directives are double backslashes.
+#ifdef _WIN32
+#define SLASH_W L"\\"
+#define SLASH "\\"
+#define PP_SLASH_W L"\\\\"
+#define PP_SLASH "\\\\"
+#else
+#define SLASH_W L"/"
+#define SLASH "/"
+#define PP_SLASH_W L"/"
+#define PP_SLASH "/"
+#endif
 
 using namespace std;
 using namespace hlsl_test;
@@ -1271,13 +1275,7 @@ static void VerifyPdbUtil(
     bool TestReflection, bool TestEntryPoint, const std::string &MainSource,
     const std::string &IncludedFile) {
 
-  std::wstring MainFileName;
-#ifdef _WIN32
-  MainFileName += L".\\";
-#else
-  MainFileName += L"./";
-#endif
-  MainFileName += pMainFileName;
+  std::wstring MainFileName = std::wstring(L"." SLASH_W) + pMainFileName;
 
   VERIFY_SUCCEEDED(pPdbUtils->Load(pBlob));
 
@@ -1961,12 +1959,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
     CComBSTR pMainFileName;
     VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
     std::wstring mainFileName = static_cast<const wchar_t *>(pMainFileName);
-#ifdef _WIN32
-    VERIFY_ARE_EQUAL(mainFileName, L".\\hlsl.hlsl");
-#else
-    VERIFY_ARE_EQUAL(mainFileName, L"./hlsl.hlsl");
-#endif
-
+    VERIFY_ARE_EQUAL(mainFileName, L"." SLASH_W L"hlsl.hlsl");
   };
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
@@ -2865,7 +2858,8 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadInvoked) {
                                       L"ps_6_0", nullptr, 0, nullptr, 0,
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L".\\helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"." SLASH_W L"helper.h;",
+                        pInclude->GetAllFileNames().c_str());
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
