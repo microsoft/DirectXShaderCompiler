@@ -406,12 +406,6 @@ private:
                          bool bInput);
 
 public:
-  // Compute ShaderCompatInfo for all functions in module.
-  void ComputeShaderCompatInfo();
-
-  // Clear previous ShaderCompatInfo for recomputation.
-  void ClearShaderCompatInfo();
-
   // ShaderCompatInfo tracks requirements per-function, subsequently merged into
   // final entry function requirements.
   struct ShaderCompatInfo {
@@ -424,6 +418,9 @@ public:
     ShaderFlags shaderFlags;
     bool Merge(ShaderCompatInfo &other);
   };
+
+  // Compute ShaderCompatInfo for all functions in module.
+  void ComputeShaderCompatInfo();
 
   const ShaderCompatInfo *
   GetCompatInfoForFunction(const llvm::Function *F) const;

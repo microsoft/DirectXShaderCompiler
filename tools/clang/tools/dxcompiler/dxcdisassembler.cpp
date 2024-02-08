@@ -353,6 +353,12 @@ PCSTR g_pFeatureInfoNames[] = {
 static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount,
               "g_pFeatureInfoNames needs to be updated");
 
+PCSTR g_pOptFeatureInfoNames[] = {
+  "Function uses derivatives",
+};
+static_assert(_countof(g_pOptFeatureInfoNames) == OptFeatureInfoCount,
+              "g_pOptFeatureInfoNames needs to be updated");
+
 void PrintFeatureInfo(const DxilShaderFeatureInfo *pFeatureInfo,
                       raw_string_ostream &OS, StringRef comment) {
   uint64_t featureFlags = pFeatureInfo->FeatureFlags;
@@ -363,6 +369,16 @@ void PrintFeatureInfo(const DxilShaderFeatureInfo *pFeatureInfo,
   for (unsigned i = 0; i < ShaderFeatureInfoCount; i++) {
     if (featureFlags & (((uint64_t)1) << i))
       OS << comment << "       " << g_pFeatureInfoNames[i] << "\n";
+  }
+  OS << comment << "\n";
+
+  uint64_t optFeatureFlags = featureFlags >> OptFeatureInfoShift;
+  if (!optFeatureFlags)
+    return;
+  OS << comment << " Note: shader has optional feature flags set:\n";
+  for (unsigned i = 0; i < OptFeatureInfoCount; i++) {
+    if (optFeatureFlags & (((uint64_t)1) << i))
+      OS << comment << "       " << g_pOptFeatureInfoNames[i] << "\n";
   }
   OS << comment << "\n";
 }

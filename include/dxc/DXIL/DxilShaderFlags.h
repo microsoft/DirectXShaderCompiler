@@ -229,6 +229,7 @@ public:
   void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
   bool GetWaveMMA() const { return m_bWaveMMA; }
 
+  // Per-function flag
   void SetUsesDerivatives(bool flag) { m_bUsesDerivatives = flag; }
   bool GetUsesDerivatives() const { return m_bUsesDerivatives; }
 

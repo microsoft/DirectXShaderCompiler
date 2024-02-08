@@ -1921,16 +1921,28 @@ const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
 // and ignored by the runtime if not recognized:
 // D3D11_OPTIONAL_FEATURE_FLAGS 0x7FFFFF0000000000
 const unsigned ShaderFeatureInfoCount = 33;
+static_assert(ShaderFeatureInfoCount <= 40,
+              "ShaderFeatureInfo flags must fit within the first 40 bits; "
+              "after that we need to expand the FeatureInfo blob part and "
+              "start defining a new set of flags for ShaderFeatureInfo2.");
 
-// This section is for flags that do not directly indicate a required feature,
-// but are used to indicate something about the shader.
+// OptFeatureInfo flags in higher bits of DFCC_FeatureInfo uint64_t value.
+// This section is for flags that do not necessarily indicate a required
+// feature, but are used to indicate something about the shader.
+// Some of these flags may not actually show up in DFCC_FeatureInfo, instead
+// only being used in intermediate feature info and in RDAT's FeatureInfo.
 
 // Create flag here for any derivative use.  This allows call-graph validation
 // in the runtime to detect misuse of derivatives for an entry point that cannot
 // support it, or to determine when the flag
 // ShaderFeatureInfo_DerivativesInMeshAndAmpShaders is required.
 const uint64_t OptFeatureInfo_UsesDerivatives = 0x0000010000000000ULL;
+const uint64_t OptFeatureInfoShift = 40;
 const unsigned OptFeatureInfoCount = 1;
+static_assert(OptFeatureInfoCount <= 23,
+              "OptFeatureInfo flags must fit in 23 bits; after that we need to "
+              "expand the FeatureInfo blob part and start defining a new set "
+              "of flags for OptFeatureInfo2.");
 
 // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
 // certain values reserved, since they cannot be used from Dxil.

@@ -288,6 +288,27 @@ unsigned DxilModule::GetGlobalFlags() const {
   return Flags;
 }
 
+static bool RequiresRaytracingTier1_1(const DxilSubobjects *pSubobjects) {
+  if (!pSubobjects)
+    return false;
+  for (const auto &it : pSubobjects->GetSubobjects()) {
+    switch (it.second->GetKind()) {
+    case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+      return true;
+    case DXIL::SubobjectKind::StateObjectConfig: {
+      uint32_t configFlags;
+      if (it.second->GetStateObjectConfig(configFlags) &&
+          ((configFlags &
+            (unsigned)DXIL::StateObjectFlags::AllowStateObjectAdditions) != 0))
+        return true;
+    } break;
+    default:
+      break;
+    }
+  }
+  return false;
+}
+
 void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   ComputeShaderCompatInfo();
   for (auto &itInfo : m_FuncToShaderCompat)
@@ -351,26 +372,7 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   Flags.SetCSRawAndStructuredViaShader4X(hasCSRawAndStructuredViaShader4X);
 
   if (!Flags.GetRaytracingTier1_1()) {
-    if (const DxilSubobjects *pSubobjects = GetSubobjects()) {
-      for (const auto &it : pSubobjects->GetSubobjects()) {
-        switch (it.second->GetKind()) {
-        case DXIL::SubobjectKind::RaytracingPipelineConfig1:
-          Flags.SetRaytracingTier1_1(true);
-          break;
-        case DXIL::SubobjectKind::StateObjectConfig: {
-          uint32_t configFlags;
-          if (it.second->GetStateObjectConfig(configFlags) &&
-              ((configFlags &
-                ~(unsigned)DXIL::StateObjectFlags::ValidMask_1_4) != 0))
-            Flags.SetRaytracingTier1_1(true);
-        } break;
-        default:
-          break;
-        }
-        if (Flags.GetRaytracingTier1_1())
-          break;
-      }
-    }
+    Flags.SetRaytracingTier1_1(RequiresRaytracingTier1_1(GetSubobjects()));
   }
 }
 
@@ -2125,38 +2127,39 @@ bool DxilModule::ShaderCompatInfo::Merge(ShaderCompatInfo &other) {
   return changed;
 }
 
-void DxilModule::ClearShaderCompatInfo() { m_FuncToShaderCompat.clear(); }
-
 void DxilModule::ComputeShaderCompatInfo() {
-  // Initialize worklist with functions with callers
+  m_FuncToShaderCompat.clear();
+
+  bool dxil15Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0;
+  bool dxil18Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0;
+  bool dxil19Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 9) >= 0;
+
+  // Initialize worklist with functions that have callers
   SmallSetVector<llvm::Function *, 8> worklist;
 
   for (auto &function : GetModule()->getFunctionList()) {
-    if (function.isDeclaration() && !function.isIntrinsic() &&
-        function.getLinkage() ==
-            llvm::GlobalValue::LinkageTypes::ExternalLinkage &&
-        OP::IsDxilOpFunc(&function)) {
-      // update min shader model and shader stage mask per function
-      UpdateFunctionToShaderCompat(&function);
-    } else if (!function.isDeclaration()) {
+    if (!function.isDeclaration()) {
       // Initialize worklist with functions with callers.
       // only used for validator version 1.8+
-      if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0 &&
+      if (dxil18Plus &&
           !function.user_empty())
         worklist.insert(&function);
 
-      // Skip functions with shader flags already set
-      if (m_FuncToShaderCompat.count(&function) != 0)
-        continue;
-
-      // Collect shader flags for function
+      // Collect shader flags for function.
+      // Insert or lookup info
       ShaderCompatInfo &info = m_FuncToShaderCompat[&function];
       info.shaderFlags = ShaderFlags::CollectShaderFlags(&function, this);
+    } else if (!function.isIntrinsic() &&
+               function.getLinkage() ==
+                   llvm::GlobalValue::LinkageTypes::ExternalLinkage &&
+               OP::IsDxilOpFunc(&function)) {
+      // update min shader model and shader stage mask per function
+      UpdateFunctionToShaderCompat(&function);
     }
   }
 
   // Propagate ShaderCompatInfo to callers, limit to 1.8+ for compatibility
-  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
+  if (dxil18Plus) {
     while (!worklist.empty()) {
       llvm::Function *F = worklist.pop_back_val();
       ShaderCompatInfo &calleeInfo = m_FuncToShaderCompat[F];
@@ -2166,6 +2169,7 @@ void DxilModule::ComputeShaderCompatInfo() {
           llvm::Function *caller = CI->getParent()->getParent();
           // Merge info, if changed and called, add to worklist so we update
           // any callers of caller as well.
+          // Insert or lookup info
           if (m_FuncToShaderCompat[caller].Merge(calleeInfo) &&
               !caller->user_empty())
             worklist.insert(caller);
@@ -2178,42 +2182,44 @@ void DxilModule::ComputeShaderCompatInfo() {
   // so we don't set any bits the validator doesn't recognize.
   unsigned ValidShaderMask =
       (1 << ((unsigned)DXIL::ShaderKind::LastValid + 1)) - 1;
-  if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
+  if (!dxil15Plus) {
     ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_4 + 1)) - 1;
-  } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0) {
+  } else if (!dxil18Plus) {
     ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_7 + 1)) - 1;
-  } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
+  } else if (!dxil19Plus) {
     ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_8 + 1)) - 1;
   }
 
   for (auto &function : GetModule()->getFunctionList()) {
-    if (!function.isDeclaration()) {
-      ShaderCompatInfo &info = m_FuncToShaderCompat[&function];
-      DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Library;
-      const DxilFunctionProps *props = nullptr;
-      if (HasDxilFunctionProps(&function)) {
-        props = &GetDxilFunctionProps(&function);
-        shaderKind = props->shaderKind;
-      }
+    if (function.isDeclaration())
+      continue;
+    DXASSERT(m_FuncToShaderCompat.count(&function) != 0,
+             "otherwise, function missed earlier somehow!");
+    ShaderCompatInfo &info = m_FuncToShaderCompat[&function];
+    DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Library;
+    const DxilFunctionProps *props = nullptr;
+    if (HasDxilFunctionProps(&function)) {
+      props = &GetDxilFunctionProps(&function);
+      shaderKind = props->shaderKind;
+    }
 
-      if (shaderKind == DXIL::ShaderKind::Library)
-        info.mask &= ValidShaderMask;
-      else
-        info.mask &= (1U << static_cast<unsigned>(shaderKind));
+    if (shaderKind == DXIL::ShaderKind::Library)
+      info.mask &= ValidShaderMask;
+    else
+      info.mask &= (1U << static_cast<unsigned>(shaderKind));
 
-      // Increase min target based on features used:
-      ShaderFlags &flags = info.shaderFlags;
-      if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0) {
-        // This handles WaveSize requirement as well.
-        flags = flags.AdjustMinimumShaderModelAndFlags(props, info.minMajor,
-                                                       info.minMinor);
-      } else {
-        // Match prior versions that were missing some feature detection.
-        if (flags.GetUseNativeLowPrecision() && flags.GetLowPrecisionPresent())
-          DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, 6, 2);
-        else if (flags.GetBarycentrics() || flags.GetViewID())
-          DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, 6, 1);
-      }
+    // Increase min target based on features used:
+    ShaderFlags &flags = info.shaderFlags;
+    if (dxil18Plus) {
+      // This handles WaveSize requirement as well.
+      flags = flags.AdjustMinimumShaderModelAndFlags(props, info.minMajor,
+                                                      info.minMinor);
+    } else {
+      // Match prior versions that were missing some feature detection.
+      if (flags.GetUseNativeLowPrecision() && flags.GetLowPrecisionPresent())
+        DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, 6, 2);
+      else if (flags.GetBarycentrics() || flags.GetViewID())
+        DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, 6, 1);
     }
   }
 }
@@ -2234,19 +2240,21 @@ void DxilModule::UpdateFunctionToShaderCompat(const llvm::Function *dxilFunc) {
       DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, major, minor);
       info.mask &= mask;
     } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
-      // If loading a groupshared variable, limit to CS/AS/MS
+      // If loading a groupshared variable, limit to CS/AS/MS/Node
       if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
         const llvm::Function *F =
             cast<const llvm::Function>(LI->getParent()->getParent());
+        // Insert or lookup info
         ShaderCompatInfo &info = m_FuncToShaderCompat[F];
         info.mask &=
             (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Node));
       }
     } else if (const llvm::StoreInst *SI = dyn_cast<StoreInst>(user)) {
-      // If storing to a groupshared variable, limit to CS/AS/MS
+      // If storing to a groupshared variable, limit to CS/AS/MS/Node
       if (SI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
         const llvm::Function *F =
             cast<const llvm::Function>(SI->getParent()->getParent());
+        // Insert or lookup info
         ShaderCompatInfo &info = m_FuncToShaderCompat[F];
         info.mask &=
             (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification) | SFLAG(Node));
