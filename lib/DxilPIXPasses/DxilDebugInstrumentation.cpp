@@ -1017,6 +1017,16 @@ DxilDebugInstrumentation::addStepDebugEntry(BuilderContext *BC,
       ret.InstructionOrdinal = InstNum;
       ret.Type = DebugShaderModifierRecordTypeDXILStepTerminator;
       return ret;
+    } else if (Inst->isTerminator()) {
+      if (BC != nullptr)
+        addStepEntryForType<void>(
+            DebugShaderModifierRecordTypeDXILStepVoid, *BC, InstNum,
+            nullptr, 0, 0);
+      InstructionAndType ret{};
+      ret.Inst = Inst;
+      ret.InstructionOrdinal = InstNum;
+      ret.Type = DebugShaderModifierRecordTypeDXILStepVoid;
+      return ret;
     }
     return std::nullopt;
   }
