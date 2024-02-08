@@ -2880,7 +2880,8 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
                                       L"ps_6_0", nullptr, 0, nullptr, 0,
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L"." SLASH_W L"helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"." SLASH_W L"helper.h;",
+                        pInclude->GetAllFileNames().c_str());
 }
 
 TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
