@@ -14,8 +14,8 @@ sampler DummySampler;
 // CHECK:                OpStore %param_var_src %bindless
 // CHECK:                OpFunctionCall
 // CHECK:         %src = OpFunctionParameter %_ptr_Function__ptr_UniformConstant__runtimearr_type_2d_image
-// CHECK: [[idx:%[0-9]+]] = OpLoad %uint %index
 // CHECK: [[src:%[0-9]+]] = OpLoad %_ptr_UniformConstant__runtimearr_type_2d_image %src
+// CHECK: [[idx:%[0-9]+]] = OpLoad %uint %index
 // CHECK:                OpAccessChain %_ptr_Function_type_2d_image [[src]] [[idx]]
 
 float4 SampleArray(Texture2D src[], uint index, float2 uv)

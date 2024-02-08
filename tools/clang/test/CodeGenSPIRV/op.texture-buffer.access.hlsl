@@ -30,7 +30,8 @@ float main() : A {
 // CHECK:      [[s:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_3 %int_0
 // CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[s]]
 
-// CHECK:      [[t:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTB %int_4 %int_3
+// CHECK:      [[base:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_float_uint_4 %MyTB %int_4
+// CHECK:      [[t:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[base]] %int_3
 // CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[t]]
   return MyTB.a         + MyTB.b.x         + MyTB.c[1][2]         + MyTB.s.f         + MyTB.t[3] +
 // CHECK:      [[a_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_4 %int_0
@@ -46,7 +47,8 @@ float main() : A {
 // CHECK:      [[s_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_1 %int_3 %int_0
 // CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[s_0]]
 
-// CHECK:      [[t_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MyTBArray %int_0 %int_4 %int_3
+// CHECK:      [[base:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_float_uint_4 %MyTBArray %int_0 %int_4
+// CHECK:      [[t_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[base]] %int_3
 // CHECK-NEXT:   {{%[0-9]+}} = OpLoad %float [[t_0]]
          MyTBArray[4].a + MyTBArray[3].b.x + MyTBArray[2].c[1][2] + MyTBArray[1].s.f + MyTBArray[0].t[3];
 }

@@ -21,11 +21,17 @@ ByteAddressBuffer Buffer0;
 ByteAddressBuffer BufferArray[2];
 RWByteAddressBuffer BufferOut;
 
+struct MyStruct
+{
+	ByteAddressBuffer myBuffers[2];
+};
+
 // CHECK: %src_main = OpFunction
 [numthreads(1, 1, 1)]
 void main() {
 // CHECK: %LocalArray = OpVariable %_ptr_Function__ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 Function
 // CHECK: %Local = OpVariable %_ptr_Function__ptr_Uniform_type_ByteAddressBuffer Function
+// CHECK: %ms = OpVariable %_ptr_Function_MyStruct Function
   ByteAddressBuffer LocalArray[2];
 
 // CHECK: OpStore %LocalArray %BufferArray
@@ -35,4 +41,15 @@ void main() {
 // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_ByteAddressBuffer [[array]] %int_0
 // CHECK: OpStore %Local [[ac]]
   ByteAddressBuffer Local = LocalArray[0];
+
+// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Function__ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 %ms %int_0
+// CHECK: OpStore [[ac]] %BufferArray
+  MyStruct ms;
+  ms.myBuffers = BufferArray;
+
+// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Function__ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 %ms %int_0
+// CHECK: [[alias:%[0-9]+]] = OpLoad %_ptr_Uniform__arr_type_ByteAddressBuffer_uint_2 [[ac]]
+// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_ByteAddressBuffer [[alias]] %int_0
+// CHECK: OpStore %buffer [[ac]]
+	ByteAddressBuffer buffer = ms.myBuffers[0];
 }

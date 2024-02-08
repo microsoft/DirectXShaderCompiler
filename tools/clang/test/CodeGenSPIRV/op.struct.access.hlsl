@@ -91,10 +91,16 @@ float4 main() : SV_Target {
 
 // CHECK:       [[baz:%[0-9]+]] = OpFunctionCall %S %baz
 // CHECK-NEXT:                 OpStore %temp_var_S [[baz]]
-// CHECK-NEXT:                 OpAccessChain %_ptr_Function_v4float %temp_var_S %int_4 %int_0
+// CHECK-NEXT: [[base:%[0-9]+]] = OpAccessChain %_ptr_Function__arr_v4float_uint_1 %temp_var_S %int_4
+// CHECK-NEXT: [[array_value:%[0-9]+]] = OpLoad %_arr_v4float_uint_1 [[base]]
+// CHECK-NEXT:                 OpStore %temp_var_ [[array_value]]
+// CHECK-NEXT:                 OpAccessChain %_ptr_Function_v4float %temp_var_ %int_0
 // CHECK:       [[bar:%[0-9]+]] = OpFunctionCall %S %bar
 // CHECK-NEXT:                 OpStore %temp_var_S_0 [[bar]]
-// CHECK-NEXT:                 OpAccessChain %_ptr_Function_float %temp_var_S_0 %int_5 %int_1
+// CHECK-NEXT: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Function__arr_float_uint_4 %temp_var_S_0 %int_5
+// CHECK-NEXT: [[ld:%[0-9]+]] = OpLoad %_arr_float_uint_4 %111
+// CHECK-NEXT:                 OpStore %temp_var__0 %112
+// CHECK-NEXT:                 OpAccessChain %_ptr_Function_float %temp_var__0 %int_1
     float4 val1 = bar().f[1] * baz().e[0];
 
 // CHECK:        [[ac:%[0-9]+]] = OpAccessChain %_ptr_Function_int %temp_var_S_1 %int_6

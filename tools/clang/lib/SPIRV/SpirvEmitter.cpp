@@ -2781,24 +2781,37 @@ void SpirvEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 SpirvInstruction *
 SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr,
                                    SourceRange rangeOverride) {
-  llvm::SmallVector<SpirvInstruction *, 4> indices;
-  bool isNoInterp = false;
-  const auto *base = collectArrayStructIndices(expr, /*rawIndex*/ false,
-                                               /*rawIndices*/ nullptr, &indices,
-                                               nullptr, &isNoInterp);
+  Expr *base = const_cast<Expr *>(expr->getBase()->IgnoreParenLValueCasts());
+
   auto *info = loadIfAliasVarRef(base);
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
-  if (!info || indices.empty()) {
+  if (!info) {
     return info;
   }
+
+  // The index into an array must be an integer number.
+  const auto *idxExpr = expr->getIdx();
+  const auto idxExprType = idxExpr->getType();
+  SpirvInstruction *thisIndex = loadIfGLValue(idxExpr);
+  if (!idxExprType->isIntegerType() || idxExprType->isBooleanType()) {
+    thisIndex = castToInt(thisIndex, idxExprType, astContext.UnsignedIntTy,
+                          idxExpr->getExprLoc());
+  }
+
+  llvm::SmallVector<SpirvInstruction *, 4> indices = {thisIndex};
 
   SpirvInstruction *loadVal =
       derefOrCreatePointerToValue(base->getType(), info, expr->getType(),
                                   indices, base->getExprLoc(), range);
-  if (!loadVal->isNoninterpolated())
-    loadVal->setNoninterpolated(isNoInterp);
+
+  // TODO(#6259): This maintains the same incorrect behaviour as before.
+  // When GetAttributeAtVertex is used, the array will be duplicated instead
+  // of duplicating the elements of the array. This means that the access chain
+  // feeding this one needs to be marked no interpolation, but this access chain
+  // does not. However, this is still wrong in cases that were wrong before.
+  loadVal->setNoninterpolated(false);
   return loadVal;
 }
 

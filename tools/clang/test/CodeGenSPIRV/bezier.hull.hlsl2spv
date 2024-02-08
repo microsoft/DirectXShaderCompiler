@@ -172,8 +172,10 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // CHECK-NEXT: %HS_CONSTANT_DATA_OUTPUT = OpTypeStruct %_arr_float_uint_4 %_arr_float_uint_2 %_arr_v3float_uint_4 %_arr_v2float_uint_4 %_arr_v3float_uint_4 %_arr_v3float_uint_4 %v4float
 // CHECK-NEXT:          %98 = OpTypeFunction %HS_CONSTANT_DATA_OUTPUT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint
 // CHECK-NEXT: %_ptr_Function_HS_CONSTANT_DATA_OUTPUT = OpTypePointer Function %HS_CONSTANT_DATA_OUTPUT
+// CHECK-NEXT: %_ptr_Function__arr_float_uint_4 = OpTypePointer Function %_arr_float_uint_4
 // CHECK-NEXT: %_ptr_Function_float = OpTypePointer Function %float
-// CHECK-NEXT:         %112 = OpTypeFunction %BEZIER_CONTROL_POINT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint %_ptr_Function_uint
+// CHECK-NEXT: %_ptr_Function__arr_float_uint_2 = OpTypePointer Function %_arr_float_uint_2
+// CHECK-NEXT:         %120 = OpTypeFunction %BEZIER_CONTROL_POINT %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3 %_ptr_Function_uint %_ptr_Function_uint
 // CHECK-NEXT: %_ptr_Function_VS_CONTROL_POINT_OUTPUT = OpTypePointer Function %VS_CONTROL_POINT_OUTPUT
 // CHECK-NEXT: %_ptr_Function_BEZIER_CONTROL_POINT = OpTypePointer Function %BEZIER_CONTROL_POINT
 // CHECK-NEXT: %_ptr_Function_v3float = OpTypePointer Function %v3float
@@ -246,32 +248,38 @@ BEZIER_CONTROL_POINT SubDToBezierHS(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POIN
 // CHECK-NEXT:     %PatchID = OpFunctionParameter %_ptr_Function_uint
 // CHECK-NEXT:    %bb_entry = OpLabel
 // CHECK-NEXT:      %Output = OpVariable %_ptr_Function_HS_CONSTANT_DATA_OUTPUT Function
-// CHECK-NEXT:         %105 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_0
-// CHECK-NEXT:                OpStore %105 %float_1
-// CHECK-NEXT:         %106 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_1
-// CHECK-NEXT:                OpStore %106 %float_2
-// CHECK-NEXT:         %107 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_2
-// CHECK-NEXT:                OpStore %107 %float_3
-// CHECK-NEXT:         %108 = OpAccessChain %_ptr_Function_float %Output %int_0 %int_3
-// CHECK-NEXT:                OpStore %108 %float_4
-// CHECK-NEXT:         %109 = OpAccessChain %_ptr_Function_float %Output %int_1 %int_0
-// CHECK-NEXT:                OpStore %109 %float_5
-// CHECK-NEXT:         %110 = OpAccessChain %_ptr_Function_float %Output %int_1 %int_1
-// CHECK-NEXT:                OpStore %110 %float_6
-// CHECK-NEXT:         %111 = OpLoad %HS_CONSTANT_DATA_OUTPUT %Output
-// CHECK-NEXT:                OpReturnValue %111
+// CHECK-NEXT:         %105 = OpAccessChain %_ptr_Function__arr_float_uint_4 %Output %int_0
+// CHECK-NEXT:         %107 = OpAccessChain %_ptr_Function_float %105 %int_0
+// CHECK-NEXT:                OpStore %107 %float_1
+// CHECK-NEXT:         %108 = OpAccessChain %_ptr_Function__arr_float_uint_4 %Output %int_0
+// CHECK-NEXT:         %109 = OpAccessChain %_ptr_Function_float %108 %int_1
+// CHECK-NEXT:                OpStore %109 %float_2
+// CHECK-NEXT:         %110 = OpAccessChain %_ptr_Function__arr_float_uint_4 %Output %int_0
+// CHECK-NEXT:         %111 = OpAccessChain %_ptr_Function_float %110 %int_2
+// CHECK-NEXT:                OpStore %111 %float_3
+// CHECK-NEXT:         %112 = OpAccessChain %_ptr_Function__arr_float_uint_4 %Output %int_0
+// CHECK-NEXT:         %113 = OpAccessChain %_ptr_Function_float %112 %int_3
+// CHECK-NEXT:                OpStore %113 %float_4
+// CHECK-NEXT:         %115 = OpAccessChain %_ptr_Function__arr_float_uint_2 %Output %int_1
+// CHECK-NEXT:         %116 = OpAccessChain %_ptr_Function_float %115 %int_0
+// CHECK-NEXT:                OpStore %116 %float_5
+// CHECK-NEXT:         %117 = OpAccessChain %_ptr_Function__arr_float_uint_2 %Output %int_1
+// CHECK-NEXT:         %118 = OpAccessChain %_ptr_Function_float %117 %int_1
+// CHECK-NEXT:                OpStore %118 %float_6
+// CHECK-NEXT:         %119 = OpLoad %HS_CONSTANT_DATA_OUTPUT %Output
+// CHECK-NEXT:                OpReturnValue %119
 // CHECK-NEXT:                OpFunctionEnd
-// CHECK-NEXT: %src_SubDToBezierHS = OpFunction %BEZIER_CONTROL_POINT None %112
+// CHECK-NEXT: %src_SubDToBezierHS = OpFunction %BEZIER_CONTROL_POINT None %120
 // CHECK-NEXT:        %ip_0 = OpFunctionParameter %_ptr_Function__arr_VS_CONTROL_POINT_OUTPUT_uint_3
 // CHECK-NEXT:        %cpid = OpFunctionParameter %_ptr_Function_uint
 // CHECK-NEXT:   %PatchID_0 = OpFunctionParameter %_ptr_Function_uint
 // CHECK-NEXT:  %bb_entry_0 = OpLabel
 // CHECK-NEXT:    %vsOutput = OpVariable %_ptr_Function_VS_CONTROL_POINT_OUTPUT Function
 // CHECK-NEXT:      %result = OpVariable %_ptr_Function_BEZIER_CONTROL_POINT Function
-// CHECK-NEXT:         %122 = OpAccessChain %_ptr_Function_v3float %vsOutput %int_0
-// CHECK-NEXT:         %123 = OpLoad %v3float %122
-// CHECK-NEXT:         %124 = OpAccessChain %_ptr_Function_v3float %result %int_0
-// CHECK-NEXT:                OpStore %124 %123
-// CHECK-NEXT:         %125 = OpLoad %BEZIER_CONTROL_POINT %result
-// CHECK-NEXT:                OpReturnValue %125
+// CHECK-NEXT:         %130 = OpAccessChain %_ptr_Function_v3float %vsOutput %int_0
+// CHECK-NEXT:         %131 = OpLoad %v3float %130
+// CHECK-NEXT:         %132 = OpAccessChain %_ptr_Function_v3float %result %int_0
+// CHECK-NEXT:                OpStore %132 %131
+// CHECK-NEXT:         %133 = OpLoad %BEZIER_CONTROL_POINT %result
+// CHECK-NEXT:                OpReturnValue %133
 // CHECK-NEXT:                OpFunctionEnd
