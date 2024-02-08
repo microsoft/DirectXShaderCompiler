@@ -12114,9 +12114,7 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   const auto exprRange = expr->getSourceRange();
 
   // arg1 : vertexId
-  const auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
-  const auto *arg1ConstExpr = dyn_cast<SpirvConstantInteger>(arg1BaseExpr);
-  const auto vertexId = arg1ConstExpr->getValue();
+  auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
 
   // arg0 : <NoInterpolation> decorated input
   // Tip  : for input with boolean type, we need to ignore implicit cast first,
@@ -12133,14 +12131,12 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   }
   // Change to access chain instr
   SpirvInstruction *accessChainPtr = paramDeclInstr;
-  SpirvConstant *vtxId = spvBuilder.getConstantInt(
-      astContext.UnsignedIntTy, llvm::APInt(32, *(vertexId.getRawData())));
   if (isa<SpirvAccessChain>(accessChainPtr)) {
     auto *accessInstr = dyn_cast<SpirvAccessChain>(accessChainPtr);
-    accessInstr->insertIndex(vtxId, accessInstr->getIndexes().size());
+    accessInstr->insertIndex(arg1BaseExpr, accessInstr->getIndexes().size());
   } else
-    accessChainPtr = spvBuilder.createAccessChain(elementType, accessChainPtr,
-                                                  vtxId, exprLoc, exprRange);
+    accessChainPtr = spvBuilder.createAccessChain(
+        elementType, accessChainPtr, arg1BaseExpr, exprLoc, exprRange);
   dyn_cast<SpirvAccessChain>(accessChainPtr)->setNoninterpolated(false);
   auto *loadPtr =
       spvBuilder.createLoad(elementType, accessChainPtr, exprLoc, exprRange);
