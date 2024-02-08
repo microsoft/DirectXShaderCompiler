@@ -16,25 +16,23 @@
 namespace hlsl {
 
 template <typename CharTy>
-bool IsAbsoluteOrCurDirRelativeImpl(const CharTy *Path) {
-  if (!Path || !Path[0])
-    return false;
+bool IsAbsoluteOrCurDirRelativeImpl(const CharTy *Path, size_t Len) {
   // Current dir-relative path.
-  if (Path[0] == '.') {
+  if (Len >= 2 && Path[0] == '.') {
     return Path[1] == '\0' || Path[1] == '/' || Path[1] == '\\';
   }
   // Disk designator, then absolute path.
-  if (Path[1] == ':' && (Path[2] == '\\' || Path[2] == '/')) {
+  if (Len >= 3 && Path[1] && Path[1] == ':' && (Path[2] == '\\' || Path[2] == '/')) {
     return true;
   }
   // UNC name
-  if (Path[0] == '\\') {
+  if (Len >= 2 && Path[0] == '\\') {
     return Path[1] == '\\';
   }
 
 #ifndef _WIN32
   // Absolute paths on unix systems start with '/'
-  if (Path[0] == '/') {
+  if (Len >= 1 && Path[0] == '/') {
     return true;
   }
 #endif
@@ -53,10 +51,14 @@ bool IsAbsoluteOrCurDirRelativeImpl(const CharTy *Path) {
 }
 
 inline bool IsAbsoluteOrCurDirRelativeW(const wchar_t *Path) {
-  return IsAbsoluteOrCurDirRelativeImpl<wchar_t>(Path);
+  if (!Path)
+    return false;
+  return IsAbsoluteOrCurDirRelativeImpl<wchar_t>(Path, wcslen(Path));
 }
 inline bool IsAbsoluteOrCurDirRelative(const char *Path) {
-  return IsAbsoluteOrCurDirRelativeImpl<char>(Path);
+  if (!Path)
+    return false;
+  return IsAbsoluteOrCurDirRelativeImpl<char>(Path, strlen(Path));
 }
 
 // This is the new ground truth of how paths are normalized. There had been
@@ -108,7 +110,7 @@ StringTy NormalizePathImpl(const CharT *Path, size_t Length) {
   }
 
   // If relative path, prefix with dot.
-  if (IsAbsoluteOrCurDirRelativeImpl<CharT>(PathCopy.c_str())) {
+  if (IsAbsoluteOrCurDirRelativeImpl<CharT>(PathCopy.c_str(), PathCopy.size())) {
     return PathCopy;
   } else {
     return StringTy(1, CharT('.')) + StringTy(1, SlashTo) + PathCopy;
