@@ -35,9 +35,9 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/Support/Path.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcfilesystem.h"
-#include "dxc/Support/Path.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxcutil.h"
 

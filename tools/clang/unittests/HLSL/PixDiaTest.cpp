@@ -1494,7 +1494,8 @@ TEST_F(PixDiaTest, PixDebugCompileInfo) {
 
   CComBSTR entryPointFile;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPointFile(&entryPointFile));
-  VERIFY_ARE_EQUAL(std::wstring(L".\\source.hlsl"), std::wstring(entryPointFile));
+  VERIFY_ARE_EQUAL(std::wstring(L".\\source.hlsl"),
+                   std::wstring(entryPointFile));
 
   CComBSTR entryPointFunction;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPoint(&entryPointFunction));

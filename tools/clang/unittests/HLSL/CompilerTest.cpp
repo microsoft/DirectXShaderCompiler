@@ -3042,15 +3042,18 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
 
       CComBSTR pMainFileName;
       VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
-      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.mainFile.name), pMainFileName.m_str);
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.mainFile.name),
+                       pMainFileName.m_str);
 
       pMainFileName.Empty();
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(0, &pMainFileName));
-      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.mainFile.name), pMainFileName.m_str);
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.mainFile.name),
+                       pMainFileName.m_str);
 
       CComBSTR pIncludeName;
       VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(1, &pIncludeName));
-      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.includeFile.name), pIncludeName.m_str);
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.includeFile.name),
+                       pIncludeName.m_str);
 
       CComPtr<IDxcBlobEncoding> pMainSource;
       VERIFY_SUCCEEDED(pPdbUtils->GetSource(0, &pMainSource));
@@ -4525,7 +4528,7 @@ TEST_F(CompilerTest, PreprocessCheckBuiltinIsOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"."PP_SLASH"file.hlsl\"\n\n", text.c_str());
+  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n\n", text.c_str());
 }
 
 TEST_F(CompilerTest, CompileOtherModesWithDebugOptsThenOk) {

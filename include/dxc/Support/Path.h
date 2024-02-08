@@ -61,9 +61,12 @@ inline bool IsAbsoluteOrCurDirRelative(const char *Path) {
 
 // This is the new ground truth of how paths are normalized. There had been
 // many inconsistent path normalization littered all over the code base.
-// 1. All slashes are changed to system native: `\` for windows and `/` for all others.
-// 2. All repeated slashes are removed (except for leading slashes, so windows UNC paths are not broken)
-// 3. All relative paths (including ones that begin with ..) are prepended with ./ or .\ if not already
+// 1. All slashes are changed to system native: `\` for windows and `/` for all
+// others.
+// 2. All repeated slashes are removed (except for leading slashes, so windows
+// UNC paths are not broken)
+// 3. All relative paths (including ones that begin with ..) are prepended with
+// ./ or .\ if not already
 //
 // Examples:
 //   F:\\\my_path////\\/my_shader.hlsl   ->  F:\my_path\my_shader.hlsl

@@ -615,8 +615,7 @@ private:
                    hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName) {
         MDTuple *tup = cast<MDTuple>(node.getOperand(0));
         MDString *str = cast<MDString>(tup->getOperand(0));
-        std::string normalized =
-            hlsl::NormalizePath(str->getString());
+        std::string normalized = hlsl::NormalizePath(str->getString());
         m_MainFileName = nullptr;
         IFR(Utf8ToBlobWide(normalized, &m_MainFileName));
       }
