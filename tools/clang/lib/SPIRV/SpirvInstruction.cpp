@@ -573,7 +573,7 @@ SpirvConstantInteger::SpirvConstantInteger(QualType type, llvm::APInt val,
                     isSpecConst ? spv::Op::OpSpecConstant : spv::Op::OpConstant,
                     type),
       value(val) {
-  assert(type->isIntegerType());
+  assert(type->isIntegralOrEnumerationType());
 }
 
 bool SpirvConstantInteger::operator==(const SpirvConstantInteger &that) const {

@@ -19,13 +19,13 @@ void main() {
   // Array<Texture2D> image;
   ArrayTex2D image;
 
-  // %byte = OpVariable %_ptr_Function_spirvIntrinsicType_0
+  // CHECK: %byte = OpVariable %_ptr_Function_spirvIntrinsicType_0
   uint8_t byte;
 
   // Check that uses of the same type use the same SPIR-V type definition.
-  // %byte1 = OpVariable %_ptr_Function_spirvIntrinsicType_0
+  // CHECK: %byte1 = OpVariable %_ptr_Function_spirvIntrinsicType_0
   uint8_t byte1;
 
-  // %bytes = OpVariable %_ptr_Function__arr_spirvIntrinsicType_1_uint_4
+  // CHECK: %bytes = OpVariable %_ptr_Function__arr_spirvIntrinsicType_0_uint_4
   uint8_t bytes[4];
 }

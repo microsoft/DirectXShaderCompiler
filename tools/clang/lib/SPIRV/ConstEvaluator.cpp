@@ -57,7 +57,7 @@ SpirvConstant *ConstEvaluator::translateAPValue(const APValue &value,
   if (targetType->isBooleanType()) {
     result = spvBuilder.getConstantBool(value.getInt().getBoolValue(),
                                         isSpecConstantMode);
-  } else if (targetType->isIntegerType()) {
+  } else if (targetType->isIntegralOrEnumerationType()) {
     result = translateAPInt(value.getInt(), targetType, isSpecConstantMode);
   } else if (targetType->isFloatingType()) {
     result = translateAPFloat(value.getFloat(), targetType, isSpecConstantMode);
