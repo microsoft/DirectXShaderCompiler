@@ -194,6 +194,8 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::NV_compute_shader_derivatives)
       .Case("SPV_KHR_fragment_shader_barycentric",
             Extension::KHR_fragment_shader_barycentric)
+      .Case("SPV_KHR_maximal_reconvergence",
+            Extension::KHR_maximal_reconvergence)
       .Default(Extension::Unknown);
 }
 
@@ -257,6 +259,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_NV_compute_shader_derivatives";
   case Extension::KHR_fragment_shader_barycentric:
     return "SPV_KHR_fragment_shader_barycentric";
+  case Extension::KHR_maximal_reconvergence:
+    return "SPV_KHR_maximal_reconvergence";
   default:
     break;
   }

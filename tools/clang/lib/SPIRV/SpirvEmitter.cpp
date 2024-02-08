@@ -890,6 +890,12 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                               spvContext.getMinorVersion(), fileNames);
   }
 
+  if (spirvOptions.enableMaximalReconvergence) {
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::MaximallyReconvergesKHR, {},
+                                SourceLocation());
+  }
+
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
   if (context.getDiagnostics().hasErrorOccurred())
