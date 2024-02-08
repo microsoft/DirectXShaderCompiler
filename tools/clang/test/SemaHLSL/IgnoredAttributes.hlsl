@@ -86,9 +86,6 @@ int numthreads_fn() { return 1; }
 [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)")] /* expected-warning{{attribute RootSignature ignored without accompanying shader attribute}} */ 
 void rootsig_fn(){}
 
-[experimental("foo", "bar")] /* expected-warning{{attribute experimental ignored without accompanying shader attribute}} */ 
-void experimental_fn(){}
-
 [maxvertexcount(12)] /* expected-warning{{attribute maxvertexcount ignored without accompanying shader attribute}} */ 
 void maxvertexcount_fn(){}
 

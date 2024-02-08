@@ -15693,7 +15693,6 @@ void WarnOnEntryAttrWithoutShaderAttr(Sema &S, FunctionDecl *FD) {
       case clang::attr::HLSLOutputTopology:
       case clang::attr::HLSLPartitioning:
       case clang::attr::HLSLPatchConstantFunc:
-      case clang::attr::HLSLExperimental:
       case clang::attr::HLSLMaxVertexCount:
       case clang::attr::HLSLWaveSize:
       case clang::attr::HLSLNodeLaunch:
