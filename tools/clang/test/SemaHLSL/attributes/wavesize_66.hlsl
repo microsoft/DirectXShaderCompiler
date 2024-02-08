@@ -7,7 +7,7 @@ void main() {
 }
 
 
-[wavesize(4, 8)] /* expected-warning{{attribute wavesize ignored without accompanying shader attribute}} */
-[numthreads(1,1,8)] /* expected-warning{{attribute numthreads ignored without accompanying shader attribute}} */
+[wavesize(4, 8)] /* expected-warning{{attribute 'wavesize' ignored without accompanying shader attribute}} */
+[numthreads(1,1,8)] /* expected-warning{{attribute 'numthreads' ignored without accompanying shader attribute}} */
 void inactive() {
 }

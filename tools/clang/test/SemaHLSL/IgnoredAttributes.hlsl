@@ -14,7 +14,7 @@ struct OutputType{
 };
 
 
-[clipplanes(clipPlane1,clipPlane2)] /* expected-warning{{attribute clipplanes ignored without accompanying shader attribute}} */
+[clipplanes(clipPlane1,clipPlane2)] /* expected-warning{{attribute 'clipplanes' ignored without accompanying shader attribute}} */
 OutputType clipplanesmain()
 {
 	float4 outputData = clipPlane1 + clipPlane2;
@@ -56,11 +56,11 @@ HSPerPatchData PatchFoo( const InputPatch< PSSceneIn, 3 > points, OutputPatch<HS
     return d;
 }
 
-[domain("quad")] /* expected-warning{{attribute domain ignored without accompanying shader attribute}} */
-[partitioning("integer")] /* expected-warning{{attribute partitioning ignored without accompanying shader attribute}} */
-[outputtopology("triangle_cw")] /* expected-warning{{attribute outputtopology ignored without accompanying shader attribute}} */
-[outputcontrolpoints(16)] /* expected-warning{{attribute outputcontrolpoints ignored without accompanying shader attribute}} */
-[patchconstantfunc("PatchFoo")] /* expected-warning{{attribute patchconstantfunc ignored without accompanying shader attribute}} */
+[domain("quad")] /* expected-warning{{attribute 'domain' ignored without accompanying shader attribute}} */
+[partitioning("integer")] /* expected-warning{{attribute 'partitioning' ignored without accompanying shader attribute}} */
+[outputtopology("triangle_cw")] /* expected-warning{{attribute 'outputtopology' ignored without accompanying shader attribute}} */
+[outputcontrolpoints(16)] /* expected-warning{{attribute 'outputcontrolpoints' ignored without accompanying shader attribute}} */
+[patchconstantfunc("PatchFoo")] /* expected-warning{{attribute 'patchconstantfunc' ignored without accompanying shader attribute}} */
 void HSMain( 
               uint i : SV_OutputControlPointID,
               uint PatchID : SV_PrimitiveID )
@@ -68,50 +68,50 @@ void HSMain(
     
 }
 
-[earlydepthstencil] /* expected-warning{{attribute earlydepthstencil ignored without accompanying shader attribute}} */
+[earlydepthstencil] /* expected-warning{{attribute 'earlydepthstencil' ignored without accompanying shader attribute}} */
 float4 EDSmain() : SV_Target0 {
 	float4 x = {2.0,2.0,2.0,2.0};;
     	return x;
 }
 
-[instance(1)] /* expected-warning{{attribute instance ignored without accompanying shader attribute}} */ 
+[instance(1)] /* expected-warning{{attribute 'instance' ignored without accompanying shader attribute}} */ 
 int instance_fn() { return 1; } 
 
-[maxtessfactor(1)] /* expected-warning{{attribute maxtessfactor ignored without accompanying shader attribute}} */ 
+[maxtessfactor(1)] /* expected-warning{{attribute 'maxtessfactor' ignored without accompanying shader attribute}} */ 
 int maxtessfactor_fn() { return 1; }
 
-[numthreads(4,4,4)] /* expected-warning{{attribute numthreads ignored without accompanying shader attribute}} */ 
+[numthreads(4,4,4)] /* expected-warning{{attribute 'numthreads' ignored without accompanying shader attribute}} */ 
 int numthreads_fn() { return 1; }   
 
-[RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)")] /* expected-warning{{attribute RootSignature ignored without accompanying shader attribute}} */ 
+[RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED)")] /* expected-warning{{attribute 'RootSignature' ignored without accompanying shader attribute}} */ 
 void rootsig_fn(){}
 
-[maxvertexcount(12)] /* expected-warning{{attribute maxvertexcount ignored without accompanying shader attribute}} */ 
+[maxvertexcount(12)] /* expected-warning{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */ 
 void maxvertexcount_fn(){}
 
-[wavesize(4,32,16)] /* expected-warning{{attribute wavesize ignored without accompanying shader attribute}} */ 
+[wavesize(4,32,16)] /* expected-warning{{attribute 'wavesize' ignored without accompanying shader attribute}} */ 
 void wavesize_fn(){}
 
-[nodelaunch("thread")] /* expected-warning{{attribute nodelaunch ignored without accompanying shader attribute}} */ 
+[nodelaunch("thread")] /* expected-warning{{attribute 'nodelaunch' ignored without accompanying shader attribute}} */ 
 void nodelaunch_fn(){}
 
-[nodeisprogramentry] /* expected-warning{{attribute nodeisprogramentry ignored without accompanying shader attribute}} */ 
+[nodeisprogramentry] /* expected-warning{{attribute 'nodeisprogramentry' ignored without accompanying shader attribute}} */ 
 void nodeisprogramentry_fn(){}
 
-[nodeid("launch")] /* expected-warning{{attribute nodeid ignored without accompanying shader attribute}} */ 
+[nodeid("launch")] /* expected-warning{{attribute 'nodeid' ignored without accompanying shader attribute}} */ 
 void nodeid_fn(){}
 
-[NodeLocalRootArgumentsTableIndex(2)] /* expected-warning{{attribute nodelocalrootargumentstableindex ignored without accompanying shader attribute}} */ 
+[NodeLocalRootArgumentsTableIndex(2)] /* expected-warning{{attribute 'nodelocalrootargumentstableindex' ignored without accompanying shader attribute}} */ 
 void NodeLocalRootArgumentsTableIndex_fn(){}
 
-[NodeShareInputOf("launch")] /* expected-warning{{attribute nodeshareinputof ignored without accompanying shader attribute}} */ 
+[NodeShareInputOf("launch")] /* expected-warning{{attribute 'nodeshareinputof' ignored without accompanying shader attribute}} */ 
 void NodeShareInputOf_fn(){}
 
-[NodeDispatchGrid(1,2,3)] /* expected-warning{{attribute nodedispatchgrid ignored without accompanying shader attribute}} */ 
+[NodeDispatchGrid(1,2,3)] /* expected-warning{{attribute 'nodedispatchgrid' ignored without accompanying shader attribute}} */ 
 void NodeDispatchGrid_fn(){}
 
-[NodeMaxDispatchGrid(1,2,3)] /* expected-warning{{attribute nodemaxdispatchgrid ignored without accompanying shader attribute}} */ 
+[NodeMaxDispatchGrid(1,2,3)] /* expected-warning{{attribute 'nodemaxdispatchgrid' ignored without accompanying shader attribute}} */ 
 void NodeMaxDispatchGrid_fn(){}
 
-[NodeMaxRecursionDepth(12)] /* expected-warning{{attribute nodemaxrecursiondepth ignored without accompanying shader attribute}} */ 
+[NodeMaxRecursionDepth(12)] /* expected-warning{{attribute 'nodemaxrecursiondepth' ignored without accompanying shader attribute}} */ 
 void NodeMaxRecursionDepth_fn(){}
