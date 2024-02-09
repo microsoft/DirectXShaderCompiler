@@ -3994,9 +3994,7 @@ static void ValidateWaveSize(ValidationContext &ValCtx,
                                           Metadata::ConstantAsMetadataKind;
       DXASSERT(!invalidPropertyTag,
                "tag operand should be a constant integer.");
-      if (invalidPropertyTag) {
-        continue;
-      }
+
       ConstantInt *tag = mdconst::extract<ConstantInt>(propertyTagOp);
       uint64_t tagValue = tag->getZExtValue();
 
