@@ -17,7 +17,7 @@ enum class CooperativeMatrixUse {
   MatrixAccumulatorKHR = 2,
 };
 
-// CHECK: %spirvIntrinsicType = OpTypeCooperativeMatrixKHR %type_float %int_3 %int_32 %int_32 %int_0
+// CHECK: %spirvIntrinsicType = OpTypeCooperativeMatrixKHR %float %int_3 %int_32 %int_32 %int_0
 typedef vk::SpirvOpaqueType</* OpTypeCooperativeMatrixKHR */ 4456, float, Scope::Subgroup, 32, 32, CooperativeMatrixUse::MatrixAKHR> mat_t;
 
 [[vk::ext_extension("SPV_KHR_cooperative_matrix")]]
