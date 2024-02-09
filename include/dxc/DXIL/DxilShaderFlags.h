@@ -280,7 +280,7 @@ private:
   // is specifically about shader model 4.x.
 
   // Bit: 18
-  unsigned m_bROVS : 1;    // SHADER_FEATURE_ROVS
+  unsigned m_bROVS : 1;         // SHADER_FEATURE_ROVS
   unsigned m_bWaveOps : 1;      // SHADER_FEATURE_WAVE_OPS
 
   // Bit: 20

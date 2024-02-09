@@ -354,7 +354,7 @@ static_assert(_countof(g_pFeatureInfoNames) == ShaderFeatureInfoCount,
               "g_pFeatureInfoNames needs to be updated");
 
 PCSTR g_pOptFeatureInfoNames[] = {
-  "Function uses derivatives",
+    "Function uses derivatives",
 };
 static_assert(_countof(g_pOptFeatureInfoNames) == OptFeatureInfoCount,
               "g_pOptFeatureInfoNames needs to be updated");

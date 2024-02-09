@@ -2151,8 +2151,7 @@ void DxilModule::ComputeShaderCompatInfo() {
     if (!function.isDeclaration()) {
       // Initialize worklist with functions with callers.
       // only used for validator version 1.8+
-      if (dxil18Plus &&
-          !function.user_empty())
+      if (dxil18Plus && !function.user_empty())
         worklist.insert(&function);
 
       // Collect shader flags for function.
@@ -2223,7 +2222,7 @@ void DxilModule::ComputeShaderCompatInfo() {
     if (dxil18Plus) {
       // This handles WaveSize requirement as well.
       flags = flags.AdjustMinimumShaderModelAndFlags(props, info.minMajor,
-                                                      info.minMinor);
+                                                     info.minMinor);
     } else {
       // Match prior versions that were missing some feature detection.
       if (flags.GetUseNativeLowPrecision() && flags.GetLowPrecisionPresent())
