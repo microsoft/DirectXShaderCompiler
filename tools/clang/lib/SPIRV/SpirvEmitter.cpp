@@ -12133,7 +12133,7 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   const auto exprRange = expr->getSourceRange();
 
   // arg1 : vertexId
-  auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
+  auto *arg1BaseExpr = doExpr(expr->getArg(1));
 
   // arg0 : <NoInterpolation> decorated input
   // Tip  : for input with boolean type, we need to ignore implicit cast first,
