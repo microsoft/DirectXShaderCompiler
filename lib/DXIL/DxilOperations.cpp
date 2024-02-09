@@ -2904,7 +2904,9 @@ bool OP::BarrierRequiresGroup(const llvm::CallInst *CI) {
     DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
     if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
       unsigned memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
-      if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory)
+      // If the memory type is AllMemory, masking inapplicable flags is allowed.
+      if (memoryTypeFlags != (unsigned)DXIL::MemoryTypeFlag::AllMemory &&
+          (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory))
         return true;
     }
   }
@@ -2936,9 +2938,11 @@ bool OP::BarrierRequiresNode(const llvm::CallInst *CI) {
     DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
     if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
       unsigned memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
-      return memoryTypeFlags &
-             ((unsigned)DXIL::MemoryTypeFlag::NodeInputMemory |
-              (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory);
+      // If the memory type is AllMemory, masking inapplicable flags is allowed.
+      return memoryTypeFlags != (unsigned)DXIL::MemoryTypeFlag::AllMemory &&
+             (memoryTypeFlags &
+              ((unsigned)DXIL::MemoryTypeFlag::NodeInputMemory |
+               (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory));
     }
     return false;
   }
@@ -2968,12 +2972,12 @@ DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
     if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
       semanticFlags = barrier.get_SemanticFlags_val();
     }
-    if (memoryTypeFlags & ((unsigned)DXIL::MemoryTypeFlag::NodeInputMemory |
-                           (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory))
-      return DXIL::BarrierMode::Invalid;
-    if ((semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::GroupScope) &&
-        (semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::DeviceScope))
-      return DXIL::BarrierMode::Invalid;
+    // If the memory type is AllMemory, masking inapplicable flags is allowed.
+    if (memoryTypeFlags != (unsigned)DXIL::MemoryTypeFlag::AllMemory) {
+      if (memoryTypeFlags & ((unsigned)DXIL::MemoryTypeFlag::NodeInputMemory |
+                             (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory))
+        return DXIL::BarrierMode::Invalid;
+    }
     unsigned mode = 0;
     if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory)
       mode |= (unsigned)DXIL::BarrierMode::TGSMFence;
