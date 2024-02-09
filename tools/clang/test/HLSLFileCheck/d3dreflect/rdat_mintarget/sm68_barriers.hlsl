@@ -8,10 +8,10 @@
 RWByteAddressBuffer BAB : register(u1, space0);
 
 // RDAT-LABEL: UnmangledName: "node_barrier"
-// RDAT:   FeatureInfo1: 0
-// RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Node(15) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0xF0068 = 983144
-// RDAT: MinShaderTarget: 983144
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: 0
+// RDAT: ShaderStageFlag: (Node)
+// RDAT: MinShaderTarget: 0xf0068
 
 [shader("node")]
 [NodeLaunch("broadcasting")]
@@ -23,32 +23,54 @@ void node_barrier() {
 }
 
 // RDAT-LABEL: UnmangledName: "fn_barrier_device1"
-// RDAT:   FeatureInfo1: 0
-// RDAT:   FeatureInfo2: 0
-// Compute(5), Library(6), Mesh(13), Amplification(14), Node(15) = 0xE060 = 57440
-// RDAT: ShaderStageFlag: 57440
-// MinShaderTarget: (Library(6) << 16) + (SM 6.8 ((6 << 4) + 8)) = 60068 = 393320
-// RDAT: MinShaderTarget: 393320
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: 0
+// RDAT: ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification | Node)
+// RDAT: MinShaderTarget: 0x60060
 
 [noinline] export
 void fn_barrier_device1() {
   Barrier(UAV_MEMORY, DEVICE_SCOPE);
 }
 
+// RDAT-LABEL: UnmangledName: "fn_barrier_device2"
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: 0
+// RDAT: ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification | Node)
+// RDAT: MinShaderTarget: 0x60068
+
 [noinline] export
 void fn_barrier_device2() {
   Barrier(BAB, DEVICE_SCOPE);
 }
+
+// RDAT-LABEL: UnmangledName: "fn_barrier_group1"
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: 0
+// RDAT: ShaderStageFlag: (Compute | Library | Mesh | Amplification | Node)
+// RDAT: MinShaderTarget: 0x60060
 
 [noinline] export
 void fn_barrier_group1() {
   Barrier(GROUP_SHARED_MEMORY, GROUP_SYNC | GROUP_SCOPE);
 }
 
+// RDAT-LABEL: UnmangledName: "fn_barrier_group2"
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: 0
+// RDAT: ShaderStageFlag: (Compute | Library | Mesh | Amplification | Node)
+// RDAT: MinShaderTarget: 0x60068
+
 [noinline] export
 void fn_barrier_group2() {
   Barrier(BAB, GROUP_SYNC | GROUP_SCOPE);
 }
+
+// RDAT-LABEL: UnmangledName: "fn_barrier_node1"
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: 0
+// RDAT: ShaderStageFlag: (Library | Node)
+// RDAT: MinShaderTarget: 0x60068
 
 [noinline] export
 void fn_barrier_node1() {
@@ -56,12 +78,10 @@ void fn_barrier_node1() {
 }
 
 // RDAT-LABEL: UnmangledName: "node_barrier_device_in_call"
-// RDAT:   FeatureInfo1: 0
-// RDAT:   FeatureInfo2: 0
-// Node(15) = 0x8000 = 32768
-// RDAT: ShaderStageFlag: 32768
-// MinShaderTarget: (Node(15) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0xF0068 = 983144
-// RDAT: MinShaderTarget: 983144
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: 0
+// RDAT: ShaderStageFlag: (Node)
+// RDAT: MinShaderTarget: 0xf0068
 
 [shader("node")]
 [NodeLaunch("broadcasting")]
