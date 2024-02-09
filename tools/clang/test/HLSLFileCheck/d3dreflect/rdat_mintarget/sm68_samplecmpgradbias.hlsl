@@ -14,11 +14,10 @@ SamplerComparisonState SampCmp : register(s0, space0);
 RWByteAddressBuffer BAB : register(u1, space0);
 
 // RDAT-LABEL: UnmangledName: "samplecmpgrad"
-// ShaderFeatureInfo_SampleCmpGradientOrBias (0x80000000) = 2147483648
-// RDAT:   FeatureInfo1: 2147483648
+// RDAT:   FeatureInfo1: (SampleCmpGradientOrBias)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0x60068 = 393320
-// RDAT: MinShaderTarget: 393320
+// RDAT:   ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification | Node)
+// RDAT:   MinShaderTarget: 0x60068
 
 [noinline] export
 void samplecmpgrad() {
@@ -30,11 +29,10 @@ void samplecmpgrad() {
 }
 
 // RDAT-LABEL: UnmangledName: "samplecmpgrad_compute"
-// ShaderFeatureInfo_SampleCmpGradientOrBias (0x80000000) = 2147483648
-// RDAT:   FeatureInfo1: 2147483648
+// RDAT:   FeatureInfo1: (SampleCmpGradientOrBias)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Compute(5) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0x50068 = 327784
-// RDAT: MinShaderTarget: 327784
+// RDAT:   ShaderStageFlag: (Compute)
+// RDAT:   MinShaderTarget: 0x50068
 
 [shader("compute")]
 [numthreads(1,1,1)]
@@ -43,14 +41,10 @@ void samplecmpgrad_compute(uint tidx : SV_GroupIndex) {
 }
 
 // RDAT-LABEL: UnmangledName: "samplecmpbias"
-// ShaderFeatureInfo_SampleCmpGradientOrBias (0x80000000) = 2147483648
-// RDAT:   FeatureInfo1: 2147483648
-// OptFeatureInfo_UsesDerivatives (0x0000010000000000) = FeatureInfo2: 256
-// RDAT18:   FeatureInfo2: 256
-// Old: deriv use not tracked
-// RDAT17:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0x60068 = 393320
-// RDAT: MinShaderTarget: 393320
+// RDAT:   FeatureInfo1: (SampleCmpGradientOrBias)
+// RDAT:   FeatureInfo2: (Opt_UsesDerivatives)
+// RDAT:   ShaderStageFlag: (Pixel | Compute | Library | Mesh | Amplification | Node)
+// RDAT:   MinShaderTarget: 0x60068
 
 [noinline] export
 void samplecmpbias() {
@@ -60,14 +54,10 @@ void samplecmpbias() {
 }
 
 // RDAT-LABEL: UnmangledName: "samplecmpbias_compute"
-// ShaderFeatureInfo_SampleCmpGradientOrBias (0x80000000) = 2147483648
-// RDAT:   FeatureInfo1: 2147483648
-// OptFeatureInfo_UsesDerivatives (0x0000010000000000) = FeatureInfo2: 256
-// RDAT18:   FeatureInfo2: 256
-// Old: deriv use not tracked
-// RDAT17:   FeatureInfo2: 0
-// MinShaderTarget: (Compute(5) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0x50068 = 327784
-// RDAT: MinShaderTarget: 327784
+// RDAT:   FeatureInfo1: (SampleCmpGradientOrBias)
+// RDAT:   FeatureInfo2: (Opt_UsesDerivatives)
+// RDAT:   ShaderStageFlag: (Compute)
+// RDAT:   MinShaderTarget: 0x50068
 
 [shader("compute")]
 [numthreads(1,1,1)]

@@ -14,11 +14,10 @@ RWByteAddressBuffer BAB : register(u1, space0);
 // These are loaded using an intrinsic, SM adjusted by dxil op as well.
 
 // RDAT-LABEL: UnmangledName: "startvertexlocation"
-// ShaderFeatureInfo_ExtendedCommandInfo (0x100000000) = FeatureInfo2: 1
-// RDAT:   FeatureInfo1: 0
-// RDAT:   FeatureInfo2: 1
-// MinShaderTarget: (Vertex(1) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0x10068 = 65640
-// RDAT: MinShaderTarget: 65640
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: (ExtendedCommandInfo)
+// RDAT: ShaderStageFlag: (Vertex)
+// RDAT: MinShaderTarget: 0x10068
 
 [shader("vertex")]
 void startvertexlocation(uint u : SV_StartVertexLocation) {
@@ -26,11 +25,10 @@ void startvertexlocation(uint u : SV_StartVertexLocation) {
 }
 
 // RDAT-LABEL: UnmangledName: "startinstancelocation"
-// ShaderFeatureInfo_ExtendedCommandInfo (0x100000000) = FeatureInfo2: 1
-// RDAT:   FeatureInfo1: 0
-// RDAT:   FeatureInfo2: 1
-// MinShaderTarget: (Vertex(1) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0x10068 = 65640
-// RDAT: MinShaderTarget: 65640
+// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo2: (ExtendedCommandInfo)
+// RDAT: ShaderStageFlag: (Vertex)
+// RDAT: MinShaderTarget: 0x10068
 
 [shader("vertex")]
 void startinstancelocation(uint u : SV_StartInstanceLocation) {

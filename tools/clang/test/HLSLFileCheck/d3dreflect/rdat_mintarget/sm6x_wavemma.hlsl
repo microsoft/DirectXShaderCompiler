@@ -10,12 +10,10 @@
 RWByteAddressBuffer BAB : register(u1, space0);
 
 // RDAT-LABEL: UnmangledName: "use_wavematrix"
-// ShaderFeatureInfo_WaveMMA (0x8000000) = 134217728
-// + WaveOps (0x4000) = 0x8004000 = 134234112
-// RDAT:   FeatureInfo1: 134234112
+// RDAT:   FeatureInfo1: (WaveOps | WaveMMA)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.9 ((6 << 4) + 9)) = 0x60069 = 393321
-// RDAT: MinShaderTarget: 393321
+// RDAT:   ShaderStageFlag: (Compute | Library)
+// RDAT:   MinShaderTarget: 0x60069
 
 [noinline] export
 void use_wavematrix() {
@@ -26,12 +24,10 @@ void use_wavematrix() {
 }
 
 // RDAT-LABEL: UnmangledName: "call_use_wavematrix"
-// ShaderFeatureInfo_WaveMMA (0x8000000) = 134217728
-// + WaveOps (0x4000) = 0x8004000 = 134234112
-// RDAT:   FeatureInfo1: 134234112
+// RDAT:   FeatureInfo1: (WaveOps | WaveMMA)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.9 ((6 << 4) + 9)) = 0x60069 = 393321
-// RDAT: MinShaderTarget: 393321
+// RDAT:   ShaderStageFlag: (Compute | Library)
+// RDAT:   MinShaderTarget: 0x60069
 
 [noinline] export
 void call_use_wavematrix() {
@@ -39,12 +35,10 @@ void call_use_wavematrix() {
 }
 
 // RDAT-LABEL: UnmangledName: "wavematrix_compute"
-// ShaderFeatureInfo_WaveMMA (0x8000000) = 134217728
-// + WaveOps (0x4000) = 0x8004000 = 134234112
-// RDAT:   FeatureInfo1: 134234112
+// RDAT:   FeatureInfo1: (WaveOps | WaveMMA)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Compute(5) << 16) + (SM 6.9 ((6 << 4) + 9)) = 0x50069 = 327785
-// RDAT: MinShaderTarget: 327785
+// RDAT:   ShaderStageFlag: (Compute)
+// RDAT:   MinShaderTarget: 0x50069
 
 [shader("compute")]
 [numthreads(1,1,1)]

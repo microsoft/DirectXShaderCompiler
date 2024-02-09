@@ -28,10 +28,10 @@ RWByteAddressBuffer BAB : register(u1, space0);
 // RDAT-LABEL: UnmangledName: "mesh"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Mesh(13) << 16) + (SM 6.5 ((6 << 4) + 5)) = 0xD0065 = 852069
-// RDAT18: MinShaderTarget: 852069
+// RDAT:   ShaderStageFlag: (Mesh)
+// RDAT18: MinShaderTarget: 0xd0065
 // Old: 6.0
-// RDAT17: MinShaderTarget: 852064
+// RDAT17: MinShaderTarget: 0xd0060
 
 struct Vertex {
   float4 val : UNUSED;
@@ -55,8 +55,8 @@ void mesh(//out vertices Vertex verts[1],
 // RDAT-LABEL: UnmangledName: "amplification"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Amplification(14) << 16) + (SM 6.5 ((6 << 4) + 5)) = 0xE0065 = 917605
-// RDAT: MinShaderTarget: 917605
+// RDAT:   ShaderStageFlag: (Amplification)
+// RDAT:   MinShaderTarget: 0xe0065
 
 groupshared Vertex pld;
 

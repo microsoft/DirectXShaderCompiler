@@ -11,16 +11,16 @@
 // ShaderFeatureInfo_AdvancedTextureOps (0x20000000) = 536870912
 
 // RDAT-LABEL: UnmangledName: "sample_offset"
-// ShaderFeatureInfo_AdvancedTextureOps (0x20000000) = 536870912
-// RDAT: FeatureInfo1: 536870912
-// OptFeatureInfo_UsesDerivatives (0x0000010000000000) = FeatureInfo2: 256
-// RDAT18:   FeatureInfo2: 256
+// RDAT:   FeatureInfo1: (AdvancedTextureOps)
+// RDAT18: FeatureInfo2: (Opt_UsesDerivatives)
 // Old: deriv use not tracked
-// RDAT17:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.7 ((6 << 4) + 7)) = 0x60067 = 393319
-// RDAT18: MinShaderTarget: 393319
+// RDAT17: FeatureInfo2: 0
+// RDAT18: ShaderStageFlag: (Pixel | Compute | Library | Mesh | Amplification | Node)
+// Old would not report Compute, Mesh, Amplification, or Node compatibility.
+// RDAT17: ShaderStageFlag: (Pixel | Library)
+// RDAT18: MinShaderTarget: 0x60067
 // Old: 6.0
-// RDAT17: MinShaderTarget: 393312
+// RDAT17: MinShaderTarget: 0x60060
 
 Texture2D<float4> T2D : register(t0, space0);
 SamplerState Samp : register(s0, space0);
@@ -32,18 +32,16 @@ void sample_offset(float2 uv, int2 offsets) {
 }
 
 // RDAT-LABEL: UnmangledName: "sample_offset_pixel"
-// ShaderFeatureInfo_AdvancedTextureOps (0x20000000) = 536870912
-// RDAT18: FeatureInfo1: 536870912
+// RDAT18: FeatureInfo1: (AdvancedTextureOps)
 // Old: missed called function
 // RDAT17: FeatureInfo1: 0
-// OptFeatureInfo_UsesDerivatives (0x0000010000000000) = FeatureInfo2: 256
-// RDAT18:   FeatureInfo2: 256
+// RDAT18: FeatureInfo2: (Opt_UsesDerivatives)
 // Old: deriv use not tracked
-// RDAT17:   FeatureInfo2: 0
-// MinShaderTarget: (Pixel(0) << 16) + (SM 6.7 ((6 << 4) + 7)) = 0x67 = 103
-// RDAT18: MinShaderTarget: 103
+// RDAT17: FeatureInfo2: 0
+// RDAT: ShaderStageFlag: (Pixel)
+// RDAT18: MinShaderTarget: 0x67
 // Old: 6.0
-// RDAT17: MinShaderTarget: 96
+// RDAT17: MinShaderTarget: 0x60
 
 [shader("pixel")]
 void sample_offset_pixel(float4 color : COLOR) {

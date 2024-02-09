@@ -11,10 +11,10 @@
 // ShaderFeatureInfo_Barycentrics (0x20000) = 131072
 
 // RDAT-LABEL: UnmangledName: "bary1"
-// RDAT:   FeatureInfo1: 131072
+// RDAT:   FeatureInfo1: (Barycentrics)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Pixel(0) << 16) + (SM 6.1 ((6 << 4) + 1)) = 0x61 = 97
-// RDAT: MinShaderTarget: 97
+// RDAT:   ShaderStageFlag: (Pixel)
+// RDAT:   MinShaderTarget: 0x61
 
 [shader("pixel")]
 void bary1(float3 barycentrics : SV_Barycentrics, out float4 target : SV_Target) {
@@ -22,10 +22,10 @@ void bary1(float3 barycentrics : SV_Barycentrics, out float4 target : SV_Target)
 }
 
 // RDAT-LABEL: UnmangledName: "bary2"
-// RDAT:   FeatureInfo1: 131072
+// RDAT:   FeatureInfo1: (Barycentrics)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Pixel(0) << 16) + (SM 6.1 ((6 << 4) + 1)) = 0x61 = 97
-// RDAT: MinShaderTarget: 97
+// RDAT:   ShaderStageFlag: (Pixel)
+// RDAT:   MinShaderTarget: 0x61
 
 [shader("pixel")]
 void bary2(nointerpolation float4 color : COLOR, out float4 target : SV_Target) {

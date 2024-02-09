@@ -13,8 +13,8 @@ RWByteAddressBuffer BAB : register(u1, space0);
 // RDAT-LABEL: UnmangledName: "node1"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Node(15) << 16) + (SM 6.8 ((6 << 4) + 8)) = 0xF0068 = 983144
-// RDAT: MinShaderTarget: 983144
+// RDAT: ShaderStageFlag: (Node)
+// RDAT: MinShaderTarget: 0xf0068
 
 [shader("node")]
 [NodeLaunch("broadcasting")]

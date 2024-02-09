@@ -13,12 +13,9 @@
 // producing the correct version requirement without considering the flag.
 
 // RDAT-LABEL: UnmangledName: "atomic_typed"
-// ShaderFeatureInfo_AtomicInt64OnTypedResource (0x400000) = 4194304
-// + ShaderFeatureInfo_Int64Ops (0x8000) = 0x408000 = 4227072
-// RDAT:   FeatureInfo1: 4227072
+// RDAT:   FeatureInfo1: (Int64Ops | AtomicInt64OnTypedResource)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x60066 = 393318
-// RDAT: MinShaderTarget: 393318
+// RDAT: MinShaderTarget: 0x60066
 
 RWBuffer<uint64_t> RWBuf : register(u0, space0);
 
@@ -34,12 +31,12 @@ void atomic_typed() {
 // RDAT-LABEL: UnmangledName: "atomic_groupshared"
 // ShaderFeatureInfo_AtomicInt64OnGroupShared (0x800000) = 8388608
 // + ShaderFeatureInfo_Int64Ops (0x8000) = 0x808000 = 8421376
-// RDAT:   FeatureInfo1: 8421376
+// RDAT:   FeatureInfo1: (Int64Ops | AtomicInt64OnGroupShared)
 // RDAT:   FeatureInfo2: 0
 // MinShaderTarget: (Compute(5) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x50066 = 327782
-// RDAT18: MinShaderTarget: 327782
+// RDAT18: MinShaderTarget: 0x50066
 // Old: 6.0
-// RDAT17: MinShaderTarget: 327776
+// RDAT17: MinShaderTarget: 0x50060
 
 RWByteAddressBuffer BAB : register(u1, space0);
 groupshared int64_t gs;
@@ -59,14 +56,11 @@ void atomic_groupshared(uint tidx : SV_GroupIndex) {
 // ShaderFeatureInfo_AtomicInt64OnHeapResource (0x10000000) = 268435456
 
 // RDAT-LABEL: UnmangledName: "atomic_heap"
-// ShaderFeatureInfo_AtomicInt64OnHeapResource (0x10000000) = 268435456
-// + ResourceDescriptorHeapIndexing (0x2000000)
-// + ShaderFeatureInfo_Int64Ops (0x8000)
-// = 0x12008000 = 302022656
-// RDAT: FeatureInfo1: 302022656
+// RDAT:   FeatureInfo1: (Int64Ops | ResourceDescriptorHeapIndexing | AtomicInt64OnHeapResource)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x60066 = 393318
-// RDAT: MinShaderTarget: 393318
+// RDAT17: ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification)
+// RDAT18: ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification | Node)
+// RDAT:   MinShaderTarget: 0x60066
 
 [noinline] export
 void atomic_heap() {
@@ -76,18 +70,14 @@ void atomic_heap() {
 }
 
 // RDAT-LABEL: UnmangledName: "atomic_heap_raygen"
-// ShaderFeatureInfo_AtomicInt64OnHeapResource (0x10000000) = 268435456
-// + ResourceDescriptorHeapIndexing (0x2000000)
-// + ShaderFeatureInfo_Int64Ops (0x8000)
-// = 0x12008000 = 302022656
-// RDAT18: FeatureInfo1: 302022656
+// RDAT18: FeatureInfo1: (Int64Ops | ResourceDescriptorHeapIndexing | AtomicInt64OnHeapResource)
 // Old: missed called function
 // RDAT17: FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (RayGeneration(7) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x70066 = 458854
-// RDAT18: MinShaderTarget: 458854
+// RDAT:   ShaderStageFlag: (RayGeneration)
+// RDAT18: MinShaderTarget: 0x70066
 // Old: 6.0
-// RDAT17: MinShaderTarget: 458848
+// RDAT17: MinShaderTarget: 0x70060
 
 [shader("raygeneration")]
 void atomic_heap_raygen() {

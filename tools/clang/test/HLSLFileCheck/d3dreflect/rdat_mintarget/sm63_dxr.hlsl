@@ -14,10 +14,10 @@ RWByteAddressBuffer BAB : register(u1, space0);
 // RDAT-LABEL: UnmangledName: "raygen"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (RayGeneration(7) << 16) + (SM 6.3 ((6 << 4) + 3)) = 0x70063 = 458851
-// RDAT18: MinShaderTarget: 458851
+// RDAT:   ShaderStageFlag: (RayGeneration)
+// RDAT18: MinShaderTarget: 0x70063
 // Old: 6.0
-// RDAT17: MinShaderTarget: 458848
+// RDAT17: MinShaderTarget: 0x70060
 
 [shader("raygeneration")]
 void raygen() {
@@ -27,10 +27,10 @@ void raygen() {
 // RDAT-LABEL: UnmangledName: "intersection"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Intersection(8) << 16) + (SM 6.3 ((6 << 4) + 3)) = 0x80063 = 524387
-// RDAT18: MinShaderTarget: 524387
+// RDAT:   ShaderStageFlag: (Intersection)
+// RDAT18: MinShaderTarget: 0x80063
 // Old: 6.0
-// RDAT17: MinShaderTarget: 524384
+// RDAT17: MinShaderTarget: 0x80060
 
 [shader("intersection")]
 void intersection() {
@@ -40,10 +40,10 @@ void intersection() {
 // RDAT-LABEL: UnmangledName: "anyhit"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (AnyHit(9) << 16) + (SM 6.3 ((6 << 4) + 3)) = 0x90063 = 589923
-// RDAT18: MinShaderTarget: 589923
+// RDAT:   ShaderStageFlag: (AnyHit)
+// RDAT18: MinShaderTarget: 0x90063
 // Old: 6.0
-// RDAT17: MinShaderTarget: 589920
+// RDAT17: MinShaderTarget: 0x90060
 
 struct [raypayload] MyPayload {
   float2 loc : write(caller) : read(caller);
@@ -58,10 +58,10 @@ void anyhit(inout MyPayload payload : SV_RayPayload,
 // RDAT-LABEL: UnmangledName: "closesthit"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (ClosestHit(10) << 16) + (SM 6.3 ((6 << 4) + 3)) = 0xA0063 = 655459
-// RDAT18: MinShaderTarget: 655459
+// RDAT:   ShaderStageFlag: (ClosestHit)
+// RDAT18: MinShaderTarget: 0xa0063
 // Old: 6.0
-// RDAT17: MinShaderTarget: 655456
+// RDAT17: MinShaderTarget: 0xa0060
 
 [shader("closesthit")]
 void closesthit(inout MyPayload payload : SV_RayPayload,
@@ -72,10 +72,10 @@ void closesthit(inout MyPayload payload : SV_RayPayload,
 // RDAT-LABEL: UnmangledName: "miss"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Miss(11) << 16) + (SM 6.3 ((6 << 4) + 3)) = 0xB0063 = 720995
-// RDAT18: MinShaderTarget: 720995
+// RDAT:   ShaderStageFlag: (Miss)
+// RDAT18: MinShaderTarget: 0xb0063
 // Old: 6.0
-// RDAT17: MinShaderTarget: 720992
+// RDAT17: MinShaderTarget: 0xb0060
 
 [shader("miss")]
 void miss(inout MyPayload payload : SV_RayPayload) {
@@ -85,10 +85,10 @@ void miss(inout MyPayload payload : SV_RayPayload) {
 // RDAT-LABEL: UnmangledName: "callable"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Callable(12) << 16) + (SM 6.3 ((6 << 4) + 3)) = 0xC0063 = 786531
-// RDAT18: MinShaderTarget: 786531
+// RDAT:   ShaderStageFlag: (Callable)
+// RDAT18: MinShaderTarget: 0xc0063
 // Old: 6.0
-// RDAT17: MinShaderTarget: 786528
+// RDAT17: MinShaderTarget: 0xc0060
 
 [shader("callable")]
 void callable(inout MyPayload param) {

@@ -46,23 +46,19 @@ declare %dx.types.Handle @dx.op.createHandleForLib.dx.types.Handle(i32, %dx.type
 ; Val. ver. 1.8 required to recursively check called functions.
 
 ; RDAT-LABEL: UnmangledName: "deriv_in_mesh"
-; ShaderFeatureInfo_DerivativesInMeshAndAmpShaders (0x1000000) = 16777216
-; RDAT18: FeatureInfo1: 16777216
+; RDAT18: FeatureInfo1: (DerivativesInMeshAndAmpShaders)
 ; Old: missed called function
 ; RDAT16: FeatureInfo1: 0
 ; RDAT17: FeatureInfo1: 0
-; OptFeatureInfo_UsesDerivatives (0x0000010000000000) = FeatureInfo2: 256
-; RDAT18:   FeatureInfo2: 256
+; RDAT18: FeatureInfo2: (Opt_UsesDerivatives)
 ; Old: deriv use not tracked
-; RDAT16:   FeatureInfo2: 0
-; RDAT17:   FeatureInfo2: 0
-; Mesh(13) = 0x2000 = 8192
-; RDAT: ShaderStageFlag: 8192
-; MinShaderTarget: (Mesh(13) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0xD0066 = 852070
-; RDAT18: MinShaderTarget: 852070
+; RDAT16: FeatureInfo2: 0
+; RDAT17: FeatureInfo2: 0
+; RDAT:   ShaderStageFlag: (Mesh)
+; RDAT18: MinShaderTarget: 0xd0066
 ; Old: 6.0
-; RDAT16: MinShaderTarget: 852064
-; RDAT17: MinShaderTarget: 852064
+; RDAT16: MinShaderTarget: 0xd0060
+; RDAT17: MinShaderTarget: 0xd0060
 
 define void @deriv_in_mesh() {
   %1 = call i32 @dx.op.threadId.i32(i32 93, i32 0)  ; ThreadId(component)
@@ -79,18 +75,15 @@ define void @deriv_in_mesh() {
 
 ; RDAT-LABEL: UnmangledName: "deriv_in_compute"
 ; RDAT:   FeatureInfo1: 0
-; OptFeatureInfo_UsesDerivatives (0x0000010000000000) = FeatureInfo2: 256
-; RDAT18:   FeatureInfo2: 256
+; RDAT18: FeatureInfo2: (Opt_UsesDerivatives)
 ; Old: deriv use not tracked
-; RDAT16:   FeatureInfo2: 0
-; RDAT17:   FeatureInfo2: 0
-; MinShaderTarget: (Compute(5) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x50066 = 327782
-; Compute(5) = 0x20 = 32
-; RDAT: ShaderStageFlag: 32
-; RDAT18: MinShaderTarget: 327782
+; RDAT16: FeatureInfo2: 0
+; RDAT17: FeatureInfo2: 0
+; RDAT:   ShaderStageFlag: (Compute)
+; RDAT18: MinShaderTarget: 0x50066
 ; Old: 6.0
-; RDAT16: MinShaderTarget: 327776
-; RDAT17: MinShaderTarget: 327776
+; RDAT16: MinShaderTarget: 0x50060
+; RDAT17: MinShaderTarget: 0x50060
 
 define void @deriv_in_compute() {
   %1 = call i32 @dx.op.threadId.i32(i32 93, i32 0)  ; ThreadId(component)
@@ -107,15 +100,12 @@ define void @deriv_in_compute() {
 
 ; RDAT-LABEL: UnmangledName: "deriv_in_pixel"
 ; RDAT:   FeatureInfo1: 0
-; OptFeatureInfo_UsesDerivatives (0x0000010000000000) = FeatureInfo2: 256
-; RDAT18:   FeatureInfo2: 256
+; RDAT18: FeatureInfo2: (Opt_UsesDerivatives)
 ; Old: deriv use not tracked
-; RDAT16:   FeatureInfo2: 0
-; RDAT17:   FeatureInfo2: 0
-; Pixel(0) = 0x1 = 1
-; RDAT: ShaderStageFlag: 1
-; MinShaderTarget: (Pixel(0) << 16) + (SM 6.0 ((6 << 4) + 0)) = 0x60 = 96
-; RDAT: MinShaderTarget: 96
+; RDAT16: FeatureInfo2: 0
+; RDAT17: FeatureInfo2: 0
+; RDAT:   ShaderStageFlag: (Pixel)
+; RDAT:   MinShaderTarget: 0x60
 
 define void @deriv_in_pixel() {
   %1 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
@@ -127,23 +117,19 @@ define void @deriv_in_pixel() {
 }
 
 ; RDAT-LABEL: UnmangledName: "deriv_in_func"
-; RDAT: FeatureInfo1: 0
-; OptFeatureInfo_UsesDerivatives (0x0000010000000000) = FeatureInfo2: 256
-; RDAT18:   FeatureInfo2: 256
+; RDAT:   FeatureInfo1: 0
+; RDAT18: FeatureInfo2: (Opt_UsesDerivatives)
 ; Old: deriv use not tracked
-; RDAT16:   FeatureInfo2: 0
-; RDAT17:   FeatureInfo2: 0
-; Pixel(0), Compute(5), Library(6), Mesh(13), Amplification(14), Node(15) = 0xE061 = 57441
-; RDAT18: ShaderStageFlag: 57441
+; RDAT16: FeatureInfo2: 0
+; RDAT17: FeatureInfo2: 0
+; RDAT18: ShaderStageFlag: (Pixel | Compute | Library | Mesh | Amplification | Node)
 ; Old would not report Compute, Mesh, Amplification, or Node compatibility.
-; Pixel(0), Library(6) = 0x41 = 65
-; RDAT16: ShaderStageFlag: 65
-; RDAT17: ShaderStageFlag: 65
-; MinShaderTarget: (Library(6) << 16) + (SM 6.0 ((6 << 4) + 0)) = 0x60060 = 393312
-; RDAT17: MinShaderTarget: 393312
-; RDAT18: MinShaderTarget: 393312
+; RDAT16: ShaderStageFlag: (Pixel | Library)
+; RDAT17: ShaderStageFlag: (Pixel | Library)
+; RDAT17: MinShaderTarget: 0x60060
+; RDAT18: MinShaderTarget: 0x60060
 ; Old: Didn't set min target properly for lib function
-; RDAT16: MinShaderTarget: 393318
+; RDAT16: MinShaderTarget: 0x60066
 
 ; Function Attrs: noinline nounwind
 define void @"\01?deriv_in_func@@YAXV?$vector@M$01@@@Z"(<2 x float> %uv) #0 {
@@ -207,10 +193,10 @@ attributes #3 = { nounwind readonly }
 
 ; RDAT-LABEL: D3D12_FUNCTION_DESC: Name:
 ; RDAT-SAME: deriv_in_func
-; RDAT: RequiredFeatureFlags: 0
+; RDAT:   RequiredFeatureFlags: 0
 
 ; RDAT-LABEL: D3D12_FUNCTION_DESC: Name: deriv_in_compute
-; RDAT: RequiredFeatureFlags: 0
+; RDAT:   RequiredFeatureFlags: 0
 
 ; RDAT-LABEL: D3D12_FUNCTION_DESC: Name: deriv_in_mesh
 ; ShaderFeatureInfo_DerivativesInMeshAndAmpShaders (0x1000000) = 16777216
@@ -220,4 +206,4 @@ attributes #3 = { nounwind readonly }
 ; RDAT17: RequiredFeatureFlags: 0
 
 ; RDAT-LABEL: D3D12_FUNCTION_DESC: Name: deriv_in_pixel
-; RDAT: RequiredFeatureFlags: 0
+; RDAT:   RequiredFeatureFlags: 0

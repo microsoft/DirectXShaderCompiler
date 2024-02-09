@@ -14,10 +14,10 @@
 // for it.
 
 // RDAT-LABEL: UnmangledName: "viewid"
-// RDAT:   FeatureInfo1: 65536
+// RDAT:   FeatureInfo1: (ViewID)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Pixel(0) << 16) + (SM 6.1 ((6 << 4) + 1)) = 0x61 = 97
-// RDAT: MinShaderTarget: 97
+// RDAT:   ShaderStageFlag: (Pixel)
+// RDAT:   MinShaderTarget: 0x61
 
 [shader("pixel")]
 void viewid(uint vid : SV_ViewID, out float4 target : SV_Target) {

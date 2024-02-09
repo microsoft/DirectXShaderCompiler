@@ -12,12 +12,12 @@
 // Not sure if already caught.
 
 // RDAT-LABEL: UnmangledName: "ps_shadingrate"
-// RDAT:   FeatureInfo1: 524288
+// RDAT:   FeatureInfo1: (ShadingRate)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Pixel(0) << 16) + (SM 6.4 ((6 << 4) + 4)) = 0x64 = 100
-// RDAT18: MinShaderTarget: 100
+// RDAT:   ShaderStageFlag: (Pixel)
+// RDAT18: MinShaderTarget: 0x64
 // Old 6.0
-// RDAT17: MinShaderTarget: 96
+// RDAT17: MinShaderTarget: 0x60
 
 [shader("pixel")]
 void ps_shadingrate(uint rate : SV_ShadingRate, out float4 target : SV_Target) {

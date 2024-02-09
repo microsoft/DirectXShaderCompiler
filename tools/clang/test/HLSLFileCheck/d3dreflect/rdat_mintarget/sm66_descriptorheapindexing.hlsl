@@ -11,11 +11,11 @@
 // ShaderFeatureInfo_ResourceDescriptorHeapIndexing (0x2000000) = 33554432
 
 // RDAT-LABEL: UnmangledName: "res_heap_index"
-// ShaderFeatureInfo_ResourceDescriptorHeapIndexing (0x2000000) = 33554432
-// RDAT: FeatureInfo1: 33554432
+// RDAT: FeatureInfo1: (ResourceDescriptorHeapIndexing)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x60066 = 393318
-// RDAT: MinShaderTarget: 393318
+// RDAT17: ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification)
+// RDAT18: ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification | Node)
+// RDAT: MinShaderTarget: 0x60066
 
 [noinline] export
 void res_heap_index(int i) {
@@ -24,15 +24,14 @@ void res_heap_index(int i) {
 }
 
 // RDAT-LABEL: UnmangledName: "res_heap_index_in_compute"
-// ShaderFeatureInfo_ResourceDescriptorHeapIndexing (0x2000000) = 33554432
-// RDAT18: FeatureInfo1: 33554432
+// RDAT18: FeatureInfo1: (ResourceDescriptorHeapIndexing)
 // Old: missed called function
 // RDAT17: FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Compute(5) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x50066 = 327782
-// RDAT18: MinShaderTarget: 327782
+// RDAT: ShaderStageFlag: (Compute)
+// RDAT18: MinShaderTarget: 0x50066
 // Old: 6.0
-// RDAT17: MinShaderTarget: 327776
+// RDAT17: MinShaderTarget: 0x50060
 
 [shader("compute")]
 [numthreads(8, 8, 1)]
@@ -41,15 +40,14 @@ void res_heap_index_in_compute(uint3 DTid : SV_DispatchThreadID) {
 }
 
 // RDAT-LABEL: UnmangledName: "res_heap_index_in_raygen"
-// ShaderFeatureInfo_ResourceDescriptorHeapIndexing (0x2000000) = 33554432
-// RDAT18: FeatureInfo1: 33554432
+// RDAT18: FeatureInfo1: (ResourceDescriptorHeapIndexing)
 // Old: missed called function
 // RDAT17: FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (RayGeneration(7) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x70066 = 458854
-// RDAT18: MinShaderTarget: 458854
+// RDAT: ShaderStageFlag: (RayGeneration)
+// RDAT18: MinShaderTarget: 0x70066
 // Old: 6.0
-// RDAT17: MinShaderTarget: 458848
+// RDAT17: MinShaderTarget: 0x70060
 
 [shader("raygeneration")]
 void res_heap_index_in_raygen() {
@@ -60,11 +58,11 @@ void res_heap_index_in_raygen() {
 // ShaderFeatureInfo_SamplerDescriptorHeapIndexing (0x4000000) = 67108864
 
 // RDAT-LABEL: UnmangledName: "samp_heap_index"
-// ShaderFeatureInfo_SamplerDescriptorHeapIndexing (0x4000000) = 67108864
-// RDAT: FeatureInfo1: 67108864
+// RDAT:   FeatureInfo1: (SamplerDescriptorHeapIndexing)
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Library(6) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x60066 = 393318
-// RDAT: MinShaderTarget: 393318
+// RDAT17: ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification)
+// RDAT18: ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification | Node)
+// RDAT:   MinShaderTarget: 0x60066
 
 RWByteAddressBuffer BAB : register(u1, space0);
 Texture2D<float4> T2D : register(t0, space0);
@@ -75,15 +73,14 @@ Texture2D<float4> T2D : register(t0, space0);
 }
 
 // RDAT-LABEL: UnmangledName: "samp_heap_index_in_compute"
-// ShaderFeatureInfo_SamplerDescriptorHeapIndexing (0x4000000) = 67108864
-// RDAT18: FeatureInfo1: 67108864
+// RDAT18: FeatureInfo1: (SamplerDescriptorHeapIndexing)
 // Old: missed called function
 // RDAT17: FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (Compute(5) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x50066 = 327782
-// RDAT18: MinShaderTarget: 327782
+// RDAT:   ShaderStageFlag: (Compute)
+// RDAT18: MinShaderTarget: 0x50066
 // Old: 6.0
-// RDAT17: MinShaderTarget: 327776
+// RDAT17: MinShaderTarget: 0x50060
 
 [shader("compute")]
 [numthreads(8, 8, 1)]
@@ -92,15 +89,14 @@ void samp_heap_index_in_compute(uint3 DTid : SV_DispatchThreadID) {
 }
 
 // RDAT-LABEL: UnmangledName: "samp_heap_index_in_raygen"
-// ShaderFeatureInfo_SamplerDescriptorHeapIndexing (0x4000000) = 67108864
-// RDAT18: FeatureInfo1: 67108864
+// RDAT18: FeatureInfo1: (SamplerDescriptorHeapIndexing)
 // Old: missed called function
 // RDAT17: FeatureInfo1: 0
 // RDAT:   FeatureInfo2: 0
-// MinShaderTarget: (RayGeneration(7) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x70066 = 458854
-// RDAT18: MinShaderTarget: 458854
+// RDAT:   ShaderStageFlag: (RayGeneration)
+// RDAT18: MinShaderTarget: 0x70066
 // Old: 6.0
-// RDAT17: MinShaderTarget: 458848
+// RDAT17: MinShaderTarget: 0x70060
 
 [shader("raygeneration")]
 void samp_heap_index_in_raygen() {
