@@ -970,9 +970,6 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
 std::optional<InstructionAndType>
 DxilDebugInstrumentation::addStepDebugEntry(BuilderContext *BC,
                                             Instruction *Inst) {
-  if (Inst->getOpcode() == Instruction::OtherOps::PHI) {
-    return std::nullopt;
-  }
   if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst)) {
     return std::nullopt;
   }
@@ -1145,7 +1142,7 @@ struct RecordTypeDatum {
 };
 
 static const RecordTypeDatum RecordTypeData[] = {
-    {DebugShaderModifierRecordTypeDXILStepRet, 4, "r"},
+    {DebugShaderModifierRecordTypeDXILStepRet, 0, "r"},
     {DebugShaderModifierRecordTypeDXILStepVoid, 0, "v"},
     {DebugShaderModifierRecordTypeDXILStepFloat, 4, "f"},
     {DebugShaderModifierRecordTypeDXILStepUint32, 4, "3"},
@@ -1179,6 +1176,12 @@ const char *TypeString(InstructionAndType const &IandT) {
     return (*datum)->AsString;
   assert(false);
   return "v";
+}
+
+Instruction *FindFirstNonPhiInstruction(Instruction *I) {
+  while (llvm::isa<llvm::PHINode>(I))
+    I = I->getNextNode();
+  return I;
 }
 
 // This function reports a textual representation of the format
@@ -1224,22 +1227,18 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
     if (IandT) {
       InstructionToInstrument DebugOutputForThisInstruction{};
       DebugOutputForThisInstruction.ValueType = IandT->Type;
-      DebugOutputForThisInstruction.InstructionAfterWhichToAddInstrumentation =
-          &Inst;
+      auto *InsertionPoint = FindFirstNonPhiInstruction(&Inst);
+      if (InsertionPoint->isTerminator() || llvm::isa<llvm::PHINode>(Inst))
+        DebugOutputForThisInstruction
+            .InstructionBeforeWhichToAddInstrumentation = InsertionPoint;
+      else
+        DebugOutputForThisInstruction
+            .InstructionAfterWhichToAddInstrumentation = InsertionPoint;
+
       const char *IndexingToken = nullptr;
       std::optional<std::string> RegisterOrStaticIndex;
       if (IandT->Type == DebugShaderModifierRecordTypeDXILStepRet) {
         IndexingToken = "r";
-        // The ret instruction needs to output something (anything)
-        // in case the block containing that ret doesn't emit
-        // anything else.
-        DebugOutputForThisInstruction.ValueToWriteToDebugMemory =
-            HlslOP->GetU32Const(0);
-        // And the instrumentation has to come before the ret!
-        DebugOutputForThisInstruction
-            .InstructionAfterWhichToAddInstrumentation = nullptr;
-        DebugOutputForThisInstruction
-            .InstructionBeforeWhichToAddInstrumentation = &Inst;
       } else if (IandT->Type == DebugShaderModifierRecordTypeDXILStepVoid) {
         IndexingToken = "v"; // void instruction, no debug output required
       } else if (IandT->AllocaWriteIndex != nullptr) {
@@ -1280,11 +1279,6 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
   return ret;
 }
 
-Instruction *FindFirstNonPhiInstruction(Instruction *I) {
-  while (llvm::isa<llvm::PHINode>(I))
-    I = I->getNextNode();
-  return I;
-}
 bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
                                              llvm::Function *entryFunction) {
   DXIL::ShaderKind shaderKind =
@@ -1365,80 +1359,6 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
   addInvocationSelectionProlog(BC, SystemValues, shaderKind);
   addInvocationStartMarker(BC);
 
-  // Explicitly name new blocks in order to provide stable names for testing
-  // purposes
-  int NewBlockCounter = 0;
-
-  auto &Blocks = entryFunction->getBasicBlockList();
-  for (auto &CurrentBlock : Blocks) {
-    struct ValueAndPhi {
-      Value *Val;
-      PHINode *Phi;
-      unsigned Index;
-    };
-
-    std::map<BasicBlock *, std::vector<ValueAndPhi>> InsertableEdges;
-    auto &Is = CurrentBlock.getInstList();
-    for (auto &Inst : Is) {
-      if (Inst.getOpcode() != Instruction::OtherOps::PHI) {
-        break;
-      }
-      PHINode &PN = llvm::cast<PHINode>(Inst);
-      for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
-        BasicBlock *PhiBB = PN.getIncomingBlock(i);
-        Value *PhiVal = PN.getIncomingValue(i);
-        InsertableEdges[PhiBB].push_back({PhiVal, &PN, i});
-      }
-    }
-
-    for (auto &InsertableEdge : InsertableEdges) {
-      auto *NewBlock = BasicBlock::Create(
-          Ctx, "PIXDebug" + std::to_string(NewBlockCounter++),
-          InsertableEdge.first->getParent());
-      IRBuilder<> Builder(NewBlock);
-
-      auto *PreviousBlock = InsertableEdge.first;
-
-      // Modify all successor operands of the terminator in the previous block
-      // that match the current block to point to the new block:
-      TerminatorInst *terminator = PreviousBlock->getTerminator();
-      unsigned NumSuccessors = terminator->getNumSuccessors();
-      for (unsigned SuccessorIndex = 0; SuccessorIndex < NumSuccessors;
-           ++SuccessorIndex) {
-        auto *CurrentSuccessor = terminator->getSuccessor(SuccessorIndex);
-        if (CurrentSuccessor == &CurrentBlock) {
-          terminator->setSuccessor(SuccessorIndex, NewBlock);
-        }
-      }
-
-      // Modify the Phis and add debug instrumentation
-      for (auto &ValueNPhi : InsertableEdge.second) {
-        // Modify the phi to refer to the new block:
-        ValueNPhi.Phi->setIncomingBlock(ValueNPhi.Index, NewBlock);
-
-        // Add instrumentation to the new block
-        std::uint32_t RegNum;
-        if (!pix_dxil::PixDxilReg::FromInst(ValueNPhi.Phi, &RegNum)) {
-          continue;
-        }
-
-        std::uint32_t InstNum;
-        if (!pix_dxil::PixDxilInstNum::FromInst(ValueNPhi.Phi, &InstNum)) {
-          continue;
-        }
-        if (InstNum < m_FirstInstruction || InstNum >= m_LastInstruction)
-          continue;
-
-        BuilderContext BC{M, DM, Ctx, HlslOP, Builder};
-        addStepDebugEntryValue(&BC, InstNum, ValueNPhi.Val, RegNum,
-                               BC.Builder.getInt32(0));
-      }
-
-      // Add a branch to the new block to point to the current block
-      Builder.CreateBr(&CurrentBlock);
-    }
-  }
-
   // Instrument original instructions:
   for (auto &BB : AllBasicBlocks) {
     auto BlockInstrumentation =
@@ -1446,9 +1366,13 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
 
     uint32_t BlockPayloadBytes =
         CountBlockPayloadBytes(BlockInstrumentation.Instructions);
-    if (BlockPayloadBytes > 0) {
+    // If the block has no instructions which require debug output,
+    // we will still write an empty block header at the end of that
+    // block (i.e. before the terminator) so that the instrumentation
+    // at least indicates that flow control went through the block.
+    Instruction *BlockInstrumentationStart = (*BB).getTerminator();
+    if (!BlockInstrumentation.Instructions.empty()) {
       auto const &First = BlockInstrumentation.Instructions[0];
-      Instruction *BlockInstrumentationStart;
       if (First.InstructionAfterWhichToAddInstrumentation != nullptr)
         BlockInstrumentationStart =
             First.InstructionAfterWhichToAddInstrumentation;
@@ -1459,37 +1383,37 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
         assert(false);
         continue;
       }
-      IRBuilder<> Builder(BlockInstrumentationStart);
-      BuilderContext BCForBlock{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
+    }
+    IRBuilder<> Builder(BlockInstrumentationStart);
+    BuilderContext BCForBlock{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
 
-      DebugShaderModifierRecordDXILBlock step = {};
-      auto FullRecordSize = sizeof(step) + BlockPayloadBytes;
-      reserveDebugEntrySpace(BCForBlock, FullRecordSize);
-      step.Header.Details.CountOfInstructions =
-          static_cast<uint16_t>(BlockInstrumentation.Instructions.size());
-      step.Header.Details.Type =
-          static_cast<uint8_t>(DebugShaderModifierRecordTypeDXILStepBlock);
-      addDebugEntryValue(BCForBlock,
-                         BCForBlock.HlslOP->GetU32Const(step.Header.u32Header));
-      addDebugEntryValue(BCForBlock, values.InvocationId);
-      addDebugEntryValue(
-          BCForBlock, BCForBlock.HlslOP->GetU32Const(
-                          BlockInstrumentation.FirstInstructionOrdinalInBlock));
-      for (auto &Inst : BlockInstrumentation.Instructions) {
-        Instruction *BuilderInstruction;
-        if (Inst.InstructionAfterWhichToAddInstrumentation != nullptr)
-          BuilderInstruction =
-              Inst.InstructionAfterWhichToAddInstrumentation->getNextNode();
-        else if (Inst.InstructionBeforeWhichToAddInstrumentation != nullptr)
-          BuilderInstruction = Inst.InstructionBeforeWhichToAddInstrumentation;
-        else {
-          assert(false);
-          continue;
-        }
-        IRBuilder<> Builder(BuilderInstruction);
-        BuilderContext BC2{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
-        addDebugEntryValue(BC2, Inst.ValueToWriteToDebugMemory);
+    DebugShaderModifierRecordDXILBlock step = {};
+    auto FullRecordSize = sizeof(step) + BlockPayloadBytes;
+    reserveDebugEntrySpace(BCForBlock, FullRecordSize);
+    step.Header.Details.CountOfInstructions =
+        static_cast<uint16_t>(BlockInstrumentation.Instructions.size());
+    step.Header.Details.Type =
+        static_cast<uint8_t>(DebugShaderModifierRecordTypeDXILStepBlock);
+    addDebugEntryValue(BCForBlock,
+                       BCForBlock.HlslOP->GetU32Const(step.Header.u32Header));
+    addDebugEntryValue(BCForBlock, values.InvocationId);
+    addDebugEntryValue(
+        BCForBlock, BCForBlock.HlslOP->GetU32Const(
+                        BlockInstrumentation.FirstInstructionOrdinalInBlock));
+    for (auto &Inst : BlockInstrumentation.Instructions) {
+      Instruction *BuilderInstruction;
+      if (Inst.InstructionAfterWhichToAddInstrumentation != nullptr)
+        BuilderInstruction =
+            Inst.InstructionAfterWhichToAddInstrumentation->getNextNode();
+      else if (Inst.InstructionBeforeWhichToAddInstrumentation != nullptr)
+        BuilderInstruction = Inst.InstructionBeforeWhichToAddInstrumentation;
+      else {
+        assert(false);
+        continue;
       }
+      IRBuilder<> Builder(BuilderInstruction);
+      BuilderContext BC2{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
+      addDebugEntryValue(BC2, Inst.ValueToWriteToDebugMemory);
     }
   }
 
