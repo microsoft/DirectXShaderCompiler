@@ -9,6 +9,8 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 // ShaderFeatureInfo_AtomicInt64OnTypedResource (0x400000) = 4194304
+// Typed resource atomics produce an intrinsic that requires 6.6 
+// producing the correct version requirement without considering the flag.
 
 // RDAT-LABEL: UnmangledName: "atomic_typed"
 // ShaderFeatureInfo_AtomicInt64OnTypedResource (0x400000) = 4194304

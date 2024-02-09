@@ -25,8 +25,6 @@ RWTexture2DMS<float, 1> T2DMS : register(u2, space0);
 
 [noinline] export
 void rwmsaa() {
-  // Use dynamic resource to avoid MSAA flag on all functions issue in 1.7
-  // RWTexture2DMS<float, 1> T2DMS = ResourceDescriptorHeap[0];
   BAB.Store(0, T2DMS.sample[1][uint2(1, 2)]);
 }
 

@@ -20,7 +20,7 @@
 // RDAT:   FeatureInfo2: 0
 // MinShaderTarget: (Library(6) << 16) + (SM 6.7 ((6 << 4) + 7)) = 0x60067 = 393319
 // RDAT18: MinShaderTarget: 393319
-// Old: 6.6
+// Old: 6.6 (Because of dynamic resources)
 // RDAT17: MinShaderTarget: 393318
 
 RWByteAddressBuffer BAB : register(u1, space0);

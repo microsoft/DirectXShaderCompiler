@@ -858,6 +858,13 @@ void ShaderFlags::CombineShaderFlags(const ShaderFlags &other) {
   SetShaderFlagsRaw(GetShaderFlagsRaw() | other.GetShaderFlagsRaw());
 }
 
+// Use the function properties `props` to determine the minimum shader model and
+// flag requirements based on shader stage and feature usage.
+// Compare that minimum required version to the values passed in with
+// `minMajor` and `minMinor` and pass the maximum of those back through those
+// same variables.
+// Return a copy of the `ShaderFlags` object with any additional flags required
+// by `props` set.
 ShaderFlags
 ShaderFlags::AdjustMinimumShaderModelAndFlags(const DxilFunctionProps *props,
                                               unsigned &minMajor,
