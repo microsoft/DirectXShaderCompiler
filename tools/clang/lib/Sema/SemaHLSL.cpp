@@ -15678,38 +15678,37 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 // (where the compiler would infer a specific shader kind based on
 // a present entry-point-only attribute).
 void WarnOnEntryAttrWithoutShaderAttr(Sema &S, FunctionDecl *FD) {
-  if (FD->hasAttrs()) {
-    for (Attr *A : FD->getAttrs()) {
-      switch (A->getKind()) {
-        // Entry-Function-only attributes
-      case clang::attr::HLSLClipPlanes:
-      case clang::attr::HLSLDomain:
-      case clang::attr::HLSLEarlyDepthStencil:
-      case clang::attr::HLSLInstance:
-      case clang::attr::HLSLMaxTessFactor:
-      case clang::attr::HLSLNumThreads:
-      case clang::attr::HLSLRootSignature:
-      case clang::attr::HLSLOutputControlPoints:
-      case clang::attr::HLSLOutputTopology:
-      case clang::attr::HLSLPartitioning:
-      case clang::attr::HLSLPatchConstantFunc:
-      case clang::attr::HLSLMaxVertexCount:
-      case clang::attr::HLSLWaveSize:
-      case clang::attr::HLSLNodeLaunch:
-      case clang::attr::HLSLNodeIsProgramEntry:
-      case clang::attr::HLSLNodeId:
-      case clang::attr::HLSLNodeLocalRootArgumentsTableIndex:
-      case clang::attr::HLSLNodeShareInputOf:
-      case clang::attr::HLSLNodeDispatchGrid:
-      case clang::attr::HLSLNodeMaxDispatchGrid:
-      case clang::attr::HLSLNodeMaxRecursionDepth:
-        S.Diag(A->getLocation(),
-               diag::warn_hlsl_entry_attribute_without_shader_attribute)
-            << A->getSpelling();
-        break;
-      }
-    }
+  if (!FD->hasAttrs())
     return;
+  for (Attr *A : FD->getAttrs()) {
+    switch (A->getKind()) {
+      // Entry-Function-only attributes
+    case clang::attr::HLSLClipPlanes:
+    case clang::attr::HLSLDomain:
+    case clang::attr::HLSLEarlyDepthStencil:
+    case clang::attr::HLSLInstance:
+    case clang::attr::HLSLMaxTessFactor:
+    case clang::attr::HLSLNumThreads:
+    case clang::attr::HLSLRootSignature:
+    case clang::attr::HLSLOutputControlPoints:
+    case clang::attr::HLSLOutputTopology:
+    case clang::attr::HLSLPartitioning:
+    case clang::attr::HLSLPatchConstantFunc:
+    case clang::attr::HLSLMaxVertexCount:
+    case clang::attr::HLSLWaveSize:
+    case clang::attr::HLSLNodeLaunch:
+    case clang::attr::HLSLNodeIsProgramEntry:
+    case clang::attr::HLSLNodeId:
+    case clang::attr::HLSLNodeLocalRootArgumentsTableIndex:
+    case clang::attr::HLSLNodeShareInputOf:
+    case clang::attr::HLSLNodeDispatchGrid:
+    case clang::attr::HLSLNodeMaxDispatchGrid:
+    case clang::attr::HLSLNodeMaxRecursionDepth:
+      S.Diag(A->getLocation(),
+             diag::warn_hlsl_entry_attribute_without_shader_attribute)
+          << A->getSpelling();
+      break;
+    }
   }
   return;
 }
