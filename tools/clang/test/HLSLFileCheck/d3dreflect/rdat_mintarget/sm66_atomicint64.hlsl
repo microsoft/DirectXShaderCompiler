@@ -58,9 +58,6 @@ void atomic_groupshared(uint tidx : SV_GroupIndex) {
 ///////////////////////////////////////////////////////////////////////////////
 // ShaderFeatureInfo_AtomicInt64OnHeapResource (0x10000000) = 268435456
 
-// TBD: should it be set on bound heap resource?
-//RWStructuredBuffer<uint64_t> SB64 : register(u2, space0);
-
 // RDAT-LABEL: UnmangledName: "atomic_heap"
 // ShaderFeatureInfo_AtomicInt64OnHeapResource (0x10000000) = 268435456
 // + ResourceDescriptorHeapIndexing (0x2000000)

@@ -441,7 +441,6 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasUAVsGlobally = M->GetUAVs().size() > 0;
 
   bool hasAdvancedTextureOps = false;
-  bool hasWriteableMSAATexturesGlobal = false;
   bool hasSampleCmpGradientOrBias = false;
 
   bool hasWaveMMA = false;
@@ -484,6 +483,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
 
+  // Before validator version 1.8, we set the WriteableMSAATextures flag based
+  // on the presence of RWTexture2DMS[Array] resources in the module.
+  bool setWriteableMSAATextures_1_7 =
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0;
+  bool hasWriteableMSAATextures_1_7 = false;
+  bool hasWriteableMSAATextures = false;
+
   // Set up resource to binding handle map for 64-bit atomics usage
   std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap;
   for (auto &res : M->GetUAVs()) {
@@ -496,16 +502,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
     // flag so we can set it if validator version is < 1.8.
     if (res->GetKind() == DXIL::ResourceKind::Texture2DMS ||
         res->GetKind() == DXIL::ResourceKind::Texture2DMSArray)
-      hasWriteableMSAATexturesGlobal = true;
+      hasWriteableMSAATextures_1_7 = true;
   }
-
-  // Before validator version 1.8, we set the WriteableMSAATextures flag based
-  // on the presence of RWTexture2DMS[Array] resources in the module.
-  bool setWriteableMSAATexturesBasedOnGlobal =
-      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0;
-  bool hasWriteableMSAATextures = setWriteableMSAATexturesBasedOnGlobal
-                                      ? hasWriteableMSAATexturesGlobal
-                                      : false;
 
   auto checkUsedResourceProps = [&](DxilResourceProperties RP) {
     if (hasUAVs && hasWriteableMSAATextures)
@@ -707,6 +705,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
           checkUsedHandle(const_cast<CallInst *>(CI));
           break;
         case DXIL::OpCode::TextureStoreSample:
+          hasWriteableMSAATextures_1_7 = true;
           hasWriteableMSAATextures = true;
           LLVM_FALLTHROUGH;
         case DXIL::OpCode::SampleCmpLevel:
@@ -840,8 +839,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetSamplerDescriptorHeapIndexing(hasSamplerDescriptorHeapIndexing);
   flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
   flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
-  flag.SetWriteableMSAATextures(setWriteableMSAATexturesBasedOnGlobal
-                                    ? hasWriteableMSAATexturesGlobal
+  flag.SetWriteableMSAATextures(setWriteableMSAATextures_1_7
+                                    ? hasWriteableMSAATextures_1_7
                                     : hasWriteableMSAATextures);
   flag.SetWaveMMA(hasWaveMMA);
   // Only bother setting the flag when there are UAVs.
