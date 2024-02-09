@@ -3958,111 +3958,105 @@ static void ValidateBitcode(ValidationContext &ValCtx) {
 static void ValidateWaveSize(ValidationContext &ValCtx,
                              const hlsl::ShaderModel *SM, Module *pModule) {
   // Don't do this validation if the shader is non-compute
-  if (SM->IsCS() || SM->IsLib()) {
+  if (!(SM->IsCS() || SM->IsLib()))
+    return;
 
-    NamedMDNode *EPs = pModule->getNamedMetadata("dx.entryPoints");
-    if (EPs != nullptr) {
-      for (unsigned i = 0, end = EPs->getNumOperands(); i < end; ++i) {
-        MDTuple *EPNodeRef = dyn_cast<MDTuple>(EPs->getOperand(i));
-        if (EPNodeRef->getNumOperands() < 5) {
-          ValCtx.EmitMetaError(EPNodeRef, ValidationRule::MetaWellFormed);
+  NamedMDNode *EPs = pModule->getNamedMetadata("dx.entryPoints");
+  if (!EPs)
+    return;
+
+  for (unsigned i = 0, end = EPs->getNumOperands(); i < end; ++i) {
+    MDTuple *EPNodeRef = dyn_cast<MDTuple>(EPs->getOperand(i));
+    if (EPNodeRef->getNumOperands() < 5) {
+      ValCtx.EmitMetaError(EPNodeRef, ValidationRule::MetaWellFormed);
+      return;
+    }
+    // get access to the digit that represents the metadata number that
+    // would store entry properties
+    const llvm::MDOperand &mOp =
+        EPNodeRef->getOperand(EPNodeRef->getNumOperands() - 1);
+    // the final operand to the entry points tuple should be a tuple.
+    if (mOp == nullptr || (mOp.get())->getMetadataID() != Metadata::MDTupleKind)
+      continue;
+
+    // get access to the node that stores entry properties
+    MDTuple *EPropNode = dyn_cast<MDTuple>(
+        EPNodeRef->getOperand(EPNodeRef->getNumOperands() - 1));
+    // find any incompatible tags inside the entry properties
+    // increment j by 2 to only analyze tags, not values
+    bool foundTag = false;
+    for (unsigned j = 0, end2 = EPropNode->getNumOperands(); j < end2; j += 2) {
+      const MDOperand &propertyTagOp = EPropNode->getOperand(j);
+      // note, we are only looking for tags, which will be a constant
+      // integer
+      bool invalidPropertyTag =
+          propertyTagOp == nullptr || (propertyTagOp.get())->getMetadataID() !=
+                                          Metadata::ConstantAsMetadataKind;
+      DXASSERT(!invalidPropertyTag,
+               "tag operand should be a constant integer.");
+      if (invalidPropertyTag) {
+        continue;
+      }
+      ConstantInt *tag = mdconst::extract<ConstantInt>(propertyTagOp);
+      uint64_t tagValue = tag->getZExtValue();
+
+      // legacy wavesize is only supported between 6.6 and 6.7, so we
+      // should fail if we find the ranged wave size metadata tag
+      if (tagValue == DxilMDHelper::kDxilRangedWaveSizeTag) {
+        // if this tag is already present in the
+        // current entry point, emit an error
+        if (foundTag) {
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeTagDuplicate, {});
           return;
         }
-        // get access to the digit that represents the metadata number that
-        // would store entry properties
-        const llvm::MDOperand &mOp =
-            EPNodeRef->getOperand(EPNodeRef->getNumOperands() - 1);
-        // the final operand to the entry points tuple should be a tuple.
-        if (mOp == nullptr ||
-            (mOp.get())->getMetadataID() != Metadata::MDTupleKind) {
-          continue;
+        foundTag = true;
+        if (SM->IsSM66Plus() && !SM->IsSM68Plus()) {
+
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeRangeNeedsSM68Plus,
+                                 {});
+          return;
+        }
+        // get the metadata that contains the
+        // parameters to the wavesize attribute
+        MDTuple *WaveTuple = dyn_cast<MDTuple>(EPropNode->getOperand(j + 1));
+        if (WaveTuple->getNumOperands() != 3) {
+          ValCtx.EmitFormatError(
+              ValidationRule::SmWaveSizeRangeExpectsThreeParams, {});
+          return;
+        }
+        for (int k = 0; k < 3; k++) {
+          const MDOperand &param = WaveTuple->getOperand(k);
+          if (param->getMetadataID() != Metadata::ConstantAsMetadataKind) {
+            ValCtx.EmitFormatError(
+                ValidationRule::SmWaveSizeNeedsConstantOperands, {});
+            return;
+          }
         }
 
-        // get access to the node that stores entry properties
-        MDTuple *EPropNode = dyn_cast<MDTuple>(
-            EPNodeRef->getOperand(EPNodeRef->getNumOperands() - 1));
-        // find any incompatible tags inside the entry properties
-        // increment j by 2 to only analyze tags, not values
-        bool foundTag = false;
-        for (unsigned j = 0, end2 = EPropNode->getNumOperands(); j < end2;
-             j += 2) {
-          const MDOperand &propertyTagOp = EPropNode->getOperand(j);
-          // note, we are only looking for tags, which will be a constant
-          // integer
-          if (propertyTagOp == nullptr ||
-              (propertyTagOp.get())->getMetadataID() !=
-                  Metadata::ConstantAsMetadataKind) {
-            DXASSERT(false, "tag operand should be a constant integer.");
-            continue;
-          }
-          ConstantInt *tag = mdconst::extract<ConstantInt>(propertyTagOp);
-          uint64_t tagValue = tag->getZExtValue();
-
-          // legacy wavesize is only supported between 6.6 and 6.7, so we
-          // should fail if we find the ranged wave size metadata tag
-          if (tagValue == DxilMDHelper::kDxilRangedWaveSizeTag) {
-            // if this tag is already present in the
-            // current entry point, emit an error
-            if (foundTag) {
-              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeTagDuplicate,
-                                     {});
-              return;
-            }
-            foundTag = true;
-            if (SM->IsSM66Plus() && !SM->IsSM68Plus()) {
-
-              ValCtx.EmitFormatError(
-                  ValidationRule::SmWaveSizeRangeNeedsSM68Plus, {});
-              return;
-            }
-            // get the metadata that contains the
-            // parameters to the wavesize attribute
-            MDTuple *WaveTuple =
-                dyn_cast<MDTuple>(EPropNode->getOperand(j + 1));
-            if (WaveTuple->getNumOperands() != 3) {
-              ValCtx.EmitFormatError(
-                  ValidationRule::SmWaveSizeRangeExpectsThreeParams, {});
-              return;
-            }
-            for (int k = 0; k < 3; k++) {
-              const MDOperand &param = WaveTuple->getOperand(k);
-              if (param->getMetadataID() != Metadata::ConstantAsMetadataKind) {
-                ValCtx.EmitFormatError(
-                    ValidationRule::SmWaveSizeNeedsConstantOperands, {});
-                return;
-              }
-            }
-
-          } else if (tagValue == DxilMDHelper::kDxilWaveSizeTag) {
-            // if this tag is already present in the
-            // current entry point, emit an error
-            if (foundTag) {
-              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeTagDuplicate,
-                                     {});
-              return;
-            }
-            foundTag = true;
-            MDTuple *WaveTuple =
-                dyn_cast<MDTuple>(EPropNode->getOperand(j + 1));
-            if (WaveTuple->getNumOperands() != 1) {
-              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeExpectsOneParam,
-                                     {});
-              return;
-            }
-            const MDOperand &param = WaveTuple->getOperand(0);
-            if (param->getMetadataID() != Metadata::ConstantAsMetadataKind) {
-              ValCtx.EmitFormatError(
-                  ValidationRule::SmWaveSizeNeedsConstantOperands, {});
-              return;
-            }
-            // if the shader model is anything but 6.6 or 6.7, then we do not
-            // expect to encounter the legacy wave size tag.
-            if (!(SM->IsSM66Plus() && !SM->IsSM68Plus())) {
-              ValCtx.EmitFormatError(ValidationRule::SmWaveSizeNeedsSM66or67,
-                                     {});
-              return;
-            }
-          }
+      } else if (tagValue == DxilMDHelper::kDxilWaveSizeTag) {
+        // if this tag is already present in the
+        // current entry point, emit an error
+        if (foundTag) {
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeTagDuplicate, {});
+          return;
+        }
+        foundTag = true;
+        MDTuple *WaveTuple = dyn_cast<MDTuple>(EPropNode->getOperand(j + 1));
+        if (WaveTuple->getNumOperands() != 1) {
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeExpectsOneParam, {});
+          return;
+        }
+        const MDOperand &param = WaveTuple->getOperand(0);
+        if (param->getMetadataID() != Metadata::ConstantAsMetadataKind) {
+          ValCtx.EmitFormatError(
+              ValidationRule::SmWaveSizeNeedsConstantOperands, {});
+          return;
+        }
+        // if the shader model is anything but 6.6 or 6.7, then we do not
+        // expect to encounter the legacy wave size tag.
+        if (!(SM->IsSM66Plus() && !SM->IsSM68Plus())) {
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeNeedsSM66or67, {});
+          return;
         }
       }
     }
