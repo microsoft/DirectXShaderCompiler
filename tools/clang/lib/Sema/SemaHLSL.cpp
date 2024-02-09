@@ -11202,13 +11202,14 @@ void Sema::DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
           if (const HLSLNumThreadsAttr *Attr =
                   EntryDecl->getAttr<HLSLNumThreadsAttr>()) {
             bool invalidNumThreads = false;
-            if (Attr->getZ() != 1) {
-              invalidNumThreads = true;
-            } else if (Attr->getY() != 1) {
+            if (Attr->getY() != 1) {
+              // 2D mode requires x and y to be multiple of 2.
               invalidNumThreads =
                   !((Attr->getX() % 2) == 0 && (Attr->getY() % 2) == 0);
             } else {
-              invalidNumThreads = (Attr->getX() % 4) != 0;
+              // 1D mode requires x to be multiple of 4 and y and z to be 1.
+              invalidNumThreads =
+                  (Attr->getX() % 4) != 0 || (Attr->getZ() != 1);
             }
             if (invalidNumThreads) {
               Diags.Report(Loc, diag::warn_hlsl_derivatives_wrong_numthreads)

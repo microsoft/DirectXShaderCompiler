@@ -16,6 +16,14 @@ void foo(uint3 id : SV_GroupThreadID)
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
 }
 
+// Make sure 2d mode ok with z != 1.
+[numthreads(4,2,3)]
+[shader("compute")]
+void foo2(uint3 id : SV_GroupThreadID)
+{
+    o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
+}
+
 // expected-note@+3{{declared here}}
 [numthreads(3,1,1)]
 [shader("compute")]
