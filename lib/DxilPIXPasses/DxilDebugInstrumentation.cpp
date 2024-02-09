@@ -113,7 +113,7 @@ enum DebugShaderModifierRecordType {
   DebugShaderModifierRecordTypeRegisterRelativeIndex2,
   DebugShaderModifierRecordTypeDXILStepAllocaRegWrite = 248,
   DebugShaderModifierRecordTypeDXILStepBlock = 249,
-  DebugShaderModifierRecordTypeDXILStepTerminator = 250,
+  DebugShaderModifierRecordTypeDXILStepRet = 250,
   DebugShaderModifierRecordTypeDXILStepVoid = 251,
   DebugShaderModifierRecordTypeDXILStepFloat = 252,
   DebugShaderModifierRecordTypeDXILStepUint32 = 253,
@@ -321,14 +321,15 @@ private:
   struct InstructionToInstrument {
     Value *ValueToWriteToDebugMemory;
     DebugShaderModifierRecordType ValueType;
-    Instruction *InstructionAfterWhichToAddWrite;
+    Instruction *InstructionAfterWhichToAddInstrumentation;
+    Instruction *InstructionBeforeWhichToAddInstrumentation;
   };
   struct BlockInstrumentationData {
     uint32_t FirstInstructionOrdinalInBlock;
     std::vector<InstructionToInstrument> Instructions;
   };
-  BlockInstrumentationData
-  FindInstrumentableInstructionsInBlock(BasicBlock &BB);
+  BlockInstrumentationData FindInstrumentableInstructionsInBlock(BasicBlock &BB,
+                                                                 OP *HlslOP);
   uint32_t
   CountBlockPayloadBytes(std::vector<InstructionToInstrument> const &IsAndTs);
 };
@@ -885,7 +886,7 @@ void DxilDebugInstrumentation::addStepEntryForType(
   addDebugEntryValue(BC, values.InvocationId);
   addDebugEntryValue(BC, BC.HlslOP->GetU32Const(InstNum));
   if (RecordType != DebugShaderModifierRecordTypeDXILStepVoid &&
-      RecordType != DebugShaderModifierRecordTypeDXILStepTerminator) {
+      RecordType != DebugShaderModifierRecordTypeDXILStepRet) {
     addDebugEntryValue(BC, V);
     IRBuilder<> &B = BC.Builder;
 
@@ -1009,19 +1010,17 @@ DxilDebugInstrumentation::addStepDebugEntry(BuilderContext *BC,
   if (!pix_dxil::PixDxilReg::FromInst(Inst, &RegNum)) {
     if (Inst->getOpcode() == Instruction::Ret) {
       if (BC != nullptr)
-        addStepEntryForType<void>(
-            DebugShaderModifierRecordTypeDXILStepTerminator, *BC, InstNum,
-            nullptr, 0, 0);
+        addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepRet, *BC,
+                                  InstNum, nullptr, 0, 0);
       InstructionAndType ret{};
       ret.Inst = Inst;
       ret.InstructionOrdinal = InstNum;
-      ret.Type = DebugShaderModifierRecordTypeDXILStepTerminator;
+      ret.Type = DebugShaderModifierRecordTypeDXILStepRet;
       return ret;
     } else if (Inst->isTerminator()) {
       if (BC != nullptr)
-        addStepEntryForType<void>(
-            DebugShaderModifierRecordTypeDXILStepVoid, *BC, InstNum,
-            nullptr, 0, 0);
+        addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid,
+                                  *BC, InstNum, nullptr, 0, 0);
       InstructionAndType ret{};
       ret.Inst = Inst;
       ret.InstructionOrdinal = InstNum;
@@ -1146,7 +1145,7 @@ struct RecordTypeDatum {
 };
 
 static const RecordTypeDatum RecordTypeData[] = {
-    {DebugShaderModifierRecordTypeDXILStepTerminator, 0, "t"},
+    {DebugShaderModifierRecordTypeDXILStepRet, 4, "r"},
     {DebugShaderModifierRecordTypeDXILStepVoid, 0, "v"},
     {DebugShaderModifierRecordTypeDXILStepFloat, 4, "f"},
     {DebugShaderModifierRecordTypeDXILStepUint32, 4, "3"},
@@ -1206,8 +1205,8 @@ const char *TypeString(InstructionAndType const &IandT) {
 // v == A void terminator or other void-valued instruction. No
 //      corresponding data in the debug output.
 DxilDebugInstrumentation::BlockInstrumentationData
-DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
-    BasicBlock &BB) {
+DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
+                                                                OP *HlslOP) {
   BlockInstrumentationData ret{};
   auto &Is = BB.getInstList();
   *OSOverride << "Block#";
@@ -1225,11 +1224,23 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
     if (IandT) {
       InstructionToInstrument DebugOutputForThisInstruction{};
       DebugOutputForThisInstruction.ValueType = IandT->Type;
-      DebugOutputForThisInstruction.InstructionAfterWhichToAddWrite = &Inst;
+      DebugOutputForThisInstruction.InstructionAfterWhichToAddInstrumentation =
+          &Inst;
       const char *IndexingToken = nullptr;
       std::optional<std::string> RegisterOrStaticIndex;
-      if (IandT->Type == DebugShaderModifierRecordTypeDXILStepVoid ||
-          IandT->Type == DebugShaderModifierRecordTypeDXILStepTerminator) {
+      if (IandT->Type == DebugShaderModifierRecordTypeDXILStepRet) {
+        IndexingToken = "r";
+        // The ret instruction needs to output something (anything)
+        // in case the block containing that ret doesn't emit
+        // anything else.
+        DebugOutputForThisInstruction.ValueToWriteToDebugMemory =
+            HlslOP->GetU32Const(0);
+        // And the instrumentation has to come before the ret!
+        DebugOutputForThisInstruction
+            .InstructionAfterWhichToAddInstrumentation = nullptr;
+        DebugOutputForThisInstruction
+            .InstructionBeforeWhichToAddInstrumentation = &Inst;
+      } else if (IandT->Type == DebugShaderModifierRecordTypeDXILStepVoid) {
         IndexingToken = "v"; // void instruction, no debug output required
       } else if (IandT->AllocaWriteIndex != nullptr) {
         if (ConstantInt *IndexAsConstant =
@@ -1430,13 +1441,25 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
 
   // Instrument original instructions:
   for (auto &BB : AllBasicBlocks) {
-    auto BlockInstrumentation = FindInstrumentableInstructionsInBlock(*BB);
+    auto BlockInstrumentation =
+        FindInstrumentableInstructionsInBlock(*BB, BC.HlslOP);
 
     uint32_t BlockPayloadBytes =
         CountBlockPayloadBytes(BlockInstrumentation.Instructions);
     if (BlockPayloadBytes > 0) {
-      IRBuilder<> Builder(BlockInstrumentation.Instructions.at(0)
-                              .InstructionAfterWhichToAddWrite);
+      auto const &First = BlockInstrumentation.Instructions[0];
+      Instruction *BlockInstrumentationStart;
+      if (First.InstructionAfterWhichToAddInstrumentation != nullptr)
+        BlockInstrumentationStart =
+            First.InstructionAfterWhichToAddInstrumentation;
+      else if (First.InstructionBeforeWhichToAddInstrumentation != nullptr)
+        BlockInstrumentationStart =
+            First.InstructionBeforeWhichToAddInstrumentation;
+      else {
+        assert(false);
+        continue;
+      }
+      IRBuilder<> Builder(BlockInstrumentationStart);
       BuilderContext BCForBlock{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
 
       DebugShaderModifierRecordDXILBlock step = {};
@@ -1452,10 +1475,18 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
       addDebugEntryValue(
           BCForBlock, BCForBlock.HlslOP->GetU32Const(
                           BlockInstrumentation.FirstInstructionOrdinalInBlock));
-
       for (auto &Inst : BlockInstrumentation.Instructions) {
-        IRBuilder<> Builder(
-            Inst.InstructionAfterWhichToAddWrite->getNextNode());
+        Instruction *BuilderInstruction;
+        if (Inst.InstructionAfterWhichToAddInstrumentation != nullptr)
+          BuilderInstruction =
+              Inst.InstructionAfterWhichToAddInstrumentation->getNextNode();
+        else if (Inst.InstructionBeforeWhichToAddInstrumentation != nullptr)
+          BuilderInstruction = Inst.InstructionBeforeWhichToAddInstrumentation;
+        else {
+          assert(false);
+          continue;
+        }
+        IRBuilder<> Builder(BuilderInstruction);
         BuilderContext BC2{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
         addDebugEntryValue(BC2, Inst.ValueToWriteToDebugMemory);
       }
