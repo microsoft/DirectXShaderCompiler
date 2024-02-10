@@ -332,6 +332,7 @@ public:
   // Node Record Type
   static const unsigned kDxilNodeRecordSizeTag = 0;
   static const unsigned kDxilNodeSVDispatchGridTag = 1;
+  static const unsigned kDxilNodeRecordAlignmentTag = 2;
 
   // GSState.
   static const unsigned kDxilGSStateNumFields = 5;

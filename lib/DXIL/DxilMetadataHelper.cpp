@@ -2783,6 +2783,11 @@ DxilMDHelper::EmitDxilNodeRecordType(const NodeRecordType &RecordType) {
         Uint32ToConstMD(RecordType.SV_DispatchGrid.NumComponents));
     MDVals.emplace_back(MDNode::get(m_Ctx, SVDispatchGridVals));
   }
+  if (RecordType.alignment) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeRecordAlignmentTag));
+    MDVals.emplace_back(Uint32ToConstMD(RecordType.alignment));
+  }
   return MDNode::get(m_Ctx, MDVals);
 }
 
@@ -2869,6 +2874,9 @@ DxilMDHelper::LoadDxilNodeRecordType(const llvm::MDOperand &MDO) {
           ConstMDToUint32(pSVDTupleMD->getOperand(1)));
       Record.SV_DispatchGrid.NumComponents =
           ConstMDToUint32(pSVDTupleMD->getOperand(2));
+    } break;
+    case DxilMDHelper::kDxilNodeRecordAlignmentTag: {
+      Record.alignment = ConstMDToUint32(MDO);
     } break;
     default:
       m_bExtraMetadata = true;
