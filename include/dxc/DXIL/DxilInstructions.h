@@ -8892,6 +8892,15 @@ struct DxilInst_CreateNodeOutputHandle {
   // Accessors
   llvm::Value *get_MetadataIdx() const { return Instr->getOperand(1); }
   void set_MetadataIdx(llvm::Value *val) { Instr->setOperand(1, val); }
+  int32_t get_MetadataIdx_val() const {
+    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(1))
+                         ->getZExtValue());
+  }
+  void set_MetadataIdx_val(int32_t val) {
+    Instr->setOperand(1, llvm::Constant::getIntegerValue(
+                             llvm::IntegerType::get(Instr->getContext(), 32),
+                             llvm::APInt(32, (uint64_t)val)));
+  }
 };
 
 /// This instruction returns the handle for the location in the output node
@@ -8981,6 +8990,15 @@ struct DxilInst_CreateNodeInputRecordHandle {
   // Accessors
   llvm::Value *get_MetadataIdx() const { return Instr->getOperand(1); }
   void set_MetadataIdx(llvm::Value *val) { Instr->setOperand(1, val); }
+  int32_t get_MetadataIdx_val() const {
+    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(1))
+                         ->getZExtValue());
+  }
+  void set_MetadataIdx_val(int32_t val) {
+    Instr->setOperand(1, llvm::Constant::getIntegerValue(
+                             llvm::IntegerType::get(Instr->getContext(), 32),
+                             llvm::APInt(32, (uint64_t)val)));
+  }
 };
 
 /// This instruction annotate handle with node record properties
