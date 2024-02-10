@@ -11144,6 +11144,50 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
+// Produce diagnostics for any system values attached to `FD` function
+// that are invalid for the `LaunchTy` launch type
+void Sema::DiagnoseSVForLaunchType(const FunctionDecl *FD,
+                                   DXIL::NodeLaunchType LaunchTy) {
+  // Validate Compute Shader system value inputs per launch mode
+  for (ParmVarDecl *param : FD->parameters()) {
+    for (const hlsl::UnusualAnnotation *it : param->getUnusualAnnotations()) {
+      if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
+        const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
+        // if the node launch type is Thread, then there are no system values
+        // allowed
+        if (LaunchTy == DXIL::NodeLaunchType::Thread) {
+          if (sd->SemanticName.startswith("SV_")) {
+            // emit diagnostic
+            unsigned DiagID = Diags.getCustomDiagID(
+                DiagnosticsEngine::Error,
+                "Invalid system value semantic '%0' for launchtype '%1'");
+            Diags.Report(param->getLocation(), DiagID)
+                << sd->SemanticName << "Thread";
+          }
+        }
+
+        // if the node launch type is Coalescing, then only
+        // SV_GroupIndex and SV_GroupThreadID are allowed
+        else if (LaunchTy == DXIL::NodeLaunchType::Coalescing) {
+          if (!(sd->SemanticName.equals("SV_GroupIndex") ||
+                sd->SemanticName.equals("SV_GroupThreadID"))) {
+            // emit diagnostic
+            unsigned DiagID = Diags.getCustomDiagID(
+                DiagnosticsEngine::Error,
+                "Invalid system value semantic '%0' for launchtype '%1'");
+            Diags.Report(param->getLocation(), DiagID)
+                << sd->SemanticName << "Coalescing";
+          }
+        }
+        // Broadcasting nodes allow all node shader system value semantics
+        else if (LaunchTy == DXIL::NodeLaunchType::Broadcasting) {
+          continue;
+        }
+      }
+    }
+  }
+}
+
 // Check HLSL member call constraints for used functions.
 void Sema::DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
                                            SourceLocation Loc,
@@ -15610,6 +15654,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
           }
         }
       }
+      S.DiagnoseSVForLaunchType(FD, NodeLaunchTy);
     }
   }
   return;
