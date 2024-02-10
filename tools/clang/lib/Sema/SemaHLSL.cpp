@@ -12283,6 +12283,10 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
     } else {
       if (ArgNum.isInt()) {
         value = ArgNum.getInt().getSExtValue();
+        if (!(E->getType()->isIntegralType(S.Context)) || value < 0) {
+          S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
+              << Attr.getName();
+        }
       } else if (ArgNum.isFloat()) {
         llvm::APSInt floatInt;
         bool isPrecise;
@@ -12290,17 +12294,17 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
                 floatInt, llvm::APFloat::rmTowardZero, &isPrecise) ==
             llvm::APFloat::opStatus::opOK) {
           value = floatInt.getSExtValue();
+          if (value < 0) {
+            S.Diag(Attr.getLoc(),
+                   diag::warn_hlsl_attribute_expects_uint_literal)
+                << Attr.getName();
+          }
         } else {
           S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
               << Attr.getName();
         }
       } else {
         displayError = true;
-      }
-
-      if (value < 0) {
-        S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
-            << Attr.getName();
       }
     }
 
@@ -12710,10 +12714,14 @@ HLSLWaveSizeAttr *ValidateWaveSizeAttributes(Sema &S, Decl *D,
   case DxilWaveSize::ValidationResult::InvalidMin:
   case DxilWaveSize::ValidationResult::InvalidMax:
   case DxilWaveSize::ValidationResult::InvalidPreferred:
+  case DxilWaveSize::ValidationResult::NoRangeOrMin:
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_size)
         << DXIL::kMinWaveSize << DXIL::kMaxWaveSize;
     break;
   case DxilWaveSize::ValidationResult::MaxEqualsMin:
+    S.Diag(A.getLoc(), diag::warn_hlsl_wavesize_min_eq_max)
+        << (unsigned)waveSize.Min << (unsigned)waveSize.Max;
+    break;
   case DxilWaveSize::ValidationResult::MaxLessThanMin:
     S.Diag(A.getLoc(), diag::err_hlsl_wavesize_min_geq_max)
         << (unsigned)waveSize.Min << (unsigned)waveSize.Max;
