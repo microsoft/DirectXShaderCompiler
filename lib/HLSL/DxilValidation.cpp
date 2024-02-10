@@ -3989,10 +3989,9 @@ static void ValidateWaveSize(ValidationContext &ValCtx,
       const MDOperand &propertyTagOp = EPropNode->getOperand(j);
       // note, we are only looking for tags, which will be a constant
       // integer
-      bool invalidPropertyTag =
-          propertyTagOp == nullptr || (propertyTagOp.get())->getMetadataID() !=
-                                          Metadata::ConstantAsMetadataKind;
-      DXASSERT(!invalidPropertyTag,
+      DXASSERT(!(propertyTagOp == nullptr ||
+                 (propertyTagOp.get())->getMetadataID() !=
+                     Metadata::ConstantAsMetadataKind),
                "tag operand should be a constant integer.");
 
       ConstantInt *tag = mdconst::extract<ConstantInt>(propertyTagOp);
