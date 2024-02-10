@@ -5396,7 +5396,9 @@ class db_dxil(object):
             [
                 retvoid_param,
                 db_dxil_param(2, "noderecordhandle", "object", "handle of object"),
-                db_dxil_param(3, "i32", "SemanticFlags", "semantic flags"),
+                db_dxil_param(
+                    3, "i32", "SemanticFlags", "semantic flags", is_const=True
+                ),
             ],
         )
         next_op_idx += 1

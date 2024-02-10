@@ -8856,6 +8856,15 @@ struct DxilInst_BarrierByNodeRecordHandle {
   void set_object(llvm::Value *val) { Instr->setOperand(1, val); }
   llvm::Value *get_SemanticFlags() const { return Instr->getOperand(2); }
   void set_SemanticFlags(llvm::Value *val) { Instr->setOperand(2, val); }
+  int32_t get_SemanticFlags_val() const {
+    return (int32_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))
+                         ->getZExtValue());
+  }
+  void set_SemanticFlags_val(int32_t val) {
+    Instr->setOperand(2, llvm::Constant::getIntegerValue(
+                             llvm::IntegerType::get(Instr->getContext(), 32),
+                             llvm::APInt(32, (uint64_t)val)));
+  }
 };
 
 /// This instruction Creates a handle to a NodeOutput
