@@ -35,69 +35,75 @@ using namespace hlsl;
 //
 // In summary, instructions are added that cause a "trace" of the execution of
 // the shader to be written out to a UAV. This trace is then used by a debugger
-// application to provide a post-mortem debugging experience that reconstructs
+// application to provide a postmortem debugging experience that reconstructs
 // the execution history of the shader.
 //
-// The trace is only required for a particular shader instance of interest, and
+// The instrumentation is added per basic block, and each block will then write
+// a contiguous sequence of values into the UAV.
+//
+// The trace is only required for particular shader instances of interest, and
 // a branchless mechanism is used to write the trace either to an incrementing
-// location within the UAV, or to a "dumping ground" area at the top of the UAV
-// if the instance is not of interest.
+// location within the UAV, or to a "dumping ground" area in the top half of the
+// UAV if the instance is not of interest.
+//
+// In addition, each half of the UAV is further subdivided: the first quarter is
+// the are in which blocks are permitted to start writing their sequence, and
+// that sequence is constrained to be no longer than the size of the second
+// quarter. This allows us to limit writes to the appropriate half of the UAV
+// via a single AND at the beginning of the basic block.
+//
+// Threads determine where to start writing their data by incrementing a DWORD
+// that lives at the very top of that thread's half of the UAV. This is done
+// because several threads may satisfy the selection criteria (e.g. a pixel
+// shader may be invoked several times for a given pixel coordinate if the model
+// has overlapping triangles).
 //
 // The following modifications are made:
 //
 // First, instructions are added to the top of the entry point function that
 // implement the following:
 // -  Examine the input variables that define the instance of the shader that is
-// running. This will
-//    be SV_Position for pixel shaders, SV_Vertex+SV_Instance for vertex
-//    shaders, thread id for compute shaders etc. If these system values need to
-//    be added to the shader, then they are also added to the input signature,
-//    if appropriate.
+//    running. This will be SV_Position for pixel shaders, SV_Vertex+SV_Instance
+//    for vertex shaders, thread id for compute shaders etc. If these system
+//    values need to be added to the shader, then they are also added to the
+//    input signature, if appropriate.
 // -  Compare the above variables with the instance of interest defined by the
-// invoker of this pass.
-//    Deduce two values: a multiplicand and an addend that together allow a
-//    branchless calculation of the offset into the UAV at which to write via
-//    "offset = offset * multiplicand + addend." If the instance is NOT of
-//    interest, the multiplicand is zero and the addend is sizeof(UAV)-(a little
-//    bit), causing writes for uninteresting invocations to end up at the top of
-//    the UAV. Otherwise the multiplicand is 1 and the addend is 0.
+//    invoker of this pass. If equal, create an AND value that will limit each
+//    block's starting writes to the lower quarter of the UAV. If not equal,
+//    the AND will limit the writes to the third quarter of the UAV.
 // -  Calculate an "instance identifier". Even with the above instance
-// identification, several invocations may
-//    end up matching the selection criteria. Specifically, this happens during
-//    a draw call in which many triangles overlap the pixel of interest. More on
-//    this below.
+//    identification, several invocations may end up matching the selection
+//    criteria. More on this below.
 //
-// During execution, the instrumentation for most instructions cause data to be
-// emitted to the UAV. The index at which data is written is identified by
-// treating the first uint32 of the UAV as an index which is atomically
-// incremented by the instrumentation. The very first value of this counter that
+// As mentioned, a counter/offset is maintained at the top of the thread's
+// half of the UAV. The very first value of this counter that
 // is encountered by each invocation is used as the "instance identifier"
 // mentioned above. That instance identifier is written out with each packet,
-// since many pixel shaders executing in parallel will emit interleaved packets,
-// and the debugger application uses the identifiers to group packets from each
+// since many threads executing in parallel will emit interleaved packets,
+// and the debugger application uses the identifiers to gather packets from each
 // separate invocation together.
 //
-// If an instruction has a non-void and primitive return type, i.e. isn't a
-// struct, then the instrumentation will write that value out to the UAV as well
-// as part of the "step" data packet.
-//
-// The limiting size of the UAV is enforced in a branchless way by ANDing the
-// offset with a precomputed value that is sizeof(UAV)-64. The actual size of
-// the UAV allocated by the caller is required to be a power of two plus 64 for
-// this reason. The caller detects UAV overrun by examining a canary value close
-// to the end of the power-of-two size of the UAV. If this value has been
-// overwritten, the debug session is deemed to have overflowed the UAV. The
-// caller will than allocate a UAV that is twice the size and try again, up to a
-// predefined maximum.
-
-// Keep these in sync with the same-named value in the debugger application's
-// WinPixShaderUtils.h
-
-constexpr uint64_t DebugBufferDumpingGroundSize = 64 * 1024;
-// The actual max size per record is much smaller than this, but it never
-// hurts to be generous.
-constexpr size_t CounterOffsetBeyondUsefulData =
-    DebugBufferDumpingGroundSize / 2;
+// In addition to the above, this pass creates a text precis of the structure
+// being written out for each basic block. This precis is passed back to the
+// caller, and can be used to parse the UAV output later. The precis will
+// contain notes about void-type instructions, which won't write anything to the
+// UAV, allowing the caller to reconstruct those instructions.
+// Some care has to be taken about whether to emit UAV writes after the
+// corresponding instruction or before. Terminators must emit their UAV data
+// before the terminator itself, of course. phi instructions get special
+// treatment also: their instrumentation has to come after (since phis must be
+// the first instructions in the block), but also the instrumentation must
+// execute in the same order as the precis specifies, or the caller will mix
+// up the phi values. We achieve this by saying that phi instrumentation must
+// come before the first non-phi instruction in the block.
+// Some blocks will have all-void instructions, so that no debugging
+// data is emitted at all. These blocks still produce a precis, and still
+// need to be noticed during execution, so an empty block header is emitted
+// into the UAV.
+// Lastly, since a sufficiently-large block is guaranteed to overflow the UAV,
+// the precis-creation can exit early and report an overflow condition to the
+// caller. The caller is expected to try to instrument again, with a larger
+// UAV.
 
 // These definitions echo those in the debugger application's
 // debugshaderrecord.h file
@@ -111,7 +117,10 @@ enum DebugShaderModifierRecordType {
   DebugShaderModifierRecordTypeRegisterRelativeIndex0,
   DebugShaderModifierRecordTypeRegisterRelativeIndex1,
   DebugShaderModifierRecordTypeRegisterRelativeIndex2,
-  DebugShaderModifierRecordTypeDXILStepAllocaRegWrite = 248,
+  // Note that everything above this line is no longer used, but is kept
+  // here in order to keep this file more in-sync with the debugger source.
+  // (As of this writing, the debugger still supports older versions of this
+  // pass which produced finer-grained debug packets.)
   DebugShaderModifierRecordTypeDXILStepBlock = 249,
   DebugShaderModifierRecordTypeDXILStepRet = 250,
   DebugShaderModifierRecordTypeDXILStepVoid = 251,
@@ -247,7 +256,7 @@ private:
   uint64_t m_UAVSize = 1024 * 1024;
   struct PerFunctionValues {
     CallInst *UAVHandle = nullptr;
-    Constant *CounterOffset = nullptr;
+    Instruction *CounterOffset = nullptr;
     Value *InvocationId = nullptr;
     // Together these two values allow branchless writing to the UAV. An
     // invocation of the shader is either of interest or not (e.g. it writes to
@@ -261,9 +270,10 @@ private:
     // This will either be zero (if the invocation is of interest) or
     // (UAVSize)-(SmallValue) if not.
     Value *OffsetAddend = nullptr;
-    Constant *OffsetMask = nullptr;
+    Instruction *OffsetMask = nullptr;
     Value *SelectionCriterion = nullptr;
     Value *CurrentIndex = nullptr;
+    std::vector<BasicBlock *> AddedBlocksToIgnoreForInstrumentation;
   };
   std::map<llvm::Function *, PerFunctionValues> m_FunctionToValues;
 
@@ -304,6 +314,7 @@ private:
   Value *addComparePrimitiveIdProlog(BuilderContext &BC, unsigned SVIndices);
   uint32_t addDebugEntryValue(BuilderContext &BC, Value *TheValue);
   void addInvocationStartMarker(BuilderContext &BC);
+  void determineLimitANDAndInitializeCounter(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
   std::optional<InstructionAndType> addStoreStepDebugEntry(BuilderContext *BC,
                                                            StoreInst *Inst);
@@ -345,7 +356,7 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O) {
 }
 
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
-  return static_cast<uint32_t>(m_UAVSize - DebugBufferDumpingGroundSize);
+  return static_cast<uint32_t>(m_UAVSize / 2);
 }
 
 static unsigned FindOrAddInputSignatureElement(
@@ -696,21 +707,97 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
     assert(false); // guaranteed by runOnModule
   }
 
-  // This is a convenient place to calculate the values that modify the UAV
-  // offset for invocations of interest and for UAV size.
   auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
-  values.OffsetMultiplicand =
-      BC.Builder.CreateCast(Instruction::CastOps::ZExt, ParameterTestResult,
-                            Type::getInt32Ty(BC.Ctx), "OffsetMultiplicand");
-  auto InverseOffsetMultiplicand =
-      BC.Builder.CreateSub(BC.HlslOP->GetU32Const(1), values.OffsetMultiplicand,
-                           "ComplementOfMultiplicand");
-  values.OffsetAddend =
-      BC.Builder.CreateMul(BC.HlslOP->GetU32Const(UAVDumpingGroundOffset()),
-                           InverseOffsetMultiplicand, "OffsetAddend");
-  values.OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
-
   values.SelectionCriterion = ParameterTestResult;
+}
+
+void DxilDebugInstrumentation::determineLimitANDAndInitializeCounter(
+    BuilderContext &BC) {
+
+  auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+
+  // Split the block at the current insertion point. Insert a conditional
+  // branch that will invoke one of two new blocks depending on if this
+  // is a thread-of-interest. The two different classes of thread will
+  // then be given different limiting AND values within these new
+  // blocks.
+
+  BasicBlock *RestOfMainBlock = BC.Builder.GetInsertBlock()->splitBasicBlock(
+      *BC.Builder.GetInsertPoint());
+
+  // Up to this split point is a new block that we don't need to instrument:
+  values.AddedBlocksToIgnoreForInstrumentation.push_back(
+      BC.Builder.GetInsertBlock());
+
+  auto *InterestingInvocationBlock = BasicBlock::Create(
+      BC.Ctx, "PIXInterestingBlock", BC.Builder.GetInsertBlock()->getParent(),
+      RestOfMainBlock);
+  values.AddedBlocksToIgnoreForInstrumentation.push_back(
+      InterestingInvocationBlock);
+  IRBuilder<> BuilderForInteresting(InterestingInvocationBlock);
+  BuilderForInteresting.CreateBr(RestOfMainBlock);
+
+  // The non-interesting branch will create a store into the counter
+  // (right at the end of the UAV) that initializes that value to
+  // point to the very middle of the UAV. That offset, and everything
+  // above it, is considered the "dumping ground". The fact that many
+  // threads may overwrite this value is of no concern, though, cuz
+  // we aren't interested in the debug output of those threads.
+  auto *NonInterestingInvocationBlock = BasicBlock::Create(
+      BC.Ctx, "PIXNonInterestingBlock",
+      BC.Builder.GetInsertBlock()->getParent(), RestOfMainBlock);
+  values.AddedBlocksToIgnoreForInstrumentation.push_back(
+      NonInterestingInvocationBlock);
+  IRBuilder<> BuilderForNonInteresting(NonInterestingInvocationBlock);
+  Function *StoreValue =
+      BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(BC.Ctx));
+  Constant *StoreValueOpcode =
+      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
+  UndefValue *Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
+  Constant *WriteMask_X = BC.HlslOP->GetI8Const(1);
+  Constant *UninterestingCounterOffset =
+      BC.HlslOP->GetI32Const(m_UAVSize - sizeof(uint32_t));
+  Constant *HalfTheUAV = BC.HlslOP->GetI32Const(m_UAVSize / 2);
+  (void)BuilderForNonInteresting.CreateCall(
+      StoreValue,
+      {StoreValueOpcode,           // i32 opcode
+       values.UAVHandle,           // %dx.types.Handle, ; resource handle
+       UninterestingCounterOffset, // i32 c0: index in bytes into UAV
+       Undef32Arg,                 // i32 c1: unused
+       HalfTheUAV,                 // Value to be stored
+       Undef32Arg,                 // unused values
+       Undef32Arg,                 // unused values
+       Undef32Arg,                 // unused values
+       WriteMask_X});
+  BuilderForNonInteresting.CreateBr(RestOfMainBlock);
+
+  // Connect these new blocks as necessary:
+  BC.Builder.SetInsertPoint(BC.Builder.GetInsertBlock()->getTerminator());
+  BC.Builder.CreateCondBr(values.SelectionCriterion, InterestingInvocationBlock,
+                          NonInterestingInvocationBlock);
+  BC.Builder.GetInsertBlock()->getTerminator()->eraseFromParent();
+
+  // Now add a phi that selects between two constant AND values based on
+  // which branch the thread followed above (interesting or not), and another
+  // that is the offset of the thread's counter.
+  // (The former will limit the offsets at which data are written into the UAV.)
+  BC.Builder.SetInsertPoint(RestOfMainBlock->getFirstInsertionPt());
+  auto *PHIForMask =
+      BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXOffsetMask");
+  PHIForMask->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize / 4 - 1),
+                          InterestingInvocationBlock);
+  PHIForMask->addIncoming(
+      BC.HlslOP->GetU32Const(m_UAVSize / 4 - 1 + m_UAVSize / 2),
+      NonInterestingInvocationBlock);
+  values.OffsetMask = PHIForMask;
+
+  auto *PHIForCounterOffset =
+      BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXCounterLocation");
+  PHIForCounterOffset->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize / 2 - 1),
+                                   InterestingInvocationBlock);
+  PHIForCounterOffset->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize - 1),
+                                   NonInterestingInvocationBlock);
+  values.CounterOffset = PHIForCounterOffset;
 }
 
 void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
@@ -730,11 +817,7 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
       BC.HlslOP->GetU32Const((unsigned)DXIL::AtomicBinOpCode::Add);
   UndefValue *UndefArg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
 
-  // so inc will be zero for uninteresting invocations:
   Constant *Increment = BC.HlslOP->GetU32Const(SpaceInBytes);
-  Value *IncrementForThisInvocation = BC.Builder.CreateMul(
-      Increment, values.OffsetMultiplicand, "IncrementForThisInvocation");
-
   auto PreviousValue = BC.Builder.CreateCall(
       AtomicOpFunc,
       {
@@ -742,10 +825,10 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
           values.UAVHandle, // %dx.types.Handle, ; resource handle
           AtomicAdd, // i32, ; binary operation code : EXCHANGE, IADD, AND, OR,
                      // XOR, IMIN, IMAX, UMIN, UMAX
-          values.CounterOffset,       // i32, ; coordinate c0: index in bytes
-          UndefArg,                   // i32, ; coordinate c1 (unused)
-          UndefArg,                   // i32, ; coordinate c2 (unused)
-          IncrementForThisInvocation, // i32); increment value
+          values.CounterOffset, // i32, ; coordinate c0: index in bytes
+          UndefArg,             // i32, ; coordinate c1 (unused)
+          UndefArg,             // i32, ; coordinate c2 (unused)
+          Increment,            // i32); increment value
       },
       "UAVIncResult");
 
@@ -753,16 +836,8 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
     values.InvocationId = PreviousValue;
   }
 
-  auto MaskedForLimit = BC.Builder.CreateAnd(PreviousValue, values.OffsetMask,
+  values.CurrentIndex = BC.Builder.CreateAnd(PreviousValue, values.OffsetMask,
                                              "MaskedForUAVLimit");
-  // The return value will either end up being itself (multiplied by one and
-  // added with zero) or the "dump uninteresting things here" value of (UAVSize
-  // - a bit).
-  auto MultipliedForInterest = BC.Builder.CreateMul(
-      MaskedForLimit, values.OffsetMultiplicand, "MultipliedForInterest");
-  auto AddedForInterest = BC.Builder.CreateAdd(
-      MultipliedForInterest, values.OffsetAddend, "AddedForInterest");
-  values.CurrentIndex = AddedForInterest;
 }
 
 uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
@@ -1280,9 +1355,9 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
 }
 
 bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
-                                             llvm::Function *entryFunction) {
+                                             llvm::Function *function) {
   DXIL::ShaderKind shaderKind =
-      PIXPassHelpers::GetFunctionShaderKind(DM, entryFunction);
+      PIXPassHelpers::GetFunctionShaderKind(DM, function);
 
   switch (shaderKind) {
   case DXIL::ShaderKind::Amplification:
@@ -1303,27 +1378,7 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
     return false;
   }
 
-  // First record pointers to all instructions in the function:
-  auto &StartingBasicBlocksRef = entryFunction->getBasicBlockList();
-  std::vector<BasicBlock *> AllBasicBlocks;
-  for (auto &bb : StartingBasicBlocksRef)
-    AllBasicBlocks.push_back(&bb);
-
-  // Branchless instrumentation requires taking care of a few things:
-  // -Each invocation of the shader will be either of interest or not of
-  // interest
-  //    -If of interest, the offset into the output UAV will be as expected
-  //    -If not, the offset is forced to (UAVsize) - (Small Amount), and that
-  //    output is ignored by the CPU-side code.
-  // -The invocation of interest may overflow the UAV. This is handled by
-  // taking the modulus of the
-  //  output index. Overflow is then detected on the CPU side by checking for
-  //  the presence of a canary value at (UAVSize) - (Small Amount) * 2 (which
-  //  is actually a conservative definition of overflow).
-  //
-
-  Instruction *firstInsertionPt =
-      dxilutil::FirstNonAllocaInsertionPt(entryFunction);
+  Instruction *firstInsertionPt = dxilutil::FirstNonAllocaInsertionPt(function);
   IRBuilder<> Builder(firstInsertionPt);
 
   LLVMContext &Ctx = M.getContext();
@@ -1352,68 +1407,71 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
 
   values.UAVHandle = PIXPassHelpers::CreateUAV(DM, Builder, UAVRegisterId,
                                                "PIX_DebugUAV_Handle");
-  values.CounterOffset = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() +
-                                                CounterOffsetBeyondUsefulData);
 
   auto SystemValues = addRequiredSystemValues(BC, shaderKind);
   addInvocationSelectionProlog(BC, SystemValues, shaderKind);
+  determineLimitANDAndInitializeCounter(BC);
   addInvocationStartMarker(BC);
 
   // Instrument original instructions:
-  for (auto &BB : AllBasicBlocks) {
-    auto BlockInstrumentation =
-        FindInstrumentableInstructionsInBlock(*BB, BC.HlslOP);
+  for (auto &BB : function->getBasicBlockList()) {
+    if (std::find(values.AddedBlocksToIgnoreForInstrumentation.begin(),
+                  values.AddedBlocksToIgnoreForInstrumentation.end(),
+                  &BB) == values.AddedBlocksToIgnoreForInstrumentation.end()) {
+      auto BlockInstrumentation =
+          FindInstrumentableInstructionsInBlock(BB, BC.HlslOP);
 
-    uint32_t BlockPayloadBytes =
-        CountBlockPayloadBytes(BlockInstrumentation.Instructions);
-    // If the block has no instructions which require debug output,
-    // we will still write an empty block header at the end of that
-    // block (i.e. before the terminator) so that the instrumentation
-    // at least indicates that flow control went through the block.
-    Instruction *BlockInstrumentationStart = (*BB).getTerminator();
-    if (!BlockInstrumentation.Instructions.empty()) {
-      auto const &First = BlockInstrumentation.Instructions[0];
-      if (First.InstructionAfterWhichToAddInstrumentation != nullptr)
-        BlockInstrumentationStart =
-            First.InstructionAfterWhichToAddInstrumentation;
-      else if (First.InstructionBeforeWhichToAddInstrumentation != nullptr)
-        BlockInstrumentationStart =
-            First.InstructionBeforeWhichToAddInstrumentation;
-      else {
-        assert(false);
-        continue;
+      uint32_t BlockPayloadBytes =
+          CountBlockPayloadBytes(BlockInstrumentation.Instructions);
+      // If the block has no instructions which require debug output,
+      // we will still write an empty block header at the end of that
+      // block (i.e. before the terminator) so that the instrumentation
+      // at least indicates that flow control went through the block.
+      Instruction *BlockInstrumentationStart = (BB).getTerminator();
+      if (!BlockInstrumentation.Instructions.empty()) {
+        auto const &First = BlockInstrumentation.Instructions[0];
+        if (First.InstructionAfterWhichToAddInstrumentation != nullptr)
+          BlockInstrumentationStart =
+              First.InstructionAfterWhichToAddInstrumentation;
+        else if (First.InstructionBeforeWhichToAddInstrumentation != nullptr)
+          BlockInstrumentationStart =
+              First.InstructionBeforeWhichToAddInstrumentation;
+        else {
+          assert(false);
+          continue;
+        }
       }
-    }
-    IRBuilder<> Builder(BlockInstrumentationStart);
-    BuilderContext BCForBlock{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
+      IRBuilder<> Builder(BlockInstrumentationStart);
+      BuilderContext BCForBlock{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
 
-    DebugShaderModifierRecordDXILBlock step = {};
-    auto FullRecordSize = sizeof(step) + BlockPayloadBytes;
-    reserveDebugEntrySpace(BCForBlock, FullRecordSize);
-    step.Header.Details.CountOfInstructions =
-        static_cast<uint16_t>(BlockInstrumentation.Instructions.size());
-    step.Header.Details.Type =
-        static_cast<uint8_t>(DebugShaderModifierRecordTypeDXILStepBlock);
-    addDebugEntryValue(BCForBlock,
-                       BCForBlock.HlslOP->GetU32Const(step.Header.u32Header));
-    addDebugEntryValue(BCForBlock, values.InvocationId);
-    addDebugEntryValue(
-        BCForBlock, BCForBlock.HlslOP->GetU32Const(
-                        BlockInstrumentation.FirstInstructionOrdinalInBlock));
-    for (auto &Inst : BlockInstrumentation.Instructions) {
-      Instruction *BuilderInstruction;
-      if (Inst.InstructionAfterWhichToAddInstrumentation != nullptr)
-        BuilderInstruction =
-            Inst.InstructionAfterWhichToAddInstrumentation->getNextNode();
-      else if (Inst.InstructionBeforeWhichToAddInstrumentation != nullptr)
-        BuilderInstruction = Inst.InstructionBeforeWhichToAddInstrumentation;
-      else {
-        assert(false);
-        continue;
+      DebugShaderModifierRecordDXILBlock step = {};
+      auto FullRecordSize = sizeof(step) + BlockPayloadBytes;
+      reserveDebugEntrySpace(BCForBlock, FullRecordSize);
+      step.Header.Details.CountOfInstructions =
+          static_cast<uint16_t>(BlockInstrumentation.Instructions.size());
+      step.Header.Details.Type =
+          static_cast<uint8_t>(DebugShaderModifierRecordTypeDXILStepBlock);
+      addDebugEntryValue(BCForBlock,
+                         BCForBlock.HlslOP->GetU32Const(step.Header.u32Header));
+      addDebugEntryValue(BCForBlock, values.InvocationId);
+      addDebugEntryValue(
+          BCForBlock, BCForBlock.HlslOP->GetU32Const(
+                          BlockInstrumentation.FirstInstructionOrdinalInBlock));
+      for (auto &Inst : BlockInstrumentation.Instructions) {
+        Instruction *BuilderInstruction;
+        if (Inst.InstructionAfterWhichToAddInstrumentation != nullptr)
+          BuilderInstruction =
+              Inst.InstructionAfterWhichToAddInstrumentation->getNextNode();
+        else if (Inst.InstructionBeforeWhichToAddInstrumentation != nullptr)
+          BuilderInstruction = Inst.InstructionBeforeWhichToAddInstrumentation;
+        else {
+          assert(false);
+          continue;
+        }
+        IRBuilder<> Builder(BuilderInstruction);
+        BuilderContext BC2{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
+        addDebugEntryValue(BC2, Inst.ValueToWriteToDebugMemory);
       }
-      IRBuilder<> Builder(BuilderInstruction);
-      BuilderContext BC2{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
-      addDebugEntryValue(BC2, Inst.ValueToWriteToDebugMemory);
     }
   }
 

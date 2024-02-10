@@ -2,7 +2,7 @@
 
 // Check that the basic starting header is present:
 
-// CHECK: %PIX_DebugUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false)
+// CHECK: %PIX_DebugUAV_Handle = call %dx.types.Handle @dx.op.crea teHandle(i32 57, i8 1, i32 0, i32 0, i1 false)
 // CHECK: %XPos = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)
 // CHECK: %YPos = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1, i32 undef)
 // CHECK: %XIndex = fptoui float %XPos to i32

@@ -131,6 +131,8 @@ public:
 
   TEST_METHOD(DxilPIXDXRInvocationsLog_SanityTest)
 
+  TEST_METHOD(DebugInstrumentation_Basic)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -173,6 +175,29 @@ public:
     std::vector<LPCWSTR> Options;
     Options.push_back(L"-opt-mod-passes");
     Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    std::string outputText;
+    if (pText->GetBufferSize() != 0) {
+      outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
+    }
+
+    return {
+        std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
+  }
+
+  PassOutput RunValueToDeclareAndDebugPass(IDxcBlob *dxil, int startingLineNumber = 0) {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+    Options.push_back(L"-hlsl-dxil-debug-instrumentation");
 
     CComPtr<IDxcBlob> pOptimizedModule;
     CComPtr<IDxcBlobEncoding> pText;
@@ -2569,4 +2594,15 @@ void MyMiss(inout MyPayload payload)
 
   auto compiledLib = Compile(m_dllSupport, source, L"lib_6_6", {});
   RunDxilPIXDXRInvocationsLog(compiledLib);
+}
+
+TEST_F(PixTest, DebugInstrumentation_Basic) {
+
+  const char *source = R"x(
+float4 main() : SV_Target {
+    return float4(0,0,0,0);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+  auto output = RunValueToDeclareAndDebugPass(compiled);
 }
