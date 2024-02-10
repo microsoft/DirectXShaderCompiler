@@ -3938,6 +3938,11 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   return getBuiltinVar(builtIn, type, sc, loc);
 }
 
+SpirvFunction *
+DeclResultIdMapper::getRayTracingStageVarEntryFunction(SpirvVariable *var) {
+  return rayTracingStageVarToEntryPoints[var];
+}
+
 SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     StageVar *stageVar, const NamedDecl *decl, const llvm::StringRef name,
     SourceLocation srcLoc) {
@@ -4541,6 +4546,8 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
   default:
     assert(false && "Unsupported SPIR-V storage class for raytracing");
   }
+
+  rayTracingStageVarToEntryPoints[retVal] = entryFunction;
 
   return retVal;
 }

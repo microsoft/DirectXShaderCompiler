@@ -1,5 +1,8 @@
 // RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2 -fvk-use-gl-layout -fcgl  %s -spirv | FileCheck %s
 
+// CHECK: OpEntryPoint ClosestHitNV %chs1 "chs1" %cbuf %block %P %A
+// CHECK: OpEntryPoint ClosestHitNV %chs2 "chs2" %cbuf %block %P_0 %A_0
+
 // CHECK: OpDecorate %_arr_v2float_uint_3 ArrayStride 8
 // CHECK: OpDecorate %_arr_mat3v2float_uint_2 ArrayStride 32
 // CHECK: OpDecorate %_arr_v2int_uint_3 ArrayStride 8

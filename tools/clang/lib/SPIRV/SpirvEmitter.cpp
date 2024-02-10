@@ -757,6 +757,11 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   for (auto *moduleVar : spvBuilder.getModule()->getVariables()) {
     if (moduleVar->getStorageClass() != spv::StorageClass::Input &&
         moduleVar->getStorageClass() != spv::StorageClass::Output) {
+      if (auto *varEntry =
+              declIdMapper.getRayTracingStageVarEntryFunction(moduleVar)) {
+        if (varEntry != entryPoint)
+          continue;
+      }
       interfaces.insert(moduleVar);
     }
   }
