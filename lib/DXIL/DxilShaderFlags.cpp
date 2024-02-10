@@ -46,7 +46,7 @@ ShaderFlags::ShaderFlags()
       m_bAtomicInt64OnHeapResource(false), m_bResMayNotAlias(false),
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
       m_bWaveMMA(false), m_bSampleCmpGradientOrBias(false),
-      m_bExtendedCommandInfo(false), m_align1(0) {
+      m_bExtendedCommandInfo(false), m_bUsesDerivatives(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
@@ -134,6 +134,8 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
                ? hlsl::DXIL::ShaderFeatureInfo_ExtendedCommandInfo
                : 0;
 
+  Flags |= m_bUsesDerivatives ? hlsl::DXIL::OptFeatureInfo_UsesDerivatives : 0;
+
   return Flags;
 }
 
@@ -196,6 +198,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetWaveMMA(true);
   Flags.SetSampleCmpGradientOrBias(true);
   Flags.SetExtendedCommandInfo(true);
+  Flags.SetUsesDerivatives(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -388,6 +391,21 @@ static bool hasSampleClamp(const CallInst *CI) {
 
 ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
                                             const hlsl::DxilModule *M) {
+  // NOTE: This function is meant to compute shader flags for a single function,
+  // potentially not knowing the final shader stage for the entry that may call
+  // this function.
+  // As such, do not depend on the shader model in the module, except for
+  // compatibility purposes.  Doing so will fail to encode flags properly for
+  // libraries.  The real, final shader flags will be adjusted after walking
+  // called functions and combining flags.
+  // For example, the use of derivatives impacts an optional flag when used from
+  // a mesh or amplification shader.  It also impacts the minimum shader model
+  // for a compute shader. We do not make assumptions about that context here.
+  // Instead, we simply set a new UsesDerivatives flag to indicate that
+  // derivatives are used, then rely on AdjustMinimumShaderModelAndFlags to set
+  // the final flags correctly once we've merged all called functions.
+  // Place module-level detection in DxilModule::CollectShaderFlagsForModule.
+
   ShaderFlags flag;
   // Module level options
   flag.SetUseNativeLowPrecision(!M->GetUseMinPrecision());
@@ -420,15 +438,20 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasSamplerDescriptorHeapIndexing = false;
   bool hasAtomicInt64OnHeapResource = false;
 
-  // Used to determine whether to set ResMayNotAlias flag.
-  bool hasUAVs = M->GetUAVs().size() > 0;
+  bool hasUAVsGlobally = M->GetUAVs().size() > 0;
 
   bool hasAdvancedTextureOps = false;
-  bool hasWriteableMSAATextures = false;
   bool hasSampleCmpGradientOrBias = false;
 
   bool hasWaveMMA = false;
   bool hasExtendedCommandInfo = false;
+
+  // UsesDerivatives is used to indicate any derivative use per-function, before
+  // flags are combined from called functions. Later, the flags are adjusted for
+  // each entry point function in AdjustMinimumShaderModelAndFlags.  This will
+  // set DerivativesInMeshAndAmpShaders if the entry point function or shader
+  // model is mesh or amplification shader.
+  bool hasDerivatives = false;
 
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
@@ -444,11 +467,28 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool canSetResMayNotAlias =
       DXIL::CompareVersions(dxilMajor, dxilMinor, 1, 7) >= 0;
 
-  // HasLodClamp is only enabled after v1.8 validator.
-  bool canSetHasLodClamp = DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
+  // Use of LodClamp requires tiled resources, but a bug in validator 1.7 and
+  // lower didn't recognize this.  So, if validator version < 1.8, don't set
+  // tiled resources flag based on LodClamp.
+  bool canSetTiledResourcesBasedOnLodClamp =
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) >= 0;
+
+  // Used to determine whether to set ResMayNotAlias flag.
+  // Prior to validator version 1.8, we based this on global presence of UAVs.
+  // Now, we base it on the use of UAVs in the function.
+  bool hasUAVs = DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0
+                     ? hasUAVsGlobally
+                     : false;
 
   Type *int16Ty = Type::getInt16Ty(F->getContext());
   Type *int64Ty = Type::getInt64Ty(F->getContext());
+
+  // Before validator version 1.8, we set the WriteableMSAATextures flag based
+  // on the presence of RWTexture2DMS[Array] resources in the module.
+  bool setWriteableMSAATextures_1_7 =
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0;
+  bool hasWriteableMSAATextures_1_7 = false;
+  bool hasWriteableMSAATextures = false;
 
   // Set up resource to binding handle map for 64-bit atomics usage
   std::unordered_map<ResourceKey, DxilResource *, ResKeyHash, ResKeyEq> resMap;
@@ -456,10 +496,33 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
     ResourceKey key = {(uint8_t)res->GetClass(), res->GetSpaceID(),
                        res->GetLowerBound(), res->GetUpperBound()};
     resMap.insert({key, res.get()});
+
+    // The flag was set for this function if any RWTexture2DMS[Array] resources
+    // existed in the module.  Now, for compatibility, we need to track this
+    // flag so we can set it if validator version is < 1.8.
     if (res->GetKind() == DXIL::ResourceKind::Texture2DMS ||
         res->GetKind() == DXIL::ResourceKind::Texture2DMSArray)
-      hasWriteableMSAATextures = true;
+      hasWriteableMSAATextures_1_7 = true;
   }
+
+  auto checkUsedResourceProps = [&](DxilResourceProperties RP) {
+    if (hasUAVs && hasWriteableMSAATextures)
+      return;
+    if (RP.isUAV()) {
+      hasUAVs = true;
+      if (RP.getResourceKind() == DXIL::ResourceKind::Texture2DMS ||
+          RP.getResourceKind() == DXIL::ResourceKind::Texture2DMSArray)
+        hasWriteableMSAATextures = true;
+    }
+  };
+  auto checkUsedHandle = [&](Value *resHandle) {
+    if (hasUAVs && hasWriteableMSAATextures)
+      return;
+    CallInst *handleCall = FindCallToCreateHandle(resHandle);
+    DxilResourceProperties RP =
+        GetResourcePropertyFromHandleCall(M, handleCall);
+    checkUsedResourceProps(RP);
+  };
 
   for (const BasicBlock &BB : F->getBasicBlockList()) {
     for (const Instruction &I : BB.getInstList()) {
@@ -618,9 +681,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::DerivCoarseX:
         case DXIL::OpCode::DerivCoarseY:
         case DXIL::OpCode::CalculateLOD: {
-          const ShaderModel *pSM = M->GetShaderModel();
-          if (pSM->IsAS() || pSM->IsMS())
-            hasDerivativesInMeshAndAmpShaders = true;
+          hasDerivatives = true;
         } break;
         case DXIL::OpCode::CreateHandleFromHeap: {
           ConstantInt *isSamplerVal = dyn_cast<ConstantInt>(CI->getArgOperand(
@@ -638,7 +699,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
             }
           }
         } break;
+        case DXIL::OpCode::CreateHandle:
+        case DXIL::OpCode::CreateHandleForLib:
+        case DXIL::OpCode::AnnotateHandle:
+          checkUsedHandle(const_cast<CallInst *>(CI));
+          break;
         case DXIL::OpCode::TextureStoreSample:
+          hasWriteableMSAATextures_1_7 = true;
           hasWriteableMSAATextures = true;
           LLVM_FALLTHROUGH;
         case DXIL::OpCode::SampleCmpLevel:
@@ -730,28 +797,22 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         break;
       }
     }
+
+    // If we know this function is MS or AS, go ahead and set this flag now.
+    if (hasDerivatives &&
+        (entryProps.props.IsMS() || entryProps.props.IsAS())) {
+      hasDerivativesInMeshAndAmpShaders = true;
+    }
   }
 
-  if (!hasRaytracingTier1_1) {
-    if (const DxilSubobjects *pSubobjects = M->GetSubobjects()) {
-      for (const auto &it : pSubobjects->GetSubobjects()) {
-        switch (it.second->GetKind()) {
-        case DXIL::SubobjectKind::RaytracingPipelineConfig1:
-          hasRaytracingTier1_1 = true;
-          break;
-        case DXIL::SubobjectKind::StateObjectConfig: {
-          uint32_t Flags;
-          if (it.second->GetStateObjectConfig(Flags) &&
-              ((Flags & ~(unsigned)DXIL::StateObjectFlags::ValidMask_1_4) != 0))
-            hasRaytracingTier1_1 = true;
-        } break;
-        default:
-          break;
-        }
-        if (hasRaytracingTier1_1)
-          break;
-      }
-    }
+  if (hasDerivatives && DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0) {
+    // Before validator version 1.8, UsesDerivatives flag was not set, and we
+    // set the DerivativesInMeshAndAmpShaders only if the shader model in the
+    // module is mesh or amplification.
+    hasDerivatives = false;
+    const ShaderModel *SM = M->GetShaderModel();
+    if (!(SM->IsMS() || SM->IsAS()))
+      hasDerivativesInMeshAndAmpShaders = false;
   }
 
   flag.SetEnableDoublePrecision(hasDouble);
@@ -762,7 +823,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetEnableDoubleExtensions(hasDoubleExtension);
   flag.SetWaveOps(hasWaveOps);
   flag.SetTiledResources(hasCheckAccessFully ||
-                         (canSetHasLodClamp && hasLodClamp));
+                         (canSetTiledResourcesBasedOnLodClamp && hasLodClamp));
   flag.SetEnableMSAD(hasMSAD);
   flag.SetUAVLoadAdditionalFormats(hasMulticomponentUAVLoads);
   flag.SetViewID(hasViewID);
@@ -778,13 +839,16 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetSamplerDescriptorHeapIndexing(hasSamplerDescriptorHeapIndexing);
   flag.SetAtomicInt64OnHeapResource(hasAtomicInt64OnHeapResource);
   flag.SetAdvancedTextureOps(hasAdvancedTextureOps);
-  flag.SetWriteableMSAATextures(hasWriteableMSAATextures);
+  flag.SetWriteableMSAATextures(setWriteableMSAATextures_1_7
+                                    ? hasWriteableMSAATextures_1_7
+                                    : hasWriteableMSAATextures);
   flag.SetWaveMMA(hasWaveMMA);
   // Only bother setting the flag when there are UAVs.
   flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
                          !M->GetResMayAlias());
   flag.SetSampleCmpGradientOrBias(hasSampleCmpGradientOrBias);
   flag.SetExtendedCommandInfo(hasExtendedCommandInfo);
+  flag.SetUsesDerivatives(hasDerivatives);
 
   return flag;
 }
