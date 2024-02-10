@@ -624,6 +624,7 @@ private:
                        unsigned &payloadSizeInBytes);
 
   llvm::MDTuple *EmitDxilNodeIOState(const NodeIOProperties &Node);
+  llvm::MDTuple *EmitDxilNodeRecordType(const NodeRecordType &RecordType);
   hlsl::NodeIOProperties LoadDxilNodeIOState(const llvm::MDOperand &MDO);
   hlsl::NodeRecordType LoadDxilNodeRecordType(const llvm::MDOperand &MDO);
 

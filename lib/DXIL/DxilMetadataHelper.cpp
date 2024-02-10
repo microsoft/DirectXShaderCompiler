@@ -2756,6 +2756,27 @@ void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
 }
 
 llvm::MDTuple *
+DxilMDHelper::EmitDxilNodeRecordType(const NodeRecordType &RecordType) {
+  vector<Metadata *> MDVals;
+  MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeRecordSizeTag));
+  MDVals.emplace_back(Uint32ToConstMD(RecordType.size));
+
+  if (RecordType.SV_DispatchGrid.NumComponents) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeSVDispatchGridTag));
+    vector<Metadata *> SVDispatchGridVals;
+    SVDispatchGridVals.emplace_back(
+        Uint32ToConstMD(RecordType.SV_DispatchGrid.ByteOffset));
+    SVDispatchGridVals.emplace_back(Uint32ToConstMD(
+        static_cast<unsigned>(RecordType.SV_DispatchGrid.ComponentType)));
+    SVDispatchGridVals.emplace_back(
+        Uint32ToConstMD(RecordType.SV_DispatchGrid.NumComponents));
+    MDVals.emplace_back(MDNode::get(m_Ctx, SVDispatchGridVals));
+  }
+  return MDNode::get(m_Ctx, MDVals);
+}
+
+llvm::MDTuple *
 DxilMDHelper::EmitDxilNodeIOState(const hlsl::NodeIOProperties &Node) {
   vector<Metadata *> MDVals;
   MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeIOFlagsTag));
@@ -2763,24 +2784,7 @@ DxilMDHelper::EmitDxilNodeIOState(const hlsl::NodeIOProperties &Node) {
 
   if (Node.RecordType.size) {
     MDVals.emplace_back(Uint32ToConstMD(DxilMDHelper::kDxilNodeRecordTypeTag));
-    vector<Metadata *> NodeRecordTypeVals;
-    NodeRecordTypeVals.emplace_back(
-        Uint32ToConstMD(DxilMDHelper::kDxilNodeRecordSizeTag));
-    NodeRecordTypeVals.emplace_back(Uint32ToConstMD(Node.RecordType.size));
-    // If the record has a SV_DispatchGrid field
-    if (Node.RecordType.SV_DispatchGrid.NumComponents) {
-      NodeRecordTypeVals.emplace_back(
-          Uint32ToConstMD(DxilMDHelper::kDxilNodeSVDispatchGridTag));
-      vector<Metadata *> SVDispatchGridVals;
-      SVDispatchGridVals.emplace_back(
-          Uint32ToConstMD(Node.RecordType.SV_DispatchGrid.ByteOffset));
-      SVDispatchGridVals.emplace_back(Uint32ToConstMD(static_cast<unsigned>(
-          Node.RecordType.SV_DispatchGrid.ComponentType)));
-      SVDispatchGridVals.emplace_back(
-          Uint32ToConstMD(Node.RecordType.SV_DispatchGrid.NumComponents));
-      NodeRecordTypeVals.emplace_back(MDNode::get(m_Ctx, SVDispatchGridVals));
-    }
-    MDVals.emplace_back(MDNode::get(m_Ctx, NodeRecordTypeVals));
+    MDVals.emplace_back(EmitDxilNodeRecordType(Node.RecordType));
   }
 
   if (Node.Flags.IsOutputNode()) {
