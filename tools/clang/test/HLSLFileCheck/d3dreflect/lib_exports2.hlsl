@@ -65,8 +65,8 @@ void RayGen() {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 128
-// CHECK:       MinShaderTarget: 458851
+// CHECK:       ShaderStageFlag: (RayGeneration)
+// CHECK:       MinShaderTarget: 0x70063
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
@@ -83,8 +83,8 @@ void RayGen() {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 65535
-// CHECK:       MinShaderTarget: 393312
+// CHECK:       ShaderStageFlag: (Pixel | Vertex | Geometry | Hull | Domain | Compute | Library | RayGeneration | Intersection | AnyHit | ClosestHit | Miss | Callable | Mesh | Amplification | Node)
+// CHECK:       MinShaderTarget: 0x60060
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
@@ -101,8 +101,8 @@ void RayGen() {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 128
-// CHECK:       MinShaderTarget: 458851
+// CHECK:       ShaderStageFlag: (RayGeneration)
+// CHECK:       MinShaderTarget: 0x70063
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: 0 (None)
@@ -119,8 +119,8 @@ void RayGen() {
 // CHECK:       AttributeSizeInBytes: 0
 // CHECK:       FeatureInfo1: 0
 // CHECK:       FeatureInfo2: 0
-// CHECK:       ShaderStageFlag: 2
-// CHECK:       MinShaderTarget: 65632
+// CHECK:       ShaderStageFlag: (Vertex)
+// CHECK:       MinShaderTarget: 0x10060
 // CHECK:       MinimumExpectedWaveLaneCount: 0
 // CHECK:       MaximumExpectedWaveLaneCount: 0
 // CHECK:       ShaderFlags: (OutputPositionPresent)
