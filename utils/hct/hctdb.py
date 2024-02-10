@@ -7693,12 +7693,28 @@ class db_dxil(object):
             "WaveSize only allowed on compute or node shaders",
         )
         self.add_valrule(
-            "Sm.WaveSizeNeedsDxil16Plus",
-            "WaveSize is valid only for DXIL version 1.6 and higher.",
+            "Sm.WaveSizeNeedsSM66or67",
+            "WaveSize is valid only for Shader Model 6.6 and 6.7.",
         )
         self.add_valrule(
-            "Sm.WaveSizeRangeNeedsDxil18Plus",
-            "WaveSize Range is valid only for DXIL version 1.8 and higher.",
+            "Sm.WaveSizeRangeNeedsSM68Plus",
+            "WaveSize Range is valid only for Shader Model 6.8 and higher.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeRangeExpectsThreeParams",
+            "WaveSize Range tag expects exactly 3 parameters.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeExpectsOneParam",
+            "WaveSize tag expects exactly 1 parameter.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeTagDuplicate",
+            "WaveSize or WaveSizeRange tag may only appear once per entry point.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeNeedsConstantOperands",
+            "WaveSize metadata operands must be constant values.",
         )
         self.add_valrule(
             "Sm.ROVOnlyInPS",

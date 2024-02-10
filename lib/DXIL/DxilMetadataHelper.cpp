@@ -1600,12 +1600,14 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
       if (props.WaveSize.IsRange())
         DXASSERT(DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 8) >= 0,
                  "DXIL version must be > 1.8");
+      const hlsl::ShaderModel *SM = GetShaderModel();
+
       MDVals.emplace_back(Uint32ToConstMD(
-          props.WaveSize.IsRange() ? DxilMDHelper::kDxilRangedWaveSizeTag
-                                   : DxilMDHelper::kDxilWaveSizeTag));
+          SM->IsSM68Plus() ? DxilMDHelper::kDxilRangedWaveSizeTag
+                           : DxilMDHelper::kDxilWaveSizeTag));
       SmallVector<Metadata *, 3> WaveSizeVal;
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Min));
-      if (props.WaveSize.IsRange()) {
+      if (SM->IsSM68Plus()) {
         WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Max));
         WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Preferred));
       }
@@ -1839,6 +1841,10 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       if (!m_pSM->IsSMAtLeast(6, 8))
         m_bExtraMetadata = true;
       MDNode *pNode = cast<MDNode>(MDO.get());
+      // TODO: Issue #6239 we need to validate that there are 3 integer
+      // parameters here, and emit a diagnostic if not.
+      DXASSERT(pNode->getNumOperands() == 3,
+               "else wavesize range tag has incorrect number of parameters");
       props.WaveSize.Min = ConstMDToUint32(pNode->getOperand(0));
       props.WaveSize.Max = ConstMDToUint32(pNode->getOperand(1));
       props.WaveSize.Preferred = ConstMDToUint32(pNode->getOperand(2));
@@ -2663,12 +2669,15 @@ void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
   // Optional Fields
 
   if (props.WaveSize.IsDefined()) {
-    MDVals.emplace_back(Uint32ToConstMD(
-        props.WaveSize.IsRange() ? DxilMDHelper::kDxilRangedWaveSizeTag
-                                 : DxilMDHelper::kDxilWaveSizeTag));
+
+    const hlsl::ShaderModel *SM = GetShaderModel();
+
+    MDVals.emplace_back(
+        Uint32ToConstMD(SM->IsSM68Plus() ? DxilMDHelper::kDxilRangedWaveSizeTag
+                                         : DxilMDHelper::kDxilWaveSizeTag));
     SmallVector<Metadata *, 3> WaveSizeVal;
     WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Min));
-    if (props.WaveSize.IsRange()) {
+    if (SM->IsSM68Plus()) {
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Max));
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Preferred));
     }
