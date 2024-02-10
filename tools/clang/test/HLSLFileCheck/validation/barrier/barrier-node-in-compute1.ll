@@ -1,9 +1,9 @@
 ; RUN: %dxilver 1.8 | %dxv %s | FileCheck %s
 
 ; CHECK-DAG: Function: main: error: sync in a non-Node Shader must not sync node record memory.
-; CHECK-DAG: note: at 'call void @dx.op.barrierByMemoryType(i32 244, i32 7, i32 4)' in block '#0' of function 'main'.
+; CHECK-DAG: note: at 'call void @dx.op.barrierByMemoryType(i32 244, i32 4, i32 4)' in block '#0' of function 'main'.
 ; CHECK-DAG: Function: main: error: sync in a non-Node Shader must not sync node record memory.
-; CHECK-DAG: note: at 'call void @dx.op.barrierByMemoryType(i32 244, i32 8, i32 4)' in block '#0' of function 'main'.
+; CHECK-DAG: note: at 'call void @dx.op.barrierByMemoryType(i32 244, i32 8, i32 2)' in block '#0' of function 'main'.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"

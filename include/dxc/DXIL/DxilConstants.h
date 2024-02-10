@@ -1941,8 +1941,12 @@ static_assert(ShaderFeatureInfoCount <= 40,
 // support it, or to determine when the flag
 // ShaderFeatureInfo_DerivativesInMeshAndAmpShaders is required.
 const uint64_t OptFeatureInfo_UsesDerivatives = 0x0000010000000000ULL;
+// OptFeatureInfo_RequiresGroup tracks whether a function requires a visible
+// group that supports things like groupshared memory and group sync.
+const uint64_t OptFeatureInfo_RequiresGroup = 0x0000020000000000ULL;
+
 const uint64_t OptFeatureInfoShift = 40;
-const unsigned OptFeatureInfoCount = 1;
+const unsigned OptFeatureInfoCount = 2;
 static_assert(OptFeatureInfoCount <= 23,
               "OptFeatureInfo flags must fit in 23 bits; after that we need to "
               "expand the FeatureInfo blob part and start defining a new set "

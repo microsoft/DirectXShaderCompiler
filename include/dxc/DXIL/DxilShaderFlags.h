@@ -39,6 +39,8 @@ public:
   void SetShaderFlagsRaw(uint64_t data);
   void CombineShaderFlags(const ShaderFlags &other);
 
+  void ClearLocalFlags();
+
   void SetDisableOptimizations(bool flag) { m_bDisableOptimizations = flag; }
   bool GetDisableOptimizations() const { return m_bDisableOptimizations; }
 
@@ -214,9 +216,12 @@ public:
   void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
   bool GetWaveMMA() const { return m_bWaveMMA; }
 
-  // Per-function flag
+  // Per-function flags
   void SetUsesDerivatives(bool flag) { m_bUsesDerivatives = flag; }
   bool GetUsesDerivatives() const { return m_bUsesDerivatives; }
+
+  void SetRequiresGroup(bool flag) { m_bRequiresGroup = flag; }
+  bool GetRequiresGroup() const { return m_bRequiresGroup; }
 
 private:
   // Bit: 0
@@ -331,12 +336,20 @@ private:
       m_bSampleCmpGradientOrBias : 1; // SHADER_FEATURE_SAMPLE_CMP_GRADIENT_OR_BIAS
   unsigned m_bExtendedCommandInfo : 1; // SHADER_FEATURE_EXTENDED_COMMAND_INFO
 
-  // Per-function flag
+  // Per-function flags
   // Bit: 39
   unsigned m_bUsesDerivatives : 1; // SHADER_FEATURE_OPT_USES_DERIVATIVES
                                    // (OptFeatureInfo_UsesDerivatives)
 
-  uint32_t m_align1 : 24; // align to 64 bit.
+  // m_bRequiresGroup indicates that the function requires a visible group.
+  // For instance, to access group shared memory or use group sync.
+  // This is necessary because shader stage is insufficient to indicate group
+  // availability with the advent of thread launch node shaders.
+  // Bit: 40
+  unsigned m_bRequiresGroup : 1;   // SHADER_FEATURE_OPT_REQUIRES_GROUP
+                                   // (OptFeatureInfo_RequiresGroup)
+
+  uint32_t m_align1 : 23; // align to 64 bit.
 };
 
 } // namespace hlsl
