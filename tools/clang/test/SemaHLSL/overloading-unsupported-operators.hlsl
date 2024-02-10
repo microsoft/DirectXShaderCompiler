@@ -25,6 +25,3 @@ struct S
     void operator++(S s) {} // expected-error {{overloading 'operator++' is not allowed}}
     void operator--(S s) {} // expected-error {{overloading 'operator--' is not allowed}}
 };
-
-[numthreads(1,1,1)]
-void main() {}
