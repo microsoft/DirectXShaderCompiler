@@ -60,6 +60,22 @@ inline int CompareVersions(unsigned Major1, unsigned Minor1, unsigned Major2,
   return 0;
 }
 
+// Utility for updating major,minor to max of current and new.
+inline bool UpdateToMaxOfVersions(unsigned &major, unsigned &minor,
+                                  unsigned newMajor, unsigned newMinor) {
+  if (newMajor > major) {
+    major = newMajor;
+    minor = newMinor;
+    return true;
+  } else if (newMajor == major) {
+    if (newMinor > minor) {
+      minor = newMinor;
+      return true;
+    }
+  }
+  return false;
+}
+
 // Shader flags.
 const unsigned kDisableOptimizations =
     0x00000001; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
@@ -211,7 +227,8 @@ enum class ShaderKind {
   Last_1_2 = Compute,
   Last_1_4 = Callable,
   Last_1_7 = Amplification,
-  LastValid = Node,
+  Last_1_8 = Node,
+  LastValid = Last_1_8,
 };
 
 // clang-format off
@@ -1862,12 +1879,22 @@ const uint64_t
         0x2000;
 const uint64_t ShaderFeatureInfo_WaveOps = 0x4000;
 const uint64_t ShaderFeatureInfo_Int64Ops = 0x8000;
+
+// SM 6.1+
 const uint64_t ShaderFeatureInfo_ViewID = 0x10000;
 const uint64_t ShaderFeatureInfo_Barycentrics = 0x20000;
+
+// SM 6.2+
 const uint64_t ShaderFeatureInfo_NativeLowPrecision = 0x40000;
+
+// SM 6.4+
 const uint64_t ShaderFeatureInfo_ShadingRate = 0x80000;
+
+// SM 6.5+
 const uint64_t ShaderFeatureInfo_Raytracing_Tier_1_1 = 0x100000;
 const uint64_t ShaderFeatureInfo_SamplerFeedback = 0x200000;
+
+// SM 6.6+
 const uint64_t ShaderFeatureInfo_AtomicInt64OnTypedResource = 0x400000;
 const uint64_t ShaderFeatureInfo_AtomicInt64OnGroupShared = 0x800000;
 const uint64_t ShaderFeatureInfo_DerivativesInMeshAndAmpShaders = 0x1000000;
@@ -1881,13 +1908,41 @@ const uint64_t ShaderFeatureInfo_AdvancedTextureOps = 0x20000000;
 const uint64_t ShaderFeatureInfo_WriteableMSAATextures = 0x40000000;
 
 // SM 6.8+
-// WaveMMA slots in between two SM 6.6 feature bits.
-const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
-
 const uint64_t ShaderFeatureInfo_SampleCmpGradientOrBias = 0x80000000;
 const uint64_t ShaderFeatureInfo_ExtendedCommandInfo = 0x100000000;
 
+// Experimental SM 6.9+ - Reserved, not yet supported.
+// WaveMMA slots in between two SM 6.6 feature bits.
+const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
+
+// Maximum count without rolling over into another 64-bit field is 40,
+// so the last flag we can use for a feature requirement is: 0x8000000000
+// This is because of the following set of flags, considered optional
+// and ignored by the runtime if not recognized:
+// D3D11_OPTIONAL_FEATURE_FLAGS 0x7FFFFF0000000000
 const unsigned ShaderFeatureInfoCount = 33;
+static_assert(ShaderFeatureInfoCount <= 40,
+              "ShaderFeatureInfo flags must fit within the first 40 bits; "
+              "after that we need to expand the FeatureInfo blob part and "
+              "start defining a new set of flags for ShaderFeatureInfo2.");
+
+// OptFeatureInfo flags in higher bits of DFCC_FeatureInfo uint64_t value.
+// This section is for flags that do not necessarily indicate a required
+// feature, but are used to indicate something about the shader.
+// Some of these flags may not actually show up in DFCC_FeatureInfo, instead
+// only being used in intermediate feature info and in RDAT's FeatureInfo.
+
+// Create flag here for any derivative use.  This allows call-graph validation
+// in the runtime to detect misuse of derivatives for an entry point that cannot
+// support it, or to determine when the flag
+// ShaderFeatureInfo_DerivativesInMeshAndAmpShaders is required.
+const uint64_t OptFeatureInfo_UsesDerivatives = 0x0000010000000000ULL;
+const uint64_t OptFeatureInfoShift = 40;
+const unsigned OptFeatureInfoCount = 1;
+static_assert(OptFeatureInfoCount <= 23,
+              "OptFeatureInfo flags must fit in 23 bits; after that we need to "
+              "expand the FeatureInfo blob part and start defining a new set "
+              "of flags for OptFeatureInfo2.");
 
 // DxilSubobjectType must match D3D12_STATE_SUBOBJECT_TYPE, with
 // certain values reserved, since they cannot be used from Dxil.

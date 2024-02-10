@@ -783,8 +783,15 @@ FileRunCommandPart::RunD3DReflect(dxc::DxcDllSupport &DllSupport,
   IFT(DllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
   IFT(DllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
 
-  IFT(pLibrary->CreateBlobWithEncodingFromPinned(
-      (LPCVOID)Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8, &pSource));
+  // It would be better to properly honour %s for input, but for now, if prior
+  // output is empty, use the file as input.
+  if (Prior->StdOut.size()) {
+    IFT(pLibrary->CreateBlobWithEncodingFromPinned(
+        (LPCVOID)Prior->StdOut.c_str(), Prior->StdOut.size(), CP_UTF8,
+        &pSource));
+  } else {
+    IFT(pLibrary->CreateBlobFromFile(CommandFileName, nullptr, &pSource));
+  }
 
   IFT(pAssembler->AssembleToContainer(pSource, &pResult));
   IFT(pResult->GetStatus(&resultStatus));
