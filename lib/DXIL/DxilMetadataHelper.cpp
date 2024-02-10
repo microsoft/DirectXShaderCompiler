@@ -1967,6 +1967,7 @@ void DxilMDHelper::SerializeNodeProps(SmallVectorImpl<llvm::Metadata *> &MDVals,
         nodeinput.RecordType.SV_DispatchGrid.ComponentType)));
     MDVals.push_back(
         Uint32ToConstMD(nodeinput.RecordType.SV_DispatchGrid.NumComponents));
+    MDVals.push_back(Uint32ToConstMD(nodeinput.RecordType.alignment));
   }
   for (auto &nodeoutput : props->OutputNodes) {
     MDVals.push_back(Uint32ToConstMD(nodeoutput.Flags));
@@ -1983,6 +1984,7 @@ void DxilMDHelper::SerializeNodeProps(SmallVectorImpl<llvm::Metadata *> &MDVals,
     MDVals.push_back(Int32ToConstMD(nodeoutput.MaxRecordsSharedWith));
     MDVals.push_back(Uint32ToConstMD(nodeoutput.OutputArraySize));
     MDVals.push_back(BoolToConstMD(nodeoutput.AllowSparseNodes));
+    MDVals.push_back(Uint32ToConstMD(nodeoutput.RecordType.alignment));
   }
 }
 
@@ -2019,6 +2021,10 @@ void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
             ConstMDToUint32(pProps->getOperand(idx++)));
     nodeinput.RecordType.SV_DispatchGrid.NumComponents =
         ConstMDToUint32(pProps->getOperand(idx++));
+    if (pProps->getNumOperands() > idx) {
+      nodeinput.RecordType.alignment =
+          ConstMDToUint32(pProps->getOperand(idx++));
+    }
   }
 
   for (auto &nodeoutput : props->OutputNodes) {
@@ -2037,6 +2043,10 @@ void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
     nodeoutput.MaxRecordsSharedWith = ConstMDToInt32(pProps->getOperand(idx++));
     nodeoutput.OutputArraySize = ConstMDToUint32(pProps->getOperand(idx++));
     nodeoutput.AllowSparseNodes = ConstMDToBool(pProps->getOperand(idx++));
+    if (pProps->getNumOperands() > idx) {
+      nodeoutput.RecordType.alignment =
+          ConstMDToUint32(pProps->getOperand(idx++));
+    }
   }
 }
 
