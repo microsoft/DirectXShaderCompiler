@@ -38,6 +38,10 @@ using namespace hlsl;
 // application to provide a postmortem debugging experience that reconstructs
 // the execution history of the shader.
 //
+// The caller specifies the power-of-two size of the UAV but is expected to
+// allocate 5/4 of this size. This is due to the overflow limiting mechanism
+// discussed below.
+//
 // The instrumentation is added per basic block, and each block will then write
 // a contiguous sequence of values into the UAV.
 //
@@ -58,7 +62,23 @@ using namespace hlsl;
 // shader may be invoked several times for a given pixel coordinate if the model
 // has overlapping triangles).
 //
-// The following modifications are made:
+// A picture of the UAV layout:
+// <--------------power-of-two-size-of-UAV----------------><-extra-1/4-->
+// [1           ][2           ][3           ][4           ][5           ]
+// <------A----->             ^                                         ^
+//                            B                                         C
+// <-------------------------D---------------------------->
+//
+// A: the size of the AND for interesting writes. Their payloads extend
+// beyond this into area 2, but those payloads are limited to be small
+// enough (1/4 UAV size -1) that they don't overwrite B.
+// B: The interesting thread's counter.
+// C: The uninteresting thread's counter, just off the end of the power-of
+// -two size of the UAV. Hence the requirement that the caller supply that
+// slightly larger UAV.
+// D: Size of the AND for uninteresting threads.
+//
+// The following modifications are made by this pass:
 //
 // First, instructions are added to the top of the entry point function that
 // implement the following:
@@ -70,7 +90,7 @@ using namespace hlsl;
 // -  Compare the above variables with the instance of interest defined by the
 //    invoker of this pass. If equal, create an AND value that will limit each
 //    block's starting writes to the lower quarter of the UAV. If not equal,
-//    the AND will limit the writes to the third quarter of the UAV.
+//    the AND will limit the writes to the whole UAV.
 // -  Calculate an "instance identifier". Even with the above instance
 //    identification, several invocations may end up matching the selection
 //    criteria. More on this below.
@@ -90,7 +110,7 @@ using namespace hlsl;
 // UAV, allowing the caller to reconstruct those instructions.
 // Some care has to be taken about whether to emit UAV writes after the
 // corresponding instruction or before. Terminators must emit their UAV data
-// before the terminator itself, of course. phi instructions get special
+// before the terminator itself, of course. Phi instructions get special
 // treatment also: their instrumentation has to come after (since phis must be
 // the first instructions in the block), but also the instrumentation must
 // execute in the same order as the precis specifies, or the caller will mix
@@ -100,7 +120,23 @@ using namespace hlsl;
 // data is emitted at all. These blocks still produce a precis, and still
 // need to be noticed during execution, so an empty block header is emitted
 // into the UAV.
-// Lastly, since a sufficiently-large block is guaranteed to overflow the UAV,
+//
+// Error conditions:
+// Overflow of the debug output from the interesting threads will start to
+// overwrite their own area of the UAV (after the AND limits those writes
+// to the lower half of the UAV (thus, by the way, avoiding overwriting
+// their counter value)). The caller must check the counter value after
+// the debugging run is complete to see if this happened, and if so, increase
+// the UAV size and try again.
+// Uninteresting threads use an AND value that limits their writes to the
+// whole UAV. But that means that if any uninteresting thread overflows its
+// output area, its output will overwrite at least part of the interesting
+// threads' output. This means that the caller must check both the interesting
+// and uninteresting counters for overflow. Note that uninteresting overflow
+// may well overwrite the interesting counter, thus potentially undoing an
+// otherwise overflow condition in that counter, so it's important that the
+// caller check both counters and consider either overflow to be an error.
+// Since a sufficiently-large block is guaranteed to overflow the UAV,
 // the precis-creation can exit early and report an overflow condition to the
 // caller. The caller is expected to try to instrument again, with a larger
 // UAV.
@@ -786,18 +822,27 @@ void DxilDebugInstrumentation::determineLimitANDAndInitializeCounter(
       BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXOffsetMask");
   PHIForMask->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize / 4 - 1),
                           InterestingInvocationBlock);
-  PHIForMask->addIncoming(
-      BC.HlslOP->GetU32Const(m_UAVSize / 4 - 1 + m_UAVSize / 2),
-      NonInterestingInvocationBlock);
+  PHIForMask->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize - 1),
+                          NonInterestingInvocationBlock);
   values.OffsetMask = PHIForMask;
 
   auto *PHIForCounterOffset =
       BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXCounterLocation");
   PHIForCounterOffset->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize / 2 - 1),
                                    InterestingInvocationBlock);
-  PHIForCounterOffset->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize - 1),
-                                   NonInterestingInvocationBlock);
+  PHIForCounterOffset->addIncoming(
+      BC.HlslOP->GetU32Const((m_UAVSize * 5) / 4 - 1),
+      NonInterestingInvocationBlock);
   values.CounterOffset = PHIForCounterOffset;
+
+  // These are reported to the caller so there are fewer assumptions made by the
+  // caller about these internal details:
+  *OSOverride << "InterestingCounterOffset:"
+              << std::to_string(m_UAVSize / 2 - 1) << "\n";
+  *OSOverride << "UninterestingCounterOffset:"
+              << std::to_string((m_UAVSize * 5) / 4 - 1) << "\n";
+  *OSOverride << "OverflowThreshold:"
+              << std::to_string(m_UAVSize / 4 - 1) << "\n";
 }
 
 void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
@@ -1445,7 +1490,13 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
       BuilderContext BCForBlock{BC.M, BC.DM, BC.Ctx, BC.HlslOP, Builder};
 
       DebugShaderModifierRecordDXILBlock step = {};
-      auto FullRecordSize = sizeof(step) + BlockPayloadBytes;
+      auto FullRecordSize =
+          static_cast<uint32_t>(sizeof(step) + BlockPayloadBytes);
+      if (FullRecordSize >= (m_UAVSize / 4) - 1) {
+        *OSOverride << "StaticOverflow:" << std::to_string(FullRecordSize)
+                    << "\n";
+        break;
+      }
       reserveDebugEntrySpace(BCForBlock, FullRecordSize);
       step.Header.Details.CountOfInstructions =
           static_cast<uint16_t>(BlockInstrumentation.Instructions.size());
