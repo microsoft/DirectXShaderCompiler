@@ -36,11 +36,8 @@ using namespace hlsl;
 // In summary, instructions are added that cause a "trace" of the execution of
 // the shader to be written out to a UAV. This trace is then used by a debugger
 // application to provide a postmortem debugging experience that reconstructs
-// the execution history of the shader.
-//
-// The caller specifies the power-of-two size of the UAV but is expected to
-// allocate 5/4 of this size. This is due to the overflow limiting mechanism
-// discussed below.
+// the execution history of the shader. The caller specifies the power-of-two
+// size of the UAV.
 //
 // The instrumentation is added per basic block, and each block will then write
 // a contiguous sequence of values into the UAV.
@@ -54,7 +51,9 @@ using namespace hlsl;
 // the are in which blocks are permitted to start writing their sequence, and
 // that sequence is constrained to be no longer than the size of the second
 // quarter. This allows us to limit writes to the appropriate half of the UAV
-// via a single AND at the beginning of the basic block.
+// via a single AND at the beginning of the basic block. An additoinal OR
+// provides the offset, either 0 for threads-of-interest, or UAVSize/2 for
+// not-of-interest.
 //
 // Threads determine where to start writing their data by incrementing a DWORD
 // that lives at the very top of that thread's half of the UAV. This is done
@@ -63,20 +62,18 @@ using namespace hlsl;
 // has overlapping triangles).
 //
 // A picture of the UAV layout:
-// <--------------power-of-two-size-of-UAV----------------><-extra-1/4-->
-// [1           ][2           ][3           ][4           ][5           ]
-// <------A----->             ^                                         ^
-//                            B                                         C
-// <-------------------------D---------------------------->
+// <--------------power-of-two-size-of-UAV---------------->
+// [1           ][2           ][3           ][4           ]
+// <------A----->             ^                           ^
+//                            B                           C
+//                            <------D------>
 //
 // A: the size of the AND for interesting writes. Their payloads extend
 // beyond this into area 2, but those payloads are limited to be small
 // enough (1/4 UAV size -1) that they don't overwrite B.
 // B: The interesting thread's counter.
-// C: The uninteresting thread's counter, just off the end of the power-of
-// -two size of the UAV. Hence the requirement that the caller supply that
-// slightly larger UAV.
-// D: Size of the AND for uninteresting threads.
+// C: The uninteresting thread's counter.
+// D: Size of the AND for uninteresting threads (same value as A)
 //
 // The following modifications are made by this pass:
 //
@@ -88,9 +85,9 @@ using namespace hlsl;
 //    values need to be added to the shader, then they are also added to the
 //    input signature, if appropriate.
 // -  Compare the above variables with the instance of interest defined by the
-//    invoker of this pass. If equal, create an AND value that will limit each
-//    block's starting writes to the lower quarter of the UAV. If not equal,
-//    the AND will limit the writes to the whole UAV.
+//    invoker of this pass. If equal, create an OR value of zero that will
+//    not affect the block's starting write offset. If not equal, the OR will
+//    move the writes into the second half of the UAV.
 // -  Calculate an "instance identifier". Even with the above instance
 //    identification, several invocations may end up matching the selection
 //    criteria. More on this below.
@@ -129,17 +126,12 @@ using namespace hlsl;
 // the debugging run is complete to see if this happened, and if so, increase
 // the UAV size and try again.
 // Uninteresting threads use an AND value that limits their writes to the
-// whole UAV. But that means that if any uninteresting thread overflows its
-// output area, its output will overwrite at least part of the interesting
-// threads' output. This means that the caller must check both the interesting
-// and uninteresting counters for overflow. Note that uninteresting overflow
-// may well overwrite the interesting counter, thus potentially undoing an
-// otherwise overflow condition in that counter, so it's important that the
-// caller check both counters and consider either overflow to be an error.
+// upper half of the UAV and can be entirely ignored by the caller.
 // Since a sufficiently-large block is guaranteed to overflow the UAV,
-// the precis-creation can exit early and report an overflow condition to the
-// caller. The caller is expected to try to instrument again, with a larger
-// UAV.
+// the precis-creation can exit early and report this "static" overflow
+// condition to the caller.
+// In all overflow cases, the caller is expected to try to instrument again,
+// with a larger UAV.
 
 // These definitions echo those in the debugger application's
 // debugshaderrecord.h file
@@ -298,15 +290,10 @@ private:
     // invocation of the shader is either of interest or not (e.g. it writes to
     // the pixel the user selected for debugging or it doesn't). If not of
     // interest, debugging output will still occur, but it will be relegated to
-    // the very top few bytes of the UAV. Invocations of interest, by contrast,
+    // the top half of the UAV. Invocations of interest, by contrast,
     // will be written to the UAV at sequentially increasing offsets.
-    // This value will either be one or zero (one if the invocation is of
-    // interest, zero otherwise)
-    Value *OffsetMultiplicand = nullptr;
-    // This will either be zero (if the invocation is of interest) or
-    // (UAVSize)-(SmallValue) if not.
-    Value *OffsetAddend = nullptr;
-    Instruction *OffsetMask = nullptr;
+    Value *OffsetMask = nullptr;
+    Instruction *OffsetOr = nullptr;
     Value *SelectionCriterion = nullptr;
     Value *CurrentIndex = nullptr;
     std::vector<BasicBlock *> AddedBlocksToIgnoreForInstrumentation;
@@ -773,38 +760,13 @@ void DxilDebugInstrumentation::determineLimitANDAndInitializeCounter(
   IRBuilder<> BuilderForInteresting(InterestingInvocationBlock);
   BuilderForInteresting.CreateBr(RestOfMainBlock);
 
-  // The non-interesting branch will create a store into the counter
-  // (right at the end of the UAV) that initializes that value to
-  // point to the very middle of the UAV. That offset, and everything
-  // above it, is considered the "dumping ground". The fact that many
-  // threads may overwrite this value is of no concern, though, cuz
-  // we aren't interested in the debug output of those threads.
   auto *NonInterestingInvocationBlock = BasicBlock::Create(
       BC.Ctx, "PIXNonInterestingBlock",
       BC.Builder.GetInsertBlock()->getParent(), RestOfMainBlock);
   values.AddedBlocksToIgnoreForInstrumentation.push_back(
       NonInterestingInvocationBlock);
+
   IRBuilder<> BuilderForNonInteresting(NonInterestingInvocationBlock);
-  Function *StoreValue =
-      BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore, Type::getInt32Ty(BC.Ctx));
-  Constant *StoreValueOpcode =
-      BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
-  UndefValue *Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
-  Constant *WriteMask_X = BC.HlslOP->GetI8Const(1);
-  Constant *UninterestingCounterOffset =
-      BC.HlslOP->GetI32Const(m_UAVSize - sizeof(uint32_t));
-  Constant *HalfTheUAV = BC.HlslOP->GetI32Const(m_UAVSize / 2);
-  (void)BuilderForNonInteresting.CreateCall(
-      StoreValue,
-      {StoreValueOpcode,           // i32 opcode
-       values.UAVHandle,           // %dx.types.Handle, ; resource handle
-       UninterestingCounterOffset, // i32 c0: index in bytes into UAV
-       Undef32Arg,                 // i32 c1: unused
-       HalfTheUAV,                 // Value to be stored
-       Undef32Arg,                 // unused values
-       Undef32Arg,                 // unused values
-       Undef32Arg,                 // unused values
-       WriteMask_X});
   BuilderForNonInteresting.CreateBr(RestOfMainBlock);
 
   // Connect these new blocks as necessary:
@@ -813,36 +775,40 @@ void DxilDebugInstrumentation::determineLimitANDAndInitializeCounter(
                           NonInterestingInvocationBlock);
   BC.Builder.GetInsertBlock()->getTerminator()->eraseFromParent();
 
-  // Now add a phi that selects between two constant AND values based on
-  // which branch the thread followed above (interesting or not), and another
-  // that is the offset of the thread's counter.
-  // (The former will limit the offsets at which data are written into the UAV.)
+  values.OffsetMask = BC.HlslOP->GetU32Const(m_UAVSize / 4 - 1);
+
+  // Now add a phi that selects between two constant OR values based on
+  // which branch the thread followed above (interesting or not).
+  // The OR will either place the output in the lower half or the upper
+  // half of the UAV.
   BC.Builder.SetInsertPoint(RestOfMainBlock->getFirstInsertionPt());
-  auto *PHIForMask =
-      BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXOffsetMask");
-  PHIForMask->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize / 4 - 1),
-                          InterestingInvocationBlock);
-  PHIForMask->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize - 1),
-                          NonInterestingInvocationBlock);
-  values.OffsetMask = PHIForMask;
+  auto *PHIForOr =
+      BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXOffsetOr");
+  PHIForOr->addIncoming(BC.HlslOP->GetU32Const(0), InterestingInvocationBlock);
+  PHIForOr->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize / 2),
+                        NonInterestingInvocationBlock);
+  values.OffsetOr = PHIForOr;
 
   auto *PHIForCounterOffset =
       BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXCounterLocation");
-  PHIForCounterOffset->addIncoming(BC.HlslOP->GetU32Const(m_UAVSize / 2 - 1),
-                                   InterestingInvocationBlock);
+  const uint32_t InterestingCounterOffset =
+      static_cast<uint32_t>(m_UAVSize / 2 - 1);
   PHIForCounterOffset->addIncoming(
-      BC.HlslOP->GetU32Const((m_UAVSize * 5) / 4 - 1),
+      BC.HlslOP->GetU32Const(InterestingCounterOffset),
+      InterestingInvocationBlock);
+  const uint32_t UninterestingCounterOffsetValue =
+      static_cast<uint32_t>(m_UAVSize - 1);
+  PHIForCounterOffset->addIncoming(
+      BC.HlslOP->GetU32Const(UninterestingCounterOffsetValue),
       NonInterestingInvocationBlock);
   values.CounterOffset = PHIForCounterOffset;
 
   // These are reported to the caller so there are fewer assumptions made by the
   // caller about these internal details:
   *OSOverride << "InterestingCounterOffset:"
-              << std::to_string(m_UAVSize / 2 - 1) << "\n";
-  *OSOverride << "UninterestingCounterOffset:"
-              << std::to_string((m_UAVSize * 5) / 4 - 1) << "\n";
-  *OSOverride << "OverflowThreshold:"
-              << std::to_string(m_UAVSize / 4 - 1) << "\n";
+              << std::to_string(InterestingCounterOffset) << "\n";
+  *OSOverride << "OverflowThreshold:" << std::to_string(m_UAVSize / 4 - 1)
+              << "\n";
 }
 
 void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
@@ -881,8 +847,10 @@ void DxilDebugInstrumentation::reserveDebugEntrySpace(BuilderContext &BC,
     values.InvocationId = PreviousValue;
   }
 
-  values.CurrentIndex = BC.Builder.CreateAnd(PreviousValue, values.OffsetMask,
-                                             "MaskedForUAVLimit");
+  auto *Masked = BC.Builder.CreateAnd(PreviousValue, values.OffsetMask,
+                                      "MaskedForUAVLimit");
+  values.CurrentIndex =
+      BC.Builder.CreateOr(Masked, values.OffsetOr, "ORedForUAVStart");
 }
 
 uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
