@@ -39,7 +39,8 @@ using namespace hlsl;
 namespace PIXPassHelpers {
 bool IsAllocateRayQueryInstruction(llvm::Value const *Val) {
   if (Val != nullptr) {
-    if (llvm::Instruction const *Inst = llvm::dyn_cast<llvm::Instruction>(Val)) {
+    if (llvm::Instruction const *Inst =
+            llvm::dyn_cast<llvm::Instruction>(Val)) {
       return hlsl::OP::IsDxilOpFuncCallInst(Inst,
                                             hlsl::OP::OpCode::AllocateRayQuery);
     }
