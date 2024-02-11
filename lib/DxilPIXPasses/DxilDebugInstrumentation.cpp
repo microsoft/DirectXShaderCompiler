@@ -1433,7 +1433,11 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
                   &BB) == values.AddedBlocksToIgnoreForInstrumentation.end()) {
       auto BlockInstrumentation =
           FindInstrumentableInstructionsInBlock(BB, BC.HlslOP);
-
+      if (BlockInstrumentation.FirstInstructionOrdinalInBlock <
+              m_FirstInstruction ||
+          BlockInstrumentation.FirstInstructionOrdinalInBlock >=
+              m_LastInstruction)
+        continue;
       uint32_t BlockPayloadBytes =
           CountBlockPayloadBytes(BlockInstrumentation.Instructions);
       // If the block has no instructions which require debug output,
