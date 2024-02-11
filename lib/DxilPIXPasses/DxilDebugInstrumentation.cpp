@@ -1282,9 +1282,10 @@ Instruction *FindFirstNonPhiInstruction(Instruction *I) {
 // Instructions are delimited by ; The fields within the instruction
 // (delimited by ,) are, in order:
 // -instruction ordinal
-// -data type
+// -data type (r=ret, v=void, f=float, 3=int32, 6=int64, d=double)
 // -scalar register number
 // -alloca/scalar indicator:
+// r == ret instruction
 // a == scalar is being created and assigned a value, and that
 //      value is in the debug output.
 // s == Existing scalar is being assigned via static alloca index.
@@ -1295,6 +1296,10 @@ Instruction *FindFirstNonPhiInstruction(Instruction *I) {
 //      the dynamic index into that alloca.
 // v == A void terminator or other void-valued instruction. No
 //      corresponding data in the debug output.
+// If indicator is "a", a string of the form [base+index] for the alloca
+// store location.
+// If indicator is "d", a single integer denoting the base for the alloca
+// store.
 DxilDebugInstrumentation::BlockInstrumentationData
 DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
                                                                 OP *HlslOP) {
