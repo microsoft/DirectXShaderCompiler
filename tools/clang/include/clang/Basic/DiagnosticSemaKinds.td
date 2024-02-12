@@ -7702,7 +7702,7 @@ def warn_hlsl_attribute_expects_uint_literal : Warning<
   InGroup<HLSLAttributeType>;
 def warn_hlsl_entry_attribute_without_shader_attribute : Warning<
   "attribute '%0' ignored without accompanying shader attribute">,
-  InGroup<HLSLAttributeType>;
+  InGroup<HLSLEntryAttributeWithoutShaderAttrType>;
 def err_hlsl_attribute_expects_float_literal : Error<
   "attribute %0 must have a float literal argument">;
 def warn_hlsl_comma_in_init : Warning<
