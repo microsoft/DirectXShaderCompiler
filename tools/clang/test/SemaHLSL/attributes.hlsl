@@ -1,5 +1,5 @@
-// RUN: %dxc -Tlib_6_3   -HV 2018 -verify %s
-// RUN: %dxc -Tps_6_0   -HV 2018 -verify %s
+// RUN: %dxc -Tlib_6_3 -Wno-entry-attribute-type-without-shader-attribute-type  -HV 2018 -verify %s
+// RUN: %dxc -Tps_6_0  -HV 2018 -verify %s
 
 // To test with the classic compiler, run
 // %sdxroot%\tools\x86\fxc.exe /T ps_5_1 attributes.hlsl
@@ -352,11 +352,8 @@ int uav() {
 
 [domain] int domain_fn_missing() { return 1; }          // expected-error {{'domain' attribute takes one argument}} fxc-pass {{}}
 [domain()] int domain_fn_empty() { return 1; }          // expected-error {{'domain' attribute takes one argument}} fxc-error {{X3000: syntax error: unexpected token ')'}}
-/* expected-warning@+1{{attribute 'domain' ignored without accompanying shader attribute}} */
 [domain("blerch")]  int domain_fn_bad() { return 1; }    // expected-error {{attribute 'domain' must have one of these values: tri,quad,isoline}} fxc-pass {{}} 
-/* expected-warning@+1{{attribute 'domain' ignored without accompanying shader attribute}} */
 [domain("quad")]  int domain_fn() { return 1; }          /* fxc-warning {{X3554: unknown attribute domain, or attribute invalid for this statement}} */
-/* expected-warning@+1{{attribute 'domain' ignored without accompanying shader attribute}} */
 [domain(1)]  int domain_fn_int() { return 1; }           // expected-error {{attribute 'domain' must have a string literal argument}} fxc-pass {{}}
 [domain("quad","quad")] int domain_fn_mul() { return 1; } // expected-error {{'domain' attribute takes one argument}} fxc-pass {{}}
 [instance] int instance_fn() { return 1; }             // expected-error {{'instance' attribute takes one argument}} fxc-warning {{X3554: unknown attribute instance, or attribute invalid for this statement}}
@@ -367,7 +364,6 @@ int uav() {
 [partitioning] int partitioning_fn() { return 1; }     // expected-error {{'partitioning' attribute takes one argument}} fxc-warning {{X3554: unknown attribute partitioning, or attribute invalid for this statement}}
 [patchconstantfunc] int patchconstantfunc_fn() { return 1; } // expected-error {{'patchconstantfunc' attribute takes one argument}} fxc-warning {{X3554: unknown attribute patchconstantfunc, or attribute invalid for this statement}}
 
-/* expected-warning@+1{{attribute 'partitioning' ignored without accompanying shader attribute}} */
 [partitioning("fractional_even")]  int partitioning_fn_ok() { return 1; }
 
 struct HSFoo
@@ -381,30 +377,22 @@ Texture2D<float4> tex1[10] : register( t20, space10 );
   `-RegisterAssignment <col:30> register(t20, space10)
 */
 
-/* expected-warning@+1{{attribute 'domain' ignored without accompanying shader attribute}} */
 [domain(123)]     // expected-error {{attribute 'domain' must have a string literal argument}} fxc-pass {{}}
 [partitioning()]  // expected-error {{'partitioning' attribute takes one argument}} fxc-error {{X3000: syntax error: unexpected token ')'}}
-/* expected-warning@+1{{attribute 'outputtopology' ignored without accompanying shader attribute}} */
 [outputtopology("not_triangle_cw")] // expected-error {{attribute 'outputtopology' must have one of these values: point,line,triangle,triangle_cw,triangle_ccw}} fxc-pass {{}}
-/* expected-warning@+1{{attribute 'outputcontrolpoints' ignored without accompanying shader attribute}} */
 [outputcontrolpoints(-1)] // expected-warning {{attribute 'outputcontrolpoints' must have a uint literal argument}} fxc-pass {{}}
 [patchconstantfunc("PatchFoo", "ExtraArgument")] // expected-error {{'patchconstantfunc' attribute takes one argument}} fxc-pass {{}}
 
 void all_wrong() { }
 
-/* expected-warning@+1{{attribute 'domain' ignored without accompanying shader attribute}} */
 [domain("quad")]
 /*verify-ast
   HLSLDomainAttr <col:2, col:15> "quad"
 */
 
-/* expected-warning@+1{{attribute 'partitioning' ignored without accompanying shader attribute}} */
 [partitioning("integer")]
-/* expected-warning@+1{{attribute 'outputtopology' ignored without accompanying shader attribute}} */
 [outputtopology("triangle_cw")]
-/* expected-warning@+1{{attribute 'outputcontrolpoints' ignored without accompanying shader attribute}} */
 [outputcontrolpoints(16)]
-/* expected-warning@+1{{attribute 'patchconstantfunc' ignored without accompanying shader attribute}} */
 [patchconstantfunc("PatchFoo")]
 
 HSFoo HSMain( InputPatch<HSFoo, 16> p,
@@ -638,7 +626,6 @@ float4 clipplanes_good_parens();
 // place the errors in comments before the function, but not with the standard
 // fxc error comments on the line.
 struct GSVertex { float4 pos : SV_Position; };
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (12)]
 
 /*verify-ast
@@ -648,7 +635,6 @@ void maxvertexcount_valid1(triangle GSVertex v[3], inout TriangleStream<GSVertex
 { stream.Append(v[0]); }
 
 static const int sc_count = 12;
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (sc_count)]
 
 /*verify-ast
@@ -656,7 +642,6 @@ static const int sc_count = 12;
 */
 void maxvertexcount_valid2(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
 { stream.Append(v[0]); }
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (sc_count + 3)]
 
 /*verify-ast
@@ -668,7 +653,6 @@ void maxvertexcount_valid3(triangle GSVertex v[3], inout TriangleStream<GSVertex
 static const int4 sc_count4 = int4(3,6,9,12);
 
 // The following passes fxc, but fails clang.
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (sc_count4.w)]          /* expected-error {{'maxvertexcount' attribute requires an integer constant}} fxc-pass {{}} */
 
 /*verify-ast
@@ -679,7 +663,6 @@ void maxvertexcount_valid4(triangle GSVertex v[3], inout TriangleStream<GSVertex
 
 // fxc:
 // error X3084: cannot match attribute maxvertexcount, non-uint parameters found
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (-12)]                  /* expected-warning {{attribute 'maxvertexcount' must have a uint literal argument}} fxc-pass {{}} */
 
 void negative_maxvertexcount(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
@@ -689,7 +672,6 @@ void negative_maxvertexcount(triangle GSVertex v[3], inout TriangleStream<GSVert
 // warning X3554: cannot match attribute maxvertexcount, parameter 1 is expected to be of type int
 // warning X3554: unknown attribute maxvertexcount, or attribute invalid for this statement, valid attributes are: maxvertexcount, MaxVertexCount, instance, RootSignature
 // error X3514: 'float_maxvertexcount1' must have a max vertex count
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (1.5)]                  /* expected-warning {{attribute 'maxvertexcount' must have a uint literal argument}} fxc-pass {{}} */
 
 void float_maxvertexcount1(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
@@ -700,7 +682,6 @@ void float_maxvertexcount1(triangle GSVertex v[3], inout TriangleStream<GSVertex
 // warning X3554: unknown attribute maxvertexcount, or attribute invalid for this statement, valid attributes are: maxvertexcount, MaxVertexCount, instance, RootSignature
 // error X3514: 'float_maxvertexcount2' must have a max vertex count
 static const float sc_float = 1.5;
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (sc_float)]             /* expected-error {{'maxvertexcount' attribute requires an integer constant}} fxc-pass {{}} */
 
 void float_maxvertexcount2(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
@@ -712,7 +693,6 @@ float f_count;
 // fxc:
 // error X3084: non-literal parameter(s) found for attribute maxvertexcount
 // error X3514: 'uniform_maxvertexcount1' must have a max vertex count
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (i_count)]              /* expected-error {{'maxvertexcount' attribute requires an integer constant}} fxc-pass {{}} */
 
 void uniform_maxvertexcount1(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
@@ -722,7 +702,6 @@ void uniform_maxvertexcount1(triangle GSVertex v[3], inout TriangleStream<GSVert
 // warning X3554: cannot match attribute maxvertexcount, parameter 1 is expected to be of type int
 // warning X3554: unknown attribute maxvertexcount, or attribute invalid for this statement, valid attributes are: maxvertexcount, MaxVertexCount, instance, RootSignature
 // error X3514: 'uniform_maxvertexcount2' must have a max vertex count
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [maxvertexcount (f_count)]              /* expected-error {{'maxvertexcount' attribute requires an integer constant}} fxc-pass {{}} */
 
 void uniform_maxvertexcount2(triangle GSVertex v[3], inout TriangleStream<GSVertex> stream)
@@ -855,7 +834,6 @@ bool Test_Call() {
 }
 
 // Test EarlyDepthStencil
-/* expected-warning@+1{{attribute 'earlydepthstencil' ignored without accompanying shader attribute}} */
 [EarlyDepthStencil]
 
 bool Test_EarlyDepthStencil() {
@@ -888,7 +866,6 @@ bool Test_Loop() {
 
 // Test ClipPlanes
 float4 ClipPlanesVal;
-/* expected-warning@+1{{attribute 'clipplanes' ignored without accompanying shader attribute}} */
 [ClipPlanes(ClipPlanesVal)]
 
 bool Test_ClipPlanes() {
@@ -896,7 +873,6 @@ bool Test_ClipPlanes() {
 }
 
 // Test Domain
-/* expected-warning@+1{{attribute 'domain' ignored without accompanying shader attribute}} */
 [Domain("tri")]
 
 bool Test_Domain() {
@@ -904,7 +880,6 @@ bool Test_Domain() {
 }
 
 // Test Instance
-/* expected-warning@+1{{attribute 'instance' ignored without accompanying shader attribute}} */
 [Instance(1)]
 
 bool Test_Instance() {
@@ -912,7 +887,6 @@ bool Test_Instance() {
 }
 
 // Test MaxTessFactor
-/* expected-warning@+1{{attribute 'maxtessfactor' ignored without accompanying shader attribute}} */
 [MaxTessFactor(1)]
 
 bool Test_MaxTessFactor() {
@@ -920,7 +894,6 @@ bool Test_MaxTessFactor() {
 }
 
 // Test MaxVertexCount
-/* expected-warning@+1{{attribute 'maxvertexcount' ignored without accompanying shader attribute}} */
 [MaxVertexCount(1)]
 
 bool Test_MaxVertexCount() {
@@ -928,7 +901,6 @@ bool Test_MaxVertexCount() {
 }
 
 // Test NumThreads
-/* expected-warning@+1{{attribute 'numthreads' ignored without accompanying shader attribute}} */
 [NumThreads(1,2,3)]
 
 bool Test_NumThreads() {
@@ -936,7 +908,6 @@ bool Test_NumThreads() {
 }
 
 // Test OutputControlPoints
-/* expected-warning@+1{{attribute 'outputcontrolpoints' ignored without accompanying shader attribute}} */
 [OutputControlPoints(2)]
 
 bool Test_OutputControlPoints() {
@@ -944,7 +915,6 @@ bool Test_OutputControlPoints() {
 }
 
 // Test OutputTopology
-/* expected-warning@+1{{attribute 'outputtopology' ignored without accompanying shader attribute}} */
 [OutputTopology("line")]
 
 bool Test_OutputTopology() {
@@ -952,7 +922,6 @@ bool Test_OutputTopology() {
 }
 
 // Test Partitioning
-/* expected-warning@+1{{attribute 'partitioning' ignored without accompanying shader attribute}} */
 [Partitioning("integer")]
 
 bool Test_Partitioning() {
@@ -960,7 +929,6 @@ bool Test_Partitioning() {
 }
 
 // Test PatchConstantFunc
-/* expected-warning@+1{{attribute 'patchconstantfunc' ignored without accompanying shader attribute}} */
 [PatchConstantFunc("Test_Partitioning")]
 
 bool Test_PatchConstantFunc() {
@@ -969,7 +937,6 @@ bool Test_PatchConstantFunc() {
 
 // Test RootSignature
 // strange how RootSignature is the only attribute that is spelled with capitals.
-/* expected-warning@+1{{attribute 'RootSignature' ignored without accompanying shader attribute}} */
 [RootSignature("")]
 
 bool Test_RootSignature() {

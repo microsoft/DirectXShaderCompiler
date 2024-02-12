@@ -783,6 +783,7 @@ def HLSLEffectsSyntax : DiagGroup<"effects-syntax">;
 def HLSLForRedefinition : DiagGroup<"for-redefinition">;
 def HLSLAttributeStatement : DiagGroup<"attribute-statement">;
 def HLSLAttributeType : DiagGroup<"attribute-type">;
+def HLSLEntryAttributeWithoutShaderAttrType : DiagGroup<"entry-attribute-type-without-shader-attribute-type">;
 def HLSLSpecifierOverride : DiagGroup<"specifier-override">;
 def HLSLPackOffsetOverride : DiagGroup<"packoffset-override">;
 def HLSLCommaInInit : DiagGroup<"comma-in-init">;
