@@ -928,9 +928,8 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
                      UndefArg, // unused values
                      WriteMask_X});
 
+    assert(m_RemainingReservedSpaceInBytes >= 4); // check for underflow
     m_RemainingReservedSpaceInBytes -= 4;
-    assert(m_RemainingReservedSpaceInBytes <
-           1024 * 1024); // check for underflow
 
     if (m_RemainingReservedSpaceInBytes != 0) {
       values.CurrentIndex =
