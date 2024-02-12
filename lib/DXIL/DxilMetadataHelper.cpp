@@ -2834,6 +2834,12 @@ DxilMDHelper::LoadDxilNodeRecordType(const llvm::MDOperand &MDO) {
     } break;
     case DxilMDHelper::kDxilNodeSVDispatchGridTag: {
       MDTuple *pSVDTupleMD = cast<MDTuple>(MDO.get());
+      // < 3 if fatal
+      IFTBOOL(pSVDTupleMD->getNumOperands() >= 3,
+              DXC_E_INCORRECT_DXIL_METADATA);
+      // > 3 is extra metadata, validator will fail.
+      if (pSVDTupleMD->getNumOperands() > 3)
+        m_bExtraMetadata = true;
       Record.SV_DispatchGrid.ByteOffset =
           ConstMDToUint32(pSVDTupleMD->getOperand(0));
       Record.SV_DispatchGrid.ComponentType = static_cast<DXIL::ComponentType>(
