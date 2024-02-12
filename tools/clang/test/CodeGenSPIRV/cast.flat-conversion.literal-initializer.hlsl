@@ -58,7 +58,6 @@ void main() {
   double a;
   S s1 = (S)(a);
 
-// TODO(6188): This is wrong because we lose most significant bits in the literal.
 // CHECK: [[longLit:%[0-9]+]] = OpIAdd %long %long_4294967296 %long_1
 // CHECK: [[lit:%[0-9]+]] = OpSConvert %int [[longLit]]
 // CHECK: [[t:%[0-9]+]] = OpCompositeConstruct %T [[lit]] [[longLit]]
