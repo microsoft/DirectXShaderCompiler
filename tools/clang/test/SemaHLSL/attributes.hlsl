@@ -1,4 +1,4 @@
-// RUN: %dxc -Tlib_6_3 -Wno-entry-attribute-type-without-shader-attribute-type  -HV 2018 -verify %s
+// RUN: %dxc -Tlib_6_3 -Wno-misplaced-attributes  -HV 2018 -verify %s
 // RUN: %dxc -Tps_6_0  -HV 2018 -verify %s
 
 // To test with the classic compiler, run
