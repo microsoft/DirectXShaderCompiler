@@ -625,6 +625,7 @@ private:
 
   llvm::MDTuple *EmitDxilNodeIOState(const NodeIOProperties &Node);
   hlsl::NodeIOProperties LoadDxilNodeIOState(const llvm::MDOperand &MDO);
+  hlsl::NodeRecordType LoadDxilNodeRecordType(const llvm::MDOperand &MDO);
 
   void EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
                          const DxilFunctionProps &props);
