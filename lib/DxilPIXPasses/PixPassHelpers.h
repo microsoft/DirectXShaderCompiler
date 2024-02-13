@@ -20,7 +20,17 @@
 #endif
 
 namespace PIXPassHelpers {
-bool IsAllocateRayQueryInstruction(llvm::Value *Val);
+
+class ScopedInstruction {
+  llvm::Instruction *m_Instruction;
+
+public:
+  ScopedInstruction(llvm::Instruction *I) : m_Instruction(I) {}
+  ~ScopedInstruction() { delete m_Instruction; }
+  llvm::Instruction *Get() const { return m_Instruction; }
+};
+
+bool IsAllocateRayQueryInstruction(llvm::Value const *Val);
 llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
                           unsigned int registerId, const char *name);
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,

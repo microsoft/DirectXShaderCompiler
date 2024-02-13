@@ -2857,9 +2857,9 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // OPCODE-GRADIENT:BEGIN
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
-  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
+  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175, SampleCmpBias=255
   return (60 <= op && op <= 61) || op == 64 || op == 81 ||
-         (83 <= op && op <= 86) || (174 <= op && op <= 175);
+         (83 <= op && op <= 86) || (174 <= op && op <= 175) || op == 255;
   // OPCODE-GRADIENT:END
 }
 
@@ -2925,7 +2925,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: QuadReadLaneAt=122, QuadOp=123
   if ((122 <= op && op <= 123)) {
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel);
+           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
   // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
@@ -2941,15 +2941,10 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
-  // Instructions: CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
-  // DerivFineX=85, DerivFineY=86
-  if (op == 81 || (83 <= op && op <= 86)) {
-    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
-           SFLAG(Amplification) | SFLAG(Mesh);
-    return;
-  }
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64
-  if ((60 <= op && op <= 61) || op == 64) {
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
+  if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
+      (83 <= op && op <= 86)) {
     mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
            SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
@@ -3170,7 +3165,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       minor = 7;
     }
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel);
+           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
   // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,
@@ -3230,42 +3225,42 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
   GetMinShaderModelAndMask(opcode, bWithTranslation, major, minor, mask);
 
   unsigned op = (unsigned)opcode;
-  // These ops cannot indicate support for CS, AS, or MS,
-  // otherwise, it's saying these are guaranteed to be supported
-  // on the lowest shader model returned by this function
-  // for these shader stages.  For CS, SM 6.6 is required,
-  // and for AS/MS, an optional feature is required.
-  // This also breaks compatibility for existing validators.
-  // We need a different mechanism to be supported in functions
-  // for runtime linking.
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
-  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
-      (83 <= op && op <= 86)) {
-    mask &= ~(SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh));
-    return;
+  if (DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0) {
+    // In prior validator versions, these ops excluded CS/MS/AS from mask.
+    // In 1.8, we now have a mechanism to indicate derivative use with an
+    // independent feature bit.  This allows us to fix up the min shader model
+    // once all bits have been marged from the call graph to the entry point.
+    // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+    // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
+    if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
+        (83 <= op && op <= 86)) {
+      mask &= ~(SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh));
+      return;
+    }
   }
 
   if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) < 0) {
     // validator 1.4 didn't exclude wave ops in mask
     if (IsDxilOpWave(opcode))
-      mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
-    // These shader models don't exist before 1.5
-    mask &= ~(SFLAG(Amplification) | SFLAG(Mesh));
+      mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Mesh) - 1;
     // validator 1.4 didn't have any additional rules applied:
     return;
   }
 
   // Additional rules are applied manually here.
 
-  // Barrier with mode != UAVFenceGlobal requires compute, amplification, or
-  // mesh Instructions: Barrier=80
+  // Barrier with mode != UAVFenceGlobal requires compute, amplification,
+  // mesh, or node. Instructions: Barrier=80
   if (opcode == DXIL::OpCode::Barrier) {
-    DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
-    unsigned mode = barrier.get_barrierMode_val();
-    if (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal) {
-      mask =
-          SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
+    // Barrier mode should be a constant, but be robust to non-constants here.
+    if (isa<ConstantInt>(
+            CI->getArgOperand(DxilInst_Barrier::arg_barrierMode))) {
+      DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
+      unsigned mode = barrier.get_barrierMode_val();
+      if (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal) {
+        mask &= SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
+                SFLAG(Mesh) | SFLAG(Node);
+      }
     }
     return;
   }

@@ -3310,10 +3310,11 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
     }
   }
 
-  // Decorate with interpolation modes for pixel shader input variables
-  // or vertex shader output variables.
+  // Decorate with interpolation modes for pixel shader input variables, vertex
+  // shader output variables, or mesh shader output variables.
   if ((spvContext.isPS() && stageVarData.sigPoint->IsInput()) ||
-      (spvContext.isVS() && stageVarData.sigPoint->IsOutput()))
+      (spvContext.isVS() && stageVarData.sigPoint->IsOutput()) ||
+      (spvContext.isMS() && stageVarData.sigPoint->IsOutput()))
     decorateInterpolationMode(stageVarData.decl, stageVarData.type, varInstr,
                               *stageVarData.semantic);
 
@@ -3937,6 +3938,11 @@ SpirvVariable *DeclResultIdMapper::getBuiltinVar(spv::BuiltIn builtIn,
   return getBuiltinVar(builtIn, type, sc, loc);
 }
 
+SpirvFunction *
+DeclResultIdMapper::getRayTracingStageVarEntryFunction(SpirvVariable *var) {
+  return rayTracingStageVarToEntryPoints[var];
+}
+
 SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     StageVar *stageVar, const NamedDecl *decl, const llvm::StringRef name,
     SourceLocation srcLoc) {
@@ -4540,6 +4546,8 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
   default:
     assert(false && "Unsupported SPIR-V storage class for raytracing");
   }
+
+  rayTracingStageVarToEntryPoints[retVal] = entryFunction;
 
   return retVal;
 }

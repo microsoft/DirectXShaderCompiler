@@ -178,6 +178,7 @@ struct R
 void node01(RWGroupNodeInputRecords<R> input,
  uint gidx: SV_GroupIndex,
   uint3 gtid: SV_GroupThreadID,
- uint vid : SV_VertexID ) // TODO: verify error after https://github.com/microsoft/DirectXShaderCompiler/issues/5768 got fixed.
+ uint vid : SV_VertexID ) // expected-error {{Invalid system value semantic 'SV_VertexID' for launchtype 'Coalescing'}}
+ // TODO: verify error after https://github.com/microsoft/DirectXShaderCompiler/issues/5768 got fixed.
 {
 }

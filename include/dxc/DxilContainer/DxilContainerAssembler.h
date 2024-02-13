@@ -53,7 +53,9 @@ DxilPartWriter *NewRootSignatureWriter(const RootSignatureHandle &S);
 DxilPartWriter *NewFeatureInfoWriter(const DxilModule &M);
 DxilPartWriter *NewPSVWriter(const DxilModule &M,
                              uint32_t PSVVersion = UINT_MAX);
-DxilPartWriter *NewRDATWriter(const DxilModule &M);
+// DxilModule is non-const because it caches per-function flag computations
+// used by both CollectShaderFlagsForModule and RDATWriter.
+DxilPartWriter *NewRDATWriter(DxilModule &M);
 DxilPartWriter *NewVersionWriter(IDxcVersionInfo *pVersionInfo);
 
 // Store serialized ViewID data from DxilModule to PipelineStateValidation.

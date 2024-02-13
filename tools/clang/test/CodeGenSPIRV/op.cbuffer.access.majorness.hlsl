@@ -25,7 +25,8 @@ static const SData Data = BufferData;
 static const float3x4 Matrices[2] = BufferData.mat1;
 
 // CHECK: [[ptr_1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_SData %SBufferData %int_0
-// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_Uniform_mat3v4float [[ptr_1]] %int_1 %int_1
+// CHECK:  [[base:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_mat3v4float_uint_2_0 [[ptr_1]] %int_1
+// CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_Uniform_mat3v4float [[base]] %int_1
 static const float3x4 Matrix = BufferData.mat2[1];
 
 RWStructuredBuffer<float4> Out;

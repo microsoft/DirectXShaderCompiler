@@ -312,6 +312,8 @@
   d.WriteLn(#name ": ", QuotedStringValue(name.Get(ctx)));
 #define RDAT_STRING_ARRAY_REF(name) DumpStringArray(ctx, d, #name, name);
 #define RDAT_VALUE(type, name) d.WriteLn(#name ": ", name);
+#define RDAT_VALUE_HEX(type, name)                                             \
+  d.WriteLn(#name ": ", std::hex, std::showbase, name);
 #define RDAT_INDEX_ARRAY_REF(name) DumpIndexArray(ctx, d, #name, name);
 #define RDAT_ENUM(sTy, eTy, name) d.DumpEnum<eTy>(#name, (eTy)name);
 #define RDAT_FLAGS(sTy, eTy, name) d.DumpFlags<eTy, sTy>(#name, name);
@@ -400,6 +402,9 @@
 #endif
 #ifndef RDAT_VALUE
 #define RDAT_VALUE(type, name)
+#endif
+#ifndef RDAT_VALUE_HEX
+#define RDAT_VALUE_HEX(type, name) RDAT_VALUE(type, name)
 #endif
 #ifndef RDAT_INDEX_ARRAY_REF
 #define RDAT_INDEX_ARRAY_REF(name) // ref to array of uint32_t values
@@ -515,6 +520,7 @@
 #undef RDAT_STRING
 #undef RDAT_STRING_ARRAY_REF
 #undef RDAT_VALUE
+#undef RDAT_VALUE_HEX
 #undef RDAT_INDEX_ARRAY_REF
 #undef RDAT_ENUM
 #undef RDAT_FLAGS

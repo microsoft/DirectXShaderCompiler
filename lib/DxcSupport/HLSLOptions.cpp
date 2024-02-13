@@ -1068,6 +1068,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_preserve_interface, OPT_INVALID, false);
   opts.SpirvOptions.allowRWStructuredBufferArrays =
       Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID, false);
+  opts.SpirvOptions.enableMaximalReconvergence =
+      Args.hasFlag(OPT_fspv_enable_maximal_reconvergence, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift,
                          errors) ||

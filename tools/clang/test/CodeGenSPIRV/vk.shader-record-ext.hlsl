@@ -39,7 +39,8 @@ void main(inout Payload P)
         srb.f2.z +
 // CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float %srb %int_2 %uint_1 %uint_2
         srb.f3[1][2] +
-// CHECK: [[ptr_0:%[0-9]+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v2float %srb %int_3 %int_0 %int_2
+// CHECK: [[base:%[0-9]+]] = OpAccessChain %_ptr_ShaderRecordBufferNV__arr_v2float_uint_3 %srb %int_3 %int_0
+// CHECK: [[ptr_0:%[0-9]+]] = OpAccessChain %_ptr_ShaderRecordBufferNV_v2float [[base]] %int_2
 // CHECK:     {{%[0-9]+}} = OpAccessChain %_ptr_ShaderRecordBufferNV_float [[ptr_0]] %int_1
         srb.f4.val[2].y;
 }

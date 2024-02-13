@@ -29,8 +29,8 @@ define void @node01() {
 !7 = !{null, !"", null, null, null}
 !8 = !{void ()* @node01, !"node01", null, null, !9}
 !9 = !{i32 8, i32 15, i32 13, i32 1, i32 23, !10, i32 15, !11, i32 16, i32 -1, i32 22, !12, i32 20, !13, i32 4, !17, i32 5, !18}
-; CHECK: Function: node01: error: WaveSize Max (16) and Preferred (16) must be 0 to encode min==max
-!10 = !{i32 16, i32 16, i32 16}
+; CHECK: Function: node01: error: WaveSize Min (1) outside valid range [4..128], or not a power of 2.
+!10 = !{i32 1, i32 16, i32 16}
 !11 = !{!"node01", i32 0}
 !12 = !{i32 32, i32 1, i32 1}
 !13 = !{!14}
