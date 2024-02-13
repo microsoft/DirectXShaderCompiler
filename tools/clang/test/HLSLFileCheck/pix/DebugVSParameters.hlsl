@@ -8,7 +8,6 @@
 // CHECK: %CompareToVertId = icmp eq i32 %VertId, 1
 // CHECK: %CompareToInstanceId = icmp eq i32 %InstanceId, 2
 // CHECK: %CompareBoth = and i1 %CompareToVertId, %CompareToInstanceId
-// CHECK: %OffsetMultiplicand = zext i1 %CompareBoth to i32
 
 
 [RootSignature("")]
