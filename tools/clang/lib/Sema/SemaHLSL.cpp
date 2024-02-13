@@ -15795,7 +15795,9 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
   HLSLShaderAttr *shaderAttr = FD->getAttr<HLSLShaderAttr>();
   if (!shaderAttr) {
-    WarnOnEntryAttrWithoutShaderAttr(S, FD);
+    if (S.getLangOpts().IsHLSLLibrary)
+      WarnOnEntryAttrWithoutShaderAttr(S, FD);
+
     return;
   }
 
