@@ -1600,12 +1600,14 @@ MDTuple *DxilMDHelper::EmitDxilEntryProperties(uint64_t rawShaderFlag,
       if (props.WaveSize.IsRange())
         DXASSERT(DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 8) >= 0,
                  "DXIL version must be > 1.8");
+      const hlsl::ShaderModel *SM = GetShaderModel();
+
       MDVals.emplace_back(Uint32ToConstMD(
-          props.WaveSize.IsRange() ? DxilMDHelper::kDxilRangedWaveSizeTag
-                                   : DxilMDHelper::kDxilWaveSizeTag));
+          SM->IsSM68Plus() ? DxilMDHelper::kDxilRangedWaveSizeTag
+                           : DxilMDHelper::kDxilWaveSizeTag));
       SmallVector<Metadata *, 3> WaveSizeVal;
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Min));
-      if (props.WaveSize.IsRange()) {
+      if (SM->IsSM68Plus()) {
         WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Max));
         WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Preferred));
       }
@@ -1839,6 +1841,10 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       if (!m_pSM->IsSMAtLeast(6, 8))
         m_bExtraMetadata = true;
       MDNode *pNode = cast<MDNode>(MDO.get());
+      // TODO: Issue #6239 we need to validate that there are 3 integer
+      // parameters here, and emit a diagnostic if not.
+      DXASSERT(pNode->getNumOperands() == 3,
+               "else wavesize range tag has incorrect number of parameters");
       props.WaveSize.Min = ConstMDToUint32(pNode->getOperand(0));
       props.WaveSize.Max = ConstMDToUint32(pNode->getOperand(1));
       props.WaveSize.Preferred = ConstMDToUint32(pNode->getOperand(2));
@@ -2663,12 +2669,15 @@ void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
   // Optional Fields
 
   if (props.WaveSize.IsDefined()) {
-    MDVals.emplace_back(Uint32ToConstMD(
-        props.WaveSize.IsRange() ? DxilMDHelper::kDxilRangedWaveSizeTag
-                                 : DxilMDHelper::kDxilWaveSizeTag));
+
+    const hlsl::ShaderModel *SM = GetShaderModel();
+
+    MDVals.emplace_back(
+        Uint32ToConstMD(SM->IsSM68Plus() ? DxilMDHelper::kDxilRangedWaveSizeTag
+                                         : DxilMDHelper::kDxilWaveSizeTag));
     SmallVector<Metadata *, 3> WaveSizeVal;
     WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Min));
-    if (props.WaveSize.IsRange()) {
+    if (SM->IsSM68Plus()) {
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Max));
       WaveSizeVal.emplace_back(Uint32ToConstMD(props.WaveSize.Preferred));
     }
@@ -2815,6 +2824,46 @@ DxilMDHelper::EmitDxilNodeIOState(const hlsl::NodeIOProperties &Node) {
   return MDNode::get(m_Ctx, MDVals);
 }
 
+NodeRecordType
+DxilMDHelper::LoadDxilNodeRecordType(const llvm::MDOperand &MDO) {
+  const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
+  IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+  IFTBOOL((pTupleMD->getNumOperands() & 0x1) == 0,
+          DXC_E_INCORRECT_DXIL_METADATA);
+
+  NodeRecordType Record = {};
+  for (unsigned iNode = 0; iNode < pTupleMD->getNumOperands(); iNode += 2) {
+    unsigned Tag = DxilMDHelper::ConstMDToUint32(pTupleMD->getOperand(iNode));
+    const MDOperand &MDO = pTupleMD->getOperand(iNode + 1);
+    IFTBOOL(MDO.get() != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
+
+    switch (Tag) {
+    case DxilMDHelper::kDxilNodeRecordSizeTag: {
+      Record.size = ConstMDToUint32(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeSVDispatchGridTag: {
+      MDTuple *pSVDTupleMD = cast<MDTuple>(MDO.get());
+      // < 3 if fatal
+      IFTBOOL(pSVDTupleMD->getNumOperands() >= 3,
+              DXC_E_INCORRECT_DXIL_METADATA);
+      // > 3 is extra metadata, validator will fail.
+      if (pSVDTupleMD->getNumOperands() > 3)
+        m_bExtraMetadata = true;
+      Record.SV_DispatchGrid.ByteOffset =
+          ConstMDToUint32(pSVDTupleMD->getOperand(0));
+      Record.SV_DispatchGrid.ComponentType = static_cast<DXIL::ComponentType>(
+          ConstMDToUint32(pSVDTupleMD->getOperand(1)));
+      Record.SV_DispatchGrid.NumComponents =
+          ConstMDToUint32(pSVDTupleMD->getOperand(2));
+    } break;
+    default:
+      m_bExtraMetadata = true;
+      break;
+    }
+  }
+  return Record;
+}
+
 NodeIOProperties DxilMDHelper::LoadDxilNodeIOState(const llvm::MDOperand &MDO) {
   const MDTuple *pTupleMD = dyn_cast<MDTuple>(MDO.get());
   IFTBOOL(pTupleMD != nullptr, DXC_E_INCORRECT_DXIL_METADATA);
@@ -2832,20 +2881,7 @@ NodeIOProperties DxilMDHelper::LoadDxilNodeIOState(const llvm::MDOperand &MDO) {
       Node.Flags = NodeFlags(ConstMDToUint32(MDO));
     } break;
     case DxilMDHelper::kDxilNodeRecordTypeTag: {
-      MDTuple *pTupleMD = cast<MDTuple>(MDO.get());
-      Node.RecordType.size = ConstMDToUint32(pTupleMD->getOperand(1));
-      if (pTupleMD->getNumOperands() > 2) {
-        DXASSERT(pTupleMD->getNumOperands() == 4,
-                 "incorrect number of operands");
-        MDTuple *pSVDTupleMD = cast<MDTuple>(pTupleMD->getOperand(3));
-        Node.RecordType.SV_DispatchGrid.ByteOffset =
-            ConstMDToUint32(pSVDTupleMD->getOperand(0));
-        Node.RecordType.SV_DispatchGrid.ComponentType =
-            static_cast<DXIL::ComponentType>(
-                ConstMDToUint32(pSVDTupleMD->getOperand(1)));
-        Node.RecordType.SV_DispatchGrid.NumComponents =
-            ConstMDToUint32(pSVDTupleMD->getOperand(2));
-      }
+      Node.RecordType = LoadDxilNodeRecordType(MDO);
     } break;
     case DxilMDHelper::kDxilNodeOutputArraySizeTag: {
       Node.OutputArraySize = ConstMDToUint32(MDO);

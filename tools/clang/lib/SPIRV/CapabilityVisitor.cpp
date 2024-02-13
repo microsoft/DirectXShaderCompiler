@@ -718,6 +718,10 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
     addExtension(Extension::EXT_shader_stencil_export,
                  "[[vk::stencil_ref_less_equal_back]]", execModeSourceLocation);
     break;
+  case spv::ExecutionMode::MaximallyReconvergesKHR:
+    addExtension(Extension::KHR_maximal_reconvergence, "",
+                 execModeSourceLocation);
+    break;
   default:
     break;
   }

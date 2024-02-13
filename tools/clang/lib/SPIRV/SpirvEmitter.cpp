@@ -890,6 +890,12 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                               spvContext.getMinorVersion(), fileNames);
   }
 
+  if (spirvOptions.enableMaximalReconvergence) {
+    spvBuilder.addExecutionMode(entryFunction,
+                                spv::ExecutionMode::MaximallyReconvergesKHR, {},
+                                SourceLocation());
+  }
+
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
   if (context.getDiagnostics().hasErrorOccurred())
@@ -2775,24 +2781,37 @@ void SpirvEmitter::doSwitchStmt(const SwitchStmt *switchStmt,
 SpirvInstruction *
 SpirvEmitter::doArraySubscriptExpr(const ArraySubscriptExpr *expr,
                                    SourceRange rangeOverride) {
-  llvm::SmallVector<SpirvInstruction *, 4> indices;
-  bool isNoInterp = false;
-  const auto *base = collectArrayStructIndices(expr, /*rawIndex*/ false,
-                                               /*rawIndices*/ nullptr, &indices,
-                                               nullptr, &isNoInterp);
+  Expr *base = const_cast<Expr *>(expr->getBase()->IgnoreParenLValueCasts());
+
   auto *info = loadIfAliasVarRef(base);
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
-  if (!info || indices.empty()) {
+  if (!info) {
     return info;
   }
+
+  // The index into an array must be an integer number.
+  const auto *idxExpr = expr->getIdx();
+  const auto idxExprType = idxExpr->getType();
+  SpirvInstruction *thisIndex = loadIfGLValue(idxExpr);
+  if (!idxExprType->isIntegerType() || idxExprType->isBooleanType()) {
+    thisIndex = castToInt(thisIndex, idxExprType, astContext.UnsignedIntTy,
+                          idxExpr->getExprLoc());
+  }
+
+  llvm::SmallVector<SpirvInstruction *, 4> indices = {thisIndex};
 
   SpirvInstruction *loadVal =
       derefOrCreatePointerToValue(base->getType(), info, expr->getType(),
                                   indices, base->getExprLoc(), range);
-  if (!loadVal->isNoninterpolated())
-    loadVal->setNoninterpolated(isNoInterp);
+
+  // TODO(#6259): This maintains the same incorrect behaviour as before.
+  // When GetAttributeAtVertex is used, the array will be duplicated instead
+  // of duplicating the elements of the array. This means that the access chain
+  // feeding this one needs to be marked no interpolation, but this access chain
+  // does not. However, this is still wrong in cases that were wrong before.
+  loadVal->setNoninterpolated(false);
   return loadVal;
 }
 
@@ -3570,9 +3589,9 @@ SpirvEmitter::processFlatConversion(const QualType type,
     initInstr->setAstResultType(astContext.FloatTy);
   } else if (resultType->isSpecificBuiltinType(BuiltinType::LitInt)) {
     if (resultType->isSignedIntegerType())
-      initInstr->setAstResultType(astContext.IntTy);
+      initInstr->setAstResultType(astContext.LongLongTy);
     else
-      initInstr->setAstResultType(astContext.UnsignedIntTy);
+      initInstr->setAstResultType(astContext.UnsignedLongLongTy);
   }
 
   // Decompose `initInstr`.
@@ -7658,16 +7677,24 @@ void SpirvEmitter::assignToMSOutAttribute(
   assert(semanticInfo.isValid());
   const auto loc = decl->getLocation();
   // Special handle writes to clip/cull distance attributes.
-  if (!declIdMapper.glPerVertex.tryToAccess(
+  if (declIdMapper.glPerVertex.tryToAccess(
           hlsl::DXIL::SigPointKind::MSOut, semanticInfo.semantic->GetKind(),
           semanticInfo.index, attrIndex, &value, /*noWriteBack=*/false,
           vecComponent, loc)) {
-    // All other attribute writes are handled below.
-    auto *varInstr = declIdMapper.getStageVarInstruction(decl);
-    QualType valueType = value->getAstResultType();
-    varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
-    spvBuilder.createStore(varInstr, value, loc);
+    return;
   }
+
+  // All other attribute writes are handled below.
+  auto *varInstr = declIdMapper.getStageVarInstruction(decl);
+  QualType valueType = value->getAstResultType();
+  if (valueType->isBooleanType()) {
+    // Externally visible variables are changed to uint, so we need to cast the
+    // value to uint.
+    value = castToInt(value, valueType, astContext.UnsignedIntTy, loc);
+    valueType = astContext.UnsignedIntTy;
+  }
+  varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
+  spvBuilder.createStore(varInstr, value, loc);
 }
 
 void SpirvEmitter::assignToMSOutIndices(
@@ -12114,9 +12141,7 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   const auto exprRange = expr->getSourceRange();
 
   // arg1 : vertexId
-  const auto *arg1BaseExpr = doExpr(expr->getArg(1)->IgnoreParenLValueCasts());
-  const auto *arg1ConstExpr = dyn_cast<SpirvConstantInteger>(arg1BaseExpr);
-  const auto vertexId = arg1ConstExpr->getValue();
+  auto *arg1BaseExpr = doExpr(expr->getArg(1));
 
   // arg0 : <NoInterpolation> decorated input
   // Tip  : for input with boolean type, we need to ignore implicit cast first,
@@ -12133,14 +12158,12 @@ SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
   }
   // Change to access chain instr
   SpirvInstruction *accessChainPtr = paramDeclInstr;
-  SpirvConstant *vtxId = spvBuilder.getConstantInt(
-      astContext.UnsignedIntTy, llvm::APInt(32, *(vertexId.getRawData())));
   if (isa<SpirvAccessChain>(accessChainPtr)) {
     auto *accessInstr = dyn_cast<SpirvAccessChain>(accessChainPtr);
-    accessInstr->insertIndex(vtxId, accessInstr->getIndexes().size());
+    accessInstr->insertIndex(arg1BaseExpr, accessInstr->getIndexes().size());
   } else
-    accessChainPtr = spvBuilder.createAccessChain(elementType, accessChainPtr,
-                                                  vtxId, exprLoc, exprRange);
+    accessChainPtr = spvBuilder.createAccessChain(
+        elementType, accessChainPtr, arg1BaseExpr, exprLoc, exprRange);
   dyn_cast<SpirvAccessChain>(accessChainPtr)->setNoninterpolated(false);
   auto *loadPtr =
       spvBuilder.createLoad(elementType, accessChainPtr, exprLoc, exprRange);

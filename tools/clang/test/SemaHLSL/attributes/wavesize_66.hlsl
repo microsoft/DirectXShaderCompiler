@@ -7,7 +7,7 @@ void main() {
 }
 
 
-[wavesize(4, 8)] // No diagnostic expected for inactive entry
-[numthreads(1,1,8)]
+[wavesize(4, 8)] 
+[numthreads(1,1,8)] 
 void inactive() {
 }

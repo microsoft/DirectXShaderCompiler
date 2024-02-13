@@ -73,11 +73,15 @@ struct DxilWaveSize {
     MaxEqualsMin,
     MaxLessThanMin,
     PreferredOutOfRange,
+    NoRangeOrMin,
   };
   ValidationResult Validate() const {
     if (Min == 0) { // Not defined
       if (Max != 0 || Preferred != 0)
         return ValidationResult::MaxOrPreferredWhenUndefined;
+      else
+        // all 3 parameters are 0
+        return ValidationResult::NoRangeOrMin;
     } else if (!IsValidValue(Min)) {
       return ValidationResult::InvalidMin;
     } else if (Max == 0) { // single WaveSize (SM 6.6/6.7)

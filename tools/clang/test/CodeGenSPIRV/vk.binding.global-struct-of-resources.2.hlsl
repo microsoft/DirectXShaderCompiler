@@ -45,7 +45,8 @@ Texture2D globalTexture;
 SamplerState globalSamplerState;
 
 float4 main() : SV_Target {
-// CHECK:  [[ptr:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_S %globalS %int_0 %int_0
+// CHECK:  [[base:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant__arr_S_uint_3 %globalS %int_0
+// CHECK:  [[ptr:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_S [[base]] %int_0
 // CHECK: [[elem:%[0-9]+]] = OpLoad %S [[ptr]]
 // CHECK:                 OpStore %param_var_x [[elem]]
 // CHECK:                 OpFunctionCall %v4float %tex2D %param_var_x %param_var_v

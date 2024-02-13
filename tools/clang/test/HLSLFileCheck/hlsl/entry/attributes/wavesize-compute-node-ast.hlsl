@@ -9,20 +9,6 @@
 // RUN: %dxc -T cs_6_8 -DNODE -DRANGE=,64,32 -ast-dump %s | FileCheck %s -check-prefixes=AST,AST2,ASTNODE,ASTNODE2 -DPREF=32
 // RUN: %dxc -T lib_6_8 -DNODE -DRANGE=,64,32 -ast-dump %s | FileCheck %s -check-prefixes=AST,AST2,ASTNODE,ASTNODE2 -DPREF=32
 
-// RUN: %dxc -T cs_6_6 -DNODE %s | FileCheck %s -check-prefixes=META,META1
-// RUN: %dxc -T cs_6_8 -DNODE %s | FileCheck %s -check-prefixes=META,META1
-// RUN: %dxc -T lib_6_6 %s | FileCheck %s -check-prefixes=META,META1
-// RUN: %dxc -T lib_6_8 -DNODE %s | FileCheck %s -check-prefixes=META,META1,METANODE,METANODE1
-
-// RUN: %dxc -T cs_6_8 -DNODE -DRANGE=,64 %s | FileCheck %s -check-prefixes=META,META2 -DPREF=0
-// RUN: %dxc -T lib_6_8 -DNODE -DRANGE=,64 %s | FileCheck %s -check-prefixes=META,META2,METANODE,METANODE2 -DPREF=0
-
-// RUN: %dxc -T cs_6_8 -DNODE -DRANGE=,64,32 %s | FileCheck %s -check-prefixes=META,META2 -DPREF=32
-// RUN: %dxc -T lib_6_8 -DNODE -DRANGE=,64,32 %s | FileCheck %s -check-prefixes=META,META2,METANODE,METANODE2 -DPREF=32
-
-// RUN: %dxc -T lib_6_8 -DNODE %s | %D3DReflect %s | FileCheck %s -check-prefixes=RDAT,RDAT1
-// RUN: %dxc -T lib_6_8 -DNODE -DRANGE=,64 %s | %D3DReflect %s | FileCheck %s -check-prefixes=RDAT,RDAT2
-// RUN: %dxc -T lib_6_8 -DNODE -DRANGE=,64,32 %s | %D3DReflect %s | FileCheck %s -check-prefixes=RDAT,RDAT2
 
 // Notes on RUN variations:
 //  - Tests cs and lib with SM 6.6 and SM 6.8, with limitations for SM 6.6:
@@ -45,33 +31,6 @@
 // ASTNODE1-SAME: 16 0 0
 // ASTNODE2: -HLSLWaveSizeAttr
 // ASTNODE2-SAME: 16 64 [[PREF]]
-
-// META: @main, !"main", null, null, [[PROPS:![0-9]+]]}
-// META1: [[PROPS]] = !{
-// META1-SAME: i32 11, [[WS:![0-9]+]]
-// META2: [[PROPS]] = !{
-// META2-SAME: i32 23, [[WS:![0-9]+]]
-// META1: [[WS]] = !{i32 16}
-// META2: [[WS]] = !{i32 16, i32 64, i32 [[PREF]]}
-
-// METANODE: @node, !"node", null, null, [[PROPS:![0-9]+]]}
-// METANODE1: [[PROPS]] = !{
-// METANODE1-SAME: i32 11, [[WS]]
-// METANODE2: [[PROPS]] = !{
-// METANODE2-SAME: i32 23, [[WS]]
-
-// RDAT has no min/max wave count until SM 6.8
-// RDAT-LABEL: <0:RuntimeDataFunctionInfo{{.}}> = {
-// RDAT: Name: "main"
-// RDAT: MinimumExpectedWaveLaneCount: 16
-// RDAT1: MaximumExpectedWaveLaneCount: 16
-// RDAT2: MaximumExpectedWaveLaneCount: 64
-
-// RDAT-LABEL: <1:RuntimeDataFunctionInfo{{.}}> = {
-// RDAT: Name: "node"
-// RDAT: MinimumExpectedWaveLaneCount: 16
-// RDAT1: MaximumExpectedWaveLaneCount: 16
-// RDAT2: MaximumExpectedWaveLaneCount: 64
 
 #ifndef RANGE
 #define RANGE

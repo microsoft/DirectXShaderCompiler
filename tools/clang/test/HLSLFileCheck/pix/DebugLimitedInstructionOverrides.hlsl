@@ -1,19 +1,19 @@
 // The PIX debug instrumentation pass takes optional arguments that limit the range of instruction numbers that will be instrumented.
 // (This is to cope with extremely large shaders, the instrumentation of which will break, either by out-of-memory or by TDRing when run.)
 
-// RUN: %dxc -EFlowControlPS -Tps_6_0 %s | %opt -S -dxil-annotate-with-virtual-regs -hlsl-dxil-debug-instrumentation,FirstInstruction=6,LastInstruction=9 | %FileCheck %s
+// RUN: %dxc -EFlowControlPS -Tps_6_0 %s | %opt -S -dxil-annotate-with-virtual-regs -hlsl-dxil-debug-instrumentation,FirstInstruction=4,LastInstruction=20 | %FileCheck %s
 
-// The only instrumented instructions should have instruction numbers in the range [6,9):
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, {{.*}}, i32 undef, i32 6
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, {{.*}}, i32 undef, i32 7
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, {{.*}}, i32 undef, i32 8
+// The only instrumented blocks should have instruction numbers in the range [4,20):
 
-// Two more stores to finish off the instrumentation for instruction #8:
-// CHECK: call void @dx.op.bufferStore.f32
-// CHECK: call void @dx.op.bufferStore.i32
+// Skip over the preamble
+// CHECK: switch i32
+// 
+// Now there should be exactly two more instrumented blocks (two increments of the counter UAV entry)
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
 
-// Then no more instrumentation at all:
-// CHECK-NOT: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle
+// Then no more instrumentation at all (i.e. no more increments of the counter UAV entry):
+// CHECK-NOT: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
 
 struct VS_OUTPUT_ENV {
   float4 Pos : SV_Position;

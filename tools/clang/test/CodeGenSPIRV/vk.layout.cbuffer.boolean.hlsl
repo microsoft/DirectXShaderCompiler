@@ -130,7 +130,8 @@ float4 main(in float4 texcoords : TEXCOORD0) : SV_TARGET
     bool2   k = frameConstants.boolMat._m12_m01;
 
 // CHECK:      [[FrameConstants_9:%[0-9]+]] = OpAccessChain %_ptr_Uniform_FrameConstants %CONSTANTS %int_0
-// CHECK-NEXT:            [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint [[FrameConstants_9]] %int_3 %int_0 %int_2
+// CHECK-NEXT:            [[base:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_uint_uint_1 [[FrameConstants_9]] %int_3 %int_0
+// CHECK-NEXT:            [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint [[base]] %int_2
 // CHECK-NEXT:           [[uint_3:%[0-9]+]] = OpLoad %uint [[ptr]]
 // CHECK-NEXT:           [[bool_4:%[0-9]+]] = OpINotEqual %bool [[uint_3]] %uint_0
 // CHECK-NEXT:                           OpStore %l [[bool_4]]
