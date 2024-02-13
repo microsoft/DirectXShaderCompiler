@@ -17,6 +17,7 @@
 #include "CGObjCRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
+#include "dxc/Support/Path.h" // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclFriend.h"
 #include "clang/AST/DeclObjC.h"
@@ -237,6 +238,17 @@ StringRef CGDebugInfo::getClassName(const RecordDecl *RD) {
   return internString(Name);
 }
 
+// HLSL Change - begin
+std::string CGDebugInfo::HLSLNormalizeDbgFileName(StringRef Str) {
+  // For HLSL, we want to keep the main file name exactly as is. Everything
+  // else should be formatted in a standard way.
+  if (CGM.getLangOpts().HLSL) {
+    return hlsl::NormalizePath(Str);
+  }
+  return Str;
+}
+// HLSL Change - end
+
 llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
   if (!Loc.isValid())
     // If Location is not valid then use main input file.
@@ -260,7 +272,8 @@ llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
   }
 
   llvm::DIFile *F =
-      DBuilder.createFile(PLoc.getFilename(), getCurrentDirname());
+      DBuilder.createFile(HLSLNormalizeDbgFileName(PLoc.getFilename()),
+                          getCurrentDirname()); // HLSL Change
 
   DIFileCache[fname].reset(F);
   return F;

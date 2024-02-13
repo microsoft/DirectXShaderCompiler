@@ -61,6 +61,22 @@
 #include "llvm/ADT/StringSwitch.h"
 // clang-format on
 
+// These are helper macros for adding slashes down below
+// based on platform. The PP_ prefixed ones are for matching
+// slashes in preprocessed HLSLs, since backslashes that
+// appear in #line directives are double backslashes.
+#ifdef _WIN32
+#define SLASH_W L"\\"
+#define SLASH "\\"
+#define PP_SLASH_W L"\\\\"
+#define PP_SLASH "\\\\"
+#else
+#define SLASH_W L"/"
+#define SLASH "/"
+#define PP_SLASH_W L"/"
+#define PP_SLASH "/"
+#endif
+
 using namespace std;
 using namespace hlsl_test;
 
@@ -175,6 +191,7 @@ public:
   TEST_METHOD(CompileWhenIncludeAbsoluteThenLoadAbsolute)
   TEST_METHOD(CompileWhenIncludeLocalThenLoadRelative)
   TEST_METHOD(CompileWhenIncludeSystemThenLoadNotRelative)
+  TEST_METHOD(CompileWhenAllIncludeCombinations)
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
@@ -1257,6 +1274,9 @@ static void VerifyPdbUtil(
     bool HasVersion, bool IsFullPDB, bool HasHashAndPdbName,
     bool TestReflection, bool TestEntryPoint, const std::string &MainSource,
     const std::string &IncludedFile) {
+
+  std::wstring MainFileName = std::wstring(L"." SLASH_W) + pMainFileName;
+
   VERIFY_SUCCEEDED(pPdbUtils->Load(pBlob));
 
   // Compiler version comparison
@@ -1362,7 +1382,7 @@ static void VerifyPdbUtil(
   {
     CComBSTR pPdbMainFileName;
     VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pPdbMainFileName));
-    VERIFY_ARE_EQUAL_WSTR(pMainFileName, pPdbMainFileName.m_str);
+    VERIFY_ARE_EQUAL(MainFileName, pPdbMainFileName.m_str);
   }
 
   // There is hash and hash is not empty
@@ -1390,7 +1410,7 @@ static void VerifyPdbUtil(
       llvm::StringRef FileContentRef(pFileContentUtf8->GetStringPointer(),
                                      pFileContentUtf8->GetStringLength());
 
-      if (0 == wcscmp(pFileName, pMainFileName)) {
+      if (MainFileName == pFileName.m_str) {
         VERIFY_ARE_EQUAL(FileContentRef, MainSource);
       } else {
         VERIFY_ARE_EQUAL(FileContentRef, IncludedFile);
@@ -1939,7 +1959,7 @@ TEST_F(CompilerTest, CompileThenTestPdbUtilsWarningOpt) {
     CComBSTR pMainFileName;
     VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
     std::wstring mainFileName = static_cast<const wchar_t *>(pMainFileName);
-    VERIFY_ARE_EQUAL(mainFileName, L"hlsl.hlsl");
+    VERIFY_ARE_EQUAL(mainFileName, L"." SLASH_W L"hlsl.hlsl");
   };
 
   CComPtr<IDxcPdbUtils> pPdbUtils;
@@ -2838,7 +2858,8 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadInvoked) {
                                       L"ps_6_0", nullptr, 0, nullptr, 0,
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L"./helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"." SLASH_W L"helper.h;",
+                        pInclude->GetAllFileNames().c_str());
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
@@ -2859,7 +2880,199 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
                                       L"ps_6_0", nullptr, 0, nullptr, 0,
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L"./helper.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"." SLASH_W L"helper.h;",
+                        pInclude->GetAllFileNames().c_str());
+}
+
+TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
+  static auto NormalizeForPlatform = [](const std::wstring &s) -> std::wstring {
+#ifdef _WIN32
+    wchar_t From = L'/';
+    wchar_t To = L'\\';
+#else
+    wchar_t From = L'\\';
+    wchar_t To = L'/';
+#endif
+    std::wstring ret = s;
+    for (wchar_t &c : ret) {
+      if (c == From)
+        c = To;
+    }
+    return ret;
+  };
+
+  class SimpleIncludeHanlder : public IDxcIncludeHandler {
+    DXC_MICROCOM_REF_FIELD(m_dwRef)
+  public:
+    DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+    dxc::DxcDllSupport &m_dllSupport;
+    HRESULT m_defaultErrorCode = E_FAIL;
+    SimpleIncludeHanlder(dxc::DxcDllSupport &dllSupport)
+        : m_dwRef(0), m_dllSupport(dllSupport) {}
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                             void **ppvObject) override {
+      return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+    }
+
+    std::wstring Path;
+    std::string Content;
+
+    HRESULT STDMETHODCALLTYPE LoadSource(
+        LPCWSTR pFilename,         // Filename as written in #include statement
+        IDxcBlob **ppIncludeSource // Resultant source object for included file
+        ) override {
+      if (pFilename == NormalizeForPlatform(Path)) {
+        MultiByteStringToBlob(m_dllSupport, Content, CP_UTF8, ppIncludeSource);
+        return S_OK;
+      }
+      return E_FAIL;
+    }
+  };
+  struct File {
+    std::wstring name;
+    std::string content;
+  };
+  struct TestCase {
+    std::wstring mainFileArg;
+    File mainFile;
+    File includeFile;
+    std::vector<const WCHAR *> extraArgs;
+  };
+  std::string commonIncludeFile = "float foo() { return 10; }";
+
+  TestCase tests[] = {
+      {L"main.hlsl",
+       {L".\\main.hlsl",
+        R"(#include "include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\include.h", commonIncludeFile},
+       {}},
+
+      {L"./main.hlsl",
+       {L".\\main.hlsl",
+        R"(#include "include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\include.h", commonIncludeFile},
+       {}},
+
+      {L"../main.hlsl",
+       {L".\\..\\main.hlsl",
+        R"(#include "include.h"\n
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\..\\include.h", commonIncludeFile},
+       {}},
+
+      {L"../main.hlsl",
+       {L".\\..\\main.hlsl",
+        R"(#include "include_dir/include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\..\\include_dir\\include.h", commonIncludeFile},
+       {}},
+
+      {L"../main.hlsl",
+       {L".\\..\\main.hlsl",
+        R"(#include "../include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\..\\..\\include.h", commonIncludeFile},
+       {}},
+
+      {L"../main.hlsl",
+       {L".\\..\\main.hlsl",
+        R"(#include "second_dir/include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\..\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
+       {L"-I", L"../my_include_dir"}},
+
+      {L"../main.hlsl",
+       {L".\\..\\main.hlsl",
+        R"(#include "second_dir/include.h"
+           float main() : SV_Target { return foo(); } )"},
+       {L".\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
+       {L"-I", L"my_include_dir"}},
+
+#ifdef _WIN32
+      {L"../main.hlsl",
+       {L".\\..\\main.hlsl",
+        R"(#include "\\my_include_dir\\second_dir/include.h" // <-- Network path
+           float main() : SV_Target { return foo(); } )"},
+       {L"\\\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
+       {}},
+#else
+      {L"../main.hlsl",
+       {L".\\..\\main.hlsl",
+        R"(#include "/my_include_dir\\second_dir/include.h" // <-- Unix absolute path
+           float main() : SV_Target { return foo(); } )"},
+       {L"/my_include_dir\\second_dir\\include.h", commonIncludeFile},
+       {}},
+#endif
+  };
+
+  for (TestCase &t : tests) {
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    CComPtr<SimpleIncludeHanlder> pInclude;
+
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    CreateBlobFromText(t.mainFile.content.c_str(), &pSource);
+
+    pInclude = new SimpleIncludeHanlder(m_dllSupport);
+    pInclude->Content = t.includeFile.content;
+    pInclude->Path = NormalizeForPlatform(t.includeFile.name);
+
+    std::vector<const WCHAR *> args = {L"-Zi", L"-Qembed_debug"};
+    args.insert(args.end(), t.extraArgs.begin(), t.extraArgs.end());
+
+    VERIFY_SUCCEEDED(pCompiler->Compile(pSource, t.mainFileArg.c_str(), L"main",
+                                        L"ps_6_0", args.data(), args.size(),
+                                        nullptr, 0, pInclude, &pResult));
+
+    CComPtr<IDxcBlob> pPdb;
+    CComPtr<IDxcBlob> pDxil;
+    CComPtr<IDxcResult> pRealResult;
+    VERIFY_SUCCEEDED(pResult.QueryInterface(&pRealResult));
+    VERIFY_SUCCEEDED(
+        pRealResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pPdb), nullptr));
+    VERIFY_SUCCEEDED(
+        pRealResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxil), nullptr));
+
+    IDxcBlob *debugBlobs[] = {pPdb, pDxil};
+    for (IDxcBlob *pDbgBlob : debugBlobs) {
+      CComPtr<IDxcPdbUtils> pPdbUtils;
+      VERIFY_SUCCEEDED(
+          m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+      VERIFY_SUCCEEDED(pPdbUtils->Load(pDbgBlob));
+
+      CComBSTR pMainFileName;
+      VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainFileName));
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.mainFile.name),
+                       pMainFileName.m_str);
+
+      pMainFileName.Empty();
+      VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(0, &pMainFileName));
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.mainFile.name),
+                       pMainFileName.m_str);
+
+      CComBSTR pIncludeName;
+      VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(1, &pIncludeName));
+      VERIFY_ARE_EQUAL(NormalizeForPlatform(t.includeFile.name),
+                       pIncludeName.m_str);
+
+      CComPtr<IDxcBlobEncoding> pMainSource;
+      VERIFY_SUCCEEDED(pPdbUtils->GetSource(0, &pMainSource));
+
+      CComPtr<SimpleIncludeHanlder> pRecompileInclude =
+          new SimpleIncludeHanlder(m_dllSupport);
+      pRecompileInclude->Content = t.includeFile.content;
+      pRecompileInclude->Path = pIncludeName;
+
+      CComPtr<IDxcOperationResult> pRecompileOpResult;
+      VERIFY_SUCCEEDED(pCompiler->Compile(
+          pMainSource, pMainFileName, L"main", L"ps_6_0", args.data(),
+          args.size(), nullptr, 0, pRecompileInclude, &pRecompileOpResult));
+      VerifyOperationSucceeded(pRecompileOpResult);
+    }
+  }
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeAbsoluteThenLoadAbsolute) {
@@ -2912,7 +3125,7 @@ TEST_F(CompilerTest, CompileWhenIncludeLocalThenLoadRelative) {
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
 #ifdef _WIN32 // OS-specific directory dividers
-  VERIFY_ARE_EQUAL_WSTR(L"./..\\helper.h;",
+  VERIFY_ARE_EQUAL_WSTR(L".\\..\\helper.h;",
                         pInclude->GetAllFileNames().c_str());
 #else
   VERIFY_ARE_EQUAL_WSTR(L"./../helper.h;", pInclude->GetAllFileNames().c_str());
@@ -2940,7 +3153,7 @@ TEST_F(CompilerTest, CompileWhenIncludeSystemThenLoadNotRelative) {
                                       0, pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
 #ifdef _WIN32 // OS-specific directory dividers
-  VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./foo\\helper.h;",
+  VERIFY_ARE_EQUAL_WSTR(L".\\subdir\\other\\file.h;.\\foo\\helper.h;",
                         pInclude->GetAllFileNames().c_str());
 #else
   VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./foo/helper.h;",
@@ -2971,8 +3184,13 @@ TEST_F(CompilerTest, CompileWhenIncludeSystemMissingThenLoadAttempt) {
       std::string::npos,
       failLog.find("<angled>")); // error message should prompt to use <angled>
                                  // rather than "quotes"
+#ifdef _WIN32
+  VERIFY_ARE_EQUAL_WSTR(L".\\subdir\\other\\file.h;.\\subdir\\other\\helper.h;",
+                        pInclude->GetAllFileNames().c_str());
+#else
   VERIFY_ARE_EQUAL_WSTR(L"./subdir/other/file.h;./subdir/other/helper.h;",
                         pInclude->GetAllFileNames().c_str());
+#endif
 }
 
 TEST_F(CompilerTest, CompileWhenIncludeFlagsThenIncludeUsed) {
@@ -3162,7 +3380,8 @@ TEST_F(CompilerTest, CompileWhenIncludeEmptyThenOK) {
                                       L"ps_6_0", nullptr, 0, nullptr, 0,
                                       pInclude, &pResult));
   VerifyOperationSucceeded(pResult);
-  VERIFY_ARE_EQUAL_WSTR(L"./empty.h;", pInclude->GetAllFileNames().c_str());
+  VERIFY_ARE_EQUAL_WSTR(L"." SLASH_W L"empty.h;",
+                        pInclude->GetAllFileNames().c_str());
 }
 
 static const char EmptyCompute[] = "[numthreads(8,8,1)] void main() { }";
@@ -4203,7 +4422,7 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
                        "\n"
                        "int g_int = 123;\n"
                        "\n"
@@ -4250,14 +4469,13 @@ TEST_F(CompilerTest, PreprocessWhenExpandTokenPastingOperandThenAccept) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR(R"(#line 1 "file.hlsl"
-#line 12 "file.hlsl"
-    Texture2D<float4> resource_set_10_bind_5_tex;
-
-  float4 main() : SV_Target{
-    return resource_set_10_bind_5_tex[uint2(1, 2)];
-  }
-)",
+  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
+                       "#line 12 \"." PP_SLASH "file.hlsl\"\n"
+                       "    Texture2D<float4> resource_set_10_bind_5_tex;\n"
+                       "\n"
+                       "  float4 main() : SV_Target{\n"
+                       "    return resource_set_10_bind_5_tex[uint2(1, 2)];\n"
+                       "  }\n",
                        text.c_str());
 }
 
@@ -4292,7 +4510,7 @@ TEST_F(CompilerTest, PreprocessWithDebugOptsThenOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
                        "\n"
                        "int g_int = 123;\n"
                        "\n"
@@ -4319,7 +4537,7 @@ TEST_F(CompilerTest, PreprocessCheckBuiltinIsOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n\n", text.c_str());
+  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n\n", text.c_str());
 }
 
 TEST_F(CompilerTest, CompileOtherModesWithDebugOptsThenOk) {
