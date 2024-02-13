@@ -504,9 +504,22 @@ bool ShaderModel::AllowDerivatives(DXIL::ShaderKind sk) const {
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
     return IsSM66Plus();
-  default:
+  case DXIL::ShaderKind::Vertex:
+  case DXIL::ShaderKind::Geometry:
+  case DXIL::ShaderKind::Hull:
+  case DXIL::ShaderKind::Domain:
+  case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
+  case DXIL::ShaderKind::Invalid:
     return false;
   }
+  static_assert(DXIL::ShaderKind::LastValid == DXIL::ShaderKind::Node,
+                "otherwise, switch needs to be updated.");
+  llvm_unreachable("unknown ShaderKind");
 }
 
 typedef ShaderModel SM;
