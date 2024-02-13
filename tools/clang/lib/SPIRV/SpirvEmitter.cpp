@@ -7677,16 +7677,24 @@ void SpirvEmitter::assignToMSOutAttribute(
   assert(semanticInfo.isValid());
   const auto loc = decl->getLocation();
   // Special handle writes to clip/cull distance attributes.
-  if (!declIdMapper.glPerVertex.tryToAccess(
+  if (declIdMapper.glPerVertex.tryToAccess(
           hlsl::DXIL::SigPointKind::MSOut, semanticInfo.semantic->GetKind(),
           semanticInfo.index, attrIndex, &value, /*noWriteBack=*/false,
           vecComponent, loc)) {
-    // All other attribute writes are handled below.
-    auto *varInstr = declIdMapper.getStageVarInstruction(decl);
-    QualType valueType = value->getAstResultType();
-    varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
-    spvBuilder.createStore(varInstr, value, loc);
+    return;
   }
+
+  // All other attribute writes are handled below.
+  auto *varInstr = declIdMapper.getStageVarInstruction(decl);
+  QualType valueType = value->getAstResultType();
+  if (valueType->isBooleanType()) {
+    // Externally visible variables are changed to uint, so we need to cast the
+    // value to uint.
+    value = castToInt(value, valueType, astContext.UnsignedIntTy, loc);
+    valueType = astContext.UnsignedIntTy;
+  }
+  varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
+  spvBuilder.createStore(varInstr, value, loc);
 }
 
 void SpirvEmitter::assignToMSOutIndices(
