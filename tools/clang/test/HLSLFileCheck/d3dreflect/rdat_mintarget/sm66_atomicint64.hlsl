@@ -32,7 +32,9 @@ void atomic_typed() {
 // ShaderFeatureInfo_AtomicInt64OnGroupShared (0x800000) = 8388608
 // + ShaderFeatureInfo_Int64Ops (0x8000) = 0x808000 = 8421376
 // RDAT:   FeatureInfo1: (Int64Ops | AtomicInt64OnGroupShared)
-// RDAT:   FeatureInfo2: 0
+// RDAT18:   FeatureInfo2: (Opt_RequiresGroup)
+// Old: no Opt_RequiresGroup flag
+// RDAT17:   FeatureInfo2: 0
 // MinShaderTarget: (Compute(5) << 16) + (SM 6.6 ((6 << 4) + 6)) = 0x50066 = 327782
 // RDAT18: MinShaderTarget: 0x50066
 // Old: 6.0
