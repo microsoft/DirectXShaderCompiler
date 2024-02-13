@@ -230,6 +230,9 @@ enum class ShaderKind {
   Last_1_8 = Node,
   LastValid = Last_1_8,
 };
+static_assert((unsigned)DXIL::ShaderKind::LastValid + 1 ==
+                  (unsigned)DXIL::ShaderKind::Invalid,
+              "otherwise, enum needs updating.");
 
 // clang-format off
   // Python lines need to be not formatted.
