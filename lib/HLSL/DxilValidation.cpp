@@ -3244,7 +3244,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           if (dxilOpcode >= DXIL::OpCode::NumOpCodes) {
             ValCtx.EmitInstrFormatError(
                 &I, ValidationRule::InstrIllegalDXILOpCode,
-                {std::to_string((unsigned) DXIL::OpCode::NumOpCodes),
+                {std::to_string((unsigned)DXIL::OpCode::NumOpCodes),
                  std::to_string(opcode)});
             continue;
           }
