@@ -41,6 +41,13 @@ struct W {
   float4 color;
 };
 
+struct BitFields {
+  uint R:8;
+  uint G:8;
+  uint B:8;
+  uint A:8;
+};
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -103,4 +110,11 @@ void main() {
 // CHECK-NEXT: [[float4_zero:%[0-9]+]] = OpConvertSToF %v4float [[int4_zero]]
 // CHECK-NEXT:             {{%[0-9]+}} = OpCompositeConstruct %W [[float4_zero]]
     W w = { (0).xxxx };
+
+// CHECK: [[v1:%[0-9]+]] = OpBitFieldInsert %uint %uint_3 %uint_2 %uint_8 %uint_8
+// CHECK: [[v2:%[0-9]+]] = OpBitFieldInsert %uint [[v1]] %uint_1 %uint_16 %uint_8
+// CHECK: [[v3:%[0-9]+]] = OpBitFieldInsert %uint [[v2]] %uint_0 %uint_24 %uint_8
+// CHECK: [[bf:%[0-9]+]] = OpCompositeConstruct %BitFields [[v3]]
+// CHECK:                  OpStore %bf [[bf]]
+    BitFields bf = {3, 2, 1, 0};
 }
