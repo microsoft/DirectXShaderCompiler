@@ -504,8 +504,9 @@ bool ShaderModel::AllowDerivatives(DXIL::ShaderKind sk) const {
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
     return IsSM66Plus();
+  default:
+    return false;
   }
-  return false;
 }
 
 typedef ShaderModel SM;
