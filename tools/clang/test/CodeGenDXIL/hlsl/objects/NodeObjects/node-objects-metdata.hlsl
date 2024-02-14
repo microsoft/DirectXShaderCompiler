@@ -1,8 +1,22 @@
-// RUN: %dxc -T lib_6_8 %s | FileCheck %s --check-prefixes=MD
-// RUN: %dxc -T lib_6_8 -Od %s | FileCheck %s --check-prefixes=MD
-// RUN: %dxc -T lib_6_8 -Zi %s | FileCheck %s --check-prefixes=MD
+// RUN: %if dxil-1-8  \
+// RUN:   %{          \
+// RUN: %dxc -T lib_6_8 %s | FileCheck %s --check-prefixes=MD \
+// RUN:   %}
 
-// RUN: %dxc -T lib_6_8 -fcgl %s | FileCheck %s --check-prefix=FCGLMD
+// RUN: %if dxil-1-8  \
+// RUN:   %{          \
+// RUN: %dxc -T lib_6_8 -Od %s | FileCheck %s --check-prefixes=MD \
+// RUN:   %}
+
+// RUN: %if dxil-1-8  \
+// RUN:   %{          \
+// RUN: %dxc -T lib_6_8 -Zi %s | FileCheck %s --check-prefixes=MD \
+// RUN:   %}
+
+// RUN: %if dxil-1-8  \
+// RUN:   %{          \
+// RUN: %dxc -T lib_6_8 -fcgl %s | FileCheck %s --check-prefix=FCGLMD \
+// RUN:   %}
 
 // Verify correct metadata annotations for different node shader input and outputs.
 
