@@ -1,7 +1,12 @@
 // RUN: %dxc -T vs_6_5 -Od -E main %s | %opt -S -dxil-annotate-with-virtual-regs -hlsl-dxil-debug-instrumentation | FileCheck %s
+ 
+// CHECK: [[RAYQUERY0:%.*]] = call i32 @dx.op.allocateRayQuery
+// CHECK: [[RAYQUERY1:%.*]] = call i32 @dx.op.allocateRayQuery
 
-// CHECK: call void @dx.op.rayQuery_TraceRayInline
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle
+// CHECK: [[PHIQUERY:%.*]] = phi i32 [ [[RAYQUERY0:%.*]], {{.*}} ], [ [[RAYQUERY0:%.*]], {{.*}} ]
+
+// The debug instrumentation should NOT try to store this phi value: it's not an i32! (It's an opaque handle).
+// CHECK-NOT: @dx.op.bufferStore{{.*}}[[PHIQUERY]]
 
 RaytracingAccelerationStructure RTAS;
 RWStructuredBuffer<int> UAV : register(u0);
