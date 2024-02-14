@@ -41,8 +41,16 @@ bool IsAllocateRayQueryInstruction(llvm::Value const *Val) {
   if (Val != nullptr) {
     if (llvm::Instruction const *Inst =
             llvm::dyn_cast<llvm::Instruction>(Val)) {
-      return hlsl::OP::IsDxilOpFuncCallInst(Inst,
-                                            hlsl::OP::OpCode::AllocateRayQuery);
+      if (hlsl::OP::IsDxilOpFuncCallInst(Inst,
+                                         hlsl::OP::OpCode::AllocateRayQuery))
+        return true;
+      if (auto PHI = llvm::dyn_cast<llvm::PHINode>(Inst)) {
+        for (unsigned IVOrdinal = 0; IVOrdinal < PHI->getNumIncomingValues();
+             ++IVOrdinal) {
+          if (IsAllocateRayQueryInstruction(PHI->getIncomingValue(IVOrdinal)))
+            return true;
+        }
+      }
     }
   }
   return false;

@@ -48,10 +48,10 @@ using namespace hlsl;
 // UAV if the instance is not of interest.
 //
 // In addition, each half of the UAV is further subdivided: the first quarter is
-// the are in which blocks are permitted to start writing their sequence, and
+// the area in which blocks are permitted to start writing their sequence, and
 // that sequence is constrained to be no longer than the size of the second
 // quarter. This allows us to limit writes to the appropriate half of the UAV
-// via a single AND at the beginning of the basic block. An additoinal OR
+// via a single AND at the beginning of the basic block. An additional OR
 // provides the offset, either 0 for threads-of-interest, or UAVSize/2 for
 // not-of-interest.
 //
