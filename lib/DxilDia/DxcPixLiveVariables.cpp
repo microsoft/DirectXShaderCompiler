@@ -305,7 +305,7 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
       if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {
         // There shouldn't ever be a global variable with the same
         // name, but it doesn't hurt to check
-        continue; // return false;
+        continue;
       }
       LiveVars.emplace_back(VarAndInfo.second.get());
     }

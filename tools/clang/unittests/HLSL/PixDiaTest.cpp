@@ -168,6 +168,7 @@ public:
       DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_WithDbgValue)
   TEST_METHOD(
       DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_ArrayInValues)
+  TEST_METHOD(DxcPixDxilDebugInfo_DuplicateGlobals)
   TEST_METHOD(DxcPixDxilDebugInfo_StructInheritance)
   TEST_METHOD(DxcPixDxilDebugInfo_StructContainedResource)
   TEST_METHOD(DxcPixDxilDebugInfo_StructStaticInit)
@@ -2227,6 +2228,53 @@ void main()
   Expected.push_back({L"global.globalStruct.FloatArray[0]", L"float"});
   Expected.push_back({L"global.globalStruct.FloatArray[1]", L"float"});
   TestGlobalStaticCase(hlsl, L"lib_6_6", "float Accumulator", Expected);
+}
+
+int CountLiveGlobals(IDxcPixDxilLiveVariables *liveVariables) {
+  int globalCount = 0;
+  DWORD varCount;
+  VERIFY_SUCCEEDED(liveVariables->GetCount(&varCount));
+  for (DWORD i = 0; i < varCount; ++i) {
+    CComPtr<IDxcPixVariable> var;
+    VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(i, &var));
+    CComBSTR name;
+    VERIFY_SUCCEEDED(var->GetName(&name));
+    if (wcsstr(name, L"global.") != nullptr)
+      globalCount++;
+  }
+  return globalCount;
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_DuplicateGlobals) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  const char *hlsl = R"(
+static float global = 1.0;
+struct RayPayload
+{
+    float4 color;
+};
+typedef BuiltInTriangleIntersectionAttributes MyAttributes;
+
+[shader("closesthit")]
+void InnerClosestHitShader(inout RayPayload payload, in MyAttributes attr)
+{
+    payload.color = float4(global, 0, 0, 0); // CHLine
+}
+
+[shader("miss")]
+void MyMissShader(inout RayPayload payload)
+{
+    payload.color = float4(0, 1, 0, 0); // MSLine
+})";
+
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"lib_6_6").debugInfo;
+
+  auto CHVars = GetLiveVariablesAt(hlsl, "CHLine", dxilDebugger);
+  VERIFY_ARE_EQUAL(1, CountLiveGlobals(CHVars));
+  auto MSVars = GetLiveVariablesAt(hlsl, "MSLine", dxilDebugger);
+  VERIFY_ARE_EQUAL(0, CountLiveGlobals(MSVars));
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_StructInheritance) {
