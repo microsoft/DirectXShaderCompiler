@@ -409,8 +409,10 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
       lowerTypeVisitor.lowerType(type, SpirvLayoutRule::Void, false, srcLoc);
 
   llvm::SmallVector<SpirvInstruction *, 4> fields;
+  const StructType *structType = dyn_cast<StructType>(spirvType);
+  assert(structType != nullptr);
   forEachSpirvField(
-      recordType, dyn_cast<StructType>(spirvType),
+      recordType, structType,
       [this, &fields, srcLoc, range](size_t spirvFieldIndex,
                                      const QualType &fieldType,
                                      const StructType::FieldInfo &fieldInfo) {

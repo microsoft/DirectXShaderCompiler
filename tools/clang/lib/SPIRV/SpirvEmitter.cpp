@@ -14652,5 +14652,6 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
   }
   return {};
 }
+
 } // end namespace spirv
 } // end namespace clang
