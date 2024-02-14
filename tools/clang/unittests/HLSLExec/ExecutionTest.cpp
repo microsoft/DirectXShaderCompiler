@@ -3978,9 +3978,9 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
   st::ShaderOp *pShaderOp = ShaderOpSet->GetShaderOp("Derivatives");
 
-  std::vector<Dispatch> dispatches = {{8, 8, 1}, {40, 1, 1}, {1000, 1, 1},
-                                      {32, 32, 1}, {16, 64, 1}, {4, 12, 4},
-                                      {4, 64, 1}, {16, 16, 3}, {32, 8, 2}};
+  std::vector<Dispatch> dispatches = {{40, 1, 1},  {1000, 1, 1}, {32, 32, 1},
+                                      {16, 64, 1}, {4, 12, 4},   {4, 64, 1},
+                                      {16, 16, 3}, {32, 8, 2},   {8, 8, 1}};
 
   std::vector<Dispatch> meshDispatches = {
       {60, 1, 1}, {128, 1, 1}, {8, 8, 1}, {32, 8, 1},

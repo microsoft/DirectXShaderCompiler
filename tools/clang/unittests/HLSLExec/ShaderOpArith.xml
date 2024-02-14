@@ -119,11 +119,11 @@
     <Resource Name="U2" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
-	  <Resource Name="U3" Dimension="BUFFER" Width="16384"
-				Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
-				Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
+    <Resource Name="U3" Dimension="BUFFER" Width="16384"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
 
-	  <RootValues>
+    <RootValues>
       <RootValue HeapName="ResHeap" />
     </RootValues>
     <DescriptorHeap Name="ResHeap" Type="CBV_SRV_UAV">
@@ -135,8 +135,8 @@
       <Descriptor Name='U2' Kind='UAV' ResName='U2'
                   NumElements="1024" StructureByteStride="16" />
       <Descriptor Name='U3' Kind='UAV' ResName='U3'
-		      	  NumElements="1024" StructureByteStride="16" />
-	</DescriptorHeap>
+                  NumElements="1024" StructureByteStride="16" />
+    </DescriptorHeap>
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
       <Descriptor Name="RTarget" Kind="RTV"/>
     </DescriptorHeap>
@@ -177,7 +177,7 @@
         
         // Convert group index into uv texcoords and return derivatives test result
         float4 DerivTest(uint groupIdx) {
-		  return DerivTest(ConvertGroupIdx(groupIdx));
+          return DerivTest(ConvertGroupIdx(groupIdx));
         }
 
         PSInput VSMain(float3 position : POSITION, float2 uv : TEXCOORD) {
@@ -225,7 +225,7 @@
           if (uv.x < DISPATCHX && uv.y < DISPATCHY) {
             res = DerivTest(uv);
             g_bufMain[ix] = res;
-        }
+          }
           return res;
         }
 
@@ -238,7 +238,7 @@
           else {
             g_bufMain[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
             g_bufDbg[convert2Dto1D(id.x, id.y, DISPATCHX)] = uint4(ix, id);
-		  }
+          }
         }
 
 #if DISPATCHX * DISPATCHY * DISPATCHZ > 128
