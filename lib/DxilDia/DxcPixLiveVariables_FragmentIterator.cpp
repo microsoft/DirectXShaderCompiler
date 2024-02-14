@@ -99,7 +99,7 @@ InitialOffsetInBitsFromDIExpression(const llvm::DataLayout &DataLayout,
     }
 
     FragmentOffsetInBits = Expression->getBitPieceOffset();
-    assert(Expression->getBitPieceSize() ==
+    assert(Expression->getBitPieceSize() <=
            DataLayout.getTypeAllocSizeInBits(Alloca->getAllocatedType()));
   }
 
