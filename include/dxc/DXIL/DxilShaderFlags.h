@@ -346,8 +346,8 @@ private:
   // This is necessary because shader stage is insufficient to indicate group
   // availability with the advent of thread launch node shaders.
   // Bit: 40
-  unsigned m_bRequiresGroup : 1;   // SHADER_FEATURE_OPT_REQUIRES_GROUP
-                                   // (OptFeatureInfo_RequiresGroup)
+  unsigned m_bRequiresGroup : 1; // SHADER_FEATURE_OPT_REQUIRES_GROUP
+                                 // (OptFeatureInfo_RequiresGroup)
 
   uint32_t m_align1 : 23; // align to 64 bit.
 };

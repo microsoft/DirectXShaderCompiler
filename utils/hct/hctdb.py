@@ -487,7 +487,9 @@ class db_dxil(object):
                 "closesthit",
             )
         for i in "GeometryIndex".split(","):
-            self.name_idx[i].category = (
+            self.name_idx[
+                i
+            ].category = (
                 "Raytracing object space uint System Values, raytracing tier 1.1"
             )
             self.name_idx[i].shader_model = 6, 5
@@ -582,7 +584,9 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6, 3
             self.name_idx[i].shader_stages = ("library", "intersection")
         for i in "CreateHandleForLib".split(","):
-            self.name_idx[i].category = (
+            self.name_idx[
+                i
+            ].category = (
                 "Library create handle from resource struct (like HL intrinsic)"
             )
             self.name_idx[i].shader_model = 6, 3
