@@ -9509,6 +9509,10 @@ void LowerRecordAccessToGetNodeRecordPtr(HLModule &HLM) {
           continue;
         }
 
+        // Merge GepUse first to avoid mutate type and merge gep use at same
+        // time.
+        dxilutil::MergeGepUse(CI);
+
         Value *Index = CI->getNumArgOperands() > 2
                            ? CI->getArgOperand(2)
                            : ConstantInt::get(helper.i32Ty, 0);
