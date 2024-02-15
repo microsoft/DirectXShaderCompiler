@@ -1003,7 +1003,7 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
     return std::nullopt;
   }
 
-  if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst->getValueOperand())) {
+  if (PIXPassHelpers::IsRayQueryHandle(Inst->getValueOperand())) {
     return std::nullopt;
   }
 
@@ -1057,7 +1057,7 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
 std::optional<InstructionAndType>
 DxilDebugInstrumentation::addStepDebugEntry(BuilderContext *BC,
                                             Instruction *Inst) {
-  if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst)) {
+  if (PIXPassHelpers::IsRayQueryHandle(Inst)) {
     return std::nullopt;
   }
 

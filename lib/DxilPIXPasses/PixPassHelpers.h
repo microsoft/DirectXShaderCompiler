@@ -30,7 +30,7 @@ public:
   llvm::Instruction *Get() const { return m_Instruction; }
 };
 
-bool IsAllocateRayQueryInstruction(llvm::Value const *Val);
+bool IsRayQueryHandle(llvm::Value const *Val);
 llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
                           unsigned int registerId, const char *name);
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,

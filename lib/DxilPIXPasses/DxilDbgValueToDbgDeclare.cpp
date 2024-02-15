@@ -640,7 +640,7 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
           if (auto *DbgValue =
                   llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
             llvm::Value *V = DbgValue->getValue();
-            if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
+            if (PIXPassHelpers::IsRayQueryHandle(V)) {
               continue;
             }
             Changed = true;

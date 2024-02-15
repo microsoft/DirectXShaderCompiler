@@ -37,21 +37,44 @@ using namespace llvm;
 using namespace hlsl;
 
 namespace PIXPassHelpers {
-bool IsAllocateRayQueryInstruction(llvm::Value const *Val) {
+static bool IsAllocateRayQueryInstructionRecursive(
+    llvm::Value const *Val, std::vector<llvm::Value const *> &previous) {
   if (Val != nullptr) {
     if (llvm::Instruction const *Inst =
             llvm::dyn_cast<llvm::Instruction>(Val)) {
       if (hlsl::OP::IsDxilOpFuncCallInst(Inst,
-                                         hlsl::OP::OpCode::AllocateRayQuery))
+                                         hlsl::OP::OpCode::AllocateRayQuery)) {
         return true;
-      if (auto PHI = llvm::dyn_cast<llvm::PHINode>(Inst)) {
+      } else if (auto PHI = llvm::dyn_cast<llvm::PHINode>(Inst)) {
         for (unsigned IVOrdinal = 0; IVOrdinal < PHI->getNumIncomingValues();
              ++IVOrdinal) {
-          if (IsAllocateRayQueryInstruction(PHI->getIncomingValue(IVOrdinal)))
+          // phi instructions can recursively refer to each other
+          if (std::find(previous.begin(), previous.end(), Val) ==
+              previous.end()) {
+            previous.push_back(Val);
+            if (IsAllocateRayQueryInstructionRecursive(
+                    PHI->getIncomingValue(IVOrdinal), previous))
+              return true;
+            previous.pop_back();
+          }
+        }
+      } else if (auto Select = llvm::dyn_cast<llvm::SelectInst>(Inst)) {
+        for (unsigned OpOrdinal = 0; OpOrdinal < Select->getNumOperands();
+             ++OpOrdinal) {
+          if (IsAllocateRayQueryInstructionRecursive(
+                  Select->getOperand(OpOrdinal), previous))
             return true;
         }
       }
     }
+  }
+  return false;
+}
+
+bool IsRayQueryHandle(llvm::Value const *Val) {
+  if (Val != nullptr) {
+    std::vector<llvm::Value const *> previous;
+    return IsAllocateRayQueryInstructionRecursive(Val, previous);
   }
   return false;
 }
