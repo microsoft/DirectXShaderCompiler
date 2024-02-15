@@ -319,6 +319,7 @@ private:
 
   std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableRegisters>>
       m_Registers;
+  std::vector<llvm::Value const *> m_PhiDescentHistory;
 };
 } // namespace
 
@@ -640,7 +641,7 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
           if (auto *DbgValue =
                   llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
             llvm::Value *V = DbgValue->getValue();
-            if (PIXPassHelpers::IsRayQueryHandle(V)) {
+            if (PIXPassHelpers::IsRayQueryHandle(V, m_PhiDescentHistory)) {
               continue;
             }
             Changed = true;

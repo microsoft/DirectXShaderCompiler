@@ -309,6 +309,7 @@ private:
   };
 
   uint32_t m_RemainingReservedSpaceInBytes = 0;
+  std::vector<llvm::Value const *> m_PhiDescentHistory;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -1003,7 +1004,8 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
     return std::nullopt;
   }
 
-  if (PIXPassHelpers::IsRayQueryHandle(Inst->getValueOperand())) {
+  if (PIXPassHelpers::IsRayQueryHandle(Inst->getValueOperand(),
+                                       m_PhiDescentHistory)) {
     return std::nullopt;
   }
 
@@ -1057,7 +1059,7 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
 std::optional<InstructionAndType>
 DxilDebugInstrumentation::addStepDebugEntry(BuilderContext *BC,
                                             Instruction *Inst) {
-  if (PIXPassHelpers::IsRayQueryHandle(Inst)) {
+  if (PIXPassHelpers::IsRayQueryHandle(Inst, m_PhiDescentHistory)) {
     return std::nullopt;
   }
 

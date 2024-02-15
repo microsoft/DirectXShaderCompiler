@@ -30,7 +30,8 @@ public:
   llvm::Instruction *Get() const { return m_Instruction; }
 };
 
-bool IsRayQueryHandle(llvm::Value const *Val);
+bool IsRayQueryHandle(llvm::Value const *Val,
+                      std::vector<llvm::Value const *> &PhiHistory);
 llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
                           unsigned int registerId, const char *name);
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
