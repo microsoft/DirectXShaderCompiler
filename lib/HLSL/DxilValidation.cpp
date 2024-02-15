@@ -3239,15 +3239,14 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
 
           unsigned opcode = OpcodeConst->getLimitedValue();
-          DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
-
-          if (dxilOpcode >= DXIL::OpCode::NumOpCodes) {
+          if (opcode >= static_cast<unsigned>(DXIL::OpCode::NumOpCodes)) {
             ValCtx.EmitInstrFormatError(
                 &I, ValidationRule::InstrIllegalDXILOpCode,
                 {std::to_string((unsigned)DXIL::OpCode::NumOpCodes),
                  std::to_string(opcode)});
             continue;
           }
+          DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
 
           bool IllegalOpFunc = true;
           for (auto &it : hlslOP->GetOpFuncList(dxilOpcode)) {

@@ -573,7 +573,7 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         if (!OP::IsDxilOpFunc(CI->getCalledFunction()))
           continue;
         DXIL::OpCode dxilOp = hlsl::OP::getOpCode(CI);
-        if (dxilOp >= DXIL::OpCode::NumOpCodes)
+        if (dxilOp == DXIL::OpCode::NumOpCodes)
           continue;
         if (hlsl::OP::IsDxilOpWave(dxilOp))
           hasWaveOps = true;
