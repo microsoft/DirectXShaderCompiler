@@ -722,7 +722,7 @@ class db_oload_gen:
             for opcode in opcodes:
                 line = line + "case OpCode::{name}".format(name=opcode + ":\n")
 
-            line = line + "  if (FT->getNumParams() <= " + str(index) + ") return Ty;\n"
+            line = line + "  if (FT->getNumParams() <= " + str(index) + ") return nullptr;\n"
             line = line + "  return FT->getParamType(" + str(index) + ");"
             print(line)
 
@@ -732,7 +732,7 @@ class db_oload_gen:
             for opcode in opcodes:
                 line = line + "case OpCode::{name}".format(name=opcode + ":\n")
 
-            line = line + "  if (FT->getNumParams() <= " + str(index) + ") return Ty;\n"
+            line = line + "  if (FT->getNumParams() <= " + str(index) + ") return nullptr;\n"
             line = (
                 line
                 + "  return FT->getParamType("
