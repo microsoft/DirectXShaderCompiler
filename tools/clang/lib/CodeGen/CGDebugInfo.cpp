@@ -1128,16 +1128,9 @@ llvm::DISubroutineType *CGDebugInfo::getOrCreateInstanceMethodType(
   // "this" pointer is always first argument.
   const CXXRecordDecl *RD = ThisPtr->getPointeeCXXRecordDecl();
   if (isa<ClassTemplateSpecializationDecl>(RD)) {
-    // Create pointer type directly in this case.
     // HLSL Change Begin - This is a reference.
-    QualType PointeeTy = ThisPtr->getPointeeType();
-    unsigned AS = CGM.getContext().getTargetAddressSpace(PointeeTy);
-    uint64_t Size = CGM.getTarget().getPointerWidth(AS);
-    uint64_t Align = CGM.getContext().getTypeAlign(ThisPtr.getTypePtr());
+    llvm::DIType *ThisPtrType = getOrCreateType(ThisPtr, Unit);
     // HLSL Change End - This is a reference.
-    llvm::DIType *PointeeType = getOrCreateType(PointeeTy, Unit);
-    llvm::DIType *ThisPtrType =
-        DBuilder.createPointerType(PointeeType, Size, Align);
     TypeCache[ThisPtr.getAsOpaquePtr()].reset(ThisPtrType);
     // TODO: This and the artificial type below are misleading, the
     // types aren't artificial the argument is, but the current

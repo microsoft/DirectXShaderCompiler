@@ -564,64 +564,6 @@ const StructType *lowerStructType(const SpirvCodeGenOptions &spirvOptions,
   return output;
 }
 
-// Calls `operation` on for each field in the base and derives class defined by
-// `recordType`. The `operation` will receive the AST type linked to the field,
-// the SPIRV type linked to the field, and the index of the field in the final
-// SPIR-V representation. This index of the field can vary from the AST
-// field-index because bitfields are merged into a single field in the SPIR-V
-// representation.
-//
-// If `includeMerged` is true, `operation` will be called on the same spir-v
-// field for each field it represents. For example, if a spir-v field holds the
-// values for 3 bit-fields, `operation` will be called 3 times with the same
-// `spirvFieldIndex`. The `bitfield` information in `field` will be different.
-//
-// If false, `operation` will be called once on the first field in the merged
-// field.
-//
-// If the operation returns false, we stop processing fields.
-void forEachSpirvField(
-    const RecordType *recordType, const StructType *spirvType,
-    std::function<bool(size_t spirvFieldIndex, const QualType &fieldType,
-                       const StructType::FieldInfo &field)>
-        operation,
-    bool includeMerged = false) {
-  const auto *cxxDecl = recordType->getAsCXXRecordDecl();
-  const auto *recordDecl = recordType->getDecl();
-
-  // Iterate through the base class (one field per base class).
-  // Bases cannot be melded into 1 field like bitfields, simple iteration.
-  uint32_t lastConvertedIndex = 0;
-  size_t astFieldIndex = 0;
-  for (const auto &base : cxxDecl->bases()) {
-    const auto &type = base.getType();
-    const auto &spirvField = spirvType->getFields()[astFieldIndex];
-    if (!operation(spirvField.fieldIndex, type, spirvField)) {
-      return;
-    }
-    lastConvertedIndex = spirvField.fieldIndex;
-    ++astFieldIndex;
-  }
-
-  // Iterate through the derived class fields. Field could be merged.
-  for (const auto *field : recordDecl->fields()) {
-    const auto &spirvField = spirvType->getFields()[astFieldIndex];
-    const uint32_t currentFieldIndex = spirvField.fieldIndex;
-    if (!includeMerged && astFieldIndex > 0 &&
-        currentFieldIndex == lastConvertedIndex) {
-      ++astFieldIndex;
-      continue;
-    }
-
-    const auto &type = field->getType();
-    if (!operation(currentFieldIndex, type, spirvField)) {
-      return;
-    }
-    lastConvertedIndex = currentFieldIndex;
-    ++astFieldIndex;
-  }
-}
-
 } // namespace
 
 SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
@@ -757,6 +699,11 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
   for (auto *moduleVar : spvBuilder.getModule()->getVariables()) {
     if (moduleVar->getStorageClass() != spv::StorageClass::Input &&
         moduleVar->getStorageClass() != spv::StorageClass::Output) {
+      if (auto *varEntry =
+              declIdMapper.getRayTracingStageVarEntryFunction(moduleVar)) {
+        if (varEntry != entryPoint)
+          continue;
+      }
       interfaces.insert(moduleVar);
     }
   }
