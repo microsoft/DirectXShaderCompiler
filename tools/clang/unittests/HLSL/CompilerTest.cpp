@@ -3001,11 +3001,14 @@ TEST_F(CompilerTest, TestPdbUtilsPathNormalizations) {
       {R"(main.hlsl)", R"(include.h)"},
       {R"(.\5Cmain.hlsl)", R"(.\5Cinclude.h)"},
       {R"(/path/main.hlsl)", R"(/path/include.h)"},
+      {R"(\5Cpath/main.hlsl)", R"(\5Cpath\5Cinclude.h)"},
       {R"(..\5Cmain.hlsl)", R"(..\5Cinclude.h)"},
       {R"(..\5Cdir\5Cmain.hlsl)", R"(..\5Cdir\5Cinclude.h)"},
       {R"(F:\5C\5Cdir\5Cmain.hlsl)", R"(F:\5C\5Cdir\5Cinclude.h)"},
       {R"(\5C\5Cdir\5Cmain.hlsl)", R"(\5C\5Cdir\5Cinclude.h)"},
       {R"(\5C\5C\5Cdir\5Cmain.hlsl)", R"(\5C\5C\5Cdir\5Cinclude.h)"},
+      {R"(//dir\5Cmain.hlsl)", R"(//dir/include.h)"},
+      {R"(///dir/main.hlsl)", R"(///dir\5Cinclude.h)"},
   };
 
   for (TestCase &test : tests) {
