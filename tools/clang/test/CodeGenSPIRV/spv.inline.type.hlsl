@@ -5,14 +5,15 @@
 // template<typename SomeType>
 // using Array = vk::SpirvOpaqueType</* OpTypeArray */ 28, SomeType, 4>;
 
-// CHECK: %spirvIntrinsicType = OpTypeArray %type_2d_image %int_4
-typedef vk::SpirvOpaqueType</* OpTypeArray */ 28, Texture2D, 4> ArrayTex2D;
+// CHECK: %spirvIntrinsicType = OpTypeArray %type_2d_image %uint_4
+typedef vk::SpirvOpaqueType</* OpTypeArray */ 28, Texture2D, vk::integral_constant<uint, 4> > ArrayTex2D;
 
 // CHECK: %spirvIntrinsicType_0 = OpTypeInt 8 0
-typedef vk::SpirvOpaqueType</* OpTypeInt */ 21, vk::ext_literal(8), vk::ext_literal(false)> uint8_t;
+typedef vk::SpirvOpaqueType</* OpTypeInt */ 21, vk::Literal<vk::integral_constant<uint, 8> >, vk::Literal<vk::integral_constant<bool, false> > > uint8_t;
 
 // CHECK: %_arr_spirvIntrinsicType_0_uint_4 = OpTypeArray %spirvIntrinsicType_0 %uint_4
 
+// TODO: maybe I've checked this before, but can we add this to uint8_t instead?
 [[vk::ext_capability(/* Int8 */ 39)]]
 void main() {
   // CHECK: %image = OpVariable %_ptr_Function_spirvIntrinsicType Function

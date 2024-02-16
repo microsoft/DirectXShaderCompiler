@@ -3983,27 +3983,8 @@ bool Sema::CheckTemplateArgumentList(TemplateDecl *Template,
 
   // If we have any leftover arguments, then there were too many arguments.
   // Complain and fail.
-  // HLSL Change Starts: the SPIR-V backend supports templates with unchecked
-  // arguments
-  if (ArgIdx < NumArgs) {
-    // SPIRV change starts
-#ifdef ENABLE_SPIRV_CODEGEN
-    // Ignore arity mismatch for vk::SpirvType and vk::SpirvOpaqueType
-    // TODO(6246): this breaks if the frontend tries to desugar the type
-    NamedDecl *TemplatedDecl = Template->getTemplatedDecl();
-    llvm::StringRef TemplateName = TemplatedDecl->getName();
-    llvm::StringRef Namespace = "";
-    if (const auto *ND =
-            dyn_cast<NamespaceDecl>(TemplatedDecl->getDeclContext()))
-      Namespace = ND->getName();
-
-    if (Namespace != "vk" ||
-        (TemplateName != "SpirvType" && TemplateName != "SpirvOpaqueType"))
-#endif // ENABLE_SPIRV_CODEGEN
-       // SPIRV change ends
-      return diagnoseArityMismatch(*this, Template, TemplateLoc, NewArgs);
-  }
-  // HLSL Change Ends
+  if (ArgIdx < NumArgs)
+    return diagnoseArityMismatch(*this, Template, TemplateLoc, NewArgs);
 
   // No problems found with the new argument list, propagate changes back
   // to caller.

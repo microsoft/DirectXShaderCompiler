@@ -35,26 +35,6 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
   return (val + pow2 - 1) & ~(pow2 - 1);
 }
 
-/// If the given expression is a call to vk::ext_literal, return the argument.
-Expr *getVkExtLiteralValue(Expr *expr) {
-  auto *callExpr = dyn_cast<CallExpr>(expr);
-  if (!callExpr)
-    return nullptr;
-
-  auto *funcDecl = callExpr->getDirectCallee();
-  auto *nsDecl = dyn_cast<NamespaceDecl>(funcDecl->getDeclContext());
-  if (!nsDecl)
-    return nullptr;
-
-  if (!nsDecl->getName().equals("vk") ||
-      !funcDecl->getName().equals("ext_literal"))
-    return nullptr;
-
-  // the frontend should ensure there is a single argument
-  assert(callExpr->getNumArgs() == 1);
-  return callExpr->getArg(0);
-}
-
 } // end anonymous namespace
 
 // This method sorts a field list in the following order:
@@ -667,26 +647,80 @@ QualType LowerTypeVisitor::createASTTypeFromTemplateName(TemplateName name) {
   return type;
 }
 
+bool LowerTypeVisitor::getVkIntegralConstantValue(QualType type,
+                                                  SpirvConstant *&result,
+                                                  SourceLocation srcLoc) {
+  auto *recordType = type->getAs<RecordType>();
+  if (!recordType)
+    return false;
+  if (!isTypeInVkNamespace(recordType))
+    return false;
+
+  if (recordType->getDecl()->getName() == "Literal") {
+    auto *specDecl =
+        dyn_cast<ClassTemplateSpecializationDecl>(recordType->getDecl());
+    assert(specDecl);
+
+    const TemplateArgumentList &args = specDecl->getTemplateArgs();
+    QualType constant = args[0].getAsType();
+    bool val = getVkIntegralConstantValue(constant, result, srcLoc);
+
+    if (val) {
+      result->setLiteral(true);
+    } else {
+      emitError("The template argument to vk::Literal must be a "
+                "vk::integral_constant",
+                srcLoc);
+    }
+    return true;
+  }
+
+  if (recordType->getDecl()->getName() != "integral_constant")
+    return false;
+
+  auto *specDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(recordType->getDecl());
+  assert(specDecl);
+
+  const TemplateArgumentList &args = specDecl->getTemplateArgs();
+
+  QualType constantType = args[0].getAsType();
+  llvm::APSInt value = args[1].getAsIntegral();
+  result = ConstEvaluator(astContext, spvBuilder)
+               .translateAPValue(APValue(value), constantType, false);
+  return true;
+}
+
 const SpirvType *LowerTypeVisitor::lowerInlineSpirvType(
     llvm::StringRef name, unsigned int opcode,
-    const TemplateSpecializationType *specType, SpirvLayoutRule rule,
+    const ClassTemplateSpecializationDecl *specDecl, SpirvLayoutRule rule,
     llvm::Optional<bool> isRowMajor, SourceLocation srcLoc) {
-  assert(specType);
+  assert(specDecl);
 
   SmallVector<SpvIntrinsicTypeOperand, 4> operands;
 
   // Lower each operand argument
 
-  size_t firstOperand = 1;
+  size_t operandsIndex = 1;
   if (name == "SpirvType")
-    firstOperand = 3;
+    operandsIndex = 3;
 
-  for (size_t i = firstOperand; i < specType->getNumArgs(); i++) {
-    const TemplateArgument &arg = specType->getArg(i);
+  auto args = specDecl->getTemplateArgs()[operandsIndex].getPackAsArray();
+
+  for (TemplateArgument arg : args) {
     switch (arg.getKind()) {
     case TemplateArgument::ArgKind::Type: {
       QualType typeArg = arg.getAsType();
-      operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
+
+      SpirvConstant *constant = nullptr;
+      if (getVkIntegralConstantValue(typeArg, constant, srcLoc)) {
+        if (constant) {
+          visitInstruction(constant);
+          operands.emplace_back(constant);
+        }
+      } else {
+        operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
+      }
       break;
     }
     case TemplateArgument::ArgKind::Template: {
@@ -694,40 +728,10 @@ const SpirvType *LowerTypeVisitor::lowerInlineSpirvType(
       // example, Texture2D
       TemplateName templateName = arg.getAsTemplate();
       QualType typeArg = createASTTypeFromTemplateName(templateName);
-      if (typeArg.isNull()) {
-        emitError("%0 is not a valid HLSL type (did you forget the template "
-                  "arguments?)",
-                  srcLoc)
-            << templateName;
-        return nullptr;
-      }
+      assert(!typeArg.isNull() &&
+             "Could not create HLSL type from template name");
 
       operands.emplace_back(lowerType(typeArg, rule, isRowMajor, srcLoc));
-      break;
-    }
-    case TemplateArgument::ArgKind::Expression: {
-      auto *exprArg = arg.getAsExpr();
-
-      // If the argument is a call to vk::ext_literal, use the expression
-      // passed in
-      auto *literal = getVkExtLiteralValue(exprArg);
-      if (literal)
-        exprArg = literal;
-
-      SpirvConstant *constant = ConstEvaluator(astContext, spvBuilder)
-                                    .tryToEvaluateAsConst(exprArg, false);
-      if (constant == nullptr) {
-        emitError("template argument for %0 must evaluate to a constant rvalue",
-                  exprArg->getLocStart())
-            << specType->getTemplateName();
-        return nullptr;
-      }
-      // If vk::ext_literal was called, set the SpirvConstant `literal` flag,
-      // which will make the constant be emitted as an immediate literal value
-      // rather than an OpConstant instruction.
-      constant->setLiteral(literal != nullptr);
-      visitInstruction(constant);
-      operands.emplace_back(constant);
       break;
     }
     default:
@@ -743,9 +747,10 @@ const SpirvType *LowerTypeVisitor::lowerVkTypeInVkNamespace(
     llvm::Optional<bool> isRowMajor, SourceLocation srcLoc) {
   if (name == "SpirvType" || name == "SpirvOpaqueType") {
     auto opcode = hlsl::GetHLSLResourceTemplateUInt(type);
-    const auto *specType = type->getAs<TemplateSpecializationType>();
+    auto *specDecl = dyn_cast<ClassTemplateSpecializationDecl>(
+        type->getAs<RecordType>()->getDecl());
 
-    return lowerInlineSpirvType(name, opcode, specType, rule, isRowMajor,
+    return lowerInlineSpirvType(name, opcode, specDecl, rule, isRowMajor,
                                 srcLoc);
   }
   if (name == "ext_type") {

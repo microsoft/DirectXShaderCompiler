@@ -83,11 +83,17 @@ private:
   /// which have optional parameters (e.g. Texture2D).
   QualType createASTTypeFromTemplateName(TemplateName templateName);
 
+  /// If the given type is an integral_constant or a Literal<integral_constant>,
+  /// return the constant value as a SpirvConstant, which will be set as a
+  /// literal constant if wrapped in Literal.
+  bool getVkIntegralConstantValue(QualType type, SpirvConstant *&result,
+                                  SourceLocation srcLoc);
+
   /// Lowers the given vk::SpirvType or vk::SpirvOpaqueType into its SPIR-V
   /// type.
   const SpirvType *
   lowerInlineSpirvType(llvm::StringRef name, unsigned int opcode,
-                       const TemplateSpecializationType *specType,
+                       const ClassTemplateSpecializationDecl *specDecl,
                        SpirvLayoutRule rule, llvm::Optional<bool> isRowMajor,
                        SourceLocation srcLoc);
 

@@ -1,8 +1,8 @@
 // RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
-typedef vk::SpirvType</* OpTypeInt */ 21, /* size */ 1, /* alignment */ 1, vk::ext_literal(8), vk::ext_literal(false)> type1;
-typedef vk::SpirvType</* OpTypeInt */ 21, /* size */ 1, /* alignment */ 32, vk::ext_literal(8), vk::ext_literal(false)> type2;
-typedef vk::SpirvType</* OpTypeInt */ 21, /* size */ 32, /* alignment */ 1, vk::ext_literal(8), vk::ext_literal(false)> type3;
+typedef vk::SpirvType</* OpTypeInt */ 21, /* size */ 1, /* alignment */ 1, vk::Literal<vk::integral_constant<uint, 8> >, vk::Literal<vk::integral_constant<bool, false> > > type1;
+typedef vk::SpirvType</* OpTypeInt */ 21, /* size */ 1, /* alignment */ 32, vk::Literal<vk::integral_constant<uint, 8> >, vk::Literal<vk::integral_constant<bool, false> > > type2;
+typedef vk::SpirvType</* OpTypeInt */ 21, /* size */ 32, /* alignment */ 1, vk::Literal<vk::integral_constant<uint, 8> >, vk::Literal<vk::integral_constant<bool, false> > > type3;
 
 // CHECK: OpDecorate %_arr_spirvIntrinsicType_uint_3 ArrayStride 16
 // CHECK: OpDecorate %_arr_spirvIntrinsicType_uint_3_0 ArrayStride 32

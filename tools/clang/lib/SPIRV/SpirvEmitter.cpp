@@ -8673,9 +8673,6 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_Vkext_execution_mode_id:
     retVal = processIntrinsicExecutionMode(callExpr, true);
     break;
-  case hlsl::IntrinsicOp::IOP_Vkext_literal:
-    emitError("vk::ext_literal() may only be used with vk::SpirvType", srcLoc);
-    break;
   case hlsl::IntrinsicOp::IOP_saturate:
     retVal = processIntrinsicSaturate(callExpr);
     break;
