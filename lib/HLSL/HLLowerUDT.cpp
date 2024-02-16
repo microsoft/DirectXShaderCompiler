@@ -478,5 +478,5 @@ static void ReplaceUsesForLoweredUDTImpl(Value *V, Value *NewV) {
 void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
   ReplaceUsesForLoweredUDTImpl(V, NewV);
   // Merge GepUse later to avoid mutate type and merge gep use at same time.
-  dxilutil::MergeGepUse(V);
+  dxilutil::MergeGepUse(NewV);
 }

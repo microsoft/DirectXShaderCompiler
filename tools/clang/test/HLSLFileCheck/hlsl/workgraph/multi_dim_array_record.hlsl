@@ -14,9 +14,9 @@
 // CHECK-DAG: [[ORH:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 238, %dx.types.NodeHandle [[ANOH]], i32 1, i1 false)
 // CHECK-DAG: [[AORH:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle [[ORH]], %dx.types.NodeRecordInfo { i32 70, i32 32768 })
 // CHECK-DAG: [[IRP:%[0-9]+]] = call %[[RECORD:struct\.MyRecord[^ ]*]] addrspace(6)* @dx.op.getNodeRecordPtr.[[RECORD]](i32 239, %dx.types.NodeRecordHandle [[AIRH]], i32 0)
-// CHECK-DAG: getelementptr {{(inbounds )?}}%[[RECORD]], %[[RECORD]] addrspace(6)* [[IRP]], i32 0, i32 0, i32 [[TID]], i32 0
+// CHECK-DAG: getelementptr inbounds %[[RECORD]], %[[RECORD]] addrspace(6)* [[IRP]], i32 0, i32 0, i32 [[TID]], i32 0
 // CHECK-DAG: [[ORP:%[0-9]+]] = call %[[RECORD]] addrspace(6)* @dx.op.getNodeRecordPtr.[[RECORD]](i32 239, %dx.types.NodeRecordHandle [[AORH]], i32 0)
-// CHECK-DAG: getelementptr {{(inbounds )?}}%[[RECORD]], %[[RECORD]] addrspace(6)* [[ORP]], i32 0, i32 0, i32 [[TID]], i32 0
+// CHECK-DAG: getelementptr inbounds %[[RECORD]], %[[RECORD]] addrspace(6)* [[ORP]], i32 0, i32 0, i32 [[TID]], i32 0
 
 #define THREADGROUP_SIZE 1024
 struct MyRecord {
