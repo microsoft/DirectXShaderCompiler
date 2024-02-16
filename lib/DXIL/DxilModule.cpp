@@ -288,27 +288,6 @@ unsigned DxilModule::GetGlobalFlags() const {
   return Flags;
 }
 
-static bool RequiresRaytracingTier1_1(const DxilSubobjects *pSubobjects) {
-  if (!pSubobjects)
-    return false;
-  for (const auto &it : pSubobjects->GetSubobjects()) {
-    switch (it.second->GetKind()) {
-    case DXIL::SubobjectKind::RaytracingPipelineConfig1:
-      return true;
-    case DXIL::SubobjectKind::StateObjectConfig: {
-      uint32_t configFlags;
-      if (it.second->GetStateObjectConfig(configFlags) &&
-          ((configFlags &
-            (unsigned)DXIL::StateObjectFlags::AllowStateObjectAdditions) != 0))
-        return true;
-    } break;
-    default:
-      break;
-    }
-  }
-  return false;
-}
-
 void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   ComputeShaderCompatInfo();
   for (auto &itInfo : m_FuncToShaderCompat)
@@ -380,10 +359,6 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   bool hasCSRawAndStructuredViaShader4X =
       hasRawAndStructuredBuffer && m_pSM->GetMajor() == 4 && m_pSM->IsCS();
   Flags.SetCSRawAndStructuredViaShader4X(hasCSRawAndStructuredViaShader4X);
-
-  if (!Flags.GetRaytracingTier1_1()) {
-    Flags.SetRaytracingTier1_1(RequiresRaytracingTier1_1(GetSubobjects()));
-  }
 }
 
 void DxilModule::CollectShaderFlagsForModule() {
