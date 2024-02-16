@@ -256,7 +256,6 @@ static void ReplaceUsesForLoweredUDTImpl(Value *V, Value *NewV) {
       SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
       Value *NewGEP = Builder.CreateGEP(NewV, idxList);
       ReplaceUsesForLoweredUDTImpl(GEP, NewGEP);
-      dxilutil::MergeGepUse(NewGEP);
       GEP->eraseFromParent();
 
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
@@ -477,8 +476,7 @@ static void ReplaceUsesForLoweredUDTImpl(Value *V, Value *NewV) {
 }
 
 void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
-  // Merge GepUse first to avoid mutate type and merge gep use at same time.
-  dxilutil::MergeGepUse(V);
-
   ReplaceUsesForLoweredUDTImpl(V, NewV);
+  // Merge GepUse later to avoid mutate type and merge gep use at same time.
+  dxilutil::MergeGepUse(V);
 }
