@@ -2889,6 +2889,14 @@ bool OP::IsDxilOpBarrier(OpCode C) {
   // OPCODE-BARRIER:END
 }
 
+static unsigned MaskMemoryTypeFlagsIfAllowed(unsigned memoryTypeFlags,
+                                             unsigned allowedMask) {
+  // If the memory type is AllMemory, masking inapplicable flags is allowed.
+  if (memoryTypeFlags != (unsigned)DXIL::MemoryTypeFlag::AllMemory)
+    return memoryTypeFlags;
+  return memoryTypeFlags & allowedMask;
+}
+
 bool OP::BarrierRequiresGroup(const llvm::CallInst *CI) {
   OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
   switch (opcode) {
@@ -2904,9 +2912,9 @@ bool OP::BarrierRequiresGroup(const llvm::CallInst *CI) {
     DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
     if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
       unsigned memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
-      // If the memory type is AllMemory, masking inapplicable flags is allowed.
-      if (memoryTypeFlags != (unsigned)DXIL::MemoryTypeFlag::AllMemory &&
-          (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory))
+      memoryTypeFlags = MaskMemoryTypeFlagsIfAllowed(
+          memoryTypeFlags, ~(unsigned)DXIL::MemoryTypeFlag::GroupFlags);
+      if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupFlags)
         return true;
     }
   }
@@ -2918,8 +2926,7 @@ bool OP::BarrierRequiresGroup(const llvm::CallInst *CI) {
     DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
     if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
       unsigned semanticFlags = barrier.get_SemanticFlags_val();
-      if (semanticFlags & ((unsigned)DXIL::BarrierSemanticFlag::GroupScope |
-                           (unsigned)DXIL::BarrierSemanticFlag::GroupSync))
+      if (semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::GroupFlags)
         return true;
     }
     return false;
@@ -2938,11 +2945,10 @@ bool OP::BarrierRequiresNode(const llvm::CallInst *CI) {
     DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
     if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
       unsigned memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
-      // If the memory type is AllMemory, masking inapplicable flags is allowed.
-      return memoryTypeFlags != (unsigned)DXIL::MemoryTypeFlag::AllMemory &&
-             (memoryTypeFlags &
-              ((unsigned)DXIL::MemoryTypeFlag::NodeInputMemory |
-               (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory));
+      // Mask off node flags, if allowed.
+      memoryTypeFlags = MaskMemoryTypeFlagsIfAllowed(
+          memoryTypeFlags, ~(unsigned)DXIL::MemoryTypeFlag::NodeFlags);
+      return (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::NodeFlags) != 0;
     }
     return false;
   }
@@ -2972,12 +2978,13 @@ DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
     if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
       semanticFlags = barrier.get_SemanticFlags_val();
     }
-    // If the memory type is AllMemory, masking inapplicable flags is allowed.
-    if (memoryTypeFlags != (unsigned)DXIL::MemoryTypeFlag::AllMemory) {
-      if (memoryTypeFlags & ((unsigned)DXIL::MemoryTypeFlag::NodeInputMemory |
-                             (unsigned)DXIL::MemoryTypeFlag::NodeOutputMemory))
-        return DXIL::BarrierMode::Invalid;
-    }
+
+    // Mask to legacy flags, if allowed.
+    memoryTypeFlags = MaskMemoryTypeFlagsIfAllowed(
+        memoryTypeFlags, (unsigned)DXIL::MemoryTypeFlag::LegacyFlags);
+    if (memoryTypeFlags & ~(unsigned)DXIL::MemoryTypeFlag::LegacyFlags)
+      return DXIL::BarrierMode::Invalid;
+
     unsigned mode = 0;
     if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory)
       mode |= (unsigned)DXIL::BarrierMode::TGSMFence;

@@ -1845,7 +1845,10 @@ enum class MemoryTypeFlag : uint32_t {
   NodeInputMemory = 0x00000004,   // NODE_INPUT_MEMORY
   NodeOutputMemory = 0x00000008,  // NODE_OUTPUT_MEMORY
   AllMemory = 0x0000000F,         // ALL_MEMORY
-  ValidMask = 0x0000000F
+  ValidMask = 0x0000000F,
+  NodeFlags = NodeInputMemory | NodeOutputMemory,
+  LegacyFlags = UavMemory | GroupSharedMemory,
+  GroupFlags = GroupSharedMemory,
 };
 
 // Corresponds to SEMANTIC_FLAG enums in HLSL
@@ -1853,7 +1856,8 @@ enum class BarrierSemanticFlag : uint32_t {
   GroupSync = 0x00000001,   // GROUP_SYNC
   GroupScope = 0x00000002,  // GROUP_SCOPE
   DeviceScope = 0x00000004, // DEVICE_SCOPE
-  ValidMask = 0x00000007
+  ValidMask = 0x00000007,
+  GroupFlags = GroupSync | GroupScope,
 };
 
 // Constant for Container.
