@@ -351,18 +351,8 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
             self.name_idx[i].category = "Resources - gather"
-        for (
-            i
-        ) in "AtomicBinOp,AtomicCompareExchange,Barrier,BarrierByMemoryType,BarrierByMemoryHandle,BarrierByNodeRecordHandle".split(
-            ","
-        ):
+        for i in "AtomicBinOp,AtomicCompareExchange".split(","):
             self.name_idx[i].category = "Synchronization"
-        for (
-            i
-        ) in "Barrier,BarrierByMemoryType,BarrierByMemoryHandle,BarrierByNodeRecordHandle".split(
-            ","
-        ):
-            self.name_idx[i].is_barrier = True
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(
             ","
         ):
@@ -692,17 +682,21 @@ class db_dxil(object):
             self.name_idx[i].category = "Work Graph intrinsics"
             self.name_idx[i].shader_model = 6, 8
             self.name_idx[i].shader_stages = ("node",)
+        # All barrier ops:
+        for i in "Barrier".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
         for i in "BarrierByMemoryType".split(","):
-            # included in Synchronization category
+            self.name_idx[i].category = "Synchronization"
             self.name_idx[i].is_barrier = True
             self.name_idx[i].shader_model = 6, 8
             self.name_idx[i].shader_model_translated = 6, 0
         for i in "BarrierByMemoryHandle".split(","):
-            # included in Synchronization category
+            self.name_idx[i].category = "Synchronization"
             self.name_idx[i].is_barrier = True
             self.name_idx[i].shader_model = 6, 8
         for i in "BarrierByNodeRecordHandle".split(","):
-            # included in Synchronization category
+            self.name_idx[i].category = "Synchronization"
             self.name_idx[i].is_barrier = True
             self.name_idx[i].shader_model = 6, 8
             self.name_idx[i].shader_stages = ("node",)
