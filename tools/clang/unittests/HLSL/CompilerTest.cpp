@@ -3016,10 +3016,14 @@ TEST_F(CompilerTest, TestPdbUtilsPathNormalizations) {
     std::string mainPattern = "<MAIN_FILE>";
     std::string includePattern = "<INCLUDE_FILE>";
     while ((findPos = oldPdb.find(mainPattern)) != std::string::npos) {
-      oldPdb.replace(oldPdb.begin()+findPos, oldPdb.begin()+findPos+mainPattern.size(), test.MainName);
+      oldPdb.replace(oldPdb.begin() + findPos,
+                     oldPdb.begin() + findPos + mainPattern.size(),
+                     test.MainName);
     }
     while ((findPos = oldPdb.find(includePattern)) != std::string::npos) {
-      oldPdb.replace(oldPdb.begin()+findPos, oldPdb.begin()+findPos+includePattern.size(), test.IncludeName);
+      oldPdb.replace(oldPdb.begin() + findPos,
+                     oldPdb.begin() + findPos + includePattern.size(),
+                     test.IncludeName);
     }
 
     CComPtr<IDxcAssembler> pAssembler;
@@ -3075,10 +3079,9 @@ TEST_F(CompilerTest, TestPdbUtilsPathNormalizations) {
     CComPtr<IDxcCompiler> pCompiler;
     VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
     VERIFY_SUCCEEDED(pCompiler->Compile(
-        pMainContentUtf8, pMainName, L"main", L"ps_6_0", args,
-        _countof(args), nullptr, 0, pRecompileInclude, &pRecompileOpResult));
+        pMainContentUtf8, pMainName, L"main", L"ps_6_0", args, _countof(args),
+        nullptr, 0, pRecompileInclude, &pRecompileOpResult));
     VerifyOperationSucceeded(pRecompileOpResult);
-
   }
 }
 
