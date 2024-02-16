@@ -179,6 +179,9 @@ hlsl::TranslateInitForLoweredUDT(Constant *Init, Type *NewTy,
 }
 
 void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
+  // Merge GepUse first to avoid mutate type and merge gep use at same time.
+  dxilutil::MergeGepUse(V);
+
   Type *Ty = V->getType();
   Type *NewTy = NewV->getType();
 
