@@ -3388,9 +3388,9 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
 
   // Additional rules are applied manually here.
 
-  // Barrier requiring node or group limit shdaer kinds.
+  // Barrier requiring node or group limit shader kinds.
   if (IsDxilOpBarrier(opcode)) {
-    // TODO: if BarrierByMemoryType, check if translatable, or set min to 6.8.
+    // If BarrierByMemoryType, check if translatable, or set min to 6.8.
     if (bWithTranslation && opcode == DXIL::OpCode::BarrierByMemoryType) {
       if (TranslateToBarrierMode(CI) == DXIL::BarrierMode::Invalid) {
         major = 6;
