@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.5 | %dxc -T lib_6_3 %s | FileCheck %s -check-prefixes=CHECK
+// RUN: %dxilver 1.5 | %dxc -T lib_6_3 %s | FileCheck %s
 
 // RaytracingTier1_1 flag should not be set on the module based on subobjects.
 // This is not even set for compatibility with validator 1.7 because that
