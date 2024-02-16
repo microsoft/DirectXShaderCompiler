@@ -71,7 +71,7 @@ void node03(NodeOutput<RECORD> output3)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("coalescing")]
-void node04([MaxOutputRecords(5)] NodeOutput<RECORD> outputs4)
+void node04([MaxRecords(5)] NodeOutput<RECORD> outputs4)
 {
    ThreadNodeOutputRecords<RECORD> outrec = outputs4.GetThreadNodeOutputRecords(1);
   // CHECK: getelementptr %struct.RECORD, %struct.RECORD addrspace(6)*
