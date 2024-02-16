@@ -60,7 +60,7 @@ void samplecmpbias() {
 // RDAT:   MinShaderTarget: 0x50068
 
 [shader("compute")]
-[numthreads(4,1,1)]
+[numthreads(1,1,1)]
 void samplecmpbias_compute(uint tidx : SV_GroupIndex) {
   samplecmpbias();
 }
