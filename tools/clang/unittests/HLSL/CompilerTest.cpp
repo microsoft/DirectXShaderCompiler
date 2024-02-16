@@ -192,6 +192,7 @@ public:
   TEST_METHOD(CompileWhenIncludeLocalThenLoadRelative)
   TEST_METHOD(CompileWhenIncludeSystemThenLoadNotRelative)
   TEST_METHOD(CompileWhenAllIncludeCombinations)
+  TEST_METHOD(TestPdbUtilsPathNormalizations)
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
@@ -2884,50 +2885,204 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
                         pInclude->GetAllFileNames().c_str());
 }
 
-TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
-  static auto NormalizeForPlatform = [](const std::wstring &s) -> std::wstring {
+static std::wstring NormalizeForPlatform(const std::wstring &s) {
 #ifdef _WIN32
-    wchar_t From = L'/';
-    wchar_t To = L'\\';
+  wchar_t From = L'/';
+  wchar_t To = L'\\';
 #else
-    wchar_t From = L'\\';
-    wchar_t To = L'/';
+  wchar_t From = L'\\';
+  wchar_t To = L'/';
 #endif
-    std::wstring ret = s;
-    for (wchar_t &c : ret) {
-      if (c == From)
-        c = To;
+  std::wstring ret = s;
+  for (wchar_t &c : ret) {
+    if (c == From)
+      c = To;
+  }
+  return ret;
+};
+
+class SimpleIncludeHanlder : public IDxcIncludeHandler {
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
+public:
+  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  dxc::DxcDllSupport &m_dllSupport;
+  HRESULT m_defaultErrorCode = E_FAIL;
+  SimpleIncludeHanlder(dxc::DxcDllSupport &dllSupport)
+      : m_dwRef(0), m_dllSupport(dllSupport) {}
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+  }
+
+  std::wstring Path;
+  std::string Content;
+
+  HRESULT STDMETHODCALLTYPE LoadSource(
+      LPCWSTR pFilename,         // Filename as written in #include statement
+      IDxcBlob **ppIncludeSource // Resultant source object for included file
+      ) override {
+    if (pFilename == Path) {
+      MultiByteStringToBlob(m_dllSupport, Content, CP_UTF8, ppIncludeSource);
+      return S_OK;
     }
-    return ret;
+    return E_FAIL;
+  }
+};
+
+TEST_F(CompilerTest, TestPdbUtilsPathNormalizations) {
+  llvm::StringRef oldPdbRaw = R"x(
+    target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+    target triple = "dxil-ms-dx"
+
+    define void @main() {
+    entry:
+      call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0.000000e+00), !dbg !30 ; line:2 col:28  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+      ret void, !dbg !30 ; line:2 col:28
+    }
+
+    ; Function Attrs: nounwind
+    declare void @dx.op.storeOutput.f32(i32, i32, i32, i8, float) #0
+
+    attributes #0 = { nounwind }
+
+    !llvm.dbg.cu = !{!0}
+    !llvm.module.flags = !{!10, !11}
+    !llvm.ident = !{!12}
+    !dx.source.contents = !{!13, !14}
+    !dx.source.defines = !{!2}
+    !dx.source.mainFileName = !{!15}
+    !dx.source.args = !{!16}
+    !dx.version = !{!17}
+    !dx.valver = !{!18}
+    !dx.shaderModel = !{!19}
+    !dx.typeAnnotations = !{!20}
+    !dx.viewIdState = !{!23}
+    !dx.entryPoints = !{!24}
+
+    !0 = distinct !DICompileUnit(language: DW_LANG_C_plus_plus, file: !1, producer: "dxc(private) 1.7.0.4135 (pdb_header_fix, 24cf4a146)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, subprograms: !3)
+    !1 = !DIFile(filename: "<MAIN_FILE>", directory: "")
+    !2 = !{}
+    !3 = !{!4, !8}
+    !4 = !DISubprogram(name: "main", scope: !1, file: !1, line: 2, type: !5, isLocal: false, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, function: void ()* @main)
+    !5 = !DISubroutineType(types: !6)
+    !6 = !{!7}
+    !7 = !DIBasicType(name: "float", size: 32, align: 32, encoding: DW_ATE_float)
+    !8 = !DISubprogram(name: "foo", linkageName: "\01?foo@@YAMXZ", scope: !9, file: !9, line: 1, type: !5, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false)
+    !9 = !DIFile(filename: "<INCLUDE_FILE>", directory: "")
+    !10 = !{i32 2, !"Dwarf Version", i32 4}
+    !11 = !{i32 2, !"Debug Info Version", i32 3}
+    !12 = !{!"dxc(private) 1.7.0.4135 (pdb_header_fix, 24cf4a146)"}
+    !13 = !{!"<MAIN_FILE>", !"#include \22include.h\22\0D\0Afloat main() : SV_Target { return foo(); }\0D\0A"}
+    !14 = !{!"<INCLUDE_FILE>", !"float foo() {\0D\0A  return 0;\0D\0A}\0D\0A"}
+    !15 = !{!"<MAIN_FILE>"}
+    !16 = !{!"-E", !"main", !"-T", !"ps_6_0", !"/Zi", !"-Qembed_debug"}
+    !17 = !{i32 1, i32 0}
+    !18 = !{i32 1, i32 8}
+    !19 = !{!"ps", i32 6, i32 0}
+    !20 = !{i32 1, void ()* @main, !21}
+    !21 = !{!22}
+    !22 = !{i32 0, !2, !2}
+    !23 = !{[2 x i32] [i32 0, i32 1]}
+    !24 = !{void ()* @main, !"main", !25, null, null}
+    !25 = !{null, !26, null}
+    !26 = !{!27}
+    !27 = !{i32 0, !"SV_Target", i8 9, i8 16, !28, i8 0, i32 1, i8 1, i32 0, i8 0, !29}
+    !28 = !{i32 0}
+    !29 = !{i32 3, i32 1}
+    !30 = !DILocation(line: 2, column: 28, scope: !4)
+  )x";
+
+  struct TestCase {
+    std::string MainName;
+    std::string IncludeName;
   };
 
-  class SimpleIncludeHanlder : public IDxcIncludeHandler {
-    DXC_MICROCOM_REF_FIELD(m_dwRef)
-  public:
-    DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-    dxc::DxcDllSupport &m_dllSupport;
-    HRESULT m_defaultErrorCode = E_FAIL;
-    SimpleIncludeHanlder(dxc::DxcDllSupport &dllSupport)
-        : m_dwRef(0), m_dllSupport(dllSupport) {}
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
-                                             void **ppvObject) override {
-      return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
-    }
-
-    std::wstring Path;
-    std::string Content;
-
-    HRESULT STDMETHODCALLTYPE LoadSource(
-        LPCWSTR pFilename,         // Filename as written in #include statement
-        IDxcBlob **ppIncludeSource // Resultant source object for included file
-        ) override {
-      if (pFilename == NormalizeForPlatform(Path)) {
-        MultiByteStringToBlob(m_dllSupport, Content, CP_UTF8, ppIncludeSource);
-        return S_OK;
-      }
-      return E_FAIL;
-    }
+  TestCase tests[] = {
+      {R"(main.hlsl)", R"(include.h)"},
+      {R"(.\5Cmain.hlsl)", R"(.\5Cinclude.h)"},
+      {R"(/path/main.hlsl)", R"(/path/include.h)"},
+      {R"(..\5Cmain.hlsl)", R"(..\5Cinclude.h)"},
+      {R"(..\5Cdir\5Cmain.hlsl)", R"(..\5Cdir\5Cinclude.h)"},
+      {R"(F:\5C\5Cdir\5Cmain.hlsl)", R"(F:\5C\5Cdir\5Cinclude.h)"},
+      {R"(\5C\5Cdir\5Cmain.hlsl)", R"(\5C\5Cdir\5Cinclude.h)"},
+      {R"(\5C\5C\5Cdir\5Cmain.hlsl)", R"(\5C\5C\5Cdir\5Cinclude.h)"},
   };
+
+  for (TestCase &test : tests) {
+
+    std::string oldPdb = oldPdbRaw;
+
+    size_t findPos = std::string::npos;
+    std::string mainPattern = "<MAIN_FILE>";
+    std::string includePattern = "<INCLUDE_FILE>";
+    while ((findPos = oldPdb.find(mainPattern)) != std::string::npos) {
+      oldPdb.replace(oldPdb.begin()+findPos, oldPdb.begin()+findPos+mainPattern.size(), test.MainName);
+    }
+    while ((findPos = oldPdb.find(includePattern)) != std::string::npos) {
+      oldPdb.replace(oldPdb.begin()+findPos, oldPdb.begin()+findPos+includePattern.size(), test.IncludeName);
+    }
+
+    CComPtr<IDxcAssembler> pAssembler;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+    CComPtr<IDxcUtils> pUtils;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+    CComPtr<IDxcBlobEncoding> pBlobEncoding;
+    VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(oldPdb.data(), oldPdb.size(),
+                                                  CP_UTF8, &pBlobEncoding));
+
+    CComPtr<IDxcOperationResult> pOpResult;
+    VERIFY_SUCCEEDED(
+        pAssembler->AssembleToContainer(pBlobEncoding, &pOpResult));
+    VerifyOperationSucceeded(pOpResult);
+    CComPtr<IDxcBlob> pDxil;
+    VERIFY_SUCCEEDED(pOpResult->GetResult(&pDxil));
+
+    CComPtr<IDxcPdbUtils> pPdbUtils;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+    VERIFY_SUCCEEDED(pPdbUtils->Load(pDxil));
+
+    CComBSTR pMainName;
+    CComBSTR pIncludeName;
+    CComBSTR pMainName2;
+    CComPtr<IDxcBlobEncoding> pIncludeContent;
+    CComPtr<IDxcBlobEncoding> pMainContent;
+    VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(0, &pMainName));
+    VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(1, &pIncludeName));
+    VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainName2));
+    VERIFY_SUCCEEDED(pPdbUtils->GetSource(0, &pMainContent));
+    VERIFY_SUCCEEDED(pPdbUtils->GetSource(1, &pIncludeContent));
+
+    VERIFY_ARE_EQUAL(0, wcscmp(pMainName.m_str, pMainName2.m_str));
+
+    CComPtr<IDxcBlobUtf8> pMainContentUtf8;
+    CComPtr<IDxcBlobUtf8> pIncludeContentUtf8;
+    VERIFY_SUCCEEDED(pMainContent.QueryInterface(&pMainContentUtf8));
+    VERIFY_SUCCEEDED(pIncludeContent.QueryInterface(&pIncludeContentUtf8));
+
+    CComPtr<SimpleIncludeHanlder> pRecompileInclude =
+        new SimpleIncludeHanlder(m_dllSupport);
+    pRecompileInclude->Content =
+        std::string(pIncludeContentUtf8->GetStringPointer(),
+                    pIncludeContentUtf8->GetStringLength());
+    pRecompileInclude->Path = pIncludeName;
+
+    CComPtr<IDxcOperationResult> pRecompileOpResult;
+    const WCHAR *args[] = {L"-Zi"};
+
+    CComPtr<IDxcCompiler> pCompiler;
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    VERIFY_SUCCEEDED(pCompiler->Compile(
+        pMainContentUtf8, pMainName, L"main", L"ps_6_0", args,
+        _countof(args), nullptr, 0, pRecompileInclude, &pRecompileOpResult));
+    VerifyOperationSucceeded(pRecompileOpResult);
+
+  }
+}
+
+TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
   struct File {
     std::wstring name;
     std::string content;
