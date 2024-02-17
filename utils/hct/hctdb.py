@@ -5396,7 +5396,9 @@ class db_dxil(object):
             [
                 retvoid_param,
                 db_dxil_param(2, "noderecordhandle", "object", "handle of object"),
-                db_dxil_param(3, "i32", "SemanticFlags", "semantic flags"),
+                db_dxil_param(
+                    3, "i32", "SemanticFlags", "semantic flags", is_const=True
+                ),
             ],
         )
         next_op_idx += 1
@@ -5409,7 +5411,7 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "nodehandle", "output", "handle of object"),
-                db_dxil_param(2, "i32", "MetadataIdx", "metadata index"),
+                db_dxil_param(2, "i32", "MetadataIdx", "metadata index", is_const=True),
             ],
         )
         next_op_idx += 1
@@ -5461,7 +5463,7 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "noderecordhandle", "output", "output handle"),
-                db_dxil_param(2, "i32", "MetadataIdx", "metadata index"),
+                db_dxil_param(2, "i32", "MetadataIdx", "metadata index", is_const=True),
             ],
         )
         next_op_idx += 1
