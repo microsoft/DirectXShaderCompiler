@@ -2353,7 +2353,13 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DI.get_SemanticFlags(),
                            (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
                            "semantic", "BarrierByMemoryType");
-
+    if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
+        OP::BarrierRequiresNode(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
+    }
+    if (!isCSLike && !isLibFunc && OP::BarrierRequiresGroup(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
+    }
   } break;
   case DXIL::OpCode::BarrierByNodeRecordHandle:
   case DXIL::OpCode::BarrierByMemoryHandle: {
@@ -2364,6 +2370,13 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_SemanticFlags(),
                            (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
                            "semantic", opName);
+    if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
+        OP::BarrierRequiresNode(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
+    }
+    if (!isCSLike && !isLibFunc && OP::BarrierRequiresGroup(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
+    }
   } break;
   case DXIL::OpCode::CreateHandleForLib:
     if (!ValCtx.isLibProfile) {
