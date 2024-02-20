@@ -33,8 +33,6 @@ public:
 };
 
 std::vector<llvm::Value *> FindRayQueryHandlesForFunction(llvm::Function *F);
-bool IsRayQueryHandle(llvm::Value const *Val,
-                      std::vector<llvm::Value const *> &PhiHistory);
 llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
                           unsigned int registerId, const char *name);
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,

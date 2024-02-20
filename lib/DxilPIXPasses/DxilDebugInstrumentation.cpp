@@ -309,7 +309,6 @@ private:
   };
 
   uint32_t m_RemainingReservedSpaceInBytes = 0;
-  std::vector<llvm::Value const *> m_PhiDescentHistory;
 
 public:
   static char ID; // Pass identification, replacement for typeid
@@ -340,9 +339,8 @@ private:
   void addInvocationStartMarker(BuilderContext &BC);
   void determineLimitANDAndInitializeCounter(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
-  std::optional<InstructionAndType>
-  addStoreStepDebugEntry(BuilderContext *BC, StoreInst *Inst,
-                         std::vector<llvm::Value *> const &RayQueryHandles);
+  std::optional<InstructionAndType> addStoreStepDebugEntry(BuilderContext *BC,
+                                                           StoreInst *Inst);
   std::optional<InstructionAndType>
   addStepDebugEntry(BuilderContext *BC, Instruction *Inst,
                     std::vector<llvm::Value *> const &RayQueryHandles);
@@ -991,9 +989,8 @@ void DxilDebugInstrumentation::addStepEntryForType(
 }
 
 std::optional<InstructionAndType>
-DxilDebugInstrumentation::addStoreStepDebugEntry(
-    BuilderContext *BC, StoreInst *Inst,
-    std::vector<llvm::Value *> const &RayQueryHandles) {
+DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
+                                                 StoreInst *Inst) {
   std::uint32_t ValueOrdinalBase;
   std::uint32_t UnusedValueOrdinalSize;
   llvm::Value *ValueOrdinalIndex;
@@ -1005,11 +1002,6 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(
 
   std::uint32_t InstNum;
   if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
-    return std::nullopt;
-  }
-
-  if (std::find(RayQueryHandles.begin(), RayQueryHandles.end(),
-                Inst->getValueOperand()) != RayQueryHandles.end()) {
     return std::nullopt;
   }
 
@@ -1063,17 +1055,23 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(
 std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
     BuilderContext *BC, Instruction *Inst,
     std::vector<llvm::Value *> const &RayQueryHandles) {
-  if (PIXPassHelpers::IsRayQueryHandle(Inst, m_PhiDescentHistory)) {
-    return std::nullopt;
-  }
-
-  if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
-    return addStoreStepDebugEntry(BC, St, RayQueryHandles);
-  }
 
   std::uint32_t InstNum;
   if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
     return std::nullopt;
+  }
+
+  if (std::find(RayQueryHandles.begin(), RayQueryHandles.end(), Inst) !=
+      RayQueryHandles.end()) {
+    InstructionAndType ret{};
+    ret.Inst = Inst;
+    ret.InstructionOrdinal = InstNum;
+    ret.Type = DebugShaderModifierRecordTypeDXILStepVoid;
+    return ret;
+  }
+
+  if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
+    return addStoreStepDebugEntry(BC, St);
   }
 
   if (auto *Ld = llvm::dyn_cast<llvm::LoadInst>(Inst)) {

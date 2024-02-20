@@ -37,58 +37,14 @@ using namespace llvm;
 using namespace hlsl;
 
 namespace PIXPassHelpers {
-static bool
-IsRayQueryHandleRecursive(llvm::Value const *Val,
-                          std::vector<llvm::Value const *> &PreviousPhis) {
-  if (Val != nullptr) {
-    if (llvm::Instruction const *Inst =
-            llvm::dyn_cast<llvm::Instruction>(Val)) {
-      if (hlsl::OP::IsDxilOpFuncCallInst(Inst,
-                                         hlsl::OP::OpCode::AllocateRayQuery)) {
-        return true;
-      } else if (auto PHI = llvm::dyn_cast<llvm::PHINode>(Inst)) {
-        for (unsigned IVOrdinal = 0; IVOrdinal < PHI->getNumIncomingValues();
-             ++IVOrdinal) {
-          // phi instructions can recursively refer to each other
-          if (std::find(PreviousPhis.begin(), PreviousPhis.end(), Val) ==
-              PreviousPhis.end()) {
-            PreviousPhis.push_back(Val);
-            bool IsRQHandle = IsRayQueryHandleRecursive(
-                PHI->getIncomingValue(IVOrdinal), PreviousPhis);
-            PreviousPhis.pop_back();
-            if (IsRQHandle)
-              return true;
-          }
-        }
-      } else if (auto Select = llvm::dyn_cast<llvm::SelectInst>(Inst)) {
-        for (unsigned OpOrdinal = 0; OpOrdinal < Select->getNumOperands();
-             ++OpOrdinal) {
-          if (IsRayQueryHandleRecursive(Select->getOperand(OpOrdinal),
-                                        PreviousPhis))
-            return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
-bool IsRayQueryHandle(llvm::Value const *Val,
-                      std::vector<llvm::Value const *> &PhiHistory) {
-  DXASSERT(PhiHistory.empty(), "Expected empty phi history before recursing");
-  return IsRayQueryHandleRecursive(Val, PhiHistory);
-  DXASSERT(PhiHistory.empty(), "Expected empty phi history after recursing");
-}
-
 static void FindRayQueryHandlesFromUse(Value *U,
-                                               std::vector<Value *> &Handles) {
+                                       std::vector<Value *> &Handles) {
   Handles.push_back(U);
   auto RayQueryHandleUses = U->uses();
   for (Use &Use : RayQueryHandleUses) {
     iterator_range<Value::user_iterator> Users = Use->users();
     for (User *User : Users) {
-      if (std::find(Handles.begin(), Handles.end(), User) ==
-          Handles.end())
+      if (std::find(Handles.begin(), Handles.end(), User) == Handles.end())
         FindRayQueryHandlesFromUse(User, Handles);
     }
   }
