@@ -7324,6 +7324,13 @@ class db_dxil(object):
             "Instr.ImmBiasForSampleB",
             "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.",
         )
+        self.add_valrule(
+            "Instr.IllegalDXILOpCode", "DXILOpCode must be [0..%0].  %1 specified."
+        )
+        self.add_valrule(
+            "Instr.IllegalDXILOpFunction",
+            "'%0' is not a DXILOpFuncition for DXILOpcode '%1'.",
+        )
         # If streams have not been declared, you must use cut instead of cut_stream in GS - is there an equivalent rule here?
 
         # Need to clean up all error messages and actually implement.
