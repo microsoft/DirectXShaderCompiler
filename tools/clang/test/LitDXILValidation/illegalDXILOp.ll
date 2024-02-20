@@ -7,6 +7,7 @@ target triple = "dxil-ms-dx"
 %dx.types.Handle = type { i8* }
 %dx.types.ResBind = type { i32, i32, i32, i8 }
 %dx.types.ResourceProperties = type { i32, i32 }
+%dx.types.ResRet.f32 = type { float, float, float, float, i32 }
 %"class.Texture2D<float>" = type { float, %"class.Texture2D<float>::mips_type" }
 %"class.Texture2D<float>::mips_type" = type { i32 }
 %struct.SamplerComparisonState = type { i32 }
@@ -48,16 +49,21 @@ define void @main() {
 ; CHECK: error: Opcode of DXIL operation must be an immediate constant.
 ; CHECK: note: at 'call void @dx.op.storeOutput.f32(i32 %I, i32 0, i32 0, i8 0, float %7)' in block '#0' of function 'main'.
   call void @dx.op.storeOutput.f32(i32 %I, i32 0, i32 0, i8 0, float %7)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+
+
+; CHECK-DAG: error: Opcode SampleCmpBias not valid in shader model ps_6_7.
+  %CmpBias = call %dx.types.ResRet.f32 @dx.op.sampleCmpBias.f32(i32 255, %dx.types.Handle %5, %dx.types.Handle %6, float %3, float %4, float undef, float undef, i32 0, i32 0, i32 undef, float 5.000000e-01, float 5.000000e-01, float undef)  ; SampleCmpBias(srv,sampler,coord0,coord1,coord2,coord3,offset0,offset1,offset2,compareValue,bias,clamp)
+
   ret void
 }
 
 
-; CHECK: error: DXIL intrinsic overload must be valid.
-; CHECK: note: at '%4 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1)' in block '#0' of function 'main'.
-; CHECK: error: DXIL intrinsic overload must be valid.
-; CHECK: note: at '%3 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0)' in block '#0' of function 'main'.
-; CHECK: error: DXIL intrinsic overload must be valid.
-; CHECK: note: at '%5 = call %dx.types.Handle @dx.op.annotateHandle(i32 3, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 2, i32 265 })' in block '#0' of function 'main'.
+; CHECK-DAG: error: DXIL intrinsic overload must be valid.
+; CHECK-DAG: note: at '%4 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 1)' in block '#0' of function 'main'.
+; CHECK-DAG: error: DXIL intrinsic overload must be valid.
+; CHECK-DAG: note: at '%3 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0)' in block '#0' of function 'main'.
+; CHECK-DAG: error: DXIL intrinsic overload must be valid.
+; CHECK-DAG: note: at '%5 = call %dx.types.Handle @dx.op.annotateHandle(i32 3, %dx.types.Handle %1, %dx.types.ResourceProperties { i32 2, i32 265 })' in block '#0' of function 'main'.
 
 ; Function Attrs: nounwind readnone
 declare float @dx.op.loadInput.f32(i32, i32, i32, i8) #0
@@ -78,6 +84,8 @@ declare %dx.types.Handle @dx.op.createHandleFromBinding(i32, %dx.types.ResBind, 
 
 declare i32 @dx.op.loadInput.i32(i32, i32, i32, i8, i32) #0
 
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.f32 @dx.op.sampleCmpBias.f32(i32, %dx.types.Handle, %dx.types.Handle, float, float, float, float, i32, i32, i32, float, float, float) #2
 
 attributes #0 = { nounwind readnone }
 attributes #1 = { nounwind }
