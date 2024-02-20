@@ -3201,6 +3201,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   CallInst *setMeshOutputCounts = nullptr;
   CallInst *getMeshPayload = nullptr;
   CallInst *dispatchMesh = nullptr;
+  hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
+
   for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
     for (auto i = b->begin(), iend = b->end(); i != iend; ++i) {
       llvm::Instruction &I = *i;
@@ -3250,7 +3252,29 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
 
           unsigned opcode = OpcodeConst->getLimitedValue();
+          if (opcode >= static_cast<unsigned>(DXIL::OpCode::NumOpCodes)) {
+            ValCtx.EmitInstrFormatError(
+                &I, ValidationRule::InstrIllegalDXILOpCode,
+                {std::to_string((unsigned)DXIL::OpCode::NumOpCodes),
+                 std::to_string(opcode)});
+            continue;
+          }
           DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
+
+          bool IllegalOpFunc = true;
+          for (auto &it : hlslOP->GetOpFuncList(dxilOpcode)) {
+            if (it.second == FCalled) {
+              IllegalOpFunc = false;
+              break;
+            }
+          }
+
+          if (IllegalOpFunc) {
+            ValCtx.EmitInstrFormatError(
+                &I, ValidationRule::InstrIllegalDXILOpFunction,
+                {FCalled->getName(), OP::GetOpCodeName(dxilOpcode)});
+            continue;
+          }
 
           if (OP::IsDxilOpGradient(dxilOpcode)) {
             gradientOps.push_back(CI);

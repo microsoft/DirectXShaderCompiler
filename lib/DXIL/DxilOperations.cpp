@@ -2705,8 +2705,6 @@ llvm::StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
 }
 
 const char *OP::GetOpCodeName(OpCode opCode) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].pOpCodeName;
 }
 
@@ -2719,26 +2717,22 @@ const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
 }
 
 OP::OpCodeClass OP::GetOpCodeClass(OpCode opCode) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].opCodeClass;
 }
 
 const char *OP::GetOpCodeClassName(OpCode opCode) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].pOpCodeClassName;
 }
 
 llvm::Attribute::AttrKind OP::GetMemAccessAttr(OpCode opCode) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].FuncAttr;
 }
 
 bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
+  if (!pType)
+    return false;
+  if (opCode == OpCode::NumOpCodes)
+    return false;
   unsigned TypeSlot = GetTypeSlot(pType);
   return TypeSlot != UINT_MAX &&
          m_OpCodeProps[(unsigned)opCode].bAllowOverload[TypeSlot];
@@ -2814,8 +2808,13 @@ bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode) {
 }
 
 OP::OpCode OP::getOpCode(const llvm::Instruction *I) {
-  return (OP::OpCode)llvm::cast<llvm::ConstantInt>(I->getOperand(0))
-      ->getZExtValue();
+  auto *OpConst = llvm::dyn_cast<llvm::ConstantInt>(I->getOperand(0));
+  if (!OpConst)
+    return OpCode::NumOpCodes;
+  uint64_t OpCodeVal = OpConst->getZExtValue();
+  if (OpCodeVal >= static_cast<uint64_t>(OP::OpCode::NumOpCodes))
+    return OP::OpCode::NumOpCodes;
+  return static_cast<OP::OpCode>(OpCodeVal);
 }
 
 OP::OpCode OP::GetDxilOpFuncCallInst(const llvm::Instruction *I) {
@@ -3525,9 +3524,7 @@ void OP::RefreshCache() {
       CallInst *CI = cast<CallInst>(*F.user_begin());
       OpCode OpCode = OP::GetDxilOpFuncCallInst(CI);
       Type *pOverloadType = OP::GetOverloadType(OpCode, &F);
-      Function *OpFunc = GetOpFunc(OpCode, pOverloadType);
-      (void)(OpFunc);
-      DXASSERT_NOMSG(OpFunc == &F);
+      GetOpFunc(OpCode, pOverloadType);
     }
   }
 }
@@ -3546,13 +3543,15 @@ void OP::FixOverloadNames() {
       CallInst *CI = cast<CallInst>(*F.user_begin());
       DXIL::OpCode opCode = OP::GetDxilOpFuncCallInst(CI);
       llvm::Type *Ty = OP::GetOverloadType(opCode, &F);
-      if (isa<StructType>(Ty) || isa<PointerType>(Ty)) {
-        std::string funcName;
-        if (OP::ConstructOverloadName(Ty, opCode, funcName)
-                .compare(F.getName()) != 0) {
-          F.setName(funcName);
-        }
-      }
+      if (!OP::IsOverloadLegal(opCode, Ty))
+        continue;
+      if (!isa<StructType>(Ty) && !isa<PointerType>(Ty))
+        continue;
+
+      std::string funcName;
+      if (OP::ConstructOverloadName(Ty, opCode, funcName)
+              .compare(F.getName()) != 0)
+        F.setName(funcName);
     }
   }
 }
@@ -3563,12 +3562,11 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
 }
 
 Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB OpCode");
-  assert(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes);
-  DXASSERT(IsOverloadLegal(opCode, pOverloadType),
-           "otherwise the caller requested illegal operation overload (eg HLSL "
-           "function with unsupported types for mapped intrinsic function)");
+  if (opCode == OpCode::NumOpCodes)
+    return nullptr;
+  if (!IsOverloadLegal(opCode, pOverloadType))
+    return nullptr;
+
   OpCodeClass opClass = m_OpCodeProps[(unsigned)opCode].opCodeClass;
   Function *&F =
       m_OpCodeClassCache[(unsigned)opClass].pOverloads[pOverloadType];
@@ -5511,8 +5509,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   // and return values to ensure that ResRetType is constructed in the
   // RefreshCache case.
   if (Function *existF = m_pModule->getFunction(funcName)) {
-    DXASSERT(existF->getFunctionType() == pFT,
-             "existing function must have the expected function type");
+    if (existF->getFunctionType() != pFT)
+      return nullptr;
     F = existF;
     UpdateCache(opClass, pOverloadType, F);
     return F;
@@ -5531,9 +5529,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
 const SmallMapVector<llvm::Type *, llvm::Function *, 8> &
 OP::GetOpFuncList(OpCode opCode) const {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB OpCode");
-  assert(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes);
   return m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)opCode]
                                 .opCodeClass]
       .pOverloads;
@@ -5631,7 +5626,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::CallShader:
   case OpCode::Pack4x8:
   case OpCode::WaveMatrix_Fill:
-    DXASSERT_NOMSG(FT->getNumParams() > 2);
+    if (FT->getNumParams() <= 2)
+      return nullptr;
     return FT->getParamType(2);
   case OpCode::MinPrecXRegStore:
   case OpCode::StoreOutput:
@@ -5641,7 +5637,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::StoreVertexOutput:
   case OpCode::StorePrimitiveOutput:
   case OpCode::DispatchMesh:
-    DXASSERT_NOMSG(FT->getNumParams() > 4);
+    if (FT->getNumParams() <= 4)
+      return nullptr;
     return FT->getParamType(4);
   case OpCode::IsNaN:
   case OpCode::IsInf:
@@ -5659,22 +5656,27 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WaveActiveAllEqual:
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
-    DXASSERT_NOMSG(FT->getNumParams() > 1);
+    if (FT->getNumParams() <= 1)
+      return nullptr;
     return FT->getParamType(1);
   case OpCode::TextureStore:
   case OpCode::TextureStoreSample:
-    DXASSERT_NOMSG(FT->getNumParams() > 5);
+    if (FT->getNumParams() <= 5)
+      return nullptr;
     return FT->getParamType(5);
   case OpCode::TraceRay:
-    DXASSERT_NOMSG(FT->getNumParams() > 15);
+    if (FT->getNumParams() <= 15)
+      return nullptr;
     return FT->getParamType(15);
   case OpCode::ReportHit:
   case OpCode::WaveMatrix_ScalarOp:
-    DXASSERT_NOMSG(FT->getNumParams() > 3);
+    if (FT->getNumParams() <= 3)
+      return nullptr;
     return FT->getParamType(3);
   case OpCode::WaveMatrix_LoadGroupShared:
   case OpCode::WaveMatrix_StoreGroupShared:
-    DXASSERT_NOMSG(FT->getNumParams() > 2);
+    if (FT->getNumParams() <= 2)
+      return nullptr;
     return FT->getParamType(2)->getPointerElementType();
   case OpCode::CreateHandle:
   case OpCode::BufferUpdateCounter:
