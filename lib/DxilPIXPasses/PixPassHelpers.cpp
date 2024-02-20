@@ -80,6 +80,36 @@ bool IsRayQueryHandle(llvm::Value const *Val,
   DXASSERT(PhiHistory.empty(), "Expected empty phi history after recursing");
 }
 
+static void FindRayQueryHandlesFromUse(Value *U,
+                                               std::vector<Value *> &Handles) {
+  Handles.push_back(U);
+  auto RayQueryHandleUses = U->uses();
+  for (Use &Use : RayQueryHandleUses) {
+    iterator_range<Value::user_iterator> Users = Use->users();
+    for (User *User : Users) {
+      if (std::find(Handles.begin(), Handles.end(), User) ==
+          Handles.end())
+        FindRayQueryHandlesFromUse(User, Handles);
+    }
+  }
+}
+
+std::vector<Value *> FindRayQueryHandlesForFunction(llvm::Function *F) {
+  std::vector<Value *> Handles;
+  auto &blocks = F->getBasicBlockList();
+  if (!blocks.empty()) {
+    for (auto &block : blocks) {
+      for (auto &instruction : block) {
+        if (hlsl::OP::IsDxilOpFuncCallInst(
+                &instruction, hlsl::OP::OpCode::AllocateRayQuery)) {
+          FindRayQueryHandlesFromUse(&instruction, Handles);
+        }
+      }
+    }
+  }
+  return Handles;
+}
+
 static unsigned int
 GetNextRegisterIdForClass(hlsl::DxilModule &DM,
                           DXIL::ResourceClass resourceClass) {

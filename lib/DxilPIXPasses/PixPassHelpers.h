@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "dxc/DXIL/DxilModule.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/IRBuilder.h"
@@ -30,6 +32,7 @@ public:
   llvm::Instruction *Get() const { return m_Instruction; }
 };
 
+std::vector<llvm::Value *> FindRayQueryHandlesForFunction(llvm::Function *F);
 bool IsRayQueryHandle(llvm::Value const *Val,
                       std::vector<llvm::Value const *> &PhiHistory);
 llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,

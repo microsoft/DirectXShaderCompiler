@@ -340,10 +340,12 @@ private:
   void addInvocationStartMarker(BuilderContext &BC);
   void determineLimitANDAndInitializeCounter(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
-  std::optional<InstructionAndType> addStoreStepDebugEntry(BuilderContext *BC,
-                                                           StoreInst *Inst);
-  std::optional<InstructionAndType> addStepDebugEntry(BuilderContext *BC,
-                                                      Instruction *Inst);
+  std::optional<InstructionAndType>
+  addStoreStepDebugEntry(BuilderContext *BC, StoreInst *Inst,
+                         std::vector<llvm::Value *> const &RayQueryHandles);
+  std::optional<InstructionAndType>
+  addStepDebugEntry(BuilderContext *BC, Instruction *Inst,
+                    std::vector<llvm::Value *> const &RayQueryHandles);
   std::optional<DebugShaderModifierRecordType>
   addStepDebugEntryValue(BuilderContext *BC, std::uint32_t InstNum, Value *V,
                          std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex);
@@ -363,8 +365,9 @@ private:
     uint32_t FirstInstructionOrdinalInBlock;
     std::vector<InstructionToInstrument> Instructions;
   };
-  BlockInstrumentationData FindInstrumentableInstructionsInBlock(BasicBlock &BB,
-                                                                 OP *HlslOP);
+  BlockInstrumentationData FindInstrumentableInstructionsInBlock(
+      BasicBlock &BB, OP *HlslOP,
+      std::vector<llvm::Value *> const &RayQueryHandles);
   uint32_t
   CountBlockPayloadBytes(std::vector<InstructionToInstrument> const &IsAndTs);
 };
@@ -988,8 +991,9 @@ void DxilDebugInstrumentation::addStepEntryForType(
 }
 
 std::optional<InstructionAndType>
-DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
-                                                 StoreInst *Inst) {
+DxilDebugInstrumentation::addStoreStepDebugEntry(
+    BuilderContext *BC, StoreInst *Inst,
+    std::vector<llvm::Value *> const &RayQueryHandles) {
   std::uint32_t ValueOrdinalBase;
   std::uint32_t UnusedValueOrdinalSize;
   llvm::Value *ValueOrdinalIndex;
@@ -1004,8 +1008,8 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
     return std::nullopt;
   }
 
-  if (PIXPassHelpers::IsRayQueryHandle(Inst->getValueOperand(),
-                                       m_PhiDescentHistory)) {
+  if (std::find(RayQueryHandles.begin(), RayQueryHandles.end(),
+                Inst->getValueOperand()) != RayQueryHandles.end()) {
     return std::nullopt;
   }
 
@@ -1056,15 +1060,15 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
   return std::nullopt;
 }
 
-std::optional<InstructionAndType>
-DxilDebugInstrumentation::addStepDebugEntry(BuilderContext *BC,
-                                            Instruction *Inst) {
+std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
+    BuilderContext *BC, Instruction *Inst,
+    std::vector<llvm::Value *> const &RayQueryHandles) {
   if (PIXPassHelpers::IsRayQueryHandle(Inst, m_PhiDescentHistory)) {
     return std::nullopt;
   }
 
   if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
-    return addStoreStepDebugEntry(BC, St);
+    return addStoreStepDebugEntry(BC, St, RayQueryHandles);
   }
 
   std::uint32_t InstNum;
@@ -1302,8 +1306,9 @@ Instruction *FindFirstNonPhiInstruction(Instruction *I) {
 // If indicator is "d", a single integer denoting the base for the alloca
 // store.
 DxilDebugInstrumentation::BlockInstrumentationData
-DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
-                                                                OP *HlslOP) {
+DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
+    BasicBlock &BB, OP *HlslOP,
+    std::vector<llvm::Value *> const &RayQueryHandles) {
   BlockInstrumentationData ret{};
   auto &Is = BB.getInstList();
   *OSOverride << "Block#";
@@ -1317,7 +1322,7 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
         FoundFirstInstruction = true;
       }
     }
-    auto IandT = addStepDebugEntry(nullptr, &Inst);
+    auto IandT = addStepDebugEntry(nullptr, &Inst, RayQueryHandles);
     if (IandT) {
       InstructionToInstrument DebugOutputForThisInstruction{};
       DebugOutputForThisInstruction.ValueType = IandT->Type;
@@ -1397,6 +1402,9 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
     return false;
   }
 
+  auto RayQueryHandles =
+      PIXPassHelpers::FindRayQueryHandlesForFunction(function);
+
   Instruction *firstInsertionPt = dxilutil::FirstNonAllocaInsertionPt(function);
   IRBuilder<> Builder(firstInsertionPt);
 
@@ -1438,7 +1446,7 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
                   values.AddedBlocksToIgnoreForInstrumentation.end(),
                   &BB) == values.AddedBlocksToIgnoreForInstrumentation.end()) {
       auto BlockInstrumentation =
-          FindInstrumentableInstructionsInBlock(BB, BC.HlslOP);
+          FindInstrumentableInstructionsInBlock(BB, BC.HlslOP, RayQueryHandles);
       if (BlockInstrumentation.FirstInstructionOrdinalInBlock <
               m_FirstInstruction ||
           BlockInstrumentation.FirstInstructionOrdinalInBlock >=
