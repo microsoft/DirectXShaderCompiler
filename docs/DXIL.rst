@@ -3063,6 +3063,7 @@ INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Me
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
 INSTR.BARRIERMODEUSELESSUGROUP            sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
 INSTR.BARRIERNONCONSTANTFLAGARGUMENT      Memory type, access, or sync flag is not constant
+INSTR.BARRIERREQUIRESNODE                 sync in a non-Node Shader must not sync node record memory.
 INSTR.BUFFERUPDATECOUNTERONRESHASCOUNTER  BufferUpdateCounter valid only when HasCounter is true.
 INSTR.BUFFERUPDATECOUNTERONUAV            BufferUpdateCounter valid only on UAV.
 INSTR.CALLOLOAD                           Call to DXIL intrinsic must match overload signature
