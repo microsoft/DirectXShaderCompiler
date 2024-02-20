@@ -4448,10 +4448,6 @@ static void ValidateResources(ValidationContext &ValCtx) {
 }
 
 static void ValidateShaderFlags(ValidationContext &ValCtx) {
-  // TODO: validate flags foreach entry.
-  if (ValCtx.isLibProfile)
-    return;
-
   ShaderFlags calcFlags;
   ValCtx.DxilMod.CollectShaderFlagsForModule(calcFlags);
   const uint64_t mask = ShaderFlags::GetShaderFlagsRawForCollection();
