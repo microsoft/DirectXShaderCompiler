@@ -293,15 +293,15 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   for (auto &itInfo : m_FuncToShaderCompat)
     Flags.CombineShaderFlags(itInfo.second.shaderFlags);
 
-  // Clear UsesDerivatives flag for module, making sure
-  // DerivativesInMeshAndAmpShaders is set for MS/AS.
+  const ShaderModel *SM = GetShaderModel();
+
+  // Set DerivativesInMeshAndAmpShaders if necessary for MS/AS.
   if (Flags.GetUsesDerivatives()) {
-    Flags.SetUsesDerivatives(false);
-    if (m_pSM->IsMS() || m_pSM->IsAS())
+    if (SM->IsMS() || SM->IsAS())
       Flags.SetDerivativesInMeshAndAmpShaders(true);
   }
-
-  const ShaderModel *SM = GetShaderModel();
+  // Clear function-local flags not intended for the module.
+  Flags.ClearLocalFlags();
 
   unsigned NumUAVs = 0;
   const unsigned kSmallUAVCount = 8;
@@ -2117,11 +2117,11 @@ bool DxilModule::ShaderCompatInfo::Merge(ShaderCompatInfo &other) {
 // Compare that minimum required version to the values passed in with
 // `minMajor` and `minMinor` and pass the maximum of those back through those
 // same variables.
-// Return adjusted `ShaderFlags` according to `props` set.
-static ShaderFlags
-AdjustMinimumShaderModelAndFlags(ShaderFlags flags,
-                                 const DxilFunctionProps *props,
-                                 unsigned &minMajor, unsigned &minMinor) {
+// Adjusts `ShaderFlags` argument according to `props` set.
+static void AdjustMinimumShaderModelAndFlags(const DxilFunctionProps *props,
+                                             ShaderFlags &flags,
+                                             unsigned &minMajor,
+                                             unsigned &minMinor) {
   // Adjust flags based on DxilFunctionProps and compute minimum shader model.
   // Library functions use flags to capture properties that may or may not be
   // used in the final shader, depending on that final shader's shader model.
@@ -2189,8 +2189,6 @@ AdjustMinimumShaderModelAndFlags(ShaderFlags flags,
     DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 2);
   else if (flags.GetViewID() || flags.GetBarycentrics())
     DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 1);
-
-  return flags;
 }
 
 void DxilModule::ComputeShaderCompatInfo() {
@@ -2277,8 +2275,8 @@ void DxilModule::ComputeShaderCompatInfo() {
     ShaderFlags &flags = info.shaderFlags;
     if (dxil18Plus) {
       // This handles WaveSize requirement as well.
-      flags = AdjustMinimumShaderModelAndFlags(flags, props, info.minMajor,
-                                               info.minMinor);
+      AdjustMinimumShaderModelAndFlags(props, flags, info.minMajor,
+                                       info.minMinor);
     } else {
       // Match prior versions that were missing some feature detection.
       if (flags.GetUseNativeLowPrecision() && flags.GetLowPrecisionPresent())
