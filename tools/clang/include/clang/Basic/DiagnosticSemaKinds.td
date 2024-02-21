@@ -2349,7 +2349,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "global variables of scalar type|"
   "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
-  "Textures (e.g., Texture2D) and SamplerState|"
+  "Textures and Samplers|"
   "RWTextures, RasterizerOrderedTextures, Buffers, RWBuffers, and RasterizerOrderedBuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
   "SubpassInput, SubpassInputMS|"
