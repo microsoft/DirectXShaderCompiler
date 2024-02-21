@@ -174,7 +174,7 @@
         int2 ConvertGroupIdx(uint groupIdx) {
           return int2(((groupIdx&0x4)>>1) + (groupIdx&01), ((groupIdx&0x8)>>2) + ((groupIdx&02)>>1));
         }
-        
+
         // Convert group index into uv texcoords and return derivatives test result
         float4 DerivTest(uint groupIdx) {
           return DerivTest(ConvertGroupIdx(groupIdx));

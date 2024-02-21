@@ -3871,12 +3871,15 @@ void VerifyDerivResults_CS_AS_MS_66(const float *pPixels, UINT offsetCenter) {
   // fine derivatives and 2 possible results for coarse derivatives.
   int ulpTolerance = 1;
 
-  // 256 - 128 or 128 - 64
+  // 256 - 128
   VERIFY_IS_TRUE(CompareFloatULP(CenterDDXFine, 128.0f, ulpTolerance));
+  // 1024 - 128
   VERIFY_IS_TRUE(CompareFloatULP(CenterDDYFine, 896.0f, ulpTolerance));
 
+  // 256 - 128 or 2048 - 1024
   VERIFY_IS_TRUE(CompareFloatULP(CenterDDXCoarse, 128.0f, ulpTolerance) ||
                  CompareFloatULP(CenterDDXCoarse, 1024.0f, ulpTolerance));
+  // 1024 - 128 or 2048 - 256
   VERIFY_IS_TRUE(CompareFloatULP(CenterDDYCoarse, 896.0f, ulpTolerance) ||
                  CompareFloatULP(CenterDDYCoarse, 1792.0f, ulpTolerance));
 }
@@ -3962,7 +3965,7 @@ UINT DerivativesTest_GetCenterIndex(Dispatch &D) {
 void DerivativesTest_DebugOutput(Dispatch &D,
                                  std::shared_ptr<st::ShaderOpTest> &Test,
                                  const float *pPixels, UINT centerIndex) {
-#ifdef DEBUG // DERIVATIVES_TEST_DEBUG
+#ifdef DERIVATIVES_TEST_DEBUG
   LogCommentFmt(L"------------------------------------");
   MappedData dataDbg;
   Test->GetReadBackData("U3", &dataDbg);
