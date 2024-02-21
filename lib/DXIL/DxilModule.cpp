@@ -288,41 +288,20 @@ unsigned DxilModule::GetGlobalFlags() const {
   return Flags;
 }
 
-static bool RequiresRaytracingTier1_1(const DxilSubobjects *pSubobjects) {
-  if (!pSubobjects)
-    return false;
-  for (const auto &it : pSubobjects->GetSubobjects()) {
-    switch (it.second->GetKind()) {
-    case DXIL::SubobjectKind::RaytracingPipelineConfig1:
-      return true;
-    case DXIL::SubobjectKind::StateObjectConfig: {
-      uint32_t configFlags;
-      if (it.second->GetStateObjectConfig(configFlags) &&
-          ((configFlags &
-            (unsigned)DXIL::StateObjectFlags::AllowStateObjectAdditions) != 0))
-        return true;
-    } break;
-    default:
-      break;
-    }
-  }
-  return false;
-}
-
 void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   ComputeShaderCompatInfo();
   for (auto &itInfo : m_FuncToShaderCompat)
     Flags.CombineShaderFlags(itInfo.second.shaderFlags);
 
-  // Clear UsesDerivatives flag for module, making sure
-  // DerivativesInMeshAndAmpShaders is set for MS/AS.
+  const ShaderModel *SM = GetShaderModel();
+
+  // Set DerivativesInMeshAndAmpShaders if necessary for MS/AS.
   if (Flags.GetUsesDerivatives()) {
-    Flags.SetUsesDerivatives(false);
-    if (m_pSM->IsMS() || m_pSM->IsAS())
+    if (SM->IsMS() || SM->IsAS())
       Flags.SetDerivativesInMeshAndAmpShaders(true);
   }
-
-  const ShaderModel *SM = GetShaderModel();
+  // Clear function-local flags not intended for the module.
+  Flags.ClearLocalFlags();
 
   unsigned NumUAVs = 0;
   const unsigned kSmallUAVCount = 8;
@@ -380,10 +359,6 @@ void DxilModule::CollectShaderFlagsForModule(ShaderFlags &Flags) {
   bool hasCSRawAndStructuredViaShader4X =
       hasRawAndStructuredBuffer && m_pSM->GetMajor() == 4 && m_pSM->IsCS();
   Flags.SetCSRawAndStructuredViaShader4X(hasCSRawAndStructuredViaShader4X);
-
-  if (!Flags.GetRaytracingTier1_1()) {
-    Flags.SetRaytracingTier1_1(RequiresRaytracingTier1_1(GetSubobjects()));
-  }
 }
 
 void DxilModule::CollectShaderFlagsForModule() {
@@ -2142,11 +2117,11 @@ bool DxilModule::ShaderCompatInfo::Merge(ShaderCompatInfo &other) {
 // Compare that minimum required version to the values passed in with
 // `minMajor` and `minMinor` and pass the maximum of those back through those
 // same variables.
-// Return adjusted `ShaderFlags` according to `props` set.
-static ShaderFlags
-AdjustMinimumShaderModelAndFlags(ShaderFlags flags,
-                                 const DxilFunctionProps *props,
-                                 unsigned &minMajor, unsigned &minMinor) {
+// Adjusts `ShaderFlags` argument according to `props` set.
+static void AdjustMinimumShaderModelAndFlags(const DxilFunctionProps *props,
+                                             ShaderFlags &flags,
+                                             unsigned &minMajor,
+                                             unsigned &minMinor) {
   // Adjust flags based on DxilFunctionProps and compute minimum shader model.
   // Library functions use flags to capture properties that may or may not be
   // used in the final shader, depending on that final shader's shader model.
@@ -2214,8 +2189,27 @@ AdjustMinimumShaderModelAndFlags(ShaderFlags flags,
     DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 2);
   else if (flags.GetViewID() || flags.GetBarycentrics())
     DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 1);
+}
 
-  return flags;
+static bool RequiresRaytracingTier1_1(const DxilSubobjects *pSubobjects) {
+  if (!pSubobjects)
+    return false;
+  for (const auto &it : pSubobjects->GetSubobjects()) {
+    switch (it.second->GetKind()) {
+    case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+      return true;
+    case DXIL::SubobjectKind::StateObjectConfig: {
+      uint32_t configFlags;
+      if (it.second->GetStateObjectConfig(configFlags) &&
+          ((configFlags &
+            (unsigned)DXIL::StateObjectFlags::AllowStateObjectAdditions) != 0))
+        return true;
+    } break;
+    default:
+      break;
+    }
+  }
+  return false;
 }
 
 void DxilModule::ComputeShaderCompatInfo() {
@@ -2224,6 +2218,11 @@ void DxilModule::ComputeShaderCompatInfo() {
   bool dxil15Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0;
   bool dxil18Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0;
   bool dxil19Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 9) >= 0;
+
+  // Prior to validator version 1.8, DXR 1.1 flag was set on every function
+  // if subobjects contained any DXR 1.1 subobjects.
+  bool setDXR11OnAllFunctions =
+      dxil15Plus && !dxil18Plus && RequiresRaytracingTier1_1(GetSubobjects());
 
   // Initialize worklist with functions that have callers
   SmallSetVector<llvm::Function *, 8> worklist;
@@ -2239,6 +2238,8 @@ void DxilModule::ComputeShaderCompatInfo() {
       // Insert or lookup info
       ShaderCompatInfo &info = m_FuncToShaderCompat[&function];
       info.shaderFlags = ShaderFlags::CollectShaderFlags(&function, this);
+      if (setDXR11OnAllFunctions)
+        info.shaderFlags.SetRaytracingTier1_1(true);
     } else if (!function.isIntrinsic() &&
                function.getLinkage() ==
                    llvm::GlobalValue::LinkageTypes::ExternalLinkage &&
@@ -2302,8 +2303,8 @@ void DxilModule::ComputeShaderCompatInfo() {
     ShaderFlags &flags = info.shaderFlags;
     if (dxil18Plus) {
       // This handles WaveSize requirement as well.
-      flags = AdjustMinimumShaderModelAndFlags(flags, props, info.minMajor,
-                                               info.minMinor);
+      AdjustMinimumShaderModelAndFlags(props, flags, info.minMajor,
+                                       info.minMinor);
     } else {
       // Match prior versions that were missing some feature detection.
       if (flags.GetUseNativeLowPrecision() && flags.GetLowPrecisionPresent())

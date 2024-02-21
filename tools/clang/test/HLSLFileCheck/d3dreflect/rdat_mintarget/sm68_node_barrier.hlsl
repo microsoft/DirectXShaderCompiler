@@ -9,7 +9,7 @@ RWByteAddressBuffer BAB : register(u1, space0);
 
 // RDAT-LABEL: UnmangledName: "node_barrier"
 // RDAT: FeatureInfo1: 0
-// RDAT: FeatureInfo2: 0
+// RDAT: FeatureInfo2: (Opt_RequiresGroup)
 // RDAT: ShaderStageFlag: (Node)
 // RDAT: MinShaderTarget: 0xf0068
 
@@ -24,7 +24,7 @@ void node_barrier() {
 
 // RDAT-LABEL: UnmangledName: "use_barrier"
 // RDAT: FeatureInfo1: 0
-// RDAT: FeatureInfo2: 0
+// RDAT: FeatureInfo2: (Opt_RequiresGroup)
 // RDAT: ShaderStageFlag: (Compute | Library | Mesh | Amplification | Node)
 // RDAT: MinShaderTarget: 0x60060
 
@@ -35,7 +35,7 @@ void use_barrier() {
 
 // RDAT-LABEL: UnmangledName: "node_barrier_in_call"
 // RDAT: FeatureInfo1: 0
-// RDAT: FeatureInfo2: 0
+// RDAT: FeatureInfo2: (Opt_RequiresGroup)
 // RDAT: ShaderStageFlag: (Node)
 // RDAT: MinShaderTarget: 0xf0068
 

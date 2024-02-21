@@ -192,6 +192,7 @@ public:
   TEST_METHOD(CompileWhenIncludeLocalThenLoadRelative)
   TEST_METHOD(CompileWhenIncludeSystemThenLoadNotRelative)
   TEST_METHOD(CompileWhenAllIncludeCombinations)
+  TEST_METHOD(TestPdbUtilsPathNormalizations)
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
@@ -2884,50 +2885,148 @@ TEST_F(CompilerTest, CompileWhenIncludeThenLoadUsed) {
                         pInclude->GetAllFileNames().c_str());
 }
 
-TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
-  static auto NormalizeForPlatform = [](const std::wstring &s) -> std::wstring {
+static std::wstring NormalizeForPlatform(const std::wstring &s) {
 #ifdef _WIN32
-    wchar_t From = L'/';
-    wchar_t To = L'\\';
+  wchar_t From = L'/';
+  wchar_t To = L'\\';
 #else
-    wchar_t From = L'\\';
-    wchar_t To = L'/';
+  wchar_t From = L'\\';
+  wchar_t To = L'/';
 #endif
-    std::wstring ret = s;
-    for (wchar_t &c : ret) {
-      if (c == From)
-        c = To;
+  std::wstring ret = s;
+  for (wchar_t &c : ret) {
+    if (c == From)
+      c = To;
+  }
+  return ret;
+};
+
+class SimpleIncludeHanlder : public IDxcIncludeHandler {
+  DXC_MICROCOM_REF_FIELD(m_dwRef)
+public:
+  DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
+  dxc::DxcDllSupport &m_dllSupport;
+  HRESULT m_defaultErrorCode = E_FAIL;
+  SimpleIncludeHanlder(dxc::DxcDllSupport &dllSupport)
+      : m_dwRef(0), m_dllSupport(dllSupport) {}
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
+    return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
+  }
+
+  std::wstring Path;
+  std::string Content;
+
+  HRESULT STDMETHODCALLTYPE LoadSource(
+      LPCWSTR pFilename,         // Filename as written in #include statement
+      IDxcBlob **ppIncludeSource // Resultant source object for included file
+      ) override {
+    if (pFilename == Path) {
+      MultiByteStringToBlob(m_dllSupport, Content, CP_UTF8, ppIncludeSource);
+      return S_OK;
     }
-    return ret;
+    return E_FAIL;
+  }
+};
+
+TEST_F(CompilerTest, TestPdbUtilsPathNormalizations) {
+#include "TestHeaders/TestPdbUtilsPathNormalizations.h"
+  struct TestCase {
+    std::string MainName;
+    std::string IncludeName;
   };
 
-  class SimpleIncludeHanlder : public IDxcIncludeHandler {
-    DXC_MICROCOM_REF_FIELD(m_dwRef)
-  public:
-    DXC_MICROCOM_ADDREF_RELEASE_IMPL(m_dwRef)
-    dxc::DxcDllSupport &m_dllSupport;
-    HRESULT m_defaultErrorCode = E_FAIL;
-    SimpleIncludeHanlder(dxc::DxcDllSupport &dllSupport)
-        : m_dwRef(0), m_dllSupport(dllSupport) {}
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
-                                             void **ppvObject) override {
-      return DoBasicQueryInterface<IDxcIncludeHandler>(this, iid, ppvObject);
-    }
-
-    std::wstring Path;
-    std::string Content;
-
-    HRESULT STDMETHODCALLTYPE LoadSource(
-        LPCWSTR pFilename,         // Filename as written in #include statement
-        IDxcBlob **ppIncludeSource // Resultant source object for included file
-        ) override {
-      if (pFilename == NormalizeForPlatform(Path)) {
-        MultiByteStringToBlob(m_dllSupport, Content, CP_UTF8, ppIncludeSource);
-        return S_OK;
-      }
-      return E_FAIL;
-    }
+  TestCase tests[] = {
+      {R"(main.hlsl)", R"(include.h)"},
+      {R"(.\5Cmain.hlsl)", R"(.\5Cinclude.h)"},
+      {R"(/path/main.hlsl)", R"(/path/include.h)"},
+      {R"(\5Cpath/main.hlsl)", R"(\5Cpath\5Cinclude.h)"},
+      {R"(..\5Cmain.hlsl)", R"(..\5Cinclude.h)"},
+      {R"(..\5Cdir\5Cmain.hlsl)", R"(..\5Cdir\5Cinclude.h)"},
+      {R"(F:\5C\5Cdir\5Cmain.hlsl)", R"(F:\5C\5Cdir\5Cinclude.h)"},
+      {R"(\5C\5Cdir\5Cmain.hlsl)", R"(\5C\5Cdir\5Cinclude.h)"},
+      {R"(\5C\5C\5Cdir\5Cmain.hlsl)", R"(\5C\5C\5Cdir\5Cinclude.h)"},
+      {R"(//dir\5Cmain.hlsl)", R"(//dir/include.h)"},
+      {R"(///dir/main.hlsl)", R"(///dir\5Cinclude.h)"},
   };
+
+  for (TestCase &test : tests) {
+    std::string oldPdb = kTestPdbUtilsPathNormalizationsIR;
+
+    size_t findPos = std::string::npos;
+    std::string mainPattern = "<MAIN_FILE>";
+    std::string includePattern = "<INCLUDE_FILE>";
+    while ((findPos = oldPdb.find(mainPattern)) != std::string::npos) {
+      oldPdb.replace(oldPdb.begin() + findPos,
+                     oldPdb.begin() + findPos + mainPattern.size(),
+                     test.MainName);
+    }
+    while ((findPos = oldPdb.find(includePattern)) != std::string::npos) {
+      oldPdb.replace(oldPdb.begin() + findPos,
+                     oldPdb.begin() + findPos + includePattern.size(),
+                     test.IncludeName);
+    }
+
+    CComPtr<IDxcAssembler> pAssembler;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcAssembler, &pAssembler));
+    CComPtr<IDxcUtils> pUtils;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcUtils, &pUtils));
+
+    CComPtr<IDxcBlobEncoding> pBlobEncoding;
+    VERIFY_SUCCEEDED(pUtils->CreateBlobFromPinned(oldPdb.data(), oldPdb.size(),
+                                                  CP_UTF8, &pBlobEncoding));
+
+    CComPtr<IDxcOperationResult> pOpResult;
+    VERIFY_SUCCEEDED(
+        pAssembler->AssembleToContainer(pBlobEncoding, &pOpResult));
+    VerifyOperationSucceeded(pOpResult);
+    CComPtr<IDxcBlob> pDxil;
+    VERIFY_SUCCEEDED(pOpResult->GetResult(&pDxil));
+
+    CComPtr<IDxcPdbUtils> pPdbUtils;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcPdbUtils, &pPdbUtils));
+    VERIFY_SUCCEEDED(pPdbUtils->Load(pDxil));
+
+    CComBSTR pMainName;
+    CComBSTR pIncludeName;
+    CComBSTR pMainName2;
+    CComPtr<IDxcBlobEncoding> pIncludeContent;
+    CComPtr<IDxcBlobEncoding> pMainContent;
+    VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(0, &pMainName));
+    VERIFY_SUCCEEDED(pPdbUtils->GetSourceName(1, &pIncludeName));
+    VERIFY_SUCCEEDED(pPdbUtils->GetMainFileName(&pMainName2));
+    VERIFY_SUCCEEDED(pPdbUtils->GetSource(0, &pMainContent));
+    VERIFY_SUCCEEDED(pPdbUtils->GetSource(1, &pIncludeContent));
+
+    VERIFY_ARE_EQUAL(0, wcscmp(pMainName.m_str, pMainName2.m_str));
+
+    CComPtr<IDxcBlobUtf8> pMainContentUtf8;
+    CComPtr<IDxcBlobUtf8> pIncludeContentUtf8;
+    VERIFY_SUCCEEDED(pMainContent.QueryInterface(&pMainContentUtf8));
+    VERIFY_SUCCEEDED(pIncludeContent.QueryInterface(&pIncludeContentUtf8));
+
+    CComPtr<SimpleIncludeHanlder> pRecompileInclude =
+        new SimpleIncludeHanlder(m_dllSupport);
+    pRecompileInclude->Content =
+        std::string(pIncludeContentUtf8->GetStringPointer(),
+                    pIncludeContentUtf8->GetStringLength());
+    pRecompileInclude->Path = pIncludeName;
+
+    CComPtr<IDxcOperationResult> pRecompileOpResult;
+    const WCHAR *args[] = {L"-Zi"};
+
+    CComPtr<IDxcCompiler> pCompiler;
+    VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+    VERIFY_SUCCEEDED(pCompiler->Compile(
+        pMainContentUtf8, pMainName, L"main", L"ps_6_0", args, _countof(args),
+        nullptr, 0, pRecompileInclude, &pRecompileOpResult));
+    VerifyOperationSucceeded(pRecompileOpResult);
+  }
+}
+
+TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
   struct File {
     std::wstring name;
     std::string content;

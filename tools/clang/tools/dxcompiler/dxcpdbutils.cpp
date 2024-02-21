@@ -421,7 +421,7 @@ private:
                             &source.Content));
 
     std::string normalizedPath = hlsl::NormalizePath(name);
-    IFR(Utf8ToBlobWide(name, &source.Name));
+    IFR(Utf8ToBlobWide(normalizedPath, &source.Name));
     // First file is the main file
     if (m_SourceFiles.empty()) {
       m_MainFileName = source.Name;

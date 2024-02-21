@@ -2353,7 +2353,13 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DI.get_SemanticFlags(),
                            (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
                            "semantic", "BarrierByMemoryType");
-
+    if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
+        OP::BarrierRequiresNode(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
+    }
+    if (!isCSLike && !isLibFunc && OP::BarrierRequiresGroup(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
+    }
   } break;
   case DXIL::OpCode::BarrierByNodeRecordHandle:
   case DXIL::OpCode::BarrierByMemoryHandle: {
@@ -2364,6 +2370,13 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_SemanticFlags(),
                            (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
                            "semantic", opName);
+    if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
+        OP::BarrierRequiresNode(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
+    }
+    if (!isCSLike && !isLibFunc && OP::BarrierRequiresGroup(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
+    }
   } break;
   case DXIL::OpCode::CreateHandleForLib:
     if (!ValCtx.isLibProfile) {
@@ -3188,6 +3201,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   CallInst *setMeshOutputCounts = nullptr;
   CallInst *getMeshPayload = nullptr;
   CallInst *dispatchMesh = nullptr;
+  hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
+
   for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
     for (auto i = b->begin(), iend = b->end(); i != iend; ++i) {
       llvm::Instruction &I = *i;
@@ -3237,7 +3252,29 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
 
           unsigned opcode = OpcodeConst->getLimitedValue();
+          if (opcode >= static_cast<unsigned>(DXIL::OpCode::NumOpCodes)) {
+            ValCtx.EmitInstrFormatError(
+                &I, ValidationRule::InstrIllegalDXILOpCode,
+                {std::to_string((unsigned)DXIL::OpCode::NumOpCodes),
+                 std::to_string(opcode)});
+            continue;
+          }
           DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
+
+          bool IllegalOpFunc = true;
+          for (auto &it : hlslOP->GetOpFuncList(dxilOpcode)) {
+            if (it.second == FCalled) {
+              IllegalOpFunc = false;
+              break;
+            }
+          }
+
+          if (IllegalOpFunc) {
+            ValCtx.EmitInstrFormatError(
+                &I, ValidationRule::InstrIllegalDXILOpFunction,
+                {FCalled->getName(), OP::GetOpCodeName(dxilOpcode)});
+            continue;
+          }
 
           if (OP::IsDxilOpGradient(dxilOpcode)) {
             gradientOps.push_back(CI);
@@ -4448,12 +4485,22 @@ static void ValidateResources(ValidationContext &ValCtx) {
 }
 
 static void ValidateShaderFlags(ValidationContext &ValCtx) {
-  // TODO: validate flags foreach entry.
-  if (ValCtx.isLibProfile)
-    return;
-
   ShaderFlags calcFlags;
   ValCtx.DxilMod.CollectShaderFlagsForModule(calcFlags);
+
+  // Special case for validator version prior to 1.8.
+  // If DXR 1.1 flag is set, but our computed flags do not have this set, then
+  // this is due to prior versions setting the flag based on DXR 1.1 subobjects,
+  // which are gone by this point.  Set the flag and the rest should match.
+  unsigned valMajor, valMinor;
+  ValCtx.DxilMod.GetValidatorVersion(valMajor, valMinor);
+  if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) >= 0 &&
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0 &&
+      ValCtx.DxilMod.m_ShaderFlags.GetRaytracingTier1_1() &&
+      !calcFlags.GetRaytracingTier1_1()) {
+    calcFlags.SetRaytracingTier1_1(true);
+  }
+
   const uint64_t mask = ShaderFlags::GetShaderFlagsRawForCollection();
   uint64_t declaredFlagsRaw = ValCtx.DxilMod.m_ShaderFlags.GetShaderFlagsRaw();
   uint64_t calcFlagsRaw = calcFlags.GetShaderFlagsRaw();
