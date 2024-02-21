@@ -396,11 +396,14 @@ static unsigned FindOrAddInputSignatureElement(
 
   if (ExistingElement == InputElements.end()) {
     auto AddedElement = llvm::make_unique<DxilSignatureElement>(sigPointKind);
-    AddedElement->Initialize(name, hlsl::CompType::getF32(),
-                             hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
+    unsigned int Index = static_cast<unsigned int>(InputElements.size());
+    AddedElement->Initialize(
+        name, hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Constant,
+        1, 1, Index, 0);
     AddedElement->AppendSemanticIndex(0);
-    AddedElement->SetSigPointKind(sigPointKind);
     AddedElement->SetKind(semanticKind);
+    AddedElement->SetUsageMask(1);
+    AddedElement->SetCompType(CompType::getU32());
 
     auto index = InputSignature.AppendElement(std::move(AddedElement));
     return InputElements[index]->GetID();
