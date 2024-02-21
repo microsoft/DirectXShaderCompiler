@@ -3863,7 +3863,7 @@ void VerifyDerivResults_CS_AS_MS_66(const float *pPixels, UINT offsetCenter) {
   //   32    64  *128* 256
   //  256   512  1024 2048
   //
-  // We are checking the derivate values calculated at the texture 
+  // We are checking the derivate values calculated at the texture
   // center pixel (2,2).
 
   // In D3D12 for shader model 6.6 compute, mesh and amplification shaders
@@ -3879,7 +3879,6 @@ void VerifyDerivResults_CS_AS_MS_66(const float *pPixels, UINT offsetCenter) {
                  CompareFloatULP(CenterDDXCoarse, 1024.0f, ulpTolerance));
   VERIFY_IS_TRUE(CompareFloatULP(CenterDDYCoarse, 896.0f, ulpTolerance) ||
                  CompareFloatULP(CenterDDYCoarse, 1792.0f, ulpTolerance));
- 
 }
 
 // Rendering two right triangles forming a square and assigning a texture value
@@ -3943,10 +3942,10 @@ std::shared_ptr<st::ShaderOpTest> RunDispatch(ID3D12Device *pDevice,
   return test;
 }
 
-UINT DerivativesTest_GetCenterIndex(Dispatch& D) {
+UINT DerivativesTest_GetCenterIndex(Dispatch &D) {
   if (D.height == 1) {
-    // 1D Quads - Find center, truncate to the previous multiple of 16 to get 
-    // to the start of the repeating pattern, and then add 12 to get to the 
+    // 1D Quads - Find center, truncate to the previous multiple of 16 to get
+    // to the start of the repeating pattern, and then add 12 to get to the
     // middle (2,2) pixel of the pattern. The values are stored in Z-order.
     return (((UINT64)(D.width * D.height) / 2) & ~0xF) + 12;
   } else {
@@ -3961,7 +3960,7 @@ UINT DerivativesTest_GetCenterIndex(Dispatch& D) {
 }
 
 void DerivativesTest_DebugOutput(Dispatch &D,
-                                 std::shared_ptr<st::ShaderOpTest>  &Test,
+                                 std::shared_ptr<st::ShaderOpTest> &Test,
                                  const float *pPixels, UINT centerIndex) {
 #ifdef DEBUG // DERIVATIVES_TEST_DEBUG
   LogCommentFmt(L"------------------------------------");
@@ -4007,9 +4006,10 @@ TEST_F(ExecutionTest, DerivativesTest) {
                                       {16, 64, 1}, {4, 12, 4},   {4, 64, 1},
                                       {16, 16, 3}, {32, 8, 2},   {8, 8, 1}};
 
-  std::vector<Dispatch> meshDispatches = {  // (X * Y * Z) must be <= 128
-      {60, 1, 1}, {128, 1, 1}, {8, 8, 1}, {16, 8, 1},
-      {8, 4, 2}, {10, 10, 1},  {4, 16, 2},
+  std::vector<Dispatch> meshDispatches = {
+      // (X * Y * Z) must be <= 128
+      {60, 1, 1}, {128, 1, 1}, {8, 8, 1},  {16, 8, 1},
+      {8, 4, 2},  {10, 10, 1}, {4, 16, 2},
   };
 
   std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
@@ -4028,7 +4028,7 @@ TEST_F(ExecutionTest, DerivativesTest) {
     float *pPixels = (float *)data.data();
 
     UINT centerIndex = DerivativesTest_GetCenterIndex(D);
-    
+
     DerivativesTest_DebugOutput(D, test, pPixels, centerIndex);
 
     UINT offsetCenter = centerIndex * pixelSize;
