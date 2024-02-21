@@ -38,32 +38,32 @@ using namespace hlsl;
 
 namespace PIXPassHelpers {
 static void FindRayQueryHandlesFromUse(Value *U,
-                                       std::vector<Value *> &Handles) {
-  Handles.push_back(U);
-  auto RayQueryHandleUses = U->uses();
-  for (Use &Use : RayQueryHandleUses) {
-    iterator_range<Value::user_iterator> Users = Use->users();
-    for (User *User : Users) {
-      if (std::find(Handles.begin(), Handles.end(), User) == Handles.end())
-        FindRayQueryHandlesFromUse(User, Handles);
+                                       SmallPtrSetImpl<Value *> &Handles) {
+  if (Handles.insert(U).second) {
+    auto RayQueryHandleUses = U->uses();
+    for (Use &Use : RayQueryHandleUses) {
+      iterator_range<Value::user_iterator> Users = Use->users();
+      for (User *User : Users) {
+        if (isa<PHINode>(User) || isa<SelectInst>(User))
+          FindRayQueryHandlesFromUse(User, Handles);
+      }
     }
   }
 }
 
-std::vector<Value *> FindRayQueryHandlesForFunction(llvm::Function *F) {
-  std::vector<Value *> Handles;
+void FindRayQueryHandlesForFunction(llvm::Function *F,
+                                    SmallPtrSetImpl<Value *> &RayQueryHandles) {
   auto &blocks = F->getBasicBlockList();
   if (!blocks.empty()) {
     for (auto &block : blocks) {
       for (auto &instruction : block) {
         if (hlsl::OP::IsDxilOpFuncCallInst(
                 &instruction, hlsl::OP::OpCode::AllocateRayQuery)) {
-          FindRayQueryHandlesFromUse(&instruction, Handles);
+          FindRayQueryHandlesFromUse(&instruction, RayQueryHandles);
         }
       }
     }
   }
-  return Handles;
 }
 
 static unsigned int

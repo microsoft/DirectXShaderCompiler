@@ -343,7 +343,7 @@ private:
                                                            StoreInst *Inst);
   std::optional<InstructionAndType>
   addStepDebugEntry(BuilderContext *BC, Instruction *Inst,
-                    std::vector<llvm::Value *> const &RayQueryHandles);
+                    llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles);
   std::optional<DebugShaderModifierRecordType>
   addStepDebugEntryValue(BuilderContext *BC, std::uint32_t InstNum, Value *V,
                          std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex);
@@ -365,7 +365,7 @@ private:
   };
   BlockInstrumentationData FindInstrumentableInstructionsInBlock(
       BasicBlock &BB, OP *HlslOP,
-      std::vector<llvm::Value *> const &RayQueryHandles);
+      llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles);
   uint32_t
   CountBlockPayloadBytes(std::vector<InstructionToInstrument> const &IsAndTs);
 };
@@ -1054,15 +1054,14 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
 
 std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
     BuilderContext *BC, Instruction *Inst,
-    std::vector<llvm::Value *> const &RayQueryHandles) {
+    llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles) {
 
   std::uint32_t InstNum;
   if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
     return std::nullopt;
   }
 
-  if (std::find(RayQueryHandles.begin(), RayQueryHandles.end(), Inst) !=
-      RayQueryHandles.end()) {
+  if (RayQueryHandles.count(Inst) != 0) {
     InstructionAndType ret{};
     ret.Inst = Inst;
     ret.InstructionOrdinal = InstNum;
@@ -1306,7 +1305,7 @@ Instruction *FindFirstNonPhiInstruction(Instruction *I) {
 DxilDebugInstrumentation::BlockInstrumentationData
 DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
     BasicBlock &BB, OP *HlslOP,
-    std::vector<llvm::Value *> const &RayQueryHandles) {
+    llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles) {
   BlockInstrumentationData ret{};
   auto &Is = BB.getInstList();
   *OSOverride << "Block#";
@@ -1399,9 +1398,8 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
   default:
     return false;
   }
-
-  auto RayQueryHandles =
-      PIXPassHelpers::FindRayQueryHandlesForFunction(function);
+  llvm::SmallPtrSet<Value *, 16> RayQueryHandles;
+  PIXPassHelpers::FindRayQueryHandlesForFunction(function, RayQueryHandles);
 
   Instruction *firstInsertionPt = dxilutil::FirstNonAllocaInsertionPt(function);
   IRBuilder<> Builder(firstInsertionPt);

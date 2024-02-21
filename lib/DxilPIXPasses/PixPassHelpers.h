@@ -32,7 +32,8 @@ public:
   llvm::Instruction *Get() const { return m_Instruction; }
 };
 
-std::vector<llvm::Value *> FindRayQueryHandlesForFunction(llvm::Function *F);
+void FindRayQueryHandlesForFunction(
+    llvm::Function *F, llvm::SmallPtrSetImpl<llvm::Value *> &RayQueryHandles);
 llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
                           unsigned int registerId, const char *name);
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,

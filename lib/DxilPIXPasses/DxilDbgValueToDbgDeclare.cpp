@@ -320,7 +320,6 @@ private:
 
   std::unordered_map<llvm::DIVariable *, std::unique_ptr<VariableRegisters>>
       m_Registers;
-  std::vector<llvm::Value const *> m_PhiDescentHistory;
 };
 } // namespace
 
@@ -599,7 +598,8 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
 
   auto &Functions = M.getFunctionList();
   for (auto &fn : Functions) {
-    auto RayQueryHandles = PIXPassHelpers::FindRayQueryHandlesForFunction(&fn);
+    llvm::SmallPtrSet<Value *, 16> RayQueryHandles;
+    PIXPassHelpers::FindRayQueryHandlesForFunction(&fn, RayQueryHandles);
     // #DSLTodo: We probably need to merge the list of variables for each
     // export into one set so that WinPIX shader debugging can follow a
     // thread through any function within a given module. (Unless PIX
@@ -645,8 +645,7 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
           if (auto *DbgValue =
                   llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
             llvm::Value *V = DbgValue->getValue();
-            if (std::find(RayQueryHandles.begin(), RayQueryHandles.end(), V) !=
-                RayQueryHandles.end())
+            if (RayQueryHandles.count(V) != 0)
               continue;
             Changed = true;
             handleDbgValue(M, DbgValue);
