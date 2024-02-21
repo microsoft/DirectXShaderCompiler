@@ -1411,8 +1411,8 @@ Texture1DArray      2 (c0, c1 = array slice)         1 (o0)
 Texture2D           2 (c0, c1)                       2 (o0, o1)
 Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
 Texture3D           3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBE         3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 3 (o0, o1, o2)
+TextureCUBE         3 (c0, c1, c2)                   0
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0
 =================== ================================ ===================
 
 SampleBias
@@ -1435,7 +1435,7 @@ The following signature shows the operation syntax::
       float,                ; bias: in [-16.f,15.99f]
       float)                ; clamp
 
-Valid resource types and active components/offsets are the same as for the sample operation.
+Valid resource types and active coordinates/offsets are the same as for the sample operation.
 
 SampleLevel
 ~~~~~~~~~~~
@@ -1456,7 +1456,7 @@ The following signature shows the operation syntax::
       i32,                  ; offset o2
       float)                ; LOD
 
-Valid resource types and active components/offsets are the same as for the sample operation.
+Valid resource types and active coordinates/offsets are the same as for the sample operation.
 
 SampleGrad
 ~~~~~~~~~~
@@ -1483,7 +1483,17 @@ The following signature shows the operation syntax::
       float,                ; ddy2
       float)                ; clamp
 
-Valid resource types and active components and offsets are the same as for the sample operation. Valid active ddx and ddy are   the same as offsets.
+=================== ================================ =================== ====================================
+Valid resource type # of active coordinates          # of active offsets # of active gradients
+=================== ================================ =================== ====================================
+Texture1D           1 (c0)                           1 (o0)               1 (ddx0/ddy0)
+Texture1DArray      2 (c0, c1 = array slice)         1 (o0)               1 (ddx0/ddy0)
+Texture2D           2 (c0, c1)                       2 (o0, o1)           2 (ddx0/ddy0, ddx1/ddy1)
+Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)           2 (ddx0/ddy0, ddx1/ddy1)
+Texture3D           3 (c0, c1, c2)                   3 (o0, o1, o2)       3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+TextureCUBE         3 (c0, c1, c2)                   0                    3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0                    3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+=================== ================================ =================== ====================================
 
 SampleCmp
 ~~~~~~~~~
@@ -1512,8 +1522,8 @@ Texture1D           1 (c0)                           1 (o0)
 Texture1DArray      2 (c0, c1 = array slice)         1 (o0)
 Texture2D           2 (c0, c1)                       2 (o0, o1)
 Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
-TextureCUBE         3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 3 (o0, o1, o2)
+TextureCUBE         3 (c0, c1, c2)                   0
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0
 =================== ================================ ===================
 
 SampleCmpLevelZero
@@ -1535,7 +1545,7 @@ The following signature shows the operation syntax::
       i32,                  ; offset o2
       float)                ; compare value
 
-Valid resource types and active components/offsets are the same as for the sampleCmp operation.
+Valid resource types and active coordinates/offsets are the same as for the sampleCmp operation.
 
 TextureLoad
 ~~~~~~~~~~~
@@ -1679,7 +1689,7 @@ The following signature shows the operation syntax::
       i32,                  ; channel, constant in {0=red,1=green,2=blue,3=alpha}
       float)                ; compare value
 
-Valid resource types and active components/offsets are the same as for the textureGather operation.
+Valid resource types and active coordinates/offsets are the same as for the textureGather operation.
 
 Texture2DMSGetSamplePosition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3053,6 +3063,7 @@ INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Me
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
 INSTR.BARRIERMODEUSELESSUGROUP            sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
 INSTR.BARRIERNONCONSTANTFLAGARGUMENT      Memory type, access, or sync flag is not constant
+INSTR.BARRIERREQUIRESNODE                 sync in a non-Node Shader must not sync node record memory.
 INSTR.BUFFERUPDATECOUNTERONRESHASCOUNTER  BufferUpdateCounter valid only when HasCounter is true.
 INSTR.BUFFERUPDATECOUNTERONUAV            BufferUpdateCounter valid only on UAV.
 INSTR.CALLOLOAD                           Call to DXIL intrinsic must match overload signature
@@ -3069,6 +3080,8 @@ INSTR.EVALINTERPOLATIONMODE               Interpolation mode on %0 used with eva
 INSTR.EXTRACTVALUE                        ExtractValue should only be used on dxil struct types and cmpxchg.
 INSTR.FAILTORESLOVETGSMPOINTER            TGSM pointers must originate from an unambiguous TGSM global variable.
 INSTR.HANDLENOTFROMCREATEHANDLE           Resource handle should returned by createHandle.
+INSTR.ILLEGALDXILOPCODE                   DXILOpCode must be [0..%0].  %1 specified.
+INSTR.ILLEGALDXILOPFUNCTION               '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                   bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                      Access to out-of-bounds memory is disallowed.
 INSTR.MINPRECISIONNOTPRECISE              Instructions marked precise may not refer to minprecision values.
@@ -3124,6 +3137,7 @@ INSTR.SAMPLERMODEFORSAMPLEC               sample_c_*/gather_c instructions requi
 INSTR.SIGNATUREOPERATIONNOTINENTRY        Dxil operation for input output signature must be in entryPoints.
 INSTR.STATUS                              Resource status should only be used by CheckAccessFullyMapped.
 INSTR.STRUCTBITCAST                       Bitcast on struct types is not allowed.
+INSTR.SVCONFLICTINGLAUNCHMODE             Input system values are compatible with node shader launch mode.
 INSTR.TEXTUREOFFSET                       offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 INSTR.TGSMRACECOND                        Race condition writing to shared memory detected, consider making this write conditional.
 INSTR.UNDEFINEDVALUEFORUAVSTORE           Assignment of undefined values to UAV.
@@ -3251,8 +3265,18 @@ SM.TRIOUTPUTPRIMITIVEMISMATCH             Hull Shader declared with Tri Domain m
 SM.UNDEFINEDOUTPUT                        Not all elements of output %0 were written.
 SM.VALIDDOMAIN                            Invalid Tessellator Domain specified. Must be isoline, tri or quad.
 SM.VIEWIDNEEDSSLOT                        ViewID requires compatible space in pixel shader input signature
-SM.WAVESIZENEEDSDXIL16PLUS                WaveSize is valid only for DXIL version 1.6 and higher.
-SM.WAVESIZEVALUE                          Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.
+SM.WAVESIZEALLZEROWHENUNDEFINED           WaveSize Max and Preferred must be 0 when Min is 0
+SM.WAVESIZEEXPECTSONEPARAM                WaveSize tag expects exactly 1 parameter.
+SM.WAVESIZEMAXANDPREFERREDZEROWHENNORANGE WaveSize Max and Preferred must be 0 to encode min==max
+SM.WAVESIZEMAXGREATERTHANMIN              WaveSize Max must greater than Min
+SM.WAVESIZENEEDSCONSTANTOPERANDS          WaveSize metadata operands must be constant values.
+SM.WAVESIZENEEDSSM66OR67                  WaveSize is valid only for Shader Model 6.6 and 6.7.
+SM.WAVESIZEONCOMPUTEORNODE                WaveSize only allowed on compute or node shaders
+SM.WAVESIZEPREFERREDINRANGE               WaveSize Preferred must be within Min..Max range
+SM.WAVESIZERANGEEXPECTSTHREEPARAMS        WaveSize Range tag expects exactly 3 parameters.
+SM.WAVESIZERANGENEEDSSM68PLUS             WaveSize Range is valid only for Shader Model 6.8 and higher.
+SM.WAVESIZETAGDUPLICATE                   WaveSize or WaveSizeRange tag may only appear once per entry point.
+SM.WAVESIZEVALUE                          WaveSize value must be a power of 2 in range [4..128]
 SM.ZEROHSINPUTCONTROLPOINTWITHINPUT       When HS input control point count is 0, no input signature should exist.
 TYPES.DEFINED                             Type must be defined based on DXIL primitives
 TYPES.I8                                  I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.

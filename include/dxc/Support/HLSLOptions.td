@@ -388,6 +388,8 @@ def fspv_fix_func_call_arguments: Flag<["-"], "fspv-fix-func-call-arguments">, G
   HelpText<"Fix function call arguments which are not memory objects">;
 def fspv_entrypoint_name_EQ : Joined<["-"], "fspv-entrypoint-name=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the SPIR-V entry point name. Defaults to the HLSL entry point name.">;
+def fspv_enable_maximal_reconvergence: Flag<["-"], "fspv-enable-maximal-reconvergence">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Enables the MaximallyReconvergesKHR execution mode for this module.">;
 def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,

@@ -11,6 +11,7 @@ struct OUTPUT
 };
 
 [outputcontrolpoints(3)]
+[outputtopology("point")]
 [patchconstantfunc("foo")]
 
 INPUT main(InputPatch<INPUT, 3> Input,

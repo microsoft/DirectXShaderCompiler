@@ -30,6 +30,7 @@ struct Vectors {
 
 RWStructuredBuffer<uint> buf : r0;
 RWStructuredBuffer<uint64_t> lbuf : r1;
+RWStructuredBuffer<Vectors> vbuf : r2;
 
 // CHECK: OpName [[BUF:%[^ ]*]] "buf"
 // CHECK: OpName [[LBUF:%[^ ]*]] "lbuf"
@@ -83,22 +84,21 @@ void main()
 // CHECK: [[COLORS:%[^ ]*]] = OpLoad [[TWOCOLORS]]
 // CHECK: [[COLORS0:%[^ ]*]] = OpCompositeExtract [[COLORRGBA]] [[COLORS]] 0
 // CHECK: [[COLORS00:%[^ ]*]] = OpCompositeExtract [[UINT]] [[COLORS0]] 0
-// CHECK: [[COLORS000:%[^ ]*]] = OpBitFieldUExtract [[UINT]] [[COLORS00]] [[U0]] [[U8]]
 // CHECK: [[BUF00:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[BUF]] [[I0]] [[U0]]
-// CHECK: OpStore [[BUF00]] [[COLORS000]]
+// CHECK: OpStore [[BUF00]] [[COLORS00]]
 
     buf[0] -= (uint) rgb;
 // CHECK: [[RGB:%[^ ]*]] = OpLoad [[COLORRGB]]
 // CHECK: [[RGB0:%[^ ]*]] = OpCompositeExtract [[UINT]] [[RGB]] 0
-// CHECK: [[RGB00:%[^ ]*]] = OpBitFieldUExtract [[UINT]] [[RGB0]] [[U0]] [[U8]]
 // CHECK: [[BUF00_0:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[BUF]] [[I0]] [[U0]]
 // CHECK: [[V1:%[^ ]*]] = OpLoad [[UINT]] [[BUF00_0]]
-// CHECK: [[V2:%[^ ]*]] = OpISub [[UINT]] [[V1]] [[RGB00]]
+// CHECK: [[V2:%[^ ]*]] = OpISub [[UINT]] [[V1]] [[RGB0]]
 // CHECK: OpStore [[BUF00_0]] [[V2]]
 
     lbuf[0] = (uint64_t) v;
 // CHECK: [[VECS:%[^ ]*]] = OpLoad [[VECTORS]]
-// CHECK: [[VECS00:%[^ ]*]] = OpCompositeExtract [[UINT]] [[VECS]] 0 0
+// CHECK: [[VECS0:%[^ ]*]] = OpCompositeExtract {{%v2uint}} [[VECS]] 0
+// CHECK: [[VECS00:%[^ ]*]] = OpCompositeExtract [[UINT]] [[VECS0]] 0
 // CHECK: [[V1_0:%[^ ]*]] = OpUConvert [[ULONG]] [[VECS00]]
 // CHECK: [[LBUF00:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[LBUF]] [[I0]] [[U0]]
 // CHECK: OpStore [[LBUF00]] [[V1_0]]
@@ -112,5 +112,22 @@ void main()
 // CHECK: [[V3:%[^ ]*]] = OpLoad [[ULONG]] [[LBUF00_0]]
 // CHECK: [[V4:%[^ ]*]] = OpIAdd [[ULONG]] [[V3]] [[V2_0]]
 // CHECK: OpStore [[LBUF00_0]] [[V4]]
+
+    vbuf[0] = (Vectors) colors;
+// CHECK: [[c0:%[^ ]*]] = OpLoad {{%[^ ]*}} %colors
+// CHECK: [[c0_0:%[^ ]+]] = OpCompositeExtract %ColorRGBA [[c0]] 0
+// The entire bit container extracted for each bitfield.
+// CHECK: [[c0_0_0:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// CHECK: [[c0_0_1:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// CHECK: [[c0_0_2:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// CHECK: [[c0_0_3:%[^ ]*]] = OpCompositeExtract %uint [[c0_0]] 0
+// CHECK: [[v0:%[^ ]*]] = OpCompositeConstruct %v2uint [[c0_0_0]] [[c0_0_1]]
+// CHECK: [[v1:%[^ ]*]] = OpCompositeConstruct %v2uint [[c0_0_2]] [[c0_0_3]]
+// CHECK: [[v:%[^ ]*]] = OpCompositeConstruct %Vectors_0 [[v0]] [[v1]]
+// CHECK: [[vbuf:%[^ ]*]] = OpAccessChain %{{[^ ]*}} %vbuf [[I0]] [[U0]]
+// CHECK: [[v0:%[^ ]*]] = OpCompositeExtract %v2uint [[v]] 0
+// CHECK: [[v1:%[^ ]*]] = OpCompositeExtract %v2uint [[v]] 1
+// CHECK: [[v:%[^ ]*]] = OpCompositeConstruct %Vectors [[v0]] [[v1]]
+// CHECK: OpStore [[vbuf]] [[v]]
 }
 

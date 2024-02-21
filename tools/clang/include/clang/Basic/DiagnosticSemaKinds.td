@@ -7483,7 +7483,16 @@ def err_hlsl_profile_conflicts_with_shader_attribute : Error<
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
 def err_hlsl_wavesize_size: Error<
-  "WaveSize value must be between 4 and 128 and a power of 2">;
+  "WaveSize arguments must be between 4 and 128 and a power of 2">;
+def err_hlsl_wavesize_min_geq_max: Error<
+  "Minimum WaveSize value %0 must be less than maximum WaveSize value %1">;
+def warn_hlsl_wavesize_min_eq_max:  Warning<
+  "Wave Size Range minimum and maximum are equal">,
+  InGroup<HLSLAttributeStatement>, DefaultError;
+def err_hlsl_wavesize_pref_size_out_of_range: Error<
+  "Preferred WaveSize value %0 must be between %1 and %2">;
+def err_hlsl_wavesize_insufficient_shader_model: Error<
+  "WaveSize only takes multiple arguments in Shader Model 6.8 or higher">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<
@@ -7691,6 +7700,9 @@ def note_field_type_usage : Note<"usage of %0 found in field %1 of type %2">;
 def warn_hlsl_attribute_expects_uint_literal : Warning<
   "attribute %0 must have a uint literal argument">,
   InGroup<HLSLAttributeType>;
+def warn_hlsl_entry_attribute_without_shader_attribute : Warning<
+  "attribute '%0' ignored without accompanying shader attribute">,
+  InGroup<HLSLEntryAttributeWithoutShaderAttrType>;
 def err_hlsl_attribute_expects_float_literal : Error<
   "attribute %0 must have a float literal argument">;
 def warn_hlsl_comma_in_init : Warning<
@@ -7771,8 +7783,20 @@ def err_hlsl_unsupported_for_version_lower : Error<
    "%0 is only allowed for HLSL %1 and lower.">;
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
-def err_hlsl_intrinsic_overload_in_wrong_shader_model : Error<
-   "overload of intrinsic %0 requires shader model %1 or greater">;
+def warn_hlsl_derivatives_in_wrong_shader_kind: Warning<
+   "Intrinsic %0 potentially used by '%1' requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders.">,
+    DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_derivatives_in_wrong_shader_model: Warning<
+   "Intrinsic %0 potentially used by '%1' requires derivatives - shader model 6.6 or greater is required for use in compute, amplification, or mesh shaders.">,
+    DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_derivatives_wrong_numthreads : Warning<
+   "Intrinsic %0 potentially used by '%1' requires derivatives - when used in compute/amplification/mesh shaders"
+    " or broadcast nodes, numthreads must be either 1D with X as a multiple of 4 or"
+    " both X and Y must be multiples of 2.">,
+    DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
+   "overload of intrinsic %0 requires shader model %1 or greater">, 
+    DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<
@@ -7884,6 +7908,10 @@ def err_hlsl_node_record_object : Error<
    "object %0 may not appear in a node record">;
 def err_hlsl_array_disallowed : Error<
    "%select{entry parameter|declaration}1 of type %0 may not be an array">;
+def err_hlsl_inputpatch_size: Error<
+   "InputPatch element count must be greater than 0">;
+def err_hlsl_outputpatch_size: Error<
+   "OutputPatch element count must be greater than 0">;
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
 // HLSL Change Ends
 

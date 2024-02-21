@@ -941,10 +941,13 @@ public:
       break;
     }
     case ShaderModel::Kind::Compute: {
-      UINT waveSize = (UINT)m_Module.GetWaveSize();
-      if (waveSize != 0) {
-        pInfo->MinimumExpectedWaveLaneCount = waveSize;
-        pInfo->MaximumExpectedWaveLaneCount = waveSize;
+      DxilWaveSize waveSize = m_Module.GetWaveSize();
+      pInfo->MinimumExpectedWaveLaneCount = 0;
+      pInfo->MaximumExpectedWaveLaneCount = UINT32_MAX;
+      if (waveSize.IsDefined()) {
+        pInfo->MinimumExpectedWaveLaneCount = waveSize.Min;
+        pInfo->MaximumExpectedWaveLaneCount =
+            waveSize.IsRange() ? waveSize.Max : waveSize.Min;
       }
       break;
     }
@@ -1231,57 +1234,6 @@ private:
   FunctionIndexMap m_FuncToDependencies;  // list of unresolved functions used
 
   unsigned m_ValMajor, m_ValMinor;
-
-  struct ShaderCompatInfo {
-    ShaderCompatInfo()
-        : minMajor(6), minMinor(0),
-          mask(((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1) {}
-    unsigned minMajor, minMinor, mask;
-  };
-  typedef std::unordered_map<const llvm::Function *, ShaderCompatInfo>
-      FunctionShaderCompatMap;
-  FunctionShaderCompatMap m_FuncToShaderCompat;
-
-  void UpdateFunctionToShaderCompat(const llvm::Function *dxilFunc) {
-#define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
-    for (const llvm::User *user : dxilFunc->users()) {
-      if (const llvm::CallInst *CI = dyn_cast<const llvm::CallInst>(user)) {
-        // Find calling function
-        const llvm::Function *F =
-            cast<const llvm::Function>(CI->getParent()->getParent());
-        // Insert or lookup info
-        ShaderCompatInfo &info = m_FuncToShaderCompat[F];
-        unsigned major, minor, mask;
-        // bWithTranslation = true for library modules
-        OP::GetMinShaderModelAndMask(CI, /*bWithTranslation*/ true, m_ValMajor,
-                                     m_ValMinor, major, minor, mask);
-        if (major > info.minMajor) {
-          info.minMajor = major;
-          info.minMinor = minor;
-        } else if (major == info.minMajor && minor > info.minMinor) {
-          info.minMinor = minor;
-        }
-        info.mask &= mask;
-      } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
-        // If loading a groupshared variable, limit to CS/AS/MS
-        if (LI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
-          const llvm::Function *F =
-              cast<const llvm::Function>(LI->getParent()->getParent());
-          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
-          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
-        }
-      } else if (const llvm::StoreInst *SI = dyn_cast<StoreInst>(user)) {
-        // If storing to a groupshared variable, limit to CS/AS/MS
-        if (SI->getPointerAddressSpace() == DXIL::kTGSMAddrSpace) {
-          const llvm::Function *F =
-              cast<const llvm::Function>(SI->getParent()->getParent());
-          ShaderCompatInfo &info = m_FuncToShaderCompat[F];
-          info.mask &= (SFLAG(Compute) | SFLAG(Mesh) | SFLAG(Amplification));
-        }
-      }
-    }
-#undef SFLAG
-  }
 
   void
   FindUsingFunctions(const llvm::Value *User,
@@ -1708,26 +1660,14 @@ private:
 
   void UpdateFunctionInfo(const DxilModule &DM) {
     llvm::Module *M = DM.GetModule();
-    // We must select the appropriate shader mask for the validator version,
-    // so we don't set any bits the validator doesn't recognize.
-    unsigned ValidShaderMask =
-        (1 << ((unsigned)DXIL::ShaderKind::LastValid + 1)) - 1;
-    if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0) {
-      ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_4 + 1)) - 1;
-    } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0) {
-      ValidShaderMask = (1 << ((unsigned)DXIL::ShaderKind::Last_1_7 + 1)) - 1;
-    }
+
     for (auto &function : M->getFunctionList()) {
       if (function.isDeclaration() && !function.isIntrinsic() &&
           function.getLinkage() ==
-              llvm::GlobalValue::LinkageTypes::ExternalLinkage) {
-        if (OP::IsDxilOpFunc(&function)) {
-          // update min shader model and shader stage mask per function
-          UpdateFunctionToShaderCompat(&function);
-        } else {
-          // collect unresolved dependencies per function
-          UpdateFunctionDependency(&function);
-        }
+              llvm::GlobalValue::LinkageTypes::ExternalLinkage &&
+          !OP::IsDxilOpFunc(&function)) {
+        // collect unresolved dependencies per function
+        UpdateFunctionDependency(&function);
       }
     }
 
@@ -1780,7 +1720,7 @@ private:
         uint32_t functionDependencies = RDAT_NULL_REF;
         uint32_t payloadSizeInBytes = 0;
         uint32_t attrSizeInBytes = 0;
-        uint32_t shaderKind = static_cast<uint32_t>(DXIL::ShaderKind::Library);
+        DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Library;
         uint32_t shaderInfo = RDAT_NULL_REF;
 
         if (m_FuncToResNameOffset.find(&function) !=
@@ -1798,9 +1738,12 @@ private:
                                             m_pFunctionTable->GetRecordStride())
                                                ? &info_latest
                                                : nullptr;
-        ShaderFlags flags = ShaderFlags::CollectShaderFlags(&function, &DM);
+
+        const DxilModule::ShaderCompatInfo &compatInfo =
+            *DM.GetCompatInfoForFunction(&function);
+
         if (DM.HasDxilFunctionProps(&function)) {
-          const auto &props = DM.GetDxilFunctionProps(&function);
+          const DxilFunctionProps &props = DM.GetDxilFunctionProps(&function);
           if (props.IsClosestHit() || props.IsAnyHit()) {
             payloadSizeInBytes = props.ShaderProps.Ray.payloadSizeInBytes;
             attrSizeInBytes = props.ShaderProps.Ray.attributeSizeInBytes;
@@ -1809,13 +1752,15 @@ private:
           } else if (props.IsCallable()) {
             payloadSizeInBytes = props.ShaderProps.Ray.paramSizeInBytes;
           }
-          shaderKind = (uint32_t)props.shaderKind;
+          shaderKind = props.shaderKind;
+          DxilWaveSize waveSize = props.WaveSize;
           if (pInfo2 && DM.HasDxilEntryProps(&function)) {
             const auto &entryProps = DM.GetDxilEntryProps(&function);
-            unsigned waveSize = entryProps.props.waveSize;
-            if (waveSize) {
-              pInfo2->MinimumExpectedWaveLaneCount = waveSize;
-              pInfo2->MaximumExpectedWaveLaneCount = waveSize;
+            if (waveSize.IsDefined()) {
+              pInfo2->MinimumExpectedWaveLaneCount = (uint8_t)waveSize.Min;
+              pInfo2->MaximumExpectedWaveLaneCount =
+                  (waveSize.IsRange()) ? (uint8_t)waveSize.Max
+                                       : (uint8_t)waveSize.Min;
             }
             pInfo2->ShaderFlags = 0;
             if (entryProps.props.IsNode()) {
@@ -1823,50 +1768,26 @@ private:
                                              TGSMInFunc[&function]);
             } else if (DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >
                        0) {
-              shaderInfo = AddShaderInfo(function, entryProps, *pInfo2, flags,
-                                         TGSMInFunc[&function]);
+              shaderInfo =
+                  AddShaderInfo(function, entryProps, *pInfo2,
+                                compatInfo.shaderFlags, TGSMInFunc[&function]);
             }
           }
         }
         info.Name = mangledIndex;
         info.UnmangledName = unmangledIndex;
-        info.ShaderKind = shaderKind;
+        info.ShaderKind = static_cast<uint32_t>(shaderKind);
         if (pInfo2)
           pInfo2->RawShaderRef = shaderInfo;
         info.Resources = resourceIndex;
         info.FunctionDependencies = functionDependencies;
         info.PayloadSizeInBytes = payloadSizeInBytes;
         info.AttributeSizeInBytes = attrSizeInBytes;
-        info.SetFeatureFlags(flags.GetFeatureInfo());
-        // Init min target 6.0
-        unsigned minMajor = 6, minMinor = 0;
-        // Increase min target based on feature flags:
-        if (flags.GetUseNativeLowPrecision() &&
-            flags.GetLowPrecisionPresent()) {
-          minMinor = 2;
-        } else if (flags.GetBarycentrics() || flags.GetViewID()) {
-          minMinor = 1;
-        }
-        if ((DXIL::ShaderKind)shaderKind == DXIL::ShaderKind::Library) {
-          // Init mask to all kinds for library functions
-          info.ShaderStageFlag = ValidShaderMask;
-        } else {
-          // Init mask to current kind for shader functions
-          info.ShaderStageFlag = (unsigned)1 << shaderKind;
-        }
-        auto it = m_FuncToShaderCompat.find(&function);
-        if (it != m_FuncToShaderCompat.end()) {
-          auto &compatInfo = it->second;
-          if (compatInfo.minMajor > minMajor) {
-            minMajor = compatInfo.minMajor;
-            minMinor = compatInfo.minMinor;
-          } else if (compatInfo.minMinor > minMinor) {
-            minMinor = compatInfo.minMinor;
-          }
-          info.ShaderStageFlag &= compatInfo.mask;
-        }
+        info.SetFeatureFlags(compatInfo.shaderFlags.GetFeatureInfo());
+        info.ShaderStageFlag = compatInfo.mask;
         info.MinShaderTarget =
-            EncodeVersion((DXIL::ShaderKind)shaderKind, minMajor, minMinor);
+            EncodeVersion((DXIL::ShaderKind)shaderKind, compatInfo.minMajor,
+                          compatInfo.minMinor);
         m_pFunctionTable->Insert(info_latest);
       }
     }
@@ -1951,12 +1872,13 @@ private:
   }
 
 public:
-  DxilRDATWriter(const DxilModule &mod)
-      : Builder(GetRecordDuplicationAllowed(mod)) {
+  DxilRDATWriter(DxilModule &mod) : Builder(GetRecordDuplicationAllowed(mod)) {
     // Keep track of validator version so we can make a compatible RDAT
     mod.GetValidatorVersion(m_ValMajor, m_ValMinor);
     RDAT::RuntimeDataPartType maxAllowedType =
         RDAT::MaxPartTypeForValVer(m_ValMajor, m_ValMinor);
+
+    mod.ComputeShaderCompatInfo();
 
     // Instantiate the parts in the order that validator expects.
     Builder.GetStringBufferPart();
@@ -2000,7 +1922,7 @@ DxilPartWriter *hlsl::NewPSVWriter(const DxilModule &M, uint32_t PSVVersion) {
   return new DxilPSVWriter(M, PSVVersion);
 }
 
-DxilPartWriter *hlsl::NewRDATWriter(const DxilModule &M) {
+DxilPartWriter *hlsl::NewRDATWriter(DxilModule &M) {
   return new DxilRDATWriter(M);
 }
 

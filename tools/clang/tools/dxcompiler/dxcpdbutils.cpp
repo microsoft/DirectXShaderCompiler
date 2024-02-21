@@ -29,6 +29,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/Path.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -414,12 +415,13 @@ private:
 
   HRESULT AddSource(StringRef name, StringRef content) {
     Source_File source;
-    IFR(Utf8ToBlobWide(name, &source.Name));
     IFR(hlsl::DxcCreateBlob(content.data(), content.size(),
                             /*bPinned*/ false, /*bCopy*/ true,
                             /*encodingKnown*/ true, CP_UTF8, m_pMalloc,
                             &source.Content));
 
+    std::string normalizedPath = hlsl::NormalizePath(name);
+    IFR(Utf8ToBlobWide(normalizedPath, &source.Name));
     // First file is the main file
     if (m_SourceFiles.empty()) {
       m_MainFileName = source.Name;
@@ -604,16 +606,7 @@ private:
           llvm::MDTuple *tup = cast<llvm::MDTuple>(node.getOperand(i));
           MDString *md_name = cast<MDString>(tup->getOperand(0));
           MDString *md_content = cast<MDString>(tup->getOperand(1));
-
-          // File name
-          Source_File file;
-          IFR(Utf8ToBlobWide(md_name->getString(), &file.Name));
-          IFR(hlsl::DxcCreateBlob(
-              md_content->getString().data(), md_content->getString().size(),
-              /*bPinned*/ false, /*bCopy*/ true,
-              /*encodingKnown*/ true, CP_UTF8, m_pMalloc, &file.Content));
-
-          m_SourceFiles.push_back(std::move(file));
+          AddSource(md_name->getString(), md_content->getString());
         }
       }
       // dx.source.mainFileName
@@ -622,7 +615,13 @@ private:
                    hlsl::DxilMDHelper::kDxilSourceMainFileNameOldMDName) {
         MDTuple *tup = cast<MDTuple>(node.getOperand(0));
         MDString *str = cast<MDString>(tup->getOperand(0));
-        IFR(Utf8ToBlobWide(str->getString(), &m_MainFileName));
+        std::string normalized = hlsl::NormalizePath(str->getString());
+        m_MainFileName =
+            nullptr; // This may already be set from reading dx.source content.
+                     // If we have a dx.source.mainFileName, we want to use that
+                     // here as the source of truth. Set it to nullptr to avoid
+                     // leak (and assert).
+        IFR(Utf8ToBlobWide(normalized, &m_MainFileName));
       }
       // dx.source.args
       else if (node_name == hlsl::DxilMDHelper::kDxilSourceArgsMDName ||

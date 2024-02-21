@@ -15,6 +15,7 @@
 
 namespace hlsl {
 class DxilModule;
+struct DxilFunctionProps;
 }
 
 namespace llvm {
@@ -37,6 +38,8 @@ public:
   uint64_t GetShaderFlagsRaw() const;
   void SetShaderFlagsRaw(uint64_t data);
   void CombineShaderFlags(const ShaderFlags &other);
+
+  void ClearLocalFlags();
 
   void SetDisableOptimizations(bool flag) { m_bDisableOptimizations = flag; }
   bool GetDisableOptimizations() const { return m_bDisableOptimizations; }
@@ -125,24 +128,29 @@ public:
   void SetUAVsAtEveryStage(bool flag) { m_UAVsAtEveryStage = flag; }
   bool GetUAVsAtEveryStage() const { return m_UAVsAtEveryStage; }
 
+  // SM 6.1+
   void SetViewID(bool flag) { m_bViewID = flag; }
   bool GetViewID() const { return m_bViewID; }
 
   void SetBarycentrics(bool flag) { m_bBarycentrics = flag; }
   bool GetBarycentrics() const { return m_bBarycentrics; }
 
+  // SM 6.2+
   void SetUseNativeLowPrecision(bool flag) { m_bUseNativeLowPrecision = flag; }
   bool GetUseNativeLowPrecision() const { return m_bUseNativeLowPrecision; }
 
+  // SM 6.4+
   void SetShadingRate(bool flag) { m_bShadingRate = flag; }
   bool GetShadingRate() const { return m_bShadingRate; }
 
+  // SM 6.5+
   void SetRaytracingTier1_1(bool flag) { m_bRaytracingTier1_1 = flag; }
   bool GetRaytracingTier1_1() const { return m_bRaytracingTier1_1; }
 
   void SetSamplerFeedback(bool flag) { m_bSamplerFeedback = flag; }
   bool GetSamplerFeedback() const { return m_bSamplerFeedback; }
 
+  // SM 6.6+
   void SetAtomicInt64OnTypedResource(bool flag) {
     m_bAtomicInt64OnTypedResource = flag;
   }
@@ -160,7 +168,7 @@ public:
   void SetDerivativesInMeshAndAmpShaders(bool flag) {
     m_bDerivativesInMeshAndAmpShaders = flag;
   }
-  bool GetDerivativesInMeshAndAmpShaders() {
+  bool GetDerivativesInMeshAndAmpShaders() const {
     return m_bDerivativesInMeshAndAmpShaders;
   }
 
@@ -185,6 +193,7 @@ public:
     return m_bSamplerDescriptorHeapIndexing;
   }
 
+  // SM 6.7+
   void SetResMayNotAlias(bool flag) { m_bResMayNotAlias = flag; }
   bool GetResMayNotAlias() const { return m_bResMayNotAlias; }
 
@@ -194,10 +203,28 @@ public:
   void SetWriteableMSAATextures(bool flag) { m_bWriteableMSAATextures = flag; }
   bool GetWriteableMSAATextures() const { return m_bWriteableMSAATextures; }
 
+  // SM 6.8+
+  void SetSampleCmpGradientOrBias(bool flag) {
+    m_bSampleCmpGradientOrBias = flag;
+  }
+  bool GetSampleCmpGradientOrBias() const { return m_bSampleCmpGradientOrBias; }
+
+  void SetExtendedCommandInfo(bool flag) { m_bExtendedCommandInfo = flag; }
+  bool GetExtendedCommandInfo() const { return m_bExtendedCommandInfo; }
+
+  // Experimental SM 6.9+ - Reserved, not yet supported.
   void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
   bool GetWaveMMA() const { return m_bWaveMMA; }
 
+  // Per-function flags
+  void SetUsesDerivatives(bool flag) { m_bUsesDerivatives = flag; }
+  bool GetUsesDerivatives() const { return m_bUsesDerivatives; }
+
+  void SetRequiresGroup(bool flag) { m_bRequiresGroup = flag; }
+  bool GetRequiresGroup() const { return m_bRequiresGroup; }
+
 private:
+  // Bit: 0
   unsigned
       m_bDisableOptimizations : 1; // D3D11_1_SB_GLOBAL_FLAG_SKIP_OPTIMIZATION
   unsigned
@@ -206,6 +233,8 @@ private:
       m_bEnableDoublePrecision : 1; // D3D11_SB_GLOBAL_FLAG_ENABLE_DOUBLE_PRECISION_FLOAT_OPS
   unsigned
       m_bForceEarlyDepthStencil : 1; // D3D11_SB_GLOBAL_FLAG_FORCE_EARLY_DEPTH_STENCIL
+
+  // Bit: 4
   unsigned
       m_bEnableRawAndStructuredBuffers : 1; // D3D11_SB_GLOBAL_FLAG_ENABLE_RAW_AND_STRUCTURED_BUFFERS
   unsigned
@@ -213,12 +242,16 @@ private:
   unsigned
       m_bEnableDoubleExtensions : 1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_DOUBLE_EXTENSIONS
   unsigned m_bEnableMSAD : 1; // D3D11_1_SB_GLOBAL_FLAG_ENABLE_SHADER_EXTENSIONS
+
+  // Bit: 8
   unsigned m_bAllResourcesBound : 1; // D3D12_SB_GLOBAL_FLAG_ALL_RESOURCES_BOUND
 
   unsigned
       m_bViewportAndRTArrayIndex : 1; // SHADER_FEATURE_VIEWPORT_AND_RT_ARRAY_INDEX_FROM_ANY_SHADER_FEEDING_RASTERIZER
   unsigned m_bInnerCoverage : 1;  // SHADER_FEATURE_INNER_COVERAGE
   unsigned m_bStencilRef : 1;     // SHADER_FEATURE_STENCIL_REF
+
+  // Bit: 12
   unsigned m_bTiledResources : 1; // SHADER_FEATURE_TILED_RESOURCES
   unsigned
       m_bUAVLoadAdditionalFormats : 1; // SHADER_FEATURE_TYPED_UAV_LOAD_ADDITIONAL_FORMATS
@@ -227,6 +260,8 @@ private:
                                         // SHADER_FEATURE_11_1_SHADER_EXTENSIONS
                                         // shared with EnableMSAD
   unsigned m_b64UAVs : 1;          // SHADER_FEATURE_64_UAVS
+
+  // Bit: 16
   unsigned m_UAVsAtEveryStage : 1; // SHADER_FEATURE_UAVS_AT_EVERY_STAGE
   unsigned
       m_bCSRawAndStructuredViaShader4X : 1; // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X
@@ -234,32 +269,47 @@ private:
   // SHADER_FEATURE_COMPUTE_SHADERS_PLUS_RAW_AND_STRUCTURED_BUFFERS_VIA_SHADER_4_X
   // is specifically about shader model 4.x.
 
+  // Bit: 18
   unsigned m_bROVS : 1;         // SHADER_FEATURE_ROVS
   unsigned m_bWaveOps : 1;      // SHADER_FEATURE_WAVE_OPS
-  unsigned m_bInt64Ops : 1;     // SHADER_FEATURE_INT64_OPS
+
+  // Bit: 20
+  unsigned m_bInt64Ops : 1; // SHADER_FEATURE_INT64_OPS
+
+  // SM 6.1+
   unsigned m_bViewID : 1;       // SHADER_FEATURE_VIEWID
   unsigned m_bBarycentrics : 1; // SHADER_FEATURE_BARYCENTRICS
 
+  // SM 6.2+
   unsigned m_bUseNativeLowPrecision : 1;
 
+  // SM 6.4+
+  // Bit: 24
   unsigned m_bShadingRate : 1; // SHADER_FEATURE_SHADINGRATE
 
+  // SM 6.5+
+  // Bit: 25
   unsigned m_bRaytracingTier1_1 : 1; // SHADER_FEATURE_RAYTRACING_TIER_1_1
   unsigned m_bSamplerFeedback : 1;   // SHADER_FEATURE_SAMPLER_FEEDBACK
 
+  // SM 6.6+
+  // Bit: 27
   unsigned
       m_bAtomicInt64OnTypedResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_TYPED_RESOURCE
   unsigned
       m_bAtomicInt64OnGroupShared : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_GROUP_SHARED
 
+  // Bit: 29
   unsigned
       m_bDerivativesInMeshAndAmpShaders : 1; // SHADER_FEATURE_DERIVATIVES_IN_MESH_AND_AMPLIFICATION_SHADERS
 
+  // Bit: 30
   unsigned
       m_bResourceDescriptorHeapIndexing : 1; // SHADER_FEATURE_RESOURCE_DESCRIPTOR_HEAP_INDEXING
   unsigned
       m_bSamplerDescriptorHeapIndexing : 1; // SHADER_FEATURE_SAMPLER_DESCRIPTOR_HEAP_INDEXING
 
+  // Bit: 32
   unsigned
       m_bAtomicInt64OnHeapResource : 1; // SHADER_FEATURE_ATOMIC_INT64_ON_DESCRIPTOR_HEAP_RESOURCE
 
@@ -268,16 +318,38 @@ private:
   // Set if UAVs are used, unless -res-may-alias was specified.
   // For modules compiled against validator version < 1.7, this flag will be
   // cleared, and it must be assumed that UAV resources may alias.
+  // Bit: 33
   unsigned m_bResMayNotAlias : 1;
 
+  // Bit: 34
   unsigned m_bAdvancedTextureOps : 1; // SHADER_FEATURE_ADVANCED_TEXTURE_OPS
   unsigned
       m_bWriteableMSAATextures : 1; // SHADER_FEATURE_WRITEABLE_MSAA_TEXTURES
 
-  // SM 6.8+
+  // Experimental SM 6.9+ - Reserved, not yet supported.
+  // Bit: 36
   unsigned m_bWaveMMA : 1; // SHADER_FEATURE_WAVE_MMA
 
-  uint32_t m_align1 : 27; // align to 64 bit.
+  // SM 6.8+
+  // Bit: 37
+  unsigned
+      m_bSampleCmpGradientOrBias : 1; // SHADER_FEATURE_SAMPLE_CMP_GRADIENT_OR_BIAS
+  unsigned m_bExtendedCommandInfo : 1; // SHADER_FEATURE_EXTENDED_COMMAND_INFO
+
+  // Per-function flags
+  // Bit: 39
+  unsigned m_bUsesDerivatives : 1; // SHADER_FEATURE_OPT_USES_DERIVATIVES
+                                   // (OptFeatureInfo_UsesDerivatives)
+
+  // m_bRequiresGroup indicates that the function requires a visible group.
+  // For instance, to access group shared memory or use group sync.
+  // This is necessary because shader stage is insufficient to indicate group
+  // availability with the advent of thread launch node shaders.
+  // Bit: 40
+  unsigned m_bRequiresGroup : 1; // SHADER_FEATURE_OPT_REQUIRES_GROUP
+                                 // (OptFeatureInfo_RequiresGroup)
+
+  uint32_t m_align1 : 23; // align to 64 bit.
 };
 
 } // namespace hlsl

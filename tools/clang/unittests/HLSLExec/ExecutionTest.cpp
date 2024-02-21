@@ -649,9 +649,10 @@ public:
     D3D_SHADER_MODEL_6_6 = 0x66,
     D3D_SHADER_MODEL_6_7 = 0x67,
     D3D_SHADER_MODEL_6_8 = 0x68,
+    D3D_SHADER_MODEL_6_9 = 0x69,
   } D3D_SHADER_MODEL;
 
-  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_8;
+  static const D3D_SHADER_MODEL HIGHEST_SHADER_MODEL = D3D_SHADER_MODEL_6_9;
 
   bool UseDxbc() {
 #ifdef _HLK_CONF
@@ -752,7 +753,7 @@ public:
         WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
     CComPtr<ID3D12Device> pDevice;
-    D3D_SHADER_MODEL model = D3D_SHADER_MODEL_6_8;
+    D3D_SHADER_MODEL model = D3D_SHADER_MODEL_6_9;
 
     if (!CreateDevice(&pDevice, model)) {
       return nullptr;
@@ -9013,9 +9014,11 @@ void LoadStoreMat(int M, int N, bool LEFT, int MEM_TYPE, uint32_t K, uint32_t k,
   }
 }
 
-// define WAVE_MMA types if building with SDK that does not support it yet
-// For now: Force this on, until we know the version.
-#if 1 // !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 613)
+// Define WAVE_MMA types if building with SDK that does not support it yet.
+// For now: gate this on D3D12_EXPERIMENTAL_WAVE_MATRIX define until we know
+// the version and the define is removed.
+// #if !defined(D3D12_SDK_VERSION) || (D3D12_SDK_VERSION < 613)
+#if !defined(D3D12_EXPERIMENTAL_WAVE_MATRIX)
 typedef enum D3D12_WAVE_MMA_INPUT_DATATYPE {
   D3D12_WAVE_MMA_INPUT_DATATYPE_INVALID = 0,
   D3D12_WAVE_MMA_INPUT_DATATYPE_BYTE =
@@ -9049,7 +9052,7 @@ typedef struct D3D12_FEATURE_DATA_WAVE_MMA {
   UINT RequiredWaveLaneCountMin;
   UINT RequiredWaveLaneCountMax;
 } D3D12_FEATURE_DATA_WAVE_MMA;
-#endif
+#endif //! defined(D3D12_EXPERIMENTAL_WAVE_MATRIX)
 
 D3D12_FEATURE_DATA_WAVE_MMA checkWaveMMASupport(CComPtr<ID3D12Device> pDevice,
                                                 std::string &dataTypeInShader,

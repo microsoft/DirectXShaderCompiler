@@ -33,7 +33,7 @@ void pix_dxil::PixDxilInstNum::AddMD(llvm::LLVMContext &Ctx,
                          llvm::ConstantAsMetadata::get(B.getInt32(InstNum))}));
 }
 
-bool pix_dxil::PixDxilInstNum::FromInst(llvm::Instruction *pI,
+bool pix_dxil::PixDxilInstNum::FromInst(llvm::Instruction const *pI,
                                         std::uint32_t *pInstNum) {
   *pInstNum = 0;
 
@@ -73,7 +73,7 @@ void pix_dxil::PixDxilReg::AddMD(llvm::LLVMContext &Ctx, llvm::Instruction *pI,
                          llvm::ConstantAsMetadata::get(B.getInt32(RegNum))}));
 }
 
-bool pix_dxil::PixDxilReg::FromInst(llvm::Instruction *pI,
+bool pix_dxil::PixDxilReg::FromInst(llvm::Instruction const *pI,
                                     std::uint32_t *pRegNum) {
   *pRegNum = 0;
 
@@ -141,7 +141,7 @@ void pix_dxil::PixAllocaReg::AddMD(llvm::LLVMContext &Ctx,
                          llvm::ConstantAsMetadata::get(B.getInt32(Count))}));
 }
 
-bool pix_dxil::PixAllocaReg::FromInst(llvm::AllocaInst *pAlloca,
+bool pix_dxil::PixAllocaReg::FromInst(llvm::AllocaInst const *pAlloca,
                                       std::uint32_t *pRegBase,
                                       std::uint32_t *pRegSize) {
   *pRegBase = 0;

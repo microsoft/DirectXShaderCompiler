@@ -19,7 +19,8 @@ float4 main(uint index: A) : SV_Target {
 // CHECK:      [[a:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 %uint_0 %int_0
 // CHECK-NEXT: {{%[0-9]+}} = OpLoad %float [[a]]
 
-// CHECK:      [[b1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v2float %MySbuffer %int_0 %uint_1 %int_1 %int_1
+// CHECK:      [[base:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_v2float_uint_2 %MySbuffer %int_0 %uint_1 %int_1
+// CHECK:      [[b1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v2float [[base]] %int_1
 // CHECK-NEXT: [[x:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[b1]] %int_0
 // CHECK-NEXT: {{%[0-9]+}} = OpLoad %float [[x]]
 
@@ -30,7 +31,8 @@ float4 main(uint index: A) : SV_Target {
 // CHECK-NEXT: {{%[0-9]+}} = OpLoad %float [[s]]
 
 // CHECK:      [[index:%[0-9]+]] = OpLoad %uint %index
-// CHECK-NEXT: [[t:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float %MySbuffer %int_0 [[index]] %int_4 %int_3
+// CHECK-NEXT: [[base:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_float_uint_4 %MySbuffer %int_0 [[index]] %int_4
+// CHECK-NEXT: [[t:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[base]] %int_3
 // CHECK-NEXT: {{%[0-9]+}} = OpLoad %float [[t]]
     return MySbuffer[0].a + MySbuffer[1].b[1].x + MySbuffer[2].c[2][1][2] +
            MySbuffer[3].s[0].f + MySbuffer[index].t[3];

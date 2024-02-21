@@ -1774,6 +1774,28 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
         /*IsSampleC*/ false, ValCtx);
     ValidateDerivativeOp(CI, ValCtx);
   } break;
+  case DXIL::OpCode::SampleCmpBias: {
+    DxilInst_SampleCmpBias sample(CI);
+    Value *bias = sample.get_bias();
+    if (ConstantFP *cBias = dyn_cast<ConstantFP>(bias)) {
+      float fBias = cBias->getValueAPF().convertToFloat();
+      if (fBias < DXIL::kMinMipLodBias || fBias > DXIL::kMaxMipLodBias) {
+        ValCtx.EmitInstrFormatError(
+            CI, ValidationRule::InstrImmBiasForSampleB,
+            {std::to_string(DXIL::kMinMipLodBias),
+             std::to_string(DXIL::kMaxMipLodBias),
+             std::to_string(cBias->getValueAPF().convertToFloat())});
+      }
+    }
+
+    ValidateSampleInst(
+        CI, sample.get_srv(), sample.get_sampler(),
+        {sample.get_coord0(), sample.get_coord1(), sample.get_coord2(),
+         sample.get_coord3()},
+        {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
+        /*IsSampleC*/ true, ValCtx);
+    ValidateDerivativeOp(CI, ValCtx);
+  } break;
   case DXIL::OpCode::SampleGrad: {
     DxilInst_SampleGrad sample(CI);
     ValidateSampleInst(
@@ -1782,6 +1804,15 @@ static void ValidateResourceDxilOp(CallInst *CI, DXIL::OpCode opcode,
          sample.get_coord3()},
         {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
         /*IsSampleC*/ false, ValCtx);
+  } break;
+  case DXIL::OpCode::SampleCmpGrad: {
+    DxilInst_SampleCmpGrad sample(CI);
+    ValidateSampleInst(
+        CI, sample.get_srv(), sample.get_sampler(),
+        {sample.get_coord0(), sample.get_coord1(), sample.get_coord2(),
+         sample.get_coord3()},
+        {sample.get_offset0(), sample.get_offset1(), sample.get_offset2()},
+        /*IsSampleC*/ true, ValCtx);
   } break;
   case DXIL::OpCode::SampleLevel: {
     DxilInst_SampleLevel sample(CI);
@@ -2134,6 +2165,19 @@ static void ValidateBarrierFlagArg(ValidationContext &ValCtx, CallInst *CI,
   }
 }
 
+std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
+  switch (LT) {
+  case DXIL::NodeLaunchType::Broadcasting:
+    return "Broadcasting";
+  case DXIL::NodeLaunchType::Coalescing:
+    return "Coalescing";
+  case DXIL::NodeLaunchType::Thread:
+    return "Thread";
+  default:
+    return "Invalid";
+  }
+}
+
 static void ValidateDxilOperationCallInProfile(CallInst *CI,
                                                DXIL::OpCode opcode,
                                                const ShaderModel *pSM,
@@ -2141,10 +2185,15 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   DXIL::ShaderKind shaderKind =
       pSM ? pSM->GetKind() : DXIL::ShaderKind::Invalid;
   llvm::Function *F = CI->getParent()->getParent();
+  DXIL::NodeLaunchType nodeLaunchType = DXIL::NodeLaunchType::Invalid;
   if (DXIL::ShaderKind::Library == shaderKind) {
-    if (ValCtx.DxilMod.HasDxilFunctionProps(F))
+    if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
+      DxilEntryProps &entryProps = ValCtx.DxilMod.GetDxilEntryProps(F);
       shaderKind = ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
-    else if (ValCtx.DxilMod.IsPatchConstantShader(F))
+      if (shaderKind == DXIL::ShaderKind::Node)
+        nodeLaunchType = entryProps.props.Node.LaunchType;
+
+    } else if (ValCtx.DxilMod.IsPatchConstantShader(F))
       shaderKind = DXIL::ShaderKind::Hull;
   }
 
@@ -2180,6 +2229,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
   case DXIL::OpCode::SampleCmpLevelZero:
   case DXIL::OpCode::SampleBias:
   case DXIL::OpCode::SampleGrad:
+  case DXIL::OpCode::SampleCmpBias:
+  case DXIL::OpCode::SampleCmpGrad:
   case DXIL::OpCode::SampleLevel:
   case DXIL::OpCode::CheckAccessFullyMapped:
   case DXIL::OpCode::BufferStore:
@@ -2302,7 +2353,13 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DI.get_SemanticFlags(),
                            (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
                            "semantic", "BarrierByMemoryType");
-
+    if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
+        OP::BarrierRequiresNode(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
+    }
+    if (!isCSLike && !isLibFunc && OP::BarrierRequiresGroup(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
+    }
   } break;
   case DXIL::OpCode::BarrierByNodeRecordHandle:
   case DXIL::OpCode::BarrierByMemoryHandle: {
@@ -2313,6 +2370,13 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     ValidateBarrierFlagArg(ValCtx, CI, DIMH.get_SemanticFlags(),
                            (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
                            "semantic", opName);
+    if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
+        OP::BarrierRequiresNode(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);
+    }
+    if (!isCSLike && !isLibFunc && OP::BarrierRequiresGroup(CI)) {
+      ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierModeForNonCS);
+    }
   } break;
   case DXIL::OpCode::CreateHandleForLib:
     if (!ValCtx.isLibProfile) {
@@ -2346,6 +2410,65 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
           {"CreateHandle", "Shader model 6.5 and below"});
     }
     break;
+
+  case DXIL::OpCode::ThreadId: // SV_DispatchThreadID
+    if (shaderKind != DXIL::ShaderKind::Node) {
+      break;
+    }
+
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting)
+      break;
+
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrSVConflictingLaunchMode,
+        {"ThreadId", "SV_DispatchThreadID", GetLaunchTypeStr(nodeLaunchType)});
+    break;
+
+  case DXIL::OpCode::GroupId: // SV_GroupId
+    if (shaderKind != DXIL::ShaderKind::Node) {
+      break;
+    }
+
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting)
+      break;
+
+    ValCtx.EmitInstrFormatError(
+        CI, ValidationRule::InstrSVConflictingLaunchMode,
+        {"GroupId", "SV_GroupId", GetLaunchTypeStr(nodeLaunchType)});
+    break;
+
+  case DXIL::OpCode::ThreadIdInGroup: // SV_GroupThreadID
+    if (shaderKind != DXIL::ShaderKind::Node) {
+      break;
+    }
+
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing)
+      break;
+
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrSVConflictingLaunchMode,
+                                {"ThreadIdInGroup", "SV_GroupThreadID",
+                                 GetLaunchTypeStr(nodeLaunchType)});
+
+    break;
+
+  case DXIL::OpCode::FlattenedThreadIdInGroup: // SV_GroupIndex
+    if (shaderKind != DXIL::ShaderKind::Node) {
+      break;
+    }
+
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing)
+      break;
+
+    ValCtx.EmitInstrFormatError(CI,
+                                ValidationRule::InstrSVConflictingLaunchMode,
+                                {"FlattenedThreadIdInGroup", "SV_GroupIndex",
+                                 GetLaunchTypeStr(nodeLaunchType)});
+
+    break;
+
   default:
     // TODO: make sure every opcode is checked.
     // Skip opcodes don't need special check.
@@ -3078,6 +3201,8 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   CallInst *setMeshOutputCounts = nullptr;
   CallInst *getMeshPayload = nullptr;
   CallInst *dispatchMesh = nullptr;
+  hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
+
   for (auto b = F->begin(), bend = F->end(); b != bend; ++b) {
     for (auto i = b->begin(), iend = b->end(); i != iend; ++i) {
       llvm::Instruction &I = *i;
@@ -3127,7 +3252,29 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
           }
 
           unsigned opcode = OpcodeConst->getLimitedValue();
+          if (opcode >= static_cast<unsigned>(DXIL::OpCode::NumOpCodes)) {
+            ValCtx.EmitInstrFormatError(
+                &I, ValidationRule::InstrIllegalDXILOpCode,
+                {std::to_string((unsigned)DXIL::OpCode::NumOpCodes),
+                 std::to_string(opcode)});
+            continue;
+          }
           DXIL::OpCode dxilOpcode = (DXIL::OpCode)opcode;
+
+          bool IllegalOpFunc = true;
+          for (auto &it : hlslOP->GetOpFuncList(dxilOpcode)) {
+            if (it.second == FCalled) {
+              IllegalOpFunc = false;
+              break;
+            }
+          }
+
+          if (IllegalOpFunc) {
+            ValCtx.EmitInstrFormatError(
+                &I, ValidationRule::InstrIllegalDXILOpFunction,
+                {FCalled->getName(), OP::GetOpCodeName(dxilOpcode)});
+            continue;
+          }
 
           if (OP::IsDxilOpGradient(dxilOpcode)) {
             gradientOps.push_back(CI);
@@ -3520,7 +3667,6 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
                                  {std::to_string(arg.getArgNo()), F.getName()});
     };
 
-    // Validate parameter type.
     unsigned numArgs = 0;
     for (auto &arg : F.args()) {
       Type *argTy = arg.getType();
@@ -3879,6 +4025,111 @@ static void ValidateBitcode(ValidationContext &ValCtx) {
   }
 }
 
+static void ValidateWaveSize(ValidationContext &ValCtx,
+                             const hlsl::ShaderModel *SM, Module *pModule) {
+  // Don't do this validation if the shader is non-compute
+  if (!(SM->IsCS() || SM->IsLib()))
+    return;
+
+  NamedMDNode *EPs = pModule->getNamedMetadata("dx.entryPoints");
+  if (!EPs)
+    return;
+
+  for (unsigned i = 0, end = EPs->getNumOperands(); i < end; ++i) {
+    MDTuple *EPNodeRef = dyn_cast<MDTuple>(EPs->getOperand(i));
+    if (EPNodeRef->getNumOperands() < 5) {
+      ValCtx.EmitMetaError(EPNodeRef, ValidationRule::MetaWellFormed);
+      return;
+    }
+    // get access to the digit that represents the metadata number that
+    // would store entry properties
+    const llvm::MDOperand &mOp =
+        EPNodeRef->getOperand(EPNodeRef->getNumOperands() - 1);
+    // the final operand to the entry points tuple should be a tuple.
+    if (mOp == nullptr || (mOp.get())->getMetadataID() != Metadata::MDTupleKind)
+      continue;
+
+    // get access to the node that stores entry properties
+    MDTuple *EPropNode = dyn_cast<MDTuple>(
+        EPNodeRef->getOperand(EPNodeRef->getNumOperands() - 1));
+    // find any incompatible tags inside the entry properties
+    // increment j by 2 to only analyze tags, not values
+    bool foundTag = false;
+    for (unsigned j = 0, end2 = EPropNode->getNumOperands(); j < end2; j += 2) {
+      const MDOperand &propertyTagOp = EPropNode->getOperand(j);
+      // note, we are only looking for tags, which will be a constant
+      // integer
+      DXASSERT(!(propertyTagOp == nullptr ||
+                 (propertyTagOp.get())->getMetadataID() !=
+                     Metadata::ConstantAsMetadataKind),
+               "tag operand should be a constant integer.");
+
+      ConstantInt *tag = mdconst::extract<ConstantInt>(propertyTagOp);
+      uint64_t tagValue = tag->getZExtValue();
+
+      // legacy wavesize is only supported between 6.6 and 6.7, so we
+      // should fail if we find the ranged wave size metadata tag
+      if (tagValue == DxilMDHelper::kDxilRangedWaveSizeTag) {
+        // if this tag is already present in the
+        // current entry point, emit an error
+        if (foundTag) {
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeTagDuplicate, {});
+          return;
+        }
+        foundTag = true;
+        if (SM->IsSM66Plus() && !SM->IsSM68Plus()) {
+
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeRangeNeedsSM68Plus,
+                                 {});
+          return;
+        }
+        // get the metadata that contains the
+        // parameters to the wavesize attribute
+        MDTuple *WaveTuple = dyn_cast<MDTuple>(EPropNode->getOperand(j + 1));
+        if (WaveTuple->getNumOperands() != 3) {
+          ValCtx.EmitFormatError(
+              ValidationRule::SmWaveSizeRangeExpectsThreeParams, {});
+          return;
+        }
+        for (int k = 0; k < 3; k++) {
+          const MDOperand &param = WaveTuple->getOperand(k);
+          if (param->getMetadataID() != Metadata::ConstantAsMetadataKind) {
+            ValCtx.EmitFormatError(
+                ValidationRule::SmWaveSizeNeedsConstantOperands, {});
+            return;
+          }
+        }
+
+      } else if (tagValue == DxilMDHelper::kDxilWaveSizeTag) {
+        // if this tag is already present in the
+        // current entry point, emit an error
+        if (foundTag) {
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeTagDuplicate, {});
+          return;
+        }
+        foundTag = true;
+        MDTuple *WaveTuple = dyn_cast<MDTuple>(EPropNode->getOperand(j + 1));
+        if (WaveTuple->getNumOperands() != 1) {
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeExpectsOneParam, {});
+          return;
+        }
+        const MDOperand &param = WaveTuple->getOperand(0);
+        if (param->getMetadataID() != Metadata::ConstantAsMetadataKind) {
+          ValCtx.EmitFormatError(
+              ValidationRule::SmWaveSizeNeedsConstantOperands, {});
+          return;
+        }
+        // if the shader model is anything but 6.6 or 6.7, then we do not
+        // expect to encounter the legacy wave size tag.
+        if (!(SM->IsSM66Plus() && !SM->IsSM68Plus())) {
+          ValCtx.EmitFormatError(ValidationRule::SmWaveSizeNeedsSM66or67, {});
+          return;
+        }
+      }
+    }
+  }
+}
+
 static void ValidateMetadata(ValidationContext &ValCtx) {
   ValidateValidatorVersion(ValCtx);
   ValidateDxilVersion(ValCtx);
@@ -3912,6 +4163,10 @@ static void ValidateMetadata(ValidationContext &ValCtx) {
   }
 
   const hlsl::ShaderModel *SM = ValCtx.DxilMod.GetShaderModel();
+  // validate that any wavesize tags don't appear outside their expected shader
+  // models. Validate only 1 tag exists per entry point.
+  ValidateWaveSize(ValCtx, SM, pModule);
+
   if (!SM->IsValidForDxil()) {
     ValCtx.EmitFormatError(ValidationRule::SmName,
                            {ValCtx.DxilMod.GetShaderModel()->GetName()});
@@ -4230,12 +4485,22 @@ static void ValidateResources(ValidationContext &ValCtx) {
 }
 
 static void ValidateShaderFlags(ValidationContext &ValCtx) {
-  // TODO: validate flags foreach entry.
-  if (ValCtx.isLibProfile)
-    return;
-
   ShaderFlags calcFlags;
   ValCtx.DxilMod.CollectShaderFlagsForModule(calcFlags);
+
+  // Special case for validator version prior to 1.8.
+  // If DXR 1.1 flag is set, but our computed flags do not have this set, then
+  // this is due to prior versions setting the flag based on DXR 1.1 subobjects,
+  // which are gone by this point.  Set the flag and the rest should match.
+  unsigned valMajor, valMinor;
+  ValCtx.DxilMod.GetValidatorVersion(valMajor, valMinor);
+  if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) >= 0 &&
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0 &&
+      ValCtx.DxilMod.m_ShaderFlags.GetRaytracingTier1_1() &&
+      !calcFlags.GetRaytracingTier1_1()) {
+    calcFlags.SetRaytracingTier1_1(true);
+  }
+
   const uint64_t mask = ShaderFlags::GetShaderFlagsRawForCollection();
   uint64_t declaredFlagsRaw = ValCtx.DxilMod.m_ShaderFlags.GetShaderFlagsRaw();
   uint64_t calcFlagsRaw = calcFlags.GetShaderFlagsRaw();
@@ -5243,27 +5508,75 @@ static void ValidatePassThruHS(ValidationContext &ValCtx,
   }
 }
 
+// validate wave size (currently allowed only on CS and node shaders but might
+// be supported on other shader types in the future)
+static void ValidateWaveSize(ValidationContext &ValCtx,
+                             const DxilEntryProps &entryProps, Function *F) {
+  const DxilFunctionProps &props = entryProps.props;
+  const hlsl::DxilWaveSize &waveSize = props.WaveSize;
+
+  switch (waveSize.Validate()) {
+  case hlsl::DxilWaveSize::ValidationResult::Success:
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::InvalidMin:
+    ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
+                             {"Min", std::to_string(waveSize.Min),
+                              std::to_string(DXIL::kMinWaveSize),
+                              std::to_string(DXIL::kMaxWaveSize)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::InvalidMax:
+    ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
+                             {"Max", std::to_string(waveSize.Max),
+                              std::to_string(DXIL::kMinWaveSize),
+                              std::to_string(DXIL::kMaxWaveSize)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::InvalidPreferred:
+    ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
+                             {"Preferred", std::to_string(waveSize.Preferred),
+                              std::to_string(DXIL::kMinWaveSize),
+                              std::to_string(DXIL::kMaxWaveSize)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::MaxOrPreferredWhenUndefined:
+    ValCtx.EmitFnFormatError(
+        F, ValidationRule::SmWaveSizeAllZeroWhenUndefined,
+        {std::to_string(waveSize.Max), std::to_string(waveSize.Preferred)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::MaxEqualsMin:
+    // This case is allowed because users may disable the ErrorDefault warning.
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::PreferredWhenNoRange:
+    ValCtx.EmitFnFormatError(
+        F, ValidationRule::SmWaveSizeMaxAndPreferredZeroWhenNoRange,
+        {std::to_string(waveSize.Max), std::to_string(waveSize.Preferred)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::MaxLessThanMin:
+    ValCtx.EmitFnFormatError(
+        F, ValidationRule::SmWaveSizeMaxGreaterThanMin,
+        {std::to_string(waveSize.Max), std::to_string(waveSize.Min)});
+    break;
+  case hlsl::DxilWaveSize::ValidationResult::PreferredOutOfRange:
+    ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizePreferredInRange,
+                             {std::to_string(waveSize.Preferred),
+                              std::to_string(waveSize.Min),
+                              std::to_string(waveSize.Max)});
+    break;
+  }
+
+  // Check shader model and kind.
+  if (waveSize.IsDefined()) {
+    if (!props.IsCS() && !props.IsNode()) {
+      ValCtx.EmitFnError(F, ValidationRule::SmWaveSizeOnComputeOrNode);
+    }
+  }
+}
+
 static void ValidateEntryProps(ValidationContext &ValCtx,
                                const DxilEntryProps &entryProps,
                                EntryStatus &Status, Function *F) {
   const DxilFunctionProps &props = entryProps.props;
   DXIL::ShaderKind ShaderType = props.shaderKind;
 
-  // validate wave size (currently allowed only on CS but might be supported on
-  // other shader types in the future)
-  if (props.waveSize != 0) {
-    if (DXIL::CompareVersions(ValCtx.m_DxilMajor, ValCtx.m_DxilMinor, 1, 6) <
-        0) {
-      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeNeedsDxil16Plus,
-                               {});
-    }
-    if (!DXIL::IsValidWaveSizeValue(props.waveSize)) {
-      ValCtx.EmitFnFormatError(F, ValidationRule::SmWaveSizeValue,
-                               {std::to_string(props.waveSize),
-                                std::to_string(DXIL::kMinWaveSize),
-                                std::to_string(DXIL::kMaxWaveSize)});
-    }
-  }
+  ValidateWaveSize(ValCtx, entryProps, F);
 
   if (ShaderType == DXIL::ShaderKind::Compute || props.IsNode()) {
     unsigned x = props.numThreads[0];

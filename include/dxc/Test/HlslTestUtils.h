@@ -448,7 +448,8 @@ inline bool GetTestParamUseWARP(bool defaultVal) {
     return defaultVal;
   }
   if ((defaultVal && AdapterValue.IsEmpty()) ||
-      AdapterValue.CompareNoCase(L"WARP") == 0) {
+      AdapterValue.CompareNoCase(L"WARP") == 0 ||
+      AdapterValue.CompareNoCase(L"Microsoft Basic Render Driver") == 0) {
     return true;
   }
   return false;

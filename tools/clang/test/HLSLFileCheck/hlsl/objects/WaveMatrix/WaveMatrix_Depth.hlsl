@@ -1,10 +1,10 @@
-// RUN: %dxc -E main -T cs_6_8 -DCOMP=float -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DDIMM=16 -DDIMN=16
-// RUN: %dxc -E main -T cs_6_8 -DCOMP=half -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DDIMM=16 -DDIMN=16
-// RUN: %dxc -E main -T cs_6_8 -DCOMP=int8_t4_packed -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=17 -DDIMM=16 -DDIMN=16
-// RUN: %dxc -E main -T cs_6_8 -DCOMP=uint8_t4_packed -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=18 -DDIMM=16 -DDIMN=16
-// RUN: %dxc -E main -T cs_6_8 -DCOMP=float -DDIMM=64 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DDIMM=64 -DDIMN=16
-// RUN: %dxc -E main -T cs_6_8 -DCOMP=float -DDIMM=16 -DDIMN=64 %s | FileCheck %s -DCOMP=9 -DDIMM=16 -DDIMN=64
-// RUN: %dxc -E main -T cs_6_8 -DCOMP=float -DDIMM=64 -DDIMN=64 %s | FileCheck %s -DCOMP=9 -DDIMM=64 -DDIMN=64
+// RUN: %dxc -E main -T cs_6_9 -DCOMP=float -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DDIMM=16 -DDIMN=16
+// RUN: %dxc -E main -T cs_6_9 -DCOMP=half -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DDIMM=16 -DDIMN=16
+// RUN: %dxc -E main -T cs_6_9 -DCOMP=int8_t4_packed -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=17 -DDIMM=16 -DDIMN=16
+// RUN: %dxc -E main -T cs_6_9 -DCOMP=uint8_t4_packed -DDIMM=16 -DDIMN=16 %s | FileCheck %s -DCOMP=18 -DDIMM=16 -DDIMN=16
+// RUN: %dxc -E main -T cs_6_9 -DCOMP=float -DDIMM=64 -DDIMN=16 %s | FileCheck %s -DCOMP=9 -DDIMM=64 -DDIMN=16
+// RUN: %dxc -E main -T cs_6_9 -DCOMP=float -DDIMM=16 -DDIMN=64 %s | FileCheck %s -DCOMP=9 -DDIMM=16 -DDIMN=64
+// RUN: %dxc -E main -T cs_6_9 -DCOMP=float -DDIMM=64 -DDIMN=64 %s | FileCheck %s -DCOMP=9 -DDIMM=64 -DDIMN=64
 
 // CHECK: ; Note: shader requires additional functionality:
 // CHECK: ;       Wave level operations

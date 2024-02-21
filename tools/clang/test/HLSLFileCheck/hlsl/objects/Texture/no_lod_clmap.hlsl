@@ -1,27 +1,32 @@
-// RUN: %dxilver 1.8 | %dxc -E test_sample -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_sampleb -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_sampleg -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_samplec -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_samplecb -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_samplecg -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_sample_zero -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_sampleb_zero -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_sampleg_zero -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_samplec_zero -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_samplecb_zero -T ps_6_8 %s | FileCheck %s
-// RUN: %dxilver 1.8 | %dxc -E test_samplecg_zero -T ps_6_8 %s | FileCheck %s
+// RUN: %dxilver 1.8 | %dxc -E test_sample -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_sampleb -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_sampleg -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplec -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplecb -T ps_6_8 %s | FileCheck %s -check-prefixes=CMPBG,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplecg -T ps_6_8 %s | FileCheck %s -check-prefixes=CMPBG,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_sample_zero -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_sampleb_zero -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_sampleg_zero -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplec_zero -T ps_6_8 %s | FileCheck %s -check-prefixes=NRM,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplecb_zero -T ps_6_8 %s | FileCheck %s -check-prefixes=CMPBG,CHECK
+// RUN: %dxilver 1.8 | %dxc -E test_samplecg_zero -T ps_6_8 %s | FileCheck %s -check-prefixes=CMPBG,CHECK
 
 // Make sure no tile resources when no lod clamp or clamp is 0.
 
 // CHECK-NOT: Tiled resources
+// CMPBG: SampleCmp with gradient or bias
 
 // CHECK:define void @[[name:[a-z_]+]]()
 
 // CHECK: !dx.entryPoints = !{![[entryPoints:[0-9]+]]}
-// CHECK: ![[entryPoints]] = !{void ()* @[[name]], !"[[name]]", !{{[0-9]+}}, !{{[0-9]+}}, null}
+// NRM: ![[entryPoints]] = !{void ()* @[[name]], !"[[name]]", !{{[0-9]+}}, !{{[0-9]+}}, null}
+// CMPBG: ![[entryPoints]] = !{void ()* @[[name]], !"[[name]]", !{{[0-9]+}}, !{{[0-9]+}}, ![[extAttr:[0-9]+]]}
 
 // tag 0: ShaderFlags, 4096 = Tiled resources
-// CHECK-NOT:!{i32 0, i64 4096}
+// NRM-NOT:!{i32 0, i64 4096}
+
+// tag 0: ShaderFlags, 137438953472 = SampleCmpGradientOrBias
+// CMPBG: ![[extAttr]] = !{i32 0, i64 137438953472}
 
 Texture2D T2D;
 SamplerState S;

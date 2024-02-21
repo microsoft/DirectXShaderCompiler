@@ -205,6 +205,10 @@ public:
   SpirvVariable *getBuiltinVar(spv::BuiltIn builtIn, QualType type,
                                SourceLocation);
 
+  /// \brief If var is a raytracing stage variable, returns its entry point,
+  /// otherwise returns nullptr.
+  SpirvFunction *getRayTracingStageVarEntryFunction(SpirvVariable *var);
+
   /// \brief Creates the stage output variables by parsing the semantics
   /// attached to the given function's parameter or return value and returns
   /// true on success. SPIR-V instructions will also be generated to update the
@@ -761,8 +765,11 @@ private:
   //
   // sigPoint: the signature point identifying which shader stage the variable
   // will be used in.
+  //
+  // type: The type to use for the new variable. Must be int or unsigned int.
   SpirvVariable *getBaseInstanceVariable(SemanticInfo *semantic,
-                                         const hlsl::SigPoint *sigPoint);
+                                         const hlsl::SigPoint *sigPoint,
+                                         QualType type);
 
   // Creates and return a new interface variable from the information provided.
   // The new variable with be add to `this->StageVars`.
@@ -966,6 +973,11 @@ private:
   /// using HLSL intrinsic function calls. All other builtin variables are
   /// accessed using stage IO variables.
   llvm::DenseMap<uint32_t, SpirvVariable *> builtinToVarMap;
+
+  /// Maps from a raytracing stage variable to the entry point that variable is
+  /// for.
+  llvm::DenseMap<SpirvVariable *, SpirvFunction *>
+      rayTracingStageVarToEntryPoints;
 
   /// Whether the translated SPIR-V binary needs legalization.
   ///

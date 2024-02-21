@@ -783,6 +783,7 @@ def HLSLEffectsSyntax : DiagGroup<"effects-syntax">;
 def HLSLForRedefinition : DiagGroup<"for-redefinition">;
 def HLSLAttributeStatement : DiagGroup<"attribute-statement">;
 def HLSLAttributeType : DiagGroup<"attribute-type">;
+def HLSLEntryAttributeWithoutShaderAttrType : DiagGroup<"misplaced-attributes">;
 def HLSLSpecifierOverride : DiagGroup<"specifier-override">;
 def HLSLPackOffsetOverride : DiagGroup<"packoffset-override">;
 def HLSLCommaInInit : DiagGroup<"comma-in-init">;
@@ -800,4 +801,5 @@ def HLSLPayloadAccessQualifer: DiagGroup<"payload-access-qualifier", [
 def HLSLSemanticIdentifierCollision : DiagGroup<"semantic-identifier-collision">;
 def HLSLStructurizeExitsLifetimeMarkersConflict: DiagGroup<"structurize-exits-lifetime-markers-conflict">;
 def HLSLParameterUsage : DiagGroup<"parameter-usage">;
+def HLSLAvailability: DiagGroup<"hlsl-availability">;
 // HLSL Change Ends

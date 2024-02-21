@@ -2514,29 +2514,36 @@ void DxilShaderReflection::InitDesc() {
   DxilCounters counters = {};
   m_pDxilModule->LoadDxilCounters(counters);
 
-  // UINT InstructionCount;               // Num llvm instructions in all
-  // functions UINT TempArrayCount;                 // Number of bytes used in
-  // arrays (alloca + static global) UINT DynamicFlowControlCount;        //
-  // Number of branches with more than one successor for now UINT
-  // ArrayInstructionCount;          // number of load/store on arrays for now
+  // UINT InstructionCount; // Num llvm instructions in all functions
+  // UINT TempArrayCount; // Number of bytes used in arrays (alloca + static
+  //                         global)
+  // UINT DynamicFlowControlCount; // Number of branches with more than one
+  //                                  successor for now
+  // UINT ArrayInstructionCount; // number of load/store on arrays for now
   pDesc->InstructionCount = counters.insts;
   pDesc->TempArrayCount = counters.AllArrayBytes();
   pDesc->DynamicFlowControlCount = counters.branches;
   pDesc->ArrayInstructionCount = counters.AllArrayAccesses();
 
-  // UINT FloatInstructionCount;          // Number of floating point arithmetic
-  // instructions used UINT IntInstructionCount;            // Number of signed
-  // integer arithmetic instructions used UINT UintInstructionCount; // Number
-  // of unsigned integer arithmetic instructions used
+  // UINT FloatInstructionCount; // Number of floating point arithmetic
+  // instructions used
+  // UINT IntInstructionCount; // Number of signed integer arithmetic
+  // instructions used
+  // UINT UintInstructionCount; // Number of unsigned integer arithmetic
+  // instructions used
   pDesc->FloatInstructionCount = counters.floats;
   pDesc->IntInstructionCount = counters.ints;
   pDesc->UintInstructionCount = counters.uints;
 
   // UINT TextureNormalInstructions;      // Number of non-categorized texture
-  // instructions UINT TextureLoadInstructions;        // Number of texture load
-  // instructions UINT TextureCompInstructions;        // Number of texture
-  // comparison instructions UINT TextureBiasInstructions;        // Number of
-  // texture bias instructions UINT TextureGradientInstructions;    // Number of
+  // instructions
+  // UINT TextureLoadInstructions;        // Number of texture load
+  // instructions
+  // UINT TextureCompInstructions;        // Number of texture
+  // comparison instructions
+  // UINT TextureBiasInstructions;        // Number of
+  // texture bias instructions
+  // UINT TextureGradientInstructions;    // Number of
   // texture gradient instructions
   pDesc->TextureNormalInstructions = counters.tex_norm;
   pDesc->TextureLoadInstructions = counters.tex_load;
@@ -2550,22 +2557,25 @@ void DxilShaderReflection::InitDesc() {
   pDesc->EmitInstructionCount = counters.gs_emit;
 
   // UINT cBarrierInstructions;           // Number of barrier instructions in a
-  // compute shader UINT cInterlockedInstructions;       // Number of
-  // interlocked instructions UINT cTextureStoreInstructions;      // Number of
+  // compute shader
+  // UINT cInterlockedInstructions;       // Number of
+  // interlocked instructions
+  // UINT cTextureStoreInstructions;      // Number of
   // texture writes
   pDesc->cBarrierInstructions = counters.barrier;
   pDesc->cInterlockedInstructions = counters.atomic;
   pDesc->cTextureStoreInstructions = counters.tex_store;
 
-  // Unset:  UINT TempRegisterCount;      // Don't know how to map this for SSA
-  // (not going to do reg allocation here) Unset:  UINT DefCount; // Not sure
-  // what to map this to Unset:  UINT DclCount;               // Number of
-  // declarations (input + output)
-  // TODO: map to used input + output signature rows?
-  // Unset:  UINT StaticFlowControlCount; // Number of static flow control
-  // instructions used This used to map to flow control using special int/bool
-  // constant registers in DX9. Unset:  UINT MacroInstructionCount;  // Number
-  // of macro instructions used Macro instructions are a <= DX9 concept.
+  // Unset: UINT TempRegisterCount; // Don't know how to map this for SSA (not
+  //                                   going to do reg allocation here)
+  // Unset: UINT DefCount; // Not sure what to map this to
+  // Unset: UINT DclCount; // Number of declarations (input + output)
+  //    TODO: map to used input + output signature rows?
+  // Unset: UINT StaticFlowControlCount; // Number of static flow control
+  //    instructions used This used to map to flow control using special
+  //    int/bool constant registers in DX9.
+  // Unset: UINT MacroInstructionCount;  // Number of macro instructions used
+  //    Macro instructions are a <= DX9 concept.
 }
 
 ID3D12ShaderReflectionConstantBuffer *
@@ -2837,45 +2847,53 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
   }
   pDesc->Version = EncodeVersion(kind, pSM->GetMajor(), pSM->GetMinor());
 
-  // Unset:  LPCSTR                  Creator;                     // Creator
-  // string Unset:  UINT                    Flags;                       //
-  // Shader compilation/parse flags
+  // Unset: LPCSTR Creator;  // Creator string
+  // Unset: UINT   Flags;    // Shader compilation/parse flags
 
   pDesc->ConstantBuffers = (UINT)m_UsedCBs.size();
   pDesc->BoundResources = (UINT)m_UsedResources.size();
 
-  // Unset:  UINT                    InstructionCount;            // Number of
-  // emitted instructions Unset:  UINT                    TempRegisterCount; //
-  // Number of temporary registers used Unset:  UINT TempArrayCount; // Number
-  // of temporary arrays used Unset:  UINT                    DefCount; //
-  // Number of constant defines Unset:  UINT                    DclCount; //
-  // Number of declarations (input + output) Unset:  UINT
+  // Unset: UINT InstructionCount;  // Number of emitted instructions
+  // Unset: UINT TempRegisterCount; // Number of temporary registers used
+  // Unset: UINT TempArrayCount;  // Number of temporary arrays used
+  // Unset: UINT DefCount;        // Number of constant defines
+  // Unset: UINT DclCount;        // Number of declarations (input + output)
+  // Unset: UINT
   // TextureNormalInstructions;   // Number of non-categorized texture
-  // instructions Unset:  UINT                    TextureLoadInstructions; //
-  // Number of texture load instructions Unset:  UINT TextureCompInstructions;
-  // // Number of texture comparison instructions Unset:  UINT
-  // TextureBiasInstructions;     // Number of texture bias instructions Unset:
-  // UINT                    TextureGradientInstructions; // Number of texture
-  // gradient instructions Unset:  UINT FloatInstructionCount;       // Number
-  // of floating point arithmetic instructions used Unset:  UINT
-  // IntInstructionCount;         // Number of signed integer arithmetic
-  // instructions used Unset:  UINT                    UintInstructionCount; //
-  // Number of unsigned integer arithmetic instructions used Unset:  UINT
-  // StaticFlowControlCount;      // Number of static flow control instructions
-  // used Unset:  UINT                    DynamicFlowControlCount;     // Number
-  // of dynamic flow control instructions used Unset:  UINT
-  // MacroInstructionCount;       // Number of macro instructions used Unset:
-  // UINT                    ArrayInstructionCount;       // Number of array
-  // instructions used Unset:  UINT                    MovInstructionCount; //
-  // Number of mov instructions used Unset:  UINT MovcInstructionCount; //
-  // Number of movc instructions used Unset:  UINT ConversionInstructionCount;
-  // // Number of type conversion instructions used Unset:  UINT
-  // BitwiseInstructionCount;     // Number of bitwise arithmetic instructions
-  // used Unset:  D3D_FEATURE_LEVEL       MinFeatureLevel;             // Min
-  // target of the function byte code
+  //                                 instructions
+  // Unset: UINT TextureLoadInstructions; // Number of texture load
+  //                                         instructions
+  // Unset: UINT TextureCompInstructions; // Number of texture comparison
+  //                                         instructions
+
+  // Unset: UINT TextureBiasInstructions;// Number of texture bias instructions
+  // Unset: UINT TextureGradientInstructions; // Number of texture gradient
+  //                                             instructions
+  // Unset: UINT FloatInstructionCount; // Number of floating point arithmetic
+  //                                       instructions used
+  // Unset: UINT IntInstructionCount;   // Number of signed integer arithmetic
+  //                                       instructions used
+  // Unset: UINT UintInstructionCount; // Number of unsigned integer
+  //                                      arithmetic instructions used
+  // Unset: UINT StaticFlowControlCount;  // Number of static flow control
+  //                                         instructions used
+  // Unset: UINT DynamicFlowControlCount; // Number of dynamic flow control
+  //                                         instructions used
+  // Unset: UINT MacroInstructionCount; // Number of macro instructions used
+  // Unset: UINT ArrayInstructionCount; // Number of array instructions used
+  // Unset: UINT MovInstructionCount; // Number of mov instructions used
+  // Unset: UINT MovcInstructionCount; // Number of movc instructions used
+  // Unset: UINT ConversionInstructionCount; // Number of type conversion
+  //                                            instructions used
+  // Unset: UINT BitwiseInstructionCount; // Number of bitwise arithmetic
+  //                                         instructions used
+  // Unset: D3D_FEATURE_LEVEL MinFeatureLevel; // Min target of the function
+  //                                              byte code
 
   pDesc->RequiredFeatureFlags =
       m_FeatureFlags & ~(UINT64)D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL;
+  // Also Mask off function-level derivatives flag.
+  pDesc->RequiredFeatureFlags &= ~DXIL::OptFeatureInfo_UsesDerivatives;
   if (kind == DXIL::ShaderKind::Pixel && m_pProps &&
       m_pProps->ShaderProps.PS.EarlyDepthStencil) {
     pDesc->RequiredFeatureFlags |= D3D_SHADER_REQUIRES_EARLY_DEPTH_STENCIL;
@@ -2883,13 +2901,12 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
 
   pDesc->Name = m_Name.c_str();
 
-  // Unset:  INT                     FunctionParameterCount;      // Number of
-  // logical parameters in the function signature (not including return) Unset:
-  // BOOL                    HasReturn;                   // TRUE, if function
-  // returns a value, false - it is a subroutine Unset:  BOOL
-  // Has10Level9VertexShader;     // TRUE, if there is a 10L9 VS blob Unset:
-  // BOOL                    Has10Level9PixelShader;      // TRUE, if there is a
-  // 10L9 PS blob
+  // Unset: INT FunctionParameterCount; // Number of logical parameters in the
+  //                                  function signature (not including return)
+  // Unset: BOOL HasReturn; // TRUE, if function returns a value, false - it is
+  //                           a subroutine
+  // Unset: BOOL Has10Level9VertexShader; // TRUE, if there is a 10L9 VS blob
+  // Unset: BOOL Has10Level9PixelShader; // TRUE, if there is a 10L9 PS blob
   return S_OK;
 }
 

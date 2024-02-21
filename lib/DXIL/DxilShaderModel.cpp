@@ -256,7 +256,7 @@ const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {
   case '1':
     Minor = 1;
     break;
-  // clang-format off
+    // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_shader_model_by_name()</py>*/
   // clang-format on
@@ -369,7 +369,7 @@ void ShaderModel::GetMinValidatorVersion(unsigned &ValMajor,
   DXASSERT(IsValidForDxil(), "invalid shader model");
   ValMajor = 1;
   switch (m_Minor) {
-  // clang-format off
+    // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_min_validator_version()</py>*/
   // clang-format on
@@ -492,6 +492,34 @@ const llvm::StringRef ShaderModel::FullNameFromKind(DXIL::ShaderKind sk) {
   default:
     llvm_unreachable("unknown ShaderKind");
   }
+}
+
+bool ShaderModel::AllowDerivatives(DXIL::ShaderKind sk) const {
+  switch (sk) {
+  case DXIL::ShaderKind::Pixel:
+  case DXIL::ShaderKind::Library:
+  case DXIL::ShaderKind::Node:
+    return true;
+  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Amplification:
+  case DXIL::ShaderKind::Mesh:
+    return IsSM66Plus();
+  case DXIL::ShaderKind::Vertex:
+  case DXIL::ShaderKind::Geometry:
+  case DXIL::ShaderKind::Hull:
+  case DXIL::ShaderKind::Domain:
+  case DXIL::ShaderKind::RayGeneration:
+  case DXIL::ShaderKind::Intersection:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Callable:
+  case DXIL::ShaderKind::Invalid:
+    return false;
+  }
+  static_assert(DXIL::ShaderKind::LastValid == DXIL::ShaderKind::Node,
+                "otherwise, switch needs to be updated.");
+  llvm_unreachable("unknown ShaderKind");
 }
 
 typedef ShaderModel SM;

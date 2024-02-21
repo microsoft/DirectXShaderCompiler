@@ -33,6 +33,7 @@
 #include "clang/SPIRV/SpirvContext.h"
 #include "llvm/ADT/STLExtras.h"
 
+#include "ConstEvaluator.h"
 #include "DeclResultIdMapper.h"
 
 namespace spvtools {
@@ -62,6 +63,7 @@ public:
 
   ASTContext &getASTContext() { return astContext; }
   SpirvBuilder &getSpirvBuilder() { return spvBuilder; }
+  SpirvContext &getSpirvContext() { return spvContext; }
   DiagnosticsEngine &getDiagnosticsEngine() { return diags; }
   CompilerInstance &getCompilerInstance() { return theCompilerInstance; }
   SpirvCodeGenOptions &getSpirvOptions() { return spirvOptions; }
@@ -759,49 +761,11 @@ private:
 
 private:
   /// \brief Performs a FlatConversion implicit cast. Fills an instance of the
-  /// given type with initializer <result-id>. The initializer is of type
-  /// initType.
+  /// given type with initializer <result-id>.
   SpirvInstruction *processFlatConversion(const QualType type,
-                                          const QualType initType,
                                           SpirvInstruction *initId,
                                           SourceLocation,
                                           SourceRange range = {});
-
-private:
-  /// Translates the given frontend APValue into its SPIR-V equivalent for the
-  /// given targetType.
-  SpirvConstant *translateAPValue(const APValue &value,
-                                  const QualType targetType);
-
-  /// Translates the given frontend APInt into its SPIR-V equivalent for the
-  /// given targetType.
-  SpirvConstant *translateAPInt(const llvm::APInt &intValue,
-                                QualType targetType);
-
-  /// Translates the given frontend APFloat into its SPIR-V equivalent for the
-  /// given targetType.
-  SpirvConstant *translateAPFloat(llvm::APFloat floatValue,
-                                  QualType targetType);
-
-  /// Tries to evaluate the given Expr as a constant and returns the <result-id>
-  /// if success. Otherwise, returns 0.
-  SpirvConstant *tryToEvaluateAsConst(const Expr *expr);
-
-  /// Tries to evaluate the given APFloat as a 32-bit float. If the evaluation
-  /// can be performed without loss, it returns the <result-id> of the SPIR-V
-  /// constant for that value. Returns zero otherwise.
-  SpirvConstant *tryToEvaluateAsFloat32(const llvm::APFloat &);
-
-  /// Tries to evaluate the given APInt as a 32-bit integer. If the evaluation
-  /// can be performed without loss, it returns the <result-id> of the SPIR-V
-  /// constant for that value.
-  SpirvConstant *tryToEvaluateAsInt32(const llvm::APInt &, bool isSigned);
-
-  /// Returns true iff the given expression is a literal integer that cannot be
-  /// represented in a 32-bit integer type or a literal float that cannot be
-  /// represented in a 32-bit float type without losing info. Returns false
-  /// otherwise.
-  bool isLiteralLargerThan32Bits(const Expr *expr);
 
 private:
   /// Translates the given HLSL loop attribute into SPIR-V loop control mask.
@@ -979,7 +943,6 @@ private:
   /// statement.
   void processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt);
 
-private:
   /// Handles the offset argument in the given method call at the given argument
   /// index. Panics if the argument at the given index does not exist. Writes
   /// the <result-id> to either *constOffset or *varOffset, depending on the
@@ -1157,7 +1120,6 @@ private:
                                             const CXXMethodDecl *memberFn,
                                             SourceLocation loc);
 
-private:
   /// \brief Takes a vector of size 4, and returns a vector of size 1 or 2 or 3
   /// or 4. Creates a CompositeExtract or VectorShuffle instruction to extract
   /// a scalar or smaller vector from the beginning of the input vector if
@@ -1195,7 +1157,6 @@ private:
   /// execution mode, if it has not already been added.
   void beginInvocationInterlock(SourceLocation loc, SourceRange range);
 
-private:
   /// \brief If the given FunctionDecl is not already in the workQueue, creates
   /// a FunctionInfo object for it, and inserts it into the workQueue. It also
   /// updates the functionInfoMap with the proper mapping.
@@ -1240,6 +1201,36 @@ private:
   ///  This decision is made according to the rules in
   ///  https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_Derivatives.html.
   void addDerivativeGroupExecutionMode();
+
+  /// Creates an input variable for `param` that will be used by the patch
+  /// constant function. The parameter is also added to the patch constant
+  /// function. The wrapper function will copy the input variable to the
+  /// parameter.
+  SpirvVariable *
+  createPCFParmVarAndInitFromStageInputVar(const ParmVarDecl *param);
+
+  /// Returns a function scope parameter with the same type as |param|.
+  SpirvVariable *createFunctionScopeTempFromParameter(const ParmVarDecl *param);
+
+  /// Returns a vector of SpirvInstruction that is the decompostion of `inst`
+  /// into scalars. This is recursive. For example, a struct of a 4 element
+  /// vector will return 4 scalars.
+  std::vector<SpirvInstruction *> decomposeToScalars(SpirvInstruction *inst);
+
+  /// Returns a spirv instruction with the value of the given type and layout
+  /// rule that is obtained by assigning each scalar in `type` to corresponding
+  /// value in `scalars`. This is the inverse of `decomposeToScalars`.
+  SpirvInstruction *
+  generateFromScalars(QualType type, std::vector<SpirvInstruction *> &scalars,
+                      SpirvLayoutRule layoutRule);
+
+  /// Returns a spirv instruction with the value of the given type and layout
+  /// rule that is obtained by assigning `scalar` each scalar in `type`. This is
+  /// the same as calling `generateFromScalars` with a sufficiently large vector
+  /// where every element is `scalar`.
+  SpirvInstruction *splatScalarToGenerate(QualType type,
+                                          SpirvInstruction *scalar,
+                                          SpirvLayoutRule rule);
 
 public:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -1310,6 +1301,7 @@ private:
   FeatureManager featureManager;
   SpirvBuilder spvBuilder;
   DeclResultIdMapper declIdMapper;
+  ConstEvaluator constEvaluator;
 
   /// \brief A map of funcDecl to its FunctionInfo. Consists of all entry
   /// functions followed by all reachable functions from the entry functions.

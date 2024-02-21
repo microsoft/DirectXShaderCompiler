@@ -67,6 +67,7 @@ struct SpirvCodeGenOptions {
   bool supportNonzeroBaseInstance;
   bool fixFuncCallArguments;
   bool allowRWStructuredBufferArrays;
+  bool enableMaximalReconvergence;
   /// Maximum length in words for the OpString literal containing the shader
   /// source for DebugSource and DebugSourceContinued. If the source code length
   /// is larger than this number, we will use DebugSourceContinued instructions
@@ -99,6 +100,9 @@ struct SpirvCodeGenOptions {
   // String representation of all command line options and input file.
   std::string clOptions;
   std::string inputFile;
+
+  // String representation of original source
+  std::string origSource;
 };
 
 } // namespace spirv

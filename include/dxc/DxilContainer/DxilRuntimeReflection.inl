@@ -167,9 +167,9 @@ bool DxilRuntimeData::InitFromRDAT(const void *pRDAT, size_t size) {
   return false;
 }
 
-// PRERELEASE-TODO: Incorporate field names and report errors in error stream
+// TODO: Incorporate field names and report errors in error stream
 
-// PRERELEASE-TODO: Low-pri: Check other things like that all the index, string,
+// TODO: Low-pri: Check other things like that all the index, string,
 // and binary buffer space is actually used.
 
 template <typename _RecordType>

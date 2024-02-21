@@ -28,7 +28,8 @@ RWStructuredBuffer<S> rwsb;
 
 [numthreads(1, 1, 1)]
 void main() {
-// CHECK:   [[vec:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_v4float %rwsb %int_0 %uint_2 %int_0 %int_1
+// CHECK:   [[base:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer__arr_v4float_uint_5 %rwsb %int_0 %uint_2 %int_0
+// CHECK:   [[vec:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_v4float [[base]] %int_1
 // CHECK:       {{%[0-9]+}} = OpAccessChain %_ptr_StorageBuffer_float [[vec]] %int_0
   float a = rwsb[2].f[1].x;
 

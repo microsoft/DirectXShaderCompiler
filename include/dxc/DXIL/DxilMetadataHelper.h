@@ -318,6 +318,7 @@ public:
   static const unsigned kDxilNodeInputsTag = 20;
   static const unsigned kDxilNodeOutputsTag = 21;
   static const unsigned kDxilNodeMaxDispatchGridTag = 22;
+  static const unsigned kDxilRangedWaveSizeTag = 23;
 
   // Node Input/Output State.
   static const unsigned kDxilNodeOutputIDTag = 0;
@@ -624,6 +625,7 @@ private:
 
   llvm::MDTuple *EmitDxilNodeIOState(const NodeIOProperties &Node);
   hlsl::NodeIOProperties LoadDxilNodeIOState(const llvm::MDOperand &MDO);
+  hlsl::NodeRecordType LoadDxilNodeRecordType(const llvm::MDOperand &MDO);
 
   void EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
                          const DxilFunctionProps &props);
