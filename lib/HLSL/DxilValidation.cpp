@@ -4494,7 +4494,8 @@ static void ValidateShaderFlags(ValidationContext &ValCtx) {
   // which are gone by this point.  Set the flag and the rest should match.
   unsigned valMajor, valMinor;
   ValCtx.DxilMod.GetValidatorVersion(valMajor, valMinor);
-  if (DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0 &&
+  if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) >= 0 &&
+      DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0 &&
       ValCtx.DxilMod.m_ShaderFlags.GetRaytracingTier1_1() &&
       !calcFlags.GetRaytracingTier1_1()) {
     calcFlags.SetRaytracingTier1_1(true);
