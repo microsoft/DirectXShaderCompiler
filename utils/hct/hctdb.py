@@ -8102,12 +8102,12 @@ class db_dxil(object):
         )
         self.add_valrule_msg(
             "Sm.IncompatibleStage",
-            "functions may only use features available in the entry function's stage",
+            "Functions may only use features available in the entry function's stage",
             "Function uses features incompatible with the shader stage (%0) of the entry function.",
         )
         self.add_valrule_msg(
             "Sm.IncompatibleShaderModel",
-            "functions may only use features available in the current shader model",
+            "Functions may only use features available in the current shader model",
             "Function uses features incompatible with the shader model.",
         )
         self.add_valrule_msg(

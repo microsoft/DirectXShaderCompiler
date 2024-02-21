@@ -5494,6 +5494,9 @@ struct CompatibilityChecker {
              {ShaderModel::GetKindName(props.shaderKind)});
     Diagnose(F, conflictMask, ConflictKind::ShaderModel,
              ValidationRule::SmIncompatibleShaderModel);
+    Diagnose(F, conflictMask, ConflictKind::DerivLaunch,
+             ValidationRule::SmIncompatibleDerivLaunch,
+             {GetLaunchTypeStr(props.Node.LaunchType)});
     Diagnose(F, conflictMask, ConflictKind::DerivThreadGroupDim,
              ValidationRule::SmIncompatibleThreadGroupDim,
              {std::to_string(props.numThreads[0]),
@@ -5503,9 +5506,6 @@ struct CompatibilityChecker {
              ValidationRule::SmIncompatibleDerivInComputeShaderModel);
     Diagnose(F, conflictMask, ConflictKind::RequiresGroup,
              ValidationRule::SmIncompatibleRequiresGroup);
-    Diagnose(F, conflictMask, ConflictKind::DerivLaunch,
-             ValidationRule::SmIncompatibleDerivLaunch,
-             {GetLaunchTypeStr(props.Node.LaunchType)});
   }
 
   // Visit function and all functions called by it.

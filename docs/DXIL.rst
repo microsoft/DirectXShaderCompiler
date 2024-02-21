@@ -3221,8 +3221,8 @@ SM.INCOMPATIBLEDERIVINCOMPUTESHADERMODEL  Derivatives in compute-model shaders r
 SM.INCOMPATIBLEDERIVLAUNCH                Node shaders only support derivatives in broadcasting launch mode
 SM.INCOMPATIBLEOPERATION                  Operations used in entry function must be compatible with shader stage and other properties
 SM.INCOMPATIBLEREQUIRESGROUP              Functions requiring groupshared memory must be called from shaders with a visible group
-SM.INCOMPATIBLESHADERMODEL                functions may only use features available in the current shader model
-SM.INCOMPATIBLESTAGE                      functions may only use features available in the entry function's stage
+SM.INCOMPATIBLESHADERMODEL                Functions may only use features available in the current shader model
+SM.INCOMPATIBLESTAGE                      Functions may only use features available in the entry function's stage
 SM.INCOMPATIBLETHREADGROUPDIM             When derivatives are used in compute-model shaders, the thread group dimensions must be compatible
 SM.INSIDETESSFACTORSIZEMATCHDOMAIN        InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
 SM.INVALIDRESOURCECOMPTYPE                Invalid resource return type.

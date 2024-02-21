@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.8 | %dxc -T lib_6_5 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
+// RUN: %dxilver 1.8 | %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
 
 // RDAT: FunctionTable[{{.*}}] = {
 
@@ -44,12 +44,12 @@ void intermediate() {
 // RDAT-LABEL:   UnmangledName: "main"
 // RDAT:   FeatureInfo1: 0
 // RDAT:   FeatureInfo2: (Opt_UsesDerivatives)
-// RDAT:   ShaderStageFlag: (Compute)
-// MinShaderTarget indicates higher requirement.
-// RDAT:   MinShaderTarget: 0x50066
+// RDAT:   ShaderStageFlag: (Node)
+// RDAT:   MinShaderTarget: 0xf0068
+// RDAT:   LaunchType: Thread
 
-[numthreads(8, 8, 1)]
-[shader("compute")]
+[shader("node")]
+[NodeLaunch("thread")]
 void main() {
     intermediate();
 }
