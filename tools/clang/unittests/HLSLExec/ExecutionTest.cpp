@@ -3984,6 +3984,11 @@ void DerivativesTest_DebugOutput(Dispatch &D,
   }
   LogCommentFmt(L"CENTER %d", centerIndex);
   LogCommentFmt(L"------------------------------------");
+#else
+  UNREFERENCED_PARAMETER(D);
+  UNREFERENCED_PARAMETER(Test);
+  UNREFERENCED_PARAMETER(pPixels);
+  UNREFERENCED_PARAMETER(centerIndex);
 #endif
 }
 
