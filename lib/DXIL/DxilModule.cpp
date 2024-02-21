@@ -2191,12 +2191,38 @@ static void AdjustMinimumShaderModelAndFlags(const DxilFunctionProps *props,
     DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 1);
 }
 
+static bool RequiresRaytracingTier1_1(const DxilSubobjects *pSubobjects) {
+  if (!pSubobjects)
+    return false;
+  for (const auto &it : pSubobjects->GetSubobjects()) {
+    switch (it.second->GetKind()) {
+    case DXIL::SubobjectKind::RaytracingPipelineConfig1:
+      return true;
+    case DXIL::SubobjectKind::StateObjectConfig: {
+      uint32_t configFlags;
+      if (it.second->GetStateObjectConfig(configFlags) &&
+          ((configFlags &
+            (unsigned)DXIL::StateObjectFlags::AllowStateObjectAdditions) != 0))
+        return true;
+    } break;
+    default:
+      break;
+    }
+  }
+  return false;
+}
+
 void DxilModule::ComputeShaderCompatInfo() {
   m_FuncToShaderCompat.clear();
 
   bool dxil15Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) >= 0;
   bool dxil18Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) >= 0;
   bool dxil19Plus = DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 9) >= 0;
+
+  // Prior to validator version 1.8, DXR 1.1 flag was set on every function
+  // if subobjects contained any DXR 1.1 subobjects.
+  bool setDXR11OnAllFunctions =
+      dxil15Plus && !dxil18Plus && RequiresRaytracingTier1_1(GetSubobjects());
 
   // Initialize worklist with functions that have callers
   SmallSetVector<llvm::Function *, 8> worklist;
@@ -2212,6 +2238,8 @@ void DxilModule::ComputeShaderCompatInfo() {
       // Insert or lookup info
       ShaderCompatInfo &info = m_FuncToShaderCompat[&function];
       info.shaderFlags = ShaderFlags::CollectShaderFlags(&function, this);
+      if (setDXR11OnAllFunctions)
+        info.shaderFlags.SetRaytracingTier1_1(true);
     } else if (!function.isIntrinsic() &&
                function.getLinkage() ==
                    llvm::GlobalValue::LinkageTypes::ExternalLinkage &&
