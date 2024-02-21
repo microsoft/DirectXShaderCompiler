@@ -3960,6 +3960,31 @@ UINT DerivativesTest_GetCenterIndex(Dispatch& D) {
   }
 }
 
+void DerivativesTest_DebugOutput(Dispatch &D,
+                                 std::shared_ptr<st::ShaderOpTest>  &Test,
+                                 const float *pPixels, UINT centerIndex) {
+#ifdef DEBUG // DERIVATIVES_TEST_DEBUG
+  LogCommentFmt(L"------------------------------------");
+  MappedData dataDbg;
+  Test->GetReadBackData("U3", &dataDbg);
+  UINT *pCoords = (UINT *)dataDbg.data();
+
+  LogCommentFmt(L"DISPATCH %d x %d x %d", D.width, D.height, D.depth);
+  for (int j = 0; j < D.height; j++) {
+    for (int i = 0; i < D.width; i++) {
+      UINT index = (j * 4) * D.width + i * 4;
+      LogCommentFmt(L"%3d (%2d, %2d, %2d)\t ddx_fine: %8f, ddy_fine: %8f, "
+                    L"ddx_coarse: %8f, ddy_coarse: %8f",
+                    pCoords[index], pCoords[index + 1], pCoords[index + 2],
+                    pCoords[index + 3], pPixels[index], pPixels[index + 1],
+                    pPixels[index + 2], pPixels[index + 3]);
+    }
+  }
+  LogCommentFmt(L"CENTER %d", centerIndex);
+  LogCommentFmt(L"------------------------------------");
+#endif
+}
+
 TEST_F(ExecutionTest, DerivativesTest) {
   const UINT pixelSize = 4; // always float4
 
@@ -3982,9 +4007,9 @@ TEST_F(ExecutionTest, DerivativesTest) {
                                       {16, 64, 1}, {4, 12, 4},   {4, 64, 1},
                                       {16, 16, 3}, {32, 8, 2},   {8, 8, 1}};
 
-  std::vector<Dispatch> meshDispatches = {
-      {60, 1, 1}, {128, 1, 1}, {8, 8, 1}, {32, 8, 1},
-      {8, 16, 4}, {8, 64, 1},  {8, 8, 3},
+  std::vector<Dispatch> meshDispatches = {  // (X * Y * Z) must be <= 128
+      {60, 1, 1}, {128, 1, 1}, {8, 8, 1}, {16, 8, 1},
+      {8, 4, 2}, {10, 10, 1},  {4, 16, 2},
   };
 
   std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
@@ -3993,7 +4018,6 @@ TEST_F(ExecutionTest, DerivativesTest) {
   LPCSTR CS = pShaderOp->CS;
 
   MappedData data;
-  
 
   for (Dispatch &D : dispatches) {
     // Test Compute Shader
@@ -4004,25 +4028,8 @@ TEST_F(ExecutionTest, DerivativesTest) {
     float *pPixels = (float *)data.data();
 
     UINT centerIndex = DerivativesTest_GetCenterIndex(D);
-
-#ifdef DERIVATIVES_TEST_DEBUG
-    MappedData dataDbg;
-    test->GetReadBackData("U3", &dataDbg);
-    UINT *pCoords = (UINT *)dataDbg.data();
-
-    LogCommentFmt(L"DISPATCH %d x %d x %d", D.width, D.height, D.depth);
-    for (int j = 0; j < D.height; j++) {
-      for (int i = 0; i < D.width; i++) {
-        UINT index = (j * 4) * D.width + i * 4;
-        LogCommentFmt(L"%3d (%2d, %2d, %2d)\t ddx_fine: %8f, ddy_fine: %8f, "
-                      L"ddx_coarse: %8f, ddy_coarse: %8f",
-                      pCoords[index], pCoords[index + 1], pCoords[index + 2],
-                      pCoords[index + 3], pPixels[index], pPixels[index + 1],
-                      pPixels[index + 2], pPixels[index + 3]);
-      }
-    }
-    LogCommentFmt(L"CENTER %d", centerIndex);
-#endif
+    
+    DerivativesTest_DebugOutput(D, test, pPixels, centerIndex);
 
     UINT offsetCenter = centerIndex * pixelSize;
     LogCommentFmt(L"Verifying derivatives in compute shader results");
@@ -4040,9 +4047,10 @@ TEST_F(ExecutionTest, DerivativesTest) {
       test->GetReadBackData("U1", &data);
       const float *pPixels = (float *)data.data();
       UINT centerIndex = DerivativesTest_GetCenterIndex(D);
+
+      DerivativesTest_DebugOutput(D, test, pPixels, centerIndex);
+
       UINT offsetCenter = centerIndex * pixelSize;
-      LogCommentFmt(L"HERE Dispatch: %d x %d x %d, center %d", D.width,
-                    D.height, D.depth, centerIndex);
       LogCommentFmt(L"Verifying derivatives in mesh shader results");
       VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
 
