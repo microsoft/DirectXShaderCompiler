@@ -5415,7 +5415,9 @@ struct CompatibilityChecker {
         props(ValCtx.DxilMod.GetDxilEntryProps(EntryFn).props),
         shaderKind(props.shaderKind) {
 
-    // Precompute potential incompatibilities.
+    // Precompute potential incompatibilities based on shader stage, shader kind
+    // and entry attributes. These will turn into full conflicts if the entry
+    // point's shader flags indicate that they use relevant features. 
     if (!ValCtx.DxilMod.GetShaderModel()->IsSM66Plus() &&
         (shaderKind == DXIL::ShaderKind::Mesh ||
          shaderKind == DXIL::ShaderKind::Amplification ||
@@ -5510,7 +5512,8 @@ struct CompatibilityChecker {
 
   // Visit function and all functions called by it.
   // Emit diagnostics for incompatibilities found in a function when no
-  // called functions introduced the conflict.
+  // functions called by that function introduced the conflict.
+  // In those cases, the called functions themselves will emit the diagnostic.
   // Return conflict mask for this function.
   uint32_t Visit(Function *F, uint32_t &remainingMask,
                  llvm::SmallPtrSet<Function *, 8> &visited, CallGraph &CG) {

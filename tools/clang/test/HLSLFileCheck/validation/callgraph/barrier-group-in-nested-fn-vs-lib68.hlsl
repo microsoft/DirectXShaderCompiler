@@ -49,7 +49,6 @@ void intermediate() {
 // MinShaderTarget still indicates vertex shader.
 // RDAT:   MinShaderTarget: 0x10060
 
-//[numthreads(8, 8, 1)]
 [shader("vertex")]
 void main() {
     intermediate();
