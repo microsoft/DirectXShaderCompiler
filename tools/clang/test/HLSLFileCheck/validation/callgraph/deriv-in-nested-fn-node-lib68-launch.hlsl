@@ -1,5 +1,10 @@
 // RUN: %dxilver 1.8 | %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
 
+// Check that ShaderCompatInfo in RDAT has expected flags for scenario with
+// thread launch node calling a function using derivatives (through Sample()).
+// Validation is disabled to allow this to produce the RDAT blob to check.
+// Used to generate deriv-in-nested-fn-node-lib68-launch.ll
+
 // RDAT: FunctionTable[{{.*}}] = {
 
 Texture2D<float4> T : register(t0);
