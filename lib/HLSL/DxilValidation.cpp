@@ -5418,7 +5418,7 @@ struct CompatibilityChecker {
 
     // Precompute potential incompatibilities based on shader stage, shader kind
     // and entry attributes. These will turn into full conflicts if the entry
-    // point's shader flags indicate that they use relevant features. 
+    // point's shader flags indicate that they use relevant features.
     if (!ValCtx.DxilMod.GetShaderModel()->IsSM66Plus() &&
         (shaderKind == DXIL::ShaderKind::Mesh ||
          shaderKind == DXIL::ShaderKind::Amplification ||
