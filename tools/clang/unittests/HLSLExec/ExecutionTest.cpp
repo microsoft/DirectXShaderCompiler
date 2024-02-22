@@ -4014,11 +4014,10 @@ TEST_F(ExecutionTest, DerivativesTest) {
                                       {16, 64, 1}, {4, 12, 4},   {4, 64, 1},
                                       {16, 16, 3}, {32, 8, 2},   {8, 8, 1}};
 
-  std::vector<Dispatch> meshDispatches = {
-      // (X * Y * Z) must be <= 128
-      {60, 1, 1}, {128, 1, 1}, {8, 8, 1},  {16, 8, 1},
-      {8, 4, 2},  {10, 10, 1}, {4, 16, 2}, {4, 16, 2}
-  };
+  std::vector<Dispatch> meshDispatches = {// (X * Y * Z) must be <= 128
+                                          {60, 1, 1}, {128, 1, 1}, {8, 8, 1},
+                                          {16, 8, 1}, {8, 4, 2},   {10, 10, 1},
+                                          {4, 16, 2}, {4, 16, 2}};
 
   std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
 
