@@ -458,13 +458,13 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     // about the shader having selected components that don't include x or y.
     // If not present, we add it.
     if (Existing_SV_Position == InputElements.end()) {
+      unsigned int Index = static_cast<unsigned int>(InputElements.size());
       auto Added_SV_Position =
           llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
       Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
                                     hlsl::DXIL::InterpolationMode::Linear, 1,
-                                    4);
+                                    4, Index, 0);
       Added_SV_Position->AppendSemanticIndex(0);
-      Added_SV_Position->SetSigPointKind(DXIL::SigPointKind::PSIn);
       Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
 
       auto index = InputSignature.AppendElement(std::move(Added_SV_Position));

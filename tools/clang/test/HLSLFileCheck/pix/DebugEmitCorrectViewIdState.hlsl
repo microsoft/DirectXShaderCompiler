@@ -2,7 +2,8 @@
 
 // CHECK: !dx.viewIdState = !{![[VIEWIDDATA:[0-9]*]]}
 
-// If view id state is correct, then this should have expanded to 7 i32s (previously it would have been 2)
+// The debug instrumentation will have added SV_InstanceId and SV_VertexId to the input signature for this VS.
+// If view id state is correct, then this entry should have expanded to 7 i32s (previously it would have been 2)
 // CHECK: ![[VIEWIDDATA]] = !{[7 x i32]
 
 
