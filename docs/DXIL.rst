@@ -3080,6 +3080,8 @@ INSTR.EVALINTERPOLATIONMODE               Interpolation mode on %0 used with eva
 INSTR.EXTRACTVALUE                        ExtractValue should only be used on dxil struct types and cmpxchg.
 INSTR.FAILTORESLOVETGSMPOINTER            TGSM pointers must originate from an unambiguous TGSM global variable.
 INSTR.HANDLENOTFROMCREATEHANDLE           Resource handle should returned by createHandle.
+INSTR.ILLEGALDXILOPCODE                   DXILOpCode must be [0..%0].  %1 specified.
+INSTR.ILLEGALDXILOPFUNCTION               '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                   bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                      Access to out-of-bounds memory is disallowed.
 INSTR.MINPRECISIONNOTPRECISE              Instructions marked precise may not refer to minprecision values.
