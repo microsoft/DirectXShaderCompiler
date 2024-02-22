@@ -1,5 +1,10 @@
 // RUN: %dxilver 1.8 | %dxc -T lib_6_5 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
 
+// Verifies that a Sample operation requiring derivatives in a noinline function
+// called by a compute shader is correctly marked as requiring SM 6.6 in RDAT.
+// Validation is disabled to allow this to produce the RDAT blob for checking
+// the MinShaderTarget, and for generating .ll tests.
+
 // RDAT: FunctionTable[{{.*}}] = {
 
 Texture2D<float4> T : register(t0);

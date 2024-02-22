@@ -36,7 +36,6 @@
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -5388,7 +5387,9 @@ struct CompatibilityChecker {
   const DxilFunctionProps &props;
   DXIL::ShaderKind shaderKind;
 
-  // Precomputed masks OR'd in based on flag set in ShaderCompatInfo.
+  // These masks identify the potential conflict flags based on the entry
+  // function's shader kind and properties when either UsesDerivatives or
+  // RequiresGroup flags are set in ShaderCompatInfo.
   uint32_t maskForDeriv = 0;
   uint32_t maskForGroup = 0;
 

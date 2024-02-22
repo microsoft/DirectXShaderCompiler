@@ -1,5 +1,10 @@
 // RUN: %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
 
+// Verifies that a Barrier requiring a visible group in a noinline function
+// called by a vertex shader is correctly marked as requiring a group in RDAT.
+// Validation is disabled to allow this to produce the RDAT blob for checking
+// the flags, and for generating .ll tests.
+
 // RDAT: FunctionTable[{{.*}}] = {
 
 RWBuffer<uint> Buf : register(u0);

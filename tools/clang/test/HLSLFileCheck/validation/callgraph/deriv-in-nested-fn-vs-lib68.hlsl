@@ -1,7 +1,8 @@
 // RUN: %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
 
-// Check ShaderCompatInfo for illegal scenario with verttex entry point calling
-// a function using derivatives (through Sample()).
+// Check that ShaderCompatInfo in RDAT has expected flags for scenario with
+// verttex entry point calling a function using derivatives (through Sample()).
+// Validation is disabled to allow this to produce the RDAT blob to check.
 // Used to generate deriv-in-nested-fn-vs.ll
 
 // RDAT: FunctionTable[{{.*}}] = {
