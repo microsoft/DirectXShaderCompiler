@@ -39,7 +39,7 @@ define void @main() {
 
   %6 = call %dx.types.Handle @dx.op.annotateHandle2(i32 216, %dx.types.Handle %2, %dx.types.ResourceProperties { i32 32782, i32 0 })  ; AnnotateHandle(res,props)  resource: SamplerComparisonState
 
-; CHECK: error: DXILOpCode must be [0..258].  1999981 specified.
+; CHECK: error: DXILOpCode must be [0..{{[0-9]+}}].  1999981 specified.
 ; CHECK: note: at '%7 = call float @dx.op.calculateLOD.f32(i32 1999981, %dx.types.Handle %5, %dx.types.Handle %6, float %3, float %4, float undef, i1 true)' in block '#0' of function 'main'.
 
   %7 = call float @dx.op.calculateLOD.f32(i32 1999981, %dx.types.Handle %5, %dx.types.Handle %6, float %3, float %4, float undef, i1 true)  ; CalculateLOD(handle,sampler,coord0,coord1,coord2,clamped)
