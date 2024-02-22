@@ -13248,7 +13248,7 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
   for (UINT minShaderWaveSize = 4; minShaderWaveSize <= maxWaveSize;
        minShaderWaveSize *= 2) {
     for (UINT maxShaderWaveSize = minShaderWaveSize * 2;
-         maxShaderWaveSize <= 128; minShaderWaveSize *= 2) {
+         maxShaderWaveSize <= 128; maxShaderWaveSize *= 2) {
       for (UINT prefShaderWaveSize = minShaderWaveSize;
            prefShaderWaveSize <= maxShaderWaveSize; prefShaderWaveSize *= 2) {
         // format compiler args
@@ -13294,17 +13294,20 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
           pOutData = (WaveSizeTestData *)dataUav.data();
 
           for (unsigned i = 0; i < MAX_WAVESIZE; i++) {
-            if (!VERIFY_IS_TRUE(pOutData[i].count >= minWaveSize &&
-                                pOutData[i].count <= maxWaveSize))
-              break;
+            VERIFY_IS_TRUE(pOutData[i].count >= minWaveSize &&
+                           pOutData[i].count <= maxWaveSize);
+
             if (prefShaderWaveSize >= minWaveSize &&
                 prefShaderWaveSize <= maxWaveSize) {
 
-              if (!VERIFY_ARE_EQUAL(pOutData[i].count, prefShaderWaveSize))
-                break;
+              VERIFY_ARE_EQUAL(pOutData[i].count, prefShaderWaveSize);
             }
           }
         } else {
+          LogCommentFmt(L"Wave size range [%d, %d] not supported by runtime, "
+                        L"which only supports range [%d, %d]",
+                        minShaderWaveSize, maxShaderWaveSize, minWaveSize,
+                        maxWaveSize);
           VERIFY_ARE_EQUAL(0u, dataUav.size());
         }
       }
@@ -13347,6 +13350,7 @@ void ExecutionTest::WaveSizeTest() {
   ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
   st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
 
+  LogCommentFmt(L"Testing WaveSize attribute for shader model 6.6.");
   RunWaveSizeTest(minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support);
   pDevice.Release();
   if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_8)) {
@@ -13359,6 +13363,9 @@ void ExecutionTest::WaveSizeTest() {
     WEX::Logging::Log::Comment(L"Device does not support wave operations.");
     return;
   }
+  LogCommentFmt(
+      L"Testing WaveSize attribute with ranges for shader model 6.8.");
+
   RunWaveSizeRangeTest(minWaveSize, maxWaveSize, ShaderOpSet, pDevice,
                        m_support);
 }
