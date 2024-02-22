@@ -3950,7 +3950,7 @@ UINT DerivativesTest_GetCenterIndex(Dispatch &D) {
     // 1D Quads - Find center, truncate to the previous multiple of 16 to get
     // to the start of the repeating pattern, and then add 12 to get to the
     // middle (2,2) pixel of the pattern. The values are stored in Z-order.
-    return (((UINT64)(D.width * D.height) / 2) & ~0xF) + 12;
+    return (((UINT64)D.width / 2) & ~0xF) + 12;
   } else {
     // To find roughly the center, divide the height and width in
     // half, truncate to the previous multiple of 4 to get to the start of the
@@ -4017,7 +4017,7 @@ TEST_F(ExecutionTest, DerivativesTest) {
   std::vector<Dispatch> meshDispatches = {
       // (X * Y * Z) must be <= 128
       {60, 1, 1}, {128, 1, 1}, {8, 8, 1},  {16, 8, 1},
-      {8, 4, 2},  {10, 10, 1}, {4, 16, 2},
+      {8, 4, 2},  {10, 10, 1}, {4, 16, 2}, {4, 16, 2}
   };
 
   std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
