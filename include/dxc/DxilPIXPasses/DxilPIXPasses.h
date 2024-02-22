@@ -27,6 +27,7 @@ ModulePass *createDxilDebugInstrumentationPass();
 ModulePass *createDxilShaderAccessTrackingPass();
 ModulePass *createDxilPIXAddTidToAmplificationShaderPayloadPass();
 ModulePass *createDxilPIXDXRInvocationsLogPass();
+ModulePass *createEmitDxilResourceToMetaPass();
 
 void initializeDxilAddPixelHitInstrumentationPass(llvm::PassRegistry &);
 void initializeDxilDbgValueToDbgDeclarePass(llvm::PassRegistry &);
@@ -41,5 +42,6 @@ void initializeDxilShaderAccessTrackingPass(llvm::PassRegistry &);
 void initializeDxilPIXAddTidToAmplificationShaderPayloadPass(
     llvm::PassRegistry &);
 void initializeDxilPIXDXRInvocationsLogPass(llvm::PassRegistry &);
+void initializeEmitDxilResourceToMetaPass(llvm::PassRegistry &);
 
 } // namespace llvm

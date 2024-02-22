@@ -6147,6 +6147,12 @@ class db_dxil(object):
             [{"n": "startInstruction", "t": "int", "c": 1}],
         )
         add_pass(
+            "hlsl-dxil-emit-resources",
+            "EmitDxilResourceToMeta",
+            "Emit Dxil resource meta data",
+            [],
+        )
+        add_pass(
             "dxil-dbg-value-to-dbg-declare",
             "DxilDbgValueToDbgDeclare",
             "Converts llvm.dbg.value uses to llvm.dbg.declare.",
