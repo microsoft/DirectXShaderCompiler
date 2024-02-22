@@ -13230,15 +13230,16 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
       "// Note: The 3 WAVESIZE variables below will be defined via compiler "
       "option -D\r\n"
       "[wavesize(MINWAVESIZE, MAXWAVESIZE, PREFWAVESIZE)]\r\n"
-      "[numthreads(" stringify(MAX_WAVESIZE) "*2,1,1)]\r\n"
-                                             "void main(uint3 tid : "
-                                             "SV_DispatchThreadID ) { \r\n"
-                                             "  data[tid.x].count = "
-                                             "WaveActiveSum(1); \r\n" // TODO:
-                                                                      // Use
-                                                                      // WaveGetLaneCount()
-                                                                      // instead
-                                             "}\r\n";
+      "[numthreads(" stringify(
+          MAX_WAVESIZE) "*2,1,1)]\r\n"
+                        "void main(uint3 tid : "
+                        "SV_DispatchThreadID ) { \r\n"
+                        "  data[tid.x].count = "
+                        "WaveActiveSum(1); \r\n" // TODO:
+                                                 // Use
+                                                 // WaveGetLaneCount()
+                                                 // instead
+                        "}\r\n";
 
   struct WaveSizeTestData {
     uint32_t count;
