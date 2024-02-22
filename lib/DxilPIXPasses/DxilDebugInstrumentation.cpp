@@ -397,9 +397,9 @@ static unsigned FindOrAddInputSignatureElement(
   if (ExistingElement == InputElements.end()) {
     auto AddedElement = llvm::make_unique<DxilSignatureElement>(sigPointKind);
     unsigned int Index = static_cast<unsigned int>(InputElements.size());
-    AddedElement->Initialize(
-        name, hlsl::CompType::getF32(), hlsl::DXIL::InterpolationMode::Constant,
-        1, 1, Index, 0);
+    AddedElement->Initialize(name, hlsl::CompType::getF32(),
+                             hlsl::DXIL::InterpolationMode::Constant, 1, 1,
+                             Index, 0);
     AddedElement->AppendSemanticIndex(0);
     AddedElement->SetKind(semanticKind);
     AddedElement->SetUsageMask(1);
@@ -462,8 +462,8 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
       auto Added_SV_Position =
           llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
       Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
-                                    hlsl::DXIL::InterpolationMode::Linear, 1,
-                                    4, Index, 0);
+                                    hlsl::DXIL::InterpolationMode::Linear, 1, 4,
+                                    Index, 0);
       Added_SV_Position->AppendSemanticIndex(0);
       Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
 
