@@ -1505,8 +1505,6 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
     }
   }
 
-  DM.ReEmitDxilResources();
-
   return true;
 }
 
