@@ -191,6 +191,7 @@ public:
   bool OutputWarnings = true;             // OPT_no_warnings
   bool ShowHelp = false;                  // OPT_help
   bool ShowHelpHidden = false;            // OPT__help_hidden
+  bool DiagnosticsFormatMSVC = false;     // OPT_fdiagnostics_format_msvc
   bool ShowOptionNames = false;           // OPT_fdiagnostics_show_option
   bool ShowVersion = false;               // OPT_version
   bool UseColor = false;                  // OPT_Cc
