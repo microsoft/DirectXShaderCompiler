@@ -124,14 +124,14 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS5 {
 #define D3D12_FEATURE_D3D12_OPTIONS7 ((D3D12_FEATURE)32)
 
 typedef enum D3D12_MESH_SHADER_TIER {
-    D3D12_MESH_SHADER_TIER_NOT_SUPPORTED	= 0,
-    D3D12_MESH_SHADER_TIER_1	= 10
+  D3D12_MESH_SHADER_TIER_NOT_SUPPORTED = 0,
+  D3D12_MESH_SHADER_TIER_1 = 10
 } D3D12_MESH_SHADER_TIER;
 
 enum D3D12_SAMPLER_FEEDBACK_TIER {
-    D3D12_SAMPLER_FEEDBACK_TIER_NOT_SUPPORTED	= 0,
-    D3D12_SAMPLER_FEEDBACK_TIER_0_9	= 90,
-    D3D12_SAMPLER_FEEDBACK_TIER_1_0	= 100
+  D3D12_SAMPLER_FEEDBACK_TIER_NOT_SUPPORTED = 0,
+  D3D12_SAMPLER_FEEDBACK_TIER_0_9 = 90,
+  D3D12_SAMPLER_FEEDBACK_TIER_1_0 = 100
 } D3D12_SAMPLER_FEEDBACK_TIER;
 
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS7 {
@@ -148,9 +148,9 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS7 {
 #define D3D12_FEATURE_D3D12_OPTIONS9 ((D3D12_FEATURE)37)
 
 typedef enum D3D12_WAVE_MMA_TIER {
-  D3D12_WAVE_MMA_TIER_NOT_SUPPORTED	= 0,
-  D3D12_WAVE_MMA_TIER_1_0	= 10
-} 	D3D12_WAVE_MMA_TIER;
+  D3D12_WAVE_MMA_TIER_NOT_SUPPORTED = 0,
+  D3D12_WAVE_MMA_TIER_1_0 = 10
+} D3D12_WAVE_MMA_TIER;
 
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS9 {
   BOOL MeshShaderPipelineStatsSupported;
@@ -275,7 +275,7 @@ static const char *MeshShaderTierToStr(D3D12_MESH_SHADER_TIER Tier) {
 static const char *WaveMatrixTierToStr(D3D12_WAVE_MMA_TIER Tier) {
   switch (Tier) {
   case D3D12_WAVE_MMA_TIER_NOT_SUPPORTED:
-  	return "NO";
+    return "NO";
   case D3D12_WAVE_MMA_TIER_1_0:
     return "1";
   default:
@@ -358,19 +358,20 @@ static HRESULT PrintAdapters() {
                 "View Instancing [%s] 16bit Support [%s] Raytracing [%s] "
                 "Mesh Shaders [%s] Derivatives in Mesh/Amp Shaders [%s] "
                 "Wave Matrix [%s] Advanced Texture Ops [%s]\n";
-      printf(Format, comma, AdapterDesc.Description,
-             ShaderModelToStr(DeviceSM.HighestShaderModel),
-             BoolToStr(DeviceOptions.WaveOps),
-             BoolToStr(DeviceOptions.Int64ShaderOps),
-             BoolToStr(DeviceOptions3.BarycentricsSupported),
-             ViewInstancingTierToStr(DeviceOptions3.ViewInstancingTier),
-             BoolToStr(DeviceOptions4.Native16BitShaderOpsSupported),
-             RaytracingTierToStr(DeviceOptions5.RaytracingTier),
-             MeshShaderTierToStr(DeviceOptions7.MeshShaderTier),
-             BoolToStr(DeviceOptions9
-                           .DerivativesInMeshAndAmplificationShadersSupported),
-             WaveMatrixTierToStr(DeviceOptions9.WaveMMATier),
-             BoolToStr(DeviceOptions14.AdvancedTextureOpsSupported));
+      printf(
+          Format, comma, AdapterDesc.Description,
+          ShaderModelToStr(DeviceSM.HighestShaderModel),
+          BoolToStr(DeviceOptions.WaveOps),
+          BoolToStr(DeviceOptions.Int64ShaderOps),
+          BoolToStr(DeviceOptions3.BarycentricsSupported),
+          ViewInstancingTierToStr(DeviceOptions3.ViewInstancingTier),
+          BoolToStr(DeviceOptions4.Native16BitShaderOpsSupported),
+          RaytracingTierToStr(DeviceOptions5.RaytracingTier),
+          MeshShaderTierToStr(DeviceOptions7.MeshShaderTier),
+          BoolToStr(
+              DeviceOptions9.DerivativesInMeshAndAmplificationShadersSupported),
+          WaveMatrixTierToStr(DeviceOptions9.WaveMMATier),
+          BoolToStr(DeviceOptions14.AdvancedTextureOpsSupported));
       AdapterIndex++;
       comma = IsOutputJson ? ',' : ' ';
     }
