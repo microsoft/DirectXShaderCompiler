@@ -473,7 +473,7 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
   } break;
   default:
     DXASSERT_ARGS(false, "Unexpected shader kind %d",
-             static_cast<int>(shaderKind)); // guaranteed by runOnModule
+                  static_cast<int>(shaderKind)); // guaranteed by runOnModule
   }
 
   return SVIndices;
@@ -730,7 +730,7 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
     break;
   default:
     DXASSERT_ARGS(false, "Unexpected shader kind %d",
-             static_cast<int>(shaderKind)); // guaranteed by runOnModule
+                  static_cast<int>(shaderKind)); // guaranteed by runOnModule
   }
 
   auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
@@ -920,9 +920,9 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     // The above are the only two valid types for a UAV store
     DXASSERT_ARGS(
         UndefArg != nullptr,
-             "Expected only integer or float types for UAV store. Actual value "
-             "type id is %d",
-             static_cast<int>(TheValueTypeID));
+        "Expected only integer or float types for UAV store. Actual value "
+        "type id is %d",
+        static_cast<int>(TheValueTypeID));
     BytesToBeEmitted += 4;
     Constant *WriteMask_X = BC.HlslOP->GetI8Const(1);
 
@@ -977,7 +977,8 @@ void DxilDebugInstrumentation::addStepEntryForType(
     DebugShaderModifierRecordDXILStep<ReturnType> step = {};
     reserveDebugEntrySpace(*BC, sizeof(step));
 
-    auto &values = m_FunctionToValues[BC->Builder.GetInsertBlock()->getParent()];
+    auto &values =
+        m_FunctionToValues[BC->Builder.GetInsertBlock()->getParent()];
 
     step.Header.Details.SizeDwords =
         DebugShaderModifierRecordPayloadSizeDwords(sizeof(step));
@@ -1192,7 +1193,7 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
   }
 
   DXASSERT_ARGS(EmittedType.has_value(), "Unexepected TypeID %d",
-           static_cast<int>(ID));
+                static_cast<int>(ID));
 
   return EmittedType;
 }
@@ -1261,7 +1262,7 @@ uint32_t DxilDebugInstrumentation::CountBlockPayloadBytes(
 const char *TypeString(InstructionAndType const &IandT) {
   auto datum = FindDatum(IandT.Type);
   DXASSERT_ARGS(datum, "Datum was not found for type %d",
-           static_cast<int>(IandT.Type));
+                static_cast<int>(IandT.Type));
   if (datum)
     return (*datum)->AsString;
   return "v";
