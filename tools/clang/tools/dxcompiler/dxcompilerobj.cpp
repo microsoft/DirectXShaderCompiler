@@ -1353,7 +1353,7 @@ public:
                                            ? hlsl::DXIL::kNewLayoutString
                                            : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
-    if(Opts.DiagnosticsFormatMSVC)
+    if (Opts.DiagnosticsFormatMSVC)
       compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::MSVC);
     compiler.getDiagnosticOpts().ShowOptionNames = Opts.ShowOptionNames ? 1 : 0;
     compiler.getDiagnosticOpts().Warnings = std::move(Opts.Warnings);
