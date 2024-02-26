@@ -13160,7 +13160,7 @@ void RunWaveSizeTest(UINT minWaveSize, UINT maxWaveSize,
       "[numthreads(" stringify(
           MAX_WAVESIZE) "*2,1,1)]\r\n"
                         "void main(uint3 tid : SV_DispatchThreadID ) { \r\n"
-                        "  data[tid.x].count = WaveActiveSum(1); \r\n"
+                        "  data[tid.x].count = WaveGetLaneCount(); \r\n"
                         "}\r\n";
 
   struct WaveSizeTestData {
