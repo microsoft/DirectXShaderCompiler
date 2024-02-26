@@ -156,6 +156,7 @@ public:
   llvm::StringRef DefaultLinkage;             // OPT_default_linkage
   llvm::StringRef ImportBindingTable;         // OPT_import_binding_table
   llvm::StringRef BindingTableDefine;         // OPT_binding_table_define
+  llvm::StringRef DiagnosticsFormat;          // OPT_fdiagnostics_format
   unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
 
   bool AllResourcesBound = false;         // OPT_all_resources_bound
@@ -191,7 +192,6 @@ public:
   bool OutputWarnings = true;             // OPT_no_warnings
   bool ShowHelp = false;                  // OPT_help
   bool ShowHelpHidden = false;            // OPT__help_hidden
-  bool DiagnosticsFormatMSVC = false;     // OPT_fdiagnostics_format_msvc
   bool ShowOptionNames = false;           // OPT_fdiagnostics_show_option
   bool ShowVersion = false;               // OPT_version
   bool UseColor = false;                  // OPT_Cc

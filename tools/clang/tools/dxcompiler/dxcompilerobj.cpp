@@ -1353,14 +1353,22 @@ public:
                                            ? hlsl::DXIL::kNewLayoutString
                                            : hlsl::DXIL::kLegacyLayoutString;
     compiler.HlslLangExtensions = helper;
-    if (Opts.DiagnosticsFormatMSVC)
-      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::MSVC);
     compiler.getDiagnosticOpts().ShowOptionNames = Opts.ShowOptionNames ? 1 : 0;
     compiler.getDiagnosticOpts().Warnings = std::move(Opts.Warnings);
     compiler.getDiagnosticOpts().VerifyDiagnostics = Opts.VerifyDiagnostics;
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
+    if (Opts.DiagnosticsFormat.empty()) {
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::Clang);
+    } else if (Opts.DiagnosticsFormat.equals_lower(StringRef("clang"))) {
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::Clang);
+    } else if (Opts.DiagnosticsFormat.equals_lower(StringRef("msvc"))) {
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::MSVC);
+    } else if (Opts.DiagnosticsFormat.equals_lower(
+                   StringRef("msvc-fallback"))) {
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::MSVC);
+    }
     compiler.createFileManager();
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
