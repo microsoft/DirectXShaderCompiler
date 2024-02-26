@@ -121,8 +121,9 @@ def fconstexpr_depth_EQ : Joined<["-"], "fconstexpr-depth=">, Group<f_Group>;
 def fconstexpr_steps_EQ : Joined<["-"], "fconstexpr-steps=">, Group<f_Group>;
 def fconstexpr_backtrace_limit_EQ : Joined<["-"], "fconstexpr-backtrace-limit=">,
                                     Group<f_Group>;
-def fdiagnostics_format_msvc : Flag<["-"], "fdiagnostics-format-msvc">, Group<hlslcomp_Group>,
-    Flags<[CoreOption]>, HelpText<"Show diagnostics in MSVC format">;
+def fdiagnostics_format_EQ : Joined<["-"], "fdiagnostics-format=">, Group<hlslcomp_Group>,
+    Flags<[CoreOption]>,
+    HelpText<"Select diagnostic message format. Supported values: clang, msvc, mdvc-fallback, vi">;
 def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
     Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
 def fno_diagnostics_show_option : Flag<["-"], "fno-diagnostics-show-option">, Group<hlslcomp_Group>,
