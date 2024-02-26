@@ -174,6 +174,7 @@ struct ValidationContext {
   const unsigned kLLVMLoopMDKind;
   unsigned m_DxilMajor, m_DxilMinor;
   ModuleSlotTracker slotTracker;
+  std::unique_ptr<CallGraph> pCallGraph;
 
   ValidationContext(Module &llvmModule, Module *DebugModule,
                     DxilModule &dxilModule)
@@ -396,6 +397,12 @@ struct ValidationContext {
   }
 
   EntryStatus &GetEntryStatus(Function *F) { return *entryStatusMap[F]; }
+
+  CallGraph &GetCallGraph() {
+    if (!pCallGraph)
+      pCallGraph = llvm::make_unique<CallGraph>(M);
+    return *pCallGraph.get();
+  }
 
   DxilResourceProperties GetResourceFromVal(Value *resVal);
 
@@ -5386,6 +5393,216 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx) {
   }
 }
 
+// CompatibilityChecker is used to identify incompatibilities in an entry
+// function and any functions called by that entry function.
+struct CompatibilityChecker {
+  ValidationContext &ValCtx;
+  Function *EntryFn;
+  const DxilFunctionProps &props;
+  DXIL::ShaderKind shaderKind;
+
+  // These masks identify the potential conflict flags based on the entry
+  // function's shader kind and properties when either UsesDerivatives or
+  // RequiresGroup flags are set in ShaderCompatInfo.
+  uint32_t maskForDeriv = 0;
+  uint32_t maskForGroup = 0;
+
+  enum class ConflictKind : uint32_t {
+    Stage,
+    ShaderModel,
+    DerivLaunch,
+    DerivThreadGroupDim,
+    DerivInComputeShaderModel,
+    RequiresGroup,
+  };
+  enum class ConflictFlags : uint32_t {
+    Stage = 1 << (uint32_t)ConflictKind::Stage,
+    ShaderModel = 1 << (uint32_t)ConflictKind::ShaderModel,
+    DerivLaunch = 1 << (uint32_t)ConflictKind::DerivLaunch,
+    DerivThreadGroupDim = 1 << (uint32_t)ConflictKind::DerivThreadGroupDim,
+    DerivInComputeShaderModel =
+        1 << (uint32_t)ConflictKind::DerivInComputeShaderModel,
+    RequiresGroup = 1 << (uint32_t)ConflictKind::RequiresGroup,
+  };
+
+  CompatibilityChecker(ValidationContext &ValCtx, Function *EntryFn)
+      : ValCtx(ValCtx), EntryFn(EntryFn),
+        props(ValCtx.DxilMod.GetDxilEntryProps(EntryFn).props),
+        shaderKind(props.shaderKind) {
+
+    // Precompute potential incompatibilities based on shader stage, shader kind
+    // and entry attributes. These will turn into full conflicts if the entry
+    // point's shader flags indicate that they use relevant features.
+    if (!ValCtx.DxilMod.GetShaderModel()->IsSM66Plus() &&
+        (shaderKind == DXIL::ShaderKind::Mesh ||
+         shaderKind == DXIL::ShaderKind::Amplification ||
+         shaderKind == DXIL::ShaderKind::Compute)) {
+      maskForDeriv |=
+          static_cast<uint32_t>(ConflictFlags::DerivInComputeShaderModel);
+    } else if (shaderKind == DXIL::ShaderKind::Node) {
+      // Only broadcasting launch supports derivatives.
+      if (props.Node.LaunchType != DXIL::NodeLaunchType::Broadcasting)
+        maskForDeriv |= static_cast<uint32_t>(ConflictFlags::DerivLaunch);
+      // Thread launch node has no group.
+      if (props.Node.LaunchType == DXIL::NodeLaunchType::Thread)
+        maskForGroup |= static_cast<uint32_t>(ConflictFlags::RequiresGroup);
+    }
+
+    if (shaderKind == DXIL::ShaderKind::Mesh ||
+        shaderKind == DXIL::ShaderKind::Amplification ||
+        shaderKind == DXIL::ShaderKind::Compute ||
+        shaderKind == DXIL::ShaderKind::Node) {
+      // All compute-like stages
+      // Thread dimensions must be either 1D and X is multiple of 4, or 2D
+      // and X and Y must be multiples of 2.
+      if (props.numThreads[1] == 1 && props.numThreads[2] == 1) {
+        if ((props.numThreads[0] & 0x3) != 0)
+          maskForDeriv |=
+              static_cast<uint32_t>(ConflictFlags::DerivThreadGroupDim);
+      } else if ((props.numThreads[0] & 0x1) || (props.numThreads[1] & 0x1))
+        maskForDeriv |=
+            static_cast<uint32_t>(ConflictFlags::DerivThreadGroupDim);
+    } else {
+      // other stages have no group
+      maskForGroup |= static_cast<uint32_t>(ConflictFlags::RequiresGroup);
+    }
+  }
+
+  uint32_t
+  IdentifyConflict(const DxilModule::ShaderCompatInfo &compatInfo) const {
+    uint32_t conflictMask = 0;
+
+    // Compatibility check said this shader kind is not compatible.
+    if (0 == ((1 << (uint32_t)shaderKind) & compatInfo.mask))
+      conflictMask |= (uint32_t)ConflictFlags::Stage;
+
+    // Compatibility check said this shader model is not compatible.
+    if (DXIL::CompareVersions(ValCtx.DxilMod.GetShaderModel()->GetMajor(),
+                              ValCtx.DxilMod.GetShaderModel()->GetMinor(),
+                              compatInfo.minMajor, compatInfo.minMinor) < 0)
+      conflictMask |= (uint32_t)ConflictFlags::ShaderModel;
+
+    if (compatInfo.shaderFlags.GetUsesDerivatives())
+      conflictMask |= maskForDeriv;
+
+    if (compatInfo.shaderFlags.GetRequiresGroup())
+      conflictMask |= maskForGroup;
+
+    return conflictMask;
+  }
+
+  void Diagnose(Function *F, uint32_t conflictMask, ConflictKind conflict,
+                ValidationRule rule, ArrayRef<StringRef> args = {}) {
+    if (conflictMask & (1 << (unsigned)conflict))
+      ValCtx.EmitFnFormatError(F, rule, args);
+  }
+
+  void DiagnoseConflicts(Function *F, uint32_t conflictMask) {
+    // Emit a diagnostic indicating that either the entry function or a function
+    // called by the entry function contains a disallowed operation.
+    if (F == EntryFn)
+      ValCtx.EmitFnError(EntryFn, ValidationRule::SmIncompatibleOperation);
+    else
+      ValCtx.EmitFnError(EntryFn, ValidationRule::SmIncompatibleCallInEntry);
+
+    // Emit diagnostics for each conflict found in this function.
+    Diagnose(F, conflictMask, ConflictKind::Stage,
+             ValidationRule::SmIncompatibleStage,
+             {ShaderModel::GetKindName(props.shaderKind)});
+    Diagnose(F, conflictMask, ConflictKind::ShaderModel,
+             ValidationRule::SmIncompatibleShaderModel);
+    Diagnose(F, conflictMask, ConflictKind::DerivLaunch,
+             ValidationRule::SmIncompatibleDerivLaunch,
+             {GetLaunchTypeStr(props.Node.LaunchType)});
+    Diagnose(F, conflictMask, ConflictKind::DerivThreadGroupDim,
+             ValidationRule::SmIncompatibleThreadGroupDim,
+             {std::to_string(props.numThreads[0]),
+              std::to_string(props.numThreads[1]),
+              std::to_string(props.numThreads[2])});
+    Diagnose(F, conflictMask, ConflictKind::DerivInComputeShaderModel,
+             ValidationRule::SmIncompatibleDerivInComputeShaderModel);
+    Diagnose(F, conflictMask, ConflictKind::RequiresGroup,
+             ValidationRule::SmIncompatibleRequiresGroup);
+  }
+
+  // Visit function and all functions called by it.
+  // Emit diagnostics for incompatibilities found in a function when no
+  // functions called by that function introduced the conflict.
+  // In those cases, the called functions themselves will emit the diagnostic.
+  // Return conflict mask for this function.
+  uint32_t Visit(Function *F, uint32_t &remainingMask,
+                 llvm::SmallPtrSet<Function *, 8> &visited, CallGraph &CG) {
+    // Recursive check looks for where a conflict is found and not present
+    // in functions called by the current function.
+    // - When a source is found, emit diagnostics and clear the conflict
+    // flags introduced by this function from the working mask so we don't
+    // report this conflict again.
+    // - When the remainingMask is 0, we are done.
+
+    if (remainingMask == 0)
+      return 0; // Nothing left to search for.
+    if (!visited.insert(F).second)
+      return 0; // Already visited.
+
+    const DxilModule::ShaderCompatInfo *compatInfo =
+        ValCtx.DxilMod.GetCompatInfoForFunction(F);
+    DXASSERT(compatInfo, "otherwise, compat info not computed in module");
+    if (!compatInfo)
+      return 0;
+    uint32_t maskForThisFunction = IdentifyConflict(*compatInfo);
+
+    uint32_t maskForCalls = 0;
+    if (CallGraphNode *CGNode = CG[F]) {
+      for (auto &Call : *CGNode) {
+        Function *called = Call.second->getFunction();
+        if (called->isDeclaration())
+          continue;
+        maskForCalls |= Visit(called, remainingMask, visited, CG);
+        if (remainingMask == 0)
+          return 0; // Nothing left to search for.
+      }
+    }
+
+    // Mask of incompatibilities introduced by this function.
+    uint32_t conflictsIntroduced =
+        remainingMask & maskForThisFunction & ~maskForCalls;
+    if (conflictsIntroduced) {
+      // This function introduces at least one conflict.
+      DiagnoseConflicts(F, conflictsIntroduced);
+      // Mask off diagnosed incompatibilities.
+      remainingMask &= ~conflictsIntroduced;
+    }
+    return maskForThisFunction;
+  }
+
+  void FindIncompatibleCall(const DxilModule::ShaderCompatInfo &compatInfo) {
+    uint32_t conflictMask = IdentifyConflict(compatInfo);
+    if (conflictMask == 0)
+      return;
+
+    CallGraph &CG = ValCtx.GetCallGraph();
+    llvm::SmallPtrSet<Function *, 8> visited;
+    Visit(EntryFn, conflictMask, visited, CG);
+  }
+};
+
+static void ValidateEntryCompatibility(ValidationContext &ValCtx) {
+  // Make sure functions called from each entry are compatible with that entry.
+  DxilModule &DM = ValCtx.DxilMod;
+  for (Function &F : DM.GetModule()->functions()) {
+    if (DM.HasDxilEntryProps(&F)) {
+      const DxilModule::ShaderCompatInfo *compatInfo =
+          DM.GetCompatInfoForFunction(&F);
+      DXASSERT(compatInfo, "otherwise, compat info not computed in module");
+      if (!compatInfo)
+        continue;
+
+      CompatibilityChecker checker(ValCtx, &F);
+      checker.FindIncompatibleCall(*compatInfo);
+    }
+  }
+}
+
 static void CheckPatchConstantSemantic(ValidationContext &ValCtx,
                                        const DxilEntryProps &EntryProps,
                                        EntryStatus &Status, Function *F) {
@@ -5900,7 +6117,7 @@ CalculateCallDepth(CallGraphNode *node,
 
 static void ValidateCallGraph(ValidationContext &ValCtx) {
   // Build CallGraph.
-  CallGraph CG(*ValCtx.DxilMod.GetModule());
+  CallGraph &CG = ValCtx.GetCallGraph();
 
   std::unordered_map<CallGraphNode *, unsigned> depthMap;
   std::unordered_set<CallGraphNode *> callStack;
@@ -6160,6 +6377,8 @@ HRESULT ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule) {
   }
 
   ValidateShaderFlags(ValCtx);
+
+  ValidateEntryCompatibility(ValCtx);
 
   ValidateEntrySignatures(ValCtx);
 
