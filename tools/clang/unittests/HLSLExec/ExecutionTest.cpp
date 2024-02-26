@@ -13230,16 +13230,12 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
       "// Note: The 3 WAVESIZE variables below will be defined via compiler "
       "option -D\r\n"
       "[wavesize(MINWAVESIZE, MAXWAVESIZE, PREFWAVESIZE)]\r\n"
-      "[numthreads(" stringify(
-          MAX_WAVESIZE) "*2,1,1)]\r\n"
-                        "void main(uint3 tid : "
-                        "SV_DispatchThreadID ) { \r\n"
-                        "  data[tid.x].count = "
-                        "WaveActiveSum(1); \r\n" // TODO:
-                                                 // Use
-                                                 // WaveGetLaneCount()
-                                                 // instead
-                        "}\r\n";
+      "[numthreads(" stringify(MAX_WAVESIZE) "*2,1,1)]\r\n"
+                                             "void main(uint3 tid : "
+                                             "SV_DispatchThreadID ) { \r\n"
+                                             "  data[tid.x].count = "
+                                             "WaveGetLaneCount(); \r\n"
+                                             "}\r\n";
 
   struct WaveSizeTestData {
     uint32_t count;
@@ -13251,6 +13247,21 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
          maxShaderWaveSize <= 128; maxShaderWaveSize *= 2) {
       for (UINT prefShaderWaveSize = minShaderWaveSize;
            prefShaderWaveSize <= maxShaderWaveSize; prefShaderWaveSize *= 2) {
+
+        // For now, only allow valid shader wave ranges
+        // TODO: Create callback function for CreateComputePipelineState to
+        // handle expected errors.
+        bool AcceptedByRuntime = TestShaderRangeAgainstRequirements(
+            minShaderWaveSize, maxShaderWaveSize, minWaveSize, maxWaveSize);
+        if (!AcceptedByRuntime) {
+          LogCommentFmt(
+              L"Wave size range [%d, %d, %d] not supported by runtime, "
+              L"which only supports range [%d, %d]",
+              minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize,
+              minWaveSize, maxWaveSize);
+          continue;
+        }
+
         // format compiler args
         char compilerOptions[64];
         VERIFY_IS_TRUE(
@@ -13261,7 +13272,7 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
 
         // run the shader
         std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-            pDevice, m_support, "WaveSizeTest",
+            pDevice, m_support, "WaveSizeRangeTest",
             [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
               VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
               pShaderOp->Shaders.at(0).Arguments = compilerOptions;
@@ -13284,31 +13295,22 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
         LogCommentFmt(L"Maximum shader wave size: %d", maxShaderWaveSize);
         LogCommentFmt(L"Preferred shader wave size: %d", prefShaderWaveSize);
 
-        bool AcceptedByRuntime = TestShaderRangeAgainstRequirements(
-            minShaderWaveSize, maxShaderWaveSize, minWaveSize, maxWaveSize);
-        if (AcceptedByRuntime) {
+        // at this point we assume that the waverange size that
+        // the shader specifies is legal.
+        test->Test->GetReadBackData("UAVBuffer0", &dataUav);
+        VERIFY_ARE_EQUAL(sizeof(WaveSizeTestData) * MAX_WAVESIZE,
+                         dataUav.size());
+        pOutData = (WaveSizeTestData *)dataUav.data();
 
-          test->Test->GetReadBackData("UAVBuffer0", &dataUav);
-          VERIFY_ARE_EQUAL(sizeof(WaveSizeTestData) * MAX_WAVESIZE,
-                           dataUav.size());
-          pOutData = (WaveSizeTestData *)dataUav.data();
+        for (unsigned i = 0; i < MAX_WAVESIZE; i++) {
+          VERIFY_IS_TRUE(pOutData[i].count >= minWaveSize &&
+                         pOutData[i].count <= maxWaveSize);
 
-          for (unsigned i = 0; i < MAX_WAVESIZE; i++) {
-            VERIFY_IS_TRUE(pOutData[i].count >= minWaveSize &&
-                           pOutData[i].count <= maxWaveSize);
+          if (prefShaderWaveSize >= minWaveSize &&
+              prefShaderWaveSize <= maxWaveSize) {
 
-            if (prefShaderWaveSize >= minWaveSize &&
-                prefShaderWaveSize <= maxWaveSize) {
-
-              VERIFY_ARE_EQUAL(pOutData[i].count, prefShaderWaveSize);
-            }
+            VERIFY_ARE_EQUAL(pOutData[i].count, prefShaderWaveSize);
           }
-        } else {
-          LogCommentFmt(L"Wave size range [%d, %d] not supported by runtime, "
-                        L"which only supports range [%d, %d]",
-                        minShaderWaveSize, maxShaderWaveSize, minWaveSize,
-                        maxWaveSize);
-          VERIFY_ARE_EQUAL(0u, dataUav.size());
         }
       }
     }
