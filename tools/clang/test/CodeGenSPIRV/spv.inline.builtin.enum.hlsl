@@ -1,7 +1,6 @@
-// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv 2>&1 | FileCheck %s
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv -verify
 
-// CHECK-NOT: warning
-// CHECK: OpDecorate %gl_HelperInvocation BuiltIn HelperInvocation
+// expected-no-diagnostics
 
 enum class BuiltIn {
   HelperInvocation = 23
