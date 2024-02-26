@@ -3791,7 +3791,7 @@ TEST_F(ExecutionTest, BasicTriangleOpTestHalf) {
                          D3D_SHADER_MODEL_6_2);
 }
 
-void VerifyDerivResults(const float *pPixels, UINT offsetCenter) {
+void VerifyDerivResults_PS_60(const float *pPixels, UINT offsetCenter) {
 
   // pixel at the center
   float CenterDDXFine = pPixels[offsetCenter];
@@ -3810,6 +3810,7 @@ void VerifyDerivResults(const float *pPixels, UINT offsetCenter) {
   // 1   .125 .25
 
   // In D3D12 there is no guarantee of how the adapter is grouping 2x2 pixels
+  // for pixel shaders and shader model 6.0.
   // So for fine derivatives there can be up to two possible results for the
   // center pixel, while for coarse derivatives there can be up to six possible
   // results.
@@ -3844,6 +3845,45 @@ void VerifyDerivResults(const float *pPixels, UINT offsetCenter) {
   }
 }
 
+void VerifyDerivResults_CS_AS_MS_66(const float *pPixels, UINT offsetCenter) {
+
+  // pixel at the center
+  float CenterDDXFine = pPixels[offsetCenter];
+  float CenterDDYFine = pPixels[offsetCenter + 1];
+  float CenterDDXCoarse = pPixels[offsetCenter + 2];
+  float CenterDDYCoarse = pPixels[offsetCenter + 3];
+
+  LogCommentFmt(
+      L"center  ddx_fine: %8f, ddy_fine: %8f, ddx_coarse: %8f, ddy_coarse: %8f",
+      CenterDDXFine, CenterDDYFine, CenterDDXCoarse, CenterDDYCoarse);
+
+  // The 4x4 texture used to calculate the derivatives looks like this:
+  // .125   .25    .5    1
+  //    2     4    16   32
+  //   32    64  *128* 256
+  //  256   512  1024 2048
+  //
+  // We are checking the derivate values calculated at the texture
+  // center pixel (2,2).
+
+  // In D3D12 for shader model 6.6 compute, mesh and amplification shaders
+  // the quad grouping is well defined. There is one possible result for
+  // fine derivatives and 2 possible results for coarse derivatives.
+  int ulpTolerance = 1;
+
+  // 256 - 128
+  VERIFY_IS_TRUE(CompareFloatULP(CenterDDXFine, 128.0f, ulpTolerance));
+  // 1024 - 128
+  VERIFY_IS_TRUE(CompareFloatULP(CenterDDYFine, 896.0f, ulpTolerance));
+
+  // 256 - 128 or 2048 - 1024
+  VERIFY_IS_TRUE(CompareFloatULP(CenterDDXCoarse, 128.0f, ulpTolerance) ||
+                 CompareFloatULP(CenterDDXCoarse, 1024.0f, ulpTolerance));
+  // 1024 - 128 or 2048 - 256
+  VERIFY_IS_TRUE(CompareFloatULP(CenterDDYCoarse, 896.0f, ulpTolerance) ||
+                 CompareFloatULP(CenterDDYCoarse, 1792.0f, ulpTolerance));
+}
+
 // Rendering two right triangles forming a square and assigning a texture value
 // for each pixel to calculate derivates.
 TEST_F(ExecutionTest, PartialDerivTest) {
@@ -3870,7 +3910,7 @@ TEST_F(ExecutionTest, PartialDerivTest) {
   UINT centerIndex = (UINT64)width * height / 2 - width / 2;
   UINT offsetCenter = centerIndex * pixelSize;
 
-  VerifyDerivResults(pPixels, offsetCenter);
+  VerifyDerivResults_PS_60(pPixels, offsetCenter);
 }
 
 struct Dispatch {
@@ -3905,6 +3945,53 @@ std::shared_ptr<st::ShaderOpTest> RunDispatch(ID3D12Device *pDevice,
   return test;
 }
 
+UINT DerivativesTest_GetCenterIndex(Dispatch &D) {
+  if (D.height == 1) {
+    // 1D Quads - Find center, truncate to the previous multiple of 16 to get
+    // to the start of the repeating pattern, and then add 12 to get to the
+    // middle (2,2) pixel of the pattern. The values are stored in Z-order.
+    return (((UINT64)D.width / 2) & ~0xF) + 12;
+  } else {
+    // To find roughly the center, divide the height and width in
+    // half, truncate to the previous multiple of 4 to get to the start of the
+    // repeating pattern and then add 2 rows to get to the second row of quads
+    // and 2 to get to the first texel of the second row of that quad row
+    UINT centerRow = ((D.height / 2UL) & ~0x3) + 2;
+    UINT centerCol = ((D.width / 2UL) & ~0x3) + 2;
+    return centerRow * D.width + centerCol;
+  }
+}
+
+void DerivativesTest_DebugOutput(Dispatch &D,
+                                 std::shared_ptr<st::ShaderOpTest> &Test,
+                                 const float *pPixels, UINT centerIndex) {
+#ifdef DERIVATIVES_TEST_DEBUG
+  LogCommentFmt(L"------------------------------------");
+  MappedData dataDbg;
+  Test->GetReadBackData("U3", &dataDbg);
+  UINT *pCoords = (UINT *)dataDbg.data();
+
+  LogCommentFmt(L"DISPATCH %d x %d x %d", D.width, D.height, D.depth);
+  for (int j = 0; j < D.height; j++) {
+    for (int i = 0; i < D.width; i++) {
+      UINT index = (j * 4) * D.width + i * 4;
+      LogCommentFmt(L"%3d (%2d, %2d, %2d)\t ddx_fine: %8f, ddy_fine: %8f, "
+                    L"ddx_coarse: %8f, ddy_coarse: %8f",
+                    pCoords[index], pCoords[index + 1], pCoords[index + 2],
+                    pCoords[index + 3], pPixels[index], pPixels[index + 1],
+                    pPixels[index + 2], pPixels[index + 3]);
+    }
+  }
+  LogCommentFmt(L"CENTER %d", centerIndex);
+  LogCommentFmt(L"------------------------------------");
+#else
+  UNREFERENCED_PARAMETER(D);
+  UNREFERENCED_PARAMETER(Test);
+  UNREFERENCED_PARAMETER(pPixels);
+  UNREFERENCED_PARAMETER(centerIndex);
+#endif
+}
+
 TEST_F(ExecutionTest, DerivativesTest) {
   const UINT pixelSize = 4; // always float4
 
@@ -3925,12 +4012,12 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
   std::vector<Dispatch> dispatches = {{40, 1, 1},  {1000, 1, 1}, {32, 32, 1},
                                       {16, 64, 1}, {4, 12, 4},   {4, 64, 1},
-                                      {16, 16, 3}, {32, 8, 2}};
+                                      {16, 16, 3}, {32, 8, 2},   {8, 8, 1}};
 
-  std::vector<Dispatch> meshDispatches = {
-      {60, 1, 1}, {128, 1, 1}, {8, 8, 1}, {32, 8, 1},
-      {8, 16, 4}, {8, 64, 1},  {8, 8, 3},
-  };
+  std::vector<Dispatch> meshDispatches = {// (X * Y * Z) must be <= 128
+                                          {60, 1, 1}, {128, 1, 1}, {8, 8, 1},
+                                          {16, 8, 1}, {8, 4, 2},   {10, 10, 1},
+                                          {4, 16, 2}, {4, 16, 2}};
 
   std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
 
@@ -3945,25 +4032,15 @@ TEST_F(ExecutionTest, DerivativesTest) {
         RunDispatch(pDevice, m_support, pShaderOp, D);
 
     test->GetReadBackData("U0", &data);
-
     float *pPixels = (float *)data.data();
-    ;
 
-    UINT centerIndex = 0;
-    if (D.height == 1) {
-      centerIndex = (((UINT64)(D.width * D.height * D.depth) / 2) & ~0xF) + 10;
-    } else {
-      // To find roughly the center for compute, divide the height and width in
-      // half, truncate to the previous multiple of 4 to get to the start of the
-      // repeating pattern and then add 2 rows to get to the second row of quads
-      // and 2 to get to the first texel of the second row of that quad row
-      UINT centerRow = ((D.height / 2UL) & ~0x3) + 2;
-      UINT centerCol = ((D.width / 2UL) & ~0x3) + 2;
-      centerIndex = centerRow * D.width + centerCol;
-    }
+    UINT centerIndex = DerivativesTest_GetCenterIndex(D);
+
+    DerivativesTest_DebugOutput(D, test, pPixels, centerIndex);
+
     UINT offsetCenter = centerIndex * pixelSize;
     LogCommentFmt(L"Verifying derivatives in compute shader results");
-    VerifyDerivResults(pPixels, offsetCenter);
+    VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
   }
 
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
@@ -3976,16 +4053,18 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
       test->GetReadBackData("U1", &data);
       const float *pPixels = (float *)data.data();
-      UINT centerIndex =
-          (((UINT64)(D.width * D.height * D.depth) / 2) & ~0xF) + 10;
+      UINT centerIndex = DerivativesTest_GetCenterIndex(D);
+
+      DerivativesTest_DebugOutput(D, test, pPixels, centerIndex);
+
       UINT offsetCenter = centerIndex * pixelSize;
       LogCommentFmt(L"Verifying derivatives in mesh shader results");
-      VerifyDerivResults(pPixels, offsetCenter);
+      VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
 
       test->GetReadBackData("U2", &data);
       pPixels = (float *)data.data();
       LogCommentFmt(L"Verifying derivatives in amplification shader results");
-      VerifyDerivResults(pPixels, offsetCenter);
+      VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
     }
   }
 

@@ -87,6 +87,7 @@ class db_dxil_inst(object):
         self.is_feedback = False  # whether this is a sampler feedback op
         self.is_wave = False  # whether this requires in-wave, cross-lane functionality
         self.requires_uniform_inputs = False  # whether this operation requires that all of its inputs are uniform across the wave
+        self.is_barrier = False  # whether this is a barrier operation
         self.shader_stages = ()  # shader stages to which this applies, empty for all.
         self.shader_model = 6, 0  # minimum shader model required
         self.inst_helper_prefix = None
@@ -350,11 +351,7 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
             self.name_idx[i].category = "Resources - gather"
-        for (
-            i
-        ) in "AtomicBinOp,AtomicCompareExchange,Barrier,BarrierByMemoryType,BarrierByMemoryHandle,BarrierByNodeRecordHandle".split(
-            ","
-        ):
+        for i in "AtomicBinOp,AtomicCompareExchange".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(
             ","
@@ -685,12 +682,24 @@ class db_dxil(object):
             self.name_idx[i].category = "Work Graph intrinsics"
             self.name_idx[i].shader_model = 6, 8
             self.name_idx[i].shader_stages = ("node",)
-        for (
-            i
-        ) in "BarrierByMemoryType,BarrierByMemoryHandle,BarrierByNodeRecordHandle".split(
-            ","
-        ):  # included in Synchronization category
+        # All barrier ops:
+        for i in "Barrier".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
+        for i in "BarrierByMemoryType".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
             self.name_idx[i].shader_model = 6, 8
+            self.name_idx[i].shader_model_translated = 6, 0
+        for i in "BarrierByMemoryHandle".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
+            self.name_idx[i].shader_model = 6, 8
+        for i in "BarrierByNodeRecordHandle".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
+            self.name_idx[i].shader_model = 6, 8
+            self.name_idx[i].shader_stages = ("node",)
         for i in "SampleCmpBias,SampleCmpGrad".split(","):
             self.name_idx[i].category = "Comparison Samples"
             self.name_idx[i].shader_model = 6, 8
@@ -5368,6 +5377,7 @@ class db_dxil(object):
                     3, "i32", "SemanticFlags", "semantic flags", is_const=True
                 ),
             ],
+            counters=("barrier",),
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5384,6 +5394,7 @@ class db_dxil(object):
                     3, "i32", "SemanticFlags", "semantic flags", is_const=True
                 ),
             ],
+            counters=("barrier",),
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5396,8 +5407,11 @@ class db_dxil(object):
             [
                 retvoid_param,
                 db_dxil_param(2, "noderecordhandle", "object", "handle of object"),
-                db_dxil_param(3, "i32", "SemanticFlags", "semantic flags"),
+                db_dxil_param(
+                    3, "i32", "SemanticFlags", "semantic flags", is_const=True
+                ),
             ],
+            counters=("barrier",),
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5409,7 +5423,7 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "nodehandle", "output", "handle of object"),
-                db_dxil_param(2, "i32", "MetadataIdx", "metadata index"),
+                db_dxil_param(2, "i32", "MetadataIdx", "metadata index", is_const=True),
             ],
         )
         next_op_idx += 1
@@ -5461,7 +5475,7 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "noderecordhandle", "output", "output handle"),
-                db_dxil_param(2, "i32", "MetadataIdx", "metadata index"),
+                db_dxil_param(2, "i32", "MetadataIdx", "metadata index", is_const=True),
             ],
         )
         next_op_idx += 1
@@ -7310,6 +7324,13 @@ class db_dxil(object):
             "Instr.ImmBiasForSampleB",
             "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.",
         )
+        self.add_valrule(
+            "Instr.IllegalDXILOpCode", "DXILOpCode must be [0..%0].  %1 specified."
+        )
+        self.add_valrule(
+            "Instr.IllegalDXILOpFunction",
+            "'%0' is not a DXILOpFuncition for DXILOpcode '%1'.",
+        )
         # If streams have not been declared, you must use cut instead of cut_stream in GS - is there an equivalent rule here?
 
         # Need to clean up all error messages and actually implement.
@@ -7397,6 +7418,10 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.BarrierNonConstantFlagArgument",
             "Memory type, access, or sync flag is not constant",
+        )
+        self.add_valrule(
+            "Instr.BarrierRequiresNode",
+            "sync in a non-Node Shader must not sync node record memory.",
         )
         self.add_valrule(
             "Instr.WriteMaskForTypedUAVStore",
