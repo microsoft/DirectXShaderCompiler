@@ -7829,7 +7829,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Sm.OutputControlPointCountRange",
-            "output control point count must be [0..%0].  %1 specified.",
+            "output control point count must be [%0..%1].  %2 specified.",
         )
         self.add_valrule("Sm.GSValidInputPrimitive", "GS input primitive unrecognized.")
         self.add_valrule(

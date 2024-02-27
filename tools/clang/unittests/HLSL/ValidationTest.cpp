@@ -881,7 +881,7 @@ TEST_F(ValidationTest, HsAttributeFail) {
        "Invalid Tessellator Output Primitive specified",
        "Hull Shader MaxTessFactor must be [1.000000..64.000000].  65.000000 "
        "specified",
-       "output control point count must be [0..32].  36 specified"});
+       "output control point count must be [1..32].  36 specified"});
 }
 TEST_F(ValidationTest, InnerCoverageFail) {
   RewriteAssemblyCheckMsg(
@@ -1047,7 +1047,7 @@ TEST_F(ValidationTest, SimpleHs1Fail) {
           "\"InsideTessFactor\", i8 9, i8 0",
       },
       {
-          "output control point count must be [0..32].  3000 specified",
+          "output control point count must be [1..32].  3000 specified",
           "Required TessFactor for domain not found declared anywhere in Patch "
           "Constant data",
           // TODO: enable this after support pass thru hull shader.

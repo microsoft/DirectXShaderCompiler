@@ -112,6 +112,7 @@ const unsigned kMaxClipOrCullDistanceElementCount = 2;
 const unsigned kMaxClipOrCullDistanceCount = 2 * 4;
 const unsigned kMaxGSOutputVertexCount = 1024;
 const unsigned kMaxGSInstanceCount = 32;
+const unsigned kMinIAPatchControlPointCount = 1;
 const unsigned kMaxIAPatchControlPointCount = 32;
 const float kHSMaxTessFactorLowerBound = 1.0f;
 const float kHSMaxTessFactorUpperBound = 64.0f;
