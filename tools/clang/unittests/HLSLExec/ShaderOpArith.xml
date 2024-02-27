@@ -2487,7 +2487,7 @@
       </RootValues>
       <Shader Name="CS" Target="cs_6_6">
           <![CDATA[// Shader source code will be set at runtime]]>
-      </Shader>      
+      </Shader>
   </ShaderOp>>
 
   <ShaderOp Name="PackUnpackOp" CS="CS" DispatchX="1" DispatchY="1">
