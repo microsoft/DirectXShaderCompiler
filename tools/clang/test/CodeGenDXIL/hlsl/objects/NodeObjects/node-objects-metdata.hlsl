@@ -301,7 +301,7 @@ void node_RWGroupNodeInputRecords([MaxRecords(4)] RWGroupNodeInputRecords<RECORD
 [NodeLaunch("thread")]
 void node_RWThreadNodeInputRecord(RWThreadNodeInputRecord<RECORD> input)
 {
-   Barrier(wrapper(input), 3);
+   Barrier(wrapper(input), 0);
 }
 
 //  ThreadNodeInputRecord
@@ -317,7 +317,7 @@ void node_RWThreadNodeInputRecord(RWThreadNodeInputRecord<RECORD> input)
 [NodeLaunch("thread")]
 void node_ThreadNodeInputRecord(ThreadNodeInputRecord<RECORD> input)
 {
-   Barrier(wrapper(input), 3);
+   Barrier(wrapper(input), 0);
 }
 
 
