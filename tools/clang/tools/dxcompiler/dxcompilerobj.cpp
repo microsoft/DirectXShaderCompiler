@@ -1359,6 +1359,18 @@ public:
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
+    if (Opts.DiagnosticsFormat.equals_lower("msvc") ||
+        Opts.DiagnosticsFormat.equals_lower("msvc-fallback"))
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::MSVC);
+    else if (Opts.DiagnosticsFormat.equals_lower("vi"))
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::Vi);
+    else if (!Opts.DiagnosticsFormat.equals_lower("clang")) {
+      auto const ID = compiler.getDiagnostics().getCustomDiagID(
+          clang::DiagnosticsEngine::Warning,
+          "invalid option %0 to -fdiagnostics-format: supported values are "
+          "clang, msvc, msvc-fallback, and vi");
+      compiler.getDiagnostics().Report(ID) << Opts.DiagnosticsFormat;
+    }
     compiler.createFileManager();
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
