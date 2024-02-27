@@ -385,6 +385,9 @@ Texture2D<float4> tex1[10] : register( t20, space10 );
 
 void all_wrong() { }
 
+[shader("hull")]
+void hull_wrong() { } // expected-error {{hull entry point must have a valid patchconstantfunc attribute}} expected-error {{hull entry point must have a valid outputtopology attribute}} expected-error {{hull entry point must have a valid outputcontrolpoints attribute}}
+
 [domain("quad")]
 /*verify-ast
   HLSLDomainAttr <col:2, col:15> "quad"

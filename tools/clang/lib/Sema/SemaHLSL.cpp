@@ -13219,15 +13219,14 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
   case AttributeList::AT_HLSLOutputControlPoints: {
     // Hull shader output must be between 1 and 32 control points.
     int outputControlPoints = ValidateAttributeIntArg(S, A);
-    if (outputControlPoints >= 1 && outputControlPoints <= 32) {
-      declAttr = ::new (S.Context) HLSLOutputControlPointsAttr(
-          A.getRange(), S.Context, outputControlPoints,
-          A.getAttributeSpellingListIndex());
-    } else {
+    if (outputControlPoints < 1 || outputControlPoints > 32) {
       S.Diags.Report(A.getLoc(), diag::err_hlsl_controlpoints_size)
           << outputControlPoints << A.getRange();
       return;
     }
+    declAttr = ::new (S.Context) HLSLOutputControlPointsAttr(
+        A.getRange(), S.Context, outputControlPoints,
+        A.getAttributeSpellingListIndex());
     break;
   }
   case AttributeList::AT_HLSLOutputTopology:
