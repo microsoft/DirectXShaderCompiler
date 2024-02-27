@@ -63,7 +63,7 @@ struct RECORD1
 // MD: ![[DispatchNodeInput]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
 // MD: ![[EntryInputs]] = !{![[EntryInputs0:[0-9]+]]}
 // MD: ![[EntryInputs0]] = !{i32 1, i32 97, i32 2, ![[EntryInputs0Record:[0-9]+]]}
-// MD: ![[EntryInputs0Record]] = !{i32 0, i32 16}
+// MD: ![[EntryInputs0Record]] = !{i32 0, i32 16, i32 2, i32 4}
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
@@ -172,7 +172,7 @@ void node_GroupNodeInputRecords([MaxRecords(256)] GroupNodeInputRecords<RECORD> 
 // MD: ![[GroupNodeOutputRecords]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 21, ![[EntryOutputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
 // MD: ![[EntryOutputs]] = !{![[EntryOutputs0:[0-9]+]]}
 // MD: ![[EntryOutputs0]] = !{i32 1, i32 22, i32 2, ![[RecordType1:[0-9]+]], i32 3, i32 64, i32 5, i32 128, i32 0, ![[EntryOutputs0MaxRecords:[0-9]+]]}
-// MD: ![[RecordType1]] = !{i32 0, i32 8}
+// MD: ![[RecordType1]] = !{i32 0, i32 8, i32 2, i32 4}
 // MD: ![[EntryOutputs0MaxRecords]] = !{!"OutputArray", i32 0}
 
 [Shader("node")]
@@ -268,7 +268,7 @@ void node_RWDispatchNodeInputRecord(RWDispatchNodeInputRecord<RECORD> input)
 // MD: ![[RWGroupNodeInputRecords]] = !{i32 8, i32 15, i32 13, i32 2, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
 // MD: ![[EntryInputs]] = !{![[EntryInputs0:[0-9]+]]}
 // MD: ![[EntryInputs0]] = !{i32 1, i32 69, i32 2, ![[RecordType2:[0-9]+]], i32 3, i32 4}
-// MD: ![[RecordType2]] = !{i32 0, i32 48}
+// MD: ![[RecordType2]] = !{i32 0, i32 48, i32 2, i32 4}
 
 struct RECORD2
 {
