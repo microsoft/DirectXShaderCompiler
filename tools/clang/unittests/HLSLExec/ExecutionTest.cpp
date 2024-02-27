@@ -13306,19 +13306,22 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
        minShaderWaveSize *= 2) {
     for (UINT maxShaderWaveSize = minShaderWaveSize * 2;
          maxShaderWaveSize <= 128; maxShaderWaveSize *= 2) {
+      // Only allow valid shader wave ranges
+      bool AcceptedByRuntime = TestShaderRangeAgainstRequirements(
+          minShaderWaveSize, maxShaderWaveSize, minWaveSize, maxWaveSize);
+      if (!AcceptedByRuntime) {
+        continue;
+      }
+
+      ExecuteWaveSizeRangeInstance(
+          minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support,
+          minShaderWaveSize, maxShaderWaveSize,
+          /* prefShaderWaveSize won't be used, so set it to minShaderWaveSize*/
+          minShaderWaveSize, false);
+
       for (UINT prefShaderWaveSize = minShaderWaveSize;
            prefShaderWaveSize <= maxShaderWaveSize; prefShaderWaveSize *= 2) {
 
-        // Only allow valid shader wave ranges
-        bool AcceptedByRuntime = TestShaderRangeAgainstRequirements(
-            minShaderWaveSize, maxShaderWaveSize, minWaveSize, maxWaveSize);
-        if (!AcceptedByRuntime) {
-          continue;
-        }
-
-        ExecuteWaveSizeRangeInstance(
-            minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support,
-            minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize, false);
         ExecuteWaveSizeRangeInstance(
             minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support,
             minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize, true);
