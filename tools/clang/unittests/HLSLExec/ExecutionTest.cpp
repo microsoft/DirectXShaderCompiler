@@ -13312,7 +13312,7 @@ void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
         // Only allow valid shader wave ranges
         bool AcceptedByRuntime = TestShaderRangeAgainstRequirements(
             minShaderWaveSize, maxShaderWaveSize, minWaveSize, maxWaveSize);
-        if (!AcceptedByRuntime) {          
+        if (!AcceptedByRuntime) {
           continue;
         }
 
@@ -13332,7 +13332,8 @@ void ExecutionTest::WaveSizeTest() {
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6, /*skipUnsupported*/ false)) {
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6,
+                    /*skipUnsupported*/ false)) {
     return;
   }
 
@@ -13371,7 +13372,8 @@ void ExecutionTest::WaveSizeRangeTest() {
       WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
 
   CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_8, /*skipUnsupported*/ false)) {
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_8,
+                    /*skipUnsupported*/ false)) {
     return;
   }
 
