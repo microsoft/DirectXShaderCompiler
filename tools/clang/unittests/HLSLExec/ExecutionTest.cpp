@@ -13151,18 +13151,17 @@ void RunWaveSizeTest(UINT minWaveSize, UINT maxWaveSize,
                      dxc::DxcDllSupport &m_support) {
   // format shader source
   const char waveSizeTestShader[] =
-      "struct TestData { \r\n"
-      "  uint count; \r\n"
-      "}; \r\n"
-      "RWStructuredBuffer<TestData> data : register(u0); \r\n"
-      "\r\n"
-      "// Note: WAVESIZE will be defined via compiler option -D\r\n"
-      "[wavesize(WAVESIZE)]\r\n"
-      "[numthreads(1,1,1)]\r\n"
-      "void main() { \r\n"
-      "  data[0].count = "
-      "WaveGetLaneCount(); \r\n"
-      "}\r\n";
+      R"(struct TestData { 
+        uint count; 
+      };
+      RWStructuredBuffer<TestData> data : register(u0); 
+
+      // Note: WAVESIZE will be defined via compiler option -D
+      WAVE_SIZE_ATTR
+      [numthreads()" stringify(MAX_WAVESIZE) R"(*2,1,1)]
+      void main() {
+        data[0].count = WaveGetLaneCount();
+      })";
 
   struct WaveSizeTestData {
     uint32_t count;
@@ -13170,9 +13169,9 @@ void RunWaveSizeTest(UINT minWaveSize, UINT maxWaveSize,
 
   for (UINT waveSize = minWaveSize; waveSize <= maxWaveSize; waveSize *= 2) {
     // format compiler args
-    char compilerOptions[32];
+    char compilerOptions[64];
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D WAVESIZE=%d", waveSize) != -1);
+                             "-D WAVE_SIZE_ATTR=[wavesize(%d)]", waveSize) != -1);
 
     // run the shader
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
@@ -13224,51 +13223,35 @@ void ExecuteWaveSizeRangeInstance(UINT minWaveSize, UINT maxWaveSize,
 
   // format shader source
   const char waveSizeTestShader[] =
-      "struct TestData { \r\n"
-      "  uint count; \r\n"
-      "}; \r\n"
-      "RWStructuredBuffer<TestData> data : register(u0); \r\n"
-      "\r\n"
-      "// Note: The 3 WAVESIZE variables below will be defined via compiler "
-      "option -D\r\n"
-      "[wavesize(MINWAVESIZE, MAXWAVESIZE)]\r\n"
-      "[numthreads(1,1,1)]\r\n"
-      "void main() { \r\n"
-      "  data[0].count = "
-      "WaveGetLaneCount(); \r\n"
-      "}\r\n";
+      R"(struct TestData { 
+        uint count; 
+      };
+      RWStructuredBuffer<TestData> data : register(u0); 
 
-  const char waveSizeTestShaderWithPreferred[] =
-      "struct TestData { \r\n"
-      "  uint count; \r\n"
-      "}; \r\n"
-      "RWStructuredBuffer<TestData> data : register(u0); \r\n"
-      "\r\n"
-      "// Note: The 3 WAVESIZE variables below will be defined via compiler "
-      "option -D\r\n"
-      "[wavesize(MINWAVESIZE, MAXWAVESIZE, PREFWAVESIZE)]\r\n"
-      "[numthreads(1,1,1)]\r\n"
-      "void main() { \r\n"
-      "  data[0].count = "
-      "WaveGetLaneCount(); \r\n"
-      "}\r\n";
+      // Note: WAVE_SIZE_ATTR will be defined via compiler option -D
+      WAVE_SIZE_ATTR
+      [numthreads()" stringify(MAX_WAVESIZE) R"(*2,1,1)]
+      void main(uint3 tid : SV_DispatchThreadID) {
+        if (tid.x == 0 && tid.y == 0 && tid.z == 0) {
+          data[0].count = WaveGetLaneCount();
+        }
+      })";
 
-  // format compiler args
+  // format compiler args  
   char compilerOptions[64];
   if (usePreferred) {
-    VERIFY_IS_TRUE(
-        sprintf_s(compilerOptions, sizeof(compilerOptions),
-                  "-D MINWAVESIZE=%d -D MAXWAVESIZE=%d -D PREFWAVESIZE=%d",
-                  minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize));
+    // putting spaces in between the %d's below will cause compilation issues.
+    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                  "-D WAVE_SIZE_ATTR=[wavesize(%d,%d,%d)]",
+                  minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize) != -1);    
     LogCommentFmt(L"Verifying wave size range test results for (min, max, "
                   L"preferred): (%d, %d, %d)",
                   minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize);
   } else {
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D MINWAVESIZE=%d -D MAXWAVESIZE=%d",
-                             minShaderWaveSize, maxShaderWaveSize));
-    LogCommentFmt(L"Verifying wave size range test results for (min, max, "
-                  L"preferred): (%d, %d)",
+                             "-D WAVE_SIZE_ATTR=[wavesize(%d,%d)]",
+                             minShaderWaveSize, maxShaderWaveSize) != -1);   
+    LogCommentFmt(L"Verifying wave size range test results for (min, max): (%d, %d)",
                   minShaderWaveSize, maxShaderWaveSize);
   }
 
@@ -13278,12 +13261,12 @@ void ExecuteWaveSizeRangeInstance(UINT minWaveSize, UINT maxWaveSize,
 
   // run the shader
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
-      pDevice, m_support, "WaveSizeRangeTest",
+      pDevice, m_support, "WaveSizeTest",
       [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
         VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
         pShaderOp->Shaders.at(0).Arguments = compilerOptions;
-        pShaderOp->Shaders.at(0).Text =
-            usePreferred ? waveSizeTestShaderWithPreferred : waveSizeTestShader;
+        pShaderOp->Shaders.at(0).Text = waveSizeTestShader;
+        pShaderOp->Shaders.at(0).Target = "cs_6_8"; 
 
         VERIFY_IS_TRUE(sizeof(WaveSizeTestData) * MAX_WAVESIZE <= Data.size());
         WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
