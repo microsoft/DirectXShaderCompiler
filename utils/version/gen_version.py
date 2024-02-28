@@ -37,7 +37,7 @@ def get_output_of(cmd):
 
 def get_last_commit_sha():
     try:
-        return get_output_of([ "git", "describe", "--always", "--dirty" ])
+        return get_output_of([ "git", "rev-parse", "--short", "HEAD" ])
     except subprocess.CalledProcessError:
         return "00000000"
 
