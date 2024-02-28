@@ -20,6 +20,10 @@ struct Attribute
   float2 bary;
 };
 
+Attribute CreateAttribute() {
+    return Attribute(float2(0.0f,0.0f));
+}
+
 [shader("intersection")]
 void main() {
 
@@ -59,4 +63,8 @@ void main() {
   Attribute myHitAttribute = { float2(0.0f,0.0f) };
 // CHECK: OpReportIntersectionKHR %bool %float_0 %uint_0
   ReportHit(0.0f, 0U, myHitAttribute);
+// CHECK: OpReportIntersectionKHR %bool %float_0 %uint_1
+  ReportHit(0.0f, 1U, CreateAttribute());
+// CHECK: OpReportIntersectionKHR %bool %float_0 %uint_2
+  ReportHit(0.0f, 2U, Attribute(float2(0.0f,0.0f)));
 }
