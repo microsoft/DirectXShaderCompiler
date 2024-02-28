@@ -19,6 +19,7 @@
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "llvm/Support/Debug.h"
+#include <optional>
 
 using namespace clang;
 using namespace llvm;
@@ -332,6 +333,17 @@ private:
   std::set<CXXMemberCallExpr *> &DiagnosedCalls;
 };
 
+std::optional<uint32_t>
+getFunctionInputPatchCount(const FunctionDecl *function) {
+  for (const auto *param : function->params()) {
+    if (!hlsl::IsHLSLInputPatchType(param->getType()))
+      continue;
+    return hlsl::GetHLSLInputPatchCount(param->getType());
+  }
+
+  return std::nullopt;
+}
+
 } // namespace
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
@@ -461,6 +473,15 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
                      diag::err_hlsl_patch_reachability_not_allowed)
               << 0 << pPatchFnDecl->getName() << 1 << FDecl->getName();
         }
+      }
+
+      auto hullPatchCount = getFunctionInputPatchCount(pPatchFnDecl);
+      auto functionPatchCount = getFunctionInputPatchCount(FDecl);
+      if (hullPatchCount.has_value() && functionPatchCount.has_value() &&
+          hullPatchCount.value() != functionPatchCount.value()) {
+        self->Diag(pPatchFnDecl->getSourceRange().getBegin(),
+                   diag::err_hlsl_patch_input_size_mismatch)
+            << functionPatchCount.value() << hullPatchCount.value();
       }
     }
 

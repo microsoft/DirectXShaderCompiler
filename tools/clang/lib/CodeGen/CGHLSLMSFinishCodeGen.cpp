@@ -1496,18 +1496,6 @@ void SetPatchConstantFunctionWithAttr(
   if (patchConstantFunctionPropsMap.count(patchConstFunc)) {
     const DxilFunctionProps &patchProps =
         *patchConstantFunctionPropsMap[patchConstFunc];
-    if (patchProps.ShaderProps.HS.inputControlPoints != 0 &&
-        patchProps.ShaderProps.HS.inputControlPoints !=
-            HSProps->ShaderProps.HS.inputControlPoints) {
-      clang::DiagnosticsEngine &Diags = CGM.getDiags();
-      unsigned DiagID =
-          Diags.getCustomDiagID(clang::DiagnosticsEngine::Error,
-                                "Patch constant function's input patch input "
-                                "should have %0 elements, but has %1.");
-      Diags.Report(Entry->second.SL, DiagID)
-          << HSProps->ShaderProps.HS.inputControlPoints
-          << patchProps.ShaderProps.HS.inputControlPoints;
-    }
     if (patchProps.ShaderProps.HS.outputControlPoints != 0 &&
         patchProps.ShaderProps.HS.outputControlPoints !=
             HSProps->ShaderProps.HS.outputControlPoints) {
