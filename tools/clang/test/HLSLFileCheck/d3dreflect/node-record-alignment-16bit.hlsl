@@ -7,7 +7,7 @@ RWByteAddressBuffer BAB : register(u1, space0);
 #define GLUE2(x, y) x##y
 #define GLUE(x, y) GLUE2(x, y)
 
-#define TEST_COPY_RECORD(EntryName, CompType) \
+#define TEST_TYPE(EntryName, CompType) \
   struct GLUE(EntryName, _record) { \
     vector<CompType, 3> x; \
   }; \
@@ -23,22 +23,22 @@ RWByteAddressBuffer BAB : register(u1, space0);
 
 // RDAT-LABEL: UnmangledName: "node_half"
 // RDAT: RecordAlignmentInBytes: 2
-TEST_COPY_RECORD(node_half, half)
+TEST_TYPE(node_half, half)
 
 // RDAT-LABEL: UnmangledName: "node_float16"
 // RDAT: RecordAlignmentInBytes: 2
-TEST_COPY_RECORD(node_float16, float16_t)
+TEST_TYPE(node_float16, float16_t)
 
 // RDAT-LABEL: UnmangledName: "node_int16"
 // RDAT: RecordAlignmentInBytes: 2
-TEST_COPY_RECORD(node_int16, int16_t)
+TEST_TYPE(node_int16, int16_t)
 
 // min16 types are converted to native 16-bit types.
 
 // RDAT-LABEL: UnmangledName: "node_min16float"
 // RDAT: RecordAlignmentInBytes: 2
-TEST_COPY_RECORD(node_min16float, min16float)
+TEST_TYPE(node_min16float, min16float)
 
 // RDAT-LABEL: UnmangledName: "node_min16int"
 // RDAT: RecordAlignmentInBytes: 2
-TEST_COPY_RECORD(node_min16int, min16int)
+TEST_TYPE(node_min16int, min16int)

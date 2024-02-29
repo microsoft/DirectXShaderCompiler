@@ -7,7 +7,7 @@ RWByteAddressBuffer BAB : register(u1, space0);
 #define GLUE2(x, y) x##y
 #define GLUE(x, y) GLUE2(x, y)
 
-#define TEST_COPY_RECORD(EntryName, CompType) \
+#define TEST_TYPE(EntryName, CompType) \
   struct GLUE(EntryName, _record) { \
     vector<CompType, 3> x; \
   }; \
@@ -23,33 +23,33 @@ RWByteAddressBuffer BAB : register(u1, space0);
 
 // RDAT-LABEL: UnmangledName: "node_half"
 // RDAT: RecordAlignmentInBytes: 4
-TEST_COPY_RECORD(node_half, half)
+TEST_TYPE(node_half, half)
 
 // RDAT-LABEL: UnmangledName: "node_float"
 // RDAT: RecordAlignmentInBytes: 4
-TEST_COPY_RECORD(node_float, float)
+TEST_TYPE(node_float, float)
 
 // RDAT-LABEL: UnmangledName: "node_double"
 // RDAT: RecordAlignmentInBytes: 8
-TEST_COPY_RECORD(node_double, double)
+TEST_TYPE(node_double, double)
 
 // RDAT-LABEL: UnmangledName: "node_int"
 // RDAT: RecordAlignmentInBytes: 4
-TEST_COPY_RECORD(node_int, int)
+TEST_TYPE(node_int, int)
 
 // RDAT-LABEL: UnmangledName: "node_uint64"
 // RDAT: RecordAlignmentInBytes: 8
-TEST_COPY_RECORD(node_uint64, uint64_t)
+TEST_TYPE(node_uint64, uint64_t)
 
 // Min-precision types are still 4 bytes in storage.
 
 // RDAT-LABEL: UnmangledName: "node_min16float"
 // RDAT: RecordAlignmentInBytes: 4
-TEST_COPY_RECORD(node_min16float, min16float)
+TEST_TYPE(node_min16float, min16float)
 
 // RDAT-LABEL: UnmangledName: "node_min16int"
 // RDAT: RecordAlignmentInBytes: 4
-TEST_COPY_RECORD(node_min16int, min16int)
+TEST_TYPE(node_min16int, min16int)
 
 // Test alignment preserved for unused input record:
 // RDAT-LABEL: UnmangledName: "node_input_unused_double"
