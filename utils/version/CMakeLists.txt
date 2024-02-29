@@ -1,7 +1,5 @@
 # HLSL Change - generate version include
 
-# foo bar
-
 macro(generate_version_include name input_file output_file gen_flags)
     if ("${input_file}" STREQUAL "")
         FILE(TO_NATIVE_PATH "${output_file}.gen" gen_file)
