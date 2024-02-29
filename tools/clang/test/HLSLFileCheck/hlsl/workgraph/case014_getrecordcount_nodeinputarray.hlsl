@@ -73,7 +73,7 @@ void node014_getrecordcount([MaxRecords(256)] GroupNodeInputRecords<INPUT_RECORD
 // Arg #1: Size Tag (0)
 // Arg #2: 4 bytes
 // ------------------------------------------------------------------
-// CHECK: [[INPUT_RECORD:![0-9]+]] = !{i32 0, i32 4}
+// CHECK: [[INPUT_RECORD:![0-9]+]] = !{i32 0, i32 4, i32 2, i32 4}
 
 // NumThreads
 // Arg #1: 1024
