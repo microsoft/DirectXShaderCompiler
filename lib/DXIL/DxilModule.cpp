@@ -1495,6 +1495,99 @@ bool DxilModule::IsKnownNamedMetaData(llvm::NamedMDNode &Node) {
 
 bool DxilModule::HasMetadataErrors() { return m_bMetadataErrors; }
 
+static void RestoreNodeRecordAlignment(DxilModule &M) {
+  for (auto &F : M.GetModule()->functions()) {
+    if (OP::IsDxilOpFunc(&F)) {
+      for (auto U : F.users()) {
+        CallInst *CI = dyn_cast<CallInst>(U);
+        if (!CI)
+          continue;
+        DXIL::OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+        if (opcode != DXIL::OpCode::GetNodeRecordPtr)
+          continue;
+
+        // Get the node record alignment
+        llvm::Type *recordType = CI->getType();
+        if (!recordType->isPointerTy())
+          continue;
+        recordType = recordType->getPointerElementType();
+        if (!recordType->isStructTy())
+          continue;
+        unsigned alignment =
+            M.GetModule()->getDataLayout().getABITypeAlignment(recordType);
+
+        Function *caller = CI->getParent()->getParent();
+
+        // Get the dxil function properties for node if it exists
+        if (!M.HasDxilFunctionProps(caller))
+          continue;
+        DxilFunctionProps &props = M.GetDxilFunctionProps(caller);
+        if (!props.IsNode())
+          continue;
+
+        DxilInst_GetNodeRecordPtr getNodeRecordPtr(CI);
+
+        // Look for which input or output the node record comes from
+        // and update the alignment in the NodeIOProperties.
+        llvm::Value *Handle = getNodeRecordPtr.get_recordhandle();
+
+        // Follow the handle through the AnnotateNodeRecordHandle to
+        // CreateNodeInputRecordHandle for input, or to
+        // AllocateNodeOutputRecords, and then through AnnotateNodeHandle to
+        // CreateNodeOutputHandle.
+        if (CallInst *AnnotateNodeRecordHandle = dyn_cast<CallInst>(Handle)) {
+          if (OP::IsDxilOpFuncCallInst(
+                  AnnotateNodeRecordHandle,
+                  DXIL::OpCode::AnnotateNodeRecordHandle)) {
+            Handle = AnnotateNodeRecordHandle->getArgOperand(0);
+          }
+        }
+        // Get record properties to see if it's input or output
+        if (CallInst *CreateNodeInputRecordHandle =
+                dyn_cast<CallInst>(Handle)) {
+          if (OP::IsDxilOpFuncCallInst(
+                  CreateNodeInputRecordHandle,
+                  DXIL::OpCode::CreateNodeInputRecordHandle)) {
+            DxilInst_CreateNodeInputRecordHandle createNodeInputRecordHandle(
+                CreateNodeInputRecordHandle);
+            unsigned index = createNodeInputRecordHandle.get_MetadataIdx_val();
+            if (props.InputNodes.size() > index)
+              props.InputNodes[index].RecordType.alignment = alignment;
+          }
+        } else if (CallInst *AllocateNodeOutputRecords =
+                       dyn_cast<CallInst>(Handle)) {
+          if (OP::IsDxilOpFuncCallInst(
+                  AllocateNodeOutputRecords,
+                  DXIL::OpCode::AllocateNodeOutputRecords)) {
+            DxilInst_AllocateNodeOutputRecords allocateNodeOutputRecords(
+                AllocateNodeOutputRecords);
+            Handle = allocateNodeOutputRecords.get_output();
+          }
+          if (CallInst *AnnotateNodeHandle = dyn_cast<CallInst>(Handle)) {
+            if (OP::IsDxilOpFuncCallInst(AnnotateNodeHandle,
+                                         DXIL::OpCode::AnnotateNodeHandle)) {
+              DxilInst_AnnotateNodeHandle annotateNodeHandle(
+                  AnnotateNodeHandle);
+              Handle = annotateNodeHandle.get_node();
+            }
+          }
+          if (CallInst *CreateNodeOutputHandle = dyn_cast<CallInst>(Handle)) {
+            if (OP::IsDxilOpFuncCallInst(
+                    CreateNodeOutputHandle,
+                    DXIL::OpCode::CreateNodeOutputHandle)) {
+              DxilInst_CreateNodeOutputHandle createNodeOutputHandle(
+                  CreateNodeOutputHandle);
+              unsigned index = createNodeOutputHandle.get_MetadataIdx_val();
+              if (props.OutputNodes.size() > index)
+                props.OutputNodes[index].RecordType.alignment = alignment;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 void DxilModule::LoadDxilMetadata() {
   m_bMetadataErrors = false;
   m_pMDHelper->LoadValidatorVersion(m_ValMajor, m_ValMinor);
@@ -1585,6 +1678,7 @@ void DxilModule::LoadDxilMetadata() {
     SetEntryFunction(pEntryFunc);
     SetEntryFunctionName(EntryName);
     SetShaderProperties(pFuncProps);
+    RestoreNodeRecordAlignment(*this);
   }
 
   LoadDxilResources(*pEntryResources);

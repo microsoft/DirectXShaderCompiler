@@ -57,7 +57,7 @@ struct RECORD1
 
 //  DispatchNodeInputRecord
 
-// FCGLMD-DAG:  !{void (%"struct.DispatchNodeInputRecord<RECORD>"*)* @node_DispatchNodeInputRecord, i32 15, i32 1024, i32 1, i32 1, i32 1, i1 false, !"node_DispatchNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 64, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 97, i32 0, i32 16, i32 0, i32 0, i32 0}
+// FCGLMD-DAG:  !{void (%"struct.DispatchNodeInputRecord<RECORD>"*)* @node_DispatchNodeInputRecord, i32 15, i32 1024, i32 1, i32 1, i32 1, i1 false, !"node_DispatchNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 64, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 97, i32 0, i32 16, i32 0, i32 0, i32 0, i32 4}
 
 // MD: !{void ()* @node_DispatchNodeInputRecord, !"node_DispatchNodeInputRecord", null, null, ![[DispatchNodeInput:[0-9]+]]}
 // MD: ![[DispatchNodeInput]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
@@ -76,7 +76,7 @@ void node_DispatchNodeInputRecord(DispatchNodeInputRecord<RECORD> input)
 
 //  EmptyNodeInput
 
-// FCGLMD-DAG: !{void (%struct.EmptyNodeInput*)* @node_EmptyNodeInput, i32 15, i32 2, i32 1, i32 1, i32 2, i1 true, !"node_EmptyNodeInput", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 9, i32 0, i32 0, i32 0, i32 0, i32 0}
+// FCGLMD-DAG: !{void (%struct.EmptyNodeInput*)* @node_EmptyNodeInput, i32 15, i32 2, i32 1, i32 1, i32 2, i1 true, !"node_EmptyNodeInput", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 9, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
 
 // MD: !{void ()* @node_EmptyNodeInput, !"node_EmptyNodeInput", null, null, ![[EmptyNodeInput:[0-9]+]]}
 // MD: ![[EmptyNodeInput]] = !{i32 8, i32 15, i32 13, i32 2, i32 14, i1 true, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
@@ -95,7 +95,7 @@ void node_EmptyNodeInput(EmptyNodeInput input)
 
 //  EmptyNodeOutput
 
-// FCGLMD-DAG: !{void (%struct.EmptyNodeOutput*)* @node_EmptyNodeOutput, i32 15, i32 1, i32 1, i32 1, i32 1, i1 false, !"node_EmptyNodeOutput", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 10, i32 0, i32 0, i32 0, i32 0, !"loadStressChild", i32 0, i32 0, i32 -1, i32 0, i1 false}
+// FCGLMD-DAG: !{void (%struct.EmptyNodeOutput*)* @node_EmptyNodeOutput, i32 15, i32 1, i32 1, i32 1, i32 1, i1 false, !"node_EmptyNodeOutput", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 10, i32 0, i32 0, i32 0, i32 0, !"loadStressChild", i32 0, i32 0, i32 -1, i32 0, i1 false, i32 0}
 
 // MD: !{void ()* @node_EmptyNodeOutput, !"node_EmptyNodeOutput", null, null, ![[EmptyNodeOutput:[0-9]+]]}
 // MD: ![[EmptyNodeOutput]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 21, ![[EntryOutputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
@@ -121,7 +121,7 @@ void node_EmptyNodeOutput(
 
 //  EmptyNodeOutputArray
 
-// FCGLMD-DAG: !{void (%struct.EmptyNodeOutputArray*)* @node_EmptyNodeOutputArray, i32 15, i32 128, i32 1, i32 1, i32 1, i1 false, !"node_EmptyNodeOutputArray", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 26, i32 0, i32 0, i32 0, i32 0, !"EmptyOutputArray", i32 0, i32 64, i32 -1, i32 128, i1 false}
+// FCGLMD-DAG: !{void (%struct.EmptyNodeOutputArray*)* @node_EmptyNodeOutputArray, i32 15, i32 128, i32 1, i32 1, i32 1, i1 false, !"node_EmptyNodeOutputArray", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 26, i32 0, i32 0, i32 0, i32 0, !"EmptyOutputArray", i32 0, i32 64, i32 -1, i32 128, i1 false, i32 0}
 
 // MD: !{void ()* @node_EmptyNodeOutputArray, !"node_EmptyNodeOutputArray", null, null, ![[EmptyNodeOutputArray:[0-9]+]]}
 // MD: ![[EmptyNodeOutputArray]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 21, ![[EntryOutputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
@@ -145,7 +145,7 @@ void node_EmptyNodeOutputArray(
 
 //  GroupNodeInputRecords
 
-// FCGLMD-DAG: !{void (%"struct.GroupNodeInputRecords<RECORD>"*)* @node_GroupNodeInputRecords, i32 15, i32 1024, i32 1, i32 1, i32 2, i1 true, !"node_GroupNodeInputRecords", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 65, i32 256, i32 16, i32 0, i32 0, i32 0}
+// FCGLMD-DAG: !{void (%"struct.GroupNodeInputRecords<RECORD>"*)* @node_GroupNodeInputRecords, i32 15, i32 1024, i32 1, i32 1, i32 2, i1 true, !"node_GroupNodeInputRecords", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 65, i32 256, i32 16, i32 0, i32 0, i32 0, i32 4}
 
 
 // MD: !{void ()* @node_GroupNodeInputRecords, !"node_GroupNodeInputRecords", null, null, ![[GroupNodeInputRecords:[0-9]+]]}
@@ -166,7 +166,7 @@ void node_GroupNodeInputRecords([MaxRecords(256)] GroupNodeInputRecords<RECORD> 
 
 //  GroupNodeOutputRecords
 
-// FCGLMD-DAG: !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_GroupNodeOutputRecords, i32 15, i32 128, i32 1, i32 1, i32 1, i1 false, !"node_GroupNodeOutputRecords", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 22, i32 8, i32 0, i32 0, i32 0, !"OutputArray", i32 0, i32 64, i32 -1, i32 128, i1 false}
+// FCGLMD-DAG: !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_GroupNodeOutputRecords, i32 15, i32 128, i32 1, i32 1, i32 1, i1 false, !"node_GroupNodeOutputRecords", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 22, i32 8, i32 0, i32 0, i32 0, !"OutputArray", i32 0, i32 64, i32 -1, i32 128, i1 false, i32 4}
 
 // MD: !{void ()* @node_GroupNodeOutputRecords, !"node_GroupNodeOutputRecords", null, null, ![[GroupNodeOutputRecords:[0-9]+]]}
 // MD: ![[GroupNodeOutputRecords]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 21, ![[EntryOutputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
@@ -193,7 +193,7 @@ void node_GroupNodeOutputRecords(
 
 //  NodeOutput
 
-// FCGLMD-DAG: !{void (%"struct.NodeOutput<RECORD>"*)* @node_NodeOutput, i32 15, i32 1024, i32 1, i32 1, i32 1, i1 false, !"node_NodeOutput", i32 0, !"", i32 0, i32 -1, i32 32, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 6, i32 16, i32 0, i32 0, i32 0, !"output3", i32 0, i32 0, i32 -1, i32 0, i1 false}
+// FCGLMD-DAG: !{void (%"struct.NodeOutput<RECORD>"*)* @node_NodeOutput, i32 15, i32 1024, i32 1, i32 1, i32 1, i1 false, !"node_NodeOutput", i32 0, !"", i32 0, i32 -1, i32 32, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 6, i32 16, i32 0, i32 0, i32 0, !"output3", i32 0, i32 0, i32 -1, i32 0, i1 false, i32 4}
 
 // MD: !{void ()* @node_NodeOutput, !"node_NodeOutput", null, null, ![[NodeOutput:[0-9]+]]}
 // MD: ![[NodeOutput]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 21, ![[EntryOutputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
@@ -217,7 +217,7 @@ void node_NodeOutput(NodeOutput<RECORD> output3)
 
 //  NodeOutputArray
 
-// FCGLMD-DAG: !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_NodeOutputArray, i32 15, i32 1, i32 1, i32 1, i32 1, i1 false, !"node_NodeOutputArray", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 22, i32 8, i32 0, i32 0, i32 0, !"OutputArray_1_0", i32 0, i32 31, i32 -1, i32 129, i1 true}
+// FCGLMD-DAG: !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_NodeOutputArray, i32 15, i32 1, i32 1, i32 1, i32 1, i1 false, !"node_NodeOutputArray", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 22, i32 8, i32 0, i32 0, i32 0, !"OutputArray_1_0", i32 0, i32 31, i32 -1, i32 129, i1 true, i32 4}
 
 
 // MD: !{void ()* @node_NodeOutputArray, !"node_NodeOutputArray", null, null, ![[NodeOutputArray:[0-9]+]]}
@@ -240,7 +240,7 @@ void node_NodeOutputArray(
 
 //  RWDispatchNodeInputRecord
 
-// FCGLMD-DAG: !{void (%"struct.RWDispatchNodeInputRecord<RECORD>"*)* @node_RWDispatchNodeInputRecord, i32 15, i32 1024, i32 1, i32 1, i32 1, i1 false, !"node_RWDispatchNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 16, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 101, i32 0, i32 16, i32 0, i32 0, i32 0}
+// FCGLMD-DAG: !{void (%"struct.RWDispatchNodeInputRecord<RECORD>"*)* @node_RWDispatchNodeInputRecord, i32 15, i32 1024, i32 1, i32 1, i32 1, i1 false, !"node_RWDispatchNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 16, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 101, i32 0, i32 16, i32 0, i32 0, i32 0, i32 4}
 
 
 // MD: !{void ()* @node_RWDispatchNodeInputRecord, !"node_RWDispatchNodeInputRecord", null, null, ![[RWDispatchNodeInputRecord:[0-9]+]]}
@@ -261,7 +261,7 @@ void node_RWDispatchNodeInputRecord(RWDispatchNodeInputRecord<RECORD> input)
 
 //  RWGroupNodeInputRecords
 
-// FCGLMD-DAG: !{void (%"struct.RWGroupNodeInputRecords<RECORD2>"*)* @node_RWGroupNodeInputRecords, i32 15, i32 1, i32 1, i32 1, i32 2, i1 false, !"node_RWGroupNodeInputRecords", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 69, i32 4, i32 48, i32 0, i32 0, i32 0}
+// FCGLMD-DAG: !{void (%"struct.RWGroupNodeInputRecords<RECORD2>"*)* @node_RWGroupNodeInputRecords, i32 15, i32 1, i32 1, i32 1, i32 2, i1 false, !"node_RWGroupNodeInputRecords", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 69, i32 4, i32 48, i32 0, i32 0, i32 0, i32 4}
 
 
 // MD: !{void ()* @node_RWGroupNodeInputRecords, !"node_RWGroupNodeInputRecords", null, null, ![[RWGroupNodeInputRecords:[0-9]+]]}
@@ -290,7 +290,7 @@ void node_RWGroupNodeInputRecords([MaxRecords(4)] RWGroupNodeInputRecords<RECORD
 
 //  RWThreadNodeInputRecord
 
-// FCGLMD-DAG: !{void (%"struct.RWThreadNodeInputRecord<RECORD>"*)* @node_RWThreadNodeInputRecord, i32 15, i32 1, i32 1, i32 1, i32 3, i1 false, !"node_RWThreadNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 37, i32 0, i32 16, i32 0, i32 0, i32 0}
+// FCGLMD-DAG: !{void (%"struct.RWThreadNodeInputRecord<RECORD>"*)* @node_RWThreadNodeInputRecord, i32 15, i32 1, i32 1, i32 1, i32 3, i1 false, !"node_RWThreadNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 37, i32 0, i32 16, i32 0, i32 0, i32 0, i32 4}
 
 // MD: !{void ()* @node_RWThreadNodeInputRecord, !"node_RWThreadNodeInputRecord", null, null, ![[RWThreadNodeInputRecord:[0-9]+]]}
 // MD: ![[RWThreadNodeInputRecord]] = !{i32 8, i32 15, i32 13, i32 3, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
@@ -306,7 +306,7 @@ void node_RWThreadNodeInputRecord(RWThreadNodeInputRecord<RECORD> input)
 
 //  ThreadNodeInputRecord
 
-// FCGLMD-DAG: !{void (%"struct.ThreadNodeInputRecord<RECORD>"*)* @node_ThreadNodeInputRecord, i32 15, i32 1, i32 1, i32 1, i32 3, i1 false, !"node_ThreadNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 33, i32 0, i32 16, i32 0, i32 0, i32 0}
+// FCGLMD-DAG: !{void (%"struct.ThreadNodeInputRecord<RECORD>"*)* @node_ThreadNodeInputRecord, i32 15, i32 1, i32 1, i32 1, i32 3, i1 false, !"node_ThreadNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 33, i32 0, i32 16, i32 0, i32 0, i32 0, i32 4}
 
 // MD: !{void ()* @node_ThreadNodeInputRecord, !"node_ThreadNodeInputRecord", null, null, ![[ThreadNodeInputRecord:[0-9]+]]}
 // MD: ![[ThreadNodeInputRecord]] = !{i32 8, i32 15, i32 13, i32 3, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
@@ -323,7 +323,7 @@ void node_ThreadNodeInputRecord(ThreadNodeInputRecord<RECORD> input)
 
 //  ThreadNodeOutputRecords
 
-// FCGLMD-DAG: !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_ThreadNodeOutputRecords, i32 15, i32 1, i32 1, i32 1, i32 1, i1 false, !"node_ThreadNodeOutputRecords", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 22, i32 8, i32 0, i32 0, i32 0, !"OutputArray_1_0", i32 0, i32 31, i32 -1, i32 129, i1 true}
+// FCGLMD-DAG: !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_ThreadNodeOutputRecords, i32 15, i32 1, i32 1, i32 1, i32 1, i1 false, !"node_ThreadNodeOutputRecords", i32 0, !"", i32 0, i32 -1, i32 1, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 22, i32 8, i32 0, i32 0, i32 0, !"OutputArray_1_0", i32 0, i32 31, i32 -1, i32 129, i1 true, i32 4}
 
 // MD: !{void ()* @node_ThreadNodeOutputRecords, !"node_ThreadNodeOutputRecords", null, null, ![[ThreadNodeOutputRecords:[0-9]+]]}
 // MD: ![[ThreadNodeOutputRecords]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 21, ![[NodeOutputArrayEntryOutputs]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
