@@ -238,18 +238,6 @@ StringRef CGDebugInfo::getClassName(const RecordDecl *RD) {
   return internString(Name);
 }
 
-// HLSL Change - begin
-std::string CGDebugInfo::HLSLNormalizeDbgFileName(StringRef Str) {
-  return Str; // NOCHECKIN
-  // For HLSL, we want to keep the main file name exactly as is. Everything
-  // else should be formatted in a standard way.
-  if (CGM.getLangOpts().HLSL) {
-    return hlsl::NormalizePath(Str);
-  }
-  return Str;
-}
-// HLSL Change - end
-
 llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
   if (!Loc.isValid())
     // If Location is not valid then use main input file.
