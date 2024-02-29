@@ -325,7 +325,8 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
                  "otherwise, more than one file matches main filename");
           bFoundMainFile = true;
         } else {
-          filesMap[Path.str()] = it->second->getRawBuffer()->getBuffer(); // NOCHECKIN
+          filesMap[Path.str()] =
+              it->second->getRawBuffer()->getBuffer(); // NOCHECKIN
         }
       }
     }

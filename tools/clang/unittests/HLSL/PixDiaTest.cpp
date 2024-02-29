@@ -832,8 +832,7 @@ PixDiaTest::GetLiveVariablesAt(const char *hlsl,
        ++InterestingLine) {
     CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
     if (SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
-            defaultFilename, InterestingLine,
-            0, &instructionOffsets))) {
+            defaultFilename, InterestingLine, 0, &instructionOffsets))) {
       if (instructionOffsets->GetCount() > 0) {
         auto instructionOffset = instructionOffsets->GetOffsetByIndex(0);
         if (SUCCEEDED(dxilDebugger->GetLiveVariablesAt(instructionOffset,
@@ -1512,8 +1511,7 @@ TEST_F(PixDiaTest, PixDebugCompileInfo) {
 
   CComBSTR entryPointFile;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPointFile(&entryPointFile));
-  VERIFY_ARE_EQUAL(std::wstring(L"source.hlsl"),
-                   std::wstring(entryPointFile));
+  VERIFY_ARE_EQUAL(std::wstring(L"source.hlsl"), std::wstring(entryPointFile));
 
   CComBSTR entryPointFunction;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPoint(&entryPointFunction));

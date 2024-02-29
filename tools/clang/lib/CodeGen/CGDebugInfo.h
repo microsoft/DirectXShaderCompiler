@@ -257,9 +257,10 @@ class CGDebugInfo {
 
   // HLSL Change Begins
 private:
-  bool TryCollectHLSLRecordElements(const RecordType *Ty,
-                                    llvm::DICompositeType *DITy,
-                                    SmallVectorImpl<llvm::Metadata *> &Elements);
+  bool
+  TryCollectHLSLRecordElements(const RecordType *Ty,
+                               llvm::DICompositeType *DITy,
+                               SmallVectorImpl<llvm::Metadata *> &Elements);
   // HLSL Change Ends
 
 public:
