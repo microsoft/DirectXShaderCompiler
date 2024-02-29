@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
+// RUN: %dxilver 1.8 | %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
 
 // Check that ShaderCompatInfo in RDAT has expected flags for scenario with
 // verttex entry point calling a function using derivatives (through Sample()).
