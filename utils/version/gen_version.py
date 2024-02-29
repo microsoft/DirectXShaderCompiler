@@ -36,7 +36,7 @@ def get_output_of(cmd):
     return output.decode('ASCII').strip()
 
 def is_dirty():
-    diff = get_output_of(["git", "diff", "HEAD"])
+    diff = get_output_of(["git", "diff", "HEAD", "--shortstat"])
     return len(diff.strip()) != 0
 
 def get_last_commit_sha():
