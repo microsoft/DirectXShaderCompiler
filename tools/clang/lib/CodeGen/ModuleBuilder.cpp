@@ -276,7 +276,7 @@ namespace {
                  end = Ctx.getSourceManager().fileinfo_end();
              it != end; ++it) {
           if (it->first->isValid() && !it->second->IsSystemFile) {
-            llvm::SmallString<256> path = it->first->getName();
+            llvm::SmallString<256> path = StringRef(it->first->getName());
             llvm::sys::path::native(path);
 
             StringRef contentBuffer = it->second->getRawBuffer()->getBuffer();

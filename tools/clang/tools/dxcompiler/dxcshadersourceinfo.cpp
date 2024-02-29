@@ -312,7 +312,7 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
     for (auto it = srcMgr.fileinfo_begin(), end = srcMgr.fileinfo_end();
          it != end; ++it) {
       if (it->first->isValid() && !it->second->IsSystemFile) {
-        llvm::SmallString<256> Path = it->first->getName();
+        llvm::SmallString<256> Path = llvm::StringRef(it->first->getName());
         llvm::sys::path::native(Path);
         // If main file, write that to metadata first.
         // Add the rest to filesMap to sort by name.
