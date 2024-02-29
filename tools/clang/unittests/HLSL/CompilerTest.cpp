@@ -68,13 +68,9 @@
 #ifdef _WIN32
 #define SLASH_W L"\\"
 #define SLASH "\\"
-#define PP_SLASH_W L"\\\\"
-#define PP_SLASH "\\\\"
 #else
 #define SLASH_W L"/"
 #define SLASH "/"
-#define PP_SLASH_W L"/"
-#define PP_SLASH "/"
 #endif
 
 using namespace std;
