@@ -36,12 +36,12 @@ def get_output_of(cmd):
     return output.decode('ASCII').strip()
 
 def is_dirty():
-    diff = get_output_of([ "git", "diff", "HEAD" ])
+    diff = get_output_of(["git", "diff", "HEAD"])
     return len(diff.strip()) != 0
 
 def get_last_commit_sha():
     try:
-        sha = get_output_of([ "git", "rev-parse", "--short", "HEAD" ])
+        sha = get_output_of(["git", "rev-parse", "--short", "HEAD"])
         if is_dirty():
             sha += "-dirty"
         return sha
@@ -50,13 +50,13 @@ def get_last_commit_sha():
 
 def get_current_branch():
     try:
-        return get_output_of([ "git", "rev-parse", "--abbrev-ref", "HEAD" ])
+        return get_output_of(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     except subprocess.CalledProcessError:
         return "private"
 
 def get_commit_count(sha):
     try:
-        return get_output_of([ "git", "rev-list", "--count", sha ])
+        return get_output_of(["git", "rev-list", "--count", sha])
     except subprocess.CalledProcessError:
         return 0
     
