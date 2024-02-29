@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
+// RUN: %dxilver 1.8 | %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
 
 // Verifies that a Barrier requiring a visible group in a noinline function
 // called by a vertex shader is correctly marked as requiring a group in RDAT.
