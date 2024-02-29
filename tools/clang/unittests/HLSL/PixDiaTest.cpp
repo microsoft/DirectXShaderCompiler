@@ -832,7 +832,7 @@ PixDiaTest::GetLiveVariablesAt(const char *hlsl,
        ++InterestingLine) {
     CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
     if (SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
-            (std::wstring(L".\\") + defaultFilename).c_str(), InterestingLine,
+            defaultFilename, InterestingLine,
             0, &instructionOffsets))) {
       if (instructionOffsets->GetCount() > 0) {
         auto instructionOffset = instructionOffsets->GetOffsetByIndex(0);
@@ -926,7 +926,7 @@ TEST_F(PixDiaTest, CompileWhenDebugThenDIPresent) {
                             L"lexicalParent: id=2, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(
-      wcsstr(diaDump.c_str(), L"length: 99, filename: .\\source.hlsl"));
+      wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
   std::wstring diaFileContent = GetDebugFileContent(pDiaSource).c_str();
   VERIFY_IS_NOT_NULL(
       wcsstr(diaFileContent.c_str(),
@@ -1512,7 +1512,7 @@ TEST_F(PixDiaTest, PixDebugCompileInfo) {
 
   CComBSTR entryPointFile;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPointFile(&entryPointFile));
-  VERIFY_ARE_EQUAL(std::wstring(L".\\source.hlsl"),
+  VERIFY_ARE_EQUAL(std::wstring(L"source.hlsl"),
                    std::wstring(entryPointFile));
 
   CComBSTR entryPointFunction;
@@ -2029,7 +2029,7 @@ void ASMain()
 
   CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
   VERIFY_SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
-      L".\\source.hlsl", DispatchMeshLine, 0, &instructionOffsets));
+      L"source.hlsl", DispatchMeshLine, 0, &instructionOffsets));
   VERIFY_IS_TRUE(instructionOffsets->GetCount() > 0);
   DWORD InstructionOrdinal = instructionOffsets->GetOffsetByIndex(0);
   CComPtr<IDxcPixDxilLiveVariables> liveVariables;
@@ -2758,21 +2758,22 @@ float4 fn2( float3 f3, float d, bool sanitize = true )
   auto it = sourceLocations.begin();
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
+  const WCHAR *mainFileName = L"source.hlsl";
   // The list of source locations should start with the containing file:
-  while (it != sourceLocations.end() && it->Filename == L".\\source.hlsl")
+  while (it != sourceLocations.end() && it->Filename == mainFileName)
     it++;
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
   // Then have a bunch of "../include2/samefilename.h"
-  VERIFY_ARE_EQUAL_WSTR(L".\\..\\include2\\samefilename.h", it->Filename);
+  VERIFY_ARE_EQUAL_WSTR(L"./../include2/samefilename.h", it->Filename);
   while (it != sourceLocations.end() &&
-         it->Filename == L".\\..\\include2\\samefilename.h")
+         it->Filename == L"./../include2/samefilename.h")
     it++;
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
   // Then some more main file:
-  VERIFY_ARE_EQUAL_WSTR(L".\\source.hlsl", it->Filename);
-  while (it != sourceLocations.end() && it->Filename == L".\\source.hlsl")
+  VERIFY_ARE_EQUAL_WSTR(mainFileName, it->Filename);
+  while (it != sourceLocations.end() && it->Filename == mainFileName)
     it++;
 
   // And that should be the end:

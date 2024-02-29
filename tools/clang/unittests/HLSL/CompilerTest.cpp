@@ -4521,7 +4521,7 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
                        "\n"
                        "int g_int = 123;\n"
                        "\n"
@@ -4568,8 +4568,8 @@ TEST_F(CompilerTest, PreprocessWhenExpandTokenPastingOperandThenAccept) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
-                       "#line 12 \"." PP_SLASH "file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
+                       "#line 12 \"file.hlsl\"\n"
                        "    Texture2D<float4> resource_set_10_bind_5_tex;\n"
                        "\n"
                        "  float4 main() : SV_Target{\n"
@@ -4609,7 +4609,7 @@ TEST_F(CompilerTest, PreprocessWithDebugOptsThenOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
                        "\n"
                        "int g_int = 123;\n"
                        "\n"
@@ -4636,7 +4636,7 @@ TEST_F(CompilerTest, PreprocessCheckBuiltinIsOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n\n", text.c_str());
+  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n\n", text.c_str());
 }
 
 TEST_F(CompilerTest, CompileOtherModesWithDebugOptsThenOk) {

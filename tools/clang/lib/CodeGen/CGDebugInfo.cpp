@@ -240,6 +240,7 @@ StringRef CGDebugInfo::getClassName(const RecordDecl *RD) {
 
 // HLSL Change - begin
 std::string CGDebugInfo::HLSLNormalizeDbgFileName(StringRef Str) {
+  return Str; // NOCHECKIN
   // For HLSL, we want to keep the main file name exactly as is. Everything
   // else should be formatted in a standard way.
   if (CGM.getLangOpts().HLSL) {
@@ -272,8 +273,7 @@ llvm::DIFile *CGDebugInfo::getOrCreateFile(SourceLocation Loc) {
   }
 
   llvm::DIFile *F =
-      DBuilder.createFile(HLSLNormalizeDbgFileName(PLoc.getFilename()),
-                          getCurrentDirname()); // HLSL Change
+      DBuilder.createFile(PLoc.getFilename(), getCurrentDirname());
 
   DIFileCache[fname].reset(F);
   return F;
