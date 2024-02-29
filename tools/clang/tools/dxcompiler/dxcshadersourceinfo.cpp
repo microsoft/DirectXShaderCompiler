@@ -326,7 +326,7 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
           bFoundMainFile = true;
         } else {
           filesMap[Path.str()] =
-              it->second->getRawBuffer()->getBuffer(); // NOCHECKIN
+              it->second->getRawBuffer()->getBuffer();
         }
       }
     }
