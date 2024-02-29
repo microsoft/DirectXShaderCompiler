@@ -44,13 +44,13 @@
 
 // Make sure AllowSparseNodes is true
 // Make sure OutputArraySize is -1 for [UnboundedSparseNodes]
-// Starting from !"OutputArray_*": OutputID.Name, OutputID.Index, MaxRecords, MaxRecordsSharedWith, OutputArraySize, AllowSparseNodes
-// HLCHECK-DAG: = !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_1_0, {{.*}} !"OutputArray_1_0", i32 0, i32 31, i32 -1, i32 129, i1 true}
-// HLCHECK-DAG: = !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_1_1, {{.*}} !"OutputArray_1_1", i32 0, i32 37, i32 -1, i32 -1, i1 true}
-// HLCHECK-DAG: = !{void (%"struct.NodeOutput<RECORD1>"*)* @node_1_2, {{.*}} !"Output_1_2", i32 0, i32 47, i32 -1, i32 0, i1 true}
-// HLCHECK-DAG: = !{void (%struct.EmptyNodeOutputArray*)* @node_2_0, {{.*}} !"OutputArray_2_0", i32 0, i32 41, i32 -1, i32 131, i1 true}
-// HLCHECK-DAG: = !{void (%struct.EmptyNodeOutputArray*)* @node_2_1, {{.*}} !"OutputArray_2_1", i32 0, i32 43, i32 -1, i32 -1, i1 true}
-// HLCHECK-DAG: = !{void (%struct.EmptyNodeOutput*)* @node_2_2, {{.*}} !"Output_2_2", i32 0, i32 53, i32 -1, i32 0, i1 true}
+// Starting from !"OutputArray_*": OutputID.Name, OutputID.Index, MaxRecords, MaxRecordsSharedWith, OutputArraySize, AllowSparseNodes, Alignment
+// HLCHECK-DAG: = !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_1_0, {{.*}} !"OutputArray_1_0", i32 0, i32 31, i32 -1, i32 129, i1 true, i32 4}
+// HLCHECK-DAG: = !{void (%"struct.NodeOutputArray<RECORD1>"*)* @node_1_1, {{.*}} !"OutputArray_1_1", i32 0, i32 37, i32 -1, i32 -1, i1 true, i32 4}
+// HLCHECK-DAG: = !{void (%"struct.NodeOutput<RECORD1>"*)* @node_1_2, {{.*}} !"Output_1_2", i32 0, i32 47, i32 -1, i32 0, i1 true, i32 4}
+// HLCHECK-DAG: = !{void (%struct.EmptyNodeOutputArray*)* @node_2_0, {{.*}} !"OutputArray_2_0", i32 0, i32 41, i32 -1, i32 131, i1 true, i32 0}
+// HLCHECK-DAG: = !{void (%struct.EmptyNodeOutputArray*)* @node_2_1, {{.*}} !"OutputArray_2_1", i32 0, i32 43, i32 -1, i32 -1, i1 true, i32 0}
+// HLCHECK-DAG: = !{void (%struct.EmptyNodeOutput*)* @node_2_2, {{.*}} !"Output_2_2", i32 0, i32 53, i32 -1, i32 0, i1 true, i32 0}
 
 // ==== RDAT Checks ====
 
