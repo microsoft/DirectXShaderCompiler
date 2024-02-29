@@ -8,7 +8,7 @@
 // CHECK: ![[NodeDispatchGrid]] = !{i32 1, i32 1, i32 1}
 // CHECK: ![[NodeInputs]] = !{![[Input0:[0-9]+]]}
 // CHECK: ![[Input0]] = !{i32 1, i32 97, i32 2, ![[NodeRecordType:[0-9]+]]}
-// CHECK: ![[NodeRecordType]] = !{i32 0, i32 68}
+// CHECK: ![[NodeRecordType]] = !{i32 0, i32 68, i32 2, i32 4}
 // CHECK: ![[NumThreads]] = !{i32 32, i32 1, i32 1}
 // CHECK: ![[AutoBindingSpace]] = !{i32 0}
 
