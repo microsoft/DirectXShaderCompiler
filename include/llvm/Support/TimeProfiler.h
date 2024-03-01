@@ -21,7 +21,7 @@ extern TimeTraceProfiler *TimeTraceProfilerInstance;
 /// Initialize the time trace profiler.
 /// This sets up the global \p TimeTraceProfilerInstance
 /// variable to be the profiler instance.
-void timeTraceProfilerInitialize();
+void timeTraceProfilerInitialize(unsigned TimeTraceGranularity);
 
 /// Cleanup the time trace profiler, if it was initialized.
 void timeTraceProfilerCleanup();
@@ -52,6 +52,13 @@ void timeTraceProfilerEnd();
 /// the section; and when it is destroyed, it stops it. If the time profiler
 /// is not initialized, the overhead is a single branch.
 struct TimeTraceScope {
+
+  TimeTraceScope() = delete;
+  TimeTraceScope(const TimeTraceScope &) = delete;
+  TimeTraceScope &operator=(const TimeTraceScope &) = delete;
+  TimeTraceScope(TimeTraceScope &&) = delete;
+  TimeTraceScope &operator=(TimeTraceScope &&) = delete;
+
   TimeTraceScope(StringRef Name, StringRef Detail) {
     if (TimeTraceProfilerInstance != nullptr)
       timeTraceProfilerBegin(Name, Detail);

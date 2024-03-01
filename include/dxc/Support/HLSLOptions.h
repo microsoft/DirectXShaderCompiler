@@ -235,6 +235,7 @@ public:
   bool NewInlining = false;             // OPT_fnew_inlining_behavior
   bool TimeReport = false;              // OPT_ftime_report
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
+  unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
 
   // Optimization pass enables, disables and selects
