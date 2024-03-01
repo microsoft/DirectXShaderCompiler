@@ -69,9 +69,7 @@ struct Entry {
 };
 
 struct TimeTraceProfiler {
-  TimeTraceProfiler() {
-    StartTime = steady_clock::now();
-  }
+  TimeTraceProfiler() { StartTime = steady_clock::now(); }
 
   void begin(std::string Name, llvm::function_ref<std::string()> Detail) {
     Stack.emplace_back(steady_clock::now(), DurationType{}, std::move(Name),
@@ -128,10 +126,10 @@ struct TimeTraceProfiler {
       SortedTotals.emplace_back(E.getKey(), E.getValue());
 
     std::sort(SortedTotals.begin(), SortedTotals.end(),
-               [](const NameAndCountAndDurationType &A,
-                  const NameAndCountAndDurationType &B) {
-                 return A.second.second > B.second.second;
-               });
+              [](const NameAndCountAndDurationType &A,
+                 const NameAndCountAndDurationType &B) {
+                return A.second.second > B.second.second;
+              });
     for (const auto &E : SortedTotals) {
       auto DurUs = duration_cast<microseconds>(E.second.second).count();
       auto Count = CountAndTotalPerName[E.first].first;
