@@ -1807,7 +1807,7 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream,
                                  &pOperationResult, finished);
     if (!opts.TimeTrace.empty())
-      llvm::timeTraceProfilerInitialize();
+      llvm::timeTraceProfilerInitialize(opts.TimeTraceGranularity);
     if (finished) {
       IFT(pOperationResult->QueryInterface(ppResult));
       return S_OK;

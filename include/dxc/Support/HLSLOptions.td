@@ -189,6 +189,9 @@ def ftime_trace : Flag<["-"], "ftime-trace">,
 def ftime_trace_EQ : Joined<["-"], "ftime-trace=">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Print hierchial time tracing to file">;
+def ftime_trace_granularity_EQ : Joined<["-"], "ftime-trace-granularity=">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Minimum time granularity (in microseconds) traced by time profiler">;
 
 def verify : Joined<["-"], "verify">,
   Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
