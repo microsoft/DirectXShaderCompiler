@@ -16,8 +16,8 @@
 
 #include "dxc/Support/WinIncludes.h"
 
-#include <d3dcommon.h>
 #include <assert.h>
+#include <d3dcommon.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <io.h>
