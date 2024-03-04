@@ -4523,14 +4523,19 @@ bool DeclResultIdMapper::getImplicitRegisterType(const ResourceVar &var,
 SpirvVariable *
 DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
                                                const VarDecl *decl) {
-  QualType type = decl->getType();
+  return createRayTracingNVStageVar(sc, decl->getType(), decl->getName().str(),
+                                    decl->hasAttr<HLSLPreciseAttr>(),
+                                    decl->hasAttr<HLSLNoInterpolationAttr>());
+}
+
+SpirvVariable *DeclResultIdMapper::createRayTracingNVStageVar(
+    spv::StorageClass sc, QualType type, std::string name, bool isPrecise,
+    bool isNointerp) {
   SpirvVariable *retVal = nullptr;
 
   // Raytracing interface variables are special since they do not participate
   // in any interface matching and hence do not create StageVar and
   // track them under StageVars vector
-
-  const auto name = decl->getName();
 
   switch (sc) {
   case spv::StorageClass::IncomingRayPayloadNV:
@@ -4538,9 +4543,7 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
   case spv::StorageClass::HitAttributeNV:
   case spv::StorageClass::RayPayloadNV:
   case spv::StorageClass::CallableDataNV:
-    retVal = spvBuilder.addModuleVar(type, sc, decl->hasAttr<HLSLPreciseAttr>(),
-                                     decl->hasAttr<HLSLNoInterpolationAttr>(),
-                                     name.str());
+    retVal = spvBuilder.addModuleVar(type, sc, isPrecise, isNointerp, name);
     break;
 
   default:

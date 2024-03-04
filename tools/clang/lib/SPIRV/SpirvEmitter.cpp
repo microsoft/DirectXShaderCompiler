@@ -11748,11 +11748,6 @@ SpirvInstruction *SpirvEmitter::processRayBuiltins(const CallExpr *callExpr,
 }
 
 SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr) {
-  SpirvInstruction *hitAttributeStageVar = nullptr;
-  const VarDecl *hitAttributeArg = nullptr;
-  QualType hitAttributeType;
-  const auto args = callExpr->getArgs();
-
   if (callExpr->getNumArgs() != 3) {
     emitError("invalid number of arguments to ReportHit",
               callExpr->getExprLoc());
@@ -11761,41 +11756,33 @@ SpirvInstruction *SpirvEmitter::processReportHit(const CallExpr *callExpr) {
   // HLSL Function :
   // template<typename hitAttr>
   // ReportHit(in float, in uint, in hitAttr)
-  if (const auto *implCastExpr = dyn_cast<CastExpr>(callExpr->getArg(2))) {
-    if (const auto *arg = dyn_cast<DeclRefExpr>(implCastExpr->getSubExpr())) {
-      if (const auto *varDecl = dyn_cast<VarDecl>(arg->getDecl())) {
-        hitAttributeType = varDecl->getType();
-        hitAttributeArg = varDecl;
-        // Check if same type of hit attribute stage variable was already
-        // created, if so re-use
-        const auto iter = hitAttributeMap.find(hitAttributeType);
-        if (iter == hitAttributeMap.end()) {
-          hitAttributeStageVar = declIdMapper.createRayTracingNVStageVar(
-              spv::StorageClass::HitAttributeNV, varDecl);
-          hitAttributeMap[hitAttributeType] = hitAttributeStageVar;
-        } else {
-          hitAttributeStageVar = iter->second;
-        }
-      }
-    }
+  const Expr *hitAttr = callExpr->getArg(2);
+  SpirvInstruction *hitAttributeArgInstr =
+      doExpr(hitAttr, hitAttr->getExprLoc());
+  QualType hitAttributeType = hitAttr->getType();
+
+  // TODO(#6364): Verify that this behavior is correct.
+  SpirvInstruction *hitAttributeStageVar;
+  const auto iter = hitAttributeMap.find(hitAttributeType);
+  if (iter == hitAttributeMap.end()) {
+    hitAttributeStageVar = declIdMapper.createRayTracingNVStageVar(
+        spv::StorageClass::HitAttributeNV, hitAttributeType,
+        hitAttributeArgInstr->getDebugName(), hitAttributeArgInstr->isPrecise(),
+        hitAttributeArgInstr->isNoninterpolated());
+    hitAttributeMap[hitAttributeType] = hitAttributeStageVar;
+  } else {
+    hitAttributeStageVar = iter->second;
   }
 
-  assert(hitAttributeStageVar && hitAttributeArg);
-
   // Copy argument to stage variable
-  const auto hitAttributeArgInst =
-      declIdMapper.getDeclEvalInfo(hitAttributeArg, callExpr->getExprLoc());
-  auto tempLoad =
-      spvBuilder.createLoad(hitAttributeArg->getType(), hitAttributeArgInst,
-                            hitAttributeArg->getLocStart());
-  spvBuilder.createStore(hitAttributeStageVar, tempLoad,
+  spvBuilder.createStore(hitAttributeStageVar, hitAttributeArgInstr,
                          callExpr->getExprLoc());
 
   // SPIR-V Instruction :
   // bool OpReportIntersection(<id> float Hit, <id> uint HitKind)
   llvm::SmallVector<SpirvInstruction *, 4> reportHitArgs;
-  reportHitArgs.push_back(doExpr(args[0])); // Hit
-  reportHitArgs.push_back(doExpr(args[1])); // HitKind
+  reportHitArgs.push_back(doExpr(callExpr->getArg(0))); // Hit
+  reportHitArgs.push_back(doExpr(callExpr->getArg(1))); // HitKind
   return spvBuilder.createRayTracingOpsNV(spv::Op::OpReportIntersectionNV,
                                           astContext.BoolTy, reportHitArgs,
                                           callExpr->getExprLoc());
