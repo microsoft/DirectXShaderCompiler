@@ -387,9 +387,9 @@ uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize / 2);
 }
 
-static unsigned FindOrAddInputSignatureElement(
-    hlsl::DxilSignature &InputSignature, const char *name,
-    DXIL::SigPointKind sigPointKind, hlsl::DXIL::SemanticKind semanticKind) {
+static unsigned
+FindOrAddVSInSignatureElement(hlsl::DxilSignature &InputSignature,
+                              hlsl::DXIL::SemanticKind semanticKind) {
 
   auto &InputElements = InputSignature.GetElements();
 
@@ -400,15 +400,14 @@ static unsigned FindOrAddInputSignatureElement(
                    });
 
   if (ExistingElement == InputElements.end()) {
-    auto AddedElement = llvm::make_unique<DxilSignatureElement>(sigPointKind);
+    auto AddedElement =
+        llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
     unsigned int Index = static_cast<unsigned int>(InputElements.size());
-    AddedElement->Initialize(name, hlsl::CompType::getF32(),
-                             hlsl::DXIL::InterpolationMode::Constant, 1, 1,
-                             Index, 0);
-    AddedElement->AppendSemanticIndex(0);
+    AddedElement->Initialize(
+        hlsl::Semantic::Get(semanticKind)->GetName(), hlsl::CompType::getU32(),
+        hlsl::DXIL::InterpolationMode::Constant, 1, 1, Index, 0, Index, {0});
     AddedElement->SetKind(semanticKind);
     AddedElement->SetUsageMask(1);
-    AddedElement->SetCompType(CompType::getU32());
 
     auto index = InputSignature.AppendElement(std::move(AddedElement));
     return InputElements[index]->GetID();
@@ -435,12 +434,10 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     break;
   case DXIL::ShaderKind::Vertex: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    SVIndices.VertexShader.VertexId = FindOrAddInputSignatureElement(
-        InputSignature, "VertexId", DXIL::SigPointKind::VSIn,
-        hlsl::DXIL::SemanticKind::VertexID);
-    SVIndices.VertexShader.InstanceId = FindOrAddInputSignatureElement(
-        InputSignature, "InstanceId", DXIL::SigPointKind::VSIn,
-        hlsl::DXIL::SemanticKind::InstanceID);
+    SVIndices.VertexShader.VertexId = FindOrAddVSInSignatureElement(
+        InputSignature, hlsl::DXIL::SemanticKind::VertexID);
+    SVIndices.VertexShader.InstanceId = FindOrAddVSInSignatureElement(
+        InputSignature, hlsl::DXIL::SemanticKind::InstanceID);
   } break;
   case DXIL::ShaderKind::Geometry:
   case DXIL::ShaderKind::Hull:
@@ -486,8 +483,9 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
       auto Added_SV_Position =
           llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
       Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
-                                    hlsl::DXIL::InterpolationMode::Linear, RowCount, ColumnCount,
-                                    StartRow, StartColumn);
+                                    hlsl::DXIL::InterpolationMode::Linear,
+                                    RowCount, ColumnCount, StartRow,
+                                    StartColumn);
       Added_SV_Position->AppendSemanticIndex(0);
       Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
 
