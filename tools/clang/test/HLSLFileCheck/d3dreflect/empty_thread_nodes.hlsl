@@ -16,8 +16,8 @@
 // CHECK:      AttributeSizeInBytes: 0
 // CHECK:      FeatureInfo1: 0
 // CHECK:      FeatureInfo2: 0
-// CHECK:      ShaderStageFlag: 32768
-// CHECK:      MinShaderTarget: 983136
+// CHECK:      ShaderStageFlag: (Node)
+// CHECK:      MinShaderTarget: 0xf0068
 // CHECK:      MinimumExpectedWaveLaneCount: 0
 // CHECK:      MaximumExpectedWaveLaneCount: 0
 // CHECK:      ShaderFlags: 0 (None)
@@ -41,22 +41,22 @@
 // CHECK:            LocalRootArgumentsTableIndex: 2
 // CHECK:          }
 // CHECK:        }
-// CHECK:        Outputs: <20:RecordArrayRef<IONode>[2]>  = {
+// CHECK:        Outputs: <25:RecordArrayRef<IONode>[2]>  = {
 // CHECK:          [0]: <1:IONode> = {
 // CHECK:            IOFlagsAndKind: 262
-// CHECK:            Attribs: <10:RecordArrayRef<NodeShaderIOAttrib>[4]>  = {
-// CHECK:              [0]: <1:NodeShaderIOAttrib> = {
+// CHECK:            Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[5]>  = {
+// CHECK:              [0]: <2:NodeShaderIOAttrib> = {
 // CHECK:                AttribKind: OutputID
 // CHECK:                OutputID: <1:NodeID> = {
 // CHECK:                  Name: "Output1"
 // CHECK:                  Index: 0
 // CHECK:                }
 // CHECK:              }
-// CHECK:              [1]: <2:NodeShaderIOAttrib> = {
+// CHECK:              [1]: <3:NodeShaderIOAttrib> = {
 // CHECK:                AttribKind: OutputArraySize
 // CHECK:                OutputArraySize: 0
 // CHECK:              }
-// CHECK:              [2]: <3:NodeShaderIOAttrib> = {
+// CHECK:              [2]: <4:NodeShaderIOAttrib> = {
 // CHECK:                AttribKind: MaxRecordsSharedWith
 // CHECK:                MaxRecordsSharedWith: 1
 // CHECK:              }
@@ -64,32 +64,38 @@
 // CHECK:                AttribKind: RecordSizeInBytes
 // CHECK:                RecordSizeInBytes: 8
 // CHECK:              }
+// CHECK:              [4]: <1:NodeShaderIOAttrib> = {
+// CHECK:                AttribKind: RecordAlignmentInBytes
+// CHECK:                RecordAlignmentInBytes: 4
+// CHECK:              }
 // CHECK:            }
 // CHECK:          }
 // CHECK:          [1]: <2:IONode> = {
 // CHECK:            IOFlagsAndKind: 6
-// CHECK:            Attribs: <15:RecordArrayRef<NodeShaderIOAttrib>[4]>  = {
-// CHECK:              [0]: <4:NodeShaderIOAttrib> = {
+// CHECK:            Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[5]>  = {
+// CHECK:              [0]: <5:NodeShaderIOAttrib> = {
 // CHECK:                AttribKind: OutputID
 // CHECK:                OutputID: <2:NodeID> = {
 // CHECK:                  Name: "Output2ID"
 // CHECK:                  Index: 1
 // CHECK:                }
 // CHECK:              }
-// CHECK:              [1]: <2:NodeShaderIOAttrib>
-// CHECK:              [2]: <5:NodeShaderIOAttrib> = {
+// CHECK:              [1]: <3:NodeShaderIOAttrib>
+// CHECK:              [2]: <6:NodeShaderIOAttrib> = {
 // CHECK:                AttribKind: MaxRecords
 // CHECK:                MaxRecords: 5
 // CHECK:              }
 // CHECK:              [3]: <0:NodeShaderIOAttrib>
+// CHECK:              [4]: <1:NodeShaderIOAttrib>
 // CHECK:            }
 // CHECK:          }
 // CHECK:        }
-// CHECK:        Inputs: <8:RecordArrayRef<IONode>[1]>  = {
+// CHECK:        Inputs: <{{[0-9]+}}:RecordArrayRef<IONode>[1]>  = {
 // CHECK:          [0]: <0:IONode> = {
 // CHECK:            IOFlagsAndKind: 37
-// CHECK:            Attribs: <8:RecordArrayRef<NodeShaderIOAttrib>[1]>  = {
+// CHECK:            Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[2]>  = {
 // CHECK:              [0]: <0:NodeShaderIOAttrib>
+// CHECK:              [1]: <1:NodeShaderIOAttrib>
 // CHECK:            }
 // CHECK:          }
 // CHECK:        }
@@ -127,34 +133,38 @@
 // CHECK:      LocalRootArgumentsTableIndex: 2
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderIOAttribTable[6] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderIOAttribTable[7] = {
 // CHECK:    <0:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: RecordSizeInBytes
 // CHECK:      RecordSizeInBytes: 8
 // CHECK:    }
 // CHECK:    <1:NodeShaderIOAttrib> = {
+// CHECK:      AttribKind: RecordAlignmentInBytes
+// CHECK:      RecordAlignmentInBytes: 4
+// CHECK:    }
+// CHECK:    <2:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: OutputID
 // CHECK:      OutputID: <1:NodeID> = {
 // CHECK:        Name: "Output1"
 // CHECK:        Index: 0
 // CHECK:      }
 // CHECK:    }
-// CHECK:    <2:NodeShaderIOAttrib> = {
+// CHECK:    <3:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: OutputArraySize
 // CHECK:      OutputArraySize: 0
 // CHECK:    }
-// CHECK:    <3:NodeShaderIOAttrib> = {
+// CHECK:    <4:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: MaxRecordsSharedWith
 // CHECK:      MaxRecordsSharedWith: 1
 // CHECK:    }
-// CHECK:    <4:NodeShaderIOAttrib> = {
+// CHECK:    <5:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: OutputID
 // CHECK:      OutputID: <2:NodeID> = {
 // CHECK:        Name: "Output2ID"
 // CHECK:        Index: 1
 // CHECK:      }
 // CHECK:    }
-// CHECK:    <5:NodeShaderIOAttrib> = {
+// CHECK:    <6:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: MaxRecords
 // CHECK:      MaxRecords: 5
 // CHECK:    }
@@ -162,28 +172,32 @@
 // CHECK:  RecordTable (stride = {{[0-9]+}} bytes) IONodeTable[3] = {
 // CHECK:    <0:IONode> = {
 // CHECK:      IOFlagsAndKind: 37
-// CHECK:      Attribs: <8:RecordArrayRef<NodeShaderIOAttrib>[1]>  = {
+// CHECK:      Attribs: <8:RecordArrayRef<NodeShaderIOAttrib>[2]>  = {
 // CHECK:        [0]: <0:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: RecordSizeInBytes
 // CHECK:          RecordSizeInBytes: 8
+// CHECK:        }
+// CHECK:        [1]: <1:NodeShaderIOAttrib> = {
+// CHECK:          AttribKind: RecordAlignmentInBytes
+// CHECK:          RecordAlignmentInBytes: 4
 // CHECK:        }
 // CHECK:      }
 // CHECK:    }
 // CHECK:    <1:IONode> = {
 // CHECK:      IOFlagsAndKind: 262
-// CHECK:      Attribs: <10:RecordArrayRef<NodeShaderIOAttrib>[4]>  = {
-// CHECK:        [0]: <1:NodeShaderIOAttrib> = {
+// CHECK:      Attribs: <13:RecordArrayRef<NodeShaderIOAttrib>[5]>  = {
+// CHECK:        [0]: <2:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: OutputID
 // CHECK:          OutputID: <1:NodeID> = {
 // CHECK:            Name: "Output1"
 // CHECK:            Index: 0
 // CHECK:          }
 // CHECK:        }
-// CHECK:        [1]: <2:NodeShaderIOAttrib> = {
+// CHECK:        [1]: <3:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: OutputArraySize
 // CHECK:          OutputArraySize: 0
 // CHECK:        }
-// CHECK:        [2]: <3:NodeShaderIOAttrib> = {
+// CHECK:        [2]: <4:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: MaxRecordsSharedWith
 // CHECK:          MaxRecordsSharedWith: 1
 // CHECK:        }
@@ -191,29 +205,37 @@
 // CHECK:          AttribKind: RecordSizeInBytes
 // CHECK:          RecordSizeInBytes: 8
 // CHECK:        }
+// CHECK:        [4]: <1:NodeShaderIOAttrib> = {
+// CHECK:          AttribKind: RecordAlignmentInBytes
+// CHECK:          RecordAlignmentInBytes: 4
+// CHECK:        }
 // CHECK:      }
 // CHECK:    }
 // CHECK:    <2:IONode> = {
 // CHECK:      IOFlagsAndKind: 6
-// CHECK:      Attribs: <15:RecordArrayRef<NodeShaderIOAttrib>[4]>  = {
-// CHECK:        [0]: <4:NodeShaderIOAttrib> = {
+// CHECK:      Attribs: <19:RecordArrayRef<NodeShaderIOAttrib>[5]>  = {
+// CHECK:        [0]: <5:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: OutputID
 // CHECK:          OutputID: <2:NodeID> = {
 // CHECK:            Name: "Output2ID"
 // CHECK:            Index: 1
 // CHECK:          }
 // CHECK:        }
-// CHECK:        [1]: <2:NodeShaderIOAttrib> = {
+// CHECK:        [1]: <3:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: OutputArraySize
 // CHECK:          OutputArraySize: 0
 // CHECK:        }
-// CHECK:        [2]: <5:NodeShaderIOAttrib> = {
+// CHECK:        [2]: <6:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: MaxRecords
 // CHECK:          MaxRecords: 5
 // CHECK:        }
 // CHECK:        [3]: <0:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: RecordSizeInBytes
 // CHECK:          RecordSizeInBytes: 8
+// CHECK:        }
+// CHECK:        [4]: <1:NodeShaderIOAttrib> = {
+// CHECK:          AttribKind: RecordAlignmentInBytes
+// CHECK:          RecordAlignmentInBytes: 4
 // CHECK:        }
 // CHECK:      }
 // CHECK:    }
@@ -239,22 +261,22 @@
 // CHECK:          LocalRootArgumentsTableIndex: 2
 // CHECK:        }
 // CHECK:      }
-// CHECK:      Outputs: <20:RecordArrayRef<IONode>[2]>  = {
+// CHECK:      Outputs: <25:RecordArrayRef<IONode>[2]>  = {
 // CHECK:        [0]: <1:IONode> = {
 // CHECK:          IOFlagsAndKind: 262
-// CHECK:          Attribs: <10:RecordArrayRef<NodeShaderIOAttrib>[4]>  = {
-// CHECK:            [0]: <1:NodeShaderIOAttrib> = {
+// CHECK:          Attribs: <13:RecordArrayRef<NodeShaderIOAttrib>[5]>  = {
+// CHECK:            [0]: <2:NodeShaderIOAttrib> = {
 // CHECK:              AttribKind: OutputID
 // CHECK:              OutputID: <1:NodeID> = {
 // CHECK:                Name: "Output1"
 // CHECK:                Index: 0
 // CHECK:              }
 // CHECK:            }
-// CHECK:            [1]: <2:NodeShaderIOAttrib> = {
+// CHECK:            [1]: <3:NodeShaderIOAttrib> = {
 // CHECK:              AttribKind: OutputArraySize
 // CHECK:              OutputArraySize: 0
 // CHECK:            }
-// CHECK:            [2]: <3:NodeShaderIOAttrib> = {
+// CHECK:            [2]: <4:NodeShaderIOAttrib> = {
 // CHECK:              AttribKind: MaxRecordsSharedWith
 // CHECK:              MaxRecordsSharedWith: 1
 // CHECK:            }
@@ -262,32 +284,38 @@
 // CHECK:              AttribKind: RecordSizeInBytes
 // CHECK:              RecordSizeInBytes: 8
 // CHECK:            }
+// CHECK:            [4]: <1:NodeShaderIOAttrib> = {
+// CHECK:              AttribKind: RecordAlignmentInBytes
+// CHECK:              RecordAlignmentInBytes: 4
+// CHECK:            }
 // CHECK:          }
 // CHECK:        }
 // CHECK:        [1]: <2:IONode> = {
 // CHECK:          IOFlagsAndKind: 6
-// CHECK:          Attribs: <15:RecordArrayRef<NodeShaderIOAttrib>[4]>  = {
-// CHECK:            [0]: <4:NodeShaderIOAttrib> = {
+// CHECK:          Attribs: <19:RecordArrayRef<NodeShaderIOAttrib>[5]>  = {
+// CHECK:            [0]: <5:NodeShaderIOAttrib> = {
 // CHECK:              AttribKind: OutputID
 // CHECK:              OutputID: <2:NodeID> = {
 // CHECK:                Name: "Output2ID"
 // CHECK:                Index: 1
 // CHECK:              }
 // CHECK:            }
-// CHECK:            [1]: <2:NodeShaderIOAttrib>
-// CHECK:            [2]: <5:NodeShaderIOAttrib> = {
+// CHECK:            [1]: <3:NodeShaderIOAttrib>
+// CHECK:            [2]: <6:NodeShaderIOAttrib> = {
 // CHECK:              AttribKind: MaxRecords
 // CHECK:              MaxRecords: 5
 // CHECK:            }
 // CHECK:            [3]: <0:NodeShaderIOAttrib>
+// CHECK:            [4]: <1:NodeShaderIOAttrib>
 // CHECK:          }
 // CHECK:        }
 // CHECK:      }
-// CHECK:      Inputs: <8:RecordArrayRef<IONode>[1]>  = {
+// CHECK:      Inputs: <11:RecordArrayRef<IONode>[1]>  = {
 // CHECK:        [0]: <0:IONode> = {
 // CHECK:          IOFlagsAndKind: 37
-// CHECK:          Attribs: <8:RecordArrayRef<NodeShaderIOAttrib>[1]>  = {
+// CHECK:          Attribs: <8:RecordArrayRef<NodeShaderIOAttrib>[2]>  = {
 // CHECK:            [0]: <0:NodeShaderIOAttrib>
+// CHECK:            [1]: <1:NodeShaderIOAttrib>
 // CHECK:          }
 // CHECK:        }
 // CHECK:      }

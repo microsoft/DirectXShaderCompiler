@@ -440,11 +440,10 @@ static void AddRecordAccessMethod(clang::ASTContext &Ctx,
     IndexParam->setDefaultArg(ConstantZero);
   }
 
-  StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLIntrinsic);
-  unsigned Opcode =
-      static_cast<unsigned>(IntrinsicOp::IOP_ExtractRecordStructFromArray);
-  MethodDecl->addAttr(HLSLIntrinsicAttr::CreateImplicit(
-      Ctx, OpcodeGroup, "ExtractRecordStructFromArray", Opcode));
+  StringRef OpcodeGroup = GetHLOpcodeGroupName(HLOpcodeGroup::HLSubscript);
+  unsigned Opcode = static_cast<unsigned>(HLSubscriptOpcode::DefaultSubscript);
+  MethodDecl->addAttr(
+      HLSLIntrinsicAttr::CreateImplicit(Ctx, OpcodeGroup, "", Opcode));
   MethodDecl->addAttr(HLSLCXXOverloadAttr::CreateImplicit(Ctx));
 }
 

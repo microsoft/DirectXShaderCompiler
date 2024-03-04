@@ -638,6 +638,14 @@ bool IsHLSLDynamicResourceType(clang::QualType type) {
   return false;
 }
 
+bool IsHLSLDynamicSamplerType(clang::QualType type) {
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+    return name == ".Sampler";
+  }
+  return false;
+}
+
 bool IsHLSLNodeType(clang::QualType type) {
   if (const HLSLNodeObjectAttr *Attr = getNodeAttr(type))
     return true;
@@ -859,6 +867,24 @@ bool GetHLSLSubobjectKind(clang::QualType type,
   return false;
 }
 
+clang::RecordDecl *GetRecordDeclFromNodeObjectType(clang::QualType ObjectTy) {
+  ObjectTy = ObjectTy.getCanonicalType();
+  DXASSERT(IsHLSLNodeType(ObjectTy), "Expected Node Object type");
+  if (const CXXRecordDecl *CXXRD = ObjectTy->getAsCXXRecordDecl()) {
+
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(CXXRD)) {
+
+      auto &TemplateArgs = templateDecl->getTemplateArgs();
+      clang::QualType RecType = TemplateArgs[0].getAsType();
+      if (const RecordType *RT = RecType->getAs<RecordType>())
+        return RT->getDecl();
+    }
+  }
+
+  return nullptr;
+}
+
 bool IsHLSLRayQueryType(clang::QualType type) {
   type = type.getCanonicalType();
   if (const RecordType *RT = dyn_cast<RecordType>(type)) {
@@ -949,6 +975,7 @@ QualType GetHLSLResourceTemplateParamType(QualType type) {
 QualType GetHLSLInputPatchElementType(QualType type) {
   return GetHLSLResourceTemplateParamType(type);
 }
+
 unsigned GetHLSLInputPatchCount(QualType type) {
   type = type.getCanonicalType();
   const RecordType *RT = cast<RecordType>(type);

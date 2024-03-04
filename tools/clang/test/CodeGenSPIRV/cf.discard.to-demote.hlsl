@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-extension=SPV_EXT_demote_to_helper_invocation
+// RUN: %dxc -T ps_6_0 -E main -fspv-extension=SPV_EXT_demote_to_helper_invocation -fcgl  %s -spirv | FileCheck %s
 
 // According to the HLS spec, discard can only be called from a pixel shader.
 

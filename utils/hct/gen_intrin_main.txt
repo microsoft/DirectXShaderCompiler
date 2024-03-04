@@ -380,8 +380,6 @@ void [[]] Barrier(in NodeRecordOrUAV o, in uint SemanticFlags);
 
 uint [[]] GetRemainingRecursionLevels();
 
-$match<0,-2> void [[hidden]] ExtractRecordStructFromArray(in AnyNodeOutputRecord output);
-
 } namespace
 
 

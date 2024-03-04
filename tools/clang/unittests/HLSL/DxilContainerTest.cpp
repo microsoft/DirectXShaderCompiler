@@ -99,6 +99,8 @@ public:
   TEST_METHOD(CompileAS_CheckPSV0)
   TEST_METHOD(CompileGS_CheckPSV0_ViewID)
   TEST_METHOD(Compile_CheckPSV0_EntryFunctionName)
+  TEST_METHOD(CompileCSWaveSize_CheckPSV0)
+  TEST_METHOD(CompileCSWaveSizeRange_CheckPSV0)
   TEST_METHOD(CompileWhenOkThenCheckRDAT)
   TEST_METHOD(CompileWhenOkThenCheckRDAT2)
   TEST_METHOD(CompileWhenOkThenCheckReflection1)
@@ -1352,6 +1354,91 @@ attributes #1 = { nounwind }
 )!!!";
 
   CheckEntryFunctionNameForLL("MyHSMainPassthrough", ll_HSPassthrough);
+}
+
+TEST_F(DxilContainerTest, CompileCSWaveSize_CheckPSV0) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+  const char csSource[] = R"(
+    RWByteAddressBuffer B;
+    [numthreads(1,1,1)]
+    [wavesize(16)]
+    void main(uint3 id : SV_DispatchThreadID) {
+      if (id.x == 0)
+        B.Store(0, WaveGetLaneCount());
+    }
+  )";
+
+  CComPtr<IDxcBlob> pProgram;
+  CComPtr<IDxcOperationResult> pResult;
+  CompileToProgram(csSource, L"main", L"cs_6_6", nullptr, 0, &pProgram,
+                   &pResult);
+
+  CComPtr<IDxcContainerReflection> containerReflection;
+  IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection,
+                                  &containerReflection));
+  IFT(containerReflection->Load(pProgram));
+
+  UINT32 partIdx = 0;
+  IFT(containerReflection->FindFirstPartKind(
+      (uint32_t)hlsl::DxilFourCC::DFCC_PipelineStateValidation, &partIdx))
+  CComPtr<IDxcBlob> pBlob;
+  VERIFY_SUCCEEDED(containerReflection->GetPartContent(partIdx, &pBlob));
+
+  DxilPipelineStateValidation PSV;
+  PSV.InitFromPSV0(pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+  PSVShaderKind kind = PSV.GetShaderKind();
+  VERIFY_ARE_EQUAL(PSVShaderKind::Compute, kind);
+  PSVRuntimeInfo0 *pInfo = PSV.GetPSVRuntimeInfo0();
+  VERIFY_IS_NOT_NULL(pInfo);
+  VERIFY_ARE_EQUAL(16U, pInfo->MaximumExpectedWaveLaneCount);
+  VERIFY_ARE_EQUAL(16U, pInfo->MinimumExpectedWaveLaneCount);
+}
+
+TEST_F(DxilContainerTest, CompileCSWaveSizeRange_CheckPSV0) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+  const char csSource[] = R"(
+    RWByteAddressBuffer B;
+    [numthreads(1,1,1)]
+    [wavesize(16, 64 PREFERRED)]
+    void main(uint3 id : SV_DispatchThreadID) {
+      if (id.x == 0)
+        B.Store(0, WaveGetLaneCount());
+    }
+  )";
+
+  auto TestCompile = [&](LPCWSTR defPreferred) {
+    CComPtr<IDxcBlob> pProgram;
+    CComPtr<IDxcOperationResult> pResult;
+    LPCWSTR args[] = {defPreferred};
+    CompileToProgram(csSource, L"main", L"cs_6_8", args, 1, &pProgram,
+                     &pResult);
+
+    CComPtr<IDxcContainerReflection> containerReflection;
+    IFT(m_dllSupport.CreateInstance(CLSID_DxcContainerReflection,
+                                    &containerReflection));
+    IFT(containerReflection->Load(pProgram));
+
+    UINT32 partIdx = 0;
+    IFT(containerReflection->FindFirstPartKind(
+        (uint32_t)hlsl::DxilFourCC::DFCC_PipelineStateValidation, &partIdx))
+    CComPtr<IDxcBlob> pBlob;
+    VERIFY_SUCCEEDED(containerReflection->GetPartContent(partIdx, &pBlob));
+
+    DxilPipelineStateValidation PSV;
+    PSV.InitFromPSV0(pBlob->GetBufferPointer(), pBlob->GetBufferSize());
+    PSVShaderKind kind = PSV.GetShaderKind();
+    VERIFY_ARE_EQUAL(PSVShaderKind::Compute, kind);
+    PSVRuntimeInfo0 *pInfo = PSV.GetPSVRuntimeInfo0();
+    VERIFY_IS_NOT_NULL(pInfo);
+    VERIFY_ARE_EQUAL(16U, pInfo->MinimumExpectedWaveLaneCount);
+    VERIFY_ARE_EQUAL(64U, pInfo->MaximumExpectedWaveLaneCount);
+  };
+
+  // Same range, whether preferred is set or not.
+  TestCompile(L"-DPREFERRED=");
+  TestCompile(L"-DPREFERRED=,32");
 }
 
 TEST_F(DxilContainerTest, CompileWhenOkThenCheckRDAT) {

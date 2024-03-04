@@ -87,6 +87,7 @@ class db_dxil_inst(object):
         self.is_feedback = False  # whether this is a sampler feedback op
         self.is_wave = False  # whether this requires in-wave, cross-lane functionality
         self.requires_uniform_inputs = False  # whether this operation requires that all of its inputs are uniform across the wave
+        self.is_barrier = False  # whether this is a barrier operation
         self.shader_stages = ()  # shader stages to which this applies, empty for all.
         self.shader_model = 6, 0  # minimum shader model required
         self.inst_helper_prefix = None
@@ -350,11 +351,7 @@ class db_dxil(object):
             self.name_idx[i].shader_stages = ("pixel",)
         for i in "TextureGather,TextureGatherCmp,TextureGatherRaw".split(","):
             self.name_idx[i].category = "Resources - gather"
-        for (
-            i
-        ) in "AtomicBinOp,AtomicCompareExchange,Barrier,BarrierByMemoryType,BarrierByMemoryHandle,BarrierByNodeRecordHandle".split(
-            ","
-        ):
+        for i in "AtomicBinOp,AtomicCompareExchange".split(","):
             self.name_idx[i].category = "Synchronization"
         for i in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY".split(
             ","
@@ -366,6 +363,7 @@ class db_dxil(object):
                 "compute",
                 "amplification",
                 "mesh",
+                "node",
             )
         for (
             i
@@ -448,6 +446,7 @@ class db_dxil(object):
                     "amplification",
                     "mesh",
                     "pixel",
+                    "node",
                 )
             elif i.name.startswith("Bitcast"):
                 i.category = "Bitcasts with different sizes"
@@ -646,7 +645,7 @@ class db_dxil(object):
             + "WaveMatrix_SumAccumulate,WaveMatrix_Add"
         ).split(","):
             self.name_idx[i].category = "WaveMatrix"
-            self.name_idx[i].shader_model = 6, 7
+            self.name_idx[i].shader_model = 6, 9
             self.name_idx[i].shader_stages = (
                 "library",
                 "compute",
@@ -683,12 +682,24 @@ class db_dxil(object):
             self.name_idx[i].category = "Work Graph intrinsics"
             self.name_idx[i].shader_model = 6, 8
             self.name_idx[i].shader_stages = ("node",)
-        for (
-            i
-        ) in "BarrierByMemoryType,BarrierByMemoryHandle,BarrierByNodeRecordHandle".split(
-            ","
-        ):  # included in Synchronization category
+        # All barrier ops:
+        for i in "Barrier".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
+        for i in "BarrierByMemoryType".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
             self.name_idx[i].shader_model = 6, 8
+            self.name_idx[i].shader_model_translated = 6, 0
+        for i in "BarrierByMemoryHandle".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
+            self.name_idx[i].shader_model = 6, 8
+        for i in "BarrierByNodeRecordHandle".split(","):
+            self.name_idx[i].category = "Synchronization"
+            self.name_idx[i].is_barrier = True
+            self.name_idx[i].shader_model = 6, 8
+            self.name_idx[i].shader_stages = ("node",)
         for i in "SampleCmpBias,SampleCmpGrad".split(","):
             self.name_idx[i].category = "Comparison Samples"
             self.name_idx[i].shader_model = 6, 8
@@ -5366,6 +5377,7 @@ class db_dxil(object):
                     3, "i32", "SemanticFlags", "semantic flags", is_const=True
                 ),
             ],
+            counters=("barrier",),
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5382,6 +5394,7 @@ class db_dxil(object):
                     3, "i32", "SemanticFlags", "semantic flags", is_const=True
                 ),
             ],
+            counters=("barrier",),
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5394,8 +5407,11 @@ class db_dxil(object):
             [
                 retvoid_param,
                 db_dxil_param(2, "noderecordhandle", "object", "handle of object"),
-                db_dxil_param(3, "i32", "SemanticFlags", "semantic flags"),
+                db_dxil_param(
+                    3, "i32", "SemanticFlags", "semantic flags", is_const=True
+                ),
             ],
+            counters=("barrier",),
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5407,7 +5423,7 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "nodehandle", "output", "handle of object"),
-                db_dxil_param(2, "i32", "MetadataIdx", "metadata index"),
+                db_dxil_param(2, "i32", "MetadataIdx", "metadata index", is_const=True),
             ],
         )
         next_op_idx += 1
@@ -5459,7 +5475,7 @@ class db_dxil(object):
             "rn",
             [
                 db_dxil_param(0, "noderecordhandle", "output", "output handle"),
-                db_dxil_param(2, "i32", "MetadataIdx", "metadata index"),
+                db_dxil_param(2, "i32", "MetadataIdx", "metadata index", is_const=True),
             ],
         )
         next_op_idx += 1
@@ -5659,11 +5675,18 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        # End of DXIL 1.8 opcodes.
+        self.set_op_count_for_version(1, 8, next_op_idx)
+        assert next_op_idx == 258, (
+            "258 is expected next operation index but encountered %d and thus opcodes are broken"
+            % next_op_idx
+        )
+
         # Set interesting properties.
         self.build_indices()
         for (
             i
-        ) in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp".split(
+        ) in "CalculateLOD,DerivCoarseX,DerivCoarseY,DerivFineX,DerivFineY,Sample,SampleBias,SampleCmp,SampleCmpBias".split(
             ","
         ):
             self.name_idx[i].is_gradient = True
@@ -7301,6 +7324,13 @@ class db_dxil(object):
             "Instr.ImmBiasForSampleB",
             "bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.",
         )
+        self.add_valrule(
+            "Instr.IllegalDXILOpCode", "DXILOpCode must be [0..%0].  %1 specified."
+        )
+        self.add_valrule(
+            "Instr.IllegalDXILOpFunction",
+            "'%0' is not a DXILOpFuncition for DXILOpcode '%1'.",
+        )
         # If streams have not been declared, you must use cut instead of cut_stream in GS - is there an equivalent rule here?
 
         # Need to clean up all error messages and actually implement.
@@ -7388,6 +7418,10 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.BarrierNonConstantFlagArgument",
             "Memory type, access, or sync flag is not constant",
+        )
+        self.add_valrule(
+            "Instr.BarrierRequiresNode",
+            "sync in a non-Node Shader must not sync node record memory.",
         )
         self.add_valrule(
             "Instr.WriteMaskForTypedUAVStore",
@@ -7552,6 +7586,11 @@ class db_dxil(object):
         self.add_valrule(
             "Instr.AtomicIntrinNonUAV", "Non-UAV destination to atomic intrinsic."
         )
+        self.add_valrule_msg(
+            "Instr.SVConflictingLaunchMode",
+            "Input system values are compatible with node shader launch mode.",
+            "Call to DXIL intrinsic %0 (%1) is not allowed in node shader launch type %2",
+        )
         self.add_valrule("Instr.AtomicConst", "Constant destination to atomic.")
 
         # Work-Graphs
@@ -7649,13 +7688,58 @@ class db_dxil(object):
         self.add_valrule(
             "Sm.TGSMUnsupported", "Thread Group Shared Memory not supported %0."
         )
-        self.add_valrule(
+        self.add_valrule_msg(
             "Sm.WaveSizeValue",
-            "Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.",
+            "WaveSize value must be a power of 2 in range [4..128]",
+            "WaveSize %0 (%1) outside valid range [%2..%3], or not a power of 2.",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeAllZeroWhenUndefined",
+            "WaveSize Max and Preferred must be 0 when Min is 0",
+            "WaveSize Max (%0) and Preferred (%1) must be 0 when Min is 0",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeMaxAndPreferredZeroWhenNoRange",
+            "WaveSize Max and Preferred must be 0 to encode min==max",
+            "WaveSize Max (%0) and Preferred (%1) must be 0 to encode min==max",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizeMaxGreaterThanMin",
+            "WaveSize Max must greater than Min",
+            "WaveSize Max (%0) is less than Min (%1)",
+        )
+        self.add_valrule_msg(
+            "Sm.WaveSizePreferredInRange",
+            "WaveSize Preferred must be within Min..Max range",
+            "WaveSize Preferred (%0) outside Min..Max range [%1..%2]",
         )
         self.add_valrule(
-            "Sm.WaveSizeNeedsDxil16Plus",
-            "WaveSize is valid only for DXIL version 1.6 and higher.",
+            "Sm.WaveSizeOnComputeOrNode",
+            "WaveSize only allowed on compute or node shaders",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeNeedsSM66or67",
+            "WaveSize is valid only for Shader Model 6.6 and 6.7.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeRangeNeedsSM68Plus",
+            "WaveSize Range is valid only for Shader Model 6.8 and higher.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeRangeExpectsThreeParams",
+            "WaveSize Range tag expects exactly 3 parameters.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeExpectsOneParam",
+            "WaveSize tag expects exactly 1 parameter.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeTagDuplicate",
+            "WaveSize or WaveSizeRange tag may only appear once per entry point.",
+        )
+        self.add_valrule(
+            "Sm.WaveSizeNeedsConstantOperands",
+            "WaveSize metadata operands must be constant values.",
         )
         self.add_valrule(
             "Sm.ROVOnlyInPS",
@@ -7995,6 +8079,56 @@ class db_dxil(object):
             "Decl.NodeLaunchInputType",
             "Invalid input record type for node launch type",
             "%0 node shader '%1' has incompatible input record type (should be %2)",
+        )
+
+        # These errors are emitted from ShaderCompatInfo validation.
+        # If a called function is identifiable as a potential source of the
+        # incompatibility, you get Sm.IncompatibleCallInEntry,
+        # otherwise you get Sm.IncompatibleOperation.
+        # You also get the specific incompatibilities found with one function
+        # introducing each problem.
+        # These may be emitted in addition to another specific operation
+        # validation error that identifies the root cause, but is meant to
+        # catch cases currently missed by other validation.
+        self.add_valrule_msg(
+            "Sm.IncompatibleCallInEntry",
+            "Features used in internal function calls must be compatible with entry",
+            "Entry function calls one or more functions using incompatible features.  See other errors for details.",
+        )
+        self.add_valrule_msg(
+            "Sm.IncompatibleOperation",
+            "Operations used in entry function must be compatible with shader stage and other properties",
+            "Entry function performs some operation that is incompatible with the shader stage or other entry properties.  See other errors for details.",
+        )
+        self.add_valrule_msg(
+            "Sm.IncompatibleStage",
+            "Functions may only use features available in the entry function's stage",
+            "Function uses features incompatible with the shader stage (%0) of the entry function.",
+        )
+        self.add_valrule_msg(
+            "Sm.IncompatibleShaderModel",
+            "Functions may only use features available in the current shader model",
+            "Function uses features incompatible with the shader model.",
+        )
+        self.add_valrule_msg(
+            "Sm.IncompatibleThreadGroupDim",
+            "When derivatives are used in compute-model shaders, the thread group dimensions must be compatible",
+            "Function uses derivatives in compute-model shader with NumThreads (%0, %1, %2); derivatives require NumThreads to be 1D and a multiple of 4, or 2D/3D with X and Y both being a multiple of 2.",
+        )
+        self.add_valrule_msg(
+            "Sm.IncompatibleDerivInComputeShaderModel",
+            "Derivatives in compute-model shaders require shader model 6.6 and above",
+            "Function uses derivatives in compute-model shader, which is only supported in shader model 6.6 and above.",
+        )
+        self.add_valrule_msg(
+            "Sm.IncompatibleRequiresGroup",
+            "Functions requiring groupshared memory must be called from shaders with a visible group",
+            "Function requires a visible group, but is called from a shader without one.",
+        )
+        self.add_valrule_msg(
+            "Sm.IncompatibleDerivLaunch",
+            "Node shaders only support derivatives in broadcasting launch mode",
+            "Function called from %0 launch node shader uses derivatives; only broadcasting launch supports derivatives.",
         )
 
         # Assign sensible category names and build up an enumeration description

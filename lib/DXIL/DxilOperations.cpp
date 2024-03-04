@@ -2705,8 +2705,6 @@ llvm::StringRef OP::ConstructOverloadName(Type *Ty, DXIL::OpCode opCode,
 }
 
 const char *OP::GetOpCodeName(OpCode opCode) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].pOpCodeName;
 }
 
@@ -2719,26 +2717,22 @@ const char *OP::GetAtomicOpName(DXIL::AtomicBinOpCode OpCode) {
 }
 
 OP::OpCodeClass OP::GetOpCodeClass(OpCode opCode) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].opCodeClass;
 }
 
 const char *OP::GetOpCodeClassName(OpCode opCode) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].pOpCodeClassName;
 }
 
 llvm::Attribute::AttrKind OP::GetMemAccessAttr(OpCode opCode) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
   return m_OpCodeProps[(unsigned)opCode].FuncAttr;
 }
 
 bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB index");
+  if (!pType)
+    return false;
+  if (opCode == OpCode::NumOpCodes)
+    return false;
   unsigned TypeSlot = GetTypeSlot(pType);
   return TypeSlot != UINT_MAX &&
          m_OpCodeProps[(unsigned)opCode].bAllowOverload[TypeSlot];
@@ -2814,8 +2808,13 @@ bool OP::IsDxilOpFuncCallInst(const llvm::Instruction *I, OpCode opcode) {
 }
 
 OP::OpCode OP::getOpCode(const llvm::Instruction *I) {
-  return (OP::OpCode)llvm::cast<llvm::ConstantInt>(I->getOperand(0))
-      ->getZExtValue();
+  auto *OpConst = llvm::dyn_cast<llvm::ConstantInt>(I->getOperand(0));
+  if (!OpConst)
+    return OpCode::NumOpCodes;
+  uint64_t OpCodeVal = OpConst->getZExtValue();
+  if (OpCodeVal >= static_cast<uint64_t>(OP::OpCode::NumOpCodes))
+    return OP::OpCode::NumOpCodes;
+  return static_cast<OP::OpCode>(OpCodeVal);
 }
 
 OP::OpCode OP::GetDxilOpFuncCallInst(const llvm::Instruction *I) {
@@ -2857,9 +2856,9 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // OPCODE-GRADIENT:BEGIN
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
-  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
+  // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175, SampleCmpBias=255
   return (60 <= op && op <= 61) || op == 64 || op == 81 ||
-         (83 <= op && op <= 86) || (174 <= op && op <= 175);
+         (83 <= op && op <= 86) || (174 <= op && op <= 175) || op == 255;
   // OPCODE-GRADIENT:END
 }
 
@@ -2874,6 +2873,135 @@ bool OP::IsDxilOpFeedback(OpCode C) {
   // WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177
   return (174 <= op && op <= 177);
   // OPCODE-FEEDBACK:END
+}
+
+bool OP::IsDxilOpBarrier(OpCode C) {
+  unsigned op = (unsigned)C;
+  // clang-format off
+  // Python lines need to be not formatted.
+  /* <py::lines('OPCODE-BARRIER')>hctdb_instrhelp.get_instrs_pred("op", "is_barrier")</py>*/
+  // clang-format on
+  // OPCODE-BARRIER:BEGIN
+  // Instructions: Barrier=80, BarrierByMemoryType=244,
+  // BarrierByMemoryHandle=245, BarrierByNodeRecordHandle=246
+  return op == 80 || (244 <= op && op <= 246);
+  // OPCODE-BARRIER:END
+}
+
+static unsigned MaskMemoryTypeFlagsIfAllowed(unsigned memoryTypeFlags,
+                                             unsigned allowedMask) {
+  // If the memory type is AllMemory, masking inapplicable flags is allowed.
+  if (memoryTypeFlags != (unsigned)DXIL::MemoryTypeFlag::AllMemory)
+    return memoryTypeFlags;
+  return memoryTypeFlags & allowedMask;
+}
+
+bool OP::BarrierRequiresGroup(const llvm::CallInst *CI) {
+  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (opcode) {
+  case OpCode::Barrier: {
+    DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_barrierMode())) {
+      unsigned mode = barrier.get_barrierMode_val();
+      return (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal);
+    }
+    return false;
+  }
+  case OpCode::BarrierByMemoryType: {
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
+      unsigned memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
+      memoryTypeFlags = MaskMemoryTypeFlagsIfAllowed(
+          memoryTypeFlags, ~(unsigned)DXIL::MemoryTypeFlag::GroupFlags);
+      if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupFlags)
+        return true;
+    }
+  }
+    LLVM_FALLTHROUGH;
+  case OpCode::BarrierByMemoryHandle:
+  case OpCode::BarrierByNodeRecordHandle: {
+    // BarrierByMemoryType, BarrierByMemoryHandle, and BarrierByNodeRecordHandle
+    // all have semanticFlags as the second operand.
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
+      unsigned semanticFlags = barrier.get_SemanticFlags_val();
+      if (semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::GroupFlags)
+        return true;
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
+
+bool OP::BarrierRequiresNode(const llvm::CallInst *CI) {
+  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (opcode) {
+  case OpCode::BarrierByNodeRecordHandle:
+    return true;
+  case OpCode::BarrierByMemoryType: {
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
+      unsigned memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
+      // Mask off node flags, if allowed.
+      memoryTypeFlags = MaskMemoryTypeFlagsIfAllowed(
+          memoryTypeFlags, ~(unsigned)DXIL::MemoryTypeFlag::NodeFlags);
+      return (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::NodeFlags) != 0;
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
+
+DXIL::BarrierMode OP::TranslateToBarrierMode(const llvm::CallInst *CI) {
+  OpCode opcode = OP::GetDxilOpFuncCallInst(CI);
+  switch (opcode) {
+  case OpCode::Barrier: {
+    DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_barrierMode())) {
+      unsigned mode = barrier.get_barrierMode_val();
+      return static_cast<DXIL::BarrierMode>(mode);
+    }
+    return DXIL::BarrierMode::Invalid;
+  }
+  case OpCode::BarrierByMemoryType: {
+    unsigned memoryTypeFlags = 0;
+    unsigned semanticFlags = 0;
+    DxilInst_BarrierByMemoryType barrier(const_cast<CallInst *>(CI));
+    if (isa<ConstantInt>(barrier.get_MemoryTypeFlags())) {
+      memoryTypeFlags = barrier.get_MemoryTypeFlags_val();
+    }
+    if (isa<ConstantInt>(barrier.get_SemanticFlags())) {
+      semanticFlags = barrier.get_SemanticFlags_val();
+    }
+
+    // Mask to legacy flags, if allowed.
+    memoryTypeFlags = MaskMemoryTypeFlagsIfAllowed(
+        memoryTypeFlags, (unsigned)DXIL::MemoryTypeFlag::LegacyFlags);
+    if (memoryTypeFlags & ~(unsigned)DXIL::MemoryTypeFlag::LegacyFlags)
+      return DXIL::BarrierMode::Invalid;
+
+    unsigned mode = 0;
+    if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::GroupSharedMemory)
+      mode |= (unsigned)DXIL::BarrierMode::TGSMFence;
+    if (memoryTypeFlags & (unsigned)DXIL::MemoryTypeFlag::UavMemory) {
+      if (semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::DeviceScope) {
+        mode |= (unsigned)DXIL::BarrierMode::UAVFenceGlobal;
+      } else if (semanticFlags &
+                 (unsigned)DXIL::BarrierSemanticFlag::GroupScope) {
+        mode |= (unsigned)DXIL::BarrierMode::UAVFenceThreadGroup;
+      }
+    }
+    if (semanticFlags & (unsigned)DXIL::BarrierSemanticFlag::GroupSync)
+      mode |= (unsigned)DXIL::BarrierMode::SyncThreadGroup;
+    return static_cast<DXIL::BarrierMode>(mode);
+  }
+  default:
+    return DXIL::BarrierMode::Invalid;
+  }
 }
 
 #define SFLAG(stage) ((unsigned)1 << (unsigned)DXIL::ShaderKind::stage)
@@ -2925,7 +3053,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // Instructions: QuadReadLaneAt=122, QuadOp=123
   if ((122 <= op && op <= 123)) {
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel);
+           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
   // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
@@ -2941,15 +3069,10 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
            SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
-  // Instructions: CalculateLOD=81, DerivCoarseX=83, DerivCoarseY=84,
-  // DerivFineX=85, DerivFineY=86
-  if (op == 81 || (83 <= op && op <= 86)) {
-    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
-           SFLAG(Amplification) | SFLAG(Mesh);
-    return;
-  }
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64
-  if ((60 <= op && op <= 61) || op == 64) {
+  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
+  if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
+      (83 <= op && op <= 86)) {
     mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
            SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
@@ -3160,18 +3283,6 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     minor = 7;
     return;
   }
-  // Instructions: WaveMatrix_Annotate=226, WaveMatrix_Depth=227,
-  // WaveMatrix_Fill=228, WaveMatrix_LoadRawBuf=229,
-  // WaveMatrix_LoadGroupShared=230, WaveMatrix_StoreRawBuf=231,
-  // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
-  // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
-  // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
-  if ((226 <= op && op <= 237)) {
-    major = 6;
-    minor = 7;
-    mask = SFLAG(Library) | SFLAG(Compute);
-    return;
-  }
   // Instructions: QuadVote=222
   if (op == 222) {
     if (bWithTranslation) {
@@ -3182,12 +3293,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
       minor = 7;
     }
     mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel);
+           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
-  // Instructions: BarrierByMemoryType=244, BarrierByMemoryHandle=245,
-  // BarrierByNodeRecordHandle=246, SampleCmpGrad=254
-  if ((244 <= op && op <= 246) || op == 254) {
+  // Instructions: BarrierByMemoryHandle=245, SampleCmpGrad=254
+  if (op == 245 || op == 254) {
     major = 6;
     minor = 8;
     return;
@@ -3202,11 +3312,11 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   }
   // Instructions: AllocateNodeOutputRecords=238, GetNodeRecordPtr=239,
   // IncrementOutputCount=240, OutputComplete=241, GetInputRecordCount=242,
-  // FinishedCrossGroupSharing=243, CreateNodeOutputHandle=247,
-  // IndexNodeHandle=248, AnnotateNodeHandle=249,
+  // FinishedCrossGroupSharing=243, BarrierByNodeRecordHandle=246,
+  // CreateNodeOutputHandle=247, IndexNodeHandle=248, AnnotateNodeHandle=249,
   // CreateNodeInputRecordHandle=250, AnnotateNodeRecordHandle=251,
   // NodeOutputIsValid=252, GetRemainingRecursionLevels=253
-  if ((238 <= op && op <= 243) || (247 <= op && op <= 253)) {
+  if ((238 <= op && op <= 243) || (246 <= op && op <= 253)) {
     major = 6;
     minor = 8;
     mask = SFLAG(Node);
@@ -3217,6 +3327,29 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     major = 6;
     minor = 8;
     mask = SFLAG(Vertex);
+    return;
+  }
+  // Instructions: BarrierByMemoryType=244
+  if (op == 244) {
+    if (bWithTranslation) {
+      major = 6;
+      minor = 0;
+    } else {
+      major = 6;
+      minor = 8;
+    }
+    return;
+  }
+  // Instructions: WaveMatrix_Annotate=226, WaveMatrix_Depth=227,
+  // WaveMatrix_Fill=228, WaveMatrix_LoadRawBuf=229,
+  // WaveMatrix_LoadGroupShared=230, WaveMatrix_StoreRawBuf=231,
+  // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
+  // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
+  // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
+  if ((226 <= op && op <= 237)) {
+    major = 6;
+    minor = 9;
+    mask = SFLAG(Library) | SFLAG(Compute);
     return;
   }
   // OPCODE-SMMASK:END
@@ -3230,44 +3363,47 @@ void OP::GetMinShaderModelAndMask(const llvm::CallInst *CI,
   GetMinShaderModelAndMask(opcode, bWithTranslation, major, minor, mask);
 
   unsigned op = (unsigned)opcode;
-  // These ops cannot indicate support for CS, AS, or MS,
-  // otherwise, it's saying these are guaranteed to be supported
-  // on the lowest shader model returned by this function
-  // for these shader stages.  For CS, SM 6.6 is required,
-  // and for AS/MS, an optional feature is required.
-  // This also breaks compatibility for existing validators.
-  // We need a different mechanism to be supported in functions
-  // for runtime linking.
-  // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
-  // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
-      (83 <= op && op <= 86)) {
-    mask &= ~(SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh));
-    return;
+  if (DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0) {
+    // In prior validator versions, these ops excluded CS/MS/AS from mask.
+    // In 1.8, we now have a mechanism to indicate derivative use with an
+    // independent feature bit.  This allows us to fix up the min shader model
+    // once all bits have been marged from the call graph to the entry point.
+    // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
+    // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
+    if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
+        (83 <= op && op <= 86)) {
+      mask &= ~(SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh));
+      return;
+    }
   }
 
   if (DXIL::CompareVersions(valMajor, valMinor, 1, 5) < 0) {
     // validator 1.4 didn't exclude wave ops in mask
     if (IsDxilOpWave(opcode))
-      mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
-    // These shader models don't exist before 1.5
-    mask &= ~(SFLAG(Amplification) | SFLAG(Mesh));
+      mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Mesh) - 1;
     // validator 1.4 didn't have any additional rules applied:
     return;
   }
 
   // Additional rules are applied manually here.
 
-  // Barrier with mode != UAVFenceGlobal requires compute, amplification, or
-  // mesh Instructions: Barrier=80
-  if (opcode == DXIL::OpCode::Barrier) {
-    DxilInst_Barrier barrier(const_cast<CallInst *>(CI));
-    unsigned mode = barrier.get_barrierMode_val();
-    if (mode != (unsigned)DXIL::BarrierMode::UAVFenceGlobal) {
-      mask =
-          SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh);
+  // Barrier requiring node or group limit shader kinds.
+  if (IsDxilOpBarrier(opcode)) {
+    // If BarrierByMemoryType, check if translatable, or set min to 6.8.
+    if (bWithTranslation && opcode == DXIL::OpCode::BarrierByMemoryType) {
+      if (TranslateToBarrierMode(CI) == DXIL::BarrierMode::Invalid) {
+        major = 6;
+        minor = 8;
+      }
     }
-    return;
+    if (BarrierRequiresNode(CI)) {
+      mask &= SFLAG(Library) | SFLAG(Node);
+      return;
+    } else if (BarrierRequiresGroup(CI)) {
+      mask &= SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
+              SFLAG(Mesh) | SFLAG(Node);
+      return;
+    }
   }
 
   // 64-bit integer atomic ops require 6.6
@@ -3388,9 +3524,7 @@ void OP::RefreshCache() {
       CallInst *CI = cast<CallInst>(*F.user_begin());
       OpCode OpCode = OP::GetDxilOpFuncCallInst(CI);
       Type *pOverloadType = OP::GetOverloadType(OpCode, &F);
-      Function *OpFunc = GetOpFunc(OpCode, pOverloadType);
-      (void)(OpFunc);
-      DXASSERT_NOMSG(OpFunc == &F);
+      GetOpFunc(OpCode, pOverloadType);
     }
   }
 }
@@ -3409,13 +3543,15 @@ void OP::FixOverloadNames() {
       CallInst *CI = cast<CallInst>(*F.user_begin());
       DXIL::OpCode opCode = OP::GetDxilOpFuncCallInst(CI);
       llvm::Type *Ty = OP::GetOverloadType(opCode, &F);
-      if (isa<StructType>(Ty) || isa<PointerType>(Ty)) {
-        std::string funcName;
-        if (OP::ConstructOverloadName(Ty, opCode, funcName)
-                .compare(F.getName()) != 0) {
-          F.setName(funcName);
-        }
-      }
+      if (!OP::IsOverloadLegal(opCode, Ty))
+        continue;
+      if (!isa<StructType>(Ty) && !isa<PointerType>(Ty))
+        continue;
+
+      std::string funcName;
+      if (OP::ConstructOverloadName(Ty, opCode, funcName)
+              .compare(F.getName()) != 0)
+        F.setName(funcName);
     }
   }
 }
@@ -3426,12 +3562,11 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
 }
 
 Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB OpCode");
-  assert(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes);
-  DXASSERT(IsOverloadLegal(opCode, pOverloadType),
-           "otherwise the caller requested illegal operation overload (eg HLSL "
-           "function with unsupported types for mapped intrinsic function)");
+  if (opCode == OpCode::NumOpCodes)
+    return nullptr;
+  if (!IsOverloadLegal(opCode, pOverloadType))
+    return nullptr;
+
   OpCodeClass opClass = m_OpCodeProps[(unsigned)opCode].opCodeClass;
   Function *&F =
       m_OpCodeClassCache[(unsigned)opClass].pOverloads[pOverloadType];
@@ -5374,8 +5509,8 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   // and return values to ensure that ResRetType is constructed in the
   // RefreshCache case.
   if (Function *existF = m_pModule->getFunction(funcName)) {
-    DXASSERT(existF->getFunctionType() == pFT,
-             "existing function must have the expected function type");
+    if (existF->getFunctionType() != pFT)
+      return nullptr;
     F = existF;
     UpdateCache(opClass, pOverloadType, F);
     return F;
@@ -5394,9 +5529,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 
 const SmallMapVector<llvm::Type *, llvm::Function *, 8> &
 OP::GetOpFuncList(OpCode opCode) const {
-  DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
-           "otherwise caller passed OOB OpCode");
-  assert(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes);
   return m_OpCodeClassCache[(unsigned)m_OpCodeProps[(unsigned)opCode]
                                 .opCodeClass]
       .pOverloads;
@@ -5494,7 +5626,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::CallShader:
   case OpCode::Pack4x8:
   case OpCode::WaveMatrix_Fill:
-    DXASSERT_NOMSG(FT->getNumParams() > 2);
+    if (FT->getNumParams() <= 2)
+      return nullptr;
     return FT->getParamType(2);
   case OpCode::MinPrecXRegStore:
   case OpCode::StoreOutput:
@@ -5504,7 +5637,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::StoreVertexOutput:
   case OpCode::StorePrimitiveOutput:
   case OpCode::DispatchMesh:
-    DXASSERT_NOMSG(FT->getNumParams() > 4);
+    if (FT->getNumParams() <= 4)
+      return nullptr;
     return FT->getParamType(4);
   case OpCode::IsNaN:
   case OpCode::IsInf:
@@ -5522,22 +5656,27 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WaveActiveAllEqual:
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
-    DXASSERT_NOMSG(FT->getNumParams() > 1);
+    if (FT->getNumParams() <= 1)
+      return nullptr;
     return FT->getParamType(1);
   case OpCode::TextureStore:
   case OpCode::TextureStoreSample:
-    DXASSERT_NOMSG(FT->getNumParams() > 5);
+    if (FT->getNumParams() <= 5)
+      return nullptr;
     return FT->getParamType(5);
   case OpCode::TraceRay:
-    DXASSERT_NOMSG(FT->getNumParams() > 15);
+    if (FT->getNumParams() <= 15)
+      return nullptr;
     return FT->getParamType(15);
   case OpCode::ReportHit:
   case OpCode::WaveMatrix_ScalarOp:
-    DXASSERT_NOMSG(FT->getNumParams() > 3);
+    if (FT->getNumParams() <= 3)
+      return nullptr;
     return FT->getParamType(3);
   case OpCode::WaveMatrix_LoadGroupShared:
   case OpCode::WaveMatrix_StoreGroupShared:
-    DXASSERT_NOMSG(FT->getNumParams() > 2);
+    if (FT->getNumParams() <= 2)
+      return nullptr;
     return FT->getParamType(2)->getPointerElementType();
   case OpCode::CreateHandle:
   case OpCode::BufferUpdateCounter:

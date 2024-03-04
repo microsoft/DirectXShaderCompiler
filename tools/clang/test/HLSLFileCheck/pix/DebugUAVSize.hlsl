@@ -1,11 +1,10 @@
-// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,UAVSize=100000 | %FileCheck %s
+// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,UAVSize=1024 | %FileCheck %s
 
-// Check that the UAV size is reflected in the instrumentation. (Should be passed-in size - 64k)
-// (The offset here is the "dumping ground" for non-interesting invocations)
-// 100,000 - 65.536 = 34,464
+// Check that the UAV size is reflected in the instrumentation.
+// The AND should be (1024/4-1), and the or should be 1024/2:
 
-// CHECK: %OffsetAddend = mul i32 34464, %ComplementOfMultiplicand
-
+// CHECK: %PIXOffsetOr = phi i32 [ 0, %PIXInterestingBlock ], [ 512, %PIXNonInterestingBlock ]
+// CHECK: and i32 {{.*}}, 255
 
 [RootSignature("")]
 float4 main() : SV_Target {

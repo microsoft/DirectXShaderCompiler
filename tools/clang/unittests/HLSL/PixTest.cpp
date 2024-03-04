@@ -131,6 +131,9 @@ public:
 
   TEST_METHOD(DxilPIXDXRInvocationsLog_SanityTest)
 
+  TEST_METHOD(DebugInstrumentation_TextOutput)
+  TEST_METHOD(DebugInstrumentation_BlockReport)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -173,6 +176,32 @@ public:
     std::vector<LPCWSTR> Options;
     Options.push_back(L"-opt-mod-passes");
     Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+
+    CComPtr<IDxcBlob> pOptimizedModule;
+    CComPtr<IDxcBlobEncoding> pText;
+    VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+        dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+    std::string outputText;
+    if (pText->GetBufferSize() != 0) {
+      outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
+    }
+
+    return {
+        std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
+  }
+
+  PassOutput RunDebugPass(IDxcBlob *dxil, int UAVSize = 1024 * 1024) {
+    CComPtr<IDxcOptimizer> pOptimizer;
+    VERIFY_SUCCEEDED(
+        m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+    std::vector<LPCWSTR> Options;
+    Options.push_back(L"-opt-mod-passes");
+    Options.push_back(L"-dxil-dbg-value-to-dbg-declare");
+    Options.push_back(L"-dxil-annotate-with-virtual-regs");
+    std::wstring debugArg =
+        L"-hlsl-dxil-debug-instrumentation,UAVSize=" + std::to_wstring(UAVSize);
+    Options.push_back(debugArg.c_str());
 
     CComPtr<IDxcBlob> pOptimizedModule;
     CComPtr<IDxcBlobEncoding> pText;
@@ -2569,4 +2598,97 @@ void MyMiss(inout MyPayload payload)
 
   auto compiledLib = Compile(m_dllSupport, source, L"lib_6_6", {});
   RunDxilPIXDXRInvocationsLog(compiledLib);
+}
+
+TEST_F(PixTest, DebugInstrumentation_TextOutput) {
+
+  const char *source = R"x(
+float4 main() : SV_Target {
+    return float4(0,0,0,0);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {});
+  auto output = RunDebugPass(compiled, 8 /*ludicrously low UAV size limit*/);
+  bool foundStaticOverflow = false;
+  bool foundCounterOffset = false;
+  bool foundThreshold = false;
+  for (auto const &line : output.lines) {
+    if (line.find("StaticOverflow:12") != std::string::npos)
+      foundStaticOverflow = true;
+    if (line.find("InterestingCounterOffset:3") != std::string::npos)
+      foundCounterOffset = true;
+    if (line.find("OverflowThreshold:1") != std::string::npos)
+      foundThreshold = true;
+  }
+  VERIFY_IS_TRUE(foundStaticOverflow);
+}
+
+TEST_F(PixTest, DebugInstrumentation_BlockReport) {
+
+  const char *source = R"x(
+RWStructuredBuffer<int> UAV: register(u0);
+float4 main() : SV_Target {
+    // basic int variable
+    int v = UAV[0];
+    if(v == 0)
+        UAV[1] = v;
+    else
+        UAV[2] = v;
+    // float with indexed alloca
+    float f[2];
+    f[0] = UAV[4];
+    f[1] = UAV[5];
+    if(v == 2)
+        f[0] = v;
+    else
+        f[1] = v;
+    float farray2[2];
+    farray2[0] = UAV[4];
+    farray2[1] = UAV[5];
+    if(v == 4)
+        farray2[0] = v;
+    else
+        farray2[1] = v;
+    double d = UAV[8];
+    int64_t i64 = UAV[9];
+    return float4(d,i64,0,0);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"ps_6_0", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  bool foundBlock = false;
+  bool foundRet = false;
+  bool foundUnnumberedVoidProllyADXNothing = false;
+  bool found32BitAssignment = false;
+  bool foundFloatAssignment = false;
+  bool foundDoubleAssignment = false;
+  bool found64BitAssignment = false;
+  bool found32BitAllocaStore = false;
+  for (auto const &line : output.lines) {
+    if (line.find("Block#") != std::string::npos) {
+      if (line.find("r,0,r;") != std::string::npos)
+        foundRet = true;
+      if (line.find("v,0,v;") != std::string::npos)
+        foundUnnumberedVoidProllyADXNothing = true;
+      if (line.find("3,3,a;") != std::string::npos)
+        found32BitAssignment = true;
+      if (line.find("d,13,a;") != std::string::npos)
+        foundDoubleAssignment = true;
+      if (line.find("f,19,a;") != std::string::npos)
+        foundFloatAssignment = true;
+      if (line.find("6,16,a;") != std::string::npos)
+        found64BitAssignment = true;
+      if (line.find("3,3,s,2+0;") != std::string::npos)
+        found32BitAllocaStore = true;
+      foundBlock = true;
+    }
+  }
+  VERIFY_IS_TRUE(foundBlock);
+  VERIFY_IS_TRUE(foundRet);
+  VERIFY_IS_TRUE(foundUnnumberedVoidProllyADXNothing);
+  VERIFY_IS_TRUE(found32BitAssignment);
+  VERIFY_IS_TRUE(found64BitAssignment);
+  VERIFY_IS_TRUE(foundFloatAssignment);
+  VERIFY_IS_TRUE(foundDoubleAssignment);
+  VERIFY_IS_TRUE(found32BitAllocaStore);
 }

@@ -15,9 +15,9 @@ Prior to being converted into the low-level DXIL IR, a higher level IR is genera
 
 LLVM is quickly becoming a de facto standard in modern compilation technology. The LLVM framework offers several distinct features, such as a vibrant ecosystem, complete compilation framework, modular design, and reasonable documentation. We can leverage these to achieve two important objectives.
 
-First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion the current HLSL IL, called DXBC IL in this document, to DXIL.
+First, unification of shader compilation tool chain. DXIL is a contract between IR producers, such as compilers for HLSL and other domain-specific languages, and IR consumers, such as IHV driver JIT compilers or offline XBOX shader compiler. In addition, the design provides for conversion of the legacy HLSL IL, called DXBC IL in this document, to DXIL.
 
-Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL verifier to check consistency of generated DXIL.
+Second, leveraging the LLVM ecosystem. Microsoft will publicly document DXIL to attract domain language implementers and spur innovation. Using LLVM-based IR offers reduced entry costs for small teams, simply because small teams are likely to use LLVM and Clang as their main compilation framework. We will provide DXIL validator to check consistency of generated DXIL.
 
 The following diagram shows how some of these components tie together::
 
@@ -44,9 +44,9 @@ The following diagram shows how some of these components tie together::
    +------------+----------------------+-----------+
                 |                      |
                 v                      v
-        Driver Compiler             Verifier
+        Driver Compiler             Validator
 
-The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes the high level IR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Verifier* element is a public component that verifies and signs DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
+The *dxbc2dxil* element in the diagram is a component that converts existing DXBC shader byte code into DXIL. The *Optimizer* element is a component that consumes the high level IR, verifies it is valid, optimizes it, and produces a valid DXIL form. The *Validator* element is a public component that verifies and signs DXIL. The *Linker* is a component that combines precompiled DXIL libraries with the entry function to produce a valid shader.
 
 DXIL does not support the following HLSL features that were present in prior implementations.
 
@@ -69,17 +69,21 @@ The following principles are used to ease reuse with LLVM components and aid ext
 * Additional information is conveyed via metadata, LLVM intrinsics or external functions.
 * Name prefixes: 'llvm.dx.', 'llvm.dxil.', 'dx.', and 'dxil.' are reserved.
 
-LLVM IR has three equivalent forms: human-readable, binary (bitcode), and in-memory. DXIL is a binary format and is based on a subset of LLVM IR bitcode format. The document uses only human-readable form to describe DXIL.
-
 Versioning
 ==========
 
 There are three versioning mechanisms in DXIL shaders: shader model, DXIL version, and LLVM bitcode version.
 
-At a high-level, the shader model describes the target execution model and environment; DXIL provides a mechanism to express programs (including rules around expressing data types and operations); and LLVM bitcode provides a way to encode a DXIL program.
+At a high-level, the shader model describes the target execution model and environment.
 
-Shader Model
-------------
+DXIL defines the rules for expressing Direct3D shader programs using a subset of standard LLVM IR. LLVM IR has three equivalent forms: human-readable, binary (bitcode), and in-memory. DXIL programs are encoded using a subset of LLVM IR bitcode format. This document uses only human-readable form to describe DXIL.
+
+DXIL versioning allows for changes to the rules over time. The LLVM bitcode version is currently fixed at LLVM 3.7 for all DXIL versions.
+
+A given DXIL version can support up to the latest shader model defined at the time that DXIL version was finalized. However, the DXIL version for a shader is typically set based on the shader model to ensure that any device supporting that particular shader model will be able to interpret the DXIL properly, without needing to know about any newer DXIL versions.
+
+Shader Model (SM)
+-----------------
 
 The shader model in DXIL is similar to DXBC shader model. A shader model specifies the execution model, the set of capabilities that shader instructions can use and the constraints that a shader program must adhere to.
 
@@ -88,25 +92,31 @@ The shader model is specified as a named metadata in DXIL::
   !dx.shaderModel = !{ !0 }
   !0 = !{ !"<shadelModelName>", i32 <major>, i32 <minor> }
 
-The following values of <shaderModelName>_<major>_<minor> are supported:
+The following values of ``<shaderModelName>``, ``<major>``, ``<minor>`` are supported:
 
-====================      ===================================== ===========
-Target                    Legacy Models                         DXIL Models
-====================      ===================================== ===========
-Vertex shader (VS)        vs_4_0, vs_4_1, vs_5_0, vs_5_1        vs_6_0
-Hull shader (HS)          hs_5_0, hs_5_1                        hs_6_0
-Domain shader (DS)        ds_5_0, ds_5_1                        ds_6_0
-Geometry shader (GS)      gs_4_0, gs_4_1, gs_5_0, gs_5_1        gs_6_0
-Pixel shader (PS)         ps_4_0, ps_4_1, ps_5_0, ps_5_1        ps_6_0
-Compute shader (CS)       cs_5_0 (cs_4_0 is mapped onto cs_5_0) cs_6_0
-Shader library            no support                            lib_6_1
-Mesh shader (MS)          no support                            ms_6_5
-Amplification shader (AS) no support                            as_6_5
-========================= ===================================== ===========
++---------------------------+------------------------------+----------------------+
+| Shader Tyoe               |   shaderModelName            | Minimum major, minor |
++===========================+==============================+======================+
+| Vertex shader (VS)        | vs                           | 6, 0                 |
++---------------------------+------------------------------+----------------------+
+| Hull shader (HS)          | hs                           | 6, 0                 | 
++---------------------------+------------------------------+----------------------+
+| Domain shader (DS)        | ds                           | 6, 0                 | 
++---------------------------+------------------------------+----------------------+
+| Geometry shader (GS)      | gs                           | 6, 0                 | 
++---------------------------+------------------------------+----------------------+
+| Pixel shader (PS)         | ps                           | 6, 0                 | 
++---------------------------+------------------------------+----------------------+
+| Compute shader (CS)       | cs                           | 6, 0                 |
++---------------------------+------------------------------+----------------------+
+| Mesh shader (MS)          | ms                           | 6, 5                 |
++---------------------------+------------------------------+----------------------+
+| Amplification shader (AS) | as                           | 6, 5                 |
++---------------------------+------------------------------+----------------------+
+| DXIL library              | lib                          | 6, 3                 |
++---------------------------+------------------------------+----------------------+
 
-The DXIL verifier ensures that DXIL conforms to the specified shader model.
-
-For shader models prior to 6.0, only the rules applicable to the DXIL representation are valid. For example, the limits on maximum number of resources is honored, but the limits on registers aren't because DXIL does not have a representation for registers.
+The DXIL validator ensures that DXIL conforms to the specified shader model.
 
 DXIL version
 ------------
@@ -1232,7 +1242,7 @@ Both indices can be dynamic for SM6 and later to provide flexibility in usage of
 
 Resources/samplers used in such a way must reside in descriptor tables (cannot be root descriptors); this will be validated during shader and root signature setup.
 
-The DXIL verifier will ensure that all leaf-ranges (a and b above) of such a resource/sampler live-range have the same resource/sampler type and element type. If applicable, this constraint may be relaxed in the future. In particular, it is logical from HLSL programmer point of view to issue loads on compatible resource types, e.g., Texture2D, RWTexture2D, ROVTexture2D::
+The DXIL validator will ensure that all leaf-ranges (a and b above) of such a resource/sampler live-range have the same resource/sampler type and element type. If applicable, this constraint may be relaxed in the future. In particular, it is logical from HLSL programmer point of view to issue loads on compatible resource types, e.g., Texture2D, RWTexture2D, ROVTexture2D::
 
   Texture2D<float4> a[8];
   RWTexture2D<float4> b[6];
@@ -1401,8 +1411,8 @@ Texture1DArray      2 (c0, c1 = array slice)         1 (o0)
 Texture2D           2 (c0, c1)                       2 (o0, o1)
 Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
 Texture3D           3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBE         3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 3 (o0, o1, o2)
+TextureCUBE         3 (c0, c1, c2)                   0
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0
 =================== ================================ ===================
 
 SampleBias
@@ -1425,7 +1435,7 @@ The following signature shows the operation syntax::
       float,                ; bias: in [-16.f,15.99f]
       float)                ; clamp
 
-Valid resource types and active components/offsets are the same as for the sample operation.
+Valid resource types and active coordinates/offsets are the same as for the sample operation.
 
 SampleLevel
 ~~~~~~~~~~~
@@ -1446,7 +1456,7 @@ The following signature shows the operation syntax::
       i32,                  ; offset o2
       float)                ; LOD
 
-Valid resource types and active components/offsets are the same as for the sample operation.
+Valid resource types and active coordinates/offsets are the same as for the sample operation.
 
 SampleGrad
 ~~~~~~~~~~
@@ -1473,7 +1483,17 @@ The following signature shows the operation syntax::
       float,                ; ddy2
       float)                ; clamp
 
-Valid resource types and active components and offsets are the same as for the sample operation. Valid active ddx and ddy are   the same as offsets.
+=================== ================================ =================== ====================================
+Valid resource type # of active coordinates          # of active offsets # of active gradients
+=================== ================================ =================== ====================================
+Texture1D           1 (c0)                           1 (o0)               1 (ddx0/ddy0)
+Texture1DArray      2 (c0, c1 = array slice)         1 (o0)               1 (ddx0/ddy0)
+Texture2D           2 (c0, c1)                       2 (o0, o1)           2 (ddx0/ddy0, ddx1/ddy1)
+Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)           2 (ddx0/ddy0, ddx1/ddy1)
+Texture3D           3 (c0, c1, c2)                   3 (o0, o1, o2)       3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+TextureCUBE         3 (c0, c1, c2)                   0                    3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0                    3 (ddx0/ddy0, ddx1/ddy1, ddx2,ddy2)
+=================== ================================ =================== ====================================
 
 SampleCmp
 ~~~~~~~~~
@@ -1502,8 +1522,8 @@ Texture1D           1 (c0)                           1 (o0)
 Texture1DArray      2 (c0, c1 = array slice)         1 (o0)
 Texture2D           2 (c0, c1)                       2 (o0, o1)
 Texture2DArray      3 (c0, c1, c2 = array slice)     2 (o0, o1)
-TextureCUBE         3 (c0, c1, c2)                   3 (o0, o1, o2)
-TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 3 (o0, o1, o2)
+TextureCUBE         3 (c0, c1, c2)                   0
+TextureCUBEArray    4 (c0, c1, c2, c3 = array slice) 0
 =================== ================================ ===================
 
 SampleCmpLevelZero
@@ -1525,7 +1545,7 @@ The following signature shows the operation syntax::
       i32,                  ; offset o2
       float)                ; compare value
 
-Valid resource types and active components/offsets are the same as for the sampleCmp operation.
+Valid resource types and active coordinates/offsets are the same as for the sampleCmp operation.
 
 TextureLoad
 ~~~~~~~~~~~
@@ -1669,7 +1689,7 @@ The following signature shows the operation syntax::
       i32,                  ; channel, constant in {0=red,1=green,2=blue,3=alpha}
       float)                ; compare value
 
-Valid resource types and active components/offsets are the same as for the textureGather operation.
+Valid resource types and active coordinates/offsets are the same as for the textureGather operation.
 
 Texture2DMSGetSamplePosition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1957,7 +1977,7 @@ TODO: enumerate all additional resource range properties, e.g., ROV, Texture2DMS
 
 Operations
 ==========
-DXIL operations are represented in two ways: using LLVM instructions and using LLVM external functions. The reference list of operations as well as their overloads can be found in the attached Excel spreadsheet "DXIL Operations".
+DXIL operations are represented in two ways: using LLVM instructions and using LLVM external functions.
 
 Operations via instructions
 ---------------------------
@@ -3043,6 +3063,7 @@ INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Me
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
 INSTR.BARRIERMODEUSELESSUGROUP            sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
 INSTR.BARRIERNONCONSTANTFLAGARGUMENT      Memory type, access, or sync flag is not constant
+INSTR.BARRIERREQUIRESNODE                 sync in a non-Node Shader must not sync node record memory.
 INSTR.BUFFERUPDATECOUNTERONRESHASCOUNTER  BufferUpdateCounter valid only when HasCounter is true.
 INSTR.BUFFERUPDATECOUNTERONUAV            BufferUpdateCounter valid only on UAV.
 INSTR.CALLOLOAD                           Call to DXIL intrinsic must match overload signature
@@ -3059,6 +3080,8 @@ INSTR.EVALINTERPOLATIONMODE               Interpolation mode on %0 used with eva
 INSTR.EXTRACTVALUE                        ExtractValue should only be used on dxil struct types and cmpxchg.
 INSTR.FAILTORESLOVETGSMPOINTER            TGSM pointers must originate from an unambiguous TGSM global variable.
 INSTR.HANDLENOTFROMCREATEHANDLE           Resource handle should returned by createHandle.
+INSTR.ILLEGALDXILOPCODE                   DXILOpCode must be [0..%0].  %1 specified.
+INSTR.ILLEGALDXILOPFUNCTION               '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                   bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                      Access to out-of-bounds memory is disallowed.
 INSTR.MINPRECISIONNOTPRECISE              Instructions marked precise may not refer to minprecision values.
@@ -3114,6 +3137,7 @@ INSTR.SAMPLERMODEFORSAMPLEC               sample_c_*/gather_c instructions requi
 INSTR.SIGNATUREOPERATIONNOTINENTRY        Dxil operation for input output signature must be in entryPoints.
 INSTR.STATUS                              Resource status should only be used by CheckAccessFullyMapped.
 INSTR.STRUCTBITCAST                       Bitcast on struct types is not allowed.
+INSTR.SVCONFLICTINGLAUNCHMODE             Input system values are compatible with node shader launch mode.
 INSTR.TEXTUREOFFSET                       offset texture instructions must take offset which can resolve to integer literal in the range -8 to 7.
 INSTR.TGSMRACECOND                        Race condition writing to shared memory detected, consider making this write conditional.
 INSTR.UNDEFINEDVALUEFORUAVSTORE           Assignment of undefined values to UAV.
@@ -3192,6 +3216,14 @@ SM.GSVALIDINPUTPRIMITIVE                  GS input primitive unrecognized.
 SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY         GS output primitive topology unrecognized.
 SM.HSINPUTCONTROLPOINTCOUNTRANGE          HS input control point count must be [0..%0].  %1 specified.
 SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH     For pass thru hull shader, input control point count must match output control point count
+SM.INCOMPATIBLECALLINENTRY                Features used in internal function calls must be compatible with entry
+SM.INCOMPATIBLEDERIVINCOMPUTESHADERMODEL  Derivatives in compute-model shaders require shader model 6.6 and above
+SM.INCOMPATIBLEDERIVLAUNCH                Node shaders only support derivatives in broadcasting launch mode
+SM.INCOMPATIBLEOPERATION                  Operations used in entry function must be compatible with shader stage and other properties
+SM.INCOMPATIBLEREQUIRESGROUP              Functions requiring groupshared memory must be called from shaders with a visible group
+SM.INCOMPATIBLESHADERMODEL                Functions may only use features available in the current shader model
+SM.INCOMPATIBLESTAGE                      Functions may only use features available in the entry function's stage
+SM.INCOMPATIBLETHREADGROUPDIM             When derivatives are used in compute-model shaders, the thread group dimensions must be compatible
 SM.INSIDETESSFACTORSIZEMATCHDOMAIN        InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
 SM.INVALIDRESOURCECOMPTYPE                Invalid resource return type.
 SM.INVALIDRESOURCEKIND                    Invalid resources kind.
@@ -3241,8 +3273,18 @@ SM.TRIOUTPUTPRIMITIVEMISMATCH             Hull Shader declared with Tri Domain m
 SM.UNDEFINEDOUTPUT                        Not all elements of output %0 were written.
 SM.VALIDDOMAIN                            Invalid Tessellator Domain specified. Must be isoline, tri or quad.
 SM.VIEWIDNEEDSSLOT                        ViewID requires compatible space in pixel shader input signature
-SM.WAVESIZENEEDSDXIL16PLUS                WaveSize is valid only for DXIL version 1.6 and higher.
-SM.WAVESIZEVALUE                          Declared WaveSize %0 outside valid range [%1..%2], or not a power of 2.
+SM.WAVESIZEALLZEROWHENUNDEFINED           WaveSize Max and Preferred must be 0 when Min is 0
+SM.WAVESIZEEXPECTSONEPARAM                WaveSize tag expects exactly 1 parameter.
+SM.WAVESIZEMAXANDPREFERREDZEROWHENNORANGE WaveSize Max and Preferred must be 0 to encode min==max
+SM.WAVESIZEMAXGREATERTHANMIN              WaveSize Max must greater than Min
+SM.WAVESIZENEEDSCONSTANTOPERANDS          WaveSize metadata operands must be constant values.
+SM.WAVESIZENEEDSSM66OR67                  WaveSize is valid only for Shader Model 6.6 and 6.7.
+SM.WAVESIZEONCOMPUTEORNODE                WaveSize only allowed on compute or node shaders
+SM.WAVESIZEPREFERREDINRANGE               WaveSize Preferred must be within Min..Max range
+SM.WAVESIZERANGEEXPECTSTHREEPARAMS        WaveSize Range tag expects exactly 3 parameters.
+SM.WAVESIZERANGENEEDSSM68PLUS             WaveSize Range is valid only for Shader Model 6.8 and higher.
+SM.WAVESIZETAGDUPLICATE                   WaveSize or WaveSizeRange tag may only appear once per entry point.
+SM.WAVESIZEVALUE                          WaveSize value must be a power of 2 in range [4..128]
 SM.ZEROHSINPUTCONTROLPOINTWITHINPUT       When HS input control point count is 0, no input signature should exist.
 TYPES.DEFINED                             Type must be defined based on DXIL primitives
 TYPES.I8                                  I8 can only be used as immediate value for intrinsic or as i8* via bitcast by lifetime intrinsics.

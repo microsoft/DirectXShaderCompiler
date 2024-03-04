@@ -59,6 +59,7 @@
 
 namespace hlsl {
   struct UnusualAnnotation;
+  class ShaderModel;
 }
 // HLSL Change Ends
 
@@ -3807,6 +3808,13 @@ public:
                                         QualType TargetType,
                                         SourceLocation Loc);
   bool DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc);
+  void DiagnoseSVForLaunchType(const FunctionDecl *FD,
+                               hlsl::DXIL::NodeLaunchType LaunchTy);
+  void DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
+                                       SourceLocation Loc,
+                                       const hlsl::ShaderModel *SM,
+                                       hlsl::DXIL::ShaderKind EntrySK,
+                                       const FunctionDecl *EntryDecl);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);

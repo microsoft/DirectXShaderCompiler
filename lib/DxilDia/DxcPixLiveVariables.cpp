@@ -17,6 +17,7 @@
 #include "DxcPixLiveVariables_FragmentIterator.h"
 #include "DxilDiaSession.h"
 
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DebugInfo.h"
@@ -49,12 +50,19 @@ public:
     // is at file-level scope, it will return nullptr.
     if (auto Namespace = llvm::dyn_cast<llvm::DINamespace>(FunctionScope)) {
       if (auto *ContainingScope = Namespace->getScope()) {
-        FunctionScope = ContainingScope;
+        if (FunctionScope == InlinedAtScope)
+          InlinedAtScope = FunctionScope = ContainingScope;
+        else
+          FunctionScope = ContainingScope;
         return;
       }
     }
     const llvm::DITypeIdentifierMap EmptyMap;
-    FunctionScope = FunctionScope->getScope().resolve(EmptyMap);
+    if (FunctionScope == InlinedAtScope)
+      InlinedAtScope = FunctionScope =
+          FunctionScope->getScope().resolve(EmptyMap);
+    else
+      FunctionScope = FunctionScope->getScope().resolve(EmptyMap);
   }
 
   static UniqueScopeForInlinedFunctions Create(llvm::DebugLoc const &DbgLoc,
@@ -289,12 +297,18 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
     S.AscendScopeHierarchy();
   }
   for (const auto &VarAndInfo : m_pImpl->m_LiveGlobalVarsDbgDeclare) {
-    if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {
-      // There shouldn't ever be a global variable with the same name,
-      // but it doesn't hurt to check
-      return false;
+    // Only consider references to the global variable that are in the same
+    // function as the instruction.
+    if (hlsl::dxilutil::DemangleFunctionName(
+            IP->getParent()->getParent()->getName()) ==
+        VarAndInfo.first->getScope()->getName()) {
+      if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {
+        // There shouldn't ever be a global variable with the same
+        // name, but it doesn't hurt to check
+        continue;
+      }
+      LiveVars.emplace_back(VarAndInfo.second.get());
     }
-    LiveVars.emplace_back(VarAndInfo.second.get());
   }
   return CreateDxilLiveVariables(m_pImpl->m_pDxilDebugInfo, std::move(LiveVars),
                                  ppResult);

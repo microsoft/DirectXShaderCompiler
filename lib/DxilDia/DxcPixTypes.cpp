@@ -291,3 +291,10 @@ dxil_debug_info::DxcPixStructField::GetOffsetInBits(DWORD *pOffsetInBits) {
   *pOffsetInBits = m_pField->getOffsetInBits();
   return S_OK;
 }
+
+STDMETHODIMP
+dxil_debug_info::DxcPixStructField::GetFieldSizeInBits(
+    DWORD *pFieldSizeInBits) {
+  *pFieldSizeInBits = m_pField->getSizeInBits();
+  return S_OK;
+}

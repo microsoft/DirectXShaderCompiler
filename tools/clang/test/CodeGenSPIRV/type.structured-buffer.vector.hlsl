@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %_runtimearr_v3uint ArrayStride 16
 // CHECK: OpDecorate %type_StructuredBuffer_v3uint BufferBlock

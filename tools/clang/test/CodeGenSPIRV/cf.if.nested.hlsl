@@ -1,17 +1,17 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
     bool c1, c2, c3, c4;
     int val = 0;
 
-// CHECK:      [[c1:%\d+]] = OpLoad %bool %c1
+// CHECK:      [[c1:%[0-9]+]] = OpLoad %bool %c1
 // CHECK-NEXT: OpSelectionMerge %if_merge_2 None
 // CHECK-NEXT: OpBranchConditional [[c1]] %if_true %if_false
     if (c1) {
 // CHECK-LABEL: %if_true = OpLabel
 
-// CHECK-NEXT: [[c2:%\d+]] = OpLoad %bool %c2
+// CHECK-NEXT: [[c2:%[0-9]+]] = OpLoad %bool %c2
 // CHECK-NEXT: OpSelectionMerge %if_merge None
 // CHECK-NEXT: OpBranchConditional [[c2]] %if_true_0 %if_merge
         if (c2)
@@ -25,7 +25,7 @@ void main() {
     } else {
 // CHECK-LABEL: %if_false = OpLabel
 
-// CHECK-NEXT: [[c3:%\d+]] = OpLoad %bool %c3
+// CHECK-NEXT: [[c3:%[0-9]+]] = OpLoad %bool %c3
 // CHECK-NEXT: OpSelectionMerge %if_merge_1 None
 // CHECK-NEXT: OpBranchConditional [[c3]] %if_true_1 %if_false_0
         if (c3) {
@@ -37,7 +37,7 @@ void main() {
         } else {
 // CHECK-LABEL: %if_false_0 = OpLabel
 
-// CHECK-NEXT: [[c4:%\d+]] = OpLoad %bool %c4
+// CHECK-NEXT: [[c4:%[0-9]+]] = OpLoad %bool %c4
 // CHECK-NEXT: OpSelectionMerge %if_merge_0 None
 // CHECK-NEXT: OpBranchConditional [[c4]] %if_true_2 %if_merge_0
             if (c4) {

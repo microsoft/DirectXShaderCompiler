@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_0 -E main
+// RUN: %dxc -T hs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct INPUT
 {
@@ -11,12 +11,13 @@ struct OUTPUT
 };
 
 [outputcontrolpoints(3)]
+[outputtopology("point")]
 [patchconstantfunc("foo")]
 
 INPUT main(InputPatch<INPUT, 3> Input,
            uint PointID : SV_OutputControlPointID)
 {
-// CHECK: [[PointID:%\d+]] = OpLoad %uint %PointID
+// CHECK: [[PointID:%[0-9]+]] = OpLoad %uint %PointID
 // CHECK: OpAccessChain %_ptr_Function_INPUT %Input [[PointID]]
     return Input[PointID];
 }

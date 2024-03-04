@@ -121,6 +121,9 @@ def fconstexpr_depth_EQ : Joined<["-"], "fconstexpr-depth=">, Group<f_Group>;
 def fconstexpr_steps_EQ : Joined<["-"], "fconstexpr-steps=">, Group<f_Group>;
 def fconstexpr_backtrace_limit_EQ : Joined<["-"], "fconstexpr-backtrace-limit=">,
                                     Group<f_Group>;
+def fdiagnostics_format_EQ : Joined<["-"], "fdiagnostics-format=">, Group<hlslcomp_Group>,
+    Flags<[CoreOption]>,
+    HelpText<"Select diagnostic message format. Supported values: clang, msvc, mdvc-fallback, vi">;
 def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
     Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
 def fno_diagnostics_show_option : Flag<["-"], "fno-diagnostics-show-option">, Group<hlslcomp_Group>,
@@ -388,6 +391,8 @@ def fspv_fix_func_call_arguments: Flag<["-"], "fspv-fix-func-call-arguments">, G
   HelpText<"Fix function call arguments which are not memory objects">;
 def fspv_entrypoint_name_EQ : Joined<["-"], "fspv-entrypoint-name=">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Specify the SPIR-V entry point name. Defaults to the HLSL entry point name.">;
+def fspv_enable_maximal_reconvergence: Flag<["-"], "fspv-enable-maximal-reconvergence">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Enables the MaximallyReconvergesKHR execution mode for this module.">;
 def fvk_auto_shift_bindings: Flag<["-"], "fvk-auto-shift-bindings">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Apply fvk-*-shift to resources without an explicit register assignment.">;
 def Wno_vk_ignored_features : Joined<["-"], "Wno-vk-ignored-features">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,

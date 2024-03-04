@@ -44,14 +44,10 @@ public:
   bool IsDS() const { return m_Kind == Kind::Domain; }
   bool IsCS() const { return m_Kind == Kind::Compute; }
   bool IsLib() const { return m_Kind == Kind::Library; }
-  bool IsRay() const {
-    return m_Kind >= Kind::RayGeneration && m_Kind <= Kind::Callable;
-  }
   bool IsMS() const { return m_Kind == Kind::Mesh; }
   bool IsAS() const { return m_Kind == Kind::Amplification; }
   bool IsValid() const;
   bool IsValidForDxil() const;
-  bool IsValidForModule() const;
 
   Kind GetKind() const { return m_Kind; }
   unsigned GetMajor() const { return m_Major; }
@@ -63,6 +59,7 @@ public:
   }
   bool IsSM50Plus() const { return IsSMAtLeast(5, 0); }
   bool IsSM51Plus() const { return IsSMAtLeast(5, 1); }
+  bool AllowDerivatives(DXIL::ShaderKind sk) const;
   // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_is_shader_model_plus()</py>*/

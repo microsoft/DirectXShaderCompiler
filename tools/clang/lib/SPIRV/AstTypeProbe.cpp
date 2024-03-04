@@ -1114,14 +1114,12 @@ std::string getHlslResourceTypeName(QualType type) {
         name == "RasterizerOrderedTexture3D" || name == "Buffer" ||
         name == "RWBuffer" || name == "RasterizerOrderedBuffer" ||
         name == "SubpassInput" || name == "SubpassInputMS" ||
-        name == "InputPatch" || name == "OutputPatch") {
+        name == "InputPatch" || name == "OutputPatch" ||
+        name == "ConstantBuffer" || name == "TextureBuffer" ||
+        name == "RaytracingAccelerationStructure") {
       // Get resource type name with template params. Operation is safe because
       // type has already been null checked.
       return type.getLocalUnqualifiedType().getAsString();
-    } else if (name == "ConstantBuffer") {
-      return "cbuffer";
-    } else if (name == "TextureBuffer") {
-      return "tbuffer";
     }
   }
 
@@ -1548,6 +1546,47 @@ bool isScalarOrNonStructAggregateOfNumericalTypes(QualType type) {
   }
 
   return false;
+}
+
+void forEachSpirvField(
+    const RecordType *recordType, const StructType *spirvType,
+    std::function<bool(size_t, const QualType &, const StructType::FieldInfo &)>
+        operation,
+    bool includeMerged) {
+  const auto *cxxDecl = recordType->getAsCXXRecordDecl();
+  const auto *recordDecl = recordType->getDecl();
+
+  // Iterate through the base class (one field per base class).
+  // Bases cannot be melded into 1 field like bitfields, simple iteration.
+  uint32_t lastConvertedIndex = 0;
+  size_t astFieldIndex = 0;
+  for (const auto &base : cxxDecl->bases()) {
+    const auto &type = base.getType();
+    const auto &spirvField = spirvType->getFields()[astFieldIndex];
+    if (!operation(spirvField.fieldIndex, type, spirvField)) {
+      return;
+    }
+    lastConvertedIndex = spirvField.fieldIndex;
+    ++astFieldIndex;
+  }
+
+  // Iterate through the derived class fields. Field could be merged.
+  for (const auto *field : recordDecl->fields()) {
+    const auto &spirvField = spirvType->getFields()[astFieldIndex];
+    const uint32_t currentFieldIndex = spirvField.fieldIndex;
+    if (!includeMerged && astFieldIndex > 0 &&
+        currentFieldIndex == lastConvertedIndex) {
+      ++astFieldIndex;
+      continue;
+    }
+
+    const auto &type = field->getType();
+    if (!operation(currentFieldIndex, type, spirvField)) {
+      return;
+    }
+    lastConvertedIndex = currentFieldIndex;
+    ++astFieldIndex;
+  }
 }
 
 } // namespace spirv

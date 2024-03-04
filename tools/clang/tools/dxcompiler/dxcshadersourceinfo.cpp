@@ -19,6 +19,7 @@
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/HLSLOptions.h"
+#include "dxc/Support/Path.h"
 #include "dxc/Support/WinIncludes.h"
 
 using namespace hlsl;
@@ -313,19 +314,17 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
       if (it->first->isValid() && !it->second->IsSystemFile) {
         // If main file, write that to metadata first.
         // Add the rest to filesMap to sort by name.
-        llvm::SmallString<128> NormalizedPath;
-        llvm::sys::path::native(it->first->getName(), NormalizedPath);
         if (cgOpts.MainFileName.compare(it->first->getName()) == 0) {
           SourceFile file;
-          file.Name = NormalizedPath.str();
+          file.Name = hlsl::NormalizePath(it->first->getName());
           file.Content = it->second->getRawBuffer()->getBuffer();
           ret.push_back(file);
           assert(!bFoundMainFile &&
                  "otherwise, more than one file matches main filename");
           bFoundMainFile = true;
         } else {
-          filesMap[NormalizedPath.str()] =
-              it->second->getRawBuffer()->getBuffer();
+          std::string NormalizedBuf = hlsl::NormalizePath(it->first->getName());
+          filesMap[NormalizedBuf] = it->second->getRawBuffer()->getBuffer();
         }
       }
     }

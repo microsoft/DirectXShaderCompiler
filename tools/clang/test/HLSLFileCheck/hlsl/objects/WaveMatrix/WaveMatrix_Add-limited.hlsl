@@ -1,9 +1,9 @@
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DADD_TY=WMLC %s | FileCheck %s -DADD_TY=2 -DCOMP=9 -DDIMM=16 -DDIMN=16 -check-prefix=CHKIR
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DADD_TY=WMRR %s | FileCheck %s -DADD_TY=3 -DCOMP=9 -DDIMM=16 -DDIMN=16 -check-prefix=CHKIR
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -DADD_TY=WMA %s | FileCheck %s -DADD_TY=4 -DCOMP=9 -DDIMM=16 -DDIMN=16 -check-prefix=CHKIR
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -ast-dump -DADD_TY=WMLC %s | FileCheck %s -DADD_TY=WaveMatrixLeftColAcc -DCOMP=float -DDIMM=16 -DDIMN=16 -check-prefix=CHKAST
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -ast-dump -DADD_TY=WMRR %s | FileCheck %s -DADD_TY=WaveMatrixRightRowAcc -DCOMP=float -DDIMM=16 -DDIMN=16 -check-prefix=CHKAST
-// RUN: %dxc -enable-16bit-types -T cs_6_8 -ast-dump -DADD_TY=WMA %s | FileCheck %s -DADD_TY=WaveMatrixAccumulator -DCOMP=float -DDIMM=16 -DDIMN=16 -check-prefix=CHKAST
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DADD_TY=WMLC %s | FileCheck %s -DADD_TY=2 -DCOMP=9 -DDIMM=16 -DDIMN=16 -check-prefix=CHKIR
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DADD_TY=WMRR %s | FileCheck %s -DADD_TY=3 -DCOMP=9 -DDIMM=16 -DDIMN=16 -check-prefix=CHKIR
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -DADD_TY=WMA %s | FileCheck %s -DADD_TY=4 -DCOMP=9 -DDIMM=16 -DDIMN=16 -check-prefix=CHKIR
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -ast-dump -DADD_TY=WMLC %s | FileCheck %s -DADD_TY=WaveMatrixLeftColAcc -DCOMP=float -DDIMM=16 -DDIMN=16 -check-prefix=CHKAST
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -ast-dump -DADD_TY=WMRR %s | FileCheck %s -DADD_TY=WaveMatrixRightRowAcc -DCOMP=float -DDIMM=16 -DDIMN=16 -check-prefix=CHKAST
+// RUN: %dxc -enable-16bit-types -T cs_6_9 -ast-dump -DADD_TY=WMA %s | FileCheck %s -DADD_TY=WaveMatrixAccumulator -DCOMP=float -DDIMM=16 -DDIMN=16 -check-prefix=CHKAST
 
 // CHECK: ; Note: shader requires additional functionality:
 // CHECK: ;       Wave level operations

@@ -17,12 +17,13 @@
 #include <algorithm>
 #include <iterator>
 
+#include "LowerTypeVisitor.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace clang {
 namespace spirv {
 
-InitListHandler::InitListHandler(const ASTContext &ctx, SpirvEmitter &emitter)
+InitListHandler::InitListHandler(ASTContext &ctx, SpirvEmitter &emitter)
     : astContext(ctx), theEmitter(emitter),
       spvBuilder(emitter.getSpirvBuilder()),
       diags(emitter.getDiagnosticsEngine()) {}
@@ -136,6 +137,9 @@ bool InitListHandler::tryToSplitStruct() {
     return false;
 
   auto *init = initializers.back();
+  if (!init)
+    return false;
+
   const QualType initType = init->getAstResultType();
   if (!initType->isStructureType() ||
       // Sampler types will pass the above check but we cannot split it.
@@ -171,6 +175,9 @@ bool InitListHandler::tryToSplitConstantArray() {
     return false;
 
   auto *init = initializers.back();
+  if (!init)
+    return false;
+
   const QualType initType = init->getAstResultType();
   if (!initType->isConstantArrayType())
     return false;
@@ -393,39 +400,54 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
     tryToSplitStruct();
   }
 
+  const RecordType *recordType = type->getAs<RecordType>();
+  assert(recordType);
+
+  LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
+                                    theEmitter.getSpirvOptions());
+  const SpirvType *spirvType =
+      lowerTypeVisitor.lowerType(type, SpirvLayoutRule::Void, false, srcLoc);
+
   llvm::SmallVector<SpirvInstruction *, 4> fields;
+  const StructType *structType = dyn_cast<StructType>(spirvType);
+  assert(structType != nullptr);
+  forEachSpirvField(
+      recordType, structType,
+      [this, &fields, srcLoc, range](size_t spirvFieldIndex,
+                                     const QualType &fieldType,
+                                     const StructType::FieldInfo &fieldInfo) {
+        SpirvInstruction *init = createInitForType(fieldType, srcLoc, range);
 
-  // Initialize base classes first.
-  llvm::SmallVector<SpirvInstruction *, 4> base_fields;
-  const RecordDecl *structDecl = type->getAsStructureType()->getDecl();
-  if (auto *cxxStructDecl = dyn_cast<CXXRecordDecl>(structDecl)) {
-    for (CXXBaseSpecifier base : cxxStructDecl->bases()) {
-      QualType baseType = base.getType();
-      const RecordType *baseStructType = baseType->getAsStructureType();
-      if (baseStructType == nullptr) {
-        continue;
-      }
-      const RecordDecl *baseStructDecl = baseStructType->getDecl();
-      for (const auto *field : baseStructDecl->fields()) {
-        base_fields.push_back(
-            createInitForType(field->getType(), field->getLocation(), range));
-        if (!base_fields.back())
-          return nullptr;
-      }
-      fields.push_back(spvBuilder.createCompositeConstruct(
-          baseType, base_fields, srcLoc, range));
-      base_fields.clear();
-    }
-  }
+        // For non bit-fields, `init` will be the value for the component.
+        if (!fieldInfo.bitfield.hasValue()) {
+          assert(fields.size() == fieldInfo.fieldIndex);
+          fields.push_back(init);
+          return true;
+        }
 
-  for (const auto *field : structDecl->fields()) {
-    fields.push_back(
-        createInitForType(field->getType(), field->getLocation(), range));
-    if (!fields.back())
-      return nullptr;
-  }
+        // For a bit fields we need to insert it into the container.
+        // The first time we see this bit field, init is used as the value.
+        // This assumes that 0 is the first offset in the bitfield.
+        if (fields.size() <= fieldInfo.fieldIndex) {
+          assert(fieldInfo.bitfield->offsetInBits == 0);
+          fields.push_back(init);
+          return true;
+        }
 
-  // TODO: use OpConstantComposite when all components are constants
+        // For the remaining bitfields, we need to insert them into the existing
+        // container, which is the last element in `fields`.
+        assert(fields.size() == fieldInfo.fieldIndex + 1);
+        SpirvInstruction *offset = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy,
+            llvm::APInt(32, fieldInfo.bitfield->offsetInBits));
+        SpirvInstruction *count = spvBuilder.getConstantInt(
+            astContext.UnsignedIntTy,
+            llvm::APInt(32, fieldInfo.bitfield->sizeInBits));
+        fields.back() = spvBuilder.createBitFieldInsert(
+            fieldType, fields.back(), init, offset, count, srcLoc);
+        return true;
+      },
+      true);
   return spvBuilder.createCompositeConstruct(type, fields, srcLoc, range);
 }
 
@@ -495,6 +517,9 @@ InitListHandler::createInitForBufferOrImageType(QualType type,
 
   auto init = initializers.back();
   initializers.pop_back();
+
+  if (!init)
+    return nullptr;
 
   if (init->getAstResultType().getCanonicalType() != type.getCanonicalType()) {
     emitError("Cannot cast initializer type %0 into variable type %1", srcLoc)

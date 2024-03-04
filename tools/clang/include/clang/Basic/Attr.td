@@ -908,8 +908,16 @@ def HLSLWaveSensitive : InheritableAttr {
 
 def HLSLWaveSize : InheritableAttr {
   let Spellings = [CXX11<"", "wavesize", 2017>];
-  let Args = [IntArgument<"Size">];
+  let Args = [IntArgument<"Min">, DefaultIntArgument<"Max", 0>, DefaultIntArgument<"Preferred", 0>];
   let Documentation = [Undocumented];
+
+  let AdditionalMembers = [{
+    private:
+    int SpelledArgsCount = 0;
+    public:
+      int getSpelledArgsCount() const { return SpelledArgsCount; }
+      void setSpelledArgsCount(int C) { SpelledArgsCount = C; }
+  }];
 }
 
 def HLSLWaveOpsIncludeHelperLanes : InheritableAttr {
@@ -1250,19 +1258,34 @@ def ArrayOfBuffer
                   S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RasterizerOrderedBuffer")}]>;
 
-// Global variable with "Texture" or "SamplerState" type
+// Global variable with "Texture*" or "Sampler*" type
 def TextureOrSampler
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
                  S->getType()->getAs<RecordType>()->getDecl() &&
                  (S->getType()->getAs<RecordType>()->getDecl()->getName().startswith("Texture") ||
-                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "SamplerState")}]>;
+                  S->getType()->getAs<RecordType>()->getDecl()->getName().startswith("Sampler"))}]>;
 
 def VKBuiltIn : InheritableAttr {
   let Spellings = [CXX11<"vk", "builtin">];
   let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
   let Args = [StringArgument<"BuiltIn">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKExtBuiltinInput : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_builtin_input">];
+  let Subjects = SubjectList<[Var], ErrorDiag>;
+  let Args = [IntArgument<"BuiltInID">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKExtBuiltinOutput : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_builtin_output">];
+  let Subjects = SubjectList<[Var], ErrorDiag>;
+  let Args = [IntArgument<"BuiltInID">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
@@ -1294,7 +1317,7 @@ def VKBinding : InheritableAttr {
 
 def VKCapabilityExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_capability">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Function, Var], ErrorDiag>;
   let Args = [IntArgument<"capability">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1334,7 +1357,7 @@ def VKDecorateStringExt : InheritableAttr {
 
 def VKExtensionExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_extension">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Function, Var], ErrorDiag>;
   let Args = [StringArgument<"name">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];

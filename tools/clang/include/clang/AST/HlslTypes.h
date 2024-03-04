@@ -440,6 +440,7 @@ const clang::ExtVectorType *
 ConvertHLSLVecMatTypeToExtVectorType(const clang::ASTContext &,
                                      clang::QualType);
 bool IsHLSLVecMatType(clang::QualType);
+clang::RecordDecl *GetRecordDeclFromNodeObjectType(clang::QualType ObjectTy);
 bool IsHLSLVecType(clang::QualType type);
 bool IsHLSLMatType(clang::QualType type);
 clang::QualType GetElementTypeOrType(clang::QualType type);
@@ -457,7 +458,9 @@ bool IsHLSLStreamOutputType(clang::QualType type);
 bool IsHLSLResourceType(clang::QualType type);
 bool IsHLSLNodeInputType(clang::QualType type);
 bool IsHLSLDynamicResourceType(clang::QualType type);
+bool IsHLSLDynamicSamplerType(clang::QualType type);
 bool IsHLSLNodeType(clang::QualType type);
+
 bool IsHLSLObjectWithImplicitMemberAccess(clang::QualType type);
 bool IsHLSLObjectWithImplicitROMemberAccess(clang::QualType type);
 bool IsHLSLRWNodeInputRecordType(clang::QualType type);

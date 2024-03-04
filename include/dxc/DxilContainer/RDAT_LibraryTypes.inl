@@ -24,6 +24,75 @@ RDAT_ENUM_START(DxilResourceFlag, uint32_t)
   RDAT_ENUM_VALUE(Atomics64Use,             1 << 4)
 RDAT_ENUM_END()
 
+RDAT_ENUM_START(DxilShaderStageFlags, uint32_t)
+  RDAT_ENUM_VALUE(Pixel, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Pixel))
+  RDAT_ENUM_VALUE(Vertex, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Vertex))
+  RDAT_ENUM_VALUE(Geometry, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Geometry))
+  RDAT_ENUM_VALUE(Hull, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Hull))
+  RDAT_ENUM_VALUE(Domain, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Domain))
+  RDAT_ENUM_VALUE(Compute, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Compute))
+  RDAT_ENUM_VALUE(Library, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Library))
+  RDAT_ENUM_VALUE(RayGeneration, (1 << (uint32_t)hlsl::DXIL::ShaderKind::RayGeneration))
+  RDAT_ENUM_VALUE(Intersection, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Intersection))
+  RDAT_ENUM_VALUE(AnyHit, (1 << (uint32_t)hlsl::DXIL::ShaderKind::AnyHit))
+  RDAT_ENUM_VALUE(ClosestHit, (1 << (uint32_t)hlsl::DXIL::ShaderKind::ClosestHit))
+  RDAT_ENUM_VALUE(Miss, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Miss))
+  RDAT_ENUM_VALUE(Callable, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Callable))
+  RDAT_ENUM_VALUE(Mesh, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Mesh))
+  RDAT_ENUM_VALUE(Amplification, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Amplification))
+  RDAT_ENUM_VALUE(Node, (1 << (uint32_t)hlsl::DXIL::ShaderKind::Node))
+RDAT_ENUM_END()
+
+// Low 32-bits of ShaderFeatureInfo from DFCC_FeatureInfo
+RDAT_ENUM_START(DxilFeatureInfo1, uint32_t)
+  RDAT_ENUM_VALUE(Doubles, 0x0001)
+  RDAT_ENUM_VALUE(ComputeShadersPlusRawAndStructuredBuffersViaShader4X, 0x0002)
+  RDAT_ENUM_VALUE(UAVsAtEveryStage, 0x0004)
+  RDAT_ENUM_VALUE(_64UAVs, 0x0008)
+  RDAT_ENUM_VALUE(MinimumPrecision, 0x0010)
+  RDAT_ENUM_VALUE(_11_1_DoubleExtensions, 0x0020)
+  RDAT_ENUM_VALUE(_11_1_ShaderExtensions, 0x0040)
+  RDAT_ENUM_VALUE(LEVEL9ComparisonFiltering, 0x0080)
+  RDAT_ENUM_VALUE(TiledResources, 0x0100)
+  RDAT_ENUM_VALUE(StencilRef, 0x0200)
+  RDAT_ENUM_VALUE(InnerCoverage, 0x0400)
+  RDAT_ENUM_VALUE(TypedUAVLoadAdditionalFormats, 0x0800)
+  RDAT_ENUM_VALUE(ROVs, 0x1000)
+  RDAT_ENUM_VALUE(ViewportAndRTArrayIndexFromAnyShaderFeedingRasterizer, 0x2000)
+  RDAT_ENUM_VALUE(WaveOps, 0x4000)
+  RDAT_ENUM_VALUE(Int64Ops, 0x8000)
+  RDAT_ENUM_VALUE(ViewID, 0x10000)
+  RDAT_ENUM_VALUE(Barycentrics, 0x20000)
+  RDAT_ENUM_VALUE(NativeLowPrecision, 0x40000)
+  RDAT_ENUM_VALUE(ShadingRate, 0x80000)
+  RDAT_ENUM_VALUE(Raytracing_Tier_1_1, 0x100000)
+  RDAT_ENUM_VALUE(SamplerFeedback, 0x200000)
+  RDAT_ENUM_VALUE(AtomicInt64OnTypedResource, 0x400000)
+  RDAT_ENUM_VALUE(AtomicInt64OnGroupShared, 0x800000)
+  RDAT_ENUM_VALUE(DerivativesInMeshAndAmpShaders, 0x1000000)
+  RDAT_ENUM_VALUE(ResourceDescriptorHeapIndexing, 0x2000000)
+  RDAT_ENUM_VALUE(SamplerDescriptorHeapIndexing, 0x4000000)
+  RDAT_ENUM_VALUE(WaveMMA, 0x8000000)
+  RDAT_ENUM_VALUE(AtomicInt64OnHeapResource, 0x10000000)
+  RDAT_ENUM_VALUE(AdvancedTextureOps, 0x20000000)
+  RDAT_ENUM_VALUE(WriteableMSAATextures, 0x40000000)
+  RDAT_ENUM_VALUE(SampleCmpGradientOrBias, 0x80000000)
+RDAT_ENUM_END()
+
+// High 32-bits of ShaderFeatureInfo from DFCC_FeatureInfo
+RDAT_ENUM_START(DxilFeatureInfo2, uint32_t)
+  RDAT_ENUM_VALUE(ExtendedCommandInfo, 0x1)
+  // OptFeatureInfo flags
+  RDAT_ENUM_VALUE(Opt_UsesDerivatives, 0x100)
+  RDAT_ENUM_VALUE(Opt_RequiresGroup, 0x200)
+#if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
+  static_assert(DXIL::ShaderFeatureInfoCount == 33,
+                "otherwise, RDAT_ENUM definition needs updating");
+  static_assert(DXIL::OptFeatureInfoCount == 2,
+                "otherwise, RDAT_ENUM definition needs updating");
+#endif
+RDAT_ENUM_END()
+
 #endif // DEF_RDAT_ENUMS
 
 #ifdef DEF_DXIL_ENUMS
@@ -136,13 +205,13 @@ RDAT_STRUCT_TABLE(RuntimeDataFunctionInfo, FunctionTable)
   // attribute size for closest hit and any hit
   RDAT_VALUE(uint32_t, AttributeSizeInBytes)
   // first 32 bits of feature flag
-  RDAT_VALUE(uint32_t, FeatureInfo1)
+  RDAT_FLAGS(uint32_t, hlsl::RDAT::DxilFeatureInfo1, FeatureInfo1)
   // second 32 bits of feature flag
-  RDAT_VALUE(uint32_t, FeatureInfo2)
+  RDAT_FLAGS(uint32_t, hlsl::RDAT::DxilFeatureInfo2, FeatureInfo2)
   // valid shader stage flag.
-  RDAT_VALUE(uint32_t, ShaderStageFlag)
+  RDAT_FLAGS(uint32_t, hlsl::RDAT::DxilShaderStageFlags, ShaderStageFlag)
   // minimum shader target.
-  RDAT_VALUE(uint32_t, MinShaderTarget)
+  RDAT_VALUE_HEX(uint32_t, MinShaderTarget)
 
 #if DEF_RDAT_TYPES == DEF_RDAT_TYPES_USE_HELPERS
   // void SetFeatureFlags(uint64_t flags) convenience method
@@ -154,10 +223,10 @@ RDAT_STRUCT_TABLE(RuntimeDataFunctionInfo, FunctionTable)
 
 #if DEF_RDAT_TYPES == DEF_RDAT_READER_DECL
   // uint64_t GetFeatureFlags() convenience method
-  uint64_t GetFeatureFlags();
+  uint64_t GetFeatureFlags() const;
 #elif DEF_RDAT_TYPES == DEF_RDAT_READER_IMPL
   // uint64_t GetFeatureFlags() convenience method
-  uint64_t RuntimeDataFunctionInfo_Reader::GetFeatureFlags() {
+  uint64_t RuntimeDataFunctionInfo_Reader::GetFeatureFlags() const {
     return asRecord() ? (((uint64_t)asRecord()->FeatureInfo2 << 32) |
                          (uint64_t)asRecord()->FeatureInfo1)
                       : 0;
@@ -208,6 +277,7 @@ RDAT_ENUM_START(NodeAttribKind, uint32_t)
   RDAT_ENUM_VALUE(RecordDispatchGrid, 5)
   RDAT_ENUM_VALUE(OutputArraySize, 6)
   RDAT_ENUM_VALUE(AllowSparseNodes, 7)
+  RDAT_ENUM_VALUE(RecordAlignmentInBytes, 8)
   RDAT_ENUM_VALUE_NODEF(LastValue)
 RDAT_ENUM_END()
 
@@ -338,6 +408,10 @@ RDAT_STRUCT_TABLE(NodeShaderIOAttrib, NodeShaderIOAttribTable)
                     getAttribKind() ==
                         hlsl::RDAT::NodeAttribKind::AllowSparseNodes)
       RDAT_VALUE(uint32_t, AllowSparseNodes)
+    RDAT_UNION_ELIF(RecordAlignmentInBytes,
+                    getAttribKind() ==
+                        hlsl::RDAT::NodeAttribKind::RecordAlignmentInBytes)
+      RDAT_VALUE(uint32_t, RecordAlignmentInBytes)
     RDAT_UNION_ENDIF()
   RDAT_UNION_END()
 RDAT_STRUCT_END()

@@ -57,9 +57,9 @@
 // CHECK:      PayloadSizeInBytes: 0
 // CHECK:      AttributeSizeInBytes: 0
 // CHECK:      FeatureInfo1: 0
-// CHECK:      FeatureInfo2: 0
-// CHECK:      ShaderStageFlag: 32
-// CHECK:      MinShaderTarget: 327776
+// CHECK:      FeatureInfo2: (Opt_RequiresGroup)
+// CHECK:      ShaderStageFlag: (Compute)
+// CHECK:      MinShaderTarget: 0x50060
 // CHECK:      MinimumExpectedWaveLaneCount: 0
 // CHECK:      MaximumExpectedWaveLaneCount: 0
 // CHECK:      ShaderFlags: 0 (None)

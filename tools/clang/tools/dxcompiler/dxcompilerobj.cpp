@@ -35,6 +35,7 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/HLSL/HLSLExtensionsCodegenHelper.h"
+#include "dxc/Support/Path.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcfilesystem.h"
 #include "dxc/dxcapi.internal.h"
@@ -592,6 +593,9 @@ public:
       // Formerly API values.
       const char *pUtf8SourceName =
           opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
+      std::string NormalizedSourceName = hlsl::NormalizePath(pUtf8SourceName);
+      pUtf8SourceName = NormalizedSourceName.c_str();
+
       CA2W pWideSourceName(pUtf8SourceName, CP_UTF8);
       const char *pUtf8EntryPoint =
           opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
@@ -613,13 +617,21 @@ public:
                               nullptr, &pSourceEncoding));
 
 #ifdef ENABLE_SPIRV_CODEGEN
-      // We want to embed the preprocessed source code in the final SPIR-V if
-      // debug information is enabled. Therefore, we invoke Preprocess() here
+      // We want to embed the original source code in the final SPIR-V if
+      // debug information is enabled. But the compiled source requires
+      // pre-seeding with #line directives. We invoke Preprocess() here
       // first for such case. Then we invoke the compilation process over the
-      // preprocessed source code, so that line numbers are consistent with the
-      // embedded source code.
+      // preprocessed source code.
       if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo &&
           !opts.SpirvOptions.debugInfoVulkan) {
+        // Convert source code encoding
+        CComPtr<IDxcBlobUtf8> pOrigUtf8Source;
+        IFC(hlsl::DxcGetBlobAsUtf8(pSourceEncoding, m_pMalloc,
+                                   &pOrigUtf8Source));
+        opts.SpirvOptions.origSource.assign(
+            static_cast<const char *>(pOrigUtf8Source->GetStringPointer()),
+            pOrigUtf8Source->GetStringLength());
+
         CComPtr<IDxcResult> pSrcCodeResult;
         std::vector<LPCWSTR> PreprocessArgs;
         PreprocessArgs.reserve(argCount + 1);
@@ -1347,6 +1359,18 @@ public:
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
+    if (Opts.DiagnosticsFormat.equals_lower("msvc") ||
+        Opts.DiagnosticsFormat.equals_lower("msvc-fallback"))
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::MSVC);
+    else if (Opts.DiagnosticsFormat.equals_lower("vi"))
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::Vi);
+    else if (!Opts.DiagnosticsFormat.equals_lower("clang")) {
+      auto const ID = compiler.getDiagnostics().getCustomDiagID(
+          clang::DiagnosticsEngine::Warning,
+          "invalid option %0 to -fdiagnostics-format: supported values are "
+          "clang, msvc, msvc-fallback, and vi");
+      compiler.getDiagnostics().Report(ID) << Opts.DiagnosticsFormat;
+    }
     compiler.createFileManager();
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(

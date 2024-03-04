@@ -96,13 +96,18 @@ void dxil_dia::Session::Init(std::shared_ptr<llvm::LLVMContext> context,
     DXASSERT(m_rvaMap[It->second] == It->first,
              "instruction mapped to wrong rva");
   }
+}
 
-  // Initialize symbols
-  try {
-    m_symsMgr.Init(this);
-  } catch (const hlsl::Exception &) {
-    m_symsMgr = dxil_dia::SymbolManager();
+const dxil_dia::SymbolManager &dxil_dia::Session::SymMgr() {
+  if (!m_symsMgr) {
+    try {
+      m_symsMgr.reset(new dxil_dia::SymbolManager());
+      m_symsMgr->Init(this);
+    } catch (const hlsl::Exception &) {
+      m_symsMgr.reset(new dxil_dia::SymbolManager());
+    }
   }
+  return *m_symsMgr;
 }
 
 HRESULT dxil_dia::Session::getSourceFileIdByName(llvm::StringRef fileName,
@@ -138,7 +143,7 @@ STDMETHODIMP dxil_dia::Session::get_globalScope(
   *pRetVal = nullptr;
 
   Symbol *ret;
-  IFR(m_symsMgr.GetGlobalScope(&ret));
+  IFR(SymMgr().GetGlobalScope(&ret));
   *pRetVal = ret;
   return S_OK;
 }
@@ -378,7 +383,7 @@ STDMETHODIMP dxil_dia::Session::findInlineFramesByAddr(
 
   HRESULT hr;
   SymbolChildrenEnumerator *ChildrenEnum;
-  IFR(hr = m_symsMgr.DbgScopeOf(It->second, &ChildrenEnum));
+  IFR(hr = SymMgr().DbgScopeOf(It->second, &ChildrenEnum));
 
   *ppResult = ChildrenEnum;
   return hr;

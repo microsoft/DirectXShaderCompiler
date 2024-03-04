@@ -255,8 +255,8 @@ public:
   unsigned GetNumThreads(unsigned idx) const;
 
   // Compute shader
-  void SetWaveSize(unsigned size);
-  unsigned GetWaveSize() const;
+  DxilWaveSize &GetWaveSize();
+  const DxilWaveSize &GetWaveSize() const;
 
   // Geometry shader.
   DXIL::InputPrimitive GetInputPrimitive() const;
@@ -404,6 +404,32 @@ private:
                        std::unique_ptr<T> pRes);
   void LoadDxilSignature(const llvm::MDTuple *pSigTuple, DxilSignature &Sig,
                          bool bInput);
+
+public:
+  // ShaderCompatInfo tracks requirements per-function, subsequently merged into
+  // final entry function requirements.
+  struct ShaderCompatInfo {
+    unsigned minMajor = 6, minMinor = 0;
+    // 'mask' is a set of bits representing each compatible shader kind.
+    // Mapping is: 1 << (unsigned)DXIL::ShaderKind::<kind>.
+    // Starts out with all kinds valid, will be masked down based on features
+    // used and by known shader kinds for a particular validation version.
+    unsigned mask = ((unsigned)1 << (unsigned)DXIL::ShaderKind::Invalid) - 1;
+    ShaderFlags shaderFlags;
+    bool Merge(ShaderCompatInfo &other);
+  };
+
+  // Compute ShaderCompatInfo for all functions in module.
+  void ComputeShaderCompatInfo();
+
+  const ShaderCompatInfo *
+  GetCompatInfoForFunction(const llvm::Function *F) const;
+
+private:
+  typedef std::unordered_map<const llvm::Function *, ShaderCompatInfo>
+      FunctionShaderCompatMap;
+  FunctionShaderCompatMap m_FuncToShaderCompat;
+  void UpdateFunctionToShaderCompat(const llvm::Function *dxilFunc);
 };
 
 } // namespace hlsl

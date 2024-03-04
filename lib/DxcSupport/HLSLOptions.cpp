@@ -538,6 +538,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.OutputReflectionFile = Args.getLastArgValue(OPT_Fre);
   opts.OutputRootSigFile = Args.getLastArgValue(OPT_Frs);
   opts.OutputShaderHashFile = Args.getLastArgValue(OPT_Fsh);
+  opts.DiagnosticsFormat =
+      Args.getLastArgValue(OPT_fdiagnostics_format_EQ, "clang");
   opts.ShowOptionNames = Args.hasFlag(OPT_fdiagnostics_show_option,
                                       OPT_fno_diagnostics_show_option, true);
   opts.UseColor = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
@@ -1068,6 +1070,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_preserve_interface, OPT_INVALID, false);
   opts.SpirvOptions.allowRWStructuredBufferArrays =
       Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID, false);
+  opts.SpirvOptions.enableMaximalReconvergence =
+      Args.hasFlag(OPT_fspv_enable_maximal_reconvergence, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift,
                          errors) ||

@@ -12,9 +12,10 @@
 // This whole file is win32-only
 #ifdef _WIN32
 
+#include <array>
+
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/dxcapi.h"
 
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HLSLTestData.h"
@@ -167,6 +168,7 @@ public:
       DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_WithDbgValue)
   TEST_METHOD(
       DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_ArrayInValues)
+  TEST_METHOD(DxcPixDxilDebugInfo_DuplicateGlobals)
   TEST_METHOD(DxcPixDxilDebugInfo_StructInheritance)
   TEST_METHOD(DxcPixDxilDebugInfo_StructContainedResource)
   TEST_METHOD(DxcPixDxilDebugInfo_StructStaticInit)
@@ -177,8 +179,22 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_UnnamedField)
   TEST_METHOD(DxcPixDxilDebugInfo_SubProgramsInNamespaces)
   TEST_METHOD(DxcPixDxilDebugInfo_SubPrograms)
-  TEST_METHOD(DxcPixDxilDebugInfo_InlinedFunctions_TwiceInlinedFunctions)
-  TEST_METHOD(DxcPixDxilDebugInfo_InlinedFunctions_CalledTwiceInSameCaller)
+  TEST_METHOD(DxcPixDxilDebugInfo_Alignment_ConstInt)
+  TEST_METHOD(DxcPixDxilDebugInfo_QIOldFieldInterface)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Simple)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Derived)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Bool)
+  TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Overlap)
+  TEST_METHOD(DxcPixDxilDebugInfo_Min16SizesAndOffsets_Enabled)
+  TEST_METHOD(DxcPixDxilDebugInfo_Min16SizesAndOffsets_Disabled)
+  TEST_METHOD(
+      DxcPixDxilDebugInfo_VariableScopes_InlinedFunctions_TwiceInlinedFunctions)
+  TEST_METHOD(
+      DxcPixDxilDebugInfo_VariableScopes_InlinedFunctions_CalledTwiceInSameCaller)
+  TEST_METHOD(DxcPixDxilDebugInfo_VariableScopes_ForScopes)
+  TEST_METHOD(DxcPixDxilDebugInfo_VariableScopes_ScopeBraces)
+  TEST_METHOD(DxcPixDxilDebugInfo_VariableScopes_Function)
+  TEST_METHOD(DxcPixDxilDebugInfo_VariableScopes_Member)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -622,12 +638,13 @@ public:
   void CompileAndRunAnnotationAndGetDebugPart(
       dxc::DxcDllSupport &dllSupport, const char *source,
       const wchar_t *profile, IDxcIncludeHandler *includer,
-      IDxcBlob **ppDebugPart, std::vector<const wchar_t *> extraArgs = {});
+      IDxcBlob **ppDebugPart,
+      std::vector<const wchar_t *> extraArgs = {L"-Od"});
   void CompileAndRunAnnotationAndLoadDiaSource(
       dxc::DxcDllSupport &dllSupport, const char *source,
       const wchar_t *profile, IDxcIncludeHandler *includer,
       IDiaDataSource **ppDataSource,
-      std::vector<const wchar_t *> extraArgs = {});
+      std::vector<const wchar_t *> extraArgs = {L"-Od"});
 
   struct VariableComponentInfo {
     std::wstring Name;
@@ -638,9 +655,15 @@ public:
       const char *hlsl, const wchar_t *profile,
       const char *lineAtWhichToExamineVariables,
       std::vector<VariableComponentInfo> const &ExpectedVariables);
-  CComPtr<IDxcPixDxilDebugInfo>
+  void RunSizeAndOffsetTestCase(const char *hlsl,
+                                std::array<DWORD, 4> const &memberOffsets,
+                                std::array<DWORD, 4> const &memberSizes,
+                                std::vector<const wchar_t *> extraArgs = {
+                                    L"-Od"});
+  DebuggerInterfaces
   CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
-                           IDxcIncludeHandler *includer = nullptr);
+                           IDxcIncludeHandler *includer = nullptr,
+                           std::vector<const wchar_t *> extraArgs = {L"-Od"});
 
   CComPtr<IDxcPixDxilLiveVariables>
   GetLiveVariablesAt(const char *hlsl,
@@ -769,13 +792,14 @@ void PixDiaTest::CompileAndRunAnnotationAndGetDebugPart(
   *ppDebugPart = GetDebugPart(dllSupport, pNewContainer).Detach();
 }
 
-CComPtr<IDxcPixDxilDebugInfo>
+DebuggerInterfaces
 PixDiaTest::CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
-                                     IDxcIncludeHandler *includer) {
+                                     IDxcIncludeHandler *includer,
+                                     std::vector<const wchar_t *> extraArgs) {
 
   CComPtr<IDiaDataSource> pDiaDataSource;
   CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, profile, includer,
-                                          &pDiaDataSource, {L"-Od"});
+                                          &pDiaDataSource, extraArgs);
 
   CComPtr<IDiaSession> session;
   VERIFY_SUCCEEDED(pDiaDataSource->openSession(&session));
@@ -783,9 +807,10 @@ PixDiaTest::CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
   CComPtr<IDxcPixDxilDebugInfoFactory> Factory;
   VERIFY_SUCCEEDED(session->QueryInterface(IID_PPV_ARGS(&Factory)));
 
-  CComPtr<IDxcPixDxilDebugInfo> dxilDebugger;
-  VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&dxilDebugger));
-  return dxilDebugger;
+  DebuggerInterfaces ret;
+  VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&ret.debugInfo));
+  VERIFY_SUCCEEDED(Factory->NewDxcPixCompilationInfo(&ret.compilationInfo));
+  return ret;
 }
 
 CComPtr<IDxcPixDxilLiveVariables>
@@ -807,7 +832,8 @@ PixDiaTest::GetLiveVariablesAt(const char *hlsl,
        ++InterestingLine) {
     CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
     if (SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
-            defaultFilename, InterestingLine, 0, &instructionOffsets))) {
+            (std::wstring(L".\\") + defaultFilename).c_str(), InterestingLine,
+            0, &instructionOffsets))) {
       if (instructionOffsets->GetCount() > 0) {
         auto instructionOffset = instructionOffsets->GetOffsetByIndex(0);
         if (SUCCEEDED(dxilDebugger->GetLiveVariablesAt(instructionOffset,
@@ -845,7 +871,7 @@ void PixDiaTest::TestGlobalStaticCase(
     const char *lineAtWhichToExamineVariables,
     std::vector<VariableComponentInfo> const &ExpectedVariables) {
 
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, profile);
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, profile).debugInfo;
 
   auto liveVariables =
       GetLiveVariablesAt(hlsl, lineAtWhichToExamineVariables, dxilDebugger);
@@ -900,7 +926,7 @@ TEST_F(PixDiaTest, CompileWhenDebugThenDIPresent) {
                             L"lexicalParent: id=2, value: ps_6_0"));
   VERIFY_IS_NOT_NULL(wcsstr(diaDump.c_str(), L"lineNumber: 2"));
   VERIFY_IS_NOT_NULL(
-      wcsstr(diaDump.c_str(), L"length: 99, filename: source.hlsl"));
+      wcsstr(diaDump.c_str(), L"length: 99, filename: .\\source.hlsl"));
   std::wstring diaFileContent = GetDebugFileContent(pDiaSource).c_str();
   VERIFY_IS_NOT_NULL(
       wcsstr(diaFileContent.c_str(),
@@ -1486,7 +1512,8 @@ TEST_F(PixDiaTest, PixDebugCompileInfo) {
 
   CComBSTR entryPointFile;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPointFile(&entryPointFile));
-  VERIFY_ARE_EQUAL(std::wstring(L"source.hlsl"), std::wstring(entryPointFile));
+  VERIFY_ARE_EQUAL(std::wstring(L".\\source.hlsl"),
+                   std::wstring(entryPointFile));
 
   CComBSTR entryPointFunction;
   VERIFY_SUCCEEDED(compilationInfo->GetEntryPoint(&entryPointFunction));
@@ -2002,7 +2029,7 @@ void ASMain()
 
   CComPtr<IDxcPixDxilInstructionOffsets> instructionOffsets;
   VERIFY_SUCCEEDED(dxilDebugger->InstructionOffsetsFromSourceLocation(
-      L"source.hlsl", DispatchMeshLine, 0, &instructionOffsets));
+      L".\\source.hlsl", DispatchMeshLine, 0, &instructionOffsets));
   VERIFY_IS_TRUE(instructionOffsets->GetCount() > 0);
   DWORD InstructionOrdinal = instructionOffsets->GetOffsetByIndex(0);
   CComPtr<IDxcPixDxilLiveVariables> liveVariables;
@@ -2203,6 +2230,53 @@ void main()
   TestGlobalStaticCase(hlsl, L"lib_6_6", "float Accumulator", Expected);
 }
 
+int CountLiveGlobals(IDxcPixDxilLiveVariables *liveVariables) {
+  int globalCount = 0;
+  DWORD varCount;
+  VERIFY_SUCCEEDED(liveVariables->GetCount(&varCount));
+  for (DWORD i = 0; i < varCount; ++i) {
+    CComPtr<IDxcPixVariable> var;
+    VERIFY_SUCCEEDED(liveVariables->GetVariableByIndex(i, &var));
+    CComBSTR name;
+    VERIFY_SUCCEEDED(var->GetName(&name));
+    if (wcsstr(name, L"global.") != nullptr)
+      globalCount++;
+  }
+  return globalCount;
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_DuplicateGlobals) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  const char *hlsl = R"(
+static float global = 1.0;
+struct RayPayload
+{
+    float4 color;
+};
+typedef BuiltInTriangleIntersectionAttributes MyAttributes;
+
+[shader("closesthit")]
+void InnerClosestHitShader(inout RayPayload payload, in MyAttributes attr)
+{
+    payload.color = float4(global, 0, 0, 0); // CHLine
+}
+
+[shader("miss")]
+void MyMissShader(inout RayPayload payload)
+{
+    payload.color = float4(0, 1, 0, 0); // MSLine
+})";
+
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"lib_6_6").debugInfo;
+
+  auto CHVars = GetLiveVariablesAt(hlsl, "CHLine", dxilDebugger);
+  VERIFY_ARE_EQUAL(1, CountLiveGlobals(CHVars));
+  auto MSVars = GetLiveVariablesAt(hlsl, "MSLine", dxilDebugger);
+  VERIFY_ARE_EQUAL(0, CountLiveGlobals(MSVars));
+}
+
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_StructInheritance) {
   if (m_ver.SkipDxilVersion(1, 5))
     return;
@@ -2239,7 +2313,7 @@ void main()
 }
 
 )";
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_6");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_6").debugInfo;
 
   auto liveVariables =
       GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
@@ -2300,7 +2374,7 @@ void main()
 }
 
 )";
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_6");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_6").debugInfo;
 
   auto liveVariables =
       GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
@@ -2358,7 +2432,7 @@ void main()
 }
 
 )";
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_6");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_6").debugInfo;
 
   auto liveVariables =
       GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
@@ -2418,7 +2492,7 @@ void main()
 }
 
 )";
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_6");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_6").debugInfo;
 
   auto liveVariables =
       GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
@@ -2451,7 +2525,7 @@ void PixDiaTest::TestUnnamedTypeCase(const char *hlsl,
                                      const wchar_t *expectedTypeName) {
   if (m_ver.SkipDxilVersion(1, 2))
     return;
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_0");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_0").debugInfo;
   auto liveVariables =
       GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
   DWORD count;
@@ -2562,7 +2636,7 @@ void main()
 
   if (m_ver.SkipDxilVersion(1, 2))
     return;
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_0");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"cs_6_0").debugInfo;
   auto liveVariables =
       GetLiveVariablesAt(hlsl, "InterestingLine", dxilDebugger);
   DWORD count;
@@ -2624,7 +2698,7 @@ public:
   HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename,
                                        IDxcBlob **ppIncludeSource) override {
     for (auto const &file : m_files) {
-      std::wstring prependedWithDotHack = L"./" + file.first;
+      std::wstring prependedWithDotHack = L".\\" + file.first;
       if (prependedWithDotHack == std::wstring(pFilename)) {
         CComPtr<IDxcBlobEncoding> blob;
         CreateBlobFromText(m_pixTest->m_dllSupport, file.second.c_str(), &blob);
@@ -2639,10 +2713,10 @@ public:
 void PixDiaTest::RunSubProgramsCase(const char *hlsl) {
   CComPtr<DxcIncludeHandlerForInjectedSourcesForPix> pIncludeHandler =
       new DxcIncludeHandlerForInjectedSourcesForPix(
-          this, {{L"../include1/samefilename.h",
+          this, {{L"..\\include1\\samefilename.h",
                   "float fn1(int c, float v) { for(int i = 0; i< c; ++ i) v += "
                   "sqrt(v); return v; } "},
-                 {L"../include2/samefilename.h",
+                 {L"..\\include2\\samefilename.h",
                   R"(
 float4 fn2( float3 f3, float d, bool sanitize = true )
 {
@@ -2656,7 +2730,7 @@ float4 fn2( float3 f3, float d, bool sanitize = true )
 )"}});
 
   auto dxilDebugger =
-      CompileAndCreateDxcDebug(hlsl, L"cs_6_0", pIncludeHandler);
+      CompileAndCreateDxcDebug(hlsl, L"cs_6_0", pIncludeHandler).debugInfo;
 
   struct SourceLocations {
     CComBSTR Filename;
@@ -2685,20 +2759,20 @@ float4 fn2( float3 f3, float d, bool sanitize = true )
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
   // The list of source locations should start with the containing file:
-  while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
+  while (it != sourceLocations.end() && it->Filename == L".\\source.hlsl")
     it++;
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
   // Then have a bunch of "../include2/samefilename.h"
-  VERIFY_ARE_EQUAL_WSTR(L"./../include2/samefilename.h", it->Filename);
+  VERIFY_ARE_EQUAL_WSTR(L".\\..\\include2\\samefilename.h", it->Filename);
   while (it != sourceLocations.end() &&
-         it->Filename == L"./../include2/samefilename.h")
+         it->Filename == L".\\..\\include2\\samefilename.h")
     it++;
   VERIFY_IS_FALSE(it == sourceLocations.end());
 
   // Then some more main file:
-  VERIFY_ARE_EQUAL_WSTR(L"source.hlsl", it->Filename);
-  while (it != sourceLocations.end() && it->Filename == L"source.hlsl")
+  VERIFY_ARE_EQUAL_WSTR(L".\\source.hlsl", it->Filename);
+  while (it != sourceLocations.end() && it->Filename == L".\\source.hlsl")
     it++;
 
   // And that should be the end:
@@ -2731,6 +2805,263 @@ void main()
 
 )";
   RunSubProgramsCase(hlsl);
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_QIOldFieldInterface) {
+  const char *hlsl = R"(
+struct Struct
+{
+    unsigned int first;
+    unsigned int second;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Struct s;
+  s.second = UAV[0];
+  UAV[16] = s.second; //STOP_HERE
+}
+)";
+
+  auto debugInfo = CompileAndCreateDxcDebug(hlsl, L"cs_6_5", nullptr).debugInfo;
+  auto live = GetLiveVariablesAt(hlsl, "STOP_HERE", debugInfo);
+  CComPtr<IDxcPixVariable> bf;
+  VERIFY_SUCCEEDED(live->GetVariableByName(L"s", &bf));
+  CComPtr<IDxcPixType> bfType;
+  VERIFY_SUCCEEDED(bf->GetType(&bfType));
+  CComPtr<IDxcPixStructType> bfStructType;
+  VERIFY_SUCCEEDED(bfType->QueryInterface(IID_PPV_ARGS(&bfStructType)));
+  CComPtr<IDxcPixStructField> field;
+  VERIFY_SUCCEEDED(bfStructType->GetFieldByIndex(1, &field));
+  CComPtr<IDxcPixStructField0> mike;
+  VERIFY_SUCCEEDED(field->QueryInterface(IID_PPV_ARGS(&mike)));
+  DWORD secondFieldOffset = 0;
+  VERIFY_SUCCEEDED(mike->GetOffsetInBits(&secondFieldOffset));
+  VERIFY_ARE_EQUAL(32, secondFieldOffset);
+}
+
+void PixDiaTest::RunSizeAndOffsetTestCase(
+    const char *hlsl, std::array<DWORD, 4> const &memberOffsets,
+    std::array<DWORD, 4> const &memberSizes,
+    std::vector<const wchar_t *> extraArgs) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+  auto debugInfo =
+      CompileAndCreateDxcDebug(hlsl, L"cs_6_5", nullptr, extraArgs).debugInfo;
+  auto live = GetLiveVariablesAt(hlsl, "STOP_HERE", debugInfo);
+  CComPtr<IDxcPixVariable> bf;
+  VERIFY_SUCCEEDED(live->GetVariableByName(L"bf", &bf));
+  CComPtr<IDxcPixType> bfType;
+  VERIFY_SUCCEEDED(bf->GetType(&bfType));
+  CComPtr<IDxcPixStructType> bfStructType;
+  VERIFY_SUCCEEDED(bfType->QueryInterface(IID_PPV_ARGS(&bfStructType)));
+  const wchar_t *memberNames[] = {L"first", L"second", L"third", L"fourth"};
+  for (size_t i = 0; i < memberOffsets.size(); ++i) {
+    CComPtr<IDxcPixStructField> field;
+    VERIFY_SUCCEEDED(
+        bfStructType->GetFieldByIndex(static_cast<DWORD>(i), &field));
+    DWORD offsetInBits = 0;
+    VERIFY_SUCCEEDED(field->GetOffsetInBits(&offsetInBits));
+    VERIFY_ARE_EQUAL(memberOffsets[i], offsetInBits);
+    DWORD sizeInBits = 0;
+    VERIFY_SUCCEEDED(field->GetFieldSizeInBits(&sizeInBits));
+    VERIFY_ARE_EQUAL(memberSizes[i], sizeInBits);
+  }
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Simple) {
+  const char *hlsl = R"(
+struct Bitfields
+{
+    unsigned int first : 17;
+    unsigned int second : 15; // consume all 32 bits of first dword
+    unsigned int third : 3; // should be at bit offset 32
+    unsigned int fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 17, 32, 64}, {17, 15, 3, 32});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Derived) {
+  const char *hlsl = R"(
+struct Bitfields
+{
+    uint first : 17;
+    uint second : 15; // consume all 32 bits of first dword
+    uint third : 3; // should be at bit offset 32
+    uint fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 17, 32, 64}, {17, 15, 3, 32});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Bool) {
+  const char *hlsl = R"(
+struct Bitfields
+{
+    bool first : 1;
+    bool second : 1;
+    bool third : 3; // just to be weird
+    uint fourth; // should be at bit offset 64
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 1, 2, 32}, {1, 1, 3, 32});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_BitFields_Overlap) {
+  const char *hlsl = R"(
+struct Bitfields
+{
+    unsigned int first : 20;
+    unsigned int second : 20; // should end up in second DWORD
+    unsigned int third : 3; // should shader second DWORD
+    unsigned int fourth; // should be in third DWORD
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Bitfields bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 32, 52, 64}, {20, 20, 3, 32});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Alignment_ConstInt) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  const uint c = UAV[0];
+  UAV[16] = c;
+}
+
+)";
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_5",
+                                          nullptr, &pDiaDataSource, {L"-Od"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Min16SizesAndOffsets_Enabled) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+struct Mins
+{
+    min16uint first;
+    min16int second;
+    min12int third;
+    min16float fourth;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Mins bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 16, 32, 48}, {16, 16, 16, 16},
+                           {L"-Od", L"-enable-16bit-types"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Min16SizesAndOffsets_Disabled) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+struct Mins
+{
+    min16uint first;
+    min16int second;
+    min12int third;
+    min16float fourth;
+};
+
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  Mins bf;
+  bf.first = UAV[0];
+  bf.second = UAV[1];
+  bf.third = UAV[2];
+  bf.fourth = UAV[3];
+  UAV[16] = bf.first + bf.second + bf.third + bf.fourth; //STOP_HERE
+}
+
+
+)";
+  RunSizeAndOffsetTestCase(hlsl, {0, 32, 64, 96}, {16, 16, 16, 16}, {L"-Od"});
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_SubProgramsInNamespaces) {
@@ -2780,7 +3111,7 @@ static DWORD AdvanceUntilFunctionEntered(IDxcPixDxilDebugInfo *dxilDebugger,
 static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
                                           DWORD instructionOffset,
                                           wchar_t const *variableName,
-                                          wchar_t const *memberName) {
+                                          wchar_t const *memberName = nullptr) {
   CComPtr<IDxcPixDxilLiveVariables> DxcPixDxilLiveVariables;
   if (SUCCEEDED(dxilDebugger->GetLiveVariablesAt(instructionOffset,
                                                  &DxcPixDxilLiveVariables))) {
@@ -2795,12 +3126,14 @@ static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
       if (Name == variableName) {
         CComPtr<IDxcPixDxilStorage> DxcPixDxilStorage;
         VERIFY_SUCCEEDED(DxcPixVariable->GetStorage(&DxcPixDxilStorage));
-        CComPtr<IDxcPixDxilStorage> DxcPixDxilMemberStorage;
-        VERIFY_SUCCEEDED(DxcPixDxilStorage->AccessField(
-            memberName, &DxcPixDxilMemberStorage));
+        if (memberName != nullptr) {
+          CComPtr<IDxcPixDxilStorage> DxcPixDxilMemberStorage;
+          VERIFY_SUCCEEDED(DxcPixDxilStorage->AccessField(
+              memberName, &DxcPixDxilMemberStorage));
+          DxcPixDxilStorage = DxcPixDxilMemberStorage;
+        }
         DWORD RegisterNumber = 42;
-        VERIFY_SUCCEEDED(
-            DxcPixDxilMemberStorage->GetRegisterNumber(&RegisterNumber));
+        VERIFY_SUCCEEDED(DxcPixDxilStorage->GetRegisterNumber(&RegisterNumber));
         return RegisterNumber;
       }
     }
@@ -2809,7 +3142,37 @@ static DWORD GetRegisterNumberForVariable(IDxcPixDxilDebugInfo *dxilDebugger,
   return -1;
 }
 
-TEST_F(PixDiaTest, DxcPixDxilDebugInfo_InlinedFunctions_TwiceInlinedFunctions) {
+static void
+CheckVariableExistsAtThisInstruction(IDxcPixDxilDebugInfo *dxilDebugger,
+                                     DWORD instructionOffset,
+                                     wchar_t const *variableName) {
+  // It's sufficient to know that there _is_ a register number the var:
+  (void)GetRegisterNumberForVariable(dxilDebugger, instructionOffset,
+                                     variableName);
+}
+
+static void
+CheckVariableDoesNOTExistsAtThisInstruction(IDxcPixDxilDebugInfo *dxilDebugger,
+                                            DWORD instructionOffset,
+                                            wchar_t const *variableName) {
+  CComPtr<IDxcPixDxilLiveVariables> DxcPixDxilLiveVariables;
+  VERIFY_SUCCEEDED(dxilDebugger->GetLiveVariablesAt(instructionOffset,
+                                                    &DxcPixDxilLiveVariables));
+  DWORD count = 42;
+  VERIFY_SUCCEEDED(DxcPixDxilLiveVariables->GetCount(&count));
+  for (DWORD i = 0; i < count; ++i) {
+    CComPtr<IDxcPixVariable> DxcPixVariable;
+    VERIFY_SUCCEEDED(
+        DxcPixDxilLiveVariables->GetVariableByIndex(i, &DxcPixVariable));
+    CComBSTR Name;
+    VERIFY_SUCCEEDED(DxcPixVariable->GetName(&Name));
+    VERIFY_ARE_NOT_EQUAL(Name, variableName);
+  }
+}
+
+TEST_F(
+    PixDiaTest,
+    DxcPixDxilDebugInfo_VariableScopes_InlinedFunctions_TwiceInlinedFunctions) {
   if (m_ver.SkipDxilVersion(1, 6))
     return;
 
@@ -2880,7 +3243,7 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
 )"}});
 
   auto dxilDebugger =
-      CompileAndCreateDxcDebug(hlsl, L"lib_6_6", pIncludeHandler);
+      CompileAndCreateDxcDebug(hlsl, L"lib_6_6", pIncludeHandler).debugInfo;
 
   // Case: same functions called from two different top-level callers
   DWORD instructionOffset =
@@ -2923,8 +3286,9 @@ float4 DeeperInlinedFunction(in BuiltInTriangleIntersectionAttributes attr, int 
                        ColorRegisterNumberWhenCalledFromOuterForDeeper);
 }
 
-TEST_F(PixDiaTest,
-       DxcPixDxilDebugInfo_InlinedFunctions_CalledTwiceInSameCaller) {
+TEST_F(
+    PixDiaTest,
+    DxcPixDxilDebugInfo_VariableScopes_InlinedFunctions_CalledTwiceInSameCaller) {
   if (m_ver.SkipDxilVersion(1, 6))
     return;
 
@@ -2953,7 +3317,7 @@ void ClosestHitShader3(inout RayPayload payload, in BuiltInTriangleIntersectionA
 }
 )";
 
-  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto dxilDebugger = CompileAndCreateDxcDebug(hlsl, L"lib_6_6").debugInfo;
 
   // Case: same function called from two places in same top-level function.
   // In this case, we expect the storage for the variable to be in the same
@@ -2966,7 +3330,8 @@ void ClosestHitShader3(inout RayPayload payload, in BuiltInTriangleIntersectionA
       dxilDebugger, instructionOffset, L"InlinedFunction");
   DWORD callsite0 = GetRegisterNumberForVariable(
       dxilDebugger, instructionOffset, L"ret", L"x");
-  // advance until we're out of InlinedFunction before we call it a second time
+  // advance until we're out of InlinedFunction before we call it a second
+  // time
   instructionOffset = AdvanceUntilFunctionEntered(
       dxilDebugger, instructionOffset, L"ClosestHitShader3");
   instructionOffset = AdvanceUntilFunctionEntered(
@@ -2974,6 +3339,194 @@ void ClosestHitShader3(inout RayPayload payload, in BuiltInTriangleIntersectionA
   DWORD callsite1 = GetRegisterNumberForVariable(
       dxilDebugger, instructionOffset++, L"ret", L"x");
   VERIFY_ARE_EQUAL(callsite0, callsite1);
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_ForScopes) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  const char *hlsl =
+      R"(/*01*/RWStructuredBuffer<int> intRWUAV: register(u0);
+/*02*/[shader("compute")]
+/*03*/[numthreads(1,1,1)]
+/*04*/void CSMain()
+/*05*/{
+/*06*/    int zero = intRWUAV.Load(0);
+/*07*/    int two = zero * 2; // debug-loc(CheckVariableExistsHere)
+/*08*/    int three = zero * 3;
+/*09*/    for(int i =0; i < two; ++ i)
+/*10*/    {
+/*11*/        int one = intRWUAV.Load(i);
+/*12*/        three += one; // debug-loc(Stop inside loop)
+/*13*/    }
+/*14*/    intRWUAV[0] = three; // debug-loc(Stop here)
+/*15*/}
+)";
+
+  auto debugInterfaces = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto dxilDebugger = debugInterfaces.debugInfo;
+  auto Labels = GatherDebugLocLabelsFromDxcUtils(debugInterfaces);
+
+  // Case: same function called from two places in same top-level function.
+  // In this case, we expect the storage for the variable to be in the same
+  // place for both "instances" of the function: as a thread proceeds through
+  // the caller, it will write new values into the variable's storage during
+  // the second or subsequent invocations of the inlined function.
+  DWORD instructionOffset =
+      AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
+
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"CheckVariableExistsHere");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                       L"zero");
+
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"Stop inside loop");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                       L"zero");
+
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
+  CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                              L"one");
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_ScopeBraces) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  const char *hlsl =
+      R"(/*01*/RWStructuredBuffer<int> intRWUAV: register(u0);
+/*02*/[shader("compute")]
+/*03*/[numthreads(1,1,1)]
+/*04*/void CSMain()
+/*05*/{
+/*06*/    int zero = intRWUAV.Load(0);
+/*07*/    int two = zero * 2; // debug-loc(CheckVariableExistsHere)
+/*08*/    { 
+/*09*/        int one = intRWUAV.Load(1);
+/*10*/        two += one; // debug-loc(Stop inside loop)
+/*11*/    }
+/*12*/    intRWUAV[0] = two; // debug-loc(Stop here)
+/*13*/}
+)";
+
+  auto debugInterfaces = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto Labels = GatherDebugLocLabelsFromDxcUtils(debugInterfaces);
+  auto dxilDebugger = debugInterfaces.debugInfo;
+
+  // Case: same function called from two places in same top-level function.
+  // In this case, we expect the storage for the variable to be in the same
+  // place for both "instances" of the function: as a thread proceeds through
+  // the caller, it will write new values into the variable's storage during
+  // the second or subsequent invocations of the inlined function.
+  DWORD instructionOffset =
+      AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
+
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"CheckVariableExistsHere");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                       L"zero");
+
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"Stop inside loop");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                       L"zero");
+
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
+  CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                              L"one");
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_Function) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  const char *hlsl =
+      R"(/*01*/RWStructuredBuffer<int> intRWUAV: register(u0);
+/*02*/int Square(int i) {
+/*03*/  int i2 = i * i; // debug-loc(Stop in subroutine)
+/*04*/  return i2;
+/*05*/}
+/*06*/[shader("compute")]
+/*07*/[numthreads(1,1,1)]
+/*08*/void CSMain()
+/*09*/{
+/*10*/    int zero = intRWUAV.Load(0);
+/*11*/    int two = Square(zero);
+/*12*/    intRWUAV[0] = two; // debug-loc(Stop here)
+/*13*/}
+)";
+
+  auto debugInterfaces = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto Labels = GatherDebugLocLabelsFromDxcUtils(debugInterfaces);
+  auto dxilDebugger = debugInterfaces.debugInfo;
+
+  // Case: same function called from two places in same top-level function.
+  // In this case, we expect the storage for the variable to be in the same
+  // place for both "instances" of the function: as a thread proceeds through
+  // the caller, it will write new values into the variable's storage during
+  // the second or subsequent invocations of the inlined function.
+  DWORD instructionOffset =
+      AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
+
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"Stop in subroutine");
+  CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                              L"zero");
+
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
+  CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                              L"i2");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                       L"zero");
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_VariableScopes_Member) {
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
+
+  const char *hlsl =
+      R"(/*01*/RWStructuredBuffer<int> intRWUAV: register(u0);
+struct Struct {
+  int i;
+  int Getter() {
+      int q = i;
+      return q; //debug-loc(inside member fn)
+  }
+};
+[shader("compute")]
+[numthreads(1,1,1)]
+void CSMain()
+{
+    Struct s;
+    s.i = intRWUAV.Load(0);
+    int j = s.Getter();
+    intRWUAV[0] = j; // debug-loc(Stop here)
+}
+)";
+
+  auto debugInterfaces = CompileAndCreateDxcDebug(hlsl, L"lib_6_6");
+  auto Labels = GatherDebugLocLabelsFromDxcUtils(debugInterfaces);
+  auto dxilDebugger = debugInterfaces.debugInfo;
+
+  // Case: same function called from two places in same top-level function.
+  // In this case, we expect the storage for the variable to be in the same
+  // place for both "instances" of the function: as a thread proceeds through
+  // the caller, it will write new values into the variable's storage during
+  // the second or subsequent invocations of the inlined function.
+  DWORD instructionOffset =
+      AdvanceUntilFunctionEntered(dxilDebugger, 0, L"CSMain");
+
+  instructionOffset =
+      Labels->FindInstructionOffsetForLabel(L"inside member fn");
+  CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                              L"s");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset, L"q");
+
+  instructionOffset = Labels->FindInstructionOffsetForLabel(L"Stop here");
+  CheckVariableDoesNOTExistsAtThisInstruction(dxilDebugger, instructionOffset,
+                                              L"i");
+  CheckVariableExistsAtThisInstruction(dxilDebugger, instructionOffset, L"j");
 }
 
 #endif

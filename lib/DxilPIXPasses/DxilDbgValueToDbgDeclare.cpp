@@ -17,6 +17,7 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResourceBase.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "llvm/ADT/STLExtras.h"
@@ -51,6 +52,44 @@ using namespace llvm;
 namespace {
 using OffsetInBits = unsigned;
 using SizeInBits = unsigned;
+struct Offsets {
+  OffsetInBits Aligned;
+  OffsetInBits Packed;
+};
+
+// DITypePeelTypeAlias peels const, typedef, and other alias types off of Ty,
+// returning the unalised type.
+static llvm::DIType *DITypePeelTypeAlias(llvm::DIType *Ty) {
+  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
+    const llvm::DITypeIdentifierMap EmptyMap;
+    switch (DerivedTy->getTag()) {
+    case llvm::dwarf::DW_TAG_restrict_type:
+    case llvm::dwarf::DW_TAG_reference_type:
+    case llvm::dwarf::DW_TAG_const_type:
+    case llvm::dwarf::DW_TAG_typedef:
+    case llvm::dwarf::DW_TAG_pointer_type:
+      return DITypePeelTypeAlias(DerivedTy->getBaseType().resolve(EmptyMap));
+    case llvm::dwarf::DW_TAG_member:
+      return DITypePeelTypeAlias(DerivedTy->getBaseType().resolve(EmptyMap));
+    }
+  }
+
+  return Ty;
+}
+
+llvm::DIBasicType *BaseTypeIfItIsBasicAndLarger(llvm::DIType *Ty) {
+  // Working around problems with bitfield size/alignment:
+  // For bitfield types, size may be < 32, but the underlying type
+  // will have the size of that basic type, e.g. 32 for ints.
+  // By contrast, for min16float, size will be 16, but align will be 16 or 32
+  // depending on whether or not 16-bit is enabled.
+  // So if we find a disparity in size, we can assume it's not e.g. min16float.
+  auto *baseType = DITypePeelTypeAlias(Ty);
+  if (Ty->getSizeInBits() != 0 &&
+      Ty->getSizeInBits() < baseType->getSizeInBits())
+    return llvm::dyn_cast<llvm::DIBasicType>(baseType);
+  return nullptr;
+}
 
 // OffsetManager is used to map between "packed" and aligned offsets.
 //
@@ -63,28 +102,28 @@ using SizeInBits = unsigned;
 class OffsetManager {
   unsigned DescendTypeToGetAlignMask(llvm::DIType *Ty) {
     unsigned AlignMask = Ty->getAlignInBits();
-
-    auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty);
-    if (DerivedTy != nullptr) {
-      // Working around a bug where byte size is stored instead of bit size
-      if (AlignMask == 4 && Ty->getSizeInBits() == 32) {
-        AlignMask = 32;
-      }
-      if (AlignMask == 0) {
-        const llvm::DITypeIdentifierMap EmptyMap;
-        switch (DerivedTy->getTag()) {
-        case llvm::dwarf::DW_TAG_restrict_type:
-        case llvm::dwarf::DW_TAG_reference_type:
-        case llvm::dwarf::DW_TAG_const_type:
-        case llvm::dwarf::DW_TAG_typedef: {
-          llvm::DIType *baseType = DerivedTy->getBaseType().resolve(EmptyMap);
-          if (baseType != nullptr) {
-            if (baseType->getAlignInBits() == 0) {
-              (void)baseType->getAlignInBits();
-            }
-            return DescendTypeToGetAlignMask(baseType);
-          }
+    if (BaseTypeIfItIsBasicAndLarger(Ty))
+      AlignMask = 0;
+    else {
+      auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty);
+      if (DerivedTy != nullptr) {
+        // Working around a bug where byte size is stored instead of bit size
+        if (AlignMask == 4 && Ty->getSizeInBits() == 32) {
+          AlignMask = 32;
         }
+        if (AlignMask == 0) {
+          const llvm::DITypeIdentifierMap EmptyMap;
+          switch (DerivedTy->getTag()) {
+          case llvm::dwarf::DW_TAG_restrict_type:
+          case llvm::dwarf::DW_TAG_reference_type:
+          case llvm::dwarf::DW_TAG_const_type:
+          case llvm::dwarf::DW_TAG_typedef: {
+            llvm::DIType *baseType = DerivedTy->getBaseType().resolve(EmptyMap);
+            if (baseType != nullptr) {
+              return DescendTypeToGetAlignMask(baseType);
+            }
+          }
+          }
         }
       }
     }
@@ -128,7 +167,7 @@ public:
 
   // Add is used to "add" an aggregate element (struct field, array element)
   // at the current aligned/packed offsets, bumping them by Ty's size.
-  OffsetInBits Add(llvm::DIBasicType *Ty) {
+  Offsets Add(llvm::DIBasicType *Ty, unsigned sizeOverride) {
     VALUE_TO_DECLARE_LOG("Adding known type at aligned %d / packed %d, size %d",
                          m_CurrentAlignedOffset, m_CurrentPackedOffset,
                          Ty->getSizeInBits());
@@ -138,9 +177,10 @@ public:
     m_AlignedOffsetToPackedOffset[m_CurrentAlignedOffset] =
         m_CurrentPackedOffset;
 
-    const OffsetInBits Ret = m_CurrentAlignedOffset;
-    m_CurrentPackedOffset += Ty->getSizeInBits();
-    m_CurrentAlignedOffset += Ty->getSizeInBits();
+    const Offsets Ret = {m_CurrentAlignedOffset, m_CurrentPackedOffset};
+    unsigned size = sizeOverride != 0 ? sizeOverride : Ty->getSizeInBits();
+    m_CurrentPackedOffset += size;
+    m_CurrentAlignedOffset += size;
 
     return Ret;
   }
@@ -230,7 +270,8 @@ public:
 private:
   void PopulateAllocaMap(llvm::DIType *Ty);
 
-  void PopulateAllocaMap_BasicType(llvm::DIBasicType *Ty);
+  void PopulateAllocaMap_BasicType(llvm::DIBasicType *Ty,
+                                   unsigned sizeOverride);
 
   void PopulateAllocaMap_ArrayType(llvm::DICompositeType *Ty);
 
@@ -239,7 +280,8 @@ private:
   llvm::DILocation *GetVariableLocation() const;
   llvm::Value *GetMetadataAsValue(llvm::Metadata *M) const;
   llvm::DIExpression *GetDIExpression(llvm::DIType *Ty, OffsetInBits Offset,
-                                      SizeInBits ParentSize) const;
+                                      SizeInBits ParentSize,
+                                      unsigned sizeOverride) const;
 
   llvm::DebugLoc const &m_dbgLoc;
   llvm::DIVariable *m_Variable = nullptr;
@@ -556,23 +598,27 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
 
   auto &Functions = M.getFunctionList();
   for (auto &fn : Functions) {
-    // #DSLTodo: We probably need to merge the list of variables for each export
-    // into one set so that WinPIX shader debugging can follow a thread through
-    // any function within a given module. (Unless PIX chooses to launch a new
-    // debugging session whenever control passes from one function to another.)
-    // For now, it's sufficient to treat each exported function as having
-    // completely separate variables by clearing this member:
+    llvm::SmallPtrSet<Value *, 16> RayQueryHandles;
+    PIXPassHelpers::FindRayQueryHandlesForFunction(&fn, RayQueryHandles);
+    // #DSLTodo: We probably need to merge the list of variables for each
+    // export into one set so that WinPIX shader debugging can follow a
+    // thread through any function within a given module. (Unless PIX
+    // chooses to launch a new debugging session whenever control passes
+    // from one function to another.) For now, it's sufficient to treat each
+    // exported function as having completely separate variables by clearing
+    // this member:
     m_Registers.clear();
-    // Note: they key problem here is variables in common functions called by
-    // multiple exported functions. The DILocalVariables in the common function
-    // will be exactly the same objects no matter which export called the common
-    // function, so the instrumentation here gets a bit confused that the same
-    // variable is present in two functions and ends up pointing one function
-    // to allocas in another function. (This is easy to repro: comment out the
-    // above clear(), and run PixTest::PixStructAnnotation_Lib_DualRaygen.)
-    // Not sure what the right path forward is: might be that we have to tag
-    // m_Registers with the exported function, and maybe write out a function
-    // identifier during debug instrumentation...
+    // Note: they key problem here is variables in common functions called
+    // by multiple exported functions. The DILocalVariables in the common
+    // function will be exactly the same objects no matter which export
+    // called the common function, so the instrumentation here gets a bit
+    // confused that the same variable is present in two functions and ends
+    // up pointing one function to allocas in another function. (This is
+    // easy to repro: comment out the above clear(), and run
+    // PixTest::PixStructAnnotation_Lib_DualRaygen.) Not sure what the right
+    // path forward is: might be that we have to tag m_Registers with the
+    // exported function, and maybe write out a function identifier during
+    // debug instrumentation...
     auto &blocks = fn.getBasicBlockList();
     if (!blocks.empty()) {
       for (auto &block : blocks) {
@@ -599,9 +645,8 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
           if (auto *DbgValue =
                   llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
             llvm::Value *V = DbgValue->getValue();
-            if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
+            if (RayQueryHandles.count(V) != 0)
               continue;
-            }
             Changed = true;
             handleDbgValue(M, DbgValue);
             DbgValue->eraseFromParent();
@@ -768,8 +813,8 @@ static llvm::DIType *FindStructMemberTypeAtOffset(llvm::DICompositeType *Ty,
     }
   }
 
-  // Structure resources are expected to fail this (they have no real meaning in
-  // storage)
+  // Structure resources are expected to fail this (they have no real
+  // meaning in storage)
   if (SortedMembers.size() == 1) {
     switch (SortedMembers.begin()->second->getTag()) {
     case llvm::dwarf::DW_TAG_structure_type:
@@ -866,8 +911,9 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
   }
 
   // Members' "base type" is actually the containing aggregate's type.
-  // To find the actual type of the variable, we must descend the container's
-  // type hierarchy to find the type at the expected offset/size.
+  // To find the actual type of the variable, we must descend the
+  // container's type hierarchy to find the type at the expected
+  // offset/size.
   if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
     const llvm::DITypeIdentifierMap EmptyMap;
     switch (DerivedTy->getTag()) {
@@ -920,10 +966,10 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
 
       auto *Zero = B.getInt32(0);
 
-      // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
-      // InitialOffset is the offset from DbgValue's expression (i.e., the
-      // offset from the Variable's start), and Offset is the Scalar Value's
-      // packed offset from DbgValue's value.
+      // Now traverse a list of pairs {Scalar Value, InitialOffset +
+      // Offset}. InitialOffset is the offset from DbgValue's expression
+      // (i.e., the offset from the Variable's start), and Offset is the
+      // Scalar Value's packed offset from DbgValue's value.
       for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
 
         OffsetInBits AlignedOffset;
@@ -947,15 +993,6 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
     }
   }
 }
-
-class ScopedInstruction {
-  llvm::Instruction *m_Instruction;
-
-public:
-  ScopedInstruction(llvm::Instruction *I) : m_Instruction(I) {}
-  ~ScopedInstruction() { delete m_Instruction; }
-  llvm::Instruction *Get() const { return m_Instruction; }
-};
 
 struct GlobalVariableAndStorage {
   llvm::DIGlobalVariable *DIGV;
@@ -990,11 +1027,11 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
               llvm::dyn_cast<llvm::GetElementPtrInst>(asInstr.Get())) {
         // We are only interested in the case of basic types within an array
         // because the PIX debug instrumentation operates at that level.
-        // Aggregate members will have been descended through to produce their
-        // own entries in the GlobalStorageMap.
-        // Consequently, we're only interested in the GEP's index into the
-        // array. Any deeper indexing in the GEP will be for embedded
-        // aggregates. The three operands in such a GEP mean:
+        // Aggregate members will have been descended through to produce
+        // their own entries in the GlobalStorageMap. Consequently, we're
+        // only interested in the GEP's index into the array. Any deeper
+        // indexing in the GEP will be for embedded aggregates. The three
+        // operands in such a GEP mean:
         //    0 = the pointer
         //    1 = dereference the pointer (expected to be constant int zero)
         //    2 = the index into the array
@@ -1003,7 +1040,8 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
             llvm::dyn_cast<ConstantInt>(asGEP->getOperand(1))
                     ->getLimitedValue() == 0) {
           // TODO: The case where this index is not a constant int
-          // (Needs changes to the allocas generated elsewhere in this pass.)
+          // (Needs changes to the allocas generated elsewhere in this
+          // pass.)
           if (auto *arrayIndexAsConstInt =
                   llvm::dyn_cast<ConstantInt>(asGEP->getOperand(2))) {
             int MemberIndex = arrayIndexAsConstInt->getLimitedValue();
@@ -1054,6 +1092,8 @@ SizeInBits VariableRegisters::GetVariableSizeInbits(DIVariable *Var) {
   const llvm::DITypeIdentifierMap EmptyMap;
   DIType *Ty = Var->getType().resolve(EmptyMap);
   DIDerivedType *DerivedTy = nullptr;
+  if (BaseTypeIfItIsBasicAndLarger(Ty))
+    return Ty->getSizeInBits();
   while (Ty && (Ty->getSizeInBits() == 0 &&
                 (DerivedTy = dyn_cast<DIDerivedType>(Ty)))) {
     Ty = DerivedTy->getBaseType().resolve(EmptyMap);
@@ -1076,28 +1116,6 @@ VariableRegisters::GetRegisterForAlignedOffset(OffsetInBits Offset) const {
   return it->second;
 }
 
-#ifndef NDEBUG
-// DITypePeelTypeAlias peels const, typedef, and other alias types off of Ty,
-// returning the unalised type.
-static llvm::DIType *DITypePeelTypeAlias(llvm::DIType *Ty) {
-  if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
-    const llvm::DITypeIdentifierMap EmptyMap;
-    switch (DerivedTy->getTag()) {
-    case llvm::dwarf::DW_TAG_restrict_type:
-    case llvm::dwarf::DW_TAG_reference_type:
-    case llvm::dwarf::DW_TAG_const_type:
-    case llvm::dwarf::DW_TAG_typedef:
-    case llvm::dwarf::DW_TAG_pointer_type:
-      return DITypePeelTypeAlias(DerivedTy->getBaseType().resolve(EmptyMap));
-    case llvm::dwarf::DW_TAG_member:
-      return DITypePeelTypeAlias(DerivedTy->getBaseType().resolve(EmptyMap));
-    }
-  }
-
-  return Ty;
-}
-#endif // NDEBUG
-
 VariableRegisters::VariableRegisters(
     llvm::DebugLoc const &dbgLoc,
     llvm::BasicBlock::iterator allocaInsertionPoint, llvm::DIVariable *Variable,
@@ -1108,9 +1126,9 @@ VariableRegisters::VariableRegisters(
   PopulateAllocaMap(Ty);
   m_Offsets.AlignTo(Ty); // For padding.
 
-  // (min16* types can occupy 16 or 32 bits depending on whether or not they are
-  // natively supported. If non-native, the alignment will be 32, but the
-  // claimed size will still be 16, hence the "max" here)
+  // (min16* types can occupy 16 or 32 bits depending on whether or not they
+  // are natively supported. If non-native, the alignment will be 32, but
+  // the claimed size will still be 16, hence the "max" here)
   assert(m_Offsets.GetCurrentAlignedOffset() ==
          std::max<uint64_t>(DITypePeelTypeAlias(Ty)->getSizeInBits(),
                             DITypePeelTypeAlias(Ty)->getAlignInBits()));
@@ -1134,7 +1152,10 @@ void VariableRegisters::PopulateAllocaMap(llvm::DIType *Ty) {
       PopulateAllocaMap(DerivedTy->getBaseType().resolve(EmptyMap));
       return;
     case llvm::dwarf::DW_TAG_member:
-      PopulateAllocaMap(DerivedTy->getBaseType().resolve(EmptyMap));
+      if (auto *baseType = BaseTypeIfItIsBasicAndLarger(DerivedTy))
+        PopulateAllocaMap_BasicType(baseType, DerivedTy->getSizeInBits());
+      else
+        PopulateAllocaMap(DerivedTy->getBaseType().resolve(EmptyMap));
       return;
     case llvm::dwarf::DW_TAG_subroutine_type:
       // ignore member functions.
@@ -1164,7 +1185,7 @@ void VariableRegisters::PopulateAllocaMap(llvm::DIType *Ty) {
       return;
     }
   } else if (auto *BasicTy = llvm::dyn_cast<llvm::DIBasicType>(Ty)) {
-    PopulateAllocaMap_BasicType(BasicTy);
+    PopulateAllocaMap_BasicType(BasicTy, 0 /*no size override*/);
     return;
   }
 
@@ -1207,24 +1228,28 @@ static llvm::Type *GetLLVMTypeFromDIBasicType(llvm::IRBuilder<> &B,
   return nullptr;
 }
 
-void VariableRegisters::PopulateAllocaMap_BasicType(llvm::DIBasicType *Ty) {
+void VariableRegisters::PopulateAllocaMap_BasicType(llvm::DIBasicType *Ty,
+                                                    unsigned sizeOverride) {
   llvm::Type *AllocaElementTy = GetLLVMTypeFromDIBasicType(m_B, Ty);
   assert(AllocaElementTy != nullptr);
   if (AllocaElementTy == nullptr) {
     return;
   }
 
-  const OffsetInBits AlignedOffset = m_Offsets.Add(Ty);
+  const auto offsets = m_Offsets.Add(Ty, sizeOverride);
 
   llvm::Type *AllocaTy = llvm::ArrayType::get(AllocaElementTy, 1);
-  llvm::AllocaInst *&Alloca = m_AlignedOffsetToAlloca[AlignedOffset];
-  Alloca = m_B.CreateAlloca(AllocaTy, m_B.getInt32(0));
-  Alloca->setDebugLoc(llvm::DebugLoc());
+  llvm::AllocaInst *&Alloca = m_AlignedOffsetToAlloca[offsets.Aligned];
+  if (Alloca == nullptr) {
+    Alloca = m_B.CreateAlloca(AllocaTy, m_B.getInt32(0));
+    Alloca->setDebugLoc(llvm::DebugLoc());
+  }
 
   auto *Storage = GetMetadataAsValue(llvm::ValueAsMetadata::get(Alloca));
   auto *Variable = GetMetadataAsValue(m_Variable);
   auto *Expression = GetMetadataAsValue(
-      GetDIExpression(Ty, AlignedOffset, GetVariableSizeInbits(m_Variable)));
+      GetDIExpression(Ty, sizeOverride == 0 ? offsets.Aligned : offsets.Packed,
+                      GetVariableSizeInbits(m_Variable), sizeOverride));
   auto *DbgDeclare =
       m_B.CreateCall(m_DbgDeclareFn, {Storage, Variable, Expression});
   DbgDeclare->setDebugLoc(m_dbgLoc);
@@ -1299,14 +1324,22 @@ void VariableRegisters::PopulateAllocaMap_StructType(
     // should always result in the current aligned offset being the
     // same as the member's offset.
     m_Offsets.AlignTo(OffsetAndMember.second);
-    assert(m_Offsets.GetCurrentAlignedOffset() ==
-               StructStart + OffsetAndMember.first &&
-           "Offset mismatch in DIStructType");
-    if (IsResourceObject(OffsetAndMember.second)) {
-      m_Offsets.AddResourceType(OffsetAndMember.second);
+    if (BaseTypeIfItIsBasicAndLarger(OffsetAndMember.second)) {
+      // This is the bitfields case (i.e. a field that is smaller
+      // than the type in which it resides). If we were to take
+      // the base type, then the information about the member's
+      // size would be lost
+      PopulateAllocaMap(OffsetAndMember.second);
     } else {
-      PopulateAllocaMap(
-          OffsetAndMember.second->getBaseType().resolve(EmptyMap));
+      assert(m_Offsets.GetCurrentAlignedOffset() ==
+                 StructStart + OffsetAndMember.first &&
+             "Offset mismatch in DIStructType");
+      if (IsResourceObject(OffsetAndMember.second)) {
+        m_Offsets.AddResourceType(OffsetAndMember.second);
+      } else {
+        PopulateAllocaMap(
+            OffsetAndMember.second->getBaseType().resolve(EmptyMap));
+      }
     }
   }
 }
@@ -1330,12 +1363,14 @@ llvm::Value *VariableRegisters::GetMetadataAsValue(llvm::Metadata *M) const {
 
 llvm::DIExpression *
 VariableRegisters::GetDIExpression(llvm::DIType *Ty, OffsetInBits Offset,
-                                   SizeInBits ParentSize) const {
+                                   SizeInBits ParentSize,
+                                   unsigned sizeOverride) const {
   llvm::SmallVector<uint64_t, 3> ExpElements;
   if (Offset != 0 || Ty->getSizeInBits() != ParentSize) {
     ExpElements.emplace_back(llvm::dwarf::DW_OP_bit_piece);
     ExpElements.emplace_back(Offset);
-    ExpElements.emplace_back(Ty->getSizeInBits());
+    ExpElements.emplace_back(sizeOverride != 0 ? sizeOverride
+                                               : Ty->getSizeInBits());
   }
   return llvm::DIExpression::get(m_B.getContext(), ExpElements);
 }

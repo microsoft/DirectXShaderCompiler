@@ -37,14 +37,33 @@ using namespace llvm;
 using namespace hlsl;
 
 namespace PIXPassHelpers {
-bool IsAllocateRayQueryInstruction(llvm::Value *Val) {
-  if (Val != nullptr) {
-    if (llvm::Instruction *Inst = llvm::dyn_cast<llvm::Instruction>(Val)) {
-      return hlsl::OP::IsDxilOpFuncCallInst(Inst,
-                                            hlsl::OP::OpCode::AllocateRayQuery);
+static void FindRayQueryHandlesFromUse(Value *U,
+                                       SmallPtrSetImpl<Value *> &Handles) {
+  if (Handles.insert(U).second) {
+    auto RayQueryHandleUses = U->uses();
+    for (Use &Use : RayQueryHandleUses) {
+      iterator_range<Value::user_iterator> Users = Use->users();
+      for (User *User : Users) {
+        if (isa<PHINode>(User) || isa<SelectInst>(User))
+          FindRayQueryHandlesFromUse(User, Handles);
+      }
     }
   }
-  return false;
+}
+
+void FindRayQueryHandlesForFunction(llvm::Function *F,
+                                    SmallPtrSetImpl<Value *> &RayQueryHandles) {
+  auto &blocks = F->getBasicBlockList();
+  if (!blocks.empty()) {
+    for (auto &block : blocks) {
+      for (auto &instruction : block) {
+        if (hlsl::OP::IsDxilOpFuncCallInst(
+                &instruction, hlsl::OP::OpCode::AllocateRayQuery)) {
+          FindRayQueryHandlesFromUse(&instruction, RayQueryHandles);
+        }
+      }
+    }
+  }
 }
 
 static unsigned int

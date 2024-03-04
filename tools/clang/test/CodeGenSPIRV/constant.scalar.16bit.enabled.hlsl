@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -enable-16bit-types -fcgl  %s -spirv | FileCheck %s
 
 // Handling of 16-bit integers and 16-bit floats.
 // Note that this test runs utilizes "-enable-16bit-types" option above.

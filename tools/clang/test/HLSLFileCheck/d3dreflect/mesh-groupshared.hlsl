@@ -13,10 +13,10 @@
 // CHECK:      ShaderKind: Mesh
 // CHECK:      PayloadSizeInBytes: 0
 // CHECK:      AttributeSizeInBytes: 0
-// CHECK:      FeatureInfo1: 65536
-// CHECK:      FeatureInfo2: 0
-// CHECK:      ShaderStageFlag: 8192
-// CHECK:      MinShaderTarget: 852069
+// CHECK:      FeatureInfo1: (ViewID)
+// CHECK:      FeatureInfo2: (Opt_RequiresGroup)
+// CHECK:      ShaderStageFlag: (Mesh)
+// CHECK:      MinShaderTarget: 0xd0065
 // CHECK:      MinimumExpectedWaveLaneCount: 0
 // CHECK:      MaximumExpectedWaveLaneCount: 0
 // CHECK:      ShaderFlags: (OutputPositionPresent | UsesViewID)

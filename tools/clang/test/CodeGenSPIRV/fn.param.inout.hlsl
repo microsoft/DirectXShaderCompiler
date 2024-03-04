@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct Pixel {
   float4 color;
@@ -18,10 +18,10 @@ float main(float val: A) : B {
 // CHECK-NEXT: %param_var_b = OpVariable %_ptr_Function_float Function
 
 // CHECK-NEXT:                OpStore %param_var_a %float_5
-// CHECK-NEXT: [[val:%\d+]] = OpLoad %float %val
+// CHECK-NEXT: [[val:%[0-9]+]] = OpLoad %float %val
 // CHECK-NEXT:                OpStore %param_var_b [[val]]
 
-// CHECK-NEXT: [[ret:%\d+]] = OpFunctionCall %float %fnInOut %param_var_a %param_var_b %m %n %p
+// CHECK-NEXT: [[ret:%[0-9]+]] = OpFunctionCall %float %fnInOut %param_var_a %param_var_b %m %n %p
 
 // CHECK-NEXT:                OpReturnValue [[ret]]
     return fnInOut(5., val, m, n, p);

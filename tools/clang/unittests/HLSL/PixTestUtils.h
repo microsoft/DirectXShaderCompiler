@@ -12,8 +12,9 @@
 #pragma once
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/dxcapi.h"
+#include "dxc/dxcpix.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -57,4 +58,19 @@ struct PassOutput {
 
 PassOutput RunAnnotationPasses(dxc::DxcDllSupport &dllSupport, IDxcBlob *dxil,
                                int startingLineNumber = 0);
+
+struct DebuggerInterfaces {
+  CComPtr<IDxcPixDxilDebugInfo> debugInfo;
+  CComPtr<IDxcPixCompilationInfo> compilationInfo;
+};
+
+class InstructionOffsetSeeker {
+public:
+  virtual ~InstructionOffsetSeeker() {}
+  virtual DWORD FindInstructionOffsetForLabel(const wchar_t *label) = 0;
+};
+
+std::unique_ptr<pix_test::InstructionOffsetSeeker>
+GatherDebugLocLabelsFromDxcUtils(DebuggerInterfaces &debuggerInterfaces);
+
 } // namespace pix_test
