@@ -464,7 +464,7 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
       unsigned int Index = static_cast<unsigned int>(InputElements.size());
 
       unsigned int StartRow = Index;
-      unsigned int StartColumn;
+      unsigned int StartColumn = 0;
       unsigned int RowCount = 1;
       unsigned int ColumnCount = 4;
       if (!m_upstreamSVPositionIndices.empty()) {
