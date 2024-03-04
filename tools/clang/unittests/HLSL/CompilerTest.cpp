@@ -189,6 +189,7 @@ public:
   TEST_METHOD(CompileWhenIncludeSystemThenLoadNotRelative)
   TEST_METHOD(CompileWhenAllIncludeCombinations)
   TEST_METHOD(TestPdbUtilsPathNormalizations)
+  TEST_METHOD(CompileWithIncludeThenTestNoLexicalBlockFile)
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
@@ -2925,6 +2926,57 @@ public:
   }
 };
 
+TEST_F(CompilerTest, CompileWithIncludeThenTestNoLexicalBlockFile) {
+  std::string includeFile = R"x(
+    [RootSignature("")]
+    float main(uint x : X) : SV_Target {
+      float ret = 0;
+      if (x) {
+        float other_ret = 1;
+        ret = other_ret;
+      }
+      return ret;
+    }
+    )x";
+  std::string mainFile = R"(
+    #include "include.h"
+  )";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<SimpleIncludeHanlder> pInclude;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(mainFile.c_str(), &pSource);
+
+  pInclude = new SimpleIncludeHanlder(m_dllSupport);
+  pInclude->Content = includeFile;
+  pInclude->Path = L"." SLASH_W "include.h";
+
+  std::vector<const WCHAR *> args = {L"/Zi", L"/Od"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"MyShader.hlsl", L"main",
+                                      L"ps_6_0", args.data(), args.size(),
+                                      nullptr, 0, pInclude, &pResult));
+
+  CComPtr<IDxcResult> pRealResult;
+  VERIFY_SUCCEEDED(pResult.QueryInterface(&pRealResult));
+
+  CComPtr<IDxcBlob> pDxil;
+  VERIFY_SUCCEEDED(
+      pRealResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxil), nullptr));
+
+  CComPtr<IDxcBlobEncoding> pDisasm;
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pDxil, &pDisasm));
+  CComPtr<IDxcBlobUtf8> pDisasmUtf8;
+  VERIFY_SUCCEEDED(pDisasm.QueryInterface(&pDisasmUtf8));
+
+  std::string disasm(pDisasmUtf8->GetStringPointer(),
+                     pDisasmUtf8->GetStringLength());
+  VERIFY_IS_TRUE(disasm.find("!DILexicalBlock") != std::string::npos);
+  VERIFY_IS_TRUE(disasm.find("!DILexicalBlockFile") == std::string::npos);
+}
+
 TEST_F(CompilerTest, TestPdbUtilsPathNormalizations) {
 #include "TestHeaders/TestPdbUtilsPathNormalizations.h"
   struct TestCase {
@@ -3036,6 +3088,14 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
   std::string commonIncludeFile = "float foo() { return 10; }";
 
   TestCase tests[] = {
+
+      {L"\\my_path\\main.hlsl",
+       {L"\\my_path\\main.hlsl",
+        R"(#include "\my_include_dir\\second_dir/include.h" // <-- Network path
+           float main() : SV_Target { return foo(); } )"},
+       {L"\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
+       {}},
+
       {L"main.hlsl",
        {L".\\main.hlsl",
         R"(#include "include.h"
