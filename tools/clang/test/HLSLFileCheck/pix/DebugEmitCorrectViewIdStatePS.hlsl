@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,parameter0=1,parameter1=2 -viewid-state -hlsl-dxil-emit-resources | %FileCheck %s
+// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,parameter0=1,parameter1=2 -viewid-state -dxil-emit-metadata | %FileCheck %s
 
 // CHECK: !dx.viewIdState = !{![[VIEWIDDATA:[0-9]*]]}
 
