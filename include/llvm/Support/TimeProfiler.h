@@ -52,13 +52,6 @@ void timeTraceProfilerEnd();
 /// the section; and when it is destroyed, it stops it. If the time profiler
 /// is not initialized, the overhead is a single branch.
 struct TimeTraceScope {
-
-  TimeTraceScope() = delete;
-  TimeTraceScope(const TimeTraceScope &) = delete;
-  TimeTraceScope &operator=(const TimeTraceScope &) = delete;
-  TimeTraceScope(TimeTraceScope &&) = delete;
-  TimeTraceScope &operator=(TimeTraceScope &&) = delete;
-
   TimeTraceScope(StringRef Name, StringRef Detail) {
     if (TimeTraceProfilerInstance != nullptr)
       timeTraceProfilerBegin(Name, Detail);
