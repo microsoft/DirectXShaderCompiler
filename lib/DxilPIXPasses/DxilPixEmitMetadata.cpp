@@ -22,10 +22,11 @@
 using namespace llvm;
 using namespace hlsl;
 
-class EmitDxilResourceToMeta : public ModulePass {
+
+class DxilPixEmitMetadata : public ModulePass {
 public:
   static char ID;
-  explicit EmitDxilResourceToMeta() : ModulePass(ID) {}
+  explicit DxilPixEmitMetadata() : ModulePass(ID) {}
   bool runOnModule(Module &M) override {
     DxilModule &DM = M.GetOrCreateDxilModule();
     DM.ReEmitDxilResources();
@@ -33,11 +34,11 @@ public:
   }
 };
 
-char EmitDxilResourceToMeta::ID = 0;
+char DxilPixEmitMetadata::ID = 0;
 
-ModulePass *createEmitDxilResourceToMeta() {
-  return new EmitDxilResourceToMeta();
+ModulePass *createDxilPixEmitMetadataPass() {
+  return new DxilPixEmitMetadata();
 }
 
-INITIALIZE_PASS(EmitDxilResourceToMeta, "hlsl-dxil-emit-resources",
+INITIALIZE_PASS(DxilPixEmitMetadata, "dxil-emit-metadata",
                 "Emit Dxil resources to metadata", false, false)

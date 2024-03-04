@@ -282,6 +282,8 @@ private:
   unsigned m_LastInstruction = static_cast<unsigned>(-1);
 
   uint64_t m_UAVSize = 1024 * 1024;
+  std::string m_upstreamSVPositionIndices;
+
   struct PerFunctionValues {
     CallInst *UAVHandle = nullptr;
     Instruction *CounterOffset = nullptr;
@@ -376,6 +378,9 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
   GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
+  StringRef UpstreamVS;
+  GetPassOption(O, "upstreamSVPositionIndices", &UpstreamVS);
+  m_upstreamSVPositionIndices = UpstreamVS;
 }
 
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
@@ -458,12 +463,31 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     // about the shader having selected components that don't include x or y.
     // If not present, we add it.
     if (Existing_SV_Position == InputElements.end()) {
+
       unsigned int Index = static_cast<unsigned int>(InputElements.size());
+
+      unsigned int StartRow = Index;
+      unsigned int StartColumn;
+      unsigned int RowCount = 1;
+      unsigned int ColumnCount = 4;
+      if (!m_upstreamSVPositionIndices.empty()) {
+        SmallVector<StringRef, 4> indices;
+        StringRef UpStream = m_upstreamSVPositionIndices;
+        UpStream.split(indices, "-");
+        if (indices.size() == 4) {
+          // These are encoded in ./DxilPixReadOutputSig.cpp
+          StartRow = atoi(indices[0].str().c_str());
+          StartColumn = atoi(indices[1].str().c_str());
+          RowCount = atoi(indices[2].str().c_str());
+          ColumnCount = atoi(indices[3].str().c_str());
+        }
+      }
+
       auto Added_SV_Position =
           llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
       Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
-                                    hlsl::DXIL::InterpolationMode::Linear, 1, 4,
-                                    Index, 0);
+                                    hlsl::DXIL::InterpolationMode::Linear, RowCount, ColumnCount,
+                                    StartRow, StartColumn);
       Added_SV_Position->AppendSemanticIndex(0);
       Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
 

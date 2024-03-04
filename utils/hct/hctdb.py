@@ -6138,6 +6138,7 @@ class db_dxil(object):
                 {"n": "parameter0", "t": "int", "c": 1},
                 {"n": "parameter1", "t": "int", "c": 1},
                 {"n": "parameter2", "t": "int", "c": 1},
+                {"n": "upstreamSVPositionIndices", "t": "string", "d": ""},
             ],
         )
         add_pass(
@@ -6147,9 +6148,15 @@ class db_dxil(object):
             [{"n": "startInstruction", "t": "int", "c": 1}],
         )
         add_pass(
-            "hlsl-dxil-emit-resources",
-            "EmitDxilResourceToMeta",
-            "Emit Dxil resource meta data",
+            "dxil-emit-metadata",
+            "DxilPixEmitMetadata",
+            "Emit all Dxil meta data",
+            [],
+        )
+        add_pass(
+            "dxil-read-output-sig",
+            "DxilPixReadOutputSig",
+            "Output a text summary of the module's output signature",
             [],
         )
         add_pass(
