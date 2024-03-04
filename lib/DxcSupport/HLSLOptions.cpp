@@ -825,11 +825,12 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
   if (Arg *A = Args.getLastArg(OPT_ftime_trace_granularity_EQ)) {
-    if (llvm::StringRef(A->getValue()).getAsInteger(10, opts.TimeTraceGranularity)) {
+    if (llvm::StringRef(A->getValue())
+            .getAsInteger(10, opts.TimeTraceGranularity)) {
       opts.TimeTraceGranularity = 500;
       errors << "Warning: Invalid value for -ftime-trace-granularity option "
-                "specified, defaulting to " << opts.TimeTraceGranularity
-              << " microseconds.";
+                "specified, defaulting to "
+             << opts.TimeTraceGranularity << " microseconds.";
     }
   }
 
