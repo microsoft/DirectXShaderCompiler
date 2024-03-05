@@ -762,9 +762,9 @@ VS_OUTPUT_GEO main( VS_INPUT_GEO input)
 )";
 
   RunOutputSigTest(hlsl, L"vs_6_6",
-                   {{"OutputSigElement:SV_Position:0:Position=0-0-1-4"},
-                    {"OutputSigElement:TEXCOORD:0:Arbitrary=1-0-1-2"},
-                    {"OutputSigElement:TEXCOORD:1:Arbitrary=1-2-1-2"}});
+                   {"OutputSigElement:SV_Position:0:Position=0-0-1-4",
+                    "OutputSigElement:TEXCOORD:0:Arbitrary=1-0-1-2",
+                    "OutputSigElement:TEXCOORD:1:Arbitrary=1-2-1-2"});
 }
 
 TEST_F(PixTest, OutputSigReflection_GS) {
@@ -807,9 +807,9 @@ void main(triangle VS2GS input[3], inout TriangleStream<GSToPSLinkage> OutputStr
 )";
 
   RunOutputSigTest(hlsl, L"gs_6_0",
-                   {{"OutputSigElement:TEXCOORD:0:Arbitrary=0-0-1-2"},
-                    {"OutputSigElement:TEXCOORD:1:Arbitrary=0-2-1-2"},
-                    {"OutputSigElement:SV_Position:0:Position=1-0-1-4"}});
+                   {"OutputSigElement:TEXCOORD:0:Arbitrary=0-0-1-2",
+                    "OutputSigElement:TEXCOORD:1:Arbitrary=0-2-1-2",
+                    "OutputSigElement:SV_Position:0:Position=1-0-1-4"});
 }
 
 TEST_F(PixTest, OutputSigReflection_HS) {
@@ -858,9 +858,9 @@ VSOut main( const uint id : SV_OutputControlPointID,
 )";
 
   RunOutputSigTest(hlsl, L"hs_6_0",
-                   {{"OutputSigElement:COLOR0_center:0:Arbitrary=0-0-1-2"},
-                    {"OutputSigElement:SV_Position:0:Position=1-0-1-4"},
-                    {"OutputSigElement:TEXCOORD:1:Arbitrary=2-0-1-3"}});
+                   {"OutputSigElement:COLOR0_center:0:Arbitrary=0-0-1-2",
+                    "OutputSigElement:SV_Position:0:Position=1-0-1-4",
+                    "OutputSigElement:TEXCOORD:1:Arbitrary=2-0-1-3"});
 }
 
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
