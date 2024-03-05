@@ -22,7 +22,6 @@
 using namespace llvm;
 using namespace hlsl;
 
-
 class DxilPixEmitMetadata : public ModulePass {
 public:
   static char ID;

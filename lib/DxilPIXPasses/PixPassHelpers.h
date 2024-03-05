@@ -74,5 +74,6 @@ ExpandedStruct ExpandStructType(llvm::LLVMContext &Ctx,
                                 llvm::Type *OriginalPayloadStructType);
 void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
     llvm::Instruction *Instr, llvm::Value *newValue, llvm::Type *newType);
-unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM, llvm::StringRef UpStream);
+unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
+                                  llvm::StringRef UpStream);
 } // namespace PIXPassHelpers

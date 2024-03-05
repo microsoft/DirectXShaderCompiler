@@ -36,7 +36,9 @@ class DxilAddPixelHitInstrumentation : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilAddPixelHitInstrumentation() : ModulePass(ID) {}
-  StringRef getPassName() const override { return "DXIL Add Pixel Hit Instrumentation"; }
+  StringRef getPassName() const override {
+    return "DXIL Add Pixel Hit Instrumentation";
+  }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
   std::string m_upstreamSVPositionIndices;
@@ -65,7 +67,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
     DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
   }
 
-  auto SV_Position_ID = PIXPassHelpers::FindOrAddSV_Position(DM, m_upstreamSVPositionIndices);
+  auto SV_Position_ID =
+      PIXPassHelpers::FindOrAddSV_Position(DM, m_upstreamSVPositionIndices);
 
   auto EntryPointFunction = PIXPassHelpers::GetEntryFunction(DM);
 

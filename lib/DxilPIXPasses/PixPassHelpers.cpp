@@ -450,7 +450,8 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
   delete Instr;
 }
 
-unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM, llvm::StringRef UpStream) {
+unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
+                                  llvm::StringRef UpStream) {
   hlsl::DxilSignature &InputSignature = DM.GetInputSignature();
   auto &InputElements = InputSignature.GetElements();
 
