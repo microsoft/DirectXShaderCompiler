@@ -102,6 +102,10 @@ public:
 
   TEST_METHOD(AddToASPayload)
 
+  TEST_METHOD(OutputSigReflection_MS)
+  TEST_METHOD(OutputSigReflection_MSNotFirst)
+  TEST_METHOD(OutputSigReflection_VS)
+
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
   TEST_METHOD(PixStructAnnotation_Lib_RaygenAllocaStructAlignment)
 
@@ -413,7 +417,10 @@ public:
   CComPtr<IDxcBlob> RunShaderAccessTrackingPass(IDxcBlob *blob);
   std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob);
+  std::string RunOutputSigReflectionPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob *blob);
+  void RunOutputSigTest(const char *hlsl, const wchar_t *profile,
+                        std::vector<const char *> const &expected);
 };
 
 bool PixTest::InitSupport() {
@@ -514,6 +521,27 @@ CComPtr<IDxcBlob> PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob) {
   return pOptimizedModule;
 }
 
+std::string PixTest::RunOutputSigReflectionPass(IDxcBlob *blob) {
+  CComPtr<IDxcBlob> dxil = FindModule(DFCC_DXIL, blob);
+  CComPtr<IDxcOptimizer> pOptimizer;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
+  std::vector<LPCWSTR> Options;
+  Options.push_back(L"-opt-mod-passes");
+  Options.push_back(L"-dxil-read-output-sig");
+
+  CComPtr<IDxcBlob> pOptimizedModule;
+  CComPtr<IDxcBlobEncoding> pText;
+  VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
+      dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
+
+  std::string outputText;
+  if (pText->GetBufferSize() != 0) {
+    outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
+  }
+  return outputText;
+}
+
 CComPtr<IDxcBlob> PixTest::RunDxilPIXDXRInvocationsLog(IDxcBlob *blob) {
 
   CComPtr<IDxcBlob> dxil = FindModule(DFCC_ShaderDebugInfoDXIL, blob);
@@ -608,6 +636,133 @@ void MSMain(
   auto ms = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"ms_6_6",
                     {}, L"MSMain");
   RunDxilPIXMeshShaderOutputPass(ms);
+}
+
+void PixTest::RunOutputSigTest(const char *hlsl, const wchar_t *profile,
+                               std::vector<const char *> const &expected) {
+
+  auto ms = Compile(m_dllSupport, hlsl, profile, {}, L"main");
+  VERIFY_ARE_NOT_EQUAL(ms, nullptr);
+  std::string outputSig = RunOutputSigReflectionPass(ms);
+  llvm::SmallVector<llvm::StringRef, 4> sigElements;
+  llvm::StringRef OSRef(outputSig);
+  OSRef.split(sigElements, "\n");
+  for (size_t i = 0; i < expected.size(); ++i) {
+    VERIFY_IS_TRUE(i < sigElements.size());
+    if (expected[i] != nullptr) {
+      std::string found = sigElements[i].str().c_str();
+      VERIFY_ARE_EQUAL_STR(found.data(), expected[i]);
+    }
+  }
+}
+
+TEST_F(PixTest, OutputSigReflection_MS) {
+
+  const char *hlsl = R"(
+struct MyPayload
+{
+    float f1;
+    float f2;
+};
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+};
+
+[outputtopology("triangle")]
+[numthreads(3,1,1)]
+void main(
+    in payload MyPayload small,
+    in uint tid : SV_GroupThreadID,
+    in uint3 dtid : SV_DispatchThreadID,
+    out vertices PSInput verts[3],
+    out indices uint3 triangles[1])
+{
+    SetMeshOutputCounts(3, 1);
+    verts[tid].position = float4(small.f1, small.f2, 0, 0);
+    triangles[0] = uint3(0, 1, 2);
+}
+
+  )";
+
+  RunOutputSigTest(hlsl, L"ms_6_6",
+                   {"OutputSigElement:SV_Position:Position=0-0-1-4"});
+}
+
+TEST_F(PixTest, OutputSigReflection_MSNotFirst) {
+
+  const char *hlsl = R"(
+struct MyPayload
+{
+    float f1;
+    float f2;
+};
+
+struct PSInput
+{
+    float f : f;
+    float4 position : SV_POSITION;
+};
+
+[outputtopology("triangle")]
+[numthreads(3,1,1)]
+void main(
+    in payload MyPayload small,
+    in uint tid : SV_GroupThreadID,
+    in uint3 dtid : SV_DispatchThreadID,
+    out vertices PSInput verts[3],
+    out indices uint3 triangles[1])
+{
+    SetMeshOutputCounts(3, 1);
+    verts[tid].f = small.f1 + small.f2;
+    verts[tid].position = float4(small.f1, small.f2, 0, 0);
+    triangles[0] = uint3(0, 1, 2);
+}
+
+  )";
+
+  RunOutputSigTest(hlsl, L"ms_6_6",
+                   {"OutputSigElement:f:Arbitrary=0-0-1-1",
+                    "OutputSigElement:SV_Position:Position=1-0-1-4"});
+}
+
+TEST_F(PixTest, OutputSigReflection_VS) {
+
+  const char *hlsl = R"(
+
+cbuffer cbEveryFrame : register(b0)
+{
+    float4x4 g_mWorldViewProjection;
+};
+
+struct VS_INPUT_GEO
+{
+    float3 Pos           : POSITION;
+    float2 Tex1          : TEXCOORD1;
+};
+
+struct VS_OUTPUT_GEO
+{
+    float4 Pos        : SV_Position;
+    float2 Tex0        : TEXCOORD0;
+    float2 Tex1        : TEXCOORD1;
+};
+
+VS_OUTPUT_GEO main( VS_INPUT_GEO input)
+{
+    VS_OUTPUT_GEO output;
+    output.Pos = mul( float4(input.Pos,1), g_mWorldViewProjection );
+    output.Tex1 = input.Tex1;
+    return output;
+}
+
+)";
+
+  RunOutputSigTest(hlsl, L"vs_6_6",
+                   {{"OutputSigElement:SV_Position:Position=0-0-1-4"},
+                    {"OutputSigElement:TEXCOORD:Arbitrary=1-0-1-2"},
+                    {"OutputSigElement:TEXCOORD:Arbitrary=1-2-1-2"}});
 }
 
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
@@ -820,8 +975,9 @@ static bool FindStructMemberFromStore(llvm::StoreInst *S,
   return false;
 }
 
-// This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp
-// Declared here so we can test it.
+// This function lives in
+// lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp Declared here so we
+// can test it.
 uint32_t CountStructMembers(llvm::Type const *pType);
 
 PixTest::TestableResults PixTest::TestStructAnnotationCase(
@@ -2333,8 +2489,8 @@ float4 main(VS_OUTPUT_ENV input) : SV_Target
 }
 )";
 
-    // This is little more than a crash test, designed to exercise a previously
-    // over-active assert..
+    // This is little more than a crash test, designed to exercise a
+    // previously over-active assert..
     std::vector<std::pair<const wchar_t *, std::vector<const wchar_t *>>>
         argSets = {
             {L"ps_6_0", {L"-Od"}},
