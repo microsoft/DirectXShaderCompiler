@@ -6081,8 +6081,8 @@ class db_dxil(object):
                 {"n": "force-early-z", "t": "int", "c": 1},
                 {"n": "add-pixel-cost", "t": "int", "c": 1},
                 {"n": "rt-width", "t": "int", "c": 1},
-                {"n": "sv-position-index", "t": "int", "c": 1},
                 {"n": "num-pixels", "t": "int", "c": 1},
+                {"n": "upstream-sv-position-indices", "t": "string", "d": ""},
             ],
         )
         add_pass(

@@ -446,54 +446,8 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     // in the input signature
     break;
   case DXIL::ShaderKind::Pixel: {
-    hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    auto &InputElements = InputSignature.GetElements();
-
-    auto Existing_SV_Position =
-        std::find_if(InputElements.begin(), InputElements.end(),
-                     [](const std::unique_ptr<DxilSignatureElement> &Element) {
-                       return Element->GetSemantic()->GetKind() ==
-                              hlsl::DXIL::SemanticKind::Position;
-                     });
-
-    // SV_Position, if present, has to have full mask, so we needn't worry
-    // about the shader having selected components that don't include x or y.
-    // If not present, we add it.
-    if (Existing_SV_Position == InputElements.end()) {
-
-      unsigned int Index = static_cast<unsigned int>(InputElements.size());
-
-      unsigned int StartRow = Index;
-      unsigned int StartColumn = 0;
-      unsigned int RowCount = 1;
-      unsigned int ColumnCount = 4;
-      if (!m_upstreamSVPositionIndices.empty()) {
-        SmallVector<StringRef, 4> indices;
-        StringRef UpStream = m_upstreamSVPositionIndices;
-        UpStream.split(indices, "-");
-        if (indices.size() == 4) {
-          // These are encoded in ./DxilPixReadOutputSig.cpp
-          StartRow = atoi(indices[0].str().c_str());
-          StartColumn = atoi(indices[1].str().c_str());
-          RowCount = atoi(indices[2].str().c_str());
-          ColumnCount = atoi(indices[3].str().c_str());
-        }
-      }
-
-      auto Added_SV_Position =
-          llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-      Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
-                                    hlsl::DXIL::InterpolationMode::Linear,
-                                    RowCount, ColumnCount, StartRow,
-                                    StartColumn);
-      Added_SV_Position->AppendSemanticIndex(0);
-      Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
-
-      auto index = InputSignature.AppendElement(std::move(Added_SV_Position));
-      SVIndices.PixelShader.Position = InputElements[index]->GetID();
-    } else {
-      SVIndices.PixelShader.Position = Existing_SV_Position->get()->GetID();
-    }
+    SVIndices.PixelShader.Position = PIXPassHelpers::FindOrAddSV_Position(
+        BC.DM, m_upstreamSVPositionIndices);
   } break;
   default:
     assert(false); // guaranteed by runOnModule
