@@ -538,6 +538,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.OutputReflectionFile = Args.getLastArgValue(OPT_Fre);
   opts.OutputRootSigFile = Args.getLastArgValue(OPT_Frs);
   opts.OutputShaderHashFile = Args.getLastArgValue(OPT_Fsh);
+  opts.DiagnosticsFormat =
+      Args.getLastArgValue(OPT_fdiagnostics_format_EQ, "clang");
   opts.ShowOptionNames = Args.hasFlag(OPT_fdiagnostics_show_option,
                                       OPT_fno_diagnostics_show_option, true);
   opts.UseColor = Args.hasFlag(OPT_Cc, OPT_INVALID, false);
@@ -822,6 +824,16 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
+  if (Arg *A = Args.getLastArg(OPT_ftime_trace_granularity_EQ)) {
+    if (llvm::StringRef(A->getValue())
+            .getAsInteger(10, opts.TimeTraceGranularity)) {
+      opts.TimeTraceGranularity = 500;
+      errors << "Warning: Invalid value for -ftime-trace-granularity option "
+                "specified, defaulting to "
+             << opts.TimeTraceGranularity << " microseconds.";
+    }
+  }
+
   opts.EnablePayloadQualifiers =
       Args.hasFlag(OPT_enable_payload_qualifiers, OPT_INVALID,
                    DXIL::CompareVersions(Major, Minor, 6, 7) >= 0);

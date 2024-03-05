@@ -91,7 +91,7 @@
   <ShaderOp Name="Derivatives" PS="PS" VS="VS" CS="CS" AS="AS" MS="MS" TopologyType="TRIANGLE">
     <RootSignature>
       RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT),
-      DescriptorTable(SRV(t0,numDescriptors=1), UAV(u0), UAV(u1), UAV(u2)),
+      DescriptorTable(SRV(t0,numDescriptors=1), UAV(u0), UAV(u1), UAV(u2), UAV(u3)),
       StaticSampler(s0, addressU = TEXTURE_ADDRESS_WRAP, addressV = TEXTURE_ADDRESS_WRAP, filter = FILTER_MIN_MAG_LINEAR_MIP_POINT)
     </RootSignature>
     <Resource Name="VBuffer" Dimension="BUFFER" InitialResourceState="COPY_DEST" Init="FromBytes" Topology="TRIANGLELIST">
@@ -119,6 +119,9 @@
     <Resource Name="U2" Dimension="BUFFER" Width="16384"
               Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
               Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
+    <Resource Name="U3" Dimension="BUFFER" Width="16384"
+              Flags="ALLOW_UNORDERED_ACCESS" InitialResourceState="COPY_DEST"
+              Init="Zero" ReadBack="true" TransitionTo="UNORDERED_ACCESS" />
 
     <RootValues>
       <RootValue HeapName="ResHeap" />
@@ -130,6 +133,8 @@
       <Descriptor Name='U1' Kind='UAV' ResName='U1'
                   NumElements="1024" StructureByteStride="16" />
       <Descriptor Name='U2' Kind='UAV' ResName='U2'
+                  NumElements="1024" StructureByteStride="16" />
+      <Descriptor Name='U3' Kind='UAV' ResName='U3'
                   NumElements="1024" StructureByteStride="16" />
     </DescriptorHeap>
     <DescriptorHeap Name="RtvHeap" NumDescriptors="1" Type="RTV">
@@ -157,6 +162,7 @@
         RWStructuredBuffer<float4> g_bufMain : register(u0);
         RWStructuredBuffer<float4> g_bufMesh : register(u1);
         RWStructuredBuffer<float4> g_bufAmp : register(u2);
+        RWStructuredBuffer<uint4> g_bufDbg : register(u3);
 
         float4 DerivTest(int2 uv) {
           int3 offset = int3(uv%4, 0);
@@ -204,14 +210,7 @@
           { 1.0f, 1.0f }};
 
         uint convert2Dto1D(uint x, uint y, uint width) {
-          // Convert 2D coords to 1D for testing
-          // All completed rows of quads
-          uint prevRows = (y/2)*2*width;
-          // All previous full quads on this quad row
-          uint prevQuads = (x/2)*4;
-          // index into current quad
-          uint quadIx = (y&1)*2 + (x&1);
-          return prevRows + prevQuads + quadIx;
+          return (y * width) + x;
         }
 
         float4 PSMain(PSInput input) : SV_TARGET {
@@ -232,10 +231,14 @@
 
         [NumThreads(DISPATCHX, DISPATCHY, DISPATCHZ)]
         void CSMain(uint3 id : SV_GroupThreadID, uint ix : SV_GroupIndex) {
-          if (DISPATCHY == 1 && DISPATCHZ == 1)
+          if (DISPATCHY == 1 && DISPATCHZ == 1) {
             g_bufMain[ix] = DerivTest(ix);
-          else
+            g_bufDbg[ix] = uint4(ix, ConvertGroupIdx(id), 0);
+           }
+          else {
             g_bufMain[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
+            g_bufDbg[convert2Dto1D(id.x, id.y, DISPATCHX)] = uint4(ix, id);
+          }
         }
 
 #if DISPATCHX * DISPATCHY * DISPATCHZ > 128
@@ -273,10 +276,14 @@
             verts[ix%6].uv = g_UV[ix%6];
             tris[ix&1] = uint3((ix&1)*3, (ix&1)*3 + 1, (ix&1)*3 + 2);
             g_bufMesh[ix] = DerivTest(ix);
-            if (DISPATCHY == 1 && DISPATCHZ == 1)
+            if (DISPATCHY == 1 && DISPATCHZ == 1) {
               g_bufMesh[ix] = DerivTest(ix);
-            else
+              g_bufDbg[ix] = uint4(ix, id);
+            }
+            else {
               g_bufMesh[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
+              g_bufDbg[convert2Dto1D(id.x, id.y, DISPATCHX)] = uint4(ix, id);
+            }
         }
 
       ]]>

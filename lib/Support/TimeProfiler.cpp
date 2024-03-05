@@ -77,8 +77,8 @@ struct TimeTraceProfiler {
     auto &E = Stack.back();
     E.Duration = steady_clock::now() - E.Start;
 
-    // Only include sections longer than 500us.
-    if (duration_cast<microseconds>(E.Duration).count() > 500)
+    // Only include sections longer than TimeTraceGranularity msec.
+    if (duration_cast<microseconds>(E.Duration).count() > TimeTraceGranularity)
       Entries.emplace_back(E);
 
     // Track total time taken by each "name", but only the topmost levels of
@@ -146,12 +146,16 @@ struct TimeTraceProfiler {
   std::unordered_map<std::string, DurationType> TotalPerName;
   std::unordered_map<std::string, size_t> CountPerName;
   time_point<steady_clock> StartTime;
+
+  // Minimum time granularity (in microseconds)
+  unsigned TimeTraceGranularity;
 };
 
-void timeTraceProfilerInitialize() {
+void timeTraceProfilerInitialize(unsigned TimeTraceGranularity) {
   assert(TimeTraceProfilerInstance == nullptr &&
          "Profiler should not be initialized");
   TimeTraceProfilerInstance = new TimeTraceProfiler();
+  TimeTraceProfilerInstance->TimeTraceGranularity = TimeTraceGranularity;
 }
 
 void timeTraceProfilerCleanup() {

@@ -320,7 +320,11 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
   }
 
   if (isa<SpirvLoad>(value) && isa<SpirvVariable>(address)) {
-    if (isa<SpirvFunctionParameter>(dyn_cast<SpirvLoad>(value)->getPointer()))
+    auto paramPtr = dyn_cast<SpirvLoad>(value)->getPointer();
+    while (isa<SpirvAccessChain>(paramPtr)) {
+      paramPtr = dyn_cast<SpirvAccessChain>(paramPtr)->getBase();
+    }
+    if (isa<SpirvFunctionParameter>(paramPtr))
       function->addFuncParamVarEntry(address,
                                      dyn_cast<SpirvLoad>(value)->getPointer());
   }

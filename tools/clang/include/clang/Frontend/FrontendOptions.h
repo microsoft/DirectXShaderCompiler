@@ -254,7 +254,11 @@ public:
   /// \brief File name of the file that will provide record layouts
   /// (in the format produced by -fdump-record-layouts).
   std::string OverrideRecordLayoutsFile;
-  
+
+  /// If given, the minimum time granularity (in microseconds) traced by
+  /// time profiler is set to this value.
+  unsigned TimeTraceGranularity;
+
 public:
   FrontendOptions() :
     DisableFree(false), RelocatablePCH(false), ShowHelp(false),

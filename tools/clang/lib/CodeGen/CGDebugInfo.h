@@ -257,11 +257,10 @@ class CGDebugInfo {
 
   // HLSL Change Begins
 private:
-  bool TryCollectHLSLRecordElements(const RecordType *Ty,
-                                    llvm::DICompositeType *DITy,
-                                    SmallVectorImpl<llvm::Metadata *> &Elements);
-
-  std::string HLSLNormalizeDbgFileName(StringRef Str);
+  bool
+  TryCollectHLSLRecordElements(const RecordType *Ty,
+                               llvm::DICompositeType *DITy,
+                               SmallVectorImpl<llvm::Metadata *> &Elements);
   // HLSL Change Ends
 
 public:

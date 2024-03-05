@@ -68,13 +68,9 @@
 #ifdef _WIN32
 #define SLASH_W L"\\"
 #define SLASH "\\"
-#define PP_SLASH_W L"\\\\"
-#define PP_SLASH "\\\\"
 #else
 #define SLASH_W L"/"
 #define SLASH "/"
-#define PP_SLASH_W L"/"
-#define PP_SLASH "/"
 #endif
 
 using namespace std;
@@ -193,6 +189,7 @@ public:
   TEST_METHOD(CompileWhenIncludeSystemThenLoadNotRelative)
   TEST_METHOD(CompileWhenAllIncludeCombinations)
   TEST_METHOD(TestPdbUtilsPathNormalizations)
+  TEST_METHOD(CompileWithIncludeThenTestNoLexicalBlockFile)
   TEST_METHOD(CompileWhenIncludeSystemMissingThenLoadAttempt)
   TEST_METHOD(CompileWhenIncludeFlagsThenIncludeUsed)
   TEST_METHOD(CompileThenCheckDisplayIncludeProcess)
@@ -2929,6 +2926,57 @@ public:
   }
 };
 
+TEST_F(CompilerTest, CompileWithIncludeThenTestNoLexicalBlockFile) {
+  std::string includeFile = R"x(
+    [RootSignature("")]
+    float main(uint x : X) : SV_Target {
+      float ret = 0;
+      if (x) {
+        float other_ret = 1;
+        ret = other_ret;
+      }
+      return ret;
+    }
+    )x";
+  std::string mainFile = R"(
+    #include "include.h"
+  )";
+
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  CComPtr<SimpleIncludeHanlder> pInclude;
+
+  VERIFY_SUCCEEDED(CreateCompiler(&pCompiler));
+  CreateBlobFromText(mainFile.c_str(), &pSource);
+
+  pInclude = new SimpleIncludeHanlder(m_dllSupport);
+  pInclude->Content = includeFile;
+  pInclude->Path = L"." SLASH_W "include.h";
+
+  std::vector<const WCHAR *> args = {L"/Zi", L"/Od"};
+  VERIFY_SUCCEEDED(pCompiler->Compile(pSource, L"MyShader.hlsl", L"main",
+                                      L"ps_6_0", args.data(), args.size(),
+                                      nullptr, 0, pInclude, &pResult));
+
+  CComPtr<IDxcResult> pRealResult;
+  VERIFY_SUCCEEDED(pResult.QueryInterface(&pRealResult));
+
+  CComPtr<IDxcBlob> pDxil;
+  VERIFY_SUCCEEDED(
+      pRealResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxil), nullptr));
+
+  CComPtr<IDxcBlobEncoding> pDisasm;
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pDxil, &pDisasm));
+  CComPtr<IDxcBlobUtf8> pDisasmUtf8;
+  VERIFY_SUCCEEDED(pDisasm.QueryInterface(&pDisasmUtf8));
+
+  std::string disasm(pDisasmUtf8->GetStringPointer(),
+                     pDisasmUtf8->GetStringLength());
+  VERIFY_IS_TRUE(disasm.find("!DILexicalBlock") != std::string::npos);
+  VERIFY_IS_TRUE(disasm.find("!DILexicalBlockFile") == std::string::npos);
+}
+
 TEST_F(CompilerTest, TestPdbUtilsPathNormalizations) {
 #include "TestHeaders/TestPdbUtilsPathNormalizations.h"
   struct TestCase {
@@ -4521,7 +4569,7 @@ TEST_F(CompilerTest, PreprocessWhenValidThenOK) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
                        "\n"
                        "int g_int = 123;\n"
                        "\n"
@@ -4568,8 +4616,8 @@ TEST_F(CompilerTest, PreprocessWhenExpandTokenPastingOperandThenAccept) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
-                       "#line 12 \"." PP_SLASH "file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
+                       "#line 12 \"file.hlsl\"\n"
                        "    Texture2D<float4> resource_set_10_bind_5_tex;\n"
                        "\n"
                        "  float4 main() : SV_Target{\n"
@@ -4609,7 +4657,7 @@ TEST_F(CompilerTest, PreprocessWithDebugOptsThenOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n"
+  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n"
                        "\n"
                        "int g_int = 123;\n"
                        "\n"
@@ -4636,7 +4684,7 @@ TEST_F(CompilerTest, PreprocessCheckBuiltinIsOk) {
   CComPtr<IDxcBlob> pOutText;
   VERIFY_SUCCEEDED(pResult->GetResult(&pOutText));
   std::string text(BlobToUtf8(pOutText));
-  VERIFY_ARE_EQUAL_STR("#line 1 \"." PP_SLASH "file.hlsl\"\n\n", text.c_str());
+  VERIFY_ARE_EQUAL_STR("#line 1 \"file.hlsl\"\n\n", text.c_str());
 }
 
 TEST_F(CompilerTest, CompileOtherModesWithDebugOptsThenOk) {
