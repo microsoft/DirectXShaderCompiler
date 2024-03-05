@@ -3018,7 +3018,8 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // inside the function, not the variables at the call sites. Therefore, we
       // do not need to mark the "param.var.*" variables as precise.
       const bool isPrecise = false;
-      const bool isNoInterp = param->hasAttr<HLSLNoInterpolationAttr>();
+      const bool isNoInterp = param->hasAttr<HLSLNoInterpolationAttr>() ||
+                              (argInst && argInst->isNoninterpolated());
 
       auto *tempVar = spvBuilder.addFnVar(varType, arg->getLocStart(), varName,
                                           isPrecise, isNoInterp);

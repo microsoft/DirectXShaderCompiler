@@ -943,8 +943,14 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
                                   type, "in.var", loadedValue);
   } else {
     StageVarDataBundle stageVarData = {
-        paramDecl, &inheritSemantic, false,    sigPoint,
-        type,      arraySize,        "in.var", llvm::None};
+        paramDecl,
+        &inheritSemantic,
+        paramDecl->hasAttr<HLSLNoInterpolationAttr>(),
+        sigPoint,
+        type,
+        arraySize,
+        "in.var",
+        llvm::None};
     return createStageVars(stageVarData, /*asInput=*/true, loadedValue,
                            /*noWriteBack=*/false);
   }
