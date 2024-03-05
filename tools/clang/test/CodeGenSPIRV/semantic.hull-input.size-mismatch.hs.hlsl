@@ -1,6 +1,5 @@
-// RUN: not %dxc -T hs_6_0 -E main %s -spirv 2>&1 | FileCheck %s
+// RUN: %dxc -T hs_6_0 -E main %s -spirv -verify
 
-// CHECK: 12:1: error: Patch constant function's input patch input should have 3 elements, but has 2.
 
 struct ControlPoint { float4 position : POSITION; };
 
@@ -9,7 +8,7 @@ struct HullPatchOut {
     float inside : SV_InsideTessFactor;
 };
 
-HullPatchOut HullConst (InputPatch<ControlPoint,2> v) {
+HullPatchOut HullConst (InputPatch<ControlPoint,2> v) { /* expected-error{{Patch constant function's input patch input should have 3 elements, but has 2.}} */
   return (HullPatchOut)0;
 }
 
