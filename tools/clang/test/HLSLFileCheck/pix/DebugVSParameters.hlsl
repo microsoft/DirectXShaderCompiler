@@ -13,11 +13,11 @@
 // They shold have 1 row, 1 column each. Vertex ID first at row 0, then instnce at row 1.
 // (With each row have the same value as the corresponding ID)
 // See DxilMDHelper::EmitSignatureElement for the meaning of these entries:
-//             ID                 TypeU32 SemKin Sem-Idx   interp  Rows Cols   Row    Col
-//              |                     |     |       |        |      |     |      |     |
-// CHECK: = !{i32 0, !"SV_VertexID", i8 5, i8 1, ![[VID:[0-9]*]], i8 1, i32 1, i8 1, i32 0, i8 0,
-//              |                       |     |       |        |      |     |      |     |
-// CHECK: = !{i32 1, !"SV_InstanceID", i8 5, i8 2, ![[INST:[0-9]*]], i8 1, i32 1, i8 1, i32 1, i8 0,
+//               ID                   TypeU32 SemKin Sem-Idx         interp  Rows  Cols   Row   Col
+//                |                     |     |       |                |      |     |      |     |
+// CHECK: = !{i32 0, !"SV_VertexID", i8 5, i8 1, ![[VIDID:[0-9]*]], i8 1, i32 1, i8 1, i32 0, i8 0,
+//                |                       |     |     |                |      |     |      |     |
+// CHECK: = !{i32 1, !"SV_InstanceID", i8 5, i8 2, ![[IID:[0-9]*]], i8 1, i32 1, i8 1, i32 1, i8 0,
 [RootSignature("")]
 float4 main() : SV_Position{
   return float4(0,0,0,0);
