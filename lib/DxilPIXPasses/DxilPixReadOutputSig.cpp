@@ -107,6 +107,7 @@ public:
           auto const& Elements = Meta.GetElements();
           for (auto const& Element : Elements) {
               *OSOverride << "OutputSigElement:" << Element->GetName() << ":"
+                  << std::to_string(Element->GetSemanticStartIndex()) << ":"
                   << SemanticKindName(Element->GetKind()) << "="
                   << std::to_string(Element->GetStartRow()) << "-"
                   << std::to_string(Element->GetStartCol()) << "-"

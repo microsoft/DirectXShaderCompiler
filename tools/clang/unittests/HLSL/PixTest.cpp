@@ -105,6 +105,8 @@ public:
   TEST_METHOD(OutputSigReflection_MS)
   TEST_METHOD(OutputSigReflection_MSNotFirst)
   TEST_METHOD(OutputSigReflection_VS)
+  TEST_METHOD(OutputSigReflection_HS)
+  TEST_METHOD(OutputSigReflection_GS)
 
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
   TEST_METHOD(PixStructAnnotation_Lib_RaygenAllocaStructAlignment)
@@ -687,7 +689,7 @@ void main(
   )";
 
   RunOutputSigTest(hlsl, L"ms_6_6",
-                   {"OutputSigElement:SV_Position:Position=0-0-1-4"});
+                   {"OutputSigElement:SV_Position:0:Position=0-0-1-4"});
 }
 
 TEST_F(PixTest, OutputSigReflection_MSNotFirst) {
@@ -723,8 +725,8 @@ void main(
   )";
 
   RunOutputSigTest(hlsl, L"ms_6_6",
-                   {"OutputSigElement:f:Arbitrary=0-0-1-1",
-                    "OutputSigElement:SV_Position:Position=1-0-1-4"});
+                   {"OutputSigElement:f:0:Arbitrary=0-0-1-1",
+                    "OutputSigElement:SV_Position:0:Position=1-0-1-4"});
 }
 
 TEST_F(PixTest, OutputSigReflection_VS) {
@@ -760,9 +762,105 @@ VS_OUTPUT_GEO main( VS_INPUT_GEO input)
 )";
 
   RunOutputSigTest(hlsl, L"vs_6_6",
-                   {{"OutputSigElement:SV_Position:Position=0-0-1-4"},
-                    {"OutputSigElement:TEXCOORD:Arbitrary=1-0-1-2"},
-                    {"OutputSigElement:TEXCOORD:Arbitrary=1-2-1-2"}});
+                   {{"OutputSigElement:SV_Position:0:Position=0-0-1-4"},
+                    {"OutputSigElement:TEXCOORD:0:Arbitrary=1-0-1-2"},
+                    {"OutputSigElement:TEXCOORD:1:Arbitrary=1-2-1-2"}});
+}
+
+TEST_F(PixTest, OutputSigReflection_GS) {
+
+  const char *hlsl = R"(
+
+struct VS2GS
+{
+    float2 Tex0        : TEXCOORD0;
+    float4 Pos        : SV_Position;
+    float2 Tex1        : TEXCOORD1;
+    uint InstanceId : InstanceID;
+};
+
+struct GSToPSLinkage
+{
+    float2 Tex0        : TEXCOORD0;
+    float2 Tex1        : TEXCOORD1;
+    float4 Pos         : SV_Position;
+};
+
+[maxvertexcount(3)]
+void main(triangle VS2GS input[3], inout TriangleStream<GSToPSLinkage> OutputStream)
+{
+    GSToPSLinkage output = (GSToPSLinkage)0;
+
+    for (uint i = 0; i<3; ++i)
+    {
+        output.Tex0 = input[i].Tex0 * 4.f;
+        output.Tex1 = input[i].Tex1 * 4.f;
+        output.Pos = input[i].Pos;
+
+        OutputStream.Append(output);
+    }
+
+    OutputStream.RestartStrip();
+}
+
+
+)";
+
+  RunOutputSigTest(hlsl, L"gs_6_0",
+                   {{"OutputSigElement:TEXCOORD:0:Arbitrary=0-0-1-2"},
+                    {"OutputSigElement:TEXCOORD:1:Arbitrary=0-2-1-2"},
+                    {"OutputSigElement:SV_Position:0:Position=1-0-1-4"}});
+}
+
+TEST_F(PixTest, OutputSigReflection_HS) {
+
+  const char *hlsl = R"(
+struct VSOut
+{
+    float2 vLightAndFog : COLOR0_center;
+    float4 vPosition : SV_POSITION;
+    float3 vTexCoords : TEXCOORD1;
+};
+
+struct HSPatchData
+{
+    float edges[3] : SV_TessFactor;
+    float inside : SV_InsideTessFactor;
+};
+
+HSPatchData HSPatchFunc(const InputPatch<VSOut, 3> tri)
+{
+
+    float dist = (tri[0].vPosition.w + tri[1].vPosition.w + tri[2].vPosition.w) / 3;
+
+
+    float tf = max(1, dist / 100.f);
+
+    HSPatchData pd;
+    pd.edges[0] = pd.edges[1] = pd.edges[2] = tf;
+    pd.inside = tf;
+
+    return pd;
+}
+
+[domain("tri")]
+[partitioning("fractional_odd")]
+[outputtopology("triangle_cw")]
+[patchconstantfunc("HSPatchFunc")]
+[outputcontrolpoints(3)]
+[RootSignature("RootFlags(ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT), " "DescriptorTable(SRV(t0, numDescriptors=2), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(Sampler(s0, numDescriptors=2), visibility=SHADER_VISIBILITY_PIXEL)," "DescriptorTable(CBV(b0, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(CBV(b1, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(CBV(b2, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(SRV(t3, numDescriptors=1), visibility=SHADER_VISIBILITY_ALL)," "DescriptorTable(UAV(u9, numDescriptors=2), visibility=SHADER_VISIBILITY_ALL),")]
+VSOut main( const uint id : SV_OutputControlPointID,
+              const InputPatch< VSOut, 3 > triIn )
+{
+    return triIn[id];
+}
+
+)";
+
+  RunOutputSigTest(hlsl, L"hs_6_0",
+                   {{"OutputSigElement:COLOR0_center:0:Arbitrary=0-0-1-2"},
+                    {"OutputSigElement:SV_Position:0:Position=1-0-1-4"},
+                    {"OutputSigElement:TEXCOORD:1:Arbitrary=2-0-1-3"}});
 }
 
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
