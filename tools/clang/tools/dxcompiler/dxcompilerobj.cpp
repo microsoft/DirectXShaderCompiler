@@ -593,8 +593,6 @@ public:
       // Formerly API values.
       const char *pUtf8SourceName =
           opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
-      std::string NormalizedSourceName = hlsl::NormalizePath(pUtf8SourceName);
-      pUtf8SourceName = NormalizedSourceName.c_str();
 
       CA2W pWideSourceName(pUtf8SourceName, CP_UTF8);
       const char *pUtf8EntryPoint =

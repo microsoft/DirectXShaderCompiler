@@ -276,7 +276,9 @@ namespace {
                  end = Ctx.getSourceManager().fileinfo_end();
              it != end; ++it) {
           if (it->first->isValid() && !it->second->IsSystemFile) {
-            std::string path = hlsl::NormalizePath(it->first->getName());
+            llvm::SmallString<256> path = StringRef(it->first->getName());
+            llvm::sys::path::native(path);
+
             StringRef contentBuffer = it->second->getRawBuffer()->getBuffer();
             // If main file, write that to metadata first.
             // Add the rest to filesMap to sort by name.
@@ -288,7 +290,7 @@ namespace {
               // We want the include file paths to match the values passed into
               // the include handlers exactly. The SourceManager entries should
               // match it except the call to MakeAbsoluteOrCurDirRelative.
-              filesMap[path] = contentBuffer;
+              filesMap[path.str()] = contentBuffer;
             }
           }
         }
