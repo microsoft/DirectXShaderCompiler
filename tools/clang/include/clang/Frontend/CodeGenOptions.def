@@ -132,6 +132,8 @@ CODEGENOPT(StrictEnums       , 1, 0) ///< Optimize based on strict enum definiti
 CODEGENOPT(TimePasses        , 1, 0) ///< Set when -ftime-report is enabled.
 CODEGENOPT(TimeTrace         , 1, 0) ///< HLSL Change:
                                      ///< Set when -ftime-trace is enabled.
+VALUE_CODEGENOPT(TimeTraceGranularity, 32, 500) ///< HLSL Change:
+                                          ///< Set when -ftime_trace_granularity is set.
 CODEGENOPT(UnitAtATime       , 1, 1) ///< Unused. For mirroring GCC optimization
                                      ///< selection.
 CODEGENOPT(UnrollLoops       , 1, 0) ///< Control whether loops are unrolled.
