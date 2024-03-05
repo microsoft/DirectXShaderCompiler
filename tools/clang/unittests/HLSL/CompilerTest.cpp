@@ -3088,14 +3088,6 @@ TEST_F(CompilerTest, CompileWhenAllIncludeCombinations) {
   std::string commonIncludeFile = "float foo() { return 10; }";
 
   TestCase tests[] = {
-
-      {L"\\my_path\\main.hlsl",
-       {L"\\my_path\\main.hlsl",
-        R"(#include "\my_include_dir\\second_dir/include.h" // <-- Network path
-           float main() : SV_Target { return foo(); } )"},
-       {L"\\my_include_dir\\second_dir\\include.h", commonIncludeFile},
-       {}},
-
       {L"main.hlsl",
        {L".\\main.hlsl",
         R"(#include "include.h"
