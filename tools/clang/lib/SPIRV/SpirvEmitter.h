@@ -962,8 +962,7 @@ private:
   /// resulting residency code will also be emitted.
   SpirvInstruction *
   processBufferTextureLoad(const Expr *object, SpirvInstruction *location,
-                           SpirvInstruction *constOffset,
-                           SpirvInstruction *varOffset, SpirvInstruction *lod,
+                           SpirvInstruction *constOffset, SpirvInstruction *lod,
                            SpirvInstruction *residencyCode, SourceLocation loc,
                            SourceRange range = {});
 

@@ -626,14 +626,13 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
     bool doImageFetch, QualType texelType, QualType imageType,
     SpirvInstruction *image, SpirvInstruction *coordinate,
     SpirvInstruction *lod, SpirvInstruction *constOffset,
-    SpirvInstruction *varOffset, SpirvInstruction *constOffsets,
-    SpirvInstruction *sample, SpirvInstruction *residencyCode,
-    SourceLocation loc, SourceRange range) {
+    SpirvInstruction *constOffsets, SpirvInstruction *sample,
+    SpirvInstruction *residencyCode, SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
 
   const auto mask = composeImageOperandsMask(
       /*bias*/ nullptr, lod, std::make_pair(nullptr, nullptr), constOffset,
-      varOffset, constOffsets, sample, /*minLod*/ nullptr);
+      /*varOffset*/ nullptr, constOffsets, sample, /*minLod*/ nullptr);
 
   const bool isSparse = (residencyCode != nullptr);
 
@@ -645,8 +644,8 @@ SpirvInstruction *SpirvBuilder::createImageFetchOrRead(
   auto *fetchOrReadInst = new (context)
       SpirvImageOp(op, texelType, loc, image, coordinate, mask,
                    /*dref*/ nullptr, /*bias*/ nullptr, lod, /*gradDx*/ nullptr,
-                   /*gradDy*/ nullptr, constOffset, varOffset, constOffsets,
-                   sample, nullptr, nullptr, nullptr, range);
+                   /*gradDy*/ nullptr, constOffset, /*varOffset*/ nullptr,
+                   constOffsets, sample, nullptr, nullptr, nullptr, range);
   insertPoint->addInstruction(fetchOrReadInst);
 
   if (isSparse) {

@@ -3896,7 +3896,7 @@ SpirvEmitter::processSubpassLoad(const CXXMemberCallExpr *expr) {
       astContext.getExtVectorType(astContext.IntTy, 2), {zero, zero});
 
   return processBufferTextureLoad(object, location, /*constOffset*/ 0,
-                                  /*varOffset*/ 0, /*lod*/ sample,
+                                  /*lod*/ sample,
                                   /*residencyCode*/ 0, expr->getExprLoc());
 }
 
@@ -4237,9 +4237,8 @@ SpirvEmitter::processTextureGatherCmp(const CXXMemberCallExpr *expr) {
 
 SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
     const Expr *object, SpirvInstruction *location,
-    SpirvInstruction *constOffset, SpirvInstruction *varOffset,
-    SpirvInstruction *lod, SpirvInstruction *residencyCode, SourceLocation loc,
-    SourceRange range) {
+    SpirvInstruction *constOffset, SpirvInstruction *lod,
+    SpirvInstruction *residencyCode, SourceLocation loc, SourceRange range) {
   // Loading for Buffer and RWBuffer translates to an OpImageFetch.
   // The result type of an OpImageFetch must be a vec4 of float or int.
   const auto type = object->getType();
@@ -4312,8 +4311,7 @@ SpirvInstruction *SpirvEmitter::processBufferTextureLoad(
   const QualType texelType = astContext.getExtVectorType(elemType, 4u);
   auto *texel = spvBuilder.createImageFetchOrRead(
       doFetch, texelType, type, objectInfo, location, lod, constOffset,
-      varOffset, /*constOffsets*/ nullptr, sampleNumber, residencyCode, loc,
-      range);
+      /*constOffsets*/ nullptr, sampleNumber, residencyCode, loc, range);
 
   if (rasterizerOrdered) {
     spvBuilder.createEndInvocationInterlockEXT(loc, range);
@@ -5683,8 +5681,7 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
   auto range = expr->getSourceRange();
   if (isBuffer(objectType) || isRWBuffer(objectType) || isRWTexture(objectType))
     return processBufferTextureLoad(object, doExpr(locationArg),
-                                    /*constOffset*/ nullptr,
-                                    /*varOffset*/ nullptr, /*lod*/ nullptr,
+                                    /*constOffset*/ nullptr, /*lod*/ nullptr,
                                     /*residencyCode*/ status, loc, range);
 
   // Subtract 1 for status (if it exists), and 1 for sampleIndex (if it exists),
@@ -5717,11 +5714,15 @@ SpirvEmitter::processBufferTextureLoad(const CXXMemberCallExpr *expr) {
         handleOffsetInMethodCall(expr, 1, &constOffset, &varOffset);
     }
 
-    if (varOffset)
-      needsLegalization = true;
+    if (varOffset) {
+      emitError(
+          "Offsets to texture access operations must be immediate values.",
+          object->getExprLoc());
+      return nullptr;
+    }
 
-    return processBufferTextureLoad(object, coordinate, constOffset, varOffset,
-                                    lod, status, loc, range);
+    return processBufferTextureLoad(object, coordinate, constOffset, lod,
+                                    status, loc, range);
   }
   emitError("Load() of the given object type unimplemented",
             object->getExprLoc());
@@ -5762,8 +5763,7 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
                                                   llvm::APInt(32, 0))
                       : nullptr;
       return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
-                                      /*constOffset*/ nullptr,
-                                      /*varOffset*/ nullptr, lod,
+                                      /*constOffset*/ nullptr, lod,
                                       /*residencyCode*/ nullptr,
                                       expr->getExprLoc());
     }
@@ -5771,8 +5771,7 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
     if (isTextureMipsSampleIndexing(expr, &baseExpr, &indexExpr, &lodExpr)) {
       auto *lod = doExpr(lodExpr);
       return processBufferTextureLoad(baseExpr, doExpr(indexExpr),
-                                      /*constOffset*/ nullptr,
-                                      /*varOffset*/ nullptr, lod,
+                                      /*constOffset*/ nullptr, lod,
                                       /*residencyCode*/ nullptr,
                                       expr->getExprLoc());
     }
