@@ -160,6 +160,7 @@ bool InitListHandler::tryToSplitStruct() {
   for (auto *field : structDecl->fields()) {
     auto *extract =
         spvBuilder.createCompositeExtract(field->getType(), init, {i}, loc);
+    extract->setLayoutRule(init->getLayoutRule());
     fields.push_back(extract);
     ++i;
   }
