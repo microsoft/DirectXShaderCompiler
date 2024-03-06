@@ -3608,6 +3608,8 @@ SpirvInstruction *SpirvEmitter::doShortCircuitedConditionalOperator(
   SpirvInstruction *trueVal = loadIfGLValue(trueExpr);
   trueVal = castToType(trueVal, trueExpr->getType(), type,
                        trueExpr->getExprLoc(), range);
+  if (!trueVal)
+    return nullptr;
   spvBuilder.createStore(tempVar, trueVal, trueExpr->getLocStart(), range);
   spvBuilder.createBranch(mergeBB, trueExpr->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
@@ -3617,6 +3619,8 @@ SpirvInstruction *SpirvEmitter::doShortCircuitedConditionalOperator(
   SpirvInstruction *falseVal = loadIfGLValue(falseExpr);
   falseVal = castToType(falseVal, falseExpr->getType(), type,
                         falseExpr->getExprLoc(), range);
+  if (!falseVal)
+    return nullptr;
   spvBuilder.createStore(tempVar, falseVal, falseExpr->getLocStart(), range);
   spvBuilder.createBranch(mergeBB, falseExpr->getLocEnd());
   spvBuilder.addSuccessor(mergeBB);
