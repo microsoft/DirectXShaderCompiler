@@ -2633,6 +2633,9 @@ void SpirvEmitter::doReturnStmt(const ReturnStmt *stmt) {
                                    {stmt->getReturnLoc(), retVal->getLocEnd()});
     }
   } else {
+    if (retVal) {
+      loadIfGLValue(retVal);
+    }
     spvBuilder.createReturn(stmt->getReturnLoc());
   }
 
