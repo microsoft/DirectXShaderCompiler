@@ -1,11 +1,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxilPixEmitResources.cpp                                                  //
+// DxilPixEmitMetadata.cpp                                                   //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
-// Emit Dxil resource meta data                                              //
+// Emit all Dxil meta data                                                   //
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 

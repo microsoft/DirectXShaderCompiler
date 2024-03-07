@@ -1171,9 +1171,8 @@ static bool FindStructMemberFromStore(llvm::StoreInst *S,
   return false;
 }
 
-// This function lives in
-// lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp Declared here so we
-// can test it.
+// This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp
+// Declared here so we can test it.
 uint32_t CountStructMembers(llvm::Type const *pType);
 
 PixTest::TestableResults PixTest::TestStructAnnotationCase(
