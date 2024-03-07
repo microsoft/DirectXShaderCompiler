@@ -1,7 +1,8 @@
 // RUN: %dxc -T lib_6_6 %s -enable-payload-qualifiers | FileCheck %s
 
 // CHECK: !dx.dxrPayloadAnnotations = !{{{![0-9]+}}}
-// CHECK: {{![0-9]+}} = !{i32 0, %struct.MyPayload undef, {{![0-9]+}}, %struct.SubPayload undef, {{![0-9]+}}}
+// CHECK: {{![0-9]+}} = !{i32 0, %struct.SubPayload undef, {{![0-9]+}}, %struct.anon undef, {{![0-9]+}}, %struct.MyPayload undef, {{![0-9]+}}}
+// CHECK: {{![0-9]+}} = !{i32 0, i32 13107}
 // CHECK: {{![0-9]+}} = !{i32 0, i32 0}
 // CHECK: {{![0-9]+}} = !{i32 0, i32 513}
 // CHECK: {{![0-9]+}} = !{i32 0, i32 33}
@@ -122,7 +123,6 @@
 // CHECK: {{![0-9]+}} = !{i32 0, i32 12835}
 // CHECK: {{![0-9]+}} = !{i32 0, i32 13091}
 // CHECK: {{![0-9]+}} = !{i32 0, i32 12851}
-// CHECK: {{![0-9]+}} = !{i32 0, i32 13107}
 
 struct [raypayload] SubPayload{
     int a1 : write(miss, closesthit, anyhit, caller) : read(miss, closesthit, anyhit, caller);

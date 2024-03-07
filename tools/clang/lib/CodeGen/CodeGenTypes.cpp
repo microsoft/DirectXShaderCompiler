@@ -775,6 +775,9 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
     while (!DeferredRecords.empty())
       ConvertRecordDeclType(DeferredRecords.pop_back_val());
 
+  if (getContext().getLangOpts().HLSL)
+    CGM.getHLSLRuntime().AddStructTypeAnnotation(RD, Ty);
+
   return Ty;
 }
 

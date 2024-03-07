@@ -25,6 +25,7 @@ class Constant;
 class TerminatorInst;
 class GlobalVariable;
 class Type;
+class StructType;
 class BasicBlock;
 class BranchInst;
 class SwitchInst;
@@ -44,6 +45,7 @@ class Stmt;
 class ReturnStmt;
 class Attr;
 class VarDecl;
+class RecordDecl;
 class HLSLRootSignatureAttr;
 
 namespace CodeGen {
@@ -63,6 +65,8 @@ public:
   CGHLSLRuntime(CodeGenModule &CGM) : CGM(CGM) {}
   virtual ~CGHLSLRuntime();
 
+  virtual void AddStructTypeAnnotation(const clang::RecordDecl *RD,
+                                       llvm::StructType *Ty) = 0;
   virtual void addResource(Decl *D) = 0;
   virtual void addSubobject(Decl *D) = 0;
   virtual void FinishCodeGen() = 0;

@@ -229,6 +229,10 @@ private:
 public:
   CGMSHLSLRuntime(CodeGenModule &CGM);
 
+  /// Add type annotation to DxilTypeSystem for new struct type.
+  void AddStructTypeAnnotation(const clang::RecordDecl *RD,
+                               llvm::StructType *Ty) override;
+
   /// Add resouce to the program
   void addResource(Decl *D) override;
 
@@ -1296,54 +1300,19 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
   else if (IsHLSLOutputPatchType(Ty))
     return AddTypeAnnotation(GetHLSLOutputPatchElementType(Ty), dxilTypeSys,
                              arrayEltSize);
-  else if (!IsHLSLStructuredBufferType(Ty) && IsHLSLResourceType(Ty)) {
+  else if (IsHLSLResourceType(Ty)) {
     // Save result type info.
-    AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys, arrayEltSize);
+    if (!IsHLSLStructuredBufferType(Ty))
+      AddTypeAnnotation(GetHLSLResourceResultType(Ty), dxilTypeSys,
+                        arrayEltSize);
     // Resources don't count towards cbuffer size.
     return 0;
   } else if (const RecordType *RT = paramTy->getAs<RecordType>()) {
-    // For this pointer.
-    RecordDecl *RD = RT->getDecl();
-    llvm::StructType *ST = CGM.getTypes().ConvertRecordDeclType(RD);
-    // Skip if already created.
-    if (DxilStructAnnotation *annotation =
-            dxilTypeSys.GetStructAnnotation(ST)) {
-      unsigned structSize = annotation->GetCBufferSize();
-      return structSize;
-    }
-    DxilStructAnnotation *annotation = dxilTypeSys.AddStructAnnotation(
-        ST, GetNumTemplateArgsForRecordDecl(RT->getDecl()));
-    DxilPayloadAnnotation *payloadAnnotation = nullptr;
-    if (ValidatePayloadDecl(RT->getDecl(), *m_pHLModule->GetShaderModel(),
-                            CGM.getDiags(), CGM.getCodeGenOpts()))
-      payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(ST);
-    unsigned size = ConstructStructAnnotation(annotation, payloadAnnotation, RD,
-                                              dxilTypeSys);
-
-    // For HLSL node object, add type annotations for any method return types.
-    if (CXXRecordDecl *CXXRD = dyn_cast<CXXRecordDecl>(RD)) {
-      if (static_cast<uint32_t>(GetNodeIOType(Ty)) != 0) {
-        for (auto subDecl : CXXRD->decls()) {
-          if (auto functiontemplatedecl =
-                  dyn_cast<FunctionTemplateDecl>(subDecl)) {
-            for (auto funcSpec : functiontemplatedecl->specializations()) {
-              if (auto method = dyn_cast<CXXMethodDecl>(funcSpec)) {
-                unsigned arrayEltSizeForMethod = 0;
-                AddTypeAnnotation(method->getReturnType(), dxilTypeSys,
-                                  arrayEltSizeForMethod);
-              }
-            }
-          } else if (auto method = dyn_cast<CXXMethodDecl>(subDecl)) {
-            unsigned arrayEltSizeForMethod = 0;
-            AddTypeAnnotation(method->getReturnType(), dxilTypeSys,
-                              arrayEltSizeForMethod);
-          }
-        }
-      }
-    }
-
-    // Resources don't count towards cbuffer size.
-    return IsHLSLResourceType(Ty) ? 0 : size;
+    llvm::StructType *ST = CGM.getTypes().ConvertRecordDeclType(RT->getDecl());
+    // Must be already created.
+    DXASSERT(dxilTypeSys.GetStructAnnotation(ST) != nullptr,
+             "struct type should exist.");
+    return dxilTypeSys.GetStructAnnotation(ST)->GetCBufferSize();
   } else if (IsStringType(Ty)) {
     // string won't be included in cbuffer
     return 0;
@@ -1374,6 +1343,31 @@ unsigned CGMSHLSLRuntime::AddTypeAnnotation(QualType Ty,
     unsigned alignedSize = (elementSize + 15) & 0xfffffff0;
     return alignedSize * (arraySize - 1) + elementSize;
   }
+}
+
+void CGMSHLSLRuntime::AddStructTypeAnnotation(const clang::RecordDecl *RD,
+                                              llvm::StructType *Ty) {
+  // Skip special types. They are handled by AddTypeAnnotation.
+  QualType QTy = CGM.getContext().getRecordType(RD);
+  if (IsElementInputOutputType(QTy) || IsHLSLMatType(QTy) ||
+      IsHLSLStreamOutputType(QTy) || IsHLSLInputPatchType(QTy) ||
+      IsHLSLOutputPatchType(QTy) ||
+      (!IsHLSLStructuredBufferType(QTy) && IsHLSLResourceType(QTy)))
+    return;
+
+  DxilTypeSystem &dxilTypeSys = m_pHLModule->GetTypeSystem();
+  DXASSERT(dxilTypeSys.GetStructAnnotation(Ty) == nullptr,
+           "struct type should not exist yet.");
+
+  DxilStructAnnotation *annotation =
+      dxilTypeSys.AddStructAnnotation(Ty, GetNumTemplateArgsForRecordDecl(RD));
+
+  DxilPayloadAnnotation *payloadAnnotation = nullptr;
+  if (ValidatePayloadDecl(RD, *m_pHLModule->GetShaderModel(), CGM.getDiags(),
+                          CGM.getCodeGenOpts()))
+    payloadAnnotation = dxilTypeSys.AddPayloadAnnotation(Ty);
+
+  ConstructStructAnnotation(annotation, payloadAnnotation, RD, dxilTypeSys);
 }
 
 static DxilResource::Kind KeywordToKind(StringRef keyword) {
