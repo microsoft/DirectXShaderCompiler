@@ -2839,7 +2839,7 @@ void main()
   VERIFY_SUCCEEDED(field->QueryInterface(IID_PPV_ARGS(&mike)));
   DWORD secondFieldOffset = 0;
   VERIFY_SUCCEEDED(mike->GetOffsetInBits(&secondFieldOffset));
-  VERIFY_ARE_EQUAL(32, secondFieldOffset);
+  VERIFY_ARE_EQUAL(32, (int)secondFieldOffset);
 }
 
 void PixDiaTest::RunSizeAndOffsetTestCase(
