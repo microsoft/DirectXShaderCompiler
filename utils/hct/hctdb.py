@@ -6154,12 +6154,6 @@ class db_dxil(object):
             [],
         )
         add_pass(
-            "dxil-read-output-sig",
-            "DxilPixReadOutputSig",
-            "Output a text summary of the module's output signature",
-            [],
-        )
-        add_pass(
             "dxil-dbg-value-to-dbg-declare",
             "DxilDbgValueToDbgDeclare",
             "Converts llvm.dbg.value uses to llvm.dbg.declare.",
