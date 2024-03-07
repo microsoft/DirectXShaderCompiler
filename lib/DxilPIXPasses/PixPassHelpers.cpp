@@ -450,15 +450,6 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
   delete Instr;
 }
 
-unsigned int GetNextEmptyRow(
-    std::vector<std::unique_ptr<DxilSignatureElement>> const &Elements) {
-  unsigned int Row = 0;
-  for (auto const &Element : Elements) {
-    Row = std::max<unsigned>(Row, Element->GetStartRow() + Element->GetRows());
-  }
-  return Row;
-}
-
 unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
                                   unsigned UpStreamSVPosRow) {
   hlsl::DxilSignature &InputSignature = DM.GetInputSignature();

@@ -99,7 +99,6 @@ public:
 
   TEST_CLASS_SETUP(InitSupport);
 
-  TEST_METHOD(InputLayout)
   TEST_METHOD(CompileDebugDisasmPDB)
 
   TEST_METHOD(AddToASPayload)
@@ -112,7 +111,7 @@ public:
 
   TEST_METHOD(SignatureModification_Empty)
   TEST_METHOD(SignatureModification_VertexIdAlready)
-  TEST_METHOD(SignatureModification_SomethingLarge)
+  TEST_METHOD(SignatureModification_SomethingElseFirst)
 
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
   TEST_METHOD(PixStructAnnotation_Lib_RaygenAllocaStructAlignment)
@@ -695,7 +694,7 @@ void main(
   )";
 
   RunOutputSigTest(hlsl, L"ms_6_6",
-                   {"OutputSigElement:SV_Position:0:Position=0-0-1-4"});
+                   {"OutputSigElement:SV_Position:0:SV_Position=0-0-1-4"});
 }
 
 TEST_F(PixTest, OutputSigReflection_MSNotFirst) {
@@ -732,7 +731,7 @@ void main(
 
   RunOutputSigTest(hlsl, L"ms_6_6",
                    {"OutputSigElement:f:0:Arbitrary=0-0-1-1",
-                    "OutputSigElement:SV_Position:0:Position=1-0-1-4"});
+                    "OutputSigElement:SV_Position:0:SV_Position=1-0-1-4"});
 }
 
 TEST_F(PixTest, OutputSigReflection_VS) {
@@ -768,65 +767,9 @@ VS_OUTPUT_GEO main( VS_INPUT_GEO input)
 )";
 
   RunOutputSigTest(hlsl, L"vs_6_6",
-                   {"OutputSigElement:SV_Position:0:Position=0-0-1-4",
+                   {"OutputSigElement:SV_Position:0:SV_Position=0-0-1-4",
                     "OutputSigElement:TEXCOORD:0:Arbitrary=1-0-1-2",
                     "OutputSigElement:TEXCOORD:1:Arbitrary=1-2-1-2"});
-}
-
-TEST_F(PixTest, InputLayout) {
-
-  const char *hlsl = R"(
-
-cbuffer cbEveryFrame : register(b0)
-{
-    float4x4 g_mWorldViewProjection;
-};
-
-struct VS_INPUT_GEO
-{
-    float3 Pos           : POSITION;
-    float4x3 Tex2          : TEXCOORD2;
-    float2 Tex1          : TEXCOORD1;
-};
-
-struct VS_OUTPUT_GEO
-{
-    float4 Pos        : SV_Position;
-    float2 Tex0        : TEXCOORD0;
-    float2 Tex1        : TEXCOORD1;
-};
-
-VS_OUTPUT_GEO main( VS_INPUT_GEO input)
-{
-    VS_OUTPUT_GEO output;
-    output.Pos = mul( float4(input.Pos,1), g_mWorldViewProjection );
-    output.Tex1 = input.Tex1;
-    return output;
-}
-
-)";
-  CComPtr<IDxcBlob> pBlob =
-      Compile(m_dllSupport, hlsl, L"vs_6_0", {L"-Od", L"-HV", L"2018"});
-
-  ModuleAndHangersOn moduleEtc(pBlob);
-
-  // For every dbg.declare, run the member iterator and record what it finds:
-  auto const &IS = moduleEtc.GetDxilModule().GetInputSignature();
-  auto const &elements = IS.GetElements();
-  std::ostringstream out;
-  for (auto const &Element : elements) {
-    out << "OutputSigElement:" << Element->GetName() << ": Semantic index"
-        << std::to_string(Element->GetSemanticStartIndex()) << ": ID"
-        << std::to_string(Element->GetID()) << ":"
-        << (Element->IsArbitrary()
-                ? "Arbitrary"
-                : hlsl::Semantic::Get(Element->GetKind())->GetName())
-        << "= Start row:" << std::to_string(Element->GetStartRow()) << "- Start col:"
-        << std::to_string(Element->GetStartCol()) << "- Rows:"
-        << std::to_string(Element->GetRows()) << "- Cols:"
-        << std::to_string(Element->GetCols()) << "\n";
-  }
-  out;
 }
 
 TEST_F(PixTest, OutputSigReflection_GS) {
@@ -871,7 +814,7 @@ void main(triangle VS2GS input[3], inout TriangleStream<GSToPSLinkage> OutputStr
   RunOutputSigTest(hlsl, L"gs_6_0",
                    {"OutputSigElement:TEXCOORD:0:Arbitrary=0-0-1-2",
                     "OutputSigElement:TEXCOORD:1:Arbitrary=0-2-1-2",
-                    "OutputSigElement:SV_Position:0:Position=1-0-1-4"});
+                    "OutputSigElement:SV_Position:0:SV_Position=1-0-1-4"});
 }
 
 TEST_F(PixTest, OutputSigReflection_HS) {
@@ -921,7 +864,7 @@ VSOut main( const uint id : SV_OutputControlPointID,
 
   RunOutputSigTest(hlsl, L"hs_6_0",
                    {"OutputSigElement:COLOR0_center:0:Arbitrary=0-0-1-2",
-                    "OutputSigElement:SV_Position:0:Position=1-0-1-4",
+                    "OutputSigElement:SV_Position:0:SV_Position=1-0-1-4",
                     "OutputSigElement:TEXCOORD:1:Arbitrary=2-0-1-3"});
 }
 
@@ -984,7 +927,7 @@ TEST_F(PixTest, SignatureModification_VertexIdAlready) {
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
 }
 
-TEST_F(PixTest, SignatureModification_SomethingLarge) {
+TEST_F(PixTest, SignatureModification_SomethingElseFirst) {
 
   DxilSignature sig(DXIL::ShaderKind::Vertex, DXIL::SignatureKind::Input,
                     false);
@@ -1003,17 +946,19 @@ TEST_F(PixTest, SignatureModification_SomethingLarge) {
   FindOrAddVSInSignatureElementForInstanceOrVertexID(
       sig, DXIL::SemanticKind::VertexID);
 
-  VERIFY_ARE_EQUAL(2ull, sig.GetElements().size());
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetKind(), DXIL::SemanticKind::VertexID);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0);
+  VERIFY_ARE_EQUAL(3ull, sig.GetElements().size());
+  // Not gonna check the first one cuz that would just be grading our own
+  // homework
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::InstanceID);
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1);
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1);
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetKind(), DXIL::SemanticKind::VertexID);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetCols(), 1);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetRows(), 1);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartRow(), 2);
 }
 
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {

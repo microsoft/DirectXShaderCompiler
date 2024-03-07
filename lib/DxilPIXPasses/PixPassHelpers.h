@@ -76,6 +76,4 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
     llvm::Instruction *Instr, llvm::Value *newValue, llvm::Type *newType);
 unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
                                   unsigned UpStreamSVPosRow);
-unsigned int GetNextEmptyRow(
-    std::vector<std::unique_ptr<hlsl::DxilSignatureElement>> const &Elements);
 } // namespace PIXPassHelpers

@@ -389,6 +389,15 @@ uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize / 2);
 }
 
+unsigned int GetNextEmptyRow(
+    std::vector<std::unique_ptr<DxilSignatureElement>> const &Elements) {
+  unsigned int Row = 0;
+  for (auto const &Element : Elements) {
+    Row = std::max<unsigned>(Row, Element->GetStartRow() + Element->GetRows());
+  }
+  return Row;
+}
+
 unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
     hlsl::DxilSignature &InputSignature,
     hlsl::DXIL::SemanticKind semanticKind) {
@@ -409,7 +418,7 @@ unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
   if (ExistingElement == InputElements.end()) {
     auto AddedElement =
         llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
-    unsigned Row = PIXPassHelpers::GetNextEmptyRow(InputElements);
+    unsigned Row = GetNextEmptyRow(InputElements);
     AddedElement->Initialize(
         hlsl::Semantic::Get(semanticKind)->GetName(), hlsl::CompType::getU32(),
         hlsl::DXIL::InterpolationMode::Constant, 1, 1, Row, 0);
