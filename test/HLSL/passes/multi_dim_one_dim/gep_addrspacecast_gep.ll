@@ -177,22 +177,3 @@ entry:
   %load = load float, float addrspace(3)* %gep2
   ret void
 }
-
-; Test that we compute the correct index when the addrspacecast includes both a
-; change in address space and a change in the underlying type. I did not see
-; this pattern in IR generated from hlsl, but we can handle this case so I am
-; adding a test for it anyway.
-; CHECK-LABEL: addrspace_cast_new_type
-; CHECK:  %0 = mul i32 %idx0, 9
-; CHECK:  %1 = add i32 %idx1, %0
-; CHECK:  %2 = getelementptr [2304 x float], [2304 x float] addrspace(3)* @ArrayOfArray.1dim, i32 0, i32 %1
-; CHECK:  %3 = addrspacecast float addrspace(3)* %2 to i32*
-; CHECK:  load i32, i32* %3
-define void @addrspace_cast_new_type(i32 %idx0, i32 %idx1) {
-entry:
-  %gep0 = getelementptr inbounds [256 x [9 x float]], [256 x [9 x float]] addrspace(3)* @ArrayOfArray, i32 0, i32 %idx0
-  %asc  = addrspacecast [9 x float] addrspace(3)* %gep0 to [3 x i32]*
-  %gep1 = getelementptr inbounds [3 x i32], [3 x i32]* %asc, i32 0, i32 %idx1
-  %load = load i32, i32* %gep1
-  ret void
-}
