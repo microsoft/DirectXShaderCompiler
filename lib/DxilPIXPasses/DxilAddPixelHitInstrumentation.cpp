@@ -41,7 +41,7 @@ public:
   }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
-  std::string m_upstreamSVPositionIndices;
+  unsigned m_upstreamSVPositionRow;
 };
 
 void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O) {
@@ -49,9 +49,8 @@ void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionBool(O, "add-pixel-cost", &AddPixelCost, false);
   GetPassOptionInt(O, "rt-width", &RTWidth, 0);
   GetPassOptionInt(O, "num-pixels", &NumPixels, 0);
-  StringRef UpstreamVS;
-  GetPassOption(O, "upstream-sv-position-indices", &UpstreamVS);
-  m_upstreamSVPositionIndices = UpstreamVS;
+  GetPassOptionUnsigned(O, "upstream-sv-position-row", &m_upstreamSVPositionRow,
+                        0);
 }
 
 bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
@@ -68,7 +67,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
   }
 
   auto SV_Position_ID =
-      PIXPassHelpers::FindOrAddSV_Position(DM, m_upstreamSVPositionIndices);
+      PIXPassHelpers::FindOrAddSV_Position(DM, m_upstreamSVPositionRow);
 
   auto EntryPointFunction = PIXPassHelpers::GetEntryFunction(DM);
 

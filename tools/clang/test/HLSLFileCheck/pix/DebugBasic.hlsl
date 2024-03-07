@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,UAVSize=128,upstreamSVPositionIndices=2-0-1-4 -dxil-emit-metadata | %FileCheck %s
+// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,UAVSize=128,upstreamSVPositionRow=2 -dxil-emit-metadata | %FileCheck %s
 
 // Check that the basic starting header is present:
 

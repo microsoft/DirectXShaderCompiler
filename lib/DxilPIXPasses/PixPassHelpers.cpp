@@ -450,8 +450,17 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
   delete Instr;
 }
 
+unsigned int GetNextEmptyRow(
+    std::vector<std::unique_ptr<DxilSignatureElement>> const &Elements) {
+  unsigned int Row = 0;
+  for (auto const &Element : Elements) {
+    Row = std::max<unsigned>(Row, Element->GetStartRow() + Element->GetRows());
+  }
+  return Row;
+}
+
 unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
-                                  llvm::StringRef UpStream) {
+                                  unsigned UpStreamSVPosRow) {
   hlsl::DxilSignature &InputSignature = DM.GetInputSignature();
   auto &InputElements = InputSignature.GetElements();
 
@@ -466,33 +475,18 @@ unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
   // about the shader having selected components that don't include x or y.
   // If not present, we add it.
   if (Existing_SV_Position == InputElements.end()) {
-
-    unsigned int Index = static_cast<unsigned int>(InputElements.size());
-
-    unsigned int StartRow = Index;
     unsigned int StartColumn = 0;
     unsigned int RowCount = 1;
     unsigned int ColumnCount = 4;
-    if (!UpStream.empty()) {
-      SmallVector<StringRef, 4> indices;
-      UpStream.split(indices, "-");
-      if (indices.size() == 4) {
-        // These are encoded in ./DxilPixReadOutputSig.cpp
-        StartRow = atoi(indices[0].str().c_str());
-        StartColumn = atoi(indices[1].str().c_str());
-        RowCount = atoi(indices[2].str().c_str());
-        ColumnCount = atoi(indices[3].str().c_str());
-      }
-    }
-
     auto Added_SV_Position =
         llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
     Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
                                   hlsl::DXIL::InterpolationMode::Linear,
-                                  RowCount, ColumnCount, StartRow, StartColumn);
+                                  RowCount, ColumnCount, UpStreamSVPosRow,
+                                  StartColumn);
     Added_SV_Position->AppendSemanticIndex(0);
     Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
-
+    // AppendElement sets the element's ID by default
     auto index = InputSignature.AppendElement(std::move(Added_SV_Position));
     return InputElements[index]->GetID();
   } else {

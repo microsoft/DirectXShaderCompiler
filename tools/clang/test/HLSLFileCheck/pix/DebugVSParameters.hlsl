@@ -10,7 +10,7 @@
 // CHECK: %CompareBoth = and i1 %CompareToVertId, %CompareToInstanceId
 
 // Check that the correct metadata was emitted for vertex id and instance id. 
-// They shold have 1 row, 1 column each. Vertex ID first at row 0, then instnce at row 1.
+// They should have 1 row, 1 column each. Vertex ID first at row 0, then instnce at row 1.
 // (With each row have the same value as the corresponding ID)
 // See DxilMDHelper::EmitSignatureElement for the meaning of these entries:
 //               ID                   TypeU32 SemKin Sem-Idx         interp  Rows  Cols   Row   Col

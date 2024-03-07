@@ -19,6 +19,7 @@
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/Support/Global.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
@@ -282,7 +283,7 @@ private:
   unsigned m_LastInstruction = static_cast<unsigned>(-1);
 
   uint64_t m_UAVSize = 1024 * 1024;
-  std::string m_upstreamSVPositionIndices;
+  unsigned m_upstreamSVPositionRow;
 
   struct PerFunctionValues {
     CallInst *UAVHandle = nullptr;
@@ -380,20 +381,24 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
   GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
-  StringRef UpstreamVS;
-  GetPassOption(O, "upstreamSVPositionIndices", &UpstreamVS);
-  m_upstreamSVPositionIndices = UpstreamVS;
+  GetPassOptionUnsigned(O, "upstreamSVPositionRow", &m_upstreamSVPositionRow,
+                        0);
 }
 
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize / 2);
 }
 
-static unsigned
-FindOrAddVSInSignatureElement(hlsl::DxilSignature &InputSignature,
-                              hlsl::DXIL::SemanticKind semanticKind) {
+unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
+    hlsl::DxilSignature &InputSignature,
+    hlsl::DXIL::SemanticKind semanticKind) {
+  DXASSERT(InputSignature.GetSigPointKind() == DXIL::SigPointKind::VSIn,
+           "Unexpected SigPointKind in input signature");
+  DXASSERT(semanticKind == DXIL::SemanticKind::InstanceID ||
+               semanticKind == DXIL::SemanticKind::VertexID,
+           "This function only expects InstaceID or VertexID");
 
-  auto &InputElements = InputSignature.GetElements();
+  auto const &InputElements = InputSignature.GetElements();
 
   auto ExistingElement =
       std::find_if(InputElements.begin(), InputElements.end(),
@@ -404,13 +409,14 @@ FindOrAddVSInSignatureElement(hlsl::DxilSignature &InputSignature,
   if (ExistingElement == InputElements.end()) {
     auto AddedElement =
         llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
-    unsigned int Index = static_cast<unsigned int>(InputElements.size());
+    unsigned Row = PIXPassHelpers::GetNextEmptyRow(InputElements);
     AddedElement->Initialize(
         hlsl::Semantic::Get(semanticKind)->GetName(), hlsl::CompType::getU32(),
-        hlsl::DXIL::InterpolationMode::Constant, 1, 1, Index, 0, Index, {0});
+        hlsl::DXIL::InterpolationMode::Constant, 1, 1, Row, 0);
+    AddedElement->AppendSemanticIndex(0);
     AddedElement->SetKind(semanticKind);
     AddedElement->SetUsageMask(1);
-
+    // AppendElement sets the element's ID by default
     auto index = InputSignature.AppendElement(std::move(AddedElement));
     return InputElements[index]->GetID();
   } else {
@@ -436,10 +442,12 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     break;
   case DXIL::ShaderKind::Vertex: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    SVIndices.VertexShader.VertexId = FindOrAddVSInSignatureElement(
-        InputSignature, hlsl::DXIL::SemanticKind::VertexID);
-    SVIndices.VertexShader.InstanceId = FindOrAddVSInSignatureElement(
-        InputSignature, hlsl::DXIL::SemanticKind::InstanceID);
+    SVIndices.VertexShader.VertexId =
+        FindOrAddVSInSignatureElementForInstanceOrVertexID(
+            InputSignature, hlsl::DXIL::SemanticKind::VertexID);
+    SVIndices.VertexShader.InstanceId =
+        FindOrAddVSInSignatureElementForInstanceOrVertexID(
+            InputSignature, hlsl::DXIL::SemanticKind::InstanceID);
   } break;
   case DXIL::ShaderKind::Geometry:
   case DXIL::ShaderKind::Hull:
@@ -448,8 +456,8 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     // in the input signature
     break;
   case DXIL::ShaderKind::Pixel: {
-    SVIndices.PixelShader.Position = PIXPassHelpers::FindOrAddSV_Position(
-        BC.DM, m_upstreamSVPositionIndices);
+    SVIndices.PixelShader.Position =
+        PIXPassHelpers::FindOrAddSV_Position(BC.DM, m_upstreamSVPositionRow);
   } break;
   default:
     assert(false); // guaranteed by runOnModule

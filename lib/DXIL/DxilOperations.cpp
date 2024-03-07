@@ -41,2568 +41,430 @@ import hctdb_instrhelp
 /* <py::lines('OPCODE-OLOADS')>hctdb_instrhelp.get_oloads_props()</py>*/
 // OPCODE-OLOADS:BEGIN
 const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
-    //   OpCode                       OpCode name,                OpCodeClass
-    //   OpCodeClass name,              void,     h,     f,     d,    i1,    i8,
-    //   i16,   i32,   i64,   udt,   obj,  function attribute
-    // Temporary, indexable, input, output registers void,     h,     f,     d,
-    // i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::TempRegLoad,
-        "TempRegLoad",
-        OCC::TempRegLoad,
-        "tempRegLoad",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::TempRegStore,
-        "TempRegStore",
-        OCC::TempRegStore,
-        "tempRegStore",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::MinPrecXRegLoad,
-        "MinPrecXRegLoad",
-        OCC::MinPrecXRegLoad,
-        "minPrecXRegLoad",
-        {false, true, false, false, false, false, true, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::MinPrecXRegStore,
-        "MinPrecXRegStore",
-        OCC::MinPrecXRegStore,
-        "minPrecXRegStore",
-        {false, true, false, false, false, false, true, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::LoadInput,
-        "LoadInput",
-        OCC::LoadInput,
-        "loadInput",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::StoreOutput,
-        "StoreOutput",
-        OCC::StoreOutput,
-        "storeOutput",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Unary float void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::FAbs,
-        "FAbs",
-        OCC::Unary,
-        "unary",
-        {false, true, true, true, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Saturate,
-        "Saturate",
-        OCC::Unary,
-        "unary",
-        {false, true, true, true, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::IsNaN,
-        "IsNaN",
-        OCC::IsSpecialFloat,
-        "isSpecialFloat",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::IsInf,
-        "IsInf",
-        OCC::IsSpecialFloat,
-        "isSpecialFloat",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::IsFinite,
-        "IsFinite",
-        OCC::IsSpecialFloat,
-        "isSpecialFloat",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::IsNormal,
-        "IsNormal",
-        OCC::IsSpecialFloat,
-        "isSpecialFloat",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Cos,
-        "Cos",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Sin,
-        "Sin",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Tan,
-        "Tan",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Acos,
-        "Acos",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Asin,
-        "Asin",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Atan,
-        "Atan",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Hcos,
-        "Hcos",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Hsin,
-        "Hsin",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Htan,
-        "Htan",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Exp,
-        "Exp",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Frc,
-        "Frc",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Log,
-        "Log",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Sqrt,
-        "Sqrt",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Rsqrt,
-        "Rsqrt",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Unary float - rounding void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::Round_ne,
-        "Round_ne",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Round_ni,
-        "Round_ni",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Round_pi,
-        "Round_pi",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Round_z,
-        "Round_z",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Unary int void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::Bfrev,
-        "Bfrev",
-        OCC::Unary,
-        "unary",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Countbits,
-        "Countbits",
-        OCC::UnaryBits,
-        "unaryBits",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::FirstbitLo,
-        "FirstbitLo",
-        OCC::UnaryBits,
-        "unaryBits",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Unary uint void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::FirstbitHi,
-        "FirstbitHi",
-        OCC::UnaryBits,
-        "unaryBits",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Unary int void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::FirstbitSHi,
-        "FirstbitSHi",
-        OCC::UnaryBits,
-        "unaryBits",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Binary float void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::FMax,
-        "FMax",
-        OCC::Binary,
-        "binary",
-        {false, true, true, true, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::FMin,
-        "FMin",
-        OCC::Binary,
-        "binary",
-        {false, true, true, true, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Binary int void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::IMax,
-        "IMax",
-        OCC::Binary,
-        "binary",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::IMin,
-        "IMin",
-        OCC::Binary,
-        "binary",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Binary uint void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::UMax,
-        "UMax",
-        OCC::Binary,
-        "binary",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::UMin,
-        "UMin",
-        OCC::Binary,
-        "binary",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Binary int with two outputs void,     h,     f,     d,    i1,    i8, i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::IMul,
-        "IMul",
-        OCC::BinaryWithTwoOuts,
-        "binaryWithTwoOuts",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Binary uint with two outputs void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::UMul,
-        "UMul",
-        OCC::BinaryWithTwoOuts,
-        "binaryWithTwoOuts",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::UDiv,
-        "UDiv",
-        OCC::BinaryWithTwoOuts,
-        "binaryWithTwoOuts",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Binary uint with carry or borrow void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::UAddc,
-        "UAddc",
-        OCC::BinaryWithCarryOrBorrow,
-        "binaryWithCarryOrBorrow",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::USubb,
-        "USubb",
-        OCC::BinaryWithCarryOrBorrow,
-        "binaryWithCarryOrBorrow",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Tertiary float void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::FMad,
-        "FMad",
-        OCC::Tertiary,
-        "tertiary",
-        {false, true, true, true, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Fma,
-        "Fma",
-        OCC::Tertiary,
-        "tertiary",
-        {false, false, false, true, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Tertiary int void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::IMad,
-        "IMad",
-        OCC::Tertiary,
-        "tertiary",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Tertiary uint void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::UMad,
-        "UMad",
-        OCC::Tertiary,
-        "tertiary",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Tertiary int void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::Msad,
-        "Msad",
-        OCC::Tertiary,
-        "tertiary",
-        {false, false, false, false, false, false, false, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Ibfe,
-        "Ibfe",
-        OCC::Tertiary,
-        "tertiary",
-        {false, false, false, false, false, false, false, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Tertiary uint void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::Ubfe,
-        "Ubfe",
-        OCC::Tertiary,
-        "tertiary",
-        {false, false, false, false, false, false, false, true, true, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Quaternary void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::Bfi,
-        "Bfi",
-        OCC::Quaternary,
-        "quaternary",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Dot void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
-    {
-        OC::Dot2,
-        "Dot2",
-        OCC::Dot2,
-        "dot2",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Dot3,
-        "Dot3",
-        OCC::Dot3,
-        "dot3",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Dot4,
-        "Dot4",
-        OCC::Dot4,
-        "dot4",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Resources void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::CreateHandle,
-        "CreateHandle",
-        OCC::CreateHandle,
-        "createHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::CBufferLoad,
-        "CBufferLoad",
-        OCC::CBufferLoad,
-        "cbufferLoad",
-        {false, true, true, true, false, true, true, true, true, false, false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::CBufferLoadLegacy,
-        "CBufferLoadLegacy",
-        OCC::CBufferLoadLegacy,
-        "cbufferLoadLegacy",
-        {false, true, true, true, false, false, true, true, true, false, false},
-        Attribute::ReadOnly,
-    },
-
-    // Resources - sample void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::Sample,
-        "Sample",
-        OCC::Sample,
-        "sample",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::SampleBias,
-        "SampleBias",
-        OCC::SampleBias,
-        "sampleBias",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::SampleLevel,
-        "SampleLevel",
-        OCC::SampleLevel,
-        "sampleLevel",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::SampleGrad,
-        "SampleGrad",
-        OCC::SampleGrad,
-        "sampleGrad",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::SampleCmp,
-        "SampleCmp",
-        OCC::SampleCmp,
-        "sampleCmp",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::SampleCmpLevelZero,
-        "SampleCmpLevelZero",
-        OCC::SampleCmpLevelZero,
-        "sampleCmpLevelZero",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Resources void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::TextureLoad,
-        "TextureLoad",
-        OCC::TextureLoad,
-        "textureLoad",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::TextureStore,
-        "TextureStore",
-        OCC::TextureStore,
-        "textureStore",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::BufferLoad,
-        "BufferLoad",
-        OCC::BufferLoad,
-        "bufferLoad",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::BufferStore,
-        "BufferStore",
-        OCC::BufferStore,
-        "bufferStore",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::BufferUpdateCounter,
-        "BufferUpdateCounter",
-        OCC::BufferUpdateCounter,
-        "bufferUpdateCounter",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::CheckAccessFullyMapped,
-        "CheckAccessFullyMapped",
-        OCC::CheckAccessFullyMapped,
-        "checkAccessFullyMapped",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::GetDimensions,
-        "GetDimensions",
-        OCC::GetDimensions,
-        "getDimensions",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Resources - gather void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::TextureGather,
-        "TextureGather",
-        OCC::TextureGather,
-        "textureGather",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::TextureGatherCmp,
-        "TextureGatherCmp",
-        OCC::TextureGatherCmp,
-        "textureGatherCmp",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Resources - sample void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::Texture2DMSGetSamplePosition,
-        "Texture2DMSGetSamplePosition",
-        OCC::Texture2DMSGetSamplePosition,
-        "texture2DMSGetSamplePosition",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RenderTargetGetSamplePosition,
-        "RenderTargetGetSamplePosition",
-        OCC::RenderTargetGetSamplePosition,
-        "renderTargetGetSamplePosition",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RenderTargetGetSampleCount,
-        "RenderTargetGetSampleCount",
-        OCC::RenderTargetGetSampleCount,
-        "renderTargetGetSampleCount",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Synchronization void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::AtomicBinOp,
-        "AtomicBinOp",
-        OCC::AtomicBinOp,
-        "atomicBinOp",
-        {false, false, false, false, false, false, false, true, true, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::AtomicCompareExchange,
-        "AtomicCompareExchange",
-        OCC::AtomicCompareExchange,
-        "atomicCompareExchange",
-        {false, false, false, false, false, false, false, true, true, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::Barrier,
-        "Barrier",
-        OCC::Barrier,
-        "barrier",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::NoDuplicate,
-    },
-
-    // Derivatives void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::CalculateLOD,
-        "CalculateLOD",
-        OCC::CalculateLOD,
-        "calculateLOD",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Pixel shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::Discard,
-        "Discard",
-        OCC::Discard,
-        "discard",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Derivatives void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::DerivCoarseX,
-        "DerivCoarseX",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::DerivCoarseY,
-        "DerivCoarseY",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::DerivFineX,
-        "DerivFineX",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::DerivFineY,
-        "DerivFineY",
-        OCC::Unary,
-        "unary",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Pixel shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::EvalSnapped,
-        "EvalSnapped",
-        OCC::EvalSnapped,
-        "evalSnapped",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::EvalSampleIndex,
-        "EvalSampleIndex",
-        OCC::EvalSampleIndex,
-        "evalSampleIndex",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::EvalCentroid,
-        "EvalCentroid",
-        OCC::EvalCentroid,
-        "evalCentroid",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::SampleIndex,
-        "SampleIndex",
-        OCC::SampleIndex,
-        "sampleIndex",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Coverage,
-        "Coverage",
-        OCC::Coverage,
-        "coverage",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::InnerCoverage,
-        "InnerCoverage",
-        OCC::InnerCoverage,
-        "innerCoverage",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Compute/Mesh/Amplification/Node shader void,     h,     f,     d,    i1,
-    // i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::ThreadId,
-        "ThreadId",
-        OCC::ThreadId,
-        "threadId",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::GroupId,
-        "GroupId",
-        OCC::GroupId,
-        "groupId",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::ThreadIdInGroup,
-        "ThreadIdInGroup",
-        OCC::ThreadIdInGroup,
-        "threadIdInGroup",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::FlattenedThreadIdInGroup,
-        "FlattenedThreadIdInGroup",
-        OCC::FlattenedThreadIdInGroup,
-        "flattenedThreadIdInGroup",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Geometry shader void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::EmitStream,
-        "EmitStream",
-        OCC::EmitStream,
-        "emitStream",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::CutStream,
-        "CutStream",
-        OCC::CutStream,
-        "cutStream",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::EmitThenCutStream,
-        "EmitThenCutStream",
-        OCC::EmitThenCutStream,
-        "emitThenCutStream",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::GSInstanceID,
-        "GSInstanceID",
-        OCC::GSInstanceID,
-        "gsInstanceID",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Double precision void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::MakeDouble,
-        "MakeDouble",
-        OCC::MakeDouble,
-        "makeDouble",
-        {false, false, false, true, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::SplitDouble,
-        "SplitDouble",
-        OCC::SplitDouble,
-        "splitDouble",
-        {false, false, false, true, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Domain and hull shader void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::LoadOutputControlPoint,
-        "LoadOutputControlPoint",
-        OCC::LoadOutputControlPoint,
-        "loadOutputControlPoint",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::LoadPatchConstant,
-        "LoadPatchConstant",
-        OCC::LoadPatchConstant,
-        "loadPatchConstant",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Domain shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::DomainLocation,
-        "DomainLocation",
-        OCC::DomainLocation,
-        "domainLocation",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Hull shader void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::StorePatchConstant,
-        "StorePatchConstant",
-        OCC::StorePatchConstant,
-        "storePatchConstant",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::OutputControlPointID,
-        "OutputControlPointID",
-        OCC::OutputControlPointID,
-        "outputControlPointID",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Hull, Domain and Geometry shaders void,     h,     f,     d,    i1, i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::PrimitiveID,
-        "PrimitiveID",
-        OCC::PrimitiveID,
-        "primitiveID",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Other void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64, udt,
-    // obj ,  function attribute
-    {
-        OC::CycleCounterLegacy,
-        "CycleCounterLegacy",
-        OCC::CycleCounterLegacy,
-        "cycleCounterLegacy",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Wave void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
-    {
-        OC::WaveIsFirstLane,
-        "WaveIsFirstLane",
-        OCC::WaveIsFirstLane,
-        "waveIsFirstLane",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WaveGetLaneIndex,
-        "WaveGetLaneIndex",
-        OCC::WaveGetLaneIndex,
-        "waveGetLaneIndex",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::WaveGetLaneCount,
-        "WaveGetLaneCount",
-        OCC::WaveGetLaneCount,
-        "waveGetLaneCount",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::WaveAnyTrue,
-        "WaveAnyTrue",
-        OCC::WaveAnyTrue,
-        "waveAnyTrue",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WaveAllTrue,
-        "WaveAllTrue",
-        OCC::WaveAllTrue,
-        "waveAllTrue",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WaveActiveAllEqual,
-        "WaveActiveAllEqual",
-        OCC::WaveActiveAllEqual,
-        "waveActiveAllEqual",
-        {false, true, true, true, true, true, true, true, true, false, false},
-        Attribute::None,
-    },
-    {
-        OC::WaveActiveBallot,
-        "WaveActiveBallot",
-        OCC::WaveActiveBallot,
-        "waveActiveBallot",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WaveReadLaneAt,
-        "WaveReadLaneAt",
-        OCC::WaveReadLaneAt,
-        "waveReadLaneAt",
-        {false, true, true, true, true, true, true, true, true, false, false},
-        Attribute::None,
-    },
-    {
-        OC::WaveReadLaneFirst,
-        "WaveReadLaneFirst",
-        OCC::WaveReadLaneFirst,
-        "waveReadLaneFirst",
-        {false, true, true, true, true, true, true, true, true, false, false},
-        Attribute::None,
-    },
-    {
-        OC::WaveActiveOp,
-        "WaveActiveOp",
-        OCC::WaveActiveOp,
-        "waveActiveOp",
-        {false, true, true, true, true, true, true, true, true, false, false},
-        Attribute::None,
-    },
-    {
-        OC::WaveActiveBit,
-        "WaveActiveBit",
-        OCC::WaveActiveBit,
-        "waveActiveBit",
-        {false, false, false, false, false, true, true, true, true, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WavePrefixOp,
-        "WavePrefixOp",
-        OCC::WavePrefixOp,
-        "wavePrefixOp",
-        {false, true, true, true, false, true, true, true, true, false, false},
-        Attribute::None,
-    },
-
-    // Quad Wave Ops void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::QuadReadLaneAt,
-        "QuadReadLaneAt",
-        OCC::QuadReadLaneAt,
-        "quadReadLaneAt",
-        {false, true, true, true, true, true, true, true, true, false, false},
-        Attribute::None,
-    },
-    {
-        OC::QuadOp,
-        "QuadOp",
-        OCC::QuadOp,
-        "quadOp",
-        {false, true, true, true, false, true, true, true, true, false, false},
-        Attribute::None,
-    },
-
-    // Bitcasts with different sizes void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::BitcastI16toF16,
-        "BitcastI16toF16",
-        OCC::BitcastI16toF16,
-        "bitcastI16toF16",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::BitcastF16toI16,
-        "BitcastF16toI16",
-        OCC::BitcastF16toI16,
-        "bitcastF16toI16",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::BitcastI32toF32,
-        "BitcastI32toF32",
-        OCC::BitcastI32toF32,
-        "bitcastI32toF32",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::BitcastF32toI32,
-        "BitcastF32toI32",
-        OCC::BitcastF32toI32,
-        "bitcastF32toI32",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::BitcastI64toF64,
-        "BitcastI64toF64",
-        OCC::BitcastI64toF64,
-        "bitcastI64toF64",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::BitcastF64toI64,
-        "BitcastF64toI64",
-        OCC::BitcastF64toI64,
-        "bitcastF64toI64",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Legacy floating-point void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::LegacyF32ToF16,
-        "LegacyF32ToF16",
-        OCC::LegacyF32ToF16,
-        "legacyF32ToF16",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::LegacyF16ToF32,
-        "LegacyF16ToF32",
-        OCC::LegacyF16ToF32,
-        "legacyF16ToF32",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Double precision void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::LegacyDoubleToFloat,
-        "LegacyDoubleToFloat",
-        OCC::LegacyDoubleToFloat,
-        "legacyDoubleToFloat",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::LegacyDoubleToSInt32,
-        "LegacyDoubleToSInt32",
-        OCC::LegacyDoubleToSInt32,
-        "legacyDoubleToSInt32",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::LegacyDoubleToUInt32,
-        "LegacyDoubleToUInt32",
-        OCC::LegacyDoubleToUInt32,
-        "legacyDoubleToUInt32",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Wave void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
-    {
-        OC::WaveAllBitCount,
-        "WaveAllBitCount",
-        OCC::WaveAllOp,
-        "waveAllOp",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WavePrefixBitCount,
-        "WavePrefixBitCount",
-        OCC::WavePrefixOp,
-        "wavePrefixOp",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Pixel shader void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::AttributeAtVertex,
-        "AttributeAtVertex",
-        OCC::AttributeAtVertex,
-        "attributeAtVertex",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Graphics shader void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::ViewID,
-        "ViewID",
-        OCC::ViewID,
-        "viewID",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Resources void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::RawBufferLoad,
-        "RawBufferLoad",
-        OCC::RawBufferLoad,
-        "rawBufferLoad",
-        {false, true, true, true, false, false, true, true, true, false, false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RawBufferStore,
-        "RawBufferStore",
-        OCC::RawBufferStore,
-        "rawBufferStore",
-        {false, true, true, true, false, false, true, true, true, false, false},
-        Attribute::None,
-    },
-
-    // Raytracing object space uint System Values void,     h,     f,     d, i1,
-    // i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::InstanceID,
-        "InstanceID",
-        OCC::InstanceID,
-        "instanceID",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::InstanceIndex,
-        "InstanceIndex",
-        OCC::InstanceIndex,
-        "instanceIndex",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Raytracing hit uint System Values void,     h,     f,     d,    i1, i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::HitKind,
-        "HitKind",
-        OCC::HitKind,
-        "hitKind",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Raytracing uint System Values void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::RayFlags,
-        "RayFlags",
-        OCC::RayFlags,
-        "rayFlags",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Ray Dispatch Arguments void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::DispatchRaysIndex,
-        "DispatchRaysIndex",
-        OCC::DispatchRaysIndex,
-        "dispatchRaysIndex",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::DispatchRaysDimensions,
-        "DispatchRaysDimensions",
-        OCC::DispatchRaysDimensions,
-        "dispatchRaysDimensions",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Ray Vectors void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::WorldRayOrigin,
-        "WorldRayOrigin",
-        OCC::WorldRayOrigin,
-        "worldRayOrigin",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::WorldRayDirection,
-        "WorldRayDirection",
-        OCC::WorldRayDirection,
-        "worldRayDirection",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Ray object space Vectors void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::ObjectRayOrigin,
-        "ObjectRayOrigin",
-        OCC::ObjectRayOrigin,
-        "objectRayOrigin",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::ObjectRayDirection,
-        "ObjectRayDirection",
-        OCC::ObjectRayDirection,
-        "objectRayDirection",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Ray Transforms void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::ObjectToWorld,
-        "ObjectToWorld",
-        OCC::ObjectToWorld,
-        "objectToWorld",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::WorldToObject,
-        "WorldToObject",
-        OCC::WorldToObject,
-        "worldToObject",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // RayT void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
-    {
-        OC::RayTMin,
-        "RayTMin",
-        OCC::RayTMin,
-        "rayTMin",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::RayTCurrent,
-        "RayTCurrent",
-        OCC::RayTCurrent,
-        "rayTCurrent",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // AnyHit Terminals void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::IgnoreHit,
-        "IgnoreHit",
-        OCC::IgnoreHit,
-        "ignoreHit",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::NoReturn,
-    },
-    {
-        OC::AcceptHitAndEndSearch,
-        "AcceptHitAndEndSearch",
-        OCC::AcceptHitAndEndSearch,
-        "acceptHitAndEndSearch",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::NoReturn,
-    },
-
-    // Indirect Shader Invocation void,     h,     f,     d,    i1,    i8, i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::TraceRay,
-        "TraceRay",
-        OCC::TraceRay,
-        "traceRay",
-        {false, false, false, false, false, false, false, false, false, true,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::ReportHit,
-        "ReportHit",
-        OCC::ReportHit,
-        "reportHit",
-        {false, false, false, false, false, false, false, false, false, true,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::CallShader,
-        "CallShader",
-        OCC::CallShader,
-        "callShader",
-        {false, false, false, false, false, false, false, false, false, true,
-         false},
-        Attribute::None,
-    },
-
-    // Library create handle from resource struct (like HL intrinsic) void, h,
-    // f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function
-    // attribute
-    {
-        OC::CreateHandleForLib,
-        "CreateHandleForLib",
-        OCC::CreateHandleForLib,
-        "createHandleForLib",
-        {false, false, false, false, false, false, false, false, false, false,
-         true},
-        Attribute::ReadOnly,
-    },
-
-    // Raytracing object space uint System Values void,     h,     f,     d, i1,
-    // i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::PrimitiveIndex,
-        "PrimitiveIndex",
-        OCC::PrimitiveIndex,
-        "primitiveIndex",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Dot product with accumulate void,     h,     f,     d,    i1,    i8, i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::Dot2AddHalf,
-        "Dot2AddHalf",
-        OCC::Dot2AddHalf,
-        "dot2AddHalf",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Dot4AddI8Packed,
-        "Dot4AddI8Packed",
-        OCC::Dot4AddPacked,
-        "dot4AddPacked",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::Dot4AddU8Packed,
-        "Dot4AddU8Packed",
-        OCC::Dot4AddPacked,
-        "dot4AddPacked",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Wave void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,
-    // obj ,  function attribute
-    {
-        OC::WaveMatch,
-        "WaveMatch",
-        OCC::WaveMatch,
-        "waveMatch",
-        {false, true, true, true, false, true, true, true, true, false, false},
-        Attribute::None,
-    },
-    {
-        OC::WaveMultiPrefixOp,
-        "WaveMultiPrefixOp",
-        OCC::WaveMultiPrefixOp,
-        "waveMultiPrefixOp",
-        {false, true, true, true, false, true, true, true, true, false, false},
-        Attribute::None,
-    },
-    {
-        OC::WaveMultiPrefixBitCount,
-        "WaveMultiPrefixBitCount",
-        OCC::WaveMultiPrefixBitCount,
-        "waveMultiPrefixBitCount",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Mesh shader instructions void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::SetMeshOutputCounts,
-        "SetMeshOutputCounts",
-        OCC::SetMeshOutputCounts,
-        "setMeshOutputCounts",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::EmitIndices,
-        "EmitIndices",
-        OCC::EmitIndices,
-        "emitIndices",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::GetMeshPayload,
-        "GetMeshPayload",
-        OCC::GetMeshPayload,
-        "getMeshPayload",
-        {false, false, false, false, false, false, false, false, false, true,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::StoreVertexOutput,
-        "StoreVertexOutput",
-        OCC::StoreVertexOutput,
-        "storeVertexOutput",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::StorePrimitiveOutput,
-        "StorePrimitiveOutput",
-        OCC::StorePrimitiveOutput,
-        "storePrimitiveOutput",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Amplification shader instructions void,     h,     f,     d,    i1, i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::DispatchMesh,
-        "DispatchMesh",
-        OCC::DispatchMesh,
-        "dispatchMesh",
-        {false, false, false, false, false, false, false, false, false, true,
-         false},
-        Attribute::None,
-    },
-
-    // Sampler Feedback void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::WriteSamplerFeedback,
-        "WriteSamplerFeedback",
-        OCC::WriteSamplerFeedback,
-        "writeSamplerFeedback",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WriteSamplerFeedbackBias,
-        "WriteSamplerFeedbackBias",
-        OCC::WriteSamplerFeedbackBias,
-        "writeSamplerFeedbackBias",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WriteSamplerFeedbackLevel,
-        "WriteSamplerFeedbackLevel",
-        OCC::WriteSamplerFeedbackLevel,
-        "writeSamplerFeedbackLevel",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WriteSamplerFeedbackGrad,
-        "WriteSamplerFeedbackGrad",
-        OCC::WriteSamplerFeedbackGrad,
-        "writeSamplerFeedbackGrad",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::AllocateRayQuery,
-        "AllocateRayQuery",
-        OCC::AllocateRayQuery,
-        "allocateRayQuery",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::RayQuery_TraceRayInline,
-        "RayQuery_TraceRayInline",
-        OCC::RayQuery_TraceRayInline,
-        "rayQuery_TraceRayInline",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::RayQuery_Proceed,
-        "RayQuery_Proceed",
-        OCC::RayQuery_Proceed,
-        "rayQuery_Proceed",
-        {false, false, false, false, true, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::RayQuery_Abort,
-        "RayQuery_Abort",
-        OCC::RayQuery_Abort,
-        "rayQuery_Abort",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::RayQuery_CommitNonOpaqueTriangleHit,
-        "RayQuery_CommitNonOpaqueTriangleHit",
-        OCC::RayQuery_CommitNonOpaqueTriangleHit,
-        "rayQuery_CommitNonOpaqueTriangleHit",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::RayQuery_CommitProceduralPrimitiveHit,
-        "RayQuery_CommitProceduralPrimitiveHit",
-        OCC::RayQuery_CommitProceduralPrimitiveHit,
-        "rayQuery_CommitProceduralPrimitiveHit",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::RayQuery_CommittedStatus,
-        "RayQuery_CommittedStatus",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateType,
-        "RayQuery_CandidateType",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateObjectToWorld3x4,
-        "RayQuery_CandidateObjectToWorld3x4",
-        OCC::RayQuery_StateMatrix,
-        "rayQuery_StateMatrix",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateWorldToObject3x4,
-        "RayQuery_CandidateWorldToObject3x4",
-        OCC::RayQuery_StateMatrix,
-        "rayQuery_StateMatrix",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedObjectToWorld3x4,
-        "RayQuery_CommittedObjectToWorld3x4",
-        OCC::RayQuery_StateMatrix,
-        "rayQuery_StateMatrix",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedWorldToObject3x4,
-        "RayQuery_CommittedWorldToObject3x4",
-        OCC::RayQuery_StateMatrix,
-        "rayQuery_StateMatrix",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateProceduralPrimitiveNonOpaque,
-        "RayQuery_CandidateProceduralPrimitiveNonOpaque",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, true, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateTriangleFrontFace,
-        "RayQuery_CandidateTriangleFrontFace",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, true, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedTriangleFrontFace,
-        "RayQuery_CommittedTriangleFrontFace",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, true, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateTriangleBarycentrics,
-        "RayQuery_CandidateTriangleBarycentrics",
-        OCC::RayQuery_StateVector,
-        "rayQuery_StateVector",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedTriangleBarycentrics,
-        "RayQuery_CommittedTriangleBarycentrics",
-        OCC::RayQuery_StateVector,
-        "rayQuery_StateVector",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_RayFlags,
-        "RayQuery_RayFlags",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_WorldRayOrigin,
-        "RayQuery_WorldRayOrigin",
-        OCC::RayQuery_StateVector,
-        "rayQuery_StateVector",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_WorldRayDirection,
-        "RayQuery_WorldRayDirection",
-        OCC::RayQuery_StateVector,
-        "rayQuery_StateVector",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_RayTMin,
-        "RayQuery_RayTMin",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateTriangleRayT,
-        "RayQuery_CandidateTriangleRayT",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedRayT,
-        "RayQuery_CommittedRayT",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateInstanceIndex,
-        "RayQuery_CandidateInstanceIndex",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateInstanceID,
-        "RayQuery_CandidateInstanceID",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateGeometryIndex,
-        "RayQuery_CandidateGeometryIndex",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidatePrimitiveIndex,
-        "RayQuery_CandidatePrimitiveIndex",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateObjectRayOrigin,
-        "RayQuery_CandidateObjectRayOrigin",
-        OCC::RayQuery_StateVector,
-        "rayQuery_StateVector",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CandidateObjectRayDirection,
-        "RayQuery_CandidateObjectRayDirection",
-        OCC::RayQuery_StateVector,
-        "rayQuery_StateVector",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedInstanceIndex,
-        "RayQuery_CommittedInstanceIndex",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedInstanceID,
-        "RayQuery_CommittedInstanceID",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedGeometryIndex,
-        "RayQuery_CommittedGeometryIndex",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedPrimitiveIndex,
-        "RayQuery_CommittedPrimitiveIndex",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedObjectRayOrigin,
-        "RayQuery_CommittedObjectRayOrigin",
-        OCC::RayQuery_StateVector,
-        "rayQuery_StateVector",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedObjectRayDirection,
-        "RayQuery_CommittedObjectRayDirection",
-        OCC::RayQuery_StateVector,
-        "rayQuery_StateVector",
-        {false, false, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Raytracing object space uint System Values, raytracing tier 1.1 void, h,
-    // f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function
-    // attribute
-    {
-        OC::GeometryIndex,
-        "GeometryIndex",
-        OCC::GeometryIndex,
-        "geometryIndex",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Inline Ray Query void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::RayQuery_CandidateInstanceContributionToHitGroupIndex,
-        "RayQuery_CandidateInstanceContributionToHitGroupIndex",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::RayQuery_CommittedInstanceContributionToHitGroupIndex,
-        "RayQuery_CommittedInstanceContributionToHitGroupIndex",
-        OCC::RayQuery_StateScalar,
-        "rayQuery_StateScalar",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Get handle from heap void,     h,     f,     d,    i1,    i8,   i16, i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::AnnotateHandle,
-        "AnnotateHandle",
-        OCC::AnnotateHandle,
-        "annotateHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::CreateHandleFromBinding,
-        "CreateHandleFromBinding",
-        OCC::CreateHandleFromBinding,
-        "createHandleFromBinding",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::CreateHandleFromHeap,
-        "CreateHandleFromHeap",
-        OCC::CreateHandleFromHeap,
-        "createHandleFromHeap",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Unpacking intrinsics void,     h,     f,     d,    i1,    i8,   i16, i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::Unpack4x8,
-        "Unpack4x8",
-        OCC::Unpack4x8,
-        "unpack4x8",
-        {false, false, false, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Packing intrinsics void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::Pack4x8,
-        "Pack4x8",
-        OCC::Pack4x8,
-        "pack4x8",
-        {false, false, false, false, false, false, true, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Helper Lanes void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::IsHelperLane,
-        "IsHelperLane",
-        OCC::IsHelperLane,
-        "isHelperLane",
-        {false, false, false, false, true, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Quad Wave Ops void,     h,     f,     d,    i1,    i8,   i16,   i32, i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::QuadVote,
-        "QuadVote",
-        OCC::QuadVote,
-        "quadVote",
-        {false, false, false, false, true, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Resources - gather void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::TextureGatherRaw,
-        "TextureGatherRaw",
-        OCC::TextureGatherRaw,
-        "textureGatherRaw",
-        {false, false, false, false, false, false, true, true, true, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Resources - sample void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::SampleCmpLevel,
-        "SampleCmpLevel",
-        OCC::SampleCmpLevel,
-        "sampleCmpLevel",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Resources void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::TextureStoreSample,
-        "TextureStoreSample",
-        OCC::TextureStoreSample,
-        "textureStoreSample",
-        {false, true, true, false, false, false, true, true, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // WaveMatrix void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
-    {
-        OC::WaveMatrix_Annotate,
-        "WaveMatrix_Annotate",
-        OCC::WaveMatrix_Annotate,
-        "waveMatrix_Annotate",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_Depth,
-        "WaveMatrix_Depth",
-        OCC::WaveMatrix_Depth,
-        "waveMatrix_Depth",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::WaveMatrix_Fill,
-        "WaveMatrix_Fill",
-        OCC::WaveMatrix_Fill,
-        "waveMatrix_Fill",
-        {false, true, true, false, false, false, false, true, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_LoadRawBuf,
-        "WaveMatrix_LoadRawBuf",
-        OCC::WaveMatrix_LoadRawBuf,
-        "waveMatrix_LoadRawBuf",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WaveMatrix_LoadGroupShared,
-        "WaveMatrix_LoadGroupShared",
-        OCC::WaveMatrix_LoadGroupShared,
-        "waveMatrix_LoadGroupShared",
-        {false, true, true, false, false, false, false, true, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_StoreRawBuf,
-        "WaveMatrix_StoreRawBuf",
-        OCC::WaveMatrix_StoreRawBuf,
-        "waveMatrix_StoreRawBuf",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::WaveMatrix_StoreGroupShared,
-        "WaveMatrix_StoreGroupShared",
-        OCC::WaveMatrix_StoreGroupShared,
-        "waveMatrix_StoreGroupShared",
-        {false, true, true, false, false, false, false, true, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_Multiply,
-        "WaveMatrix_Multiply",
-        OCC::WaveMatrix_Multiply,
-        "waveMatrix_Multiply",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_MultiplyAccumulate,
-        "WaveMatrix_MultiplyAccumulate",
-        OCC::WaveMatrix_Multiply,
-        "waveMatrix_Multiply",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_ScalarOp,
-        "WaveMatrix_ScalarOp",
-        OCC::WaveMatrix_ScalarOp,
-        "waveMatrix_ScalarOp",
-        {false, true, true, false, false, false, false, true, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_SumAccumulate,
-        "WaveMatrix_SumAccumulate",
-        OCC::WaveMatrix_Accumulate,
-        "waveMatrix_Accumulate",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_Add,
-        "WaveMatrix_Add",
-        OCC::WaveMatrix_Accumulate,
-        "waveMatrix_Accumulate",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-
-    // Create/Annotate Node Handles void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::AllocateNodeOutputRecords,
-        "AllocateNodeOutputRecords",
-        OCC::AllocateNodeOutputRecords,
-        "allocateNodeOutputRecords",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Get Pointer to Node Record in Address Space 6 void,     h,     f,     d,
-    // i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::GetNodeRecordPtr,
-        "GetNodeRecordPtr",
-        OCC::GetNodeRecordPtr,
-        "getNodeRecordPtr",
-        {false, false, false, false, false, false, false, false, false, true,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Work Graph intrinsics void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::IncrementOutputCount,
-        "IncrementOutputCount",
-        OCC::IncrementOutputCount,
-        "incrementOutputCount",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::OutputComplete,
-        "OutputComplete",
-        OCC::OutputComplete,
-        "outputComplete",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-    {
-        OC::GetInputRecordCount,
-        "GetInputRecordCount",
-        OCC::GetInputRecordCount,
-        "getInputRecordCount",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::FinishedCrossGroupSharing,
-        "FinishedCrossGroupSharing",
-        OCC::FinishedCrossGroupSharing,
-        "finishedCrossGroupSharing",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::None,
-    },
-
-    // Synchronization void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::BarrierByMemoryType,
-        "BarrierByMemoryType",
-        OCC::BarrierByMemoryType,
-        "barrierByMemoryType",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::NoDuplicate,
-    },
-    {
-        OC::BarrierByMemoryHandle,
-        "BarrierByMemoryHandle",
-        OCC::BarrierByMemoryHandle,
-        "barrierByMemoryHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::NoDuplicate,
-    },
-    {
-        OC::BarrierByNodeRecordHandle,
-        "BarrierByNodeRecordHandle",
-        OCC::BarrierByNodeRecordHandle,
-        "barrierByNodeRecordHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::NoDuplicate,
-    },
-
-    // Create/Annotate Node Handles void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::CreateNodeOutputHandle,
-        "CreateNodeOutputHandle",
-        OCC::createNodeOutputHandle,
-        "createNodeOutputHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::IndexNodeHandle,
-        "IndexNodeHandle",
-        OCC::IndexNodeHandle,
-        "indexNodeHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::AnnotateNodeHandle,
-        "AnnotateNodeHandle",
-        OCC::AnnotateNodeHandle,
-        "annotateNodeHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::CreateNodeInputRecordHandle,
-        "CreateNodeInputRecordHandle",
-        OCC::CreateNodeInputRecordHandle,
-        "createNodeInputRecordHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::AnnotateNodeRecordHandle,
-        "AnnotateNodeRecordHandle",
-        OCC::AnnotateNodeRecordHandle,
-        "annotateNodeRecordHandle",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-
-    // Work Graph intrinsics void,     h,     f,     d,    i1,    i8,   i16,
-    // i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::NodeOutputIsValid,
-        "NodeOutputIsValid",
-        OCC::NodeOutputIsValid,
-        "nodeOutputIsValid",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::GetRemainingRecursionLevels,
-        "GetRemainingRecursionLevels",
-        OCC::GetRemainingRecursionLevels,
-        "getRemainingRecursionLevels",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Comparison Samples void,     h,     f,     d,    i1,    i8,   i16,   i32,
-    // i64,   udt,   obj ,  function attribute
-    {
-        OC::SampleCmpGrad,
-        "SampleCmpGrad",
-        OCC::SampleCmpGrad,
-        "sampleCmpGrad",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-    {
-        OC::SampleCmpBias,
-        "SampleCmpBias",
-        OCC::SampleCmpBias,
-        "sampleCmpBias",
-        {false, true, true, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadOnly,
-    },
-
-    // Extended Command Information void,     h,     f,     d,    i1,    i8,
-    // i16,   i32,   i64,   udt,   obj ,  function attribute
-    {
-        OC::StartVertexLocation,
-        "StartVertexLocation",
-        OCC::StartVertexLocation,
-        "startVertexLocation",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::StartInstanceLocation,
-        "StartInstanceLocation",
-        OCC::StartInstanceLocation,
-        "startInstanceLocation",
-        {false, false, false, false, false, false, false, true, false, false,
-         false},
-        Attribute::ReadNone,
-    },
+//   OpCode                       OpCode name,                OpCodeClass                    OpCodeClass name,              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj,  function attribute
+  // Temporary, indexable, input, output registers                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TempRegLoad,             "TempRegLoad",              OCC::TempRegLoad,              "tempRegLoad",               { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::TempRegStore,            "TempRegStore",             OCC::TempRegStore,             "tempRegStore",              { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+  {  OC::MinPrecXRegLoad,         "MinPrecXRegLoad",          OCC::MinPrecXRegLoad,          "minPrecXRegLoad",           { false,  true, false, false, false, false,  true, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::MinPrecXRegStore,        "MinPrecXRegStore",         OCC::MinPrecXRegStore,         "minPrecXRegStore",          { false,  true, false, false, false, false,  true, false, false, false, false}, Attribute::None,     },
+  {  OC::LoadInput,               "LoadInput",                OCC::LoadInput,                "loadInput",                 { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::StoreOutput,             "StoreOutput",              OCC::StoreOutput,              "storeOutput",               { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+
+  // Unary float                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::FAbs,                    "FAbs",                     OCC::Unary,                    "unary",                     { false,  true,  true,  true, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Saturate,                "Saturate",                 OCC::Unary,                    "unary",                     { false,  true,  true,  true, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::IsNaN,                   "IsNaN",                    OCC::IsSpecialFloat,           "isSpecialFloat",            { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::IsInf,                   "IsInf",                    OCC::IsSpecialFloat,           "isSpecialFloat",            { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::IsFinite,                "IsFinite",                 OCC::IsSpecialFloat,           "isSpecialFloat",            { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::IsNormal,                "IsNormal",                 OCC::IsSpecialFloat,           "isSpecialFloat",            { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Cos,                     "Cos",                      OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Sin,                     "Sin",                      OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Tan,                     "Tan",                      OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Acos,                    "Acos",                     OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Asin,                    "Asin",                     OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Atan,                    "Atan",                     OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Hcos,                    "Hcos",                     OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Hsin,                    "Hsin",                     OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Htan,                    "Htan",                     OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Exp,                     "Exp",                      OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Frc,                     "Frc",                      OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Log,                     "Log",                      OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Sqrt,                    "Sqrt",                     OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Rsqrt,                   "Rsqrt",                    OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Unary float - rounding                                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Round_ne,                "Round_ne",                 OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Round_ni,                "Round_ni",                 OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Round_pi,                "Round_pi",                 OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Round_z,                 "Round_z",                  OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Unary int                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Bfrev,                   "Bfrev",                    OCC::Unary,                    "unary",                     { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+  {  OC::Countbits,               "Countbits",                OCC::UnaryBits,                "unaryBits",                 { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+  {  OC::FirstbitLo,              "FirstbitLo",               OCC::UnaryBits,                "unaryBits",                 { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Unary uint                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::FirstbitHi,              "FirstbitHi",               OCC::UnaryBits,                "unaryBits",                 { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Unary int                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::FirstbitSHi,             "FirstbitSHi",              OCC::UnaryBits,                "unaryBits",                 { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Binary float                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::FMax,                    "FMax",                     OCC::Binary,                   "binary",                    { false,  true,  true,  true, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::FMin,                    "FMin",                     OCC::Binary,                   "binary",                    { false,  true,  true,  true, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Binary int                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IMax,                    "IMax",                     OCC::Binary,                   "binary",                    { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+  {  OC::IMin,                    "IMin",                     OCC::Binary,                   "binary",                    { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Binary uint                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::UMax,                    "UMax",                     OCC::Binary,                   "binary",                    { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+  {  OC::UMin,                    "UMin",                     OCC::Binary,                   "binary",                    { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Binary int with two outputs                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IMul,                    "IMul",                     OCC::BinaryWithTwoOuts,        "binaryWithTwoOuts",         { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Binary uint with two outputs                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::UMul,                    "UMul",                     OCC::BinaryWithTwoOuts,        "binaryWithTwoOuts",         { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::UDiv,                    "UDiv",                     OCC::BinaryWithTwoOuts,        "binaryWithTwoOuts",         { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Binary uint with carry or borrow                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::UAddc,                   "UAddc",                    OCC::BinaryWithCarryOrBorrow,  "binaryWithCarryOrBorrow",   { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::USubb,                   "USubb",                    OCC::BinaryWithCarryOrBorrow,  "binaryWithCarryOrBorrow",   { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Tertiary float                                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::FMad,                    "FMad",                     OCC::Tertiary,                 "tertiary",                  { false,  true,  true,  true, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Fma,                     "Fma",                      OCC::Tertiary,                 "tertiary",                  { false, false, false,  true, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Tertiary int                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IMad,                    "IMad",                     OCC::Tertiary,                 "tertiary",                  { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Tertiary uint                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::UMad,                    "UMad",                     OCC::Tertiary,                 "tertiary",                  { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Tertiary int                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Msad,                    "Msad",                     OCC::Tertiary,                 "tertiary",                  { false, false, false, false, false, false, false,  true,  true, false, false}, Attribute::ReadNone, },
+  {  OC::Ibfe,                    "Ibfe",                     OCC::Tertiary,                 "tertiary",                  { false, false, false, false, false, false, false,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Tertiary uint                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Ubfe,                    "Ubfe",                     OCC::Tertiary,                 "tertiary",                  { false, false, false, false, false, false, false,  true,  true, false, false}, Attribute::ReadNone, },
+
+  // Quaternary                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Bfi,                     "Bfi",                      OCC::Quaternary,               "quaternary",                { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Dot                                                                                                                     void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Dot2,                    "Dot2",                     OCC::Dot2,                     "dot2",                      { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Dot3,                    "Dot3",                     OCC::Dot3,                     "dot3",                      { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Dot4,                    "Dot4",                     OCC::Dot4,                     "dot4",                      { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Resources                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CreateHandle,            "CreateHandle",             OCC::CreateHandle,             "createHandle",              {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::CBufferLoad,             "CBufferLoad",              OCC::CBufferLoad,              "cbufferLoad",               { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::ReadOnly, },
+  {  OC::CBufferLoadLegacy,       "CBufferLoadLegacy",        OCC::CBufferLoadLegacy,        "cbufferLoadLegacy",         { false,  true,  true,  true, false, false,  true,  true,  true, false, false}, Attribute::ReadOnly, },
+
+  // Resources - sample                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Sample,                  "Sample",                   OCC::Sample,                   "sample",                    { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleBias,              "SampleBias",               OCC::SampleBias,               "sampleBias",                { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleLevel,             "SampleLevel",              OCC::SampleLevel,              "sampleLevel",               { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleGrad,              "SampleGrad",               OCC::SampleGrad,               "sampleGrad",                { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleCmp,               "SampleCmp",                OCC::SampleCmp,                "sampleCmp",                 { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleCmpLevelZero,      "SampleCmpLevelZero",       OCC::SampleCmpLevelZero,       "sampleCmpLevelZero",        { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Resources                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TextureLoad,             "TextureLoad",              OCC::TextureLoad,              "textureLoad",               { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::TextureStore,            "TextureStore",             OCC::TextureStore,             "textureStore",              { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+  {  OC::BufferLoad,              "BufferLoad",               OCC::BufferLoad,               "bufferLoad",                { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::BufferStore,             "BufferStore",              OCC::BufferStore,              "bufferStore",               { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+  {  OC::BufferUpdateCounter,     "BufferUpdateCounter",      OCC::BufferUpdateCounter,      "bufferUpdateCounter",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::CheckAccessFullyMapped,  "CheckAccessFullyMapped",   OCC::CheckAccessFullyMapped,   "checkAccessFullyMapped",    { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::GetDimensions,           "GetDimensions",            OCC::GetDimensions,            "getDimensions",             {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Resources - gather                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TextureGather,           "TextureGather",            OCC::TextureGather,            "textureGather",             { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::TextureGatherCmp,        "TextureGatherCmp",         OCC::TextureGatherCmp,         "textureGatherCmp",          { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadOnly, },
+
+  // Resources - sample                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Texture2DMSGetSamplePosition, "Texture2DMSGetSamplePosition", OCC::Texture2DMSGetSamplePosition, "texture2DMSGetSamplePosition", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RenderTargetGetSamplePosition, "RenderTargetGetSamplePosition", OCC::RenderTargetGetSamplePosition, "renderTargetGetSamplePosition", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RenderTargetGetSampleCount, "RenderTargetGetSampleCount", OCC::RenderTargetGetSampleCount, "renderTargetGetSampleCount", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Synchronization                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::AtomicBinOp,             "AtomicBinOp",              OCC::AtomicBinOp,              "atomicBinOp",               { false, false, false, false, false, false, false,  true,  true, false, false}, Attribute::None,     },
+  {  OC::AtomicCompareExchange,   "AtomicCompareExchange",    OCC::AtomicCompareExchange,    "atomicCompareExchange",     { false, false, false, false, false, false, false,  true,  true, false, false}, Attribute::None,     },
+  {  OC::Barrier,                 "Barrier",                  OCC::Barrier,                  "barrier",                   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
+
+  // Derivatives                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CalculateLOD,            "CalculateLOD",             OCC::CalculateLOD,             "calculateLOD",              { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Pixel shader                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Discard,                 "Discard",                  OCC::Discard,                  "discard",                   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Derivatives                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::DerivCoarseX,            "DerivCoarseX",             OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::DerivCoarseY,            "DerivCoarseY",             OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::DerivFineX,              "DerivFineX",               OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::DerivFineY,              "DerivFineY",               OCC::Unary,                    "unary",                     { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Pixel shader                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::EvalSnapped,             "EvalSnapped",              OCC::EvalSnapped,              "evalSnapped",               { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::EvalSampleIndex,         "EvalSampleIndex",          OCC::EvalSampleIndex,          "evalSampleIndex",           { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::EvalCentroid,            "EvalCentroid",             OCC::EvalCentroid,             "evalCentroid",              { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::SampleIndex,             "SampleIndex",              OCC::SampleIndex,              "sampleIndex",               { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::Coverage,                "Coverage",                 OCC::Coverage,                 "coverage",                  { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::InnerCoverage,           "InnerCoverage",            OCC::InnerCoverage,            "innerCoverage",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Compute/Mesh/Amplification/Node shader                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::ThreadId,                "ThreadId",                 OCC::ThreadId,                 "threadId",                  { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::GroupId,                 "GroupId",                  OCC::GroupId,                  "groupId",                   { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::ThreadIdInGroup,         "ThreadIdInGroup",          OCC::ThreadIdInGroup,          "threadIdInGroup",           { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::FlattenedThreadIdInGroup, "FlattenedThreadIdInGroup", OCC::FlattenedThreadIdInGroup, "flattenedThreadIdInGroup",  { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Geometry shader                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::EmitStream,              "EmitStream",               OCC::EmitStream,               "emitStream",                {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::CutStream,               "CutStream",                OCC::CutStream,                "cutStream",                 {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::EmitThenCutStream,       "EmitThenCutStream",        OCC::EmitThenCutStream,        "emitThenCutStream",         {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::GSInstanceID,            "GSInstanceID",             OCC::GSInstanceID,             "gsInstanceID",              { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Double precision                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::MakeDouble,              "MakeDouble",               OCC::MakeDouble,               "makeDouble",                { false, false, false,  true, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::SplitDouble,             "SplitDouble",              OCC::SplitDouble,              "splitDouble",               { false, false, false,  true, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Domain and hull shader                                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::LoadOutputControlPoint,  "LoadOutputControlPoint",   OCC::LoadOutputControlPoint,   "loadOutputControlPoint",    { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::LoadPatchConstant,       "LoadPatchConstant",        OCC::LoadPatchConstant,        "loadPatchConstant",         { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Domain shader                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::DomainLocation,          "DomainLocation",           OCC::DomainLocation,           "domainLocation",            { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Hull shader                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::StorePatchConstant,      "StorePatchConstant",       OCC::StorePatchConstant,       "storePatchConstant",        { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+  {  OC::OutputControlPointID,    "OutputControlPointID",     OCC::OutputControlPointID,     "outputControlPointID",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Hull, Domain and Geometry shaders                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::PrimitiveID,             "PrimitiveID",              OCC::PrimitiveID,              "primitiveID",               { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Other                                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CycleCounterLegacy,      "CycleCounterLegacy",       OCC::CycleCounterLegacy,       "cycleCounterLegacy",        {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Wave                                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::WaveIsFirstLane,         "WaveIsFirstLane",          OCC::WaveIsFirstLane,          "waveIsFirstLane",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WaveGetLaneIndex,        "WaveGetLaneIndex",         OCC::WaveGetLaneIndex,         "waveGetLaneIndex",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::WaveGetLaneCount,        "WaveGetLaneCount",         OCC::WaveGetLaneCount,         "waveGetLaneCount",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::WaveAnyTrue,             "WaveAnyTrue",              OCC::WaveAnyTrue,              "waveAnyTrue",               {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WaveAllTrue,             "WaveAllTrue",              OCC::WaveAllTrue,              "waveAllTrue",               {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WaveActiveAllEqual,      "WaveActiveAllEqual",       OCC::WaveActiveAllEqual,       "waveActiveAllEqual",        { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveActiveBallot,        "WaveActiveBallot",         OCC::WaveActiveBallot,         "waveActiveBallot",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WaveReadLaneAt,          "WaveReadLaneAt",           OCC::WaveReadLaneAt,           "waveReadLaneAt",            { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveReadLaneFirst,       "WaveReadLaneFirst",        OCC::WaveReadLaneFirst,        "waveReadLaneFirst",         { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveActiveOp,            "WaveActiveOp",             OCC::WaveActiveOp,             "waveActiveOp",              { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveActiveBit,           "WaveActiveBit",            OCC::WaveActiveBit,            "waveActiveBit",             { false, false, false, false, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WavePrefixOp,            "WavePrefixOp",             OCC::WavePrefixOp,             "wavePrefixOp",              { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
+
+  // Quad Wave Ops                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::QuadReadLaneAt,          "QuadReadLaneAt",           OCC::QuadReadLaneAt,           "quadReadLaneAt",            { false,  true,  true,  true,  true,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::QuadOp,                  "QuadOp",                   OCC::QuadOp,                   "quadOp",                    { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
+
+  // Bitcasts with different sizes                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::BitcastI16toF16,         "BitcastI16toF16",          OCC::BitcastI16toF16,          "bitcastI16toF16",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::BitcastF16toI16,         "BitcastF16toI16",          OCC::BitcastF16toI16,          "bitcastF16toI16",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::BitcastI32toF32,         "BitcastI32toF32",          OCC::BitcastI32toF32,          "bitcastI32toF32",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::BitcastF32toI32,         "BitcastF32toI32",          OCC::BitcastF32toI32,          "bitcastF32toI32",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::BitcastI64toF64,         "BitcastI64toF64",          OCC::BitcastI64toF64,          "bitcastI64toF64",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::BitcastF64toI64,         "BitcastF64toI64",          OCC::BitcastF64toI64,          "bitcastF64toI64",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Legacy floating-point                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::LegacyF32ToF16,          "LegacyF32ToF16",           OCC::LegacyF32ToF16,           "legacyF32ToF16",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::LegacyF16ToF32,          "LegacyF16ToF32",           OCC::LegacyF16ToF32,           "legacyF16ToF32",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Double precision                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::LegacyDoubleToFloat,     "LegacyDoubleToFloat",      OCC::LegacyDoubleToFloat,      "legacyDoubleToFloat",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::LegacyDoubleToSInt32,    "LegacyDoubleToSInt32",     OCC::LegacyDoubleToSInt32,     "legacyDoubleToSInt32",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::LegacyDoubleToUInt32,    "LegacyDoubleToUInt32",     OCC::LegacyDoubleToUInt32,     "legacyDoubleToUInt32",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Wave                                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::WaveAllBitCount,         "WaveAllBitCount",          OCC::WaveAllOp,                "waveAllOp",                 {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WavePrefixBitCount,      "WavePrefixBitCount",       OCC::WavePrefixOp,             "wavePrefixOp",              {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Pixel shader                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::AttributeAtVertex,       "AttributeAtVertex",        OCC::AttributeAtVertex,        "attributeAtVertex",         { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Graphics shader                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::ViewID,                  "ViewID",                   OCC::ViewID,                   "viewID",                    { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Resources                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::RawBufferLoad,           "RawBufferLoad",            OCC::RawBufferLoad,            "rawBufferLoad",             { false,  true,  true,  true, false, false,  true,  true,  true, false, false}, Attribute::ReadOnly, },
+  {  OC::RawBufferStore,          "RawBufferStore",           OCC::RawBufferStore,           "rawBufferStore",            { false,  true,  true,  true, false, false,  true,  true,  true, false, false}, Attribute::None,     },
+
+  // Raytracing object space uint System Values                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::InstanceID,              "InstanceID",               OCC::InstanceID,               "instanceID",                { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::InstanceIndex,           "InstanceIndex",            OCC::InstanceIndex,            "instanceIndex",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Raytracing hit uint System Values                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::HitKind,                 "HitKind",                  OCC::HitKind,                  "hitKind",                   { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Raytracing uint System Values                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::RayFlags,                "RayFlags",                 OCC::RayFlags,                 "rayFlags",                  { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Ray Dispatch Arguments                                                                                                  void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::DispatchRaysIndex,       "DispatchRaysIndex",        OCC::DispatchRaysIndex,        "dispatchRaysIndex",         { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::DispatchRaysDimensions,  "DispatchRaysDimensions",   OCC::DispatchRaysDimensions,   "dispatchRaysDimensions",    { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Ray Vectors                                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::WorldRayOrigin,          "WorldRayOrigin",           OCC::WorldRayOrigin,           "worldRayOrigin",            { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::WorldRayDirection,       "WorldRayDirection",        OCC::WorldRayDirection,        "worldRayDirection",         { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Ray object space Vectors                                                                                                void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::ObjectRayOrigin,         "ObjectRayOrigin",          OCC::ObjectRayOrigin,          "objectRayOrigin",           { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::ObjectRayDirection,      "ObjectRayDirection",       OCC::ObjectRayDirection,       "objectRayDirection",        { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Ray Transforms                                                                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::ObjectToWorld,           "ObjectToWorld",            OCC::ObjectToWorld,            "objectToWorld",             { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::WorldToObject,           "WorldToObject",            OCC::WorldToObject,            "worldToObject",             { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // RayT                                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::RayTMin,                 "RayTMin",                  OCC::RayTMin,                  "rayTMin",                   { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::RayTCurrent,             "RayTCurrent",              OCC::RayTCurrent,              "rayTCurrent",               { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // AnyHit Terminals                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IgnoreHit,               "IgnoreHit",                OCC::IgnoreHit,                "ignoreHit",                 {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoReturn, },
+  {  OC::AcceptHitAndEndSearch,   "AcceptHitAndEndSearch",    OCC::AcceptHitAndEndSearch,    "acceptHitAndEndSearch",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoReturn, },
+
+  // Indirect Shader Invocation                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TraceRay,                "TraceRay",                 OCC::TraceRay,                 "traceRay",                  { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::None,     },
+  {  OC::ReportHit,               "ReportHit",                OCC::ReportHit,                "reportHit",                 { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::None,     },
+  {  OC::CallShader,              "CallShader",               OCC::CallShader,               "callShader",                { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::None,     },
+
+  // Library create handle from resource struct (like HL intrinsic)                                                          void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CreateHandleForLib,      "CreateHandleForLib",       OCC::CreateHandleForLib,       "createHandleForLib",        { false, false, false, false, false, false, false, false, false, false,  true}, Attribute::ReadOnly, },
+
+  // Raytracing object space uint System Values                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::PrimitiveIndex,          "PrimitiveIndex",           OCC::PrimitiveIndex,           "primitiveIndex",            { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Dot product with accumulate                                                                                             void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Dot2AddHalf,             "Dot2AddHalf",              OCC::Dot2AddHalf,              "dot2AddHalf",               { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::Dot4AddI8Packed,         "Dot4AddI8Packed",          OCC::Dot4AddPacked,            "dot4AddPacked",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::Dot4AddU8Packed,         "Dot4AddU8Packed",          OCC::Dot4AddPacked,            "dot4AddPacked",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Wave                                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::WaveMatch,               "WaveMatch",                OCC::WaveMatch,                "waveMatch",                 { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveMultiPrefixOp,       "WaveMultiPrefixOp",        OCC::WaveMultiPrefixOp,        "waveMultiPrefixOp",         { false,  true,  true,  true, false,  true,  true,  true,  true, false, false}, Attribute::None,     },
+  {  OC::WaveMultiPrefixBitCount, "WaveMultiPrefixBitCount",  OCC::WaveMultiPrefixBitCount,  "waveMultiPrefixBitCount",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Mesh shader instructions                                                                                                void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::SetMeshOutputCounts,     "SetMeshOutputCounts",      OCC::SetMeshOutputCounts,      "setMeshOutputCounts",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::EmitIndices,             "EmitIndices",              OCC::EmitIndices,              "emitIndices",               {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::GetMeshPayload,          "GetMeshPayload",           OCC::GetMeshPayload,           "getMeshPayload",            { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::ReadOnly, },
+  {  OC::StoreVertexOutput,       "StoreVertexOutput",        OCC::StoreVertexOutput,        "storeVertexOutput",         { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+  {  OC::StorePrimitiveOutput,    "StorePrimitiveOutput",     OCC::StorePrimitiveOutput,     "storePrimitiveOutput",      { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+
+  // Amplification shader instructions                                                                                       void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::DispatchMesh,            "DispatchMesh",             OCC::DispatchMesh,             "dispatchMesh",              { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::None,     },
+
+  // Sampler Feedback                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::WriteSamplerFeedback,    "WriteSamplerFeedback",     OCC::WriteSamplerFeedback,     "writeSamplerFeedback",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WriteSamplerFeedbackBias, "WriteSamplerFeedbackBias", OCC::WriteSamplerFeedbackBias, "writeSamplerFeedbackBias",  {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WriteSamplerFeedbackLevel, "WriteSamplerFeedbackLevel", OCC::WriteSamplerFeedbackLevel, "writeSamplerFeedbackLevel", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WriteSamplerFeedbackGrad, "WriteSamplerFeedbackGrad", OCC::WriteSamplerFeedbackGrad, "writeSamplerFeedbackGrad",  {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Inline Ray Query                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::AllocateRayQuery,        "AllocateRayQuery",         OCC::AllocateRayQuery,         "allocateRayQuery",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_TraceRayInline, "RayQuery_TraceRayInline",  OCC::RayQuery_TraceRayInline,  "rayQuery_TraceRayInline",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_Proceed,        "RayQuery_Proceed",         OCC::RayQuery_Proceed,         "rayQuery_Proceed",          { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_Abort,          "RayQuery_Abort",           OCC::RayQuery_Abort,           "rayQuery_Abort",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_CommitNonOpaqueTriangleHit, "RayQuery_CommitNonOpaqueTriangleHit", OCC::RayQuery_CommitNonOpaqueTriangleHit, "rayQuery_CommitNonOpaqueTriangleHit", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_CommitProceduralPrimitiveHit, "RayQuery_CommitProceduralPrimitiveHit", OCC::RayQuery_CommitProceduralPrimitiveHit, "rayQuery_CommitProceduralPrimitiveHit", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::RayQuery_CommittedStatus, "RayQuery_CommittedStatus", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateType,  "RayQuery_CandidateType",   OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateObjectToWorld3x4, "RayQuery_CandidateObjectToWorld3x4", OCC::RayQuery_StateMatrix,     "rayQuery_StateMatrix",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateWorldToObject3x4, "RayQuery_CandidateWorldToObject3x4", OCC::RayQuery_StateMatrix,     "rayQuery_StateMatrix",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedObjectToWorld3x4, "RayQuery_CommittedObjectToWorld3x4", OCC::RayQuery_StateMatrix,     "rayQuery_StateMatrix",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedWorldToObject3x4, "RayQuery_CommittedWorldToObject3x4", OCC::RayQuery_StateMatrix,     "rayQuery_StateMatrix",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateProceduralPrimitiveNonOpaque, "RayQuery_CandidateProceduralPrimitiveNonOpaque", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateTriangleFrontFace, "RayQuery_CandidateTriangleFrontFace", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedTriangleFrontFace, "RayQuery_CommittedTriangleFrontFace", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateTriangleBarycentrics, "RayQuery_CandidateTriangleBarycentrics", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedTriangleBarycentrics, "RayQuery_CommittedTriangleBarycentrics", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_RayFlags,       "RayQuery_RayFlags",        OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_WorldRayOrigin, "RayQuery_WorldRayOrigin",  OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_WorldRayDirection, "RayQuery_WorldRayDirection", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_RayTMin,        "RayQuery_RayTMin",         OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateTriangleRayT, "RayQuery_CandidateTriangleRayT", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedRayT,  "RayQuery_CommittedRayT",   OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateInstanceIndex, "RayQuery_CandidateInstanceIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateInstanceID, "RayQuery_CandidateInstanceID", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateGeometryIndex, "RayQuery_CandidateGeometryIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidatePrimitiveIndex, "RayQuery_CandidatePrimitiveIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateObjectRayOrigin, "RayQuery_CandidateObjectRayOrigin", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CandidateObjectRayDirection, "RayQuery_CandidateObjectRayDirection", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedInstanceIndex, "RayQuery_CommittedInstanceIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedInstanceID, "RayQuery_CommittedInstanceID", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedGeometryIndex, "RayQuery_CommittedGeometryIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedPrimitiveIndex, "RayQuery_CommittedPrimitiveIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedObjectRayOrigin, "RayQuery_CommittedObjectRayOrigin", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedObjectRayDirection, "RayQuery_CommittedObjectRayDirection", OCC::RayQuery_StateVector,     "rayQuery_StateVector",      { false, false,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Raytracing object space uint System Values, raytracing tier 1.1                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::GeometryIndex,           "GeometryIndex",            OCC::GeometryIndex,            "geometryIndex",             { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Inline Ray Query                                                                                                        void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::RayQuery_CandidateInstanceContributionToHitGroupIndex, "RayQuery_CandidateInstanceContributionToHitGroupIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+  {  OC::RayQuery_CommittedInstanceContributionToHitGroupIndex, "RayQuery_CommittedInstanceContributionToHitGroupIndex", OCC::RayQuery_StateScalar,     "rayQuery_StateScalar",      { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadOnly, },
+
+  // Get handle from heap                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::AnnotateHandle,          "AnnotateHandle",           OCC::AnnotateHandle,           "annotateHandle",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::CreateHandleFromBinding, "CreateHandleFromBinding",  OCC::CreateHandleFromBinding,  "createHandleFromBinding",   {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::CreateHandleFromHeap,    "CreateHandleFromHeap",     OCC::CreateHandleFromHeap,     "createHandleFromHeap",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Unpacking intrinsics                                                                                                    void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Unpack4x8,               "Unpack4x8",                OCC::Unpack4x8,                "unpack4x8",                 { false, false, false, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Packing intrinsics                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::Pack4x8,                 "Pack4x8",                  OCC::Pack4x8,                  "pack4x8",                   { false, false, false, false, false, false,  true,  true, false, false, false}, Attribute::ReadNone, },
+
+  // Helper Lanes                                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IsHelperLane,            "IsHelperLane",             OCC::IsHelperLane,             "isHelperLane",              { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Quad Wave Ops                                                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::QuadVote,                "QuadVote",                 OCC::QuadVote,                 "quadVote",                  { false, false, false, false,  true, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Resources - gather                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TextureGatherRaw,        "TextureGatherRaw",         OCC::TextureGatherRaw,         "textureGatherRaw",          { false, false, false, false, false, false,  true,  true,  true, false, false}, Attribute::ReadOnly, },
+
+  // Resources - sample                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::SampleCmpLevel,          "SampleCmpLevel",           OCC::SampleCmpLevel,           "sampleCmpLevel",            { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Resources                                                                                                               void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::TextureStoreSample,      "TextureStoreSample",       OCC::TextureStoreSample,       "textureStoreSample",        { false,  true,  true, false, false, false,  true,  true, false, false, false}, Attribute::None,     },
+
+  // WaveMatrix                                                                                                              void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::WaveMatrix_Annotate,     "WaveMatrix_Annotate",      OCC::WaveMatrix_Annotate,      "waveMatrix_Annotate",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_Depth,        "WaveMatrix_Depth",         OCC::WaveMatrix_Depth,         "waveMatrix_Depth",          {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::WaveMatrix_Fill,         "WaveMatrix_Fill",          OCC::WaveMatrix_Fill,          "waveMatrix_Fill",           { false,  true,  true, false, false, false, false,  true, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_LoadRawBuf,   "WaveMatrix_LoadRawBuf",    OCC::WaveMatrix_LoadRawBuf,    "waveMatrix_LoadRawBuf",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WaveMatrix_LoadGroupShared, "WaveMatrix_LoadGroupShared", OCC::WaveMatrix_LoadGroupShared, "waveMatrix_LoadGroupShared", { false,  true,  true, false, false, false, false,  true, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_StoreRawBuf,  "WaveMatrix_StoreRawBuf",   OCC::WaveMatrix_StoreRawBuf,   "waveMatrix_StoreRawBuf",    {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::WaveMatrix_StoreGroupShared, "WaveMatrix_StoreGroupShared", OCC::WaveMatrix_StoreGroupShared, "waveMatrix_StoreGroupShared", { false,  true,  true, false, false, false, false,  true, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_Multiply,     "WaveMatrix_Multiply",      OCC::WaveMatrix_Multiply,      "waveMatrix_Multiply",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_MultiplyAccumulate, "WaveMatrix_MultiplyAccumulate", OCC::WaveMatrix_Multiply,      "waveMatrix_Multiply",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_ScalarOp,     "WaveMatrix_ScalarOp",      OCC::WaveMatrix_ScalarOp,      "waveMatrix_ScalarOp",       { false,  true,  true, false, false, false, false,  true, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_SumAccumulate, "WaveMatrix_SumAccumulate", OCC::WaveMatrix_Accumulate,    "waveMatrix_Accumulate",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+  {  OC::WaveMatrix_Add,          "WaveMatrix_Add",           OCC::WaveMatrix_Accumulate,    "waveMatrix_Accumulate",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ArgMemOnly, },
+
+  // Create/Annotate Node Handles                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::AllocateNodeOutputRecords, "AllocateNodeOutputRecords", OCC::AllocateNodeOutputRecords, "allocateNodeOutputRecords", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Get Pointer to Node Record in Address Space 6                                                                           void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::GetNodeRecordPtr,        "GetNodeRecordPtr",         OCC::GetNodeRecordPtr,         "getNodeRecordPtr",          { false, false, false, false, false, false, false, false, false,  true, false}, Attribute::ReadNone, },
+
+  // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::IncrementOutputCount,    "IncrementOutputCount",     OCC::IncrementOutputCount,     "incrementOutputCount",      {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::OutputComplete,          "OutputComplete",           OCC::OutputComplete,           "outputComplete",            {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+  {  OC::GetInputRecordCount,     "GetInputRecordCount",      OCC::GetInputRecordCount,      "getInputRecordCount",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::FinishedCrossGroupSharing, "FinishedCrossGroupSharing", OCC::FinishedCrossGroupSharing, "finishedCrossGroupSharing", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::None,     },
+
+  // Synchronization                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::BarrierByMemoryType,     "BarrierByMemoryType",      OCC::BarrierByMemoryType,      "barrierByMemoryType",       {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
+  {  OC::BarrierByMemoryHandle,   "BarrierByMemoryHandle",    OCC::BarrierByMemoryHandle,    "barrierByMemoryHandle",     {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
+  {  OC::BarrierByNodeRecordHandle, "BarrierByNodeRecordHandle", OCC::BarrierByNodeRecordHandle, "barrierByNodeRecordHandle", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::NoDuplicate, },
+
+  // Create/Annotate Node Handles                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::CreateNodeOutputHandle,  "CreateNodeOutputHandle",   OCC::createNodeOutputHandle,   "createNodeOutputHandle",    {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::IndexNodeHandle,         "IndexNodeHandle",          OCC::IndexNodeHandle,          "indexNodeHandle",           {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::AnnotateNodeHandle,      "AnnotateNodeHandle",       OCC::AnnotateNodeHandle,       "annotateNodeHandle",        {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::CreateNodeInputRecordHandle, "CreateNodeInputRecordHandle", OCC::CreateNodeInputRecordHandle, "createNodeInputRecordHandle", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+  {  OC::AnnotateNodeRecordHandle, "AnnotateNodeRecordHandle", OCC::AnnotateNodeRecordHandle, "annotateNodeRecordHandle",  {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadNone, },
+
+  // Work Graph intrinsics                                                                                                   void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::NodeOutputIsValid,       "NodeOutputIsValid",        OCC::NodeOutputIsValid,        "nodeOutputIsValid",         {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::GetRemainingRecursionLevels, "GetRemainingRecursionLevels", OCC::GetRemainingRecursionLevels, "getRemainingRecursionLevels", {  true, false, false, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Comparison Samples                                                                                                      void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::SampleCmpGrad,           "SampleCmpGrad",            OCC::SampleCmpGrad,            "sampleCmpGrad",             { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+  {  OC::SampleCmpBias,           "SampleCmpBias",            OCC::SampleCmpBias,            "sampleCmpBias",             { false,  true,  true, false, false, false, false, false, false, false, false}, Attribute::ReadOnly, },
+
+  // Extended Command Information                                                                                            void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
+  {  OC::StartVertexLocation,     "StartVertexLocation",      OCC::StartVertexLocation,      "startVertexLocation",       { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
+  {  OC::StartInstanceLocation,   "StartInstanceLocation",    OCC::StartInstanceLocation,    "startInstanceLocation",     { false, false, false, false, false, false, false,  true, false, false, false}, Attribute::ReadNone, },
 };
 // OPCODE-OLOADS:END
 
@@ -2842,8 +704,7 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
   // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
   // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
-  return (110 <= op && op <= 123) || (135 <= op && op <= 136) ||
-         (165 <= op && op <= 167) || op == 222 || (226 <= op && op <= 237);
+  return (110 <= op && op <= 123) || (135 <= op && op <= 136) || (165 <= op && op <= 167) || op == 222 || (226 <= op && op <= 237);
   // OPCODE-WAVE:END
 }
 
@@ -2857,8 +718,7 @@ bool OP::IsDxilOpGradient(OpCode C) {
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86,
   // WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175, SampleCmpBias=255
-  return (60 <= op && op <= 61) || op == 64 || op == 81 ||
-         (83 <= op && op <= 86) || (174 <= op && op <= 175) || op == 255;
+  return (60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86) || (174 <= op && op <= 175) || op == 255;
   // OPCODE-GRADIENT:END
 }
 
@@ -3052,8 +912,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   }
   // Instructions: QuadReadLaneAt=122, QuadOp=123
   if ((122 <= op && op <= 123)) {
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
   // Instructions: WaveIsFirstLane=110, WaveGetLaneIndex=111,
@@ -3062,19 +921,13 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, WaveAllBitCount=135, WavePrefixBitCount=136
   if ((110 <= op && op <= 121) || (135 <= op && op <= 136)) {
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) |
-           SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) |
-           SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) |
-           SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
   // Instructions: Sample=60, SampleBias=61, SampleCmp=64, CalculateLOD=81,
   // DerivCoarseX=83, DerivCoarseY=84, DerivFineX=85, DerivFineY=86
-  if ((60 <= op && op <= 61) || op == 64 || op == 81 ||
-      (83 <= op && op <= 86)) {
-    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
-           SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
+  if ((60 <= op && op <= 61) || op == 64 || op == 81 || (83 <= op && op <= 86)) {
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
   }
   // Instructions: RenderTargetGetSamplePosition=76,
@@ -3087,49 +940,40 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   }
   // Instructions: AttributeAtVertex=137
   if (op == 137) {
-    major = 6;
-    minor = 1;
+    major = 6;  minor = 1;
     mask = SFLAG(Pixel);
     return;
   }
   // Instructions: ViewID=138
   if (op == 138) {
-    major = 6;
-    minor = 1;
-    mask = SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) |
-           SFLAG(Pixel) | SFLAG(Mesh);
+    major = 6;  minor = 1;
+    mask = SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(Pixel) | SFLAG(Mesh);
     return;
   }
   // Instructions: RawBufferLoad=139, RawBufferStore=140
   if ((139 <= op && op <= 140)) {
     if (bWithTranslation) {
-      major = 6;
-      minor = 0;
+      major = 6;  minor = 0;
     } else {
-      major = 6;
-      minor = 2;
+      major = 6;  minor = 2;
     }
     return;
   }
   // Instructions: IgnoreHit=155, AcceptHitAndEndSearch=156
   if ((155 <= op && op <= 156)) {
-    major = 6;
-    minor = 3;
+    major = 6;  minor = 3;
     mask = SFLAG(AnyHit);
     return;
   }
   // Instructions: CallShader=159
   if (op == 159) {
-    major = 6;
-    minor = 3;
-    mask = SFLAG(Library) | SFLAG(ClosestHit) | SFLAG(RayGeneration) |
-           SFLAG(Miss) | SFLAG(Callable);
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(ClosestHit) | SFLAG(RayGeneration) | SFLAG(Miss) | SFLAG(Callable);
     return;
   }
   // Instructions: ReportHit=158
   if (op == 158) {
-    major = 6;
-    minor = 3;
+    major = 6;  minor = 3;
     mask = SFLAG(Library) | SFLAG(Intersection);
     return;
   }
@@ -3137,52 +981,41 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // ObjectRayOrigin=149, ObjectRayDirection=150, ObjectToWorld=151,
   // WorldToObject=152, PrimitiveIndex=161
   if ((141 <= op && op <= 143) || (149 <= op && op <= 152) || op == 161) {
-    major = 6;
-    minor = 3;
-    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) |
-           SFLAG(ClosestHit);
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit);
     return;
   }
   // Instructions: RayFlags=144, WorldRayOrigin=147, WorldRayDirection=148,
   // RayTMin=153, RayTCurrent=154
   if (op == 144 || (147 <= op && op <= 148) || (153 <= op && op <= 154)) {
-    major = 6;
-    minor = 3;
-    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) |
-           SFLAG(ClosestHit) | SFLAG(Miss);
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss);
     return;
   }
   // Instructions: TraceRay=157
   if (op == 157) {
-    major = 6;
-    minor = 3;
-    mask =
-        SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(ClosestHit) | SFLAG(Miss);
     return;
   }
   // Instructions: DispatchRaysIndex=145, DispatchRaysDimensions=146
   if ((145 <= op && op <= 146)) {
-    major = 6;
-    minor = 3;
-    mask = SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(Intersection) |
-           SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
+    major = 6;  minor = 3;
+    mask = SFLAG(Library) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable);
     return;
   }
   // Instructions: CreateHandleForLib=160
   if (op == 160) {
     if (bWithTranslation) {
-      major = 6;
-      minor = 0;
+      major = 6;  minor = 0;
     } else {
-      major = 6;
-      minor = 3;
+      major = 6;  minor = 3;
     }
     return;
   }
   // Instructions: Dot2AddHalf=162, Dot4AddI8Packed=163, Dot4AddU8Packed=164
   if ((162 <= op && op <= 164)) {
-    major = 6;
-    minor = 4;
+    major = 6;  minor = 4;
     return;
   }
   // Instructions: WriteSamplerFeedbackLevel=176, WriteSamplerFeedbackGrad=177,
@@ -3202,8 +1035,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // RayQuery_RayTMin=198, RayQuery_CandidateTriangleRayT=199,
   // RayQuery_CommittedRayT=200, RayQuery_CandidateInstanceIndex=201,
   // RayQuery_CandidateInstanceID=202, RayQuery_CandidateGeometryIndex=203,
-  // RayQuery_CandidatePrimitiveIndex=204,
-  // RayQuery_CandidateObjectRayOrigin=205,
+  // RayQuery_CandidatePrimitiveIndex=204, RayQuery_CandidateObjectRayOrigin=205,
   // RayQuery_CandidateObjectRayDirection=206,
   // RayQuery_CommittedInstanceIndex=207, RayQuery_CommittedInstanceID=208,
   // RayQuery_CommittedGeometryIndex=209, RayQuery_CommittedPrimitiveIndex=210,
@@ -3212,102 +1044,81 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // RayQuery_CandidateInstanceContributionToHitGroupIndex=214,
   // RayQuery_CommittedInstanceContributionToHitGroupIndex=215
   if ((176 <= op && op <= 212) || (214 <= op && op <= 215)) {
-    major = 6;
-    minor = 5;
+    major = 6;  minor = 5;
     return;
   }
   // Instructions: DispatchMesh=173
   if (op == 173) {
-    major = 6;
-    minor = 5;
+    major = 6;  minor = 5;
     mask = SFLAG(Amplification);
     return;
   }
   // Instructions: WaveMatch=165, WaveMultiPrefixOp=166,
   // WaveMultiPrefixBitCount=167
   if ((165 <= op && op <= 167)) {
-    major = 6;
-    minor = 5;
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) |
-           SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) |
-           SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) |
-           SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
+    major = 6;  minor = 5;
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Vertex) | SFLAG(Hull) | SFLAG(Domain) | SFLAG(Geometry) | SFLAG(RayGeneration) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit) | SFLAG(Miss) | SFLAG(Callable) | SFLAG(Node);
     return;
   }
   // Instructions: GeometryIndex=213
   if (op == 213) {
-    major = 6;
-    minor = 5;
-    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) |
-           SFLAG(ClosestHit);
+    major = 6;  minor = 5;
+    mask = SFLAG(Library) | SFLAG(Intersection) | SFLAG(AnyHit) | SFLAG(ClosestHit);
     return;
   }
   // Instructions: WriteSamplerFeedback=174, WriteSamplerFeedbackBias=175
   if ((174 <= op && op <= 175)) {
-    major = 6;
-    minor = 5;
+    major = 6;  minor = 5;
     mask = SFLAG(Library) | SFLAG(Pixel);
     return;
   }
   // Instructions: SetMeshOutputCounts=168, EmitIndices=169, GetMeshPayload=170,
   // StoreVertexOutput=171, StorePrimitiveOutput=172
   if ((168 <= op && op <= 172)) {
-    major = 6;
-    minor = 5;
+    major = 6;  minor = 5;
     mask = SFLAG(Mesh);
     return;
   }
   // Instructions: CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220,
   // IsHelperLane=221
   if ((218 <= op && op <= 221)) {
-    major = 6;
-    minor = 6;
+    major = 6;  minor = 6;
     return;
   }
   // Instructions: AnnotateHandle=216, CreateHandleFromBinding=217
   if ((216 <= op && op <= 217)) {
     if (bWithTranslation) {
-      major = 6;
-      minor = 0;
+      major = 6;  minor = 0;
     } else {
-      major = 6;
-      minor = 6;
+      major = 6;  minor = 6;
     }
     return;
   }
   // Instructions: TextureGatherRaw=223, SampleCmpLevel=224,
   // TextureStoreSample=225
   if ((223 <= op && op <= 225)) {
-    major = 6;
-    minor = 7;
+    major = 6;  minor = 7;
     return;
   }
   // Instructions: QuadVote=222
   if (op == 222) {
     if (bWithTranslation) {
-      major = 6;
-      minor = 0;
+      major = 6;  minor = 0;
     } else {
-      major = 6;
-      minor = 7;
+      major = 6;  minor = 7;
     }
-    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) |
-           SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
+    mask = SFLAG(Library) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Pixel) | SFLAG(Node);
     return;
   }
   // Instructions: BarrierByMemoryHandle=245, SampleCmpGrad=254
   if (op == 245 || op == 254) {
-    major = 6;
-    minor = 8;
+    major = 6;  minor = 8;
     return;
   }
   // Instructions: SampleCmpBias=255
   if (op == 255) {
-    major = 6;
-    minor = 8;
-    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) |
-           SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
+    major = 6;  minor = 8;
+    mask = SFLAG(Library) | SFLAG(Pixel) | SFLAG(Compute) | SFLAG(Amplification) | SFLAG(Mesh) | SFLAG(Node);
     return;
   }
   // Instructions: AllocateNodeOutputRecords=238, GetNodeRecordPtr=239,
@@ -3317,26 +1128,22 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // CreateNodeInputRecordHandle=250, AnnotateNodeRecordHandle=251,
   // NodeOutputIsValid=252, GetRemainingRecursionLevels=253
   if ((238 <= op && op <= 243) || (246 <= op && op <= 253)) {
-    major = 6;
-    minor = 8;
+    major = 6;  minor = 8;
     mask = SFLAG(Node);
     return;
   }
   // Instructions: StartVertexLocation=256, StartInstanceLocation=257
   if ((256 <= op && op <= 257)) {
-    major = 6;
-    minor = 8;
+    major = 6;  minor = 8;
     mask = SFLAG(Vertex);
     return;
   }
   // Instructions: BarrierByMemoryType=244
   if (op == 244) {
     if (bWithTranslation) {
-      major = 6;
-      minor = 0;
+      major = 6;  minor = 0;
     } else {
-      major = 6;
-      minor = 8;
+      major = 6;  minor = 8;
     }
     return;
   }
@@ -3347,8 +1154,7 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
   // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
   // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
   if ((226 <= op && op <= 237)) {
-    major = 6;
-    minor = 9;
+    major = 6;  minor = 9;
     mask = SFLAG(Library) | SFLAG(Compute);
     return;
   }
@@ -3620,1874 +1426,429 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   /* <py::lines('OPCODE-OLOAD-FUNCS')>hctdb_instrhelp.get_oloads_funcs()</py>*/
   switch (opCode) { // return     opCode
                     // OPCODE-OLOAD-FUNCS:BEGIN
-                    // Temporary, indexable, input, output registers
-  case OpCode::TempRegLoad:
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::TempRegStore:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::MinPrecXRegLoad:
-    A(pETy);
-    A(pI32);
-    A(pPF32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::MinPrecXRegStore:
-    A(pV);
-    A(pI32);
-    A(pPF32);
-    A(pI32);
-    A(pI8);
-    A(pETy);
-    break;
-  case OpCode::LoadInput:
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI32);
-    break;
-  case OpCode::StoreOutput:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pETy);
-    break;
-
-    // Unary float
-  case OpCode::FAbs:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Saturate:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::IsNaN:
-    A(pI1);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::IsInf:
-    A(pI1);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::IsFinite:
-    A(pI1);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::IsNormal:
-    A(pI1);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Cos:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Sin:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Tan:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Acos:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Asin:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Atan:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Hcos:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Hsin:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Htan:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Exp:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Frc:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Log:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Sqrt:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Rsqrt:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-
-    // Unary float - rounding
-  case OpCode::Round_ne:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Round_ni:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Round_pi:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Round_z:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-
-    // Unary int
-  case OpCode::Bfrev:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::Countbits:
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::FirstbitLo:
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    break;
-
-    // Unary uint
-  case OpCode::FirstbitHi:
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    break;
-
-    // Unary int
-  case OpCode::FirstbitSHi:
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    break;
-
-    // Binary float
-  case OpCode::FMax:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::FMin:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Binary int
-  case OpCode::IMax:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::IMin:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Binary uint
-  case OpCode::UMax:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::UMin:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Binary int with two outputs
-  case OpCode::IMul:
-    A(p2I32);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Binary uint with two outputs
-  case OpCode::UMul:
-    A(p2I32);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::UDiv:
-    A(p2I32);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Binary uint with carry or borrow
-  case OpCode::UAddc:
-    A(pI32C);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::USubb:
-    A(pI32C);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Tertiary float
-  case OpCode::FMad:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::Fma:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Tertiary int
-  case OpCode::IMad:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Tertiary uint
-  case OpCode::UMad:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Tertiary int
-  case OpCode::Msad:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::Ibfe:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Tertiary uint
-  case OpCode::Ubfe:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Quaternary
-  case OpCode::Bfi:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Dot
-  case OpCode::Dot2:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::Dot3:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::Dot4:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Resources
-  case OpCode::CreateHandle:
-    A(pRes);
-    A(pI32);
-    A(pI8);
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::CBufferLoad:
-    A(pETy);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::CBufferLoadLegacy:
-    CBRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    break;
-
-    // Resources - sample
-  case OpCode::Sample:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    break;
-  case OpCode::SampleBias:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    A(pF32);
-    break;
-  case OpCode::SampleLevel:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    break;
-  case OpCode::SampleGrad:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    break;
-  case OpCode::SampleCmp:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    A(pF32);
-    break;
-  case OpCode::SampleCmpLevelZero:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    break;
-
-    // Resources
-  case OpCode::TextureLoad:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::TextureStore:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pI8);
-    break;
-  case OpCode::BufferLoad:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::BufferStore:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pI8);
-    break;
-  case OpCode::BufferUpdateCounter:
-    A(pI32);
-    A(pI32);
-    A(pRes);
-    A(pI8);
-    break;
-  case OpCode::CheckAccessFullyMapped:
-    A(pI1);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::GetDimensions:
-    A(pDim);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    break;
-
-    // Resources - gather
-  case OpCode::TextureGather:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::TextureGatherCmp:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    break;
-
-    // Resources - sample
-  case OpCode::Texture2DMSGetSamplePosition:
-    A(pPos);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    break;
-  case OpCode::RenderTargetGetSamplePosition:
-    A(pPos);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RenderTargetGetSampleCount:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Synchronization
-  case OpCode::AtomicBinOp:
-    A(pETy);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::AtomicCompareExchange:
-    A(pETy);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    break;
-  case OpCode::Barrier:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Derivatives
-  case OpCode::CalculateLOD:
-    A(pF32);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI1);
-    break;
-
-    // Pixel shader
-  case OpCode::Discard:
-    A(pV);
-    A(pI32);
-    A(pI1);
-    break;
-
-    // Derivatives
-  case OpCode::DerivCoarseX:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::DerivCoarseY:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::DerivFineX:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::DerivFineY:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-
-    // Pixel shader
-  case OpCode::EvalSnapped:
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::EvalSampleIndex:
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI32);
-    break;
-  case OpCode::EvalCentroid:
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::SampleIndex:
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::Coverage:
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::InnerCoverage:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Compute/Mesh/Amplification/Node shader
-  case OpCode::ThreadId:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::GroupId:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::ThreadIdInGroup:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::FlattenedThreadIdInGroup:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Geometry shader
-  case OpCode::EmitStream:
-    A(pV);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::CutStream:
-    A(pV);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::EmitThenCutStream:
-    A(pV);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::GSInstanceID:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Double precision
-  case OpCode::MakeDouble:
-    A(pF64);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::SplitDouble:
-    A(pSDT);
-    A(pI32);
-    A(pF64);
-    break;
-
-    // Domain and hull shader
-  case OpCode::LoadOutputControlPoint:
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI32);
-    break;
-  case OpCode::LoadPatchConstant:
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-
-    // Domain shader
-  case OpCode::DomainLocation:
-    A(pF32);
-    A(pI32);
-    A(pI8);
-    break;
-
-    // Hull shader
-  case OpCode::StorePatchConstant:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pETy);
-    break;
-  case OpCode::OutputControlPointID:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Hull, Domain and Geometry shaders
-  case OpCode::PrimitiveID:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Other
-  case OpCode::CycleCounterLegacy:
-    A(p2I32);
-    A(pI32);
-    break;
-
-    // Wave
-  case OpCode::WaveIsFirstLane:
-    A(pI1);
-    A(pI32);
-    break;
-  case OpCode::WaveGetLaneIndex:
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::WaveGetLaneCount:
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::WaveAnyTrue:
-    A(pI1);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::WaveAllTrue:
-    A(pI1);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::WaveActiveAllEqual:
-    A(pI1);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::WaveActiveBallot:
-    A(p4I32);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::WaveReadLaneAt:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pI32);
-    break;
-  case OpCode::WaveReadLaneFirst:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::WaveActiveOp:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pI8);
-    A(pI8);
-    break;
-  case OpCode::WaveActiveBit:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pI8);
-    break;
-  case OpCode::WavePrefixOp:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pI8);
-    A(pI8);
-    break;
-
-    // Quad Wave Ops
-  case OpCode::QuadReadLaneAt:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pI32);
-    break;
-  case OpCode::QuadOp:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pI8);
-    break;
-
-    // Bitcasts with different sizes
-  case OpCode::BitcastI16toF16:
-    A(pF16);
-    A(pI32);
-    A(pI16);
-    break;
-  case OpCode::BitcastF16toI16:
-    A(pI16);
-    A(pI32);
-    A(pF16);
-    break;
-  case OpCode::BitcastI32toF32:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::BitcastF32toI32:
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    break;
-  case OpCode::BitcastI64toF64:
-    A(pF64);
-    A(pI32);
-    A(pI64);
-    break;
-  case OpCode::BitcastF64toI64:
-    A(pI64);
-    A(pI32);
-    A(pF64);
-    break;
-
-    // Legacy floating-point
-  case OpCode::LegacyF32ToF16:
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    break;
-  case OpCode::LegacyF16ToF32:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Double precision
-  case OpCode::LegacyDoubleToFloat:
-    A(pF32);
-    A(pI32);
-    A(pF64);
-    break;
-  case OpCode::LegacyDoubleToSInt32:
-    A(pI32);
-    A(pI32);
-    A(pF64);
-    break;
-  case OpCode::LegacyDoubleToUInt32:
-    A(pI32);
-    A(pI32);
-    A(pF64);
-    break;
-
-    // Wave
-  case OpCode::WaveAllBitCount:
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::WavePrefixBitCount:
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    break;
-
-    // Pixel shader
-  case OpCode::AttributeAtVertex:
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI8);
-    break;
-
-    // Graphics shader
-  case OpCode::ViewID:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Resources
-  case OpCode::RawBufferLoad:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI32);
-    break;
-  case OpCode::RawBufferStore:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pI8);
-    A(pI32);
-    break;
-
-    // Raytracing object space uint System Values
-  case OpCode::InstanceID:
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::InstanceIndex:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Raytracing hit uint System Values
-  case OpCode::HitKind:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Raytracing uint System Values
-  case OpCode::RayFlags:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Ray Dispatch Arguments
-  case OpCode::DispatchRaysIndex:
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::DispatchRaysDimensions:
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-
-    // Ray Vectors
-  case OpCode::WorldRayOrigin:
-    A(pF32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::WorldRayDirection:
-    A(pF32);
-    A(pI32);
-    A(pI8);
-    break;
-
-    // Ray object space Vectors
-  case OpCode::ObjectRayOrigin:
-    A(pF32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::ObjectRayDirection:
-    A(pF32);
-    A(pI32);
-    A(pI8);
-    break;
-
-    // Ray Transforms
-  case OpCode::ObjectToWorld:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::WorldToObject:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-
-    // RayT
-  case OpCode::RayTMin:
-    A(pF32);
-    A(pI32);
-    break;
-  case OpCode::RayTCurrent:
-    A(pF32);
-    A(pI32);
-    break;
-
-    // AnyHit Terminals
-  case OpCode::IgnoreHit:
-    A(pV);
-    A(pI32);
-    break;
-  case OpCode::AcceptHitAndEndSearch:
-    A(pV);
-    A(pI32);
-    break;
-
-    // Indirect Shader Invocation
-  case OpCode::TraceRay:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(udt);
-    break;
-  case OpCode::ReportHit:
-    A(pI1);
-    A(pI32);
-    A(pF32);
-    A(pI32);
-    A(udt);
-    break;
-  case OpCode::CallShader:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(udt);
-    break;
-
-    // Library create handle from resource struct (like HL intrinsic)
-  case OpCode::CreateHandleForLib:
-    A(pRes);
-    A(pI32);
-    A(obj);
-    break;
-
-    // Raytracing object space uint System Values
-  case OpCode::PrimitiveIndex:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Dot product with accumulate
-  case OpCode::Dot2AddHalf:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pF16);
-    A(pF16);
-    A(pF16);
-    A(pF16);
-    break;
-  case OpCode::Dot4AddI8Packed:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::Dot4AddU8Packed:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Wave
-  case OpCode::WaveMatch:
-    A(p4I32);
-    A(pI32);
-    A(pETy);
-    break;
-  case OpCode::WaveMultiPrefixOp:
-    A(pETy);
-    A(pI32);
-    A(pETy);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI8);
-    break;
-  case OpCode::WaveMultiPrefixBitCount:
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Mesh shader instructions
-  case OpCode::SetMeshOutputCounts:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::EmitIndices:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::GetMeshPayload:
-    A(pETy);
-    A(pI32);
-    break;
-  case OpCode::StoreVertexOutput:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pETy);
-    A(pI32);
-    break;
-  case OpCode::StorePrimitiveOutput:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pETy);
-    A(pI32);
-    break;
-
-    // Amplification shader instructions
-  case OpCode::DispatchMesh:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    break;
-
-    // Sampler Feedback
-  case OpCode::WriteSamplerFeedback:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    break;
-  case OpCode::WriteSamplerFeedbackBias:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    break;
-  case OpCode::WriteSamplerFeedbackLevel:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    break;
-  case OpCode::WriteSamplerFeedbackGrad:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    break;
-
-    // Inline Ray Query
-  case OpCode::AllocateRayQuery:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_TraceRayInline:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    break;
-  case OpCode::RayQuery_Proceed:
-    A(pI1);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_Abort:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommitNonOpaqueTriangleHit:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommitProceduralPrimitiveHit:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    break;
-  case OpCode::RayQuery_CommittedStatus:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateType:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateObjectToWorld3x4:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_CandidateWorldToObject3x4:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_CommittedObjectToWorld3x4:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_CommittedWorldToObject3x4:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:
-    A(pI1);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateTriangleFrontFace:
-    A(pI1);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommittedTriangleFrontFace:
-    A(pI1);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateTriangleBarycentrics:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_CommittedTriangleBarycentrics:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_RayFlags:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_WorldRayOrigin:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_WorldRayDirection:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_RayTMin:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateTriangleRayT:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommittedRayT:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateInstanceIndex:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateInstanceID:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateGeometryIndex:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidatePrimitiveIndex:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CandidateObjectRayOrigin:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_CandidateObjectRayDirection:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_CommittedInstanceIndex:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommittedInstanceID:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommittedGeometryIndex:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommittedPrimitiveIndex:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommittedObjectRayOrigin:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-  case OpCode::RayQuery_CommittedObjectRayDirection:
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    break;
-
-    // Raytracing object space uint System Values, raytracing tier 1.1
-  case OpCode::GeometryIndex:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Inline Ray Query
-  case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Get handle from heap
-  case OpCode::AnnotateHandle:
-    A(pRes);
-    A(pI32);
-    A(pRes);
-    A(resProperty);
-    break;
-  case OpCode::CreateHandleFromBinding:
-    A(pRes);
-    A(pI32);
-    A(resBind);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::CreateHandleFromHeap:
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    A(pI1);
-    break;
-
-    // Unpacking intrinsics
-  case OpCode::Unpack4x8:
-    VEC4(pETy);
-    A(pI32);
-    A(pI8);
-    A(pI32);
-    break;
-
-    // Packing intrinsics
-  case OpCode::Pack4x8:
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    break;
-
-    // Helper Lanes
-  case OpCode::IsHelperLane:
-    A(pI1);
-    A(pI32);
-    break;
-
-    // Quad Wave Ops
-  case OpCode::QuadVote:
-    A(pI1);
-    A(pI32);
-    A(pI1);
-    A(pI8);
-    break;
-
-    // Resources - gather
-  case OpCode::TextureGatherRaw:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Resources - sample
-  case OpCode::SampleCmpLevel:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    A(pF32);
-    break;
-
-    // Resources
-  case OpCode::TextureStoreSample:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pETy);
-    A(pI8);
-    A(pI32);
-    break;
-
-    // WaveMatrix
-  case OpCode::WaveMatrix_Annotate:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatProps);
-    break;
-  case OpCode::WaveMatrix_Depth:
-    A(pI32);
-    A(pI32);
-    A(pWaveMatProps);
-    break;
-  case OpCode::WaveMatrix_Fill:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pETy);
-    break;
-  case OpCode::WaveMatrix_LoadRawBuf:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI1);
-    break;
-  case OpCode::WaveMatrix_LoadGroupShared:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pGSEltPtrTy);
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::WaveMatrix_StoreRawBuf:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI1);
-    break;
-  case OpCode::WaveMatrix_StoreGroupShared:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pGSEltPtrTy);
-    A(pI32);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::WaveMatrix_Multiply:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
-    break;
-  case OpCode::WaveMatrix_MultiplyAccumulate:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
-    break;
-  case OpCode::WaveMatrix_ScalarOp:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pI8);
-    A(pETy);
-    break;
-  case OpCode::WaveMatrix_SumAccumulate:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
-    break;
-  case OpCode::WaveMatrix_Add:
-    A(pV);
-    A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
-    break;
-
-    // Create/Annotate Node Handles
-  case OpCode::AllocateNodeOutputRecords:
-    A(pNodeRecordHandle);
-    A(pI32);
-    A(pNodeHandle);
-    A(pI32);
-    A(pI1);
-    break;
-
-    // Get Pointer to Node Record in Address Space 6
-  case OpCode::GetNodeRecordPtr:
-    A(pETy);
-    A(pI32);
-    A(pNodeRecordHandle);
-    A(pI32);
-    break;
-
-    // Work Graph intrinsics
-  case OpCode::IncrementOutputCount:
-    A(pV);
-    A(pI32);
-    A(pNodeHandle);
-    A(pI32);
-    A(pI1);
-    break;
-  case OpCode::OutputComplete:
-    A(pV);
-    A(pI32);
-    A(pNodeRecordHandle);
-    break;
-  case OpCode::GetInputRecordCount:
-    A(pI32);
-    A(pI32);
-    A(pNodeRecordHandle);
-    break;
-  case OpCode::FinishedCrossGroupSharing:
-    A(pI1);
-    A(pI32);
-    A(pNodeRecordHandle);
-    break;
-
-    // Synchronization
-  case OpCode::BarrierByMemoryType:
-    A(pV);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::BarrierByMemoryHandle:
-    A(pV);
-    A(pI32);
-    A(pRes);
-    A(pI32);
-    break;
-  case OpCode::BarrierByNodeRecordHandle:
-    A(pV);
-    A(pI32);
-    A(pNodeRecordHandle);
-    A(pI32);
-    break;
-
-    // Create/Annotate Node Handles
-  case OpCode::CreateNodeOutputHandle:
-    A(pNodeHandle);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::IndexNodeHandle:
-    A(pNodeHandle);
-    A(pI32);
-    A(pNodeHandle);
-    A(pI32);
-    break;
-  case OpCode::AnnotateNodeHandle:
-    A(pNodeHandle);
-    A(pI32);
-    A(pNodeHandle);
-    A(nodeProperty);
-    break;
-  case OpCode::CreateNodeInputRecordHandle:
-    A(pNodeRecordHandle);
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::AnnotateNodeRecordHandle:
-    A(pNodeRecordHandle);
-    A(pI32);
-    A(pNodeRecordHandle);
-    A(nodeRecordProperty);
-    break;
-
-    // Work Graph intrinsics
-  case OpCode::NodeOutputIsValid:
-    A(pI1);
-    A(pI32);
-    A(pNodeHandle);
-    break;
-  case OpCode::GetRemainingRecursionLevels:
-    A(pI32);
-    A(pI32);
-    break;
-
-    // Comparison Samples
-  case OpCode::SampleCmpGrad:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    break;
-  case OpCode::SampleCmpBias:
-    RRT(pETy);
-    A(pI32);
-    A(pRes);
-    A(pRes);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    A(pI32);
-    A(pI32);
-    A(pI32);
-    A(pF32);
-    A(pF32);
-    A(pF32);
-    break;
-
-    // Extended Command Information
-  case OpCode::StartVertexLocation:
-    A(pI32);
-    A(pI32);
-    break;
-  case OpCode::StartInstanceLocation:
-    A(pI32);
-    A(pI32);
-    break;
+                        // Temporary, indexable, input, output registers
+                      case OpCode::TempRegLoad:            A(pETy);     A(pI32); A(pI32); break;
+                      case OpCode::TempRegStore:           A(pV);       A(pI32); A(pI32); A(pETy); break;
+                      case OpCode::MinPrecXRegLoad:        A(pETy);     A(pI32); A(pPF32);A(pI32); A(pI8);  break;
+                      case OpCode::MinPrecXRegStore:       A(pV);       A(pI32); A(pPF32);A(pI32); A(pI8);  A(pETy); break;
+                      case OpCode::LoadInput:              A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); break;
+                      case OpCode::StoreOutput:            A(pV);       A(pI32); A(pI32); A(pI32); A(pI8);  A(pETy); break;
+                    
+                        // Unary float
+                      case OpCode::FAbs:                   A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Saturate:               A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::IsNaN:                  A(pI1);      A(pI32); A(pETy); break;
+                      case OpCode::IsInf:                  A(pI1);      A(pI32); A(pETy); break;
+                      case OpCode::IsFinite:               A(pI1);      A(pI32); A(pETy); break;
+                      case OpCode::IsNormal:               A(pI1);      A(pI32); A(pETy); break;
+                      case OpCode::Cos:                    A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Sin:                    A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Tan:                    A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Acos:                   A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Asin:                   A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Atan:                   A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Hcos:                   A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Hsin:                   A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Htan:                   A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Exp:                    A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Frc:                    A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Log:                    A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Sqrt:                   A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Rsqrt:                  A(pETy);     A(pI32); A(pETy); break;
+                    
+                        // Unary float - rounding
+                      case OpCode::Round_ne:               A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Round_ni:               A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Round_pi:               A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Round_z:                A(pETy);     A(pI32); A(pETy); break;
+                    
+                        // Unary int
+                      case OpCode::Bfrev:                  A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::Countbits:              A(pI32);     A(pI32); A(pETy); break;
+                      case OpCode::FirstbitLo:             A(pI32);     A(pI32); A(pETy); break;
+                    
+                        // Unary uint
+                      case OpCode::FirstbitHi:             A(pI32);     A(pI32); A(pETy); break;
+                    
+                        // Unary int
+                      case OpCode::FirstbitSHi:            A(pI32);     A(pI32); A(pETy); break;
+                    
+                        // Binary float
+                      case OpCode::FMax:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
+                      case OpCode::FMin:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
+                    
+                        // Binary int
+                      case OpCode::IMax:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
+                      case OpCode::IMin:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
+                    
+                        // Binary uint
+                      case OpCode::UMax:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
+                      case OpCode::UMin:                   A(pETy);     A(pI32); A(pETy); A(pETy); break;
+                    
+                        // Binary int with two outputs
+                      case OpCode::IMul:                   A(p2I32);    A(pI32); A(pETy); A(pETy); break;
+                    
+                        // Binary uint with two outputs
+                      case OpCode::UMul:                   A(p2I32);    A(pI32); A(pETy); A(pETy); break;
+                      case OpCode::UDiv:                   A(p2I32);    A(pI32); A(pETy); A(pETy); break;
+                    
+                        // Binary uint with carry or borrow
+                      case OpCode::UAddc:                  A(pI32C);    A(pI32); A(pETy); A(pETy); break;
+                      case OpCode::USubb:                  A(pI32C);    A(pI32); A(pETy); A(pETy); break;
+                    
+                        // Tertiary float
+                      case OpCode::FMad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+                      case OpCode::Fma:                    A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+                    
+                        // Tertiary int
+                      case OpCode::IMad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+                    
+                        // Tertiary uint
+                      case OpCode::UMad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+                    
+                        // Tertiary int
+                      case OpCode::Msad:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+                      case OpCode::Ibfe:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+                    
+                        // Tertiary uint
+                      case OpCode::Ubfe:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); break;
+                    
+                        // Quaternary
+                      case OpCode::Bfi:                    A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); break;
+                    
+                        // Dot
+                      case OpCode::Dot2:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); break;
+                      case OpCode::Dot3:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pETy); A(pETy); break;
+                      case OpCode::Dot4:                   A(pETy);     A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pETy); A(pETy); A(pETy); A(pETy); break;
+                    
+                        // Resources
+                      case OpCode::CreateHandle:           A(pRes);     A(pI32); A(pI8);  A(pI32); A(pI32); A(pI1);  break;
+                      case OpCode::CBufferLoad:            A(pETy);     A(pI32); A(pRes); A(pI32); A(pI32); break;
+                      case OpCode::CBufferLoadLegacy:      CBRT(pETy);  A(pI32); A(pRes); A(pI32); break;
+                    
+                        // Resources - sample
+                      case OpCode::Sample:                 RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); break;
+                      case OpCode::SampleBias:             RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); break;
+                      case OpCode::SampleLevel:            RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); break;
+                      case OpCode::SampleGrad:             RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+                      case OpCode::SampleCmp:              RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); break;
+                      case OpCode::SampleCmpLevelZero:     RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); break;
+                    
+                        // Resources
+                      case OpCode::TextureLoad:            RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); break;
+                      case OpCode::TextureStore:           A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  break;
+                      case OpCode::BufferLoad:             RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); break;
+                      case OpCode::BufferStore:            A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  break;
+                      case OpCode::BufferUpdateCounter:    A(pI32);     A(pI32); A(pRes); A(pI8);  break;
+                      case OpCode::CheckAccessFullyMapped: A(pI1);      A(pI32); A(pI32); break;
+                      case OpCode::GetDimensions:          A(pDim);     A(pI32); A(pRes); A(pI32); break;
+                    
+                        // Resources - gather
+                      case OpCode::TextureGather:          RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); break;
+                      case OpCode::TextureGatherCmp:       RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); break;
+                    
+                        // Resources - sample
+                      case OpCode::Texture2DMSGetSamplePosition:A(pPos);     A(pI32); A(pRes); A(pI32); break;
+                      case OpCode::RenderTargetGetSamplePosition:A(pPos);     A(pI32); A(pI32); break;
+                      case OpCode::RenderTargetGetSampleCount:A(pI32);     A(pI32); break;
+                    
+                        // Synchronization
+                      case OpCode::AtomicBinOp:            A(pETy);     A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pI32); A(pETy); break;
+                      case OpCode::AtomicCompareExchange:  A(pETy);     A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pETy); A(pETy); break;
+                      case OpCode::Barrier:                A(pV);       A(pI32); A(pI32); break;
+                    
+                        // Derivatives
+                      case OpCode::CalculateLOD:           A(pF32);     A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pI1);  break;
+                    
+                        // Pixel shader
+                      case OpCode::Discard:                A(pV);       A(pI32); A(pI1);  break;
+                    
+                        // Derivatives
+                      case OpCode::DerivCoarseX:           A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::DerivCoarseY:           A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::DerivFineX:             A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::DerivFineY:             A(pETy);     A(pI32); A(pETy); break;
+                    
+                        // Pixel shader
+                      case OpCode::EvalSnapped:            A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); A(pI32); break;
+                      case OpCode::EvalSampleIndex:        A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); break;
+                      case OpCode::EvalCentroid:           A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::SampleIndex:            A(pI32);     A(pI32); break;
+                      case OpCode::Coverage:               A(pI32);     A(pI32); break;
+                      case OpCode::InnerCoverage:          A(pI32);     A(pI32); break;
+                    
+                        // Compute/Mesh/Amplification/Node shader
+                      case OpCode::ThreadId:               A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::GroupId:                A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::ThreadIdInGroup:        A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::FlattenedThreadIdInGroup:A(pI32);     A(pI32); break;
+                    
+                        // Geometry shader
+                      case OpCode::EmitStream:             A(pV);       A(pI32); A(pI8);  break;
+                      case OpCode::CutStream:              A(pV);       A(pI32); A(pI8);  break;
+                      case OpCode::EmitThenCutStream:      A(pV);       A(pI32); A(pI8);  break;
+                      case OpCode::GSInstanceID:           A(pI32);     A(pI32); break;
+                    
+                        // Double precision
+                      case OpCode::MakeDouble:             A(pF64);     A(pI32); A(pI32); A(pI32); break;
+                      case OpCode::SplitDouble:            A(pSDT);     A(pI32); A(pF64); break;
+                    
+                        // Domain and hull shader
+                      case OpCode::LoadOutputControlPoint: A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI32); break;
+                      case OpCode::LoadPatchConstant:      A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+                    
+                        // Domain shader
+                      case OpCode::DomainLocation:         A(pF32);     A(pI32); A(pI8);  break;
+                    
+                        // Hull shader
+                      case OpCode::StorePatchConstant:     A(pV);       A(pI32); A(pI32); A(pI32); A(pI8);  A(pETy); break;
+                      case OpCode::OutputControlPointID:   A(pI32);     A(pI32); break;
+                    
+                        // Hull, Domain and Geometry shaders
+                      case OpCode::PrimitiveID:            A(pI32);     A(pI32); break;
+                    
+                        // Other
+                      case OpCode::CycleCounterLegacy:     A(p2I32);    A(pI32); break;
+                    
+                        // Wave
+                      case OpCode::WaveIsFirstLane:        A(pI1);      A(pI32); break;
+                      case OpCode::WaveGetLaneIndex:       A(pI32);     A(pI32); break;
+                      case OpCode::WaveGetLaneCount:       A(pI32);     A(pI32); break;
+                      case OpCode::WaveAnyTrue:            A(pI1);      A(pI32); A(pI1);  break;
+                      case OpCode::WaveAllTrue:            A(pI1);      A(pI32); A(pI1);  break;
+                      case OpCode::WaveActiveAllEqual:     A(pI1);      A(pI32); A(pETy); break;
+                      case OpCode::WaveActiveBallot:       A(p4I32);    A(pI32); A(pI1);  break;
+                      case OpCode::WaveReadLaneAt:         A(pETy);     A(pI32); A(pETy); A(pI32); break;
+                      case OpCode::WaveReadLaneFirst:      A(pETy);     A(pI32); A(pETy); break;
+                      case OpCode::WaveActiveOp:           A(pETy);     A(pI32); A(pETy); A(pI8);  A(pI8);  break;
+                      case OpCode::WaveActiveBit:          A(pETy);     A(pI32); A(pETy); A(pI8);  break;
+                      case OpCode::WavePrefixOp:           A(pETy);     A(pI32); A(pETy); A(pI8);  A(pI8);  break;
+                    
+                        // Quad Wave Ops
+                      case OpCode::QuadReadLaneAt:         A(pETy);     A(pI32); A(pETy); A(pI32); break;
+                      case OpCode::QuadOp:                 A(pETy);     A(pI32); A(pETy); A(pI8);  break;
+                    
+                        // Bitcasts with different sizes
+                      case OpCode::BitcastI16toF16:        A(pF16);     A(pI32); A(pI16); break;
+                      case OpCode::BitcastF16toI16:        A(pI16);     A(pI32); A(pF16); break;
+                      case OpCode::BitcastI32toF32:        A(pF32);     A(pI32); A(pI32); break;
+                      case OpCode::BitcastF32toI32:        A(pI32);     A(pI32); A(pF32); break;
+                      case OpCode::BitcastI64toF64:        A(pF64);     A(pI32); A(pI64); break;
+                      case OpCode::BitcastF64toI64:        A(pI64);     A(pI32); A(pF64); break;
+                    
+                        // Legacy floating-point
+                      case OpCode::LegacyF32ToF16:         A(pI32);     A(pI32); A(pF32); break;
+                      case OpCode::LegacyF16ToF32:         A(pF32);     A(pI32); A(pI32); break;
+                    
+                        // Double precision
+                      case OpCode::LegacyDoubleToFloat:    A(pF32);     A(pI32); A(pF64); break;
+                      case OpCode::LegacyDoubleToSInt32:   A(pI32);     A(pI32); A(pF64); break;
+                      case OpCode::LegacyDoubleToUInt32:   A(pI32);     A(pI32); A(pF64); break;
+                    
+                        // Wave
+                      case OpCode::WaveAllBitCount:        A(pI32);     A(pI32); A(pI1);  break;
+                      case OpCode::WavePrefixBitCount:     A(pI32);     A(pI32); A(pI1);  break;
+                    
+                        // Pixel shader
+                      case OpCode::AttributeAtVertex:      A(pETy);     A(pI32); A(pI32); A(pI32); A(pI8);  A(pI8);  break;
+                    
+                        // Graphics shader
+                      case OpCode::ViewID:                 A(pI32);     A(pI32); break;
+                    
+                        // Resources
+                      case OpCode::RawBufferLoad:          RRT(pETy);   A(pI32); A(pRes); A(pI32); A(pI32); A(pI8);  A(pI32); break;
+                      case OpCode::RawBufferStore:         A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  A(pI32); break;
+                    
+                        // Raytracing object space uint System Values
+                      case OpCode::InstanceID:             A(pI32);     A(pI32); break;
+                      case OpCode::InstanceIndex:          A(pI32);     A(pI32); break;
+                    
+                        // Raytracing hit uint System Values
+                      case OpCode::HitKind:                A(pI32);     A(pI32); break;
+                    
+                        // Raytracing uint System Values
+                      case OpCode::RayFlags:               A(pI32);     A(pI32); break;
+                    
+                        // Ray Dispatch Arguments
+                      case OpCode::DispatchRaysIndex:      A(pI32);     A(pI32); A(pI8);  break;
+                      case OpCode::DispatchRaysDimensions: A(pI32);     A(pI32); A(pI8);  break;
+                    
+                        // Ray Vectors
+                      case OpCode::WorldRayOrigin:         A(pF32);     A(pI32); A(pI8);  break;
+                      case OpCode::WorldRayDirection:      A(pF32);     A(pI32); A(pI8);  break;
+                    
+                        // Ray object space Vectors
+                      case OpCode::ObjectRayOrigin:        A(pF32);     A(pI32); A(pI8);  break;
+                      case OpCode::ObjectRayDirection:     A(pF32);     A(pI32); A(pI8);  break;
+                    
+                        // Ray Transforms
+                      case OpCode::ObjectToWorld:          A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::WorldToObject:          A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                    
+                        // RayT
+                      case OpCode::RayTMin:                A(pF32);     A(pI32); break;
+                      case OpCode::RayTCurrent:            A(pF32);     A(pI32); break;
+                    
+                        // AnyHit Terminals
+                      case OpCode::IgnoreHit:              A(pV);       A(pI32); break;
+                      case OpCode::AcceptHitAndEndSearch:  A(pV);       A(pI32); break;
+                    
+                        // Indirect Shader Invocation
+                      case OpCode::TraceRay:               A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(udt);  break;
+                      case OpCode::ReportHit:              A(pI1);      A(pI32); A(pF32); A(pI32); A(udt);  break;
+                      case OpCode::CallShader:             A(pV);       A(pI32); A(pI32); A(udt);  break;
+                    
+                        // Library create handle from resource struct (like HL intrinsic)
+                      case OpCode::CreateHandleForLib:     A(pRes);     A(pI32); A(obj);  break;
+                    
+                        // Raytracing object space uint System Values
+                      case OpCode::PrimitiveIndex:         A(pI32);     A(pI32); break;
+                    
+                        // Dot product with accumulate
+                      case OpCode::Dot2AddHalf:            A(pETy);     A(pI32); A(pETy); A(pF16); A(pF16); A(pF16); A(pF16); break;
+                      case OpCode::Dot4AddI8Packed:        A(pI32);     A(pI32); A(pI32); A(pI32); A(pI32); break;
+                      case OpCode::Dot4AddU8Packed:        A(pI32);     A(pI32); A(pI32); A(pI32); A(pI32); break;
+                    
+                        // Wave
+                      case OpCode::WaveMatch:              A(p4I32);    A(pI32); A(pETy); break;
+                      case OpCode::WaveMultiPrefixOp:      A(pETy);     A(pI32); A(pETy); A(pI32); A(pI32); A(pI32); A(pI32); A(pI8);  A(pI8);  break;
+                      case OpCode::WaveMultiPrefixBitCount:A(pI32);     A(pI32); A(pI1);  A(pI32); A(pI32); A(pI32); A(pI32); break;
+                    
+                        // Mesh shader instructions
+                      case OpCode::SetMeshOutputCounts:    A(pV);       A(pI32); A(pI32); A(pI32); break;
+                      case OpCode::EmitIndices:            A(pV);       A(pI32); A(pI32); A(pI32); A(pI32); A(pI32); break;
+                      case OpCode::GetMeshPayload:         A(pETy);     A(pI32); break;
+                      case OpCode::StoreVertexOutput:      A(pV);       A(pI32); A(pI32); A(pI32); A(pI8);  A(pETy); A(pI32); break;
+                      case OpCode::StorePrimitiveOutput:   A(pV);       A(pI32); A(pI32); A(pI32); A(pI8);  A(pETy); A(pI32); break;
+                    
+                        // Amplification shader instructions
+                      case OpCode::DispatchMesh:           A(pV);       A(pI32); A(pI32); A(pI32); A(pI32); A(pETy); break;
+                    
+                        // Sampler Feedback
+                      case OpCode::WriteSamplerFeedback:   A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+                      case OpCode::WriteSamplerFeedbackBias:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+                      case OpCode::WriteSamplerFeedbackLevel:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+                      case OpCode::WriteSamplerFeedbackGrad:A(pV);       A(pI32); A(pRes); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+                    
+                        // Inline Ray Query
+                      case OpCode::AllocateRayQuery:       A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_TraceRayInline:A(pV);       A(pI32); A(pI32); A(pRes); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+                      case OpCode::RayQuery_Proceed:       A(pI1);      A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_Abort:         A(pV);       A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommitNonOpaqueTriangleHit:A(pV);       A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommitProceduralPrimitiveHit:A(pV);       A(pI32); A(pI32); A(pF32); break;
+                      case OpCode::RayQuery_CommittedStatus:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateType: A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateObjectToWorld3x4:A(pF32);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_CandidateWorldToObject3x4:A(pF32);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_CommittedObjectToWorld3x4:A(pF32);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_CommittedWorldToObject3x4:A(pF32);     A(pI32); A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_CandidateProceduralPrimitiveNonOpaque:A(pI1);      A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateTriangleFrontFace:A(pI1);      A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommittedTriangleFrontFace:A(pI1);      A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateTriangleBarycentrics:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_CommittedTriangleBarycentrics:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_RayFlags:      A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_WorldRayOrigin:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_WorldRayDirection:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_RayTMin:       A(pF32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateTriangleRayT:A(pF32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommittedRayT: A(pF32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateInstanceIndex:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateInstanceID:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateGeometryIndex:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidatePrimitiveIndex:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CandidateObjectRayOrigin:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_CandidateObjectRayDirection:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_CommittedInstanceIndex:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommittedInstanceID:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommittedGeometryIndex:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommittedPrimitiveIndex:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommittedObjectRayOrigin:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                      case OpCode::RayQuery_CommittedObjectRayDirection:A(pF32);     A(pI32); A(pI32); A(pI8);  break;
+                    
+                        // Raytracing object space uint System Values, raytracing tier 1.1
+                      case OpCode::GeometryIndex:          A(pI32);     A(pI32); break;
+                    
+                        // Inline Ray Query
+                      case OpCode::RayQuery_CandidateInstanceContributionToHitGroupIndex:A(pI32);     A(pI32); A(pI32); break;
+                      case OpCode::RayQuery_CommittedInstanceContributionToHitGroupIndex:A(pI32);     A(pI32); A(pI32); break;
+                    
+                        // Get handle from heap
+                      case OpCode::AnnotateHandle:         A(pRes);     A(pI32); A(pRes); A(resProperty);break;
+                      case OpCode::CreateHandleFromBinding:A(pRes);     A(pI32); A(resBind);A(pI32); A(pI1);  break;
+                      case OpCode::CreateHandleFromHeap:   A(pRes);     A(pI32); A(pI32); A(pI1);  A(pI1);  break;
+                    
+                        // Unpacking intrinsics
+                      case OpCode::Unpack4x8:              VEC4(pETy);  A(pI32); A(pI8);  A(pI32); break;
+                    
+                        // Packing intrinsics
+                      case OpCode::Pack4x8:                A(pI32);     A(pI32); A(pI8);  A(pETy); A(pETy); A(pETy); A(pETy); break;
+                    
+                        // Helper Lanes
+                      case OpCode::IsHelperLane:           A(pI1);      A(pI32); break;
+                    
+                        // Quad Wave Ops
+                      case OpCode::QuadVote:               A(pI1);      A(pI32); A(pI1);  A(pI8);  break;
+                    
+                        // Resources - gather
+                      case OpCode::TextureGatherRaw:       RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); break;
+                    
+                        // Resources - sample
+                      case OpCode::SampleCmpLevel:         RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); break;
+                    
+                        // Resources
+                      case OpCode::TextureStoreSample:     A(pV);       A(pI32); A(pRes); A(pI32); A(pI32); A(pI32); A(pETy); A(pETy); A(pETy); A(pETy); A(pI8);  A(pI32); break;
+                    
+                        // WaveMatrix
+                      case OpCode::WaveMatrix_Annotate:    A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatProps);break;
+                      case OpCode::WaveMatrix_Depth:       A(pI32);     A(pI32); A(pWaveMatProps);break;
+                      case OpCode::WaveMatrix_Fill:        A(pV);       A(pI32); A(pWaveMatPtr);A(pETy); break;
+                      case OpCode::WaveMatrix_LoadRawBuf:  A(pV);       A(pI32); A(pWaveMatPtr);A(pRes); A(pI32); A(pI32); A(pI8);  A(pI1);  break;
+                      case OpCode::WaveMatrix_LoadGroupShared:A(pV);       A(pI32); A(pWaveMatPtr);A(pGSEltPtrTy);A(pI32); A(pI32); A(pI1);  break;
+                      case OpCode::WaveMatrix_StoreRawBuf: A(pV);       A(pI32); A(pWaveMatPtr);A(pRes); A(pI32); A(pI32); A(pI8);  A(pI1);  break;
+                      case OpCode::WaveMatrix_StoreGroupShared:A(pV);       A(pI32); A(pWaveMatPtr);A(pGSEltPtrTy);A(pI32); A(pI32); A(pI1);  break;
+                      case OpCode::WaveMatrix_Multiply:    A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);A(pWaveMatPtr);break;
+                      case OpCode::WaveMatrix_MultiplyAccumulate:A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);A(pWaveMatPtr);break;
+                      case OpCode::WaveMatrix_ScalarOp:    A(pV);       A(pI32); A(pWaveMatPtr);A(pI8);  A(pETy); break;
+                      case OpCode::WaveMatrix_SumAccumulate:A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);break;
+                      case OpCode::WaveMatrix_Add:         A(pV);       A(pI32); A(pWaveMatPtr);A(pWaveMatPtr);break;
+                    
+                        // Create/Annotate Node Handles
+                      case OpCode::AllocateNodeOutputRecords:A(pNodeRecordHandle);A(pI32); A(pNodeHandle);A(pI32); A(pI1);  break;
+                    
+                        // Get Pointer to Node Record in Address Space 6
+                      case OpCode::GetNodeRecordPtr:       A(pETy);     A(pI32); A(pNodeRecordHandle);A(pI32); break;
+                    
+                        // Work Graph intrinsics
+                      case OpCode::IncrementOutputCount:   A(pV);       A(pI32); A(pNodeHandle);A(pI32); A(pI1);  break;
+                      case OpCode::OutputComplete:         A(pV);       A(pI32); A(pNodeRecordHandle);break;
+                      case OpCode::GetInputRecordCount:    A(pI32);     A(pI32); A(pNodeRecordHandle);break;
+                      case OpCode::FinishedCrossGroupSharing:A(pI1);      A(pI32); A(pNodeRecordHandle);break;
+                    
+                        // Synchronization
+                      case OpCode::BarrierByMemoryType:    A(pV);       A(pI32); A(pI32); A(pI32); break;
+                      case OpCode::BarrierByMemoryHandle:  A(pV);       A(pI32); A(pRes); A(pI32); break;
+                      case OpCode::BarrierByNodeRecordHandle:A(pV);       A(pI32); A(pNodeRecordHandle);A(pI32); break;
+                    
+                        // Create/Annotate Node Handles
+                      case OpCode::CreateNodeOutputHandle: A(pNodeHandle);A(pI32); A(pI32); break;
+                      case OpCode::IndexNodeHandle:        A(pNodeHandle);A(pI32); A(pNodeHandle);A(pI32); break;
+                      case OpCode::AnnotateNodeHandle:     A(pNodeHandle);A(pI32); A(pNodeHandle);A(nodeProperty);break;
+                      case OpCode::CreateNodeInputRecordHandle:A(pNodeRecordHandle);A(pI32); A(pI32); break;
+                      case OpCode::AnnotateNodeRecordHandle:A(pNodeRecordHandle);A(pI32); A(pNodeRecordHandle);A(nodeRecordProperty);break;
+                    
+                        // Work Graph intrinsics
+                      case OpCode::NodeOutputIsValid:      A(pI1);      A(pI32); A(pNodeHandle);break;
+                      case OpCode::GetRemainingRecursionLevels:A(pI32);     A(pI32); break;
+                    
+                        // Comparison Samples
+                      case OpCode::SampleCmpGrad:          RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); A(pF32); break;
+                      case OpCode::SampleCmpBias:          RRT(pETy);   A(pI32); A(pRes); A(pRes); A(pF32); A(pF32); A(pF32); A(pF32); A(pI32); A(pI32); A(pI32); A(pF32); A(pF32); A(pF32); break;
+                    
+                        // Extended Command Information
+                      case OpCode::StartVertexLocation:    A(pI32);     A(pI32); break;
+                      case OpCode::StartInstanceLocation:  A(pI32);     A(pI32); break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -5626,8 +1987,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::CallShader:
   case OpCode::Pack4x8:
   case OpCode::WaveMatrix_Fill:
-    if (FT->getNumParams() <= 2)
-      return nullptr;
+    if (FT->getNumParams() <= 2) return nullptr;
     return FT->getParamType(2);
   case OpCode::MinPrecXRegStore:
   case OpCode::StoreOutput:
@@ -5637,8 +1997,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::StoreVertexOutput:
   case OpCode::StorePrimitiveOutput:
   case OpCode::DispatchMesh:
-    if (FT->getNumParams() <= 4)
-      return nullptr;
+    if (FT->getNumParams() <= 4) return nullptr;
     return FT->getParamType(4);
   case OpCode::IsNaN:
   case OpCode::IsInf:
@@ -5656,27 +2015,22 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::WaveActiveAllEqual:
   case OpCode::CreateHandleForLib:
   case OpCode::WaveMatch:
-    if (FT->getNumParams() <= 1)
-      return nullptr;
+    if (FT->getNumParams() <= 1) return nullptr;
     return FT->getParamType(1);
   case OpCode::TextureStore:
   case OpCode::TextureStoreSample:
-    if (FT->getNumParams() <= 5)
-      return nullptr;
+    if (FT->getNumParams() <= 5) return nullptr;
     return FT->getParamType(5);
   case OpCode::TraceRay:
-    if (FT->getNumParams() <= 15)
-      return nullptr;
+    if (FT->getNumParams() <= 15) return nullptr;
     return FT->getParamType(15);
   case OpCode::ReportHit:
   case OpCode::WaveMatrix_ScalarOp:
-    if (FT->getNumParams() <= 3)
-      return nullptr;
+    if (FT->getNumParams() <= 3) return nullptr;
     return FT->getParamType(3);
   case OpCode::WaveMatrix_LoadGroupShared:
   case OpCode::WaveMatrix_StoreGroupShared:
-    if (FT->getNumParams() <= 2)
-      return nullptr;
+    if (FT->getNumParams() <= 2) return nullptr;
     return FT->getParamType(2)->getPointerElementType();
   case OpCode::CreateHandle:
   case OpCode::BufferUpdateCounter:
@@ -5840,7 +2194,8 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TextureGatherRaw:
   case OpCode::SampleCmpLevel:
   case OpCode::SampleCmpGrad:
-  case OpCode::SampleCmpBias: {
+  case OpCode::SampleCmpBias:
+  {
     StructType *ST = cast<StructType>(Ty);
     return ST->getElementType(0);
   }
