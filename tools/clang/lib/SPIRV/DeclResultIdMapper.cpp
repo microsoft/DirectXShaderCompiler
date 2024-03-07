@@ -1836,7 +1836,6 @@ DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
   for (auto var : glPerVertex.getStageOutVars())
     vars.push_back(var);
 
-  llvm::DenseSet<SpirvInstruction *> seenVars;
   for (const auto &var : stageVars) {
     // We must collect stage variables that are included in entryPoint and stage
     // variables that are not included in any specific entryPoint i.e.,
@@ -1847,10 +1846,7 @@ DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
     auto *instr = var.getSpirvInstr();
     if (instr->getStorageClass() == spv::StorageClass::Private)
       continue;
-    if (seenVars.count(instr) == 0) {
-      vars.push_back(instr);
-      seenVars.insert(instr);
-    }
+    vars.push_back(instr);
   }
 
   return vars;
@@ -2043,23 +2039,22 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
       continue;
     }
 
-    // Allow builtin variables to alias each other. We already have uniqify
-    // mechanism in SpirvBuilder.
-    if (var.isSpirvBuitin())
-      continue;
-
     if (forInput && var.getSigPoint()->IsInput()) {
       bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
           &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
       if (!insertionSuccess) {
-        emitError("input semantic '%0' used more than once", {}) << s;
+        emitError("input semantic '%0' used more than once",
+                  var.getSemanticInfo().loc)
+            << s;
         success = false;
       }
     } else if (!forInput && var.getSigPoint()->IsOutput()) {
       bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
           &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
       if (!insertionSuccess) {
-        emitError("output semantic '%0' used more than once", {}) << s;
+        emitError("output semantic '%0' used more than once",
+                  var.getSemanticInfo().loc)
+            << s;
         success = false;
       }
     }
