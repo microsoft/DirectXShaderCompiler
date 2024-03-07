@@ -1020,7 +1020,6 @@ void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
       // Insert new call before secSub to make sure idx is ready to use.
       Builder.SetInsertPoint(secSub);
     }
-    unsigned recordSizeWAR = 0;
     for (unsigned i = 1; i < opcodeParamList.size(); i++) {
       Value *arg = opcodeParamList[i];
       llvm::Type *Ty = arg->getType();
@@ -1063,17 +1062,6 @@ void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
               (unsigned)HLCastOpcode::NodeOutputToHandleCast,
               NodeOutputHandleTy, {ldObj}, *HLM.GetModule());
           opcodeParamList[i] = Handle;
-          // WAR for record size computation
-          if (!dxilutil::IsHLSLEmptyNodeOutputArrayType(Ty)) {
-            DxilStructAnnotation *pAnno =
-                HLM.GetTypeSystem().GetStructAnnotation(
-                    dyn_cast<llvm::StructType>(Ty));
-            assert(pAnno != nullptr && pAnno->GetNumTemplateArgs() == 1 &&
-                   "otherwise the node template is not declared properly");
-            llvm::Type *pRecType = const_cast<llvm::Type *>(
-                pAnno->GetTemplateArgAnnotation(0).GetType());
-            recordSizeWAR = M.getDataLayout().getTypeAllocSize(pRecType);
-          }
         }
         if (dxilutil::IsHLSLNodeOutputType(Ty)) {
           Value *ldObj = Builder.CreateLoad(arg);
@@ -1130,14 +1118,13 @@ void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
           kind = DXIL::NodeIOKind::EmptyOutputArray;
           recordSize = 0;
         } else {
-          // TODO FIX AddStructAnnotation
-          /*DxilStructAnnotation* pAnno =
-          HLM.GetTypeSystem().GetStructAnnotation(dyn_cast<llvm::StructType>(ResTy));
+          DxilStructAnnotation *pAnno = HLM.GetTypeSystem().GetStructAnnotation(
+              dyn_cast<llvm::StructType>(ResTy));
           assert(pAnno != nullptr && pAnno->GetNumTemplateArgs() == 1 &&
-          "otherwise the node template is not declared properly"); llvm::Type*
-          pRecType = (llvm::Type*)pAnno->GetTemplateArgAnnotation(0).GetType();
-          recordSize = M.getDataLayout().getTypeAllocSize(pRecType);*/
-          recordSize = recordSizeWAR;
+                 "otherwise the node template is not declared properly");
+          llvm::Type *pRecType =
+              (llvm::Type *)pAnno->GetTemplateArgAnnotation(0).GetType();
+          recordSize = M.getDataLayout().getTypeAllocSize(pRecType);
         }
         NodeInfo Info(kind, recordSize);
 
