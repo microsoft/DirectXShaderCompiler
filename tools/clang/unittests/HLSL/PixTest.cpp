@@ -629,15 +629,15 @@ TEST_F(PixTest, SignatureModification_Empty) {
 
   VERIFY_ARE_EQUAL(2ull, sig.GetElements().size());
   VERIFY_ARE_EQUAL(sig.GetElement(0).GetKind(), DXIL::SemanticKind::InstanceID);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0u);
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::VertexID);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1u);
 }
 
 TEST_F(PixTest, SignatureModification_VertexIdAlready) {
@@ -662,15 +662,15 @@ TEST_F(PixTest, SignatureModification_VertexIdAlready) {
 
   VERIFY_ARE_EQUAL(2ull, sig.GetElements().size());
   VERIFY_ARE_EQUAL(sig.GetElement(0).GetKind(), DXIL::SemanticKind::VertexID);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0);
-  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0u);
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::InstanceID);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1u);
 }
 
 TEST_F(PixTest, SignatureModification_SomethingElseFirst) {
@@ -696,15 +696,15 @@ TEST_F(PixTest, SignatureModification_SomethingElseFirst) {
   // Not gonna check the first one cuz that would just be grading our own
   // homework
   VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::InstanceID);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
-  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1u);
   VERIFY_ARE_EQUAL(sig.GetElement(2).GetKind(), DXIL::SemanticKind::VertexID);
-  VERIFY_ARE_EQUAL(sig.GetElement(2).GetCols(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(2).GetRows(), 1);
-  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartCol(), 0);
-  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartRow(), 2);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartCol(), 0u);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartRow(), 2u);
 }
 
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
