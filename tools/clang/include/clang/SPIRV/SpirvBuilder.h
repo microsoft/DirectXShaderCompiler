@@ -377,7 +377,7 @@ public:
   void
   createSwitch(SpirvBasicBlock *mergeLabel, SpirvInstruction *selector,
                SpirvBasicBlock *defaultLabel,
-               llvm::ArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>> target,
+               std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> target,
                SourceLocation, SourceRange);
 
   /// \brief Creates a fragment-shader discard via by emitting OpKill.
