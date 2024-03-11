@@ -4210,25 +4210,36 @@ void VerifySampleResults(const UINT *pPixels, UINT width) {
   UINT ylod = 0;
   // Each pixel contains 4 samples and 4 LOD calculations.
   // 2 of these (called 'left' and 'right') have X values that vary and a
-  // constant Y 2 others (called 'top' and 'bot') have Y values that vary and a
-  // constant X Only of the X variant sample results and one of the Y variant
-  // results are actually reported for the pixel. The other 2 serve as "helpers"
-  // to the other pixels in the quad. On the left side of the quad, the 'left'
-  // samples are reported. Op the top of the quad, the 'top' samples are
-  // reported and so on. The varying coordinate values alternate between zero
-  // and a value whose magnitude increases with the index. As a result, the LOD
-  // level should steadily increas. Due to vagaries of implementation, the same
-  // derivatives in both directions might result in different levels for
+  // constant Y. 2 others (called 'top' and 'bot') have Y values that vary and a
+  // constant X. Only one of the X variant sample results and one of the Y
+  // variant results are actually reported for the pixel. The other 2 serve as
+  // "helpers" to the other pixels in the quad. On the left side of the quad,
+  // the 'left' samples are reported. On the top of the quad, the 'top' samples
+  // are reported and so on. The varying coordinate values alternate between
+  // zero and a value whose magnitude increases with the index. As a result, the
+  // LOD level should steadily increase. Due to vagaries of implementation, the
+  // same derivatives in both directions might result in different levels for
   // different locations in the quad. So only comparisons between sample results
   // and LOD calculations and ensuring that the LOD increased and reaches the
   // max can be tested reliably.
+
+  // The results are stored in quad z-order (top-left (#0), top-right (#1),
+  // bottom-left (#2), bottom-right (#3)) and need to be evaluated as such.
+  // The X-derivative-LOD should not decrease when going from quad pixel #0->#1
+  // and #2->#3 or #3->#0, but not for #1->#2 where is is absolutely valid for
+  // the X-derivative-LOD to decrease, because pixel #2's X coordinate is less
+  // than pixel #1's. Therefore the test skips verification of X-derivative-LOD
+  // on quad pixel #2.
+
   for (unsigned i = 0; i < width; i++) {
     // CalculateLOD and Sample from texture with mip levels containing LOD index
     // should match
     VERIFY_ARE_EQUAL(pPixels[4 * i + 0], pPixels[4 * i + 1]);
     VERIFY_ARE_EQUAL(pPixels[4 * i + 2], pPixels[4 * i + 3]);
     // Make sure LODs are ever climbing as magnitudes increase
-    VERIFY_IS_TRUE(pPixels[4 * i] >= xlod);
+    if (i % 4 != 2) { // skip X-derivative-LOD verification on quad pixel #2
+      VERIFY_IS_TRUE(pPixels[4 * i] >= xlod);
+    }
     xlod = pPixels[4 * i];
     VERIFY_IS_TRUE(pPixels[4 * i + 2] >= ylod);
     ylod = pPixels[4 * i + 2];
@@ -4300,7 +4311,9 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   test->Test->GetReadBackData("U0", &data);
   const UINT *pPixels = (UINT *)data.data();
 
-  VerifySampleResults(pPixels, 84 * 4);
+  LogCommentFmt(L"Verifying 1D Compute Shader");
+  // CSMain1D has [NumThreads(336, 1, 1)]
+  VerifySampleResults(pPixels, 336);
 
   // Test 2D compute shader
   pShaderOp->CS = CS2;
@@ -4312,6 +4325,8 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   test->Test->GetReadBackData("U0", &data);
   pPixels = (UINT *)data.data();
 
+  LogCommentFmt(L"Verifying 2D Compute Shader");
+  // CSMain2D has [NumThreads(84, 4, 3)]
   VerifySampleResults(pPixels, 84 * 4);
 
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
@@ -4322,12 +4337,16 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
     test->Test->GetReadBackData("U1", &data);
     pPixels = (UINT *)data.data();
 
+    LogCommentFmt(L"Verifying 1D mesh shader");
+    // MSMain1D has [NumThreads(116, 1, 1)]
     VerifySampleResults(pPixels, 116);
 
     test->Test->GetReadBackData("U2", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels, 84);
+    LogCommentFmt(L"Verifying 1D amplification shader");
+    // ASMain1D has [NumThreads(116, 1, 1)]
+    VerifySampleResults(pPixels, 116);
 
     pShaderOp->AS = AS2;
     pShaderOp->MS = MS2;
@@ -4336,12 +4355,16 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
     test->Test->GetReadBackData("U1", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels, 116);
+    LogCommentFmt(L"Verifying 2D mesh shader");
+    // MSMain2D has [NumThreads(42, 2, 1)]
+    VerifySampleResults(pPixels, 42 * 2);
 
     test->Test->GetReadBackData("U2", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels, 84);
+    LogCommentFmt(L"Verifying 2D amplification shader");
+    // ASMain2D has [NumThreads(42, 2, 1)]
+    VerifySampleResults(pPixels, 42 * 2);
   }
 }
 
