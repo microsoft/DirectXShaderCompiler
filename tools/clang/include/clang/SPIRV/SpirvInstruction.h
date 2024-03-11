@@ -821,10 +821,10 @@ private:
 /// \brief Switch instruction
 class SpirvSwitch : public SpirvBranching {
 public:
-  SpirvSwitch(
-      SourceLocation loc, SpirvInstruction *selector,
-      SpirvBasicBlock *defaultLabel,
-      std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> &targetsVec);
+  SpirvSwitch(SourceLocation loc, SpirvInstruction *selector,
+              SpirvBasicBlock *defaultLabel,
+              llvm::MutableArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>>
+                  &targetsVec);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSwitch)
 
@@ -837,7 +837,8 @@ public:
 
   SpirvInstruction *getSelector() const { return selector; }
   SpirvBasicBlock *getDefaultLabel() const { return defaultLabel; }
-  std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> &getTargets() {
+  llvm::MutableArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>>
+  getTargets() {
     return targets;
   }
   // Returns the branch label that will be taken for the given literal.
@@ -853,7 +854,7 @@ public:
 private:
   SpirvInstruction *selector;
   SpirvBasicBlock *defaultLabel;
-  std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> targets;
+  llvm::SmallVector<std::pair<llvm::APInt, SpirvBasicBlock *>, 4> targets;
 };
 
 /// \brief OpUnreachable instruction

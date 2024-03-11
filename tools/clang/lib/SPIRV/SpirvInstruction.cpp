@@ -384,7 +384,8 @@ SpirvReturn::SpirvReturn(SourceLocation loc, SpirvInstruction *retVal,
 SpirvSwitch::SpirvSwitch(
     SourceLocation loc, SpirvInstruction *selectorInst,
     SpirvBasicBlock *defaultLbl,
-    std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> &targetsVec)
+    llvm::MutableArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>>
+        &targetsVec)
     : SpirvBranching(IK_Switch, spv::Op::OpSwitch, loc), selector(selectorInst),
       defaultLabel(defaultLbl), targets(targetsVec.begin(), targetsVec.end()) {}
 

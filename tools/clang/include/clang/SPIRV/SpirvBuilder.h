@@ -374,11 +374,11 @@ public:
 
   /// \brief Creates a switch statement for the given selector, default, and
   /// branches. Results in OpSelectionMerge followed by OpSwitch.
-  void
-  createSwitch(SpirvBasicBlock *mergeLabel, SpirvInstruction *selector,
-               SpirvBasicBlock *defaultLabel,
-               std::vector<std::pair<llvm::APInt, SpirvBasicBlock *>> target,
-               SourceLocation, SourceRange);
+  void createSwitch(
+      SpirvBasicBlock *mergeLabel, SpirvInstruction *selector,
+      SpirvBasicBlock *defaultLabel,
+      llvm::MutableArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>> target,
+      SourceLocation, SourceRange);
 
   /// \brief Creates a fragment-shader discard via by emitting OpKill.
   void createKill(SourceLocation, SourceRange range = {});
