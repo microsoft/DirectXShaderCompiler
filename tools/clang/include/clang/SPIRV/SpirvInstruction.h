@@ -837,7 +837,8 @@ public:
 
   SpirvInstruction *getSelector() const { return selector; }
   SpirvBasicBlock *getDefaultLabel() const { return defaultLabel; }
-  llvm::ArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>> getTargets() const {
+  llvm::MutableArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>>
+  getTargets() {
     return targets;
   }
   // Returns the branch label that will be taken for the given literal.

@@ -13398,13 +13398,6 @@ void SpirvEmitter::processSwitchStmtUsingSpirvOpSwitch(
     doDeclStmt(condVarDeclStmt);
 
   auto *cond = switchStmt->getCond();
-  if (llvm::dyn_cast<IntegerLiteral>(cond)) {
-    emitError(
-        "integer literal selectors in switch statements not yet implemented",
-        cond->getLocStart());
-    return;
-  }
-
   auto *selector = doExpr(cond);
 
   // We need a merge block regardless of the number of switch cases.

@@ -44,6 +44,7 @@ public:
   bool visit(SpirvReturn *) override;
   bool visit(SpirvCompositeInsert *) override;
   bool visit(SpirvImageOp *) override;
+  bool visit(SpirvSwitch *) override;
 
   using Visitor::visit;
 
