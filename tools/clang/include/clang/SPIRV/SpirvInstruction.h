@@ -821,10 +821,10 @@ private:
 /// \brief Switch instruction
 class SpirvSwitch : public SpirvBranching {
 public:
-  SpirvSwitch(SourceLocation loc, SpirvInstruction *selector,
-              SpirvBasicBlock *defaultLabel,
-              llvm::MutableArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>>
-                  &targetsVec);
+  SpirvSwitch(
+      SourceLocation loc, SpirvInstruction *selector,
+      SpirvBasicBlock *defaultLabel,
+      llvm::ArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>> &targetsVec);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvSwitch)
 

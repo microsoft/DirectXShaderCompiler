@@ -764,7 +764,7 @@ SpirvSelect *SpirvBuilder::createSelect(QualType resultType,
 void SpirvBuilder::createSwitch(
     SpirvBasicBlock *mergeLabel, SpirvInstruction *selector,
     SpirvBasicBlock *defaultLabel,
-    llvm::MutableArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>> target,
+    llvm::ArrayRef<std::pair<llvm::APInt, SpirvBasicBlock *>> target,
     SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
   // Create the OpSelectioMerege.
