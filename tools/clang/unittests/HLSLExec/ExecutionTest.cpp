@@ -4225,10 +4225,10 @@ void VerifySampleResults(const UINT *pPixels, UINT width) {
 
   // The results are stored in quad z-order (top-left (#0), top-right (#1),
   // bottom-left (#2), bottom-right (#3)) and need to be evaluated as such.
-  // The X-derivative-LOD should not decrease when going from quad pixel #0->#1
-  // and #2->#3 or #3->#0, but not for #1->#2 where is is absolutely valid for
-  // the X-derivative-LOD to decrease, because pixel #2's X coordinate is less
-  // than pixel #1's. Therefore the test skips verification of X-derivative-LOD
+  // The X-derivative-LOD should not decrease when going from quad pixel #0->#1,
+  // #2->#3, or #3->#0. For #1->#2 the end of the typewriter "line" is reached and
+  // zags left resulting in a smaller x value. So, it is absolutely valid for the 
+  // X-derivative-LOD to decrease. Therefore, the test skips verification of X-derivative-LOD
   // on quad pixel #2.
 
   for (unsigned i = 0; i < width; i++) {
