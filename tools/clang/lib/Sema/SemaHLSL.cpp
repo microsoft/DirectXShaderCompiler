@@ -13164,6 +13164,17 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
     if (E->isTypeDependent() || E->isValueDependent() ||
         !E->isCXX11ConstantExpr(S.Context, &ArgNum)) {
       displayError = true;
+      if (DeclRefExpr *D = dyn_cast<DeclRefExpr>(E)) {
+        if (auto *Var = llvm::dyn_cast<VarDecl>(D->getDecl())) {
+          if (const Expr *Init = Var->getAnyInitializer()) {
+            if (Init->isCXX11ConstantExpr(S.Context, &ArgNum) &&
+                ArgNum.isInt()) {
+              value = ArgNum.getInt().getSExtValue();
+              displayError = false;
+	    }
+          }
+	}
+      }
     } else {
       if (ArgNum.isInt()) {
         value = ArgNum.getInt().getSExtValue();
