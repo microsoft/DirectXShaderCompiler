@@ -1347,6 +1347,13 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     const auto *declDecl = cast<DeclaratorDecl>(subDecl);
     auto varType = declDecl->getType();
     if (const auto *fieldVar = dyn_cast<VarDecl>(subDecl)) {
+
+      // Static variables are not part of the struct from a layout perspective.
+      // Thus, they should not be listed in the struct fields.
+      if (fieldVar->getStorageClass() == StorageClass::SC_Static) {
+        continue;
+      }
+
       if (isResourceType(varType)) {
         createExternVar(fieldVar);
         continue;
