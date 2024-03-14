@@ -48,7 +48,9 @@ SpirvInstruction *InitListHandler::processCast(QualType toType,
   initializers.clear();
   scalars.clear();
 
-  initializers.push_back(theEmitter.loadIfGLValue(expr));
+  auto *initializer = theEmitter.loadIfGLValue(expr);
+  if (initializer)
+    initializers.push_back(initializer);
 
   return doProcess(toType, expr->getExprLoc());
 }
@@ -294,6 +296,10 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
     while (tryToSplitStruct() || tryToSplitConstantArray())
       ;
 
+    // Not enough elements in the initializer list. Giving up.
+    if (initializers.empty())
+      return nullptr;
+
     auto init = initializers.back();
     const auto initType = init->getAstResultType();
 
@@ -339,6 +345,10 @@ SpirvInstruction *InitListHandler::createInitForMatrixType(
     while (tryToSplitStruct() || tryToSplitConstantArray())
       ;
 
+    // Not enough elements in the initializer list. Giving up.
+    if (initializers.empty())
+      return nullptr;
+
     auto init = initializers.back();
 
     if (hlsl::IsHLSLMatType(init->getAstResultType())) {
@@ -383,6 +393,8 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
     while (tryToSplitConstantArray())
       ;
 
+    // Note: an empty initializer list can be valid. Ex: initializing an
+    // empty struct.
     if (!initializers.empty()) {
       auto init = initializers.back();
       // We can only avoid decomposing and reconstructing when the type is
@@ -418,6 +430,8 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
                                      const QualType &fieldType,
                                      const StructType::FieldInfo &fieldInfo) {
         SpirvInstruction *init = createInitForType(fieldType, srcLoc, range);
+        if (!init)
+          return false;
 
         // For non bit-fields, `init` will be the value for the component.
         if (!fieldInfo.bitfield.hasValue()) {
@@ -449,6 +463,10 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
         return true;
       },
       true);
+
+  for (const auto *field : fields)
+    if (field == nullptr)
+      return nullptr;
   return spvBuilder.createCompositeConstruct(type, fields, srcLoc, range);
 }
 
@@ -462,6 +480,10 @@ SpirvInstruction *InitListHandler::createInitForConstantArrayType(
     // Keep splitting structs
     while (tryToSplitStruct())
       ;
+
+    // Not enough elements in the initializer list. Giving up.
+    if (initializers.empty())
+      return nullptr;
 
     auto init = initializers.back();
     // We can only avoid decomposing and reconstructing when the type is
@@ -485,8 +507,12 @@ SpirvInstruction *InitListHandler::createInitForConstantArrayType(
   const auto size = static_cast<uint32_t>(arrType->getSize().getZExtValue());
 
   llvm::SmallVector<SpirvInstruction *, 4> elements;
-  for (uint32_t i = 0; i < size; ++i)
-    elements.push_back(createInitForType(elemType, srcLoc, range));
+  for (uint32_t i = 0; i < size; ++i) {
+    auto *it = createInitForType(elemType, srcLoc, range);
+    if (!it)
+      return nullptr;
+    elements.push_back(it);
+  }
 
   // TODO: use OpConstantComposite when all components are constants
   return spvBuilder.createCompositeConstruct(type, elements, srcLoc, range);
@@ -515,6 +541,11 @@ InitListHandler::createInitForBufferOrImageType(QualType type,
   // Keep splitting structs or arrays
   while (tryToSplitStruct() || tryToSplitConstantArray())
     ;
+
+  // Not enough elements in the initializer list. Giving up.
+  if (initializers.empty()) {
+    return nullptr;
+  }
 
   auto init = initializers.back();
   initializers.pop_back();
