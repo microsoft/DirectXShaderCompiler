@@ -585,9 +585,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
       if (const CallInst *CI = dyn_cast<CallInst>(&I)) {
         if (!OP::IsDxilOpFunc(CI->getCalledFunction()))
           continue;
-        DXIL::OpCode dxilOp = hlsl::OP::getOpCode(CI);
-        if (dxilOp == DXIL::OpCode::NumOpCodes)
-          continue;
+        Value *opcodeArg = CI->getArgOperand(DXIL::OperandIndex::kOpcodeIdx);
+        ConstantInt *opcodeConst = dyn_cast<ConstantInt>(opcodeArg);
+        DXASSERT(opcodeConst, "DXIL opcode arg must be immediate");
+        unsigned opcode = opcodeConst->getLimitedValue();
+        DXASSERT(opcode < static_cast<unsigned>(DXIL::OpCode::NumOpCodes),
+                 "invalid DXIL opcode");
+        DXIL::OpCode dxilOp = static_cast<DXIL::OpCode>(opcode);
         if (hlsl::OP::IsDxilOpWave(dxilOp))
           hasWaveOps = true;
         switch (dxilOp) {

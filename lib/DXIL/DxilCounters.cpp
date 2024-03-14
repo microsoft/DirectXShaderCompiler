@@ -336,7 +336,9 @@ void CountInstructions(llvm::Module &M, DxilCounters &counters) {
           }
         } else if (CallInst *CI = dyn_cast<CallInst>(I)) {
           if (hlsl::OP::IsDxilOpFuncCallInst(CI)) {
-            unsigned opcode = static_cast<unsigned>(hlsl::OP::getOpCode(CI));
+            unsigned opcode =
+                (unsigned)llvm::cast<llvm::ConstantInt>(I->getOperand(0))
+                    ->getZExtValue();
             CountDxilOp(opcode, counters);
           }
         } else if (isa<LoadInst>(I) || isa<StoreInst>(I)) {
