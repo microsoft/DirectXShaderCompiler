@@ -15301,7 +15301,8 @@ void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
       if (sema->SemanticName.equals_lower("POSITION") ||
           sema->SemanticName.equals_lower("POSITION0")) {
         S.Diags.Report(FD->getLocation(),
-                       diag::warn_hlsl_semantic_attribute_position_misuse_hint);
+                       diag::warn_hlsl_semantic_attribute_position_misuse_hint)
+            << sema->SemanticName;
       }
     }
   }
