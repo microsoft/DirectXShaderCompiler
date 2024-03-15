@@ -12073,6 +12073,12 @@ void SpirvEmitter::processMeshOutputCounts(const CallExpr *callExpr) {
 
 SpirvInstruction *
 SpirvEmitter::processGetAttributeAtVertex(const CallExpr *expr) {
+  if (!spvContext.isPS()) {
+    emitError("GetAttributeAtVertex only allowed in pixel shader",
+              expr->getExprLoc());
+    return nullptr;
+  }
+
   // Implicit type conversion should bound to two things:
   // 1. Function Parameter, and recursively redecl mapped function called's var
   // types.

@@ -1803,11 +1803,13 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   RemoveBufferBlockVisitor removeBufferBlockVisitor(
       astContext, context, spirvOptions, featureManager);
   EmitVisitor emitVisitor(astContext, context, spirvOptions, featureManager);
-  PervertexInputVisitor pervertexInputVisitor(*this, astContext, context,
-                                              spirvOptions);
 
   // pervertex inputs refine
-  mod->invokeVisitor(&pervertexInputVisitor);
+  if (context.isPS()) {
+    PervertexInputVisitor pervertexInputVisitor(*this, astContext, context,
+                                                spirvOptions);
+    mod->invokeVisitor(&pervertexInputVisitor);
+  }
 
   mod->invokeVisitor(&literalTypeVisitor, true);
 
