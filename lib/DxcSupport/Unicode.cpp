@@ -76,7 +76,10 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
                         const wchar_t *lpWideCharStr, int cchWideChar,
                         char *lpMultiByteStr, int cbMultiByte,
                         const char * /*lpDefaultChar*/,
-                        bool * /*lpUsedDefaultChar*/) {
+                        bool *lpUsedDefaultChar) {
+  if (lpUsedDefaultChar) {
+    *lpUsedDefaultChar = FALSE;
+  }
 
   if (cchWideChar == 0) {
     SetLastError(ERROR_INVALID_PARAMETER);
