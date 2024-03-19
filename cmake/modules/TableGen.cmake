@@ -23,28 +23,25 @@ function(tablegen project ofn)
     set(LLVM_TARGET_DEFINITIONS_ABSOLUTE
       ${CMAKE_CURRENT_SOURCE_DIR}/${LLVM_TARGET_DEFINITIONS})
   endif()
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${ofn}.tmp
+  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
     # Generate tablegen output in a temporary file.
     COMMAND ${${project}_TABLEGEN_EXE} ${ARGN} -I ${CMAKE_CURRENT_SOURCE_DIR}
     -I ${LLVM_MAIN_SRC_DIR}/lib/Target -I ${LLVM_MAIN_INCLUDE_DIR}
     ${LLVM_TARGET_DEFINITIONS_ABSOLUTE}
-    -o ${CMAKE_CURRENT_BINARY_DIR}/${ofn}.tmp
+    -o ${CMAKE_CURRENT_BINARY_DIR}/${ofn}.tmp 
+    & 
+    # Only update the real output file if there are any differences.
+    # This prevents recompilation of all the files depending on it if there
+    # aren't any.
+    ${CMAKE_COMMAND} -E copy_if_different 
+         ${CMAKE_CURRENT_BINARY_DIR}/${ofn}.tmp
+         ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
     # The file in LLVM_TARGET_DEFINITIONS may be not in the current
     # directory and local_tds may not contain it, so we must
     # explicitly list it here:
     DEPENDS ${${project}_TABLEGEN_TARGET} ${local_tds} ${global_tds}
     ${LLVM_TARGET_DEFINITIONS_ABSOLUTE}
     COMMENT "Building ${ofn}..."
-    )
-  add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
-    # Only update the real output file if there are any differences.
-    # This prevents recompilation of all the files depending on it if there
-    # aren't any.
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_BINARY_DIR}/${ofn}.tmp
-        ${CMAKE_CURRENT_BINARY_DIR}/${ofn}
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${ofn}.tmp
-    COMMENT "Updating ${ofn}..."
     )
 
   # `make clean' must remove all those generated files:
