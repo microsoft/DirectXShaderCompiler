@@ -29,7 +29,7 @@ function(tablegen project ofn)
     -I ${LLVM_MAIN_SRC_DIR}/lib/Target -I ${LLVM_MAIN_INCLUDE_DIR}
     ${LLVM_TARGET_DEFINITIONS_ABSOLUTE}
     -o ${CMAKE_CURRENT_BINARY_DIR}/${ofn}.tmp 
-    & 
+    && 
     # Only update the real output file if there are any differences.
     # This prevents recompilation of all the files depending on it if there
     # aren't any.
