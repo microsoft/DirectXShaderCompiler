@@ -20,6 +20,12 @@ void node070_coalescing() { }
 [NumThreads(1,1,1)]
 void node070_thread() { }
 
+[Shader("node")]
+[NodeLaunch("mesh")]
+[NumThreads(1,1,1)]
+[NodeDispatchGrid(4,1,1)]
+void node070_mesh() { }
+
 
 // Metadata for node070_broadcasting
 // ------------------------------------------------------------------
@@ -53,6 +59,22 @@ void node070_thread() { }
 // CHECK-NOT: i32 20, i32 {{![-=9]+}}
 // CHECK-SAME: }
 
+// Metadata for node070_mesh
+// ------------------------------------------------------------------
+// CHECK: = !{void ()* @node070_mesh, !"node070_mesh", null, null, [[ATTRS_MESH:![0-9]+]]}
+
+// Metadata for node attributes
+// Arg #1: ShaderKind Tag (8)
+// Arg #2: Node (15)
+// Arg #3: NodeLaunch Tag (13)
+// Arg #4: mesh (1)
+// ...
+// ------------------------------------------------------------------
+// CHECK: [[ATTRS_MESH]] = !{
+// CHECK-SAME: i32 8, i32 15, i32 13, i32 4,
+// CHECK-NOT: i32 20, i32 {{![-=9]+}}
+// CHECK-SAME: }
+
 // Metadata for node070_thread
 // ------------------------------------------------------------------
 // CHECK: = !{void ()* @node070_thread, !"node070_thread", null, null, [[ATTRS_THREAD:![0-9]+]]}
@@ -68,3 +90,4 @@ void node070_thread() { }
 // CHECK-SAME: i32 8, i32 15, i32 13, i32 3,
 // CHECK-NOT: i32 20, i32 {{![-=9]+}}
 // CHECK-SAME: }
+

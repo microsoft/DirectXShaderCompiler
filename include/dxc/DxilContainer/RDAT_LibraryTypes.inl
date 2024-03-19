@@ -307,9 +307,10 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::NodeLaunchType, uint32_t)
   RDAT_ENUM_VALUE_NODEF(Broadcasting)
   RDAT_ENUM_VALUE_NODEF(Coalescing)
   RDAT_ENUM_VALUE_NODEF(Thread)
+  RDAT_ENUM_VALUE_NODEF(Mesh)
   RDAT_ENUM_VALUE_NODEF(LastEntry)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::NodeLaunchType::LastEntry == 4,
+  static_assert((unsigned)hlsl::DXIL::NodeLaunchType::LastEntry == 5,
                 "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()

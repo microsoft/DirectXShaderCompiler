@@ -627,10 +627,10 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
 };
 
 static const char *NodeLaunchTypeNames[] = {"invalid", "broadcasting",
-                                            "coalescing", "thread"};
+                                            "coalescing", "thread", "mesh"};
 
 const char *ShaderModel::GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy) {
-  static_assert(static_cast<unsigned>(DXIL::NodeLaunchType::Thread) ==
+  static_assert(static_cast<unsigned>(DXIL::NodeLaunchType::Mesh) ==
                     _countof(NodeLaunchTypeNames) - 1,
                 "Invalid launch type or names");
   return NodeLaunchTypeNames[static_cast<unsigned int>(launchTy)];
@@ -641,6 +641,7 @@ DXIL::NodeLaunchType ShaderModel::NodeLaunchTypeFromName(llvm::StringRef name) {
       .Case("broadcasting", DXIL::NodeLaunchType::Broadcasting)
       .Case("coalescing", DXIL::NodeLaunchType::Coalescing)
       .Case("thread", DXIL::NodeLaunchType::Thread)
+      .Case("mesh", DXIL::NodeLaunchType::Mesh)
       .Default(DXIL::NodeLaunchType::Invalid);
 }
 
