@@ -1201,6 +1201,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       hasUnsupportedSpirvOption(Args, errors))
     return 1;
 
+  opts.SpirvOptions.floatDenormalMode = Args.getLastArgValue(OPT_denorm);
+
 #else
   if (Args.hasFlag(OPT_spirv, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_invert_y, OPT_INVALID, false) ||

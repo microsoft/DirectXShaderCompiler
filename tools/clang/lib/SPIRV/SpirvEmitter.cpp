@@ -843,6 +843,23 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                                 SourceLocation());
   }
 
+  llvm::StringRef denormMode = spirvOptions.floatDenormalMode;
+  if (!denormMode.empty()) {
+    if (denormMode.equals_lower("preserve")) {
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::DenormPreserve, {32}, {});
+    } else if (denormMode.equals_lower("ftz")) {
+      spvBuilder.addExecutionMode(
+          entryFunction, spv::ExecutionMode::DenormFlushToZero, {32}, {});
+    } else if (denormMode.equals_lower("any")) {
+      // Do nothing. Since any behavior is allowed, we could optionally choose
+      // to translate to DenormPreserve or DenormFlushToZero if one was known to
+      // be more performant on most platforms.
+    } else {
+      assert(false && "unsupported denorm value");
+    }
+  }
+
   // Output the constructed module.
   std::vector<uint32_t> m = spvBuilder.takeModule();
   if (context.getDiagnostics().hasErrorOccurred())
