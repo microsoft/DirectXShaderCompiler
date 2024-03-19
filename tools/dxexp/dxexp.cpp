@@ -116,6 +116,52 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS5 {
 } D3D12_FEATURE_DATA_D3D12_OPTIONS5;
 #endif
 
+#ifndef NTDDI_WIN10_VB
+#define NTDDI_WIN10_VB 0x0A000008
+#endif
+
+#if WDK_NTDDI_VERSION < NTDDI_WIN10_VB
+#define D3D12_FEATURE_D3D12_OPTIONS7 ((D3D12_FEATURE)32)
+
+typedef enum D3D12_MESH_SHADER_TIER {
+  D3D12_MESH_SHADER_TIER_NOT_SUPPORTED = 0,
+  D3D12_MESH_SHADER_TIER_1 = 10
+} D3D12_MESH_SHADER_TIER;
+
+typedef enum D3D12_SAMPLER_FEEDBACK_TIER {
+  D3D12_SAMPLER_FEEDBACK_TIER_NOT_SUPPORTED = 0,
+  D3D12_SAMPLER_FEEDBACK_TIER_0_9 = 90,
+  D3D12_SAMPLER_FEEDBACK_TIER_1_0 = 100
+} D3D12_SAMPLER_FEEDBACK_TIER;
+
+typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS7 {
+  D3D12_MESH_SHADER_TIER MeshShaderTier;
+  D3D12_SAMPLER_FEEDBACK_TIER SamplerFeedbackTier;
+} D3D12_FEATURE_DATA_D3D12_OPTIONS7;
+#endif
+
+#ifndef NTDDI_WIN10_FE
+#define NTDDI_WIN10_FE 0x0A00000A
+#endif
+
+#if WDK_NTDDI_VERSION < NTDDI_WIN10_FE
+#define D3D12_FEATURE_D3D12_OPTIONS9 ((D3D12_FEATURE)37)
+
+typedef enum D3D12_WAVE_MMA_TIER {
+  D3D12_WAVE_MMA_TIER_NOT_SUPPORTED = 0,
+  D3D12_WAVE_MMA_TIER_1_0 = 10
+} D3D12_WAVE_MMA_TIER;
+
+typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS9 {
+  BOOL MeshShaderPipelineStatsSupported;
+  BOOL MeshShaderSupportsFullRangeRenderTargetArrayIndex;
+  BOOL AtomicInt64OnTypedResourceSupported;
+  BOOL AtomicInt64OnGroupSharedSupported;
+  BOOL DerivativesInMeshAndAmplificationShadersSupported;
+  D3D12_WAVE_MMA_TIER WaveMMATier;
+} D3D12_FEATURE_DATA_D3D12_OPTIONS9;
+#endif
+
 #ifndef NTDDI_WIN10_NI
 #define NTDDI_WIN10_NI 0x0A00000C
 #endif
@@ -215,6 +261,28 @@ static const char *RaytracingTierToStr(D3D12_RAYTRACING_TIER Tier) {
   }
 }
 
+static const char *MeshShaderTierToStr(D3D12_MESH_SHADER_TIER Tier) {
+  switch (Tier) {
+  case D3D12_MESH_SHADER_TIER_NOT_SUPPORTED:
+    return "NO";
+  case D3D12_MESH_SHADER_TIER_1:
+    return "1";
+  default:
+    return "ERROR";
+  }
+}
+
+static const char *WaveMatrixTierToStr(D3D12_WAVE_MMA_TIER Tier) {
+  switch (Tier) {
+  case D3D12_WAVE_MMA_TIER_NOT_SUPPORTED:
+    return "NO";
+  case D3D12_WAVE_MMA_TIER_1_0:
+    return "1";
+  default:
+    return "ERROR";
+  }
+}
+
 static HRESULT
 GetHighestShaderModel(ID3D12Device *pDevice,
                       D3D12_FEATURE_DATA_SHADER_MODEL &DeviceSM) {
@@ -249,12 +317,16 @@ static HRESULT PrintAdapters() {
       D3D12_FEATURE_DATA_D3D12_OPTIONS3 DeviceOptions3;
       D3D12_FEATURE_DATA_D3D12_OPTIONS4 DeviceOptions4;
       D3D12_FEATURE_DATA_D3D12_OPTIONS5 DeviceOptions5;
+      D3D12_FEATURE_DATA_D3D12_OPTIONS7 DeviceOptions7;
+      D3D12_FEATURE_DATA_D3D12_OPTIONS9 DeviceOptions9;
       D3D12_FEATURE_DATA_D3D12_OPTIONS14 DeviceOptions14;
 
       memset(&DeviceOptions, 0, sizeof(DeviceOptions));
       memset(&DeviceOptions3, 0, sizeof(DeviceOptions3));
       memset(&DeviceOptions4, 0, sizeof(DeviceOptions4));
       memset(&DeviceOptions5, 0, sizeof(DeviceOptions5));
+      memset(&DeviceOptions7, 0, sizeof(DeviceOptions7));
+      memset(&DeviceOptions9, 0, sizeof(DeviceOptions9));
       memset(&DeviceOptions14, 0, sizeof(DeviceOptions14));
       D3D12_FEATURE_DATA_SHADER_MODEL DeviceSM;
       AtlCheck(pAdapter->GetDesc1(&AdapterDesc));
@@ -268,6 +340,10 @@ static HRESULT PrintAdapters() {
                                    &DeviceOptions4, sizeof(DeviceOptions4));
       pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5,
                                    &DeviceOptions5, sizeof(DeviceOptions5));
+      pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS7,
+                                   &DeviceOptions7, sizeof(DeviceOptions7));
+      pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS9,
+                                   &DeviceOptions9, sizeof(DeviceOptions9));
       pDevice->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS14,
                                    &DeviceOptions14, sizeof(DeviceOptions14));
 
@@ -276,19 +352,26 @@ static HRESULT PrintAdapters() {
           IsOutputJson
               ? "%c { \"name\": \"%S\", \"sm\": \"%s\", \"wave\": %s, \"i64\": "
                 "%s, \"bary\": %s, \"view-inst\": \"%s\", \"16bit\": %s, "
-                "\"raytracing\": \"%s\", \"ato\":\"%s\" }\n"
+                "\"raytracing\": \"%s\", \"mesh\": \"%s\", \"deriv-ms-as\": "
+                "\"%s\", \"wave-matrix\" : \"%s\", \"ato\":\"%s\" }\n"
               : "%c %S - Highest SM [%s] Wave [%s] I64 [%s] Barycentrics [%s] "
                 "View Instancing [%s] 16bit Support [%s] Raytracing [%s] "
-                "Advanced Texture Ops [%s]\n";
-      printf(Format, comma, AdapterDesc.Description,
-             ShaderModelToStr(DeviceSM.HighestShaderModel),
-             BoolToStr(DeviceOptions.WaveOps),
-             BoolToStr(DeviceOptions.Int64ShaderOps),
-             BoolToStr(DeviceOptions3.BarycentricsSupported),
-             ViewInstancingTierToStr(DeviceOptions3.ViewInstancingTier),
-             BoolToStr(DeviceOptions4.Native16BitShaderOpsSupported),
-             RaytracingTierToStr(DeviceOptions5.RaytracingTier),
-             BoolToStr(DeviceOptions14.AdvancedTextureOpsSupported));
+                "Mesh Shaders [%s] Derivatives in Mesh/Amp Shaders [%s] "
+                "Wave Matrix [%s] Advanced Texture Ops [%s]\n";
+      printf(
+          Format, comma, AdapterDesc.Description,
+          ShaderModelToStr(DeviceSM.HighestShaderModel),
+          BoolToStr(DeviceOptions.WaveOps),
+          BoolToStr(DeviceOptions.Int64ShaderOps),
+          BoolToStr(DeviceOptions3.BarycentricsSupported),
+          ViewInstancingTierToStr(DeviceOptions3.ViewInstancingTier),
+          BoolToStr(DeviceOptions4.Native16BitShaderOpsSupported),
+          RaytracingTierToStr(DeviceOptions5.RaytracingTier),
+          MeshShaderTierToStr(DeviceOptions7.MeshShaderTier),
+          BoolToStr(
+              DeviceOptions9.DerivativesInMeshAndAmplificationShadersSupported),
+          WaveMatrixTierToStr(DeviceOptions9.WaveMMATier),
+          BoolToStr(DeviceOptions14.AdvancedTextureOpsSupported));
       AdapterIndex++;
       comma = IsOutputJson ? ',' : ' ';
     }
