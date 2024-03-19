@@ -15438,8 +15438,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     // NodeDispatchGrid is only valid for Broadcasting/mesh nodes
     if (NodeDG) {
       S.Diags.Report(NodeDG->getLocation(), diag::err_hlsl_launch_type_attr)
-          << NodeDG->getSpelling()
-          << "broadcasting or mesh"
+          << NodeMDG->getSpelling() << "broadcasting or mesh"
           << NodeDG->getRange();
       // Only output the note if the source location is valid
       if (NodeLaunchLoc.isValid())
@@ -15448,8 +15447,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     // NodeMaxDispatchGrid is only valid for Broadcasting nodes
     if (NodeMDG) {
       S.Diags.Report(NodeMDG->getLocation(), diag::err_hlsl_launch_type_attr)
-          << NodeMDG->getSpelling()
-          << "broadcasting or mesh"
+          << NodeMDG->getSpelling() << "broadcasting or mesh"
           << NodeMDG->getRange();
       // Only output the note if the source location is valid
       if (NodeLaunchLoc.isValid())
