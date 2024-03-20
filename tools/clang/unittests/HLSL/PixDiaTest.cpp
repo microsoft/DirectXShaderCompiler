@@ -2857,7 +2857,6 @@ void PixDiaTest::RunSizeAndOffsetTestCase(
   VERIFY_SUCCEEDED(bf->GetType(&bfType));
   CComPtr<IDxcPixStructType> bfStructType;
   VERIFY_SUCCEEDED(bfType->QueryInterface(IID_PPV_ARGS(&bfStructType)));
-  const wchar_t *memberNames[] = {L"first", L"second", L"third", L"fourth"};
   for (size_t i = 0; i < memberOffsets.size(); ++i) {
     CComPtr<IDxcPixStructField> field;
     VERIFY_SUCCEEDED(
