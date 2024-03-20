@@ -15690,7 +15690,7 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 
   // if this FD isn't the entry point, then we shouldn't add
   // a shader attribute to this decl, so just return
-  if (EntryPointName != FD->getIdentifier()->getName()) {
+  if (FD->getIdentifier() && EntryPointName != FD->getIdentifier()->getName()) {
     return;
   }
 
