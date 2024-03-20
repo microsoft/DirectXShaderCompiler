@@ -31,8 +31,11 @@ void main(bool b : B) {
     // non-constant condition.
     // NO_FOLD: error: validation errors
     // NO_FOLD: error: DXIL intrinsic overload must be valid.
-    // NO_FOLD: note: at '%{{.+}} = call double @dx.op.dot3.f64(i32 55, double %{{.+}}, double %{{.+}}, double %{{.+}}, double %{{.+}}, double %{{.+}}, double %{{.+}})' in block '#0' of function 'main'.
-    float result = normalize((b ? 1.5 : 0.5).xxx).x;
-    results[i++] = float4(result, 0, 0, 0);
+    // The next check isn't entirely necessary, since the invalid overload
+    // reported depends on intrinsic function declaration order, and this case
+    // will report one of two intrinsics: dot4 or sqrt.  The above HLSL causes
+    // the double unary op to be declared before the dot4 intrinsic.
+    // NO_FOLD: note: at '%{{.+}} = call double @dx.op.unary.f64(i32 25, double %{{.+}})' in block '#0' of function 'main'.
+    results[i++] = normalize((b ? 1.25 : 2.5).xxxx);
 #endif // NO_FOLD
 }
