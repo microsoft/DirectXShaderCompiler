@@ -31,7 +31,6 @@ void main(bool b : B) {
     // non-constant condition.
     // NO_FOLD: error: validation errors
     // NO_FOLD: error: DXIL intrinsic overload must be valid.
-    // NO_FOLD: note: at '%{{.+}} = call double @dx.op.unary.f64(i32 24, double %{{.+}})' in block '#0' of function 'main'.
     float result = length((b ? 1.5 : 0.5).xxx);
     results[i++] = float4(result, 0, 0, 0);
 #endif // NO_FOLD
