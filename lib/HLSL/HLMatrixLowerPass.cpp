@@ -423,7 +423,7 @@ Value *HLMatrixLowerPass::getLoweredByValOperand(Value *Val,
 
   // Lower undef mat as undef vec
   if (isa<UndefValue>(Val)) {
-      return UndefValue::get(LoweredTy);
+    return UndefValue::get(LoweredTy);
   }
 
   // Return a mat-to-vec translation stub
