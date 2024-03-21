@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_8 %s | FileCheck %s
+// RUN: %dxc -T lib_6_9 %s | FileCheck %s
 // ==================================================================
 // If no input is specified then the NodeInputs metadata should not
 // be present.

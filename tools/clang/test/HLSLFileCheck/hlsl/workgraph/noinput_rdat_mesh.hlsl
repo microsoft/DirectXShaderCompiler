@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_8 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxc -T lib_6_9 %s | %D3DReflect %s | FileCheck %s
 
 // ==================================================================
 // Simple check of RDAT output for nodes without inputs
@@ -20,7 +20,7 @@
 // CHECK:      FeatureInfo1: 0
 // CHECK:      FeatureInfo2: 0
 // CHECK:      ShaderStageFlag: (Node)
-// CHECK:      MinShaderTarget: 0xf0068
+// CHECK:      MinShaderTarget: 0xf0069
 // CHECK:      MinimumExpectedWaveLaneCount: 0
 // CHECK:      MaximumExpectedWaveLaneCount: 0
 // CHECK:      ShaderFlags: 0 (None)
@@ -56,7 +56,7 @@
 // CHECK:    FunctionCount: 1
 // CHECK:  ID3D12FunctionReflection:
 // CHECK:    D3D12_FUNCTION_DESC: Name: noinput_mesh
-// CHECK:      Shader Version: <unknown> 6.8
+// CHECK:      Shader Version: <unknown> 6.9
 // CHECK:      Creator: <nullptr>
 // CHECK:      Flags: 0
 // CHECK:      RequiredFeatureFlags: 0
