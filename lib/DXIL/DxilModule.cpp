@@ -2164,8 +2164,11 @@ static void AdjustMinimumShaderModelAndFlags(const DxilFunctionProps *props,
       DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 5);
     else if (props->IsRay())
       DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 3);
-    else if (props->IsNode())
+    else if (props->IsNode()) {
       DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 8);
+      if (props->Node.LaunchType == DXIL::NodeLaunchType::Mesh)
+        DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 9);
+    }
   }
 
   // Adjust minimum shader model based on flags.
