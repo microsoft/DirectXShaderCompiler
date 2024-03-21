@@ -669,7 +669,7 @@ const char *ShaderModel::GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy) {
 
 DXIL::NodeLaunchType ShaderModel::NodeLaunchTypeFromName(llvm::StringRef name) {
   static_assert(static_cast<unsigned>(DXIL::NodeLaunchType::LastEntry) == 5,
-		"NodeLaunchTypeFromName needs updating for new NodeLaunchType");
+                "NodeLaunchTypeFromName needs updating for new NodeLaunchType");
   return llvm::StringSwitch<DXIL::NodeLaunchType>(name.lower())
       .Case("broadcasting", DXIL::NodeLaunchType::Broadcasting)
       .Case("coalescing", DXIL::NodeLaunchType::Coalescing)
