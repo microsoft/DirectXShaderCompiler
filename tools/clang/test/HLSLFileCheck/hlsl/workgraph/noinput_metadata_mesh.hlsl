@@ -20,7 +20,7 @@ void noinput_mesh() { }
 // Arg #1: ShaderKind Tag (8)
 // Arg #2: Node (15)
 // Arg #3: NodeLaunch Tag (13)
-// Arg #4: mesh (1)
+// Arg #4: mesh (4)
 // ...
 // ------------------------------------------------------------------
 // CHECK: [[ATTRS_MESH]] = !{
