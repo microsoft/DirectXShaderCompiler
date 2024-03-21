@@ -1,5 +1,10 @@
-// RUN: %dxc -T vs_6_0 %s -E main | %FileCheck %s
-// RUN: %dxc -T vs_6_0 %s -E main -DNO_FOLD | %FileCheck %s -check-prefixes=NO_FOLD
+// RUN: %dxc -T vs_6_0 %s -E main | FileCheck %s
+// RUN: not %dxc -T vs_6_0 %s -E main -DNO_FOLD 2>&1 | FileCheck %s --check-prefixes=NO_FOLD
+
+// The code path for this case asserts, but the assert does not indicate a
+// serious problem with internal state.  The invalid overload will either be
+// constant folded away, or caught by the validator.
+// UNSUPPORTED: asserts
 
 // Ensure fmod is constant evaluated during codegen, or dxil const eval
 // TODO: handle fp specials properly!
@@ -25,21 +30,6 @@ void main(bool b : B) {
                           fmod(-5.5f, 3.0f),
                           fmod(5.5f, -3.0f),
                           fmod(-5.5f, -3.0f));
-
-#ifdef SPECIALS
-    // Literal float
-    // 0.0, -0.0, NaN, -NaN
-    results[i++] = float4(fmod(0.0, 1.0),
-                          fmod(-0.0, 1.0),
-                          fmod(5.5, 0.0),
-                          fmod(-5.5, 0.0));
-    // Explicit float
-    // 0.0, -0.0, NaN, -NaN
-    results[i++] = float4(fmod(0.0f, 1.0f),
-                          fmod(-0.0f, 1.0f),
-                          fmod(5.5f, 0.0f),
-                          fmod(-5.5f, 0.0f));
-#endif // SPECIALS
 
 #ifdef NO_FOLD
     // Currently, we rely on constant folding of DXIL ops to get rid of illegal

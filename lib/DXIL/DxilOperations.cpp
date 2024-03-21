@@ -3566,18 +3566,9 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   DXASSERT(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes,
            "otherwise caller passed OOB OpCode");
   assert(0 <= (unsigned)opCode && opCode < OpCode::NumOpCodes);
-
-  // Remove this assert on illegal overload for now.
-  // Illegal overloads are generated and eliminated by DXIL op constant
-  // evaluation for a number of cases where a double overload of an HL intrinsic
-  // that otherwise does not support double is used for literal values, when
-  // there is no constant evaluation for the intrinsic in CodeGen.
-  // Illegal overloads of DXIL intrinsics may survive through to final DXIL,
-  // but these will be caught by the validator, and this is not a regression.
-  // DXASSERT(IsOverloadLegal(opCode, pOverloadType),
-  //      "otherwise the caller requested illegal operation overload (eg HLSL "
-  //      "function with unsupported types for mapped intrinsic function)");
-
+  DXASSERT(IsOverloadLegal(opCode, pOverloadType),
+           "otherwise the caller requested illegal operation overload (eg HLSL "
+           "function with unsupported types for mapped intrinsic function)");
   OpCodeClass opClass = m_OpCodeProps[(unsigned)opCode].opCodeClass;
   Function *&F =
       m_OpCodeClassCache[(unsigned)opClass].pOverloads[pOverloadType];
