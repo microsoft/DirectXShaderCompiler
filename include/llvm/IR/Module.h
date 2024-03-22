@@ -46,7 +46,17 @@ template<> struct ilist_traits<Function>
 
   // createSentinel is used to get hold of the node that marks the end of the
   // list... (same trick used here as in ilist_traits<Instruction>)
-  Function *createSentinel() const {
+// HLSL Change Starts
+// Temporarily disable "downcast of address" UBSAN runtime error
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6446
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+  __attribute__((no_sanitize("undefined")))
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  Function *
+  createSentinel() const {
     return static_cast<Function*>(&Sentinel);
   }
   static void destroySentinel(Function*) {}
@@ -62,7 +72,17 @@ private:
 template<> struct ilist_traits<GlobalVariable>
   : public SymbolTableListTraits<GlobalVariable, Module> {
   // createSentinel is used to create a node that marks the end of the list.
-  GlobalVariable *createSentinel() const {
+// HLSL Change Starts
+// Temporarily disable "downcast of address" UBSAN runtime error
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6446
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+  __attribute__((no_sanitize("undefined")))
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  GlobalVariable *
+  createSentinel() const {
     return static_cast<GlobalVariable*>(&Sentinel);
   }
   static void destroySentinel(GlobalVariable*) {}
@@ -77,7 +97,17 @@ private:
 template<> struct ilist_traits<GlobalAlias>
   : public SymbolTableListTraits<GlobalAlias, Module> {
   // createSentinel is used to create a node that marks the end of the list.
-  GlobalAlias *createSentinel() const {
+// HLSL Change Starts
+// Temporarily disable "downcast of address" UBSAN runtime error
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6446
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+  __attribute__((no_sanitize("undefined")))
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  GlobalAlias *
+  createSentinel() const {
     return static_cast<GlobalAlias*>(&Sentinel);
   }
   static void destroySentinel(GlobalAlias*) {}
@@ -93,7 +123,17 @@ template<> struct ilist_traits<NamedMDNode>
   : public ilist_default_traits<NamedMDNode> {
   // createSentinel is used to get hold of a node that marks the end of
   // the list...
-  NamedMDNode *createSentinel() const {
+// HLSL Change Starts
+// Temporarily disable "downcast of address" UBSAN runtime error
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6446
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+  __attribute__((no_sanitize("undefined")))
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  NamedMDNode *
+  createSentinel() const {
     return static_cast<NamedMDNode*>(&Sentinel);
   }
   static void destroySentinel(NamedMDNode*) {}
