@@ -208,7 +208,10 @@ public:
     VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
         dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
-    std::string outputText = BlobToUtf8(pText);
+    std::string outputText;
+    if (pText->GetBufferSize() != 0) {
+      outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
+    }
 
     return {
         std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
