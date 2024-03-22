@@ -53,7 +53,7 @@ stages:
           configuration: Release
           CC: clang
           CXX: clang++
-          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_USE_SANITIZER=Address,Undefined -DLLVM_ENABLE_LIBCXX=On -DLLVM_USE_LINKER=lld
+          CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_USE_SANITIZER='Address;Undefined' -DLLVM_ENABLE_LIBCXX=On -DLLVM_USE_LINKER=lld
           CHECK_ALL_ENV: ASAN_OPTIONS=alloc_dealloc_mismatch=0
           OS: Linux
         Linux_Clang_Debug:
