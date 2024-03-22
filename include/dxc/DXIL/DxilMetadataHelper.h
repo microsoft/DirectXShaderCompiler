@@ -320,6 +320,15 @@ public:
   static const unsigned kDxilNodeMaxDispatchGridTag = 22;
   static const unsigned kDxilRangedWaveSizeTag = 23;
 
+  // Experimental Mesh Node tags
+  // offset by 0x10000(65536) to prevent interfering with future tags
+  // Note that mesh attribs are represented differently than in mesh shaders,
+  // using a tag instead of its position in a state block indicating meaning
+  static const unsigned kDxilNodeMeshOutputTopologyTag = 65536;
+  static const unsigned kDxilNodeMeshMaxVertexCountTag = 65537;
+  static const unsigned kDxilNodeMeshMaxPrimitiveCountTag = 655368;
+  static const unsigned kDxilNodeMaxInputRecordsPerGraphEntryRecordTag = 65539;
+
   // Node Input/Output State.
   static const unsigned kDxilNodeOutputIDTag = 0;
   static const unsigned kDxilNodeIOFlagsTag = 1;

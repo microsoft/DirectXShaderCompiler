@@ -1730,6 +1730,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       DXIL::MeshOutputTopology topology =
           StringToMeshOutputTopology(Attr->getTopology());
       funcProps->ShaderProps.MS.outputTopology = topology;
+    } else if (isNode) {
+      DXIL::MeshOutputTopology topology =
+          StringToMeshOutputTopology(Attr->getTopology());
+      funcProps->Node.OutputTopology = topology;
     } else if (isEntry && !SM->IsHS() && !SM->IsMS()) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Warning,
@@ -1856,6 +1860,19 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
     }
     if (const auto *pAttr = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
       funcProps->Node.MaxRecursionDepth = pAttr->getCount();
+    }
+    if (const auto *pAttr =
+            FD->getAttr<HLSLNodeMaxInputRecordsPerGraphEntryRecordAttr>()) {
+      if (!isNode) {
+        unsigned DiagID = Diags.getCustomDiagID(
+            DiagnosticsEngine::Error, "nodemaxinputrecordspergraphentryrecord "
+                                      "attribute only valid for mesh nodes.");
+        Diags.Report(pAttr->getLocation(), DiagID);
+      }
+
+      funcProps->Node.MaxInputRecordsPerGraphEntryRecord = pAttr->getCount();
+      funcProps->Node.MaxInputRecSharedAcrossNodeArray =
+          pAttr->getSharedAcrossNodeArray();
     }
     if (!FD->getAttr<HLSLNumThreadsAttr>()) {
       // NumThreads wasn't specified.
