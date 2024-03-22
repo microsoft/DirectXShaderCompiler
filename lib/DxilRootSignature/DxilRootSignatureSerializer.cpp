@@ -131,7 +131,7 @@ HRESULT SimpleSerializer::ReserveBlock(void **ppData, unsigned cbSize,
 
   *ppData = pClonedData;
   if (pOffset) {
-    memcpy(pOffset, &pSegment->Offset, sizeof(pSegment->Offset));
+    *pOffset = pSegment->Offset;
   }
 
 Cleanup:
