@@ -347,11 +347,12 @@ private:
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
 __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
 // HLSL Change Ends
-inline BasicBlock *ilist_traits<BasicBlock>::createSentinel() const {
-    return static_cast<BasicBlock*>(&Sentinel);
+inline BasicBlock *
+ilist_traits<BasicBlock>::createSentinel() const {
+  return static_cast<BasicBlock *>(&Sentinel);
 }
 
 // Create wrappers for C Binding types (see CBindingWrapping.h).

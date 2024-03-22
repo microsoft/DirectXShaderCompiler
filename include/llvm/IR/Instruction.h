@@ -521,10 +521,11 @@ private:
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
 __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
 // HLSL Change Ends
-inline Instruction *ilist_traits<Instruction>::createSentinel() const {
+inline Instruction *
+ilist_traits<Instruction>::createSentinel() const {
   // Since i(p)lists always publicly derive from their corresponding traits,
   // placing a data member in this class will augment the i(p)list.  But since
   // the NodeTy is expected to be publicly derive from ilist_node<NodeTy>,

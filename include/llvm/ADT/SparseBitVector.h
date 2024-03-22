@@ -254,10 +254,13 @@ struct ilist_traits<SparseBitVectorElement<ElementSize> >
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
   __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
-// HLSL Change Ends
-  Element *createSentinel() const { return static_cast<Element *>(&Sentinel); }
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  Element *
+  createSentinel() const {
+    return static_cast<Element *>(&Sentinel);
+  }
   static void destroySentinel(Element *) {}
 
   Element *provideInitialHead() const { return createSentinel(); }

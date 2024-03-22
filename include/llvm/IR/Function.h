@@ -42,10 +42,11 @@ template<> struct ilist_traits<Argument>
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
   __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
-// HLSL Change Ends
-  Argument *createSentinel() const {
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  Argument *
+  createSentinel() const {
     return static_cast<Argument*>(&Sentinel);
   }
   static void destroySentinel(Argument*) {}

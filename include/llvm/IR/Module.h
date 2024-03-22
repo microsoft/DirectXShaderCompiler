@@ -52,10 +52,11 @@ template<> struct ilist_traits<Function>
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
   __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
-// HLSL Change Ends
-  Function *createSentinel() const {
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  Function *
+  createSentinel() const {
     return static_cast<Function*>(&Sentinel);
   }
   static void destroySentinel(Function*) {}
@@ -77,10 +78,11 @@ template<> struct ilist_traits<GlobalVariable>
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
   __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
-// HLSL Change Ends
-  GlobalVariable *createSentinel() const {
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  GlobalVariable *
+  createSentinel() const {
     return static_cast<GlobalVariable*>(&Sentinel);
   }
   static void destroySentinel(GlobalVariable*) {}
@@ -101,10 +103,11 @@ template<> struct ilist_traits<GlobalAlias>
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
   __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
-// HLSL Change Ends
-  GlobalAlias *createSentinel() const {
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  GlobalAlias *
+  createSentinel() const {
     return static_cast<GlobalAlias*>(&Sentinel);
   }
   static void destroySentinel(GlobalAlias*) {}
@@ -126,10 +129,11 @@ template<> struct ilist_traits<NamedMDNode>
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
   __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
-// HLSL Change Ends
-  NamedMDNode *createSentinel() const {
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  NamedMDNode *
+  createSentinel() const {
     return static_cast<NamedMDNode*>(&Sentinel);
   }
   static void destroySentinel(NamedMDNode*) {}

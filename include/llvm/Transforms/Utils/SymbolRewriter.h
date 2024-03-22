@@ -125,10 +125,11 @@ public:
 #ifdef __has_feature
 #if __has_feature(undefined_behavior_sanitizer)
   __attribute__((no_sanitize("undefined")))
-#endif  // __has_feature(address_sanitizer)
-#endif  // defined(__has_feature)
-// HLSL Change Ends
-  SymbolRewriter::RewriteDescriptor *createSentinel() const {
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  SymbolRewriter::RewriteDescriptor *
+  createSentinel() const {
     // since i[p] lists always publicly derive from the corresponding
     // traits, placing a data member in this class will augment the
     // i[p]list.  Since the NodeTy is expected to publicly derive from
