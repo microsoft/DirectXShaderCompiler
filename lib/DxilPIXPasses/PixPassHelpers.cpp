@@ -450,6 +450,41 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
   delete Instr;
 }
 
+unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
+                                  unsigned UpStreamSVPosRow) {
+  hlsl::DxilSignature &InputSignature = DM.GetInputSignature();
+  auto &InputElements = InputSignature.GetElements();
+
+  auto Existing_SV_Position =
+      std::find_if(InputElements.begin(), InputElements.end(),
+                   [](const std::unique_ptr<DxilSignatureElement> &Element) {
+                     return Element->GetSemantic()->GetKind() ==
+                            hlsl::DXIL::SemanticKind::Position;
+                   });
+
+  // SV_Position, if present, has to have full mask, so we needn't worry
+  // about the shader having selected components that don't include x or y.
+  // If not present, we add it.
+  if (Existing_SV_Position == InputElements.end()) {
+    unsigned int StartColumn = 0;
+    unsigned int RowCount = 1;
+    unsigned int ColumnCount = 4;
+    auto Added_SV_Position =
+        llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+    Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
+                                  hlsl::DXIL::InterpolationMode::Linear,
+                                  RowCount, ColumnCount, UpStreamSVPosRow,
+                                  StartColumn);
+    Added_SV_Position->AppendSemanticIndex(0);
+    Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
+    // AppendElement sets the element's ID by default
+    auto index = InputSignature.AppendElement(std::move(Added_SV_Position));
+    return InputElements[index]->GetID();
+  } else {
+    return Existing_SV_Position->get()->GetID();
+  }
+}
+
 #ifdef PIX_DEBUG_DUMP_HELPER
 
 static int g_logIndent = 0;
