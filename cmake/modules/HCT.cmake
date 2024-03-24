@@ -93,7 +93,7 @@ function(add_hlsl_hctgen mode)
   if(NOT copy_sources)
     set(output ${temp_output})
     if (CLANG_FORMAT_EXE) # Only verify sources if clang-format is available.
-      set(verification COMMAND ${CMAKE_COMMAND} -E compare_files ${temp_output} ${full_output})
+      set(verification COMMAND ${CMAKE_COMMAND} -E compare_files --ignore-eol ${temp_output} ${full_output})
     endif()
   endif()
   if(WIN32 AND NOT HLSL_AUTOCRLF)
