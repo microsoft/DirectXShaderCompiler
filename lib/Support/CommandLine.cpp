@@ -1641,17 +1641,13 @@ protected:
 // at run time which should be invoked.
 class HelpPrinterWrapper {
 private:
-#if 0 // HLSL Change Starts
   HelpPrinter &UncategorizedPrinter;
   CategorizedHelpPrinter &CategorizedPrinter;
-#endif // HLSL Change Ends
 public:
   explicit HelpPrinterWrapper(HelpPrinter &UncategorizedPrinter,
                               CategorizedHelpPrinter &CategorizedPrinter)
-#if 0 // HLSL Change Starts
       : UncategorizedPrinter(UncategorizedPrinter),
         CategorizedPrinter(CategorizedPrinter)
-#endif // HLSL Change Starts
   {}
 
   // Invoke the printer.
@@ -1674,47 +1670,51 @@ static HelpPrinterWrapper WrappedNormalPrinter(UncategorizedNormalPrinter,
 static HelpPrinterWrapper WrappedHiddenPrinter(UncategorizedHiddenPrinter,
                                                CategorizedHiddenPrinter);
 
-#if 0 // HLSL Change Starts
+// HLSL Change Begin - change help options to be function level static.
+extern void setupHelpPrint() {
 
-// Define a category for generic options that all tools should have.
-static cl::OptionCategory GenericCategory("Generic Options");
+  // Define a category for generic options that all tools should have.
+  static cl::OptionCategory GenericCategory("Generic Options");
 
-// Define uncategorized help printers.
-// -help-list is hidden by default because if Option categories are being used
-// then -help behaves the same as -help-list.
-static cl::opt<HelpPrinter, true, parser<bool>> HLOp(
-    "help-list",
-    cl::desc("Display list of available options (-help-list-hidden for more)"),
-    cl::location(UncategorizedNormalPrinter), cl::Hidden, cl::ValueDisallowed,
-    cl::cat(GenericCategory));
+  // Define uncategorized help printers.
+  // -help-list is hidden by default because if Option categories are being used
+  // then -help behaves the same as -help-list.
+  static cl::opt<HelpPrinter, true, parser<bool>> HLOp(
+      "help-list",
+      cl::desc(
+          "Display list of available options (-help-list-hidden for more)"),
+      cl::location(UncategorizedNormalPrinter), cl::Hidden, cl::ValueDisallowed,
+      cl::cat(GenericCategory));
 
-static cl::opt<HelpPrinter, true, parser<bool>>
-    HLHOp("help-list-hidden", cl::desc("Display list of all available options"),
-          cl::location(UncategorizedHiddenPrinter), cl::Hidden,
-          cl::ValueDisallowed, cl::cat(GenericCategory));
+  static cl::opt<HelpPrinter, true, parser<bool>> HLHOp(
+      "help-list-hidden", cl::desc("Display list of all available options"),
+      cl::location(UncategorizedHiddenPrinter), cl::Hidden, cl::ValueDisallowed,
+      cl::cat(GenericCategory));
 
-// Define uncategorized/categorized help printers. These printers change their
-// behaviour at runtime depending on whether one or more Option categories have
-// been declared.
-static cl::opt<HelpPrinterWrapper, true, parser<bool>>
-    HOp("help", cl::desc("Display available options (-help-hidden for more)"),
-        cl::location(WrappedNormalPrinter), cl::ValueDisallowed,
-        cl::cat(GenericCategory));
+  // Define uncategorized/categorized help printers. These printers change their
+  // behaviour at runtime depending on whether one or more Option categories
+  // have been declared.
+  static cl::opt<HelpPrinterWrapper, true, parser<bool>> HOp(
+      "help", cl::desc("Display available options (-help-hidden for more)"),
+      cl::location(WrappedNormalPrinter), cl::ValueDisallowed,
+      cl::cat(GenericCategory));
 
-static cl::opt<HelpPrinterWrapper, true, parser<bool>>
-    HHOp("help-hidden", cl::desc("Display all available options"),
-         cl::location(WrappedHiddenPrinter), cl::Hidden, cl::ValueDisallowed,
-         cl::cat(GenericCategory));
+  static cl::opt<HelpPrinterWrapper, true, parser<bool>> HHOp(
+      "help-hidden", cl::desc("Display all available options"),
+      cl::location(WrappedHiddenPrinter), cl::Hidden, cl::ValueDisallowed,
+      cl::cat(GenericCategory));
 
-static cl::opt<bool> PrintOptions(
-    "print-options",
-    cl::desc("Print non-default options after command line parsing"),
-    cl::Hidden, cl::init(false), cl::cat(GenericCategory));
+  static cl::opt<bool> PrintOptions(
+      "print-options",
+      cl::desc("Print non-default options after command line parsing"),
+      cl::Hidden, cl::init(false), cl::cat(GenericCategory));
 
-static cl::opt<bool> PrintAllOptions(
-    "print-all-options",
-    cl::desc("Print all option values after command line parsing"), cl::Hidden,
-    cl::init(false), cl::cat(GenericCategory));
+  static cl::opt<bool> PrintAllOptions(
+      "print-all-options",
+      cl::desc("Print all option values after command line parsing"),
+      cl::Hidden, cl::init(false), cl::cat(GenericCategory));
+
+}
 
 void HelpPrinterWrapper::operator=(bool Value) {
   if (!Value)
@@ -1726,18 +1726,17 @@ void HelpPrinterWrapper::operator=(bool Value) {
   if (GlobalParser->RegisteredOptionCategories.size() > 1) {
     // unhide -help-list option so user can have uncategorized output if they
     // want it.
-    HLOp.setHiddenFlag(NotHidden);
+    UncategorizedNormalPrinter = NotHidden;
 
     CategorizedPrinter = true; // Invoke categorized printer
   } else
     UncategorizedPrinter = true; // Invoke uncategorized printer
 }
 
-#else
+// HLSL Change Begin
 static const bool PrintOptions = false;
 static const bool PrintAllOptions = false;
-
-#endif // HLSL Change Ends
+// HLSL Change End
 
 // Print the value of each option.
 void cl::PrintOptionValues() { GlobalParser->printOptionValues(); }

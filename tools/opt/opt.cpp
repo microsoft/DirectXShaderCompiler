@@ -59,6 +59,9 @@
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
+
+// regist help options.
+void setupHelpPrint();
 // HLSL Change Ends
 
 #include <algorithm>
@@ -71,6 +74,7 @@ using namespace opt_tool;
 //
 static cl::list<const PassInfo*, bool, PassNameParser>
 PassList(cl::desc("Optimizations available:"));
+
 
 // This flag specifies a textual description of the optimization pass pipeline
 // to run over the module. This flag switches opt to use the new pass manager
@@ -307,6 +311,7 @@ void __cdecl initializeDxilConvPasses(llvm::PassRegistry &);
 #endif
 namespace hlsl {
 HRESULT SetupRegistryPassForHLSL();
+HRESULT SetupRegistryPassForPIX();
 } // namespace hlsl
 // HLSL Change End
 
@@ -365,18 +370,23 @@ int __cdecl main(int argc, char **argv) {
   // HLSL Change Starts
   initializeDxilModuleInitPass(Registry);
   hlsl::SetupRegistryPassForHLSL();
+  hlsl::SetupRegistryPassForPIX();
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
+
+  setupHelpPrint();
   // HLSL Change Ends
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
 #endif
-
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
-
+  if (InputFilename == "") {
+    cl::PrintHelpMessage();
+    return 2;
+  }
   if (AnalyzeOnly && NoOutput) {
     errs() << argv[0] << ": analyze mode conflicts with no-output mode.\n";
     return 1;

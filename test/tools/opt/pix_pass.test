@@ -1,0 +1,7 @@
+RUN: opt -help | FileCheck %s
+
+This test check pix passes available in opt.
+
+================================= Simple link ================================
+CHECK: OPTIONS:
+CHECK: -hlsl-dxil-PIX-add-tid-to-as-payload
