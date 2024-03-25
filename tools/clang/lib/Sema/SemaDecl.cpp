@@ -4972,8 +4972,6 @@ NamedDecl *Sema::HandleDeclarator(Scope *S, Declarator &D,
   if (!New)
     return nullptr;
 
-  TransferUnusualAttributes(D, New); // HLSL Change
-
   // If this has an identifier and is not an invalid redeclaration or 
   // function template specialization, add it to the scope stack.
   if (New->getDeclName() && AddToScope &&
@@ -5187,6 +5185,8 @@ Sema::ActOnTypedefDeclarator(Scope* S, Declarator& D, DeclContext* DC,
   bool Redeclaration = D.isRedeclaration();
   NamedDecl *ND = ActOnTypedefNameDecl(S, DC, NewTD, Previous, Redeclaration);
   D.setRedeclaration(Redeclaration);
+
+  TransferUnusualAttributes(D, ND); // HLSL Change
   return ND;
 }
 
@@ -6202,6 +6202,7 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     return NewTemplate;
   }
 
+  TransferUnusualAttributes(D, NewVD); // HLSL Change
   return NewVD;
 }
 
@@ -8108,10 +8109,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     AddToScope = false;
   }
 
+  // HLSL Change Starts
+  TransferUnusualAttributes(D, NewFD);
+
   if (getLangOpts().HLSL && D.isFunctionDefinition() && D.hasName() &&
       NewFD->getDeclContext()->getRedeclContext()->isTranslationUnit()) {
     hlsl::DiagnoseEntry(*this, NewFD);
   }
+  // HLSL Change Ends
 
   return NewFD;
 }

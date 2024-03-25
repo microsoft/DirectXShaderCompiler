@@ -15295,6 +15295,21 @@ void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
   return;
 }
 
+void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+  for (auto *annotation : FD->getUnusualAnnotations()) {
+    if (auto *sema = dyn_cast<hlsl::SemanticDecl>(annotation)) {
+      if (sema->SemanticName.equals_lower("POSITION") ||
+          sema->SemanticName.equals_lower("POSITION0")) {
+        S.Diags.Report(FD->getLocation(),
+                       diag::warn_hlsl_semantic_attribute_position_misuse_hint)
+            << sema->SemanticName;
+      }
+    }
+  }
+
+  return;
+}
+
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLNumThreadsAttr>()))
@@ -15808,8 +15823,9 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
 
   switch (Stage) {
-  case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
+    return DiagnoseVertexEntry(S, FD, StageName);
+  case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Invalid:
     return;

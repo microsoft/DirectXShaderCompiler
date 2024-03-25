@@ -7712,6 +7712,9 @@ def warn_hlsl_incorrect_bind_semantic: Warning< // Is an error in fxc in some ca
   "invalid register specification, expected %0 binding">;
 def err_hlsl_incorrect_bind_semantic: Error< // Is an error in fxc in some cases, but is sometimes ignored
   "invalid register specification, expected %0 binding">;
+def warn_hlsl_semantic_attribute_position_misuse_hint: Warning<
+  "'%0' is a user-defined semantic; did you mean 'SV_Position'?">,
+  InGroup<DiagGroup<"dx9-deprecation">>;
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
   InGroup<Conversion>, DefaultWarn;
