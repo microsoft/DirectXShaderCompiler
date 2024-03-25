@@ -8828,6 +8828,8 @@ private:
                         bool AllowOnePastEnd=true, bool IndexNegated=false);
   // HLSL Change Starts - checking array subscript access to vector or matrix member
   void CheckHLSLArrayAccess(const Expr *expr);
+  bool CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall);
+  bool CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall);
   // HLSL Change ends
   void CheckArrayAccess(const Expr *E);
   // Used to grab the relevant information from a FormatAttr and a

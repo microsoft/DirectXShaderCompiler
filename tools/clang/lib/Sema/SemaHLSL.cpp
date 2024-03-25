@@ -15184,6 +15184,83 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
   return QualType();
 }
 
+static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
+  if (!E)
+    return false;
+  E = E->IgnoreCasts();
+  if (auto *DRE = dyn_cast<DeclRefExpr>(E))
+    return DRE->getDecl()->hasAttr<HLSLNoInterpolationAttr>();
+
+  if (auto *ME = dyn_cast<MemberExpr>(E))
+    return ME->getMemberDecl()->hasAttr<HLSLNoInterpolationAttr>() ||
+           isRelatedDeclMarkedNointerpolation(ME->getBase());
+
+  if (auto *HVE = dyn_cast<HLSLVectorElementExpr>(E))
+    return isRelatedDeclMarkedNointerpolation(HVE->getBase());
+
+  if (auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+    return isRelatedDeclMarkedNointerpolation(ASE->getBase());
+
+  return false;
+}
+
+static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
+                                               CallExpr *TheCall) {
+  assert(TheCall->getNumArgs() > 0);
+  auto argument = TheCall->getArg(0)->IgnoreCasts();
+
+  if (!isRelatedDeclMarkedNointerpolation(argument)) {
+    S->Diag(argument->getExprLoc(), diag::err_hlsl_parameter_requires_attribute)
+        << 0 << FDecl->getName() << "nointerpolation";
+    return true;
+  }
+
+  return false;
+}
+
+bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
+  auto attr = FDecl->getAttr<HLSLIntrinsicAttr>();
+
+  switch (hlsl::IntrinsicOp(attr->getOpcode())) {
+  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex:
+    // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
+    // to limit the scope, and fail gracefully in some cases.
+    if (!getLangOpts().SPIRV)
+      return false;
+    if (FDecl->getName() != "GetAttributeAtVertex")
+      return false;
+    return CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
+  default:
+    break;
+  }
+
+  return false;
+}
+
+bool Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
+  // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
+  // to limit the scope, and fail gracefully in some cases.
+  if (!getLangOpts().SPIRV)
+    return false;
+
+  bool error = false;
+  for (unsigned i = 0; i < FDecl->getNumParams(); i++) {
+    assert(i < TheCall->getNumArgs());
+
+    if (!FDecl->getParamDecl(i)->hasAttr<HLSLNoInterpolationAttr>())
+      continue;
+
+    if (!isRelatedDeclMarkedNointerpolation(TheCall->getArg(i))) {
+      Diag(TheCall->getArg(i)->getExprLoc(),
+           diag::err_hlsl_parameter_requires_attribute)
+          << i << FDecl->getName() << "nointerpolation";
+      error = true;
+    }
+  }
+
+  return error;
+}
+
 namespace hlsl {
 
 static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
