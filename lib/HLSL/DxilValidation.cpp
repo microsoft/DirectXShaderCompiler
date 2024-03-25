@@ -5950,10 +5950,12 @@ static void ValidateEntryProps(ValidationContext &ValCtx,
     }
 
     unsigned outputControlPointCount = HS.outputControlPoints;
-    if (outputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
+    if (outputControlPointCount < DXIL::kMinIAPatchControlPointCount ||
+        outputControlPointCount > DXIL::kMaxIAPatchControlPointCount) {
       ValCtx.EmitFnFormatError(
           F, ValidationRule::SmOutputControlPointCountRange,
-          {std::to_string(DXIL::kMaxIAPatchControlPointCount),
+          {std::to_string(DXIL::kMinIAPatchControlPointCount),
+           std::to_string(DXIL::kMaxIAPatchControlPointCount),
            std::to_string(outputControlPointCount)});
     }
     if (domain == DXIL::TessellatorDomain::Undefined) {
