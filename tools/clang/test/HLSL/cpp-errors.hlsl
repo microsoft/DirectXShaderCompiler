@@ -295,23 +295,13 @@ struct my_struct { };
 
 class my_class { };
 
-interface my_interface { };
-
 class my_class_2 : my_class { };
-
-class my_class_3 : my_interface { };
 
 class my_class_4 : my_struct { };
 
 struct my_struct_2 : my_struct { };
 
 struct my_struct_3 : my_class { };
-
-struct my_struct_4 : my_interface { };
-struct my_struct_5 : my_class, my_interface { };
-struct my_struct_6 : my_class, my_interface, my_struct { }; // expected-error {{multiple concrete base types specified}}
-
-interface my_interface_2 : my_interface { }; // expected-error {{interfaces cannot inherit from other types}}
 
 class my_class_public : public my_class { }; // expected-error {{base type access specifier is unsupported in HLSL}}
 
