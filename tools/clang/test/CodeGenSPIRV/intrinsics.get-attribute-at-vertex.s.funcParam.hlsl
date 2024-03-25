@@ -4,7 +4,7 @@ struct S {
   float4 a : COLOR;
 };
 
-float compute(float4 a) {
+float compute(nointerpolation float4 a) {
   return GetAttributeAtVertex(a, 2)[0];
 }
 
