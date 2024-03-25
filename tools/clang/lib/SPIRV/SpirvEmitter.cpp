@@ -11535,17 +11535,25 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP2a(const CallExpr *callExpr) {
 
   assert(callExpr->getNumArgs() == 3u);
 
-  QualType vecType = callExpr->getArg(0)->getType();
+  const Expr *arg0 = callExpr->getArg(0);
+  const Expr *arg1 = callExpr->getArg(1);
+  const Expr *arg2 = callExpr->getArg(2);
+
+  QualType vecType = arg0->getType();
   QualType componentType = {};
   uint32_t vecSize = {};
   bool isVec = isVectorType(vecType, &componentType, &vecSize);
 
   assert(isVec && vecSize == 2);
+  (void)isVec;
+
+  SpirvInstruction *arg0Instr = doExpr(arg0);
+  SpirvInstruction *arg1Instr = doExpr(arg1);
+  SpirvInstruction *arg2Instr = doExpr(arg2);
 
   // Create the dot product of the half2 vectors.
   SpirvInstruction *dotInstr = spvBuilder.createBinaryOp(
-      spv::Op::OpDot, componentType, doExpr(callExpr->getArg(0)),
-      doExpr(callExpr->getArg(1)), loc, range);
+      spv::Op::OpDot, componentType, arg0Instr, arg1Instr, loc, range);
 
   // Convert dot product (half type) to result type (float).
   QualType resultType = callExpr->getType();
@@ -11553,9 +11561,8 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP2a(const CallExpr *callExpr) {
       spv::Op::OpFConvert, resultType, dotInstr, loc, range);
 
   // Sum the dot product result and accumulator and return.
-  SpirvInstruction *accInstr = doExpr(callExpr->getArg(2));
   return spvBuilder.createBinaryOp(spv::Op::OpFAdd, resultType, floatDotInstr,
-                                   accInstr, loc, range);
+                                   arg2Instr, loc, range);
 }
 
 SpirvInstruction *
