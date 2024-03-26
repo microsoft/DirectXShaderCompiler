@@ -511,7 +511,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   if (opts.HLSLVersion == hlsl::LangStd::v2015 &&
       !((flagsToInclude & HlslFlags::ISenseOption) != 0 ||
-         opts.VerifyDiagnostics)) {
+        opts.VerifyDiagnostics)) {
     errors << "HLSL Version 2015 is only supported for language services";
     return 1;
   }
