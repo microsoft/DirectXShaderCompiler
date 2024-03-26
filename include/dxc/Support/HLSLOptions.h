@@ -237,6 +237,7 @@ public:
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
   unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
+  bool EnableUnions = false;            // OPT_enable_unions
 
   // Optimization pass enables, disables and selects
   OptimizationToggles
