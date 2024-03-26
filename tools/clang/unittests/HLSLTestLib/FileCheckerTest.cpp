@@ -518,12 +518,32 @@ FileRunCommandPart::RunDxc(dxc::DxcDllSupport &DllSupport,
     if (RequiredDxilMinor != 0xF && stage.compare("rootsig") != 0) {
       // Convert stage to minimum dxil/validator version:
       RequiredDxilMajor = std::max(RequiredDxilMajor, (unsigned)6) - 5;
+
+      bool bInternalValidator =
+          opts.SelectValidator == hlsl::options::ValidatorSelection::Internal;
+      bool bValVerExplicit = opts.ValVerMajor != UINT_MAX;
+
+      // Normally we must check the validator version as well, but there are
+      // two scenarios where the validator version doesn't need to be checked
+      // against the version based on the shader model:
+      // 1. The test selects internal validator.
+      // 2. The test explicitly requests a specific validator version.
       FileRunCommandResult result =
           CheckDxilVer(DllSupport, RequiredDxilMajor, RequiredDxilMinor,
-                       !opts.DisableValidation);
-      if (result.AbortPipeline) {
+                       !(bInternalValidator || bValVerExplicit));
+      if (result.AbortPipeline)
         return result;
-      }
+
+      // Additionally, if the test explicitly requests a specific non-zero
+      // validator version, and doesn't select internal validator or disable
+      // validation, we must check that the validator version is at least as
+      // high as the requested version.
+      // When ValVerMajor is 0, validation cannot be run against the module.
+      if (bValVerExplicit && opts.ValVerMajor != 0 &&
+          !(bInternalValidator || opts.DisableValidation))
+        result = CheckDxilVer(DllSupport, opts.ValVerMajor, opts.ValVerMinor);
+      if (result.AbortPipeline)
+        return result;
     }
   }
 
