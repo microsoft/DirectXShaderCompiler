@@ -941,7 +941,7 @@ def HLSLCXXOverload : InheritableAttr {
 
 def HLSLNodeLaunch : InheritableAttr {
   let Spellings = [CXX11<"", "nodelaunch", 2017>];
-  let Args = [StringArgument<"LaunchType">]; // one of broadcasting, coalescing, thread
+  let Args = [StringArgument<"LaunchType">]; // one of broadcasting, coalescing, thread, mesh
   let Documentation = [Undocumented];
 }
 

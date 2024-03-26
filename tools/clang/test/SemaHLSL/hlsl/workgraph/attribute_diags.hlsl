@@ -1,30 +1,30 @@
 // RUN: %dxc -Tlib_6_8 -verify %s
 
-// NodeDispatchGrid and NodeMaxDispatchGrid may only be used with Broadcasting launch nodes
+// NodeDispatchGrid and NodeMaxDispatchGrid may only be used with broadcasting or mesh launch nodes
 
 [Shader("node")]
 [NodeLaunch("coalescing")]           // expected-note +{{Launch type defined here}}
-[NodeDispatchGrid(4, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with broadcasting nodes}}
+[NodeDispatchGrid(4, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with broadcasting or mesh nodes}}
 [NumThreads(32, 1, 1)]
 void node01()
 { }
 
 [Shader("node")]
 [NodeLaunch("thread")]               // expected-note +{{Launch type defined here}}
-[NodeDispatchGrid(8, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with broadcasting nodes}}
+[NodeDispatchGrid(8, 4, 2)]          // expected-error {{'nodedispatchgrid' may only be used with broadcasting or mesh nodes}}
 void node02()
 { }
 
 [Shader("node")]
 [NodeLaunch("coalescing")]           // expected-note +{{Launch type defined here}}
-[NodeMaxDispatchGrid(8, 8, 8)]       // expected-error {{'nodemaxdispatchgrid' may only be used with broadcasting nodes}}
+[NodeMaxDispatchGrid(8, 8, 8)]       // expected-error {{'nodemaxdispatchgrid' may only be used with broadcasting or mesh nodes}}
 [NumThreads(32, 1, 1)]
 void node03()
 { }
 
 [Shader("node")]
 [NodeLaunch("thread")]               // expected-note +{{Launch type defined here}}
-[NodeMaxDispatchGrid(256, 8, 8)]     // expected-error {{'nodemaxdispatchgrid' may only be used with broadcasting nodes}}
+[NodeMaxDispatchGrid(256, 8, 8)]     // expected-error {{'nodemaxdispatchgrid' may only be used with broadcasting or mesh nodes}}
 void node04()
 { }
 

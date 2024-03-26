@@ -13280,7 +13280,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
   case AttributeList::AT_HLSLNodeLaunch:
     declAttr = ::new (S.Context) HLSLNodeLaunchAttr(
         A.getRange(), S.Context,
-        ValidateAttributeStringArg(S, A, "broadcasting,coalescing,thread"),
+        ValidateAttributeStringArg(S, A, "broadcasting,coalescing,thread,mesh"),
         A.getAttributeSpellingListIndex());
     break;
   case AttributeList::AT_HLSLNodeIsProgramEntry:
@@ -15433,13 +15433,12 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
 
   auto *NodeDG = FD->getAttr<HLSLNodeDispatchGridAttr>();
   auto *NodeMDG = FD->getAttr<HLSLNodeMaxDispatchGridAttr>();
-  if (NodeLaunchTy != DXIL::NodeLaunchType::Broadcasting) {
-    // NodeDispatchGrid is only valid for Broadcasting nodes
+  if (NodeLaunchTy != DXIL::NodeLaunchType::Broadcasting &&
+      NodeLaunchTy != DXIL::NodeLaunchType::Mesh) {
+    // NodeDispatchGrid is only valid for Broadcasting/mesh nodes
     if (NodeDG) {
       S.Diags.Report(NodeDG->getLocation(), diag::err_hlsl_launch_type_attr)
-          << NodeDG->getSpelling()
-          << ShaderModel::GetNodeLaunchTypeName(
-                 DXIL::NodeLaunchType::Broadcasting)
+          << NodeDG->getSpelling() << "broadcasting or mesh"
           << NodeDG->getRange();
       // Only output the note if the source location is valid
       if (NodeLaunchLoc.isValid())
@@ -15448,9 +15447,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     // NodeMaxDispatchGrid is only valid for Broadcasting nodes
     if (NodeMDG) {
       S.Diags.Report(NodeMDG->getLocation(), diag::err_hlsl_launch_type_attr)
-          << NodeMDG->getSpelling()
-          << ShaderModel::GetNodeLaunchTypeName(
-                 DXIL::NodeLaunchType::Broadcasting)
+          << NodeMDG->getSpelling() << "broadcasting or mesh"
           << NodeMDG->getRange();
       // Only output the note if the source location is valid
       if (NodeLaunchLoc.isValid())
