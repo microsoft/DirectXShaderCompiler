@@ -85,9 +85,9 @@ void PrintDiagnosticContext::Handle(const DiagnosticInfo &DI) {
   m_Printer << "\n";
 }
 
-void PrintDiagnosticContext::PrintDiagnosticHandler(const DiagnosticInfo &DI,
+void PrintDiagnosticContext::PrintDiagnosticHandler(const DiagnosticInfo *DI,
                                                     void *Context) {
-  reinterpret_cast<hlsl::PrintDiagnosticContext *>(Context)->Handle(DI);
+  reinterpret_cast<hlsl::PrintDiagnosticContext *>(Context)->Handle(*DI);
 }
 
 struct PSExecutionInfo {
