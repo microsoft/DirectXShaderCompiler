@@ -8754,6 +8754,10 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicDP4a(callExpr, hlslOpcode);
     break;
   }
+  case hlsl::IntrinsicOp::IOP_dot2add: {
+    retVal = processIntrinsicDP2a(callExpr);
+    break;
+  }
   case hlsl::IntrinsicOp::IOP_pack_s8:
   case hlsl::IntrinsicOp::IOP_pack_u8:
   case hlsl::IntrinsicOp::IOP_pack_clamp_s8:
@@ -11513,6 +11517,51 @@ SpirvInstruction *SpirvEmitter::processIntrinsicDP4a(const CallExpr *callExpr,
 
   // Create and return the integer addition instruction.
   return spvBuilder.createBinaryOp(spv::Op::OpIAdd, returnType, dotResult,
+                                   arg2Instr, loc, range);
+}
+
+SpirvInstruction *SpirvEmitter::processIntrinsicDP2a(const CallExpr *callExpr) {
+  // Processing the `dot2add` intrinsic.
+  // There is no direct substitution for it in SPIR-V, so it is recreated with a
+  // combination of OpDot and OpFAdd.
+  //
+  // float dot2add( half2 a, half2 b, float acc );
+  //    A 2-dimensional floating point dot product of half2 vectors with add.
+  //    Multiplies the elements of the two half-precision float input vectors
+  //    together and sums the results into the 32-bit float accumulator.
+
+  auto loc = callExpr->getExprLoc();
+  auto range = callExpr->getSourceRange();
+
+  assert(callExpr->getNumArgs() == 3u);
+
+  const Expr *arg0 = callExpr->getArg(0);
+  const Expr *arg1 = callExpr->getArg(1);
+  const Expr *arg2 = callExpr->getArg(2);
+
+  QualType vecType = arg0->getType();
+  QualType componentType = {};
+  uint32_t vecSize = {};
+  bool isVec = isVectorType(vecType, &componentType, &vecSize);
+
+  assert(isVec && vecSize == 2);
+  (void)isVec;
+
+  SpirvInstruction *arg0Instr = doExpr(arg0);
+  SpirvInstruction *arg1Instr = doExpr(arg1);
+  SpirvInstruction *arg2Instr = doExpr(arg2);
+
+  // Create the dot product of the half2 vectors.
+  SpirvInstruction *dotInstr = spvBuilder.createBinaryOp(
+      spv::Op::OpDot, componentType, arg0Instr, arg1Instr, loc, range);
+
+  // Convert dot product (half type) to result type (float).
+  QualType resultType = callExpr->getType();
+  SpirvInstruction *floatDotInstr = spvBuilder.createUnaryOp(
+      spv::Op::OpFConvert, resultType, dotInstr, loc, range);
+
+  // Sum the dot product result and accumulator and return.
+  return spvBuilder.createBinaryOp(spv::Op::OpFAdd, resultType, floatDotInstr,
                                    arg2Instr, loc, range);
 }
 
