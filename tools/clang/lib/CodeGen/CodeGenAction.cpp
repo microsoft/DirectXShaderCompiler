@@ -238,9 +238,9 @@ namespace clang {
 
     void linkerDiagnosticHandler(const llvm::DiagnosticInfo &DI);
 
-    static void DiagnosticHandler(const llvm::DiagnosticInfo &DI,
+    static void DiagnosticHandler(const llvm::DiagnosticInfo *DI,
                                   void *Context) {
-      ((BackendConsumer *)Context)->DiagnosticHandlerImpl(DI);
+      ((BackendConsumer *)Context)->DiagnosticHandlerImpl(*DI);
     }
 
     void InlineAsmDiagHandler2(const llvm::SMDiagnostic &,
