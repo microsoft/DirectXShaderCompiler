@@ -16,7 +16,7 @@ HullPatchOut HullConst (InputPatch<ControlPoint,2> v) { /* expected-error{{Patch
 [partitioning("fractional_odd")]
 [outputtopology("triangle_cw")]
 [patchconstantfunc("HullConst")]
-[outputcontrolpoints(0)]
+[outputcontrolpoints(1)]
 ControlPoint main(InputPatch<ControlPoint,3> v, uint id : SV_OutputControlPointID) {
   return v[id];
 }
