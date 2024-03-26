@@ -1364,13 +1364,26 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     const hlsl::RegisterAssignment *registerC =
         forGlobals ? getRegisterCAssignment(declDecl) : nullptr;
 
+    llvm::Optional<BitfieldInfo> bitfieldInfo;
+    {
+      const FieldDecl *Field = dyn_cast<FieldDecl>(subDecl);
+      if (Field && Field->isBitField()) {
+        bitfieldInfo = BitfieldInfo();
+        bitfieldInfo->sizeInBits =
+            Field->getBitWidthValue(Field->getASTContext());
+      }
+    }
+
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
     varType.removeLocalConst();
-    HybridStructType::FieldInfo info(varType, declDecl->getName(),
-                                     declDecl->getAttr<VKOffsetAttr>(),
-                                     getPackOffset(declDecl), registerC,
-                                     declDecl->hasAttr<HLSLPreciseAttr>());
+    HybridStructType::FieldInfo info(
+        varType, declDecl->getName(),
+        /*vkoffset*/ declDecl->getAttr<VKOffsetAttr>(),
+        /*packoffset*/ getPackOffset(declDecl),
+        /*RegisterAssignment*/ registerC,
+        /*isPrecise*/ declDecl->hasAttr<HLSLPreciseAttr>(),
+        /*bitfield*/ bitfieldInfo);
     fields.push_back(info);
   }
 
