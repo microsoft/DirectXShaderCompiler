@@ -4274,7 +4274,7 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
       {"!\"node01\", null, null, !([0-9]+)}\n"
        "!\\1 = !{i32 8, i32 15"}, // original: node shader
       {"!\"node01\", null, null, !\\1}\n"
-       "!\\1 = !{i32 8, i32 5"},  // changed to: compute shader
+       "!\\1 = !{i32 8, i32 5"}, // changed to: compute shader
       "Compute entry 'node01' has unexpected node shader metadata", true);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
@@ -4282,7 +4282,7 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
       {"!\"node02\", null, null, !([0-9]+)}\n"
        "!\\1 = !{i32 8, i32 15"}, // original: node shader
       {"!\"node02\", null, null, !\\1}\n"
-       "!\\1 = !{i32 8, i32 5"},  // changed to: compute shader
+       "!\\1 = !{i32 8, i32 5"}, // changed to: compute shader
       "Compute entry 'node02' has unexpected node shader metadata", true);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
@@ -4290,7 +4290,7 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
       {"!\"node03\", null, null, !([0-9]+)}\n"
        "!\\1 = !{i32 8, i32 15"}, // original: node shader
       {"!\"node03\", null, null, !\\1}\n"
-       "!\\1 = !{i32 8, i32 5"},  // changed to: compute shader
+       "!\\1 = !{i32 8, i32 5"}, // changed to: compute shader
       "Compute entry 'node03' has unexpected node shader metadata", true);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
@@ -4298,7 +4298,7 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
       {"!\"node04\", null, null, !([0-9]+)}\n"
        "!\\1 = !{i32 8, i32 15"}, // original: node shader
       {"!\"node04\", null, null, !\\1}\n"
-       "!\\1 = !{i32 8, i32 5"},  // changed to: compute shader
+       "!\\1 = !{i32 8, i32 5"}, // changed to: compute shader
       "Compute entry 'node04' has unexpected node shader metadata", true);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
@@ -4307,8 +4307,8 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
        "!\\1 = !{i32 8, i32 15, i32 13, i32 2"}, // original: node shader
                                                  // coalesing launch type
       {"!\"node04\", null, null, !\\1}\n"
-       "!\\1 = !{i32 8, i32 5, i32 13, i32 3"},  // changed to: compute shader
-                                                 // thread launch type
+       "!\\1 = !{i32 8, i32 5, i32 13, i32 3"}, // changed to: compute shader
+                                                // thread launch type
       "Compute entry 'node04' has unexpected node shader metadata", true);
 }
 
@@ -4419,11 +4419,13 @@ TEST_F(ValidationTest, NodeInputMultiplicity) {
        "!\\2 = !{!([0-9]+)}",                   // input records
        "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
       {"= !{i32 8, i32 15, i32 13, i32 1,\\1i32 20, !\\2\\3"
-       "!\\2 = !{!\\4, !100}",                    // multiple input records
+       "!\\2 = !{!\\4, !100}", // multiple input records
        "= !{i32 1, i32 33, i32 2, !\\1}\n"
-       "!100 = !{i32 1, i32 97, i32 2, !\\1}\n"}, // extra DispatchNodeInputRecord
+       "!100 = !{i32 1, i32 97, i32 2, !\\1}\n"}, // extra
+                                                  // DispatchNodeInputRecord
       "node shader 'node01' may not have more than one input record \\(2 are "
-      "declared\\)", true);
+      "declared\\)",
+      true);
 
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
@@ -4432,11 +4434,12 @@ TEST_F(ValidationTest, NodeInputMultiplicity) {
        "!\\2 = !{!([0-9]+)}",                   // input records
        "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
       {"= !{i32 8, i32 15, i32 13, i32 1,\\1i32 20, !\\2\\3"
-       "!\\2 = !{!\\4, !100}",                    // multiple input records
+       "!\\2 = !{!\\4, !100}", // multiple input records
        "= !{i32 1, i32 33, i32 2, !\\1}\n"
        "!100 = !{i32 1, i32 9, i32 2, !\\1}\n"}, // extra EmptyNodeInput
       "node shader 'node01' may not have more than one input record \\(2 are "
-      "declared\\)", true);
+      "declared\\)",
+      true);
 
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
@@ -4445,11 +4448,12 @@ TEST_F(ValidationTest, NodeInputMultiplicity) {
        "!\\2 = !{!([0-9]+)}",                   // input records
        "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
       {"= !{i32 8, i32 15, i32 13, i32 2,\\1i32 20, !\\2\\3"
-       "!\\2 = !{!\\4, !100}",                    // multiple input records
+       "!\\2 = !{!\\4, !100}", // multiple input records
        "= !{i32 1, i32 33, i32 2, !\\1}\n"
        "!100 = !{i32 1, i32 65, i32 2, !\\1}\n"}, // extra GroupNodeInputRecords
       "node shader 'node02' may not have more than one input record \\(2 are "
-      "declared\\)", true);
+      "declared\\)",
+      true);
 
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
@@ -4458,11 +4462,12 @@ TEST_F(ValidationTest, NodeInputMultiplicity) {
        "!\\2 = !{!([0-9]+)}",                   // input records
        "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
       {"= !{i32 8, i32 15, i32 13, i32 2,\\1i32 20, !\\2\\3"
-       "!\\2 = !{!\\4, !100}",                    // multiple input records
+       "!\\2 = !{!\\4, !100}", // multiple input records
        "= !{i32 1, i32 33, i32 2, !\\1}\n"
        "!100 = !{i32 1, i32 9, i32 2, !\\1}\n"}, // extra EmptyNodeInput
       "node shader 'node02' may not have more than one input record \\(2 are "
-      "declared\\)", true);
+      "declared\\)",
+      true);
 
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
@@ -4471,11 +4476,12 @@ TEST_F(ValidationTest, NodeInputMultiplicity) {
        "!\\2 = !{!([0-9]+)}",                   // input records
        "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
       {"= !{i32 8, i32 15, i32 13, i32 3,\\1i32 20, !\\2\\3"
-       "!\\2 = !{!\\4, !100}",                    // multiple input records
+       "!\\2 = !{!\\4, !100}", // multiple input records
        "= !{i32 1, i32 33, i32 2, !\\1}\n"
        "!100 = !{i32 1, i32 33, i32 2, !\\1}\n"}, // extra ThreadNodeInputRecord
       "node shader 'node03' may not have more than one input record \\(2 are "
-      "declared\\)", true);
+      "declared\\)",
+      true);
 
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
@@ -4484,12 +4490,12 @@ TEST_F(ValidationTest, NodeInputMultiplicity) {
        "!\\2 = !{!([0-9]+)}",                   // input records
        "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
       {"= !{i32 8, i32 15, i32 13, i32 3,\\1i32 20, !\\2\\3"
-       "!\\2 = !{!\\4, !100}",                    // multiple input records
+       "!\\2 = !{!\\4, !100}", // multiple input records
        "= !{i32 1, i32 33, i32 2, !\\1}\n"
        "!100 = !{i32 1, i32 9, i32 2, !\\1}\n"}, // extra EmptyNodeInput
       "node shader 'node03' may not have more than one input record \\(2 are "
-      "declared\\)", true);
-
+      "declared\\)",
+      true);
 }
 
 TEST_F(ValidationTest, CacheInitWithMinPrec) {
