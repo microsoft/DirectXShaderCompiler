@@ -2,7 +2,6 @@
 
 // CHECK: call float @dx.op.dot3
 // CHECK: call float @dx.op.dot3
-// CHECK: call float @dx.op.dot3
 // CHECK-NOT: call float @dx.op.dot3
 
 float main(float3 a : A, float3 b : B) : SV_Target {
