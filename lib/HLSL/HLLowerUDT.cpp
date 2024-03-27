@@ -178,7 +178,7 @@ hlsl::TranslateInitForLoweredUDT(Constant *Init, Type *NewTy,
   return Init;
 }
 
-void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
+static void ReplaceUsesForLoweredUDTImpl(Value *V, Value *NewV) {
   Type *Ty = V->getType();
   Type *NewTy = NewV->getType();
 
@@ -255,8 +255,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
       IRBuilder<> Builder(GEP);
       SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
       Value *NewGEP = Builder.CreateGEP(NewV, idxList);
-      ReplaceUsesForLoweredUDT(GEP, NewGEP);
-      dxilutil::MergeGepUse(NewGEP);
+      ReplaceUsesForLoweredUDTImpl(GEP, NewGEP);
       GEP->eraseFromParent();
 
     } else if (GEPOperator *GEP = dyn_cast<GEPOperator>(user)) {
@@ -264,14 +263,14 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
       SmallVector<Value *, 4> idxList(GEP->idx_begin(), GEP->idx_end());
       Constant *NewGEP = ConstantExpr::getGetElementPtr(
           nullptr, cast<Constant>(NewV), idxList, true);
-      ReplaceUsesForLoweredUDT(GEP, NewGEP);
+      ReplaceUsesForLoweredUDTImpl(GEP, NewGEP);
 
     } else if (AddrSpaceCastInst *AC = dyn_cast<AddrSpaceCastInst>(user)) {
       // Address space cast
       IRBuilder<> Builder(AC);
       Value *NewAC = Builder.CreateAddrSpaceCast(
           NewV, PointerType::get(Ty, AC->getType()->getPointerAddressSpace()));
-      ReplaceUsesForLoweredUDT(user, NewAC);
+      ReplaceUsesForLoweredUDTImpl(user, NewAC);
       AC->eraseFromParent();
     } else if (BitCastInst *BC = dyn_cast<BitCastInst>(user)) {
       IRBuilder<> Builder(BC);
@@ -295,7 +294,7 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
         Constant *NewAC = ConstantExpr::getAddrSpaceCast(
             cast<Constant>(NewV),
             PointerType::get(Ty, CE->getType()->getPointerAddressSpace()));
-        ReplaceUsesForLoweredUDT(user, NewAC);
+        ReplaceUsesForLoweredUDTImpl(user, NewAC);
       } else if (CE->getOpcode() == Instruction::BitCast) {
         if (CE->getType()->getPointerElementType() == NewTy) {
           // if alreday bitcast to new type, just replace the bitcast
@@ -474,4 +473,10 @@ void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
     if (Constant *CV = dyn_cast<Constant>(V))
       CV->removeDeadConstantUsers();
   }
+}
+
+void hlsl::ReplaceUsesForLoweredUDT(Value *V, Value *NewV) {
+  ReplaceUsesForLoweredUDTImpl(V, NewV);
+  // Merge GepUse later to avoid mutate type and merge gep use at same time.
+  dxilutil::MergeGepUse(NewV);
 }

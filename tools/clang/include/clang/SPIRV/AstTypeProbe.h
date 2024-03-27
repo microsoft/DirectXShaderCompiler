@@ -13,6 +13,7 @@
 #include "dxc/Support/SPIRVOptions.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/Type.h"
+#include "clang/SPIRV/SpirvType.h"
 #include "clang/Sema/Sema.h"
 
 namespace clang {
@@ -383,6 +384,28 @@ bool isStructureContainingAnyKindOfBuffer(QualType type);
 /// types, or it's an array of scalar, vector, or matrix of numeric types.
 bool isScalarOrNonStructAggregateOfNumericalTypes(QualType type);
 
+/// Calls `operation` on for each field in the base and derives class defined by
+/// `recordType`. The `operation` will receive the AST type linked to the field,
+/// the SPIRV type linked to the field, and the index of the field in the final
+/// SPIR-V representation. This index of the field can vary from the AST
+/// field-index because bitfields are merged into a single field in the SPIR-V
+/// representation.
+///
+/// If `includeMerged` is true, `operation` will be called on the same spir-v
+/// field for each field it represents. For example, if a spir-v field holds the
+/// values for 3 bit-fields, `operation` will be called 3 times with the same
+/// `spirvFieldIndex`. The `bitfield` information in `field` will be different.
+///
+/// If false, `operation` will be called once on the first field in the merged
+/// field.
+///
+/// If the operation returns false, we stop processing fields.
+void forEachSpirvField(
+    const RecordType *recordType, const StructType *spirvType,
+    std::function<bool(size_t spirvFieldIndex, const QualType &fieldType,
+                       const StructType::FieldInfo &field)>
+        operation,
+    bool includeMerged = false);
 } // namespace spirv
 } // namespace clang
 

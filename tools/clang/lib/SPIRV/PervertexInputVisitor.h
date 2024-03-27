@@ -69,6 +69,10 @@ public:
 
   void createVertexStore(SpirvInstruction *pt, SpirvInstruction *obj);
 
+  SpirvInstruction *
+  createVertexAccessChain(QualType resultType, SpirvInstruction *base,
+                          llvm::ArrayRef<SpirvInstruction *> indexes);
+
   ///< Visit different SPIR-V constructs for emitting.
   using Visitor::visit;
   bool visit(SpirvModule *, Phase phase) override;
@@ -127,6 +131,17 @@ private:
   ASTContext &astContext;
   SpirvModule *currentMod;
   SpirvFunction *currentFunc;
+  llvm::DenseMap<SpirvFunctionParameter *, std::vector<SpirvInstruction *>>
+      paramCaller;
+
+  /// Emits error to the diagnostic engine associated with this visitor.
+  template <unsigned N>
+  DiagnosticBuilder emitError(const char (&message)[N],
+                              SourceLocation srcLoc = {}) {
+    const auto diagId = astContext.getDiagnostics().getCustomDiagID(
+        clang::DiagnosticsEngine::Error, message);
+    return astContext.getDiagnostics().Report(srcLoc, diagId);
+  }
 };
 
 } // end namespace spirv

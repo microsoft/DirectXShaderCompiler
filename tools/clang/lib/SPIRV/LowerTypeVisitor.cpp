@@ -253,6 +253,22 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
     instr->setResultType(sparseResidencyStruct);
     break;
   }
+  case spv::Op::OpSwitch: {
+    SpirvSwitch *spirvSwitch = cast<SpirvSwitch>(instr);
+    // OpSwitch target literals must have the same type as the selector. Now
+    // that the selector's AST type has been lowered, update the literals if
+    // necessary.
+    const SpirvType *selectorType = spirvSwitch->getSelector()->getResultType();
+    // Selectors must have a type of OpTypeInt.
+    assert(selectorType->getKind() == SpirvType::TK_Integer);
+    uint32_t bitwidth = cast<IntegerType>(selectorType)->getBitwidth();
+    for (auto &target : spirvSwitch->getTargets()) {
+      if (target.first.getBitWidth() != bitwidth) {
+        target.first = target.first.sextOrTrunc(bitwidth);
+      }
+    }
+    break;
+  }
   default:
     break;
   }

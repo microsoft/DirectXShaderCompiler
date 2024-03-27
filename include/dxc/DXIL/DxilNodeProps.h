@@ -45,6 +45,7 @@ struct SVDispatchGrid {
 //
 struct NodeRecordType {
   unsigned size;
+  unsigned alignment;
   SVDispatchGrid SV_DispatchGrid;
 };
 

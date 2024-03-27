@@ -75,7 +75,7 @@ void node001_dispatchgrid_shader(DispatchNodeInputRecord<INPUT_NOGRID> input)
 // Arg #1: Size Tag (0)
 // Arg #2: 4 bytes
 // ------------------------------------------------------------------
-// CHECK-DAG: [[INPUT_NOGRID]] = !{i32 0, i32 4}
+// CHECK-DAG: [[INPUT_NOGRID]] = !{i32 0, i32 4, i32 2, i32 4}
 
 // NumThreads
 // Arg #1: 1024

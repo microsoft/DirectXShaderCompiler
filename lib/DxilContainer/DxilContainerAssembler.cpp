@@ -1438,6 +1438,13 @@ private:
               N.RecordType.SV_DispatchGrid.NumComponents);
           nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
         }
+
+        if (N.RecordType.alignment) {
+          nAttrib = {};
+          nAttrib.AttribKind = (uint32_t)NodeAttribKind::RecordAlignmentInBytes;
+          nAttrib.RecordAlignmentInBytes = N.RecordType.alignment;
+          nodeAttribs.push_back(Builder.InsertRecord(nAttrib));
+        }
       }
 
       ioNode.Attribs =

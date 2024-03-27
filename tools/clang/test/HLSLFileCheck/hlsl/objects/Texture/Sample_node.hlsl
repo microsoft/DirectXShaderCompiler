@@ -38,9 +38,11 @@ float2 ddy;
 bool clamp;
 
 [Shader("node")]
-[NodeLaunch("thread")]
+[NodeLaunch("broadcasting")]
+[NodeDispatchGrid(1, 1, 1)]
+[NumThreads(4, 1, 1)]
 void BackwardRef(
-  RWThreadNodeInputRecord<rec0> InputyMcInputFace,
+  RWDispatchNodeInputRecord<rec0> InputyMcInputFace,
   [MaxRecords(5)] NodeOutput<rec1> Output1,
   [MaxRecordsSharedWith(Output1)] NodeOutput<rec1> Output2)
 {

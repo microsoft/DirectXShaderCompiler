@@ -12,7 +12,7 @@ EmptyNodeOutput outputNode)
 [NodeDispatchGrid(1, 1, 1)]
 [NumThreads(1, 1, 1)]
 void loadStressEmptyRec_1(
-	[MaxOutputRecords(1)] EmptyNodeOutput loadStressChild
+	[MaxRecords(1)] EmptyNodeOutput loadStressChild
 )
 {
 	loadStressEmptyRecWorker(loadStressChild);

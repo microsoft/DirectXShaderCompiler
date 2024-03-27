@@ -17,6 +17,7 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResourceBase.h"
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "llvm/ADT/STLExtras.h"
@@ -597,23 +598,27 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
 
   auto &Functions = M.getFunctionList();
   for (auto &fn : Functions) {
-    // #DSLTodo: We probably need to merge the list of variables for each export
-    // into one set so that WinPIX shader debugging can follow a thread through
-    // any function within a given module. (Unless PIX chooses to launch a new
-    // debugging session whenever control passes from one function to another.)
-    // For now, it's sufficient to treat each exported function as having
-    // completely separate variables by clearing this member:
+    llvm::SmallPtrSet<Value *, 16> RayQueryHandles;
+    PIXPassHelpers::FindRayQueryHandlesForFunction(&fn, RayQueryHandles);
+    // #DSLTodo: We probably need to merge the list of variables for each
+    // export into one set so that WinPIX shader debugging can follow a
+    // thread through any function within a given module. (Unless PIX
+    // chooses to launch a new debugging session whenever control passes
+    // from one function to another.) For now, it's sufficient to treat each
+    // exported function as having completely separate variables by clearing
+    // this member:
     m_Registers.clear();
-    // Note: they key problem here is variables in common functions called by
-    // multiple exported functions. The DILocalVariables in the common function
-    // will be exactly the same objects no matter which export called the common
-    // function, so the instrumentation here gets a bit confused that the same
-    // variable is present in two functions and ends up pointing one function
-    // to allocas in another function. (This is easy to repro: comment out the
-    // above clear(), and run PixTest::PixStructAnnotation_Lib_DualRaygen.)
-    // Not sure what the right path forward is: might be that we have to tag
-    // m_Registers with the exported function, and maybe write out a function
-    // identifier during debug instrumentation...
+    // Note: they key problem here is variables in common functions called
+    // by multiple exported functions. The DILocalVariables in the common
+    // function will be exactly the same objects no matter which export
+    // called the common function, so the instrumentation here gets a bit
+    // confused that the same variable is present in two functions and ends
+    // up pointing one function to allocas in another function. (This is
+    // easy to repro: comment out the above clear(), and run
+    // PixTest::PixStructAnnotation_Lib_DualRaygen.) Not sure what the right
+    // path forward is: might be that we have to tag m_Registers with the
+    // exported function, and maybe write out a function identifier during
+    // debug instrumentation...
     auto &blocks = fn.getBasicBlockList();
     if (!blocks.empty()) {
       for (auto &block : blocks) {
@@ -640,9 +645,8 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
           if (auto *DbgValue =
                   llvm::dyn_cast<llvm::DbgValueInst>(instruction)) {
             llvm::Value *V = DbgValue->getValue();
-            if (PIXPassHelpers::IsAllocateRayQueryInstruction(V)) {
+            if (RayQueryHandles.count(V) != 0)
               continue;
-            }
             Changed = true;
             handleDbgValue(M, DbgValue);
             DbgValue->eraseFromParent();
@@ -809,8 +813,8 @@ static llvm::DIType *FindStructMemberTypeAtOffset(llvm::DICompositeType *Ty,
     }
   }
 
-  // Structure resources are expected to fail this (they have no real meaning in
-  // storage)
+  // Structure resources are expected to fail this (they have no real
+  // meaning in storage)
   if (SortedMembers.size() == 1) {
     switch (SortedMembers.begin()->second->getTag()) {
     case llvm::dwarf::DW_TAG_structure_type:
@@ -907,8 +911,9 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
   }
 
   // Members' "base type" is actually the containing aggregate's type.
-  // To find the actual type of the variable, we must descend the container's
-  // type hierarchy to find the type at the expected offset/size.
+  // To find the actual type of the variable, we must descend the
+  // container's type hierarchy to find the type at the expected
+  // offset/size.
   if (auto *DerivedTy = llvm::dyn_cast<llvm::DIDerivedType>(Ty)) {
     const llvm::DITypeIdentifierMap EmptyMap;
     switch (DerivedTy->getTag()) {
@@ -961,10 +966,10 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
 
       auto *Zero = B.getInt32(0);
 
-      // Now traverse a list of pairs {Scalar Value, InitialOffset + Offset}.
-      // InitialOffset is the offset from DbgValue's expression (i.e., the
-      // offset from the Variable's start), and Offset is the Scalar Value's
-      // packed offset from DbgValue's value.
+      // Now traverse a list of pairs {Scalar Value, InitialOffset +
+      // Offset}. InitialOffset is the offset from DbgValue's expression
+      // (i.e., the offset from the Variable's start), and Offset is the
+      // Scalar Value's packed offset from DbgValue's value.
       for (const ValueAndOffset &VO : SplitValue(V, InitialOffset, B)) {
 
         OffsetInBits AlignedOffset;
@@ -1022,11 +1027,11 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
               llvm::dyn_cast<llvm::GetElementPtrInst>(asInstr.Get())) {
         // We are only interested in the case of basic types within an array
         // because the PIX debug instrumentation operates at that level.
-        // Aggregate members will have been descended through to produce their
-        // own entries in the GlobalStorageMap.
-        // Consequently, we're only interested in the GEP's index into the
-        // array. Any deeper indexing in the GEP will be for embedded
-        // aggregates. The three operands in such a GEP mean:
+        // Aggregate members will have been descended through to produce
+        // their own entries in the GlobalStorageMap. Consequently, we're
+        // only interested in the GEP's index into the array. Any deeper
+        // indexing in the GEP will be for embedded aggregates. The three
+        // operands in such a GEP mean:
         //    0 = the pointer
         //    1 = dereference the pointer (expected to be constant int zero)
         //    2 = the index into the array
@@ -1035,7 +1040,8 @@ bool DxilDbgValueToDbgDeclare::handleStoreIfDestIsGlobal(
             llvm::dyn_cast<ConstantInt>(asGEP->getOperand(1))
                     ->getLimitedValue() == 0) {
           // TODO: The case where this index is not a constant int
-          // (Needs changes to the allocas generated elsewhere in this pass.)
+          // (Needs changes to the allocas generated elsewhere in this
+          // pass.)
           if (auto *arrayIndexAsConstInt =
                   llvm::dyn_cast<ConstantInt>(asGEP->getOperand(2))) {
             int MemberIndex = arrayIndexAsConstInt->getLimitedValue();
@@ -1120,9 +1126,9 @@ VariableRegisters::VariableRegisters(
   PopulateAllocaMap(Ty);
   m_Offsets.AlignTo(Ty); // For padding.
 
-  // (min16* types can occupy 16 or 32 bits depending on whether or not they are
-  // natively supported. If non-native, the alignment will be 32, but the
-  // claimed size will still be 16, hence the "max" here)
+  // (min16* types can occupy 16 or 32 bits depending on whether or not they
+  // are natively supported. If non-native, the alignment will be 32, but
+  // the claimed size will still be 16, hence the "max" here)
   assert(m_Offsets.GetCurrentAlignedOffset() ==
          std::max<uint64_t>(DITypePeelTypeAlias(Ty)->getSizeInBits(),
                             DITypePeelTypeAlias(Ty)->getAlignInBits()));

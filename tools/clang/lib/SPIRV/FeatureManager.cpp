@@ -196,6 +196,7 @@ Extension FeatureManager::getExtensionSymbol(llvm::StringRef name) {
             Extension::KHR_fragment_shader_barycentric)
       .Case("SPV_KHR_maximal_reconvergence",
             Extension::KHR_maximal_reconvergence)
+      .Case("SPV_KHR_float_controls", Extension::KHR_float_controls)
       .Default(Extension::Unknown);
 }
 
@@ -261,6 +262,8 @@ const char *FeatureManager::getExtensionName(Extension symbol) {
     return "SPV_KHR_fragment_shader_barycentric";
   case Extension::KHR_maximal_reconvergence:
     return "SPV_KHR_maximal_reconvergence";
+  case Extension::KHR_float_controls:
+    return "SPV_KHR_float_controls";
   default:
     break;
   }

@@ -64,6 +64,24 @@ inline bool IsAbsoluteOrCurDirRelative(const char *Path) {
   return IsAbsoluteOrCurDirRelativeImpl<char>(Path, strlen(Path));
 }
 
+template <typename CharT, typename StringTy>
+void RemoveDoubleSlashes(StringTy &Path, CharT Slash) {
+  // Remove double slashes.
+  bool SeenNonSlash = false;
+  for (unsigned i = 0; i < Path.size();) {
+    // Remove this slash if:
+    // 1. It is preceded by another slash.
+    // 2. It is NOT part of a series of leading slashes. (E.G. \\, which on
+    // windows is a network path).
+    if (Path[i] == Slash && i > 0 && Path[i - 1] == Slash && SeenNonSlash) {
+      Path.erase(Path.begin() + i);
+      continue;
+    }
+    SeenNonSlash |= Path[i] != Slash;
+    i++;
+  }
+}
+
 // This is the new ground truth of how paths are normalized. There had been
 // many inconsistent path normalization littered all over the code base.
 // 1. All slashes are changed to system native: `\` for windows and `/` for all
@@ -96,28 +114,16 @@ StringTy NormalizePathImpl(const CharT *Path, size_t Length) {
       PathCopy[i] = SlashTo;
   }
 
-  // Remove double slashes.
-  bool SeenNonSlash = false;
-  for (unsigned i = 0; i < PathCopy.size();) {
-    // Remove this slash if:
-    // 1. It is preceded by another slash.
-    // 2. It is NOT part of a series of leading slashes. (E.G. \\, which on
-    // windows is a network path).
-    if (PathCopy[i] == SlashTo && i > 0 && PathCopy[i - 1] == SlashTo &&
-        SeenNonSlash) {
-      PathCopy.erase(PathCopy.begin() + i);
-      continue;
-    }
-    SeenNonSlash |= PathCopy[i] != SlashTo;
-    i++;
-  }
+  RemoveDoubleSlashes<CharT, StringTy>(PathCopy, SlashTo);
 
   // If relative path, prefix with dot.
   if (IsAbsoluteOrCurDirRelativeImpl<CharT>(PathCopy.c_str(),
                                             PathCopy.size())) {
     return PathCopy;
   } else {
-    return StringTy(1, CharT('.')) + StringTy(1, SlashTo) + PathCopy;
+    PathCopy = StringTy(1, CharT('.')) + StringTy(1, SlashTo) + PathCopy;
+    RemoveDoubleSlashes<CharT, StringTy>(PathCopy, SlashTo);
+    return PathCopy;
   }
 }
 

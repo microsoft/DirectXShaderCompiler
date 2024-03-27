@@ -41,6 +41,23 @@ struct W {
   float4 color;
 };
 
+struct BitFields {
+  uint R:8;
+  uint G:8;
+  uint B:8;
+  uint A:8;
+};
+
+struct V
+{
+    float arr[2];
+};
+
+struct U
+{
+    V val;
+};
+
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
 
@@ -103,4 +120,24 @@ void main() {
 // CHECK-NEXT: [[float4_zero:%[0-9]+]] = OpConvertSToF %v4float [[int4_zero]]
 // CHECK-NEXT:             {{%[0-9]+}} = OpCompositeConstruct %W [[float4_zero]]
     W w = { (0).xxxx };
+
+// CHECK: [[v1:%[0-9]+]] = OpBitFieldInsert %uint %uint_3 %uint_2 %uint_8 %uint_8
+// CHECK: [[v2:%[0-9]+]] = OpBitFieldInsert %uint [[v1]] %uint_1 %uint_16 %uint_8
+// CHECK: [[v3:%[0-9]+]] = OpBitFieldInsert %uint [[v2]] %uint_0 %uint_24 %uint_8
+// CHECK: [[bf:%[0-9]+]] = OpCompositeConstruct %BitFields [[v3]]
+// CHECK:                  OpStore %bf [[bf]]
+    BitFields bf = {3, 2, 1, 0};
+
+// CHECK:   [[vals:%[0-9]+]] = OpLoad %_ptr_Uniform_type_StructuredBuffer_V %vals
+// CHECK: [[vals_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_V [[vals]] %int_0 %uint_0
+// CHECK:      [[V:%[0-9]+]] = OpLoad %V [[vals_0]]
+// CHECK:    [[V_0:%[0-9]+]] = OpCompositeExtract %_arr_float_uint_2 [[V]] 0
+// CHECK:  [[V_0_0:%[0-9]+]] = OpCompositeExtract %float [[V_0]] 0
+// CHECK:  [[V_0_1:%[0-9]+]] = OpCompositeExtract %float [[V_0]] 1
+// CHECK:    [[arr:%[0-9]+]] = OpCompositeConstruct %_arr_float_uint_2_0 [[V_0_0]] [[V_0_1]]
+// CHECK:     [[V2:%[0-9]+]] = OpCompositeConstruct %V_0 [[arr]]
+// CHECK:      [[U:%[0-9]+]] = OpCompositeConstruct %U [[V2]]
+// CHECK:                      OpStore %u [[U]]
+    StructuredBuffer<V> vals;
+    U u = { vals[0] };
 }

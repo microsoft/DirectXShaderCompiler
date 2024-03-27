@@ -12379,7 +12379,7 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
     } else {
       if (ArgNum.isInt()) {
         value = ArgNum.getInt().getSExtValue();
-        if (!(E->getType()->isIntegralType(S.Context)) || value < 0) {
+        if (!(E->getType()->isIntegralOrEnumerationType()) || value < 0) {
           S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
               << Attr.getName();
         }
@@ -13261,11 +13261,19 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         ValidateAttributeStringArg(S, A, /*validate strings*/ nullptr),
         A.getAttributeSpellingListIndex());
     break;
-  case AttributeList::AT_HLSLOutputControlPoints:
+  case AttributeList::AT_HLSLOutputControlPoints: {
+    // Hull shader output must be between 1 and 32 control points.
+    int outputControlPoints = ValidateAttributeIntArg(S, A);
+    if (outputControlPoints < 1 || outputControlPoints > 32) {
+      S.Diags.Report(A.getLoc(), diag::err_hlsl_controlpoints_size)
+          << outputControlPoints << A.getRange();
+      return;
+    }
     declAttr = ::new (S.Context) HLSLOutputControlPointsAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getRange(), S.Context, outputControlPoints,
         A.getAttributeSpellingListIndex());
     break;
+  }
   case AttributeList::AT_HLSLOutputTopology:
     declAttr = ::new (S.Context) HLSLOutputTopologyAttr(
         A.getRange(), S.Context,
@@ -15342,6 +15350,21 @@ void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
   return;
 }
 
+void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+  for (auto *annotation : FD->getUnusualAnnotations()) {
+    if (auto *sema = dyn_cast<hlsl::SemanticDecl>(annotation)) {
+      if (sema->SemanticName.equals_lower("POSITION") ||
+          sema->SemanticName.equals_lower("POSITION0")) {
+        S.Diags.Report(FD->getLocation(),
+                       diag::warn_hlsl_semantic_attribute_position_misuse_hint)
+            << sema->SemanticName;
+      }
+    }
+  }
+
+  return;
+}
+
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLNumThreadsAttr>()))
@@ -15372,6 +15395,9 @@ void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "outputtopology";
+  if (!(FD->getAttr<HLSLOutputControlPointsAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "outputcontrolpoints";
 
   for (const auto *param : FD->params()) {
     if (!hlsl::IsHLSLInputPatchType(param->getType()))
@@ -15737,7 +15763,8 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 
   // if this FD isn't the entry point, then we shouldn't add
   // a shader attribute to this decl, so just return
-  if (EntryPointName != FD->getIdentifier()->getName()) {
+  if (!FD->getIdentifier() ||
+      EntryPointName != FD->getIdentifier()->getName()) {
     return;
   }
 
@@ -15854,8 +15881,9 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
 
   switch (Stage) {
-  case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
+    return DiagnoseVertexEntry(S, FD, StageName);
+  case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Invalid:
     return;

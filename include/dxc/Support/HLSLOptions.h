@@ -156,6 +156,7 @@ public:
   llvm::StringRef DefaultLinkage;             // OPT_default_linkage
   llvm::StringRef ImportBindingTable;         // OPT_import_binding_table
   llvm::StringRef BindingTableDefine;         // OPT_binding_table_define
+  llvm::StringRef DiagnosticsFormat;          // OPT_fdiagnostics_format
   unsigned DefaultTextCodePage = DXC_CP_UTF8; // OPT_encoding
 
   bool AllResourcesBound = false;         // OPT_all_resources_bound
@@ -234,6 +235,7 @@ public:
   bool NewInlining = false;             // OPT_fnew_inlining_behavior
   bool TimeReport = false;              // OPT_ftime_report
   std::string TimeTrace = "";           // OPT_ftime_trace[EQ]
+  unsigned TimeTraceGranularity = 500;  // OPT_ftime_trace_granularity_EQ
   bool VerifyDiagnostics = false;       // OPT_verify
 
   // Optimization pass enables, disables and selects

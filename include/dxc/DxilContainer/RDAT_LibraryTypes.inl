@@ -84,10 +84,11 @@ RDAT_ENUM_START(DxilFeatureInfo2, uint32_t)
   RDAT_ENUM_VALUE(ExtendedCommandInfo, 0x1)
   // OptFeatureInfo flags
   RDAT_ENUM_VALUE(Opt_UsesDerivatives, 0x100)
+  RDAT_ENUM_VALUE(Opt_RequiresGroup, 0x200)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
   static_assert(DXIL::ShaderFeatureInfoCount == 33,
                 "otherwise, RDAT_ENUM definition needs updating");
-  static_assert(DXIL::OptFeatureInfoCount == 1,
+  static_assert(DXIL::OptFeatureInfoCount == 2,
                 "otherwise, RDAT_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()
@@ -276,6 +277,7 @@ RDAT_ENUM_START(NodeAttribKind, uint32_t)
   RDAT_ENUM_VALUE(RecordDispatchGrid, 5)
   RDAT_ENUM_VALUE(OutputArraySize, 6)
   RDAT_ENUM_VALUE(AllowSparseNodes, 7)
+  RDAT_ENUM_VALUE(RecordAlignmentInBytes, 8)
   RDAT_ENUM_VALUE_NODEF(LastValue)
 RDAT_ENUM_END()
 
@@ -406,6 +408,10 @@ RDAT_STRUCT_TABLE(NodeShaderIOAttrib, NodeShaderIOAttribTable)
                     getAttribKind() ==
                         hlsl::RDAT::NodeAttribKind::AllowSparseNodes)
       RDAT_VALUE(uint32_t, AllowSparseNodes)
+    RDAT_UNION_ELIF(RecordAlignmentInBytes,
+                    getAttribKind() ==
+                        hlsl::RDAT::NodeAttribKind::RecordAlignmentInBytes)
+      RDAT_VALUE(uint32_t, RecordAlignmentInBytes)
     RDAT_UNION_ENDIF()
   RDAT_UNION_END()
 RDAT_STRUCT_END()

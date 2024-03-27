@@ -2349,7 +2349,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "global variables of scalar type|"
   "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
-  "Textures (e.g., Texture2D) and SamplerState|"
+  "Textures and Samplers|"
   "RWTextures, RasterizerOrderedTextures, Buffers, RWBuffers, and RasterizerOrderedBuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
   "SubpassInput, SubpassInputMS|"
@@ -7712,6 +7712,9 @@ def warn_hlsl_incorrect_bind_semantic: Warning< // Is an error in fxc in some ca
   "invalid register specification, expected %0 binding">;
 def err_hlsl_incorrect_bind_semantic: Error< // Is an error in fxc in some cases, but is sometimes ignored
   "invalid register specification, expected %0 binding">;
+def warn_hlsl_semantic_attribute_position_misuse_hint: Warning<
+  "'%0' is a user-defined semantic; did you mean 'SV_Position'?">,
+  InGroup<DiagGroup<"dx9-deprecation">>;
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
   InGroup<Conversion>, DefaultWarn;
@@ -7834,6 +7837,8 @@ def err_hlsl_missing_patch_constant_function : Error<
     "patch constant function '%0' must be defined">;
 def err_hlsl_patch_reachability_not_allowed : Error<
     "%select{patch constant|entry}0 function '%1' should not be reachable from %select{patch constant|entry}2 function '%3'">;
+def err_hlsl_patch_input_size_mismatch : Error<
+    "Patch constant function's input patch input should have %0 elements, but has %1.">;
 def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
    "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
   InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
@@ -7913,6 +7918,8 @@ def err_hlsl_inputpatch_size: Error<
 def err_hlsl_outputpatch_size: Error<
    "OutputPatch element count must be greater than 0">;
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
+def err_hlsl_controlpoints_size: Error<
+  "number of control points %0 is outside the valid range of [1..32]">;
 // HLSL Change Ends
 
 // SPIRV Change Starts

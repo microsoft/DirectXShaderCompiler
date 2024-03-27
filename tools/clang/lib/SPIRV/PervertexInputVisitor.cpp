@@ -125,14 +125,11 @@ PervertexInputVisitor::createFirstPerVertexVar(SpirvInstruction *base,
   createVertexStore(vtx, createVertexLoad(base));
   return vtx;
 }
-
-SpirvInstruction *PervertexInputVisitor::createProvokingVertexAccessChain(
-    SpirvInstruction *base, uint32_t index, QualType resultType) {
+SpirvInstruction *PervertexInputVisitor::createVertexAccessChain(
+    QualType resultType, SpirvInstruction *base,
+    llvm::ArrayRef<SpirvInstruction *> indexes) {
   auto loc = base->getSourceLocation();
   auto range = base->getSourceRange();
-  llvm::SmallVector<SpirvInstruction *, 1> indexes;
-  indexes.push_back(spirvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                llvm::APInt(32, index)));
   SpirvInstruction *instruction =
       new (context) SpirvAccessChain(resultType, loc, base, indexes, range);
   instruction->setStorageClass(spv::StorageClass::Function);
@@ -140,6 +137,16 @@ SpirvInstruction *PervertexInputVisitor::createProvokingVertexAccessChain(
   instruction->setContainsAliasComponent(base->containsAliasComponent());
   instruction->setNoninterpolated(false);
   currentFunc->addToInstructionCache(instruction);
+  return instruction;
+}
+
+SpirvInstruction *PervertexInputVisitor::createProvokingVertexAccessChain(
+    SpirvInstruction *base, uint32_t index, QualType resultType) {
+  llvm::SmallVector<SpirvInstruction *, 1> indexes;
+  indexes.push_back(spirvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                                llvm::APInt(32, index)));
+  SpirvInstruction *instruction =
+      createVertexAccessChain(resultType, base, indexes);
   return instruction;
 }
 
@@ -237,7 +244,8 @@ bool PervertexInputVisitor::visit(SpirvFunction *sf, Phase phase) {
       m_instrReplaceMap[var] = vtx0;
     }
     for (auto *param : currentFunc->getParameters()) {
-      if (!param->isNoninterpolated())
+      if (!param->isNoninterpolated() ||
+          param->getAstResultType().getTypePtr()->isStructureType())
         continue;
       auto *vtx0 =
           createProvokingVertexAccessChain(param, 0, param->getAstResultType());
@@ -306,11 +314,71 @@ bool PervertexInputVisitor::visit(SpirvFunctionCall *inst) {
     return true;
   /// Load/Store instructions related to this argument may have been replaced
   /// with other instructions, so we need to get its original mapped variables.
-  for (auto *arg : inst->getArgs())
-    if (currentFunc->getMappedFuncParam(arg)) {
-      createVertexStore(arg,
-                        createVertexLoad(currentFunc->getMappedFuncParam(arg)));
+  unsigned argIndex = 0;
+  for (auto *arg : inst->getArgs()) {
+    auto paramVar = currentFunc->getMappedFuncParam(arg);
+    if (paramVar) {
+      if (isa<SpirvAccessChain>(paramVar)) {
+        auto tempVar = paramVar;
+        while (isa<SpirvAccessChain>(tempVar)) {
+          tempVar = dyn_cast<SpirvAccessChain>(tempVar)->getBase();
+        }
+        if (tempVar->isNoninterpolated()) {
+          /// When function parameters have a structure type, some local
+          /// variables may be created and mapped to an stage inputs
+          /// in 'src.main' block.
+          ///
+          /// We use first vertex value of those non-interpolated inputs to
+          /// replace normal usage of those local variables in HLSL and SPIRV.
+          ///
+          /// But when those variables are then used in a function call as
+          /// its arguments, we need to copy the values for all of the vertices
+          /// to the local variable. This means copying an entire array.
+          ///
+          /// At this point, original access chain to those member variables
+          /// have been appended an zero index at the end to access first
+          /// vertex for replacement before.
+          ///
+          /// Hence we need to recreate a new access chain instruction and
+          /// and pass argument as an array to this function call.
+          auto paramAccessChain = dyn_cast<SpirvAccessChain>(paramVar);
+          auto indexes = paramAccessChain->getIndexes();
+          auto elemType = astContext.getConstantArrayType(
+              paramAccessChain->getAstResultType(), llvm::APInt(32, 3),
+              clang::ArrayType::Normal, 0);
+          llvm::SmallVector<SpirvInstruction *, 4> indices(indexes.begin(),
+                                                           indexes.end());
+          indices.pop_back();
+          paramVar = createVertexAccessChain(
+              elemType, paramAccessChain->getBase(), indices);
+        }
+      }
+      createVertexStore(arg, createVertexLoad(paramVar));
     }
+    auto funcParam = inst->getFunction()->getParameters()[argIndex];
+    if (arg->isNoninterpolated()) {
+      /// Broadcast nointerpolated flag to each called function which uses a
+      /// nointerpolated variable as its functionCall parameter within a call
+      /// chain.
+      funcParam->setNoninterpolated();
+    }
+    paramCaller[funcParam].push_back(arg);
+    if (funcParam->isNoninterpolated()) {
+      /// Error: this broadcast process is from top to lower, hence this
+      ///        argument should be noninterpolated (will be expanded) here.
+      ///        When any matched param is noninterpolated, it means one or more
+      ///        noninterpolated variable will be passed as an expanded array
+      for (auto caller : paramCaller[funcParam])
+        if (!caller->isNoninterpolated()) {
+          emitError("Function '%0' could only use noninterpolated variable "
+                    "as input.",
+                    caller->getSourceLocation())
+              << inst->getFunction()->getFunctionName().data();
+          return 0;
+        }
+    }
+    argIndex++;
+  }
   currentFunc->addInstrCacheToFront();
   return true;
 }

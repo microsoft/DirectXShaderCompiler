@@ -236,6 +236,9 @@ public:
   /// \brief Creates stage variables for raytracing.
   SpirvVariable *createRayTracingNVStageVar(spv::StorageClass sc,
                                             const VarDecl *decl);
+  SpirvVariable *createRayTracingNVStageVar(spv::StorageClass sc, QualType type,
+                                            std::string name, bool isPrecise,
+                                            bool isNointerp);
 
   /// \brief Creates the taskNV stage variables for payload struct variable
   /// and returns true on success. SPIR-V instructions will also be generated

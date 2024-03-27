@@ -1003,9 +1003,11 @@ void DeleteMemcpy(MemCpyInst *MI) {
     if (op0->user_empty())
       op0->eraseFromParent();
   }
-  if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
-    if (op1->user_empty())
-      op1->eraseFromParent();
+  if (Op0 != Op1) {
+    if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
+      if (op1->user_empty())
+        op1->eraseFromParent();
+    }
   }
 }
 

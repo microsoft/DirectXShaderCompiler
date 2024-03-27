@@ -54,7 +54,9 @@ void mesh(//out vertices Vertex verts[1],
 
 // RDAT-LABEL: UnmangledName: "amplification"
 // RDAT:   FeatureInfo1: 0
-// RDAT:   FeatureInfo2: 0
+// RDAT18:   FeatureInfo2: (Opt_RequiresGroup)
+// Old: no Opt_RequiresGroup flag.
+// RDAT17:   FeatureInfo2: 0
 // RDAT:   ShaderStageFlag: (Amplification)
 // RDAT:   MinShaderTarget: 0xe0065
 

@@ -17,6 +17,7 @@
 #include "DxcPixLiveVariables_FragmentIterator.h"
 #include "DxilDiaSession.h"
 
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/Support/Global.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DebugInfo.h"
@@ -296,12 +297,18 @@ HRESULT dxil_debug_info::LiveVariables::GetLiveVariablesAtInstruction(
     S.AscendScopeHierarchy();
   }
   for (const auto &VarAndInfo : m_pImpl->m_LiveGlobalVarsDbgDeclare) {
-    if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {
-      // There shouldn't ever be a global variable with the same name,
-      // but it doesn't hurt to check
-      return false;
+    // Only consider references to the global variable that are in the same
+    // function as the instruction.
+    if (hlsl::dxilutil::DemangleFunctionName(
+            IP->getParent()->getParent()->getName()) ==
+        VarAndInfo.first->getScope()->getName()) {
+      if (!LiveVarsName.insert(VarAndInfo.first->getName()).second) {
+        // There shouldn't ever be a global variable with the same
+        // name, but it doesn't hurt to check
+        continue;
+      }
+      LiveVars.emplace_back(VarAndInfo.second.get());
     }
-    LiveVars.emplace_back(VarAndInfo.second.get());
   }
   return CreateDxilLiveVariables(m_pImpl->m_pDxilDebugInfo, std::move(LiveVars),
                                  ppResult);
