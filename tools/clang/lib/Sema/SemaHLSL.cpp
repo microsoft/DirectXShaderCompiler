@@ -15227,8 +15227,10 @@ bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
     // to limit the scope, and fail gracefully in some cases.
     if (!getLangOpts().SPIRV)
       return false;
-    if (FDecl->getName() != "GetAttributeAtVertex")
-      return false;
+    // This should never happen for SPIR-V. But on the DXIL side, extension can be added by
+    // inserting new intrinsics, meaning opcodes can collide with existing ones.
+    // See the ExtensionTest.EvalAttributeCollision test.
+    assert(FDecl->getName() == "GetAttributeAtVertex");
     return CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
   default:
     break;
