@@ -5188,7 +5188,6 @@ public:
         // buffer types don't use their template parameter in a way that would
         // force instantiation, we need to force specialization here.
         if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
-          
           GetOrCreateTemplateSpecialization(
               *m_context, *m_sema,
               cast<ClassTemplateDecl>(
