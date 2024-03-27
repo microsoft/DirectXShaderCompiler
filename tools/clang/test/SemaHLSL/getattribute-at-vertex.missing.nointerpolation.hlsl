@@ -1,3 +1,4 @@
+// REQUIRES: spirv
 // RUN: dxc -T ps_6_2 -E main %s -spirv -verify
 
 struct S1 {
