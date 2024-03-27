@@ -845,10 +845,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.PrintAfter.insert(value);
   }
 
-  if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
-    opts.EnablePayloadQualifiers &=
-        !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
-  }
+  opts.EnablePayloadQualifiers &=
+    !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
+
   if (opts.EnablePayloadQualifiers &&
       DXIL::CompareVersions(Major, Minor, 6, 6) < 0) {
     errors << "Invalid target for payload access qualifiers. Only lib_6_6 and "
