@@ -846,7 +846,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   opts.EnablePayloadQualifiers &=
-    !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
+      !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
 
   if (opts.EnablePayloadQualifiers &&
       DXIL::CompareVersions(Major, Minor, 6, 6) < 0) {
