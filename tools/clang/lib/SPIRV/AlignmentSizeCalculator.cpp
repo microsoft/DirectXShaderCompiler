@@ -63,6 +63,93 @@ void AlignmentSizeCalculator::alignUsingHLSLRelaxedLayout(
 }
 
 std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
+    QualType type, const RecordType *structType, SpirvLayoutRule rule,
+    llvm::Optional<bool> isRowMajor, uint32_t *stride) const {
+  bool hasBaseStructs = type->getAsCXXRecordDecl() &&
+                        type->getAsCXXRecordDecl()->getNumBases() > 0;
+
+  // Special case for handling empty structs, whose size is 0 and has no
+  // requirement over alignment (thus 1).
+  if (structType->getDecl()->field_empty() && !hasBaseStructs)
+    return {1, 0};
+
+  uint32_t maxAlignment = 0;
+  uint32_t structSize = 0;
+
+  // If this struct is derived from some other structs, place an implicit
+  // field at the very beginning for the base struct.
+  if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(structType->getDecl())) {
+    for (const auto &base : cxxDecl->bases()) {
+      uint32_t memberAlignment = 0, memberSize = 0;
+      std::tie(memberAlignment, memberSize) =
+          getAlignmentAndSize(base.getType(), rule, isRowMajor, stride);
+
+      if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+          rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
+          rule == SpirvLayoutRule::FxcCTBuffer) {
+        alignUsingHLSLRelaxedLayout(base.getType(), memberSize, memberAlignment,
+                                    &structSize);
+      } else {
+        structSize = roundToPow2(structSize, memberAlignment);
+      }
+
+      // The base alignment of the structure is N, where N is the largest
+      // base alignment value of any of its members...
+      maxAlignment = std::max(maxAlignment, memberAlignment);
+      structSize += memberSize;
+    }
+  }
+
+  for (const FieldDecl *field : structType->getDecl()->fields()) {
+    uint32_t memberAlignment = 0, memberSize = 0;
+    std::tie(memberAlignment, memberSize) =
+        getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
+
+    if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+        rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
+        rule == SpirvLayoutRule::FxcCTBuffer) {
+      alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
+                                  memberAlignment, &structSize);
+    } else {
+      structSize = roundToPow2(structSize, memberAlignment);
+    }
+
+    // Reset the current offset to the one specified in the source code
+    // if exists. It's debatable whether we should do sanity check here.
+    // If the developers want manually control the layout, we leave
+    // everything to them.
+    if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
+      structSize = offsetAttr->getOffset();
+    }
+
+    // The base alignment of the structure is N, where N is the largest
+    // base alignment value of any of its members...
+    maxAlignment = std::max(maxAlignment, memberAlignment);
+    structSize += memberSize;
+  }
+
+  if (rule == SpirvLayoutRule::Scalar) {
+    // A structure has a scalar alignment equal to the largest scalar
+    // alignment of any of its members in VK_EXT_scalar_block_layout.
+    return {maxAlignment, structSize};
+  }
+
+  if (rule == SpirvLayoutRule::GLSLStd140 ||
+      rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+      rule == SpirvLayoutRule::FxcCTBuffer) {
+    // ... and rounded up to the base alignment of a vec4.
+    maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
+  }
+
+  if (rule != SpirvLayoutRule::FxcCTBuffer) {
+    // The base offset of the member following the sub-structure is rounded
+    // up to the next multiple of the base alignment of the structure.
+    structSize = roundToPow2(structSize, maxAlignment);
+  }
+  return {maxAlignment, structSize};
+}
+
+std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     QualType type, SpirvLayoutRule rule, llvm::Optional<bool> isRowMajor,
     uint32_t *stride) const {
   // std140 layout rules:
@@ -144,8 +231,7 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
 
   const auto desugaredType = desugarType(type, &isRowMajor);
   if (desugaredType != type) {
-    auto result = getAlignmentAndSize(desugaredType, rule, isRowMajor, stride);
-    return result;
+    return getAlignmentAndSize(desugaredType, rule, isRowMajor, stride);
   }
 
   if (isEnumType(type))
@@ -268,88 +354,7 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
 
   // Rule 9
   if (const auto *structType = type->getAs<RecordType>()) {
-    bool hasBaseStructs = type->getAsCXXRecordDecl() &&
-                          type->getAsCXXRecordDecl()->getNumBases() > 0;
-
-    // Special case for handling empty structs, whose size is 0 and has no
-    // requirement over alignment (thus 1).
-    if (structType->getDecl()->field_empty() && !hasBaseStructs)
-      return {1, 0};
-
-    uint32_t maxAlignment = 0;
-    uint32_t structSize = 0;
-
-    // If this struct is derived from some other structs, place an implicit
-    // field at the very beginning for the base struct.
-    if (const auto *cxxDecl = dyn_cast<CXXRecordDecl>(structType->getDecl())) {
-      for (const auto &base : cxxDecl->bases()) {
-        uint32_t memberAlignment = 0, memberSize = 0;
-        std::tie(memberAlignment, memberSize) =
-            getAlignmentAndSize(base.getType(), rule, isRowMajor, stride);
-
-        if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-            rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
-            rule == SpirvLayoutRule::FxcCTBuffer) {
-          alignUsingHLSLRelaxedLayout(base.getType(), memberSize,
-                                      memberAlignment, &structSize);
-        } else {
-          structSize = roundToPow2(structSize, memberAlignment);
-        }
-
-        // The base alignment of the structure is N, where N is the largest
-        // base alignment value of any of its members...
-        maxAlignment = std::max(maxAlignment, memberAlignment);
-        structSize += memberSize;
-      }
-    }
-
-    for (const auto *field : structType->getDecl()->fields()) {
-      uint32_t memberAlignment = 0, memberSize = 0;
-      std::tie(memberAlignment, memberSize) =
-          getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
-
-      if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-          rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
-          rule == SpirvLayoutRule::FxcCTBuffer) {
-        alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
-                                    memberAlignment, &structSize);
-      } else {
-        structSize = roundToPow2(structSize, memberAlignment);
-      }
-
-      // Reset the current offset to the one specified in the source code
-      // if exists. It's debatable whether we should do sanity check here.
-      // If the developers want manually control the layout, we leave
-      // everything to them.
-      if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
-        structSize = offsetAttr->getOffset();
-      }
-
-      // The base alignment of the structure is N, where N is the largest
-      // base alignment value of any of its members...
-      maxAlignment = std::max(maxAlignment, memberAlignment);
-      structSize += memberSize;
-    }
-
-    if (rule == SpirvLayoutRule::Scalar) {
-      // A structure has a scalar alignment equal to the largest scalar
-      // alignment of any of its members in VK_EXT_scalar_block_layout.
-      return {maxAlignment, structSize};
-    }
-
-    if (rule == SpirvLayoutRule::GLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      // ... and rounded up to the base alignment of a vec4.
-      maxAlignment = roundToPow2(maxAlignment, kStd140Vec4Alignment);
-    }
-
-    if (rule != SpirvLayoutRule::FxcCTBuffer) {
-      // The base offset of the member following the sub-structure is rounded
-      // up to the next multiple of the base alignment of the structure.
-      structSize = roundToPow2(structSize, maxAlignment);
-    }
-    return {maxAlignment, structSize};
+    return getAlignmentAndSize(type, structType, rule, isRowMajor, stride);
   }
 
   // Rule 4, 6, 8, and 10
