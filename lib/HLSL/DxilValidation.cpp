@@ -1463,8 +1463,8 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
   } break;
   case DXIL::OpCode::SetMeshOutputCounts: {
-    if (!props.IsMS() && (!props.IsNode() ||
-                          props.Node.LaunchType != DXIL::NodeLaunchType::Mesh)) {
+    if (!props.IsMS() && (!props.IsNode() || props.Node.LaunchType !=
+                                                 DXIL::NodeLaunchType::Mesh)) {
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"SetMeshOutputCounts", "Mesh shader"});
     }
