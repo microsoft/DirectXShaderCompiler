@@ -2332,6 +2332,22 @@ void DxilModule::UpdateFunctionToShaderCompat(const llvm::Function *dxilFunc) {
       OP::GetMinShaderModelAndMask(CI, bWithTranslation, m_ValMajor, m_ValMinor,
                                    major, minor, mask);
       DXIL::UpdateToMaxOfVersions(info.minMajor, info.minMinor, major, minor);
+
+      // Fix up permitting SetMeshOutputCounts in node shaders
+
+      // This is a hack, but it is required to reject SetMeshOutputCounts from
+      // non-mesh node shaders. It is the least invasive place where the launch
+      // type and the opcode are both known. Within GetMinShaderModelAndMask,
+      // the launch type isn't known. After this point, the opcode that
+      // seemingly indicates support for all node shaders is lost.
+      // Ultimately, we'll probably need to encode launch type into the mask
+      if (DXIL::OpCode::SetMeshOutputCounts == OP::GetDxilOpFuncCallInst(CI) &&
+          HasDxilFunctionProps(F)) {
+        const DxilFunctionProps &props = GetDxilFunctionProps(F);
+        if (props.shaderKind != DXIL::ShaderKind::Node ||
+            props.Node.LaunchType != DXIL::NodeLaunchType::Mesh)
+          mask &= ~SFLAG(Node);
+      }
       info.mask &= mask;
     } else if (const llvm::LoadInst *LI = dyn_cast<LoadInst>(user)) {
       // If loading a groupshared variable, limit to CS/AS/MS/Node

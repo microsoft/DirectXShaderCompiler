@@ -3251,12 +3251,19 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     mask = SFLAG(Library) | SFLAG(Pixel);
     return;
   }
-  // Instructions: SetMeshOutputCounts=168, EmitIndices=169, GetMeshPayload=170,
-  // StoreVertexOutput=171, StorePrimitiveOutput=172
-  if ((168 <= op && op <= 172)) {
+  // Instructions: EmitIndices=169, GetMeshPayload=170, StoreVertexOutput=171,
+  // StorePrimitiveOutput=172
+  if ((169 <= op && op <= 172)) {
     major = 6;
     minor = 5;
     mask = SFLAG(Mesh);
+    return;
+  }
+  // Instructions: SetMeshOutputCounts=168
+  if (op == 168) {
+    major = 6;
+    minor = 5;
+    mask = SFLAG(Mesh) | SFLAG(Node);
     return;
   }
   // Instructions: CreateHandleFromHeap=218, Unpack4x8=219, Pack4x8=220,

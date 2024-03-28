@@ -1463,7 +1463,8 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
   } break;
   case DXIL::OpCode::SetMeshOutputCounts: {
-    if (!props.IsMS()) {
+    if (!props.IsMS() && (!props.IsNode() ||
+                          props.Node.LaunchType != DXIL::NodeLaunchType::Mesh)) {
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"SetMeshOutputCounts", "Mesh shader"});
     }
@@ -2789,9 +2790,11 @@ static void ValidateMsIntrinsics(Function *F, ValidationContext &ValCtx,
                                  CallInst *setMeshOutputCounts,
                                  CallInst *getMeshPayload) {
   if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
-    DXIL::ShaderKind shaderKind =
-        ValCtx.DxilMod.GetDxilFunctionProps(F).shaderKind;
-    if (shaderKind != DXIL::ShaderKind::Mesh)
+    DxilFunctionProps &props = ValCtx.DxilMod.GetDxilFunctionProps(F);
+    DXIL::ShaderKind shaderKind = props.shaderKind;
+    if (shaderKind != DXIL::ShaderKind::Mesh &&
+        (shaderKind != DXIL::ShaderKind::Node ||
+         props.Node.LaunchType != DXIL::NodeLaunchType::Mesh))
       return;
   } else {
     return;
