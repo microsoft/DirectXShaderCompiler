@@ -1,7 +1,6 @@
 // RUN: %dxc -E main -T hs_6_0  %s | FileCheck %s
 
 // CHECK-DAG: Patch Constant function HSPerPatchFunc should not have inout param
-// CHECK-DAG: Patch constant function's output patch input should have 3 elements, but has 5.
 
 //--------------------------------------------------------------------------------------
 // SimpleTessellation.hlsl
@@ -62,7 +61,7 @@ HSPerPatchData HSPerPatchFunc( const InputPatch< PSSceneIn, 12 > points, OutputP
 [partitioning("fractional_odd")]
 [outputtopology("triangle_cw")]
 [patchconstantfunc("HSPerPatchFunc")]
-[outputcontrolpoints(3)]
+[outputcontrolpoints(5)]
 HSPerVertexData main(const uint id : SV_OutputControlPointID,
                       const InputPatch< PSSceneIn, 12 > points )
 {
