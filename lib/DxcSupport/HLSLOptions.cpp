@@ -467,6 +467,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   // through an argument. The value should default to 'main', but we let the
   // caller apply this policy.
 
+  opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
+
   if (opts.TargetProfile.empty()) {
     opts.TargetProfile = Args.getLastArgValue(OPT_target_profile);
   }
@@ -508,7 +510,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   }
 
   if (opts.HLSLVersion == hlsl::LangStd::v2015 &&
-      !(flagsToInclude & HlslFlags::ISenseOption)) {
+      !((flagsToInclude & HlslFlags::ISenseOption) != 0 ||
+        opts.VerifyDiagnostics)) {
     errors << "HLSL Version 2015 is only supported for language services";
     return 1;
   }
@@ -821,7 +824,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fnew_inlining_behavior, OPT_INVALID, false);
   opts.TimeReport = Args.hasFlag(OPT_ftime_report, OPT_INVALID, false);
   opts.TimeTrace = Args.hasFlag(OPT_ftime_trace, OPT_INVALID, false) ? "-" : "";
-  opts.VerifyDiagnostics = Args.hasFlag(OPT_verify, OPT_INVALID, false);
   if (Args.hasArg(OPT_ftime_trace_EQ))
     opts.TimeTrace = Args.getLastArgValue(OPT_ftime_trace_EQ);
   if (Arg *A = Args.getLastArg(OPT_ftime_trace_granularity_EQ)) {
