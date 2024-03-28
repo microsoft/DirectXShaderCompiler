@@ -1,4 +1,7 @@
-// RUN: %if dxil-1-9 %{ %dxc -verify -T lib_6_9 %s %}
+// RUN: %dxc -verify -T lib_6_9 %s
+
+// REQUIRES: dxil-1-9
+
 // ==================================================================
 // Test mesh nodes with a few failing attrib states
 // ==================================================================

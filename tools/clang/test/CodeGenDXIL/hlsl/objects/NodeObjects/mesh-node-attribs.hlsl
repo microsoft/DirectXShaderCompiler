@@ -1,5 +1,8 @@
-// RUN: %if dxil-1-9 %{ %dxc -T lib_6_9 %s | FileCheck %s %}
-// RUN: %if dxil-1-9 %{ %dxc -fcgl -T lib_6_9 %s | FileCheck %s --check-prefixes=CHKCGL %}
+// RUN: %dxc -T lib_6_9 %s | FileCheck %s
+// RUN: %dxc -fcgl -T lib_6_9 %s | FileCheck %s --check-prefixes=CHKCGL
+
+// REQUIRES: dxil-1-9
+
 // ==================================================================
 // Test mesh nodes with various valid attribute combinations
 // ==================================================================
