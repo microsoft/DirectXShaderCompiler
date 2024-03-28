@@ -1900,6 +1900,30 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
       auto &Node = props.Node;
       Node.MaxRecursionDepth = ConstMDToUint32(MDO);
     } break;
+    case DxilMDHelper::kDxilNodeMeshOutputTopologyTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      Node.OutputTopology = (DXIL::MeshOutputTopology)ConstMDToUint32(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeMeshMaxVertexCountTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      Node.MaxVertexCount = ConstMDToUint32(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeMeshMaxPrimitiveCountTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      Node.MaxPrimitiveCount = ConstMDToUint32(MDO);
+    } break;
+    case DxilMDHelper::kDxilNodeMaxInputRecordsPerGraphEntryRecordTag: {
+      hasNodeTag = true;
+      auto &Node = props.Node;
+      MDNode *pNode = cast<MDNode>(MDO.get());
+      Node.MaxInputRecordsPerGraphEntryRecord =
+          ConstMDToUint32(pNode->getOperand(0));
+      Node.MaxInputRecSharedAcrossNodeArray =
+          ConstMDToBool(pNode->getOperand(1));
+    } break;
     case DxilMDHelper::kDxilNodeInputsTag: {
       hasNodeTag = true;
       const MDTuple *pNodeInputs = dyn_cast<MDTuple>(MDO.get());
@@ -1957,6 +1981,14 @@ void DxilMDHelper::SerializeNodeProps(SmallVectorImpl<llvm::Metadata *> &MDVals,
   MDVals.push_back(Uint32ToConstMD(NodeProps.MaxDispatchGrid[1]));
   MDVals.push_back(Uint32ToConstMD(NodeProps.MaxDispatchGrid[2]));
   MDVals.push_back(Uint32ToConstMD(NodeProps.MaxRecursionDepth));
+  if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 9) >= 0) {
+    MDVals.emplace_back(Uint32ToConstMD((unsigned)NodeProps.OutputTopology));
+    MDVals.emplace_back(Uint32ToConstMD(NodeProps.MaxVertexCount));
+    MDVals.emplace_back(Uint32ToConstMD(NodeProps.MaxPrimitiveCount));
+    MDVals.push_back(
+        Uint32ToConstMD(NodeProps.MaxInputRecordsPerGraphEntryRecord));
+    MDVals.push_back(BoolToConstMD(NodeProps.MaxInputRecSharedAcrossNodeArray));
+  }
   for (auto &nodeinput : props->InputNodes) {
     MDVals.push_back(Uint32ToConstMD(nodeinput.Flags));
     MDVals.push_back(Uint32ToConstMD(nodeinput.MaxRecords));
@@ -2010,6 +2042,16 @@ void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
   NodeProps.MaxDispatchGrid[1] = ConstMDToUint32(pProps->getOperand(idx++));
   NodeProps.MaxDispatchGrid[2] = ConstMDToUint32(pProps->getOperand(idx++));
   NodeProps.MaxRecursionDepth = ConstMDToUint32(pProps->getOperand(idx++));
+  if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 9) >= 0) {
+    NodeProps.OutputTopology =
+        (DXIL::MeshOutputTopology)ConstMDToUint32(pProps->getOperand(idx++));
+    NodeProps.MaxVertexCount = ConstMDToUint32(pProps->getOperand(idx++));
+    NodeProps.MaxPrimitiveCount = ConstMDToUint32(pProps->getOperand(idx++));
+    NodeProps.MaxInputRecordsPerGraphEntryRecord =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    NodeProps.MaxInputRecSharedAcrossNodeArray =
+        ConstMDToBool(pProps->getOperand(idx++));
+  }
   for (auto &nodeinput : props->InputNodes) {
     nodeinput.Flags = NodeFlags(ConstMDToUint32(pProps->getOperand(idx++)));
     nodeinput.MaxRecords = ConstMDToUint32(pProps->getOperand(idx++));
@@ -2746,6 +2788,36 @@ void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
     MDVals.emplace_back(
         Uint32ToConstMD(DxilMDHelper::kDxilNodeMaxRecursionDepthTag));
     MDVals.emplace_back(Uint32ToConstMD(Node.MaxRecursionDepth));
+  }
+
+  // Experimental mesh node shader properties
+  if (Node.OutputTopology != DXIL::MeshOutputTopology::Undefined) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeMeshOutputTopologyTag));
+    MDVals.emplace_back(Uint32ToConstMD((unsigned)Node.OutputTopology));
+  }
+
+  if (Node.MaxVertexCount > 0) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeMeshMaxVertexCountTag));
+    MDVals.emplace_back(Uint32ToConstMD(Node.MaxVertexCount));
+  }
+
+  if (Node.MaxPrimitiveCount > 0) {
+    MDVals.emplace_back(
+        Uint32ToConstMD(DxilMDHelper::kDxilNodeMeshMaxPrimitiveCountTag));
+    MDVals.emplace_back(Uint32ToConstMD(Node.MaxPrimitiveCount));
+  }
+
+  if (Node.MaxInputRecordsPerGraphEntryRecord) {
+    MDVals.emplace_back(Uint32ToConstMD(
+        DxilMDHelper::kDxilNodeMaxInputRecordsPerGraphEntryRecordTag));
+    vector<Metadata *> MaxInputRecsVals;
+    MaxInputRecsVals.emplace_back(
+        Uint32ToConstMD(Node.MaxInputRecordsPerGraphEntryRecord));
+    MaxInputRecsVals.emplace_back(
+        BoolToConstMD(Node.MaxInputRecSharedAcrossNodeArray));
+    MDVals.emplace_back(MDNode::get(m_Ctx, MaxInputRecsVals));
   }
 
   if (props.InputNodes.size()) {

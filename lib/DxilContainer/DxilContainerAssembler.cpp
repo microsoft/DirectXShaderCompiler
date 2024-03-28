@@ -1656,6 +1656,28 @@ private:
       funcAttribs.push_back(Builder.InsertRecord(nAttrib));
     }
 
+    if (props.Node.OutputTopology != DXIL::MeshOutputTopology::Undefined) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::MeshShaderInfo;
+      RDAT::MSInfo info = {};
+      info.MeshOutputTopology = (uint8_t)props.Node.OutputTopology;
+      info.MaxOutputVertices = (uint16_t)props.Node.MaxVertexCount;
+      info.MaxOutputPrimitives = (uint16_t)props.Node.MaxPrimitiveCount;
+      nAttrib.MeshShaderInfo = Builder.InsertRecord(info);
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
+    if (props.Node.MaxInputRecordsPerGraphEntryRecord) {
+      nAttrib = {};
+      nAttrib.AttribKind = (uint32_t)
+          RDAT::NodeFuncAttribKind::MaxInputRecordsPerGraphEntryRecord;
+      RDAT::MaxInputRecords MaxRec = {};
+      MaxRec.Count = props.Node.MaxInputRecordsPerGraphEntryRecord;
+      MaxRec.Shared = props.Node.MaxInputRecSharedAcrossNodeArray;
+      nAttrib.MaxInputRecordsPerGraphEntryRecord = Builder.InsertRecord(MaxRec);
+      funcAttribs.push_back(Builder.InsertRecord(nAttrib));
+    }
+
     nInfo.Attribs = Builder.InsertArray(funcAttribs.begin(), funcAttribs.end());
 
     // Add the input and output nodes

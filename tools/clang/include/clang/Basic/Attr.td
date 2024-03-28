@@ -986,6 +986,12 @@ def HLSLNodeMaxRecursionDepth : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLNodeMaxInputRecordsPerGraphEntryRecord : InheritableAttr {
+  let Spellings = [CXX11<"", "nodemaxinputrecordspergraphentryrecord", 2017>];
+  let Args = [UnsignedArgument<"Count">, BoolArgument<"SharedAcrossNodeArray">];
+  let Documentation = [Undocumented];
+}
+
 def HLSLNodeTrackRWInputSharing : InheritableAttr {
   let Spellings = [CXX11<"", "nodetrackrwinputsharing", 2017>];
   let Subjects = SubjectList<[CXXRecord]>;

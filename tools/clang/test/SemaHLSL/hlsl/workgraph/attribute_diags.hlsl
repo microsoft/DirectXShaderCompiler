@@ -43,7 +43,7 @@ void node05()                        // expected-error {{Broadcasting node shade
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(32, 1, 1)]
-void node06()                        // expected-error {{Broadcasting node shader 'node06' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute}}
+void node06()                        // expected-error {{Broadcasting/Mesh node shader 'node06' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute}}
 { }
 
 // NodeTrackRWInputRecordSharing must appear on the actual input record used if FinishedCrossGroupSharing may be called,

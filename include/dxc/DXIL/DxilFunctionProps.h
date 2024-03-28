@@ -181,6 +181,12 @@ struct DxilFunctionProps {
     unsigned DispatchGrid[3];
     unsigned MaxDispatchGrid[3];
     unsigned MaxRecursionDepth;
+    // experimental mesh node properties
+    DXIL::MeshOutputTopology OutputTopology;
+    unsigned MaxVertexCount;
+    unsigned MaxPrimitiveCount;
+    unsigned MaxInputRecordsPerGraphEntryRecord;
+    bool MaxInputRecSharedAcrossNodeArray;
   } Node;
 
   DXIL::ShaderKind shaderKind;

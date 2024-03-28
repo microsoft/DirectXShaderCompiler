@@ -67,6 +67,8 @@ enum class RuntimeDataPartType : uint32_t {
   IONodeTable = 10,
   NodeShaderInfoTable = 11,
   Last_1_8 = NodeShaderInfoTable,
+  MaxInputRecordsTable = 12,
+  Last_1_9 = MaxInputRecordsTable,
 
   // Insert experimental here.
   SignatureElementTable,
@@ -112,6 +114,8 @@ enum class RecordTableIndex : unsigned {
   NodeShaderFuncAttribTable,
   IONodeTable,
   NodeShaderInfoTable,
+
+  MaxInputRecordsTable,
 
   DxilPdbInfoTable,
   DxilPdbInfoSourceTable,

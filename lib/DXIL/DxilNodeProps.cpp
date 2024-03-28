@@ -77,7 +77,9 @@ bool NodeFlags::RecordTypeMatchesLaunchType(
          (launchType == DXIL::NodeLaunchType::Coalescing &&
           recordLaunchType == DXIL::NodeIOFlags::GroupRecord) ||
          (launchType == DXIL::NodeLaunchType::Thread &&
-          recordLaunchType == DXIL::NodeIOFlags::ThreadRecord);
+          recordLaunchType == DXIL::NodeIOFlags::ThreadRecord) ||
+         (launchType == DXIL::NodeLaunchType::Mesh &&
+          recordLaunchType == DXIL::NodeIOFlags::DispatchRecord);
 }
 
 void NodeFlags::SetTrackRWInputSharing() {

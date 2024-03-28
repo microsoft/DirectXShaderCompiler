@@ -1,4 +1,5 @@
-// RUN: %dxc -T lib_6_9 %s | FileCheck %s
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9 %s | FileCheck %s
+
 // ==================================================================
 // If no input is specified then the NodeInputs metadata should not
 // be present.
@@ -8,9 +9,8 @@
 [NodeLaunch("mesh")]
 [NumThreads(1,1,1)]
 [NodeDispatchGrid(4,1,1)]
+[OutputTopology("triangle")]
 void noinput_mesh() { }
-
-
 
 // Metadata for noinput_mesh
 // ------------------------------------------------------------------
