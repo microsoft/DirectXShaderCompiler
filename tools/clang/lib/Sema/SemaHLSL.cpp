@@ -15525,7 +15525,7 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     if (!FD->hasAttr<HLSLOutputTopologyAttr>())
       S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
           << "mesh node"
-	  << "outputtopology";
+          << "outputtopology";
   } else {
     if (auto *NodeMaxRecs =
             FD->getAttr<HLSLNodeMaxInputRecordsPerGraphEntryRecordAttr>()) {
