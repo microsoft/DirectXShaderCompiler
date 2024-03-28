@@ -100,18 +100,43 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     }
   }
 
+  const FieldDecl *lastField = nullptr;
+  uint32_t nextAvailableBitOffset = 0;
   for (const FieldDecl *field : structType->getDecl()->fields()) {
     uint32_t memberAlignment = 0, memberSize = 0;
     std::tie(memberAlignment, memberSize) =
         getAlignmentAndSize(field->getType(), rule, isRowMajor, stride);
 
-    if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
-        rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
-        rule == SpirvLayoutRule::FxcCTBuffer) {
-      alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
-                                  memberAlignment, &structSize);
-    } else {
-      structSize = roundToPow2(structSize, memberAlignment);
+    uint32_t memberBitOffset = 0;
+    do {
+      if (!lastField)
+        break;
+
+      if (!field->isBitField() || !lastField->isBitField())
+        break;
+
+      // Not the same type as the previous bitfield. Ignoring.
+      if (lastField->getType() != field->getType())
+        break;
+
+      // Not enough room left to fit this bitfield. Starting a new slot.
+      if (nextAvailableBitOffset + field->getBitWidthValue(astContext) >
+          memberSize * 8)
+        break;
+
+      memberBitOffset = nextAvailableBitOffset;
+      memberSize = 0;
+    } while (0);
+
+    if (memberSize != 0) {
+      if (rule == SpirvLayoutRule::RelaxedGLSLStd140 ||
+          rule == SpirvLayoutRule::RelaxedGLSLStd430 ||
+          rule == SpirvLayoutRule::FxcCTBuffer) {
+        alignUsingHLSLRelaxedLayout(field->getType(), memberSize,
+                                    memberAlignment, &structSize);
+      } else {
+        structSize = roundToPow2(structSize, memberAlignment);
+      }
     }
 
     // Reset the current offset to the one specified in the source code
@@ -126,6 +151,11 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     // base alignment value of any of its members...
     maxAlignment = std::max(maxAlignment, memberAlignment);
     structSize += memberSize;
+    lastField = field;
+    nextAvailableBitOffset =
+        field->isBitField()
+            ? memberBitOffset + field->getBitWidthValue(astContext)
+            : 0;
   }
 
   if (rule == SpirvLayoutRule::Scalar) {
