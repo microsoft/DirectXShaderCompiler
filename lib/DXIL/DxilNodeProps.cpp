@@ -72,7 +72,8 @@ bool NodeFlags::RecordTypeMatchesLaunchType(
     DXIL::NodeLaunchType launchType) const {
   DXIL::NodeIOFlags granularity = (DXIL::NodeIOFlags)(
       (uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::RecordGranularityMask);
-  uint32_t writable = ((uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::ReadWrite);
+  uint32_t writable =
+      ((uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::ReadWrite);
   return (launchType == DXIL::NodeLaunchType::Broadcasting &&
           granularity == DXIL::NodeIOFlags::DispatchRecord) ||
          (launchType == DXIL::NodeLaunchType::Coalescing &&
@@ -80,8 +81,7 @@ bool NodeFlags::RecordTypeMatchesLaunchType(
          (launchType == DXIL::NodeLaunchType::Thread &&
           granularity == DXIL::NodeIOFlags::ThreadRecord) ||
          (launchType == DXIL::NodeLaunchType::Mesh &&
-          granularity == DXIL::NodeIOFlags::DispatchRecord &&
-          !writable);
+          granularity == DXIL::NodeIOFlags::DispatchRecord && !writable);
 }
 
 void NodeFlags::SetTrackRWInputSharing() {
