@@ -10,7 +10,7 @@ struct Record {
 [NodeMaxDispatchGrid(65535, 1, 1)]
 [NodeIsProgramEntry]
 [NumThreads(32, 1, 1)]
-// expected-error@+2 {{Broadcasting node shader 'node01' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+// expected-error@+2 {{Broadcasting/Mesh node shader 'node01' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 // expected-error@+1 {{entry parameter of type 'GroupNodeInputRecords<Record> [9]' may not be an array}}
 void node01(GroupNodeInputRecords<Record> input[9])
 { }
@@ -20,7 +20,7 @@ void node01(GroupNodeInputRecords<Record> input[9])
 [NodeMaxDispatchGrid(65535, 1, 1)]
 [NodeIsProgramEntry]
 [NumThreads(32, 1, 1)]
-// expected-error@+2 {{Broadcasting node shader 'node02' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+// expected-error@+2 {{Broadcasting/Mesh node shader 'node02' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 // expected-error@+1 {{entry parameter of type 'RWGroupNodeInputRecords<Record> [9]' may not be an array}}
 void node02(RWGroupNodeInputRecords<Record> input[9])
 { }

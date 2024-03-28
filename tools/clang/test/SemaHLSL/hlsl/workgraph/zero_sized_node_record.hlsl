@@ -28,14 +28,14 @@ struct EMPTY4 { // expected-note +{{zero sized record defined here}}
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(64, 1, 1)]
-void node01(DispatchNodeInputRecord<EMPTY> input) // expected-error {{record used in DispatchNodeInputRecord may not have zero size}} expected-error {{Broadcasting node shader 'node01' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+void node01(DispatchNodeInputRecord<EMPTY> input) // expected-error {{record used in DispatchNodeInputRecord may not have zero size}} expected-error {{Broadcasting/Mesh node shader 'node01' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 {}
 
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(64, 1, 1)]
-void node02(RWDispatchNodeInputRecord<EMPTY> input) // expected-error {{record used in RWDispatchNodeInputRecord may not have zero size}} expected-error {{Broadcasting node shader 'node02' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+void node02(RWDispatchNodeInputRecord<EMPTY> input) // expected-error {{record used in RWDispatchNodeInputRecord may not have zero size}} expected-error {{Broadcasting/Mesh node shader 'node02' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 {}
 
 [Shader("node")]
@@ -73,7 +73,7 @@ void node07(NodeOutput<EMPTY> output) // expected-error {{record used in NodeOut
 [NodeLaunch("broadcasting")]
 [NumThreads(1,1,1)]
 [NodeMaxDispatchGrid(64, 1, 1)]
-// expected-error@+1 {{Broadcasting node shader 'node08' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+// expected-error@+1 {{Broadcasting/Mesh node shader 'node08' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 void node08(NodeOutputArray<EMPTY3> output) // expected-error {{record used in NodeOutputArray may not have zero size}}
 {}
 

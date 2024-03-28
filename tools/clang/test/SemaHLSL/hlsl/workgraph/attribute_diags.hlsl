@@ -35,7 +35,7 @@ void node04()
 [NodeMaxDispatchGrid(256, 64, 32)]   // expected-error {{Node shader 'node05' may not use both 'nodemaxdispatchgrid' and 'nodedispatchgrid'}}
 [NodeDispatchGrid(32, 1, 1)]         // expected-note  {{nodedispatchgrid defined here}}
 [NumThreads(32, 1, 1)]
-void node05()                        // expected-error {{Broadcasting node shader 'node05' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
+void node05()                        // expected-error {{Broadcasting/Mesh node shader 'node05' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic}}
 { }
 
 // One of NodeDispatchGrid or NodeMaxDispatchGrid must be specified for a Broadcasting node
@@ -43,7 +43,7 @@ void node05()                        // expected-error {{Broadcasting node shade
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NumThreads(32, 1, 1)]
-void node06()                        // expected-error {{Broadcasting node shader 'node06' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute}}
+void node06()                        // expected-error {{Broadcasting/Mesh node shader 'node06' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute}}
 { }
 
 // NodeTrackRWInputRecordSharing must appear on the actual input record used if FinishedCrossGroupSharing may be called,
