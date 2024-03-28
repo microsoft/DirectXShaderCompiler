@@ -67,6 +67,13 @@ private:
     return astContext.getDiagnostics().Report(srcLoc, diagId);
   }
 
+  // Returns the alignment and size in bytes for the given struct
+  // according to the given LayoutRule.
+  std::pair<uint32_t, uint32_t>
+  getAlignmentAndSize(QualType type, const RecordType *structType,
+                      SpirvLayoutRule rule, llvm::Optional<bool> isRowMajor,
+                      uint32_t *stride) const;
+
 private:
   ASTContext &astContext;                /// AST context
   const SpirvCodeGenOptions &spvOptions; /// SPIR-V options
