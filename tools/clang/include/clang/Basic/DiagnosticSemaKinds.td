@@ -7735,6 +7735,8 @@ def warn_hlsl_implicit_vector_truncation  : Warning<
   InGroup<Conversion>, DefaultWarn;
 def err_hlsl_nointerpolation_and_linear : Error<
     "nointerpolation cannot be used with any other interpolation mode specifier">;
+def err_hlsl_parameter_requires_attribute : Error<
+    "parameter %0 of %1 must have a a '%2' attribute">;
 def warn_hlsl_duplicate_specifier : Warning<
     "duplicate HLSL specifier %0">,
 	InGroup<IgnoredAttributes>, DefaultWarn;
