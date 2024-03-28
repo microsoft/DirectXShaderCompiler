@@ -20,7 +20,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 
-#include "..\DxilPIXPasses\PixPassHelpers.h"
+#include "../DxilPIXPasses/PixPassHelpers.h"
 #include "DxilDia.h"
 #include "DxilDiaEnumTables.h"
 #include "DxilDiaTable.h"
