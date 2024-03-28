@@ -59,11 +59,11 @@ struct RECORD1
 
 // FCGLMD-DAG:  !{void (%"struct.DispatchNodeInputRecord<RECORD>"*)* @node_DispatchNodeInputRecord, i32 15, i32 1024, i32 1, i32 1, i32 1, i1 false, !"node_DispatchNodeInputRecord", i32 0, !"", i32 0, i32 -1, i32 64, i32 1, i32 1, i32 0, i32 0, i32 0, i32 0, i32 97, i32 0, i32 16, i32 0, i32 0, i32 0, i32 4}
 
-// MD: !{void ()* @node_DispatchNodeInputRecord, !"node_DispatchNodeInputRecord", null, null, ![[DispatchNodeInput:[0-9]+]]}
-// MD: ![[DispatchNodeInput]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
-// MD: ![[EntryInputs]] = !{![[EntryInputs0:[0-9]+]]}
-// MD: ![[EntryInputs0]] = !{i32 1, i32 97, i32 2, ![[EntryInputs0Record:[0-9]+]]}
-// MD: ![[EntryInputs0Record]] = !{i32 0, i32 16, i32 2, i32 4}
+// MD-DAG: !{void ()* @node_DispatchNodeInputRecord, !"node_DispatchNodeInputRecord", null, null, ![[DispatchNodeInput:[0-9]+]]}
+// MD-DAG: ![[DispatchNodeInput]] = !{i32 8, i32 15, i32 13, i32 1, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 18, !{{[0-9]+}}, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
+// MD-DAG: ![[EntryInputs]] = !{![[EntryInputs0:[0-9]+]]}
+// MD-DAG: ![[EntryInputs0]] = !{i32 1, i32 97, i32 2, ![[EntryInputs0Record:[0-9]+]]}
+// MD-DAG: ![[EntryInputs0Record]] = !{i32 0, i32 16, i32 2, i32 4}
 
 [Shader("node")]
 [NumThreads(1024,1,1)]
@@ -78,10 +78,10 @@ void node_DispatchNodeInputRecord(DispatchNodeInputRecord<RECORD> input)
 
 // FCGLMD-DAG: !{void (%struct.EmptyNodeInput*)* @node_EmptyNodeInput, i32 15, i32 2, i32 1, i32 1, i32 2, i1 true, !"node_EmptyNodeInput", i32 0, !"", i32 0, i32 -1, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 9, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
 
-// MD: !{void ()* @node_EmptyNodeInput, !"node_EmptyNodeInput", null, null, ![[EmptyNodeInput:[0-9]+]]}
-// MD: ![[EmptyNodeInput]] = !{i32 8, i32 15, i32 13, i32 2, i32 14, i1 true, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
-// MD: ![[EntryInputs]] = !{![[EntryInputs0:[0-9]+]]}
-// MD: ![[EntryInputs0]] = !{i32 1, i32 9}
+// MD-DAG: !{void ()* @node_EmptyNodeInput, !"node_EmptyNodeInput", null, null, ![[EmptyNodeInput:[0-9]+]]}
+// MD-DAG: ![[EmptyNodeInput]] = !{i32 8, i32 15, i32 13, i32 2, i32 14, i1 true, i32 15, !{{[0-9]+}}, i32 16, i32 -1, i32 20, ![[EntryInputs:[0-9]+]], i32 4, !{{[0-9]+}}, i32 5, !{{[0-9]+}}}
+// MD-DAG: ![[EntryInputs]] = !{![[EntryInputs0:[0-9]+]]}
+// MD-DAG: ![[EntryInputs0]] = !{i32 1, i32 9}
 
 [Shader("node")]
 [NodeLaunch("coalescing")]
