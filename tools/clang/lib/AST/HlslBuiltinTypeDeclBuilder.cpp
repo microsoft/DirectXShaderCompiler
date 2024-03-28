@@ -33,9 +33,8 @@ BuiltinTypeDeclBuilder::BuiltinTypeDeclBuilder(DeclContext *declContext,
   m_recordDecl->setImplicit(true);
 }
 
-TemplateTypeParmDecl *
-BuiltinTypeDeclBuilder::addTypeTemplateParam(StringRef name,
-                                             TypeSourceInfo *defaultValue) {
+TemplateTypeParmDecl *BuiltinTypeDeclBuilder::addTypeTemplateParam(
+    StringRef name, TypeSourceInfo *defaultValue, bool parameterPack) {
   DXASSERT_NOMSG(!m_recordDecl->isBeingDefined() &&
                  !m_recordDecl->isCompleteDefinition());
 
@@ -45,7 +44,7 @@ BuiltinTypeDeclBuilder::addTypeTemplateParam(StringRef name,
       astContext, m_recordDecl->getDeclContext(), NoLoc, NoLoc,
       /* TemplateDepth */ 0, index,
       &astContext.Idents.get(name, tok::TokenKind::identifier),
-      /* Typename */ false, /* ParameterPack */ false);
+      /* Typename */ false, parameterPack);
   if (defaultValue != nullptr)
     decl->setDefaultArgument(defaultValue);
   m_templateParams.emplace_back(decl);

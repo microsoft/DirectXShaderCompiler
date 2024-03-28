@@ -1193,6 +1193,8 @@ public:
            inst->getKind() <= IK_ConstantNull;
   }
 
+  bool operator==(const SpirvConstant &that) const;
+
   bool isSpecConstant() const;
   void setLiteral(bool literal = true) { literalConstant = literal; }
   bool isLiteral() { return literalConstant; }

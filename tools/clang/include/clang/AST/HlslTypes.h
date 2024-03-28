@@ -399,6 +399,16 @@ DeclareNodeOrRecordType(clang::ASTContext &Ctx, DXIL::NodeIOKind Type,
                         bool HasGetMethods = false, bool IsArray = false,
                         bool IsCompleteType = false);
 
+#ifdef ENABLE_SPIRV_CODEGEN
+clang::CXXRecordDecl *DeclareInlineSpirvType(clang::ASTContext &context,
+                                             clang::DeclContext *declContext,
+                                             llvm::StringRef typeName,
+                                             bool opaque);
+clang::CXXRecordDecl *DeclareVkIntegralConstant(
+    clang::ASTContext &context, clang::DeclContext *declContext,
+    llvm::StringRef typeName, clang::ClassTemplateDecl **templateDecl);
+#endif
+
 clang::CXXRecordDecl *DeclareNodeOutputArray(clang::ASTContext &Ctx,
                                              DXIL::NodeIOKind Type,
                                              clang::CXXRecordDecl *OutputType,

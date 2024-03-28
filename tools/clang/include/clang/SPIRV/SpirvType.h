@@ -429,15 +429,16 @@ public:
 
 class SpirvInstruction;
 struct SpvIntrinsicTypeOperand {
-  SpvIntrinsicTypeOperand(SpirvType *type_operand)
+  SpvIntrinsicTypeOperand(const SpirvType *type_operand)
       : operand_as_type(type_operand), isTypeOperand(true) {}
   SpvIntrinsicTypeOperand(SpirvInstruction *inst_operand)
       : operand_as_inst(inst_operand), isTypeOperand(false) {}
+  bool operator==(const SpvIntrinsicTypeOperand &that) const;
   union {
-    SpirvType *operand_as_type;
+    const SpirvType *operand_as_type;
     SpirvInstruction *operand_as_inst;
   };
-  bool isTypeOperand;
+  const bool isTypeOperand;
 };
 
 class SpirvIntrinsicType : public SpirvType {
@@ -451,6 +452,12 @@ public:
   unsigned getOpCode() const { return typeOpCode; }
   llvm::ArrayRef<SpvIntrinsicTypeOperand> getOperands() const {
     return operands;
+  }
+
+  bool operator==(const SpirvIntrinsicType &that) const {
+    return typeOpCode == that.typeOpCode &&
+           operands.size() == that.operands.size() &&
+           std::equal(operands.begin(), operands.end(), that.operands.begin());
   }
 
 private:

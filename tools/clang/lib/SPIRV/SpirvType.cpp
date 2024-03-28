@@ -167,6 +167,22 @@ bool RuntimeArrayType::operator==(const RuntimeArrayType &that) const {
          (!stride.hasValue() || stride.getValue() == that.stride.getValue());
 }
 
+bool SpvIntrinsicTypeOperand::operator==(
+    const SpvIntrinsicTypeOperand &that) const {
+  if (isTypeOperand != that.isTypeOperand)
+    return false;
+
+  if (isTypeOperand) {
+    return operand_as_type == that.operand_as_type;
+  } else {
+    auto constantInst = dyn_cast<SpirvConstant>(operand_as_inst);
+    assert(constantInst != nullptr);
+    auto thatConstantInst = dyn_cast<SpirvConstant>(that.operand_as_inst);
+    assert(thatConstantInst != nullptr);
+    return *constantInst == *thatConstantInst;
+  }
+}
+
 SpirvIntrinsicType::SpirvIntrinsicType(
     unsigned typeOp, llvm::ArrayRef<SpvIntrinsicTypeOperand> inOps)
     : SpirvType(TK_SpirvIntrinsicType, "spirvIntrinsicType"),

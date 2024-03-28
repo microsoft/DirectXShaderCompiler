@@ -35,6 +35,12 @@ public:
   SpirvConstant *translateAPFloat(llvm::APFloat floatValue, QualType targetType,
                                   bool isSpecConstantMode);
 
+  /// Translates the given frontend APValue into its SPIR-V equivalent for the
+  /// given targetType.
+  SpirvConstant *translateAPValue(const APValue &value,
+                                  const QualType targetType,
+                                  bool isSpecConstantMode);
+
   /// Tries to evaluate the given APInt as a 32-bit integer. If the evaluation
   /// can be performed without loss, it returns the <result-id> of the SPIR-V
   /// constant for that value.
@@ -52,12 +58,6 @@ public:
                                       bool isSpecConstantMode);
 
 private:
-  /// Translates the given frontend APValue into its SPIR-V equivalent for the
-  /// given targetType.
-  SpirvConstant *translateAPValue(const APValue &value,
-                                  const QualType targetType,
-                                  bool isSpecConstantMode);
-
   /// Emits error to the diagnostic engine associated with the AST context.
   template <unsigned N>
   DiagnosticBuilder emitError(const char (&message)[N],
