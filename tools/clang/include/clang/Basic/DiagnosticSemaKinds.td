@@ -7855,7 +7855,7 @@ def err_hlsl_wg_nodetrackrwinputsharing_invalid : Error<
    "NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord">;
 def err_hlsl_wg_input_kind : Error<
    "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
-   "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord|DispatchNodeInputRecord or RWDispatchNodeInputRecord}2)">;
+   "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord|DispatchNodeInputRecord}2)">;
 def err_hlsl_wg_attr_only_on_output : Error<
    "attribute %0 may only be used with output nodes">;
 def err_hlsl_wg_attr_only_on_output_or_input_record : Error<
