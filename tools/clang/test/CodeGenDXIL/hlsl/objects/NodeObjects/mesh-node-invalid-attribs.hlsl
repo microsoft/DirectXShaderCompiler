@@ -53,6 +53,18 @@ void mesh_node_numth_y() {} // expected-error {{node entry point must have a val
 [NodeDispatchGrid(4,1,1)]
 void mesh_node_numth_z() {} // expected-error {{node entry point must have a valid numthreads attribute}}
 
+[Shader("node")]
+[NodeLaunch("mesh")]
+[NumThreads(1,1,111)]
+[NodeDispatchGrid(4,1,1)]
+void mesh_node_missing_topology() {} // expected-error {{mesh node entry point must have a valid outputtopology attribute}}
+
+[Shader("node")]
+[NodeLaunch("mesh")]
+[NumThreads(1,1,111)]
+[OutputTopology("line")]
+void mesh_node_missing_dispatchgrid() {} // expected-error {{Broadcasting/Mesh node shader 'mesh_node_missing_dispatchgrid' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute}}
+
 [Shader("compute")]
 [NumThreads(1,1,1)]
 [OutputTopology("foo")]  // expected-error {{attribute 'OutputTopology' must have one of these values: point,line,triangle,triangle_cw,triangle_ccw}}
