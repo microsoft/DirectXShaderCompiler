@@ -7851,7 +7851,7 @@ def err_hlsl_wg_nodetrackrwinputsharing_invalid : Error<
    "NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord">;
 def err_hlsl_wg_input_kind : Error<
    "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
-   "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;
+   "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord|DispatchNodeInputRecord}2)">;
 def err_hlsl_wg_attr_only_on_output : Error<
    "attribute %0 may only be used with output nodes">;
 def err_hlsl_wg_attr_only_on_output_or_input_record : Error<
@@ -7891,9 +7891,9 @@ def err_hlsl_incompatible_node_attr : Error<
 def err_hlsl_missing_node_attr : Error<
    "Node shader '%0' with %1 launch type requires '%2' attribute">;
 def err_hlsl_missing_dispatchgrid_attr : Error<
-   "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
+   "Broadcasting/Mesh node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
 def err_hlsl_missing_dispatchgrid_semantic : Error<
-   "Broadcasting node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
+   "Broadcasting/Mesh node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
 def err_hlsl_dispatchgrid_semantic_already_specified : Error<
    "a field with SV_DispatchGrid has already been specified">;
 def err_hlsl_incompatible_dispatchgrid_semantic_type : Error<

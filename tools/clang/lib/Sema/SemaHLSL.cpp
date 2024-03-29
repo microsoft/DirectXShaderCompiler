@@ -15182,6 +15182,9 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
                                   DXIL::NodeLaunchType launchType) {
   switch (IOType) {
   case DXIL::NodeIOKind::DispatchNodeInputRecord:
+    return launchType == DXIL::NodeLaunchType::Broadcasting ||
+           launchType == DXIL::NodeLaunchType::Mesh;
+
   case DXIL::NodeIOKind::RWDispatchNodeInputRecord:
     return launchType == DXIL::NodeLaunchType::Broadcasting;
 

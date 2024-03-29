@@ -70,14 +70,18 @@ bool NodeFlags::IsValidNodeKind() const {
 
 bool NodeFlags::RecordTypeMatchesLaunchType(
     DXIL::NodeLaunchType launchType) const {
-  DXIL::NodeIOFlags recordLaunchType = (DXIL::NodeIOFlags)(
+  DXIL::NodeIOFlags granularity = (DXIL::NodeIOFlags)(
       (uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::RecordGranularityMask);
+  uint32_t writable =
+      ((uint32_t)m_Flags & (uint32_t)DXIL::NodeIOFlags::ReadWrite);
   return (launchType == DXIL::NodeLaunchType::Broadcasting &&
-          recordLaunchType == DXIL::NodeIOFlags::DispatchRecord) ||
+          granularity == DXIL::NodeIOFlags::DispatchRecord) ||
          (launchType == DXIL::NodeLaunchType::Coalescing &&
-          recordLaunchType == DXIL::NodeIOFlags::GroupRecord) ||
+          granularity == DXIL::NodeIOFlags::GroupRecord) ||
          (launchType == DXIL::NodeLaunchType::Thread &&
-          recordLaunchType == DXIL::NodeIOFlags::ThreadRecord);
+          granularity == DXIL::NodeIOFlags::ThreadRecord) ||
+         (launchType == DXIL::NodeLaunchType::Mesh &&
+          granularity == DXIL::NodeIOFlags::DispatchRecord && !writable);
 }
 
 void NodeFlags::SetTrackRWInputSharing() {
