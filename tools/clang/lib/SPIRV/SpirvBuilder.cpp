@@ -298,16 +298,9 @@ SpirvStore *SpirvBuilder::createStore(SpirvInstruction *address,
     context.addToInstructionsWithLoweredType(value);
 
     auto *base = createLoad(value->getResultType(), address, loc, range);
-    auto *offset = getConstantInt(
-        astContext.UnsignedIntTy,
-        llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits),
-                    false));
-    auto *count = getConstantInt(
-        astContext.UnsignedIntTy,
-        llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits),
-                    false));
-    source =
-        createBitFieldInsert(/*QualType*/ {}, base, value, offset, count, loc);
+    source = createBitFieldInsert(/*QualType*/ {}, base, value,
+                                  bitfieldInfo->offsetInBits,
+                                  bitfieldInfo->sizeInBits, loc, range);
     source->setResultType(value->getResultType());
   }
 
@@ -882,15 +875,77 @@ void SpirvBuilder::createBarrier(spv::Scope memoryScope,
   insertPoint->addInstruction(barrier);
 }
 
-SpirvBitFieldInsert *SpirvBuilder::createBitFieldInsert(
-    QualType resultType, SpirvInstruction *base, SpirvInstruction *insert,
-    SpirvInstruction *offset, SpirvInstruction *count, SourceLocation loc) {
+SpirvInstruction *SpirvBuilder::createEmulatedBitFieldInsert(
+    QualType ResultType, uint32_t BaseTypeBitwidth, SpirvInstruction *Dst,
+    SpirvInstruction *Src, unsigned BitOffset, unsigned BitCount,
+    SourceLocation loc, SourceRange range) {
+
+  assert(BitCount <= 64 &&
+         "Bitfield insertion emulation can only insert at most 64 bits.");
+  auto *DstTy = dyn_cast<IntegerType>(Dst->getResultType());
+  uint64_t MaskValue = 0;
+  for (unsigned i = 0; i < BitCount; i++)
+    MaskValue = (MaskValue << 1) | 1;
+
+  auto MaskTy =
+      astContext.getIntTypeForBitwidth(BaseTypeBitwidth, /* signed= */ 0);
+  auto *WordMask =
+      getConstantInt(MaskTy, llvm::APInt(BaseTypeBitwidth, MaskValue));
+  auto *ShiftOffset =
+      getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, BitOffset));
+
+  SpirvInstruction *Mask = createBinaryOp(spv::Op::OpShiftLeftLogical, MaskTy,
+                                          WordMask, ShiftOffset, loc, range);
+  SpirvInstruction *NotMask =
+      createUnaryOp(spv::Op::OpNot, MaskTy, Mask, loc, range);
+
+  Dst = createBinaryOp(spv::Op::OpBitwiseAnd, ResultType, Dst, NotMask, loc,
+                       range);
+  Dst->setResultType(DstTy);
+
+  Src = createUnaryOp(spv::Op::OpBitcast, ResultType, Src, loc, range);
+  Src->setResultType(DstTy);
+  Src = createBinaryOp(spv::Op::OpShiftLeftLogical, ResultType, Src,
+                       ShiftOffset, loc, range);
+  Src->setResultType(DstTy);
+  Src =
+      createBinaryOp(spv::Op::OpBitwiseAnd, ResultType, Src, Mask, loc, range);
+  Src->setResultType(DstTy);
+
+  Dst = createBinaryOp(spv::Op::OpBitwiseOr, ResultType, Dst, Src, loc, range);
+  Dst->setResultType(DstTy);
+  return Dst;
+}
+
+SpirvInstruction *
+SpirvBuilder::createBitFieldInsert(QualType resultType, SpirvInstruction *Dst,
+                                   SpirvInstruction *Src, unsigned bitOffset,
+                                   unsigned bitCount, SourceLocation loc,
+                                   SourceRange range) {
   assert(insertPoint && "null insert point");
-  auto *inst = new (context)
-      SpirvBitFieldInsert(resultType, loc, base, insert, offset, count);
-  insertPoint->addInstruction(inst);
-  inst->setRValue(true);
-  return inst;
+
+  uint32_t bitwidth = 0;
+  if (resultType == QualType({})) {
+    assert(Dst->hasResultType() && "No type information for bitfield.");
+    bitwidth = dyn_cast<IntegerType>(Dst->getResultType())->getBitwidth();
+  } else {
+    bitwidth = getElementSpirvBitwidth(astContext, resultType,
+                                       spirvOptions.enable16BitTypes);
+  }
+
+  if (bitwidth != 32)
+    return createEmulatedBitFieldInsert(resultType, bitwidth, Dst, Src,
+                                        bitOffset, bitCount, loc, range);
+
+  auto *insertOffset =
+      getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitOffset));
+  auto *insertCount =
+      getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitCount));
+  auto *Inst = new (context)
+      SpirvBitFieldInsert(resultType, loc, Dst, Src, insertOffset, insertCount);
+  insertPoint->addInstruction(Inst);
+  Inst->setRValue(true);
+  return Inst;
 }
 
 SpirvBitFieldExtract *SpirvBuilder::createBitFieldExtract(

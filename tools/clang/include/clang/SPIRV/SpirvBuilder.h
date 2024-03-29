@@ -443,10 +443,11 @@ public:
 
   /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
   /// arguments.
-  SpirvBitFieldInsert *
-  createBitFieldInsert(QualType resultType, SpirvInstruction *base,
-                       SpirvInstruction *insert, SpirvInstruction *offset,
-                       SpirvInstruction *count, SourceLocation);
+  SpirvInstruction *createBitFieldInsert(QualType ResultType,
+                                         SpirvInstruction *Dst,
+                                         SpirvInstruction *Src,
+                                         unsigned BitOffset, unsigned BitCount,
+                                         SourceLocation, SourceRange);
 
   /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
   /// instruction for the given arguments.
@@ -830,6 +831,14 @@ private:
   SpirvVariable *createCloneVarForFxcCTBuffer(QualType astType,
                                               const SpirvType *spvType,
                                               SpirvInstruction *var);
+
+  /// \brief Emulates OpBitFieldInsert SPIR-V instruction for the given
+  /// arguments.
+  SpirvInstruction *
+  createEmulatedBitFieldInsert(QualType ResultType, uint32_t BaseTypeBitwidth,
+                               SpirvInstruction *Dst, SpirvInstruction *Src,
+                               unsigned BitOffset, unsigned BitCount,
+                               SourceLocation loc, SourceRange range);
 
 private:
   ASTContext &astContext;
