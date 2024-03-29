@@ -1,4 +1,4 @@
-// RUN: dxc -T cs_6_0 -E main -spirv -fcgl %s
+// RUN: %dxc -T cs_6_0 -E main -spirv -fcgl %s
 
 struct S {
   uint32_t a : 1;
