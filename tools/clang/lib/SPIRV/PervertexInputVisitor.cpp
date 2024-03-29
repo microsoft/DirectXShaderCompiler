@@ -56,6 +56,11 @@ int PervertexInputVisitor::appendIndexZeroAt(
 ///< treated as nointerpolated too.
 bool PervertexInputVisitor::expandNointerpVarAndParam(
     SpirvInstruction *spvInst) {
+  // If there is no AST type, it means the type was already lowered from some
+  // expression/construct. If it required expansion, it should be done already.
+  if (!spvInst->hasAstResultType())
+    return spvInst->isNoninterpolated();
+
   QualType type = spvInst->getAstResultType();
   bool isExpanded = false;
   auto typePtr = type.getTypePtr();
