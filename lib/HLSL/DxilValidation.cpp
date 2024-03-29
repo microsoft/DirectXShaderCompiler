@@ -2180,6 +2180,8 @@ std::string GetLaunchTypeStr(DXIL::NodeLaunchType LT) {
     return "Coalescing";
   case DXIL::NodeLaunchType::Thread:
     return "Thread";
+  case DXIL::NodeLaunchType::Mesh:
+    return "Mesh";
   default:
     return "Invalid";
   }
@@ -2423,7 +2425,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     }
 
-    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting)
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
+        nodeLaunchType == DXIL::NodeLaunchType::Mesh)
       break;
 
     ValCtx.EmitInstrFormatError(
@@ -2436,7 +2439,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
       break;
     }
 
-    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting)
+    if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
+        nodeLaunchType == DXIL::NodeLaunchType::Mesh)
       break;
 
     ValCtx.EmitInstrFormatError(
@@ -2450,7 +2454,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     }
 
     if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
-        nodeLaunchType == DXIL::NodeLaunchType::Coalescing)
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing ||
+        nodeLaunchType == DXIL::NodeLaunchType::Mesh)
       break;
 
     ValCtx.EmitInstrFormatError(CI,
@@ -2466,7 +2471,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
     }
 
     if (nodeLaunchType == DXIL::NodeLaunchType::Broadcasting ||
-        nodeLaunchType == DXIL::NodeLaunchType::Coalescing)
+        nodeLaunchType == DXIL::NodeLaunchType::Coalescing ||
+        nodeLaunchType == DXIL::NodeLaunchType::Mesh)
       break;
 
     ValCtx.EmitInstrFormatError(CI,
@@ -3582,6 +3588,9 @@ static void ValidateNodeInputRecord(Function *F, ValidationContext &ValCtx) {
         break;
       case DXIL::NodeLaunchType::Thread:
         validInputs = "{RW}ThreadNodeInputRecord";
+        break;
+      case DXIL::NodeLaunchType::Mesh:
+        validInputs = "DispatchNodeInputRecord";
         break;
       default:
         llvm_unreachable("invalid launch type");

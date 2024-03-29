@@ -7897,7 +7897,7 @@ def err_hlsl_missing_node_attr : Error<
 def err_hlsl_missing_dispatchgrid_attr : Error<
    "Broadcasting/Mesh node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
 def err_hlsl_missing_dispatchgrid_semantic : Error<
-   "Broadcasting node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
+   "Broadcasting/Mesh node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
 def err_hlsl_dispatchgrid_semantic_already_specified : Error<
    "a field with SV_DispatchGrid has already been specified">;
 def err_hlsl_incompatible_dispatchgrid_semantic_type : Error<
