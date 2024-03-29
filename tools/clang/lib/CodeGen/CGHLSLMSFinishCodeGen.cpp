@@ -1475,7 +1475,6 @@ void SetPatchConstantFunctionWithAttr(
       HLM.HasDxilFunctionProps(EntryFunc.Func),
       " else AddHLSLFunctionInfo did not save the dxil function props for the "
       "HS entry.");
-  DxilFunctionProps *HSProps = &HLM.GetDxilFunctionProps(EntryFunc.Func);
   HLM.SetPatchConstantFunctionForHS(EntryFunc.Func, patchConstFunc);
   DXASSERT_NOMSG(patchConstantFunctionPropsMap.count(patchConstFunc));
   // Check no inout parameter for patch constant function.
@@ -1489,24 +1488,6 @@ void SetPatchConstantFunctionWithAttr(
           clang::DiagnosticsEngine::Error,
           "Patch Constant function %0 should not have inout param.");
       Diags.Report(Entry->second.SL, DiagID) << funcName;
-    }
-  }
-
-  // Input/Output control point validation.
-  if (patchConstantFunctionPropsMap.count(patchConstFunc)) {
-    const DxilFunctionProps &patchProps =
-        *patchConstantFunctionPropsMap[patchConstFunc];
-    if (patchProps.ShaderProps.HS.outputControlPoints != 0 &&
-        patchProps.ShaderProps.HS.outputControlPoints !=
-            HSProps->ShaderProps.HS.outputControlPoints) {
-      clang::DiagnosticsEngine &Diags = CGM.getDiags();
-      unsigned DiagID =
-          Diags.getCustomDiagID(clang::DiagnosticsEngine::Error,
-                                "Patch constant function's output patch input "
-                                "should have %0 elements, but has %1.");
-      Diags.Report(Entry->second.SL, DiagID)
-          << HSProps->ShaderProps.HS.outputControlPoints
-          << patchProps.ShaderProps.HS.outputControlPoints;
     }
   }
 }

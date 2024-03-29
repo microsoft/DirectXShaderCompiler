@@ -344,6 +344,25 @@ getFunctionInputPatchCount(const FunctionDecl *function) {
   return std::nullopt;
 }
 
+std::optional<uint32_t>
+getFunctionOutputPatchCount(const FunctionDecl *function) {
+  for (const auto *param : function->params()) {
+    if (!hlsl::IsHLSLOutputPatchType(param->getType()))
+      continue;
+    return hlsl::GetHLSLOutputPatchCount(param->getType());
+  }
+
+  return std::nullopt;
+}
+
+std::optional<uint32_t>
+getFunctionOutputControlPointsCount(const FunctionDecl *function) {
+  if (const auto *Attr = function->getAttr<HLSLOutputControlPointsAttr>()) {
+    return Attr->getCount();
+  }
+  return std::nullopt;
+}
+
 } // namespace
 
 void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
@@ -475,13 +494,28 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         }
       }
 
-      auto hullPatchCount = getFunctionInputPatchCount(pPatchFnDecl);
-      auto functionPatchCount = getFunctionInputPatchCount(FDecl);
-      if (hullPatchCount.has_value() && functionPatchCount.has_value() &&
-          hullPatchCount.value() != functionPatchCount.value()) {
-        self->Diag(pPatchFnDecl->getSourceRange().getBegin(),
-                   diag::err_hlsl_patch_input_size_mismatch)
-            << functionPatchCount.value() << hullPatchCount.value();
+      // Input/Output control point validation.
+      {
+        auto hullPatchCount = getFunctionInputPatchCount(pPatchFnDecl);
+        auto functionPatchCount = getFunctionInputPatchCount(FDecl);
+        if (hullPatchCount.has_value() && functionPatchCount.has_value() &&
+            hullPatchCount.value() != functionPatchCount.value()) {
+          self->Diag(pPatchFnDecl->getSourceRange().getBegin(),
+                     diag::err_hlsl_patch_size_mismatch)
+              << "input" << functionPatchCount.value()
+              << hullPatchCount.value();
+        }
+      }
+      {
+        auto hullPatchCount = getFunctionOutputPatchCount(pPatchFnDecl);
+        auto functionPatchCount = getFunctionOutputControlPointsCount(FDecl);
+        if (hullPatchCount.has_value() && functionPatchCount.has_value() &&
+            hullPatchCount.value() != functionPatchCount.value()) {
+          self->Diag(pPatchFnDecl->getSourceRange().getBegin(),
+                     diag::err_hlsl_patch_size_mismatch)
+              << "output" << functionPatchCount.value()
+              << hullPatchCount.value();
+        }
       }
     }
 
