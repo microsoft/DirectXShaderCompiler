@@ -601,7 +601,9 @@ class db_dxil(object):
                 "node",
             )
             self.name_idx[i].shader_model = 6, 5
-        for i in "EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput".split(
+        for (
+            i
+        ) in "EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput".split(
             ","
         ):
             self.name_idx[i].category = "Mesh shader instructions"
