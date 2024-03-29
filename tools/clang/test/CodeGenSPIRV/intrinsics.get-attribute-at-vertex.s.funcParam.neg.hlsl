@@ -11,7 +11,7 @@ float compute(nointerpolation float4 a) {
 float4 main(nointerpolation S s, float4 b : COLOR2) : SV_TARGET
 {
   return float4(0,
-                compute(b), // expected-error{{parameter 0 of compute must have a a 'nointerpolation' attribute}}
-                compute(b), // expected-error{{parameter 0 of compute must have a a 'nointerpolation' attribute}}
+                compute(b), // expected-error{{parameter 0 of compute must have a 'nointerpolation' attribute}}
+                compute(b), // expected-error{{parameter 0 of compute must have a 'nointerpolation' attribute}}
                 compute(s.a));
 }

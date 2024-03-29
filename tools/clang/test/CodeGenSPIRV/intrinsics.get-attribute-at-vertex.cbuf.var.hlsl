@@ -1,4 +1,4 @@
-// RUN: dxc -T ps_6_2 -E main -spirv %s | FileCheck %s
+// RUN: %dxc -T ps_6_2 -E main -spirv %s | FileCheck %s
 
 // CHECK:                                       OpDecorate %in_var_A PerVertexKHR
 // CHECK-DAG:                 %type_constants = OpTypeStruct %uint

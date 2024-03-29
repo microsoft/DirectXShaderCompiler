@@ -1,4 +1,4 @@
-// RUN: dxc -T ps_6_2 -E main %s -verify
+// RUN: %dxc -T ps_6_2 -E main %s -verify
 
 // expected-no-diagnostics
 struct S1 {
