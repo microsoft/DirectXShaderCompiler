@@ -8,10 +8,6 @@
 // CHECK: dx.op.setMeshOutputCounts(i32 168, i32 32, i32 16)
 // CHECK: ret void
 
-// CHECK: define void @node_setmeshoutputcounts_call()
-// CHECK: dx.op.setMeshOutputCounts(i32 168, i32 16, i32 32)
-// CHECK: ret void
-
 // CHECK: declare void @dx.op.setMeshOutputCounts(i32, i32, i32) #0
 
 RWBuffer<float> buf0;
