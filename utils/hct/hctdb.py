@@ -603,7 +603,13 @@ class db_dxil(object):
             self.name_idx[i].shader_model = 6, 5
         for (
             i
-        ) in "EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput".split(
+        ) in "EmitIndices,StoreVertexOutput,StorePrimitiveOutput".split(
+            ","
+        ):
+            self.name_idx[i].category = "Mesh shader instructions"
+            self.name_idx[i].shader_stages = ("mesh","node")
+            self.name_idx[i].shader_model = 6, 5
+        for i in "GetMeshPayload".split(
             ","
         ):
             self.name_idx[i].category = "Mesh shader instructions"
@@ -7559,7 +7565,7 @@ class db_dxil(object):
         )
         self.add_valrule(
             "Instr.MultipleSetMeshOutputCounts",
-            "SetMeshOUtputCounts cannot be called multiple times.",
+            "SetMeshOutputCounts cannot be called multiple times.",
         )
         self.add_valrule(
             "Instr.MissingSetMeshOutputCounts", "Missing SetMeshOutputCounts call."

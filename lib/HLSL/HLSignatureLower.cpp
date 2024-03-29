@@ -467,12 +467,13 @@ void HLSignatureLower::CreateDxilSignatures() {
     if (HLModule::IsStreamOutputPtrType(Ty))
       continue;
 
-    // Skip OutIndices and InPayload
+    // Skip OutIndices, InPayload, and NodeIO
     DxilParameterAnnotation &paramAnnotation =
         EntryAnnotation->GetParameterAnnotation(arg.getArgNo());
     hlsl::DxilParamInputQual qual = paramAnnotation.GetParamInputQual();
     if (qual == hlsl::DxilParamInputQual::OutIndices ||
-        qual == hlsl::DxilParamInputQual::InPayload)
+        qual == hlsl::DxilParamInputQual::InPayload ||
+        qual == hlsl::DxilParamInputQual::NodeIO)
       continue;
 
     ProcessArgument(Entry, EntryAnnotation, arg, props, pSM,
@@ -523,7 +524,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
         "Failed to allocate all input signature elements in available space.");
   }
 
-  if (props.shaderKind != DXIL::ShaderKind::Amplification) {
+  if (!props.IsAS()) {
     hlsl::PackDxilSignature(EntrySig.OutputSignature, packing);
     if (!EntrySig.OutputSignature.IsFullyAllocated()) {
       llvm_unreachable("Failed to allocate all output signature elements in "
@@ -531,9 +532,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
     }
   }
 
-  if (props.shaderKind == DXIL::ShaderKind::Hull ||
-      props.shaderKind == DXIL::ShaderKind::Domain ||
-      props.shaderKind == DXIL::ShaderKind::Mesh) {
+  if (props.IsHS() || props.IsDS() || props.IsMS() || props.IsMeshNode()) {
     hlsl::PackDxilSignature(EntrySig.PatchConstOrPrimSignature, packing);
     if (!EntrySig.PatchConstOrPrimSignature.IsFullyAllocated()) {
       llvm_unreachable("Failed to allocate all patch constant signature "
@@ -1130,7 +1129,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
     break;
   case DXIL::SignatureKind::Output:
     opcode =
-        props.IsMS() ? OP::OpCode::StoreVertexOutput : OP::OpCode::StoreOutput;
+       props.IsMS() || props.IsMeshNode() ? OP::OpCode::StoreVertexOutput : OP::OpCode::StoreOutput;
     break;
   case DXIL::SignatureKind::PatchConstOrPrim:
     opcode = OP::OpCode::StorePrimitiveOutput;
@@ -1141,7 +1140,8 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
   bool bInput = SK == DXIL::SignatureKind::Input;
   bool bNeedVertexOrPrimID =
       bInput && (props.IsGS() || props.IsDS() || props.IsHS());
-  bNeedVertexOrPrimID |= !bInput && props.IsMS();
+  bNeedVertexOrPrimID |= !bInput && (props.IsMS() || props.IsMeshNode());
+
 
   Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
 
@@ -1155,7 +1155,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
 
   Constant *constZero = hlslOP->GetU32Const(0);
 
-  Value *undefVertexIdx = props.IsMS() || !bInput
+  Value *undefVertexIdx = props.IsMS() || props.IsMeshNode() || !bInput
                               ? nullptr
                               : UndefValue::get(Type::getInt32Ty(HLM.GetCtx()));
 
@@ -1258,10 +1258,18 @@ void HLSignatureLower::GenerateDxilComputeAndNodeCommonInputs() {
     DxilParameterAnnotation &paramAnnotation =
         funcAnnotation->GetParameterAnnotation(arg.getArgNo());
 
+    DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
+    // Skip mesh node out params
+    if (funcProps.IsMeshNode() &&
+        (inputQual == DxilParamInputQual::OutIndices ||
+         inputQual == DxilParamInputQual::OutVertices ||
+         inputQual == DxilParamInputQual::OutPrimitives))
+      continue;
+
     llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
 
     if (semanticStr.empty()) {
-      if (funcProps.IsNode() && paramAnnotation.IsParamInputQualNode())
+      if (funcProps.IsNode() && (paramAnnotation.IsParamInputQualNode()))
         continue;
       dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
                                     "Semantic must be defined for all "
@@ -1802,6 +1810,13 @@ void HLSignatureLower::Run() {
       GenerateDxilPrimOutputs();
     }
   } else if (props.IsCS() || props.IsNode()) {
+    if (props.IsMeshNode()) {
+      GenerateEmitIndicesOperations();
+      CreateDxilSignatures();
+      AllocateDxilInputOutputs();
+      GenerateDxilOutputs();
+      GenerateDxilPrimOutputs();
+    }
     GenerateDxilComputeAndNodeCommonInputs();
   }
 

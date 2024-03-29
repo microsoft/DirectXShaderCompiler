@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ms_6_5 %s | FileCheck %s
 
-// CHECK: SetMeshOUtputCounts cannot be called multiple times.
+// CHECK: SetMeshOutputCounts cannot be called multiple times.
 
 #define MAX_VERT 32
 #define MAX_PRIM 16

@@ -1726,14 +1726,10 @@ void CGMSHLSLRuntime::AddHLSLFunctionInfo(Function *F, const FunctionDecl *FD) {
       DXIL::TessellatorOutputPrimitive primitive =
           StringToTessOutputPrimitive(Attr->getTopology());
       funcProps->ShaderProps.HS.outputPrimitive = primitive;
-    } else if (isMS) {
+    } else if (isMS || isNode) {
       DXIL::MeshOutputTopology topology =
           StringToMeshOutputTopology(Attr->getTopology());
       funcProps->ShaderProps.MS.outputTopology = topology;
-    } else if (isNode) {
-      DXIL::MeshOutputTopology topology =
-          StringToMeshOutputTopology(Attr->getTopology());
-      funcProps->Node.OutputTopology = topology;
     } else if (isEntry && !SM->IsHS() && !SM->IsMS()) {
       unsigned DiagID = Diags.getCustomDiagID(
           DiagnosticsEngine::Warning,

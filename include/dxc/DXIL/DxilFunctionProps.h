@@ -182,9 +182,6 @@ struct DxilFunctionProps {
     unsigned MaxDispatchGrid[3];
     unsigned MaxRecursionDepth;
     // BEGIN experimental mesh node properties
-    DXIL::MeshOutputTopology OutputTopology;
-    unsigned MaxVertexCount;
-    unsigned MaxPrimitiveCount;
     unsigned MaxInputRecordsPerGraphEntryRecord;
     bool MaxInputRecSharedAcrossNodeArray;
     // END experimental mesh node properties
@@ -237,6 +234,10 @@ struct DxilFunctionProps {
   bool IsNode() const {
     return shaderKind == DXIL::ShaderKind::Node ||
            Node.LaunchType != DXIL::NodeLaunchType::Invalid;
+  };
+  bool IsMeshNode() const {
+    return shaderKind == DXIL::ShaderKind::Node &&
+           Node.LaunchType == DXIL::NodeLaunchType::Mesh;
   };
 };
 

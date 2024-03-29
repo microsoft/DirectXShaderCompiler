@@ -1902,18 +1902,16 @@ void DxilMDHelper::LoadDxilEntryProperties(const MDOperand &MDO,
     } break;
     case DxilMDHelper::kDxilNodeMeshOutputTopologyTag: {
       hasNodeTag = true;
-      auto &Node = props.Node;
-      Node.OutputTopology = (DXIL::MeshOutputTopology)ConstMDToUint32(MDO);
+      props.ShaderProps.MS.outputTopology =
+          (DXIL::MeshOutputTopology)ConstMDToUint32(MDO);
     } break;
     case DxilMDHelper::kDxilNodeMeshMaxVertexCountTag: {
       hasNodeTag = true;
-      auto &Node = props.Node;
-      Node.MaxVertexCount = ConstMDToUint32(MDO);
+      props.ShaderProps.MS.maxVertexCount = ConstMDToUint32(MDO);
     } break;
     case DxilMDHelper::kDxilNodeMeshMaxPrimitiveCountTag: {
       hasNodeTag = true;
-      auto &Node = props.Node;
-      Node.MaxPrimitiveCount = ConstMDToUint32(MDO);
+      props.ShaderProps.MS.maxPrimitiveCount = ConstMDToUint32(MDO);
     } break;
     case DxilMDHelper::kDxilNodeMaxInputRecordsPerGraphEntryRecordTag: {
       hasNodeTag = true;
@@ -1982,9 +1980,11 @@ void DxilMDHelper::SerializeNodeProps(SmallVectorImpl<llvm::Metadata *> &MDVals,
   MDVals.push_back(Uint32ToConstMD(NodeProps.MaxDispatchGrid[2]));
   MDVals.push_back(Uint32ToConstMD(NodeProps.MaxRecursionDepth));
   if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 9) >= 0) {
-    MDVals.emplace_back(Uint32ToConstMD((unsigned)NodeProps.OutputTopology));
-    MDVals.emplace_back(Uint32ToConstMD(NodeProps.MaxVertexCount));
-    MDVals.emplace_back(Uint32ToConstMD(NodeProps.MaxPrimitiveCount));
+    MDVals.emplace_back(
+        Uint32ToConstMD((unsigned)props->ShaderProps.MS.outputTopology));
+    MDVals.emplace_back(Uint32ToConstMD(props->ShaderProps.MS.maxVertexCount));
+    MDVals.emplace_back(
+        Uint32ToConstMD(props->ShaderProps.MS.maxPrimitiveCount));
     MDVals.push_back(
         Uint32ToConstMD(NodeProps.MaxInputRecordsPerGraphEntryRecord));
     MDVals.push_back(BoolToConstMD(NodeProps.MaxInputRecSharedAcrossNodeArray));
@@ -2043,10 +2043,12 @@ void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
   NodeProps.MaxDispatchGrid[2] = ConstMDToUint32(pProps->getOperand(idx++));
   NodeProps.MaxRecursionDepth = ConstMDToUint32(pProps->getOperand(idx++));
   if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 9) >= 0) {
-    NodeProps.OutputTopology =
+    props->ShaderProps.MS.outputTopology =
         (DXIL::MeshOutputTopology)ConstMDToUint32(pProps->getOperand(idx++));
-    NodeProps.MaxVertexCount = ConstMDToUint32(pProps->getOperand(idx++));
-    NodeProps.MaxPrimitiveCount = ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.MS.maxVertexCount =
+        ConstMDToUint32(pProps->getOperand(idx++));
+    props->ShaderProps.MS.maxPrimitiveCount =
+        ConstMDToUint32(pProps->getOperand(idx++));
     NodeProps.MaxInputRecordsPerGraphEntryRecord =
         ConstMDToUint32(pProps->getOperand(idx++));
     NodeProps.MaxInputRecSharedAcrossNodeArray =
@@ -2791,22 +2793,25 @@ void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
   }
 
   // Experimental mesh node shader properties
-  if (Node.OutputTopology != DXIL::MeshOutputTopology::Undefined) {
+  if (props.ShaderProps.MS.outputTopology !=
+      DXIL::MeshOutputTopology::Undefined) {
     MDVals.emplace_back(
         Uint32ToConstMD(DxilMDHelper::kDxilNodeMeshOutputTopologyTag));
-    MDVals.emplace_back(Uint32ToConstMD((unsigned)Node.OutputTopology));
+    MDVals.emplace_back(
+        Uint32ToConstMD((unsigned)props.ShaderProps.MS.outputTopology));
   }
 
-  if (Node.MaxVertexCount > 0) {
+  if (props.ShaderProps.MS.maxVertexCount > 0) {
     MDVals.emplace_back(
         Uint32ToConstMD(DxilMDHelper::kDxilNodeMeshMaxVertexCountTag));
-    MDVals.emplace_back(Uint32ToConstMD(Node.MaxVertexCount));
+    MDVals.emplace_back(Uint32ToConstMD(props.ShaderProps.MS.maxVertexCount));
   }
 
-  if (Node.MaxPrimitiveCount > 0) {
+  if (props.ShaderProps.MS.maxPrimitiveCount > 0) {
     MDVals.emplace_back(
         Uint32ToConstMD(DxilMDHelper::kDxilNodeMeshMaxPrimitiveCountTag));
-    MDVals.emplace_back(Uint32ToConstMD(Node.MaxPrimitiveCount));
+    MDVals.emplace_back(
+        Uint32ToConstMD(props.ShaderProps.MS.maxPrimitiveCount));
   }
 
   if (Node.MaxInputRecordsPerGraphEntryRecord) {

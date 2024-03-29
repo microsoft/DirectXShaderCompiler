@@ -5,15 +5,16 @@
 // Test all valid mesh node input parameters work
 
 // CHECK: define void @node01()
-// CHECK:  %[[tid_x:.+]] = call i32 @dx.op.threadId.i32(i32 93, i32 0)  ; ThreadId(component)
-// CHECK:  %[[tid_y:.+]] = call i32 @dx.op.threadId.i32(i32 93, i32 1)  ; ThreadId(component)
-// CHECK:  %[[tid_z:.+]] = call i32 @dx.op.threadId.i32(i32 93, i32 2)  ; ThreadId(component)
-
-// CHECK:  %[[ftid:.+]] = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)  ; FlattenedThreadIdInGroup()
 
 // CHECK:  %[[tid_group_x:.+]] = call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 0)  ; ThreadIdInGroup(component)
 // CHECK:  %[[tid_group_y:.+]] = call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 1)  ; ThreadIdInGroup(component)
 // CHECK:  %[[tid_group_z:.+]] = call i32 @dx.op.threadIdInGroup.i32(i32 95, i32 2)  ; ThreadIdInGroup(component)
+
+// CHECK:  %[[ftid:.+]] = call i32 @dx.op.flattenedThreadIdInGroup.i32(i32 96)  ; FlattenedThreadIdInGroup()
+
+// CHECK:  %[[tid_x:.+]] = call i32 @dx.op.threadId.i32(i32 93, i32 0)  ; ThreadId(component)
+// CHECK:  %[[tid_y:.+]] = call i32 @dx.op.threadId.i32(i32 93, i32 1)  ; ThreadId(component)
+// CHECK:  %[[tid_z:.+]] = call i32 @dx.op.threadId.i32(i32 93, i32 2)  ; ThreadId(component)
 
 // CHECK:  %[[Hdl:.+]] = call %dx.types.NodeRecordHandle @dx.op.createNodeInputRecordHandle(i32 250, i32 0)  ; CreateNodeInputRecordHandle(MetadataIdx)
 // CHECK:  %[[annotHdl:.+]] = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %[[Hdl]], %dx.types.NodeRecordInfo { i32 97, i32 52 })  ; AnnotateNodeRecordHandle(noderecord,props)
