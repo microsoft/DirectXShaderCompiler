@@ -1036,6 +1036,8 @@ TEST_F(ValidationTest, SigOverlapFail) {
        "signature element"});
 }
 TEST_F(ValidationTest, SimpleHs1Fail) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\SimpleHs1.hlsl", "hs_6_0",
       {
@@ -1059,8 +1061,6 @@ TEST_F(ValidationTest, SimpleHs1Fail) {
       });
 }
 TEST_F(ValidationTest, SimpleHs3Fail) {
-  if (m_ver.SkipDxilVersion(1, 8))
-    return;
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\SimpleHs3.hlsl", "hs_6_0",
       {
