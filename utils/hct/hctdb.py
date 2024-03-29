@@ -594,9 +594,16 @@ class db_dxil(object):
         for i in "WaveMatch,WaveMultiPrefixOp,WaveMultiPrefixBitCount".split(","):
             self.name_idx[i].category = "Wave"
             self.name_idx[i].shader_model = 6, 5
+        for i in "SetMeshOutputCounts".split(","):
+            self.name_idx[i].category = "Mesh shader instructions"
+            self.name_idx[i].shader_stages = (
+                "mesh",
+                "node",
+            )
+            self.name_idx[i].shader_model = 6, 5
         for (
             i
-        ) in "SetMeshOutputCounts,EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput".split(
+        ) in "EmitIndices,GetMeshPayload,StoreVertexOutput,StorePrimitiveOutput".split(
             ","
         ):
             self.name_idx[i].category = "Mesh shader instructions"
