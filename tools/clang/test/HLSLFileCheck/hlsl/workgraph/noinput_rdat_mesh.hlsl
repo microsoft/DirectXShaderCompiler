@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_9 %s | %D3DReflect %s | FileCheck %s
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9 %s | %D3DReflect %s | FileCheck %s
 
 // ==================================================================
 // Simple check of RDAT output for nodes without inputs
@@ -27,7 +27,7 @@
 // CHECK:      Node: <0:NodeShaderInfo> = {
 // CHECK:        LaunchType: Mesh
 // CHECK:        GroupSharedBytesUsed: 0
-// CHECK:        Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderFuncAttrib>[3]>  = {
+// CHECK:        Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderFuncAttrib>[4]>  = {
 // CHECK:          [0]: <{{[0-9]+}}:NodeShaderFuncAttrib> = {
 // CHECK:            AttribKind: ID
 // CHECK:            ID: <{{[0-9]+}}:NodeID> = {
@@ -42,6 +42,30 @@
 // CHECK:          [2]: <{{[0-9]+}}:NodeShaderFuncAttrib> = {
 // CHECK:            AttribKind: DispatchGrid
 // CHECK:            DispatchGrid: <4:array[3]> = { 4, 1, 1 }
+// CHECK:          }
+// CHECK:          [3]: <{{[0-9]+}}:NodeShaderFuncAttrib> = {
+// CHECK:            AttribKind: MeshShaderInfo
+// CHECK:            MeshShaderInfo: <0:MSInfo> = {
+// CHECK:              SigOutputElements: <0:RecordArrayRef<SignatureElement>[3]>  = {
+// CHECK:                [0]: <1:SignatureElement> = <nullptr>
+// CHECK:                [1]: <1:SignatureElement> = <nullptr>
+// CHECK:                [2]: <1:SignatureElement> = <nullptr>
+// CHECK:              }
+// CHECK:              SigPrimOutputElements: <0:RecordArrayRef<SignatureElement>[3]>  = {
+// CHECK:                [0]: <1:SignatureElement> = <nullptr>
+// CHECK:                [1]: <1:SignatureElement> = <nullptr>
+// CHECK:                [2]: <1:SignatureElement> = <nullptr>
+// CHECK:              }
+// CHECK:              ViewIDOutputMask: <0:bytes[0]>
+// CHECK:              ViewIDPrimOutputMask: <0:bytes[0]>
+// CHECK:              NumThreads: <0:array[3]> = { 1, 1, 1 }
+// CHECK:              GroupSharedBytesUsed: 0
+// CHECK:              GroupSharedBytesDependentOnViewID: 0
+// CHECK:              PayloadSizeInBytes: 0
+// CHECK:              MaxOutputVertices: 0
+// CHECK:              MaxOutputPrimitives: 0
+// CHECK:              MeshOutputTopology: 2
+// CHECK:            }
 // CHECK:          }
 // CHECK:        }
 // CHECK:        Outputs: <RecordArrayRef<IONode>[0]> = {}
@@ -66,9 +90,8 @@
 // CHECK:      HasReturn: FALSE
 
 [Shader("node")]
+[OutputTopology("triangle")]
 [NodeLaunch("mesh")]
 [NumThreads(1,1,1)]
 [NodeDispatchGrid(4,1,1)]
 void noinput_mesh() { }
-
-

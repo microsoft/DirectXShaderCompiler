@@ -821,6 +821,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLNodeDispatchGrid:
     case AttributeList::AT_HLSLNodeMaxDispatchGrid:
     case AttributeList::AT_HLSLNodeMaxRecursionDepth:
+    case AttributeList::AT_HLSLNodeMaxInputRecordsPerGraphEntryRecord:
     case AttributeList::AT_HLSLMaxRecordsSharedWith:
     case AttributeList::AT_HLSLMaxRecords:
     case AttributeList::AT_HLSLNodeArraySize:

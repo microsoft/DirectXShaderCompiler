@@ -11346,7 +11346,8 @@ void DiagnoseEntryAttrAllowedOnStage(clang::Sema *self,
       case clang::attr::HLSLNodeShareInputOf:
       case clang::attr::HLSLNodeDispatchGrid:
       case clang::attr::HLSLNodeMaxDispatchGrid:
-      case clang::attr::HLSLNodeMaxRecursionDepth: {
+      case clang::attr::HLSLNodeMaxRecursionDepth:
+      case clang::attr::HLSLNodeMaxInputRecordsPerGraphEntryRecord: {
         if (shaderKind != DXIL::ShaderKind::Node) {
           self->Diag(pAttr->getRange().getBegin(),
                      diag::err_hlsl_attribute_unsupported_stage)
@@ -13205,7 +13206,7 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     } else {
       // If the number of threads is invalid, diagnose and drop the attribute.
       S.Diags.Report(A.getLoc(), diag::warn_hlsl_numthreads_group_size)
-          << N << X << Y << Z << A.getRange();
+          << N << X << Y << Z << 1024 << A.getRange();
       return;
     }
     break;
@@ -13323,6 +13324,12 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
       S.Diags.Report(declAttr->getLocation(),
                      diag::err_hlsl_maxrecursiondepth_exceeded)
           << declAttr->getRange();
+    break;
+  case AttributeList::AT_HLSLNodeMaxInputRecordsPerGraphEntryRecord:
+    declAttr = ::new (S.Context) HLSLNodeMaxInputRecordsPerGraphEntryRecordAttr(
+        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        ValidateAttributeIntArg(S, A, 1), A.getAttributeSpellingListIndex());
+    // any validation needed here?
     break;
   default:
     Handled = false;
@@ -14929,6 +14936,16 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     break;
   }
 
+  case clang::attr::HLSLNodeMaxInputRecordsPerGraphEntryRecord: {
+    Attr *noconst = const_cast<Attr *>(A);
+    auto *ACast =
+        static_cast<HLSLNodeMaxInputRecordsPerGraphEntryRecordAttr *>(noconst);
+    Indent(Indentation, Out);
+    Out << "[NodeMaxInputRecordsPerGraphEntryRecord(" << ACast->getCount()
+        << "," << ACast->getSharedAcrossNodeArray() << ")]\n";
+    break;
+  }
+
   case clang::attr::HLSLMaxRecords: {
     Attr *noconst = const_cast<Attr *>(A);
     auto *ACast = static_cast<HLSLMaxRecordsAttr *>(noconst);
@@ -15032,6 +15049,7 @@ bool hlsl::IsHLSLAttr(clang::attr::Kind AttrKind) {
   case clang::attr::HLSLNodeDispatchGrid:
   case clang::attr::HLSLNodeMaxDispatchGrid:
   case clang::attr::HLSLNodeMaxRecursionDepth:
+  case clang::attr::HLSLNodeMaxInputRecordsPerGraphEntryRecord:
   case clang::attr::HLSLNodeId:
   case clang::attr::HLSLNodeIsProgramEntry:
   case clang::attr::HLSLNodeLaunch:
@@ -15288,21 +15306,78 @@ void DiagnoseDispatchGridSemantics(Sema &S, RecordDecl *NodeRecordStruct,
                                 DispatchGridLoc, Found);
 }
 
+// Warns for misformed numthreads based on given stage-dependent values
+// Returns true if numthreads attr is accepted
+bool DiagnoseNumThreads(Sema &S, HLSLNumThreadsAttr *NumThreads, unsigned minX,
+                        unsigned maxX, unsigned minY, unsigned maxY,
+                        unsigned minZ, unsigned maxZ, unsigned TotalMax) {
+
+  unsigned X = NumThreads->getX();
+  unsigned Y = NumThreads->getY();
+  unsigned Z = NumThreads->getZ();
+  unsigned N = X * Y * Z;
+  bool result = true;
+  if (X < minX || X > maxX) {
+    S.Diags.Report(NumThreads->getLocation(),
+                   diag::warn_hlsl_numthreads_channel_size)
+        << "X" << X << minX << maxX;
+    result = false;
+  }
+  if (Y < minY || Y > maxY) {
+    S.Diags.Report(NumThreads->getLocation(),
+                   diag::warn_hlsl_numthreads_channel_size)
+        << "Y" << Y << minY << maxY;
+    result = false;
+  }
+  if (Z < minZ || Z > maxZ) {
+    S.Diags.Report(NumThreads->getLocation(),
+                   diag::warn_hlsl_numthreads_channel_size)
+        << "Z" << Z << minZ << maxZ;
+    result = false;
+  }
+  if (N < 1 || N > TotalMax) {
+    S.Diags.Report(NumThreads->getLocation(),
+                   diag::warn_hlsl_numthreads_group_size)
+        << N << X << Y << Z << TotalMax;
+    result = false;
+  }
+
+  return result;
+}
+bool DiagnoseNumThreads(Sema &S, FunctionDecl *FD, unsigned minX, unsigned maxX,
+                        unsigned minY, unsigned maxY, unsigned minZ,
+                        unsigned maxZ, unsigned TotalMax) {
+
+  auto NumThreads = FD->getAttr<HLSLNumThreadsAttr>();
+  if (!NumThreads)
+    return false;
+
+  return DiagnoseNumThreads(S, NumThreads, minX, maxX, minY, maxY, minZ, maxZ,
+                            TotalMax);
+}
 void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
                                 llvm::StringRef StageName) {
 
-  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+  if (!DiagnoseNumThreads(
+          S, FD, DXIL::kMinMSASThreadGroupX, DXIL::kMaxMSASThreadGroupX,
+          DXIL::kMinMSASThreadGroupY, DXIL::kMaxMSASThreadGroupY,
+          DXIL::kMinMSASThreadGroupZ, DXIL::kMaxMSASThreadGroupZ,
+          DXIL::kMaxMSASThreadsPerGroup))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "numthreads";
-
   return;
 }
 
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
-  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+  if (!DiagnoseNumThreads(
+          S, FD, DXIL::kMinMSASThreadGroupX, DXIL::kMaxMSASThreadGroupX,
+          DXIL::kMinMSASThreadGroupY, DXIL::kMaxMSASThreadGroupY,
+          DXIL::kMinMSASThreadGroupZ, DXIL::kMaxMSASThreadGroupZ,
+          DXIL::kMaxMSASThreadsPerGroup))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "numthreads";
+
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "outputtopology";
@@ -15352,7 +15427,11 @@ void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD,
 void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                           bool isActiveEntry) {
   if (isActiveEntry) {
-    if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+    if (!DiagnoseNumThreads(S, FD, DXIL::kMinCSThreadGroupX,
+                            DXIL::kMaxCSThreadGroupX, DXIL::kMinCSThreadGroupY,
+                            DXIL::kMaxCSThreadGroupY, DXIL::kMinCSThreadGroupZ,
+                            DXIL::kMaxCSThreadGroupZ,
+                            DXIL::kMaxCSThreadsPerGroup))
       S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
           << StageName << "numthreads";
     if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {
@@ -15399,9 +15478,10 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     NodeLaunchLoc = SourceLocation();
   }
 
-  // Check that if a Thread launch node has the NumThreads attribute the
-  // thread group size is (1,1,1)
+  // Ensure numthreads is present and valid where required
   if (NodeLaunchTy == DXIL::NodeLaunchType::Thread) {
+    // Check that if a Thread launch node has the NumThreads attribute the
+    // thread group size is (1,1,1)
     if (auto NumThreads = FD->getAttr<HLSLNumThreadsAttr>()) {
       if (NumThreads->getX() != 1 || NumThreads->getY() != 1 ||
           NumThreads->getZ() != 1) {
@@ -15414,6 +15494,14 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
               << "Launch type";
       }
     }
+  } else if (NodeLaunchTy == DXIL::NodeLaunchType::Mesh) {
+    if (!DiagnoseNumThreads(
+            S, FD, DXIL::kMinMSASThreadGroupX, DXIL::kMaxMSASThreadGroupX,
+            DXIL::kMinMSASThreadGroupY, DXIL::kMaxMSASThreadGroupY,
+            DXIL::kMinMSASThreadGroupZ, DXIL::kMaxMSASThreadGroupZ,
+            DXIL::kMaxMSASThreadsPerGroup))
+      S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+          << StageName << "numthreads";
   } else if (!FD->hasAttr<HLSLNumThreadsAttr>()) {
     // All other launch types require the NumThreads attribute.
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_node_attr)
@@ -15431,6 +15519,40 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
             << "wavesize"
             << "6.6";
       }
+    }
+  }
+
+  // Validate attributes specific to mesh nodes
+  if (NodeLaunchTy == DXIL::NodeLaunchType::Mesh) {
+    if (!FD->hasAttr<HLSLOutputTopologyAttr>())
+      S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+          << "mesh node"
+          << "outputtopology";
+  } else {
+    if (auto *NodeMaxRecs =
+            FD->getAttr<HLSLNodeMaxInputRecordsPerGraphEntryRecordAttr>()) {
+      S.Diags.Report(NodeMaxRecs->getLocation(),
+                     diag::err_hlsl_launch_type_attr)
+          << NodeMaxRecs->getSpelling() << "mesh" << NodeMaxRecs->getRange();
+      // Only output the note if the source location is valid
+      if (NodeLaunchLoc.isValid())
+        S.Diags.Report(NodeLaunchLoc, diag::note_defined_here) << "Launch type";
+    }
+  }
+
+  // Cumbersome, but maintainable way to indicate which launch types are allowed
+  // Only excludes mesh nodes for now.
+  if (NodeLaunchTy != DXIL::NodeLaunchType::Broadcasting &&
+      NodeLaunchTy != DXIL::NodeLaunchType::Coalescing &&
+      NodeLaunchTy != DXIL::NodeLaunchType::Thread) {
+    if (auto *NodeRecDepth = FD->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
+      S.Diags.Report(NodeRecDepth->getLocation(),
+                     diag::err_hlsl_launch_type_attr)
+          << NodeRecDepth->getSpelling()
+          << "broadcasting, coalescing, or thread" << NodeRecDepth->getRange();
+      // Only output the note if the source location is valid
+      if (NodeLaunchLoc.isValid())
+        S.Diags.Report(NodeLaunchLoc, diag::note_defined_here) << "Launch type";
     }
   }
 
@@ -15764,6 +15886,7 @@ void WarnOnEntryAttrWithoutShaderAttr(Sema &S, FunctionDecl *FD) {
     case clang::attr::HLSLNodeDispatchGrid:
     case clang::attr::HLSLNodeMaxDispatchGrid:
     case clang::attr::HLSLNodeMaxRecursionDepth:
+    case clang::attr::HLSLNodeMaxInputRecordsPerGraphEntryRecord:
       S.Diag(A->getLocation(),
              diag::warn_hlsl_entry_attribute_without_shader_attribute)
           << A->getSpelling();

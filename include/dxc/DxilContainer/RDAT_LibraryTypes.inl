@@ -265,6 +265,8 @@ RDAT_ENUM_START(NodeFuncAttribKind, uint32_t)
   RDAT_ENUM_VALUE(MaxRecursionDepth, 5)
   RDAT_ENUM_VALUE(LocalRootArgumentsTableIndex, 6)
   RDAT_ENUM_VALUE(MaxDispatchGrid, 7)
+  RDAT_ENUM_VALUE(MeshShaderInfo, 8)
+  RDAT_ENUM_VALUE(MaxInputRecordsPerGraphEntryRecord, 9)
   RDAT_ENUM_VALUE_NODEF(LastValue)
 RDAT_ENUM_END()
 
@@ -344,6 +346,13 @@ RDAT_STRUCT_TABLE(NodeID, NodeIDTable)
 RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
+#define RECORD_TYPE MaxInputRecords
+RDAT_STRUCT_TABLE(MaxInputRecords, MaxInputRecordsTable)
+  RDAT_VALUE(uint32_t, Count)
+  RDAT_VALUE(uint32_t, Shared)
+RDAT_STRUCT_END()
+#undef RECORD_TYPE
+
 #define RECORD_TYPE NodeShaderFuncAttrib
 RDAT_STRUCT_TABLE(NodeShaderFuncAttrib, NodeShaderFuncAttribTable)
   RDAT_ENUM(uint32_t, hlsl::RDAT::NodeFuncAttribKind, AttribKind)
@@ -375,6 +384,14 @@ RDAT_STRUCT_TABLE(NodeShaderFuncAttrib, NodeShaderFuncAttribTable)
                     getAttribKind() ==
                         hlsl::RDAT::NodeFuncAttribKind::MaxDispatchGrid)
       RDAT_INDEX_ARRAY_REF(MaxDispatchGrid)
+    RDAT_UNION_ELIF(MeshShaderInfo,
+                    getAttribKind() ==
+                        hlsl::RDAT::NodeFuncAttribKind::MeshShaderInfo)
+      RDAT_RECORD_REF(MSInfo, MeshShaderInfo)
+    RDAT_UNION_ELIF(MaxInputRecordsPerGraphEntryRecord,
+                    getAttribKind() ==
+                        hlsl::RDAT::NodeFuncAttribKind::MaxInputRecordsPerGraphEntryRecord)
+      RDAT_RECORD_REF(MaxInputRecords, MaxInputRecordsPerGraphEntryRecord)
     RDAT_UNION_ENDIF()
   RDAT_UNION_END()
 RDAT_STRUCT_END()

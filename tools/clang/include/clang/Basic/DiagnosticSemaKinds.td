@@ -7842,7 +7842,11 @@ def err_hlsl_wg_intrinsic_launch_type : Error<
 def err_hlsl_wg_thread_launch_group_size : Error<
    "Thread launch nodes must have a thread group size of (1,1,1)">;
 def warn_hlsl_numthreads_group_size : Warning<
-   "Group size of %0 (%1 * %2 * %3) is outside of valid range [1..1024] - "
+   "Group size of %0 (%1 * %2 * %3) is outside of valid range [1..%4] - "
+   "attribute will be ignored">,
+   InGroup<IgnoredAttributes>;
+def warn_hlsl_numthreads_channel_size : Warning<
+   "Thread Group %0 size of %1 is outside of valid range [%2..%3] - "
    "attribute will be ignored">,
    InGroup<IgnoredAttributes>;
 def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
