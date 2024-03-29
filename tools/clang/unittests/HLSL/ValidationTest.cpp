@@ -871,6 +871,8 @@ TEST_F(ValidationTest, GetDimCalcLODFail) {
       /*bRegex*/ true);
 }
 TEST_F(ValidationTest, HsAttributeFail) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\hsAttribute.hlsl", "hs_6_0",
       {"i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01"},
@@ -1057,6 +1059,8 @@ TEST_F(ValidationTest, SimpleHs1Fail) {
       });
 }
 TEST_F(ValidationTest, SimpleHs3Fail) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\SimpleHs3.hlsl", "hs_6_0",
       {
