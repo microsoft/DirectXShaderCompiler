@@ -15204,8 +15204,7 @@ static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
            launchType == DXIL::NodeLaunchType::Mesh;
 
   case DXIL::NodeIOKind::RWDispatchNodeInputRecord:
-    return launchType == DXIL::NodeLaunchType::Broadcasting ||
-           launchType == DXIL::NodeLaunchType::Mesh;
+    return launchType == DXIL::NodeLaunchType::Broadcasting;
 
   case DXIL::NodeIOKind::GroupNodeInputRecords:
   case DXIL::NodeIOKind::RWGroupNodeInputRecords:

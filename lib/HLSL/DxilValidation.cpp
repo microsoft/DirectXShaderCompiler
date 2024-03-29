@@ -3580,7 +3580,6 @@ static void ValidateNodeInputRecord(Function *F, ValidationContext &ValCtx) {
       llvm::StringRef validInputs = "";
       switch (props.Node.LaunchType) {
       case DXIL::NodeLaunchType::Broadcasting:
-      case DXIL::NodeLaunchType::Mesh:
         validInputs = "{RW}DispatchNodeInputRecord";
         break;
       case DXIL::NodeLaunchType::Coalescing:
