@@ -1128,8 +1128,8 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
     opcode = OP::OpCode::LoadInput;
     break;
   case DXIL::SignatureKind::Output:
-    opcode =
-       props.IsMS() || props.IsMeshNode() ? OP::OpCode::StoreVertexOutput : OP::OpCode::StoreOutput;
+    opcode = props.IsMS() || props.IsMeshNode() ? OP::OpCode::StoreVertexOutput
+                                                : OP::OpCode::StoreOutput;
     break;
   case DXIL::SignatureKind::PatchConstOrPrim:
     opcode = OP::OpCode::StorePrimitiveOutput;
@@ -1141,7 +1141,6 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
   bool bNeedVertexOrPrimID =
       bInput && (props.IsGS() || props.IsDS() || props.IsHS());
   bNeedVertexOrPrimID |= !bInput && (props.IsMS() || props.IsMeshNode());
-
 
   Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
 
