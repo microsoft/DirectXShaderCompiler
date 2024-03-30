@@ -601,17 +601,11 @@ class db_dxil(object):
                 "node",
             )
             self.name_idx[i].shader_model = 6, 5
-        for (
-            i
-        ) in "EmitIndices,StoreVertexOutput,StorePrimitiveOutput".split(
-            ","
-        ):
+        for i in "EmitIndices,StoreVertexOutput,StorePrimitiveOutput".split(","):
             self.name_idx[i].category = "Mesh shader instructions"
             self.name_idx[i].shader_stages = ("mesh","node")
             self.name_idx[i].shader_model = 6, 5
-        for i in "GetMeshPayload".split(
-            ","
-        ):
+        for i in "GetMeshPayload".split(","):
             self.name_idx[i].category = "Mesh shader instructions"
             self.name_idx[i].shader_stages = ("mesh",)
             self.name_idx[i].shader_model = 6, 5

@@ -3088,7 +3088,7 @@ INSTR.MIPLEVELFORGETDIMENSION             Use mip level on buffer when GetDimens
 INSTR.MIPONUAVLOAD                        uav load don't support mipLevel/sampleIndex.
 INSTR.MISSINGSETMESHOUTPUTCOUNTS          Missing SetMeshOutputCounts call.
 INSTR.MULTIPLEGETMESHPAYLOAD              GetMeshPayload cannot be called multiple times.
-INSTR.MULTIPLESETMESHOUTPUTCOUNTS         SetMeshOUtputCounts cannot be called multiple times.
+INSTR.MULTIPLESETMESHOUTPUTCOUNTS         SetMeshOutputCounts cannot be called multiple times.
 INSTR.NODERECORDHANDLEUSEAFTERCOMPLETE    Invalid use of completed record handle.
 INSTR.NOGENERICPTRADDRSPACECAST           Address space cast between pointer types must have one part to be generic address space.
 INSTR.NOIDIVBYZERO                        No signed integer division by zero.
