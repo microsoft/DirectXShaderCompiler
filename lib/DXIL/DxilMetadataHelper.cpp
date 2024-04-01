@@ -1979,7 +1979,7 @@ void DxilMDHelper::SerializeNodeProps(SmallVectorImpl<llvm::Metadata *> &MDVals,
   MDVals.push_back(Uint32ToConstMD(NodeProps.MaxDispatchGrid[1]));
   MDVals.push_back(Uint32ToConstMD(NodeProps.MaxDispatchGrid[2]));
   MDVals.push_back(Uint32ToConstMD(NodeProps.MaxRecursionDepth));
-  if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 9) >= 0) {
+  if (props->IsMeshNode()) {
     MDVals.emplace_back(
         Uint32ToConstMD((unsigned)props->ShaderProps.MS.outputTopology));
     MDVals.emplace_back(Uint32ToConstMD(props->ShaderProps.MS.maxVertexCount));
@@ -2042,7 +2042,7 @@ void DxilMDHelper::DeserializeNodeProps(const MDTuple *pProps, unsigned &idx,
   NodeProps.MaxDispatchGrid[1] = ConstMDToUint32(pProps->getOperand(idx++));
   NodeProps.MaxDispatchGrid[2] = ConstMDToUint32(pProps->getOperand(idx++));
   NodeProps.MaxRecursionDepth = ConstMDToUint32(pProps->getOperand(idx++));
-  if (DXIL::CompareVersions(m_MinValMajor, m_MinValMinor, 1, 9) >= 0) {
+  if (props->IsMeshNode()) {
     props->ShaderProps.MS.outputTopology =
         (DXIL::MeshOutputTopology)ConstMDToUint32(pProps->getOperand(idx++));
     props->ShaderProps.MS.maxVertexCount =
@@ -2793,8 +2793,7 @@ void DxilMDHelper::EmitDxilNodeState(std::vector<llvm::Metadata *> &MDVals,
   }
 
   // Experimental mesh node shader properties
-  if (props.ShaderProps.MS.outputTopology !=
-      DXIL::MeshOutputTopology::Undefined) {
+  if (props.IsMeshNode()) {
     MDVals.emplace_back(
         Uint32ToConstMD(DxilMDHelper::kDxilNodeMeshOutputTopologyTag));
     MDVals.emplace_back(

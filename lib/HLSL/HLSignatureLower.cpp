@@ -532,7 +532,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
     }
   }
 
-  if (props.IsHS() || props.IsDS() || props.IsMS() || props.IsMeshNode()) {
+  if (props.UsesPatchConstOrPrimSignature()) {
     hlsl::PackDxilSignature(EntrySig.PatchConstOrPrimSignature, packing);
     if (!EntrySig.PatchConstOrPrimSignature.IsFullyAllocated()) {
       llvm_unreachable("Failed to allocate all patch constant signature "
@@ -885,7 +885,7 @@ struct InputOutputAccessInfo {
 void collectInputOutputAccessInfo(
     Value *GV, Constant *constZero,
     std::vector<InputOutputAccessInfo> &accessInfoList, bool hasVertexOrPrimID,
-    bool bInput, bool bRowMajor, bool isMS) {
+    bool bInput, bool bRowMajor) {
   // merge GEP use for input output.
   dxilutil::MergeGepUse(GV);
   for (auto User = GV->user_begin(); User != GV->user_end();) {
@@ -1235,7 +1235,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
     std::vector<InputOutputAccessInfo> accessInfoList;
     collectInputOutputAccessInfo(GV, constZero, accessInfoList,
                                  bNeedVertexOrPrimID && bIsArrayTy, bInput,
-                                 bRowMajor, props.IsMS());
+                                 bRowMajor);
 
     for (InputOutputAccessInfo &info : accessInfoList) {
       GenerateInputOutputUserCall(
@@ -1431,8 +1431,7 @@ void HLSignatureLower::GenerateDxilPatchConstantLdSt() {
     }
     std::vector<InputOutputAccessInfo> accessInfoList;
     collectInputOutputAccessInfo(GV, constZero, accessInfoList,
-                                 bNeedVertexOrPrimID, bIsInput, bRowMajor,
-                                 false);
+                                 bNeedVertexOrPrimID, bIsInput, bRowMajor);
 
     bool bIsArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
     bool isPrecise = m_preciseSigSet.count(SE);
@@ -1506,8 +1505,7 @@ void HLSignatureLower::GenerateDxilPatchConstantFunctionInputs() {
       }
       std::vector<InputOutputAccessInfo> accessInfoList;
       collectInputOutputAccessInfo(&arg, constZero, accessInfoList,
-                                   /*hasVertexOrPrimID*/ true, true, bRowMajor,
-                                   false);
+                                   /*hasVertexOrPrimID*/ true, true, bRowMajor);
       for (InputOutputAccessInfo &info : accessInfoList) {
         Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
         if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {

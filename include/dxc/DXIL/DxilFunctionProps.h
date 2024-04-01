@@ -239,6 +239,10 @@ struct DxilFunctionProps {
     return shaderKind == DXIL::ShaderKind::Node &&
            Node.LaunchType == DXIL::NodeLaunchType::Mesh;
   };
+  bool UsesPatchConstOrPrimSignature() {
+    return IsHS() || IsDS() || IsMS() || IsMeshNode();
+  }
+
 };
 
 } // namespace hlsl
