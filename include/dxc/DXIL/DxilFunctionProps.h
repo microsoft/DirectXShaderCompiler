@@ -242,7 +242,6 @@ struct DxilFunctionProps {
   bool UsesPatchConstOrPrimSignature() {
     return IsHS() || IsDS() || IsMS() || IsMeshNode();
   }
-
 };
 
 } // namespace hlsl
