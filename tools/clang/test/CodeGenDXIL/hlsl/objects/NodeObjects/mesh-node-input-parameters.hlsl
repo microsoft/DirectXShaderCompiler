@@ -20,6 +20,11 @@
 // CHECK:  %[[annotHdl:.+]] = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 251, %dx.types.NodeRecordHandle %[[Hdl]], %dx.types.NodeRecordInfo { i32 97, i32 52 })  ; AnnotateNodeRecordHandle(noderecord,props)
 
 // CHECK:  %[[node_ptr:.+]] = call %struct.RECORD.0 addrspace(6)* @dx.op.getNodeRecordPtr.struct.RECORD.0(i32 239, %dx.types.NodeRecordHandle %[[annotHdl]], i32 0)  ; GetNodeRecordPtr(recordhandle,arrayIndex)
+
+// CHECK: call i32 @dx.op.groupId.i32(i32 94, i32 2)  ; GroupId(component)
+// CHECK: call i32 @dx.op.groupId.i32(i32 94, i32 1)  ; GroupId(component)
+// CHECK: call i32 @dx.op.groupId.i32(i32 94, i32 0)  ; GroupId(component)
+
 // CHECK:  %[[ptr:.+]] = getelementptr inbounds %struct.RECORD.0, %struct.RECORD.0 addrspace(6)* %[[node_ptr]], i32 0, i32 0, i32 0
 // CHECK:  %[[ld1:.+]] = load i32, i32 addrspace(6)* %[[ptr]], align 4
 // CHECK:  %[[ptr:.+]] = getelementptr inbounds %struct.RECORD.0, %struct.RECORD.0 addrspace(6)* %[[node_ptr]], i32 0, i32 0, i32 1
