@@ -5201,10 +5201,11 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
     maxOutputScalars = DXIL::kMaxOutputTotalScalars;
     maxPatchConstantScalars = DXIL::kMaxHSOutputPatchConstantTotalScalars;
     break;
-  case DXIL::ShaderKind::Mesh:
   case DXIL::ShaderKind::Node:
     if (!isMN)
       break;
+    LLVM_FALLTHROUGH;
+  case DXIL::ShaderKind::Mesh:
     maxOutputScalars = DXIL::kMaxOutputTotalScalars;
     maxPatchConstantScalars = DXIL::kMaxOutputTotalScalars;
     break;

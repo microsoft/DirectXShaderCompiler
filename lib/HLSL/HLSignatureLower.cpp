@@ -1268,7 +1268,7 @@ void HLSignatureLower::GenerateDxilComputeAndNodeCommonInputs() {
     llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
 
     if (semanticStr.empty()) {
-      if (funcProps.IsNode() && (paramAnnotation.IsParamInputQualNode()))
+      if (funcProps.IsNode() && paramAnnotation.IsParamInputQualNode())
         continue;
       dxilutil::EmitErrorOnFunction(HLM.GetModule()->getContext(), Entry,
                                     "Semantic must be defined for all "

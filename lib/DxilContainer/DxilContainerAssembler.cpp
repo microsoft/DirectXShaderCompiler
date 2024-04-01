@@ -1656,8 +1656,7 @@ private:
       funcAttribs.push_back(Builder.InsertRecord(nAttrib));
     }
 
-    if (props.ShaderProps.MS.outputTopology !=
-        DXIL::MeshOutputTopology::Undefined) {
+    if (props.Node.LaunchType == NodeLaunchType::Mesh) {
       nAttrib = {};
       nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::MeshShaderInfo;
       RDAT::MSInfo info = {};
