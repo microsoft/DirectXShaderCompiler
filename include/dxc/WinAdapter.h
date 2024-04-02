@@ -940,10 +940,7 @@ private:
       return nullptr;
     }
 #else
-    const char *utf8LocaleOptions[] = {
-        "en_US.utf8", // supported on Ubuntu
-        "en_US.UTF-8" // supported on Mariner
-    };
+    const char *utf8LocaleOptions[] = {"en_US.utf8", "en_US.UTF-8"};
 
     switch (CodePage) {
     case CP_ACP:
