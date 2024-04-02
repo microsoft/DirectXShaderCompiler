@@ -912,16 +912,31 @@ unsigned int SysStringLen(const BSTR bstrString);
 #define CP_ACP 0
 #define CP_UTF8 65001 // UTF-8 translation.
 
-// Convert Windows codepage value to locale string
-const char *CPToLocale(uint32_t CodePage);
+// Sets a locale for the specified Windows codepage
+const char *SetLocaleForCodePage(int Category, uint32_t CodePage);
+
+// RAII style mechanism for setting/unsetting a locale for the specified Windows codepage
+class ScopedLocale {
+    const char* m_locale;
+public:
+    explicit ScopedLocale(uint32_t codePage)
+    : m_locale(SetLocaleForCodePage(LC_ALL, codePage)) {
+    }
+    ~ScopedLocale() {
+      if (m_locale != nullptr) {
+        setlocale(LC_ALL, m_locale);
+      }
+    }
+    bool IsSupported() { return (m_locale != nullptr);}
+};
 
 // The t_nBufferLength parameter is part of the published interface, but not
 // used here.
 template <int t_nBufferLength = 128> class CW2AEX {
 public:
   CW2AEX(LPCWSTR psz, UINT nCodePage = CP_UTF8) {
-    const char *locale = CPToLocale(nCodePage);
-    if (locale == nullptr) {
+    ScopedLocale locale(nCodePage);
+    if (!locale.IsSupported()) {
       // Current Implementation only supports CP_UTF8, and CP_ACP
       assert(false && "CW2AEX implementation for Linux only handles "
                       "UTF8 and ACP code pages");
@@ -933,11 +948,9 @@ public:
       return;
     }
 
-    locale = setlocale(LC_ALL, locale);
     int len = (wcslen(psz) + 1) * 4;
     m_psz = new char[len];
     std::wcstombs(m_psz, psz, len);
-    setlocale(LC_ALL, locale);
   }
 
   ~CW2AEX() { delete[] m_psz; }
@@ -953,8 +966,8 @@ typedef CW2AEX<> CW2A;
 template <int t_nBufferLength = 128> class CA2WEX {
 public:
   CA2WEX(LPCSTR psz, UINT nCodePage = CP_UTF8) {
-    const char *locale = CPToLocale(nCodePage);
-    if (locale == nullptr) {
+    ScopedLocale locale(nCodePage);
+    if (!locale.IsSupported()) {
       // Current Implementation only supports CP_UTF8, and CP_ACP
       assert(false && "CA2WEX implementation for Linux only handles "
                       "UTF8 and ACP code pages");
@@ -966,11 +979,9 @@ public:
       return;
     }
 
-    locale = setlocale(LC_ALL, locale);
     int len = strlen(psz) + 1;
     m_psz = new wchar_t[len];
     std::mbstowcs(m_psz, psz, len);
-    setlocale(LC_ALL, locale);
   }
 
   ~CA2WEX() { delete[] m_psz; }
