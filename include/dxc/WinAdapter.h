@@ -915,19 +915,20 @@ unsigned int SysStringLen(const BSTR bstrString);
 // Sets a locale for the specified Windows codepage
 const char *SetLocaleForCodePage(int Category, uint32_t CodePage);
 
-// RAII style mechanism for setting/unsetting a locale for the specified Windows codepage
+// RAII style mechanism for setting/unsetting a locale for the specified Windows
+// codepage
 class ScopedLocale {
-    const char* m_locale;
+  const char *m_locale;
+
 public:
-    explicit ScopedLocale(uint32_t codePage)
-    : m_locale(SetLocaleForCodePage(LC_ALL, codePage)) {
+  explicit ScopedLocale(uint32_t codePage)
+      : m_locale(SetLocaleForCodePage(LC_ALL, codePage)) {}
+  ~ScopedLocale() {
+    if (m_locale != nullptr) {
+      setlocale(LC_ALL, m_locale);
     }
-    ~ScopedLocale() {
-      if (m_locale != nullptr) {
-        setlocale(LC_ALL, m_locale);
-      }
-    }
-    bool IsSupported() { return (m_locale != nullptr);}
+  }
+  bool IsSupported() { return (m_locale != nullptr); }
 };
 
 // The t_nBufferLength parameter is part of the published interface, but not

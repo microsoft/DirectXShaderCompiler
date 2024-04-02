@@ -64,37 +64,33 @@ unsigned int SysStringLen(const BSTR bstrString) {
 
 const char *SetLocaleForCodePage(int Category, uint32_t CodePage) {
 #ifdef __APPLE__
-    switch(CodePage)
-    {
-      case CP_ACP:
-          return setlocale(Category, "en_US.ISO8859-1");
-      case CP_UTF8:
-          return setlocale(Category, "en_US.UTF-8");
-      default:
-          return nullptr;
-    }
+  switch (CodePage) {
+  case CP_ACP:
+    return setlocale(Category, "en_US.ISO8859-1");
+  case CP_UTF8:
+    return setlocale(Category, "en_US.UTF-8");
+  default:
+    return nullptr;
+  }
 #else
-    const char* utf8LocaleOptions[] = {
+  const char *utf8LocaleOptions[] = {
       "en_US.utf8", // supported on Ubuntu
       "en_US.UTF-8" // supported on Mariner
-    };
+  };
 
-    switch(CodePage)
-      {
-        case CP_ACP:
-            return setlocale(Category, "en_US.iso88591");
-        case CP_UTF8:
-        {
-            for (int i = 0; i < _countof(utf8LocaleOptions); ++i)
-            {
-                const char* locale = setlocale(Category, utf8LocaleOptions[i]);
-                if (locale != nullptr)
-                    return locale;
-            }
-        }
-        default:
-            return nullptr;
-      }
+  switch (CodePage) {
+  case CP_ACP:
+    return setlocale(Category, "en_US.iso88591");
+  case CP_UTF8: {
+    for (int i = 0; i < _countof(utf8LocaleOptions); ++i) {
+      const char *locale = setlocale(Category, utf8LocaleOptions[i]);
+      if (locale != nullptr)
+        return locale;
+    }
+  }
+  default:
+    return nullptr;
+  }
 #endif
 }
 

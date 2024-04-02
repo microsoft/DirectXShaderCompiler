@@ -62,7 +62,7 @@ int MultiByteToWideChar(uint32_t CodePage, uint32_t /*dwFlags*/,
   } else {
     rv = mbstowcs(lpWideCharStr, lpMultiByteStr, cchWideChar);
   }
-  
+
   if (rv == (size_t)cbMultiByte)
     return rv;
   return rv + 1; // mbstowcs excludes the terminating character
@@ -114,7 +114,7 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
   } else {
     rv = wcstombs(lpMultiByteStr, lpWideCharStr, cbMultiByte);
   }
-  
+
   if (rv == (size_t)cchWideChar)
     return rv;
   return rv + 1; // mbstowcs excludes the terminating character
