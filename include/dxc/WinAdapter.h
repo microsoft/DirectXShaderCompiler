@@ -912,9 +912,6 @@ unsigned int SysStringLen(const BSTR bstrString);
 #define CP_ACP 0
 #define CP_UTF8 65001 // UTF-8 translation.
 
-// Sets a locale for the specified Windows codepage
-const char *SetLocaleForCodePage(int Category, uint32_t CodePage);
-
 // RAII style mechanism for setting/unsetting a locale for the specified Windows
 // codepage
 class ScopedLocale {
@@ -929,6 +926,40 @@ public:
     }
   }
   bool IsSupported() { return (m_locale != nullptr); }
+
+private:
+  // Sets a locale for the specified Windows codepage
+  const char *SetLocaleForCodePage(int Category, uint32_t CodePage) {
+#ifdef __APPLE__
+    switch (CodePage) {
+    case CP_ACP:
+      return setlocale(Category, "en_US.ISO8859-1");
+    case CP_UTF8:
+      return setlocale(Category, "en_US.UTF-8");
+    default:
+      return nullptr;
+    }
+#else
+    const char *utf8LocaleOptions[] = {
+        "en_US.utf8", // supported on Ubuntu
+        "en_US.UTF-8" // supported on Mariner
+    };
+
+    switch (CodePage) {
+    case CP_ACP:
+      return setlocale(Category, "en_US.iso88591");
+    case CP_UTF8: {
+      for (int i = 0; i < _countof(utf8LocaleOptions); ++i) {
+        const char *locale = setlocale(Category, utf8LocaleOptions[i]);
+        if (locale != nullptr)
+          return locale;
+      }
+    }
+    default:
+      return nullptr;
+    }
+#endif
+  }
 };
 
 // The t_nBufferLength parameter is part of the published interface, but not
