@@ -930,7 +930,9 @@ public:
 private:
   // Sets a locale for the specified Windows codepage
   const char *SetLocaleForCodePage(int Category, uint32_t CodePage) {
-    assert(false && "Support for Linux only handles UTF8 code pages");
+    if (CodePage != CP_UTF8) {
+      assert(false && "Support for Linux only handles UTF8 code pages");
+    }
 #ifdef __APPLE__
     switch (CodePage) {
     case CP_UTF8:
