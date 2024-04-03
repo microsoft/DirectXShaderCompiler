@@ -226,17 +226,11 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   if (!bitfieldInfo.hasValue())
     return instruction;
 
-  auto *offset = getConstantInt(
-      astContext.UnsignedIntTy,
-      llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->offsetInBits),
-                  /* isSigned= */ false));
-  auto *count = getConstantInt(
-      astContext.UnsignedIntTy,
-      llvm::APInt(32, static_cast<uint64_t>(bitfieldInfo->sizeInBits),
-                  /* isSigned= */ false));
   return createBitFieldExtract(
-      resultType, instruction, offset, count,
-      pointer->getAstResultType()->isSignedIntegerOrEnumerationType(), loc);
+      resultType, instruction, bitfieldInfo->offsetInBits,
+      bitfieldInfo->sizeInBits,
+      pointer->getAstResultType()->isSignedIntegerOrEnumerationType(), loc,
+      range);
 }
 
 SpirvCopyObject *SpirvBuilder::createCopyObject(QualType resultType,
@@ -980,12 +974,70 @@ SpirvBuilder::createBitFieldInsert(QualType resultType, SpirvInstruction *base,
   return inst;
 }
 
-SpirvBitFieldExtract *SpirvBuilder::createBitFieldExtract(
-    QualType resultType, SpirvInstruction *base, SpirvInstruction *offset,
-    SpirvInstruction *count, bool isSigned, SourceLocation loc) {
+SpirvInstruction *SpirvBuilder::createEmulatedBitFieldExtract(
+    QualType resultType, uint32_t baseTypeBitwidth, SpirvInstruction *base,
+    unsigned bitOffset, unsigned bitCount, SourceLocation loc,
+    SourceRange range) {
+  assert(bitCount <= 64 &&
+         "Bitfield extraction emulation can only extract at most 64 bits.");
+
+  // The base is a raw struct field, which can contain several bitfields:
+  //   raw field: AAAABBBBCCCCCCCCDDDD
+  // Extracting B means shifting it right until B's LSB is the basetype LSB.
+  // But first, we need to left shift until B's MSB becomes the basetype MSB:
+  //   - is B is signed, its sign bits won't necessarily extend up to the
+  //   basetype MSB.
+  //   - meaning a right-shift could fail to sign-extend.
+  //   - shifting left first, then right makes sure the sign extension happens.
+
+  //  input: AAAABBBBCCCCCCCCDDDD
+  // output: BBBBCCCCCCCCDDDD0000
+  auto *leftShiftOffset =
+      getConstantInt(astContext.UnsignedIntTy,
+                     llvm::APInt(32, baseTypeBitwidth - bitOffset - bitCount));
+  auto *leftShift = createBinaryOp(spv::Op::OpShiftLeftLogical, resultType,
+                                   base, leftShiftOffset, loc, range);
+
+  //  input: BBBBCCCCCCCCDDDD0000
+  // output: SSSSSSSSSSSSSSSSBBBB
+  auto *rightShiftOffset = getConstantInt(
+      astContext.UnsignedIntTy, llvm::APInt(32, baseTypeBitwidth - bitCount));
+  auto *rightShift = createBinaryOp(spv::Op::OpShiftRightLogical, resultType,
+                                    leftShift, rightShiftOffset, loc, range);
+
+  if (resultType == QualType({})) {
+    auto baseType = dyn_cast<IntegerType>(base->getResultType());
+    leftShift->setResultType(baseType);
+    rightShift->setResultType(baseType);
+  }
+
+  return rightShift;
+}
+
+SpirvInstruction *SpirvBuilder::createBitFieldExtract(
+    QualType resultType, SpirvInstruction *Src, unsigned bitOffset,
+    unsigned bitCount, bool isSigned, SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
+
+  uint32_t bitWidth = 0;
+  if (resultType == QualType({})) {
+    assert(Src->hasResultType() && "No type information for bitfield.");
+    bitWidth = dyn_cast<IntegerType>(Src->getResultType())->getBitwidth();
+  } else {
+    bitWidth = getElementSpirvBitwidth(astContext, resultType,
+                                       spirvOptions.enable16BitTypes);
+  }
+
+  if (bitWidth != 32)
+    return createEmulatedBitFieldExtract(resultType, bitWidth, Src, bitOffset,
+                                         bitCount, loc, range);
+
+  auto *offset =
+      getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitOffset));
+  auto *count =
+      getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitCount));
   auto *inst = new (context)
-      SpirvBitFieldExtract(resultType, loc, base, offset, count, isSigned);
+      SpirvBitFieldExtract(resultType, loc, Src, offset, count, isSigned);
   insertPoint->addInstruction(inst);
   inst->setRValue(true);
   return inst;
