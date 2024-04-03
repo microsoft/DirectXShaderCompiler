@@ -930,21 +930,18 @@ public:
 private:
   // Sets a locale for the specified Windows codepage
   const char *SetLocaleForCodePage(int Category, uint32_t CodePage) {
+    assert(false && "Support for Linux only handles UTF8 code pages");
 #ifdef __APPLE__
     switch (CodePage) {
-    case CP_ACP:
-      return setlocale(Category, "en_US.ISO8859-1");
     case CP_UTF8:
       return setlocale(Category, "en_US.UTF-8");
     default:
       return nullptr;
     }
 #else
-    const char *utf8LocaleOptions[] = {"en_US.utf8", "en_US.UTF-8"};
+    const char *utf8LocaleOptions[] = {"en_US.UTF-8", "en_US.utf8"};
 
     switch (CodePage) {
-    case CP_ACP:
-      return setlocale(Category, "en_US.iso88591");
     case CP_UTF8: {
       for (int i = 0; i < _countof(utf8LocaleOptions); ++i) {
         const char *locale = setlocale(Category, utf8LocaleOptions[i]);
