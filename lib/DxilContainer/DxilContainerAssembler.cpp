@@ -1656,13 +1656,14 @@ private:
       funcAttribs.push_back(Builder.InsertRecord(nAttrib));
     }
 
-    if (props.Node.OutputTopology != DXIL::MeshOutputTopology::Undefined) {
+    if (props.Node.LaunchType == NodeLaunchType::Mesh) {
       nAttrib = {};
       nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::MeshShaderInfo;
       RDAT::MSInfo info = {};
-      info.MeshOutputTopology = (uint8_t)props.Node.OutputTopology;
-      info.MaxOutputVertices = (uint16_t)props.Node.MaxVertexCount;
-      info.MaxOutputPrimitives = (uint16_t)props.Node.MaxPrimitiveCount;
+      info.MeshOutputTopology = (uint8_t)props.ShaderProps.MS.outputTopology;
+      info.MaxOutputVertices = (uint16_t)props.ShaderProps.MS.maxVertexCount;
+      info.MaxOutputPrimitives =
+          (uint16_t)props.ShaderProps.MS.maxPrimitiveCount;
       nAttrib.MeshShaderInfo = Builder.InsertRecord(info);
       funcAttribs.push_back(Builder.InsertRecord(nAttrib));
     }

@@ -782,6 +782,8 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q,
     }
     break;
   case DXIL::ShaderKind::Mesh:
+  // assuming mesh node, wouldn't be here otherwise
+  case DXIL::ShaderKind::Node:
     switch (Q) {
     case DxilParamInputQual::In:
     case DxilParamInputQual::InPayload:

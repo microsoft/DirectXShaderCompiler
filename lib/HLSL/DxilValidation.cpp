@@ -1463,8 +1463,7 @@ static void ValidateSignatureDxilOp(CallInst *CI, DXIL::OpCode opcode,
     }
   } break;
   case DXIL::OpCode::SetMeshOutputCounts: {
-    if (!props.IsMS() && (!props.IsNode() || props.Node.LaunchType !=
-                                                 DXIL::NodeLaunchType::Mesh)) {
+    if (!props.IsMS() && !props.IsMeshNode()) {
       ValCtx.EmitInstrFormatError(CI, ValidationRule::SmOpcodeInInvalidFunction,
                                   {"SetMeshOutputCounts", "Mesh shader"});
     }
@@ -2797,10 +2796,7 @@ static void ValidateMsIntrinsics(Function *F, ValidationContext &ValCtx,
                                  CallInst *getMeshPayload) {
   if (ValCtx.DxilMod.HasDxilFunctionProps(F)) {
     DxilFunctionProps &props = ValCtx.DxilMod.GetDxilFunctionProps(F);
-    DXIL::ShaderKind shaderKind = props.shaderKind;
-    if (shaderKind != DXIL::ShaderKind::Mesh &&
-        (shaderKind != DXIL::ShaderKind::Node ||
-         props.Node.LaunchType != DXIL::NodeLaunchType::Mesh))
+    if (!props.IsMS() && !props.IsMeshNode())
       return;
   } else {
     return;
@@ -5170,6 +5166,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
   bool isGS = props.IsGS();
   bool isCS = props.IsCS();
   bool isMS = props.IsMS();
+  bool isMN = props.IsMeshNode();
 
   if (isPS) {
     // PS output no interp mode.
@@ -5179,7 +5176,7 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
     ValidateNoInterpModeSignature(ValCtx, S.InputSignature);
   }
 
-  if (isMS) {
+  if (isMS || isMN) {
     // primitive output constant interp mode.
     ValidateConstantInterpModeSignature(ValCtx, S.PatchConstOrPrimSignature);
   } else {
@@ -5204,6 +5201,10 @@ static void ValidateEntrySignatures(ValidationContext &ValCtx,
     maxOutputScalars = DXIL::kMaxOutputTotalScalars;
     maxPatchConstantScalars = DXIL::kMaxHSOutputPatchConstantTotalScalars;
     break;
+  case DXIL::ShaderKind::Node:
+    if (!isMN)
+      break;
+    LLVM_FALLTHROUGH;
   case DXIL::ShaderKind::Mesh:
     maxOutputScalars = DXIL::kMaxOutputTotalScalars;
     maxPatchConstantScalars = DXIL::kMaxOutputTotalScalars;

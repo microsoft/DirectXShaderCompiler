@@ -2344,8 +2344,7 @@ void DxilModule::UpdateFunctionToShaderCompat(const llvm::Function *dxilFunc) {
       if (DXIL::OpCode::SetMeshOutputCounts == OP::GetDxilOpFuncCallInst(CI) &&
           HasDxilFunctionProps(F)) {
         const DxilFunctionProps &props = GetDxilFunctionProps(F);
-        if (props.shaderKind != DXIL::ShaderKind::Node ||
-            props.Node.LaunchType != DXIL::NodeLaunchType::Mesh)
+        if (!props.IsMeshNode())
           mask &= ~SFLAG(Node);
       }
       info.mask &= mask;

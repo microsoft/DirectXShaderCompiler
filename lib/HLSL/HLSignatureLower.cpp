@@ -467,12 +467,13 @@ void HLSignatureLower::CreateDxilSignatures() {
     if (HLModule::IsStreamOutputPtrType(Ty))
       continue;
 
-    // Skip OutIndices and InPayload
+    // Skip OutIndices, InPayload, and NodeIO
     DxilParameterAnnotation &paramAnnotation =
         EntryAnnotation->GetParameterAnnotation(arg.getArgNo());
     hlsl::DxilParamInputQual qual = paramAnnotation.GetParamInputQual();
     if (qual == hlsl::DxilParamInputQual::OutIndices ||
-        qual == hlsl::DxilParamInputQual::InPayload)
+        qual == hlsl::DxilParamInputQual::InPayload ||
+        qual == hlsl::DxilParamInputQual::NodeIO)
       continue;
 
     ProcessArgument(Entry, EntryAnnotation, arg, props, pSM,
@@ -523,7 +524,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
         "Failed to allocate all input signature elements in available space.");
   }
 
-  if (props.shaderKind != DXIL::ShaderKind::Amplification) {
+  if (!props.IsAS()) {
     hlsl::PackDxilSignature(EntrySig.OutputSignature, packing);
     if (!EntrySig.OutputSignature.IsFullyAllocated()) {
       llvm_unreachable("Failed to allocate all output signature elements in "
@@ -531,9 +532,7 @@ void HLSignatureLower::AllocateDxilInputOutputs() {
     }
   }
 
-  if (props.shaderKind == DXIL::ShaderKind::Hull ||
-      props.shaderKind == DXIL::ShaderKind::Domain ||
-      props.shaderKind == DXIL::ShaderKind::Mesh) {
+  if (props.UsesPatchConstOrPrimSignature()) {
     hlsl::PackDxilSignature(EntrySig.PatchConstOrPrimSignature, packing);
     if (!EntrySig.PatchConstOrPrimSignature.IsFullyAllocated()) {
       llvm_unreachable("Failed to allocate all patch constant signature "
@@ -886,7 +885,7 @@ struct InputOutputAccessInfo {
 void collectInputOutputAccessInfo(
     Value *GV, Constant *constZero,
     std::vector<InputOutputAccessInfo> &accessInfoList, bool hasVertexOrPrimID,
-    bool bInput, bool bRowMajor, bool isMS) {
+    bool bInput, bool bRowMajor) {
   // merge GEP use for input output.
   dxilutil::MergeGepUse(GV);
   for (auto User = GV->user_begin(); User != GV->user_end();) {
@@ -1129,8 +1128,8 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
     opcode = OP::OpCode::LoadInput;
     break;
   case DXIL::SignatureKind::Output:
-    opcode =
-        props.IsMS() ? OP::OpCode::StoreVertexOutput : OP::OpCode::StoreOutput;
+    opcode = props.IsMS() || props.IsMeshNode() ? OP::OpCode::StoreVertexOutput
+                                                : OP::OpCode::StoreOutput;
     break;
   case DXIL::SignatureKind::PatchConstOrPrim:
     opcode = OP::OpCode::StorePrimitiveOutput;
@@ -1141,7 +1140,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
   bool bInput = SK == DXIL::SignatureKind::Input;
   bool bNeedVertexOrPrimID =
       bInput && (props.IsGS() || props.IsDS() || props.IsHS());
-  bNeedVertexOrPrimID |= !bInput && props.IsMS();
+  bNeedVertexOrPrimID |= !bInput && (props.IsMS() || props.IsMeshNode());
 
   Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
 
@@ -1155,7 +1154,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
 
   Constant *constZero = hlslOP->GetU32Const(0);
 
-  Value *undefVertexIdx = props.IsMS() || !bInput
+  Value *undefVertexIdx = props.IsMS() || props.IsMeshNode() || !bInput
                               ? nullptr
                               : UndefValue::get(Type::getInt32Ty(HLM.GetCtx()));
 
@@ -1236,7 +1235,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
     std::vector<InputOutputAccessInfo> accessInfoList;
     collectInputOutputAccessInfo(GV, constZero, accessInfoList,
                                  bNeedVertexOrPrimID && bIsArrayTy, bInput,
-                                 bRowMajor, props.IsMS());
+                                 bRowMajor);
 
     for (InputOutputAccessInfo &info : accessInfoList) {
       GenerateInputOutputUserCall(
@@ -1257,6 +1256,14 @@ void HLSignatureLower::GenerateDxilComputeAndNodeCommonInputs() {
   for (Argument &arg : Entry->args()) {
     DxilParameterAnnotation &paramAnnotation =
         funcAnnotation->GetParameterAnnotation(arg.getArgNo());
+
+    DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
+    // Skip mesh node out params
+    if (funcProps.IsMeshNode() &&
+        (inputQual == DxilParamInputQual::OutIndices ||
+         inputQual == DxilParamInputQual::OutVertices ||
+         inputQual == DxilParamInputQual::OutPrimitives))
+      continue;
 
     llvm::StringRef semanticStr = paramAnnotation.GetSemanticString();
 
@@ -1424,8 +1431,7 @@ void HLSignatureLower::GenerateDxilPatchConstantLdSt() {
     }
     std::vector<InputOutputAccessInfo> accessInfoList;
     collectInputOutputAccessInfo(GV, constZero, accessInfoList,
-                                 bNeedVertexOrPrimID, bIsInput, bRowMajor,
-                                 false);
+                                 bNeedVertexOrPrimID, bIsInput, bRowMajor);
 
     bool bIsArrayTy = GV->getType()->getPointerElementType()->isArrayTy();
     bool isPrecise = m_preciseSigSet.count(SE);
@@ -1499,8 +1505,7 @@ void HLSignatureLower::GenerateDxilPatchConstantFunctionInputs() {
       }
       std::vector<InputOutputAccessInfo> accessInfoList;
       collectInputOutputAccessInfo(&arg, constZero, accessInfoList,
-                                   /*hasVertexOrPrimID*/ true, true, bRowMajor,
-                                   false);
+                                   /*hasVertexOrPrimID*/ true, true, bRowMajor);
       for (InputOutputAccessInfo &info : accessInfoList) {
         Constant *OpArg = hlslOP->GetU32Const((unsigned)opcode);
         if (LoadInst *ldInst = dyn_cast<LoadInst>(info.user)) {
@@ -1802,6 +1807,13 @@ void HLSignatureLower::Run() {
       GenerateDxilPrimOutputs();
     }
   } else if (props.IsCS() || props.IsNode()) {
+    if (props.IsMeshNode()) {
+      GenerateEmitIndicesOperations();
+      CreateDxilSignatures();
+      AllocateDxilInputOutputs();
+      GenerateDxilOutputs();
+      GenerateDxilPrimOutputs();
+    }
     GenerateDxilComputeAndNodeCommonInputs();
   }
 
