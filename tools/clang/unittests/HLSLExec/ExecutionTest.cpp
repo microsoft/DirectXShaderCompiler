@@ -152,7 +152,7 @@ static void WriteInfoQueueMessages(void *pStrCtx,
       allMessagesOK = false;
       continue;
     }
-    CA2W msgW(pMessage->pDescription, CP_ACP);
+    CA2W msgW(pMessage->pDescription);
     pOutputStrFn(pStrCtx, msgW.m_psz);
     pOutputStrFn(pStrCtx, L"\r\n");
   }
@@ -1717,8 +1717,8 @@ public:
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
                     ID3DBlob **ppBlob) {
-    CW2A pEntryPointA(pEntryPoint, CP_UTF8);
-    CW2A pTargetProfileA(pTargetProfile, CP_UTF8);
+    CW2A pEntryPointA(pEntryPoint);
+    CW2A pTargetProfileA(pTargetProfile);
     CComPtr<ID3DBlob> pErrors;
     D3D_SHADER_MACRO d3dMacro[2];
     ZeroMemory(d3dMacro, sizeof(d3dMacro));
@@ -1728,7 +1728,7 @@ public:
         D3DCompile(pText, strlen(pText), "hlsl.hlsl", d3dMacro, nullptr,
                    pEntryPointA, pTargetProfileA, 0, 0, ppBlob, &pErrors);
     if (pErrors != nullptr) {
-      CA2W errors((char *)pErrors->GetBufferPointer(), CP_ACP);
+      CA2W errors((char *)pErrors->GetBufferPointer());
       LogCommentFmt(L"Compilation failure: %s", errors.m_szBuffer);
     }
     VERIFY_SUCCEEDED(hr);

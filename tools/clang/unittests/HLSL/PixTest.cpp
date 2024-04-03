@@ -2352,7 +2352,7 @@ static void VerifyOperationSucceeded(IDxcOperationResult *pResult) {
   if (FAILED(result)) {
     CComPtr<IDxcBlobEncoding> pErrors;
     VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
-    CA2W errorsWide(BlobToUtf8(pErrors).c_str(), CP_UTF8);
+    CA2W errorsWide(BlobToUtf8(pErrors).c_str());
     WEX::Logging::Log::Comment(errorsWide);
   }
   VERIFY_SUCCEEDED(result);

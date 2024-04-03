@@ -130,7 +130,7 @@ FileRunCommandPart::RunFileChecker(const FileRunCommandResult *Prior,
         "Prior command required to generate stdin");
 
   FileCheckForTest t;
-  t.CheckFilename = CW2A(CommandFileName, CP_UTF8);
+  t.CheckFilename = CW2A(CommandFileName);
   t.InputForStdin = Prior->ExitCode ? Prior->StdErr : Prior->StdOut;
 
   // Parse command arguments
@@ -164,7 +164,7 @@ FileRunCommandPart::RunFileChecker(const FileRunCommandResult *Prior,
 
   if (dumpName) {
     // Dump t.InputForStdin to file for comparison purposes
-    CW2A dumpNameUtf8(dumpName, CP_UTF8);
+    CW2A dumpNameUtf8(dumpName);
     llvm::StringRef dumpPath(dumpNameUtf8.m_psz);
     llvm::sys::fs::create_directories(llvm::sys::path::parent_path(dumpPath),
                                       /*IgnoreExisting*/ true);
@@ -1022,11 +1022,11 @@ FileRunCommandPart::RunTee(const FileRunCommandResult *Prior) {
 
   // Ignore commands for now - simply log out through test framework.
   {
-    CA2W outWide(Prior->StdOut.c_str(), CP_UTF8);
+    CA2W outWide(Prior->StdOut.c_str());
     WEX::Logging::Log::Comment(outWide.m_psz);
   }
   if (!Prior->StdErr.empty()) {
-    CA2W errWide(Prior->StdErr.c_str(), CP_UTF8);
+    CA2W errWide(Prior->StdErr.c_str());
     WEX::Logging::Log::Comment(L"<stderr>");
     WEX::Logging::Log::Comment(errWide.m_psz);
   }

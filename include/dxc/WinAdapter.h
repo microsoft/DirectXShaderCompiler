@@ -925,7 +925,6 @@ public:
       setlocale(LC_ALL, m_locale);
     }
   }
-  bool IsSupported() { return (m_locale != nullptr); }
 
 private:
   // Sets a locale for the specified Windows codepage
@@ -934,26 +933,16 @@ private:
       assert(false && "Support for Linux only handles UTF8 code pages");
     }
 #ifdef __APPLE__
-    switch (CodePage) {
-    case CP_UTF8:
-      return setlocale(Category, "en_US.UTF-8");
-    default:
-      return nullptr;
-    }
+    return setlocale(Category, "en_US.UTF-8");
 #else
     const char *utf8LocaleOptions[] = {"en_US.UTF-8", "en_US.utf8"};
 
-    switch (CodePage) {
-    case CP_UTF8: {
-      for (int i = 0; i < _countof(utf8LocaleOptions); ++i) {
-        const char *locale = setlocale(Category, utf8LocaleOptions[i]);
-        if (locale != nullptr)
-          return locale;
-      }
+    for (int i = 0; i < _countof(utf8LocaleOptions); ++i) {
+      const char *locale = setlocale(Category, utf8LocaleOptions[i]);
+      if (locale != nullptr)
+        return locale;
     }
-    default:
-      return nullptr;
-    }
+    return nullptr;
 #endif
   }
 };
@@ -962,14 +951,8 @@ private:
 // used here.
 template <int t_nBufferLength = 128> class CW2AEX {
 public:
-  CW2AEX(LPCWSTR psz, UINT nCodePage = CP_UTF8) {
-    ScopedLocale locale(nCodePage);
-    if (!locale.IsSupported()) {
-      // Current Implementation only supports CP_UTF8, and CP_ACP
-      assert(false && "CW2AEX implementation for Linux only handles "
-                      "UTF8 and ACP code pages");
-      return;
-    }
+  CW2AEX(LPCWSTR psz) {
+    ScopedLocale locale(CP_UTF8);
 
     if (!psz) {
       m_psz = NULL;
@@ -993,14 +976,8 @@ typedef CW2AEX<> CW2A;
 // used here.
 template <int t_nBufferLength = 128> class CA2WEX {
 public:
-  CA2WEX(LPCSTR psz, UINT nCodePage = CP_UTF8) {
-    ScopedLocale locale(nCodePage);
-    if (!locale.IsSupported()) {
-      // Current Implementation only supports CP_UTF8, and CP_ACP
-      assert(false && "CA2WEX implementation for Linux only handles "
-                      "UTF8 and ACP code pages");
-      return;
-    }
+  CA2WEX(LPCSTR psz) {
+    ScopedLocale locale(CP_UTF8);
 
     if (!psz) {
       m_psz = NULL;

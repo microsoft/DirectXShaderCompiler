@@ -2521,8 +2521,8 @@ private:
     _firstChecked = true;
 
     // TODO: review this - this will allocate at least once per string
-    CA2WEX<> typeName(_typeName.str().c_str(), CP_UTF8);
-    CA2WEX<> functionName(_functionName.str().c_str(), CP_UTF8);
+    CA2WEX<> typeName(_typeName.str().c_str());
+    CA2WEX<> functionName(_functionName.str().c_str());
 
     if (FAILED(_tables[_tableIndex]->LookupIntrinsic(
             typeName, functionName, &_tableIntrinsic, &_tableLookupCookie))) {
@@ -4469,7 +4469,7 @@ public:
       const HLSL_INTRINSIC *pIntrinsic = nullptr;
       const HLSL_INTRINSIC *pPrior = nullptr;
       UINT64 lookupCookie = 0;
-      CA2W wideTypeName(typeName, CP_UTF8);
+      CA2W wideTypeName(typeName);
       HRESULT found = table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic,
                                              &lookupCookie);
       while (pIntrinsic != nullptr && SUCCEEDED(found)) {
