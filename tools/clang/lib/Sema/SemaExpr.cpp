@@ -5288,7 +5288,8 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
   if (FDecl) {
     if (CheckFunctionCall(FDecl, TheCall, Proto))
       return ExprError();
-
+    if (CheckHLSLFunctionCall(FDecl, TheCall))
+      return ExprError();
     if (BuiltinID)
       return CheckBuiltinFunctionCall(FDecl, BuiltinID, TheCall);
   } else if (NDecl) {
