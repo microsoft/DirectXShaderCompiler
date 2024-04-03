@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ms_6_5 %s | FileCheck %s
+// RUN: %dxilver 1.9 | %dxc -E main -T ms_6_5 %s | FileCheck %s
 
 // CHECK: SetMeshOutputCounts cannot be called multiple times.
 
