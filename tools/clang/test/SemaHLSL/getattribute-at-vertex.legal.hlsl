@@ -21,6 +21,10 @@ struct S5 {
   S1 f1[2];
 };
 
+float compute(float3 value) {
+  return GetAttributeAtVertex(value, 0)[0];
+}
+
 float4 main(nointerpolation float3 a : A,
             S1 s1 : B,
             nointerpolation S2 s2 : C,
@@ -36,6 +40,7 @@ float4 main(nointerpolation float3 a : A,
   float v5 = GetAttributeAtVertex(s3.f1[1], 0)[0];
   float v6 = GetAttributeAtVertex(s4.f1.f1, 0)[0];
   float v7 = GetAttributeAtVertex(s5.f1[1].f1, 0)[0];
+  float v8 = compute(s1.f1);
 
-  return float4(v1, v2, v3, v4) + float4(v5, v6, v7.xx);
+  return float4(v1, v2, v3, v4) + float4(v5, v6, v7, v8);
 }

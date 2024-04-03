@@ -15240,6 +15240,9 @@ bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
 }
 
 bool Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
+  if (hlsl::IsIntrinsicOp(FDecl) && CheckHLSLIntrinsicCall(FDecl, TheCall))
+    return true;
+
   // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
   // to limit the scope, and fail gracefully in some cases.
   if (!getLangOpts().SPIRV)
