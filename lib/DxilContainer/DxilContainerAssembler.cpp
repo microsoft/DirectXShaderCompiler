@@ -1656,7 +1656,7 @@ private:
       funcAttribs.push_back(Builder.InsertRecord(nAttrib));
     }
 
-    if (props.IsMeshNode()) {
+    if (props.Node.LaunchType == NodeLaunchType::Mesh) {
       const DxilEntrySignature &sig = entryProps.sig;
       nAttrib = {};
       nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::MeshShaderInfo;

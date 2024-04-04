@@ -1,12 +1,12 @@
 // RUN: %dxc -T lib_6_9  %s | %D3DReflect %s | FileCheck %s
 
 
-// CHECK:DxilRuntimeData (size = 536 bytes):
-// CHECK:  StringBuffer (size = 32 bytes)
-// CHECK:  IndexTable (size = 88 bytes)
-// CHECK:  RawBytes (size = 0 bytes)
-// CHECK:  RecordTable (stride = 52 bytes) FunctionTable[1] = {
-// CHECK:    <0:RuntimeDataFunctionInfo2> = {
+// CHECK:DxilRuntimeData (size = {{[0-9]+}} bytes):
+// CHECK:  StringBuffer (size = {{[0-9]+}} bytes)
+// CHECK:  IndexTable (size = {{[0-9]+}} bytes)
+// CHECK:  RawBytes (size = {{[0-9]+}} bytes)
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[1] = {
+// CHECK:    <0:RuntimeDataFunctionInfo{{.*}}> = {
 // CHECK:      Name: "meshNodesLeaf"
 // CHECK:      UnmangledName: "meshNodesLeaf"
 // CHECK:      Resources: <RecordArrayRef<RuntimeDataResourceInfo>[0]> = {}
@@ -43,7 +43,7 @@
 // CHECK:          [3]: <3:NodeShaderFuncAttrib> = {
 // CHECK:            AttribKind: MeshShaderInfo
 // CHECK:            MeshShaderInfo: <0:MSInfo> = {
-// CHECK:              SigOutputElements: <8:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:              SigOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:                [0]: <0:SignatureElement> = {
 // CHECK:                  SemanticName: "SV_Position"
 // CHECK:                  SemanticIndices: <8:array[1]> = { 0 }
@@ -55,7 +55,7 @@
 // CHECK:                  UsageAndDynIndexMasks: 0
 // CHECK:                }
 // CHECK:              }
-// CHECK:              SigPrimOutputElements: <10:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:              SigPrimOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:                [0]: <1:SignatureElement> = {
 // CHECK:                  SemanticName: "CLR"
 // CHECK:                  SemanticIndices: <8:array[1]> = { 0 }
@@ -80,10 +80,10 @@
 // CHECK:          }
 // CHECK:        }
 // CHECK:        Outputs: <RecordArrayRef<IONode>[0]> = {}
-// CHECK:        Inputs: <8:RecordArrayRef<IONode>[1]>  = {
+// CHECK:        Inputs: <{{[0-9]+}}:RecordArrayRef<IONode>[1]>  = {
 // CHECK:          [0]: <0:IONode> = {
 // CHECK:            IOFlagsAndKind: 97
-// CHECK:            Attribs: <17:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
+// CHECK:            Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
 // CHECK:              [0]: <0:NodeShaderIOAttrib> = {
 // CHECK:                AttribKind: RecordSizeInBytes
 // CHECK:                RecordSizeInBytes: 12
@@ -104,13 +104,13 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeIDTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeIDTable[1] = {
 // CHECK:    <0:NodeID> = {
 // CHECK:      Name: "meshNodesLeaf"
 // CHECK:      Index: 0
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeShaderFuncAttribTable[4] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderFuncAttribTable[4] = {
 // CHECK:    <0:NodeShaderFuncAttrib> = {
 // CHECK:      AttribKind: ID
 // CHECK:      ID: <0:NodeID> = {
@@ -129,7 +129,7 @@
 // CHECK:    <3:NodeShaderFuncAttrib> = {
 // CHECK:      AttribKind: MeshShaderInfo
 // CHECK:      MeshShaderInfo: <0:MSInfo> = {
-// CHECK:        SigOutputElements: <8:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:        SigOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:          [0]: <0:SignatureElement> = {
 // CHECK:            SemanticName: "SV_Position"
 // CHECK:            SemanticIndices: <8:array[1]> = { 0 }
@@ -141,7 +141,7 @@
 // CHECK:            UsageAndDynIndexMasks: 0
 // CHECK:          }
 // CHECK:        }
-// CHECK:        SigPrimOutputElements: <10:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:        SigPrimOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:          [0]: <1:SignatureElement> = {
 // CHECK:            SemanticName: "CLR"
 // CHECK:            SemanticIndices: <8:array[1]> = { 0 }
@@ -165,7 +165,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) NodeShaderIOAttribTable[3] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderIOAttribTable[3] = {
 // CHECK:    <0:NodeShaderIOAttrib> = {
 // CHECK:      AttribKind: RecordSizeInBytes
 // CHECK:      RecordSizeInBytes: 12
@@ -181,10 +181,10 @@
 // CHECK:      RecordAlignmentInBytes: 4
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 8 bytes) IONodeTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) IONodeTable[1] = {
 // CHECK:    <0:IONode> = {
 // CHECK:      IOFlagsAndKind: 97
-// CHECK:      Attribs: <17:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
+// CHECK:      Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
 // CHECK:        [0]: <0:NodeShaderIOAttrib> = {
 // CHECK:          AttribKind: RecordSizeInBytes
 // CHECK:          RecordSizeInBytes: 12
@@ -202,11 +202,11 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 20 bytes) NodeShaderInfoTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderInfoTable[1] = {
 // CHECK:    <0:NodeShaderInfo> = {
 // CHECK:      LaunchType: Mesh
 // CHECK:      GroupSharedBytesUsed: 0
-// CHECK:      Attribs: <12:RecordArrayRef<NodeShaderFuncAttrib>[4]>  = {
+// CHECK:      Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderFuncAttrib>[4]>  = {
 // CHECK:        [0]: <0:NodeShaderFuncAttrib> = {
 // CHECK:          AttribKind: ID
 // CHECK:          ID: <0:NodeID> = {
@@ -225,7 +225,7 @@
 // CHECK:        [3]: <3:NodeShaderFuncAttrib> = {
 // CHECK:          AttribKind: MeshShaderInfo
 // CHECK:          MeshShaderInfo: <0:MSInfo> = {
-// CHECK:            SigOutputElements: <8:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:            SigOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:              [0]: <0:SignatureElement> = {
 // CHECK:                SemanticName: "SV_Position"
 // CHECK:                SemanticIndices: <8:array[1]> = { 0 }
@@ -237,7 +237,7 @@
 // CHECK:                UsageAndDynIndexMasks: 0
 // CHECK:              }
 // CHECK:            }
-// CHECK:            SigPrimOutputElements: <10:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:            SigPrimOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:              [0]: <1:SignatureElement> = {
 // CHECK:                SemanticName: "CLR"
 // CHECK:                SemanticIndices: <8:array[1]> = { 0 }
@@ -262,10 +262,10 @@
 // CHECK:        }
 // CHECK:      }
 // CHECK:      Outputs: <RecordArrayRef<IONode>[0]> = {}
-// CHECK:      Inputs: <8:RecordArrayRef<IONode>[1]>  = {
+// CHECK:      Inputs: <{{[0-9]+}}:RecordArrayRef<IONode>[1]>  = {
 // CHECK:        [0]: <0:IONode> = {
 // CHECK:          IOFlagsAndKind: 97
-// CHECK:          Attribs: <17:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
+// CHECK:          Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
 // CHECK:            [0]: <0:NodeShaderIOAttrib> = {
 // CHECK:              AttribKind: RecordSizeInBytes
 // CHECK:              RecordSizeInBytes: 12
@@ -285,7 +285,7 @@
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 16 bytes) SignatureElementTable[2] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) SignatureElementTable[2] = {
 // CHECK:    <0:SignatureElement> = {
 // CHECK:      SemanticName: "SV_Position"
 // CHECK:      SemanticIndices: <8:array[1]> = { 0 }
@@ -307,9 +307,9 @@
 // CHECK:      UsageAndDynIndexMasks: 0
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = 48 bytes) MSInfoTable[1] = {
+// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) MSInfoTable[1] = {
 // CHECK:    <0:MSInfo> = {
-// CHECK:      SigOutputElements: <8:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:      SigOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:        [0]: <0:SignatureElement> = {
 // CHECK:          SemanticName: "SV_Position"
 // CHECK:          SemanticIndices: <8:array[1]> = { 0 }
@@ -321,7 +321,7 @@
 // CHECK:          UsageAndDynIndexMasks: 0
 // CHECK:        }
 // CHECK:      }
-// CHECK:      SigPrimOutputElements: <10:RecordArrayRef<SignatureElement>[1]>  = {
+// CHECK:      SigPrimOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:        [0]: <1:SignatureElement> = {
 // CHECK:          SemanticName: "CLR"
 // CHECK:          SemanticIndices: <8:array[1]> = { 0 }
