@@ -759,10 +759,9 @@ public:
 
   virtual int Open(const char *lpFileName, int flags,
                    mode_t mode) throw() override {
-    HANDLE H =
-        CreateFileW(CA2W(lpFileName), GENERIC_READ | GENERIC_WRITE,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE, OPEN_EXISTING,
-                    FILE_ATTRIBUTE_NORMAL);
+    HANDLE H = CreateFileW(CA2W(lpFileName), GENERIC_READ | GENERIC_WRITE,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE, OPEN_EXISTING,
+                           FILE_ATTRIBUTE_NORMAL);
     if (H == INVALID_HANDLE_VALUE)
       return -1;
     int FD = open_osfhandle(intptr_t(H), 0);

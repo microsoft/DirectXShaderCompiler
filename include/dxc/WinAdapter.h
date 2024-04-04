@@ -126,7 +126,7 @@
 // Used by HRESULT <--> WIN32 error code conversion
 #define SEVERITY_ERROR 1
 #define FACILITY_WIN32 7
-#define HRESULT_CODE(hr) ((hr)&0xFFFF)
+#define HRESULT_CODE(hr) ((hr) & 0xFFFF)
 #define MAKE_HRESULT(severity, facility, code)                                 \
   ((HRESULT)(((unsigned long)(severity) << 31) |                               \
              ((unsigned long)(facility) << 16) | ((unsigned long)(code))))
@@ -238,7 +238,7 @@
 
 #define HRESULT_FROM_WIN32(x)                                                  \
   (HRESULT)(x) <= 0 ? (HRESULT)(x)                                             \
-                    : (HRESULT)(((x)&0x0000FFFF) | (7 << 16) | 0x80000000)
+                    : (HRESULT)(((x) & 0x0000FFFF) | (7 << 16) | 0x80000000)
 
 //===----------------------------------------------------------------------===//
 //

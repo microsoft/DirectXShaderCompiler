@@ -63,8 +63,7 @@ HRESULT CompileFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       while (pCursor->Name) {
         defineValues.push_back(std::wstring(CA2W(pCursor->Name)));
         if (pCursor->Definition)
-          defineValues.push_back(
-              std::wstring(CA2W(pCursor->Definition)));
+          defineValues.push_back(std::wstring(CA2W(pCursor->Definition)));
         else
           defineValues.push_back(std::wstring());
         ++pCursor;
@@ -300,8 +299,7 @@ HRESULT PreprocessFromBlob(IDxcBlobEncoding *pSource, LPCWSTR pSourceName,
       while (pCursor->Name) {
         defineValues.push_back(std::wstring(CA2W(pCursor->Name)));
         if (pCursor->Definition)
-          defineValues.push_back(
-              std::wstring(CA2W(pCursor->Definition)));
+          defineValues.push_back(std::wstring(CA2W(pCursor->Definition)));
         else
           defineValues.push_back(std::wstring());
         ++pCursor;
