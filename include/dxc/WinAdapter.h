@@ -932,18 +932,7 @@ private:
     if (CodePage != CP_UTF8) {
       assert(false && "Support for Linux only handles UTF8 code pages");
     }
-#ifdef __APPLE__
     return setlocale(Category, "en_US.UTF-8");
-#else
-    const char *utf8LocaleOptions[] = {"en_US.UTF-8", "en_US.utf8"};
-
-    for (size_t i = 0; i < _countof(utf8LocaleOptions); ++i) {
-      const char *locale = setlocale(Category, utf8LocaleOptions[i]);
-      if (locale != nullptr)
-        return locale;
-    }
-    return nullptr;
-#endif
   }
 };
 
