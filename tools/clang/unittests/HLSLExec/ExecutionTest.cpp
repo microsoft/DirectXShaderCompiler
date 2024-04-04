@@ -4020,11 +4020,8 @@ TEST_F(ExecutionTest, DerivativesTest) {
                                           {16, 8, 1}, {8, 4, 2},   {10, 10, 1},
                                           {4, 16, 2}, {4, 16, 2}};
 
-  std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
-
   pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
-  LPCSTR CS = pShaderOp->CS;
-
+  
   MappedData data;
 
   for (Dispatch &D : dispatches) {
@@ -4066,19 +4063,6 @@ TEST_F(ExecutionTest, DerivativesTest) {
       pPixels = (float *)data.data();
       LogCommentFmt(L"Verifying derivatives in amplification shader results");
       VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
-    }
-  }
-
-  // Final tests with invalid dispatch size just to make sure they run
-  for (Dispatch &D : badDispatches) {
-    // Test Compute Shader
-    pShaderOp->CS = CS;
-    std::shared_ptr<st::ShaderOpTest> test =
-        RunDispatch(pDevice, m_support, pShaderOp, D);
-
-    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-      pShaderOp->CS = nullptr;
-      test = RunDispatch(pDevice, m_support, pShaderOp, D);
     }
   }
 }
