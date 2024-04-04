@@ -1,39 +1,28 @@
-// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: not %dxc -T ps_6_0 -E main -fcgl  %s -spirv
 
-// TODO: this won't work until #5554 is fixed
+// This won't work until #5554 is fixed. When it is, add a check that it compiles correctly.
 
-// TODO: remove
-// CHECK: SPIR-V
+enum class Scope {
+  CrossDevice = 0,
+  Device = 1,
+  Workgroup = 2,
+  Subgroup = 3,
+  Invocation = 4,
+  QueueFamily = 5,
+  QueueFamilyKHR = 5,
+  ShaderCallKHR = 6,
+};
 
-// enum class Scope {
-//   CrossDevice = 0,
-//   Device = 1,
-//   Workgroup = 2,
-//   Subgroup = 3,
-//   Invocation = 4,
-//   QueueFamily = 5,
-//   QueueFamilyKHR = 5,
-//   ShaderCallKHR = 6,
-// };
+enum class CooperativeMatrixUse {
+  MatrixAKHR = 0,
+  MatrixBKHR = 1,
+  MatrixAccumulatorKHR = 2,
+};
 
-// enum class CooperativeMatrixUse {
-//   MatrixAKHR = 0,
-//   MatrixBKHR = 1,
-//   MatrixAccumulatorKHR = 2,
-// };
+typedef vk::SpirvOpaqueType</* OpTypeCooperativeMatrixKHR */ 4456, float, vk::integral_constant<Scope, Scope::Subgroup>, 32, 32, CooperativeMatrixUse::MatrixAKHR> mat_t;
 
-// // TODO: define this in dxc
-// namespace vk {
-//   template<typename T, T v>
-//   struct integral_constant {};
-// }
-
-// // CHECK-TODO: %spirvIntrinsicType = OpTypeCooperativeMatrixKHR %float %int_3 %int_32 %int_32 %int_0
-// typedef vk::SpirvOpaqueType</* OpTypeCooperativeMatrixKHR */ 4456, float, vk::integral_constant<Scope, Scope::Subgroup>, 32, 32, CooperativeMatrixUse::MatrixAKHR> mat_t;
-
-// [[vk::ext_extension("SPV_KHR_cooperative_matrix")]]
-// [[vk::ext_capability(/* CooperativeMatrixKHR */ 6022)]]
+[[vk::ext_extension("SPV_KHR_cooperative_matrix")]]
+[[vk::ext_capability(/* CooperativeMatrixKHR */ 6022)]]
 void main() {
-//   // CHECK-TODO: %mat = OpVariable %_ptr_Function_spirvIntrinsicType
-//   mat_t mat;
+  mat_t mat;
 }

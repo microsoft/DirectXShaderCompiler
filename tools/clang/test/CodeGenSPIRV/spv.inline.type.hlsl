@@ -1,6 +1,6 @@
 // RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
-// TODO(5751): enable Array test when `using` has been implemented
+// TODO(6498): enable Array test when using `Texture2D` with an alias template of `SpirvType` is fixed
 // CHECK-TODO: %type_Array_type_2d_image = OpTypeArray %type_2d_image
 // template<typename SomeType>
 // using Array = vk::SpirvOpaqueType</* OpTypeArray */ 28, SomeType, 4>;
