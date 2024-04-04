@@ -4021,7 +4021,7 @@ TEST_F(ExecutionTest, DerivativesTest) {
                                           {4, 16, 2}, {4, 16, 2}};
 
   pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
-  
+
   MappedData data;
 
   for (Dispatch &D : dispatches) {
