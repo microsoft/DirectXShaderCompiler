@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-8
 // RUN: %dxc -T lib_6_7 -disable-payload-qualifiers %s 2>&1 | FileCheck %s
 // RUN: %dxc -T lib_6_8 -disable-payload-qualifiers %s 2>&1 | FileCheck %s
 
