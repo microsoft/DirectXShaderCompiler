@@ -386,8 +386,7 @@ CComPtr<IDxcBlob> Compile(dxc::DxcDllSupport &dllSupport, const char *hlsl,
   if (FAILED(compilationStatus)) {
     CComPtr<IDxcBlobEncoding> pErrros;
     VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrros));
-    CA2W errorTextW(static_cast<const char *>(pErrros->GetBufferPointer()),
-                    CP_UTF8);
+    CA2W errorTextW(static_cast<const char *>(pErrros->GetBufferPointer()));
     WEX::Logging::Log::Error(errorTextW);
     return {};
   }

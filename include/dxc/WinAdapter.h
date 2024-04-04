@@ -937,7 +937,7 @@ private:
 #else
     const char *utf8LocaleOptions[] = {"en_US.UTF-8", "en_US.utf8"};
 
-    for (int i = 0; i < _countof(utf8LocaleOptions); ++i) {
+    for (size_t i = 0; i < _countof(utf8LocaleOptions); ++i) {
       const char *locale = setlocale(Category, utf8LocaleOptions[i]);
       if (locale != nullptr)
         return locale;

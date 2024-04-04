@@ -601,8 +601,8 @@ public:
                                     : opts.OutputObject.empty()
                                         ? ""
                                         : opts.OutputObject.data();
-      CA2W pWideOutputName(
-          isPreprocessing ? opts.Preprocess.data() : pUtf8OutputName, CP_UTF8);
+      CA2W pWideOutputName(isPreprocessing ? opts.Preprocess.data()
+                                           : pUtf8OutputName);
       LPCWSTR pObjectName = (!isPreprocessing && opts.OutputObject.empty())
                                 ? nullptr
                                 : pWideOutputName.m_psz;
