@@ -46,16 +46,8 @@
 // CHECK:          [3]: <{{[0-9]+}}:NodeShaderFuncAttrib> = {
 // CHECK:            AttribKind: MeshShaderInfo
 // CHECK:            MeshShaderInfo: <0:MSInfo> = {
-// CHECK:              SigOutputElements: <0:RecordArrayRef<SignatureElement>[3]>  = {
-// CHECK:                [0]: <1:SignatureElement> = <nullptr>
-// CHECK:                [1]: <1:SignatureElement> = <nullptr>
-// CHECK:                [2]: <1:SignatureElement> = <nullptr>
-// CHECK:              }
-// CHECK:              SigPrimOutputElements: <0:RecordArrayRef<SignatureElement>[3]>  = {
-// CHECK:                [0]: <1:SignatureElement> = <nullptr>
-// CHECK:                [1]: <1:SignatureElement> = <nullptr>
-// CHECK:                [2]: <1:SignatureElement> = <nullptr>
-// CHECK:              }
+// CHECK:              SigOutputElements: <RecordArrayRef<SignatureElement>[0]> = {}
+// CHECK:              SigPrimOutputElements: <RecordArrayRef<SignatureElement>[0]> = {}
 // CHECK:              ViewIDOutputMask: <0:bytes[0]>
 // CHECK:              ViewIDPrimOutputMask: <0:bytes[0]>
 // CHECK:              NumThreads: <0:array[3]> = { 1, 1, 1 }
