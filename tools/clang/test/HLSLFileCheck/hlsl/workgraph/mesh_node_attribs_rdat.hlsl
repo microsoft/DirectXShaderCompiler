@@ -162,6 +162,7 @@ void node02_mesh_maxdispatch(DispatchNodeInputRecord<RECORD> input) {}
 // CHECK:              PayloadSizeInBytes: 0
 // CHECK:              MaxOutputVertices: 0
 // CHECK:              MaxOutputPrimitives: 0
+// set by [OutputTopology("triangle")] (triangle == 2)
 // CHECK:              MeshOutputTopology: 2
 // CHECK:            }
 // CHECK:          }
