@@ -92,6 +92,7 @@ void node02_mesh_maxdispatch(DispatchNodeInputRecord<RECORD> input) {}
 // CHECK:               PayloadSizeInBytes: 0
 // CHECK:               MaxOutputVertices: 0
 // CHECK:               MaxOutputPrimitives: 0
+// set by [OutputTopology("line")] (line == 1)
 // CHECK:               MeshOutputTopology: 1
 // CHECK:            }
 // CHECK:          }
