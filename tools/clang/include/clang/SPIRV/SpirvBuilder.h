@@ -443,10 +443,10 @@ public:
 
   /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
   /// arguments.
-  SpirvInstruction *createBitFieldInsert(QualType ResultType,
-                                         SpirvInstruction *Dst,
-                                         SpirvInstruction *Src,
-                                         unsigned BitOffset, unsigned BitCount,
+  SpirvInstruction *createBitFieldInsert(QualType resultType,
+                                         SpirvInstruction *dst,
+                                         SpirvInstruction *src,
+                                         unsigned bitOffset, unsigned bitCount,
                                          SourceLocation, SourceRange);
 
   /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
@@ -835,10 +835,10 @@ private:
   /// \brief Emulates OpBitFieldInsert SPIR-V instruction for the given
   /// arguments.
   SpirvInstruction *
-  createEmulatedBitFieldInsert(QualType ResultType, uint32_t BaseTypeBitwidth,
-                               SpirvInstruction *Dst, SpirvInstruction *Src,
-                               unsigned BitOffset, unsigned BitCount,
-                               SourceLocation loc, SourceRange range);
+  createEmulatedBitFieldInsert(QualType resultType, uint32_t baseTypeBitwidth,
+                               SpirvInstruction *dst, SpirvInstruction *src,
+                               unsigned bitOffset, unsigned bitCount,
+                               SourceLocation, SourceRange);
 
 private:
   ASTContext &astContext;
