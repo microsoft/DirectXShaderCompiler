@@ -887,10 +887,12 @@ SpirvInstruction *SpirvBuilder::createEmulatedBitFieldInsert(
   //
   //
 
-  // mask = (1 << bitCount) - 1     // Create a mask matching B's size.
-  // mask = (unsigned dstType)mask  // cast mask to the an unsigned with the
-  // same bitwidth. mask = mask << bitOffset  // Move the mask to B's position
-  // in the raw type.
+  // Create a mask matching B's size.
+  //   mask = (1 << bitCount) - 1
+  // cast mask to the an unsigned with the same bitwidth.
+  //   mask = (unsigned dstType)mask
+  // Move the mask to B's position in the raw type.
+  //   mask = mask << bitOffset
   assert(bitCount <= 64 &&
          "Bitfield insertion emulation can only insert at most 64 bits.");
   auto maskTy =
