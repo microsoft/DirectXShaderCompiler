@@ -1657,9 +1657,25 @@ private:
     }
 
     if (props.Node.LaunchType == NodeLaunchType::Mesh) {
+      const DxilEntrySignature &sig = entryProps.sig;
       nAttrib = {};
       nAttrib.AttribKind = (uint32_t)RDAT::NodeFuncAttribKind::MeshShaderInfo;
       RDAT::MSInfo info = {};
+      uint32_t shaderFlags = 0;
+      info.SigOutputElements = AddSigElements(sig.OutputSignature, shaderFlags);
+      funcInfo.ShaderFlags |=
+          (uint16_t)(shaderFlags &
+                     (uint16_t)DxilShaderFlags::OutputPositionPresent);
+      info.SigPrimOutputElements =
+          AddSigElements(sig.PatchConstOrPrimSignature, shaderFlags);
+      // TODO: Fill in ViewID related masks
+      info.NumThreads =
+          Builder.InsertArray(&props.numThreads[0], &props.numThreads[0] + 3);
+      info.GroupSharedBytesUsed = tgsmSizeInBytes;
+      info.GroupSharedBytesDependentOnViewID =
+          (uint32_t)0; // TODO: same thing (note: this isn't filled in for PSV!)
+      info.PayloadSizeInBytes =
+          (uint32_t)props.ShaderProps.MS.payloadSizeInBytes;
       info.MeshOutputTopology = (uint8_t)props.ShaderProps.MS.outputTopology;
       info.MaxOutputVertices = (uint16_t)props.ShaderProps.MS.maxVertexCount;
       info.MaxOutputPrimitives =

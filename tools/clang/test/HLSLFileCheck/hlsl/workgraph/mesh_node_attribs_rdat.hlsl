@@ -82,26 +82,18 @@ void node02_mesh_maxdispatch(DispatchNodeInputRecord<RECORD> input) {}
 // CHECK:          [4]: <{{[0-9]+}}:NodeShaderFuncAttrib> = {
 // CHECK:            AttribKind: MeshShaderInfo
 // CHECK:            MeshShaderInfo: <0:MSInfo> = {
-// CHECK:              SigOutputElements: <0:RecordArrayRef<SignatureElement>[3]>  = {
-// CHECK:                [0]: <1:SignatureElement> = <nullptr>
-// CHECK:                [1]: <2:SignatureElement> = <nullptr>
-// CHECK:                [2]: <3:SignatureElement> = <nullptr>
-// CHECK:              }
-// CHECK:              SigPrimOutputElements: <0:RecordArrayRef<SignatureElement>[3]>  = {
-// CHECK:                [0]: <1:SignatureElement> = <nullptr>
-// CHECK:                [1]: <2:SignatureElement> = <nullptr>
-// CHECK:                [2]: <3:SignatureElement> = <nullptr>
-// CHECK:              }
-// CHECK:              ViewIDOutputMask: <0:bytes[0]>
-// CHECK:              ViewIDPrimOutputMask: <0:bytes[0]>
-// CHECK:              NumThreads: <0:array[3]> = { 1, 2, 3 }
-// CHECK:              GroupSharedBytesUsed: 0
-// CHECK:              GroupSharedBytesDependentOnViewID: 0
-// CHECK:              PayloadSizeInBytes: 0
-// CHECK:              MaxOutputVertices: 0
-// CHECK:              MaxOutputPrimitives: 0
+// CHECK:               SigOutputElements: <RecordArrayRef<SignatureElement>[0]> = {}
+// CHECK:               SigPrimOutputElements: <RecordArrayRef<SignatureElement>[0]> = {}
+// CHECK:               ViewIDOutputMask: <0:bytes[0]>
+// CHECK:               ViewIDPrimOutputMask: <0:bytes[0]>
+// CHECK:               NumThreads: <0:array[3]> = { 1, 2, 3 }
+// CHECK:               GroupSharedBytesUsed: 0
+// CHECK:               GroupSharedBytesDependentOnViewID: 0
+// CHECK:               PayloadSizeInBytes: 0
+// CHECK:               MaxOutputVertices: 0
+// CHECK:               MaxOutputPrimitives: 0
 // set by [OutputTopology("line")] (line == 1)
-// CHECK:              MeshOutputTopology: 1
+// CHECK:               MeshOutputTopology: 1
 // CHECK:            }
 // CHECK:          }
 // CHECK:        }
@@ -161,19 +153,11 @@ void node02_mesh_maxdispatch(DispatchNodeInputRecord<RECORD> input) {}
 // CHECK:          [4]: <4:NodeShaderFuncAttrib> = {
 // CHECK:            AttribKind: MeshShaderInfo
 // CHECK:            MeshShaderInfo: <0:MSInfo> = {
-// CHECK:              SigOutputElements: <0:RecordArrayRef<SignatureElement>[3]>  = {
-// CHECK:                [0]: <1:SignatureElement> = <nullptr>
-// CHECK:                [1]: <2:SignatureElement> = <nullptr>
-// CHECK:                [2]: <3:SignatureElement> = <nullptr>
-// CHECK:              }
-// CHECK:              SigPrimOutputElements: <0:RecordArrayRef<SignatureElement>[3]>  = {
-// CHECK:                [0]: <1:SignatureElement> = <nullptr>
-// CHECK:                [1]: <2:SignatureElement> = <nullptr>
-// CHECK:                [2]: <3:SignatureElement> = <nullptr>
-// CHECK:              }
+// CHECK:              SigOutputElements: <RecordArrayRef<SignatureElement>[0]> = {}
+// CHECK:              SigPrimOutputElements: <RecordArrayRef<SignatureElement>[0]> = {}
 // CHECK:              ViewIDOutputMask: <0:bytes[0]>
 // CHECK:              ViewIDPrimOutputMask: <0:bytes[0]>
-// CHECK:              NumThreads: <0:array[3]> = { 1, 2, 3 }
+// CHECK:              NumThreads: <15:array[3]> = { 3, 2, 1 }
 // CHECK:              GroupSharedBytesUsed: 0
 // CHECK:              GroupSharedBytesDependentOnViewID: 0
 // CHECK:              PayloadSizeInBytes: 0
@@ -217,6 +201,8 @@ void node02_mesh_maxdispatch(DispatchNodeInputRecord<RECORD> input) {}
 // CHECK:      }
 // CHECK:    }
 // CHECK:  }
+// Lots of intermediate RDAT output that is skipped,
+// we jump to checking for ID3D12Library Reflection here.
 // CHECK:ID3D12LibraryReflection:
 // CHECK:  D3D12_LIBRARY_DESC:
 // CHECK:    Creator: <nullptr>
