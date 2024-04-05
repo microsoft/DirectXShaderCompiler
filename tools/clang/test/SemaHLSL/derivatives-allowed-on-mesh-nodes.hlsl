@@ -1,6 +1,10 @@
 // RUN: %dxc -Tlib_6_9 %s -verify
 
 // expected-no-diagnostics
+// previously, we expected 2 diagnostics: 
+// {{overload of intrinsic CalculateLevelOfDetail with SamplerComparisonState requires shader model 6.8 or greater}}
+// {{overload of intrinsic CalculateLevelOfDetailUnclamped with SamplerComparisonState requires shader model 6.8 or greater}}
+
 
 SamplerComparisonState s;
 Texture1D t;
