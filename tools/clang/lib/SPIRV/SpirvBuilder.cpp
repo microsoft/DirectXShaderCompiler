@@ -876,56 +876,70 @@ void SpirvBuilder::createBarrier(spv::Scope memoryScope,
 }
 
 SpirvInstruction *SpirvBuilder::createEmulatedBitFieldInsert(
-    QualType resultType, uint32_t baseTypeBitwidth, SpirvInstruction *dst,
-    SpirvInstruction *src, unsigned bitOffset, unsigned bitCount,
+    QualType resultType, uint32_t baseTypeBitwidth, SpirvInstruction *base,
+    SpirvInstruction *insert, unsigned bitOffset, unsigned bitCount,
     SourceLocation loc, SourceRange range) {
 
   // The destination is a raw struct field, which can contain several bitfields:
   // raw field: AAAABBBBCCCCCCCCDDDD
   // To insert a new value for the field BBBB, we need to clear the B bits in
   // the field, and insert the new values.
-  //
-  //
 
-  // Create a mask matching B's size.
+  // Create a mask to clear B from the raw field.
   //   mask = (1 << bitCount) - 1
+  //      raw field: AAAABBBBCCCCCCCCDDDD
+  //           mask: 00000000000000001111
   // cast mask to the an unsigned with the same bitwidth.
   //   mask = (unsigned dstType)mask
   // Move the mask to B's position in the raw type.
   //   mask = mask << bitOffset
+  //      raw field: AAAABBBBCCCCCCCCDDDD
+  //           mask: 00001111000000000000
+  // Generate inverted mask to clear other bits in *insert*.
+  //   notMask = ~mask
+  //      raw field: AAAABBBBCCCCCCCCDDDD
+  //           mask: 11110000111111111111
   assert(bitCount <= 64 &&
          "Bitfield insertion emulation can only insert at most 64 bits.");
   auto maskTy =
       astContext.getIntTypeForBitwidth(baseTypeBitwidth, /* signed= */ 0);
-  const uint64_t MaskValue = (1ull << bitCount) - 1ull;
-  auto *wordMask =
-      getConstantInt(maskTy, llvm::APInt(baseTypeBitwidth, MaskValue));
+  const uint64_t maskValue = ((1ull << bitCount) - 1ull) << bitOffset;
+  const uint64_t notMaskValue = ~maskValue;
+
+  auto *mask = getConstantInt(maskTy, llvm::APInt(baseTypeBitwidth, maskValue));
+  auto *notMask =
+      getConstantInt(maskTy, llvm::APInt(baseTypeBitwidth, notMaskValue));
   auto *shiftOffset =
       getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitOffset));
-  auto *mask = createBinaryOp(spv::Op::OpShiftLeftLogical, maskTy, wordMask,
-                              shiftOffset, loc, range);
-  auto *notMask = createUnaryOp(spv::Op::OpNot, maskTy, mask, loc, range);
 
-  // dst = dst & MASK        // Clear bits at B's position.
-  auto *clearedDst = createBinaryOp(spv::Op::OpBitwiseAnd, resultType, dst,
+  // base = base & MASK        // Clear bits at B's position.
+  //          input: AAAABBBBCCCCCCCCDDDD
+  //         output: AAAA----CCCCCCCCDDDD
+  auto *clearedDst = createBinaryOp(spv::Op::OpBitwiseAnd, resultType, base,
                                     notMask, loc, range);
 
-  // tmp = (dstType)SRC      // Convert SRC to the dst type.
+  //          input: SSSSSSSSSSSSSSSSBBBB
+  // tmp = (dstType)SRC      // Convert SRC to the base type.
   // tmp = tmp << bitOffset  // Move the SRC value to the correct bit offset.
+  //         output: SSSSBBBB------------
   // tmp = tmp & ~MASK       // Clear any sign extension bits.
+  //         output: ----BBBB------------
   auto *castedSrc =
-      createUnaryOp(spv::Op::OpBitcast, resultType, src, loc, range);
+      createUnaryOp(spv::Op::OpBitcast, resultType, insert, loc, range);
   auto *shiftedSrc = createBinaryOp(spv::Op::OpShiftLeftLogical, resultType,
                                     castedSrc, shiftOffset, loc, range);
   auto *maskedSrc = createBinaryOp(spv::Op::OpBitwiseAnd, resultType,
                                    shiftedSrc, mask, loc, range);
 
-  // dst = dst | tmp;        // Insert B in the raw field.
+  // base = base | tmp;        // Insert B in the raw field.
+  //         tmp: ----BBBB------------
+  //        base: AAAA----CCCCCCCCDDDD
+  //      output: AAAABBBBCCCCCCCCDDDD
   auto *result = createBinaryOp(spv::Op::OpBitwiseOr, resultType, clearedDst,
                                 maskedSrc, loc, range);
 
-  if (dst->getResultType()) {
-    auto *dstTy = dyn_cast<IntegerType>(dst->getResultType());
+  if (base->getResultType()) {
+    auto *dstTy = dyn_cast<IntegerType>(base->getResultType());
     clearedDst->setResultType(dstTy);
     shiftedSrc->setResultType(dstTy);
     maskedSrc->setResultType(dstTy);
@@ -936,31 +950,31 @@ SpirvInstruction *SpirvBuilder::createEmulatedBitFieldInsert(
 }
 
 SpirvInstruction *
-SpirvBuilder::createBitFieldInsert(QualType resultType, SpirvInstruction *dst,
-                                   SpirvInstruction *src, unsigned bitOffset,
+SpirvBuilder::createBitFieldInsert(QualType resultType, SpirvInstruction *base,
+                                   SpirvInstruction *insert, unsigned bitOffset,
                                    unsigned bitCount, SourceLocation loc,
                                    SourceRange range) {
   assert(insertPoint && "null insert point");
 
   uint32_t bitwidth = 0;
   if (resultType == QualType({})) {
-    assert(dst->hasResultType() && "No type information for bitfield.");
-    bitwidth = dyn_cast<IntegerType>(dst->getResultType())->getBitwidth();
+    assert(base->hasResultType() && "No type information for bitfield.");
+    bitwidth = dyn_cast<IntegerType>(base->getResultType())->getBitwidth();
   } else {
     bitwidth = getElementSpirvBitwidth(astContext, resultType,
                                        spirvOptions.enable16BitTypes);
   }
 
   if (bitwidth != 32)
-    return createEmulatedBitFieldInsert(resultType, bitwidth, dst, src,
+    return createEmulatedBitFieldInsert(resultType, bitwidth, base, insert,
                                         bitOffset, bitCount, loc, range);
 
   auto *insertOffset =
       getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitOffset));
   auto *insertCount =
       getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitCount));
-  auto *inst = new (context)
-      SpirvBitFieldInsert(resultType, loc, dst, src, insertOffset, insertCount);
+  auto *inst = new (context) SpirvBitFieldInsert(resultType, loc, base, insert,
+                                                 insertOffset, insertCount);
   insertPoint->addInstruction(inst);
   inst->setRValue(true);
   return inst;

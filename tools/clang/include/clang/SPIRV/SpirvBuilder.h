@@ -444,8 +444,8 @@ public:
   /// \brief Creates an OpBitFieldInsert SPIR-V instruction for the given
   /// arguments.
   SpirvInstruction *createBitFieldInsert(QualType resultType,
-                                         SpirvInstruction *dst,
-                                         SpirvInstruction *src,
+                                         SpirvInstruction *base,
+                                         SpirvInstruction *insert,
                                          unsigned bitOffset, unsigned bitCount,
                                          SourceLocation, SourceRange);
 
@@ -836,7 +836,7 @@ private:
   /// arguments.
   SpirvInstruction *
   createEmulatedBitFieldInsert(QualType resultType, uint32_t baseTypeBitwidth,
-                               SpirvInstruction *dst, SpirvInstruction *src,
+                               SpirvInstruction *base, SpirvInstruction *insert,
                                unsigned bitOffset, unsigned bitCount,
                                SourceLocation, SourceRange);
 
