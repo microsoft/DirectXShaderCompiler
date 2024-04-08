@@ -303,7 +303,7 @@ bool DxaContext::ExtractPart(const char *pName) {
 
   WriteBlobToFile(pContent, StringRefWide(OutputFilename),
                   DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
-  printf("%zu bytes written to %s\n", pContent->GetBufferSize(),
+  printf("%zu bytes written to %s\n", (size_t)pContent->GetBufferSize(),
          OutputFilename.c_str());
   return true;
 }
