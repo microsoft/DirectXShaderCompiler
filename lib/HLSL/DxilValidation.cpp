@@ -5430,7 +5430,8 @@ struct CompatibilityChecker {
           static_cast<uint32_t>(ConflictFlags::DerivInComputeShaderModel);
     } else if (shaderKind == DXIL::ShaderKind::Node) {
       // Only broadcasting launch supports derivatives.
-      if (props.Node.LaunchType != DXIL::NodeLaunchType::Broadcasting)
+      if (props.Node.LaunchType != DXIL::NodeLaunchType::Broadcasting &&
+          props.Node.LaunchType != DXIL::NodeLaunchType::Mesh)
         maskForDeriv |= static_cast<uint32_t>(ConflictFlags::DerivLaunch);
       // Thread launch node has no group.
       if (props.Node.LaunchType == DXIL::NodeLaunchType::Thread)
