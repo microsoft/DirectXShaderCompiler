@@ -13,7 +13,7 @@ RWByteAddressBuffer BAB : register(u1, space0);
 // Category: derivatives ddx/ddy/ddx_coarse/ddy_coarse/ddx_fine/ddy_fine
 
 // RDAT-LABEL: UnmangledName: "node_deriv"
-// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo1: (DerivativesInMeshAndAmpShaders)
 // RDAT: FeatureInfo2: (Opt_UsesDerivatives)
 // RDAT: ShaderStageFlag: (Node)
 // RDAT: MinShaderTarget: 0xf0069
@@ -42,7 +42,7 @@ void use_deriv(float2 uv) {
 }
 
 // RDAT-LABEL: UnmangledName: "node_deriv_in_call"
-// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo1: (DerivativesInMeshAndAmpShaders)
 // RDAT: FeatureInfo2: (Opt_UsesDerivatives)
 // RDAT: ShaderStageFlag: (Node)
 // RDAT: MinShaderTarget: 0xf0069
@@ -61,7 +61,7 @@ void node_deriv_in_call(uint3 tid : SV_GroupThreadID) {
 // Category: CalculateLOD
 
 // RDAT-LABEL: UnmangledName: "node_calclod"
-// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo1: (DerivativesInMeshAndAmpShaders)
 // RDAT: FeatureInfo2: (Opt_UsesDerivatives)
 // RDAT: ShaderStageFlag: (Node)
 // RDAT: MinShaderTarget: 0xf0069
@@ -90,7 +90,7 @@ void use_calclod(float2 uv) {
 }
 
 // RDAT-LABEL: UnmangledName: "node_calclod_in_call"
-// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo1: (DerivativesInMeshAndAmpShaders)
 // RDAT: FeatureInfo2: (Opt_UsesDerivatives)
 // RDAT: ShaderStageFlag: (Node)
 // RDAT: MinShaderTarget: 0xf0069
@@ -109,7 +109,7 @@ void node_calclod_in_call(uint3 tid : SV_GroupThreadID) {
 // Category: Sample with implicit derivatives
 
 // RDAT-LABEL: UnmangledName: "node_sample"
-// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo1: (DerivativesInMeshAndAmpShaders)
 // RDAT: FeatureInfo2: (Opt_UsesDerivatives)
 // RDAT: ShaderStageFlag: (Node)
 // RDAT: MinShaderTarget: 0xf0069
@@ -138,7 +138,7 @@ void use_sample(float2 uv) {
 }
 
 // RDAT-LABEL: UnmangledName: "node_sample_in_call"
-// RDAT: FeatureInfo1: 0
+// RDAT: FeatureInfo1: (DerivativesInMeshAndAmpShaders)
 // RDAT: FeatureInfo2: (Opt_UsesDerivatives)
 // RDAT: ShaderStageFlag: (Node)
 // RDAT: MinShaderTarget: 0xf0069
