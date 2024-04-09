@@ -3807,12 +3807,13 @@ public:
   void DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
                                         QualType TargetType,
                                         SourceLocation Loc);
-  bool DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc);
-  void DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
-                                       SourceLocation Loc,
-                                       const hlsl::ShaderModel *SM,
-                                       hlsl::DXIL::ShaderKind EntrySK,
-                                       const FunctionDecl *EntryDecl);
+  bool CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
+                             const FunctionProtoType *Proto);
+  void DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
+                                 hlsl::DXIL::ShaderKind EntrySK,
+                                 hlsl::DXIL::NodeLaunchType NodeLaunchTy,
+                                 const FunctionDecl *EntryDecl,
+                                 bool locallyVisited);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);
