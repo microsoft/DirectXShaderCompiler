@@ -498,18 +498,6 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       HLSLMethodCallDiagnoseVisitor Visitor(self, shaderModel, EntrySK, FDecl,
                                             DiagnosedCalls);
       Visitor.TraverseDecl(FD);
-
-      // diagnose any node functions that have incompatible launch types with
-      // the present SV semantics on each parameter.
-      if (EntrySK == DXIL::ShaderKind::Node) {
-        if (const auto *NodeLaunchAttr =
-                FDecl->getAttr<clang::HLSLNodeLaunchAttr>()) {
-          llvm::StringRef NodeLaunchTyStr = NodeLaunchAttr->getLaunchType();
-          hlsl::DXIL::NodeLaunchType NodeLaunchTy =
-              ShaderModel::NodeLaunchTypeFromName(NodeLaunchTyStr);
-          Visitor.getSema()->DiagnoseSVForLaunchType(FD, NodeLaunchTy);
-        }
-      }
     }
   }
 }

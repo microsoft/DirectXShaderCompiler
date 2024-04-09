@@ -11144,10 +11144,20 @@ bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
   return false;
 }
 
+// FIXME: DiagnoseSVForLaunchType is wrong in multiple ways:
+// - It doesn't handle system values inside structs
+// - It doesn't account for the fact that semantics are case-insensitive
+// - It doesn't account for optional index at the end of semantic name
+// - It permits any `SV_*` for Broadcasting launch, not just the legal ones
+// - It doesn't prevent multiple system values with the same semantic
+// - It doesn't check that the type is valid for the system value
+// - It's used inside a loop over parameters, and conditioned on whether the
+//   parameter is a NodeInputType, which is not related (usage is wrong).
 // Produce diagnostics for any system values attached to `FD` function
 // that are invalid for the `LaunchTy` launch type
-void Sema::DiagnoseSVForLaunchType(const FunctionDecl *FD,
-                                   DXIL::NodeLaunchType LaunchTy) {
+static void DiagnoseSVForLaunchType(const FunctionDecl *FD,
+                                    DXIL::NodeLaunchType LaunchTy,
+                                    DiagnosticsEngine &Diags) {
   // Validate Compute Shader system value inputs per launch mode
   for (ParmVarDecl *param : FD->parameters()) {
     for (const hlsl::UnusualAnnotation *it : param->getUnusualAnnotations()) {
@@ -15688,9 +15698,11 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
           }
         }
       }
-      S.DiagnoseSVForLaunchType(FD, NodeLaunchTy);
     }
   }
+
+  DiagnoseSVForLaunchType(FD, NodeLaunchTy, S.Diags);
+
   return;
 }
 
