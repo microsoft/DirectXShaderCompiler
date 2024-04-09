@@ -1427,10 +1427,7 @@ bool Sema::CheckFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
     CheckMemaccessArguments(TheCall, CMId, FnInfo);
 #endif // HLSL Change Ends
 
-  // HLSL Change Starts
-  if (CheckHLSLFunctionCall(FDecl, TheCall, Proto))
-    return true;
-  // HLSL Change Ends
+  CheckHLSLFunctionCall(FDecl, TheCall, Proto); // HLSL Change
 
   return false;
 }

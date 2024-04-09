@@ -3807,7 +3807,7 @@ public:
   void DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
                                         QualType TargetType,
                                         SourceLocation Loc);
-  bool CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
+  void CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
                              const FunctionProtoType *Proto);
   void DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
                                  hlsl::DXIL::ShaderKind EntrySK,

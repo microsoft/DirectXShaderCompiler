@@ -11236,26 +11236,28 @@ static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE) {
   return false;
 }
 
-// Check HLSL call constraints
-bool Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
+// Check HLSL call constraints, not fatal to creating the AST.
+void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
                                  const FunctionProtoType *Proto) {
   HLSLIntrinsicAttr *IntrinsicAttr = FDecl->getAttr<HLSLIntrinsicAttr>();
   if (!IntrinsicAttr)
-    return false;
+    return;
   if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
-    return false;
+    return;
 
   hlsl::IntrinsicOp opCode = (hlsl::IntrinsicOp)IntrinsicAttr->getOpcode();
   switch (opCode) {
   case hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing:
-    return CheckFinishedCrossGroupSharingCall(*this, cast<CXXMethodDecl>(FDecl),
+    CheckFinishedCrossGroupSharingCall(*this, cast<CXXMethodDecl>(FDecl),
                                               TheCall->getLocStart());
+    break;
   case hlsl::IntrinsicOp::IOP_Barrier:
-    return CheckBarrierCall(*this, FDecl, TheCall);
+    CheckBarrierCall(*this, FDecl, TheCall);
+    break;
   default:
     break;
   }
-  return false;
+  return;
 }
 
 /////////////////////////////////////////////////////////////////////////////
