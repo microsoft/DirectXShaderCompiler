@@ -1,10 +1,7 @@
+// REQUIRES: dxil-1-9
 // RUN: %dxc -Tlib_6_9 %s -verify
 
 // expected-no-diagnostics
-// previously, we expected 2 diagnostics: 
-// {{overload of intrinsic CalculateLevelOfDetail with SamplerComparisonState requires shader model 6.8 or greater}}
-// {{overload of intrinsic CalculateLevelOfDetailUnclamped with SamplerComparisonState requires shader model 6.8 or greater}}
-
 
 SamplerComparisonState s;
 Texture1D t;
@@ -23,5 +20,3 @@ void node01_mesh_dispatch() {
   (void)(t.CalculateLevelOfDetail(s, a) + 
     t.CalculateLevelOfDetailUnclamped(s, a));
 }
-
-// Make sure direct call to CalculateLevelOfDetail and CalculateLevelOfDetailUnclamped get error.

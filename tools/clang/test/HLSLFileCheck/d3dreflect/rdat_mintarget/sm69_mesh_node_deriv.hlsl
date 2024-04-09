@@ -1,4 +1,4 @@
-// RUN: %dxilver 1.8 | %dxc -T lib_6_9 %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
+// RUN: %dxilver 1.9 | %dxc -T lib_6_9 %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
 
 // Ensure that categories of deriv ops are allowed for node shaders.
 // Ensure that the OptFeatureInfo_UsesDerivatives flag is set as well.
