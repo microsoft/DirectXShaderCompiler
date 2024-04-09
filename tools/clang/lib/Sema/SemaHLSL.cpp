@@ -11124,8 +11124,6 @@ void hlsl::DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
 // - It permits any `SV_*` for Broadcasting launch, not just the legal ones
 // - It doesn't prevent multiple system values with the same semantic
 // - It doesn't check that the type is valid for the system value
-// - It's used inside a loop over parameters, and conditioned on whether the
-//   parameter is a NodeInputType, which is not related (usage is wrong).
 // Produce diagnostics for any system values attached to `FD` function
 // that are invalid for the `LaunchTy` launch type
 static void DiagnoseSVForLaunchType(const FunctionDecl *FD,
