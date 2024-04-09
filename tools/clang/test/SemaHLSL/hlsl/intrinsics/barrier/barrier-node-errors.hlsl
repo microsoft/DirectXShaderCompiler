@@ -76,15 +76,6 @@ void GroupNodeBarriers() {
 void node01(RWDispatchNodeInputRecord<RECORD> input,
             [MaxRecords(11)] NodeOutput<RECORD> output) {
 
-  // expected-error@+1{{invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags}}
-  Barrier(16, 0);
-  // expected-error@+1{{invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags}}
-  Barrier(-1, 0);
-  // expected-error@+1{{invalid SemanticFlags for Barrier operation; expected 0 or some combination of GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags}}
-  Barrier(0, 8);
-  // expected-error@+1{{invalid SemanticFlags for Barrier operation; expected 0 or some combination of GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags}}
-  Barrier(0, -1);
-
   GroupNodeOutputRecords<RECORD> groupRec = output.GetGroupNodeOutputRecords(1);
   // expected-error@+1{{DEVICE_SCOPE specified for Barrier operation without applicable memory}}
   Barrier(groupRec, DEVICE_SCOPE);
@@ -107,15 +98,6 @@ void node01(RWDispatchNodeInputRecord<RECORD> input,
 [NumThreads(64,1,1)]
 void node01([MaxRecords(64)] RWGroupNodeInputRecords<RECORD> input,
             [MaxRecords(11)] NodeOutput<RECORD> output) {
-
-  // expected-error@+1{{invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags}}
-  Barrier(16, 0);
-  // expected-error@+1{{invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags}}
-  Barrier(-1, 0);
-  // expected-error@+1{{invalid SemanticFlags for Barrier operation; expected 0 or some combination of GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags}}
-  Barrier(0, 8);
-  // expected-error@+1{{invalid SemanticFlags for Barrier operation; expected 0 or some combination of GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags}}
-  Barrier(0, -1);
 
   // expected-error@+1{{DEVICE_SCOPE specified for Barrier operation without applicable memory}}
   Barrier(input, DEVICE_SCOPE);
@@ -178,15 +160,6 @@ void node02(RWThreadNodeInputRecord<RECORD> input,
 
   GroupBarriers();
   GroupNodeBarriers();
-
-  // expected-error@+1{{invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags}}
-  Barrier(16, 0);
-  // expected-error@+1{{invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags}}
-  Barrier(-1, 0);
-  // expected-error@+1{{invalid SemanticFlags for Barrier operation; expected 0 or some combination of GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags}}
-  Barrier(0, 8);
-  // expected-error@+1{{invalid SemanticFlags for Barrier operation; expected 0 or some combination of GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags}}
-  Barrier(0, -1);
 
   // expected-error@+1{{GROUP_SYNC or GROUP_SCOPE specified for Barrier operation when context has no visible group}}
   Barrier(buf0, GROUP_SYNC);

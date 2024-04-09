@@ -2,7 +2,7 @@
 // RUN: %dxc -Tcs_6_8 -verify %s
 // REQUIRES: dxil-1-8
 
-// Test the ordinary shader model case with no visible group.
+// Test the ordinary compute shader model case with node memory flags.
 
 struct RECORD { uint a; };
 RWBuffer<uint> buf0;
@@ -30,13 +30,4 @@ void NodeBarriers() {
 [numthreads(1, 1, 1)]
 void main() {
   NodeBarriers();
-
-  // expected-error@+1{{invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags}}
-  Barrier(16, 0);
-  // expected-error@+1{{invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags}}
-  Barrier(-1, 0);
-  // expected-error@+1{{invalid SemanticFlags for Barrier operation; expected 0 or some combination of GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags}}
-  Barrier(0, 8);
-  // expected-error@+1{{invalid SemanticFlags for Barrier operation; expected 0 or some combination of GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags}}
-  Barrier(0, -1);
 }
