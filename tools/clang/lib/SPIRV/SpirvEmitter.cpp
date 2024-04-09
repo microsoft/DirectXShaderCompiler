@@ -9237,6 +9237,7 @@ SpirvEmitter::processIntrinsicNonUniformResourceIndex(const CallExpr *expr) {
 SpirvInstruction *
 SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   const auto loc = callExpr->getExprLoc();
+  const auto range = callExpr->getSourceRange();
   if (!spirvOptions.noWarnEmulatedFeatures)
     emitWarning("msad4 intrinsic function is emulated using many SPIR-V "
                 "instructions due to lack of direct SPIR-V equivalent",
@@ -9297,18 +9298,15 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   // Do bfi 3 times. DXIL bfi is equivalent to SPIR-V OpBitFieldInsert.
   auto *v1y = spvBuilder.createCompositeExtract(uintType, source, {1}, loc);
   // Note that t0.x = v1.x, nothing we need to do for that.
-  auto *t0y =
-      spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS8, /*insert*/ v1y,
-                                      /*offset*/ uint24,
-                                      /*width*/ uint8, loc);
-  auto *t0z =
-      spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS16, /*insert*/ v1y,
-                                      /*offset*/ uint16,
-                                      /*width*/ uint16, loc);
-  auto *t0w =
-      spvBuilder.createBitFieldInsert(uintType, /*base*/ v1xS24, /*insert*/ v1y,
-                                      /*offset*/ uint8,
-                                      /*width*/ uint24, loc);
+  auto *t0y = spvBuilder.createBitFieldInsert(
+      uintType, /*base*/ v1xS8, /*insert*/ v1y,
+      /* bitOffest */ 24, /* bitCount */ 8, loc, range);
+  auto *t0z = spvBuilder.createBitFieldInsert(
+      uintType, /*base*/ v1xS16, /*insert*/ v1y,
+      /* bitOffest */ 16, /* bitCount */ 16, loc, range);
+  auto *t0w = spvBuilder.createBitFieldInsert(
+      uintType, /*base*/ v1xS24, /*insert*/ v1y,
+      /* bitOffest */ 8, /* bitCount */ 24, loc, range);
 
   // Step 3. MSAD (Masked Sum of Absolute Differences)
 
