@@ -11242,7 +11242,7 @@ bool Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   HLSLIntrinsicAttr *IntrinsicAttr = FDecl->getAttr<HLSLIntrinsicAttr>();
   if (!IntrinsicAttr)
     return false;
-  if (!IsBuiltinTable(IntrinsicAttr->getGroup().data()))
+  if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
     return false;
 
   hlsl::IntrinsicOp opCode = (hlsl::IntrinsicOp)IntrinsicAttr->getOpcode();
@@ -11518,7 +11518,7 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   HLSLIntrinsicAttr *IntrinsicAttr = FD->getAttr<HLSLIntrinsicAttr>();
   if (!IntrinsicAttr)
     return;
-  if (!IsBuiltinTable(IntrinsicAttr->getGroup().data()))
+  if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
     return;
 
   SourceLocation Loc = CE->getExprLoc();
