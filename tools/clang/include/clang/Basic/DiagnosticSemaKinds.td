@@ -7866,6 +7866,8 @@ def err_hlsl_wg_attr_only_on_output_array : Error<
    "attribute %0 may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)">;
 def err_hlsl_wg_attr_only_on_node: Error<
    "attribute %0 may only be used on a node ">;
+def err_hlsl_wg_node_output_in_mesh_node: Error<
+   "parameter %0 is a Node Output type, which is not allowed for mesh node shaders.">;
 def err_hlsl_zero_sized_record : Error<
    "record used in %0 may not have zero size">;
 def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
