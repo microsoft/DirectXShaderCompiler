@@ -11249,7 +11249,7 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   switch (opCode) {
   case hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing:
     CheckFinishedCrossGroupSharingCall(*this, cast<CXXMethodDecl>(FDecl),
-                                              TheCall->getLocStart());
+                                       TheCall->getLocStart());
     break;
   case hlsl::IntrinsicOp::IOP_Barrier:
     CheckBarrierCall(*this, FDecl, TheCall);
@@ -11257,7 +11257,6 @@ void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   default:
     break;
   }
-  return;
 }
 
 /////////////////////////////////////////////////////////////////////////////
