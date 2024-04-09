@@ -1853,8 +1853,8 @@ static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
   }
 }
 
-static bool IsBuiltinTable(LPCSTR tableName) {
-  return tableName == kBuiltinIntrinsicTableName;
+static bool IsBuiltinTable(StringRef tableName) {
+  return tableName.compare(kBuiltinIntrinsicTableName) == 0;
 }
 
 static bool HasUnsignedOpcode(LPCSTR tableName, IntrinsicOp opcode) {
