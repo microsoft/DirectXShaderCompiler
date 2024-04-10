@@ -1395,6 +1395,8 @@ public:
   /// warnings and errors.
   virtual void HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
                                 const Diagnostic &Info);
+
+  virtual void setPrefix(std::string Value) {} // HLSL Change
 };
 
 /// \brief A diagnostic client that ignores all diagnostics.
