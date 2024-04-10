@@ -1,4 +1,5 @@
-// RUN: %dxilver 1.8 | %dxc -T lib_6_8 -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
+// RUN: %dxilver 1.8 | %dxc -T lib_6_8 -Wno-hlsl-barrier -Vd %s | %D3DReflect %s | %FileCheck %s -check-prefixes=RDAT
+// RUN: %dxilver 1.8 | %dxc -T lib_6_8 -verify %s
 
 // Verifies that a Barrier requiring a visible group in a noinline function
 // called by a vertex shader is correctly marked as requiring a group in RDAT.
@@ -29,6 +30,8 @@ void write_value(uint value) {
 [noinline] export
 void barrier_group() {
     write_value(1);
+    // expected-error@+2{{GROUP_SHARED_MEMORY specified for Barrier operation when context has no visible group}}
+    // expected-error@+1{{GROUP_SYNC or GROUP_SCOPE specified for Barrier operation when context has no visible group}}
     Barrier(GROUP_SHARED_MEMORY, GROUP_SCOPE);
     write_value(2);
 }
@@ -54,6 +57,8 @@ void intermediate() {
 // MinShaderTarget still indicates vertex shader.
 // RDAT:   MinShaderTarget: 0x10060
 
+// expected-note@+3{{entry function defined here}}
+// expected-note@+2{{entry function defined here}}
 [shader("vertex")]
 void main() {
     intermediate();

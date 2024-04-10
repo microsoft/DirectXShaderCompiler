@@ -7,7 +7,7 @@ SamplerComparisonState ss : register(s2);
 RWStructuredBuffer<uint> o;
 Texture1D        <float>  t1;
 
-// expected-note@+3{{declared here}}
+// expected-note@+3{{entry function defined here}}
 [numthreads(3,8,1)]
 [shader("compute")]
 void foo(uint3 id : SV_GroupThreadID)
@@ -24,7 +24,7 @@ void foo2(uint3 id : SV_GroupThreadID)
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
 }
 
-// expected-note@+3{{declared here}}
+// expected-note@+3{{entry function defined here}}
 [numthreads(3,1,1)]
 [shader("compute")]
 void bar(uint3 id : SV_GroupThreadID)
@@ -33,7 +33,7 @@ void bar(uint3 id : SV_GroupThreadID)
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
 }
 
-// expected-note@+4{{declared here}}
+// expected-note@+4{{entry function defined here}}
 [shader("mesh")]
 [numthreads(3,1,1)]
 [outputtopology("triangle")]
@@ -47,7 +47,7 @@ struct Payload {
     float2 dummy;
 };
 
-// expected-note@+3{{declared here}}
+// expected-note@+3{{entry function defined here}}
 [numthreads(3, 2, 1)]
 [shader("amplification")]
 void ASmain()
@@ -63,7 +63,7 @@ struct RECORD {
   uint a;
 };
 
-// expected-note@+5{{declared here}}
+// expected-note@+5{{entry function defined here}}
 [Shader("node")]
 [NodeLaunch("broadcasting")]
 [NodeDispatchGrid(1, 1, 1)]
@@ -73,7 +73,7 @@ void node01(DispatchNodeInputRecord<RECORD> input) {
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
  }
 
-// expected-note@+5{{declared here}}
+// expected-note@+5{{entry function defined here}}
 [Shader("node")]
 [NodeLaunch("coalescing")]
 [NumThreads(1024,1,1)]
@@ -84,7 +84,7 @@ void node02()
     o[0] = t1.CalculateLevelOfDetail(ss, 0.5);
 }
 
-// expected-note@+2 {{declared here}}
+// expected-note@+2 {{entry function defined here}}
 [Shader("vertex")]
 float4 vs(float2 a :A) :SV_POSTION {
   float r = 0;
@@ -96,8 +96,8 @@ float4 vs(float2 a :A) :SV_POSTION {
 
 SamplerComparisonState s;
 Texture1D t;
-// expected-note@+3{{declared here}}
-// expected-note@+2{{declared here}}
+// expected-note@+3{{entry function defined here}}
+// expected-note@+2{{entry function defined here}}
 [shader("vertex")]
 float4 vs2(float a:A) : SV_Position {
   // expected-error@+1 {{Intrinsic CalculateLevelOfDetail potentially used by 'vs2' requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
