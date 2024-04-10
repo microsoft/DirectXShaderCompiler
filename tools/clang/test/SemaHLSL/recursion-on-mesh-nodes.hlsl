@@ -19,5 +19,3 @@ Texture1D t;
 void node01_mesh_dispatch() { 
  node01_mesh_dispatch();
 }
-
-// Make sure direct call to CalculateLevelOfDetail and CalculateLevelOfDetailUnclamped get error.
