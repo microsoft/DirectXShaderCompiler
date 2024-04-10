@@ -15625,13 +15625,13 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
     // Find parameter that is the node input record
     if (hlsl::IsHLSLNodeOutputType(ParamType)) {
       // First, node output types are not allowed on
-      // mesh node shaders    
+      // mesh node shaders
       if (NodeLaunchTy == DXIL::NodeLaunchType::Mesh) {
         S.Diags.Report(PD->getLocation(),
                        diag::err_hlsl_wg_node_output_in_mesh_node)
             << PD->getName();
       }
-  
+
       // Node records are template types
       if (RecordDecl *NodeStructDecl =
               hlsl::GetRecordDeclFromNodeObjectType(ParamType)) {
