@@ -5,10 +5,14 @@
 ; When tracing through geps and bitcasts of uses of that global, the algorithm might
 ; bottom out at replacing a load of a scalar float.  Verify this works.
 
-; In the following code, %2 should be replace by i32 0.
-;    %2 = load i32, i32* %arrayidx.i...
+; In the following code, %2 should be replaced by i32 0
+;    %2 = load i32, i32* %src_in_g,
+; It only has one use: being stored to one of the elements of @g_1
 
-; CHECK: store i32 0, i32* %arrayidx2.i
+; CHECK: for.body.i:
+; CHECK: [[DEST:%[a-z0-9\.]+]] = getelementptr inbounds [10 x i32], [10 x i32]* @g_1, i32 0
+; CHECK: store i32 0, i32* [[DEST]]
+; CHECK: end.block:
 
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
@@ -35,21 +39,21 @@ entry:
 for.cond.i:                                       ; preds = %for.body.i, %entry
   %0 = load i32, i32* %i.i, align 4, !dbg !34, !tbaa !29 ; line:10 col:19
   %cmp.i = icmp slt i32 %0, 10, !dbg !35 ; line:10 col:21
-  br i1 %cmp.i, label %for.body.i, label %"\01?inner@@YA?AV?$vector@M$03@@XZ.exit", !dbg !36 ; line:10 col:3
+  br i1 %cmp.i, label %for.body.i, label %end.block, !dbg !36 ; line:10 col:3
 
 for.body.i:                                       ; preds = %for.cond.i
   %1 = load i32, i32* %i.i, align 4, !dbg !37, !tbaa !29 ; line:11 col:16
-  %arrayidx.i = getelementptr inbounds [10 x i32], [10 x i32]* @g, i32 0, i32 %1, !dbg !38 ; line:11 col:14
-  %2 = load i32, i32* %arrayidx.i, align 4, !dbg !38, !tbaa !29 ; line:11 col:14
+  %src_in_g = getelementptr inbounds [10 x i32], [10 x i32]* @g, i32 0, i32 %1, !dbg !38 ; line:11 col:14
+  %2 = load i32, i32* %src_in_g, align 4, !dbg !38, !tbaa !29 ; line:11 col:14
   %3 = load i32, i32* %i.i, align 4, !dbg !39, !tbaa !29 ; line:11 col:9
-  %arrayidx2.i = getelementptr inbounds [10 x i32], [10 x i32]* @g_1, i32 0, i32 %3, !dbg !40 ; line:11 col:5
-  store i32 %2, i32* %arrayidx2.i, align 4, !dbg !41, !tbaa !29 ; line:11 col:12
+  %dest = getelementptr inbounds [10 x i32], [10 x i32]* @g_1, i32 0, i32 %3, !dbg !40 ; line:11 col:5
+  store i32 %2, i32* %dest, align 4, !dbg !41, !tbaa !29 ; line:11 col:12
   %4 = load i32, i32* %i.i, align 4, !dbg !42, !tbaa !29 ; line:10 col:28
   %inc.i = add nsw i32 %4, 1, !dbg !42 ; line:10 col:28
   store i32 %inc.i, i32* %i.i, align 4, !dbg !42, !tbaa !29 ; line:10 col:28
   br label %for.cond.i, !dbg !36 ; line:10 col:3
 
-"\01?inner@@YA?AV?$vector@M$03@@XZ.exit":         ; preds = %for.cond.i
+end.block:         ; preds = %for.cond.i
   %5 = bitcast [10 x i32]* %copy.i to i8*, !dbg !43 ; line:13 col:18
   call void @llvm.memcpy.p0i8.p0i8.i64(i8* %5, i8* bitcast ([10 x i32]* @g to i8*), i64 40, i32 1, i1 false) #0, !dbg !43 ; line:13 col:18
   %6 = bitcast [10 x i32]* %copy.i to i8*, !dbg !44 ; line:14 col:7
