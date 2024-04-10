@@ -1,6 +1,6 @@
 // RUN: %dxc -Tlib_6_9 %s -verify 
 
-// Make sure NodeOutput attribute works at AST level.
+// Make sure output nodes aren't allowed in mesh node shaders
 
 struct MY_INPUT_RECORD
     {

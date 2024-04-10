@@ -1,5 +1,6 @@
 // RUN: %dxc -Tlib_6_9 %s -verify
 
+// make sure recursion isn't allowed in mesh node shaders
 
 SamplerComparisonState s;
 Texture1D t;
