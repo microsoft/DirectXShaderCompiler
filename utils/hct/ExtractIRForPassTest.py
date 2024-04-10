@@ -86,6 +86,9 @@ def SplitAtPass(passes, pass_name, invocation=1):
                     after = [line]
                     continue
         before.append(line)
+    if after is None:
+        raise Exception(f"no such pass: {pass_name}")
+
     return before, after
 
 
@@ -143,7 +146,7 @@ def main(args):
         # 6. Inserts RUN line with -hlsl-passes-resume and desired pass
         with open(args.output_file, "wt") as f:
             f.write(
-                "; RUN: %opt %s -hlsl-passes-resume -{} -S | FileCheck %s\n\n".format(
+                "; RUN: %dxopt %s -hlsl-passes-resume -{} -S | FileCheck %s\n\n".format(
                     args.desired_pass
                 )
             )
