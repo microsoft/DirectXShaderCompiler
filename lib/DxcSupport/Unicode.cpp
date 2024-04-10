@@ -24,7 +24,7 @@
 // MultiByteToWideChar which is a Windows-specific method.
 // This is a very simplistic implementation for non-Windows platforms. This
 // implementation completely ignores CodePage and dwFlags.
-int MultiByteToWideChar(uint32_t CodePage, uint32_t /*dwFlags*/,
+int MultiByteToWideChar(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         const char *lpMultiByteStr, int cbMultiByte,
                         wchar_t *lpWideCharStr, int cchWideChar) {
 
@@ -52,8 +52,8 @@ int MultiByteToWideChar(uint32_t CodePage, uint32_t /*dwFlags*/,
   }
 
   size_t rv;
-  const char *locale = CPToLocale(CodePage);
-  locale = setlocale(LC_ALL, locale);
+  const char *prevLocale = setlocale(LC_ALL, nullptr);
+  setlocale(LC_ALL, "en_US.UTF-8");
   if (lpMultiByteStr[cbMultiByte - 1] != '\0') {
     char *srcStr = (char *)malloc((cbMultiByte + 1) * sizeof(char));
     strncpy(srcStr, lpMultiByteStr, cbMultiByte);
@@ -63,7 +63,10 @@ int MultiByteToWideChar(uint32_t CodePage, uint32_t /*dwFlags*/,
   } else {
     rv = mbstowcs(lpWideCharStr, lpMultiByteStr, cchWideChar);
   }
-  setlocale(LC_ALL, locale);
+
+  if (prevLocale)
+    setlocale(LC_ALL, prevLocale);
+
   if (rv == (size_t)cbMultiByte)
     return rv;
   return rv + 1; // mbstowcs excludes the terminating character
@@ -72,7 +75,7 @@ int MultiByteToWideChar(uint32_t CodePage, uint32_t /*dwFlags*/,
 // WideCharToMultiByte is a Windows-specific method.
 // This is a very simplistic implementation for non-Windows platforms. This
 // implementation completely ignores CodePage and dwFlags.
-int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
+int WideCharToMultiByte(uint32_t /*CodePage*/, uint32_t /*dwFlags*/,
                         const wchar_t *lpWideCharStr, int cchWideChar,
                         char *lpMultiByteStr, int cbMultiByte,
                         const char * /*lpDefaultChar*/,
@@ -105,8 +108,8 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
   }
 
   size_t rv;
-  const char *locale = CPToLocale(CodePage);
-  locale = setlocale(LC_ALL, locale);
+  const char *prevLocale = setlocale(LC_ALL, nullptr);
+  setlocale(LC_ALL, "en_US.UTF-8");
   if (lpWideCharStr[cchWideChar - 1] != L'\0') {
     wchar_t *srcStr = (wchar_t *)malloc((cchWideChar + 1) * sizeof(wchar_t));
     wcsncpy(srcStr, lpWideCharStr, cchWideChar);
@@ -116,7 +119,10 @@ int WideCharToMultiByte(uint32_t CodePage, uint32_t /*dwFlags*/,
   } else {
     rv = wcstombs(lpMultiByteStr, lpWideCharStr, cbMultiByte);
   }
-  setlocale(LC_ALL, locale);
+
+  if (prevLocale)
+    setlocale(LC_ALL, prevLocale);
+
   if (rv == (size_t)cchWideChar)
     return rv;
   return rv + 1; // mbstowcs excludes the terminating character

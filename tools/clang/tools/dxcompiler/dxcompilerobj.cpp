@@ -442,8 +442,8 @@ static void CreateDefineStrings(const DxcDefine *pDefines, UINT defineCount,
                                 std::vector<std::string> &defines) {
   // Not very efficient but also not very important.
   for (UINT32 i = 0; i < defineCount; i++) {
-    CW2A utf8Name(pDefines[i].Name, CP_UTF8);
-    CW2A utf8Value(pDefines[i].Value, CP_UTF8);
+    CW2A utf8Name(pDefines[i].Name);
+    CW2A utf8Value(pDefines[i].Value);
     std::string val(utf8Name.m_psz);
     val += "=";
     val += (pDefines[i].Value) ? utf8Value.m_psz : "1";
@@ -594,15 +594,15 @@ public:
       const char *pUtf8SourceName =
           opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
 
-      CA2W pWideSourceName(pUtf8SourceName, CP_UTF8);
+      CA2W pWideSourceName(pUtf8SourceName);
       const char *pUtf8EntryPoint =
           opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
       const char *pUtf8OutputName = isPreprocessing ? opts.Preprocess.data()
                                     : opts.OutputObject.empty()
                                         ? ""
                                         : opts.OutputObject.data();
-      CA2W pWideOutputName(
-          isPreprocessing ? opts.Preprocess.data() : pUtf8OutputName, CP_UTF8);
+      CA2W pWideOutputName(isPreprocessing ? opts.Preprocess.data()
+                                           : pUtf8OutputName);
       LPCWSTR pObjectName = (!isPreprocessing && opts.OutputObject.empty())
                                 ? nullptr
                                 : pWideOutputName.m_psz;

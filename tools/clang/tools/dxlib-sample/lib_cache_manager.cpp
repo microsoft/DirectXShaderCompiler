@@ -108,7 +108,7 @@ private:
 };
 
 static hash_code CombineWStr(hash_code hash, LPCWSTR Arg) {
-  CW2A pUtf8Arg(Arg, CP_UTF8);
+  CW2A pUtf8Arg(Arg);
   unsigned length = strlen(pUtf8Arg.m_psz);
   return hash_combine(hash, StringRef(pUtf8Arg.m_psz, length));
 }

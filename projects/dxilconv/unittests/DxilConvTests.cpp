@@ -74,7 +74,7 @@ private:
     FileRunTestResult t = FileRunTestResult::RunFromFileCommands(
         path, m_dllSupport, &m_TestToolPaths);
     if (t.RunResult != 0) {
-      CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
+      CA2W commentWide(t.ErrorMessage.c_str());
       WEX::Logging::Log::Comment(commentWide);
       WEX::Logging::Log::Error(L"Run result is not zero");
     }
@@ -159,7 +159,7 @@ private:
     if (::PathFileExistsA(loc.c_str())) {
       m_TestToolPaths.emplace(refName, loc);
     } else {
-      CA2W locW(loc.c_str(), CP_UTF8);
+      CA2W locW(loc.c_str());
       hlsl_test::LogErrorFmt(L"Cannot find %s.", locW.m_psz);
       return false;
     }
