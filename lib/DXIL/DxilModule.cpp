@@ -2148,6 +2148,9 @@ static void AdjustMinimumShaderModelAndFlags(const DxilFunctionProps *props,
         // Requires flag for support on SM 6.6+.
         flags.SetDerivativesInMeshAndAmpShaders(true);
         DXIL::UpdateToMaxOfVersions(minMajor, minMinor, 6, 6);
+      } else if (props->IsNode()) {
+        if (props->Node.LaunchType == DXIL::NodeLaunchType::Mesh)
+          flags.SetDerivativesInMeshAndAmpShaders(true);
       }
     }
 

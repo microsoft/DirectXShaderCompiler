@@ -8127,7 +8127,7 @@ class db_dxil(object):
         )
         self.add_valrule_msg(
             "Sm.IncompatibleDerivLaunch",
-            "Node shaders only support derivatives in broadcasting launch mode",
+            "Node shaders only support derivatives in broadcasting or mesh launch modes",
             "Function called from %0 launch node shader uses derivatives; only broadcasting launch supports derivatives.",
         )
 
