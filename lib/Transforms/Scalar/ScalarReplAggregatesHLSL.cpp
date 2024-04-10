@@ -3694,7 +3694,7 @@ static bool ReplaceUseOfZeroInit(Instruction *I, Value *V, DominatorTree &DT,
         continue;
     } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
       // Replace uses of the load with a constant zero.
-      Constant* replacement = Constant::getNullValue(LI->getType());
+      Constant *replacement = Constant::getNullValue(LI->getType());
       DXASSERT(replacement != nullptr, "missing case when replacing with zero");
       LI->replaceAllUsesWith(replacement);
       LI->eraseFromParent();
