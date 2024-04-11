@@ -309,7 +309,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(LI.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetInputSignature();
+      pSig = &DM.GetDxilEntryProps(F).sig.InputSignature;
     } else if (SO) {
       if (!GetUnsignedVal(SO.get_outputSigId(), &sigId))
         continue;
@@ -317,7 +317,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetOutputSignature();
+      pSig = &DM.GetDxilEntryProps(F).sig.OutputSignature;
     } else if (SPC) {
       if (!GetUnsignedVal(SPC.get_outputSigID(), &sigId))
         continue;
@@ -325,7 +325,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SPC.get_row(), &row))
         bDynIdx = true;
-      pSig = &DM.GetPatchConstOrPrimSignature();
+      pSig = &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature;
     } else if (LPC) {
       if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId))
         continue;
@@ -333,7 +333,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(LPC.get_row(), &row))
         bDynIdx = true;
-      pSig = &DM.GetPatchConstOrPrimSignature();
+      pSig = &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature;
     } else if (SVO) {
       if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId))
         continue;
@@ -341,7 +341,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SVO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetOutputSignature();
+      pSig = &DM.GetDxilEntryProps(F).sig.OutputSignature;
     } else if (SPO) {
       if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId))
         continue;
@@ -349,7 +349,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SPO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetPatchConstOrPrimSignature();
+      pSig = &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature;
     } else {
       continue;
     }
@@ -846,6 +846,18 @@ public:
         MarkUsedSignatureElements(DM.GetEntryFunction(), DM);
         if (DM.GetShaderModel()->IsHS())
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
+      } else {
+        for (auto &function : M.getFunctionList()) {
+          if (!function.isDeclaration()) {            
+            if (DM.HasDxilEntryProps(&function)) {
+              const auto &entryProps = DM.GetDxilEntryProps(&function);
+              if (entryProps.props.IsNode() && 
+                  entryProps.props.Node.LaunchType == hlsl::DXIL::NodeLaunchType::Mesh) {
+                MarkUsedSignatureElements(&function, DM);
+              }
+            }
+          }          
+        }
       }
 
       // Adding warning for pixel shader with unassigned target
