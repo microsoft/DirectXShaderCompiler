@@ -1,14 +1,10 @@
-// dxc RDATUsageMaskRepro.hlsl /T lib_6_9 -enable-16bit-types -select-validator internal
-// In the runtime when examining MeshShaderInfo from RDAT and looking at the output signature, 
-// I see that SignatureElement_Reader->GetUsageMask() is returning 0 all the time.
-// This causes the runtime to produce Mesh Node -> Pixel Shader linkage errors because it thinks
-// the pixel shader is always reading an input field that the Mesh Node never writes.
+// RUN: %dxc -Tlib_6_9 -enable-16bit-types -select-validator internal %s | %D3DReflect %s | FileCheck %s
+
 // This test tests that the UsageAndDynIndexMasks flag is set to non-null values for
 // mesh node functions in library shaders.
 
-// RUN: %dxc -Tlib_6_9 -enable-16bit-types -select-validator internal %s | %D3DReflect %s | FileCheck %s
 
-  // CHECK:RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[1] = {
+// CHECK:RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[1] = {
 // CHECK:    <0:RuntimeDataFunctionInfo2> = {
 // CHECK:      Name: "justMeshBinsLeaf"
 // CHECK:      UnmangledName: "justMeshBinsLeaf"

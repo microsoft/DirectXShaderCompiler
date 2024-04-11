@@ -848,15 +848,14 @@ public:
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
       } else {
         for (auto &function : M.getFunctionList()) {
-          if (!function.isDeclaration()) {            
+          if (!function.isDeclaration()) {
             if (DM.HasDxilEntryProps(&function)) {
               const auto &entryProps = DM.GetDxilEntryProps(&function);
-              if (entryProps.props.IsNode() && 
-                  entryProps.props.Node.LaunchType == hlsl::DXIL::NodeLaunchType::Mesh) {
+              if (entryProps.props.IsMeshNode()) {
                 MarkUsedSignatureElements(&function, DM);
               }
             }
-          }          
+          }
         }
       }
 
