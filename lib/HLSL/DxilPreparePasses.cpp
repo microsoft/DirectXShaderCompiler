@@ -847,7 +847,8 @@ public:
         // Assume entry props are available for entry function.
         DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
         MarkUsedSignatureElements(F, entryProps);
-        if (entryProps.props.IsHS() && entryProps.props.ShaderProps.HS.patchConstantFunc)
+        if (entryProps.props.IsHS() &&
+            entryProps.props.ShaderProps.HS.patchConstantFunc)
           MarkUsedSignatureElements(
               entryProps.props.ShaderProps.HS.patchConstantFunc, entryProps);
       } else {
