@@ -309,8 +309,7 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(LI.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.InputSignature
-                   : &DM.GetInputSignature();
+      pSig = entryProps.sig.InputSignature;
     } else if (SO) {
       if (!GetUnsignedVal(SO.get_outputSigId(), &sigId))
         continue;
