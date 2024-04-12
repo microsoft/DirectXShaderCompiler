@@ -287,7 +287,7 @@ static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
   return true;
 }
 
-static void MarkUsedSignatureElements(Function *F, DxilModule &DM, bool IsLib) {
+static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryProps) {
   DXASSERT_NOMSG(F != nullptr);
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
   // F is a pointer to a Function instance
