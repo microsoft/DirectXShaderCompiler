@@ -843,8 +843,11 @@ public:
 
       if (!IsLib) {
         // Set used masks for signature elements
-        MarkUsedSignatureElements(DM.GetEntryFunction(), DM, IsLib);
-        if (DM.GetShaderModel()->IsHS())
+        Function *F = DM.GetEntryFunction();
+        // Assume entry props are available for entry function.
+        const DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+        MarkUsedSignatureElements(F, entryProps);
+        if (entryProps.props.IsHS() && entryProps.props.ShaderProps.HS.patchConstantFunc)
           MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM, IsLib);
       } else {
         for (auto &function : M.getFunctionList()) {
