@@ -8080,6 +8080,11 @@ class db_dxil(object):
             "Invalid input record type for node launch type",
             "%0 node shader '%1' has incompatible input record type (should be %2)",
         )
+        self.add_valrule_msg(
+            "Decl.MeshNodeOutputRecord",
+            "A mesh shader may not have any output records,",
+            "Mesh node shader '%0' has unexpected output record '%1'",
+        )
 
         # These errors are emitted from ShaderCompatInfo validation.
         # If a called function is identifiable as a potential source of the

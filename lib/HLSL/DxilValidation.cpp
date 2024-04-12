@@ -3556,6 +3556,26 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
   ValidateAsIntrinsics(F, ValCtx, dispatchMesh);
 }
 
+// Only in the case of Mesh Nodes, we should ensure that there do not exist
+// any output records in the function argument list.
+static void ValidateMeshNodeOutputRecord(Function *F,
+                                         ValidationContext &ValCtx) {
+  // if there are no function props or LaunchType is Invalid, there is nothing
+  // to do here
+  if (!ValCtx.DxilMod.HasDxilFunctionProps(F))
+    return;
+  auto &props = ValCtx.DxilMod.GetDxilFunctionProps(F);
+
+  if (props.OutputNodes.size() == 0)
+    return;
+
+  for (auto &output : props.OutputNodes) {
+    ValCtx.EmitFnFormatError(F, ValidationRule::DeclMeshNodeOutputRecord,
+                             {F->getName(), output.OutputID.Name});
+  }
+  return;
+}
+
 static void ValidateNodeInputRecord(Function *F, ValidationContext &ValCtx) {
   // if there are no function props or LaunchType is Invalid, there is nothing
   // to do here
@@ -3707,6 +3727,8 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
     if (ValCtx.DxilMod.HasDxilFunctionProps(&F) &&
         ValCtx.DxilMod.GetDxilFunctionProps(&F).IsNode()) {
       ValidateNodeInputRecord(&F, ValCtx);
+      if (ValCtx.DxilMod.GetDxilFunctionProps(&F).IsMeshNode())
+        ValidateMeshNodeOutputRecord(&F, ValCtx);
     }
 
     ValidateFunctionBody(&F, ValCtx);
