@@ -855,7 +855,7 @@ public:
             if (DM.HasDxilEntryProps(&function)) {
               const auto &entryProps = DM.GetDxilEntryProps(&function);
               if (entryProps.props.IsMeshNode()) {
-                MarkUsedSignatureElements(&function, DM, IsLib);
+                MarkUsedSignatureElements(&function, entryProps);
               }
             }
           }
