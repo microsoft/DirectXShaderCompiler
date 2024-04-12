@@ -3582,32 +3582,61 @@ bool DeclResultIdMapper::createPayloadStageVars(
   }
 
   const auto loc = decl->getLocation();
-  if (!type->isStructureType()) {
-    StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                      getLocationAndComponentCount(astContext, type));
-    const auto name = namePrefix.str() + "." + decl->getNameAsString();
-    SpirvVariable *varInstr = spvBuilder.addStageIOVar(
-        type, sc, name, /*isPrecise=*/false, /*isNointerp=*/false, loc);
 
-    if (!varInstr)
-      return false;
+  // Most struct type stage vars must be flattened, but for EXT_mesh_shaders the
+  // mesh payload struct should be decorated with TaskPayloadWorkgroupEXT and
+  // used directly as the OpEntryPoint variable.
+  if (!type->isStructureType() ||
+      featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
 
-    // Even though these as user defined IO stage variables, set them as SPIR-V
-    // builtins in order to bypass any semantic string checks and location
-    // assignment.
-    stageVar.setIsSpirvBuiltin();
-    stageVar.setSpirvInstr(varInstr);
-    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
-        stageVar.getStorageClass() == spv::StorageClass::Output) {
-      stageVar.setEntryPoint(entryFunction);
+    SpirvVariable *varInstr = nullptr;
+
+    // Check whether a mesh payload module variable has already been added, as
+    // is the case for the groupshared payload variable parameter of
+    // DispatchMesh. In this case, change the storage class from Workgroup to
+    // TaskPayloadWorkgroupEXT.
+    if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      for (SpirvVariable *moduleVar : spvBuilder.getModule()->getVariables()) {
+        if (moduleVar->getAstResultType() == type) {
+          moduleVar->setStorageClass(
+              spv::StorageClass::TaskPayloadWorkgroupEXT);
+          varInstr = moduleVar;
+        }
+      }
     }
-    stageVars.push_back(stageVar);
 
-    if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
-      // Decorate with PerTaskNV for mesh/amplification shader payload
-      // variables.
-      spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
-                                   varInstr->getSourceLocation());
+    // If necessary, create new stage variable for mesh payload.
+    if (!varInstr) {
+      LocationAndComponent locationAndComponentCount =
+          type->isStructureType()
+              ? LocationAndComponent({0, 0, false})
+              : getLocationAndComponentCount(astContext, type);
+      StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr,
+                        type, locationAndComponentCount);
+      const auto name = namePrefix.str() + "." + decl->getNameAsString();
+      varInstr = spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false,
+                                          /*isNointerp=*/false, loc);
+
+      if (!varInstr)
+        return false;
+
+      // Even though these as user defined IO stage variables, set them as
+      // SPIR-V builtins in order to bypass any semantic string checks and
+      // location assignment.
+      stageVar.setIsSpirvBuiltin();
+      stageVar.setSpirvInstr(varInstr);
+      if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+          stageVar.getStorageClass() == spv::StorageClass::Output) {
+        stageVar.setEntryPoint(entryFunction);
+      }
+      stageVars.push_back(stageVar);
+
+      if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+        // Decorate with PerTaskNV for mesh/amplification shader payload
+        // variables.
+        spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
+                                     varInstr->getSourceLocation());
+      }
     }
 
     if (asInput) {
