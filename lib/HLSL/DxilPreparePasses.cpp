@@ -349,8 +349,7 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(SPO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature
-                   : &DM.GetPatchConstOrPrimSignature();
+      pSig = entryProps.sig.PatchConstOrPrimSignature;
     } else {
       continue;
     }
