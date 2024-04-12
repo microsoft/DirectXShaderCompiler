@@ -333,8 +333,7 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(LPC.get_row(), &row))
         bDynIdx = true;
-      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature
-                   : &DM.GetPatchConstOrPrimSignature();
+      pSig = entryProps.sig.PatchConstOrPrimSignature;
     } else if (SVO) {
       if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId))
         continue;
