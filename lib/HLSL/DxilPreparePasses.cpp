@@ -848,7 +848,7 @@ public:
         const DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
         MarkUsedSignatureElements(F, entryProps);
         if (entryProps.props.IsHS() && entryProps.props.ShaderProps.HS.patchConstantFunc)
-          MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM, IsLib);
+          MarkUsedSignatureElements(props.ShaderProps.HS.patchConstantFunc, entryProps);
       } else {
         for (auto &function : M.getFunctionList()) {
           if (!function.isDeclaration()) {
