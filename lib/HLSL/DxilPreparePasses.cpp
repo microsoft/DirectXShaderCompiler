@@ -287,7 +287,7 @@ static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
   return true;
 }
 
-static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
+static void MarkUsedSignatureElements(Function *F, DxilModule &DM, bool IsLib) {
   DXASSERT_NOMSG(F != nullptr);
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
   // F is a pointer to a Function instance
@@ -309,7 +309,8 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(LI.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetDxilEntryProps(F).sig.InputSignature;
+      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.InputSignature
+                   : &DM.GetInputSignature();
     } else if (SO) {
       if (!GetUnsignedVal(SO.get_outputSigId(), &sigId))
         continue;
@@ -317,7 +318,8 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetDxilEntryProps(F).sig.OutputSignature;
+      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.OutputSignature
+                   : &DM.GetOutputSignature();
     } else if (SPC) {
       if (!GetUnsignedVal(SPC.get_outputSigID(), &sigId))
         continue;
@@ -325,7 +327,8 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SPC.get_row(), &row))
         bDynIdx = true;
-      pSig = &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature;
+      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature
+                   : &DM.GetPatchConstOrPrimSignature();
     } else if (LPC) {
       if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId))
         continue;
@@ -333,7 +336,8 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(LPC.get_row(), &row))
         bDynIdx = true;
-      pSig = &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature;
+      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature
+                   : &DM.GetPatchConstOrPrimSignature();
     } else if (SVO) {
       if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId))
         continue;
@@ -341,7 +345,8 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SVO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetDxilEntryProps(F).sig.OutputSignature;
+      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.OutputSignature
+                   : &DM.GetOutputSignature();
     } else if (SPO) {
       if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId))
         continue;
@@ -349,7 +354,8 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SPO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature;
+      pSig = IsLib ? &DM.GetDxilEntryProps(F).sig.PatchConstOrPrimSignature
+                   : &DM.GetPatchConstOrPrimSignature();
     } else {
       continue;
     }
@@ -843,16 +849,16 @@ public:
 
       if (!IsLib) {
         // Set used masks for signature elements
-        MarkUsedSignatureElements(DM.GetEntryFunction(), DM);
+        MarkUsedSignatureElements(DM.GetEntryFunction(), DM, IsLib);
         if (DM.GetShaderModel()->IsHS())
-          MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
+          MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM, IsLib);
       } else {
         for (auto &function : M.getFunctionList()) {
           if (!function.isDeclaration()) {
             if (DM.HasDxilEntryProps(&function)) {
               const auto &entryProps = DM.GetDxilEntryProps(&function);
               if (entryProps.props.IsMeshNode()) {
-                MarkUsedSignatureElements(&function, DM);
+                MarkUsedSignatureElements(&function, DM, IsLib);
               }
             }
           }

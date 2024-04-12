@@ -52,7 +52,7 @@
 // CHECK:                  InterpolationMode: LinearNoperspective
 // CHECK:                  StartRow: 0
 // CHECK:                  ColsAndStream: 3
-// CHECK:                  UsageAndDynIndexMasks: 0
+// CHECK:                  UsageAndDynIndexMasks: 15
 // CHECK:                }
 // CHECK:              }
 // CHECK:              SigPrimOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
@@ -64,7 +64,7 @@
 // CHECK:                  InterpolationMode: Constant
 // CHECK:                  StartRow: 0
 // CHECK:                  ColsAndStream: 3
-// CHECK:                  UsageAndDynIndexMasks: 0
+// CHECK:                  UsageAndDynIndexMasks: 15
 // CHECK:                }
 // CHECK:              }
 // CHECK:              ViewIDOutputMask: <0:bytes[0]>

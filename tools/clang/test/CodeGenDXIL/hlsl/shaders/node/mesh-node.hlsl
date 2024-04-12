@@ -104,7 +104,7 @@ void node_setmeshoutputcounts(DispatchNodeInputRecord<MeshPayload> mpl,
     op.layer[5] = mpl.Get().layer[5];
 
     // CHECK: %[[GSGEP2:[0-9]+]] = getelementptr [16 x float], [16 x float] addrspace(3)* @"\01?gsMem@@3PAMA", i32 0, i32 %[[GIDIV]]
-    // CHECK: store float %[[NRM]], float addrspace(3)* %[[GSGEP2]], align 4, !tbaa !29
+    // CHECK: store float %[[NRM]], float addrspace(3)* %[[GSGEP2]], align 4, !tbaa !31
     gsMem[tig / 3] = op.normal;
     // CHECK:  call void @dx.op.storePrimitiveOutput.f32(i32 172, i32 0, i32 0, i8 0, float %[[NRM]], i32 %[[GIDIV]])
     // CHECK:  call void @dx.op.storePrimitiveOutput.f32(i32 172, i32 1, i32 0, i8 0, float %[[GS]], i32 %[[GIDIV]])
