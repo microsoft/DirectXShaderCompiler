@@ -1,6 +1,6 @@
 // RUN: %dxc -Tlib_6_9 %s -verify 
 
-// Make sure writable input records aren't allowed for mesh node shaders
+// Make sure invalid input records aren't allowed for mesh node shaders
 
 
 struct MY_MATERIAL_RECORD
