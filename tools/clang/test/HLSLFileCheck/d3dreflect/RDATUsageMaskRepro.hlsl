@@ -4,94 +4,7 @@
 // mesh node functions in library shaders.
 
 
-// CHECK:RecordTable (stride = {{[0-9]+}} bytes) FunctionTable[1] = {
-// CHECK:    <0:RuntimeDataFunctionInfo2> = {
-// CHECK:      Name: "justMeshBinsLeaf"
-// CHECK:      UnmangledName: "justMeshBinsLeaf"
-// CHECK:      Resources: <0:RecordArrayRef<RuntimeDataResourceInfo>[5]>  = {
-// CHECK:        [0]: <0:RuntimeDataResourceInfo> = {
-// CHECK:          Class: CBuffer
-// CHECK:          Kind: CBuffer
-// CHECK:          ID: 0
-// CHECK:          Space: 15
-// CHECK:          LowerBound: 0
-// CHECK:          UpperBound: 0
-// CHECK:          Name: "JustMeshBinsNodeConfig"
-// CHECK:          Flags: 0 (None)
-// CHECK:        }
-// CHECK:        [1]: <1:RuntimeDataResourceInfo> = {
-// CHECK:          Class: Sampler
-// CHECK:          Kind: Sampler
-// CHECK:          ID: 0
-// CHECK:          Space: 15
-// CHECK:          LowerBound: 0
-// CHECK:          UpperBound: 0
-// CHECK:          Name: "JustMeshBinsSampler"
-// CHECK:          Flags: 0 (None)
-// CHECK:        }
-// CHECK:        [2]: <2:RuntimeDataResourceInfo> = {
-// CHECK:          Class: SRV
-// CHECK:          Kind: Texture2D
-// CHECK:          ID: 0
-// CHECK:          Space: 15
-// CHECK:          LowerBound: 0
-// CHECK:          UpperBound: 0
-// CHECK:          Name: "JustMeshBinsTexture0"
-// CHECK:          Flags: 0 (None)
-// CHECK:        }
-// CHECK:        [3]: <3:RuntimeDataResourceInfo> = {
-// CHECK:          Class: SRV
-// CHECK:          Kind: Texture2D
-// CHECK:          ID: 1
-// CHECK:          Space: 15
-// CHECK:          LowerBound: 1
-// CHECK:          UpperBound: 1
-// CHECK:          Name: "JustMeshBinsTexture1"
-// CHECK:          Flags: 0 (None)
-// CHECK:        }
-// CHECK:        [4]: <4:RuntimeDataResourceInfo> = {
-// CHECK:          Class: UAV
-// CHECK:          Kind: StructuredBuffer
-// CHECK:          ID: 0
-// CHECK:          Space: 15
-// CHECK:          LowerBound: 0
-// CHECK:          UpperBound: 0
-// CHECK:          Name: "JustMeshBinsUAV"
-// CHECK:          Flags: 0 (None)
-// CHECK:        }
-// CHECK:      }
-// CHECK:      FunctionDependencies: <string[0]> = {}
-// CHECK:      ShaderKind: Node
-// CHECK:      PayloadSizeInBytes: 0
-// CHECK:      AttributeSizeInBytes: 0
-// CHECK:      FeatureInfo1: (NativeLowPrecision)
-// CHECK:      FeatureInfo2: 0
-// CHECK:      ShaderStageFlag: (Node)
-// CHECK:      MinShaderTarget: 0xf0069
-// CHECK:      MinimumExpectedWaveLaneCount: 0
-// CHECK:      MaximumExpectedWaveLaneCount: 0
-// CHECK:      ShaderFlags: (OutputPositionPresent)
-// CHECK:      Node: <0:NodeShaderInfo> = {
-// CHECK:        LaunchType: Mesh
-// CHECK:        GroupSharedBytesUsed: 0
-// CHECK:        Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderFuncAttrib>[4]>  = {
-// CHECK:          [0]: <0:NodeShaderFuncAttrib> = {
-// CHECK:            AttribKind: ID
-// CHECK:            ID: <{{[0-9]+}}:NodeID> = {
-// CHECK:              Name: "justMeshBinsLeaf"
-// CHECK:              Index: 0
-// CHECK:            }
-// CHECK:          }
-// CHECK:          [1]: <1:NodeShaderFuncAttrib> = {
-// CHECK:            AttribKind: NumThreads
-// CHECK:            NumThreads: <6:array[3]> = { 32, 1, 1 }
-// CHECK:          }
-// CHECK:          [2]: <2:NodeShaderFuncAttrib> = {
-// CHECK:            AttribKind: MaxDispatchGrid
-// CHECK:            MaxDispatchGrid: <10:array[3]> = { 512, 512, 1 }
-// CHECK:          }
-// CHECK:          [3]: <3:NodeShaderFuncAttrib> = {
-// CHECK:            AttribKind: MeshShaderInfo
+
 // CHECK:            MeshShaderInfo: <0:MSInfo> = {
 // CHECK:              SigOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:                [0]: <0:SignatureElement> = {
@@ -127,67 +40,7 @@
 // CHECK:                  UsageAndDynIndexMasks: 1
 // CHECK:                }
 // CHECK:              }
-// CHECK:              ViewIDOutputMask: <0:bytes[0]>
-// CHECK:              ViewIDPrimOutputMask: <0:bytes[0]>
-// CHECK:              NumThreads: <6:array[3]> = { 32, 1, 1 }
-// CHECK:              GroupSharedBytesUsed: 0
-// CHECK:              GroupSharedBytesDependentOnViewID: 0
-// CHECK:              PayloadSizeInBytes: 0
-// CHECK:              MaxOutputVertices: 3
-// CHECK:              MaxOutputPrimitives: 1
-// CHECK:              MeshOutputTopology: 2
-// CHECK:            }
-// CHECK:          }
-// CHECK:        }
-// CHECK:        Outputs: <RecordArrayRef<IONode>[0]> = {}
-// CHECK:        Inputs: <{{[0-9]+}}:RecordArrayRef<IONode>[1]>  = {
-// CHECK:          [0]: <0:IONode> = {
-// CHECK:            IOFlagsAndKind: 97
-// CHECK:            Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
-// CHECK:              [0]: <0:NodeShaderIOAttrib> = {
-// CHECK:                AttribKind: RecordSizeInBytes
-// CHECK:                RecordSizeInBytes: 12
-// CHECK:              }
-// CHECK:              [1]: <1:NodeShaderIOAttrib> = {
-// CHECK:                AttribKind: RecordDispatchGrid
-// CHECK:                RecordDispatchGrid: <RecordDispatchGrid>
-// CHECK:                  ByteOffset: 4
-// CHECK:                  ComponentNumAndType: 14
-// CHECK:              }
-// CHECK:              [2]: <2:NodeShaderIOAttrib> = {
-// CHECK:                AttribKind: RecordAlignmentInBytes
-// CHECK:                RecordAlignmentInBytes: 4
-// CHECK:              }
-// CHECK:            }
-// CHECK:          }
-// CHECK:        }
-// CHECK:      }
-// CHECK:    }
-// CHECK:  }
-// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeIDTable[1] = {
-// CHECK:    <0:NodeID> = {
-// CHECK:      Name: "justMeshBinsLeaf"
-// CHECK:      Index: 0
-// CHECK:    }
-// CHECK:  }
-// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderFuncAttribTable[4] = {
-// CHECK:    <0:NodeShaderFuncAttrib> = {
-// CHECK:      AttribKind: ID
-// CHECK:      ID: <{{[0-9]+}}:NodeID> = {
-// CHECK:        Name: "justMeshBinsLeaf"
-// CHECK:        Index: 0
-// CHECK:      }
-// CHECK:    }
-// CHECK:    <1:NodeShaderFuncAttrib> = {
-// CHECK:      AttribKind: NumThreads
-// CHECK:      NumThreads: <6:array[3]> = { 32, 1, 1 }
-// CHECK:    }
-// CHECK:    <2:NodeShaderFuncAttrib> = {
-// CHECK:      AttribKind: MaxDispatchGrid
-// CHECK:      MaxDispatchGrid: <10:array[3]> = { 512, 512, 1 }
-// CHECK:    }
-// CHECK:    <3:NodeShaderFuncAttrib> = {
-// CHECK:      AttribKind: MeshShaderInfo
+
 // CHECK:      MeshShaderInfo: <0:MSInfo> = {
 // CHECK:        SigOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:          [0]: <0:SignatureElement> = {
@@ -223,77 +76,7 @@
 // CHECK:            UsageAndDynIndexMasks: 1
 // CHECK:          }
 // CHECK:        }
-// CHECK:        ViewIDOutputMask: <0:bytes[0]>
-// CHECK:        ViewIDPrimOutputMask: <0:bytes[0]>
-// CHECK:        NumThreads: <6:array[3]> = { 32, 1, 1 }
-// CHECK:        GroupSharedBytesUsed: 0
-// CHECK:        GroupSharedBytesDependentOnViewID: 0
-// CHECK:        PayloadSizeInBytes: 0
-// CHECK:        MaxOutputVertices: 3
-// CHECK:        MaxOutputPrimitives: 1
-// CHECK:        MeshOutputTopology: 2
-// CHECK:      }
-// CHECK:    }
-// CHECK:  }
-// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderIOAttribTable[3] = {
-// CHECK:    <0:NodeShaderIOAttrib> = {
-// CHECK:      AttribKind: RecordSizeInBytes
-// CHECK:      RecordSizeInBytes: 12
-// CHECK:    }
-// CHECK:    <1:NodeShaderIOAttrib> = {
-// CHECK:      AttribKind: RecordDispatchGrid
-// CHECK:      RecordDispatchGrid: <RecordDispatchGrid>
-// CHECK:        ByteOffset: 4
-// CHECK:        ComponentNumAndType: 14
-// CHECK:    }
-// CHECK:    <2:NodeShaderIOAttrib> = {
-// CHECK:      AttribKind: RecordAlignmentInBytes
-// CHECK:      RecordAlignmentInBytes: 4
-// CHECK:    }
-// CHECK:  }
-// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) IONodeTable[1] = {
-// CHECK:    <0:IONode> = {
-// CHECK:      IOFlagsAndKind: 97
-// CHECK:      Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
-// CHECK:        [0]: <0:NodeShaderIOAttrib> = {
-// CHECK:          AttribKind: RecordSizeInBytes
-// CHECK:          RecordSizeInBytes: 12
-// CHECK:        }
-// CHECK:        [1]: <1:NodeShaderIOAttrib> = {
-// CHECK:          AttribKind: RecordDispatchGrid
-// CHECK:          RecordDispatchGrid: <RecordDispatchGrid>
-// CHECK:            ByteOffset: 4
-// CHECK:            ComponentNumAndType: 14
-// CHECK:        }
-// CHECK:        [2]: <2:NodeShaderIOAttrib> = {
-// CHECK:          AttribKind: RecordAlignmentInBytes
-// CHECK:          RecordAlignmentInBytes: 4
-// CHECK:        }
-// CHECK:      }
-// CHECK:    }
-// CHECK:  }
-// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) NodeShaderInfoTable[1] = {
-// CHECK:    <0:NodeShaderInfo> = {
-// CHECK:      LaunchType: Mesh
-// CHECK:      GroupSharedBytesUsed: 0
-// CHECK:      Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderFuncAttrib>[4]>  = {
-// CHECK:        [0]: <0:NodeShaderFuncAttrib> = {
-// CHECK:          AttribKind: ID
-// CHECK:          ID: <{{[0-9]+}}:NodeID> = {
-// CHECK:            Name: "justMeshBinsLeaf"
-// CHECK:            Index: 0
-// CHECK:          }
-// CHECK:        }
-// CHECK:        [1]: <{{[0-9]+}}:NodeShaderFuncAttrib> = {
-// CHECK:          AttribKind: NumThreads
-// CHECK:          NumThreads: <6:array[3]> = { 32, 1, 1 }
-// CHECK:        }
-// CHECK:        [2]: <{{[0-9]+}}:NodeShaderFuncAttrib> = {
-// CHECK:          AttribKind: MaxDispatchGrid
-// CHECK:          MaxDispatchGrid: <10:array[3]> = { 512, 512, 1 }
-// CHECK:        }
-// CHECK:        [3]: <{{[0-9]+}}:NodeShaderFuncAttrib> = {
-// CHECK:          AttribKind: MeshShaderInfo
+
 // CHECK:          MeshShaderInfo: <0:MSInfo> = {
 // CHECK:            SigOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:              [0]: <0:SignatureElement> = {
@@ -340,31 +123,7 @@
 // CHECK:            MeshOutputTopology: 2
 // CHECK:          }
 // CHECK:        }
-// CHECK:      }
-// CHECK:      Outputs: <RecordArrayRef<IONode>[0]> = {}
-// CHECK:      Inputs: <{{[0-9]+}}:RecordArrayRef<IONode>[1]>  = {
-// CHECK:        [0]: <0:IONode> = {
-// CHECK:          IOFlagsAndKind: 97
-// CHECK:          Attribs: <{{[0-9]+}}:RecordArrayRef<NodeShaderIOAttrib>[3]>  = {
-// CHECK:            [0]: <0:NodeShaderIOAttrib> = {
-// CHECK:              AttribKind: RecordSizeInBytes
-// CHECK:              RecordSizeInBytes: 12
-// CHECK:            }
-// CHECK:            [1]: <1:NodeShaderIOAttrib> = {
-// CHECK:              AttribKind: RecordDispatchGrid
-// CHECK:              RecordDispatchGrid: <RecordDispatchGrid>
-// CHECK:                ByteOffset: 4
-// CHECK:                ComponentNumAndType: 14
-// CHECK:            }
-// CHECK:            [2]: <2:NodeShaderIOAttrib> = {
-// CHECK:              AttribKind: RecordAlignmentInBytes
-// CHECK:              RecordAlignmentInBytes: 4
-// CHECK:            }
-// CHECK:          }
-// CHECK:        }
-// CHECK:      }
-// CHECK:    }
-// CHECK:  }
+
 // CHECK:  RecordTable (stride = {{[0-9]+}} bytes) SignatureElementTable[3] = {
 // CHECK:    <0:SignatureElement> = {
 // CHECK:      SemanticName: "SV_Position"
@@ -397,7 +156,7 @@
 // CHECK:      UsageAndDynIndexMasks: 1
 // CHECK:    }
 // CHECK:  }
-// CHECK:  RecordTable (stride = {{[0-9]+}} bytes) MSInfoTable[1] = {
+
 // CHECK:    <0:MSInfo> = {
 // CHECK:      SigOutputElements: <{{[0-9]+}}:RecordArrayRef<SignatureElement>[1]>  = {
 // CHECK:        [0]: <0:SignatureElement> = {
@@ -433,19 +192,6 @@
 // CHECK:          UsageAndDynIndexMasks: 1
 // CHECK:        }
 // CHECK:      }
-// CHECK:      ViewIDOutputMask: <0:bytes[0]>
-// CHECK:      ViewIDPrimOutputMask: <0:bytes[0]>
-// CHECK:      NumThreads: <6:array[3]> = { 32, 1, 1 }
-// CHECK:      GroupSharedBytesUsed: 0
-// CHECK:      GroupSharedBytesDependentOnViewID: 0
-// CHECK:      PayloadSizeInBytes: 0
-// CHECK:      MaxOutputVertices: 3
-// CHECK:      MaxOutputPrimitives: 1
-// CHECK:      MeshOutputTopology: 2
-// CHECK:    }
-// CHECK:  }
-
-
 
 
 

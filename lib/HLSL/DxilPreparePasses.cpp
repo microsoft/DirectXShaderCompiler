@@ -287,7 +287,7 @@ static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
   return true;
 }
 
-static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryProps) {
+static void MarkUsedSignatureElements(Function *F, DxilEntryProps &entryProps) {
   DXASSERT_NOMSG(F != nullptr);
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
   // F is a pointer to a Function instance
@@ -309,7 +309,7 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(LI.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = entryProps.sig.InputSignature;
+      pSig = &entryProps.sig.InputSignature;
     } else if (SO) {
       if (!GetUnsignedVal(SO.get_outputSigId(), &sigId))
         continue;
@@ -317,7 +317,7 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(SO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = entryProps.sig.OutputSignature;
+      pSig = &entryProps.sig.OutputSignature;
     } else if (SPC) {
       if (!GetUnsignedVal(SPC.get_outputSigID(), &sigId))
         continue;
@@ -325,7 +325,7 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(SPC.get_row(), &row))
         bDynIdx = true;
-      pSig = entryProps.sig.PatchConstOrPrimSignature;
+      pSig = &entryProps.sig.PatchConstOrPrimSignature;
     } else if (LPC) {
       if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId))
         continue;
@@ -333,7 +333,7 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(LPC.get_row(), &row))
         bDynIdx = true;
-      pSig = entryProps.sig.PatchConstOrPrimSignature;
+      pSig = &entryProps.sig.PatchConstOrPrimSignature;
     } else if (SVO) {
       if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId))
         continue;
@@ -341,7 +341,7 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(SVO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = entryProps.sig.OutputSignature;
+      pSig = &entryProps.sig.OutputSignature;
     } else if (SPO) {
       if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId))
         continue;
@@ -349,14 +349,14 @@ static void MarkUsedSignatureElements(Function *F, const DxilEntryProps &entryPr
         continue;
       if (!GetUnsignedVal(SPO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = entryProps.sig.PatchConstOrPrimSignature;
+      pSig = &entryProps.sig.PatchConstOrPrimSignature;
     } else {
       continue;
     }
 
     // Consider being more fine-grained about masks.
     // We report sometimes-read on input as always-read.
-    auto &El = pSig->GetElement(sigId);
+    hlsl::DxilSignatureElement &El = pSig->GetElement(sigId);
     unsigned UsageMask = El.GetUsageMask();
     unsigned colBit = 1 << col;
     if (!(colBit & UsageMask)) {
@@ -845,15 +845,16 @@ public:
         // Set used masks for signature elements
         Function *F = DM.GetEntryFunction();
         // Assume entry props are available for entry function.
-        const DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+        DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
         MarkUsedSignatureElements(F, entryProps);
         if (entryProps.props.IsHS() && entryProps.props.ShaderProps.HS.patchConstantFunc)
-          MarkUsedSignatureElements(props.ShaderProps.HS.patchConstantFunc, entryProps);
+          MarkUsedSignatureElements(
+              entryProps.props.ShaderProps.HS.patchConstantFunc, entryProps);
       } else {
         for (auto &function : M.getFunctionList()) {
           if (!function.isDeclaration()) {
             if (DM.HasDxilEntryProps(&function)) {
-              const auto &entryProps = DM.GetDxilEntryProps(&function);
+              auto &entryProps = DM.GetDxilEntryProps(&function);
               if (entryProps.props.IsMeshNode()) {
                 MarkUsedSignatureElements(&function, entryProps);
               }
