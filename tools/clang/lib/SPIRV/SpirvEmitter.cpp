@@ -6069,7 +6069,8 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
   }
   const uint32_t indexAST =
       getNumBaseClasses(baseType) + fieldDecl->getFieldIndex();
-  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                    spvBuilder);
   const StructType *spirvStructType =
       lowerStructType(spirvOptions, lowerTypeVisitor, baseType);
   assert(spirvStructType);
@@ -6608,7 +6609,8 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
   if (const auto *recordType = valType->getAs<RecordType>()) {
     assert(recordType->isStructureType());
 
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     const StructType *spirvStructType =
         lowerStructType(spirvOptions, lowerTypeVisitor, recordType->desugar());
 
@@ -7157,7 +7159,8 @@ SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType astStructType,
                                                       SourceRange range) {
   assert(astStructType->isStructureType());
 
-  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                    spvBuilder);
   const StructType *spirvStructType =
       lowerStructType(spirvOptions, lowerTypeVisitor, astStructType);
   uint32_t vectorIndex = 0;
@@ -7966,7 +7969,8 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     }
 
     {
-      LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+      LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                        spvBuilder);
       const auto &astStructType =
           /* structType */ indexing->getBase()->getType();
       const StructType *spirvStructType =
@@ -14224,8 +14228,8 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
   }
 
   auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
-  spvContext.getSpirvIntrinsicType(typeDefAttr->getId(),
-                                   typeDefAttr->getOpcode(), operands);
+  spvContext.getOrCreateSpirvIntrinsicType(typeDefAttr->getId(),
+                                           typeDefAttr->getOpcode(), operands);
 
   return createSpirvIntrInstExt(
       funcDecl->getAttrs(), QualType(),
@@ -14521,7 +14525,8 @@ SpirvEmitter::decomposeToScalars(SpirvInstruction *inst) {
     std::vector<SpirvInstruction *> result;
 
     const SpirvType *type = nullptr;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     type = lowerTypeVisitor.lowerType(resultType, inst->getLayoutRule(), false,
                                       inst->getSourceLocation());
 
@@ -14619,7 +14624,8 @@ SpirvEmitter::generateFromScalars(QualType type,
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
     std::vector<SpirvInstruction *> elements;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     const SpirvType *spirvType =
         lowerTypeVisitor.lowerType(type, layoutRule, false, sourceLocation);
 
@@ -14701,7 +14707,8 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
     std::vector<SpirvInstruction *> elements;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     const SpirvType *spirvType = lowerTypeVisitor.lowerType(
         type, SpirvLayoutRule::Void, false, sourceLocation);
 
