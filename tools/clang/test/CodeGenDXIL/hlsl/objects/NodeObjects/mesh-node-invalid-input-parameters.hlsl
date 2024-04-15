@@ -10,16 +10,6 @@ struct RECORD {
 
 [Shader("node")]
 [numthreads(4,4,4)]
-[NodeDispatchGrid(4,4,4)]
-[NodeLaunch("mesh")] // expected-note {{Launch type defined here}}
-[OutputTopology("line")]
-void node01_rw(RWDispatchNodeInputRecord<RECORD> input, // expected-error {{'RWDispatchNodeInputRecord' may not be used with mesh nodes (only DispatchNodeInputRecord)}}
- uint3 GTID : SV_GroupThreadID ) {
-  input.Get().gtid = GTID;
-}
-
-[Shader("node")]
-[numthreads(4,4,4)]
 [NodeMaxDispatchGrid(4,4,4)]
 [NodeLaunch("mesh")]
 [OutputTopology("triangle")]
