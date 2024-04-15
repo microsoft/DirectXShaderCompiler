@@ -3570,7 +3570,7 @@ static void ValidateMeshNodeOutputRecord(Function *F,
     return;
 
   for (auto &output : props.OutputNodes) {
-    ValCtx.EmitFnFormatError(F, ValidationRule::DeclMeshNodeOutputRecord,
+    ValCtx.EmitFnFormatError(F, ValidationRule::DeclNodeOutputOnMeshLaunch,
                              {F->getName(), output.OutputID.Name});
   }
   return;

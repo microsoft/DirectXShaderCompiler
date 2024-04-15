@@ -1,7 +1,7 @@
 // RUN: %dxc -Tlib_6_9 %s -verify 
 
 // Make sure invalid input records aren't allowed for mesh node shaders
-
+// or RWDispatchNodeInputRecord
 
 struct MY_MATERIAL_RECORD
 {
@@ -16,7 +16,7 @@ struct MY_MATERIAL_RECORD
 [NumThreads(4,5,6)]
 [NodeDispatchGrid(2,2,2)]
 void myFancyNode1(
-    // expected-error@+1{{'ThreadNodeInputRecord' may not be used with mesh nodes (only DispatchNodeInputRecord)}}
+    // expected-error@+1{{'ThreadNodeInputRecord' may not be used with mesh nodes (only [RW]DispatchNodeInputRecord}}
     ThreadNodeInputRecord<MY_MATERIAL_RECORD> myProgressCounter1        
     )
 {
@@ -29,7 +29,7 @@ void myFancyNode1(
 [NumThreads(4,5,6)]
 [NodeDispatchGrid(2,2,2)]
 void myFancyNode2(    
-    // expected-error@+1{{'RWThreadNodeInputRecord' may not be used with mesh nodes (only DispatchNodeInputRecord)}}
+    // expected-error@+1{{'RWThreadNodeInputRecord' may not be used with mesh nodes (only [RW]DispatchNodeInputRecord)}}
     RWThreadNodeInputRecord<MY_MATERIAL_RECORD> myProgressCounter3
     )
 {
@@ -44,7 +44,7 @@ void myFancyNode2(
 [NumThreads(4,5,6)]
 [NodeDispatchGrid(2,2,2)]
 void myFancyNode3(        
-    // expected-error@+1{{'GroupNodeInputRecords' may not be used with mesh nodes (only DispatchNodeInputRecord)}}
+    // expected-error@+1{{'GroupNodeInputRecords' may not be used with mesh nodes (only [RW]DispatchNodeInputRecord)}}
     GroupNodeInputRecords<MY_MATERIAL_RECORD> myProgressCounter6
     )
 {
@@ -58,7 +58,7 @@ void myFancyNode3(
 [NumThreads(4,5,6)]
 [NodeDispatchGrid(2,2,2)]
 void myFancyNode4(    
-    // expected-error@+1{{'RWGroupNodeInputRecords' may not be used with mesh nodes (only DispatchNodeInputRecord)}}
+    // expected-error@+1{{'RWGroupNodeInputRecords' may not be used with mesh nodes (only [RW]DispatchNodeInputRecord)}}
     RWGroupNodeInputRecords<MY_MATERIAL_RECORD> myProgressCounter8
     )
 {

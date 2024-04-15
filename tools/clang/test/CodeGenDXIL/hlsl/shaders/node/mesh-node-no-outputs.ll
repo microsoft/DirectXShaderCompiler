@@ -28,7 +28,7 @@ define void @myFancyNode() {
 !5 = !{i32 0, !6, !6}
 !6 = !{}
 !7 = !{null, !"", null, null, null}
-; CHECK: Mesh node shader 'myFancyNode' has unexpected output record 'myFascinatingNode'
+; CHECK: error: node shader 'myFancyNode' has disallowed node output 'myFascinatingNode' for 'mesh' launch
 !8 = !{void ()* @myFancyNode, !"myFancyNode", null, null, !9}
 ; change the 4th argument from 1->4, to set mesh node launch type
 !9 = !{i32 8, i32 15, i32 13, i32 4, i32 15, !10, i32 16, i32 -1, i32 18, !11, i32 20, !12, i32 21, !15, i32 4, !29, i32 5, !30}
@@ -43,17 +43,17 @@ define void @myFancyNode() {
 !18 = !{i32 0, i32 5, i32 3}
 !19 = !{!"myFascinatingNode", i32 0}
 !20 = !{i32 1, i32 6, i32 2, !17, i32 3, i32 4, i32 0, !21}
-; CHECK: error: Mesh node shader 'myFancyNode' has unexpected output record 'myNiftyNode'
+; CHECK: error: node shader 'myFancyNode' has disallowed node output 'myNiftyNode' for 'mesh' launch
 !21 = !{!"myNiftyNode", i32 3}
 !22 = !{i32 1, i32 22, i32 2, !23, i32 3, i32 0, i32 5, i32 63, i32 4, i32 1, i32 6, i1 true, i32 0, !24}
 !23 = !{i32 0, i32 16, i32 2, i32 4}
-; CHECK: error: Mesh node shader 'myFancyNode' has unexpected output record 'myMaterials'
+; CHECK: error: node shader 'myFancyNode' has disallowed node output 'myMaterials' for 'mesh' launch
 !24 = !{!"myMaterials", i32 0}
 !25 = !{i32 1, i32 10, i32 3, i32 20, i32 0, !26}
-; CHECK: error: Mesh node shader 'myFancyNode' has unexpected output record 'myProgressCounter'
+; CHECK: error: node shader 'myFancyNode' has disallowed node output 'myProgressCounter' for 'mesh' launch
 !26 = !{!"myProgressCounter", i32 0}
 !27 = !{i32 1, i32 26, i32 3, i32 20, i32 0, !28}
-; CHECK: error: Mesh node shader 'myFancyNode' has unexpected output record 'myProgressCounter2
+; CHECK: error: node shader 'myFancyNode' has disallowed node output 'myProgressCounter2' for 'mesh' launch
 !28 = !{!"myProgressCounter2", i32 0}
 !29 = !{i32 4, i32 5, i32 6}
 !30 = !{i32 0}

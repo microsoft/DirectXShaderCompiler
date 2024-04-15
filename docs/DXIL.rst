@@ -3038,9 +3038,9 @@ DECL.EXTRAARGS                            Extra arguments not allowed for shader
 DECL.FNATTRIBUTE                          Functions should only contain known function attributes
 DECL.FNFLATTENPARAM                       Function parameters must not use struct types
 DECL.FNISCALLED                           Functions can only be used by call instructions
-DECL.MESHNODEOUTPUTRECORD                 A mesh shader may not have any output records,
 DECL.MULTIPLENODEINPUTS                   A node shader may not have more than one input record
 DECL.NODELAUNCHINPUTTYPE                  Invalid input record type for node launch type
+DECL.NODEOUTPUTONMESHLAUNCH               Node outputs are not allowed on mesh launch node shaders.
 DECL.NOTUSEDEXTERNAL                      External declaration should not be used
 DECL.PARAMSTRUCT                          Callable function parameter must be struct type
 DECL.PAYLOADSTRUCT                        Payload parameter must be struct type
