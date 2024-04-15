@@ -1002,7 +1002,7 @@ SpirvInstruction *SpirvBuilder::createEmulatedBitFieldExtract(
   // output: SSSSSSSSSSSSSSSSBBBB
   auto *rightShiftOffset = getConstantInt(
       astContext.UnsignedIntTy, llvm::APInt(32, baseTypeBitwidth - bitCount));
-  auto *rightShift = createBinaryOp(spv::Op::OpShiftRightLogical, resultType,
+  auto *rightShift = createBinaryOp(spv::Op::OpShiftRightArithmetic, resultType,
                                     leftShift, rightShiftOffset, loc, range);
 
   if (resultType == QualType({})) {
