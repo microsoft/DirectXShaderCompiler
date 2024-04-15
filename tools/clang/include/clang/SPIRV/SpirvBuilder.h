@@ -452,7 +452,7 @@ public:
   /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
   /// instruction for the given arguments.
   SpirvInstruction *createBitFieldExtract(QualType resultType,
-                                          SpirvInstruction *Src,
+                                          SpirvInstruction *base,
                                           unsigned bitOffset, unsigned bitCount,
                                           bool isSigned, SourceLocation,
                                           SourceRange range);
