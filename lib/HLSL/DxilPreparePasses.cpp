@@ -287,7 +287,7 @@ static bool GetUnsignedVal(Value *V, uint32_t *pValue) {
   return true;
 }
 
-static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
+static void MarkUsedSignatureElements(Function *F, DxilEntryProps &entryProps) {
   DXASSERT_NOMSG(F != nullptr);
   // For every loadInput/storeOutput, update the corresponding ReadWriteMask.
   // F is a pointer to a Function instance
@@ -309,7 +309,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(LI.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetInputSignature();
+      pSig = &entryProps.sig.InputSignature;
     } else if (SO) {
       if (!GetUnsignedVal(SO.get_outputSigId(), &sigId))
         continue;
@@ -317,7 +317,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetOutputSignature();
+      pSig = &entryProps.sig.OutputSignature;
     } else if (SPC) {
       if (!GetUnsignedVal(SPC.get_outputSigID(), &sigId))
         continue;
@@ -325,7 +325,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SPC.get_row(), &row))
         bDynIdx = true;
-      pSig = &DM.GetPatchConstOrPrimSignature();
+      pSig = &entryProps.sig.PatchConstOrPrimSignature;
     } else if (LPC) {
       if (!GetUnsignedVal(LPC.get_inputSigId(), &sigId))
         continue;
@@ -333,7 +333,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(LPC.get_row(), &row))
         bDynIdx = true;
-      pSig = &DM.GetPatchConstOrPrimSignature();
+      pSig = &entryProps.sig.PatchConstOrPrimSignature;
     } else if (SVO) {
       if (!GetUnsignedVal(SVO.get_outputSigId(), &sigId))
         continue;
@@ -341,7 +341,7 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SVO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetOutputSignature();
+      pSig = &entryProps.sig.OutputSignature;
     } else if (SPO) {
       if (!GetUnsignedVal(SPO.get_outputSigId(), &sigId))
         continue;
@@ -349,14 +349,14 @@ static void MarkUsedSignatureElements(Function *F, DxilModule &DM) {
         continue;
       if (!GetUnsignedVal(SPO.get_rowIndex(), &row))
         bDynIdx = true;
-      pSig = &DM.GetPatchConstOrPrimSignature();
+      pSig = &entryProps.sig.PatchConstOrPrimSignature;
     } else {
       continue;
     }
 
     // Consider being more fine-grained about masks.
     // We report sometimes-read on input as always-read.
-    auto &El = pSig->GetElement(sigId);
+    hlsl::DxilSignatureElement &El = pSig->GetElement(sigId);
     unsigned UsageMask = El.GetUsageMask();
     unsigned colBit = 1 << col;
     if (!(colBit & UsageMask)) {
@@ -843,9 +843,25 @@ public:
 
       if (!IsLib) {
         // Set used masks for signature elements
-        MarkUsedSignatureElements(DM.GetEntryFunction(), DM);
-        if (DM.GetShaderModel()->IsHS())
-          MarkUsedSignatureElements(DM.GetPatchConstantFunction(), DM);
+        Function *F = DM.GetEntryFunction();
+        // Assume entry props are available for entry function.
+        DxilEntryProps &entryProps = DM.GetDxilEntryProps(F);
+        MarkUsedSignatureElements(F, entryProps);
+        if (entryProps.props.IsHS() &&
+            entryProps.props.ShaderProps.HS.patchConstantFunc)
+          MarkUsedSignatureElements(
+              entryProps.props.ShaderProps.HS.patchConstantFunc, entryProps);
+      } else {
+        for (auto &function : M.getFunctionList()) {
+          if (!function.isDeclaration()) {
+            if (DM.HasDxilEntryProps(&function)) {
+              auto &entryProps = DM.GetDxilEntryProps(&function);
+              if (entryProps.props.IsMeshNode()) {
+                MarkUsedSignatureElements(&function, entryProps);
+              }
+            }
+          }
+        }
       }
 
       // Adding warning for pixel shader with unassigned target
