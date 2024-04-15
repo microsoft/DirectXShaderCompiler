@@ -126,7 +126,7 @@
 // Used by HRESULT <--> WIN32 error code conversion
 #define SEVERITY_ERROR 1
 #define FACILITY_WIN32 7
-#define HRESULT_CODE(hr) ((hr)&0xFFFF)
+#define HRESULT_CODE(hr) ((hr) & 0xFFFF)
 #define MAKE_HRESULT(severity, facility, code)                                 \
   ((HRESULT)(((unsigned long)(severity) << 31) |                               \
              ((unsigned long)(facility) << 16) | ((unsigned long)(code))))
@@ -238,7 +238,7 @@
 
 #define HRESULT_FROM_WIN32(x)                                                  \
   (HRESULT)(x) <= 0 ? (HRESULT)(x)                                             \
-                    : (HRESULT)(((x)&0x0000FFFF) | (7 << 16) | 0x80000000)
+                    : (HRESULT)(((x) & 0x0000FFFF) | (7 << 16) | 0x80000000)
 
 //===----------------------------------------------------------------------===//
 //
@@ -912,32 +912,40 @@ unsigned int SysStringLen(const BSTR bstrString);
 #define CP_ACP 0
 #define CP_UTF8 65001 // UTF-8 translation.
 
-// Convert Windows codepage value to locale string
-const char *CPToLocale(uint32_t CodePage);
+// RAII style mechanism for setting/unsetting a locale for the specified Windows
+// codepage
+class ScopedLocale {
+  const char *m_prevLocale;
+
+public:
+  explicit ScopedLocale(uint32_t codePage)
+      : m_prevLocale(setlocale(LC_ALL, nullptr)) {
+    assert((codePage == CP_UTF8) &&
+           "Support for Linux only handles UTF8 code pages");
+    setlocale(LC_ALL, "en_US.UTF-8");
+  }
+  ~ScopedLocale() {
+    if (m_prevLocale != nullptr) {
+      setlocale(LC_ALL, m_prevLocale);
+    }
+  }
+};
 
 // The t_nBufferLength parameter is part of the published interface, but not
 // used here.
 template <int t_nBufferLength = 128> class CW2AEX {
 public:
-  CW2AEX(LPCWSTR psz, UINT nCodePage = CP_UTF8) {
-    const char *locale = CPToLocale(nCodePage);
-    if (locale == nullptr) {
-      // Current Implementation only supports CP_UTF8, and CP_ACP
-      assert(false && "CW2AEX implementation for Linux only handles "
-                      "UTF8 and ACP code pages");
-      return;
-    }
+  CW2AEX(LPCWSTR psz) {
+    ScopedLocale locale(CP_UTF8);
 
     if (!psz) {
       m_psz = NULL;
       return;
     }
 
-    locale = setlocale(LC_ALL, locale);
     int len = (wcslen(psz) + 1) * 4;
     m_psz = new char[len];
     std::wcstombs(m_psz, psz, len);
-    setlocale(LC_ALL, locale);
   }
 
   ~CW2AEX() { delete[] m_psz; }
@@ -952,25 +960,17 @@ typedef CW2AEX<> CW2A;
 // used here.
 template <int t_nBufferLength = 128> class CA2WEX {
 public:
-  CA2WEX(LPCSTR psz, UINT nCodePage = CP_UTF8) {
-    const char *locale = CPToLocale(nCodePage);
-    if (locale == nullptr) {
-      // Current Implementation only supports CP_UTF8, and CP_ACP
-      assert(false && "CA2WEX implementation for Linux only handles "
-                      "UTF8 and ACP code pages");
-      return;
-    }
+  CA2WEX(LPCSTR psz) {
+    ScopedLocale locale(CP_UTF8);
 
     if (!psz) {
       m_psz = NULL;
       return;
     }
 
-    locale = setlocale(LC_ALL, locale);
     int len = strlen(psz) + 1;
     m_psz = new wchar_t[len];
     std::mbstowcs(m_psz, psz, len);
-    setlocale(LC_ALL, locale);
   }
 
   ~CA2WEX() { delete[] m_psz; }

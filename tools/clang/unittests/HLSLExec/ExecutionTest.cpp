@@ -152,7 +152,7 @@ static void WriteInfoQueueMessages(void *pStrCtx,
       allMessagesOK = false;
       continue;
     }
-    CA2W msgW(pMessage->pDescription, CP_ACP);
+    CA2W msgW(pMessage->pDescription);
     pOutputStrFn(pStrCtx, msgW.m_psz);
     pOutputStrFn(pStrCtx, L"\r\n");
   }
@@ -1717,8 +1717,8 @@ public:
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
                     ID3DBlob **ppBlob) {
-    CW2A pEntryPointA(pEntryPoint, CP_UTF8);
-    CW2A pTargetProfileA(pTargetProfile, CP_UTF8);
+    CW2A pEntryPointA(pEntryPoint);
+    CW2A pTargetProfileA(pTargetProfile);
     CComPtr<ID3DBlob> pErrors;
     D3D_SHADER_MACRO d3dMacro[2];
     ZeroMemory(d3dMacro, sizeof(d3dMacro));
@@ -1728,7 +1728,7 @@ public:
         D3DCompile(pText, strlen(pText), "hlsl.hlsl", d3dMacro, nullptr,
                    pEntryPointA, pTargetProfileA, 0, 0, ppBlob, &pErrors);
     if (pErrors != nullptr) {
-      CA2W errors((char *)pErrors->GetBufferPointer(), CP_ACP);
+      CA2W errors((char *)pErrors->GetBufferPointer());
       LogCommentFmt(L"Compilation failure: %s", errors.m_szBuffer);
     }
     VERIFY_SUCCEEDED(hr);
@@ -4020,10 +4020,7 @@ TEST_F(ExecutionTest, DerivativesTest) {
                                           {16, 8, 1}, {8, 4, 2},   {10, 10, 1},
                                           {4, 16, 2}, {4, 16, 2}};
 
-  std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
-
   pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
-  LPCSTR CS = pShaderOp->CS;
 
   MappedData data;
 
@@ -4066,19 +4063,6 @@ TEST_F(ExecutionTest, DerivativesTest) {
       pPixels = (float *)data.data();
       LogCommentFmt(L"Verifying derivatives in amplification shader results");
       VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
-    }
-  }
-
-  // Final tests with invalid dispatch size just to make sure they run
-  for (Dispatch &D : badDispatches) {
-    // Test Compute Shader
-    pShaderOp->CS = CS;
-    std::shared_ptr<st::ShaderOpTest> test =
-        RunDispatch(pDevice, m_support, pShaderOp, D);
-
-    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-      pShaderOp->CS = nullptr;
-      test = RunDispatch(pDevice, m_support, pShaderOp, D);
     }
   }
 }

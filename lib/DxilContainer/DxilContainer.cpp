@@ -98,7 +98,8 @@ bool IsValidDxilContainer(const DxilContainerHeader *pHeader, size_t length) {
   }
 
   // Container size should match end of last part
-  if (nextPartBegin - pLinearContainer != pHeader->ContainerSizeInBytes)
+  if ((uint32_t)(nextPartBegin - pLinearContainer) !=
+      pHeader->ContainerSizeInBytes)
     return false;
 
   return true;

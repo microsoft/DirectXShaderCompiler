@@ -625,8 +625,8 @@ void SetupCompilerForPreprocess(CompilerInstance &compiler,
   if (pDefines) {
     PreprocessorOptions &PPOpts = compiler.getPreprocessorOpts();
     for (size_t i = 0; i < defineCount; ++i) {
-      CW2A utf8Name(pDefines[i].Name, CP_UTF8);
-      CW2A utf8Value(pDefines[i].Value, CP_UTF8);
+      CW2A utf8Name(pDefines[i].Name);
+      CW2A utf8Value(pDefines[i].Value);
       std::string val(utf8Name.m_psz);
       val += "=";
       val += (pDefines[i].Value) ? utf8Value.m_psz : "1";
@@ -638,8 +638,8 @@ void SetupCompilerForPreprocess(CompilerInstance &compiler,
 std::string DefinesToString(DxcDefine *pDefines, UINT32 defineCount) {
   std::string defineStr;
   for (UINT32 i = 0; i < defineCount; i++) {
-    CW2A utf8Name(pDefines[i].Name, CP_UTF8);
-    CW2A utf8Value(pDefines[i].Value, CP_UTF8);
+    CW2A utf8Name(pDefines[i].Name);
+    CW2A utf8Value(pDefines[i].Value);
     defineStr += "#define ";
     defineStr += utf8Name;
     defineStr += " ";
@@ -1589,7 +1589,7 @@ public:
       std::unique_ptr<ASTUnit::RemappedFile> pRemap(
           new ASTUnit::RemappedFile(fakeName, pBuffer.release()));
 
-      CW2A utf8EntryPoint(pEntryPoint, CP_UTF8);
+      CW2A utf8EntryPoint(pEntryPoint);
 
       std::string errors;
       std::string rewrite;
@@ -1678,7 +1678,7 @@ public:
     CComPtr<IDxcBlobUtf8> utf8Source;
     IFR(hlsl::DxcGetBlobAsUtf8(pSource, m_pMalloc, &utf8Source));
 
-    CW2A utf8SourceName(pSourceName, CP_UTF8);
+    CW2A utf8SourceName(pSourceName);
     LPCSTR fName = utf8SourceName.m_psz;
 
     try {
@@ -1746,7 +1746,7 @@ public:
     CComPtr<IDxcBlobUtf8> utf8Source;
     IFR(hlsl::DxcGetBlobAsUtf8(pSource, m_pMalloc, &utf8Source));
 
-    CW2A utf8SourceName(pSourceName, CP_UTF8);
+    CW2A utf8SourceName(pSourceName);
     LPCSTR fName = utf8SourceName.m_psz;
 
     try {

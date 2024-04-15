@@ -522,7 +522,6 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
 
     TheCall->setType(Context.VoidPtrTy);
     break;
-
   }
 
   // Since the target specific builtins for each arch overlap, only check those
@@ -1426,6 +1425,8 @@ bool Sema::CheckFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
   else
     CheckMemaccessArguments(TheCall, CMId, FnInfo);
 #endif // HLSL Change Ends
+
+  CheckHLSLFunctionCall(FDecl, TheCall, Proto); // HLSL Change
 
   return false;
 }
