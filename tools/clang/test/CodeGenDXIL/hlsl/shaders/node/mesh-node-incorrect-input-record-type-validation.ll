@@ -1,5 +1,7 @@
 ; RUN: not %dxv %s | FileCheck %s
 
+; REQUIRES: dxil-1-9
+
 ; This test was taken from tools\clang\test\CodeGenDXIL\hlsl\shaders\node\mesh-node-no-invalid-input-record.hlsl
 ; and compiled with Tlib_6_9, after disabling the diagnostic that was emitted
 ; for incompatible input types.

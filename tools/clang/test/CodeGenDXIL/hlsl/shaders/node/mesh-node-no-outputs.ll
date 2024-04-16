@@ -1,5 +1,7 @@
 ; RUN: not %dxv %s | FileCheck %s
 
+; REQUIRES: dxil-1-9
+
 ; This test was taken from tools\clang\test\CodeGenDXIL\hlsl\shaders\node\mesh-node-no-outputs.hlsl
 ; and compiled with Tlib_6_9, after changing the node launch type from mesh to broadcasting.
 ; The launch type has been manually written to be mesh below.

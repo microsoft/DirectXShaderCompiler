@@ -1,5 +1,7 @@
 // RUN: %dxc -Tlib_6_9 %s -verify 
 
+// REQUIRES: dxil-1-9
+
 // Make sure RWDispatchNodeInputRecord input records are allowed for mesh node shaders
 
 // expected-no-diagnostics
