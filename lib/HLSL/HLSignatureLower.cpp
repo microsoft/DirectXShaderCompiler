@@ -1138,6 +1138,7 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
     DXASSERT_NOMSG(0);
   }
   bool bInput = SK == DXIL::SignatureKind::Input;
+  // vertex or primitive IDs are required for GS/DS/HS inputs and MS outputs
   bool bNeedVertexOrPrimID =
       bInput && (props.IsGS() || props.IsDS() || props.IsHS());
   bNeedVertexOrPrimID |= !bInput && (props.IsMS() || props.IsMeshNode());
@@ -1154,6 +1155,9 @@ void HLSignatureLower::GenerateDxilInputsOutputs(DXIL::SignatureKind SK) {
 
   Constant *constZero = hlslOP->GetU32Const(0);
 
+  // Default value of vertexidx mainly used for LoadInput where it's optional
+  // Mesh outputs require this to be set and so need no default.
+  // They will be set correctly in GenerateInputOutputUserCall
   Value *undefVertexIdx = props.IsMS() || props.IsMeshNode() || !bInput
                               ? nullptr
                               : UndefValue::get(Type::getInt32Ty(HLM.GetCtx()));
