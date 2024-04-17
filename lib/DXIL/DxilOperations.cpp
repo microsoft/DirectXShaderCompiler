@@ -3564,6 +3564,8 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
 Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   if (opCode == OpCode::NumOpCodes)
     return nullptr;
+  if (!pOverloadType)
+    return nullptr;
   // Remove this assert on illegal overload for now.
   // Illegal overloads are generated and eliminated by DXIL op constant
   // evaluation for a number of cases where a double overload of an HL intrinsic
