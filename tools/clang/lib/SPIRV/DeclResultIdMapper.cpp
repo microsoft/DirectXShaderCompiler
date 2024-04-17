@@ -1488,6 +1488,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
   assert(dbgGlobalVar);
+  (void) dbgGlobalVar; // For NDEBUG builds.
 
   auto *resultType = bufferVar->getResultType();
   // Depending on the requested layout (DX or VK), constant buffers is either a
