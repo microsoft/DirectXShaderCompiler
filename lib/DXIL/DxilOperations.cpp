@@ -3564,8 +3564,9 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
 Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   if (opCode == OpCode::NumOpCodes)
     return nullptr;
-  if (!IsOverloadLegal(opCode, pOverloadType))
-    return nullptr;
+  DXASSERT(IsOverloadLegal(opCode, pOverloadType),
+           "otherwise the caller requested illegal operation overload (eg HLSL "
+           "function with unsupported types for mapped intrinsic function)");
 
   OpCodeClass opClass = m_OpCodeProps[(unsigned)opCode].opCodeClass;
   Function *&F =
