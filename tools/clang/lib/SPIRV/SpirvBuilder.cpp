@@ -226,11 +226,9 @@ SpirvInstruction *SpirvBuilder::createLoad(QualType resultType,
   if (!bitfieldInfo.hasValue())
     return instruction;
 
-  return createBitFieldExtract(
-      resultType, instruction, bitfieldInfo->offsetInBits,
-      bitfieldInfo->sizeInBits,
-      pointer->getAstResultType()->isSignedIntegerOrEnumerationType(), loc,
-      range);
+  return createBitFieldExtract(resultType, instruction,
+                               bitfieldInfo->offsetInBits,
+                               bitfieldInfo->sizeInBits, loc, range);
 }
 
 SpirvCopyObject *SpirvBuilder::createCopyObject(QualType resultType,
@@ -1014,9 +1012,10 @@ SpirvInstruction *SpirvBuilder::createEmulatedBitFieldExtract(
   return rightShift;
 }
 
-SpirvInstruction *SpirvBuilder::createBitFieldExtract(
-    QualType resultType, SpirvInstruction *base, unsigned bitOffset,
-    unsigned bitCount, bool isSigned, SourceLocation loc, SourceRange range) {
+SpirvInstruction *
+SpirvBuilder::createBitFieldExtract(QualType resultType, SpirvInstruction *base,
+                                    unsigned bitOffset, unsigned bitCount,
+                                    SourceLocation loc, SourceRange range) {
   assert(insertPoint && "null insert point");
 
   uint32_t bitWidth = 0;
@@ -1036,8 +1035,8 @@ SpirvInstruction *SpirvBuilder::createBitFieldExtract(
       getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitOffset));
   auto *count =
       getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, bitCount));
-  auto *inst = new (context)
-      SpirvBitFieldExtract(resultType, loc, base, offset, count, isSigned);
+  auto *inst =
+      new (context) SpirvBitFieldExtract(resultType, loc, base, offset, count);
   insertPoint->addInstruction(inst);
   inst->setRValue(true);
   return inst;

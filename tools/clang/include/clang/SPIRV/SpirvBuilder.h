@@ -454,8 +454,7 @@ public:
   SpirvInstruction *createBitFieldExtract(QualType resultType,
                                           SpirvInstruction *base,
                                           unsigned bitOffset, unsigned bitCount,
-                                          bool isSigned, SourceLocation,
-                                          SourceRange range);
+                                          SourceLocation, SourceRange);
 
   /// \brief Creates an OpEmitVertex instruction.
   void createEmitVertex(SourceLocation, SourceRange range = {});
