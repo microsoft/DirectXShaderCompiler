@@ -9173,6 +9173,12 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     ptr = ptrInfo;
   }
 
+  // Atomic operations on memory in the Workgroup storage class should also be
+  // Workgroup scoped. Otherwise, default to Device scope.
+  spv::Scope scope = ptr->getStorageClass() == spv::StorageClass::Workgroup
+                         ? spv::Scope::Workgroup
+                         : spv::Scope::Device;
+
   const bool isCompareExchange =
       opcode == hlsl::IntrinsicOp::IOP_InterlockedCompareExchange;
   const bool isCompareStore =
@@ -9182,7 +9188,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     auto *comparator = doArg(expr, 1);
     auto *valueInstr = doArg(expr, 2);
     auto *originalVal = spvBuilder.createAtomicCompareExchange(
-        baseType, ptr, spv::Scope::Device, spv::MemorySemanticsMask::MaskNone,
+        baseType, ptr, scope, spv::MemorySemanticsMask::MaskNone,
         spv::MemorySemanticsMask::MaskNone, valueInstr, comparator, srcLoc);
     if (isCompareExchange)
       writeToOutputArg(originalVal, expr, 3);
@@ -9204,8 +9210,8 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
       atomicOp = spv::Op::OpAtomicUMin;
     auto *originalVal = spvBuilder.createAtomicOp(
-        atomicOp, baseType, ptr, spv::Scope::Device,
-        spv::MemorySemanticsMask::MaskNone, value, srcLoc);
+        atomicOp, baseType, ptr, scope, spv::MemorySemanticsMask::MaskNone,
+        value, srcLoc);
     if (expr->getNumArgs() > 2)
       writeToOutputArg(originalVal, expr, 2);
   }
