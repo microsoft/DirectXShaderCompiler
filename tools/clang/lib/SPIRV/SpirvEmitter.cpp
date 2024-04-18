@@ -8716,6 +8716,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WaveReadLaneFirst:
     retVal = processWaveBroadcast(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_WaveMatch:
+    retVal = processWaveMatch(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_QuadReadAcrossX:
   case hlsl::IntrinsicOp::IOP_QuadReadAcrossY:
   case hlsl::IntrinsicOp::IOP_QuadReadAcrossDiagonal:
@@ -9710,6 +9713,17 @@ SpirvEmitter::processWaveActiveAllEqualMatrix(SpirvInstruction *arg,
   return spvBuilder.createCompositeConstruct(booleanMatrixType, rows, srcLoc);
 }
 
+SpirvInstruction *SpirvEmitter::processWaveMatch(const CallExpr *callExpr) {
+  assert(callExpr->getNumArgs() == 1);
+  const auto loc = callExpr->getExprLoc();
+
+  // The SPV_NV_shader_subgroup_partitioned extension requires SPIR-V 1.3.
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation", loc);
+
+  SpirvInstruction *arg = doExpr(callExpr->getArg(0));
+  return spvBuilder.createUnaryOp(spv::Op::OpGroupNonUniformPartitionNV,
+                                  callExpr->getType(), arg, loc);
+}
 SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   // Signature is: ret modf(x, ip)
   // [in]    x: the input floating-point value.

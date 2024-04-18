@@ -898,6 +898,10 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
       Extension::KHR_vulkan_memory_model,
       {spv::Capability::VulkanMemoryModelDeviceScope});
 
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::NV_shader_subgroup_partitioned,
+      {spv::Capability::GroupNonUniformPartitionedNV});
+
   return true;
 }
 
