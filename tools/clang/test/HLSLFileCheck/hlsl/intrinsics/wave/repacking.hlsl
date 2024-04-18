@@ -1,254 +1,294 @@
-// RUN: %dxc -DUSE_CALLSHADER=0 -T lib_6_5 %s | FileCheck %s
-// RUN: %dxc -DUSE_CALLSHADER=1 -T lib_6_5 %s | FileCheck %s
+// RUN: %dxc -DREPACK_POINT_KIND=1 -T lib_6_5 %s | FileCheck %s
+// RUN: %dxc -DREPACK_POINT_KIND=2 -T lib_6_5 %s | FileCheck %s
+// RUN: %dxc -DREPACK_POINT_KIND=3 -T lib_6_5 %s | FileCheck %s
 
-// Check that results of wave intrinsics are not re-used
-// cross DXR repacking points such as TraceRay() or CallShader();
+// Check that results of wave intrinsics are not re-used cross DXR repacking points.
+
+#define REPACK_POINT_KIND_TRACERAY   1
+#define REPACK_POINT_KIND_CALLSHADER 2
+#define REPACK_POINT_KIND_REPORTHIT  3
+
 struct Payload {
+  unsigned int value;
+};
+
+struct HitAttributes {
   unsigned int value;
 };
 
 RaytracingAccelerationStructure myAccelerationStructure : register(t3);
 
-void RepackingPoint(int identifier) {
+// Helper to introduce a repacking point, passing the identifier as argument
+// so we can find it in the generated DXIL.
+// dep is used to introduce a dependency of the packing point
+// on the passed value, and the returned value is guaranteed to depend
+// on the result of the repacking point.
+unsigned int RepackingPoint(unsigned int dependency, int identifier) {
+  unsigned int result = dependency;
+#if   REPACK_POINT_KIND == REPACK_POINT_KIND_CALLSHADER
   Payload p;
-#if USE_CALLSHADER
+  p.value = dependency;
   CallShader(identifier, p);
-#else
+  result += p.value;
+#elif REPACK_POINT_KIND == REPACK_POINT_KIND_TRACERAY
+  Payload p;
+  p.value = dependency;
   RayDesc myRay = { float3(0., 0., 0.), 0., float3(0., 0., 0.), 1.0};
   TraceRay(myAccelerationStructure, 0, -1, 0, 0, identifier, myRay, p);
+  result += p.value;
+#elif REPACK_POINT_KIND == REPACK_POINT_KIND_REPORTHIT
+  HitAttributes attrs;
+  attrs.value = dependency;
+  bool didAccept = ReportHit(0.0, identifier, attrs);
+  if (didAccept) {
+     result += 1;
+  }
+#else
+#error "Unknown repack point kind"
 #endif
+  return result;
 }
 
+RWBuffer<unsigned int> output : register(u0, space0);
+
+// Calls wave intrinsics before and after repacking points, and checks
+// that both calls remain, as re-using the result from before the repacking
+// point is invalid, because threads may be re-packed in between.
+#if (REPACK_POINT_KIND == REPACK_POINT_KIND_TRACERAY) || \
+    (REPACK_POINT_KIND == REPACK_POINT_KIND_CALLSHADER)
 [shader("miss")] void Miss(inout Payload p) {
-  // Some runtime value that we can't reason about.
-  // Freeze the current value and use it as input to
-  // all intrinsics so that we know the intrinsics' result
-  // would be the same before and after the CallShader call,
-  // except for repacking.
-  unsigned int oldValue = p.value;
+#else // REPACK_POINT_KIND_REPORTHIT
+[shader("intersection")] void Intersection() {
+#endif
+  // Opaque value the compiler cannot reason about to prevent optimizations.
+  // At the end we store the resulting value back to the buffer so the
+  // test code cannot be optimized out.
+  unsigned int opaque = output[DispatchRaysIndex().x];
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 0
-  // CHECK: call i1 @dx.op.waveIsFirstLane(i32 110
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 1
-  // CHECK: call i1 @dx.op.waveIsFirstLane(i32 110
-  RepackingPoint(0);
-  p.value += WaveIsFirstLane();
-  RepackingPoint(1);
-  p.value += WaveIsFirstLane();
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 0
+  // CHECK: @dx.op.waveIsFirstLane(i32 110
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 1
+  // CHECK: @dx.op.waveIsFirstLane(i32 110
+  opaque += RepackingPoint(opaque, 0);
+  opaque += WaveIsFirstLane();
+  opaque += RepackingPoint(opaque, 1);
+  opaque += WaveIsFirstLane();
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 2
-  // CHECK: call i32 @dx.op.waveGetLaneIndex(i32 111
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 3
-  // CHECK: call i32 @dx.op.waveGetLaneIndex(i32 111
-  RepackingPoint(2);
-  p.value += WaveGetLaneIndex();
-  RepackingPoint(3);
-  p.value += WaveGetLaneIndex();
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 2
+  // CHECK: @dx.op.waveGetLaneIndex(i32 111
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 3
+  // CHECK: @dx.op.waveGetLaneIndex(i32 111
+  opaque += RepackingPoint(opaque, 2);
+  opaque += WaveGetLaneIndex();
+  opaque += RepackingPoint(opaque, 3);
+  opaque += WaveGetLaneIndex();
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 4
-  // CHECK: call i1 @dx.op.waveAnyTrue(i32 113, i1
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 5
-  // CHECK: call i1 @dx.op.waveAnyTrue(i32 113, i1
-  RepackingPoint(4);
-  p.value += WaveActiveAnyTrue(oldValue == 17);
-  RepackingPoint(5);
-  p.value += WaveActiveAnyTrue(oldValue == 17);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 4
+  // CHECK: @dx.op.waveAnyTrue(i32 113, i1
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 5
+  // CHECK: @dx.op.waveAnyTrue(i32 113, i1
+  opaque += RepackingPoint(opaque, 4);
+  opaque += WaveActiveAnyTrue(opaque == 17);
+  opaque += RepackingPoint(opaque, 5);
+  opaque += WaveActiveAnyTrue(opaque == 17);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 6
-  // CHECK: call i1 @dx.op.waveAllTrue(i32 114, i1
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 7
-  // CHECK: call i1 @dx.op.waveAllTrue(i32 114, i1
-  RepackingPoint(6);
-  p.value += WaveActiveAllTrue(oldValue == 17);
-  RepackingPoint(7);
-  p.value += WaveActiveAllTrue(oldValue == 17);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 6
+  // CHECK: @dx.op.waveAllTrue(i32 114, i1
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 7
+  // CHECK: @dx.op.waveAllTrue(i32 114, i1
+  opaque += RepackingPoint(opaque, 6);
+  opaque += WaveActiveAllTrue(opaque == 17);
+  opaque += RepackingPoint(opaque, 7);
+  opaque += WaveActiveAllTrue(opaque == 17);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 8
-  // CHECK: call i1 @dx.op.waveActiveAllEqual.i32(i32 115, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 9
-  // CHECK: call i1 @dx.op.waveActiveAllEqual.i32(i32 115, i32
-  RepackingPoint(8);
-  p.value += WaveActiveAllEqual(oldValue);
-  RepackingPoint(9);
-  p.value += WaveActiveAllEqual(oldValue);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 8
+  // CHECK: @dx.op.waveActiveAllEqual.i32(i32 115, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 9
+  // CHECK: @dx.op.waveActiveAllEqual.i32(i32 115, i32
+  opaque += RepackingPoint(opaque, 8);
+  opaque += WaveActiveAllEqual(opaque);
+  opaque += RepackingPoint(opaque, 9);
+  opaque += WaveActiveAllEqual(opaque);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 10
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 10
   // CHECK: call %dx.types.fouri32 @dx.op.waveActiveBallot(i32 116, i1
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 11
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 11
   // CHECK: call %dx.types.fouri32 @dx.op.waveActiveBallot(i32 116, i1
-  RepackingPoint(10);
-  p.value += WaveActiveBallot(oldValue).x;
-  RepackingPoint(11);
-  p.value += WaveActiveBallot(oldValue).x;
+  opaque += RepackingPoint(opaque, 10);
+  opaque += WaveActiveBallot(opaque).x;
+  opaque += RepackingPoint(opaque, 11);
+  opaque += WaveActiveBallot(opaque).x;
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 12
-  // CHECK: call i32 @dx.op.waveReadLaneAt.i32(i32 117, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 13
-  // CHECK: call i32 @dx.op.waveReadLaneAt.i32(i32 117, i32
-  RepackingPoint(12);
-  p.value += WaveReadLaneAt(oldValue, 1);
-  RepackingPoint(13);
-  p.value += WaveReadLaneAt(oldValue, 1);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 12
+  // CHECK: @dx.op.waveReadLaneAt.i32(i32 117, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 13
+  // CHECK: @dx.op.waveReadLaneAt.i32(i32 117, i32
+  opaque += RepackingPoint(opaque, 12);
+  opaque += WaveReadLaneAt(opaque, 1);
+  opaque += RepackingPoint(opaque, 13);
+  opaque += WaveReadLaneAt(opaque, 1);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 14
-  // CHECK: call i32 @dx.op.waveReadLaneFirst.i32(i32 118, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 15
-  // CHECK: call i32 @dx.op.waveReadLaneFirst.i32(i32 118, i32
-  RepackingPoint(14);
-  p.value += WaveReadLaneFirst(oldValue);
-  RepackingPoint(15);
-  p.value += WaveReadLaneFirst(oldValue);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 14
+  // CHECK: @dx.op.waveReadLaneFirst.i32(i32 118, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 15
+  // CHECK: @dx.op.waveReadLaneFirst.i32(i32 118, i32
+  opaque += RepackingPoint(opaque, 14);
+  opaque += WaveReadLaneFirst(opaque);
+  opaque += RepackingPoint(opaque, 15);
+  opaque += WaveReadLaneFirst(opaque);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 16
-  // CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 17
-  // CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32
-  RepackingPoint(16);
-  p.value += WaveActiveSum(oldValue);
-  RepackingPoint(17);
-  p.value += WaveActiveSum(oldValue);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 16
+  // CHECK: @dx.op.waveActiveOp.i32(i32 119, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 17
+  // CHECK: @dx.op.waveActiveOp.i32(i32 119, i32
+  opaque += RepackingPoint(opaque, 16);
+  opaque += WaveActiveSum(opaque);
+  opaque += RepackingPoint(opaque, 17);
+  opaque += WaveActiveSum(opaque);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 18
-  // CHECK: call i64 @dx.op.waveActiveOp.i64(i32 119, i64
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 19
-  // CHECK: call i64 @dx.op.waveActiveOp.i64(i32 119, i64
-  RepackingPoint(18);
-  p.value += WaveActiveProduct(oldValue == 17 ? 1 : 0);
-  RepackingPoint(19);
-  p.value += WaveActiveProduct(oldValue == 17 ? 1 : 0);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 18
+  // CHECK: @dx.op.waveActiveOp.i64(i32 119, i64
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 19
+  // CHECK: @dx.op.waveActiveOp.i64(i32 119, i64
+  opaque += RepackingPoint(opaque, 18);
+  opaque += WaveActiveProduct(opaque == 17 ? 1 : 0);
+  opaque += RepackingPoint(opaque, 19);
+  opaque += WaveActiveProduct(opaque == 17 ? 1 : 0);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 20
-  // CHECK: call i32 @dx.op.waveActiveBit.i32(i32 120, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 21
-  // CHECK: call i32 @dx.op.waveActiveBit.i32(i32 120, i32
-  RepackingPoint(20);
-  p.value += WaveActiveBitAnd(oldValue);
-  RepackingPoint(21);
-  p.value += WaveActiveBitAnd(oldValue);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 20
+  // CHECK: @dx.op.waveActiveBit.i32(i32 120, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 21
+  // CHECK: @dx.op.waveActiveBit.i32(i32 120, i32
+  opaque += RepackingPoint(opaque, 20);
+  opaque += WaveActiveBitAnd(opaque);
+  opaque += RepackingPoint(opaque, 21);
+  opaque += WaveActiveBitAnd(opaque);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 22
-  // CHECK: call i32 @dx.op.waveActiveBit.i32(i32 120, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 23
-  // CHECK: call i32 @dx.op.waveActiveBit.i32(i32 120, i32
-  RepackingPoint(22);
-  p.value += WaveActiveBitXor(oldValue);
-  RepackingPoint(23);
-  p.value += WaveActiveBitXor(oldValue);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 22
+  // CHECK: @dx.op.waveActiveBit.i32(i32 120, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 23
+  // CHECK: @dx.op.waveActiveBit.i32(i32 120, i32
+  opaque += RepackingPoint(opaque, 22);
+  opaque += WaveActiveBitXor(opaque);
+  opaque += RepackingPoint(opaque, 23);
+  opaque += WaveActiveBitXor(opaque);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 24
-  // CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 25
-  // CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32
-  RepackingPoint(24);
-  p.value += WaveActiveMin(oldValue);
-  RepackingPoint(25);
-  p.value += WaveActiveMin(oldValue);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 24
+  // CHECK: @dx.op.waveActiveOp.i32(i32 119, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 25
+  // CHECK: @dx.op.waveActiveOp.i32(i32 119, i32
+  opaque += RepackingPoint(opaque, 24);
+  opaque += WaveActiveMin(opaque);
+  opaque += RepackingPoint(opaque, 25);
+  opaque += WaveActiveMin(opaque);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 26
-  // CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 27
-  // CHECK: call i32 @dx.op.waveActiveOp.i32(i32 119, i32
-  RepackingPoint(26);
-  p.value += WaveActiveMax(oldValue);
-  RepackingPoint(27);
-  p.value += WaveActiveMax(oldValue);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 26
+  // CHECK: @dx.op.waveActiveOp.i32(i32 119, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 27
+  // CHECK: @dx.op.waveActiveOp.i32(i32 119, i32
+  opaque += RepackingPoint(opaque, 26);
+  opaque += WaveActiveMax(opaque);
+  opaque += RepackingPoint(opaque, 27);
+  opaque += WaveActiveMax(opaque);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 28
-  // CHECK: call i32 @dx.op.wavePrefixOp.i32(i32 121, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 29
-  // CHECK: call i32 @dx.op.wavePrefixOp.i32(i32 121, i32
-  RepackingPoint(28);
-  p.value += WavePrefixSum(oldValue);
-  RepackingPoint(29);
-  p.value += WavePrefixSum(oldValue);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 28
+  // CHECK: @dx.op.wavePrefixOp.i32(i32 121, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 29
+  // CHECK: @dx.op.wavePrefixOp.i32(i32 121, i32
+  opaque += RepackingPoint(opaque, 28);
+  opaque += WavePrefixSum(opaque);
+  opaque += RepackingPoint(opaque, 29);
+  opaque += WavePrefixSum(opaque);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 30
-  // CHECK: call i64 @dx.op.wavePrefixOp.i64(i32 121, i64
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 31
-  // CHECK: call i64 @dx.op.wavePrefixOp.i64(i32 121, i64
-  RepackingPoint(30);
-  p.value += WavePrefixProduct(oldValue == 17 ? 1 : 0);
-  RepackingPoint(31);
-  p.value += WavePrefixProduct(oldValue == 17 ? 1 : 0);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 30
+  // CHECK: @dx.op.wavePrefixOp.i64(i32 121, i64
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 31
+  // CHECK: @dx.op.wavePrefixOp.i64(i32 121, i64
+  opaque += RepackingPoint(opaque, 30);
+  opaque += WavePrefixProduct(opaque == 17 ? 1 : 0);
+  opaque += RepackingPoint(opaque, 31);
+  opaque += WavePrefixProduct(opaque == 17 ? 1 : 0);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 32
-  // CHECK: call i32 @dx.op.waveAllOp(i32 135, i1
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 33
-  // CHECK: call i32 @dx.op.waveAllOp(i32 135, i1
-  RepackingPoint(32);
-  p.value += WaveActiveCountBits(oldValue == 17);
-  RepackingPoint(33);
-  p.value += WaveActiveCountBits(oldValue == 17);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 32
+  // CHECK: @dx.op.waveAllOp(i32 135, i1
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 33
+  // CHECK: @dx.op.waveAllOp(i32 135, i1
+  opaque += RepackingPoint(opaque, 32);
+  opaque += WaveActiveCountBits(opaque == 17);
+  opaque += RepackingPoint(opaque, 33);
+  opaque += WaveActiveCountBits(opaque == 17);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 34
-  // CHECK: call i32 @dx.op.wavePrefixOp(i32 136, i1
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 35
-  // CHECK: call i32 @dx.op.wavePrefixOp(i32 136, i1
-  RepackingPoint(34);
-  p.value += WavePrefixCountBits(oldValue == 17);
-  RepackingPoint(35);
-  p.value += WavePrefixCountBits(oldValue == 17);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 34
+  // CHECK: @dx.op.wavePrefixOp(i32 136, i1
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 35
+  // CHECK: @dx.op.wavePrefixOp(i32 136, i1
+  opaque += RepackingPoint(opaque, 34);
+  opaque += WavePrefixCountBits(opaque == 17);
+  opaque += RepackingPoint(opaque, 35);
+  opaque += WavePrefixCountBits(opaque == 17);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 36
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 36
   // CHECK: call %dx.types.fouri32 @dx.op.waveMatch.i32(i32 165, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 37
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 37
   // CHECK: call %dx.types.fouri32 @dx.op.waveMatch.i32(i32 165, i32
-  RepackingPoint(36);
-  uint4 mask = WaveMatch(oldValue);
-  RepackingPoint(37);
-  p.value += WaveMatch(oldValue).x;
+  opaque += RepackingPoint(opaque, 36);
+  uint4 mask = WaveMatch(opaque);
+  opaque += RepackingPoint(opaque, 37);
+  opaque += WaveMatch(opaque).x;
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 38
-  // CHECK: call i32 @dx.op.waveMultiPrefixOp.i32(i32 166, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 39
-  // CHECK: call i32 @dx.op.waveMultiPrefixOp.i32(i32 166, i32
-  RepackingPoint(38);
-  p.value += WaveMultiPrefixBitAnd(oldValue, mask);
-  RepackingPoint(39);
-  p.value += WaveMultiPrefixBitAnd(oldValue, mask);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 38
+  // CHECK: @dx.op.waveMultiPrefixOp.i32(i32 166, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 39
+  // CHECK: @dx.op.waveMultiPrefixOp.i32(i32 166, i32
+  opaque += RepackingPoint(opaque, 38);
+  opaque += WaveMultiPrefixBitAnd(opaque, mask);
+  opaque += RepackingPoint(opaque, 39);
+  opaque += WaveMultiPrefixBitAnd(opaque, mask);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 40
-  // CHECK: call i32 @dx.op.waveMultiPrefixOp.i32(i32 166, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 41
-  // CHECK: call i32 @dx.op.waveMultiPrefixOp.i32(i32 166, i32
-  RepackingPoint(40);
-  p.value += WaveMultiPrefixBitOr(oldValue, mask);
-  RepackingPoint(41);
-  p.value += WaveMultiPrefixBitOr(oldValue, mask);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 40
+  // CHECK: @dx.op.waveMultiPrefixOp.i32(i32 166, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 41
+  // CHECK: @dx.op.waveMultiPrefixOp.i32(i32 166, i32
+  opaque += RepackingPoint(opaque, 40);
+  opaque += WaveMultiPrefixBitOr(opaque, mask);
+  opaque += RepackingPoint(opaque, 41);
+  opaque += WaveMultiPrefixBitOr(opaque, mask);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 42
-  // CHECK: call i32 @dx.op.waveMultiPrefixOp.i32(i32 166, i32
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 43
-  // CHECK: call i32 @dx.op.waveMultiPrefixOp.i32(i32 166, i32
-  RepackingPoint(42);
-  p.value += WaveMultiPrefixBitXor(oldValue, mask);
-  RepackingPoint(43);
-  p.value += WaveMultiPrefixBitXor(oldValue, mask);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 42
+  // CHECK: @dx.op.waveMultiPrefixOp.i32(i32 166, i32
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 43
+  // CHECK: @dx.op.waveMultiPrefixOp.i32(i32 166, i32
+  opaque += RepackingPoint(opaque, 42);
+  opaque += WaveMultiPrefixBitXor(opaque, mask);
+  opaque += RepackingPoint(opaque, 43);
+  opaque += WaveMultiPrefixBitXor(opaque, mask);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 44
-  // CHECK: call i32 @dx.op.waveMultiPrefixBitCount(i32 167, i1
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 45
-  // CHECK: call i32 @dx.op.waveMultiPrefixBitCount(i32 167, i1
-  RepackingPoint(44);
-  p.value += WaveMultiPrefixCountBits(oldValue == 17, mask);
-  RepackingPoint(45);
-  p.value += WaveMultiPrefixCountBits(oldValue == 17, mask);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 44
+  // CHECK: @dx.op.waveMultiPrefixBitCount(i32 167, i1
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 45
+  // CHECK: @dx.op.waveMultiPrefixBitCount(i32 167, i1
+  opaque += RepackingPoint(opaque, 44);
+  opaque += WaveMultiPrefixCountBits(opaque == 17, mask);
+  opaque += RepackingPoint(opaque, 45);
+  opaque += WaveMultiPrefixCountBits(opaque == 17, mask);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 46
-  // CHECK: call i64 @dx.op.waveMultiPrefixOp.i64(i32 166, i64
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 47
-  // CHECK: call i64 @dx.op.waveMultiPrefixOp.i64(i32 166, i64
-  RepackingPoint(46);
-  p.value += WaveMultiPrefixProduct(oldValue == 17 ? 1 : 0, mask);
-  RepackingPoint(47);
-  p.value += WaveMultiPrefixProduct(oldValue == 17 ? 1 : 0, mask);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 46
+  // CHECK: @dx.op.waveMultiPrefixOp.i64(i32 166, i64
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 47
+  // CHECK: @dx.op.waveMultiPrefixOp.i64(i32 166, i64
+  opaque += RepackingPoint(opaque, 46);
+  opaque += WaveMultiPrefixProduct(opaque == 17 ? 1 : 0, mask);
+  opaque += RepackingPoint(opaque, 47);
+  opaque += WaveMultiPrefixProduct(opaque == 17 ? 1 : 0, mask);
 
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 48
-  // CHECK: call i64 @dx.op.waveMultiPrefixOp.i64(i32 166, i64
-  // CHECK: call void @dx.op.{{traceRay|callShader}}.struct.Payload({{.*}} i32 49
-  // CHECK: call i64 @dx.op.waveMultiPrefixOp.i64(i32 166, i64
-  RepackingPoint(48);
-  p.value += WaveMultiPrefixSum(oldValue == 17 ? 1 : 0, mask);
-  RepackingPoint(49);
-  p.value += WaveMultiPrefixSum(oldValue == 17 ? 1 : 0, mask);
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 48
+  // CHECK: @dx.op.waveMultiPrefixOp.i64(i32 166, i64
+  // CHECK: @dx.op.{{traceRay|callShader|reportHit}}{{.*}} i32 49
+  // CHECK: @dx.op.waveMultiPrefixOp.i64(i32 166, i64
+  opaque += RepackingPoint(opaque, 48);
+  opaque += WaveMultiPrefixSum(opaque == 17 ? 1 : 0, mask);
+  opaque += RepackingPoint(opaque, 49);
+  opaque += WaveMultiPrefixSum(opaque == 17 ? 1 : 0, mask);
+
+  output[DispatchRaysIndex().x] = opaque;
 }
