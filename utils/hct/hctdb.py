@@ -2847,7 +2847,7 @@ class db_dxil(object):
             "WaveGetLaneIndex",
             "returns the index of the current lane in the wave",
             "v",
-            "rn",
+            "ro",
             [db_dxil_param(0, "i32", "", "operation result")],
         )
         next_op_idx += 1
