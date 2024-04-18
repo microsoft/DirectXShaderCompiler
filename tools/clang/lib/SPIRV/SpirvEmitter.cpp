@@ -8298,14 +8298,9 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
       firstField = spvBuilder.createCompositeExtract(fieldType, fromVal, {0},
                                                      srcLoc, srcRange);
       if (fieldDecl->isBitField()) {
-        auto offset = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                llvm::APInt(32, 0));
-        auto width = spvBuilder.getConstantInt(
-            astContext.UnsignedIntTy,
-            llvm::APInt(32, fieldDecl->getBitWidthValue(astContext)));
         firstField = spvBuilder.createBitFieldExtract(
-            fieldType, firstField, offset, width,
-            toIntType->hasSignedIntegerRepresentation(), srcLoc);
+            fieldType, firstField, 0, fieldDecl->getBitWidthValue(astContext),
+            srcLoc, srcRange);
       }
     }
 
@@ -9367,10 +9362,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   llvm::SmallVector<SpirvInstruction *, 4> isRefByteZero;
   for (uint32_t i = 0; i < 4; ++i) {
     refBytes.push_back(spvBuilder.createBitFieldExtract(
-        uintType, reference, /*offset*/
-        spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                  llvm::APInt(32, i * 8)),
-        /*count*/ uint8, /*isSigned*/ false, loc));
+        uintType, reference, /*offset*/ i * 8, /*count*/ 8, loc, range));
     signedRefBytes.push_back(spvBuilder.createUnaryOp(
         spv::Op::OpBitcast, intType, refBytes.back(), loc));
     isRefByteZero.push_back(spvBuilder.createBinaryOp(
@@ -9381,11 +9373,8 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
     for (uint32_t byteCount = 0; byteCount < 4; ++byteCount) {
       // 'count' is always 8 because we are extracting 8 bits out of 32.
       auto *srcByte = spvBuilder.createBitFieldExtract(
-          uintType, sources[msadNum],
-          /*offset*/
-          spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                    llvm::APInt(32, 8 * byteCount)),
-          /*count*/ uint8, /*isSigned*/ false, loc);
+          uintType, sources[msadNum], /*offset*/ 8 * byteCount, /*count*/ 8,
+          loc, range);
       auto *signedSrcByte =
           spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte, loc);
       auto *sub = spvBuilder.createBinaryOp(spv::Op::OpISub, intType,

@@ -474,12 +474,15 @@ SpirvBitField::SpirvBitField(Kind kind, spv::Op op, QualType resultType,
     : SpirvInstruction(kind, op, resultType, loc), base(baseInst),
       offset(offsetInst), count(countInst) {}
 
-SpirvBitFieldExtract::SpirvBitFieldExtract(
-    QualType resultType, SourceLocation loc, SpirvInstruction *baseInst,
-    SpirvInstruction *offsetInst, SpirvInstruction *countInst, bool isSigned)
+SpirvBitFieldExtract::SpirvBitFieldExtract(QualType resultType,
+                                           SourceLocation loc,
+                                           SpirvInstruction *baseInst,
+                                           SpirvInstruction *offsetInst,
+                                           SpirvInstruction *countInst)
     : SpirvBitField(IK_BitFieldExtract,
-                    isSigned ? spv::Op::OpBitFieldSExtract
-                             : spv::Op::OpBitFieldUExtract,
+                    resultType->isSignedIntegerOrEnumerationType()
+                        ? spv::Op::OpBitFieldSExtract
+                        : spv::Op::OpBitFieldUExtract,
                     resultType, loc, baseInst, offsetInst, countInst) {}
 
 SpirvBitFieldInsert::SpirvBitFieldInsert(QualType resultType,
