@@ -1141,7 +1141,7 @@ class SpirvBitFieldExtract : public SpirvBitField {
 public:
   SpirvBitFieldExtract(QualType resultType, SourceLocation loc,
                        SpirvInstruction *base, SpirvInstruction *offset,
-                       SpirvInstruction *count, bool isSigned);
+                       SpirvInstruction *count);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvBitFieldExtract)
 
@@ -1151,10 +1151,6 @@ public:
   }
 
   bool invokeVisitor(Visitor *v) override;
-
-  uint32_t isSigned() const {
-    return getopcode() == spv::Op::OpBitFieldSExtract;
-  }
 };
 
 class SpirvBitFieldInsert : public SpirvBitField {
@@ -1192,6 +1188,8 @@ public:
     return inst->getKind() >= IK_ConstantBoolean &&
            inst->getKind() <= IK_ConstantNull;
   }
+
+  bool operator==(const SpirvConstant &that) const;
 
   bool isSpecConstant() const;
   void setLiteral(bool literal = true) { literalConstant = literal; }

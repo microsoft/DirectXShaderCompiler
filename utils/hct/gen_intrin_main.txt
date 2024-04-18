@@ -270,7 +270,7 @@ $type1 [[rn]] NonUniformResourceIndex(in any<> index) : nonuniform_resource_inde
 
 // Wave intrinsics. Only those that depend on the exec mask are marked as wave-sensitive
 bool   [[wv]] WaveIsFirstLane();
-uint   [[rn]] WaveGetLaneIndex();
+uint   [[ro]] WaveGetLaneIndex();
 uint   [[rn]] WaveGetLaneCount();
 bool   [[wv]] WaveActiveAnyTrue(in bool cond);
 bool   [[wv]] WaveActiveAllTrue(in bool cond);

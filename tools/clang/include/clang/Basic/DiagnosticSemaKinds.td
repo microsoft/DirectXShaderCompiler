@@ -20,6 +20,9 @@ def note_callee_decl : Note<"%0 declared here">;
 def note_defined_here : Note<"%0 defined here">;
 def note_field_declared_here : Note<"%0 field declared here">;
 
+// HLSL Change: Note for HLSL entry function location
+def note_hlsl_entry_defined_here : Note<"entry function defined here">;
+
 // For loop analysis
 def warn_variables_not_in_loop_body : Warning<
   "variable%select{s| %1|s %1 and %2|s %1, %2, and %3|s %1, %2, %3, and %4}0 "
@@ -7922,6 +7925,27 @@ def err_hlsl_outputpatch_size: Error<
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
 def err_hlsl_controlpoints_size: Error<
   "number of control points %0 is outside the valid range of [1..32]">;
+def err_hlsl_barrier_invalid_memory_flags: Error<
+  "invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of "
+  "UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags">;
+def err_hlsl_barrier_invalid_semantic_flags: Error<
+  "invalid SemanticFlags for Barrier operation; expected 0 or some combination of "
+  "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags">;
+def warn_hlsl_barrier_group_memory_requires_group: Warning<
+  "GROUP_SHARED_MEMORY specified for Barrier operation when context has no visible group">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_node_memory_requires_node: Warning<
+  "NODE_INPUT_MEMORY or NODE_OUTPUT_MEMORY may only be specified for Barrier operation in a node shader">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_group_semantic_requires_group: Warning<
+  "GROUP_SYNC or GROUP_SCOPE specified for Barrier operation when context has no visible group">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_no_mem_with_required_group_scope: Warning<
+  "GROUP_SCOPE specified for Barrier operation without applicable memory">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_no_mem_with_required_device_scope: Warning<
+  "DEVICE_SCOPE specified for Barrier operation without applicable memory">,
+  InGroup<HLSLBarrier>, DefaultError;
 // HLSL Change Ends
 
 // SPIRV Change Starts

@@ -3693,7 +3693,9 @@ static bool ReplaceUseOfZeroInit(Instruction *I, Value *V, DominatorTree &DT,
       if (ReplaceUseOfZeroInit(I, UI, DT, Reachable))
         continue;
     } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
-      LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));
+      // Replace uses of the load with a constant zero.
+      Constant *replacement = Constant::getNullValue(LI->getType());
+      LI->replaceAllUsesWith(replacement);
       LI->eraseFromParent();
       continue;
     }

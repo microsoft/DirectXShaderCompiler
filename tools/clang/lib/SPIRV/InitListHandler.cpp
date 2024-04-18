@@ -417,7 +417,8 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
   assert(recordType);
 
   LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
-                                    theEmitter.getSpirvOptions());
+                                    theEmitter.getSpirvOptions(),
+                                    theEmitter.getSpirvBuilder());
   const SpirvType *spirvType =
       lowerTypeVisitor.lowerType(type, SpirvLayoutRule::Void, false, srcLoc);
 
