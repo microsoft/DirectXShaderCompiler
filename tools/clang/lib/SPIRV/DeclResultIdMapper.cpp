@@ -1481,12 +1481,28 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
         decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
   }
 
+  if (!spirvOptions.debugInfoRich) {
+    return bufferVar;
+  }
+
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
-  if (dbgGlobalVar != nullptr) {
-    // C/TBuffer needs HLSLBufferDecl for debug type lowering.
-    spvContext.registerStructDeclForSpirvType(bufferVar->getResultType(), decl);
-  }
+  assert(dbgGlobalVar);
+  (void)dbgGlobalVar; // For NDEBUG builds.
+
+  auto *resultType = bufferVar->getResultType();
+  // Depending on the requested layout (DX or VK), constant buffers is either a
+  // struct containing every constant fields, or a pointer to the type. This is
+  // caused by the workaround we implemented to support FXC/DX layout. See #3672
+  // for more details.
+  assert(isa<SpirvPointerType>(resultType) ||
+         isa<HybridStructType>(resultType));
+  if (auto *ptr = dyn_cast<SpirvPointerType>(resultType))
+    resultType = ptr->getPointeeType();
+  // Debug type lowering requires the HLSLBufferDecl. Updating the type<>decl
+  // mapping.
+  spvContext.registerStructDeclForSpirvType(resultType, decl);
+
   return bufferVar;
 }
 

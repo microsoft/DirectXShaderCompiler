@@ -163,15 +163,16 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
       debugInstruction->setDebugSpirvType(spirvType);
     } else if (const auto *debugSpirvType =
                    debugInstruction->getDebugSpirvType()) {
-      // When it does not have a QualType, SpirvEmitter or DeclResultIdMapper
-      // generates a hybrid type. In that case, we keep the hybrid type for the
-      // DebugGlobalVariable, not QualType. We have to lower the hybrid type and
-      // update the SpirvType for the DebugGlobalVariable.
-      assert(isa<SpirvDebugGlobalVariable>(debugInstruction) &&
-             isa<HybridType>(debugSpirvType));
-      const SpirvType *loweredSpirvType = lowerType(
-          debugSpirvType, instr->getLayoutRule(), instr->getSourceLocation());
-      debugInstruction->setDebugSpirvType(loweredSpirvType);
+      // When it does not have a QualType, either the type is already lowered,
+      // or it's an HybridStructType we should lower.
+      assert(isa<SpirvDebugGlobalVariable>(debugInstruction));
+      if (isa<HybridType>(debugSpirvType)) {
+        const SpirvType *loweredSpirvType = lowerType(
+            debugSpirvType, instr->getLayoutRule(), instr->getSourceLocation());
+        debugInstruction->setDebugSpirvType(loweredSpirvType);
+      } else {
+        debugInstruction->setDebugSpirvType(debugSpirvType);
+      }
     }
   }
 
