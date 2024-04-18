@@ -12587,7 +12587,8 @@ void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
     // DeviceEnqueue capability, which is Kernel only). Subgroup sizes can be
     // specified in Vulkan on the application side via
     // VK_EXT_subgroup_size_control.
-    emitWarning("Wave size is not supported by SPIR-V",
+    emitWarning("Wave size is not supported by Vulkan SPIR-V. Consider using "
+                "VK_EXT_subgroup_size_control.",
                 waveSizeAttr->getLocation());
   }
 }
