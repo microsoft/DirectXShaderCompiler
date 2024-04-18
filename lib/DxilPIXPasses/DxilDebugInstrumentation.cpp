@@ -425,7 +425,8 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
-    // Dispatch* thread Id is not in the input signature
+  case DXIL::ShaderKind::Node:
+      // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
@@ -706,6 +707,9 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::Miss:
     ParameterTestResult = addRaygenShaderProlog(BC);
+    break;
+  case DXIL::ShaderKind::Node:
+    ParameterTestResult = BC.HlslOP->GetI1Const(1);
     break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
@@ -1394,6 +1398,7 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Node:
     break;
   default:
     return false;
