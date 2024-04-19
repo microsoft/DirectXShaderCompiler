@@ -155,6 +155,18 @@ namespace {
     bool UserAllowPartial;
     bool UserRuntime;
 
+    // HLSL Change - begin
+    // Function overrides that resolve options when used for DxOpt
+    void applyOptions(PassOptions O) override {
+      GetPassOptionBool(O, "StructurizeLoopExits", &StructurizeLoopExits,
+                        false);
+    }
+    void dumpConfig(raw_ostream &OS) override {
+      LoopPass::dumpConfig(OS);
+      OS << ",StructurizeLoopExits=" << StructurizeLoopExits;
+    }
+    // HLSL Change - end
+
     bool runOnLoop(Loop *L, LPPassManager &LPM) override;
 
     /// This transformation requires natural loop information & requires that
