@@ -5,18 +5,17 @@
 ; CHECK: mul nsw i32
 ; CHECK-NOT: mul nsw i32
 
-; This is a regression test for a crash in loop unroll.
-; When there are multiple exits, the compiler will run
-; hlsl::RemoveUnstructuredLoopExits to try to avoid
-; unstructured code.
+; This is a regression test for a crash in loop unroll. When there are multiple
+; exits, the compiler will run hlsl::RemoveUnstructuredLoopExits to try to
+; avoid unstructured code.
 ;
-; In this test, -loop-unroll will try to unroll the middle
-; loop. The exit edge from %land.lhs.true to %if.then will
-; be removed, and %if.end will be split at the beginning,
-; and branch to %if.end instead.
+; In this test, the compiler will try to unroll the middle loop. The exit edge
+; from %land.lhs.true to %if.then will be removed, and %if.end will be split at
+; the beginning, and branch to %if.end instead.
 ;
-; Since the new split block at %if.end becomes the new latch of the inner-most loop, it needs to be added to the
-; Loop analysis structure of the inner loop. However, it was only added to the current middle loop that is being unrolled.
+; Since the new split block at %if.end becomes the new latch of the inner-most
+; loop, it needs to be added to the Loop analysis structure of the inner loop.
+; However, it was only added to the current middle loop that is being unrolled.
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
