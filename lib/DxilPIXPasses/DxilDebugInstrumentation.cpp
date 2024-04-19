@@ -425,6 +425,7 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Node:
     // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
@@ -706,6 +707,9 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::Miss:
     ParameterTestResult = addRaygenShaderProlog(BC);
+    break;
+  case DXIL::ShaderKind::Node:
+    ParameterTestResult = BC.HlslOP->GetI1Const(1);
     break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
@@ -1150,6 +1154,11 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
                                  ValueOrdinalIndex);
     return DebugShaderModifierRecordTypeDXILStepFloat;
   case Type::TypeID::IntegerTyID:
+    if (V->getType()->getIntegerBitWidth() > 64) {
+      // If this actually happens, we'd like to catch it in debug
+      assert(false);
+      return std::nullopt;
+    }
     if (V->getType()->getIntegerBitWidth() == 64) {
       if (BC != nullptr)
         addStepEntryForType<uint64_t>(
@@ -1157,6 +1166,11 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
             ValueOrdinal, ValueOrdinalIndex);
       return DebugShaderModifierRecordTypeDXILStepUint64;
     } else {
+      if (V->getType()->getIntegerBitWidth() > 32) {
+        // If this actually happens, we'd like to catch it in debug
+        assert(false);
+        return std::nullopt;
+      }
       if (BC != nullptr)
         addStepEntryForType<uint32_t>(
             DebugShaderModifierRecordTypeDXILStepUint32, *BC, InstNum, V,
@@ -1393,6 +1407,7 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Node:
     break;
   default:
     return false;
