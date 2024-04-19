@@ -889,7 +889,7 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     addDebugEntryValue(BC, HighBits);
     BytesToBeEmitted += 8;
   } else if (TheValueTypeID == Type::TypeID::IntegerTyID &&
-             (TheValue->getType()->getIntegerBitWidth() != 32)) {
+             (TheValue->getType()->getIntegerBitWidth() < 32)) {
     auto As32 =
         BC.Builder.CreateZExt(TheValue, Type::getInt32Ty(BC.Ctx), "As32");
     BytesToBeEmitted += addDebugEntryValue(BC, As32);
