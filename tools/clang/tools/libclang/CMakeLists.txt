@@ -186,6 +186,15 @@ endif() # HLSL Change
 
 add_dependencies(libclang TablegenHLSLOptions)  # HLSL Change
 
+# HLSL Change Begin
+# libclang got too big for debug builds on arm64ec, which means it will hit
+# other targets too eventually.
+if(WIN32)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+endif(WIN32)
+# HLSL Change End
+
+
 # HLSL Change Starts
 # add_clang_library(${LIBCLANG_STATIC_TARGET_NAME} STATIC ${SOURCES})
 # target_link_libraries(${LIBCLANG_STATIC_TARGET_NAME} ${LIBS})
