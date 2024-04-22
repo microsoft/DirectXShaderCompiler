@@ -24,7 +24,7 @@ darker==1.7.2
     # via -r llvm/utils/git/requirements_formatting.txt.in
 deprecated==1.2.14
     # via pygithub
-idna==3.4
+idna==3.7
     # via requests
 mypy-extensions==1.0.0
     # via black
