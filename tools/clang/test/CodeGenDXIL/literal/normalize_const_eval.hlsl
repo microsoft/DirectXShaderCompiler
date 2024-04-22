@@ -1,8 +1,7 @@
 // RUN: %dxc -T vs_6_0 %s -E main | FileCheck %s
 // RUN: not %dxc -T vs_6_0 %s -E main -DNO_FOLD 2>&1 | FileCheck %s --check-prefixes=NO_FOLD
 
-// The code path for this case asserts, but the assert does not indicate a
-// serious problem with internal state.  The invalid overload will either be
+// The code path generates invalid overload.  The invalid overload will either be
 // constant folded away, or caught by the validator.
 
 // Ensure normalize is constant evaluated during codegen, or dxil const eval
