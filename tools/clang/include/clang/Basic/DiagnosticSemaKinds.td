@@ -7544,7 +7544,7 @@ def err_hlsl_objectintemplateargument : Error<
   "%0 is an object and cannot be used as a type parameter">;
 def err_hlsl_packoffset_requires_cbuffer : Error<
   "packoffset is only allowed in a constant buffer">;
-def err_hlsl_packoffset_mix : Error<
+def warn_hlsl_packoffset_mix : Warning<
   "cannot mix packoffset elements with nonpackoffset elements in a cbuffer">;
 def err_hlsl_packoffset_overlap : Error<"packoffset overlap between %0, %1">;
 def err_hlsl_register_semantics_conflicting : Error<

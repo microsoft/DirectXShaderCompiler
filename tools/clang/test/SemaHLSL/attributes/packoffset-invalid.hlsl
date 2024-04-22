@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T lib_6_6 %s -verify
 
-// expected-error@+1{{cannot mix packoffset elements with nonpackoffset elements in a cbuffer}}
+// expected-warning@+1{{cannot mix packoffset elements with nonpackoffset elements in a cbuffer}}
 cbuffer Mix
 {
     float4 M1 : packoffset(c0);
@@ -8,7 +8,7 @@ cbuffer Mix
     float M3 : packoffset(c1.y);
 }
 
-// expected-error@+1{{cannot mix packoffset elements with nonpackoffset elements in a cbuffer}}
+// expected-warning@+1{{cannot mix packoffset elements with nonpackoffset elements in a cbuffer}}
 cbuffer Mix2
 {
     float4 M4;

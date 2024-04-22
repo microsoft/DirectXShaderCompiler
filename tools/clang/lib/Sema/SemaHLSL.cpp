@@ -14056,7 +14056,7 @@ void Sema::ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace) {
   }
 
   if (HasPackOffset && HasNonPackOffset) {
-    Diag(BufDecl->getLocation(), diag::err_hlsl_packoffset_mix);
+    Diag(BufDecl->getLocation(), diag::warn_hlsl_packoffset_mix);
   } else if (HasPackOffset) {
     // Make sure no overlap in packoffset.
     llvm::SmallDenseMap<VarDecl *, std::pair<unsigned, unsigned>>
