@@ -1,7 +1,7 @@
 // RUN: not %dxc -T vs_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 cbuffer MyCBuffer {
-    float4 data1;
+    float4 data1 : packoffset(c0);
     float4 data2 : packoffset(c2);
     float  data3 : packoffset(c0);    // error: overlap
     float  data4 : packoffset(c10.z);
