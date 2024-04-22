@@ -1,5 +1,5 @@
-; RUN: %opt %s -S -loop-unroll,StructurizeLoopExits=1 | FileCheck %s
-; RUN: %opt %s -S -dxil-loop-unroll,StructurizeLoopExits=1 | FileCheck %s
+; RUN: %dxopt %s -S -loop-unroll,StructurizeLoopExits=1 | FileCheck %s
+; RUN: %dxopt %s -S -dxil-loop-unroll,StructurizeLoopExits=1 | FileCheck %s
 
 ; CHECK: mul nsw i32
 ; CHECK: mul nsw i32
