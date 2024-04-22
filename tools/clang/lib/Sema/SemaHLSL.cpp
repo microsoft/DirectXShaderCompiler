@@ -11012,6 +11012,10 @@ void hlsl::DiagnosePackingOffset(clang::Sema *self, SourceLocation loc,
         self->Diag(loc, diag::err_hlsl_register_or_offset_bind_not_valid);
       }
     }
+    if (hlsl::IsMatrixType(self, type) || type->isArrayType() ||
+        type->isStructureType()) {
+      self->Diag(loc, diag::err_hlsl_register_or_offset_bind_not_valid);
+    }
   }
 }
 
@@ -14019,8 +14023,66 @@ Decl *Sema::ActOnStartHLSLBuffer(
 void Sema::ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace) {
   DXASSERT_NOMSG(Dcl != nullptr);
   DXASSERT(Dcl == HLSLBuffers.back(), "otherwise push/pop is incorrect");
-  dyn_cast<HLSLBufferDecl>(Dcl)->setRBraceLoc(RBrace);
+  auto *BufDecl = cast<HLSLBufferDecl>(Dcl);
+  BufDecl->setRBraceLoc(RBrace);
   HLSLBuffers.pop_back();
+
+  // Validate packoffset.
+  llvm::SmallVector<std::pair<VarDecl *, unsigned>, 4> PackOffsetVec;
+  bool HasPackOffset = false;
+  bool HasNonPackOffset = false;
+  for (auto *Field : BufDecl->decls()) {
+    VarDecl *Var = dyn_cast<VarDecl>(Field);
+    if (!Var)
+      continue;
+
+    unsigned Offset = UINT_MAX;
+
+    for (const hlsl::UnusualAnnotation *it : Var->getUnusualAnnotations()) {
+      if (it->getKind() == hlsl::UnusualAnnotation::UA_ConstantPacking) {
+        const hlsl::ConstantPacking *packOffset =
+            cast<hlsl::ConstantPacking>(it);
+        unsigned CBufferOffset = packOffset->Subcomponent << 2;
+        CBufferOffset += packOffset->ComponentOffset;
+        // Change to bits.
+        Offset = CBufferOffset << 5;
+        HasPackOffset = true;
+      }
+    }
+    PackOffsetVec.emplace_back(Var, Offset);
+    if (Offset == UINT_MAX) {
+      HasNonPackOffset = true;
+    }
+  }
+
+  if (HasPackOffset && HasNonPackOffset) {
+    Diag(BufDecl->getLocation(), diag::err_hlsl_packoffset_mix);
+  } else if (HasPackOffset) {
+    // Make sure no overlap in packoffset.
+    llvm::SmallDenseMap<VarDecl *, std::pair<unsigned, unsigned>>
+        PackOffsetRanges;
+    for (auto &Pair : PackOffsetVec) {
+      VarDecl *Var = Pair.first;
+      unsigned Size = Context.getTypeSize(Var->getType());
+      unsigned Begin = Pair.second;
+      unsigned End = Begin + Size;
+      for (auto &Range : PackOffsetRanges) {
+        VarDecl *OtherVar = Range.first;
+        unsigned OtherBegin = Range.second.first;
+        unsigned OtherEnd = Range.second.second;
+        if (Begin < OtherEnd && OtherBegin < Begin) {
+          Diag(Var->getLocation(), diag::err_hlsl_packoffset_overlap)
+              << Var << OtherVar;
+          break;
+        } else if (OtherBegin < End && Begin < OtherBegin) {
+          Diag(Var->getLocation(), diag::err_hlsl_packoffset_overlap)
+              << Var << OtherVar;
+          break;
+        }
+      }
+      PackOffsetRanges[Var] = std::make_pair(Begin, End);
+    }
+  }
   PopDeclContext();
 }
 
