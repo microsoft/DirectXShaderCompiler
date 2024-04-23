@@ -575,7 +575,7 @@ cbuffer MyBuffer2
 Texture2D<float4> Texture : register(t0);
 Texture2D<float4> Texture_ : register(t0);
 sampler Sampler : register(s0);
-
+// expected-warning@+1{{cannot mix packoffset elements with nonpackoffset elements in a cbuffer}}
 cbuffer Parameters : register(b0)
 {
   float4   DiffuseColor   : packoffset(c0) : register(c0);

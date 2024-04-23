@@ -14,11 +14,11 @@ struct S {
 };
 
 cbuffer MyCBuffer {                    // Offset
-    float4   data1;                    //                  0
+    float4   data1 : packoffset(c0);   //                  0
     float4   data2 : packoffset(c2);   // 2 * 16         = 32
     float    data3 : packoffset(c3.y); // 3 * 16 + 1 * 4 = 52
     float    data4 : packoffset(c3.z); // 3 * 16 + 2 * 4 = 56
-    float    data5;                    //                  60
+    float    data5 : packoffset(c3.w); //                  60
     float4   data6 : packoffset(c100); // 100 * 16       = 1600
     float2x3 data7 : packoffset(c110); // 110 * 16       = 1760
     S        data8 : packoffset(c150); // 150 * 16       = 2400
