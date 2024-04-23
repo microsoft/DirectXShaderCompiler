@@ -198,7 +198,6 @@ public:
   bool UseHexLiterals = false;            // OPT_Lx
   bool UseInstructionByteOffsets = false; // OPT_No
   bool UseInstructionNumbers = false;     // OPT_Ni
-  bool NotUseLegacyCBufLoad = false;      // OPT_no_legacy_cbuf_layout
   bool PackPrefixStable = false;          // OPT_pack_prefix_stable
   bool PackOptimized = false;             // OPT_pack_optimized
   bool DisplayIncludeProcess = false;     // OPT__vi
