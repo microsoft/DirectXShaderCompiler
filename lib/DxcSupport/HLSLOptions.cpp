@@ -762,10 +762,13 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
   opts.Link = Args.hasFlag(OPT_link, OPT_INVALID, false);
-  opts.NotUseLegacyCBufLoad =
+  bool NotUseLegacyCBufLoad =
       Args.hasFlag(OPT_no_legacy_cbuf_layout, OPT_INVALID, false);
-  opts.NotUseLegacyCBufLoad = Args.hasFlag(
-      OPT_not_use_legacy_cbuf_load_, OPT_INVALID, opts.NotUseLegacyCBufLoad);
+  NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load_,
+                                      OPT_INVALID, NotUseLegacyCBufLoad);
+  if (NotUseLegacyCBufLoad)
+    errors << "Warning: -no-legacy-cbuf-layout"
+           << " is no longer supported and will be ignored.\n";
   opts.PackPrefixStable =
       Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
   opts.PackPrefixStable =

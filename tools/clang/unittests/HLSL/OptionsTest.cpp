@@ -78,6 +78,7 @@ public:
   // TEST_METHOD(CopyOptionsWhenMultipleThenOK)
 
   TEST_METHOD(ReadOptionsJoinedWithSpacesThenOK)
+  TEST_METHOD(ReadOptionsNoNonLegacyCBuffer)
 
   TEST_METHOD(TestPreprocessOption)
 
@@ -104,6 +105,17 @@ public:
     int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
                              *(opts.get()), errorStream);
     EXPECT_EQ(result, 1);
+    VERIFY_ARE_EQUAL_STR(expectErrorMsg, errorStream.str().c_str());
+  }
+
+  void ReadOptsTest(const MainArgs &mainArgs, unsigned flagsToInclude,
+                    bool shouldFail, const char *expectErrorMsg) {
+    std::string errorString;
+    llvm::raw_string_ostream errorStream(errorString);
+    std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
+    int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
+                             *(opts.get()), errorStream);
+    EXPECT_EQ(shouldFail, result != 0);
     VERIFY_ARE_EQUAL_STR(expectErrorMsg, errorStream.str().c_str());
   }
 };
@@ -366,6 +378,26 @@ TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
     std::unique_ptr<DxcOpts> o = ReadOptsTest(ArgsArr, DxcFlags);
     VERIFY_ARE_EQUAL_STR("CreateObj", o->ExternalFn.data());
     VERIFY_ARE_EQUAL_STR("foo.dll", o->ExternalLib.data());
+  }
+}
+
+TEST_F(OptionsTest, ReadOptionsNoNonLegacyCBuffer) {
+  {
+    const wchar_t *Args[] = {L"exe.exe", L"/T  ", L"ps_6_0", L"hlsl.hlsl",
+                             L"-no-legacy-cbuf-layout"};
+    MainArgsArr ArgsArr(Args);
+    ReadOptsTest(ArgsArr, DxcFlags, false /*shouldFail*/,
+                 "Warning: -no-legacy-cbuf-layout is no longer supported and "
+                 "will be ignored.\n");
+  }
+
+  {
+    const wchar_t *Args[] = {L"exe.exe", L"/T  ", L"ps_6_0", L"hlsl.hlsl",
+                             L"-not_use_legacy_cbuf_load"};
+    MainArgsArr ArgsArr(Args);
+    ReadOptsTest(ArgsArr, DxcFlags, false /*shouldFail*/,
+                 "Warning: -no-legacy-cbuf-layout is no longer supported and "
+                 "will be ignored.\n");
   }
 }
 
