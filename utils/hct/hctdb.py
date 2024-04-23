@@ -6680,6 +6680,12 @@ class db_dxil(object):
                     "t": "unsigned",
                     "d": "Unrolled size limit for loops with an unroll(full) or unroll_count pragma.",
                 },
+                {
+                    "n": "StructurizeLoopExits",
+                    "t": "bool",
+                    "c": 1,
+                    "d": "Whether the unroller should try to structurize loop exits first.",
+                },
             ],
         )
         add_pass("mldst-motion", "MergedLoadStoreMotion", "MergedLoadStoreMotion", [])

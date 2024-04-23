@@ -447,7 +447,12 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
       new_exiting_block->splitBasicBlock(new_exiting_block->getFirstNonPHI());
   new_exiting_block->setName("dx.struct_exit.new_exiting");
   new_not_exiting_block->setName(old_name);
-  L->addBasicBlockToLoop(new_not_exiting_block, *LI);
+  // Query for new_exiting_block's own loop to add new_not_exiting_block to.
+  // It's possible that new_exiting_block is part of another inner loop
+  // separate from L. If added directly to L, the inner loop(s) will not
+  // contain new_not_exiting_block, making them malformed.
+  Loop *inner_loop_of_exiting_block = LI->getLoopFor(new_exiting_block);
+  inner_loop_of_exiting_block->addBasicBlockToLoop(new_not_exiting_block, *LI);
 
   // Branch to latch_exit
   new_exiting_block->getTerminator()->eraseFromParent();
