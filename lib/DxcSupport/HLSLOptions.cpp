@@ -570,7 +570,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
               // Args.getLastArgValue(OPT_INPUT) get expect Input.
               InputArg->getValues()[0] = PrevInputArg->getValues()[0];
             }
-            errors << "Warning: -P " << opts.Preprocess
+            errors << "warning: -P " << opts.Preprocess
                    << " is deprecated, please use -P -Fi " << opts.Preprocess
                    << " instead.\n";
             break;
@@ -767,8 +767,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load_,
                                       OPT_INVALID, NotUseLegacyCBufLoad);
   if (NotUseLegacyCBufLoad)
-    errors << "Warning: -no-legacy-cbuf-layout"
-           << " is no longer supported and will be ignored.\n";
+    errors << "warning: -no-legacy-cbuf-layout"
+           << " is no longer supported and will be ignored."
+           << " Future releases will not recognize it.\n";
   opts.PackPrefixStable =
       Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
   opts.PackPrefixStable =
