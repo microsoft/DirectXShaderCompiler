@@ -224,6 +224,22 @@ bool IsHLSLUnsigned(clang::QualType type) {
   return type->isUnsignedIntegerType();
 }
 
+bool IsHLSLMinPrecision(clang::QualType Ty) {
+  Ty = Ty.getCanonicalType().getNonReferenceType();
+  if (auto BT = Ty->getAs<clang::BuiltinType>()) {
+    switch (BT->getKind()) {
+    case clang::BuiltinType::Min12Int:
+    case clang::BuiltinType::Min16Int:
+    case clang::BuiltinType::Min16UInt:
+    case clang::BuiltinType::Min16Float:
+    case clang::BuiltinType::Min10Float:
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm) {
   // snorm/unorm can be on outer vector/matrix as well as element type
   // in the template form.  Outer-most type attribute wins.
