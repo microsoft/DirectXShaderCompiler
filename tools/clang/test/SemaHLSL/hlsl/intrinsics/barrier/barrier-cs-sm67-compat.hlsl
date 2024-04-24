@@ -1,5 +1,4 @@
 // RUN: %dxc -Tlib_6_7 -verify %s
-// REQUIRES: dxil-1-8
 
 // Test translatable barriers in compute shader model.
 // These are currently not translated, so we expect errors for now.

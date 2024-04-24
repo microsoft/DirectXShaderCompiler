@@ -1,5 +1,4 @@
 // RUN: %dxc -Tlib_6_8 -verify %s
-// REQUIRES: dxil-1-8
 
 struct RECORD { uint a; };
 RWBuffer<uint> buf0;

@@ -1,5 +1,4 @@
 // RUN: %dxc -Tlib_6_8 -Wno-unused-value -verify %s
-// REQUIRES: dxil-1-8
 
 // Legal cases, no diagnostics expected for this file.
 // expected-no-diagnostics
