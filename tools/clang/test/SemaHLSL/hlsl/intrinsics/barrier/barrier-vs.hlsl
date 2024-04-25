@@ -1,6 +1,5 @@
 // RUN: %dxc -Tlib_6_8 -verify %s
 // RUN: %dxc -Tvs_6_8 -verify %s
-// REQUIRES: dxil-1-8
 
 // Test the ordinary shader model case with no visible group.
 // expected-no-diagnostics

@@ -1,6 +1,5 @@
 // RUN: %dxc -Tlib_6_8 -verify %s
 // RUN: %dxc -Tcs_6_8 -verify %s
-// REQUIRES: dxil-1-8
 
 // Test the ordinary compute shader model case with node memory flags.
 

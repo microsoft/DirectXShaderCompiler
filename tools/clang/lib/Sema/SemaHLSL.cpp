@@ -11478,6 +11478,15 @@ static void DiagnoseReachableBarrier(Sema &S, CallExpr *CE,
   FunctionDecl *FD = CE->getDirectCallee();
   DXASSERT(FD->getNumParams() == 2, "otherwise, unknown Barrier overload");
 
+  // First, check shader model constraint.
+  if (!SM->IsSM68Plus()) {
+    Diags.Report(CE->getExprLoc(),
+                 diag::warn_hlsl_intrinsic_in_wrong_shader_model)
+        << FD->getNameAsString() << EntryDecl->getNameAsString() << "6.8";
+    Diags.Report(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
+    return;
+  }
+
   // Does shader have visible group?
   // Allow exported library functions as well.
   bool hasVisibleGroup = ShaderModel::HasVisibleGroup(EntrySK, NodeLaunchTy);
