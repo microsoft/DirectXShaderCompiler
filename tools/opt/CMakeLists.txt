@@ -7,6 +7,7 @@ set(LLVM_LINK_COMPONENTS
   DXIL # HLSL Change
   DxcBindingTable # HLSL Change
   HLSL # HLSL Change
+  DxilPixPasses # HLSL Change
   DxilContainer #  HLSL Change for DxcOptimizerPass
   DxilRootSignature #  HLSL Change for DxcOptimizerPass
   IPA

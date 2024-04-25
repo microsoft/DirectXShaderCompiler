@@ -51,6 +51,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 // HLSL Change Starts
 #include "dxc/HLSL/ComputeViewIdState.h"
@@ -59,6 +60,7 @@
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/MSFileSystem.h"
+#include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 // HLSL Change Ends
 
 #include <algorithm>
@@ -368,6 +370,8 @@ int __cdecl main(int argc, char **argv) {
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
+  initializeDxilAnnotateWithVirtualRegisterPass(Registry);
+  initializeDxilDebugInstrumentationPass(Registry);
   // HLSL Change Ends
 
 #ifdef LINK_POLLY_INTO_TOOLS
