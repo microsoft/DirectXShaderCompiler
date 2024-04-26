@@ -51,7 +51,6 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 // HLSL Change Starts
 #include "dxc/HLSL/ComputeViewIdState.h"
