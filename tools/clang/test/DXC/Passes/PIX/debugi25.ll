@@ -1,4 +1,4 @@
-; RUN: opt -S -dxil-annotate-with-virtual-regs -hlsl-dxil-debug-instrumentation %s | FileCheck %s
+; RUN: %dxopt %s -dxil-annotate-with-virtual-regs -hlsl-dxil-debug-instrumentation -S | FileCheck %s
 
 ; Expect an i25 cast, or this test isn't testing anything:
 ; CHECK: [[CAST:%.*]] = trunc i32 %{{.*}} to i25
