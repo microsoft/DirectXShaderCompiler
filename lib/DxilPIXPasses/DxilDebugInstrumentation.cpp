@@ -1150,9 +1150,9 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
                                  ValueOrdinalIndex);
     return DebugShaderModifierRecordTypeDXILStepFloat;
   case Type::TypeID::IntegerTyID:
+    assert(V->getType()->getIntegerBitWidth() == 64 ||
+           V->getType()->getIntegerBitWidth() <= 32);
     if (V->getType()->getIntegerBitWidth() > 64) {
-      // If this actually happens, we'd like to catch it in debug
-      assert(false);
       return std::nullopt;
     }
     if (V->getType()->getIntegerBitWidth() == 64) {
@@ -1163,8 +1163,6 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
       return DebugShaderModifierRecordTypeDXILStepUint64;
     } else {
       if (V->getType()->getIntegerBitWidth() > 32) {
-        // If this actually happens, we'd like to catch it in debug
-        assert(false);
         return std::nullopt;
       }
       if (BC != nullptr)
