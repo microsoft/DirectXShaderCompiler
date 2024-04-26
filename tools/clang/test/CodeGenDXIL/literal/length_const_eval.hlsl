@@ -5,7 +5,7 @@
 // constant folded away, or caught by the validator.
 
 // Ensure length is constant evaluated during codegen, or dxil const eval
-// TODO: handle fp specials properly!
+// TODO: handle fp specials properly, tracked with https://github.com/microsoft/DirectXShaderCompiler/issues/6567
 
 RWBuffer<float4> results : register(u0);
 

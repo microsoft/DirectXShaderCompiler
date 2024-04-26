@@ -5,7 +5,8 @@
 // constant folded away, or caught by the validator.
 
 // Ensure fmod is constant evaluated during codegen, or dxil const eval
-// TODO: handle fp specials properly!
+// TODO: handle fp specials properly, tracked with https://github.com/microsoft/DirectXShaderCompiler/issues/6567
+
 
 RWBuffer<float4> results : register(u0);
 
@@ -28,6 +29,25 @@ void main(bool b : B) {
                           fmod(-5.5f, 3.0f),
                           fmod(5.5f, -3.0f),
                           fmod(-5.5f, -3.0f));
+
+#ifdef SPECIALS
+    // Literal float
+	// 0.0, -0.0, NaN, -NaN
+	// SPECIALS: call void @dx.op.bufferStore.f32(i32 69, %dx.types.Handle %{{.+}}, i32 2, i32 undef, float 0.000000e+00, -0.000000e+00, float 0x7FF8000000000000, float 0x7FF8000000000000, i8 15)
+	results[i++] = float4(fmod(0.0, 1.0),
+	                      fmod(-0.0, 1.0),
+						  fmod(5.5, 0.0),
+						  fmod(-5.5, 0.0));
+
+	// Explicit float
+	// 0.0, -0.0, NaN, -NaN
+    // SPECIALS: call void @dx.op.bufferStore.f32(i32 69, %dx.types.Handle %{{.+}}, i32 3, i32 undef, float 0.000000e+00, -0.000000e+00, float 0x7FF8000000000000, float 0x7FF8000000000000, i8 15)
+	results[i++] = float4(fmod(0.0f, 1.0f),
+	                      fmod(-0.0f, 1.0f),
+						  fmod(5.5f, 0.0f),
+						  fmod(-5.5f, 0.0f));
+
+#endif // SPECIALS
 
 #ifdef NO_FOLD
     // Currently, we rely on constant folding of DXIL ops to get rid of illegal
