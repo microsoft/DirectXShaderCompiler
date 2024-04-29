@@ -6582,6 +6582,7 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     // Store initializer is exist.
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer()) &&
         !bIsObjectTy) { // Do not zerio-initialize object allocas
+      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(F));
       Builder.CreateStore(GV->getInitializer(), GV);
     }
   }
