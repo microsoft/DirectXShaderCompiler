@@ -3216,6 +3216,14 @@ SM.GSVALIDINPUTPRIMITIVE                  GS input primitive unrecognized.
 SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY         GS output primitive topology unrecognized.
 SM.HSINPUTCONTROLPOINTCOUNTRANGE          HS input control point count must be [0..%0].  %1 specified.
 SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH     For pass thru hull shader, input control point count must match output control point count
+SM.INCOMPATIBLECALLINENTRY                Features used in internal function calls must be compatible with entry
+SM.INCOMPATIBLEDERIVINCOMPUTESHADERMODEL  Derivatives in compute-model shaders require shader model 6.6 and above
+SM.INCOMPATIBLEDERIVLAUNCH                Node shaders only support derivatives in broadcasting launch mode
+SM.INCOMPATIBLEOPERATION                  Operations used in entry function must be compatible with shader stage and other properties
+SM.INCOMPATIBLEREQUIRESGROUP              Functions requiring groupshared memory must be called from shaders with a visible group
+SM.INCOMPATIBLESHADERMODEL                Functions may only use features available in the current shader model
+SM.INCOMPATIBLESTAGE                      Functions may only use features available in the entry function's stage
+SM.INCOMPATIBLETHREADGROUPDIM             When derivatives are used in compute-model shaders, the thread group dimensions must be compatible
 SM.INSIDETESSFACTORSIZEMATCHDOMAIN        InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
 SM.INVALIDRESOURCECOMPTYPE                Invalid resource return type.
 SM.INVALIDRESOURCEKIND                    Invalid resources kind.
@@ -3241,7 +3249,7 @@ SM.NOPSOUTPUTIDX                          Pixel shader output registers are not 
 SM.OPCODE                                 Opcode must be defined in target shader model
 SM.OPCODEININVALIDFUNCTION                Invalid DXIL opcode usage like StorePatchConstant in patch constant function
 SM.OPERAND                                Operand must be defined in target shader model.
-SM.OUTPUTCONTROLPOINTCOUNTRANGE           output control point count must be [0..%0].  %1 specified.
+SM.OUTPUTCONTROLPOINTCOUNTRANGE           output control point count must be [%0..%1].  %2 specified.
 SM.OUTPUTCONTROLPOINTSTOTALSCALARS        Total number of scalars across all HS output control points must not exceed .
 SM.PATCHCONSTANTONLYFORHSDS               patch constant signature only valid in HS and DS.
 SM.PSCONSISTENTINTERP                     Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample).
@@ -3382,4 +3390,3 @@ The following work on this specification is still pending:
 
 * Consider moving some additional tables and lists into hctdb and cross-reference.
 * Complete the extended documentation for instructions.
-

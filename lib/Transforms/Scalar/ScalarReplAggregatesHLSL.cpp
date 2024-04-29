@@ -1003,9 +1003,11 @@ void DeleteMemcpy(MemCpyInst *MI) {
     if (op0->user_empty())
       op0->eraseFromParent();
   }
-  if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
-    if (op1->user_empty())
-      op1->eraseFromParent();
+  if (Op0 != Op1) {
+    if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
+      if (op1->user_empty())
+        op1->eraseFromParent();
+    }
   }
 }
 
@@ -3691,7 +3693,9 @@ static bool ReplaceUseOfZeroInit(Instruction *I, Value *V, DominatorTree &DT,
       if (ReplaceUseOfZeroInit(I, UI, DT, Reachable))
         continue;
     } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
-      LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));
+      // Replace uses of the load with a constant zero.
+      Constant *replacement = Constant::getNullValue(LI->getType());
+      LI->replaceAllUsesWith(replacement);
       LI->eraseFromParent();
       continue;
     }

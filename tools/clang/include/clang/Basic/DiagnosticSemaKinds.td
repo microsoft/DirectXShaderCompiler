@@ -20,6 +20,9 @@ def note_callee_decl : Note<"%0 declared here">;
 def note_defined_here : Note<"%0 defined here">;
 def note_field_declared_here : Note<"%0 field declared here">;
 
+// HLSL Change: Note for HLSL entry function location
+def note_hlsl_entry_defined_here : Note<"entry function defined here">;
+
 // For loop analysis
 def warn_variables_not_in_loop_body : Warning<
   "variable%select{s| %1|s %1 and %2|s %1, %2, and %3|s %1, %2, %3, and %4}0 "
@@ -2349,7 +2352,7 @@ def warn_attribute_wrong_decl_type : Warning<
   "global variables of scalar type|"
   "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
-  "Textures (e.g., Texture2D) and SamplerState|"
+  "Textures and Samplers|"
   "RWTextures, RasterizerOrderedTextures, Buffers, RWBuffers, and RasterizerOrderedBuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
   "SubpassInput, SubpassInputMS|"
@@ -7541,6 +7544,9 @@ def err_hlsl_objectintemplateargument : Error<
   "%0 is an object and cannot be used as a type parameter">;
 def err_hlsl_packoffset_requires_cbuffer : Error<
   "packoffset is only allowed in a constant buffer">;
+def warn_hlsl_packoffset_mix : Warning<
+  "cannot mix packoffset elements with nonpackoffset elements in a cbuffer">;
+def err_hlsl_packoffset_overlap : Error<"packoffset overlap between %0, %1">;
 def err_hlsl_register_semantics_conflicting : Error<
   "conflicting register semantics">;
 def err_hlsl_register_or_offset_bind_not_valid: Error<
@@ -7628,7 +7634,7 @@ def err_payload_fields_not_qualified : Error<
 def err_payload_fields_is_payload_and_overqualified : Error<
   "payload field '%0' is a payload struct. Payload access qualifiers are not allowed on payload types.">;
 def warn_hlsl_payload_qualifer_dropped : Warning<
-  "payload access qualifieres are only supported for target lib_6_6 and beyond. You can opt-in for lib_6_6 with the -enable-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
+  "payload access qualifiers ignored. These are only supported for lib_6_7+ targets and lib_6_6 with with the -enable-payload-qualifiers flag.">, InGroup<HLSLPayloadAccessQualifer>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def err_hlsl_unsupported_char_literal : Error<
@@ -7712,6 +7718,9 @@ def warn_hlsl_incorrect_bind_semantic: Warning< // Is an error in fxc in some ca
   "invalid register specification, expected %0 binding">;
 def err_hlsl_incorrect_bind_semantic: Error< // Is an error in fxc in some cases, but is sometimes ignored
   "invalid register specification, expected %0 binding">;
+def warn_hlsl_semantic_attribute_position_misuse_hint: Warning<
+  "'%0' is a user-defined semantic; did you mean 'SV_Position'?">,
+  InGroup<DiagGroup<"dx9-deprecation">>;
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
   InGroup<Conversion>, DefaultWarn;
@@ -7732,6 +7741,8 @@ def warn_hlsl_implicit_vector_truncation  : Warning<
   InGroup<Conversion>, DefaultWarn;
 def err_hlsl_nointerpolation_and_linear : Error<
     "nointerpolation cannot be used with any other interpolation mode specifier">;
+def err_hlsl_parameter_requires_attribute : Error<
+    "parameter %0 of %1 must have a '%2' attribute">;
 def warn_hlsl_duplicate_specifier : Warning<
     "duplicate HLSL specifier %0">,
 	InGroup<IgnoredAttributes>, DefaultWarn;
@@ -7794,6 +7805,9 @@ def warn_hlsl_derivatives_wrong_numthreads : Warning<
     " or broadcast nodes, numthreads must be either 1D with X as a multiple of 4 or"
     " both X and Y must be multiples of 2.">,
     DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_intrinsic_in_wrong_shader_model : Warning<
+   "intrinsic %0 potentially used by '%1' requires shader model %2 or greater">,
+    DefaultError, InGroup<HLSLAvailability>;
 def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
    "overload of intrinsic %0 requires shader model %1 or greater">, 
     DefaultError, InGroup<HLSLAvailability>;
@@ -7834,6 +7848,8 @@ def err_hlsl_missing_patch_constant_function : Error<
     "patch constant function '%0' must be defined">;
 def err_hlsl_patch_reachability_not_allowed : Error<
     "%select{patch constant|entry}0 function '%1' should not be reachable from %select{patch constant|entry}2 function '%3'">;
+def err_hlsl_patch_size_mismatch : Error<
+    "Patch constant function's %0 patch input should have %1 elements, but has %2.">;
 def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
    "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
   InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
@@ -7913,6 +7929,29 @@ def err_hlsl_inputpatch_size: Error<
 def err_hlsl_outputpatch_size: Error<
    "OutputPatch element count must be greater than 0">;
 def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
+def err_hlsl_controlpoints_size: Error<
+  "number of control points %0 is outside the valid range of [1..32]">;
+def err_hlsl_barrier_invalid_memory_flags: Error<
+  "invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of "
+  "UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags">;
+def err_hlsl_barrier_invalid_semantic_flags: Error<
+  "invalid SemanticFlags for Barrier operation; expected 0 or some combination of "
+  "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags">;
+def warn_hlsl_barrier_group_memory_requires_group: Warning<
+  "GROUP_SHARED_MEMORY specified for Barrier operation when context has no visible group">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_node_memory_requires_node: Warning<
+  "NODE_INPUT_MEMORY or NODE_OUTPUT_MEMORY may only be specified for Barrier operation in a node shader">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_group_semantic_requires_group: Warning<
+  "GROUP_SYNC or GROUP_SCOPE specified for Barrier operation when context has no visible group">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_no_mem_with_required_group_scope: Warning<
+  "GROUP_SCOPE specified for Barrier operation without applicable memory">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_no_mem_with_required_device_scope: Warning<
+  "DEVICE_SCOPE specified for Barrier operation without applicable memory">,
+  InGroup<HLSLBarrier>, DefaultError;
 // HLSL Change Ends
 
 // SPIRV Change Starts

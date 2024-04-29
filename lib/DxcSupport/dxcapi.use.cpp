@@ -58,7 +58,7 @@ static std::string GetWin32ErrorMessage(DWORD err) {
 void IFT_Data(HRESULT hr, LPCWSTR data) {
   if (SUCCEEDED(hr))
     return;
-  CW2A pData(data, CP_UTF8);
+  CW2A pData(data);
   std::string errMsg;
   if (HRESULT_IS_WIN32ERR(hr)) {
     DWORD err = HRESULT_AS_WIN32ERR(hr);

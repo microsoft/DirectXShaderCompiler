@@ -18,7 +18,7 @@
 #include "llvm/Support/MSFileSystem.h"
 #include "llvm/Support/Atomic.h"
 
-#include <D3Dcommon.h>
+#include <d3dcommon.h>
 #include "dxc/dxcapi.internal.h"
 
 #include <algorithm>

@@ -394,11 +394,12 @@ int DxcContext::ActOnBlob(IDxcBlob *pBlob, IDxcBlob *pDebugBlob,
         clang::spirv::FeatureManager::stringToSpvEnvironment(
             m_Opts.SpirvOptions.targetEnv);
     IFTBOOLMSG(target_env, E_INVALIDARG, "Cannot parse SPIR-V target env.");
-
-    if (!DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult,
-                          m_Opts.ColorCodeAssembly,
-                          m_Opts.DisassembleByteOffset, *target_env))
-      return 1;
+    IFTBOOLMSG(DisassembleSpirv(pBlob, pLibrary, &pDisassembleResult,
+                                m_Opts.ColorCodeAssembly,
+                                m_Opts.DisassembleByteOffset, *target_env),
+               E_FAIL,
+               "dxc failed : Internal Compiler Error - "
+               "unable to disassemble generated SPIR-V.");
   } else {
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV Change Ends

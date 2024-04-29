@@ -848,10 +848,10 @@ void ShaderOpTest::CreateShaders() {
       CComPtr<IDxcLibrary> pLibrary;
       CComPtr<IDxcBlobEncoding> pTextBlob;
       CComPtr<IDxcOperationResult> pResult;
-      CA2W nameW(S.Name, CP_UTF8);
-      CA2W entryPointW(S.EntryPoint, CP_UTF8);
-      CA2W targetW(S.Target, CP_UTF8);
-      CA2W argumentsW(pArguments, CP_UTF8);
+      CA2W nameW(S.Name);
+      CA2W entryPointW(S.EntryPoint);
+      CA2W targetW(S.Target);
+      CA2W argumentsW(pArguments);
 
       std::vector<LPCWSTR> argumentsWList;
       splitWStringIntoVectors(argumentsW, L' ', argumentsWList);

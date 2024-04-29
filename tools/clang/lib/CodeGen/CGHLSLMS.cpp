@@ -394,7 +394,6 @@ CGMSHLSLRuntime::CGMSHLSLRuntime(CodeGenModule &CGM)
   HLOptions opts;
   opts.bIEEEStrict = CGM.getCodeGenOpts().UnsafeFPMath;
   opts.bDisableOptimizations = CGM.getCodeGenOpts().DisableLLVMOpts;
-  opts.bLegacyCBufferLoad = !CGM.getCodeGenOpts().HLSLNotUseLegacyCBufLoad;
   opts.bAllResourcesBound = CGM.getCodeGenOpts().HLSLAllResourcesBound;
   opts.bResMayAlias = CGM.getCodeGenOpts().HLSLResMayAlias;
   opts.PackingStrategy = CGM.getCodeGenOpts().HLSLSignaturePackingStrategy;
@@ -2620,8 +2619,10 @@ void CGMSHLSLRuntime::AddHLSLNodeRecordTypeInfo(
         }
 
         // Ex: For DispatchNodeInputRecord<MY_RECORD>, set size =
-        // size(MY_RECORD)
+        // size(MY_RECORD), alignment = alignof(MY_RECORD)
         node.RecordType.size = CGM.getDataLayout().getTypeAllocSize(Type);
+        node.RecordType.alignment =
+            CGM.getDataLayout().getABITypeAlignment(Type);
         // Iterate over fields of the MY_RECORD(example) struct
         for (auto fieldDecl : RD->fields()) {
           // Check if any of the fields have a semantic annotation =

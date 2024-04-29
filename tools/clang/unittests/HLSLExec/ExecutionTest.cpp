@@ -152,7 +152,7 @@ static void WriteInfoQueueMessages(void *pStrCtx,
       allMessagesOK = false;
       continue;
     }
-    CA2W msgW(pMessage->pDescription, CP_ACP);
+    CA2W msgW(pMessage->pDescription);
     pOutputStrFn(pStrCtx, msgW.m_psz);
     pOutputStrFn(pStrCtx, L"\r\n");
   }
@@ -328,6 +328,7 @@ public:
   TEST_METHOD(WaveIntrinsicsDDITest);
   TEST_METHOD(WaveIntrinsicsInPSTest);
   TEST_METHOD(WaveSizeTest);
+  TEST_METHOD(WaveSizeRangeTest);
   TEST_METHOD(PartialDerivTest);
   TEST_METHOD(DerivativesTest);
   TEST_METHOD(ComputeSampleTest);
@@ -1716,8 +1717,8 @@ public:
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
                     ID3DBlob **ppBlob) {
-    CW2A pEntryPointA(pEntryPoint, CP_UTF8);
-    CW2A pTargetProfileA(pTargetProfile, CP_UTF8);
+    CW2A pEntryPointA(pEntryPoint);
+    CW2A pTargetProfileA(pTargetProfile);
     CComPtr<ID3DBlob> pErrors;
     D3D_SHADER_MACRO d3dMacro[2];
     ZeroMemory(d3dMacro, sizeof(d3dMacro));
@@ -1727,7 +1728,7 @@ public:
         D3DCompile(pText, strlen(pText), "hlsl.hlsl", d3dMacro, nullptr,
                    pEntryPointA, pTargetProfileA, 0, 0, ppBlob, &pErrors);
     if (pErrors != nullptr) {
-      CA2W errors((char *)pErrors->GetBufferPointer(), CP_ACP);
+      CA2W errors((char *)pErrors->GetBufferPointer());
       LogCommentFmt(L"Compilation failure: %s", errors.m_szBuffer);
     }
     VERIFY_SUCCEEDED(hr);
@@ -3791,7 +3792,7 @@ TEST_F(ExecutionTest, BasicTriangleOpTestHalf) {
                          D3D_SHADER_MODEL_6_2);
 }
 
-void VerifyDerivResults(const float *pPixels, UINT offsetCenter) {
+void VerifyDerivResults_PS_60(const float *pPixels, UINT offsetCenter) {
 
   // pixel at the center
   float CenterDDXFine = pPixels[offsetCenter];
@@ -3810,6 +3811,7 @@ void VerifyDerivResults(const float *pPixels, UINT offsetCenter) {
   // 1   .125 .25
 
   // In D3D12 there is no guarantee of how the adapter is grouping 2x2 pixels
+  // for pixel shaders and shader model 6.0.
   // So for fine derivatives there can be up to two possible results for the
   // center pixel, while for coarse derivatives there can be up to six possible
   // results.
@@ -3844,6 +3846,45 @@ void VerifyDerivResults(const float *pPixels, UINT offsetCenter) {
   }
 }
 
+void VerifyDerivResults_CS_AS_MS_66(const float *pPixels, UINT offsetCenter) {
+
+  // pixel at the center
+  float CenterDDXFine = pPixels[offsetCenter];
+  float CenterDDYFine = pPixels[offsetCenter + 1];
+  float CenterDDXCoarse = pPixels[offsetCenter + 2];
+  float CenterDDYCoarse = pPixels[offsetCenter + 3];
+
+  LogCommentFmt(
+      L"center  ddx_fine: %8f, ddy_fine: %8f, ddx_coarse: %8f, ddy_coarse: %8f",
+      CenterDDXFine, CenterDDYFine, CenterDDXCoarse, CenterDDYCoarse);
+
+  // The 4x4 texture used to calculate the derivatives looks like this:
+  // .125   .25    .5    1
+  //    2     4    16   32
+  //   32    64  *128* 256
+  //  256   512  1024 2048
+  //
+  // We are checking the derivate values calculated at the texture
+  // center pixel (2,2).
+
+  // In D3D12 for shader model 6.6 compute, mesh and amplification shaders
+  // the quad grouping is well defined. There is one possible result for
+  // fine derivatives and 2 possible results for coarse derivatives.
+  int ulpTolerance = 1;
+
+  // 256 - 128
+  VERIFY_IS_TRUE(CompareFloatULP(CenterDDXFine, 128.0f, ulpTolerance));
+  // 1024 - 128
+  VERIFY_IS_TRUE(CompareFloatULP(CenterDDYFine, 896.0f, ulpTolerance));
+
+  // 256 - 128 or 2048 - 1024
+  VERIFY_IS_TRUE(CompareFloatULP(CenterDDXCoarse, 128.0f, ulpTolerance) ||
+                 CompareFloatULP(CenterDDXCoarse, 1024.0f, ulpTolerance));
+  // 1024 - 128 or 2048 - 256
+  VERIFY_IS_TRUE(CompareFloatULP(CenterDDYCoarse, 896.0f, ulpTolerance) ||
+                 CompareFloatULP(CenterDDYCoarse, 1792.0f, ulpTolerance));
+}
+
 // Rendering two right triangles forming a square and assigning a texture value
 // for each pixel to calculate derivates.
 TEST_F(ExecutionTest, PartialDerivTest) {
@@ -3870,7 +3911,7 @@ TEST_F(ExecutionTest, PartialDerivTest) {
   UINT centerIndex = (UINT64)width * height / 2 - width / 2;
   UINT offsetCenter = centerIndex * pixelSize;
 
-  VerifyDerivResults(pPixels, offsetCenter);
+  VerifyDerivResults_PS_60(pPixels, offsetCenter);
 }
 
 struct Dispatch {
@@ -3905,6 +3946,53 @@ std::shared_ptr<st::ShaderOpTest> RunDispatch(ID3D12Device *pDevice,
   return test;
 }
 
+UINT DerivativesTest_GetCenterIndex(Dispatch &D) {
+  if (D.height == 1) {
+    // 1D Quads - Find center, truncate to the previous multiple of 16 to get
+    // to the start of the repeating pattern, and then add 12 to get to the
+    // middle (2,2) pixel of the pattern. The values are stored in Z-order.
+    return (((UINT64)D.width / 2) & ~0xF) + 12;
+  } else {
+    // To find roughly the center, divide the height and width in
+    // half, truncate to the previous multiple of 4 to get to the start of the
+    // repeating pattern and then add 2 rows to get to the second row of quads
+    // and 2 to get to the first texel of the second row of that quad row
+    UINT centerRow = ((D.height / 2UL) & ~0x3) + 2;
+    UINT centerCol = ((D.width / 2UL) & ~0x3) + 2;
+    return centerRow * D.width + centerCol;
+  }
+}
+
+void DerivativesTest_DebugOutput(Dispatch &D,
+                                 std::shared_ptr<st::ShaderOpTest> &Test,
+                                 const float *pPixels, UINT centerIndex) {
+#ifdef DERIVATIVES_TEST_DEBUG
+  LogCommentFmt(L"------------------------------------");
+  MappedData dataDbg;
+  Test->GetReadBackData("U3", &dataDbg);
+  UINT *pCoords = (UINT *)dataDbg.data();
+
+  LogCommentFmt(L"DISPATCH %d x %d x %d", D.width, D.height, D.depth);
+  for (int j = 0; j < D.height; j++) {
+    for (int i = 0; i < D.width; i++) {
+      UINT index = (j * 4) * D.width + i * 4;
+      LogCommentFmt(L"%3d (%2d, %2d, %2d)\t ddx_fine: %8f, ddy_fine: %8f, "
+                    L"ddx_coarse: %8f, ddy_coarse: %8f",
+                    pCoords[index], pCoords[index + 1], pCoords[index + 2],
+                    pCoords[index + 3], pPixels[index], pPixels[index + 1],
+                    pPixels[index + 2], pPixels[index + 3]);
+    }
+  }
+  LogCommentFmt(L"CENTER %d", centerIndex);
+  LogCommentFmt(L"------------------------------------");
+#else
+  UNREFERENCED_PARAMETER(D);
+  UNREFERENCED_PARAMETER(Test);
+  UNREFERENCED_PARAMETER(pPixels);
+  UNREFERENCED_PARAMETER(centerIndex);
+#endif
+}
+
 TEST_F(ExecutionTest, DerivativesTest) {
   const UINT pixelSize = 4; // always float4
 
@@ -3925,17 +4013,14 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
   std::vector<Dispatch> dispatches = {{40, 1, 1},  {1000, 1, 1}, {32, 32, 1},
                                       {16, 64, 1}, {4, 12, 4},   {4, 64, 1},
-                                      {16, 16, 3}, {32, 8, 2}};
+                                      {16, 16, 3}, {32, 8, 2},   {8, 8, 1}};
 
-  std::vector<Dispatch> meshDispatches = {
-      {60, 1, 1}, {128, 1, 1}, {8, 8, 1}, {32, 8, 1},
-      {8, 16, 4}, {8, 64, 1},  {8, 8, 3},
-  };
-
-  std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
+  std::vector<Dispatch> meshDispatches = {// (X * Y * Z) must be <= 128
+                                          {60, 1, 1}, {128, 1, 1}, {8, 8, 1},
+                                          {16, 8, 1}, {8, 4, 2},   {10, 10, 1},
+                                          {4, 16, 2}, {4, 16, 2}};
 
   pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
-  LPCSTR CS = pShaderOp->CS;
 
   MappedData data;
 
@@ -3945,25 +4030,15 @@ TEST_F(ExecutionTest, DerivativesTest) {
         RunDispatch(pDevice, m_support, pShaderOp, D);
 
     test->GetReadBackData("U0", &data);
-
     float *pPixels = (float *)data.data();
-    ;
 
-    UINT centerIndex = 0;
-    if (D.height == 1) {
-      centerIndex = (((UINT64)(D.width * D.height * D.depth) / 2) & ~0xF) + 10;
-    } else {
-      // To find roughly the center for compute, divide the height and width in
-      // half, truncate to the previous multiple of 4 to get to the start of the
-      // repeating pattern and then add 2 rows to get to the second row of quads
-      // and 2 to get to the first texel of the second row of that quad row
-      UINT centerRow = ((D.height / 2UL) & ~0x3) + 2;
-      UINT centerCol = ((D.width / 2UL) & ~0x3) + 2;
-      centerIndex = centerRow * D.width + centerCol;
-    }
+    UINT centerIndex = DerivativesTest_GetCenterIndex(D);
+
+    DerivativesTest_DebugOutput(D, test, pPixels, centerIndex);
+
     UINT offsetCenter = centerIndex * pixelSize;
     LogCommentFmt(L"Verifying derivatives in compute shader results");
-    VerifyDerivResults(pPixels, offsetCenter);
+    VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
   }
 
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
@@ -3976,29 +4051,18 @@ TEST_F(ExecutionTest, DerivativesTest) {
 
       test->GetReadBackData("U1", &data);
       const float *pPixels = (float *)data.data();
-      UINT centerIndex =
-          (((UINT64)(D.width * D.height * D.depth) / 2) & ~0xF) + 10;
+      UINT centerIndex = DerivativesTest_GetCenterIndex(D);
+
+      DerivativesTest_DebugOutput(D, test, pPixels, centerIndex);
+
       UINT offsetCenter = centerIndex * pixelSize;
       LogCommentFmt(L"Verifying derivatives in mesh shader results");
-      VerifyDerivResults(pPixels, offsetCenter);
+      VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
 
       test->GetReadBackData("U2", &data);
       pPixels = (float *)data.data();
       LogCommentFmt(L"Verifying derivatives in amplification shader results");
-      VerifyDerivResults(pPixels, offsetCenter);
-    }
-  }
-
-  // Final tests with invalid dispatch size just to make sure they run
-  for (Dispatch &D : badDispatches) {
-    // Test Compute Shader
-    pShaderOp->CS = CS;
-    std::shared_ptr<st::ShaderOpTest> test =
-        RunDispatch(pDevice, m_support, pShaderOp, D);
-
-    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-      pShaderOp->CS = nullptr;
-      test = RunDispatch(pDevice, m_support, pShaderOp, D);
+      VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
     }
   }
 }
@@ -4130,25 +4194,36 @@ void VerifySampleResults(const UINT *pPixels, UINT width) {
   UINT ylod = 0;
   // Each pixel contains 4 samples and 4 LOD calculations.
   // 2 of these (called 'left' and 'right') have X values that vary and a
-  // constant Y 2 others (called 'top' and 'bot') have Y values that vary and a
-  // constant X Only of the X variant sample results and one of the Y variant
-  // results are actually reported for the pixel. The other 2 serve as "helpers"
-  // to the other pixels in the quad. On the left side of the quad, the 'left'
-  // samples are reported. Op the top of the quad, the 'top' samples are
-  // reported and so on. The varying coordinate values alternate between zero
-  // and a value whose magnitude increases with the index. As a result, the LOD
-  // level should steadily increas. Due to vagaries of implementation, the same
-  // derivatives in both directions might result in different levels for
+  // constant Y. 2 others (called 'top' and 'bot') have Y values that vary and a
+  // constant X. Only one of the X variant sample results and one of the Y
+  // variant results are actually reported for the pixel. The other 2 serve as
+  // "helpers" to the other pixels in the quad. On the left side of the quad,
+  // the 'left' samples are reported. On the top of the quad, the 'top' samples
+  // are reported and so on. The varying coordinate values alternate between
+  // zero and a value whose magnitude increases with the index. As a result, the
+  // LOD level should steadily increase. Due to vagaries of implementation, the
+  // same derivatives in both directions might result in different levels for
   // different locations in the quad. So only comparisons between sample results
   // and LOD calculations and ensuring that the LOD increased and reaches the
   // max can be tested reliably.
+
+  // The results are stored in quad z-order (top-left (#0), top-right (#1),
+  // bottom-left (#2), bottom-right (#3)) and need to be evaluated as such.
+  // The X-derivative-LOD should not decrease when going from quad pixel #0->#1,
+  // #2->#3, or #3->#0. For #1->#2 the end of the typewriter "line" is reached
+  // and zags left resulting in a smaller x value. So, it is absolutely valid
+  // for the X-derivative-LOD to decrease. Therefore, the test skips
+  // verification of X-derivative-LOD on quad pixel #2.
+
   for (unsigned i = 0; i < width; i++) {
     // CalculateLOD and Sample from texture with mip levels containing LOD index
     // should match
     VERIFY_ARE_EQUAL(pPixels[4 * i + 0], pPixels[4 * i + 1]);
     VERIFY_ARE_EQUAL(pPixels[4 * i + 2], pPixels[4 * i + 3]);
     // Make sure LODs are ever climbing as magnitudes increase
-    VERIFY_IS_TRUE(pPixels[4 * i] >= xlod);
+    if (i % 4 != 2) { // skip X-derivative-LOD verification on quad pixel #2
+      VERIFY_IS_TRUE(pPixels[4 * i] >= xlod);
+    }
     xlod = pPixels[4 * i];
     VERIFY_IS_TRUE(pPixels[4 * i + 2] >= ylod);
     ylod = pPixels[4 * i + 2];
@@ -4220,7 +4295,9 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   test->Test->GetReadBackData("U0", &data);
   const UINT *pPixels = (UINT *)data.data();
 
-  VerifySampleResults(pPixels, 84 * 4);
+  LogCommentFmt(L"Verifying 1D Compute Shader");
+  // CSMain1D has [NumThreads(336, 1, 1)]
+  VerifySampleResults(pPixels, 336);
 
   // Test 2D compute shader
   pShaderOp->CS = CS2;
@@ -4232,6 +4309,8 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
   test->Test->GetReadBackData("U0", &data);
   pPixels = (UINT *)data.data();
 
+  LogCommentFmt(L"Verifying 2D Compute Shader");
+  // CSMain2D has [NumThreads(84, 4, 3)]
   VerifySampleResults(pPixels, 84 * 4);
 
   if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
@@ -4242,12 +4321,16 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
     test->Test->GetReadBackData("U1", &data);
     pPixels = (UINT *)data.data();
 
+    LogCommentFmt(L"Verifying 1D mesh shader");
+    // MSMain1D has [NumThreads(116, 1, 1)]
     VerifySampleResults(pPixels, 116);
 
     test->Test->GetReadBackData("U2", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels, 84);
+    LogCommentFmt(L"Verifying 1D amplification shader");
+    // ASMain1D has [NumThreads(116, 1, 1)]
+    VerifySampleResults(pPixels, 116);
 
     pShaderOp->AS = AS2;
     pShaderOp->MS = MS2;
@@ -4256,12 +4339,16 @@ TEST_F(ExecutionTest, ComputeSampleTest) {
     test->Test->GetReadBackData("U1", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels, 116);
+    LogCommentFmt(L"Verifying 2D mesh shader");
+    // MSMain2D has [NumThreads(42, 2, 1)]
+    VerifySampleResults(pPixels, 42 * 2);
 
     test->Test->GetReadBackData("U2", &data);
     pPixels = (UINT *)data.data();
 
-    VerifySampleResults(pPixels, 84);
+    LogCommentFmt(L"Verifying 2D amplification shader");
+    // ASMain2D has [NumThreads(42, 2, 1)]
+    VerifySampleResults(pPixels, 42 * 2);
   }
 }
 
@@ -13141,58 +13228,26 @@ TEST_F(ExecutionTest, DynamicResourcesDynamicIndexingTest) {
 
 #define MAX_WAVESIZE 128
 
-#define strinfigy2(arg) #arg
-#define strinfigy(arg) strinfigy2(arg)
+#define stringify2(arg) #arg
+#define stringify(arg) stringify2(arg)
 
-void ExecutionTest::WaveSizeTest() {
-  WEX::TestExecution::SetVerifyOutput verifySettings(
-      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
-
-  CComPtr<ID3D12Device> pDevice;
-  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6)) {
-    return;
-  }
-
-  // Check Wave support
-  if (!DoesDeviceSupportWaveOps(pDevice)) {
-    // Optional feature, so it's correct to not support it if declared as such.
-    WEX::Logging::Log::Comment(L"Device does not support wave operations.");
-    return;
-  }
-
-  // Get supported wave sizes
-  D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
-  VERIFY_SUCCEEDED(
-      pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1,
-                                   &waveOpts, sizeof(waveOpts)));
-  UINT minWaveSize = waveOpts.WaveLaneCountMin;
-  UINT maxWaveSize = waveOpts.WaveLaneCountMax;
-
-  DXASSERT_NOMSG(minWaveSize <= maxWaveSize);
-  DXASSERT((minWaveSize & (minWaveSize - 1)) == 0, "must be a power of 2");
-  DXASSERT((maxWaveSize & (maxWaveSize - 1)) == 0, "must be a power of 2");
-
-  // read shader config
-  CComPtr<IStream> pStream;
-  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
-      std::make_shared<st::ShaderOpSet>();
-  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
-  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
-
+void RunWaveSizeTest(UINT minWaveSize, UINT maxWaveSize,
+                     std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                     CComPtr<ID3D12Device> pDevice,
+                     dxc::DxcDllSupport &m_support) {
   // format shader source
   const char waveSizeTestShader[] =
-      "struct TestData { \r\n"
-      "  uint count; \r\n"
-      "}; \r\n"
-      "RWStructuredBuffer<TestData> data : register(u0); \r\n"
-      "\r\n"
-      "// Note: WAVESIZE will be defined via compiler option -D\r\n"
-      "[wavesize(WAVESIZE)]\r\n"
-      "[numthreads(" strinfigy(
-          MAX_WAVESIZE) "*2,1,1)]\r\n"
-                        "void main(uint3 tid : SV_DispatchThreadID ) { \r\n"
-                        "  data[tid.x].count = WaveActiveSum(1); \r\n"
-                        "}\r\n";
+      R"(struct TestData { 
+        uint count; 
+      };
+      RWStructuredBuffer<TestData> data : register(u0); 
+
+      // Note: WAVESIZE will be defined via compiler option -D
+      WAVE_SIZE_ATTR
+      [numthreads()" stringify(MAX_WAVESIZE) R"(*2,1,1)]
+      void main() {
+        data[0].count = WaveGetLaneCount();
+      })";
 
   struct WaveSizeTestData {
     uint32_t count;
@@ -13200,9 +13255,10 @@ void ExecutionTest::WaveSizeTest() {
 
   for (UINT waveSize = minWaveSize; waveSize <= maxWaveSize; waveSize *= 2) {
     // format compiler args
-    char compilerOptions[32];
+    char compilerOptions[64];
     VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
-                             "-D WAVESIZE=%d", waveSize) != -1);
+                             "-D WAVE_SIZE_ATTR=[wavesize(%d)]",
+                             waveSize) != -1);
 
     // run the shader
     std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
@@ -13229,11 +13285,218 @@ void ExecutionTest::WaveSizeTest() {
 
     LogCommentFmt(L"Verifying test result for wave size %d", waveSize);
 
-    for (unsigned i = 0; i < MAX_WAVESIZE; i++) {
-      if (!VERIFY_ARE_EQUAL(pOutData[i].count, waveSize))
-        break;
+    VERIFY_ARE_EQUAL(pOutData[0].count, waveSize);
+  }
+}
+
+bool TestShaderRangeAgainstRequirements(UINT shaderminws, UINT shadermaxws,
+                                        UINT minws, UINT maxws) {
+  if (shaderminws > maxws) {
+    return false;
+  }
+  if (shadermaxws < minws) {
+    return false;
+  }
+  return true;
+}
+
+void ExecuteWaveSizeRangeInstance(UINT minWaveSize, UINT maxWaveSize,
+                                  std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                                  CComPtr<ID3D12Device> pDevice,
+                                  dxc::DxcDllSupport &m_support,
+                                  UINT minShaderWaveSize,
+                                  UINT maxShaderWaveSize,
+                                  UINT prefShaderWaveSize, bool usePreferred) {
+
+  // format shader source
+  const char waveSizeTestShader[] =
+      R"(struct TestData { 
+        uint count; 
+      };
+      RWStructuredBuffer<TestData> data : register(u0); 
+
+      // Note: WAVE_SIZE_ATTR will be defined via compiler option -D
+      WAVE_SIZE_ATTR
+      [numthreads()" stringify(MAX_WAVESIZE) R"(*2,1,1)]
+      void main(uint3 tid : SV_DispatchThreadID) {
+        if (tid.x == 0 && tid.y == 0 && tid.z == 0) {
+          data[0].count = WaveGetLaneCount();
+        }
+      })";
+
+  // format compiler args
+  char compilerOptions[64];
+  if (usePreferred) {
+    // putting spaces in between the %d's below will cause compilation issues.
+    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                             "-D WAVE_SIZE_ATTR=[wavesize(%d,%d,%d)]",
+                             minShaderWaveSize, maxShaderWaveSize,
+                             prefShaderWaveSize) != -1);
+    LogCommentFmt(L"Verifying wave size range test results for (min, max, "
+                  L"preferred): (%d, %d, %d)",
+                  minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize);
+  } else {
+    VERIFY_IS_TRUE(sprintf_s(compilerOptions, sizeof(compilerOptions),
+                             "-D WAVE_SIZE_ATTR=[wavesize(%d,%d)]",
+                             minShaderWaveSize, maxShaderWaveSize) != -1);
+    LogCommentFmt(
+        L"Verifying wave size range test results for (min, max): (%d, %d)",
+        minShaderWaveSize, maxShaderWaveSize);
+  }
+
+  struct WaveSizeTestData {
+    uint32_t count;
+  };
+
+  // run the shader
+  std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTestAfterParse(
+      pDevice, m_support, "WaveSizeTest",
+      [&](LPCSTR Name, std::vector<BYTE> &Data, st::ShaderOp *pShaderOp) {
+        VERIFY_IS_TRUE((0 == strncmp(Name, "UAVBuffer0", 10)));
+        pShaderOp->Shaders.at(0).Arguments = compilerOptions;
+        pShaderOp->Shaders.at(0).Text = waveSizeTestShader;
+        pShaderOp->Shaders.at(0).Target = "cs_6_8";
+
+        VERIFY_IS_TRUE(sizeof(WaveSizeTestData) * MAX_WAVESIZE <= Data.size());
+        WaveSizeTestData *pInData = (WaveSizeTestData *)Data.data();
+        memset(pInData, 0, sizeof(WaveSizeTestData) * MAX_WAVESIZE);
+      },
+      ShaderOpSet);
+
+  // verify expected values
+  MappedData dataUav;
+  WaveSizeTestData *pOutData;
+
+  // at this point we assume that the waverange size that
+  // the shader specifies is legal.
+  test->Test->GetReadBackData("UAVBuffer0", &dataUav);
+  VERIFY_ARE_EQUAL(sizeof(WaveSizeTestData) * MAX_WAVESIZE, dataUav.size());
+  pOutData = (WaveSizeTestData *)dataUav.data();
+
+  unsigned count = pOutData[0].count;
+  if (usePreferred && prefShaderWaveSize >= minWaveSize &&
+      prefShaderWaveSize <= maxWaveSize) {
+    VERIFY_ARE_EQUAL(count, prefShaderWaveSize);
+  } else {
+    VERIFY_IS_GREATER_THAN_OR_EQUAL(count, minWaveSize);
+    VERIFY_IS_LESS_THAN_OR_EQUAL(count, maxWaveSize);
+  }
+}
+
+void RunWaveSizeRangeTest(UINT minWaveSize, UINT maxWaveSize,
+                          std::shared_ptr<st::ShaderOpSet> ShaderOpSet,
+                          CComPtr<ID3D12Device> pDevice,
+                          dxc::DxcDllSupport &m_support) {
+
+  for (UINT minShaderWaveSize = 4; minShaderWaveSize <= maxWaveSize;
+       minShaderWaveSize *= 2) {
+    for (UINT maxShaderWaveSize = minShaderWaveSize * 2;
+         maxShaderWaveSize <= 128; maxShaderWaveSize *= 2) {
+      // Only allow valid shader wave ranges
+      bool AcceptedByRuntime = TestShaderRangeAgainstRequirements(
+          minShaderWaveSize, maxShaderWaveSize, minWaveSize, maxWaveSize);
+      if (!AcceptedByRuntime) {
+        continue;
+      }
+
+      ExecuteWaveSizeRangeInstance(
+          minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support,
+          minShaderWaveSize, maxShaderWaveSize,
+          /* prefShaderWaveSize won't be used, so set it to minShaderWaveSize*/
+          minShaderWaveSize, false);
+
+      for (UINT prefShaderWaveSize = minShaderWaveSize;
+           prefShaderWaveSize <= maxShaderWaveSize; prefShaderWaveSize *= 2) {
+
+        ExecuteWaveSizeRangeInstance(
+            minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support,
+            minShaderWaveSize, maxShaderWaveSize, prefShaderWaveSize, true);
+      }
     }
   }
+}
+
+void ExecutionTest::WaveSizeTest() {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_6,
+                    /*skipUnsupported*/ false)) {
+    return;
+  }
+
+  // Check Wave support
+  if (!DoesDeviceSupportWaveOps(pDevice)) {
+    // Optional feature, so it's correct to not support it if declared as such.
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Get supported wave sizes
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
+  VERIFY_SUCCEEDED(
+      pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1,
+                                   &waveOpts, sizeof(waveOpts)));
+  UINT minWaveSize = waveOpts.WaveLaneCountMin;
+  UINT maxWaveSize = waveOpts.WaveLaneCountMax;
+
+  DXASSERT_NOMSG(minWaveSize <= maxWaveSize);
+  DXASSERT((minWaveSize & (minWaveSize - 1)) == 0, "must be a power of 2");
+  DXASSERT((maxWaveSize & (maxWaveSize - 1)) == 0, "must be a power of 2");
+
+  // read shader config
+  CComPtr<IStream> pStream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  LogCommentFmt(L"Testing WaveSize attribute for shader model 6.6.");
+  RunWaveSizeTest(minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support);
+}
+
+void ExecutionTest::WaveSizeRangeTest() {
+  WEX::TestExecution::SetVerifyOutput verifySettings(
+      WEX::TestExecution::VerifyOutputSettings::LogOnlyFailures);
+
+  CComPtr<ID3D12Device> pDevice;
+  if (!CreateDevice(&pDevice, D3D_SHADER_MODEL_6_8,
+                    /*skipUnsupported*/ false)) {
+    return;
+  }
+
+  // Check Wave support
+  if (!DoesDeviceSupportWaveOps(pDevice)) {
+    // Optional feature, so it's correct to not support it if declared as such.
+    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
+    return;
+  }
+
+  // Get supported wave sizes
+  D3D12_FEATURE_DATA_D3D12_OPTIONS1 waveOpts;
+  VERIFY_SUCCEEDED(
+      pDevice->CheckFeatureSupport((D3D12_FEATURE)D3D12_FEATURE_D3D12_OPTIONS1,
+                                   &waveOpts, sizeof(waveOpts)));
+  UINT minWaveSize = waveOpts.WaveLaneCountMin;
+  UINT maxWaveSize = waveOpts.WaveLaneCountMax;
+
+  DXASSERT_NOMSG(minWaveSize <= maxWaveSize);
+  DXASSERT((minWaveSize & (minWaveSize - 1)) == 0, "must be a power of 2");
+  DXASSERT((maxWaveSize & (maxWaveSize - 1)) == 0, "must be a power of 2");
+
+  // read shader config
+  CComPtr<IStream> pStream;
+  std::shared_ptr<st::ShaderOpSet> ShaderOpSet =
+      std::make_shared<st::ShaderOpSet>();
+  ReadHlslDataIntoNewStream(L"ShaderOpArith.xml", &pStream);
+  st::ParseShaderOpSetFromStream(pStream, ShaderOpSet.get());
+
+  LogCommentFmt(L"Testing WaveSize Range attribute for shader model 6.8.");
+  RunWaveSizeTest(minWaveSize, maxWaveSize, ShaderOpSet, pDevice, m_support);
+
+  RunWaveSizeRangeTest(minWaveSize, maxWaveSize, ShaderOpSet, pDevice,
+                       m_support);
 }
 
 // Atomic operation testing

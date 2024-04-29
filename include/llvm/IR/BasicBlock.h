@@ -341,8 +341,18 @@ private:
 
 // createSentinel is used to get hold of the node that marks the end of the
 // list... (same trick used here as in ilist_traits<Instruction>)
-inline BasicBlock *ilist_traits<BasicBlock>::createSentinel() const {
-    return static_cast<BasicBlock*>(&Sentinel);
+// HLSL Change Starts
+// Temporarily disable "downcast of address" UBSAN runtime error
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6446
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+__attribute__((no_sanitize("undefined")))
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+// HLSL Change Ends
+inline BasicBlock *
+ilist_traits<BasicBlock>::createSentinel() const {
+  return static_cast<BasicBlock *>(&Sentinel);
 }
 
 // Create wrappers for C Binding types (see CBindingWrapping.h).

@@ -61,7 +61,7 @@ void node030_outputcomplete_nodeoutput(NodeOutput<OUTPUT_RECORD> output)
 // Arg #1: Size Tag (0)
 // Arg #4: 4 bytes
 // ------------------------------------------------------------------
-// CHECK: [[OUTPUT_RECORD:![0-9]+]] = !{i32 0, i32 4}
+// CHECK: [[OUTPUT_RECORD:![0-9]+]] = !{i32 0, i32 4, i32 2, i32 4}
 
 // NodeID
 // ------------------------------------------------------------------

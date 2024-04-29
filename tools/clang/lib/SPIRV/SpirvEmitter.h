@@ -662,6 +662,9 @@ private:
   SpirvInstruction *processIntrinsicDP4a(const CallExpr *callExpr,
                                          hlsl::IntrinsicOp op);
 
+  /// Processes the SM 6.4 dot2add intrinsic function.
+  SpirvInstruction *processIntrinsicDP2a(const CallExpr *callExpr);
+
   /// Processes the SM 6.6 pack_{s|u}8 and pack_clamp_{s|u}8 intrinsic
   /// functions.
   SpirvInstruction *processIntrinsic8BitPack(const CallExpr *,
@@ -962,8 +965,7 @@ private:
   /// resulting residency code will also be emitted.
   SpirvInstruction *
   processBufferTextureLoad(const Expr *object, SpirvInstruction *location,
-                           SpirvInstruction *constOffset,
-                           SpirvInstruction *varOffset, SpirvInstruction *lod,
+                           SpirvInstruction *constOffset, SpirvInstruction *lod,
                            SpirvInstruction *residencyCode, SourceLocation loc,
                            SourceRange range = {});
 

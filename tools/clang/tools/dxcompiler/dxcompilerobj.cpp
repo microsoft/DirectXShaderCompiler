@@ -442,8 +442,8 @@ static void CreateDefineStrings(const DxcDefine *pDefines, UINT defineCount,
                                 std::vector<std::string> &defines) {
   // Not very efficient but also not very important.
   for (UINT32 i = 0; i < defineCount; i++) {
-    CW2A utf8Name(pDefines[i].Name, CP_UTF8);
-    CW2A utf8Value(pDefines[i].Value, CP_UTF8);
+    CW2A utf8Name(pDefines[i].Name);
+    CW2A utf8Value(pDefines[i].Value);
     std::string val(utf8Name.m_psz);
     val += "=";
     val += (pDefines[i].Value) ? utf8Value.m_psz : "1";
@@ -593,18 +593,16 @@ public:
       // Formerly API values.
       const char *pUtf8SourceName =
           opts.InputFile.empty() ? "hlsl.hlsl" : opts.InputFile.data();
-      std::string NormalizedSourceName = hlsl::NormalizePath(pUtf8SourceName);
-      pUtf8SourceName = NormalizedSourceName.c_str();
 
-      CA2W pWideSourceName(pUtf8SourceName, CP_UTF8);
+      CA2W pWideSourceName(pUtf8SourceName);
       const char *pUtf8EntryPoint =
           opts.EntryPoint.empty() ? "main" : opts.EntryPoint.data();
       const char *pUtf8OutputName = isPreprocessing ? opts.Preprocess.data()
                                     : opts.OutputObject.empty()
                                         ? ""
                                         : opts.OutputObject.data();
-      CA2W pWideOutputName(
-          isPreprocessing ? opts.Preprocess.data() : pUtf8OutputName, CP_UTF8);
+      CA2W pWideOutputName(isPreprocessing ? opts.Preprocess.data()
+                                           : pUtf8OutputName);
       LPCWSTR pObjectName = (!isPreprocessing && opts.OutputObject.empty())
                                 ? nullptr
                                 : pWideOutputName.m_psz;
@@ -1359,6 +1357,18 @@ public:
     compiler.createDiagnostics(diagPrinter, false);
     // don't output warning to stderr/file if "/no-warnings" is present.
     compiler.getDiagnostics().setIgnoreAllWarnings(!Opts.OutputWarnings);
+    if (Opts.DiagnosticsFormat.equals_lower("msvc") ||
+        Opts.DiagnosticsFormat.equals_lower("msvc-fallback"))
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::MSVC);
+    else if (Opts.DiagnosticsFormat.equals_lower("vi"))
+      compiler.getDiagnosticOpts().setFormat(DiagnosticOptions::Vi);
+    else if (!Opts.DiagnosticsFormat.equals_lower("clang")) {
+      auto const ID = compiler.getDiagnostics().getCustomDiagID(
+          clang::DiagnosticsEngine::Warning,
+          "invalid option %0 to -fdiagnostics-format: supported values are "
+          "clang, msvc, msvc-fallback, and vi");
+      compiler.getDiagnostics().Report(ID) << Opts.DiagnosticsFormat;
+    }
     compiler.createFileManager();
     compiler.createSourceManager(compiler.getFileManager());
     compiler.setTarget(
@@ -1495,8 +1505,6 @@ public:
     compiler.getCodeGenOpts().HLSLOverrideSemDefs = Opts.OverrideSemDefs;
     compiler.getCodeGenOpts().HLSLPreferControlFlow = Opts.PreferFlowControl;
     compiler.getCodeGenOpts().HLSLAvoidControlFlow = Opts.AvoidFlowControl;
-    compiler.getCodeGenOpts().HLSLNotUseLegacyCBufLoad =
-        Opts.NotUseLegacyCBufLoad;
     compiler.getCodeGenOpts().HLSLLegacyResourceReservation =
         Opts.LegacyResourceReservation;
     compiler.getCodeGenOpts().HLSLDefines = defines;
@@ -1795,7 +1803,7 @@ HRESULT DxcCompilerAdapter::WrapCompile(
     dxcutil::ReadOptsAndValidate(mainArgs, opts, pOutputStream,
                                  &pOperationResult, finished);
     if (!opts.TimeTrace.empty())
-      llvm::timeTraceProfilerInitialize();
+      llvm::timeTraceProfilerInitialize(opts.TimeTraceGranularity);
     if (finished) {
       IFT(pOperationResult->QueryInterface(ppResult));
       return S_OK;

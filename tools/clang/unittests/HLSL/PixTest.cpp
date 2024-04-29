@@ -208,10 +208,7 @@ public:
     VERIFY_SUCCEEDED(pOptimizer->RunOptimizer(
         dxil, Options.data(), Options.size(), &pOptimizedModule, &pText));
 
-    std::string outputText;
-    if (pText->GetBufferSize() != 0) {
-      outputText = reinterpret_cast<const char *>(pText->GetBufferPointer());
-    }
+    std::string outputText = BlobToUtf8(pText);
 
     return {
         std::move(pOptimizedModule), {}, Tokenize(outputText.c_str(), "\n")};
@@ -2355,7 +2352,7 @@ static void VerifyOperationSucceeded(IDxcOperationResult *pResult) {
   if (FAILED(result)) {
     CComPtr<IDxcBlobEncoding> pErrors;
     VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
-    CA2W errorsWide(BlobToUtf8(pErrors).c_str(), CP_UTF8);
+    CA2W errorsWide(BlobToUtf8(pErrors).c_str());
     WEX::Logging::Log::Comment(errorsWide);
   }
   VERIFY_SUCCEEDED(result);

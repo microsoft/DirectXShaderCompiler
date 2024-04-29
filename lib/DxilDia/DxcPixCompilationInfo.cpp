@@ -105,7 +105,7 @@ static void MDStringOperandToBSTR(llvm::MDOperand const &mdOperand,
       llvm::dyn_cast<llvm::MDString>(mdOperand)->getString();
   std::string StringWithTerminator(MetadataAsStringRef.begin(),
                                    MetadataAsStringRef.size());
-  CA2W cv(StringWithTerminator.c_str(), CP_UTF8);
+  CA2W cv(StringWithTerminator.c_str());
   CComBSTR BStr;
   BStr.Append(cv);
   BStr.Append(L"\0", 1);
@@ -168,7 +168,7 @@ STDMETHODIMP CompilationInfo::GetArguments(BSTR *pArguments) {
     }
 
     std::string str(strRef.begin(), strRef.size());
-    CA2W cv(str.c_str(), CP_UTF8);
+    CA2W cv(str.c_str());
     pBSTR.Append(cv);
     pBSTR.Append(L" ", 1);
   }
@@ -201,7 +201,7 @@ STDMETHODIMP CompilationInfo::GetMacroDefinitions(BSTR *pMacroDefinitions) {
       str = name + "=" + definition;
     }
 
-    CA2W cv(str.c_str(), CP_UTF8);
+    CA2W cv(str.c_str());
     pBSTR.Append(L"-D", 2);
     pBSTR.Append(cv);
     pBSTR.Append(L" ", 1);
@@ -218,7 +218,7 @@ CompilationInfo::GetEntryPointFile(BSTR *pEntryPointFile) {
                                ->getString();
   std::string str(strRef.begin(),
                   strRef.size()); // To make sure str is null terminated
-  CA2W cv(str.c_str(), CP_UTF8);
+  CA2W cv(str.c_str());
   CComBSTR pBSTR;
   pBSTR.Append(cv);
   *pEntryPointFile = pBSTR.Detach();
@@ -227,7 +227,7 @@ CompilationInfo::GetEntryPointFile(BSTR *pEntryPointFile) {
 
 STDMETHODIMP
 CompilationInfo::GetHlslTarget(BSTR *pHlslTarget) {
-  CA2W cv(m_pSession->DxilModuleRef().GetShaderModel()->GetName(), CP_UTF8);
+  CA2W cv(m_pSession->DxilModuleRef().GetShaderModel()->GetName());
   CComBSTR pBSTR;
   pBSTR.Append(cv);
   *pHlslTarget = pBSTR.Detach();
@@ -237,7 +237,7 @@ CompilationInfo::GetHlslTarget(BSTR *pHlslTarget) {
 STDMETHODIMP
 CompilationInfo::GetEntryPoint(BSTR *pEntryPoint) {
   auto name = m_pSession->DxilModuleRef().GetEntryFunctionName();
-  CA2W cv(name.c_str(), CP_UTF8);
+  CA2W cv(name.c_str());
   CComBSTR pBSTR;
   pBSTR.Append(cv);
   *pEntryPoint = pBSTR.Detach();

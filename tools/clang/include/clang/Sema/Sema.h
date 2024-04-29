@@ -3807,14 +3807,13 @@ public:
   void DiagnoseGloballyCoherentMismatch(const Expr *SrcExpr,
                                         QualType TargetType,
                                         SourceLocation Loc);
-  bool DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc);
-  void DiagnoseSVForLaunchType(const FunctionDecl *FD,
-                               hlsl::DXIL::NodeLaunchType LaunchTy);
-  void DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
-                                       SourceLocation Loc,
-                                       const hlsl::ShaderModel *SM,
-                                       hlsl::DXIL::ShaderKind EntrySK,
-                                       const FunctionDecl *EntryDecl);
+  void CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
+                             const FunctionProtoType *Proto);
+  void DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
+                                 hlsl::DXIL::ShaderKind EntrySK,
+                                 hlsl::DXIL::NodeLaunchType NodeLaunchTy,
+                                 const FunctionDecl *EntryDecl,
+                                 bool locallyVisited);
   // HLSL Change Ends
 
   bool CheckUnaryExprOrTypeTraitOperand(Expr *E, UnaryExprOrTypeTrait ExprKind);
@@ -8828,6 +8827,8 @@ private:
                         bool AllowOnePastEnd=true, bool IndexNegated=false);
   // HLSL Change Starts - checking array subscript access to vector or matrix member
   void CheckHLSLArrayAccess(const Expr *expr);
+  bool CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall);
+  bool CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall);
   // HLSL Change ends
   void CheckArrayAccess(const Expr *E);
   // Used to grab the relevant information from a FormatAttr and a
