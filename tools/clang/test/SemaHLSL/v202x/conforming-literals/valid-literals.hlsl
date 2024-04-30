@@ -40,7 +40,7 @@ _Static_assert(is_same<__decltype(2147483647), int>::value, "2147483647 is int")
 _Static_assert(is_same<__decltype(2147483648), int64_t>::value, "2147483648 is int64_t");
 _Static_assert(is_same<__decltype(4294967296), int64_t>::value, "4294967296 is int64_t");
 
-// This is an anomoly that exists in C as well as HLSL. This value can't be
+// This is an anomaly that exists in C as well as HLSL. This value can't be
 // represented as a signed integer, but base-10 literals are always signed.
 // Clang emits a wanring that it is interpreting it as unsigned because that is
 // not conforming to the C standard, and we get a slightly odd conversion
