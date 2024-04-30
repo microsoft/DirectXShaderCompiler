@@ -867,6 +867,8 @@ public:
                 compiler.getCodeGenOpts().HLSLValidatorMinorVer, 1, 5) >= 0;
       }
 
+      compiler.getTarget().adjust(compiler.getLangOpts());
+
       if (opts.AstDump) {
         clang::ASTDumpAction dumpAction;
         // Consider - ASTDumpFilter, ASTDumpLookups

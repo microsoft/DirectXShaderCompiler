@@ -376,6 +376,10 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     // HLSL Version
     Builder.defineMacro("__HLSL_VERSION",
                         Twine((unsigned int)LangOpts.HLSLVersion));
+    // This define is enabled in Clang and allows conditionally compiling code
+    // based on whether or not native 16-bit types are supported.
+    if (!LangOpts.UseMinPrecision)
+      Builder.defineMacro("__HLSL_ENABLE_16_BIT", "1");
     // Shader target information
     // "enums" for shader stages
     Builder.defineMacro("__SHADER_STAGE_VERTEX",  Twine((unsigned)hlsl::DXIL::ShaderKind::Vertex));
