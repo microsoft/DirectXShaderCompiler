@@ -42,7 +42,7 @@ _Static_assert(is_same<__decltype(4294967296), int64_t>::value, "4294967296 is i
 
 // This is an anomaly that exists in C as well as HLSL. This value can't be
 // represented as a signed integer, but base-10 literals are always signed.
-// Clang emits a wanring that it is interpreting it as unsigned because that is
+// Clang emits a warning that it is interpreting it as unsigned because that is
 // not conforming to the C standard, and we get a slightly odd conversion
 // warning. In HLSL `long long` and `uint64_t` (aka `long`) are the same size
 // but not the same type in HLSL 202x.
