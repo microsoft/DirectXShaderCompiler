@@ -12341,7 +12341,6 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
           // warning.
           value = value ? 1 : 0;
         } else if (!(E->getType()->isIntegralType(S.Context)) || value < 0) {
-          QualType ETy = E->getType();
           S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
               << Attr.getName();
         }
