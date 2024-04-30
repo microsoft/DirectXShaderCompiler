@@ -129,8 +129,8 @@ _Static_assert(is_same<__decltype(B ? 1ul : 1), uint64_t>::value, "B ? 1ul : 1 i
 _Static_assert(is_same<__decltype(B ? 1 : 1ul), uint64_t>::value, "B ? 1 : 1ul is uint64_t");
 
 #if !defined(__HLSL_ENABLE_16_BIT)
-_Static_assert(is_same<__decltype(B ? i16 : i16), min16int>::value, "B ? (min16int) : (min16int) is int"); // maybe a bug
-_Static_assert(is_same<__decltype(B ? u16 : u16), min16uint>::value, "B ? (min16uint) : (min16uint) is int"); // maybe a bug
+_Static_assert(is_same<__decltype(B ? i16 : i16), min16int>::value, "B ? (min16int) : (min16int) is min16int");
+_Static_assert(is_same<__decltype(B ? u16 : u16), min16uint>::value, "B ? (min16uint) : (min16uint) is min16uint");
 #endif
 
 #else
