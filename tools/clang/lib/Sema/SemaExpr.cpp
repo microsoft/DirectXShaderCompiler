@@ -3458,7 +3458,8 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     else if (Literal.isLong)
       Ty = Context.DoubleTy;
     else if (Literal.isHalf) {
-      if (getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
         Ty = getLangOpts().UseMinPrecision ? Context.FloatTy : Context.HalfTy;
       else
         Ty = getLangOpts().UseMinPrecision ? Context.HalfFloatTy
@@ -3487,7 +3488,8 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     return ExprError();
 
   // HLSL Change Starts
-  } else if (getLangOpts().HLSLVersion < hlsl::LangStd::v202x) {
+  } else if (getLangOpts().HLSL &&
+             getLangOpts().HLSLVersion < hlsl::LangStd::v202x) {
     QualType Ty;
     unsigned Width = 64;
     llvm::APInt ResultVal(Width, 0);
