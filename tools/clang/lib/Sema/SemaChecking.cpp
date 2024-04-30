@@ -7139,8 +7139,8 @@ void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
       // Don't warn on Literal float.
       if (SourceBT->getKind() == BuiltinType::LitFloat)
         return;
-      int Order = S.getASTContext().getFloatingTypeOrder(
-          QualType(SourceBT, 0), QualType(TargetBT, 0));
+      int Order = S.getASTContext().getFloatingTypeOrder(QualType(SourceBT, 0),
+                                                         QualType(TargetBT, 0));
 
       // Builtin FP kinds are ordered by increasing FP rank.
       if (Order > 0) {
