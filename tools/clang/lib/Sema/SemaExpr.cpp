@@ -3451,7 +3451,8 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
 
       Ty = Context.FloatTy;
     // HLSL Change Starts
-    else if (getLangOpts().HLSLVersion < hlsl::LangStd::v202x &&
+    else if (getLangOpts().HLSL &&
+             getLangOpts().HLSLVersion < hlsl::LangStd::v202x &&
              !Literal.isLong && !Literal.isHalf)
       Ty = Context.LitFloatTy;
     else if (Literal.isLong)
