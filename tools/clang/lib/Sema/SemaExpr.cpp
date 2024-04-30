@@ -3525,7 +3525,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
   } else {
     QualType Ty;
 
-    // HLSL Chagne: disable the warning below.
+    // HLSL Change: disable the warning below.
     // 'long long' is a C99 or C++11 feature.
     if (!getLangOpts().HLSL && !getLangOpts().C99 && Literal.isLongLong) {
       if (getLangOpts().CPlusPlus)
