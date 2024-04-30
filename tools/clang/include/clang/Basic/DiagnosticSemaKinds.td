@@ -2639,6 +2639,13 @@ def warn_impcast_null_pointer_to_integer : Warning<
 def warn_impcast_floating_point_to_bool : Warning<
     "implicit conversion turns floating-point number into bool: %0 to %1">,
     InGroup<ImplicitConversionFloatingPointToBool>;
+// HLSL Change - Begin
+// This backports the Clang change to emit warnings for floating point
+// promotions.
+def warn_impcast_double_promotion : Warning<
+  "implicit conversion increases floating-point precision: %0 to %1">,
+  InGroup<DoublePromotion>, DefaultIgnore;
+// HLSL Change - End
 
 def warn_impcast_pointer_to_bool : Warning<
     "address of%select{| function| array}0 '%1' will always evaluate to "
