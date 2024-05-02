@@ -381,7 +381,7 @@ public:
       CComPtr<IDxcBlobEncoding> pErr;
       IFT(pResult->GetErrorBuffer(&pErr));
       std::string errString(BlobToUtf8(pErr));
-      CA2W errStringW(errString.c_str(), CP_UTF8);
+      CA2W errStringW(errString.c_str());
       WEX::Logging::Log::Comment(L"Failed to compile - errors follow");
       WEX::Logging::Log::Comment(errStringW);
     }
@@ -403,7 +403,7 @@ public:
     FileRunTestResult t =
         FileRunTestResult::RunHashTestFromFileCommands(fullPath);
     if (t.RunResult != 0) {
-      CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
+      CA2W commentWide(t.ErrorMessage.c_str());
       WEX::Logging::Log::Comment(commentWide);
       WEX::Logging::Log::Error(L"Run result is not zero");
     }
@@ -486,7 +486,7 @@ public:
         fullPath,
         /*pPluginToolsPaths*/ nullptr, dumpPath);
     if (t.RunResult != 0) {
-      CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
+      CA2W commentWide(t.ErrorMessage.c_str());
       WEX::Logging::Log::Comment(commentWide);
       WEX::Logging::Log::Error(L"Run result is not zero");
     }
@@ -610,7 +610,7 @@ public:
     if (FAILED(result)) {
       CComPtr<IDxcBlobEncoding> pErrors;
       VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
-      CA2W errorsWide(BlobToUtf8(pErrors).c_str(), CP_UTF8);
+      CA2W errorsWide(BlobToUtf8(pErrors).c_str());
       WEX::Logging::Log::Comment(errorsWide);
     }
     VERIFY_SUCCEEDED(result);
@@ -649,7 +649,7 @@ public:
       CComPtr<IDxcBlobEncoding> pDisassembly;
       VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
       std::string disText = BlobToUtf8(pDisassembly);
-      CA2W disTextW(disText.c_str(), CP_UTF8);
+      CA2W disTextW(disText.c_str());
       // WEX::Logging::Log::Comment(disTextW);
     }
 
@@ -680,7 +680,7 @@ public:
       CComPtr<IDxcBlobEncoding> pDbgDisassembly;
       VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgramPdb, &pDbgDisassembly));
       std::string disText = BlobToUtf8(pDbgDisassembly);
-      CA2W disTextW(disText.c_str(), CP_UTF8);
+      CA2W disTextW(disText.c_str());
       // WEX::Logging::Log::Comment(disTextW);
     }
 
@@ -881,7 +881,7 @@ TEST_F(CompilerTest, CompileWhenIncorrectThenFails) {
   std::string errorString(BlobToUtf8(pErrorBuffer));
   VERIFY_ARE_NOT_EQUAL(0U, errorString.size());
   // Useful for examining actual error message:
-  // CA2W errorStringW(errorString.c_str(), CP_UTF8);
+  // CA2W errorStringW(errorString.c_str());
   // WEX::Logging::Log::Comment(errorStringW.m_psz);
 }
 
@@ -909,7 +909,7 @@ TEST_F(CompilerTest, CompileWhenWorksThenDisassembleWorks) {
   std::string disassembleString(BlobToUtf8(pDisassembleBlob));
   VERIFY_ARE_NOT_EQUAL(0U, disassembleString.size());
   // Useful for examining disassembly:
-  // CA2W disassembleStringW(disassembleString.c_str(), CP_UTF8);
+  // CA2W disassembleStringW(disassembleString.c_str());
   // WEX::Logging::Log::Comment(disassembleStringW.m_psz);
 }
 

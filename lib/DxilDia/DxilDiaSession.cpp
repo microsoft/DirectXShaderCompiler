@@ -20,7 +20,7 @@
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 
-#include "..\DxilPIXPasses\PixPassHelpers.h"
+#include "../DxilPIXPasses/PixPassHelpers.h"
 #include "DxilDia.h"
 #include "DxilDiaEnumTables.h"
 #include "DxilDiaTable.h"
@@ -351,7 +351,7 @@ STDMETHODIMP dxil_dia::Session::findInjectedSource(
     /* [in] */ LPCOLESTR srcFile,
     /* [out] */ IDiaEnumInjectedSources **ppResult) {
   if (Contents() != nullptr) {
-    CW2A pUtf8FileName(srcFile, CP_UTF8);
+    CW2A pUtf8FileName(srcFile);
     DxcThreadMalloc TM(m_pMalloc);
     IDiaTable *pTable;
     IFT(Table::Create(this, Table::Kind::InjectedSource, &pTable));

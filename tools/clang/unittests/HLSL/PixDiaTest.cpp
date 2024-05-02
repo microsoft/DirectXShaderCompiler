@@ -587,7 +587,7 @@ public:
       CComPtr<IDxcBlobEncoding> pDisassembly;
       VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
       std::string disText = BlobToUtf8(pDisassembly);
-      CA2W disTextW(disText.c_str(), CP_UTF8);
+      CA2W disTextW(disText.c_str());
       // WEX::Logging::Log::Comment(disTextW);
     }
 
@@ -621,7 +621,7 @@ public:
       CComPtr<IDxcBlobEncoding> pDbgDisassembly;
       VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgramPdb, &pDbgDisassembly));
       std::string disText = BlobToUtf8(pDbgDisassembly);
-      CA2W disTextW(disText.c_str(), CP_UTF8);
+      CA2W disTextW(disText.c_str());
       // WEX::Logging::Log::Comment(disTextW);
     }
 
@@ -940,7 +940,7 @@ TEST_F(PixDiaTest, CompileWhenDebugThenDIPresent) {
   CComPtr<IDxcBlob> pdbBlob;
   VERIFY_SUCCEEDED(pLib->CreateBlobFromFile(path, nullptr, &fxcBlob));
   std::string s = DumpParts(fxcBlob);
-  CA2W sW(s.c_str(), CP_UTF8);
+  CA2W sW(s.c_str());
   WEX::Logging::Log::Comment(sW);
   VERIFY_SUCCEEDED(CreateDiaSourceFromDxbcBlob(pLib, fxcBlob, &pDiaSource));
   WEX::Logging::Log::Comment(GetDebugInfoAsText(pDiaSource).c_str());
@@ -2839,7 +2839,7 @@ void main()
   VERIFY_SUCCEEDED(field->QueryInterface(IID_PPV_ARGS(&mike)));
   DWORD secondFieldOffset = 0;
   VERIFY_SUCCEEDED(mike->GetOffsetInBits(&secondFieldOffset));
-  VERIFY_ARE_EQUAL(32, secondFieldOffset);
+  VERIFY_ARE_EQUAL(32u, secondFieldOffset);
 }
 
 void PixDiaTest::RunSizeAndOffsetTestCase(
@@ -2857,7 +2857,6 @@ void PixDiaTest::RunSizeAndOffsetTestCase(
   VERIFY_SUCCEEDED(bf->GetType(&bfType));
   CComPtr<IDxcPixStructType> bfStructType;
   VERIFY_SUCCEEDED(bfType->QueryInterface(IID_PPV_ARGS(&bfStructType)));
-  const wchar_t *memberNames[] = {L"first", L"second", L"third", L"fourth"};
   for (size_t i = 0; i < memberOffsets.size(); ++i) {
     CComPtr<IDxcPixStructField> field;
     VERIFY_SUCCEEDED(

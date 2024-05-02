@@ -134,7 +134,7 @@ public:
     if (FAILED(result)) {
       CComPtr<IDxcBlobEncoding> pErrors;
       VERIFY_SUCCEEDED(pResult->GetErrorBuffer(&pErrors));
-      CA2W errorsWide(BlobToUtf8(pErrors).c_str(), CP_UTF8);
+      CA2W errorsWide(BlobToUtf8(pErrors).c_str());
       WEX::Logging::Log::Comment(errorsWide);
     }
     VERIFY_SUCCEEDED(result);
@@ -265,7 +265,7 @@ void OptimizerTest::OptimizerWhenSliceNThenOK(int optLevel, LPCSTR pText,
   VERIFY_SUCCEEDED(pResult->GetResult(&pOptDump));
   pResult.Release();
   passes = BlobToUtf8(pOptDump);
-  CA2W passesW(passes.c_str(), CP_UTF8);
+  CA2W passesW(passes.c_str());
 
   // Get the high-level compile of the program.
   highLevelArgs.pop_back(); // Remove /Odump

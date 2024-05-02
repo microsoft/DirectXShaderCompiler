@@ -296,7 +296,7 @@ public:
     IFR(FunctionSymbol::Create(pMalloc, pSession, m_ID, m_Node, m_TypeID,
                                m_Node->getType(), ppRet));
     (*ppRet)->SetLexicalParent(m_ParentID);
-    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str(), CP_UTF8));
+    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str()));
     return S_OK;
   }
 
@@ -398,7 +398,7 @@ public:
     IFR(TypedefTypeSymbol::Create(pMalloc, pSession, m_ParentID, m_ID, m_Node,
                                   m_BaseTypeID, ppRet));
     (*ppRet)->SetLexicalParent(m_ParentID);
-    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str(), CP_UTF8));
+    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str()));
     return S_OK;
   }
 
@@ -440,7 +440,7 @@ public:
     IFR(VectorTypeSymbol::Create(pMalloc, pSession, m_ParentID, m_ID, m_Node,
                                  m_ElemTyID, m_NumElts, ppRet));
     (*ppRet)->SetLexicalParent(m_ParentID);
-    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str(), CP_UTF8));
+    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str()));
     return S_OK;
   }
 
@@ -506,7 +506,7 @@ public:
     IFR(GlobalVariableSymbol::Create(pMalloc, pSession, m_ID, m_GV, m_TypeID,
                                      m_Type, ppRet));
     (*ppRet)->SetLexicalParent(m_ParentID);
-    (*ppRet)->SetName(CA2W(m_GV->getName().str().c_str(), CP_UTF8));
+    (*ppRet)->SetName(CA2W(m_GV->getName().str().c_str()));
     (*ppRet)->SetIsHLSLData(true);
     return S_OK;
   }
@@ -586,7 +586,7 @@ public:
                                     m_Type, m_VI->GetOffsetInUDT(),
                                     m_VI->GetDxilRegister(), ppRet));
     (*ppRet)->SetLexicalParent(m_ParentID);
-    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str(), CP_UTF8));
+    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str()));
     (*ppRet)->SetDataKind(m_Node->getTag() == llvm::dwarf::DW_TAG_arg_variable
                               ? DataIsParam
                               : DataIsLocal);
@@ -628,7 +628,7 @@ public:
     IFR(UDTFieldSymbol::Create(pMalloc, pSession, m_ID, m_Node, m_TypeID,
                                m_Type, ppRet));
     (*ppRet)->SetLexicalParent(m_ParentID);
-    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str(), CP_UTF8));
+    (*ppRet)->SetName(CA2W(m_Node->getName().str().c_str()));
     (*ppRet)->SetDataKind(m_Node->isStaticMember() ? DataIsStaticLocal
                                                    : DataIsMember);
     return S_OK;
@@ -946,7 +946,7 @@ HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateFlags(
     }
 
     std::string str(strRef.begin(), strRef.size());
-    CA2W cv(str.c_str(), CP_UTF8);
+    CA2W cv(str.c_str());
     pBSTR.Append(cv);
     pBSTR.Append(L"\0", 1);
   }
@@ -989,7 +989,7 @@ HRESULT dxil_dia::hlsl_symbols::CompilandEnvSymbol::CreateDefines(
        it != definesNode->op_end(); ++it) {
     llvm::StringRef strRef = llvm::dyn_cast<llvm::MDString>(*it)->getString();
     std::string str(strRef.begin(), strRef.size());
-    CA2W cv(str.c_str(), CP_UTF8);
+    CA2W cv(str.c_str());
     pBSTR.Append(cv);
     pBSTR.Append(L"\0", 1);
   }
@@ -1068,7 +1068,7 @@ STDMETHODIMP dxil_dia::hlsl_symbols::TypeSymbol::get_name(
     DXASSERT(!this->HasName(), "Setting type name multiple times.");
     std::string Name;
     IFR(m_lazySymbolName(m_pSession, &Name));
-    this->SetName(CA2W(Name.c_str(), CP_UTF8));
+    this->SetName(CA2W(Name.c_str()));
     m_lazySymbolName = nullptr;
   }
   return Symbol::get_name(pRetVal);
@@ -1579,7 +1579,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateSubroutineType(
           if (!name) {
             OS << "???";
           } else {
-            OS << CW2A((BSTR)name, CP_UTF8);
+            OS << CW2A((BSTR)name);
           }
         }
         if (first) {
@@ -1678,7 +1678,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::CreateCompositeType(
       if (!name) {
         OS << "???";
       } else {
-        OS << CW2A((BSTR)name, CP_UTF8);
+        OS << CW2A((BSTR)name);
       }
 
       OS << "[";
@@ -1910,7 +1910,7 @@ HRESULT dxil_dia::hlsl_symbols::SymbolManagerInit::HandleDerivedType(
     if (!name) {
       OS << "???";
     } else {
-      OS << CW2A((BSTR)name, CP_UTF8);
+      OS << CW2A((BSTR)name);
     }
     OS << Qualifier;
     return S_OK;

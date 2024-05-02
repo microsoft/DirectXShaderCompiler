@@ -185,6 +185,10 @@ enum ArBasicKind {
 #ifdef ENABLE_SPIRV_CODEGEN
   AR_OBJECT_VK_SUBPASS_INPUT,
   AR_OBJECT_VK_SUBPASS_INPUT_MS,
+  AR_OBJECT_VK_SPIRV_TYPE,
+  AR_OBJECT_VK_SPIRV_OPAQUE_TYPE,
+  AR_OBJECT_VK_INTEGRAL_CONSTANT,
+  AR_OBJECT_VK_LITERAL,
   AR_OBJECT_VK_SPV_INTRINSIC_TYPE,
   AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
@@ -557,6 +561,10 @@ const UINT g_uBasicKindProps[] = {
 #ifdef ENABLE_SPIRV_CODEGEN
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SUBPASS_INPUT
     BPROP_OBJECT | BPROP_RBUFFER, // AR_OBJECT_VK_SUBPASS_INPUT_MS
+    BPROP_OBJECT,                 // AR_OBJECT_VK_SPIRV_TYPE
+    BPROP_OBJECT,                 // AR_OBJECT_VK_SPIRV_OPAQUE_TYPE
+    BPROP_OBJECT,                 // AR_OBJECT_VK_INTEGRAL_CONSTANT,
+    BPROP_OBJECT,                 // AR_OBJECT_VK_LITERAL,
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE use recordType
     BPROP_OBJECT, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID use recordType
 #endif            // ENABLE_SPIRV_CODEGEN
@@ -1401,6 +1409,8 @@ static const ArBasicKind g_ArBasicKindsAsTypes[] = {
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
     AR_OBJECT_VK_SUBPASS_INPUT, AR_OBJECT_VK_SUBPASS_INPUT_MS,
+    AR_OBJECT_VK_SPIRV_TYPE, AR_OBJECT_VK_SPIRV_OPAQUE_TYPE,
+    AR_OBJECT_VK_INTEGRAL_CONSTANT, AR_OBJECT_VK_LITERAL,
     AR_OBJECT_VK_SPV_INTRINSIC_TYPE, AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID,
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
@@ -1503,6 +1513,10 @@ static const uint8_t g_ArBasicKindsTemplateCount[] = {
 #ifdef ENABLE_SPIRV_CODEGEN
     1, // AR_OBJECT_VK_SUBPASS_INPUT
     1, // AR_OBJECT_VK_SUBPASS_INPUT_MS,
+    1, // AR_OBJECT_VK_SPIRV_TYPE
+    1, // AR_OBJECT_VK_SPIRV_OPAQUE_TYPE
+    1, // AR_OBJECT_VK_INTEGRAL_CONSTANT,
+    1, // AR_OBJECT_VK_LITERAL,
     1, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     1, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif // ENABLE_SPIRV_CODEGEN
@@ -1650,6 +1664,10 @@ static const SubscriptOperatorRecord g_ArBasicKindsSubscripts[] = {
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT (SubpassInput)
     {0, MipsFalse,
      SampleFalse}, // AR_OBJECT_VK_SUBPASS_INPUT_MS (SubpassInputMS)
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPIRV_TYPE
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPIRV_OPAQUE_TYPE
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_INTEGRAL_CONSTANT,
+    {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_LITERAL,
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_TYPE
     {0, MipsFalse, SampleFalse}, // AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID
 #endif                           // ENABLE_SPIRV_CODEGEN
@@ -1743,7 +1761,8 @@ static const char *g_ArBasicTypeNames[] = {
 
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
-    "SubpassInput", "SubpassInputMS", "ext_type", "ext_result_id",
+    "SubpassInput", "SubpassInputMS", "SpirvType", "SpirvOpaqueType",
+    "integral_constant", "Literal", "ext_type", "ext_result_id",
 #endif // ENABLE_SPIRV_CODEGEN
     // SPIRV change ends
 
@@ -1853,8 +1872,8 @@ static void InitParamMods(const HLSL_INTRINSIC *pIntrinsic,
   }
 }
 
-static bool IsBuiltinTable(LPCSTR tableName) {
-  return tableName == kBuiltinIntrinsicTableName;
+static bool IsBuiltinTable(StringRef tableName) {
+  return tableName.compare(kBuiltinIntrinsicTableName) == 0;
 }
 
 static bool HasUnsignedOpcode(LPCSTR tableName, IntrinsicOp opcode) {
@@ -2521,8 +2540,8 @@ private:
     _firstChecked = true;
 
     // TODO: review this - this will allocate at least once per string
-    CA2WEX<> typeName(_typeName.str().c_str(), CP_UTF8);
-    CA2WEX<> functionName(_functionName.str().c_str(), CP_UTF8);
+    CA2WEX<> typeName(_typeName.str().c_str());
+    CA2WEX<> functionName(_functionName.str().c_str());
 
     if (FAILED(_tables[_tableIndex]->LookupIntrinsic(
             typeName, functionName, &_tableIntrinsic, &_tableLookupCookie))) {
@@ -2925,6 +2944,9 @@ private:
   // Declaration for matrix and vector templates.
   ClassTemplateDecl *m_matrixTemplateDecl;
   ClassTemplateDecl *m_vectorTemplateDecl;
+
+  ClassTemplateDecl *m_vkIntegralConstantTemplateDecl;
+  ClassTemplateDecl *m_vkLiteralTemplateDecl;
 
   // Declarations for Work Graph Output Record types
   ClassTemplateDecl *m_GroupNodeOutputRecordsTemplateDecl;
@@ -3795,7 +3817,25 @@ private:
         recordDecl = m_ThreadNodeOutputRecordsTemplateDecl->getTemplatedDecl();
       }
 #ifdef ENABLE_SPIRV_CODEGEN
-      else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
+      else if (kind == AR_OBJECT_VK_SPIRV_TYPE && m_vkNSDecl) {
+        recordDecl =
+            DeclareInlineSpirvType(*m_context, m_vkNSDecl, typeName, false);
+        recordDecl->setImplicit(true);
+      } else if (kind == AR_OBJECT_VK_SPIRV_OPAQUE_TYPE && m_vkNSDecl) {
+        recordDecl =
+            DeclareInlineSpirvType(*m_context, m_vkNSDecl, typeName, true);
+        recordDecl->setImplicit(true);
+      } else if (kind == AR_OBJECT_VK_INTEGRAL_CONSTANT && m_vkNSDecl) {
+        recordDecl =
+            DeclareVkIntegralConstant(*m_context, m_vkNSDecl, typeName,
+                                      &m_vkIntegralConstantTemplateDecl);
+        recordDecl->setImplicit(true);
+      } else if (kind == AR_OBJECT_VK_LITERAL && m_vkNSDecl) {
+        recordDecl = DeclareTemplateTypeWithHandleInDeclContext(
+            *m_context, m_vkNSDecl, typeName, 1, nullptr);
+        recordDecl->setImplicit(true);
+        m_vkLiteralTemplateDecl = recordDecl->getDescribedClassTemplate();
+      } else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
         recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, "id");
         recordDecl->setImplicit(true);
@@ -3914,8 +3954,10 @@ private:
 public:
   HLSLExternalSource()
       : m_matrixTemplateDecl(nullptr), m_vectorTemplateDecl(nullptr),
-        m_hlslNSDecl(nullptr), m_vkNSDecl(nullptr), m_context(nullptr),
-        m_sema(nullptr), m_hlslStringTypedef(nullptr) {
+        m_vkIntegralConstantTemplateDecl(nullptr),
+        m_vkLiteralTemplateDecl(nullptr), m_hlslNSDecl(nullptr),
+        m_vkNSDecl(nullptr), m_context(nullptr), m_sema(nullptr),
+        m_hlslStringTypedef(nullptr) {
     memset(m_matrixTypes, 0, sizeof(m_matrixTypes));
     memset(m_matrixShorthandTypes, 0, sizeof(m_matrixShorthandTypes));
     memset(m_vectorTypes, 0, sizeof(m_vectorTypes));
@@ -4183,6 +4225,9 @@ public:
         return AR_TOBJ_MATRIX;
       else if (decl == m_vectorTemplateDecl)
         return AR_TOBJ_VECTOR;
+      else if (decl == m_vkIntegralConstantTemplateDecl ||
+               decl == m_vkLiteralTemplateDecl)
+        return AR_TOBJ_COMPOUND;
       else if (!decl->isImplicit())
         return AR_TOBJ_COMPOUND;
       return AR_TOBJ_OBJECT;
@@ -4469,7 +4514,7 @@ public:
       const HLSL_INTRINSIC *pIntrinsic = nullptr;
       const HLSL_INTRINSIC *pPrior = nullptr;
       UINT64 lookupCookie = 0;
-      CA2W wideTypeName(typeName, CP_UTF8);
+      CA2W wideTypeName(typeName);
       HRESULT found = table->LookupIntrinsic(wideTypeName, L"*", &pIntrinsic,
                                              &lookupCookie);
       while (pIntrinsic != nullptr && SUCCEEDED(found)) {
@@ -10967,6 +11012,10 @@ void hlsl::DiagnosePackingOffset(clang::Sema *self, SourceLocation loc,
         self->Diag(loc, diag::err_hlsl_register_or_offset_bind_not_valid);
       }
     }
+    if (hlsl::IsMatrixType(self, type) || type->isArrayType() ||
+        type->isStructureType()) {
+      self->Diag(loc, diag::err_hlsl_register_or_offset_bind_not_valid);
+    }
   }
 }
 
@@ -11117,37 +11166,18 @@ void hlsl::DiagnoseRegisterType(clang::Sema *self, clang::SourceLocation loc,
   }
 }
 
-// Check HLSL member call constraints
-bool Sema::DiagnoseHLSLMethodCall(const CXXMethodDecl *MD, SourceLocation Loc) {
-  if (MD->hasAttr<HLSLIntrinsicAttr>()) {
-    hlsl::IntrinsicOp opCode =
-        (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
-    // If this is a call to FinishedCrossGroupSharing then the Input record
-    // must have the NodeTrackRWInputSharing attribute
-    if (opCode == hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing) {
-      const CXXRecordDecl *NodeRecDecl = MD->getParent();
-      // Node I/O records are templateTypes
-      const ClassTemplateSpecializationDecl *templateDecl =
-          cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
-      auto &TemplateArgs = templateDecl->getTemplateArgs();
-      DXASSERT(TemplateArgs.size() == 1,
-               "Input record types need to have one template argument");
-      auto &Rec = TemplateArgs.get(0);
-      clang::QualType RecType = Rec.getAsType();
-      RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
-      if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
-        Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
+// FIXME: DiagnoseSVForLaunchType is wrong in multiple ways:
+// - It doesn't handle system values inside structs
+// - It doesn't account for the fact that semantics are case-insensitive
+// - It doesn't account for optional index at the end of semantic name
+// - It permits any `SV_*` for Broadcasting launch, not just the legal ones
+// - It doesn't prevent multiple system values with the same semantic
+// - It doesn't check that the type is valid for the system value
 // Produce diagnostics for any system values attached to `FD` function
 // that are invalid for the `LaunchTy` launch type
-void Sema::DiagnoseSVForLaunchType(const FunctionDecl *FD,
-                                   DXIL::NodeLaunchType LaunchTy) {
+static void DiagnoseSVForLaunchType(const FunctionDecl *FD,
+                                    DXIL::NodeLaunchType LaunchTy,
+                                    DiagnosticsEngine &Diags) {
   // Validate Compute Shader system value inputs per launch mode
   for (ParmVarDecl *param : FD->parameters()) {
     for (const hlsl::UnusualAnnotation *it : param->getUnusualAnnotations()) {
@@ -11188,87 +11218,384 @@ void Sema::DiagnoseSVForLaunchType(const FunctionDecl *FD,
   }
 }
 
-// Check HLSL member call constraints for used functions.
-void Sema::DiagnoseReachableHLSLMethodCall(const CXXMethodDecl *MD,
-                                           SourceLocation Loc,
-                                           const hlsl::ShaderModel *SM,
-                                           DXIL::ShaderKind EntrySK,
-                                           const FunctionDecl *EntryDecl) {
-  if (MD->hasAttr<HLSLIntrinsicAttr>()) {
-    hlsl::IntrinsicOp opCode =
-        (IntrinsicOp)MD->getAttr<HLSLIntrinsicAttr>()->getOpcode();
-    switch (opCode) {
-    case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail:
-    case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped: {
-      QualType SamplerComparisonTy =
-          HLSLExternalSource::FromSema(this)->GetBasicKindType(
-              AR_OBJECT_SAMPLERCOMPARISON);
-      if (MD->getParamDecl(0)->getType() == SamplerComparisonTy) {
+/////////////////////////////////////////////////////////////////////////////
+// Check HLSL intrinsic calls without call-graph context.
 
-        if (!SM->IsSM68Plus()) {
+static bool CheckFinishedCrossGroupSharingCall(Sema &S, CXXMethodDecl *MD,
+                                               SourceLocation Loc) {
+  const CXXRecordDecl *NodeRecDecl = MD->getParent();
+  // Node I/O records are templateTypes
+  const ClassTemplateSpecializationDecl *templateDecl =
+      cast<ClassTemplateSpecializationDecl>(NodeRecDecl);
+  auto &TemplateArgs = templateDecl->getTemplateArgs();
+  DXASSERT(TemplateArgs.size() == 1,
+           "Input record types need to have one template argument");
+  auto &Rec = TemplateArgs.get(0);
+  clang::QualType RecType = Rec.getAsType();
+  RecordDecl *RD = RecType->getAs<RecordType>()->getDecl();
+  if (!RD->hasAttr<HLSLNodeTrackRWInputSharingAttr>()) {
+    S.Diags.Report(Loc, diag::err_hlsl_wg_nodetrackrwinputsharing_missing);
+    return true;
+  }
+  return false;
+}
 
-          Diags.Report(Loc,
-                       diag::warn_hlsl_intrinsic_overload_in_wrong_shader_model)
-              << MD->getNameAsString() + " with SamplerComparisonState"
-              << "6.8";
-        } else {
+static bool CheckBarrierCall(Sema &S, FunctionDecl *FD, CallExpr *CE) {
+  DXASSERT(FD->getNumParams() == 2, "otherwise, unknown Barrier overload");
 
-          switch (EntrySK) {
-          default: {
-            if (!SM->AllowDerivatives(EntrySK)) {
-              Diags.Report(Loc,
-                           diag::warn_hlsl_derivatives_in_wrong_shader_kind)
-                  << MD->getNameAsString() << EntryDecl->getNameAsString();
-              Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
-            }
-          } break;
-          case DXIL::ShaderKind::Compute:
-          case DXIL::ShaderKind::Amplification:
-          case DXIL::ShaderKind::Mesh: {
-            if (!SM->IsSM66Plus()) {
-              Diags.Report(Loc,
-                           diag::warn_hlsl_derivatives_in_wrong_shader_model)
-                  << MD->getNameAsString() << EntryDecl->getNameAsString();
-              Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
-            }
-          } break;
-          case DXIL::ShaderKind::Node: {
-            if (const auto *pAttr = EntryDecl->getAttr<HLSLNodeLaunchAttr>()) {
-              if (pAttr->getLaunchType() != "broadcasting") {
-                Diags.Report(Loc,
-                             diag::warn_hlsl_derivatives_in_wrong_shader_kind)
-                    << MD->getNameAsString() << EntryDecl->getNameAsString();
-                Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
-              }
-            }
-          } break;
-          }
-          if (const HLSLNumThreadsAttr *Attr =
-                  EntryDecl->getAttr<HLSLNumThreadsAttr>()) {
-            bool invalidNumThreads = false;
-            if (Attr->getY() != 1) {
-              // 2D mode requires x and y to be multiple of 2.
-              invalidNumThreads =
-                  !((Attr->getX() % 2) == 0 && (Attr->getY() % 2) == 0);
-            } else {
-              // 1D mode requires x to be multiple of 4 and y and z to be 1.
-              invalidNumThreads =
-                  (Attr->getX() % 4) != 0 || (Attr->getZ() != 1);
-            }
-            if (invalidNumThreads) {
-              Diags.Report(Loc, diag::warn_hlsl_derivatives_wrong_numthreads)
-                  << MD->getNameAsString() << EntryDecl->getNameAsString();
-              Diags.Report(EntryDecl->getLocation(), diag::note_declared_at);
-            }
-          }
-        }
+  // Emit error when MemoryTypeFlags are known to be invalid.
+  QualType Param0Ty = FD->getParamDecl(0)->getType();
+  if (Param0Ty ==
+      HLSLExternalSource::FromSema(&S)->GetBasicKindType(AR_BASIC_UINT32)) {
+    uint32_t MemoryTypeFlags = 0;
+    Expr *MemoryTypeFlagsExpr = CE->getArg(0);
+    llvm::APSInt MemoryTypeFlagsVal;
+    if (MemoryTypeFlagsExpr->isIntegerConstantExpr(MemoryTypeFlagsVal,
+                                                   S.Context)) {
+      MemoryTypeFlags = MemoryTypeFlagsVal.getLimitedValue();
+      if ((uint32_t)MemoryTypeFlags &
+          ~(uint32_t)DXIL::MemoryTypeFlag::ValidMask) {
+        S.Diags.Report(MemoryTypeFlagsExpr->getExprLoc(),
+                       diag::err_hlsl_barrier_invalid_memory_flags)
+            << (uint32_t)MemoryTypeFlags
+            << (uint32_t)DXIL::MemoryTypeFlag::ValidMask;
+        return true;
       }
-    } break;
-    default:
-      break;
     }
   }
+
+  // Emit error when SemanticFlags are known to be invalid.
+  uint32_t SemanticFlags = 0;
+  Expr *SemanticFlagsExpr = CE->getArg(1);
+  llvm::APSInt SemanticFlagsVal;
+  if (SemanticFlagsExpr->isIntegerConstantExpr(SemanticFlagsVal, S.Context)) {
+    SemanticFlags = SemanticFlagsVal.getLimitedValue();
+    if ((uint32_t)SemanticFlags &
+        ~(uint32_t)DXIL::BarrierSemanticFlag::ValidMask) {
+      S.Diags.Report(SemanticFlagsExpr->getExprLoc(),
+                     diag::err_hlsl_barrier_invalid_semantic_flags)
+          << (uint32_t)SemanticFlags
+          << (uint32_t)DXIL::BarrierSemanticFlag::ValidMask;
+      return true;
+    }
+  }
+
+  return false;
 }
+
+// Check HLSL call constraints, not fatal to creating the AST.
+void Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall,
+                                 const FunctionProtoType *Proto) {
+  HLSLIntrinsicAttr *IntrinsicAttr = FDecl->getAttr<HLSLIntrinsicAttr>();
+  if (!IntrinsicAttr)
+    return;
+  if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
+    return;
+
+  hlsl::IntrinsicOp opCode = (hlsl::IntrinsicOp)IntrinsicAttr->getOpcode();
+  switch (opCode) {
+  case hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing:
+    CheckFinishedCrossGroupSharingCall(*this, cast<CXXMethodDecl>(FDecl),
+                                       TheCall->getLocStart());
+    break;
+  case hlsl::IntrinsicOp::IOP_Barrier:
+    CheckBarrierCall(*this, FDecl, TheCall);
+    break;
+  default:
+    break;
+  }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Check HLSL intrinsic calls reachable from entry/export functions.
+
+static void DiagnoseNumThreadsForDerivativeOp(const HLSLNumThreadsAttr *Attr,
+                                              SourceLocation LocDeriv,
+                                              FunctionDecl *FD,
+                                              const FunctionDecl *EntryDecl,
+                                              DiagnosticsEngine &Diags) {
+  bool invalidNumThreads = false;
+  if (Attr->getY() != 1) {
+    // 2D mode requires x and y to be multiple of 2.
+    invalidNumThreads = !((Attr->getX() % 2) == 0 && (Attr->getY() % 2) == 0);
+  } else {
+    // 1D mode requires x to be multiple of 4 and y and z to be 1.
+    invalidNumThreads = (Attr->getX() % 4) != 0 || (Attr->getZ() != 1);
+  }
+  if (invalidNumThreads) {
+    Diags.Report(LocDeriv, diag::warn_hlsl_derivatives_wrong_numthreads)
+        << FD->getNameAsString() << EntryDecl->getNameAsString();
+    Diags.Report(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
+  }
+}
+
+static void DiagnoseDerivativeOp(Sema &S, FunctionDecl *FD, SourceLocation Loc,
+                                 const hlsl::ShaderModel *SM,
+                                 DXIL::ShaderKind EntrySK,
+                                 DXIL::NodeLaunchType NodeLaunchTy,
+                                 const FunctionDecl *EntryDecl,
+                                 DiagnosticsEngine &Diags) {
+  switch (EntrySK) {
+  default: {
+    if (!SM->AllowDerivatives(EntrySK)) {
+      Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
+          << FD->getNameAsString() << EntryDecl->getNameAsString();
+      Diags.Report(EntryDecl->getLocation(),
+                   diag::note_hlsl_entry_defined_here);
+    }
+  } break;
+  case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Amplification:
+  case DXIL::ShaderKind::Mesh: {
+    if (!SM->IsSM66Plus()) {
+      Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_model)
+          << FD->getNameAsString() << EntryDecl->getNameAsString();
+      Diags.Report(EntryDecl->getLocation(),
+                   diag::note_hlsl_entry_defined_here);
+    }
+  } break;
+  case DXIL::ShaderKind::Node: {
+    if (NodeLaunchTy != DXIL::NodeLaunchType::Broadcasting) {
+      Diags.Report(Loc, diag::warn_hlsl_derivatives_in_wrong_shader_kind)
+          << FD->getNameAsString() << EntryDecl->getNameAsString();
+      Diags.Report(EntryDecl->getLocation(),
+                   diag::note_hlsl_entry_defined_here);
+    }
+  } break;
+  }
+
+  if (const HLSLNumThreadsAttr *Attr =
+          EntryDecl->getAttr<HLSLNumThreadsAttr>()) {
+    DiagnoseNumThreadsForDerivativeOp(Attr, Loc, FD, EntryDecl, Diags);
+  }
+}
+
+static void DiagnoseCalculateLOD(Sema &S, FunctionDecl *FD, SourceLocation Loc,
+                                 const hlsl::ShaderModel *SM,
+                                 DXIL::ShaderKind EntrySK,
+                                 DXIL::NodeLaunchType NodeLaunchTy,
+                                 const FunctionDecl *EntryDecl,
+                                 DiagnosticsEngine &Diags,
+                                 bool locallyVisited) {
+  if (FD->getParamDecl(0)->getType() !=
+      HLSLExternalSource::FromSema(&S)->GetBasicKindType(
+          AR_OBJECT_SAMPLERCOMPARISON))
+    return;
+
+  if (!locallyVisited && !SM->IsSM68Plus()) {
+    Diags.Report(Loc, diag::warn_hlsl_intrinsic_overload_in_wrong_shader_model)
+        << FD->getNameAsString() + " with SamplerComparisonState"
+        << "6.8";
+    return;
+  }
+
+  DiagnoseDerivativeOp(S, FD, Loc, SM, EntrySK, NodeLaunchTy, EntryDecl, Diags);
+}
+
+static uint32_t
+DiagnoseMemoryFlags(SourceLocation ArgLoc, uint32_t MemoryTypeFlags,
+                    bool hasVisibleGroup, DXIL::ShaderKind EntrySK,
+                    const FunctionDecl *EntryDecl, DiagnosticsEngine &Diags) {
+  // Check flags against context.
+  // If DXIL::MemoryTypeFlag::AllMemory, filter flags for context, otherwise,
+  // emit errors for invalid flags.
+  uint32_t MemoryTypeFiltered = MemoryTypeFlags;
+
+  // If group memory specified, must have a visible group.
+  if (!hasVisibleGroup) {
+    if ((uint32_t)MemoryTypeFlags &
+        (uint32_t)DXIL::MemoryTypeFlag::GroupFlags) {
+      if (MemoryTypeFlags == (uint32_t)DXIL::MemoryTypeFlag::AllMemory) {
+        // If AllMemory, filter out group flags.
+        MemoryTypeFiltered &= ~(uint32_t)DXIL::MemoryTypeFlag::GroupFlags;
+      } else {
+        Diags.Report(ArgLoc,
+                     diag::warn_hlsl_barrier_group_memory_requires_group);
+        Diags.Report(EntryDecl->getLocation(),
+                     diag::note_hlsl_entry_defined_here);
+      }
+    }
+  }
+
+  // If node memory specified, must be a node shader.
+  if (EntrySK != DXIL::ShaderKind::Node &&
+      EntrySK != DXIL::ShaderKind::Library &&
+      ((uint32_t)MemoryTypeFlags & (uint32_t)DXIL::MemoryTypeFlag::NodeFlags)) {
+    if (MemoryTypeFlags == (uint32_t)DXIL::MemoryTypeFlag::AllMemory) {
+      // If AllMemory, filter out node flags.
+      MemoryTypeFiltered &= ~(uint32_t)DXIL::MemoryTypeFlag::NodeFlags;
+    } else {
+      Diags.Report(ArgLoc, diag::warn_hlsl_barrier_node_memory_requires_node);
+      Diags.Report(EntryDecl->getLocation(),
+                   diag::note_hlsl_entry_defined_here);
+    }
+  }
+
+  // Return filtered flags.
+  return MemoryTypeFiltered;
+}
+
+static void DiagnoseSemanticFlags(SourceLocation ArgLoc, uint32_t SemanticFlags,
+                                  bool hasVisibleGroup,
+                                  bool memAtLeastGroupScope,
+                                  bool memAtLeastDeviceScope,
+                                  const FunctionDecl *EntryDecl,
+                                  DiagnosticsEngine &Diags) {
+  // If hasVisibleGroup is false, emit error for group flags.
+  if (!hasVisibleGroup) {
+    if ((uint32_t)SemanticFlags &
+        (uint32_t)DXIL::BarrierSemanticFlag::GroupFlags) {
+      Diags.Report(ArgLoc,
+                   diag::warn_hlsl_barrier_group_semantic_requires_group);
+      Diags.Report(EntryDecl->getLocation(),
+                   diag::note_hlsl_entry_defined_here);
+    }
+  }
+
+  // Error on DeviceScope or GroupScope when memory lacks this scope.
+  if (!memAtLeastDeviceScope &&
+      ((uint32_t)SemanticFlags &
+       (uint32_t)DXIL::BarrierSemanticFlag::DeviceScope)) {
+    Diags.Report(ArgLoc,
+                 diag::warn_hlsl_barrier_no_mem_with_required_device_scope);
+    Diags.Report(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
+  }
+  if (!memAtLeastGroupScope &&
+      ((uint32_t)SemanticFlags &
+       (uint32_t)DXIL::BarrierSemanticFlag::GroupScope)) {
+    Diags.Report(ArgLoc,
+                 diag::warn_hlsl_barrier_no_mem_with_required_group_scope);
+    Diags.Report(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
+  }
+}
+
+static void DiagnoseReachableBarrier(Sema &S, CallExpr *CE,
+                                     const hlsl::ShaderModel *SM,
+                                     DXIL::ShaderKind EntrySK,
+                                     DXIL::NodeLaunchType NodeLaunchTy,
+                                     const FunctionDecl *EntryDecl,
+                                     DiagnosticsEngine &Diags) {
+  FunctionDecl *FD = CE->getDirectCallee();
+  DXASSERT(FD->getNumParams() == 2, "otherwise, unknown Barrier overload");
+
+  // First, check shader model constraint.
+  if (!SM->IsSM68Plus()) {
+    Diags.Report(CE->getExprLoc(),
+                 diag::warn_hlsl_intrinsic_in_wrong_shader_model)
+        << FD->getNameAsString() << EntryDecl->getNameAsString() << "6.8";
+    Diags.Report(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
+    return;
+  }
+
+  // Does shader have visible group?
+  // Allow exported library functions as well.
+  bool hasVisibleGroup = ShaderModel::HasVisibleGroup(EntrySK, NodeLaunchTy);
+  QualType Param0Ty = FD->getParamDecl(0)->getType();
+
+  // Used when checking scope flags
+  // Default to true to avoid over-strict diagnostics
+  bool memAtLeastGroupScope = true;
+  bool memAtLeastDeviceScope = true;
+
+  if (Param0Ty ==
+      HLSLExternalSource::FromSema(&S)->GetBasicKindType(AR_BASIC_UINT32)) {
+    // overload: Barrier(uint MemoryTypeFlags, uint SemanticFlags)
+    uint32_t MemoryTypeFlags = 0;
+    Expr *MemoryTypeFlagsExpr = CE->getArg(0);
+    llvm::APSInt MemoryTypeFlagsVal;
+    if (MemoryTypeFlagsExpr->isIntegerConstantExpr(MemoryTypeFlagsVal,
+                                                   S.Context)) {
+      MemoryTypeFlags = MemoryTypeFlagsVal.getLimitedValue();
+      MemoryTypeFlags = DiagnoseMemoryFlags(MemoryTypeFlagsExpr->getExprLoc(),
+                                            MemoryTypeFlags, hasVisibleGroup,
+                                            EntrySK, EntryDecl, Diags);
+      // Consider group scope if any group flags remain.
+      memAtLeastGroupScope = 0 != MemoryTypeFlags;
+      // Consider it device scope if UavMemory or any NodeFlags remain.
+      memAtLeastDeviceScope =
+          0 != (MemoryTypeFlags & ((uint32_t)DXIL::MemoryTypeFlag::UavMemory |
+                                   (uint32_t)DXIL::MemoryTypeFlag::NodeFlags));
+    }
+  } else {
+    DXIL::NodeIOKind IOKind = GetNodeIOType(Param0Ty);
+    if (IOKind == DXIL::NodeIOKind::Invalid) {
+      // overload: Barrier(<UAV Resource>, uint SemanticFlags)
+      // UAV objects have at least device scope.
+      DXASSERT(IsHLSLResourceType(Param0Ty),
+               "otherwise, missed a case for Barrier");
+      // mem scope flags already set to true.
+    } else {
+      // Must be a record object
+      // overload: Barrier(<node record object>, uint SemanticFlags)
+      // Only record objects specify a record granularity
+      DXASSERT((uint32_t)IOKind &
+                   (uint32_t)DXIL::NodeIOFlags::RecordGranularityMask,
+               "otherwise, missed a Node object case for Barrier");
+
+      DXIL::NodeIOFlags RecordGranularity = (DXIL::NodeIOFlags)(
+          (uint32_t)IOKind &
+          (uint32_t)DXIL::NodeIOFlags::RecordGranularityMask);
+      switch (RecordGranularity) {
+      case DXIL::NodeIOFlags::ThreadRecord:
+        memAtLeastGroupScope = false;
+        LLVM_FALLTHROUGH;
+      case DXIL::NodeIOFlags::GroupRecord:
+        memAtLeastDeviceScope = false;
+        break;
+      default:
+        break;
+      }
+    }
+  }
+
+  // All barrier overloads have SemanticFlags as second paramter
+  uint32_t SemanticFlags = 0;
+  Expr *SemanticFlagsExpr = CE->getArg(1);
+  llvm::APSInt SemanticFlagsVal;
+  if (SemanticFlagsExpr->isIntegerConstantExpr(SemanticFlagsVal, S.Context)) {
+    SemanticFlags = SemanticFlagsVal.getLimitedValue();
+    DiagnoseSemanticFlags(SemanticFlagsExpr->getExprLoc(), SemanticFlags,
+                          hasVisibleGroup, memAtLeastGroupScope,
+                          memAtLeastDeviceScope, EntryDecl, Diags);
+  }
+}
+
+// Check HLSL member call constraints for used functions.
+// locallyVisited is true if this call has been visited already from any other
+// entry function.  Used to avoid duplicate diagnostics when not dependent on
+// entry function (or export function) properties.
+void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
+                                     DXIL::ShaderKind EntrySK,
+                                     DXIL::NodeLaunchType NodeLaunchTy,
+                                     const FunctionDecl *EntryDecl,
+                                     bool locallyVisited) {
+  FunctionDecl *FD = CE->getDirectCallee();
+  if (!FD)
+    return;
+  HLSLIntrinsicAttr *IntrinsicAttr = FD->getAttr<HLSLIntrinsicAttr>();
+  if (!IntrinsicAttr)
+    return;
+  if (!IsBuiltinTable(IntrinsicAttr->getGroup()))
+    return;
+
+  SourceLocation Loc = CE->getExprLoc();
+  hlsl::IntrinsicOp opCode = (IntrinsicOp)IntrinsicAttr->getOpcode();
+  switch (opCode) {
+  case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetail:
+  case hlsl::IntrinsicOp::MOP_CalculateLevelOfDetailUnclamped:
+    DiagnoseCalculateLOD(*this, FD, Loc, SM, EntrySK, NodeLaunchTy, EntryDecl,
+                         Diags, locallyVisited);
+    break;
+  case hlsl::IntrinsicOp::IOP_Barrier:
+    DiagnoseReachableBarrier(*this, CE, SM, EntrySK, NodeLaunchTy, EntryDecl,
+                             Diags);
+    break;
+  default:
+    break;
+  }
+}
+
+/////////////////////////////////////////////////////////////////////////////
 
 bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
                                       QualType ArgTy, bool &Empty,
@@ -13216,11 +13543,19 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
         ValidateAttributeStringArg(S, A, /*validate strings*/ nullptr),
         A.getAttributeSpellingListIndex());
     break;
-  case AttributeList::AT_HLSLOutputControlPoints:
+  case AttributeList::AT_HLSLOutputControlPoints: {
+    // Hull shader output must be between 1 and 32 control points.
+    int outputControlPoints = ValidateAttributeIntArg(S, A);
+    if (outputControlPoints < 1 || outputControlPoints > 32) {
+      S.Diags.Report(A.getLoc(), diag::err_hlsl_controlpoints_size)
+          << outputControlPoints << A.getRange();
+      return;
+    }
     declAttr = ::new (S.Context) HLSLOutputControlPointsAttr(
-        A.getRange(), S.Context, ValidateAttributeIntArg(S, A),
+        A.getRange(), S.Context, outputControlPoints,
         A.getAttributeSpellingListIndex());
     break;
+  }
   case AttributeList::AT_HLSLOutputTopology:
     declAttr = ::new (S.Context) HLSLOutputTopologyAttr(
         A.getRange(), S.Context,
@@ -13697,8 +14032,66 @@ Decl *Sema::ActOnStartHLSLBuffer(
 void Sema::ActOnFinishHLSLBuffer(Decl *Dcl, SourceLocation RBrace) {
   DXASSERT_NOMSG(Dcl != nullptr);
   DXASSERT(Dcl == HLSLBuffers.back(), "otherwise push/pop is incorrect");
-  dyn_cast<HLSLBufferDecl>(Dcl)->setRBraceLoc(RBrace);
+  auto *BufDecl = cast<HLSLBufferDecl>(Dcl);
+  BufDecl->setRBraceLoc(RBrace);
   HLSLBuffers.pop_back();
+
+  // Validate packoffset.
+  llvm::SmallVector<std::pair<VarDecl *, unsigned>, 4> PackOffsetVec;
+  bool HasPackOffset = false;
+  bool HasNonPackOffset = false;
+  for (auto *Field : BufDecl->decls()) {
+    VarDecl *Var = dyn_cast<VarDecl>(Field);
+    if (!Var)
+      continue;
+
+    unsigned Offset = UINT_MAX;
+
+    for (const hlsl::UnusualAnnotation *it : Var->getUnusualAnnotations()) {
+      if (it->getKind() == hlsl::UnusualAnnotation::UA_ConstantPacking) {
+        const hlsl::ConstantPacking *packOffset =
+            cast<hlsl::ConstantPacking>(it);
+        unsigned CBufferOffset = packOffset->Subcomponent << 2;
+        CBufferOffset += packOffset->ComponentOffset;
+        // Change to bits.
+        Offset = CBufferOffset << 5;
+        HasPackOffset = true;
+      }
+    }
+    PackOffsetVec.emplace_back(Var, Offset);
+    if (Offset == UINT_MAX) {
+      HasNonPackOffset = true;
+    }
+  }
+
+  if (HasPackOffset && HasNonPackOffset) {
+    Diag(BufDecl->getLocation(), diag::warn_hlsl_packoffset_mix);
+  } else if (HasPackOffset) {
+    // Make sure no overlap in packoffset.
+    llvm::SmallDenseMap<VarDecl *, std::pair<unsigned, unsigned>>
+        PackOffsetRanges;
+    for (auto &Pair : PackOffsetVec) {
+      VarDecl *Var = Pair.first;
+      unsigned Size = Context.getTypeSize(Var->getType());
+      unsigned Begin = Pair.second;
+      unsigned End = Begin + Size;
+      for (auto &Range : PackOffsetRanges) {
+        VarDecl *OtherVar = Range.first;
+        unsigned OtherBegin = Range.second.first;
+        unsigned OtherEnd = Range.second.second;
+        if (Begin < OtherEnd && OtherBegin < Begin) {
+          Diag(Var->getLocation(), diag::err_hlsl_packoffset_overlap)
+              << Var << OtherVar;
+          break;
+        } else if (OtherBegin < End && Begin < OtherBegin) {
+          Diag(Var->getLocation(), diag::err_hlsl_packoffset_overlap)
+              << Var << OtherVar;
+          break;
+        }
+      }
+      PackOffsetRanges[Var] = std::make_pair(Begin, End);
+    }
+  }
   PopDeclContext();
 }
 
@@ -14316,6 +14709,8 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
   if (!getLangOpts().SPIRV) {
     if (basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT ||
         basicKind == ArBasicKind::AR_OBJECT_VK_SUBPASS_INPUT_MS ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPIRV_TYPE ||
+        basicKind == ArBasicKind::AR_OBJECT_VK_SPIRV_OPAQUE_TYPE ||
         basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_TYPE ||
         basicKind == ArBasicKind::AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID) {
       Diag(D.getLocStart(), diag::err_hlsl_vulkan_specific_feature)
@@ -15176,6 +15571,88 @@ QualType Sema::getHLSLDefaultSpecialization(TemplateDecl *Decl) {
   return QualType();
 }
 
+static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
+  if (!E)
+    return false;
+  E = E->IgnoreCasts();
+  if (auto *DRE = dyn_cast<DeclRefExpr>(E))
+    return DRE->getDecl()->hasAttr<HLSLNoInterpolationAttr>();
+
+  if (auto *ME = dyn_cast<MemberExpr>(E))
+    return ME->getMemberDecl()->hasAttr<HLSLNoInterpolationAttr>() ||
+           isRelatedDeclMarkedNointerpolation(ME->getBase());
+
+  if (auto *HVE = dyn_cast<HLSLVectorElementExpr>(E))
+    return isRelatedDeclMarkedNointerpolation(HVE->getBase());
+
+  if (auto *ASE = dyn_cast<ArraySubscriptExpr>(E))
+    return isRelatedDeclMarkedNointerpolation(ASE->getBase());
+
+  return false;
+}
+
+static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
+                                               CallExpr *TheCall) {
+  assert(TheCall->getNumArgs() > 0);
+  auto argument = TheCall->getArg(0)->IgnoreCasts();
+
+  if (!isRelatedDeclMarkedNointerpolation(argument)) {
+    S->Diag(argument->getExprLoc(), diag::err_hlsl_parameter_requires_attribute)
+        << 0 << FDecl->getName() << "nointerpolation";
+    return true;
+  }
+
+  return false;
+}
+
+bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
+  auto attr = FDecl->getAttr<HLSLIntrinsicAttr>();
+
+  switch (hlsl::IntrinsicOp(attr->getOpcode())) {
+  case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex:
+    // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
+    // to limit the scope, and fail gracefully in some cases.
+    if (!getLangOpts().SPIRV)
+      return false;
+    // This should never happen for SPIR-V. But on the DXIL side, extension can
+    // be added by inserting new intrinsics, meaning opcodes can collide with
+    // existing ones. See the ExtensionTest.EvalAttributeCollision test.
+    assert(FDecl->getName() == "GetAttributeAtVertex");
+    return CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
+  default:
+    break;
+  }
+
+  return false;
+}
+
+bool Sema::CheckHLSLFunctionCall(FunctionDecl *FDecl, CallExpr *TheCall) {
+  if (hlsl::IsIntrinsicOp(FDecl) && CheckHLSLIntrinsicCall(FDecl, TheCall))
+    return true;
+
+  // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
+  // to limit the scope, and fail gracefully in some cases.
+  if (!getLangOpts().SPIRV)
+    return false;
+
+  bool error = false;
+  for (unsigned i = 0; i < FDecl->getNumParams(); i++) {
+    assert(i < TheCall->getNumArgs());
+
+    if (!FDecl->getParamDecl(i)->hasAttr<HLSLNoInterpolationAttr>())
+      continue;
+
+    if (!isRelatedDeclMarkedNointerpolation(TheCall->getArg(i))) {
+      Diag(TheCall->getArg(i)->getExprLoc(),
+           diag::err_hlsl_parameter_requires_attribute)
+          << i << FDecl->getName() << "nointerpolation";
+      error = true;
+    }
+  }
+
+  return error;
+}
+
 namespace hlsl {
 
 static bool nodeInputIsCompatible(DXIL::NodeIOKind IOType,
@@ -15295,6 +15772,21 @@ void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
   return;
 }
 
+void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
+  for (auto *annotation : FD->getUnusualAnnotations()) {
+    if (auto *sema = dyn_cast<hlsl::SemanticDecl>(annotation)) {
+      if (sema->SemanticName.equals_lower("POSITION") ||
+          sema->SemanticName.equals_lower("POSITION0")) {
+        S.Diags.Report(FD->getLocation(),
+                       diag::warn_hlsl_semantic_attribute_position_misuse_hint)
+            << sema->SemanticName;
+      }
+    }
+  }
+
+  return;
+}
+
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
   if (!(FD->getAttr<HLSLNumThreadsAttr>()))
@@ -15325,6 +15817,9 @@ void DiagnoseHullEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "outputtopology";
+  if (!(FD->getAttr<HLSLOutputControlPointsAttr>()))
+    S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
+        << StageName << "outputcontrolpoints";
 
   for (const auto *param : FD->params()) {
     if (!hlsl::IsHLSLInputPatchType(param->getType()))
@@ -15662,9 +16157,11 @@ void DiagnoseNodeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
           }
         }
       }
-      S.DiagnoseSVForLaunchType(FD, NodeLaunchTy);
     }
   }
+
+  DiagnoseSVForLaunchType(FD, NodeLaunchTy, S.Diags);
+
   return;
 }
 
@@ -15690,7 +16187,8 @@ void TryAddShaderAttrFromTargetProfile(Sema &S, FunctionDecl *FD,
 
   // if this FD isn't the entry point, then we shouldn't add
   // a shader attribute to this decl, so just return
-  if (EntryPointName != FD->getIdentifier()->getName()) {
+  if (!FD->getIdentifier() ||
+      EntryPointName != FD->getIdentifier()->getName()) {
     return;
   }
 
@@ -15807,8 +16305,9 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
   DiagnoseEntryAttrAllowedOnStage(&S, FD, Stage);
 
   switch (Stage) {
-  case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Vertex:
+    return DiagnoseVertexEntry(S, FD, StageName);
+  case DXIL::ShaderKind::Pixel:
   case DXIL::ShaderKind::Library:
   case DXIL::ShaderKind::Invalid:
     return;

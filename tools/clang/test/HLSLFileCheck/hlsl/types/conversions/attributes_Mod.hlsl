@@ -177,9 +177,6 @@ Texture2D<float4> tex1[10] : register( t20, space10 );
   |-RegisterAssignment <col:30> register(t20, space10)
 */
 
-[outputcontrolpoints(-1)] // expected-warning {{attribute 'outputcontrolpoints' must have a uint literal argument}} fxc-pass {{}}
-void all_wrong() { }
-
 [domain("quad")]
 /*verify-ast
   HLSLDomainAttr <col:2, col:15> "quad"

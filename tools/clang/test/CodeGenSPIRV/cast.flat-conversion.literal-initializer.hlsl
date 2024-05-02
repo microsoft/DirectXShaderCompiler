@@ -26,10 +26,8 @@ void main() {
 // CHECK-NEXT:  [[inf_double:%[0-9]+]] = OpFConvert %double [[inf]]
 // CHECK-NEXT: [[inf2_double:%[0-9]+]] = OpCompositeConstruct %v2double [[inf_double]] [[inf_double]] 
 // CHECK-NEXT:  [[inf_double_0:%[0-9]+]] = OpFConvert %double [[inf]]
-// CHECK-NEXT: [[inf_double_:%[0-9]+]] = OpFConvert %double [[inf]]
-// CHECK-NEXT:   [[inf_int64:%[0-9]+]] = OpConvertFToS %long [[inf_double_]]
-// CHECK-NEXT: [[inf_double__0:%[0-9]+]] = OpFConvert %double [[inf]]
-// CHECK-NEXT:  [[inf_uint64:%[0-9]+]] = OpConvertFToU %ulong [[inf_double__0]]
+// CHECK-NEXT:   [[inf_int64:%[0-9]+]] = OpConvertFToS %long [[inf]]
+// CHECK-NEXT:  [[inf_uint64:%[0-9]+]] = OpConvertFToU %ulong [[inf]]
 // CHECK-NEXT:             {{%[0-9]+}} = OpCompositeConstruct %S [[inf2]] [[inf]] [[inf2_double]] [[inf_double_0]] [[inf_int64]] [[inf_uint64]]
   S s3 = (S)(1.0 / 0.0);
 
@@ -38,10 +36,8 @@ void main() {
 // CHECK-NEXT:  [[b_double:%[0-9]+]] = OpFConvert %double [[b]]
 // CHECK-NEXT: [[b2_double:%[0-9]+]] = OpCompositeConstruct %v2double [[b_double]] [[b_double]]
 // CHECK-NEXT:  [[b_double_0:%[0-9]+]] = OpFConvert %double [[b]]
-// CHECK-NEXT: [[b_double_:%[0-9]+]] = OpFConvert %double [[b]]
-// CHECK-NEXT:   [[b_int64:%[0-9]+]] = OpConvertFToS %long [[b_double_]]
-// CHECK-NEXT: [[b_double__0:%[0-9]+]] = OpFConvert %double [[b]]
-// CHECK-NEXT:  [[b_uint64:%[0-9]+]] = OpConvertFToU %ulong [[b_double__0]]
+// CHECK-NEXT:   [[b_int64:%[0-9]+]] = OpConvertFToS %long [[b]]
+// CHECK-NEXT:  [[b_uint64:%[0-9]+]] = OpConvertFToU %ulong [[b]]
 // CHECK-NEXT:           {{%[0-9]+}} = OpCompositeConstruct %S [[b2_float]] [[b]] [[b2_double]] [[b_double_0]] [[b_int64]] [[b_uint64]]
   float b;
   S s2 = (S)(b);

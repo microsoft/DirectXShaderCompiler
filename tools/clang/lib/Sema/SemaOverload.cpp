@@ -11922,10 +11922,6 @@ Sema::BuildCallToMemberFunction(Scope *S, Expr *MemExprE,
       if (Method != FoundDecl.getDecl() && 
                       DiagnoseUseOfDecl(Method, UnresExpr->getNameLoc()))
         return ExprError();
-      // HLSL Change Start - Check method constraints
-      if (DiagnoseHLSLMethodCall(Method, MemExprE->getLocStart()))
-        return ExprError();
-      // HLSL Change End
       break;
 
     case OR_No_Viable_Function:

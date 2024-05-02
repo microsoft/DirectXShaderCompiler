@@ -317,7 +317,17 @@ public:
 namespace llvm {
   template<> struct ilist_traits<clang::ento::BugReport>
     : public ilist_default_traits<clang::ento::BugReport> {
-    clang::ento::BugReport *createSentinel() const {
+  // HLSL Change Starts
+  // Temporarily disable "downcast of address" UBSAN runtime error
+  // https://github.com/microsoft/DirectXShaderCompiler/issues/6446
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+    __attribute__((no_sanitize("undefined")))
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+         // HLSL Change Ends
+    clang::ento::BugReport *
+    createSentinel() const {
       return static_cast<clang::ento::BugReport *>(&Sentinel);
     }
     void destroySentinel(clang::ento::BugReport *) const {}

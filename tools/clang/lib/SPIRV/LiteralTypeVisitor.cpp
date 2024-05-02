@@ -495,5 +495,16 @@ bool LiteralTypeVisitor::visit(SpirvImageOp *inst) {
   return true;
 }
 
+bool LiteralTypeVisitor::visit(SpirvSwitch *inst) {
+  if (auto *constInt = dyn_cast<SpirvConstantInteger>(inst->getSelector())) {
+    if (isLiteralLargerThan32Bits(constInt)) {
+      const bool isSigned = constInt->getAstResultType()->isSignedIntegerType();
+      constInt->setAstResultType(isSigned ? astContext.LongLongTy
+                                          : astContext.UnsignedLongLongTy);
+    }
+  }
+  return true;
+}
+
 } // end namespace spirv
 } // end namespace clang

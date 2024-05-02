@@ -462,7 +462,7 @@ HRESULT STDMETHODCALLTYPE DxcOptimizer::RunOptimizer(
         continue;
       }
 
-      CW2A optName(ppOptions[i], CP_UTF8);
+      CW2A optName(ppOptions[i]);
       // The option syntax is
       const char ArgDelim = ',';
       // '-' OPTION_NAME (',' ARG_NAME ('=' ARG_VALUE)?)*

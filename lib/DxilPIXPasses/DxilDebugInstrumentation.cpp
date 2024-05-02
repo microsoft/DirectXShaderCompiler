@@ -885,8 +885,7 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     addDebugEntryValue(BC, HighBits);
     BytesToBeEmitted += 8;
   } else if (TheValueTypeID == Type::TypeID::IntegerTyID &&
-             (TheValue->getType()->getIntegerBitWidth() == 16 ||
-              TheValue->getType()->getIntegerBitWidth() == 1)) {
+             (TheValue->getType()->getIntegerBitWidth() < 32)) {
     auto As32 =
         BC.Builder.CreateZExt(TheValue, Type::getInt32Ty(BC.Ctx), "As32");
     BytesToBeEmitted += addDebugEntryValue(BC, As32);
@@ -1147,6 +1146,11 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
                                  ValueOrdinalIndex);
     return DebugShaderModifierRecordTypeDXILStepFloat;
   case Type::TypeID::IntegerTyID:
+    assert(V->getType()->getIntegerBitWidth() == 64 ||
+           V->getType()->getIntegerBitWidth() <= 32);
+    if (V->getType()->getIntegerBitWidth() > 64) {
+      return std::nullopt;
+    }
     if (V->getType()->getIntegerBitWidth() == 64) {
       if (BC != nullptr)
         addStepEntryForType<uint64_t>(
@@ -1154,6 +1158,9 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
             ValueOrdinal, ValueOrdinalIndex);
       return DebugShaderModifierRecordTypeDXILStepUint64;
     } else {
+      if (V->getType()->getIntegerBitWidth() > 32) {
+        return std::nullopt;
+      }
       if (BC != nullptr)
         addStepEntryForType<uint32_t>(
             DebugShaderModifierRecordTypeDXILStepUint32, *BC, InstNum, V,

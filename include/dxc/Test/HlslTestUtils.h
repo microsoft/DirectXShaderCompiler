@@ -77,7 +77,7 @@ using namespace std;
     const char *pTmpA = (a);                                                   \
     const char *pTmpB = (b);                                                   \
     if (0 != strcmp(pTmpA, pTmpB)) {                                           \
-      CA2W conv(pTmpB, CP_UTF8);                                               \
+      CA2W conv(pTmpB);                                                        \
       WEX::Logging::Log::Comment(conv);                                        \
       const char *pA = pTmpA;                                                  \
       const char *pB = pTmpB;                                                  \
