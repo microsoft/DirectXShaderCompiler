@@ -69,6 +69,8 @@ private:
 
   uint64_t m_UAVSize = 1024 * 1024;
   bool m_ExpandPayload = false;
+  uint32_t m_DispatchArgumentY = 1;
+  uint32_t m_DispatchArgumentZ = 1;
 
   struct BuilderContext {
     Module &M;
@@ -91,6 +93,8 @@ private:
 void DxilPIXMeshShaderOutputInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
   GetPassOptionBool(O, "expand-payload", &m_ExpandPayload, 0);
+  GetPassOptionUInt32(O, "dispatchArgY", &m_DispatchArgumentY, 1);
+  GetPassOptionUInt32(O, "dispatchArgZ", &m_DispatchArgumentZ, 1);
 }
 
 uint32_t DxilPIXMeshShaderOutputInstrumentation::UAVDumpingGroundOffset() {
@@ -244,16 +248,24 @@ SmallVector<Value *, 2> DxilPIXMeshShaderOutputInstrumentation::
   auto *GroupIdZ =
       Builder.CreateCall(GroupIdFunc, {Opcode, Two32Arg}, "GroupIdZ");
 
-  auto *XxY = AmplificationShaderIsActive
-                  ? Builder.CreateMul(GroupIdX, ASDispatchMeshYCount)
-                  : GroupIdX;
-  auto *XplusY = Builder.CreateAdd(GroupIdY, XxY);
-  auto *XYxZ = AmplificationShaderIsActive
-                   ? Builder.CreateMul(XplusY, ASDispatchMeshZCount)
-                   : XplusY;
-  auto *XYZ = Builder.CreateAdd(GroupIdZ, XYxZ);
-
-  ret.push_back(XYZ);
+  // flattend group number = z + y*numZ + x*numY*numZ
+  if (AmplificationShaderIsActive) {
+    auto *GroupYxNumZ = Builder.CreateMul(GroupIdY, ASDispatchMeshZCount);
+    auto *FlatGroupNumZY = Builder.CreateAdd(GroupIdZ, GroupYxNumZ);
+    auto *GroupXxNumZ = Builder.CreateMul(GroupIdX, ASDispatchMeshZCount);
+    auto *GroupXxNumYZ = Builder.CreateMul(GroupXxNumZ, ASDispatchMeshYCount);
+    auto *FlatGroupNum = Builder.CreateAdd(GroupXxNumYZ, FlatGroupNumZY);
+    ret.push_back(FlatGroupNum);
+  } else {
+    auto *GroupYxNumZ =
+        Builder.CreateMul(GroupIdY, HlslOP->GetU32Const(m_DispatchArgumentZ));
+    auto *FlatGroupNumZY = Builder.CreateAdd(GroupIdZ, GroupYxNumZ);
+    auto *GroupXxNumYZ =
+        Builder.CreateMul(GroupIdX, HlslOP->GetU32Const(m_DispatchArgumentY *
+                                                        m_DispatchArgumentZ));
+    auto *FlatGroupNum = Builder.CreateAdd(GroupXxNumYZ, FlatGroupNumZY);
+    ret.push_back(FlatGroupNum);
+  }
 
   return ret;
 }
