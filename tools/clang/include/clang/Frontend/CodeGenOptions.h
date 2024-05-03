@@ -246,6 +246,8 @@ public:
   bool HLSLEmbedSourcesInModule = false;
   /// Enable generation of payload access qualifier metadata. 
   bool HLSLEnablePayloadAccessQualifiers = false;
+  /// Enable aggressive reassociation
+  bool HLSLEnableAggressiveReassociation = true;
   /// Binding table for HLSL resources
   hlsl::DxcBindingTable HLSLBindingTable;
   /// Binding table #define

@@ -1522,6 +1522,8 @@ public:
         Opts.EnableLifetimeMarkers;
     compiler.getCodeGenOpts().HLSLEnablePayloadAccessQualifiers =
         Opts.EnablePayloadQualifiers;
+    compiler.getCodeGenOpts().HLSLEnableAggressiveReassociation =
+        Opts.EnableAggressiveReassociation;
 
     // Translate signature packing options
     if (Opts.PackPrefixStable)

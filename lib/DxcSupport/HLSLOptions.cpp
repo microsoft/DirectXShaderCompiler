@@ -819,6 +819,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.EnableLifetimeMarkers =
       Args.hasFlag(OPT_enable_lifetime_markers, OPT_disable_lifetime_markers,
                    DXIL::CompareVersions(Major, Minor, 6, 6) >= 0);
+  opts.EnableAggressiveReassociation =
+      Args.hasFlag(OPT_INVALID, OPT_disable_aggressive_reassociation, true);
   opts.ForceDisableLocTracking =
       Args.hasFlag(OPT_fdisable_loc_tracking, OPT_INVALID, false);
   opts.NewInlining =
