@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tvs_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,parameter0=1,parameter1=2 -dxil-emit-metadata | %FileCheck %s
+// RUN: %dxc -Emain -Tvs_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,parameter0=1,parameter1=2 -hlsl-dxilemit | %FileCheck %s
 
 // Check that the instance and vertex id are parsed and present:
 

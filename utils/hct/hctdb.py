@@ -6148,12 +6148,6 @@ class db_dxil(object):
             [{"n": "startInstruction", "t": "int", "c": 1}],
         )
         add_pass(
-            "dxil-emit-metadata",
-            "DxilPixEmitMetadata",
-            "Emit all Dxil meta data",
-            [],
-        )
-        add_pass(
             "dxil-dbg-value-to-dbg-declare",
             "DxilDbgValueToDbgDeclare",
             "Converts llvm.dbg.value uses to llvm.dbg.declare.",

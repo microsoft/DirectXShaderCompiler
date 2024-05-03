@@ -78,105 +78,102 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_shader_model_get()</py>*/
   // VALRULE-TEXT:BEGIN
   const static std::pair<unsigned, unsigned> hashToIdxMap[] = {
-      {1024, 0},    // ps_4_0
-      {1025, 1},    // ps_4_1
-      {1280, 2},    // ps_5_0
-      {1281, 3},    // ps_5_1
-      {1536, 4},    // ps_6_0
-      {1537, 5},    // ps_6_1
-      {1538, 6},    // ps_6_2
-      {1539, 7},    // ps_6_3
-      {1540, 8},    // ps_6_4
-      {1541, 9},    // ps_6_5
-      {1542, 10},   // ps_6_6
-      {1543, 11},   // ps_6_7
-      {1544, 12},   // ps_6_8
-      {66560, 13},  // vs_4_0
-      {66561, 14},  // vs_4_1
-      {66816, 15},  // vs_5_0
-      {66817, 16},  // vs_5_1
-      {67072, 17},  // vs_6_0
-      {67073, 18},  // vs_6_1
-      {67074, 19},  // vs_6_2
-      {67075, 20},  // vs_6_3
-      {67076, 21},  // vs_6_4
-      {67077, 22},  // vs_6_5
-      {67078, 23},  // vs_6_6
-      {67079, 24},  // vs_6_7
-      {67080, 25},  // vs_6_8
-      {132096, 26}, // gs_4_0
-      {132097, 27}, // gs_4_1
-      {132352, 28}, // gs_5_0
-      {132353, 29}, // gs_5_1
-      {132608, 30}, // gs_6_0
-      {132609, 31}, // gs_6_1
-      {132610, 32}, // gs_6_2
-      {132611, 33}, // gs_6_3
-      {132612, 34}, // gs_6_4
-      {132613, 35}, // gs_6_5
-      {132614, 36}, // gs_6_6
-      {132615, 37}, // gs_6_7
-      {132616, 38}, // gs_6_8
-      {197888, 39}, // hs_5_0
-      {197889, 40}, // hs_5_1
-      {198144, 41}, // hs_6_0
-      {198145, 42}, // hs_6_1
-      {198146, 43}, // hs_6_2
-      {198147, 44}, // hs_6_3
-      {198148, 45}, // hs_6_4
-      {198149, 46}, // hs_6_5
-      {198150, 47}, // hs_6_6
-      {198151, 48}, // hs_6_7
-      {198152, 49}, // hs_6_8
-      {263424, 50}, // ds_5_0
-      {263425, 51}, // ds_5_1
-      {263680, 52}, // ds_6_0
-      {263681, 53}, // ds_6_1
-      {263682, 54}, // ds_6_2
-      {263683, 55}, // ds_6_3
-      {263684, 56}, // ds_6_4
-      {263685, 57}, // ds_6_5
-      {263686, 58}, // ds_6_6
-      {263687, 59}, // ds_6_7
-      {263688, 60}, // ds_6_8
-      {328704, 61}, // cs_4_0
-      {328705, 62}, // cs_4_1
-      {328960, 63}, // cs_5_0
-      {328961, 64}, // cs_5_1
-      {329216, 65}, // cs_6_0
-      {329217, 66}, // cs_6_1
-      {329218, 67}, // cs_6_2
-      {329219, 68}, // cs_6_3
-      {329220, 69}, // cs_6_4
-      {329221, 70}, // cs_6_5
-      {329222, 71}, // cs_6_6
-      {329223, 72}, // cs_6_7
-      {329224, 73}, // cs_6_8
-      {394753, 74}, // lib_6_1
-      {394754, 75}, // lib_6_2
-      {394755, 76}, // lib_6_3
-      {394756, 77}, // lib_6_4
-      {394757, 78}, // lib_6_5
-      {394758, 79}, // lib_6_6
-      {394759, 80}, // lib_6_7
-      {394760, 81}, // lib_6_8
-      // lib_6_x is for offline linking only, and relaxes restrictions
-      {394767, 82}, // lib_6_x
-      {853509, 83}, // ms_6_5
-      {853510, 84}, // ms_6_6
-      {853511, 85}, // ms_6_7
-      {853512, 86}, // ms_6_8
-      {919045, 87}, // as_6_5
-      {919046, 88}, // as_6_6
-      {919047, 89}, // as_6_7
-      {919048, 90}, // as_6_8
+  {1024,0}, //ps_4_0
+  {1025,1}, //ps_4_1
+  {1280,2}, //ps_5_0
+  {1281,3}, //ps_5_1
+  {1536,4}, //ps_6_0
+  {1537,5}, //ps_6_1
+  {1538,6}, //ps_6_2
+  {1539,7}, //ps_6_3
+  {1540,8}, //ps_6_4
+  {1541,9}, //ps_6_5
+  {1542,10}, //ps_6_6
+  {1543,11}, //ps_6_7
+  {1544,12}, //ps_6_8
+  {66560,13}, //vs_4_0
+  {66561,14}, //vs_4_1
+  {66816,15}, //vs_5_0
+  {66817,16}, //vs_5_1
+  {67072,17}, //vs_6_0
+  {67073,18}, //vs_6_1
+  {67074,19}, //vs_6_2
+  {67075,20}, //vs_6_3
+  {67076,21}, //vs_6_4
+  {67077,22}, //vs_6_5
+  {67078,23}, //vs_6_6
+  {67079,24}, //vs_6_7
+  {67080,25}, //vs_6_8
+  {132096,26}, //gs_4_0
+  {132097,27}, //gs_4_1
+  {132352,28}, //gs_5_0
+  {132353,29}, //gs_5_1
+  {132608,30}, //gs_6_0
+  {132609,31}, //gs_6_1
+  {132610,32}, //gs_6_2
+  {132611,33}, //gs_6_3
+  {132612,34}, //gs_6_4
+  {132613,35}, //gs_6_5
+  {132614,36}, //gs_6_6
+  {132615,37}, //gs_6_7
+  {132616,38}, //gs_6_8
+  {197888,39}, //hs_5_0
+  {197889,40}, //hs_5_1
+  {198144,41}, //hs_6_0
+  {198145,42}, //hs_6_1
+  {198146,43}, //hs_6_2
+  {198147,44}, //hs_6_3
+  {198148,45}, //hs_6_4
+  {198149,46}, //hs_6_5
+  {198150,47}, //hs_6_6
+  {198151,48}, //hs_6_7
+  {198152,49}, //hs_6_8
+  {263424,50}, //ds_5_0
+  {263425,51}, //ds_5_1
+  {263680,52}, //ds_6_0
+  {263681,53}, //ds_6_1
+  {263682,54}, //ds_6_2
+  {263683,55}, //ds_6_3
+  {263684,56}, //ds_6_4
+  {263685,57}, //ds_6_5
+  {263686,58}, //ds_6_6
+  {263687,59}, //ds_6_7
+  {263688,60}, //ds_6_8
+  {328704,61}, //cs_4_0
+  {328705,62}, //cs_4_1
+  {328960,63}, //cs_5_0
+  {328961,64}, //cs_5_1
+  {329216,65}, //cs_6_0
+  {329217,66}, //cs_6_1
+  {329218,67}, //cs_6_2
+  {329219,68}, //cs_6_3
+  {329220,69}, //cs_6_4
+  {329221,70}, //cs_6_5
+  {329222,71}, //cs_6_6
+  {329223,72}, //cs_6_7
+  {329224,73}, //cs_6_8
+  {394753,74}, //lib_6_1
+  {394754,75}, //lib_6_2
+  {394755,76}, //lib_6_3
+  {394756,77}, //lib_6_4
+  {394757,78}, //lib_6_5
+  {394758,79}, //lib_6_6
+  {394759,80}, //lib_6_7
+  {394760,81}, //lib_6_8
+  // lib_6_x is for offline linking only, and relaxes restrictions
+  {394767,82},//lib_6_x
+  {853509,83}, //ms_6_5
+  {853510,84}, //ms_6_6
+  {853511,85}, //ms_6_7
+  {853512,86}, //ms_6_8
+  {919045,87}, //as_6_5
+  {919046,88}, //as_6_6
+  {919047,89}, //as_6_7
+  {919048,90}, //as_6_8
   };
   unsigned hash = (unsigned)Kind << 16 | Major << 8 | Minor;
-  auto pred = [](const std::pair<unsigned, unsigned> &elem, unsigned val) {
-    return elem.first < val;
-  };
-  auto it = std::lower_bound(std::begin(hashToIdxMap), std::end(hashToIdxMap),
-                             hash, pred);
+  auto pred = [](const std::pair<unsigned, unsigned>& elem, unsigned val){ return elem.first < val;};
+  auto it = std::lower_bound(std::begin(hashToIdxMap), std::end(hashToIdxMap), hash, pred);
   if (it == std::end(hashToIdxMap) || it->first != hash)
     return GetInvalid();
   return &ms_ShaderModels[it->second];
@@ -265,44 +262,44 @@ const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {
     if (Major == 6) {
       Minor = 2;
       break;
-    } else
-      return GetInvalid();
+    }
+  else return GetInvalid();
   case '3':
     if (Major == 6) {
       Minor = 3;
       break;
-    } else
-      return GetInvalid();
+    }
+  else return GetInvalid();
   case '4':
     if (Major == 6) {
       Minor = 4;
       break;
-    } else
-      return GetInvalid();
+    }
+  else return GetInvalid();
   case '5':
     if (Major == 6) {
       Minor = 5;
       break;
-    } else
-      return GetInvalid();
+    }
+  else return GetInvalid();
   case '6':
     if (Major == 6) {
       Minor = 6;
       break;
-    } else
-      return GetInvalid();
+    }
+  else return GetInvalid();
   case '7':
     if (Major == 6) {
       Minor = 7;
       break;
-    } else
-      return GetInvalid();
+    }
+  else return GetInvalid();
   case '8':
     if (Major == 6) {
       Minor = 8;
       break;
-    } else
-      return GetInvalid();
+    }
+  else return GetInvalid();
     // VALRULE-TEXT:END
   case 'x':
     if (kind == Kind::Library && Major == 6) {
@@ -611,8 +608,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Library, 6, 7, "lib_6_7", 32, 32, true, true, UINT_MAX),
     SM(Kind::Library, 6, 8, "lib_6_8", 32, 32, true, true, UINT_MAX),
     // lib_6_x is for offline linking only, and relaxes restrictions
-    SM(Kind::Library, 6, kOfflineMinor, "lib_6_x", 32, 32, true, true,
-       UINT_MAX),
+    SM(Kind::Library,  6, kOfflineMinor, "lib_6_x",  32, 32,  true,  true,  UINT_MAX),
     SM(Kind::Mesh, 6, 5, "ms_6_5", 0, 0, true, true, UINT_MAX),
     SM(Kind::Mesh, 6, 6, "ms_6_6", 0, 0, true, true, UINT_MAX),
     SM(Kind::Mesh, 6, 7, "ms_6_7", 0, 0, true, true, UINT_MAX),
@@ -622,7 +618,7 @@ const ShaderModel ShaderModel::ms_ShaderModels[kNumShaderModels] = {
     SM(Kind::Amplification, 6, 7, "as_6_7", 0, 0, true, true, UINT_MAX),
     SM(Kind::Amplification, 6, 8, "as_6_8", 0, 0, true, true, UINT_MAX),
     // Values before Invalid must remain sorted by Kind, then Major, then Minor.
-    SM(Kind::Invalid, 0, 0, "invalid", 0, 0, false, false, 0),
+    SM(Kind::Invalid,  0, 0, "invalid", 0,  0,   false, false, 0),
     // VALRULE-TEXT:END
 };
 
