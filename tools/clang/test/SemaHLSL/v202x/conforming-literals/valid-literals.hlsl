@@ -1,7 +1,7 @@
-// RUN: %dxc -T lib_6_3 -HV 202x -verify %s
-// RUN: %dxc -T lib_6_3 -HV 202x -enable-16bit-types -verify %s
-// RUN: %dxc -T lib_6_3 -HV 2021 -verify %s
-// RUN: %dxc -T lib_6_3 -HV 2021 -enable-16bit-types -verify %s
+// RUN: %dxc -T lib_6_3 -HV 202x -Whlsl-legacy-literal -verify %s
+// RUN: %dxc -T lib_6_3 -HV 202x -Whlsl-legacy-literal -enable-16bit-types -verify %s
+// RUN: %dxc -T lib_6_3 -HV 2021 -Whlsl-legacy-literal -verify %s
+// RUN: %dxc -T lib_6_3 -HV 2021 -Whlsl-legacy-literal -enable-16bit-types -verify %s
 
 template <typename T, typename U>
 struct is_same {
@@ -99,6 +99,24 @@ uint SignedBitMask32() {
 
 uint64_t SignedBitMask64() {
   return 0x7000000000000000; // No warning
+}
+
+uint OctUnsignedBitMask32() {
+  // expected-warning@+1{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}}
+  return 020000000000;
+}
+
+uint64_t OctUnsignedBitMask64() {
+  // expected-warning@+1{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}}
+  return 01000000000000000000000;
+}
+
+uint OctSignedBitMask32() {
+  return 010000000000; // No warning
+}
+
+uint64_t OctSignedBitMask64() {
+  return 0400000000000000000000; // No warning
 }
 #endif
 

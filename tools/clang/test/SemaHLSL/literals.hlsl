@@ -146,7 +146,7 @@ float test() {
 
   // Infinity literals are floats.
   _Static_assert(0x7f800000 == asuint(1.#INF), "inf bit pattern");    /* fxc-error {{X1516: not enough actual parameters for macro '_Static_assert'}} fxc-error {{X3004: undeclared identifier '_Static_assert'}} */
-  _Static_assert(0xff800000 == asuint(-1.#INF), "-inf bit pattern");    /* expected-warning{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}} fxc-error {{X1516: not enough actual parameters for macro '_Static_assert'}} fxc-error {{X3004: undeclared identifier '_Static_assert'}} */
+  _Static_assert(0xff800000 == asuint(-1.#INF), "-inf bit pattern");    /* fxc-error {{X1516: not enough actual parameters for macro '_Static_assert'}} fxc-error {{X3004: undeclared identifier '_Static_assert'}} */
   float3 vec_syn = 1.#INF.xxx; // vector syntax
   float bad_inf_0 = 1#;      /* expected-error {{invalid suffix '#' on integer constant}} fxc-error {{X3000: syntax error: unexpected token '#'}} */
   float bad_inf_1 = 1#INF;   /* expected-error {{invalid suffix '#INF' on integer constant}} fxc-error {{X3000: syntax error: unexpected token '#'}} */

@@ -7961,7 +7961,7 @@ def warn_hlsl_barrier_no_mem_with_required_device_scope: Warning<
   InGroup<HLSLBarrier>, DefaultError;
 def warn_hlsl_legacy_integer_literal_signedness: Warning<
   "literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later">,
-  InGroup<HLSLLegacyLiterals>;
+  InGroup<HLSLLegacyLiterals>, DefaultIgnore;
 // HLSL Change Ends
 
 // SPIRV Change Starts
