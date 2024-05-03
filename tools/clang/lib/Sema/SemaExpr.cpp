@@ -3522,6 +3522,15 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
           Ty = Context.IntTy;
       }
     }
+    if (Literal.getRadix() != 10) {
+      uint64_t Val = ResultVal.getLimitedValue();
+      if (Val < std::numeric_limits<uint32_t>::max())
+        Width = 32;
+      uint64_t MSB = 1ull << (Width - 1);
+      if ((Val & MSB) != 0)
+        Diag(Tok.getLocation(),
+             diag::warn_hlsl_legacy_integer_literal_signedness);
+    }
     return IntegerLiteral::Create(Context, ResultVal, Ty, Tok.getLocation());
   // HLSL Change Ends
 
@@ -3549,6 +3558,9 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
         Context.getTargetInfo().hasInt128Type())
       MaxWidth = 128;
     llvm::APInt ResultVal(MaxWidth, 0);
+
+    // HLSL Change - 202x integer warnings.
+    uint64_t MSB = 1ull << (MaxWidth - 1);
 
     if (Literal.GetIntegerValue(ResultVal)) {
       // If this value didn't fit into uintmax_t, error and force to ull.
@@ -3672,7 +3684,16 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
 
       if (ResultVal.getBitWidth() != Width)
         ResultVal = ResultVal.trunc(Width);
+      MSB = 1ull << (Width - 1); // HLSL Change - 202x integer warnings.
     }
+    // HLSL Change Begin - 202x integer warnings.
+    if (Literal.getRadix() != 10) {
+      uint64_t Val = ResultVal.getLimitedValue();
+      if ((Val & MSB) != 0)
+        Diag(Tok.getLocation(),
+             diag::warn_hlsl_legacy_integer_literal_signedness);
+    }
+    // HLSL Change End - 202x integer warnings.
     Res = IntegerLiteral::Create(Context, ResultVal, Ty, Tok.getLocation());
   }
 
