@@ -12336,7 +12336,11 @@ static int ValidateAttributeIntArg(Sema &S, const AttributeList &Attr,
     } else {
       if (ArgNum.isInt()) {
         value = ArgNum.getInt().getSExtValue();
-        if (!(E->getType()->isIntegralType(S.Context)) || value < 0) {
+        if (E->getType()->isBooleanType()) {
+          // Bool should map to 0 or 1.  Otherwise, we would see -1 and emit a
+          // warning.
+          value = value ? 1 : 0;
+        } else if (!(E->getType()->isIntegralType(S.Context)) || value < 0) {
           S.Diag(Attr.getLoc(), diag::warn_hlsl_attribute_expects_uint_literal)
               << Attr.getName();
         }

@@ -78,3 +78,21 @@ void compute_node_topology() {}
 [OutputTopology("triangle")]
 [NodeMaxInputRecordsPerGraphEntryRecord(7, false)] // expected-error {{attribute nodemaxinputrecordspergraphentryrecord only allowed on node shaders}}
 void compute_node_maxrecs() {}
+
+// Check a few valid cases as well.
+
+[Shader("node")]
+[NodeLaunch("mesh")]
+[OutputTopology("triangle")]
+[NumThreads(42,1,1)]
+[NodeDispatchGrid(19,84,1)]
+[NodeMaxInputRecordsPerGraphEntryRecord(11, false)]
+void valid_mesh_max_input_records() {}
+
+[Shader("node")]
+[NodeLaunch("mesh")]
+[NumThreads(122,1,1)]
+[NodeDispatchGrid(17,76,1)]
+[OutputTopology("line")]
+[NodeMaxInputRecordsPerGraphEntryRecord(13, true)]
+void valid_mesh_max_input_records_shared() {}
