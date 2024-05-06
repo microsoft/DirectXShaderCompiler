@@ -3826,8 +3826,8 @@ RayQuery Mapping to SPIR-V
 |``.WorldRayOrigin`                                 | ``OpRayQueryGetWorldRayOriginKHR``                                      |
 +---------------------------------------------------+-------------------------------------------------------------------------+
 
-Shader Model 6.0 Wave Intrinsics
-================================
+Shader Model 6.0+ Wave Intrinsics
+=================================
 
 
 Note that Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
@@ -3865,6 +3865,7 @@ Quad          ``QuadReadAcrossX()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossY()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
+N/A           ``WaveMatch()``              ``OpGroupNonUniformPartitionNV``
 ============= ============================ =================================== ======================
 
 The Implicit ``vk`` Namespace
