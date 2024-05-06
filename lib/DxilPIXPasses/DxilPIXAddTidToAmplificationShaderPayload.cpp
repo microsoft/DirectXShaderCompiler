@@ -117,29 +117,51 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
 
     llvm::IRBuilder<> B(UserInstruction);
 
-    auto ThreadIdFunc =
-        HlslOP->GetOpFunc(DXIL::OpCode::ThreadId, Type::getInt32Ty(Ctx));
-    Constant *Opcode = HlslOP->GetU32Const((unsigned)DXIL::OpCode::ThreadId);
     Constant *Zero32Arg = HlslOP->GetU32Const(0);
     Constant *One32Arg = HlslOP->GetU32Const(1);
     Constant *Two32Arg = HlslOP->GetU32Const(2);
 
-    auto ThreadIdX =
-        B.CreateCall(ThreadIdFunc, {Opcode, Zero32Arg}, "ThreadIdX");
-    auto ThreadIdY =
-        B.CreateCall(ThreadIdFunc, {Opcode, One32Arg}, "ThreadIdY");
-    auto ThreadIdZ =
-        B.CreateCall(ThreadIdFunc, {Opcode, Two32Arg}, "ThreadIdZ");
+    auto GroupIdFunc =
+        HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
+    Constant *GroupIdOpcode =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
+    auto *GroupIdX =
+        B.CreateCall(GroupIdFunc, {GroupIdOpcode, Zero32Arg}, "GroupIdX");
+    auto *GroupIdY =
+        B.CreateCall(GroupIdFunc, {GroupIdOpcode, One32Arg}, "GroupIdY");
+    auto *GroupIdZ =
+        B.CreateCall(GroupIdFunc, {GroupIdOpcode, Two32Arg}, "GroupIdZ");
 
-    auto *XxY =
-        B.CreateMul(ThreadIdX, HlslOP->GetU32Const(m_DispatchArgumentY));
-    auto *XplusY = B.CreateAdd(ThreadIdY, XxY);
-    auto *XYxZ = B.CreateMul(XplusY, HlslOP->GetU32Const(m_DispatchArgumentZ));
-    auto *XYZ = B.CreateAdd(ThreadIdZ, XYxZ);
+    auto *GroupYxNumZ = B.CreateMul(
+        GroupIdY, HlslOP->GetU32Const(m_DispatchArgumentZ), "GroupYxNumZ");
+    auto *FlatGroupNumZY = B.CreateAdd(GroupIdZ, GroupYxNumZ, "FlatGroupNumZY");
+    auto *GroupXxNumYZ = B.CreateMul(
+        GroupIdX,
+        HlslOP->GetU32Const(m_DispatchArgumentY * m_DispatchArgumentZ),
+        "GroupXxNumYZ");
+    auto *FlatGroupNum =
+        B.CreateAdd(GroupXxNumYZ, FlatGroupNumZY, "FlatGroupNum");
+
+    auto *FlatGroupNumWithSpaceForThreadInGroupId = B.CreateMul(
+        FlatGroupNum,
+        HlslOP->GetU32Const(DM.GetNumThreads(0) * DM.GetNumThreads(1) *
+                            DM.GetNumThreads(2)),
+        "FlatGroupNumWithSpaceForThreadInGroupId");
+
+    auto *FlattenedThreadIdInGroupFunc = HlslOP->GetOpFunc(
+        DXIL::OpCode::FlattenedThreadIdInGroup, Type::getInt32Ty(Ctx));
+    Constant *FlattenedThreadIdInGroupOpcode =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::FlattenedThreadIdInGroup);
+    auto FlatThreadIdInGroup = B.CreateCall(FlattenedThreadIdInGroupFunc,
+                                            {FlattenedThreadIdInGroupOpcode},
+                                            "FlattenedThreadIdInGroup");
+
+    auto *FlatId = B.CreateAdd(FlatGroupNumWithSpaceForThreadInGroupId,
+                               FlatThreadIdInGroup, "FlatId");
 
     AddValueToExpandedPayload(HlslOP, B, expanded, NewStructAlloca,
                               OriginalPayloadStructType->getStructNumElements(),
-                              XYZ);
+                              FlatId);
     AddValueToExpandedPayload(
         HlslOP, B, expanded, NewStructAlloca,
         OriginalPayloadStructType->getStructNumElements() + 1,
