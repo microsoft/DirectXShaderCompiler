@@ -3530,14 +3530,14 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
         V->replaceAllUsesWith(Src);
       } else {
         // Replace Constant with a non-Constant.
-        IRBuilder<> Builder(MC);
+        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(MC));
         ReplaceConstantWithInst(C, Src, Builder);
       }
     } else {
       // Try convert special pattern for cbuffer which copy array of float4 to
       // array of float.
       if (!tryToReplaceCBVec4ArrayToScalarArray(V, TyV, Src, TySrc, MC, DL)) {
-        IRBuilder<> Builder(MC);
+        IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(MC));
         Src = Builder.CreateBitCast(Src, V->getType());
         ReplaceConstantWithInst(C, Src, Builder);
       }
@@ -6582,6 +6582,7 @@ bool LowerStaticGlobalIntoAlloca::lowerStaticGlobalIntoAlloca(
     // Store initializer is exist.
     if (GV->hasInitializer() && !isa<UndefValue>(GV->getInitializer()) &&
         !bIsObjectTy) { // Do not zerio-initialize object allocas
+      Builder.SetInsertPoint(dxilutil::FirstNonAllocaInsertionPt(F));
       Builder.CreateStore(GV->getInitializer(), GV);
     }
   }
