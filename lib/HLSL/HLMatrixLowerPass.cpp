@@ -666,6 +666,9 @@ void HLMatrixLowerPass::lowerGlobal(GlobalVariable *Global) {
       /*InsertBefore*/ nullptr, Global->getThreadLocalMode(),
       Global->getType()->getAddressSpace());
 
+  // Pass along alignment info
+  LoweredGlobal->setAlignment(Global->getAlignment());
+
   // Add debug info.
   if (m_HasDbgInfo) {
     DebugInfoFinder &Finder = m_pHLModule->GetOrCreateDebugInfoFinder();

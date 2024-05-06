@@ -5,7 +5,7 @@
 // CHECK: @[[obj:[^,]+]] = addrspace(3) global [8 x float] undef
 
 // CHECK: %[[_6:[^ ]+]] = getelementptr [8 x float], [8 x float] addrspace(3)* @[[obj]], i32 0, i32 %{{.+}}
-// CHECK: store float %{{.+}}, float addrspace(3)* %[[_6]], align 16
+// CHECK: store float %{{.+}}, float addrspace(3)* %[[_6]], align 4
 
 // Skip next three stores to get to loads
 // CHECK: store
@@ -13,7 +13,7 @@
 // CHECK: store
 
 // CHECK: %[[_23:[^ ]+]] = getelementptr [8 x float], [8 x float] addrspace(3)* @[[obj]], i32 0, i32 %{{.+}}
-// CHECK: %{{.+}} = load float, float addrspace(3)* %[[_23]], align 8
+// CHECK: %{{.+}} = load float, float addrspace(3)* %[[_23]], align 4
 
 
 float4 rows[2];
