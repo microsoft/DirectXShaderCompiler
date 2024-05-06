@@ -666,8 +666,9 @@ void HLMatrixLowerPass::lowerGlobal(GlobalVariable *Global) {
       /*InsertBefore*/ nullptr, Global->getThreadLocalMode(),
       Global->getType()->getAddressSpace());
 
-  // Pass along alignment info
-  LoweredGlobal->setAlignment(Global->getAlignment());
+  // Calculate preferred alignment for the new global
+  const llvm::DataLayout &DL = m_pModule->getDataLayout();
+  LoweredGlobal->setAlignment(DL.getPreferredAlignment(LoweredGlobal));
 
   // Add debug info.
   if (m_HasDbgInfo) {
