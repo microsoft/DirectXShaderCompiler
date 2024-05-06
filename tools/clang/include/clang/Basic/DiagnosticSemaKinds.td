@@ -7960,7 +7960,7 @@ def warn_hlsl_barrier_no_mem_with_required_device_scope: Warning<
   "DEVICE_SCOPE specified for Barrier operation without applicable memory">,
   InGroup<HLSLBarrier>, DefaultError;
 def warn_hlsl_legacy_integer_literal_signedness: Warning<
-  "literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later">,
+  "literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions">,
   InGroup<HLSLLegacyLiterals>, DefaultIgnore;
 // HLSL Change Ends
 

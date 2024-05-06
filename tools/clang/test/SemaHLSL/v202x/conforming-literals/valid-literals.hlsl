@@ -48,11 +48,11 @@ static const uint64_t V = 9223372036854775808;
 
 _Static_assert(is_same<__decltype(0x0), int>::value, "0x0 is int");
 _Static_assert(is_same<__decltype(0x70000000), int>::value, "0x70000000 is int");
-// expected-warning@+1{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}}
+// expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
 _Static_assert(is_same<__decltype(0xF0000000), uint>::value, "0xF0000000 is uint");
 
 _Static_assert(is_same<__decltype(0x7000000000000000), int64_t>::value, "0x7000000000000000 is int64_t");
-// expected-warning@+1{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}}
+// expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
 _Static_assert(is_same<__decltype(0xF000000000000000), uint64_t>::value, "0xF000000000000000 is uint64_t");
 
 #else
@@ -84,12 +84,12 @@ _Static_assert(!is_same<__decltype(1), int64_t>::value, "Literals are not int64_
 _Static_assert(!is_same<__decltype(1), uint64_t>::value, "Literals are not uint64_t");
 
 uint UnsignedBitMask32() {
-  // expected-warning@+1{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}}
+  // expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
   return 0xF0000000;
 }
 
 uint64_t UnsignedBitMask64() {
-  // expected-warning@+1{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}}
+  // expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
   return 0xF000000000000000;
 }
 
@@ -102,12 +102,12 @@ uint64_t SignedBitMask64() {
 }
 
 uint OctUnsignedBitMask32() {
-  // expected-warning@+1{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}}
+  // expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
   return 020000000000;
 }
 
 uint64_t OctUnsignedBitMask64() {
-  // expected-warning@+1{{literal value is treated as signed in HLSL before 202x, and unsigned in 202x and later}}
+  // expected-warning@+1{{literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions}}
   return 01000000000000000000000;
 }
 
