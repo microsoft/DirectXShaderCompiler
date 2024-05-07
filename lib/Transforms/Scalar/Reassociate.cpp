@@ -20,7 +20,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
@@ -38,6 +37,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 using namespace llvm;
@@ -2286,8 +2286,7 @@ void Reassociate::ReassociateExpression(BinaryOperator *I) {
   RewriteExprTree(I, Ops);
 }
 
-void Reassociate::BuildPairMap(
-    ReversePostOrderTraversal<Function *> &RPOT) {
+void Reassociate::BuildPairMap(ReversePostOrderTraversal<Function *> &RPOT) {
   // Make a "pairmap" of how often each operand pair occurs.
   for (BasicBlock *BI : RPOT) {
     for (Instruction &I : *BI) {
@@ -2357,11 +2356,11 @@ bool Reassociate::runOnFunction(Function &F) {
   // pass pipeline for further potential gains.
   // It might also be possible to update the pair map during runtime, but the
   // overhead of that may be large if there's many reassociable chains.
-// TODO: RPOT
-// Get the functions basic blocks in Reverse Post Order. This order is used by
-// BuildRankMap to pre calculate ranks correctly. It also excludes dead basic
-// blocks (it has been seen that the analysis in this pass could hang when
-// analysing dead basic blocks).
+  // TODO: RPOT
+  // Get the functions basic blocks in Reverse Post Order. This order is used by
+  // BuildRankMap to pre calculate ranks correctly. It also excludes dead basic
+  // blocks (it has been seen that the analysis in this pass could hang when
+  // analysing dead basic blocks).
   ReversePostOrderTraversal<Function *> RPOT(&F);
   BuildPairMap(RPOT);
 

@@ -504,8 +504,8 @@ void PassManagerBuilder::populateModulePassManager(
 
   // HLSL Change Begins.
   {
-    // Run reassociate pass again after GVN since GVN will expose more opportunities
-    // for reassociation.
+    // Run reassociate pass again after GVN since GVN will expose more
+    // opportunities for reassociation.
     if (HLSLEnableAggressiveReassociation) {
       MPM.add(createReassociatePass()); // Reassociate expressions
       if (EnableGVN) {
