@@ -1137,9 +1137,10 @@ llvm::MDNode *CodeGenFunction::getRangeForLoadFromType(QualType Ty) {
   return MDHelper.createRange(Min, End);
 }
 
-bool ShouldEmitRangeMD(llvm::Value *Value, QualType Ty) {
-  return hasBooleanRepresentation(Ty) &&
-         cast<llvm::IntegerType>(Value->getType())->getBitWidth() != 1;
+static bool ShouldEmitRangeMD(llvm::Value *Value, QualType Ty) {
+  if (hasBooleanRepresentation(Ty))
+    return cast<llvm::IntegerType>(Value->getType())->getBitWidth() != 1;
+  return true;
 }
 
 llvm::Value *CodeGenFunction::EmitLoadOfScalar(llvm::Value *Addr, bool Volatile,
