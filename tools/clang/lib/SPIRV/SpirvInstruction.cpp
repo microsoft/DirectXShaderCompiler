@@ -684,19 +684,12 @@ SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(
   case spv::Op::OpGroupNonUniformBallotBitCount:
   case spv::Op::OpGroupNonUniformBallotFindLSB:
   case spv::Op::OpGroupNonUniformBallotFindMSB:
-  case spv::Op::OpGroupNonUniformIAdd:
-  case spv::Op::OpGroupNonUniformFAdd:
-  case spv::Op::OpGroupNonUniformIMul:
-  case spv::Op::OpGroupNonUniformFMul:
   case spv::Op::OpGroupNonUniformSMin:
   case spv::Op::OpGroupNonUniformUMin:
   case spv::Op::OpGroupNonUniformFMin:
   case spv::Op::OpGroupNonUniformSMax:
   case spv::Op::OpGroupNonUniformUMax:
   case spv::Op::OpGroupNonUniformFMax:
-  case spv::Op::OpGroupNonUniformBitwiseAnd:
-  case spv::Op::OpGroupNonUniformBitwiseOr:
-  case spv::Op::OpGroupNonUniformBitwiseXor:
   case spv::Op::OpGroupNonUniformLogicalAnd:
   case spv::Op::OpGroupNonUniformLogicalOr:
   case spv::Op::OpGroupNonUniformLogicalXor:
@@ -713,6 +706,17 @@ SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(
   case spv::Op::OpGroupNonUniformQuadBroadcast:
   case spv::Op::OpGroupNonUniformQuadSwap:
     assert(operandsVec.size() == 2);
+    break;
+
+  // Group non-uniform operations with a required and optional operand.
+  case spv::Op::OpGroupNonUniformIAdd:
+  case spv::Op::OpGroupNonUniformFAdd:
+  case spv::Op::OpGroupNonUniformIMul:
+  case spv::Op::OpGroupNonUniformFMul:
+  case spv::Op::OpGroupNonUniformBitwiseAnd:
+  case spv::Op::OpGroupNonUniformBitwiseOr:
+  case spv::Op::OpGroupNonUniformBitwiseXor:
+    assert(operandsVec.size() >= 1 && operandsVec.size() <= 2);
     break;
 
   // Unexpected opcode.

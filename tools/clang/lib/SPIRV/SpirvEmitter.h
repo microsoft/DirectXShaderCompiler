@@ -615,7 +615,8 @@ private:
   SpirvInstruction *processWaveCountBits(const CallExpr *,
                                          spv::GroupOperation groupOp);
 
-  /// Processes SM6.0 wave reduction or scan/prefix intrinsic calls.
+  /// Processes SM6.0 wave reduction or scan/prefix and SM6.5 wave multiprefix
+  /// intrinsic calls.
   SpirvInstruction *processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
                                                  spv::GroupOperation groupOp);
 
