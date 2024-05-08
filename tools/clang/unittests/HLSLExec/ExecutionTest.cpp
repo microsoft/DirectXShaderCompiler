@@ -14750,11 +14750,6 @@ TEST_F(ExecutionTest, QuadAnyAll) {
       continue;
     }
 
-    if (IsDeviceBasicAdapter(pDevice)) {
-      WEX::Logging::Log::Comment(L"QuadAny/All fails on basic render driver.");
-      continue;
-    }
-
     if (!DoesDeviceSupportWaveOps(pDevice)) {
       LogCommentFmt(
           L"Device does not support wave operations in shader model 6.%1u",
