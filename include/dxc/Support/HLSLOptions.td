@@ -498,8 +498,8 @@ def Qembed_debug : Flag<["-", "/"], "Qembed_debug">, Flags<[CoreOption]>, Group<
   HelpText<"Embed PDB in shader container (must be used with /Zi)">;
 def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
-def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
-  HelpText<"Generate old PDB format.">;
+def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption]>, Group<hlslutil_Group>,
+  HelpText<"Embed source code in PDB">;
 def Qpdb_in_private : Flag<["-", "/"], "Qpdb_in_private">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Store PDB in private user data.">;
 
