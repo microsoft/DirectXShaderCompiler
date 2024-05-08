@@ -132,6 +132,9 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
     auto *GroupIdZ =
         B.CreateCall(GroupIdFunc, {GroupIdOpcode, Two32Arg}, "GroupIdZ");
 
+    // FlatGroupID = z + y*numZ + x*numY*numZ
+    // Where x,y,z are the group ID components, and numZ and numY are the
+    // corresponding AS group-count arguments to the DispatchMesh Direct3D API
     auto *GroupYxNumZ = B.CreateMul(
         GroupIdY, HlslOP->GetU32Const(m_DispatchArgumentZ), "GroupYxNumZ");
     auto *FlatGroupNumZY = B.CreateAdd(GroupIdZ, GroupYxNumZ, "FlatGroupNumZY");
@@ -139,14 +142,17 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
         GroupIdX,
         HlslOP->GetU32Const(m_DispatchArgumentY * m_DispatchArgumentZ),
         "GroupXxNumYZ");
-    auto *FlatGroupNum =
-        B.CreateAdd(GroupXxNumYZ, FlatGroupNumZY, "FlatGroupNum");
+    auto *FlatGroupID =
+        B.CreateAdd(GroupXxNumYZ, FlatGroupNumZY, "FlatGroFlatGroupIDupNum");
 
-    auto *FlatGroupNumWithSpaceForThreadInGroupId = B.CreateMul(
-        FlatGroupNum,
+    // The ultimate goal is a single unique thread ID for this AS thread.
+    // So take the flat group number, multiply it by the number of
+    // threads per group...
+    auto *FlatGroupIDWithSpaceForThreadInGroupId = B.CreateMul(
+        FlatGroupID,
         HlslOP->GetU32Const(DM.GetNumThreads(0) * DM.GetNumThreads(1) *
                             DM.GetNumThreads(2)),
-        "FlatGroupNumWithSpaceForThreadInGroupId");
+        "FlatGroupIDWithSpaceForThreadInGroupId");
 
     auto *FlattenedThreadIdInGroupFunc = HlslOP->GetOpFunc(
         DXIL::OpCode::FlattenedThreadIdInGroup, Type::getInt32Ty(Ctx));
@@ -156,7 +162,8 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
                                             {FlattenedThreadIdInGroupOpcode},
                                             "FlattenedThreadIdInGroup");
 
-    auto *FlatId = B.CreateAdd(FlatGroupNumWithSpaceForThreadInGroupId,
+    // ...and add the flat thread id:
+    auto *FlatId = B.CreateAdd(FlatGroupIDWithSpaceForThreadInGroupId,
                                FlatThreadIdInGroup, "FlatId");
 
     AddValueToExpandedPayload(HlslOP, B, expanded, NewStructAlloca,
