@@ -78,7 +78,6 @@ void main()
 // CHECK-DAG: [[U255:%[^ ]*]] = OpConstant [[UINT]] 255
 // CHECK-DAG: [[U3:%[^ ]*]] = OpConstant [[UINT]] 3
 // CHECK-DAG: [[ULONG:%[^ ]*]] = OpTypeInt 64 0
-// CHECK-DAG: [[DOUBLE:%[^ ]*]] = OpTypeFloat 64
 
     buf[0] = (uint) colors;
 // CHECK: [[COLORS:%[^ ]*]] = OpLoad [[TWOCOLORS]]
@@ -106,8 +105,7 @@ void main()
     lbuf[0] += (uint64_t) m;
 // CHECK: [[MIX:%[^ ]*]] = OpLoad [[MIXED]]
 // CHECK: [[MIX0:%[^ ]*]] = OpCompositeExtract [[FLOAT]] [[MIX]] 0
-// CHECK: [[V1_1:%[^ ]*]] = OpFConvert [[DOUBLE]] [[MIX0]]
-// CHECK: [[V2_0:%[^ ]*]] = OpConvertFToU [[ULONG]] [[V1_1]]
+// CHECK: [[V2_0:%[^ ]*]] = OpConvertFToU [[ULONG]] [[MIX0]]
 // CHECK: [[LBUF00_0:%[^ ]*]] = OpAccessChain %{{[^ ]*}} [[LBUF]] [[I0]] [[U0]]
 // CHECK: [[V3:%[^ ]*]] = OpLoad [[ULONG]] [[LBUF00_0]]
 // CHECK: [[V4:%[^ ]*]] = OpIAdd [[ULONG]] [[V3]] [[V2_0]]

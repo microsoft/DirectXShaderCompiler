@@ -6069,7 +6069,8 @@ SpirvInstruction *SpirvEmitter::doMemberExpr(const MemberExpr *expr,
   }
   const uint32_t indexAST =
       getNumBaseClasses(baseType) + fieldDecl->getFieldIndex();
-  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                    spvBuilder);
   const StructType *spirvStructType =
       lowerStructType(spirvOptions, lowerTypeVisitor, baseType);
   assert(spirvStructType);
@@ -6608,7 +6609,8 @@ SpirvInstruction *SpirvEmitter::reconstructValue(SpirvInstruction *srcVal,
   if (const auto *recordType = valType->getAs<RecordType>()) {
     assert(recordType->isStructureType());
 
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     const StructType *spirvStructType =
         lowerStructType(spirvOptions, lowerTypeVisitor, recordType->desugar());
 
@@ -7157,7 +7159,8 @@ SpirvInstruction *SpirvEmitter::convertVectorToStruct(QualType astStructType,
                                                       SourceRange range) {
   assert(astStructType->isStructureType());
 
-  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                    spvBuilder);
   const StructType *spirvStructType =
       lowerStructType(spirvOptions, lowerTypeVisitor, astStructType);
   uint32_t vectorIndex = 0;
@@ -7966,7 +7969,8 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
     }
 
     {
-      LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+      LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                        spvBuilder);
       const auto &astStructType =
           /* structType */ indexing->getBase()->getType();
       const StructType *spirvStructType =
@@ -8229,17 +8233,14 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
   }
 
   if (isFloatOrVecOfFloatType(fromType)) {
-    // First convert the source to the bitwidth of the destination if necessary.
-    fromVal = convertBitwidth(fromVal, srcLoc, fromType, toIntType, nullptr,
-                              srcRange);
     if (isSintOrVecOfSintType(toIntType)) {
       return spvBuilder.createUnaryOp(spv::Op::OpConvertFToS, toIntType,
                                       fromVal, srcLoc, srcRange);
-    } else if (isUintOrVecOfUintType(toIntType)) {
+    }
+
+    if (isUintOrVecOfUintType(toIntType)) {
       return spvBuilder.createUnaryOp(spv::Op::OpConvertFToU, toIntType,
                                       fromVal, srcLoc, srcRange);
-    } else {
-      emitError("casting from floating point to integer unimplemented", srcLoc);
     }
   }
 
@@ -8294,14 +8295,9 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
       firstField = spvBuilder.createCompositeExtract(fieldType, fromVal, {0},
                                                      srcLoc, srcRange);
       if (fieldDecl->isBitField()) {
-        auto offset = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                                llvm::APInt(32, 0));
-        auto width = spvBuilder.getConstantInt(
-            astContext.UnsignedIntTy,
-            llvm::APInt(32, fieldDecl->getBitWidthValue(astContext)));
         firstField = spvBuilder.createBitFieldExtract(
-            fieldType, firstField, offset, width,
-            toIntType->hasSignedIntegerRepresentation(), srcLoc);
+            fieldType, firstField, 0, fieldDecl->getBitWidthValue(astContext),
+            srcLoc, srcRange);
       }
     }
 
@@ -8311,6 +8307,7 @@ SpirvInstruction *SpirvEmitter::castToInt(SpirvInstruction *fromVal,
     return result;
   }
 
+  emitError("casting from given type to integer unimplemented", srcLoc);
   return nullptr;
 }
 
@@ -8718,6 +8715,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_WaveReadLaneAt:
   case hlsl::IntrinsicOp::IOP_WaveReadLaneFirst:
     retVal = processWaveBroadcast(callExpr);
+    break;
+  case hlsl::IntrinsicOp::IOP_WaveMatch:
+    retVal = processWaveMatch(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_QuadReadAcrossX:
   case hlsl::IntrinsicOp::IOP_QuadReadAcrossY:
@@ -9176,6 +9176,12 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     ptr = ptrInfo;
   }
 
+  // Atomic operations on memory in the Workgroup storage class should also be
+  // Workgroup scoped. Otherwise, default to Device scope.
+  spv::Scope scope = ptr->getStorageClass() == spv::StorageClass::Workgroup
+                         ? spv::Scope::Workgroup
+                         : spv::Scope::Device;
+
   const bool isCompareExchange =
       opcode == hlsl::IntrinsicOp::IOP_InterlockedCompareExchange;
   const bool isCompareStore =
@@ -9185,7 +9191,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     auto *comparator = doArg(expr, 1);
     auto *valueInstr = doArg(expr, 2);
     auto *originalVal = spvBuilder.createAtomicCompareExchange(
-        baseType, ptr, spv::Scope::Device, spv::MemorySemanticsMask::MaskNone,
+        baseType, ptr, scope, spv::MemorySemanticsMask::MaskNone,
         spv::MemorySemanticsMask::MaskNone, valueInstr, comparator, srcLoc);
     if (isCompareExchange)
       writeToOutputArg(originalVal, expr, 3);
@@ -9207,8 +9213,8 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
     if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
       atomicOp = spv::Op::OpAtomicUMin;
     auto *originalVal = spvBuilder.createAtomicOp(
-        atomicOp, baseType, ptr, spv::Scope::Device,
-        spv::MemorySemanticsMask::MaskNone, value, srcLoc);
+        atomicOp, baseType, ptr, scope, spv::MemorySemanticsMask::MaskNone,
+        value, srcLoc);
     if (expr->getNumArgs() > 2)
       writeToOutputArg(originalVal, expr, 2);
   }
@@ -9363,10 +9369,7 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
   llvm::SmallVector<SpirvInstruction *, 4> isRefByteZero;
   for (uint32_t i = 0; i < 4; ++i) {
     refBytes.push_back(spvBuilder.createBitFieldExtract(
-        uintType, reference, /*offset*/
-        spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                  llvm::APInt(32, i * 8)),
-        /*count*/ uint8, /*isSigned*/ false, loc));
+        uintType, reference, /*offset*/ i * 8, /*count*/ 8, loc, range));
     signedRefBytes.push_back(spvBuilder.createUnaryOp(
         spv::Op::OpBitcast, intType, refBytes.back(), loc));
     isRefByteZero.push_back(spvBuilder.createBinaryOp(
@@ -9377,11 +9380,8 @@ SpirvEmitter::processIntrinsicMsad4(const CallExpr *callExpr) {
     for (uint32_t byteCount = 0; byteCount < 4; ++byteCount) {
       // 'count' is always 8 because we are extracting 8 bits out of 32.
       auto *srcByte = spvBuilder.createBitFieldExtract(
-          uintType, sources[msadNum],
-          /*offset*/
-          spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                    llvm::APInt(32, 8 * byteCount)),
-          /*count*/ uint8, /*isSigned*/ false, loc);
+          uintType, sources[msadNum], /*offset*/ 8 * byteCount, /*count*/ 8,
+          loc, range);
       auto *signedSrcByte =
           spvBuilder.createUnaryOp(spv::Op::OpBitcast, intType, srcByte, loc);
       auto *sub = spvBuilder.createBinaryOp(spv::Op::OpISub, intType,
@@ -9713,6 +9713,17 @@ SpirvEmitter::processWaveActiveAllEqualMatrix(SpirvInstruction *arg,
   return spvBuilder.createCompositeConstruct(booleanMatrixType, rows, srcLoc);
 }
 
+SpirvInstruction *SpirvEmitter::processWaveMatch(const CallExpr *callExpr) {
+  assert(callExpr->getNumArgs() == 1);
+  const auto loc = callExpr->getExprLoc();
+
+  // The SPV_NV_shader_subgroup_partitioned extension requires SPIR-V 1.3.
+  featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation", loc);
+
+  SpirvInstruction *arg = doExpr(callExpr->getArg(0));
+  return spvBuilder.createUnaryOp(spv::Op::OpGroupNonUniformPartitionNV,
+                                  callExpr->getType(), arg, loc);
+}
 SpirvInstruction *SpirvEmitter::processIntrinsicModf(const CallExpr *callExpr) {
   // Signature is: ret modf(x, ip)
   // [in]    x: the input floating-point value.
@@ -12577,6 +12588,20 @@ void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
 
   spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
                               {x, y, z}, decl->getLocation());
+
+  auto *waveSizeAttr = decl->getAttr<HLSLWaveSizeAttr>();
+  if (waveSizeAttr) {
+    // Not supported in Vulkan SPIR-V, warn and ignore.
+
+    // SPIR-V SubgroupSize execution mode would work but it is Kernel only
+    // (requires the SubgroupDispatch capability, which implies the
+    // DeviceEnqueue capability, which is Kernel only). Subgroup sizes can be
+    // specified in Vulkan on the application side via
+    // VK_EXT_subgroup_size_control.
+    emitWarning("Wave size is not supported by Vulkan SPIR-V. Consider using "
+                "VK_EXT_subgroup_size_control.",
+                waveSizeAttr->getLocation());
+  }
 }
 
 bool SpirvEmitter::processTessellationShaderAttributes(
@@ -14224,8 +14249,8 @@ SpirvEmitter::processSpvIntrinsicTypeDef(const CallExpr *expr) {
   }
 
   auto typeDefAttr = funcDecl->getAttr<VKTypeDefExtAttr>();
-  spvContext.getSpirvIntrinsicType(typeDefAttr->getId(),
-                                   typeDefAttr->getOpcode(), operands);
+  spvContext.getOrCreateSpirvIntrinsicType(typeDefAttr->getId(),
+                                           typeDefAttr->getOpcode(), operands);
 
   return createSpirvIntrInstExt(
       funcDecl->getAttrs(), QualType(),
@@ -14521,7 +14546,8 @@ SpirvEmitter::decomposeToScalars(SpirvInstruction *inst) {
     std::vector<SpirvInstruction *> result;
 
     const SpirvType *type = nullptr;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     type = lowerTypeVisitor.lowerType(resultType, inst->getLayoutRule(), false,
                                       inst->getSourceLocation());
 
@@ -14619,7 +14645,8 @@ SpirvEmitter::generateFromScalars(QualType type,
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
     std::vector<SpirvInstruction *> elements;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     const SpirvType *spirvType =
         lowerTypeVisitor.lowerType(type, layoutRule, false, sourceLocation);
 
@@ -14701,7 +14728,8 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
     return result;
   } else if (const RecordType *recordType = dyn_cast<RecordType>(type)) {
     std::vector<SpirvInstruction *> elements;
-    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions);
+    LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                      spvBuilder);
     const SpirvType *spirvType = lowerTypeVisitor.lowerType(
         type, SpirvLayoutRule::Void, false, sourceLocation);
 

@@ -451,11 +451,10 @@ public:
 
   /// \brief Creates an OpBitFieldUExtract or OpBitFieldSExtract SPIR-V
   /// instruction for the given arguments.
-  SpirvBitFieldExtract *createBitFieldExtract(QualType resultType,
-                                              SpirvInstruction *base,
-                                              SpirvInstruction *offset,
-                                              SpirvInstruction *count,
-                                              bool isSigned, SourceLocation);
+  SpirvInstruction *createBitFieldExtract(QualType resultType,
+                                          SpirvInstruction *base,
+                                          unsigned bitOffset, unsigned bitCount,
+                                          SourceLocation, SourceRange);
 
   /// \brief Creates an OpEmitVertex instruction.
   void createEmitVertex(SourceLocation, SourceRange range = {});
@@ -839,6 +838,12 @@ private:
                                SpirvInstruction *base, SpirvInstruction *insert,
                                unsigned bitOffset, unsigned bitCount,
                                SourceLocation, SourceRange);
+
+  SpirvInstruction *
+  createEmulatedBitFieldExtract(QualType resultType, uint32_t baseTypeBitwidth,
+                                SpirvInstruction *base, unsigned bitOffset,
+                                unsigned bitCount, SourceLocation loc,
+                                SourceRange range);
 
 private:
   ASTContext &astContext;

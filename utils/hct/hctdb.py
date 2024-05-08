@@ -2847,7 +2847,7 @@ class db_dxil(object):
             "WaveGetLaneIndex",
             "returns the index of the current lane in the wave",
             "v",
-            "rn",
+            "ro",
             [db_dxil_param(0, "i32", "", "operation result")],
         )
         next_op_idx += 1
@@ -6679,6 +6679,12 @@ class db_dxil(object):
                     "i": "PragmaUnrollThreshold",
                     "t": "unsigned",
                     "d": "Unrolled size limit for loops with an unroll(full) or unroll_count pragma.",
+                },
+                {
+                    "n": "StructurizeLoopExits",
+                    "t": "bool",
+                    "c": 1,
+                    "d": "Whether the unroller should try to structurize loop exits first.",
                 },
             ],
         )

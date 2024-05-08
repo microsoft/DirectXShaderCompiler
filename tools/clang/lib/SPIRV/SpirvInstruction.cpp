@@ -474,12 +474,15 @@ SpirvBitField::SpirvBitField(Kind kind, spv::Op op, QualType resultType,
     : SpirvInstruction(kind, op, resultType, loc), base(baseInst),
       offset(offsetInst), count(countInst) {}
 
-SpirvBitFieldExtract::SpirvBitFieldExtract(
-    QualType resultType, SourceLocation loc, SpirvInstruction *baseInst,
-    SpirvInstruction *offsetInst, SpirvInstruction *countInst, bool isSigned)
+SpirvBitFieldExtract::SpirvBitFieldExtract(QualType resultType,
+                                           SourceLocation loc,
+                                           SpirvInstruction *baseInst,
+                                           SpirvInstruction *offsetInst,
+                                           SpirvInstruction *countInst)
     : SpirvBitField(IK_BitFieldExtract,
-                    isSigned ? spv::Op::OpBitFieldSExtract
-                             : spv::Op::OpBitFieldUExtract,
+                    resultType->isSignedIntegerOrEnumerationType()
+                        ? spv::Op::OpBitFieldSExtract
+                        : spv::Op::OpBitFieldUExtract,
                     resultType, loc, baseInst, offsetInst, countInst) {}
 
 SpirvBitFieldInsert::SpirvBitFieldInsert(QualType resultType,
@@ -512,6 +515,38 @@ SpirvConstant::SpirvConstant(Kind kind, spv::Op op, QualType resultType,
     : SpirvInstruction(kind, op, resultType,
                        /*SourceLocation*/ {}),
       literalConstant(literal) {}
+
+bool SpirvConstant::operator==(const SpirvConstant &that) const {
+  if (auto *booleanInst = dyn_cast<SpirvConstantBoolean>(this)) {
+    auto *thatBooleanInst = dyn_cast<SpirvConstantBoolean>(&that);
+    if (thatBooleanInst == nullptr)
+      return false;
+    return *booleanInst == *thatBooleanInst;
+  } else if (auto *integerInst = dyn_cast<SpirvConstantInteger>(this)) {
+    auto *thatIntegerInst = dyn_cast<SpirvConstantInteger>(&that);
+    if (thatIntegerInst == nullptr)
+      return false;
+    return *integerInst == *thatIntegerInst;
+  } else if (auto *floatInst = dyn_cast<SpirvConstantFloat>(this)) {
+    auto *thatFloatInst = dyn_cast<SpirvConstantFloat>(&that);
+    if (thatFloatInst == nullptr)
+      return false;
+    return *floatInst == *thatFloatInst;
+  } else if (auto *compositeInst = dyn_cast<SpirvConstantComposite>(this)) {
+    auto *thatCompositeInst = dyn_cast<SpirvConstantComposite>(&that);
+    if (thatCompositeInst == nullptr)
+      return false;
+    return *compositeInst == *thatCompositeInst;
+  } else if (auto *nullInst = dyn_cast<SpirvConstantNull>(this)) {
+    auto *thatNullInst = dyn_cast<SpirvConstantNull>(&that);
+    if (thatNullInst == nullptr)
+      return false;
+    return *nullInst == *thatNullInst;
+  }
+
+  assert(false && "operator== undefined for SpirvConstant subclass");
+  return false;
+}
 
 bool SpirvConstant::isSpecConstant() const {
   return opcode == spv::Op::OpSpecConstant ||

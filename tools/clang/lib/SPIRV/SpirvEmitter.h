@@ -655,6 +655,9 @@ private:
   processWaveActiveAllEqualMatrix(SpirvInstruction *arg, QualType,
                                   clang::SourceLocation srcLoc);
 
+  /// Processes SM6.5 WaveMatch function.
+  SpirvInstruction *processWaveMatch(const CallExpr *);
+
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
 

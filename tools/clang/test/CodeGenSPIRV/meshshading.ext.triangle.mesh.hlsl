@@ -1,7 +1,7 @@
 // RUN: %dxc -T ms_6_5 -fspv-target-env=universal1.5 -E main -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability MeshShadingEXT
 // CHECK:  OpExtension "SPV_EXT_mesh_shader"
-// CHECK:  OpEntryPoint MeshEXT %main "main" %gl_ClipDistance %gl_CullDistance %in_var_dummy %in_var_pos [[drawid:%[0-9]+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primindices:%[0-9]+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[cullprim:%[0-9]+]] [[primshadingrate:%[0-9]+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR 
+// CHECK:  OpEntryPoint MeshEXT %main "main" %gl_ClipDistance %gl_CullDistance %in_var_pld [[drawid:%[0-9]+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primindices:%[0-9]+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[cullprim:%[0-9]+]] [[primshadingrate:%[0-9]+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 // CHECK:  OpExecutionMode %main OutputTrianglesNV
 // CHECK:  OpExecutionMode %main OutputVertices 64
@@ -37,8 +37,7 @@
 
 // CHECK:  %gl_ClipDistance = OpVariable %_ptr_Output__arr__arr_float_uint_5_uint_64 Output
 // CHECK:  %gl_CullDistance = OpVariable %_ptr_Output__arr__arr_float_uint_3_uint_64 Output
-// CHECK:  %in_var_dummy = OpVariable %_ptr_TaskPayloadWorkgroupEXT__arr_float_uint_10 TaskPayloadWorkgroupEXT
-// CHECK:  %in_var_pos = OpVariable %_ptr_TaskPayloadWorkgroupEXT_v4float TaskPayloadWorkgroupEXT
+// CHECK:  %in_var_pld = OpVariable %_ptr_TaskPayloadWorkgroupEXT_MeshPayload TaskPayloadWorkgroupEXT
 // CHECK:  %gl_GlobalInvocationID = OpVariable %_ptr_Input_v3uint Input
 // CHECK:  %gl_LocalInvocationIndex = OpVariable %_ptr_Input_uint Input
 // CHECK:  %gl_Position = OpVariable %_ptr_Output__arr_v4float_uint_64 Output

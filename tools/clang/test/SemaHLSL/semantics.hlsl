@@ -6,7 +6,7 @@ float g_foo1 : foo;
 float g_foo2 : foo : fubar;
 float g_foo3 : foo : fubar : register(c3);
 float g_foo4 : register(c4) : foo : fubar;
-
+// expected-warning@+1{{cannot mix packoffset elements with nonpackoffset elements in a cbuffer}}
 cbuffer CBInit : register(b2)
 {
     float g2_foo1 : foo;                                    /* fxc-error {{X3530: cannot mix packoffset elements with nonpackoffset elements in a cbuffer}} */

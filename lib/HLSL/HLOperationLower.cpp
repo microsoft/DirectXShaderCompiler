@@ -51,7 +51,6 @@ struct HLOperationLowerHelper {
   Type *i8Ty;
   DxilTypeSystem &dxilTypeSys;
   DxilFunctionProps *functionProps;
-  bool bLegacyCBufferLoad;
   DataLayout dataLayout;
   SmallDenseMap<Type *, Type *, 4> loweredTypes;
   typedef std::pair<DxilWaveMatrixProperties, Constant *> WaveMatrix_Props;
@@ -77,7 +76,6 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
   functionProps = nullptr;
   if (HLM.HasDxilFunctionProps(EntryFunc))
     functionProps = &HLM.GetDxilFunctionProps(EntryFunc);
-  bLegacyCBufferLoad = HLM.GetHLOptions().bLegacyCBufferLoad;
 }
 
 const HLOperationLowerHelper::WaveMatrix_Props &
@@ -7459,20 +7457,6 @@ void TranslateCBGep(GetElementPtrInst *GEP, Value *handle, Value *baseOffset,
   }
 }
 
-void TranslateCBOperations(Value *handle, Value *ptr, Value *offset, OP *hlslOP,
-                           DxilTypeSystem &dxilTypeSys, const DataLayout &DL,
-                           HLObjectOperationLowerHelper *pObjHelper) {
-  auto User = ptr->user_begin();
-  auto UserE = ptr->user_end();
-  for (; User != UserE;) {
-    // Must be Instruction.
-    Instruction *I = cast<Instruction>(*(User++));
-    TranslateCBAddressUser(I, handle, offset, hlslOP,
-                           /*prevFieldAnnotation*/ nullptr, dxilTypeSys, DL,
-                           pObjHelper);
-  }
-}
-
 Value *GenerateCBLoadLegacy(Value *handle, Value *legacyIdx,
                             unsigned channelOffset, Type *EltTy, OP *hlslOP,
                             IRBuilder<> &Builder) {
@@ -9057,14 +9041,8 @@ void TranslateHLSubscript(CallInst *CI, HLSubscriptOpcode opcode,
     dxilutil::MergeGepUse(CI);
     // Resource ptr.
     Value *handle = CI->getArgOperand(HLOperandIndex::kSubscriptObjectOpIdx);
-    if (helper.bLegacyCBufferLoad)
-      TranslateCBOperationsLegacy(handle, CI, hlslOP, helper.dxilTypeSys,
-                                  helper.dataLayout, pObjHelper);
-    else {
-      TranslateCBOperations(handle, CI, /*offset*/ hlslOP->GetU32Const(0),
-                            hlslOP, helper.dxilTypeSys,
-                            CI->getModule()->getDataLayout(), pObjHelper);
-    }
+    TranslateCBOperationsLegacy(handle, CI, hlslOP, helper.dxilTypeSys,
+                                helper.dataLayout, pObjHelper);
     Translated = true;
     return;
   } else if (opcode == HLSubscriptOpcode::DoubleSubscript) {

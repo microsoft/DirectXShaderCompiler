@@ -399,6 +399,16 @@ DeclareNodeOrRecordType(clang::ASTContext &Ctx, DXIL::NodeIOKind Type,
                         bool HasGetMethods = false, bool IsArray = false,
                         bool IsCompleteType = false);
 
+#ifdef ENABLE_SPIRV_CODEGEN
+clang::CXXRecordDecl *DeclareInlineSpirvType(clang::ASTContext &context,
+                                             clang::DeclContext *declContext,
+                                             llvm::StringRef typeName,
+                                             bool opaque);
+clang::CXXRecordDecl *DeclareVkIntegralConstant(
+    clang::ASTContext &context, clang::DeclContext *declContext,
+    llvm::StringRef typeName, clang::ClassTemplateDecl **templateDecl);
+#endif
+
 clang::CXXRecordDecl *DeclareNodeOutputArray(clang::ASTContext &Ctx,
                                              DXIL::NodeIOKind Type,
                                              clang::CXXRecordDecl *OutputType,
@@ -447,6 +457,7 @@ clang::QualType GetElementTypeOrType(clang::QualType type);
 bool HasHLSLMatOrientation(clang::QualType type, bool *pIsRowMajor = nullptr);
 bool IsHLSLMatRowMajor(clang::QualType type, bool defaultValue);
 bool IsHLSLUnsigned(clang::QualType type);
+bool IsHLSLMinPrecision(clang::QualType type);
 bool HasHLSLUNormSNorm(clang::QualType type, bool *pIsSNorm = nullptr);
 bool HasHLSLGloballyCoherent(clang::QualType type);
 bool IsHLSLInputPatchType(clang::QualType type);
