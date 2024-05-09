@@ -14021,9 +14021,17 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
       spvArgs.push_back(argInst);
     } else if (param->hasAttr<VKLiteralExtAttr>()) {
       auto constArg = dyn_cast<SpirvConstant>(argInst);
-      assert(constArg != nullptr);
+      if (constArg == nullptr) {
+        constArg = constEvaluator.tryToEvaluateAsConst(arg, isSpecConstantMode);
+      }
+      if (constArg == nullptr) {
+        emitError("vk::ext_literal may only be applied to parameters that can "
+                  "be evaluated to a literal value",
+                  expr->getExprLoc());
+        return nullptr;
+      }
       constArg->setLiteral();
-      spvArgs.push_back(argInst);
+      spvArgs.push_back(constArg);
     } else {
       spvArgs.push_back(loadIfGLValue(arg, argInst));
     }
