@@ -233,7 +233,7 @@ bool isAcceptedSpecConstantBinaryOp(spv::Op op) {
 
 /// Returns true if the given expression is an accepted initializer for a spec
 /// constant.
-bool isAcceptedSpecConstantInit(const Expr *init) {
+bool isAcceptedSpecConstantInit(const Expr *init, ASTContext &astContext) {
   // Allow numeric casts
   init = init->IgnoreParenCasts();
 
@@ -244,7 +244,12 @@ bool isAcceptedSpecConstantInit(const Expr *init) {
   // Allow the minus operator which is used to specify negative values
   if (const auto *unaryOp = dyn_cast<UnaryOperator>(init))
     return unaryOp->getOpcode() == UO_Minus &&
-           isAcceptedSpecConstantInit(unaryOp->getSubExpr());
+           isAcceptedSpecConstantInit(unaryOp->getSubExpr(), astContext);
+
+  // Allow values that can be evaluated to const.
+  if (init->isEvaluatable(astContext)) {
+    return true;
+  }
 
   return false;
 }
@@ -7847,7 +7852,7 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
     emitError("missing default value for specialization constant",
               varDecl->getLocation());
     hasError = true;
-  } else if (!isAcceptedSpecConstantInit(init)) {
+  } else if (!isAcceptedSpecConstantInit(init, astContext)) {
     emitError("unsupported specialization constant initializer",
               init->getLocStart())
         << init->getSourceRange();
@@ -7859,7 +7864,8 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 
   SpecConstantEnvRAII specConstantEnvRAII(&isSpecConstantMode);
 
-  const auto specConstant = doExpr(init);
+  const auto specConstant =
+      constEvaluator.tryToEvaluateAsConst(init, isSpecConstantMode);
 
   // We are not creating a variable to hold the spec constant, instead, we
   // translate the varDecl directly into the spec constant here.
