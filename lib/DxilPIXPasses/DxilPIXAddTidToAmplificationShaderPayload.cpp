@@ -57,6 +57,45 @@ void AddValueToExpandedPayload(OP *HlslOP, llvm::IRBuilder<> &B,
   B.CreateStore(value, PointerToEmbeddedNewValue);
 }
 
+void CopyStruct(IRBuilder<> &Builder, StructType *MyStructType, Value *Struct1,
+                Value *Struct2) {
+  for (unsigned i = 0; i < MyStructType->getNumElements(); ++i) {
+    Value *Elem1 = Builder.CreateStructGEP(MyStructType, Struct1, i);
+    Value *Elem2 = Builder.CreateStructGEP(MyStructType, Struct2, i);
+
+    if (ArrayType *AT = dyn_cast<ArrayType>(MyStructType->getElementType(i))) {
+      for (unsigned j = 0; j < AT->getNumElements(); ++j) {
+        Value *ArrayElem1 = Builder.CreateGEP(Elem1, Builder.getInt32(j));
+        Value *ArrayElem2 = Builder.CreateGEP(Elem2, Builder.getInt32(j));
+        CopyStruct(Builder, cast<StructType>(AT->getElementType()), ArrayElem1,
+                   ArrayElem2);
+      }
+    } else {
+      Value *Val = Builder.CreateLoad(Elem1);
+      Builder.CreateStore(Val, Elem2);
+    }
+  }
+}
+
+void CopyAggregate(IRBuilder<> &B, Value *Source, Value *Dest) {
+  if (StructType *ST = dyn_cast<StructType>(Source->getType())) {
+    for (unsigned j = 0; j < ST->getNumElements(); ++j) {
+      Value *SourceElement = B.CreateGEP(Source, B.getInt32(j));
+      Value *DestElement = B.CreateGEP(Dest, B.getInt32(j));
+      CopyAggregate(B, SourceElement, DestElement);
+    }
+  } else if (ArrayType *AT = dyn_cast<ArrayType>(Source->getType())) {
+    for (unsigned j = 0; j < AT->getNumElements(); ++j) {
+      Value *SourceElement = B.CreateGEP(Source, B.getInt32(j));
+      Value *DestElement = B.CreateGEP(Dest, B.getInt32(j));
+      CopyAggregate(B, SourceElement, DestElement);
+    }
+  } else {
+    Value *Val = B.CreateLoad(Source);
+    B.CreateStore(Val, Dest);
+  }
+}
+
 bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   LLVMContext &Ctx = M.getContext();
@@ -82,14 +121,9 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       auto *NewPayloadPointer =
           B.CreateGEP(NewStructAlloca, HlslOP->GetU32Const(0));
 
-      auto *OriginalPayloadPtri32 =
-          B.CreateBitCast(DispatchMesh.get_payload(), Type::getInt8PtrTy(Ctx));
-      auto *NewPayloadPtri32 =
-          B.CreateBitCast(NewPayloadPointer, Type::getInt8PtrTy(Ctx));
-      B.CreateMemCpy(NewPayloadPtri32, OriginalPayloadPtri32,
-                     HlslOP->GetU32Const(M.getDataLayout().getTypeAllocSize(
-                         OriginalPayloadStructType)),
-                     1 /*alignment*/);
+      // llvm.memcpy cannot be used because the source struct might be in, e.g,
+      // group-shared
+      CopyAggregate(B, DispatchMesh.get_payload(), NewPayloadPointer);
 
       auto ThreadIdFunc =
           HlslOP->GetOpFunc(DXIL::OpCode::ThreadId, Type::getInt32Ty(Ctx));
