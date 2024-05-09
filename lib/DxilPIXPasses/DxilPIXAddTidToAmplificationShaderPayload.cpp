@@ -82,10 +82,14 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       auto *NewPayloadPointer =
           B.CreateGEP(NewStructAlloca, HlslOP->GetU32Const(0));
 
-      B.CreateMemCpy(NewPayloadPointer, DispatchMesh.get_payload(),
+      auto *OriginalPayloadPtri32 =
+          B.CreateBitCast(DispatchMesh.get_payload(), Type::getInt8PtrTy(Ctx));
+      auto *NewPayloadPtri32 =
+          B.CreateBitCast(NewPayloadPointer, Type::getInt8PtrTy(Ctx));
+      B.CreateMemCpy(NewPayloadPtri32, OriginalPayloadPtri32,
                      HlslOP->GetU32Const(M.getDataLayout().getTypeAllocSize(
                          OriginalPayloadStructType)),
-                     1);
+                     1 /*alignment*/);
 
       auto ThreadIdFunc =
           HlslOP->GetOpFunc(DXIL::OpCode::ThreadId, Type::getInt32Ty(Ctx));
