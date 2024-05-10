@@ -6,6 +6,7 @@ void main() {
   int   sint_1;
   int4  sint_4;
   uint  uint_1;
+  uint2 uint_2;
   uint4 uint_4;
 
 // CHECK: [[sint_1:%[0-9]+]] = OpLoad %int %sint_1
@@ -24,6 +25,11 @@ void main() {
 // CHECK:    [[msb:%[0-9]+]] = OpExtInst %uint [[glsl]] FindUMsb [[uint_1]]
 // CHECK:                   OpStore %ufbh [[msb]]
   uint ufbh = firstbithigh(uint_1);
+
+// CHECK: [[uint_2:%[0-9]+]] = OpLoad %v2uint %uint_2
+// CHECK:    [[msb:%[0-9]+]] = OpExtInst %v2uint [[glsl]] FindUMsb [[uint_2]]
+// CHECK:                   OpStore %ufbh2 [[msb]]
+  uint2 ufbh2 = firstbithigh(uint_2);
 
 // CHECK: [[uint_4:%[0-9]+]] = OpLoad %v4uint %uint_4
 // CHECK:    [[msb:%[0-9]+]] = OpExtInst %v4uint [[glsl]] FindUMsb [[uint_4]]
