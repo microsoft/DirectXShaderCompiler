@@ -77,34 +77,34 @@ void CopyStruct(IRBuilder<> &Builder, StructType *MyStructType, Value *Struct1,
   }
 }
 int limit = 3;
-void CopyAggregate(int &counter, IRBuilder<> &B, Value *Source, Value *Dest,
-                   ArrayRef< Value *> GEPIndices ) {
+void CopyAggregate(int &counter, IRBuilder<> &B, Type *Ty, Value *Source,
+                   Value *Dest, ArrayRef<Value *> GEPIndices) {
   if (counter > limit)
     return;
   // if (SourcePtr->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
-  auto *SourcePtr = dyn_cast<PointerType>(Source->getType());
-  if (StructType *ST =
-          dyn_cast<StructType>(SourcePtr->getPointerElementType())) {
+  // auto *SourcePtr = dyn_cast<PointerType>(Ty);
+  if (StructType *ST = dyn_cast<StructType>(Ty)) {
     SmallVector<Value *, 16> StructIndices;
     StructIndices.append(GEPIndices.begin(), GEPIndices.end());
     StructIndices.push_back(nullptr);
     for (unsigned j = 0; j < ST->getNumElements(); ++j) {
       StructIndices.back() = B.getInt32(j);
-      CopyAggregate(counter, B, Source, Dest, StructIndices);
+      CopyAggregate(counter, B, ST->getElementType(j), Source, Dest,
+                    StructIndices);
       if (counter > limit)
         return;
     }
-  } else if (ArrayType *AT =
-                 dyn_cast<ArrayType>(SourcePtr->getPointerElementType())) {
+  } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
     SmallVector<Value *, 16> StructIndices;
     StructIndices.append(GEPIndices.begin(), GEPIndices.end());
+    StructIndices.push_back(nullptr);
     for (unsigned j = 0; j < AT->getNumElements(); ++j) {
       StructIndices.back() = B.getInt32(j);
-      CopyAggregate(counter, B, Source, Dest, StructIndices);
+      CopyAggregate(counter, B, AT->getArrayElementType(), Source, Dest,
+                    StructIndices);
     }
   } else {
-    auto *SourceGEP = B.CreateGEP(Source, GEPIndices,
-                                    "CopyStructSourceGEP");
+    auto *SourceGEP = B.CreateGEP(Source, GEPIndices, "CopyStructSourceGEP");
     Value *Val = B.CreateLoad(SourceGEP, "CopyStructLoad");
     auto *DestGEP = B.CreateGEP(Dest, GEPIndices, "CopyStructDestGEP");
     B.CreateStore(Val, DestGEP, "CopyStructStore");
@@ -142,65 +142,67 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       // auto *OldPayloadPointer =
       //    B.CreateGEP(DispatchMesh.get_payload(), HlslOP->GetU32Const(0));
       int counter = 0;
+      auto PayloadType =
+          llvm::dyn_cast<PointerType>(DispatchMesh.get_payload()->getType());
       SmallVector<Value *, 16> GEPIndices;
-      CopyAggregate(counter, B, DispatchMesh.get_payload(), NewStructAlloca,
-                    GEPIndices);
+      GEPIndices.push_back(B.getInt32(0));
+      CopyAggregate(counter, B, PayloadType->getPointerElementType(),
+                    DispatchMesh.get_payload(), NewStructAlloca, GEPIndices);
 
       Constant *Zero32Arg = HlslOP->GetU32Const(0);
       Constant *One32Arg = HlslOP->GetU32Const(1);
       Constant *Two32Arg = HlslOP->GetU32Const(2);
 
-    auto GroupIdFunc =
-        HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
-    Constant *GroupIdOpcode =
-        HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
-    auto *GroupIdX =
-        B.CreateCall(GroupIdFunc, {GroupIdOpcode, Zero32Arg}, "GroupIdX");
-    auto *GroupIdY =
-        B.CreateCall(GroupIdFunc, {GroupIdOpcode, One32Arg}, "GroupIdY");
-    auto *GroupIdZ =
-        B.CreateCall(GroupIdFunc, {GroupIdOpcode, Two32Arg}, "GroupIdZ");
+      auto GroupIdFunc =
+          HlslOP->GetOpFunc(DXIL::OpCode::GroupId, Type::getInt32Ty(Ctx));
+      Constant *GroupIdOpcode =
+          HlslOP->GetU32Const((unsigned)DXIL::OpCode::GroupId);
+      auto *GroupIdX =
+          B.CreateCall(GroupIdFunc, {GroupIdOpcode, Zero32Arg}, "GroupIdX");
+      auto *GroupIdY =
+          B.CreateCall(GroupIdFunc, {GroupIdOpcode, One32Arg}, "GroupIdY");
+      auto *GroupIdZ =
+          B.CreateCall(GroupIdFunc, {GroupIdOpcode, Two32Arg}, "GroupIdZ");
 
-    // FlatGroupID = z + y*numZ + x*numY*numZ
-    // Where x,y,z are the group ID components, and numZ and numY are the
-    // corresponding AS group-count arguments to the DispatchMesh Direct3D API
-    auto *GroupYxNumZ = B.CreateMul(
-        GroupIdY, HlslOP->GetU32Const(m_DispatchArgumentZ), "GroupYxNumZ");
-    auto *FlatGroupNumZY = B.CreateAdd(GroupIdZ, GroupYxNumZ, "FlatGroupNumZY");
-    auto *GroupXxNumYZ = B.CreateMul(
-        GroupIdX,
-        HlslOP->GetU32Const(m_DispatchArgumentY * m_DispatchArgumentZ),
-        "GroupXxNumYZ");
-    auto *FlatGroupID =
-        B.CreateAdd(GroupXxNumYZ, FlatGroupNumZY, "FlatGroFlatGroupIDupNum");
+      // FlatGroupID = z + y*numZ + x*numY*numZ
+      // Where x,y,z are the group ID components, and numZ and numY are the
+      // corresponding AS group-count arguments to the DispatchMesh Direct3D API
+      auto *GroupYxNumZ = B.CreateMul(
+          GroupIdY, HlslOP->GetU32Const(m_DispatchArgumentZ), "GroupYxNumZ");
+      auto *FlatGroupNumZY =
+          B.CreateAdd(GroupIdZ, GroupYxNumZ, "FlatGroupNumZY");
+      auto *GroupXxNumYZ = B.CreateMul(
+          GroupIdX,
+          HlslOP->GetU32Const(m_DispatchArgumentY * m_DispatchArgumentZ),
+          "GroupXxNumYZ");
+      auto *FlatGroupID =
+          B.CreateAdd(GroupXxNumYZ, FlatGroupNumZY, "FlatGroFlatGroupIDupNum");
 
-    // The ultimate goal is a single unique thread ID for this AS thread.
-    // So take the flat group number, multiply it by the number of
-    // threads per group...
-    auto *FlatGroupIDWithSpaceForThreadInGroupId = B.CreateMul(
-        FlatGroupID,
-        HlslOP->GetU32Const(DM.GetNumThreads(0) * DM.GetNumThreads(1) *
-                            DM.GetNumThreads(2)),
-        "FlatGroupIDWithSpaceForThreadInGroupId");
+      // The ultimate goal is a single unique thread ID for this AS thread.
+      // So take the flat group number, multiply it by the number of
+      // threads per group...
+      auto *FlatGroupIDWithSpaceForThreadInGroupId = B.CreateMul(
+          FlatGroupID,
+          HlslOP->GetU32Const(DM.GetNumThreads(0) * DM.GetNumThreads(1) *
+                              DM.GetNumThreads(2)),
+          "FlatGroupIDWithSpaceForThreadInGroupId");
 
-    auto *FlattenedThreadIdInGroupFunc = HlslOP->GetOpFunc(
-        DXIL::OpCode::FlattenedThreadIdInGroup, Type::getInt32Ty(Ctx));
-    Constant *FlattenedThreadIdInGroupOpcode =
-        HlslOP->GetU32Const((unsigned)DXIL::OpCode::FlattenedThreadIdInGroup);
-    auto FlatThreadIdInGroup = B.CreateCall(FlattenedThreadIdInGroupFunc,
-                                            {FlattenedThreadIdInGroupOpcode},
-                                            "FlattenedThreadIdInGroup");
+      auto *FlattenedThreadIdInGroupFunc = HlslOP->GetOpFunc(
+          DXIL::OpCode::FlattenedThreadIdInGroup, Type::getInt32Ty(Ctx));
+      Constant *FlattenedThreadIdInGroupOpcode =
+          HlslOP->GetU32Const((unsigned)DXIL::OpCode::FlattenedThreadIdInGroup);
+      auto FlatThreadIdInGroup = B.CreateCall(FlattenedThreadIdInGroupFunc,
+                                              {FlattenedThreadIdInGroupOpcode},
+                                              "FlattenedThreadIdInGroup");
 
-    // ...and add the flat thread id:
-    auto *FlatId = B.CreateAdd(FlatGroupIDWithSpaceForThreadInGroupId,
-                               FlatThreadIdInGroup, "FlatId");
+      // ...and add the flat thread id:
+      auto *FlatId = B.CreateAdd(FlatGroupIDWithSpaceForThreadInGroupId,
+                                 FlatThreadIdInGroup, "FlatId");
 
-    AddValueToExpandedPayload(HlslOP, B, expanded, NewStructAlloca,
-                              OriginalPayloadStructType->getStructNumElements(),
-                              FlatId);
       AddValueToExpandedPayload(
           HlslOP, B, NewStructAlloca,
-          expanded.ExpandedPayloadStructType->getStructNumElements() - 3, XYZ);
+          expanded.ExpandedPayloadStructType->getStructNumElements() - 3,
+          FlatId);
       AddValueToExpandedPayload(
           HlslOP, B, NewStructAlloca,
           expanded.ExpandedPayloadStructType->getStructNumElements() - 2,

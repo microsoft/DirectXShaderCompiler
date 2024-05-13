@@ -627,7 +627,7 @@ struct Bigger
 struct MyPayload
 {
     uint i;
-    //Bigger big[3];
+    Bigger big[3];
 };
 
 groupshared MyPayload payload;
