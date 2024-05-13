@@ -89,9 +89,9 @@ llvm::Module *dxil_debug_info::DxcPixDxilDebugInfo::GetModuleRef() {
   return &m_pSession->ModuleRef();
 }
 
-llvm::Instruction* dxil_debug_info::DxcPixDxilDebugInfo::FindInstruction(
+llvm::Instruction *dxil_debug_info::DxcPixDxilDebugInfo::FindInstruction(
     DWORD InstructionOffset) const {
-  const auto & Instructions = m_pSession->InstructionsRef();
+  const auto &Instructions = m_pSession->InstructionsRef();
   auto it = Instructions.find(InstructionOffset);
   if (it == Instructions.end()) {
     throw hlsl::Exception(E_BOUNDS, "Out-of-bounds: Instruction offset");
@@ -189,10 +189,10 @@ DWORD dxil_debug_info::DxcPixDxilInstructionOffsets::GetOffsetByIndex(
 
 dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
     IMalloc *pMalloc, dxil_dia::Session *pSession, llvm::Instruction *IP) {
-    const llvm::DITypeIdentifierMap EmptyMap;
+  const llvm::DITypeIdentifierMap EmptyMap;
 
   if (const llvm::DebugLoc &DL = IP->getDebugLoc()) {
-        auto* S = llvm::dyn_cast<llvm::DIScope>(DL.getScope());
+    auto *S = llvm::dyn_cast<llvm::DIScope>(DL.getScope());
     while (S != nullptr && !llvm::isa<llvm::DIFile>(S)) {
       if (auto Namespace = llvm::dyn_cast<llvm::DINamespace>(S)) {
         // DINamespace has a getScope member (that hides DIScope's)
@@ -205,29 +205,29 @@ dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
       } else if (auto Subprogram = llvm::dyn_cast<llvm::DISubprogram>(S)) {
         S = Subprogram->getFile();
       } else
-            S = S->getScope().resolve(EmptyMap);
-            // When the function in question is a class method, there is a DICompositeType 
-            // in the scope hierarchy referring to the class, and that DICompositeType has 
-            // a DIFile that denotes the file in which the method is declared.
-            if (auto * CompType = llvm::dyn_cast<llvm::DICompositeType>(S))
-            {
-              S = CompType->getFile();
-              break;
+        S = S->getScope().resolve(EmptyMap);
+      // When the function in question is a class method, there is a
+      // DICompositeType in the scope hierarchy referring to the class, and that
+      // DICompositeType has a DIFile that denotes the file in which the method
+      // is declared.
+      if (auto *CompType = llvm::dyn_cast<llvm::DICompositeType>(S)) {
+        S = CompType->getFile();
+        break;
+      }
     }
-        }
 
     if (S != nullptr) {
-          Location loc;
-          loc.Line = DL->getLine();
-          loc.Column = DL->getColumn();
-          loc.Filename = CA2W(S->getFilename().data());
-          m_locations.emplace_back(std::move(loc));
-        }
+      Location loc;
+      loc.Line = DL->getLine();
+      loc.Column = DL->getColumn();
+      loc.Filename = CA2W(S->getFilename().data());
+      m_locations.emplace_back(std::move(loc));
     }
+  }
 }
 
 STDMETHODIMP_(DWORD) dxil_debug_info::DxcPixDxilSourceLocations::GetCount() {
-    return static_cast<DWORD>(m_locations.size());
+  return static_cast<DWORD>(m_locations.size());
 }
 
 STDMETHODIMP
@@ -251,7 +251,7 @@ dxil_debug_info::DxcPixDxilSourceLocations::GetColumnByIndex(DWORD Index) {
 STDMETHODIMP_(DWORD)
 dxil_debug_info::DxcPixDxilSourceLocations::GetLineNumberByIndex(DWORD Index) {
   if (Index >= static_cast<DWORD>(m_locations.size())) {
-        return E_BOUNDS;
-    }
-    return m_locations[Index].Line;
+    return E_BOUNDS;
+  }
+  return m_locations[Index].Line;
 }
