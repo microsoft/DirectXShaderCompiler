@@ -76,23 +76,39 @@ void CopyStruct(IRBuilder<> &Builder, StructType *MyStructType, Value *Struct1,
     }
   }
 }
-
-void CopyAggregate(IRBuilder<> &B, Value *Source, Value *Dest) {
-  if (StructType *ST = dyn_cast<StructType>(Source->getType())) {
+int limit = 3;
+void CopyAggregate(int &counter, IRBuilder<> &B, Value *Source, Value *Dest,
+                   ArrayRef< Value *> GEPIndices ) {
+  if (counter > limit)
+    return;
+  // if (SourcePtr->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
+  auto *SourcePtr = dyn_cast<PointerType>(Source->getType());
+  if (StructType *ST =
+          dyn_cast<StructType>(SourcePtr->getPointerElementType())) {
+    SmallVector<Value *, 16> StructIndices;
+    StructIndices.append(GEPIndices.begin(), GEPIndices.end());
+    StructIndices.push_back(nullptr);
     for (unsigned j = 0; j < ST->getNumElements(); ++j) {
-      Value *SourceElement = B.CreateGEP(Source, B.getInt32(j));
-      Value *DestElement = B.CreateGEP(Dest, B.getInt32(j));
-      CopyAggregate(B, SourceElement, DestElement);
+      StructIndices.back() = B.getInt32(j);
+      CopyAggregate(counter, B, Source, Dest, StructIndices);
+      if (counter > limit)
+        return;
     }
-  } else if (ArrayType *AT = dyn_cast<ArrayType>(Source->getType())) {
+  } else if (ArrayType *AT =
+                 dyn_cast<ArrayType>(SourcePtr->getPointerElementType())) {
+    SmallVector<Value *, 16> StructIndices;
+    StructIndices.append(GEPIndices.begin(), GEPIndices.end());
     for (unsigned j = 0; j < AT->getNumElements(); ++j) {
-      Value *SourceElement = B.CreateGEP(Source, B.getInt32(j));
-      Value *DestElement = B.CreateGEP(Dest, B.getInt32(j));
-      CopyAggregate(B, SourceElement, DestElement);
+      StructIndices.back() = B.getInt32(j);
+      CopyAggregate(counter, B, Source, Dest, StructIndices);
     }
   } else {
-    Value *Val = B.CreateLoad(Source);
-    B.CreateStore(Val, Dest);
+    auto *SourceGEP = B.CreateGEP(Source, GEPIndices,
+                                    "CopyStructSourceGEP");
+    Value *Val = B.CreateLoad(SourceGEP, "CopyStructLoad");
+    auto *DestGEP = B.CreateGEP(Dest, GEPIndices, "CopyStructDestGEP");
+    B.CreateStore(Val, DestGEP, "CopyStructStore");
+    counter++;
   }
 }
 
@@ -118,12 +134,17 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
           B.CreateAlloca(expanded.ExpandedPayloadStructType,
                          HlslOP->GetU32Const(1), "NewPayload");
       NewStructAlloca->setAlignment(4);
-      auto *NewPayloadPointer =
-          B.CreateGEP(NewStructAlloca, HlslOP->GetU32Const(0));
-
-      // llvm.memcpy cannot be used because the source struct might be in, e.g,
-      // group-shared
-      CopyAggregate(B, DispatchMesh.get_payload(), NewPayloadPointer);
+      // auto *NewPayloadPointer =
+      //    B.CreateGEP(NewStructAlloca, HlslOP->GetU32Const(0));
+      //
+      //// llvm.memcpy cannot be used because the source struct might be in,
+      ////e.g, / group-shared
+      // auto *OldPayloadPointer =
+      //    B.CreateGEP(DispatchMesh.get_payload(), HlslOP->GetU32Const(0));
+      int counter = 0;
+      SmallVector<Value *, 16> GEPIndices;
+      CopyAggregate(counter, B, DispatchMesh.get_payload(), NewStructAlloca,
+                    GEPIndices);
 
       auto ThreadIdFunc =
           HlslOP->GetOpFunc(DXIL::OpCode::ThreadId, Type::getInt32Ty(Ctx));
