@@ -1,7 +1,7 @@
-// RUN: %dxc -T cs_6_0 -E main -O3
+// RUN: %dxc -T cs_6_0 -E main -O3 -Vd %s -spirv | FileCheck %s
 
-// CHECK:      [[val:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
-// CHECK:      [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_v4float %gRWSBuffer
+// CHECK:      [[val:%[0-9]+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
+// CHECK:      [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float %gRWSBuffer
 // CHECK-NEXT:                OpStore [[ptr]] [[val]]
 
 struct S {

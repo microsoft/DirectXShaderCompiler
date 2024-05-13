@@ -27,9 +27,7 @@ add_subdirectory(DXIL) # HLSL Change
 add_subdirectory(DxilContainer) # HLSL Change
 add_subdirectory(DxilPdbInfo) # HLSL Change
 add_subdirectory(DxilPIXPasses) # HLSL Change
-if(WIN32) # HLSL Change
-  add_subdirectory(DxilDia) # HLSL Change
-endif(WIN32) # HLSL Change
+add_subdirectory(DxilDia) # HLSL Change
 add_subdirectory(DxilRootSignature) # HLSL Change
 add_subdirectory(DxcBindingTable) # HLSL Change
 add_subdirectory(DxrFallback) # HLSL Change

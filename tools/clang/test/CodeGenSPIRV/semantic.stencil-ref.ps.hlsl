@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability StencilExportEXT
 
@@ -6,7 +6,7 @@
 
 // TODO: we may need to check the StencilRefReplacingEXT execution mode here.
 
-// CHECK: OpEntryPoint Fragment %main "main" [[StencilRef:%\d+]]
+// CHECK: OpEntryPoint Fragment %main "main" [[StencilRef:%[0-9]+]]
 
 // CEHCK: OpDecorate [[StencilRef]] BuiltIn FragStencilRefEXT
 

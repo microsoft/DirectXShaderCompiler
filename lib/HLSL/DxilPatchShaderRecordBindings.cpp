@@ -11,45 +11,43 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilFallbackLayerPass.h"
-#include "dxc/DXIL/DxilOperations.h"
-#include "dxc/DXIL/DxilSignatureElement.h"
 #include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilSignatureElement.h"
+#include "dxc/HLSL/DxilFallbackLayerPass.h"
+#include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/Support/Global.h"
 
-#include "dxc/Support/Unicode.h"
-#include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilInstructions.h"
-#include "dxc/HLSL/DxilSpanAllocator.h"
-#include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DxilRootSignature/DxilRootSignature.h"
+#include "dxc/HLSL/DxilSpanAllocator.h"
+#include "dxc/Support/Unicode.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
+#include "llvm/ADT/BitVector.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/Pass.h"
-#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Scalar.h"
-#include <memory>
-#include <unordered_set>
-#include <functional>
-#include <unordered_map>
+#include "llvm/Transforms/Utils/Local.h"
 #include <array>
+#include <functional>
+#include <memory>
+#include <unordered_map>
+#include <unordered_set>
 
 struct D3D12_VERSIONED_ROOT_SIGNATURE_DESC;
 #include "DxilPatchShaderRecordBindingsShared.h"
 
-
 using namespace llvm;
 using namespace hlsl;
-
 
 bool operator==(const ViewKey &a, const ViewKey &b) {
   return memcmp(&a, &b, sizeof(a)) == 0;
@@ -58,40 +56,40 @@ bool operator==(const ViewKey &a, const ViewKey &b) {
 const size_t SizeofD3D12GpuVA = sizeof(uint64_t);
 const size_t SizeofD3D12GpuDescriptorHandle = sizeof(uint64_t);
 
-Function *CloneFunction(Function *Orig,
-    const llvm::Twine &Name,
-    llvm::Module *llvmModule) {
+Function *CloneFunction(Function *Orig, const llvm::Twine &Name,
+                        llvm::Module *llvmModule) {
 
-    Function *F = Function::Create(Orig->getFunctionType(),
-        GlobalValue::LinkageTypes::ExternalLinkage,
-        Name, llvmModule);
+  Function *F = Function::Create(Orig->getFunctionType(),
+                                 GlobalValue::LinkageTypes::ExternalLinkage,
+                                 Name, llvmModule);
 
-    SmallVector<ReturnInst *, 2> Returns;
-    ValueToValueMapTy vmap;
-    // Map params.
-    auto entryParamIt = F->arg_begin();
-    for (Argument &param : Orig->args()) {
-        vmap[&param] = (entryParamIt++);
-    }
+  SmallVector<ReturnInst *, 2> Returns;
+  ValueToValueMapTy vmap;
+  // Map params.
+  auto entryParamIt = F->arg_begin();
+  for (Argument &param : Orig->args()) {
+    vmap[&param] = (entryParamIt++);
+  }
 
-    DxilModule &DM = llvmModule->GetOrCreateDxilModule();
+  DxilModule &DM = llvmModule->GetOrCreateDxilModule();
 
-    llvm::CloneFunctionInto(F, Orig, vmap, /*ModuleLevelChagnes*/ false, Returns);
-    DM.GetTypeSystem().CopyFunctionAnnotation(F, Orig, DM.GetTypeSystem());
+  llvm::CloneFunctionInto(F, Orig, vmap, /*ModuleLevelChagnes*/ false, Returns);
+  DM.GetTypeSystem().CopyFunctionAnnotation(F, Orig, DM.GetTypeSystem());
 
-    if (DM.HasDxilFunctionProps(F)) {
-        DM.CloneDxilEntryProps(Orig, F);
-    }
-    return F;
+  if (DM.HasDxilFunctionProps(F)) {
+    DM.CloneDxilEntryProps(Orig, F);
+  }
+  return F;
 }
-
 
 struct ShaderRecordEntry {
   DxilRootParameterType ParameterType;
   unsigned int RecordOffsetInBytes;
   unsigned int OffsetInDescriptors; // Only valid for descriptor tables
 
-  static ShaderRecordEntry InvalidEntry() { return { (DxilRootParameterType)-1, (unsigned int)-1, 0 }; }
+  static ShaderRecordEntry InvalidEntry() {
+    return {(DxilRootParameterType)-1, (unsigned int)-1, 0};
+  }
   bool IsInvalid() { return (unsigned int)ParameterType == (unsigned int)-1; }
 };
 
@@ -100,7 +98,9 @@ class DxilPatchShaderRecordBindings : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilPatchShaderRecordBindings() : ModulePass(ID) {}
-  StringRef getPassName() const override { return "DXIL Patch Shader Record Binding"; }
+  StringRef getPassName() const override {
+    return "DXIL Patch Shader Record Binding";
+  }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 
@@ -110,49 +110,73 @@ private:
   void PatchShaderBindings(Module &M);
   void InitializeViewTable();
 
-  unsigned int AddSRVRawBuffer(Module &M, unsigned int registerIndex, unsigned int registerSpace, const std::string &bufferName);
-  unsigned int AddHandle(Module &M, unsigned int baseRegisterIndex, unsigned int rangeSize, unsigned int registerSpace, DXIL::ResourceClass resClass, DXIL::ResourceKind resKind, const std::string &bufferName, llvm::Type *type = nullptr, unsigned int constantBufferSize = 0);
-  unsigned int AddAliasedHandle(Module &M, unsigned int baseRegisterIndex, unsigned int registerSpace, DXIL::ResourceClass resClass, DXIL::ResourceKind resKind, const std::string &bufferName, llvm::Type *type);
-  unsigned int AddCBufferAliasedHandle(Module &M, unsigned int baseRegisterIndex, unsigned int registerSpace, const std::string &bufferName);
+  unsigned int AddSRVRawBuffer(Module &M, unsigned int registerIndex,
+                               unsigned int registerSpace,
+                               const std::string &bufferName);
+  unsigned int
+  AddHandle(Module &M, unsigned int baseRegisterIndex, unsigned int rangeSize,
+            unsigned int registerSpace, DXIL::ResourceClass resClass,
+            DXIL::ResourceKind resKind, const std::string &bufferName,
+            llvm::Type *type = nullptr, unsigned int constantBufferSize = 0);
+  unsigned int AddAliasedHandle(Module &M, unsigned int baseRegisterIndex,
+                                unsigned int registerSpace,
+                                DXIL::ResourceClass resClass,
+                                DXIL::ResourceKind resKind,
+                                const std::string &bufferName,
+                                llvm::Type *type);
+  unsigned int AddCBufferAliasedHandle(Module &M,
+                                       unsigned int baseRegisterIndex,
+                                       unsigned int registerSpace,
+                                       const std::string &bufferName);
 
-  llvm::Value *CreateOffsetToShaderRecord(Module &M, IRBuilder<> &Builder, unsigned int RecordOffsetInBytes, llvm::Value *CbufferOffsetInBytes);
-  llvm::Value *CreateShaderRecordBufferLoad(Module &M, IRBuilder<> &Builder, llvm::Value *ShaderRecordOffsetInBytes, llvm::Type* type);
-  llvm::Value *CreateCBufferLoadOffsetInBytes(Module &M, IRBuilder<> &Builder, llvm::Instruction *instruction);
-  llvm::Value *CreateCBufferLoadLegacy(Module &M, IRBuilder<> &Builder, llvm::Value *ResourceHandle, unsigned int RowToLoad = 0);
+  llvm::Value *CreateOffsetToShaderRecord(Module &M, IRBuilder<> &Builder,
+                                          unsigned int RecordOffsetInBytes,
+                                          llvm::Value *CbufferOffsetInBytes);
+  llvm::Value *
+  CreateShaderRecordBufferLoad(Module &M, IRBuilder<> &Builder,
+                               llvm::Value *ShaderRecordOffsetInBytes,
+                               llvm::Type *type);
+  llvm::Value *CreateCBufferLoadOffsetInBytes(Module &M, IRBuilder<> &Builder,
+                                              llvm::Instruction *instruction);
+  llvm::Value *CreateCBufferLoadLegacy(Module &M, IRBuilder<> &Builder,
+                                       llvm::Value *ResourceHandle,
+                                       unsigned int RowToLoad = 0);
 
   llvm::Value *LoadShaderRecordData(Module &M, IRBuilder<> &Builder,
                                     llvm::Value *offsetToShaderRecord,
                                     unsigned int dataOffsetInShaderRecord);
 
   void PatchCreateHandleToUseDescriptorIndex(
-      _In_ Module &M,
-      _In_ IRBuilder<> &Builder,
-      _In_ DXIL::ResourceKind &resourceKind,
-      _In_ DXIL::ResourceClass &resourceClass,
-      _In_ llvm::Type *resourceType,
-      _In_ llvm::Value *descriptorIndex,
-      _Inout_ DxilInst_CreateHandleForLib &createHandleInstr);
+      Module &M, IRBuilder<> &Builder, DXIL::ResourceKind &resourceKind,
+      DXIL::ResourceClass &resourceClass, llvm::Type *resourceType,
+      llvm::Value *descriptorIndex,
+      DxilInst_CreateHandleForLib &createHandleInstr);
 
+  bool GetHandleInfo(Module &M,
+                     DxilInst_CreateHandleForLib &createHandleStructForLib,
+                     unsigned int &shaderRegister, unsigned int &registerSpace,
+                     DXIL::ResourceKind &kind, DXIL::ResourceClass &resClass,
+                     llvm::Type *&resType);
 
-  bool GetHandleInfo(
-    Module &M, 
-    DxilInst_CreateHandleForLib &createHandleStructForLib, 
-    _Out_ unsigned int &shaderRegister, 
-    _Out_ unsigned int &registerSpace, 
-    _Out_ DXIL::ResourceKind &kind, 
-    _Out_ DXIL::ResourceClass &resClass,
-    _Out_ llvm::Type *&resType);
-
-  llvm::Value * GetAliasedDescriptorHeapHandle(Module &M, llvm::Type *, DXIL::ResourceClass resClass, DXIL::ResourceKind resKind);
+  llvm::Value *GetAliasedDescriptorHeapHandle(Module &M, llvm::Type *,
+                                              DXIL::ResourceClass resClass,
+                                              DXIL::ResourceKind resKind);
 
   unsigned int GetConstantBufferOffsetToShaderRecord();
 
   bool IsCBufferLoad(llvm::Instruction *instruction);
 
-  // Unlike the LLVM version of this function, this does not requires the InstructionToReplace and the ValueToReplaceWith to be the same instruction type
-  static void ReplaceUsesOfWith(llvm::Instruction *InstructionToReplace, llvm::Value *ValueToReplaceWith);
+  // Unlike the LLVM version of this function, this does not requires the
+  // InstructionToReplace and the ValueToReplaceWith to be the same instruction
+  // type
+  static void ReplaceUsesOfWith(llvm::Instruction *InstructionToReplace,
+                                llvm::Value *ValueToReplaceWith);
 
-  static ShaderRecordEntry FindRootSignatureDescriptor(const DxilVersionedRootSignatureDesc &rootSignatureDescriptor, unsigned int ShaderRecordIdentifierSizeInBytes, DXIL::ResourceClass resourceClass, unsigned int baseRegisterIndex, unsigned int registerSpace);
+  static ShaderRecordEntry FindRootSignatureDescriptor(
+      const DxilVersionedRootSignatureDesc &rootSignatureDescriptor,
+      unsigned int ShaderRecordIdentifierSizeInBytes,
+      DXIL::ResourceClass resourceClass, unsigned int baseRegisterIndex,
+      unsigned int registerSpace);
 
   // TODO: I would like to see these prefixed with m_
   llvm::Value *ShaderTableHandle = nullptr;
@@ -160,15 +184,13 @@ private:
   llvm::Value *BaseShaderRecordOffset = nullptr;
 
   static const unsigned int NumViewTypes = 4;
-  struct ViewKeyHasher
-  {
+  struct ViewKeyHasher {
   public:
-      std::size_t operator()(const ViewKey &x) const {
-        return std::hash<unsigned int>()((unsigned int)x.ViewType) ^ 
-            std::hash<unsigned int>()((unsigned int)x.StructuredStride);
-      }
+    std::size_t operator()(const ViewKey &x) const {
+      return std::hash<unsigned int>()((unsigned int)x.ViewType) ^
+             std::hash<unsigned int>()((unsigned int)x.StructuredStride);
+    }
   };
-
 
   std::unordered_map<ViewKey, llvm::Value *, ViewKeyHasher>
       TypeToAliasedDescriptorHeap[NumViewTypes];
@@ -183,27 +205,26 @@ private:
 char DxilPatchShaderRecordBindings::ID = 0;
 
 // TODO: Find the right thing to do on failure
-void ThrowFailure() {
-  throw std::exception();
-}
+void ThrowFailure() { throw std::exception(); }
 
 // TODO: Stolen from Brandon's code, merge
 // Remove ELF mangling
 static inline std::string GetUnmangledName(StringRef name) {
   if (!name.startswith("\x1?"))
-      return name;
+    return name;
 
   size_t pos = name.find("@@");
   if (pos == name.npos)
     return name;
 
-
   return name.substr(2, pos - 2);
 }
 
-static Function* getFunctionFromName(Module &M, const std::wstring& exportName) {
+static Function *getFunctionFromName(Module &M,
+                                     const std::wstring &exportName) {
   for (auto F = M.begin(), E = M.end(); F != E; ++F) {
-    std::wstring functionName = Unicode::UTF8ToWideStringOrThrow(GetUnmangledName(F->getName()).c_str());
+    std::wstring functionName = Unicode::UTF8ToWideStringOrThrow(
+        GetUnmangledName(F->getName()).c_str());
     if (exportName == functionName) {
       return F;
     }
@@ -215,36 +236,47 @@ ModulePass *llvm::createDxilPatchShaderRecordBindingsPass() {
   return new DxilPatchShaderRecordBindings();
 }
 
-INITIALIZE_PASS(DxilPatchShaderRecordBindings, "hlsl-dxil-patch-shader-record-bindings", "Patch shader record bindings to instead pull from the fallback provided bindings", false, false)
+INITIALIZE_PASS(DxilPatchShaderRecordBindings,
+                "hlsl-dxil-patch-shader-record-bindings",
+                "Patch shader record bindings to instead pull from the "
+                "fallback provided bindings",
+                false, false)
 
 void DxilPatchShaderRecordBindings::applyOptions(PassOptions O) {
-  for (const auto & option : O) {
+  for (const auto &option : O) {
     if (0 == option.first.compare("root-signature")) {
       unsigned int cHexRadix = 16;
-      pInputShaderInfo = (ShaderInfo*)strtoull(option.second.data(), nullptr, cHexRadix);
-      pRootSignatureDesc = (const DxilVersionedRootSignatureDesc*)pInputShaderInfo->pRootSignatureDesc;
+      pInputShaderInfo =
+          (ShaderInfo *)strtoull(option.second.data(), nullptr, cHexRadix);
+      pRootSignatureDesc = (const DxilVersionedRootSignatureDesc *)
+                               pInputShaderInfo->pRootSignatureDesc;
     }
   }
 }
 
-void AddAnnoationsIfNeeded(DxilModule &DM, llvm::StructType *StructTy, const std::string &FieldName, unsigned int numFields = 1)
-{
-    auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(StructTy);
-    if (pAnnotation == nullptr)
-    {
-        pAnnotation = DM.GetTypeSystem().AddStructAnnotation(StructTy);
-        pAnnotation->SetCBufferSize(sizeof(uint32_t) * numFields);
-        for (unsigned int i = 0; i < numFields; i++)
-        {
-            pAnnotation->GetFieldAnnotation(i).SetCBufferOffset(sizeof(uint32_t) * i);
-            pAnnotation->GetFieldAnnotation(i).SetCompType(hlsl::DXIL::ComponentType::I32);
-            pAnnotation->GetFieldAnnotation(i).SetFieldName(FieldName + std::to_string(i));
-        }
+void AddAnnoationsIfNeeded(DxilModule &DM, llvm::StructType *StructTy,
+                           const std::string &FieldName,
+                           unsigned int numFields = 1) {
+  auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(StructTy);
+  if (pAnnotation == nullptr) {
+    pAnnotation = DM.GetTypeSystem().AddStructAnnotation(StructTy);
+    pAnnotation->SetCBufferSize(sizeof(uint32_t) * numFields);
+    for (unsigned int i = 0; i < numFields; i++) {
+      pAnnotation->GetFieldAnnotation(i).SetCBufferOffset(sizeof(uint32_t) * i);
+      pAnnotation->GetFieldAnnotation(i).SetCompType(
+          hlsl::DXIL::ComponentType::I32);
+      pAnnotation->GetFieldAnnotation(i).SetFieldName(FieldName +
+                                                      std::to_string(i));
     }
+  }
 }
 
-unsigned int DxilPatchShaderRecordBindings::AddHandle(Module &M, unsigned int baseRegisterIndex, unsigned int rangeSize, unsigned int registerSpace, DXIL::ResourceClass resClass, DXIL::ResourceKind resKind, const std::string &bufferName, llvm::Type *type, unsigned int constantBufferSize) {
-  LLVMContext & Ctx = M.getContext();
+unsigned int DxilPatchShaderRecordBindings::AddHandle(
+    Module &M, unsigned int baseRegisterIndex, unsigned int rangeSize,
+    unsigned int registerSpace, DXIL::ResourceClass resClass,
+    DXIL::ResourceKind resKind, const std::string &bufferName, llvm::Type *type,
+    unsigned int constantBufferSize) {
+  LLVMContext &Ctx = M.getContext();
   DxilModule &DM = M.GetOrCreateDxilModule();
 
   // Set up a SRV with byte address buffer
@@ -275,22 +307,22 @@ unsigned int DxilPatchShaderRecordBindings::AddHandle(Module &M, unsigned int ba
   case DXIL::ResourceClass::Sampler:
     resourceHandle = static_cast<unsigned int>(DM.GetSamplers().size());
     pSampler = llvm::make_unique<DxilSampler>();
-    // TODO: Is this okay? What if one of the samplers in the table is a comparison sampler?
+    // TODO: Is this okay? What if one of the samplers in the table is a
+    // comparison sampler?
     pSampler->SetSamplerKind(DxilSampler::SamplerKind::Default);
     pBaseHandle = pSampler.get();
     break;
   }
 
   if (!type) {
-    SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
+    SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
     std::string ByteAddressBufferName = "struct.ByteAddressBuffer";
     type = M.getTypeByName(ByteAddressBufferName);
-    if (!type)
-    {
-        StructType *StructTy;
-        type = StructTy = StructType::create(Elements, ByteAddressBufferName);
-  
-        AddAnnoationsIfNeeded(DM, StructTy, ByteAddressBufferName);
+    if (!type) {
+      StructType *StructTy;
+      type = StructTy = StructType::create(Elements, ByteAddressBufferName);
+
+      AddAnnoationsIfNeeded(DM, StructTy, ByteAddressBufferName);
     }
   }
 
@@ -333,62 +365,74 @@ unsigned int DxilPatchShaderRecordBindings::AddHandle(Module &M, unsigned int ba
   return ID;
 }
 
-unsigned int DxilPatchShaderRecordBindings::GetConstantBufferOffsetToShaderRecord()
-{
-    switch (ShaderKind)
-    {
-    case DXIL::ShaderKind::ClosestHit:
-    case DXIL::ShaderKind::AnyHit:
-    case DXIL::ShaderKind::Intersection:
-        return offsetof(DispatchRaysConstants, HitGroupShaderRecordStride);
-    case DXIL::ShaderKind::Miss:
-        return offsetof(DispatchRaysConstants, MissShaderRecordStride);
-    default:
-        ThrowFailure();
-        return -1;
-    }
+unsigned int
+DxilPatchShaderRecordBindings::GetConstantBufferOffsetToShaderRecord() {
+  switch (ShaderKind) {
+  case DXIL::ShaderKind::ClosestHit:
+  case DXIL::ShaderKind::AnyHit:
+  case DXIL::ShaderKind::Intersection:
+    return offsetof(DispatchRaysConstants, HitGroupShaderRecordStride);
+  case DXIL::ShaderKind::Miss:
+    return offsetof(DispatchRaysConstants, MissShaderRecordStride);
+  default:
+    ThrowFailure();
+    return -1;
+  }
 }
 
-
-unsigned int DxilPatchShaderRecordBindings::AddSRVRawBuffer(Module &M, unsigned int registerIndex, unsigned int registerSpace, const std::string &bufferName) {
-  return AddHandle(M, registerIndex, 1, registerSpace, DXIL::ResourceClass::SRV, DXIL::ResourceKind::RawBuffer, bufferName);
+unsigned int DxilPatchShaderRecordBindings::AddSRVRawBuffer(
+    Module &M, unsigned int registerIndex, unsigned int registerSpace,
+    const std::string &bufferName) {
+  return AddHandle(M, registerIndex, 1, registerSpace, DXIL::ResourceClass::SRV,
+                   DXIL::ResourceKind::RawBuffer, bufferName);
 }
 
 llvm::Constant *GetArraySymbol(Module &M, const std::string &bufferName) {
-  LLVMContext & Ctx = M.getContext();
+  LLVMContext &Ctx = M.getContext();
 
-  SmallVector<llvm::Type*, 1> Elements{ Type::getInt32Ty(Ctx) };
+  SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
   llvm::StructType *StructTy = llvm::StructType::create(Elements, bufferName);
   llvm::ArrayType *ArrayTy = ArrayType::get(StructTy, -1);
 
   return UndefValue::get(ArrayTy->getPointerTo());
 }
 
-unsigned int DxilPatchShaderRecordBindings::AddCBufferAliasedHandle(Module &M, unsigned int baseRegisterIndex, unsigned int registerSpace, const std::string &bufferName) {
+unsigned int DxilPatchShaderRecordBindings::AddCBufferAliasedHandle(
+    Module &M, unsigned int baseRegisterIndex, unsigned int registerSpace,
+    const std::string &bufferName) {
   const unsigned int maxConstantBufferSize = 4096 * 16;
-  return AddHandle(M, baseRegisterIndex, UINT_MAX, registerSpace, DXIL::ResourceClass::CBuffer, DXIL::ResourceKind::CBuffer, bufferName, GetArraySymbol(M, bufferName)->getType(), maxConstantBufferSize);
+  return AddHandle(M, baseRegisterIndex, UINT_MAX, registerSpace,
+                   DXIL::ResourceClass::CBuffer, DXIL::ResourceKind::CBuffer,
+                   bufferName, GetArraySymbol(M, bufferName)->getType(),
+                   maxConstantBufferSize);
 }
 
-unsigned int DxilPatchShaderRecordBindings::AddAliasedHandle(Module &M, unsigned int baseRegisterIndex, unsigned int registerSpace, DXIL::ResourceClass resClass, DXIL::ResourceKind resKind, const std::string &bufferName, llvm::Type *type) {
-  return AddHandle(M, baseRegisterIndex, UINT_MAX, registerSpace, resClass, resKind, bufferName, type);
+unsigned int DxilPatchShaderRecordBindings::AddAliasedHandle(
+    Module &M, unsigned int baseRegisterIndex, unsigned int registerSpace,
+    DXIL::ResourceClass resClass, DXIL::ResourceKind resKind,
+    const std::string &bufferName, llvm::Type *type) {
+  return AddHandle(M, baseRegisterIndex, UINT_MAX, registerSpace, resClass,
+                   resKind, bufferName, type);
 }
 
 // TODO: Stolen from Brandon's code
-DXIL::ShaderKind GetRayShaderKindCopy(Function* F)
-{
-    if (F->hasFnAttribute("exp-shader"))
-        return DXIL::ShaderKind::RayGeneration;
+DXIL::ShaderKind GetRayShaderKindCopy(Function *F) {
+  if (F->hasFnAttribute("exp-shader"))
+    return DXIL::ShaderKind::RayGeneration;
 
-    DxilModule& DM = F->getParent()->GetDxilModule();
-    if (DM.HasDxilFunctionProps(F) && DM.GetDxilFunctionProps(F).IsRay())
-        return DM.GetDxilFunctionProps(F).shaderKind;
+  DxilModule &DM = F->getParent()->GetDxilModule();
+  if (DM.HasDxilFunctionProps(F) && DM.GetDxilFunctionProps(F).IsRay())
+    return DM.GetDxilFunctionProps(F).shaderKind;
 
-    return DXIL::ShaderKind::Invalid;
+  return DXIL::ShaderKind::Invalid;
 }
 
 bool DxilPatchShaderRecordBindings::runOnModule(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
-  EntryPointFunction = pInputShaderInfo->ExportName ? getFunctionFromName(M, pInputShaderInfo->ExportName) : DM.GetEntryFunction();
+  EntryPointFunction =
+      pInputShaderInfo->ExportName
+          ? getFunctionFromName(M, pInputShaderInfo->ExportName)
+          : DM.GetEntryFunction();
   ShaderKind = GetRayShaderKindCopy(EntryPointFunction);
 
   ValidateParameters();
@@ -405,131 +449,125 @@ void DxilPatchShaderRecordBindings::ValidateParameters() {
   }
 }
 
-DxilResourceBase &GetResourceFromID(DxilModule &DM, DXIL::ResourceClass resClass, unsigned int id)
-{
-    switch (resClass)
-    {
-    case DXIL::ResourceClass::CBuffer:
-        return DM.GetCBuffer(id);
-        break;
-    case DXIL::ResourceClass::SRV:
-        return DM.GetSRV(id);
-        break;
-    case DXIL::ResourceClass::UAV:
-        return DM.GetUAV(id);
-        break;
-    case DXIL::ResourceClass::Sampler:
-        return DM.GetSampler(id);
-        break;
-    default:
-        ThrowFailure();
-        llvm_unreachable("invalid resource class");
-    }
+DxilResourceBase &GetResourceFromID(DxilModule &DM,
+                                    DXIL::ResourceClass resClass,
+                                    unsigned int id) {
+  switch (resClass) {
+  case DXIL::ResourceClass::CBuffer:
+    return DM.GetCBuffer(id);
+    break;
+  case DXIL::ResourceClass::SRV:
+    return DM.GetSRV(id);
+    break;
+  case DXIL::ResourceClass::UAV:
+    return DM.GetUAV(id);
+    break;
+  case DXIL::ResourceClass::Sampler:
+    return DM.GetSampler(id);
+    break;
+  default:
+    ThrowFailure();
+    llvm_unreachable("invalid resource class");
+  }
 }
 
-unsigned int FindOrInsertViewIntoList(const ViewKey &key, ViewKey *pViewList, unsigned int &numViews, unsigned int maxViews)
-{
-    unsigned int viewIndex = 0;
-    for (; viewIndex < numViews; viewIndex++)
-    {
-        if (pViewList[viewIndex] == key)
-        {
-            break;
-        }
+unsigned int FindOrInsertViewIntoList(const ViewKey &key, ViewKey *pViewList,
+                                      unsigned int &numViews,
+                                      unsigned int maxViews) {
+  unsigned int viewIndex = 0;
+  for (; viewIndex < numViews; viewIndex++) {
+    if (pViewList[viewIndex] == key) {
+      break;
+    }
+  }
+
+  if (viewIndex == numViews) {
+    if (viewIndex >= maxViews) {
+      ThrowFailure();
     }
 
-    if (viewIndex == numViews)
-    {
-        if (viewIndex >= maxViews) {
-            ThrowFailure();
-        }
-
-        pViewList[viewIndex] = key;
-        numViews++;
-    }
-    return viewIndex;
+    pViewList[viewIndex] = key;
+    numViews++;
+  }
+  return viewIndex;
 }
 
-llvm::Value *DxilPatchShaderRecordBindings::GetAliasedDescriptorHeapHandle(Module &M, llvm::Type *type, DXIL::ResourceClass resClass, DXIL::ResourceKind resKind)
-{
-    DxilModule &DM = M.GetOrCreateDxilModule();
-    unsigned int resClassIndex = (unsigned int)resClass;
-    
-    ViewKey key = {};
-    key.ViewType = (unsigned int)resKind;
-    if (DXIL::IsStructuredBuffer(resKind))
-    {
-      key.StructuredStride = type->getPrimitiveSizeInBits();
-    } else if (resKind != DXIL::ResourceKind::RawBuffer)
-    {
-      auto containedType = type->getContainedType(0);
-      // If it's a vector, get the type of just a single element
-      if (containedType->getNumContainedTypes() > 0)
-      {
-        assert(containedType->getNumContainedTypes() <= 4);
-        containedType = containedType->getContainedType(0);
+llvm::Value *DxilPatchShaderRecordBindings::GetAliasedDescriptorHeapHandle(
+    Module &M, llvm::Type *type, DXIL::ResourceClass resClass,
+    DXIL::ResourceKind resKind) {
+  DxilModule &DM = M.GetOrCreateDxilModule();
+  unsigned int resClassIndex = (unsigned int)resClass;
+
+  ViewKey key = {};
+  key.ViewType = (unsigned int)resKind;
+  if (DXIL::IsStructuredBuffer(resKind)) {
+    key.StructuredStride = type->getPrimitiveSizeInBits();
+  } else if (resKind != DXIL::ResourceKind::RawBuffer) {
+    auto containedType = type->getContainedType(0);
+    // If it's a vector, get the type of just a single element
+    if (containedType->getNumContainedTypes() > 0) {
+      assert(containedType->getNumContainedTypes() <= 4);
+      containedType = containedType->getContainedType(0);
+    }
+    key.SRVComponentType =
+        (unsigned int)CompType::GetCompType(containedType).GetKind();
+  }
+  auto aliasedDescriptorHeapHandle =
+      TypeToAliasedDescriptorHeap[resClassIndex].find(key);
+  if (aliasedDescriptorHeapHandle ==
+      TypeToAliasedDescriptorHeap[resClassIndex].end()) {
+    unsigned int registerSpaceOffset = 0;
+    std::string HandleName;
+
+    if (resClass == DXIL::ResourceClass::SRV) {
+      registerSpaceOffset = FindOrInsertViewIntoList(
+          key, pInputShaderInfo->pSRVRegisterSpaceArray,
+          *pInputShaderInfo->pNumSRVSpaces,
+          FallbackLayerNumDescriptorHeapSpacesPerView);
+
+      HandleName = std::string("SRVDescriptorHeapTable") +
+                   std::to_string(registerSpaceOffset);
+    } else if (resClass == DXIL::ResourceClass::UAV) {
+      registerSpaceOffset = FindOrInsertViewIntoList(
+          key, pInputShaderInfo->pUAVRegisterSpaceArray,
+          *pInputShaderInfo->pNumUAVSpaces,
+          FallbackLayerNumDescriptorHeapSpacesPerView);
+
+      if (registerSpaceOffset == 0) {
+        // Using the descriptor heap declared by the fallback for handling
+        // emulated pointers, make sure the name is an exact match
+        assert(key.ViewType ==
+               (unsigned int)hlsl::DXIL::ResourceKind::RawBuffer);
+        HandleName =
+            "\01?DescriptorHeapBufferTable@@3PAURWByteAddressBuffer@@A";
+      } else {
+        HandleName = std::string("UAVDescriptorHeapTable") +
+                     std::to_string(registerSpaceOffset);
       }
-      key.SRVComponentType = (unsigned int)CompType::GetCompType(containedType).GetKind();
+    } else if (resClass == DXIL::ResourceClass::CBuffer) {
+      HandleName = std::string("CBVDescriptorHeapTable");
+
+    } else {
+      HandleName = std::string("SamplerDescriptorHeapTable");
     }
-    auto aliasedDescriptorHeapHandle = TypeToAliasedDescriptorHeap[resClassIndex].find(key);
-    if (aliasedDescriptorHeapHandle == TypeToAliasedDescriptorHeap[resClassIndex].end())
-    {
-        unsigned int registerSpaceOffset = 0;
-        std::string HandleName;
 
-        if (resClass == DXIL::ResourceClass::SRV)
-        {
-          registerSpaceOffset = FindOrInsertViewIntoList(
-              key, 
-              pInputShaderInfo->pSRVRegisterSpaceArray, 
-              *pInputShaderInfo->pNumSRVSpaces, 
-              FallbackLayerNumDescriptorHeapSpacesPerView);
+    llvm::ArrayType *descriptorHeapType = ArrayType::get(type, 0);
+    unsigned int id = AddAliasedHandle(
+        M, FallbackLayerDescriptorHeapTable,
+        FallbackLayerRegisterSpace + FallbackLayerDescriptorHeapSpaceOffset +
+            registerSpaceOffset,
+        resClass, resKind, HandleName, descriptorHeapType);
 
-          HandleName = std::string("SRVDescriptorHeapTable") +
-                       std::to_string(registerSpaceOffset);
-        }
-        else if (resClass == DXIL::ResourceClass::UAV)
-        {
-          registerSpaceOffset = FindOrInsertViewIntoList(
-              key,
-              pInputShaderInfo->pUAVRegisterSpaceArray,
-              *pInputShaderInfo->pNumUAVSpaces,
-              FallbackLayerNumDescriptorHeapSpacesPerView);
-
-          if (registerSpaceOffset == 0)
-          {
-              // Using the descriptor heap declared by the fallback for handling emulated pointers,
-              // make sure the name is an exact match
-              assert(key.ViewType == (unsigned int)hlsl::DXIL::ResourceKind::RawBuffer);
-              HandleName = "\01?DescriptorHeapBufferTable@@3PAURWByteAddressBuffer@@A";
-          }
-          else
-          {
-              HandleName = std::string("UAVDescriptorHeapTable") +
-                  std::to_string(registerSpaceOffset);
-          }
-        }
-        else if (resClass == DXIL::ResourceClass::CBuffer)
-        {
-          HandleName = std::string("CBVDescriptorHeapTable");
-
-        } else {
-          HandleName = std::string("SamplerDescriptorHeapTable");
-        }
-
-
-        llvm::ArrayType *descriptorHeapType = ArrayType::get(type, 0);
-        unsigned int id = AddAliasedHandle(M, FallbackLayerDescriptorHeapTable, FallbackLayerRegisterSpace + FallbackLayerDescriptorHeapSpaceOffset + registerSpaceOffset, resClass, resKind, HandleName, descriptorHeapType);
-        
-        TypeToAliasedDescriptorHeap[resClassIndex][key] = GetResourceFromID(DM, resClass, id).GetGlobalSymbol();
-    }
-    return TypeToAliasedDescriptorHeap[resClassIndex][key];
+    TypeToAliasedDescriptorHeap[resClassIndex][key] =
+        GetResourceFromID(DM, resClass, id).GetGlobalSymbol();
+  }
+  return TypeToAliasedDescriptorHeap[resClassIndex][key];
 }
 
 void DxilPatchShaderRecordBindings::AddInputBinding(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
-  auto & EntryBlock = EntryPointFunction->getEntryBlock();
-  auto & Instructions = EntryBlock.getInstList();
+  auto &EntryBlock = EntryPointFunction->getEntryBlock();
+  auto &Instructions = EntryBlock.getInstList();
 
   std::string bufferName;
   unsigned int bufferRegister;
@@ -554,11 +592,12 @@ void DxilPatchShaderRecordBindings::AddInputBinding(Module &M) {
     bufferName = "\01?CallableShaderTable@@3UByteAddressBuffer@@A";
     break;
   }
-  unsigned int ShaderRecordID = AddSRVRawBuffer(M, bufferRegister, FallbackLayerRegisterSpace, bufferName);
+  unsigned int ShaderRecordID = AddSRVRawBuffer(
+      M, bufferRegister, FallbackLayerRegisterSpace, bufferName);
 
   auto It = Instructions.begin();
   OP *HlslOP = DM.GetOP();
-  LLVMContext & Ctx = M.getContext();
+  LLVMContext &Ctx = M.getContext();
 
   IRBuilder<> Builder(It);
   {
@@ -566,107 +605,143 @@ void DxilPatchShaderRecordBindings::AddInputBinding(Module &M) {
     llvm::Value *Symbol = DM.GetSRV(ShaderRecordID).GetGlobalSymbol();
     llvm::Value *Load = Builder.CreateLoad(Symbol, "LoadShaderTableHandle");
 
-    Function *CreateHandleForLib = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, Load->getType());
-    Constant *CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
-    ShaderTableHandle = Builder.CreateCall(CreateHandleForLib, { CreateHandleOpcodeArg, Load }, ShaderTableName);
+    Function *CreateHandleForLib =
+        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, Load->getType());
+    Constant *CreateHandleOpcodeArg =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
+    ShaderTableHandle = Builder.CreateCall(
+        CreateHandleForLib, {CreateHandleOpcodeArg, Load}, ShaderTableName);
   }
 
   {
     auto CbufferName = "Constants";
     const unsigned int sizeOfConstantsInBytes = sizeof(DispatchRaysConstants);
-    llvm::StructType *StructTy= M.getTypeByName(CbufferName);
-    if (!StructTy)
-    {
-        const unsigned int numUintsInConstants = sizeOfConstantsInBytes / sizeof(unsigned int);
-        SmallVector<llvm::Type*, numUintsInConstants> Elements(numUintsInConstants);
-        for (unsigned int i = 0; i < numUintsInConstants; i++)
-        {
-            Elements[i] = Type::getInt32Ty(Ctx);
-        }
-        StructTy = llvm::StructType::create(Elements, CbufferName);
-        AddAnnoationsIfNeeded(DM, StructTy, std::string(CbufferName), numUintsInConstants);
+    llvm::StructType *StructTy = M.getTypeByName(CbufferName);
+    if (!StructTy) {
+      const unsigned int numUintsInConstants =
+          sizeOfConstantsInBytes / sizeof(unsigned int);
+      SmallVector<llvm::Type *, numUintsInConstants> Elements(
+          numUintsInConstants);
+      for (unsigned int i = 0; i < numUintsInConstants; i++) {
+        Elements[i] = Type::getInt32Ty(Ctx);
+      }
+      StructTy = llvm::StructType::create(Elements, CbufferName);
+      AddAnnoationsIfNeeded(DM, StructTy, std::string(CbufferName),
+                            numUintsInConstants);
     }
 
-    unsigned int handle = AddHandle(M, FallbackLayerDispatchConstantsRegister, 1, FallbackLayerRegisterSpace, DXIL::ResourceClass::CBuffer, DXIL::ResourceKind::CBuffer, CbufferName, StructTy, sizeOfConstantsInBytes);
+    unsigned int handle =
+        AddHandle(M, FallbackLayerDispatchConstantsRegister, 1,
+                  FallbackLayerRegisterSpace, DXIL::ResourceClass::CBuffer,
+                  DXIL::ResourceKind::CBuffer, CbufferName, StructTy,
+                  sizeOfConstantsInBytes);
 
     llvm::Value *Symbol = DM.GetCBuffer(handle).GetGlobalSymbol();
     llvm::Value *Load = Builder.CreateLoad(Symbol, "DispatchRaysConstants");
 
-    Function *CreateHandleForLib = HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, Load->getType());
-    Constant *CreateHandleOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
-    DispatchRaysConstantsHandle = Builder.CreateCall(CreateHandleForLib, { CreateHandleOpcodeArg, Load }, CbufferName);
+    Function *CreateHandleForLib =
+        HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, Load->getType());
+    Constant *CreateHandleOpcodeArg =
+        HlslOP->GetU32Const((unsigned)DXIL::OpCode::CreateHandleForLib);
+    DispatchRaysConstantsHandle = Builder.CreateCall(
+        CreateHandleForLib, {CreateHandleOpcodeArg, Load}, CbufferName);
   }
-  
+
   // Raygen always reads from the start so no offset calculations needed
-  if (ShaderKind != DXIL::ShaderKind::RayGeneration)
-  {
-      std::string ShaderRecordOffsetFuncName = "\x1?Fallback_ShaderRecordOffset@@YAIXZ";
-      Function *ShaderRecordOffsetFunc = M.getFunction(ShaderRecordOffsetFuncName);
-      if (!ShaderRecordOffsetFunc)
-      {
-          FunctionType *ShaderRecordOffsetFuncType = FunctionType::get(llvm::Type::getInt32Ty(Ctx), {}, false);
-          ShaderRecordOffsetFunc = Function::Create(ShaderRecordOffsetFuncType, GlobalValue::LinkageTypes::ExternalLinkage, ShaderRecordOffsetFuncName, &M);
-      }
-      BaseShaderRecordOffset = Builder.CreateCall(ShaderRecordOffsetFunc, {}, "shaderRecordOffset");
-  }
-  else
-  {
-      BaseShaderRecordOffset = HlslOP->GetU32Const(0);
+  if (ShaderKind != DXIL::ShaderKind::RayGeneration) {
+    std::string ShaderRecordOffsetFuncName =
+        "\x1?Fallback_ShaderRecordOffset@@YAIXZ";
+    Function *ShaderRecordOffsetFunc =
+        M.getFunction(ShaderRecordOffsetFuncName);
+    if (!ShaderRecordOffsetFunc) {
+      FunctionType *ShaderRecordOffsetFuncType =
+          FunctionType::get(llvm::Type::getInt32Ty(Ctx), {}, false);
+      ShaderRecordOffsetFunc =
+          Function::Create(ShaderRecordOffsetFuncType,
+                           GlobalValue::LinkageTypes::ExternalLinkage,
+                           ShaderRecordOffsetFuncName, &M);
+    }
+    BaseShaderRecordOffset =
+        Builder.CreateCall(ShaderRecordOffsetFunc, {}, "shaderRecordOffset");
+  } else {
+    BaseShaderRecordOffset = HlslOP->GetU32Const(0);
   }
 }
 
-llvm::Value *DxilPatchShaderRecordBindings::CreateOffsetToShaderRecord(Module &M, IRBuilder<> &Builder, unsigned int RecordOffsetInBytes, llvm::Value *CbufferOffsetInBytes) {
+llvm::Value *DxilPatchShaderRecordBindings::CreateOffsetToShaderRecord(
+    Module &M, IRBuilder<> &Builder, unsigned int RecordOffsetInBytes,
+    llvm::Value *CbufferOffsetInBytes) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   OP *HlslOP = DM.GetOP();
 
-  // Create handle for the newly-added constant buffer (which is achieved via a function call)
+  // Create handle for the newly-added constant buffer (which is achieved via a
+  // function call)
   auto AdddName = "ShaderRecordOffsetInBytes";
-  Constant *ShaderRecordOffsetInBytes = HlslOP->GetU32Const(RecordOffsetInBytes); // Offset of constants in shader record buffer
-  return Builder.CreateAdd(CbufferOffsetInBytes, ShaderRecordOffsetInBytes, AdddName);
+  Constant *ShaderRecordOffsetInBytes = HlslOP->GetU32Const(
+      RecordOffsetInBytes); // Offset of constants in shader record buffer
+  return Builder.CreateAdd(CbufferOffsetInBytes, ShaderRecordOffsetInBytes,
+                           AdddName);
 }
 
-llvm::Value *DxilPatchShaderRecordBindings::CreateCBufferLoadLegacy(Module &M, IRBuilder<> &Builder, llvm::Value *ResourceHandle, unsigned int RowToLoad) {
+llvm::Value *DxilPatchShaderRecordBindings::CreateCBufferLoadLegacy(
+    Module &M, IRBuilder<> &Builder, llvm::Value *ResourceHandle,
+    unsigned int RowToLoad) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   OP *HlslOP = DM.GetOP();
-  LLVMContext & Ctx = M.getContext();
+  LLVMContext &Ctx = M.getContext();
 
   auto BufferLoadName = "ConstantBuffer";
-  Function *BufferLoad = HlslOP->GetOpFunc(DXIL::OpCode::CBufferLoadLegacy, Type::getInt32Ty(Ctx));
-  Constant *CBufferLoadOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::CBufferLoadLegacy);
+  Function *BufferLoad =
+      HlslOP->GetOpFunc(DXIL::OpCode::CBufferLoadLegacy, Type::getInt32Ty(Ctx));
+  Constant *CBufferLoadOpcodeArg =
+      HlslOP->GetU32Const((unsigned)DXIL::OpCode::CBufferLoadLegacy);
   Constant *RowToLoadConst = HlslOP->GetU32Const(RowToLoad);
-  return Builder.CreateCall(BufferLoad, { CBufferLoadOpcodeArg, ResourceHandle, RowToLoadConst }, BufferLoadName);
+  return Builder.CreateCall(
+      BufferLoad, {CBufferLoadOpcodeArg, ResourceHandle, RowToLoadConst},
+      BufferLoadName);
 }
 
-llvm::Value *DxilPatchShaderRecordBindings::CreateShaderRecordBufferLoad(Module &M, IRBuilder<> &Builder, llvm::Value *ShaderRecordOffsetInBytes, llvm::Type* type) {
+llvm::Value *DxilPatchShaderRecordBindings::CreateShaderRecordBufferLoad(
+    Module &M, IRBuilder<> &Builder, llvm::Value *ShaderRecordOffsetInBytes,
+    llvm::Type *type) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   OP *HlslOP = DM.GetOP();
-  LLVMContext & Ctx = M.getContext();
+  LLVMContext &Ctx = M.getContext();
 
-  // Create handle for the newly-added constant buffer (which is achieved via a function call)
+  // Create handle for the newly-added constant buffer (which is achieved via a
+  // function call)
   auto BufferLoadName = "ShaderRecordBuffer";
-  if (type->getNumContainedTypes() > 1)
-  {
-      // TODO: Buffer loads aren't legal with container types, check if this is the right wait to handle this
-      type = type->getContainedType(0);
+  if (type->getNumContainedTypes() > 1) {
+    // TODO: Buffer loads aren't legal with container types, check if this is
+    // the right wait to handle this
+    type = type->getContainedType(0);
   }
 
   // TODO Do I need to check the result? Hopefully not
   Function *BufferLoad = HlslOP->GetOpFunc(DXIL::OpCode::BufferLoad, type);
-  Constant *BufferLoadOpcodeArg = HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferLoad);
+  Constant *BufferLoadOpcodeArg =
+      HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferLoad);
   Constant *Unused = UndefValue::get(llvm::Type::getInt32Ty(Ctx));
-  return Builder.CreateCall(BufferLoad, { BufferLoadOpcodeArg, ShaderTableHandle, ShaderRecordOffsetInBytes, Unused }, BufferLoadName);
+  return Builder.CreateCall(BufferLoad,
+                            {BufferLoadOpcodeArg, ShaderTableHandle,
+                             ShaderRecordOffsetInBytes, Unused},
+                            BufferLoadName);
 }
 
-void DxilPatchShaderRecordBindings::ReplaceUsesOfWith(llvm::Instruction *InstructionToReplace, llvm::Value *ValueToReplaceWith) {
-  for (auto UserIter = InstructionToReplace->user_begin(); UserIter != InstructionToReplace->user_end();) {
-    // Increment the iterator before the replace since the replace alters the uses list
+void DxilPatchShaderRecordBindings::ReplaceUsesOfWith(
+    llvm::Instruction *InstructionToReplace, llvm::Value *ValueToReplaceWith) {
+  for (auto UserIter = InstructionToReplace->user_begin();
+       UserIter != InstructionToReplace->user_end();) {
+    // Increment the iterator before the replace since the replace alters the
+    // uses list
     auto userInstr = UserIter++;
     userInstr->replaceUsesOfWith(InstructionToReplace, ValueToReplaceWith);
   }
   InstructionToReplace->eraseFromParent();
 }
 
-llvm::Value *DxilPatchShaderRecordBindings::CreateCBufferLoadOffsetInBytes(Module &M, IRBuilder<> &Builder, llvm::Instruction *instruction) {
+llvm::Value *DxilPatchShaderRecordBindings::CreateCBufferLoadOffsetInBytes(
+    Module &M, IRBuilder<> &Builder, llvm::Instruction *instruction) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   OP *HlslOP = DM.GetOP();
 
@@ -676,27 +751,26 @@ llvm::Value *DxilPatchShaderRecordBindings::CreateCBufferLoadOffsetInBytes(Modul
     return cbufferLoad.get_byteOffset();
   } else if (cbufferLoadLegacy) {
     Constant *LegacyMultiplier = HlslOP->GetU32Const(16);
-    return Builder.CreateMul(cbufferLoadLegacy.get_regIndex(), LegacyMultiplier);
+    return Builder.CreateMul(cbufferLoadLegacy.get_regIndex(),
+                             LegacyMultiplier);
   } else {
     ThrowFailure();
     return nullptr;
   }
 }
 
-bool DxilPatchShaderRecordBindings::IsCBufferLoad(llvm::Instruction *instruction) {
+bool DxilPatchShaderRecordBindings::IsCBufferLoad(
+    llvm::Instruction *instruction) {
   DxilInst_CBufferLoad cbufferLoad(instruction);
   DxilInst_CBufferLoadLegacy cbufferLoadLegacy(instruction);
   return cbufferLoad || cbufferLoadLegacy;
 }
 
-unsigned int GetResolvedRangeID(DXIL::ResourceClass resClass, Value *rangeIdVal)
-{
-  if (auto CI = dyn_cast<ConstantInt>(rangeIdVal))
-  {
+unsigned int GetResolvedRangeID(DXIL::ResourceClass resClass,
+                                Value *rangeIdVal) {
+  if (auto CI = dyn_cast<ConstantInt>(rangeIdVal)) {
     return CI->getZExtValue();
-  }
-  else
-  {
+  } else {
     assert(false);
     return 0;
   }
@@ -704,37 +778,27 @@ unsigned int GetResolvedRangeID(DXIL::ResourceClass resClass, Value *rangeIdVal)
 
 // TODO: This code is quite inefficient
 bool DxilPatchShaderRecordBindings::GetHandleInfo(
-  Module &M,
-  DxilInst_CreateHandleForLib &createHandleStructForLib,
-  _Out_ unsigned int &shaderRegister,
-  _Out_ unsigned int &registerSpace,
-  _Out_ DXIL::ResourceKind &kind,
-  _Out_ DXIL::ResourceClass &resClass,
-  _Out_ llvm::Type *&resType)
-{
+    Module &M, DxilInst_CreateHandleForLib &createHandleStructForLib,
+    unsigned int &shaderRegister, unsigned int &registerSpace,
+    DXIL::ResourceKind &kind, DXIL::ResourceClass &resClass,
+    llvm::Type *&resType) {
   DxilModule &DM = M.GetOrCreateDxilModule();
-  LoadInst *loadRangeId = cast<LoadInst>(createHandleStructForLib.get_Resource());
+  LoadInst *loadRangeId =
+      cast<LoadInst>(createHandleStructForLib.get_Resource());
   Value *ResourceSymbol = loadRangeId->getPointerOperand();
 
   DXIL::ResourceClass resourceClasses[] = {
-    DXIL::ResourceClass::CBuffer,
-    DXIL::ResourceClass::SRV,
-    DXIL::ResourceClass::UAV,
-    DXIL::ResourceClass::Sampler
-  };
+      DXIL::ResourceClass::CBuffer, DXIL::ResourceClass::SRV,
+      DXIL::ResourceClass::UAV, DXIL::ResourceClass::Sampler};
 
   hlsl::DxilResourceBase *Resource = nullptr;
   for (auto &resourceClass : resourceClasses) {
-    
-    switch (resourceClass)
-    {
-    case DXIL::ResourceClass::CBuffer:
-    {
+
+    switch (resourceClass) {
+    case DXIL::ResourceClass::CBuffer: {
       auto &cbuffers = DM.GetCBuffers();
-      for (auto &cbuffer : cbuffers)
-      {
-        if (cbuffer->GetGlobalSymbol() == ResourceSymbol)
-        {
+      for (auto &cbuffer : cbuffers) {
+        if (cbuffer->GetGlobalSymbol() == ResourceSymbol) {
           Resource = cbuffer.get();
           break;
         }
@@ -742,26 +806,21 @@ bool DxilPatchShaderRecordBindings::GetHandleInfo(
       break;
     }
     case DXIL::ResourceClass::SRV:
-    case DXIL::ResourceClass::UAV:
-    {
-      auto &viewList = resourceClass == DXIL::ResourceClass::SRV ? DM.GetSRVs() : DM.GetUAVs();
-      for (auto &view : viewList)
-      {
-        if (view->GetGlobalSymbol() == ResourceSymbol)
-        {
+    case DXIL::ResourceClass::UAV: {
+      auto &viewList = resourceClass == DXIL::ResourceClass::SRV ? DM.GetSRVs()
+                                                                 : DM.GetUAVs();
+      for (auto &view : viewList) {
+        if (view->GetGlobalSymbol() == ResourceSymbol) {
           Resource = view.get();
           break;
         }
       }
       break;
     }
-    case DXIL::ResourceClass::Sampler:
-    {
+    case DXIL::ResourceClass::Sampler: {
       auto &samplers = DM.GetSamplers();
-      for (auto &sampler : samplers)
-      {
-        if (sampler->GetGlobalSymbol() == ResourceSymbol)
-        {
+      for (auto &sampler : samplers) {
+        if (sampler->GetGlobalSymbol() == ResourceSymbol) {
           Resource = sampler.get();
           break;
         }
@@ -771,8 +830,7 @@ bool DxilPatchShaderRecordBindings::GetHandleInfo(
     }
   }
 
-  if (Resource)
-  {
+  if (Resource) {
     registerSpace = Resource->GetSpaceID();
     shaderRegister = Resource->GetLowerBound();
     kind = Resource->GetKind();
@@ -783,71 +841,64 @@ bool DxilPatchShaderRecordBindings::GetHandleInfo(
 }
 
 llvm::Value *DxilPatchShaderRecordBindings::LoadShaderRecordData(
-    Module &M, 
-    IRBuilder<> &Builder,
-    llvm::Value *offsetToShaderRecord,
-    unsigned int dataOffsetInShaderRecord)
-{
+    Module &M, IRBuilder<> &Builder, llvm::Value *offsetToShaderRecord,
+    unsigned int dataOffsetInShaderRecord) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   LLVMContext &Ctx = M.getContext();
   OP *HlslOP = DM.GetOP();
 
-  Constant *dataOffset =
-      HlslOP->GetU32Const(dataOffsetInShaderRecord);
-  Value *shaderTableOffsetToData = Builder.CreateAdd(dataOffset, offsetToShaderRecord);
+  Constant *dataOffset = HlslOP->GetU32Const(dataOffsetInShaderRecord);
+  Value *shaderTableOffsetToData =
+      Builder.CreateAdd(dataOffset, offsetToShaderRecord);
   return CreateShaderRecordBufferLoad(M, Builder, shaderTableOffsetToData,
-      llvm::Type::getInt32Ty(Ctx));
+                                      llvm::Type::getInt32Ty(Ctx));
 }
 
 void DxilPatchShaderRecordBindings::PatchCreateHandleToUseDescriptorIndex(
-    _In_ Module &M,
-    _In_ IRBuilder<> &Builder,
-    _In_ DXIL::ResourceKind &resourceKind,
-    _In_ DXIL::ResourceClass &resourceClass,
-    _In_ llvm::Type *resourceType,
-    _In_ llvm::Value *descriptorIndex,
-    _Inout_ DxilInst_CreateHandleForLib &createHandleInstr)
-{
-    DxilModule &DM = M.GetOrCreateDxilModule();
-    OP *HlslOP = DM.GetOP();
+    Module &M, IRBuilder<> &Builder, DXIL::ResourceKind &resourceKind,
+    DXIL::ResourceClass &resourceClass, llvm::Type *resourceType,
+    llvm::Value *descriptorIndex,
+    DxilInst_CreateHandleForLib &createHandleInstr) {
+  DxilModule &DM = M.GetOrCreateDxilModule();
+  OP *HlslOP = DM.GetOP();
 
-    llvm::Value *descriptorHeapSymbol = GetAliasedDescriptorHeapHandle(M, resourceType, resourceClass, resourceKind);
-    llvm::Value *viewSymbol = Builder.CreateGEP(descriptorHeapSymbol, { HlslOP->GetU32Const(0), descriptorIndex }, "IndexIntoDH");
-    DxilMDHelper::MarkNonUniform(cast<Instruction>(viewSymbol));
-    llvm::Value *handle = Builder.CreateLoad(viewSymbol);
+  llvm::Value *descriptorHeapSymbol = GetAliasedDescriptorHeapHandle(
+      M, resourceType, resourceClass, resourceKind);
+  llvm::Value *viewSymbol = Builder.CreateGEP(
+      descriptorHeapSymbol, {HlslOP->GetU32Const(0), descriptorIndex},
+      "IndexIntoDH");
+  DxilMDHelper::MarkNonUniform(cast<Instruction>(viewSymbol));
+  llvm::Value *handle = Builder.CreateLoad(viewSymbol);
 
-    auto callInst = cast<CallInst>(createHandleInstr.Instr);
-    callInst->setCalledFunction(HlslOP->GetOpFunc(
-        DXIL::OpCode::CreateHandleForLib,
-        handle->getType()));
-    createHandleInstr.set_Resource(handle);
+  auto callInst = cast<CallInst>(createHandleInstr.Instr);
+  callInst->setCalledFunction(
+      HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, handle->getType()));
+  createHandleInstr.set_Resource(handle);
 }
 
 void DxilPatchShaderRecordBindings::InitializeViewTable() {
-    // The Fallback Layer declares a bindless raw buffer that spans the entire descriptor heap,
-    // manually add it to the list of UAV register spaces used
-    if (*pInputShaderInfo->pNumUAVSpaces == 0)
-    {
-        ViewKey key = { (unsigned int)hlsl::DXIL::ResourceKind::RawBuffer, {0} };
-        unsigned int index = FindOrInsertViewIntoList(
-          key, 
-          pInputShaderInfo->pUAVRegisterSpaceArray, 
-          *pInputShaderInfo->pNumUAVSpaces, 
-          FallbackLayerNumDescriptorHeapSpacesPerView);
-        (void)index;
-        assert(index == 0);
-    }
+  // The Fallback Layer declares a bindless raw buffer that spans the entire
+  // descriptor heap, manually add it to the list of UAV register spaces used
+  if (*pInputShaderInfo->pNumUAVSpaces == 0) {
+    ViewKey key = {(unsigned int)hlsl::DXIL::ResourceKind::RawBuffer, {0}};
+    unsigned int index =
+        FindOrInsertViewIntoList(key, pInputShaderInfo->pUAVRegisterSpaceArray,
+                                 *pInputShaderInfo->pNumUAVSpaces,
+                                 FallbackLayerNumDescriptorHeapSpacesPerView);
+    (void)index;
+    assert(index == 0);
+  }
 }
-
 
 void DxilPatchShaderRecordBindings::PatchShaderBindings(Module &M) {
   DxilModule &DM = M.GetOrCreateDxilModule();
   OP *HlslOP = DM.GetOP();
 
-  // Don't erase instructions until the very end because it throws off the iterator
+  // Don't erase instructions until the very end because it throws off the
+  // iterator
   std::vector<llvm::Instruction *> instructionsToRemove;
   for (BasicBlock &block : EntryPointFunction->getBasicBlockList()) {
-    auto & Instructions = block.getInstList();
+    auto &Instructions = block.getInstList();
 
     for (auto &instr : Instructions) {
       DxilInst_CreateHandleForLib createHandleForLib(&instr);
@@ -858,36 +909,45 @@ void DxilPatchShaderRecordBindings::PatchShaderBindings(Module &M) {
         DXIL::ResourceKind kind;
         llvm::Type *resType;
         bool resourceIsResolved = true;
-        resourceIsResolved = GetHandleInfo(M, createHandleForLib, registerIndex, registerSpace, kind, resourceClass, resType);
+        resourceIsResolved =
+            GetHandleInfo(M, createHandleForLib, registerIndex, registerSpace,
+                          kind, resourceClass, resType);
 
-        if (!resourceIsResolved) continue; // TODO: This shouldn't actually be happening?
+        if (!resourceIsResolved)
+          continue; // TODO: This shouldn't actually be happening?
 
         ShaderRecordEntry shaderRecord = FindRootSignatureDescriptor(
-          *pRootSignatureDesc,
-          pInputShaderInfo->ShaderRecordIdentifierSizeInBytes,
-          resourceClass,
-          registerIndex,
-          registerSpace);
+            *pRootSignatureDesc,
+            pInputShaderInfo->ShaderRecordIdentifierSizeInBytes, resourceClass,
+            registerIndex, registerSpace);
 
-        const bool IsBindingSpecifiedInLocalRootSignature = !shaderRecord.IsInvalid();
+        const bool IsBindingSpecifiedInLocalRootSignature =
+            !shaderRecord.IsInvalid();
         if (IsBindingSpecifiedInLocalRootSignature) {
           if (!DispatchRaysConstantsHandle) {
             AddInputBinding(M);
           }
 
           switch (shaderRecord.ParameterType) {
-          case DxilRootParameterType::Constants32Bit:
-          {
+          case DxilRootParameterType::Constants32Bit: {
             for (User *U : instr.users()) {
               llvm::Instruction *instruction = cast<CallInst>(U);
               if (IsCBufferLoad(instruction)) {
                 llvm::Instruction *cbufferLoadInstr = instruction;
                 IRBuilder<> Builder(cbufferLoadInstr);
 
-                llvm::Value * cbufferOffsetInBytes = CreateCBufferLoadOffsetInBytes(M, Builder, cbufferLoadInstr);
-                llvm::Value *LocalOffsetToRootConstant = CreateOffsetToShaderRecord(M, Builder, shaderRecord.RecordOffsetInBytes, cbufferOffsetInBytes);
-                llvm::Value *GlobalOffsetToRootConstant = Builder.CreateAdd(LocalOffsetToRootConstant, BaseShaderRecordOffset);
-                llvm::Value *srvBufferLoad = CreateShaderRecordBufferLoad(M, Builder, GlobalOffsetToRootConstant, cbufferLoadInstr->getType());
+                llvm::Value *cbufferOffsetInBytes =
+                    CreateCBufferLoadOffsetInBytes(M, Builder,
+                                                   cbufferLoadInstr);
+                llvm::Value *LocalOffsetToRootConstant =
+                    CreateOffsetToShaderRecord(M, Builder,
+                                               shaderRecord.RecordOffsetInBytes,
+                                               cbufferOffsetInBytes);
+                llvm::Value *GlobalOffsetToRootConstant = Builder.CreateAdd(
+                    LocalOffsetToRootConstant, BaseShaderRecordOffset);
+                llvm::Value *srvBufferLoad = CreateShaderRecordBufferLoad(
+                    M, Builder, GlobalOffsetToRootConstant,
+                    cbufferLoadInstr->getType());
                 ReplaceUsesOfWith(cbufferLoadInstr, srvBufferLoad);
               } else {
                 ThrowFailure();
@@ -896,46 +956,55 @@ void DxilPatchShaderRecordBindings::PatchShaderBindings(Module &M) {
             instructionsToRemove.push_back(&instr);
             break;
           }
-          case DxilRootParameterType::DescriptorTable:
-          {
+          case DxilRootParameterType::DescriptorTable: {
             IRBuilder<> Builder(&instr);
-            llvm::Value *srvBufferLoad = LoadShaderRecordData(
-             M, 
-             Builder, 
-             BaseShaderRecordOffset,
-             shaderRecord.RecordOffsetInBytes);
+            llvm::Value *srvBufferLoad =
+                LoadShaderRecordData(M, Builder, BaseShaderRecordOffset,
+                                     shaderRecord.RecordOffsetInBytes);
 
-            llvm::Value *DescriptorTableEntryLo = Builder.CreateExtractValue(srvBufferLoad, 0, "DescriptorTableHandleLo");
+            llvm::Value *DescriptorTableEntryLo = Builder.CreateExtractValue(
+                srvBufferLoad, 0, "DescriptorTableHandleLo");
 
-            unsigned int offsetToLoadInUints = offsetof(DispatchRaysConstants, SrvCbvUavDescriptorHeapStart) / sizeof(uint32_t);
+            unsigned int offsetToLoadInUints =
+                offsetof(DispatchRaysConstants, SrvCbvUavDescriptorHeapStart) /
+                sizeof(uint32_t);
             unsigned int uintsPerRow = 4;
             unsigned int rowToLoad = offsetToLoadInUints / uintsPerRow;
             unsigned int extractValueOffset = offsetToLoadInUints % uintsPerRow;
-            llvm::Value *DescHeapConstants = CreateCBufferLoadLegacy(M, Builder, DispatchRaysConstantsHandle, rowToLoad);
-            llvm::Value *DescriptorHeapStartAddressLo = Builder.CreateExtractValue(DescHeapConstants, extractValueOffset, "DescriptorHeapStartHandleLo");
+            llvm::Value *DescHeapConstants = CreateCBufferLoadLegacy(
+                M, Builder, DispatchRaysConstantsHandle, rowToLoad);
+            llvm::Value *DescriptorHeapStartAddressLo =
+                Builder.CreateExtractValue(DescHeapConstants,
+                                           extractValueOffset,
+                                           "DescriptorHeapStartHandleLo");
 
-            // TODO: The hi bits can only be ignored if the difference is guaranteed to be < 32 bytes. This is an unsafe assumption, particularly given 
-            // large descriptor sizes
-            llvm::Value *DescriptorTableOffsetInBytes = Builder.CreateSub(DescriptorTableEntryLo, DescriptorHeapStartAddressLo, "TableOffsetInBytes");
+            // TODO: The hi bits can only be ignored if the difference is
+            // guaranteed to be < 32 bytes. This is an unsafe assumption,
+            // particularly given large descriptor sizes
+            llvm::Value *DescriptorTableOffsetInBytes = Builder.CreateSub(
+                DescriptorTableEntryLo, DescriptorHeapStartAddressLo,
+                "TableOffsetInBytes");
 
-            Constant *DescriptorSizeInBytes = HlslOP->GetU32Const(pInputShaderInfo->SrvCbvUavDescriptorSizeInBytes);
-            llvm::Value * DescriptorTableStartIndex = Builder.CreateExactUDiv(DescriptorTableOffsetInBytes, DescriptorSizeInBytes, "TableStartIndex");
+            Constant *DescriptorSizeInBytes = HlslOP->GetU32Const(
+                pInputShaderInfo->SrvCbvUavDescriptorSizeInBytes);
+            llvm::Value *DescriptorTableStartIndex = Builder.CreateExactUDiv(
+                DescriptorTableOffsetInBytes, DescriptorSizeInBytes,
+                "TableStartIndex");
 
-            Constant *RecordOffset = HlslOP->GetU32Const(shaderRecord.OffsetInDescriptors);
-            llvm::Value * BaseDescriptorIndex = Builder.CreateAdd(DescriptorTableStartIndex, RecordOffset, "BaseDescriptorIndex");
+            Constant *RecordOffset =
+                HlslOP->GetU32Const(shaderRecord.OffsetInDescriptors);
+            llvm::Value *BaseDescriptorIndex = Builder.CreateAdd(
+                DescriptorTableStartIndex, RecordOffset, "BaseDescriptorIndex");
 
-            // TODO: Not supporting dynamic indexing yet, should be pulled from CreateHandleForLib
-            // If dynamic indexing is being used, add the apps index on top of the calculated index
-            llvm::Value * DynamicIndex = HlslOP->GetU32Const(0);
+            // TODO: Not supporting dynamic indexing yet, should be pulled from
+            // CreateHandleForLib If dynamic indexing is being used, add the
+            // apps index on top of the calculated index
+            llvm::Value *DynamicIndex = HlslOP->GetU32Const(0);
 
-            llvm::Value * DescriptorIndex = Builder.CreateAdd(BaseDescriptorIndex, DynamicIndex, "DescriptorIndex");
+            llvm::Value *DescriptorIndex = Builder.CreateAdd(
+                BaseDescriptorIndex, DynamicIndex, "DescriptorIndex");
             PatchCreateHandleToUseDescriptorIndex(
-                M, 
-                Builder, 
-                kind, 
-                resourceClass, 
-                resType, 
-                DescriptorIndex, 
+                M, Builder, kind, resourceClass, resType, DescriptorIndex,
                 createHandleForLib);
             break;
           }
@@ -943,11 +1012,9 @@ void DxilPatchShaderRecordBindings::PatchShaderBindings(Module &M) {
           case DxilRootParameterType::SRV:
           case DxilRootParameterType::UAV: {
             IRBuilder<> Builder(&instr);
-            llvm::Value *srvBufferLoad = LoadShaderRecordData(
-             M, 
-             Builder, 
-             BaseShaderRecordOffset,
-             shaderRecord.RecordOffsetInBytes);
+            llvm::Value *srvBufferLoad =
+                LoadShaderRecordData(M, Builder, BaseShaderRecordOffset,
+                                     shaderRecord.RecordOffsetInBytes);
 
             llvm::Value *DescriptorIndex = Builder.CreateExtractValue(
                 srvBufferLoad, 1, "DescriptorHeapIndex");
@@ -957,12 +1024,7 @@ void DxilPatchShaderRecordBindings::PatchShaderBindings(Module &M) {
             //     srvBufferLoad, 0, "OffsetInBytes");
 
             PatchCreateHandleToUseDescriptorIndex(
-                M,
-                Builder,
-                kind,
-                resourceClass,
-                resType,
-                DescriptorIndex,
+                M, Builder, kind, resourceClass, resType, DescriptorIndex,
                 createHandleForLib);
 
             break;
@@ -979,12 +1041,10 @@ void DxilPatchShaderRecordBindings::PatchShaderBindings(Module &M) {
   for (auto instruction : instructionsToRemove) {
     instruction->eraseFromParent();
   }
-
 }
 
 bool IsParameterTypeCompatibleWithResourceClass(
-  DXIL::ResourceClass resourceClass,
-  DxilRootParameterType parameterType) {
+    DXIL::ResourceClass resourceClass, DxilRootParameterType parameterType) {
   switch (parameterType) {
   case DxilRootParameterType::DescriptorTable:
     return true;
@@ -1001,7 +1061,8 @@ bool IsParameterTypeCompatibleWithResourceClass(
   }
 }
 
-DxilRootParameterType ConvertD3D12ParameterTypeToDxil(DxilRootParameterType parameter) {
+DxilRootParameterType
+ConvertD3D12ParameterTypeToDxil(DxilRootParameterType parameter) {
   switch (parameter) {
   case DxilRootParameterType::Constants32Bit:
     return DxilRootParameterType::Constants32Bit;
@@ -1019,7 +1080,8 @@ DxilRootParameterType ConvertD3D12ParameterTypeToDxil(DxilRootParameterType para
   return (DxilRootParameterType)-1;
 }
 
-DXIL::ResourceClass ConvertD3D12RangeTypeToDxil(DxilDescriptorRangeType rangeType) {
+DXIL::ResourceClass
+ConvertD3D12RangeTypeToDxil(DxilDescriptorRangeType rangeType) {
   switch (rangeType) {
   case DxilDescriptorRangeType::SRV:
     return DXIL::ResourceClass::SRV;
@@ -1031,7 +1093,7 @@ DXIL::ResourceClass ConvertD3D12RangeTypeToDxil(DxilDescriptorRangeType rangeTyp
     return DXIL::ResourceClass::Sampler;
   }
   assert(false);
-  return (DXIL::ResourceClass) - 1;
+  return (DXIL::ResourceClass)-1;
 }
 
 unsigned int GetParameterTypeAlignment(DxilRootParameterType parameterType) {
@@ -1127,22 +1189,21 @@ ShaderRecordEntry FindRootSignatureDescriptorHelper(
 
 // TODO: Consider pre-calculating this into a map
 ShaderRecordEntry DxilPatchShaderRecordBindings::FindRootSignatureDescriptor(
-  const DxilVersionedRootSignatureDesc &rootSignatureDescriptor,
-  unsigned int ShaderRecordIdentifierSizeInBytes,
-  DXIL::ResourceClass resourceClass,
-  unsigned int baseRegisterIndex,
-  unsigned int registerSpace) {
+    const DxilVersionedRootSignatureDesc &rootSignatureDescriptor,
+    unsigned int ShaderRecordIdentifierSizeInBytes,
+    DXIL::ResourceClass resourceClass, unsigned int baseRegisterIndex,
+    unsigned int registerSpace) {
   switch (rootSignatureDescriptor.Version) {
   case DxilRootSignatureVersion::Version_1_0:
-    return FindRootSignatureDescriptorHelper(rootSignatureDescriptor.Desc_1_0, ShaderRecordIdentifierSizeInBytes, resourceClass, baseRegisterIndex, registerSpace);
+    return FindRootSignatureDescriptorHelper(
+        rootSignatureDescriptor.Desc_1_0, ShaderRecordIdentifierSizeInBytes,
+        resourceClass, baseRegisterIndex, registerSpace);
   case DxilRootSignatureVersion::Version_1_1:
-    return FindRootSignatureDescriptorHelper(rootSignatureDescriptor.Desc_1_1, ShaderRecordIdentifierSizeInBytes, resourceClass, baseRegisterIndex, registerSpace);
+    return FindRootSignatureDescriptorHelper(
+        rootSignatureDescriptor.Desc_1_1, ShaderRecordIdentifierSizeInBytes,
+        resourceClass, baseRegisterIndex, registerSpace);
   default:
     ThrowFailure();
     return ShaderRecordEntry::InvalidEntry();
   }
 }
-
-
-
-

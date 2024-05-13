@@ -17,7 +17,7 @@
 using namespace llvm;
 
 #if defined(_MSC_VER)
-#include <Intrin.h>
+#include <intrin.h>
 #include <windows.h>
 #undef MemoryFence
 #endif

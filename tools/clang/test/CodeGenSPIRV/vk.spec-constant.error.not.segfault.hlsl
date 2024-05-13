@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: not %dxc -T cs_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 [[vk::binding(0)]] RWByteAddressBuffer src;
 #define LOCAL_SIZE 32

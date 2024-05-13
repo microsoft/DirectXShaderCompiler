@@ -11,14 +11,14 @@
 
 #pragma once
 
-#include <memory>
 #include "llvm/ADT/StringRef.h"
-#include <vector>
-#include <string>
 #include <functional>
+#include <memory>
+#include <string>
+#include <vector>
 
 namespace llvm {
-  class Twine;
+class Twine;
 }
 
 namespace dxcutil {
@@ -35,13 +35,13 @@ struct CompileInput {
 class LibCacheManager {
 public:
   virtual ~LibCacheManager() {}
-  virtual HRESULT AddLibBlob(std::string &header, const std::string &snippet,
-                             CompileInput &compiler, size_t &hash,
-                             IDxcBlob **pResultLib,
-                             std::function<void(IDxcBlob *pSource)> compileFn) = 0;
-  virtual bool GetLibBlob(std::string &processedHeader, const std::string &snippet,
-                          CompileInput &compiler, size_t &hash,
-                          IDxcBlob **pResultLib) = 0;
+  virtual HRESULT
+  AddLibBlob(std::string &header, const std::string &snippet,
+             CompileInput &compiler, size_t &hash, IDxcBlob **pResultLib,
+             std::function<void(IDxcBlob *pSource)> compileFn) = 0;
+  virtual bool GetLibBlob(std::string &processedHeader,
+                          const std::string &snippet, CompileInput &compiler,
+                          size_t &hash, IDxcBlob **pResultLib) = 0;
   static LibCacheManager &GetLibCacheManager();
   static void ReleaseLibCacheManager();
 };
@@ -61,4 +61,4 @@ public:
   CreateIncludeToLibPreprocessor(IDxcIncludeHandler *handler);
 };
 
-}
+} // namespace libshare

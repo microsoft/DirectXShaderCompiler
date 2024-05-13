@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %MyBuffer DescriptorSet 0
 // CHECK: OpDecorate %MyBuffer Binding 0
@@ -45,15 +45,15 @@ SamplerComparisonState MyCompSamplers[6];
 // TODO: unsized arrays of resources
 
 float4 main() : SV_Target {
-// CHECK:   [[MyBuffer:%\d+]] = OpAccessChain %_ptr_UniformConstant_type_buffer_image %MyBuffer %int_0
-// CHECK:            {{%\d+}} = OpLoad %type_buffer_image [[MyBuffer]]
+// CHECK:   [[MyBuffer:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_buffer_image %MyBuffer %int_0
+// CHECK:            {{%[0-9]+}} = OpLoad %type_buffer_image [[MyBuffer]]
     return MyBuffer[0].Load(1) +
-// CHECK: [[MyRWBuffer:%\d+]] = OpAccessChain %_ptr_UniformConstant_type_buffer_image_0 %MyRWBuffer %int_1
-// CHECK:            {{%\d+}} = OpLoad %type_buffer_image_0 [[MyRWBuffer]]
+// CHECK: [[MyRWBuffer:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_buffer_image_0 %MyRWBuffer %int_1
+// CHECK:            {{%[0-9]+}} = OpLoad %type_buffer_image_0 [[MyRWBuffer]]
            MyRWBuffer[1][2] +
-// CHECK:  [[MyTexture:%\d+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %MyTexture %int_2
-// CHECK:            {{%\d+}} = OpLoad %type_2d_image [[MyTexture]]
-// CHECK:  [[MySampler:%\d+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %MySamplers %int_3
-// CHECK:            {{%\d+}} = OpLoad %type_sampler [[MySampler]]
+// CHECK:  [[MyTexture:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %MyTexture %int_2
+// CHECK:            {{%[0-9]+}} = OpLoad %type_2d_image [[MyTexture]]
+// CHECK:  [[MySampler:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %MySamplers %int_3
+// CHECK:            {{%[0-9]+}} = OpLoad %type_sampler [[MySampler]]
            MyTexture[2].Sample(MySamplers[3], float2(0.1, 0.2));
 }

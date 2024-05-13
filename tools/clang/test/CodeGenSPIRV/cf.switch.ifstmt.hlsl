@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 int foo() { return 200; }
 
@@ -18,16 +18,16 @@ void main() {
   // DefaultStmt is the first statement //
   ////////////////////////////////////////
 
-// CHECK:      [[a0:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[is_a_1:%\d+]] = OpIEqual %bool [[a0]] %int_1
+// CHECK:      [[a0:%[0-9]+]] = OpLoad %int %a
+// CHECK-NEXT: [[is_a_1:%[0-9]+]] = OpIEqual %bool [[a0]] %int_1
 // CHECK-NEXT: OpSelectionMerge %if_merge_0 None
 // CHECK-NEXT: OpBranchConditional [[is_a_1]] %if_true %if_false
 // CHECK-NEXT: %if_true = OpLabel
 // CHECK-NEXT: OpStore %b %int_1
 // CHECK-NEXT: OpBranch %if_merge_0
 // CHECK-NEXT: %if_false = OpLabel
-// CHECK-NEXT: [[a1:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[is_a_2:%\d+]] = OpIEqual %bool [[a1]] %int_2
+// CHECK-NEXT: [[a1:%[0-9]+]] = OpLoad %int %a
+// CHECK-NEXT: [[is_a_2:%[0-9]+]] = OpIEqual %bool [[a1]] %int_2
 // CHECK-NEXT: OpSelectionMerge %if_merge None
 // CHECK-NEXT: OpBranchConditional [[is_a_2]] %if_true_0 %if_false_0
 // CHECK-NEXT: %if_true_0 = OpLabel
@@ -55,8 +55,8 @@ void main() {
   // DefaultStmt in the middle of other cases //
   //////////////////////////////////////////////
 
-// CHECK-NEXT: [[a2:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[is_a_10:%\d+]] = OpIEqual %bool [[a2]] %int_10
+// CHECK-NEXT: [[a2:%[0-9]+]] = OpLoad %int %a
+// CHECK-NEXT: [[is_a_10:%[0-9]+]] = OpIEqual %bool [[a2]] %int_10
 // CHECK-NEXT: OpSelectionMerge %if_merge_2 None
 // CHECK-NEXT: OpBranchConditional [[is_a_10]] %if_true_1 %if_false_1
 // CHECK-NEXT: %if_true_1 = OpLabel
@@ -65,8 +65,8 @@ void main() {
 // CHECK-NEXT: OpStore %b %int_2
 // CHECK-NEXT: OpBranch %if_merge_2
 // CHECK-NEXT: %if_false_1 = OpLabel
-// CHECK-NEXT: [[a3:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[is_a_20:%\d+]] = OpIEqual %bool [[a3]] %int_20
+// CHECK-NEXT: [[a3:%[0-9]+]] = OpLoad %int %a
+// CHECK-NEXT: [[is_a_20:%[0-9]+]] = OpIEqual %bool [[a3]] %int_20
 // CHECK-NEXT: OpSelectionMerge %if_merge_1 None
 // CHECK-NEXT: OpBranchConditional [[is_a_20]] %if_true_2 %if_false_2
 // CHECK-NEXT: %if_true_2 = OpLabel
@@ -94,70 +94,70 @@ void main() {
   // DefaultStmt is the last statement         //
   ///////////////////////////////////////////////
 
-// CHECK:      [[d0:%\d+]] = OpLoad %int %d
-// CHECK-NEXT: [[is_d_1:%\d+]] = OpIEqual %bool [[d0]] %int_1
+// CHECK:      [[d0:%[0-9]+]] = OpLoad %int %d
+// CHECK-NEXT: [[is_d_1:%[0-9]+]] = OpIEqual %bool [[d0]] %int_1
 // CHECK-NEXT: OpSelectionMerge %if_merge_10 None
 // CHECK-NEXT: OpBranchConditional [[is_d_1]] %if_true_3 %if_false_3
 // CHECK-NEXT: %if_true_3 = OpLabel
 // CHECK-NEXT: OpStore %b %int_1
-// CHECK-NEXT: [[foo:%\d+]] = OpFunctionCall %int %foo
+// CHECK-NEXT: [[foo:%[0-9]+]] = OpFunctionCall %int %foo
 // CHECK-NEXT: OpStore %c [[foo]]
 // CHECK-NEXT: OpStore %b %int_2
 // CHECK-NEXT: OpBranch %if_merge_10
 // CHECK-NEXT: %if_false_3 = OpLabel
-// CHECK-NEXT: [[d1:%\d+]] = OpLoad %int %d
-// CHECK-NEXT: [[is_d_2:%\d+]] = OpIEqual %bool [[d1]] %int_2
+// CHECK-NEXT: [[d1:%[0-9]+]] = OpLoad %int %d
+// CHECK-NEXT: [[is_d_2:%[0-9]+]] = OpIEqual %bool [[d1]] %int_2
 // CHECK-NEXT: OpSelectionMerge %if_merge_9 None
 // CHECK-NEXT: OpBranchConditional [[is_d_2]] %if_true_4 %if_false_4
 // CHECK-NEXT: %if_true_4 = OpLabel
 // CHECK-NEXT: OpStore %b %int_2
 // CHECK-NEXT: OpBranch %if_merge_9
 // CHECK-NEXT: %if_false_4 = OpLabel
-// CHECK-NEXT: [[d2:%\d+]] = OpLoad %int %d
-// CHECK-NEXT: [[is_d_3:%\d+]] = OpIEqual %bool [[d2]] %int_3
+// CHECK-NEXT: [[d2:%[0-9]+]] = OpLoad %int %d
+// CHECK-NEXT: [[is_d_3:%[0-9]+]] = OpIEqual %bool [[d2]] %int_3
 // CHECK-NEXT: OpSelectionMerge %if_merge_8 None
 // CHECK-NEXT: OpBranchConditional [[is_d_3]] %if_true_5 %if_false_5
 // CHECK-NEXT: %if_true_5 = OpLabel
 // CHECK-NEXT: OpStore %b %int_3
 // CHECK-NEXT: OpBranch %if_merge_8
 // CHECK-NEXT: %if_false_5 = OpLabel
-// CHECK-NEXT: [[d3:%\d+]] = OpLoad %int %d
+// CHECK-NEXT: [[d3:%[0-9]+]] = OpLoad %int %d
 // TODO: We should try to const fold `t` and avoid the following OpLoad:
-// CHECK-NEXT: [[t:%\d+]] = OpLoad %int %t
-// CHECK-NEXT: [[is_d_eq_t:%\d+]] = OpIEqual %bool [[d3]] [[t]]
+// CHECK-NEXT: [[t:%[0-9]+]] = OpLoad %int %t
+// CHECK-NEXT: [[is_d_eq_t:%[0-9]+]] = OpIEqual %bool [[d3]] [[t]]
 // CHECK-NEXT: OpSelectionMerge %if_merge_7 None
 // CHECK-NEXT: OpBranchConditional [[is_d_eq_t]] %if_true_6 %if_false_6
 // CHECK-NEXT: %if_true_6 = OpLabel
-// CHECK-NEXT: [[t1:%\d+]] = OpLoad %int %t
+// CHECK-NEXT: [[t1:%[0-9]+]] = OpLoad %int %t
 // CHECK-NEXT: OpStore %b [[t1]]
 // CHECK-NEXT: OpStore %b %int_5
 // CHECK-NEXT: OpBranch %if_merge_7
 // CHECK-NEXT: %if_false_6 = OpLabel
-// CHECK-NEXT: [[d4:%\d+]] = OpLoad %int %d
-// CHECK-NEXT: [[is_d_4:%\d+]] = OpIEqual %bool [[d4]] %int_4
+// CHECK-NEXT: [[d4:%[0-9]+]] = OpLoad %int %d
+// CHECK-NEXT: [[is_d_4:%[0-9]+]] = OpIEqual %bool [[d4]] %int_4
 // CHECK-NEXT: OpSelectionMerge %if_merge_6 None
 // CHECK-NEXT: OpBranchConditional [[is_d_4]] %if_true_7 %if_false_7
 // CHECK-NEXT: %if_true_7 = OpLabel
 // CHECK-NEXT: OpStore %b %int_5
 // CHECK-NEXT: OpBranch %if_merge_6
 // CHECK-NEXT: %if_false_7 = OpLabel
-// CHECK-NEXT: [[d5:%\d+]] = OpLoad %int %d
-// CHECK-NEXT: [[is_d_5:%\d+]] = OpIEqual %bool [[d5]] %int_5
+// CHECK-NEXT: [[d5:%[0-9]+]] = OpLoad %int %d
+// CHECK-NEXT: [[is_d_5:%[0-9]+]] = OpIEqual %bool [[d5]] %int_5
 // CHECK-NEXT: OpSelectionMerge %if_merge_5 None
 // CHECK-NEXT: OpBranchConditional [[is_d_5]] %if_true_8 %if_false_8
 // CHECK-NEXT: %if_true_8 = OpLabel
 // CHECK-NEXT: OpStore %b %int_5
 // CHECK-NEXT: OpBranch %if_merge_5
 // CHECK-NEXT: %if_false_8 = OpLabel
-// CHECK-NEXT: [[d6:%\d+]] = OpLoad %int %d
-// CHECK-NEXT: [[is_d_6:%\d+]] = OpIEqual %bool [[d6]] %int_6
+// CHECK-NEXT: [[d6:%[0-9]+]] = OpLoad %int %d
+// CHECK-NEXT: [[is_d_6:%[0-9]+]] = OpIEqual %bool [[d6]] %int_6
 // CHECK-NEXT: OpSelectionMerge %if_merge_4 None
 // CHECK-NEXT: OpBranchConditional [[is_d_6]] %if_true_9 %if_false_9
 // CHECK-NEXT: %if_true_9 = OpLabel
 // CHECK-NEXT: OpBranch %if_merge_4
 // CHECK-NEXT: %if_false_9 = OpLabel
-// CHECK-NEXT: [[d7:%\d+]] = OpLoad %int %d
-// CHECK-NEXT: [[is_d_7:%\d+]] = OpIEqual %bool [[d7]] %int_7
+// CHECK-NEXT: [[d7:%[0-9]+]] = OpLoad %int %d
+// CHECK-NEXT: [[is_d_7:%[0-9]+]] = OpIEqual %bool [[d7]] %int_7
 // CHECK-NEXT: OpSelectionMerge %if_merge_3 None
 // CHECK-NEXT: OpBranchConditional [[is_d_7]] %if_true_10 %if_false_10
 // CHECK-NEXT: %if_true_10 = OpLabel
@@ -209,8 +209,8 @@ void main() {
   // No Default statement //
   //////////////////////////
 
-// CHECK-NEXT: [[a4:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[is_a_100:%\d+]] = OpIEqual %bool [[a4]] %int_100
+// CHECK-NEXT: [[a4:%[0-9]+]] = OpLoad %int %a
+// CHECK-NEXT: [[is_a_100:%[0-9]+]] = OpIEqual %bool [[a4]] %int_100
 // CHECK-NEXT: OpSelectionMerge %if_merge_11 None
 // CHECK-NEXT: OpBranchConditional [[is_a_100]] %if_true_11 %if_merge_11
 // CHECK-NEXT: %if_true_11 = OpLabel
@@ -245,22 +245,22 @@ void main() {
   // both cases of the outer switch (case 300 and case 400) //
   ////////////////////////////////////////////////////////////
 
-// CHECK-NEXT: [[a5:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[is_a_300:%\d+]] = OpIEqual %bool [[a5]] %int_300
+// CHECK-NEXT: [[a5:%[0-9]+]] = OpLoad %int %a
+// CHECK-NEXT: [[is_a_300:%[0-9]+]] = OpIEqual %bool [[a5]] %int_300
 // CHECK-NEXT: OpSelectionMerge %if_merge_17 None
 // CHECK-NEXT: OpBranchConditional [[is_a_300]] %if_true_12 %if_false_12
 // CHECK-NEXT: %if_true_12 = OpLabel
 // CHECK-NEXT: OpStore %b %int_300
-// CHECK-NEXT: [[c0:%\d+]] = OpLoad %int %c
-// CHECK-NEXT: [[is_c_500:%\d+]] = OpIEqual %bool [[c0]] %int_500
+// CHECK-NEXT: [[c0:%[0-9]+]] = OpLoad %int %c
+// CHECK-NEXT: [[is_c_500:%[0-9]+]] = OpIEqual %bool [[c0]] %int_500
 // CHECK-NEXT: OpSelectionMerge %if_merge_13 None
 // CHECK-NEXT: OpBranchConditional [[is_c_500]] %if_true_13 %if_false_11
 // CHECK-NEXT: %if_true_13 = OpLabel
 // CHECK-NEXT: OpStore %b %int_500
 // CHECK-NEXT: OpBranch %if_merge_13
 // CHECK-NEXT: %if_false_11 = OpLabel
-// CHECK-NEXT: [[c1:%\d+]] = OpLoad %int %c
-// CHECK-NEXT: [[is_c_600:%\d+]] = OpIEqual %bool [[c1]] %int_600
+// CHECK-NEXT: [[c1:%[0-9]+]] = OpLoad %int %c
+// CHECK-NEXT: [[is_c_600:%[0-9]+]] = OpIEqual %bool [[c1]] %int_600
 // CHECK-NEXT: OpSelectionMerge %if_merge_12 None
 // CHECK-NEXT: OpBranchConditional [[is_c_600]] %if_true_14 %if_merge_12
 // CHECK-NEXT: %if_true_14 = OpLabel
@@ -272,21 +272,21 @@ void main() {
 // CHECK-NEXT: %if_merge_13 = OpLabel
 // CHECK-NEXT: OpBranch %if_merge_17
 // CHECK-NEXT: %if_false_12 = OpLabel
-// CHECK-NEXT: [[a6:%\d+]] = OpLoad %int %a
-// CHECK-NEXT: [[is_a_400:%\d+]] = OpIEqual %bool [[a6]] %int_400
+// CHECK-NEXT: [[a6:%[0-9]+]] = OpLoad %int %a
+// CHECK-NEXT: [[is_a_400:%[0-9]+]] = OpIEqual %bool [[a6]] %int_400
 // CHECK-NEXT: OpSelectionMerge %if_merge_16 None
 // CHECK-NEXT: OpBranchConditional [[is_a_400]] %if_true_15 %if_merge_16
 // CHECK-NEXT: %if_true_15 = OpLabel
-// CHECK-NEXT: [[c2:%\d+]] = OpLoad %int %c
-// CHECK-NEXT: [[is_c_500_again:%\d+]] = OpIEqual %bool [[c2]] %int_500
+// CHECK-NEXT: [[c2:%[0-9]+]] = OpLoad %int %c
+// CHECK-NEXT: [[is_c_500_again:%[0-9]+]] = OpIEqual %bool [[c2]] %int_500
 // CHECK-NEXT: OpSelectionMerge %if_merge_15 None
 // CHECK-NEXT: OpBranchConditional [[is_c_500_again]] %if_true_16 %if_false_13
 // CHECK-NEXT: %if_true_16 = OpLabel
 // CHECK-NEXT: OpStore %b %int_500
 // CHECK-NEXT: OpBranch %if_merge_15
 // CHECK-NEXT: %if_false_13 = OpLabel
-// CHECK-NEXT: [[c3:%\d+]] = OpLoad %int %c
-// CHECK-NEXT: [[is_c_600_again:%\d+]] = OpIEqual %bool [[c3]] %int_600
+// CHECK-NEXT: [[c3:%[0-9]+]] = OpLoad %int %c
+// CHECK-NEXT: [[is_c_600_again:%[0-9]+]] = OpIEqual %bool [[c3]] %int_600
 // CHECK-NEXT: OpSelectionMerge %if_merge_14 None
 // CHECK-NEXT: OpBranchConditional [[is_c_600_again]] %if_true_17 %if_merge_14
 // CHECK-NEXT: %if_true_17 = OpLabel

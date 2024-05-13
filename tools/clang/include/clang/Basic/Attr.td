@@ -847,13 +847,13 @@ def HLSLTriangleAdj : InheritableAttr {
 
 def HLSLGloballyCoherent : InheritableAttr {
   let Spellings = [CXX11<"", "globallycoherent", 2015>];
-  let Subjects = SubjectList<[Var]>;
+  let Subjects = SubjectList<[Var, Function]>;
   let Documentation = [Undocumented];
 }
 
 def HLSLShader : InheritableAttr {
   let Spellings = [CXX11<"", "shader", 2017>];
-  let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geomery
+  let Args = [StringArgument<"stage">]; // one of compute, pixel, vertex, hull, domain, geometry, node
   let Documentation = [Undocumented];
 }
 
@@ -908,8 +908,16 @@ def HLSLWaveSensitive : InheritableAttr {
 
 def HLSLWaveSize : InheritableAttr {
   let Spellings = [CXX11<"", "wavesize", 2017>];
-  let Args = [IntArgument<"Size">];
+  let Args = [IntArgument<"Min">, DefaultIntArgument<"Max", 0>, DefaultIntArgument<"Preferred", 0>];
   let Documentation = [Undocumented];
+
+  let AdditionalMembers = [{
+    private:
+    int SpelledArgsCount = 0;
+    public:
+      int getSpelledArgsCount() const { return SpelledArgsCount; }
+      void setSpelledArgsCount(int C) { SpelledArgsCount = C; }
+  }];
 }
 
 def HLSLWaveOpsIncludeHelperLanes : InheritableAttr {
@@ -931,6 +939,204 @@ def HLSLCXXOverload : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def HLSLNodeLaunch : InheritableAttr {
+  let Spellings = [CXX11<"", "nodelaunch", 2017>];
+  let Args = [StringArgument<"LaunchType">]; // one of broadcasting, coalescing, thread
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeIsProgramEntry : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeisprogramentry", 2017>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeId : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeid", 2017>];
+  let Args = [StringArgument<"Name">,DefaultIntArgument<"ArrayIndex", 0>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeLocalRootArgumentsTableIndex : InheritableAttr {
+  let Spellings = [CXX11<"", "nodelocalrootargumentstableindex", 2017>];
+  let Args = [UnsignedArgument<"Index">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeShareInputOf : InheritableAttr {
+  let Spellings = [CXX11<"", "nodeshareinputof", 2017>];
+  let Args = [StringArgument<"Name">,UnsignedArgument<"ArrayIndex", 1>];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeDispatchGrid: InheritableAttr {
+  let Spellings = [CXX11<"", "nodedispatchgrid", 2015>];
+  let Args = [UnsignedArgument<"X">, UnsignedArgument<"Y">, UnsignedArgument<"Z">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeMaxDispatchGrid: InheritableAttr {
+  let Spellings = [CXX11<"", "nodemaxdispatchgrid", 2015>];
+  let Args = [UnsignedArgument<"X">, UnsignedArgument<"Y">, UnsignedArgument<"Z">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeMaxRecursionDepth : InheritableAttr {
+  let Spellings = [CXX11<"", "nodemaxrecursiondepth", 2017>];
+  let Args = [UnsignedArgument<"Count">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeTrackRWInputSharing : InheritableAttr {
+  let Spellings = [CXX11<"", "nodetrackrwinputsharing", 2017>];
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeObject : InheritableAttr {
+  let Spellings = []; // No spellings!
+  let Subjects = SubjectList<[CXXRecord]>;
+  let Documentation = [Undocumented];
+
+  let Args = [EnumArgument<"Type", "RecordType",
+                           ["DispatchNodeInputRecord",
+                           "RWDispatchNodeInputRecord",
+                           "GroupNodeInputRecords",
+                           "RWGroupNodeInputRecords",
+                           "ThreadNodeInputRecord",
+                           "RWThreadNodeInputRecord",
+                           "EmptyNodeInput",
+                           "NodeOutput",
+                           "EmptyNodeOutput",
+                           "NodeOutputArray",
+                           "EmptyNodeOutputArray",
+                           "GroupNodeOutputRecords",
+                           "ThreadNodeOutputRecords"],
+                           ["DispatchNodeInputRecord",
+                           "RWDispatchNodeInputRecord",
+                           "GroupNodeInputRecords",
+                           "RWGroupNodeInputRecords",
+                           "ThreadNodeInputRecord",
+                           "RWThreadNodeInputRecord",
+                           "EmptyNodeInput",
+                           "NodeOutput",
+                           "EmptyNodeOutput",
+                           "NodeOutputArray",
+                           "EmptyNodeOutputArray",
+                           "GroupNodeOutputRecords",
+                           "ThreadNodeOutputRecords"]>];
+
+  let AdditionalMembers =
+  [{hlsl::DXIL::NodeIOKind getNodeIOType() const {
+      switch (type) {
+      case DispatchNodeInputRecord:
+        return hlsl::DXIL::NodeIOKind::DispatchNodeInputRecord;
+      case RWDispatchNodeInputRecord:
+        return hlsl::DXIL::NodeIOKind::RWDispatchNodeInputRecord;
+      case GroupNodeInputRecords:
+        return hlsl::DXIL::NodeIOKind::GroupNodeInputRecords;
+      case RWGroupNodeInputRecords:
+        return hlsl::DXIL::NodeIOKind::RWGroupNodeInputRecords;
+      case ThreadNodeInputRecord:
+        return hlsl::DXIL::NodeIOKind::ThreadNodeInputRecord;
+      case RWThreadNodeInputRecord:
+        return hlsl::DXIL::NodeIOKind::RWThreadNodeInputRecord;
+      case EmptyNodeInput:
+        return hlsl::DXIL::NodeIOKind::EmptyInput;
+      case NodeOutput:
+        return hlsl::DXIL::NodeIOKind::NodeOutput;
+      case EmptyNodeOutput:
+        return hlsl::DXIL::NodeIOKind::EmptyOutput;
+      case NodeOutputArray:
+        return hlsl::DXIL::NodeIOKind::NodeOutputArray;
+      case EmptyNodeOutputArray:
+        return hlsl::DXIL::NodeIOKind::EmptyOutputArray;
+      case GroupNodeOutputRecords:
+        return hlsl::DXIL::NodeIOKind::GroupNodeOutputRecords;
+      case ThreadNodeOutputRecords:
+        return hlsl::DXIL::NodeIOKind::ThreadNodeOutputRecords;
+      }
+      llvm_unreachable("all cases exhausted");
+      return hlsl::DXIL::NodeIOKind::Invalid;
+    }
+
+    static RecordType toAttrType(hlsl::DXIL::NodeIOKind Type) {
+      switch (Type) {
+      case hlsl::DXIL::NodeIOKind::DispatchNodeInputRecord:
+        return DispatchNodeInputRecord;
+      case hlsl::DXIL::NodeIOKind::RWDispatchNodeInputRecord:
+        return RWDispatchNodeInputRecord;
+      case hlsl::DXIL::NodeIOKind::GroupNodeInputRecords:
+        return GroupNodeInputRecords;
+      case hlsl::DXIL::NodeIOKind::RWGroupNodeInputRecords:
+        return RWGroupNodeInputRecords;
+      case hlsl::DXIL::NodeIOKind::ThreadNodeInputRecord:
+        return ThreadNodeInputRecord;
+      case hlsl::DXIL::NodeIOKind::RWThreadNodeInputRecord:
+        return RWThreadNodeInputRecord;
+      case hlsl::DXIL::NodeIOKind::EmptyInput:
+        return EmptyNodeInput;
+      case hlsl::DXIL::NodeIOKind::NodeOutput:
+        return NodeOutput;
+      case hlsl::DXIL::NodeIOKind::EmptyOutput:
+        return EmptyNodeOutput;
+      case hlsl::DXIL::NodeIOKind::NodeOutputArray:
+        return NodeOutputArray;
+      case hlsl::DXIL::NodeIOKind::EmptyOutputArray:
+        return EmptyNodeOutputArray;
+      case hlsl::DXIL::NodeIOKind::GroupNodeOutputRecords:
+        return GroupNodeOutputRecords;
+      case hlsl::DXIL::NodeIOKind::ThreadNodeOutputRecords:
+        return ThreadNodeOutputRecords;
+      }
+      llvm_unreachable("all cases exhausted");
+    }
+
+    static HLSLNodeObjectAttr *CreateImplicit(ASTContext &Ctx,
+                                              hlsl::DXIL::NodeIOKind Type,
+                                              SourceRange Loc = SourceRange()) {
+      return CreateImplicit(Ctx, toAttrType(Type), Loc);
+    }
+
+    static const char *ConvertRecordTypeToStr(hlsl::DXIL::NodeIOKind Type) {
+      return ConvertRecordTypeToStr(toAttrType(Type));
+    }
+    }];
+}
+
+
+// HLSL Parameter Attributes
+
+def HLSLMaxRecords : InheritableAttr {
+  let Spellings = [CXX11<"", "MaxRecords", 2015>];
+  let Args = [IntArgument<"maxCount">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLMaxRecordsSharedWith : InheritableParamAttr {
+  let Spellings = [CXX11<"", "maxrecordssharedwith", 2015>];
+  let Args = [IdentifierArgument<"Name">];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLAllowSparseNodes : InheritableParamAttr {
+  let Spellings = [CXX11<"", "allowsparsenodes", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
+def HLSLNodeArraySize : InheritableAttr {
+  let Spellings = [CXX11<"", "NodeArraySize", 2015>];
+  let Args = [IntArgument<"count">];
+  let Documentation = [Undocumented];
+}
+
+def HLSLUnboundedSparseNodes : InheritableParamAttr {
+  let Spellings = [CXX11<"", "unboundedsparsenodes", 2015>];
+  let Subjects = SubjectList<[ParmVar]>;
+  let Documentation = [Undocumented];
+}
+
 // HLSL Change Ends
 
 // SPIRV Change Starts
@@ -942,6 +1148,19 @@ def CounterStructuredBuffer : SubsetSubject<
       (S->getType()->getAs<RecordType>()->getDecl()->getName() == "RWStructuredBuffer" ||
        S->getType()->getAs<RecordType>()->getDecl()->getName() == "AppendStructuredBuffer" ||
        S->getType()->getAs<RecordType>()->getDecl()->getName() == "ConsumeStructuredBuffer")}]>;
+
+// Array of StructuredBuffer types that can have associated counters
+def ArrayOfCounterStructuredBuffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                  (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWStructuredBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "AppendStructuredBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "ConsumeStructuredBuffer")}]>;
 
 // Global variable with "ConstantBuffer" type
 def ConstantBuffer
@@ -961,7 +1180,7 @@ def ConstantTextureBuffer
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "TextureBuffer")}]>;
 
-// Global variable with "RWTexture" type
+// Global variable with "(RW|RasterizerOrdered)Texture" type
 def RWTexture
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -975,9 +1194,46 @@ def RWTexture
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RWTexture2DArray" ||
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "RWTexture3D")}]>;
+                      "RWTexture3D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2D" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2DArray" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture3D")}]>;
 
-// Global variable with "[RW]Buffer" type
+// Global variable of array of "(RW|RasterizerOrdered)Texture" type
+def ArrayOfRWTexture
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                  (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture1DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture2DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWTexture3D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture1DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2D" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture2DArray" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedTexture3D")}]>;
+
+// Global variable with "[RW|RasterizerOrdered]Buffer" type
 def Buffer
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
@@ -985,21 +1241,51 @@ def Buffer
                  (S->getType()->getAs<RecordType>()->getDecl()->getName() ==
                       "Buffer" ||
                   S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "RWBuffer")}]>;
+                      "RWBuffer" ||
+                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedBuffer")}]>;
 
-// Global variable with "Texture" or "SamplerState" type
+// Global variable or array of "[RW|RasterizerOrdered]Buffer" type
+def ArrayOfBuffer
+    : SubsetSubject<
+          Var, [{S->hasGlobalStorage() && S->getType()->getAsArrayTypeUnsafe() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>() &&
+                 S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl() &&
+                 (S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "Buffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RWBuffer" ||
+                  S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
+                      "RasterizerOrderedBuffer")}]>;
+
+// Global variable with "Texture*" or "Sampler*" type
 def TextureOrSampler
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
                  S->getType()->getAs<RecordType>()->getDecl() &&
                  (S->getType()->getAs<RecordType>()->getDecl()->getName().startswith("Texture") ||
-                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "SamplerState")}]>;
+                  S->getType()->getAs<RecordType>()->getDecl()->getName().startswith("Sampler"))}]>;
 
 def VKBuiltIn : InheritableAttr {
   let Spellings = [CXX11<"vk", "builtin">];
   let Subjects = SubjectList<[Function, ParmVar, Field], ErrorDiag>;
   let Args = [StringArgument<"BuiltIn">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKExtBuiltinInput : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_builtin_input">];
+  let Subjects = SubjectList<[Var], ErrorDiag>;
+  let Args = [IntArgument<"BuiltInID">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKExtBuiltinOutput : InheritableAttr {
+  let Spellings = [CXX11<"vk", "ext_builtin_output">];
+  let Subjects = SubjectList<[Var], ErrorDiag>;
+  let Args = [IntArgument<"BuiltInID">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
@@ -1031,7 +1317,7 @@ def VKBinding : InheritableAttr {
 
 def VKCapabilityExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_capability">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Function, Var], ErrorDiag>;
   let Args = [IntArgument<"capability">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1039,7 +1325,7 @@ def VKCapabilityExt : InheritableAttr {
 
 def VKCounterBinding : InheritableAttr {
   let Spellings = [CXX11<"vk", "counter_binding">];
-  let Subjects = SubjectList<[CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
+  let Subjects = SubjectList<[ArrayOfCounterStructuredBuffer, CounterStructuredBuffer], ErrorDiag, "ExpectedCounterStructuredBuffer">;
   let Args = [IntArgument<"Binding">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
@@ -1071,8 +1357,16 @@ def VKDecorateStringExt : InheritableAttr {
 
 def VKExtensionExt : InheritableAttr {
   let Spellings = [CXX11<"vk", "ext_extension">];
-  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Subjects = SubjectList<[Function, Var], ErrorDiag>;
   let Args = [StringArgument<"name">];
+  let LangOpts = [SPIRV];
+  let Documentation = [Undocumented];
+}
+
+def VKSpvExecutionMode : InheritableAttr {
+  let Spellings = [CXX11<"vk", "spvexecutionmode">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Args = [UnsignedArgument<"ExecutionMode">];
   let LangOpts = [SPIRV];
   let Documentation = [Undocumented];
 }
@@ -1115,7 +1409,7 @@ def VKCombinedImageSampler : InheritableAttr {
 
 def VKImageFormat : InheritableAttr {
   let Spellings = [CXX11<"vk", "image_format">];
-  let Subjects = SubjectList<[RWTexture, Buffer],
+  let Subjects = SubjectList<[RWTexture, ArrayOfRWTexture, Buffer, ArrayOfBuffer],
                              ErrorDiag, "ExpectedRWTextureOrBuffer">;
   let Args = [EnumArgument<"ImageFormat", "ImageFormatType",
                            ["unknown", "rgba32f", "rgba16f", "r32f", "rgba8", "rgba8snorm",

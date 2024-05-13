@@ -437,6 +437,13 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
             ('%/T', tmpDir.replace('\\', '/')),
             ])
 
+    # re for %if
+    re_cond_end = re.compile('%{')
+    re_if = re.compile('(.*?)(?:%if)')
+    re_nested_if = re.compile('(.*?)(?:%if|%})')
+    re_else = re.compile('^\s*%else\s*(%{)?')
+
+
     # Collect the test lines from the script.
     script = []
     requires = []
@@ -475,11 +482,104 @@ def parseIntegratedTestScript(test, normalize_slashes=False,
             raise ValueError("unknown script command type: %r" % (
                     command_type,))
 
+
+    def substituteIfElse(ln):
+        # early exit to avoid wasting time on lines without
+        # conditional substitutions
+        if ln.find('%if ') == -1:
+            return ln
+
+        def tryParseIfCond(ln):
+            # space is important to not conflict with other (possible)
+            # substitutions
+            if not ln.startswith('%if '):
+                return None, ln
+            ln = ln[4:]
+
+            # stop at '%{'
+            match = re_cond_end.search(ln)
+            if not match:
+                raise ValueError("'%{' is missing for %if substitution")
+            cond = ln[:match.start()]
+
+            # eat '%{' as well
+            ln = ln[match.end():]
+            return cond, ln
+
+        def tryParseElse(ln):
+            match = re_else.search(ln)
+            if not match:
+                return False, ln
+            if not match.group(1):
+                raise ValueError("'%{' is missing for %else substitution")
+            return True, ln[match.end():]
+
+        def tryParseEnd(ln):
+            if ln.startswith('%}'):
+                return True, ln[2:]
+            return False, ln
+
+        def parseText(ln, isNested):
+            # parse everything until %if, or %} if we're parsing a
+            # nested expression.
+            re_pat = re_nested_if if isNested else re_if
+            match = re_pat.search(ln)
+            if not match:
+                # there is no terminating pattern, so treat the whole
+                # line as text
+                return ln, ''
+            text_end = match.end(1)
+            return ln[:text_end], ln[text_end:]
+
+        def parseRecursive(ln, isNested):
+            result = ''
+            while len(ln):
+                if isNested:
+                    found_end, _ = tryParseEnd(ln)
+                    if found_end:
+                        break
+
+                # %if cond %{ branch_if %} %else %{ branch_else %}
+                cond, ln = tryParseIfCond(ln)
+                if cond:
+                    branch_if, ln = parseRecursive(ln, isNested=True)
+                    found_end, ln = tryParseEnd(ln)
+                    if not found_end:
+                        raise ValueError("'%}' is missing for %if substitution")
+
+                    branch_else = ''
+                    found_else, ln = tryParseElse(ln)
+                    if found_else:
+                        branch_else, ln = parseRecursive(ln, isNested=True)
+                        found_end, ln = tryParseEnd(ln)
+                        if not found_end:
+                            raise ValueError("'%}' is missing for %else substitution")
+
+                    cond = cond.strip()
+
+                    if cond in test.config.available_features:
+                        result += branch_if
+                    else:
+                        result += branch_else
+                    continue
+
+                # The rest is handled as plain text.
+                text, ln = parseText(ln, isNested)
+                result += text
+
+            return result, ln
+
+        result, ln = parseRecursive(ln, isNested=False)
+        assert len(ln) == 0
+        return result
+
     # Apply substitutions to the script.  Allow full regular
     # expression syntax.  Replace each matching occurrence of regular
     # expression pattern a with substitution b in line ln.
     def processLine(ln):
         # Apply substitutions
+        ln = substituteIfElse(ln)
+
         for a,b in substitutions:
             if kIsWindows:
                 b = b.replace("\\","\\\\")

@@ -46,6 +46,6 @@ RegionPass *createRegionPassPrinter(const PassInfo *PI, raw_ostream &out,
 
 BasicBlockPass *createBasicBlockPassPrinter(const PassInfo *PI,
                                             raw_ostream &out, bool Quiet);
-}
+} // namespace llvm
 
 #endif // LLVM_TOOLS_OPT_PASSPRINTERS_H

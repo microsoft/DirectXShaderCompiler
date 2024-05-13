@@ -24,10 +24,11 @@
 namespace dxil_dia {
 class Session;
 
-class SectionsTable : public impl::TableBase<IDiaEnumSectionContribs, IDiaSectionContrib> {
+class SectionsTable
+    : public impl::TableBase<IDiaEnumSectionContribs, IDiaSectionContrib> {
 public:
   SectionsTable(IMalloc *pMalloc, Session *pSession);
   HRESULT GetItem(DWORD index, IDiaSectionContrib **ppItem) override;
 };
 
-}  // namespace dxil_dia
+} // namespace dxil_dia

@@ -2721,7 +2721,8 @@ static bool EvaluateStaticConstructor(Function *F, const DataLayout &DL,
 
 // HLSL Change: changed calling convention to __cdecl
 static int __cdecl compareNames(Constant *const *A, Constant *const *B) {
-  return (*A)->getName().compare((*B)->getName());
+  return (*A)->stripPointerCasts()->getName().compare(
+      (*B)->stripPointerCasts()->getName());
 }
 
 static void setUsedInitializer(GlobalVariable &V,

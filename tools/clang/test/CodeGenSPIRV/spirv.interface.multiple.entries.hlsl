@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6
+// RUN: %dxc -T lib_6_6 -fcgl  %s -spirv | FileCheck %s
 
 struct Inner {
     float2 cull2 : SV_CullDistance2;            // Builtin CullDistance

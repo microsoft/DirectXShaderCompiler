@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_2 -E main
+// RUN: %dxc -T ps_6_2 -E main -fcgl  %s -spirv | FileCheck %s
 
 // Make sure the same capability is not applied twice.
 //

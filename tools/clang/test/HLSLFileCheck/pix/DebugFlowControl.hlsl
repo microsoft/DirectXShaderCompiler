@@ -2,15 +2,31 @@
 
 // Check that flow control constructs don't break the instrumentation.
 
-// CHECK:  %UAVIncResult2 = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0
+// CHECK:  call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0
 
-// CHECK:  %MaskedForUAVLimit3 = and i32 %UAVIncResult2, 983039
+// There should be several blocks that have instrumentation:
 
-// CHECK:  %MultipliedForInterest4 = mul i32 %MaskedForUAVLimit3, %OffsetMultiplicand
+// CHECK: ; preds =
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
 
-// CHECK:  %AddedForInterest5 = add i32 %MultipliedForInterest4, %OffsetAddend
+// CHECK: ; preds =
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
 
-// CHECK:  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest5
+// CHECK: ; preds =
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
+
+// CHECK: ; preds =
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
+
+// CHECK: ; preds =
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
+
+// CHECK: ; preds =
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
+
+// CHECK: ; preds =
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle
+
 
 
 struct VS_OUTPUT_ENV {

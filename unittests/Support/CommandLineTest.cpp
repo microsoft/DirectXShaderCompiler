@@ -72,11 +72,13 @@ public:
 
 cl::OptionCategory TestCategory("Test Options", "Description");
 TEST(CommandLineTest, ModifyExisitingOption) {
-  StackOption<int> TestOption("test-option", cl::desc("old description"));
-
+  // HLSL Change begin
   const char Description[] = "New description";
   const char ArgString[] = "new-test-option";
   const char ValueString[] = "Integer";
+
+  StackOption<int> TestOption("test-option", cl::desc("old description"));
+  // HLSL Change end
 
   StringMap<cl::Option *> &Map = cl::getRegisteredOptions();
 

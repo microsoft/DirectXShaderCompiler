@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct X {
     int    a: A;
@@ -42,38 +42,38 @@ struct Z {
 // CHECK-NEXT: %param_var_param7 = OpVariable %_ptr_Function_float Function
 // CHECK-NEXT: %param_var_param8 = OpVariable %_ptr_Function_Z Function
 
-// CHECK-NEXT:  [[inO:%\d+]] = OpLoad %v4int %in_var_O
+// CHECK-NEXT:  [[inO:%[0-9]+]] = OpLoad %v4int %in_var_O
 // CHECK-NEXT:                 OpStore %param_var_param1 [[inO]]
-// CHECK-NEXT:  [[inQ:%\d+]] = OpLoad %v4int %in_var_Q
+// CHECK-NEXT:  [[inQ:%[0-9]+]] = OpLoad %v4int %in_var_Q
 // CHECK-NEXT:                 OpStore %param_var_param3 [[inQ]]
-// CHECK-NEXT:  [[inA:%\d+]] = OpLoad %int %in_var_A
-// CHECK-NEXT:  [[inB:%\d+]] = OpLoad %v4float %in_var_B
-// CHECK-NEXT:  [[inX:%\d+]] = OpCompositeConstruct %X [[inA]] [[inB]]
+// CHECK-NEXT:  [[inA:%[0-9]+]] = OpLoad %int %in_var_A
+// CHECK-NEXT:  [[inB:%[0-9]+]] = OpLoad %v4float %in_var_B
+// CHECK-NEXT:  [[inX:%[0-9]+]] = OpCompositeConstruct %X [[inA]] [[inB]]
 // CHECK-NEXT:                 OpStore %param_var_param4 [[inX]]
-// CHECK-NEXT:  [[inC:%\d+]] = OpLoad %uint %in_var_C
-// CHECK-NEXT:  [[inD:%\d+]] = OpLoad %v4float %in_var_D
-// CHECK-NEXT:  [[inY:%\d+]] = OpCompositeConstruct %Y [[inC]] [[inD]]
+// CHECK-NEXT:  [[inC:%[0-9]+]] = OpLoad %uint %in_var_C
+// CHECK-NEXT:  [[inD:%[0-9]+]] = OpLoad %v4float %in_var_D
+// CHECK-NEXT:  [[inY:%[0-9]+]] = OpCompositeConstruct %Y [[inC]] [[inD]]
 // CHECK-NEXT:                 OpStore %param_var_param6 [[inY]]
-// CHECK-NEXT:  [[inR:%\d+]] = OpLoad %float %in_var_R
+// CHECK-NEXT:  [[inR:%[0-9]+]] = OpLoad %float %in_var_R
 // CHECK-NEXT:                 OpStore %param_var_param7 [[inR]]
-// CHECK-NEXT:  [[inE:%\d+]] = OpLoad %float %in_var_E
-// CHECK-NEXT:  [[inZ:%\d+]] = OpCompositeConstruct %Z [[inE]]
+// CHECK-NEXT:  [[inE:%[0-9]+]] = OpLoad %float %in_var_E
+// CHECK-NEXT:  [[inZ:%[0-9]+]] = OpCompositeConstruct %Z [[inE]]
 // CHECK-NEXT:                 OpStore %param_var_param8 [[inZ]]
 
 // CHECK-NEXT:                 OpFunctionCall %void %src_main %param_var_param1 %param_var_param2 %param_var_param3 %param_var_param4 %param_var_param5 %param_var_param6 %param_var_param7 %param_var_param8
-// CHECK-NEXT: [[outP:%\d+]] = OpLoad %v4int %param_var_param2
+// CHECK-NEXT: [[outP:%[0-9]+]] = OpLoad %v4int %param_var_param2
 // CHECK-NEXT:                 OpStore %out_var_P [[outP]]
-// CHECK-NEXT: [[outQ:%\d+]] = OpLoad %v4int %param_var_param3
+// CHECK-NEXT: [[outQ:%[0-9]+]] = OpLoad %v4int %param_var_param3
 // CHECK-NEXT:                 OpStore %out_var_Q [[outQ]]
-// CHECK-NEXT: [[outX:%\d+]] = OpLoad %X %param_var_param5
-// CHECK-NEXT: [[outA:%\d+]] = OpCompositeExtract %int [[outX]] 0
+// CHECK-NEXT: [[outX:%[0-9]+]] = OpLoad %X %param_var_param5
+// CHECK-NEXT: [[outA:%[0-9]+]] = OpCompositeExtract %int [[outX]] 0
 // CHECK-NEXT:                 OpStore %out_var_A [[outA]]
-// CHECK-NEXT: [[outB:%\d+]] = OpCompositeExtract %v4float [[outX]] 1
+// CHECK-NEXT: [[outB:%[0-9]+]] = OpCompositeExtract %v4float [[outX]] 1
 // CHECK-NEXT:                 OpStore %out_var_B [[outB]]
-// CHECK-NEXT: [[outY:%\d+]] = OpLoad %Y %param_var_param6
-// CHECK-NEXT: [[outC:%\d+]] = OpCompositeExtract %uint [[outY]] 0
+// CHECK-NEXT: [[outY:%[0-9]+]] = OpLoad %Y %param_var_param6
+// CHECK-NEXT: [[outC:%[0-9]+]] = OpCompositeExtract %uint [[outY]] 0
 // CHECK-NEXT:                 OpStore %out_var_C [[outC]]
-// CHECK-NEXT: [[outD:%\d+]] = OpCompositeExtract %v4float [[outY]] 1
+// CHECK-NEXT: [[outD:%[0-9]+]] = OpCompositeExtract %v4float [[outY]] 1
 // CHECK-NEXT:                 OpStore %out_var_D [[outD]]
 
 // CHECK-NEXT: OpReturn

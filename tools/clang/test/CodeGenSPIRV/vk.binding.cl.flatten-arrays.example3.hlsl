@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays -O3
+// RUN: %dxc -T ps_6_0 -E main -fspv-flatten-resource-arrays -O3  %s -spirv | FileCheck %s
 
 // This shader tests that loop unrolling is performed before resource array
 // flattening is done.

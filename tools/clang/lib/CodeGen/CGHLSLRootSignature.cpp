@@ -16,18 +16,18 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/Support/WinIncludes.h"    // stream support
-#include "dxc/dxcapi.h"                 // stream support
-#include "clang/Parse/ParseHLSL.h" // root sig would be in Parser if part of lang
+#include "dxc/Support/WinIncludes.h" // stream support
+#include "dxc/dxcapi.h"              // stream support
 #include "dxc/dxcapi.h"
+#include "clang/Parse/ParseHLSL.h" // root sig would be in Parser if part of lang
 
 using namespace llvm;
 
-void clang::CompileRootSignature(
-    StringRef rootSigStr, DiagnosticsEngine &Diags, SourceLocation SLoc,
-    hlsl::DxilRootSignatureVersion rootSigVer,
-    hlsl::DxilRootSignatureCompilationFlags flags,
-    hlsl::RootSignatureHandle *pRootSigHandle) {
+void clang::CompileRootSignature(StringRef rootSigStr, DiagnosticsEngine &Diags,
+                                 SourceLocation SLoc,
+                                 hlsl::DxilRootSignatureVersion rootSigVer,
+                                 hlsl::DxilRootSignatureCompilationFlags flags,
+                                 hlsl::RootSignatureHandle *pRootSigHandle) {
   std::string OSStr;
   llvm::raw_string_ostream OS(OSStr);
   hlsl::DxilVersionedRootSignatureDesc *D = nullptr;

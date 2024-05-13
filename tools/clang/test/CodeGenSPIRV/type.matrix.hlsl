@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // NOTE: According to Item "Data rules" of SPIR-V Spec 2.16.1 "Universal
 // Validation Rules":

@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:                   OpEntryPoint Vertex %main "main"
 // CHECK-SAME:              %gl_VertexIndex

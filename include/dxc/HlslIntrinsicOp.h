@@ -4,11 +4,13 @@
 
 #pragma once
 namespace hlsl {
-enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
+enum class IntrinsicOp {
+  IOP_AcceptHitAndEndSearch,
   IOP_AddUint64,
   IOP_AllMemoryBarrier,
   IOP_AllMemoryBarrierWithGroupSync,
   IOP_AllocateRayQuery,
+  IOP_Barrier,
   IOP_CallShader,
   IOP_CheckAccessFullyMapped,
   IOP_CreateResourceFromHeap,
@@ -23,6 +25,7 @@ enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
   IOP_EvaluateAttributeSnapped,
   IOP_GeometryIndex,
   IOP_GetAttributeAtVertex,
+  IOP_GetRemainingRecursionLevels,
   IOP_GetRenderTargetSampleCount,
   IOP_GetRenderTargetSamplePosition,
   IOP_GroupMemoryBarrier,
@@ -247,6 +250,8 @@ enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
   MOP_Sample,
   MOP_SampleBias,
   MOP_SampleCmp,
+  MOP_SampleCmpBias,
+  MOP_SampleCmpGrad,
   MOP_SampleCmpLevel,
   MOP_SampleCmpLevelZero,
   MOP_SampleGrad,
@@ -338,6 +343,24 @@ enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
   MOP_TraceRayInline,
   MOP_WorldRayDirection,
   MOP_WorldRayOrigin,
+  MOP_Fill,
+  MOP_MatrixDepth,
+  MOP_ScalarAdd,
+  MOP_ScalarDivide,
+  MOP_ScalarMultiply,
+  MOP_ScalarSubtract,
+  MOP_SumAccumulate,
+  MOP_Add,
+  MOP_Multiply,
+  MOP_MultiplyAccumulate,
+  MOP_Count,
+  MOP_FinishedCrossGroupSharing,
+  MOP_GetGroupNodeOutputRecords,
+  MOP_GetThreadNodeOutputRecords,
+  MOP_IsValid,
+  MOP_GroupIncrementOutputCount,
+  MOP_ThreadIncrementOutputCount,
+  MOP_OutputComplete,
 #ifdef ENABLE_SPIRV_CODEGEN
   MOP_SubpassLoad,
 #endif // ENABLE_SPIRV_CODEGEN
@@ -365,7 +388,8 @@ enum class IntrinsicOp {  IOP_AcceptHitAndEndSearch,
   Num_Intrinsics,
 };
 inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
-  switch (opcode) {  case IntrinsicOp::IOP_InterlockedMax:
+  switch (opcode) {
+  case IntrinsicOp::IOP_InterlockedMax:
   case IntrinsicOp::IOP_InterlockedMin:
   case IntrinsicOp::IOP_WaveActiveMax:
   case IntrinsicOp::IOP_WaveActiveMin:
@@ -393,7 +417,8 @@ inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   }
 }
 inline unsigned GetUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
-  switch (opcode) {  case IntrinsicOp::IOP_InterlockedMax:
+  switch (opcode) {
+  case IntrinsicOp::IOP_InterlockedMax:
     return static_cast<unsigned>(IntrinsicOp::IOP_InterlockedUMax);
   case IntrinsicOp::IOP_InterlockedMin:
     return static_cast<unsigned>(IntrinsicOp::IOP_InterlockedUMin);

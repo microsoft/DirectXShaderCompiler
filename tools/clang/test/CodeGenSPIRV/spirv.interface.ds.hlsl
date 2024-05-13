@@ -1,4 +1,4 @@
-// RUN: %dxc -T ds_6_0 -E main -fspv-reflect
+// RUN: %dxc -T ds_6_0 -E main -fspv-reflect -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability Tessellation
 // CHECK: OpCapability ClipDistance
@@ -160,242 +160,242 @@ DsOut main(    const OutputPatch<PerVertexIn, 3> patch,
 //   cull4: 2 floats, offset 2
 
 // Read gl_CullDistance[0] and compose patch[0].cull3 (SV_CullDistance3)
-// CHECK:              [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_2
-// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_3
-// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT:         [[ptr2:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_4
-// CHECK-NEXT:         [[val2:%\d+]] = OpLoad %float [[ptr2]]
-// CHECK-NEXT:         [[ptr3:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_5
-// CHECK-NEXT:         [[val3:%\d+]] = OpLoad %float [[ptr3]]
-// CHECK-NEXT:  [[patch0cull3:%\d+]] = OpCompositeConstruct %v4float [[val0]] [[val1]] [[val2]] [[val3]]
+// CHECK:              [[ptr0:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_2
+// CHECK-NEXT:         [[val0:%[0-9]+]] = OpLoad %float [[ptr0]]
+// CHECK-NEXT:         [[ptr1:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_3
+// CHECK-NEXT:         [[val1:%[0-9]+]] = OpLoad %float [[ptr1]]
+// CHECK-NEXT:         [[ptr2:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_4
+// CHECK-NEXT:         [[val2:%[0-9]+]] = OpLoad %float [[ptr2]]
+// CHECK-NEXT:         [[ptr3:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_5
+// CHECK-NEXT:         [[val3:%[0-9]+]] = OpLoad %float [[ptr3]]
+// CHECK-NEXT:  [[patch0cull3:%[0-9]+]] = OpCompositeConstruct %v4float [[val0]] [[val1]] [[val2]] [[val3]]
 
 // Read gl_CullDistance[1] and compose patch[1].cull3 (SV_CullDistance3)
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_2
-// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_3
-// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT:         [[ptr2:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_4
-// CHECK-NEXT:         [[val2:%\d+]] = OpLoad %float [[ptr2]]
-// CHECK-NEXT:         [[ptr3:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_5
-// CHECK-NEXT:         [[val3:%\d+]] = OpLoad %float [[ptr3]]
-// CHECK-NEXT:  [[patch1cull3:%\d+]] = OpCompositeConstruct %v4float [[val0]] [[val1]] [[val2]] [[val3]]
+// CHECK-NEXT:         [[ptr0_0:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_2
+// CHECK-NEXT:         [[val0_0:%[0-9]+]] = OpLoad %float [[ptr0_0]]
+// CHECK-NEXT:         [[ptr1_0:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_3
+// CHECK-NEXT:         [[val1_0:%[0-9]+]] = OpLoad %float [[ptr1_0]]
+// CHECK-NEXT:         [[ptr2_0:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_4
+// CHECK-NEXT:         [[val2_0:%[0-9]+]] = OpLoad %float [[ptr2_0]]
+// CHECK-NEXT:         [[ptr3_0:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_5
+// CHECK-NEXT:         [[val3_0:%[0-9]+]] = OpLoad %float [[ptr3_0]]
+// CHECK-NEXT:  [[patch1cull3:%[0-9]+]] = OpCompositeConstruct %v4float [[val0_0]] [[val1_0]] [[val2_0]] [[val3_0]]
 
 // Read gl_CullDistance[2] and compose patch[2].cull3 (SV_CullDistance3)
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_2
-// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_3
-// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT:         [[ptr2:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_4
-// CHECK-NEXT:         [[val2:%\d+]] = OpLoad %float [[ptr2]]
-// CHECK-NEXT:         [[ptr3:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_5
-// CHECK-NEXT:         [[val3:%\d+]] = OpLoad %float [[ptr3]]
-// CHECK-NEXT:  [[patch2cull3:%\d+]] = OpCompositeConstruct %v4float [[val0]] [[val1]] [[val2]] [[val3]]
+// CHECK-NEXT:         [[ptr0_1:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_2
+// CHECK-NEXT:         [[val0_1:%[0-9]+]] = OpLoad %float [[ptr0_1]]
+// CHECK-NEXT:         [[ptr1_1:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_3
+// CHECK-NEXT:         [[val1_1:%[0-9]+]] = OpLoad %float [[ptr1_1]]
+// CHECK-NEXT:         [[ptr2_1:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_4
+// CHECK-NEXT:         [[val2_1:%[0-9]+]] = OpLoad %float [[ptr2_1]]
+// CHECK-NEXT:         [[ptr3_1:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_5
+// CHECK-NEXT:         [[val3_1:%[0-9]+]] = OpLoad %float [[ptr3_1]]
+// CHECK-NEXT:  [[patch2cull3:%[0-9]+]] = OpCompositeConstruct %v4float [[val0_1]] [[val1_1]] [[val2_1]] [[val3_1]]
 
 // Compose an array of input SV_CullDistance3 for later use
-// CHECK-NEXT:   [[inCull3Arr:%\d+]] = OpCompositeConstruct %_arr_v4float_uint_3 [[patch0cull3]] [[patch1cull3]] [[patch2cull3]]
+// CHECK-NEXT:   [[inCull3Arr:%[0-9]+]] = OpCompositeConstruct %_arr_v4float_uint_3 [[patch0cull3]] [[patch1cull3]] [[patch2cull3]]
 
 // Read gl_Position
-// CHECK-NEXT:     [[inPosArr:%\d+]] = OpLoad %_arr_v4float_uint_3 %gl_Position
+// CHECK-NEXT:     [[inPosArr:%[0-9]+]] = OpLoad %_arr_v4float_uint_3 %gl_Position
 
 // Read gl_ClipDistance[0] as patch[0].s.clip0 (SV_ClipDistance0)
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_0 %uint_0
-// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
+// CHECK-NEXT:         [[ptr0_2:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_0 %uint_0
+// CHECK-NEXT:         [[val0_2:%[0-9]+]] = OpLoad %float [[ptr0_2]]
 
 // Read gl_ClipDistance[1] as patch[1].s.clip0 (SV_ClipDistance0)
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_1 %uint_0
-// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
+// CHECK-NEXT:         [[ptr1_2:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_1 %uint_0
+// CHECK-NEXT:         [[val1_2:%[0-9]+]] = OpLoad %float [[ptr1_2]]
 
 // Read gl_ClipDistance[2] as patch[2].s.clip0 (SV_ClipDistance0)
-// CHECK-NEXT:         [[ptr2:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_2 %uint_0
-// CHECK-NEXT:         [[val2:%\d+]] = OpLoad %float [[ptr2]]
+// CHECK-NEXT:         [[ptr2_2:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_2 %uint_0
+// CHECK-NEXT:         [[val2_2:%[0-9]+]] = OpLoad %float [[ptr2_2]]
 
 // Compose an array of input SV_ClipDistance0 for later use
-// CHECK-NEXT:   [[inClip0Arr:%\d+]] = OpCompositeConstruct %_arr_float_uint_3 [[val0]] [[val1]] [[val2]]
+// CHECK-NEXT:   [[inClip0Arr:%[0-9]+]] = OpCompositeConstruct %_arr_float_uint_3 [[val0_2]] [[val1_2]] [[val2_2]]
 
 // Read gl_ClipDistance[0] as patch[0].s.s.clip3 (SV_ClipDistance3)
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_0 %uint_1
-// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
+// CHECK-NEXT:         [[ptr0_3:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_0 %uint_1
+// CHECK-NEXT:         [[val0_3:%[0-9]+]] = OpLoad %float [[ptr0_3]]
 
 // Read gl_ClipDistance[1] as patch[1].s.s.clip3 (SV_ClipDistance3)
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_1 %uint_1
-// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
+// CHECK-NEXT:         [[ptr1_3:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_1 %uint_1
+// CHECK-NEXT:         [[val1_3:%[0-9]+]] = OpLoad %float [[ptr1_3]]
 
 // Read gl_ClipDistance[2] as patch[2].s.s.clip3 (SV_ClipDistance3)
-// CHECK-NEXT:         [[ptr2:%\d+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_2 %uint_1
-// CHECK-NEXT:         [[val2:%\d+]] = OpLoad %float [[ptr2]]
+// CHECK-NEXT:         [[ptr2_3:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_ClipDistance %uint_2 %uint_1
+// CHECK-NEXT:         [[val2_3:%[0-9]+]] = OpLoad %float [[ptr2_3]]
 
 // Compose an array of input SV_ClipDistance3 for later use
-// CHECK-NEXT:   [[inClip3Arr:%\d+]] = OpCompositeConstruct %_arr_float_uint_3 [[val0]] [[val1]] [[val2]]
+// CHECK-NEXT:   [[inClip3Arr:%[0-9]+]] = OpCompositeConstruct %_arr_float_uint_3 [[val0_3]] [[val1_3]] [[val2_3]]
 
-// CHECK-NEXT:      [[texcord:%\d+]] = OpLoad %_arr_v4float_uint_3 %in_var_TEXCOORD
+// CHECK-NEXT:      [[texcord:%[0-9]+]] = OpLoad %_arr_v4float_uint_3 %in_var_TEXCOORD
 
 // Decompose temporary arrays created before to compose Inner2PerVertexIn
 
-// CHECK-NEXT:  [[inClip3Arr0:%\d+]] = OpCompositeExtract %float [[inClip3Arr]] 0
-// CHECK-NEXT:     [[texcord0:%\d+]] = OpCompositeExtract %v4float [[texcord]] 0
-// CHECK-NEXT:         [[val0:%\d+]] = OpCompositeConstruct %Inner2PerVertexIn [[inClip3Arr0]] [[texcord0]]
+// CHECK-NEXT:  [[inClip3Arr0:%[0-9]+]] = OpCompositeExtract %float [[inClip3Arr]] 0
+// CHECK-NEXT:     [[texcord0:%[0-9]+]] = OpCompositeExtract %v4float [[texcord]] 0
+// CHECK-NEXT:         [[val0_4:%[0-9]+]] = OpCompositeConstruct %Inner2PerVertexIn [[inClip3Arr0]] [[texcord0]]
 
-// CHECK-NEXT:  [[inClip3Arr1:%\d+]] = OpCompositeExtract %float [[inClip3Arr]] 1
-// CHECK-NEXT:     [[texcord1:%\d+]] = OpCompositeExtract %v4float [[texcord]] 1
-// CHECK-NEXT:         [[val1:%\d+]] = OpCompositeConstruct %Inner2PerVertexIn [[inClip3Arr1]] [[texcord1]]
+// CHECK-NEXT:  [[inClip3Arr1:%[0-9]+]] = OpCompositeExtract %float [[inClip3Arr]] 1
+// CHECK-NEXT:     [[texcord1:%[0-9]+]] = OpCompositeExtract %v4float [[texcord]] 1
+// CHECK-NEXT:         [[val1_4:%[0-9]+]] = OpCompositeConstruct %Inner2PerVertexIn [[inClip3Arr1]] [[texcord1]]
 
-// CHECK-NEXT:  [[inClip3Arr2:%\d+]] = OpCompositeExtract %float [[inClip3Arr]] 2
-// CHECK-NEXT:     [[texcord2:%\d+]] = OpCompositeExtract %v4float [[texcord]] 2
-// CHECK-NEXT:         [[val2:%\d+]] = OpCompositeConstruct %Inner2PerVertexIn [[inClip3Arr2]] [[texcord2]]
+// CHECK-NEXT:  [[inClip3Arr2:%[0-9]+]] = OpCompositeExtract %float [[inClip3Arr]] 2
+// CHECK-NEXT:     [[texcord2:%[0-9]+]] = OpCompositeExtract %v4float [[texcord]] 2
+// CHECK-NEXT:         [[val2_4:%[0-9]+]] = OpCompositeConstruct %Inner2PerVertexIn [[inClip3Arr2]] [[texcord2]]
 
 // Compose an array of input Inner2PerVertexIn for later use
-// CHECK-NEXT:   [[inIn2PVArr:%\d+]] = OpCompositeConstruct %_arr_Inner2PerVertexIn_uint_3 [[val0]] [[val1]] [[val2]]
+// CHECK-NEXT:   [[inIn2PVArr:%[0-9]+]] = OpCompositeConstruct %_arr_Inner2PerVertexIn_uint_3 [[val0_4]] [[val1_4]] [[val2_4]]
 
 // Read gl_CullDistance[0] as patch[0].s.cull2 (SV_CullDistance2)
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_0
-// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_1
-// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT:  [[patch0cull2:%\d+]] = OpCompositeConstruct %v2float [[val0]] [[val1]]
+// CHECK-NEXT:         [[ptr0_4:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_0
+// CHECK-NEXT:         [[val0_5:%[0-9]+]] = OpLoad %float [[ptr0_4]]
+// CHECK-NEXT:         [[ptr1_4:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_0 %uint_1
+// CHECK-NEXT:         [[val1_5:%[0-9]+]] = OpLoad %float [[ptr1_4]]
+// CHECK-NEXT:  [[patch0cull2:%[0-9]+]] = OpCompositeConstruct %v2float [[val0_5]] [[val1_5]]
 
 // Read gl_CullDistance[1] as patch[1].s.cull2 (SV_CullDistance2)
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_0
-// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_1
-// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT:  [[patch1cull2:%\d+]] = OpCompositeConstruct %v2float [[val0]] [[val1]]
+// CHECK-NEXT:         [[ptr0_5:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_0
+// CHECK-NEXT:         [[val0_6:%[0-9]+]] = OpLoad %float [[ptr0_5]]
+// CHECK-NEXT:         [[ptr1_5:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_1 %uint_1
+// CHECK-NEXT:         [[val1_6:%[0-9]+]] = OpLoad %float [[ptr1_5]]
+// CHECK-NEXT:  [[patch1cull2:%[0-9]+]] = OpCompositeConstruct %v2float [[val0_6]] [[val1_6]]
 
 // Read gl_CullDistance[2] as patch[2].s.cull2 (SV_CullDistance2)
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_0
-// CHECK-NEXT:         [[val0:%\d+]] = OpLoad %float [[ptr0]]
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_1
-// CHECK-NEXT:         [[val1:%\d+]] = OpLoad %float [[ptr1]]
-// CHECK-NEXT:  [[patch2cull2:%\d+]] = OpCompositeConstruct %v2float [[val0]] [[val1]]
+// CHECK-NEXT:         [[ptr0_6:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_0
+// CHECK-NEXT:         [[val0_7:%[0-9]+]] = OpLoad %float [[ptr0_6]]
+// CHECK-NEXT:         [[ptr1_6:%[0-9]+]] = OpAccessChain %_ptr_Input_float %gl_CullDistance %uint_2 %uint_1
+// CHECK-NEXT:         [[val1_7:%[0-9]+]] = OpLoad %float [[ptr1_6]]
+// CHECK-NEXT:  [[patch2cull2:%[0-9]+]] = OpCompositeConstruct %v2float [[val0_7]] [[val1_7]]
 
 // Compose an array of input SV_CullDistance2 for later use
-// CHECK-NEXT:   [[inCull2Arr:%\d+]] = OpCompositeConstruct %_arr_v2float_uint_3 [[patch0cull2]] [[patch1cull2]] [[patch2cull2]]
+// CHECK-NEXT:   [[inCull2Arr:%[0-9]+]] = OpCompositeConstruct %_arr_v2float_uint_3 [[patch0cull2]] [[patch1cull2]] [[patch2cull2]]
 
 // Decompose temporary arrays created before to compose InnerPerVertexIn
 
-// CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inPosArr]] 0
-// CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %float [[inClip0Arr]] 0
-// CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %Inner2PerVertexIn [[inIn2PVArr]] 0
-// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %v2float [[inCull2Arr]] 0
-// CHECK-NEXT:         [[val0:%\d+]] = OpCompositeConstruct %InnerPerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
+// CHECK-NEXT:       [[field0:%[0-9]+]] = OpCompositeExtract %v4float [[inPosArr]] 0
+// CHECK-NEXT:       [[field1:%[0-9]+]] = OpCompositeExtract %float [[inClip0Arr]] 0
+// CHECK-NEXT:       [[field2:%[0-9]+]] = OpCompositeExtract %Inner2PerVertexIn [[inIn2PVArr]] 0
+// CHECK-NEXT:       [[field3:%[0-9]+]] = OpCompositeExtract %v2float [[inCull2Arr]] 0
+// CHECK-NEXT:         [[val0_8:%[0-9]+]] = OpCompositeConstruct %InnerPerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
 
-// CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inPosArr]] 1
-// CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %float [[inClip0Arr]] 1
-// CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %Inner2PerVertexIn [[inIn2PVArr]] 1
-// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %v2float [[inCull2Arr]] 1
-// CHECK-NEXT:         [[val1:%\d+]] = OpCompositeConstruct %InnerPerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
+// CHECK-NEXT:       [[field0_0:%[0-9]+]] = OpCompositeExtract %v4float [[inPosArr]] 1
+// CHECK-NEXT:       [[field1_0:%[0-9]+]] = OpCompositeExtract %float [[inClip0Arr]] 1
+// CHECK-NEXT:       [[field2_0:%[0-9]+]] = OpCompositeExtract %Inner2PerVertexIn [[inIn2PVArr]] 1
+// CHECK-NEXT:       [[field3_0:%[0-9]+]] = OpCompositeExtract %v2float [[inCull2Arr]] 1
+// CHECK-NEXT:         [[val1_8:%[0-9]+]] = OpCompositeConstruct %InnerPerVertexIn [[field0_0]] [[field1_0]] [[field2_0]] [[field3_0]]
 
-// CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inPosArr]] 2
-// CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %float [[inClip0Arr]] 2
-// CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %Inner2PerVertexIn [[inIn2PVArr]] 2
-// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %v2float [[inCull2Arr]] 2
-// CHECK-NEXT:         [[val2:%\d+]] = OpCompositeConstruct %InnerPerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
+// CHECK-NEXT:       [[field0_1:%[0-9]+]] = OpCompositeExtract %v4float [[inPosArr]] 2
+// CHECK-NEXT:       [[field1_1:%[0-9]+]] = OpCompositeExtract %float [[inClip0Arr]] 2
+// CHECK-NEXT:       [[field2_1:%[0-9]+]] = OpCompositeExtract %Inner2PerVertexIn [[inIn2PVArr]] 2
+// CHECK-NEXT:       [[field3_1:%[0-9]+]] = OpCompositeExtract %v2float [[inCull2Arr]] 2
+// CHECK-NEXT:         [[val2_5:%[0-9]+]] = OpCompositeConstruct %InnerPerVertexIn [[field0_1]] [[field1_1]] [[field2_1]] [[field3_1]]
 
 // Compose an array of input InnerPerVertexIn for later use
-// CHECK-NEXT:    [[inInPVArr:%\d+]] = OpCompositeConstruct %_arr_InnerPerVertexIn_uint_3 [[val0]] [[val1]] [[val2]]
+// CHECK-NEXT:    [[inInPVArr:%[0-9]+]] = OpCompositeConstruct %_arr_InnerPerVertexIn_uint_3 [[val0_8]] [[val1_8]] [[val2_5]]
 
-// CHECK-NEXT:     [[inBarArr:%\d+]] = OpLoad %_arr_v2float_uint_3 %in_var_BAR
+// CHECK-NEXT:     [[inBarArr:%[0-9]+]] = OpLoad %_arr_v2float_uint_3 %in_var_BAR
 
 // Read gl_PointSize
-// CHECK-NEXT:  [[inPtSizeArr:%\d+]] = OpLoad %_arr_float_uint_3 %gl_PointSize
+// CHECK-NEXT:  [[inPtSizeArr:%[0-9]+]] = OpLoad %_arr_float_uint_3 %gl_PointSize
 
 // Decompose temporary arrays created before to compose PerVertexIn
 
-// CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inCull3Arr]] 0
-// CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 0
-// CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %v2float [[inBarArr]] 0
-// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %float [[inPtSizeArr]] 0
-// CHECK-NEXT:         [[val0:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
+// CHECK-NEXT:       [[field0_2:%[0-9]+]] = OpCompositeExtract %v4float [[inCull3Arr]] 0
+// CHECK-NEXT:       [[field1_2:%[0-9]+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 0
+// CHECK-NEXT:       [[field2_2:%[0-9]+]] = OpCompositeExtract %v2float [[inBarArr]] 0
+// CHECK-NEXT:       [[field3_2:%[0-9]+]] = OpCompositeExtract %float [[inPtSizeArr]] 0
+// CHECK-NEXT:         [[val0_9:%[0-9]+]] = OpCompositeConstruct %PerVertexIn [[field0_2]] [[field1_2]] [[field2_2]] [[field3_2]]
 
-// CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inCull3Arr]] 1
-// CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 1
-// CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %v2float [[inBarArr]] 1
-// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %float [[inPtSizeArr]] 1
-// CHECK-NEXT:         [[val1:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
+// CHECK-NEXT:       [[field0_3:%[0-9]+]] = OpCompositeExtract %v4float [[inCull3Arr]] 1
+// CHECK-NEXT:       [[field1_3:%[0-9]+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 1
+// CHECK-NEXT:       [[field2_3:%[0-9]+]] = OpCompositeExtract %v2float [[inBarArr]] 1
+// CHECK-NEXT:       [[field3_3:%[0-9]+]] = OpCompositeExtract %float [[inPtSizeArr]] 1
+// CHECK-NEXT:         [[val1_9:%[0-9]+]] = OpCompositeConstruct %PerVertexIn [[field0_3]] [[field1_3]] [[field2_3]] [[field3_3]]
 
-// CHECK-NEXT:       [[field0:%\d+]] = OpCompositeExtract %v4float [[inCull3Arr]] 2
-// CHECK-NEXT:       [[field1:%\d+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 2
-// CHECK-NEXT:       [[field2:%\d+]] = OpCompositeExtract %v2float [[inBarArr]] 2
-// CHECK-NEXT:       [[field3:%\d+]] = OpCompositeExtract %float [[inPtSizeArr]] 2
-// CHECK-NEXT:         [[val2:%\d+]] = OpCompositeConstruct %PerVertexIn [[field0]] [[field1]] [[field2]] [[field3]]
+// CHECK-NEXT:       [[field0_4:%[0-9]+]] = OpCompositeExtract %v4float [[inCull3Arr]] 2
+// CHECK-NEXT:       [[field1_4:%[0-9]+]] = OpCompositeExtract %InnerPerVertexIn [[inInPVArr]] 2
+// CHECK-NEXT:       [[field2_4:%[0-9]+]] = OpCompositeExtract %v2float [[inBarArr]] 2
+// CHECK-NEXT:       [[field3_4:%[0-9]+]] = OpCompositeExtract %float [[inPtSizeArr]] 2
+// CHECK-NEXT:         [[val2_6:%[0-9]+]] = OpCompositeConstruct %PerVertexIn [[field0_4]] [[field1_4]] [[field2_4]] [[field3_4]]
 
 // The final value for the patch parameter!
-// CHECK-NEXT:        [[patch:%\d+]] = OpCompositeConstruct %_arr_PerVertexIn_uint_3 [[val0]] [[val1]] [[val2]]
+// CHECK-NEXT:        [[patch:%[0-9]+]] = OpCompositeConstruct %_arr_PerVertexIn_uint_3 [[val0_9]] [[val1_9]] [[val2_6]]
 // CHECK-NEXT:                         OpStore %param_var_patch [[patch]]
 
 // Write SV_DomainLocation to tempoary variable for function call
-// CHECK-NEXT:    [[tesscoord:%\d+]] = OpLoad %v3float %gl_TessCoord
-// CHECK-NEXT:      [[shuffle:%\d+]] = OpVectorShuffle %v2float [[tesscoord]] [[tesscoord]] 0 1
+// CHECK-NEXT:    [[tesscoord:%[0-9]+]] = OpLoad %v3float %gl_TessCoord
+// CHECK-NEXT:      [[shuffle:%[0-9]+]] = OpVectorShuffle %v2float [[tesscoord]] [[tesscoord]] 0 1
 // CHECK-NEXT:                         OpStore %param_var_loc [[shuffle]]
 
 // Compose pcfData and write to tempoary variable for function call
-// CHECK-NEXT:          [[tlo:%\d+]] = OpLoad %_arr_float_uint_4 %gl_TessLevelOuter
-// CHECK-NEXT:          [[tli:%\d+]] = OpLoad %_arr_float_uint_2 %gl_TessLevelInner
-// CHECK-NEXT:        [[inFoo:%\d+]] = OpLoad %v3float %in_var_FOO
-// CHECK-NEXT:      [[pcfData:%\d+]] = OpCompositeConstruct %HsPcfOut [[tlo]] [[tli]] [[inFoo]]
+// CHECK-NEXT:          [[tlo:%[0-9]+]] = OpLoad %_arr_float_uint_4 %gl_TessLevelOuter
+// CHECK-NEXT:          [[tli:%[0-9]+]] = OpLoad %_arr_float_uint_2 %gl_TessLevelInner
+// CHECK-NEXT:        [[inFoo:%[0-9]+]] = OpLoad %v3float %in_var_FOO
+// CHECK-NEXT:      [[pcfData:%[0-9]+]] = OpCompositeConstruct %HsPcfOut [[tlo]] [[tli]] [[inFoo]]
 // CHECK-NEXT:                         OpStore %param_var_pcfData [[pcfData]]
 
 // Make the call!
-// CHECK-NEXT:          [[ret:%\d+]] = OpFunctionCall %DsOut %src_main %param_var_patch %param_var_loc %param_var_pcfData %param_var_clip5
+// CHECK-NEXT:          [[ret:%[0-9]+]] = OpFunctionCall %DsOut %src_main %param_var_patch %param_var_loc %param_var_pcfData %param_var_clip5
 
 // Decompose DsOut and write out output SV_Position
-// CHECK-NEXT:       [[outPos:%\d+]] = OpCompositeExtract %v4float [[ret]] 0
+// CHECK-NEXT:       [[outPos:%[0-9]+]] = OpCompositeExtract %v4float [[ret]] 0
 // CHECK-NEXT:                         OpStore %gl_Position_0 [[outPos]]
 
-// CHECK-NEXT:      [[outInPV:%\d+]] = OpCompositeExtract %InnerPerVertexOut [[ret]] 1
-// CHECK-NEXT:     [[outIn2PV:%\d+]] = OpCompositeExtract %Inner2PerVertexOut [[outInPV]] 0
+// CHECK-NEXT:      [[outInPV:%[0-9]+]] = OpCompositeExtract %InnerPerVertexOut [[ret]] 1
+// CHECK-NEXT:     [[outIn2PV:%[0-9]+]] = OpCompositeExtract %Inner2PerVertexOut [[outInPV]] 0
 
 // Decompose Inner2PerVertexOut and write out DsOut.s.s.foo (FOO)
-// CHECK-NEXT:          [[foo:%\d+]] = OpCompositeExtract %v3float [[outIn2PV]] 0
+// CHECK-NEXT:          [[foo:%[0-9]+]] = OpCompositeExtract %v3float [[outIn2PV]] 0
 // CHECK-NEXT:                         OpStore %out_var_FOO [[foo]]
 
 // Decompose Inner2PerVertexOut and write out DsOut.s.s.cull3 (SV_CullDistance3) at offset 0
-// CHECK-NEXT:        [[cull3:%\d+]] = OpCompositeExtract %v2float [[outIn2PV]] 1
-// CHECK-NEXT:        [[ind00:%\d+]] = OpIAdd %uint %uint_0 %uint_0
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind00]]
-// CHECK-NEXT:         [[val0:%\d+]] = OpCompositeExtract %float [[cull3]] 0
-// CHECK-NEXT:                         OpStore [[ptr0]] [[val0]]
-// CHECK-NEXT:        [[ind01:%\d+]] = OpIAdd %uint %uint_0 %uint_1
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind01]]
-// CHECK-NEXT:         [[val1:%\d+]] = OpCompositeExtract %float [[cull3]] 1
-// CHECK-NEXT:                         OpStore [[ptr1]] [[val1]]
+// CHECK-NEXT:        [[cull3:%[0-9]+]] = OpCompositeExtract %v2float [[outIn2PV]] 1
+// CHECK-NEXT:        [[ind00:%[0-9]+]] = OpIAdd %uint %uint_0 %uint_0
+// CHECK-NEXT:         [[ptr0_7:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind00]]
+// CHECK-NEXT:         [[val0_10:%[0-9]+]] = OpCompositeExtract %float [[cull3]] 0
+// CHECK-NEXT:                         OpStore [[ptr0_7]] [[val0_10]]
+// CHECK-NEXT:        [[ind01:%[0-9]+]] = OpIAdd %uint %uint_0 %uint_1
+// CHECK-NEXT:         [[ptr1_7:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind01]]
+// CHECK-NEXT:         [[val1_10:%[0-9]+]] = OpCompositeExtract %float [[cull3]] 1
+// CHECK-NEXT:                         OpStore [[ptr1_7]] [[val1_10]]
 
 // Decompose Inner2PerVertexOut and write out DsOut.s.s.clip0 (SV_ClipDistance0) at offset 0
-// CHECK-NEXT:        [[clip0:%\d+]] = OpCompositeExtract %float [[outIn2PV]] 2
-// CHECK-NEXT:          [[ptr:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_0
+// CHECK-NEXT:        [[clip0:%[0-9]+]] = OpCompositeExtract %float [[outIn2PV]] 2
+// CHECK-NEXT:          [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 %uint_0
 // CHECK-NEXT:                         OpStore [[ptr]] [[clip0]]
 
 // Decompose InnerPerVertexOut and write out DsOut.s.cull4 (SV_CullDistance4) at offset 2
-// CHECK-NEXT:        [[cull4:%\d+]] = OpCompositeExtract %v2float [[outInPV]] 1
-// CHECK-NEXT:        [[ind20:%\d+]] = OpIAdd %uint %uint_2 %uint_0
-// CHECK-NEXT:         [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind20]]
-// CHECK-NEXT:         [[val0:%\d+]] = OpCompositeExtract %float [[cull4]] 0
-// CHECK-NEXT:                         OpStore [[ptr0]] [[val0]]
-// CHECK-NEXT:        [[ind21:%\d+]] = OpIAdd %uint %uint_2 %uint_1
-// CHECK-NEXT:         [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind21]]
-// CHECK-NEXT:         [[val1:%\d+]] = OpCompositeExtract %float [[cull4]] 1
-// CHECK-NEXT:                         OpStore [[ptr1]] [[val1]]
+// CHECK-NEXT:        [[cull4:%[0-9]+]] = OpCompositeExtract %v2float [[outInPV]] 1
+// CHECK-NEXT:        [[ind20:%[0-9]+]] = OpIAdd %uint %uint_2 %uint_0
+// CHECK-NEXT:         [[ptr0_8:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind20]]
+// CHECK-NEXT:         [[val0_11:%[0-9]+]] = OpCompositeExtract %float [[cull4]] 0
+// CHECK-NEXT:                         OpStore [[ptr0_8]] [[val0_11]]
+// CHECK-NEXT:        [[ind21:%[0-9]+]] = OpIAdd %uint %uint_2 %uint_1
+// CHECK-NEXT:         [[ptr1_8:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_CullDistance_0 [[ind21]]
+// CHECK-NEXT:         [[val1_11:%[0-9]+]] = OpCompositeExtract %float [[cull4]] 1
+// CHECK-NEXT:                         OpStore [[ptr1_8]] [[val1_11]]
 
 // Decompose InnerPerVertexOut and write out DsOut.s.bar (BAR)
-// CHECK-NEXT:          [[bar:%\d+]] = OpCompositeExtract %v4float [[outInPV]] 2
+// CHECK-NEXT:          [[bar:%[0-9]+]] = OpCompositeExtract %v4float [[outInPV]] 2
 // CHECK-NEXT:                         OpStore %out_var_BAR [[bar]]
 
 // Decompose InnerPerVertexOut and write out DsOut.s.ptSize (PointSize)
-// CHECK-NEXT:       [[ptSize:%\d+]] = OpCompositeExtract %float [[outInPV]] 3
+// CHECK-NEXT:       [[ptSize:%[0-9]+]] = OpCompositeExtract %float [[outInPV]] 3
 // CHECK-NEXT:                         OpStore %gl_PointSize_0 [[ptSize]]
 
 // Write out clip5 (SV_ClipDistance5) at offset 1
-// CHECK-NEXT: [[clip5:%\d+]] = OpLoad %v3float %param_var_clip5
-// CHECK-NEXT: [[ind10:%\d+]] = OpIAdd %uint %uint_1 %uint_0
-// CHECK-NEXT:  [[ptr0:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind10]]
-// CHECK-NEXT:  [[val0:%\d+]] = OpCompositeExtract %float [[clip5]] 0
-// CHECK-NEXT:                  OpStore [[ptr0]] [[val0]]
-// CHECK-NEXT: [[ind11:%\d+]] = OpIAdd %uint %uint_1 %uint_1
-// CHECK-NEXT:  [[ptr1:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind11]]
-// CHECK-NEXT:  [[val1:%\d+]] = OpCompositeExtract %float [[clip5]] 1
-// CHECK-NEXT:                  OpStore [[ptr1]] [[val1]]
-// CHECK-NEXT: [[ind12:%\d+]] = OpIAdd %uint %uint_1 %uint_2
-// CHECK-NEXT:  [[ptr2:%\d+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind12]]
-// CHECK-NEXT:  [[val2:%\d+]] = OpCompositeExtract %float [[clip5]] 2
-// CHECK-NEXT:                  OpStore [[ptr2]] [[val2]]
+// CHECK-NEXT: [[clip5:%[0-9]+]] = OpLoad %v3float %param_var_clip5
+// CHECK-NEXT: [[ind10:%[0-9]+]] = OpIAdd %uint %uint_1 %uint_0
+// CHECK-NEXT:  [[ptr0_9:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind10]]
+// CHECK-NEXT:  [[val0_12:%[0-9]+]] = OpCompositeExtract %float [[clip5]] 0
+// CHECK-NEXT:                  OpStore [[ptr0_9]] [[val0_12]]
+// CHECK-NEXT: [[ind11:%[0-9]+]] = OpIAdd %uint %uint_1 %uint_1
+// CHECK-NEXT:  [[ptr1_9:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind11]]
+// CHECK-NEXT:  [[val1_12:%[0-9]+]] = OpCompositeExtract %float [[clip5]] 1
+// CHECK-NEXT:                  OpStore [[ptr1_9]] [[val1_12]]
+// CHECK-NEXT: [[ind12:%[0-9]+]] = OpIAdd %uint %uint_1 %uint_2
+// CHECK-NEXT:  [[ptr2_4:%[0-9]+]] = OpAccessChain %_ptr_Output_float %gl_ClipDistance_0 [[ind12]]
+// CHECK-NEXT:  [[val2_7:%[0-9]+]] = OpCompositeExtract %float [[clip5]] 2
+// CHECK-NEXT:                  OpStore [[ptr2_4]] [[val2_7]]
 }

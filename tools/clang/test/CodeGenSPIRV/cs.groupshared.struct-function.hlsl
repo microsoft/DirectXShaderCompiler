@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
   int a;
@@ -33,15 +33,15 @@ void main() {
 // CHECK: %param_var_x = OpVariable %_ptr_Function_S Function
 // CHECK: %param_var_w = OpVariable %_ptr_Function_S Function
 
-// CHECK:        [[A:%\d+]] = OpAccessChain %_ptr_Uniform_S_0 %A %int_0 %uint_0
-// CHECK-NEXT: [[A_0:%\d+]] = OpLoad %S_0 [[A]]
-// CHECK-NEXT:   [[a:%\d+]] = OpCompositeExtract %int [[A_0]] 0
-// CHECK-NEXT:   [[b:%\d+]] = OpCompositeExtract %float [[A_0]] 1
-// CHECK-NEXT: [[A_0:%\d+]] = OpCompositeConstruct %S [[a]] [[b]]
-// CHECK-NEXT:                OpStore %param_var_x [[A_0]]
-// CHECK-NEXT:   [[E:%\d+]] = OpLoad %S %E
+// CHECK:        [[A:%[0-9]+]] = OpAccessChain %_ptr_Uniform_S_0 %A %int_0 %uint_0
+// CHECK-NEXT: [[A_0:%[0-9]+]] = OpLoad %S_0 [[A]]
+// CHECK-NEXT:   [[a:%[0-9]+]] = OpCompositeExtract %int [[A_0]] 0
+// CHECK-NEXT:   [[b:%[0-9]+]] = OpCompositeExtract %float [[A_0]] 1
+// CHECK-NEXT: [[A_1:%[0-9]+]] = OpCompositeConstruct %S [[a]] [[b]]
+// CHECK-NEXT:                OpStore %param_var_x [[A_1]]
+// CHECK-NEXT:   [[E:%[0-9]+]] = OpLoad %S %E
 // CHECK-NEXT:                OpStore %param_var_w [[E]]
-// CHECK-NEXT:     {{%\d+}} = OpFunctionCall %void %S_foo %D %param_var_x %B %C %param_var_w
+// CHECK-NEXT:     {{%[0-9]+}} = OpFunctionCall %void %S_foo %D %param_var_x %B %C %param_var_w
   D.foo(A[0], B, C, E);
 
   A[0].a = A[0].a | B.a | C.a | D.a;

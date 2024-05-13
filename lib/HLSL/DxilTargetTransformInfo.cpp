@@ -68,7 +68,7 @@ bool IsDxilOpSourceOfDivergence(const CallInst *CI, OP *hlslOP,
     return false;
   }
 }
-}
+} // namespace
 
 ///
 /// \returns true if the result of the value could potentially be

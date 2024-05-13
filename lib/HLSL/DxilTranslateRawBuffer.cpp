@@ -12,16 +12,16 @@
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "dxc/Support/Global.h"
-#include "llvm/Pass.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include <vector>
 
@@ -51,8 +51,7 @@ public:
         DXIL::OpCodeClass opClass;
         if (hlslOP->GetOpCodeClass(func, opClass)) {
           if (opClass == DXIL::OpCodeClass::RawBufferLoad) {
-            Type *ETy =
-                OP::GetOverloadType(DXIL::OpCode::RawBufferLoad, func);
+            Type *ETy = OP::GetOverloadType(DXIL::OpCode::RawBufferLoad, func);
 
             bool is64 =
                 ETy->isDoubleTy() || ETy == Type::getInt64Ty(ETy->getContext());
@@ -61,8 +60,7 @@ public:
               func->eraseFromParent();
             }
           } else if (opClass == DXIL::OpCodeClass::RawBufferStore) {
-            Type *ETy =
-                OP::GetOverloadType(DXIL::OpCode::RawBufferStore, func);
+            Type *ETy = OP::GetOverloadType(DXIL::OpCode::RawBufferStore, func);
 
             bool is64 =
                 ETy->isDoubleTy() || ETy == Type::getInt64Ty(ETy->getContext());
@@ -100,17 +98,16 @@ private:
 };
 } // namespace
 
-void DxilTranslateRawBuffer::ReplaceRawBufferLoad(Function *F,
-                                                  Module &M) {
+void DxilTranslateRawBuffer::ReplaceRawBufferLoad(Function *F, Module &M) {
   dxilutil::ReplaceRawBufferLoadWithBufferLoad(F, M.GetDxilModule().GetOP());
 }
 
-void DxilTranslateRawBuffer::ReplaceRawBufferLoad64Bit(Function *F, Type *EltTy, Module &M) {
+void DxilTranslateRawBuffer::ReplaceRawBufferLoad64Bit(Function *F, Type *EltTy,
+                                                       Module &M) {
   dxilutil::ReplaceRawBufferLoad64Bit(F, EltTy, M.GetDxilModule().GetOP());
 }
 
-void DxilTranslateRawBuffer::ReplaceRawBufferStore(Function *F,
-  Module &M) {
+void DxilTranslateRawBuffer::ReplaceRawBufferStore(Function *F, Module &M) {
   dxilutil::ReplaceRawBufferStoreWithBufferStore(F, M.GetDxilModule().GetOP());
 }
 

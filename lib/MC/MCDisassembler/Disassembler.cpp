@@ -238,7 +238,6 @@ static void emitLatency(LLVMDisasmContext *DC, const MCInst &Inst) {
 // returns zero the caller will have to pick how many bytes they want to step
 // over by printing a .byte, .long etc. to continue.
 //
-_Use_decl_annotations_ // HLSL Change
 size_t LLVMDisasmInstruction(LLVMDisasmContextRef DCR, uint8_t *Bytes,
                              uint64_t BytesSize, uint64_t PC, char *OutString,
                              size_t OutStringSize){

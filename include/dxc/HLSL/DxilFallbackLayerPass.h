@@ -14,9 +14,9 @@
 #include "llvm/Pass.h"
 
 namespace llvm {
-    ModulePass *createDxilUpdateMetadataPass();
-    ModulePass *createDxilPatchShaderRecordBindingsPass();
+ModulePass *createDxilUpdateMetadataPass();
+ModulePass *createDxilPatchShaderRecordBindingsPass();
 
-    void initializeDxilUpdateMetadataPass(llvm::PassRegistry&);
-    void initializeDxilPatchShaderRecordBindingsPass(llvm::PassRegistry&);
-}
+void initializeDxilUpdateMetadataPass(llvm::PassRegistry &);
+void initializeDxilPatchShaderRecordBindingsPass(llvm::PassRegistry &);
+} // namespace llvm

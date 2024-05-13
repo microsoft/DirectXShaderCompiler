@@ -1565,6 +1565,33 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(FunctionDecl *D,
       Previous.clear();
   }
 
+  // HLSL Change Begin - back ported from llvm-project/4409a83c2935.
+  // Per [temp.inst], default arguments in function declarations at local scope
+  // are instantiated along with the enclosing declaration. For example:
+  //
+  //   template<typename T>
+  //   void ft() {
+  //     void f(int = []{ return T::value; }());
+  //   }
+  //   template void ft<int>(); // error: type 'int' cannot be used prior
+  //                                      to '::' because it has no members
+  //
+  // The error is issued during instantiation of ft<int>() because substitution
+  // into the default argument fails; the default argument is instantiated even
+  // though it is never used.
+  if (Function->isLocalExternDecl()) {
+    for (ParmVarDecl *PVD : Function->parameters()) {
+      if (!PVD->hasDefaultArg())
+        continue;
+      if (SemaRef.SubstDefaultArgument(D->getInnerLocStart(), PVD,
+                                       TemplateArgs)) {
+        Function->setInvalidDecl();
+        return nullptr;
+      }
+    }
+  }
+  // HLSL Change End - back ported from llvm-project/4409a83c2935.
+
   SemaRef.CheckFunctionDeclaration(/*Scope*/ nullptr, Function, Previous,
                                    isExplicitSpecialization);
 
@@ -1861,6 +1888,33 @@ TemplateDeclInstantiator::VisitCXXMethodDecl(CXXMethodDecl *D,
     if (Previous.isSingleTagDecl())
       Previous.clear();
   }
+
+  // HLSL Change Begin - back ported from llvm-project/4409a83c2935.
+  // Per [temp.inst], default arguments in member functions of local classes
+  // are instantiated along with the member function declaration. For example:
+  //
+  //   template<typename T>
+  //   void ft() {
+  //     struct lc {
+  //       int operator()(int p = []{ return T::value; }());
+  //     };
+  //   }
+  //   template void ft<int>(); // error: type 'int' cannot be used prior
+  //                                      to '::'because it has no members
+  //
+  // The error is issued during instantiation of ft<int>()::lc::operator()
+  // because substitution into the default argument fails; the default argument
+  // is instantiated even though it is never used.
+  if (D->isInLocalScopeForInstantiation()) {
+    for (unsigned P = 0; P < Params.size(); ++P) {
+      if (!Params[P]->hasDefaultArg())
+        continue;
+      if (SemaRef.SubstDefaultArgument(StartLoc, Params[P], TemplateArgs)) {
+        return nullptr;
+      }
+    }
+  }
+  // HLSL Change End - back ported from llvm-project/4409a83c2935.
 
   if (!IsClassScopeSpecialization)
     SemaRef.CheckFunctionDeclaration(nullptr, Method, Previous, false);
@@ -3127,10 +3181,11 @@ TemplateDeclInstantiator::SubstFunctionType(FunctionDecl *D,
 /// Introduce the instantiated function parameters into the local
 /// instantiation scope, and set the parameter names to those used
 /// in the template.
-static bool addInstantiatedParametersToScope(Sema &S, FunctionDecl *Function,
-                                             const FunctionDecl *PatternDecl,
-                                             LocalInstantiationScope &Scope,
-                           const MultiLevelTemplateArgumentList &TemplateArgs) {
+/// HLSL Change Begin - back ported from llvm-project/601377b23767.
+bool Sema::addInstantiatedParametersToScope(
+    FunctionDecl *Function, const FunctionDecl *PatternDecl,
+    LocalInstantiationScope &Scope,
+    const MultiLevelTemplateArgumentList &TemplateArgs) {
   unsigned FParamIdx = 0;
   for (unsigned I = 0, N = PatternDecl->getNumParams(); I != N; ++I) {
     const ParmVarDecl *PatternParam = PatternDecl->getParamDecl(I);
@@ -3146,7 +3201,7 @@ static bool addInstantiatedParametersToScope(Sema &S, FunctionDecl *Function,
       // it's instantiation-dependent.
       // FIXME: Updating the type to work around this is at best fragile.
       if (!PatternDecl->getType()->isDependentType()) {
-        QualType T = S.SubstType(PatternParam->getType(), TemplateArgs,
+        QualType T = SubstType(PatternParam->getType(), TemplateArgs,
                                  FunctionParam->getLocation(),
                                  FunctionParam->getDeclName());
         if (T.isNull())
@@ -3162,7 +3217,7 @@ static bool addInstantiatedParametersToScope(Sema &S, FunctionDecl *Function,
     // Expand the parameter pack.
     Scope.MakeInstantiatedLocalArgPack(PatternParam);
     Optional<unsigned> NumArgumentsInExpansion
-      = S.getNumArgumentsInExpansion(PatternParam->getType(), TemplateArgs);
+      = getNumArgumentsInExpansion(PatternParam->getType(), TemplateArgs);
     assert(NumArgumentsInExpansion &&
            "should only be called when all template arguments are known");
     QualType PatternType =
@@ -3171,8 +3226,8 @@ static bool addInstantiatedParametersToScope(Sema &S, FunctionDecl *Function,
       ParmVarDecl *FunctionParam = Function->getParamDecl(FParamIdx);
       FunctionParam->setDeclName(PatternParam->getDeclName());
       if (!PatternDecl->getType()->isDependentType()) {
-        Sema::ArgumentPackSubstitutionIndexRAII SubstIndex(S, Arg);
-        QualType T = S.SubstType(PatternType, TemplateArgs,
+        Sema::ArgumentPackSubstitutionIndexRAII SubstIndex(*this, Arg);
+        QualType T = SubstType(PatternType, TemplateArgs,
                                  FunctionParam->getLocation(),
                                  FunctionParam->getDeclName());
         if (T.isNull())
@@ -3187,6 +3242,7 @@ static bool addInstantiatedParametersToScope(Sema &S, FunctionDecl *Function,
 
   return false;
 }
+/// HLSL Change End - back ported from llvm-project/601377b23767.
 
 void Sema::InstantiateExceptionSpec(SourceLocation PointOfInstantiation,
                                     FunctionDecl *Decl) {
@@ -3212,7 +3268,8 @@ void Sema::InstantiateExceptionSpec(SourceLocation PointOfInstantiation,
     getTemplateInstantiationArgs(Decl, nullptr, /*RelativeToPrimary*/true);
 
   FunctionDecl *Template = Proto->getExceptionSpecTemplate();
-  if (addInstantiatedParametersToScope(*this, Decl, Template, Scope,
+  // HLSL Change - back ported from llvm-project/601377b23767.
+  if (addInstantiatedParametersToScope(Decl, Template, Scope,
                                        TemplateArgs)) {
     UpdateExceptionSpec(Decl, EST_None);
     return;
@@ -3494,7 +3551,8 @@ void Sema::InstantiateFunctionDefinition(SourceLocation PointOfInstantiation,
     // PushDeclContext because we don't have a scope.
     Sema::ContextRAII savedContext(*this, Function);
 
-    if (addInstantiatedParametersToScope(*this, Function, PatternDecl, Scope,
+    // HLSL Change - back ported from llvm-project/601377b23767.
+    if (addInstantiatedParametersToScope(Function, PatternDecl, Scope,
                                          TemplateArgs))
       return;
 

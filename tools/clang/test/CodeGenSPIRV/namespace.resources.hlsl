@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %rw1 DescriptorSet 0
 // CHECK: OpDecorate %rw1 Binding 0

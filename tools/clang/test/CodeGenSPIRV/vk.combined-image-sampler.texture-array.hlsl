@@ -1,8 +1,8 @@
-// RUN: %dxc -T ps_6_0 -E main -O0
+// RUN: %dxc -T ps_6_0 -E main -O0  %s -spirv | FileCheck %s
 
-// CHECK:         [[img:%\w+]] = OpTypeImage %float 2D 2 1 0 1 Unknown
-// CHECK: [[sampled_img:%\w+]] = OpTypeSampledImage [[img]]
-// CHECK:    [[ptr_type:%\w+]] = OpTypePointer UniformConstant [[sampled_img]]
+// CHECK:         [[img:%[a-zA-Z0-9_]+]] = OpTypeImage %float 2D 2 1 0 1 Unknown
+// CHECK: [[sampled_img:%[a-zA-Z0-9_]+]] = OpTypeSampledImage [[img]]
+// CHECK:    [[ptr_type:%[a-zA-Z0-9_]+]] = OpTypePointer UniformConstant [[sampled_img]]
 // CHECK:        %textureArray = OpVariable [[ptr_type]] UniformConstant
 
 [[vk::combinedImageSampler]]

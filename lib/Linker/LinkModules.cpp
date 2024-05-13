@@ -1795,7 +1795,7 @@ bool Linker::LinkModules(Module *Dest, Module *Src) {
 // C API.
 //===----------------------------------------------------------------------===//
 
-_Use_decl_annotations_
+
 LLVMBool LLVMLinkModules(LLVMModuleRef Dest, LLVMModuleRef Src,
                          LLVMLinkerMode Unused, char **OutMessages) {
   Module *D = unwrap(Dest);

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ms_6_5 -E main
+// RUN: not %dxc -T ms_6_5 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 // CHECK:  17:36: error: only one object with 'vertices' modifier is allowed
 

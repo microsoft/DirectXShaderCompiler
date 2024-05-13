@@ -13,6 +13,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/DxilValueCache.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
@@ -20,23 +21,23 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
-#include "llvm/Support/Debug.h"
 
+#include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Frontend/CodeGenOptions.h"
 #include "clang/Parse/ParseHLSL.h" // root sig would be in Parser if part of lang
 #include "clang/Sema/SemaDiagnostic.h"
-#include "CodeGenFunction.h"
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "dxc/DXIL/DxilWaveMatrix.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/HLSL/DxilExportMap.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
@@ -88,10 +89,75 @@ Value *CreateHandleFromResPtr(Value *ResPtr, HLModule &HLM,
   return Handle;
 }
 
+Value *CreateNodeOutputHandle(HLModule &HLM, llvm::Type *HandleTy,
+                              IRBuilder<> &Builder, unsigned index) {
+  Module &M = *HLM.GetModule();
+  HLOpcodeGroup opCodeGroup = HLOpcodeGroup::HLCreateNodeOutputHandle;
+  unsigned opCode =
+      static_cast<unsigned>(HLOpcodeGroup::HLCreateNodeOutputHandle);
+  Value *mdIndex = Builder.getInt32(index);
+  Value *args[] = {mdIndex};
+  CallInst *Handle =
+      HLM.EmitHLOperationCall(Builder, opCodeGroup, opCode, HandleTy, args, M);
+  return Handle;
+}
+
+Value *CreateAnnotateNodeHandle(HLModule &HLM, Value *NodeHandle,
+                                IRBuilder<> &Builder, NodeInfo Info) {
+  llvm::Type *NodeHandleTy = HLM.GetOP()->GetNodeHandleType();
+  llvm::Type *NodeInfoTy = HLM.GetOP()->GetNodePropertiesType();
+  Module &M = *HLM.GetModule();
+  StructType *ST = cast<StructType>(NodeInfoTy);
+  Constant *NodeProperties[] = {
+      ConstantInt::get(ST->getElementType(0), Info.IOFlags),
+      ConstantInt::get(ST->getElementType(1), Info.RecordSize)};
+  Constant *NodeInfo = ConstantStruct::get(ST, NodeProperties);
+  Value *args[] = {NodeHandle, NodeInfo};
+  Value *Handle = HLM.EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLAnnotateNodeHandle,
+      static_cast<unsigned>(HLOpcodeGroup::HLAnnotateNodeHandle), NodeHandleTy,
+      args, M);
+  return Handle;
+}
+
+Value *CreateNodeInputRecordHandle(Value *NodeArg, HLModule &HLM,
+                                   llvm::Type *HandleTy, IRBuilder<> &Builder,
+                                   unsigned index) {
+  Module &M = *HLM.GetModule();
+  HLOpcodeGroup opCodeGroup = HLOpcodeGroup::HLCreateNodeInputRecordHandle;
+  auto opCode =
+      static_cast<unsigned>(HLOpcodeGroup::HLCreateNodeInputRecordHandle);
+  DXASSERT_NOMSG(index == 0);
+  Value *mdIndex = Builder.getInt32(index);
+  Value *args[] = {mdIndex};
+  CallInst *Handle =
+      HLM.EmitHLOperationCall(Builder, opCodeGroup, opCode, HandleTy, args, M);
+  return Handle;
+}
+
+Value *CreateAnnotateNodeRecordHandle(HLModule &HLM, Value *NodeRecordHandle,
+                                      IRBuilder<> &Builder,
+                                      NodeRecordInfo Info) {
+  llvm::Type *NodeRecordHandleTy = HLM.GetOP()->GetNodeRecordHandleType();
+  llvm::Type *NodeRecordInfoTy = HLM.GetOP()->GetNodeRecordPropertiesType();
+  Module &M = *HLM.GetModule();
+  StructType *ST = cast<StructType>(NodeRecordInfoTy);
+  Constant *NodeRecordProperties[] = {
+      ConstantInt::get(ST->getElementType(0), Info.IOFlags),
+      ConstantInt::get(ST->getElementType(1), Info.RecordSize)};
+  Constant *NodeRecordInfo = ConstantStruct::get(ST, NodeRecordProperties);
+  Value *args[] = {NodeRecordHandle, NodeRecordInfo};
+  Value *Handle = HLM.EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLAnnotateNodeRecordHandle,
+      static_cast<unsigned>(HLOpcodeGroup::HLAnnotateNodeRecordHandle),
+      NodeRecordHandleTy, args, M);
+  return Handle;
+}
+
 template <typename BuilderTy>
 Value *CreateAnnotateHandle(HLModule &HLM, Value *Handle,
-                               DxilResourceProperties &RP, llvm::Type *ResTy,
-                               BuilderTy &Builder) {
+                            DxilResourceProperties &RP, llvm::Type *ResTy,
+                            BuilderTy &Builder) {
   Constant *RPConstant = resource_helper::getAsConstant(
       RP, HLM.GetOP()->GetResourcePropertiesType(), *HLM.GetShaderModel());
   return EmitHLOperationCall<BuilderTy>(
@@ -110,11 +176,22 @@ Value *CastHandleToRes(HLModule &HLM, Value *Handle, llvm::Type *ResTy,
   return Res;
 }
 
+CallInst *CreateAnnotateWaveMatrix(HLModule &HLM, Value *WaveMatrixPtr,
+                                   DxilWaveMatrixProperties &WMP,
+                                   IRBuilder<> &Builder) {
+  Constant *WMPConstant = wavemat_helper::GetAsConstant(
+      WMP, HLM.GetOP()->GetWaveMatrixPropertiesType());
+  CallInst *CI = HLM.EmitHLOperationCall(
+      Builder, HLOpcodeGroup::HLWaveMatrix_Annotate,
+      (unsigned)HLOpcodeGroup::HLWaveMatrix_Annotate, WaveMatrixPtr->getType(),
+      {WaveMatrixPtr, WMPConstant}, *HLM.GetModule());
+  return CI;
+}
+
 // Lower CBV bitcast use to handle use.
 // Leave the load/store.
-void LowerDynamicCBVUseToHandle(
-    HLModule &HLM,
-    DxilObjectProperties &objectProperties) {
+void LowerDynamicCBVUseToHandle(HLModule &HLM,
+                                DxilObjectProperties &objectProperties) {
   Type *HandleTy = HLM.GetOP()->GetHandleType();
   Module &M = *HLM.GetModule();
   // Collect BitCast use of CBV.
@@ -189,7 +266,8 @@ bool IsHLSLSamplerDescType(llvm::Type *Ty) {
 
 #ifndef NDEBUG
 static bool ConsumePrefix(StringRef &Str, StringRef Prefix) {
-  if (!Str.startswith(Prefix)) return false;
+  if (!Str.startswith(Prefix))
+    return false;
   Str = Str.substr(Prefix.size());
   return true;
 }
@@ -200,12 +278,10 @@ bool IsHLSLBufferViewType(llvm::Type *Ty) {
       return false;
 
     StringRef name = ST->getName();
-    if (!(ConsumePrefix(name, "class.") ||
-          ConsumePrefix(name, "struct.")))
+    if (!(ConsumePrefix(name, "class.") || ConsumePrefix(name, "struct.")))
       return false;
 
-    if (name.startswith("ConstantBuffer<") ||
-        name.startswith("TextureBuffer<"))
+    if (name.startswith("ConstantBuffer<") || name.startswith("TextureBuffer<"))
       return true;
   }
   return false;
@@ -233,7 +309,7 @@ void LowerGetResourceFromHeap(
       // Arg 0 is this pointer.
       unsigned ArgIdx = 1;
       Instruction *ResPtr = cast<Instruction>(CI->getArgOperand(ArgIdx));
-      Value *Index = CI->getArgOperand(ArgIdx+1);
+      Value *Index = CI->getArgOperand(ArgIdx + 1);
       IRBuilder<> Builder(CI);
       // Make a handle from GetResFromHeap.
       Value *IsSampler = Builder.getInt1(
@@ -326,23 +402,22 @@ void ReplaceBoolVectorSubscript(Function *F) {
   }
 }
 
-// Returns a valid field annotation (if present) for the matrix type of templated
-// resource on matrix type.
-// Example:-
-// AppendStructuredBuffer<float4x4> abuf;
-// Return the field annotation of the matrix type in the above decl.
-static DxilFieldAnnotation* GetTemplatedResMatAnnotation(Function *F, unsigned argOpIdx,
-  unsigned matAnnotationIdx) {
-  for (User* U : F->users()) {
-    if (CallInst* CI = dyn_cast<CallInst>(U)) {
+// Returns a valid field annotation (if present) for the matrix type of
+// templated resource on matrix type. Example:- AppendStructuredBuffer<float4x4>
+// abuf; Return the field annotation of the matrix type in the above decl.
+static DxilFieldAnnotation *
+GetTemplatedResMatAnnotation(Function *F, unsigned argOpIdx,
+                             unsigned matAnnotationIdx) {
+  for (User *U : F->users()) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
       if (argOpIdx >= CI->getNumArgOperands())
         continue;
       Value *resArg = CI->getArgOperand(argOpIdx);
-      Type* resArgTy = resArg->getType();
+      Type *resArgTy = resArg->getType();
       if (resArgTy->isPointerTy())
         resArgTy = cast<PointerType>(resArgTy)->getPointerElementType();
       if (isa<StructType>(resArgTy)) {
-        DxilTypeSystem& TS = F->getParent()->GetHLModule().GetTypeSystem();
+        DxilTypeSystem &TS = F->getParent()->GetHLModule().GetTypeSystem();
         auto *SA = TS.GetStructAnnotation(cast<StructType>(resArgTy));
         auto *FA = &(SA->GetFieldAnnotation(matAnnotationIdx));
         if (FA && FA->HasMatrixAnnotation()) {
@@ -435,8 +510,10 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
 
       constexpr unsigned kArgIdx = 0;
       constexpr unsigned kMatAnnotationIdx = 0;
-      DxilFieldAnnotation* MatAnnotation = HLMatrixType::isa(valTy) ? 
-        GetTemplatedResMatAnnotation(F, kArgIdx, kMatAnnotationIdx) : nullptr;
+      DxilFieldAnnotation *MatAnnotation =
+          HLMatrixType::isa(valTy)
+              ? GetTemplatedResMatAnnotation(F, kArgIdx, kMatAnnotationIdx)
+              : nullptr;
       if (bAppend) {
         Argument *valArg = argIter;
         // Buf[counter] = val;
@@ -446,9 +523,11 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           Builder.CreateMemCpy(subscript, valArg, size, 1);
         } else if (MatAnnotation) {
           // If the to-be-stored value is a matrix then we need to generate
-          // an HL matrix store which is then handled appropriately in HLMatrixLowerPass.
-          bool isRowMajor = MatAnnotation->GetMatrixAnnotation().Orientation == MatrixOrientation::RowMajor;
-          Value* matStoreVal = valArg;
+          // an HL matrix store which is then handled appropriately in
+          // HLMatrixLowerPass.
+          bool isRowMajor = MatAnnotation->GetMatrixAnnotation().Orientation ==
+                            MatrixOrientation::RowMajor;
+          Value *matStoreVal = valArg;
 
           // The in-reg matrix orientation is always row-major.
           // If the in-memory matrix orientation is col-major, then we
@@ -459,38 +538,43 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
 
             // Construct signature of the function that is used for converting
             // orientation of a matrix from row-major to col-major.
-            FunctionType* MatCastFnType = FunctionType::get(
-              matStoreVal->getType(), { Builder.getInt32Ty(), matStoreVal->getType() },
-              /* isVarArg */ false);
+            FunctionType *MatCastFnType = FunctionType::get(
+                matStoreVal->getType(),
+                {Builder.getInt32Ty(), matStoreVal->getType()},
+                /* isVarArg */ false);
 
             // Create the conversion function.
-            Function* MatCastFn = GetOrCreateHLFunction(
-              M, MatCastFnType, HLOpcodeGroup::HLCast, castOpCode);
-            Value* MatCastOpCode = ConstantInt::get(Builder.getInt32Ty(), castOpCode);
+            Function *MatCastFn = GetOrCreateHLFunction(
+                M, MatCastFnType, HLOpcodeGroup::HLCast, castOpCode);
+            Value *MatCastOpCode =
+                ConstantInt::get(Builder.getInt32Ty(), castOpCode);
 
             // Insert call to the conversion function.
-            matStoreVal = Builder.CreateCall(MatCastFn, { MatCastOpCode, matStoreVal });
+            matStoreVal =
+                Builder.CreateCall(MatCastFn, {MatCastOpCode, matStoreVal});
           }
 
-          unsigned storeOpCode = isRowMajor ? (unsigned) HLMatLoadStoreOpcode::RowMatStore
-            : (unsigned) HLMatLoadStoreOpcode::ColMatStore;
+          unsigned storeOpCode =
+              isRowMajor ? (unsigned)HLMatLoadStoreOpcode::RowMatStore
+                         : (unsigned)HLMatLoadStoreOpcode::ColMatStore;
 
           // Construct signature of the function that is used for storing
           // the matrix value to the memory.
-          FunctionType* MatStFnType = FunctionType::get(
-            Builder.getVoidTy(), { Builder.getInt32Ty(), subscriptTy, matStoreVal->getType() },
-            /* isVarArg */ false);
+          FunctionType *MatStFnType = FunctionType::get(
+              Builder.getVoidTy(),
+              {Builder.getInt32Ty(), subscriptTy, matStoreVal->getType()},
+              /* isVarArg */ false);
 
           // Create the matrix store function.
-          Function* MatStFn = GetOrCreateHLFunction(
-            M, MatStFnType, HLOpcodeGroup::HLMatLoadStore, storeOpCode);
-          Value* MatStOpCode = ConstantInt::get(Builder.getInt32Ty(), storeOpCode);
+          Function *MatStFn = GetOrCreateHLFunction(
+              M, MatStFnType, HLOpcodeGroup::HLMatLoadStore, storeOpCode);
+          Value *MatStOpCode =
+              ConstantInt::get(Builder.getInt32Ty(), storeOpCode);
 
           // Insert call to the matrix store function.
-          Builder.CreateCall(MatStFn, { MatStOpCode, subscript, matStoreVal });
-        }
-        else {
-          Value* storedVal = valArg;
+          Builder.CreateCall(MatStFn, {MatStOpCode, subscript, matStoreVal});
+        } else {
+          Value *storedVal = valArg;
           // Convert to memory representation
           if (isBoolScalarOrVector)
             storedVal = Builder.CreateZExt(
@@ -504,24 +588,30 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
           Builder.CreateRet(subscript);
         else if (MatAnnotation) {
           // If the to-be-loaded value is a matrix then we need to generate
-          // an HL matrix load which is then handled appropriately in HLMatrixLowerPass.
-          bool isRowMajor = MatAnnotation->GetMatrixAnnotation().Orientation == MatrixOrientation::RowMajor;
+          // an HL matrix load which is then handled appropriately in
+          // HLMatrixLowerPass.
+          bool isRowMajor = MatAnnotation->GetMatrixAnnotation().Orientation ==
+                            MatrixOrientation::RowMajor;
 
-          unsigned loadOpCode = isRowMajor ? (unsigned)HLMatLoadStoreOpcode::RowMatLoad
-            : (unsigned)HLMatLoadStoreOpcode::ColMatLoad;
+          unsigned loadOpCode =
+              isRowMajor ? (unsigned)HLMatLoadStoreOpcode::RowMatLoad
+                         : (unsigned)HLMatLoadStoreOpcode::ColMatLoad;
 
           // Construct signature of the function that is used for loading
           // the matrix value from the memory.
-          FunctionType* MatLdFnType = FunctionType::get(valTy, { Builder.getInt32Ty(), subscriptTy },
-            /* isVarArg */ false);
+          FunctionType *MatLdFnType =
+              FunctionType::get(valTy, {Builder.getInt32Ty(), subscriptTy},
+                                /* isVarArg */ false);
 
           // Create the matrix load function.
-          Function* MatLdFn = GetOrCreateHLFunction(
-            M, MatLdFnType, HLOpcodeGroup::HLMatLoadStore, loadOpCode);
-          Value* MatStOpCode = ConstantInt::get(Builder.getInt32Ty(), loadOpCode);
+          Function *MatLdFn = GetOrCreateHLFunction(
+              M, MatLdFnType, HLOpcodeGroup::HLMatLoadStore, loadOpCode);
+          Value *MatStOpCode =
+              ConstantInt::get(Builder.getInt32Ty(), loadOpCode);
 
           // Insert call to the matrix load function.
-          Value *matLdVal = Builder.CreateCall(MatLdFn, { MatStOpCode, subscript });
+          Value *matLdVal =
+              Builder.CreateCall(MatLdFn, {MatStOpCode, subscript});
 
           // The in-reg matrix orientation is always row-major.
           // If the in-memory matrix orientation is col-major, then we
@@ -532,22 +622,22 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
 
             // Construct signature of the function that is used for converting
             // orientation of a matrix from col-major to row-major.
-            FunctionType* MatCastFnType = FunctionType::get(
-              matLdVal->getType(), { Builder.getInt32Ty(), matLdVal->getType() },
-              /* isVarArg */ false);
+            FunctionType *MatCastFnType =
+                FunctionType::get(matLdVal->getType(),
+                                  {Builder.getInt32Ty(), matLdVal->getType()},
+                                  /* isVarArg */ false);
 
             // Create the conversion function.
-            Function* MatCastFn = GetOrCreateHLFunction(
-              M, MatCastFnType, HLOpcodeGroup::HLCast, castOpCode);
-            Value* MatCastOpCode = ConstantInt::get(Builder.getInt32Ty(), castOpCode);
+            Function *MatCastFn = GetOrCreateHLFunction(
+                M, MatCastFnType, HLOpcodeGroup::HLCast, castOpCode);
+            Value *MatCastOpCode =
+                ConstantInt::get(Builder.getInt32Ty(), castOpCode);
 
             // Insert call to the conversion function.
-            matLdVal = Builder.CreateCall(MatCastFn, { MatCastOpCode, matLdVal });
-
+            matLdVal = Builder.CreateCall(MatCastFn, {MatCastOpCode, matLdVal});
           }
           Builder.CreateRet(matLdVal);
-        }
-        else {
+        } else {
           Value *retVal = Builder.CreateLoad(subscript);
           // Convert to register representation
           if (isBoolScalarOrVector)
@@ -608,9 +698,10 @@ Function *CreateOpFunction(llvm::Module &M, Function *F,
   return opFunc;
 }
 
-DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
-    Value *arg, HLModule &HLM, DxilTypeSystem &typeSys,
-    DxilObjectProperties &objectProperties) {
+DxilResourceProperties
+GetResourcePropsFromIntrinsicObjectArg(Value *arg, HLModule &HLM,
+                                       DxilTypeSystem &typeSys,
+                                       DxilObjectProperties &objectProperties) {
   DxilResourceProperties RP = objectProperties.GetResource(arg);
   if (RP.isValid())
     return RP;
@@ -639,14 +730,13 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
   DxilStructAnnotation *Anno = nullptr;
 
   for (auto gepIt = gep_type_begin(GEP), E = gep_type_end(GEP); gepIt != E;
-        ++gepIt) {
+       ++gepIt) {
 
     if (StructType *ST = dyn_cast<StructType>(*gepIt)) {
       Anno = typeSys.GetStructAnnotation(ST);
       DXASSERT(Anno, "missing type annotation");
 
-      unsigned Index =
-          cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
+      unsigned Index = cast<ConstantInt>(gepIt.getOperand())->getLimitedValue();
 
       DxilFieldAnnotation &fieldAnno = Anno->GetFieldAnnotation(Index);
       if (fieldAnno.HasResourceProperties()) {
@@ -659,37 +749,119 @@ DxilResourceProperties GetResourcePropsFromIntrinsicObjectArg(
   return RP;
 }
 
-void AddOpcodeParamForIntrinsic(
-    HLModule &HLM, Function *F, unsigned opcode, llvm::Type *HandleTy,
-    DxilObjectProperties &objectProperties) {
+void AddAnnotateWaveMatrix(HLModule &HLM,
+                           DxilObjectProperties &objectProperties) {
+  for (auto it : objectProperties.waveMatMap) {
+    Value *V = it.first;
+    DxilWaveMatrixProperties &WMP = it.second;
+    // annotate Alloca, Param, or Global
+    if (AllocaInst *AI = dyn_cast<AllocaInst>(V)) {
+      // Insert annotation after alloca
+      IRBuilder<> Builder(AI->getNextNode());
+      CreateAnnotateWaveMatrix(HLM, V, WMP, Builder);
+    } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
+      // Insert annotation in each function's entry block with users
+      SmallSetVector<Function *, 4> functions;
+      for (auto U : GV->users())
+        if (Instruction *I = dyn_cast<Instruction>(U))
+          functions.insert(I->getParent()->getParent());
+
+      for (auto F : functions) {
+        IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(F));
+        CreateAnnotateWaveMatrix(HLM, V, WMP, Builder);
+      }
+    } else if (Argument *Arg = dyn_cast<Argument>(V)) {
+      IRBuilder<> Builder(dxilutil::FindAllocaInsertionPt(Arg->getParent()));
+      CreateAnnotateWaveMatrix(HLM, V, WMP, Builder);
+    } else {
+      llvm_unreachable("WaveMatrix value is unexpected type");
+    }
+  }
+}
+
+void AddOpcodeParamForIntrinsic(HLModule &HLM, Function *F, unsigned opcode,
+                                DxilObjectProperties &objectProperties) {
   llvm::Module &M = *HLM.GetModule();
   llvm::FunctionType *oldFuncTy = F->getFunctionType();
+  llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
+  llvm::Type *NodeRecordHandleTy = HLM.GetOP()->GetNodeRecordHandleType();
+  llvm::Type *NodeOutputHandleTy = HLM.GetOP()->GetNodeHandleType();
+
+  HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
 
   SmallVector<llvm::Type *, 4> paramTyList;
   // Add the opcode param
   llvm::Type *opcodeTy = llvm::Type::getInt32Ty(M.getContext());
   paramTyList.emplace_back(opcodeTy);
 
-  bool bRetHandle = false;
+  // Create a vector of the types of the original Intrinsic's
+  // parameters. In the case of an intrinsic returning a struct
+  bool bSRetHandle = false;
+  bool bNodeRecordRet = false;
+  bool bNodeOutputRet = false;
+  bool bNodeOutputMethod = false;
+  bool bNodeOutputArrayMethod = false;
+  unsigned bRetArgIndex = 0;
   for (unsigned i = 0; i < oldFuncTy->getNumParams(); i++) {
     llvm::Type *Ty = oldFuncTy->getParamType(i);
+
+    if (i == 0 && Ty->isPointerTy() &&
+        dxilutil::IsHLSLNodeOutputType(Ty->getPointerElementType()))
+      bNodeOutputMethod = true;
+
+    if (i == 0 && Ty->isPointerTy() &&
+        dxilutil::IsHLSLNodeOutputArrayType(Ty->getPointerElementType()))
+      bNodeOutputArrayMethod = true;
+
+    if (i == 1 && bNodeOutputMethod && Ty->isPointerTy() &&
+        dxilutil::IsHLSLNodeOutputRecordType(Ty->getPointerElementType())) {
+      // Skip for return type from a method.
+      // NodeOutput<recType>::GetGroupNodeOutputRecords
+      // NodeOutput<recType>::GetThreadNodeOutputRecords
+      bSRetHandle = true;
+      bNodeRecordRet = true;
+      bRetArgIndex = 1;
+      continue;
+    }
+
+    if (i == 1 && bNodeOutputArrayMethod && Ty->isPointerTy() &&
+        dxilutil::IsHLSLNodeOutputType(Ty->getPointerElementType())) {
+      // Skip for return type from a method
+      bSRetHandle = true;
+      bNodeOutputRet = true;
+      bRetArgIndex = 1;
+      continue;
+    }
+
     if (Ty->isPointerTy()) {
       llvm::Type *PtrEltTy = Ty->getPointerElementType();
-      if (dxilutil::IsHLSLResourceType(PtrEltTy)) {
+
+      if (dxilutil::IsHLSLResourceType(PtrEltTy) ||
+          dxilutil::IsHLSLNodeRecordType(PtrEltTy) ||
+          dxilutil::IsHLSLNodeOutputType(PtrEltTy) ||
+          dxilutil::IsHLSLNodeOutputArrayType(PtrEltTy)) {
         // Skip for return type.
         if (i == 0 && F->arg_begin()->hasStructRetAttr()) {
-          bRetHandle = true;
+          bSRetHandle = true;
+          if (dxilutil::IsHLSLNodeRecordType(PtrEltTy)) {
+            bNodeRecordRet = true;
+          }
           continue;
         }
-        // Use handle type for resource type.
+        // Use handle type for resource, Node(Input/Output) Record type.
         // This will make sure temp object variable only used by createHandle.
-        Ty = HandleTy;
+        if (dxilutil::IsHLSLResourceType(PtrEltTy))
+          Ty = HandleTy;
+        else if (dxilutil::IsHLSLNodeRecordType(PtrEltTy))
+          Ty = NodeRecordHandleTy;
+        else if (dxilutil::IsHLSLNodeOutputType(PtrEltTy))
+          Ty = NodeOutputHandleTy;
+        else if (dxilutil::IsHLSLNodeOutputArrayType(PtrEltTy))
+          Ty = NodeOutputHandleTy;
       }
     }
     paramTyList.emplace_back(Ty);
   }
-
-  HLOpcodeGroup group = hlsl::GetHLOpcodeGroup(F);
 
   if (group == HLOpcodeGroup::HLSubscript &&
       opcode == static_cast<unsigned>(HLSubscriptOpcode::VectorSubscript)) {
@@ -715,10 +887,15 @@ void AddOpcodeParamForIntrinsic(
       opcode == static_cast<unsigned>(HLSubscriptOpcode::DoubleSubscript);
 
   llvm::Type *RetTy = oldFuncTy->getReturnType();
-  if (bRetHandle) {
+  if (bSRetHandle) {
     DXASSERT(RetTy->isVoidTy(), "else invalid return type");
     RetTy = HandleTy;
+    if (bNodeRecordRet)
+      RetTy = NodeRecordHandleTy;
+    else if (bNodeOutputRet)
+      RetTy = NodeOutputHandleTy;
   }
+
   if (isDoubleSubscriptFunc) {
     CallInst *doubleSub = cast<CallInst>(*F->user_begin());
 
@@ -757,7 +934,7 @@ void AddOpcodeParamForIntrinsic(
     DXASSERT(resTy, "must find the resource type");
     // Change object type to handle type.
     paramTyList[HLOperandIndex::kSubscriptObjectOpIdx] = HandleTy;
-    // Change RetTy into pointer of resource reture type.
+    // Change RetTy into pointer of resource return type.
     RetTy = cast<StructType>(resTy)->getElementType(0)->getPointerTo();
   }
 
@@ -779,14 +956,21 @@ void AddOpcodeParamForIntrinsic(
     Value *opcodeConst = Constant::getIntegerValue(opcodeTy, APInt(32, opcode));
     opcodeParamList.emplace_back(opcodeConst);
     Value *retHandleArg = nullptr;
-    if (!bRetHandle) {
+    Value *nodeRecordArg = nullptr;
+    if (!bSRetHandle) {
       opcodeParamList.append(oldCI->arg_operands().begin(),
                              oldCI->arg_operands().end());
     } else {
       auto it = oldCI->arg_operands().begin();
+      unsigned argIndex = 0;
+      auto start = it;
+      while (argIndex < bRetArgIndex) {
+        it++;
+        argIndex++;
+      }
+      opcodeParamList.append(start, it);
       retHandleArg = *(it++);
-      opcodeParamList.append(it,
-                             oldCI->arg_operands().end());
+      opcodeParamList.append(it, oldCI->arg_operands().end());
     }
     IRBuilder<> Builder(oldCI);
 
@@ -836,7 +1020,7 @@ void AddOpcodeParamForIntrinsic(
       // Insert new call before secSub to make sure idx is ready to use.
       Builder.SetInsertPoint(secSub);
     }
-
+    unsigned recordSizeWAR = 0;
     for (unsigned i = 1; i < opcodeParamList.size(); i++) {
       Value *arg = opcodeParamList[i];
       llvm::Type *Ty = arg->getType();
@@ -863,16 +1047,111 @@ void AddOpcodeParamForIntrinsic(
           Handle = CreateAnnotateHandle(HLM, Handle, RP, ResTy, Builder);
           opcodeParamList[i] = Handle;
         }
+        if (dxilutil::IsHLSLNodeRecordType(Ty)) {
+          nodeRecordArg = arg;
+          Value *ldObj = Builder.CreateLoad(arg);
+          Value *Handle = EmitHLOperationCall(
+              HLM, Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::NodeRecordToHandleCast,
+              NodeRecordHandleTy, {ldObj}, *HLM.GetModule());
+          opcodeParamList[i] = Handle;
+        }
+        if (dxilutil::IsHLSLNodeOutputArrayType(Ty)) {
+          Value *ldObj = Builder.CreateLoad(arg);
+          Value *Handle = EmitHLOperationCall(
+              HLM, Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::NodeOutputToHandleCast,
+              NodeOutputHandleTy, {ldObj}, *HLM.GetModule());
+          opcodeParamList[i] = Handle;
+          // WAR for record size computation
+          if (!dxilutil::IsHLSLEmptyNodeOutputArrayType(Ty)) {
+            DxilStructAnnotation *pAnno =
+                HLM.GetTypeSystem().GetStructAnnotation(
+                    dyn_cast<llvm::StructType>(Ty));
+            assert(pAnno != nullptr && pAnno->GetNumTemplateArgs() == 1 &&
+                   "otherwise the node template is not declared properly");
+            llvm::Type *pRecType = const_cast<llvm::Type *>(
+                pAnno->GetTemplateArgAnnotation(0).GetType());
+            recordSizeWAR = M.getDataLayout().getTypeAllocSize(pRecType);
+          }
+        }
+        if (dxilutil::IsHLSLNodeOutputType(Ty)) {
+          Value *ldObj = Builder.CreateLoad(arg);
+          Value *Handle = EmitHLOperationCall(
+              HLM, Builder, HLOpcodeGroup::HLCast,
+              (unsigned)HLCastOpcode::NodeOutputToHandleCast,
+              NodeOutputHandleTy, {ldObj}, *HLM.GetModule());
+          opcodeParamList[i] = Handle;
+        }
       }
     }
 
     Value *CI = Builder.CreateCall(opFunc, opcodeParamList);
+    if (group == HLOpcodeGroup::HLIntrinsic &&
+        opcode == static_cast<unsigned>(IntrinsicOp::MOP_OutputComplete)) {
+      DXASSERT_NOMSG(nodeRecordArg->getType()->isPointerTy());
+      Type *T = nodeRecordArg->getType()->getPointerElementType();
+      Builder.CreateStore(Constant::getNullValue(T), nodeRecordArg);
+    }
     if (retHandleArg) {
       Type *ResTy = retHandleArg->getType()->getPointerElementType();
-      Value *Res = HLM.EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLCast,
-          (unsigned)HLCastOpcode::HandleToResCast, ResTy, {CI}, M);
-      Builder.CreateStore(Res, retHandleArg);
+      if (dxilutil::IsHLSLNodeOutputRecordType(ResTy)) {
+        CallInst *GetOpRecordCall = cast<CallInst>(CI);
+        DXASSERT_NOMSG(group == HLOpcodeGroup::HLIntrinsic);
+        IntrinsicOp opcode =
+            static_cast<IntrinsicOp>(hlsl::GetHLOpcode(GetOpRecordCall));
+        DXIL::NodeIOKind kind;
+        if (opcode == IntrinsicOp::MOP_GetGroupNodeOutputRecords)
+          kind = DXIL::NodeIOKind::GroupNodeOutputRecords;
+        else
+          kind = DXIL::NodeIOKind::ThreadNodeOutputRecords;
+
+        // Get record size from the node output record template argument
+
+        DxilStructAnnotation *pAnno = HLM.GetTypeSystem().GetStructAnnotation(
+            dyn_cast<llvm::StructType>(ResTy));
+        assert(pAnno != nullptr && pAnno->GetNumTemplateArgs() == 1 &&
+               "otherwise the node record template is not declared properly");
+        llvm::Type *pRecType = const_cast<llvm::Type *>(
+            pAnno->GetTemplateArgAnnotation(0).GetType());
+        unsigned recordSize = M.getDataLayout().getTypeAllocSize(pRecType);
+        NodeRecordInfo Info(kind, recordSize);
+
+        CI = CreateAnnotateNodeRecordHandle(HLM, CI, Builder, Info);
+        Value *Res = HLM.EmitHLOperationCall(
+            Builder, HLOpcodeGroup::HLCast,
+            (unsigned)HLCastOpcode::HandleToNodeRecordCast, ResTy, {CI}, M);
+        Builder.CreateStore(Res, retHandleArg);
+      } else if (dxilutil::IsHLSLNodeOutputType(ResTy)) {
+        DXASSERT_NOMSG(group == HLOpcodeGroup::HLIndexNodeHandle);
+        DXIL::NodeIOKind kind = DXIL::NodeIOKind::NodeOutputArray;
+        unsigned recordSize;
+        if (dxilutil::IsHLSLEmptyNodeOutputType(ResTy)) {
+          kind = DXIL::NodeIOKind::EmptyOutputArray;
+          recordSize = 0;
+        } else {
+          // TODO FIX AddStructAnnotation
+          /*DxilStructAnnotation* pAnno =
+          HLM.GetTypeSystem().GetStructAnnotation(dyn_cast<llvm::StructType>(ResTy));
+          assert(pAnno != nullptr && pAnno->GetNumTemplateArgs() == 1 &&
+          "otherwise the node template is not declared properly"); llvm::Type*
+          pRecType = (llvm::Type*)pAnno->GetTemplateArgAnnotation(0).GetType();
+          recordSize = M.getDataLayout().getTypeAllocSize(pRecType);*/
+          recordSize = recordSizeWAR;
+        }
+        NodeInfo Info(kind, recordSize);
+
+        CI = CreateAnnotateNodeHandle(HLM, CI, Builder, Info);
+        Value *Res = HLM.EmitHLOperationCall(
+            Builder, HLOpcodeGroup::HLCast,
+            (unsigned)HLCastOpcode::HandleToNodeOutputCast, ResTy, {CI}, M);
+        Builder.CreateStore(Res, retHandleArg);
+      } else {
+        Value *Res = HLM.EmitHLOperationCall(
+            Builder, HLOpcodeGroup::HLCast,
+            (unsigned)HLCastOpcode::HandleToResCast, ResTy, {CI}, M);
+        Builder.CreateStore(Res, retHandleArg);
+      }
       oldCI->eraseFromParent();
       continue;
     }
@@ -898,7 +1177,7 @@ void AddOpcodeParamForIntrinsic(
 void AddOpcodeParamForIntrinsics(
     HLModule &HLM, std::vector<std::pair<Function *, unsigned>> &intrinsicMap,
     DxilObjectProperties &objectProperties) {
-  llvm::Type *HandleTy = HLM.GetOP()->GetHandleType();
+
   for (auto mapIter : intrinsicMap) {
     Function *F = mapIter.first;
     if (F->user_empty()) {
@@ -908,7 +1187,7 @@ void AddOpcodeParamForIntrinsics(
     }
 
     unsigned opcode = mapIter.second;
-    AddOpcodeParamForIntrinsic(HLM, F, opcode, HandleTy, objectProperties);
+    AddOpcodeParamForIntrinsic(HLM, F, opcode, objectProperties);
   }
 }
 
@@ -1196,7 +1475,6 @@ void SetPatchConstantFunctionWithAttr(
       HLM.HasDxilFunctionProps(EntryFunc.Func),
       " else AddHLSLFunctionInfo did not save the dxil function props for the "
       "HS entry.");
-  DxilFunctionProps *HSProps = &HLM.GetDxilFunctionProps(EntryFunc.Func);
   HLM.SetPatchConstantFunctionForHS(EntryFunc.Func, patchConstFunc);
   DXASSERT_NOMSG(patchConstantFunctionPropsMap.count(patchConstFunc));
   // Check no inout parameter for patch constant function.
@@ -1210,36 +1488,6 @@ void SetPatchConstantFunctionWithAttr(
           clang::DiagnosticsEngine::Error,
           "Patch Constant function %0 should not have inout param.");
       Diags.Report(Entry->second.SL, DiagID) << funcName;
-    }
-  }
-
-  // Input/Output control point validation.
-  if (patchConstantFunctionPropsMap.count(patchConstFunc)) {
-    const DxilFunctionProps &patchProps =
-        *patchConstantFunctionPropsMap[patchConstFunc];
-    if (patchProps.ShaderProps.HS.inputControlPoints != 0 &&
-        patchProps.ShaderProps.HS.inputControlPoints !=
-            HSProps->ShaderProps.HS.inputControlPoints) {
-      clang::DiagnosticsEngine &Diags = CGM.getDiags();
-      unsigned DiagID =
-          Diags.getCustomDiagID(clang::DiagnosticsEngine::Error,
-                                "Patch constant function's input patch input "
-                                "should have %0 elements, but has %1.");
-      Diags.Report(Entry->second.SL, DiagID)
-          << HSProps->ShaderProps.HS.inputControlPoints
-          << patchProps.ShaderProps.HS.inputControlPoints;
-    }
-    if (patchProps.ShaderProps.HS.outputControlPoints != 0 &&
-        patchProps.ShaderProps.HS.outputControlPoints !=
-            HSProps->ShaderProps.HS.outputControlPoints) {
-      clang::DiagnosticsEngine &Diags = CGM.getDiags();
-      unsigned DiagID =
-          Diags.getCustomDiagID(clang::DiagnosticsEngine::Error,
-                                "Patch constant function's output patch input "
-                                "should have %0 elements, but has %1.");
-      Diags.Report(Entry->second.SL, DiagID)
-          << HSProps->ShaderProps.HS.outputControlPoints
-          << patchProps.ShaderProps.HS.outputControlPoints;
     }
   }
 }
@@ -1577,7 +1825,8 @@ typedef APInt(__cdecl *IntBinaryEvalFuncType)(const APInt &, const APInt &);
 typedef float(__cdecl *FloatBinaryEvalFuncType)(float, float);
 typedef double(__cdecl *DoubleBinaryEvalFuncType)(double, double);
 
-typedef APInt(__cdecl *IntTernaryEvalFuncType)(const APInt &, const APInt &, const APInt &);
+typedef APInt(__cdecl *IntTernaryEvalFuncType)(const APInt &, const APInt &,
+                                               const APInt &);
 typedef float(__cdecl *FloatTernaryEvalFuncType)(float, float, float);
 typedef double(__cdecl *DoubleTernaryEvalFuncType)(double, double, double);
 
@@ -1632,9 +1881,9 @@ Value *EvalBinaryIntrinsic(Constant *cV0, Constant *cV1,
 }
 
 Value *EvalTernaryIntrinsic(Constant *cV0, Constant *cV1, Constant *cV2,
-                             FloatTernaryEvalFuncType floatEvalFunc,
-                             DoubleTernaryEvalFuncType doubleEvalFunc,
-                             IntTernaryEvalFuncType intEvalFunc) {
+                            FloatTernaryEvalFuncType floatEvalFunc,
+                            DoubleTernaryEvalFuncType doubleEvalFunc,
+                            IntTernaryEvalFuncType intEvalFunc) {
   llvm::Type *Ty = cV0->getType();
   Value *Result = nullptr;
   if (Ty->isDoubleTy()) {
@@ -1726,9 +1975,10 @@ Value *EvalBinaryIntrinsic(CallInst *CI, FloatBinaryEvalFuncType floatEvalFunc,
   return Result;
 }
 
-Value *EvalTernaryIntrinsic(CallInst *CI, FloatTernaryEvalFuncType floatEvalFunc,
-                             DoubleTernaryEvalFuncType doubleEvalFunc,
-                             IntTernaryEvalFuncType intEvalFunc = nullptr) {
+Value *EvalTernaryIntrinsic(CallInst *CI,
+                            FloatTernaryEvalFuncType floatEvalFunc,
+                            DoubleTernaryEvalFuncType doubleEvalFunc,
+                            IntTernaryEvalFuncType intEvalFunc = nullptr) {
   Value *V0 = CI->getArgOperand(0);
   Value *V1 = CI->getArgOperand(1);
   Value *V2 = CI->getArgOperand(2);
@@ -1745,7 +1995,7 @@ Value *EvalTernaryIntrinsic(CallInst *CI, FloatTernaryEvalFuncType floatEvalFunc
       Constant *cV1 = cast<Constant>(CV1->getAggregateElement(i));
       Constant *cV2 = cast<Constant>(CV2->getAggregateElement(i));
       Value *EltResult = EvalTernaryIntrinsic(cV0, cV1, cV2, floatEvalFunc,
-                                             doubleEvalFunc, intEvalFunc);
+                                              doubleEvalFunc, intEvalFunc);
       Result = Builder.CreateInsertElement(Result, EltResult, i);
     }
   } else {
@@ -1753,7 +2003,7 @@ Value *EvalTernaryIntrinsic(CallInst *CI, FloatTernaryEvalFuncType floatEvalFunc
     Constant *cV1 = cast<Constant>(V1);
     Constant *cV2 = cast<Constant>(V2);
     Result = EvalTernaryIntrinsic(cV0, cV1, cV2, floatEvalFunc, doubleEvalFunc,
-                                 intEvalFunc);
+                                  intEvalFunc);
   }
   CI->replaceAllUsesWith(Result);
   CI->eraseFromParent();
@@ -2131,8 +2381,7 @@ void AllocateDxilConstantBuffers(
 namespace {
 
 // Instruction pointer wrapper that cleans up the instruction if unused
-template<typename _InstructionT>
-struct CleanupIfUnused {
+template <typename _InstructionT> struct CleanupIfUnused {
   _InstructionT *I = nullptr;
   CleanupIfUnused(Value *V) {
     if (V)
@@ -2143,7 +2392,7 @@ struct CleanupIfUnused {
       I->eraseFromParent();
     I = nullptr;
   }
-  operator _InstructionT*() { return I; }
+  operator _InstructionT *() { return I; }
   _InstructionT *operator->() { return I; }
   operator bool() { return I != nullptr; }
 };
@@ -2161,12 +2410,14 @@ struct CleanupIfUnused {
 // ConstantBuffer<> object type rather than legacy cbuffer type that has no
 // resource object.
 struct HandleToResHelper {
-  HandleToResHelper(IRBuilder<> &Builder, Type *hlResTy, Value* Handle, Function &F, HLModule &HLM) {
+  HandleToResHelper(IRBuilder<> &Builder, Type *hlResTy, Value *Handle,
+                    Function &F, HLModule &HLM) {
     if (hlResTy) {
-      Cast = cast<CallInst>(HLM.EmitHLOperationCall(
-          Builder, HLOpcodeGroup::HLCast, (unsigned)HLCastOpcode::HandleToResCast,
-          hlResTy, {Handle}, *HLM.GetModule()));
-      IRBuilder<>  AllocaBuilder(F.getEntryBlock().getFirstInsertionPt());
+      Cast = cast<CallInst>(
+          HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
+                                  (unsigned)HLCastOpcode::HandleToResCast,
+                                  hlResTy, {Handle}, *HLM.GetModule()));
+      IRBuilder<> AllocaBuilder(F.getEntryBlock().getFirstInsertionPt());
       Alloca = AllocaBuilder.CreateAlloca(hlResTy);
       Store = Builder.CreateStore(Cast, Alloca);
     }
@@ -2187,10 +2438,10 @@ struct HandleToResHelper {
 };
 
 void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
-                          IRBuilder<> &Builder, HandleToResHelper *pH2ResHelper = nullptr) {
+                          IRBuilder<> &Builder,
+                          HandleToResHelper *pH2ResHelper = nullptr) {
   Type *VTy = V->getType()->getPointerElementType();
-  bool bIsResourceTy =
-      dxilutil::IsHLSLResourceType(VTy);
+  bool bIsResourceTy = dxilutil::IsHLSLResourceType(VTy);
   for (auto U = V->user_begin(); U != V->user_end();) {
     User *user = *(U++);
     if (Instruction *I = dyn_cast<Instruction>(user)) {
@@ -2211,7 +2462,8 @@ void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
         if (pH2ResHelper && *pH2ResHelper && bIsResourceTy) {
           // This means CBV case, so use casted value or pointer instead.
           if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
-            Instruction *OrigPtrInst = dyn_cast<Instruction>(LI->getPointerOperand());
+            Instruction *OrigPtrInst =
+                dyn_cast<Instruction>(LI->getPointerOperand());
             LI->replaceAllUsesWith(pH2ResHelper->Cast);
             LI->eraseFromParent();
             // Clean up original pointer instruction (GEP) if unused.
@@ -2223,7 +2475,9 @@ void ReplaceUseInFunction(Value *V, Value *NewV, Function *F,
             continue;
           }
         }
-        DXASSERT(false, "otherwise, attempting CB user replacement with mismatching type");
+        DXASSERT(
+            false,
+            "otherwise, attempting CB user replacement with mismatching type");
       }
     } else {
       // For constant operator, create local clone which use GEP.
@@ -2319,8 +2573,10 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
     // array.
     DXASSERT(CB.GetConstants().size() == 1,
              "ConstantBuffer should have 1 constant");
-    llvm::Type *CBEltTy =
-        CB.GetConstants()[0]->GetHLSLType()->getPointerElementType()->getArrayElementType();
+    llvm::Type *CBEltTy = CB.GetConstants()[0]
+                              ->GetHLSLType()
+                              ->getPointerElementType()
+                              ->getArrayElementType();
     cbIndexDepth = 1;
     while (CBEltTy->isArrayTy()) {
       CBEltTy = CBEltTy->getArrayElementType();
@@ -2401,7 +2657,8 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
         HLM, OrigHandle, RP, cbGV->getType()->getElementType(), Builder);
 
     args[HLOperandIndex::kSubscriptObjectOpIdx] = Handle;
-    CleanupIfUnused<Instruction> cbSubscript = Builder.CreateCall(subscriptFunc, {args});
+    CleanupIfUnused<Instruction> cbSubscript =
+        Builder.CreateCall(subscriptFunc, {args});
 
     // Replace constant var with GEP pGV
     for (const std::unique_ptr<DxilResourceBase> &C : CB.GetConstants()) {
@@ -2466,9 +2723,11 @@ bool CreateCBufferVariable(HLCBuffer &CB, HLModule &HLM, llvm::Type *HandleTy) {
               *instBuilder, HLOpcodeGroup::HLCreateHandle, 0, HandleTy,
               HandleArgs, M);
 
-          DxilResourceProperties RP = resource_helper::loadPropsFromResourceBase(&CB);
+          DxilResourceProperties RP =
+              resource_helper::loadPropsFromResourceBase(&CB);
           CleanupIfUnused<CallInst> Handle = CreateAnnotateHandle(
-              HLM, OrigHandle, RP, cbGV->getType()->getElementType(), *instBuilder);
+              HLM, OrigHandle, RP, cbGV->getType()->getElementType(),
+              *instBuilder);
 
           args[HLOperandIndex::kSubscriptObjectOpIdx] = Handle;
           args[HLOperandIndex::kSubscriptIndexOpIdx] = arrayIdx;
@@ -2639,6 +2898,59 @@ void TranslateRayQueryConstructor(HLModule &HLM) {
     pConstructorFunc->eraseFromParent();
   }
 }
+
+void TranslateInputNodeRecordArgToHandle(
+    hlsl::HLModule &HLM,
+    llvm::MapVector<llvm::Argument *, NodeInputRecordProps> &NodeParams) {
+
+  llvm::Module &Module = *HLM.GetModule();
+  Type *HandleTy = HLM.GetOP()->GetNodeRecordHandleType();
+
+  for (auto it : NodeParams) {
+    NodeInputRecordProps Props = it.second;
+    Argument *NodeParam = it.first;
+    if (NodeParam->user_empty())
+      continue;
+
+    IRBuilder<> Builder(
+        NodeParam->getParent()->getEntryBlock().getFirstInsertionPt());
+    Value *Handle = CreateNodeInputRecordHandle(NodeParam, HLM, HandleTy,
+                                                Builder, Props.MetadataIdx);
+    Handle =
+        CreateAnnotateNodeRecordHandle(HLM, Handle, Builder, Props.RecordInfo);
+    llvm::Type *RetTy = NodeParam->getType()->getPointerElementType();
+    Value *Res =
+        HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
+                                (unsigned)HLCastOpcode::HandleToNodeRecordCast,
+                                RetTy, {Handle}, Module);
+    Builder.CreateStore(Res, NodeParam);
+  }
+}
+
+void TranslateNodeOutputParamToHandle(
+    hlsl::HLModule &HLM,
+    llvm::MapVector<llvm::Argument *, NodeProps> &NodeParams) {
+  Type *HandleTy = HLM.GetOP()->GetNodeHandleType();
+
+  for (auto it : NodeParams) {
+    NodeProps Props = it.second;
+    Argument *NodeParam = it.first;
+    if (NodeParam->user_empty())
+      continue;
+
+    IRBuilder<> Builder(
+        NodeParam->getParent()->getEntryBlock().getFirstInsertionPt());
+    Value *Handle =
+        CreateNodeOutputHandle(HLM, HandleTy, Builder, Props.MetadataIdx);
+    Handle = CreateAnnotateNodeHandle(HLM, Handle, Builder, Props.Info);
+    Value *Res =
+        HLM.EmitHLOperationCall(Builder, HLOpcodeGroup::HLCast,
+                                (unsigned)HLCastOpcode::HandleToNodeOutputCast,
+                                NodeParam->getType()->getPointerElementType(),
+                                {Handle}, *HLM.GetModule());
+    Builder.CreateStore(Res, NodeParam);
+  }
+}
 } // namespace CGHLSLMSHelper
 
 namespace {
@@ -2742,8 +3054,8 @@ void ReportInitStaticGlobalWithExternalFunction(
     clang::CodeGen ::CodeGenModule &CGM, StringRef name) {
   clang::DiagnosticsEngine &Diags = CGM.getDiags();
   unsigned DiagID = Diags.getCustomDiagID(
-      clang::DiagnosticsEngine::Error,
-      "Initializer for static global %0 makes disallowed call to external function.");
+      clang::DiagnosticsEngine::Error, "Initializer for static global %0 makes "
+                                       "disallowed call to external function.");
   std::string escaped;
   llvm::raw_string_ostream os(escaped);
   size_t end = name.find_first_of('@');
@@ -3125,7 +3437,8 @@ void UpdateLinkage(HLModule &HLM, clang::CodeGen::CodeGenModule &CGM,
     // AlwaysInline mode.
     if (f.hasFnAttribute(llvm::Attribute::NoInline) ||
         (CGM.getCodeGenOpts().getInlining() !=
-            clang::CodeGenOptions::OnlyAlwaysInlining && bIsLib))
+             clang::CodeGenOptions::OnlyAlwaysInlining &&
+         bIsLib))
       continue;
     // Always inline for used functions.
     if (!f.user_empty() && !f.isDeclaration())
@@ -3233,6 +3546,10 @@ void FinishIntrinsics(
   LowerGetResourceFromHeap(HLM, intrinsicMap);
   // Lower bitcast use of CBV into cbSubscript.
   LowerDynamicCBVUseToHandle(HLM, objectProperties);
+
+  // Add AnnotateWaveMatrix
+  AddAnnotateWaveMatrix(HLM, objectProperties);
+
   // translate opcode into parameter for intrinsic functions
   // Do this before CloneShaderEntry and TranslateRayQueryConstructor to avoid
   // update valToResPropertiesMap for cloned inst.
@@ -3292,7 +3609,8 @@ void AddDxBreak(Module &M,
 
 namespace CGHLSLMSHelper {
 
-ScopeInfo::ScopeInfo(Function *F, clang::SourceLocation loc) : maxRetLevel(0), bAllReturnsInIf(true), sourceLoc(loc) {
+ScopeInfo::ScopeInfo(Function *F, clang::SourceLocation loc)
+    : maxRetLevel(0), bAllReturnsInIf(true), sourceLoc(loc) {
   Scope FuncScope;
   FuncScope.kind = Scope::ScopeKind::FunctionScope;
   FuncScope.EndScopeBB = nullptr;
@@ -3368,7 +3686,7 @@ void ScopeInfo::AddRet(BasicBlock *bbWithRet) {
   // Don't need to put retScope to stack since it cannot nested other scopes.
 }
 
-Scope& ScopeInfo::EndScope(bool bScopeFinishedWithRet) {
+Scope &ScopeInfo::EndScope(bool bScopeFinishedWithRet) {
   unsigned idx = scopeStack.pop_back_val();
   Scope &Scope = GetScope(idx);
   // If whole stmt is finished and end scope bb has not used(nothing branch to
@@ -3446,9 +3764,9 @@ void updateEndScope(
   SmallVector<unsigned, 2> &scopeList = it->second;
   // Update even when not share endBB with other scope.
   // The endBB might be used by nested returns like the return 1 in
-  //if (b == 77)
+  // if (b == 77)
   //  return 0;
-  //else if (b != 3)
+  // else if (b != 3)
   //  return 1;
   for (unsigned i : scopeList) {
     Scope &S = ScopeInfo.GetScope(i);
@@ -3532,8 +3850,8 @@ static void ChangePredBranch(BasicBlock *BB, BasicBlock *NewBB) {
 //   }
 //   return vRet;
 // }
-void StructurizeMultiRetFunction(Function *F, clang::DiagnosticsEngine &Diags, ScopeInfo &ScopeInfo,
-                                 bool bWaveEnabledStage,
+void StructurizeMultiRetFunction(Function *F, clang::DiagnosticsEngine &Diags,
+                                 ScopeInfo &ScopeInfo, bool bWaveEnabledStage,
                                  SmallVector<BranchInst *, 16> &DxBreaks) {
 
   if (ScopeInfo.CanSkipStructurize())
@@ -3542,8 +3860,10 @@ void StructurizeMultiRetFunction(Function *F, clang::DiagnosticsEngine &Diags, S
   // If there are cleanup blocks generated for lifetime markers, do
   // not structurize returns. The scope info recorded is no longer correct.
   if (ScopeInfo.HasCleanupBlocks()) {
-    Diags.Report(ScopeInfo.GetSourceLocation(), clang::diag::warn_hlsl_structurize_exits_lifetime_markers_conflict)
-      << F->getName();
+    Diags.Report(
+        ScopeInfo.GetSourceLocation(),
+        clang::diag::warn_hlsl_structurize_exits_lifetime_markers_conflict)
+        << F->getName();
     return;
   }
 
@@ -3697,14 +4017,11 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
                          SmallVector<BranchInst *, 16> &DxBreaks) {
   if (CGM.getCodeGenOpts().HLSLExtensionsCodegen) {
     if (!CGM.getCodeGenOpts().HLSLExtensionsCodegen->IsOptionEnabled(
-            "structurize-returns"))
+            hlsl::options::TOGGLE_STRUCTURIZE_RETURNS))
       return;
   } else {
-    if (!CGM.getCodeGenOpts().HLSLOptimizationToggles.count(
-            "structurize-returns") ||
-        !CGM.getCodeGenOpts()
-             .HLSLOptimizationToggles.find("structurize-returns")
-             ->second)
+    if (!CGM.getCodeGenOpts().HLSLOptimizationToggles.IsEnabled(
+            hlsl::options::TOGGLE_STRUCTURIZE_RETURNS))
       return;
   }
 
@@ -3715,13 +4032,16 @@ void StructurizeMultiRet(Module &M, clang::CodeGen::CodeGenModule &CGM,
     if (it == ScopeMap.end())
       continue;
 
-    StructurizeMultiRetFunction(&F, CGM.getDiags(), it->second, bWaveEnabledStage, DxBreaks);
+    StructurizeMultiRetFunction(&F, CGM.getDiags(), it->second,
+                                bWaveEnabledStage, DxBreaks);
   }
 }
 
-bool DxilObjectProperties::AddResource(llvm::Value *V, const hlsl::DxilResourceProperties &RP) {
+bool DxilObjectProperties::AddResource(llvm::Value *V,
+                                       const hlsl::DxilResourceProperties &RP) {
   if (RP.isValid()) {
-    DXASSERT(!GetResource(V).isValid() || GetResource(V) == RP, "otherwise, property conflict");
+    DXASSERT(!GetResource(V).isValid() || GetResource(V) == RP,
+             "otherwise, property conflict");
     resMap[V] = RP;
     return true;
   }
@@ -3740,8 +4060,31 @@ void DxilObjectProperties::updateGLC(llvm::Value *V) {
   auto it = resMap.find(V);
   if (it == resMap.end())
     return;
-  
+
   it->second.Basic.IsGloballyCoherent ^= 1;
+}
+
+bool DxilObjectProperties::AddWaveMatrix(
+    llvm::Value *V, const hlsl::DxilWaveMatrixProperties &WMP) {
+  if (WMP.isValid()) {
+    DXASSERT(!GetWaveMatrix(V).isValid() || GetWaveMatrix(V) == WMP,
+             "otherwise, property conflict");
+    waveMatMap[V] = WMP;
+    return true;
+  }
+  return false;
+}
+
+bool DxilObjectProperties::IsWaveMatrix(llvm::Value *V) {
+  return waveMatMap.count(V) != 0;
+}
+
+hlsl::DxilWaveMatrixProperties
+DxilObjectProperties::GetWaveMatrix(llvm::Value *V) {
+  auto it = waveMatMap.find(V);
+  if (it != waveMatMap.end())
+    return it->second;
+  return DxilWaveMatrixProperties();
 }
 
 } // namespace CGHLSLMSHelper

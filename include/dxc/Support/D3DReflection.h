@@ -12,6 +12,7 @@
 #pragma once
 
 #ifndef _WIN32
+#include "dxc/WinAdapter.h"
 // need to disable this as it is voilated by this header
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"

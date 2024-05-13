@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.1
+// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.1 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: ; Version: 1.3
 
@@ -19,13 +19,13 @@ void main(uint3 id: SV_DispatchThreadID) {
     float2 val2 = values[x].val2;
        int val3 = values[x].val3;
 
-// CHECK:      [[val1:%\d+]] = OpLoad %v4uint %val1
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformUMin %v4uint %uint_3 Reduce [[val1]]
+// CHECK:      [[val1:%[0-9]+]] = OpLoad %v4uint %val1
+// CHECK-NEXT:      {{%[0-9]+}} = OpGroupNonUniformUMin %v4uint %uint_3 Reduce [[val1]]
     values[x].val1 = WaveActiveMin(val1);
-// CHECK:      [[val2:%\d+]] = OpLoad %v2float %val2
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformFMin %v2float %uint_3 Reduce [[val2]]
+// CHECK:      [[val2:%[0-9]+]] = OpLoad %v2float %val2
+// CHECK-NEXT:      {{%[0-9]+}} = OpGroupNonUniformFMin %v2float %uint_3 Reduce [[val2]]
     values[x].val2 = WaveActiveMin(val2);
-// CHECK:      [[val3:%\d+]] = OpLoad %int %val3
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformSMin %int %uint_3 Reduce [[val3]]
+// CHECK:      [[val3:%[0-9]+]] = OpLoad %int %val3
+// CHECK-NEXT:      {{%[0-9]+}} = OpGroupNonUniformSMin %int %uint_3 Reduce [[val3]]
     values[x].val3 = WaveActiveMin(val3);
 }

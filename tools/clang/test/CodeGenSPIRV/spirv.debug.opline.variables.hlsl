@@ -1,11 +1,11 @@
-// RUN: %dxc -T ps_6_0 -E main -Zi
+// RUN: %dxc -T ps_6_0 -E main -Zi -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
+// CHECK:      [[file:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.variables.hlsl
 
 float test_function_variables() {
 // CHECK:                 OpLine [[file]] 9 22
-// CHECK-NEXT: {{%\d+}} = OpLoad %bool %init_done_foo
+// CHECK-NEXT: {{%[0-9]+}} = OpLoad %bool %init_done_foo
   static float foo = 2.f;
   return foo;
 }

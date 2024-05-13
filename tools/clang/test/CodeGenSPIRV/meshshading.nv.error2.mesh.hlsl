@@ -1,6 +1,6 @@
-// RUN: %dxc -T ms_6_5 -E main
+// RUN: not %dxc -T ms_6_5 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
-// CHECK: 14:6: error: MS entry point must have the numthreads attribute
+// CHECK: error: mesh entry point must have a valid numthreads attribute
 
 struct MeshPerVertex {
     float4 position : SV_Position;

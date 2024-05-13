@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing
+// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fvk-use-gl-layout -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %_arr_v2float_uint_3 ArrayStride 8
 // CHECK: OpDecorate %_arr_mat3v2float_uint_2 ArrayStride 32
@@ -25,13 +25,13 @@ struct T {
     row_major    float3x2 f3[2];
 };
 
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 0 Offset 0
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 1 Offset 4
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 2 Offset 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 3 Offset 208
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 4 Offset 240
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 4 MatrixStride 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_S 4 ColMajor
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 0 Offset 0
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 1 Offset 16
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 2 Offset 32
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 3 Offset 224
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 4 Offset 256
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 4 MatrixStride 16
+// CHECK: OpMemberDecorate %type_ConstantBuffer_S 4 ColMajor
 
 struct S {
               float    f1;
@@ -44,12 +44,12 @@ struct S {
 [[vk::shader_record_nv]]
 ConstantBuffer<S> cbuf;
 
-// CHECK: OpDecorate %type_ShaderRecordBufferNV_S Block
+// CHECK: OpDecorate %type_ConstantBuffer_S Block
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 0 Offset 0
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 1 Offset 4
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 2 Offset 16
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 3 Offset 208
-// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 4 Offset 240
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 1 Offset 16
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 2 Offset 32
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 3 Offset 224
+// CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 4 Offset 256
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 4 MatrixStride 16
 // CHECK: OpMemberDecorate %type_ShaderRecordBufferNV_block 4 ColMajor
 
@@ -66,6 +66,9 @@ cbuffer block {
 // CHECK: OpDecorate %type_ShaderRecordBufferNV_block Block
 struct Payload { float p; };
 struct Attr    { float a; };
+
+// CHECK: %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_S = OpTypePointer ShaderRecordBufferNV %type_ConstantBuffer_S
+// CHECK: %cbuf = OpVariable %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_S ShaderRecordBufferNV
 
 [shader("closesthit")]
 void chs1(inout Payload P, in Attr A) {

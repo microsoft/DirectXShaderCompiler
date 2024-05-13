@@ -8,8 +8,9 @@
 //===----------------------------------------------------------------------===//
 //
 // This file defines vectorizer utility function findScalarElement.
-// Splitting this function from VectorUtils.cpp into a separate file 
-// makes dxilconv.dll 121kB smaller (x86 release, compiler optimization for size).
+// Splitting this function from VectorUtils.cpp into a separate file
+// makes dxilconv.dll 121kB smaller (x86 release, compiler optimization for
+// size).
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,7 +25,7 @@ llvm::Value *llvm::findScalarElement(llvm::Value *V, unsigned EltNo) {
   assert(V->getType()->isVectorTy() && "Not looking at a vector?");
   VectorType *VTy = cast<VectorType>(V->getType());
   unsigned Width = VTy->getNumElements();
-  if (EltNo >= Width)  // Out of range access.
+  if (EltNo >= Width) // Out of range access.
     return UndefValue::get(VTy->getElementType());
 
   if (Constant *C = dyn_cast<Constant>(V))
@@ -57,7 +58,8 @@ llvm::Value *llvm::findScalarElement(llvm::Value *V, unsigned EltNo) {
   }
 
   // Extract a value from a vector add operation with a constant zero.
-  Value *Val = nullptr; Constant *Con = nullptr;
+  Value *Val = nullptr;
+  Constant *Con = nullptr;
   if (match(V,
             llvm::PatternMatch::m_Add(llvm::PatternMatch::m_Value(Val),
                                       llvm::PatternMatch::m_Constant(Con)))) {

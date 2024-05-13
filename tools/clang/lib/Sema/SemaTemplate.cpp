@@ -420,10 +420,12 @@ Sema::ActOnDependentIdExpression(const CXXScopeSpec &SS,
     // perform the double-lookup check.
     NamedDecl *FirstQualifierInScope = nullptr;
 
+    // HLSL Change begin - This is a reference.
     return CXXDependentScopeMemberExpr::Create(
-        Context, /*This*/ nullptr, ThisType, /*IsArrow*/ true,
+        Context, /*This*/ nullptr, ThisType, /*IsArrow*/ !getLangOpts().HLSL,
         /*Op*/ SourceLocation(), SS.getWithLocInContext(Context), TemplateKWLoc,
         FirstQualifierInScope, NameInfo, TemplateArgs);
+    // HLSL Change end - This is a reference.
   }
 
   return BuildDependentDeclRefExpr(SS, TemplateKWLoc, NameInfo, TemplateArgs);
@@ -1203,11 +1205,15 @@ static bool DiagnoseDefaultTemplateArgument(Sema &S,
     //   template-argument, that declaration shall be a definition and shall be
     //   the only declaration of the function template in the translation unit.
     // (C++98/03 doesn't have this wording; see DR226).
-    S.Diag(ParamLoc, S.getLangOpts().CPlusPlus11 ?
+    // HLSL Change Begin - Treat HLSL as C++11 here. This hides the C++11
+    // extension warning, and the C++98 compat warning is disabled unless
+    // explicitly enabled.
+    S.Diag(ParamLoc, S.getLangOpts().CPlusPlus11 || S.getLangOpts().HLSL ?
          diag::warn_cxx98_compat_template_parameter_default_in_function_template
            : diag::ext_template_parameter_default_in_function_template)
       << DefArgRange;
     return false;
+    // HLSL Change End
 
   case Sema::TPC_ClassTemplateMember:
     // C++0x [temp.param]p9:
@@ -3056,12 +3062,9 @@ bool Sema::CheckTemplateTypeArgument(TemplateTypeParmDecl *Param,
     // HLSL allows omiting empty template argument lists
     TemplateDecl *Decl = Name.getAsTemplateDecl();
     if (getLangOpts().HLSL && Decl) {
-      if (ClassTemplateDecl *TD = dyn_cast<ClassTemplateDecl>(Decl)) {
-        if (TypeDecl *DefaultSpec = getHLSLDefaultSpecialization(TD)) {
-          SourceRange SR = Decl->getSourceRange();
-          TemplateArgumentListInfo TemplateArgs(SR.getEnd(), SR.getEnd());
-          ArgType = CheckTemplateIdType(TemplateName(Decl), SR.getBegin(),
-                                        TemplateArgs);
+      if (TemplateDecl *TD = dyn_cast<TemplateDecl>(Decl)) {
+        ArgType = getHLSLDefaultSpecialization(TD);
+        if (!ArgType.isNull()) {
           CXXScopeSpec SS;
           TypeLocBuilder TLB;
           TemplateSpecializationTypeLoc TL =

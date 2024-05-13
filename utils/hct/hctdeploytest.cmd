@@ -40,7 +40,7 @@ echo =========================================================================
 echo Provided there were no errors above, the test can now be run from
 echo the target directory with:
 echo.
-echo taef\amd64\te test\clang-hlsl-tests.dll /p:"HlslDataDir=HLSL" [options]
+echo taef\amd64\te test\ClangHLSLTests.dll /p:"HlslDataDir=HLSL" [options]
 echo.
 echo You may need to deploy VS runtime libraries in order to run the unit tests.
 echo Debug versions of these will be required for the Debug build configuration.

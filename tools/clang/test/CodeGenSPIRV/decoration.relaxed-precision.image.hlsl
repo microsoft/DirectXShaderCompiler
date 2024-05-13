@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 SamplerState           gSampler        : register(s4);
 SamplerComparisonState gCompareSampler : register(s5);
@@ -6,14 +6,14 @@ SamplerComparisonState gCompareSampler : register(s5);
 // CHECK:               OpDecorate %t2f4 RelaxedPrecision
 // CHECK-NEXT:          OpDecorate %t2i4 RelaxedPrecision
 // CHECK-NEXT:          OpDecorate %t2f RelaxedPrecision
-// CHECK-NEXT:          OpDecorate [[t2f4_val:%\d+]] RelaxedPrecision
-// CHECK-NEXT:          OpDecorate [[image_op_1:%\d+]] RelaxedPrecision
-// CHECK-NEXT:          OpDecorate [[t2i4_val:%\d+]] RelaxedPrecision
-// CHECK-NEXT:          OpDecorate [[image_op_2:%\d+]] RelaxedPrecision
-// CHECK:               OpDecorate [[t2f_val:%\d+]] RelaxedPrecision
-// CHECK:               OpDecorate [[imgSampleExplicit:%\d+]] RelaxedPrecision
-// CHECK:               OpDecorate [[t2f_val_again:%\d+]] RelaxedPrecision
-// CHECK:               OpDecorate [[imgSampleImplicit:%\d+]] RelaxedPrecision
+// CHECK-NEXT:          OpDecorate [[t2f4_val:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:          OpDecorate [[image_op_1:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:          OpDecorate [[t2i4_val:%[0-9]+]] RelaxedPrecision
+// CHECK-NEXT:          OpDecorate [[image_op_2:%[0-9]+]] RelaxedPrecision
+// CHECK:               OpDecorate [[t2f_val:%[0-9]+]] RelaxedPrecision
+// CHECK:               OpDecorate [[imgSampleExplicit:%[0-9]+]] RelaxedPrecision
+// CHECK:               OpDecorate [[t2f_val_again:%[0-9]+]] RelaxedPrecision
+// CHECK:               OpDecorate [[imgSampleImplicit:%[0-9]+]] RelaxedPrecision
 
 // CHECK:          %t2f4 = OpVariable %_ptr_UniformConstant_type_2d_image_array UniformConstant
 // CHECK:          %t2i4 = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant

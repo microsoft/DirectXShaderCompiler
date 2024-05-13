@@ -60,7 +60,6 @@ echo Setting up macros for this console - run hcthelp for a reference.
 echo.
 doskey hctbld=pushd %HLSL_BLD_DIR%
 doskey hctbuild=%HLSL_SRC_DIR%\utils\hct\hctbuild.cmd $*
-doskey hctcheckin=%HLSL_SRC_DIR%\utils\hct\hctcheckin.cmd $*
 doskey hctclean=%HLSL_SRC_DIR%\utils\hct\hctclean.cmd $*
 doskey hcthelp=%HLSL_SRC_DIR%\utils\hct\hcthelp.cmd $*
 doskey hctshortcut=cscript.exe //Nologo %HLSL_SRC_DIR%\utils\hct\hctshortcut.js $*

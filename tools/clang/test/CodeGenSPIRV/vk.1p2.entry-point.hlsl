@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T ps_6_0 -E main -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpEntryPoint Fragment %main "main"
 // CHECK-DAG: %_Globals

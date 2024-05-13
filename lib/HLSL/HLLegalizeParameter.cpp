@@ -9,26 +9,26 @@
 // Must be call before inline pass.                                          //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/HLModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilTypeSystem.h"
 #include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/HLSL/HLModule.h"
 #include "dxc/HLSL/HLUtil.h"
-#include "dxc/DXIL/DxilTypeSystem.h"
 
 #include "llvm/IR/IntrinsicInst.h"
 
 #include "dxc/Support/Global.h"
-#include "llvm/Pass.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 
 #include <vector>
@@ -36,7 +36,8 @@
 using namespace llvm;
 using namespace hlsl;
 
-// For parameter need to legalize, create alloca to replace all uses of it, and copy between the alloca and the parameter.
+// For parameter need to legalize, create alloca to replace all uses of it, and
+// copy between the alloca and the parameter.
 
 namespace {
 
@@ -82,7 +83,8 @@ bool isPointerNeedToLower(Value *V, Type *HandleTy) {
   }
   CallInst *CI = dyn_cast<CallInst>(V);
   if (!CI) {
-    // If array of vector, we need a copy to handle vector to array in LowerTypePasses.
+    // If array of vector, we need a copy to handle vector to array in
+    // LowerTypePasses.
     Type *Ty = V->getType();
     if (Ty->isPointerTy())
       Ty = Ty->getPointerElementType();
@@ -109,14 +111,15 @@ bool isPointerNeedToLower(Value *V, Type *HandleTy) {
   return isPointerNeedToLower(Ptr, HandleTy);
 }
 
-bool mayAliasWithGlobal(Value *V, CallInst *CallSite, std::vector<GlobalVariable *> &staticGVs) {
+bool mayAliasWithGlobal(Value *V, CallInst *CallSite,
+                        std::vector<GlobalVariable *> &staticGVs) {
   // The unsafe case need copy-in copy-out will be global variable alias with
   // parameter. Then global variable is updated in the function, the parameter
   // will be updated silently.
 
   // Currently add copy for all non-const static global in
   // CGMSHLSLRuntime::EmitHLSLOutParamConversionInit.
-  //So here just return false and do nothing.
+  // So here just return false and do nothing.
   // For case like
   // struct T {
   //  float4 a[10];
@@ -168,7 +171,8 @@ void ParameterCopyInCopyOut(hlsl::HLModule &HLM) {
     if (!Annot)
       continue;
 
-    bool bNoInline = F.hasFnAttribute(llvm::Attribute::NoInline) || F.isDeclaration();
+    bool bNoInline =
+        F.hasFnAttribute(llvm::Attribute::NoInline) || F.isDeclaration();
 
     for (User *U : F.users()) {
       CallInst *CI = dyn_cast<CallInst>(U);
@@ -273,7 +277,7 @@ bool HLLegalizeParameter::runOnModule(Module &M) {
       } break;
       case DxilParamInputQual::Out: {
         hlutil::PointerStatus PS(&Arg, 0, /*bLdStOnly*/ true);
-        PS.analyze(typeSys, /*bStructElt*/false);
+        PS.analyze(typeSys, /*bStructElt*/ false);
         if (PS.HasLoaded()) {
           patchReadOnOutParam(F, Arg, DL);
         }

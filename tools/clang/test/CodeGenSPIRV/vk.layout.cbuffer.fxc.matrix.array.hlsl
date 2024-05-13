@@ -1,8 +1,8 @@
-// RUN: %dxc -T ps_6_0 -E main -fvk-use-dx-layout
+// RUN: %dxc -T ps_6_0 -E main -fvk-use-dx-layout -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: OpDecorate [[type_of_foo:%\w+]] ArrayStride 32
-// CHECK: OpDecorate [[type_of_bar_elem:%\w+]] ArrayStride 16
-// CHECK: OpDecorate [[type_of_bar:%\w+]] ArrayStride 48
+// CHECK: OpDecorate [[type_of_foo:%[a-zA-Z0-9_]+]] ArrayStride 32
+// CHECK: OpDecorate [[type_of_bar_elem:%[a-zA-Z0-9_]+]] ArrayStride 16
+// CHECK: OpDecorate [[type_of_bar:%[a-zA-Z0-9_]+]] ArrayStride 48
 
 // CHECK: OpMemberDecorate %type_buffer0 0 Offset 0
 // CHECK: OpMemberDecorate %type_buffer0 1 Offset 16

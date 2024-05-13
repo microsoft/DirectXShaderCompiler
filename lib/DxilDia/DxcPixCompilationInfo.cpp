@@ -66,24 +66,17 @@ public:
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) final {
     return DoBasicQueryInterface<IDxcPixCompilationInfo>(this, iid, ppvObject);
   }
-  virtual STDMETHODIMP
-  GetSourceFile(_In_ DWORD SourceFileOrdinal,
-                _Outptr_result_z_ BSTR *pSourceName,
-                _Outptr_result_z_ BSTR *pSourceContents) override;
-  virtual STDMETHODIMP
-  GetArguments(_Outptr_result_z_ BSTR *pArguments) override;
-  virtual STDMETHODIMP
-  GetMacroDefinitions(_Outptr_result_z_ BSTR *pMacroDefinitions) override;
-  virtual STDMETHODIMP
-  GetEntryPointFile(_Outptr_result_z_ BSTR *pEntryPointFile) override;
-  virtual STDMETHODIMP
-  GetHlslTarget(_Outptr_result_z_ BSTR *pHlslTarget) override;
-  virtual STDMETHODIMP
-  GetEntryPoint(_Outptr_result_z_ BSTR *pEntryPoint) override;
+  virtual STDMETHODIMP GetSourceFile(DWORD SourceFileOrdinal, BSTR *pSourceName,
+                                     BSTR *pSourceContents) override;
+  virtual STDMETHODIMP GetArguments(BSTR *pArguments) override;
+  virtual STDMETHODIMP GetMacroDefinitions(BSTR *pMacroDefinitions) override;
+  virtual STDMETHODIMP GetEntryPointFile(BSTR *pEntryPointFile) override;
+  virtual STDMETHODIMP GetHlslTarget(BSTR *pHlslTarget) override;
+  virtual STDMETHODIMP GetEntryPoint(BSTR *pEntryPoint) override;
 };
 
 CompilationInfo::CompilationInfo(IMalloc *pMalloc, dxil_dia::Session *pSession)
-    : m_pSession(pSession), m_pMalloc(pMalloc) {
+    : m_pMalloc(pMalloc), m_pSession(pSession) {
   auto *Module = m_pSession->DxilModuleRef().GetModule();
   m_contents =
       Module->getNamedMetadata(hlsl::DxilMDHelper::kDxilSourceContentsMDName);
@@ -112,7 +105,7 @@ static void MDStringOperandToBSTR(llvm::MDOperand const &mdOperand,
       llvm::dyn_cast<llvm::MDString>(mdOperand)->getString();
   std::string StringWithTerminator(MetadataAsStringRef.begin(),
                                    MetadataAsStringRef.size());
-  CA2W cv(StringWithTerminator.c_str(), CP_UTF8);
+  CA2W cv(StringWithTerminator.c_str());
   CComBSTR BStr;
   BStr.Append(cv);
   BStr.Append(L"\0", 1);
@@ -120,9 +113,8 @@ static void MDStringOperandToBSTR(llvm::MDOperand const &mdOperand,
 }
 
 STDMETHODIMP
-CompilationInfo::GetSourceFile(_In_ DWORD SourceFileOrdinal,
-                               _Outptr_result_z_ BSTR *pSourceName,
-                               _Outptr_result_z_ BSTR *pSourceContents) {
+CompilationInfo::GetSourceFile(DWORD SourceFileOrdinal, BSTR *pSourceName,
+                               BSTR *pSourceContents) {
   *pSourceName = nullptr;
   *pSourceContents = nullptr;
 
@@ -139,7 +131,7 @@ CompilationInfo::GetSourceFile(_In_ DWORD SourceFileOrdinal,
   return S_OK;
 }
 
-STDMETHODIMP CompilationInfo::GetArguments(_Outptr_result_z_ BSTR *pArguments) {
+STDMETHODIMP CompilationInfo::GetArguments(BSTR *pArguments) {
   llvm::MDNode *argsNode = m_arguments->getOperand(0);
 
   // Don't return any arguments that denote things that are returned via
@@ -176,7 +168,7 @@ STDMETHODIMP CompilationInfo::GetArguments(_Outptr_result_z_ BSTR *pArguments) {
     }
 
     std::string str(strRef.begin(), strRef.size());
-    CA2W cv(str.c_str(), CP_UTF8);
+    CA2W cv(str.c_str());
     pBSTR.Append(cv);
     pBSTR.Append(L" ", 1);
   }
@@ -185,8 +177,7 @@ STDMETHODIMP CompilationInfo::GetArguments(_Outptr_result_z_ BSTR *pArguments) {
   return S_OK;
 }
 
-STDMETHODIMP CompilationInfo::GetMacroDefinitions(
-    _Outptr_result_z_ BSTR *pMacroDefinitions) {
+STDMETHODIMP CompilationInfo::GetMacroDefinitions(BSTR *pMacroDefinitions) {
   llvm::MDNode *definesNode = m_defines->getOperand(0);
   // Concatenate definitions into one string separated by spaces
   CComBSTR pBSTR;
@@ -210,7 +201,7 @@ STDMETHODIMP CompilationInfo::GetMacroDefinitions(
       str = name + "=" + definition;
     }
 
-    CA2W cv(str.c_str(), CP_UTF8);
+    CA2W cv(str.c_str());
     pBSTR.Append(L"-D", 2);
     pBSTR.Append(cv);
     pBSTR.Append(L" ", 1);
@@ -221,13 +212,13 @@ STDMETHODIMP CompilationInfo::GetMacroDefinitions(
 }
 
 STDMETHODIMP
-CompilationInfo::GetEntryPointFile(_Outptr_result_z_ BSTR *pEntryPointFile) {
+CompilationInfo::GetEntryPointFile(BSTR *pEntryPointFile) {
   llvm::StringRef strRef = llvm::dyn_cast<llvm::MDString>(
                                m_mainFileName->getOperand(0)->getOperand(0))
                                ->getString();
   std::string str(strRef.begin(),
                   strRef.size()); // To make sure str is null terminated
-  CA2W cv(str.c_str(), CP_UTF8);
+  CA2W cv(str.c_str());
   CComBSTR pBSTR;
   pBSTR.Append(cv);
   *pEntryPointFile = pBSTR.Detach();
@@ -235,8 +226,8 @@ CompilationInfo::GetEntryPointFile(_Outptr_result_z_ BSTR *pEntryPointFile) {
 }
 
 STDMETHODIMP
-CompilationInfo::GetHlslTarget(_Outptr_result_z_ BSTR *pHlslTarget) {
-  CA2W cv(m_pSession->DxilModuleRef().GetShaderModel()->GetName(), CP_UTF8);
+CompilationInfo::GetHlslTarget(BSTR *pHlslTarget) {
+  CA2W cv(m_pSession->DxilModuleRef().GetShaderModel()->GetName());
   CComBSTR pBSTR;
   pBSTR.Append(cv);
   *pHlslTarget = pBSTR.Detach();
@@ -244,9 +235,9 @@ CompilationInfo::GetHlslTarget(_Outptr_result_z_ BSTR *pHlslTarget) {
 }
 
 STDMETHODIMP
-CompilationInfo::GetEntryPoint(_Outptr_result_z_ BSTR *pEntryPoint) {
+CompilationInfo::GetEntryPoint(BSTR *pEntryPoint) {
   auto name = m_pSession->DxilModuleRef().GetEntryFunctionName();
-  CA2W cv(name.c_str(), CP_UTF8);
+  CA2W cv(name.c_str());
   CComBSTR pBSTR;
   pBSTR.Append(cv);
   *pEntryPoint = pBSTR.Detach();

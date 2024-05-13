@@ -1742,6 +1742,86 @@ bool Sema::SubstParmTypes(SourceLocation Loc,
                                                   OutParams);
 }
 
+/// HLSL Change Begin - back ported from llvm-project/4409a83c2935.
+/// Substitute the given template arguments into the default argument.
+bool Sema::SubstDefaultArgument(
+    SourceLocation Loc,
+    ParmVarDecl *Param,
+    const MultiLevelTemplateArgumentList &TemplateArgs,
+    bool ForCallExpr) {
+  FunctionDecl *FD = cast<FunctionDecl>(Param->getDeclContext());
+  Expr *PatternExpr = Param->getUninstantiatedDefaultArg();
+
+  EnterExpressionEvaluationContext EvalContext(
+      *this, ExpressionEvaluationContext::PotentiallyEvaluated, Param);
+
+  InstantiatingTemplate Inst(*this, Loc, Param, TemplateArgs.getInnermost());
+  if (Inst.isInvalid())
+    return true;
+
+  ExprResult Result;
+  {
+    // C++ [dcl.fct.default]p5:
+    //   The names in the [default argument] expression are bound, and
+    //   the semantic constraints are checked, at the point where the
+    //   default argument expression appears.
+    ContextRAII SavedContext(*this, FD);
+    std::unique_ptr<LocalInstantiationScope> LIS;
+
+    if (ForCallExpr) {
+      // When instantiating a default argument due to use in a call expression,
+      // an instantiation scope that includes the parameters of the callee is
+      // required to satisfy references from the default argument. For example:
+      //   template<typename T> void f(T a, int = decltype(a)());
+      //   void g() { f(0); }
+      LIS = std::make_unique<LocalInstantiationScope>(*this);
+      FunctionDecl *PatternFD = FD->getTemplateInstantiationPattern();
+      if (addInstantiatedParametersToScope(FD, PatternFD, *LIS, TemplateArgs))
+        return true;
+    }
+
+    Result = SubstInitializer(PatternExpr, TemplateArgs,
+                              /*DirectInit*/false);
+  }
+  if (Result.isInvalid())
+    return true;
+
+  if (ForCallExpr) {
+    // Check the expression as an initializer for the parameter.
+    if (RequireCompleteType(Param->getLocation(), Param->getType(),
+                          diag::err_typecheck_decl_incomplete_type))
+       return true;
+    InitializedEntity Entity
+      = InitializedEntity::InitializeParameter(Context, Param);
+    InitializationKind Kind = InitializationKind::CreateCopy(
+        Param->getLocation(),
+        /*FIXME:EqualLoc*/ PatternExpr->getLocStart());
+    Expr *ResultE = Result.getAs<Expr>();
+
+    InitializationSequence InitSeq(*this, Entity, Kind, ResultE);
+    Result = InitSeq.Perform(*this, Entity, Kind, ResultE);
+    if (Result.isInvalid())
+      return true;
+
+    Result =
+        ActOnFinishFullExpr(Result.getAs<Expr>(), Param->getOuterLocStart(),
+                            /*DiscardedValue*/ false);
+  } else {
+    // FIXME: Obtain the source location for the '=' token.
+    SourceLocation EqualLoc = PatternExpr->getLocStart();
+    Result = SetParamDefaultArgument(Param, Result.getAs<Expr>(), EqualLoc);
+  }
+  if (Result.isInvalid())
+      return true;
+
+  // Remember the instantiated default argument.
+  Param->setDefaultArg(Result.getAs<Expr>());
+
+  return false;
+}
+
+/// HLSL Change End - back ported from llvm-project/4409a83c2935.
+
 /// \brief Perform substitution on the base class specifiers of the
 /// given class template specialization.
 ///

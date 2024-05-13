@@ -52,7 +52,7 @@ inline QualType getTypeOrFnRetType(const DeclaratorDecl *decl) {
 
 /// Returns true if the given declaration has a primitive type qualifier.
 /// Returns false otherwise.
-inline bool hasGSPrimitiveTypeQualifier(const DeclaratorDecl *decl) {
+inline bool hasGSPrimitiveTypeQualifier(const NamedDecl *decl) {
   return decl->hasAttr<HLSLTriangleAttr>() ||
          decl->hasAttr<HLSLTriangleAdjAttr>() ||
          decl->hasAttr<HLSLPointAttr>() || decl->hasAttr<HLSLLineAttr>() ||
@@ -322,8 +322,8 @@ bool GlPerVertex::setClipCullDistanceType(SemanticIndexToTypeMap *typeMap,
   return true;
 }
 
-bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
-                                     QualType baseType, bool asInput) {
+bool GlPerVertex::doGlPerVertexFacts(const NamedDecl *decl, QualType baseType,
+                                     bool asInput) {
 
   llvm::StringRef semanticStr;
   const hlsl::Semantic *semantic = {};
@@ -332,11 +332,19 @@ bool GlPerVertex::doGlPerVertexFacts(const DeclaratorDecl *decl,
 
   if (!getStageVarSemantic(decl, &semanticStr, &semantic, &semanticIndex)) {
     if (baseType->isStructureType()) {
-      const auto *structDecl = baseType->getAs<RecordType>()->getDecl();
+      const auto *recordType = baseType->getAs<RecordType>();
+      const auto *recordDecl = recordType->getAsCXXRecordDecl();
       // Go through each field to see if there is any usage of
       // SV_ClipDistance/SV_CullDistance.
-      for (const auto *field : structDecl->fields()) {
+      for (const auto *field : recordDecl->fields()) {
         if (!doGlPerVertexFacts(field, field->getType(), asInput))
+          return false;
+      }
+
+      // We should also recursively go through each inherited class.
+      for (const auto &base : recordDecl->bases()) {
+        const auto *baseDecl = base.getType()->getAsCXXRecordDecl();
+        if (!doGlPerVertexFacts(baseDecl, base.getType(), asInput))
           return false;
       }
       return true;

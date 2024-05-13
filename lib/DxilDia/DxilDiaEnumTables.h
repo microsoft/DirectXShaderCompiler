@@ -33,44 +33,50 @@ private:
 protected:
   CComPtr<Session> m_pSession;
   unsigned m_next;
+
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
 
-  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void **ppvObject) {
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
+                                           void **ppvObject) override {
     return DoBasicQueryInterface<IDiaEnumTables>(this, iid, ppvObject);
   }
 
   EnumTables(IMalloc *pMalloc, Session *pSession)
-      : m_pMalloc(pMalloc), m_pSession(pSession), m_dwRef(0), m_next(0) {
+      : m_dwRef(0), m_pMalloc(pMalloc), m_pSession(pSession), m_next(0) {
     m_tables.fill(nullptr);
   }
 
   STDMETHODIMP get__NewEnum(
-    /* [retval][out] */ IUnknown **pRetVal) override { return ENotImpl(); }
+      /* [retval][out] */ IUnknown **pRetVal) override {
+    return ENotImpl();
+  }
 
-  STDMETHODIMP get_Count(_Out_ LONG *pRetVal) override;
+  STDMETHODIMP get_Count(LONG *pRetVal) override;
 
   STDMETHODIMP Item(
-    /* [in] */ VARIANT index,
-    /* [retval][out] */ IDiaTable **table) override;
+      /* [in] */ VARIANT index,
+      /* [retval][out] */ IDiaTable **table) override;
 
-  STDMETHODIMP Next(
-    ULONG celt,
-    IDiaTable **rgelt,
-    ULONG *pceltFetched) override;
+  STDMETHODIMP Next(ULONG celt, IDiaTable **rgelt,
+                    ULONG *pceltFetched) override;
 
   STDMETHODIMP Skip(
-    /* [in] */ ULONG celt) override { return ENotImpl(); }
+      /* [in] */ ULONG celt) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP Reset(void) override;
 
   STDMETHODIMP Clone(
-    /* [out] */ IDiaEnumTables **ppenum) override { return ENotImpl(); }
+      /* [out] */ IDiaEnumTables **ppenum) override {
+    return ENotImpl();
+  }
 
-  static HRESULT Create(Session *pSession,
-                        IDiaEnumTables **ppEnumTables);
+  static HRESULT Create(Session *pSession, IDiaEnumTables **ppEnumTables);
+
 private:
-  std::array<CComPtr<IDiaTable>, (int)Table::LastKind+1> m_tables;
+  std::array<CComPtr<IDiaTable>, (int)Table::LastKind + 1> m_tables;
 };
 
-}  // namespace dxil_dia
+} // namespace dxil_dia

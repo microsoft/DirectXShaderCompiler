@@ -10,13 +10,13 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "clang/Parse/Parser.h"
 #include "RAIIObjectsForParser.h"
-#include "clang/Basic/CharInfo.h"
-#include "clang/Basic/OperatorKinds.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclTemplate.h"
+#include "clang/Basic/CharInfo.h"
+#include "clang/Basic/OperatorKinds.h"
 #include "clang/Parse/ParseDiagnostic.h"
+#include "clang/Parse/Parser.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
@@ -74,8 +74,7 @@ Decl *Parser::ParseCTBuffer(unsigned Context, SourceLocation &DeclEnd,
   return decl;
 }
 
-
-/// ParseHLSLAttributeSpecifier - Parse an HLSL attribute-specifier. 
+/// ParseHLSLAttributeSpecifier - Parse an HLSL attribute-specifier.
 ///
 /// [HLSL] attribute-specifier:
 ///        '[' attribute[opt] ']'

@@ -2128,7 +2128,9 @@ void *tdefl_write_image_to_png_file_in_memory_ex(const void *pImage, int w, int 
     for (y = 0; y < h; ++y)
     {
         tdefl_compress_buffer(pComp, &z, 1, TDEFL_NO_FLUSH);
-        tdefl_compress_buffer(pComp, (mz_uint8 *)pImage + (flip ? (h - 1 - y) : y) * bpl, bpl, TDEFL_NO_FLUSH);
+        tdefl_compress_buffer(
+            pComp, (const mz_uint8 *)pImage + (flip ? (h - 1 - y) : y) * bpl,
+            bpl, TDEFL_NO_FLUSH);
     }
     if (tdefl_compress_buffer(pComp, NULL, 0, TDEFL_FINISH) != TDEFL_STATUS_DONE)
     {

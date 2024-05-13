@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_5 -E main -spirv
+// RUN: %dxc -T cs_6_5 -E main -fcgl -Vd  %s -spirv | FileCheck %s
 
 [[vk::ext_capability(/* RayQueryKHR */ 4472)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
@@ -26,7 +26,7 @@ void rayQueryTerminateEXT(
 //CHECK: %spirvIntrinsicType = OpTypeAccelerationStructureKHR
 //CHECK: %spirvIntrinsicType_0 = OpTypeRayQueryKHR
 
-//CHECK: OpRayQueryInitializeKHR %rq {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}} {{%\w+}}
+//CHECK: OpRayQueryInitializeKHR %rq {{%[a-zA-Z0-9_]+}} {{%[a-zA-Z0-9_]+}} {{%[a-zA-Z0-9_]+}} {{%[a-zA-Z0-9_]+}} {{%[a-zA-Z0-9_]+}} {{%[a-zA-Z0-9_]+}} {{%[a-zA-Z0-9_]+}}
 //CHECK: OpRayQueryTerminateKHR %rq
 
 [numthreads(64, 1, 1)]

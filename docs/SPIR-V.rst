@@ -213,8 +213,10 @@ For example:
 
   [[vk::input_attachment_index(i)]] SubpassInput input;
 
-An ``vk::input_attachment_index`` of ``i`` selects the ith entry in the input
-pass list. (See Vulkan API spec for more information.)
+A ``vk::input_attachment_index`` of ``i`` selects the ith entry in the input
+pass list. A subpass input without a ``vk::input_attachment_index`` will be
+associated with the depth/stencil attachment. (See Vulkan API spec for more
+information.)
 
 Push constants
 ~~~~~~~~~~~~~~
@@ -252,7 +254,7 @@ more than one shader_record_nv block statically used per shader entry point
 otherwise results are undefined."
 
 The official Khronos ray tracing extension also comes with a SPIR-V storage class
-that has the same functionality. The ``[[vk::shader_record_ext]]`` annotation can 
+that has the same functionality. The ``[[vk::shader_record_ext]]`` annotation can
 be used when targeting the SPV_KHR_ray_tracing extension.
 
 Builtin variables
@@ -297,10 +299,10 @@ Supported extensions
 * SPV_EXT_mesh_shader
 * SPV_EXT_shader_stencil_support
 * SPV_AMD_shader_early_and_late_fragment_tests
-* SPV_AMD_shader_explicit_vertex_parameter
 * SPV_GOOGLE_hlsl_functionality1
 * SPV_GOOGLE_user_type
 * SPV_NV_mesh_shader
+* SPV_KHR_fragment_shading_barycentric
 
 Vulkan specific attributes
 --------------------------
@@ -671,21 +673,21 @@ Normal scalar types
 in HLSL are relatively easy to handle and can be mapped directly to SPIR-V
 type instructions:
 
-============================== ======================= ================== =========== =================================
-      HLSL                      Command Line Option           SPIR-V       Capability       Extension
-============================== ======================= ================== =========== =================================
+============================== ======================= ================== ===========
+      HLSL                      Command Line Option           SPIR-V       Capability
+============================== ======================= ================== ===========
 ``bool``                                               ``OpTypeBool``
 ``int``/``int32_t``                                    ``OpTypeInt 32 1``
 ``int16_t``                    ``-enable-16bit-types`` ``OpTypeInt 16 1`` ``Int16``
 ``uint``/``dword``/``uin32_t``                         ``OpTypeInt 32 0``
 ``uint16_t``                   ``-enable-16bit-types`` ``OpTypeInt 16 0`` ``Int16``
 ``half``                                               ``OpTypeFloat 32``
-``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16``             ``SPV_AMD_gpu_shader_half_float``
+``half``/``float16_t``         ``-enable-16bit-types`` ``OpTypeFloat 16`` ``Float16``
 ``float``/``float32_t``                                ``OpTypeFloat 32``
 ``snorm float``                                        ``OpTypeFloat 32``
 ``unorm float``                                        ``OpTypeFloat 32``
 ``double``/``float64_t``                               ``OpTypeFloat 64`` ``Float64``
-============================== ======================= ================== =========== =================================
+============================== ======================= ================== ===========
 
 Please note that ``half`` is translated into 32-bit floating point numbers
 if without ``-enable-16bit-types`` because MSDN says that "this data type
@@ -705,20 +707,20 @@ We use the 16-bit variants if '-enable-16bit-types' command line option is prese
 For more information on these types, please refer to:
 https://github.com/Microsoft/DirectXShaderCompiler/wiki/16-Bit-Scalar-Types
 
-============== ======================= ================== ==================== ============ =================================
-    HLSL        Command Line Option          SPIR-V            Decoration       Capability        Extension
-============== ======================= ================== ==================== ============ =================================
+============== ======================= ================== ==================== ============
+    HLSL        Command Line Option          SPIR-V            Decoration       Capability 
+============== ======================= ================== ==================== ============
 ``min16float``                         ``OpTypeFloat 32`` ``RelaxedPrecision``
 ``min10float``                         ``OpTypeFloat 32`` ``RelaxedPrecision``
 ``min16int``                           ``OpTypeInt 32 1`` ``RelaxedPrecision``
 ``min12int``                           ``OpTypeInt 32 1`` ``RelaxedPrecision``
 ``min16uint``                          ``OpTypeInt 32 0`` ``RelaxedPrecision``
-``min16float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                                   ``SPV_AMD_gpu_shader_half_float``
-``min10float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                                   ``SPV_AMD_gpu_shader_half_float``
+``min16float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16`` 
+``min10float`` ``-enable-16bit-types`` ``OpTypeFloat 16``                      ``Float16`` 
 ``min16int``   ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
 ``min12int``   ``-enable-16bit-types`` ``OpTypeInt 16 1``                      ``Int16``
 ``min16uint``  ``-enable-16bit-types`` ``OpTypeInt 16 0``                      ``Int16``
-============== ======================= ================== ==================== ============ =================================
+============== ======================= ================== ==================== ============
 
 Vectors and matrices
 --------------------
@@ -856,7 +858,7 @@ are translated into SPIR-V ``OpTypeImage``, with parameters:
 ``Texture1DArray``      Sampled Image         RO   ``UniformConstant`` ``1D``      2       1    0    1     ``Unknown``
 ``Texture2DArray``      Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    0    1     ``Unknown``
 ``Texture2DMS``         Sampled Image         RO   ``UniformConstant`` ``2D``      2       0    1    1     ``Unknown``
-``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    1    1     ``Unknown``      ``ImageMSArray``
+``Texture2DMSArray``    Sampled Image         RO   ``UniformConstant`` ``2D``      2       1    1    1     ``Unknown``
 ``TextureCubeArray``    Sampled Image         RO   ``UniformConstant`` ``3D``      2       1    0    1     ``Unknown``
 ``Buffer<T>``           Uniform Texel Buffer  RO   ``UniformConstant`` ``Buffer``  2       0    0    1     Depends on ``T`` ``SampledBuffer``
 ``RWBuffer<T>``         Storage Texel Buffer  RW   ``UniformConstant`` ``Buffer``  2       0    0    2     Depends on ``T`` ``SampledBuffer``
@@ -1279,6 +1281,39 @@ will be translated into
   %myBuffer1 = OpVariable %_ptr_Uniform_type_ByteAddressBuffer Uniform
   %myBuffer2 = OpVariable %_ptr_Uniform_type_RWByteAddressBuffer Uniform
 
+Rasterizer Ordered Views
+------------------------
+
+The following types are rasterizer ordered views:
+
+* ``RasterizerOrderedBuffer``
+* ``RasterizerOrderedByteAddressBuffer``
+* ``RasterizerOrderedStructuredBuffer``
+* ``RasterizerOrderedTexture1D``
+* ``RasterizerOrderedTexture1DArray``
+* ``RasterizerOrderedTexture2D``
+* ``RasterizerOrderedTexture2DArray``
+* ``RasterizerOrderedTexture3D``
+
+These are translated to the same types as their equivalent RW* types - for
+example, a ``RasterizerOrderedBuffer`` is translated to the same SPIR-V type as
+an ``RWBuffer``. The sole difference lies in how loads and stores to these
+values are treated.
+
+The access order guarantee made by ROVs is implemented in SPIR-V using the
+`SPV_EXT_fragment_shader_interlock <https://github.com/KhronosGroup/SPIRV-Registry/blob/main/extensions/EXT/SPV_EXT_fragment_shader_interlock.asciidoc>`_.
+When you load or store a value from or to a rasterizer ordered view, using
+either the ``Load*()`` or ``Store*()`` methods or the indexing operator,
+``OpBeginInvocationInterlockEXT`` will be inserted before the first access and
+``OpEndInvocationInterlockEXT`` will be inserted after the last access.
+
+An execution mode will be added to the entry point, depending on the sample
+frequency, which will be deduced based on the semantics inputted by the entry
+point. ``PixelInterlockOrderedEXT`` will be selected by default,
+``SampleInterlockOrderedEXT`` will be selected if the ``SV_SampleIndex``
+semantic is input, and ``ShadingRateInterlockOrderedEXT`` will be selected if
+the ``SV_ShadingRate`` semantic is input.
+
 HLSL Variables and Resources
 ============================
 
@@ -1550,7 +1585,7 @@ some system-value (SV) semantic strings will be translated into SPIR-V
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 | SV_StencilRef             | PSOut       | ``FragStencilRefEXT``                  | N/A                   | ``StencilExportEXT``        |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
-| SV_Barycentrics           | PSIn        | ``BaryCoord*AMD``                      | N/A                   | ``Shader``                  |
+| SV_Barycentrics           | PSIn        | ``BaryCoord*KHR``                      | N/A                   | ``FragmentBarycentricKHR``  |
 +---------------------------+-------------+----------------------------------------+-----------------------+-----------------------------+
 |                           | GSOut       | ``Layer``                              | N/A                   | ``Geometry``                |
 |                           +-------------+----------------------------------------+-----------------------+-----------------------------+
@@ -3791,8 +3826,8 @@ RayQuery Mapping to SPIR-V
 |``.WorldRayOrigin`                                 | ``OpRayQueryGetWorldRayOriginKHR``                                      |
 +---------------------------------------------------+-------------------------------------------------------------------------+
 
-Shader Model 6.0 Wave Intrinsics
-================================
+Shader Model 6.0+ Wave Intrinsics
+=================================
 
 
 Note that Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
@@ -3830,6 +3865,7 @@ Quad          ``QuadReadAcrossX()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossY()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
+N/A           ``WaveMatch()``              ``OpGroupNonUniformPartitionNV``
 ============= ============================ =================================== ======================
 
 The Implicit ``vk`` Namespace
@@ -3858,14 +3894,14 @@ implicit ``vk`` namepsace.
 
   // Implicitly defined when compiling to SPIR-V.
   namespace vk {
-  
+
     const uint CrossDeviceScope = 0;
     const uint DeviceScope      = 1;
     const uint WorkgroupScope   = 2;
     const uint SubgroupScope    = 3;
     const uint InvocationScope  = 4;
     const uint QueueFamilyScope = 5;
-  
+
     uint64_t ReadClock(in uint scope);
     T        RawBufferLoad<T = uint>(in uint64_t deviceAddress,
                                      in uint alignment = 4);
@@ -3918,20 +3954,20 @@ functionality to HLSL:
 
 .. code:: hlsl
 
-  // RawBufferLoad and RawBufferStore use 'uint' for the default template argument. 
+  // RawBufferLoad and RawBufferStore use 'uint' for the default template argument.
   // The default alignment is 4. Note that 'alignment' must be a constant integer.
   T RawBufferLoad<T = uint>(in uint64_t deviceAddress, in uint alignment = 4);
   void RawBufferStore<T = uint>(in uint64_t deviceAddress, in T value, in uint alignment = 4);
 
 
-These intrinsics allow the shader program to load and store a single value with type T (int, float2, struct, etc...) 
+These intrinsics allow the shader program to load and store a single value with type T (int, float2, struct, etc...)
 from GPU accessible memory at given address, similar to ``ByteAddressBuffer.Load()``.
-Additionally, these intrinsics allow users to set the memory alignment for the underlying data. 
-We assume a 'uint' type when the template argument is missing, and we use a value of '4' for the default alignment. 
+Additionally, these intrinsics allow users to set the memory alignment for the underlying data.
+We assume a 'uint' type when the template argument is missing, and we use a value of '4' for the default alignment.
 Note that the alignment argument must be a constant integer if it is given.
 
-Though we do support setting the `alignment` of the data load and store, we do not currently 
-support setting the memory layout for the data. Since these intrinsics are supposed to load 
+Though we do support setting the `alignment` of the data load and store, we do not currently
+support setting the memory layout for the data. Since these intrinsics are supposed to load
 "arbitrary" data to or from a random device address, we assume that the program loads/stores some "bytes of data",
 but that its format or layout is unknown. Therefore, keep in mind that these intrinsics
 load or store ``sizeof(T)`` bytes of data, and that loading/storing data with a struct
@@ -4067,6 +4103,8 @@ codegen for Vulkan:
   to the HLSL entry point name.
 - ``-fspv-use-legacy-buffer-matrix-order``: Assumes the legacy matrix order (row
   major) when accessing raw buffers (e.g., ByteAdddressBuffer).
+- ``-fspv-preserve-interface``: Preserves all interface variables in the entry
+  point, even when those variables are unused.
 - ``-Wno-vk-ignored-features``: Does not emit warnings on ignored features
   resulting from no Vulkan support, e.g., cbuffer member initializer.
 

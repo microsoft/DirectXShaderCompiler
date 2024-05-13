@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_0 -E main -pack-optimized -O0
+// RUN: %dxc -T hs_6_0 -E main -pack-optimized -O0  %s -spirv | FileCheck %s
 
 struct HSPatchConstData {
   float tessFactor[3] : SV_TessFactor;

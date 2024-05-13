@@ -220,7 +220,8 @@ class BitcodeReader : public GVMaterializer {
 
 public:
   std::error_code error(BitcodeError E, const Twine &Message);
-  std::error_code error(BitcodeError E);
+  // HLSL Change: Remove unused function declaration
+  // std::error_code error(BitcodeError E);
   std::error_code error(const Twine &Message);
 
   BitcodeReader(std::unique_ptr<MemoryBuffer> &&Buffer, LLVMContext &Context, // HLSL Change: unique_ptr
@@ -233,7 +234,8 @@ public:
 
   void freeState();
 
-  void releaseBuffer();
+  // HLSL Change: remove unused function declaration
+  // void releaseBuffer();
 
   bool ShouldTrackBitstreamUsage = false; // HLSL Change
   BitstreamUseTracker Tracker; // HLSL Change
@@ -399,10 +401,13 @@ static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
   return EC;
 }
 
+// HLSL Change: remove unused function
+#if 0
 static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
                              std::error_code EC) {
   return error(DiagnosticHandler, EC, EC.message());
 }
+#endif
 
 static std::error_code error(DiagnosticHandlerFunction DiagnosticHandler,
                              const Twine &Message) {
@@ -419,9 +424,12 @@ std::error_code BitcodeReader::error(const Twine &Message) {
                  make_error_code(BitcodeError::CorruptedBitcode), Message);
 }
 
+// HLSL Change: remove unused function
+#if 0
 std::error_code BitcodeReader::error(BitcodeError E) {
   return ::error(DiagnosticHandler, make_error_code(E));
 }
+#endif
 
 static DiagnosticHandlerFunction getDiagHandler(DiagnosticHandlerFunction F,
                                                 LLVMContext &C) {
@@ -4818,7 +4826,8 @@ std::error_code BitcodeReader::findFunctionInStream(
 // GVMaterializer implementation
 //===----------------------------------------------------------------------===//
 
-void BitcodeReader::releaseBuffer() { Buffer.release(); }
+// HLSL Change: remove unused function 
+// void BitcodeReader::releaseBuffer() { Buffer.release(); }
 
 std::error_code BitcodeReader::materialize(GlobalValue *GV) {
   if (std::error_code EC = materializeMetadata())

@@ -21,7 +21,9 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit HLEmitMetadata() : ModulePass(ID) {}
 
-  StringRef getPassName() const override { return "HLSL High-Level Metadata Emit"; }
+  StringRef getPassName() const override {
+    return "HLSL High-Level Metadata Emit";
+  }
 
   bool runOnModule(Module &M) override {
     if (M.HasHLModule()) {
@@ -33,15 +35,14 @@ public:
     return false;
   }
 };
-}
+} // namespace
 
 char HLEmitMetadata::ID = 0;
 
-ModulePass *llvm::createHLEmitMetadataPass() {
-  return new HLEmitMetadata();
-}
+ModulePass *llvm::createHLEmitMetadataPass() { return new HLEmitMetadata(); }
 
-INITIALIZE_PASS(HLEmitMetadata, "hlsl-hlemit", "HLSL High-Level Metadata Emit", false, false)
+INITIALIZE_PASS(HLEmitMetadata, "hlsl-hlemit", "HLSL High-Level Metadata Emit",
+                false, false)
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -51,7 +52,9 @@ public:
   static char ID; // Pass identification, replacement for typeid
   explicit HLEnsureMetadata() : ModulePass(ID) {}
 
-  StringRef getPassName() const override { return "HLSL High-Level Metadata Ensure"; }
+  StringRef getPassName() const override {
+    return "HLSL High-Level Metadata Ensure";
+  }
 
   bool runOnModule(Module &M) override {
     if (!M.HasHLModule()) {
@@ -62,7 +65,7 @@ public:
     return false;
   }
 };
-}
+} // namespace
 
 char HLEnsureMetadata::ID = 0;
 
@@ -70,4 +73,5 @@ ModulePass *llvm::createHLEnsureMetadataPass() {
   return new HLEnsureMetadata();
 }
 
-INITIALIZE_PASS(HLEnsureMetadata, "hlsl-hlensure", "HLSL High-Level Metadata Ensure", false, false)
+INITIALIZE_PASS(HLEnsureMetadata, "hlsl-hlensure",
+                "HLSL High-Level Metadata Ensure", false, false)

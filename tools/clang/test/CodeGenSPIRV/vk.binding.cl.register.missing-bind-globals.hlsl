@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fvk-bind-register t5 0 1 2 -vkbr s3 1 3 4
+// RUN: not %dxc -T ps_6_0 -E main -fvk-bind-register t5 0 1 2 -vkbr s3 1 3 4 -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 Texture2D MyTexture    : register(t5);
 SamplerState MySampler : register(s3, space1);

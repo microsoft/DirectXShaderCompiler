@@ -7,6 +7,7 @@ add_clang_library(clangSPIRV
   AstTypeProbe.cpp
   BlockReadableOrder.cpp
   CapabilityVisitor.cpp
+  ConstEvaluator.cpp
   DeclResultIdMapper.cpp
   DebugTypeVisitor.cpp
   EmitSpirvAction.cpp
@@ -19,6 +20,7 @@ add_clang_library(clangSPIRV
   SortDebugInfoVisitor.cpp
   NonUniformVisitor.cpp
   PreciseVisitor.cpp
+  PervertexInputVisitor.cpp
   RawBufferMethods.cpp
   RelaxedPrecisionVisitor.cpp
   RemoveBufferBlockVisitor.cpp

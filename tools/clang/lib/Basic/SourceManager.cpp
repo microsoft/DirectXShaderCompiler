@@ -2168,3 +2168,13 @@ size_t SourceManager::getDataStructureSizes() const {
 
   return size;
 }
+
+unsigned SourceManager::getNumLineTableFilenames() const {
+  assert(LineTable);
+  return LineTable->getNumFilenames();
+}
+
+const char * SourceManager::getLineTableFilename(unsigned ID) const {
+  assert(LineTable);
+  return LineTable->getFilename(ID);
+}

@@ -1,4 +1,4 @@
-// RUN: %dxc -T as_6_5 -E main
+// RUN: not %dxc -T as_6_5 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 struct MeshPayload {
     float4 pos;

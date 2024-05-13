@@ -22,6 +22,7 @@ find_path(DIASDK_INCLUDE_DIR    # Set variable DIASDK_INCLUDE_DIR
           dia2.h                # Find a path with dia2.h
           HINTS "${VS_DIA_INC_PATH}"
           HINTS "${VSWHERE_LATEST}/DIA SDK/include"
+          HINTS "${MSVC_DIA_SDK_DIR}/include"
           DOC "path to DIA SDK header files"
           )
 

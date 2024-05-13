@@ -103,19 +103,19 @@ static bool ShouldPrintBeforeOrAfterPass(const PassInfo *PI,
   }
   return false;
 }
-#endif
 
 /// This is a utility to check whether a pass should have IR dumped
 /// before it.
 static bool ShouldPrintBeforePass(const PassInfo *PI) {
-  return false; // HLSL Change - return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PI, PrintBefore);
+  return PrintBeforeAll || ShouldPrintBeforeOrAfterPass(PI, PrintBefore);
 }
 
 /// This is a utility to check whether a pass should have IR dumped
 /// after it.
 static bool ShouldPrintAfterPass(const PassInfo *PI) {
-  return false; // HLSL Change -PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
+  return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
 }
+#endif // HLSL Change Ends
 
 /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
 /// or higher is specified.
@@ -679,36 +679,44 @@ void PMTopLevelManager::schedulePass(Pass *P) {
     return;
   }
 
-  if (PI && !PI->isAnalysis() && ShouldPrintBeforePass(PI)) {
-    Pass *PP = P->createPrinterPass(dbgs(), std::string("*** IR Dump Before ") +
-                                         P->getPassName().str() + " ***");
+  // HLSL Change - begin
+  class direct_stderr_stream : public raw_ostream {
+    uint64_t current_pos() const override { return 0; }
+    /// See raw_ostream::write_impl.
+    void write_impl(const char *Ptr, size_t Size) override {
+      fwrite(Ptr, Size, 1, stderr);
+    }
+  };
+
+  static direct_stderr_stream stderr_stream;
+
+  auto ShouldPrint =
+      [](const PassInfo *PI, bool AllOpt, std::set<std::string> &ByNameOpt) {
+        return AllOpt ||
+               (ByNameOpt.size() && ByNameOpt.count(PI->getPassArgument()));
+      };
+
+  if (PI && !PI->isAnalysis() &&
+      ShouldPrint(PI, this->HLSLPrintBeforeAll, this->HLSLPrintBefore)) {
+    Pass *PP = P->createPrinterPass(stderr_stream,
+                                    std::string("*** IR Dump Before ") +
+                                        P->getPassName().str() + " (" +
+                                        PI->getPassArgument() + ") ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
+  // HLSL Change - end
 
   // Add the requested pass to the best available pass manager.
   PPtr.release(); // HLSL Change - assignPassManager takes ownership
   P->assignPassManager(activeStack, getTopLevelPassManagerType());
 
-  if (PI && !PI->isAnalysis() && ShouldPrintAfterPass(PI)) {
-    Pass *PP = P->createPrinterPass(dbgs(), std::string("*** IR Dump After ") +
-                                         P->getPassName().str() + " ***");
-    PP->assignPassManager(activeStack, getTopLevelPassManagerType());
-  }
-
   // HLSL Change - begin
-  if (PI && !PI->isAnalysis() && (this->HLSLPrintAfterAll || (this->HLSLPrintAfter.size() && this->HLSLPrintAfter.count(PI->getPassArgument())))) {
-    class direct_stderr_stream : public raw_ostream {
-      uint64_t current_pos() const override { return 0; }
-      /// See raw_ostream::write_impl.
-      void write_impl(const char *Ptr, size_t Size) override {
-        fwrite(Ptr, Size, 1, stderr);
-      }
-    };
-
-    static direct_stderr_stream stderr_stream;
-
-    Pass *PP = P->createPrinterPass(
-      stderr_stream, std::string("*** IR Dump After ") + P->getPassName().str() + " (" + PI->getPassArgument() + ") ***");
+  if (PI && !PI->isAnalysis() &&
+      ShouldPrint(PI, this->HLSLPrintAfterAll, this->HLSLPrintAfter)) {
+    Pass *PP = P->createPrinterPass(stderr_stream,
+                                    std::string("*** IR Dump After ") +
+                                        P->getPassName().str() + " (" +
+                                        PI->getPassArgument() + ") ***");
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
   // HLSL Change - end
@@ -1420,6 +1428,8 @@ FunctionPassManager::~FunctionPassManager() {
 
 void FunctionPassManager::add(Pass *P) {
   // HLSL Change Starts
+  FPM->HLSLPrintBeforeAll = this->HLSLPrintBeforeAll;
+  FPM->HLSLPrintBefore = this->HLSLPrintBefore;
   FPM->HLSLPrintAfterAll = this->HLSLPrintAfterAll;
   FPM->HLSLPrintAfter = this->HLSLPrintAfter;
   std::unique_ptr<Pass> PPtr(P); // take ownership of P, even on failure paths
@@ -1784,6 +1794,8 @@ PassManager::~PassManager() {
 
 void PassManager::add(Pass *P) {
   // HLSL Change Starts
+  PM->HLSLPrintBeforeAll = this->HLSLPrintBeforeAll;
+  PM->HLSLPrintBefore = this->HLSLPrintBefore;
   PM->HLSLPrintAfterAll = this->HLSLPrintAfterAll;
   PM->HLSLPrintAfter = this->HLSLPrintAfter;
   std::unique_ptr<Pass> PPtr(P); // take ownership of P, even on failure paths

@@ -1,6 +1,6 @@
 #include "toinclude.hlsl"
 #include "..\toinclude2.hlsl"
-#include "\for_includes_test\toinclude3.hlsl"
+#include "for_includes_test\toinclude3.hlsl"
 
 int func1(int b){
   return includedFunc(b);

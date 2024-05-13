@@ -17,6 +17,7 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Config/abi-breaking.h"
 #include <string>
 
 namespace llvm {

@@ -16,15 +16,16 @@
 namespace llvm {
 class Constant;
 class Type;
-}
+} // namespace llvm
 
 namespace hlsl {
 
 struct DxilResourceProperties {
   struct TypedProps {
-    uint8_t CompType;     // TypedBuffer/Image component type.
-    uint8_t CompCount;    // Number of components known to shader.
-    uint8_t SampleCount;  // Number of samples for multisample texture if defined in HLSL.
+    uint8_t CompType;    // TypedBuffer/Image component type.
+    uint8_t CompCount;   // Number of components known to shader.
+    uint8_t SampleCount; // Number of samples for multisample texture if defined
+                         // in HLSL.
     uint8_t Reserved3;
   };
 
@@ -53,7 +54,7 @@ struct DxilResourceProperties {
   };
 
   union {
-    BasicProps  Basic;
+    BasicProps Basic;
     uint32_t RawDword0;
   };
   // DWORD
@@ -66,7 +67,7 @@ struct DxilResourceProperties {
   };
   DxilResourceProperties();
   DXIL::ResourceClass getResourceClass() const;
-  DXIL::ResourceKind  getResourceKind() const;
+  DXIL::ResourceKind getResourceKind() const;
   DXIL::ComponentType getCompType() const;
   unsigned getElementStride() const;
   void setResourceKind(DXIL::ResourceKind RK);
@@ -89,7 +90,8 @@ llvm::Constant *getAsConstant(const DxilResourceProperties &, llvm::Type *Ty,
                               const ShaderModel &);
 DxilResourceProperties loadPropsFromConstant(const llvm::Constant &C);
 DxilResourceProperties
-loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle, const ShaderModel &);
+loadPropsFromAnnotateHandle(DxilInst_AnnotateHandle &annotateHandle,
+                            const ShaderModel &);
 DxilResourceProperties loadPropsFromResourceBase(const DxilResourceBase *);
 DxilResourceProperties tryMergeProps(DxilResourceProperties,
                                      DxilResourceProperties);

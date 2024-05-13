@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: %counter_var_t_1_0 = OpVariable %_ptr_Private__ptr_Uniform_type_ACSBuffer_counter Private
 // CHECK: %counter_var_rw = OpVariable %_ptr_Uniform_type_ACSBuffer_counter Uniform
@@ -23,7 +23,7 @@ float4 main() : SV_POSITION {
 // CHECK: OpStore %counter_var_t_1_0 %counter_var_rw
   t.s.rw = rw; 
 
-// CHECK: [[var:%\d+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_t_1_0
+// CHECK: [[var:%[0-9]+]] = OpLoad %_ptr_Uniform_type_ACSBuffer_counter %counter_var_t_1_0
 // CHECK: OpStore %counter_var_s_0 [[var]]
 // CHECK: OpFunctionCall
   foo(t.s);

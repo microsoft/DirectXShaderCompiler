@@ -1,7 +1,7 @@
-// RUN: %dxc -T cs_6_0 -E main -fspv-debug=vulkan
+// RUN: %dxc -T cs_6_0 -E main -fspv-debug=vulkan -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
-// CHECK:      [[src:%\d+]] = OpExtInst %void %1 DebugSource [[file]]
+// CHECK:      [[file:%[0-9]+]] = OpString
+// CHECK:      [[src:%[0-9]+]] = OpExtInst %void %1 DebugSource [[file]]
 
 [numthreads(1,1,1)]void main() {
   int a;

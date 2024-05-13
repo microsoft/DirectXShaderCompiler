@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_0 -E SubDToBezierHS
+// RUN: %dxc -T hs_6_0 -E SubDToBezierHS -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpEntryPoint TessellationControl %SubDToBezierHS "SubDToBezierHS"
 // CHECK-SAME: %gl_PrimitiveID
@@ -7,7 +7,7 @@
 
 // CHECK: %gl_PrimitiveID = OpVariable %_ptr_Input_uint Input
 
-#include "bezier_common_hull.hlsl"
+#include "bezier_common_hull.hlsli"
 
 [domain("quad")]
 [partitioning("fractional_odd")]

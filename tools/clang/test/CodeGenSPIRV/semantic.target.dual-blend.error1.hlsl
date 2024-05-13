@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: not %dxc -T ps_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 struct PSOut {
     [[vk::location(1), vk::index(5)]] float4 a: SV_Target0;

@@ -9,6 +9,13 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+// clang-format off
+// Macro indentation makes this file easier to read, but clang-format flattens
+// everything.  Turn off clang-format for this file.
+
+//////////////////////////////////////////////////////////////////////
+// The following require validator version 1.4 and above.
+
 #ifdef DEF_RDAT_ENUMS
 
 // Nothing yet
@@ -29,7 +36,8 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::SubobjectKind, uint32_t)
   // No need to define this here
   //RDAT_ENUM_VALUE_NODEF(NumKinds)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::SubobjectKind::NumKinds == 13, "otherwise, RDAT_DXIL_ENUM definition needs updating");
+  static_assert((unsigned)hlsl::DXIL::SubobjectKind::NumKinds == 13,
+                "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()
 
@@ -41,7 +49,8 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::StateObjectFlags, uint32_t)
   //RDAT_ENUM_VALUE_NODEF(ValidMask_1_4)
   //RDAT_ENUM_VALUE_NODEF(ValidMask)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::StateObjectFlags::ValidMask == 0x7, "otherwise, RDAT_DXIL_ENUM definition needs updating");
+  static_assert((unsigned)hlsl::DXIL::StateObjectFlags::ValidMask == 0x7,
+                "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()
 
@@ -49,7 +58,8 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::HitGroupType, uint32_t)
   RDAT_ENUM_VALUE_NODEF(Triangle)
   RDAT_ENUM_VALUE_NODEF(ProceduralPrimitive)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::HitGroupType::LastEntry == 2, "otherwise, RDAT_DXIL_ENUM definition needs updating");
+  static_assert((unsigned)hlsl::DXIL::HitGroupType::LastEntry == 2,
+                "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()
 
@@ -58,9 +68,11 @@ RDAT_DXIL_ENUM_START(hlsl::DXIL::RaytracingPipelineFlags, uint32_t)
   RDAT_ENUM_VALUE_NODEF(SkipTriangles)
   RDAT_ENUM_VALUE_NODEF(SkipProceduralPrimitives)
   // No need to define mask here
-  //RDAT_ENUM_VALUE_NODEF(ValidMask)
+  // RDAT_ENUM_VALUE_NODEF(ValidMask)
 #if DEF_RDAT_ENUMS == DEF_RDAT_DUMP_IMPL
-  static_assert((unsigned)hlsl::DXIL::RaytracingPipelineFlags::ValidMask == 0x300, "otherwise, RDAT_DXIL_ENUM definition needs updating");
+  static_assert((unsigned)hlsl::DXIL::RaytracingPipelineFlags::ValidMask ==
+                    0x300,
+                "otherwise, RDAT_DXIL_ENUM definition needs updating");
 #endif
 RDAT_ENUM_END()
 
@@ -121,26 +133,46 @@ RDAT_STRUCT_TABLE(RuntimeDataSubobjectInfo, SubobjectTable)
   RDAT_ENUM(uint32_t, hlsl::DXIL::SubobjectKind, Kind)
   RDAT_STRING(Name)
   RDAT_UNION()
-    RDAT_UNION_IF(StateObjectConfig, ((uint32_t)pRecord->Kind == (uint32_t)hlsl::DXIL::SubobjectKind::StateObjectConfig))
+    RDAT_UNION_IF(StateObjectConfig,
+                  ((uint32_t)pRecord->Kind ==
+                   (uint32_t)hlsl::DXIL::SubobjectKind::StateObjectConfig))
       RDAT_RECORD_VALUE(StateObjectConfig_t, StateObjectConfig)
-    RDAT_UNION_ELIF(RootSignature,
-                    ((uint32_t)pRecord->Kind == (uint32_t)hlsl::DXIL::SubobjectKind::GlobalRootSignature) ||
-                    ((uint32_t)pRecord->Kind == (uint32_t)hlsl::DXIL::SubobjectKind::LocalRootSignature))
+    RDAT_UNION_ELIF(
+        RootSignature,
+        ((uint32_t)pRecord->Kind ==
+         (uint32_t)hlsl::DXIL::SubobjectKind::GlobalRootSignature) ||
+            ((uint32_t)pRecord->Kind ==
+             (uint32_t)hlsl::DXIL::SubobjectKind::LocalRootSignature))
       RDAT_RECORD_VALUE(RootSignature_t, RootSignature)
-    RDAT_UNION_ELIF(SubobjectToExportsAssociation, ((uint32_t)pRecord->Kind == (uint32_t)hlsl::DXIL::SubobjectKind::SubobjectToExportsAssociation))
-      RDAT_RECORD_VALUE(SubobjectToExportsAssociation_t, SubobjectToExportsAssociation)
-    RDAT_UNION_ELIF(RaytracingShaderConfig, ((uint32_t)pRecord->Kind == (uint32_t)hlsl::DXIL::SubobjectKind::RaytracingShaderConfig))
+    RDAT_UNION_ELIF(
+        SubobjectToExportsAssociation,
+        ((uint32_t)pRecord->Kind ==
+         (uint32_t)hlsl::DXIL::SubobjectKind::SubobjectToExportsAssociation))
+      RDAT_RECORD_VALUE(SubobjectToExportsAssociation_t,
+                        SubobjectToExportsAssociation)
+    RDAT_UNION_ELIF(
+        RaytracingShaderConfig,
+        ((uint32_t)pRecord->Kind ==
+         (uint32_t)hlsl::DXIL::SubobjectKind::RaytracingShaderConfig))
       RDAT_RECORD_VALUE(RaytracingShaderConfig_t, RaytracingShaderConfig)
-    RDAT_UNION_ELIF(RaytracingPipelineConfig, ((uint32_t)pRecord->Kind == (uint32_t)hlsl::DXIL::SubobjectKind::RaytracingPipelineConfig))
+    RDAT_UNION_ELIF(
+        RaytracingPipelineConfig,
+        ((uint32_t)pRecord->Kind ==
+         (uint32_t)hlsl::DXIL::SubobjectKind::RaytracingPipelineConfig))
       RDAT_RECORD_VALUE(RaytracingPipelineConfig_t, RaytracingPipelineConfig)
-    RDAT_UNION_ELIF(HitGroup, ((uint32_t)pRecord->Kind == (uint32_t)hlsl::DXIL::SubobjectKind::HitGroup))
+    RDAT_UNION_ELIF(HitGroup, ((uint32_t)pRecord->Kind ==
+                               (uint32_t)hlsl::DXIL::SubobjectKind::HitGroup))
       RDAT_RECORD_VALUE(HitGroup_t, HitGroup)
-    RDAT_UNION_ELIF(RaytracingPipelineConfig1, ((uint32_t)pRecord->Kind == (uint32_t)hlsl::DXIL::SubobjectKind::RaytracingPipelineConfig1))
+    RDAT_UNION_ELIF(
+        RaytracingPipelineConfig1,
+        ((uint32_t)pRecord->Kind ==
+         (uint32_t)hlsl::DXIL::SubobjectKind::RaytracingPipelineConfig1))
       RDAT_RECORD_VALUE(RaytracingPipelineConfig1_t, RaytracingPipelineConfig1)
     RDAT_UNION_ENDIF()
   RDAT_UNION_END()
 
-// Note: this is how one could inject custom code into one of the definition modes:
+  // Note: this is how one could inject custom code into one of the definition
+  // modes:
 #if DEF_RDAT_TYPES == DEF_RDAT_READER
   // Add custom code here that only gets added to the reader class definition
 #endif
@@ -149,3 +181,5 @@ RDAT_STRUCT_END()
 #undef RECORD_TYPE
 
 #endif // DEF_RDAT_TYPES
+
+// clang-format on

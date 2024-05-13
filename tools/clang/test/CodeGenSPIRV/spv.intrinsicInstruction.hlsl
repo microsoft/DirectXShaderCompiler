@@ -1,8 +1,8 @@
-// RUN: %dxc -T vs_6_0 -E main -fspv-target-env=vulkan1.1
+// RUN: %dxc -T vs_6_0 -E main -fspv-target-env=vulkan1.1 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability ShaderClockKHR
-// CHECK: {{%\d+}} = OpExtInstImport "GLSL.std.450"
-// CHECK: {{%\d+}} = OpExtInstImport "SPV_AMD_shader_trinary_minmax"
+// CHECK: {{%[0-9]+}} = OpExtInstImport "GLSL.std.450"
+// CHECK: {{%[0-9]+}} = OpExtInstImport "SPV_AMD_shader_trinary_minmax"
 
 struct SInstanceData {
   float4x3 VisualToWorld;
@@ -28,11 +28,11 @@ float FMin3AMD(float x, float y, float z);
 float4 main(const VS_INPUT v) : SV_Position {
 	SInstanceData	I = v.InstanceData;
   uint64_t clock;
-// CHECK: {{%\d+}} = OpExtInst %v4float {{%\d+}} Sin {{%\d+}}
+// CHECK: {{%[0-9]+}} = OpExtInst %v4float {{%[0-9]+}} Sin {{%[0-9]+}}
   I.Output = spv_sin(v.InstanceData.Output);
-// CHECK: {{%\d+}} = OpReadClockKHR %ulong %uint_1
+// CHECK: {{%[0-9]+}} = OpReadClockKHR %ulong %uint_1
   clock = ReadClock(vk::DeviceScope);
-// CHECK: {{%\d+}} = OpExtInst %float {{%\d+}} FMin3AMD {{%\d+}} {{%\d+}} {{%\d+}}
+// CHECK: {{%[0-9]+}} = OpExtInst %float {{%[0-9]+}} FMin3AMD {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
   I.Output.w = FMin3AMD(I.Output.z, I.Output.y, I.Output.z);
 
   return I.Output;

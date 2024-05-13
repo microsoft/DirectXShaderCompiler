@@ -988,7 +988,7 @@ public:
     assert(isActive() && "Clients must not add to cleared diagnostic!");
     assert(NumArgs < DiagnosticsEngine::MaxArguments &&
            "Too many arguments to diagnostic!");
-    _Analysis_assume_(NumArgs < DiagnosticsEngine::MaxArguments);
+    assert(NumArgs < DiagnosticsEngine::MaxArguments);
     DiagObj->DiagArgumentsKind[NumArgs] = DiagnosticsEngine::ak_std_string;
     DiagObj->DiagArgumentsStr[NumArgs++] = S;
   }
@@ -997,7 +997,7 @@ public:
     assert(isActive() && "Clients must not add to cleared diagnostic!");
     assert(NumArgs < DiagnosticsEngine::MaxArguments &&
            "Too many arguments to diagnostic!");
-    _Analysis_assume_(NumArgs < DiagnosticsEngine::MaxArguments);
+    assert(NumArgs < DiagnosticsEngine::MaxArguments);
     DiagObj->DiagArgumentsKind[NumArgs] = Kind;
     DiagObj->DiagArgumentsVal[NumArgs++] = V;
   }
@@ -1395,6 +1395,8 @@ public:
   /// warnings and errors.
   virtual void HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
                                 const Diagnostic &Info);
+
+  virtual void setPrefix(std::string Value) {} // HLSL Change
 };
 
 /// \brief A diagnostic client that ignores all diagnostics.

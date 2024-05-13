@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 int foo() { return true; }
 
@@ -18,13 +18,13 @@ void main() {
 // CHECK-NEXT: OpBranch %do_while_body
   do {
 // CHECK-NEXT: %do_while_body = OpLabel
-// CHECK-NEXT: [[i0:%\d+]] = OpLoad %int %i
+// CHECK-NEXT: [[i0:%[0-9]+]] = OpLoad %int %i
 // CHECK-NEXT: OpStore %val [[i0]]
 // CHECK-NEXT: OpBranch %do_while_continue
       val = i;
 // CHECK-NEXT: %do_while_continue = OpLabel
-// CHECK-NEXT: [[i1:%\d+]] = OpLoad %int %i
-// CHECK-NEXT: [[i_lt_10:%\d+]] = OpSLessThan %bool [[i1]] %int_10
+// CHECK-NEXT: [[i1:%[0-9]+]] = OpLoad %int %i
+// CHECK-NEXT: [[i_lt_10:%[0-9]+]] = OpSLessThan %bool [[i1]] %int_10
 // CHECK-NEXT: OpBranchConditional [[i_lt_10]] %do_while_header %do_while_merge
   } while (i < 10);
 // CHECK-NEXT: %do_while_merge = OpLabel
@@ -64,8 +64,8 @@ void main() {
 // CHECK-NEXT: OpBranch %do_while_continue_1
 
 // CHECK-NEXT: %do_while_continue_1 = OpLabel
-// CHECK-NEXT: [[val:%\d+]] = OpLoad %int %val
-// CHECK-NEXT: [[val_lt_20:%\d+]] = OpSLessThan %bool [[val]] %int_20
+// CHECK-NEXT: [[val:%[0-9]+]] = OpLoad %int %val
+// CHECK-NEXT: [[val_lt_20:%[0-9]+]] = OpSLessThan %bool [[val]] %int_20
 // CHECK-NEXT: OpBranchConditional [[val_lt_20]] %do_while_header_1 %do_while_merge_1
   } while (val < 20);
 // CHECK-NEXT: %do_while_merge_1 = OpLabel

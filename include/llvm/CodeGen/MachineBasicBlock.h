@@ -40,7 +40,17 @@ private:
   MachineBasicBlock* Parent;
 
 public:
-  MachineInstr *createSentinel() const {
+// HLSL Change Starts
+// Temporarily disable "downcast of address" UBSAN runtime error
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6446
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+  __attribute__((no_sanitize("undefined")))
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  MachineInstr *
+  createSentinel() const {
     return static_cast<MachineInstr*>(&Sentinel);
   }
   void destroySentinel(MachineInstr *) const {}
@@ -141,11 +151,16 @@ public:
   /// bundle_iterator - MachineBasicBlock iterator that automatically skips over
   /// MIs that are inside bundles (i.e. walk top level MIs only).
   template<typename Ty, typename IterTy>
-  class bundle_iterator
-    : public std::iterator<std::bidirectional_iterator_tag, Ty, ptrdiff_t> {
+  class bundle_iterator {
     IterTy MII;
 
   public:
+    using iterator_category = std::bidirectional_iterator_tag;
+    using value_type = Ty;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
     bundle_iterator(IterTy mii) : MII(mii) {}
 
     bundle_iterator(Ty &mi) : MII(mi) {

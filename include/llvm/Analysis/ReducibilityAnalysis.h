@@ -11,7 +11,6 @@
 
 #pragma once
 
-
 namespace llvm {
 class Module;
 class Function;
@@ -26,11 +25,16 @@ enum class IrreducibilityAction {
 
 extern char &ReducibilityAnalysisID;
 
-llvm::FunctionPass *createReducibilityAnalysisPass(IrreducibilityAction Action = IrreducibilityAction::ThrowException);
+llvm::FunctionPass *createReducibilityAnalysisPass(
+    IrreducibilityAction Action = IrreducibilityAction::ThrowException);
 
-void initializeReducibilityAnalysisPass(llvm::PassRegistry&);
+void initializeReducibilityAnalysisPass(llvm::PassRegistry &);
 
-bool IsReducible(const llvm::Module &M, IrreducibilityAction Action = IrreducibilityAction::ThrowException);
-bool IsReducible(const llvm::Function &F, IrreducibilityAction Action = IrreducibilityAction::ThrowException);
+bool IsReducible(
+    const llvm::Module &M,
+    IrreducibilityAction Action = IrreducibilityAction::ThrowException);
+bool IsReducible(
+    const llvm::Function &F,
+    IrreducibilityAction Action = IrreducibilityAction::ThrowException);
 
-}
+} // namespace llvm

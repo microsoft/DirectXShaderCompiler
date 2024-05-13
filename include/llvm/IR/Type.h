@@ -230,7 +230,7 @@ public:
   /// are valid for types of the same size only where no re-interpretation of 
   /// the bits is done.
   /// @brief Determine if this type could be losslessly bitcast to Ty
-  bool canLosslesslyBitCastTo(_In_ Type *Ty) const;
+  bool canLosslesslyBitCastTo(Type *Ty) const;
 
   /// isEmptyTy - Return true if this type is empty, that is, it has no
   /// elements or all its elements are empty.

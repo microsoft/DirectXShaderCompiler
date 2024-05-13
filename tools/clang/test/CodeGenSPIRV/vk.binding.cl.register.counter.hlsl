@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fvk-bind-register u10 2 10 1
+// RUN: not %dxc -T ps_6_0 -E main -fvk-bind-register u10 2 10 1 -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 struct S { float4 val; };
 RWStructuredBuffer<S>  MyBuffer : register(u10, space2);

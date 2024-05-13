@@ -5036,7 +5036,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
   assert(Args.size() == 1 && "Zero-argument case handled above");
   // HLSL Change Starts
   assert(Initializer != nullptr && "otherwise prior code changed and Args.size() == 1 no longer reads from first argument");
-  _Analysis_assume_(Initializer != nullptr);
+  assert(Initializer != nullptr);
   // HLSL Change Ends
 
   //    - Otherwise, if the source type is a (possibly cv-qualified) class

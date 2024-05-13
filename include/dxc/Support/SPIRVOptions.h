@@ -55,6 +55,8 @@ struct SpirvCodeGenOptions {
   bool invertW; // Multiplicative inverse
   bool noWarnEmulatedFeatures;
   bool noWarnIgnoredFeatures;
+  bool preserveBindings;
+  bool preserveInterface;
   bool useDxLayout;
   bool useGlLayout;
   bool useLegacyBufferMatrixOrder;
@@ -64,6 +66,8 @@ struct SpirvCodeGenOptions {
   bool autoShiftBindings;
   bool supportNonzeroBaseInstance;
   bool fixFuncCallArguments;
+  bool allowRWStructuredBufferArrays;
+  bool enableMaximalReconvergence;
   /// Maximum length in words for the OpString literal containing the shader
   /// source for DebugSource and DebugSourceContinued. If the source code length
   /// is larger than this number, we will use DebugSourceContinued instructions
@@ -88,6 +92,7 @@ struct SpirvCodeGenOptions {
   std::vector<std::string> bindRegister;
   std::vector<std::string> bindGlobals;
   std::string entrypointName;
+  std::string floatDenormalMode; // OPT_denorm
 
   bool signaturePacking; ///< Whether signature packing is enabled or not
 
@@ -96,6 +101,9 @@ struct SpirvCodeGenOptions {
   // String representation of all command line options and input file.
   std::string clOptions;
   std::string inputFile;
+
+  // String representation of original source
+  std::string origSource;
 };
 
 } // namespace spirv

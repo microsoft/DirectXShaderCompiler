@@ -1,22 +1,23 @@
-// RUN: %dxc -T ps_6_1 -E main
+// RUN: %dxc -T ps_6_1 -E main -spirv -Od %s 2>&1 | FileCheck %s
 
-// CHECK:      OpExtension "SPV_AMD_shader_explicit_vertex_parameter"
+// CHECK:      OpExtension "SPV_KHR_fragment_shader_barycentric"
 
 // CHECK:      OpEntryPoint Fragment
-// CHECK-SAME: [[bary:%\d+]]
+// CHECK-SAME: [[bary:%[0-9]+]]
 
-// CHECK:      OpDecorate [[bary]] BuiltIn BaryCoordNoPerspCentroidAMD
+// CHECK:      OpDecorate [[bary]] BuiltIn BaryCoordNoPerspKHR
+// CHECK:      OpDecorate [[bary]] Centroid
 
-// CHECK:      [[bary]] = OpVariable %_ptr_Input_v2float Input
+// CHECK:      [[bary]] = OpVariable %_ptr_Input_v3float Input
 
 float4 main(noperspective centroid float3 bary : SV_Barycentrics) : SV_Target {
     return float4(bary, 1.0);
 // CHECK:      %param_var_bary = OpVariable %_ptr_Function_v3float Function
-// CHECK-NEXT:     [[c2:%\d+]] = OpLoad %v2float [[bary]]
-// CHECK-NEXT:      [[x:%\d+]] = OpCompositeExtract %float [[c2]] 0
-// CHECK-NEXT:      [[y:%\d+]] = OpCompositeExtract %float [[c2]] 1
-// CHECK-NEXT:     [[xy:%\d+]] = OpFAdd %float [[x]] [[y]]
-// CHECK-NEXT:      [[z:%\d+]] = OpFSub %float %float_1 [[xy]]
-// CHECK-NEXT:     [[c3:%\d+]] = OpCompositeConstruct %v3float [[x]] [[y]] [[z]]
+// CHECK-NEXT:     [[c2:%[0-9]+]] = OpLoad %v3float [[bary]]
+// CHECK-NEXT:      [[x:%[0-9]+]] = OpCompositeExtract %float [[c2]] 0
+// CHECK-NEXT:      [[y:%[0-9]+]] = OpCompositeExtract %float [[c2]] 1
+// CHECK-NEXT:     [[xy:%[0-9]+]] = OpFAdd %float [[x]] [[y]]
+// CHECK-NEXT:      [[z:%[0-9]+]] = OpFSub %float %float_1 [[xy]]
+// CHECK-NEXT:     [[c3:%[0-9]+]] = OpCompositeConstruct %v3float [[x]] [[y]] [[z]]
 // CHECK-NEXT:                   OpStore %param_var_bary [[c3]]
 }

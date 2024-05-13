@@ -10,9 +10,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include <unordered_set>
-#include <unordered_map>
 #include "dxc/DXIL/DxilConstants.h"
+#include <unordered_map>
+#include <unordered_set>
 
 namespace llvm {
 class Value;
@@ -52,7 +52,7 @@ private:
   void GenerateDxilOutputs();
   void GenerateDxilPrimOutputs();
   void GenerateDxilInputsOutputs(DXIL::SignatureKind SK);
-  void GenerateDxilCSInputs();
+  void GenerateDxilComputeAndNodeCommonInputs();
   void GenerateDxilPatchConstantLdSt();
   void GenerateDxilPatchConstantFunctionInputs();
   void GenerateClipPlanesForVS(llvm::Value *outPosition);

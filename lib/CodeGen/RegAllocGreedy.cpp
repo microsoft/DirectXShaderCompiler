@@ -979,7 +979,7 @@ void RAGreedy::addThroughConstraints(InterferenceCache::Cursor Intf,
 
     if (!Intf.hasInterference()) {
       assert(T < GroupSize && "Array overflow");
-      _Analysis_assume_(T < GroupSize); // This is reset to zero when it reaches GroupSize
+      assert(T < GroupSize); // This is reset to zero when it reaches GroupSize
       TBS[T] = Number;
       if (++T == GroupSize) {
         SpillPlacer->addLinks(makeArrayRef(TBS, T));
@@ -989,7 +989,7 @@ void RAGreedy::addThroughConstraints(InterferenceCache::Cursor Intf,
     }
 
     assert(B < GroupSize && "Array overflow");
-    _Analysis_assume_(B < GroupSize); // This is reset to zero when it reaches GroupSize
+    assert(B < GroupSize); // This is reset to zero when it reaches GroupSize
     BCS[B].Number = Number;
 
     // Interference for the live-in value.

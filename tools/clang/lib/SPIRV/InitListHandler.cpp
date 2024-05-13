@@ -17,12 +17,13 @@
 #include <algorithm>
 #include <iterator>
 
+#include "LowerTypeVisitor.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace clang {
 namespace spirv {
 
-InitListHandler::InitListHandler(const ASTContext &ctx, SpirvEmitter &emitter)
+InitListHandler::InitListHandler(ASTContext &ctx, SpirvEmitter &emitter)
     : astContext(ctx), theEmitter(emitter),
       spvBuilder(emitter.getSpirvBuilder()),
       diags(emitter.getDiagnosticsEngine()) {}
@@ -47,7 +48,9 @@ SpirvInstruction *InitListHandler::processCast(QualType toType,
   initializers.clear();
   scalars.clear();
 
-  initializers.push_back(theEmitter.loadIfGLValue(expr));
+  auto *initializer = theEmitter.loadIfGLValue(expr);
+  if (initializer)
+    initializers.push_back(initializer);
 
   return doProcess(toType, expr->getExprLoc());
 }
@@ -80,7 +83,12 @@ void InitListHandler::flatten(const InitListExpr *expr) {
                    init->IgnoreParenNoopCasts(theEmitter.getASTContext()))) {
       flatten(subInitList);
     } else {
-      initializers.push_back(theEmitter.loadIfGLValue(init));
+      auto *initializer = theEmitter.loadIfGLValue(init);
+      if (!initializer) {
+        initializers.clear();
+        return;
+      }
+      initializers.push_back(initializer);
     }
   }
 }
@@ -131,6 +139,9 @@ bool InitListHandler::tryToSplitStruct() {
     return false;
 
   auto *init = initializers.back();
+  if (!init)
+    return false;
+
   const QualType initType = init->getAstResultType();
   if (!initType->isStructureType() ||
       // Sampler types will pass the above check but we cannot split it.
@@ -151,6 +162,7 @@ bool InitListHandler::tryToSplitStruct() {
   for (auto *field : structDecl->fields()) {
     auto *extract =
         spvBuilder.createCompositeExtract(field->getType(), init, {i}, loc);
+    extract->setLayoutRule(init->getLayoutRule());
     fields.push_back(extract);
     ++i;
   }
@@ -166,6 +178,9 @@ bool InitListHandler::tryToSplitConstantArray() {
     return false;
 
   auto *init = initializers.back();
+  if (!init)
+    return false;
+
   const QualType initType = init->getAstResultType();
   if (!initType->isConstantArrayType())
     return false;
@@ -253,6 +268,10 @@ InitListHandler::createInitForBuiltinType(QualType type,
   while (tryToSplitStruct() || tryToSplitConstantArray())
     ;
 
+  if (initializers.empty()) {
+    return nullptr;
+  }
+
   auto init = initializers.back();
   initializers.pop_back();
 
@@ -276,6 +295,10 @@ InitListHandler::createInitForVectorType(QualType elemType, uint32_t count,
     // Keep splitting structs or arrays
     while (tryToSplitStruct() || tryToSplitConstantArray())
       ;
+
+    // Not enough elements in the initializer list. Giving up.
+    if (initializers.empty())
+      return nullptr;
 
     auto init = initializers.back();
     const auto initType = init->getAstResultType();
@@ -322,6 +345,10 @@ SpirvInstruction *InitListHandler::createInitForMatrixType(
     while (tryToSplitStruct() || tryToSplitConstantArray())
       ;
 
+    // Not enough elements in the initializer list. Giving up.
+    if (initializers.empty())
+      return nullptr;
+
     auto init = initializers.back();
 
     if (hlsl::IsHLSLMatType(init->getAstResultType())) {
@@ -366,13 +393,17 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
     while (tryToSplitConstantArray())
       ;
 
-    auto init = initializers.back();
-    // We can only avoid decomposing and reconstructing when the type is
-    // exactly the same.
-    if (type.getCanonicalType() ==
-        init->getAstResultType().getCanonicalType()) {
-      initializers.pop_back();
-      return init;
+    // Note: an empty initializer list can be valid. Ex: initializing an
+    // empty struct.
+    if (!initializers.empty()) {
+      auto init = initializers.back();
+      // We can only avoid decomposing and reconstructing when the type is
+      // exactly the same.
+      if (type.getCanonicalType() ==
+          init->getAstResultType().getCanonicalType()) {
+        initializers.pop_back();
+        return init;
+      }
     }
 
     // Otherwise, if the next initializer is a struct, it is not of the same
@@ -382,16 +413,56 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
     tryToSplitStruct();
   }
 
-  llvm::SmallVector<SpirvInstruction *, 4> fields;
-  const RecordDecl *structDecl = type->getAsStructureType()->getDecl();
-  for (const auto *field : structDecl->fields()) {
-    fields.push_back(
-        createInitForType(field->getType(), field->getLocation(), range));
-    if (!fields.back())
-      return nullptr;
-  }
+  const RecordType *recordType = type->getAs<RecordType>();
+  assert(recordType);
 
-  // TODO: use OpConstantComposite when all components are constants
+  LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
+                                    theEmitter.getSpirvOptions(),
+                                    theEmitter.getSpirvBuilder());
+  const SpirvType *spirvType =
+      lowerTypeVisitor.lowerType(type, SpirvLayoutRule::Void, false, srcLoc);
+
+  llvm::SmallVector<SpirvInstruction *, 4> fields;
+  const StructType *structType = dyn_cast<StructType>(spirvType);
+  assert(structType != nullptr);
+  forEachSpirvField(
+      recordType, structType,
+      [this, &fields, srcLoc, range](size_t spirvFieldIndex,
+                                     const QualType &fieldType,
+                                     const StructType::FieldInfo &fieldInfo) {
+        SpirvInstruction *init = createInitForType(fieldType, srcLoc, range);
+        if (!init)
+          return false;
+
+        // For non bit-fields, `init` will be the value for the component.
+        if (!fieldInfo.bitfield.hasValue()) {
+          assert(fields.size() == fieldInfo.fieldIndex);
+          fields.push_back(init);
+          return true;
+        }
+
+        // For a bit fields we need to insert it into the container.
+        // The first time we see this bit field, init is used as the value.
+        // This assumes that 0 is the first offset in the bitfield.
+        if (fields.size() <= fieldInfo.fieldIndex) {
+          assert(fieldInfo.bitfield->offsetInBits == 0);
+          fields.push_back(init);
+          return true;
+        }
+
+        // For the remaining bitfields, we need to insert them into the existing
+        // container, which is the last element in `fields`.
+        assert(fields.size() == fieldInfo.fieldIndex + 1);
+        fields.back() = spvBuilder.createBitFieldInsert(
+            fieldType, fields.back(), init, fieldInfo.bitfield->offsetInBits,
+            fieldInfo.bitfield->sizeInBits, srcLoc, range);
+        return true;
+      },
+      true);
+
+  for (const auto *field : fields)
+    if (field == nullptr)
+      return nullptr;
   return spvBuilder.createCompositeConstruct(type, fields, srcLoc, range);
 }
 
@@ -405,6 +476,10 @@ SpirvInstruction *InitListHandler::createInitForConstantArrayType(
     // Keep splitting structs
     while (tryToSplitStruct())
       ;
+
+    // Not enough elements in the initializer list. Giving up.
+    if (initializers.empty())
+      return nullptr;
 
     auto init = initializers.back();
     // We can only avoid decomposing and reconstructing when the type is
@@ -428,8 +503,12 @@ SpirvInstruction *InitListHandler::createInitForConstantArrayType(
   const auto size = static_cast<uint32_t>(arrType->getSize().getZExtValue());
 
   llvm::SmallVector<SpirvInstruction *, 4> elements;
-  for (uint32_t i = 0; i < size; ++i)
-    elements.push_back(createInitForType(elemType, srcLoc, range));
+  for (uint32_t i = 0; i < size; ++i) {
+    auto *it = createInitForType(elemType, srcLoc, range);
+    if (!it)
+      return nullptr;
+    elements.push_back(it);
+  }
 
   // TODO: use OpConstantComposite when all components are constants
   return spvBuilder.createCompositeConstruct(type, elements, srcLoc, range);
@@ -459,8 +538,16 @@ InitListHandler::createInitForBufferOrImageType(QualType type,
   while (tryToSplitStruct() || tryToSplitConstantArray())
     ;
 
+  // Not enough elements in the initializer list. Giving up.
+  if (initializers.empty()) {
+    return nullptr;
+  }
+
   auto init = initializers.back();
   initializers.pop_back();
+
+  if (!init)
+    return nullptr;
 
   if (init->getAstResultType().getCanonicalType() != type.getCanonicalType()) {
     emitError("Cannot cast initializer type %0 into variable type %1", srcLoc)

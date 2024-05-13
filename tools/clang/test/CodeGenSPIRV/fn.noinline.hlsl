@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 [noinline]
 float4 foo()
@@ -11,4 +11,4 @@ void main()
     foo();
 }
 
-// CHECK:  %foo = OpFunction %v4float DontInline {{%\d+}}
+// CHECK:  %foo = OpFunction %v4float DontInline {{%[0-9]+}}

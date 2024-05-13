@@ -10,9 +10,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "dxc/Support/Global.h"
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/Support/Global.h"
 
 namespace llvm {
 class Constant;
@@ -25,13 +25,14 @@ class Value;
 namespace hlsl {
 class DxilTypeSystem;
 
-llvm::StructType *GetLoweredUDT(
-  llvm::StructType *structTy, hlsl::DxilTypeSystem *pTypeSys = nullptr);
-llvm::Constant *TranslateInitForLoweredUDT(
-    llvm::Constant *Init, llvm::Type *NewTy,
-    // We need orientation for matrix fields
-    hlsl::DxilTypeSystem *pTypeSys,
-    hlsl::MatrixOrientation matOrientation = hlsl::MatrixOrientation::Undefined);
+llvm::StructType *GetLoweredUDT(llvm::StructType *structTy,
+                                hlsl::DxilTypeSystem *pTypeSys = nullptr);
+llvm::Constant *
+TranslateInitForLoweredUDT(llvm::Constant *Init, llvm::Type *NewTy,
+                           // We need orientation for matrix fields
+                           hlsl::DxilTypeSystem *pTypeSys,
+                           hlsl::MatrixOrientation matOrientation =
+                               hlsl::MatrixOrientation::Undefined);
 void ReplaceUsesForLoweredUDT(llvm::Value *V, llvm::Value *NewV);
 
 } // namespace hlsl

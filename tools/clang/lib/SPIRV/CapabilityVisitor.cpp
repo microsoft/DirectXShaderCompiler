@@ -23,6 +23,20 @@ void CapabilityVisitor::addExtension(Extension ext, llvm::StringRef target,
     spvBuilder.requireExtension(featureManager.getExtensionName(ext), loc);
 }
 
+bool CapabilityVisitor::addExtensionAndCapabilitiesIfEnabled(
+    Extension ext, llvm::ArrayRef<spv::Capability> capabilities) {
+  if (!featureManager.isExtensionEnabled(ext)) {
+    return false;
+  }
+
+  addExtension(ext, "", {});
+
+  for (auto cap : capabilities) {
+    addCapability(cap);
+  }
+  return true;
+}
+
 void CapabilityVisitor::addCapability(spv::Capability cap, SourceLocation loc) {
   if (cap != spv::Capability::Max) {
     spvBuilder.requireCapability(cap, loc);
@@ -169,9 +183,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
       break;
     }
 
-    if (imageType->isArrayedImage() && imageType->isMSImage())
-      addCapability(spv::Capability::ImageMSArray);
-
     if (const auto *sampledType = imageType->getSampledType()) {
       addCapabilityForType(sampledType, loc, sc);
       if (const auto *sampledIntType = dyn_cast<IntegerType>(sampledType)) {
@@ -214,18 +225,6 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
     for (auto field : structType->getFields())
       addCapabilityForType(field.type, loc, sc);
   }
-  // AccelerationStructureTypeNV and RayQueryTypeKHR type
-  // Note: Because AccelerationStructureType can be provided by both
-  // SPV_KHR_ray_query and SPV_{NV,KHR}_ray_tracing extensions, this logic will
-  // result in SPV_KHR_ray_query being unnecessarily required in some cases. If
-  // this is an issue in future (more devices are identified that support
-  // ray_tracing but not ray_query), then we should consider addressing this
-  // interaction with a spirv-opt pass instead.
-  else if (isa<AccelerationStructureTypeNV>(type) ||
-           isa<RayQueryTypeKHR>(type)) {
-    addCapability(spv::Capability::RayQueryKHR);
-    addExtension(Extension::KHR_ray_query, "SPV_KHR_ray_query", {});
-  }
 }
 
 bool CapabilityVisitor::visit(SpirvDecoration *decor) {
@@ -245,6 +244,12 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
   case spv::Decoration::HlslCounterBufferGOOGLE: {
     addExtension(Extension::GOOGLE_hlsl_functionality1, "SPIR-V reflection",
                  loc);
+    break;
+  }
+  case spv::Decoration::PerVertexKHR: {
+    addExtension(Extension::KHR_fragment_shader_barycentric, "PerVertexKHR",
+                 loc);
+    addCapability(spv::Capability::FragmentBarycentricKHR);
     break;
   }
   // Capabilities needed for built-ins
@@ -307,7 +312,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
     case spv::BuiltIn::PrimitiveId: {
       // PrimitiveID can be used as PSIn or MSPOut.
       if (shaderModel == spv::ExecutionModel::Fragment ||
-          shaderModel == spv::ExecutionModel::MeshNV   ||
+          shaderModel == spv::ExecutionModel::MeshNV ||
           shaderModel == spv::ExecutionModel::MeshEXT)
         addCapability(spv::Capability::Geometry);
       break;
@@ -325,7 +330,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
           addCapability(spv::Capability::ShaderViewportIndexLayerEXT);
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
-                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshNV ||
                  shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_RenderTargetArrayIndex can be used as PSIn or MSPOut.
         addCapability(spv::Capability::Geometry);
@@ -345,7 +350,7 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
         }
       } else if (shaderModel == spv::ExecutionModel::Fragment ||
                  shaderModel == spv::ExecutionModel::Geometry ||
-                 shaderModel == spv::ExecutionModel::MeshNV   ||
+                 shaderModel == spv::ExecutionModel::MeshNV ||
                  shaderModel == spv::ExecutionModel::MeshEXT) {
         // SV_ViewportArrayIndex can be used as PSIn or GSOut or MSPOut.
         addCapability(spv::Capability::MultiViewport);
@@ -360,15 +365,14 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
       addCapability(spv::Capability::CullDistance);
       break;
     }
-    case spv::BuiltIn::BaryCoordNoPerspAMD:
-    case spv::BuiltIn::BaryCoordNoPerspCentroidAMD:
-    case spv::BuiltIn::BaryCoordNoPerspSampleAMD:
-    case spv::BuiltIn::BaryCoordSmoothAMD:
-    case spv::BuiltIn::BaryCoordSmoothCentroidAMD:
-    case spv::BuiltIn::BaryCoordSmoothSampleAMD:
-    case spv::BuiltIn::BaryCoordPullModelAMD: {
-      addExtension(Extension::AMD_shader_explicit_vertex_parameter,
+    case spv::BuiltIn::BaryCoordKHR:
+    case spv::BuiltIn::BaryCoordNoPerspKHR: {
+      // SV_Barycentrics will have only two builtins
+      // But it is still allowed to decorate those two builtins with
+      // interpolation qualifier like centroid or sample.
+      addExtension(Extension::KHR_fragment_shader_barycentric,
                    "SV_Barycentrics", loc);
+      addCapability(spv::Capability::FragmentBarycentricKHR);
       break;
     }
     case spv::BuiltIn::ShadingRateKHR:
@@ -453,8 +457,6 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
                        instr->getStorageClass());
   if (instr->hasOffset() || instr->hasConstOffsets())
     addCapability(spv::Capability::ImageGatherExtended);
-  if (instr->hasMinLod())
-    addCapability(spv::Capability::MinLod);
   if (instr->isSparse())
     addCapability(spv::Capability::SparseResidency);
 
@@ -587,8 +589,7 @@ bool CapabilityVisitor::visitInstruction(SpirvInstruction *instr) {
   case spv::Op::OpSetMeshOutputsEXT:
   case spv::Op::OpEmitMeshTasksEXT: {
     if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
-      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader",
-                                     {});
+      featureManager.requestTargetEnv(SPV_ENV_UNIVERSAL_1_4, "MeshShader", {});
       addCapability(spv::Capability::MeshShadingEXT);
       addExtension(Extension::EXT_mesh_shader, "SPV_EXT_mesh_shader", {});
     }
@@ -717,6 +718,22 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
     addExtension(Extension::EXT_shader_stencil_export,
                  "[[vk::stencil_ref_less_equal_back]]", execModeSourceLocation);
     break;
+  case spv::ExecutionMode::MaximallyReconvergesKHR:
+    addExtension(Extension::KHR_maximal_reconvergence, "",
+                 execModeSourceLocation);
+    break;
+  case spv::ExecutionMode::DenormPreserve:
+  case spv::ExecutionMode::DenormFlushToZero:
+    // KHR_float_controls was promoted to core in Vulkan 1.2.
+    if (!featureManager.isTargetEnvVulkan1p2OrAbove()) {
+      addExtension(Extension::KHR_float_controls, "SPV_KHR_float_controls",
+                   execModeSourceLocation);
+    }
+    addCapability(executionMode == spv::ExecutionMode::DenormPreserve
+                      ? spv::Capability::DenormPreserve
+                      : spv::Capability::DenormFlushToZero,
+                  execModeSourceLocation);
+    break;
   default:
     break;
   }
@@ -733,27 +750,6 @@ bool CapabilityVisitor::visit(SpirvExtInstImport *instr) {
                  /*SourceLocation*/ {});
   }
   return true;
-}
-
-bool CapabilityVisitor::visit(SpirvExtInst *instr) {
-  // OpExtInst using the GLSL extended instruction allows only 32-bit types by
-  // default for interpolation instructions. The AMD_gpu_shader_half_float
-  // extension adds support for 16-bit floating-point component types for these
-  // instructions:
-  // InterpolateAtCentroid, InterpolateAtSample, InterpolateAtOffset
-  if (SpirvType::isOrContainsType<FloatType, 16>(instr->getResultType()))
-    switch (instr->getInstruction()) {
-    case GLSLstd450::GLSLstd450InterpolateAtCentroid:
-    case GLSLstd450::GLSLstd450InterpolateAtSample:
-    case GLSLstd450::GLSLstd450InterpolateAtOffset:
-      addExtension(Extension::AMD_gpu_shader_half_float, "16-bit float",
-                   instr->getSourceLocation());
-      break;
-    default:
-      break;
-    }
-
-  return visitInstruction(instr);
 }
 
 bool CapabilityVisitor::visit(SpirvAtomic *instr) {
@@ -864,6 +860,48 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
     addCapability(spv::Capability::Shader);
     addCapability(spv::Capability::Linkage);
   }
+
+  // SPIRV-Tools now has a pass to trim superfluous capabilities. This means we
+  // can remove most capability-selection logic from here, and just add
+  // capabilities by default. SPIRV-Tools will clean those up. Note: this pass
+  // supports only some capabilities. This list should be expanded to match the
+  // supported capabilities.
+  addCapability(spv::Capability::MinLod);
+
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::EXT_fragment_shader_interlock,
+      {
+          spv::Capability::FragmentShaderSampleInterlockEXT,
+          spv::Capability::FragmentShaderPixelInterlockEXT,
+          spv::Capability::FragmentShaderShadingRateInterlockEXT,
+      });
+
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::NV_compute_shader_derivatives,
+      {
+          spv::Capability::ComputeDerivativeGroupQuadsNV,
+          spv::Capability::ComputeDerivativeGroupLinearNV,
+      });
+
+  // AccelerationStructureType or RayQueryType can be provided by both
+  // ray_tracing and ray_query extension. By default, we select ray_query to
+  // provide it. This is an arbitrary decision. If the user wants avoid one
+  // extension (lack of support by ex), if can be done by providing the list
+  // of enabled extensions.
+  if (!addExtensionAndCapabilitiesIfEnabled(Extension::KHR_ray_query,
+                                            {spv::Capability::RayQueryKHR})) {
+    addExtensionAndCapabilitiesIfEnabled(Extension::KHR_ray_tracing,
+                                         {spv::Capability::RayTracingKHR});
+  }
+
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::KHR_vulkan_memory_model,
+      {spv::Capability::VulkanMemoryModelDeviceScope});
+
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::NV_shader_subgroup_partitioned,
+      {spv::Capability::GroupNonUniformPartitionedNV});
+
   return true;
 }
 

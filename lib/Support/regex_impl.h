@@ -107,12 +107,12 @@ void	llvm_regfree(llvm_regex_t *);
 size_t	llvm_regerror(
 	int errcode,
 	const llvm_regex_t *preg,
-	_Out_writes_all_(errbuf_size) char *errbuf,
+	char *errbuf,
 	size_t errbuf_size);
 
 size_t  llvm_strlcpy(
-	_Out_writes_z_(siz) char *dst,
-	_In_z_ const char *src,
+	char *dst,
+	const char *src,
 	size_t siz);
 
 #ifdef __cplusplus

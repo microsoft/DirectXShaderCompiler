@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpName %type_MyTbuffer "type.MyTbuffer"
 // CHECK-NEXT: OpMemberName %type_MyTbuffer 0 "a"

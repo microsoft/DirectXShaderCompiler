@@ -8,17 +8,17 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilResourceBinding.h"
-#include "llvm/IR/Constant.h"
-#include "dxc/DXIL/DxilShaderModel.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Constants.h"
-#include "dxc/DXIL/DxilResourceBase.h"
-#include "dxc/DXIL/DxilResource.h"
 #include "dxc/DXIL/DxilCBuffer.h"
-#include "dxc/DXIL/DxilSampler.h"
-#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilInstructions.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilResource.h"
+#include "dxc/DXIL/DxilResourceBase.h"
+#include "dxc/DXIL/DxilSampler.h"
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DXIL/DxilUtil.h"
+#include "llvm/IR/Constant.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 
 using namespace llvm;
 
@@ -31,7 +31,7 @@ bool DxilResourceBinding::operator==(const DxilResourceBinding &B) {
 }
 
 bool DxilResourceBinding::operator!=(const DxilResourceBinding &B) {
-  return !(*this == B) ;
+  return !(*this == B);
 }
 
 namespace resource_helper {

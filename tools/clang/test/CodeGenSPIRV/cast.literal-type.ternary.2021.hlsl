@@ -1,19 +1,19 @@
-// RUN: %dxc -T ps_6_0 -HV 2021 -E main
+// RUN: %dxc -T ps_6_0 -HV 2021 -E main -fcgl  %s -spirv | FileCheck %s
 
 // The 'out' argument in the function should be handled correctly when deducing
 // the literal type, even in HLSL 2021 (with shortcicuiting).
 void foo(out uint value, uint x) {
-  // CHECK:   [[cond:%\d+]] = OpULessThan %bool {{%\d+}} %uint_64
-  // CHECK:                   OpBranchConditional [[cond]] [[ternary_lhs:%\w+]] [[ternary_rhs:%\w+]]
+  // CHECK:   [[cond:%[0-9]+]] = OpULessThan %bool {{%[0-9]+}} %uint_64
+  // CHECK:                   OpBranchConditional [[cond]] [[ternary_lhs:%[a-zA-Z0-9_]+]] [[ternary_rhs:%[a-zA-Z0-9_]+]]
   // CHECK: [[ternary_lhs]] = OpLabel
-  // CHECK:                   OpStore [[tmp:%\w+]] %int_1
-  // CHECK:                   OpBranch [[merge:%\w+]]
+  // CHECK:                   OpStore [[tmp:%[a-zA-Z0-9_]+]] %int_1
+  // CHECK:                   OpBranch [[merge:%[a-zA-Z0-9_]+]]
   // CHECK: [[ternary_rhs]] = OpLabel
-  // CHECK:                   OpStore [[tmp:%\w+]] %int_0
+  // CHECK:                   OpStore [[tmp_0:%[a-zA-Z0-9_]+]] %int_0
   // CHECK:                   OpBranch [[merge]]
   // CHECK:       [[merge]] = OpLabel
-  // CHECK:    [[res:%\d+]] = OpLoad %int [[tmp]]
-  // CHECK:        {{%\d+}} = OpBitcast %uint [[res]]
+  // CHECK:    [[res:%[0-9]+]] = OpLoad %int [[tmp_0]]
+  // CHECK:        {{%[0-9]+}} = OpBitcast %uint [[res]]
   value = x < 64 ? 1 : 0;
 }
 

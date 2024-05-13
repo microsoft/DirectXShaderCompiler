@@ -53,7 +53,7 @@
 
 static const char *regatoi(
 	const llvm_regex_t *preg,
-	_Out_writes_all_(localbufsize) char *localbuf,
+	char *localbuf,
 	int localbufsize
 	);
 
@@ -87,14 +87,13 @@ static struct rerr {
  */
 /* ARGSUSED */
 size_t
-llvm_regerror(int errcode, const llvm_regex_t *preg, _Out_writes_all_(errbuf_size) char *errbuf, size_t errbuf_size)
+llvm_regerror(int errcode, const llvm_regex_t *preg, char *errbuf, size_t errbuf_size)
 {
 	struct rerr *r;
 	size_t len;
 	int target = errcode &~ REG_ITOA;
 	const char *s;
 	char convbuf[50];
-	_Analysis_assume_nullterminated_(convbuf);
 
 	if (errcode == REG_ATOI)
 		s = regatoi(preg, convbuf, sizeof convbuf);
@@ -136,7 +135,7 @@ llvm_regerror(int errcode, const llvm_regex_t *preg, _Out_writes_all_(errbuf_siz
 static const char *
 regatoi(
 	const llvm_regex_t *preg, 
-	_Out_writes_all_(localbufsize) char *localbuf,
+	char *localbuf,
 	int localbufsize)
 {
 	struct rerr *r;

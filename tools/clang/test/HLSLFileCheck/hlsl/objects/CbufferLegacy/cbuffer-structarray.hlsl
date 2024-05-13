@@ -6,12 +6,12 @@ struct Foo {
 
 typedef Foo FooA[2];
 
-// CHECK: error: 'FooA' (aka 'Foo [2]') cannot be used as a type parameter where a struct is required
+// CHECK: error: 'FooA' (aka 'Foo [2]') cannot be used as a type parameter where a struct/class is required
 ConstantBuffer<FooA> CB1;
 
-// CHECK: error: 'FooA' (aka 'Foo [2]') cannot be used as a type parameter where a struct is required
+// CHECK: error: 'FooA' (aka 'Foo [2]') cannot be used as a type parameter where a struct/class is required
 ConstantBuffer<FooA> CB[4][3];
-// CHECK: error: 'FooA' (aka 'Foo [2]') cannot be used as a type parameter where a struct is required
+// CHECK: error: 'FooA' (aka 'Foo [2]') cannot be used as a type parameter where a struct/class is required
 TextureBuffer<FooA> TB[4][3];
 
 float4 main(int a : A) : SV_Target

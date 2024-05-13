@@ -12,43 +12,42 @@
 #pragma once
 #include "llvm/Pass.h"
 
-
 namespace llvm {
-  class Function;
-  class PassRegistry;
-  class FunctionPass;
-  class Function;
-  class DominatorTree;
+class Function;
+class PassRegistry;
+class FunctionPass;
+class Function;
+class DominatorTree;
 
+llvm::FunctionPass *createNormalizeDxilPass();
+void initializeNormalizeDxilPassPass(llvm::PassRegistry &);
 
-  llvm::FunctionPass *createNormalizeDxilPass();
-  void initializeNormalizeDxilPassPass(llvm::PassRegistry&);
+class NormalizeDxil {
+public:
+  NormalizeDxil(Function &F, DominatorTree &DT)
+      : m_function(F), m_dominatorTree(DT) {}
 
-  class NormalizeDxil {
-  public:
-    NormalizeDxil(Function &F, DominatorTree &DT) : m_function(F), m_dominatorTree(DT) {}
+  virtual bool Run();
 
-    virtual bool Run();
+protected:
+  Function &m_function;
+  DominatorTree &m_dominatorTree;
+};
 
-  protected:
-    Function &m_function;
-    DominatorTree &m_dominatorTree;
-  };
+// The legacy pass manager's analysis pass to normalize dxil ir.
+class NormalizeDxilPass : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
 
-  // The legacy pass manager's analysis pass to normalize dxil ir.
-  class NormalizeDxilPass : public FunctionPass {
-  public:
-    static char ID; // Pass identification, replacement for typeid
+  NormalizeDxilPass() : FunctionPass(ID) {
+    initializeNormalizeDxilPassPass(*PassRegistry::getPassRegistry());
+  }
 
-    NormalizeDxilPass() : FunctionPass(ID) {
-      initializeNormalizeDxilPassPass(*PassRegistry::getPassRegistry());
-    }
+  // Normalize incoming dxil ir.
+  bool runOnFunction(Function &F) override;
 
-    // Normalize incoming dxil ir.
-    bool runOnFunction(Function &F) override;
+  virtual StringRef getPassName() const override { return "Normalize Dxil"; }
 
-    virtual StringRef getPassName() const override { return "Normalize Dxil"; }
-
-    void getAnalysisUsage(AnalysisUsage &AU) const override;
-  };
-}
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+};
+} // namespace llvm

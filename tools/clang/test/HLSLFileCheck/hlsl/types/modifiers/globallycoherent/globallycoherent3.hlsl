@@ -1,6 +1,6 @@
 // RUN: %dxc -E main -T ps_6_0 %s | FileCheck %s
 
-// CHECK: 'globallycoherent' is not a valid modifier for a non-UAV type
+// CHECK: 'globallycoherent' is not a valid modifier for a declaration of type 'float'
 
 globallycoherent RWTexture1D<float4> uav1 : register(u3);
 RWBuffer<float4> uav2;

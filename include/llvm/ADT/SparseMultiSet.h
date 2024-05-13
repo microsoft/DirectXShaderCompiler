@@ -218,9 +218,17 @@ public:
   /// Our iterators are iterators over the collection of objects that share a
   /// key.
   template<typename SMSPtrTy>
-  class iterator_base : public std::iterator<std::bidirectional_iterator_tag,
-                                             ValueT> {
+  class iterator_base {
     friend class SparseMultiSet;
+
+  public:
+    using iterator_category = std::bidirectional_iterator_tag;
+    using value_type = ValueT;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
+  private:
     SMSPtrTy SMS;
     unsigned Idx;
     unsigned SparseIdx;
@@ -247,12 +255,6 @@ public:
     void setNext(unsigned N) { SMS->Dense[Idx].Next = N; }
 
   public:
-    typedef std::iterator<std::bidirectional_iterator_tag, ValueT> super;
-    typedef typename super::value_type value_type;
-    typedef typename super::difference_type difference_type;
-    typedef typename super::pointer pointer;
-    typedef typename super::reference reference;
-
     reference operator*() const {
       assert(isKeyed() && SMS->sparseIndex(SMS->Dense[Idx].Data) == SparseIdx &&
              "Dereferencing iterator of invalid key or index");
@@ -410,7 +412,7 @@ public:
   RangePair equal_range(const KeyT &K) {
     iterator B = find(K);
     iterator E = iterator(this, SMSNode::INVALID, B.SparseIdx);
-    return make_pair(B, E);
+    return std::make_pair(B, E);
   }
 
   /// Insert a new element at the tail of the subset list. Returns an iterator

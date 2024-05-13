@@ -530,7 +530,7 @@ public:
 
   /// \brief Special case of EmitValue that avoids the client having
   /// to pass in a MCExpr for constant integers.
-  virtual void EmitIntValue(uint64_t Value, _In_range_(0, 8) unsigned Size);
+  virtual void EmitIntValue(uint64_t Value, unsigned Size);
 
   virtual void EmitULEB128Value(const MCExpr *Value);
 

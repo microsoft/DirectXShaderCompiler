@@ -52,7 +52,7 @@ namespace fs {
 
 // HLSL Change Start
 class MSFileSystem;
-typedef _Inout_ MSFileSystem* MSFileSystemRef;
+typedef MSFileSystem* MSFileSystemRef;
 
 std::error_code GetFileSystemTlsStatus() throw();
 
@@ -81,7 +81,7 @@ private:
   ::llvm::sys::fs::MSFileSystem* m_pOrigValue;
   std::error_code ec;
 public:
-  AutoPerThreadSystem(_In_ ::llvm::sys::fs::MSFileSystem *value)
+  AutoPerThreadSystem(::llvm::sys::fs::MSFileSystem *value)
       : m_pOrigValue(::llvm::sys::fs::GetCurrentThreadFileSystem()) {
     SetCurrentThreadFileSystem(nullptr);
     ec = ::llvm::sys::fs::SetCurrentThreadFileSystem(value);

@@ -12,8 +12,6 @@ Building and Testing DirectXShaderCompiler
    is complete on Linux and Unix platforms, but is incomplete but usable on
    Windows. Instructions for building on Windows are available in the repository
    `readme <https://github.com/microsoft/DirectXShaderCompiler/blob/main/README.md>`_.
-   Instructions for the preexisting Linux and Unix workflow can be found here:
-   :doc:`DxcOnUnix`
 
 Introduction
 ============
@@ -22,6 +20,30 @@ DXC's build is configured using CMake and should be buildable with any preferred
 generator. In subsequent sections we will describe workflows using Ninja and
 Visual Studio. The Ninja workflow should also apply to makefile generators with
 minimal adaption.
+
+Prerequisites
+-------------
+
+* [Git](http://git-scm.com/downloads).
+* [Python](https://www.python.org/downloads/) - version 3.x is required
+* [CMake](https://cmake.org/download/) - version >= 3.17.2
+    * The bundled version with Visual Studio works for Windows.
+* The C++ 14 compiler and runtime of your choosing.
+    * DXC is known to compile with recent versions of GCC, Clang and MSVC.
+
+Building on windows additionally requires:
+
+* [Visual Studio 2019 or later](https://www.visualstudio.com/downloads) - select the following workloads: 
+    * Universal Windows Platform Development
+    * Desktop Development with C++
+* [Windows SDK](https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk) - version 10.0.18362.0 or newer
+* [Windows Driver Kit](https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) - same version as the SDK
+
+Note: DXC uses submodules for some external dependencies. You must initialize
+the submodules in order to build DXC:
+
+.. code-block:: sh
+  git submodule update --init --recursive
 
 Basic CMake Usage
 -----------------
@@ -34,7 +56,8 @@ for the configuration process.
 
 All of the most basic CMake configurations for DXC follow a similar format to:
 
-.. code:: sh
+.. code-block:: sh
+
   cmake <Repository Root> \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=<Build Type> \
@@ -54,10 +77,10 @@ Generating a Visual Studio Solution
 
 Open a Visual Stuido command prompt and run:
 
-.. code:: sh
+.. code-block:: sh
+
   cmake <Repository Root> \
     -B <Path to Output> \
-    -DDXC_USE_LIT=On \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=<Build Type> \
     -G "Visual Studio 17 2022"
@@ -82,10 +105,10 @@ Generating Ninja or Makefiles
 
 In your preferred terminal run:
 
-.. code:: sh
+.. code-block:: sh
+
   cmake <Repository Root> \
     -B <Path to Output> \
-    -DDXC_USE_LIT=On \
     -C <Repository Root>/cmake/caches/PredefinedParams.cmake \
     -DCMAKE_BUILD_TYPE=<Build Type> \
     -G Ninja
@@ -151,9 +174,32 @@ four commonly used option prefixes:
   ``generate-coverage-report`` target is added to the build which produces a
   static HTML page with code coverage analysis results.
 
-**DXC_USE_LIT**:BOOL
-  This option must be passed before the ``-C`` flag to set the PredefinedParams
-  cache script because it is handled by the cache script. This option enables
-  building DXC with the LLVM-LIT testing infrastructure enabled. This generates
-  check targets for each sub-project (i.e. ``check-llvm``, ``check-clang``...),
-  and a ``check-all`` target to build and run DXC's tests.
+Legacy Windows Build Tooling
+----------------------------
+
+After cloning the project, you can set up a build environment shortcut by
+double-clicking the `utils\hct\hctshortcut.js` file. This will create a shortcut
+on your desktop with a default configuration. If your system doesn't have the
+requisite association for .js files, this may not work. If so, open a cmd window
+and invoke: `wscript.exe utils\hct\hctshortcut.js`.
+
+Tests are built using the TAEF framework which is included in the Windows Driver
+Kit.
+
+To build, run this command on the HLSL Console.
+
+.. code-block:: sh
+
+  hctbuild
+
+You can also run tests with this command.
+
+.. code-block:: sh
+
+  hcttest
+
+Some tests will run shaders and verify their behavior. These tests also involve
+a driver that can execute these shaders. See the next section on how this should
+be currently set up.
+
+To see a list of additional commands available, run `hcthelp`

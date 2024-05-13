@@ -1,5 +1,5 @@
 // Rewrite unchanged result:
-const matrix<float, 4, 4> m;
+const matrix m;
 void abs_without_using_result() {
   matrix<float, 4, 4> mymatrix;
   abs(mymatrix);

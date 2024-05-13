@@ -1,10 +1,10 @@
-// RUN: %dxc -T hs_6_1 -E main
+// RUN: %dxc -T hs_6_1 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpCapability MultiView
 // CHECK:      OpExtension "SPV_KHR_multiview"
 
 // CHECK:      OpEntryPoint TessellationControl
-// CHECK-SAME: [[viewindex:%\d+]]
+// CHECK-SAME: [[viewindex:%[0-9]+]]
 
 // CHECK:      OpDecorate [[viewindex]] BuiltIn ViewIndex
 

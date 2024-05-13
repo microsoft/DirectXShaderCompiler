@@ -97,7 +97,6 @@ void LLVMInitializeAnalysis(LLVMPassRegistryRef R) {
   initializeAnalysis(*unwrap(R));
 }
 
-_Use_decl_annotations_
 LLVMBool LLVMVerifyModule(LLVMModuleRef M, LLVMVerifierFailureAction Action,
                           char **OutMessages) {
   raw_ostream *DebugOS = Action != LLVMReturnStatusAction ? &errs() : nullptr;

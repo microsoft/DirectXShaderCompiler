@@ -34,7 +34,6 @@ add_llvm_unittest(SupportTests
   EndianTest.cpp
   ErrorOrTest.cpp
   #FileOutputBufferTest.cpp # HLSL Change
-  IteratorTest.cpp
   LEB128Test.cpp
   LineIteratorTest.cpp
   #LockFileManagerTest.cpp # HLSL Change

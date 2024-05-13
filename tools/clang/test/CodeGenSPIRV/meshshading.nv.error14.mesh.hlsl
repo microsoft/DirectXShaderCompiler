@@ -1,4 +1,4 @@
-// RUN: %dxc -T ms_6_5 -E main
+// RUN: not %dxc -T ms_6_5 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 // CHECK:  18:20: error: invalid usage of semantic 'USER_OUT' in shader profile ms
 

@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main -HV 2021
+// RUN: %dxc -T vs_6_0 -E main -HV 2021 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:     OpMemberDecorate %S1 0 Offset 0
 // CHECK-NOT: OpMemberDecorate %S1 1 Offset {{.+}}

@@ -1,14 +1,14 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: [[v4f1:%\d+]] = OpConstantComposite %v4float %float_1 %float_1 %float_1 %float_1
-// CHECK: [[v4f2:%\d+]] = OpConstantComposite %v4float %float_2 %float_2 %float_2 %float_2
-// CHECK: [[v4f3:%\d+]] = OpConstantComposite %v4float %float_3 %float_3 %float_3 %float_3
-// CHECK: [[v4f4:%\d+]] = OpConstantComposite %v4float %float_4 %float_4 %float_4 %float_4
-// CHECK: [[v4f5:%\d+]] = OpConstantComposite %v4float %float_5 %float_5 %float_5 %float_5
-// CHECK: [[v4f6:%\d+]] = OpConstantComposite %v4float %float_6 %float_6 %float_6 %float_6
-// CHECK: [[v4f7:%\d+]] = OpConstantComposite %v4float %float_7 %float_7 %float_7 %float_7
-// CHECK: [[v4f8:%\d+]] = OpConstantComposite %v4float %float_8 %float_8 %float_8 %float_8
-// CHECK: [[v4f9:%\d+]] = OpConstantComposite %v4float %float_9 %float_9 %float_9 %float_9
+// CHECK: [[v4f1:%[0-9]+]] = OpConstantComposite %v4float %float_1 %float_1 %float_1 %float_1
+// CHECK: [[v4f2:%[0-9]+]] = OpConstantComposite %v4float %float_2 %float_2 %float_2 %float_2
+// CHECK: [[v4f3:%[0-9]+]] = OpConstantComposite %v4float %float_3 %float_3 %float_3 %float_3
+// CHECK: [[v4f4:%[0-9]+]] = OpConstantComposite %v4float %float_4 %float_4 %float_4 %float_4
+// CHECK: [[v4f5:%[0-9]+]] = OpConstantComposite %v4float %float_5 %float_5 %float_5 %float_5
+// CHECK: [[v4f6:%[0-9]+]] = OpConstantComposite %v4float %float_6 %float_6 %float_6 %float_6
+// CHECK: [[v4f7:%[0-9]+]] = OpConstantComposite %v4float %float_7 %float_7 %float_7 %float_7
+// CHECK: [[v4f8:%[0-9]+]] = OpConstantComposite %v4float %float_8 %float_8 %float_8 %float_8
+// CHECK: [[v4f9:%[0-9]+]] = OpConstantComposite %v4float %float_9 %float_9 %float_9 %float_9
 
 float4 myfunc() {
   int a, b;

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich -fcgl  %s -spirv | FileCheck %s
 
 float4 main(float2 inUV : TEXCOORD0) : SV_TARGET
 {
@@ -8,7 +8,7 @@ float4 main(float2 inUV : TEXCOORD0) : SV_TARGET
   uv = 2.0 * float2(uv.x - float(x) * 1.0, uv.y) - 1.0;
 
 // CHECK:      OpSelectionMerge %switch_merge None
-// CHECK-NEXT: OpSwitch {{%\d+}} %switch_merge
+// CHECK-NEXT: OpSwitch {{%[0-9]+}} %switch_merge
 
 // OpBranch before a new OpLabel after OpSwitch causes a validation error.
 // CHECK-NOT:  DebugScope

@@ -1,4 +1,4 @@
-// RUN: %dxc -T lib_6_6 -fspv-target-env=vulkan1.2
+// RUN: %dxc -T lib_6_6 -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpEntryPoint GLCompute %bar "bar"
 // CHECK-DAG: %MyBuffer

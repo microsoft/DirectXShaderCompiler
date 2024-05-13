@@ -1,10 +1,10 @@
-// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fspv-extension=SPV_KHR_ray_query -fspv-target-env=vulkan1.3 -O0
+// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fspv-extension=SPV_KHR_ray_query -fspv-target-env=vulkan1.3 -O0  %s -spirv | FileCheck %s
 
 // CHECK-NOT: OpCapability VulkanMemoryModel
 
 // CHECK: OpMemoryModel Logical GLSL450
 
-// CHECK: OpDecorate [[SubgroupSize:%\w+]] BuiltIn SubgroupSize
+// CHECK: OpDecorate [[SubgroupSize:%[a-zA-Z0-9_]+]] BuiltIn SubgroupSize
 // CHECK: OpDecorate [[SubgroupSize]] Volatile
 
 RaytracingAccelerationStructure rs;

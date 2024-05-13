@@ -526,6 +526,8 @@ bool CGRecordLowering::hasOwnStorage(const CXXRecordDecl *Decl,
   return true;
 }
 
+// HLSL Change: Remove unused function
+#if 0
 void CGRecordLowering::calculateZeroInit() {
   for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),
                                                MemberEnd = Members.end();
@@ -625,6 +627,7 @@ void CGRecordLowering::insertPadding() {
     Members.push_back(StorageInfo(Pad->first, getByteArrayType(Pad->second)));
   std::stable_sort(Members.begin(), Members.end());
 }
+#endif
 
 void CGRecordLowering::fillOutputFields() {
   for (std::vector<MemberInfo>::const_iterator Member = Members.begin(),

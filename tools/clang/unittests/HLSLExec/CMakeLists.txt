@@ -6,7 +6,7 @@ find_package(D3D12 REQUIRED) # Used for ExecutionTest.cpp.
 add_clang_library(ExecHLSLTests SHARED
   ExecutionTest.cpp
   ShaderOpTest.cpp
-  exec-hlsl-tests.rc
+  ExecHLSLTests.rc
   )
 
 add_dependencies(ClangUnitTests ExecHLSLTests)
@@ -24,11 +24,13 @@ include_directories(${TAEF_INCLUDE_DIRS})
 include_directories(${DIASDK_INCLUDE_DIRS})
 include_directories(${D3D12_INCLUDE_DIRS})
 include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Test)
+# Using include path with subdirectories here to allow '#include "d3dx12.h"'
+# to get use a different (newer) d3dx12.h in when building in Direct3D repo
+include_directories(${LLVM_MAIN_INCLUDE_DIR}/dxc/Support)
 
 add_dependencies(ExecHLSLTests dxcompiler)
 
 if (NOT CLANG_INCLUDE_TESTS)
-  set_target_properties(ExecHLSLTests PROPERTIES OUTPUT_NAME exec-hlsl-tests)
   set_output_directory(ExecHLSLTests
     ${LLVM_RUNTIME_OUTPUT_INTDIR} ${LLVM_LIBRARY_OUTPUT_INTDIR})
 endif()

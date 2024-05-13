@@ -1,4 +1,4 @@
-// RUN: %dxc -T gs_6_0 -E main
+// RUN: %dxc -T gs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpCapability Geometry
 

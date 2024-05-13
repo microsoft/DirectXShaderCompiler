@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 int foo() { return 200; }
 
@@ -14,7 +14,7 @@ void main() {
   ////////////////////////////
 
   int a = 0;
-// CHECK: [[a:%\d+]] = OpLoad %int %a
+// CHECK: [[a:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge None
 // CHECK-NEXT: OpSwitch [[a]] %switch_default -3 %switch_n3 0 %switch_0 1 %switch_1 2 %switch_2
   switch(a) {
@@ -37,7 +37,7 @@ void main() {
       result = 100;
       break;
 // CHECK-NEXT: %switch_2 = OpLabel
-// CHECK-NEXT: [[foo:%\d+]] = OpFunctionCall %int %foo
+// CHECK-NEXT: [[foo:%[0-9]+]] = OpFunctionCall %int %foo
 // CHECK-NEXT: OpStore %result [[foo]]
 // CHECK-NEXT: OpBranch %switch_merge
     case 2:
@@ -60,9 +60,9 @@ void main() {
   // All cases have 'break'         //
   ////////////////////////////////////
 
-// CHECK-NEXT: [[a1:%\d+]] = OpLoad %int %a
+// CHECK-NEXT: [[a1:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpStore %c [[a1]]
-// CHECK-NEXT: [[c:%\d+]] = OpLoad %int %c
+// CHECK-NEXT: [[c:%[0-9]+]] = OpLoad %int %c
 // CHECK-NEXT: OpSelectionMerge %switch_merge_0 None
 // CHECK-NEXT: OpSwitch [[c]] %switch_merge_0 -4 %switch_n4 4 %switch_4
   switch(int c = a) {
@@ -88,7 +88,7 @@ void main() {
   // The last case is fall-through //
   ///////////////////////////////////
 
-// CHECK-NEXT: [[a2:%\d+]] = OpLoad %int %a
+// CHECK-NEXT: [[a2:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge_1 None
 // CHECK-NEXT: OpSwitch [[a2]] %switch_merge_1 -5 %switch_n5 5 %switch_5
   switch(a) {
@@ -112,7 +112,7 @@ void main() {
   // The last case is not fall-through //
   ///////////////////////////////////////
 
-// CHECK-NEXT: [[a3:%\d+]] = OpLoad %int %a
+// CHECK-NEXT: [[a3:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge_2 None
 // CHECK-NEXT: OpSwitch [[a3]] %switch_default_0 6 %switch_6 7 %switch_7 8 %switch_8
   switch(a) {
@@ -147,7 +147,7 @@ void main() {
   // Fall-through cases with no body   //
   ///////////////////////////////////////
 
-// CHECK-NEXT: [[a4:%\d+]] = OpLoad %int %a
+// CHECK-NEXT: [[a4:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge_3 None
 // CHECK-NEXT: OpSwitch [[a4]] %switch_default_1 10 %switch_10 11 %switch_11 12 %switch_12
   switch(a) {
@@ -174,7 +174,7 @@ void main() {
   // No-op. Two nested cases and a nested break //
   ////////////////////////////////////////////////
 
-// CHECK-NEXT: [[a5:%\d+]] = OpLoad %int %a
+// CHECK-NEXT: [[a5:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge_4 None
 // CHECK-NEXT: OpSwitch [[a5]] %switch_merge_4 15 %switch_15 16 %switch_16
   switch(a) {
@@ -196,7 +196,7 @@ void main() {
   // Also uses 'forcecase' attribute                            //
   ////////////////////////////////////////////////////////////////
 
-// CHECK-NEXT: [[a6:%\d+]] = OpLoad %int %a
+// CHECK-NEXT: [[a6:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge_5 None
 // CHECK-NEXT: OpSwitch [[a6]] %switch_merge_5 20 %switch_20 21 %switch_21 22 %switch_22 23 %switch_23 24 %switch_24 25 %switch_25 26 %switch_26 27 %switch_27 28 %switch_28 29 %switch_29
   [forcecase] switch(a) {
@@ -261,7 +261,7 @@ void main() {
   // Nested Switch statements with mixed use of fall-through and braces //
   ////////////////////////////////////////////////////////////////////////
 
-// CHECK-NEXT: [[a7:%\d+]] = OpLoad %int %a
+// CHECK-NEXT: [[a7:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge_7 None
 // CHECK-NEXT: OpSwitch [[a7]] %switch_merge_7 30 %switch_30
   switch(a) {
@@ -269,7 +269,7 @@ void main() {
     case 30: {
 // CHECK-NEXT: OpStore %result %int_30
         result = 30;
-// CHECK-NEXT: [[result:%\d+]] = OpLoad %int %result
+// CHECK-NEXT: [[result:%[0-9]+]] = OpLoad %int %result
 // CHECK-NEXT: OpSelectionMerge %switch_merge_6 None
 // CHECK-NEXT: OpSwitch [[result]] %switch_default_2 50 %switch_50 51 %switch_51 52 %switch_52 53 %switch_53 54 %switch_54
         switch(result) {
@@ -322,18 +322,18 @@ void main() {
   const int s = 45;
   const int t = 2*r + s;  // evaluates to 115.
 
-// CHECK:      [[a8:%\d+]] = OpLoad %int %a
+// CHECK:      [[a8:%[0-9]+]] = OpLoad %int %a
 // CHECK-NEXT: OpSelectionMerge %switch_merge_8 None
 // CHECK-NEXT: OpSwitch [[a8]] %switch_merge_8 35 %switch_35 115 %switch_115
   switch(a) {
 // CHECK-NEXT: %switch_35 = OpLabel
-// CHECK-NEXT: [[r:%\d+]] = OpLoad %int %r
+// CHECK-NEXT: [[r:%[0-9]+]] = OpLoad %int %r
 // CHECK-NEXT: OpStore %result [[r]]
 // CHECK-NEXT: OpBranch %switch_115
     case r:
       result = r;
 // CHECK-NEXT: %switch_115 = OpLabel
-// CHECK-NEXT: [[t:%\d+]] = OpLoad %int %t
+// CHECK-NEXT: [[t:%[0-9]+]] = OpLoad %int %t
 // CHECK-NEXT: OpStore %result [[t]]
 // CHECK-NEXT: OpBranch %switch_merge_8
     case t:
@@ -347,8 +347,8 @@ void main() {
   // Using float as selector results in multiple casts in the AST //
   //////////////////////////////////////////////////////////////////
   float sel;
-// CHECK:      [[floatSelector:%\d+]] = OpLoad %float %sel
-// CHECK-NEXT:           [[sel:%\d+]] = OpConvertFToS %int [[floatSelector]]
+// CHECK:      [[floatSelector:%[0-9]+]] = OpLoad %float %sel
+// CHECK-NEXT:           [[sel:%[0-9]+]] = OpConvertFToS %int [[floatSelector]]
 // CHECK-NEXT:                          OpSelectionMerge %switch_merge_9 None
 // CHECK-NEXT:                          OpSwitch [[sel]] %switch_merge_9 0 %switch_0_0
   switch (sel) {
@@ -357,4 +357,31 @@ void main() {
     break;
   }
 
+
+  /////////////////////////////////////////
+  // 64-bit integer variable as selector //
+  /////////////////////////////////////////
+  int64_t longsel;
+// CHECK:       [[longSelector:%[0-9]+]] = OpLoad %long %longsel
+// CHECK-NEXT:                          OpSelectionMerge %switch_merge_10 None
+// CHECK-NEXT:                          OpSwitch [[longSelector]] %switch_merge_10 -1 %switch_n1
+  switch (longsel) {
+  case -1:
+    result = 0;
+    break;
+  }
+
+
+  //////////////////////////////////////////////////
+  // 64-bit unsigned integer variable as selector //
+  //////////////////////////////////////////////////
+  uint64_t ulongsel;
+// CHECK:      [[ulongSelector:%[0-9]+]] = OpLoad %ulong %ulongsel
+// CHECK-NEXT:                          OpSelectionMerge %switch_merge_11 None
+// CHECK-NEXT:                          OpSwitch [[ulongSelector]] %switch_merge_11 12345678910 %switch_12345678910
+  switch (ulongsel) {
+  case 12345678910:
+    result = 0;
+    break;
+  }
 }

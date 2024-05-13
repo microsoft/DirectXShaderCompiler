@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main -Oconfig=--ssa-rewrite,--if-conversion,--eliminate-dead-code-aggressive
+// RUN: %dxc -T vs_6_0 -E main -Oconfig=--ssa-rewrite,--if-conversion,--eliminate-dead-code-aggressive  %s -spirv | FileCheck %s
 
 // Note: The above optimization recipe should replace the if-else condition
 // with OpSelect, but it should not reduce the whole shader to "return (1,2,1,2)"

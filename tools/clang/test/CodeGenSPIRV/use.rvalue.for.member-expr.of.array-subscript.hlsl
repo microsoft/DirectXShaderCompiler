@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main -HV 2021
+// RUN: %dxc -T cs_6_0 -E main -HV 2021 -fcgl  %s -spirv | FileCheck %s
 
 // Tests that a rvalue is used for the index of ArraySubscriptExpr. The newly
 // introduced template support generates a template instance of
@@ -13,8 +13,8 @@ struct BufferAccess {
 
   template<typename T>
   T load(uint index) {
-    // CHECK: [[handle_ptr:%\d+]] = OpAccessChain %_ptr_Function_uint %param_this %int_0
-    // CHECK: [[handle:%\d+]] = OpLoad %uint [[handle_ptr]]
+    // CHECK: [[handle_ptr:%[0-9]+]] = OpAccessChain %_ptr_Function_uint %param_this %int_0
+    // CHECK: [[handle:%[0-9]+]] = OpLoad %uint [[handle_ptr]]
     // CHECK: OpAccessChain %_ptr_Uniform_type_ByteAddressBuffer %babuf [[handle]]
     return babuf[this.handle].Load<T>(index * sizeof(T));
   }

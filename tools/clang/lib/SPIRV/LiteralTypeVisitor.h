@@ -34,6 +34,7 @@ public:
   bool visit(SpirvVectorShuffle *) override;
   bool visit(SpirvNonUniformUnaryOp *) override;
   bool visit(SpirvNonUniformBinaryOp *) override;
+  bool visit(SpirvLoad *) override;
   bool visit(SpirvStore *) override;
   bool visit(SpirvConstantComposite *) override;
   bool visit(SpirvCompositeConstruct *) override;
@@ -43,6 +44,7 @@ public:
   bool visit(SpirvReturn *) override;
   bool visit(SpirvCompositeInsert *) override;
   bool visit(SpirvImageOp *) override;
+  bool visit(SpirvSwitch *) override;
 
   using Visitor::visit;
 

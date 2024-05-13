@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_2 -E main
+// RUN: %dxc -T vs_6_2 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %in_var_A Location 0
 // CHECK: OpDecorate %in_var_B Location 4

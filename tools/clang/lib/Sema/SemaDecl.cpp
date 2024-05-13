@@ -447,9 +447,11 @@ ParsedType Sema::getTypeName(const IdentifierInfo &II, SourceLocation NameLoc,
     if (!HasTrailingDot)
       T = Context.getObjCInterfaceType(IDecl);
   } else if (getLangOpts().HLSL) { // HLSL - omit empty template argument lists
-    if (ClassTemplateDecl *TD = dyn_cast<ClassTemplateDecl>(IIDecl))
-      if (TypeDecl *DefaultSpec = getHLSLDefaultSpecialization(TD))
-        T = Context.getTypeDeclType(DefaultSpec); // HLSL Change end
+    if (TemplateDecl *TD = dyn_cast<TemplateDecl>(IIDecl)) {
+      QualType DefaultTy = getHLSLDefaultSpecialization(TD);
+      if (!DefaultTy.isNull())
+        T = DefaultTy;
+    } // HLSL Change end
   }
 
   if (T.isNull()) {
@@ -4970,8 +4972,6 @@ NamedDecl *Sema::HandleDeclarator(Scope *S, Declarator &D,
   if (!New)
     return nullptr;
 
-  TransferUnusualAttributes(D, New); // HLSL Change
-
   // If this has an identifier and is not an invalid redeclaration or 
   // function template specialization, add it to the scope stack.
   if (New->getDeclName() && AddToScope &&
@@ -5185,6 +5185,8 @@ Sema::ActOnTypedefDeclarator(Scope* S, Declarator& D, DeclContext* DC,
   bool Redeclaration = D.isRedeclaration();
   NamedDecl *ND = ActOnTypedefNameDecl(S, DC, NewTD, Previous, Redeclaration);
   D.setRedeclaration(Redeclaration);
+
+  TransferUnusualAttributes(D, ND); // HLSL Change
   return ND;
 }
 
@@ -6200,6 +6202,7 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     return NewTemplate;
   }
 
+  TransferUnusualAttributes(D, NewVD); // HLSL Change
   return NewVD;
 }
 
@@ -8106,6 +8109,15 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
     AddToScope = false;
   }
 
+  // HLSL Change Starts
+  TransferUnusualAttributes(D, NewFD);
+
+  if (getLangOpts().HLSL && D.isFunctionDefinition() && D.hasName() &&
+      NewFD->getDeclContext()->getRedeclContext()->isTranslationUnit()) {
+    hlsl::DiagnoseEntry(*this, NewFD);
+  }
+  // HLSL Change Ends
+
   return NewFD;
 }
 
@@ -9151,6 +9163,13 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   // Get the decls type and save a reference for later, since
   // CheckInitializerTypes may change it.
   QualType DclT = VDecl->getType(), SavT = DclT;
+
+  // HLSL Change begin
+  // When initializing an HLSL resource type we should diagnose mismatches in
+  // globally coherent annotations _unless_ the source is a dynamic resource
+  // placeholder type where we safely infer the globallycoherent annotaiton.
+  DiagnoseGloballyCoherentMismatch(Init, DclT, Init->getExprLoc());
+  // HLSL Change end
   
   // Expressions default to 'id' when we're in a debugger
   // and we are assigning it to a variable of Objective-C pointer type.

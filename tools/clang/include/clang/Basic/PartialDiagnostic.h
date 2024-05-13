@@ -270,7 +270,7 @@ public:
 
     assert(DiagStorage->NumDiagArgs < Storage::MaxArguments &&
            "Too many arguments to diagnostic!");
-    _Analysis_assume_(DiagStorage->NumDiagArgs < Storage::MaxArguments);
+    assert(DiagStorage->NumDiagArgs < Storage::MaxArguments);
     DiagStorage->DiagArgumentsKind[DiagStorage->NumDiagArgs] = Kind;
     DiagStorage->DiagArgumentsVal[DiagStorage->NumDiagArgs++] = V;
   }
@@ -281,7 +281,7 @@ public:
 
     assert(DiagStorage->NumDiagArgs < Storage::MaxArguments &&
            "Too many arguments to diagnostic!");
-    _Analysis_assume_(DiagStorage->NumDiagArgs < Storage::MaxArguments);
+    assert(DiagStorage->NumDiagArgs < Storage::MaxArguments);
     DiagStorage->DiagArgumentsKind[DiagStorage->NumDiagArgs]
       = DiagnosticsEngine::ak_std_string;
     DiagStorage->DiagArgumentsStr[DiagStorage->NumDiagArgs++] = V;

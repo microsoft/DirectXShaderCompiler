@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd %s -spirv | FileCheck %s
 
 // globalS.t should take binding #0.
 // globalS.s should take binding #1.

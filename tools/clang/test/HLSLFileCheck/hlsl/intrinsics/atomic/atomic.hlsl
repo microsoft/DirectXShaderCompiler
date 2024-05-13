@@ -2,6 +2,7 @@
 // RUN: %dxc -E main -DTYPE=int -T cs_6_0 %s | FileCheck %s
 // RUN: %dxc -E main -DTYPE=uint64_t -T cs_6_6 %s | FileCheck %s
 // RUN: %dxc -E main -DTYPE=int64_t -T cs_6_6 %s | FileCheck %s
+// RUN: %dxc -E main -DTYPE=int -T cs_6_0 -ast-dump-implicit %s | FileCheck %s -check-prefix=AST
 
 // CHECK: Compute Shader
 // CHECK: NumThreads=(8,8,1)
@@ -87,3 +88,51 @@ void main( uint GI : SV_GroupIndex, uint3 DTid : SV_DispatchThreadID )
 	// CHECK: atomicrmw
 	InterlockedAdd(shareMem[DTid.z].r, 1);
 }
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit InterlockedAdd 'void (unsigned long long &, unsigned long long)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'unsigned long long &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned long long'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit used InterlockedAdd 'void (int &, unsigned int)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'int &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned int'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit InterlockedAdd 'void (unsigned long long &, unsigned long long, long long &)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'unsigned long long &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned long long'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} original 'long long &&__restrict'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit used InterlockedAdd 'void (int &, unsigned int, int &)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'int &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned int'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} original 'int &&__restrict'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit InterlockedCompareStore 'void (unsigned long long &, unsigned long long, unsigned long long)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'unsigned long long &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} compare 'unsigned long long'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned long long'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit used InterlockedCompareStore 'void (int &, unsigned int, unsigned int)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'int &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} compare 'unsigned int'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned int'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit InterlockedCompareExchange 'void (unsigned long long &, unsigned long long, unsigned long long, long long &)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'unsigned long long &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} compare 'unsigned long long'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned long long'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} original 'long long &&__restrict'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""
+
+// AST: FunctionDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} implicit used InterlockedCompareExchange 'void (int &, unsigned int, unsigned int, int &)' extern
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} result 'int &'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} compare 'unsigned int'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} value 'unsigned int'
+// AST-NEXT: |-ParmVarDecl {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} original 'int &&__restrict'
+// AST-NEXT: `-HLSLIntrinsicAttr {{0x[0-9a-fA-F]+}} {{[<>a-z ]+}} Implicit "op" ""

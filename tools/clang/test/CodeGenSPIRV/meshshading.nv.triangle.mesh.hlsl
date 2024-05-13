@@ -1,7 +1,7 @@
-// RUN: %dxc -T ms_6_5 -E main
+// RUN: %dxc -T ms_6_5 -E main -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability MeshShadingNV
 // CHECK:  OpExtension "SPV_NV_mesh_shader"
-// CHECK:  OpEntryPoint MeshNV %main "main" %gl_ClipDistance %gl_CullDistance %in_var_dummy %in_var_pos [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primind:%\d+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[vmask:%\d+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR [[primcount:%\d+]]
+// CHECK:  OpEntryPoint MeshNV %main "main" %gl_ClipDistance %gl_CullDistance %in_var_dummy %in_var_pos [[drawid:%[0-9]+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primind:%[0-9]+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[vmask:%[0-9]+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR [[primcount:%[0-9]+]]
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 // CHECK:  OpExecutionMode %main OutputTrianglesNV
 // CHECK:  OpExecutionMode %main OutputVertices 64
@@ -115,63 +115,63 @@ void main(
 
     // Directly assign to per-vertex attribute object.
 
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_Position {{%\d+}} %uint_0
-// CHECK:  OpStore {{%\d+}} %float_11
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_Position {{%[0-9]+}} %uint_0
+// CHECK:  OpStore {{%[0-9]+}} %float_11
     verts[tid].position.x = 11.0;
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_Position {{%\d+}} %uint_1
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_Position {{%\d+}} %uint_3
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_Position {{%[0-9]+}} %uint_1
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_Position {{%[0-9]+}} %uint_3
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     verts[tid].position.yw = float2(12.0,14.0);
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_Position {{%\d+}} %uint_2
-// CHECK:  OpStore {{%\d+}} %float_13
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_Position {{%[0-9]+}} %uint_2
+// CHECK:  OpStore {{%[0-9]+}} %float_13
     verts[tid].position[2] = 13.0;
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_PointSize {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %float_50
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_PointSize {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %float_50
     verts[tid].psize = 50.0;
 // CHECK:  OpIAdd %uint %uint_1 %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%\d+}} {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
 // CHECK:  OpIAdd %uint %uint_0 %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%\d+}} {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
 // CHECK:  OpIAdd %uint %uint_2 %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%\d+}} {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     verts[tid].clipdis4.yxz = float3(0.0,1.0,2.0);
 // CHECK:  OpIAdd %uint %uint_0 %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%\d+}} {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %float_10
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %float_10
     verts[tid].clipdis4[0] = 10.0;
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_CullDistance {{%\d+}} %uint_0
-// CHECK:  OpStore {{%\d+}} %float_5
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_CullDistance {{%[0-9]+}} %uint_0
+// CHECK:  OpStore {{%[0-9]+}} %float_5
     verts[tid].culldis5 = 5.0;
 // CHECK:  OpIAdd %uint %uint_0 %uint_0
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%\d+}} {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
 // CHECK:  OpIAdd %uint %uint_0 %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%\d+}} {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_ClipDistance {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     verts[tid].clipdis3 = float2(11.0,12.0);
 // CHECK:  OpIAdd %uint %uint_0 %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_CullDistance {{%\d+}} {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %float_13
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_CullDistance {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %float_13
     verts[tid].culldis6[0] = 13.0;
 // CHECK:  OpIAdd %uint %uint_1 %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_float %gl_CullDistance {{%\d+}} {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %float_14
+// CHECK:  OpAccessChain %_ptr_Output_float %gl_CullDistance {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %float_14
     verts[tid].culldis6.y = 14.0;
-// CHECK:  OpAccessChain %_ptr_Output_v2float %out_var_USER {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_v2float %out_var_USER {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     verts[tid].userVertAttr = float2(9.0, 10.0);
-// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_USER_ARR {{%\d+}} %int_0
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_USER_ARR {{%[0-9]+}} %int_0
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     verts[tid].userVertAttrArr[0] = float4(17.0, 18.0, 19.0, 20.0);
-// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_USER_ARR {{%\d+}} %int_1
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_USER_ARR {{%[0-9]+}} %int_1
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     verts[tid].userVertAttrArr[1] = float4(27.0, 28.0, 29.0, 30.0);
-// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_USER_MAT {{%\d+}} %uint_3
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_USER_MAT {{%[0-9]+}} %uint_3
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     verts[tid].userVertAttrMat[3] = float4(7.0, 8.0, 9.0, 10.0);
 
     // Indirectly assign to per-vertex attribute object.
@@ -192,26 +192,26 @@ void main(
 
     // Directly assign to per-vertex attribute object.
  
-// CHECK:  OpAccessChain %_ptr_Output_int %gl_PrimitiveID {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %int_10
+// CHECK:  OpAccessChain %_ptr_Output_int %gl_PrimitiveID {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %int_10
     prims[tig].primId = 10;
-// CHECK:  OpAccessChain %_ptr_Output_int %gl_Layer {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %int_11
+// CHECK:  OpAccessChain %_ptr_Output_int %gl_Layer {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %int_11
     prims[tig].layer = 11;
-// CHECK:  OpAccessChain %_ptr_Output_int %gl_ViewportIndex {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %int_12
+// CHECK:  OpAccessChain %_ptr_Output_int %gl_ViewportIndex {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %int_12
     prims[tig].vpIdx = 12;
-// CHECK:  OpAccessChain %_ptr_Output_int [[vmask]] {{%\d+}} %int_0
-// CHECK:  OpStore {{%\d+}} %int_32
+// CHECK:  OpAccessChain %_ptr_Output_int [[vmask]] {{%[0-9]+}} %int_0
+// CHECK:  OpStore {{%[0-9]+}} %int_32
     prims[tig].vmask[0] = 32;
-// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_PRIM_USER_ARR {{%\d+}} %int_0
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_PRIM_USER_ARR {{%[0-9]+}} %int_0
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     prims[tig].userPrimAttrArr[0] = float4(4.0,5.0,6.0,7.0);
-// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_PRIM_USER_ARR {{%\d+}} %int_1
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_v4float %out_var_PRIM_USER_ARR {{%[0-9]+}} %int_1
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     prims[tig].userPrimAttrArr[1] = float4(8.0,9.0,10.0,11.0);
-// CHECK:  OpAccessChain %_ptr_Output_v3float %out_var_PRIM_USER {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpAccessChain %_ptr_Output_v3float %out_var_PRIM_USER {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     prims[tig].userPrimAttr = float3(14.0,15.0,16.0);
 
     // Indirectly assign to per-vertex attribute object.
@@ -228,43 +228,43 @@ void main(
     // Assign primitive indices.
 
 // CHECK:  OpIMul %uint %uint_4 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_0
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %uint_1
+// CHECK:  OpIAdd %uint {{%[0-9]+}} %uint_0
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %uint_1
     primitiveInd[4].x = 1;
-// CHECK:  OpCompositeExtract %uint {{%\d+}} 0
+// CHECK:  OpCompositeExtract %uint {{%[0-9]+}} 0
 // CHECK:  OpIMul %uint %uint_4 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
-// CHECK:  OpCompositeExtract %uint {{%\d+}} 1
+// CHECK:  OpIAdd %uint {{%[0-9]+}} %uint_1
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpCompositeExtract %uint {{%[0-9]+}} 1
 // CHECK:  OpIMul %uint %uint_4 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpIAdd %uint {{%[0-9]+}} %uint_2
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     primitiveInd[4].yz = uint2(2,3);
 // CHECK:  OpIMul %uint %uint_2 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %uint_2
+// CHECK:  OpIAdd %uint {{%[0-9]+}} %uint_1
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %uint_2
     primitiveInd[2].y = 2;
 // CHECK:  OpIMul %uint %uint_2 %uint_3
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
-// CHECK:  OpStore {{%\d+}} %uint_1
+// CHECK:  OpIAdd %uint {{%[0-9]+}} %uint_2
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%[0-9]+}}
+// CHECK:  OpStore {{%[0-9]+}} %uint_1
     primitiveInd[2][2] = 1;
 // CHECK:  OpLoad %uint %tid
-// CHECK:  OpIMul %uint {{%\d+}} %uint_3
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
-// CHECK:  OpCompositeExtract %uint {{%\d+}} 0
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_1
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
-// CHECK:  OpCompositeExtract %uint {{%\d+}} 1
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
-// CHECK:  OpIAdd %uint {{%\d+}} %uint_2
-// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%\d+}}
-// CHECK:  OpCompositeExtract %uint {{%\d+}} 2
-// CHECK:  OpStore {{%\d+}} {{%\d+}}
+// CHECK:  OpIMul %uint {{%[0-9]+}} %uint_3
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%[0-9]+}}
+// CHECK:  OpCompositeExtract %uint {{%[0-9]+}} 0
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpIAdd %uint {{%[0-9]+}} %uint_1
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%[0-9]+}}
+// CHECK:  OpCompositeExtract %uint {{%[0-9]+}} 1
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpIAdd %uint {{%[0-9]+}} %uint_2
+// CHECK:  OpAccessChain %_ptr_Output_uint [[primind]] {{%[0-9]+}}
+// CHECK:  OpCompositeExtract %uint {{%[0-9]+}} 2
+// CHECK:  OpStore {{%[0-9]+}} {{%[0-9]+}}
     primitiveInd[tid] = uint3(11,12,13);
 }

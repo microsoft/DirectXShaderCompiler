@@ -14,6 +14,9 @@
 #include "clang/CodeGen/ModuleBuilder.h"
 #include "CGDebugInfo.h"
 #include "CodeGenModule.h"
+#include "dxc/DXIL/DxilMetadataHelper.h"         // HLSL Change - dx source info
+#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
+#include "dxc/Support/Path.h"                    // HLSL Change
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/Expr.h"
@@ -24,10 +27,8 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include <memory>
-#include "dxc/DXIL/DxilMetadataHelper.h" // HLSL Change - dx source info
-#include "dxc/DxcBindingTable/DxcBindingTable.h" // HLSL Change
 #include "llvm/Support/Path.h"
+#include <memory>
 using namespace clang;
 
 namespace {
@@ -275,17 +276,21 @@ namespace {
                  end = Ctx.getSourceManager().fileinfo_end();
              it != end; ++it) {
           if (it->first->isValid() && !it->second->IsSystemFile) {
+            llvm::SmallString<256> path = StringRef(it->first->getName());
+            llvm::sys::path::native(path);
+
+            StringRef contentBuffer = it->second->getRawBuffer()->getBuffer();
             // If main file, write that to metadata first.
             // Add the rest to filesMap to sort by name.
-            llvm::SmallString<128> NormalizedPath;
-            llvm::sys::path::native(it->first->getName(), NormalizedPath);
             if (CodeGenOpts.MainFileName.compare(it->first->getName()) == 0) {
               assert(!bFoundMainFile && "otherwise, more than one file matches main filename");
-              AddFile(NormalizedPath, it->second->getRawBuffer()->getBuffer());
+              AddFile(path, contentBuffer);
               bFoundMainFile = true;
             } else {
-              filesMap[NormalizedPath.str()] =
-                  it->second->getRawBuffer()->getBuffer();
+              // We want the include file paths to match the values passed into
+              // the include handlers exactly. The SourceManager entries should
+              // match it except the call to MakeAbsoluteOrCurDirRelative.
+              filesMap[path.str()] = contentBuffer;
             }
           }
         }

@@ -62,6 +62,9 @@ class TestingProgressDisplay(object):
             print(test.result.output)
             print("*" * 20)
 
+        if self.opts.showAllOutput:
+            print(test.result.output)
+
         # Report test metrics, if present.
         if test.result.metrics:
             print("%s TEST '%s' RESULTS %s" % ('*'*10, test.getFullName(),
@@ -163,6 +166,10 @@ def main(builtinParameters = {}):
     group.add_option("-v", "--verbose", dest="showOutput",
                      help="Show all test output",
                      action="store_true", default=False)
+    group.add_option("-a", "--show-all",
+            dest="showAllOutput",
+            help="Display all commandlines and output",
+            action="store_true", default=False)
     group.add_option("-o", "--output", dest="output_path",
                      help="Write test results to the provided path",
                      action="store", type=str, metavar="PATH")
@@ -237,6 +244,9 @@ def main(builtinParameters = {}):
     group.add_option("", "--use-threads", dest="useProcesses",
                       help="Run tests in parallel with threads (not processes)",
                       action="store_false", default=useProcessesIsDefault)
+    group.add_option("", "--xml-include-test-output", dest="xmlIncludeTestOutput",
+                      help="Include system out in xml output for all tests",
+                      action="store_true", default=False)
     parser.add_option_group(group)
 
     (opts, args) = parser.parse_args()
@@ -440,7 +450,7 @@ def main(builtinParameters = {}):
                 by_suite[suite]['failures'] += 1
             else:
                 by_suite[suite]['passes'] += 1
-        xunit_output_file = open(opts.xunit_output_file, "w")
+        xunit_output_file = open(opts.xunit_output_file, "w", encoding="utf-8", errors="xmlcharrefreplace")
         xunit_output_file.write("<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\n")
         xunit_output_file.write("<testsuites>\n")
         for suite_name, suite in by_suite.items():
@@ -451,7 +461,7 @@ def main(builtinParameters = {}):
             xunit_output_file.write(" failures='" + str(suite['failures']) + 
               "'>\n")
             for result_test in suite['tests']:
-                xunit_output_file.write(result_test.getJUnitXML() + "\n")
+                xunit_output_file.write(result_test.getJUnitXML(opts.xmlIncludeTestOutput) + "\n")
             xunit_output_file.write("</testsuite>\n")
         xunit_output_file.write("</testsuites>")
         xunit_output_file.close()

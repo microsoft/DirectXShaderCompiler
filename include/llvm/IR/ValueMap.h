@@ -295,14 +295,17 @@ struct DenseMapInfo<ValueMapCallbackVH<KeyT, ValueT, Config> > {
 
 
 template<typename DenseMapT, typename KeyT>
-class ValueMapIterator :
-    public std::iterator<std::forward_iterator_tag,
-                         std::pair<KeyT, typename DenseMapT::mapped_type>,
-                         ptrdiff_t> {
+class ValueMapIterator {
   typedef typename DenseMapT::iterator BaseT;
   typedef typename DenseMapT::mapped_type ValueT;
   BaseT I;
 public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = std::pair<KeyT, typename DenseMapT::mapped_type>;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   ValueMapIterator() : I() {}
 
   ValueMapIterator(BaseT I) : I(I) {}
@@ -344,14 +347,17 @@ public:
 };
 
 template<typename DenseMapT, typename KeyT>
-class ValueMapConstIterator :
-    public std::iterator<std::forward_iterator_tag,
-                         std::pair<KeyT, typename DenseMapT::mapped_type>,
-                         ptrdiff_t> {
+class ValueMapConstIterator {
   typedef typename DenseMapT::const_iterator BaseT;
   typedef typename DenseMapT::mapped_type ValueT;
   BaseT I;
 public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = std::pair<KeyT, typename DenseMapT::mapped_type>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
+
   ValueMapConstIterator() : I() {}
   ValueMapConstIterator(BaseT I) : I(I) {}
   ValueMapConstIterator(ValueMapIterator<DenseMapT, KeyT> Other)

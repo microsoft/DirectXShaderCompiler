@@ -9,15 +9,16 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilSignature.h"
 #include "dxc/DXIL/DxilSigPoint.h"
+#include "dxc/DXIL/DxilSignature.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
+#include "dxc/Support/Global.h"
 
 using namespace hlsl;
 using namespace llvm;
 
 #include <assert.h> // Needed for DxilPipelineStateValidation.h
-#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include <functional>
+
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/HLSL/ViewIDPipelineValidation.inl"

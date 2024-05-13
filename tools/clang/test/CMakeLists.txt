@@ -89,7 +89,7 @@ add_lit_testsuite(check-clang "Running the Clang regression tests"
   ${CMAKE_CURRENT_BINARY_DIR}
   #LIT ${LLVM_LIT}
   PARAMS ${CLANG_TEST_PARAMS}
-    skip_taef_exec=True
+    skip_taef_exec=False
   DEPENDS ${CLANG_TEST_DEPS}
   ARGS ${CLANG_TEST_EXTRA_ARGS}
   )
@@ -100,30 +100,51 @@ add_custom_target(clang-test)
 add_dependencies(clang-test check-clang)
 set_target_properties(clang-test PROPERTIES FOLDER "Clang tests")
 
+# HLSL Change Begin - Generate lit targets for test subdirectories.
 
-# HLSL Change Begin - Add a separate target for clang unit tests
+set(CLANG_TEST_PARAMS
+  ${CLANG_TEST_PARAMS}
+  clang_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
+  clang_taef_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
+  no_priority=True
+  clang_taef_exec_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
+  )
+
+add_lit_testsuites(CLANG ${CMAKE_CURRENT_SOURCE_DIR}
+  PARAMS ${CLANG_TEST_PARAMS}
+  DEPENDS ${CLANG_TEST_DEPS}
+  FOLDER "Clang tests/Suites"
+)
+
+# Manually generate targets that we need to expose in visual studio builds.
+
+# The code below here _ONLY_ executes when building with Visual Studio or Xcode.
+if (NOT CMAKE_CONFIGURATION_TYPES)
+  return()
+endif()
+
+# Add the unit test suite
 add_lit_target("check-clang-unit" "Running lit suite clang-unit"
           ${CMAKE_CURRENT_SOURCE_DIR}/Unit
           PARAMS ${CLANG_TEST_PARAMS}
-                 clang_unit_site_config=${CMAKE_CURRENT_BINARY_DIR}/Unit/lit.site.cfg
           DEPENDS ClangUnitTests
           ARGS ${CLANG_TEST_EXTRA_ARGS}
         )
-# HLSL Change End - Add a separate target for clang unit tests
 
-# HLSL Change Begin - Add taef tests
+# Add TAEF targets
 if (WIN32)
   add_lit_target("check-clang-taef" "Running lit suite hlsl"
             ${CMAKE_CURRENT_SOURCE_DIR}/taef
             PARAMS ${CLANG_TEST_PARAMS}
-                  clang_taef_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef/lit.site.cfg
             DEPENDS ClangHLSLTests
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )
+  set(TAEF_EXEC_ADAPTER "" CACHE STRING "adapter for taef exec test")
+
   add_lit_target("check-clang-taef-exec" "Running lit suite hlsl execution test"
             ${CMAKE_CURRENT_SOURCE_DIR}/taef_exec
             PARAMS ${CLANG_TEST_PARAMS}
-                  clang_taef_exec_site_config=${CMAKE_CURRENT_BINARY_DIR}/taef_exec/lit.site.cfg
+                adapter=${TAEF_EXEC_ADAPTER}
             DEPENDS ExecHLSLTests dxexp
             ARGS ${CLANG_TEST_EXTRA_ARGS}
           )

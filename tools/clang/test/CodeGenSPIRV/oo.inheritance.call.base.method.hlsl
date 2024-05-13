@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_5_0 -E main -fspv-target-env=vulkan1.1
+// RUN: %dxc -T vs_5_0 -E main -fspv-target-env=vulkan1.1 -fcgl %s -spirv | FileCheck %s
 
 // CHECK: %bar = OpTypeStruct %empty %mat4v4float
 // CHECK: %foo = OpTypeStruct %bar
@@ -23,7 +23,7 @@ struct foo : bar {
 
 // CHECK:     %foo_get = OpFunction
 // CHECK:  %param_this = OpFunctionParameter %_ptr_Function_foo
-// CHECK: [[bar:%\w+]] = OpAccessChain %_ptr_Function_bar %param_this %uint_0
+// CHECK: [[bar:%[a-zA-Z0-9_]+]] = OpAccessChain %_ptr_Function_bar %param_this %uint_0
 // CHECK:                OpFunctionCall %v4float %bar_value [[bar]]
 
   float4 get() {

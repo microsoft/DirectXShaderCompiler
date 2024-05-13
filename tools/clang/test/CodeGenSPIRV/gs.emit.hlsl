@@ -1,4 +1,4 @@
-// RUN: %dxc -T gs_6_0 -E main
+// RUN: %dxc -T gs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct GsInnerOut {
     float2 bar  : BAR;
@@ -10,7 +10,7 @@ struct GsPerVertexOut {
     GsInnerOut s;
 };
 
-// CHECK: [[null:%\d+]] = OpConstantNull %GsPerVertexOut
+// CHECK: [[null:%[0-9]+]] = OpConstantNull %GsPerVertexOut
 
 [maxvertexcount(2)]
 void main(in    line float2 foo[2] : FOO,
@@ -26,27 +26,27 @@ void main(in    line float2 foo[2] : FOO,
     vertex = (GsPerVertexOut)0;
 
 // Write back to stage output variables
-// CHECK-NEXT: [[vertex:%\d+]] = OpLoad %GsPerVertexOut %vertex
-// CHECK-NEXT:    [[pos:%\d+]] = OpCompositeExtract %v4float [[vertex]] 0
+// CHECK-NEXT: [[vertex:%[0-9]+]] = OpLoad %GsPerVertexOut %vertex
+// CHECK-NEXT:    [[pos:%[0-9]+]] = OpCompositeExtract %v4float [[vertex]] 0
 // CHECK-NEXT:                   OpStore %gl_Position_0 [[pos]]
-// CHECK-NEXT:    [[foo:%\d+]] = OpCompositeExtract %v3float [[vertex]] 1
+// CHECK-NEXT:    [[foo:%[0-9]+]] = OpCompositeExtract %v3float [[vertex]] 1
 // CHECK-NEXT:                   OpStore %out_var_FOO [[foo]]
-// CHECK-NEXT:      [[s:%\d+]] = OpCompositeExtract %GsInnerOut [[vertex]] 2
-// CHECK-NEXT:    [[bar:%\d+]] = OpCompositeExtract %v2float [[s]] 0
+// CHECK-NEXT:      [[s:%[0-9]+]] = OpCompositeExtract %GsInnerOut [[vertex]] 2
+// CHECK-NEXT:    [[bar:%[0-9]+]] = OpCompositeExtract %v2float [[s]] 0
 // CHECK-NEXT:                   OpStore %out_var_BAR [[bar]]
 // CHECK-NEXT:                   OpEmitVertex
 
     outData.Append(vertex);
 
 // Write back to stage output variables
-// CHECK-NEXT: [[vertex:%\d+]] = OpLoad %GsPerVertexOut %vertex
-// CHECK-NEXT:    [[pos:%\d+]] = OpCompositeExtract %v4float [[vertex]] 0
-// CHECK-NEXT:                   OpStore %gl_Position_0 [[pos]]
-// CHECK-NEXT:    [[foo:%\d+]] = OpCompositeExtract %v3float [[vertex]] 1
-// CHECK-NEXT:                   OpStore %out_var_FOO [[foo]]
-// CHECK-NEXT:      [[s:%\d+]] = OpCompositeExtract %GsInnerOut [[vertex]] 2
-// CHECK-NEXT:    [[bar:%\d+]] = OpCompositeExtract %v2float [[s]] 0
-// CHECK-NEXT:                   OpStore %out_var_BAR [[bar]]
+// CHECK-NEXT: [[vertex_0:%[0-9]+]] = OpLoad %GsPerVertexOut %vertex
+// CHECK-NEXT:    [[pos_0:%[0-9]+]] = OpCompositeExtract %v4float [[vertex_0]] 0
+// CHECK-NEXT:                   OpStore %gl_Position_0 [[pos_0]]
+// CHECK-NEXT:    [[foo_0:%[0-9]+]] = OpCompositeExtract %v3float [[vertex_0]] 1
+// CHECK-NEXT:                   OpStore %out_var_FOO [[foo_0]]
+// CHECK-NEXT:      [[s_0:%[0-9]+]] = OpCompositeExtract %GsInnerOut [[vertex_0]] 2
+// CHECK-NEXT:    [[bar_0:%[0-9]+]] = OpCompositeExtract %v2float [[s_0]] 0
+// CHECK-NEXT:                   OpStore %out_var_BAR [[bar_0]]
 // CHECK-NEXT:                   OpEmitVertex
     outData.Append(vertex);
 

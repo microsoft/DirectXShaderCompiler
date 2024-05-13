@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -spirv -fspv-print-all
+// RUN: %dxc -T ps_6_0 -E main -spirv -fspv-print-all -fcgl  %s -spirv | FileCheck %s
 
 // We expect the whole module to be printed multiple times, but we cannot check
 // that here as stderr contents do not appear as test diagnostics. Instead,

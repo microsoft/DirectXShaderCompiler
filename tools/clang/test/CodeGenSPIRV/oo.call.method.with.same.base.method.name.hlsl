@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_5_0 -E main -fspv-target-env=vulkan1.1
+// RUN: %dxc -T vs_5_0 -E main -fspv-target-env=vulkan1.1 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: %bar = OpTypeStruct %empty %mat4v4float
 // CHECK: %foo = OpTypeStruct %bar

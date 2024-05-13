@@ -7,7 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "dxc/WinAdapter.h" // HLSL Change
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/SwapByteOrder.h"
 #include <string>
@@ -15,7 +14,6 @@
 
 namespace llvm {
 
-_Use_decl_annotations_ // HLSL Change
 bool ConvertUTF8toWide(unsigned WideCharWidth, llvm::StringRef Source,
                        char *&ResultPtr, const UTF8 *&ErrorPtr) {
   assert(WideCharWidth == 1 || WideCharWidth == 2 || WideCharWidth == 4);
@@ -62,7 +60,6 @@ bool ConvertUTF8toWide(unsigned WideCharWidth, llvm::StringRef Source,
   return result == conversionOK;
 }
 
-_Use_decl_annotations_ // HLSL Change
 bool ConvertCodePointToUTF8(unsigned Source, char *&ResultPtr) {
   const UTF32 *SourceStart = &Source;
   const UTF32 *SourceEnd = SourceStart + 1;

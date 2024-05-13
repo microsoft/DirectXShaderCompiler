@@ -12,13 +12,12 @@
 #pragma once
 
 #include "dxc/DXIL/DxilConstants.h"
-#include <string>
 
+#include "llvm/ADT/StringRef.h"
 
 namespace hlsl {
 
 class Semantic;
-
 
 /// <summary>
 /// Use this class to represent HLSL shader model.
@@ -28,28 +27,29 @@ public:
   using Kind = DXIL::ShaderKind;
 
   // Major/Minor version of highest shader model
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_shader_model()</py>*/
+  // clang-format on
   // VALRULE-TEXT:BEGIN
   static const unsigned kHighestMajor = 6;
-  static const unsigned kHighestMinor = 7;
+  static const unsigned kHighestMinor = 8;
   // VALRULE-TEXT:END
   static const unsigned kOfflineMinor = 0xF;
 
-  bool IsPS() const     { return m_Kind == Kind::Pixel; }
-  bool IsVS() const     { return m_Kind == Kind::Vertex; }
-  bool IsGS() const     { return m_Kind == Kind::Geometry; }
-  bool IsHS() const     { return m_Kind == Kind::Hull; }
-  bool IsDS() const     { return m_Kind == Kind::Domain; }
-  bool IsCS() const     { return m_Kind == Kind::Compute; }
-  bool IsLib() const    { return m_Kind == Kind::Library; }
-  bool IsRay() const    { return m_Kind >= Kind::RayGeneration && m_Kind <= Kind::Callable; }
-  bool IsMS() const     { return m_Kind == Kind::Mesh; }
-  bool IsAS() const     { return m_Kind == Kind::Amplification; }
+  bool IsPS() const { return m_Kind == Kind::Pixel; }
+  bool IsVS() const { return m_Kind == Kind::Vertex; }
+  bool IsGS() const { return m_Kind == Kind::Geometry; }
+  bool IsHS() const { return m_Kind == Kind::Hull; }
+  bool IsDS() const { return m_Kind == Kind::Domain; }
+  bool IsCS() const { return m_Kind == Kind::Compute; }
+  bool IsLib() const { return m_Kind == Kind::Library; }
+  bool IsMS() const { return m_Kind == Kind::Mesh; }
+  bool IsAS() const { return m_Kind == Kind::Amplification; }
   bool IsValid() const;
   bool IsValidForDxil() const;
-  bool IsValidForModule() const;
 
-  Kind GetKind() const      { return m_Kind; }
+  Kind GetKind() const { return m_Kind; }
   unsigned GetMajor() const { return m_Major; }
   unsigned GetMinor() const { return m_Minor; }
   void GetDxilVersion(unsigned &DxilMajor, unsigned &DxilMinor) const;
@@ -57,9 +57,13 @@ public:
   bool IsSMAtLeast(unsigned Major, unsigned Minor) const {
     return m_Major > Major || (m_Major == Major && m_Minor >= Minor);
   }
-  bool IsSM50Plus() const   { return IsSMAtLeast(5, 0); }
-  bool IsSM51Plus() const   { return IsSMAtLeast(5, 1); }
+  bool IsSM50Plus() const { return IsSMAtLeast(5, 0); }
+  bool IsSM51Plus() const { return IsSMAtLeast(5, 1); }
+  bool AllowDerivatives(DXIL::ShaderKind sk) const;
+  // clang-format off
+  // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_is_shader_model_plus()</py>*/
+  // clang-format on
   // VALRULE-TEXT:BEGIN
   bool IsSM60Plus() const { return IsSMAtLeast(6, 0); }
   bool IsSM61Plus() const { return IsSMAtLeast(6, 1); }
@@ -69,15 +73,34 @@ public:
   bool IsSM65Plus() const { return IsSMAtLeast(6, 5); }
   bool IsSM66Plus() const { return IsSMAtLeast(6, 6); }
   bool IsSM67Plus() const { return IsSMAtLeast(6, 7); }
+  bool IsSM68Plus() const { return IsSMAtLeast(6, 8); }
   // VALRULE-TEXT:END
   const char *GetName() const { return m_pszName; }
   const char *GetKindName() const;
 
-  DXIL::PackingStrategy GetDefaultPackingStrategy() const { return DXIL::PackingStrategy::PrefixStable; }
+  DXIL::PackingStrategy GetDefaultPackingStrategy() const {
+    return DXIL::PackingStrategy::PrefixStable;
+  }
 
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
-  static const ShaderModel *GetByName(const char *pszName);
+  static const ShaderModel *GetByName(llvm::StringRef Name);
   static const char *GetKindName(Kind kind);
+  static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
+  static const llvm::StringRef FullNameFromKind(DXIL::ShaderKind sk);
+  static const char *GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy);
+  static DXIL::NodeLaunchType NodeLaunchTypeFromName(llvm::StringRef name);
+
+  static bool HasVisibleGroup(
+      DXIL::ShaderKind SK,
+      DXIL::NodeLaunchType launchType = DXIL::NodeLaunchType::Invalid) {
+    // Note: Library case is permissive; enforced at entry point.
+    return SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Mesh ||
+           SK == DXIL::ShaderKind::Amplification ||
+           SK == DXIL::ShaderKind::Library ||
+           (SK == DXIL::ShaderKind::Node &&
+            (launchType == DXIL::NodeLaunchType::Broadcasting ||
+             launchType == DXIL::NodeLaunchType::Coalescing));
+  }
 
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }
@@ -89,16 +112,16 @@ private:
   const char *m_pszName;
   unsigned m_NumInputRegs;
   unsigned m_NumOutputRegs;
-  bool     m_bTypedUavs;
+  bool m_bTypedUavs;
   unsigned m_NumUAVRegs;
 
   ShaderModel() = delete;
   ShaderModel(Kind Kind, unsigned Major, unsigned Minor, const char *pszName,
-              unsigned m_NumInputRegs, unsigned m_NumOutputRegs,
-              bool m_bUAVs, bool m_bTypedUavs, unsigned m_UAVRegsLim);
+              unsigned m_NumInputRegs, unsigned m_NumOutputRegs, bool m_bUAVs,
+              bool m_bTypedUavs, unsigned m_UAVRegsLim);
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_num_shader_models()</py>*/
   // VALRULE-TEXT:BEGIN
-  static const unsigned kNumShaderModels = 83;
+  static const unsigned kNumShaderModels = 92;
   // VALRULE-TEXT:END
   static const ShaderModel ms_ShaderModels[kNumShaderModels];
 

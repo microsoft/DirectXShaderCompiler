@@ -9,15 +9,16 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilSubobject.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/DXIL/DxilSubobject.h"
-#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 
 namespace hlsl {
 
-bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, const RDAT::DxilRuntimeData &rdat) {
+bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects,
+                            const RDAT::DxilRuntimeData &rdat) {
   auto table = rdat.GetSubobjectTable();
   if (!table)
     return false;
@@ -29,8 +30,8 @@ bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, const RDAT::DxilRuntimeD
       bool bLocalRS = false;
       switch (kind) {
       case DXIL::SubobjectKind::StateObjectConfig:
-        subobjects.CreateStateObjectConfig(reader.getName(),
-          reader.getStateObjectConfig().getFlags());
+        subobjects.CreateStateObjectConfig(
+            reader.getName(), reader.getStateObjectConfig().getFlags());
         break;
       case DXIL::SubobjectKind::LocalRootSignature:
         bLocalRS = true;
@@ -53,35 +54,37 @@ bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, const RDAT::DxilRuntimeD
         for (unsigned i = 0; i < NumExports; ++i) {
           Exports[i] = exports[i];
         }
-        subobjects.CreateSubobjectToExportsAssociation(reader.getName(),
-          association.getSubobject(), Exports.data(), NumExports);
+        subobjects.CreateSubobjectToExportsAssociation(
+            reader.getName(), association.getSubobject(), Exports.data(),
+            NumExports);
         break;
       }
       case DXIL::SubobjectKind::RaytracingShaderConfig:
-        subobjects.CreateRaytracingShaderConfig(reader.getName(),
-          reader.getRaytracingShaderConfig().getMaxPayloadSizeInBytes(),
-          reader.getRaytracingShaderConfig().getMaxAttributeSizeInBytes());
+        subobjects.CreateRaytracingShaderConfig(
+            reader.getName(),
+            reader.getRaytracingShaderConfig().getMaxPayloadSizeInBytes(),
+            reader.getRaytracingShaderConfig().getMaxAttributeSizeInBytes());
         break;
       case DXIL::SubobjectKind::RaytracingPipelineConfig:
-        subobjects.CreateRaytracingPipelineConfig(reader.getName(),
-          reader.getRaytracingPipelineConfig().getMaxTraceRecursionDepth());
+        subobjects.CreateRaytracingPipelineConfig(
+            reader.getName(),
+            reader.getRaytracingPipelineConfig().getMaxTraceRecursionDepth());
         break;
       case DXIL::SubobjectKind::HitGroup:
         subobjects.CreateHitGroup(reader.getName(),
-          reader.getHitGroup().getType(),
-          reader.getHitGroup().getAnyHit(),
-          reader.getHitGroup().getClosestHit(),
-          reader.getHitGroup().getIntersection());
+                                  reader.getHitGroup().getType(),
+                                  reader.getHitGroup().getAnyHit(),
+                                  reader.getHitGroup().getClosestHit(),
+                                  reader.getHitGroup().getIntersection());
         break;
       case DXIL::SubobjectKind::RaytracingPipelineConfig1:
         subobjects.CreateRaytracingPipelineConfig1(
-          reader.getName(),
-          reader.getRaytracingPipelineConfig1().getMaxTraceRecursionDepth(),
-          reader.getRaytracingPipelineConfig1().getFlags());
+            reader.getName(),
+            reader.getRaytracingPipelineConfig1().getMaxTraceRecursionDepth(),
+            reader.getRaytracingPipelineConfig1().getFlags());
         break;
       }
-    }
-    catch (hlsl::Exception &) {
+    } catch (hlsl::Exception &) {
       result = false;
     }
   }
@@ -89,4 +92,3 @@ bool LoadSubobjectsFromRDAT(DxilSubobjects &subobjects, const RDAT::DxilRuntimeD
 }
 
 } // namespace hlsl
-

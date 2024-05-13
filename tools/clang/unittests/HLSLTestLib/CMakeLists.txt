@@ -8,12 +8,9 @@ include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock/include)
 endif(WIN32)
 
 add_clang_library(HLSLTestLib
-  D3DReflectionDumper.cpp
-  D3DReflectionStrings.cpp
   DxcTestUtils.cpp
   FileCheckerTest.cpp
   FileCheckForTest.cpp
-  RDATDumper.cpp
 )
 
 add_dependencies(HLSLTestLib TablegenHLSLOptions)

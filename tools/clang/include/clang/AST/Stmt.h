@@ -58,11 +58,16 @@ namespace clang {
   class Stmt;
   class Expr;
 
-  class ExprIterator : public std::iterator<std::forward_iterator_tag,
-                                            Expr *&, ptrdiff_t,
-                                            Expr *&, Expr *&> {
+  class ExprIterator {
     Stmt** I;
   public:
+    using REFERENCE = Expr *&;
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = REFERENCE;
+    using difference_type = std::ptrdiff_t;
+    using pointer = REFERENCE;
+    using reference = REFERENCE;
+
     ExprIterator(Stmt** i) : I(i) {}
     ExprIterator() : I(nullptr) {}
     ExprIterator& operator++() { ++I; return *this; }
@@ -79,12 +84,16 @@ namespace clang {
     bool operator>=(const ExprIterator& R) const { return I >= R.I; }
   };
 
-  class ConstExprIterator : public std::iterator<std::forward_iterator_tag,
-                                                 const Expr *&, ptrdiff_t,
-                                                 const Expr *&,
-                                                 const Expr *&> {
+  class ConstExprIterator {
     const Stmt * const *I;
   public:
+    using REFERENCE = Expr *&;
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = REFERENCE;
+    using difference_type = std::ptrdiff_t;
+    using pointer = REFERENCE;
+    using reference = REFERENCE;
+
     ConstExprIterator(const Stmt * const *i) : I(i) {}
     ConstExprIterator() : I(nullptr) {}
     ConstExprIterator& operator++() { ++I; return *this; }

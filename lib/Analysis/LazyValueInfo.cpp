@@ -460,7 +460,7 @@ void LazyValueInfoCache::eraseBlock(BasicBlock *BB) {
 
 void LazyValueInfoCache::solve() {
   while (!BlockValueStack.empty()) {
-    std::pair<BasicBlock*, Value*> &e = BlockValueStack.top();
+    std::pair<BasicBlock*, Value*> e = BlockValueStack.top();
     assert(BlockValueSet.count(e) && "Stack value should be in BlockValueSet!");
 
     if (solveBlockValue(e.second, e.first)) {

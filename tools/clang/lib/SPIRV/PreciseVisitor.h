@@ -39,6 +39,7 @@ public:
   bool visit(SpirvNonUniformBinaryOp *) override;
   bool visit(SpirvNonUniformUnaryOp *) override;
   bool visit(SpirvExtInst *) override;
+  bool visit(SpirvFunctionCall *) override;
 
   using Visitor::visit;
 

@@ -10,15 +10,12 @@
 #include "dxc/HLSL/HLResource.h"
 #include "dxc/Support/Global.h"
 
-
 namespace hlsl {
 
 //------------------------------------------------------------------------------
 //
 // HLResource methods.
 //
-HLResource::HLResource()
-: DxilResource() {
-}
+HLResource::HLResource() : DxilResource() {}
 
 } // namespace hlsl

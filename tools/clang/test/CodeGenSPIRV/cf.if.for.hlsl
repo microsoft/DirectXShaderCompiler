@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-LABEL: %bb_entry = OpLabel
@@ -6,8 +6,8 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK: OpStore %val %float_0
     float val = 0.;
 
-// CHECK-NEXT: [[color0:%\d+]] = OpLoad %float %color
-// CHECK-NEXT: [[lt0:%\d+]] = OpFOrdLessThan %bool [[color0]] %float_0_5
+// CHECK-NEXT: [[color0:%[0-9]+]] = OpLoad %float %color
+// CHECK-NEXT: [[lt0:%[0-9]+]] = OpFOrdLessThan %bool [[color0]] %float_0_5
 // CHECK-NEXT: OpSelectionMerge %if_merge None
 // CHECK-NEXT: OpBranchConditional [[lt0]] %if_true %if_merge
     if (color < 0.5) {
@@ -22,14 +22,14 @@ float4 main(float color: COLOR) : SV_TARGET {
 
     // for-stmt following if-stmt
 // CHECK-LABEL: %for_check = OpLabel
-// CHECK-NEXT: [[i0:%\d+]] = OpLoad %int %i
-// CHECK-NEXT: [[lt1:%\d+]] = OpSLessThan %bool [[i0]] %int_10
+// CHECK-NEXT: [[i0:%[0-9]+]] = OpLoad %int %i
+// CHECK-NEXT: [[lt1:%[0-9]+]] = OpSLessThan %bool [[i0]] %int_10
 // CHECK-NEXT: OpLoopMerge %for_merge_1 %for_continue_1 None
 // CHECK-NEXT: OpBranchConditional [[lt1]] %for_body %for_merge_1
     for (int i = 0; i < 10; ++i) {
 // CHECK-LABEL: %for_body = OpLabel
-// CHECK-NEXT: [[color1:%\d+]] = OpLoad %float %color
-// CHECK-NEXT: [[lt2:%\d+]] = OpFOrdLessThan %bool [[color1]] %float_0_5
+// CHECK-NEXT: [[color1:%[0-9]+]] = OpLoad %float %color
+// CHECK-NEXT: [[lt2:%[0-9]+]] = OpFOrdLessThan %bool [[color1]] %float_0_5
 // CHECK-NEXT: OpSelectionMerge %if_merge_0 None
 // CHECK-NEXT: OpBranchConditional [[lt2]] %if_true_0 %if_merge_0
         if (color < 0.5) { // if-stmt nested in for-stmt
@@ -40,8 +40,8 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpBranch %for_check_0
 
 // CHECK-LABEL: %for_check_0 = OpLabel
-// CHECK-NEXT: [[j0:%\d+]] = OpLoad %int %j
-// CHECK-NEXT: [[lt3:%\d+]] = OpSLessThan %bool [[j0]] %int_15
+// CHECK-NEXT: [[j0:%[0-9]+]] = OpLoad %int %j
+// CHECK-NEXT: [[lt3:%[0-9]+]] = OpSLessThan %bool [[j0]] %int_15
 // CHECK-NEXT: OpLoopMerge %for_merge %for_continue None
 // CHECK-NEXT: OpBranchConditional [[lt3]] %for_body_0 %for_merge
             for (int j = 0; j < 15; ++j) { // for-stmt deeply nested in if-then
@@ -51,8 +51,8 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpBranch %for_continue
 
 // CHECK-LABEL: %for_continue = OpLabel
-// CHECK-NEXT: [[j1:%\d+]] = OpLoad %int %j
-// CHECK-NEXT: [[incj:%\d+]] = OpIAdd %int [[j1]] %int_1
+// CHECK-NEXT: [[j1:%[0-9]+]] = OpLoad %int %j
+// CHECK-NEXT: [[incj:%[0-9]+]] = OpIAdd %int [[j1]] %int_1
 // CHECK-NEXT: OpStore %j [[incj]]
 // CHECK-NEXT: OpBranch %for_check_0
             } // end for (int j
@@ -64,8 +64,8 @@ float4 main(float color: COLOR) : SV_TARGET {
         }
 // CHECK-LABEL: %if_merge_0 = OpLabel
 
-// CHECK-NEXT: [[color2:%\d+]] = OpLoad %float %color
-// CHECK-NEXT: [[lt4:%\d+]] = OpFOrdLessThan %bool [[color2]] %float_0_8
+// CHECK-NEXT: [[color2:%[0-9]+]] = OpLoad %float %color
+// CHECK-NEXT: [[lt4:%[0-9]+]] = OpFOrdLessThan %bool [[color2]] %float_0_8
 // CHECK-NEXT: OpSelectionMerge %if_merge_2 None
 // CHECK-NEXT: OpBranchConditional [[lt4]] %if_true_1 %if_false
         if (color < 0.8) { // if-stmt following if-stmt
@@ -79,8 +79,8 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpBranch %for_check_1
 
 // CHECK-LABEL: %for_check_1 = OpLabel
-// CHECK-NEXT: [[k0:%\d+]] = OpLoad %int %k
-// CHECK-NEXT: [[lt5:%\d+]] = OpSLessThan %bool [[k0]] %int_20
+// CHECK-NEXT: [[k0:%[0-9]+]] = OpLoad %int %k
+// CHECK-NEXT: [[lt5:%[0-9]+]] = OpSLessThan %bool [[k0]] %int_20
 // CHECK-NEXT: OpLoopMerge %for_merge_0 %for_continue_0 None
 // CHECK-NEXT: OpBranchConditional [[lt5]] %for_body_1 %for_merge_0
             for (int k = 0; k < 20; ++k) { // for-stmt deeply nested in if-else
@@ -88,8 +88,8 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK: OpStore %val
                 val = val - 5.;
 
-// CHECK-NEXT: [[val5:%\d+]] = OpLoad %float %val
-// CHECK-NEXT: [[lt6:%\d+]] = OpFOrdLessThan %bool [[val5]] %float_0
+// CHECK-NEXT: [[val5:%[0-9]+]] = OpLoad %float %val
+// CHECK-NEXT: [[lt6:%[0-9]+]] = OpFOrdLessThan %bool [[val5]] %float_0
 // CHECK-NEXT: OpSelectionMerge %if_merge_1 None
 // CHECK-NEXT: OpBranchConditional [[lt6]] %if_true_2 %if_merge_1
                 if (val < 0.) { // deeply nested if-stmt
@@ -102,8 +102,8 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpBranch %for_continue_0
 
 // CHECK-LABEL: %for_continue_0 = OpLabel
-// CHECK-NEXT: [[k1:%\d+]] = OpLoad %int %k
-// CHECK-NEXT: [[inck:%\d+]] = OpIAdd %int [[k1]] %int_1
+// CHECK-NEXT: [[k1:%[0-9]+]] = OpLoad %int %k
+// CHECK-NEXT: [[inck:%[0-9]+]] = OpIAdd %int [[k1]] %int_1
 // CHECK-NEXT: OpStore %k [[inck]]
 // CHECK-NEXT: OpBranch %for_check_1
             } // end for (int k
@@ -114,16 +114,16 @@ float4 main(float color: COLOR) : SV_TARGET {
 // CHECK-NEXT: OpBranch %for_continue_1
 
 // CHECK-LABEL: %for_continue_1 = OpLabel
-// CHECK-NEXT: [[i1:%\d+]] = OpLoad %int %i
-// CHECK-NEXT: [[inci:%\d+]] = OpIAdd %int [[i1]] %int_1
+// CHECK-NEXT: [[i1:%[0-9]+]] = OpLoad %int %i
+// CHECK-NEXT: [[inci:%[0-9]+]] = OpIAdd %int [[i1]] %int_1
 // CHECK-NEXT: OpStore %i [[inci]]
 // CHECK-NEXT: OpBranch %for_check
     } // end for (int i
 // CHECK-LABEL: %for_merge_1 = OpLabel
 
     // if-stmt following for-stmt
-// CHECK-NEXT: [[color3:%\d+]] = OpLoad %float %color
-// CHECK-NEXT: [[lt7:%\d+]] = OpFOrdLessThan %bool [[color3]] %float_1_5
+// CHECK-NEXT: [[color3:%[0-9]+]] = OpLoad %float %color
+// CHECK-NEXT: [[lt7:%[0-9]+]] = OpFOrdLessThan %bool [[color3]] %float_1_5
 // CHECK-NEXT: OpSelectionMerge %if_merge_3 None
 // CHECK-NEXT: OpBranchConditional [[lt7]] %if_true_3 %if_merge_3
     if (color < 1.5) {

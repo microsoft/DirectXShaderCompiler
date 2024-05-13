@@ -110,6 +110,7 @@ public:
   DEFINE_VISIT_METHOD(SpirvSpecConstantBinaryOp)
   DEFINE_VISIT_METHOD(SpirvSpecConstantUnaryOp)
   DEFINE_VISIT_METHOD(SpirvStore)
+  DEFINE_VISIT_METHOD(SpirvNullaryOp)
   DEFINE_VISIT_METHOD(SpirvUnaryOp)
   DEFINE_VISIT_METHOD(SpirvVectorShuffle)
   DEFINE_VISIT_METHOD(SpirvArrayLength)

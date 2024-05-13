@@ -40,14 +40,19 @@ struct CoverageMappingRecord {
 };
 
 /// \brief A file format agnostic iterator over coverage mapping data.
-class CoverageMappingIterator
-    : public std::iterator<std::input_iterator_tag, CoverageMappingRecord> {
+class CoverageMappingIterator {
   CoverageMappingReader *Reader;
   CoverageMappingRecord Record;
 
   void increment();
 
 public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = CoverageMappingRecord;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   CoverageMappingIterator() : Reader(nullptr) {}
   CoverageMappingIterator(CoverageMappingReader *Reader) : Reader(Reader) {
     increment();

@@ -18,7 +18,6 @@
 using namespace llvm;
 using namespace hlsl;
 
-
 const BasicBlockSet &ControlDependence::GetCDBlocks(BasicBlock *pBB) const {
   auto it = m_ControlDependence.find(pBB);
   if (it != m_ControlDependence.end())
@@ -34,7 +33,8 @@ void ControlDependence::print(raw_ostream &OS) {
     OS << "Block " << pBB->getName() << ": { ";
     bool bFirst = true;
     for (BasicBlock *pBB2 : it.second) {
-      if (!bFirst) OS << ", ";
+      if (!bFirst)
+        OS << ", ";
       OS << pBB2->getName();
       bFirst = false;
     }
@@ -43,9 +43,7 @@ void ControlDependence::print(raw_ostream &OS) {
   OS << "\n";
 }
 
-void ControlDependence::dump() {
-  print(dbgs());
-}
+void ControlDependence::dump() { print(dbgs()); }
 
 void ControlDependence::Compute(Function *F, PostDomRelationType &PostDomRel) {
   m_pFunc = F;
@@ -62,9 +60,11 @@ void ControlDependence::Compute(Function *F, PostDomRelationType &PostDomRel) {
   for (size_t iBB = 0; iBB < RevTopOrder.size(); iBB++) {
     BasicBlock *x = RevTopOrder[iBB];
 
-    // For each y = pred(x): if ipostdom(y) != x then add "x is control dependent on y"
-    for (auto itPred = pred_begin(x), endPred = pred_end(x); itPred != endPred; ++itPred) {
-      BasicBlock *y = *itPred;  // predecessor of x
+    // For each y = pred(x): if ipostdom(y) != x then add "x is control
+    // dependent on y"
+    for (auto itPred = pred_begin(x), endPred = pred_end(x); itPred != endPred;
+         ++itPred) {
+      BasicBlock *y = *itPred; // predecessor of x
       BasicBlock *pPredIDomBB = GetIPostDom(PostDomRel, y);
       if (pPredIDomBB != x) {
         m_ControlDependence[x].insert(y);
@@ -81,7 +81,7 @@ void ControlDependence::Compute(Function *F, PostDomRelationType &PostDomRel) {
 
       // For all y in CDG(z)
       for (BasicBlock *y : it->second) {
-        // if ipostdom(y) != x then add "x is control dependent on y" 
+        // if ipostdom(y) != x then add "x is control dependent on y"
         BasicBlock *pPredIDomBB = GetIPostDom(PostDomRel, y);
         if (pPredIDomBB != x) {
           m_ControlDependence[x].insert(y);
@@ -97,7 +97,8 @@ void ControlDependence::Clear() {
   m_EmptyBBSet.clear();
 }
 
-BasicBlock *ControlDependence::GetIPostDom(PostDomRelationType &PostDomRel, BasicBlock *pBB) {
+BasicBlock *ControlDependence::GetIPostDom(PostDomRelationType &PostDomRel,
+                                           BasicBlock *pBB) {
   auto *pPDTNode = PostDomRel.getNode(pBB);
   auto *pIDomNode = pPDTNode->getIDom();
   BasicBlock *pIDomBB = pIDomNode != nullptr ? pIDomNode->getBlock() : nullptr;

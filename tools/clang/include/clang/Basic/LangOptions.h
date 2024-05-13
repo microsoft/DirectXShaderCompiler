@@ -15,12 +15,13 @@
 #ifndef LLVM_CLANG_BASIC_LANGOPTIONS_H
 #define LLVM_CLANG_BASIC_LANGOPTIONS_H
 
+#include "dxc/DXIL/DxilConstants.h" // For DXIL::DefaultLinkage
+#include "dxc/Support/HLSLVersion.h"
 #include "clang/Basic/CommentOptions.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Basic/Visibility.h"
-#include "dxc/Support/HLSLVersion.h"
 #include <string>
 #include <vector>
 
@@ -40,6 +41,7 @@ public:
 #else
 
 #define LANGOPT(Name, Bits, Default, Description) static const unsigned Name = Default;
+#define LANGOPT_BOOL(Name, Default, Description) static const bool Name = static_cast<bool>( Default );
 #define ENUM_LANGOPT(Name, Type, Bits, Default, Description)
 #include "clang/Basic/LangOptions.fixed.def"
 
@@ -161,6 +163,9 @@ public:
   bool EnableFXCCompatMode = false;
   bool EnablePayloadAccessQualifiers = false;
   bool DumpImplicitTopLevelDecls = true;
+  bool ExportShadersOnly = false;
+  hlsl::DXIL::DefaultLinkage DefaultLinkage =
+      hlsl::DXIL::DefaultLinkage::Default;
   /// Whether use row major as default matrix major.
   bool HLSLDefaultRowMajor = false;
   // HLSL Change Ends

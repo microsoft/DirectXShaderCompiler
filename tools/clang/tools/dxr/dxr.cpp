@@ -11,20 +11,19 @@
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/Unicode.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/microcom.h"
 #include "dxclib/dxc.h"
-#include <vector>
 #include <string>
+#include <vector>
 
-#include "dxc/dxcapi.h"
-#include "dxc/dxctools.h"
-#include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/dxcapi.use.h"
+#include "dxc/dxcapi.h"
+#include "dxc/dxctools.h"
 #include "llvm/Support/raw_ostream.h"
-
 
 inline bool wcsieq(LPCWSTR a, LPCWSTR b) { return _wcsicmp(a, b) == 0; }
 
@@ -35,12 +34,17 @@ using namespace hlsl::options;
 #ifdef _WIN32
 int __cdecl wmain(int argc, const wchar_t **argv_) {
 #else
-int main(int argc, const char **argv_) {
+int main(int argc, const char **argv) {
+  // Convert argv to wchar.
+  WArgV ArgV(argc, argv);
+  const wchar_t **argv_ = ArgV.argv();
 #endif
-  if (FAILED(DxcInitThreadMalloc())) return 1;
+  if (FAILED(DxcInitThreadMalloc()))
+    return 1;
   DxcSetThreadMallocToDefault();
   try {
-    if (initHlslOptTable()) throw std::bad_alloc();
+    if (initHlslOptTable())
+      throw std::bad_alloc();
 
     // Parse command line options.
     const OptTable *optionTable = getHlslOptTable();
@@ -88,14 +92,16 @@ int main(int argc, const char **argv_) {
       llvm::raw_string_ostream helpStream(helpString);
       std::string version;
       llvm::raw_string_ostream versionStream(version);
-      WriteDxCompilerVersionInfo(versionStream,
-        dxcOpts.ExternalLib.empty() ? (LPCSTR)nullptr : dxcOpts.ExternalLib.data(),
-        dxcOpts.ExternalFn.empty() ? (LPCSTR)nullptr : dxcOpts.ExternalFn.data(),
-        dxcSupport);
+      WriteDxCompilerVersionInfo(
+          versionStream,
+          dxcOpts.ExternalLib.empty() ? (LPCSTR) nullptr
+                                      : dxcOpts.ExternalLib.data(),
+          dxcOpts.ExternalFn.empty() ? (LPCSTR) nullptr
+                                     : dxcOpts.ExternalFn.data(),
+          dxcSupport);
       versionStream.flush();
       optionTable->PrintHelp(helpStream, "dxr.exe", "HLSL Rewriter",
-                             version.c_str(),
-                             hlsl::options::RewriteOption,
+                             version.c_str(), hlsl::options::RewriteOption,
                              (dxcOpts.ShowHelpHidden ? 0 : HelpHidden));
       helpStream.flush();
       WriteUtf8ToConsoleSizeT(helpString.data(), helpString.size());
@@ -120,7 +126,8 @@ int main(int argc, const char **argv_) {
     CComPtr<IDxcRewriter2> pRewriter;
     CComPtr<IDxcOperationResult> pRewriteResult;
     CComPtr<IDxcBlobEncoding> pSource;
-    std::wstring wName(CA2W(dxcOpts.InputFile.empty()? "" : dxcOpts.InputFile.data()));
+    std::wstring wName(
+        CA2W(dxcOpts.InputFile.empty() ? "" : dxcOpts.InputFile.data()));
     if (!dxcOpts.InputFile.empty())
       ReadFileIntoBlob(dxcSupport, wName.c_str(), &pSource);
 
@@ -130,12 +137,10 @@ int main(int argc, const char **argv_) {
     IFT(pLibrary->CreateIncludeHandler(&pIncludeHandler));
     IFT(dxcSupport.CreateInstance(CLSID_DxcRewriter, &pRewriter));
 
-    // Convert argv to wchar.
-    WArgV ArgV(argc, argv_);
-    IFT(pRewriter->RewriteWithOptions(pSource, wName.c_str(),
-                                      ArgV.argv(), argc, nullptr, 0,
-                                      pIncludeHandler, &pRewriteResult));
-                        
+    IFT(pRewriter->RewriteWithOptions(pSource, wName.c_str(), argv_, argc,
+                                      nullptr, 0, pIncludeHandler,
+                                      &pRewriteResult));
+
     if (dxcOpts.OutputObject.empty()) {
       // No -Fo, print to console
       WriteOperationResultToConsole(pRewriteResult, !dxcOpts.OutputWarnings);
@@ -147,18 +152,21 @@ int main(int argc, const char **argv_) {
         CA2W wOutputObject(dxcOpts.OutputObject.data());
         CComPtr<IDxcBlob> pObject;
         IFT(pRewriteResult->GetResult(&pObject));
-        WriteBlobToFile(pObject, wOutputObject.m_psz, dxcOpts.DefaultTextCodePage);
+        WriteBlobToFile(pObject, wOutputObject.m_psz,
+                        dxcOpts.DefaultTextCodePage);
         printf("Rewrite output: %s", dxcOpts.OutputObject.data());
       }
     }
 
-  }
-  catch (const ::hlsl::Exception& hlslException) {
+  } catch (const ::hlsl::Exception &hlslException) {
     try {
-      const char* msg = hlslException.what();
-      Unicode::acp_char printBuffer[128]; // printBuffer is safe to treat as UTF-8 because we use ASCII contents only
+      const char *msg = hlslException.what();
+      Unicode::acp_char
+          printBuffer[128]; // printBuffer is safe to treat as UTF-8 because we
+                            // use ASCII contents only
       if (msg == nullptr || *msg == '\0') {
-        sprintf_s(printBuffer, _countof(printBuffer), "Compilation failed - error code 0x%08x.", hlslException.hr);
+        sprintf_s(printBuffer, _countof(printBuffer),
+                  "Compilation failed - error code 0x%08x.", hlslException.hr);
         msg = printBuffer;
       }
 
@@ -170,18 +178,15 @@ int main(int argc, const char **argv_) {
       }
 
       printf("%s\n", textMessage.c_str());
-    }
-    catch (...) {
+    } catch (...) {
       printf("Compilation failed - unable to retrieve error message.\n");
     }
 
     return 1;
-  }
-  catch (std::bad_alloc&) {
+  } catch (std::bad_alloc &) {
     printf("Compilation failed - out of memory.\n");
     return 1;
-  }
-  catch (...) {
+  } catch (...) {
     printf("Compilation failed - unable to retrieve error message.\n");
     return 1;
   }

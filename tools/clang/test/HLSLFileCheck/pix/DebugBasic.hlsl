@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation | %FileCheck %s
+// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,UAVSize=128 | %FileCheck %s
 
 // Check that the basic starting header is present:
 
@@ -10,17 +10,18 @@
 // CHECK: %CompareToX = icmp eq i32 %XIndex, 0
 // CHECK: %CompareToY = icmp eq i32 %YIndex, 0
 // CHECK: %ComparePos = and i1 %CompareToX, %CompareToY
-// CHECK: %OffsetMultiplicand = zext i1 %ComparePos to i32
-// CHECK: %ComplementOfMultiplicand = sub i32 1, %OffsetMultiplicand
-// CHECK: %OffsetAddend = mul i32 983040, %ComplementOfMultiplicand
-// CHECK: %IncrementForThisInvocation = mul i32 8, %OffsetMultiplicand
 
-// Check the first instruction was instrumented:
-// CHECK: %UAVIncResult = call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0
-// CHECK: %MaskedForUAVLimit = and i32 %UAVIncResult, 983039
-// CHECK: %MultipliedForInterest = mul i32 %MaskedForUAVLimit, %OffsetMultiplicand
-// CHECK: %AddedForInterest = add i32 %MultipliedForInterest, %OffsetAddend
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_DebugUAV_Handle, i32 %AddedForInterest
+
+// Check for branches-for-interest and AND value and counter location for a UAV size of 128
+// CHECK: br i1 %ComparePos, label %PIXInterestingBlock, label %PIXNonInterestingBlock
+// CHECK: %PIXOffsetOr = phi i32 [ 0, %PIXInterestingBlock ], [ 64, %PIXNonInterestingBlock ]
+// CHECK: %PIXCounterLocation = phi i32 [ 63, %PIXInterestingBlock ], [ 127, %PIXNonInterestingBlock ]
+
+// Check the first block header was emitted: (increment, AND + OR)
+// CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0
+// CHECK: and i32 
+// CHECK: or i32
+
 
 
 [RootSignature("")]

@@ -85,20 +85,21 @@
 // to return %cur_val.
 //
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Module.h"
+#include "dxc/HLSL/DxilNoops.h"
+#include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilMetadataHelper.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/DxilValueCache.h"
+#include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/Support/raw_os_ostream.h"
-#include "dxc/DXIL/DxilMetadataHelper.h"
-#include "dxc/DXIL/DxilConstants.h"
-#include "dxc/HLSL/DxilNoops.h"
-#include "llvm/Analysis/DxilValueCache.h"
 
 #include <unordered_set>
 
@@ -114,7 +115,8 @@ static Function *GetOrCreateNoopF(Module &M) {
 
 static Constant *GetConstGep(Constant *Ptr, unsigned Idx0, unsigned Idx1) {
   Type *i32Ty = Type::getInt32Ty(Ptr->getContext());
-  Constant *Indices[] = { ConstantInt::get(i32Ty, Idx0), ConstantInt::get(i32Ty, Idx1) };
+  Constant *Indices[] = {ConstantInt::get(i32Ty, Idx0),
+                         ConstantInt::get(i32Ty, Idx1)};
   return ConstantExpr::getGetElementPtr(nullptr, Ptr, Indices);
 }
 
@@ -124,8 +126,11 @@ struct Store_Info {
   bool AllowLoads = false;
 };
 
-static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vector<Value *> &WorklistStorage, std::unordered_set<Value *> &SeenStorage) {
-  assert(isa<Argument>(Ptr) || isa<AllocaInst>(Ptr) || isa<GlobalVariable>(Ptr));
+static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores,
+                          std::vector<Value *> &WorklistStorage,
+                          std::unordered_set<Value *> &SeenStorage) {
+  assert(isa<Argument>(Ptr) || isa<AllocaInst>(Ptr) ||
+         isa<GlobalVariable>(Ptr));
 
   WorklistStorage.clear();
   WorklistStorage.push_back(Ptr);
@@ -139,14 +144,14 @@ static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vect
     WorklistStorage.pop_back();
     SeenStorage.insert(V);
 
-    if (isa<BitCastOperator>(V) || isa<GEPOperator>(V) || isa<GlobalVariable>(V) || isa<AllocaInst>(V) || isa<Argument>(V)) {
+    if (isa<BitCastOperator>(V) || isa<GEPOperator>(V) ||
+        isa<GlobalVariable>(V) || isa<AllocaInst>(V) || isa<Argument>(V)) {
       for (User *U : V->users()) {
         MemCpyInst *MC = nullptr;
         // Allow load if MC reads from pointer
         if ((MC = dyn_cast<MemCpyInst>(U)) && MC->getSource() == V) {
           AllowLoad = true;
-        }
-        else if (isa<LoadInst>(U)) {
+        } else if (isa<LoadInst>(U)) {
           AllowLoad = true;
         }
         // Add to worklist if we haven't seen it before.
@@ -155,14 +160,12 @@ static void FindAllStores(Value *Ptr, std::vector<Store_Info> *Stores, std::vect
             WorklistStorage.push_back(U);
         }
       }
-    }
-    else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
+    } else if (StoreInst *Store = dyn_cast<StoreInst>(V)) {
       Store_Info Info;
       Info.StoreOrMC = Store;
       Info.Source = Ptr;
       Stores->push_back(Info);
-    }
-    else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
+    } else if (MemCpyInst *MC = dyn_cast<MemCpyInst>(V)) {
       Store_Info Info;
       Info.StoreOrMC = MC;
       Info.Source = Ptr;
@@ -198,13 +201,13 @@ static Value *GetOrCreatePreserveCond(Function *F) {
     Type *i32Ty = Type::getInt32Ty(M->getContext());
     Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
 
-    unsigned int Values[1] = { 0 };
-    Constant *InitialValue = llvm::ConstantDataArray::get(M->getContext(), Values);
+    unsigned int Values[1] = {0};
+    Constant *InitialValue =
+        llvm::ConstantDataArray::get(M->getContext(), Values);
 
-    GV = new GlobalVariable(*M,
-      i32ArrayTy, true,
-      llvm::GlobalValue::InternalLinkage,
-      InitialValue, hlsl::kPreserveName);
+    GV = new GlobalVariable(*M, i32ArrayTy, true,
+                            llvm::GlobalValue::InternalLinkage, InitialValue,
+                            hlsl::kPreserveName);
   }
 
   for (User *U : GV->users()) {
@@ -249,7 +252,9 @@ static bool IsPreserveLoad(llvm::Instruction *I) {
 
   GlobalVariable *GV = dyn_cast<GlobalVariable>(GEP->getPointerOperand());
 
-  return GV && GV->getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage && GV->getName() == hlsl::kPreserveName;
+  return GV &&
+         GV->getLinkage() == GlobalVariable::LinkageTypes::InternalLinkage &&
+         GV->getName() == hlsl::kPreserveName;
 }
 
 static bool IsPreserveTrunc(llvm::Instruction *I) {
@@ -284,18 +289,19 @@ static Function *GetOrCreatePreserveF(Module *M, Type *Ty) {
   Ty->print(os);
   os.flush();
 
-  FunctionType *FT = FunctionType::get(Ty, { Ty, Ty }, false);
+  FunctionType *FT = FunctionType::get(Ty, {Ty, Ty}, false);
   Function *PreserveF = cast<Function>(M->getOrInsertFunction(str, FT));
   PreserveF->addFnAttr(Attribute::AttrKind::ReadNone);
   PreserveF->addFnAttr(Attribute::AttrKind::NoUnwind);
   return PreserveF;
 }
 
-static Instruction *CreatePreserve(Value *V, Value *LastV, Instruction *InsertPt) {
+static Instruction *CreatePreserve(Value *V, Value *LastV,
+                                   Instruction *InsertPt) {
   assert(V->getType() == LastV->getType());
   Type *Ty = V->getType();
   Function *PreserveF = GetOrCreatePreserveF(InsertPt->getModule(), Ty);
-  return CallInst::Create(PreserveF, ArrayRef<Value *> { V, LastV }, "", InsertPt);
+  return CallInst::Create(PreserveF, ArrayRef<Value *>{V, LastV}, "", InsertPt);
 }
 
 static void LowerPreserveToSelect(CallInst *CI) {
@@ -328,8 +334,7 @@ static void InsertPreserve(bool AllowLoads, StoreInst *Store) {
   // don't generate a load.
   if (AllowLoads) {
     Last_Value = B.CreateLoad(Store->getPointerOperand());
-  }
-  else {
+  } else {
     Last_Value = UndefValue::get(V->getType());
   }
 
@@ -347,7 +352,8 @@ static void InsertPreserve(bool AllowLoads, StoreInst *Store) {
 
 struct DxilInsertPreserves : public ModulePass {
   static char ID;
-  DxilInsertPreserves(bool AllowPreserves=false) : ModulePass(ID), AllowPreserves(AllowPreserves) {
+  DxilInsertPreserves(bool AllowPreserves = false)
+      : ModulePass(ID), AllowPreserves(AllowPreserves) {
     initializeDxilInsertPreservesPass(*PassRegistry::getPassRegistry());
   }
   bool AllowPreserves = false;
@@ -369,8 +375,8 @@ struct DxilInsertPreserves : public ModulePass {
 
     for (GlobalVariable &GV : M.globals()) {
       if (GV.getLinkage() != GlobalValue::LinkageTypes::InternalLinkage ||
-        GV.getType()->getPointerAddressSpace() == hlsl::DXIL::kTGSMAddrSpace)
-      {
+          GV.getType()->getPointerAddressSpace() ==
+              hlsl::DXIL::kTGSMAddrSpace) {
         continue;
       }
 
@@ -426,19 +432,15 @@ struct DxilInsertPreserves : public ModulePass {
       if (StoreInst *Store = dyn_cast<StoreInst>(Info.StoreOrMC)) {
         Value *V = Store->getValueOperand();
 
-        if (this->AllowPreserves && V &&
-          !V->getType()->isAggregateType() &&
-          !V->getType()->isPointerTy())
-        {
+        if (this->AllowPreserves && V && !V->getType()->isAggregateType() &&
+            !V->getType()->isPointerTy()) {
           InsertPreserve(Info.AllowLoads, Store);
           Changed = true;
-        }
-        else {
+        } else {
           InsertNoopAt(Store);
           Changed = true;
         }
-      }
-      else if (MemCpyInst *MC = cast<MemCpyInst>(Info.StoreOrMC)) {
+      } else if (MemCpyInst *MC = cast<MemCpyInst>(Info.StoreOrMC)) {
         // TODO: Do something to preserve pointer's previous value.
         InsertNoopAt(MC);
         Changed = true;
@@ -457,8 +459,8 @@ Pass *llvm::createDxilInsertPreservesPass(bool AllowPreserves) {
   return new DxilInsertPreserves(AllowPreserves);
 }
 
-INITIALIZE_PASS(DxilInsertPreserves, "dxil-insert-preserves", "Dxil Insert Preserves", false, false)
-
+INITIALIZE_PASS(DxilInsertPreserves, "dxil-insert-preserves",
+                "Dxil Insert Preserves", false, false)
 
 //==========================================================
 // Lower dx.preserve to select
@@ -480,9 +482,9 @@ public:
 
   bool runOnModule(Module &M) override {
     bool Changed = false;
-    for (auto fit = M.getFunctionList().begin(), end = M.getFunctionList().end();
-      fit != end;)
-    {
+    for (auto fit = M.getFunctionList().begin(),
+              end = M.getFunctionList().end();
+         fit != end;) {
       Function *F = &*(fit++);
       if (!F->isDeclaration())
         continue;
@@ -501,18 +503,20 @@ public:
 
     return Changed;
   }
-  StringRef getPassName() const override { return "Dxil Lower Preserves to Selects"; }
+  StringRef getPassName() const override {
+    return "Dxil Lower Preserves to Selects";
+  }
 };
 
 char DxilPreserveToSelect::ID;
-}
+} // namespace
 
 Pass *llvm::createDxilPreserveToSelectPass() {
   return new DxilPreserveToSelect();
 }
 
-INITIALIZE_PASS(DxilPreserveToSelect, "dxil-preserves-to-select", "Dxil Preserves To Select", false, false)
-
+INITIALIZE_PASS(DxilPreserveToSelect, "dxil-preserves-to-select",
+                "Dxil Preserves To Select", false, false)
 
 //==========================================================
 // output Argument debug info rewrite
@@ -524,7 +528,8 @@ public:
   static char ID;
 
   DxilRewriteOutputArgDebugInfo() : ModulePass(ID) {
-    initializeDxilRewriteOutputArgDebugInfoPass(*PassRegistry::getPassRegistry());
+    initializeDxilRewriteOutputArgDebugInfoPass(
+        *PassRegistry::getPassRegistry());
   }
 
   bool runOnModule(Module &M) override {
@@ -546,20 +551,20 @@ public:
         DIType *Ty = Var->getType().resolve(EmptyMap);
 
         DIExpression *Expr = Declare->getExpression();
-        if (Expr->getNumElements() == 1 && Expr->getElement(0) == dwarf::DW_OP_deref) {
+        if (Expr->getNumElements() == 1 &&
+            Expr->getElement(0) == dwarf::DW_OP_deref) {
           while (Ty && (Ty->getTag() == dwarf::DW_TAG_reference_type ||
-                        Ty->getTag() == dwarf::DW_TAG_restrict_type))
-          {
+                        Ty->getTag() == dwarf::DW_TAG_restrict_type)) {
             Ty = cast<DIDerivedType>(Ty)->getBaseType().resolve(EmptyMap);
           }
 
           if (Ty) {
-            DILocalVariable *NewVar =
-              DIB.createLocalVariable(dwarf::DW_TAG_arg_variable,
-                Var->getScope(), Var->getName(), Var->getFile(),
-                Var->getLine(), Ty, false, 0, Var->getArg());
+            DILocalVariable *NewVar = DIB.createLocalVariable(
+                dwarf::DW_TAG_arg_variable, Var->getScope(), Var->getName(),
+                Var->getFile(), Var->getLine(), Ty, false, 0, Var->getArg());
             DIExpression *EmptyExpr = DIExpression::get(M.getContext(), {});
-            DIB.insertDeclare(&Arg, NewVar, EmptyExpr, Declare->getDebugLoc(), Declare);
+            DIB.insertDeclare(&Arg, NewVar, EmptyExpr, Declare->getDebugLoc(),
+                              Declare);
             Declare->eraseFromParent();
 
             Changed = true;
@@ -570,18 +575,108 @@ public:
 
     return Changed;
   }
-  StringRef getPassName() const override { return "Dxil Rewrite Output Arg Debug Info"; }
+  StringRef getPassName() const override {
+    return "Dxil Rewrite Output Arg Debug Info";
+  }
 };
 
 char DxilRewriteOutputArgDebugInfo::ID;
-}
+} // namespace
 
 Pass *llvm::createDxilRewriteOutputArgDebugInfoPass() {
   return new DxilRewriteOutputArgDebugInfo();
 }
 
-INITIALIZE_PASS(DxilRewriteOutputArgDebugInfo, "dxil-rewrite-output-arg-debug-info", "Dxil Rewrite Output Arg Debug Info", false, false)
+INITIALIZE_PASS(DxilRewriteOutputArgDebugInfo,
+                "dxil-rewrite-output-arg-debug-info",
+                "Dxil Rewrite Output Arg Debug Info", false, false)
 
+//==========================================================
+// Reader pass
+//
+
+namespace {
+
+class DxilReinsertNops : public ModulePass {
+public:
+  static char ID;
+
+  DxilReinsertNops() : ModulePass(ID) {
+    initializeDxilReinsertNopsPass(*PassRegistry::getPassRegistry());
+  }
+
+  // In various linking scenarios, the dx.nothing.a variable might be prefixed
+  // and/or suffixed with something:
+  //
+  //   <library_name>.dx.nothing.a.<another_thing>
+  //
+  // This routine looks for the "dx.nothing.a" string inside of it, and as long
+  // as it's used in the expected way:
+  //
+  // %0 = load i32, i32* getelementptr inbounds ([1 x i32], [1 x i32]*
+  // @dx.nothing.a, i32 0, i32 0)
+  //
+  // ...it is deemed a valid nop.
+  //
+  static bool IsLegalNothingVarName(StringRef Name) {
+    // There should be a single instance of the name in this GV.
+    if (1 != Name.count(hlsl::kNothingName))
+      return false;
+    size_t Loc = Name.find(hlsl::kNothingName);
+    StringRef Prefix = Name.substr(0, Loc);
+    StringRef Suffix = Name.substr(Loc + Name.size());
+    // There should be either no prefix or a prefix that ends with .
+    if (!Prefix.empty() && !Prefix.endswith(".")) {
+      return false;
+    }
+    // There should be either no suffix or a prefix that begins with with .
+    if (!Suffix.empty() && !Suffix.startswith(".")) {
+      return false;
+    }
+    return true;
+  }
+
+  bool runOnModule(Module &M) override {
+    bool Changed = false;
+    for (GlobalVariable &GV : M.globals()) {
+      if (!IsLegalNothingVarName(GV.getName()))
+        continue;
+
+      const bool IsValidType = GV.getValueType()->isArrayTy() &&
+                               GV.getValueType()->getArrayElementType() ==
+                                   Type::getInt32Ty(M.getContext()) &&
+                               GV.getValueType()->getArrayNumElements() == 1;
+      if (!IsValidType)
+        return false;
+
+      for (User *GVU : GV.users()) {
+        ConstantExpr *CE = dyn_cast<ConstantExpr>(GVU);
+        if (!CE || CE->getOpcode() != Instruction::GetElementPtr)
+          continue;
+
+        for (auto it = CE->user_begin(), end = CE->user_end(); it != end;) {
+          User *U = *(it++);
+          LoadInst *LI = dyn_cast<LoadInst>(U);
+          if (!LI)
+            continue;
+          InsertNoopAt(LI);
+          LI->eraseFromParent();
+          Changed = true;
+        }
+      }
+    }
+
+    return Changed;
+  }
+  StringRef getPassName() const override { return "Dxil Reinsert Nops"; }
+};
+
+char DxilReinsertNops::ID;
+} // namespace
+Pass *llvm::createDxilReinsertNopsPass() { return new DxilReinsertNops(); }
+
+INITIALIZE_PASS(DxilReinsertNops, "dxil-reinsert-nops", "Dxil Reinsert Nops",
+                false, false)
 
 //==========================================================
 // Finalize pass
@@ -605,13 +700,13 @@ public:
       if (!NothingGV) {
         Type *i32ArrayTy = ArrayType::get(i32Ty, 1);
 
-        unsigned int Values[1] = { 0 };
-        Constant *InitialValue = llvm::ConstantDataArray::get(M.getContext(), Values);
+        unsigned int Values[1] = {0};
+        Constant *InitialValue =
+            llvm::ConstantDataArray::get(M.getContext(), Values);
 
-        NothingGV = new GlobalVariable(M,
-          i32ArrayTy, true,
-          llvm::GlobalValue::InternalLinkage,
-          InitialValue, hlsl::kNothingName);
+        NothingGV = new GlobalVariable(M, i32ArrayTy, true,
+                                       llvm::GlobalValue::InternalLinkage,
+                                       InitialValue, hlsl::kNothingName);
       }
     }
 
@@ -626,7 +721,7 @@ public:
 };
 
 char DxilFinalizePreserves::ID;
-}
+} // namespace
 
 // Fix undefs in the dx.preserve -> selects
 bool DxilFinalizePreserves::LowerPreserves(Module &M) {
@@ -639,7 +734,7 @@ bool DxilFinalizePreserves::LowerPreserves(Module &M) {
       for (User *GepU : Gep->users()) {
         LoadInst *LI = cast<LoadInst>(GepU);
         assert(LI->user_begin() != LI->user_end() &&
-          std::next(LI->user_begin()) == LI->user_end());
+               std::next(LI->user_begin()) == LI->user_end());
         Instruction *I = cast<Instruction>(*LI->user_begin());
 
         for (User *UU : I->users()) {
@@ -706,5 +801,5 @@ Pass *llvm::createDxilFinalizePreservesPass() {
   return new DxilFinalizePreserves();
 }
 
-INITIALIZE_PASS(DxilFinalizePreserves, "dxil-finalize-preserves", "Dxil Finalize Preserves", false, false)
-
+INITIALIZE_PASS(DxilFinalizePreserves, "dxil-finalize-preserves",
+                "Dxil Finalize Preserves", false, false)

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpName %AddRed "AddRed"
 // CHECK: OpName %A__AddRed "A::AddRed"
@@ -8,11 +8,11 @@
 // CHECK: OpName %A__createMyStruct "A::createMyStruct"
 // CHECK: OpName %A__myStruct_add "A::myStruct.add"
 
-// CHECK: [[v3f2:%\d+]] = OpConstantComposite %v3float %float_2 %float_2 %float_2
-// CHECK: [[v4f0:%\d+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
-// CHECK: [[v3f0:%\d+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
-// CHECK: [[v3f1:%\d+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
-// CHECK: [[v3f3:%\d+]] = OpConstantComposite %v3float %float_3 %float_3 %float_3
+// CHECK: [[v3f2:%[0-9]+]] = OpConstantComposite %v3float %float_2 %float_2 %float_2
+// CHECK: [[v4f0:%[0-9]+]] = OpConstantComposite %v4float %float_0 %float_0 %float_0 %float_0
+// CHECK: [[v3f0:%[0-9]+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
+// CHECK: [[v3f1:%[0-9]+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
+// CHECK: [[v3f3:%[0-9]+]] = OpConstantComposite %v3float %float_3 %float_3 %float_3
 
 namespace A {
 
@@ -44,25 +44,25 @@ float3 AddRed() { return float3(2, 2, 2); }
 
 float4 main(float4 PosCS : SV_Position) : SV_Target
 {
-// CHECK: {{%\d+}} = OpFunctionCall %v3float %AddRed
+// CHECK: {{%[0-9]+}} = OpFunctionCall %v3float %AddRed
   float3 val_1 = AddRed();
-// CHECK: {{%\d+}} = OpFunctionCall %v3float %A__AddRed
+// CHECK: {{%[0-9]+}} = OpFunctionCall %v3float %A__AddRed
   float3 val_2 = A::AddRed();
-// CHECK: {{%\d+}} = OpFunctionCall %v3float %A__B__AddRed
+// CHECK: {{%[0-9]+}} = OpFunctionCall %v3float %A__B__AddRed
   float3 val_3 = A::B::AddRed();
 
-// CHECK: {{%\d+}} = OpFunctionCall %v3float %A__B__AddBlue
+// CHECK: {{%[0-9]+}} = OpFunctionCall %v3float %A__B__AddBlue
   float3 val_4 = A::B::AddBlue();
-// CHECK: {{%\d+}} = OpFunctionCall %v3float %A__AddGreen
+// CHECK: {{%[0-9]+}} = OpFunctionCall %v3float %A__AddGreen
   float3 val_5 = A::AddGreen();
 
 // CHECK: OpStore %vec3f [[v3f2]]
   A::B::f3 vec3f = float3(2,2,2);
 
-// CHECK: [[s:%\d+]] = OpFunctionCall %myStruct %A__createMyStruct
+// CHECK: [[s:%[0-9]+]] = OpFunctionCall %myStruct %A__createMyStruct
 // CHECK: OpStore %s [[s]]
   A::myStruct s = A::createMyStruct();
-// CHECK: {{%\d+}} = OpFunctionCall %int %A__myStruct_add %s
+// CHECK: {{%[0-9]+}} = OpFunctionCall %int %A__myStruct_add %s
   int val_6 = s.add();
 
   return float4(0,0,0,0);

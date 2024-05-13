@@ -1,4 +1,4 @@
-// RUN: %dxc -T hs_6_0 -E main
+// RUN: not %dxc -T hs_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 // CHECK: 32:11: error: SV_OutputControlPointID semantic must be provided in hull shader
 

@@ -1,18 +1,18 @@
-// RUN: %dxc -T ps_6_2 -E main -fspv-debug=rich -enable-16bit-types
+// RUN: %dxc -T ps_6_2 -E main -fspv-debug=rich -enable-16bit-types -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:         [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
-// CHECK: [[varNameCond:%\d+]] = OpString "cond"
-// CHECK:    [[varNameC:%\d+]] = OpString "c"
+// CHECK:         [[set:%[0-9]+]] = OpExtInstImport "OpenCL.DebugInfo.100"
+// CHECK: [[varNameCond:%[0-9]+]] = OpString "cond"
+// CHECK:    [[varNameC:%[0-9]+]] = OpString "c"
 
-// CHECK: [[floatType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
-// CHECK: [[float4Type:%\d+]] = OpExtInst %void [[set]] DebugTypeVector [[floatType]] 4
-// CHECK:      [[source:%\d+]] = OpExtInst %void [[set]] DebugSource
-// CHECK: [[compileUnit:%\d+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[source]] HLSL
+// CHECK: [[floatType:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeBasic {{%[0-9]+}} %uint_32 Float
+// CHECK: [[float4Type:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeVector [[floatType]] 4
+// CHECK:      [[source:%[0-9]+]] = OpExtInst %void [[set]] DebugSource
+// CHECK: [[compileUnit:%[0-9]+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[source]] HLSL
 
-// CHECK:  [[boolType:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
+// CHECK:  [[boolType:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeBasic {{%[0-9]+}} %uint_32 Boolean
 
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable [[varNameCond]] [[boolType]] [[source]] 18 13 [[compileUnit]] [[varNameCond]] %cond FlagIsDefinition
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugGlobalVariable [[varNameC]] [[float4Type]] [[source]] 17 15 [[compileUnit]] [[varNameC]] %c FlagIsDefinition
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugGlobalVariable [[varNameCond]] [[boolType]] [[source]] 18 13 [[compileUnit]] [[varNameCond]] %cond FlagIsDefinition
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugGlobalVariable [[varNameC]] [[float4Type]] [[source]] 17 15 [[compileUnit]] [[varNameC]] %c FlagIsDefinition
 
 static float4 c;
 static bool cond;

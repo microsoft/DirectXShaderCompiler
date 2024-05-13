@@ -112,12 +112,8 @@ static void RegisterHandler(int Signal) {
 }
 
 static void RegisterHandlers() {
-  // We need to dereference the signals mutex during handler registration so
-  // that we force its construction. This is to prevent the first use being
-  // during handling an actual signal because you can't safely call new in a
-  // signal handler.
-  *SignalsMutex;
-  
+  sys::SmartScopedLock<true> Guard(*SignalsMutex);
+
   // If the handlers are already registered, we're done.
   if (NumRegisteredSignals != 0) return;
 
@@ -148,9 +144,6 @@ static void RemoveFilesToRemove() {
   // memory.
   std::vector<std::string>& FilesToRemoveRef = *FilesToRemove;
   for (unsigned i = 0, e = FilesToRemoveRef.size(); i != e; ++i) {
-    // We rely on a std::string implementation for which repeated calls to
-    // 'c_str()' don't allocate memory. We pre-call 'c_str()' on all of these
-    // strings to try to ensure this is safe.
     const char *path = FilesToRemoveRef[i].c_str();
 
     // Get the status so we can determine if it's a file or directory. If we
@@ -164,7 +157,7 @@ static void RemoveFilesToRemove() {
     // super-user permissions.
     if (!S_ISREG(buf.st_mode))
       continue;
-  
+
     // Otherwise, remove the file. We ignore any errors here as there is nothing
     // else we can do.
     unlink(path);
@@ -239,21 +232,7 @@ bool llvm::sys::RemoveFileOnSignal(StringRef Filename,
                                    std::string* ErrMsg) {
   {
     sys::SmartScopedLock<true> Guard(*SignalsMutex);
-    std::vector<std::string>& FilesToRemoveRef = *FilesToRemove;
-    std::string *OldPtr =
-        FilesToRemoveRef.empty() ? nullptr : &FilesToRemoveRef[0];
-    FilesToRemoveRef.push_back(Filename);
-
-    // We want to call 'c_str()' on every std::string in this vector so that if
-    // the underlying implementation requires a re-allocation, it happens here
-    // rather than inside of the signal handler. If we see the vector grow, we
-    // have to call it on every entry. If it remains in place, we only need to
-    // call it on the latest one.
-    if (OldPtr == &FilesToRemoveRef[0])
-      FilesToRemoveRef.back().c_str();
-    else
-      for (unsigned i = 0, e = FilesToRemoveRef.size(); i != e; ++i)
-        FilesToRemoveRef[i].c_str();
+    FilesToRemove->push_back(Filename);
   }
 
   RegisterHandlers();
@@ -268,13 +247,6 @@ void llvm::sys::DontRemoveFileOnSignal(StringRef Filename) {
   std::vector<std::string>::iterator I = FilesToRemove->end();
   if (RI != FilesToRemove->rend())
     I = FilesToRemove->erase(RI.base()-1);
-
-  // We need to call c_str() on every element which would have been moved by
-  // the erase. These elements, in a C++98 implementation where c_str()
-  // requires a reallocation on the first call may have had the call to c_str()
-  // made on insertion become invalid by being copied down an element.
-  for (std::vector<std::string>::iterator E = FilesToRemove->end(); I != E; ++I)
-    I->c_str();
 }
 
 /// AddSignalHandler - Add a function to be called when a signal is delivered

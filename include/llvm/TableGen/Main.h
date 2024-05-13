@@ -30,7 +30,7 @@ class raw_ostream;
 /// \returns true on error, false otherwise
 typedef bool TableGenMainFn(raw_ostream &OS, RecordKeeper &Records);
 
-int TableGenMain(_In_z_ char *argv0, _In_ TableGenMainFn *MainFn);  // HLSL Change - SAL
+int TableGenMain(char *argv0, TableGenMainFn *MainFn);
 }
 
 #endif

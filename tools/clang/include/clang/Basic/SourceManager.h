@@ -704,6 +704,9 @@ public:
 
   FileManager &getFileManager() const { return FileMgr; }
 
+  unsigned getNumLineTableFilenames() const;
+  const char * getLineTableFilename(unsigned ID) const;
+
   /// \brief Set true if the SourceManager should report the original file name
   /// for contents of files that were overridden by other files. Defaults to
   /// true.

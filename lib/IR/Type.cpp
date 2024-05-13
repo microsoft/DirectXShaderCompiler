@@ -62,7 +62,7 @@ bool Type::isIntegerTy(unsigned Bitwidth) const {
 // canLosslesslyBitCastTo - Return true if this type can be converted to
 // 'Ty' without any reinterpretation of bits.  For example, i8* to i32*.
 //
-bool Type::canLosslesslyBitCastTo(_In_ Type *Ty) const {
+bool Type::canLosslesslyBitCastTo(Type *Ty) const {
   // Identity cast means no change so return true
   if (this == Ty) 
     return true;

@@ -80,7 +80,7 @@ public:
   /// Constructs an InitListHandler which uses the given emitter for normal
   /// translation tasks. It will reuse the ModuleBuilder embedded in the given
   /// emitter.
-  explicit InitListHandler(const ASTContext &, SpirvEmitter &);
+  InitListHandler(ASTContext &ctx, SpirvEmitter &emitter);
 
   /// Processes the given InitListExpr and returns the <result-id> for the final
   /// SPIR-V value.
@@ -143,7 +143,7 @@ private:
                                                    SourceLocation);
 
 private:
-  const ASTContext &astContext;
+  ASTContext &astContext;
   SpirvEmitter &theEmitter;
   SpirvBuilder &spvBuilder;
   DiagnosticsEngine &diags;

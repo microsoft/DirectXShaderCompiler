@@ -1,4 +1,4 @@
-// RUN: %dxc -T ds_6_0 -E BezierEvalDS
+// RUN: %dxc -T ds_6_0 -E BezierEvalDS -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpEntryPoint TessellationEvaluation %BezierEvalDS "BezierEvalDS"
 // CHECK-SAME: %gl_TessCoord
@@ -12,11 +12,11 @@
 // performed in the wrapper function in order to extract the first 2 components
 // of the TessCoord (which is a float3).
 
-// CHECK: %BezierEvalDS = OpFunction %void None {{%\d+}}
-// CHECK: [[v3TessCoord:%\d+]] = OpLoad %v3float %gl_TessCoord
-// CHECK: [[v2TessCoord:%\d+]] = OpVectorShuffle %v2float [[v3TessCoord]] [[v3TessCoord]] 0 1
+// CHECK: %BezierEvalDS = OpFunction %void None {{%[0-9]+}}
+// CHECK: [[v3TessCoord:%[0-9]+]] = OpLoad %v3float %gl_TessCoord
+// CHECK: [[v2TessCoord:%[0-9]+]] = OpVectorShuffle %v2float [[v3TessCoord]] [[v3TessCoord]] 0 1
 // CHECK: OpStore %param_var_UV [[v2TessCoord]]
-// CHECK: {{%\d+}} = OpFunctionCall %DS_OUTPUT %src_BezierEvalDS %param_var_input %param_var_UV %param_var_bezpatch
+// CHECK: {{%[0-9]+}} = OpFunctionCall %DS_OUTPUT %src_BezierEvalDS %param_var_input %param_var_UV %param_var_bezpatch
 
 struct HS_CONSTANT_DATA_OUTPUT
 {

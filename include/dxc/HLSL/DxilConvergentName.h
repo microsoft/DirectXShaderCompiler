@@ -11,5 +11,5 @@
 #pragma once
 
 namespace hlsl {
-  static const char *kConvergentFunctionPrefix = "dxil.convergent.marker.";
+static const char *kConvergentFunctionPrefix = "dxil.convergent.marker.";
 }

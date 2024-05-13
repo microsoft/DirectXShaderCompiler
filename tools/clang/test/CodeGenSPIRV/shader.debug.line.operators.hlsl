@@ -1,7 +1,7 @@
-// RUN: %dxc -T ps_6_0 -HV 2018 -E main -fspv-debug=vulkan -no-warnings
+// RUN: %dxc -T ps_6_0 -HV 2018 -E main -fspv-debug=vulkan -no-warnings -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
-// CHECK:      [[src:%\d+]] = OpExtInst %void %1 DebugSource [[file]]
+// CHECK:      [[file:%[0-9]+]] = OpString
+// CHECK:      [[src:%[0-9]+]] = OpExtInst %void %1 DebugSource [[file]]
 
 static int a, b, c;
 

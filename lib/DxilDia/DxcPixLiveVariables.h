@@ -19,35 +19,27 @@
 
 #include "DxcPixDxilDebugInfo.h"
 
-namespace llvm
-{
+namespace llvm {
 class DIVariable;
 class Instruction;
 class Module;
 class Value;
-}  // namespace llvm
+} // namespace llvm
 
-namespace dxil_debug_info
-{
+namespace dxil_debug_info {
 
 // VariableInfo is the bag with the information about a particular
 // DIVariable in the Module.
-struct VariableInfo
-{
+struct VariableInfo {
   using OffsetInBits = unsigned;
 
   // Location is the dxil alloca register where this variable lives.
-  struct Location
-  {
+  struct Location {
     llvm::Value *m_V = nullptr;
     unsigned m_FragmentIndex = 0;
   };
 
-  explicit VariableInfo(
-      llvm::DIVariable *Variable
-  ) : m_Variable(Variable)
-  {
-  }
+  explicit VariableInfo(llvm::DIVariable *Variable) : m_Variable(Variable) {}
 
   llvm::DIVariable *m_Variable;
 
@@ -66,18 +58,18 @@ public:
   HRESULT Init(DxcPixDxilDebugInfo *pDxilDebugInfo);
   void Clear();
 
-  HRESULT GetLiveVariablesAtInstruction(
-    llvm::Instruction *Instr,
-    IDxcPixDxilLiveVariables **Result) const;
+  HRESULT
+  GetLiveVariablesAtInstruction(llvm::Instruction *Instr,
+                                IDxcPixDxilLiveVariables **Result) const;
 
 private:
-    struct Impl;
-    std::unique_ptr<Impl> m_pImpl;
+  struct Impl;
+  std::unique_ptr<Impl> m_pImpl;
 };
 
-HRESULT CreateDxilLiveVariables(
-    DxcPixDxilDebugInfo *pDxilDebugInfo,
-    std::vector<const VariableInfo *> &&LiveVariables,
-    IDxcPixDxilLiveVariables **ppResult);
+HRESULT
+CreateDxilLiveVariables(DxcPixDxilDebugInfo *pDxilDebugInfo,
+                        std::vector<const VariableInfo *> &&LiveVariables,
+                        IDxcPixDxilLiveVariables **ppResult);
 
-}  // namespace dxil_debug_info
+} // namespace dxil_debug_info

@@ -24,20 +24,25 @@
 namespace dxil_dia {
 class Session;
 
-class FrameDataTable : public impl::TableBase<IDiaEnumFrameData, IDiaFrameData> {
+class FrameDataTable
+    : public impl::TableBase<IDiaEnumFrameData, IDiaFrameData> {
 public:
   FrameDataTable(IMalloc *pMalloc, Session *pSession);
 
   // HLSL inlines functions for a program, so no data to return.
   STDMETHODIMP frameByRVA(
-    /* [in] */ DWORD relativeVirtualAddress,
-    /* [retval][out] */ IDiaFrameData **frame) override { return ENotImpl(); }
+      /* [in] */ DWORD relativeVirtualAddress,
+      /* [retval][out] */ IDiaFrameData **frame) override {
+    return ENotImpl();
+  }
 
   STDMETHODIMP frameByVA(
-    /* [in] */ ULONGLONG virtualAddress,
-    /* [retval][out] */ IDiaFrameData **frame) override { return ENotImpl(); }
+      /* [in] */ ULONGLONG virtualAddress,
+      /* [retval][out] */ IDiaFrameData **frame) override {
+    return ENotImpl();
+  }
 
   HRESULT GetItem(DWORD index, IDiaFrameData **ppItem) override;
 };
 
-}  // namespace dxil_dia
+} // namespace dxil_dia

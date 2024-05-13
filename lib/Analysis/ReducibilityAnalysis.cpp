@@ -10,35 +10,34 @@
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 #include "dxc/Support/Global.h"
 
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Pass.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/CFG.h"
 
-#include <vector>
+#include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
-#include <algorithm>
+#include <vector>
 
 using namespace llvm;
-using llvm::legacy::PassManager;
 using llvm::legacy::FunctionPassManager;
-using std::vector;
+using llvm::legacy::PassManager;
 using std::unordered_map;
 using std::unordered_set;
+using std::vector;
 
 #define DEBUG_TYPE "reducibility"
-
 
 //===----------------------------------------------------------------------===//
 //                    Reducibility Analysis Pass
 //
 // The pass implements T1-T2 graph reducibility test.
-// The algorithm can be found in "Engineering a Compiler" text by 
+// The algorithm can be found in "Engineering a Compiler" text by
 // Keith Cooper and Linda Torczon.
 //
 //===----------------------------------------------------------------------===//
@@ -90,17 +89,16 @@ private:
   vector<unsigned> m_Data;
 };
 
-static bool IsEntryNode(size_t NodeIdx) {
-  return NodeIdx == 0;
-}
+static bool IsEntryNode(size_t NodeIdx) { return NodeIdx == 0; }
 
 bool ReducibilityAnalysis::runOnFunction(Function &F) {
   m_bReducible = true;
-  if (F.empty()) return false;
+  if (F.empty())
+    return false;
   IFTBOOL(F.size() < UINT32_MAX, DXC_E_DATA_TOO_LARGE);
 
   vector<Node> Nodes(F.size());
-  unordered_map<BasicBlock*, unsigned> BasicBlockToNodeIdxMap;
+  unordered_map<BasicBlock *, unsigned> BasicBlockToNodeIdxMap;
 
   //
   // Initialize.
@@ -114,13 +112,15 @@ bool ReducibilityAnalysis::runOnFunction(Function &F) {
     BasicBlock *pBB = &BB;
     unsigned N = BasicBlockToNodeIdxMap[pBB];
 
-    for (succ_iterator itSucc = succ_begin(pBB), endSucc = succ_end(pBB); itSucc != endSucc; ++itSucc) {
+    for (succ_iterator itSucc = succ_begin(pBB), endSucc = succ_end(pBB);
+         itSucc != endSucc; ++itSucc) {
       BasicBlock *pSuccBB = *itSucc;
       unsigned SuccNode = BasicBlockToNodeIdxMap[pSuccBB];
       Nodes[N].m_Succ.insert(SuccNode);
     }
 
-    for (pred_iterator itPred = pred_begin(pBB), endPred = pred_end(pBB); itPred != endPred; ++itPred) {
+    for (pred_iterator itPred = pred_begin(pBB), endPred = pred_end(pBB);
+         itPred != endPred; ++itPred) {
       BasicBlock *pPredBB = *itPred;
       unsigned PredNode = BasicBlockToNodeIdxMap[pPredBB];
       Nodes[N].m_Pred.insert(PredNode);
@@ -139,7 +139,7 @@ bool ReducibilityAnalysis::runOnFunction(Function &F) {
   for (;;) {
     bool bChanged = false;
     pWaiting->Clear();
-    
+
     for (unsigned iNode = 0; iNode < pReady->Size(); iNode++) {
       unsigned N = pReady->Get(iNode);
       Node *pNode = &Nodes[N];
@@ -149,7 +149,8 @@ bool ReducibilityAnalysis::runOnFunction(Function &F) {
       if (itSucc != pNode->m_Succ.end()) {
         pWaiting->PushBack(N);
         pNode->m_Succ.erase(itSucc);
-        auto s1 = pNode->m_Pred.erase(N); DXASSERT_LOCALVAR(s1, s1 == 1, "otherwise check Pred/Succ sets");
+        auto s1 = pNode->m_Pred.erase(N);
+        DXASSERT_LOCALVAR(s1, s1 == 1, "otherwise check Pred/Succ sets");
 
         bChanged = true;
         continue;
@@ -159,13 +160,16 @@ bool ReducibilityAnalysis::runOnFunction(Function &F) {
       if (pNode->m_Pred.size() == 1) {
         unsigned PredNode = *pNode->m_Pred.begin();
         Node *pPredNode = &Nodes[PredNode];
-        auto s1 = pPredNode->m_Succ.erase(N); DXASSERT_LOCALVAR(s1, s1 == 1, "otherwise check Pred/Succ sets");
+        auto s1 = pPredNode->m_Succ.erase(N);
+        DXASSERT_LOCALVAR(s1, s1 == 1, "otherwise check Pred/Succ sets");
         // Do not update N's sets, as N is discarded and never looked at again.
 
-        for (auto itSucc = pNode->m_Succ.begin(), endSucc = pNode->m_Succ.end(); itSucc != endSucc; ++itSucc) {
+        for (auto itSucc = pNode->m_Succ.begin(), endSucc = pNode->m_Succ.end();
+             itSucc != endSucc; ++itSucc) {
           unsigned SuccNode = *itSucc;
           Node *pSuccNode = &Nodes[SuccNode];
-          auto s2 = pSuccNode->m_Pred.erase(N); DXASSERT_LOCALVAR(s2, s2, "otherwise check Pred/Succ sets");
+          auto s2 = pSuccNode->m_Pred.erase(N);
+          DXASSERT_LOCALVAR(s2, s2, "otherwise check Pred/Succ sets");
           pPredNode->m_Succ.insert(SuccNode);
           pSuccNode->m_Pred.insert(PredNode);
         }
@@ -176,10 +180,12 @@ bool ReducibilityAnalysis::runOnFunction(Function &F) {
 
       // Unreachable.
       if (pNode->m_Pred.size() == 0 && !IsEntryNode(N)) {
-        for (auto itSucc = pNode->m_Succ.begin(), endSucc = pNode->m_Succ.end(); itSucc != endSucc; ++itSucc) {
+        for (auto itSucc = pNode->m_Succ.begin(), endSucc = pNode->m_Succ.end();
+             itSucc != endSucc; ++itSucc) {
           unsigned SuccNode = *itSucc;
           Node *pSuccNode = &Nodes[SuccNode];
-          auto s1 = pSuccNode->m_Pred.erase(N); DXASSERT_LOCALVAR(s1, s1, "otherwise check Pred/Succ sets");
+          auto s1 = pSuccNode->m_Pred.erase(N);
+          DXASSERT_LOCALVAR(s1, s1, "otherwise check Pred/Succ sets");
         }
 
         bChanged = true;
@@ -205,7 +211,8 @@ bool ReducibilityAnalysis::runOnFunction(Function &F) {
   if (!IsReducible()) {
     switch (m_Action) {
     case IrreducibilityAction::ThrowException:
-      DEBUG(dbgs() << "Function '" << F.getName() << "' is irreducible. Aborting compilation.\n");
+      DEBUG(dbgs() << "Function '" << F.getName()
+                   << "' is irreducible. Aborting compilation.\n");
       IFT(DXC_E_IRREDUCIBLE_CFG);
       break;
 
@@ -224,17 +231,17 @@ bool ReducibilityAnalysis::runOnFunction(Function &F) {
   return false;
 }
 
-}
-
+} // namespace ReducibilityAnalysisNS
 
 using namespace ReducibilityAnalysisNS;
 
 // Publicly exposed interface to pass...
 char &llvm::ReducibilityAnalysisID = ReducibilityAnalysis::ID;
 
-
-INITIALIZE_PASS_BEGIN(ReducibilityAnalysis, "red", "Reducibility Analysis", true, true)
-INITIALIZE_PASS_END(ReducibilityAnalysis, "red", "Reducibility Analysis", true, true)
+INITIALIZE_PASS_BEGIN(ReducibilityAnalysis, "red", "Reducibility Analysis",
+                      true, true)
+INITIALIZE_PASS_END(ReducibilityAnalysis, "red", "Reducibility Analysis", true,
+                    true)
 
 namespace llvm {
 
@@ -246,14 +253,15 @@ bool IsReducible(const Module &M, IrreducibilityAction Action) {
   PassManager PM;
   ReducibilityAnalysis *pRA = new ReducibilityAnalysis(Action);
   PM.add(pRA);
-  PM.run(const_cast<Module&>(M));
+  PM.run(const_cast<Module &>(M));
 
   return pRA->IsReducible();
 }
 
 bool IsReducible(const Function &f, IrreducibilityAction Action) {
-  Function &F = const_cast<Function&>(f);
-  DXASSERT(!F.isDeclaration(), "otherwise the caller is asking to check an external function");
+  Function &F = const_cast<Function &>(f);
+  DXASSERT(!F.isDeclaration(),
+           "otherwise the caller is asking to check an external function");
 
   FunctionPassManager FPM(F.getParent());
   ReducibilityAnalysis *pRA = new ReducibilityAnalysis(Action);
@@ -264,4 +272,4 @@ bool IsReducible(const Function &f, IrreducibilityAction Action) {
   return pRA->IsReducible();
 }
 
-}
+} // namespace llvm

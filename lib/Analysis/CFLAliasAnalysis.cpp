@@ -627,8 +627,12 @@ public:
   // allow modificaiton of the edges using this iterator. Additionally, the
   // iterator becomes invalid if you add edges to or from the node you're
   // getting the edges of.
-  struct EdgeIterator : public std::iterator<std::forward_iterator_tag,
-                                             std::tuple<EdgeTypeT, Node *>> {
+  struct EdgeIterator {
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = std::tuple<EdgeTypeT, Node *>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type *;
+    using reference = value_type &;
     EdgeIterator(const typename std::vector<Edge>::const_iterator &Iter)
         : Current(Iter) {}
 

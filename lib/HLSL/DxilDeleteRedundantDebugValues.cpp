@@ -9,21 +9,24 @@
 //
 // Removes as many dbg.value's as possible:
 //
-// 1. Search for all scopes (and their parent scopes) that have any real (non-debug)
+// 1. Search for all scopes (and their parent scopes) that have any real
+// (non-debug)
 //    instructions at all.
 //
 // 2. For each dbg.value, if it's refering to a variable from a scope not in
 //    the set of scopes from step 1, then delete it.
 //
-// 3. In any contiguous series of dbg.value instructions, if there are dbg.value's
-//    that point to the same variable+fragment, then delete all but the last one,
-//    since it would be the only authentic mapping for that variable fragment.
+// 3. In any contiguous series of dbg.value instructions, if there are
+// dbg.value's
+//    that point to the same variable+fragment, then delete all but the last
+//    one, since it would be the only authentic mapping for that variable
+//    fragment.
 
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
 
@@ -37,13 +40,14 @@ public:
   static char ID;
 
   explicit DxilDeleteRedundantDebugValues() : ModulePass(ID) {
-    initializeDxilDeleteRedundantDebugValuesPass(*PassRegistry::getPassRegistry());
+    initializeDxilDeleteRedundantDebugValuesPass(
+        *PassRegistry::getPassRegistry());
   }
 
   bool runOnModule(Module &M) override;
 };
 char DxilDeleteRedundantDebugValues::ID;
-}
+} // namespace
 
 bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
   if (!llvm::hasDebugInfo(M))
@@ -67,7 +71,8 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
         if (isa<DbgInfoIntrinsic>(I))
           continue;
         DebugLoc DL = I.getDebugLoc();
-        if (!DL) continue;
+        if (!DL)
+          continue;
 
         DILocalScope *Scope = cast_or_null<DILocalScope>(DL.getScope());
         if (!Scope)
@@ -77,8 +82,7 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
           SeenScopes.insert(Scope);
           if (DILexicalBlockBase *LB = dyn_cast<DILexicalBlockBase>(Scope)) {
             Scope = LB->getScope();
-          }
-          else {
+          } else {
             Scope = nullptr;
           }
         }
@@ -94,9 +98,10 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
         }
 
         DbgValueInst *DI = dyn_cast<DbgValueInst>(&I);
-        if (!DI) continue;
-        DILocalVariable *Var  = DI->getVariable();
-        DIExpression    *Expr = DI->getExpression();
+        if (!DI)
+          continue;
+        DILocalVariable *Var = DI->getVariable();
+        DIExpression *Expr = DI->getExpression();
         VarPair Pair = VarPair(Var, Expr);
 
         if (!SeenScopes.count(Var->getScope())) {
@@ -110,8 +115,7 @@ bool DxilDeleteRedundantDebugValues::runOnModule(Module &M) {
           findIt->second->eraseFromParent();
           findIt->second = DI;
           Changed = true;
-        }
-        else {
+        } else {
           SeenVar[Pair] = DI;
         }
       }
@@ -125,4 +129,6 @@ ModulePass *llvm::createDxilDeleteRedundantDebugValuesPass() {
   return new DxilDeleteRedundantDebugValues();
 }
 
-INITIALIZE_PASS(DxilDeleteRedundantDebugValues, "dxil-delete-redundant-debug-values", "Dxil Delete Redundant Debug Values", false, false)
+INITIALIZE_PASS(DxilDeleteRedundantDebugValues,
+                "dxil-delete-redundant-debug-values",
+                "Dxil Delete Redundant Debug Values", false, false)

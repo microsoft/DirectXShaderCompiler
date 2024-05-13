@@ -114,6 +114,8 @@ public:
   void emitFloatLiteral(const SpirvConstantFloat *, vecType &outInst);
   template <typename vecType>
   void emitIntLiteral(const SpirvConstantInteger *, vecType &outInst);
+  template <typename vecType>
+  void emitIntLiteral(const llvm::APInt &literalVal, vecType &outInst);
 
 private:
   void initTypeInstruction(spv::Op op);
@@ -269,6 +271,7 @@ public:
   bool visit(SpirvSpecConstantBinaryOp *) override;
   bool visit(SpirvSpecConstantUnaryOp *) override;
   bool visit(SpirvStore *) override;
+  bool visit(SpirvNullaryOp *) override;
   bool visit(SpirvUnaryOp *) override;
   bool visit(SpirvVectorShuffle *) override;
   bool visit(SpirvArrayLength *) override;

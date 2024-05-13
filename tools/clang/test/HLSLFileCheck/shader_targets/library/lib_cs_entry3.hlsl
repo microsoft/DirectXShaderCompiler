@@ -13,12 +13,13 @@
 // CHECK: [[CS]] = !{i32 8, i32 8, i32 1}
 // CHECK: @entry2, !"entry2", null, null, [[PROPS]]
 
-
+[shader("compute")]
 [numthreads(8,8,1)]
 void entry( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex )
 {
 }
 
+[shader("compute")]
 [numthreads(8,8,1)]
 void entry2( uint2 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex )
 {

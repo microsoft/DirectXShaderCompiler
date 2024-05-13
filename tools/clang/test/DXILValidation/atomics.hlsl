@@ -30,6 +30,7 @@ void init(out uint i); // To force an alloca pointer to use with atomic op
 void init(out uint i) {i = 0;}
 #endif
 
+[shader("compute")]
 [numthreads(1,1,1)]
 void main(uint ix : SV_GroupIndex) {
 

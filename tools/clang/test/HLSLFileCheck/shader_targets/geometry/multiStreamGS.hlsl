@@ -1,5 +1,8 @@
-// RUN: %dxc -E main -T gs_6_0 %s | FileCheck %s
-// RUN: %dxc -E main -T gs_6_0 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
+// RUN: %dxilver 1.7 | %dxc -E main -T gs_6_0 %s | FileCheck %s
+// RUN: %dxilver 1.7 | %dxc -E main -T gs_6_0 %s | %D3DReflect %s | FileCheck -check-prefix=REFL %s
+
+// dxilver 1.7 because PSV0 data was incorrectly filled in before this point,
+// making this test fail if running against prior validator versions.
 
 // CHECK:; Output signature:
 // CHECK:;

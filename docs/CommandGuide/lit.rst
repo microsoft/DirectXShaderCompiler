@@ -199,6 +199,40 @@ suite they are in, and their relative path inside the test suite.  For
 appropriately configured projects, this allows :program:`lit` to provide
 convenient and flexible support for out-of-tree builds.
 
+Substitutions
+-------------
+Besides replacing LLVM tool names the following substitutions are performed in
+RUN lines:
+
+``%s``
+   File path to the test case's source. This is suitable for passing on the
+   command line as the input to an LLVM tool.
+   Example: ``/home/user/llvm/test/MC/ELF/foo_test.s``
+
+``%S``
+   Directory path to the test case's source.
+   Example: ``/home/user/llvm/test/MC/ELF``
+
+``%t``
+   File path to a temporary file name that could be used for this test case.
+   The file name won't conflict with other test cases. You can append to it
+   if you need multiple temporaries. This is useful as the destination of
+   some redirected output.
+   Example: ``/home/user/llvm.build/test/MC/ELF/Output/foo_test.s.tmp``
+   
+``%T``
+   Directory of ``%t``. Deprecated. Shouldn't be used, because it can be easily
+   misused and cause race conditions between tests.
+   Use ``rm -rf %t && mkdir %t`` instead if a temporary directory is necessary.
+   Example: ``/home/user/llvm.build/test/MC/ELF/Output``
+
+``%if feature %{<if branch>%} %else %{<else branch>%}``
+
+ Conditional substitution: if ``feature`` is available it expands to
+ ``<if branch>``, otherwise it expands to ``<else branch>``.
+ ``%else %{<else branch>%}`` is optional and treated like ``%else %{%}``
+ if not present.
+
 .. _test-status-results:
 
 TEST STATUS RESULTS

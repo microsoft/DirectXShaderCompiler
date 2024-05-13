@@ -7,14 +7,14 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/HLSL/HLMatrixLowerPass.h"
-#include "dxc/HLSL/HLMatrixLowerHelper.h"
-#include "dxc/HLSL/HLMatrixType.h"
-#include "dxc/DXIL/DxilUtil.h"
-#include "dxc/Support/Global.h"
-#include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilUtil.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/HLSL/HLMatrixLowerHelper.h"
+#include "dxc/HLSL/HLMatrixLowerPass.h"
+#include "dxc/HLSL/HLMatrixType.h"
+#include "dxc/Support/Global.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
@@ -30,8 +30,9 @@ using namespace hlsl::HLMatrixLower;
 // After linking Lower matrix bitcast patterns like:
 //  %169 = bitcast [72 x float]* %0 to [6 x %class.matrix.float.4.3]*
 //  %conv.i = fptoui float %164 to i32
-//  %arrayidx.i = getelementptr inbounds [6 x %class.matrix.float.4.3], [6 x %class.matrix.float.4.3]* %169, i32 0, i32 %conv.i
-//  %170 = bitcast %class.matrix.float.4.3* %arrayidx.i to <12 x float>*
+//  %arrayidx.i = getelementptr inbounds [6 x %class.matrix.float.4.3], [6 x
+//  %class.matrix.float.4.3]* %169, i32 0, i32 %conv.i %170 = bitcast
+//  %class.matrix.float.4.3* %arrayidx.i to <12 x float>*
 
 namespace {
 
@@ -40,8 +41,7 @@ Type *LowerMatrixTypeToOneDimArray(Type *Ty) {
   if (HLMatrixType MatTy = HLMatrixType::dyn_cast(Ty)) {
     Type *EltTy = MatTy.getElementTypeForReg();
     return ArrayType::get(EltTy, MatTy.getNumElements());
-  }
-  else {
+  } else {
     return Ty;
   }
 }
@@ -67,9 +67,9 @@ Type *TryLowerMatTy(Type *Ty) {
   Type *VecTy = nullptr;
   if (HLMatrixType::isMatrixArrayPtr(Ty)) {
     VecTy = LowerMatrixArrayPointerToOneDimArray(Ty);
-  } else if (isa<PointerType>(Ty) && HLMatrixType::isa(Ty->getPointerElementType())) {
-    VecTy = LowerMatrixTypeToOneDimArray(
-        Ty->getPointerElementType());
+  } else if (isa<PointerType>(Ty) &&
+             HLMatrixType::isa(Ty->getPointerElementType())) {
+    VecTy = LowerMatrixTypeToOneDimArray(Ty->getPointerElementType());
     VecTy = PointerType::get(VecTy, Ty->getPointerAddressSpace());
   }
   return VecTy;
@@ -84,10 +84,10 @@ public:
   StringRef getPassName() const override { return "Matrix Bitcast lower"; }
   bool runOnFunction(Function &F) override {
     bool bUpdated = false;
-    std::unordered_set<BitCastInst*> matCastSet;
+    std::unordered_set<BitCastInst *> matCastSet;
     for (auto blkIt = F.begin(); blkIt != F.end(); ++blkIt) {
       BasicBlock *BB = blkIt;
-      for (auto iIt = BB->begin(); iIt != BB->end(); ) {
+      for (auto iIt = BB->begin(); iIt != BB->end();) {
         Instruction *I = (iIt++);
         if (BitCastInst *BCI = dyn_cast<BitCastInst>(I)) {
           // Mutate mat to vec.
@@ -117,12 +117,13 @@ public:
     }
     return bUpdated;
   }
+
 private:
   void lowerMatrix(Instruction *M, Value *A);
   bool hasCallUser(Instruction *M);
 };
 
-}
+} // namespace
 
 bool MatrixBitcastLowerPass::hasCallUser(Instruction *M) {
   for (auto it = M->user_begin(); it != M->user_end();) {
@@ -245,6 +246,9 @@ void MatrixBitcastLowerPass::lowerMatrix(Instruction *M, Value *A) {
 }
 
 char MatrixBitcastLowerPass::ID = 0;
-FunctionPass *llvm::createMatrixBitcastLowerPass() { return new MatrixBitcastLowerPass(); }
+FunctionPass *llvm::createMatrixBitcastLowerPass() {
+  return new MatrixBitcastLowerPass();
+}
 
-INITIALIZE_PASS(MatrixBitcastLowerPass, "matrixbitcastlower", "Matrix Bitcast lower", false, false)
+INITIALIZE_PASS(MatrixBitcastLowerPass, "matrixbitcastlower",
+                "Matrix Bitcast lower", false, false)

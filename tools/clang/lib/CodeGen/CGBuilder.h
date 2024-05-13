@@ -22,9 +22,9 @@ class CodeGenFunction;
 /// instructions.
 template <bool PreserveNames>
 class CGBuilderInserter
-  : protected llvm::IRBuilderDefaultInserter<PreserveNames> {
+    : protected llvm::IRBuilderDefaultInserter<PreserveNames> {
 public:
-  CGBuilderInserter() : CGF(nullptr) {}
+  CGBuilderInserter() = default;
   explicit CGBuilderInserter(CodeGenFunction *CGF) : CGF(CGF) {}
 
 protected:
@@ -32,10 +32,9 @@ protected:
   void InsertHelper(llvm::Instruction *I, const llvm::Twine &Name,
                     llvm::BasicBlock *BB,
                     llvm::BasicBlock::iterator InsertPt) const;
-private:
-  void operator=(const CGBuilderInserter &) = delete;
 
-  CodeGenFunction *CGF;
+private:
+  CodeGenFunction *CGF = nullptr;
 };
 
 // Don't preserve names on values in an optimized build.

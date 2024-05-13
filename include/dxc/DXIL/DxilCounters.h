@@ -14,14 +14,17 @@
 #include <stdint.h>
 
 namespace llvm {
-  class Module;
-  class StringRef;
-}
+class Module;
+class StringRef;
+} // namespace llvm
 
 namespace hlsl {
 
 struct DxilCounters {
+  // clang-format off
+  // Python lines need to be not formatted.
   // <py::lines('OPCODE-COUNTERS')>['uint32_t %s = 0;' % c for c in hctdb_instrhelp.get_counters()]</py>
+  // clang-format on
   // OPCODE-COUNTERS:BEGIN
   uint32_t array_local_bytes = 0;
   uint32_t array_local_ldst = 0;
@@ -50,18 +53,14 @@ struct DxilCounters {
   // OPCODE-COUNTERS:END
 
   uint32_t AllArrayBytes() {
-    return array_local_bytes
-      + array_static_bytes
-      + array_tgsm_bytes;
+    return array_local_bytes + array_static_bytes + array_tgsm_bytes;
   }
   uint32_t AllArrayAccesses() {
-    return array_local_ldst
-      + array_static_ldst
-      + array_tgsm_ldst;
+    return array_local_ldst + array_static_ldst + array_tgsm_ldst;
   }
 };
 
-void CountInstructions(llvm::Module &M, DxilCounters& counters);
-uint32_t *LookupByName(llvm::StringRef name, DxilCounters& counters);
+void CountInstructions(llvm::Module &M, DxilCounters &counters);
+uint32_t *LookupByName(llvm::StringRef name, DxilCounters &counters);
 
 } // namespace hlsl

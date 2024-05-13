@@ -20,14 +20,16 @@ llvm::MDTuple *dxil_dia::InjectedSource::NameContent() {
 }
 
 llvm::StringRef dxil_dia::InjectedSource::Name() {
-  return llvm::dyn_cast<llvm::MDString>(NameContent()->getOperand(0))->getString();
+  return llvm::dyn_cast<llvm::MDString>(NameContent()->getOperand(0))
+      ->getString();
 }
 
 llvm::StringRef dxil_dia::InjectedSource::Content() {
-  return llvm::dyn_cast<llvm::MDString>(NameContent()->getOperand(1))->getString();
+  return llvm::dyn_cast<llvm::MDString>(NameContent()->getOperand(1))
+      ->getString();
 }
 
-STDMETHODIMP dxil_dia::InjectedSource::get_length(_Out_ ULONGLONG *pRetVal) {
+STDMETHODIMP dxil_dia::InjectedSource::get_length(ULONGLONG *pRetVal) {
   *pRetVal = Content().size();
   return S_OK;
 }
@@ -47,9 +49,9 @@ STDMETHODIMP dxil_dia::InjectedSource::get_virtualFilename(BSTR *pRetVal) {
 }
 
 STDMETHODIMP dxil_dia::InjectedSource::get_source(
-  /* [in] */ DWORD cbData,
-  /* [out] */ DWORD *pcbData,
-  /* [size_is][out] */ BYTE *pbData) {
+    /* [in] */ DWORD cbData,
+    /* [out] */ DWORD *pcbData,
+    /* [size_is][out] */ BYTE *pbData) {
   if (pbData == nullptr) {
     if (pcbData != nullptr) {
       *pcbData = Content().size();
@@ -65,18 +67,19 @@ STDMETHODIMP dxil_dia::InjectedSource::get_source(
   return S_OK;
 }
 
-dxil_dia::InjectedSourcesTable::InjectedSourcesTable(
-  IMalloc *pMalloc,
-  Session *pSession)
-  : impl::TableBase<IDiaEnumInjectedSources,
-                    IDiaInjectedSource>(pMalloc, pSession, Table::Kind::InjectedSource) {
+dxil_dia::InjectedSourcesTable::InjectedSourcesTable(IMalloc *pMalloc,
+                                                     Session *pSession)
+    : impl::TableBase<IDiaEnumInjectedSources, IDiaInjectedSource>(
+          pMalloc, pSession, Table::Kind::InjectedSource) {
   // Count the number of source files available.
   // m_count = m_pSession->InfoRef().compile_unit_count();
-  m_count =
-    (m_pSession->Contents() == nullptr) ? 0 : m_pSession->Contents()->getNumOperands();
+  m_count = (m_pSession->Contents() == nullptr)
+                ? 0
+                : m_pSession->Contents()->getNumOperands();
 }
 
-HRESULT dxil_dia::InjectedSourcesTable::GetItem(DWORD index, IDiaInjectedSource **ppItem) {
+HRESULT dxil_dia::InjectedSourcesTable::GetItem(DWORD index,
+                                                IDiaInjectedSource **ppItem) {
   if (index >= m_count)
     return E_INVALIDARG;
   unsigned itemIndex = index;
@@ -92,8 +95,9 @@ HRESULT dxil_dia::InjectedSourcesTable::GetItem(DWORD index, IDiaInjectedSource 
 void dxil_dia::InjectedSourcesTable::Init(llvm::StringRef filename) {
   for (unsigned i = 0; i < m_pSession->Contents()->getNumOperands(); ++i) {
     llvm::StringRef fn =
-      llvm::dyn_cast<llvm::MDString>(m_pSession->Contents()->getOperand(i)->getOperand(0))
-      ->getString();
+        llvm::dyn_cast<llvm::MDString>(
+            m_pSession->Contents()->getOperand(i)->getOperand(0))
+            ->getString();
     if (fn.equals(filename)) {
       m_indexList.emplace_back(i);
     }

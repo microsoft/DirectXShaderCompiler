@@ -278,6 +278,29 @@ void TargetInfo::adjust(const LangOptions &Opts) {
   if (Opts.ShortWChar)
     WCharType = UnsignedShort;
 
+  // HLSL Change Begin
+  // We should have always set these values for HLSL, but instead we hacked
+  // ASTContext::getTypeInfoImpl to override some of the uses (but not all).
+  // With 202x relying more on Clang's C/C++ support we need to correctly set
+  // the TargetInfo at least for this subset of types. This change probably
+  // shouldn't be dependent on the language version, but I made it this way to
+  // reduce any unforseen risk.
+  if (Opts.HLSL) {
+    // DXILTargetInfo in Tergets.cpp sets base values that aren't dependent on
+    // language options. The values here adjust the base values once the
+    // language options are initialized.
+    if (Opts.HLSLVersion >= hlsl::LangStd::v202x) {
+      IntWidth = IntAlign = 32;
+      LongLongWidth = LongLongAlign = 64;
+      if (!Opts.UseMinPrecision)
+        HalfWidth = HalfAlign = 16;
+      else
+        HalfWidth = HalfAlign = 32;
+      FloatWidth = FloatAlign = 32;
+    }
+  }
+  // HLSL Change End
+
   if (Opts.OpenCL) {
     // OpenCL C requires specific widths for types, irrespective of
     // what these normally are for the target.

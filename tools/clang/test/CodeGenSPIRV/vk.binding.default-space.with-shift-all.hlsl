@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -auto-binding-space 77 -fvk-b-shift 1000 all -fvk-t-shift 2000 all -fvk-s-shift 3000 all -fvk-u-shift 4000 all
+// RUN: %dxc -T ps_6_0 -E main -auto-binding-space 77 -fvk-b-shift 1000 all -fvk-t-shift 2000 all -fvk-s-shift 3000 all -fvk-u-shift 4000 all -fcgl  %s -spirv | FileCheck %s
 
 struct S {
     float4 f;

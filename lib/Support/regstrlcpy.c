@@ -25,7 +25,7 @@
  * will be copied.  Always NUL terminates (unless siz == 0).
  * Returns strlen(src); if retval >= siz, truncation occurred.
  */
-_Use_decl_annotations_
+
 size_t
 llvm_strlcpy(char *dst, const char *src, size_t siz)
 {

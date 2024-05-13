@@ -228,7 +228,7 @@ struct BasicBlockPassPrinter : public BasicBlockPass {
 };
 
 char BasicBlockPassPrinter::ID = 0;
-}
+} // namespace
 
 FunctionPass *llvm::createFunctionPassPrinter(const PassInfo *PI,
                                               raw_ostream &OS, bool Quiet) {

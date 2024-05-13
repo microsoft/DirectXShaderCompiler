@@ -515,7 +515,7 @@ static std::string getMangledTypeStr(Type* Ty) {
   return Result;
 }
 
-std::string Intrinsic::getName(_In_range_(0, num_intrinsics-1) ID id, ArrayRef<Type*> Tys) {
+std::string Intrinsic::getName(ID id, ArrayRef<Type*> Tys) {
   assert(id < num_intrinsics && "Invalid intrinsic ID!");
   static const char * const Table[] = {
     "not_intrinsic",

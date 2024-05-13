@@ -5,6 +5,7 @@
 // CHECK-NOT: ashr
 // Make sure no and for src1 of lshr.
 // CHECK-NOT: and
+// CHECK-LABEL: ret
 
 
 float main(uint2 a:A, uint b:B) : SV_Target {

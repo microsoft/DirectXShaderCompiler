@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct S {
     float  f1;
@@ -25,8 +25,8 @@ groupshared              S        s;
 [numthreads(8, 8, 8)]
 void main(uint3 tid : SV_DispatchThreadID, uint2 gid : SV_GroupID) {
 // Make sure pointers have the correct storage class
-// CHECK:    {{%\d+}} = OpAccessChain %_ptr_Workgroup_float %s %int_0
-// CHECK: [[d0:%\d+]] = OpAccessChain %_ptr_Workgroup_v2float %d %int_0
-// CHECK:    {{%\d+}} = OpAccessChain %_ptr_Workgroup_float [[d0]] %int_1
+// CHECK:    {{%[0-9]+}} = OpAccessChain %_ptr_Workgroup_float %s %int_0
+// CHECK: [[d0:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_v2float %d %int_0
+// CHECK:    {{%[0-9]+}} = OpAccessChain %_ptr_Workgroup_float [[d0]] %int_1
     d[0].y = s.f1;
 }

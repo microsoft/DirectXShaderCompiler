@@ -33,7 +33,7 @@ using namespace llvm;
 
 namespace {
 class VectorLegalizer {
-  SelectionDAG& DAG;
+  SelectionDAG &DAG;
   const TargetLowering &TLI;
   bool Changed; // Keep track of whether anything changed
 
@@ -77,9 +77,9 @@ class VectorLegalizer {
 
   /// \brief Implement expansion for ANY_EXTEND_VECTOR_INREG.
   ///
-  /// Shuffles the low lanes of the operand into place and bitcasts to the proper
-  /// type. The contents of the bits in the extended part of each element are
-  /// undef.
+  /// Shuffles the low lanes of the operand into place and bitcasts to the
+  /// proper type. The contents of the bits in the extended part of each element
+  /// are undef.
   SDValue ExpandANY_EXTEND_VECTOR_INREG(SDValue Op);
 
   /// \brief Implement expansion for SIGN_EXTEND_VECTOR_INREG.
@@ -126,15 +126,16 @@ class VectorLegalizer {
 public:
   /// \brief Begin legalizer the vector operations in the DAG.
   bool Run();
-  VectorLegalizer(SelectionDAG& dag) :
-      DAG(dag), TLI(dag.getTargetLoweringInfo()), Changed(false) {}
+  VectorLegalizer(SelectionDAG &dag)
+      : DAG(dag), TLI(dag.getTargetLoweringInfo()), Changed(false) {}
 };
 
 bool VectorLegalizer::Run() {
   // Before we start legalizing vector nodes, check if there are any vectors.
   bool HasVectors = false;
   for (SelectionDAG::allnodes_iterator I = DAG.allnodes_begin(),
-       E = std::prev(DAG.allnodes_end()); I != std::next(E); ++I) {
+                                       E = std::prev(DAG.allnodes_end());
+       I != std::next(E); ++I) {
     // Check if the values of the nodes contain vectors. We don't need to check
     // the operands because we are going to check their values at some point.
     for (SDNode::value_iterator J = I->value_begin(), E = I->value_end();
@@ -158,7 +159,8 @@ bool VectorLegalizer::Run() {
   // node is only legalized after all of its operands are legalized.
   DAG.AssignTopologicalOrder();
   for (SelectionDAG::allnodes_iterator I = DAG.allnodes_begin(),
-       E = std::prev(DAG.allnodes_end()); I != std::next(E); ++I)
+                                       E = std::prev(DAG.allnodes_end());
+       I != std::next(E); ++I)
     LegalizeOp(SDValue(I, 0));
 
   // Finally, it's possible the root changed.  Get the new root.
@@ -185,9 +187,10 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
   // Note that LegalizeOp may be reentered even from single-use nodes, which
   // means that we always must cache transformed nodes.
   DenseMap<SDValue, SDValue>::iterator I = LegalizedNodes.find(Op);
-  if (I != LegalizedNodes.end()) return I->second;
+  if (I != LegalizedNodes.end())
+    return I->second;
 
-  SDNode* Node = Op.getNode();
+  SDNode *Node = Op.getNode();
 
   // Legalize the operands
   SmallVector<SDValue, 8> Ops;
@@ -203,7 +206,8 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
     if (LD->getMemoryVT().isVector() && ExtType != ISD::NON_EXTLOAD)
       switch (TLI.getLoadExtAction(LD->getExtensionType(), LD->getValueType(0),
                                    LD->getMemoryVT())) {
-      default: llvm_unreachable("This action is not supported yet!");
+      default:
+        llvm_unreachable("This action is not supported yet!");
       case TargetLowering::Legal:
         return TranslateLegalizeResults(Op, Result);
       case TargetLowering::Custom:
@@ -232,7 +236,8 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
     MVT ValVT = ST->getValue().getSimpleValueType();
     if (StVT.isVector() && ST->isTruncatingStore())
       switch (TLI.getTruncStoreAction(ValVT, StVT.getSimpleVT())) {
-      default: llvm_unreachable("This action is not supported yet!");
+      default:
+        llvm_unreachable("This action is not supported yet!");
       case TargetLowering::Legal:
         return TranslateLegalizeResults(Op, Result);
       case TargetLowering::Custom: {
@@ -248,8 +253,7 @@ SDValue VectorLegalizer::LegalizeOp(SDValue Op) {
     HasVectorValue = true;
 
   for (SDNode::value_iterator J = Node->value_begin(), E = Node->value_end();
-       J != E;
-       ++J)
+       J != E; ++J)
     HasVectorValue |= J->isVector();
   if (!HasVectorValue)
     return TranslateLegalizeResults(Op, Result);
@@ -440,8 +444,8 @@ SDValue VectorLegalizer::PromoteINT_TO_FP(SDValue Op) {
   SDLoc dl(Op);
   SmallVector<SDValue, 4> Operands(Op.getNumOperands());
 
-  unsigned Opc = Op.getOpcode() == ISD::UINT_TO_FP ? ISD::ZERO_EXTEND :
-    ISD::SIGN_EXTEND;
+  unsigned Opc =
+      Op.getOpcode() == ISD::UINT_TO_FP ? ISD::ZERO_EXTEND : ISD::SIGN_EXTEND;
   for (unsigned j = 0; j != Op.getNumOperands(); ++j) {
     if (Op.getOperand(j).getValueType().isVector())
       Operands[j] = DAG.getNode(Opc, dl, NVT, Op.getOperand(j));
@@ -477,10 +481,9 @@ SDValue VectorLegalizer::PromoteFP_TO_INT(SDValue Op, bool isSigned) {
   }
 
   SDLoc loc(Op);
-  SDValue promoted  = DAG.getNode(NewOpc, SDLoc(Op), NewVT, Op.getOperand(0));
+  SDValue promoted = DAG.getNode(NewOpc, SDLoc(Op), NewVT, Op.getOperand(0));
   return DAG.getNode(ISD::TRUNCATE, SDLoc(Op), VT, promoted);
 }
-
 
 SDValue VectorLegalizer::ExpandLoad(SDValue Op) {
   SDLoc dl(Op);
@@ -508,8 +511,7 @@ SDValue VectorLegalizer::ExpandLoad(SDValue Op) {
     assert(WideVT.isRound() &&
            "Could not handle the sophisticated case when the widest integer is"
            " not power of 2.");
-    assert(WideVT.bitsGE(SrcEltVT) &&
-           "Type is not legalized?");
+    assert(WideVT.bitsGE(SrcEltVT) && "Type is not legalized?");
 
     unsigned WideBytes = WideVT.getStoreSize();
     unsigned Offset = 0;
@@ -521,31 +523,29 @@ SDValue VectorLegalizer::ExpandLoad(SDValue Op) {
       unsigned LoadBytes = WideBytes;
 
       if (RemainingBytes >= LoadBytes) {
-        ScalarLoad = DAG.getLoad(WideVT, dl, Chain, BasePTR,
-                                 LD->getPointerInfo().getWithOffset(Offset),
-                                 LD->isVolatile(), LD->isNonTemporal(),
-                                 LD->isInvariant(),
-                                 MinAlign(LD->getAlignment(), Offset),
-                                 LD->getAAInfo());
+        ScalarLoad = DAG.getLoad(
+            WideVT, dl, Chain, BasePTR,
+            LD->getPointerInfo().getWithOffset(Offset), LD->isVolatile(),
+            LD->isNonTemporal(), LD->isInvariant(),
+            MinAlign(LD->getAlignment(), Offset), LD->getAAInfo());
       } else {
         EVT LoadVT = WideVT;
         while (RemainingBytes < LoadBytes) {
           LoadBytes >>= 1; // Reduce the load size by half.
           LoadVT = EVT::getIntegerVT(*DAG.getContext(), LoadBytes << 3);
         }
-        ScalarLoad = DAG.getExtLoad(ISD::EXTLOAD, dl, WideVT, Chain, BasePTR,
-                                    LD->getPointerInfo().getWithOffset(Offset),
-                                    LoadVT, LD->isVolatile(),
-                                    LD->isNonTemporal(), LD->isInvariant(),
-                                    MinAlign(LD->getAlignment(), Offset),
-                                    LD->getAAInfo());
+        ScalarLoad = DAG.getExtLoad(
+            ISD::EXTLOAD, dl, WideVT, Chain, BasePTR,
+            LD->getPointerInfo().getWithOffset(Offset), LoadVT,
+            LD->isVolatile(), LD->isNonTemporal(), LD->isInvariant(),
+            MinAlign(LD->getAlignment(), Offset), LD->getAAInfo());
       }
 
       RemainingBytes -= LoadBytes;
       Offset += LoadBytes;
-      BasePTR = DAG.getNode(ISD::ADD, dl, BasePTR.getValueType(), BasePTR,
-                            DAG.getConstant(LoadBytes, dl,
-                                            BasePTR.getValueType()));
+      BasePTR =
+          DAG.getNode(ISD::ADD, dl, BasePTR.getValueType(), BasePTR,
+                      DAG.getConstant(LoadBytes, dl, BasePTR.getValueType()));
 
       LoadVals.push_back(ScalarLoad.getValue(0));
       LoadChains.push_back(ScalarLoad.getValue(1));
@@ -586,7 +586,8 @@ SDValue VectorLegalizer::ExpandLoad(SDValue Op) {
         Lo = DAG.getNode(ISD::OR, dl, WideVT, Lo, Hi);
 
       switch (ExtType) {
-      default: llvm_unreachable("Unknown extended-load op!");
+      default:
+        llvm_unreachable("Unknown extended-load op!");
       case ISD::EXTLOAD:
         Lo = DAG.getAnyExtOrTrunc(Lo, dl, DstEltVT);
         break;
@@ -605,18 +606,19 @@ SDValue VectorLegalizer::ExpandLoad(SDValue Op) {
       Vals.push_back(Lo);
     }
   } else {
-    unsigned Stride = SrcVT.getScalarType().getSizeInBits()/8;
+    unsigned Stride = SrcVT.getScalarType().getSizeInBits() / 8;
 
-    for (unsigned Idx=0; Idx<NumElem; Idx++) {
-      SDValue ScalarLoad = DAG.getExtLoad(ExtType, dl,
-                Op.getNode()->getValueType(0).getScalarType(),
-                Chain, BasePTR, LD->getPointerInfo().getWithOffset(Idx * Stride),
-                SrcVT.getScalarType(),
-                LD->isVolatile(), LD->isNonTemporal(), LD->isInvariant(),
-                MinAlign(LD->getAlignment(), Idx * Stride), LD->getAAInfo());
+    for (unsigned Idx = 0; Idx < NumElem; Idx++) {
+      SDValue ScalarLoad = DAG.getExtLoad(
+          ExtType, dl, Op.getNode()->getValueType(0).getScalarType(), Chain,
+          BasePTR, LD->getPointerInfo().getWithOffset(Idx * Stride),
+          SrcVT.getScalarType(), LD->isVolatile(), LD->isNonTemporal(),
+          LD->isInvariant(), MinAlign(LD->getAlignment(), Idx * Stride),
+          LD->getAAInfo());
 
-      BasePTR = DAG.getNode(ISD::ADD, dl, BasePTR.getValueType(), BasePTR,
-                         DAG.getConstant(Stride, dl, BasePTR.getValueType()));
+      BasePTR =
+          DAG.getNode(ISD::ADD, dl, BasePTR.getValueType(), BasePTR,
+                      DAG.getConstant(Stride, dl, BasePTR.getValueType()));
 
       Vals.push_back(ScalarLoad.getValue(0));
       LoadChains.push_back(ScalarLoad.getValue(1));
@@ -624,8 +626,8 @@ SDValue VectorLegalizer::ExpandLoad(SDValue Op) {
   }
 
   SDValue NewChain = DAG.getNode(ISD::TokenFactor, dl, MVT::Other, LoadChains);
-  SDValue Value = DAG.getNode(ISD::BUILD_VECTOR, dl,
-                              Op.getNode()->getValueType(0), Vals);
+  SDValue Value =
+      DAG.getNode(ISD::BUILD_VECTOR, dl, Op.getNode()->getValueType(0), Vals);
 
   AddLegalizedOperand(Op.getValue(0), Value);
   AddLegalizedOperand(Op.getValue(1), NewChain);
@@ -661,7 +663,7 @@ SDValue VectorLegalizer::ExpandStore(SDValue Op) {
     ScalarSize = NextPowerOf2(ScalarSize);
 
   // Store Stride in bytes
-  unsigned Stride = ScalarSize/8;
+  unsigned Stride = ScalarSize / 8;
   // Extract each of the elements from the original vector
   // and save them into memory individually.
   SmallVector<SDValue, 8> Stores;
@@ -671,17 +673,17 @@ SDValue VectorLegalizer::ExpandStore(SDValue Op) {
         DAG.getConstant(Idx, dl, TLI.getVectorIdxTy(DAG.getDataLayout())));
 
     // This scalar TruncStore may be illegal, but we legalize it later.
-    SDValue Store = DAG.getTruncStore(Chain, dl, Ex, BasePTR,
-               ST->getPointerInfo().getWithOffset(Idx*Stride), MemSclVT,
-               isVolatile, isNonTemporal, MinAlign(Alignment, Idx*Stride),
-               AAInfo);
+    SDValue Store = DAG.getTruncStore(
+        Chain, dl, Ex, BasePTR,
+        ST->getPointerInfo().getWithOffset(Idx * Stride), MemSclVT, isVolatile,
+        isNonTemporal, MinAlign(Alignment, Idx * Stride), AAInfo);
 
     BasePTR = DAG.getNode(ISD::ADD, dl, BasePTR.getValueType(), BasePTR,
                           DAG.getConstant(Stride, dl, BasePTR.getValueType()));
 
     Stores.push_back(Store);
   }
-  SDValue TF =  DAG.getNode(ISD::TokenFactor, dl, MVT::Other, Stores);
+  SDValue TF = DAG.getNode(ISD::TokenFactor, dl, MVT::Other, Stores);
   AddLegalizedOperand(Op, TF);
   return TF;
 }
@@ -724,8 +726,8 @@ SDValue VectorLegalizer::ExpandSELECT(SDValue Op) {
   SDValue Op1 = Op.getOperand(1);
   SDValue Op2 = Op.getOperand(2);
 
-  assert(VT.isVector() && !Mask.getValueType().isVector()
-         && Op1.getValueType() == Op2.getValueType() && "Invalid type");
+  assert(VT.isVector() && !Mask.getValueType().isVector() &&
+         Op1.getValueType() == Op2.getValueType() && "Invalid type");
 
   unsigned NumElem = VT.getVectorNumElements();
 
@@ -736,8 +738,8 @@ SDValue VectorLegalizer::ExpandSELECT(SDValue Op) {
   // Also, we need to be able to construct a splat vector using BUILD_VECTOR.
   if (TLI.getOperationAction(ISD::AND, VT) == TargetLowering::Expand ||
       TLI.getOperationAction(ISD::XOR, VT) == TargetLowering::Expand ||
-      TLI.getOperationAction(ISD::OR,  VT) == TargetLowering::Expand ||
-      TLI.getOperationAction(ISD::BUILD_VECTOR,  VT) == TargetLowering::Expand)
+      TLI.getOperationAction(ISD::OR, VT) == TargetLowering::Expand ||
+      TLI.getOperationAction(ISD::BUILD_VECTOR, VT) == TargetLowering::Expand)
     return DAG.UnrollVectorOp(Op.getNode());
 
   // Generate a mask operand.
@@ -746,10 +748,10 @@ SDValue VectorLegalizer::ExpandSELECT(SDValue Op) {
   // What is the size of each element in the vector mask.
   EVT BitTy = MaskTy.getScalarType();
 
-  Mask = DAG.getSelect(DL, BitTy, Mask,
-          DAG.getConstant(APInt::getAllOnesValue(BitTy.getSizeInBits()), DL,
-                          BitTy),
-          DAG.getConstant(0, DL, BitTy));
+  Mask = DAG.getSelect(
+      DL, BitTy, Mask,
+      DAG.getConstant(APInt::getAllOnesValue(BitTy.getSizeInBits()), DL, BitTy),
+      DAG.getConstant(0, DL, BitTy));
 
   // Broadcast the mask so that the entire vector is all-one or all zero.
   SmallVector<SDValue, 8> Ops(NumElem, Mask);
@@ -762,7 +764,7 @@ SDValue VectorLegalizer::ExpandSELECT(SDValue Op) {
   Op2 = DAG.getNode(ISD::BITCAST, DL, MaskTy, Op2);
 
   SDValue AllOnes = DAG.getConstant(
-            APInt::getAllOnesValue(BitTy.getSizeInBits()), DL, MaskTy);
+      APInt::getAllOnesValue(BitTy.getSizeInBits()), DL, MaskTy);
   SDValue NotMask = DAG.getNode(ISD::XOR, DL, MaskTy, Mask, AllOnes);
 
   Op1 = DAG.getNode(ISD::AND, DL, MaskTy, Op1, Mask);
@@ -787,7 +789,7 @@ SDValue VectorLegalizer::ExpandSEXTINREG(SDValue Op) {
   SDValue ShiftSz = DAG.getConstant(BW - OrigBW, DL, VT);
 
   Op = Op.getOperand(0);
-  Op =   DAG.getNode(ISD::SHL, DL, VT, Op, ShiftSz);
+  Op = DAG.getNode(ISD::SHL, DL, VT, Op, ShiftSz);
   return DAG.getNode(ISD::SRA, DL, VT, Op, ShiftSz);
 }
 
@@ -931,7 +933,7 @@ SDValue VectorLegalizer::ExpandVSELECT(SDValue Op) {
   Op2 = DAG.getNode(ISD::BITCAST, DL, VT, Op2);
 
   SDValue AllOnes = DAG.getConstant(
-    APInt::getAllOnesValue(VT.getScalarType().getSizeInBits()), DL, VT);
+      APInt::getAllOnesValue(VT.getScalarType().getSizeInBits()), DL, VT);
   SDValue NotMask = DAG.getNode(ISD::XOR, DL, VT, Mask, AllOnes);
 
   Op1 = DAG.getNode(ISD::AND, DL, VT, Op1, Mask);
@@ -946,24 +948,28 @@ SDValue VectorLegalizer::ExpandUINT_TO_FLOAT(SDValue Op) {
 
   // Make sure that the SINT_TO_FP and SRL instructions are available.
   if (TLI.getOperationAction(ISD::SINT_TO_FP, VT) == TargetLowering::Expand ||
-      TLI.getOperationAction(ISD::SRL,        VT) == TargetLowering::Expand)
+      TLI.getOperationAction(ISD::SRL, VT) == TargetLowering::Expand)
     return DAG.UnrollVectorOp(Op.getNode());
 
- EVT SVT = VT.getScalarType();
+  EVT SVT = VT.getScalarType();
   assert((SVT.getSizeInBits() == 64 || SVT.getSizeInBits() == 32) &&
-      "Elements in vector-UINT_TO_FP must be 32 or 64 bits wide");
+         "Elements in vector-UINT_TO_FP must be 32 or 64 bits wide");
 
   unsigned BW = SVT.getSizeInBits();
-  SDValue HalfWord = DAG.getConstant(BW/2, DL, VT);
+  SDValue HalfWord = DAG.getConstant(BW / 2, DL, VT);
 
   // Constants to clear the upper part of the word.
   // Notice that we can also use SHL+SHR, but using a constant is slightly
   // faster on x86.
-  uint64_t HWMask = (SVT.getSizeInBits()==64)?0x00000000FFFFFFFF:0x0000FFFF;
+  uint64_t HWMask =
+      (SVT.getSizeInBits() == 64) ? 0x00000000FFFFFFFF : 0x0000FFFF;
   SDValue HalfWordMask = DAG.getConstant(HWMask, DL, VT);
 
   // Two to the power of half-word-size.
-  SDValue TWOHW = DAG.getConstantFP((((uint64_t)1)<<(BW/2)), DL, Op.getValueType()); // HLSL Change: do the 64-bit conversion before shift not after
+  SDValue TWOHW =
+      DAG.getConstantFP((((uint64_t)1) << (BW / 2)), DL,
+                        Op.getValueType()); // HLSL Change: do the 64-bit
+                                            // conversion before shift not after
 
   // Clear upper part of LO, lower HI
   SDValue HI = DAG.getNode(ISD::SRL, DL, VT, Op.getOperand(0), HalfWord);
@@ -972,20 +978,19 @@ SDValue VectorLegalizer::ExpandUINT_TO_FLOAT(SDValue Op) {
   // Convert hi and lo to floats
   // Convert the hi part back to the upper values
   SDValue fHI = DAG.getNode(ISD::SINT_TO_FP, DL, Op.getValueType(), HI);
-          fHI = DAG.getNode(ISD::FMUL, DL, Op.getValueType(), fHI, TWOHW);
+  fHI = DAG.getNode(ISD::FMUL, DL, Op.getValueType(), fHI, TWOHW);
   SDValue fLO = DAG.getNode(ISD::SINT_TO_FP, DL, Op.getValueType(), LO);
 
   // Add the two halves
   return DAG.getNode(ISD::FADD, DL, Op.getValueType(), fHI, fLO);
 }
 
-
 SDValue VectorLegalizer::ExpandFNEG(SDValue Op) {
   if (TLI.isOperationLegalOrCustom(ISD::FSUB, Op.getValueType())) {
     SDLoc DL(Op);
     SDValue Zero = DAG.getConstantFP(-0.0, DL, Op.getValueType());
-    return DAG.getNode(ISD::FSUB, DL, Op.getValueType(),
-                       Zero, Op.getOperand(0));
+    return DAG.getNode(ISD::FSUB, DL, Op.getValueType(), Zero,
+                       Op.getOperand(0));
   }
   return DAG.UnrollVectorOp(Op.getNode());
 }
@@ -1009,16 +1014,15 @@ SDValue VectorLegalizer::UnrollVSETCC(SDValue Op) {
                          TLI.getSetCCResultType(DAG.getDataLayout(),
                                                 *DAG.getContext(), TmpEltVT),
                          LHSElem, RHSElem, CC);
-    Ops[i] = DAG.getSelect(dl, EltVT, Ops[i],
-                           DAG.getConstant(APInt::getAllOnesValue
-                                           (EltVT.getSizeInBits()), dl, EltVT),
-                           DAG.getConstant(0, dl, EltVT));
+    Ops[i] = DAG.getSelect(
+        dl, EltVT, Ops[i],
+        DAG.getConstant(APInt::getAllOnesValue(EltVT.getSizeInBits()), dl,
+                        EltVT),
+        DAG.getConstant(0, dl, EltVT));
   }
   return DAG.getNode(ISD::BUILD_VECTOR, dl, VT, Ops);
 }
 
-}
+} // namespace
 
-bool SelectionDAG::LegalizeVectors() {
-  return VectorLegalizer(*this).Run();
-}
+bool SelectionDAG::LegalizeVectors() { return VectorLegalizer(*this).Run(); }

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-reflect
+// RUN: %dxc -T ps_6_0 -E main -fspv-reflect -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpExtension "SPV_GOOGLE_hlsl_functionality1"
 

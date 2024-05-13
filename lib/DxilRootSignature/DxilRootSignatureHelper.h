@@ -23,7 +23,11 @@ DEFINE_ENUM_FLAG_OPERATORS(DxilDescriptorRangeType)
 DEFINE_ENUM_FLAG_OPERATORS(DxilDescriptorRangeFlags)
 
 // Execute (error) and throw.
-#define EAT(x) { (x); throw ::hlsl::Exception(E_FAIL); }
+#define EAT(x)                                                                 \
+  {                                                                            \
+    (x);                                                                       \
+    throw ::hlsl::Exception(E_FAIL);                                           \
+  }
 
 namespace root_sig_helper {
 // GetFlags/SetFlags overloads.
@@ -40,6 +44,6 @@ DxilDescriptorRangeFlags GetFlags(const DxilDescriptorRange1 &D);
 void SetFlags(DxilDescriptorRange1 &D, DxilDescriptorRangeFlags Flags);
 DxilDescriptorRangeFlags GetFlags(const DxilContainerDescriptorRange1 &D);
 void SetFlags(DxilContainerDescriptorRange1 &D, DxilDescriptorRangeFlags Flags);
-}
+} // namespace root_sig_helper
 
-}
+} // namespace hlsl

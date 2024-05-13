@@ -507,6 +507,7 @@ bool Sema::CheckQualifiedMemberReference(Expr *BaseExpr,
                                          QualType BaseType,
                                          const CXXScopeSpec &SS,
                                          const LookupResult &R) {
+  BaseType = BaseType.getNonReferenceType(); // HLSL Change
   CXXRecordDecl *BaseRecord =
     cast_or_null<CXXRecordDecl>(computeDeclContext(BaseType));
   if (!BaseRecord) {
@@ -704,6 +705,7 @@ Sema::BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
     TypoExpr *TE = nullptr;
     QualType RecordTy = BaseType;
     if (IsArrow) RecordTy = RecordTy->getAs<PointerType>()->getPointeeType();
+    RecordTy = RecordTy.getNonReferenceType(); // HLSL Change - implicit this is a reference.
     if (LookupMemberExprInRecord(*this, R, nullptr,
                                  RecordTy->getAs<RecordType>(), OpLoc, IsArrow,
                                  SS, TemplateArgs != nullptr, TE))
@@ -1051,7 +1053,7 @@ Sema::BuildMemberReferenceExpr(Expr *BaseExpr, QualType BaseExprType,
     CheckCXXThisCapture(Loc);
 
     // HLSL Change Starts - adjust this from T* to T&-like
-    if (getLangOpts().HLSL && BaseExprType->isPointerType())
+    if (getLangOpts().HLSL)
       BaseExpr = genereateHLSLThis(Loc, BaseExprType, /*isImplicit=*/true);
     else
       BaseExpr = new (Context) CXXThisExpr(Loc, BaseExprType,/*isImplicit=*/true);
@@ -1768,9 +1770,9 @@ Sema::BuildImplicitMemberExpr(const CXXScopeSpec &SS,
     if (SS.getRange().isValid())
       Loc = SS.getRange().getBegin();
     CheckCXXThisCapture(Loc);
-    if (getLangOpts().HLSL && ThisTy->isPointerType()) {
+    if (getLangOpts().HLSL) {
       baseExpr = genereateHLSLThis(Loc, ThisTy, /*isImplicit=*/true);
-      ThisTy = ThisTy->getAs<PointerType>()->getPointeeType();
+      ThisTy = ThisTy->getPointeeType();
     } else
       baseExpr = new (Context) CXXThisExpr(loc, ThisTy, /*isImplicit=*/true);
   }

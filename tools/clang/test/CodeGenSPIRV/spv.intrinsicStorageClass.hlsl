@@ -1,10 +1,10 @@
-// RUN: %dxc -T ps_6_0 -E main -spirv -Vd
+// RUN: %dxc -T ps_6_0 -E main -spirv -Vd -fcgl  %s -spirv | FileCheck %s
 
-//CHECK: [[payloadTy:%\w+]] = OpTypeStruct %v4float
-//CHECK-NEXT: [[payloadTyPtr:%\w+]] = OpTypePointer RayPayloadNV [[payloadTy]]
-//CHECK: [[crossTy:%\w+]] = OpTypePointer CrossWorkgroup %int
-//CHECK: {{%\w+}} = OpVariable [[payloadTyPtr]] RayPayloadNV
-//CHECK: {{%\w+}} = OpVariable [[crossTy]] CrossWorkgroup
+//CHECK: [[payloadTy:%[a-zA-Z0-9_]+]] = OpTypeStruct %v4float
+//CHECK-NEXT: [[payloadTyPtr:%[a-zA-Z0-9_]+]] = OpTypePointer RayPayloadNV [[payloadTy]]
+//CHECK: [[crossTy:%[a-zA-Z0-9_]+]] = OpTypePointer CrossWorkgroup %int
+//CHECK: {{%[a-zA-Z0-9_]+}} = OpVariable [[payloadTyPtr]] RayPayloadNV
+//CHECK: {{%[a-zA-Z0-9_]+}} = OpVariable [[crossTy]] CrossWorkgroup
 
 [[vk::ext_storage_class(/*RayPayloadNV*/5338)]]
 float4 payload;

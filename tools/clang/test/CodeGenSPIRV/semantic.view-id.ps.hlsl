@@ -1,10 +1,10 @@
-// RUN: %dxc -T ps_6_1 -E main
+// RUN: %dxc -T ps_6_1 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpCapability MultiView
 // CHECK:      OpExtension "SPV_KHR_multiview"
 
 // CHECK:      OpEntryPoint Fragment
-// CHECK-SAME: [[viewindex:%\d+]]
+// CHECK-SAME: [[viewindex:%[0-9]+]]
 
 // CHECK:      OpDecorate [[viewindex]] BuiltIn ViewIndex
 

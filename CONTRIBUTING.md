@@ -34,7 +34,7 @@ You will need to complete a Contributor License Agreement (CLA) before your pull
 
 You can complete the CLA by going through the steps at the [Contribution License Agreement site](https://cla.microsoft.com). Once we have received the signed CLA, we'll review the request. You will only need to do this once.
 
-Make sure you can build the code. Familiarize yourself with the project workflow and our coding conventions. If you don't know what a pull request is read this article: https://help.github.com/articles/using-pull-requests. The hctcheckin command is your friend.
+Make sure you can build the code. Familiarize yourself with the project workflow and our coding conventions. If you don't know what a pull request is read this article: https://help.github.com/articles/using-pull-requests. The hcttest command is your friend.
 
 Before submitting a feature or substantial code contribution please discuss it with the team and ensure it follows the product roadmap. You might also read these two blogs posts on contributing code: [Open Source Contribution Etiquette](http://tirania.org/blog/archive/2010/Dec-31.html) by Miguel de Icaza and [Don't "Push" Your Pull Requests](https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/) by Ilya Grigorik. Note that all code submissions will be rigorously reviewed and tested by the team, and only those that meet an extremely high bar for both quality and design/roadmap appropriateness will be merged into the source.
 
@@ -43,6 +43,8 @@ Here's a few things you should always do when making changes to the code base:
 **Engineering guidelines**
 
 The coding, style, and general engineering guidelines follow those described in the docs/CodingStandards.rst. For additional guidelines in code specific to HLSL, see the docs/HLSLChanges.rst file.
+
+DXC has adopted a clang-format requirement for all incoming changes. PRs to DXC should have the _changed code_ clang formatted to the LLVM style, and leave the remaining portions of the file unchanged. This can be done using the `git-clang-format` tool or IDE driven workflows. A GitHub action will run on all PRs to validate that the change is properly formatted.
 
 **Commit/Pull Request Format**
 

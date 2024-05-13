@@ -26,56 +26,58 @@ namespace clang {
   // Import the diagnostic enums themselves.
   namespace diag {
     // Start position for diagnostics.
-    enum {
-      DIAG_START_COMMON        =                                 0,
-      DIAG_START_DRIVER        = DIAG_START_COMMON          +  300,
-      DIAG_START_FRONTEND      = DIAG_START_DRIVER          +  100,
-      DIAG_START_SERIALIZATION = DIAG_START_FRONTEND        +  100,
-      DIAG_START_LEX           = DIAG_START_SERIALIZATION   +  120,
-      DIAG_START_PARSE         = DIAG_START_LEX             +  300,
-      DIAG_START_AST           = DIAG_START_PARSE           +  500,
-      DIAG_START_COMMENT       = DIAG_START_AST             +  110,
-      DIAG_START_SEMA          = DIAG_START_COMMENT         +  100,
-      DIAG_START_ANALYSIS      = DIAG_START_SEMA            + 3000,
-      DIAG_UPPER_LIMIT         = DIAG_START_ANALYSIS        +  100
-    };
+  enum {
+    DIAG_START_COMMON = 0,
+    DIAG_START_DRIVER = DIAG_START_COMMON + 300,
+    DIAG_START_FRONTEND = DIAG_START_DRIVER + 100,
+    DIAG_START_SERIALIZATION = DIAG_START_FRONTEND + 100,
+    DIAG_START_LEX = DIAG_START_SERIALIZATION + 120,
+    DIAG_START_PARSE = DIAG_START_LEX + 300,
+    DIAG_START_AST = DIAG_START_PARSE + 500,
+    DIAG_START_COMMENT = DIAG_START_AST + 110,
+    DIAG_START_SEMA = DIAG_START_COMMENT + 100,
+    // HLSL Change: SEMA group length increased from 3000.
+    DIAG_START_ANALYSIS = DIAG_START_SEMA + 3100,
+    DIAG_UPPER_LIMIT = DIAG_START_ANALYSIS + 100
+  };
 
-    class CustomDiagInfo;
+  class CustomDiagInfo;
 
-    /// \brief All of the diagnostics that can be emitted by the frontend.
-    typedef unsigned kind;
+  /// \brief All of the diagnostics that can be emitted by the frontend.
+  typedef unsigned kind;
 
-    // Get typedefs for common diagnostics.
-    enum {
-#define DIAG(ENUM,FLAGS,DEFAULT_MAPPING,DESC,GROUP,\
-             SFINAE,CATEGORY,NOWERROR,SHOWINSYSHEADER) ENUM,
+  // Get typedefs for common diagnostics.
+  enum {
+#define DIAG(ENUM, FLAGS, DEFAULT_MAPPING, DESC, GROUP, SFINAE, CATEGORY,    \
+               NOWERROR, SHOWINSYSHEADER)                                      \
+    ENUM,
 #define COMMONSTART
 #include "clang/Basic/DiagnosticCommonKinds.inc"
-      NUM_BUILTIN_COMMON_DIAGNOSTICS
+    NUM_BUILTIN_COMMON_DIAGNOSTICS
 #undef DIAG
-    };
+  };
 
-    /// Enum values that allow the client to map NOTEs, WARNINGs, and EXTENSIONs
-    /// to either Ignore (nothing), Remark (emit a remark), Warning
-    /// (emit a warning) or Error (emit as an error).  It allows clients to
-    /// map ERRORs to Error or Fatal (stop emitting diagnostics after this one).
-    enum class Severity {
-      // NOTE: 0 means "uncomputed".
-      Ignored = 1, ///< Do not present this diagnostic, ignore it.
-      Remark = 2,  ///< Present this diagnostic as a remark.
-      Warning = 3, ///< Present this diagnostic as a warning.
-      Error = 4,   ///< Present this diagnostic as an error.
-      Fatal = 5    ///< Present this diagnostic as a fatal error.
-    };
+  /// Enum values that allow the client to map NOTEs, WARNINGs, and EXTENSIONs
+  /// to either Ignore (nothing), Remark (emit a remark), Warning
+  /// (emit a warning) or Error (emit as an error).  It allows clients to
+  /// map ERRORs to Error or Fatal (stop emitting diagnostics after this one).
+  enum class Severity {
+    // NOTE: 0 means "uncomputed".
+    Ignored = 1, ///< Do not present this diagnostic, ignore it.
+    Remark = 2,  ///< Present this diagnostic as a remark.
+    Warning = 3, ///< Present this diagnostic as a warning.
+    Error = 4,   ///< Present this diagnostic as an error.
+    Fatal = 5    ///< Present this diagnostic as a fatal error.
+  };
 
-    /// Flavors of diagnostics we can emit. Used to filter for a particular
-    /// kind of diagnostic (for instance, for -W/-R flags).
-    enum class Flavor {
-      WarningOrError, ///< A diagnostic that indicates a problem or potential
-                      ///< problem. Can be made fatal by -Werror.
-      Remark          ///< A diagnostic that indicates normal progress through
-                      ///< compilation.
-    };
+  /// Flavors of diagnostics we can emit. Used to filter for a particular
+  /// kind of diagnostic (for instance, for -W/-R flags).
+  enum class Flavor {
+    WarningOrError, ///< A diagnostic that indicates a problem or potential
+                    ///< problem. Can be made fatal by -Werror.
+    Remark          ///< A diagnostic that indicates normal progress through
+                    ///< compilation.
+  };
   }
 
 class DiagnosticMapping {

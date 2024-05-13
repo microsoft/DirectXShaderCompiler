@@ -1,7 +1,7 @@
-// RUN: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan
+// RUN: %dxc -T ps_6_0 -E MainPs -fspv-debug=vulkan -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[ext:%\d+]] = OpExtInstImport "NonSemantic.Shader.DebugInfo.100"
-// CHECK:      [[src:%\d+]] = OpExtInst %void [[ext]] DebugSource {{%\d+}}
+// CHECK:      [[ext:%[0-9]+]] = OpExtInstImport "NonSemantic.Shader.DebugInfo.100"
+// CHECK:      [[src:%[0-9]+]] = OpExtInst %void [[ext]] DebugSource {{%[0-9]+}}
 
 // CHECK:      DebugLine [[src]] %uint_31 %uint_31 %uint_57 %uint_78
 // CHECK-NEXT: OpAccessChain %_ptr_Function_v2float %i %int_0

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -auto-binding-space 77
+// RUN: %dxc -T ps_6_0 -E main -auto-binding-space 77 -fcgl  %s -spirv | FileCheck %s
 
 // Since both the descriptor set and binding are mentioned via "[[vk::binding]]",
 // the "-auto-binding-space" has no effect:

@@ -92,7 +92,7 @@ static const char *backref(struct match *, const char *, const char *, sopno,
                            sopno, sopno, int);
 static const char *fast(struct match *, const char *, const char *, sopno, sopno);
 static const char *slow(struct match *, const char *, const char *, sopno, sopno);
-static states step(struct re_guts *, sopno, sopno, _states_param_ states, int, _states_param_ states);
+static states step(struct re_guts *, sopno, sopno, states, int, states);
 #define MAX_RECURSION	100
 #define	BOL	(OUT+1)
 #define	EOL	(BOL+1)
@@ -849,9 +849,9 @@ static states
 step(struct re_guts *g,
     sopno start,		/* start state within strip */
     sopno stop,			/* state after stop state within strip */
-_states_param_    states bef,			/* states reachable before */
+    states bef,			/* states reachable before */
     int ch,			/* character or NONCHAR code */
-_states_param_    states aft)			/* states already known reachable after */
+    states aft)			/* states already known reachable after */
 {
 	cset *cs;
 	sop s;

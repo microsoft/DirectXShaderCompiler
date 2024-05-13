@@ -6,7 +6,7 @@
       "configurationType": "RelWithDebInfo",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DDXC_USE_LIT=On -C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ]
@@ -17,10 +17,32 @@
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DDXC_USE_LIT=On -C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x64_x64" ]
+    },
+    {
+      "name": "x64-clang-cl-Release",
+      "generator": "Ninja",
+      "configurationType": "RelWithDebInfo",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "buildCommandArgs": "-v",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "clang_cl_x64_x64" ]
+    },
+    {
+      "name": "x64-clang-cl-Debug",
+      "generator": "Ninja",
+      "configurationType": "Debug",
+      "buildRoot": "${projectDir}\\out\\build\\${name}",
+      "installRoot": "${projectDir}\\out\\install\\${name}",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "buildCommandArgs": "-v",
+      "ctestCommandArgs": "",
+      "inheritEnvironments": [ "clang_cl_x64_x64" ]
     },
     {
       "name": "x86-Release",
@@ -28,7 +50,7 @@
       "configurationType": "RelWithDebInfo",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DDXC_USE_LIT=On -C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x86_x64" ]
@@ -39,7 +61,7 @@
       "configurationType": "Debug",
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DDXC_USE_LIT=On -C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
+      "cmakeCommandArgs": "-C ${projectDir}\\cmake\\caches\\PredefinedParams.cmake -DLLVM_ENABLE_ASSERTIONS=On -DLLVM_LIT_ARGS=\"-v\"",
       "buildCommandArgs": "-v",
       "ctestCommandArgs": "",
       "inheritEnvironments": [ "msvc_x86_x64" ]

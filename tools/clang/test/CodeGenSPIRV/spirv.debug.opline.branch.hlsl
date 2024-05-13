@@ -1,6 +1,6 @@
-// RUN: %dxc -T ps_6_0 -HV 2018 -E main -Zi
+// RUN: %dxc -T ps_6_0 -HV 2018 -E main -Zi -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
+// CHECK:      [[file:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.branch.hlsl
 
 static int a, b, c;
@@ -23,7 +23,7 @@ void main() {
 // CHECK-NEXT:  OpBranch %do_while_continue
 
 // CHECK:       OpLine [[file]] 27 17
-// CHECK-NEXT:  OpBranchConditional {{%\d+}} %do_while_header %do_while_merge
+// CHECK-NEXT:  OpBranchConditional {{%[0-9]+}} %do_while_header %do_while_merge
   } while (c < b);
 
 // CHECK:       OpLine [[file]] 33 3
@@ -33,12 +33,12 @@ void main() {
   while (a < c) {
 // CHECK:       OpLine [[file]] 37 17
 // CHECK-NEXT:  OpSelectionMerge %if_merge_1 None
-// CHECK-NEXT:  OpBranchConditional {{%\d+}} %if_true_0 %if_false
+// CHECK-NEXT:  OpBranchConditional {{%[0-9]+}} %if_true_0 %if_false
     if (b < 34) {
       a = 99;
 // CHECK:       OpLine [[file]] 42 25
 // CHECK-NEXT:  OpSelectionMerge %if_merge_0 None
-// CHECK-NEXT:  OpBranchConditional {{%\d+}} %if_true_1 %if_false_0
+// CHECK-NEXT:  OpBranchConditional {{%[0-9]+}} %if_true_1 %if_false_0
     } else if (a > 100) {
       a -= 20;
 // CHECK:       OpLine [[file]] 46 7
@@ -61,7 +61,7 @@ void main() {
   for (int i = 0; i < 10 && float(a / b) < 2.7; ++i) {
 // CHECK:       OpLine [[file]] 61 44
 // CHECK-NEXT:  OpLoopMerge %for_merge %for_continue None
-// CHECK-NEXT:  OpBranchConditional {{%\d+}} %for_body %for_merge
+// CHECK-NEXT:  OpBranchConditional {{%[0-9]+}} %for_body %for_merge
     c = a + 2 * b + c;
 // CHECK:                      OpLine [[file]] 69 3
 // CHECK-NEXT:                 OpBranch %for_continue

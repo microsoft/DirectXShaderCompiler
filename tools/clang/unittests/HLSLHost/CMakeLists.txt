@@ -11,15 +11,9 @@ add_clang_executable(HLSLHost
   HLSLHost.cpp
   )
 
-target_link_libraries(HLSLHost
-  ClangHLSLTests
-  )
-
 set_target_properties(HLSLHost PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 
 include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
-
-add_dependencies(HLSLHost ClangHLSLTests)
 
 if(UNIX)
   set(CLANGXX_LINK_OR_COPY create_symlink)

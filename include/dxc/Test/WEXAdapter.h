@@ -6,8 +6,8 @@
 #include <unistd.h>
 #include <wchar.h>
 
-#include "dxc/WinAdapter.h"
 #include "dxc/Support/WinFunctions.h"
+#include "dxc/WinAdapter.h"
 #include "gtest/gtest.h"
 
 #define MAX_PATH 260
@@ -62,16 +62,20 @@
 #define VERIFY_IS_GREATER_THAN_OR_EQUAL(greater, less) EXPECT_GE(greater, less)
 
 #define VERIFY_IS_GREATER_THAN_2(greater, less) EXPECT_GT(greater, less)
-#define VERIFY_IS_GREATER_THAN_3(greater, less, msg) EXPECT_GT(greater, less) << msg
-#define VERIFY_IS_GREATER_THAN(...) MACRO_N(VERIFY_IS_GREATER_THAN_, __VA_ARGS__)
+#define VERIFY_IS_GREATER_THAN_3(greater, less, msg)                           \
+  EXPECT_GT(greater, less) << msg
+#define VERIFY_IS_GREATER_THAN(...)                                            \
+  MACRO_N(VERIFY_IS_GREATER_THAN_, __VA_ARGS__)
 
 #define VERIFY_IS_LESS_THAN_2(greater, less) EXPECT_LT(greater, less)
-#define VERIFY_IS_LESS_THAN_3(greater, less, msg) EXPECT_LT(greater, less) << msg
+#define VERIFY_IS_LESS_THAN_3(greater, less, msg)                              \
+  EXPECT_LT(greater, less) << msg
 #define VERIFY_IS_LESS_THAN(...) MACRO_N(VERIFY_IS_LESS_THAN_, __VA_ARGS__)
 
 #define VERIFY_WIN32_BOOL_SUCCEEDED_1(expr) EXPECT_TRUE(expr)
 #define VERIFY_WIN32_BOOL_SUCCEEDED_2(expr, msg) EXPECT_TRUE(expr) << msg
-#define VERIFY_WIN32_BOOL_SUCCEEDED(...) MACRO_N(VERIFY_WIN32_BOOL_SUCCEEDED_, __VA_ARGS__)
+#define VERIFY_WIN32_BOOL_SUCCEEDED(...)                                       \
+  MACRO_N(VERIFY_WIN32_BOOL_SUCCEEDED_, __VA_ARGS__)
 
 #define VERIFY_FAIL(...) ADD_FAILURE() << __VA_ARGS__ ""
 
@@ -102,9 +106,8 @@ bool moduleTeardown();
   bool moduleTeardown() { return method(); }
 
 // No need to expand env vars on Unix platforms, so convert the slashes instead.
-inline DWORD ExpandEnvironmentStringsW(_In_ LPCWSTR lpSrc,
-                                       _Out_opt_ LPWSTR lpDst,
-                                       _In_ DWORD nSize) {
+inline DWORD ExpandEnvironmentStringsW(LPCWSTR lpSrc, LPWSTR lpDst,
+                                       DWORD nSize) {
   unsigned i;
   bool wasSlash = false;
   for (i = 0; i < nSize && *lpSrc; i++, lpSrc++) {
@@ -168,8 +171,12 @@ HRESULT TryGetValue(const wchar_t *param, Common::String &retStr);
 } // namespace TestExecution
 namespace Logging {
 namespace Log {
-inline void StartGroup(const wchar_t *name) { wprintf(L"BEGIN TEST(S): <%ls>\n", name); }
-inline void EndGroup(const wchar_t *name) { wprintf(L"END TEST(S): <%ls>\n", name); }
+inline void StartGroup(const wchar_t *name) {
+  wprintf(L"BEGIN TEST(S): <%ls>\n", name);
+}
+inline void EndGroup(const wchar_t *name) {
+  wprintf(L"END TEST(S): <%ls>\n", name);
+}
 inline void Comment(const wchar_t *msg) {
   fputws(msg, stdout);
   fputwc(L'\n', stdout);

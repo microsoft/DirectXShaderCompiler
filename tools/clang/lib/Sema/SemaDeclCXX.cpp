@@ -11644,9 +11644,13 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
         Op == OO_PlusPlus || Op == OO_MinusMinus || Op == OO_ArrowStar ||
         Op == OO_Arrow) {
       return Diag(FnDecl->getLocation(),
-                  diag::err_hlsl_overloading_new_delete_operator)
-             << FnDecl->getDeclName();
+                  diag::err_hlsl_overloading_operator_disallowed)
+             << FnDecl->getDeclName() << 0;
     }
+    if (!isa<CXXMethodDecl>(FnDecl))
+      return Diag(FnDecl->getLocation(),
+                  diag::err_hlsl_overloading_operator_disallowed)
+             << FnDecl->getDeclName() << 1;
   }
   // HLSL Change Ends
 

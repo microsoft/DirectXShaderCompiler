@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_2 -E main -enable-16bit-types
+// RUN: %dxc -T vs_6_2 -E main -enable-16bit-types -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability StorageInputOutput16
 

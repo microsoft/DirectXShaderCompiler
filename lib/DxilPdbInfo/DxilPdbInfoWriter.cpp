@@ -1,30 +1,35 @@
 #include "dxc/DxilPdbInfo/DxilPdbInfoWriter.h"
 
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
 
-#include "dxc/DxilContainer/DxilRuntimeReflection.h"
-#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilCompression/DxilCompressionHelpers.h"
+#include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilRuntimeReflection.h"
 
 using namespace hlsl;
 
-HRESULT hlsl::WritePdbInfoPart(IMalloc *pMalloc, const void *pUncompressedPdbInfoData, size_t size, std::vector<char> *outBuffer) {
+HRESULT hlsl::WritePdbInfoPart(IMalloc *pMalloc,
+                               const void *pUncompressedPdbInfoData,
+                               size_t size, std::vector<char> *outBuffer) {
   // Write to the output buffer.
   outBuffer->clear();
 
   hlsl::DxilShaderPDBInfo header = {};
-  header.CompressionType = hlsl::DxilShaderPDBInfoCompressionType::Zlib; // TODO: Add option to do uncompressed version.
+  header.CompressionType =
+      hlsl::DxilShaderPDBInfoCompressionType::Zlib; // TODO: Add option to do
+                                                    // uncompressed version.
   header.UncompressedSizeInBytes = size;
   header.Version = hlsl::DxilShaderPDBInfoVersion::Latest;
   {
     const size_t lastSize = outBuffer->size();
     outBuffer->resize(outBuffer->size() + sizeof(header));
-    memcpy(outBuffer->data()+lastSize, &header, sizeof(header));
+    memcpy(outBuffer->data() + lastSize, &header, sizeof(header));
   }
 
   // Then write the compressed RDAT data.
-  hlsl::ZlibResult result = hlsl::ZlibCompressAppend(pMalloc, pUncompressedPdbInfoData, size, *outBuffer);
+  hlsl::ZlibResult result = hlsl::ZlibCompressAppend(
+      pMalloc, pUncompressedPdbInfoData, size, *outBuffer);
 
   if (result == hlsl::ZlibResult::OutOfMemory)
     IFTBOOL(false, E_OUTOFMEMORY);
@@ -36,4 +41,3 @@ HRESULT hlsl::WritePdbInfoPart(IMalloc *pMalloc, const void *pUncompressedPdbInf
 
   return S_OK;
 }
-

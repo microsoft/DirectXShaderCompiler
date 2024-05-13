@@ -254,6 +254,25 @@ void Decl::setDeclContextsImpl(DeclContext *SemaDC, DeclContext *LexicalDC,
   }
 }
 
+/// HLSL Change Begin - back port from llvm-project/73c6a2448f24 & f721e0582b15.
+bool Decl::isInLocalScopeForInstantiation() const {
+  const DeclContext *LDC = getLexicalDeclContext();
+  if (!LDC->isDependentContext())
+    return false;
+  while (true) {
+    if (LDC->isFunctionOrMethod())
+      return true;
+    if (!isa<TagDecl>(LDC))
+      return false;
+    if (const auto *CRD = dyn_cast<CXXRecordDecl>(LDC))
+      if (CRD->isLambda())
+        return true;
+    LDC = LDC->getLexicalParent();
+  }
+  return false;
+}
+/// HLSL Change End - back port from llvm-project/73c6a2448f24 & f721e0582b15.
+
 bool Decl::isInAnonymousNamespace() const {
   const DeclContext *DC = getDeclContext();
   do {

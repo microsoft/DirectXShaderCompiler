@@ -357,7 +357,7 @@ template<class T> class FoldingSetBucketIterator;
 // require the definition of FoldingSetNodeID.
 template<typename T>
 inline bool
-DefaultFoldingSetTrait<T>::Equals(_In_ T &X, const FoldingSetNodeID &ID,
+DefaultFoldingSetTrait<T>::Equals(T &X, const FoldingSetNodeID &ID,
                                   unsigned /*IDHash*/,
                                   FoldingSetNodeID &TempID) {
   FoldingSetTrait<T>::Profile(X, TempID);
@@ -527,7 +527,7 @@ public:
   /// FindNodeOrInsertPos - Look up the node specified by ID.  If it
   /// exists, return it.  If not, return the insertion token that will
   /// make insertion faster.
-  T *FindNodeOrInsertPos(_In_ const FoldingSetNodeID &ID, void *&InsertPos) {
+  T *FindNodeOrInsertPos(const FoldingSetNodeID &ID, void *&InsertPos) {
     return static_cast<T *>(FoldingSetImpl::FindNodeOrInsertPos(ID, InsertPos));
   }
 };

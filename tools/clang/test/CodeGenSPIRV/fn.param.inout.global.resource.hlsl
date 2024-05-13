@@ -1,4 +1,4 @@
-// RUN: %dxc -E main -T ps_6_0 -fspv-target-env=vulkan1.2
+// RUN: %dxc -E main -T ps_6_0 -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 
 Texture2D<float4>               r0;
 RWTexture3D<float4>             r1;
@@ -36,15 +36,15 @@ float4 main(): SV_Target
 // CHECK: %param_var_a7 = OpVariable %_ptr_Function__ptr_StorageBuffer_type_RWStructuredBuffer_v4float Function
 // CHECK: %param_var_a8 = OpVariable %_ptr_Function__ptr_StorageBuffer_type_AppendStructuredBuffer_v4float Function
 
-// CHECK: [[r0:%\w+]] = OpLoad %type_2d_image %r0
+// CHECK: [[r0:%[a-zA-Z0-9_]+]] = OpLoad %type_2d_image %r0
 // CHECK:               OpStore %param_var_a0 [[r0]]
-// CHECK: [[r1:%\w+]] = OpLoad %type_3d_image %r1
+// CHECK: [[r1:%[a-zA-Z0-9_]+]] = OpLoad %type_3d_image %r1
 // CHECK:               OpStore %param_var_a1 [[r1]]
-// CHECK: [[r2:%\w+]] = OpLoad %type_sampler %r2
+// CHECK: [[r2:%[a-zA-Z0-9_]+]] = OpLoad %type_sampler %r2
 // CHECK:               OpStore %param_var_a2 [[r2]]
-// CHECK: [[r3:%\w+]] = OpLoad %accelerationStructureNV %r3
+// CHECK: [[r3:%[a-zA-Z0-9_]+]] = OpLoad %accelerationStructureNV %r3
 // CHECK:               OpStore %param_var_a3 [[r3]]
-// CHECK: [[r4:%\w+]] = OpLoad %type_buffer_image %r4
+// CHECK: [[r4:%[a-zA-Z0-9_]+]] = OpLoad %type_buffer_image %r4
 // CHECK:               OpStore %param_var_a4 [[r4]]
 // CHECK:               OpStore %param_var_a5 %r5
 // CHECK:               OpStore %param_var_a6 %r6

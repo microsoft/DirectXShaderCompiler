@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main -pack-optimized -O0
+// RUN: %dxc -T vs_6_0 -E main -pack-optimized -O0  %s -spirv | FileCheck %s
 
 struct VS_OUTPUT {
   float4 pos : SV_POSITION;

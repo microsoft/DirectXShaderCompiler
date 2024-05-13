@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: %A = OpVariable %_ptr_Uniform_type_RWStructuredBuffer_int Uniform
 RWStructuredBuffer<int> A;
@@ -28,16 +28,16 @@ void main() {
 // CHECK-NEXT: %param_var_v = OpVariable %_ptr_Function_int Function
 
 
-// CHECK:      [[A:%\d+]] = OpLoad %int {{%\d+}}
+// CHECK:      [[A:%[0-9]+]] = OpLoad %int {{%[0-9]+}}
 // CHECK-NEXT:              OpStore %param_var_x [[A]]
-// CHECK-NEXT: [[B:%\d+]] = OpLoad %int %B
+// CHECK-NEXT: [[B:%[0-9]+]] = OpLoad %int %B
 // CHECK-NEXT:              OpStore %param_var_y [[B]]
-// CHECK-NEXT: [[C:%\d+]] = OpLoad %int %C
+// CHECK-NEXT: [[C:%[0-9]+]] = OpLoad %int %C
 // CHECK-NEXT:              OpStore %param_var_z [[C]]
-// CHECK-NEXT: [[D:%\d+]] = OpLoad %_arr_int_uint_10 %D
+// CHECK-NEXT: [[D:%[0-9]+]] = OpLoad %_arr_int_uint_10 %D
 // CHECK-NEXT:              OpStore %param_var_w [[D]]
-// CHECK-NEXT: [[E:%\d+]] = OpLoad %int %E
+// CHECK-NEXT: [[E:%[0-9]+]] = OpLoad %int %E
 // CHECK-NEXT:              OpStore %param_var_v [[E]]
-// CHECK-NEXT:   {{%\d+}} = OpFunctionCall %int %foo %param_var_x %param_var_y %param_var_z %param_var_w %param_var_v
+// CHECK-NEXT:   {{%[0-9]+}} = OpFunctionCall %int %foo %param_var_x %param_var_y %param_var_z %param_var_w %param_var_v
   A[0] = foo(A[0], B, C, D, E);
 }

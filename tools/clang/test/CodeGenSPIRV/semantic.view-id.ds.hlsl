@@ -1,4 +1,4 @@
-// RUN: %dxc -T ds_6_1 -E main
+// RUN: %dxc -T ds_6_1 -E main -fcgl  %s -spirv | FileCheck %s
 
 // HS PCF output
 struct HsPcfOut {
@@ -20,7 +20,7 @@ struct DsCpOut {
 // CHECK:      OpExtension "SPV_KHR_multiview"
 
 // CHECK:      OpEntryPoint TessellationEvaluation
-// CHECK-SAME: [[viewindex:%\d+]]
+// CHECK-SAME: [[viewindex:%[0-9]+]]
 
 // CHECK:      OpDecorate [[viewindex]] BuiltIn ViewIndex
 

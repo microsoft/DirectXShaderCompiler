@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: not %dxc -T vs_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 // CHECK: 7: error: initializer for type 'unsigned int []' unimplemented
 void foo(uint value[]) {

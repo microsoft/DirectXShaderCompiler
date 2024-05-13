@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: %dxc -T vs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpName %type_TextureBuffer_T "type.TextureBuffer.T"
 // CHECK-NEXT: OpMemberName %type_TextureBuffer_T 0 "a"

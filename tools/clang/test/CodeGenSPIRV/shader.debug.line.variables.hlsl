@@ -1,11 +1,11 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=vulkan -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
-// CHECK:      [[src:%\d+]] = OpExtInst %void %1 DebugSource [[file]]
+// CHECK:      [[file:%[0-9]+]] = OpString
+// CHECK:      [[src:%[0-9]+]] = OpExtInst %void %1 DebugSource [[file]]
 
 float test_function_variables() {
 // CHECK:                 DebugLine [[src]] %uint_9 %uint_9 %uint_22 %uint_22
-// CHECK-NEXT: {{%\d+}} = OpLoad %bool %init_done_foo
+// CHECK-NEXT: {{%[0-9]+}} = OpLoad %bool %init_done_foo
   static float foo = 2.f;
   return foo;
 }

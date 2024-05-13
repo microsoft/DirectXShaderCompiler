@@ -1,7 +1,7 @@
-// RUN: %dxc -T as_6_5 -E main
+// RUN: %dxc -T as_6_5 -E main -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability MeshShadingNV
 // CHECK:  OpExtension "SPV_NV_mesh_shader"
-// CHECK:  OpEntryPoint TaskNV %main "main" [[drawid:%\d+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %out_var_dummy %out_var_pos [[taskcount:%\d+]]
+// CHECK:  OpEntryPoint TaskNV %main "main" [[drawid:%[0-9]+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %out_var_dummy %out_var_pos [[taskcount:%[0-9]+]]
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 
 // CHECK:  OpDecorate [[drawid]] BuiltIn DrawIndex
@@ -52,22 +52,22 @@ void main(
 // CHECK:  %tid = OpFunctionParameter %_ptr_Function_uint
 // CHECK:  %tig = OpFunctionParameter %_ptr_Function_uint
 
-// CHECK:  [[b:%\d+]] = OpAccessChain %_ptr_Workgroup_v4float %pld %int_1
-// CHECK:  OpStore [[b]] {{%\d+}}
+// CHECK:  [[b:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_v4float %pld %int_1
+// CHECK:  OpStore [[b]] {{%[0-9]+}}
     pld.pos = float4(gtid.x, gid.y, tid, tig);
 
 // CHECK:  OpControlBarrier %uint_2 %uint_2 %uint_264
-// CHECK:  [[c:%\d+]] = OpLoad %MeshPayload %pld
-// CHECK:  [[d:%\d+]] = OpCompositeExtract %_arr_float_uint_10 [[c]] 0
+// CHECK:  [[c:%[0-9]+]] = OpLoad %MeshPayload %pld
+// CHECK:  [[d:%[0-9]+]] = OpCompositeExtract %_arr_float_uint_10 [[c]] 0
 // CHECK:  OpStore %out_var_dummy [[d]]
-// CHECK:  [[e:%\d+]] = OpCompositeExtract %v4float [[c]] 1
+// CHECK:  [[e:%[0-9]+]] = OpCompositeExtract %v4float [[c]] 1
 // CHECK:  OpStore %out_var_pos [[e]]
-// CHECK:  [[f:%\d+]] = OpLoad %int %drawId
-// CHECK:  [[g:%\d+]] = OpBitcast %uint [[f]]
-// CHECK:  [[h:%\d+]] = OpLoad %int %drawId
-// CHECK:  [[i:%\d+]] = OpBitcast %uint [[h]]
-// CHECK:  [[j:%\d+]] = OpIMul %uint [[g]] [[i]]
-// CHECK:  [[k:%\d+]] = OpIMul %uint %uint_128 [[j]]
+// CHECK:  [[f:%[0-9]+]] = OpLoad %int %drawId
+// CHECK:  [[g:%[0-9]+]] = OpBitcast %uint [[f]]
+// CHECK:  [[h:%[0-9]+]] = OpLoad %int %drawId
+// CHECK:  [[i:%[0-9]+]] = OpBitcast %uint [[h]]
+// CHECK:  [[j:%[0-9]+]] = OpIMul %uint [[g]] [[i]]
+// CHECK:  [[k:%[0-9]+]] = OpIMul %uint %uint_128 [[j]]
 // CHECK:  OpStore [[taskcount]] [[k]]
    DispatchMesh(NUM_THREADS, drawId, drawId, pld);
 }

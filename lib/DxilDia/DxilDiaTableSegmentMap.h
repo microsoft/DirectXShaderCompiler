@@ -30,4 +30,4 @@ public:
   HRESULT GetItem(DWORD index, IDiaSegment **ppItem) override;
 };
 
-}  // namespace dxil_dia
+} // namespace dxil_dia

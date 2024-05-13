@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main
+// RUN: not %dxc -T vs_6_0 -E main -fcgl  %s -spirv  2>&1 | FileCheck %s
 
 [[vk::ext_instruction(/* OpLoad */ 61)]]
 float4 load([[vk::ext_reference]] float4 pointer, [[vk::ext_literal]] int memoryOperands);

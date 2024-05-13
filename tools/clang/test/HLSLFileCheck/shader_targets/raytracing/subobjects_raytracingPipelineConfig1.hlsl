@@ -1,4 +1,9 @@
-// RUN: %dxilver 1.5 | %dxc -T lib_6_3 %s | FileCheck %s
+// RUN: %dxilver 1.5 | %dxc -T lib_6_3 -validator-version 1.5 %s | FileCheck %s -check-prefixes=CHECK,CHECK15
+// RUN: %dxilver 1.8 | %dxc -T lib_6_3 -validator-version 1.8 %s | FileCheck %s -check-prefixes=CHECK,CHECK18
+
+// RaytracingTier1_1 flag should not be set on the module based on subobjects.
+// CHECK18-NOT: Raytracing tier 1.1 features
+// CHECK15: Raytracing tier 1.1 features
 
 // CHECK: ; GlobalRootSignature grs = { <48 bytes> };
 // CHECK: ; StateObjectConfig soc = { STATE_OBJECT_FLAG_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITIONS | STATE_OBJECT_FLAG_ALLOW_STATE_OBJECT_ADDITIONS };
@@ -27,6 +32,7 @@ RaytracingPipelineConfig1 rpc2 = {32, RAYTRACING_PIPELINE_FLAG_NONE };
 TriangleHitGroup trHitGt = {"a", "b"};
 ProceduralPrimitiveHitGroup ppHitGt = { "a", "b", "c"};
 
-int main(int i : INDEX) : SV_Target {
-  return 1;
+// DXR entry point to ensure RDAT flags match during validation.
+[shader("raygeneration")]
+void main(void) {
 }

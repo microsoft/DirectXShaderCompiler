@@ -11,9 +11,9 @@
 
 #include "dxc/HLSL/DxilGenerationPass.h"
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -38,8 +38,12 @@ void GetPauseResumePasses(Module &M, StringRef &pause, StringRef &resume) {
   NamedMDNode *N = M.getNamedMetadata(kPauseResumeMDName);
   if (N && N->getNumOperands() > 0) {
     MDNode *MD = N->getOperand(0);
-    pause = dyn_cast<MDString>(MD->getOperand(kPauseResumePassNameToPause).get())->getString();
-    resume = dyn_cast<MDString>(MD->getOperand(kPauseResumePassNameToResume).get())->getString();
+    pause =
+        dyn_cast<MDString>(MD->getOperand(kPauseResumePassNameToPause).get())
+            ->getString();
+    resume =
+        dyn_cast<MDString>(MD->getOperand(kPauseResumePassNameToResume).get())
+            ->getString();
   }
 }
 
@@ -55,7 +59,7 @@ void SetPauseResumePasses(Module &M, StringRef pause, StringRef resume) {
     N->setOperand(kPauseResumePassNameToPause, MDNode::get(Ctx, MDs));
 }
 
-}
+} // namespace hlsl
 
 namespace {
 
@@ -66,9 +70,7 @@ public:
 
   StringRef getPassName() const override { return "NoPausePasses"; }
 
-  bool runOnModule(Module &M) override {
-    return ClearPauseResumePasses(M);
-  }
+  bool runOnModule(Module &M) override { return ClearPauseResumePasses(M); }
 };
 
 class PausePasses : public ModulePass {
@@ -115,24 +117,15 @@ char NoPausePasses::ID = 0;
 char PausePasses::ID = 0;
 char ResumePasses::ID = 0;
 
-}
+} // namespace
 
-ModulePass *llvm::createNoPausePassesPass() {
-  return new NoPausePasses();
-}
-ModulePass *llvm::createPausePassesPass() {
-  return new PausePasses();
-}
-ModulePass *llvm::createResumePassesPass() {
-  return new ResumePasses();
-}
+ModulePass *llvm::createNoPausePassesPass() { return new NoPausePasses(); }
+ModulePass *llvm::createPausePassesPass() { return new PausePasses(); }
+ModulePass *llvm::createResumePassesPass() { return new ResumePasses(); }
 
-INITIALIZE_PASS(NoPausePasses,
-                "hlsl-passes-nopause",
+INITIALIZE_PASS(NoPausePasses, "hlsl-passes-nopause",
                 "Clears metadata used for pause and resume", false, false)
-INITIALIZE_PASS(PausePasses,
-                "hlsl-passes-pause",
-                "Prepare to pause passes", false, false)
-INITIALIZE_PASS(ResumePasses,
-                "hlsl-passes-resume",
-                "Prepare to resume passes", false, false)
+INITIALIZE_PASS(PausePasses, "hlsl-passes-pause", "Prepare to pause passes",
+                false, false)
+INITIALIZE_PASS(ResumePasses, "hlsl-passes-resume", "Prepare to resume passes",
+                false, false)

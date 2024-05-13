@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct R {
   int a;
@@ -48,8 +48,8 @@ void main() {
 // CHECK:   %arr = OpVariable %_ptr_Function__arr_int_uint_10 Function
   int arr[10];
 
-// CHECK:      [[rwsb:%\d+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
-// CHECK-NEXT:      {{%\d+}} = OpFunctionCall %void %R_incr [[rwsb]]
+// CHECK:      [[rwsb:%[0-9]+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
+// CHECK-NEXT:      {{%[0-9]+}} = OpFunctionCall %void %R_incr [[rwsb]]
   rwsb[0].incr();
 
 // CHECK: OpFunctionCall %void %S_incr %gs
@@ -61,8 +61,8 @@ void main() {
 // CHECK: OpFunctionCall %void %S_incr %fn
   fn.incr();
 
-// CHECK:      [[rwsb:%\d+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
-// CHECK-NEXT:      {{%\d+}} = OpFunctionCall %void %decr [[rwsb]]
+// CHECK:      [[rwsb_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_R %rwsb %int_0 %uint_0
+// CHECK-NEXT:      {{%[0-9]+}} = OpFunctionCall %void %decr [[rwsb_0]]
   decr(rwsb[0]);
 
 // CHECK: OpFunctionCall %void %decr2 %gs
@@ -74,34 +74,34 @@ void main() {
 // CHECK: OpFunctionCall %void %decr2 %fn
   decr2(fn);
 
-// CHECK:      [[gsarr:%\d+]] = OpAccessChain %_ptr_Workgroup_S %gsarr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %S_incr [[gsarr]]
+// CHECK:      [[gsarr:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_S %gsarr %int_0
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %S_incr [[gsarr]]
   gsarr[0].incr();
 
-// CHECK:      [[starr:%\d+]] = OpAccessChain %_ptr_Private_S %starr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %S_incr [[starr]]
+// CHECK:      [[starr:%[0-9]+]] = OpAccessChain %_ptr_Private_S %starr %int_0
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %S_incr [[starr]]
   starr[0].incr();
 
-// CHECK:      [[fnarr:%\d+]] = OpAccessChain %_ptr_Function_S %fnarr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %S_incr [[fnarr]]
+// CHECK:      [[fnarr:%[0-9]+]] = OpAccessChain %_ptr_Function_S %fnarr %int_0
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %S_incr [[fnarr]]
   fnarr[0].incr();
 
-// CHECK:      [[gsarr:%\d+]] = OpAccessChain %_ptr_Workgroup_S %gsarr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 [[gsarr]]
+// CHECK:      [[gsarr_0:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_S %gsarr %int_0
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[gsarr_0]]
   decr2(gsarr[0]);
 
-// CHECK:      [[starr:%\d+]] = OpAccessChain %_ptr_Private_S %starr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 [[starr]]
+// CHECK:      [[starr_0:%[0-9]+]] = OpAccessChain %_ptr_Private_S %starr %int_0
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[starr_0]]
   decr2(starr[0]);
 
-// CHECK:      [[fnarr:%\d+]] = OpAccessChain %_ptr_Function_S %fnarr %int_0
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %decr2 [[fnarr]]
+// CHECK:      [[fnarr_0:%[0-9]+]] = OpAccessChain %_ptr_Function_S %fnarr %int_0
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %decr2 [[fnarr_0]]
   decr2(fnarr[0]);
 
-// CHECK:        [[arr:%\d+]] = OpAccessChain %_ptr_Function_int %arr %int_0
-// CHECK-NEXT: [[arr_0:%\d+]] = OpLoad %int [[arr]]
-// CHECK-NEXT: [[arr_0:%\d+]] = OpIAdd %int [[arr_0]] %int_1
-// CHECK-NEXT:                  OpStore [[arr]] [[arr_0]]
-// CHECK-NEXT:       {{%\d+}} = OpFunctionCall %void %int_decr [[arr]]
+// CHECK:        [[arr:%[0-9]+]] = OpAccessChain %_ptr_Function_int %arr %int_0
+// CHECK-NEXT: [[arr_0:%[0-9]+]] = OpLoad %int [[arr]]
+// CHECK-NEXT: [[arr_1:%[0-9]+]] = OpIAdd %int [[arr_0]] %int_1
+// CHECK-NEXT:                  OpStore [[arr]] [[arr_1]]
+// CHECK-NEXT:       {{%[0-9]+}} = OpFunctionCall %void %int_decr [[arr]]
   int_decr(++arr[0]);
 }

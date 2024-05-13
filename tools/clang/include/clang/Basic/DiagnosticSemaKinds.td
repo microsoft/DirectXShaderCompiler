@@ -18,6 +18,10 @@ def note_previous_decl : Note<"%0 declared here">;
 def note_entity_declared_at : Note<"%0 declared here">;
 def note_callee_decl : Note<"%0 declared here">;
 def note_defined_here : Note<"%0 defined here">;
+def note_field_declared_here : Note<"%0 field declared here">;
+
+// HLSL Change: Note for HLSL entry function location
+def note_hlsl_entry_defined_here : Note<"entry function defined here">;
 
 // For loop analysis
 def warn_variables_not_in_loop_body : Warning<
@@ -201,7 +205,7 @@ def warn_unused_variable : Warning<"unused variable %0">,
 def warn_unused_local_typedef : Warning<
   "unused %select{typedef|type alias}0 %1">,
   InGroup<UnusedLocalTypedef>, DefaultIgnore;
-def warn_unused_property_backing_ivar : 
+def warn_unused_property_backing_ivar :
   Warning<"ivar %0 which backs the property is not "
   "referenced in this property's accessor">,
   InGroup<UnusedPropertyIvar>, DefaultIgnore;
@@ -281,7 +285,7 @@ def err_inline_non_function : Error<
   "'inline' can only appear on functions">;
 def err_noreturn_non_function : Error<
   "'_Noreturn' can only appear on functions">;
-def warn_qual_return_type : Warning< 
+def warn_qual_return_type : Warning<
   "'%0' type qualifier%s1 on return type %plural{1:has|:have}1 no effect">,
   InGroup<IgnoredQualifiers>, DefaultIgnore;
 
@@ -440,8 +444,8 @@ def warn_dyn_class_memaccess : Warning<
 def note_bad_memaccess_silence : Note<
   "explicitly cast the pointer to silence this warning">;
 def warn_sizeof_pointer_expr_memaccess : Warning<
-  "'%0' call operates on objects of type %1 while the size is based on a " 
-  "different type %2">, 
+  "'%0' call operates on objects of type %1 while the size is based on a "
+  "different type %2">,
   InGroup<SizeofPointerMemaccess>;
 def warn_sizeof_pointer_expr_memaccess_note : Note<
   "did you mean to %select{dereference the argument to 'sizeof' (and multiply "
@@ -465,16 +469,16 @@ def note_memsize_comparison_paren : Note<
   "did you mean to compare the result of %0 instead?">;
 def note_memsize_comparison_cast_silence : Note<
   "explicitly cast the argument to size_t to silence this warning">;
-  
+
 def warn_strncat_large_size : Warning<
-  "the value of the size argument in 'strncat' is too large, might lead to a " 
+  "the value of the size argument in 'strncat' is too large, might lead to a "
   "buffer overflow">, InGroup<StrncatSize>;
-def warn_strncat_src_size : Warning<"size argument in 'strncat' call appears " 
+def warn_strncat_src_size : Warning<"size argument in 'strncat' call appears "
   "to be size of the source">, InGroup<StrncatSize>;
 def warn_strncat_wrong_size : Warning<
   "the value of the size argument to 'strncat' is wrong">, InGroup<StrncatSize>;
 def note_strncat_wrong_size : Note<
-  "change the argument to be the free space in the destination buffer minus " 
+  "change the argument to be the free space in the destination buffer minus "
   "the terminating null byte">;
 
 def warn_assume_side_effects : Warning<
@@ -759,15 +763,15 @@ def note_property_attribute : Note<"property %0 is declared "
   "%select{deprecated|unavailable|partial}1 here">;
 def err_setter_type_void : Error<"type of setter must be void">;
 def err_duplicate_method_decl : Error<"duplicate declaration of method %0">;
-def warn_duplicate_method_decl : 
-  Warning<"multiple declarations of method %0 found and ignored">, 
+def warn_duplicate_method_decl :
+  Warning<"multiple declarations of method %0 found and ignored">,
   InGroup<MethodDuplicate>, DefaultIgnore;
 def warn_objc_cdirective_format_string :
   Warning<"using %0 directive in %select{NSString|CFString}1 "
           "which is being passed as a formatting argument to the formatting "
           "%select{method|CFfunction}2">,
   InGroup<ObjCCStringFormat>, DefaultIgnore;
-def err_objc_var_decl_inclass : 
+def err_objc_var_decl_inclass :
     Error<"cannot declare variable inside @interface or @protocol">;
 def error_missing_method_context : Error<
   "missing context for method declaration">;
@@ -973,7 +977,7 @@ def warn_auto_implicit_atomic_property : Warning<
   "property is assumed atomic when auto-synthesizing the property">,
   InGroup<ImplicitAtomic>, DefaultIgnore;
 def warn_unimplemented_selector:  Warning<
-  "no method with selector %0 is implemented in this translation unit">, 
+  "no method with selector %0 is implemented in this translation unit">,
   InGroup<Selector>, DefaultIgnore;
 def warn_unimplemented_protocol_method : Warning<
   "method %0 in protocol %1 not implemented">, InGroup<Protocol>;
@@ -1086,7 +1090,7 @@ def err_capture_default_non_local : Error<
   "non-local lambda expression cannot have a capture-default">;
 
 def err_multiple_final_overriders : Error<
-  "virtual function %q0 has more than one final overrider in %1">; 
+  "virtual function %q0 has more than one final overrider in %1">;
 def note_final_overrider : Note<"final overrider of %q0 in %1">;
 
 def err_type_defined_in_type_specifier : Error<
@@ -1121,7 +1125,7 @@ def warn_weak_template_vtable : Warning<
 
 def ext_using_undefined_std : ExtWarn<
   "using directive refers to implicitly-defined namespace 'std'">;
-  
+
 // C++ exception specifications
 def err_exception_spec_in_typedef : Error<
   "exception specifications are not allowed in %select{typedefs|type aliases}0">;
@@ -1165,7 +1169,7 @@ def ext_ms_using_declaration_inaccessible : ExtWarn<
   "to accessible member '%1') is a Microsoft compatibility extension">,
     AccessControl, InGroup<Microsoft>;
 def err_access_ctor : Error<
-  "calling a %select{private|protected}0 constructor of class %2">, 
+  "calling a %select{private|protected}0 constructor of class %2">,
   AccessControl;
 def ext_rvalue_to_reference_access_ctor : Extension<
   "C++98 requires an accessible copy constructor for class %2 when binding "
@@ -1188,7 +1192,7 @@ def err_access_friend_function : Error<
   AccessControl;
 
 def err_access_dtor : Error<
-  "calling a %select{private|protected}1 destructor of class %0">, 
+  "calling a %select{private|protected}1 destructor of class %0">,
   AccessControl;
 def err_access_dtor_base :
     Error<"base class %0 has %select{private|protected}1 destructor">,
@@ -1230,7 +1234,7 @@ def note_access_protected_restricted_object : Note<
 def warn_cxx98_compat_sfinae_access_control : Warning<
   "substitution failure due to access control is incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore, NoSFINAE;
-  
+
 // C++ name lookup
 def err_incomplete_nested_name_spec : Error<
   "incomplete type %0 named in nested name specifier">;
@@ -1419,7 +1423,7 @@ def err_covariant_return_type_class_type_more_qualified : Error<
   "return type of virtual function %0 is not covariant with the return type of "
   "the function it overrides (class type %1 is more qualified than class "
   "type %2">;
-  
+
 // C++ constructors
 def err_constructor_cannot_be : Error<"constructor cannot be declared '%0'">;
 def err_invalid_qualified_constructor : Error<
@@ -1660,7 +1664,7 @@ def note_constructor_declared_here : Note<
 // C++11 decltype
 def err_decltype_in_declarator : Error<
     "'decltype' cannot be used to name a declaration">;
-    
+
 // C++11 auto
 def warn_cxx98_compat_auto_type_specifier : Warning<
   "'auto' type specifier is incompatible with C++98">,
@@ -1982,7 +1986,7 @@ def note_private_extern : Note<
 def warn_cxx98_compat_unicode_type : Warning<
   "'%0' type specifier is incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
- 
+
 // Objective-C++
 def err_objc_decls_may_only_appear_in_global_scope : Error<
   "Objective-C declarations may only appear in global scope">;
@@ -2150,7 +2154,7 @@ def warn_objc_literal_comparison : Warning<
 def err_missing_atsign_prefix : Error<
   "string literal must be prefixed by '@' ">;
 def warn_objc_string_literal_comparison : Warning<
-  "direct comparison of a string literal has undefined behavior">, 
+  "direct comparison of a string literal has undefined behavior">,
   InGroup<ObjCStringComparison>;
 def warn_concatenated_nsarray_literal : Warning<
   "concatenated NSString literal for an NSArray expression - "
@@ -2228,7 +2232,7 @@ def warn_cxx11_gnu_attribute_on_type : Warning<
   "attribute %0 ignored, because it cannot be applied to a type">,
   InGroup<IgnoredAttributes>;
 def warn_unhandled_ms_attribute_ignored : Warning<
-  "__declspec attribute %0 is not supported">, 
+  "__declspec attribute %0 is not supported">,
   InGroup<IgnoredAttributes>;
 def err_attribute_invalid_on_stmt : Error<
   "%0 attribute cannot be applied to a statement">;
@@ -2348,8 +2352,8 @@ def warn_attribute_wrong_decl_type : Warning<
   "global variables of scalar type|"
   "global variables of struct type|"
   "global variables, cbuffers, and tbuffers|"
-  "Textures (e.g., Texture2D) and SamplerState|"
-  "RWTextures, Buffers and RWBuffers|"
+  "Textures and Samplers|"
+  "RWTextures, RasterizerOrderedTextures, Buffers, RWBuffers, and RasterizerOrderedBuffers|"
   "RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers|"
   "SubpassInput, SubpassInputMS|"
   "cbuffer or ConstantBuffer|"
@@ -2421,7 +2425,7 @@ def warn_mismatched_availability: Warning<
   "availability does not match previous declaration">, InGroup<Availability>;
 def warn_mismatched_availability_override : Warning<
   "overriding method %select{introduced after|"
-  "deprecated before|obsoleted before}0 overridden method on %1 (%2 vs. %3)">, 
+  "deprecated before|obsoleted before}0 overridden method on %1 (%2 vs. %3)">,
   InGroup<Availability>;
 def warn_mismatched_availability_override_unavail : Warning<
   "overriding method cannot be unavailable on %0 when its overridden method is "
@@ -2454,7 +2458,7 @@ def err_attribute_argument_out_of_range : Error<
   "1:can only be 1, since there is one parameter|"
   ":must be between 1 and %2}2">;
 
-// Thread Safety Analysis   
+// Thread Safety Analysis
 def warn_unlock_but_no_lock : Warning<"releasing %0 '%1' that was not held">,
   InGroup<ThreadSafetyAnalysis>, DefaultIgnore;
 def warn_unlock_kind_mismatch : Warning<
@@ -2468,7 +2472,7 @@ def warn_no_unlock : Warning<
   InGroup<ThreadSafetyAnalysis>, DefaultIgnore;
 def warn_expecting_locked : Warning<
   "expecting %0 '%1' to be held at the end of function">,
-  InGroup<ThreadSafetyAnalysis>, DefaultIgnore;  
+  InGroup<ThreadSafetyAnalysis>, DefaultIgnore;
 // FIXME: improve the error message about locks not in scope
 def warn_lock_some_predecessors : Warning<
   "%0 '%1' is not held on every path through here">,
@@ -2545,13 +2549,13 @@ def warn_fun_requires_lock_precise :
 def note_found_mutex_near_match : Note<"found near match '%0'">;
 
 // Verbose thread safety warnings
-def warn_thread_safety_verbose : Warning<"Thread safety verbose warning.">, 
+def warn_thread_safety_verbose : Warning<"Thread safety verbose warning.">,
   InGroup<ThreadSafetyVerbose>, DefaultIgnore;
 def note_thread_warning_in_fun : Note<"Thread warning in function '%0'">;
 def note_guarded_by_declared_here : Note<"Guarded_by declared here.">;
 
-// Dummy warning that will trigger "beta" warnings from the analysis if enabled. 
-def warn_thread_safety_beta : Warning<"Thread safety beta warning.">, 
+// Dummy warning that will trigger "beta" warnings from the analysis if enabled.
+def warn_thread_safety_beta : Warning<"Thread safety beta warning.">,
   InGroup<ThreadSafetyBeta>, DefaultIgnore;
 
 // Consumed warnings
@@ -2635,6 +2639,13 @@ def warn_impcast_null_pointer_to_integer : Warning<
 def warn_impcast_floating_point_to_bool : Warning<
     "implicit conversion turns floating-point number into bool: %0 to %1">,
     InGroup<ImplicitConversionFloatingPointToBool>;
+// HLSL Change - Begin
+// This backports the Clang change to emit warnings for floating point
+// promotions.
+def warn_impcast_double_promotion : Warning<
+  "implicit conversion increases floating-point precision: %0 to %1">,
+  InGroup<DoublePromotion>, DefaultIgnore;
+// HLSL Change - End
 
 def warn_impcast_pointer_to_bool : Warning<
     "address of%select{| function| array}0 '%1' will always evaluate to "
@@ -2766,7 +2777,7 @@ def err_attribute_sentinel_not_zero_or_one : Error<
   "'sentinel' parameter 2 not 0 or 1">;
 def warn_cleanup_ext : Warning<
   "GCC does not allow the 'cleanup' attribute argument to be anything other "
-  "than a simple identifier">, 
+  "than a simple identifier">,
   InGroup<GccCompat>;
 def err_attribute_cleanup_arg_not_function : Error<
   "'cleanup' argument %select{|%1 |%1 }0is not a %select{||single }0function">;
@@ -2797,7 +2808,7 @@ def warn_iboutlet_object_type : Warning<
 def warn_iboutletcollection_property_assign : Warning<
   "IBOutletCollection properties should be copy/strong and not assign">,
   InGroup<ObjCInvalidIBOutletProperty>;
-  
+
 def err_attribute_overloadable_missing : Error<
   "%select{overloaded function|redeclaration of}0 %1 must have the "
   "'overloadable' attribute">;
@@ -3013,7 +3024,7 @@ def note_ovl_candidate_non_deduced_mismatch : Note<
 // can handle that case properly.
 def note_ovl_candidate_non_deduced_mismatch_qualified : Note<
     "candidate template ignored: could not match %q0 against %q1">;
-    
+
 // Note that we don't treat templates differently for this diagnostic.
 def note_ovl_candidate_arity : Note<"candidate "
     "%select{function|function|constructor|function|function|constructor|"
@@ -3321,7 +3332,7 @@ def err_template_param_different_kind : Error<
   "%select{|template parameter }0redeclaration">;
 def note_template_param_different_kind : Note<
   "template parameter has a different kind in template argument">;
-  
+
 def err_template_nontype_parm_different_type : Error<
   "template non-type parameter has a different type %0 in template "
   "%select{|template parameter }1redeclaration">;
@@ -3625,7 +3636,7 @@ def err_dependent_typed_non_type_arg_in_partial_spec : Error<
 def err_partial_spec_args_match_primary_template : Error<
     "%select{class|variable}0 template partial specialization does not "
     "specialize any template argument; to %select{declare|define}1 the "
-    "primary template, remove the template argument list">; 
+    "primary template, remove the template argument list">;
 def warn_partial_specs_not_deducible : Warning<
     "%select{class|variable}0 template partial specialization contains "
     "%select{a template parameter|template parameters}1 that cannot be "
@@ -3652,7 +3663,7 @@ def err_var_spec_no_template : Error<
 def err_var_spec_no_template_but_method : Error<
   "no variable template matches specialization; "
   "did you mean to use %0 as function template instead?">;
-  
+
 // C++ Function template specializations
 def err_function_template_spec_no_match : Error<
     "no function template matches function template specialization %0">;
@@ -3703,7 +3714,7 @@ def note_template_type_alias_instantiation_here : Note<
   "in instantiation of template type alias %0 requested here">;
 def note_template_exception_spec_instantiation_here : Note<
   "in instantiation of exception specification for %0 requested here">;
-  
+
 def note_default_arg_instantiation_here : Note<
   "in instantiation of default argument for '%0' required here">;
 def note_default_function_arg_instantiation_here : Note<
@@ -3763,12 +3774,12 @@ def err_explicit_instantiation_out_of_scope : Error<
 def err_explicit_instantiation_must_be_global : Error<
   "explicit instantiation of %0 must occur at global scope">;
 def warn_explicit_instantiation_out_of_scope_0x : Warning<
-  "explicit instantiation of %0 not in a namespace enclosing %1">, 
+  "explicit instantiation of %0 not in a namespace enclosing %1">,
   InGroup<CXX11Compat>, DefaultIgnore;
 def warn_explicit_instantiation_must_be_global_0x : Warning<
-  "explicit instantiation of %0 must occur at global scope">, 
+  "explicit instantiation of %0 must occur at global scope">,
   InGroup<CXX11Compat>, DefaultIgnore;
-  
+
 def err_explicit_instantiation_requires_name : Error<
   "explicit instantiation declaration requires a name">;
 def err_explicit_instantiation_of_typedef : Error<
@@ -3828,7 +3839,7 @@ def err_mismatched_exception_spec_explicit_instantiation : Error<
 def ext_mismatched_exception_spec_explicit_instantiation : ExtWarn<
   "exception specification in explicit instantiation does not match instantiated one">,
   InGroup<Microsoft>;
-  
+
 // C++ typename-specifiers
 def err_typename_nested_not_found : Error<"no type named %0 in %1">;
 def err_typename_nested_not_found_enable_if : Error<
@@ -3899,7 +3910,7 @@ def note_template_parameter_pack_non_pack : Note<
 def note_template_parameter_pack_here : Note<
   "previous %select{template type|non-type template|template template}0 "
   "parameter%select{| pack}1 declared here">;
-  
+
 def err_unexpanded_parameter_pack : Error<
   "%select{expression|base type|declaration type|data member type|bit-field "
   "size|static assertion|fixed underlying type|enumerator value|"
@@ -4009,7 +4020,7 @@ def warn_missing_prototype : Warning<
   "no previous prototype for function %0">,
   InGroup<DiagGroup<"missing-prototypes">>, DefaultIgnore;
 def note_declaration_not_a_prototype : Note<
-  "this declaration is not a prototype; add 'void' to make it a prototype for a zero-parameter function">; 
+  "this declaration is not a prototype; add 'void' to make it a prototype for a zero-parameter function">;
 def warn_missing_variable_declarations : Warning<
   "no previous extern declaration for non-static variable %0">,
   InGroup<DiagGroup<"missing-variable-declarations">>, DefaultIgnore;
@@ -4166,7 +4177,7 @@ def ext_ms_forward_ref_enum : Extension<
   "forward references to 'enum' types are a Microsoft extension">, InGroup<Microsoft>;
 def ext_forward_ref_enum_def : Extension<
   "redeclaration of already-defined enum %0 is a GNU extension">, InGroup<GNURedeclaredEnum>;
-  
+
 def err_redefinition_of_enumerator : Error<"redefinition of enumerator %0">;
 def err_duplicate_member : Error<"duplicate member %0">;
 def err_misplaced_ivar : Error<
@@ -4185,7 +4196,7 @@ def ext_enumerator_increment_too_large : ExtWarn<
 def warn_flag_enum_constant_out_of_range : Warning<
   "enumeration value %0 is out of range of flags in enumeration type %1">,
   InGroup<FlagEnum>;
-  
+
 def warn_illegal_constant_array_size : Extension<
   "size of static array must be an integer constant expression">;
 def err_vm_decl_in_file_scope : Error<
@@ -4296,7 +4307,7 @@ def err_illegal_initializer : Error<
   "illegal initializer (only variables can be initialized)">;
 def err_illegal_initializer_type : Error<"illegal initializer type %0">;
 def ext_init_list_type_narrowing : ExtWarn<
-  "type %0 cannot be narrowed to %1 in initializer list">, 
+  "type %0 cannot be narrowed to %1 in initializer list">,
   InGroup<CXX11Narrowing>, DefaultError, SFINAEFailure;
 def ext_init_list_variable_narrowing : ExtWarn<
   "non-constant-expression cannot be narrowed from type %0 to %1 in "
@@ -4554,9 +4565,9 @@ def err_arc_illegal_method_def : Error<
 def warn_arc_strong_pointer_objc_pointer : Warning<
   "method parameter of type %0 with no explicit ownership">,
   InGroup<DiagGroup<"explicit-ownership-type">>, DefaultIgnore;
-  
+
 } // end "ARC Restrictions" category
-  
+
 def err_arc_lost_method_convention : Error<
   "method was declared as %select{an 'alloc'|a 'copy'|an 'init'|a 'new'}0 "
   "method, but its implementation doesn't match because %select{"
@@ -4625,7 +4636,7 @@ def warn_receiver_forward_instance : Warning<
   InGroup<ForwardClassReceiver>, DefaultIgnore;
 def err_arc_collection_forward : Error<
   "collection expression type %0 is a forward declaration">;
-def err_arc_multiple_method_decl : Error< 
+def err_arc_multiple_method_decl : Error<
   "multiple methods named %0 found with mismatched result, "
   "parameter type or attributes">;
 def warn_arc_lifetime_result_type : Warning<
@@ -4987,7 +4998,7 @@ def warn_namespace_member_extra_qualification : Warning<
   "extra qualification on member %0">,
   InGroup<DiagGroup<"extra-qualification">>;
 def err_member_qualification : Error<
-  "non-friend class member %0 cannot have a qualified name">;  
+  "non-friend class member %0 cannot have a qualified name">;
 def note_member_def_close_match : Note<"member declaration nearly matches">;
 def note_member_def_close_const_match : Note<
   "member declaration does not match because "
@@ -5085,7 +5096,7 @@ def err_typecheck_invalid_lvalue_addrof_addrof_function : Error<
 def err_typecheck_invalid_lvalue_addrof : Error<
   "cannot take the address of an rvalue of type %0">;
 def ext_typecheck_addrof_temporary : ExtWarn<
-  "taking the address of a temporary object of type %0">, 
+  "taking the address of a temporary object of type %0">,
   InGroup<DiagGroup<"address-of-temporary">>, DefaultError;
 def err_typecheck_addrof_temporary : Error<
   "taking the address of a temporary object of type %0">;
@@ -5169,7 +5180,7 @@ def warn_lunsigned_always_true_comparison : Warning<
   "comparison of unsigned%select{| enum}2 expression %0 is always %1">,
   InGroup<TautologicalCompare>;
 def warn_out_of_range_compare : Warning<
-  "comparison of %select{constant %0|true|false}1 with " 
+  "comparison of %select{constant %0|true|false}1 with "
   "%select{expression of type %2|boolean expression}3 is always "
   "%select{false|true}4">, InGroup<TautologicalOutOfRangeCompare>;
 def warn_runsigned_always_true_comparison : Warning<
@@ -5320,7 +5331,7 @@ def error_no_subobject_property_setting : Error<
   "expression is not assignable">;
 def err_qualified_objc_access : Error<
   "%select{property|instance variable}0 access cannot be qualified with '%1'">;
-  
+
 def ext_freestanding_complex : Extension<
   "complex numbers are an extension in a freestanding C99 implementation">;
 
@@ -5465,13 +5476,13 @@ def warn_cxx98_compat_cast_fn_obj : Warning<
 def err_bad_reinterpret_cast_small_int : Error<
   "cast from pointer to smaller type %2 loses information">;
 def err_bad_cxx_cast_vector_to_scalar_different_size : Error<
-  "%select{||reinterpret_cast||C-style cast|}0 from vector %1 " 
+  "%select{||reinterpret_cast||C-style cast|}0 from vector %1 "
   "to scalar %2 of different size">;
 def err_bad_cxx_cast_scalar_to_vector_different_size : Error<
-  "%select{||reinterpret_cast||C-style cast|}0 from scalar %1 " 
+  "%select{||reinterpret_cast||C-style cast|}0 from scalar %1 "
   "to vector %2 of different size">;
 def err_bad_cxx_cast_vector_to_vector_different_size : Error<
-  "%select{||reinterpret_cast||C-style cast|}0 from vector %1 " 
+  "%select{||reinterpret_cast||C-style cast|}0 from vector %1 "
   "to vector %2 of different size">;
 def err_bad_lvalue_to_rvalue_cast : Error<
   "cannot cast from lvalue of type %1 to rvalue reference type %2; types are "
@@ -5818,7 +5829,7 @@ def err_typecheck_nonviable_condition_incomplete : Error<
 def err_typecheck_deleted_function : Error<
   "conversion function %diff{from $ to $|between types}0,1 "
   "invokes a deleted function">;
-  
+
 def err_expected_class_or_namespace : Error<"%0 is not a class"
   "%select{ or namespace|, namespace, or enumeration}1">;
 def err_invalid_declarator_scope : Error<"cannot define or redeclare %0 here "
@@ -6167,11 +6178,11 @@ def err_typecheck_call_too_many_args_at_most_suggest : Error<
   "too many %select{|||execution configuration }0arguments to "
   "%select{function|block|method|kernel function}0 call, "
   "expected at most %1, have %2; did you mean %3?">;
-  
+
 def err_arc_typecheck_convert_incompatible_pointer : Error<
   "incompatible pointer types passing retainable parameter of type %0"
   "to a CF function expecting %1 type">;
-  
+
 def err_builtin_fn_use : Error<"builtin functions must be directly called">;
 
 def warn_call_wrong_number_of_arguments : Warning<
@@ -6295,7 +6306,7 @@ def warn_cast_pointer_from_sel : Warning<
 def warn_function_def_in_objc_container : Warning<
   "function definition inside an Objective-C container is deprecated">,
   InGroup<FunctionDefInObjCContainer>;
-  
+
 def warn_bad_function_cast : Warning<
   "cast from function call of type %0 to non-matching type %1">,
   InGroup<BadFunctionCast>, DefaultIgnore;
@@ -6354,7 +6365,7 @@ def note_inequality_comparison_to_or_assign : Note<
 
 def err_incomplete_type_used_in_type_trait_expr : Error<
   "incomplete type %0 used in type trait expression">;
-  
+
 def err_dimension_expr_not_constant_integer : Error<
   "dimension expression does not evaluate to a constant unsigned int">;
 
@@ -6562,8 +6573,8 @@ def err_reference_to_local_var_in_enclosing_context : Error<
   "reference to local variable %0 declared in enclosing context">;
 
 def err_static_data_member_not_allowed_in_local_class : Error<
-  "static data member %0 not allowed in local class %1">; 
-  
+  "static data member %0 not allowed in local class %1">;
+
 // C++ derived classes
 def err_base_clause_on_union : Error<"unions cannot have base classes">;
 def err_base_must_be_class : Error<"base specifier must name a class">;
@@ -7189,7 +7200,7 @@ def err_incorrect_num_initializers : Error<
 def err_altivec_empty_initializer : Error<"expected initializer">;
 
 def err_invalid_neon_type_code : Error<
-  "incompatible constant for this __builtin_neon function">; 
+  "incompatible constant for this __builtin_neon function">;
 def err_argument_invalid_range : Error<
   "argument should be a value from %0 to %1">;
 def warn_neon_vector_initializer_non_portable : Warning<
@@ -7224,7 +7235,7 @@ def err_constant_integer_arg_type : Error<
 def ext_mixed_decls_code : Extension<
   "ISO C90 forbids mixing declarations and code">,
   InGroup<DiagGroup<"declaration-after-statement">>;
-  
+
 def err_non_local_variable_decl_in_for : Error<
   "declaration of non-local variable in 'for' loop">;
 def err_non_variable_decl_in_for : Error<
@@ -7291,7 +7302,7 @@ def err_nsconsumed_attribute_mismatch : Error<
 def err_nsreturns_retained_attribute_mismatch : Error<
   "overriding method has mismatched ns_returns_%select{not_retained|retained}0"
   " attributes">;
-  
+
 def note_getter_unavailable : Note<
   "or because setter is declared here, but no getter method %0 is found">;
 def err_invalid_protocol_qualifiers : Error<
@@ -7469,8 +7480,29 @@ def err_hlsl_attribute_expects_string_literal: Error<
   "attribute %0 must have a string literal argument">;
 def err_hlsl_attribute_expects_string_literal_from_list: Error<
   "attribute %0 must have one of these values: %1">;
+def err_hlsl_attribute_unsupported_stage: Error<
+  "attribute %0 only allowed on %1 shaders">;
+def err_hlsl_attribute_in_wrong_shader_model: Error<
+  "attribute %0 requires shader model %1 or greater">;
+def err_hlsl_conflicting_shader_attribute: Error<
+  "shader attribute type '%0' conflicts with shader attribute type '%1'">;
+def note_hlsl_shader_attribute_here: Note<
+  "shader attribute is here">;
+def err_hlsl_profile_conflicts_with_shader_attribute : Error<
+  "entry type '%0' from profile '%1' conflicts with shader attribute type '%2' on entry function '%3'.">;
 def err_hlsl_attribute_valid_on_function_only: Error<
   "attribute is valid only on functions">;
+def err_hlsl_wavesize_size: Error<
+  "WaveSize arguments must be between 4 and 128 and a power of 2">;
+def err_hlsl_wavesize_min_geq_max: Error<
+  "Minimum WaveSize value %0 must be less than maximum WaveSize value %1">;
+def warn_hlsl_wavesize_min_eq_max:  Warning<
+  "Wave Size Range minimum and maximum are equal">,
+  InGroup<HLSLAttributeStatement>, DefaultError;
+def err_hlsl_wavesize_pref_size_out_of_range: Error<
+  "Preferred WaveSize value %0 must be between %1 and %2">;
+def err_hlsl_wavesize_insufficient_shader_model: Error<
+  "WaveSize only takes multiple arguments in Shader Model 6.8 or higher">;
 def err_hlsl_bitfields: Error<
   "bitfields are not supported in HLSL">;
 def err_hlsl_bitfields_with_annotation: Error<
@@ -7499,8 +7531,8 @@ def err_hlsl_matrix_member_too_many_positions: Error<
   "more than four positions are referenced in '%0'">;
 def err_hlsl_matrix_member_zero_in_one_based: Error<
   "the digit '0' is used in '%0', but the syntax is for one-based rows and columns">;
-def err_hlsl_overloading_new_delete_operator: Error<
-  "overloading %0 is not allowed">;
+def err_hlsl_overloading_operator_disallowed: Error<
+  "overloading %select{|non-member }1%0 is not allowed">;
 def err_hlsl_vector_member_bad_format: Error<
   "invalid format for vector swizzle '%0'">;
 def err_hlsl_vector_member_empty: Error<
@@ -7519,6 +7551,9 @@ def err_hlsl_objectintemplateargument : Error<
   "%0 is an object and cannot be used as a type parameter">;
 def err_hlsl_packoffset_requires_cbuffer : Error<
   "packoffset is only allowed in a constant buffer">;
+def warn_hlsl_packoffset_mix : Warning<
+  "cannot mix packoffset elements with nonpackoffset elements in a cbuffer">;
+def err_hlsl_packoffset_overlap : Error<"packoffset overlap between %0, %1">;
 def err_hlsl_register_semantics_conflicting : Error<
   "conflicting register semantics">;
 def err_hlsl_register_or_offset_bind_not_valid: Error<
@@ -7546,7 +7581,7 @@ def err_hlsl_typeintemplateargument : Error<
 def err_hlsl_typeintemplateargument_requires_scalar : Error<
   "%0 cannot be used as a type parameter where a scalar is required">;
 def err_hlsl_typeintemplateargument_requires_struct : Error<
-  "%0 cannot be used as a type parameter where a struct is required">;
+  "%0 cannot be used as a type parameter where a struct/class is required">;
 def err_hlsl_type_mismatch : Error<
   "type mismatch">;
 def err_hlsl_unsupported_array_equality_op: Error<
@@ -7591,12 +7626,22 @@ def err_not_all_payload_fields_qualified : Error<
   "payload type '%0' requires that all fields carry payload access qualifiers.">;
 def err_payload_requires_attribute : Error<
   "type '%0' used as payload requires that it is annotated with the [raypayload] attribute">;
+def err_payload_requires_inout : Error<
+  "%select{payload|callable}0 parameter %1 must be 'inout'">;
+def err_attributes_requiers_in : Error<
+  "intersection attributes parameter %0 must be 'in'">;
+def err_payload_attrs_must_be_udt : Error<
+  "%select{payload|attributes|callable}0 parameter %1 must be a user-defined type composed of only numeric types">;
+def err_shader_must_return_void : Error<
+  "return type for '%0' shaders must be void">;
+def err_raytracing_entry_param_count : Error<
+  "incorrect number of entry parameters for raytracing stage '%0': %1 parameter(s) provided, expected %select{no parameters|one payload parameter|two parameters for payload and attributes|one argument parameter}2">;
 def err_payload_fields_not_qualified : Error<
   "payload field '%0' has no payload access qualifiers.">;
 def err_payload_fields_is_payload_and_overqualified : Error<
   "payload field '%0' is a payload struct. Payload access qualifiers are not allowed on payload types.">;
 def warn_hlsl_payload_qualifer_dropped : Warning<
-  "payload access qualifieres are only supported for target lib_6_6 and beyond. You can opt-in for lib_6_6 with the -enable-payload-qualifiers flag. Qualifiers will be dropped.">, InGroup<HLSLPayloadAccessQualifer>;
+  "payload access qualifiers ignored. These are only supported for lib_6_7+ targets and lib_6_6 with with the -enable-payload-qualifiers flag.">, InGroup<HLSLPayloadAccessQualifer>;
 def err_hlsl_unsupported_builtin_op: Error<
   "operator cannot be used with built-in type %0">;
 def err_hlsl_unsupported_char_literal : Error<
@@ -7632,6 +7677,10 @@ def err_hlsl_unsupported_longlong : Error<
   "long long is unsupported in HLSL">;
 def err_hlsl_varmodifierna : Error<
   "%0 is not a valid modifier for a %1">;
+def err_hlsl_varmodifierna_decltype : Error<
+  "%0 is not a valid modifier for a declaration of type %1">;
+def note_hlsl_globallycoherent_applies_to : Note<
+  "'globallycoherent' can only be applied to UAV or RWDispatchNodeInputRecord objects">;
 def err_hlsl_varmodifiersna : Error<
   "%0 and %1 cannot be used together for a %2">;
 def err_hlsl_vla : Error< // Patterened after err_opencl_vla
@@ -7664,6 +7713,9 @@ def note_field_type_usage : Note<"usage of %0 found in field %1 of type %2">;
 def warn_hlsl_attribute_expects_uint_literal : Warning<
   "attribute %0 must have a uint literal argument">,
   InGroup<HLSLAttributeType>;
+def warn_hlsl_entry_attribute_without_shader_attribute : Warning<
+  "attribute '%0' ignored without accompanying shader attribute">,
+  InGroup<HLSLEntryAttributeWithoutShaderAttrType>;
 def err_hlsl_attribute_expects_float_literal : Error<
   "attribute %0 must have a float literal argument">;
 def warn_hlsl_comma_in_init : Warning<
@@ -7673,8 +7725,14 @@ def warn_hlsl_incorrect_bind_semantic: Warning< // Is an error in fxc in some ca
   "invalid register specification, expected %0 binding">;
 def err_hlsl_incorrect_bind_semantic: Error< // Is an error in fxc in some cases, but is sometimes ignored
   "invalid register specification, expected %0 binding">;
+def warn_hlsl_semantic_attribute_position_misuse_hint: Warning<
+  "'%0' is a user-defined semantic; did you mean 'SV_Position'?">,
+  InGroup<DiagGroup<"dx9-deprecation">>;
 def warn_hlsl_unary_negate_unsigned : Warning<
   "unary negate of unsigned value is still unsigned">,
+  InGroup<Conversion>, DefaultWarn;
+def warn_hlsl_impcast_glc_mismatch : Warning<
+  "implicit conversion from %0 to %1 %select{loses|adds}2 globallycoherent annotation">,
   InGroup<Conversion>, DefaultWarn;
 def warn_hlsl_narrowing : Warning<
   "conversion from larger type %0 to smaller type %1, possible loss of data">,
@@ -7690,6 +7748,8 @@ def warn_hlsl_implicit_vector_truncation  : Warning<
   InGroup<Conversion>, DefaultWarn;
 def err_hlsl_nointerpolation_and_linear : Error<
     "nointerpolation cannot be used with any other interpolation mode specifier">;
+def err_hlsl_parameter_requires_attribute : Error<
+    "parameter %0 of %1 must have a '%2' attribute">;
 def warn_hlsl_duplicate_specifier : Warning<
     "duplicate HLSL specifier %0">,
 	InGroup<IgnoredAttributes>, DefaultWarn;
@@ -7741,6 +7801,23 @@ def err_hlsl_unsupported_for_version_lower : Error<
    "%0 is only allowed for HLSL %1 and lower.">;
 def err_hlsl_unsupported_keyword_for_min_precision : Error<
    "%0 is only supported with -enable-16bit-types option">;
+def warn_hlsl_derivatives_in_wrong_shader_kind: Warning<
+   "Intrinsic %0 potentially used by '%1' requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders.">,
+    DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_derivatives_in_wrong_shader_model: Warning<
+   "Intrinsic %0 potentially used by '%1' requires derivatives - shader model 6.6 or greater is required for use in compute, amplification, or mesh shaders.">,
+    DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_derivatives_wrong_numthreads : Warning<
+   "Intrinsic %0 potentially used by '%1' requires derivatives - when used in compute/amplification/mesh shaders"
+    " or broadcast nodes, numthreads must be either 1D with X as a multiple of 4 or"
+    " both X and Y must be multiples of 2.">,
+    DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_intrinsic_in_wrong_shader_model : Warning<
+   "intrinsic %0 potentially used by '%1' requires shader model %2 or greater">,
+    DefaultError, InGroup<HLSLAvailability>;
+def warn_hlsl_intrinsic_overload_in_wrong_shader_model : Warning<
+   "overload of intrinsic %0 requires shader model %1 or greater">, 
+    DefaultError, InGroup<HLSLAvailability>;
 def err_hlsl_intrinsic_template_arg_unsupported: Error<
    "Explicit template arguments on intrinsic %0 are not supported">;
 def err_hlsl_intrinsic_template_arg_requires_2018: Error<
@@ -7753,7 +7830,7 @@ def err_hlsl_no_struct_user_defined_type: Error<
 def err_hlsl_ray_desc_required: Error<
    "Argument type must be struct RayDesc.">;
 def err_hlsl_missing_attr: Error<
-   "%0 entry point must have the %1 attribute">;
+   "%0 entry point must have a valid %1 attribute">;
 def err_hlsl_missing_inout_attr: Error<
    "stream-output object must be an inout parameter">;
 def err_hlsl_unsupported_string_decl: Error<
@@ -7770,9 +7847,121 @@ def err_hlsl_logical_binop_scalar : Error<
    "operands for short-circuiting logical binary operator must be scalar, for non-scalar types use '%select{and|or}0'">;
 def err_hlsl_ternary_scalar : Error<
    "condition for short-circuiting ternary operator must be scalar, for non-scalar types use 'select'">;
+def err_hlsl_no_recursion : Error<
+   "recursive functions are not allowed: function '%0' calls recursive function '%1'">;
+def note_hlsl_no_recursion : Note<
+   "recursive function located here:">;
+def err_hlsl_missing_patch_constant_function : Error<
+    "patch constant function '%0' must be defined">;
+def err_hlsl_patch_reachability_not_allowed : Error<
+    "%select{patch constant|entry}0 function '%1' should not be reachable from %select{patch constant|entry}2 function '%3'">;
+def err_hlsl_patch_size_mismatch : Error<
+    "Patch constant function's %0 patch input should have %1 elements, but has %2.">;
 def warn_hlsl_structurize_exits_lifetime_markers_conflict : Warning <
    "structurize-returns skipped function '%0' due to incompatibility with lifetime markers. Use -disable-lifetime-markers to enable structurize-exits on this function.">,
   InGroup< HLSLStructurizeExitsLifetimeMarkersConflict >;
+def err_hlsl_wg_intrinsic_launch_type : Error<
+   "%0 may only be used by nodes with %1 launch type">;
+def err_hlsl_wg_thread_launch_group_size : Error<
+   "Thread launch nodes must have a thread group size of (1,1,1)">;
+def warn_hlsl_numthreads_group_size : Warning<
+   "Group size of %0 (%1 * %2 * %3) is outside of valid range [1..1024] - "
+   "attribute will be ignored">,
+   InGroup<IgnoredAttributes>;
+def err_hlsl_wg_nodetrackrwinputsharing_missing : Error<
+   "Use of FinishedCrossGroupSharing() requires NodeTrackRWInputSharing attribute to be specified on the record struct type">;
+def err_hlsl_wg_nodetrackrwinputsharing_invalid : Error<
+   "NodeTrackRWInputSharing attribute cannot be applied to Input Records that are not RWDispatchNodeInputRecord">;
+def err_hlsl_wg_input_kind : Error<
+   "'%0' may not be used with %1 nodes (only %select{DispatchNodeInputRecord or RWDispatchNodeInputRecord|"
+   "GroupNodeInputRecords, RWGroupNodeInputRecords, or EmptyNodeInput|ThreadNodeInputRecord or RWThreadNodeInputRecord}2)">;
+def err_hlsl_wg_attr_only_on_output : Error<
+   "attribute %0 may only be used with output nodes">;
+def err_hlsl_wg_attr_only_on_output_or_input_record : Error<
+   "attribute %0 may only be used with output nodes or input record objects">;
+def err_hlsl_wg_nodearraysize_conflict_unbounded : Error<
+   "[NodeArraySize(%0)] conflict: [UnboundedSparseNodes] implies [NodeArraySize(-1)]">;
+def err_hlsl_wg_attr_only_on_output_array : Error<
+   "attribute %0 may only be used with node output arrays (NodeOutputArray or EmptyNodeOutputArray)">;
+def err_hlsl_wg_attr_only_on_node: Error<
+   "attribute %0 may only be used on a node ">;
+def err_hlsl_zero_sized_record : Error<
+   "record used in %0 may not have zero size">;
+def err_hlsl_rwnodeinputrecord_sv_dispatch : Error<
+   "a RWNodeInputRecord field with SV_DispatchGrid semantic is not assignable">;
+def err_hlsl_maxarraysize_template_arg : Error<
+   "the %0 maxArraySize template argument must be an integer constant expression with value >= 1">;
+def err_hlsl_maxrecord_attrs_on_same_arg : Error<
+    "only one of MaxRecords or MaxRecordsSharedWith may be specified to the same parameter.">;
+def err_hlsl_maxrecordssharedwith_references_invalid_arg : Error<
+    "attribute MaxRecordsSharedWith must reference a valid ouput parameter name.">;
+def err_hlsl_maxrecordssharedwith_references_itself : Error<
+    "attribute MaxRecordsSharedWith must not reference the same parameter it is applied to.">;
+def err_hlsl_maxrecord_on_wrong_launch : Error<
+    "attribute MaxRecords must only be used with node outputs or coalescing launch inputs">;
+def err_hlsl_dispatchgrid_component : Error<
+   "%0 %1 component value must be between 1 and 65,535 (2^16-1) inclusive">;
+def err_hlsl_dispatchgrid_product : Error<
+   "%0 X * Y * Z product may not exceed 16,777,215 (2^24-1)">;
+def err_hlsl_compute_launch_compatibility : Error<
+   "Node shader '%0' with %1 launch type is not compatible with compute (must be broadcasting)">;
+def err_hlsl_compute_io_compatibility : Error<
+   "Node shader '%0' with node input/output is not compatible with compute">;
+def err_hlsl_launch_type_attr : Error<
+   "'%0' may only be used with %1 nodes">;
+def err_hlsl_incompatible_node_attr : Error<
+   "Node shader '%0' may not use both '%1' and '%2'">;
+def err_hlsl_missing_node_attr : Error<
+   "Node shader '%0' with %1 launch type requires '%2' attribute">;
+def err_hlsl_missing_dispatchgrid_attr : Error<
+   "Broadcasting node shader '%0' must have either the NodeDispatchGrid or NodeMaxDispatchGrid attribute">;
+def err_hlsl_missing_dispatchgrid_semantic : Error<
+   "Broadcasting node shader '%0' with NodeMaxDispatchGrid attribute must declare an input record containing a field with SV_DispatchGrid semantic">;
+def err_hlsl_dispatchgrid_semantic_already_specified : Error<
+   "a field with SV_DispatchGrid has already been specified">;
+def err_hlsl_incompatible_dispatchgrid_semantic_type : Error<
+   "SV_DispatchGrid can only be applied to a declaration of unsigned 32 or 16-bit integer scalar, vector, or array up to 3 elements, not %0">;
+def err_hlsl_maxrecursiondepth_exceeded : Error<
+   "NodeMaxRecursionDepth may not exceed 32">;
+def err_hlsl_too_many_node_inputs : Error<
+   "Node shader '%0' may not have more than one input record">;
+def err_hlsl_node_record_type : Error<
+   "%0 is not valid as a node record type - struct/class required">;
+def err_hlsl_node_record_object : Error<
+   "object %0 may not appear in a node record">;
+def err_hlsl_array_disallowed : Error<
+   "%select{entry parameter|declaration}1 of type %0 may not be an array">;
+def err_hlsl_inputpatch_size: Error<
+   "InputPatch element count must be greater than 0">;
+def err_hlsl_outputpatch_size: Error<
+   "OutputPatch element count must be greater than 0">;
+def note_hlsl_node_array : Note<"'%0' cannot be used as an array; did you mean '%0Array'?">;
+def err_hlsl_controlpoints_size: Error<
+  "number of control points %0 is outside the valid range of [1..32]">;
+def err_hlsl_barrier_invalid_memory_flags: Error<
+  "invalid MemoryTypeFlags for Barrier operation; expected 0, ALL_MEMORY, or some combination of "
+  "UAV_MEMORY, GROUP_SHARED_MEMORY, NODE_INPUT_MEMORY, NODE_OUTPUT_MEMORY flags">;
+def err_hlsl_barrier_invalid_semantic_flags: Error<
+  "invalid SemanticFlags for Barrier operation; expected 0 or some combination of "
+  "GROUP_SYNC, GROUP_SCOPE, DEVICE_SCOPE flags">;
+def warn_hlsl_barrier_group_memory_requires_group: Warning<
+  "GROUP_SHARED_MEMORY specified for Barrier operation when context has no visible group">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_node_memory_requires_node: Warning<
+  "NODE_INPUT_MEMORY or NODE_OUTPUT_MEMORY may only be specified for Barrier operation in a node shader">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_group_semantic_requires_group: Warning<
+  "GROUP_SYNC or GROUP_SCOPE specified for Barrier operation when context has no visible group">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_no_mem_with_required_group_scope: Warning<
+  "GROUP_SCOPE specified for Barrier operation without applicable memory">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_barrier_no_mem_with_required_device_scope: Warning<
+  "DEVICE_SCOPE specified for Barrier operation without applicable memory">,
+  InGroup<HLSLBarrier>, DefaultError;
+def warn_hlsl_legacy_integer_literal_signedness: Warning<
+  "literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions">,
+  InGroup<HLSLLegacyLiterals>, DefaultIgnore;
 // HLSL Change Ends
 
 // SPIRV Change Starts

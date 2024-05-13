@@ -387,7 +387,7 @@ public:
   /// Write out a hexadecimal representation of the floating point value to DST,
   /// which must be of sufficient size, in the C99 form [-]0xh.hhhhp[+-]d.
   /// Return the number of characters written, excluding the terminating NUL.
-  unsigned int convertToHexString(_In_ char *dst, unsigned int hexDigits,
+  unsigned int convertToHexString(char *dst, unsigned int hexDigits,
                                   bool upperCase, roundingMode) const;
 #endif // HLSL Change
 
@@ -595,7 +595,7 @@ private:
   opStatus convertFromDecimalString(StringRef, roundingMode);
 #if 0 // HLSL Change - dst should be _Out_writes_(constant), but this turns out to be unused in any case
   char *convertNormalToHexString(
-	  _In_ char *dst, 
+	  char *dst, 
 	  unsigned int hexDigits,
 	  bool upperCase,
 	  roundingMode rounding_mode) const;

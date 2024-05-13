@@ -1,7 +1,7 @@
-// RUN: %dxc -T ps_6_1 -E main -fspv-target-env=vulkan1.1 -fspv-debug=file -Zi
+// RUN: %dxc -T ps_6_1 -E main -fspv-target-env=vulkan1.1 -fspv-debug=file -Zi -fcgl  %s -spirv | FileCheck %s
 
 // Have file path
-// CHECK:      [[file:%\d+]] = OpString
+// CHECK:      [[file:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.ctrl.file.hlsl
 // CHECK:      OpSource HLSL 610 [[file]]
 // No source code

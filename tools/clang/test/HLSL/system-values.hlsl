@@ -40,6 +40,8 @@
 #define Def_Barycentrics DECLARE(float3 BaryWeights : SV_Barycentrics) USE(float, BaryWeights.x) USE(float, BaryWeights.y) USE(float, BaryWeights.z)
 #define Def_ShadingRate DECLARE(uint rate : SV_ShadingRate) USE(uint, rate)
 #define Def_CullPrimitive DECLARE(bool cullprim : SV_CullPrimitive) USE(bool, cullprim)
+#define Def_StartVertexLocation DECLARE(int svloc : SV_StartVertexLocation) USE(int, svloc)
+#define Def_StartInstanceLocation DECLARE(uint siloc : SV_StartInstanceLocation) USE(uint, siloc)
 
 #define Domain_Quad 0
 #define Domain_Tri 1

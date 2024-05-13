@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpName %type__Globals "type.$Globals"
 
@@ -68,7 +68,7 @@ TextureBuffer<S>        gTBuffer;  // Not included - 6
 
 typedef SamplerState SamplerStateType; // Not included - type definition
 
-// CHECK: [[v2f_struct:%\w+]] = OpTypeStruct %v2float
+// CHECK: [[v2f_struct:%[a-zA-Z0-9_]+]] = OpTypeStruct %v2float
 struct {
     float2 f;
 }                       gAnonStruct; // 6

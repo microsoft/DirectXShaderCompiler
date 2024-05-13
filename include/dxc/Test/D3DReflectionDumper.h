@@ -11,8 +11,8 @@
 
 #pragma once
 
-#include "dxc/Support/Global.h"
 #include "DumpContext.h"
+#include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 
 namespace hlsl {
@@ -22,7 +22,9 @@ class D3DReflectionDumper : public DumpContext {
 private:
   bool m_bCheckByName = false;
   const char *m_LastName = nullptr;
-  void SetLastName(const char *Name = nullptr) { m_LastName = Name ? Name : "<nullptr>"; }
+  void SetLastName(const char *Name = nullptr) {
+    m_LastName = Name ? Name : "<nullptr>";
+  }
 
 public:
   D3DReflectionDumper(std::ostream &outStream) : DumpContext(outStream) {}
@@ -48,7 +50,6 @@ public:
   void Dump(ID3D12ShaderReflection *pShaderReflection);
   void Dump(ID3D12FunctionReflection *pFunctionReflection);
   void Dump(ID3D12LibraryReflection *pLibraryReflection);
-
 };
 
 } // namespace dump

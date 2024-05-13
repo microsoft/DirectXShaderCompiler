@@ -11,20 +11,20 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
-#include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
-#include "dxc/Support/WinFunctions.h"
 #include "dxc/Support/FileIOHelper.h"
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinFunctions.h"
+#include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include <string>
 #include <algorithm>
+#include <set>
+#include <string>
 #include <utility>
 #include <vector>
-#include <set>
 
 #include "DxilRootSignatureHelper.h"
 
@@ -37,16 +37,13 @@ using namespace root_sig_helper;
 
 //////////////////////////////////////////////////////////////////////////////
 
-
-template<typename IN_DXIL_ROOT_SIGNATURE_DESC,
-  typename OUT_DXIL_ROOT_SIGNATURE_DESC,
-  typename OUT_DXIL_ROOT_PARAMETER,
-  typename OUT_DXIL_ROOT_DESCRIPTOR,
-  typename OUT_DXIL_DESCRIPTOR_RANGE>
+template <typename IN_DXIL_ROOT_SIGNATURE_DESC,
+          typename OUT_DXIL_ROOT_SIGNATURE_DESC,
+          typename OUT_DXIL_ROOT_PARAMETER, typename OUT_DXIL_ROOT_DESCRIPTOR,
+          typename OUT_DXIL_DESCRIPTOR_RANGE>
 void ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC &DescIn,
                                   DxilRootSignatureVersion DescVersionOut,
-                                  OUT_DXIL_ROOT_SIGNATURE_DESC &DescOut)
-{
+                                  OUT_DXIL_ROOT_SIGNATURE_DESC &DescOut) {
   const IN_DXIL_ROOT_SIGNATURE_DESC *pDescIn = &DescIn;
   OUT_DXIL_ROOT_SIGNATURE_DESC *pDescOut = &DescOut;
 
@@ -62,12 +59,14 @@ void ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC &DescIn,
   if (pDescIn->NumParameters > 0) {
     pDescOut->pParameters = new OUT_DXIL_ROOT_PARAMETER[pDescIn->NumParameters];
     pDescOut->NumParameters = pDescIn->NumParameters;
-    memset((void *)pDescOut->pParameters, 0, pDescOut->NumParameters*sizeof(OUT_DXIL_ROOT_PARAMETER));
+    memset((void *)pDescOut->pParameters, 0,
+           pDescOut->NumParameters * sizeof(OUT_DXIL_ROOT_PARAMETER));
   }
 
   for (unsigned iRP = 0; iRP < pDescIn->NumParameters; iRP++) {
     const auto &ParamIn = pDescIn->pParameters[iRP];
-    OUT_DXIL_ROOT_PARAMETER &ParamOut = (OUT_DXIL_ROOT_PARAMETER &)pDescOut->pParameters[iRP];
+    OUT_DXIL_ROOT_PARAMETER &ParamOut =
+        (OUT_DXIL_ROOT_PARAMETER &)pDescOut->pParameters[iRP];
 
     ParamOut.ParameterType = ParamIn.ParameterType;
     ParamOut.ShaderVisibility = ParamIn.ShaderVisibility;
@@ -77,19 +76,23 @@ void ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC &DescIn,
       ParamOut.DescriptorTable.pDescriptorRanges = nullptr;
       unsigned NumRanges = ParamIn.DescriptorTable.NumDescriptorRanges;
       if (NumRanges > 0) {
-        ParamOut.DescriptorTable.pDescriptorRanges = new OUT_DXIL_DESCRIPTOR_RANGE[NumRanges];
+        ParamOut.DescriptorTable.pDescriptorRanges =
+            new OUT_DXIL_DESCRIPTOR_RANGE[NumRanges];
         ParamOut.DescriptorTable.NumDescriptorRanges = NumRanges;
       }
 
       for (unsigned i = 0; i < NumRanges; i++) {
         const auto &RangeIn = ParamIn.DescriptorTable.pDescriptorRanges[i];
-        OUT_DXIL_DESCRIPTOR_RANGE &RangeOut = (OUT_DXIL_DESCRIPTOR_RANGE &)ParamOut.DescriptorTable.pDescriptorRanges[i];
+        OUT_DXIL_DESCRIPTOR_RANGE &RangeOut =
+            (OUT_DXIL_DESCRIPTOR_RANGE &)
+                ParamOut.DescriptorTable.pDescriptorRanges[i];
 
         RangeOut.RangeType = RangeIn.RangeType;
         RangeOut.NumDescriptors = RangeIn.NumDescriptors;
         RangeOut.BaseShaderRegister = RangeIn.BaseShaderRegister;
         RangeOut.RegisterSpace = RangeIn.RegisterSpace;
-        RangeOut.OffsetInDescriptorsFromTableStart = RangeIn.OffsetInDescriptorsFromTableStart;
+        RangeOut.OffsetInDescriptorsFromTableStart =
+            RangeIn.OffsetInDescriptorsFromTableStart;
         DxilDescriptorRangeFlags Flags = GetFlags(RangeIn);
         SetFlags(RangeOut, Flags);
       }
@@ -117,19 +120,23 @@ void ConvertRootSignatureTemplate(const IN_DXIL_ROOT_SIGNATURE_DESC &DescIn,
 
   // Static samplers.
   if (pDescIn->NumStaticSamplers > 0) {
-    pDescOut->pStaticSamplers = new DxilStaticSamplerDesc[pDescIn->NumStaticSamplers];
+    pDescOut->pStaticSamplers =
+        new DxilStaticSamplerDesc[pDescIn->NumStaticSamplers];
     pDescOut->NumStaticSamplers = pDescIn->NumStaticSamplers;
-    memcpy((void*)pDescOut->pStaticSamplers, pDescIn->pStaticSamplers, pDescOut->NumStaticSamplers*sizeof(DxilStaticSamplerDesc));
+    memcpy((void *)pDescOut->pStaticSamplers, pDescIn->pStaticSamplers,
+           pDescOut->NumStaticSamplers * sizeof(DxilStaticSamplerDesc));
   }
 }
 
-void ConvertRootSignature(const DxilVersionedRootSignatureDesc * pRootSignatureIn,
-                          DxilRootSignatureVersion RootSignatureVersionOut,
-                          const DxilVersionedRootSignatureDesc ** ppRootSignatureOut) {
-  IFTBOOL(pRootSignatureIn != nullptr && ppRootSignatureOut != nullptr, E_INVALIDARG);
+void ConvertRootSignature(
+    const DxilVersionedRootSignatureDesc *pRootSignatureIn,
+    DxilRootSignatureVersion RootSignatureVersionOut,
+    const DxilVersionedRootSignatureDesc **ppRootSignatureOut) {
+  IFTBOOL(pRootSignatureIn != nullptr && ppRootSignatureOut != nullptr,
+          E_INVALIDARG);
   *ppRootSignatureOut = nullptr;
 
-  if (pRootSignatureIn->Version == RootSignatureVersionOut){
+  if (pRootSignatureIn->Version == RootSignatureVersionOut) {
     // No conversion. Return the original root signature pointer; no cloning.
     *ppRootSignatureOut = pRootSignatureIn;
     return;
@@ -147,13 +154,10 @@ void ConvertRootSignature(const DxilVersionedRootSignatureDesc * pRootSignatureI
       switch (pRootSignatureIn->Version) {
       case DxilRootSignatureVersion::Version_1_1:
         pRootSignatureOut->Version = DxilRootSignatureVersion::Version_1_0;
-        ConvertRootSignatureTemplate<
-          DxilRootSignatureDesc1,
-          DxilRootSignatureDesc,
-          DxilRootParameter,
-          DxilRootDescriptor,
-          DxilDescriptorRange>(pRootSignatureIn->Desc_1_1,
-            DxilRootSignatureVersion::Version_1_0,
+        ConvertRootSignatureTemplate<DxilRootSignatureDesc1,
+                                     DxilRootSignatureDesc, DxilRootParameter,
+                                     DxilRootDescriptor, DxilDescriptorRange>(
+            pRootSignatureIn->Desc_1_1, DxilRootSignatureVersion::Version_1_0,
             pRootSignatureOut->Desc_1_0);
         break;
       default:
@@ -165,13 +169,10 @@ void ConvertRootSignature(const DxilVersionedRootSignatureDesc * pRootSignatureI
       switch (pRootSignatureIn->Version) {
       case DxilRootSignatureVersion::Version_1_0:
         pRootSignatureOut->Version = DxilRootSignatureVersion::Version_1_1;
-        ConvertRootSignatureTemplate<
-          DxilRootSignatureDesc,
-          DxilRootSignatureDesc1,
-          DxilRootParameter1,
-          DxilRootDescriptor1,
-          DxilDescriptorRange1>(pRootSignatureIn->Desc_1_0,
-            DxilRootSignatureVersion::Version_1_1,
+        ConvertRootSignatureTemplate<DxilRootSignatureDesc,
+                                     DxilRootSignatureDesc1, DxilRootParameter1,
+                                     DxilRootDescriptor1, DxilDescriptorRange1>(
+            pRootSignatureIn->Desc_1_0, DxilRootSignatureVersion::Version_1_1,
             pRootSignatureOut->Desc_1_1);
         break;
       default:
@@ -183,14 +184,12 @@ void ConvertRootSignature(const DxilVersionedRootSignatureDesc * pRootSignatureI
       IFT(E_INVALIDARG);
       break;
     }
-  }
-  catch (...) {
+  } catch (...) {
     DeleteRootSignature(pRootSignatureOut);
     throw;
   }
 
   *ppRootSignatureOut = pRootSignatureOut;
 }
-
 
 } // namespace hlsl

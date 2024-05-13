@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_0 -E main -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 
 // Note: WaveActiveBitAnd() only accepts unsigned interger scalars/vectors.
 
@@ -23,16 +23,16 @@ void main(uint3 id: SV_DispatchThreadID) {
     uint2 val3 = values[x].val3;
      uint val4 = values[x].val4;
 
-// CHECK:      [[val1:%\d+]] = OpLoad %v4uint %val1
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseAnd %v4uint %uint_3 Reduce [[val1]]
+// CHECK:      [[val1:%[0-9]+]] = OpLoad %v4uint %val1
+// CHECK-NEXT:      {{%[0-9]+}} = OpGroupNonUniformBitwiseAnd %v4uint %uint_3 Reduce [[val1]]
     values[x].val1 = WaveActiveBitAnd(val1);
-// CHECK:      [[val2:%\d+]] = OpLoad %v3uint %val2
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseAnd %v3uint %uint_3 Reduce [[val2]]
+// CHECK:      [[val2:%[0-9]+]] = OpLoad %v3uint %val2
+// CHECK-NEXT:      {{%[0-9]+}} = OpGroupNonUniformBitwiseAnd %v3uint %uint_3 Reduce [[val2]]
     values[x].val2 = WaveActiveBitAnd(val2);
-// CHECK:      [[val3:%\d+]] = OpLoad %v2uint %val3
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseAnd %v2uint %uint_3 Reduce [[val3]]
+// CHECK:      [[val3:%[0-9]+]] = OpLoad %v2uint %val3
+// CHECK-NEXT:      {{%[0-9]+}} = OpGroupNonUniformBitwiseAnd %v2uint %uint_3 Reduce [[val3]]
     values[x].val3 = WaveActiveBitAnd(val3);
-// CHECK:      [[val4:%\d+]] = OpLoad %uint %val4
-// CHECK-NEXT:      {{%\d+}} = OpGroupNonUniformBitwiseAnd %uint %uint_3 Reduce [[val4]]
+// CHECK:      [[val4:%[0-9]+]] = OpLoad %uint %val4
+// CHECK-NEXT:      {{%[0-9]+}} = OpGroupNonUniformBitwiseAnd %uint %uint_3 Reduce [[val4]]
     values[x].val4 = WaveActiveBitAnd(val4);
 }

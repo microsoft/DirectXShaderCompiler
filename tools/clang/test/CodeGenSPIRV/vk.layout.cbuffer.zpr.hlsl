@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_0 -E main -Zpr
+// RUN: %dxc -T vs_6_0 -E main -Zpr -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpDecorate %_arr_mat2v3float_uint_5 ArrayStride 32
 // CHECK: OpDecorate %_arr_mat2v3float_uint_5_0 ArrayStride 48
@@ -22,9 +22,9 @@ cbuffer MyCBuffer {
 
 void main() {
     // Check that the result types for access chains are correct
-// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5 %MyCBuffer %int_0
-// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5_0 %MyCBuffer %int_1
-// CHECK: {{%\d+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5 %MyCBuffer %int_2
+// CHECK: {{%[0-9]+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5 %MyCBuffer %int_0
+// CHECK: {{%[0-9]+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5_0 %MyCBuffer %int_1
+// CHECK: {{%[0-9]+}} = OpAccessChain %_ptr_Uniform__arr_mat2v3float_uint_5 %MyCBuffer %int_2
     float2x3 m1 = matrices1[1];
     float2x3 m2 = matrices2[2];
     float2x3 m3 = matrices3[3];
@@ -33,20 +33,20 @@ void main() {
     // due to layout decoration on the rhs of the assignments below,
     // a load and store is performed for each vector.
 
-// CHECK:          [[ptr_matrices4:%\d+]] = OpAccessChain %_ptr_Uniform__arr__arr_v3int_uint_2_uint_5 %MyCBuffer %int_3
-// CHECK-NEXT:   [[ptr_matrices4_1:%\d+]] = OpAccessChain %_ptr_Uniform__arr_v3int_uint_2 [[ptr_matrices4]] %int_1
-// CHECK-NEXT:       [[matrices4_1:%\d+]] = OpLoad %_arr_v3int_uint_2 [[ptr_matrices4_1]]
-// CHECK-NEXT:  [[matrices4_1_row0:%\d+]] = OpCompositeExtract %v3int [[matrices4_1]] 0
-// CHECK-NEXT:  [[matrices4_1_row1:%\d+]] = OpCompositeExtract %v3int [[matrices4_1]] 1
-// CHECK-NEXT:               [[tmp:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2_0 [[matrices4_1_row0]] [[matrices4_1_row1]]
+// CHECK:          [[ptr_matrices4:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr__arr_v3int_uint_2_uint_5 %MyCBuffer %int_3
+// CHECK-NEXT:   [[ptr_matrices4_1:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_v3int_uint_2 [[ptr_matrices4]] %int_1
+// CHECK-NEXT:       [[matrices4_1:%[0-9]+]] = OpLoad %_arr_v3int_uint_2 [[ptr_matrices4_1]]
+// CHECK-NEXT:  [[matrices4_1_row0:%[0-9]+]] = OpCompositeExtract %v3int [[matrices4_1]] 0
+// CHECK-NEXT:  [[matrices4_1_row1:%[0-9]+]] = OpCompositeExtract %v3int [[matrices4_1]] 1
+// CHECK-NEXT:               [[tmp:%[0-9]+]] = OpCompositeConstruct %_arr_v3int_uint_2_0 [[matrices4_1_row0]] [[matrices4_1_row1]]
 // CHECK-NEXT:                              OpStore %m4 [[tmp]]
     int2x3 m4 = matrices4[1];
-// CHECK:          [[ptr_matrices5:%\d+]] = OpAccessChain %_ptr_Uniform__arr__arr_v3int_uint_2_uint_5 %MyCBuffer %int_4
-// CHECK-NEXT:   [[ptr_matrices5_2:%\d+]] = OpAccessChain %_ptr_Uniform__arr_v3int_uint_2 [[ptr_matrices5]] %int_2
-// CHECK-NEXT:       [[matrices5_2:%\d+]] = OpLoad %_arr_v3int_uint_2 [[ptr_matrices5_2]]
-// CHECK-NEXT: [[matrices_5_2_row0:%\d+]] = OpCompositeExtract %v3int [[matrices5_2]] 0
-// CHECK-NEXT: [[matrices_5_2_row1:%\d+]] = OpCompositeExtract %v3int [[matrices5_2]] 1
-// CHECK-NEXT:               [[tmp:%\d+]] = OpCompositeConstruct %_arr_v3int_uint_2_0 [[matrices_5_2_row0]] [[matrices_5_2_row1]]
-// CHECK-NEXT:                              OpStore %m5 [[tmp]]
+// CHECK:          [[ptr_matrices5:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr__arr_v3int_uint_2_uint_5 %MyCBuffer %int_4
+// CHECK-NEXT:   [[ptr_matrices5_2:%[0-9]+]] = OpAccessChain %_ptr_Uniform__arr_v3int_uint_2 [[ptr_matrices5]] %int_2
+// CHECK-NEXT:       [[matrices5_2:%[0-9]+]] = OpLoad %_arr_v3int_uint_2 [[ptr_matrices5_2]]
+// CHECK-NEXT: [[matrices_5_2_row0:%[0-9]+]] = OpCompositeExtract %v3int [[matrices5_2]] 0
+// CHECK-NEXT: [[matrices_5_2_row1:%[0-9]+]] = OpCompositeExtract %v3int [[matrices5_2]] 1
+// CHECK-NEXT:               [[tmp_0:%[0-9]+]] = OpCompositeConstruct %_arr_v3int_uint_2_0 [[matrices_5_2_row0]] [[matrices_5_2_row1]]
+// CHECK-NEXT:                              OpStore %m5 [[tmp_0]]
     int2x3 m5 = matrices5[2];
 }

@@ -11,30 +11,18 @@
 
 #pragma once
 
-struct StorageClassDataItem
-{
-  const char* Keyword;
+struct StorageClassDataItem {
+  const char *Keyword;
   bool IsValid;
 };
 
-const StorageClassDataItem StorageClassData[] =
-{
-  { "inline", true },
-  { "extern", false },
-  { "", true }
-};
+const StorageClassDataItem StorageClassData[] = {
+    {"inline", true}, {"extern", false}, {"", true}};
 
-struct InOutParameterModifierDataItem
-{
-  const char* Keyword;
+struct InOutParameterModifierDataItem {
+  const char *Keyword;
   bool ActsAsReference;
 };
 
-const InOutParameterModifierDataItem InOutParameterModifierData[] =
-{
-  { "", false },
-  { "in", false },
-  { "inout", true },
-  { "out", true }
-};
-
+const InOutParameterModifierDataItem InOutParameterModifierData[] = {
+    {"", false}, {"in", false}, {"inout", true}, {"out", true}};

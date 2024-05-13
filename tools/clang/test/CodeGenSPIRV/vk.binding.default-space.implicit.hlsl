@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -auto-binding-space 77
+// RUN: %dxc -T ps_6_0 -E main -auto-binding-space 77 -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpDecorate %sampler1 DescriptorSet 77
 // CHECK-NEXT: OpDecorate %sampler1 Binding 0

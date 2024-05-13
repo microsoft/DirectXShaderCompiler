@@ -242,7 +242,7 @@ void LLVMDisasmDispose(LLVMDisasmContextRef DC);
  */
 size_t LLVMDisasmInstruction(LLVMDisasmContextRef DC, uint8_t *Bytes,
                              uint64_t BytesSize, uint64_t PC,
-                             _Out_writes_z_(OutStringSize) char *OutString, size_t OutStringSize); // HLSL Change: annotation
+                             char *OutString, size_t OutStringSize);
 
 /**
  * @}

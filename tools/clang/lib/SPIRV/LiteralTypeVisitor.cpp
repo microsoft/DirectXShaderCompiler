@@ -86,7 +86,7 @@ void LiteralTypeVisitor::tryToUpdateInstLitType(SpirvInstruction *inst,
   // Since LiteralTypeVisitor is run before lowering the types, we can simply
   // update the AST result-type of the instruction to the new type. In the case
   // of the instruction being a constant instruction, since we do not have
-  // unique constants at this point, chaing the QualType of the constant
+  // unique constants at this point, changing the QualType of the constant
   // instruction is safe.
   inst->setAstResultType(newType);
 }
@@ -110,41 +110,46 @@ bool LiteralTypeVisitor::visit(SpirvAtomic *inst) {
 }
 
 bool LiteralTypeVisitor::visit(SpirvUnaryOp *inst) {
-  // Do not try to make conclusions about types for bitwidth conversion
-  // operations.
-  // TODO: We can do more to deduce information in OpBitCast.
   const auto opcode = inst->getopcode();
-  if (opcode == spv::Op::OpUConvert || opcode == spv::Op::OpSConvert ||
-      opcode == spv::Op::OpFConvert || opcode == spv::Op::OpBitcast) {
-    return true;
-  }
-
   const auto resultType = inst->getAstResultType();
   auto *arg = inst->getOperand();
   const auto argType = arg->getAstResultType();
 
-  // OpNot, OpSNegate, and OpConvertXToY operations change the type, but may not
-  // change the bitwidth. So, for these operations, we can use the result type's
-  // bitwidth as a hint for the operand's bitwidth.
-  // --> get signedness and vector size (if any) from operand
-  // --> get bitwidth from result type
-  if (opcode == spv::Op::OpConvertFToU || opcode == spv::Op::OpConvertFToS ||
-      opcode == spv::Op::OpConvertSToF || opcode == spv::Op::OpConvertUToF ||
-      opcode == spv::Op::OpNot || opcode == spv::Op::OpSNegate) {
-    if (isLitTypeOrVecOfLitType(argType) &&
-        !isLitTypeOrVecOfLitType(resultType)) {
-      const uint32_t resultTypeBitwidth = getElementSpirvBitwidth(
-          astContext, resultType, spvOptions.enable16BitTypes);
-      const QualType newType =
-          getTypeWithCustomBitwidth(astContext, argType, resultTypeBitwidth);
-      tryToUpdateInstLitType(arg, newType);
-      return true;
-    }
+  if (!isLitTypeOrVecOfLitType(argType)) {
+    return true;
+  }
+  if (isLitTypeOrVecOfLitType(resultType)) {
+    return true;
   }
 
-  // In all other cases, try to use the result type as a hint.
-  tryToUpdateInstLitType(arg, resultType);
-  return true;
+  switch (opcode) {
+  case spv::Op::OpUConvert:
+  case spv::Op::OpSConvert:
+  case spv::Op::OpFConvert:
+    // The result type gives us no information about the operand type. Do not do
+    // anything.
+    return true;
+  case spv::Op::OpConvertFToU:
+  case spv::Op::OpConvertFToS:
+  case spv::Op::OpConvertSToF:
+  case spv::Op::OpConvertUToF:
+  case spv::Op::OpNot:
+  case spv::Op::OpBitcast:
+  case spv::Op::OpSNegate: {
+    // The cases can change the type, but not the bitwidth. We can use the
+    // result type's bitwidth and the operand's type.
+    const uint32_t resultTypeBitwidth = getElementSpirvBitwidth(
+        astContext, resultType, spvOptions.enable16BitTypes);
+    const QualType newType =
+        getTypeWithCustomBitwidth(astContext, argType, resultTypeBitwidth);
+    tryToUpdateInstLitType(arg, newType);
+    return true;
+  }
+  default:
+    // In all other cases, try to set the operand type to the result type.
+    tryToUpdateInstLitType(arg, resultType);
+    return true;
+  }
 }
 
 bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
@@ -159,7 +164,7 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
   case spv::Op::OpShiftLeftLogical: {
     // Base (arg1) should have the same type as result type
     tryToUpdateInstLitType(inst->getOperand1(), resultType);
-    // The shitf amount (arg2) cannot be a 64-bit type for a 32-bit base!
+    // The shift amount (arg2) cannot be a 64-bit type for a 32-bit base!
     tryToUpdateInstLitType(inst->getOperand2(), resultType);
     return true;
   }
@@ -222,6 +227,16 @@ bool LiteralTypeVisitor::visit(SpirvBinaryOp *inst) {
                            inst->getOperand1()->getAstResultType());
     return true;
   }
+
+  case spv::Op::OpVectorTimesScalar: {
+    QualType elemType;
+    if (isVectorType(operand1->getAstResultType(), &elemType) &&
+        elemType->isFloatingType()) {
+      tryToUpdateInstLitType(inst->getOperand2(), elemType);
+    }
+    return true;
+  }
+
   default:
     break;
   }
@@ -290,6 +305,27 @@ bool LiteralTypeVisitor::visit(SpirvNonUniformBinaryOp *inst) {
   // Went through each non-uniform unary operation and made sure the following
   // does not result in a wrong type deduction.
   tryToUpdateInstLitType(inst->getArg1(), inst->getAstResultType());
+  return true;
+}
+
+bool LiteralTypeVisitor::visit(SpirvLoad *inst) {
+  auto *pointer = inst->getPointer();
+  if (!pointer->hasAstResultType())
+    return true;
+
+  QualType pointerType = pointer->getAstResultType();
+  if (!isLitTypeOrVecOfLitType(pointerType))
+    return true;
+
+  assert(inst->hasAstResultType());
+  QualType resultType = inst->getAstResultType();
+  assert(!isLitTypeOrVecOfLitType(resultType));
+
+  if (!canDeduceTypeFromLitType(pointerType, resultType))
+    return true;
+
+  QualType newPointerType = astContext.getPointerType(resultType);
+  pointer->setAstResultType(newPointerType);
   return true;
 }
 
@@ -455,6 +491,17 @@ bool LiteralTypeVisitor::visit(SpirvImageOp *inst) {
     const auto sampledType =
         hlsl::GetHLSLResourceResultType(inst->getAstResultType());
     tryToUpdateInstLitType(inst->getTexelToWrite(), sampledType);
+  }
+  return true;
+}
+
+bool LiteralTypeVisitor::visit(SpirvSwitch *inst) {
+  if (auto *constInt = dyn_cast<SpirvConstantInteger>(inst->getSelector())) {
+    if (isLiteralLargerThan32Bits(constInt)) {
+      const bool isSigned = constInt->getAstResultType()->isSignedIntegerType();
+      constInt->setAstResultType(isSigned ? astContext.LongLongTy
+                                          : astContext.UnsignedLongLongTy);
+    }
   }
   return true;
 }

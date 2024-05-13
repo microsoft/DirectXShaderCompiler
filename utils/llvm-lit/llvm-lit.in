@@ -29,6 +29,17 @@ if os.path.exists(clang_obj_root):
         builtin_parameters['clang_tools_extra_site_config'] = \
             os.path.join(clang_tools_extra_obj_root, 'test', 'lit.site.cfg')
 
+    clang_taef_root = os.path.join(clang_obj_root, 'test', 'taef')
+    if os.path.exists(clang_taef_root):
+        builtin_parameters['clang_taef_site_config'] = \
+        os.path.join(clang_taef_root, 'lit.site.cfg')
+
+    clang_taef_exec_root = os.path.join(clang_obj_root, 'test', 'taef_exec')
+    if os.path.exists(clang_taef_root):
+        builtin_parameters['clang_taef_exec_site_config'] = \
+        os.path.join(clang_taef_exec_root, 'lit.site.cfg')
+
+
 lld_obj_root = os.path.join(llvm_obj_root, 'tools', 'lld')
 if os.path.exists(lld_obj_root):
     builtin_parameters['lld_site_config'] = \

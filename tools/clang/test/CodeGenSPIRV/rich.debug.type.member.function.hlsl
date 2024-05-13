@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich
+// RUN: %dxc -T ps_6_0 -E main -fspv-debug=rich -fcgl  %s -spirv | FileCheck %s
 
 struct base {
   int p0;
@@ -38,16 +38,16 @@ struct foo : base {
   bool c;
 };
 
-// CHECK: [[set:%\d+]] = OpExtInstImport "OpenCL.DebugInfo.100"
+// CHECK: [[set:%[0-9]+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 
-// CHECK: [[fooName:%\d+]] = OpString "foo"
-// CHECK: [[bool:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Boolean
-// CHECK: [[foo:%\d+]] = OpExtInst %void %1 DebugTypeComposite [[fooName]] Structure {{%\d+}} 22 8 {{%\d+}} [[fooName]] %uint_192 FlagIsProtected|FlagIsPrivate
-// CHECK: [[float:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Float
-// CHECK: [[int:%\d+]] = OpExtInst %void [[set]] DebugTypeBasic {{%\d+}} %uint_32 Signed
+// CHECK: [[fooName:%[0-9]+]] = OpString "foo"
+// CHECK: [[bool:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeBasic {{%[0-9]+}} %uint_32 Boolean
+// CHECK: [[foo:%[0-9]+]] = OpExtInst %void %1 DebugTypeComposite [[fooName]] Structure {{%[0-9]+}} 22 8 {{%[0-9]+}} [[fooName]] %uint_192 FlagIsProtected|FlagIsPrivate
+// CHECK: [[float:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeBasic {{%[0-9]+}} %uint_32 Float
+// CHECK: [[int:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeBasic {{%[0-9]+}} %uint_32 Signed
 
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[int]] [[foo]] [[int]] [[float]] [[bool]]
-// CHECK: {{%\d+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate %void [[foo]] [[float]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate [[int]] [[foo]] [[int]] [[float]] [[bool]]
+// CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugTypeFunction FlagIsProtected|FlagIsPrivate %void [[foo]] [[float]]
 
 float4 main(float4 color : COLOR) : SV_TARGET {
   foo a;

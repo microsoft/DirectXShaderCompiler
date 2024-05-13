@@ -1,6 +1,6 @@
-// RUN: %dxc -T ps_6_0 -HV 2018 -E main -Zi
+// RUN: %dxc -T ps_6_0 -HV 2018 -E main -Zi -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:      [[file:%\d+]] = OpString
+// CHECK:      [[file:%[0-9]+]] = OpString
 // CHECK-SAME: spirv.debug.opline.operators.hlsl
 
 static int a, b, c;

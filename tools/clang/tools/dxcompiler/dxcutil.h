@@ -12,6 +12,8 @@
 #pragma once
 
 #include "dxc/DXIL/DxilModule.h"
+#include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
 #include "llvm/ADT/StringRef.h"
@@ -31,7 +33,6 @@ class Twine;
 } // namespace llvm
 
 namespace hlsl {
-enum class SerializeDxilFlags : uint32_t;
 struct DxilShaderHash;
 class AbstractMemoryStream;
 namespace options {
@@ -52,9 +53,12 @@ struct AssembleInputs {
                  hlsl::AbstractMemoryStream *pReflectionOut = nullptr,
                  hlsl::AbstractMemoryStream *pRootSigOut = nullptr,
                  CComPtr<IDxcBlob> pRootSigBlob = nullptr,
-                 CComPtr<IDxcBlob> pPrivateBlob = nullptr);
+                 CComPtr<IDxcBlob> pPrivateBlob = nullptr,
+                 hlsl::options::ValidatorSelection SelectValidator =
+                     hlsl::options::ValidatorSelection::Auto);
   std::unique_ptr<llvm::Module> pM;
   CComPtr<IDxcBlob> &pOutputContainerBlob;
+  IDxcVersionInfo *pVersionInfo = nullptr;
   IMalloc *pMalloc;
   hlsl::SerializeDxilFlags SerializeFlags;
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
@@ -65,28 +69,33 @@ struct AssembleInputs {
   hlsl::AbstractMemoryStream *pRootSigOut = nullptr;
   CComPtr<IDxcBlob> pRootSigBlob = nullptr;
   CComPtr<IDxcBlob> pPrivateBlob = nullptr;
+  hlsl::options::ValidatorSelection SelectValidator =
+      hlsl::options::ValidatorSelection::Auto;
 };
 HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs);
 HRESULT ValidateRootSignatureInContainer(
-    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr);
+    IDxcBlob *pRootSigContainer, clang::DiagnosticsEngine *pDiag = nullptr,
+    hlsl::options::ValidatorSelection SelectValidator =
+        hlsl::options::ValidatorSelection::Auto);
 HRESULT SetRootSignature(hlsl::DxilModule *pModule, CComPtr<IDxcBlob> pSource);
-void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor);
+void GetValidatorVersion(unsigned *pMajor, unsigned *pMinor,
+                         hlsl::options::ValidatorSelection SelectValidator =
+                             hlsl::options::ValidatorSelection::Auto);
 void AssembleToContainer(AssembleInputs &inputs);
 HRESULT Disassemble(IDxcBlob *pProgram, llvm::raw_string_ostream &Stream);
 void ReadOptsAndValidate(hlsl::options::MainArgs &mainArgs,
                          hlsl::options::DxcOpts &opts,
                          hlsl::AbstractMemoryStream *pOutputStream,
-                         _COM_Outptr_ IDxcOperationResult **ppResult,
-                         bool &finished);
+                         IDxcOperationResult **ppResult, bool &finished);
 void CreateOperationResultFromOutputs(
-    DXC_OUT_KIND resultKind, UINT32 textEncoding,
-    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
-    const std::string &warnings, bool hasErrorOccurred,
-    _COM_Outptr_ IDxcOperationResult **ppResult);
-void CreateOperationResultFromOutputs(
-    IDxcBlob *pResultBlob, CComPtr<IStream> &pErrorStream,
-    const std::string &warnings, bool hasErrorOccurred,
-    _COM_Outptr_ IDxcOperationResult **ppResult);
+    DXC_OUT_KIND resultKind, UINT32 textEncoding, IDxcBlob *pResultBlob,
+    CComPtr<IStream> &pErrorStream, const std::string &warnings,
+    bool hasErrorOccurred, IDxcOperationResult **ppResult);
+void CreateOperationResultFromOutputs(IDxcBlob *pResultBlob,
+                                      CComPtr<IStream> &pErrorStream,
+                                      const std::string &warnings,
+                                      bool hasErrorOccurred,
+                                      IDxcOperationResult **ppResult);
 
 bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
 

@@ -1,6 +1,6 @@
-// RUN: %dxc -T vs_6_0 -E main -Wno-return-type
+// RUN: %dxc -T vs_6_0 -E main -Wno-return-type -fcgl  %s -spirv | FileCheck %s
 
-// CHECK:[[null:%\d+]] = OpConstantNull %float
+// CHECK:[[null:%[0-9]+]] = OpConstantNull %float
 
 float main(bool a: A) : B {
     if (a) return 1.0;

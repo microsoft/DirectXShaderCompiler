@@ -208,10 +208,10 @@ AfterAttributeParsing: // HLSL Change - skip attribute parsing
 }
 
 // HLSL Change Starts: Implementation for Semantic, Register, packoffset semantics.
-static void ParseRegisterNumberForHLSL(_In_ const StringRef name,
-                                       _Out_ char *registerType,
-                                       _Out_ unsigned *registerNumber,
-                                       _Out_ unsigned *diagId) {
+static void ParseRegisterNumberForHLSL(const StringRef name,
+                                       char *registerType,
+                                       unsigned *registerNumber,
+                                       unsigned *diagId) {
   DXASSERT_NOMSG(registerType != nullptr);
   DXASSERT_NOMSG(registerNumber != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
@@ -248,7 +248,7 @@ static void ParseRegisterNumberForHLSL(_In_ const StringRef name,
 }
 
 static
-void ParsePackSubcomponent(_In_ const StringRef name, _Out_ unsigned* subcomponent, _Out_ unsigned* diagId)
+void ParsePackSubcomponent(const StringRef name, unsigned* subcomponent, unsigned* diagId)
 {
   DXASSERT_NOMSG(subcomponent != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
@@ -264,9 +264,9 @@ void ParsePackSubcomponent(_In_ const StringRef name, _Out_ unsigned* subcompone
 
 static
 void ParsePackComponent(
-  _In_ const StringRef name,
-  _Inout_ hlsl::ConstantPacking* cp,
-  _Out_ unsigned* diagId)
+  const StringRef name,
+  hlsl::ConstantPacking* cp,
+  unsigned* diagId)
 {
   DXASSERT(name.size(), "otherwise an empty string was parsed as an identifier");
   *diagId = 0;
@@ -287,7 +287,7 @@ void ParsePackComponent(
 }
 
 static
-bool IsShaderProfileShort(_In_ const StringRef profile)
+bool IsShaderProfileShort(const StringRef profile)
 {
   // Look for vs, ps, gs, hs, cs.
   if (profile.size() != 2) return false;
@@ -299,7 +299,7 @@ bool IsShaderProfileShort(_In_ const StringRef profile)
 }
 
 static
-bool IsShaderProfileLike(_In_ const StringRef profile)
+bool IsShaderProfileLike(const StringRef profile)
 {
   bool foundUnderscore = false;
   bool foundDigit = false;
@@ -315,9 +315,9 @@ bool IsShaderProfileLike(_In_ const StringRef profile)
   return foundUnderscore && foundDigit && foundLetter;
 }
 
-static void ParseSpaceForHLSL(_In_ const StringRef name,
-                              _Out_ uint32_t *spaceValue,
-                              _Out_ unsigned *diagId) {
+static void ParseSpaceForHLSL(const StringRef name,
+                              uint32_t *spaceValue,
+                              unsigned *diagId) {
   DXASSERT_NOMSG(spaceValue != nullptr);
   DXASSERT_NOMSG(diagId != nullptr);
 
@@ -330,7 +330,7 @@ static void ParseSpaceForHLSL(_In_ const StringRef name,
   }
 
   // Otherwise, strncmp above would have been != 0.
-  _Analysis_assume_(name.size() > sizeof("space"));
+  assert(name.size() >= strlen("space"));
 
   StringRef numName = name.substr(sizeof("space")-1);
 
@@ -813,6 +813,17 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLNumThreads:
     case AttributeList::AT_HLSLShader:
     case AttributeList::AT_HLSLExperimental:
+    case AttributeList::AT_HLSLNodeLaunch:
+    case AttributeList::AT_HLSLNodeId:
+    case AttributeList::AT_HLSLNodeIsProgramEntry:
+    case AttributeList::AT_HLSLNodeLocalRootArgumentsTableIndex:
+    case AttributeList::AT_HLSLNodeShareInputOf:
+    case AttributeList::AT_HLSLNodeDispatchGrid:
+    case AttributeList::AT_HLSLNodeMaxDispatchGrid:
+    case AttributeList::AT_HLSLNodeMaxRecursionDepth:
+    case AttributeList::AT_HLSLMaxRecordsSharedWith:
+    case AttributeList::AT_HLSLMaxRecords:
+    case AttributeList::AT_HLSLNodeArraySize:
     case AttributeList::AT_HLSLRootSignature:
     case AttributeList::AT_HLSLOutputControlPoints:
     case AttributeList::AT_HLSLOutputTopology:
@@ -822,30 +833,31 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     case AttributeList::AT_HLSLUnroll:
     case AttributeList::AT_HLSLWaveSize:
     case AttributeList::AT_NoInline:
-    // The following are not accepted in [attribute(param)] syntax:
-    //case AttributeList::AT_HLSLCentroid:
-    //case AttributeList::AT_HLSLGroupShared:
-    //case AttributeList::AT_HLSLIn:
-    //case AttributeList::AT_HLSLInOut:
-    //case AttributeList::AT_HLSLLinear:
-    //case AttributeList::AT_HLSLCenter:
-    //case AttributeList::AT_HLSLNoInterpolation:
-    //case AttributeList::AT_HLSLNoPerspective:
-    //case AttributeList::AT_HLSLOut:
-    //case AttributeList::AT_HLSLPrecise:
-    //case AttributeList::AT_HLSLSample:
-    //case AttributeList::AT_HLSLSemantic:
-    //case AttributeList::AT_HLSLShared:
-    //case AttributeList::AT_HLSLUniform:
-    //case AttributeList::AT_HLSLPoint:
-    //case AttributeList::AT_HLSLLine:
-    //case AttributeList::AT_HLSLLineAdj:
-    //case AttributeList::AT_HLSLTriangle:
-    //case AttributeList::AT_HLSLTriangleAdj:
-    //case AttributeList::AT_HLSLIndices:
-    //case AttributeList::AT_HLSLVertices:
-    //case AttributeList::AT_HLSLPrimitives:
-    //case AttributeList::AT_HLSLPayload:
+      // The following are not accepted in [attribute(param)] syntax:
+      // case AttributeList::AT_HLSLCentroid:
+      // case AttributeList::AT_HLSLGroupShared:
+      // case AttributeList::AT_HLSLIn:
+      // case AttributeList::AT_HLSLInOut:
+      // case AttributeList::AT_HLSLLinear:
+      // case AttributeList::AT_HLSLCenter:
+      // case AttributeList::AT_HLSLNoInterpolation:
+      // case AttributeList::AT_HLSLNoPerspective:
+      // case AttributeList::AT_HLSLOut:
+      // case AttributeList::AT_HLSLPrecise:
+      // case AttributeList::AT_HLSLSample:
+      // case AttributeList::AT_HLSLSemantic:
+      // case AttributeList::AT_HLSLShared:
+      // case AttributeList::AT_HLSLUniform:
+      // case AttributeList::AT_HLSLPoint:
+      // case AttributeList::AT_HLSLLine:
+      // case AttributeList::AT_HLSLLineAdj:
+      // case AttributeList::AT_HLSLTriangle:
+      // case AttributeList::AT_HLSLTriangleAdj:
+      // case AttributeList::AT_HLSLIndices:
+      // case AttributeList::AT_HLSLVertices:
+      // case AttributeList::AT_HLSLPrimitives:
+      // case AttributeList::AT_HLSLPayload:
+      // case AttributeList::AT_HLSLAllowSparseNodes:
       goto GenericAttributeParse;
     default:
       Diag(AttrNameLoc, diag::warn_unknown_attribute_ignored) << AttrName;

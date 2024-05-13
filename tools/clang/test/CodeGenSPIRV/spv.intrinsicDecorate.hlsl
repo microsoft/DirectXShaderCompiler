@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd -spirv
+// RUN: %dxc -T ps_6_0 -E main -fcgl -Vd -spirv -fcgl  %s -spirv | FileCheck %s
 
 [[vk::ext_decorate(1, 0)]]
 bool b0;
@@ -7,22 +7,22 @@ int getAlignment() {
   return 16;
 }
 
-//CHECK: OpDecorate {{%\w+}} SpecId 0
-//CHECK: OpDecorate {{%\w+}} BuiltIn BaryCoordNoPerspAMD
-//CHECK: OpDecorate {{%\w+}} BuiltIn BaryCoordNoPerspCentroidAMD
-//CHECK: OpDecorate {{%\w+}} BuiltIn BaryCoordNoPerspSampleAMD
-//CHECK: OpDecorate {{%\w+}} BuiltIn BaryCoordSmoothAMD
-//CHECK: OpDecorate {{%\w+}} BuiltIn BaryCoordSmoothCentroidAMD
-//CHECK: OpDecorate {{%\w+}} BuiltIn BaryCoordSmoothSampleAMD
-//CHECK: OpDecorate {{%\w+}} BuiltIn BaryCoordPullModelAMD
-//CHECK: OpDecorate {{%\w+}} ExplicitInterpAMD
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} SpecId 0
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} BuiltIn BaryCoordNoPerspAMD
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} BuiltIn BaryCoordNoPerspCentroidAMD
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} BuiltIn BaryCoordNoPerspSampleAMD
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} BuiltIn BaryCoordSmoothAMD
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} BuiltIn BaryCoordSmoothCentroidAMD
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} BuiltIn BaryCoordSmoothSampleAMD
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} BuiltIn BaryCoordPullModelAMD
+//CHECK: OpDecorate {{%[a-zA-Z0-9_]+}} ExplicitInterpAMD
 
-//CHECK-DAG: OpDecorate {{%\w+}} Location 23
-//CHECK-DAG: OpDecorateString {{%\w+}} UserSemantic "return variable"
-//CHECK-DAG: OpDecorate {{%\w+}} FPRoundingMode RTE
+//CHECK-DAG: OpDecorate {{%[a-zA-Z0-9_]+}} Location 23
+//CHECK-DAG: OpDecorateString {{%[a-zA-Z0-9_]+}} UserSemantic "return variable"
+//CHECK-DAG: OpDecorate {{%[a-zA-Z0-9_]+}} FPRoundingMode RTE
 
-//CHECK-DAG: OpDecorateId {{%\w+}} AlignmentId [[alignment:%\w+]]
-//CHECK-DAG: OpDecorateId {{%\w+}} UniformId %int_13
+//CHECK-DAG: OpDecorateId {{%[a-zA-Z0-9_]+}} AlignmentId [[alignment:%[a-zA-Z0-9_]+]]
+//CHECK-DAG: OpDecorateId {{%[a-zA-Z0-9_]+}} UniformId %int_13
 //CHECK-DAG: [[alignment]] = OpFunctionCall %int %getAlignment
 
 [[vk::ext_decorate(30, 23)]]

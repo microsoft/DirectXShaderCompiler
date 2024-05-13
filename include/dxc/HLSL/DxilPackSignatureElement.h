@@ -31,19 +31,24 @@ class DxilPackElement : public DxilSignatureAllocator::PackElement {
   bool m_bUseMinPrecision;
 
 public:
-  DxilPackElement(DxilSignatureElement *pSE, bool useMinPrecision) : m_pSE(pSE), m_bUseMinPrecision(useMinPrecision) {}
+  DxilPackElement(DxilSignatureElement *pSE, bool useMinPrecision)
+      : m_pSE(pSE), m_bUseMinPrecision(useMinPrecision) {}
   ~DxilPackElement() override {}
   uint32_t GetID() const override { return m_pSE->GetID(); }
   DXIL::SemanticKind GetKind() const override { return m_pSE->GetKind(); }
-  DXIL::InterpolationMode GetInterpolationMode() const override { return m_pSE->GetInterpolationMode()->GetKind(); }
-  DXIL::SemanticInterpretationKind GetInterpretation() const override { return m_pSE->GetInterpretation(); }
+  DXIL::InterpolationMode GetInterpolationMode() const override {
+    return m_pSE->GetInterpolationMode()->GetKind();
+  }
+  DXIL::SemanticInterpretationKind GetInterpretation() const override {
+    return m_pSE->GetInterpretation();
+  }
   DXIL::SignatureDataWidth GetDataBitWidth() const override {
     uint8_t size = m_pSE->GetCompType().GetSizeInBits();
     // bool, min precision, or 32 bit types map to 32 bit size.
     if (size == 16) {
-      return m_bUseMinPrecision ? DXIL::SignatureDataWidth::Bits32 : DXIL::SignatureDataWidth::Bits16;
-    }
-    else if (size == 1 || size == 32) {
+      return m_bUseMinPrecision ? DXIL::SignatureDataWidth::Bits32
+                                : DXIL::SignatureDataWidth::Bits16;
+    } else if (size == 1 || size == 32) {
       return DXIL::SignatureDataWidth::Bits32;
     }
     return DXIL::SignatureDataWidth::Undefined;
@@ -67,7 +72,8 @@ public:
 };
 
 class DxilSignature;
-// Packs the signature elements per DXIL constraints and returns the number of rows used for the signature.
+// Packs the signature elements per DXIL constraints and returns the number of
+// rows used for the signature.
 unsigned PackDxilSignature(DxilSignature &sig, DXIL::PackingStrategy packing);
 
 } // namespace hlsl

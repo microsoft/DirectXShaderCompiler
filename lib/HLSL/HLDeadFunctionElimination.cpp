@@ -21,9 +21,11 @@ namespace {
 class HLDeadFunctionElimination : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
-  explicit HLDeadFunctionElimination () : ModulePass(ID) {}
+  explicit HLDeadFunctionElimination() : ModulePass(ID) {}
 
-  StringRef getPassName() const override { return "Remove all unused function except entry from HLModule"; }
+  StringRef getPassName() const override {
+    return "Remove all unused function except entry from HLModule";
+  }
 
   bool runOnModule(Module &M) override {
     if (M.HasHLModule()) {
@@ -45,7 +47,7 @@ public:
     return false;
   }
 };
-}
+} // namespace
 
 char HLDeadFunctionElimination::ID = 0;
 
@@ -53,4 +55,6 @@ ModulePass *llvm::createHLDeadFunctionEliminationPass() {
   return new HLDeadFunctionElimination();
 }
 
-INITIALIZE_PASS(HLDeadFunctionElimination, "hl-dfe", "Remove all unused function except entry from HLModule", false, false)
+INITIALIZE_PASS(HLDeadFunctionElimination, "hl-dfe",
+                "Remove all unused function except entry from HLModule", false,
+                false)

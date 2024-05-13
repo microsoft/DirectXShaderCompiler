@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -O3
+// RUN: %dxc -T ps_6_0 -E main -O3  %s -spirv | FileCheck %s
 
 // Check the names
 //
@@ -133,56 +133,56 @@ S secondGlobal;
 
 float4 main() : SV_Target {
   return 
-// CHECK:      [[fg_0_0_t_0:%\d+]] = OpLoad %type_2d_image %firstGlobal_0__0__t_0_
-// CHECK:      [[fg_0_0_t_1:%\d+]] = OpLoad %type_2d_image %firstGlobal_0__0__t_1_
-// CHECK: [[fg_0_0_tt_0_s_1:%\d+]] = OpLoad %type_sampler %firstGlobal_0__0__tt_0__s_1_
-// CHECK: [[fg_0_0_tt_1_s_2:%\d+]] = OpLoad %type_sampler %firstGlobal_0__0__tt_1__s_2_
-// CHECK:   [[sampled_img_1:%\d+]] = OpSampledImage %type_sampled_image [[fg_0_0_t_0]] [[fg_0_0_tt_0_s_1]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_1]]
-// CHECK:   [[sampled_img_2:%\d+]] = OpSampledImage %type_sampled_image [[fg_0_0_t_1]] [[fg_0_0_tt_1_s_2]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_2]]
+// CHECK:      [[fg_1_t_0:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_0__0__t_0_
+// CHECK:      [[fg_1_t_1:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_0__0__t_1_
+// CHECK: [[fg_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_0__0__tt_0__s_1_
+// CHECK: [[fg_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_0__0__tt_1__s_2_
+// CHECK:   [[sampled_img_1:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_t_0]] [[fg_1_tt_0_s_1]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_1]]
+// CHECK:   [[sampled_img_2:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_t_1]] [[fg_1_tt_1_s_2]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_2]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[0][0], float2(0,0)) +
-// CHECK:      [[fg_0_1_t_0:%\d+]] = OpLoad %type_2d_image %firstGlobal_0__1__t_0_
-// CHECK:      [[fg_0_1_t_1:%\d+]] = OpLoad %type_2d_image %firstGlobal_0__1__t_1_
-// CHECK: [[fg_0_1_tt_0_s_1:%\d+]] = OpLoad %type_sampler %firstGlobal_0__1__tt_0__s_1_
-// CHECK: [[fg_0_1_tt_1_s_2:%\d+]] = OpLoad %type_sampler %firstGlobal_0__1__tt_1__s_2_
-// CHECK:   [[sampled_img_3:%\d+]] = OpSampledImage %type_sampled_image [[fg_0_1_t_0]] [[fg_0_1_tt_0_s_1]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_3]]
-// CHECK:   [[sampled_img_4:%\d+]] = OpSampledImage %type_sampled_image [[fg_0_1_t_1]] [[fg_0_1_tt_1_s_2]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_4]]
+// CHECK:      [[fg_0_1_t_0:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_0__1__t_0_
+// CHECK:      [[fg_0_1_t_1:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_0__1__t_1_
+// CHECK: [[fg_0_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_0__1__tt_0__s_1_
+// CHECK: [[fg_0_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_0__1__tt_1__s_2_
+// CHECK:   [[sampled_img_3:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_0_1_t_0]] [[fg_0_1_tt_0_s_1]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_3]]
+// CHECK:   [[sampled_img_4:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_0_1_t_1]] [[fg_0_1_tt_1_s_2]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_4]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[0][1], float2(0,0)) +
-// CHECK:      [[fg_1_0_t_0:%\d+]] = OpLoad %type_2d_image %firstGlobal_1__0__t_0_
-// CHECK:      [[fg_1_0_t_1:%\d+]] = OpLoad %type_2d_image %firstGlobal_1__0__t_1_
-// CHECK: [[fg_1_0_tt_0_s_1:%\d+]] = OpLoad %type_sampler %firstGlobal_1__0__tt_0__s_1_
-// CHECK: [[fg_1_0_tt_1_s_2:%\d+]] = OpLoad %type_sampler %firstGlobal_1__0__tt_1__s_2_
-// CHECK:   [[sampled_img_5:%\d+]] = OpSampledImage %type_sampled_image [[fg_1_0_t_0]] [[fg_1_0_tt_0_s_1]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_5]]
-// CHECK:   [[sampled_img_6:%\d+]] = OpSampledImage %type_sampled_image [[fg_1_0_t_1]] [[fg_1_0_tt_1_s_2]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_6]]
+// CHECK:      [[fg_1_0_t_0:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_1__0__t_0_
+// CHECK:      [[fg_1_0_t_1:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_1__0__t_1_
+// CHECK: [[fg_1_0_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_1__0__tt_0__s_1_
+// CHECK: [[fg_1_0_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_1__0__tt_1__s_2_
+// CHECK:   [[sampled_img_5:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_0_t_0]] [[fg_1_0_tt_0_s_1]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_5]]
+// CHECK:   [[sampled_img_6:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_0_t_1]] [[fg_1_0_tt_1_s_2]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_6]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[1][0], float2(0,0)) +
-// CHECK:      [[fg_1_1_t_0:%\d+]] = OpLoad %type_2d_image %firstGlobal_1__1__t_0_
-// CHECK:      [[fg_1_1_t_1:%\d+]] = OpLoad %type_2d_image %firstGlobal_1__1__t_1_
-// CHECK: [[fg_1_1_tt_0_s_1:%\d+]] = OpLoad %type_sampler %firstGlobal_1__1__tt_0__s_1_
-// CHECK: [[fg_1_1_tt_1_s_2:%\d+]] = OpLoad %type_sampler %firstGlobal_1__1__tt_1__s_2_
-// CHECK:   [[sampled_img_7:%\d+]] = OpSampledImage %type_sampled_image [[fg_1_1_t_0]] [[fg_1_1_tt_0_s_1]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_7]]
-// CHECK:   [[sampled_img_8:%\d+]] = OpSampledImage %type_sampled_image [[fg_1_1_t_1]] [[fg_1_1_tt_1_s_2]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_8]]
+// CHECK:      [[fg_1_1_t_0:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_1__1__t_0_
+// CHECK:      [[fg_1_1_t_1:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_1__1__t_1_
+// CHECK: [[fg_1_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_1__1__tt_0__s_1_
+// CHECK: [[fg_1_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_1__1__tt_1__s_2_
+// CHECK:   [[sampled_img_7:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_1_t_0]] [[fg_1_1_tt_0_s_1]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_7]]
+// CHECK:   [[sampled_img_8:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_1_t_1]] [[fg_1_1_tt_1_s_2]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_8]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[1][1], float2(0,0)) +
-// CHECK:          [[sg_t_0:%\d+]] = OpLoad %type_2d_image %secondGlobal_t_0_
-// CHECK:     [[sg_tt_0_s_1:%\d+]] = OpLoad %type_sampler %secondGlobal_tt_0__s_1_
-// CHECK:   [[sampled_img_9:%\d+]] = OpSampledImage %type_sampled_image [[sg_t_0]] [[sg_tt_0_s_1]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_9]]
+// CHECK:          [[sg_t_0:%[0-9]+]] = OpLoad %type_2d_image %secondGlobal_t_0_
+// CHECK:     [[sg_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %secondGlobal_tt_0__s_1_
+// CHECK:   [[sampled_img_9:%[0-9]+]] = OpSampledImage %type_sampled_image [[sg_t_0]] [[sg_tt_0_s_1]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_9]]
 // CHECK:                            OpFAdd
     secondGlobal.t[0].Sample(secondGlobal.tt[0].s[1], float2(0,0)) +
-// CHECK:          [[sg_t_1:%\d+]] = OpLoad %type_2d_image %secondGlobal_t_1_
-// CHECK:     [[sg_tt_1_s_2:%\d+]] = OpLoad %type_sampler %secondGlobal_tt_1__s_2_
-// CHECK:  [[sampled_img_10:%\d+]] = OpSampledImage %type_sampled_image [[sg_t_1]] [[sg_tt_1_s_2]]
-// CHECK:                 {{%\d+}} = OpImageSampleImplicitLod %v4float [[sampled_img_10]]
+// CHECK:          [[sg_t_1:%[0-9]+]] = OpLoad %type_2d_image %secondGlobal_t_1_
+// CHECK:     [[sg_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %secondGlobal_tt_1__s_2_
+// CHECK:  [[sampled_img_10:%[0-9]+]] = OpSampledImage %type_sampled_image [[sg_t_1]] [[sg_tt_1_s_2]]
+// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_10]]
     secondGlobal.t[1].Sample(secondGlobal.tt[1].s[2], float2(0,0));
 }
 

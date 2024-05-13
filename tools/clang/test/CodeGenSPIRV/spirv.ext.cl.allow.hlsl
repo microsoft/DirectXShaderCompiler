@@ -1,4 +1,4 @@
-// RUN: %dxc -T vs_6_1 -E main -fspv-extension=SPV_KHR_multiview -fspv-extension=SPV_KHR_shader_draw_parameters
+// RUN: %dxc -T vs_6_1 -E main -fspv-extension=SPV_KHR_multiview -fspv-extension=SPV_KHR_shader_draw_parameters -fcgl  %s -spirv | FileCheck %s
 
 // CHECK:      OpExtension "SPV_KHR_shader_draw_parameters"
 // CHECK:      OpExtension "SPV_KHR_multiview"

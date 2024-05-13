@@ -11,12 +11,12 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-
 #pragma once
 
 // This is a platform-specific file.
 // Do not add LLVM/Clang or DXIL files to this file.
-
+// clang-format off
+// Includes on Windows are highly order dependent.
 #define NOMINMAX 1
 #define WIN32_LEAN_AND_MEAN 1
 #define VC_EXTRALEAN 1
@@ -37,3 +37,4 @@
 #endif
 
 #include "ShaderBinary/ShaderBinary.h"
+// clang-format on

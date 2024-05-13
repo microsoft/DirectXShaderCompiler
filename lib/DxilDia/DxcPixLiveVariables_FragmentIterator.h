@@ -14,18 +14,15 @@
 
 #include <memory>
 
-namespace llvm
-{
+namespace llvm {
 class AllocaInst;
 class DataLayout;
 class DbgDeclareInst;
 class DIExpression;
-}  // namespace llvm
+} // namespace llvm
 
-namespace dxil_debug_info
-{
-class MemberIterator
-{
+namespace dxil_debug_info {
+class MemberIterator {
 public:
   virtual ~MemberIterator() = default;
   virtual bool Next(unsigned *Index) = 0;
@@ -33,11 +30,8 @@ public:
   virtual unsigned OffsetInBits(unsigned Index) = 0;
 };
 
-std::unique_ptr<MemberIterator> CreateMemberIterator
-(
-  llvm::DbgDeclareInst *DbgDeclare, 
-  const llvm::DataLayout &DataLayout,
-  llvm::AllocaInst *Alloca, 
-  llvm::DIExpression *Expression
-);
-}  // namespace dxil_debug_info
+std::unique_ptr<MemberIterator>
+CreateMemberIterator(llvm::DbgDeclareInst *DbgDeclare,
+                     const llvm::DataLayout &DataLayout,
+                     llvm::AllocaInst *Alloca, llvm::DIExpression *Expression);
+} // namespace dxil_debug_info

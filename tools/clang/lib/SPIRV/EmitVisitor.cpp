@@ -133,7 +133,9 @@ uint32_t getHeaderVersion(spv_target_env env) {
 
 // Read the file in |filePath| and returns its contents as a string.
 // This function will be used by DebugSource to get its source code.
-std::string ReadSourceCode(llvm::StringRef filePath) {
+std::string
+ReadSourceCode(llvm::StringRef filePath,
+               const clang::spirv::SpirvCodeGenOptions &spvOptions) {
   try {
     dxc::DxcDllSupport dllSupport;
     IFT(dllSupport.Initialize());
@@ -150,15 +152,21 @@ std::string ReadSourceCode(llvm::StringRef filePath) {
     return std::string(utf8Source->GetStringPointer(),
                        utf8Source->GetStringLength());
   } catch (...) {
-    // An exception has occured while reading the file
+    // An exception has occurred while reading the file
+    // return the original source (which may have been supplied directly)
+    if (!spvOptions.origSource.empty()) {
+      return spvOptions.origSource.c_str();
+    }
     return "";
   }
 }
 
 // Returns a vector of strings after chopping |inst| for the operand size
 // limitation of OpSource.
-llvm::SmallVector<std::string, 2> getChoppedSourceCode(SpirvSource *inst) {
-  std::string text = ReadSourceCode(inst->getFile()->getString());
+llvm::SmallVector<std::string, 2>
+getChoppedSourceCode(SpirvSource *inst,
+                     const clang::spirv::SpirvCodeGenOptions &spvOptions) {
+  std::string text = ReadSourceCode(inst->getFile()->getString(), spvOptions);
   if (text.empty()) {
     text = inst->getSource().str();
   }
@@ -262,8 +270,9 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   // Technically entry function wrappers do not exist in HLSL. They are just
   // created by DXC. We do not want to emit line information for their
   // instructions. To prevent spirv-opt from removing all debug info, we emit
-  // at least a single OpLine to specify the end of the shader.
-  if (inEntryFunctionWrapper && op != spv::Op::OpReturn)
+  // OpLines to specify the beginning and end of the function.
+  if (inEntryFunctionWrapper &&
+      (op != spv::Op::OpReturn && op != spv::Op::OpFunction))
     return;
 
   // Based on SPIR-V spec, OpSelectionMerge must immediately precede either an
@@ -376,22 +385,10 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
     debugColumnEnd = columnEnd;
   }
 
-  if (emittedSource[fileId] == 0) {
-    if (!spvOptions.debugInfoVulkan) {
-      SpirvString *fileNameInst =
-          new (context) SpirvString(/*SourceLocation*/ {}, fileName);
-      visit(fileNameInst);
-      SpirvSource *src = new (context)
-          SpirvSource(/*SourceLocation*/ {}, spv::SourceLanguage::HLSL,
-                      hlslVersion, fileNameInst, "");
-      visit(src);
-      spvInstructions.push_back(src);
-      spvInstructions.push_back(fileNameInst);
-    } else {
-      SpirvDebugSource *src = new (context) SpirvDebugSource(fileName, "");
-      visit(src);
-      spvInstructions.push_back(src);
-    }
+  if ((emittedSource[fileId] == 0) && (spvOptions.debugInfoVulkan)) {
+    SpirvDebugSource *src = new (context) SpirvDebugSource(fileName, "");
+    visit(src);
+    spvInstructions.push_back(src);
   }
 
   curInst.clear();
@@ -665,7 +662,7 @@ bool EmitVisitor::visit(SpirvSource *inst) {
   // Chop up the source into multiple segments if it is too long.
   llvm::SmallVector<std::string, 2> choppedSrcCode;
   if (spvOptions.debugInfoSource && inst->hasFile()) {
-    choppedSrcCode = getChoppedSourceCode(inst);
+    choppedSrcCode = getChoppedSourceCode(inst, spvOptions);
     if (!choppedSrcCode.empty()) {
       // Note: in order to improve performance and avoid multiple copies, we
       // encode this (potentially large) string directly into the
@@ -846,7 +843,7 @@ bool EmitVisitor::visit(SpirvSwitch *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvBasicBlock>(inst->getDefaultLabel()));
   for (const auto &target : inst->getTargets()) {
-    curInst.push_back(target.first);
+    typeHandler.emitIntLiteral(target.first, curInst);
     curInst.push_back(getOrAssignResultId<SpirvBasicBlock>(target.second));
   }
   finalizeInstruction(&mainBinary);
@@ -1332,6 +1329,13 @@ bool EmitVisitor::visit(SpirvStore *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvNullaryOp *inst) {
+  initInstruction(inst);
+
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvUnaryOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
@@ -1444,7 +1448,7 @@ void EmitVisitor::generateChoppedSource(uint32_t fileId,
   if (spvOptions.debugInfoSource) {
     std::string text = inst->getContent();
     if (text.empty())
-      text = ReadSourceCode(inst->getFile());
+      text = ReadSourceCode(inst->getFile(), spvOptions);
     if (!text.empty()) {
       // Maximum characters for DebugSource and DebugSourceContinued
       // OpString literal minus terminating null.
@@ -1485,7 +1489,7 @@ bool EmitVisitor::visit(SpirvDebugSource *inst) {
   // NonSemantic.Shader.DebugInfo.100 logic above can be used for both cases.
   uint32_t textId = 0;
   if (spvOptions.debugInfoSource) {
-    auto text = ReadSourceCode(inst->getFile());
+    auto text = ReadSourceCode(inst->getFile(), spvOptions);
     if (!text.empty())
       textId = getOrCreateOpStringId(text);
   }
@@ -1963,15 +1967,18 @@ bool EmitVisitor::visit(SpirvIntrinsicInstruction *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) { 
+bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) {
   initInstruction(inst);
 
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getXDimension()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getYDimension()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getZDimension()));
-  if (inst->getPayload() != nullptr)
-  {
-      curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPayload()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getXDimension()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getYDimension()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getZDimension()));
+  if (inst->getPayload() != nullptr) {
+    curInst.push_back(
+        getOrAssignResultId<SpirvInstruction>(inst->getPayload()));
   }
 
   finalizeInstruction(&mainBinary);
@@ -1980,8 +1987,10 @@ bool EmitVisitor::visit(SpirvEmitMeshTasksEXT *inst) {
 bool EmitVisitor::visit(SpirvSetMeshOutputsEXT *inst) {
   initInstruction(inst);
 
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getVertexCount()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPrimitiveCount()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getVertexCount()));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getPrimitiveCount()));
 
   finalizeInstruction(&mainBinary);
   return true;
@@ -2310,7 +2319,8 @@ EmitTypeHandler::getOrCreateConstantComposite(SpirvConstantComposite *inst) {
   } else {
     // Constant wasn't emitted in the past.
     const uint32_t typeId = emitType(inst->getResultType());
-    initTypeInstruction(spv::Op::OpConstantComposite);
+    initTypeInstruction(isSpecConst ? spv::Op::OpSpecConstantComposite
+                                    : spv::Op::OpConstantComposite);
     curTypeInst.push_back(typeId);
     curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
     for (auto constituent : inst->getConstituents())
@@ -2413,7 +2423,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     finalizeTypeInstruction();
   }
   // Sampler types
-  else if (const auto *samplerType = dyn_cast<SamplerType>(type)) {
+  else if (isa<SamplerType>(type)) {
     initTypeInstruction(spv::Op::OpTypeSampler);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
@@ -2550,13 +2560,13 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     finalizeTypeInstruction();
   }
   // Acceleration Structure NV type
-  else if (const auto *accType = dyn_cast<AccelerationStructureTypeNV>(type)) {
+  else if (isa<AccelerationStructureTypeNV>(type)) {
     initTypeInstruction(spv::Op::OpTypeAccelerationStructureNV);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
   }
   // RayQueryType KHR type
-  else if (const auto *rayQueryType = dyn_cast<RayQueryTypeKHR>(type)) {
+  else if (isa<RayQueryTypeKHR>(type)) {
     initTypeInstruction(spv::Op::OpTypeRayQueryKHR);
     curTypeInst.push_back(id);
     finalizeTypeInstruction();
@@ -2567,7 +2577,11 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     for (const SpvIntrinsicTypeOperand &operand :
          spvIntrinsicType->getOperands()) {
       if (operand.isTypeOperand) {
-        curTypeInst.push_back(emitType(operand.operand_as_type));
+        // calling emitType recursively will potentially replace the contents of
+        // curTypeInst, so we need to save them and restore after the call
+        std::vector<uint32_t> outerTypeInst = curTypeInst;
+        outerTypeInst.push_back(emitType(operand.operand_as_type));
+        curTypeInst = outerTypeInst;
       } else {
         auto *literal = dyn_cast<SpirvConstant>(operand.operand_as_inst);
         if (literal && literal->isLiteral()) {
@@ -2583,7 +2597,7 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
   // Note: The type lowering pass should lower all types to SpirvTypes.
   // Therefore, if we find a hybrid type when going through the emitting pass,
   // that is clearly a bug.
-  else if (const auto *hybridType = dyn_cast<HybridType>(type)) {
+  else if (isa<HybridType>(type)) {
     llvm_unreachable("found hybrid type when emitting SPIR-V");
   }
   // Unhandled types
@@ -2598,6 +2612,12 @@ template <typename vecType>
 void EmitTypeHandler::emitIntLiteral(const SpirvConstantInteger *intLiteral,
                                      vecType &outInst) {
   const auto &literalVal = intLiteral->getValue();
+  emitIntLiteral(literalVal, outInst);
+}
+
+template <typename vecType>
+void EmitTypeHandler::emitIntLiteral(const llvm::APInt &literalVal,
+                                     vecType &outInst) {
   bool positive = !literalVal.isNegative();
   if (literalVal.getBitWidth() <= 32) {
     outInst.push_back(positive ? literalVal.getZExtValue()

@@ -25,6 +25,7 @@ static float x = ID + 3;
 // TODO: support array.
 //  static Buffer<float> g_bufs[2] = {ResourceDescriptorHeap[ID+2], ResourceDescriptorHeap[ID+3]};
 
+[shader("compute")]
 [NumThreads(1, 1, 1)]
 [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED), RootConstants(num32BitConstants=1, b0)")]
 void csmain(uint ix : SV_GroupIndex)
@@ -36,6 +37,7 @@ export float foo(uint i) {
   return x + i;
 }
 
+[shader("compute")]
 [NumThreads(1, 1, 1)]
 [RootSignature("RootFlags(CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED | SAMPLER_HEAP_DIRECTLY_INDEXED), RootConstants(num32BitConstants=1, b0)")]
 void csmain2(uint ix : SV_GroupIndex)

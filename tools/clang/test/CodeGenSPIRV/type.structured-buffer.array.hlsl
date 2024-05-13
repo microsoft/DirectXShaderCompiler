@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: %_runtimearr_v4float = OpTypeRuntimeArray %v4float
 
@@ -21,20 +21,20 @@ ByteAddressBuffer          MyBABuffer[];
 RWByteAddressBuffer        MyRWBABuffer[4];
 
 float4 main(uint index : INDEX) : SV_Target {
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_type_ByteAddressBuffer %MyBABuffer {{%\d+}}
-// CHECK:                OpAccessChain %_ptr_Uniform_uint [[ptr]] %uint_0 {{%\d+}}
+// CHECK: [[ptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_ByteAddressBuffer %MyBABuffer {{%[0-9]+}}
+// CHECK:                OpAccessChain %_ptr_Uniform_uint [[ptr]] %uint_0 {{%[0-9]+}}
     uint val1 = MyBABuffer[index].Load(index);
 
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_type_RWByteAddressBuffer %MyRWBABuffer {{%\d+}}
-// CHECK:                OpAccessChain %_ptr_Uniform_uint [[ptr]] %uint_0 {{%\d+}}
+// CHECK: [[ptr_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_RWByteAddressBuffer %MyRWBABuffer {{%[0-9]+}}
+// CHECK:                OpAccessChain %_ptr_Uniform_uint [[ptr_0]] %uint_0 {{%[0-9]+}}
     MyRWBABuffer[index].Store(index, val1);
 
-// CHECK: [[ptr:%\d+]] = OpAccessChain %_ptr_Uniform_type_StructuredBuffer_v4float %MySBuffer {{%\d+}}
-// CHECK:                OpStore %localSBuffer [[ptr]]
+// CHECK: [[ptr_1:%[0-9]+]] = OpAccessChain %_ptr_Uniform_type_StructuredBuffer_v4float %MySBuffer {{%[0-9]+}}
+// CHECK:                OpStore %localSBuffer [[ptr_1]]
     StructuredBuffer<float4>   localSBuffer = MySBuffer[index];
 
-// CHECK: [[ptr:%\d+]] = OpLoad %_ptr_Uniform_type_StructuredBuffer_v4float %localSBuffer
-// CHECK:                OpAccessChain %_ptr_Uniform_v4float [[ptr]] %int_0 {{%\d+}}
+// CHECK: [[ptr_2:%[0-9]+]] = OpLoad %_ptr_Uniform_type_StructuredBuffer_v4float %localSBuffer
+// CHECK:                OpAccessChain %_ptr_Uniform_v4float [[ptr_2]] %int_0 {{%[0-9]+}}
     float4 val2 = localSBuffer[index];
 
     return val1 * val2;

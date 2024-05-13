@@ -30,9 +30,9 @@ namespace llvm {
 template class RegionBase<RegionTraits<Function>>;
 template class RegionNodeBase<RegionTraits<Function>>;
 template class RegionInfoBase<RegionTraits<Function>>;
-}
+} // namespace llvm
 
-STATISTIC(numRegions,       "The # of regions");
+STATISTIC(numRegions, "The # of regions");
 STATISTIC(numSimpleRegions, "The # of simple regions");
 
 // Always verify if expensive checking is enabled.
@@ -63,27 +63,19 @@ static cl::opt<Region::PrintStyle, true> printStyleX("print-region-style",
 // Region implementation
 //
 
-Region::Region(BasicBlock *Entry, BasicBlock *Exit,
-               RegionInfo* RI,
-               DominatorTree *DT, Region *Parent) :
-  RegionBase<RegionTraits<Function>>(Entry, Exit, RI, DT, Parent) {
+Region::Region(BasicBlock *Entry, BasicBlock *Exit, RegionInfo *RI,
+               DominatorTree *DT, Region *Parent)
+    : RegionBase<RegionTraits<Function>>(Entry, Exit, RI, DT, Parent) {}
 
-}
-
-Region::~Region() { }
+Region::~Region() {}
 
 //===----------------------------------------------------------------------===//
 // RegionInfo implementation
 //
 
-RegionInfo::RegionInfo() :
-  RegionInfoBase<RegionTraits<Function>>() {
+RegionInfo::RegionInfo() : RegionInfoBase<RegionTraits<Function>>() {}
 
-}
-
-RegionInfo::~RegionInfo() {
-
-}
+RegionInfo::~RegionInfo() {}
 
 void RegionInfo::updateStatistics(Region *R) {
   ++numRegions;
@@ -99,8 +91,7 @@ void RegionInfo::recalculate(Function &F, DominatorTree *DT_,
   PDT = PDT_;
   DF = DF_;
 
-  TopLevelRegion = new Region(&F.getEntryBlock(), nullptr,
-                              this, DT, nullptr);
+  TopLevelRegion = new Region(&F.getEntryBlock(), nullptr, this, DT, nullptr);
   updateStatistics(TopLevelRegion);
   calculate(F);
 }
@@ -113,9 +104,7 @@ RegionInfoPass::RegionInfoPass() : FunctionPass(ID) {
   initializeRegionInfoPassPass(*PassRegistry::getPassRegistry());
 }
 
-RegionInfoPass::~RegionInfoPass() {
-
-}
+RegionInfoPass::~RegionInfoPass() {}
 
 bool RegionInfoPass::runOnFunction(Function &F) {
   releaseMemory();
@@ -128,13 +117,9 @@ bool RegionInfoPass::runOnFunction(Function &F) {
   return false;
 }
 
-void RegionInfoPass::releaseMemory() {
-  RI.releaseMemory();
-}
+void RegionInfoPass::releaseMemory() { RI.releaseMemory(); }
 
-void RegionInfoPass::verifyAnalysis() const {
-    RI.verifyAnalysis();
-}
+void RegionInfoPass::verifyAnalysis() const { RI.verifyAnalysis(); }
 
 void RegionInfoPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
@@ -148,28 +133,23 @@ void RegionInfoPass::print(raw_ostream &OS, const Module *) const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void RegionInfoPass::dump() const {
-  RI.dump();
-}
+void RegionInfoPass::dump() const { RI.dump(); }
 #endif
 
 char RegionInfoPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(RegionInfoPass, "regions",
-                "Detect single entry single exit regions", true, true)
+                      "Detect single entry single exit regions", true, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
 INITIALIZE_PASS_END(RegionInfoPass, "regions",
-                "Detect single entry single exit regions", true, true)
+                    "Detect single entry single exit regions", true, true)
 
 // Create methods available outside of this file, to use them
 // "include/llvm/LinkAllPasses.h". Otherwise the pass would be deleted by
 // the link time optimization.
 
 namespace llvm {
-  FunctionPass *createRegionInfoPass() {
-    return new RegionInfoPass();
-  }
-}
-
+FunctionPass *createRegionInfoPass() { return new RegionInfoPass(); }
+} // namespace llvm

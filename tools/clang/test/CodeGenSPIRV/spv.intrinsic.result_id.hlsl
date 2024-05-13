@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 -E main
+// RUN: %dxc -T cs_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 [[vk::ext_instruction(/* OpLoad */ 61)]]
 vk::ext_result_id<float> load([[vk::ext_reference]] float pointer,
@@ -13,7 +13,7 @@ void store([[vk::ext_reference]] float pointer,
 void main() {
   float foo, bar;
 
-//CHECK: [[foo_value:%\w+]] = OpLoad %float %foo None
+//CHECK: [[foo_value:%[a-zA-Z0-9_]+]] = OpLoad %float %foo None
 //CHECK:                      OpStore %bar [[foo_value]] Volatile
   vk::ext_result_id<float> foo_value = load(foo, /* None */ 0x0);
   store(bar, foo_value, /* Volatile */ 0x1);

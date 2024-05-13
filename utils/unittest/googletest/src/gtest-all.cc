@@ -38,6 +38,17 @@
 // when it's fused.
 #include "gtest/gtest.h"
 
+// HLSL Change Begin.
+// Alias deprecated functions for UCRT due to these obsolete function have been
+// removed in the newer UCRT libraries.
+#ifdef _UCRT
+#define close _close
+#define creat _creat
+#define dup2  _dup2
+#define dup   _dup
+#endif
+// HLSL Change End.
+
 // The following lines pull in the real gtest *.cc files.
 #include "src/gtest.cc"
 #include "src/gtest-death-test.cc"
