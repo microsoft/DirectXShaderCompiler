@@ -206,14 +206,6 @@ dxil_debug_info::DxcPixDxilSourceLocations::DxcPixDxilSourceLocations(
         S = Subprogram->getFile();
       } else
         S = S->getScope().resolve(EmptyMap);
-      // When the function in question is a class method, there is a
-      // DICompositeType in the scope hierarchy referring to the class, and that
-      // DICompositeType has a DIFile that denotes the file in which the method
-      // is declared.
-      if (auto *CompType = llvm::dyn_cast<llvm::DICompositeType>(S)) {
-        S = CompType->getFile();
-        break;
-      }
     }
 
     if (S != nullptr) {
