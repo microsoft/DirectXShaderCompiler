@@ -61,6 +61,7 @@ enum class Extension {
   KHR_fragment_shader_barycentric,
   KHR_maximal_reconvergence,
   KHR_float_controls,
+  NV_shader_subgroup_partitioned,
   Unknown,
 };
 

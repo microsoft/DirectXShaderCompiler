@@ -261,6 +261,12 @@ Instead of DXBC labels/calls, DXIL supports functions and call instructions. Rec
 
 The functions are regular LLVM functions. Parameters can be passed by-value or by-reference. The functions are to facilitate separate compilation for big, complex shaders. However, driver compilers are free to inline functions as they see fit.
 
+In DXIL, only two string function attributes are permitted: 'waveops-include-helper-lanes' and 'fp32-denorm-mode'.
+
+The attribute 'waveops-include-helper-lanes' is utilized to indicate that wave operations should consider helper lanes as active lanes.
+
+'fp32-denorm-mode' is employed to define the denorm mode for the function. The possible values for this attribute can be 'any', 'preserve', or 'ftz'.
+
 Identifiers
 -----------
 

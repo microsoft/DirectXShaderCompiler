@@ -804,4 +804,5 @@ def HLSLStructurizeExitsLifetimeMarkersConflict: DiagGroup<"structurize-exits-li
 def HLSLParameterUsage : DiagGroup<"parameter-usage">;
 def HLSLAvailability: DiagGroup<"hlsl-availability">;
 def HLSLBarrier : DiagGroup<"hlsl-barrier">;
+def HLSLLegacyLiterals : DiagGroup<"hlsl-legacy-literal">;
 // HLSL Change Ends
