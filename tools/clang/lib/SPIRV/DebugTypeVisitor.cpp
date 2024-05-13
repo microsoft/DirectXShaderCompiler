@@ -405,6 +405,10 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
         spvContext.getDebugTypeFunction(spirvType, flags, returnType, params);
     break;
   }
+  case SpirvType::TK_AccelerationStructureNV: {
+    debugType = lowerToDebugTypeComposite(spirvType);
+    break;
+  }
   }
 
   if (!debugType) {
