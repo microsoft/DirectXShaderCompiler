@@ -6116,6 +6116,8 @@ class db_dxil(object):
             [
                 {"n": "expand-payload", "t": "int", "c": 1},
                 {"n": "UAVSize", "t": "int", "c": 1},
+                {"n": "dispatchArgY", "t": "int", "c": 1},
+                {"n": "dispatchArgZ", "t": "int", "c": 1},
             ],
         )
         add_pass(
