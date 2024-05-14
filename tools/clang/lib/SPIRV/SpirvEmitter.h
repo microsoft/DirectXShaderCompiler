@@ -984,11 +984,13 @@ private:
   /// \brief Processes .SampleGrad() method call for texture objects.
   SpirvInstruction *processTextureSampleGrad(const CXXMemberCallExpr *expr);
 
-  /// \brief Processes .SampleCmp() or .SampleCmpLevelZero() method call for
-  /// texture objects.
-  SpirvInstruction *
-  processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
-                                      bool isCmp);
+  /// \brief Processes .SampleCmp() method call for texture objects.
+  SpirvInstruction *processTextureSampleCmp(const CXXMemberCallExpr *expr);
+
+  /// \brief Processes .SampleCmpLevel() or .SampleCmpLevelZero() method call
+  /// for texture objects.
+  SpirvInstruction *processTextureSampleCmpLevel(const CXXMemberCallExpr *expr,
+                                                 bool hasExplicitLod);
 
   /// \brief Handles .Gather{|Cmp}{Red|Green|Blue|Alpha}() calls on texture
   /// types.
