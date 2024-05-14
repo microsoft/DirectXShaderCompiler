@@ -76,11 +76,9 @@ void CopyStruct(IRBuilder<> &Builder, StructType *MyStructType, Value *Struct1,
     }
   }
 }
-int limit = 3;
-void CopyAggregate(int &counter, IRBuilder<> &B, Type *Ty, Value *Source,
+
+void CopyAggregate(IRBuilder<> &B, Type *Ty, Value *Source,
                    Value *Dest, ArrayRef<Value *> GEPIndices) {
-  if (counter > limit)
-    return;
   // if (SourcePtr->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
   // auto *SourcePtr = dyn_cast<PointerType>(Ty);
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
@@ -89,10 +87,8 @@ void CopyAggregate(int &counter, IRBuilder<> &B, Type *Ty, Value *Source,
     StructIndices.push_back(nullptr);
     for (unsigned j = 0; j < ST->getNumElements(); ++j) {
       StructIndices.back() = B.getInt32(j);
-      CopyAggregate(counter, B, ST->getElementType(j), Source, Dest,
+      CopyAggregate(B, ST->getElementType(j), Source, Dest,
                     StructIndices);
-      if (counter > limit)
-        return;
     }
   } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
     SmallVector<Value *, 16> StructIndices;
@@ -100,7 +96,7 @@ void CopyAggregate(int &counter, IRBuilder<> &B, Type *Ty, Value *Source,
     StructIndices.push_back(nullptr);
     for (unsigned j = 0; j < AT->getNumElements(); ++j) {
       StructIndices.back() = B.getInt32(j);
-      CopyAggregate(counter, B, AT->getArrayElementType(), Source, Dest,
+      CopyAggregate(B, AT->getArrayElementType(), Source, Dest,
                     StructIndices);
     }
   } else {
@@ -108,7 +104,6 @@ void CopyAggregate(int &counter, IRBuilder<> &B, Type *Ty, Value *Source,
     Value *Val = B.CreateLoad(SourceGEP, "CopyStructLoad");
     auto *DestGEP = B.CreateGEP(Dest, GEPIndices, "CopyStructDestGEP");
     B.CreateStore(Val, DestGEP, "CopyStructStore");
-    counter++;
   }
 }
 
@@ -141,12 +136,11 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
       ////e.g, / group-shared
       // auto *OldPayloadPointer =
       //    B.CreateGEP(DispatchMesh.get_payload(), HlslOP->GetU32Const(0));
-      int counter = 0;
       auto PayloadType =
           llvm::dyn_cast<PointerType>(DispatchMesh.get_payload()->getType());
       SmallVector<Value *, 16> GEPIndices;
       GEPIndices.push_back(B.getInt32(0));
-      CopyAggregate(counter, B, PayloadType->getPointerElementType(),
+      CopyAggregate(B, PayloadType->getPointerElementType(),
                     DispatchMesh.get_payload(), NewStructAlloca, GEPIndices);
 
       Constant *Zero32Arg = HlslOP->GetU32Const(0);

@@ -102,7 +102,7 @@ public:
 
   TEST_METHOD(AddToASPayload)
   TEST_METHOD(AddToASGroupSharedPayload)
-
+  TEST_METHOD(AddToASGroupSharedPayload_MeshletCullSample)
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
   TEST_METHOD(PixStructAnnotation_Lib_RaygenAllocaStructAlignment)
 
@@ -561,7 +561,7 @@ PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob) {
 
 TEST_F(PixTest, AddToASPayload) {
 
-  const char *dynamicResourceDecriptorHeapAccess = R"(
+  const char *hlsl = R"(
 struct MyPayload
 {
     float f1;
@@ -599,18 +599,19 @@ void MSMain(
 
   )";
 
-  auto as = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"as_6_6",
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6",
                     {}, L"ASMain");
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
 
-  auto ms = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"ms_6_6",
+  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6",
                     {}, L"MSMain");
   RunDxilPIXMeshShaderOutputPass(ms);
 }
 
+
 TEST_F(PixTest, AddToASGroupSharedPayload) {
 
-  const char *dynamicResourceDecriptorHeapAccess = R"(
+  const char *hlsl = R"(
 struct Contained
 {
     uint j;
@@ -635,19 +636,40 @@ groupshared MyPayload payload;
 [numthreads(1, 1, 1)]
 void main(uint gid : SV_GroupID)
 {
-  //MyPayload copy;
-  //copy = payload;
   DispatchMesh(1, 1, 1, payload);
 }
 
   )";
 
-  auto as = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"as_6_6",
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6",
                     {L"-Od"}, L"main");
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
 
 }
 
+TEST_F(PixTest, AddToASGroupSharedPayload_MeshletCullSample) {
+
+  const char *hlsl = R"(
+struct MyPayload
+{
+    uint i[32];
+};
+
+groupshared MyPayload payload;
+
+[numthreads(1, 1, 1)]
+void main(uint gid : SV_GroupID)
+{
+  DispatchMesh(1, 1, 1, payload);
+}
+
+  )";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6",
+                    {L"-Od"}, L"main");
+  RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+
+}
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
   using namespace llvm;
   const llvm::DITypeIdentifierMap EmptyMap;
