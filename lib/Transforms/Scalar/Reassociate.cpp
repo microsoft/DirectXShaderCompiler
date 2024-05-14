@@ -176,6 +176,22 @@ namespace {
       initializeReassociatePass(*PassRegistry::getPassRegistry());
     }
 
+    // HLSL Change - begin
+    // Enable global reassociation when HLSLEnableAggressiveReassociation is
+    // set
+    bool HLSLEnableAggressiveReassociation = true;
+    Reassociate(bool HLSLEnableAggressiveReassociation) : Reassociate() {
+      this->HLSLEnableAggressiveReassociation =
+          HLSLEnableAggressiveReassociation;
+    }
+
+    void applyOptions(PassOptions O) override {
+      GetPassOptionBool(O, "EnableAggressiveReassociation",
+                        &HLSLEnableAggressiveReassociation,
+                        /*defaultValue*/ true);
+    }
+    // HLSL Change - end
+
     bool runOnFunction(Function &F) override;
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -241,6 +257,13 @@ INITIALIZE_PASS(Reassociate, "reassociate",
 
 // Public interface to the Reassociate pass
 FunctionPass *llvm::createReassociatePass() { return new Reassociate(); }
+
+// HLSL Change - begin
+FunctionPass *
+llvm::createReassociatePass(bool HLSLEnableAggressiveReassociation) {
+  return new Reassociate(HLSLEnableAggressiveReassociation);
+}
+// HLSL Change - end
 
 /// Return true if V is an instruction of the specified opcode and if it
 /// only has one use.
@@ -2243,7 +2266,8 @@ void Reassociate::ReassociateExpression(BinaryOperator *I) {
     return;
   }
 
-  if (Ops.size() > 2 && Ops.size() <= GlobalReassociateLimit) {
+  if (HLSLEnableAggressiveReassociation && // HLSL Change
+      (Ops.size() > 2 && Ops.size() <= GlobalReassociateLimit)) {
     // Find the pair with the highest count in the pairmap and move it to the
     // back of the list so that it can later be CSE'd.
     // example:
@@ -2347,22 +2371,24 @@ bool Reassociate::runOnFunction(Function &F) {
   // Calculate the rank map for F
   BuildRankMap(F);
 
-  // Build the pair map before running reassociate.
-  // Technically this would be more accurate if we did it after one round
-  // of reassociation, but in practice it doesn't seem to help much on
-  // real-world code, so don't waste the compile time running reassociate
-  // twice.
-  // If a user wants, they could expicitly run reassociate twice in their
-  // pass pipeline for further potential gains.
-  // It might also be possible to update the pair map during runtime, but the
-  // overhead of that may be large if there's many reassociable chains.
-  // TODO: RPOT
-  // Get the functions basic blocks in Reverse Post Order. This order is used by
-  // BuildRankMap to pre calculate ranks correctly. It also excludes dead basic
-  // blocks (it has been seen that the analysis in this pass could hang when
-  // analysing dead basic blocks).
-  ReversePostOrderTraversal<Function *> RPOT(&F);
-  BuildPairMap(RPOT);
+  if (HLSLEnableAggressiveReassociation) { // HLSL Change
+    // Build the pair map before running reassociate.
+    // Technically this would be more accurate if we did it after one round
+    // of reassociation, but in practice it doesn't seem to help much on
+    // real-world code, so don't waste the compile time running reassociate
+    // twice.
+    // If a user wants, they could expicitly run reassociate twice in their
+    // pass pipeline for further potential gains.
+    // It might also be possible to update the pair map during runtime, but the
+    // overhead of that may be large if there's many reassociable chains.
+    // TODO: RPOT
+    // Get the functions basic blocks in Reverse Post Order. This order is used
+    // by BuildRankMap to pre calculate ranks correctly. It also excludes dead
+    // basic blocks (it has been seen that the analysis in this pass could hang
+    // when analysing dead basic blocks).
+    ReversePostOrderTraversal<Function *> RPOT(&F);
+    BuildPairMap(RPOT);
+  } // HLSL Change
 
   MadeChange = false;
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
@@ -2389,8 +2415,10 @@ bool Reassociate::runOnFunction(Function &F) {
   // We are done with the rank map and pair map.
   RankMap.clear();
   ValueRankMap.clear();
-  for (auto &Entry : PairMap)
-    Entry.clear();
+  if (HLSLEnableAggressiveReassociation) { // HLSL Change
+    for (auto &Entry : PairMap)
+      Entry.clear();
+  } // HLSL Change
 
   return MadeChange;
 }

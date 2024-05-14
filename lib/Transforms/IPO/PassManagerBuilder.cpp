@@ -469,7 +469,8 @@ void PassManagerBuilder::populateModulePassManager(
   //MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
   // HLSL Change Ends.
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
-  MPM.add(createReassociatePass());           // Reassociate expressions
+  MPM.add(createReassociatePass(
+      HLSLEnableAggressiveReassociation)); // Reassociate expressions
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
   // HLSL Change - disable LICM in frontend for not consider register pressure.
