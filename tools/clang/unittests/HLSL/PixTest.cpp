@@ -599,15 +599,12 @@ void MSMain(
 
   )";
 
-  auto as = Compile(m_dllSupport, hlsl, L"as_6_6",
-                    {}, L"ASMain");
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {}, L"ASMain");
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
 
-  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6",
-                    {}, L"MSMain");
+  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6", {}, L"MSMain");
   RunDxilPIXMeshShaderOutputPass(ms);
 }
-
 
 TEST_F(PixTest, AddToASGroupSharedPayload) {
 
@@ -641,10 +638,8 @@ void main(uint gid : SV_GroupID)
 
   )";
 
-  auto as = Compile(m_dllSupport, hlsl, L"as_6_6",
-                    {L"-Od"}, L"main");
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {L"-Od"}, L"main");
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
-
 }
 
 TEST_F(PixTest, AddToASGroupSharedPayload_MeshletCullSample) {
@@ -665,10 +660,8 @@ void main(uint gid : SV_GroupID)
 
   )";
 
-  auto as = Compile(m_dllSupport, hlsl, L"as_6_6",
-                    {L"-Od"}, L"main");
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {L"-Od"}, L"main");
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
-
 }
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
   using namespace llvm;
