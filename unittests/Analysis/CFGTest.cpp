@@ -25,9 +25,7 @@ using namespace llvm;
 
 namespace {
 
-// This fixture assists in running the isPotentiallyReachable utility four ways
-// and ensuring it produces the correct answer each time.
-class IsPotentiallyReachableTest : public testing::Test {
+class CFGTest : public testing::Test {
 protected:
   void ParseAssembly(const char *Assembly) {
     SMDiagnostic Error;
@@ -60,6 +58,14 @@ protected:
       report_fatal_error("@test must have an instruction %B");
   }
 
+  std::unique_ptr<Module> M;
+  Instruction *A, *B;
+};
+
+// This fixture assists in running the isPotentiallyReachable utility four ways
+// and ensuring it produces the correct answer each time.
+class IsPotentiallyReachableTest : public CFGTest {
+protected:
   void ExpectPath(bool ExpectedResult) {
     static char ID;
     class IsPotentiallyReachableTestPass : public FunctionPass {
@@ -111,9 +117,6 @@ protected:
     PM.add(P);
     PM.run(*M);
   }
-
-  std::unique_ptr<Module> M;
-  Instruction *A, *B;
 };
 
 }
@@ -384,4 +387,43 @@ TEST_F(IsPotentiallyReachableTest, ModifyTest) {
   ExpectPath(false);
   S[0] = OldBB;
   ExpectPath(true);
+}
+
+TEST_F(CFGTest, SuccIteratorPlusEquals) {
+  ParseAssembly(BranchInsideLoopIR);
+
+  //  br label %loop
+  auto iter = M->getFunction("test")->begin();
+  succ_iterator S = succ_begin(iter);
+  S += 1;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // br i1 %x, label %nextloopblock, label %exit
+  ++iter;
+  S = succ_begin(iter);
+  S += 2;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // br i1 %y, label %left, label %right
+  ++iter;
+  S = succ_begin(iter);
+  S += 2;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // br label %loop
+  ++iter;
+  S = succ_begin(iter);
+  S += 1;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // br label %loop
+  ++iter;
+  S = succ_begin(iter);
+  S += 1;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // Done
+  ++iter;
+  S = succ_begin(iter);
+  EXPECT_EQ(S, succ_end(iter));
 }
