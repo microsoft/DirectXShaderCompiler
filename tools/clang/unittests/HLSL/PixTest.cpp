@@ -1033,7 +1033,7 @@ void RaygenCommon()
 {
     float3 rayDir;
     float3 origin;
-
+    
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
@@ -1119,7 +1119,7 @@ void RaygenCommon()
 {
     float3 rayDir;
     float3 origin;
-
+    
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
@@ -1797,7 +1797,7 @@ Texture2DArray<uint4> g_gbuffer : register(t0, space0);
 
 [numthreads(1, 1, 1)]
 void main()
-{
+{	
 	const Gbuffer gbuffer = loadGbuffer(int2(0,0), g_gbuffer);
     smallPayload p;
     p.i = gbuffer.materialParams1.x + gbuffer.materialParams1.y + gbuffer.materialParams1.z + gbuffer.materialParams1.w;
@@ -2161,7 +2161,7 @@ void RaygenCommon()
 {
     float3 rayDir;
     float3 origin;
-
+    
     // Generate a ray for a camera pixel corresponding to an index from the dispatched 2D grid.
     GenerateCameraRay(DispatchRaysIndex().xy, origin, rayDir);
 
@@ -2366,21 +2366,21 @@ GlobalRootSignature so_GlobalRootSignature =
 	"RootConstants(num32BitConstants=1, b8), "
 };
 
-StateObjectConfig so_StateObjectConfig =
-{
+StateObjectConfig so_StateObjectConfig = 
+{ 
     STATE_OBJECT_FLAGS_ALLOW_LOCAL_DEPENDENCIES_ON_EXTERNAL_DEFINITONS
 };
 
-LocalRootSignature so_LocalRootSignature1 =
+LocalRootSignature so_LocalRootSignature1 = 
 {
 	"RootConstants(num32BitConstants=3, b2), "
-	"UAV(u6),RootFlags(LOCAL_ROOT_SIGNATURE)"
+	"UAV(u6),RootFlags(LOCAL_ROOT_SIGNATURE)" 
 };
 
-LocalRootSignature so_LocalRootSignature2 =
+LocalRootSignature so_LocalRootSignature2 = 
 {
 	"RootConstants(num32BitConstants=3, b2), "
-	"UAV(u8, flags=DATA_STATIC), "
+	"UAV(u8, flags=DATA_STATIC), " 
 	"RootFlags(LOCAL_ROOT_SIGNATURE)"
 };
 
@@ -2404,13 +2404,13 @@ TriangleHitGroup MyHitGroup =
 SubobjectToExportsAssociation so_Association1 =
 {
 	"so_LocalRootSignature1", // subobject name
-	"MyRayGen"                // export association
+	"MyRayGen"                // export association 
 };
 
 SubobjectToExportsAssociation so_Association2 =
 {
 	"so_LocalRootSignature2", // subobject name
-	"MyAnyHit"                // export association
+	"MyAnyHit"                // export association 
 };
 
 struct MyPayload
@@ -2425,7 +2425,7 @@ void MyRayGen()
 
 [shader("closesthit")]
 void MyClosestHit(inout MyPayload payload, in BuiltInTriangleIntersectionAttributes attr)
-{
+{  
 }
 
 [shader("anyhit")]
