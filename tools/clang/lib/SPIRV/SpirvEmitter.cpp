@@ -3873,11 +3873,24 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
                              expr->getArg(3)->getLocStart(), range);
     }
   } else {
-    auto *value = doExpr(expr->getArg(1));
+    const Expr *value = expr->getArg(1);
+    SpirvInstruction *valueInstr = doExpr(expr->getArg(1));
+
+    // Since a RWAB is represented by an array of 32-bit unsigned integers, the
+    // destination pointee type will always be unsigned, and thus the SPIR-V
+    // instruction's result type and value type must also be unsigned. The
+    // signedness of the opcode is determined correctly by frontend and will
+    // correctly determine the signedness of the actual operation, but the
+    // necessary argument type cast will not be added by the frontend in the
+    // case of a signed value.
+    valueInstr =
+        castToType(valueInstr, value->getType(), astContext.UnsignedIntTy,
+                   value->getExprLoc(), range);
+
     SpirvInstruction *originalVal = spvBuilder.createAtomicOp(
         translateAtomicHlslOpcodeToSpirvOpcode(opcode),
         astContext.UnsignedIntTy, ptr, spv::Scope::Device,
-        spv::MemorySemanticsMask::MaskNone, value,
+        spv::MemorySemanticsMask::MaskNone, valueInstr,
         expr->getCallee()->getExprLoc(), range);
     if (expr->getNumArgs() > 2) {
       originalVal = castToType(originalVal, astContext.UnsignedIntTy,
@@ -9203,21 +9216,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       writeToOutputArg(originalVal, expr, 3);
   } else {
     auto *value = doArg(expr, 1);
-    // Since these atomic operations write through the provided pointer, the
-    // signed vs. unsigned opcode must be decided based on the pointee type
-    // of the first argument. However, the frontend decides the opcode based on
-    // the second argument (value). Therefore, the HLSL opcode provided by the
-    // frontend may be wrong. Therefore we need the following code to make sure
-    // we are using the correct SPIR-V opcode.
     spv::Op atomicOp = translateAtomicHlslOpcodeToSpirvOpcode(opcode);
-    if (atomicOp == spv::Op::OpAtomicUMax && baseType->isSignedIntegerType())
-      atomicOp = spv::Op::OpAtomicSMax;
-    if (atomicOp == spv::Op::OpAtomicSMax && baseType->isUnsignedIntegerType())
-      atomicOp = spv::Op::OpAtomicUMax;
-    if (atomicOp == spv::Op::OpAtomicUMin && baseType->isSignedIntegerType())
-      atomicOp = spv::Op::OpAtomicSMin;
-    if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
-      atomicOp = spv::Op::OpAtomicUMin;
     auto *originalVal = spvBuilder.createAtomicOp(
         atomicOp, baseType, ptr, scope, spv::MemorySemanticsMask::MaskNone,
         value, srcLoc);
