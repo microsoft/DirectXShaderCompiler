@@ -139,7 +139,7 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
           HlslOP->GetU32Const(m_DispatchArgumentY * m_DispatchArgumentZ),
           "GroupXxNumYZ");
       auto *FlatGroupID =
-          B.CreateAdd(GroupXxNumYZ, FlatGroupNumZY, "FlatGroFlatGroupIDupNum");
+          B.CreateAdd(GroupXxNumYZ, FlatGroupNumZY, "FlatGroupID");
 
       // The ultimate goal is a single unique thread ID for this AS thread.
       // So take the flat group number, multiply it by the number of
