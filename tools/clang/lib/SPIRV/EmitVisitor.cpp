@@ -1096,7 +1096,7 @@ bool EmitVisitor::visit(SpirvGroupNonUniformOp *inst) {
       context.getUIntType(32), /* isSpecConst */ false));
   if (inst->hasGroupOp())
     curInst.push_back(static_cast<uint32_t>(inst->getGroupOp()));
-  for (const auto operand : inst->getOperands())
+  for (auto *operand : inst->getOperands())
     curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
   finalizeInstruction(&mainBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),

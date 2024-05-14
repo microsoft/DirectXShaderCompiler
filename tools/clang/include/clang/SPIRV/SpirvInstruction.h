@@ -1518,11 +1518,11 @@ public:
   void replaceOperand(
       llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
       bool inEntryFunctionWrapper) override {
-    for (auto operand : getOperands()) {
+    for (auto *operand : getOperands()) {
       operand = remapOp(operand);
-      if (inEntryFunctionWrapper)
-        setAstResultType(operand->getAstResultType());
     }
+    if (inEntryFunctionWrapper)
+      setAstResultType(getOperands()[0]->getAstResultType());
   }
 
 private:

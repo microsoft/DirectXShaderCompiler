@@ -234,9 +234,8 @@ bool PreciseVisitor::visit(SpirvUnaryOp *inst) {
 }
 
 bool PreciseVisitor::visit(SpirvGroupNonUniformOp *inst) {
-  if (inst->isPrecise())
-    for (auto *operand : inst->getOperands())
-      operand->setPrecise();
+  for (auto *operand : inst->getOperands())
+    operand->setPrecise(inst->isPrecise());
   return true;
 }
 

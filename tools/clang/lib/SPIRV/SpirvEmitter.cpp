@@ -9551,7 +9551,7 @@ SpirvEmitter::processWaveCountBits(const CallExpr *callExpr,
 
   return spvBuilder.createGroupNonUniformOp(
       spv::Op::OpGroupNonUniformBallotBitCount, retType, spv::Scope::Subgroup,
-      {ballot}, srcLoc, llvm::Optional<spv::GroupOperation>(groupOp));
+      {ballot}, srcLoc, groupOp);
 }
 
 SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
