@@ -57,38 +57,15 @@ void AddValueToExpandedPayload(OP *HlslOP, llvm::IRBuilder<> &B,
   B.CreateStore(value, PointerToEmbeddedNewValue);
 }
 
-void CopyStruct(IRBuilder<> &Builder, StructType *MyStructType, Value *Struct1,
-                Value *Struct2) {
-  for (unsigned i = 0; i < MyStructType->getNumElements(); ++i) {
-    Value *Elem1 = Builder.CreateStructGEP(MyStructType, Struct1, i);
-    Value *Elem2 = Builder.CreateStructGEP(MyStructType, Struct2, i);
-
-    if (ArrayType *AT = dyn_cast<ArrayType>(MyStructType->getElementType(i))) {
-      for (unsigned j = 0; j < AT->getNumElements(); ++j) {
-        Value *ArrayElem1 = Builder.CreateGEP(Elem1, Builder.getInt32(j));
-        Value *ArrayElem2 = Builder.CreateGEP(Elem2, Builder.getInt32(j));
-        CopyStruct(Builder, cast<StructType>(AT->getElementType()), ArrayElem1,
-                   ArrayElem2);
-      }
-    } else {
-      Value *Val = Builder.CreateLoad(Elem1);
-      Builder.CreateStore(Val, Elem2);
-    }
-  }
-}
-
-void CopyAggregate(IRBuilder<> &B, Type *Ty, Value *Source,
-                   Value *Dest, ArrayRef<Value *> GEPIndices) {
-  // if (SourcePtr->getAddressSpace() == hlsl::DXIL::kTGSMAddrSpace) {
-  // auto *SourcePtr = dyn_cast<PointerType>(Ty);
+void CopyAggregate(IRBuilder<> &B, Type *Ty, Value *Source, Value *Dest,
+                   ArrayRef<Value *> GEPIndices) {
   if (StructType *ST = dyn_cast<StructType>(Ty)) {
     SmallVector<Value *, 16> StructIndices;
     StructIndices.append(GEPIndices.begin(), GEPIndices.end());
     StructIndices.push_back(nullptr);
     for (unsigned j = 0; j < ST->getNumElements(); ++j) {
       StructIndices.back() = B.getInt32(j);
-      CopyAggregate(B, ST->getElementType(j), Source, Dest,
-                    StructIndices);
+      CopyAggregate(B, ST->getElementType(j), Source, Dest, StructIndices);
     }
   } else if (ArrayType *AT = dyn_cast<ArrayType>(Ty)) {
     SmallVector<Value *, 16> StructIndices;
@@ -96,8 +73,7 @@ void CopyAggregate(IRBuilder<> &B, Type *Ty, Value *Source,
     StructIndices.push_back(nullptr);
     for (unsigned j = 0; j < AT->getNumElements(); ++j) {
       StructIndices.back() = B.getInt32(j);
-      CopyAggregate(B, AT->getArrayElementType(), Source, Dest,
-                    StructIndices);
+      CopyAggregate(B, AT->getArrayElementType(), Source, Dest, StructIndices);
     }
   } else {
     auto *SourceGEP = B.CreateGEP(Source, GEPIndices, "CopyStructSourceGEP");
@@ -129,13 +105,6 @@ bool DxilPIXAddTidToAmplificationShaderPayload::runOnModule(Module &M) {
           B.CreateAlloca(expanded.ExpandedPayloadStructType,
                          HlslOP->GetU32Const(1), "NewPayload");
       NewStructAlloca->setAlignment(4);
-      // auto *NewPayloadPointer =
-      //    B.CreateGEP(NewStructAlloca, HlslOP->GetU32Const(0));
-      //
-      //// llvm.memcpy cannot be used because the source struct might be in,
-      ////e.g, / group-shared
-      // auto *OldPayloadPointer =
-      //    B.CreateGEP(DispatchMesh.get_payload(), HlslOP->GetU32Const(0));
       auto PayloadType =
           llvm::dyn_cast<PointerType>(DispatchMesh.get_payload()->getType());
       SmallVector<Value *, 16> GEPIndices;
