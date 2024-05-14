@@ -156,8 +156,6 @@ public:
   TEST_METHOD(PixTypeManager_SamplersAndResources)
   TEST_METHOD(PixTypeManager_XBoxDiaAssert)
 
-  TEST_METHOD(DxcPixDxilDebugInfo_InstructionOffsets)
-
   TEST_METHOD(PixDebugCompileInfo)
 
   TEST_METHOD(SymbolManager_Embedded2DArray)
@@ -168,6 +166,9 @@ public:
       DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_WithDbgValue)
   TEST_METHOD(
       DxcPixDxilDebugInfo_GlobalBackedGlobalStaticEmbeddedArrays_ArrayInValues)
+
+  TEST_METHOD(DxcPixDxilDebugInfo_InstructionOffsets)
+  TEST_METHOD(DxcPixDxilDebugInfo_InstructionOffsetsInClassMethods)
   TEST_METHOD(DxcPixDxilDebugInfo_DuplicateGlobals)
   TEST_METHOD(DxcPixDxilDebugInfo_StructInheritance)
   TEST_METHOD(DxcPixDxilDebugInfo_StructContainedResource)
@@ -1914,6 +1915,105 @@ void MyMissShader(inout RayPayload payload)
       }
     }
   }
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_InstructionOffsetsInClassMethods) {
+
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+RWByteAddressBuffer RawUAV: register(u1);
+
+class AClass
+{
+  float Saturate(float f) // StartClassMethod
+  {
+    float l = RawUAV.Load(0);
+    return saturate(f * l);
+  } //EndClassMethod
+};
+
+[numthreads(1, 1, 1)]
+void main()
+{
+    uint orig;
+    AClass aClass;
+    float i = orig;
+    float f = aClass.Saturate(i);
+    uint fi = (uint)f;
+    RawUAV.InterlockedAdd(0, 42, fi);
+}
+
+)";
+
+  auto lines = SplitAndPreserveEmptyLines(std::string(hlsl), '\n');
+
+  CComPtr<IDiaDataSource> pDiaDataSource;
+  CompileAndRunAnnotationAndLoadDiaSource(m_dllSupport, hlsl, L"cs_6_6",
+                                          nullptr, &pDiaDataSource);
+
+  CComPtr<IDiaSession> session;
+  VERIFY_SUCCEEDED(pDiaDataSource->openSession(&session));
+
+  CComPtr<IDxcPixDxilDebugInfoFactory> Factory;
+  VERIFY_SUCCEEDED(session->QueryInterface(IID_PPV_ARGS(&Factory)));
+
+  CComPtr<IDxcPixDxilDebugInfo> dxilDebugger;
+  VERIFY_SUCCEEDED(Factory->NewDxcPixDxilDebugInfo(&dxilDebugger));
+
+  size_t lineAfterMethod = 0;
+  size_t lineBeforeMethod = static_cast<size_t>(-1);
+  for (size_t line = 0; line < lines.size(); ++line) {
+    if (lines[line].find("StartClassMethod") != std::string::npos)
+      lineBeforeMethod = line;
+    if (lines[line].find("EndClassMethod") != std::string::npos)
+      lineAfterMethod = line;
+  }
+
+  VERIFY_IS_TRUE(lineAfterMethod > lineBeforeMethod);
+
+  // For each source line, get the instruction numbers.
+  // For each instruction number, map back to source line.
+  // Some of them better be in the class method
+
+  bool foundClassMethodLines = false;
+
+  for (size_t line = 0; line < lines.size(); ++line) {
+
+    auto lineNumber = static_cast<DWORD>(line);
+
+    constexpr DWORD sourceLocationReaderOnlySupportsColumnZero = 0;
+    CComPtr<IDxcPixDxilInstructionOffsets> offsets;
+    dxilDebugger->InstructionOffsetsFromSourceLocation(
+        defaultFilename, lineNumber, sourceLocationReaderOnlySupportsColumnZero,
+        &offsets);
+
+    auto offsetCount = offsets->GetCount();
+    for (DWORD offsetOrdinal = 0; offsetOrdinal < offsetCount;
+         ++offsetOrdinal) {
+
+      DWORD instructionOffsetFromSource =
+          offsets->GetOffsetByIndex(offsetOrdinal);
+
+      CComPtr<IDxcPixDxilSourceLocations> sourceLocations;
+      VERIFY_SUCCEEDED(dxilDebugger->SourceLocationsFromInstructionOffset(
+          instructionOffsetFromSource, &sourceLocations));
+
+      auto count = sourceLocations->GetCount();
+      for (DWORD sourceLocationOrdinal = 0; sourceLocationOrdinal < count;
+           ++sourceLocationOrdinal) {
+        DWORD lineNumber =
+            sourceLocations->GetLineNumberByIndex(sourceLocationOrdinal);
+
+        if (lineNumber >= lineBeforeMethod && lineNumber <= lineAfterMethod) {
+          foundClassMethodLines = true;
+        }
+      }
+    }
+  }
+
+  VERIFY_IS_TRUE(foundClassMethodLines);
 }
 
 TEST_F(PixDiaTest, PixTypeManager_InheritancePointerTypedef) {

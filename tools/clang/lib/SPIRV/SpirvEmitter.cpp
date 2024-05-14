@@ -233,7 +233,7 @@ bool isAcceptedSpecConstantBinaryOp(spv::Op op) {
 
 /// Returns true if the given expression is an accepted initializer for a spec
 /// constant.
-bool isAcceptedSpecConstantInit(const Expr *init) {
+bool isAcceptedSpecConstantInit(const Expr *init, ASTContext &astContext) {
   // Allow numeric casts
   init = init->IgnoreParenCasts();
 
@@ -244,7 +244,12 @@ bool isAcceptedSpecConstantInit(const Expr *init) {
   // Allow the minus operator which is used to specify negative values
   if (const auto *unaryOp = dyn_cast<UnaryOperator>(init))
     return unaryOp->getOpcode() == UO_Minus &&
-           isAcceptedSpecConstantInit(unaryOp->getSubExpr());
+           isAcceptedSpecConstantInit(unaryOp->getSubExpr(), astContext);
+
+  // Allow values that can be evaluated to const.
+  if (init->isEvaluatable(astContext)) {
+    return true;
+  }
 
   return false;
 }
@@ -3868,11 +3873,24 @@ SpirvInstruction *SpirvEmitter::processRWByteAddressBufferAtomicMethods(
                              expr->getArg(3)->getLocStart(), range);
     }
   } else {
-    auto *value = doExpr(expr->getArg(1));
+    const Expr *value = expr->getArg(1);
+    SpirvInstruction *valueInstr = doExpr(expr->getArg(1));
+
+    // Since a RWAB is represented by an array of 32-bit unsigned integers, the
+    // destination pointee type will always be unsigned, and thus the SPIR-V
+    // instruction's result type and value type must also be unsigned. The
+    // signedness of the opcode is determined correctly by frontend and will
+    // correctly determine the signedness of the actual operation, but the
+    // necessary argument type cast will not be added by the frontend in the
+    // case of a signed value.
+    valueInstr =
+        castToType(valueInstr, value->getType(), astContext.UnsignedIntTy,
+                   value->getExprLoc(), range);
+
     SpirvInstruction *originalVal = spvBuilder.createAtomicOp(
         translateAtomicHlslOpcodeToSpirvOpcode(opcode),
         astContext.UnsignedIntTy, ptr, spv::Scope::Device,
-        spv::MemorySemanticsMask::MaskNone, value,
+        spv::MemorySemanticsMask::MaskNone, valueInstr,
         expr->getCallee()->getExprLoc(), range);
     if (expr->getNumArgs() > 2) {
       originalVal = castToType(originalVal, astContext.UnsignedIntTy,
@@ -7847,7 +7865,7 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
     emitError("missing default value for specialization constant",
               varDecl->getLocation());
     hasError = true;
-  } else if (!isAcceptedSpecConstantInit(init)) {
+  } else if (!isAcceptedSpecConstantInit(init, astContext)) {
     emitError("unsupported specialization constant initializer",
               init->getLocStart())
         << init->getSourceRange();
@@ -7859,7 +7877,8 @@ void SpirvEmitter::createSpecConstant(const VarDecl *varDecl) {
 
   SpecConstantEnvRAII specConstantEnvRAII(&isSpecConstantMode);
 
-  const auto specConstant = doExpr(init);
+  const auto specConstant =
+      constEvaluator.tryToEvaluateAsConst(init, isSpecConstantMode);
 
   // We are not creating a variable to hold the spec constant, instead, we
   // translate the varDecl directly into the spec constant here.
@@ -8979,8 +8998,10 @@ SpirvEmitter::processIntrinsicFirstbit(const CallExpr *callExpr,
   const SourceRange srcRange = callExpr->getSourceRange();
   const QualType argType = callExpr->getArg(0)->getType();
 
-  if (astContext.getTypeSize(argType) == 64) {
-    emitError("%0 is not yet implemented for 64-bit width components when "
+  const uint32_t bitwidth = getElementSpirvBitwidth(
+      astContext, argType, spirvOptions.enable16BitTypes);
+  if (bitwidth != 32) {
+    emitError("%0 is currently limited to 32-bit width components when "
               "targetting SPIR-V",
               srcLoc)
         << getFunctionOrOperatorName(callee, true);
@@ -9197,21 +9218,7 @@ SpirvEmitter::processIntrinsicInterlockedMethod(const CallExpr *expr,
       writeToOutputArg(originalVal, expr, 3);
   } else {
     auto *value = doArg(expr, 1);
-    // Since these atomic operations write through the provided pointer, the
-    // signed vs. unsigned opcode must be decided based on the pointee type
-    // of the first argument. However, the frontend decides the opcode based on
-    // the second argument (value). Therefore, the HLSL opcode provided by the
-    // frontend may be wrong. Therefore we need the following code to make sure
-    // we are using the correct SPIR-V opcode.
     spv::Op atomicOp = translateAtomicHlslOpcodeToSpirvOpcode(opcode);
-    if (atomicOp == spv::Op::OpAtomicUMax && baseType->isSignedIntegerType())
-      atomicOp = spv::Op::OpAtomicSMax;
-    if (atomicOp == spv::Op::OpAtomicSMax && baseType->isUnsignedIntegerType())
-      atomicOp = spv::Op::OpAtomicUMax;
-    if (atomicOp == spv::Op::OpAtomicUMin && baseType->isSignedIntegerType())
-      atomicOp = spv::Op::OpAtomicSMin;
-    if (atomicOp == spv::Op::OpAtomicSMin && baseType->isUnsignedIntegerType())
-      atomicOp = spv::Op::OpAtomicUMin;
     auto *originalVal = spvBuilder.createAtomicOp(
         atomicOp, baseType, ptr, scope, spv::MemorySemanticsMask::MaskNone,
         value, srcLoc);
@@ -14021,9 +14028,17 @@ SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
       spvArgs.push_back(argInst);
     } else if (param->hasAttr<VKLiteralExtAttr>()) {
       auto constArg = dyn_cast<SpirvConstant>(argInst);
-      assert(constArg != nullptr);
+      if (constArg == nullptr) {
+        constArg = constEvaluator.tryToEvaluateAsConst(arg, isSpecConstantMode);
+      }
+      if (constArg == nullptr) {
+        emitError("vk::ext_literal may only be applied to parameters that can "
+                  "be evaluated to a literal value",
+                  expr->getExprLoc());
+        return nullptr;
+      }
       constArg->setLiteral();
-      spvArgs.push_back(argInst);
+      spvArgs.push_back(constArg);
     } else {
       spvArgs.push_back(loadIfGLValue(arg, argInst));
     }

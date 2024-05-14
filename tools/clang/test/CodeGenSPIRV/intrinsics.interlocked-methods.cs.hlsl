@@ -49,9 +49,21 @@ void main()
 // CHECK-NEXT:                    OpStore %original_i_val [[asmax29]]
   InterlockedMax(dest_i, 10,  original_i_val);
 
+// CHECK:      [[val30:%[0-9]+]] = OpBitcast %uint %int_n5
+// CHECK-NEXT: [[aumax:%[0-9]+]] = OpAtomicUMax %uint %dest_u %uint_2 %uint_0 [[val30]]
+// CHECK-NEXT: [[res30:%[0-9]+]] = OpBitcast %int [[aumax]]
+// CHECK-NEXT:                     OpStore %original_i_val [[res30]]
+  InterlockedMax(dest_u, -5,  original_i_val);
+
 // CHECK:      [[umin30:%[0-9]+]] = OpAtomicUMin %uint %dest_u %uint_2 %uint_0 %uint_10
 // CHECK-NEXT:                   OpStore %original_u_val [[umin30]]
   InterlockedMin(dest_u, 10,  original_u_val);
+
+// CHECK:      [[val31:%[0-9]+]] = OpBitcast %int %uint_5
+// CHECK-NEXT: [[asmin:%[0-9]+]] = OpAtomicSMin %int %dest_i %uint_2 %uint_0 [[val31]]
+// CHECK-NEXT: [[res31:%[0-9]+]] = OpBitcast %uint [[asmin]]
+// CHECK-NEXT:                     OpStore %original_u_val [[res31]]
+  InterlockedMin(dest_i, 5u,  original_u_val);
 
 // CHECK:      [[val2_31:%[0-9]+]] = OpLoad %int %val2
 // CHECK-NEXT:   [[or31:%[0-9]+]] = OpAtomicOr %int %dest_i %uint_2 %uint_0 [[val2_31]]
