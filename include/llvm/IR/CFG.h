@@ -130,7 +130,7 @@ private:
   typedef SuccIterator<Term_, BB_> Self;
 
   inline bool index_is_valid(int idx) {
-    return idx >= 0 && (unsigned) idx < Term->getNumSuccessors();
+    return idx >= 0 && (unsigned) idx <= Term->getNumSuccessors();
   }
 
   /// \brief Proxy object to allow write access in operator[]
@@ -141,7 +141,7 @@ private:
     explicit SuccessorProxy(const Self &it) : it(it) {}
 
     SuccessorProxy(const SuccessorProxy&) = default;
-
+  
     SuccessorProxy &operator=(SuccessorProxy r) {
       *this = reference(r);
       return *this;
