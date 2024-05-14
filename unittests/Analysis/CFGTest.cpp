@@ -25,7 +25,9 @@ using namespace llvm;
 
 namespace {
 
-class CFGTest : public testing::Test {
+// This fixture assists in running the isPotentiallyReachable utility four ways
+// and ensuring it produces the correct answer each time.
+class IsPotentiallyReachableTest : public testing::Test {
 protected:
   void ParseAssembly(const char *Assembly) {
     SMDiagnostic Error;
@@ -58,14 +60,6 @@ protected:
       report_fatal_error("@test must have an instruction %B");
   }
 
-  std::unique_ptr<Module> M;
-  Instruction *A, *B;
-};
-
-// This fixture assists in running the isPotentiallyReachable utility four ways
-// and ensuring it produces the correct answer each time.
-class IsPotentiallyReachableTest : public CFGTest {
-protected:
   void ExpectPath(bool ExpectedResult) {
     static char ID;
     class IsPotentiallyReachableTestPass : public FunctionPass {
@@ -117,6 +111,9 @@ protected:
     PM.add(P);
     PM.run(*M);
   }
+
+  std::unique_ptr<Module> M;
+  Instruction *A, *B;
 };
 
 }
@@ -389,6 +386,31 @@ TEST_F(IsPotentiallyReachableTest, ModifyTest) {
   ExpectPath(true);
 }
 
+// HLSL Change Begin
+namespace {
+class CFGTest : public testing::Test {
+protected:
+  void ParseAssembly(const char *Assembly) {
+    SMDiagnostic Error;
+    M = parseAssemblyString(Assembly, Error, getGlobalContext());
+
+    std::string errMsg;
+    raw_string_ostream os(errMsg);
+    Error.print("", os);
+
+    // A failure here means that the test itself is buggy.
+    if (!M)
+      report_fatal_error(os.str().c_str());
+
+    Function *F = M->getFunction("test");
+    if (F == nullptr)
+      report_fatal_error("Test must have a function named @test");
+  }
+
+  std::unique_ptr<Module> M;
+};
+} // namespace
+
 TEST_F(CFGTest, SuccIteratorPlusEquals) {
   ParseAssembly(BranchInsideLoopIR);
 
@@ -427,3 +449,4 @@ TEST_F(CFGTest, SuccIteratorPlusEquals) {
   S = succ_begin(iter);
   EXPECT_EQ(S, succ_end(iter));
 }
+// HLSL Change End
