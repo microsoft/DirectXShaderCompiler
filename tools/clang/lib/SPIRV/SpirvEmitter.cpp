@@ -9421,8 +9421,8 @@ SpirvInstruction *SpirvEmitter::processWaveQuery(const CallExpr *callExpr,
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
   const QualType retType = callExpr->getCallReturnType(astContext);
-  return spvBuilder.createGroupNonUniformElect(
-      opcode, retType, spv::Scope::Subgroup, callExpr->getExprLoc());
+  return spvBuilder.createGroupNonUniformOp(
+      opcode, retType, spv::Scope::Subgroup, {}, callExpr->getExprLoc());
 }
 
 SpirvInstruction *SpirvEmitter::processIsHelperLane(const CallExpr *callExpr,
@@ -9463,8 +9463,9 @@ SpirvInstruction *SpirvEmitter::processWaveVote(const CallExpr *callExpr,
                                   callExpr->getExprLoc());
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
-  return spvBuilder.createGroupNonUniformUnaryOp(
-      callExpr->getExprLoc(), opcode, retType, spv::Scope::Subgroup, predicate);
+  return spvBuilder.createGroupNonUniformOp(opcode, retType,
+                                            spv::Scope::Subgroup, {predicate},
+                                            callExpr->getExprLoc());
 }
 
 spv::Op SpirvEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
@@ -9551,14 +9552,13 @@ SpirvEmitter::processWaveCountBits(const CallExpr *callExpr,
   const QualType u32Type = astContext.UnsignedIntTy;
   const QualType v4u32Type = astContext.getExtVectorType(u32Type, 4);
   const QualType retType = callExpr->getCallReturnType(astContext);
-  auto *ballot = spvBuilder.createGroupNonUniformUnaryOp(
-      srcLoc, spv::Op::OpGroupNonUniformBallot, v4u32Type, spv::Scope::Subgroup,
-      predicate);
+  auto *ballot = spvBuilder.createGroupNonUniformOp(
+      spv::Op::OpGroupNonUniformBallot, v4u32Type, spv::Scope::Subgroup,
+      {predicate}, srcLoc);
 
-  return spvBuilder.createGroupNonUniformUnaryOp(
-      srcLoc, spv::Op::OpGroupNonUniformBallotBitCount, retType,
-      spv::Scope::Subgroup, ballot,
-      llvm::Optional<spv::GroupOperation>(groupOp));
+  return spvBuilder.createGroupNonUniformOp(
+      spv::Op::OpGroupNonUniformBallotBitCount, retType, spv::Scope::Subgroup,
+      {ballot}, srcLoc, groupOp);
 }
 
 SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
@@ -9580,9 +9580,9 @@ SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
                                   callExpr->getExprLoc());
   auto *predicate = doExpr(callExpr->getArg(0));
   const QualType retType = callExpr->getCallReturnType(astContext);
-  return spvBuilder.createGroupNonUniformUnaryOp(
-      callExpr->getExprLoc(), opcode, retType, spv::Scope::Subgroup, predicate,
-      llvm::Optional<spv::GroupOperation>(groupOp));
+  return spvBuilder.createGroupNonUniformOp(
+      opcode, retType, spv::Scope::Subgroup, {predicate},
+      callExpr->getExprLoc(), llvm::Optional<spv::GroupOperation>(groupOp));
 }
 
 SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
@@ -9600,13 +9600,13 @@ SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {
     // WaveReadLaneAt is in fact not a broadcast operation (even though its name
     // might incorrectly suggest so). The proper mapping to SPIR-V for
     // it is OpGroupNonUniformShuffle, *not* OpGroupNonUniformBroadcast.
-    return spvBuilder.createGroupNonUniformBinaryOp(
-        spv::Op::OpGroupNonUniformShuffle, retType, spv::Scope::Subgroup, value,
-        doExpr(callExpr->getArg(1)), srcLoc);
+    return spvBuilder.createGroupNonUniformOp(
+        spv::Op::OpGroupNonUniformShuffle, retType, spv::Scope::Subgroup,
+        {value, doExpr(callExpr->getArg(1))}, srcLoc);
   else
-    return spvBuilder.createGroupNonUniformUnaryOp(
-        srcLoc, spv::Op::OpGroupNonUniformBroadcastFirst, retType,
-        spv::Scope::Subgroup, value);
+    return spvBuilder.createGroupNonUniformOp(
+        spv::Op::OpGroupNonUniformBroadcastFirst, retType, spv::Scope::Subgroup,
+        {value}, srcLoc);
 }
 
 SpirvInstruction *
@@ -9648,8 +9648,8 @@ SpirvEmitter::processWaveQuadWideShuffle(const CallExpr *callExpr,
     llvm_unreachable("case should not appear here");
   }
 
-  return spvBuilder.createGroupNonUniformBinaryOp(
-      opcode, retType, spv::Scope::Subgroup, value, target, srcLoc);
+  return spvBuilder.createGroupNonUniformOp(
+      opcode, retType, spv::Scope::Subgroup, {value, target}, srcLoc);
 }
 
 SpirvInstruction *
@@ -9673,9 +9673,9 @@ SpirvEmitter::processWaveActiveAllEqual(const CallExpr *callExpr) {
 SpirvInstruction *
 SpirvEmitter::processWaveActiveAllEqualScalar(SpirvInstruction *arg,
                                               clang::SourceLocation srcLoc) {
-  return spvBuilder.createGroupNonUniformUnaryOp(
-      srcLoc, spv::Op::OpGroupNonUniformAllEqual, astContext.BoolTy,
-      spv::Scope::Subgroup, arg);
+  return spvBuilder.createGroupNonUniformOp(
+      spv::Op::OpGroupNonUniformAllEqual, astContext.BoolTy,
+      spv::Scope::Subgroup, {arg}, srcLoc);
 }
 
 SpirvInstruction *

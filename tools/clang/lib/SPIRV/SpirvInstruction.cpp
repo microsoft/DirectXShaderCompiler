@@ -64,9 +64,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEmitVertex)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEndPrimitive)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInst)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvFunctionCall)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformBinaryOp)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformElect)
-DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvNonUniformUnaryOp)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvGroupNonUniformOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageOp)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageQuery)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvImageSparseTexelsResident)
@@ -662,65 +660,66 @@ SpirvFunctionCall::SpirvFunctionCall(QualType resultType, SourceLocation loc,
                        loc, range),
       function(fn), args(argsVec.begin(), argsVec.end()) {}
 
-SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(Kind kind, spv::Op op,
-                                               QualType resultType,
-                                               SourceLocation loc,
-                                               spv::Scope scope)
-    : SpirvInstruction(kind, op, resultType, loc), execScope(scope) {}
+SpirvGroupNonUniformOp::SpirvGroupNonUniformOp(
+    spv::Op op, QualType resultType, spv::Scope scope,
+    llvm::ArrayRef<SpirvInstruction *> operandsVec, SourceLocation loc,
+    llvm::Optional<spv::GroupOperation> group)
+    : SpirvInstruction(IK_GroupNonUniformOp, op, resultType, loc),
+      execScope(scope), operands(operandsVec.begin(), operandsVec.end()),
+      groupOp(group) {
+  switch (op) {
 
-SpirvNonUniformBinaryOp::SpirvNonUniformBinaryOp(
-    spv::Op op, QualType resultType, SourceLocation loc, spv::Scope scope,
-    SpirvInstruction *arg1Inst, SpirvInstruction *arg2Inst)
-    : SpirvGroupNonUniformOp(IK_GroupNonUniformBinaryOp, op, resultType, loc,
-                             scope),
-      arg1(arg1Inst), arg2(arg2Inst) {
-  assert(op == spv::Op::OpGroupNonUniformBroadcast ||
-         op == spv::Op::OpGroupNonUniformBallotBitExtract ||
-         op == spv::Op::OpGroupNonUniformShuffle ||
-         op == spv::Op::OpGroupNonUniformShuffleXor ||
-         op == spv::Op::OpGroupNonUniformShuffleUp ||
-         op == spv::Op::OpGroupNonUniformShuffleDown ||
-         op == spv::Op::OpGroupNonUniformQuadBroadcast ||
-         op == spv::Op::OpGroupNonUniformQuadSwap);
-}
+  // Group non-uniform nullary operations.
+  case spv::Op::OpGroupNonUniformElect:
+    assert(operandsVec.size() == 0);
+    break;
 
-SpirvNonUniformElect::SpirvNonUniformElect(QualType resultType,
-                                           SourceLocation loc, spv::Scope scope)
-    : SpirvGroupNonUniformOp(IK_GroupNonUniformElect,
-                             spv::Op::OpGroupNonUniformElect, resultType, loc,
-                             scope) {}
+  // Group non-uniform unary operations.
+  case spv::Op::OpGroupNonUniformAll:
+  case spv::Op::OpGroupNonUniformAny:
+  case spv::Op::OpGroupNonUniformAllEqual:
+  case spv::Op::OpGroupNonUniformBroadcastFirst:
+  case spv::Op::OpGroupNonUniformBallot:
+  case spv::Op::OpGroupNonUniformInverseBallot:
+  case spv::Op::OpGroupNonUniformBallotBitCount:
+  case spv::Op::OpGroupNonUniformBallotFindLSB:
+  case spv::Op::OpGroupNonUniformBallotFindMSB:
+  case spv::Op::OpGroupNonUniformIAdd:
+  case spv::Op::OpGroupNonUniformFAdd:
+  case spv::Op::OpGroupNonUniformIMul:
+  case spv::Op::OpGroupNonUniformFMul:
+  case spv::Op::OpGroupNonUniformSMin:
+  case spv::Op::OpGroupNonUniformUMin:
+  case spv::Op::OpGroupNonUniformFMin:
+  case spv::Op::OpGroupNonUniformSMax:
+  case spv::Op::OpGroupNonUniformUMax:
+  case spv::Op::OpGroupNonUniformFMax:
+  case spv::Op::OpGroupNonUniformBitwiseAnd:
+  case spv::Op::OpGroupNonUniformBitwiseOr:
+  case spv::Op::OpGroupNonUniformBitwiseXor:
+  case spv::Op::OpGroupNonUniformLogicalAnd:
+  case spv::Op::OpGroupNonUniformLogicalOr:
+  case spv::Op::OpGroupNonUniformLogicalXor:
+    assert(operandsVec.size() == 1);
+    break;
 
-SpirvNonUniformUnaryOp::SpirvNonUniformUnaryOp(
-    spv::Op op, QualType resultType, SourceLocation loc, spv::Scope scope,
-    llvm::Optional<spv::GroupOperation> group, SpirvInstruction *argInst)
-    : SpirvGroupNonUniformOp(IK_GroupNonUniformUnaryOp, op, resultType, loc,
-                             scope),
-      arg(argInst), groupOp(group) {
-  assert(op == spv::Op::OpGroupNonUniformAll ||
-         op == spv::Op::OpGroupNonUniformAny ||
-         op == spv::Op::OpGroupNonUniformAllEqual ||
-         op == spv::Op::OpGroupNonUniformBroadcastFirst ||
-         op == spv::Op::OpGroupNonUniformBallot ||
-         op == spv::Op::OpGroupNonUniformInverseBallot ||
-         op == spv::Op::OpGroupNonUniformBallotBitCount ||
-         op == spv::Op::OpGroupNonUniformBallotFindLSB ||
-         op == spv::Op::OpGroupNonUniformBallotFindMSB ||
-         op == spv::Op::OpGroupNonUniformIAdd ||
-         op == spv::Op::OpGroupNonUniformFAdd ||
-         op == spv::Op::OpGroupNonUniformIMul ||
-         op == spv::Op::OpGroupNonUniformFMul ||
-         op == spv::Op::OpGroupNonUniformSMin ||
-         op == spv::Op::OpGroupNonUniformUMin ||
-         op == spv::Op::OpGroupNonUniformFMin ||
-         op == spv::Op::OpGroupNonUniformSMax ||
-         op == spv::Op::OpGroupNonUniformUMax ||
-         op == spv::Op::OpGroupNonUniformFMax ||
-         op == spv::Op::OpGroupNonUniformBitwiseAnd ||
-         op == spv::Op::OpGroupNonUniformBitwiseOr ||
-         op == spv::Op::OpGroupNonUniformBitwiseXor ||
-         op == spv::Op::OpGroupNonUniformLogicalAnd ||
-         op == spv::Op::OpGroupNonUniformLogicalOr ||
-         op == spv::Op::OpGroupNonUniformLogicalXor);
+  // Group non-uniform binary operations.
+  case spv::Op::OpGroupNonUniformBroadcast:
+  case spv::Op::OpGroupNonUniformBallotBitExtract:
+  case spv::Op::OpGroupNonUniformShuffle:
+  case spv::Op::OpGroupNonUniformShuffleXor:
+  case spv::Op::OpGroupNonUniformShuffleUp:
+  case spv::Op::OpGroupNonUniformShuffleDown:
+  case spv::Op::OpGroupNonUniformQuadBroadcast:
+  case spv::Op::OpGroupNonUniformQuadSwap:
+    assert(operandsVec.size() == 2);
+    break;
+
+  // Unexpected opcode.
+  default:
+    assert(false && "Unexpected Group non-uniform opcode");
+    break;
+  }
 }
 
 SpirvImageOp::SpirvImageOp(
