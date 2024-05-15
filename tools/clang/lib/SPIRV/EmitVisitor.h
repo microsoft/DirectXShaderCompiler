@@ -257,9 +257,7 @@ public:
   bool visit(SpirvCompositeInsert *) override;
   bool visit(SpirvExtInst *) override;
   bool visit(SpirvFunctionCall *) override;
-  bool visit(SpirvNonUniformBinaryOp *) override;
-  bool visit(SpirvNonUniformElect *) override;
-  bool visit(SpirvNonUniformUnaryOp *) override;
+  bool visit(SpirvGroupNonUniformOp *) override;
   bool visit(SpirvImageOp *) override;
   bool visit(SpirvImageQuery *) override;
   bool visit(SpirvImageSparseTexelsResident *) override;

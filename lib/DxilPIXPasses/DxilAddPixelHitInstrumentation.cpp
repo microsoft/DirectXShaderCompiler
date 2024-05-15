@@ -32,14 +32,16 @@ class DxilAddPixelHitInstrumentation : public ModulePass {
   bool AddPixelCost = false;
   int RTWidth = 1024;
   int NumPixels = 128;
-  int SVPositionIndex = -1;
 
 public:
   static char ID; // Pass identification, replacement for typeid
   explicit DxilAddPixelHitInstrumentation() : ModulePass(ID) {}
-  StringRef getPassName() const override { return "DXIL Constant Color Mod"; }
+  StringRef getPassName() const override {
+    return "DXIL Add Pixel Hit Instrumentation";
+  }
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
+  unsigned m_upstreamSVPositionRow;
 };
 
 void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O) {
@@ -47,7 +49,8 @@ void DxilAddPixelHitInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionBool(O, "add-pixel-cost", &AddPixelCost, false);
   GetPassOptionInt(O, "rt-width", &RTWidth, 0);
   GetPassOptionInt(O, "num-pixels", &NumPixels, 0);
-  GetPassOptionInt(O, "sv-position-index", &SVPositionIndex, 0);
+  GetPassOptionUnsigned(O, "upstream-sv-position-row", &m_upstreamSVPositionRow,
+                        0);
 }
 
 bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
@@ -63,37 +66,8 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
     DM.m_ShaderFlags.SetForceEarlyDepthStencil(true);
   }
 
-  hlsl::DxilSignature &InputSignature = DM.GetInputSignature();
-
-  auto &InputElements = InputSignature.GetElements();
-
-  unsigned SV_Position_ID;
-
-  auto SV_Position =
-      std::find_if(InputElements.begin(), InputElements.end(),
-                   [](const std::unique_ptr<DxilSignatureElement> &Element) {
-                     return Element->GetSemantic()->GetKind() ==
-                            hlsl::DXIL::SemanticKind::Position;
-                   });
-
-  // SV_Position, if present, has to have full mask, so we needn't worry
-  // about the shader having selected components that don't include x or y.
-  // If not present, we add it.
-  if (SV_Position == InputElements.end()) {
-    auto SVPosition =
-        llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-    SVPosition->Initialize("Position", hlsl::CompType::getF32(),
-                           hlsl::DXIL::InterpolationMode::Linear, 1, 4,
-                           SVPositionIndex == -1 ? 0 : SVPositionIndex, 0);
-    SVPosition->AppendSemanticIndex(0);
-    SVPosition->SetSigPointKind(DXIL::SigPointKind::PSIn);
-    SVPosition->SetKind(hlsl::DXIL::SemanticKind::Position);
-
-    auto index = InputSignature.AppendElement(std::move(SVPosition));
-    SV_Position_ID = InputElements[index]->GetID();
-  } else {
-    SV_Position_ID = SV_Position->get()->GetID();
-  }
+  auto SV_Position_ID =
+      PIXPassHelpers::FindOrAddSV_Position(DM, m_upstreamSVPositionRow);
 
   auto EntryPointFunction = PIXPassHelpers::GetEntryFunction(DM);
 
