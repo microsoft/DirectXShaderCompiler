@@ -102,7 +102,8 @@ public:
   TEST_METHOD(CompileDebugDisasmPDB)
 
   TEST_METHOD(AddToASPayload)
-
+  TEST_METHOD(AddToASGroupSharedPayload)
+  TEST_METHOD(AddToASGroupSharedPayload_MeshletCullSample)
   TEST_METHOD(SignatureModification_Empty)
   TEST_METHOD(SignatureModification_VertexIdAlready)
   TEST_METHOD(SignatureModification_SomethingElseFirst)
@@ -565,7 +566,7 @@ PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob) {
 
 TEST_F(PixTest, AddToASPayload) {
 
-  const char *dynamicResourceDecriptorHeapAccess = R"(
+  const char *hlsl = R"(
 struct MyPayload
 {
     float f1;
@@ -603,12 +604,10 @@ void MSMain(
 
   )";
 
-  auto as = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"as_6_6",
-                    {}, L"ASMain");
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {}, L"ASMain");
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
 
-  auto ms = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"ms_6_6",
-                    {}, L"MSMain");
+  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6", {}, L"MSMain");
   RunDxilPIXMeshShaderOutputPass(ms);
 }
 unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
@@ -704,6 +703,63 @@ TEST_F(PixTest, SignatureModification_SomethingElseFirst) {
   VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartRow(), 2);
 }
 
+TEST_F(PixTest, AddToASGroupSharedPayload) {
+
+  const char *hlsl = R"(
+struct Contained
+{
+    uint j;
+    float af[3];
+};
+
+struct Bigger
+{
+    half h;
+    void Init() { h = 1.f; }
+  Contained a[2];
+};
+
+struct MyPayload
+{
+    uint i;
+    Bigger big[3];
+};
+
+groupshared MyPayload payload;
+
+[numthreads(1, 1, 1)]
+void main(uint gid : SV_GroupID)
+{
+  DispatchMesh(1, 1, 1, payload);
+}
+
+  )";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {L"-Od"}, L"main");
+  RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+}
+
+TEST_F(PixTest, AddToASGroupSharedPayload_MeshletCullSample) {
+
+  const char *hlsl = R"(
+struct MyPayload
+{
+    uint i[32];
+};
+
+groupshared MyPayload payload;
+
+[numthreads(1, 1, 1)]
+void main(uint gid : SV_GroupID)
+{
+  DispatchMesh(1, 1, 1, payload);
+}
+
+  )";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {L"-Od"}, L"main");
+  RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+}
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
   using namespace llvm;
   const llvm::DITypeIdentifierMap EmptyMap;
