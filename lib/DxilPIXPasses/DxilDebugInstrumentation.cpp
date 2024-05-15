@@ -19,6 +19,7 @@
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/Support/Global.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
@@ -282,6 +283,8 @@ private:
   unsigned m_LastInstruction = static_cast<unsigned>(-1);
 
   uint64_t m_UAVSize = 1024 * 1024;
+  unsigned m_upstreamSVPositionRow;
+
   struct PerFunctionValues {
     CallInst *UAVHandle = nullptr;
     Instruction *CounterOffset = nullptr;
@@ -378,17 +381,33 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
   GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
+  GetPassOptionUnsigned(O, "upstreamSVPositionRow", &m_upstreamSVPositionRow,
+                        0);
 }
 
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize / 2);
 }
 
-static unsigned FindOrAddInputSignatureElement(
-    hlsl::DxilSignature &InputSignature, const char *name,
-    DXIL::SigPointKind sigPointKind, hlsl::DXIL::SemanticKind semanticKind) {
+unsigned int GetNextEmptyRow(
+    std::vector<std::unique_ptr<DxilSignatureElement>> const &Elements) {
+  unsigned int Row = 0;
+  for (auto const &Element : Elements) {
+    Row = std::max<unsigned>(Row, Element->GetStartRow() + Element->GetRows());
+  }
+  return Row;
+}
 
-  auto &InputElements = InputSignature.GetElements();
+unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
+    hlsl::DxilSignature &InputSignature,
+    hlsl::DXIL::SemanticKind semanticKind) {
+  DXASSERT(InputSignature.GetSigPointKind() == DXIL::SigPointKind::VSIn,
+           "Unexpected SigPointKind in input signature");
+  DXASSERT(semanticKind == DXIL::SemanticKind::InstanceID ||
+               semanticKind == DXIL::SemanticKind::VertexID,
+           "This function only expects InstaceID or VertexID");
+
+  auto const &InputElements = InputSignature.GetElements();
 
   auto ExistingElement =
       std::find_if(InputElements.begin(), InputElements.end(),
@@ -397,13 +416,16 @@ static unsigned FindOrAddInputSignatureElement(
                    });
 
   if (ExistingElement == InputElements.end()) {
-    auto AddedElement = llvm::make_unique<DxilSignatureElement>(sigPointKind);
-    AddedElement->Initialize(name, hlsl::CompType::getF32(),
-                             hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
+    auto AddedElement =
+        llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+    unsigned Row = GetNextEmptyRow(InputElements);
+    AddedElement->Initialize(
+        hlsl::Semantic::Get(semanticKind)->GetName(), hlsl::CompType::getU32(),
+        hlsl::DXIL::InterpolationMode::Constant, 1, 1, Row, 0);
     AddedElement->AppendSemanticIndex(0);
-    AddedElement->SetSigPointKind(sigPointKind);
     AddedElement->SetKind(semanticKind);
-
+    AddedElement->SetUsageMask(1);
+    // AppendElement sets the element's ID by default
     auto index = InputSignature.AppendElement(std::move(AddedElement));
     return InputElements[index]->GetID();
   } else {
@@ -429,12 +451,12 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     break;
   case DXIL::ShaderKind::Vertex: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    SVIndices.VertexShader.VertexId = FindOrAddInputSignatureElement(
-        InputSignature, "VertexId", DXIL::SigPointKind::VSIn,
-        hlsl::DXIL::SemanticKind::VertexID);
-    SVIndices.VertexShader.InstanceId = FindOrAddInputSignatureElement(
-        InputSignature, "InstanceId", DXIL::SigPointKind::VSIn,
-        hlsl::DXIL::SemanticKind::InstanceID);
+    SVIndices.VertexShader.VertexId =
+        FindOrAddVSInSignatureElementForInstanceOrVertexID(
+            InputSignature, hlsl::DXIL::SemanticKind::VertexID);
+    SVIndices.VertexShader.InstanceId =
+        FindOrAddVSInSignatureElementForInstanceOrVertexID(
+            InputSignature, hlsl::DXIL::SemanticKind::InstanceID);
   } break;
   case DXIL::ShaderKind::Geometry:
   case DXIL::ShaderKind::Hull:
@@ -443,34 +465,8 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     // in the input signature
     break;
   case DXIL::ShaderKind::Pixel: {
-    hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    auto &InputElements = InputSignature.GetElements();
-
-    auto Existing_SV_Position =
-        std::find_if(InputElements.begin(), InputElements.end(),
-                     [](const std::unique_ptr<DxilSignatureElement> &Element) {
-                       return Element->GetSemantic()->GetKind() ==
-                              hlsl::DXIL::SemanticKind::Position;
-                     });
-
-    // SV_Position, if present, has to have full mask, so we needn't worry
-    // about the shader having selected components that don't include x or y.
-    // If not present, we add it.
-    if (Existing_SV_Position == InputElements.end()) {
-      auto Added_SV_Position =
-          llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-      Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
-                                    hlsl::DXIL::InterpolationMode::Linear, 1,
-                                    4);
-      Added_SV_Position->AppendSemanticIndex(0);
-      Added_SV_Position->SetSigPointKind(DXIL::SigPointKind::PSIn);
-      Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
-
-      auto index = InputSignature.AppendElement(std::move(Added_SV_Position));
-      SVIndices.PixelShader.Position = InputElements[index]->GetID();
-    } else {
-      SVIndices.PixelShader.Position = Existing_SV_Position->get()->GetID();
-    }
+    SVIndices.PixelShader.Position =
+        PIXPassHelpers::FindOrAddSV_Position(BC.DM, m_upstreamSVPositionRow);
   } break;
   default:
     assert(false); // guaranteed by runOnModule
@@ -1514,8 +1510,6 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
       }
     }
   }
-
-  DM.ReEmitDxilResources();
 
   return true;
 }

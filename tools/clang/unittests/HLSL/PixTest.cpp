@@ -45,6 +45,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -101,6 +102,10 @@ public:
   TEST_METHOD(CompileDebugDisasmPDB)
 
   TEST_METHOD(AddToASPayload)
+
+  TEST_METHOD(SignatureModification_Empty)
+  TEST_METHOD(SignatureModification_VertexIdAlready)
+  TEST_METHOD(SignatureModification_SomethingElseFirst)
 
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
   TEST_METHOD(PixStructAnnotation_Lib_RaygenAllocaStructAlignment)
@@ -605,6 +610,98 @@ void MSMain(
   auto ms = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"ms_6_6",
                     {}, L"MSMain");
   RunDxilPIXMeshShaderOutputPass(ms);
+}
+unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
+    hlsl::DxilSignature &InputSignature, hlsl::DXIL::SemanticKind semanticKind);
+
+TEST_F(PixTest, SignatureModification_Empty) {
+
+  DxilSignature sig(DXIL::ShaderKind::Vertex, DXIL::SignatureKind::Input,
+                    false);
+
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::InstanceID);
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::VertexID);
+
+  VERIFY_ARE_EQUAL(2ull, sig.GetElements().size());
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetKind(), DXIL::SemanticKind::InstanceID);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::VertexID);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+}
+
+TEST_F(PixTest, SignatureModification_VertexIdAlready) {
+
+  DxilSignature sig(DXIL::ShaderKind::Vertex, DXIL::SignatureKind::Input,
+                    false);
+
+  auto AddedElement =
+      llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+  AddedElement->Initialize(
+      Semantic::Get(DXIL::SemanticKind::VertexID)->GetName(),
+      hlsl::CompType::getU32(), DXIL::InterpolationMode::Constant, 1, 1, 0, 0,
+      0, {0});
+  AddedElement->SetKind(DXIL::SemanticKind::VertexID);
+  AddedElement->SetUsageMask(1);
+  sig.AppendElement(std::move(AddedElement));
+
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::InstanceID);
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::VertexID);
+
+  VERIFY_ARE_EQUAL(2ull, sig.GetElements().size());
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetKind(), DXIL::SemanticKind::VertexID);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::InstanceID);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+}
+
+TEST_F(PixTest, SignatureModification_SomethingElseFirst) {
+
+  DxilSignature sig(DXIL::ShaderKind::Vertex, DXIL::SignatureKind::Input,
+                    false);
+
+  auto AddedElement =
+      llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+  AddedElement->Initialize("One", hlsl::CompType::getU32(),
+                           DXIL::InterpolationMode::Constant, 1, 6, 0, 0, 0,
+                           {0});
+  AddedElement->SetKind(DXIL::SemanticKind::Arbitrary);
+  AddedElement->SetUsageMask(1);
+  sig.AppendElement(std::move(AddedElement));
+
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::InstanceID);
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::VertexID);
+
+  VERIFY_ARE_EQUAL(3ull, sig.GetElements().size());
+  // Not gonna check the first one cuz that would just be grading our own
+  // homework
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::InstanceID);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetKind(), DXIL::SemanticKind::VertexID);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartRow(), 2);
 }
 
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
