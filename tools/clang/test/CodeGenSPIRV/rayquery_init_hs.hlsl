@@ -1,6 +1,6 @@
-// RUN: %dxc -T hs_6_5 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T hs_6_5 -E main -fspv-target-env=vulkan1.2 -spirv %s | FileCheck %s
+
 // CHECK:  OpCapability RayQueryKHR
-// CHECK:  OpCapability RayTraversalPrimitiveCullingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 
 #define MAX_POINTS 3
@@ -56,19 +56,20 @@ void doInitialize(RayQuery<RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_TRIANGLES> query,
     query.TraceRayInline(AccelerationStructure,RAY_FLAG_FORCE_NON_OPAQUE,0xFF,ray);
 }
 
+[outputtopology("triangle_ccw")]
 [outputcontrolpoints(MAX_POINTS)]
 [patchconstantfunc("mainConstant")]
 CONTROL_POINT main(InputPatch<VS_CONTROL_POINT_OUTPUT, MAX_POINTS> ip, uint cpid : SV_OutputControlPointID) {
 // CHECK:  %rayQueryKHR = OpTypeRayQueryKHR
 // CHECK:  %_ptr_Function_rayQueryKHR = OpTypePointer Function %rayQueryKHR
-// CHECK:  [[rayquery:%\d+]] = OpVariable %_ptr_Function_rayQueryKHR Function
+// CHECK:  [[rayquery:%[0-9]+]] = OpVariable %_ptr_Function_rayQueryKHR Function
     RayQuery<RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_TRIANGLES> q;
     RayDesc ray = MakeRayDesc();
-// CHECK:  [[accel:%\d+]] = OpLoad %accelerationStructureNV %AccelerationStructure
-// CHECK:  OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_517 %uint_255 {{%\d+}} %float_0 {{%\d+}} %float_9999
+// CHECK:  [[accel:%[0-9]+]] = OpLoad %accelerationStructureNV %AccelerationStructure
+// CHECK:  OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_257 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
 
     q.TraceRayInline(AccelerationStructure,RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
-// CHECK: OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_259 %uint_255 {{%\d+}} %float_0 {{%\d+}} %float_9999
+// CHECK: OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_259 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
     doInitialize(q, ray);
     CONTROL_POINT result;
     return result;

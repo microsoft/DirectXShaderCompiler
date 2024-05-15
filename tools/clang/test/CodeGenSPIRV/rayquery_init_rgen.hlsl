@@ -1,8 +1,9 @@
-// RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2
-// CHECK:  OpCapability RayTracingKHR
+// RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2 -spirv %s | FileCheck %s
+
 // CHECK:  OpCapability RayQueryKHR
-// CHECK:  OpExtension "SPV_KHR_ray_tracing"
+// CHECK:  OpCapability RayTracingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query"
+// CHECK:  OpExtension "SPV_KHR_ray_tracing"
 
 // CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
 // CHECK-NOT: OpTypeAccelerationStructureKHR
@@ -33,11 +34,12 @@ void main() {
   Payload myPayload = { float4(0.0f,0.0f,0.0f,0.0f) };
   RayQuery<RAY_FLAG_FORCE_OPAQUE> q;
   RayDesc ray = MakeRayDesc();
-// CHECK:  [[accel:%\d+]] = OpLoad %accelerationStructureNV %AccelerationStructure
-// CHECK:  OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_1 %uint_255 {{%\d+}} %float_0 {{%\d+}} %float_9999
+// CHECK:  [[rayquery:%[0-9]+]] = OpVariable %_ptr_Function_rayQueryKHR Function
+// CHECK:  [[accel:%[0-9]+]] = OpLoad %accelerationStructureNV %AccelerationStructure
+// CHECK:  OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_1 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
   q.TraceRayInline(AccelerationStructure,RAY_FLAG_FORCE_OPAQUE, 0xFF, ray);
-// CHECK: OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_3 %uint_255 {{%\d+}} %float_0 {{%\d+}} %float_9999
+// CHECK: OpRayQueryInitializeKHR [[rayquery]] [[accel]] %uint_3 %uint_255 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999
   doInitialize(q, ray);
-// CHECK: OpTraceNV {{%\d+}} %uint_0 %uint_255 %uint_0 %uint_1 %uint_0 {{%\d+}} {{%\d+}} {{%\d+}} {{%\d+}} %uint_0
+// CHECK: OpTraceRayKHR {{%[0-9]+}} %uint_0 %uint_255 %uint_0 %uint_1 %uint_0 {{%[0-9]+}} %float_0 {{%[0-9]+}} %float_9999 %myPayload
   TraceRay(AccelerationStructure, 0x0, 0xff, 0, 1, 0, ray, myPayload);
 }
