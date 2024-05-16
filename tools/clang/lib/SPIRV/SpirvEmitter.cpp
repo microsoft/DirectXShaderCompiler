@@ -9608,7 +9608,7 @@ SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
 
-  llvm::ArrayRef<SpirvInstruction *> operands;
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
   auto *value = doExpr(callExpr->getArg(0));
   if (isMultiPrefix) {
     SpirvInstruction *mask = doExpr(callExpr->getArg(1));
