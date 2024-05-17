@@ -8728,6 +8728,18 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
         callExpr, translateWaveOp(hlslOpcode, retType, srcLoc),
         spv::GroupOperation::ExclusiveScan);
   } break;
+  case hlsl::IntrinsicOp::IOP_WaveMultiPrefixUSum:
+  case hlsl::IntrinsicOp::IOP_WaveMultiPrefixSum:
+  case hlsl::IntrinsicOp::IOP_WaveMultiPrefixUProduct:
+  case hlsl::IntrinsicOp::IOP_WaveMultiPrefixProduct:
+  case hlsl::IntrinsicOp::IOP_WaveMultiPrefixBitAnd:
+  case hlsl::IntrinsicOp::IOP_WaveMultiPrefixBitOr:
+  case hlsl::IntrinsicOp::IOP_WaveMultiPrefixBitXor: {
+    const auto retType = callExpr->getCallReturnType(astContext);
+    retVal = processWaveReductionOrPrefix(
+        callExpr, translateWaveOp(hlslOpcode, retType, srcLoc),
+        spv::GroupOperation::PartitionedExclusiveScanNV);
+  } break;
   case hlsl::IntrinsicOp::IOP_WavePrefixCountBits:
     retVal = processWaveCountBits(callExpr, spv::GroupOperation::ExclusiveScan);
     break;
@@ -9524,6 +9536,13 @@ spv::Op SpirvEmitter::translateWaveOp(hlsl::IntrinsicOp op, QualType type,
     WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveMax, SMax, UMax, FMax);
     WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveUMin, SMin, UMin, FMin);
     WAVE_OP_CASE_SINT_UINT_FLOAT(ActiveMin, SMin, UMin, FMin);
+    WAVE_OP_CASE_INT_FLOAT(MultiPrefixUSum, IAdd, FAdd);
+    WAVE_OP_CASE_INT_FLOAT(MultiPrefixSum, IAdd, FAdd);
+    WAVE_OP_CASE_INT_FLOAT(MultiPrefixUProduct, IMul, FMul);
+    WAVE_OP_CASE_INT_FLOAT(MultiPrefixProduct, IMul, FMul);
+    WAVE_OP_CASE_INT(MultiPrefixBitAnd, BitwiseAnd);
+    WAVE_OP_CASE_INT(MultiPrefixBitOr, BitwiseOr);
+    WAVE_OP_CASE_INT(MultiPrefixBitXor, BitwiseXor);
   default:
     // Only Simple Wave Ops are handled here.
     break;
@@ -9575,14 +9594,33 @@ SpirvInstruction *SpirvEmitter::processWaveReductionOrPrefix(
   //
   // <type> WavePrefixProduct(<type> value)
   // <type> WavePrefixSum(<type> value)
-  assert(callExpr->getNumArgs() == 1);
+  //
+  // <type> WaveMultiPrefixSum( <type> val, uint4 mask )
+  // <type> WaveMultiPrefixProduct( <type> val, uint4 mask )
+  // <int_type> WaveMultiPrefixBitAnd( <int_type> val, uint4 mask )
+  // <int_type> WaveMultiPrefixBitOr( <int_type> val, uint4 mask )
+  // <int_type> WaveMultiPrefixBitXor( <int_type> val, uint4 mask )
+
+  bool isMultiPrefix =
+      groupOp == spv::GroupOperation::PartitionedExclusiveScanNV;
+  assert(callExpr->getNumArgs() == (isMultiPrefix ? 2 : 1));
+
   featureManager.requestTargetEnv(SPV_ENV_VULKAN_1_1, "Wave Operation",
                                   callExpr->getExprLoc());
-  auto *predicate = doExpr(callExpr->getArg(0));
+
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
+  auto *value = doExpr(callExpr->getArg(0));
+  if (isMultiPrefix) {
+    SpirvInstruction *mask = doExpr(callExpr->getArg(1));
+    operands = {value, mask};
+  } else {
+    operands = {value};
+  }
+
   const QualType retType = callExpr->getCallReturnType(astContext);
   return spvBuilder.createGroupNonUniformOp(
-      opcode, retType, spv::Scope::Subgroup, {predicate},
-      callExpr->getExprLoc(), llvm::Optional<spv::GroupOperation>(groupOp));
+      opcode, retType, spv::Scope::Subgroup, operands, callExpr->getExprLoc(),
+      llvm::Optional<spv::GroupOperation>(groupOp));
 }
 
 SpirvInstruction *SpirvEmitter::processWaveBroadcast(const CallExpr *callExpr) {

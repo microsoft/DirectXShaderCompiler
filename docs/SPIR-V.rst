@@ -3840,9 +3840,9 @@ loading from SPIR-V builtin variable ``SubgroupSize`` and
 ``SubgroupLocalInvocationId`` respectively, the rest are translated into SPIR-V
 group operations with ``Subgroup`` scope according to the following chart:
 
-============= ============================ =================================== ======================
+============= ============================ =================================== ==============================
 Wave Category       Wave Intrinsics               SPIR-V Opcode                SPIR-V Group Operation
-============= ============================ =================================== ======================
+============= ============================ =================================== ==============================
 Query         ``WaveIsFirstLane()``        ``OpGroupNonUniformElect``
 Vote          ``WaveActiveAnyTrue()``      ``OpGroupNonUniformAny``
 Vote          ``WaveActiveAllTrue()``      ``OpGroupNonUniformAll``
@@ -3866,7 +3866,12 @@ Quad          ``QuadReadAcrossY()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
 N/A           ``WaveMatch()``              ``OpGroupNonUniformPartitionNV``
-============= ============================ =================================== ======================
+Multiprefix   ``WaveMultiPrefixSum()``     ``OpGroupNonUniform*Add``           ``PartitionedExclusiveScanNV``
+Multiprefix   ``WaveMultiPrefixProduct()`` ``OpGroupNonUniform*Mul``           ``PartitionedExclusiveScanNV``
+Multiprefix   ``WaveMultiPrefixBitAnd()``  ``OpGroupNonUniformLogicalAnd``     ``PartitionedExclusiveScanNV``
+Multiprefix   ``WaveMultiPrefixBitOr()``   ``OpGroupNonUniformLogicalOr``      ``PartitionedExclusiveScanNV``
+Multiprefix   ``WaveMultiPrefixBitXor()``  ``OpGroupNonUniformLogicalXor``     ``PartitionedExclusiveScanNV``
+============= ============================ =================================== ==============================
 
 The Implicit ``vk`` Namespace
 =============================
