@@ -2,7 +2,7 @@
 
 // CHECK:  OpCapability MeshShadingEXT
 // CHECK:  OpExtension "SPV_EXT_mesh_shader"
-// OpEntryPoint TaskEXT %main "main"
+// CHECK:  OpEntryPoint TaskEXT %main "main"
 
 struct SubMesh {
     uint vertexCount;
