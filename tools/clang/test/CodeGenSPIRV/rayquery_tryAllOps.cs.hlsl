@@ -1,4 +1,5 @@
-// RUN: dxc -T cs_6_5 -E CS -fspv-target-env=vulkan1.2
+// RUN: %dxc -T cs_6_5 -E CS -fspv-target-env=vulkan1.2 -O0 -spirv %s | FileCheck %s
+
 // CHECK:  OpCapability RayQueryKHR
 // CHECK:  OpExtension "SPV_KHR_ray_query"
 
@@ -28,7 +29,7 @@ void CS()
     q.TraceRayInline(AccelerationStructure,RAY_FLAG_NONE,0xFF,ray);
     float4x3 mat4x3;
     float3x4 mat3x4;
-// CHECK:  [[rayquery:%\d+]] = OpVariable %_ptr_Function_rayQueryKHR Function
+// CHECK:  [[rayquery:%[0-9]+]] = OpVariable %_ptr_Function_rayQueryKHR Function
 // CHECK:  OpRayQueryProceedKHR %bool [[rayquery]]
     while(q.Proceed())
     {
