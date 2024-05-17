@@ -1,8 +1,8 @@
-// RUN: %dxc -T as_6_5 -E main -fspv-target-env=vulkan1.2
+// RUN: %dxc -T as_6_5 -E main -fspv-target-env=vulkan1.2 -fcgl -spirv %s | FileCheck %s
 
-// CHECK:  OpCapability MeshShadingNV
-// CHECK:  OpExtension "SPV_NV_mesh_shader"
-// CHECK:  OpEntryPoint TaskNV %main "main"
+// CHECK:  OpCapability MeshShadingEXT
+// CHECK:  OpExtension "SPV_EXT_mesh_shader"
+// CHECK:  OpEntryPoint TaskEXT %main "main"
 
 struct SubMesh {
     uint vertexCount;
@@ -50,7 +50,7 @@ groupshared SubMeshes sharedSubMeshes;
 // CHECK:  %_arr_v4float_uint_8_0 = OpTypeArray %v4float %uint_8
 // CHECK:  %SubMesh_0 = OpTypeStruct %uint %uint %uint %uint %_arr_v4float_uint_8_0
 // CHECK:  %_ptr_Function_SubMesh_0 = OpTypePointer Function %SubMesh_0
-// CHECK:  [[funcType:%\d+]] = OpTypeFunction %bool %_ptr_Function_SubMesh_0
+// CHECK:  [[funcType:%[0-9]+]] = OpTypeFunction %bool %_ptr_Function_SubMesh_0
 
 bool TestSubmesh(SubMesh submesh) {
     uint clip = 0x0U;
@@ -87,10 +87,10 @@ void main(
         SubMesh submesh = submeshes[smid];
         bool passed = true;
 
-// CHECK:  [[submeshValue:%\d+]] = OpLoad %SubMesh_0 %submesh
+// CHECK:  [[submeshValue:%[0-9]+]] = OpLoad %SubMesh_0 %submesh
 // CHECK:  OpStore %param_var_submesh [[submeshValue]]
-// CHECK:  [[rv:%\d+]] = OpFunctionCall %bool %TestSubmesh %param_var_submesh
-// CHECK:  [[cond:%\d+]] = OpLogicalNot %bool [[rv]]
+// CHECK:  [[rv:%[0-9]+]] = OpFunctionCall %bool %TestSubmesh %param_var_submesh
+// CHECK:  [[cond:%[0-9]+]] = OpLogicalNot %bool [[rv]]
 // CHECK:  OpSelectionMerge %if_merge_0 None
 // CHECK:  OpBranchConditional [[cond]] %if_true_0 %if_merge_0
 // CHECK:  %if_true_0 = OpLabel
@@ -129,7 +129,7 @@ void main(
 // CHECK:  %for_body_0 = OpLabel
 // CHECK:  %for_merge_0 = OpLabel
 
-// CHECK:  [[clipValue:%\d+]] = OpLoad %uint %clip
-// CHECK:  [[retValue:%\d+]] = OpIEqual %bool [[clipValue]] %uint_63
+// CHECK:  [[clipValue:%[0-9]+]] = OpLoad %uint %clip
+// CHECK:  [[retValue:%[0-9]+]] = OpIEqual %bool [[clipValue]] %uint_63
 // CHECK:  OpReturnValue [[retValue]]
 // CHECK:  OpFunctionEnd

@@ -45,6 +45,7 @@
 #include "dxc/Support/dxcapi.use.h"
 #include "dxc/Support/microcom.h"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -101,6 +102,11 @@ public:
   TEST_METHOD(CompileDebugDisasmPDB)
 
   TEST_METHOD(AddToASPayload)
+  TEST_METHOD(AddToASGroupSharedPayload)
+  TEST_METHOD(AddToASGroupSharedPayload_MeshletCullSample)
+  TEST_METHOD(SignatureModification_Empty)
+  TEST_METHOD(SignatureModification_VertexIdAlready)
+  TEST_METHOD(SignatureModification_SomethingElseFirst)
 
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
   TEST_METHOD(PixStructAnnotation_Lib_RaygenAllocaStructAlignment)
@@ -560,7 +566,7 @@ PixTest::RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob) {
 
 TEST_F(PixTest, AddToASPayload) {
 
-  const char *dynamicResourceDecriptorHeapAccess = R"(
+  const char *hlsl = R"(
 struct MyPayload
 {
     float f1;
@@ -598,15 +604,162 @@ void MSMain(
 
   )";
 
-  auto as = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"as_6_6",
-                    {}, L"ASMain");
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {}, L"ASMain");
   RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
 
-  auto ms = Compile(m_dllSupport, dynamicResourceDecriptorHeapAccess, L"ms_6_6",
-                    {}, L"MSMain");
+  auto ms = Compile(m_dllSupport, hlsl, L"ms_6_6", {}, L"MSMain");
   RunDxilPIXMeshShaderOutputPass(ms);
 }
+unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
+    hlsl::DxilSignature &InputSignature, hlsl::DXIL::SemanticKind semanticKind);
 
+TEST_F(PixTest, SignatureModification_Empty) {
+
+  DxilSignature sig(DXIL::ShaderKind::Vertex, DXIL::SignatureKind::Input,
+                    false);
+
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::InstanceID);
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::VertexID);
+
+  VERIFY_ARE_EQUAL(2ull, sig.GetElements().size());
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetKind(), DXIL::SemanticKind::InstanceID);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::VertexID);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+}
+
+TEST_F(PixTest, SignatureModification_VertexIdAlready) {
+
+  DxilSignature sig(DXIL::ShaderKind::Vertex, DXIL::SignatureKind::Input,
+                    false);
+
+  auto AddedElement =
+      llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+  AddedElement->Initialize(
+      Semantic::Get(DXIL::SemanticKind::VertexID)->GetName(),
+      hlsl::CompType::getU32(), DXIL::InterpolationMode::Constant, 1, 1, 0, 0,
+      0, {0});
+  AddedElement->SetKind(DXIL::SemanticKind::VertexID);
+  AddedElement->SetUsageMask(1);
+  sig.AppendElement(std::move(AddedElement));
+
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::InstanceID);
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::VertexID);
+
+  VERIFY_ARE_EQUAL(2ull, sig.GetElements().size());
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetKind(), DXIL::SemanticKind::VertexID);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(0).GetStartRow(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::InstanceID);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+}
+
+TEST_F(PixTest, SignatureModification_SomethingElseFirst) {
+
+  DxilSignature sig(DXIL::ShaderKind::Vertex, DXIL::SignatureKind::Input,
+                    false);
+
+  auto AddedElement =
+      llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+  AddedElement->Initialize("One", hlsl::CompType::getU32(),
+                           DXIL::InterpolationMode::Constant, 1, 6, 0, 0, 0,
+                           {0});
+  AddedElement->SetKind(DXIL::SemanticKind::Arbitrary);
+  AddedElement->SetUsageMask(1);
+  sig.AppendElement(std::move(AddedElement));
+
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::InstanceID);
+  FindOrAddVSInSignatureElementForInstanceOrVertexID(
+      sig, DXIL::SemanticKind::VertexID);
+
+  VERIFY_ARE_EQUAL(3ull, sig.GetElements().size());
+  // Not gonna check the first one cuz that would just be grading our own
+  // homework
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetKind(), DXIL::SemanticKind::InstanceID);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(1).GetStartRow(), 1);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetKind(), DXIL::SemanticKind::VertexID);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetCols(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetRows(), 1u);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartCol(), 0);
+  VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartRow(), 2);
+}
+
+TEST_F(PixTest, AddToASGroupSharedPayload) {
+
+  const char *hlsl = R"(
+struct Contained
+{
+    uint j;
+    float af[3];
+};
+
+struct Bigger
+{
+    half h;
+    void Init() { h = 1.f; }
+  Contained a[2];
+};
+
+struct MyPayload
+{
+    uint i;
+    Bigger big[3];
+};
+
+groupshared MyPayload payload;
+
+[numthreads(1, 1, 1)]
+void main(uint gid : SV_GroupID)
+{
+  DispatchMesh(1, 1, 1, payload);
+}
+
+  )";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {L"-Od"}, L"main");
+  RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+}
+
+TEST_F(PixTest, AddToASGroupSharedPayload_MeshletCullSample) {
+
+  const char *hlsl = R"(
+struct MyPayload
+{
+    uint i[32];
+};
+
+groupshared MyPayload payload;
+
+[numthreads(1, 1, 1)]
+void main(uint gid : SV_GroupID)
+{
+  DispatchMesh(1, 1, 1, payload);
+}
+
+  )";
+
+  auto as = Compile(m_dllSupport, hlsl, L"as_6_6", {L"-Od"}, L"main");
+  RunDxilPIXAddTidToAmplificationShaderPayloadPass(as);
+}
 static llvm::DIType *PeelTypedefs(llvm::DIType *diTy) {
   using namespace llvm;
   const llvm::DITypeIdentifierMap EmptyMap;

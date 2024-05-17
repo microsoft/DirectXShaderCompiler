@@ -431,32 +431,13 @@ SpirvSpecConstantBinaryOp *SpirvBuilder::createSpecConstantBinaryOp(
   return instruction;
 }
 
-SpirvNonUniformElect *SpirvBuilder::createGroupNonUniformElect(
-    spv::Op op, QualType resultType, spv::Scope execScope, SourceLocation loc) {
-  assert(insertPoint && "null insert point");
-  auto *instruction =
-      new (context) SpirvNonUniformElect(resultType, loc, execScope);
-  insertPoint->addInstruction(instruction);
-  return instruction;
-}
-
-SpirvNonUniformUnaryOp *SpirvBuilder::createGroupNonUniformUnaryOp(
-    SourceLocation loc, spv::Op op, QualType resultType, spv::Scope execScope,
-    SpirvInstruction *operand, llvm::Optional<spv::GroupOperation> groupOp) {
+SpirvGroupNonUniformOp *SpirvBuilder::createGroupNonUniformOp(
+    spv::Op op, QualType resultType, spv::Scope execScope,
+    llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation loc,
+    llvm::Optional<spv::GroupOperation> groupOp) {
   assert(insertPoint && "null insert point");
   auto *instruction = new (context)
-      SpirvNonUniformUnaryOp(op, resultType, loc, execScope, groupOp, operand);
-  insertPoint->addInstruction(instruction);
-  return instruction;
-}
-
-SpirvNonUniformBinaryOp *SpirvBuilder::createGroupNonUniformBinaryOp(
-    spv::Op op, QualType resultType, spv::Scope execScope,
-    SpirvInstruction *operand1, SpirvInstruction *operand2,
-    SourceLocation loc) {
-  assert(insertPoint && "null insert point");
-  auto *instruction = new (context) SpirvNonUniformBinaryOp(
-      op, resultType, loc, execScope, operand1, operand2);
+      SpirvGroupNonUniformOp(op, resultType, execScope, operands, loc, groupOp);
   insertPoint->addInstruction(instruction);
   return instruction;
 }

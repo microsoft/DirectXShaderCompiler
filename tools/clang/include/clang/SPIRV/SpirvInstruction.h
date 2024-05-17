@@ -111,11 +111,7 @@ public:
 
     IK_SetMeshOutputsEXT, // OpSetMeshOutputsEXT
 
-    // The following section is for group non-uniform instructions.
-    // Used by LLVM-style RTTI; order matters.
-    IK_GroupNonUniformBinaryOp, // Group non-uniform binary operations
-    IK_GroupNonUniformElect,    // OpGroupNonUniformElect
-    IK_GroupNonUniformUnaryOp,  // Group non-uniform unary operations
+    IK_GroupNonUniformOp, // Group non-uniform operations
 
     IK_ImageOp,                   // OpImage*
     IK_ImageQuery,                // OpImageQuery*
@@ -1495,102 +1491,43 @@ private:
   llvm::SmallVector<SpirvInstruction *, 4> args;
 };
 
-/// \brief Base for OpGroupNonUniform* instructions
+/// \brief OpGroupNonUniform* instructions
 class SpirvGroupNonUniformOp : public SpirvInstruction {
 public:
+  SpirvGroupNonUniformOp(spv::Op opcode, QualType resultType, spv::Scope scope,
+                         llvm::ArrayRef<SpirvInstruction *> operands,
+                         SourceLocation loc,
+                         llvm::Optional<spv::GroupOperation> group);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvGroupNonUniformOp)
+
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() >= IK_GroupNonUniformBinaryOp &&
-           inst->getKind() <= IK_GroupNonUniformUnaryOp;
+    return inst->getKind() == IK_GroupNonUniformOp;
   }
+
+  bool invokeVisitor(Visitor *v) override;
 
   spv::Scope getExecutionScope() const { return execScope; }
 
-protected:
-  SpirvGroupNonUniformOp(Kind kind, spv::Op opcode, QualType resultType,
-                         SourceLocation loc, spv::Scope scope);
+  llvm::ArrayRef<SpirvInstruction *> getOperands() const { return operands; }
+
+  bool hasGroupOp() const { return groupOp.hasValue(); }
+  spv::GroupOperation getGroupOp() const { return groupOp.getValue(); }
+
+  void replaceOperand(
+      llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
+      bool inEntryFunctionWrapper) override {
+    for (auto *operand : getOperands()) {
+      operand = remapOp(operand);
+    }
+    if (inEntryFunctionWrapper)
+      setAstResultType(getOperands()[0]->getAstResultType());
+  }
 
 private:
   spv::Scope execScope;
-};
-
-/// \brief OpGroupNonUniform* binary instructions.
-class SpirvNonUniformBinaryOp : public SpirvGroupNonUniformOp {
-public:
-  SpirvNonUniformBinaryOp(spv::Op opcode, QualType resultType,
-                          SourceLocation loc, spv::Scope scope,
-                          SpirvInstruction *arg1, SpirvInstruction *arg2);
-
-  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformBinaryOp)
-
-  // For LLVM-style RTTI
-  static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_GroupNonUniformBinaryOp;
-  }
-
-  bool invokeVisitor(Visitor *v) override;
-
-  SpirvInstruction *getArg1() const { return arg1; }
-  SpirvInstruction *getArg2() const { return arg2; }
-  void replaceOperand(
-      llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
-      bool inEntryFunctionWrapper) override {
-    arg1 = remapOp(arg1);
-    arg2 = remapOp(arg2);
-  }
-
-private:
-  SpirvInstruction *arg1;
-  SpirvInstruction *arg2;
-};
-
-/// \brief OpGroupNonUniformElect instruction. This is currently the only
-/// non-uniform instruction that takes no other arguments.
-class SpirvNonUniformElect : public SpirvGroupNonUniformOp {
-public:
-  SpirvNonUniformElect(QualType resultType, SourceLocation loc,
-                       spv::Scope scope);
-
-  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformElect)
-
-  // For LLVM-style RTTI
-  static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_GroupNonUniformElect;
-  }
-
-  bool invokeVisitor(Visitor *v) override;
-};
-
-/// \brief OpGroupNonUniform* unary instructions.
-class SpirvNonUniformUnaryOp : public SpirvGroupNonUniformOp {
-public:
-  SpirvNonUniformUnaryOp(spv::Op opcode, QualType resultType,
-                         SourceLocation loc, spv::Scope scope,
-                         llvm::Optional<spv::GroupOperation> group,
-                         SpirvInstruction *arg);
-
-  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvNonUniformUnaryOp)
-
-  // For LLVM-style RTTI
-  static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() == IK_GroupNonUniformUnaryOp;
-  }
-
-  bool invokeVisitor(Visitor *v) override;
-
-  SpirvInstruction *getArg() const { return arg; }
-  bool hasGroupOp() const { return groupOp.hasValue(); }
-  spv::GroupOperation getGroupOp() const { return groupOp.getValue(); }
-  void replaceOperand(
-      llvm::function_ref<SpirvInstruction *(SpirvInstruction *)> remapOp,
-      bool inEntryFunctionWrapper) override {
-    arg = remapOp(arg);
-    if (inEntryFunctionWrapper)
-      setAstResultType(arg->getAstResultType());
-  }
-
-private:
-  SpirvInstruction *arg;
+  llvm::SmallVector<SpirvInstruction *, 4> operands;
   llvm::Optional<spv::GroupOperation> groupOp;
 };
 

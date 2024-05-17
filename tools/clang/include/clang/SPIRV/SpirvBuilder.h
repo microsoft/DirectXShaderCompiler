@@ -238,17 +238,10 @@ public:
 
   /// \brief Creates an operation with the given OpGroupNonUniform* SPIR-V
   /// opcode.
-  SpirvNonUniformElect *createGroupNonUniformElect(spv::Op op,
-                                                   QualType resultType,
-                                                   spv::Scope execScope,
-                                                   SourceLocation);
-  SpirvNonUniformUnaryOp *createGroupNonUniformUnaryOp(
-      SourceLocation, spv::Op op, QualType resultType, spv::Scope execScope,
-      SpirvInstruction *operand,
-      llvm::Optional<spv::GroupOperation> groupOp = llvm::None);
-  SpirvNonUniformBinaryOp *createGroupNonUniformBinaryOp(
+  SpirvGroupNonUniformOp *createGroupNonUniformOp(
       spv::Op op, QualType resultType, spv::Scope execScope,
-      SpirvInstruction *operand1, SpirvInstruction *operand2, SourceLocation);
+      llvm::ArrayRef<SpirvInstruction *> operands, SourceLocation,
+      llvm::Optional<spv::GroupOperation> groupOp = llvm::None);
 
   /// \brief Creates an atomic instruction with the given parameters and returns
   /// its pointer.

@@ -130,7 +130,9 @@ private:
   typedef SuccIterator<Term_, BB_> Self;
 
   inline bool index_is_valid(int idx) {
-    return idx >= 0 && (unsigned) idx < Term->getNumSuccessors();
+    // HLSL Change Begin
+    return idx >= 0 && (unsigned)idx <= Term->getNumSuccessors();
+    // HLSL Change End
   }
 
   /// \brief Proxy object to allow write access in operator[]
