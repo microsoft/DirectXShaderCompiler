@@ -104,7 +104,7 @@ def main(args):
         # 1. Gets the pass list for an HLSL compilation using -Odump
         cmd = ["dxc", "/Odump", args.hlsl_file] + args.compilation_options
         # print(cmd)
-        all_passes = subprocess.check_output(cmd, text=True)
+        all_passes = subprocess.check_output(cmd, universal_newlines=True)
         all_passes = all_passes.splitlines()
 
         # 2. Compiles HLSL with -fcgl and outputs to intermediate IR
@@ -124,6 +124,9 @@ def main(args):
         passes_before, passes_after = SplitAtPass(
             all_passes, args.desired_pass, args.invocation
         )
+        if passes_after is None:
+          sys.exit("\nPass {} not found!\nUse dxc with -Odump to see the available passes.\n".format(args.desired_pass))
+
         print(
             "\nPasses before: {}\n\nRemaining passes: {}".format(
                 " ".join(passes_before), " ".join(passes_after)
