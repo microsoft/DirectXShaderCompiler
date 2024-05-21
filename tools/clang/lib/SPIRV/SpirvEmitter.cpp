@@ -5128,10 +5128,10 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     retVal = processTextureSampleCmp(expr);
     break;
   case IntrinsicOp::MOP_SampleCmpLevelZero:
-    retVal = processTextureSampleCmpLevel(expr, /* hasExplicitLod= */ false);
+    retVal = processTextureSampleCmpLevelZero(expr);
     break;
   case IntrinsicOp::MOP_SampleCmpLevel:
-    retVal = processTextureSampleCmpLevel(expr, /* hasExplicitLod= */ true);
+    retVal = processTextureSampleCmpLevel(expr);
     break;
   case IntrinsicOp::MOP_GatherRed:
     retVal = processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 0);
@@ -5622,8 +5622,7 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
 }
 
 SpirvInstruction *
-SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr,
-                                           const bool hasExplicitLod) {
+SpirvEmitter::processTextureSampleCmpLevelZero(const CXXMemberCallExpr *expr) {
   // .SampleCmpLevelZero() is identical to .SampleCmp() on mipmap level 0 only.
   // It never takes a clamp argument, which is good because lod and clamp may
   // not be used together.
@@ -5641,6 +5640,49 @@ SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr,
   //   [, out uint Status]
   // );
   //
+  // For TextureCube and TextureCubeArray:
+  // float Object.SampleCmpLevelZero(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float CompareValue
+  //   [, out uint Status]
+  // );
+
+  const auto numArgs = expr->getNumArgs();
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  auto *image = loadIfGLValue(imageExpr);
+  auto *sampler = doExpr(expr->getArg(0));
+  auto *coordinate = doExpr(expr->getArg(1));
+  auto *compareVal = doExpr(expr->getArg(2));
+  auto *lod =
+      spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.0f));
+
+  // If offset is present in .SampleCmp(), it will be the fourth argument.
+  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
+  const bool hasOffsetArg = numArgs - hasStatusArg - 3 > 0;
+  if (hasOffsetArg)
+    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+
+  const auto retType = expr->getDirectCallee()->getReturnType();
+  const auto imageType = imageExpr->getType();
+
+  return createImageSample(
+      retType, imageType, image, sampler, coordinate, compareVal,
+      /*bias*/ nullptr, /*lod*/ lod, std::make_pair(nullptr, nullptr),
+      constOffset, varOffset, /*constOffsets*/ nullptr,
+      /*sampleNumber*/ nullptr, /*clamp*/ nullptr, status,
+      expr->getCallee()->getLocStart(), expr->getSourceRange());
+}
+
+SpirvInstruction *
+SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr) {
+  // .SampleCmpLevel() is identical to .SampleCmpLevel, except the LOD level
+  // is taken as a float argument.
+  //
   // For Texture1D, Texture1DArray, Texture2D, Texture2DArray:
   // float Object.SampleCmpLevel(
   //   SamplerComparisonState S,
@@ -5648,14 +5690,6 @@ SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr,
   //   float CompareValue,
   //   float LOD,
   //   [, int Offset]
-  //   [, out uint Status]
-  // );
-  //
-  // For TextureCube and TextureCubeArray:
-  // float Object.SampleCmpLevelZero(
-  //   SamplerComparisonState S,
-  //   float Location,
-  //   float CompareValue
   //   [, out uint Status]
   // );
   //
@@ -5678,16 +5712,13 @@ SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr,
   auto *sampler = doExpr(expr->getArg(0));
   auto *coordinate = doExpr(expr->getArg(1));
   auto *compareVal = doExpr(expr->getArg(2));
-  auto *lod = hasExplicitLod ? doExpr(expr->getArg(3))
-                             : spvBuilder.getConstantFloat(astContext.FloatTy,
-                                                           llvm::APFloat(0.0f));
+  auto *lod = doExpr(expr->getArg(3));
 
   // If offset is present in .SampleCmp(), it will be the fourth argument.
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
-  const bool hasOffsetArg = numArgs - hasStatusArg - hasExplicitLod - 3 > 0;
+  const bool hasOffsetArg = numArgs - hasStatusArg - 4 > 0;
   if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, hasExplicitLod ? 4 : 3, &constOffset,
-                             &varOffset);
+    handleOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();

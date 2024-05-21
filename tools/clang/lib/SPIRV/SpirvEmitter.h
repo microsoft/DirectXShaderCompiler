@@ -987,10 +987,12 @@ private:
   /// \brief Processes .SampleCmp() method call for texture objects.
   SpirvInstruction *processTextureSampleCmp(const CXXMemberCallExpr *expr);
 
-  /// \brief Processes .SampleCmpLevel() or .SampleCmpLevelZero() method call
-  /// for texture objects.
-  SpirvInstruction *processTextureSampleCmpLevel(const CXXMemberCallExpr *expr,
-                                                 bool hasExplicitLod);
+  /// \brief Processes .SampleCmpLevelZero() method call for texture objects.
+  SpirvInstruction *
+  processTextureSampleCmpLevelZero(const CXXMemberCallExpr *expr);
+
+  /// \brief Processes .SampleCmpLevel() method call for texture objects.
+  SpirvInstruction *processTextureSampleCmpLevel(const CXXMemberCallExpr *expr);
 
   /// \brief Handles .Gather{|Cmp}{Red|Green|Blue|Alpha}() calls on texture
   /// types.
