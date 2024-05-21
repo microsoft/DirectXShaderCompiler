@@ -504,6 +504,16 @@ void PassManagerBuilder::populateModulePassManager(
   }
 
   // HLSL Change Begins.
+  {
+    // Run reassociate pass again after GVN since GVN will expose more
+    // opportunities for reassociation.
+    if (HLSLEnableAggressiveReassociation) {
+      MPM.add(createReassociatePass(true)); // Reassociate expressions
+      if (EnableGVN)
+        MPM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies
+    }
+  }
+
   // Use value numbering to figure out if regions are equivalent, and branch to only one.
   MPM.add(createDxilSimpleGVNEliminateRegionPass());
   // HLSL don't allow memcpy and memset.
