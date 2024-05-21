@@ -1240,6 +1240,15 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
   }
 
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    StringRef typeName = recordType->getDecl()->getName();
+    if (typeName.startswith("FeedbackTexture")) {
+      emitError("Texture resource type '%0' is not supported with -spirv", loc)
+          << typeName;
+      return nullptr;
+    }
+  }
+
   if (hlsl::IsHLSLResourceType(type)) {
     if (!areFormatAndTypeCompatible(vkImgFeatures.format,
                                     hlsl::GetHLSLResourceResultType(type))) {
