@@ -1258,14 +1258,13 @@ def ArrayOfBuffer
                   S->getType()->getAsArrayTypeUnsafe()->getElementType()->getAs<RecordType>()->getDecl()->getName() ==
                       "RasterizerOrderedBuffer")}]>;
 
-// Global variable with "Texture" or "SamplerState" type
+// Global variable with "Texture*" or "Sampler*" type
 def TextureOrSampler
     : SubsetSubject<
           Var, [{S->hasGlobalStorage() && S->getType()->getAs<RecordType>() &&
                  S->getType()->getAs<RecordType>()->getDecl() &&
                  (S->getType()->getAs<RecordType>()->getDecl()->getName().startswith("Texture") ||
-                  S->getType()->getAs<RecordType>()->getDecl()->getName() ==
-                      "SamplerState")}]>;
+                  S->getType()->getAs<RecordType>()->getDecl()->getName().startswith("Sampler"))}]>;
 
 def VKBuiltIn : InheritableAttr {
   let Spellings = [CXX11<"vk", "builtin">];

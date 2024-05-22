@@ -80,7 +80,7 @@ void node037_finishedcrossgroupsharing(RWDispatchNodeInputRecord<INPUT_RECORD> i
 // Arg #1: Size Tag (0)
 // Arg #2: 4 bytes
 // ------------------------------------------------------------------
-// CHECK: [[INPUT_RECORD]] = !{i32 0, i32 4}
+// CHECK: [[INPUT_RECORD]] = !{i32 0, i32 4, i32 2, i32 4}
 
 // NumThreads
 // Arg #1: 1024

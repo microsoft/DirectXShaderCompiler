@@ -37,12 +37,12 @@ void node02([MaxRecords(8)] GroupNodeInputRecords<RECORD> input)
 [NodeLaunch("thread")]
 void node03(RWThreadNodeInputRecord<RECORD> input)
 {
-   Barrier(input, 3);
+   Barrier(input, 0);
 }
 // CHECK: define void @node03() {
 // CHECK:   [[NODE03_A:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.createNodeInputRecordHandle(i32 {{[0-9]+}}, i32 0)  ; CreateNodeInputRecordHandle(MetadataIdx)
 // CHECK: [[ANN_NODE03_A:%[0-9]+]] =  call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[NODE03_A]], %dx.types.NodeRecordInfo { i32 37, i32 4 })
-// CHECK:   call void @dx.op.barrierByNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[ANN_NODE03_A]], i32 3)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
+// CHECK:   call void @dx.op.barrierByNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[ANN_NODE03_A]], i32 0)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
 
 [Shader("node")]
 [NodeLaunch("coalescing")]
@@ -63,33 +63,33 @@ void node04([MaxRecords(6)] RWGroupNodeInputRecords<RECORD> input)
 void node05([MaxRecords(5)] NodeOutput<RECORD> outputs)
 {
    ThreadNodeOutputRecords<RECORD> outrec = outputs.GetThreadNodeOutputRecords(1);
-   Barrier(outrec, 3);
+   Barrier(outrec, 0);
 }
 // CHECK: define void @node05() {
 // CHECK:   [[NODE05_A:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.createNodeOutputHandle(i32 {{[0-9]+}}, i32 0)  ; CreateNodeOutputHandle(MetadataIdx)
 // CHECK:   [[ANN_NODE05_A:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[NODE05_A]], %dx.types.NodeInfo { i32 6, i32 4 })
 // CHECK:   [[NODE05_B:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANN_NODE05_A]], i32 1, i1 true)  ; AllocateNodeOutputRecords(output,numRecords,perThread)
 // CHECK: [[ANN_NODE05_B:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[NODE05_B]], %dx.types.NodeRecordInfo { i32 38, i32 4 })
-// CHECK:   call void @dx.op.barrierByNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[ANN_NODE05_B]], i32 3)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
+// CHECK:   call void @dx.op.barrierByNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[ANN_NODE05_B]], i32 0)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
 
 [Shader("node")]
 [NodeLaunch("thread")]
-void node06([MaxOutputRecords(5)] NodeOutput<RECORD> outputs)
+void node06([MaxRecords(5)] NodeOutput<RECORD> outputs)
 {
    ThreadNodeOutputRecords<RECORD> outrec = outputs.GetThreadNodeOutputRecords(3);
-   Barrier(outrec, 3);
+   Barrier(outrec, 0);
 }
 // CHECK: define void @node06() {
 // CHECK:   [[NODE06_A:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.createNodeOutputHandle(i32 {{[0-9]+}}, i32 0)  ; CreateNodeOutputHandle(MetadataIdx)
 // CHECK:   [[ANN_NODE06_A:%[0-9]+]] = call %dx.types.NodeHandle @dx.op.annotateNodeHandle(i32 {{[0-9]+}}, %dx.types.NodeHandle [[NODE06_A]], %dx.types.NodeInfo { i32 6, i32 4 })
 // CHECK:   [[NODE06_B:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.allocateNodeOutputRecords(i32 {{[0-9]+}}, %dx.types.NodeHandle [[ANN_NODE06_A]], i32 3, i1 true)  ; AllocateNodeOutputRecords(output,numRecords,perThread)
 // CHECK:   [[ANN_NODE06_B:%[0-9]+]] = call %dx.types.NodeRecordHandle @dx.op.annotateNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[NODE06_B]], %dx.types.NodeRecordInfo { i32 38, i32 4 })
-// CHECK:   call void @dx.op.barrierByNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[ANN_NODE06_B]], i32 3)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
+// CHECK:   call void @dx.op.barrierByNodeRecordHandle(i32 {{[0-9]+}}, %dx.types.NodeRecordHandle [[ANN_NODE06_B]], i32 0)  ; BarrierByNodeRecordHandle(object,SemanticFlags)
 
 [Shader("node")]
 [NodeLaunch("coalescing")]
 [NumThreads(256,1,3)]
-void node07([MaxOutputRecords(5)] NodeOutput<RECORD> outputs)
+void node07([MaxRecords(5)] NodeOutput<RECORD> outputs)
 {
    GroupNodeOutputRecords<RECORD> outrec = outputs.GetGroupNodeOutputRecords(1);
    Barrier(outrec, 3);

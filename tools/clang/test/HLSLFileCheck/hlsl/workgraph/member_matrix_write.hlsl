@@ -116,7 +116,7 @@ void node03(NodeOutput<RECORD> output3)
 [Shader("node")]
 [NumThreads(1024,1,1)]
 [NodeLaunch("coalescing")]
-void node04([MaxOutputRecords(5)] NodeOutput<RECORD> outputs4)
+void node04([MaxRecords(5)] NodeOutput<RECORD> outputs4)
 {
   GroupNodeOutputRecords<RECORD> outrec = outputs4.GetGroupNodeOutputRecords(1);
   // CHECK: %[[p1_0:[^ ]+]] = getelementptr inbounds %[[RECORD]], %[[RECORD]] addrspace(6)* %{{[^,]+}}, i32 0, i32 1, i32 0

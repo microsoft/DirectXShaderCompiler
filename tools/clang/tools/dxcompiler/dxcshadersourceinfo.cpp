@@ -312,19 +312,20 @@ static std::vector<SourceFile> ComputeFileList(clang::CodeGenOptions &cgOpts,
     for (auto it = srcMgr.fileinfo_begin(), end = srcMgr.fileinfo_end();
          it != end; ++it) {
       if (it->first->isValid() && !it->second->IsSystemFile) {
+        llvm::SmallString<256> Path = llvm::StringRef(it->first->getName());
+        llvm::sys::path::native(Path);
         // If main file, write that to metadata first.
         // Add the rest to filesMap to sort by name.
         if (cgOpts.MainFileName.compare(it->first->getName()) == 0) {
           SourceFile file;
-          file.Name = hlsl::NormalizePath(it->first->getName());
+          file.Name = Path.str();
           file.Content = it->second->getRawBuffer()->getBuffer();
           ret.push_back(file);
           assert(!bFoundMainFile &&
                  "otherwise, more than one file matches main filename");
           bFoundMainFile = true;
         } else {
-          std::string NormalizedBuf = hlsl::NormalizePath(it->first->getName());
-          filesMap[NormalizedBuf] = it->second->getRawBuffer()->getBuffer();
+          filesMap[Path.str()] = it->second->getRawBuffer()->getBuffer();
         }
       }
     }

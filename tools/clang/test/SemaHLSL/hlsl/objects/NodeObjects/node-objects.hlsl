@@ -160,7 +160,7 @@ void node_RWGroupNodeInputRecords([MaxRecords(4)] RWGroupNodeInputRecords<RECORD
 [NodeLaunch("thread")]
 void node_ThreadNodeInputRecord(ThreadNodeInputRecord<RECORD> input)
 {
-   Barrier(wrapper(input), 3);
+   Barrier(wrapper(input), 0);
 }
 
 //  RWThreadNodeInputRecord
@@ -180,7 +180,7 @@ void node_ThreadNodeInputRecord(ThreadNodeInputRecord<RECORD> input)
 [NodeLaunch("thread")]
 void node_RWThreadNodeInputRecord(RWThreadNodeInputRecord<RECORD> input)
 {
-   Barrier(wrapper(input), 3);
+   Barrier(wrapper(input), 0);
 }
 //  EmptyNodeInput
 // AST: FunctionDecl 0x{{.+}} node_EmptyNodeInput 'void (EmptyNodeInput)'
@@ -238,7 +238,8 @@ void node_NodeOutput(NodeOutput<RECORD> output3)
 
 //  EmptyNodeOutput
 // AST: FunctionDecl 0x{{.+}} node_EmptyNodeOutput 'void (EmptyNodeOutput)'
-// AST: | |-ParmVarDecl 0x[[Param:[0-9a-f]+]] {{.+}} col:40 used loadStressChild 'EmptyNodeOutput'
+// AST: | |-ParmVarDecl 0x[[Param:[0-9a-f]+]] {{.+}} col:35 used loadStressChild 'EmptyNodeOutput'
+// AST: | | `-HLSLMaxRecordsAttr 0x{{.+}} 12
 // call to wrapper
 // AST: CallExpr 0x{{.+}} <col:27, col:50> 'EmptyNodeOutput':'EmptyNodeOutput'
 // AST: |-ImplicitCastExpr 0x{{.+}} <col:27> 'EmptyNodeOutput (*)(EmptyNodeOutput)' <FunctionToPointerDecay>
@@ -259,7 +260,7 @@ EmptyNodeOutput outputNode)
 [NodeDispatchGrid(1, 1, 1)]
 [NumThreads(1, 1, 1)]
 void node_EmptyNodeOutput(
-	[MaxOutputRecords(1)] EmptyNodeOutput loadStressChild
+	[MaxRecords(12)] EmptyNodeOutput loadStressChild
 )
 {
 	loadStressEmptyRecWorker(wrapper(loadStressChild));

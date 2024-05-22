@@ -46,7 +46,8 @@ ShaderFlags::ShaderFlags()
       m_bAtomicInt64OnHeapResource(false), m_bResMayNotAlias(false),
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
       m_bWaveMMA(false), m_bSampleCmpGradientOrBias(false),
-      m_bExtendedCommandInfo(false), m_bUsesDerivatives(false), m_align1(0) {
+      m_bExtendedCommandInfo(false), m_bUsesDerivatives(false),
+      m_bRequiresGroup(false), m_align1(0) {
   // Silence unused field warnings
   (void)m_align1;
 }
@@ -134,7 +135,9 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
                ? hlsl::DXIL::ShaderFeatureInfo_ExtendedCommandInfo
                : 0;
 
+  // Per-function flags
   Flags |= m_bUsesDerivatives ? hlsl::DXIL::OptFeatureInfo_UsesDerivatives : 0;
+  Flags |= m_bRequiresGroup ? hlsl::DXIL::OptFeatureInfo_RequiresGroup : 0;
 
   return Flags;
 }
@@ -199,6 +202,7 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetSampleCmpGradientOrBias(true);
   Flags.SetExtendedCommandInfo(true);
   Flags.SetUsesDerivatives(true);
+  Flags.SetRequiresGroup(true);
   return Flags.GetShaderFlagsRaw();
 }
 
@@ -453,6 +457,11 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   // model is mesh or amplification shader.
   bool hasDerivatives = false;
 
+  // RequiresGroup is used to indicate any group shared memory use per-function,
+  // before flags are combined from called functions. Later, this will allow
+  // enforcing of the thread launch node shader case which has no visible group.
+  bool requiresGroup = false;
+
   // Try to maintain compatibility with a v1.0 validator if that's what we have.
   uint32_t valMajor, valMinor;
   M->GetValidatorVersion(valMajor, valMinor);
@@ -536,6 +545,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
       bool isHalf = Ty->isHalfTy();
       bool isInt16 = Ty == int16Ty;
       bool isInt64 = Ty == int64Ty;
+      requiresGroup |= Ty->isPointerTy() &&
+                       Ty->getPointerAddressSpace() == DXIL::kTGSMAddrSpace;
       if (isa<ExtractElementInst>(&I) || isa<InsertElementInst>(&I))
         continue;
       for (Value *operand : I.operands()) {
@@ -544,6 +555,8 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         isHalf |= Ty->isHalfTy();
         isInt16 |= Ty == int16Ty;
         isInt64 |= Ty == int64Ty;
+        requiresGroup |= Ty->isPointerTy() &&
+                         Ty->getPointerAddressSpace() == DXIL::kTGSMAddrSpace;
       }
       if (isDouble) {
         hasDouble = true;
@@ -572,13 +585,9 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
       if (const CallInst *CI = dyn_cast<CallInst>(&I)) {
         if (!OP::IsDxilOpFunc(CI->getCalledFunction()))
           continue;
-        Value *opcodeArg = CI->getArgOperand(DXIL::OperandIndex::kOpcodeIdx);
-        ConstantInt *opcodeConst = dyn_cast<ConstantInt>(opcodeArg);
-        DXASSERT(opcodeConst, "DXIL opcode arg must be immediate");
-        unsigned opcode = opcodeConst->getLimitedValue();
-        DXASSERT(opcode < static_cast<unsigned>(DXIL::OpCode::NumOpCodes),
-                 "invalid DXIL opcode");
-        DXIL::OpCode dxilOp = static_cast<DXIL::OpCode>(opcode);
+        DXIL::OpCode dxilOp = hlsl::OP::getOpCode(CI);
+        if (dxilOp == DXIL::OpCode::NumOpCodes)
+          continue;
         if (hlsl::OP::IsDxilOpWave(dxilOp))
           hasWaveOps = true;
         switch (dxilOp) {
@@ -730,6 +739,13 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::StartInstanceLocation:
           hasExtendedCommandInfo = true;
           break;
+        case DXIL::OpCode::Barrier:
+        case DXIL::OpCode::BarrierByMemoryType:
+        case DXIL::OpCode::BarrierByMemoryHandle:
+        case DXIL::OpCode::BarrierByNodeRecordHandle:
+          if (OP::BarrierRequiresGroup(CI))
+            requiresGroup = true;
+          break;
         default:
           // Normal opcodes.
           break;
@@ -814,6 +830,10 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
     if (!(SM->IsMS() || SM->IsAS()))
       hasDerivativesInMeshAndAmpShaders = false;
   }
+  if (requiresGroup && DXIL::CompareVersions(valMajor, valMinor, 1, 8) < 0) {
+    // Before validator version 1.8, RequiresGroup flag did not exist.
+    requiresGroup = false;
+  }
 
   flag.SetEnableDoublePrecision(hasDouble);
   flag.SetStencilRef(hasStencilRef);
@@ -849,10 +869,16 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetSampleCmpGradientOrBias(hasSampleCmpGradientOrBias);
   flag.SetExtendedCommandInfo(hasExtendedCommandInfo);
   flag.SetUsesDerivatives(hasDerivatives);
+  flag.SetRequiresGroup(requiresGroup);
 
   return flag;
 }
 
 void ShaderFlags::CombineShaderFlags(const ShaderFlags &other) {
   SetShaderFlagsRaw(GetShaderFlagsRaw() | other.GetShaderFlagsRaw());
+}
+
+void ShaderFlags::ClearLocalFlags() {
+  SetUsesDerivatives(false);
+  SetRequiresGroup(false);
 }

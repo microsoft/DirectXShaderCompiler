@@ -294,17 +294,9 @@ bool LiteralTypeVisitor::visit(SpirvVectorShuffle *inst) {
   return true;
 }
 
-bool LiteralTypeVisitor::visit(SpirvNonUniformUnaryOp *inst) {
-  // Went through each non-uniform binary operation and made sure the following
-  // does not result in a wrong type deduction.
-  tryToUpdateInstLitType(inst->getArg(), inst->getAstResultType());
-  return true;
-}
-
-bool LiteralTypeVisitor::visit(SpirvNonUniformBinaryOp *inst) {
-  // Went through each non-uniform unary operation and made sure the following
-  // does not result in a wrong type deduction.
-  tryToUpdateInstLitType(inst->getArg1(), inst->getAstResultType());
+bool LiteralTypeVisitor::visit(SpirvGroupNonUniformOp *inst) {
+  for (auto *operand : inst->getOperands())
+    tryToUpdateInstLitType(operand, inst->getAstResultType());
   return true;
 }
 
@@ -491,6 +483,17 @@ bool LiteralTypeVisitor::visit(SpirvImageOp *inst) {
     const auto sampledType =
         hlsl::GetHLSLResourceResultType(inst->getAstResultType());
     tryToUpdateInstLitType(inst->getTexelToWrite(), sampledType);
+  }
+  return true;
+}
+
+bool LiteralTypeVisitor::visit(SpirvSwitch *inst) {
+  if (auto *constInt = dyn_cast<SpirvConstantInteger>(inst->getSelector())) {
+    if (isLiteralLargerThan32Bits(constInt)) {
+      const bool isSigned = constInt->getAstResultType()->isSignedIntegerType();
+      constInt->setAstResultType(isSigned ? astContext.LongLongTy
+                                          : astContext.UnsignedLongLongTy);
+    }
   }
   return true;
 }

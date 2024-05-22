@@ -19,6 +19,7 @@
 #include "dxc/DxilPIXPasses/DxilPIXPasses.h"
 #include "dxc/DxilPIXPasses/DxilPIXVirtualRegisters.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
+#include "dxc/Support/Global.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/Constants.h"
@@ -48,10 +49,10 @@ using namespace hlsl;
 // UAV if the instance is not of interest.
 //
 // In addition, each half of the UAV is further subdivided: the first quarter is
-// the are in which blocks are permitted to start writing their sequence, and
+// the area in which blocks are permitted to start writing their sequence, and
 // that sequence is constrained to be no longer than the size of the second
 // quarter. This allows us to limit writes to the appropriate half of the UAV
-// via a single AND at the beginning of the basic block. An additoinal OR
+// via a single AND at the beginning of the basic block. An additional OR
 // provides the offset, either 0 for threads-of-interest, or UAVSize/2 for
 // not-of-interest.
 //
@@ -282,6 +283,8 @@ private:
   unsigned m_LastInstruction = static_cast<unsigned>(-1);
 
   uint64_t m_UAVSize = 1024 * 1024;
+  unsigned m_upstreamSVPositionRow;
+
   struct PerFunctionValues {
     CallInst *UAVHandle = nullptr;
     Instruction *CounterOffset = nullptr;
@@ -341,8 +344,9 @@ private:
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
   std::optional<InstructionAndType> addStoreStepDebugEntry(BuilderContext *BC,
                                                            StoreInst *Inst);
-  std::optional<InstructionAndType> addStepDebugEntry(BuilderContext *BC,
-                                                      Instruction *Inst);
+  std::optional<InstructionAndType>
+  addStepDebugEntry(BuilderContext *BC, Instruction *Inst,
+                    llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles);
   std::optional<DebugShaderModifierRecordType>
   addStepDebugEntryValue(BuilderContext *BC, std::uint32_t InstNum, Value *V,
                          std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex);
@@ -362,8 +366,9 @@ private:
     uint32_t FirstInstructionOrdinalInBlock;
     std::vector<InstructionToInstrument> Instructions;
   };
-  BlockInstrumentationData FindInstrumentableInstructionsInBlock(BasicBlock &BB,
-                                                                 OP *HlslOP);
+  BlockInstrumentationData FindInstrumentableInstructionsInBlock(
+      BasicBlock &BB, OP *HlslOP,
+      llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles);
   uint32_t
   CountBlockPayloadBytes(std::vector<InstructionToInstrument> const &IsAndTs);
 };
@@ -376,17 +381,33 @@ void DxilDebugInstrumentation::applyOptions(PassOptions O) {
   GetPassOptionUnsigned(O, "parameter1", &m_Parameters.Parameters[1], 0);
   GetPassOptionUnsigned(O, "parameter2", &m_Parameters.Parameters[2], 0);
   GetPassOptionUInt64(O, "UAVSize", &m_UAVSize, 1024 * 1024);
+  GetPassOptionUnsigned(O, "upstreamSVPositionRow", &m_upstreamSVPositionRow,
+                        0);
 }
 
 uint32_t DxilDebugInstrumentation::UAVDumpingGroundOffset() {
   return static_cast<uint32_t>(m_UAVSize / 2);
 }
 
-static unsigned FindOrAddInputSignatureElement(
-    hlsl::DxilSignature &InputSignature, const char *name,
-    DXIL::SigPointKind sigPointKind, hlsl::DXIL::SemanticKind semanticKind) {
+unsigned int GetNextEmptyRow(
+    std::vector<std::unique_ptr<DxilSignatureElement>> const &Elements) {
+  unsigned int Row = 0;
+  for (auto const &Element : Elements) {
+    Row = std::max<unsigned>(Row, Element->GetStartRow() + Element->GetRows());
+  }
+  return Row;
+}
 
-  auto &InputElements = InputSignature.GetElements();
+unsigned FindOrAddVSInSignatureElementForInstanceOrVertexID(
+    hlsl::DxilSignature &InputSignature,
+    hlsl::DXIL::SemanticKind semanticKind) {
+  DXASSERT(InputSignature.GetSigPointKind() == DXIL::SigPointKind::VSIn,
+           "Unexpected SigPointKind in input signature");
+  DXASSERT(semanticKind == DXIL::SemanticKind::InstanceID ||
+               semanticKind == DXIL::SemanticKind::VertexID,
+           "This function only expects InstaceID or VertexID");
+
+  auto const &InputElements = InputSignature.GetElements();
 
   auto ExistingElement =
       std::find_if(InputElements.begin(), InputElements.end(),
@@ -395,13 +416,16 @@ static unsigned FindOrAddInputSignatureElement(
                    });
 
   if (ExistingElement == InputElements.end()) {
-    auto AddedElement = llvm::make_unique<DxilSignatureElement>(sigPointKind);
-    AddedElement->Initialize(name, hlsl::CompType::getF32(),
-                             hlsl::DXIL::InterpolationMode::Undefined, 1, 1);
+    auto AddedElement =
+        llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::VSIn);
+    unsigned Row = GetNextEmptyRow(InputElements);
+    AddedElement->Initialize(
+        hlsl::Semantic::Get(semanticKind)->GetName(), hlsl::CompType::getU32(),
+        hlsl::DXIL::InterpolationMode::Constant, 1, 1, Row, 0);
     AddedElement->AppendSemanticIndex(0);
-    AddedElement->SetSigPointKind(sigPointKind);
     AddedElement->SetKind(semanticKind);
-
+    AddedElement->SetUsageMask(1);
+    // AppendElement sets the element's ID by default
     auto index = InputSignature.AppendElement(std::move(AddedElement));
     return InputElements[index]->GetID();
   } else {
@@ -427,12 +451,12 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     break;
   case DXIL::ShaderKind::Vertex: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    SVIndices.VertexShader.VertexId = FindOrAddInputSignatureElement(
-        InputSignature, "VertexId", DXIL::SigPointKind::VSIn,
-        hlsl::DXIL::SemanticKind::VertexID);
-    SVIndices.VertexShader.InstanceId = FindOrAddInputSignatureElement(
-        InputSignature, "InstanceId", DXIL::SigPointKind::VSIn,
-        hlsl::DXIL::SemanticKind::InstanceID);
+    SVIndices.VertexShader.VertexId =
+        FindOrAddVSInSignatureElementForInstanceOrVertexID(
+            InputSignature, hlsl::DXIL::SemanticKind::VertexID);
+    SVIndices.VertexShader.InstanceId =
+        FindOrAddVSInSignatureElementForInstanceOrVertexID(
+            InputSignature, hlsl::DXIL::SemanticKind::InstanceID);
   } break;
   case DXIL::ShaderKind::Geometry:
   case DXIL::ShaderKind::Hull:
@@ -441,34 +465,8 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
     // in the input signature
     break;
   case DXIL::ShaderKind::Pixel: {
-    hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
-    auto &InputElements = InputSignature.GetElements();
-
-    auto Existing_SV_Position =
-        std::find_if(InputElements.begin(), InputElements.end(),
-                     [](const std::unique_ptr<DxilSignatureElement> &Element) {
-                       return Element->GetSemantic()->GetKind() ==
-                              hlsl::DXIL::SemanticKind::Position;
-                     });
-
-    // SV_Position, if present, has to have full mask, so we needn't worry
-    // about the shader having selected components that don't include x or y.
-    // If not present, we add it.
-    if (Existing_SV_Position == InputElements.end()) {
-      auto Added_SV_Position =
-          llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
-      Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
-                                    hlsl::DXIL::InterpolationMode::Linear, 1,
-                                    4);
-      Added_SV_Position->AppendSemanticIndex(0);
-      Added_SV_Position->SetSigPointKind(DXIL::SigPointKind::PSIn);
-      Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
-
-      auto index = InputSignature.AppendElement(std::move(Added_SV_Position));
-      SVIndices.PixelShader.Position = InputElements[index]->GetID();
-    } else {
-      SVIndices.PixelShader.Position = Existing_SV_Position->get()->GetID();
-    }
+    SVIndices.PixelShader.Position =
+        PIXPassHelpers::FindOrAddSV_Position(BC.DM, m_upstreamSVPositionRow);
   } break;
   default:
     assert(false); // guaranteed by runOnModule
@@ -887,8 +885,7 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     addDebugEntryValue(BC, HighBits);
     BytesToBeEmitted += 8;
   } else if (TheValueTypeID == Type::TypeID::IntegerTyID &&
-             (TheValue->getType()->getIntegerBitWidth() == 16 ||
-              TheValue->getType()->getIntegerBitWidth() == 1)) {
+             (TheValue->getType()->getIntegerBitWidth() < 32)) {
     auto As32 =
         BC.Builder.CreateZExt(TheValue, Type::getInt32Ty(BC.Ctx), "As32");
     BytesToBeEmitted += addDebugEntryValue(BC, As32);
@@ -1003,10 +1000,6 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
     return std::nullopt;
   }
 
-  if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst->getValueOperand())) {
-    return std::nullopt;
-  }
-
   auto Type = addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(),
                                      ValueOrdinalBase, ValueOrdinalIndex);
   if (Type) {
@@ -1054,20 +1047,25 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
   return std::nullopt;
 }
 
-std::optional<InstructionAndType>
-DxilDebugInstrumentation::addStepDebugEntry(BuilderContext *BC,
-                                            Instruction *Inst) {
-  if (PIXPassHelpers::IsAllocateRayQueryInstruction(Inst)) {
-    return std::nullopt;
-  }
-
-  if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
-    return addStoreStepDebugEntry(BC, St);
-  }
+std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
+    BuilderContext *BC, Instruction *Inst,
+    llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles) {
 
   std::uint32_t InstNum;
   if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
     return std::nullopt;
+  }
+
+  if (RayQueryHandles.count(Inst) != 0) {
+    InstructionAndType ret{};
+    ret.Inst = Inst;
+    ret.InstructionOrdinal = InstNum;
+    ret.Type = DebugShaderModifierRecordTypeDXILStepVoid;
+    return ret;
+  }
+
+  if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
+    return addStoreStepDebugEntry(BC, St);
   }
 
   if (auto *Ld = llvm::dyn_cast<llvm::LoadInst>(Inst)) {
@@ -1148,6 +1146,11 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
                                  ValueOrdinalIndex);
     return DebugShaderModifierRecordTypeDXILStepFloat;
   case Type::TypeID::IntegerTyID:
+    assert(V->getType()->getIntegerBitWidth() == 64 ||
+           V->getType()->getIntegerBitWidth() <= 32);
+    if (V->getType()->getIntegerBitWidth() > 64) {
+      return std::nullopt;
+    }
     if (V->getType()->getIntegerBitWidth() == 64) {
       if (BC != nullptr)
         addStepEntryForType<uint64_t>(
@@ -1155,6 +1158,9 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
             ValueOrdinal, ValueOrdinalIndex);
       return DebugShaderModifierRecordTypeDXILStepUint64;
     } else {
+      if (V->getType()->getIntegerBitWidth() > 32) {
+        return std::nullopt;
+      }
       if (BC != nullptr)
         addStepEntryForType<uint32_t>(
             DebugShaderModifierRecordTypeDXILStepUint32, *BC, InstNum, V,
@@ -1300,8 +1306,9 @@ Instruction *FindFirstNonPhiInstruction(Instruction *I) {
 // If indicator is "d", a single integer denoting the base for the alloca
 // store.
 DxilDebugInstrumentation::BlockInstrumentationData
-DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
-                                                                OP *HlslOP) {
+DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
+    BasicBlock &BB, OP *HlslOP,
+    llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles) {
   BlockInstrumentationData ret{};
   auto &Is = BB.getInstList();
   *OSOverride << "Block#";
@@ -1315,7 +1322,7 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(BasicBlock &BB,
         FoundFirstInstruction = true;
       }
     }
-    auto IandT = addStepDebugEntry(nullptr, &Inst);
+    auto IandT = addStepDebugEntry(nullptr, &Inst, RayQueryHandles);
     if (IandT) {
       InstructionToInstrument DebugOutputForThisInstruction{};
       DebugOutputForThisInstruction.ValueType = IandT->Type;
@@ -1394,6 +1401,8 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
   default:
     return false;
   }
+  llvm::SmallPtrSet<Value *, 16> RayQueryHandles;
+  PIXPassHelpers::FindRayQueryHandlesForFunction(function, RayQueryHandles);
 
   Instruction *firstInsertionPt = dxilutil::FirstNonAllocaInsertionPt(function);
   IRBuilder<> Builder(firstInsertionPt);
@@ -1436,7 +1445,7 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
                   values.AddedBlocksToIgnoreForInstrumentation.end(),
                   &BB) == values.AddedBlocksToIgnoreForInstrumentation.end()) {
       auto BlockInstrumentation =
-          FindInstrumentableInstructionsInBlock(BB, BC.HlslOP);
+          FindInstrumentableInstructionsInBlock(BB, BC.HlslOP, RayQueryHandles);
       if (BlockInstrumentation.FirstInstructionOrdinalInBlock <
               m_FirstInstruction ||
           BlockInstrumentation.FirstInstructionOrdinalInBlock >=
@@ -1501,8 +1510,6 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
       }
     }
   }
-
-  DM.ReEmitDxilResources();
 
   return true;
 }

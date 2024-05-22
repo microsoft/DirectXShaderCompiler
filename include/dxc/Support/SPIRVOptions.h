@@ -92,6 +92,7 @@ struct SpirvCodeGenOptions {
   std::vector<std::string> bindRegister;
   std::vector<std::string> bindGlobals;
   std::string entrypointName;
+  std::string floatDenormalMode; // OPT_denorm
 
   bool signaturePacking; ///< Whether signature packing is enabled or not
 

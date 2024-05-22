@@ -35,6 +35,7 @@
 using namespace llvm;
 using namespace hlsl;
 
+// Removes BB from PHI nodes in SuccBB, deleting the PHI nodes if empty.
 static void RemoveIncomingValueFrom(BasicBlock *SuccBB, BasicBlock *BB) {
   for (auto inst_it = SuccBB->begin(); inst_it != SuccBB->end();) {
     Instruction *I = &*(inst_it++);
@@ -105,6 +106,8 @@ bool DeadBlockDeleter::Run(Function &F, DxilValueCache *DVC) {
     } else if (SwitchInst *Switch = dyn_cast<SwitchInst>(BB->getTerminator())) {
       Value *Cond = Switch->getCondition();
       BasicBlock *Succ = nullptr;
+      // If the condition to Switch is constant, replace Switch with a branch
+      // to the current case successor.
       if (ConstantInt *ConstCond = DVC->GetConstInt(Cond)) {
         Succ = hlsl::dxilutil::GetSwitchSuccessorForCond(Switch, ConstCond);
       }
@@ -112,16 +115,32 @@ bool DeadBlockDeleter::Run(Function &F, DxilValueCache *DVC) {
       if (Succ) {
         Add(Succ);
 
+        // Create branch from BB to Succ that will replace Switch.
+        // This adds BB to preds of Succ.
         BranchInst *NewBr = BranchInst::Create(Succ, BB);
         hlsl::DxilMDHelper::CopyMetadata(*NewBr, *Switch);
 
+        // For any successors we're not going to, remove incoming block BB from
+        // PHI nodes in those successors.
+        unsigned numSucc = 0;
         for (unsigned i = 0; i < Switch->getNumSuccessors(); i++) {
           BasicBlock *NotSucc = Switch->getSuccessor(i);
-          if (NotSucc != Succ) {
+          if (NotSucc != Succ)
             RemoveIncomingValueFrom(NotSucc, BB);
-          }
+          else
+            ++numSucc;
         }
 
+        // We're replacing Switch with a single unconditional branch. If Switch
+        // has N cases with the same Succ, we need to remove N-1 incoming values
+        // of BB from the PHI nodes in Succ. This ensures that the preds of Succ
+        // match the ones in its PHIs.
+        for (unsigned i = 1; i < numSucc; i++) {
+          RemoveIncomingValueFrom(Succ, BB);
+        }
+
+        // Finally, erase Switch, which will remove BB as pred from all
+        // successors.
         Switch->eraseFromParent();
         Switch = nullptr;
         Changed = true;

@@ -943,8 +943,14 @@ bool DeclResultIdMapper::createStageInputVar(const ParmVarDecl *paramDecl,
                                   type, "in.var", loadedValue);
   } else {
     StageVarDataBundle stageVarData = {
-        paramDecl, &inheritSemantic, false,    sigPoint,
-        type,      arraySize,        "in.var", llvm::None};
+        paramDecl,
+        &inheritSemantic,
+        paramDecl->hasAttr<HLSLNoInterpolationAttr>(),
+        sigPoint,
+        type,
+        arraySize,
+        "in.var",
+        llvm::None};
     return createStageVars(stageVarData, /*asInput=*/true, loadedValue,
                            /*noWriteBack=*/false);
   }
@@ -1341,6 +1347,13 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     const auto *declDecl = cast<DeclaratorDecl>(subDecl);
     auto varType = declDecl->getType();
     if (const auto *fieldVar = dyn_cast<VarDecl>(subDecl)) {
+
+      // Static variables are not part of the struct from a layout perspective.
+      // Thus, they should not be listed in the struct fields.
+      if (fieldVar->getStorageClass() == StorageClass::SC_Static) {
+        continue;
+      }
+
       if (isResourceType(varType)) {
         createExternVar(fieldVar);
         continue;
@@ -1351,13 +1364,26 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     const hlsl::RegisterAssignment *registerC =
         forGlobals ? getRegisterCAssignment(declDecl) : nullptr;
 
+    llvm::Optional<BitfieldInfo> bitfieldInfo;
+    {
+      const FieldDecl *Field = dyn_cast<FieldDecl>(subDecl);
+      if (Field && Field->isBitField()) {
+        bitfieldInfo = BitfieldInfo();
+        bitfieldInfo->sizeInBits =
+            Field->getBitWidthValue(Field->getASTContext());
+      }
+    }
+
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
     varType.removeLocalConst();
-    HybridStructType::FieldInfo info(varType, declDecl->getName(),
-                                     declDecl->getAttr<VKOffsetAttr>(),
-                                     getPackOffset(declDecl), registerC,
-                                     declDecl->hasAttr<HLSLPreciseAttr>());
+    HybridStructType::FieldInfo info(
+        varType, declDecl->getName(),
+        /*vkoffset*/ declDecl->getAttr<VKOffsetAttr>(),
+        /*packoffset*/ getPackOffset(declDecl),
+        /*RegisterAssignment*/ registerC,
+        /*isPrecise*/ declDecl->hasAttr<HLSLPreciseAttr>(),
+        /*bitfield*/ bitfieldInfo);
     fields.push_back(info);
   }
 
@@ -1455,12 +1481,28 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
         decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
   }
 
+  if (!spirvOptions.debugInfoRich) {
+    return bufferVar;
+  }
+
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
-  if (dbgGlobalVar != nullptr) {
-    // C/TBuffer needs HLSLBufferDecl for debug type lowering.
-    spvContext.registerStructDeclForSpirvType(bufferVar->getResultType(), decl);
-  }
+  assert(dbgGlobalVar);
+  (void)dbgGlobalVar; // For NDEBUG builds.
+
+  auto *resultType = bufferVar->getResultType();
+  // Depending on the requested layout (DX or VK), constant buffers is either a
+  // struct containing every constant fields, or a pointer to the type. This is
+  // caused by the workaround we implemented to support FXC/DX layout. See #3672
+  // for more details.
+  assert(isa<SpirvPointerType>(resultType) ||
+         isa<HybridStructType>(resultType));
+  if (auto *ptr = dyn_cast<SpirvPointerType>(resultType))
+    resultType = ptr->getPointeeType();
+  // Debug type lowering requires the HLSLBufferDecl. Updating the type<>decl
+  // mapping.
+  spvContext.registerStructDeclForSpirvType(resultType, decl);
+
   return bufferVar;
 }
 
@@ -1830,7 +1872,6 @@ DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
   for (auto var : glPerVertex.getStageOutVars())
     vars.push_back(var);
 
-  llvm::DenseSet<SpirvInstruction *> seenVars;
   for (const auto &var : stageVars) {
     // We must collect stage variables that are included in entryPoint and stage
     // variables that are not included in any specific entryPoint i.e.,
@@ -1841,10 +1882,7 @@ DeclResultIdMapper::collectStageVars(SpirvFunction *entryPoint) const {
     auto *instr = var.getSpirvInstr();
     if (instr->getStorageClass() == spv::StorageClass::Private)
       continue;
-    if (seenVars.count(instr) == 0) {
-      vars.push_back(instr);
-      seenVars.insert(instr);
-    }
+    vars.push_back(instr);
   }
 
   return vars;
@@ -2037,23 +2075,22 @@ bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
       continue;
     }
 
-    // Allow builtin variables to alias each other. We already have uniqify
-    // mechanism in SpirvBuilder.
-    if (var.isSpirvBuitin())
-      continue;
-
     if (forInput && var.getSigPoint()->IsInput()) {
       bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
           &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
       if (!insertionSuccess) {
-        emitError("input semantic '%0' used more than once", {}) << s;
+        emitError("input semantic '%0' used more than once",
+                  var.getSemanticInfo().loc)
+            << s;
         success = false;
       }
     } else if (!forInput && var.getSigPoint()->IsOutput()) {
       bool insertionSuccess = insertSeenSemanticsForEntryPointIfNotExist(
           &seenSemanticsForEntryPoints, var.getEntryPoint(), s);
       if (!insertionSuccess) {
-        emitError("output semantic '%0' used more than once", {}) << s;
+        emitError("output semantic '%0' used more than once",
+                  var.getSemanticInfo().loc)
+            << s;
         success = false;
       }
     }
@@ -3561,32 +3598,61 @@ bool DeclResultIdMapper::createPayloadStageVars(
   }
 
   const auto loc = decl->getLocation();
-  if (!type->isStructureType()) {
-    StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                      getLocationAndComponentCount(astContext, type));
-    const auto name = namePrefix.str() + "." + decl->getNameAsString();
-    SpirvVariable *varInstr = spvBuilder.addStageIOVar(
-        type, sc, name, /*isPrecise=*/false, /*isNointerp=*/false, loc);
 
-    if (!varInstr)
-      return false;
+  // Most struct type stage vars must be flattened, but for EXT_mesh_shaders the
+  // mesh payload struct should be decorated with TaskPayloadWorkgroupEXT and
+  // used directly as the OpEntryPoint variable.
+  if (!type->isStructureType() ||
+      featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
 
-    // Even though these as user defined IO stage variables, set them as SPIR-V
-    // builtins in order to bypass any semantic string checks and location
-    // assignment.
-    stageVar.setIsSpirvBuiltin();
-    stageVar.setSpirvInstr(varInstr);
-    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
-        stageVar.getStorageClass() == spv::StorageClass::Output) {
-      stageVar.setEntryPoint(entryFunction);
+    SpirvVariable *varInstr = nullptr;
+
+    // Check whether a mesh payload module variable has already been added, as
+    // is the case for the groupshared payload variable parameter of
+    // DispatchMesh. In this case, change the storage class from Workgroup to
+    // TaskPayloadWorkgroupEXT.
+    if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      for (SpirvVariable *moduleVar : spvBuilder.getModule()->getVariables()) {
+        if (moduleVar->getAstResultType() == type) {
+          moduleVar->setStorageClass(
+              spv::StorageClass::TaskPayloadWorkgroupEXT);
+          varInstr = moduleVar;
+        }
+      }
     }
-    stageVars.push_back(stageVar);
 
-    if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
-      // Decorate with PerTaskNV for mesh/amplification shader payload
-      // variables.
-      spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
-                                   varInstr->getSourceLocation());
+    // If necessary, create new stage variable for mesh payload.
+    if (!varInstr) {
+      LocationAndComponent locationAndComponentCount =
+          type->isStructureType()
+              ? LocationAndComponent({0, 0, false})
+              : getLocationAndComponentCount(astContext, type);
+      StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr,
+                        type, locationAndComponentCount);
+      const auto name = namePrefix.str() + "." + decl->getNameAsString();
+      varInstr = spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false,
+                                          /*isNointerp=*/false, loc);
+
+      if (!varInstr)
+        return false;
+
+      // Even though these as user defined IO stage variables, set them as
+      // SPIR-V builtins in order to bypass any semantic string checks and
+      // location assignment.
+      stageVar.setIsSpirvBuiltin();
+      stageVar.setSpirvInstr(varInstr);
+      if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+          stageVar.getStorageClass() == spv::StorageClass::Output) {
+        stageVar.setEntryPoint(entryFunction);
+      }
+      stageVars.push_back(stageVar);
+
+      if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+        // Decorate with PerTaskNV for mesh/amplification shader payload
+        // variables.
+        spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
+                                     varInstr->getSourceLocation());
+      }
     }
 
     if (asInput) {
@@ -4523,14 +4589,19 @@ bool DeclResultIdMapper::getImplicitRegisterType(const ResourceVar &var,
 SpirvVariable *
 DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
                                                const VarDecl *decl) {
-  QualType type = decl->getType();
+  return createRayTracingNVStageVar(sc, decl->getType(), decl->getName().str(),
+                                    decl->hasAttr<HLSLPreciseAttr>(),
+                                    decl->hasAttr<HLSLNoInterpolationAttr>());
+}
+
+SpirvVariable *DeclResultIdMapper::createRayTracingNVStageVar(
+    spv::StorageClass sc, QualType type, std::string name, bool isPrecise,
+    bool isNointerp) {
   SpirvVariable *retVal = nullptr;
 
   // Raytracing interface variables are special since they do not participate
   // in any interface matching and hence do not create StageVar and
   // track them under StageVars vector
-
-  const auto name = decl->getName();
 
   switch (sc) {
   case spv::StorageClass::IncomingRayPayloadNV:
@@ -4538,9 +4609,7 @@ DeclResultIdMapper::createRayTracingNVStageVar(spv::StorageClass sc,
   case spv::StorageClass::HitAttributeNV:
   case spv::StorageClass::RayPayloadNV:
   case spv::StorageClass::CallableDataNV:
-    retVal = spvBuilder.addModuleVar(type, sc, decl->hasAttr<HLSLPreciseAttr>(),
-                                     decl->hasAttr<HLSLNoInterpolationAttr>(),
-                                     name.str());
+    retVal = spvBuilder.addModuleVar(type, sc, isPrecise, isNointerp, name);
     break;
 
   default:

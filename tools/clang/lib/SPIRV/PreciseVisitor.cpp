@@ -233,14 +233,9 @@ bool PreciseVisitor::visit(SpirvUnaryOp *inst) {
   return true;
 }
 
-bool PreciseVisitor::visit(SpirvNonUniformBinaryOp *inst) {
-  inst->getArg1()->setPrecise(inst->isPrecise());
-  inst->getArg2()->setPrecise(inst->isPrecise());
-  return true;
-}
-
-bool PreciseVisitor::visit(SpirvNonUniformUnaryOp *inst) {
-  inst->getArg()->setPrecise(inst->isPrecise());
+bool PreciseVisitor::visit(SpirvGroupNonUniformOp *inst) {
+  for (auto *operand : inst->getOperands())
+    operand->setPrecise(inst->isPrecise());
   return true;
 }
 

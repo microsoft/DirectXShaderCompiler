@@ -112,6 +112,7 @@ const unsigned kMaxClipOrCullDistanceElementCount = 2;
 const unsigned kMaxClipOrCullDistanceCount = 2 * 4;
 const unsigned kMaxGSOutputVertexCount = 1024;
 const unsigned kMaxGSInstanceCount = 32;
+const unsigned kMinIAPatchControlPointCount = 1;
 const unsigned kMaxIAPatchControlPointCount = 32;
 const float kHSMaxTessFactorLowerBound = 1.0f;
 const float kHSMaxTessFactorUpperBound = 64.0f;
@@ -1484,6 +1485,7 @@ enum class AtomicBinOpCode : unsigned {
 
 // Barrier/fence modes.
 enum class BarrierMode : unsigned {
+  Invalid = 0,
   SyncThreadGroup = 0x00000001,
   UAVFenceGlobal = 0x00000002,
   UAVFenceThreadGroup = 0x00000004,
@@ -1844,7 +1846,10 @@ enum class MemoryTypeFlag : uint32_t {
   NodeInputMemory = 0x00000004,   // NODE_INPUT_MEMORY
   NodeOutputMemory = 0x00000008,  // NODE_OUTPUT_MEMORY
   AllMemory = 0x0000000F,         // ALL_MEMORY
-  ValidMask = 0x0000000F
+  ValidMask = 0x0000000F,
+  NodeFlags = NodeInputMemory | NodeOutputMemory,
+  LegacyFlags = UavMemory | GroupSharedMemory,
+  GroupFlags = GroupSharedMemory,
 };
 
 // Corresponds to SEMANTIC_FLAG enums in HLSL
@@ -1852,7 +1857,8 @@ enum class BarrierSemanticFlag : uint32_t {
   GroupSync = 0x00000001,   // GROUP_SYNC
   GroupScope = 0x00000002,  // GROUP_SCOPE
   DeviceScope = 0x00000004, // DEVICE_SCOPE
-  ValidMask = 0x00000007
+  ValidMask = 0x00000007,
+  GroupFlags = GroupSync | GroupScope,
 };
 
 // Constant for Container.
@@ -1940,8 +1946,12 @@ static_assert(ShaderFeatureInfoCount <= 40,
 // support it, or to determine when the flag
 // ShaderFeatureInfo_DerivativesInMeshAndAmpShaders is required.
 const uint64_t OptFeatureInfo_UsesDerivatives = 0x0000010000000000ULL;
+// OptFeatureInfo_RequiresGroup tracks whether a function requires a visible
+// group that supports things like groupshared memory and group sync.
+const uint64_t OptFeatureInfo_RequiresGroup = 0x0000020000000000ULL;
+
 const uint64_t OptFeatureInfoShift = 40;
-const unsigned OptFeatureInfoCount = 1;
+const unsigned OptFeatureInfoCount = 2;
 static_assert(OptFeatureInfoCount <= 23,
               "OptFeatureInfo flags must fit in 23 bits; after that we need to "
               "expand the FeatureInfo blob part and start defining a new set "

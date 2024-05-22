@@ -37,15 +37,33 @@ using namespace llvm;
 using namespace hlsl;
 
 namespace PIXPassHelpers {
-bool IsAllocateRayQueryInstruction(llvm::Value const *Val) {
-  if (Val != nullptr) {
-    if (llvm::Instruction const *Inst =
-            llvm::dyn_cast<llvm::Instruction>(Val)) {
-      return hlsl::OP::IsDxilOpFuncCallInst(Inst,
-                                            hlsl::OP::OpCode::AllocateRayQuery);
+static void FindRayQueryHandlesFromUse(Value *U,
+                                       SmallPtrSetImpl<Value *> &Handles) {
+  if (Handles.insert(U).second) {
+    auto RayQueryHandleUses = U->uses();
+    for (Use &Use : RayQueryHandleUses) {
+      iterator_range<Value::user_iterator> Users = Use->users();
+      for (User *User : Users) {
+        if (isa<PHINode>(User) || isa<SelectInst>(User))
+          FindRayQueryHandlesFromUse(User, Handles);
+      }
     }
   }
-  return false;
+}
+
+void FindRayQueryHandlesForFunction(llvm::Function *F,
+                                    SmallPtrSetImpl<Value *> &RayQueryHandles) {
+  auto &blocks = F->getBasicBlockList();
+  if (!blocks.empty()) {
+    for (auto &block : blocks) {
+      for (auto &instruction : block) {
+        if (hlsl::OP::IsDxilOpFuncCallInst(
+                &instruction, hlsl::OP::OpCode::AllocateRayQuery)) {
+          FindRayQueryHandlesFromUse(&instruction, RayQueryHandles);
+        }
+      }
+    }
+  }
 }
 
 static unsigned int
@@ -430,6 +448,41 @@ void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
 
   Instr->removeFromParent();
   delete Instr;
+}
+
+unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
+                                  unsigned UpStreamSVPosRow) {
+  hlsl::DxilSignature &InputSignature = DM.GetInputSignature();
+  auto &InputElements = InputSignature.GetElements();
+
+  auto Existing_SV_Position =
+      std::find_if(InputElements.begin(), InputElements.end(),
+                   [](const std::unique_ptr<DxilSignatureElement> &Element) {
+                     return Element->GetSemantic()->GetKind() ==
+                            hlsl::DXIL::SemanticKind::Position;
+                   });
+
+  // SV_Position, if present, has to have full mask, so we needn't worry
+  // about the shader having selected components that don't include x or y.
+  // If not present, we add it.
+  if (Existing_SV_Position == InputElements.end()) {
+    unsigned int StartColumn = 0;
+    unsigned int RowCount = 1;
+    unsigned int ColumnCount = 4;
+    auto Added_SV_Position =
+        llvm::make_unique<DxilSignatureElement>(DXIL::SigPointKind::PSIn);
+    Added_SV_Position->Initialize("Position", hlsl::CompType::getF32(),
+                                  hlsl::DXIL::InterpolationMode::Linear,
+                                  RowCount, ColumnCount, UpStreamSVPosRow,
+                                  StartColumn);
+    Added_SV_Position->AppendSemanticIndex(0);
+    Added_SV_Position->SetKind(hlsl::DXIL::SemanticKind::Position);
+    // AppendElement sets the element's ID by default
+    auto index = InputSignature.AppendElement(std::move(Added_SV_Position));
+    return InputElements[index]->GetID();
+  } else {
+    return Existing_SV_Position->get()->GetID();
+  }
 }
 
 #ifdef PIX_DEBUG_DUMP_HELPER

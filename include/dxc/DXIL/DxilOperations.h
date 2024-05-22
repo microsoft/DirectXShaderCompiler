@@ -125,6 +125,10 @@ public:
   static bool IsDxilOpWave(OpCode C);
   static bool IsDxilOpGradient(OpCode C);
   static bool IsDxilOpFeedback(OpCode C);
+  static bool IsDxilOpBarrier(OpCode C);
+  static bool BarrierRequiresGroup(const llvm::CallInst *CI);
+  static bool BarrierRequiresNode(const llvm::CallInst *CI);
+  static DXIL::BarrierMode TranslateToBarrierMode(const llvm::CallInst *CI);
   static bool IsDxilOpTypeName(llvm::StringRef name);
   static bool IsDxilOpType(llvm::StructType *ST);
   static bool IsDupDxilOpType(llvm::StructType *ST);

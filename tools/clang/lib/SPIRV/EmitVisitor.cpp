@@ -1087,35 +1087,7 @@ bool EmitVisitor::visit(SpirvFunctionCall *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvNonUniformBinaryOp *inst) {
-  initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(typeHandler.getOrCreateConstantInt(
-      llvm::APInt(32, static_cast<uint32_t>(inst->getExecutionScope())),
-      context.getUIntType(32), /* isSpecConst */ false));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg1()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg2()));
-  finalizeInstruction(&mainBinary);
-  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
-  return true;
-}
-
-bool EmitVisitor::visit(SpirvNonUniformElect *inst) {
-  initInstruction(inst);
-  curInst.push_back(inst->getResultTypeId());
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
-  curInst.push_back(typeHandler.getOrCreateConstantInt(
-      llvm::APInt(32, static_cast<uint32_t>(inst->getExecutionScope())),
-      context.getUIntType(32), /* isSpecConst */ false));
-  finalizeInstruction(&mainBinary);
-  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
-                              inst->getDebugName());
-  return true;
-}
-
-bool EmitVisitor::visit(SpirvNonUniformUnaryOp *inst) {
+bool EmitVisitor::visit(SpirvGroupNonUniformOp *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
@@ -1124,7 +1096,8 @@ bool EmitVisitor::visit(SpirvNonUniformUnaryOp *inst) {
       context.getUIntType(32), /* isSpecConst */ false));
   if (inst->hasGroupOp())
     curInst.push_back(static_cast<uint32_t>(inst->getGroupOp()));
-  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getArg()));
+  for (auto *operand : inst->getOperands())
+    curInst.push_back(getOrAssignResultId<SpirvInstruction>(operand));
   finalizeInstruction(&mainBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
@@ -2577,7 +2550,11 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     for (const SpvIntrinsicTypeOperand &operand :
          spvIntrinsicType->getOperands()) {
       if (operand.isTypeOperand) {
-        curTypeInst.push_back(emitType(operand.operand_as_type));
+        // calling emitType recursively will potentially replace the contents of
+        // curTypeInst, so we need to save them and restore after the call
+        std::vector<uint32_t> outerTypeInst = curTypeInst;
+        outerTypeInst.push_back(emitType(operand.operand_as_type));
+        curTypeInst = outerTypeInst;
       } else {
         auto *literal = dyn_cast<SpirvConstant>(operand.operand_as_inst);
         if (literal && literal->isLiteral()) {

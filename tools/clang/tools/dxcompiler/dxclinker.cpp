@@ -153,7 +153,7 @@ public:
     if (!valid)
       return false;
 
-    CW2A pUtf8LibName(libName, CP_UTF8);
+    CW2A pUtf8LibName(libName);
     std::string libNameStr = std::string(pUtf8LibName);
     auto result =
         m_uniqueCompilerVersions.insert(DeserializedDxilCompilerVersion(pDCV));
@@ -187,7 +187,7 @@ DxcLinker::RegisterLibrary(LPCWSTR pLibName, // Name of the library.
   DXASSERT(m_pLinker.get(), "else Initialize() not called or failed silently");
   DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
-  CW2A pUtf8LibName(pLibName, CP_UTF8);
+  CW2A pUtf8LibName(pLibName);
   // Already exist lib with same name.
   if (m_pLinker->HasLibNameRegistered(pUtf8LibName.m_psz))
     return E_INVALIDARG;
@@ -246,8 +246,8 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     return E_INVALIDARG;
   DxcThreadMalloc TM(m_pMalloc);
   // Prepare UTF8-encoded versions of API values.
-  CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
-  CW2A pUtf8EntryPoint(pEntryName, CP_UTF8);
+  CW2A pUtf8TargetProfile(pTargetProfile);
+  CW2A pUtf8EntryPoint(pEntryName);
 
   CComPtr<AbstractMemoryStream> pOutputStream;
 
@@ -267,7 +267,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     hlsl::options::MainArgs mainArgs(argCountInt,
                                      const_cast<LPCWSTR *>(pArguments), 0);
     hlsl::options::DxcOpts opts;
-    CW2A pUtf8TargetProfile(pTargetProfile, CP_UTF8);
+    CW2A pUtf8TargetProfile(pTargetProfile);
     // Set target profile before reading options and validate
     opts.TargetProfile = pUtf8TargetProfile.m_psz;
     bool finished;
@@ -330,7 +330,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
     std::string first_lib_name;
 
     for (UINT32 i = 0; i < libCount; i++) {
-      CW2A pUtf8LibName(pLibNames[i], CP_UTF8);
+      CW2A pUtf8LibName(pLibNames[i]);
       bSuccess &= m_pLinker->AttachLib(pUtf8LibName.m_psz);
 
       cur_lib_name = std::string(pUtf8LibName);

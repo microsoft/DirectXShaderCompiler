@@ -261,6 +261,12 @@ Instead of DXBC labels/calls, DXIL supports functions and call instructions. Rec
 
 The functions are regular LLVM functions. Parameters can be passed by-value or by-reference. The functions are to facilitate separate compilation for big, complex shaders. However, driver compilers are free to inline functions as they see fit.
 
+In DXIL, only two string function attributes are permitted: 'waveops-include-helper-lanes' and 'fp32-denorm-mode'.
+
+The attribute 'waveops-include-helper-lanes' is utilized to indicate that wave operations should consider helper lanes as active lanes.
+
+'fp32-denorm-mode' is employed to define the denorm mode for the function. The possible values for this attribute can be 'any', 'preserve', or 'ftz'.
+
 Identifiers
 -----------
 
@@ -3063,6 +3069,7 @@ INSTR.BARRIERMODEFORNONCS                 sync in a non-Compute/Amplification/Me
 INSTR.BARRIERMODENOMEMORY                 sync must include some form of memory barrier - _u (UAV) and/or _g (Thread Group Shared Memory).  Only _t (thread group sync) is optional.
 INSTR.BARRIERMODEUSELESSUGROUP            sync can't specify both _ugroup and _uglobal. If both are needed, just specify _uglobal.
 INSTR.BARRIERNONCONSTANTFLAGARGUMENT      Memory type, access, or sync flag is not constant
+INSTR.BARRIERREQUIRESNODE                 sync in a non-Node Shader must not sync node record memory.
 INSTR.BUFFERUPDATECOUNTERONRESHASCOUNTER  BufferUpdateCounter valid only when HasCounter is true.
 INSTR.BUFFERUPDATECOUNTERONUAV            BufferUpdateCounter valid only on UAV.
 INSTR.CALLOLOAD                           Call to DXIL intrinsic must match overload signature
@@ -3079,6 +3086,8 @@ INSTR.EVALINTERPOLATIONMODE               Interpolation mode on %0 used with eva
 INSTR.EXTRACTVALUE                        ExtractValue should only be used on dxil struct types and cmpxchg.
 INSTR.FAILTORESLOVETGSMPOINTER            TGSM pointers must originate from an unambiguous TGSM global variable.
 INSTR.HANDLENOTFROMCREATEHANDLE           Resource handle should returned by createHandle.
+INSTR.ILLEGALDXILOPCODE                   DXILOpCode must be [0..%0].  %1 specified.
+INSTR.ILLEGALDXILOPFUNCTION               '%0' is not a DXILOpFuncition for DXILOpcode '%1'.
 INSTR.IMMBIASFORSAMPLEB                   bias amount for sample_b must be in the range [%0,%1], but %2 was specified as an immediate.
 INSTR.INBOUNDSACCESS                      Access to out-of-bounds memory is disallowed.
 INSTR.MINPRECISIONNOTPRECISE              Instructions marked precise may not refer to minprecision values.
@@ -3213,6 +3222,14 @@ SM.GSVALIDINPUTPRIMITIVE                  GS input primitive unrecognized.
 SM.GSVALIDOUTPUTPRIMITIVETOPOLOGY         GS output primitive topology unrecognized.
 SM.HSINPUTCONTROLPOINTCOUNTRANGE          HS input control point count must be [0..%0].  %1 specified.
 SM.HULLPASSTHRUCONTROLPOINTCOUNTMATCH     For pass thru hull shader, input control point count must match output control point count
+SM.INCOMPATIBLECALLINENTRY                Features used in internal function calls must be compatible with entry
+SM.INCOMPATIBLEDERIVINCOMPUTESHADERMODEL  Derivatives in compute-model shaders require shader model 6.6 and above
+SM.INCOMPATIBLEDERIVLAUNCH                Node shaders only support derivatives in broadcasting launch mode
+SM.INCOMPATIBLEOPERATION                  Operations used in entry function must be compatible with shader stage and other properties
+SM.INCOMPATIBLEREQUIRESGROUP              Functions requiring groupshared memory must be called from shaders with a visible group
+SM.INCOMPATIBLESHADERMODEL                Functions may only use features available in the current shader model
+SM.INCOMPATIBLESTAGE                      Functions may only use features available in the entry function's stage
+SM.INCOMPATIBLETHREADGROUPDIM             When derivatives are used in compute-model shaders, the thread group dimensions must be compatible
 SM.INSIDETESSFACTORSIZEMATCHDOMAIN        InsideTessFactor rows, columns (%0, %1) invalid for domain %2.  Expected %3 rows and 1 column.
 SM.INVALIDRESOURCECOMPTYPE                Invalid resource return type.
 SM.INVALIDRESOURCEKIND                    Invalid resources kind.
@@ -3238,7 +3255,7 @@ SM.NOPSOUTPUTIDX                          Pixel shader output registers are not 
 SM.OPCODE                                 Opcode must be defined in target shader model
 SM.OPCODEININVALIDFUNCTION                Invalid DXIL opcode usage like StorePatchConstant in patch constant function
 SM.OPERAND                                Operand must be defined in target shader model.
-SM.OUTPUTCONTROLPOINTCOUNTRANGE           output control point count must be [0..%0].  %1 specified.
+SM.OUTPUTCONTROLPOINTCOUNTRANGE           output control point count must be [%0..%1].  %2 specified.
 SM.OUTPUTCONTROLPOINTSTOTALSCALARS        Total number of scalars across all HS output control points must not exceed .
 SM.PATCHCONSTANTONLYFORHSDS               patch constant signature only valid in HS and DS.
 SM.PSCONSISTENTINTERP                     Interpolation mode for PS input position must be linear_noperspective_centroid or linear_noperspective_sample when outputting oDepthGE or oDepthLE and not running at sample frequency (which is forced by inputting SV_SampleIndex or declaring an input linear_sample or linear_noperspective_sample).
@@ -3379,4 +3396,3 @@ The following work on this specification is still pending:
 
 * Consider moving some additional tables and lists into hctdb and cross-reference.
 * Complete the extended documentation for instructions.
-

@@ -40,7 +40,17 @@ private:
   MachineBasicBlock* Parent;
 
 public:
-  MachineInstr *createSentinel() const {
+// HLSL Change Starts
+// Temporarily disable "downcast of address" UBSAN runtime error
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6446
+#ifdef __has_feature
+#if __has_feature(undefined_behavior_sanitizer)
+  __attribute__((no_sanitize("undefined")))
+#endif // __has_feature(address_sanitizer)
+#endif // defined(__has_feature)
+       // HLSL Change Ends
+  MachineInstr *
+  createSentinel() const {
     return static_cast<MachineInstr*>(&Sentinel);
   }
   void destroySentinel(MachineInstr *) const {}

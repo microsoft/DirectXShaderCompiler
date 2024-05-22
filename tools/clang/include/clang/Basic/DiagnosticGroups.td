@@ -44,6 +44,7 @@ def BoolConversion : DiagGroup<"bool-conversion", [PointerBoolConversion,
 def IntConversion : DiagGroup<"int-conversion">;
 def EnumConversion : DiagGroup<"enum-conversion">;
 def FloatConversion : DiagGroup<"float-conversion">;
+def DoublePromotion : DiagGroup<"double-promotion">; // HLSL Change - backport.
 def EnumTooLarge : DiagGroup<"enum-too-large">;
 def UnsupportedNan : DiagGroup<"unsupported-nan">;
 def NonLiteralNullConversion : DiagGroup<"non-literal-null-conversion">;
@@ -802,4 +803,6 @@ def HLSLSemanticIdentifierCollision : DiagGroup<"semantic-identifier-collision">
 def HLSLStructurizeExitsLifetimeMarkersConflict: DiagGroup<"structurize-exits-lifetime-markers-conflict">;
 def HLSLParameterUsage : DiagGroup<"parameter-usage">;
 def HLSLAvailability: DiagGroup<"hlsl-availability">;
+def HLSLBarrier : DiagGroup<"hlsl-barrier">;
+def HLSLLegacyLiterals : DiagGroup<"hlsl-legacy-literal">;
 // HLSL Change Ends

@@ -25,6 +25,13 @@ Texture2D<float4> tex2 : register(t2);
 // CHECK: OpDecorate %sam3 Binding 0
 SamplerState sam3 : register(s0);
 
+// CHECK: OpDecorate %tex4 DescriptorSet 0
+// CHECK: OpDecorate %tex4 Binding 4
+[[vk::combinedImageSampler]]
+Texture2D tex4 : register(t4);
+[[vk::combinedImageSampler]]
+SamplerComparisonState sam4 : register(s4);
+
 Texture2D<float4> getTexture(int i) {
   if (i == 0) return tex0;
   if (i == 1) return tex1;
@@ -58,6 +65,10 @@ float4 main(int3 offset: A) : SV_Target {
 // CHECK: [[tex2:%[a-zA-Z0-9_]+]] = OpLoad %type_sampled_image %tex2
 // CHECK: OpImageSampleExplicitLod %v4float [[tex2]]
   ret += sampleLevel(2);
+
+// CHECK: [[tex4:%[a-zA-Z0-9_]+]] = OpLoad %type_sampled_image %tex4
+// CHECK: OpImageSampleDrefImplicitLod %float [[tex4]]
+  ret += tex4.SampleCmp(sam4, float2(1, 2), 10, 2);
 
 // CHECK: [[tex0_0:%[a-zA-Z0-9_]+]] = OpLoad %type_sampled_image %tex0
 // CHECK: [[img_extracted_from_tex0:%[a-zA-Z0-9_]+]] = OpImage %type_2d_image [[tex0_0]]

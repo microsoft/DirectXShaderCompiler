@@ -1,4 +1,4 @@
-// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,UAVSize=128 | %FileCheck %s
+// RUN: %dxc -Emain -Tps_6_0 %s | %opt -S -hlsl-dxil-debug-instrumentation,UAVSize=128,upstreamSVPositionRow=2 -hlsl-dxilemit | %FileCheck %s
 
 // Check that the basic starting header is present:
 
@@ -22,7 +22,12 @@
 // CHECK: and i32 
 // CHECK: or i32
 
-
+// Check that the correct metadata was emitted for the requested SV_Position at row 2, col 0, 1 row, 4 cols.
+// See DxilMDHelper::EmitSignatureElement for the meaning of these entries:
+//             ID                 TypeF32 SemKin Sem-Idx-Vec           interp  Rows Cols   Row    Col
+//              |                     |     |       |                    |      |     |      |     |
+// CHECK: !{i32 0, !"SV_Position", i8 9, i8 3, ![[SEMIDXVEC:[0-9]*]], i8 2, i32 1, i8 4, i32 2, i8 0, null}
+// CHECK: ![[SEMIDXVEC]] = !{i32 0}
 
 [RootSignature("")]
 float4 main() : SV_Target {

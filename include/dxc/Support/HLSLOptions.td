@@ -121,6 +121,9 @@ def fconstexpr_depth_EQ : Joined<["-"], "fconstexpr-depth=">, Group<f_Group>;
 def fconstexpr_steps_EQ : Joined<["-"], "fconstexpr-steps=">, Group<f_Group>;
 def fconstexpr_backtrace_limit_EQ : Joined<["-"], "fconstexpr-backtrace-limit=">,
                                     Group<f_Group>;
+def fdiagnostics_format_EQ : Joined<["-"], "fdiagnostics-format=">, Group<hlslcomp_Group>,
+    Flags<[CoreOption]>,
+    HelpText<"Select diagnostic message format. Supported values: clang, msvc, mdvc-fallback, vi">;
 def fdiagnostics_show_option : Flag<["-"], "fdiagnostics-show-option">, Group<hlslcomp_Group>,
     Flags<[CoreOption]>, HelpText<"Print option name with mappable diagnostics">;
 def fno_diagnostics_show_option : Flag<["-"], "fno-diagnostics-show-option">, Group<hlslcomp_Group>,
@@ -186,6 +189,9 @@ def ftime_trace : Flag<["-"], "ftime-trace">,
 def ftime_trace_EQ : Joined<["-"], "ftime-trace=">,
   Group<hlslcomp_Group>, Flags<[CoreOption]>,
   HelpText<"Print hierchial time tracing to file">;
+def ftime_trace_granularity_EQ : Joined<["-"], "ftime-trace-granularity=">,
+  Group<hlslcomp_Group>, Flags<[CoreOption]>,
+  HelpText<"Minimum time granularity (in microseconds) traced by time profiler">;
 
 def verify : Joined<["-"], "verify">,
   Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
@@ -272,7 +278,7 @@ def flegacy_macro_expansion : Flag<["-", "/"], "flegacy-macro-expansion">, Group
     HelpText<"Expand the operands before performing token-pasting operation (fxc behavior)">;
 def flegacy_resource_reservation : Flag<["-", "/"], "flegacy-resource-reservation">, Group<hlslcomp_Group>, Flags<[CoreOption, DriverOption]>,
     HelpText<"Reserve unused explicit register assignments for compatibility with shader model 5.0 and below">;
-def no_legacy_cbuf_layout : Flag<["-", "/"], "no-legacy-cbuf-layout">, Group<hlslcomp_Group>, Flags<[CoreOption]>,
+def no_legacy_cbuf_layout : Flag<["-", "/"], "no-legacy-cbuf-layout">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Do not use legacy cbuffer load">;
 def not_use_legacy_cbuf_load_ : Flag<["-", "/"], "not_use_legacy_cbuf_load">, Group<hlslcomp_Group>, Flags<[CoreOption, HelpHidden]>,
   HelpText<"Do not use legacy cbuffer load">;
@@ -492,8 +498,8 @@ def Qembed_debug : Flag<["-", "/"], "Qembed_debug">, Flags<[CoreOption]>, Group<
   HelpText<"Embed PDB in shader container (must be used with /Zi)">;
 def Qstrip_priv : Flag<["-", "/"], "Qstrip_priv">, Flags<[CoreOption, DriverOption]>, Group<hlslutil_Group>,
   HelpText<"Strip private data from shader bytecode  (must be used with /Fo <file>)">;
-def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
-  HelpText<"Generate old PDB format.">;
+def Qsource_in_debug_module : Flag<["-", "/"], "Qsource_in_debug_module">, Flags<[CoreOption]>, Group<hlslutil_Group>,
+  HelpText<"Embed source code in PDB">;
 def Qpdb_in_private : Flag<["-", "/"], "Qpdb_in_private">, Flags<[CoreOption, HelpHidden]>, Group<hlslutil_Group>,
   HelpText<"Store PDB in private user data.">;
 

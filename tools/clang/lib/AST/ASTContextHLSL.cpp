@@ -1241,6 +1241,43 @@ CXXRecordDecl *hlsl::DeclareNodeOrRecordType(
   return Builder.getRecordDecl();
 }
 
+#ifdef ENABLE_SPIRV_CODEGEN
+CXXRecordDecl *hlsl::DeclareInlineSpirvType(clang::ASTContext &context,
+                                            clang::DeclContext *declContext,
+                                            llvm::StringRef typeName,
+                                            bool opaque) {
+  // template<uint opcode, int size, int alignment> vk::SpirvType { ... }
+  // template<uint opcode> vk::SpirvOpaqueType { ... }
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName,
+                                         clang::TagTypeKind::TTK_Class);
+  typeDeclBuilder.addIntegerTemplateParam("opcode", context.UnsignedIntTy);
+  if (!opaque) {
+    typeDeclBuilder.addIntegerTemplateParam("size", context.UnsignedIntTy);
+    typeDeclBuilder.addIntegerTemplateParam("alignment", context.UnsignedIntTy);
+  }
+  typeDeclBuilder.addTypeTemplateParam("operands", nullptr, true);
+  typeDeclBuilder.startDefinition();
+  typeDeclBuilder.addField(
+      "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+  return typeDeclBuilder.getRecordDecl();
+}
+
+CXXRecordDecl *hlsl::DeclareVkIntegralConstant(
+    clang::ASTContext &context, clang::DeclContext *declContext,
+    llvm::StringRef typeName, ClassTemplateDecl **templateDecl) {
+  // template<typename T, T v> vk::integral_constant { ... }
+  BuiltinTypeDeclBuilder typeDeclBuilder(declContext, typeName,
+                                         clang::TagTypeKind::TTK_Class);
+  typeDeclBuilder.addTypeTemplateParam("T");
+  typeDeclBuilder.addIntegerTemplateParam("v", context.UnsignedIntTy);
+  typeDeclBuilder.startDefinition();
+  typeDeclBuilder.addField(
+      "h", context.UnsignedIntTy); // Add an 'h' field to hold the handle.
+  *templateDecl = typeDeclBuilder.getTemplateDecl();
+  return typeDeclBuilder.getRecordDecl();
+}
+#endif
+
 CXXRecordDecl *hlsl::DeclareNodeOutputArray(clang::ASTContext &Ctx,
                                             DXIL::NodeIOKind Type,
                                             CXXRecordDecl *OutputType,

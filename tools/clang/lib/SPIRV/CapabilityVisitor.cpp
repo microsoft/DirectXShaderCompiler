@@ -722,6 +722,18 @@ bool CapabilityVisitor::visit(SpirvExecutionMode *execMode) {
     addExtension(Extension::KHR_maximal_reconvergence, "",
                  execModeSourceLocation);
     break;
+  case spv::ExecutionMode::DenormPreserve:
+  case spv::ExecutionMode::DenormFlushToZero:
+    // KHR_float_controls was promoted to core in Vulkan 1.2.
+    if (!featureManager.isTargetEnvVulkan1p2OrAbove()) {
+      addExtension(Extension::KHR_float_controls, "SPV_KHR_float_controls",
+                   execModeSourceLocation);
+    }
+    addCapability(executionMode == spv::ExecutionMode::DenormPreserve
+                      ? spv::Capability::DenormPreserve
+                      : spv::Capability::DenormFlushToZero,
+                  execModeSourceLocation);
+    break;
   default:
     break;
   }
@@ -885,6 +897,10 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   addExtensionAndCapabilitiesIfEnabled(
       Extension::KHR_vulkan_memory_model,
       {spv::Capability::VulkanMemoryModelDeviceScope});
+
+  addExtensionAndCapabilitiesIfEnabled(
+      Extension::NV_shader_subgroup_partitioned,
+      {spv::Capability::GroupNonUniformPartitionedNV});
 
   return true;
 }

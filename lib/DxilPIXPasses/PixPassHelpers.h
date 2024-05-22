@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "dxc/DXIL/DxilModule.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/IRBuilder.h"
@@ -30,7 +32,8 @@ public:
   llvm::Instruction *Get() const { return m_Instruction; }
 };
 
-bool IsAllocateRayQueryInstruction(llvm::Value const *Val);
+void FindRayQueryHandlesForFunction(
+    llvm::Function *F, llvm::SmallPtrSetImpl<llvm::Value *> &RayQueryHandles);
 llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
                           unsigned int registerId, const char *name);
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
@@ -71,4 +74,6 @@ ExpandedStruct ExpandStructType(llvm::LLVMContext &Ctx,
                                 llvm::Type *OriginalPayloadStructType);
 void ReplaceAllUsesOfInstructionWithNewValueAndDeleteInstruction(
     llvm::Instruction *Instr, llvm::Value *newValue, llvm::Type *newType);
+unsigned int FindOrAddSV_Position(hlsl::DxilModule &DM,
+                                  unsigned UpStreamSVPosRow);
 } // namespace PIXPassHelpers

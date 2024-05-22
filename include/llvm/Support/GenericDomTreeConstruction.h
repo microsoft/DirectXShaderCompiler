@@ -92,6 +92,10 @@ unsigned DFSPass(DominatorTreeBase<typename GraphT::NodeType>& DT,
     // Visit the successor next, if it isn't already visited.
     typename GraphT::NodeType* Succ = *NextSucc;
 
+    // For clang, CFG successors can be optimized-out nullptrs. Skip those.
+    if (!Succ)
+      continue;
+
     typename DominatorTreeBase<typename GraphT::NodeType>::InfoRec &SuccVInfo =
                                                                   DT.Info[Succ];
     if (SuccVInfo.Semi == 0) {

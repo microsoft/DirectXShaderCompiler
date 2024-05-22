@@ -90,6 +90,18 @@ public:
   static const char *GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy);
   static DXIL::NodeLaunchType NodeLaunchTypeFromName(llvm::StringRef name);
 
+  static bool HasVisibleGroup(
+      DXIL::ShaderKind SK,
+      DXIL::NodeLaunchType launchType = DXIL::NodeLaunchType::Invalid) {
+    // Note: Library case is permissive; enforced at entry point.
+    return SK == DXIL::ShaderKind::Compute || SK == DXIL::ShaderKind::Mesh ||
+           SK == DXIL::ShaderKind::Amplification ||
+           SK == DXIL::ShaderKind::Library ||
+           (SK == DXIL::ShaderKind::Node &&
+            (launchType == DXIL::NodeLaunchType::Broadcasting ||
+             launchType == DXIL::NodeLaunchType::Coalescing));
+  }
+
   bool operator==(const ShaderModel &other) const;
   bool operator!=(const ShaderModel &other) const { return !(*this == other); }
 
