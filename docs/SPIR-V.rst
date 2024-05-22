@@ -1361,7 +1361,7 @@ placed in the ``Uniform`` or ``UniformConstant`` storage class.
   - Note that this modifier overrules ``static``; if both ``groupshared`` and
     ``static`` are applied to a variable, ``static`` will be ignored.
 
-- ``uinform``
+- ``uniform``
 
   - This does not affect codegen. Variables will be treated like normal global
     variables.
