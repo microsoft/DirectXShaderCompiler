@@ -983,14 +983,6 @@ SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                          decl->getType(), spv::StorageClass::Output, loc);
   }
 
-  if (hlsl::IsHLSLDynamicResourceType(decl->getType()) ||
-      hlsl::IsHLSLDynamicSamplerType(decl->getType())) {
-    emitError("HLSL object %0 not yet supported with -spirv",
-              decl->getLocation())
-        << decl->getName();
-    return nullptr;
-  }
-
   const DeclSpirvInfo *info = getDeclSpirvInfo(decl);
 
   // If DeclSpirvInfo is not found for this decl, it might be because it is an
@@ -1157,8 +1149,20 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
   return varInstr;
 }
 
+SpirvVariable *DeclResultIdMapper::createResourceHeap(const VarDecl *var,
+                                                      QualType ResourceType) {
+  QualType ResourceArrayType = astContext.getIncompleteArrayType(
+      ResourceType, clang::ArrayType::Normal, 0);
+  disallowAutomaticBindingsAllocation = true;
+  return createExternVar(var, ResourceArrayType);
+}
+
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
-  const auto type = var->getType();
+  return createExternVar(var, var->getType());
+}
+
+SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
+                                                   QualType type) {
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
   const bool isACSBuffer =
       isAppendStructuredBuffer(type) || isConsumeStructuredBuffer(type);
@@ -1269,12 +1273,16 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   if (storageClass == spv::StorageClass::Workgroup)
     return varInstr;
 
-  const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
-  const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
-
-  resourceVars.emplace_back(varInstr, var, loc, regAttr, bindingAttr,
-                            counterBindingAttr);
+  // DescriptorHeaps have a fixed binding/set.
+  if (isResourceDescriptorHeap(var->getType()) ||
+      isSamplerDescriptorHeap(var->getType())) {
+    bindingAttr = ::new (astContext)
+        VKBindingAttr(var->getSourceRange(), astContext, /* binding= */ 0,
+                      /* set= */ 0, /* spellingListIndex= */ 0);
+  }
+  resourceVars.emplace_back(varInstr, var, loc, getResourceBinding(var),
+                            bindingAttr, var->getAttr<VKCounterBindingAttr>());
 
   if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
     spvBuilder.decorateInputAttachmentIndex(varInstr,
@@ -1814,6 +1822,10 @@ void DeclResultIdMapper::createCounterVar(
       assert(declType->isIncompleteArrayType());
       counterType = spvContext.getRuntimeArrayType(counterType, arrayStride);
     }
+  } else if (isResourceDescriptorHeap(decl->getType()) ||
+             isSamplerDescriptorHeap(decl->getType())) {
+    counterType =
+        spvContext.getRuntimeArrayType(counterType, /* arrayStride= */ 4);
   }
 
   // {RW|Append|Consume}StructuredBuffer are all in Uniform storage class.
@@ -1831,12 +1843,29 @@ void DeclResultIdMapper::createCounterVar(
       counterType, sc, /*isPrecise*/ false, false, counterName);
 
   if (!isAlias) {
+    VKBindingAttr *bindingAttr = decl->getAttr<VKBindingAttr>();
+    VKCounterBindingAttr *counterAttr = decl->getAttr<VKCounterBindingAttr>();
+    // TODO(issue/6649): Sampler heaps can be used in DXIL to load resources
+    // with counters. This shouldn't be legal, but until we get confirmation, we
+    // need to match DXIL's behavior.
+    if (isResourceDescriptorHeap(decl->getType()) ||
+        isSamplerDescriptorHeap(decl->getType())) {
+      // There should be no way to link those attributes to resource heaps.
+      // Asserting in case.
+      assert(bindingAttr == nullptr && counterAttr == nullptr);
+      bindingAttr = ::new (astContext)
+          VKBindingAttr(decl->getSourceRange(), astContext, /* binding= */ 0,
+                        /* set= */ 1, /* spellingListIndex= */ 0);
+      counterAttr = ::new (astContext)
+          VKCounterBindingAttr(decl->getSourceRange(), astContext,
+                               /* binding= */ 0, /* spellingListIndex= */ 0);
+    }
+
     // Non-alias counter variables should be put in to resourceVars so that
     // descriptors can be allocated for them.
     resourceVars.emplace_back(counterInstr, decl, decl->getLocation(),
-                              getResourceBinding(decl),
-                              decl->getAttr<VKBindingAttr>(),
-                              decl->getAttr<VKCounterBindingAttr>(), true);
+                              getResourceBinding(decl), bindingAttr,
+                              counterAttr, true);
     assert(declInstr);
     spvBuilder.decorateCounterBuffer(declInstr, counterInstr,
                                      decl->getLocation());
@@ -2417,6 +2446,29 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   auto defaultSpaceOpt =
       theEmitter.getCompilerInstance().getCodeGenOpts().HLSLDefaultSpace;
   uint32_t defaultSpace = (defaultSpaceOpt == UINT_MAX) ? 0 : defaultSpaceOpt;
+
+  // When the resource heaps are in use, the implicit binding allocation is
+  // forbidden.
+  if (disallowAutomaticBindingsAllocation) {
+    for (const auto &var : resourceVars) {
+      const auto *bindingAttr = var.getBinding();
+      const auto *counterAttr = var.getCounterBinding();
+
+      if (!bindingAttr || bindingAttr->getSet() == INT_MIN ||
+          (var.isCounter() && !counterAttr)) {
+        emitError("Using SamplerDescriptorHeap/ResourceDescriptorHeap & "
+                  "implicit bindings is disallowed.",
+                  var.getSourceLocation());
+        return false;
+      }
+
+      const uint32_t set = bindingAttr->getSet();
+      const uint32_t binding = var.isCounter() ? counterAttr->getBinding()
+                                               : bindingAttr->getBinding();
+      spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set, binding);
+    }
+    return true;
+  }
 
   const bool bindGlobals = !spirvOptions.bindGlobals.empty();
   int32_t globalsBindNo = -1, globalsSetNo = -1;

@@ -21,7 +21,9 @@
 #include "dxc/HlslIntrinsicOp.h"
 #include "spirv-tools/optimizer.hpp"
 #include "clang/AST/HlslTypes.h"
+#include "clang/AST/ParentMap.h"
 #include "clang/AST/RecordLayout.h"
+#include "clang/AST/Type.h"
 #include "clang/SPIRV/AstTypeProbe.h"
 #include "clang/SPIRV/String.h"
 #include "clang/Sema/Sema.h"
@@ -1523,7 +1525,9 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       spvBuilder.createDebugFunctionDef(debugFunction, func);
 
     // Process all statments in the body.
+    parentMap = std::make_unique<ParentMap>(decl->getBody());
     doStmt(decl->getBody());
+    parentMap.reset(nullptr);
 
     // We have processed all Stmts in this function and now in the last
     // basic block. Make sure we have a termination instruction.
@@ -3161,6 +3165,17 @@ SpirvInstruction *SpirvEmitter::doCastExpr(const CastExpr *expr,
   SourceRange range =
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
+  // The AST type for descriptor heap is not well defined. This means we needed
+  // to look at the destination type already to generate the source type.
+  // This makes implicit casts from heaps useless, and we can ignore them.
+  // If you want to remove this check, the flat conversion heap->type needs to
+  // be implemented, which would mostly duplicate the initial heap creation
+  // code.
+  if (isResourceDescriptorHeap(subExprType) ||
+      isSamplerDescriptorHeap(subExprType)) {
+    return doExpr(subExpr, range);
+  }
+
   switch (expr->getCastKind()) {
   case CastKind::CK_LValueToRValue:
     return loadIfGLValue(subExpr, range);
@@ -4736,6 +4751,13 @@ SpirvEmitter::getFinalACSBufferCounterInstruction(const Expr *expr) {
   llvm::SmallVector<SpirvInstruction *, 2> indexes;
   if (const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
     indexes.push_back(doExpr(arraySubscriptExpr->getIdx()));
+  } else if (isResourceDescriptorHeap(expr->getType())) {
+    const Expr *base = nullptr;
+    const Expr *index = nullptr;
+    isDescriptorHeap(dyn_cast_or_null<CXXOperatorCallExpr>(expr), &base,
+                     &index);
+    assert(index != nullptr && "operator[] had no indices.");
+    indexes.push_back(doExpr(index));
   }
 
   if (!indexes.empty()) {
@@ -4751,9 +4773,15 @@ SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
   if (const auto *decl = getReferencedDef(expr))
     return declIdMapper.createOrGetCounterIdAliasPair(decl);
 
+  if (isResourceDescriptorHeap(expr->getType())) {
+    const Expr *base = nullptr;
+    isDescriptorHeap(dyn_cast_or_null<CXXOperatorCallExpr>(expr), &base,
+                     nullptr);
+    return declIdMapper.createOrGetCounterIdAliasPair(getReferencedDef(base));
+  }
+
   // AssocCounter#2: referencing some non-struct field
   llvm::SmallVector<uint32_t, 4> rawIndices;
-
   const auto *base = collectArrayStructIndices(
       expr, /*rawIndex=*/true, &rawIndices, /*indices*/ nullptr);
   const auto *decl =
@@ -5925,6 +5953,32 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
     }
   }
 
+  SourceRange range =
+      (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
+
+  { // Handle ResourceDescriptorHeap and SamplerDescriptorHeap.
+    const Expr *baseExpr = nullptr;
+    const Expr *indexExpr = nullptr;
+    if (isDescriptorHeap(dyn_cast_or_null<CXXOperatorCallExpr>(expr), &baseExpr,
+                         &indexExpr)) {
+      const Expr *ParentExpr = cast<Expr>(parentMap->getParent(expr));
+      QualType ResourceType = ParentExpr->getType();
+      const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreCasts());
+      auto *decl = cast<VarDecl>(declRefExpr->getDecl());
+      auto *var = declIdMapper.createResourceHeap(decl, ResourceType);
+
+      auto *index = doExpr(indexExpr);
+      auto *accessChainPtr = spvBuilder.createAccessChain(
+          ResourceType, var, index, baseExpr->getExprLoc(), range);
+
+      if (!isAKindOfStructuredOrByteBuffer(ResourceType) &&
+          baseExpr->isGLValue())
+        return spvBuilder.createLoad(ResourceType, accessChainPtr,
+                                     baseExpr->getExprLoc(), range);
+      return accessChainPtr;
+    }
+  }
+
   llvm::SmallVector<SpirvInstruction *, 4> indices;
   const Expr *baseExpr = collectArrayStructIndices(
       expr, /*rawIndex*/ false, /*rawIndices*/ nullptr, &indices);
@@ -5944,9 +5998,6 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
     base = createTemporaryVar(baseExpr->getType(), "vector", base,
                               baseExpr->getExprLoc());
   }
-
-  SourceRange range =
-      (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
   return derefOrCreatePointerToValue(baseExpr->getType(), base, expr->getType(),
                                      indices, baseExpr->getExprLoc(), range);
@@ -7162,6 +7213,28 @@ bool SpirvEmitter::isBufferTextureIndexing(const CXXOperatorCallExpr *indexExpr,
     return true;
   }
   return false;
+}
+
+bool SpirvEmitter::isDescriptorHeap(const CXXOperatorCallExpr *indexExpr,
+                                    const Expr **base, const Expr **index) {
+  if (!indexExpr)
+    return false;
+
+  // Must be operator[]
+  if (indexExpr->getOperator() != OverloadedOperatorKind::OO_Subscript)
+    return false;
+
+  const Expr *object = indexExpr->getArg(0);
+  const auto objectType = object->getType();
+  if (!isResourceDescriptorHeap(objectType) &&
+      !isSamplerDescriptorHeap(objectType))
+    return false;
+
+  if (base)
+    *base = object;
+  if (index)
+    *index = indexExpr->getArg(1);
+  return true;
 }
 
 void SpirvEmitter::condenseVectorElementExpr(
