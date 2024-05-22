@@ -197,7 +197,7 @@ bool LoopDeletion::runOnLoop(Loop *L, LPPassManager &LPM) {
   // the preheader instead of the exiting block.
   BasicBlock::iterator BI = exitBlock->begin();
   while (PHINode *P = dyn_cast<PHINode>(BI)) {
-    // HLSL-BEGIN apply https://reviews.llvm.org/D34516
+    // HLSL Change begin - apply https://reviews.llvm.org/D34516
     // Set the zero'th element of Phi to be from the preheader and remove all
     // other incoming values. Given the loop has dedicated exits, all other
     // incoming values must be from the exiting blocks.
@@ -217,7 +217,7 @@ bool LoopDeletion::runOnLoop(Loop *L, LPPassManager &LPM) {
             P->getIncomingBlock(PredIndex) == preheader) &&
            "Should have exactly one value and that's from the preheader!");
     ++BI;
-    // HLSL-END
+    // HLSL Change end
   }
 
   // Update the dominator tree and remove the instructions and blocks that will
