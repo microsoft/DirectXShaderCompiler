@@ -66,15 +66,7 @@ void AlignmentSizeCalculator::alignUsingHLSLRelaxedLayout(
 std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     QualType type, const RecordType *structType, SpirvLayoutRule rule,
     llvm::Optional<bool> isRowMajor, uint32_t *stride) const {
-  bool hasBaseStructs = type->getAsCXXRecordDecl() &&
-                        type->getAsCXXRecordDecl()->getNumBases() > 0;
-
-  // Special case for handling empty structs, whose size is 0 and has no
-  // requirement over alignment (thus 1).
-  if (structType->getDecl()->field_empty() && !hasBaseStructs)
-    return {1, 0};
-
-  uint32_t maxAlignment = 0;
+  uint32_t maxAlignment = 1;
   uint32_t structSize = 0;
 
   // If this struct is derived from some other structs, place an implicit
