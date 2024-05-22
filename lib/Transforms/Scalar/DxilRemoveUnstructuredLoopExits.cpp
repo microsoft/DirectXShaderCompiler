@@ -322,24 +322,26 @@ static void SkipBlockWithBranch(BasicBlock *bb, Value *cond, Loop *L,
   BranchInst::Create(end, body, cond, bb);
 
   for (Instruction &inst : *body) {
-    PHINode *phi = nullptr;
 
     // For each user that's outside of 'body', replace its use of 'inst' with a
     // phi created in 'end'
-    for (auto it = inst.user_begin(); it != inst.user_end();) {
-      Instruction *user_inst = cast<Instruction>(*(it++));
-      if (user_inst == phi)
-        continue;
+    SmallPtrSet<Instruction *, 8> users_in_other_blocks;
+    for (auto *user : inst.users()) {
+      Instruction *user_inst = cast<Instruction>(user);
       if (user_inst->getParent() != body) {
-        if (!phi) {
-          phi = PHINode::Create(inst.getType(), 2, "", &*end->begin());
-          phi->addIncoming(GetDefaultValue(inst.getType()), bb);
-          phi->addIncoming(&inst, body);
-        }
+        users_in_other_blocks.insert(user_inst);
+      }
+    }
+    if (users_in_other_blocks.size() > 0) {
+      auto *phi = PHINode::Create(inst.getType(), 2, "", &*end->begin());
+      phi->addIncoming(GetDefaultValue(inst.getType()), bb);
+      phi->addIncoming(&inst, body);
+
+      for (auto *user_inst : users_in_other_blocks) {
         user_inst->replaceUsesOfWith(&inst, phi);
       }
-    } // For each user of inst of body
-  }   // For each inst in body
+    }
+  } // For each inst in body
 
   L->addBasicBlockToLoop(body, *LI);
   L->addBasicBlockToLoop(end, *LI);
