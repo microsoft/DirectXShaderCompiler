@@ -86,8 +86,18 @@ def SplitAtPass(passes, pass_name, invocation=1):
                     after = [line]
                     continue
         before.append(line)
-    if after is None:
-        raise Exception(f"no such pass: {pass_name}")
+    if count == 0:
+        raise ValueError(
+            "Pass '{}' not found in pass list.  Check spelling and that it is a module pass.  Pass list: {}".format(
+                pass_name, passes
+            )
+        )
+    elif count < invocation:
+        raise ValueError(
+            "Pass '{}' found {} times, but {} invocations requested.  Pass list: {}".format(
+                pass_name, count, invocation, passes
+            )
+        )
 
     return before, after
 
