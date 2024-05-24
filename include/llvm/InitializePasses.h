@@ -272,6 +272,7 @@ void initializeDxilReinsertNopsPass(PassRegistry&);
 void initializeDxilFinalizePreservesPass(PassRegistry&);
 void initializeDxilPreserveToSelectPass(PassRegistry&);
 void initializeDxilRemoveDeadBlocksPass(PassRegistry&);
+void initializeDxilRemoveUnstructuredLoopExitsPass(PassRegistry &);
 void initializeDxilRewriteOutputArgDebugInfoPass(PassRegistry&);
 // HLSL Change Ends
 void initializeScalarEvolutionAliasAnalysisPass(PassRegistry&);
