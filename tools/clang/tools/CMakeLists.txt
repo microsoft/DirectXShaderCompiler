@@ -24,6 +24,8 @@ add_llvm_external_project(clang-tools-extra extra)
 
 # HLSL Change Starts
 add_subdirectory(dxcompiler)
+
+if(NOT ENABLE_DXC_STATIC_LINKING)
 add_subdirectory(dxclib)
 add_subdirectory(dxc)
 add_subdirectory(dxa)
@@ -41,3 +43,4 @@ add_subdirectory(dxlib-sample)
 add_subdirectory(dotnetc)
 endif (WIN32)
 # HLSL Change Ends
+endif()

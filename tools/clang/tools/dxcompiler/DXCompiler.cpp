@@ -84,44 +84,62 @@ Cleanup:
   }
   return hr;
 }
-#if defined(LLVM_ON_UNIX)
-HRESULT __attribute__((constructor)) DllMain() { return InitMaybeFail(); }
 
-void __attribute__((destructor)) DllShutdown() {
+HRESULT __stdcall DxcInitialize() {
+
+#if defined(LLVM_ON_UNIX)
+  return InitMaybeFail();
+#else
+  EventRegisterMicrosoft_Windows_DXCompiler_API();
+  DxcEtw_DXCompilerInitialization_Start();
+  HRESULT hr = InitMaybeFail();
+  DxcEtw_DXCompilerInitialization_Stop(hr);
+  return hr;
+#endif
+}
+
+void __stdcall DxcShutdown(BOOL isProcessTermination) {
+
+#if defined(LLVM_ON_UNIX)
+  (void) isProcessTermination;
   DxcSetThreadMallocToDefault();
   ::hlsl::options::cleanupHlslOptTable();
   ::llvm::sys::fs::CleanupPerThreadFileSystem();
   ::llvm::llvm_shutdown();
   DxcClearThreadMalloc();
   DxcCleanupThreadMalloc();
+#else
+  DxcEtw_DXCompilerShutdown_Start();
+  DxcSetThreadMallocToDefault();
+  ::hlsl::options::cleanupHlslOptTable();
+  ::llvm::sys::fs::CleanupPerThreadFileSystem();
+  ::llvm::llvm_shutdown();
+  if (!isProcessTermination) { // FreeLibrary has been called or the DLL load failed
+    DxilLibCleanup(DxilLibCleanUpType::UnloadLibrary);
+  } else { // Process termination. We should not call FreeLibrary()
+    DxilLibCleanup(DxilLibCleanUpType::ProcessTermination);
+  }
+  DxcClearThreadMalloc();
+  DxcCleanupThreadMalloc();
+  DxcEtw_DXCompilerShutdown_Stop(S_OK);
+  EventUnregisterMicrosoft_Windows_DXCompiler_API();
+#endif
 }
+
+#ifndef ENABLE_DXC_STATIC_LINKING
+#if defined(LLVM_ON_UNIX)
+HRESULT __attribute__((constructor)) DllMain() { return DxcInitialize(); }
+void __attribute__((destructor)) DllShutdown(){ DxcShutdown();}
 #else  // LLVM_ON_UNIX
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID reserved) {
   BOOL result = TRUE;
   if (Reason == DLL_PROCESS_ATTACH) {
-    EventRegisterMicrosoft_Windows_DXCompiler_API();
-    DxcEtw_DXCompilerInitialization_Start();
-    HRESULT hr = InitMaybeFail();
-    DxcEtw_DXCompilerInitialization_Stop(hr);
-    result = SUCCEEDED(hr) ? TRUE : FALSE;
+    result = SUCCEEDED(DxcInitialize());
   } else if (Reason == DLL_PROCESS_DETACH) {
-    DxcEtw_DXCompilerShutdown_Start();
-    DxcSetThreadMallocToDefault();
-    ::hlsl::options::cleanupHlslOptTable();
-    ::llvm::sys::fs::CleanupPerThreadFileSystem();
-    ::llvm::llvm_shutdown();
-    if (reserved ==
-        NULL) { // FreeLibrary has been called or the DLL load failed
-      DxilLibCleanup(DxilLibCleanUpType::UnloadLibrary);
-    } else { // Process termination. We should not call FreeLibrary()
-      DxilLibCleanup(DxilLibCleanUpType::ProcessTermination);
-    }
-    DxcClearThreadMalloc();
-    DxcCleanupThreadMalloc();
-    DxcEtw_DXCompilerShutdown_Stop(S_OK);
-    EventUnregisterMicrosoft_Windows_DXCompiler_API();
+    DxcShutdown(reserved != NULL);
   }
 
   return result;
 }
 #endif // LLVM_ON_UNIX
+#endif

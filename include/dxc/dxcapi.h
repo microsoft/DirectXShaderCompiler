@@ -13,7 +13,11 @@
 #ifndef __DXC_API__
 #define __DXC_API__
 
-#ifdef _WIN32
+#ifdef ENABLE_DXC_STATIC_LINKING
+#ifndef DXC_API_IMPORT
+#define DXC_API_IMPORT
+#endif
+#elif defined(_WIN32)
 #ifndef DXC_API_IMPORT
 #define DXC_API_IMPORT __declspec(dllimport)
 #endif
@@ -43,14 +47,14 @@ struct IDxcIncludeHandler;
 
 /// \brief Typedef for DxcCreateInstance function pointer.
 ///
-/// This can be used with GetProcAddress to get the DxcCreateInstance function.
+/// This can be used with GetProcAddress to get the DxcCreateInstance function (if it's not statically linked).
 typedef HRESULT(__stdcall *DxcCreateInstanceProc)(_In_ REFCLSID rclsid,
                                                   _In_ REFIID riid,
                                                   _Out_ LPVOID *ppv);
 
 /// \brief Typedef for DxcCreateInstance2 function pointer.
 ///
-/// This can be used with GetProcAddress to get the DxcCreateInstance2 function.
+/// This can be used with GetProcAddress to get the DxcCreateInstance2 function (if it's not statically linked).
 typedef HRESULT(__stdcall *DxcCreateInstance2Proc)(_In_ IMalloc *pMalloc,
                                                    _In_ REFCLSID rclsid,
                                                    _In_ REFIID riid,
@@ -83,6 +87,20 @@ extern "C" DXC_API_IMPORT
     HRESULT __stdcall DxcCreateInstance2(_In_ IMalloc *pMalloc,
                                          _In_ REFCLSID rclsid, _In_ REFIID riid,
                                          _Out_ LPVOID *ppv);
+
+#ifdef ENABLE_DXC_STATIC_LINKING
+
+/// \brief This function has to be called before any DXC calls to initialize it if it's statically linked.
+///
+/// If dynamically linked, this will automatically be called.
+extern "C" HRESULT __stdcall DxcInitialize();
+
+/// \brief This function has to be called after all DXC calls (shutdown) to free everything it if it's statically linked.
+///
+/// If dynamically linked, this will automatically be called.
+extern "C" void __stdcall DxcShutdown(BOOL isProcessTermination);
+
+#endif
 
 // For convenience, equivalent definitions to CP_UTF8 and CP_UTF16.
 #define DXC_CP_UTF8 65001
