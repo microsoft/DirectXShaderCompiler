@@ -83,6 +83,7 @@ struct SpirvCodeGenOptions {
   SpirvLayoutRule ampPayloadLayoutRule;
   llvm::StringRef stageIoOrder;
   llvm::StringRef targetEnv;
+  uint32_t maxId;
   llvm::SmallVector<int32_t, 4> bShift;
   llvm::SmallVector<int32_t, 4> sShift;
   llvm::SmallVector<int32_t, 4> tShift;
