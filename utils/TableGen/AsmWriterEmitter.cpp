@@ -736,13 +736,14 @@ public:
     O.indent(4) << '}';
   }
 
-  bool operator==(const IAPrinter &RHS) {
+  bool operator==(const IAPrinter &RHS) const {
     if (Conds.size() != RHS.Conds.size())
       return false;
 
     unsigned Idx = 0;
-    for (std::vector<std::string>::iterator
-           I = Conds.begin(), E = Conds.end(); I != E; ++I)
+    for (std::vector<std::string>::const_iterator I = Conds.begin(),
+                                                  E = Conds.end();
+         I != E; ++I)
       if (*I != RHS.Conds[Idx++])
         return false;
 
@@ -1073,7 +1074,7 @@ void AsmWriterEmitter::EmitPrintAliasInstruction(raw_ostream &O) {
         << "    break;\n";
     }
     O << "  }\n";
-  }    
+  }
   O << "}\n\n";
 
   if (!MCOpPredicates.empty()) {
