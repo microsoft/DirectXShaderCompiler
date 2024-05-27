@@ -1,7 +1,7 @@
 set(LLVM_LINK_COMPONENTS
   BitWriter
   Core
-  IPO
+  ScalarOpts
   IRReader
   Support
   )

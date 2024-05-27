@@ -10,7 +10,6 @@ set(LLVM_LINK_COMPONENTS
   DxilContainer #  HLSL Change for DxcOptimizerPass
   DxilRootSignature #  HLSL Change for DxcOptimizerPass
   IPA
-  IPO
   IRReader
   InstCombine
 #  Instrumentation # HLSL Change

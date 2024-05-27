@@ -24,7 +24,6 @@ set(LLVM_LINK_COMPONENTS
   ScalarOpts
   instcombine
   ipa
-  ipo
   irreader
 #  libdriver
 #  lineeditor
@@ -36,7 +35,6 @@ set(LLVM_LINK_COMPONENTS
   option
 #  passes
   profiledata
-  scalaropts
 #  selectiondag # no support for LLVM codegen
   support
   target

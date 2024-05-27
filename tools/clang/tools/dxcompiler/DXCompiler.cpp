@@ -53,6 +53,7 @@ void __CRTDECL operator delete(void *ptr,
 #endif
 
 static HRESULT InitMaybeFail() throw() {
+
   HRESULT hr;
   bool fsSetup = false, memSetup = false;
   IFC(DxcInitThreadMalloc());

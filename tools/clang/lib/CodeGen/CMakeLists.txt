@@ -8,7 +8,7 @@ set(LLVM_LINK_COMPONENTS
   DXIL
   DxilRootSignature
   DxcBindingTable
-  IPO
+  ScalarOpts
   IRReader
   InstCombine
 #  Instrumentation # HLSL Change
@@ -17,7 +17,6 @@ set(LLVM_LINK_COMPONENTS
 #  ObjCARCOpts # HLSL Change
 #  Object # HLSL Change
   ProfileData
-  ScalarOpts
   Support
   Target
   TransformUtils

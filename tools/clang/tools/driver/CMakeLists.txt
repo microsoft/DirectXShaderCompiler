@@ -4,7 +4,6 @@ set( LLVM_LINK_COMPONENTS
 #  CodeGen # HLSL Change
   Core
   IPA
-  IPO
   InstCombine
 #  Instrumentation # HLSL Change
 #  MC # HLSL Change
@@ -16,7 +15,6 @@ set( LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   mssupport # HLSL Change
-  ScalarOpts  # HLSL Change
   )
 
 option(CLANG_PLUGIN_SUPPORT "Build clang with plugin support" ON)

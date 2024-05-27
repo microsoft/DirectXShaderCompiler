@@ -5,7 +5,7 @@ add_hlsl_hctgen(DxilValidation OUTPUT DxilValidationImpl.inc BUILD_DIR)
 
 add_llvm_library(LLVMScalarOpts
 
-  # We ended up merging LLVMHLSL and LLVMScalarOpts because they access eachother's functions, which isn't great on some platforms.
+  # We ended up merging LLVMHLSL, LLVMipo and LLVMScalarOpts because they access eachother's functions, which isn't great on some platforms.
 
   ../../HLSL/ComputeViewIdState.cpp
   ../../HLSL/ComputeViewIdStateBuilder.cpp
@@ -58,6 +58,31 @@ add_llvm_library(LLVMScalarOpts
   ../../HLSL/DxilNoOptLegalize.cpp
   ../../HLSL/DxilPoisonValues.cpp
   ../../HLSL/DxilDeleteRedundantDebugValues.cpp
+
+  # LLVMipo
+
+  ../IPO/BarrierNoopPass.cpp
+  ../IPO/ConstantMerge.cpp
+  ../IPO/DeadArgumentElimination.cpp
+  ../IPO/ElimAvailExtern.cpp
+  ../IPO/ExtractGV.cpp
+  ../IPO/FunctionAttrs.cpp
+  ../IPO/GlobalDCE.cpp
+  ../IPO/GlobalOpt.cpp
+  ../IPO/IPConstantPropagation.cpp
+  ../IPO/IPO.cpp
+  ../IPO/InlineAlways.cpp
+  ../IPO/InlineSimple.cpp
+  ../IPO/Inliner.cpp
+  ../IPO/Internalize.cpp
+  ../IPO/LoopExtractor.cpp
+  ../IPO/LowerBitSets.cpp
+  ../IPO/MergeFunctions.cpp
+  ../IPO/PartialInlining.cpp
+  ../IPO/PassManagerBuilder.cpp
+  ../IPO/PruneEH.cpp
+  ../IPO/StripDeadPrototypes.cpp
+  ../IPO/StripSymbols.cpp
 
   # Old LLVMScalarOpts stuff
 
@@ -127,8 +152,9 @@ add_llvm_library(LLVMScalarOpts
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Scalar
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/IPO
   )
 
 add_dependencies(LLVMScalarOpts intrinsics_gen)
 
-target_link_libraries(LLVMScalarOpts PUBLIC LLVMDXIL) # HLSL Change
+target_link_libraries(LLVMScalarOpts PUBLIC LLVMDXIL LLVMPassPrinters) # HLSL Change
