@@ -16,7 +16,7 @@ set( LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   mssupport # HLSL Change
-  hlsl  # HLSL Change
+  ScalarOpts  # HLSL Change
   )
 
 option(CLANG_PLUGIN_SUPPORT "Build clang with plugin support" ON)

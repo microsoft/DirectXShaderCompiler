@@ -21,7 +21,7 @@ set(LLVM_LINK_COMPONENTS
   dxilpixpasses # for DxcOptimizerPass
   dxilrootsignature
   dxcbindingtable
-  hlsl
+  ScalarOpts
   instcombine
   ipa
   ipo

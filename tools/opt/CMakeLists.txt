@@ -6,7 +6,7 @@ set(LLVM_LINK_COMPONENTS
   Core
   DXIL # HLSL Change
   DxcBindingTable # HLSL Change
-  HLSL # HLSL Change
+  ScalarOpts # HLSL Change
   DxilContainer #  HLSL Change for DxcOptimizerPass
   DxilRootSignature #  HLSL Change for DxcOptimizerPass
   IPA
@@ -29,7 +29,7 @@ set(LLVM_LINK_COMPONENTS
 # Support plugins.
 set(LLVM_NO_DEAD_STRIP 1)
 
-set(LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS} mssupport dxcbindingtable hlsl)  # HLSL Change
+set(LLVM_LINK_COMPONENTS ${LLVM_LINK_COMPONENTS} mssupport dxcbindingtable ScalarOpts)  # HLSL Change
 
 add_llvm_tool(opt
   AnalysisWrappers.cpp

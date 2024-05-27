@@ -1,4 +1,4 @@
-set(LLVM_LINK_COMPONENTS hlsl support)
+set(LLVM_LINK_COMPONENTS ScalarOpts support)
 
 set (HLSL_IGNORE_SOURCES
   NSAPI.cpp

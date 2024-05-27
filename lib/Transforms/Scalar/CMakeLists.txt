@@ -1,4 +1,66 @@
+# HLSL Change
+
+add_hlsl_hctgen(DxcOptimizer OUTPUT DxcOptimizer.inc BUILD_DIR)
+add_hlsl_hctgen(DxilValidation OUTPUT DxilValidationImpl.inc BUILD_DIR)
+
 add_llvm_library(LLVMScalarOpts
+
+  # We ended up merging LLVMHLSL and LLVMScalarOpts because they access eachother's functions, which isn't great on some platforms.
+
+  ../../HLSL/ComputeViewIdState.cpp
+  ../../HLSL/ComputeViewIdStateBuilder.cpp
+  ../../HLSL/ControlDependence.cpp
+  ../../HLSL/DxilCondenseResources.cpp
+  ../../HLSL/DxilContainerReflection.cpp
+  ../../HLSL/DxilConvergent.cpp
+  ../../HLSL/DxilEliminateOutputDynamicIndexing.cpp
+  ../../HLSL/DxilExpandTrigIntrinsics.cpp
+  ../../HLSL/DxilGenerationPass.cpp
+  ../../HLSL/DxilLegalizeEvalOperations.cpp
+  ../../HLSL/DxilLegalizeSampleOffsetPass.cpp
+  ../../HLSL/DxilLinker.cpp
+  ../../HLSL/DxilLoopDeletion.cpp
+  ../../HLSL/DxilPrecisePropagatePass.cpp
+  ../../HLSL/DxilPreparePasses.cpp
+  ../../HLSL/DxilPromoteResourcePasses.cpp
+  ../../HLSL/DxilPackSignatureElement.cpp
+  ../../HLSL/DxilPatchShaderRecordBindings.cpp
+  ../../HLSL/DxilNoops.cpp
+  ../../HLSL/DxilPreserveAllOutputs.cpp
+  ../../HLSL/DxilRenameResourcesPass.cpp
+  ../../HLSL/DxilSimpleGVNHoist.cpp
+  ../../HLSL/DxilSignatureValidation.cpp
+  ../../HLSL/DxilTargetLowering.cpp
+  ../../HLSL/DxilTargetTransformInfo.cpp
+  ../../HLSL/DxilTranslateRawBuffer.cpp
+  ../../HLSL/DxilExportMap.cpp
+  ../../HLSL/DxilValidation.cpp
+  ../../HLSL/DxcOptimizer.cpp
+  ../../HLSL/HLDeadFunctionElimination.cpp
+  ../../HLSL/HLExpandStoreIntrinsics.cpp
+  ../../HLSL/HLLegalizeParameter.cpp
+  ../../HLSL/HLLowerUDT.cpp
+  ../../HLSL/HLMatrixBitcastLowerPass.cpp
+  ../../HLSL/HLMatrixLowerPass.cpp
+  ../../HLSL/HLMatrixSubscriptUseReplacer.cpp
+  ../../HLSL/HLMatrixType.cpp
+  ../../HLSL/HLMetadataPasses.cpp
+  ../../HLSL/HLModule.cpp
+  ../../HLSL/HLOperations.cpp
+  ../../HLSL/HLOperationLower.cpp
+  ../../HLSL/HLOperationLowerExtension.cpp
+  ../../HLSL/HLPreprocess.cpp
+  ../../HLSL/HLResource.cpp
+  ../../HLSL/HLSignatureLower.cpp
+  ../../HLSL/HLUtil.cpp
+  ../../HLSL/PauseResumePasses.cpp
+  ../../HLSL/WaveSensitivityAnalysis.cpp
+  ../../HLSL/DxilNoOptLegalize.cpp
+  ../../HLSL/DxilPoisonValues.cpp
+  ../../HLSL/DxilDeleteRedundantDebugValues.cpp
+
+  # Old LLVMScalarOpts stuff
+
   ADCE.cpp
   AlignmentFromAssumptions.cpp
   BDCE.cpp
@@ -62,10 +124,11 @@ add_llvm_library(LLVMScalarOpts
   TailRecursionElimination.cpp
 
   ADDITIONAL_HEADER_DIRS
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Scalar
   )
 
 add_dependencies(LLVMScalarOpts intrinsics_gen)
 
-target_link_libraries(LLVMScalarOpts PUBLIC LLVMDXIL LLVMHLSL) # HLSL Change
+target_link_libraries(LLVMScalarOpts PUBLIC LLVMDXIL) # HLSL Change
