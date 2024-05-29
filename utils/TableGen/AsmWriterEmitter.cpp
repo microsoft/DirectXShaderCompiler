@@ -736,6 +736,7 @@ public:
     O.indent(4) << '}';
   }
 
+  // HLSL Change begin
   bool operator==(const IAPrinter &RHS) const {
     if (Conds.size() != RHS.Conds.size())
       return false;
@@ -749,6 +750,7 @@ public:
 
     return true;
   }
+  // HLSL Change end
 };
 
 } // end anonymous namespace
