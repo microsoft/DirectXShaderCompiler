@@ -1,5 +1,5 @@
 ; RUN: opt %s -analyze -loops | FileCheck -check-prefix=LOOPBEFORE %s
-; RUN: opt %s -dxil-r-u-l-e -o %t.bc
+; RUN: opt %s -dxil-remove-unstructured-loop-exits -o %t.bc
 ; RUN: opt %t.bc -S | FileCheck %s
 ; RUN: opt %t.bc -analyze -loops | FileCheck -check-prefix=LOOPAFTER %s
 

@@ -144,7 +144,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "dxil-r-u-l-e"
+#define DEBUG_TYPE "dxil-remove-unstructured-loop-exits"
 
 namespace {
 
@@ -718,7 +718,8 @@ bool hlsl::RemoveUnstructuredLoopExits(
 }
 
 // This pass runs hlsl::RemoveUnstructuredLoopExits.
-// It is used for testing, and can be run from `opt` via option -dxil-r-u-l-e
+// It is used for testing, and can be run from `opt` like this:
+//    opt -dxil-remove-unstructured-loop-exits module.ll
 namespace {
 
 class DxilRemoveUnstructuredLoopExits : public LoopPass {
@@ -755,9 +756,11 @@ Pass *llvm::createDxilRemoveUnstructuredLoopExitsPass() {
   return new DxilRemoveUnstructuredLoopExits();
 }
 
-INITIALIZE_PASS_BEGIN(DxilRemoveUnstructuredLoopExits, "dxil-r-u-l-e",
+INITIALIZE_PASS_BEGIN(DxilRemoveUnstructuredLoopExits,
+                      "dxil-remove-unstructured-loop-exits",
                       "DXIL Remove Unstructured Loop Exits", false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-INITIALIZE_PASS_END(DxilRemoveUnstructuredLoopExits, "dxil-r-u-l-e",
+INITIALIZE_PASS_END(DxilRemoveUnstructuredLoopExits,
+                    "dxil-remove-unstructured-loop-exits",
                     "DXIL Remove Unstructured Loop Exits", false, false)
