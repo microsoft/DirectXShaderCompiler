@@ -1519,8 +1519,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         // If the source code does not provide a proper return value for some
         // control flow path, it's undefined behavior. We just return null
         // value here.
-        spvBuilder.createReturnValue(spvBuilder.getConstantNull(retType),
-                                     returnLoc);
+        spvBuilder.createReturnValue(spvBuilder.getUndef(retType), returnLoc);
       }
     }
   }

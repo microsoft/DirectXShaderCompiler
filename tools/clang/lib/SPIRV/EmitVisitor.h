@@ -57,7 +57,7 @@ public:
         typeConstantBinary(typesVec), takeNextIdFunction(takeNextIdFn),
         emittedConstantInts({}), emittedConstantFloats({}),
         emittedConstantComposites({}), emittedConstantNulls({}),
-        emittedConstantBools() {
+        emittedUndef({}), emittedConstantBools() {
     assert(decVec);
     assert(typesVec);
   }
@@ -107,6 +107,7 @@ public:
   uint32_t getOrCreateConstantFloat(SpirvConstantFloat *);
   uint32_t getOrCreateConstantComposite(SpirvConstantComposite *);
   uint32_t getOrCreateConstantNull(SpirvConstantNull *);
+  uint32_t getOrCreateUndef(SpirvUndef *);
   uint32_t getOrCreateConstantBool(SpirvConstantBoolean *);
   template <typename vecType>
   void emitLiteral(const SpirvConstant *, vecType &outInst);
@@ -172,6 +173,7 @@ private:
       emittedConstantFloats;
   llvm::SmallVector<SpirvConstantComposite *, 8> emittedConstantComposites;
   llvm::SmallVector<SpirvConstantNull *, 8> emittedConstantNulls;
+  llvm::SmallVector<SpirvUndef *, 8> emittedUndef;
   SpirvConstantBoolean *emittedConstantBools[2];
   llvm::DenseSet<const SpirvInstruction *> emittedSpecConstantInstructions;
 
@@ -252,6 +254,7 @@ public:
   bool visit(SpirvConstantFloat *) override;
   bool visit(SpirvConstantComposite *) override;
   bool visit(SpirvConstantNull *) override;
+  bool visit(SpirvUndef *) override;
   bool visit(SpirvCompositeConstruct *) override;
   bool visit(SpirvCompositeExtract *) override;
   bool visit(SpirvCompositeInsert *) override;
