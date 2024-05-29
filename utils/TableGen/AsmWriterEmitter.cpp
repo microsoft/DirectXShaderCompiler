@@ -736,21 +736,17 @@ public:
     O.indent(4) << '}';
   }
 
-  // HLSL Change begin
   bool operator==(const IAPrinter &RHS) const {
     if (Conds.size() != RHS.Conds.size())
       return false;
 
     unsigned Idx = 0;
-    for (std::vector<std::string>::const_iterator I = Conds.begin(),
-                                                  E = Conds.end();
-         I != E; ++I)
-      if (*I != RHS.Conds[Idx++])
+    for (const auto &str : Conds)
+      if (str != RHS.Conds[Idx++])
         return false;
 
     return true;
   }
-  // HLSL Change end
 };
 
 } // end anonymous namespace
