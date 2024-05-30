@@ -5143,10 +5143,13 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     retVal = processTextureSampleGrad(expr);
     break;
   case IntrinsicOp::MOP_SampleCmp:
-    retVal = processTextureSampleCmpCmpLevelZero(expr, /*isCmp=*/true);
+    retVal = processTextureSampleCmp(expr);
     break;
   case IntrinsicOp::MOP_SampleCmpLevelZero:
-    retVal = processTextureSampleCmpCmpLevelZero(expr, /*isCmp=*/false);
+    retVal = processTextureSampleCmpLevelZero(expr);
+    break;
+  case IntrinsicOp::MOP_SampleCmpLevel:
+    retVal = processTextureSampleCmpLevel(expr);
     break;
   case IntrinsicOp::MOP_GatherRed:
     retVal = processTextureGatherRGBACmpRGBA(expr, /*isCmp=*/false, 0);
@@ -5573,8 +5576,7 @@ SpirvEmitter::processTextureSampleGrad(const CXXMemberCallExpr *expr) {
 }
 
 SpirvInstruction *
-SpirvEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
-                                                  const bool isCmp) {
+SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
   // .SampleCmp() Signature:
   //
   // For Texture1D, Texture1DArray, Texture2D, Texture2DArray:
@@ -5595,10 +5597,55 @@ SpirvEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
   //   [, float Clamp]
   //   [, out uint Status]
   // );
-  //
+
+  const auto numArgs = expr->getNumArgs();
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
+
+  SpirvInstruction *clamp = nullptr;
+  if (numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(3));
+  else if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(4));
+  const bool hasClampArg = clamp != nullptr;
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  auto *image = loadIfGLValue(imageExpr);
+  auto *sampler = doExpr(expr->getArg(0));
+  auto *coordinate = doExpr(expr->getArg(1));
+  auto *compareVal = doExpr(expr->getArg(2));
+  // If offset is present in .SampleCmp(), it will be the fourth argument.
+  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
+
+  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
+  // and 3 for sampler_state, location, and compare_value.
+  const bool hasOffsetArg = numArgs - hasStatusArg - hasClampArg - 3 > 0;
+  if (hasOffsetArg)
+    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+
+  const auto retType = expr->getDirectCallee()->getReturnType();
+  const auto imageType = imageExpr->getType();
+
+  if (spvContext.isCS()) {
+    addDerivativeGroupExecutionMode();
+  }
+
+  return createImageSample(
+      retType, imageType, image, sampler, coordinate, compareVal,
+      /*bias*/ nullptr, /*lod*/ nullptr, std::make_pair(nullptr, nullptr),
+      constOffset, varOffset, /*constOffsets*/ nullptr,
+      /*sampleNumber*/ nullptr, /*minLod*/ clamp, status,
+      expr->getCallee()->getLocStart(), expr->getSourceRange());
+}
+
+SpirvInstruction *
+SpirvEmitter::processTextureSampleCmpLevelZero(const CXXMemberCallExpr *expr) {
   // .SampleCmpLevelZero() is identical to .SampleCmp() on mipmap level 0 only.
   // It never takes a clamp argument, which is good because lod and clamp may
   // not be used together.
+  // .SampleCmpLevel() is identical to .SampleCmpLevel, except the LOD level
+  // is taken as a float argument.
   //
   // .SampleCmpLevelZero() Signature:
   //
@@ -5624,46 +5671,82 @@ SpirvEmitter::processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
       expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
   auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
 
-  SpirvInstruction *clamp = nullptr;
-  // The .SampleCmpLevelZero() methods do not take the clamp argument.
-  if (isCmp) {
-    if (numArgs > 3 && expr->getArg(3)->getType()->isFloatingType())
-      clamp = doExpr(expr->getArg(3));
-    else if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
-      clamp = doExpr(expr->getArg(4));
-  }
-  const bool hasClampArg = clamp != nullptr;
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  auto *image = loadIfGLValue(imageExpr);
+  auto *sampler = doExpr(expr->getArg(0));
+  auto *coordinate = doExpr(expr->getArg(1));
+  auto *compareVal = doExpr(expr->getArg(2));
+  auto *lod =
+      spvBuilder.getConstantFloat(astContext.FloatTy, llvm::APFloat(0.0f));
 
-  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
-  // and 3 for sampler_state, location, and compare_value.
-  const bool hasOffsetArg = numArgs - hasClampArg - hasStatusArg - 3 > 0;
+  // If offset is present in .SampleCmp(), it will be the fourth argument.
+  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
+  const bool hasOffsetArg = numArgs - hasStatusArg - 3 > 0;
+  if (hasOffsetArg)
+    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
+
+  const auto retType = expr->getDirectCallee()->getReturnType();
+  const auto imageType = imageExpr->getType();
+
+  return createImageSample(
+      retType, imageType, image, sampler, coordinate, compareVal,
+      /*bias*/ nullptr, /*lod*/ lod, std::make_pair(nullptr, nullptr),
+      constOffset, varOffset, /*constOffsets*/ nullptr,
+      /*sampleNumber*/ nullptr, /*clamp*/ nullptr, status,
+      expr->getCallee()->getLocStart(), expr->getSourceRange());
+}
+
+SpirvInstruction *
+SpirvEmitter::processTextureSampleCmpLevel(const CXXMemberCallExpr *expr) {
+  // .SampleCmpLevel() is identical to .SampleCmpLevel, except the LOD level
+  // is taken as a float argument.
+  //
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray:
+  // float Object.SampleCmpLevel(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float CompareValue,
+  //   float LOD,
+  //   [, int Offset]
+  //   [, out uint Status]
+  // );
+  //
+  // For TextureCube and TextureCubeArray:
+  // float Object.SampleCmpLevel(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float CompareValue
+  //   float LOD,
+  //   [, out uint Status]
+  // );
+
+  const auto numArgs = expr->getNumArgs();
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
 
   const auto *imageExpr = expr->getImplicitObjectArgument();
   auto *image = loadIfGLValue(imageExpr);
   auto *sampler = doExpr(expr->getArg(0));
   auto *coordinate = doExpr(expr->getArg(1));
   auto *compareVal = doExpr(expr->getArg(2));
+  auto *lod = doExpr(expr->getArg(3));
+
   // If offset is present in .SampleCmp(), it will be the fourth argument.
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
+  const bool hasOffsetArg = numArgs - hasStatusArg - 4 > 0;
   if (hasOffsetArg)
-    handleOffsetInMethodCall(expr, 3, &constOffset, &varOffset);
-  auto *lod = isCmp ? nullptr
-                    : spvBuilder.getConstantFloat(astContext.FloatTy,
-                                                  llvm::APFloat(0.0f));
+    handleOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   const auto imageType = imageExpr->getType();
 
-  if (!lod && spvContext.isCS()) {
-    addDerivativeGroupExecutionMode();
-  }
-
   return createImageSample(
       retType, imageType, image, sampler, coordinate, compareVal,
-      /*bias*/ nullptr, lod, std::make_pair(nullptr, nullptr), constOffset,
-      varOffset,
-      /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, /*minLod*/ clamp,
-      status, expr->getCallee()->getLocStart(), expr->getSourceRange());
+      /*bias*/ nullptr, /*lod*/ lod, std::make_pair(nullptr, nullptr),
+      constOffset, varOffset, /*constOffsets*/ nullptr,
+      /*sampleNumber*/ nullptr, /*clamp*/ nullptr, status,
+      expr->getCallee()->getLocStart(), expr->getSourceRange());
 }
 
 SpirvInstruction *

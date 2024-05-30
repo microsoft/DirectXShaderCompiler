@@ -331,6 +331,8 @@ extern char &DemoteRegisterToMemoryHlslID;
 // For example:  4 + (x + 5)  ->  x + (4 + 5)
 //
 FunctionPass *createReassociatePass();
+FunctionPass *
+createReassociatePass(bool HLSLEnableAggressiveReassociation); // HLSL Change
 
 //===----------------------------------------------------------------------===//
 //

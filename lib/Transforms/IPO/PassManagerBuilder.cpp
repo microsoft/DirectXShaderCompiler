@@ -469,7 +469,8 @@ void PassManagerBuilder::populateModulePassManager(
   //MPM.add(createTailCallEliminationPass()); // Eliminate tail calls
   // HLSL Change Ends.
   MPM.add(createCFGSimplificationPass());     // Merge & remove BBs
-  MPM.add(createReassociatePass());           // Reassociate expressions
+  MPM.add(createReassociatePass(
+      HLSLEnableAggressiveReassociation)); // Reassociate expressions
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
   // HLSL Change - disable LICM in frontend for not consider register pressure.
@@ -503,6 +504,16 @@ void PassManagerBuilder::populateModulePassManager(
   }
 
   // HLSL Change Begins.
+  {
+    // Run reassociate pass again after GVN since GVN will expose more
+    // opportunities for reassociation.
+    if (HLSLEnableAggressiveReassociation) {
+      MPM.add(createReassociatePass(true)); // Reassociate expressions
+      if (EnableGVN)
+        MPM.add(createGVNPass(DisableGVNLoadPRE)); // Remove redundancies
+    }
+  }
+
   // Use value numbering to figure out if regions are equivalent, and branch to only one.
   MPM.add(createDxilSimpleGVNEliminateRegionPass());
   // HLSL don't allow memcpy and memset.

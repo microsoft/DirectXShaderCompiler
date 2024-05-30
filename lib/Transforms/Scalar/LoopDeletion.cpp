@@ -195,15 +195,29 @@ bool LoopDeletion::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // Rewrite phis in the exit block to get their inputs from
   // the preheader instead of the exiting block.
-  BasicBlock *exitingBlock = exitingBlocks[0];
   BasicBlock::iterator BI = exitBlock->begin();
   while (PHINode *P = dyn_cast<PHINode>(BI)) {
-    int j = P->getBasicBlockIndex(exitingBlock);
-    assert(j >= 0 && "Can't find exiting block in exit block's phi node!");
-    P->setIncomingBlock(j, preheader);
-    for (unsigned i = 1; i < exitingBlocks.size(); ++i)
-      P->removeIncomingValue(exitingBlocks[i]);
+    // HLSL Change begin - apply https://reviews.llvm.org/D34516
+    // Set the zero'th element of Phi to be from the preheader and remove all
+    // other incoming values. Given the loop has dedicated exits, all other
+    // incoming values must be from the exiting blocks.
+    int PredIndex = 0;
+    P->setIncomingBlock(PredIndex, preheader);
+    // Removes all incoming values from all other exiting blocks (including
+    // duplicate values from an exiting block).
+    // Nuke all entries except the zero'th entry which is the preheader entry.
+    // NOTE! We need to remove Incoming Values in the reverse order as done
+    // below, to keep the indices valid for deletion (removeIncomingValues
+    // updates getNumIncomingValues and shifts all values down into the operand
+    // being deleted).
+    for (unsigned i = 0, e = P->getNumIncomingValues() - 1; i != e; ++i)
+      P->removeIncomingValue(e - i, false);
+
+    assert((P->getNumIncomingValues() == 1 &&
+            P->getIncomingBlock(PredIndex) == preheader) &&
+           "Should have exactly one value and that's from the preheader!");
     ++BI;
+    // HLSL Change end
   }
 
   // Update the dominator tree and remove the instructions and blocks that will

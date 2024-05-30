@@ -6525,7 +6525,14 @@ class db_dxil(object):
             [],
         )
         # createTailCallEliminationPass is removed - but is this checked before?
-        add_pass("reassociate", "Reassociate", "Reassociate expressions", [])
+        add_pass(
+            "reassociate",
+            "Reassociate",
+            "Reassociate expressions",
+            [
+                {"n": "EnableAggressiveReassociation", "t": "bool", "c": 1},
+            ],
+        )
         add_pass(
             "loop-rotate",
             "LoopRotate",
