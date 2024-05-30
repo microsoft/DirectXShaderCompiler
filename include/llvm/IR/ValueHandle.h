@@ -63,9 +63,9 @@ private:
   ValueHandleBase(const ValueHandleBase&) = delete;
 public:
   explicit ValueHandleBase(HandleBaseKind Kind)
-    : PrevPair(nullptr, Kind), Next(nullptr), Val(nullptr) {}
+      : PrevPair(nullptr, Kind), Next(nullptr), Val(nullptr) {}
   ValueHandleBase(HandleBaseKind Kind, Value *V)
-    : PrevPair(nullptr, Kind), Next(nullptr), Val(V) {
+      : PrevPair(nullptr, Kind), Next(nullptr), Val(V) {
     if (isValid(getValPtr()))
       AddToUseList();
   }
