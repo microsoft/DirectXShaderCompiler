@@ -153,6 +153,9 @@ void initializeDxilPreserveToSelectPass(PassRegistry&);
 Pass *createDxilRemoveDeadBlocksPass();
 void initializeDxilRemoveDeadBlocksPass(PassRegistry&);
 
+Pass *createDxilRemoveUnstructuredLoopExitsPass();
+void initializeDxilRemoveUnstructuredLoopExitsPass(PassRegistry &);
+
 void initializeDxilRewriteOutputArgDebugInfoPass(PassRegistry&);
 Pass *createDxilRewriteOutputArgDebugInfoPass();
 

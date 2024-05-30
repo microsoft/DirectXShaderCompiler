@@ -74,11 +74,11 @@
 //          ...
 //        }
 //
-//        if (!broke_0) {
+//        if (broke_0) {
 //          break;
 //        }
 //
-//        if (!broke_1) {
+//        if (broke_1) {
 //          break;
 //        }
 //
@@ -96,7 +96,11 @@
 //        exit_code_1;
 //      }
 //
-// Essentially it hoists the exit branch out of the loop.
+// Essentially it hoists the exit branch out of the loop:
+//   - That is, any exiting block must dominate the latch block.
+//   - All exits go through a single latch-exit block.
+//   - The action of the exiting blocks are deferred and conditionally
+//     executed after reaching the latch-exit block.
 //
 // This function should be called any time before a function is unrolled to
 // avoid generating unstructured code.
@@ -123,6 +127,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopPass.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Verifier.h"
@@ -139,17 +144,72 @@
 
 using namespace llvm;
 
-static bool IsNoop(Instruction *inst);
+#define DEBUG_TYPE "dxil-remove-unstructured-loop-exits"
 
 namespace {
 
+bool IsNoop(Instruction *inst) {
+  if (CallInst *ci = dyn_cast<CallInst>(inst)) {
+    if (Function *f = ci->getCalledFunction()) {
+      return f->getName() == hlsl::kNoopName;
+    }
+  }
+  return false;
+}
+
+bool HasSideEffects(BasicBlock *bb) {
+  for (Instruction &I : *bb) {
+    if (I.mayReadOrWriteMemory() && !IsNoop(&I)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Captures information about a value which is propagated from the exiting block
+// to the exit block.  A special 'exiting-condition' case occurs when the
+// value is the condition on the exiting branch; by prior arrangement the
+// exit path is taken when the value is 'true'.
 struct Value_Info {
-  Value *val, *false_val;
+  // The value from the exiting block.
+  Value *val;
+  // The False value, if 'val' is the exiting-condition value.
+  // Otherwise, a default value for the 'val's type.
+  Value *false_val;
+  // nullptr if 'val' is the exiting-condition and not otherwise propagated into
+  // the exit block. Otherwise, this is the single-input phi that carries 'val'
+  // into the exit block.  The LCSSA form guarantees this exits for any value
+  // carried out of the loop via this exit path.
   PHINode *exit_phi;
 };
 
+// A Propagator does the following:
+//  - Let EB be an exiting block for a loop.
+//  - Let exit_values be the values that EB sends out of the loop to its
+//    corresponding exit block.
+//  - The Run method:
+//     - Traverses blocks all the loop reachable from EB, stopping at
+//       a block that dominates the loop latch.
+//       (The stopping block is unique, by a contradiction argument.)
+//     - Modifies traversed blocks to add phi nodes to propagate values
+//       from exit_values
+//     - Remembers which phi node is used to propagate each exit value
+//       to each traversed block.
+//  - The Get method is used to look up those phi nodes.
+//
+// The Run method can fail, in which case it cleans up after itself by
+// removing the phi nodes it may have added in the meantime.
 struct Propagator {
+  // Maps a {block B, value V} to the phi that is used to get V in B.
   DenseMap<std::pair<BasicBlock *, Value *>, PHINode *> cached_phis;
+
+  // The set of blocks visited. Traversals start at an exiting block, then
+  // follow successors that are in the same loop. Stop when we reach a block
+  // that dominates the latch block. That block is unique:  otherwise there
+  // would be different such blocks X and Y that dominate the latch, but not
+  // each other. That's a contradiction.)
+  // The algorithm stops early (and fails) if any traversed blocks are part
+  // of an *inner* loop differnt from L.
   std::unordered_set<BasicBlock *> seen;
 
   // Get propagated value for val. It's guaranteed to be safe to use in bb.
@@ -161,6 +221,7 @@ struct Propagator {
     return it->second;
   }
 
+  // Erase any phis that may have been created, and forget them.
   void DeleteAllNewValues() {
     for (auto &pair : cached_phis) {
       pair.second->dropAllReferences();
@@ -171,7 +232,20 @@ struct Propagator {
     cached_phis.clear();
   }
 
-  BasicBlock *Run(std::vector<Value_Info> &exit_values,
+  // Given loop L, and exiting block EB, take all exit values from EB
+  // and try to propagate them into other blocks in L reachable from EB,
+  // stopping at a block that dominates the loop latch.  (Only one
+  // such block dominates the loop latch; otherwise there would be
+  // different such blocks X and Y that dominate the latch, but not
+  // each other. That's a contradiction.)
+  // Assumes EB does not dominate the latch.
+  // Exit values are propagated using phis.
+  // Also collect the traversed blocks that have side effects, other
+  // than the initial exiting block.
+  // Fail if the traversal finds a block in L that is also in an (inner)
+  // loop contained inside L.  Failure is signaled by returning null.
+  // On success return the found block that dominates the latch.
+  BasicBlock *Run(const SmallVector<Value_Info, 8> &exit_values,
                   BasicBlock *exiting_block, BasicBlock *latch,
                   DominatorTree *DT, Loop *L, LoopInfo *LI,
                   std::vector<BasicBlock *> &blocks_with_side_effect) {
@@ -184,7 +258,7 @@ struct Propagator {
     return ret;
   }
 
-  BasicBlock *RunImpl(std::vector<Value_Info> &exit_values,
+  BasicBlock *RunImpl(const SmallVector<Value_Info, 8> &exit_values,
                       BasicBlock *exiting_block, BasicBlock *latch,
                       DominatorTree *DT, Loop *L, LoopInfo *LI,
                       std::vector<BasicBlock *> &blocks_with_side_effect) {
@@ -216,41 +290,37 @@ struct Propagator {
         if (LI->getLoopFor(bb) != L) {
           return nullptr;
         }
-        // Otherwise just remember the blocks with side effects (including the
+        // Otherwise remember the blocks with side effects (including the
         // latch)
-        else {
-          for (Instruction &I : *bb) {
-            if (I.mayReadOrWriteMemory() && !IsNoop(&I)) {
-              blocks_with_side_effect.push_back(bb);
-              break;
-            }
-          }
+        if (HasSideEffects(bb)) {
+          blocks_with_side_effect.push_back(bb);
         }
-      } // If this is not the first iteration
+      }
 
       for (BasicBlock *succ : llvm::successors(bb)) {
         // Don't propagate if block is not part of this loop.
         if (!L->contains(succ))
           continue;
 
-        for (auto &pair : exit_values) {
+        for (const auto &ev : exit_values) {
           // Find or create phi for the value in the successor block
-          PHINode *phi = cached_phis[{succ, pair.val}];
+          PHINode *phi = cached_phis[{succ, ev.val}];
           if (!phi) {
-            phi = PHINode::Create(pair.false_val->getType(), 0,
+            // Create a phi node with all dummy values for now.
+            phi = PHINode::Create(ev.false_val->getType(), 0,
                                   "dx.struct_exit.prop", &*succ->begin());
             for (BasicBlock *pred : llvm::predecessors(succ)) {
-              phi->addIncoming(pair.false_val, pred);
+              phi->addIncoming(ev.false_val, pred);
             }
-            cached_phis[{succ, pair.val}] = phi;
+            cached_phis[{succ, ev.val}] = phi;
           }
 
           // Find the incoming value for successor block
           Value *incoming = nullptr;
           if (!prev) {
-            incoming = pair.val;
+            incoming = ev.val;
           } else {
-            incoming = cached_phis[{bb, pair.val}];
+            incoming = cached_phis[{bb, ev.val}];
           }
 
           // Set incoming value for our phi
@@ -279,15 +349,6 @@ struct Propagator {
 
 } // Unnamed namespace
 
-static bool IsNoop(Instruction *inst) {
-  if (CallInst *ci = dyn_cast<CallInst>(inst)) {
-    if (Function *f = ci->getCalledFunction()) {
-      return f->getName() == hlsl::kNoopName;
-    }
-  }
-  return false;
-}
-
 static Value *GetDefaultValue(Type *type) {
   if (type->isIntegerTy()) {
     return ConstantInt::get(type, 0);
@@ -308,10 +369,9 @@ static BasicBlock *GetExitBlockForExitingBlock(Loop *L,
   return result;
 }
 
-// Branch over the block's content with the condition cond.
-// All values used outside the block is replaced by a phi.
-//
-static void SkipBlockWithBranch(BasicBlock *bb, Value *cond, Loop *L,
+// Branch over the block's content when skip_cond is true.
+// All values used outside the block are replaced by a phi.
+static void SkipBlockWithBranch(BasicBlock *bb, Value *skip_cond, Loop *L,
                                 LoopInfo *LI) {
   BasicBlock *body = bb->splitBasicBlock(bb->getFirstNonPHI());
   body->setName("dx.struct_exit.cond_body");
@@ -319,7 +379,7 @@ static void SkipBlockWithBranch(BasicBlock *bb, Value *cond, Loop *L,
   end->setName("dx.struct_exit.cond_end");
 
   bb->getTerminator()->eraseFromParent();
-  BranchInst::Create(end, body, cond, bb);
+  BranchInst::Create(end, body, skip_cond, bb);
 
   for (Instruction &inst : *body) {
 
@@ -356,17 +416,57 @@ static unsigned GetNumPredecessors(BasicBlock *bb) {
   return ret;
 }
 
+// Returns a vector of Value_Info:
+//  - one for each value carried from the loop into the exit block via the
+//  exiting block.
+//  - one for the new exit condition (the one that will be used to exit the
+//    loop from a block later in the loop body)
+static SmallVector<Value_Info, 8> CollectExitValues(Value *new_exit_cond,
+                                                    BasicBlock *exiting_block,
+                                                    BasicBlock *exit_block) {
+
+  SmallVector<Value_Info, 8> exit_values;
+
+  // Look at the lcssa phi's in the exit block.
+  bool exit_cond_has_phi = false;
+  for (Instruction &I : *exit_block) {
+    if (PHINode *phi = dyn_cast<PHINode>(&I)) {
+      // If there are values flowing out of the loop into the exit_block,
+      // add them to the list to be propagated
+      Value *value = phi->getIncomingValueForBlock(exiting_block);
+      Value *false_value = nullptr;
+      if (value == new_exit_cond) {
+        false_value = Constant::getNullValue(value->getType());
+        exit_cond_has_phi = true;
+      } else {
+        false_value = GetDefaultValue(value->getType());
+      }
+      exit_values.push_back({value, false_value, phi});
+    } else {
+      break;
+    }
+  }
+
+  // If the new exit condition is not among the exit phi's, add it.
+  if (!exit_cond_has_phi) {
+    exit_values.push_back({new_exit_cond,
+                           Constant::getNullValue(new_exit_cond->getType()),
+                           nullptr});
+  }
+  return exit_values;
+}
+
+// Restructures exiting_block so its work, including its exit branch, is moved
+// to a block B that dominates the latch block. Let's call B the
+// newly-exiting-block.
+// Assumes the loop has a single latch block, and the terminator on that
+// latch block is a conditional branch.
 static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
                                                  Loop *L, LoopInfo *LI,
                                                  DominatorTree *DT) {
-
-  LLVMContext &ctx = L->getHeader()->getContext();
-  Type *i1Ty = Type::getInt1Ty(ctx);
-
-  BasicBlock *exit_block = GetExitBlockForExitingBlock(L, exiting_block);
-
   BasicBlock *latch = L->getLoopLatch();
   BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, latch);
+  BasicBlock *exit_block = GetExitBlockForExitingBlock(L, exiting_block);
 
   // If exiting block already dominates latch, then no need to do anything.
   if (DT->dominates(exiting_block, latch)) {
@@ -375,59 +475,41 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
 
   Propagator prop;
 
+  // The newly-exiting-block B will end in a conditional branch, with
+  // the true branch exiting the loop, and the false branch falling through
+  // (staying in the loop).
+  // Compute the exit condition for B.
   BranchInst *exiting_br = cast<BranchInst>(exiting_block->getTerminator());
-  Value *exit_cond = exiting_br->getCondition();
-  // When exit_block is false block, use !exit_cond as exit_cond.
+  Value *exit_if_true = exiting_br->getCondition();
+  // When the original exit_block is the false block, use the negate the
+  // condition.
   if (exiting_br->getSuccessor(1) == exit_block) {
     IRBuilder<> B(exiting_br);
-    exit_cond = B.CreateNot(exit_cond);
+    exit_if_true = B.CreateNot(exit_if_true);
   }
-  BasicBlock *new_exiting_block = nullptr;
 
-  std::vector<Value_Info> exit_values;
+  // Collect relevant information about values that flow from this loop
+  // into the exit block.
+  const auto exit_values =
+      CollectExitValues(exit_if_true, exiting_block, exit_block);
+
+  //
+  // Propagate those values we just found to a block that dominates the latch,
+  // and return that final block.
+  // Also, remember the blocks along the traversal that have side effects.
+  // This can fail, signaled by returning null.
   std::vector<BasicBlock *> blocks_with_side_effect;
+  BasicBlock *new_exiting_block = prop.Run(exit_values, exiting_block, latch,
+                                           DT, L, LI, blocks_with_side_effect);
 
-  // Find the values that flow into the exit block from this loop.
-  {
-    // Look at the lcssa phi's in the exit block.
-    bool exit_cond_has_phi = false;
-    for (Instruction &I : *exit_block) {
-      if (PHINode *phi = dyn_cast<PHINode>(&I)) {
-        // If there are values flowing out of the loop into the exit_block,
-        // add them to the list to be propagated
-        Value *value = phi->getIncomingValueForBlock(exiting_block);
-        Value *false_value = nullptr;
-        if (value == exit_cond) {
-          false_value = ConstantInt::getFalse(i1Ty);
-          exit_cond_has_phi = true;
-        } else {
-          false_value = GetDefaultValue(value->getType());
-        }
-        exit_values.push_back({value, false_value, phi});
-      } else {
-        break;
-      }
-    }
-
-    // If the exit condition is not among the exit phi's, add it.
-    if (!exit_cond_has_phi) {
-      exit_values.push_back({exit_cond, ConstantInt::getFalse(i1Ty), nullptr});
-    }
-  }
-
-  //
-  // Propagate those values we just found to a block that dominates the latch
-  //
-  new_exiting_block = prop.Run(exit_values, exiting_block, latch, DT, L, LI,
-                               blocks_with_side_effect);
-
-  // Stop now if we failed
+  // Stop now if we failed.
   if (!new_exiting_block)
     return false;
 
-  // If there are any blocks with side effects,
+  // If any blocks on the traversal have side effects, skip them when the loop
+  // should be exiting.
   for (BasicBlock *bb : blocks_with_side_effect) {
-    Value *exit_cond_for_block = prop.Get(exit_cond, bb);
+    Value *exit_cond_for_block = prop.Get(exit_if_true, bb);
     SkipBlockWithBranch(bb, exit_cond_for_block, L, LI);
   }
 
@@ -440,7 +522,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
     exiting_br = nullptr;
   }
 
-  Value *new_exit_cond = prop.Get(exit_cond, new_exiting_block);
+  Value *new_exit_cond = prop.Get(exit_if_true, new_exiting_block);
   assert(new_exit_cond);
 
   // Split the block where we're now exiting from, and branch to latch exit
@@ -462,9 +544,13 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
                      new_exiting_block);
 
   // If the exit block and the latch exit are the same, then we're already good.
-  // just update the phi nodes in the exit block.
+  // just update the phi nodes in the exit block. Use the values that were
+  // propagated down to the newly exiting node.
+  // This can't happen if the loop is in LoopSimplifyForm, because that requires
+  // 'dedicated exits', and we already know that exiting_block is not the same
+  // as the latch block.
   if (latch_exit == exit_block) {
-    for (Value_Info &info : exit_values) {
+    for (const Value_Info &info : exit_values) {
       // Take the phi node in the exit block and reset incoming block and value
       // from latch_exit
       PHINode *exit_phi = info.exit_phi;
@@ -507,12 +593,14 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
       PHINode *phi = dyn_cast<PHINode>(&inst);
       if (!phi)
         break;
+      // We don't care about the values for these old phis when taking the
+      // newly constructed exit path.
       phi->addIncoming(GetDefaultValue(phi->getType()), new_exiting_block);
     }
 
     unsigned latch_exit_num_predecessors = GetNumPredecessors(latch_exit);
     PHINode *exit_cond_lcssa = nullptr;
-    for (Value_Info &info : exit_values) {
+    for (const Value_Info &info : exit_values) {
 
       // 3. Create lcssa phi's for all the propagated values at latch_exit.
       // Make exit values visible in the latch_exit
@@ -520,7 +608,7 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
           PHINode::Create(info.val->getType(), latch_exit_num_predecessors,
                           "dx.struct_exit.val_lcssa", latch_exit->begin());
 
-      if (info.val == exit_cond) {
+      if (info.val == exit_if_true) {
         // Record the phi for the exit condition
         exit_cond_lcssa = val_lcssa;
         exit_cond_lcssa->setName("dx.struct_exit.exit_cond_lcssa");
@@ -551,6 +639,8 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
 
     // 5. Take the first half of latch_exit and branch it to the exit_block
     // based on the propagated exit condition.
+    // (Currently the latch_exit unconditionally branches to
+    // post_exit_location.)
     latch_exit->getTerminator()->eraseFromParent();
     BranchInst::Create(exit_block, post_exit_location, exit_cond_lcssa,
                        latch_exit);
@@ -582,7 +672,8 @@ bool hlsl::RemoveUnstructuredLoopExits(
     }
   }
 
-  // Give up if loop is not rotated somehow
+  // Give up if loop is not rotated somehow.
+  // This condition is ensured by DxilLoopUnrollPass.
   if (BasicBlock *latch = L->getLoopLatch()) {
     if (!cast<BranchInst>(latch->getTerminator())->isConditional())
       return false;
@@ -592,6 +683,9 @@ bool hlsl::RemoveUnstructuredLoopExits(
     return false;
   }
 
+  // The loop might not be in LoopSimplifyForm.
+  // Therefore exit blocks might not be dominated by the exiting block.
+
   for (;;) {
     // Recompute exiting block every time, since they could change between
     // iterations
@@ -600,9 +694,6 @@ bool hlsl::RemoveUnstructuredLoopExits(
 
     bool local_changed = false;
     for (BasicBlock *exiting_block : exiting_blocks) {
-      auto latch = L->getLoopLatch();
-      if (latch == exiting_block)
-        continue;
 
       if (exclude_set &&
           exclude_set->count(GetExitBlockForExitingBlock(L, exiting_block)))
@@ -625,3 +716,51 @@ bool hlsl::RemoveUnstructuredLoopExits(
 
   return changed;
 }
+
+// This pass runs hlsl::RemoveUnstructuredLoopExits.
+// It is used for testing, and can be run from `opt` like this:
+//    opt -dxil-remove-unstructured-loop-exits module.ll
+namespace {
+
+class DxilRemoveUnstructuredLoopExits : public LoopPass {
+public:
+  static char ID;
+  DxilRemoveUnstructuredLoopExits() : LoopPass(ID) {
+    initializeDxilRemoveUnstructuredLoopExitsPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  StringRef getPassName() const override {
+    return "Dxil Remove Unstructured Loop Exits";
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequiredID(&LCSSAID);
+    // Don't assume it's in LoopSimplifyForm. That is not guaranteed
+    // by the usual callers.
+  }
+
+  bool runOnLoop(Loop *L, LPPassManager &LPM) override {
+    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    return hlsl::RemoveUnstructuredLoopExits(L, LI, DT);
+  }
+};
+} // namespace
+
+char DxilRemoveUnstructuredLoopExits::ID;
+
+Pass *llvm::createDxilRemoveUnstructuredLoopExitsPass() {
+  return new DxilRemoveUnstructuredLoopExits();
+}
+
+INITIALIZE_PASS_BEGIN(DxilRemoveUnstructuredLoopExits,
+                      "dxil-remove-unstructured-loop-exits",
+                      "DXIL Remove Unstructured Loop Exits", false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_END(DxilRemoveUnstructuredLoopExits,
+                    "dxil-remove-unstructured-loop-exits",
+                    "DXIL Remove Unstructured Loop Exits", false, false)
