@@ -118,7 +118,6 @@ TEST_F(ValueHandle, WeakTrackingVH_NullOnDeletion) {
   EXPECT_EQ(null_value, WVH_Recreated);
 }
 
-
 TEST_F(ValueHandle, AssertingVH_BasicOperation) {
   AssertingVH<CastInst> AVH(BitcastV.get());
   CastInst *implicit_to_exact_type = AVH;
