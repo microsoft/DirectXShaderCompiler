@@ -511,7 +511,7 @@ bool DSE::runOnBasicBlock(BasicBlock &BB) {
 
           // DeleteDeadInstruction can delete the current instruction.  Save BBI
           // in case we need it.
-          WeakVH NextInst(BBI);
+          WeakTrackingVH NextInst(BBI);
 
           DeleteDeadInstruction(SI, *MD, TLI);
 

@@ -802,7 +802,7 @@ static bool isHighCostExpansion(const SCEV *S,
 /// specified set are trivially dead, delete them and see if this makes any of
 /// their operands subsequently dead.
 static bool
-DeleteTriviallyDeadInstructions(SmallVectorImpl<WeakVH> &DeadInsts) {
+DeleteTriviallyDeadInstructions(SmallVectorImpl<WeakTrackingVH> &DeadInsts) {
   bool Changed = false;
 
   while (!DeadInsts.empty()) {
@@ -1686,7 +1686,7 @@ class LSRInstance {
   void FinalizeChain(IVChain &Chain);
   void CollectChains();
   void GenerateIVChain(const IVChain &Chain, SCEVExpander &Rewriter,
-                       SmallVectorImpl<WeakVH> &DeadInsts);
+                       SmallVectorImpl<WeakTrackingVH> &DeadInsts);
 
   void CollectInterestingTypesAndFactors();
   void CollectFixupsAndInitialFormulae();
@@ -1770,16 +1770,16 @@ class LSRInstance {
                 const Formula &F,
                 BasicBlock::iterator IP,
                 SCEVExpander &Rewriter,
-                SmallVectorImpl<WeakVH> &DeadInsts) const;
+                SmallVectorImpl<WeakTrackingVH> &DeadInsts) const;
   void RewriteForPHI(PHINode *PN, const LSRFixup &LF,
                      const Formula &F,
                      SCEVExpander &Rewriter,
-                     SmallVectorImpl<WeakVH> &DeadInsts,
+                     SmallVectorImpl<WeakTrackingVH> &DeadInsts,
                      Pass *P) const;
   void Rewrite(const LSRFixup &LF,
                const Formula &F,
                SCEVExpander &Rewriter,
-               SmallVectorImpl<WeakVH> &DeadInsts,
+               SmallVectorImpl<WeakTrackingVH> &DeadInsts,
                Pass *P) const;
   void ImplementSolution(const SmallVectorImpl<const Formula *> &Solution,
                          Pass *P);
@@ -2848,7 +2848,7 @@ static bool canFoldIVIncExpr(const SCEV *IncExpr, Instruction *UserInst,
 /// GenerateIVChains - Generate an add or subtract for each IVInc in a chain to
 /// materialize the IV user's operand from the previous IV user's operand.
 void LSRInstance::GenerateIVChain(const IVChain &Chain, SCEVExpander &Rewriter,
-                                  SmallVectorImpl<WeakVH> &DeadInsts) {
+                                  SmallVectorImpl<WeakTrackingVH> &DeadInsts) {
   // Find the new IVOperand for the head of the chain. It may have been replaced
   // by LSR.
   const IVInc &Head = Chain.Incs[0];
@@ -4453,7 +4453,7 @@ Value *LSRInstance::Expand(const LSRFixup &LF,
                            const Formula &F,
                            BasicBlock::iterator IP,
                            SCEVExpander &Rewriter,
-                           SmallVectorImpl<WeakVH> &DeadInsts) const {
+                           SmallVectorImpl<WeakTrackingVH> &DeadInsts) const {
   const LSRUse &LU = Uses[LF.LUIdx];
   if (LU.RigidFormula)
     return LF.OperandValToReplace;
@@ -4638,7 +4638,7 @@ void LSRInstance::RewriteForPHI(PHINode *PN,
                                 const LSRFixup &LF,
                                 const Formula &F,
                                 SCEVExpander &Rewriter,
-                                SmallVectorImpl<WeakVH> &DeadInsts,
+                                SmallVectorImpl<WeakTrackingVH> &DeadInsts,
                                 Pass *P) const {
   DenseMap<BasicBlock *, Value *> Inserted;
   for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i)
@@ -4713,7 +4713,7 @@ void LSRInstance::RewriteForPHI(PHINode *PN,
 void LSRInstance::Rewrite(const LSRFixup &LF,
                           const Formula &F,
                           SCEVExpander &Rewriter,
-                          SmallVectorImpl<WeakVH> &DeadInsts,
+                          SmallVectorImpl<WeakTrackingVH> &DeadInsts,
                           Pass *P) const {
   // First, find an insertion point that dominates UserInst. For PHI nodes,
   // find the nearest block which dominates all the relevant uses.
@@ -4752,7 +4752,7 @@ LSRInstance::ImplementSolution(const SmallVectorImpl<const Formula *> &Solution,
                                Pass *P) {
   // Keep track of instructions we may have made dead, so that
   // we can remove them after we are done working.
-  SmallVector<WeakVH, 16> DeadInsts;
+  SmallVector<WeakTrackingVH, 16> DeadInsts;
 
   SCEVExpander Rewriter(SE, L->getHeader()->getModule()->getDataLayout(),
                         "lsr");
@@ -5016,7 +5016,7 @@ bool LoopStrengthReduce::runOnLoop(Loop *L, LPPassManager & /*LPM*/) {
   // Remove any extra phis created by processing inner loops.
   Changed |= DeleteDeadPHIs(L->getHeader());
   if (EnablePhiElim && L->isLoopSimplifyForm()) {
-    SmallVector<WeakVH, 16> DeadInsts;
+    SmallVector<WeakTrackingVH, 16> DeadInsts;
     const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
     SCEVExpander Rewriter(getAnalysis<ScalarEvolution>(), DL, "lsr");
 #ifndef NDEBUG

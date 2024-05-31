@@ -48,7 +48,7 @@ class AssumptionCache {
 
   /// \brief Vector of weak value handles to calls of the @llvm.assume
   /// intrinsic.
-  SmallVector<WeakVH, 4> AssumeHandles;
+  SmallVector<WeakTrackingVH, 4> AssumeHandles;
 
   /// \brief Flag tracking whether we have scanned the function yet.
   ///
@@ -86,7 +86,7 @@ public:
   /// FIXME: We should replace this with pointee_iterator<filter_iterator<...>>
   /// when we can write that to filter out the null values. Then caller code
   /// will become simpler.
-  MutableArrayRef<WeakVH> assumptions() {
+  MutableArrayRef<WeakTrackingVH> assumptions() {
     if (!Scanned)
       scanFunction();
     return AssumeHandles;

@@ -1134,7 +1134,7 @@ static unsigned FindInOperandList(SmallVectorImpl<ValueEntry> &Ops, unsigned i,
 /// Emit a tree of add instructions, summing Ops together
 /// and returning the result.  Insert the tree before I.
 static Value *EmitAddTreeOfValues(Instruction *I,
-                                  SmallVectorImpl<WeakVH> &Ops){
+                                  SmallVectorImpl<WeakTrackingVH> &Ops) {
   if (Ops.size() == 1) return Ops.back();
 
   Value *V1 = Ops.back();
@@ -1699,7 +1699,7 @@ Value *Reassociate::OptimizeAdd(Instruction *I,
             ? BinaryOperator::CreateAdd(MaxOccVal, MaxOccVal)
             : BinaryOperator::CreateFAdd(MaxOccVal, MaxOccVal);
 
-    SmallVector<WeakVH, 4> NewMulOps;
+    SmallVector<WeakTrackingVH, 4> NewMulOps;
     for (unsigned i = 0; i != Ops.size(); ++i) {
       // Only try to remove factors from expressions we're allowed to.
       BinaryOperator *BOp =

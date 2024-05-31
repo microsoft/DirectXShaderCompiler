@@ -31,7 +31,7 @@ struct DxilValueCache : public ImmutablePass {
       void allUsesReplacedWith(Value *) override { setValPtr(nullptr); }
     };
     struct ValueEntry {
-      WeakVH Value;
+      WeakTrackingVH Value;
       ValueVH Self;
       ValueEntry() : Value(nullptr), Self(nullptr) {}
       inline void Set(llvm::Value *Key, llvm::Value *V) {
