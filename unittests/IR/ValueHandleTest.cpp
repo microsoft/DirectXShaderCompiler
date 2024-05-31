@@ -171,6 +171,12 @@ TEST_F(ValueHandle, AssertingVH_ReducesToPointer) {
 
 #else  // !NDEBUG
 
+TEST_F(ValueHandle, TrackingVH_Tracks) {
+  TrackingVH<Value> VH(BitcastV.get());
+  BitcastV->replaceAllUsesWith(ConstantV);
+  EXPECT_EQ(VH, ConstantV);
+}
+
 #ifdef GTEST_HAS_DEATH_TEST
 
 TEST_F(ValueHandle, AssertingVH_Asserts) {
@@ -183,6 +189,26 @@ TEST_F(ValueHandle, AssertingVH_Asserts) {
                "An asserting value handle still pointed to this value!");
   Copy = nullptr;
   BitcastV.reset();
+}
+
+TEST_F(ValueHandle, TrackingVH_Asserts) {
+  {
+    TrackingVH<Value> VH(BitcastV.get());
+
+    // The tracking handle shouldn't assert when the value is deleted.
+    BitcastV.reset(new BitCastInst(ConstantV, Type::getInt32Ty(Context)));
+    // But should when we access the handle.
+    EXPECT_DEATH((void)*VH,
+                 "TrackingVH must be non-null and valid on dereference!");
+  }
+
+  {
+    TrackingVH<Instruction> VH(BitcastV.get());
+
+    BitcastV->replaceAllUsesWith(ConstantV);
+    EXPECT_DEATH((void)*VH,
+                 "Tracked Value was replaced by one with an invalid type!");
+  }
 }
 
 #endif  // GTEST_HAS_DEATH_TEST
