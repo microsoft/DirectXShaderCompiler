@@ -45,7 +45,7 @@ protected:
   ///
   /// This is to avoid having a vtable for the light-weight handle pointers. The
   /// fully general Callback version does have a vtable.
-  enum HandleBaseKind { Assert, Callback, WeakTracking };
+  enum HandleBaseKind { Assert, Callback, Weak, WeakTracking };
 
 private:
   PointerIntPair<ValueHandleBase**, 2, HandleBaseKind> PrevPair;
@@ -132,6 +132,37 @@ private:
   void AddToUseList();
   /// \brief Remove this ValueHandle from its current use list.
   void RemoveFromUseList();
+};
+
+/// \brief A nullable Value handle that is nullable.
+///
+/// This is a value handle that points to a value, and nulls itself
+/// out if that value is deleted.
+class WeakVH : public ValueHandleBase {
+public:
+  WeakVH() : ValueHandleBase(Weak) {}
+  WeakVH(Value *P) : ValueHandleBase(Weak, P) {}
+  WeakVH(const WeakVH &RHS) : ValueHandleBase(Weak, RHS) {}
+
+  WeakVH &operator=(const WeakVH &RHS) = default;
+
+  Value *operator=(Value *RHS) { return ValueHandleBase::operator=(RHS); }
+  Value *operator=(const ValueHandleBase &RHS) {
+    return ValueHandleBase::operator=(RHS);
+  }
+
+  operator Value *() const { return getValPtr(); }
+};
+
+// Specialize simplify_type to allow WeakVH to participate in
+// dyn_cast, isa, etc.
+template <> struct simplify_type<WeakVH> {
+  typedef Value *SimpleType;
+  static SimpleType getSimplifiedValue(WeakVH &WVH) { return WVH; }
+};
+template <> struct simplify_type<const WeakVH> {
+  typedef Value *SimpleType;
+  static SimpleType getSimplifiedValue(const WeakVH &WVH) { return WVH; }
 };
 
 /// \brief Value handle that is nullable, but tries to track the Value.
