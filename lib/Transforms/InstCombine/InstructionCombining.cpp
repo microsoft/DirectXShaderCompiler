@@ -1843,7 +1843,7 @@ Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 
 static bool isAllocSiteRemovable(Instruction *AI,
                                  SmallVectorImpl<WeakTrackingVH> &Users,
-                     const TargetLibraryInfo *TLI) {
+                                 const TargetLibraryInfo *TLI) {
   SmallVector<Instruction*, 4> Worklist;
   Worklist.push_back(AI);
 
