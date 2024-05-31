@@ -1410,7 +1410,7 @@ bool CleanupSharedMemoryAddrSpaceCast(Module &M) {
   }
 
   // Cleanup unused replacement instructions
-  SmallVector<WeakVH, 8> cleanupInsts;
+  SmallVector<WeakTrackingVH, 8> cleanupInsts;
   for (auto it : valueMap) {
     if (isa<Instruction>(it.first))
       cleanupInsts.push_back(it.first);
