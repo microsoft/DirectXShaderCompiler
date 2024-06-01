@@ -368,6 +368,7 @@ int __cdecl main(int argc, char **argv) {
 #ifdef HAS_DXILCONV
   initializeDxilConvPasses(Registry);
 #endif
+  initializeDxilRemoveUnstructuredLoopExitsPass(Registry);
   // HLSL Change Ends
 
 #ifdef LINK_POLLY_INTO_TOOLS
