@@ -513,10 +513,10 @@ static bool EnsureSingleLevelExit(Loop *L, LoopInfo *LI, DominatorTree *DT,
       // in a conditional branch, as expected by the rest of the algorithm.
       auto *br = cast<BranchInst>(middle_bb->getTerminator());
       assert(!br->isConditional());
+      auto *true_val = ConstantInt::getTrue(br->getContext());
       br->eraseFromParent();
       BasicBlock *parent_latch = parent_loop->getLoopLatch();
-      BranchInst::Create(exit_block, parent_latch,
-                         ConstantInt::getTrue(br->getContext()), middle_bb);
+      BranchInst::Create(exit_block, parent_latch, true_val, middle_bb);
       // Fix phis in parent_latch
       for (Instruction &inst : *parent_latch) {
         PHINode *phi = dyn_cast<PHINode>(&inst);
