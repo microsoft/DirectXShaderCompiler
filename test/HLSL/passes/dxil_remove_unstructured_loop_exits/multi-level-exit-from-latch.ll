@@ -8,6 +8,31 @@
 ;
 ; Loop exits are 'dedicated', one of the LoopSimplifyForm criteria.
 
+;
+;   entry
+;    |
+;    v
+;   header.1 --> header.2 --> header.3 --> if.3 -----> exiting.3
+;    ^            ^            ^            |           |  |
+;    |            |            |            v           |  |
+;    |            |           latch.3 <--- endif.3 <----+  |
+;    |            |            |                           |
+;    |            |            |                           v
+;    |           latch.2 <----------------------------- exit.3.to.2
+;    |            |            |
+;    | +-------- latch.2.exit  |
+;    | |                       |
+;    | |                       v
+;    | |                      latch.3.exit
+;    | |                       |
+;    | v                       |
+;   latch.1  <-----------------+
+;    |
+;    v
+;   end
+;
+
+
 ; LOOPBEFORE:      Loop at depth 1 containing: %header.1<header>,%header.2,%header.3,%if.3,%exiting.3,%endif.3,%latch.3,%latch.3.exit,%exit.3.to.2,%latch.2,%latch.2.exit,%latch.1<latch><exiting>
 ; LOOPBEFORE-NEXT: Loop at depth 2 containing: %header.2<header>,%header.3,%if.3,%exiting.3,%endif.3,%latch.3<exiting>,%exit.3.to.2,%latch.2<latch><exiting>
 ; LOOPBEFORE-NEXT: Loop at depth 3 containing: %header.3<header>,%if.3,%exiting.3<exiting>,%endif.3,%latch.3<latch><exiting>
