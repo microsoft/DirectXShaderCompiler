@@ -6,7 +6,7 @@ macro(generate_version_include name input_file output_file gen_flags)
         add_custom_command(
             OUTPUT ${gen_file}
             COMMAND echo Generating version
-            COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py ${gen_flags} > ${gen_file}
+	    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py ${gen_flags} > ${gen_file}
             DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/gen_version.py
         )
     else ()

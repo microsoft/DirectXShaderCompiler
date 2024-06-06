@@ -447,7 +447,7 @@ set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 include(HandleLLVMOptions)
 
 # Verify that we can find a Python 3 interpreter and force cmake to use it.
-find_package(PythonInterp 3 REQUIRED)
+find_package(Python3 REQUIRED)
 
 ######
 # LLVMBuild Integration
@@ -481,7 +481,7 @@ endif (LLVM_USE_OPROFILE)
 message(STATUS "Constructing LLVMBuild project information")
 
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} ${LLVMBUILDTOOL}
+  COMMAND ${Python3_EXECUTABLE} ${LLVMBUILDTOOL}
             --native-target Unknown
             --enable-targets "${LLVM_TARGETS_TO_BUILD}"
             --enable-optional-components "${LLVMOPTIONALCOMPONENTS}"
