@@ -9,7 +9,7 @@ struct Foo
     float m_x;
 };
 
-// CHECK: %g_pc = OpVariable %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_Foo ShaderRecordBufferNV
+// CHECK: %g_pc = OpVariable %_ptr_ShaderRecordBufferKHR_type_ConstantBuffer_Foo ShaderRecordBufferKHR
 [[vk::shader_record_ext]] ConstantBuffer<Foo> g_pc;
 RWStructuredBuffer<float> g_buff;
 
