@@ -1179,6 +1179,15 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.targetEnv =
       Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
 
+  llvm::APInt maxId;
+
+  // 0X3FFFFF is the default value for -fspv-max-id because it is the largest
+  // value that is guaranteed to be allowed in all Vulkan implementations.
+  if (Args.getLastArgValue(OPT_fspv_max_id, "3FFFFF").getAsInteger(16, maxId)) {
+    errors << "-fspv-max-id must be an integer in hexadecimal format";
+  }
+  opts.SpirvOptions.maxId = maxId.getLimitedValue(0xFFFFFFFF);
+
   // Handle -Oconfig=<comma-separated-list> option.
   uint32_t numOconfigs = 0;
   for (const Arg *A : Args.filtered(OPT_Oconfig)) {

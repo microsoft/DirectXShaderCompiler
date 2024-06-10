@@ -412,6 +412,8 @@ def fspv_preserve_interface : Flag<["-"], "fspv-preserve-interface">, Group<spir
   HelpText<"Preserves all interface variables in the entry point, even when those variables are unused">;
 def fvk_allow_rwstructuredbuffer_arrays: Flag<["-"], "fvk-allow-rwstructuredbuffer-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
   HelpText<"Allow arrays of RWStructuredBuffers, AppendStructuredBuffers, and ConsumeStructuredBuffers. This is in development, and the option will be removed when the feature is complete.">;
+def fspv_max_id : MultiArg<["-"], "fspv-max-id", 1>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Set the maximum value for an id in the SPIR-V binary. Default is 0x3FFFFF, which is the largest value all drivers must support.">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////
