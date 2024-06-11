@@ -130,12 +130,10 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
@@ -458,79 +456,6 @@ static SmallVector<Value_Info, 8> CollectExitValues(Value *new_exit_cond,
   return exit_values;
 }
 
-// Ensures the branch from exiting_block to outside L escapes exactly one
-// level of loop nesting, and does not immediately jump into an otherwise
-// unrelated loop. Creates a downstream block as needed. If the exiting edge is
-// critical, it will be split. Updates dominator tree and loop info. Returns
-// true if any changes were made.
-static bool EnsureSingleLevelExit(Loop *L, LoopInfo *LI, DominatorTree *DT,
-                                  BasicBlock *exiting_block) {
-  BasicBlock *exit_block = GetExitBlockForExitingBlock(L, exiting_block);
-
-  Loop *exit_loop = LI->getLoopFor(exit_block);
-  assert(L != exit_loop);
-
-  Loop *parent_loop = L->getParentLoop();
-  if (parent_loop != exit_loop) {
-    // Split the edge between the blocks, returning the newly created block.
-    BasicBlock *new_bb = SplitEdge(exiting_block, exit_block, DT, LI);
-    // The new block might be in the middle or at the end.
-    BasicBlock *middle_bb;
-    if (new_bb->getSingleSuccessor() == exit_block) {
-      middle_bb = new_bb;
-    } else {
-      middle_bb = exit_block;
-      exit_block = new_bb;
-    }
-
-    // What loop does middle_bb end up in?  SplitEdge has these cases:
-    //  If the edge was critical:
-    //    if source block is not in a loop: ruled out already
-    //    if dest block is not in a loop --> not in any loop.
-    //    if going from outer loop to inner loop: ruled out already
-    //    if going from inner loop to outer loop --> outer loop
-    //    if loops unrelated by containment -> the parent loop of the
-    //     destination block (which must be a loop header because we
-    //     assume irreducible loops).
-    //  If the edge was non-critcial:
-    //    If the exit block only had one incominge edge --> same loop as
-    //      destination block.
-    //    otherwise the exiting block had a single successor.
-    //      This is ruled out because the the exiting block ends with a
-    //      conditional branch, and so has two successors.
-
-    // Move the middle_block to the parent loop, if it exists.
-    // If all goes well, the latch exit block will branch to it.
-    // If the algorithm bails early, then there is no harm in putting
-    // it in L's parent loop. At worst it will be an exiting block for
-    // the parent loop.
-    LI->removeBlock(middle_bb);
-    if (parent_loop) {
-      parent_loop->addBasicBlockToLoop(middle_bb, *LI);
-
-      // middle_bb block is now an exiting block, going from parent_loop to
-      // exit_loop, which we know are different. Make sure it ends in a
-      // in a conditional branch, as expected by the rest of the algorithm.
-      auto *br = cast<BranchInst>(middle_bb->getTerminator());
-      assert(!br->isConditional());
-      auto *true_val = ConstantInt::getTrue(br->getContext());
-      br->eraseFromParent();
-      BasicBlock *parent_latch = parent_loop->getLoopLatch();
-      BranchInst::Create(exit_block, parent_latch, true_val, middle_bb);
-      // Fix phis in parent_latch
-      for (Instruction &inst : *parent_latch) {
-        PHINode *phi = dyn_cast<PHINode>(&inst);
-        if (!phi)
-          break;
-        // We don't care about the values. The path is never taken.
-        phi->addIncoming(GetDefaultValue(phi->getType()), middle_bb);
-      }
-    }
-    return true;
-  }
-  return false;
-}
-
 // Restructures exiting_block so its work, including its exit branch, is moved
 // to a block B that dominates the latch block. Let's call B the
 // newly-exiting-block.
@@ -540,15 +465,6 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
                                                  Loop *L, LoopInfo *LI,
                                                  DominatorTree *DT) {
   BasicBlock *latch = L->getLoopLatch();
-
-  if (EnsureSingleLevelExit(L, LI, DT, latch)) {
-    // Exit early so we're forced to recompute exit blocks.
-    return true;
-  }
-  if (EnsureSingleLevelExit(L, LI, DT, exiting_block)) {
-    return true;
-  }
-
   BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, latch);
   BasicBlock *exit_block = GetExitBlockForExitingBlock(L, exiting_block);
 
