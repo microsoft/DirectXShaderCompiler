@@ -620,7 +620,8 @@ bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
 }
 
 SpirvUndef::SpirvUndef(QualType type)
-    : SpirvConstant(IK_Undef, spv::Op::OpUndef, type) {}
+    : SpirvInstruction(IK_Undef, spv::Op::OpUndef, type,
+                       /*SourceLocation*/ {}) {}
 
 bool SpirvUndef::operator==(const SpirvUndef &that) const {
   return opcode == that.opcode && resultType == that.resultType &&

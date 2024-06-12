@@ -66,6 +66,8 @@ public:
     IK_ConstantFloat,
     IK_ConstantComposite,
     IK_ConstantNull,
+
+    // OpUndef
     IK_Undef,
 
     // Function structure kinds
@@ -1182,7 +1184,8 @@ class SpirvConstant : public SpirvInstruction {
 public:
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
-    return inst->getKind() >= IK_ConstantBoolean && inst->getKind() <= IK_Undef;
+    return inst->getKind() >= IK_ConstantBoolean &&
+           inst->getKind() <= IK_ConstantNull;
   }
 
   bool operator==(const SpirvConstant &that) const;
@@ -1302,13 +1305,11 @@ public:
   bool operator==(const SpirvConstantNull &that) const;
 };
 
-class SpirvUndef : public SpirvConstant {
+class SpirvUndef : public SpirvInstruction {
 public:
   SpirvUndef(QualType type);
 
   DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvUndef)
-
-  bool invokeVisitor(Visitor *v) override;
 
   // For LLVM-style RTTI
   static bool classof(const SpirvInstruction *inst) {
@@ -1316,6 +1317,8 @@ public:
   }
 
   bool operator==(const SpirvUndef &that) const;
+
+  bool invokeVisitor(Visitor *v) override;
 };
 
 /// \brief OpCompositeConstruct instruction

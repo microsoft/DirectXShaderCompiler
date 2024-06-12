@@ -1007,7 +1007,7 @@ bool EmitVisitor::visit(SpirvConstantNull *inst) {
 }
 
 bool EmitVisitor::visit(SpirvUndef *inst) {
-  typeHandler.getOrCreateConstant(inst);
+  typeHandler.getOrCreateUndef(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
