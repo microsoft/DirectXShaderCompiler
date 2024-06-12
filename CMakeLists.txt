@@ -120,12 +120,6 @@ if(WIN32 AND NOT (CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "ARM.*"))
   add_link_options(/CETCOMPAT)
 endif()
 
-# This is a hack workaround for the broken azure runner images:
-# https://github.com/actions/runner-images/issues/10004
-if(WIN32)
-  add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
-endif()
-
 # HLSL Change Ends
 
 # HLSL Change Starts - set flag for Appveyor CI
