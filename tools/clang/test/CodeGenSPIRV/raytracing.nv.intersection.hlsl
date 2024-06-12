@@ -1,19 +1,19 @@
 // RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
-// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdNV
-// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeNV
-// CHECK:  OpDecorate [[c:%[0-9]+]] BuiltIn WorldRayOriginNV
-// CHECK:  OpDecorate [[d:%[0-9]+]] BuiltIn WorldRayDirectionNV
-// CHECK:  OpDecorate [[e:%[0-9]+]] BuiltIn RayTminNV
-// CHECK:  OpDecorate [[f:%[0-9]+]] BuiltIn IncomingRayFlagsNV
+// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdKHR
+// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeKHR
+// CHECK:  OpDecorate [[c:%[0-9]+]] BuiltIn WorldRayOriginKHR
+// CHECK:  OpDecorate [[d:%[0-9]+]] BuiltIn WorldRayDirectionKHR
+// CHECK:  OpDecorate [[e:%[0-9]+]] BuiltIn RayTminKHR
+// CHECK:  OpDecorate [[f:%[0-9]+]] BuiltIn IncomingRayFlagsKHR
 // CHECK:  OpDecorate %gl_InstanceID BuiltIn InstanceId
-// CHECK:  OpDecorate [[g:%[0-9]+]] BuiltIn InstanceCustomIndexNV
+// CHECK:  OpDecorate [[g:%[0-9]+]] BuiltIn InstanceCustomIndexKHR
 // CHECK:  OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
-// CHECK:  OpDecorate [[h:%[0-9]+]] BuiltIn ObjectRayOriginNV
-// CHECK:  OpDecorate [[i:%[0-9]+]] BuiltIn ObjectRayDirectionNV
-// CHECK:  OpDecorate [[j:%[0-9]+]] BuiltIn ObjectToWorldNV
-// CHECK:  OpDecorate [[k:%[0-9]+]] BuiltIn WorldToObjectNV
+// CHECK:  OpDecorate [[h:%[0-9]+]] BuiltIn ObjectRayOriginKHR
+// CHECK:  OpDecorate [[i:%[0-9]+]] BuiltIn ObjectRayDirectionKHR
+// CHECK:  OpDecorate [[j:%[0-9]+]] BuiltIn ObjectToWorldKHR
+// CHECK:  OpDecorate [[k:%[0-9]+]] BuiltIn WorldToObjectKHR
 
 struct Attribute
 {
