@@ -2143,10 +2143,8 @@ bool DeclResultIdMapper::assignLocations(
   return true;
 }
 
-bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
-  if (!checkSemanticDuplication(forInput))
-    return false;
-
+bool DeclResultIdMapper::finalizeStageIOLocationsForASingleEntryPoint(
+    bool forInput, ArrayRef<StageVar> functionStageVars) {
   // Returns false if the given StageVar is an input/output variable without
   // explicit location assignment. Otherwise, returns true.
   const auto locAssigned = [forInput, this](const StageVar &v) {
@@ -2166,11 +2164,12 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
   // If we have explicit location specified for all input/output variables,
   // use them instead assign by ourselves.
-  if (std::all_of(stageVars.begin(), stageVars.end(), locAssigned)) {
+  if (std::all_of(functionStageVars.begin(), functionStageVars.end(),
+                  locAssigned)) {
     LocationSet locSet;
     bool noError = true;
 
-    for (const auto &var : stageVars) {
+    for (const auto &var : functionStageVars) {
       // Skip builtins & those stage variables we are not handling for this call
       if (var.isSpirvBuitin() || var.hasLocOrBuiltinDecorateAttr() ||
           forInput != isInputStorageClass(var)) {
@@ -2189,7 +2188,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
           emitError("stage %select{output|input}0 location #%1 already "
                     "consumed by semantic '%2'",
                     attrLoc)
-              << forInput << l << stageVars[idx].getSemanticStr();
+              << forInput << l << functionStageVars[idx].getSemanticStr();
           noError = false;
         }
 
@@ -2213,7 +2212,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   std::vector<const StageVar *> vars;
   LocationSet locSet;
 
-  for (const auto &var : stageVars) {
+  for (const auto &var : functionStageVars) {
     if (var.isSpirvBuitin() || var.hasLocOrBuiltinDecorateAttr() ||
         forInput != isInputStorageClass(var)) {
       continue;
@@ -2284,6 +2283,29 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
                      });
   }
   return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
+}
+
+llvm::DenseMap<const SpirvFunction *, SmallVector<StageVar, 8>>
+DeclResultIdMapper::getStageVarsPerFunction() {
+  llvm::DenseMap<const SpirvFunction *, SmallVector<StageVar, 8>> result;
+  for (const auto &var : stageVars) {
+    result[var.getEntryPoint()].push_back(var);
+  }
+  return result;
+}
+
+bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
+  if (!checkSemanticDuplication(forInput))
+    return false;
+
+  auto stageVarPerFunction = getStageVarsPerFunction();
+  for (const auto &functionStageVars : stageVarPerFunction) {
+    if (!finalizeStageIOLocationsForASingleEntryPoint(
+            forInput, functionStageVars.getSecond())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 namespace {
