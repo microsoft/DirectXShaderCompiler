@@ -217,7 +217,7 @@ static void HandleCallsInBlockInlinedThroughInvoke(BasicBlock *BB,
     II->setDebugLoc(CI->getDebugLoc());
     II->setCallingConv(CI->getCallingConv());
     II->setAttributes(CI->getAttributes());
-    
+
     // Make sure that anything using the call now uses the invoke!  This also
     // updates the CallGraph if present, because it uses a WeakTrackingVH.
     CI->replaceAllUsesWith(II);

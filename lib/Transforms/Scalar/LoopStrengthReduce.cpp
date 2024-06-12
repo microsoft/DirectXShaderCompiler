@@ -1766,21 +1766,14 @@ class LSRInstance {
                                   const LSRUse &LU,
                                   SCEVExpander &Rewriter) const;
 
-  Value *Expand(const LSRFixup &LF,
-                const Formula &F,
-                BasicBlock::iterator IP,
+  Value *Expand(const LSRFixup &LF, const Formula &F, BasicBlock::iterator IP,
                 SCEVExpander &Rewriter,
                 SmallVectorImpl<WeakTrackingVH> &DeadInsts) const;
-  void RewriteForPHI(PHINode *PN, const LSRFixup &LF,
-                     const Formula &F,
+  void RewriteForPHI(PHINode *PN, const LSRFixup &LF, const Formula &F,
                      SCEVExpander &Rewriter,
-                     SmallVectorImpl<WeakTrackingVH> &DeadInsts,
-                     Pass *P) const;
-  void Rewrite(const LSRFixup &LF,
-               const Formula &F,
-               SCEVExpander &Rewriter,
-               SmallVectorImpl<WeakTrackingVH> &DeadInsts,
-               Pass *P) const;
+                     SmallVectorImpl<WeakTrackingVH> &DeadInsts, Pass *P) const;
+  void Rewrite(const LSRFixup &LF, const Formula &F, SCEVExpander &Rewriter,
+               SmallVectorImpl<WeakTrackingVH> &DeadInsts, Pass *P) const;
   void ImplementSolution(const SmallVectorImpl<const Formula *> &Solution,
                          Pass *P);
 
@@ -4449,10 +4442,8 @@ LSRInstance::AdjustInsertPositionForExpand(BasicBlock::iterator LowestIP,
 
 /// Expand - Emit instructions for the leading candidate expression for this
 /// LSRUse (this is called "expanding").
-Value *LSRInstance::Expand(const LSRFixup &LF,
-                           const Formula &F,
-                           BasicBlock::iterator IP,
-                           SCEVExpander &Rewriter,
+Value *LSRInstance::Expand(const LSRFixup &LF, const Formula &F,
+                           BasicBlock::iterator IP, SCEVExpander &Rewriter,
                            SmallVectorImpl<WeakTrackingVH> &DeadInsts) const {
   const LSRUse &LU = Uses[LF.LUIdx];
   if (LU.RigidFormula)
@@ -4634,10 +4625,8 @@ Value *LSRInstance::Expand(const LSRFixup &LF,
 /// RewriteForPHI - Helper for Rewrite. PHI nodes are special because the use
 /// of their operands effectively happens in their predecessor blocks, so the
 /// expression may need to be expanded in multiple places.
-void LSRInstance::RewriteForPHI(PHINode *PN,
-                                const LSRFixup &LF,
-                                const Formula &F,
-                                SCEVExpander &Rewriter,
+void LSRInstance::RewriteForPHI(PHINode *PN, const LSRFixup &LF,
+                                const Formula &F, SCEVExpander &Rewriter,
                                 SmallVectorImpl<WeakTrackingVH> &DeadInsts,
                                 Pass *P) const {
   DenseMap<BasicBlock *, Value *> Inserted;
@@ -4710,8 +4699,7 @@ void LSRInstance::RewriteForPHI(PHINode *PN,
 /// Rewrite - Emit instructions for the leading candidate expression for this
 /// LSRUse (this is called "expanding"), and update the UserInst to reference
 /// the newly expanded value.
-void LSRInstance::Rewrite(const LSRFixup &LF,
-                          const Formula &F,
+void LSRInstance::Rewrite(const LSRFixup &LF, const Formula &F,
                           SCEVExpander &Rewriter,
                           SmallVectorImpl<WeakTrackingVH> &DeadInsts,
                           Pass *P) const {

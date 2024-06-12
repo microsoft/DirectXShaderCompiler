@@ -903,20 +903,13 @@ class WidenIV {
   SmallVector<NarrowIVDefUse, 8> NarrowIVUsers;
 
 public:
-  WidenIV(const WideIVInfo &WI, LoopInfo *LInfo,
-          ScalarEvolution *SEv, DominatorTree *DTree, SmallVectorImpl<WeakTrackingVH> &DI)
-      :
-    OrigPhi(WI.NarrowIV),
-    WideType(WI.WidestNativeType),
-    IsSigned(WI.IsSigned),
-    LI(LInfo),
-    L(LI->getLoopFor(OrigPhi->getParent())),
-    SE(SEv),
-    DT(DTree),
-    WidePhi(nullptr),
-    WideInc(nullptr),
-    WideIncExpr(nullptr),
-    DeadInsts(DI) {
+  WidenIV(const WideIVInfo &WI, LoopInfo *LInfo, ScalarEvolution *SEv,
+          DominatorTree *DTree, SmallVectorImpl<WeakTrackingVH> &DI)
+      : OrigPhi(WI.NarrowIV), WideType(WI.WidestNativeType),
+        IsSigned(WI.IsSigned), LI(LInfo),
+        L(LI->getLoopFor(OrigPhi->getParent())), SE(SEv), DT(DTree),
+        WidePhi(nullptr), WideInc(nullptr), WideIncExpr(nullptr),
+        DeadInsts(DI) {
     assert(L->getHeader() == OrigPhi->getParent() && "Phi must be an IV");
   }
 

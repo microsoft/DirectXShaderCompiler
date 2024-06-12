@@ -3195,9 +3195,11 @@ private:
 /// \brief Check that the Values in the slice in VL array are still existent in
 /// the WeakTrackingVH array.
 /// Vectorization of part of the VL array may cause later values in the VL array
-/// to become invalid. We track when this has happened in the WeakTrackingVH array.
-static bool hasValueBeenRAUWed(ArrayRef<Value *> VL, ArrayRef<WeakTrackingVH> VH,
-                               unsigned SliceBegin, unsigned SliceSize) {
+/// to become invalid. We track when this has happened in the WeakTrackingVH
+/// array.
+static bool hasValueBeenRAUWed(ArrayRef<Value *> VL,
+                               ArrayRef<WeakTrackingVH> VH, unsigned SliceBegin,
+                               unsigned SliceSize) {
   VL = VL.slice(SliceBegin, SliceSize);
   VH = VH.slice(SliceBegin, SliceSize);
   return !std::equal(VL.begin(), VL.end(), VH.begin());

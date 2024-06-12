@@ -1370,8 +1370,8 @@ bool CodeGenPrepare::OptimizeCallInst(CallInst *CI, bool& ModifiedDT) {
       Constant *RetVal = ConstantInt::get(ReturnTy, Min ? 0 : -1ULL);
 
       // Substituting this can cause recursive simplifications, which can
-      // invalidate our iterator.  Use WeakTrackingVH to hold onto it in case this
-      // happens.
+      // invalidate our iterator.  Use WeakTrackingVH to hold onto it in case
+      // this happens.
       WeakTrackingVH IterHandle(CurInstIterator);
 
       replaceAndRecursivelySimplify(CI, RetVal,

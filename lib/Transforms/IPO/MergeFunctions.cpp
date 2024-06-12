@@ -1248,7 +1248,8 @@ bool MergeFunctions::runOnModule(Module &M) {
     // Insert only strong functions and merge them. Strong function merging
     // always deletes one of them.
     for (std::vector<WeakTrackingVH>::iterator I = Worklist.begin(),
-           E = Worklist.end(); I != E; ++I) {
+                                               E = Worklist.end();
+         I != E; ++I) {
       if (!*I) continue;
       Function *F = cast<Function>(*I);
       if (!F->isDeclaration() && !F->hasAvailableExternallyLinkage() &&
@@ -1262,7 +1263,8 @@ bool MergeFunctions::runOnModule(Module &M) {
     // functions are identical, we create a new strong function with two weak
     // weak thunks to it which are identical but not mergable.
     for (std::vector<WeakTrackingVH>::iterator I = Worklist.begin(),
-           E = Worklist.end(); I != E; ++I) {
+                                               E = Worklist.end();
+         I != E; ++I) {
       if (!*I) continue;
       Function *F = cast<Function>(*I);
       if (!F->isDeclaration() && !F->hasAvailableExternallyLinkage() &&
