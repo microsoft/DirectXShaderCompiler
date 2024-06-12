@@ -2143,7 +2143,7 @@ bool DeclResultIdMapper::assignLocations(
   return true;
 }
 
-bool DeclResultIdMapper::finalizeStageIOLocationsForASignleEntryPoint(
+bool DeclResultIdMapper::finalizeStageIOLocationsForASingleEntryPoint(
     bool forInput, ArrayRef<StageVar> functionStageVars) {
   // Returns false if the given StageVar is an input/output variable without
   // explicit location assignment. Otherwise, returns true.
@@ -2286,7 +2286,7 @@ bool DeclResultIdMapper::finalizeStageIOLocationsForASignleEntryPoint(
 }
 
 llvm::DenseMap<const SpirvFunction *, SmallVector<StageVar, 8>>
-DeclResultIdMapper::GetStageVarsPerFunction() {
+DeclResultIdMapper::getStageVarsPerFunction() {
   llvm::DenseMap<const SpirvFunction *, SmallVector<StageVar, 8>> result;
   for (const auto &var : stageVars) {
     result[var.getEntryPoint()].push_back(var);
@@ -2298,9 +2298,9 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   if (!checkSemanticDuplication(forInput))
     return false;
 
-  auto stageVarPerFunction = GetStageVarsPerFunction();
+  auto stageVarPerFunction = getStageVarsPerFunction();
   for (const auto &functionStageVars : stageVarPerFunction) {
-    if (!finalizeStageIOLocationsForASignleEntryPoint(
+    if (!finalizeStageIOLocationsForASingleEntryPoint(
             forInput, functionStageVars.getSecond())) {
       return false;
     }

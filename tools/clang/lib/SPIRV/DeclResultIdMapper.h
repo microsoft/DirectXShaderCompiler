@@ -630,7 +630,7 @@ private:
   /// \brief Returns a map that divides all of the shader stage variables into
   /// separate vectors for each entry point.
   llvm::DenseMap<const SpirvFunction *, SmallVector<StageVar, 8>>
-  GetStageVarsPerFunction();
+  getStageVarsPerFunction();
 
   /// \brief Decorates all stage variables in `functionStageVars` with proper
   /// location and returns true on success.
@@ -640,7 +640,7 @@ private:
   ///
   /// This method will write the location assignment into the module under
   /// construction.
-  bool finalizeStageIOLocationsForASignleEntryPoint(
+  bool finalizeStageIOLocationsForASingleEntryPoint(
       bool forInput, ArrayRef<StageVar> functionStageVars);
 
   /// \brief Decorates all stage input (if forInput is true) or output (if
