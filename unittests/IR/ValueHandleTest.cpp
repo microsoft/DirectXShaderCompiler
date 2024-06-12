@@ -171,6 +171,31 @@ TEST_F(ValueHandle, AssertingVH_ReducesToPointer) {
 
 #else  // !NDEBUG
 
+TEST_F(ValueHandle, TrackingVH_Tracks) {
+  { // HLSL Change
+    TrackingVH<Value> VH(BitcastV.get());
+    BitcastV->replaceAllUsesWith(ConstantV);
+    EXPECT_EQ(VH, ConstantV);
+  } // HLSL Change
+
+  // HLSL Change begin
+  // This test is a DEATH_TEST in the original upstream change. It will
+  // assert when accessing a TrackingVH is deleted.
+  // However, DXC should follow the original TrackingVH implementation.
+  // return Null is always ok instead of assert it.
+  // Check the comment in TrackingVH::getValPtr() for more detail.
+  {
+    TrackingVH<Value> VH(BitcastV.get());
+
+    // The tracking handle shouldn't assert when the value is deleted.
+    BitcastV.reset(
+        new BitCastInst(ConstantV, Type::getInt32Ty(getGlobalContext())));
+    // The handle should be nullptr after it's deleted.
+    EXPECT_EQ(VH, nullptr);
+  }
+  // HLSL Change end
+}
+
 #ifdef GTEST_HAS_DEATH_TEST
 
 TEST_F(ValueHandle, AssertingVH_Asserts) {
@@ -183,6 +208,14 @@ TEST_F(ValueHandle, AssertingVH_Asserts) {
                "An asserting value handle still pointed to this value!");
   Copy = nullptr;
   BitcastV.reset();
+}
+
+TEST_F(ValueHandle, TrackingVH_Asserts) {
+  TrackingVH<Instruction> VH(BitcastV.get());
+
+  BitcastV->replaceAllUsesWith(ConstantV);
+  EXPECT_DEATH((void)*VH,
+               "Tracked Value was replaced by one with an invalid type!");
 }
 
 #endif  // GTEST_HAS_DEATH_TEST
