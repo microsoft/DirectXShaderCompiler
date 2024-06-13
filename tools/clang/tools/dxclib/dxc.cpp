@@ -23,17 +23,13 @@
 // /Gpp         - Force partial precision.
 // /Lx          - Output hexadecimal literals
 // /Op          - Disable preshaders
-//
-// Unimplemented but on roadmap:
-//
 // /matchUAVs   - Match template shader UAV slot allocations in the current
-// shader /mergeUAVs   - Merge UAV slot allocations of template shader and the
-// current shader /Ni          - Output instruction numbers in assembly listings
+//                shader
+// /mergeUAVs   - Merge UAV slot allocations of template shader and the
+//                current shader
+// /Ni          - Output instruction numbers in assembly listings
 // /No          - Output instruction byte offset in assembly listings
-// /Qstrip_reflect
-// /res_may_alias
 // /shtemplate
-// /verifyrootsignature
 //
 
 #include "dxc.h"
