@@ -478,6 +478,19 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
   // So prevent this from happening by ensuring the latch exit is
   // "dedicated": the only branches to it come from inside the
   // loop, and hence not from X.
+  //
+  // The latch_exit block could have *multiple* branches to it from
+  // outside the loop.
+  //
+  // When the edge from latch to latch_exit is split, the local picture is:
+  //
+  //    latch --> middle --> tail
+  //
+  // where:
+  //  - Branches that used to go to latch_exit, from outside the loop, now
+  //    point to 'tail'.
+  //  - 'middle' is now an exit block for the loop, and its only incoming
+  //    edge is from latch.
   for (auto *pred : predecessors(latch_exit)) {
     if (!L->contains(pred)) {
       SplitEdge(latch, latch_exit, DT, LI);
