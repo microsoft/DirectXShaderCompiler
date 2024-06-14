@@ -134,6 +134,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
@@ -466,6 +467,39 @@ static bool RemoveUnstructuredLoopExitsIteration(BasicBlock *exiting_block,
                                                  DominatorTree *DT) {
   BasicBlock *latch = L->getLoopLatch();
   BasicBlock *latch_exit = GetExitBlockForExitingBlock(L, latch);
+
+  // Ensure the latch-exit is "dedicated": no block outside the loop
+  // branches to it.
+  //
+  // Suppose this iteration successfully moves an exit block X until
+  // after the latch block.  It will do so by rewiring the CFG so
+  // the latch *exit* block will branch to X.  If the latch exit
+  // block is already reachable from X, then the rewiring will
+  // create an unwanted loop.
+  // So prevent this from happening by ensuring the latch exit is
+  // "dedicated": the only branches to it come from inside the
+  // loop, and hence not from X.
+  //
+  // The latch_exit block could have *multiple* branches to it from
+  // outside the loop.
+  //
+  // When the edge from latch to latch_exit is split, the local picture is:
+  //
+  //    latch --> middle --> tail
+  //
+  // where:
+  //  - Branches that used to go to latch_exit, from outside the loop, now
+  //    point to 'tail'.
+  //  - 'middle' is now an exit block for the loop, and its only incoming
+  //    edge is from latch.
+  for (auto *pred : predecessors(latch_exit)) {
+    if (!L->contains(pred)) {
+      SplitEdge(latch, latch_exit, DT, LI);
+      // Quit early and recalculate exit blocks.
+      return true;
+    }
+  }
+
   BasicBlock *exit_block = GetExitBlockForExitingBlock(L, exiting_block);
 
   // If exiting block already dominates latch, then no need to do anything.
