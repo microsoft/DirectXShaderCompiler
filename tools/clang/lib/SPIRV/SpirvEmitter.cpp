@@ -744,11 +744,12 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
-  if (spirvOptions.debugInfoRich) {
-    emitWarning("Member functions will not be linked to their class in the "
-                "debug information. "
-                "See https://github.com/KhronosGroup/SPIRV-Registry/issues/203",
-                {});
+  if (spirvOptions.debugInfoRich && !spirvOptions.debugInfoVulkan) {
+    emitWarning(
+        "Member functions will not be linked to their class in the "
+        "debug information. Prefer using -fspv-debug=vulkan-with-source. "
+        "See https://github.com/KhronosGroup/SPIRV-Registry/issues/203",
+        {});
   }
 
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
@@ -927,6 +928,23 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                  "with source code if possible",
                  {});
         return;
+      }
+    }
+
+    // Fixup debug instruction opcodes: change the opcode to
+    // OpExtInstWithForwardRefsKHR is the instruction at least one forward
+    // reference.
+    if (spirvOptions.debugInfoRich) {
+      std::string messages;
+      if (!spirvToolsFixupOpExtInst(&m, &messages)) {
+        emitFatalError("failed to fix OpExtInst opcodes: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
+        return;
+      } else if (!messages.empty()) {
+        emitWarning("SPIR-V fix-opextinst-opcodes: %0", {}) << messages;
       }
     }
 
@@ -14470,6 +14488,30 @@ SpirvEmitter::createFunctionScopeTempFromParameter(const ParmVarDecl *param) {
       type, paramLoc, tempVarName, param->hasAttr<HLSLPreciseAttr>(),
       param->hasAttr<HLSLNoInterpolationAttr>());
   return tempVar;
+}
+
+bool SpirvEmitter::spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
+                                            std::string *messages) {
+  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  string::RawOstreamBuf printAllBuf(llvm::errs());
+  std::ostream printAllOS(&printAllBuf);
+  if (spirvOptions.printAll)
+    optimizer.SetPrintAll(&printAllOS);
+
+  spvtools::OptimizerOptions options;
+  options.set_run_validator(false);
+  options.set_preserve_bindings(spirvOptions.preserveBindings);
+  options.set_max_id_bound(spirvOptions.maxId);
+
+  optimizer.RegisterPass(
+      spvtools::CreateOpExtInstWithForwardReferenceFixupPass());
+
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
 }
 
 bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
