@@ -9,6 +9,9 @@
 ; CHECK: @main
 ; CHECK: exit1:
 ; CHECK-NEXT: %hexit = phi i32 [ %hnext, %header1 ]
+; CHECK-NEXT: br label %latch0
+
+; CHECK: latch0:
 
 target triple = "dxil-ms-dx"
 
