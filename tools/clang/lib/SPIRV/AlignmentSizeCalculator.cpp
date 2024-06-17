@@ -133,11 +133,18 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
     }
 
     // Reset the current offset to the one specified in the source code
-    // if exists. It's debatable whether we should do sanity check here.
-    // If the developers want manually control the layout, we leave
-    // everything to them.
+    // if exists. We issues a warning instead of an error if the offset is not
+    // correctly aligned. This allows uses to disable validation, and use the
+    // alignment specified in the source code if they are sure that is what they
+    // want.
     if (const auto *offsetAttr = field->getAttr<VKOffsetAttr>()) {
       structSize = offsetAttr->getOffset();
+      if (structSize % memberAlignment != 0) {
+        emitWarning(
+            "The offset provided in the attribute should be %0-byte aligned.",
+            field->getLocation())
+            << memberAlignment;
+      }
     }
 
     // The base alignment of the structure is N, where N is the largest
