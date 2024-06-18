@@ -14263,6 +14263,7 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
   SpirvUnaryOp *address = spvBuilder.createUnaryOp(
       spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  address->setLayoutRule(spirvOptions.sBufferLayoutRule);
 
   SpirvLoad *loadInst =
       dyn_cast<SpirvLoad>(spvBuilder.createLoad(bufferType, address, loc));
@@ -14291,6 +14292,7 @@ SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
   if (!address)
     return nullptr;
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  address->setLayoutRule(spirvOptions.sBufferLayoutRule);
 
   // If the source value has a different layout, it is not safe to directly
   // store it. It needs to be component-wise reconstructed to the new layout.
