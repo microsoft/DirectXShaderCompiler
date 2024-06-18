@@ -4032,6 +4032,15 @@ SpirvEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
     numSamples = expr->getArg(numArgs - 1);
   }
 
+  // Make sure that all output args are an l-value.
+  for (uint32_t argIdx = (mipLevel ? 1 : 0); argIdx < numArgs; ++argIdx) {
+    if (!expr->getArg(argIdx)->isLValue()) {
+      emitError("Output argument must be an l-value",
+                expr->getArg(argIdx)->getExprLoc());
+      return nullptr;
+    }
+  }
+
   uint32_t querySize = numArgs;
   // If numLevels arg is present, mipLevel must also be present. These are not
   // queried via ImageQuerySizeLod.
