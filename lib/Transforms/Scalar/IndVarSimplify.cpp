@@ -101,7 +101,7 @@ namespace {
     TargetLibraryInfo         *TLI;
     const TargetTransformInfo *TTI;
 
-    SmallVector<WeakVH, 16> DeadInsts;
+    SmallVector<WeakTrackingVH, 16> DeadInsts;
     bool Changed;
   public:
 
@@ -442,8 +442,8 @@ void IndVarSimplify::HandleFloatingPointIV(Loop *L, PHINode *PN) {
                                       Compare->getName());
 
   // In the following deletions, PN may become dead and may be deleted.
-  // Use a WeakVH to observe whether this happens.
-  WeakVH WeakPH = PN;
+  // Use a WeakTrackingVH to observe whether this happens.
+  WeakTrackingVH WeakPH = PN;
 
   // Delete the old floating point exit comparison.  The branch starts using the
   // new comparison.
@@ -478,7 +478,7 @@ void IndVarSimplify::RewriteNonIntegerIVs(Loop *L) {
   //
   BasicBlock *Header = L->getHeader();
 
-  SmallVector<WeakVH, 8> PHIs;
+  SmallVector<WeakTrackingVH, 8> PHIs;
   for (BasicBlock::iterator I = Header->begin();
        PHINode *PN = dyn_cast<PHINode>(I); ++I)
     PHIs.push_back(PN);
@@ -908,26 +908,19 @@ class WidenIV {
   PHINode *WidePhi;
   Instruction *WideInc;
   const SCEV *WideIncExpr;
-  SmallVectorImpl<WeakVH> &DeadInsts;
+  SmallVectorImpl<WeakTrackingVH> &DeadInsts;
 
   SmallPtrSet<Instruction*,16> Widened;
   SmallVector<NarrowIVDefUse, 8> NarrowIVUsers;
 
 public:
-  WidenIV(const WideIVInfo &WI, LoopInfo *LInfo,
-          ScalarEvolution *SEv, DominatorTree *DTree,
-          SmallVectorImpl<WeakVH> &DI) :
-    OrigPhi(WI.NarrowIV),
-    WideType(WI.WidestNativeType),
-    IsSigned(WI.IsSigned),
-    LI(LInfo),
-    L(LI->getLoopFor(OrigPhi->getParent())),
-    SE(SEv),
-    DT(DTree),
-    WidePhi(nullptr),
-    WideInc(nullptr),
-    WideIncExpr(nullptr),
-    DeadInsts(DI) {
+  WidenIV(const WideIVInfo &WI, LoopInfo *LInfo, ScalarEvolution *SEv,
+          DominatorTree *DTree, SmallVectorImpl<WeakTrackingVH> &DI)
+      : OrigPhi(WI.NarrowIV), WideType(WI.WidestNativeType),
+        IsSigned(WI.IsSigned), LI(LInfo),
+        L(LI->getLoopFor(OrigPhi->getParent())), SE(SEv), DT(DTree),
+        WidePhi(nullptr), WideInc(nullptr), WideIncExpr(nullptr),
+        DeadInsts(DI) {
     assert(L->getHeader() == OrigPhi->getParent() && "Phi must be an IV");
   }
 
