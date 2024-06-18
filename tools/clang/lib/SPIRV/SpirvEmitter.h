@@ -1180,9 +1180,8 @@ private:
   /// Returns true on success and false otherwise.
   bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
 
-  // \brief Calls SPIRV-Tools optimizer's, but only with the
-  // fix-opextinst-opcodes pass. This pass fixups
-  // OpExtInst/OpExtInstWithForwardRefsKHR opcodes to use the correct one
+  // \brief Calls SPIRV-Tools optimizer fix-opextinst-opcodes pass. This pass
+  // fixes OpExtInst/OpExtInstWithForwardRefsKHR opcodes to use the correct one
   // depending of the presence of forward references.
   bool spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
                                 std::string *messages);
