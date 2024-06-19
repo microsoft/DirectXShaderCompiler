@@ -149,7 +149,7 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     }
   }
 
-  for (auto* F : instrumentableFunctions) {
+  for (auto *F : instrumentableFunctions) {
     int InstructionRangeStart = InstNum;
     int InstructionRangeEnd = InstNum;
     for (auto &block : F->getBasicBlockList()) {
