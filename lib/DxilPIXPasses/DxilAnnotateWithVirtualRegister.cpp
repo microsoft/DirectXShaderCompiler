@@ -123,8 +123,8 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
   unsigned int Major = 0;
   unsigned int Minor = 0;
-  m_DM->GetDxilVersion(Major, Minor);
-  if (Major < 6 || (Major == 6 && Minor <= 4)) {
+  m_DM->GetValidatorVersion(Major, Minor);
+  if (Major < 1 || (Major == 1 && Minor < 4)) {
     m_DM->SetValidatorVersion(1, 4);
   }
 
@@ -149,7 +149,7 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     }
   }
 
-  for (auto *F : instrumentableFunctions) {
+  for (auto* F : instrumentableFunctions) {
     int InstructionRangeStart = InstNum;
     int InstructionRangeEnd = InstNum;
     for (auto &block : F->getBasicBlockList()) {
@@ -177,7 +177,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
                   << printableNameSubset << "\n";
     }
   }
-
   if (OSOverride != nullptr) {
     // Print a set of strings of the exemplary form "InstructionCount: <n>
     // <fnName>"
