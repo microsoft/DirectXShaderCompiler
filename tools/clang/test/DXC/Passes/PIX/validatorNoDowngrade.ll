@@ -1,15 +1,16 @@
 ; RUN: %dxopt %s -dxil-annotate-with-virtual-regs -hlsl-dxilemit -S | FileCheck %s
 
 ; CHECK: !dx.valver = !{![[VALVER:.*]]}
-; CHECK: ![[VALVER]] = !{i32 1, i32 4}
+; CHECK-NOT: ![[VALVER]] = !{i32 1, i32 4}
 
 
 ; GENERATED FROM:
 ; dxc -Emain -Tcs_6_1
+
+
 ; void main()
 ; {
 ; }
-; AND THEN MANUALLY EDITNG valver to 1.3.
 
 
 
@@ -56,7 +57,7 @@ define void @main() {
 
 !0 = !{!"dxc(private) 1.8.0.4583 (PIX_MemberFunctions, 2f4a01af1-dirty)"}
 !1 = !{i32 1, i32 1}
-!2 = !{i32 1, i32 3}
+!2 = !{i32 1, i32 8}
 !3 = !{!"cs", i32 6, i32 1}
 !4 = !{void ()* @main, !"main", null, null, !5}
 !5 = !{i32 4, !6}

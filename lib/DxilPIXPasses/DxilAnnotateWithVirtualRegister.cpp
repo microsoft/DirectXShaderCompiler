@@ -124,7 +124,7 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   unsigned int Major = 0;
   unsigned int Minor = 0;
   m_DM->GetValidatorVersion(Major, Minor);
-  if (Major < 1 || (Major == 1 && Minor < 4)) {
+  if (hlsl::DXIL::CompareVersions(Major, Minor, 1, 4) < 0) {
     m_DM->SetValidatorVersion(1, 4);
   }
 
@@ -177,6 +177,7 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
                   << printableNameSubset << "\n";
     }
   }
+
   if (OSOverride != nullptr) {
     // Print a set of strings of the exemplary form "InstructionCount: <n>
     // <fnName>"
