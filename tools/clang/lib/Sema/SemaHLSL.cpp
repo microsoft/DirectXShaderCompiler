@@ -5228,16 +5228,26 @@ public:
               << argType;
           return true;
         }
+
+        // This is a bit of a special case we need to handle. Because the
+        // buffer types don't use their template parameter in a way that would
+        // force instantiation, we need to force specialization here.
         if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
-          // This is a bit of a special case we need to handle. Because the
-          // buffer types don't use their template parameter in a way that would
-          // force instantiation, we need to force specialization here.
           GetOrCreateTemplateSpecialization(
               *m_context, *m_sema,
               cast<ClassTemplateDecl>(
                   TST->getTemplateName().getAsTemplateDecl()),
               llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
                                                TST->getNumArgs()));
+        } else if (auto *TD = dyn_cast<TypedefType>(argType)) {
+          if (auto *TST = dyn_cast<TemplateSpecializationType>(TD->desugar())) {
+            GetOrCreateTemplateSpecialization(
+                *m_context, *m_sema,
+                cast<ClassTemplateDecl>(
+                    TST->getTemplateName().getAsTemplateDecl()),
+                llvm::ArrayRef<TemplateArgument>(TST->getArgs(),
+                                                 TST->getNumArgs()));
+          }
         }
         if (const RecordType *recordType = argType->getAs<RecordType>()) {
           if (!recordType->getDecl()->isCompleteDefinition()) {
