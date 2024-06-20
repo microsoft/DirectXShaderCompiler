@@ -74,8 +74,9 @@ FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport,
                         LPCWSTR dumpName /*=nullptr*/) {
   bool isFileCheck = 0 == _stricmp(Command.c_str(), "FileCheck") ||
                      0 == _stricmp(Command.c_str(), "%FileCheck");
-  bool isXFail = 0 == _stricmp(Command.c_str(), "xfail");
-  bool consumeErrors = isFileCheck || isXFail;
+  bool isXFailCat = 0 == _stricmp(Command.c_str(), "xfailcat");
+  bool isXFail = !isXFailCat && (0 == _stricmp(Command.c_str(), "xfail"));
+  bool consumeErrors = isFileCheck || isXFail || isXFailCat;
 
   // Stop the pipeline if on errors unless the command can consume them.
   if (Prior != nullptr && Prior->ExitCode && !consumeErrors) {
@@ -89,6 +90,8 @@ FileRunCommandPart::Run(dxc::DxcDllSupport &DllSupport,
     return RunFileChecker(Prior, dumpName);
   } else if (isXFail) {
     return RunXFail(Prior);
+  } else if (isXFailCat) {
+    return RunXFailCat(Prior);
   } else if (0 == _stricmp(Command.c_str(), "tee")) {
     return RunTee(Prior);
   } else if (0 == _stricmp(Command.c_str(), "fc")) {
@@ -1157,6 +1160,24 @@ FileRunCommandPart::RunXFail(const FileRunCommandResult *Prior) {
   } else {
     return FileRunCommandResult::Success("");
   }
+}
+
+// xfailcat acts like xfail, but also propagates stdout and stderr
+FileRunCommandResult
+FileRunCommandPart::RunXFailCat(const FileRunCommandResult *Prior) {
+  if (Prior == nullptr)
+    return FileRunCommandResult::Error("xfailcat requires a prior command");
+
+  FileRunCommandResult result;
+  if (Prior->ExitCode == 0) {
+    result = FileRunCommandResult::Error(
+        "xfailcat expected a failure from previous command");
+  } else {
+    result = FileRunCommandResult::Success("");
+  }
+  result.StdOut = Prior->StdOut;
+  result.StdErr = Prior->StdErr;
+  return result;
 }
 
 FileRunCommandResult

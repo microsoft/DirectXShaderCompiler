@@ -143,6 +143,7 @@ private:
                                const FileRunCommandResult *Prior);
   FileRunCommandResult RunTee(const FileRunCommandResult *Prior);
   FileRunCommandResult RunXFail(const FileRunCommandResult *Prior);
+  FileRunCommandResult RunXFailCat(const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxilVer(dxc::DxcDllSupport &DllSupport,
                                   const FileRunCommandResult *Prior);
   FileRunCommandResult RunDxcHashTest(dxc::DxcDllSupport &DllSupport);

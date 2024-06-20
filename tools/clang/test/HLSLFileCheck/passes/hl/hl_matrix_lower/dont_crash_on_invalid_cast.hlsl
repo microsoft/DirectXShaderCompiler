@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_0 %s | xfail
+// RUN: %dxc -T cs_6_0 %s | xfailcat | FileCheck %s -input-file=stderr
 
 // The HL matrix lowering pass can sometimes throw an exception
 // due to an invalid LLVM-level cast<Ty> call.  Make sure that
@@ -7,10 +7,8 @@
 // Note: There is still a bug in the compiler here.  Not all matrix
 // lowerings are covered by the pass.
 
-// (I would like to use a FileCheck %s but that does not work.
-// Alternately, I could use 'not dxc...' but 'not' is unsupported.)
 
-//     CHECK: error: cast<X>() argument of incompatible type
+//   CHECK: error: cast<X>() argument of incompatible type
 
 struct a {
   float b;
