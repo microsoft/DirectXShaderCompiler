@@ -399,6 +399,11 @@ private:
     emittedSource[fileId] = dbg_src_id;
   }
 
+  // Emits an OpCooperativeMatrixLength instruction into the main binary
+  // section. It will replace the operand with the id of the type of the
+  // operand.
+  bool emitCooperativeMatrixLength(SpirvUnaryOp *inst);
+
 private:
   /// Emits error to the diagnostic engine associated with this visitor.
   template <unsigned N>
