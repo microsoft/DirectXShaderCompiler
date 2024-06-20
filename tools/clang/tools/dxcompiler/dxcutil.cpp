@@ -9,6 +9,12 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+#define DXC_API_IMPORT __declspec(dllexport)
+#else
+#define DXC_API_IMPORT __attribute__((visibility("default")))
+#endif
+
 #include "dxcutil.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
