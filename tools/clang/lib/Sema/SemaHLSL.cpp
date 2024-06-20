@@ -4517,8 +4517,6 @@ public:
       int startDepth = (templateArgCount == 0) ? 0 : 1;
       CXXRecordDecl *recordDecl = m_objectTypeDecls[i];
       if (recordDecl == nullptr) {
-        DXASSERT(kind == AR_OBJECT_WAVE,
-                 "else objects other than reserved not initialized");
         continue;
       }
 
