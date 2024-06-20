@@ -89,9 +89,11 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
 
     // Add the UAVs that we're going to write to
     CallInst *HandleForCountUAV = PIXPassHelpers::CreateUAV(
-        DM, Builder, /* registerID */ 0, "PIX_CountUAV_Handle");
-    CallInst *HandleForUAV = PIXPassHelpers::CreateUAV(
-        DM, Builder, /* registerID */ 1, "PIX_UAV_Handle");
+        DM, Builder, /* registerID */ 0, "PIX_CountUAV_Handle",
+        PixUAVHandleMode::Legacy);
+    CallInst *HandleForUAV =
+        PIXPassHelpers::CreateUAV(DM, Builder, /* registerID */ 1,
+                                  "PIX_UAV_Handle", PixUAVHandleMode::Legacy);
 
     DM.ReEmitDxilResources();
 

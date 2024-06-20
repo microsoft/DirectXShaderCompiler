@@ -448,7 +448,7 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
   case DXIL::ShaderKind::Node:
-      // Dispatch* thread Id is not in the input signature
+    // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
     hlsl::DxilSignature &InputSignature = BC.DM.GetInputSignature();
@@ -1436,8 +1436,11 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
     break;
   }
 
-  values.UAVHandle = PIXPassHelpers::CreateUAV(DM, Builder, UAVRegisterId,
-                                               "PIX_DebugUAV_Handle");
+  values.UAVHandle = PIXPassHelpers::CreateUAV(
+      DM, Builder, UAVRegisterId, "PIX_DebugUAV_Handle",
+      shaderKind == DXIL::ShaderKind::Node
+          ? PIXPassHelpers::PixUAVHandleMode::NodeShader
+          : PIXPassHelpers::PixUAVHandleMode::Legacy);
 
   auto SystemValues = addRequiredSystemValues(BC, shaderKind);
   addInvocationSelectionProlog(BC, SystemValues, shaderKind);

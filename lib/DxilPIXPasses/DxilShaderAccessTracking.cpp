@@ -922,8 +922,11 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
       IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
-      m_FunctionToUAVHandle[F] =
-          PIXPassHelpers::CreateUAV(DM, Builder, 0u, "PIX_CountUAV_Handle");
+      m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateUAV(
+          DM, Builder, 0u, "PIX_CountUAV_Handle",
+          shaderKind == DXIL::ShaderKind::Node
+              ? PIXPassHelpers::PixUAVHandleMode::NodeShader
+              : PIXPassHelpers::PixUAVHandleMode::Legacy);
       OP *HlslOP = DM.GetOP();
       for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
            accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);

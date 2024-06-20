@@ -177,7 +177,8 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
     auto ConstantBufferName = "PIX_Constant_Color_CB_Handle";
 
     CallInst *callCreateHandle = PIXPassHelpers::CreateHandleForResource(
-        DM, Builder, pCBuf.get(), ConstantBufferName);
+        DM, Builder, pCBuf.get(), ConstantBufferName,
+        PIXPassHelpers::PixUAVHandleMode::Legacy);
 
     DM.AddCBuffer(std::move(pCBuf));
 
