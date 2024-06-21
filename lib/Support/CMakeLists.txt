@@ -145,8 +145,8 @@ add_llvm_library(LLVMSupport
   )
 
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
-if(WIN32)
+if(MSVC)
 set_property(TARGET LLVMSupport PROPERTY COMPILE_FLAGS /EHsc )
-endif(WIN32)
+endif(MSVC)
 
 target_link_libraries(LLVMSupport PUBLIC LLVMMSSupport) # HLSL Change

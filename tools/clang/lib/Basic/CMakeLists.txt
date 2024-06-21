@@ -35,7 +35,7 @@ set(get_svn_script "${LLVM_MAIN_SRC_DIR}/cmake/modules/GetSVN.cmake")
 if (HLSL_ENABLE_FIXED_VER)
   # Actual version string is no longer specified here, but instead derived from
   # the defines in the generated or copied dxcversion.inc
-  add_definitions(/DHLSL_FIXED_VER)
+  add_definitions(-DHLSL_FIXED_VER)
 endif (HLSL_ENABLE_FIXED_VER)
 # HLSL Change Ends
 

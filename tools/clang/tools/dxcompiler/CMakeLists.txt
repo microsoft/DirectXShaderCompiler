@@ -121,13 +121,13 @@ set(GENERATED_HEADERS
   ClangStmtNodes
   )
 
-if (WIN32)
+if (MSVC)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
-endif (WIN32)
+endif (MSVC)
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
 add_dependencies(dxcompiler TablegenHLSLOptions) 
-if (WIN32)
+if (MSVC)
   # No DxcEtw on non-Windows platforms.
   add_dependencies(dxcompiler DxcEtw)
 endif()
