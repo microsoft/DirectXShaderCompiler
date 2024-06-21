@@ -3703,7 +3703,8 @@ static void ValidateFunction(Function &F, ValidationContext &ValCtx) {
         argTy = argTy->getArrayElementType();
       }
 
-      if (argTy->isStructTy() && !ValCtx.isLibProfile) {
+      if (argTy->isStructTy() && !ValCtx.isLibProfile &&
+          !F.hasFnAttribute(llvm::Attribute::NoInline)) {
         ArgFormatError(F, arg, ValidationRule::DeclFnFlattenParam);
         break;
       }
