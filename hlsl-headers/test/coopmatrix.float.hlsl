@@ -1,4 +1,4 @@
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -I %S/../include  %s | FileCheck %s
+// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -I %hlsl_headers %s | FileCheck %s
 
 #include "vk/khr/cooperative_matrix.hlsli"
 
