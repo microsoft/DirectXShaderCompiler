@@ -72,9 +72,6 @@ void main() {
 // DOUBLE: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %double_2
   r = m * 2.0;
 
-//  r = r.multiplyAdd(r, n);
-
-
 // CHECK: OpCooperativeMatrixStoreKHR [[ac1]] [[r]] %int_0
   r.StoreRowMajor(data, 0);
 

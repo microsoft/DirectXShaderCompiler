@@ -52,16 +52,16 @@ using CooperativeMatrixB = CooperativeMatrix<ComponentType, scope, rows, columns
 template <typename ComponentType, uint scope, uint rows, uint columns>
 using CooperativeMatrixAccumulator = CooperativeMatrix<ComponentType, scope, rows, columns, 2>;
 
-template <typename ComponentType, uint scope, uint rows, uint columns>
+template <typename ComponentType, uint scope, uint rows, uint columns, uint K>
 CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>
-    multiplyAdd(CooperativeMatrixA<ComponentType, scope, rows, columns> a,
-                 CooperativeMatrixB<ComponentType, scope, rows, columns> b,
+    cooperativeMatrixMultiplyAdd(CooperativeMatrixA<ComponentType, scope, rows, K> a,
+                 CooperativeMatrixB<ComponentType, scope, K, columns> b,
                  CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c);
 
-template <typename ComponentType, uint scope, uint rows, uint columns>
+template <typename ComponentType, uint scope, uint rows, uint columns, uint K>
 CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>
-    saturatingMultiplyAdd(CooperativeMatrixA<ComponentType, scope, rows, columns> a,
-                 CooperativeMatrixB<ComponentType, scope, rows, columns> b,
+    cooperativeMatrixSaturatingMultiplyAdd(CooperativeMatrixA<ComponentType, scope, rows, K> a,
+                 CooperativeMatrixB<ComponentType, scope, K, columns> b,
                  CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c);
 
 // template <typename ComponentType, uint scope, uint rows, uint columns, uint use>

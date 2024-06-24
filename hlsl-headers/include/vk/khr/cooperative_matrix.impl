@@ -151,7 +151,7 @@ CooperativeMatrixMulAddKHR(MatrixTypeA a, MatrixTypeB b, MatrixTypeC c,
           buffer[index], internal::CooperativeMatrixLayout::ColumnMajorKHR);   \
       return result;                                                           \
     }                                                                          \
-    bool isSingnedInteger() { return SIGNED_INTEGER_TYPE; }                    \
+    static const bool isSignedInteger = SIGNED_INTEGER_TYPE;                         \
     SpirvMatrixType _matrix;                                                   \
   };
 
@@ -167,16 +167,32 @@ COOPERATIVE_MATRIX(int64_t, spv::SNegate, spv::IAdd, spv::ISub, true);
 COOPERATIVE_MATRIX(uint32_t, spv::SNegate, spv::IAdd, spv::ISub, false);
 COOPERATIVE_MATRIX(uint64_t, spv::SNegate, spv::IAdd, spv::ISub, false);
 
-template <typename ComponentType, uint scope, uint rows, uint columns>
-CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> multiplyAdd(
-    CooperativeMatrixA<ComponentType, scope, rows, columns> a,
-    CooperativeMatrixB<ComponentType, scope, rows, columns> b,
+template <typename ComponentType, uint scope, uint rows, uint columns, uint K>
+CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>
+cooperativeMatrixMultiplyAdd(
+    CooperativeMatrixA<ComponentType, scope, rows, K> a,
+    CooperativeMatrixB<ComponentType, scope, K, columns> b,
     CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c) {
   const internal::CooperativeMatrixOperand operands =
-      (false ? internal::CooperativeMatrixOperand::MatrixAllSignedComponents
+      (internal::CooperativeMatrixOperand)( a.isSignedInteger ? internal::CooperativeMatrixOperand::MatrixAllSignedComponents
              : internal::CooperativeMatrixOperand::NoneKHR);
   CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> result;
-  result._matrix = internal::CooperativeMatrixMulAddKHR<result.SpirvMatrixType>(
+  result._matrix = internal::CooperativeMatrixMulAddKHR<typename CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>::SpirvMatrixType>(
+      a._matrix, b._matrix, c._matrix, operands);
+  return result;
+}
+
+template <typename ComponentType, uint scope, uint rows, uint columns, uint K>
+CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>
+cooperativeMatrixSaturatingMultiplyAdd(
+    CooperativeMatrixA<ComponentType, scope, rows, K> a,
+    CooperativeMatrixB<ComponentType, scope, K, columns> b,
+    CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c) {
+  const internal::CooperativeMatrixOperand operands =
+      (internal::CooperativeMatrixOperand)( a.isSignedInteger ? internal::CooperativeMatrixOperand::SaturatingAllSignedComponenets
+                                                              : internal::CooperativeMatrixOperand::SaturatingAccumulationKHR);
+  CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> result;
+  result._matrix = internal::CooperativeMatrixMulAddKHR<typename CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>::SpirvMatrixType>(
       a._matrix, b._matrix, c._matrix, operands);
   return result;
 }
