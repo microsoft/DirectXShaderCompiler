@@ -33,9 +33,6 @@ class CooperativeMatrix {
   CooperativeMatrix operator-(CooperativeMatrix other);
   CooperativeMatrix operator*(ComponentType scalar);
 
-  CooperativeMatrix mulAdd(CooperativeMatrix b, CooperativeMatrix c);
-  CooperativeMatrix mulAddAccumulate(CooperativeMatrix b, CooperativeMatrix c);
-
   void StoreRowMajor(RWStructuredBuffer<ComponentType> data, uint32_t index);
   void StoreColumnMajor(RWStructuredBuffer<ComponentType> data, uint32_t index);
 
@@ -44,8 +41,28 @@ class CooperativeMatrix {
 
   template <class BufferType>
   static CooperativeMatrix LoadColumnMajor(BufferType buffer, uint32_t index);
-
 };
+
+template <typename ComponentType, uint scope, uint rows, uint columns>
+using CooperativeMatrixA = CooperativeMatrix<ComponentType, scope, rows, columns, 0>;
+
+template <typename ComponentType, uint scope, uint rows, uint columns>
+using CooperativeMatrixB = CooperativeMatrix<ComponentType, scope, rows, columns, 1>;
+
+template <typename ComponentType, uint scope, uint rows, uint columns>
+using CooperativeMatrixAccumulator = CooperativeMatrix<ComponentType, scope, rows, columns, 2>;
+
+template <typename ComponentType, uint scope, uint rows, uint columns>
+CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>
+    multiplyAdd(CooperativeMatrixA<ComponentType, scope, rows, columns> a,
+                 CooperativeMatrixB<ComponentType, scope, rows, columns> b,
+                 CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c);
+
+template <typename ComponentType, uint scope, uint rows, uint columns>
+CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>
+    saturatingMultiplyAdd(CooperativeMatrixA<ComponentType, scope, rows, columns> a,
+                 CooperativeMatrixB<ComponentType, scope, rows, columns> b,
+                 CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c);
 
 // template <typename ComponentType, uint scope, uint rows, uint columns, uint use>
 // uint CooperativeMatrixLengthKHR<CooperativeMatrix<ComponentType, scope, rows, columns, use>();
