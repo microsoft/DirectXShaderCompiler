@@ -14,7 +14,6 @@
 
 #include "BreakpointPrinter.h"
 #include "NewPMDriver.h"
-#include "llvm/PassPrinters/PassPrinters.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
@@ -28,6 +27,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -36,7 +36,7 @@
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/MC/SubtargetFeature.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/PassPrinters/PassPrinters.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
@@ -51,6 +51,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 // HLSL Change Starts
 #include "dxc/HLSL/ComputeViewIdState.h"
@@ -201,6 +202,11 @@ static cl::opt<bool> PreserveAssemblyUseListOrder(
     "preserve-ll-uselistorder",
     cl::desc("Preserve use-list order when writing LLVM assembly."),
     cl::init(false), cl::Hidden);
+
+static cl::opt<bool>
+    RunTwice("run-twice",
+             cl::desc("Run all passes twice, re-using the same pass manager."),
+             cl::init(false), cl::Hidden);
 
 static inline void addPass(legacy::PassManagerBase &PM, Pass *P) {
   // Add the pass to the pass manager...
@@ -632,14 +638,27 @@ int __cdecl main(int argc, char **argv) {
   if (!NoVerify && !VerifyEach)
     Passes.add(createVerifierPass());
 
+  // In run twice mode, we want to make sure the output is bit-by-bit
+  // equivalent if we run the pass manager again, so setup two buffers and
+  // a stream to write to them. Note that llc does something similar and it
+  // may be worth to abstract this out in the future.
+  SmallVector<char, 0> Buffer;
+  SmallVector<char, 0> CompileTwiceBuffer;
+  std::unique_ptr<raw_svector_ostream> BOS;
+  raw_ostream *OS = nullptr;
+
   // Write bitcode or assembly to the output as the last step...
   if (!NoOutput && !AnalyzeOnly) {
+    assert(Out);
+    OS = &Out->os();
+    if (RunTwice) {
+      BOS = make_unique<raw_svector_ostream>(Buffer);
+      OS = BOS.get();
+    }
     if (OutputAssembly)
-      Passes.add(
-          createPrintModulePass(Out->os(), "", PreserveAssemblyUseListOrder));
+      Passes.add(createPrintModulePass(*OS, "", PreserveAssemblyUseListOrder));
     else
-      Passes.add(
-          createBitcodeWriterPass(Out->os(), PreserveBitcodeUseListOrder));
+      Passes.add(createBitcodeWriterPass(*OS, PreserveBitcodeUseListOrder));
   }
 
   // Before executing passes, print the final values of the LLVM options.
@@ -654,6 +673,28 @@ int __cdecl main(int argc, char **argv) {
     exit(1);
   }
   // HLSL Change Ends
+
+  // If requested, run all passes again with the same pass manager to catch
+  // bugs caused by persistent state in the passes
+  if (RunTwice) {
+    assert(Out);
+    CompileTwiceBuffer = Buffer;
+    Buffer.clear();
+    std::unique_ptr<Module> M2(CloneModule(M.get()));
+    Passes.run(*M2);
+    if (Buffer.size() != CompileTwiceBuffer.size() ||
+        (memcmp(Buffer.data(), CompileTwiceBuffer.data(), Buffer.size()) !=
+         0)) {
+      errs() << "Running the pass manager twice changed the output.\n"
+                "Writing the result of the second run to the specified output."
+                "To generate the one-run comparison binary, just run without\n"
+                "the compile-twice option\n";
+      Out->os() << BOS->str();
+      Out->keep();
+      return 1;
+    }
+    Out->os() << BOS->str();
+  }
 
   // Declare success.
   if (!NoOutput || PrintBreakpoints)
