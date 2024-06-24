@@ -645,14 +645,16 @@ int __cdecl main(int argc, char **argv) {
   SmallVector<char, 0> Buffer;
   SmallVector<char, 0> CompileTwiceBuffer;
   std::unique_ptr<raw_svector_ostream> BOS;
-  raw_ostream *OS = &Out->os();
-  if (RunTwice) {
-    BOS = make_unique<raw_svector_ostream>(Buffer);
-    OS = BOS.get();
-  }
+  raw_ostream *OS = nullptr;
 
   // Write bitcode or assembly to the output as the last step...
   if (!NoOutput && !AnalyzeOnly) {
+    assert(Out);
+    OS = &Out->os();
+    if (RunTwice) {
+      BOS = make_unique<raw_svector_ostream>(Buffer);
+      OS = BOS.get();
+    }
     if (OutputAssembly)
       Passes.add(createPrintModulePass(*OS, "", PreserveAssemblyUseListOrder));
     else
