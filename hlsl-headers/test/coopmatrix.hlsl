@@ -34,7 +34,6 @@ RWStructuredBuffer<TYPE> data;
 
 
 
-[[SPV_KHR_CooperativeMatrix]]
 [numthreads(64, 1, 1)]
 void main() {
   using CoopMat = vk::khr::CooperativeMatrixA<
@@ -44,9 +43,11 @@ void main() {
 // CHECK: [[m:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac1]] %int_1
   CoopMat m = CoopMat::LoadColumnMajor(data, 0);
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %structured_buffer %int_0 %uint_32
+// CHECK: [[len:%[0-9]+]] = OpCooperativeMatrixLengthKHR %uint %spirvIntrinsicType
+// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %structured_buffer %int_0 [[len]]
 // CHECK: [[n:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_0
-  CoopMat n = CoopMat::LoadRowMajor(structured_buffer, 32);
+  uint32_t length = CoopMat::GetLength();
+  CoopMat n = CoopMat::LoadRowMajor(structured_buffer, length);
 
 // INTEGERS: [[r:%[0-9]+]] = OpIAdd %spirvIntrinsicType [[m]] [[n]]
 // FLOATS: [[r:%[0-9]+]] = OpFAdd %spirvIntrinsicType [[m]] [[n]]

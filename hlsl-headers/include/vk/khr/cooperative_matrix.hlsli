@@ -41,6 +41,8 @@ class CooperativeMatrix {
 
   template <class BufferType>
   static CooperativeMatrix LoadColumnMajor(BufferType buffer, uint32_t index);
+
+  static uint32_t GetLength();
 };
 
 template <typename ComponentType, uint scope, uint rows, uint columns>
@@ -64,8 +66,6 @@ CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>
                  CooperativeMatrixB<ComponentType, scope, K, columns> b,
                  CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c);
 
-// template <typename ComponentType, uint scope, uint rows, uint columns, uint use>
-// uint CooperativeMatrixLengthKHR<CooperativeMatrix<ComponentType, scope, rows, columns, use>();
 }  // namespace khr
 }  // namespace spv
 

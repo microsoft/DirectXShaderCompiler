@@ -85,7 +85,7 @@ CooperativeMatrixStoreKHR(
 // an uncommon situation. I don't mind if the solution is ugly, be we should try
 // to find one. template<typename ResultType, typename PointerType>
 // [[vk::ext_instruction(/* OpCooperativeMatrixLengthKHR */ 4460)]]
-// uint CooperativeMatrixLengthKHR();
+template <class MatrixType> uint __builtin_CooperativeMatrixLengthKHR();
 
 // Arithmetic Instructions
 template <typename ResultType, typename MatrixTypeA, typename MatrixTypeB,
@@ -95,7 +95,8 @@ CooperativeMatrixMulAddKHR(MatrixTypeA a, MatrixTypeB b, MatrixTypeC c,
                            [[vk::ext_literal]] int operands);
 } // namespace internal
 
-#define COOPERATIVE_MATRIX(ComponentType, Negate, Add, Sub, SIGNED_INTEGER_TYPE) \
+#define COOPERATIVE_MATRIX(ComponentType, Negate, Add, Sub,                    \
+                           SIGNED_INTEGER_TYPE)                                \
   template <uint scope, uint rows, uint columns, uint use>                     \
   class CooperativeMatrix<ComponentType, scope, rows, columns, use> {          \
     using SpirvMatrixType =                                                    \
@@ -151,7 +152,12 @@ CooperativeMatrixMulAddKHR(MatrixTypeA a, MatrixTypeB b, MatrixTypeC c,
           buffer[index], internal::CooperativeMatrixLayout::ColumnMajorKHR);   \
       return result;                                                           \
     }                                                                          \
-    static const bool isSignedInteger = SIGNED_INTEGER_TYPE;                         \
+                                                                               \
+    static uint GetLength() {                                                  \
+      return internal::__builtin_CooperativeMatrixLengthKHR<SpirvMatrixType>();\
+    }                                                                          \
+                                                                               \
+    static const bool isSignedInteger = SIGNED_INTEGER_TYPE;                   \
     SpirvMatrixType _matrix;                                                   \
   };
 
@@ -174,10 +180,14 @@ cooperativeMatrixMultiplyAdd(
     CooperativeMatrixB<ComponentType, scope, K, columns> b,
     CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c) {
   const internal::CooperativeMatrixOperand operands =
-      (internal::CooperativeMatrixOperand)( a.isSignedInteger ? internal::CooperativeMatrixOperand::MatrixAllSignedComponents
-             : internal::CooperativeMatrixOperand::NoneKHR);
+      (internal::CooperativeMatrixOperand)(
+          a.isSignedInteger
+              ? internal::CooperativeMatrixOperand::MatrixAllSignedComponents
+              : internal::CooperativeMatrixOperand::NoneKHR);
   CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> result;
-  result._matrix = internal::CooperativeMatrixMulAddKHR<typename CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>::SpirvMatrixType>(
+  result._matrix = internal::CooperativeMatrixMulAddKHR<
+      typename CooperativeMatrixAccumulator<ComponentType, scope, rows,
+                                            columns>::SpirvMatrixType>(
       a._matrix, b._matrix, c._matrix, operands);
   return result;
 }
@@ -189,13 +199,18 @@ cooperativeMatrixSaturatingMultiplyAdd(
     CooperativeMatrixB<ComponentType, scope, K, columns> b,
     CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> c) {
   const internal::CooperativeMatrixOperand operands =
-      (internal::CooperativeMatrixOperand)( a.isSignedInteger ? internal::CooperativeMatrixOperand::SaturatingAllSignedComponenets
-                                                              : internal::CooperativeMatrixOperand::SaturatingAccumulationKHR);
+      (internal::CooperativeMatrixOperand)(
+          a.isSignedInteger
+              ? internal::CooperativeMatrixOperand::
+                    SaturatingAllSignedComponenets
+              : internal::CooperativeMatrixOperand::SaturatingAccumulationKHR);
   CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> result;
-  result._matrix = internal::CooperativeMatrixMulAddKHR<typename CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>::SpirvMatrixType>(
+  result._matrix = internal::CooperativeMatrixMulAddKHR<
+      typename CooperativeMatrixAccumulator<ComponentType, scope, rows,
+                                            columns>::SpirvMatrixType>(
       a._matrix, b._matrix, c._matrix, operands);
   return result;
 }
 
-}
-}
+} // namespace khr
+} // namespace vk

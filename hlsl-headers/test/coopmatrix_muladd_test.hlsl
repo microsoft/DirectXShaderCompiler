@@ -12,7 +12,6 @@ RWStructuredBuffer<int> data;
 // CHECK-DAG: [[typeAc:%spirvIntrinsicType[_0-9]*]] = OpTypeCooperativeMatrixKHR %int %uint_3 %uint_16 %uint_8 %uint_2
 
 // CHECK: [[r:%[0-9]+]] = OpUndef [[typeAc]]
-[[SPV_KHR_CooperativeMatrix]]
 [numthreads(64, 1, 1)]
 void main() {
   using IntMatA = vk::khr::CooperativeMatrixA<int, (int)spv::Scope::Subgroup, 16, 4>;
