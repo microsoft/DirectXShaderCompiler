@@ -245,14 +245,14 @@ endfunction()
 #
 function(add_windows_version_resource_file OUT_VAR)
   set(sources ${ARGN})
-  if (MSVC)
+  if (WIN32)
     set(resource_file ${LLVM_SOURCE_DIR}/resources/windows_version_resource.rc)
     if(EXISTS ${resource_file})
       set(sources ${sources} ${resource_file})
       source_group("Resource Files" ${resource_file})
       set(windows_resource_file ${resource_file} PARENT_SCOPE)
     endif()
-  endif(MSVC)
+  endif(WIN32)
 
   set(${OUT_VAR} ${sources} PARENT_SCOPE)
 endfunction(add_windows_version_resource_file)
@@ -296,8 +296,10 @@ function(set_windows_version_resource_properties name resource_file)
     set(ARG_PRODUCT_NAME "LLVM")
   endif()
 
+  if (MSVC)
   set_property(SOURCE ${resource_file}
                PROPERTY COMPILE_FLAGS /nologo)
+  endif()
   set_property(SOURCE ${resource_file}
                PROPERTY COMPILE_DEFINITIONS
                "RC_VERSION_FIELD_1=${ARG_VERSION_MAJOR}"
@@ -318,7 +320,7 @@ function(set_windows_version_resource_properties name resource_file)
                   "INCLUDE_HLSL_VERSION_FILE=1")
       set_property(SOURCE ${resource_file}
                   PROPERTY COMPILE_OPTIONS
-                  "/I" "${HLSL_VERSION_LOCATION}")
+                  "-I" "${HLSL_VERSION_LOCATION}")
     endif (DEFINED resource_file)
   endif(${HLSL_EMBED_VERSION})
   # HLSL change ends

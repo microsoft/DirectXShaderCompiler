@@ -72,6 +72,10 @@ add_clang_library(clangSema
 # Sema got too big for debug builds on arm64ec, which means it will hit
 # other targets too eventually.
 if(WIN32)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+  if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
+  else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
+  endif()
 endif(WIN32)
 # HLSL Change End
