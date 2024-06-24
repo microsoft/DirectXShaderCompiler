@@ -416,23 +416,21 @@ int __cdecl main(int argc, char **argv) {
   if (!TargetTriple.empty())
     M->setTargetTriple(Triple::normalize(TargetTriple));
 
-  // Figure out what stream we are supposed to write to...
-  std::unique_ptr<tool_output_file> Out;
   if (NoOutput) {
     if (!OutputFilename.empty())
       errs() << "WARNING: The -o (output filename) option is ignored when\n"
                 "the --disable-output option is used.\n";
-  } else {
-    // Default to standard output.
-    if (OutputFilename.empty())
-      OutputFilename = "-";
+  }
 
-    std::error_code EC;
-    Out.reset(new tool_output_file(OutputFilename, EC, sys::fs::F_None));
-    if (EC) {
-      errs() << EC.message() << '\n';
-      return 1;
-    }
+  if (OutputFilename.empty())
+    OutputFilename = "-";
+
+  std::unique_ptr<tool_output_file> Out;
+  std::error_code EC;
+  Out.reset(new tool_output_file(OutputFilename, EC, sys::fs::F_None));
+  if (EC) {
+    errs() << EC.message() << '\n';
+    return 1;
   }
 
   Triple ModuleTriple(M->getTargetTriple());
@@ -511,19 +509,6 @@ int __cdecl main(int argc, char **argv) {
   }
 
   if (PrintBreakpoints) {
-    // Default to standard output.
-    if (!Out) {
-      if (OutputFilename.empty())
-        OutputFilename = "-";
-
-      std::error_code EC;
-      Out = llvm::make_unique<tool_output_file>(OutputFilename, EC,
-                                                sys::fs::F_None);
-      if (EC) {
-        errs() << EC.message() << '\n';
-        return 1;
-      }
-    }
     Passes.add(createBreakpointPrinter(Out->os()));
     NoOutput = true;
   }
@@ -652,7 +637,7 @@ int __cdecl main(int argc, char **argv) {
   }
 
   // Write bitcode or assembly to the output as the last step...
-  if (!NoOutput && !AnalyzeOnly) {
+  if ((!NoOutput && !AnalyzeOnly) || RunTwice) {
     if (OutputAssembly)
       Passes.add(createPrintModulePass(*OS, "", PreserveAssemblyUseListOrder));
     else
