@@ -677,6 +677,7 @@ int __cdecl main(int argc, char **argv) {
   // If requested, run all passes again with the same pass manager to catch
   // bugs caused by persistent state in the passes
   if (RunTwice) {
+    assert(Out);
     CompileTwiceBuffer = Buffer;
     Buffer.clear();
     std::unique_ptr<Module> M2(CloneModule(M.get()));
