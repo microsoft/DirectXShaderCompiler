@@ -276,7 +276,21 @@ The only module flags allowed in DXIL are "Dwarf Version" and "Debug Info Versio
 
 The "Dwarf Version" module flag is used to specify the DWARF version to use for debug information.
 
+DXC will emit the following module flag for DWARF version in DXIL:
+
+.. code-block:: llvm
+
+    !{i32 2, !"Dwarf Version", i32 4}
+
 The "Debug Info Version" module flag is used to specify the debug info schema version.
+
+DXC will emit the following module flag for debug info version in DXIL:
+
+.. code-block:: llvm
+
+    !{i32 2, !"Debug Info Version", i32 3}
+
+Any other module flags are not allowed in DXIL and need to be stripped before DXIL is generated.
 
 Identifiers
 -----------
