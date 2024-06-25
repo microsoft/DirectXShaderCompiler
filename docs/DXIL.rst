@@ -272,7 +272,7 @@ Module Flags
 
 DXIL uses `Module Flags Metadata <LangRef.html#module-flags-metadata>`_ to convey additional information about the module.
 
-The only module flags allowed in DXIL are "Dwarf Version", "Debug Info Version".
+The only module flags allowed in DXIL are "Dwarf Version" and "Debug Info Version".
 
 The "Dwarf Version" module flag is used to specify the DWARF version to use for debug information.
 
