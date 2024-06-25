@@ -270,7 +270,7 @@ The attribute 'waveops-include-helper-lanes' is utilized to indicate that wave o
 Module Flags
 ------------
 
-DXIL uses `Module Flags Metadata <https://releases.llvm.org/3.7.1/docs/LangRef.html#module-flags-metadata>`_ to convey additional information about the module.
+DXIL uses `Module Flags Metadata <LangRef.html#module-flags-metadata>`_ to convey additional information about the module.
 
 The only module flags allowed in DXIL are "Dwarf Version", "Debug Info Version".
 
