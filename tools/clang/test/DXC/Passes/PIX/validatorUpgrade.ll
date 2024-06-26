@@ -1,3 +1,5 @@
+; This test tests that a shader with dxil validator version of 1.3 gets upgraded to 1.4 after the annotate with virtual regs pass
+
 ; RUN: %dxopt %s -dxil-annotate-with-virtual-regs -hlsl-dxilemit -S | FileCheck %s
 
 ; CHECK: !dx.valver = !{![[VALVER:.*]]}

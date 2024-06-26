@@ -1,3 +1,6 @@
+; This test tests that a shader with current dxil validator version does not downgrade to 1.4. 
+; (The annotate-with-virtual-register pass was erroneously doing just this)
+
 ; RUN: %dxopt %s -dxil-annotate-with-virtual-regs -hlsl-dxilemit -S | FileCheck %s
 
 ; CHECK: !dx.valver = !{![[VALVER:.*]]}
