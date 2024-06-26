@@ -1681,7 +1681,7 @@ HRESULT Disassemble(IDxcBlob *pProgram, raw_string_ostream &Stream) {
                       DxilPartIsType(DFCC_PatchConstantSignature));
     if (it != end(pContainer)) {
       PrintSignature(
-          "Patch Constant signature",
+          "Patch Constant",
           reinterpret_cast<const DxilProgramSignature *>(GetDxilPartData(*it)),
           false, Stream, /*comment*/ ";");
     }
