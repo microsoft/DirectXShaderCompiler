@@ -17,8 +17,8 @@ namespace spirv {
 SpirvModule::SpirvModule()
     : capabilities({}), extensions({}), extInstSets({}), memoryModel(nullptr),
       entryPoints({}), executionModes({}), moduleProcesses({}), decorations({}),
-      constants({}), variables({}), functions({}), debugInstructions({}),
-      perVertexInterp(false) {}
+      constants({}), undefs({}), variables({}), functions({}),
+      debugInstructions({}), perVertexInterp(false) {}
 
 SpirvModule::~SpirvModule() {
   for (auto *cap : capabilities)
@@ -43,6 +43,8 @@ SpirvModule::~SpirvModule() {
     decoration->releaseMemory();
   for (auto *constant : constants)
     constant->releaseMemory();
+  for (auto *undef : undefs)
+    undef->releaseMemory();
   for (auto *var : variables)
     var->releaseMemory();
   for (auto *di : debugInstructions)
@@ -88,6 +90,12 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
     for (auto iter = constants.rbegin(); iter != constants.rend(); ++iter) {
       auto *constant = *iter;
       if (!constant->invokeVisitor(visitor))
+        return false;
+    }
+
+    for (auto iter = undefs.rbegin(); iter != undefs.rend(); ++iter) {
+      auto *undef = *iter;
+      if (!undef->invokeVisitor(visitor))
         return false;
     }
 
@@ -201,6 +209,10 @@ bool SpirvModule::invokeVisitor(Visitor *visitor, bool reverseOrder) {
 
     for (auto constant : constants)
       if (!constant->invokeVisitor(visitor))
+        return false;
+
+    for (auto undef : undefs)
+      if (!undef->invokeVisitor(visitor))
         return false;
 
     for (auto var : variables)
@@ -332,6 +344,11 @@ void SpirvModule::addDecoration(SpirvDecoration *decor) {
 void SpirvModule::addConstant(SpirvConstant *constant) {
   assert(constant);
   constants.push_back(constant);
+}
+
+void SpirvModule::addUndef(SpirvUndef *undef) {
+  assert(undef);
+  undefs.push_back(undef);
 }
 
 void SpirvModule::addString(SpirvString *str) {

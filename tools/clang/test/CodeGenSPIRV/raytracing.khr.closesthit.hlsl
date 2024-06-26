@@ -1,27 +1,27 @@
 // RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2 -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability RayTracingKHR
 // CHECK:  OpExtension "SPV_KHR_ray_tracing"
-// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdNV
-// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeNV
-// CHECK:  OpDecorate [[c:%[0-9]+]] BuiltIn WorldRayOriginNV
-// CHECK:  OpDecorate [[d:%[0-9]+]] BuiltIn WorldRayDirectionNV
-// CHECK:  OpDecorate [[e:%[0-9]+]] BuiltIn RayTminNV
-// CHECK:  OpDecorate [[f:%[0-9]+]] BuiltIn IncomingRayFlagsNV
+// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdKHR
+// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeKHR
+// CHECK:  OpDecorate [[c:%[0-9]+]] BuiltIn WorldRayOriginKHR
+// CHECK:  OpDecorate [[d:%[0-9]+]] BuiltIn WorldRayDirectionKHR
+// CHECK:  OpDecorate [[e:%[0-9]+]] BuiltIn RayTminKHR
+// CHECK:  OpDecorate [[f:%[0-9]+]] BuiltIn IncomingRayFlagsKHR
 // CHECK:  OpDecorate %gl_InstanceID BuiltIn InstanceId
-// CHECK:  OpDecorate [[g:%[0-9]+]] BuiltIn InstanceCustomIndexNV
+// CHECK:  OpDecorate [[g:%[0-9]+]] BuiltIn InstanceCustomIndexKHR
 // CHECK:  OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
-// CHECK:  OpDecorate [[h:%[0-9]+]] BuiltIn ObjectRayOriginNV
-// CHECK:  OpDecorate [[i:%[0-9]+]] BuiltIn ObjectRayDirectionNV
-// CHECK:  OpDecorate [[j:%[0-9]+]] BuiltIn ObjectToWorldNV
-// CHECK:  OpDecorate [[k:%[0-9]+]] BuiltIn WorldToObjectNV
-// CHECK:  OpDecorate [[l:%[0-9]+]] BuiltIn HitKindNV
+// CHECK:  OpDecorate [[h:%[0-9]+]] BuiltIn ObjectRayOriginKHR
+// CHECK:  OpDecorate [[i:%[0-9]+]] BuiltIn ObjectRayDirectionKHR
+// CHECK:  OpDecorate [[j:%[0-9]+]] BuiltIn ObjectToWorldKHR
+// CHECK:  OpDecorate [[k:%[0-9]+]] BuiltIn WorldToObjectKHR
+// CHECK:  OpDecorate [[l:%[0-9]+]] BuiltIn HitKindKHR
 // CHECK:  OpDecorate [[m:%[0-9]+]] BuiltIn RayGeometryIndexKHR
-// CHECK:  OpDecorate [[n:%[0-9]+]] BuiltIn RayTmaxNV
+// CHECK:  OpDecorate [[n:%[0-9]+]] BuiltIn RayTmaxKHR
 
 // CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
 // CHECK-NOT: OpTypeAccelerationStructureKHR
 
-// CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
+// CHECK:  OpTypePointer IncomingRayPayloadKHR %Payload
 struct Payload
 {
   float4 color;
@@ -31,7 +31,7 @@ struct CallData
 {
   float4 data;
 };
-// CHECK:  OpTypePointer HitAttributeNV %Attribute
+// CHECK:  OpTypePointer HitAttributeKHR %Attribute
 struct Attribute
 {
   float2 bary;

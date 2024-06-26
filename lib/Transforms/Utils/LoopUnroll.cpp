@@ -495,7 +495,7 @@ bool llvm::UnrollLoop(Loop *L, unsigned Count, unsigned TripCount,
 
     // Simplify any new induction variables in the partially unrolled loop.
     if (SE && !CompletelyUnroll) {
-      SmallVector<WeakVH, 16> DeadInsts;
+      SmallVector<WeakTrackingVH, 16> DeadInsts;
       simplifyLoopIVs(L, SE, LPM, DeadInsts);
 
       // Aggressively clean up dead instructions that simplifyLoopIVs already

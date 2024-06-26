@@ -1830,6 +1830,14 @@ static bool FoldTwoEntryPHINode(PHINode *PN, const TargetTransformInfo &TTI,
       isa<ConstantInt>(IfCond))
     return false;
 
+  // HLSL Change Begins: Patching in llvm/llvm-project@602ab24
+  // Don't try to fold an unreachable block. For example, the phi node itself
+  // can't be the candidate if-condition for a select that we want to form.
+  if (auto *IfCondPhiInst = dyn_cast<PHINode>(IfCond))
+    if (IfCondPhiInst->getParent() == BB)
+      return false;
+  // HLSL Change Ends.
+
   // Okay, we found that we can merge this two-entry phi node into a select.
   // Doing so would require us to fold *all* two entry phi nodes in this block.
   // At some point this becomes non-profitable (particularly if the target
@@ -2619,7 +2627,10 @@ static bool SimplifyTerminatorOnSelect(TerminatorInst *OldTerm, Value *Cond,
     else if (Succ == KeepEdge2)
       KeepEdge2 = nullptr;
     else
-      Succ->removePredecessor(OldTerm->getParent());
+      Succ->removePredecessor(
+          OldTerm->getParent(),
+          /*DontDeleteUselessPHIs=*/true // HLSL Change: foward port LLVM fix
+      );
   }
 
   IRBuilder<> Builder(OldTerm);

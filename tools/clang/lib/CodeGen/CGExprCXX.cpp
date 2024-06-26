@@ -235,12 +235,17 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
 
           llvm::Constant *zero = Builder.getInt32(0);
           llvm::Value *TmpThis = CreateTempAlloca(Ty);
+          QualType ElTy = hlsl::GetElementTypeOrType(Base->getType());
+          bool IsBool = ElTy->isSpecificBuiltinType(BuiltinType::Bool);
           for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
             llvm::Value *EltIdx = Elts->getAggregateElement(i);
             llvm::Value *EltGEP = Builder.CreateGEP(This, {zero, EltIdx});
             llvm::Value *TmpEltGEP =
                 Builder.CreateGEP(TmpThis, {zero, Builder.getInt32(i)});
             llvm::Value *Elt = Builder.CreateLoad(EltGEP);
+            if (IsBool)
+              Elt = Builder.CreateTrunc(
+                  Elt, llvm::Type::getInt1Ty(getLLVMContext()));
             Builder.CreateStore(Elt, TmpEltGEP);
           }
           This = TmpThis;

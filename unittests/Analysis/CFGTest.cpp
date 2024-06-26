@@ -385,3 +385,68 @@ TEST_F(IsPotentiallyReachableTest, ModifyTest) {
   S[0] = OldBB;
   ExpectPath(true);
 }
+
+// HLSL Change Begin
+namespace {
+class CFGTest : public testing::Test {
+protected:
+  void ParseAssembly(const char *Assembly) {
+    SMDiagnostic Error;
+    M = parseAssemblyString(Assembly, Error, getGlobalContext());
+
+    std::string errMsg;
+    raw_string_ostream os(errMsg);
+    Error.print("", os);
+
+    // A failure here means that the test itself is buggy.
+    if (!M)
+      report_fatal_error(os.str().c_str());
+
+    Function *F = M->getFunction("test");
+    if (F == nullptr)
+      report_fatal_error("Test must have a function named @test");
+  }
+
+  std::unique_ptr<Module> M;
+};
+} // namespace
+
+TEST_F(CFGTest, SuccIteratorPlusEquals) {
+  ParseAssembly(BranchInsideLoopIR);
+
+  //  br label %loop
+  auto iter = M->getFunction("test")->begin();
+  succ_iterator S = succ_begin(iter);
+  S += 1;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // br i1 %x, label %nextloopblock, label %exit
+  ++iter;
+  S = succ_begin(iter);
+  S += 2;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // br i1 %y, label %left, label %right
+  ++iter;
+  S = succ_begin(iter);
+  S += 2;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // br label %loop
+  ++iter;
+  S = succ_begin(iter);
+  S += 1;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // br label %loop
+  ++iter;
+  S = succ_begin(iter);
+  S += 1;
+  EXPECT_EQ(S, succ_end(iter));
+
+  // Done
+  ++iter;
+  S = succ_begin(iter);
+  EXPECT_EQ(S, succ_end(iter));
+}
+// HLSL Change End

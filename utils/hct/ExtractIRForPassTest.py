@@ -86,6 +86,19 @@ def SplitAtPass(passes, pass_name, invocation=1):
                     after = [line]
                     continue
         before.append(line)
+    if count == 0:
+        raise ValueError(
+            "Pass '{}' not found in pass list.  Check spelling and that it is a module pass.  Pass list: {}".format(
+                pass_name, passes
+            )
+        )
+    elif count < invocation:
+        raise ValueError(
+            "Pass '{}' found {} times, but {} invocations requested.  Pass list: {}".format(
+                pass_name, count, invocation, passes
+            )
+        )
+
     return before, after
 
 
@@ -143,7 +156,7 @@ def main(args):
         # 6. Inserts RUN line with -hlsl-passes-resume and desired pass
         with open(args.output_file, "wt") as f:
             f.write(
-                "; RUN: %opt %s -hlsl-passes-resume -{} -S | FileCheck %s\n\n".format(
+                "; RUN: %dxopt %s -hlsl-passes-resume -{} -S | FileCheck %s\n\n".format(
                     args.desired_pass
                 )
             )

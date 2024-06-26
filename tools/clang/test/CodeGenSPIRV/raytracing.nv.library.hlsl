@@ -1,47 +1,47 @@
 // RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fspv-extension=SPV_KHR_ray_query -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
-// CHECK:  OpEntryPoint RayGenerationNV %MyRayGenMain "MyRayGenMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint RayGenerationNV %MyRayGenMain2 "MyRayGenMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint MissNV %MyMissMain "MyMissMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint MissNV %MyMissMain2 "MyMissMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint IntersectionNV %MyISecMain "MyISecMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint IntersectionNV %MyISecMain2 "MyISecMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint AnyHitNV %MyAHitMain "MyAHitMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint AnyHitNV %MyAHitMain2 "MyAHitMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint ClosestHitNV %MyCHitMain "MyCHitMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint ClosestHitNV %MyCHitMain2 "MyCHitMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint CallableNV %MyCallMain "MyCallMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpEntryPoint CallableNV %MyCallMain2 "MyCallMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
-// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdNV
-// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeNV
-// CHECK:  OpDecorate [[c:%[0-9]+]] BuiltIn WorldRayOriginNV
-// CHECK:  OpDecorate [[d:%[0-9]+]] BuiltIn WorldRayDirectionNV
-// CHECK:  OpDecorate [[e:%[0-9]+]] BuiltIn RayTminNV
-// CHECK:  OpDecorate [[f:%[0-9]+]] BuiltIn IncomingRayFlagsNV
+// CHECK:  OpEntryPoint RayGenerationKHR %MyRayGenMain "MyRayGenMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint RayGenerationKHR %MyRayGenMain2 "MyRayGenMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint MissKHR %MyMissMain "MyMissMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint MissKHR %MyMissMain2 "MyMissMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint IntersectionKHR %MyISecMain "MyISecMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint IntersectionKHR %MyISecMain2 "MyISecMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint AnyHitKHR %MyAHitMain "MyAHitMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint AnyHitKHR %MyAHitMain2 "MyAHitMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint ClosestHitKHR %MyCHitMain "MyCHitMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint ClosestHitKHR %MyCHitMain2 "MyCHitMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint CallableKHR %MyCallMain "MyCallMain" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpEntryPoint CallableKHR %MyCallMain2 "MyCallMain2" {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} %gl_InstanceID {{%[0-9]+}} %gl_PrimitiveID {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}} {{%[0-9]+}}
+// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdKHR
+// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeKHR
+// CHECK:  OpDecorate [[c:%[0-9]+]] BuiltIn WorldRayOriginKHR
+// CHECK:  OpDecorate [[d:%[0-9]+]] BuiltIn WorldRayDirectionKHR
+// CHECK:  OpDecorate [[e:%[0-9]+]] BuiltIn RayTminKHR
+// CHECK:  OpDecorate [[f:%[0-9]+]] BuiltIn IncomingRayFlagsKHR
 // CHECK:  OpDecorate %gl_InstanceID BuiltIn InstanceId
-// CHECK:  OpDecorate [[g:%[0-9]+]] BuiltIn InstanceCustomIndexNV
+// CHECK:  OpDecorate [[g:%[0-9]+]] BuiltIn InstanceCustomIndexKHR
 // CHECK:  OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
-// CHECK:  OpDecorate [[h:%[0-9]+]] BuiltIn ObjectRayOriginNV
-// CHECK:  OpDecorate [[i:%[0-9]+]] BuiltIn ObjectRayDirectionNV
-// CHECK:  OpDecorate [[j:%[0-9]+]] BuiltIn ObjectToWorldNV
-// CHECK:  OpDecorate [[k:%[0-9]+]] BuiltIn WorldToObjectNV
-// CHECK:  OpDecorate [[l:%[0-9]+]] BuiltIn HitKindNV
+// CHECK:  OpDecorate [[h:%[0-9]+]] BuiltIn ObjectRayOriginKHR
+// CHECK:  OpDecorate [[i:%[0-9]+]] BuiltIn ObjectRayDirectionKHR
+// CHECK:  OpDecorate [[j:%[0-9]+]] BuiltIn ObjectToWorldKHR
+// CHECK:  OpDecorate [[k:%[0-9]+]] BuiltIn WorldToObjectKHR
+// CHECK:  OpDecorate [[l:%[0-9]+]] BuiltIn HitKindKHR
 
 // CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
-// CHECK-NOT: OpTypeAccelerationStructureKHR
+// CHECK-NOT: OpTypeAccelerationStructureNV
 
-// CHECK: OpTypePointer CallableDataNV %CallData
+// CHECK: OpTypePointer CallableDataKHR %CallData
 struct CallData
 {
   float4 data;
 };
-// CHECK:  OpTypePointer IncomingRayPayloadNV %Payload
+// CHECK:  OpTypePointer IncomingRayPayloadKHR %Payload
 struct Payload
 {
   float4 color;
 };
-// CHECK:  OpTypePointer HitAttributeNV %Attribute
+// CHECK:  OpTypePointer HitAttributeKHR %Attribute
 struct Attribute
 {
   float2 bary;

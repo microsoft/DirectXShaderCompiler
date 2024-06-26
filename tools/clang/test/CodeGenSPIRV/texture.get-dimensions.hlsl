@@ -1,4 +1,5 @@
 // RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
+// RUN: not %dxc -T ps_6_0 -E main -fcgl  %s -spirv -DERROR 2>&1 | FileCheck %s --check-prefix=ERROR
 
 // CHECK: OpCapability ImageQuery
 
@@ -360,4 +361,12 @@ void main() {
 // CHECK-NEXT:  [[query_levels_int:%[0-9]+]] = OpBitcast %int [[query_levels_uint]]
 // CHECK-NEXT:                              OpStore %signedNumLevels [[query_levels_int]]
   t3.GetDimensions(signedMipLevel, signedWidth, signedHeight, signedNumLevels);
+
+#ifdef ERROR
+// ERROR: 367:30: error: Output argument must be an l-value
+  t9.GetDimensions(mipLevel, 0, height, elements, numLevels);
+
+// ERROR: 370:35: error: Output argument must be an l-value
+  t9.GetDimensions(width, height, 20);
+#endif
 }

@@ -153,6 +153,9 @@ void initializeDxilPreserveToSelectPass(PassRegistry&);
 Pass *createDxilRemoveDeadBlocksPass();
 void initializeDxilRemoveDeadBlocksPass(PassRegistry&);
 
+Pass *createDxilRemoveUnstructuredLoopExitsPass();
+void initializeDxilRemoveUnstructuredLoopExitsPass(PassRegistry &);
+
 void initializeDxilRewriteOutputArgDebugInfoPass(PassRegistry&);
 Pass *createDxilRewriteOutputArgDebugInfoPass();
 
@@ -331,6 +334,8 @@ extern char &DemoteRegisterToMemoryHlslID;
 // For example:  4 + (x + 5)  ->  x + (4 + 5)
 //
 FunctionPass *createReassociatePass();
+FunctionPass *
+createReassociatePass(bool HLSLEnableAggressiveReassociation); // HLSL Change
 
 //===----------------------------------------------------------------------===//
 //

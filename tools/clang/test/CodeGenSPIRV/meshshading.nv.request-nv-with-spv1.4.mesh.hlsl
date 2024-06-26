@@ -3,9 +3,9 @@
 // CHECK:  OpExtension "SPV_NV_mesh_shader"
 // CHECK:  OpEntryPoint MeshNV %main "main" %gl_Position [[primind:%[0-9]+]] [[primcount:%[0-9]+]]
 // CHECK:  OpExecutionMode %main LocalSize 32 1 1
-// CHECK:  OpExecutionMode %main OutputTrianglesNV
+// CHECK:  OpExecutionMode %main OutputTrianglesEXT
 // CHECK:  OpExecutionMode %main OutputVertices 81
-// CHECK:  OpExecutionMode %main OutputPrimitivesNV 128
+// CHECK:  OpExecutionMode %main OutputPrimitivesEXT 128
 
 // CHECK:  OpDecorate %gl_Position BuiltIn Position
 // CHECK:  OpDecorate [[primind]] BuiltIn PrimitiveIndicesNV

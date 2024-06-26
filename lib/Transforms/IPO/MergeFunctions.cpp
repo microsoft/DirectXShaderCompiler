@@ -1097,11 +1097,11 @@ private:
 
   /// A work queue of functions that may have been modified and should be
   /// analyzed again.
-  std::vector<WeakVH> Deferred;
+  std::vector<WeakTrackingVH> Deferred;
 
   /// Checks the rules of order relation introduced among functions set.
   /// Returns true, if sanity check has been passed, and false if failed.
-  bool doSanityCheck(std::vector<WeakVH> &Worklist);
+  bool doSanityCheck(std::vector<WeakTrackingVH> &Worklist);
 
   /// Insert a ComparableFunction into the FnTree, or merge it away if it's
   /// equal to one that's already present.
@@ -1154,7 +1154,7 @@ ModulePass *llvm::createMergeFunctionsPass() {
   return new MergeFunctions();
 }
 
-bool MergeFunctions::doSanityCheck(std::vector<WeakVH> &Worklist) {
+bool MergeFunctions::doSanityCheck(std::vector<WeakTrackingVH> &Worklist) {
 #if 0 // Begin HLSL Change (NumFunctionsForSanityCheck is always zero)
   if (const unsigned Max = NumFunctionsForSanityCheck) {
     unsigned TripleNumber = 0;
@@ -1163,10 +1163,10 @@ bool MergeFunctions::doSanityCheck(std::vector<WeakVH> &Worklist) {
     dbgs() << "MERGEFUNC-SANITY: Started for first " << Max << " functions.\n";
 
     unsigned i = 0;
-    for (std::vector<WeakVH>::iterator I = Worklist.begin(), E = Worklist.end();
+    for (std::vector<WeakTrackingVH>::iterator I = Worklist.begin(), E = Worklist.end();
          I != E && i < Max; ++I, ++i) {
       unsigned j = i;
-      for (std::vector<WeakVH>::iterator J = I; J != E && j < Max; ++J, ++j) {
+      for (std::vector<WeakTrackingVH>::iterator J = I; J != E && j < Max; ++J, ++j) {
         Function *F1 = cast<Function>(*I);
         Function *F2 = cast<Function>(*J);
         int Res1 = FunctionComparator(F1, F2).compare();
@@ -1185,7 +1185,7 @@ bool MergeFunctions::doSanityCheck(std::vector<WeakVH> &Worklist) {
           continue;
 
         unsigned k = j;
-        for (std::vector<WeakVH>::iterator K = J; K != E && k < Max;
+        for (std::vector<WeakTrackingVH>::iterator K = J; K != E && k < Max;
              ++k, ++K, ++TripleNumber) {
           if (K == J)
             continue;
@@ -1233,11 +1233,11 @@ bool MergeFunctions::runOnModule(Module &M) {
 
   for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
     if (!I->isDeclaration() && !I->hasAvailableExternallyLinkage())
-      Deferred.push_back(WeakVH(I));
+      Deferred.push_back(WeakTrackingVH(I));
   }
 
   do {
-    std::vector<WeakVH> Worklist;
+    std::vector<WeakTrackingVH> Worklist;
     Deferred.swap(Worklist);
 
     DEBUG(doSanityCheck(Worklist));
@@ -1247,8 +1247,9 @@ bool MergeFunctions::runOnModule(Module &M) {
 
     // Insert only strong functions and merge them. Strong function merging
     // always deletes one of them.
-    for (std::vector<WeakVH>::iterator I = Worklist.begin(),
-           E = Worklist.end(); I != E; ++I) {
+    for (std::vector<WeakTrackingVH>::iterator I = Worklist.begin(),
+                                               E = Worklist.end();
+         I != E; ++I) {
       if (!*I) continue;
       Function *F = cast<Function>(*I);
       if (!F->isDeclaration() && !F->hasAvailableExternallyLinkage() &&
@@ -1261,8 +1262,9 @@ bool MergeFunctions::runOnModule(Module &M) {
     // create thunks to the strong function when possible. When two weak
     // functions are identical, we create a new strong function with two weak
     // weak thunks to it which are identical but not mergable.
-    for (std::vector<WeakVH>::iterator I = Worklist.begin(),
-           E = Worklist.end(); I != E; ++I) {
+    for (std::vector<WeakTrackingVH>::iterator I = Worklist.begin(),
+                                               E = Worklist.end();
+         I != E; ++I) {
       if (!*I) continue;
       Function *F = cast<Function>(*I);
       if (!F->isDeclaration() && !F->hasAvailableExternallyLinkage() &&

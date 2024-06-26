@@ -696,7 +696,7 @@ bool LoopIdiomRecognize::runOnLoopBlock(BasicBlock *BB, const SCEV *BECount,
     Instruction *Inst = I++;
     // Look for store instructions, which may be optimized to memset/memcpy.
     if (StoreInst *SI = dyn_cast<StoreInst>(Inst))  {
-      WeakVH InstPtr(I);
+      WeakTrackingVH InstPtr(I);
       if (!processLoopStore(SI, BECount)) continue;
       MadeChange = true;
 
@@ -709,7 +709,7 @@ bool LoopIdiomRecognize::runOnLoopBlock(BasicBlock *BB, const SCEV *BECount,
 
     // Look for memset instructions, which may be optimized to a larger memset.
     if (MemSetInst *MSI = dyn_cast<MemSetInst>(Inst))  {
-      WeakVH InstPtr(I);
+      WeakTrackingVH InstPtr(I);
       if (!processLoopMemSet(MSI, BECount)) continue;
       MadeChange = true;
 

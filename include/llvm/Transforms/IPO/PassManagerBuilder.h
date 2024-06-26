@@ -134,6 +134,7 @@ public:
   unsigned ScanLimit = 0; // HLSL Change
   bool EnableGVN = true; // HLSL Change
   bool StructurizeLoopExitsForUnroll = false; // HLSL Change
+  bool HLSLEnableAggressiveReassociation = true; // HLSL Change
   bool HLSLEnableLifetimeMarkers = false; // HLSL Change
   bool HLSLEnablePartialLifetimeMarkers = false; // HLSL Change
   bool HLSLEnableDebugNops = false; // HLSL Change

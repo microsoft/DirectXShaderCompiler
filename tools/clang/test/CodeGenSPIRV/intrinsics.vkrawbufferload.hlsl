@@ -4,6 +4,14 @@
 // CHECK: OpExtension "SPV_KHR_physical_storage_buffer"
 // CHECK: OpMemoryModel PhysicalStorageBuffer64 GLSL450
 
+// CHECK:                 OpMemberDecorate %BufferData_0 0 Offset 0
+// CHECK:                 OpMemberDecorate %BufferData_0 1 Offset 4
+// CHECK: %BufferData_0 = OpTypeStruct %float %v3float
+struct BufferData {
+  float  f;
+  float3 v;
+};
+
 uint64_t Address;
 float4 main() : SV_Target0 {
   // CHECK:      [[addr:%[0-9]+]] = OpLoad %ulong
@@ -33,6 +41,14 @@ float4 main() : SV_Target0 {
   // CHECK-NEXT: [[load_3:%[0-9]+]] = OpLoad %uint [[buf_3]] Aligned 4
   // CHECK-NEXT: OpStore %v [[load_3]]
   uint v = vk::RawBufferLoad(Address);
+
+  // CHECK: [[buf:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_BufferData_0
+  // CHECK-NEXT: [[load:%[0-9]+]] = OpLoad %BufferData_0 [[buf]] Aligned 4
+  BufferData d = vk::RawBufferLoad<BufferData>(Address);
+
+  // CHECK: [[buf:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_BufferData_0 %ulong_0
+  // CHECK-NEXT: [[load:%[0-9]+]] = OpLoad %BufferData_0 [[buf]] Aligned 4
+  d = vk::RawBufferLoad<BufferData>(0);
 
   return float4(w.x, x, y, z);
 }

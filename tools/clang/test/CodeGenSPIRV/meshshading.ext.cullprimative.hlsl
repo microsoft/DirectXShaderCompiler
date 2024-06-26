@@ -8,7 +8,7 @@ struct MeshletPrimitiveOut
 // m_cullPrimitive will have to be turned into a uint because of the Vulkan
 // specification says that externally visible variables cannot be bool.
 // CHECK: OpDecorate [[var:%[0-9]+]] BuiltIn CullPrimitiveEXT
-// CHECK: OpDecorate [[var]] PerPrimitiveNV
+// CHECK: OpDecorate [[var]] PerPrimitiveEXT
 // CHECK: [[var]] = OpVariable %_ptr_Output__arr_uint_uint_2 Output
 
 struct VertOut

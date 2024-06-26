@@ -75,4 +75,14 @@ void main(uint3 tid : SV_DispatchThreadID) {
   xyzw.z = 84;
   xyzw.w = 69;
   vk::RawBufferStore<XYZW>(Address, xyzw);
+
+  // CHECK: [[xyzwval:%[0-9]+]] = OpLoad %XYZW %xyzw
+  // CHECK-NEXT: [[buf_3:%[0-9]+]] = OpBitcast %_ptr_PhysicalStorageBuffer_XYZW_0 %ulong_0
+  // CHECK-NEXT: [[member1:%[0-9]+]] = OpCompositeExtract %int [[xyzwval]] 0
+  // CHECK-NEXT: [[member2:%[0-9]+]] = OpCompositeExtract %int [[xyzwval]] 1
+  // CHECK-NEXT: [[member3:%[0-9]+]] = OpCompositeExtract %int [[xyzwval]] 2
+  // CHECK-NEXT: [[member4:%[0-9]+]] = OpCompositeExtract %int [[xyzwval]] 3
+  // CHECK-NEXT: [[p_xyzwval:%[0-9]+]] = OpCompositeConstruct %XYZW_0 [[member1]] [[member2]] [[member3]] [[member4]]
+  // CHECK-NEXT: OpStore [[buf_3]] [[p_xyzwval]] Aligned 4
+  vk::RawBufferStore<XYZW>(0, xyzw);
 }

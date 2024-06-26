@@ -57,6 +57,9 @@ float f2 = true;
 [[vk::constant_id(33)]]
 float f3 = 20;
 
+// CHECK: %u1 = OpSpecConstant %uint 12648430
+static const uint u1val = 0xC0FFEE;
+[[vk::constant_id(1)]] const uint u1 = u1val;
 
 float main() : A {
     return 1.0;

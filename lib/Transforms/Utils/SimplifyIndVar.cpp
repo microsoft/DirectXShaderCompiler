@@ -48,13 +48,13 @@ namespace {
     LoopInfo         *LI;
     ScalarEvolution  *SE;
 
-    SmallVectorImpl<WeakVH> &DeadInsts;
+    SmallVectorImpl<WeakTrackingVH> &DeadInsts;
 
     bool Changed;
 
   public:
     SimplifyIndvar(Loop *Loop, ScalarEvolution *SE, LoopInfo *LI,
-                   SmallVectorImpl<WeakVH> &Dead)
+                   SmallVectorImpl<WeakTrackingVH> &Dead)
         : L(Loop), LI(LI), SE(SE), DeadInsts(Dead), Changed(false) {
       assert(LI && "IV simplification requires LoopInfo");
     }
@@ -514,8 +514,7 @@ void IVVisitor::anchor() { }
 /// Simplify instructions that use this induction variable
 /// by using ScalarEvolution to analyze the IV's recurrence.
 bool simplifyUsersOfIV(PHINode *CurrIV, ScalarEvolution *SE, LPPassManager *LPM,
-                       SmallVectorImpl<WeakVH> &Dead, IVVisitor *V)
-{
+                       SmallVectorImpl<WeakTrackingVH> &Dead, IVVisitor *V) {
   LoopInfo *LI = &LPM->getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SimplifyIndvar SIV(LI->getLoopFor(CurrIV->getParent()), SE, LI, Dead);
   SIV.simplifyUsers(CurrIV, V);
@@ -525,7 +524,7 @@ bool simplifyUsersOfIV(PHINode *CurrIV, ScalarEvolution *SE, LPPassManager *LPM,
 /// Simplify users of induction variables within this
 /// loop. This does not actually change or add IVs.
 bool simplifyLoopIVs(Loop *L, ScalarEvolution *SE, LPPassManager *LPM,
-                     SmallVectorImpl<WeakVH> &Dead) {
+                     SmallVectorImpl<WeakTrackingVH> &Dead) {
   bool Changed = false;
   for (BasicBlock::iterator I = L->getHeader()->begin(); isa<PHINode>(I); ++I) {
     Changed |= simplifyUsersOfIV(cast<PHINode>(I), SE, LPM, Dead);

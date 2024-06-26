@@ -615,7 +615,8 @@ private:
   SpirvInstruction *processWaveCountBits(const CallExpr *,
                                          spv::GroupOperation groupOp);
 
-  /// Processes SM6.0 wave reduction or scan/prefix intrinsic calls.
+  /// Processes SM6.0 wave reduction or scan/prefix and SM6.5 wave multiprefix
+  /// intrinsic calls.
   SpirvInstruction *processWaveReductionOrPrefix(const CallExpr *, spv::Op op,
                                                  spv::GroupOperation groupOp);
 
@@ -654,6 +655,9 @@ private:
   SpirvInstruction *
   processWaveActiveAllEqualMatrix(SpirvInstruction *arg, QualType,
                                   clang::SourceLocation srcLoc);
+
+  /// Processes SM6.5 WaveMatch function.
+  SpirvInstruction *processWaveMatch(const CallExpr *);
 
   /// Processes the NonUniformResourceIndex intrinsic function.
   SpirvInstruction *processIntrinsicNonUniformResourceIndex(const CallExpr *);
@@ -981,11 +985,15 @@ private:
   /// \brief Processes .SampleGrad() method call for texture objects.
   SpirvInstruction *processTextureSampleGrad(const CXXMemberCallExpr *expr);
 
-  /// \brief Processes .SampleCmp() or .SampleCmpLevelZero() method call for
-  /// texture objects.
+  /// \brief Processes .SampleCmp() method call for texture objects.
+  SpirvInstruction *processTextureSampleCmp(const CXXMemberCallExpr *expr);
+
+  /// \brief Processes .SampleCmpLevelZero() method call for texture objects.
   SpirvInstruction *
-  processTextureSampleCmpCmpLevelZero(const CXXMemberCallExpr *expr,
-                                      bool isCmp);
+  processTextureSampleCmpLevelZero(const CXXMemberCallExpr *expr);
+
+  /// \brief Processes .SampleCmpLevel() method call for texture objects.
+  SpirvInstruction *processTextureSampleCmpLevel(const CXXMemberCallExpr *expr);
 
   /// \brief Handles .Gather{|Cmp}{Red|Green|Blue|Alpha}() calls on texture
   /// types.
@@ -1171,6 +1179,12 @@ private:
   /// gets the info/warning/error messages via |messages|.
   /// Returns true on success and false otherwise.
   bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
+
+  // \brief Calls SPIRV-Tools optimizer fix-opextinst-opcodes pass. This pass
+  // fixes OpExtInst/OpExtInstWithForwardRefsKHR opcodes to use the correct one
+  // depending of the presence of forward references.
+  bool spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
+                                std::string *messages);
 
   // \brief Calls SPIRV-Tools optimizer's, but only with the capability trimming
   // pass. Removes unused capabilities from the given SPIR-V module |mod|, and

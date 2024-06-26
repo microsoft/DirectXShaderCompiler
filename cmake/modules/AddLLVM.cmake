@@ -1,5 +1,6 @@
 include(LLVMProcessSources)
 include(LLVM-Config)
+find_package(Python3 REQUIRED)
 
 function(llvm_update_compile_flags name)
   get_property(sources TARGET ${name} PROPERTY SOURCES)
@@ -107,7 +108,7 @@ function(add_llvm_symbol_exports target_name export_file)
     set(native_export_file "${target_name}.def")
 
     add_custom_command(OUTPUT ${native_export_file}
-      COMMAND ${PYTHON_EXECUTABLE} -c "import sys;print(''.join(['EXPORTS\\n']+sys.stdin.readlines(),))"
+      COMMAND ${Python3_EXECUTABLE} -c "import sys;print(''.join(['EXPORTS\\n']+sys.stdin.readlines(),))"
         < ${export_file} > ${native_export_file}
       DEPENDS ${export_file}
       VERBATIM
@@ -244,14 +245,14 @@ endfunction()
 #
 function(add_windows_version_resource_file OUT_VAR)
   set(sources ${ARGN})
-  if (MSVC)
+  if (WIN32)
     set(resource_file ${LLVM_SOURCE_DIR}/resources/windows_version_resource.rc)
     if(EXISTS ${resource_file})
       set(sources ${sources} ${resource_file})
       source_group("Resource Files" ${resource_file})
       set(windows_resource_file ${resource_file} PARENT_SCOPE)
     endif()
-  endif(MSVC)
+  endif(WIN32)
 
   set(${OUT_VAR} ${sources} PARENT_SCOPE)
 endfunction(add_windows_version_resource_file)
@@ -295,8 +296,10 @@ function(set_windows_version_resource_properties name resource_file)
     set(ARG_PRODUCT_NAME "LLVM")
   endif()
 
+  if (MSVC)
   set_property(SOURCE ${resource_file}
                PROPERTY COMPILE_FLAGS /nologo)
+  endif()
   set_property(SOURCE ${resource_file}
                PROPERTY COMPILE_DEFINITIONS
                "RC_VERSION_FIELD_1=${ARG_VERSION_MAJOR}"
@@ -317,7 +320,7 @@ function(set_windows_version_resource_properties name resource_file)
                   "INCLUDE_HLSL_VERSION_FILE=1")
       set_property(SOURCE ${resource_file}
                   PROPERTY COMPILE_OPTIONS
-                  "/I" "${HLSL_VERSION_LOCATION}")
+                  "-I" "${HLSL_VERSION_LOCATION}")
     endif (DEFINED resource_file)
   endif(${HLSL_EMBED_VERSION})
   # HLSL change ends
@@ -867,7 +870,6 @@ function(configure_lit_site_cfg input output)
   # SHLIBDIR points the build tree.
   string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} SHLIBDIR "${LLVM_SHLIB_OUTPUT_INTDIR}")
 
-  set(PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
   # FIXME: "ENABLE_SHARED" doesn't make sense, since it is used just for
   # plugins. We may rename it.
   if(LLVM_ENABLE_PLUGINS)
@@ -902,7 +904,7 @@ function(add_lit_target target comment)
     list(APPEND LIT_ARGS --param build_mode=${CMAKE_CFG_INTDIR})
   endif ()
   if (LLVM_MAIN_SRC_DIR)
-    set (LIT_COMMAND ${PYTHON_EXECUTABLE} ${LLVM_MAIN_SRC_DIR}/utils/lit/lit.py)
+    set (LIT_COMMAND ${Python3_EXECUTABLE} ${LLVM_MAIN_SRC_DIR}/utils/lit/lit.py)
   else()
     find_program(LIT_COMMAND llvm-lit)
   endif ()
