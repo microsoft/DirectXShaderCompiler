@@ -19,10 +19,6 @@
 // TODO: Add a macro to HLSL to be able to check the Vulkan version being
 // targeted.
 
-#define SPV_KHR_CooperativeMatrix                  \
-  vk::ext_extension("SPV_KHR_cooperative_matrix"), \
-      vk::ext_capability(/* CooperativeMatrixKHRCapability */ 6022)
-
 namespace vk {
 namespace khr {
 

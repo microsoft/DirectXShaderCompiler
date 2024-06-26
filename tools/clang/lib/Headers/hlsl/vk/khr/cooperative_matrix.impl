@@ -18,6 +18,10 @@ namespace vk {
 namespace khr {
 namespace internal {
 
+#define SPV_KHR_CooperativeMatrix                  \
+  vk::ext_extension("SPV_KHR_cooperative_matrix"), \
+      vk::ext_capability(/* CooperativeMatrixKHRCapability */ 6022)
+
 // These enums are expected to match the values in spirv.h
 // TODO: See if there is a way to use a spirv header to get these values
 // instead of redefining them.
