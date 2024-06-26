@@ -119,6 +119,7 @@ if(WIN32)
   else()
     add_compile_options(-fcf-protection)
   endif()
+  add_compile_definitions(_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR)
 endif(WIN32)
 
 # Enable CET Shadow Stack
