@@ -122,14 +122,14 @@ int main(int argc, char **argv) {
   PassRegistry &Registry = *PassRegistry::getPassRegistry();
   initializeCore(Registry);
   initializeScalarOpts(Registry);
-  initializeObjCARCOpts(Registry);
+  // initializeObjCARCOpts(Registry); - HLSL Change
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);
   initializeIPA(Registry);
   initializeTransformUtils(Registry);
   initializeInstCombine(Registry);
-  initializeInstrumentation(Registry);
+  // initializeInstrumentation(Registry); - HLSL Change
   initializeTarget(Registry);
 
 #ifdef LINK_POLLY_INTO_TOOLS
@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
   if (StandardLinkOpts) {
     PassManagerBuilder Builder;
     Builder.Inliner = createFunctionInliningPass();
-    Builder.populateLTOPassManager(PM);
+    // Builder.populateLTOPassManager(PM); - HLSL Change
   }
 
   if (OptLevelO1 || OptLevelO2 || OptLevelO3) {

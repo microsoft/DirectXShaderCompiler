@@ -105,9 +105,11 @@ void BugDriver::EmitProgressBitcode(const Module *M,
   outs() << "\n*** You can reproduce the problem with: ";
   if (UseValgrind) outs() << "valgrind ";
   outs() << "opt " << Filename;
+#if 0 // HLSL Change - HLSL disabled plugin loading
   for (unsigned i = 0, e = PluginLoader::getNumPlugins(); i != e; ++i) {
     outs() << " -load " << PluginLoader::getPlugin(i);
   }
+#endif
   outs() << " " << getPassesString(PassesToRun) << "\n";
 }
 
@@ -207,10 +209,12 @@ bool BugDriver::runPasses(Module *Program,
   for (unsigned i = 0, e = OptArgs.size(); i != e; ++i)
     Args.push_back(OptArgs[i].c_str());
   std::vector<std::string> pass_args;
+#if 0 // HLSL Change - HLSL disabled plugin loading
   for (unsigned i = 0, e = PluginLoader::getNumPlugins(); i != e; ++i) {
     pass_args.push_back( std::string("-load"));
     pass_args.push_back( PluginLoader::getPlugin(i));
   }
+#endif
   for (std::vector<std::string>::const_iterator I = Passes.begin(),
        E = Passes.end(); I != E; ++I )
     pass_args.push_back( std::string("-") + (*I) );

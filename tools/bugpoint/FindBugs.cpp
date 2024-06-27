@@ -21,6 +21,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <ctime>
+#include <random> // HLSL Change - Updates for C++ 17
 using namespace llvm;
 
 /// runManyPasses - Take the specified pass list and create different 
@@ -46,13 +47,20 @@ bool BugDriver::runManyPasses(const std::vector<std::string> &AllPasses,
   }
   
   srand(time(nullptr));
+
+  // HLSL Change Begin - C++ 17 Updates
+  std::random_device RD;
+  std::mt19937 Gen(RD());
+  // HLSL Change End
   
   unsigned num = 1;
   while(1) {  
     //
     // Step 1: Randomize the order of the optimizer passes.
     //
-    std::random_shuffle(PassesToRun.begin(), PassesToRun.end());
+    // HLSL Change Begin - C++ 17 Updates
+    std::shuffle(PassesToRun.begin(), PassesToRun.end(), Gen);
+    // HLSL Change End
     
     //
     // Step 2: Run optimizer passes on the program and check for success.

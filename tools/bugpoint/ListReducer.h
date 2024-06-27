@@ -19,6 +19,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstdlib>
+#include <random> // HLSL Change - Updates for C++ 17
 #include <vector>
 
 namespace llvm {
@@ -81,6 +82,10 @@ Backjump:
     unsigned MidTop = TheList.size();
     unsigned MaxIterations = MaxIterationsWithoutProgress;
     unsigned NumOfIterationsWithoutProgress = 0;
+    // HLSL Change Begin - C++ 17 Updates
+    std::random_device RD;
+    std::mt19937 Gen(RD());
+    // HLSL Change End
     while (MidTop > 1) { // Binary split reduction loop
       // Halt if the user presses ctrl-c.
       if (BugpointIsInterrupted) {
@@ -94,7 +99,9 @@ Backjump:
       if (ShufflingEnabled && 
           NumOfIterationsWithoutProgress > MaxIterations) {
         std::vector<ElTy> ShuffledList(TheList);
-        std::random_shuffle(ShuffledList.begin(), ShuffledList.end());
+        // HLSL Change Begin - C++ 17 Update
+        std::shuffle(ShuffledList.begin(), ShuffledList.end(), Gen);
+        // HLSL Change End
         errs() << "\n\n*** Testing shuffled set...\n\n";
         // Check that random shuffle doesn't loose the bug
         if (doTest(ShuffledList, empty, Error) == KeepPrefix) {

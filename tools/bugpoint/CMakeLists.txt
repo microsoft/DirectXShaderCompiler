@@ -1,15 +1,15 @@
 set(LLVM_LINK_COMPONENTS
   Analysis
   BitWriter
-  CodeGen
+  #CodeGen - HLSL Change CodeGen was removed
   Core
   IPA
   IPO
   IRReader
   InstCombine
-  Instrumentation
+  #Instrumentation - HLSL Change Instrumentation was removed
   Linker
-  ObjCARCOpts
+  #ObjCARCOpts - HLSL Change ObjCARCOpts was removed
   ScalarOpts
   Support
   Target
