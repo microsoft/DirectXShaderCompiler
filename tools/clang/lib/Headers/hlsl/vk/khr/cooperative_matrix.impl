@@ -12,51 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#define SPV_KHR_CooperativeMatrix                                              \
-  vk::ext_extension("SPV_KHR_cooperative_matrix"),                             \
-      vk::ext_capability(/* CooperativeMatrixKHRCapability */ 6022)
+#include "arithmetic_selector.hlsli"
 
-#define DECLARE_UNARY_OP(name, opcode)                                         \
-  template <typename ResultType>                                               \
-  [[vk::ext_instruction(opcode),                                               \
-    SPV_KHR_CooperativeMatrix]] ResultType __builtin_spv_##name(ResultType a)
-
-DECLARE_UNARY_OP(SNegate, 126);
-DECLARE_UNARY_OP(FNegate, 127);
-
-#undef DECLARY_UNARY_OP
-
-#define DECLARE_BINOP(name, opcode)                                            \
-  template <typename ResultType>                                               \
-  [[vk::ext_instruction(opcode),                                               \
-    SPV_KHR_CooperativeMatrix]] ResultType __builtin_spv_##name(ResultType a,  \
-                                                                ResultType b)
-
-DECLARE_BINOP(IAdd, 128);
-DECLARE_BINOP(FAdd, 129);
-DECLARE_BINOP(ISub, 130);
-DECLARE_BINOP(FSub, 131);
-DECLARE_BINOP(IMul, 132);
-DECLARE_BINOP(FMul, 133);
-DECLARE_BINOP(UDiv, 134);
-DECLARE_BINOP(SDiv, 135);
-DECLARE_BINOP(FDiv, 136);
-
-#undef DECLARE_BINOP
 
 template <typename ResultType, typename ComponentType>
-[[vk::ext_instruction(/* OpMatrixTimesScalar */ 143),
-  SPV_KHR_CooperativeMatrix]] ResultType
+[[vk::ext_instruction(/* OpMatrixTimesScalar */ 143)]] ResultType
 __builtin_spv_MatrixTimesScalar(ResultType a, ComponentType b);
-
-// Type-Declaration Instructions
-
-// TODO: make sure scope, rows, and cols can be specialization constants
-template <typename ComponentType, uint scope, uint rows, uint columns, uint use>
-using __builtin_spv_CooperativeMatrixKHR = vk::SpirvOpaqueType<
-    /* OpTypeCooperativeMatrixKHR */ 4456, ComponentType,
-    vk::integral_constant<uint, scope>, vk::integral_constant<uint, rows>,
-    vk::integral_constant<uint, columns>, vk::integral_constant<uint, use> >;
 
 // Define the load and store instructions
 template <typename ResultType, typename PointerType>
@@ -101,92 +62,101 @@ __builtin_spv_CooperativeMatrixMulAddKHR(MatrixTypeA a, MatrixTypeB b,
                                          [[vk::ext_literal]] int operands);
 namespace vk {
 namespace khr {
-#define COOPERATIVE_MATRIX(ComponentType, Negate, Add, Sub,                    \
-                           SIGNED_INTEGER_TYPE)                                \
-  template <uint scope, uint rows, uint columns, uint use>                     \
-  class CooperativeMatrix<ComponentType, scope, rows, columns, use> {          \
-    using SpirvMatrixType =                                                    \
-        __builtin_spv_CooperativeMatrixKHR<ComponentType, scope, rows,         \
-                                           columns, use>;                      \
-                                                                               \
-    CooperativeMatrix negate() {                                               \
-      CooperativeMatrix result;                                                \
-      result._matrix = Negate(_matrix);                                        \
-      return result;                                                           \
-    }                                                                          \
-    CooperativeMatrix operator+(CooperativeMatrix other) {                     \
-      CooperativeMatrix result;                                                \
-      result._matrix = Add(_matrix, other._matrix);                            \
-      return result;                                                           \
-    }                                                                          \
-    CooperativeMatrix operator-(CooperativeMatrix other) {                     \
-      CooperativeMatrix result;                                                \
-      result._matrix = Sub(_matrix, other._matrix);                            \
-      return result;                                                           \
-    }                                                                          \
-    CooperativeMatrix operator*(ComponentType scalar) {                        \
-      CooperativeMatrix result;                                                \
-      result._matrix = __builtin_spv_MatrixTimesScalar(_matrix, scalar);       \
-      return result;                                                           \
-    }                                                                          \
-    void StoreRowMajor(RWStructuredBuffer<ComponentType> data,                 \
-                       uint32_t index) {                                       \
-      __builtin_spv_CooperativeMatrixStoreKHR(                                 \
-          data[index], _matrix, CooperativeMatrixLayoutRowMajorKHR);           \
-    }                                                                          \
-    void StoreColumnMajor(RWStructuredBuffer<ComponentType> data,              \
-                          uint32_t index) {                                    \
-      __builtin_spv_CooperativeMatrixStoreKHR(                                 \
-          data[index], _matrix, CooperativeMatrixLayoutColumnMajorKHR);        \
-    }                                                                          \
-                                                                               \
-    template <class BufferType>                                                \
-    static CooperativeMatrix LoadRowMajor(BufferType buffer, uint32_t index) { \
-      CooperativeMatrix result;                                                \
-      result._matrix =                                                         \
-          __builtin_spv_CooperativeMatrixLoadKHR<SpirvMatrixType>(             \
-              buffer[index], CooperativeMatrixLayoutRowMajorKHR);              \
-      return result;                                                           \
-    }                                                                          \
-                                                                               \
-    template <class BufferType>                                                \
-    static CooperativeMatrix LoadColumnMajor(BufferType buffer,                \
-                                             uint32_t index) {                 \
-      CooperativeMatrix result;                                                \
-      result._matrix =                                                         \
-          __builtin_spv_CooperativeMatrixLoadKHR<SpirvMatrixType>(             \
-              buffer[index], CooperativeMatrixLayoutColumnMajorKHR);           \
-      return result;                                                           \
-    }                                                                          \
-                                                                               \
-    static uint GetLength() {                                                  \
-      return __builtin_spv_CooperativeMatrixLengthKHR<SpirvMatrixType>();      \
-    }                                                                          \
-                                                                               \
-    static const bool isSignedInteger = SIGNED_INTEGER_TYPE;                   \
-    SpirvMatrixType _matrix;                                                   \
-  };
 
-COOPERATIVE_MATRIX(half, __builtin_spv_FNegate, __builtin_spv_FAdd,
-                   __builtin_spv_FSub, false);
-COOPERATIVE_MATRIX(float, __builtin_spv_FNegate, __builtin_spv_FAdd,
-                   __builtin_spv_FSub, false);
-COOPERATIVE_MATRIX(double, __builtin_spv_FNegate, __builtin_spv_FAdd,
-                   __builtin_spv_FSub, false);
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::negate() {
+  CooperativeMatrix result;
+  result._matrix = util::ArithmeticSelector<ComponentType>::Negate(_matrix);
+  return result;
+}
 
-// TODO: Need to check for a 16-bit-type enabled
-// COOPERATIVE_MATRIX(int16_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-// __builtin_spv_ISub, true);
-COOPERATIVE_MATRIX(int32_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                   __builtin_spv_ISub, true);
-COOPERATIVE_MATRIX(int64_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                   __builtin_spv_ISub, true);
-// COOPERATIVE_MATRIX(uint16_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-// __builtin_spv_ISub, false);
-COOPERATIVE_MATRIX(uint32_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                   __builtin_spv_ISub, false);
-COOPERATIVE_MATRIX(uint64_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                   __builtin_spv_ISub, false);
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::operator+(
+    CooperativeMatrix other) {
+  CooperativeMatrix result;
+  result._matrix =
+      util::ArithmeticSelector<ComponentType>::Add(_matrix, other._matrix);
+  return result;
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::operator-(
+    CooperativeMatrix other) {
+  CooperativeMatrix result;
+  result._matrix = util::ArithmeticSelector<ComponentType>::Sub(_matrix, other._matrix);
+  return result;
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::operator*(
+    CooperativeMatrix other) {
+  CooperativeMatrix result;
+  result._matrix = util::ArithmeticSelector<ComponentType>::Mul(_matrix, other._matrix);
+  return result;
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::operator/(
+    CooperativeMatrix other) {
+  CooperativeMatrix result;
+  result._matrix = util::ArithmeticSelector<ComponentType>::Div(_matrix, other._matrix);
+  return result;
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::operator*(
+    ComponentType scalar) {
+  CooperativeMatrix result;
+  result._matrix = __builtin_spv_MatrixTimesScalar(_matrix, scalar);
+  return result;
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+void CooperativeMatrix<ComponentType, scope, rows, columns, use>::StoreRowMajor(
+    RWStructuredBuffer<ComponentType> data, uint32_t index) {
+  __builtin_spv_CooperativeMatrixStoreKHR(data[index], _matrix,
+                                          CooperativeMatrixLayoutRowMajorKHR);
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+void CooperativeMatrix<ComponentType, scope, rows, columns, use>::
+    StoreColumnMajor(RWStructuredBuffer<ComponentType> data, uint32_t index) {
+  __builtin_spv_CooperativeMatrixStoreKHR(
+      data[index], _matrix, CooperativeMatrixLayoutColumnMajorKHR);
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+template <class BufferType>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::LoadRowMajor(
+    BufferType buffer, uint32_t index) {
+  CooperativeMatrix result;
+  result._matrix = __builtin_spv_CooperativeMatrixLoadKHR<SpirvMatrixType>(
+      buffer[index], CooperativeMatrixLayoutRowMajorKHR);
+  return result;
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+template <class BufferType>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::LoadColumnMajor(
+    BufferType buffer, uint32_t index) {
+  CooperativeMatrix result;
+  result._matrix = __builtin_spv_CooperativeMatrixLoadKHR<SpirvMatrixType>(
+      buffer[index], CooperativeMatrixLayoutColumnMajorKHR);
+  return result;
+}
+
+template <class ComponentType, uint scope, uint rows, uint columns, uint use>
+uint CooperativeMatrix<ComponentType, scope, rows, columns, use>::GetLength() {
+  return __builtin_spv_CooperativeMatrixLengthKHR<SpirvMatrixType>();
+}
 
 template <typename ComponentType, uint scope, uint rows, uint columns, uint K>
 CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>
@@ -203,8 +173,9 @@ cooperativeMatrixMultiplyAdd(
 
   const vk::CooperativeMatrixOperandsMask operands =
       (vk::CooperativeMatrixOperandsMask)(
-          a.isSignedInteger ? allSignedComponents
-                            : vk::CooperativeMatrixOperandsMaskNone);
+          a.hasSignedIntegerComponentType
+              ? allSignedComponents
+              : vk::CooperativeMatrixOperandsMaskNone);
 
   CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> result;
   result._matrix = __builtin_spv_CooperativeMatrixMulAddKHR<
@@ -230,7 +201,7 @@ cooperativeMatrixSaturatingMultiplyAdd(
 
   const vk::CooperativeMatrixOperandsMask operands =
       (vk::CooperativeMatrixOperandsMask)(
-          a.isSignedInteger
+          a.hasSignedIntegerComponentType
               ? allSignedComponents
               : vk::CooperativeMatrixOperandsSaturatingAccumulationKHRMask);
   CooperativeMatrixAccumulator<ComponentType, scope, rows, columns> result;
