@@ -149,10 +149,6 @@ public:
     return funcVarParamMap.lookup(v);
   }
 
-  /// Returns true if this is a function declaration. In spir-v, a function
-  /// declaration is a function with no basic blocks.
-  bool isFunctionDeclaration() const { return basicBlocks.empty(); }
-
 private:
   uint32_t functionId;         ///< This function's <result-id>
   QualType astReturnType;      ///< The return type

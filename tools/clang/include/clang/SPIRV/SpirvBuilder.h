@@ -70,8 +70,7 @@ public:
   /// \brief Creates a SpirvFunction object with the given information and adds
   /// it to list of all discovered functions in the SpirvModule.
   SpirvFunction *createSpirvFunction(QualType returnType, SourceLocation,
-                                     llvm::StringRef name,
-                                     bool isPrecise = false,
+                                     llvm::StringRef name, bool isPrecise,
                                      bool isNoInline = false);
 
   /// \brief Begins building a SPIR-V function by allocating a SpirvFunction
