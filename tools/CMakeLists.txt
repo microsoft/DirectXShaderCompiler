@@ -48,8 +48,8 @@ add_llvm_tool_subdirectory(llvm-diff) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-cxxdump) # HLSL Change
 # HLSL Change - remove llvm-jitlistener conditional on LLVM_USE_INTEL_JITEVENTS
 
-# add_llvm_tool_subdirectory(bugpoint) # HLSL Change
-# add_llvm_tool_subdirectory(bugpoint-passes) # HLSL Change
+add_llvm_tool_subdirectory(bugpoint)
+add_llvm_tool_subdirectory(bugpoint-passes)
 add_llvm_tool_subdirectory(llvm-bcanalyzer) # HLSL Change
 add_llvm_tool_subdirectory(llvm-stress) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-mcmarkup) # HLSL Change
