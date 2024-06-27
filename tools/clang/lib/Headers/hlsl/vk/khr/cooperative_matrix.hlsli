@@ -23,56 +23,56 @@ namespace vk {
 
 // TODO: Move these defines to a new header file for defines.
 
-typedef enum SpvCooperativeMatrixUse_ {
-    SpvCooperativeMatrixUseMatrixAKHR = 0,
-    SpvCooperativeMatrixUseMatrixBKHR = 1,
-    SpvCooperativeMatrixUseMatrixAccumulatorKHR = 2,
-    SpvCooperativeMatrixUseMax = 0x7fffffff,
-} SpvCooperativeMatrixUse;
+enum CooperativeMatrixUse {
+    CooperativeMatrixUseMatrixAKHR = 0,
+    CooperativeMatrixUseMatrixBKHR = 1,
+    CooperativeMatrixUseMatrixAccumulatorKHR = 2,
+    CooperativeMatrixUseMax = 0x7fffffff,
+};
 
-typedef enum SpvCooperativeMatrixLayout_ {
-    SpvCooperativeMatrixLayoutRowMajorKHR = 0,
-    SpvCooperativeMatrixLayoutColumnMajorKHR = 1,
-    SpvCooperativeMatrixLayoutRowBlockedInterleavedARM = 4202,
-    SpvCooperativeMatrixLayoutColumnBlockedInterleavedARM = 4203,
-    SpvCooperativeMatrixLayoutMax = 0x7fffffff,
-} SpvCooperativeMatrixLayout;
+enum CooperativeMatrixLayout {
+    CooperativeMatrixLayoutRowMajorKHR = 0,
+    CooperativeMatrixLayoutColumnMajorKHR = 1,
+    CooperativeMatrixLayoutRowBlockedInterleavedARM = 4202,
+    CooperativeMatrixLayoutColumnBlockedInterleavedARM = 4203,
+    CooperativeMatrixLayoutMax = 0x7fffffff,
+};
 
-typedef enum SpvMemoryAccessMask_ {
-    SpvMemoryAccessMaskNone = 0,
-    SpvMemoryAccessVolatileMask = 0x00000001,
-    SpvMemoryAccessAlignedMask = 0x00000002,
-    SpvMemoryAccessNontemporalMask = 0x00000004,
-    SpvMemoryAccessMakePointerAvailableMask = 0x00000008,
-    SpvMemoryAccessMakePointerAvailableKHRMask = 0x00000008,
-    SpvMemoryAccessMakePointerVisibleMask = 0x00000010,
-    SpvMemoryAccessMakePointerVisibleKHRMask = 0x00000010,
-    SpvMemoryAccessNonPrivatePointerMask = 0x00000020,
-    SpvMemoryAccessNonPrivatePointerKHRMask = 0x00000020,
-    SpvMemoryAccessAliasScopeINTELMaskMask = 0x00010000,
-    SpvMemoryAccessNoAliasINTELMaskMask = 0x00020000,
-} SpvMemoryAccessMask;
+enum CooperativeMatrixOperandsMask {
+    CooperativeMatrixOperandsMaskNone = 0,
+    CooperativeMatrixOperandsMatrixASignedComponentsKHRMask = 0x00000001,
+    CooperativeMatrixOperandsMatrixBSignedComponentsKHRMask = 0x00000002,
+    CooperativeMatrixOperandsMatrixCSignedComponentsKHRMask = 0x00000004,
+    CooperativeMatrixOperandsMatrixResultSignedComponentsKHRMask = 0x00000008,
+    CooperativeMatrixOperandsSaturatingAccumulationKHRMask = 0x00000010,
+};
 
-typedef enum SpvCooperativeMatrixOperandsMask_ {
-    SpvCooperativeMatrixOperandsMaskNone = 0,
-    SpvCooperativeMatrixOperandsMatrixASignedComponentsKHRMask = 0x00000001,
-    SpvCooperativeMatrixOperandsMatrixBSignedComponentsKHRMask = 0x00000002,
-    SpvCooperativeMatrixOperandsMatrixCSignedComponentsKHRMask = 0x00000004,
-    SpvCooperativeMatrixOperandsMatrixResultSignedComponentsKHRMask = 0x00000008,
-    SpvCooperativeMatrixOperandsSaturatingAccumulationKHRMask = 0x00000010,
-} SpvCooperativeMatrixOperandsMask;
+enum MemoryAccessMask {
+    MemoryAccessMaskNone = 0,
+    MemoryAccessVolatileMask = 0x00000001,
+    MemoryAccessAlignedMask = 0x00000002,
+    MemoryAccessNontemporalMask = 0x00000004,
+    MemoryAccessMakePointerAvailableMask = 0x00000008,
+    MemoryAccessMakePointerAvailableKHRMask = 0x00000008,
+    MemoryAccessMakePointerVisibleMask = 0x00000010,
+    MemoryAccessMakePointerVisibleKHRMask = 0x00000010,
+    MemoryAccessNonPrivatePointerMask = 0x00000020,
+    MemoryAccessNonPrivatePointerKHRMask = 0x00000020,
+    MemoryAccessAliasScopeINTELMaskMask = 0x00010000,
+    MemoryAccessNoAliasINTELMaskMask = 0x00020000,
+};
 
-typedef enum SpvScope_ {
-    SpvScopeCrossDevice = 0,
-    SpvScopeDevice = 1,
-    SpvScopeWorkgroup = 2,
-    SpvScopeSubgroup = 3,
-    SpvScopeInvocation = 4,
-    SpvScopeQueueFamily = 5,
-    SpvScopeQueueFamilyKHR = 5,
-    SpvScopeShaderCallKHR = 6,
-    SpvScopeMax = 0x7fffffff,
-} SpvScope;
+enum Scope {
+    ScopeCrossDevice = 0,
+    ScopeDevice = 1,
+    ScopeWorkgroup = 2,
+    ScopeSubgroup = 3,
+    ScopeInvocation = 4,
+    ScopeQueueFamily = 5,
+    ScopeQueueFamilyKHR = 5,
+    ScopeShaderCallKHR = 6,
+    ScopeMax = 0x7fffffff,
+};
 
 namespace khr {
 
@@ -98,17 +98,17 @@ class CooperativeMatrix {
 template <typename ComponentType, uint scope, uint rows, uint columns>
 using CooperativeMatrixA =
     CooperativeMatrix<ComponentType, scope, rows, columns,
-                      SpvCooperativeMatrixUseMatrixAKHR>;
+                      CooperativeMatrixUseMatrixAKHR>;
 
 template <typename ComponentType, uint scope, uint rows, uint columns>
 using CooperativeMatrixB =
     CooperativeMatrix<ComponentType, scope, rows, columns,
-                      SpvCooperativeMatrixUseMatrixBKHR>;
+                      CooperativeMatrixUseMatrixBKHR>;
 
 template <typename ComponentType, uint scope, uint rows, uint columns>
 using CooperativeMatrixAccumulator =
     CooperativeMatrix<ComponentType, scope, rows, columns,
-                      SpvCooperativeMatrixUseMatrixAccumulatorKHR>;
+                      CooperativeMatrixUseMatrixAccumulatorKHR>;
 
 template <typename ComponentType, uint scope, uint rows, uint columns, uint K>
 CooperativeMatrixAccumulator<ComponentType, scope, rows, columns>

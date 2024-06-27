@@ -14,7 +14,6 @@ StructuredBuffer<float> structured_buffer;
 
 RWStructuredBuffer<TYPE> data;
 
-
 // CHECK: OpCapability CooperativeMatrixKHR
 // CHECK: OpExtension "SPV_KHR_cooperative_matrix"
 
@@ -32,51 +31,48 @@ RWStructuredBuffer<TYPE> data;
 // FLOAT: %spirvIntrinsicType = OpTypeCooperativeMatrixKHR %float %uint_3 %uint_16 %uint_8 %uint_0
 // DOUBLE: %spirvIntrinsicType = OpTypeCooperativeMatrixKHR %double %uint_3 %uint_16 %uint_8 %uint_0
 
-
-
-[numthreads(64, 1, 1)]
-void main() {
+[numthreads(64, 1, 1)] void main() {
   using CoopMat = vk::khr::CooperativeMatrixA<
-      TYPE, vk::SpvScopeSubgroup, 16, 8>;
+      TYPE, vk::ScopeSubgroup, 16, 8>;
 
-// CHECK: [[ac1:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %data %int_0 %uint_0
-// CHECK: [[m:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac1]] %int_1
+  // CHECK: [[ac1:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %data %int_0 %uint_0
+  // CHECK: [[m:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac1]] %int_1
   CoopMat m = CoopMat::LoadColumnMajor(data, 0);
 
-// CHECK: [[len:%[0-9]+]] = OpCooperativeMatrixLengthKHR %uint %spirvIntrinsicType
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %structured_buffer %int_0 [[len]]
-// CHECK: [[n:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_0
+  // CHECK: [[len:%[0-9]+]] = OpCooperativeMatrixLengthKHR %uint %spirvIntrinsicType
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %structured_buffer %int_0 [[len]]
+  // CHECK: [[n:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_0
   uint32_t length = CoopMat::GetLength();
   CoopMat n = CoopMat::LoadRowMajor(structured_buffer, length);
 
-// INTEGERS: [[r:%[0-9]+]] = OpIAdd %spirvIntrinsicType [[m]] [[n]]
-// FLOATS: [[r:%[0-9]+]] = OpFAdd %spirvIntrinsicType [[m]] [[n]]
+  // INTEGERS: [[r:%[0-9]+]] = OpIAdd %spirvIntrinsicType [[m]] [[n]]
+  // FLOATS: [[r:%[0-9]+]] = OpFAdd %spirvIntrinsicType [[m]] [[n]]
   CoopMat r = m + n;
 
-// INTEGERS: [[n:%[0-9]+]] = OpISub %spirvIntrinsicType [[m]] [[r]]
-// FLOATS: [[n:%[0-9]+]] = OpFSub %spirvIntrinsicType [[m]] [[r]]
+  // INTEGERS: [[n:%[0-9]+]] = OpISub %spirvIntrinsicType [[m]] [[r]]
+  // FLOATS: [[n:%[0-9]+]] = OpFSub %spirvIntrinsicType [[m]] [[r]]
   n = m - r;
 
-// INTEGERS: [[m:%[0-9]+]] = OpSNegate %spirvIntrinsicType [[n]]
-// FLOATS: [[m:%[0-9]+]] = OpFNegate %spirvIntrinsicType [[n]]
+  // INTEGERS: [[m:%[0-9]+]] = OpSNegate %spirvIntrinsicType [[n]]
+  // FLOATS: [[m:%[0-9]+]] = OpFNegate %spirvIntrinsicType [[n]]
   m = n.negate();
 
-// INT16: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %short_2
-// INT32: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %int_2
-// INT64: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %long_2
-// UINT16: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %ushort_2
-// UINT32: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %uint_2
-// UINT64: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %ulong_2
-// HALF-DISABLED: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %float_2
-// HALF-ENABLED: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %half_0x1p_1
-// FLOAT: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %float_2
-// DOUBLE: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %double_2
+  // INT16: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %short_2
+  // INT32: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %int_2
+  // INT64: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %long_2
+  // UINT16: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %ushort_2
+  // UINT32: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %uint_2
+  // UINT64: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %ulong_2
+  // HALF-DISABLED: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %float_2
+  // HALF-ENABLED: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %half_0x1p_1
+  // FLOAT: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %float_2
+  // DOUBLE: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %double_2
   r = m * 2.0;
 
-// CHECK: OpCooperativeMatrixStoreKHR [[ac1]] [[r]] %int_0
+  // CHECK: OpCooperativeMatrixStoreKHR [[ac1]] [[r]] %int_0
   r.StoreRowMajor(data, 0);
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %data %int_0 %uint_16
-// CHECK:       OpCooperativeMatrixStoreKHR [[ac]] [[r]] %int_1
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %data %int_0 %uint_16
+  // CHECK:       OpCooperativeMatrixStoreKHR [[ac]] [[r]] %int_1
   r.StoreColumnMajor(data, 16);
 }
