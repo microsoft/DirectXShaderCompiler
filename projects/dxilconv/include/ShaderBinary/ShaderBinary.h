@@ -383,6 +383,7 @@ public: // esp in the unions...it's just redundant to not directly access things
   struct {
     D3D10_SB_OPERAND_INDEX_REPRESENTATION m_IndexType[3];
     D3D10_SB_OPERAND_INDEX_DIMENSION m_IndexDimension;
+#pragma warning(suppress : 4201) // Warning about nameless structure.
   };
 
   friend class CShaderAsm;
