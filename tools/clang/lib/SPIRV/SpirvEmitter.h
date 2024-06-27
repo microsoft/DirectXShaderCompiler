@@ -730,7 +730,7 @@ private:
   uint32_t getRawBufferAlignment(const Expr *expr);
 
   /// Returns a spirv OpCooperativeMatrixLengthKHR instruction generated from a
-  /// call to vk::khr::internal::__builtin_CooperativeMatrixLengthKHR.
+  /// call to __builtin_spv_CooperativeMatrixLengthKHR.
   SpirvInstruction *processCooperativeMatrixGetLength(const CallExpr *call);
 
   /// Process vk::ext_execution_mode intrinsic

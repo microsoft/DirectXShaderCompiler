@@ -532,23 +532,8 @@ bool isVkRawBufferLoadIntrinsic(const clang::FunctionDecl *FD) {
 
 bool isCooperativeMatrixGetLengthIntrinsic(
     const FunctionDecl *functionDeclaration) {
-  if (!functionDeclaration->getName().equals(
-          "__builtin_CooperativeMatrixLengthKHR"))
-    return false;
-
-  auto *nsDecl = dyn_cast<NamespaceDecl>(functionDeclaration->getDeclContext());
-  if (!nsDecl || !nsDecl->getName().equals("internal"))
-    return false;
-
-  nsDecl = dyn_cast<NamespaceDecl>(nsDecl->getDeclContext());
-  if (!nsDecl || !nsDecl->getName().equals("khr"))
-    return false;
-
-  nsDecl = dyn_cast<NamespaceDecl>(nsDecl->getDeclContext());
-  if (!nsDecl || !nsDecl->getName().equals("vk"))
-    return false;
-
-  return true;
+  return functionDeclaration->getName().equals(
+      "__builtin_spv_CooperativeMatrixLengthKHR");
 }
 
 // Takes an AST member type, and determines its index in the equivalent SPIR-V

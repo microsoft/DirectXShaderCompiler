@@ -37,7 +37,7 @@ RWStructuredBuffer<TYPE> data;
 [numthreads(64, 1, 1)]
 void main() {
   using CoopMat = vk::khr::CooperativeMatrixA<
-      TYPE, (int)spv::Scope::Subgroup, 16, 8>;
+      TYPE, vk::SpvScopeSubgroup, 16, 8>;
 
 // CHECK: [[ac1:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_{{.*}} %data %int_0 %uint_0
 // CHECK: [[m:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac1]] %int_1

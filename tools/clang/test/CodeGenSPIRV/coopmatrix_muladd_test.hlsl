@@ -14,9 +14,9 @@ RWStructuredBuffer<int> data;
 // CHECK: [[r:%[0-9]+]] = OpUndef [[typeAc]]
 [numthreads(64, 1, 1)]
 void main() {
-  using IntMatA = vk::khr::CooperativeMatrixA<int, (int)spv::Scope::Subgroup, 16, 4>;
-  using IntMatB = vk::khr::CooperativeMatrixB<int, (int)spv::Scope::Subgroup, 4, 8>;
-  using IntMatAc = vk::khr::CooperativeMatrixAccumulator<int, (int)spv::Scope::Subgroup, 16, 8>;
+  using IntMatA = vk::khr::CooperativeMatrixA<int, vk::SpvScopeSubgroup, 16, 4>;
+  using IntMatB = vk::khr::CooperativeMatrixB<int, vk::SpvScopeSubgroup, 4, 8>;
+  using IntMatAc = vk::khr::CooperativeMatrixAccumulator<int, vk::SpvScopeSubgroup, 16, 8>;
 
 // CHECK: [[a:%[0-9]+]] = OpCooperativeMatrixLoadKHR [[typeA]] {{%[0-9]*}} %int_1
   IntMatA a = IntMatA::LoadColumnMajor(data, 0);

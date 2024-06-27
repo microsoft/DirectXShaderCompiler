@@ -735,7 +735,6 @@ endif()
 if( LLVM_INCLUDE_TESTS )
   add_subdirectory(test)
   add_subdirectory(unittests)
-  add_subdirectory(hlsl-headers/test)
   if (MSVC)
     # This utility is used to prevent crashing tests from calling Dr. Watson on
     # Windows.
