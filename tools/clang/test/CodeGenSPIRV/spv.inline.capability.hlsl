@@ -1,7 +1,7 @@
 // RUN: %dxc -T ps_6_0 -E main -fcgl -Vd %s -spirv | FileCheck %s
 
-// CHECK: OpCapability Int8
-// CHECK: OpCapability SampleMaskPostDepthCoverage
+// CHECK-DAG: OpCapability Int8
+// CHECK-DAG: OpCapability SampleMaskPostDepthCoverage
 
 [[vk::ext_capability(/* SampleMaskPostDepthCoverageCapability */ 4447)]]
 int val;

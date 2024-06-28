@@ -14,7 +14,6 @@
 
 #include "arithmetic_selector.hlsli"
 
-
 template <typename ResultType, typename ComponentType>
 [[vk::ext_instruction(/* OpMatrixTimesScalar */ 143)]] ResultType
 __builtin_spv_MatrixTimesScalar(ResultType a, ComponentType b);
@@ -23,7 +22,7 @@ __builtin_spv_MatrixTimesScalar(ResultType a, ComponentType b);
 template <typename ResultType, typename PointerType>
 [[vk::ext_instruction(
     /* OpCooperativeMatrixLoadKHR */
-    4457)]] [[SPV_KHR_CooperativeMatrix]] ResultType
+    4457)]]  ResultType
 __builtin_spv_CooperativeMatrixLoadKHR(
     [[vk::ext_reference]] PointerType pointer,
     vk::CooperativeMatrixLayout memory_layout);

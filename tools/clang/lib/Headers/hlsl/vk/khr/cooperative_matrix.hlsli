@@ -75,10 +75,6 @@ enum Scope {
 
 namespace khr {
 
-#define SPV_KHR_CooperativeMatrix                                              \
-  vk::ext_extension("SPV_KHR_cooperative_matrix"),                             \
-      vk::ext_capability(/* CooperativeMatrixKHRCapability */ 6022)
-
 template <typename ComponentType, uint scope, uint rows, uint columns, uint use>
 class CooperativeMatrix {
   CooperativeMatrix negate();
@@ -101,11 +97,14 @@ class CooperativeMatrix {
 
   static const bool hasSignedIntegerComponentType =
       (ComponentType(0) - ComponentType(1) < ComponentType(0));
+
   using SpirvMatrixType = vk::SpirvOpaqueType<
       /* OpTypeCooperativeMatrixKHR */ 4456, ComponentType,
       vk::integral_constant<uint, scope>, vk::integral_constant<uint, rows>,
-      vk::integral_constant<uint, columns>, vk::integral_constant<uint, use>>;
+      vk::integral_constant<uint, columns>, vk::integral_constant<uint, use> >;
 
+  [[vk::ext_extension("SPV_KHR_cooperative_matrix")]]
+  [[vk::ext_capability(/* CooperativeMatrixKHRCapability */ 6022)]]
   SpirvMatrixType _matrix;
 };
 

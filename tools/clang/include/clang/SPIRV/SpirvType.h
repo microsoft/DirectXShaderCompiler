@@ -335,6 +335,10 @@ public:
     bool isPrecise;
     // Information about the bitfield (if applicable).
     llvm::Optional<BitfieldInfo> bitfield;
+    // The capabilities associated with this field.
+    llvm::SmallVector<spv::Capability, 2> capabilities;
+    // The extensions associated with this field.
+    llvm::SmallVector<std::string, 2> extensions;
   };
 
   StructType(
@@ -489,10 +493,12 @@ public:
               hlsl::ConstantPacking *packOffset = nullptr,
               const hlsl::RegisterAssignment *regC = nullptr,
               bool precise = false,
-              llvm::Optional<BitfieldInfo> bitfield = llvm::None)
+              llvm::Optional<BitfieldInfo> bitfield = llvm::None,
+              llvm::SmallVector<spv::Capability, 2> caps = {},
+              llvm::SmallVector<std::string, 2> exts = {})
         : astType(astType_), name(name_), vkOffsetAttr(offset),
           packOffsetAttr(packOffset), registerC(regC), isPrecise(precise),
-          bitfield(std::move(bitfield)) {}
+          bitfield(std::move(bitfield)), capabilities(caps), extensions(exts) {}
 
     // The field's type.
     QualType astType;
@@ -509,6 +515,10 @@ public:
     // Whether this field is a bitfield or not. If set to false, bitfield width
     // value is undefined.
     llvm::Optional<BitfieldInfo> bitfield;
+    // The capabilities associated with this field.
+    llvm::SmallVector<spv::Capability, 2> capabilities;
+    // The extensions associated with this field.
+    llvm::SmallVector<std::string, 2> extensions;
   };
 
   HybridStructType(
