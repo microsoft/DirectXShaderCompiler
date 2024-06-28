@@ -8,7 +8,7 @@
 // RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=float %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=FLOAT
 // RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=double %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=DOUBLE
 
-#include "vk/khr/cooperative_matrix.hlsli"
+#include "vk/khr/cooperative_matrix.h"
 
 StructuredBuffer<float> structured_buffer;
 

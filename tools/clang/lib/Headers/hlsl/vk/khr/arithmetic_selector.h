@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef _HLSL_VK_KHR_ARITHMETIC_SELECTOR_H_
+#define _HLSL_VK_KHR_ARITHMETIC_SELECTOR_H_
+
 #define DECLARE_UNARY_OP(name, opcode)                                         \
   template <typename ResultType>                                               \
-  [[vk::ext_instruction(opcode)]] ResultType __builtin_spv_##name(ResultType a)
+  [[vk::ext_instruction(opcode)]] ResultType __builtin_spv_##name(             \
+      ResultType a)
 
 DECLARE_UNARY_OP(SNegate, 126);
 DECLARE_UNARY_OP(FNegate, 127);
@@ -23,8 +27,8 @@ DECLARE_UNARY_OP(FNegate, 127);
 
 #define DECLARE_BINOP(name, opcode)                                            \
   template <typename ResultType>                                               \
-  [[vk::ext_instruction(opcode)]] ResultType __builtin_spv_##name(ResultType a,  \
-                                                                  ResultType b)
+  [[vk::ext_instruction(opcode)]] ResultType __builtin_spv_##name(             \
+      ResultType a, ResultType b)
 
 DECLARE_BINOP(IAdd, 128);
 DECLARE_BINOP(FAdd, 129);
@@ -42,15 +46,14 @@ namespace util {
 
 template <class ComponentType> class ArithmeticSelector;
 
-#define ARITHMETIC_SELECTOR(BaseType, OpNegate, OpAdd, OpSub, OpDiv,                   \
+#define ARITHMETIC_SELECTOR(BaseType, OpNegate, OpAdd, OpSub, OpDiv,           \
                             SIGNED_INTEGER_TYPE)                               \
-  template<>                                                                   \
-  class ArithmeticSelector<BaseType> {                                         \
-    template <class T> static T Negate(T a) { return OpNegate(a); }              \
-    template <class T> static T Add(T a, T b) { return OpAdd(a, b); }            \
-    template <class T> static T Sub(T a, T b) { return OpSub(a, b); }            \
-    template <class T> static T Mul(T a, T b) { return OpMul(a, b); }            \
-    template <class T> static T Div(T a, T b) { return OpDiv(a, b); }            \
+  template <> class ArithmeticSelector<BaseType> {                             \
+    template <class T> static T Negate(T a) { return OpNegate(a); }            \
+    template <class T> static T Add(T a, T b) { return OpAdd(a, b); }          \
+    template <class T> static T Sub(T a, T b) { return OpSub(a, b); }          \
+    template <class T> static T Mul(T a, T b) { return OpMul(a, b); }          \
+    template <class T> static T Div(T a, T b) { return OpDiv(a, b); }          \
   };
 
 ARITHMETIC_SELECTOR(half, __builtin_spv_FNegate, __builtin_spv_FAdd,
@@ -75,3 +78,5 @@ ARITHMETIC_SELECTOR(uint64_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
                     __builtin_spv_ISub, __builtin_spv_SDiv, false);
 } // namespace util
 } // namespace vk
+
+#endif // _HLSL_VK_KHR_ARITHMETIC_SELECTOR_H_
