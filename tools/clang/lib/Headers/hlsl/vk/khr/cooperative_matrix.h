@@ -61,10 +61,12 @@ class CooperativeMatrix {
   static const bool hasSignedIntegerComponentType =
       (ComponentType(0) - ComponentType(1) < ComponentType(0));
 
+  // clang-format off
   using SpirvMatrixType = vk::SpirvOpaqueType<
       /* OpTypeCooperativeMatrixKHR */ 4456, ComponentType,
       vk::integral_constant<uint, scope>, vk::integral_constant<uint, rows>,
       vk::integral_constant<uint, columns>, vk::integral_constant<uint, use> >;
+  // pragma clang-format on
 
   [[vk::ext_extension("SPV_KHR_cooperative_matrix")]] [[vk::ext_capability(
       /* CooperativeMatrixKHRCapability */ 6022)]] SpirvMatrixType _matrix;
