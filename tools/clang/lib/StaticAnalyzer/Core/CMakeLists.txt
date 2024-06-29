@@ -42,7 +42,6 @@ add_clang_library(clangStaticAnalyzerCore
 
   LINK_LIBS
   clangAST
-  clangAnalysis
   clangBasic
   clangLex
   clangRewrite

@@ -62,7 +62,6 @@ add_clang_library(clangSema
 
   LINK_LIBS
   clangAST
-  clangAnalysis
   clangBasic
   clangEdit
   clangLex

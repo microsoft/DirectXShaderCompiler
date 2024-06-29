@@ -1,10 +1,19 @@
 set(LLVM_LINK_COMPONENTS ScalarOpts support)
 
+# Merged AST and Analysis into one, since they have a circular dependency, no bueno.
+
 set (HLSL_IGNORE_SOURCES
   NSAPI.cpp
+  ../Analysis/CocoaConventions.cpp
+  ../Analysis/FormatString.cpp
+  ../Analysis/PrintfFormatString.cpp
+  ../Analysis/ScanfFormatString.cpp
   )
 
 add_clang_library(clangAST
+
+  # AST
+
   APValue.cpp
   ASTConsumer.cpp
   ASTContext.cpp
@@ -62,6 +71,29 @@ add_clang_library(clangAST
   TypePrinter.cpp
   VTableBuilder.cpp
   VTTBuilder.cpp
+
+  # Analysis
+
+  ../Analysis/AnalysisDeclContext.cpp
+  ../Analysis/BodyFarm.cpp
+  ../Analysis/CFG.cpp
+  ../Analysis/CFGReachabilityAnalysis.cpp
+  ../Analysis/CFGStmtMap.cpp
+  ../Analysis/CallGraph.cpp
+  ../Analysis/Consumed.cpp
+  ../Analysis/CodeInjector.cpp
+  ../Analysis/Dominators.cpp
+  ../Analysis/LiveVariables.cpp
+  ../Analysis/ObjCNoReturn.cpp
+  ../Analysis/PostOrderCFGView.cpp
+  ../Analysis/ProgramPoint.cpp
+  ../Analysis/PseudoConstantAnalysis.cpp
+  ../Analysis/ReachableCode.cpp
+  ../Analysis/ThreadSafety.cpp
+  ../Analysis/ThreadSafetyCommon.cpp
+  ../Analysis/ThreadSafetyLogical.cpp
+  ../Analysis/ThreadSafetyTIL.cpp
+  ../Analysis/UninitializedValues.cpp
 
   LINK_LIBS
   clangCodeGen
