@@ -19,6 +19,10 @@ if(UNIX AND NOT APPLE)
 	endif()
 endif()
 
+if(NOT WIN32)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 if(POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW) # automatic when 2.8.12 is required
 endif()
