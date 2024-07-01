@@ -995,6 +995,20 @@ bool isRWAppendConsumeSBuffer(QualType type) {
          isAppendStructuredBuffer(type);
 }
 
+bool isResourceDescriptorHeap(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == ".Resource";
+  }
+  return false;
+}
+
+bool isSamplerDescriptorHeap(QualType type) {
+  if (const auto *rt = type->getAs<RecordType>()) {
+    return rt->getDecl()->getName() == ".Sampler";
+  }
+  return false;
+}
+
 bool isAKindOfStructuredOrByteBuffer(QualType type) {
   // Strip outer arrayness first
   while (type->isArrayType())
@@ -1007,7 +1021,8 @@ bool isAKindOfStructuredOrByteBuffer(QualType type) {
            name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
            name == "RasterizerOrderedByteAddressBuffer" ||
            name == "AppendStructuredBuffer" ||
-           name == "ConsumeStructuredBuffer";
+           name == "ConsumeStructuredBuffer" || name == ".Resource" ||
+           name == ".Sampler";
   }
   return false;
 }
@@ -1022,7 +1037,8 @@ bool isOrContainsAKindOfStructuredOrByteBuffer(QualType type) {
         name == "RasterizerOrderedStructuredBuffer" ||
         name == "ByteAddressBuffer" || name == "RWByteAddressBuffer" ||
         name == "RasterizerOrderedByteAddressBuffer" ||
-        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer")
+        name == "AppendStructuredBuffer" || name == "ConsumeStructuredBuffer" ||
+        name == ".Resource" || name == ".Sampler")
       return true;
 
     for (const auto *field : recordType->getDecl()->fields()) {

@@ -1708,6 +1708,12 @@ for Vulkan, it is done via descriptor set and binding numbers. The developer
 can explicitly annotate variables in HLSL to specify descriptor set and binding
 numbers, or leave it to the compiler to derive implicitly from registers.
 
+.. warning::
+   Implicit binding number assignment cannot be used when
+   ResourceDescriptorHeaps/SamplerDescriptorHeaps are in use.
+   Either access resources only through heaps, or use the explicit binding
+   number assignment.
+
 Explicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1720,6 +1726,17 @@ will occupy their own Vulkan descriptors. ``[vk::counter_binding(Z)]`` can be
 attached to a RW/append/consume structured buffers to specify the binding number
 for the associated counter to ``Z``. Note that the set number of the counter is
 always the same as the main buffer.
+
+.. warning::
+   When a RW/append/consume structured buffer is accessed through a resource
+   heap, its associated counter bound to the descriptor set 1, and its binding
+   index matches the buffer's binding index.
+
+   Using implicit binding assignment while using resource heaps is not
+   allowed.
+   If heaps are in use, and a global buffer is also declared, both the
+   buffer's and counter's bindings must be explicitely defined.
+
 
 Implicit binding number assignment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1922,6 +1939,65 @@ Example 3: (compiled with ``-fvk-bind-globals 2 1``)
 
 Note that if the developer chooses to use this command line option, it is their
 responsibility to provide proper numbers and avoid binding overlaps.
+
+ResourceDescriptorHeaps & SamplerDescriptorHeaps
+------------------------------------------------
+
+The SPIR-V backend supported SM6.6 resource heaps, using 2 extensions:
+- `SPV_EXT_descriptor_indexing`
+- `VK_EXT_mutable_descriptor_type`
+
+The descriptor 0 is used to address resources in both the sampler and resource
+heaps. The binding index is the index used to subscript in the heap.
+
+.. code:: hlsl
+   Texture2D tex = ResourceDescriptorHeap[10];
+   // tex is in the descriptor set 0, binding 10.
+
+For resources with counters, like RW/Append/Consume structured buffers, a
+second descriptor set is used. This set contains only the counters associated
+with each resource. The binding number of the counter always matches the
+binding number of the resource.
+
+.. code:: hlsl
+   RWStructuredBuffer buffer = ResourceDescriptorHeap[2];
+   // buffer is in the descriptor set 0, binding 2.
+   // the counter is in the descriptor set 1, binding 2.
+
+
+Because resource heaps reserve up to 2 descriptors, it would conflict with
+the implicit binding assignment. For this reason, using both resource heaps
+and implicit binding assignment is forbidden.
+
+It is however allowed to use both heaps and explicit binding assignment, as
+long as both the resource, and the associated counter (if any), uses the
+explicit binding assignment.
+
+.. code:: hlsl
+   RWStructuredBuffer<uint> buffer1; // ILLEGAL: using implicit bindings.
+
+   [[vk::binding(0, 2)]]
+   Texture2D texture1; // OK: explicit bindings used.
+
+   [[vk::binding(1, 1)]]
+   RWStructuredBuffer<uint> buffer2; // OK: no explicit binding for counter,
+                                     // but the counter is unused, hence not
+                                     // generated.
+
+   [[vk::binding(1, 1)]]
+   RWStructuredBuffer<uint> buffer3; // ILLEGAL: using implicit bindings for
+                                     // the used counter.
+
+   [[vk::binding(0, 3), vk::counter_binding(1)]]
+   RWStructuredBuffer<uint> buffer4; // OK: explicit bindings used.
+
+   [numthreads(1, 1, 1)]
+   void main() {
+       Texture2D T = ResourceDescriptorHeap[10]; // Heaps in use.
+
+       buffer3.IncrementCounter();
+       buffer4.IncrementCounter();
+   }
 
 HLSL Expressions
 ================
