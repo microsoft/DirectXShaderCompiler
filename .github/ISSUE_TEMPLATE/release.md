@@ -44,7 +44,7 @@ we are confident we can generate builds for the new branch
 ## Quality Sign Off
 
 - [ ] Microsoft Testing Sign-off (@pow2clk)
-- [ ] Google Testing Sign-off (@sudonatalie)
+- [ ] Google Testing Sign-off (TBD)
 
 ## Release
 
