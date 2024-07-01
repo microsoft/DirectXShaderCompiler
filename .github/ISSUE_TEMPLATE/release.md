@@ -26,6 +26,7 @@ This part of the release process is to 'prime the pump' - that is to make sure
 that all the various parts of the engineering system are set into place so that
 we are confident we can generate builds for the new branch
 
+- [ ] Update version number
 - [ ] Create the release branch from `main`
     - The release branch is kept into sync with main via regular fast-forward
       merges.
