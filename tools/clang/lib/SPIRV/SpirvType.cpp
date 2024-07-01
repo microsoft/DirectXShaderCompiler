@@ -211,7 +211,8 @@ bool StructType::FieldInfo::operator==(
          // Both should have the same precision
          isRelaxedPrecision == that.isRelaxedPrecision &&
          // Both fields should be precise or not precise
-         isPrecise == that.isPrecise;
+         isPrecise == that.isPrecise && capabilities == that.capabilities &&
+         extensions == that.extensions;
 }
 
 bool StructType::operator==(const StructType &that) const {

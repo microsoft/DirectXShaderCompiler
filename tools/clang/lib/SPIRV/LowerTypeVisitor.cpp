@@ -1085,13 +1085,26 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
           field->getBitWidthValue(field->getASTContext());
     }
 
+    llvm::SmallVector<spv::Capability, 2> capabilities;
+    llvm::SmallVector<std::string, 2> extensions;
+    if (field->hasAttrs()) {
+      for (auto &attr : field->getAttrs()) {
+        if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
+          capabilities.push_back(
+              static_cast<spv::Capability>(capAttr->getCapability()));
+        } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
+          extensions.push_back(extAttr->getName());
+        }
+      }
+    }
+
     fields.push_back(HybridStructType::FieldInfo(
         field->getType(), field->getName(),
         /*vkoffset*/ field->getAttr<VKOffsetAttr>(),
         /*packoffset*/ getPackOffset(field),
         /*RegisterAssignment*/ nullptr,
         /*isPrecise*/ field->hasAttr<HLSLPreciseAttr>(),
-        /*bitfield*/ bitfieldInfo));
+        /*bitfield*/ bitfieldInfo, capabilities, extensions));
   }
 
   return populateLayoutInformation(fields, rule);
@@ -1168,6 +1181,9 @@ LowerTypeVisitor::lowerField(const HybridStructType::FieldInfo *field,
   StructType::FieldInfo loweredField(
       lowerType(fieldType, rule, /*isRowMajor*/ llvm::None, {}), fieldIndex,
       field->name);
+
+  loweredField.capabilities = field->capabilities;
+  loweredField.extensions = field->extensions;
 
   // Set RelaxedPrecision information for the lowered field.
   if (isRelaxedPrecisionType(fieldType, spvOptions)) {

@@ -222,8 +222,15 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
         addCapability(spv::Capability::StorageUniformBufferBlock16);
       }
     }
-    for (auto field : structType->getFields())
+    for (auto field : structType->getFields()) {
+      for (auto capability : field.capabilities) {
+        addCapability(capability);
+      }
+      for (StringRef extension : field.extensions) {
+        spvBuilder.requireExtension(extension, loc);
+      }
       addCapabilityForType(field.type, loc, sc);
+    }
   }
 }
 
