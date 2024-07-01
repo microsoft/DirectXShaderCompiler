@@ -167,7 +167,14 @@ namespace {
     static const unsigned GlobalReassociateLimit = 10;
     static const unsigned NumBinaryOps =
         Instruction::BinaryOpsEnd - Instruction::BinaryOpsBegin;
-    DenseMap<std::pair<Value *, Value *>, unsigned> PairMap[NumBinaryOps];
+
+    struct PairMapValue {
+      WeakVH Value1;
+      WeakVH Value2;
+      unsigned Score;
+      bool isValid() const { return Value1 && Value2; }
+    };
+    DenseMap<std::pair<Value *, Value *>, PairMapValue> PairMap[NumBinaryOps];
 
     bool MadeChange;
   public:
@@ -1134,7 +1141,7 @@ static unsigned FindInOperandList(SmallVectorImpl<ValueEntry> &Ops, unsigned i,
 /// Emit a tree of add instructions, summing Ops together
 /// and returning the result.  Insert the tree before I.
 static Value *EmitAddTreeOfValues(Instruction *I,
-                                  SmallVectorImpl<WeakVH> &Ops){
+                                  SmallVectorImpl<WeakTrackingVH> &Ops) {
   if (Ops.size() == 1) return Ops.back();
 
   Value *V1 = Ops.back();
@@ -1699,7 +1706,7 @@ Value *Reassociate::OptimizeAdd(Instruction *I,
             ? BinaryOperator::CreateAdd(MaxOccVal, MaxOccVal)
             : BinaryOperator::CreateFAdd(MaxOccVal, MaxOccVal);
 
-    SmallVector<WeakVH, 4> NewMulOps;
+    SmallVector<WeakTrackingVH, 4> NewMulOps;
     for (unsigned i = 0; i != Ops.size(); ++i) {
       // Only try to remove factors from expressions we're allowed to.
       BinaryOperator *BOp =
@@ -2286,8 +2293,16 @@ void Reassociate::ReassociateExpression(BinaryOperator *I) {
         if (std::less<Value *>()(Op1, Op0))
           std::swap(Op0, Op1);
         auto it = PairMap[Idx].find({Op0, Op1});
-        if (it != PairMap[Idx].end())
-          Score += it->second;
+        if (it != PairMap[Idx].end()) {
+          // Functions like BreakUpSubtract() can erase the Values we're using
+          // as keys and create new Values after we built the PairMap. There's a
+          // small chance that the new nodes can have the same address as
+          // something already in the table. We shouldn't accumulate the stored
+          // score in that case as it refers to the wrong Value.
+          if (it->second.isValid()) {
+            Score += it->second.Score;
+          }
+        }
 
         unsigned MaxRank = std::max(Ops[i].Rank, Ops[j].Rank);
         if (Score > Max || (Score == Max && MaxRank < BestRank)) {
@@ -2305,6 +2320,7 @@ void Reassociate::ReassociateExpression(BinaryOperator *I) {
       Ops.push_back(Op1);
     }
   }
+
   // Now that we ordered and optimized the expressions, splat them back into
   // the expression tree, removing any unneeded nodes.
   RewriteExprTree(I, Ops);
@@ -2355,9 +2371,15 @@ void Reassociate::BuildPairMap(ReversePostOrderTraversal<Function *> &RPOT) {
             std::swap(Op0, Op1);
           if (!Visited.insert({Op0, Op1}).second)
             continue;
-          auto res = PairMap[BinaryIdx].insert({{Op0, Op1}, 1});
-          if (!res.second)
-            ++res.first->second;
+          auto res = PairMap[BinaryIdx].insert({{Op0, Op1}, {Op0, Op1, 1}});
+          if (!res.second) {
+            // If either key value has been erased then we've got the same
+            // address by coincidence. That can't happen here because nothing is
+            // erasing values but it can happen by the time we're querying the
+            // map.
+            assert(res.first->second.isValid() && "WeakVH invalidated");
+            ++res.first->second.Score;
+          }
         }
       }
     }

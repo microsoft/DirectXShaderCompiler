@@ -1006,6 +1006,13 @@ bool EmitVisitor::visit(SpirvConstantNull *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvUndef *inst) {
+  typeHandler.getOrCreateUndef(inst);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvCompositeConstruct *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
@@ -2010,6 +2017,8 @@ uint32_t EmitTypeHandler::getOrCreateConstant(SpirvConstant *inst) {
     return getOrCreateConstantNull(constNull);
   } else if (auto *constBool = dyn_cast<SpirvConstantBoolean>(inst)) {
     return getOrCreateConstantBool(constBool);
+  } else if (auto *constUndef = dyn_cast<SpirvUndef>(inst)) {
+    return getOrCreateUndef(constUndef);
   }
 
   llvm_unreachable("cannot emit unknown constant type");
@@ -2067,6 +2076,31 @@ uint32_t EmitTypeHandler::getOrCreateConstantNull(SpirvConstantNull *inst) {
     emittedConstantNulls.push_back(inst);
   }
 
+  return inst->getResultId();
+}
+
+uint32_t EmitTypeHandler::getOrCreateUndef(SpirvUndef *inst) {
+  auto canonicalType = inst->getAstResultType().getCanonicalType();
+  auto found = std::find_if(
+      emittedUndef.begin(), emittedUndef.end(),
+      [canonicalType](SpirvUndef *cached) {
+        return cached->getAstResultType().getCanonicalType() == canonicalType;
+      });
+
+  if (found != emittedUndef.end()) {
+    // We have already emitted this constant. Reuse.
+    inst->setResultId((*found)->getResultId());
+    return inst->getResultId();
+  }
+
+  // Constant wasn't emitted in the past.
+  const uint32_t typeId = emitType(inst->getResultType());
+  initTypeInstruction(inst->getopcode());
+  curTypeInst.push_back(typeId);
+  curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  finalizeTypeInstruction();
+  // Remember this constant for the future
+  emittedUndef.push_back(inst);
   return inst->getResultId();
 }
 

@@ -447,7 +447,7 @@ bool llvm::SimplifyInstructionsInBlock(BasicBlock *BB,
     assert(!BI->isTerminator());
     Instruction *Inst = BI++;
 
-    WeakVH BIHandle(BI);
+    WeakTrackingVH BIHandle(BI);
     if (recursivelySimplifyInstruction(Inst, TLI)) {
       MadeChange = true;
       if (BIHandle != BI)
@@ -488,7 +488,7 @@ void llvm::RemovePredecessorAndSimplify(BasicBlock *BB, BasicBlock *Pred) {
   // that can be removed.
   BB->removePredecessor(Pred, true);
 
-  WeakVH PhiIt = &BB->front();
+  WeakTrackingVH PhiIt = &BB->front();
   while (PHINode *PN = dyn_cast<PHINode>(PhiIt)) {
     PhiIt = &*++BasicBlock::iterator(cast<Instruction>(PhiIt));
     Value *OldPhiIt = PhiIt;

@@ -1370,9 +1370,9 @@ bool CodeGenPrepare::OptimizeCallInst(CallInst *CI, bool& ModifiedDT) {
       Constant *RetVal = ConstantInt::get(ReturnTy, Min ? 0 : -1ULL);
 
       // Substituting this can cause recursive simplifications, which can
-      // invalidate our iterator.  Use a WeakVH to hold onto it in case this
-      // happens.
-      WeakVH IterHandle(CurInstIterator);
+      // invalidate our iterator.  Use WeakTrackingVH to hold onto it in case
+      // this happens.
+      WeakTrackingVH IterHandle(CurInstIterator);
 
       replaceAndRecursivelySimplify(CI, RetVal,
                                     TLInfo, nullptr);
@@ -3531,8 +3531,8 @@ bool CodeGenPrepare::OptimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
   // using it.
   if (Repl->use_empty()) {
     // This can cause recursive deletion, which can invalidate our iterator.
-    // Use a WeakVH to hold onto it in case this happens.
-    WeakVH IterHandle(CurInstIterator);
+    // Use a WeakTrackingVH to hold onto it in case this happens.
+    WeakTrackingVH IterHandle(CurInstIterator);
     BasicBlock *BB = CurInstIterator->getParent();
 
     RecursivelyDeleteTriviallyDeadInstructions(Repl, TLInfo);

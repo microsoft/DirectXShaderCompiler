@@ -744,11 +744,12 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
-  if (spirvOptions.debugInfoRich) {
-    emitWarning("Member functions will not be linked to their class in the "
-                "debug information. "
-                "See https://github.com/KhronosGroup/SPIRV-Registry/issues/203",
-                {});
+  if (spirvOptions.debugInfoRich && !spirvOptions.debugInfoVulkan) {
+    emitWarning(
+        "Member functions will not be linked to their class in the "
+        "debug information. Prefer using -fspv-debug=vulkan-with-source. "
+        "See https://github.com/KhronosGroup/SPIRV-Registry/issues/203",
+        {});
   }
 
   TranslationUnitDecl *tu = context.getTranslationUnitDecl();
@@ -927,6 +928,23 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
                  "with source code if possible",
                  {});
         return;
+      }
+    }
+
+    // Fixup debug instruction opcodes: change the opcode to
+    // OpExtInstWithForwardRefsKHR is the instruction at least one forward
+    // reference.
+    if (spirvOptions.debugInfoRich) {
+      std::string messages;
+      if (!spirvToolsFixupOpExtInst(&m, &messages)) {
+        emitFatalError("failed to fix OpExtInst opcodes: %0", {}) << messages;
+        emitNote("please file a bug report on "
+                 "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+                 "with source code if possible",
+                 {});
+        return;
+      } else if (!messages.empty()) {
+        emitWarning("SPIR-V fix-opextinst-opcodes: %0", {}) << messages;
       }
     }
 
@@ -1517,10 +1535,9 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
         spvBuilder.createReturn(returnLoc);
       } else {
         // If the source code does not provide a proper return value for some
-        // control flow path, it's undefined behavior. We just return null
-        // value here.
-        spvBuilder.createReturnValue(spvBuilder.getConstantNull(retType),
-                                     returnLoc);
+        // control flow path, it's undefined behavior. We just return an
+        // undefined value here.
+        spvBuilder.createReturnValue(spvBuilder.getUndef(retType), returnLoc);
       }
     }
   }
@@ -4013,6 +4030,15 @@ SpirvEmitter::processBufferTextureGetDimensions(const CXXMemberCallExpr *expr) {
   }
   if (isTextureMS(type)) {
     numSamples = expr->getArg(numArgs - 1);
+  }
+
+  // Make sure that all output args are an l-value.
+  for (uint32_t argIdx = (mipLevel ? 1 : 0); argIdx < numArgs; ++argIdx) {
+    if (!expr->getArg(argIdx)->isLValue()) {
+      emitError("Output argument must be an l-value",
+                expr->getArg(argIdx)->getExprLoc());
+      return nullptr;
+    }
   }
 
   uint32_t querySize = numArgs;
@@ -14237,6 +14263,7 @@ SpirvEmitter::loadDataFromRawAddress(SpirvInstruction *addressInUInt64,
   SpirvUnaryOp *address = spvBuilder.createUnaryOp(
       spv::Op::OpBitcast, bufferPtrType, addressInUInt64, loc);
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  address->setLayoutRule(spirvOptions.sBufferLayoutRule);
 
   SpirvLoad *loadInst =
       dyn_cast<SpirvLoad>(spvBuilder.createLoad(bufferType, address, loc));
@@ -14265,6 +14292,7 @@ SpirvEmitter::storeDataToRawAddress(SpirvInstruction *addressInUInt64,
   if (!address)
     return nullptr;
   address->setStorageClass(spv::StorageClass::PhysicalStorageBuffer);
+  address->setLayoutRule(spirvOptions.sBufferLayoutRule);
 
   // If the source value has a different layout, it is not safe to directly
   // store it. It needs to be component-wise reconstructed to the new layout.
@@ -14415,6 +14443,8 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
   } else {
     options.SetRelaxBlockLayout(true);
   }
+  options.SetUniversalLimit(spv_validator_limit_max_id_bound,
+                            spirvOptions.maxId);
 
   return tools.Validate(mod->data(), mod->size(), options);
 }
@@ -14471,6 +14501,30 @@ SpirvEmitter::createFunctionScopeTempFromParameter(const ParmVarDecl *param) {
   return tempVar;
 }
 
+bool SpirvEmitter::spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
+                                            std::string *messages) {
+  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
+  optimizer.SetMessageConsumer(
+      [messages](spv_message_level_t /*level*/, const char * /*source*/,
+                 const spv_position_t & /*position*/,
+                 const char *message) { *messages += message; });
+
+  string::RawOstreamBuf printAllBuf(llvm::errs());
+  std::ostream printAllOS(&printAllBuf);
+  if (spirvOptions.printAll)
+    optimizer.SetPrintAll(&printAllOS);
+
+  spvtools::OptimizerOptions options;
+  options.set_run_validator(false);
+  options.set_preserve_bindings(spirvOptions.preserveBindings);
+  options.set_max_id_bound(spirvOptions.maxId);
+
+  optimizer.RegisterPass(
+      spvtools::CreateOpExtInstWithForwardReferenceFixupPass());
+
+  return optimizer.Run(mod->data(), mod->size(), mod, options);
+}
+
 bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
                                               std::string *messages) {
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
@@ -14487,6 +14541,7 @@ bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
   options.set_preserve_bindings(spirvOptions.preserveBindings);
+  options.set_max_id_bound(spirvOptions.maxId);
 
   optimizer.RegisterPass(spvtools::CreateTrimCapabilitiesPass());
 
@@ -14509,6 +14564,7 @@ bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
   options.set_preserve_bindings(spirvOptions.preserveBindings);
+  options.set_max_id_bound(spirvOptions.maxId);
 
   if (spirvOptions.optConfig.empty()) {
     // Add performance passes.
@@ -14550,6 +14606,8 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   spvtools::OptimizerOptions options;
   options.set_run_validator(false);
   options.set_preserve_bindings(spirvOptions.preserveBindings);
+  options.set_max_id_bound(spirvOptions.maxId);
+
   // Add interface variable SROA if the signature packing is enabled.
   if (spirvOptions.signaturePacking) {
     optimizer.RegisterPass(

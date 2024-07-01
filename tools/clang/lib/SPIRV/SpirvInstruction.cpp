@@ -57,6 +57,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUndef)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeConstruct)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeInsert)
@@ -540,6 +541,11 @@ bool SpirvConstant::operator==(const SpirvConstant &that) const {
     if (thatNullInst == nullptr)
       return false;
     return *nullInst == *thatNullInst;
+  } else if (auto *nullInst = dyn_cast<SpirvUndef>(this)) {
+    auto *thatNullInst = dyn_cast<SpirvUndef>(&that);
+    if (thatNullInst == nullptr)
+      return false;
+    return *nullInst == *thatNullInst;
   }
 
   assert(false && "operator== undefined for SpirvConstant subclass");
@@ -609,6 +615,15 @@ SpirvConstantNull::SpirvConstantNull(QualType type)
     : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
 
 bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
+  return opcode == that.opcode && resultType == that.resultType &&
+         astResultType == that.astResultType;
+}
+
+SpirvUndef::SpirvUndef(QualType type)
+    : SpirvInstruction(IK_Undef, spv::Op::OpUndef, type,
+                       /*SourceLocation*/ {}) {}
+
+bool SpirvUndef::operator==(const SpirvUndef &that) const {
   return opcode == that.opcode && resultType == that.resultType &&
          astResultType == that.astResultType;
 }

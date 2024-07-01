@@ -2,9 +2,9 @@
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 # Builds dxl.exe
 
-if (WIN32)
+if (MSVC)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
-endif (WIN32)
+endif (MSVC)
 
 set( LLVM_LINK_COMPONENTS
   ${LLVM_TARGETS_TO_BUILD}
@@ -26,9 +26,9 @@ target_link_libraries(dxl
 
 set_target_properties(dxl PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 
-if (WIN32)
+if (MSVC)
   include_directories(AFTER ${DIASDK_INCLUDE_DIRS})
-endif (WIN32)
+endif (MSVC)
 
 include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools)
 

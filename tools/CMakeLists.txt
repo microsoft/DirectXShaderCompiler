@@ -21,10 +21,10 @@ add_llvm_tool_subdirectory(llvm-dis) # HLSL Change
 # add_llvm_tool_subdirectory(llvm-mc) # HLSL Change
 
 # HLSL Change Begins
-if (WIN32)
+if (MSVC)
 # This target can currently only be built on Windows.
 add_llvm_tool_subdirectory(dxexp)
-endif (WIN32)
+endif (MSVC)
 # HLSL Change ends
 
 # add_llvm_tool_subdirectory(llc) # HLSL Change

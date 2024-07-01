@@ -35,12 +35,12 @@ add_subdirectory(dxr)
 add_subdirectory(dxv)
 
 # These targets can currently only be built on Windows.
-if (WIN32)
+if (MSVC)
 add_subdirectory(d3dcomp)
 add_subdirectory(dxrfallbackcompiler)
 add_subdirectory(dxlib-sample)
 # UI powered by .NET.
 add_subdirectory(dotnetc)
-endif (WIN32)
+endif (MSVC)
 # HLSL Change Ends
 endif()

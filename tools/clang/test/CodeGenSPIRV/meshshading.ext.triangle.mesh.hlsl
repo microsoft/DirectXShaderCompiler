@@ -3,9 +3,9 @@
 // CHECK:  OpExtension "SPV_EXT_mesh_shader"
 // CHECK:  OpEntryPoint MeshEXT %main "main" %gl_ClipDistance %gl_CullDistance %in_var_pld [[drawid:%[0-9]+]] %gl_LocalInvocationID %gl_WorkGroupID %gl_GlobalInvocationID %gl_LocalInvocationIndex %gl_Position %gl_PointSize %out_var_USER %out_var_USER_ARR %out_var_USER_MAT [[primindices:%[0-9]+]] %gl_PrimitiveID %gl_Layer %gl_ViewportIndex [[cullprim:%[0-9]+]] [[primshadingrate:%[0-9]+]] %out_var_PRIM_USER %out_var_PRIM_USER_ARR
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
-// CHECK:  OpExecutionMode %main OutputTrianglesNV
+// CHECK:  OpExecutionMode %main OutputTrianglesEXT
 // CHECK:  OpExecutionMode %main OutputVertices 64
-// CHECK:  OpExecutionMode %main OutputPrimitivesNV 81
+// CHECK:  OpExecutionMode %main OutputPrimitivesEXT 81
 
 // CHECK:  OpDecorate %gl_ClipDistance BuiltIn ClipDistance
 // CHECK:  OpDecorate %gl_CullDistance BuiltIn CullDistance
@@ -18,17 +18,17 @@
 // CHECK:  OpDecorate %gl_PointSize BuiltIn PointSize
 // CHECK:  OpDecorate [[primindices]] BuiltIn PrimitiveTriangleIndicesEXT
 // CHECK:  OpDecorate %gl_PrimitiveID BuiltIn PrimitiveId
-// CHECK:  OpDecorate %gl_PrimitiveID PerPrimitiveNV
+// CHECK:  OpDecorate %gl_PrimitiveID PerPrimitiveEXT
 // CHECK:  OpDecorate %gl_Layer BuiltIn Layer
-// CHECK:  OpDecorate %gl_Layer PerPrimitiveNV
+// CHECK:  OpDecorate %gl_Layer PerPrimitiveEXT
 // CHECK:  OpDecorate %gl_ViewportIndex BuiltIn ViewportIndex
-// CHECK:  OpDecorate %gl_ViewportIndex PerPrimitiveNV
+// CHECK:  OpDecorate %gl_ViewportIndex PerPrimitiveEXT
 // CHECK:  OpDecorate [[cullprim]] BuiltIn CullPrimitiveEXT
-// CHECK:  OpDecorate [[cullprim]] PerPrimitiveNV
+// CHECK:  OpDecorate [[cullprim]] PerPrimitiveEXT
 // CHECK:  OpDecorate [[primshadingrate]] BuiltIn PrimitiveShadingRateKHR
-// CHECK:  OpDecorate [[primshadingrate]] PerPrimitiveNV
-// CHECK:  OpDecorate %out_var_PRIM_USER PerPrimitiveNV
-// CHECK:  OpDecorate %out_var_PRIM_USER_ARR PerPrimitiveNV
+// CHECK:  OpDecorate [[primshadingrate]] PerPrimitiveEXT
+// CHECK:  OpDecorate %out_var_PRIM_USER PerPrimitiveEXT
+// CHECK:  OpDecorate %out_var_PRIM_USER_ARR PerPrimitiveEXT
 // CHECK:  OpDecorate %out_var_USER Location 0
 // CHECK:  OpDecorate %out_var_USER_ARR Location 1
 // CHECK:  OpDecorate %out_var_USER_MAT Location 3

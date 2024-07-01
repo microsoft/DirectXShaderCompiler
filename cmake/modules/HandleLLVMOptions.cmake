@@ -195,12 +195,13 @@ if( LLVM_ENABLE_PIC )
     # Xcode has -mdynamic-no-pic on by default, which overrides -fPIC. I don't
     # know how to disable this, so just force ENABLE_PIC off for now.
     message(WARNING "-fPIC not supported with Xcode.")
-  elseif( WIN32 OR CYGWIN)
-    # On Windows all code is PIC. MinGW warns if -fPIC is used.
   else()
-    add_flag_or_print_warning("-fPIC" FPIC)
+    if( NOT WIN32 AND NOT CYGWIN )
+      # On Windows all code is PIC. MinGW warns if -fPIC is used.
+      add_flag_or_print_warning("-fPIC" FPIC)
+    endif()
 
-    if( WIN32 OR CYGWIN)
+    if( (MINGW AND NOT CLANG) OR CYGWIN )
       # MinGW warns if -fvisibility-inlines-hidden is used.
     else()
       check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
@@ -406,6 +407,15 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
 
     # Disable unknown pragma warnings because the output is just too long with them.
     append("-Wno-unknown-pragmas" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+
+    if (MINGW)
+      append("-Wno-implicit-fallthrough" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wno-missing-exception-spec" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wno-reorder-ctor" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wno-sign-compare" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wno-unused-const-variable" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wno-unused-function" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    endif()
 
     add_flag_if_supported("-Wno-unused-but-set-variable" UNUSED_BUT_SET_VARIABLE)
     add_flag_if_supported("-Wno-deprecated-copy" DEPRECATED_COPY)
@@ -614,6 +624,15 @@ if(LLVM_ENABLE_EH AND NOT LLVM_ENABLE_RTTI)
   message(FATAL_ERROR "Exception handling requires RTTI. You must set LLVM_ENABLE_RTTI to ON")
 endif()
 
+if (MINGW)
+  if (LLVM_ENABLE_EH)
+    append("-fexceptions" CMAKE_CXX_FLAGS)
+  endif()
+  if (LLVM_ENABLE_RTTI)
+    append("-frtti" CMAKE_CXX_FLAGS)
+  endif()
+endif()
+
 # HLSL Change Begin
 option(LLVM_ENABLE_LTO "Enable building with LTO" ${HLSL_OFFICIAL_BUILD})
 if (LLVM_ENABLE_LTO)
@@ -624,7 +643,7 @@ if (LLVM_ENABLE_LTO)
     append("/GL" CMAKE_C_FLAGS${_SUFFIX} CMAKE_CXX_FLAGS${_SUFFIX})
     append("/LTCG" CMAKE_MODULE_LINKER_FLAGS${_SUFFIX} CMAKE_MODULE_LINKER_FLAGS${_SUFFIX} CMAKE_EXE_LINKER_FLAGS${_SUFFIX})
   else()
-    add_flag_if_supported("-flto" SUPPORST_FLTO)
+    add_flag_if_supported("-flto" SUPPORTS_FLTO)
   endif()
 endif()
 # HLSL Change End

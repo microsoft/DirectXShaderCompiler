@@ -3817,29 +3817,41 @@ private:
         recordDecl = m_ThreadNodeOutputRecordsTemplateDecl->getTemplatedDecl();
       }
 #ifdef ENABLE_SPIRV_CODEGEN
-      else if (kind == AR_OBJECT_VK_SPIRV_TYPE && m_vkNSDecl) {
+      else if (kind == AR_OBJECT_VK_SPIRV_TYPE) {
+        if (!m_vkNSDecl)
+          continue;
         recordDecl =
             DeclareInlineSpirvType(*m_context, m_vkNSDecl, typeName, false);
         recordDecl->setImplicit(true);
-      } else if (kind == AR_OBJECT_VK_SPIRV_OPAQUE_TYPE && m_vkNSDecl) {
+      } else if (kind == AR_OBJECT_VK_SPIRV_OPAQUE_TYPE) {
+        if (!m_vkNSDecl)
+          continue;
         recordDecl =
             DeclareInlineSpirvType(*m_context, m_vkNSDecl, typeName, true);
         recordDecl->setImplicit(true);
-      } else if (kind == AR_OBJECT_VK_INTEGRAL_CONSTANT && m_vkNSDecl) {
+      } else if (kind == AR_OBJECT_VK_INTEGRAL_CONSTANT) {
+        if (!m_vkNSDecl)
+          continue;
         recordDecl =
             DeclareVkIntegralConstant(*m_context, m_vkNSDecl, typeName,
                                       &m_vkIntegralConstantTemplateDecl);
         recordDecl->setImplicit(true);
-      } else if (kind == AR_OBJECT_VK_LITERAL && m_vkNSDecl) {
+      } else if (kind == AR_OBJECT_VK_LITERAL) {
+        if (!m_vkNSDecl)
+          continue;
         recordDecl = DeclareTemplateTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, 1, nullptr);
         recordDecl->setImplicit(true);
         m_vkLiteralTemplateDecl = recordDecl->getDescribedClassTemplate();
-      } else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE && m_vkNSDecl) {
+      } else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_TYPE) {
+        if (!m_vkNSDecl)
+          continue;
         recordDecl = DeclareUIntTemplatedTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, "id");
         recordDecl->setImplicit(true);
-      } else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID && m_vkNSDecl) {
+      } else if (kind == AR_OBJECT_VK_SPV_INTRINSIC_RESULT_ID) {
+        if (!m_vkNSDecl)
+          continue;
         recordDecl = DeclareTemplateTypeWithHandleInDeclContext(
             *m_context, m_vkNSDecl, typeName, 1, nullptr);
         recordDecl->setImplicit(true);
@@ -4505,8 +4517,6 @@ public:
       int startDepth = (templateArgCount == 0) ? 0 : 1;
       CXXRecordDecl *recordDecl = m_objectTypeDecls[i];
       if (recordDecl == nullptr) {
-        DXASSERT(kind == AR_OBJECT_WAVE,
-                 "else objects other than reserved not initialized");
         continue;
       }
 

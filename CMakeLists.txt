@@ -115,18 +115,22 @@ option(DXC_DISABLE_ALLOCATOR_OVERRIDES "Disable usage of allocator overrides" OF
 mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
-if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND WIN32 AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
+if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND MSVC AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
 endif()
 
 # enable control flow guard
 if(WIN32)
-add_compile_options(/guard:cf)
-add_link_options(/guard:cf)
+  if(MSVC)
+    add_compile_options(/guard:cf)
+    add_link_options(/guard:cf)
+  else()
+    add_compile_options(-fcf-protection)
+  endif()
 endif(WIN32)
 
 # Enable CET Shadow Stack
-if(WIN32 AND NOT (CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "ARM.*"))
+if(MSVC AND NOT (CMAKE_C_COMPILER_ARCHITECTURE_ID MATCHES "ARM.*"))
   add_link_options(/CETCOMPAT)
 endif()
 
@@ -461,7 +465,7 @@ set(TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}")
 include(HandleLLVMOptions)
 
 # Verify that we can find a Python 3 interpreter and force cmake to use it.
-find_package(PythonInterp 3 REQUIRED)
+find_package(Python3 REQUIRED)
 
 ######
 # LLVMBuild Integration
@@ -495,7 +499,7 @@ endif (LLVM_USE_OPROFILE)
 message(STATUS "Constructing LLVMBuild project information")
 
 execute_process(
-  COMMAND ${PYTHON_EXECUTABLE} ${LLVMBUILDTOOL}
+  COMMAND ${Python3_EXECUTABLE} ${LLVMBUILDTOOL}
             --native-target Unknown
             --enable-targets "${LLVM_TARGETS_TO_BUILD}"
             --enable-optional-components "${LLVMOPTIONALCOMPONENTS}"
@@ -660,9 +664,9 @@ endif( ${CMAKE_SYSTEM_NAME} MATCHES SunOS )
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 
 # enable warnings as errors for debug build
-if (WIN32)
+if (MSVC)
   SET(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} /WX")
-endif (WIN32)
+endif (MSVC)
 
 include(AddLLVM)
 include(TableGen)
@@ -775,7 +779,9 @@ if (LLVM_INCLUDE_DOCS)
   add_subdirectory(docs)
 endif()
 
-add_hlsl_hctgen(DxilDocs OUTPUT docs/DXIL.rst CODE_TAG) # HLSL Change
+if (LLVM_BUILD_DOCS)
+  add_hlsl_hctgen(DxilDocs OUTPUT docs/DXIL.rst CODE_TAG) # HLSL Change
+endif()
 
 add_subdirectory(cmake/modules)
 

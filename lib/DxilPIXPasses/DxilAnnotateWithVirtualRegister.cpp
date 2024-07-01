@@ -123,8 +123,8 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   }
   unsigned int Major = 0;
   unsigned int Minor = 0;
-  m_DM->GetDxilVersion(Major, Minor);
-  if (Major < 6 || (Major == 6 && Minor <= 4)) {
+  m_DM->GetValidatorVersion(Major, Minor);
+  if (hlsl::DXIL::CompareVersions(Major, Minor, 1, 4) < 0) {
     m_DM->SetValidatorVersion(1, 4);
   }
 

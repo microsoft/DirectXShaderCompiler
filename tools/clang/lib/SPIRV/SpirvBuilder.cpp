@@ -1826,6 +1826,13 @@ SpirvConstant *SpirvBuilder::getConstantNull(QualType type) {
   return nullConst;
 }
 
+SpirvUndef *SpirvBuilder::getUndef(QualType type) {
+  // We do not care about making unique constants at this point.
+  auto *undef = new (context) SpirvUndef(type);
+  mod->addUndef(undef);
+  return undef;
+}
+
 SpirvString *SpirvBuilder::createString(llvm::StringRef str) {
   // Create a SpirvString instruction
   auto *instr = new (context) SpirvString(/* SourceLocation */ {}, str);
