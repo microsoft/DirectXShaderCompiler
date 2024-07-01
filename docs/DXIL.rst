@@ -267,6 +267,31 @@ The attribute 'waveops-include-helper-lanes' is utilized to indicate that wave o
 
 'fp32-denorm-mode' is employed to define the denorm mode for the function. The possible values for this attribute can be 'any', 'preserve', or 'ftz'.
 
+Module Flags
+------------
+
+DXIL uses `Module Flags Metadata <LangRef.html#module-flags-metadata>`_ to convey additional information about the module.
+
+The only module flags allowed in DXIL are "Dwarf Version" and "Debug Info Version".
+
+The "Dwarf Version" module flag is used to specify the DWARF version to use for debug information.
+
+DXC will emit the following module flag for DWARF version in DXIL:
+
+.. code-block:: llvm
+
+    !{i32 2, !"Dwarf Version", i32 4}
+
+The "Debug Info Version" module flag is used to specify the debug info schema version.
+
+DXC will emit the following module flag for debug info version in DXIL:
+
+.. code-block:: llvm
+
+    !{i32 2, !"Debug Info Version", i32 3}
+
+Any other module flags are not allowed in DXIL and need to be stripped before DXIL is generated.
+
 Identifiers
 -----------
 
