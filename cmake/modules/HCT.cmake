@@ -1,4 +1,6 @@
 option(HLSL_COPY_GENERATED_SOURCES "Copy generated sources if different" Off)
+option(HLSL_DISABLE_SOURCE_GENERATION "Disable generation of in-tree sources" Off)
+mark_as_advanced(HLSL_DISABLE_SOURCE_GENERATION)
 
 add_custom_target(HCTGen)
 
@@ -42,6 +44,10 @@ function(add_hlsl_hctgen mode)
 
   if (NOT ARG_OUTPUT)
     message(FATAL_ERROR "add_hlsl_hctgen requires OUTPUT argument")
+  endif()
+
+  if (HLSL_DISABLE_SOURCE_GENERATION AND NOT ARG_BUILD_DIR)
+    return()
   endif()
  
   set(temp_output ${CMAKE_CURRENT_BINARY_DIR}/tmp/${ARG_OUTPUT})
