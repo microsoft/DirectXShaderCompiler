@@ -19,7 +19,6 @@ if(NOT DEFINED LLVM_DYLIB_COMPONENTS)
     DebugInfoPDB
     ExecutionEngine
     IPA
-    IPO
     IRReader
     InstCombine
     Instrumentation

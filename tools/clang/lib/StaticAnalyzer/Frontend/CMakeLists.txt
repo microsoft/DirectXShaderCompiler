@@ -13,7 +13,6 @@ add_clang_library(clangStaticAnalyzerFrontend
 
   LINK_LIBS
   clangAST
-  clangAnalysis
   clangBasic
   clangFrontend
   clangLex

@@ -21,10 +21,9 @@ set(LLVM_LINK_COMPONENTS
   dxilpixpasses # for DxcOptimizerPass
   dxilrootsignature
   dxcbindingtable
-  hlsl
+  ScalarOpts
   instcombine
   ipa
-  ipo
   irreader
 #  libdriver
 #  lineeditor
@@ -36,7 +35,6 @@ set(LLVM_LINK_COMPONENTS
   option
 #  passes
   profiledata
-  scalaropts
 #  selectiondag # no support for LLVM codegen
   support
   target
@@ -125,7 +123,12 @@ if (WIN32)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
 endif (WIN32)
 
-add_clang_library(dxcompiler SHARED ${SOURCES})
+if(ENABLE_DXC_STATIC_LINKING)
+  add_clang_library(dxcompiler STATIC ${SOURCES})
+else()
+  add_clang_library(dxcompiler SHARED ${SOURCES})
+endif()
+
 add_dependencies(dxcompiler TablegenHLSLOptions) 
 if (WIN32)
   # No DxcEtw on non-Windows platforms.
