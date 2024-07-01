@@ -26,7 +26,6 @@ required_libraries =
  HLSL
  DxcBindingTable
  IRReader
- IPO
  Scalar
  Passes
  PassPrinters

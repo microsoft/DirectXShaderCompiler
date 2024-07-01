@@ -6,7 +6,7 @@ add_subdirectory(AST)
 add_subdirectory(ASTMatchers)
 add_subdirectory(Sema)
 add_subdirectory(CodeGen)
-add_subdirectory(Analysis)
+# add_subdirectory(Analysis) Merged into AST
 add_subdirectory(Edit)
 add_subdirectory(Rewrite)
 if(CLANG_ENABLE_ARCMT)

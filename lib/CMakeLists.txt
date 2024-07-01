@@ -22,7 +22,7 @@ add_subdirectory(Passes) # HLSL Change
 add_subdirectory(PassPrinters) # HLSL Change
 # add_subdirectory(LibDriver) # HLSL Change
 add_subdirectory(DxcSupport) # HLSL Change
-add_subdirectory(HLSL) # HLSL Change
+# add_subdirectory(HLSL) # HLSL Change
 add_subdirectory(DXIL) # HLSL Change
 add_subdirectory(DxilContainer) # HLSL Change
 add_subdirectory(DxilPdbInfo) # HLSL Change

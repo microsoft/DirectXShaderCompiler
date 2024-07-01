@@ -35,12 +35,14 @@ endif()
 # actually build anything since the headers are static.
 add_custom_target(dxc-headers)
 
+if(NOT ENABLE_DXC_STATIC_LINKING)
 install(FILES 
     ${DXC_PUBLIC_HEADERS}
     ${DXC_PLATFORM_PUBLIC_HEADERS}
     DESTINATION include/dxc
     COMPONENT dxc-headers
     )
+endif()
 
 add_custom_target(install-dxc-headers
     DEPENDS dxc-headers

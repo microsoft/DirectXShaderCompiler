@@ -1,5 +1,5 @@
 set(LLVM_LINK_COMPONENTS
-  HLSL # SemaHLSL.cpp references {Has|Get}UnsignedOpcode()
+  ScalarOpts # SemaHLSL.cpp references {Has|Get}UnsignedOpcode()
   Support
   )
 
@@ -62,7 +62,6 @@ add_clang_library(clangSema
 
   LINK_LIBS
   clangAST
-  clangAnalysis
   clangBasic
   clangEdit
   clangLex
