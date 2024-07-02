@@ -4112,6 +4112,7 @@ Decl *Sema::BuildAnonymousStructOrUnion(Scope *S, DeclSpec &DS,
   // C and C++ require different kinds of checks for anonymous
   // structs/unions.
   bool Invalid = false;
+
   if (getLangOpts().CPlusPlus) {
     const char *PrevSpec = nullptr;
     unsigned DiagID;
@@ -4942,7 +4943,8 @@ NamedDecl *Sema::HandleDeclarator(Scope *S, Declarator &D,
   // HLSL Change Starts
   if (getLangOpts().HLSL) {
     const bool IsParameterFalse = false;
-    if (!DiagnoseHLSLDecl(D, DC, /*BitWidth*/ nullptr, TInfo, IsParameterFalse)) {
+    if (!DiagnoseHLSLDecl(D, DC, /*BitWidth*/ nullptr, TInfo, IsParameterFalse,
+                          nullptr)) {
       assert(D.isInvalidType() && "otherwise DiagnoseHLSLDecl failed but "
                                   "didn't invalidate declaration");
       return 0;
@@ -5827,7 +5829,7 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
         // C++98 [class.union]p1: If a union contains a static data member,
         // the program is ill-formed. C++11 drops this restriction.
-        if (RD->isUnion())
+        if (RD->isUnion() && !getLangOpts().HLSL)
           Diag(D.getIdentifierLoc(),
                getLangOpts().CPlusPlus11
                  ? diag::warn_cxx98_compat_static_data_member_in_union
@@ -10295,7 +10297,8 @@ Decl *Sema::ActOnParamDeclarator(Scope *S, Declarator &D) {
       Diag(D.getLocStart(), diag::err_hlsl_unsupported_string_decl) << selectParamIdx;
       D.setInvalidType();
     }
-    if (!DiagnoseHLSLDecl(D, Context.getTranslationUnitDecl(), /*BitWidth*/ nullptr, TInfo, IsParm)) {
+    if (!DiagnoseHLSLDecl(D, Context.getTranslationUnitDecl(),
+                          /*BitWidth*/ nullptr, TInfo, IsParm, nullptr)) {
       assert(D.isInvalidType() && "otherwise DiagnoseHLSLDecl failed but "
                                   "didn't invalidate declaration");
     }
@@ -12711,7 +12714,8 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
   // HLSL Changes Start
   if (getLangOpts().HLSL) {
     const bool IsParameterFalse = false;
-    if (!DiagnoseHLSLDecl(D, CurContext, BitWidth, TInfo, IsParameterFalse)) {
+    if (!DiagnoseHLSLDecl(D, CurContext, BitWidth, TInfo, IsParameterFalse,
+                          Record)) {
       // Let the diagnostic provide errors, don't actually return nullptr here;
       // compilation will recover, which is helpful because HLSL diagnostics
       // need not interrupt the declaration processing.

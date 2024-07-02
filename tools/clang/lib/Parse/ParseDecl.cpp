@@ -4135,7 +4135,9 @@ HLSLReservedKeyword:
     case tok::kw_union: {
       // HLSL Change Starts
       if (getLangOpts().HLSL) {
-        if (Tok.is(tok::kw_union) || Tok.is(tok::kw___interface)) {
+        if ((Tok.is(tok::kw_union) &&
+             (getLangOpts().HLSLVersion < hlsl::LangStd::v202x)) ||
+            (Tok.is(tok::kw___interface))) {
           goto HLSLReservedKeyword;
         }
       }
