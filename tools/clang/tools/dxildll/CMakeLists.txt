@@ -31,8 +31,8 @@ include_directories(
   ${WINTOOLS_SOURCE_ROOT}/include
   ${DXC_PROJECTS_SOURCE_DIR}/include
   ${DXC_PROJECTS_BINARY_DIR}/include
-  ${DXILDLL_PROJECT_SOURCE_DIR}/include
-  ${DXILDLL_PROJECT_BINARY_DIR}/include
+  ${LLVM_BINARY_DIR}/projects/include
+  ${LLVM_SOURCE_DIR}/tools/clang/tools/DxilHash
 )
 
 set(sources
@@ -43,14 +43,14 @@ set(sources
 )
 
 if (WIN32)
-add_dxildll_project_executable(dxildll ${sources})
+add_clang_library(dxildll SHARED ${sources})
 list(APPEND DXCLibs 
   kernel32.lib
   atls.lib
   advapi32.lib
   ole32.lib)
 else()
-add_llvm_library(dxildll SHARED ${sources})
+add_clang_library(dxildll SHARED ${sources})
 endif()
 
 target_link_libraries(dxildll PRIVATE

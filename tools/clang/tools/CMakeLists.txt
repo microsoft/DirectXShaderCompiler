@@ -32,6 +32,8 @@ add_subdirectory(dxopt)
 add_subdirectory(dxl)
 add_subdirectory(dxr)
 add_subdirectory(dxv)
+add_subdirectory(DxilHash)
+add_subdirectory(dxildll)
 
 # These targets can currently only be built on Windows.
 if (MSVC)

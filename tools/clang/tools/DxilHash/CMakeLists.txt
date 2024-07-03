@@ -1,7 +1,6 @@
 if (WIN32)
-add_dxildll_project_library(DxilHash
-  DxilHash.cpp
-)
+add_clang_library(DxilHash
+  DxilHash.cpp)
 else()
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
@@ -11,6 +10,6 @@ include_directories(
   ${DXILDLL_PROJECT_SOURCE_DIR}/include
   ${DXILDLL_PROJECT_BINARY_DIR}/include
 )
-add_llvm_library(DxilHash
+add_clang_library(DxilHash
   DxilHash.cpp)
 endif()
