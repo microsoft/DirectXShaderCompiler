@@ -2,13 +2,13 @@
 
 // CHECK:   OpDecorate [[resource_heap_cbuffer:%[_a-zA-Z0-9]+]] DescriptorSet 0
 // CHECK:   OpDecorate [[resource_heap_cbuffer]] Binding 0
-// CHECK:   OpDecorate [[resource_heap_cbuffer_counter:%[_a-zA-Z0-9]+]] DescriptorSet 1
-// CHECK:   OpDecorate [[resource_heap_cbuffer_counter]] Binding 0
+// CHECK:   OpDecorate [[resource_heap_cbuffer_counter:%[_a-zA-Z0-9]+]] DescriptorSet 0
+// CHECK:   OpDecorate [[resource_heap_cbuffer_counter]] Binding 1
 
 // CHECK:   OpDecorate [[resource_heap_abuffer:%[_a-zA-Z0-9]+]] DescriptorSet 0
 // CHECK:   OpDecorate [[resource_heap_abuffer]] Binding 0
-// CHECK:   OpDecorate [[resource_heap_abuffer_counter:%[_a-zA-Z0-9]+]] DescriptorSet 1
-// CHECK:   OpDecorate [[resource_heap_abuffer_counter]] Binding 0
+// CHECK:   OpDecorate [[resource_heap_abuffer_counter:%[_a-zA-Z0-9]+]] DescriptorSet 0
+// CHECK:   OpDecorate [[resource_heap_abuffer_counter]] Binding 1
 
 
 // CHECK-DAG:           [[ra_uint_t:%[_a-zA-Z0-9]+]] = OpTypeRuntimeArray %uint
@@ -27,10 +27,10 @@
 // CHECK-DAG:          [[ra_counter_t:%[_a-zA-Z0-9]+]] = OpTypeRuntimeArray [[counter_t]]
 // CHECK-DAG:    [[ptr_u_ra_counter_t:%[_a-zA-Z0-9]+]] = OpTypePointer Uniform [[ra_counter_t]]
 
-// CHECK:         [[resource_heap_cbuffer]] = OpVariable [[ptr_u_ra_cbuffer_t]] Uniform
-// CHECK: [[resource_heap_cbuffer_counter]] = OpVariable [[ptr_u_ra_counter_t]] Uniform
-// CHECK:         [[resource_heap_abuffer]] = OpVariable [[ptr_u_ra_abuffer_t]] Uniform
-// CHECK: [[resource_heap_abuffer_counter]] = OpVariable [[ptr_u_ra_counter_t]] Uniform
+// CHECK-DAG:         [[resource_heap_cbuffer]] = OpVariable [[ptr_u_ra_cbuffer_t]] Uniform
+// CHECK-DAG: [[resource_heap_cbuffer_counter]] = OpVariable [[ptr_u_ra_counter_t]] Uniform
+// CHECK-DAG:         [[resource_heap_abuffer]] = OpVariable [[ptr_u_ra_abuffer_t]] Uniform
+// CHECK-DAG: [[resource_heap_abuffer_counter]] = OpVariable [[ptr_u_ra_counter_t]] Uniform
 
 [numthreads(1, 1, 1)]
 void main() {

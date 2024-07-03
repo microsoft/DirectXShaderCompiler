@@ -4752,10 +4752,8 @@ SpirvEmitter::getFinalACSBufferCounterInstruction(const Expr *expr) {
   if (const auto *arraySubscriptExpr = dyn_cast<ArraySubscriptExpr>(expr)) {
     indexes.push_back(doExpr(arraySubscriptExpr->getIdx()));
   } else if (isResourceDescriptorHeap(expr->getType())) {
-    const Expr *base = nullptr;
     const Expr *index = nullptr;
-    isDescriptorHeap(dyn_cast_or_null<CXXOperatorCallExpr>(expr), &base,
-                     &index);
+    getDescriptorHeapOperands(expr, /* base= */ nullptr, &index);
     assert(index != nullptr && "operator[] had no indices.");
     indexes.push_back(doExpr(index));
   }
@@ -4775,8 +4773,7 @@ SpirvEmitter::getFinalACSBufferCounter(const Expr *expr) {
 
   if (isResourceDescriptorHeap(expr->getType())) {
     const Expr *base = nullptr;
-    isDescriptorHeap(dyn_cast_or_null<CXXOperatorCallExpr>(expr), &base,
-                     nullptr);
+    getDescriptorHeapOperands(expr, &base, /* index= */ nullptr);
     return declIdMapper.createOrGetCounterIdAliasPair(getReferencedDef(base));
   }
 
@@ -5957,11 +5954,12 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
       (rangeOverride != SourceRange()) ? rangeOverride : expr->getSourceRange();
 
   { // Handle ResourceDescriptorHeap and SamplerDescriptorHeap.
-    const Expr *baseExpr = nullptr;
-    const Expr *indexExpr = nullptr;
-    if (isDescriptorHeap(dyn_cast_or_null<CXXOperatorCallExpr>(expr), &baseExpr,
-                         &indexExpr)) {
-      const Expr *ParentExpr = cast<Expr>(parentMap->getParent(expr));
+    if (isDescriptorHeap(expr)) {
+      const Expr *baseExpr = nullptr;
+      const Expr *indexExpr = nullptr;
+      getDescriptorHeapOperands(expr, &baseExpr, &indexExpr);
+
+      const Expr *ParentExpr = cast<CastExpr>(parentMap->getParent(expr));
       QualType ResourceType = ParentExpr->getType();
       const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreCasts());
       auto *decl = cast<VarDecl>(declRefExpr->getDecl());
@@ -7215,26 +7213,33 @@ bool SpirvEmitter::isBufferTextureIndexing(const CXXOperatorCallExpr *indexExpr,
   return false;
 }
 
-bool SpirvEmitter::isDescriptorHeap(const CXXOperatorCallExpr *indexExpr,
-                                    const Expr **base, const Expr **index) {
-  if (!indexExpr)
+bool SpirvEmitter::isDescriptorHeap(const Expr *expr) {
+  const CXXOperatorCallExpr *operatorExpr = dyn_cast<CXXOperatorCallExpr>(expr);
+  if (!operatorExpr)
     return false;
 
   // Must be operator[]
-  if (indexExpr->getOperator() != OverloadedOperatorKind::OO_Subscript)
+  if (operatorExpr->getOperator() != OverloadedOperatorKind::OO_Subscript)
     return false;
 
-  const Expr *object = indexExpr->getArg(0);
+  const Expr *object = operatorExpr->getArg(0);
   const auto objectType = object->getType();
-  if (!isResourceDescriptorHeap(objectType) &&
-      !isSamplerDescriptorHeap(objectType))
-    return false;
+  return isResourceDescriptorHeap(objectType) ||
+         isSamplerDescriptorHeap(objectType);
+}
+
+void SpirvEmitter::getDescriptorHeapOperands(const Expr *expr,
+                                             const Expr **base,
+                                             const Expr **index) {
+  assert(base || index);
+  assert(isDescriptorHeap(expr));
+
+  const CXXOperatorCallExpr *operatorExpr = cast<CXXOperatorCallExpr>(expr);
 
   if (base)
-    *base = object;
+    *base = operatorExpr->getArg(0);
   if (index)
-    *index = indexExpr->getArg(1);
-  return true;
+    *index = operatorExpr->getArg(1);
 }
 
 void SpirvEmitter::condenseVectorElementExpr(

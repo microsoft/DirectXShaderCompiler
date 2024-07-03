@@ -189,6 +189,9 @@ private:
 /// type, the fields with attached semantics will need to be translated into
 /// stage variables per Vulkan's requirements.
 class DeclResultIdMapper {
+  /// \brief An internal class to handle binding number allocation.
+  class BindingSet;
+
 public:
   inline DeclResultIdMapper(ASTContext &context, SpirvContext &spirvContext,
                             SpirvBuilder &spirvBuilder, SpirvEmitter &emitter,
@@ -634,6 +637,10 @@ private:
       llvm::function_ref<uint32_t(uint32_t)> nextLocs,
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
           *stageVariableLocationInfo);
+
+  /// \bried Decorates used Resource/Sampler descriptor heaps with the correct
+  /// binding/set decorations.
+  void decorateResourceHeapsBindings(BindingSet &bindingSet);
 
   /// \brief Returns a map that divides all of the shader stage variables into
   /// separate vectors for each entry point.

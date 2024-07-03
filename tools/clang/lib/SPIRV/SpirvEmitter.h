@@ -267,9 +267,10 @@ private:
                                const Expr **base = nullptr,
                                const Expr **index = nullptr);
 
-  bool isDescriptorHeap(const CXXOperatorCallExpr *,
-                        const Expr **base = nullptr,
-                        const Expr **index = nullptr);
+  bool isDescriptorHeap(const Expr *expr);
+
+  void getDescriptorHeapOperands(const Expr *expr, const Expr **base,
+                                 const Expr **index);
 
   /// \brief Returns true if the given CXXOperatorCallExpr is the .mips[][]
   /// access into a Texture or .sample[][] access into Texture2DMS(Array). On

@@ -1153,7 +1153,6 @@ SpirvVariable *DeclResultIdMapper::createResourceHeap(const VarDecl *var,
                                                       QualType ResourceType) {
   QualType ResourceArrayType = astContext.getIncompleteArrayType(
       ResourceType, clang::ArrayType::Normal, 0);
-  disallowAutomaticBindingsAllocation = true;
   return createExternVar(var, ResourceArrayType);
 }
 
@@ -1274,13 +1273,14 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
     return varInstr;
 
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
-  // DescriptorHeaps have a fixed binding/set.
-  if (isResourceDescriptorHeap(var->getType()) ||
-      isSamplerDescriptorHeap(var->getType())) {
-    bindingAttr = ::new (astContext)
-        VKBindingAttr(var->getSourceRange(), astContext, /* binding= */ 0,
-                      /* set= */ 0, /* spellingListIndex= */ 0);
-  }
+  // FIXME: handle the flags here?
+  //// DescriptorHeaps have a fixed binding/set.
+  // if (isResourceDescriptorHeap(var->getType()) ||
+  //     isSamplerDescriptorHeap(var->getType())) {
+  //   bindingAttr = ::new (astContext)
+  //       VKBindingAttr(var->getSourceRange(), astContext, /* binding= */ 0,
+  //                     /* set= */ 0, /* spellingListIndex= */ 0);
+  // }
   resourceVars.emplace_back(varInstr, var, loc, getResourceBinding(var),
                             bindingAttr, var->getAttr<VKCounterBindingAttr>());
 
@@ -1853,12 +1853,12 @@ void DeclResultIdMapper::createCounterVar(
       // There should be no way to link those attributes to resource heaps.
       // Asserting in case.
       assert(bindingAttr == nullptr && counterAttr == nullptr);
-      bindingAttr = ::new (astContext)
-          VKBindingAttr(decl->getSourceRange(), astContext, /* binding= */ 0,
-                        /* set= */ 1, /* spellingListIndex= */ 0);
-      counterAttr = ::new (astContext)
-          VKCounterBindingAttr(decl->getSourceRange(), astContext,
-                               /* binding= */ 0, /* spellingListIndex= */ 0);
+      // bindingAttr = ::new (astContext)
+      //     VKBindingAttr(decl->getSourceRange(), astContext, /* binding= */ 0,
+      //                   /* set= */ 1, /* spellingListIndex= */ 0);
+      // counterAttr = ::new (astContext)
+      //     VKCounterBindingAttr(decl->getSourceRange(), astContext,
+      //                          /* binding= */ 0, /* spellingListIndex= */ 0);
     }
 
     // Non-alias counter variables should be put in to resourceVars so that
@@ -2026,9 +2026,11 @@ private:
   uint32_t nextAvailableLocation[kMaxIndex];
 };
 
+} // namespace
+
 /// A class for managing resource bindings to avoid duplicate uses of the same
 /// set and binding number.
-class BindingSet {
+class DeclResultIdMapper::BindingSet {
 public:
   /// Uses the given set and binding number. Returns false if the binding number
   /// was already occupied in the set, and returns true otherwise.
@@ -2094,7 +2096,6 @@ private:
   ///< set number -> set of used binding number
   llvm::DenseMap<uint32_t, std::set<uint32_t>> usedBindings;
 };
-} // namespace
 
 bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
   // Mapping from entry points to the corresponding set of semantics.
@@ -2447,29 +2448,6 @@ bool DeclResultIdMapper::decorateResourceBindings() {
       theEmitter.getCompilerInstance().getCodeGenOpts().HLSLDefaultSpace;
   uint32_t defaultSpace = (defaultSpaceOpt == UINT_MAX) ? 0 : defaultSpaceOpt;
 
-  // When the resource heaps are in use, the implicit binding allocation is
-  // forbidden.
-  if (disallowAutomaticBindingsAllocation) {
-    for (const auto &var : resourceVars) {
-      const auto *bindingAttr = var.getBinding();
-      const auto *counterAttr = var.getCounterBinding();
-
-      if (!bindingAttr || bindingAttr->getSet() == INT_MIN ||
-          (var.isCounter() && !counterAttr)) {
-        emitError("Using SamplerDescriptorHeap/ResourceDescriptorHeap & "
-                  "implicit bindings is disallowed.",
-                  var.getSourceLocation());
-        return false;
-      }
-
-      const uint32_t set = bindingAttr->getSet();
-      const uint32_t binding = var.isCounter() ? counterAttr->getBinding()
-                                               : bindingAttr->getBinding();
-      spvBuilder.decorateDSetBinding(var.getSpirvInstr(), set, binding);
-    }
-    return true;
-  }
-
   const bool bindGlobals = !spirvOptions.bindGlobals.empty();
   int32_t globalsBindNo = -1, globalsSetNo = -1;
   if (bindGlobals) {
@@ -2666,6 +2644,13 @@ bool DeclResultIdMapper::decorateResourceBindings() {
       }
     }
 
+    if (var.getDeclaration()) {
+      const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
+      if (decl && (isResourceDescriptorHeap(decl->getType()) ||
+                   isSamplerDescriptorHeap(decl->getType())))
+        continue;
+    }
+
     if (var.isCounter()) {
 
       if (!var.getCounterBinding()) {
@@ -2720,7 +2705,59 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     }
   }
 
+  decorateResourceHeapsBindings(bindingSet);
   return true;
+}
+
+void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
+  bool hasResource = false;
+  bool hasSamplers = false;
+  bool hasCounters = false;
+
+  // Determine which type of heap resource is used to lazily allocation
+  // bindings.
+  for (const auto &var : resourceVars) {
+    if (!var.getDeclaration())
+      continue;
+    const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
+    if (!decl)
+      continue;
+
+    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+
+    assert(!(var.isCounter() && isSamplerHeap));
+
+    hasResource |= isResourceHeap;
+    hasSamplers |= isSamplerHeap;
+    hasCounters |= (isResourceHeap || isSamplerHeap) && var.isCounter();
+  }
+
+  // Allocate bindings only for used resources. The order of this allocation is
+  // important:
+  //  - First resource heaps, then sampler heaps, and finally counter heaps.
+  const uint32_t resourceBinding =
+      hasResource ? bindingSet.useNextBinding(0) : 0;
+  const uint32_t samplersBinding =
+      hasSamplers ? bindingSet.useNextBinding(0) : 0;
+  const uint32_t countersBinding =
+      hasCounters ? bindingSet.useNextBinding(0) : 0;
+
+  for (const auto &var : resourceVars) {
+    if (!var.getDeclaration())
+      continue;
+    const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
+    if (!decl)
+      continue;
+
+    if (isResourceDescriptorHeap(decl->getType()))
+      spvBuilder.decorateDSetBinding(var.getSpirvInstr(), /* set= */ 0,
+                                     var.isCounter() ? countersBinding
+                                                     : resourceBinding);
+    else if (isSamplerDescriptorHeap(decl->getType()))
+      spvBuilder.decorateDSetBinding(var.getSpirvInstr(), /* set= */ 0,
+                                     samplersBinding);
+  }
 }
 
 bool DeclResultIdMapper::decorateResourceCoherent() {

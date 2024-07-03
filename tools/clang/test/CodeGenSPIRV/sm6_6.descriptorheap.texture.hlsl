@@ -41,7 +41,7 @@
 
 // CHECK-DAG:   [[sampler_heap:%[_a-zA-Z0-9]+]] = OpVariable [[ptr_u_ra_sampler_t]] UniformConstant
 // CHECK-DAG:                                     OpDecorate [[sampler_heap]] DescriptorSet 0
-// CHECK-DAG:                                     OpDecorate [[sampler_heap]] Binding 0
+// CHECK-DAG:                                     OpDecorate [[sampler_heap]] Binding 1
 
 // CHECK-DAG:   [[resource_heap_1d:%[_a-zA-Z0-9]+]] = OpVariable [[ptr_u_ra_image1_t]] UniformConstant
 // CHECK-DAG:                                         OpDecorate [[resource_heap_1d]] DescriptorSet 0
