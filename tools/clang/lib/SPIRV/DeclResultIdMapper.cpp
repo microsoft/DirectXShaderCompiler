@@ -1843,29 +1843,12 @@ void DeclResultIdMapper::createCounterVar(
       counterType, sc, /*isPrecise*/ false, false, counterName);
 
   if (!isAlias) {
-    VKBindingAttr *bindingAttr = decl->getAttr<VKBindingAttr>();
-    VKCounterBindingAttr *counterAttr = decl->getAttr<VKCounterBindingAttr>();
-    // TODO(issue/6649): Sampler heaps can be used in DXIL to load resources
-    // with counters. This shouldn't be legal, but until we get confirmation, we
-    // need to match DXIL's behavior.
-    if (isResourceDescriptorHeap(decl->getType()) ||
-        isSamplerDescriptorHeap(decl->getType())) {
-      // There should be no way to link those attributes to resource heaps.
-      // Asserting in case.
-      assert(bindingAttr == nullptr && counterAttr == nullptr);
-      // bindingAttr = ::new (astContext)
-      //     VKBindingAttr(decl->getSourceRange(), astContext, /* binding= */ 0,
-      //                   /* set= */ 1, /* spellingListIndex= */ 0);
-      // counterAttr = ::new (astContext)
-      //     VKCounterBindingAttr(decl->getSourceRange(), astContext,
-      //                          /* binding= */ 0, /* spellingListIndex= */ 0);
-    }
-
     // Non-alias counter variables should be put in to resourceVars so that
     // descriptors can be allocated for them.
     resourceVars.emplace_back(counterInstr, decl, decl->getLocation(),
-                              getResourceBinding(decl), bindingAttr,
-                              counterAttr, true);
+                              getResourceBinding(decl),
+                              decl->getAttr<VKBindingAttr>(),
+                              decl->getAttr<VKCounterBindingAttr>(), true);
     assert(declInstr);
     spvBuilder.decorateCounterBuffer(declInstr, counterInstr,
                                      decl->getLocation());

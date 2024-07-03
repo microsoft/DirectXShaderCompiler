@@ -1073,15 +1073,6 @@ private:
 
   uint32_t perspBaryCentricsIndex, noPerspBaryCentricsIndex;
 
-  /// D3D12 resource heaps replace the traditional resource bindings. When such
-  /// heap is present, the descriptor set 0 is used to define the heaps.
-  /// This type of binding management would conflict with the automatic binding
-  /// allocation DXC does by default. For now, only explicit bindings are
-  /// allowed when resource heaps are used to avoid unwanted conflicts. This
-  /// could be revisited if we find a valid use-case to mix automatic binding
-  /// allocation and resource heaps.
-  bool disallowAutomaticBindingsAllocation = false;
-
 public:
   /// The gl_PerVertex structs for both input and output
   GlPerVertex glPerVertex;
