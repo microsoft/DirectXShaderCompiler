@@ -2,6 +2,12 @@
 
 RWByteAddressBuffer outBuffer;
 
+struct S
+{
+    uint32_t x:8;
+    uint32_t y:8;
+};
+
 [numthreads(1, 1, 1)]
 void main() {
   uint addr = 0;
@@ -67,4 +73,13 @@ void main() {
 // CHECK-NEXT: [[outBufPtr3:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %outBuffer %uint_0 [[baseAddr_plus3]]
 // CHECK-NEXT: OpStore [[outBufPtr3]] [[word3]]
   outBuffer.Store4(addr, words4);
+
+// CHECK: [[s:%[0-9]+]] = OpLoad %S %s
+// CHECK: [[bitfield:%[0-9]+]] = OpCompositeExtract %uint [[s]] 0
+// CHECK: [[idx:%[0-9]+]] = OpShiftRightLogical %uint %uint_0 %uint_2
+// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %outBuffer %uint_0 [[idx]]
+// CHECK: OpStore [[ac]] [[bitfield]]
+  S s  = (S)0;
+  s.x = 5;
+  outBuffer.Store(0, s);
 }

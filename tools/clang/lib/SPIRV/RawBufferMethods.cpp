@@ -8,6 +8,7 @@
 
 #include "RawBufferMethods.h"
 #include "AlignmentSizeCalculator.h"
+#include "LowerTypeVisitor.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/RecordLayout.h"
@@ -604,40 +605,40 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
   // aligned like their field with the largest alignment.
   // As a result, there might exist some padding after some struct members.
   if (const auto *structType = valueType->getAs<RecordType>()) {
-    const auto *decl = structType->getDecl();
-    uint32_t fieldOffsetInBytes = 0;
     uint32_t structAlignment = 0, structSize = 0, stride = 0;
     std::tie(structAlignment, structSize) =
         AlignmentSizeCalculator(astContext, theEmitter.getSpirvOptions())
             .getAlignmentAndSize(valueType,
                                  theEmitter.getSpirvOptions().sBufferLayoutRule,
                                  llvm::None, &stride);
-    uint32_t fieldIndex = 0;
-    for (const auto *field : decl->fields()) {
-      AlignmentSizeCalculator alignmentCalc(astContext,
-                                            theEmitter.getSpirvOptions());
-      uint32_t fieldSize = 0, fieldAlignment = 0;
-      std::tie(fieldAlignment, fieldSize) = alignmentCalc.getAlignmentAndSize(
-          field->getType(), theEmitter.getSpirvOptions().sBufferLayoutRule,
-          /*isRowMajor*/ llvm::None, &stride);
-      fieldOffsetInBytes = roundToPow2(fieldOffsetInBytes, fieldAlignment);
-      auto *byteOffset = address.getByteAddress();
-      if (fieldOffsetInBytes != 0) {
-        byteOffset = spvBuilder.createBinaryOp(
-            spv::Op::OpIAdd, astContext.UnsignedIntTy, byteOffset,
-            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, fieldOffsetInBytes)),
-            loc, range);
-      }
 
-      processTemplatedStoreToBuffer(
-          spvBuilder.createCompositeExtract(field->getType(), value,
-                                            {fieldIndex}, loc, range),
-          buffer, byteOffset, field->getType(), range);
+    LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
+                                      theEmitter.getSpirvOptions(), spvBuilder);
+    const StructType *spvType = dyn_cast<StructType>(lowerTypeVisitor.lowerType(
+        valueType, theEmitter.getSpirvOptions().sBufferLayoutRule, llvm::None,
+        SourceLocation()));
+    assert(spvType);
+    forEachSpirvField(
+        structType, spvType,
+        [this, &address, loc, range, buffer, value](size_t spirvFieldIndex,
+                                                    const QualType &fieldType,
+                                                    const auto &field) {
+          auto *baseOffset = address.getByteAddress();
+          if (field.offset.hasValue() && field.offset.getValue() != 0) {
+            SpirvConstant *offset = spvBuilder.getConstantInt(
+                astContext.UnsignedIntTy,
+                llvm::APInt(32, field.offset.getValue()));
+            baseOffset = spvBuilder.createBinaryOp(
+                spv::Op::OpIAdd, astContext.UnsignedIntTy, baseOffset, offset,
+                loc, range);
+          }
 
-      fieldOffsetInBytes += fieldSize;
-      ++fieldIndex;
-    }
+          processTemplatedStoreToBuffer(
+              spvBuilder.createCompositeExtract(fieldType, value,
+                                                {spirvFieldIndex}, loc, range),
+              buffer, baseOffset, fieldType, range);
+          return true;
+        });
 
     // After we're done with storing the entire struct, we need to update the
     // byteAddress (in case we are storing an array of structs).
