@@ -1955,7 +1955,7 @@ will bind them to the same binding/set.
 (This requires `VK_EXT_mutable_descriptor_type`).
 
 For resources with counters, like RW/Append/Consume structured buffers,
-DXC generated another RuntimeArray of counters, and binds it to a new
+DXC generates another RuntimeArray of counters, and binds it to a new
 binding in the set 0.
 
 This means Resource/Sampler heaps can use at most 3 bindings:
@@ -2011,8 +2011,8 @@ Bindings are lazily allocated: if only the sampler heap is used,
 
 .. code:: hlsl
    RWStructuredBuffer buffer = ResourceDescriptorHeap[2];
-   // buffer is in the descriptor set 0, binding 2.
-   // the counter is in the descriptor set 1, binding 2.
+   // buffer is in the descriptor set 0, binding 0.
+   // Counter not generated, because unused.
 
 HLSL Expressions
 ================

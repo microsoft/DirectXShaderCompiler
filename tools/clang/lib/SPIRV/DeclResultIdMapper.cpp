@@ -2713,7 +2713,7 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
 
     hasResource |= isResourceHeap;
     hasSamplers |= isSamplerHeap;
-    hasCounters |= (isResourceHeap || isSamplerHeap) && var.isCounter();
+    hasCounters |= isResourceHeap && var.isCounter();
   }
 
   // Allocate bindings only for used resources. The order of this allocation is
