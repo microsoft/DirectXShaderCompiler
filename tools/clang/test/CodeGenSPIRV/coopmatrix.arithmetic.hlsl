@@ -70,6 +70,22 @@ RWStructuredBuffer<TYPE> data;
   // DOUBLE: [[r:%[0-9]+]] = OpMatrixTimesScalar %spirvIntrinsicType [[m]] %double_2
   r = m * 2.0;
 
+  // INT16: [[n:%[0-9]+]] = OpSDiv %spirvIntrinsicType [[r]] [[m]]
+  // INT32: [[n:%[0-9]+]] = OpSDiv %spirvIntrinsicType [[r]] [[m]]
+  // INT64: [[n:%[0-9]+]] = OpSDiv %spirvIntrinsicType [[r]] [[m]]
+  // UINT16: [[n:%[0-9]+]] = OpUDiv %spirvIntrinsicType [[r]] [[m]]
+  // UINT32: [[n:%[0-9]+]] = OpUDiv %spirvIntrinsicType [[r]] [[m]]
+  // UINT64: [[n:%[0-9]+]] = OpUDiv %spirvIntrinsicType [[r]] [[m]]
+  // HALF-DISABLED: [[n:%[0-9]+]] = OpFDiv %spirvIntrinsicType [[r]] [[m]]
+  // HALF-ENABLED: [[n:%[0-9]+]] = OpFDiv %spirvIntrinsicType [[r]] [[m]]
+  // FLOAT: [[n:%[0-9]+]] = OpFDiv %spirvIntrinsicType [[r]] [[m]]
+  // DOUBLE: [[n:%[0-9]+]] = OpFDiv %spirvIntrinsicType [[r]] [[m]]
+  n = r / m;
+
+  // INTEGERS: [[r:%[0-9]+]] = OpIMul %spirvIntrinsicType [[n]] [[m]]
+  // FLOATS: [[r:%[0-9]+]] = OpFMul %spirvIntrinsicType [[n]] [[m]]
+  r = n * m;
+
   // CHECK: OpCooperativeMatrixStoreKHR [[ac1]] [[r]] %int_0
   r.StoreRowMajor(data, 0);
 

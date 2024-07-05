@@ -101,6 +101,11 @@ class CooperativeMatrix {
   // Returns the result of OpCooperativeMatrixLengthKHR on the current type.￼
   static uint32_t GetLength();
 
+  // Functions to access the elements of the cooperative matrix. The index must
+  // be less than GetLength().
+  void Set(ComponentType value, uint32_t index);
+  ComponentType Get(uint32_t index);
+
   static const bool hasSignedIntegerComponentType =
       (ComponentType(0) - ComponentType(1) < ComponentType(0));
 

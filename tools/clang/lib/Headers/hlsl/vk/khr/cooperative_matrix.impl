@@ -14,10 +14,16 @@
 
 #include "arithmetic_selector.h"
 
-
 template <typename ResultType, typename ComponentType>
 [[vk::ext_instruction(/* OpMatrixTimesScalar */ 143)]] ResultType
 __builtin_spv_MatrixTimesScalar(ResultType a, ComponentType b);
+
+template <typename ComponentType, vk::Scope scope, uint rows, uint columns,
+          vk::CooperativeMatrixUse use>
+[[vk::ext_instruction(/* OpCompositeExtract */ 81)]] ComponentType
+__builtin_spv_ExtractFromCooperativeMatrix(
+    vk::khr::CooperativeMatrix<ComponentType, scope, rows, columns, use> matrix,
+    [[vk::ext_literal]] uint32_t index);
 
 // Define the load and store instructions
 template <typename ResultType, typename PointerType>
@@ -218,6 +224,13 @@ template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
 uint CooperativeMatrix<ComponentType, scope, rows, columns, use>::GetLength() {
   return __builtin_spv_CooperativeMatrixLengthKHR<SpirvMatrixType>();
+}
+
+template <class ComponentType, Scope scope, uint rows, uint columns,
+          CooperativeMatrixUse use>
+ComponentType CooperativeMatrix<ComponentType, scope, rows, columns, use>::Get(
+    uint32_t index) {
+  return __builtin_spv_ExtractFromCooperativeMatrix(_matrix, index);
 }
 
 template <typename ComponentType, Scope scope, uint rows, uint columns, uint K>
