@@ -22,8 +22,27 @@ template <typename ComponentType, vk::Scope scope, uint rows, uint columns,
           vk::CooperativeMatrixUse use>
 [[vk::ext_instruction(/* OpCompositeExtract */ 81)]] ComponentType
 __builtin_spv_ExtractFromCooperativeMatrix(
-    vk::khr::CooperativeMatrix<ComponentType, scope, rows, columns, use> matrix,
-    [[vk::ext_literal]] uint32_t index);
+    typename vk::khr::CooperativeMatrix<ComponentType, scope, rows, columns, use>::SpirvMatrixType matrix,
+     uint32_t index);
+
+template <class ResultPointerType, class BaseType>
+[[vk::ext_instruction(/* OpAccessChain */ 65)]] ResultPointerType
+__builtin_spv_AccessChain([[vk::ext_reference]] BaseType base, uint32_t index);
+
+template <class ObjectType, class PointerType>
+[[vk::ext_instruction(/* OpLoad */ 61)]] ObjectType
+__builtin_spv_LoadPointer(PointerType base);
+
+template <class PointerType, class ObjectType>
+[[vk::ext_instruction(/* OpLoad */ 62)]] void
+__builtin_spv_StorePointer(PointerType base, ObjectType object);
+
+template <typename ComponentType, vk::Scope scope, uint rows, uint columns,
+    vk::CooperativeMatrixUse use>
+[[vk::ext_instruction(/* OpCompositeInsert */ 82)]] typename vk::khr::CooperativeMatrix<ComponentType, scope, rows, columns, use>::SpirvMatrixType
+__builtin_spv_InsertIntoCooperativeMatrix( ComponentType value,
+    typename vk::khr::CooperativeMatrix<ComponentType, scope, rows, columns, use>::SpirvMatrixType matrix,
+    uint32_t index);
 
 // Define the load and store instructions
 template <typename ResultType, typename PointerType>
@@ -230,7 +249,18 @@ template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
 ComponentType CooperativeMatrix<ComponentType, scope, rows, columns, use>::Get(
     uint32_t index) {
-  return __builtin_spv_ExtractFromCooperativeMatrix(_matrix, index);
+  using ComponentPtr = vk::SpirvOpaqueType</* OpTypePointer */ 32, /* function storage class */ vk::Literal<vk::integral_constant<uint, 7> >, ComponentType>;
+  ComponentPtr ptr = __builtin_spv_AccessChain<ComponentPtr>(_matrix, index);
+  return __builtin_spv_LoadPointer<ComponentType>(ptr);
+}
+
+template <class ComponentType, Scope scope, uint rows, uint columns,
+    CooperativeMatrixUse use>
+void CooperativeMatrix<ComponentType, scope, rows, columns, use>::Set(ComponentType value,
+    uint32_t index) {
+  using ComponentPtr = vk::SpirvOpaqueType</* OpTypePointer */ 32, /* function storage class */ vk::Literal<vk::integral_constant<uint, 7> >, ComponentType>;
+  ComponentPtr ptr = __builtin_spv_AccessChain<ComponentPtr>(_matrix, index);
+  return __builtin_spv_StorePointer(ptr, value);
 }
 
 template <typename ComponentType, Scope scope, uint rows, uint columns, uint K>

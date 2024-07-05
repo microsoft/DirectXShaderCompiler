@@ -46,7 +46,7 @@ namespace util {
 
 template <class ComponentType> class ArithmeticSelector;
 
-#define ARITHMETIC_SELECTOR(BaseType, OpNegate, OpAdd, OpSub, OpMul, OpDiv,           \
+#define ARITHMETIC_SELECTOR(BaseType, OpNegate, OpAdd, OpSub, OpMul, OpDiv,    \
                             SIGNED_INTEGER_TYPE)                               \
   template <> class ArithmeticSelector<BaseType> {                             \
     template <class T> static T Negate(T a) { return OpNegate(a); }            \
@@ -57,27 +57,36 @@ template <class ComponentType> class ArithmeticSelector;
   };
 
 ARITHMETIC_SELECTOR(half, __builtin_spv_FNegate, __builtin_spv_FAdd,
-                    __builtin_spv_FSub, __builtin_spv_FMul, __builtin_spv_FDiv, false);
+                    __builtin_spv_FSub, __builtin_spv_FMul, __builtin_spv_FDiv,
+                    false);
 ARITHMETIC_SELECTOR(float, __builtin_spv_FNegate, __builtin_spv_FAdd,
-                    __builtin_spv_FSub, __builtin_spv_FMul, __builtin_spv_FDiv, false);
+                    __builtin_spv_FSub, __builtin_spv_FMul, __builtin_spv_FDiv,
+                    false);
 ARITHMETIC_SELECTOR(double, __builtin_spv_FNegate, __builtin_spv_FAdd,
-                    __builtin_spv_FSub, __builtin_spv_FMul, __builtin_spv_FDiv, false);
+                    __builtin_spv_FSub, __builtin_spv_FMul, __builtin_spv_FDiv,
+                    false);
 
 #if __HLSL_ENABLE_16_BIT
 ARITHMETIC_SELECTOR(int16_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_SDiv, true);
+                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_SDiv,
+                    true);
 ARITHMETIC_SELECTOR(uint16_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_UDiv, false);
+                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_UDiv,
+                    false);
 #endif // __HLSL_ENABLE_16_BIT
 
 ARITHMETIC_SELECTOR(int32_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_SDiv, true);
+                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_SDiv,
+                    true);
 ARITHMETIC_SELECTOR(int64_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_SDiv, true);
+                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_SDiv,
+                    true);
 ARITHMETIC_SELECTOR(uint32_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_UDiv, false);
+                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_UDiv,
+                    false);
 ARITHMETIC_SELECTOR(uint64_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
-                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_UDiv, false);
+                    __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_UDiv,
+                    false);
 } // namespace util
 } // namespace vk
 
