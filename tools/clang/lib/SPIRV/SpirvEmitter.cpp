@@ -3017,6 +3017,14 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     const auto *param = callee->getParamDecl(i);
     const auto paramType = param->getType();
 
+    if (isResourceDescriptorHeap(paramType) ||
+        isSamplerDescriptorHeap(paramType)) {
+      emitError(
+          "Resource/sampler heaps are not allowed as function parameters.",
+          param->getLocStart());
+      return nullptr;
+    }
+
     // Get the evaluation info if this argument is referencing some variable
     // *as a whole*, in which case we can avoid creating the temporary variable
     // for it if it can act as out parameter.
