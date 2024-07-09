@@ -361,7 +361,14 @@ private:
   /// the value. It returns the <result-id> of the processed vector.
   SpirvInstruction *processEachVectorInMatrix(
       const Expr *matrix, SpirvInstruction *matrixVal,
-      llvm::function_ref<SpirvInstruction *(uint32_t, QualType,
+      llvm::function_ref<SpirvInstruction *(uint32_t, QualType, QualType,
+                                            SpirvInstruction *)>
+          actOnEachVector,
+      SourceLocation loc = {}, SourceRange range = {});
+
+  SpirvInstruction *processEachVectorInMatrix(
+      const Expr *matrix, QualType outputType, SpirvInstruction *matrixVal,
+      llvm::function_ref<SpirvInstruction *(uint32_t, QualType, QualType,
                                             SpirvInstruction *)>
           actOnEachVector,
       SourceLocation loc = {}, SourceRange range = {});
