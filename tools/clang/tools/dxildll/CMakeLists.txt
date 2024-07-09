@@ -73,7 +73,14 @@ add_dependencies(dxildll
 endif()
 
 if (WIN32)
-#wintools_set_resource_file(dxildll dxildll.rc)
+    get_target_property(sources dxildll SOURCES)
+
+    list(APPEND sources dxildll.rc)
+    set_target_properties(${target_name} PROPERTIES SOURCES "${sources}")
+
+    set_property(SOURCE dxildll.rc PROPERTY COMPILE_DEFINITIONS "INCLUDE_HLSL_VERSION_FILE=1")
+    set_property(SOURCE dxildll.rc PROPERTY COMPILE_OPTIONS "/I" "${HLSL_VERSION_LOCATION}" "/I" "${LLVM_MAIN_SRC_DIR}")
+
 else()
 set_target_properties(dxildll PROPERTIES
     LINK_FLAGS "-z defs")
