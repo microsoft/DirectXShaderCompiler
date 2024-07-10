@@ -170,7 +170,7 @@ namespace clang {
       // Link LinkModule into this module if present, preserving its validity.
       if (LinkModule) {
         if (Linker::LinkModules(M, LinkModule.get(),
-                                [=, this](const DiagnosticInfo &DI) {
+                                [this](const DiagnosticInfo &DI) {
                                   linkerDiagnosticHandler(DI);
                                 }))
           return;
