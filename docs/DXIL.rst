@@ -1150,17 +1150,18 @@ The following example demonstrates SRV metadata::
  !1 = !{ !2, !3 }
 
  ; Scalar resource: Texture2D<float4> MyTexture2D.
- %dx.types.ResElem.v4f32 = type { <4 x float> }
- @MyTexture2D = external addrspace(1) constant %dx.types.ResElem.v4f32, align 16
- !2 = !{ i32 0, %dx.types.ResElem.v4f32 addrspace(1)* @MyTexture2D, !"MyTexture2D",
+ %"class.Texture2D<vector<float, 4> >" = type { <4 x float>, %"class.Texture2D<vector<float, 4> >::mips_type" }
+ %"class.Texture2D<vector<float, 4> >::mips_type" = type { i32 }
+ @MyTexture2D = external addrspace(1) constant %"class.Texture2D<vector<float, 4> >", align 16
+ !2 = !{ i32 0, %"class.Texture2D<vector<float, 4> >"* @MyTexture2D, !"MyTexture2D",
          i32 0, i32 0, i32 1, i32 2, i32 0, null }
 
  ; Array resource: StructuredBuffer<MyType1> MyBuffer[2][3].
  %struct.NS1.MyType1 = type { float, <2 x i32> }
- %dx.types.ResElem.NS1.MyType1 = type { %struct.NS1.MyType1 }
- @MyBuffer = external addrspace(1) constant [2x [3 x %dx.types.ResElem.NS1.MyType1]], align 16
- !3 = !{ i32 1, [2 x [3 x %dx.types.ResElem.NS1.MyType1]] addrspace(1)* @MyBuffer, !"MyBuffer",
-         i32 0, i32 1, i32 6, i32 11, i32 0, null }
+ %"class.StructuredBuffer<NS1::MyType1>" = type { %"struct.NS1::MyType1" }
+ @MyBuffer = external addrspace(1) constant [2x [3 x %"class.StructuredBuffer<NS1::MyType1>"]], align 16
+ !3 = !{ i32 1, [2 x [3 x %"class.StructuredBuffer<NS1::MyType1>"]]* @MyBuffer, !"MyBuffer",
+         i32 0, i32 1, i32 6, i32 12, i32 0, null }
 
 The type name of the variable is constructed by appending the element name (primitive, vector or UDT name) to dx.types.ResElem prefix. The type configuration of the resource range variable conveys (1) resource range shape and (2) resource element type.
 
@@ -1170,28 +1171,14 @@ Reflection information
 
 Resource reflection data is conveyed via the resource's metadata record and global, external variable. The metadata record contains the original HLSL name, root signature range information, and the reference to the global resource variable declaration. The resource variable declaration conveys resource range shape, resource type and resource element type.
 
-The following disassembly provides an example::
-
- ; Scalar resource: Texture2D<float4> MyTexture2D.
- %dx.types.ResElem.v4f32 = type { <4 x float> }
- @MyTexture2D = external addrspace(1) constant %dx.types.ResElem.v4f32, align 16
- !0 = !{ i32 0, %dx.types.ResElem.v4f32 addrspace(1)* @MyTexture2D, !"MyTexture2D",
-         i32 0, i32 3, i32 1, i32 2, i32 0, null }
+The following disassembly provides an example of a reflection type annotation::
 
  ; struct MyType2 { float4 field1; int2 field2; };
- ; Constant buffer: ConstantBuffer<MyType2> MyCBuffer1[][3] : register(b5, space7)
  %struct.MyType2 = type { <4 x float>, <2 x i32> }
  ; Type reflection information (optional)
  !struct.MyType2 = !{ !1, !2 }
  !1 = !{ !"field1", null }
  !2 = !{ !"field2", null }
-
- %dx.types.ResElem.MyType1 = type { %struct.MyType2 }
-
- @MyCBuffer1 = external addrspace(1) constant [0 x [3 x %dx.types.ResElem.MyType2]], align 16
-
- !3 = !{ i32 0, [0 x [3 x %dx.types.ResElem.MyType1]] addrspace(1)* @MyCBuffer1, !"MyCBuffer1",
-         i32 7, i32 5, i32 -1, null }
 
 The reflection information can be removed from DXIL by obfuscating the resource HLSL name and resource variable name as well as removing reflection type annotations, if any.
 
