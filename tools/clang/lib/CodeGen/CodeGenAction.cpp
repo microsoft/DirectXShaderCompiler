@@ -171,7 +171,7 @@ namespace clang {
       if (LinkModule) {
         if (Linker::LinkModules(
                 M, LinkModule.get(),
-                [=](const DiagnosticInfo &DI) { linkerDiagnosticHandler(DI); }))
+                [=, this](const DiagnosticInfo &DI) { linkerDiagnosticHandler(DI); }))
           return;
       }
 

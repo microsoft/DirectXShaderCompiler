@@ -341,7 +341,7 @@ namespace  {
       for (QualType PT : T->getParamTypes())
         dumpTypeAsChild(PT);
       if (EPI.Variadic)
-        dumpChild([=] { OS << "..."; });
+        dumpChild([=, this] { OS << "..."; });
     }
     void VisitUnresolvedUsingType(const UnresolvedUsingType *T) {
       dumpDeclRef(T->getDecl());
@@ -646,7 +646,7 @@ void ASTDumper::dumpTypeAsChild(QualType T) {
   if (!SQT.Quals.hasQualifiers())
     return dumpTypeAsChild(SQT.Ty);
 
-  dumpChild([=] {
+  dumpChild([=, this] {
     OS << "QualType";
     dumpPointer(T.getAsOpaquePtr());
     OS << " ";
@@ -657,7 +657,7 @@ void ASTDumper::dumpTypeAsChild(QualType T) {
 }
 
 void ASTDumper::dumpTypeAsChild(const Type *T) {
-  dumpChild([=] {
+  dumpChild([=, this] {
     if (!T) {
       ColorScope Color(*this, NullColor);
       OS << "<<<NULL>>>";
@@ -714,7 +714,7 @@ void ASTDumper::dumpDeclRef(const Decl *D, const char *Label) {
   if (!D)
     return;
 
-  dumpChild([=]{
+  dumpChild([=, this]{
     if (Label)
       OS << Label << ' ';
     dumpBareDeclRef(D);
@@ -748,7 +748,7 @@ void ASTDumper::dumpDeclContext(const DeclContext *DC) {
   // HLSL Change Ends
 
   if (DC->hasExternalLexicalStorage()) {
-    dumpChild([=]{
+    dumpChild([=, this]{
       ColorScope Color(*this, UndeserializedColor);
       OS << "<undeserialized declarations>";
     });
@@ -756,7 +756,7 @@ void ASTDumper::dumpDeclContext(const DeclContext *DC) {
 }
 
 void ASTDumper::dumpLookups(const DeclContext *DC, bool DumpDecls) {
-  dumpChild([=] {
+  dumpChild([=, this] {
     OS << "StoredDeclsMap ";
     dumpBareDeclRef(cast<Decl>(DC));
 
@@ -774,7 +774,7 @@ void ASTDumper::dumpLookups(const DeclContext *DC, bool DumpDecls) {
       DeclarationName Name = I.getLookupName();
       DeclContextLookupResult R = *I++;
 
-      dumpChild([=] {
+      dumpChild([=, this] {
         OS << "DeclarationName ";
         {
           ColorScope Color(*this, DeclNameColor);
@@ -783,7 +783,7 @@ void ASTDumper::dumpLookups(const DeclContext *DC, bool DumpDecls) {
 
         for (DeclContextLookupResult::iterator RI = R.begin(), RE = R.end();
              RI != RE; ++RI) {
-          dumpChild([=] {
+          dumpChild([=, this] {
             dumpBareDeclRef(*RI);
 
             if ((*RI)->isHidden())
@@ -805,7 +805,7 @@ void ASTDumper::dumpLookups(const DeclContext *DC, bool DumpDecls) {
     }
 
     if (HasUndeserializedLookups) {
-      dumpChild([=] {
+      dumpChild([=, this] {
         ColorScope Color(*this, UndeserializedColor);
         OS << "<undeserialized lookups>";
       });
@@ -814,7 +814,7 @@ void ASTDumper::dumpLookups(const DeclContext *DC, bool DumpDecls) {
 }
 
 void ASTDumper::dumpAttr(const Attr *A) {
-  dumpChild([=] {
+  dumpChild([=, this] {
     {
       ColorScope Color(*this, AttrColor);
 
@@ -886,7 +886,7 @@ void ASTDumper::dumpAccessSpecifier(AccessSpecifier AS) {
 }
 
 void ASTDumper::dumpCXXCtorInitializer(const CXXCtorInitializer *Init) {
-  dumpChild([=] {
+  dumpChild([=, this] {
     OS << "CXXCtorInitializer";
     if (Init->isAnyMemberInitializer()) {
       OS << ' ';
@@ -927,7 +927,7 @@ void ASTDumper::dumpTemplateArgumentList(const TemplateArgumentList &TAL) {
 }
 
 void ASTDumper::dumpTemplateArgument(const TemplateArgument &A, SourceRange R) {
-  dumpChild([=] {
+  dumpChild([=, this] {
     OS << "TemplateArgument";
     if (R.isValid())
       dumpSourceRange(R);
@@ -993,7 +993,7 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
 {
   for (auto It = UA.begin(), E = UA.end(); It != E; ++It)
   {
-    dumpChild([=] {
+    dumpChild([=, this] {
       {
         ColorScope Color(*this, AttrColor);
         switch ((*It)->getKind())
@@ -1081,7 +1081,7 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
 // HLSL Change Ends
 
 void ASTDumper::dumpDecl(const Decl *D) {
-  dumpChild([=] {
+  dumpChild([=, this] {
     if (!D) {
       ColorScope Color(*this, NullColor);
       OS << "<<<NULL>>>";
@@ -1113,7 +1113,7 @@ void ASTDumper::dumpDecl(const Decl *D) {
     if (auto *ND = dyn_cast<NamedDecl>(D))
       for (Module *M : D->getASTContext().getModulesWithMergedDefinition(
                const_cast<NamedDecl *>(ND)))
-        dumpChild([=] { OS << "also in " << M->getFullModuleName(); });
+        dumpChild([=, this] { OS << "also in " << M->getFullModuleName(); });
     if (const NamedDecl *ND = dyn_cast<NamedDecl>(D))
       if (ND->isHidden())
         OS << " hidden";
@@ -1253,7 +1253,7 @@ void ASTDumper::VisitFunctionDecl(const FunctionDecl *D) {
     dumpDecl(*I);
 
   if (!D->param_begin() && D->getNumParams())
-    dumpChild([=] { OS << "<<NULL params x " << D->getNumParams() << ">>"; });
+    dumpChild([=, this] { OS << "<<NULL params x " << D->getNumParams() << ">>"; });
   else
     for (FunctionDecl::param_const_iterator I = D->param_begin(),
                                             E = D->param_end();
@@ -1356,7 +1356,7 @@ void ASTDumper::VisitCXXRecordDecl(const CXXRecordDecl *D) {
     return;
 
   for (const auto &I : D->bases()) {
-    dumpChild([=] {
+    dumpChild([=, this] {
       if (I.isVirtual())
         OS << "virtual ";
       dumpAccessSpecifier(I.getAccessSpecifier());
@@ -1595,7 +1595,7 @@ void ASTDumper::VisitObjCMethodDecl(const ObjCMethodDecl *D) {
   }
 
   if (D->isVariadic())
-    dumpChild([=] { OS << "..."; });
+    dumpChild([=, this] { OS << "..."; });
 
   if (D->hasBody())
     dumpStmt(D->getBody());
@@ -1723,13 +1723,13 @@ void ASTDumper::VisitBlockDecl(const BlockDecl *D) {
     dumpDecl(I);
 
   if (D->isVariadic())
-    dumpChild([=]{ OS << "..."; });
+    dumpChild([=, this]{ OS << "..."; });
 
   if (D->capturesCXXThis())
-    dumpChild([=]{ OS << "capture this"; });
+    dumpChild([=, this]{ OS << "capture this"; });
 
   for (const auto &I : D->captures()) {
-    dumpChild([=] {
+    dumpChild([=, this] {
       OS << "capture";
       if (I.isByRef())
         OS << " byref";
@@ -1751,7 +1751,7 @@ void ASTDumper::VisitBlockDecl(const BlockDecl *D) {
 //===----------------------------------------------------------------------===//
 
 void ASTDumper::dumpStmt(const Stmt *S) {
-  dumpChild([=] {
+  dumpChild([=, this] {
     if (!S) {
       ColorScope Color(*this, NullColor);
       OS << "<<<NULL>>>";
@@ -1965,7 +1965,7 @@ void ASTDumper::VisitStringLiteral(const StringLiteral *Str) {
 void ASTDumper::VisitInitListExpr(const InitListExpr *ILE) {
   VisitExpr(ILE);
   if (auto *Filler = ILE->getArrayFiller()) {
-    dumpChild([=] {
+    dumpChild([=, this] {
       OS << "array filler";
       dumpStmt(Filler);
     });
@@ -2302,7 +2302,7 @@ void ASTDumper::dumpFullComment(const FullComment *C) {
 }
 
 void ASTDumper::dumpComment(const Comment *C) {
-  dumpChild([=] {
+  dumpChild([=, this] {
     if (!C) {
       ColorScope Color(*this, NullColor);
       OS << "<<<NULL>>>";
