@@ -714,7 +714,7 @@ void ASTDumper::dumpDeclRef(const Decl *D, const char *Label) {
   if (!D)
     return;
 
-  dumpChild([=, this]{
+  dumpChild([=, this] {
     if (Label)
       OS << Label << ' ';
     dumpBareDeclRef(D);
@@ -748,7 +748,7 @@ void ASTDumper::dumpDeclContext(const DeclContext *DC) {
   // HLSL Change Ends
 
   if (DC->hasExternalLexicalStorage()) {
-    dumpChild([=, this]{
+    dumpChild([=, this] {
       ColorScope Color(*this, UndeserializedColor);
       OS << "<undeserialized declarations>";
     });
@@ -998,14 +998,18 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
         ColorScope Color(*this, AttrColor);
         switch ((*It)->getKind())
         {
-          case hlsl::UnusualAnnotation::UA_ConstantPacking:
-            OS << "ConstantPacking"; break;
-          case hlsl::UnusualAnnotation::UA_RegisterAssignment:
-            OS << "RegisterAssignment"; break;
-          case hlsl::UnusualAnnotation::UA_SemanticDecl:
-            OS << "SemanticDecl"; break;
-          case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier:
-            OS << "PayloadAccessQualifier"; break;
+        case hlsl::UnusualAnnotation::UA_ConstantPacking:
+          OS << "ConstantPacking";
+          break;
+        case hlsl::UnusualAnnotation::UA_RegisterAssignment:
+          OS << "RegisterAssignment";
+          break;
+        case hlsl::UnusualAnnotation::UA_SemanticDecl:
+          OS << "SemanticDecl";
+          break;
+        case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier:
+          OS << "PayloadAccessQualifier";
+          break;
         }
       }
       dumpPointer(It);
@@ -1014,48 +1018,52 @@ void ASTDumper::dumpHLSLUnusualAnnotations(const ArrayRef<hlsl::UnusualAnnotatio
       switch ((*It)->getKind())
       {
       case hlsl::UnusualAnnotation::UA_ConstantPacking: {
-          const hlsl::ConstantPacking* constantPacking = cast<hlsl::ConstantPacking>(*It);
-          OS << " packoffset(c";
-          OS << constantPacking->Subcomponent;
-          OS << ".";
-          const char *xyzw[4] = { "x", "y", "z", "w" };
-          if(constantPacking->ComponentOffset < 4)
-            OS << xyzw[constantPacking->ComponentOffset];
-          else
-            OS << "<invalid>";
-          OS << ")";
-          if (!constantPacking->IsValid)
-            OS << " invalid";
-          break;
-        }
+        const hlsl::ConstantPacking *constantPacking =
+            cast<hlsl::ConstantPacking>(*It);
+        OS << " packoffset(c";
+        OS << constantPacking->Subcomponent;
+        OS << ".";
+        const char *xyzw[4] = {"x", "y", "z", "w"};
+        if (constantPacking->ComponentOffset < 4)
+          OS << xyzw[constantPacking->ComponentOffset];
+        else
+          OS << "<invalid>";
+        OS << ")";
+        if (!constantPacking->IsValid)
+          OS << " invalid";
+        break;
+      }
       case hlsl::UnusualAnnotation::UA_RegisterAssignment: {
-          const hlsl::RegisterAssignment* registerAssignment = cast<hlsl::RegisterAssignment>(*It);
-          OS << " register(";
-          if (!registerAssignment->ShaderProfile.empty())
-            OS << registerAssignment->ShaderProfile << ", ";
-          bool needsComma = false;
-          if (!registerAssignment->isSpaceOnly()) {
-            if (!registerAssignment->RegisterType)
-              OS << "invalid";
-            else
-              OS << StringRef(&registerAssignment->RegisterType, 1);
-            OS << registerAssignment->RegisterNumber + registerAssignment->RegisterOffset;
-            needsComma = true;
-          }
-          if (registerAssignment->RegisterSpace.hasValue()) {
-            if (needsComma) OS << ", ";
-            OS << "space" << registerAssignment->RegisterSpace.getValue();
-          }
-          OS << ")";
-          if (!registerAssignment->IsValid)
-            OS << " invalid";
-          break;
+        const hlsl::RegisterAssignment *registerAssignment =
+            cast<hlsl::RegisterAssignment>(*It);
+        OS << " register(";
+        if (!registerAssignment->ShaderProfile.empty())
+          OS << registerAssignment->ShaderProfile << ", ";
+        bool needsComma = false;
+        if (!registerAssignment->isSpaceOnly()) {
+          if (!registerAssignment->RegisterType)
+            OS << "invalid";
+          else
+            OS << StringRef(&registerAssignment->RegisterType, 1);
+          OS << registerAssignment->RegisterNumber +
+                    registerAssignment->RegisterOffset;
+          needsComma = true;
         }
+        if (registerAssignment->RegisterSpace.hasValue()) {
+          if (needsComma)
+            OS << ", ";
+          OS << "space" << registerAssignment->RegisterSpace.getValue();
+        }
+        OS << ")";
+        if (!registerAssignment->IsValid)
+          OS << " invalid";
+        break;
+      }
       case hlsl::UnusualAnnotation::UA_SemanticDecl: {
-          const hlsl::SemanticDecl* semanticDecl = cast<hlsl::SemanticDecl>(*It);
-          OS << " \"" << semanticDecl->SemanticName << "\"";
-          break;
-        }      
+        const hlsl::SemanticDecl *semanticDecl = cast<hlsl::SemanticDecl>(*It);
+        OS << " \"" << semanticDecl->SemanticName << "\"";
+        break;
+      }
       case hlsl::UnusualAnnotation::UA_PayloadAccessQualifier: {
         const hlsl::PayloadAccessAnnotation *annotation =
             cast<hlsl::PayloadAccessAnnotation>(*It);
@@ -1253,7 +1261,8 @@ void ASTDumper::VisitFunctionDecl(const FunctionDecl *D) {
     dumpDecl(*I);
 
   if (!D->param_begin() && D->getNumParams())
-    dumpChild([=, this] { OS << "<<NULL params x " << D->getNumParams() << ">>"; });
+    dumpChild(
+        [=, this] { OS << "<<NULL params x " << D->getNumParams() << ">>"; });
   else
     for (FunctionDecl::param_const_iterator I = D->param_begin(),
                                             E = D->param_end();
@@ -1723,10 +1732,10 @@ void ASTDumper::VisitBlockDecl(const BlockDecl *D) {
     dumpDecl(I);
 
   if (D->isVariadic())
-    dumpChild([=, this]{ OS << "..."; });
+    dumpChild([=, this] { OS << "..."; });
 
   if (D->capturesCXXThis())
-    dumpChild([=, this]{ OS << "capture this"; });
+    dumpChild([=, this] { OS << "capture this"; });
 
   for (const auto &I : D->captures()) {
     dumpChild([=, this] {
