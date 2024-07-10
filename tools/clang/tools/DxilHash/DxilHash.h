@@ -16,7 +16,7 @@
 
 // Prototype for hash computing function 
 // pOutHash must always return a DXIL_CONTAINER_HASH_SIZE byte hash result.
-typedef void HASH_FUNCTION_PROTO(const BYTE* pData, uint32_t byteCount, BYTE* pOutHash);
+typedef void HASH_FUNCTION_PROTO(const BYTE* pData, UINT32 byteCount, BYTE* pOutHash);
 
 // **************************************************************************************
 // **** DO NOT USE THESE ROUTINES TO PROVIDE FUNCTIONALITY THAT NEEDS TO BE SECURE!!! ***
