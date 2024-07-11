@@ -37,10 +37,17 @@ LLVMContext &BasicBlock::getContext() const {
 // are not in the public header file...
 template class llvm::SymbolTableListTraits<Instruction, BasicBlock>;
 
-
 BasicBlock::BasicBlock(LLVMContext &C, const Twine &Name, Function *NewParent,
                        BasicBlock *InsertBefore)
-  : Value(Type::getLabelTy(C), Value::BasicBlockVal), Parent(nullptr) {
+    : Value(Type::getLabelTy(C), Value::BasicBlockVal),
+      // HLSL Change Starts
+      // Use a real instruction as the sentinel. Transfer ownership to InstList.
+      // The sentinel only needs to participate in the intrusive list of
+      // instructions. Any instruction kind will do, but UnreachableInst is
+      // small and simple.
+      InstList(std::unique_ptr<Instruction>(new UnreachableInst(C))),
+      // HLSL Change Ends
+      Parent(nullptr) {
 
   // HLSL Change Begin
   // Do everything that can throw before inserting into the
