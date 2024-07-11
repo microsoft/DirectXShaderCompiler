@@ -10,21 +10,21 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <algorithm>
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/FileSystem.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/ManagedStatic.h"
+#include <algorithm>
 #ifdef _WIN32
-#include "dxc/Tracing/dxcetw.h"
 #include "Tracing/DxcRuntimeEtw.h"
+#include "dxc/Tracing/dxcetw.h"
 #endif
 
 #ifdef _WIN32
 #define DXC_API_IMPORT
 #else
-#define DXC_API_IMPORT __attribute__ ((visibility ("default")))
+#define DXC_API_IMPORT __attribute__((visibility("default")))
 #endif
 
 #include "dxc/dxcisense.h"

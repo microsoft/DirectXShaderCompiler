@@ -10,15 +10,16 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/Support/WinIncludes.h"
-#include "dxc/dxcapi.h"
-#include "dxc/DxilContainer/DxilContainer.h"
+
+#include "DxilHash.h"
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
-#include "dxc/Support/Global.h"
+#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/ErrorCodes.h"
 #include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/microcom.h"
+#include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.impl.h"
-#include "DxilHash.h"
+#include "dxc/Support/microcom.h"
+#include "dxc/dxcapi.h"
 
 #include <algorithm>
 
