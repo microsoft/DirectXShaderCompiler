@@ -1043,14 +1043,35 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     // extended vector type, which is represented as an array in DWARF.
     // However, we logically represent it as one field per component.
     QualType ElemQualTy = hlsl::GetHLSLVecElementType(QualTy);
+    unsigned AlignMask = CGM.getContext().getTypeAlign(ElemQualTy) - 1;
     unsigned VecSize = hlsl::GetHLSLVecSize(QualTy);
     unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
+    unsigned CurrentAlignedOffset = 0;
     for (unsigned ElemIdx = 0; ElemIdx < VecSize; ++ElemIdx) {
       StringRef FieldName = StringRef(&"xyzw"[ElemIdx], 1);
-      unsigned OffsetInBits = ElemSizeInBits * ElemIdx;
-      llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0,
-        SourceLocation(), AccessSpecifier::AS_public, OffsetInBits,
+      // This matches the alignment calculation in OffsetManager in DxilDbgValueToDbgDeclare.cpp
+      // Assume the natural alignment for Ty is 16 bits. Then
+      //
+      //     AlignMask = 0x0000000f(15)
+      //
+      // If the current aligned offset is
+      //
+      //     CurrentAlignedOffset = 0x00000048(72)
+      //
+      // Then
+      //
+      //     T = CurrentAlignOffset + AlignMask = 0x00000057(87)
+      //
+      // Which mean
+      //
+      //     T & ~AlignMask = 0x00000050(80)
+      //
+      // is the aligned offset where Ty should be read from.
+      CurrentAlignedOffset = (CurrentAlignedOffset + AlignMask) & ~AlignMask;
+      llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0, SourceLocation(),
+                          AccessSpecifier::AS_public, CurrentAlignedOffset,
         /* tunit */ nullptr, DITy, Ty->getDecl());
+      CurrentAlignedOffset += ElemSizeInBits;
       Elements.emplace_back(FieldType);
     }
 

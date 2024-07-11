@@ -154,7 +154,7 @@ public:
       //
       // Which mean
       //
-      //     T & ~CurrentOffset = 0x00000050(80)
+      //     T & ~AlignMask = 0x00000050(80)
       //
       // is the aligned offset where Ty should be placed.
       AlignMask = AlignMask - 1;
@@ -1317,7 +1317,7 @@ void VariableRegisters::PopulateAllocaMap_StructType(
   const llvm::DITypeIdentifierMap EmptyMap;
 
   for (auto OffsetAndMember : SortedMembers) {
-    VALUE_TO_DECLARE_LOG("Member: %s at aligned offset %d",
+    VALUE_TO_DECLARE_LOG("Member: %s at packed offset %d",
                          OffsetAndMember.second->getName().str().c_str(),
                          OffsetAndMember.first);
     // Align the offsets to the member's type natural alignment. This
@@ -1331,9 +1331,6 @@ void VariableRegisters::PopulateAllocaMap_StructType(
       // size would be lost
       PopulateAllocaMap(OffsetAndMember.second);
     } else {
-      assert(m_Offsets.GetCurrentAlignedOffset() ==
-                 StructStart + OffsetAndMember.first &&
-             "Offset mismatch in DIStructType");
       if (IsResourceObject(OffsetAndMember.second)) {
         m_Offsets.AddResourceType(OffsetAndMember.second);
       } else {
