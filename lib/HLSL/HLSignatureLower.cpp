@@ -298,6 +298,16 @@ void HLSignatureLower::ProcessArgument(Function *func,
       SigPoint::GetInterpretation(pSemantic->GetKind(), sigPoint->GetKind(),
                                   pSM->GetMajor(), pSM->GetMinor());
 
+  // Verify that for SV_Target[n], 0 <= n <= 7
+  if (pSemantic->GetKind() == Semantic::Kind::Target &&
+      !paramAnnotation.GetSemanticIndexVec().empty() &&
+      paramAnnotation.GetSemanticIndexVec()[0] > 7u) {
+    dxilutil::EmitErrorOnFunction(
+        HLM.GetModule()->getContext(), func,
+        "SV_Target semantic index must be between 0 and 7");
+    return;
+  }
+
   // Verify system value semantics do not overlap.
   // Note: Arbitrary are always in the signature and will be verified with a
   // different mechanism. For patch constant function, only validate patch
