@@ -12,7 +12,6 @@
 
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <algorithm>
