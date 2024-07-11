@@ -15,7 +15,7 @@
 #ifndef LLVM_SUPPORT_WIN_ADAPTER_H
 #define LLVM_SUPPORT_WIN_ADAPTER_H
 
-#ifndef _WIN32
+#ifndef _MSC_VER
 
 #ifdef __cplusplus
 #include <atomic>
@@ -32,6 +32,105 @@
 #include <typeinfo>
 #include <vector>
 #endif // __cplusplus
+
+#ifdef __MINGW32__
+
+#undef _WIN32_WINNT
+#undef _WIN32_IE
+
+// Require at least Windows 7 (Updated from XP)
+#define _WIN32_WINNT 0x0601
+#define _WIN32_IE 0x0800
+
+#define WIN32_LEAN_AND_MEAN
+#define STRSAFE_NO_DEPRECATE
+
+#include <intsafe.h>
+#include <objidl.h>
+#include <sal.h>
+#include <strsafe.h>
+#include <unknwn.h>
+#include <windows.h>
+
+#undef EN
+#undef IN
+#undef OUT
+#undef MemoryFence
+#undef ReplaceText
+
+#define EventRegisterMicrosoft_Windows_DXCompiler_API()
+#define EventUnregisterMicrosoft_Windows_DXCompiler_API()
+
+#define DxcEtw_DXCompilerCompile_Start()
+#define DxcEtw_DXCompilerCompile_Stop(hr)
+#define DxcEtw_DXCompilerCreateInstance_Start()
+#define DxcEtw_DXCompilerCreateInstance_Stop(hr)
+#define DxcEtw_DXCompilerDisassemble_Start()
+#define DxcEtw_DXCompilerDisassemble_Stop(hr)
+#define DxcEtw_DXCompilerInitialization_Start()
+#define DxcEtw_DXCompilerInitialization_Stop(hr)
+#define DxcEtw_DXCompilerPreprocess_Start()
+#define DxcEtw_DXCompilerPreprocess_Stop(hr)
+#define DxcEtw_DXCompilerShutdown_Start()
+#define DxcEtw_DXCompilerShutdown_Stop(hr)
+#define DxcEtw_DxcValidation_Start()
+#define DxcEtw_DxcValidation_Stop(hr)
+
+#define ATLASSERT assert
+
+#ifdef __cplusplus
+
+constexpr uint8_t nybble_from_hex(char c) {
+  return ((c >= '0' && c <= '9')
+              ? (c - '0')
+              : ((c >= 'a' && c <= 'f')
+                     ? (c - 'a' + 10)
+                     : ((c >= 'A' && c <= 'F') ? (c - 'A' + 10)
+                                               : /* Should be an error */ -1)));
+}
+
+constexpr uint8_t byte_from_hex(char c1, char c2) {
+  return nybble_from_hex(c1) << 4 | nybble_from_hex(c2);
+}
+
+constexpr uint8_t byte_from_hexstr(const char str[2]) {
+  return nybble_from_hex(str[0]) << 4 | nybble_from_hex(str[1]);
+}
+
+constexpr GUID guid_from_string(const char str[37]) {
+  return GUID{static_cast<uint32_t>(byte_from_hexstr(str)) << 24 |
+                  static_cast<uint32_t>(byte_from_hexstr(str + 2)) << 16 |
+                  static_cast<uint32_t>(byte_from_hexstr(str + 4)) << 8 |
+                  byte_from_hexstr(str + 6),
+              static_cast<uint16_t>(
+                  static_cast<uint16_t>(byte_from_hexstr(str + 9)) << 8 |
+                  byte_from_hexstr(str + 11)),
+              static_cast<uint16_t>(
+                  static_cast<uint16_t>(byte_from_hexstr(str + 14)) << 8 |
+                  byte_from_hexstr(str + 16)),
+              {byte_from_hexstr(str + 19), byte_from_hexstr(str + 21),
+               byte_from_hexstr(str + 24), byte_from_hexstr(str + 26),
+               byte_from_hexstr(str + 28), byte_from_hexstr(str + 30),
+               byte_from_hexstr(str + 32), byte_from_hexstr(str + 34)}};
+}
+
+#define CROSS_PLATFORM_UUIDOF(name, spec)                                      \
+  struct __declspec(uuid(spec)) name;                                          \
+  extern "C++" {                                                               \
+  template <> struct __mingw_uuidof_s<name> {                                  \
+    static constexpr IID __uuid_inst = guid_from_string(spec);                 \
+  };                                                                           \
+  template <> constexpr const GUID &__mingw_uuidof<name>() {                   \
+    return __mingw_uuidof_s<name>::__uuid_inst;                                \
+  }                                                                            \
+  template <> constexpr const GUID &__mingw_uuidof<name *>() {                 \
+    return __mingw_uuidof_s<name>::__uuid_inst;                                \
+  }                                                                            \
+  }
+
+#endif // __cplusplus
+
+#else // __MINGW32__
 
 #define COM_NO_WINDOWS_H // needed to inform d3d headers that this isn't windows
 
@@ -630,6 +729,12 @@ CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection,
 CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection,
                       "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
 
+#endif // __cplusplus
+
+#endif // __MINGW32__
+
+#ifdef __cplusplus
+
 //===--------------------- COM Pointer Types ------------------------------===//
 
 class CAllocator {
@@ -897,6 +1002,7 @@ public:
 
 #define CComHeapPtr CHeapPtr
 
+#ifndef __MINGW32__
 //===--------------------------- BSTR Allocation --------------------------===//
 
 void SysFreeString(BSTR bstrString);
@@ -905,6 +1011,7 @@ BSTR SysAllocStringLen(const OLECHAR *strIn, UINT ui);
 
 //===--------------------------- BSTR Length ------------------------------===//
 unsigned int SysStringLen(const BSTR bstrString);
+#endif // __MINGW32__
 
 //===--------------------- UTF-8 Related Types ----------------------------===//
 
@@ -1034,6 +1141,6 @@ public:
 
 #endif // __cplusplus
 
-#endif // _WIN32
+#endif // _MSC_VER
 
 #endif // LLVM_SUPPORT_WIN_ADAPTER_H

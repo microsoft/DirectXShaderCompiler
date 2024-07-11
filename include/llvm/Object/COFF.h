@@ -258,6 +258,8 @@ struct coff_symbol_generic {
   support::ulittle32_t Value;
 };
 
+using namespace COFF;
+
 class COFFSymbolRef {
 public:
   COFFSymbolRef(const coff_symbol16 *CS) : CS16(CS), CS32(nullptr) {}
@@ -326,7 +328,7 @@ public:
   uint8_t getBaseType() const { return getType() & 0x0F; }
 
   uint8_t getComplexType() const {
-    return (getType() & 0xF0) >> COFF::SCT_COMPLEX_TYPE_SHIFT;
+    return (getType() & 0xF0) >> 4; // SCT_COMPLEX_TYPE_SHIFT
   }
 
   bool isAbsolute() const {
@@ -334,31 +336,31 @@ public:
   }
 
   bool isExternal() const {
-    return getStorageClass() == COFF::IMAGE_SYM_CLASS_EXTERNAL;
+    return getStorageClass() == IMAGE_SYM_CLASS_EXTERNAL;
   }
 
   bool isCommon() const {
-    return isExternal() && getSectionNumber() == COFF::IMAGE_SYM_UNDEFINED &&
+    return isExternal() && getSectionNumber() == IMAGE_SYM_UNDEFINED &&
            getValue() != 0;
   }
 
   bool isUndefined() const {
-    return isExternal() && getSectionNumber() == COFF::IMAGE_SYM_UNDEFINED &&
+    return isExternal() && getSectionNumber() == IMAGE_SYM_UNDEFINED &&
            getValue() == 0;
   }
 
   bool isWeakExternal() const {
-    return getStorageClass() == COFF::IMAGE_SYM_CLASS_WEAK_EXTERNAL;
+    return getStorageClass() == IMAGE_SYM_CLASS_WEAK_EXTERNAL;
   }
 
   bool isFunctionDefinition() const {
-    return isExternal() && getBaseType() == COFF::IMAGE_SYM_TYPE_NULL &&
-           getComplexType() == COFF::IMAGE_SYM_DTYPE_FUNCTION &&
+    return isExternal() && getBaseType() == IMAGE_SYM_TYPE_NULL &&
+           getComplexType() == IMAGE_SYM_DTYPE_FUNCTION &&
            !COFF::isReservedSectionNumber(getSectionNumber());
   }
 
   bool isFunctionLineInfo() const {
-    return getStorageClass() == COFF::IMAGE_SYM_CLASS_FUNCTION;
+    return getStorageClass() == IMAGE_SYM_CLASS_FUNCTION;
   }
 
   bool isAnyUndefined() const {
@@ -366,27 +368,26 @@ public:
   }
 
   bool isFileRecord() const {
-    return getStorageClass() == COFF::IMAGE_SYM_CLASS_FILE;
+    return getStorageClass() == IMAGE_SYM_CLASS_FILE;
   }
 
   bool isSection() const {
-    return getStorageClass() == COFF::IMAGE_SYM_CLASS_SECTION;
+    return getStorageClass() == IMAGE_SYM_CLASS_SECTION;
   }
 
   bool isSectionDefinition() const {
     // C++/CLI creates external ABS symbols for non-const appdomain globals.
     // These are also followed by an auxiliary section definition.
-    bool isAppdomainGlobal =
-        getStorageClass() == COFF::IMAGE_SYM_CLASS_EXTERNAL &&
-        getSectionNumber() == COFF::IMAGE_SYM_ABSOLUTE;
-    bool isOrdinarySection = getStorageClass() == COFF::IMAGE_SYM_CLASS_STATIC;
+    bool isAppdomainGlobal = getStorageClass() == IMAGE_SYM_CLASS_EXTERNAL &&
+                             getSectionNumber() == IMAGE_SYM_ABSOLUTE;
+    bool isOrdinarySection = getStorageClass() == IMAGE_SYM_CLASS_STATIC;
     if (!getNumberOfAuxSymbols())
       return false;
     return isAppdomainGlobal || isOrdinarySection;
   }
 
   bool isCLRToken() const {
-    return getStorageClass() == COFF::IMAGE_SYM_CLASS_CLR_TOKEN;
+    return getStorageClass() == IMAGE_SYM_CLASS_CLR_TOKEN;
   }
 
 private:
@@ -411,7 +412,7 @@ struct coff_section {
   // Returns true if the actual number of relocations is stored in
   // VirtualAddress field of the first relocation table entry.
   bool hasExtendedRelocations() const {
-    return (Characteristics & COFF::IMAGE_SCN_LNK_NRELOC_OVFL) &&
+    return (Characteristics & IMAGE_SCN_LNK_NRELOC_OVFL) &&
            NumberOfRelocations == UINT16_MAX;
   }
 };

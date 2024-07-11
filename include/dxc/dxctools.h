@@ -42,7 +42,7 @@ struct IDxcRewriter : public IUnknown {
       IDxcOperationResult **ppResult) = 0;
 };
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define CLSID_SCOPE __declspec(selectany) extern
 #else
 #define CLSID_SCOPE

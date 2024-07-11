@@ -65,6 +65,7 @@ template <class T> void swap(CComHeapPtr<T> &a, CComHeapPtr<T> &b) {
 
 #include "dxc/WinAdapter.h"
 
+#ifndef __MINGW32__
 #ifdef __cplusplus
 #if !defined(DEFINE_ENUM_FLAG_OPERATORS)
 // Define operator overloads to enable bit operations on enum values that are
@@ -118,6 +119,7 @@ template <class T> struct _ENUM_FLAG_SIZED_INTEGER {
 #else
 #define DEFINE_ENUM_FLAG_OPERATORS(ENUMTYPE) // NOP, C allows these operators.
 #endif
+#endif // __MINGW32__
 
 #endif // _MSC_VER
 

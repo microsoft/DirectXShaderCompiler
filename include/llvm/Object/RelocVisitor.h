@@ -29,6 +29,8 @@
 namespace llvm {
 namespace object {
 
+using namespace COFF;
+
 struct RelocToApply {
   // The computed value after applying the relevant relocations.
   int64_t Value;
@@ -206,17 +208,17 @@ private:
     switch (ObjToVisit.getArch()) {
     case Triple::x86:
       switch (RelocType) {
-      case COFF::IMAGE_REL_I386_SECREL:
+      case IMAGE_REL_I386_SECREL:
         return visitCOFF_I386_SECREL(R, Value);
-      case COFF::IMAGE_REL_I386_DIR32:
+      case IMAGE_REL_I386_DIR32:
         return visitCOFF_I386_DIR32(R, Value);
       }
       break;
     case Triple::x86_64:
       switch (RelocType) {
-      case COFF::IMAGE_REL_AMD64_SECREL:
+      case IMAGE_REL_AMD64_SECREL:
         return visitCOFF_AMD64_SECREL(R, Value);
-      case COFF::IMAGE_REL_AMD64_ADDR64:
+      case IMAGE_REL_AMD64_ADDR64:
         return visitCOFF_AMD64_ADDR64(R, Value);
       }
       break;

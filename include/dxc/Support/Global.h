@@ -281,7 +281,7 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 
 #ifndef NDEBUG
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 
 // DXASSERT is used to debug break when 'exp' evaluates to false and is only
 //     intended for internal developer use. It is compiled out in free
@@ -314,7 +314,7 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
 
 #define DXVERIFY_NOMSG(exp) DXASSERT(exp, "")
 
-#else // _WIN32
+#else // _MSC_VER
 #include <cassert>
 
 #define DXASSERT_NOMSG assert
@@ -341,7 +341,7 @@ inline void OutputDebugFormatA(const char *pszFormat, ...) {
     }                                                                          \
   } while (0)
 
-#endif // _WIN32
+#endif // _MSC_VER
 
 #else // NDEBUG
 
