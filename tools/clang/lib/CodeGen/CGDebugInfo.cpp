@@ -1049,8 +1049,9 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     unsigned CurrentAlignedOffset = 0;
     for (unsigned ElemIdx = 0; ElemIdx < VecSize; ++ElemIdx) {
       StringRef FieldName = StringRef(&"xyzw"[ElemIdx], 1);
-      // This matches the alignment calculation in OffsetManager in DxilDbgValueToDbgDeclare.cpp
-      // Assume the natural alignment for Ty is 16 bits. Then
+      // This matches the alignment calculation in OffsetManager in
+      // DxilDbgValueToDbgDeclare.cpp Assume the natural alignment for Ty is 16
+      // bits. Then
       //
       //     AlignMask = 0x0000000f(15)
       //
@@ -1068,9 +1069,10 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
       //
       // is the aligned offset where Ty should be read from.
       CurrentAlignedOffset = (CurrentAlignedOffset + AlignMask) & ~AlignMask;
-      llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0, SourceLocation(),
+      llvm::DIType *FieldType =
+          createFieldType(FieldName, ElemQualTy, 0, SourceLocation(),
                           AccessSpecifier::AS_public, CurrentAlignedOffset,
-        /* tunit */ nullptr, DITy, Ty->getDecl());
+                          /* tunit */ nullptr, DITy, Ty->getDecl());
       CurrentAlignedOffset += ElemSizeInBits;
       Elements.emplace_back(FieldType);
     }

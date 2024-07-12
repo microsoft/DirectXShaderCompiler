@@ -3188,7 +3188,8 @@ void main()
 
 
 )";
-  RunVectorSizeAndOffsetTestCase(hlsl, {0, 16, 32, 48}, {L"-Od", L"-enable-16bit-types"});
+  RunVectorSizeAndOffsetTestCase(hlsl, {0, 16, 32, 48},
+                                 {L"-Od", L"-enable-16bit-types"});
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Min16VectorOffsets_Disabled) {
@@ -3218,8 +3219,8 @@ void PixDiaTest::RunVectorSizeAndOffsetTestCase(
     std::vector<const wchar_t *> extraArgs) {
   if (m_ver.SkipDxilVersion(1, 5))
     return;
-  auto debugInfo = CompileAndCreateDxcDebug(hlsl, L"cs_6_5", nullptr, extraArgs)
-                       .debugInfo;
+  auto debugInfo =
+      CompileAndCreateDxcDebug(hlsl, L"cs_6_5", nullptr, extraArgs).debugInfo;
   auto live = GetLiveVariablesAt(hlsl, "STOP_HERE", debugInfo);
   CComPtr<IDxcPixVariable> variable;
   VERIFY_SUCCEEDED(live->GetVariableByName(L"vector", &variable));
