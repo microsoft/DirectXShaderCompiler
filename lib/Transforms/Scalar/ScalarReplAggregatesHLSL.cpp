@@ -3504,7 +3504,7 @@ bool replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
 
       if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
         if (!replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,
-                                                sizeInDwords))
+                                                     sizeInDwords))
           bReplacedAll = false;
       } else if (CE->getOpcode() == Instruction::AddrSpaceCast) {
         Value *NewAddrSpaceCast = Builder.CreateAddrSpaceCast(
@@ -3512,7 +3512,7 @@ bool replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
             PointerType::get(VectorArray->getType()->getPointerElementType(),
                              CE->getType()->getPointerAddressSpace()));
         if (!replaceScalarArrayWithVectorArray(CE, NewAddrSpaceCast, MC,
-                                           sizeInDwords))
+                                               sizeInDwords))
           bReplacedAll = false;
       } else if (CE->hasOneUse() && CE->user_back() == MC) {
         continue;
@@ -3522,7 +3522,7 @@ bool replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       IRBuilder<> Builder(GEP);
       if (!replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,
-                                               sizeInDwords))
+                                                   sizeInDwords))
         bReplacedAll = false;
       else
         GEP->eraseFromParent();
