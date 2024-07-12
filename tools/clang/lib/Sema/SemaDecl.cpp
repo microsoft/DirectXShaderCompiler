@@ -14643,7 +14643,8 @@ void Sema::DiagnoseSemanticDecl(hlsl::SemanticDecl *Decl) {
   // The valid semantic indices for SV_Target[n] are 0 <= n <= 7.
   if (BaseSemName.equals("SV_Target") && SemIndex > 7) {
     Diag(Decl->Loc, diag::err_hlsl_unsupported_semantic_index)
-        << SemName << SemIndex << "0" << "7";
+        << SemName << SemIndex << "0"
+        << "7";
   }
 }
 // HLSL Change Ends
