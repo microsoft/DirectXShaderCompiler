@@ -25,15 +25,10 @@ This cumulative release contains numerous bug fixes and stability improvments.
 Here are some highlights:
 
 - Retain alignment when lowering groupshared matrices by @pow2clk in [#6589](https://github.com/microsoft/DirectXShaderCompiler/pull/6589)
-
 - [Optimization] More aggressive reassociations by @lizhengxing in [#6626](https://github.com/microsoft/DirectXShaderCompiler/pull/6626)
-
 - Fix RemoveUnstructuredLoopExits when an exiting edge jumps out multiple levels of loops by @dneto0 in [#6668](https://github.com/microsoft/DirectXShaderCompiler/pull/6668)
-
 - [SPIR-V] Implement WaveMutliPrefix* by @sudonatalie in [#6608](https://github.com/microsoft/DirectXShaderCompiler/pull/6608)
-
 - [SPIR-V] Add support for SampleCmpLevel by @Keenuts in [#6618](https://github.com/microsoft/DirectXShaderCompiler/pull/6618)
-
 - Avoid adding types to default namespace by @s-perron in [#6700](https://github.com/microsoft/DirectXShaderCompiler/pull/6700)
 
 ### Version 1.8.2405
