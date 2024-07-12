@@ -38,55 +38,76 @@ Make sure you can build the code. Familiarize yourself with the project workflow
 
 Before submitting a feature or substantial code contribution please discuss it with the team and ensure it follows the product roadmap. You might also read these two blogs posts on contributing code: [Open Source Contribution Etiquette](http://tirania.org/blog/archive/2010/Dec-31.html) by Miguel de Icaza and [Don't "Push" Your Pull Requests](https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/) by Ilya Grigorik. Note that all code submissions will be rigorously reviewed and tested by the team, and only those that meet an extremely high bar for both quality and design/roadmap appropriateness will be merged into the source.
 
-Here's a few things you should always do when making changes to the code base:
-
-**Engineering guidelines**
+### Coding guidelines
 
 The coding, style, and general engineering guidelines follow those described in the docs/CodingStandards.rst. For additional guidelines in code specific to HLSL, see the docs/HLSLChanges.rst file.
 
-DXC has adopted a clang-format requirement for all incoming changes. PRs to DXC should have the _changed code_ clang formatted to the LLVM style, and leave the remaining portions of the file unchanged. This can be done using the `git-clang-format` tool or IDE driven workflows. A GitHub action will run on all PRs to validate that the change is properly formatted.
+DXC has adopted a clang-format requirement for all incoming changes to C and C++ files. PRs to DXC should have the _changed code_ clang formatted to the LLVM style, and leave the remaining portions of the file unchanged. This can be done using the `git-clang-format` tool or IDE driven workflows. A GitHub action will run on all PRs to validate that the change is properly formatted.
 
-**Commit/Pull Request Format**
+### Documenting Pull Requests
+
+Pull request descriptions should have the following format:
 
 ```
-Summary of the changes (Less than 80 chars)
- - Detail 1
- - Detail 2
+Title summary of the changes (Less than 80 chars)
+ - Description Detail 1
+ - Description Detail 2
 
-Fixes #bugnumber (in this specific format)
+Fixes #bugnumber (Where relevant. In this specific format)
 ```
 
-Your pull request should:
+#### Titles
 
-* Include a description of what your change intends to do
-  * The title of your PR should be a very brief description of the change, and
-    can use tags to allow for speedy categorization.
-    * Titles under 76 characters print nicely in unix terminals under `git log`.
-      This is not a hard requirement, but is good guidance.
-    * Title tags are generally one word or acronym enclosed in square brackets.
-      Limiting to one or two tags is ideal to keep titles short. Some examples
-      of common tags are:
-      * [NFC] - No Functional Change
-      * [RFC] - Request For Comments (often used for drafts to get feedback)
-      * [Doc] - Documentation change
-      * [SPIRV] - Changes related to SPIR-V
-      * [HLSL2021] - Changes related to HLSL 2021 features
-      * Other tags in use: [Linux], [mac], [Win], [PIX], etc...
-      * Tags aren't formalized or any specific limited set. If you're unsure of
-        a reasonable tag to use, just don't use any. If you want to invent a new
-        tag, go for it! These are to help categorize changes at a glance.
-  * The PR description should include a more detailed description of the change,
-    an explanation for the motivation of the change, and links to any relevant
-    Issues. This does not need to be a dissertation, but should leave
-    breadcrumbs for the next person debugging your code (who might be you).
-  * Using the words `Fixes`, `Fixed`, `Closes`, `Closed`, or `Close` followed by
-    `#<issuenumber>`, will auto close an issue after the PR is merged.
-* Be a child commit of a reasonably recent commit in the main branch
-* Pass all unit tests
-* Ensure that the title and description are fully up to date before merging
-  * The title and description feed the final git commit message, and we want to
-    ensure high quality commit messages in the repository history.
-* Include adequate tests
-  * At least one test should fail in the absence of your non-test code changes. If your PR does not match this criteria, please specify why
-  * Tests should include reasonable permutations of the target fix/change
-  * Include baseline changes with your change as needed
+The title should focus on what the change intends to do rather than how it was done.
+The description can and should explain how it was done if not obvious.
+
+Titles under 76 characters print nicely in unix terminals under `git log`.
+This is not a hard requirement, but is good guidance.
+
+Tags in titles allow for speedy categorization
+Title tags  are generally one word or acronym enclosed in square brackets.
+Limiting to one or two tags is ideal to keep titles short.
+Some examples of common tags are:
+
+  - `[NFC]` - No Functional Change
+  - `[RFC]` - Request For Comments (often used for drafts to get feedback)
+  - `[Doc]` - Documentation change
+  - `[SPIRV]` - Changes related to SPIR-V
+  - `[HLSL2021]` - Changes related to HLSL 2021 features
+  - Other tags in use: `[Linux]`, `[mac]`, `[Win]`, `[PIX]`, etc...
+
+Tags aren't formalized or any specific limited set. If you're unsure of
+  a reasonable tag to use, just don't use any. If you want to invent a new
+  tag, go for it! These are to help categorize changes at a glance.
+
+#### Descriptions
+
+The PR description should include a more detailed description of the change,
+an explanation for the motivation of the change, and links to any relevant Issues.
+This does not need to be a dissertation, but should leave
+breadcrumbs for the next person debugging your code (who might be you).
+
+Using the words `Fixes`, `Fixed`, `Closes`, `Closed`, or `Close` followed by
+  `#<issuenumber>`, will auto close an issue after the PR is merged.
+
+### Testing Pull Requests
+
+For a pull request to be merged, it will have to pass the automated set of regression tests run for each.
+Additional regression testing may be required for some changes depending on the area of the changes.
+The commiter is expected to recognize the need for and perform any additional testing prior to merging.
+
+In addition to existing tests, bug fixes and new features require additional testing be included in the pull requests that implement them.
+For bug fixes, at least one added test should fail in the absence of your non-test code changes.
+Tests should include reasonable permutations of the target fix/change.
+Include baseline changes with your change as needed.
+
+For cases where any of the above testing requirements are not possible,
+please specify why in the pull request.
+
+### Merging Pull Requests
+
+Pull requests should be a child commit of a reasonably recent commit in the main branch
+
+Ensure that the title and description are fully up to date before merging
+The title and description feed the final git commit message, and we want to
+ensure high quality commit messages in the repository history.
