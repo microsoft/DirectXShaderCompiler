@@ -90,6 +90,38 @@ breadcrumbs for the next person debugging your code (who might be you).
 Using the words `Fixes`, `Fixed`, `Closes`, `Closed`, or `Close` followed by
   `#<issuenumber>`, will auto close an issue after the PR is merged.
 
+#### Release Notes
+
+Significant changes may require release notes that highlight important
+compiler behavior changes for each named release.
+These include changes that are:
+
+- Visible to the users
+- Significant changes to compiler behavior
+  - New features: Language, Hardware support, compiler options
+  - Important bug fixes
+  - Changes in default behavior
+
+When such a change is made, the release note should be included as part of that change.
+This is done in the docs/ReleaseNotes.md file.
+
+If the change is meant for a named release,
+it should be added to that named release's section of the release notes file.
+As the change is merged to the appropriate release branches,
+the release notes will come along with it.
+
+If a change is meant for the next upcoming release,
+it should be added to the "Upcoming Release" section.
+When the next upcoming release is named,
+the title will be updated and the release note will be included in the appropriate release.
+
+When writing release note list entries:
+
+- Keep the description to a single sentence.
+- Links to PRs are not recommended.
+- Markdown links to bugs are fine if the issue is too complicated to completely explain in a single sentence.
+- Remember to update release notes as the nature of the change alters or is removed.
+
 ### Testing Pull Requests
 
 For a pull request to be merged, it will have to pass the automated set of regression tests run for each.
