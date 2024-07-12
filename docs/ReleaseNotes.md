@@ -20,7 +20,9 @@ The included licenses apply to the following files:
 
 ### Version 1.8.2407
 
-This cumulative release contains numerous bug fixes and stability improvments:
+This cumulative release contains numerous bug fixes and stability improvments.
+
+Here are some highlights:
 
 - Retain alignment when lowering groupshared matrices by @pow2clk in [#6589](https://github.com/microsoft/DirectXShaderCompiler/pull/6589)
 
