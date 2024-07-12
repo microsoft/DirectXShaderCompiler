@@ -29,8 +29,8 @@
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
 
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
-HRESULT CreateDxcSigningContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
+HRESULT CreateDxcSigningContainerBuilder(REFIID riid, LPVOID *ppv);
 
 // C++ exception specification ignored except to indicate a function is not
 // __declspec(nothrow)
@@ -110,9 +110,8 @@ void __CRTDECL operator delete(void *ptr,
 }
 #endif
 
-static HRESULT ThreadMallocDxcCreateInstance(_In_ REFCLSID rclsid,
-                                             _In_ REFIID riid,
-                                             _Out_ LPVOID *ppv) {
+static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
+                                             LPVOID *ppv) {
   *ppv = nullptr;
   if (IsEqualCLSID(rclsid, CLSID_DxcValidator)) {
     return CreateDxcValidator(riid, ppv);
@@ -123,9 +122,8 @@ static HRESULT ThreadMallocDxcCreateInstance(_In_ REFCLSID rclsid,
   return REGDB_E_CLASSNOTREG;
 }
 
-DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(_In_ REFCLSID rclsid,
-                                                   _In_ REFIID riid,
-                                                   _Out_ LPVOID *ppv) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid, REFIID riid,
+                                                   LPVOID *ppv) {
   HRESULT hr = S_OK;
   DxcEtw_DXCompilerCreateInstance_Start();
   DxcThreadMalloc TM(nullptr);
@@ -134,10 +132,9 @@ DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(_In_ REFCLSID rclsid,
   return hr;
 }
 
-DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(_In_ IMalloc *pMalloc,
-                                                    _In_ REFCLSID rclsid,
-                                                    _In_ REFIID riid,
-                                                    _Out_ LPVOID *ppv) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
+                                                    REFCLSID rclsid,
+                                                    REFIID riid, LPVOID *ppv) {
   if (ppv == nullptr) {
     return E_POINTER;
   }

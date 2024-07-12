@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// DxcSigningContainerBuilder.cpp                                            //
+// DxcHashingContainerBuilder.cpp                                            //
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
@@ -25,7 +25,7 @@
 
 using namespace hlsl;
 
-HRESULT CreateDxcValidator(_In_ REFIID riid, _Out_ LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 
 class DxcSigningContainerBuilder : public DxcContainerBuilder {
 public:
@@ -33,10 +33,9 @@ public:
 
   DXC_MICROCOM_TM_ALLOC(DxcSigningContainerBuilder);
 
-  HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pDxilContainerHeader)
+  HRESULT STDMETHODCALLTYPE Load(IDxcBlob *pDxilContainerHeader)
       override; // Loads DxilContainer to the builder
-  HRESULT STDMETHODCALLTYPE
-  SerializeContainer(_Out_ IDxcOperationResult **ppResult)
+  HRESULT STDMETHODCALLTYPE SerializeContainer(IDxcOperationResult **ppResult)
       override; // Builds a container of the given container builder state
 
 private:
@@ -48,8 +47,7 @@ private:
   void HashAndUpdate(DxilContainerHeader *pContainerHeader);
 };
 
-HRESULT STDMETHODCALLTYPE
-DxcSigningContainerBuilder::Load(_In_ IDxcBlob *pSource) {
+HRESULT STDMETHODCALLTYPE DxcSigningContainerBuilder::Load(IDxcBlob *pSource) {
   HRESULT hr = DxcContainerBuilder::Load(pSource);
   if (SUCCEEDED(hr)) {
     const DxilContainerHeader *pHeader =
@@ -59,8 +57,8 @@ DxcSigningContainerBuilder::Load(_In_ IDxcBlob *pSource) {
   return hr;
 }
 
-HRESULT STDMETHODCALLTYPE DxcSigningContainerBuilder::SerializeContainer(
-    _Out_ IDxcOperationResult **ppResult) {
+HRESULT STDMETHODCALLTYPE
+DxcSigningContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   HRESULT hr_saved = DxcContainerBuilder::SerializeContainer(ppResult);
   if (!SUCCEEDED(hr_saved)) {
     return hr_saved;
@@ -121,7 +119,7 @@ void DxcSigningContainerBuilder::HashAndUpdate(
   }
 }
 
-HRESULT CreateDxcSigningContainerBuilder(_In_ REFIID riid, _Out_ LPVOID *ppv) {
+HRESULT CreateDxcSigningContainerBuilder(REFIID riid, LPVOID *ppv) {
   // Call dxil.dll's containerbuilder
   *ppv = nullptr;
   CComPtr<DxcSigningContainerBuilder> Result(

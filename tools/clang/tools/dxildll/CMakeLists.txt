@@ -38,7 +38,7 @@ include_directories(
 set(sources
   dxildll.cpp
   dxildll.def
-  DxcSigningContainerBuilder.cpp
+  DxcHashingContainerBuilder.cpp
   dxcvalidatorp.cpp
 )
 
