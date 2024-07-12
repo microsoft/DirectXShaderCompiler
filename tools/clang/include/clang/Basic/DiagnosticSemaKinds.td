@@ -7962,6 +7962,8 @@ def warn_hlsl_barrier_no_mem_with_required_device_scope: Warning<
 def warn_hlsl_legacy_integer_literal_signedness: Warning<
   "literal value is treated as signed in HLSL 2021 and earlier, and unsigned in later language versions">,
   InGroup<HLSLLegacyLiterals>, DefaultIgnore;
+def err_hlsl_unsupported_semantic_index: Error<
+  "'%0' is defined with semantic index %1, but only values 0 through %2 are supported">;
 // HLSL Change Ends
 
 // SPIRV Change Starts
