@@ -9555,7 +9555,6 @@ bool HLSLExternalSource::CanConvert(SourceLocation loc, Expr *sourceExpr,
     goto lSuccess;
   }
 
-
   if (SourceInfo.EltKind == AR_OBJECT_HEAP_SAMPLER) {
     if (TargetInfo.ShapeKind == AR_TOBJ_OBJECT &&
         hlsl::IsHLSLSamplerType(target)) {
