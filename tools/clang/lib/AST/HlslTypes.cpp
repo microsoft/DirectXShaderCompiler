@@ -709,6 +709,17 @@ bool IsHLSLNodeOutputType(clang::QualType type) {
          static_cast<uint32_t>(DXIL::NodeIOFlags::Output);
 }
 
+bool IsHLSLSamplerType(clang::QualType type)
+{
+  if (const RecordType *RT = type->getAs<RecordType>()) {
+    StringRef name = RT->getDecl()->getName();
+
+    if (name == "SamplerState" || name == "SamplerComparisonState")
+      return true;
+  }
+  return false;
+}
+
 bool IsHLSLStructuredBufferType(clang::QualType type) {
   if (const RecordType *RT = type->getAs<RecordType>()) {
     StringRef name = RT->getDecl()->getName();
