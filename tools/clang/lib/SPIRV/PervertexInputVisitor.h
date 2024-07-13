@@ -98,7 +98,6 @@ public:
   REMAP_FUNC_OP(ImageOp)
   REMAP_FUNC_OP(ExtInst)
   REMAP_FUNC_OP(Atomic)
-  REMAP_FUNC_OP(NonUniformBinaryOp)
   REMAP_FUNC_OP(BitFieldInsert)
   REMAP_FUNC_OP(BitFieldExtract)
   REMAP_FUNC_OP(IntrinsicInstruction)
@@ -115,7 +114,7 @@ public:
   REMAP_FUNC_OP(Select)
   REMAP_FUNC_OP(Switch)
   REMAP_FUNC_OP(CopyObject)
-  REMAP_FUNC_OP(NonUniformUnaryOp)
+  REMAP_FUNC_OP(GroupNonUniformOp)
 
 private:
   ///< Whether in entry function wrapper, which will influence replace steps.

@@ -2847,7 +2847,7 @@ class db_dxil(object):
             "WaveGetLaneIndex",
             "returns the index of the current lane in the wave",
             "v",
-            "rn",
+            "ro",
             [db_dxil_param(0, "i32", "", "operation result")],
         )
         next_op_idx += 1
@@ -6081,8 +6081,8 @@ class db_dxil(object):
                 {"n": "force-early-z", "t": "int", "c": 1},
                 {"n": "add-pixel-cost", "t": "int", "c": 1},
                 {"n": "rt-width", "t": "int", "c": 1},
-                {"n": "sv-position-index", "t": "int", "c": 1},
                 {"n": "num-pixels", "t": "int", "c": 1},
+                {"n": "upstream-sv-position-row", "t": "int", "c": 1},
             ],
         )
         add_pass(
@@ -6116,6 +6116,8 @@ class db_dxil(object):
             [
                 {"n": "expand-payload", "t": "int", "c": 1},
                 {"n": "UAVSize", "t": "int", "c": 1},
+                {"n": "dispatchArgY", "t": "int", "c": 1},
+                {"n": "dispatchArgZ", "t": "int", "c": 1},
             ],
         )
         add_pass(
@@ -6138,6 +6140,7 @@ class db_dxil(object):
                 {"n": "parameter0", "t": "int", "c": 1},
                 {"n": "parameter1", "t": "int", "c": 1},
                 {"n": "parameter2", "t": "int", "c": 1},
+                {"n": "upstreamSVPositionRow", "t": "int", "c": 1},
             ],
         )
         add_pass(
@@ -6522,7 +6525,14 @@ class db_dxil(object):
             [],
         )
         # createTailCallEliminationPass is removed - but is this checked before?
-        add_pass("reassociate", "Reassociate", "Reassociate expressions", [])
+        add_pass(
+            "reassociate",
+            "Reassociate",
+            "Reassociate expressions",
+            [
+                {"n": "EnableAggressiveReassociation", "t": "bool", "c": 1},
+            ],
+        )
         add_pass(
             "loop-rotate",
             "LoopRotate",
@@ -6679,6 +6689,12 @@ class db_dxil(object):
                     "i": "PragmaUnrollThreshold",
                     "t": "unsigned",
                     "d": "Unrolled size limit for loops with an unroll(full) or unroll_count pragma.",
+                },
+                {
+                    "n": "StructurizeLoopExits",
+                    "t": "bool",
+                    "c": 1,
+                    "d": "Whether the unroller should try to structurize loop exits first.",
                 },
             ],
         )

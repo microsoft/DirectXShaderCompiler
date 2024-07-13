@@ -101,7 +101,7 @@ function(add_hlsl_hctgen mode)
   endif()
 
   add_custom_command(OUTPUT ${temp_output}
-                     COMMAND ${PYTHON_EXECUTABLE}
+                     COMMAND ${Python3_EXECUTABLE}
                              ${hctgen} ${force_lf}
                              ${mode} --output ${temp_output} ${input_flag}
                      ${format_cmd}

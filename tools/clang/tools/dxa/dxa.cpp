@@ -208,7 +208,7 @@ bool DxaContext::ExtractFile(const char *pName) {
   IFT(pPdbUtils->GetSourceCount(&uNumSources));
   bool printedAny = false;
 
-  CA2W WideName(pName, CP_UTF8);
+  CA2W WideName(pName);
   for (UINT32 i = 0; i < uNumSources; i++) {
     CComBSTR name;
     IFT(pPdbUtils->GetSourceName(i, &name));
@@ -303,7 +303,7 @@ bool DxaContext::ExtractPart(const char *pName) {
 
   WriteBlobToFile(pContent, StringRefWide(OutputFilename),
                   DXC_CP_UTF8); // TODO: Support DefaultTextCodePage
-  printf("%zu bytes written to %s\n", pContent->GetBufferSize(),
+  printf("%zu bytes written to %s\n", (size_t)pContent->GetBufferSize(),
          OutputFilename.c_str());
   return true;
 }

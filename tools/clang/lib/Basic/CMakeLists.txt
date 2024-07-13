@@ -35,7 +35,7 @@ set(get_svn_script "${LLVM_MAIN_SRC_DIR}/cmake/modules/GetSVN.cmake")
 if (HLSL_ENABLE_FIXED_VER)
   # Actual version string is no longer specified here, but instead derived from
   # the defines in the generated or copied dxcversion.inc
-  add_definitions(/DHLSL_FIXED_VER)
+  add_definitions(-DHLSL_FIXED_VER)
 endif (HLSL_ENABLE_FIXED_VER)
 # HLSL Change Ends
 
@@ -102,7 +102,7 @@ if ( HLSL_SUPPORT_QUERY_GIT_COMMIT_INFO )
   set(GET_GIT_COMMIT_SCRIPT ${PROJECT_SOURCE_DIR}/utils/GetCommitInfo.py)
   add_custom_command(
     OUTPUT  ${GIT_COMMIT_INFO_FILE}
-    COMMAND ${PYTHON_EXECUTABLE} ${GET_GIT_COMMIT_SCRIPT}
+    COMMAND ${Python3_EXECUTABLE} ${GET_GIT_COMMIT_SCRIPT}
             ${PROJECT_SOURCE_DIR} ${GIT_COMMIT_INFO_FILE}
     DEPENDS ${GET_GIT_COMMIT_SCRIPT} GIT_COMMIT_INFO_ALWAYS_REBUILD
     COMMENT "Collect Git commit info for versioning"

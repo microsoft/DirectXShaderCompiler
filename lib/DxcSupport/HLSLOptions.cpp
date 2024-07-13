@@ -573,7 +573,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
               // Args.getLastArgValue(OPT_INPUT) get expect Input.
               InputArg->getValues()[0] = PrevInputArg->getValues()[0];
             }
-            errors << "Warning: -P " << opts.Preprocess
+            errors << "warning: -P " << opts.Preprocess
                    << " is deprecated, please use -P -Fi " << opts.Preprocess
                    << " instead.\n";
             break;
@@ -765,10 +765,14 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.DefaultColMajor = Args.hasFlag(OPT_Zpc, OPT_INVALID, false);
   opts.DumpBin = Args.hasFlag(OPT_dumpbin, OPT_INVALID, false);
   opts.Link = Args.hasFlag(OPT_link, OPT_INVALID, false);
-  opts.NotUseLegacyCBufLoad =
+  bool NotUseLegacyCBufLoad =
       Args.hasFlag(OPT_no_legacy_cbuf_layout, OPT_INVALID, false);
-  opts.NotUseLegacyCBufLoad = Args.hasFlag(
-      OPT_not_use_legacy_cbuf_load_, OPT_INVALID, opts.NotUseLegacyCBufLoad);
+  NotUseLegacyCBufLoad = Args.hasFlag(OPT_not_use_legacy_cbuf_load_,
+                                      OPT_INVALID, NotUseLegacyCBufLoad);
+  if (NotUseLegacyCBufLoad)
+    errors << "warning: -no-legacy-cbuf-layout"
+           << " is no longer supported and will be ignored."
+           << " Future releases will not recognize it.\n";
   opts.PackPrefixStable =
       Args.hasFlag(OPT_pack_prefix_stable, OPT_INVALID, false);
   opts.PackPrefixStable =
@@ -847,10 +851,9 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
     opts.PrintAfter.insert(value);
   }
 
-  if (DXIL::CompareVersions(Major, Minor, 6, 8) < 0) {
-    opts.EnablePayloadQualifiers &=
-        !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
-  }
+  opts.EnablePayloadQualifiers &=
+      !Args.hasFlag(OPT_disable_payload_qualifiers, OPT_INVALID, false);
+
   if (opts.EnablePayloadQualifiers &&
       DXIL::CompareVersions(Major, Minor, 6, 6) < 0) {
     errors << "Invalid target for payload access qualifiers. Only lib_6_6 and "
@@ -1177,6 +1180,15 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
 
   opts.SpirvOptions.targetEnv =
       Args.getLastArgValue(OPT_fspv_target_env_EQ, "vulkan1.0");
+
+  llvm::APInt maxId;
+
+  // 0X3FFFFF is the default value for -fspv-max-id because it is the largest
+  // value that is guaranteed to be allowed in all Vulkan implementations.
+  if (Args.getLastArgValue(OPT_fspv_max_id, "3FFFFF").getAsInteger(16, maxId)) {
+    errors << "-fspv-max-id must be an integer in hexadecimal format";
+  }
+  opts.SpirvOptions.maxId = maxId.getLimitedValue(0xFFFFFFFF);
 
   // Handle -Oconfig=<comma-separated-list> option.
   uint32_t numOconfigs = 0;

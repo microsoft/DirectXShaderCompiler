@@ -5,7 +5,7 @@
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
 // CHECK:  OpExecutionMode %main OutputPoints
 // CHECK:  OpExecutionMode %main OutputVertices 256
-// CHECK:  OpExecutionMode %main OutputPrimitivesNV 256
+// CHECK:  OpExecutionMode %main OutputPrimitivesEXT 256
 
 // CHECK:  OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
 // CHECK:  OpDecorate %gl_Position BuiltIn Position

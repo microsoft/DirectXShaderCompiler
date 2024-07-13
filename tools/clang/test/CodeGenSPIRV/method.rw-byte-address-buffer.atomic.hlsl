@@ -116,5 +116,26 @@ float4 main() : SV_Target
 // CHECK-NOT:                    [[val]]
     myBuffer.InterlockedCompareStore(/*offset=*/16, /*compare_value=*/30, /*value=*/42);
 
+// CHECK:      [[offset_19:%[0-9]+]] = OpShiftRightLogical %uint %uint_0 %uint_2
+// CHECK-NEXT:    [[ptr_19:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset_19]]
+// CHECK-NEXT:    [[val_19:%[0-9]+]] = OpBitcast %uint %int_n1
+// CHECK-NEXT:           {{%[0-9]+}} = OpAtomicSMin %uint [[ptr_19]] %uint_1 %uint_0 [[val_19]]
+    myBuffer.InterlockedMin(0u, -1);
+
+// CHECK:      [[offset_20:%[0-9]+]] = OpShiftRightLogical %uint %uint_0 %uint_2
+// CHECK-NEXT:    [[ptr_20:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset_20]]
+// CHECK-NEXT:    [[val_20:%[0-9]+]] = OpBitcast %uint %int_n1
+// CHECK-NEXT:    [[res_20:%[0-9]+]] = OpAtomicSMax %uint [[ptr_20]] %uint_1 %uint_0 [[val_20]]
+// CHECK-NEXT:                         OpStore %originalVal [[res_20]]
+    myBuffer.InterlockedMax(0u, -1, originalVal);
+
+// CHECK:      [[offset_21:%[0-9]+]] = OpShiftRightLogical %uint %uint_0 %uint_2
+// CHECK-NEXT:    [[ptr_21:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[offset_21]]
+// CHECK-NEXT:    [[val_21:%[0-9]+]] = OpBitcast %uint %int_n1
+// CHECK-NEXT:    [[res_21:%[0-9]+]] = OpAtomicSMin %uint [[ptr_21]] %uint_1 %uint_0 [[val_21]]
+// CHECK-NEXT:   [[res_21b:%[0-9]+]] = OpBitcast %int [[res_21]]
+// CHECK-NEXT:                         OpStore %originalValAsInt [[res_21b]]
+    myBuffer.InterlockedMin(0u, -1, originalValAsInt);
+
     return 1.0;
 }

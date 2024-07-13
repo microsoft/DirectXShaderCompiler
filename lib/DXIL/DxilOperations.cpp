@@ -1161,7 +1161,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         "waveGetLaneIndex",
         {true, false, false, false, false, false, false, false, false, false,
          false},
-        Attribute::ReadNone,
+        Attribute::ReadOnly,
     },
     {
         OC::WaveGetLaneCount,
@@ -3564,8 +3564,14 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
 Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   if (opCode == OpCode::NumOpCodes)
     return nullptr;
-  if (!IsOverloadLegal(opCode, pOverloadType))
+  if (!pOverloadType)
     return nullptr;
+  // Illegal overloads are generated and eliminated by DXIL op constant
+  // evaluation for a number of cases where a double overload of an HL intrinsic
+  // that otherwise does not support double is used for literal values, when
+  // there is no constant evaluation for the intrinsic in CodeGen.
+  // Illegal overloads of DXIL intrinsics may survive through to final DXIL,
+  // but these will be caught by the validator, and this is not a regression.
 
   OpCodeClass opClass = m_OpCodeProps[(unsigned)opCode].opCodeClass;
   Function *&F =

@@ -1137,6 +1137,12 @@ llvm::MDNode *CodeGenFunction::getRangeForLoadFromType(QualType Ty) {
   return MDHelper.createRange(Min, End);
 }
 
+static bool ShouldEmitRangeMD(llvm::Value *Value, QualType Ty) {
+  if (hasBooleanRepresentation(Ty))
+    return cast<llvm::IntegerType>(Value->getType())->getBitWidth() != 1;
+  return true;
+}
+
 llvm::Value *CodeGenFunction::EmitLoadOfScalar(llvm::Value *Addr, bool Volatile,
                                                unsigned Alignment, QualType Ty,
                                                SourceLocation Loc,
@@ -1236,7 +1242,8 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(llvm::Value *Addr, bool Volatile,
       EmitCheck(std::make_pair(Check, Kind), "load_invalid_value", StaticArgs,
                 EmitCheckValue(Load));
     }
-  } else if (CGM.getCodeGenOpts().OptimizationLevel > 0)
+  } else if (CGM.getCodeGenOpts().OptimizationLevel > 0 &&
+             ShouldEmitRangeMD(Load, Ty))
     if (llvm::MDNode *RangeInfo = getRangeForLoadFromType(Ty))
       Load->setMetadata(llvm::LLVMContext::MD_range, RangeInfo);
 

@@ -627,6 +627,22 @@ private:
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
           *stageVariableLocationInfo);
 
+  /// \brief Returns a map that divides all of the shader stage variables into
+  /// separate vectors for each entry point.
+  llvm::DenseMap<const SpirvFunction *, SmallVector<StageVar, 8>>
+  getStageVarsPerFunction();
+
+  /// \brief Decorates all stage variables in `functionStageVars` with proper
+  /// location and returns true on success.
+  ///
+  /// It is assumed that all variables in `functionStageVars` belong to the same
+  /// entry point.
+  ///
+  /// This method will write the location assignment into the module under
+  /// construction.
+  bool finalizeStageIOLocationsForASingleEntryPoint(
+      bool forInput, ArrayRef<StageVar> functionStageVars);
+
   /// \brief Decorates all stage input (if forInput is true) or output (if
   /// forInput is false) variables with proper location and returns true on
   /// success.

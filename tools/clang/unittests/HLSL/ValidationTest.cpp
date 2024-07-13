@@ -315,7 +315,7 @@ public:
     FileRunTestResult t =
         FileRunTestResult::RunFromFileCommands(fullPath.c_str());
     if (t.RunResult != 0) {
-      CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
+      CA2W commentWide(t.ErrorMessage.c_str());
       WEX::Logging::Log::Comment(commentWide);
       WEX::Logging::Log::Error(L"Run result is not zero");
     }
@@ -368,7 +368,7 @@ public:
     CComPtr<IDxcOperationResult> pResult;
     CComPtr<IDxcBlob> pProgram;
 
-    CA2W shWide(pShaderModel, CP_UTF8);
+    CA2W shWide(pShaderModel);
 
     const wchar_t *pEntryName = L"main";
 
@@ -871,6 +871,8 @@ TEST_F(ValidationTest, GetDimCalcLODFail) {
       /*bRegex*/ true);
 }
 TEST_F(ValidationTest, HsAttributeFail) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
   RewriteAssemblyCheckMsg(
       L"..\\CodeGenHLSL\\hsAttribute.hlsl", "hs_6_0",
       {"i32 3, i32 3, i32 2, i32 3, i32 3, float 6.400000e+01"},
@@ -1034,6 +1036,8 @@ TEST_F(ValidationTest, SigOverlapFail) {
        "signature element"});
 }
 TEST_F(ValidationTest, SimpleHs1Fail) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\SimpleHs1.hlsl", "hs_6_0",
       {

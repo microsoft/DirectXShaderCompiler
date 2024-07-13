@@ -8,6 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/CodeGen/BackendUtil.h"
+#include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
+#include "dxc/HLSL/HLMatrixLowerPass.h"  // HLSL Change
+#include "dxc/Support/Global.h"          // HLSL Change
+#include "dxc/config.h"                  // HLSL Change
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/TargetOptions.h"
@@ -41,10 +45,8 @@
 #include "llvm/Transforms/ObjCARC.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
+#include <cstdio>
 #include <memory>
-#include "dxc/HLSL/DxilGenerationPass.h" // HLSL Change
-#include "dxc/HLSL/HLMatrixLowerPass.h"  // HLSL Change
-#include "dxc/Support/Global.h" // HLSL Change
 
 using namespace clang;
 using namespace llvm;
@@ -357,6 +359,8 @@ void EmitAssemblyHelper::CreatePasses() {
       OptToggles.IsEnabled(hlsl::options::TOGGLE_LIFETIME_MARKERS);
   PMBuilder.HLSLEnablePartialLifetimeMarkers =
       OptToggles.IsEnabled(hlsl::options::TOGGLE_PARTIAL_LIFETIME_MARKERS);
+  PMBuilder.HLSLEnableAggressiveReassociation = OptToggles.IsEnabled(
+      hlsl::options::TOGGLE_ENABLE_AGGRESSIVE_REASSOCIATION);
   // HLSL Change - end
 
   PMBuilder.DisableUnitAtATime = !CodeGenOpts.UnitAtATime;
@@ -780,6 +784,13 @@ void clang::EmitBackendOutput(DiagnosticsEngine &Diags,
   } catch (const ::hlsl::Exception &hlslException) {
     Diags.Report(Diags.getCustomDiagID(DiagnosticsEngine::Error, "%0\n"))
         << StringRef(hlslException.what());
+#if defined(DXC_CODEGEN_EXCEPTIONS_TRAP)
+    // llvm::errs() doesn't work in release builds on Linux.
+    // Use C-style fprintf because it works everywhere.
+    fprintf(stderr, "internal codegen error: %s\n", hlslException.what());
+    fflush(stderr);
+    LLVM_BUILTIN_TRAP;
+#endif
   } // HLSL Change Ends
 
   // If an optional clang TargetInfo description string was passed in, use it to

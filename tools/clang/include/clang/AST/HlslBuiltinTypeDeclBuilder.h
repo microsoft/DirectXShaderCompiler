@@ -34,7 +34,8 @@ public:
 
   clang::TemplateTypeParmDecl *
   addTypeTemplateParam(llvm::StringRef name,
-                       clang::TypeSourceInfo *defaultValue = nullptr);
+                       clang::TypeSourceInfo *defaultValue = nullptr,
+                       bool parameterPack = false);
   clang::TemplateTypeParmDecl *
   addTypeTemplateParam(llvm::StringRef name, clang::QualType defaultValue);
   clang::NonTypeTemplateParmDecl *

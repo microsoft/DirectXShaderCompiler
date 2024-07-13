@@ -1361,7 +1361,7 @@ placed in the ``Uniform`` or ``UniformConstant`` storage class.
   - Note that this modifier overrules ``static``; if both ``groupshared`` and
     ``static`` are applied to a variable, ``static`` will be ignored.
 
-- ``uinform``
+- ``uniform``
 
   - This does not affect codegen. Variables will be treated like normal global
     variables.
@@ -3826,8 +3826,8 @@ RayQuery Mapping to SPIR-V
 |``.WorldRayOrigin`                                 | ``OpRayQueryGetWorldRayOriginKHR``                                      |
 +---------------------------------------------------+-------------------------------------------------------------------------+
 
-Shader Model 6.0 Wave Intrinsics
-================================
+Shader Model 6.0+ Wave Intrinsics
+=================================
 
 
 Note that Wave intrinsics requires SPIR-V 1.3, which is supported by Vulkan 1.1.
@@ -3840,9 +3840,9 @@ loading from SPIR-V builtin variable ``SubgroupSize`` and
 ``SubgroupLocalInvocationId`` respectively, the rest are translated into SPIR-V
 group operations with ``Subgroup`` scope according to the following chart:
 
-============= ============================ =================================== ======================
+============= ============================ =================================== ==============================
 Wave Category       Wave Intrinsics               SPIR-V Opcode                SPIR-V Group Operation
-============= ============================ =================================== ======================
+============= ============================ =================================== ==============================
 Query         ``WaveIsFirstLane()``        ``OpGroupNonUniformElect``
 Vote          ``WaveActiveAnyTrue()``      ``OpGroupNonUniformAny``
 Vote          ``WaveActiveAllTrue()``      ``OpGroupNonUniformAll``
@@ -3865,7 +3865,13 @@ Quad          ``QuadReadAcrossX()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossY()``        ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadAcrossDiagonal()`` ``OpGroupNonUniformQuadSwap``
 Quad          ``QuadReadLaneAt()``         ``OpGroupNonUniformQuadBroadcast``
-============= ============================ =================================== ======================
+N/A           ``WaveMatch()``              ``OpGroupNonUniformPartitionNV``
+Multiprefix   ``WaveMultiPrefixSum()``     ``OpGroupNonUniform*Add``           ``PartitionedExclusiveScanNV``
+Multiprefix   ``WaveMultiPrefixProduct()`` ``OpGroupNonUniform*Mul``           ``PartitionedExclusiveScanNV``
+Multiprefix   ``WaveMultiPrefixBitAnd()``  ``OpGroupNonUniformLogicalAnd``     ``PartitionedExclusiveScanNV``
+Multiprefix   ``WaveMultiPrefixBitOr()``   ``OpGroupNonUniformLogicalOr``      ``PartitionedExclusiveScanNV``
+Multiprefix   ``WaveMultiPrefixBitXor()``  ``OpGroupNonUniformLogicalXor``     ``PartitionedExclusiveScanNV``
+============= ============================ =================================== ==============================
 
 The Implicit ``vk`` Namespace
 =============================

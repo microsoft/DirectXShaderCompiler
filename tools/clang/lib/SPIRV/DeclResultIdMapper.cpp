@@ -1240,6 +1240,15 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
     spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
   }
 
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    StringRef typeName = recordType->getDecl()->getName();
+    if (typeName.startswith("FeedbackTexture")) {
+      emitError("Texture resource type '%0' is not supported with -spirv", loc)
+          << typeName;
+      return nullptr;
+    }
+  }
+
   if (hlsl::IsHLSLResourceType(type)) {
     if (!areFormatAndTypeCompatible(vkImgFeatures.format,
                                     hlsl::GetHLSLResourceResultType(type))) {
@@ -1364,13 +1373,26 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
     const hlsl::RegisterAssignment *registerC =
         forGlobals ? getRegisterCAssignment(declDecl) : nullptr;
 
+    llvm::Optional<BitfieldInfo> bitfieldInfo;
+    {
+      const FieldDecl *Field = dyn_cast<FieldDecl>(subDecl);
+      if (Field && Field->isBitField()) {
+        bitfieldInfo = BitfieldInfo();
+        bitfieldInfo->sizeInBits =
+            Field->getBitWidthValue(Field->getASTContext());
+      }
+    }
+
     // All fields are qualified with const. It will affect the debug name.
     // We don't need it here.
     varType.removeLocalConst();
-    HybridStructType::FieldInfo info(varType, declDecl->getName(),
-                                     declDecl->getAttr<VKOffsetAttr>(),
-                                     getPackOffset(declDecl), registerC,
-                                     declDecl->hasAttr<HLSLPreciseAttr>());
+    HybridStructType::FieldInfo info(
+        varType, declDecl->getName(),
+        /*vkoffset*/ declDecl->getAttr<VKOffsetAttr>(),
+        /*packoffset*/ getPackOffset(declDecl),
+        /*RegisterAssignment*/ registerC,
+        /*isPrecise*/ declDecl->hasAttr<HLSLPreciseAttr>(),
+        /*bitfield*/ bitfieldInfo);
     fields.push_back(info);
   }
 
@@ -1468,12 +1490,28 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
         decl->getAttr<VKBindingAttr>(), decl->getAttr<VKCounterBindingAttr>());
   }
 
+  if (!spirvOptions.debugInfoRich) {
+    return bufferVar;
+  }
+
   auto *dbgGlobalVar = createDebugGlobalVariable(
       bufferVar, QualType(), decl->getLocation(), decl->getName());
-  if (dbgGlobalVar != nullptr) {
-    // C/TBuffer needs HLSLBufferDecl for debug type lowering.
-    spvContext.registerStructDeclForSpirvType(bufferVar->getResultType(), decl);
-  }
+  assert(dbgGlobalVar);
+  (void)dbgGlobalVar; // For NDEBUG builds.
+
+  auto *resultType = bufferVar->getResultType();
+  // Depending on the requested layout (DX or VK), constant buffers is either a
+  // struct containing every constant fields, or a pointer to the type. This is
+  // caused by the workaround we implemented to support FXC/DX layout. See #3672
+  // for more details.
+  assert(isa<SpirvPointerType>(resultType) ||
+         isa<HybridStructType>(resultType));
+  if (auto *ptr = dyn_cast<SpirvPointerType>(resultType))
+    resultType = ptr->getPointeeType();
+  // Debug type lowering requires the HLSLBufferDecl. Updating the type<>decl
+  // mapping.
+  spvContext.registerStructDeclForSpirvType(resultType, decl);
+
   return bufferVar;
 }
 
@@ -2105,10 +2143,8 @@ bool DeclResultIdMapper::assignLocations(
   return true;
 }
 
-bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
-  if (!checkSemanticDuplication(forInput))
-    return false;
-
+bool DeclResultIdMapper::finalizeStageIOLocationsForASingleEntryPoint(
+    bool forInput, ArrayRef<StageVar> functionStageVars) {
   // Returns false if the given StageVar is an input/output variable without
   // explicit location assignment. Otherwise, returns true.
   const auto locAssigned = [forInput, this](const StageVar &v) {
@@ -2128,11 +2164,12 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
 
   // If we have explicit location specified for all input/output variables,
   // use them instead assign by ourselves.
-  if (std::all_of(stageVars.begin(), stageVars.end(), locAssigned)) {
+  if (std::all_of(functionStageVars.begin(), functionStageVars.end(),
+                  locAssigned)) {
     LocationSet locSet;
     bool noError = true;
 
-    for (const auto &var : stageVars) {
+    for (const auto &var : functionStageVars) {
       // Skip builtins & those stage variables we are not handling for this call
       if (var.isSpirvBuitin() || var.hasLocOrBuiltinDecorateAttr() ||
           forInput != isInputStorageClass(var)) {
@@ -2151,7 +2188,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
           emitError("stage %select{output|input}0 location #%1 already "
                     "consumed by semantic '%2'",
                     attrLoc)
-              << forInput << l << stageVars[idx].getSemanticStr();
+              << forInput << l << functionStageVars[idx].getSemanticStr();
           noError = false;
         }
 
@@ -2175,7 +2212,7 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
   std::vector<const StageVar *> vars;
   LocationSet locSet;
 
-  for (const auto &var : stageVars) {
+  for (const auto &var : functionStageVars) {
     if (var.isSpirvBuitin() || var.hasLocOrBuiltinDecorateAttr() ||
         forInput != isInputStorageClass(var)) {
       continue;
@@ -2246,6 +2283,29 @@ bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
                      });
   }
   return assignLocations(vars, nextLocs, &stageVariableLocationInfo);
+}
+
+llvm::DenseMap<const SpirvFunction *, SmallVector<StageVar, 8>>
+DeclResultIdMapper::getStageVarsPerFunction() {
+  llvm::DenseMap<const SpirvFunction *, SmallVector<StageVar, 8>> result;
+  for (const auto &var : stageVars) {
+    result[var.getEntryPoint()].push_back(var);
+  }
+  return result;
+}
+
+bool DeclResultIdMapper::finalizeStageIOLocations(bool forInput) {
+  if (!checkSemanticDuplication(forInput))
+    return false;
+
+  auto stageVarPerFunction = getStageVarsPerFunction();
+  for (const auto &functionStageVars : stageVarPerFunction) {
+    if (!finalizeStageIOLocationsForASingleEntryPoint(
+            forInput, functionStageVars.getSecond())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 namespace {
@@ -3569,32 +3629,61 @@ bool DeclResultIdMapper::createPayloadStageVars(
   }
 
   const auto loc = decl->getLocation();
-  if (!type->isStructureType()) {
-    StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr, type,
-                      getLocationAndComponentCount(astContext, type));
-    const auto name = namePrefix.str() + "." + decl->getNameAsString();
-    SpirvVariable *varInstr = spvBuilder.addStageIOVar(
-        type, sc, name, /*isPrecise=*/false, /*isNointerp=*/false, loc);
 
-    if (!varInstr)
-      return false;
+  // Most struct type stage vars must be flattened, but for EXT_mesh_shaders the
+  // mesh payload struct should be decorated with TaskPayloadWorkgroupEXT and
+  // used directly as the OpEntryPoint variable.
+  if (!type->isStructureType() ||
+      featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
 
-    // Even though these as user defined IO stage variables, set them as SPIR-V
-    // builtins in order to bypass any semantic string checks and location
-    // assignment.
-    stageVar.setIsSpirvBuiltin();
-    stageVar.setSpirvInstr(varInstr);
-    if (stageVar.getStorageClass() == spv::StorageClass::Input ||
-        stageVar.getStorageClass() == spv::StorageClass::Output) {
-      stageVar.setEntryPoint(entryFunction);
+    SpirvVariable *varInstr = nullptr;
+
+    // Check whether a mesh payload module variable has already been added, as
+    // is the case for the groupshared payload variable parameter of
+    // DispatchMesh. In this case, change the storage class from Workgroup to
+    // TaskPayloadWorkgroupEXT.
+    if (featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+      for (SpirvVariable *moduleVar : spvBuilder.getModule()->getVariables()) {
+        if (moduleVar->getAstResultType() == type) {
+          moduleVar->setStorageClass(
+              spv::StorageClass::TaskPayloadWorkgroupEXT);
+          varInstr = moduleVar;
+        }
+      }
     }
-    stageVars.push_back(stageVar);
 
-    if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
-      // Decorate with PerTaskNV for mesh/amplification shader payload
-      // variables.
-      spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
-                                   varInstr->getSourceLocation());
+    // If necessary, create new stage variable for mesh payload.
+    if (!varInstr) {
+      LocationAndComponent locationAndComponentCount =
+          type->isStructureType()
+              ? LocationAndComponent({0, 0, false})
+              : getLocationAndComponentCount(astContext, type);
+      StageVar stageVar(sigPoint, /*semaInfo=*/{}, /*builtinAttr=*/nullptr,
+                        type, locationAndComponentCount);
+      const auto name = namePrefix.str() + "." + decl->getNameAsString();
+      varInstr = spvBuilder.addStageIOVar(type, sc, name, /*isPrecise=*/false,
+                                          /*isNointerp=*/false, loc);
+
+      if (!varInstr)
+        return false;
+
+      // Even though these as user defined IO stage variables, set them as
+      // SPIR-V builtins in order to bypass any semantic string checks and
+      // location assignment.
+      stageVar.setIsSpirvBuiltin();
+      stageVar.setSpirvInstr(varInstr);
+      if (stageVar.getStorageClass() == spv::StorageClass::Input ||
+          stageVar.getStorageClass() == spv::StorageClass::Output) {
+        stageVar.setEntryPoint(entryFunction);
+      }
+      stageVars.push_back(stageVar);
+
+      if (!featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)) {
+        // Decorate with PerTaskNV for mesh/amplification shader payload
+        // variables.
+        spvBuilder.decoratePerTaskNV(varInstr, payloadMemOffset,
+                                     varInstr->getSourceLocation());
+      }
     }
 
     if (asInput) {

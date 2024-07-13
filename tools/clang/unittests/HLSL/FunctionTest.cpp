@@ -94,7 +94,7 @@ public:
       CComPtr<IDxcBlobEncoding> pErrors;
       pResult->GetErrorBuffer(&pErrors);
       std::string text = BlobToUtf8(pErrors);
-      CA2W textW(text.c_str(), CP_UTF8);
+      CA2W textW(text.c_str());
       WEX::Logging::Log::Comment(textW.m_psz);
     }
     VERIFY_ARE_EQUAL(expected, resultStatus);

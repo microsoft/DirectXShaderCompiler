@@ -36,8 +36,7 @@ public:
   bool visit(SpirvStore *) override;
   bool visit(SpirvBinaryOp *) override;
   bool visit(SpirvUnaryOp *) override;
-  bool visit(SpirvNonUniformBinaryOp *) override;
-  bool visit(SpirvNonUniformUnaryOp *) override;
+  bool visit(SpirvGroupNonUniformOp *) override;
   bool visit(SpirvExtInst *) override;
   bool visit(SpirvFunctionCall *) override;
 

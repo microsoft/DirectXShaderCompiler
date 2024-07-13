@@ -76,7 +76,7 @@ public:
     if (semKind < DXIL::SemanticKind::Invalid && pSemName) {
       if (Semantic::HasSVPrefix(pSemName))
         pSemName += 3;
-      CA2W semNameW(pSemName, CP_UTF8);
+      CA2W semNameW(pSemName);
       sigDefValue = L"Def_";
       sigDefValue += semNameW;
     }
@@ -160,7 +160,7 @@ public:
       profile = profile_buf;
     }
 
-    CA2W sigPointNameW(sigPoint->GetName(), CP_UTF8);
+    CA2W sigPointNameW(sigPoint->GetName());
     // Strip SV_ from semantic name
     std::wstring sigDefName(sigPointNameW);
     sigDefName += L"_Defs";

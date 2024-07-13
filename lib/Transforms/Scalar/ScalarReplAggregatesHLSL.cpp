@@ -1003,9 +1003,11 @@ void DeleteMemcpy(MemCpyInst *MI) {
     if (op0->user_empty())
       op0->eraseFromParent();
   }
-  if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
-    if (op1->user_empty())
-      op1->eraseFromParent();
+  if (Op0 != Op1) {
+    if (Instruction *op1 = dyn_cast<Instruction>(Op1)) {
+      if (op1->user_empty())
+        op1->eraseFromParent();
+    }
   }
 }
 
@@ -1643,6 +1645,10 @@ bool hasDynamicVectorIndexing(Value *V) {
         }
       }
     }
+    // Also recursively check the uses of this User to find a possible
+    // dynamically indexed GEP of this GEP.
+    if (hasDynamicVectorIndexing(U))
+      return true;
   }
   return false;
 }
@@ -3269,15 +3275,34 @@ bool SROA_Helper::DoScalarReplacement(GlobalVariable *GV,
   return true;
 }
 
-static void ReplaceConstantWithInst(Constant *C, Value *V,
+// Replaces uses of constant C in the current function
+// with V, when those uses are dominated by V.
+// Returns true if it was completely replaced.
+static bool ReplaceConstantWithInst(Constant *C, Value *V,
                                     IRBuilder<> &Builder) {
+  bool bReplacedAll = true;
   Function *F = Builder.GetInsertBlock()->getParent();
+  Instruction *VInst = dyn_cast<Instruction>(V);
+  // Lazily calculate dominance
+  DominatorTree DT;
+  bool Calculated = false;
+  auto Dominates = [&](llvm::Instruction *Def, llvm::Instruction *User) {
+    if (!Calculated) {
+      DT.recalculate(*F);
+      Calculated = true;
+    }
+    return DT.dominates(Def, User);
+  };
+
   for (auto it = C->user_begin(); it != C->user_end();) {
     User *U = *(it++);
     if (Instruction *I = dyn_cast<Instruction>(U)) {
       if (I->getParent()->getParent() != F)
         continue;
-      I->replaceUsesOfWith(C, V);
+      if (VInst && Dominates(VInst, I))
+        I->replaceUsesOfWith(C, V);
+      else
+        bReplacedAll = false;
     } else {
       // Skip unused ConstantExpr.
       if (U->user_empty())
@@ -3286,10 +3311,12 @@ static void ReplaceConstantWithInst(Constant *C, Value *V,
       Instruction *Inst = CE->getAsInstruction();
       Builder.Insert(Inst);
       Inst->replaceUsesOfWith(C, V);
-      ReplaceConstantWithInst(CE, Inst, Builder);
+      if (!ReplaceConstantWithInst(CE, Inst, Builder))
+        bReplacedAll = false;
     }
   }
   C->removeDeadConstantUsers();
+  return bReplacedAll;
 }
 
 static void ReplaceUnboundedArrayUses(Value *V, Value *Src) {
@@ -3529,7 +3556,8 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
       } else {
         // Replace Constant with a non-Constant.
         IRBuilder<> Builder(MC);
-        ReplaceConstantWithInst(C, Src, Builder);
+        if (!ReplaceConstantWithInst(C, Src, Builder))
+          return false;
       }
     } else {
       // Try convert special pattern for cbuffer which copy array of float4 to
@@ -3537,7 +3565,8 @@ static bool ReplaceMemcpy(Value *V, Value *Src, MemCpyInst *MC,
       if (!tryToReplaceCBVec4ArrayToScalarArray(V, TyV, Src, TySrc, MC, DL)) {
         IRBuilder<> Builder(MC);
         Src = Builder.CreateBitCast(Src, V->getType());
-        ReplaceConstantWithInst(C, Src, Builder);
+        if (!ReplaceConstantWithInst(C, Src, Builder))
+          return false;
       }
     }
   } else {
@@ -3691,7 +3720,9 @@ static bool ReplaceUseOfZeroInit(Instruction *I, Value *V, DominatorTree &DT,
       if (ReplaceUseOfZeroInit(I, UI, DT, Reachable))
         continue;
     } else if (LoadInst *LI = dyn_cast<LoadInst>(UI)) {
-      LI->replaceAllUsesWith(ConstantAggregateZero::get(LI->getType()));
+      // Replace uses of the load with a constant zero.
+      Constant *replacement = Constant::getNullValue(LI->getType());
+      LI->replaceAllUsesWith(replacement);
       LI->eraseFromParent();
       continue;
     }
@@ -5445,9 +5476,9 @@ void SROA_Parameter_HLSL::flattenArgument(
         if (Ty->isPointerTy())
           Ty = Ty->getPointerElementType();
         unsigned size = DL.getTypeAllocSize(Ty);
-#if 0  // HLSL Change
+#if 0 // HLSL Change
         DIExpression *DDIExp = DIB.createBitPieceExpression(debugOffset, size);
-#else  // HLSL Change
+#else // HLSL Change
         Type *argTy = Arg->getType();
         if (argTy->isPointerTy())
           argTy = argTy->getPointerElementType();

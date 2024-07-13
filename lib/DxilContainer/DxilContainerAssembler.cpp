@@ -610,7 +610,7 @@ void hlsl::StoreViewIDStateToPSV(const uint32_t *pInputData,
                                          PSVComponentMask(),
                                          PSV.GetPCInputToOutputTable());
   }
-  DXASSERT(pSrc - pInputData == InputSizeInUInts,
+  DXASSERT((unsigned)(pSrc - pInputData) == InputSizeInUInts,
            "otherwise, different amout of data written than expected.");
 }
 
@@ -667,7 +667,7 @@ unsigned hlsl::LoadViewIDStateFromPSV(unsigned *pOutputData,
         pOutputData, PCScalars, OutputScalars[0], PSVComponentMask(),
         PSV.GetPCInputToOutputTable());
   }
-  DXASSERT(pOutputData - pStartOutputData == OutputSizeInUInts,
+  DXASSERT((unsigned)(pOutputData - pStartOutputData) == OutputSizeInUInts,
            "otherwise, OutputSizeInUInts didn't match size written.");
   return pOutputData - pStartOutputData;
 }

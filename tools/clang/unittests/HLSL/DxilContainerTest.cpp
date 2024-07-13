@@ -634,7 +634,7 @@ public:
     FileRunTestResult t =
         FileRunTestResult::RunFromFileCommands(fullPath.c_str());
     if (t.RunResult != 0) {
-      CA2W commentWide(t.ErrorMessage.c_str(), CP_UTF8);
+      CA2W commentWide(t.ErrorMessage.c_str());
       WEX::Logging::Log::Comment(commentWide);
       WEX::Logging::Log::Error(L"Run result is not zero");
     }

@@ -185,8 +185,6 @@ public:
   bool HLSLAllowPreserveValues = false;
   /// Whether we fail compilation if loop fails to unroll
   bool HLSLOnlyWarnOnUnrollFail = false;
-  /// Whether use legacy cbuffer load.
-  bool HLSLNotUseLegacyCBufLoad = false;
   /// Whether use legacy resource reservation.
   bool HLSLLegacyResourceReservation = false;
   /// Set [branch] on every if.

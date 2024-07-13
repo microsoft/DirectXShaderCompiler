@@ -630,6 +630,7 @@ bool Parser::MaybeParseHLSLAttributes(std::vector<hlsl::UnusualAnnotation *> &ta
       }
       hlsl::SemanticDecl *pUA = new (context) hlsl::SemanticDecl(semanticName);
       pUA->Loc = Tok.getLocation();
+      Actions.DiagnoseSemanticDecl(pUA);
       ConsumeToken(); // consume semantic
 
       target.push_back(pUA);

@@ -233,7 +233,7 @@
         void CSMain(uint3 id : SV_GroupThreadID, uint ix : SV_GroupIndex) {
           if (DISPATCHY == 1 && DISPATCHZ == 1) {
             g_bufMain[ix] = DerivTest(ix);
-            g_bufDbg[ix] = uint4(ix, ConvertGroupIdx(id), 0);
+            g_bufDbg[ix] = uint4(ix, ConvertGroupIdx(id.x), 0);
            }
           else {
             g_bufMain[convert2Dto1D(id.x, id.y, DISPATCHX)] = DerivTest(id.xy);
@@ -246,7 +246,7 @@
 #undef DISPATCHY
 #undef DISPATCHZ
 
-#define DISPATCHX 1
+#define DISPATCHX 4
 #define DISPATCHY 1
 #define DISPATCHZ 1
 #endif

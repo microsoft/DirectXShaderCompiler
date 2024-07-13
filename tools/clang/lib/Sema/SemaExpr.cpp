@@ -3257,7 +3257,7 @@ ExprResult Sema::ActOnIntegerConstant(SourceLocation Loc, uint64_t Val) {
   unsigned IntSize = Context.getTargetInfo().getIntWidth();
   // HLSL Change Starts - HLSL literal int
   QualType Ty;
-  if (getLangOpts().HLSL) {
+  if (getLangOpts().HLSL && getLangOpts().HLSLVersion < hlsl::LangStd::v202x) {
     IntSize = 64;
     Ty = Context.LitIntTy;
   } else
@@ -3451,13 +3451,21 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
 
       Ty = Context.FloatTy;
     // HLSL Change Starts
-    else if (getLangOpts().HLSL && !Literal.isLong && !Literal.isHalf)
+    else if (getLangOpts().HLSL &&
+             getLangOpts().HLSLVersion < hlsl::LangStd::v202x &&
+             !Literal.isLong && !Literal.isHalf)
       Ty = Context.LitFloatTy;
-    else if (getLangOpts().HLSL && Literal.isLong)
+    else if (Literal.isLong)
       Ty = Context.DoubleTy;
-    else if (getLangOpts().HLSL && Literal.isHalf) {
-      Ty = getLangOpts().UseMinPrecision ? Context.FloatTy : Context.HalfTy;
-    }
+    else if (Literal.isHalf) {
+      if (getLangOpts().HLSL &&
+          getLangOpts().HLSLVersion < hlsl::LangStd::v202x)
+        Ty = getLangOpts().UseMinPrecision ? Context.FloatTy : Context.HalfTy;
+      else
+        Ty = getLangOpts().UseMinPrecision ? Context.HalfFloatTy
+                                           : Context.HalfTy;
+    } else if (getLangOpts().HLSL)
+      Ty = Context.FloatTy;
     // HLSL Change Ends
     else if (!Literal.isLong)
       Ty = Context.DoubleTy;
@@ -3480,7 +3488,8 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     return ExprError();
 
   // HLSL Change Starts
-  } else if (getLangOpts().HLSL) {
+  } else if (getLangOpts().HLSL &&
+             getLangOpts().HLSLVersion < hlsl::LangStd::v202x) {
     QualType Ty;
     unsigned Width = 64;
     llvm::APInt ResultVal(Width, 0);
@@ -3513,14 +3522,24 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
           Ty = Context.IntTy;
       }
     }
+    if (Literal.getRadix() != 10) {
+      uint64_t Val = ResultVal.getLimitedValue();
+      if (Val < std::numeric_limits<uint32_t>::max())
+        Width = 32;
+      uint64_t MSB = 1ull << (Width - 1);
+      if ((Val & MSB) != 0)
+        Diag(Tok.getLocation(),
+             diag::warn_hlsl_legacy_integer_literal_signedness);
+    }
     return IntegerLiteral::Create(Context, ResultVal, Ty, Tok.getLocation());
   // HLSL Change Ends
 
   } else {
     QualType Ty;
 
+    // HLSL Change: disable the warning below.
     // 'long long' is a C99 or C++11 feature.
-    if (!getLangOpts().C99 && Literal.isLongLong) {
+    if (!getLangOpts().HLSL && !getLangOpts().C99 && Literal.isLongLong) {
       if (getLangOpts().CPlusPlus)
         Diag(Tok.getLocation(),
              getLangOpts().CPlusPlus11 ?
@@ -3539,6 +3558,9 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
         Context.getTargetInfo().hasInt128Type())
       MaxWidth = 128;
     llvm::APInt ResultVal(MaxWidth, 0);
+
+    // HLSL Change - 202x integer warnings.
+    uint64_t MSB = 1ull << (MaxWidth - 1);
 
     if (Literal.GetIntegerValue(ResultVal)) {
       // If this value didn't fit into uintmax_t, error and force to ull.
@@ -3590,6 +3612,17 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
         }
       }
 
+      // HLSL Change Begin - Treat `long` literal as `long long`
+      // This is a bit hacky. HLSL doesn't really have a `long` or `long long`
+      // type so the specification has simplified the suffices. Unfortunately,
+      // rather than just treating `ll` as `l` we need to do the inverse. This
+      // is because we rely on the MSVC mangling which follows LLP64 (l being
+      // 32-bit and ll 64-bit). We should find a better solution to this in
+      // Clang.
+      if (getLangOpts().HLSL && !Literal.isLongLong)
+        Literal.isLongLong = Literal.isLong;
+      // HLSL Change End
+
       // Are long/unsigned long possibilities?
       if (Ty.isNull() && !Literal.isLongLong) {
         unsigned LongSize = Context.getTargetInfo().getLongWidth();
@@ -3603,7 +3636,9 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
             Ty = Context.UnsignedLongTy;
           // Check according to the rules of C90 6.1.3.2p5. C++03 [lex.icon]p2
           // is compatible.
-          else if (!getLangOpts().C99 && !getLangOpts().CPlusPlus11) {
+          // HLSL Change: HLSL will promote to the next signed integer type.
+          else if (!getLangOpts().HLSL && !getLangOpts().C99 &&
+                   !getLangOpts().CPlusPlus11) {
             const unsigned LongLongSize =
                 Context.getTargetInfo().getLongLongWidth();
             Diag(Tok.getLocation(),
@@ -3649,7 +3684,16 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
 
       if (ResultVal.getBitWidth() != Width)
         ResultVal = ResultVal.trunc(Width);
+      MSB = 1ull << (Width - 1); // HLSL Change - 202x integer warnings.
     }
+    // HLSL Change Begin - 202x integer warnings.
+    if (Literal.getRadix() != 10) {
+      uint64_t Val = ResultVal.getLimitedValue();
+      if ((Val & MSB) != 0)
+        Diag(Tok.getLocation(),
+             diag::warn_hlsl_legacy_integer_literal_signedness);
+    }
+    // HLSL Change End - 202x integer warnings.
     Res = IntegerLiteral::Create(Context, ResultVal, Ty, Tok.getLocation());
   }
 
@@ -5288,7 +5332,8 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
   if (FDecl) {
     if (CheckFunctionCall(FDecl, TheCall, Proto))
       return ExprError();
-
+    if (CheckHLSLFunctionCall(FDecl, TheCall))
+      return ExprError();
     if (BuiltinID)
       return CheckBuiltinFunctionCall(FDecl, BuiltinID, TheCall);
   } else if (NDecl) {
@@ -6318,8 +6363,17 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
 
   // HLSL Change Starts: HLSL supports a vector condition and is
   // sufficiently different to merit its own checker.
-  if (getLangOpts().HLSL)
-    return hlsl::CheckVectorConditional(this, Cond, LHS, RHS, QuestionLoc);
+  if (getLangOpts().HLSL) {
+    // For HLSL 202x+ in a ternary operator we follow C++ rules unless both the
+    // right and left are minimum precision types, or either type is not a
+    // builtin scalar integer or float (e.g. vector, matrix, UDT).
+    QualType LHSTy = LHS.get()->getType();
+    QualType RHSTy = RHS.get()->getType();
+    if (getLangOpts().HLSLVersion < hlsl::LangStd::v202x ||
+        !LHSTy->isBuiltinType() || !RHSTy->isBuiltinType() ||
+        (hlsl::IsHLSLMinPrecision(LHSTy) && hlsl::IsHLSLMinPrecision(RHSTy)))
+      return hlsl::CheckVectorConditional(this, Cond, LHS, RHS, QuestionLoc);
+  }
   // HLSL Change Ends
 
   // C++ is sufficiently different to merit its own checker.

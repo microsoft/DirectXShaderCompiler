@@ -209,7 +209,7 @@ public:
 
   /// InlinedCalls - InlineFunction fills this in with callsites that were
   /// inlined from the callee.  This is only filled in if CG is non-null.
-  SmallVector<WeakVH, 8> InlinedCalls;
+  SmallVector<WeakTrackingVH, 8> InlinedCalls;
 
   void reset() {
     StaticAllocas.clear();

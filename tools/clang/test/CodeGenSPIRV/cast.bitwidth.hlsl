@@ -41,8 +41,7 @@ void main() {
   // 32-bit float to various 64-bit types.
   float aaa;
 // CHECK:             [[aaa:%[0-9]+]] = OpLoad %float %aaa
-// CHECK-NEXT: [[aaa_double:%[0-9]+]] = OpFConvert %double [[aaa]]
-// CHECK-NEXT:  [[aaa_ulong:%[0-9]+]] = OpConvertFToU %ulong [[aaa_double]]
+// CHECK-NEXT:  [[aaa_ulong:%[0-9]+]] = OpConvertFToU %ulong [[aaa]]
 // CHECK-NEXT:                       OpStore %bbb [[aaa_ulong]]
   uint64_t bbb = aaa;
 // CHECK:             [[aaa_0:%[0-9]+]] = OpLoad %float %aaa
@@ -50,8 +49,7 @@ void main() {
 // CHECK-NEXT:                       OpStore %ccc [[aaa_double_0]]
   double   ccc = aaa;
 // CHECK:             [[aaa_1:%[0-9]+]] = OpLoad %float %aaa
-// CHECK-NEXT: [[aaa_double_1:%[0-9]+]] = OpFConvert %double [[aaa_1]]
-// CHECK-NEXT:   [[aaa_long:%[0-9]+]] = OpConvertFToS %long [[aaa_double_1]]
+// CHECK-NEXT:   [[aaa_long:%[0-9]+]] = OpConvertFToS %long [[aaa_1]]
 // CHECK-NEXT:                       OpStore %ddd [[aaa_long]]
   int64_t  ddd = aaa;
 
@@ -95,8 +93,7 @@ void main() {
   // 64-bit float to various 32-bit types.
   double eee;
 // CHECK:         [[e64_2:%[0-9]+]] = OpLoad %double %eee
-// CHECK-NEXT:    [[e32_2:%[0-9]+]] = OpFConvert %float [[e64_2]]
-// CHECK-NEXT: [[e_uint_0:%[0-9]+]] = OpConvertFToU %uint [[e32_2]]
+// CHECK-NEXT: [[e_uint_0:%[0-9]+]] = OpConvertFToU %uint [[e64_2]]
 // CHECK-NEXT:                   OpStore %fff [[e_uint_0]]
   uint  fff = eee;
 // CHECK:              [[e_2:%[0-9]+]] = OpLoad %double %eee
@@ -104,8 +101,7 @@ void main() {
 // CHECK-NEXT:                      OpStore %ggg [[e_float_1]]
   float ggg = eee;
 // CHECK:            [[e_3:%[0-9]+]] = OpLoad %double %eee
-// CHECK-NEXT: [[e_float_2:%[0-9]+]] = OpFConvert %float [[e_3]]
-// CHECK-NEXT:   [[e_int_3:%[0-9]+]] = OpConvertFToS %int [[e_float_2]]
+// CHECK-NEXT:   [[e_int_3:%[0-9]+]] = OpConvertFToS %int [[e_3]]
 // CHECK-NEXT:                    OpStore %hhh [[e_int_3]]
   int   hhh = eee;
 
@@ -113,13 +109,11 @@ void main() {
   // Vector case: 64-bit float to various 32-bit types.
   double2 i;
 // CHECK:      [[i_double:%[0-9]+]] = OpLoad %v2double %i
-// CHECK-NEXT:  [[i_float:%[0-9]+]] = OpFConvert %v2float [[i_double]]
-// CHECK-NEXT:   [[i_uint:%[0-9]+]] = OpConvertFToU %v2uint [[i_float]]
+// CHECK-NEXT:   [[i_uint:%[0-9]+]] = OpConvertFToU %v2uint [[i_double]]
 // CHECK-NEXT:                     OpStore %j [[i_uint]]
   uint2   j = i;
 // CHECK:      [[i_double_0:%[0-9]+]] = OpLoad %v2double %i
-// CHECK-NEXT:  [[i_float_0:%[0-9]+]] = OpFConvert %v2float [[i_double_0]]
-// CHECK-NEXT:    [[i_int:%[0-9]+]] = OpConvertFToS %v2int [[i_float_0]]
+// CHECK-NEXT:    [[i_int:%[0-9]+]] = OpConvertFToS %v2int [[i_double_0]]
 // CHECK-NEXT:                     OpStore %k [[i_int]]
   int2    k = i;
 // CHECK:      [[i_double_1:%[0-9]+]] = OpLoad %v2double %i

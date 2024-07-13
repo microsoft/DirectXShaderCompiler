@@ -2,7 +2,6 @@
 
 void main() {
   uint64_t   uint_1;
+// CHECK: error: firstbitlow is currently limited to 32-bit width components when targetting SPIR-V
   int fbl = firstbitlow(uint_1);
 }
-
-// CHECK: error: firstbitlow is not yet implemented for 64-bit width components when targetting SPIR-V

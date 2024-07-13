@@ -152,7 +152,7 @@ static void WriteInfoQueueMessages(void *pStrCtx,
       allMessagesOK = false;
       continue;
     }
-    CA2W msgW(pMessage->pDescription, CP_ACP);
+    CA2W msgW(pMessage->pDescription);
     pOutputStrFn(pStrCtx, msgW.m_psz);
     pOutputStrFn(pStrCtx, L"\r\n");
   }
@@ -222,37 +222,6 @@ static void SavePixelsToFile(LPCVOID pPixels, DXGI_FORMAT format,
   VERIFY_SUCCEEDED(pFrameEncode->Commit());
   VERIFY_SUCCEEDED(pEncoder->Commit());
   VERIFY_SUCCEEDED(pStream->Commit(STGC_DEFAULT));
-}
-
-// Checks if the given warp version supports the given operation.
-bool IsValidWarpDllVersion(unsigned int minBuildNumber) {
-  HMODULE pLibrary = LoadLibrary("D3D10Warp.dll");
-  if (pLibrary) {
-    char path[MAX_PATH];
-    DWORD length = GetModuleFileName(pLibrary, path, MAX_PATH);
-    if (length) {
-      DWORD dwVerHnd = 0;
-      DWORD dwVersionInfoSize = GetFileVersionInfoSize(path, &dwVerHnd);
-      std::unique_ptr<int[]> VffInfo(new int[dwVersionInfoSize]);
-      if (GetFileVersionInfo(path, NULL, dwVersionInfoSize, VffInfo.get())) {
-        LPVOID versionInfo;
-        UINT size;
-        if (VerQueryValue(VffInfo.get(), "\\", &versionInfo, &size)) {
-          if (size) {
-            VS_FIXEDFILEINFO *verInfo = (VS_FIXEDFILEINFO *)versionInfo;
-            unsigned int warpBuildNumber =
-                verInfo->dwFileVersionLS >> 16 & 0xffff;
-            if (verInfo->dwSignature == 0xFEEF04BD &&
-                warpBuildNumber >= minBuildNumber) {
-              return true;
-            }
-          }
-        }
-      }
-    }
-    FreeLibrary(pLibrary);
-  }
-  return false;
 }
 
 #if WDK_NTDDI_VERSION <= NTDDI_WIN10_RS2
@@ -1717,8 +1686,8 @@ public:
 #ifndef _HLK_CONF
   void DXBCFromText(LPCSTR pText, LPCWSTR pEntryPoint, LPCWSTR pTargetProfile,
                     ID3DBlob **ppBlob) {
-    CW2A pEntryPointA(pEntryPoint, CP_UTF8);
-    CW2A pTargetProfileA(pTargetProfile, CP_UTF8);
+    CW2A pEntryPointA(pEntryPoint);
+    CW2A pTargetProfileA(pTargetProfile);
     CComPtr<ID3DBlob> pErrors;
     D3D_SHADER_MACRO d3dMacro[2];
     ZeroMemory(d3dMacro, sizeof(d3dMacro));
@@ -1728,7 +1697,7 @@ public:
         D3DCompile(pText, strlen(pText), "hlsl.hlsl", d3dMacro, nullptr,
                    pEntryPointA, pTargetProfileA, 0, 0, ppBlob, &pErrors);
     if (pErrors != nullptr) {
-      CA2W errors((char *)pErrors->GetBufferPointer(), CP_ACP);
+      CA2W errors((char *)pErrors->GetBufferPointer());
       LogCommentFmt(L"Compilation failure: %s", errors.m_szBuffer);
     }
     VERIFY_SUCCEEDED(hr);
@@ -2457,14 +2426,6 @@ TEST_F(ExecutionTest, LifetimeIntrinsicTest) {
   }
   bool bDXRSupported =
       bSM_6_3_Supported && DoesDeviceSupportRayTracing(pDevice);
-
-  if (GetTestParamUseWARP(UseWarpByDefault()) ||
-      IsDeviceBasicAdapter(pDevice)) {
-    WEX::Logging::Log::Comment(
-        L"WARP has a known issue with LifetimeIntrinsicTest.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
 
   if (!bSM_6_6_Supported) {
     WEX::Logging::Log::Comment(
@@ -4020,10 +3981,7 @@ TEST_F(ExecutionTest, DerivativesTest) {
                                           {16, 8, 1}, {8, 4, 2},   {10, 10, 1},
                                           {4, 16, 2}, {4, 16, 2}};
 
-  std::vector<Dispatch> badDispatches = {{16, 3, 1}, {2, 16, 1}, {33, 1, 1}};
-
   pShaderOp->UseWarpDevice = GetTestParamUseWARP(true);
-  LPCSTR CS = pShaderOp->CS;
 
   MappedData data;
 
@@ -4068,19 +4026,6 @@ TEST_F(ExecutionTest, DerivativesTest) {
       VerifyDerivResults_CS_AS_MS_66(pPixels, offsetCenter);
     }
   }
-
-  // Final tests with invalid dispatch size just to make sure they run
-  for (Dispatch &D : badDispatches) {
-    // Test Compute Shader
-    pShaderOp->CS = CS;
-    std::shared_ptr<st::ShaderOpTest> test =
-        RunDispatch(pDevice, m_support, pShaderOp, D);
-
-    if (DoesDeviceSupportMeshAmpDerivatives(pDevice)) {
-      pShaderOp->CS = nullptr;
-      test = RunDispatch(pDevice, m_support, pShaderOp, D);
-    }
-  }
 }
 
 // Verify the results for the quad starting with the given index
@@ -4103,14 +4048,6 @@ TEST_F(ExecutionTest, QuadReadTest) {
   CComPtr<ID3D12Device> pDevice;
   if (!CreateDevice(&pDevice))
     return;
-
-  if (GetTestParamUseWARP(UseWarpByDefault()) ||
-      IsDeviceBasicAdapter(pDevice)) {
-    WEX::Logging::Log::Comment(
-        L"WARP does not support QuadRead in compute shaders.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
 
   if (!DoesDeviceSupportWaveOps(pDevice)) {
     WEX::Logging::Log::Comment(L"Device does not support wave operations.");
@@ -7178,12 +7115,6 @@ TEST_F(ExecutionTest, UnaryFloatOpTest) {
   CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
   CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
 
-  unsigned int WarpVersion =
-      handler.GetTableParamByName(L"Warp.Version")->m_uint;
-  if (GetTestParamUseWARP(true) && !IsValidWarpDllVersion(WarpVersion)) {
-    return;
-  }
-
   std::vector<float> *Validation_Input =
       &(handler.GetTableParamByName(L"Validation.Input1")->m_floatTable);
   std::vector<float> *Validation_Expected =
@@ -7418,12 +7349,6 @@ TEST_F(ExecutionTest, UnaryHalfOpTest) {
   CW2A Target(handler.GetTableParamByName(L"ShaderOp.Target")->m_str);
   CW2A Text(handler.GetTableParamByName(L"ShaderOp.Text")->m_str);
   CW2A Arguments(handler.GetTableParamByName(L"ShaderOp.Arguments")->m_str);
-
-  unsigned int WarpVersion =
-      handler.GetTableParamByName(L"Warp.Version")->m_uint;
-  if (GetTestParamUseWARP(true) && !IsValidWarpDllVersion(WarpVersion)) {
-    return;
-  }
 
   std::vector<uint16_t> *Validation_Input =
       &(handler.GetTableParamByName(L"Validation.Input1")->m_halfTable);
@@ -10998,18 +10923,6 @@ TEST_F(ExecutionTest, DenormBinaryFloatOpTest) {
              "must have same number of expected values");
   }
 
-#if defined(_M_ARM64) || defined(_M_ARM64EC)
-  if ((GetTestParamUseWARP(UseWarpByDefault()) ||
-       IsDeviceBasicAdapter(pDevice)) &&
-      mode == Float32DenormMode::Preserve) {
-    WEX::Logging::Log::Comment(
-        L"WARP has an issue with DenormBinaryFloatOpTest with '-denorm "
-        L"preserve' on ARM64.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
-#endif // defined(_M_ARM64) || defined(_M_ARM64EC)
-
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
       pDevice, m_support, pStream, "BinaryFPOp",
       // this callbacked is called when the test
@@ -11122,18 +11035,6 @@ TEST_F(ExecutionTest, DenormTertiaryFloatOpTest) {
     DXASSERT(Validation_Expected2->size() == Validation_Expected1->size(),
              "must have same number of expected values");
   }
-
-#if defined(_M_ARM64) || defined(_M_ARM64EC)
-  if ((GetTestParamUseWARP(UseWarpByDefault()) ||
-       IsDeviceBasicAdapter(pDevice)) &&
-      mode == Float32DenormMode::Preserve) {
-    WEX::Logging::Log::Comment(
-        L"WARP has an issue with DenormTertiaryFloatOpTest with '-denorm "
-        L"preserve' on ARM64.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
-#endif // defined(_M_ARM64) || defined(_M_ARM64EC)
 
   std::shared_ptr<ShaderOpTestResult> test = RunShaderOpTest(
       pDevice, m_support, pStream, "TertiaryFPOp",
@@ -11682,13 +11583,7 @@ void ExecutionTest::WaveIntrinsicsActivePrefixTest(
   }
 }
 
-static const unsigned int MinWarpVersionForWaveIntrinsics = 16202;
-
 TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
-  if (GetTestParamUseWARP(true) &&
-      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
-    return;
-  }
   WaveIntrinsicsActivePrefixTest<int, int>(
       WaveIntrinsicsActiveIntParameters,
       sizeof(WaveIntrinsicsActiveIntParameters) / sizeof(TableParameter),
@@ -11696,10 +11591,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsActiveIntTest) {
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsActiveUintTest) {
-  if (GetTestParamUseWARP(true) &&
-      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
-    return;
-  }
   WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
       WaveIntrinsicsActiveUintParameters,
       sizeof(WaveIntrinsicsActiveUintParameters) / sizeof(TableParameter),
@@ -11707,10 +11598,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsActiveUintTest) {
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsPrefixIntTest) {
-  if (GetTestParamUseWARP(true) &&
-      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
-    return;
-  }
   WaveIntrinsicsActivePrefixTest<int, int>(
       WaveIntrinsicsPrefixIntParameters,
       sizeof(WaveIntrinsicsPrefixIntParameters) / sizeof(TableParameter),
@@ -11718,10 +11605,6 @@ TEST_F(ExecutionTest, WaveIntrinsicsPrefixIntTest) {
 }
 
 TEST_F(ExecutionTest, WaveIntrinsicsPrefixUintTest) {
-  if (GetTestParamUseWARP(true) &&
-      !IsValidWarpDllVersion(MinWarpVersionForWaveIntrinsics)) {
-    return;
-  }
   WaveIntrinsicsActivePrefixTest<unsigned int, unsigned int>(
       WaveIntrinsicsPrefixUintParameters,
       sizeof(WaveIntrinsicsPrefixUintParameters) / sizeof(TableParameter),
@@ -14714,14 +14597,6 @@ TEST_F(ExecutionTest, HelperLaneTestWave) {
       continue;
     }
 
-    if (GetTestParamUseWARP(UseWarpByDefault()) ||
-        IsDeviceBasicAdapter(pDevice)) {
-      WEX::Logging::Log::Comment(
-          L"WARP has a known issue with HelperLaneTestWave.");
-      WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-      return;
-    }
-
     if (!DoesDeviceSupportWaveOps(pDevice)) {
       LogCommentFmt(
           L"Device does not support wave operations in shader model 6.%1u",
@@ -14872,11 +14747,6 @@ TEST_F(ExecutionTest, QuadAnyAll) {
 
     CComPtr<ID3D12Device> pDevice;
     if (!CreateDevice(&pDevice, sm, false /* skipUnsupported */)) {
-      continue;
-    }
-
-    if (IsDeviceBasicAdapter(pDevice)) {
-      WEX::Logging::Log::Comment(L"QuadAny/All fails on basic render driver.");
       continue;
     }
 
@@ -15052,13 +14922,6 @@ TEST_F(ExecutionTest, IsNormalTest) {
   CComPtr<ID3D12Device> pDevice;
   VERIFY_IS_TRUE(CreateDevice(&pDevice, D3D_SHADER_MODEL_6_0,
                               false /* skipUnsupported */));
-
-  if (GetTestParamUseWARP(UseWarpByDefault()) ||
-      IsDeviceBasicAdapter(pDevice)) {
-    WEX::Logging::Log::Comment(L"WARP has a known issue with IsNormalTest.");
-    WEX::Logging::Log::Result(WEX::Logging::TestResults::Skipped);
-    return;
-  }
 
   // The input is -Zero, Zero, -Denormal, Denormal, -Infinity, Infinity, -NaN,
   // Nan, and then 4 normal float numbers. Only the last 4 floats are normal, so

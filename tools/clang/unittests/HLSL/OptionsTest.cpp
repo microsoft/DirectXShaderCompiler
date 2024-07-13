@@ -78,6 +78,7 @@ public:
   // TEST_METHOD(CopyOptionsWhenMultipleThenOK)
 
   TEST_METHOD(ReadOptionsJoinedWithSpacesThenOK)
+  TEST_METHOD(ReadOptionsNoNonLegacyCBuffer)
 
   TEST_METHOD(TestPreprocessOption)
 
@@ -96,15 +97,23 @@ public:
     EXPECT_EQ(shouldMessage, !errorStream.str().empty());
     return opts;
   }
+
+  // Test variant that verifies expected pass condition
+  // and checks error output to match given message.
   void ReadOptsTest(const MainArgs &mainArgs, unsigned flagsToInclude,
-                    const char *expectErrorMsg) {
+                    bool shouldFail, const char *expectErrorMsg) {
     std::string errorString;
     llvm::raw_string_ostream errorStream(errorString);
     std::unique_ptr<DxcOpts> opts = llvm::make_unique<DxcOpts>();
     int result = ReadDxcOpts(getHlslOptTable(), flagsToInclude, mainArgs,
                              *(opts.get()), errorStream);
-    EXPECT_EQ(result, 1);
+    EXPECT_EQ(shouldFail, result != 0);
     VERIFY_ARE_EQUAL_STR(expectErrorMsg, errorStream.str().c_str());
+  }
+
+  void ReadOptsTest(const MainArgs &mainArgs, unsigned flagsToInclude,
+                    const char *expectErrorMsg) {
+    ReadOptsTest(mainArgs, flagsToInclude, true /*shouldFail*/, expectErrorMsg);
   }
 };
 
@@ -369,6 +378,26 @@ TEST_F(OptionsTest, ReadOptionsJoinedWithSpacesThenOK) {
   }
 }
 
+TEST_F(OptionsTest, ReadOptionsNoNonLegacyCBuffer) {
+  {
+    const wchar_t *Args[] = {L"exe.exe", L"/T  ", L"ps_6_0", L"hlsl.hlsl",
+                             L"-no-legacy-cbuf-layout"};
+    MainArgsArr ArgsArr(Args);
+    ReadOptsTest(ArgsArr, DxcFlags, false /*shouldFail*/,
+                 "warning: -no-legacy-cbuf-layout is no longer supported and "
+                 "will be ignored. Future releases will not recognize it.\n");
+  }
+
+  {
+    const wchar_t *Args[] = {L"exe.exe", L"/T  ", L"ps_6_0", L"hlsl.hlsl",
+                             L"-not_use_legacy_cbuf_load"};
+    MainArgsArr ArgsArr(Args);
+    ReadOptsTest(ArgsArr, DxcFlags, false /*shouldFail*/,
+                 "warning: -no-legacy-cbuf-layout is no longer supported and "
+                 "will be ignored. Future releases will not recognize it.\n");
+  }
+}
+
 static void VerifyPreprocessOption(llvm::StringRef command,
                                    const char *ExpectOutput,
                                    const char *ErrMsg) {
@@ -393,7 +422,7 @@ TEST_F(OptionsTest, TestPreprocessOption) {
   VerifyPreprocessOption("/T ps_6_0 -Fi out.pp -P input.hlsl", "out.pp", "");
   VerifyPreprocessOption("/T ps_6_0 -P -Fi out.pp input.hlsl", "out.pp", "");
   const char *Warning =
-      "Warning: -P out.pp is deprecated, please use -P -Fi out.pp instead.\n";
+      "warning: -P out.pp is deprecated, please use -P -Fi out.pp instead.\n";
   VerifyPreprocessOption("/T ps_6_0 -P out.pp input.hlsl", "out.pp", Warning);
   VerifyPreprocessOption("/T ps_6_0 input.hlsl -P out.pp ", "out.pp", Warning);
 }

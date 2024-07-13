@@ -417,7 +417,8 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
   assert(recordType);
 
   LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
-                                    theEmitter.getSpirvOptions());
+                                    theEmitter.getSpirvOptions(),
+                                    theEmitter.getSpirvBuilder());
   const SpirvType *spirvType =
       lowerTypeVisitor.lowerType(type, SpirvLayoutRule::Void, false, srcLoc);
 
@@ -452,14 +453,9 @@ InitListHandler::createInitForStructType(QualType type, SourceLocation srcLoc,
         // For the remaining bitfields, we need to insert them into the existing
         // container, which is the last element in `fields`.
         assert(fields.size() == fieldInfo.fieldIndex + 1);
-        SpirvInstruction *offset = spvBuilder.getConstantInt(
-            astContext.UnsignedIntTy,
-            llvm::APInt(32, fieldInfo.bitfield->offsetInBits));
-        SpirvInstruction *count = spvBuilder.getConstantInt(
-            astContext.UnsignedIntTy,
-            llvm::APInt(32, fieldInfo.bitfield->sizeInBits));
         fields.back() = spvBuilder.createBitFieldInsert(
-            fieldType, fields.back(), init, offset, count, srcLoc);
+            fieldType, fields.back(), init, fieldInfo.bitfield->offsetInBits,
+            fieldInfo.bitfield->sizeInBits, srcLoc, range);
         return true;
       },
       true);
