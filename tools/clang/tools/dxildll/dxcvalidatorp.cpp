@@ -258,7 +258,7 @@ DxcValidator::RunRootSignatureValidation(IDxcBlob *pShader,
                   GetDxilPartData(pPSVPart), pPSVPart->PartSize, DiagStream),
               DXC_E_INCORRECT_ROOT_SIGNATURE);
       // Do not sign here; shaders must go through full shader validation for
-      // signing.
+      // hashing.
     } else {
       IFRBOOL(VerifyRootSignature(RSH.GetDesc(), DiagStream, false),
               DXC_E_INCORRECT_ROOT_SIGNATURE);

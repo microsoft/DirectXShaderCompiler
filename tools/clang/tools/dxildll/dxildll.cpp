@@ -30,7 +30,7 @@
 #include "dxc/dxctools.h"
 
 HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
-HRESULT CreateDxcSigningContainerBuilder(REFIID riid, LPVOID *ppv);
+HRESULT CreateDxcHashingContainerBuilder(REFIID riid, LPVOID *ppv);
 
 // C++ exception specification ignored except to indicate a function is not
 // __declspec(nothrow)
@@ -117,7 +117,7 @@ static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
     return CreateDxcValidator(riid, ppv);
   }
   if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
-    return CreateDxcSigningContainerBuilder(riid, ppv);
+    return CreateDxcHashingContainerBuilder(riid, ppv);
   }
   return REGDB_E_CLASSNOTREG;
 }

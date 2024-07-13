@@ -27,11 +27,11 @@ using namespace hlsl;
 
 HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 
-class DxcSigningContainerBuilder : public DxcContainerBuilder {
+class DxcHashingContainerBuilder : public DxcContainerBuilder {
 public:
-  DxcSigningContainerBuilder(IMalloc *pMalloc) : DxcContainerBuilder(pMalloc) {}
+  DxcHashingContainerBuilder(IMalloc *pMalloc) : DxcContainerBuilder(pMalloc) {}
 
-  DXC_MICROCOM_TM_ALLOC(DxcSigningContainerBuilder);
+  DXC_MICROCOM_TM_ALLOC(DxcHashingContainerBuilder);
 
   HRESULT STDMETHODCALLTYPE Load(IDxcBlob *pDxilContainerHeader)
       override; // Loads DxilContainer to the builder
@@ -47,7 +47,7 @@ private:
   void HashAndUpdate(DxilContainerHeader *pContainerHeader);
 };
 
-HRESULT STDMETHODCALLTYPE DxcSigningContainerBuilder::Load(IDxcBlob *pSource) {
+HRESULT STDMETHODCALLTYPE DxcHashingContainerBuilder::Load(IDxcBlob *pSource) {
   HRESULT hr = DxcContainerBuilder::Load(pSource);
   if (SUCCEEDED(hr)) {
     const DxilContainerHeader *pHeader =
@@ -58,7 +58,7 @@ HRESULT STDMETHODCALLTYPE DxcSigningContainerBuilder::Load(IDxcBlob *pSource) {
 }
 
 HRESULT STDMETHODCALLTYPE
-DxcSigningContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
+DxcHashingContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   HRESULT hr_saved = DxcContainerBuilder::SerializeContainer(ppResult);
   if (!SUCCEEDED(hr_saved)) {
     return hr_saved;
@@ -80,7 +80,7 @@ DxcSigningContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   return hr_saved;
 }
 
-void DxcSigningContainerBuilder::FindHashFunctionFromSource(
+void DxcHashingContainerBuilder::FindHashFunctionFromSource(
     const DxilContainerHeader *pContainerHeader) {
   DXASSERT(pContainerHeader != nullptr &&
                IsDxilContainerLike(pContainerHeader,
@@ -105,7 +105,7 @@ void DxcSigningContainerBuilder::FindHashFunctionFromSource(
 }
 
 // For Internal hash function.
-void DxcSigningContainerBuilder::HashAndUpdate(
+void DxcHashingContainerBuilder::HashAndUpdate(
     DxilContainerHeader *pContainerHeader) {
   if (m_pHashFunction != nullptr) {
     DXASSERT(pContainerHeader != nullptr,
@@ -119,11 +119,11 @@ void DxcSigningContainerBuilder::HashAndUpdate(
   }
 }
 
-HRESULT CreateDxcSigningContainerBuilder(REFIID riid, LPVOID *ppv) {
+HRESULT CreateDxcHashingContainerBuilder(REFIID riid, LPVOID *ppv) {
   // Call dxil.dll's containerbuilder
   *ppv = nullptr;
-  CComPtr<DxcSigningContainerBuilder> Result(
-      DxcSigningContainerBuilder::Alloc(DxcGetThreadMallocNoRef()));
+  CComPtr<DxcHashingContainerBuilder> Result(
+      DxcHashingContainerBuilder::Alloc(DxcGetThreadMallocNoRef()));
   IFROOM(Result.p);
   Result->Init();
   return Result->QueryInterface(riid, ppv);
