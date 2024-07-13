@@ -61,10 +61,10 @@ void TestResourceDescriptorHeap()
 	SamplerState s1 = ResourceDescriptorHeap[0];	// expected-error{{cannot initialize a variable of type 'SamplerState' with an rvalue of type 'const .Resource'}}
 	SamplerComparisonState s2 = ResourceDescriptorHeap[0];	// expected-error{{cannot initialize a variable of type 'SamplerComparisonState' with an rvalue of type 'const .Resource'}}
 	
-	Texture1D<float>   t1 = SamplerDescriptorHeap[0]; 
-	RWTexture1D<float> t2 = SamplerDescriptorHeap[0]; 
-	Texture2D<float>   t3 = SamplerDescriptorHeap[0]; 
-	RWTexture2D<float> t4 = SamplerDescriptorHeap[0]; 
+	Texture1D<float>   t1 = ResourceDescriptorHeap[0]; 
+	RWTexture1D<float> t2 = ResourceDescriptorHeap[0]; 
+	Texture2D<float>   t3 = ResourceDescriptorHeap[0]; 
+	RWTexture2D<float> t4 = ResourceDescriptorHeap[0]; 
 	Texture3D<float>   t5 = ResourceDescriptorHeap[0];
 	RWTexture3D<float> t6 = ResourceDescriptorHeap[0];
 	
