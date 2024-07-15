@@ -18,6 +18,15 @@ The included licenses apply to the following files:
 
 ## Changelog
 
+- Fixed several bugs in the loop restructurizer.  In some unusual cases the compiler
+   could crash or produce incorrect output. Shader developers who are using
+   `-opt-disable structurize-loop-exits-for-unroll` to disable the loop
+   restructurizer should consider removing that workaround.
+   Details:
+   - [#6644](https://github.com/microsoft/DirectXShaderCompiler/pull/6644)
+   - [#6676](https://github.com/microsoft/DirectXShaderCompiler/pull/6676)
+   - [#6695](https://github.com/microsoft/DirectXShaderCompiler/pull/6695)
+
 ### Version 1.8.2405
 
 DX Compiler Release for May 2024
