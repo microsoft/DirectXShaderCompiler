@@ -70,30 +70,30 @@ Limiting to one or two tags is ideal to keep titles short.
 Some examples of common tags are:
 
 - `[NFC]` - No Functional Change
-  - `[RFC]` - Request For Comments (often used for drafts to get feedback)
-  - `[Doc]` - Documentation change
-  - `[SPIRV]` - Changes related to SPIR-V
-  - `[HLSL2021]` - Changes related to HLSL 2021 features
-  - Other tags in use: `[Linux]`, `[mac]`, `[Win]`, `[PIX]`, etc...
+- `[RFC]` - Request For Comments (often used for drafts to get feedback)
+- `[Doc]` - Documentation change
+- `[SPIRV]` - Changes related to SPIR-V
+- `[HLSL2021]` - Changes related to HLSL 2021 features
+- Other tags in use: `[Linux]`, `[mac]`, `[Win]`, `[PIX]`, etc...
 
-Tags aren't formalized or any specific limited set. If you're unsure of
-  a reasonable tag to use, just don't use any. If you want to invent a new
-  tag, go for it! These are to help categorize changes at a glance.
+Tags aren't formalized or any specific limited set.
+If you're unsure of a reasonable tag to use, just don't use any.
+If you want to invent a new tag, go for it!
+These are to help categorize changes at a glance.
 
 #### Descriptions
 
 The PR description should include a more detailed description of the change,
-an explanation for the motivation of the change, and links to any relevant Issues.
-This does not need to be a dissertation, but should leave
-breadcrumbs for the next person debugging your code (who might be you).
+ an explanation for the motivation of the change, and links to any relevant Issues.
+This does not need to be a dissertation, but should leave breadcrumbs for the next person debugging your code (who might be you).
 
 Using the words `Fixes`, `Fixed`, `Closes`, `Closed`, or `Close` followed by
-  `#<issuenumber>`, will auto close an issue after the PR is merged.
+ `#<issuenumber>`, will auto close an issue after the PR is merged.
 
 #### Release Notes
 
 Significant changes may require release notes that highlight important
-compiler behavior changes for each named release.
+ compiler behavior changes for each named release.
 These include changes that are:
 
 - Visible to the users
@@ -105,41 +105,39 @@ These include changes that are:
 When such a change is made, the release note should be included as part of that change.
 This is done in the docs/ReleaseNotes.md file.
 
-If the change is meant for a named release,
-it should be added to that named release's section of the release notes file.
-As the change is merged to the appropriate release branches,
-the release notes will come along with it.
+If the change is meant for a named release, it should be added to that named release's section of the release notes file.
+As the change is merged to the appropriate release branches, the release notes will come along with it.
 
-If a change is meant for the next upcoming release,
-it should be added to the "Upcoming Release" section.
-When the next upcoming release is named,
-the title will be updated and the release note will be included in the appropriate release.
+If a change is meant for the next upcoming release, it should be added to the "Upcoming Release" section.
+When the next upcoming release is named, the title will be updated and the release note will be included in the appropriate release.
 
 When writing release note list entries:
 
 - Keep the description to a single sentence.
-- Links to PRs are not recommended.
-- Markdown links to bugs are fine if the issue is too complicated to completely explain in a single sentence.
+- Links to specific PRs shouldn't be included.
+- Markdown links to bugs are encouraged if the issue is too complicated to completely explain in a single sentence.
 - Remember to update release notes as the nature of the change alters or is removed.
 
 ### Testing Pull Requests
 
-For a pull request to be merged, it will have to pass the automated set of regression tests run for each.
-Additional regression testing may be required for some changes depending on the area of the changes.
-The commiter is expected to recognize the need for and perform any additional testing prior to merging.
-
-In addition to existing tests, bug fixes and new features require additional testing be included in the pull requests that implement them.
+All changes that make functional or behavioral changes to the compiler whether by fixing bugs or adding features
+ must include additional testing in the implementing pull request.
+Changes that do not change behavior may still be required to add testing if the change impacts areas with limited test coverage
+ to verify that the change doesn't alter previously untested, but important behavior.
 For bug fixes, at least one added test should fail in the absence of your non-test code changes.
 Tests should include reasonable permutations of the target fix/change.
 Include baseline changes with your change as needed.
 
-For cases where any of the above testing requirements are not possible,
-please specify why in the pull request.
+Submitting a pull request kicks off an automated set of regression tests that verify the change introduces no unwanted changes in behavior.
+For a pull request to be mergeable in GitHub, it will have to pass this regression test suite.
+Changes made to DXC for the benefit of external projects should be verified using that project's testing protocols to avoid churn.
+
+For cases where any of the above testing requirements are not possible, please specify why in the pull request.
 
 ### Merging Pull Requests
 
-Pull requests should be a child commit of a reasonably recent commit in the main branch
+Pull requests should be a child commit of a reasonably recent commit in the main branch.
+A pull request's commits should be squashed on merging except in very special circumstances usually involving release branches.
 
-Ensure that the title and description are fully up to date before merging
-The title and description feed the final git commit message, and we want to
-ensure high quality commit messages in the repository history.
+Ensure that the title and description are fully up to date before merging.
+The title and description feed the final git commit message, and we want to ensure high quality commit messages in the repository history.
