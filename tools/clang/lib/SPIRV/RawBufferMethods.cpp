@@ -285,37 +285,32 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
   // aligned like their field with the largest alignment.
   // As a result, there might exist some padding after some struct members.
   if (const auto *structType = targetType->getAs<RecordType>()) {
-    const auto *decl = structType->getDecl();
+    LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
+                                      theEmitter.getSpirvOptions(), spvBuilder);
+    const StructType *spvType = dyn_cast<StructType>(lowerTypeVisitor.lowerType(
+        targetType, theEmitter.getSpirvOptions().sBufferLayoutRule, llvm::None,
+        SourceLocation()));
     llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
-    uint32_t fieldOffsetInBytes = 0;
-    uint32_t structAlignment = 0, structSize = 0, stride = 0;
-    std::tie(structAlignment, structSize) =
-        AlignmentSizeCalculator(astContext, theEmitter.getSpirvOptions())
-            .getAlignmentAndSize(targetType,
-                                 theEmitter.getSpirvOptions().sBufferLayoutRule,
-                                 llvm::None, &stride);
-    for (const auto *field : decl->fields()) {
-      AlignmentSizeCalculator alignmentCalc(astContext,
-                                            theEmitter.getSpirvOptions());
-      uint32_t fieldSize = 0, fieldAlignment = 0;
-      std::tie(fieldAlignment, fieldSize) = alignmentCalc.getAlignmentAndSize(
-          field->getType(), theEmitter.getSpirvOptions().sBufferLayoutRule,
-          /*isRowMajor*/ llvm::None, &stride);
-      fieldOffsetInBytes = roundToPow2(fieldOffsetInBytes, fieldAlignment);
-      auto *byteOffset = address.getByteAddress();
-      if (fieldOffsetInBytes != 0) {
-        byteOffset = spvBuilder.createBinaryOp(
-            spv::Op::OpIAdd, astContext.UnsignedIntTy, byteOffset,
-            spvBuilder.getConstantInt(astContext.UnsignedIntTy,
-                                      llvm::APInt(32, fieldOffsetInBytes)),
-            loc, range);
-      }
+    forEachSpirvField(
+        structType, spvType,
+        [this, &buffer, &address, range,
+         &loadedElems](size_t spirvFieldIndex, const QualType &fieldType,
+                       const auto &field) {
+          auto *baseOffset = address.getByteAddress();
+          if (field.offset.hasValue() && field.offset.getValue() != 0) {
+            const auto loc = buffer->getSourceLocation();
+            SpirvConstant *offset = spvBuilder.getConstantInt(
+                astContext.UnsignedIntTy,
+                llvm::APInt(32, field.offset.getValue()));
+            baseOffset = spvBuilder.createBinaryOp(
+                spv::Op::OpIAdd, astContext.UnsignedIntTy, baseOffset, offset,
+                loc, range);
+          }
 
-      loadedElems.push_back(processTemplatedLoadFromBuffer(
-          buffer, byteOffset, field->getType(), range));
-
-      fieldOffsetInBytes += fieldSize;
-    }
+          loadedElems.push_back(processTemplatedLoadFromBuffer(
+              buffer, baseOffset, fieldType, range));
+          return true;
+        });
 
     // After we're done with loading the entire struct, we need to update the
     // byteAddress (in case we are loading an array of structs).
@@ -323,6 +318,13 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
     // struct size = 34 bytes (34 / 8) = 4 full words (34 % 8) = 2 > 0,
     // therefore need to move to the next aligned address So the starting byte
     // offset after loading the entire struct is: 8 * (4 + 1) = 40
+    uint32_t structAlignment = 0, structSize = 0, stride = 0;
+    std::tie(structAlignment, structSize) =
+        AlignmentSizeCalculator(astContext, theEmitter.getSpirvOptions())
+            .getAlignmentAndSize(targetType,
+                                 theEmitter.getSpirvOptions().sBufferLayoutRule,
+                                 llvm::None, &stride);
+
     assert(structAlignment != 0);
     SpirvInstruction *structWidth = spvBuilder.getConstantInt(
         astContext.UnsignedIntTy,
@@ -578,7 +580,7 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
       return;
     default:
       theEmitter.emitError(
-          "templated load of ByteAddressBuffer is only implemented for "
+          "templated store of ByteAddressBuffer is only implemented for "
           "16, 32, and 64-bit types",
           loc);
       return;
@@ -605,13 +607,6 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
   // aligned like their field with the largest alignment.
   // As a result, there might exist some padding after some struct members.
   if (const auto *structType = valueType->getAs<RecordType>()) {
-    uint32_t structAlignment = 0, structSize = 0, stride = 0;
-    std::tie(structAlignment, structSize) =
-        AlignmentSizeCalculator(astContext, theEmitter.getSpirvOptions())
-            .getAlignmentAndSize(valueType,
-                                 theEmitter.getSpirvOptions().sBufferLayoutRule,
-                                 llvm::None, &stride);
-
     LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
                                       theEmitter.getSpirvOptions(), spvBuilder);
     const StructType *spvType = dyn_cast<StructType>(lowerTypeVisitor.lowerType(
@@ -648,6 +643,13 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
     // (34 % 8) = 2 > 0, therefore need to move to the next aligned address
     // So the starting byte offset after loading the entire struct is:
     // 8 * (4 + 1) = 40
+    uint32_t structAlignment = 0, structSize = 0, stride = 0;
+    std::tie(structAlignment, structSize) =
+        AlignmentSizeCalculator(astContext, theEmitter.getSpirvOptions())
+            .getAlignmentAndSize(valueType,
+                                 theEmitter.getSpirvOptions().sBufferLayoutRule,
+                                 llvm::None, &stride);
+
     assert(structAlignment != 0);
     auto *structWidth = spvBuilder.getConstantInt(
         astContext.UnsignedIntTy,
