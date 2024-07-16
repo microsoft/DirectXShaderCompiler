@@ -378,6 +378,8 @@ public: // esp in the unions...it's just redundant to not directly access things
     INT64 m_Value64[2];
     double m_Valued[2];
   };
+
+#pragma warning(suppress : 4201) // Warning about nameless structure.
   struct {
     D3D10_SB_OPERAND_INDEX_REPRESENTATION m_IndexType[3];
     D3D10_SB_OPERAND_INDEX_DIMENSION m_IndexDimension;
