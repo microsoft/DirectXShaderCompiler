@@ -26,10 +26,10 @@ Here are some highlights:
 
 - dxc generates invalid alignment on groupshared matrix load/store instructions in [#6416](https://github.com/microsoft/DirectXShaderCompiler/issues/6416)
 - [Optimization] DXC is missing common factor optimization in some cases in [#6593](https://github.com/microsoft/DirectXShaderCompiler/issues/6593)
-- Fix RemoveUnstructuredLoopExits when an exiting edge jumps out multiple levels of loops in [#6668](https://github.com/microsoft/DirectXShaderCompiler/pull/6668)
 - [SPIR-V] Implement WaveMutliPrefix* in [#6600](https://github.com/microsoft/DirectXShaderCompiler/issues/6600)
-- [SPIR-V][Feature Request][SM6.7] Implement SampleCmpLevel in [#6613](https://github.com/microsoft/DirectXShaderCompiler/issues/6613)
+- [SPIR-V] Implement SampleCmpLevel for SM6.7 in [#6613](https://github.com/microsoft/DirectXShaderCompiler/issues/6613)
 - Avoid adding types to default namespace in [#6646](https://github.com/microsoft/DirectXShaderCompiler/issues/6646)
+- Release notes once found in `README.md` can now be found in `docs/ReleaseNotes.md`
 
 ### Version 1.8.2405
 
