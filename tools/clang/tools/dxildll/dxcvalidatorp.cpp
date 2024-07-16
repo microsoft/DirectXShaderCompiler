@@ -121,7 +121,7 @@ static void HashAndUpdateOrCopy(UINT32 Flags, IDxcBlob *pShader,
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &HashedBlobStream));
     ULONG cb;
     IFT(HashedBlobStream->Write(pShader->GetBufferPointer(),
-                                 pShader->GetBufferSize(), &cb));
+                                pShader->GetBufferSize(), &cb));
     HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr());
     IFT(HashedBlobStream.QueryInterface(Hashed));
   }
