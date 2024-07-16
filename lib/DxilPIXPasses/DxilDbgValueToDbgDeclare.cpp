@@ -138,28 +138,8 @@ public:
     unsigned AlignMask = DescendTypeToGetAlignMask(Ty);
     if (AlignMask) {
       VALUE_TO_DECLARE_LOG("Aligning to %d", AlignMask);
-      // This is some magic arithmetic. Here's an example:
-      //
-      // Assume the natural alignment for Ty is 16 bits. Then
-      //
-      //     AlignMask = 0x0000000f(15)
-      //
-      // If the current aligned offset is
-      //
-      //     CurrentAlignedOffset = 0x00000048(72)
-      //
-      // Then
-      //
-      //     T = CurrentAlignOffset + AlignMask = 0x00000057(87)
-      //
-      // Which mean
-      //
-      //     T & ~AlignMask = 0x00000050(80)
-      //
-      // is the aligned offset where Ty should be placed.
-      AlignMask = AlignMask - 1;
       m_CurrentAlignedOffset =
-          (m_CurrentAlignedOffset + AlignMask) & ~AlignMask;
+          llvm::RoundUpToAlignment(m_CurrentAlignedOffset, AlignMask);
     } else {
       VALUE_TO_DECLARE_LOG("Failed to find alignment");
     }
