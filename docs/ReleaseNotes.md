@@ -69,6 +69,8 @@ DX Compiler release for March 2024
   - Validation errors more accurately determine usage by the entry point
 - Improve debug info generation
 - Further improvements to Linux build quality
+- File paths arguments for `IDxcIncludeHandler::LoadSource` will now be normalized to use OS specific slashes
+  (`\` for windows, `/` for *nix) and no longer have double slashes except for UNC paths (`\\my\unc\path`).”
 
 ### Version 1.7.2308
 
