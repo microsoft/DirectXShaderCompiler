@@ -39,12 +39,12 @@ private:
 
   HRESULT RunValidation(IDxcBlob *pShader, AbstractMemoryStream *pDiagStream,
                         UINT32 Flags, DxcBuffer *pOptDebugBitcode,
-                        IDxcBlob **pSigned);
+                        IDxcBlob **Hashed);
 
   HRESULT
   RunRootSignatureValidation(IDxcBlob *pShader, // Shader to validate.
                              AbstractMemoryStream *pDiagStream, UINT32 Flags,
-                             IDxcBlob **pSigned);
+                             IDxcBlob **Hashed);
 
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
@@ -109,21 +109,21 @@ static void HashAndUpdate(DxilContainerHeader *pContainer) {
 }
 
 static void HashAndUpdateOrCopy(UINT32 Flags, IDxcBlob *pShader,
-                                IDxcBlob **pSigned) {
+                                IDxcBlob **Hashed) {
   if (Flags & DxcValidatorFlags_InPlaceEdit) {
     HashAndUpdate((DxilContainerHeader *)pShader->GetBufferPointer());
-    *pSigned = pShader;
+    *Hashed = pShader;
     pShader->AddRef();
   } else {
     // Possible gotcha: the blob allocated here is tied to this .dll, so the
     // DLL shouldn't be unloaded before the blob is released.
-    CComPtr<AbstractMemoryStream> pSignedBlobStream;
-    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pSignedBlobStream));
+    CComPtr<AbstractMemoryStream> HashedBlobStream;
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &HashedBlobStream));
     ULONG cb;
-    IFT(pSignedBlobStream->Write(pShader->GetBufferPointer(),
+    IFT(HashedBlobStream->Write(pShader->GetBufferPointer(),
                                  pShader->GetBufferSize(), &cb));
-    HashAndUpdate((DxilContainerHeader *)pSignedBlobStream->GetPtr());
-    IFT(pSignedBlobStream.QueryInterface(pSigned));
+    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr());
+    IFT(HashedBlobStream.QueryInterface(Hashed));
   }
 }
 
@@ -151,17 +151,17 @@ HRESULT STDMETHODCALLTYPE DxcValidator::ValidateWithDebug(
   DxcEtw_DxcValidation_Start();
   try {
     CComPtr<AbstractMemoryStream> pDiagStream;
-    CComPtr<IDxcBlob> pSignedBlob;
+    CComPtr<IDxcBlob> HashedBlob;
     IFT(CreateMemoryStream(m_pMalloc, &pDiagStream));
 
     // Run validation may throw, but that indicates an inability to validate,
     // not that the validation failed (eg out of memory).
     if (Flags & DxcValidatorFlags_RootSignatureOnly) {
       validationStatus =
-          RunRootSignatureValidation(pShader, pDiagStream, Flags, &pSignedBlob);
+          RunRootSignatureValidation(pShader, pDiagStream, Flags, &HashedBlob);
     } else {
       validationStatus = RunValidation(pShader, pDiagStream, Flags,
-                                       pOptDebugBitcode, &pSignedBlob);
+                                       pOptDebugBitcode, &HashedBlob);
     }
     if (FAILED(validationStatus)) {
       std::string msg("Validation failed.\n");
@@ -176,7 +176,7 @@ HRESULT STDMETHODCALLTYPE DxcValidator::ValidateWithDebug(
     IFT(DxcCreateBlobWithEncodingSet(pDiagBlob, CP_UTF8, &pDiagBlobEnconding));
     IFT(DxcResult::Create(
         validationStatus, DXC_OUT_OBJECT,
-        {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, pSignedBlob),
+        {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, HashedBlob),
          DxcOutputObject::DataOutput(DXC_OUT_ERRORS, pDiagBlobEnconding)},
         ppResult));
   }
@@ -198,14 +198,14 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
 HRESULT DxcValidator::RunValidation(IDxcBlob *pShader,
                                     AbstractMemoryStream *pDiagStream,
                                     UINT32 Flags, DxcBuffer *pDebugBitcode,
-                                    IDxcBlob **pSigned) {
+                                    IDxcBlob **Hashed) {
 
   // Run validation may throw, but that indicates an inability to validate,
   // not that the validation failed (eg out of memory). That is indicated
   // by a failing HRESULT, and possibly error messages in the diagnostics
   // stream.
 
-  *pSigned = nullptr;
+  *Hashed = nullptr;
   raw_stream_ostream DiagStream(pDiagStream);
 
   if (IsDxilContainerLike(pShader->GetBufferPointer(),
@@ -218,7 +218,7 @@ HRESULT DxcValidator::RunValidation(IDxcBlob *pShader,
     IFR(DXC_E_CONTAINER_INVALID);
   }
 
-  HashAndUpdateOrCopy(Flags, pShader, pSigned);
+  HashAndUpdateOrCopy(Flags, pShader, Hashed);
 
   return S_OK;
 }
@@ -226,7 +226,7 @@ HRESULT DxcValidator::RunValidation(IDxcBlob *pShader,
 HRESULT
 DxcValidator::RunRootSignatureValidation(IDxcBlob *pShader,
                                          AbstractMemoryStream *pDiagStream,
-                                         UINT32 Flags, IDxcBlob **pSigned) {
+                                         UINT32 Flags, IDxcBlob **Hashed) {
 
   const DxilContainerHeader *pDxilContainer = IsDxilContainerLike(
       pShader->GetBufferPointer(), pShader->GetBufferSize());
@@ -257,12 +257,12 @@ DxcValidator::RunRootSignatureValidation(IDxcBlob *pShader,
                   GetVersionShaderType(pProgramHeader->ProgramVersion),
                   GetDxilPartData(pPSVPart), pPSVPart->PartSize, DiagStream),
               DXC_E_INCORRECT_ROOT_SIGNATURE);
-      // Do not sign here; shaders must go through full shader validation for
+      // Do not hash here; shaders must go through full shader validation for
       // hashing.
     } else {
       IFRBOOL(VerifyRootSignature(RSH.GetDesc(), DiagStream, false),
               DXC_E_INCORRECT_ROOT_SIGNATURE);
-      HashAndUpdateOrCopy(Flags, pShader, pSigned);
+      HashAndUpdateOrCopy(Flags, pShader, Hashed);
     }
   } catch (...) {
     return DXC_E_IR_VERIFICATION_FAILED;
