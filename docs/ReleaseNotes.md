@@ -69,6 +69,9 @@ DX Compiler release for March 2024
   - Validation errors more accurately determine usage by the entry point
 - Improve debug info generation
 - Further improvements to Linux build quality
+- Include paths input to custom include handlers are now normalized to the OS path style
+  - This means that regardless of how they are denoted in the shader, the string passed to `IDxcIncludeHandler::LoadSource` will use OS-normalized paths
+  - This could break existing code
 
 ### Version 1.7.2308
 
