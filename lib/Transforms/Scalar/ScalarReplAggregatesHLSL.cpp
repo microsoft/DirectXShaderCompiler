@@ -3549,16 +3549,18 @@ bool tryToReplaceCBVec4ArrayToScalarArray(Value *V, Type *TyV, Value *Src,
   if (replaceScalarArrayWithVectorArray(V, Src, MC, sizeInBits >> 5)) {
     Value *DstBC = MC->getArgOperand(0);
     MC->setArgOperand(0, UndefValue::get(MC->getArgOperand(0)->getType()));
-    DXASSERT(DstBC->user_empty(), "memcpy bitcast used by something else?");
     if (DstBC->user_empty()) {
       // Replacement won't include the memcpy dest.  Now remove that use.
       if (BitCastInst *BCI = dyn_cast<BitCastInst>(DstBC)) {
         Value *Dst = BCI->getOperand(0);
         Type *DstTy = Dst->getType();
-        DXASSERT(Dst == V, "otherwise unexpected dest");
         if (Dst == V)
           BCI->setOperand(0, UndefValue::get(DstTy));
+        else
+          llvm_unreachable("Unexpected dest of memcpy.");
       }
+    } else {
+      llvm_unreachable("Unexpected users of memcpy bitcast.");
     }
     return true;
   }
