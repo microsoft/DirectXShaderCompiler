@@ -629,8 +629,9 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
           }
 
           processTemplatedStoreToBuffer(
-              spvBuilder.createCompositeExtract(fieldType, value,
-                                                {spirvFieldIndex}, loc, range),
+              spvBuilder.createCompositeExtract(
+                  fieldType, value, {static_cast<uint32_t>(spirvFieldIndex)},
+                  loc, range),
               buffer, baseOffset, fieldType, range);
           return true;
         });
