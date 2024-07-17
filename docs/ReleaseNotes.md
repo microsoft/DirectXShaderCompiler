@@ -18,6 +18,19 @@ The included licenses apply to the following files:
 
 ## Changelog
 
+### Version 1.8.2407
+
+This cumulative release contains numerous bug fixes and stability improvments.
+
+Here are some highlights:
+
+- dxc generates invalid alignment on groupshared matrix load/store instructions in [#6416](https://github.com/microsoft/DirectXShaderCompiler/issues/6416)
+- [Optimization] DXC is missing common factor optimization in some cases in [#6593](https://github.com/microsoft/DirectXShaderCompiler/issues/6593)
+- [SPIR-V] Implement WaveMutliPrefix* in [#6600](https://github.com/microsoft/DirectXShaderCompiler/issues/6600)
+- [SPIR-V] Implement SampleCmpLevel for SM6.7 in [#6613](https://github.com/microsoft/DirectXShaderCompiler/issues/6613)
+- Avoid adding types to default namespace in [#6646](https://github.com/microsoft/DirectXShaderCompiler/issues/6646)
+- Release notes once found in `README.md` can now be found in `docs/ReleaseNotes.md`
+
 ### Version 1.8.2405
 
 DX Compiler Release for May 2024
