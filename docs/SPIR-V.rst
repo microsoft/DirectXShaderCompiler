@@ -3588,7 +3588,7 @@ Intrinsics
 ``WorldRayOrigin()``            ``WorldRayOrigin{NV/KHR}``                 ✓             ✓          ✓       ✓
 ``WorldRayDirection()``         ``WorldRayDirection{NV/KHR}``              ✓             ✓          ✓       ✓
 ``RayTMin()``                   ``RayTmin{NV/KHR}``                        ✓             ✓          ✓       ✓
-``RayTCurrent()``               ``HitT{NV/KHR}``                           ✓             ✓          ✓       ✓
+``RayTCurrent()``               ``RayTmax{NV/KHR}``                        ✓             ✓          ✓       ✓
 ``RayFlags()``                  ``IncomingRayFlags{NV/KHR}``               ✓             ✓          ✓       ✓
 ``InstanceIndex()``             ``InstanceId``                             ✓             ✓          ✓
 ``GeometryIndex()``             ``RayGeometryIndexKHR``                    ✓             ✓          ✓
