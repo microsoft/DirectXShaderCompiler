@@ -4785,7 +4785,6 @@ void DeclResultIdMapper::registerCapabilitiesAndExtensionsForType(
     const TypedefType *type) {
   for (const auto *decl : typeAliasesWithAttributes) {
     if (type == decl->getTypeForDecl()) {
-      assert(decl->hasAttrs());
       for (auto *attribute : decl->specific_attrs<VKExtensionExtAttr>()) {
         clang::StringRef extensionName = attribute->getName();
         spvBuilder.requireExtension(extensionName, decl->getLocation());
