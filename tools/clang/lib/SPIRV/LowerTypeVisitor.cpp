@@ -1085,6 +1085,19 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
           field->getBitWidthValue(field->getASTContext());
     }
 
+    if (field->hasAttrs()) {
+      for (auto &attr : field->getAttrs()) {
+        if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
+          spvBuilder.requireCapability(
+              static_cast<spv::Capability>(capAttr->getCapability()),
+              capAttr->getLocation());
+        } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
+          spvBuilder.requireExtension(extAttr->getName(),
+                                      extAttr->getLocation());
+        }
+      }
+    }
+
     fields.push_back(HybridStructType::FieldInfo(
         field->getType(), field->getName(),
         /*vkoffset*/ field->getAttr<VKOffsetAttr>(),

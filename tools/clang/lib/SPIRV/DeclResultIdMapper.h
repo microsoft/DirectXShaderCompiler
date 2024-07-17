@@ -376,6 +376,10 @@ public:
   SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl,
                                           ContextUsageKind kind);
 
+  // Records the TypedefDecl or TypeAliasDecl of vk::SpirvType so that any
+  // required capabilities and extensions can be added if the type is used.
+  void recordsSpirvTypeAlias(const Decl *decl);
+
 private:
   /// The struct containing SPIR-V information of a AST Decl.
   struct DeclSpirvInfo {
@@ -568,6 +572,12 @@ public:
                                   SpirvInstruction *ptr);
 
   spv::ExecutionMode getInterlockExecutionMode();
+
+  /// Records any Spir-V capabilities and extensions for the given type so
+  /// they will be added to the SPIR-V module. The capabilities and extension
+  /// required for the type will be sourced from the decls that were recorded
+  /// using `recordSpirvTypeAlias`.
+  void registerCapabilitiesAndExtensionsForType(const TypedefType *type);
 
 private:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -1057,6 +1067,8 @@ private:
   bool needsFlatteningCompositeResources;
 
   uint32_t perspBaryCentricsIndex, noPerspBaryCentricsIndex;
+
+  llvm::SmallVector<const TypedefNameDecl *, 4> typeAliasesWithAttributes;
 
 public:
   /// The gl_PerVertex structs for both input and output

@@ -764,12 +764,7 @@ public:
                                         SpirvInstruction *v);
   SpirvInstruction *getPerVertexStgInput(SpirvInstruction *k);
 
-public:
   std::vector<uint32_t> takeModule();
-
-protected:
-  /// Only friend classes are allowed to add capability/extension to the module
-  /// under construction.
 
   /// \brief Adds the given capability to the module under construction due to
   /// the feature used at the given source location.
