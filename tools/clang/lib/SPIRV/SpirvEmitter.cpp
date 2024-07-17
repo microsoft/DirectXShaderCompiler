@@ -1699,7 +1699,8 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
 
 void SpirvEmitter::registerCapabilitiesAndExtensionsForVarDecl(
     const VarDecl *varDecl) {
-  // First record any extensions that are part of the actual variable declaration.
+  // First record any extensions that are part of the actual variable
+  // declaration.
   for (auto *attribute : varDecl->specific_attrs<VKExtensionExtAttr>()) {
     clang::StringRef extensionName = attribute->getName();
     spvBuilder.requireExtension(extensionName, varDecl->getLocation());
