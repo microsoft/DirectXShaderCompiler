@@ -968,13 +968,6 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc,
                                                       SourceRange range) {
-  if (decl->hasAttr<VKExtensionExtAttr>() ||
-      decl->hasAttr<VKCapabilityExtAttr>()) {
-    theEmitter.createSpirvIntrInstExt(decl->getAttrs(), QualType(),
-                                      /* spvArgs */ {}, /* isInst */ false,
-                                      loc);
-  }
-
   if (auto *builtinAttr = decl->getAttr<VKExtBuiltinInputAttr>()) {
     return getBuiltinVar(spv::BuiltIn(builtinAttr->getBuiltInID()),
                          decl->getType(), spv::StorageClass::Input, loc);
@@ -1638,6 +1631,18 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
     astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
   }
   return bufferVar;
+}
+
+void DeclResultIdMapper::recordsSpirvTypeAlias(const Decl *decl) {
+  auto *typedefDecl = dyn_cast<TypedefNameDecl>(decl);
+  if (!typedefDecl)
+    return;
+
+  if (!typedefDecl->hasAttr<VKCapabilityExtAttr>() &&
+      !typedefDecl->hasAttr<VKExtensionExtAttr>())
+    return;
+
+  typeAliasesWithAttributes.push_back(typedefDecl);
 }
 
 void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
@@ -4773,6 +4778,22 @@ void DeclResultIdMapper::storeOutStageVarsToStorage(
     storeOutStageVarsToStorage(cast<DeclaratorDecl>(field), ctrlPointID,
                                field->getType(), tempLocation);
     ++index;
+  }
+}
+
+void DeclResultIdMapper::registerCapabilitiesAndExtensionsForType(
+    const TypedefType *type) {
+  for (const auto *decl : typeAliasesWithAttributes) {
+    if (type == decl->getTypeForDecl()) {
+      for (auto *attribute : decl->specific_attrs<VKExtensionExtAttr>()) {
+        clang::StringRef extensionName = attribute->getName();
+        spvBuilder.requireExtension(extensionName, decl->getLocation());
+      }
+      for (auto *attribute : decl->specific_attrs<VKCapabilityExtAttr>()) {
+        spv::Capability cap = spv::Capability(attribute->getCapability());
+        spvBuilder.requireCapability(cap, decl->getLocation());
+      }
+    }
   }
 }
 

@@ -986,8 +986,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 }
 
 void SpirvEmitter::doDecl(const Decl *decl) {
-  if (isa<EmptyDecl>(decl) || isa<TypedefDecl>(decl) ||
-      isa<TypeAliasDecl>(decl) || isa<TypeAliasTemplateDecl>(decl) ||
+  if (isa<EmptyDecl>(decl) || isa<TypeAliasTemplateDecl>(decl) ||
       isa<VarTemplateDecl>(decl))
     return;
 
@@ -1016,6 +1015,8 @@ void SpirvEmitter::doDecl(const Decl *decl) {
   } else if (const auto *classTemplateDecl =
                  dyn_cast<ClassTemplateDecl>(decl)) {
     doClassTemplateDecl(classTemplateDecl);
+  } else if (isa<TypedefNameDecl>(decl)) {
+    declIdMapper.recordsSpirvTypeAlias(decl);
   } else if (isa<FunctionTemplateDecl>(decl)) {
     // nothing to do.
   } else if (isa<UsingDecl>(decl)) {
@@ -1696,6 +1697,27 @@ bool SpirvEmitter::validateVKAttributes(const NamedDecl *decl) {
   return success;
 }
 
+void SpirvEmitter::registerCapabilitiesAndExtensionsForVarDecl(
+    const VarDecl *varDecl) {
+  // First record any extensions that are part of the actual variable
+  // declaration.
+  for (auto *attribute : varDecl->specific_attrs<VKExtensionExtAttr>()) {
+    clang::StringRef extensionName = attribute->getName();
+    spvBuilder.requireExtension(extensionName, varDecl->getLocation());
+  }
+  for (auto *attribute : varDecl->specific_attrs<VKCapabilityExtAttr>()) {
+    spv::Capability cap = spv::Capability(attribute->getCapability());
+    spvBuilder.requireCapability(cap, varDecl->getLocation());
+  }
+
+  // Now check for any capabilities or extensions that are part of the type.
+  const TypedefType *type = dyn_cast<TypedefType>(varDecl->getType());
+  if (!type)
+    return;
+
+  declIdMapper.registerCapabilitiesAndExtensionsForType(type);
+}
+
 void SpirvEmitter::doHLSLBufferDecl(const HLSLBufferDecl *bufferDecl) {
   // This is a cbuffer/tbuffer decl.
   // Check and emit warnings for member intializers which are not
@@ -1846,6 +1868,8 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
         decl, DeclResultIdMapper::ContextUsageKind::ShaderRecordBufferKHR);
     return;
   }
+
+  registerCapabilitiesAndExtensionsForVarDecl(decl);
 
   // Handle vk::ext_builtin_input and vk::ext_builtin_input by using
   // getBuiltinVar to create the builtin and validate the storage class

@@ -412,6 +412,10 @@ private:
   /// errors are found.
   bool validateVKAttributes(const NamedDecl *decl);
 
+  /// Records any Spir-V capabilities and extensions for the given varDecl so
+  /// they will be added to the SPIR-V module.
+  void registerCapabilitiesAndExtensionsForVarDecl(const VarDecl *varDecl);
+
 private:
   /// Converts the given value from the bitwidth of 'fromType' to the bitwidth
   /// of 'toType'. If the two have the same bitwidth, returns the value itself.
