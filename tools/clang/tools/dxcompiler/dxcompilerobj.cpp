@@ -71,6 +71,10 @@
 #include "clang/Basic/Version.h"
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
+#ifdef ENABLE_METAL_CODEGEN
+#include "metal_irconverter.h"
+#endif
+
 #define CP_UTF16 1200
 
 using namespace llvm;
@@ -817,6 +821,10 @@ public:
         }
         compiler.getLangOpts().IsHLSLLibrary = opts.IsLibraryProfile();
 
+        if (compiler.getLangOpts().IsHLSLLibrary && opts.GenMetal)
+          return ErrorWithString("Shader libraries unsupported in Metal (yet)",
+                                 riid, ppResult);
+
         // Clear entry function if library target
         if (compiler.getLangOpts().IsHLSLLibrary)
           compiler.getLangOpts().HLSLEntryFunction =
@@ -1107,7 +1115,86 @@ public:
                                               &pHashBlob));
             IFT(pResult->SetOutputObject(DXC_OUT_SHADER_HASH, pHashBlob));
           } // SUCCEEDED(valHR)
-        }   // compileOK && !opts.CodeGenHighLevel
+#ifdef ENABLE_METAL_CODEGEN
+          // This is a bit hacky because we don't currently have a good way to
+          // disassemble AIR.
+          if (opts.GenMetal && produceFullContainer &&
+              !opts.OutputObject.empty()) {
+            IRCompiler *MetalCompiler = IRCompilerCreate();
+            IRCompilerSetEntryPointName(
+                MetalCompiler,
+                compiler.getCodeGenOpts().HLSLEntryFunction.c_str());
+
+            IRObject *DXILObj = IRObjectCreateFromDXIL(
+                static_cast<const uint8_t *>(pOutputBlob->GetBufferPointer()),
+                pOutputBlob->GetBufferSize(), IRBytecodeOwnershipNone);
+
+            // Compile DXIL to Metal IR:
+            IRError *Error = nullptr;
+            IRObject *AIR = IRCompilerAllocCompileAndLink(MetalCompiler, NULL,
+                                                          DXILObj, &Error);
+
+            if (!AIR) {
+              IRObjectDestroy(DXILObj);
+              IRCompilerDestroy(MetalCompiler);
+              IRErrorDestroy(Error);
+              return ErrorWithString(
+                  "Error occurred in Metal Shader Conversion", riid, ppResult);
+            }
+
+            IRMetalLibBinary *MetalLib = IRMetalLibBinaryCreate();
+            IRShaderStage Stage = IRShaderStageInvalid;
+            const ShaderModel *SM = hlsl::ShaderModel::GetByName(
+                compiler.getLangOpts().HLSLProfile);
+            switch (SM->GetKind()) {
+            case DXIL::ShaderKind::Vertex:
+              Stage = IRShaderStageVertex;
+              break;
+            case DXIL::ShaderKind::Pixel:
+              Stage = IRShaderStageFragment;
+              break;
+            case DXIL::ShaderKind::Hull:
+              Stage = IRShaderStageHull;
+              break;
+            case DXIL::ShaderKind::Domain:
+              Stage = IRShaderStageDomain;
+              break;
+            case DXIL::ShaderKind::Mesh:
+              Stage = IRShaderStageMesh;
+              break;
+            case DXIL::ShaderKind::Amplification:
+              Stage = IRShaderStageAmplification;
+              break;
+            case DXIL::ShaderKind::Geometry:
+              Stage = IRShaderStageGeometry;
+              break;
+            case DXIL::ShaderKind::Compute:
+              Stage = IRShaderStageCompute;
+              break;
+            }
+            assert(Stage != IRShaderStageInvalid &&
+                   "Library targets not supported for Metal (yet).");
+            IRObjectGetMetalLibBinary(AIR, Stage, MetalLib);
+            size_t MetalLibSize = IRMetalLibGetBytecodeSize(MetalLib);
+            uint8_t *MetalLibBytes = new uint8_t[MetalLibSize];
+            IRMetalLibGetBytecode(MetalLib, MetalLibBytes);
+
+            // Store the metallib to custom format or disk, or use to create a
+            // MTLLibrary.
+
+            CComPtr<IDxcBlob> MetalBlob;
+            IFT(hlsl::DxcCreateBlobOnHeapCopy(
+                MetalLibBytes, (uint32_t)MetalLibSize, &MetalBlob));
+            std::swap(pOutputBlob, MetalBlob);
+
+            delete[] MetalLibBytes;
+            IRMetalLibBinaryDestroy(MetalLib);
+            IRObjectDestroy(DXILObj);
+            IRObjectDestroy(AIR);
+            IRCompilerDestroy(MetalCompiler);
+          }
+#endif
+        } // compileOK && !opts.CodeGenHighLevel
       }
 
       std::string remarks;
