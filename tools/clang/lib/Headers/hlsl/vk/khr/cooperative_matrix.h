@@ -29,6 +29,9 @@ template <typename ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
 class CooperativeMatrix {
 
+  template <class NewComponentType>
+  CooperativeMatrix<NewComponentType, scope, rows, columns, use> cast();
+
   // Apply OpSNegate or OFNegate, depending on ComponentType, in a element by
   // element manner.
   CooperativeMatrix negate();

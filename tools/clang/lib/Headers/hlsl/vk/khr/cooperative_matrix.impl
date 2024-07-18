@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "arithmetic_selector.h"
+#include "opcode_selector.h"
 
 template <typename ResultType, typename ComponentType>
 [[vk::ext_instruction(/* OpMatrixTimesScalar */ 143)]] ResultType
@@ -87,6 +87,15 @@ __builtin_spv_CooperativeMatrixMulAddKHR(MatrixTypeA a, MatrixTypeB b,
                                          [[vk::ext_literal]] int operands);
 namespace vk {
 namespace khr {
+
+template <class ComponentType, Scope scope, uint rows, uint columns, CooperativeMatrixUse use>
+template <class NewComponentType>
+    CooperativeMatrix<NewComponentType, scope, rows, columns, use> CooperativeMatrix<ComponentType, scope, rows, columns, use>::cast() {
+  using ResultType = CooperativeMatrix<NewComponentType, scope, rows, columns, use>;
+  ResultType result;
+  result._matrix = util::ConversionSelector<ComponentType, NewComponentType>::template Convert< typename ResultType::SpirvMatrixType >(_matrix);
+  return result;
+}
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
