@@ -1311,6 +1311,12 @@ void VariableRegisters::PopulateAllocaMap_StructType(
       // size would be lost
       PopulateAllocaMap(OffsetAndMember.second);
     } else {
+      if (OffsetAndMember.second->getAlignInBits() ==
+          OffsetAndMember.second->getSizeInBits()) {
+        assert(m_Offsets.GetCurrentAlignedOffset() ==
+                   StructStart + OffsetAndMember.first &&
+               "Offset mismatch in DIStructType");
+      }
       if (IsResourceObject(OffsetAndMember.second)) {
         m_Offsets.AddResourceType(OffsetAndMember.second);
       } else {
