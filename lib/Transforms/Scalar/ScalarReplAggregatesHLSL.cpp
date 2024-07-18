@@ -3467,8 +3467,12 @@ bool replaceScalarArrayGEPWithVectorArrayGEP(User *GEP, Value *VectorArray,
       // If new instructions unable to be used, clean them up.
       if (NewGEP->user_empty())
         cast<Instruction>(NewGEP)->eraseFromParent();
-      if (VecPtr->user_empty())
+      if (isa<Instruction>(VecPtr) && VecPtr->user_empty())
         cast<Instruction>(VecPtr)->eraseFromParent();
+      if (isa<Instruction>(CompIdx) && CompIdx->user_empty())
+        cast<Instruction>(CompIdx)->eraseFromParent();
+      if (isa<Instruction>(VecIdx) && VecIdx->user_empty())
+        cast<Instruction>(VecIdx)->eraseFromParent();
       return false;
     }
     return true;
@@ -3512,8 +3516,12 @@ bool replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
             PointerType::get(VectorArray->getType()->getPointerElementType(),
                              CE->getType()->getPointerAddressSpace()));
         if (!replaceScalarArrayWithVectorArray(CE, NewAddrSpaceCast, MC,
-                                               sizeInDwords))
+                                               sizeInDwords)) {
           bReplacedAll = false;
+          if (Instruction *NewInst = dyn_cast<Instruction>(NewAddrSpaceCast))
+            if (NewInst->user_empty())
+              NewInst->eraseFromParent();
+        }
       } else if (CE->hasOneUse() && CE->user_back() == MC) {
         continue;
       } else {
