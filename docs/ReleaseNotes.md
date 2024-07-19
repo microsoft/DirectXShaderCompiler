@@ -18,6 +18,10 @@ The included licenses apply to the following files:
 
 ## Changelog
 
+### Upcoming Release
+
+Place release notes for the upcoming release below this line and remove this line upon naming this release.
+
 ### Version 1.8.2407
 
 This cumulative release contains numerous bug fixes and stability improvments.
