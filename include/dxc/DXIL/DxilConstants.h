@@ -474,6 +474,20 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // OPCODE-ENUM:BEGIN
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
+  //
+  Deprecated0 = 226,  // Deprecated
+  Deprecated1 = 227,  // Deprecated
+  Deprecated10 = 236, // Deprecated
+  Deprecated11 = 237, // Deprecated
+  Deprecated2 = 228,  // Deprecated
+  Deprecated3 = 229,  // Deprecated
+  Deprecated4 = 230,  // Deprecated
+  Deprecated5 = 231,  // Deprecated
+  Deprecated6 = 232,  // Deprecated
+  Deprecated7 = 233,  // Deprecated
+  Deprecated8 = 234,  // Deprecated
+  Deprecated9 = 235,  // Deprecated
+
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
 
@@ -946,27 +960,6 @@ enum class OpCode : unsigned {
   WaveReadLaneAt = 117,    // returns the value from the specified lane
   WaveReadLaneFirst = 118, // returns the value from the first lane
 
-  // WaveMatrix
-  WaveMatrix_Add = 237, // Element-wise accumulate, or broadcast add of fragment
-                        // into accumulator
-  WaveMatrix_Annotate =
-      226, // Annotate a wave matrix pointer with the type information
-  WaveMatrix_Depth =
-      227,               // Returns depth (K) value for matrix of specified type
-  WaveMatrix_Fill = 228, // Fill wave matrix with scalar value
-  WaveMatrix_LoadGroupShared = 230, // Load wave matrix from group shared array
-  WaveMatrix_LoadRawBuf = 229,      // Load wave matrix from raw buffer
-  WaveMatrix_Multiply =
-      233, // Mutiply left and right wave matrix and store in accumulator
-  WaveMatrix_MultiplyAccumulate =
-      234, // Mutiply left and right wave matrix and accumulate into accumulator
-  WaveMatrix_ScalarOp =
-      235, // Perform scalar operation on each element of wave matrix
-  WaveMatrix_StoreGroupShared = 232, // Store wave matrix to group shared array
-  WaveMatrix_StoreRawBuf = 231,      // Store wave matrix to raw buffer
-  WaveMatrix_SumAccumulate = 236, // Sum rows or columns of an input matrix into
-                                  // an existing accumulator fragment matrix
-
   // Work Graph intrinsics
   FinishedCrossGroupSharing = 243, // returns true if the current thread group
                                    // is the last to access the input
@@ -1003,6 +996,20 @@ enum class OpCode : unsigned {
 // OPCODECLASS-ENUM:BEGIN
 // Groups for DXIL operations with equivalent function templates
 enum class OpCodeClass : unsigned {
+  //
+  Deprecated0,
+  Deprecated1,
+  Deprecated10,
+  Deprecated11,
+  Deprecated2,
+  Deprecated3,
+  Deprecated4,
+  Deprecated5,
+  Deprecated6,
+  Deprecated7,
+  Deprecated8,
+  Deprecated9,
+
   // Amplification shader instructions
   DispatchMesh,
 
@@ -1278,18 +1285,6 @@ enum class OpCodeClass : unsigned {
   WaveReadLaneAt,
   WaveReadLaneFirst,
 
-  // WaveMatrix
-  WaveMatrix_Accumulate,
-  WaveMatrix_Annotate,
-  WaveMatrix_Depth,
-  WaveMatrix_Fill,
-  WaveMatrix_LoadGroupShared,
-  WaveMatrix_LoadRawBuf,
-  WaveMatrix_Multiply,
-  WaveMatrix_ScalarOp,
-  WaveMatrix_StoreGroupShared,
-  WaveMatrix_StoreRawBuf,
-
   // Work Graph intrinsics
   FinishedCrossGroupSharing,
   GetInputRecordCount,
@@ -1306,9 +1301,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_5 = 143,
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
-  NumOpClasses_Dxil_1_8 = 183,
+  NumOpClasses_Dxil_1_8 = 185,
 
-  NumOpClasses = 183 // exclusive last value of enumeration
+  NumOpClasses = 185 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1815,29 +1810,6 @@ enum class SamplerFeedbackType : uint8_t {
   MipRegionUsed = 1,
   LastEntry = 2
 };
-
-enum class WaveMatrixKind : uint8_t {
-  Left = 0,
-  Right = 1,
-  LeftColAcc = 2,
-  RightRowAcc = 3,
-  Accumulator = 4,
-  NumKinds = 5,
-  MaskSide = 1,
-  MaskClass = 6, // 0 = Left/Right, 2 = Fragment, 4 = Accumulator
-};
-
-/* <py::lines('WAVEMATRIXSCALAROPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("WaveMatrixScalarOpCode")</py>*/
-// WAVEMATRIXSCALAROPCODE-ENUM:BEGIN
-// Operation for WaveMatrix_ScalarOp
-enum class WaveMatrixScalarOpCode : unsigned {
-  Add = 0,
-  Divide = 3,
-  Invalid = 4,
-  Multiply = 2,
-  Subtract = 1,
-};
-// WAVEMATRIXSCALAROPCODE-ENUM:END
 
 // Corresponds to MEMORY_TYPE_FLAG enums in HLSL
 enum class MemoryTypeFlag : uint32_t {

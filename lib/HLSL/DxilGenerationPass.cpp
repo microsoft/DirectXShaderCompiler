@@ -244,8 +244,6 @@ public:
       }
     }
 
-    LowerHLAnnotateWaveMatrix(M);
-
     std::unordered_set<Instruction *> UpdateCounterSet;
 
     LowerRecordAccessToGetNodeRecordPtr(*m_pHLModule);
@@ -319,7 +317,6 @@ private:
                          std::unordered_set<Instruction *> &UpdateCounterSet);
   void LowerHLCreateHandle(
       std::unordered_map<CallInst *, Type *> &HandleToResTypeMap);
-  void LowerHLAnnotateWaveMatrix(Module &M);
 
   // Translate precise attribute into HL function call.
   void TranslatePreciseAttribute();
@@ -648,37 +645,6 @@ void DxilGenerationPass::LowerHLCreateHandle(
     case HLOpcodeGroup::HLAnnotateNodeRecordHandle:
       TranslateHLAnnotateNodeRecordHandle(F, hlslOP);
       break;
-    }
-  }
-}
-
-void DxilGenerationPass::LowerHLAnnotateWaveMatrix(Module &M) {
-  hlsl::OP &hlslOP = *m_pHLModule->GetOP();
-  Value *opArg =
-      hlslOP.GetU32Const((unsigned)DXIL::OpCode::WaveMatrix_Annotate);
-  for (iplist<Function>::iterator F : M.getFunctionList()) {
-    if (F->user_empty())
-      continue;
-    if (hlsl::GetHLOpcodeGroup(F) == HLOpcodeGroup::HLWaveMatrix_Annotate) {
-      for (auto U = F->user_begin(); U != F->user_end();) {
-        Value *User = *(U++);
-        if (!isa<Instruction>(User))
-          continue;
-        // must be call inst
-        CallInst *CI = cast<CallInst>(User);
-        IRBuilder<> Builder(CI);
-        Value *waveMatPtr =
-            CI->getArgOperand(HLOperandIndex::kAnnotateWaveMatrixPtrOpIdx);
-        Value *WMP = CI->getArgOperand(
-            HLOperandIndex::kAnnotateWaveMatrixPropertiesOpIdx);
-        Function *annotateWaveMatrix = hlslOP.GetOpFunc(
-            DXIL::OpCode::WaveMatrix_Annotate, Builder.getVoidTy());
-        CallInst *newCI =
-            Builder.CreateCall(annotateWaveMatrix, {opArg, waveMatPtr, WMP});
-        if (!CI->user_empty())
-          CI->replaceAllUsesWith(Builder.CreateBitCast(newCI, CI->getType()));
-        CI->eraseFromParent();
-      }
     }
   }
 }

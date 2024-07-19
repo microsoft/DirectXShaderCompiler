@@ -2337,18 +2337,18 @@ ID  Name                                                  Description
 223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
 224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
 225 TextureStoreSample                                    stores texel data at specified sample index
-226 WaveMatrix_Annotate                                   Annotate a wave matrix pointer with the type information
-227 WaveMatrix_Depth                                      Returns depth (K) value for matrix of specified type
-228 WaveMatrix_Fill                                       Fill wave matrix with scalar value
-229 WaveMatrix_LoadRawBuf                                 Load wave matrix from raw buffer
-230 WaveMatrix_LoadGroupShared                            Load wave matrix from group shared array
-231 WaveMatrix_StoreRawBuf                                Store wave matrix to raw buffer
-232 WaveMatrix_StoreGroupShared                           Store wave matrix to group shared array
-233 WaveMatrix_Multiply                                   Mutiply left and right wave matrix and store in accumulator
-234 WaveMatrix_MultiplyAccumulate                         Mutiply left and right wave matrix and accumulate into accumulator
-235 WaveMatrix_ScalarOp                                   Perform scalar operation on each element of wave matrix
-236 WaveMatrix_SumAccumulate                              Sum rows or columns of an input matrix into an existing accumulator fragment matrix
-237 WaveMatrix_Add                                        Element-wise accumulate, or broadcast add of fragment into accumulator
+226 Deprecated0                                           Deprecated
+227 Deprecated1                                           Deprecated
+228 Deprecated2                                           Deprecated
+229 Deprecated3                                           Deprecated
+230 Deprecated4                                           Deprecated
+231 Deprecated5                                           Deprecated
+232 Deprecated6                                           Deprecated
+233 Deprecated7                                           Deprecated
+234 Deprecated8                                           Deprecated
+235 Deprecated9                                           Deprecated
+236 Deprecated10                                          Deprecated
+237 Deprecated11                                          Deprecated
 238 AllocateNodeOutputRecords                             returns a handle for the output records
 239 GetNodeRecordPtr                                      retrieve node input/output record pointer in address space 6
 240 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput for the whole group or per thread.

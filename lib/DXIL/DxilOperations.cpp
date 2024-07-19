@@ -2289,115 +2289,114 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         Attribute::None,
     },
 
-    // WaveMatrix void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
-    // udt,   obj ,  function attribute
+    //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
-        OC::WaveMatrix_Annotate,
-        "WaveMatrix_Annotate",
-        OCC::WaveMatrix_Annotate,
-        "waveMatrix_Annotate",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_Depth,
-        "WaveMatrix_Depth",
-        OCC::WaveMatrix_Depth,
-        "waveMatrix_Depth",
-        {true, false, false, false, false, false, false, false, false, false,
-         false},
-        Attribute::ReadNone,
-    },
-    {
-        OC::WaveMatrix_Fill,
-        "WaveMatrix_Fill",
-        OCC::WaveMatrix_Fill,
-        "waveMatrix_Fill",
-        {false, true, true, false, false, false, false, true, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_LoadRawBuf,
-        "WaveMatrix_LoadRawBuf",
-        OCC::WaveMatrix_LoadRawBuf,
-        "waveMatrix_LoadRawBuf",
+        OC::Deprecated0,
+        "Deprecated0",
+        OCC::Deprecated0,
+        "deprecated0",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::WaveMatrix_LoadGroupShared,
-        "WaveMatrix_LoadGroupShared",
-        OCC::WaveMatrix_LoadGroupShared,
-        "waveMatrix_LoadGroupShared",
-        {false, true, true, false, false, false, false, true, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_StoreRawBuf,
-        "WaveMatrix_StoreRawBuf",
-        OCC::WaveMatrix_StoreRawBuf,
-        "waveMatrix_StoreRawBuf",
+        OC::Deprecated1,
+        "Deprecated1",
+        OCC::Deprecated1,
+        "deprecated1",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::WaveMatrix_StoreGroupShared,
-        "WaveMatrix_StoreGroupShared",
-        OCC::WaveMatrix_StoreGroupShared,
-        "waveMatrix_StoreGroupShared",
-        {false, true, true, false, false, false, false, true, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_Multiply,
-        "WaveMatrix_Multiply",
-        OCC::WaveMatrix_Multiply,
-        "waveMatrix_Multiply",
+        OC::Deprecated2,
+        "Deprecated2",
+        OCC::Deprecated2,
+        "deprecated2",
         {true, false, false, false, false, false, false, false, false, false,
          false},
-        Attribute::ArgMemOnly,
+        Attribute::None,
     },
     {
-        OC::WaveMatrix_MultiplyAccumulate,
-        "WaveMatrix_MultiplyAccumulate",
-        OCC::WaveMatrix_Multiply,
-        "waveMatrix_Multiply",
+        OC::Deprecated3,
+        "Deprecated3",
+        OCC::Deprecated3,
+        "deprecated3",
         {true, false, false, false, false, false, false, false, false, false,
          false},
-        Attribute::ArgMemOnly,
+        Attribute::None,
     },
     {
-        OC::WaveMatrix_ScalarOp,
-        "WaveMatrix_ScalarOp",
-        OCC::WaveMatrix_ScalarOp,
-        "waveMatrix_ScalarOp",
-        {false, true, true, false, false, false, false, true, false, false,
-         false},
-        Attribute::ArgMemOnly,
-    },
-    {
-        OC::WaveMatrix_SumAccumulate,
-        "WaveMatrix_SumAccumulate",
-        OCC::WaveMatrix_Accumulate,
-        "waveMatrix_Accumulate",
+        OC::Deprecated4,
+        "Deprecated4",
+        OCC::Deprecated4,
+        "deprecated4",
         {true, false, false, false, false, false, false, false, false, false,
          false},
-        Attribute::ArgMemOnly,
+        Attribute::None,
     },
     {
-        OC::WaveMatrix_Add,
-        "WaveMatrix_Add",
-        OCC::WaveMatrix_Accumulate,
-        "waveMatrix_Accumulate",
+        OC::Deprecated5,
+        "Deprecated5",
+        OCC::Deprecated5,
+        "deprecated5",
         {true, false, false, false, false, false, false, false, false, false,
          false},
-        Attribute::ArgMemOnly,
+        Attribute::None,
+    },
+    {
+        OC::Deprecated6,
+        "Deprecated6",
+        OCC::Deprecated6,
+        "deprecated6",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::Deprecated7,
+        "Deprecated7",
+        OCC::Deprecated7,
+        "deprecated7",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::Deprecated8,
+        "Deprecated8",
+        OCC::Deprecated8,
+        "deprecated8",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::Deprecated9,
+        "Deprecated9",
+        OCC::Deprecated9,
+        "deprecated9",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::Deprecated10,
+        "Deprecated10",
+        OCC::Deprecated10,
+        "deprecated10",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
+    },
+    {
+        OC::Deprecated11,
+        "Deprecated11",
+        OCC::Deprecated11,
+        "deprecated11",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::None,
     },
 
     // Create/Annotate Node Handles void,     h,     f,     d,    i1,    i8,
@@ -2836,14 +2835,9 @@ bool OP::IsDxilOpWave(OpCode C) {
   // WaveReadLaneFirst=118, WaveActiveOp=119, WaveActiveBit=120,
   // WavePrefixOp=121, QuadReadLaneAt=122, QuadOp=123, WaveAllBitCount=135,
   // WavePrefixBitCount=136, WaveMatch=165, WaveMultiPrefixOp=166,
-  // WaveMultiPrefixBitCount=167, QuadVote=222, WaveMatrix_Annotate=226,
-  // WaveMatrix_Depth=227, WaveMatrix_Fill=228, WaveMatrix_LoadRawBuf=229,
-  // WaveMatrix_LoadGroupShared=230, WaveMatrix_StoreRawBuf=231,
-  // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
-  // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
-  // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
+  // WaveMultiPrefixBitCount=167, QuadVote=222
   return (110 <= op && op <= 123) || (135 <= op && op <= 136) ||
-         (165 <= op && op <= 167) || op == 222 || (226 <= op && op <= 237);
+         (165 <= op && op <= 167) || op == 222;
   // OPCODE-WAVE:END
 }
 
@@ -3340,18 +3334,6 @@ void OP::GetMinShaderModelAndMask(OpCode C, bool bWithTranslation,
     }
     return;
   }
-  // Instructions: WaveMatrix_Annotate=226, WaveMatrix_Depth=227,
-  // WaveMatrix_Fill=228, WaveMatrix_LoadRawBuf=229,
-  // WaveMatrix_LoadGroupShared=230, WaveMatrix_StoreRawBuf=231,
-  // WaveMatrix_StoreGroupShared=232, WaveMatrix_Multiply=233,
-  // WaveMatrix_MultiplyAccumulate=234, WaveMatrix_ScalarOp=235,
-  // WaveMatrix_SumAccumulate=236, WaveMatrix_Add=237
-  if ((226 <= op && op <= 237)) {
-    major = 6;
-    minor = 9;
-    mask = SFLAG(Library) | SFLAG(Compute);
-    return;
-  }
   // OPCODE-SMMASK:END
 }
 
@@ -3510,12 +3492,6 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
   Type *WaveMatInfoTypes[4] = {Type::getInt8Ty(m_Ctx), Type::getInt8Ty(m_Ctx),
                                Type::getInt32Ty(m_Ctx),
                                Type::getInt32Ty(m_Ctx)};
-  m_pWaveMatInfoType = cast<StructType>(GetOrCreateStructType(
-      m_Ctx, WaveMatInfoTypes, "dx.types.waveMatProps", pModule));
-  m_pWaveMatPtrType =
-      PointerType::get(GetOrCreateStructType(m_Ctx, Type::getInt8PtrTy(m_Ctx),
-                                             "dx.types.waveMatrix", pModule),
-                       0);
 }
 
 void OP::RefreshCache() {
@@ -3612,11 +3588,6 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
   Type *resBind = GetResourceBindingType();
   Type *nodeProperty = GetNodePropertiesType();
   Type *nodeRecordProperty = GetNodeRecordPropertiesType();
-
-  Type *pWaveMatProps = GetWaveMatrixPropertiesType();
-  Type *pWaveMatPtr = GetWaveMatPtrType();
-  Type *pGSEltPtrTy =
-      pETy->isVoidTy() ? nullptr : pETy->getPointerTo(DXIL::kTGSMAddrSpace);
 
 #define A(_x) ArgTypes.emplace_back(_x)
 #define RRT(_y) A(GetResRetType(_y))
@@ -5254,94 +5225,54 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     break;
 
-    // WaveMatrix
-  case OpCode::WaveMatrix_Annotate:
+    //
+  case OpCode::Deprecated0:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatProps);
     break;
-  case OpCode::WaveMatrix_Depth:
-    A(pI32);
-    A(pI32);
-    A(pWaveMatProps);
-    break;
-  case OpCode::WaveMatrix_Fill:
+  case OpCode::Deprecated1:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pETy);
     break;
-  case OpCode::WaveMatrix_LoadRawBuf:
+  case OpCode::Deprecated2:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI1);
     break;
-  case OpCode::WaveMatrix_LoadGroupShared:
+  case OpCode::Deprecated3:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pGSEltPtrTy);
-    A(pI32);
-    A(pI32);
-    A(pI1);
     break;
-  case OpCode::WaveMatrix_StoreRawBuf:
+  case OpCode::Deprecated4:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pRes);
-    A(pI32);
-    A(pI32);
-    A(pI8);
-    A(pI1);
     break;
-  case OpCode::WaveMatrix_StoreGroupShared:
+  case OpCode::Deprecated5:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pGSEltPtrTy);
-    A(pI32);
-    A(pI32);
-    A(pI1);
     break;
-  case OpCode::WaveMatrix_Multiply:
+  case OpCode::Deprecated6:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
     break;
-  case OpCode::WaveMatrix_MultiplyAccumulate:
+  case OpCode::Deprecated7:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
     break;
-  case OpCode::WaveMatrix_ScalarOp:
+  case OpCode::Deprecated8:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pI8);
-    A(pETy);
     break;
-  case OpCode::WaveMatrix_SumAccumulate:
+  case OpCode::Deprecated9:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
     break;
-  case OpCode::WaveMatrix_Add:
+  case OpCode::Deprecated10:
     A(pV);
     A(pI32);
-    A(pWaveMatPtr);
-    A(pWaveMatPtr);
+    break;
+  case OpCode::Deprecated11:
+    A(pV);
+    A(pI32);
     break;
 
     // Create/Annotate Node Handles
@@ -5631,7 +5562,6 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::TempRegStore:
   case OpCode::CallShader:
   case OpCode::Pack4x8:
-  case OpCode::WaveMatrix_Fill:
     if (FT->getNumParams() <= 2)
       return nullptr;
     return FT->getParamType(2);
@@ -5675,15 +5605,9 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
       return nullptr;
     return FT->getParamType(15);
   case OpCode::ReportHit:
-  case OpCode::WaveMatrix_ScalarOp:
     if (FT->getNumParams() <= 3)
       return nullptr;
     return FT->getParamType(3);
-  case OpCode::WaveMatrix_LoadGroupShared:
-  case OpCode::WaveMatrix_StoreGroupShared:
-    if (FT->getNumParams() <= 2)
-      return nullptr;
-    return FT->getParamType(2)->getPointerElementType();
   case OpCode::CreateHandle:
   case OpCode::BufferUpdateCounter:
   case OpCode::GetDimensions:
@@ -5732,14 +5656,18 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateHandle:
   case OpCode::CreateHandleFromBinding:
   case OpCode::CreateHandleFromHeap:
-  case OpCode::WaveMatrix_Annotate:
-  case OpCode::WaveMatrix_Depth:
-  case OpCode::WaveMatrix_LoadRawBuf:
-  case OpCode::WaveMatrix_StoreRawBuf:
-  case OpCode::WaveMatrix_Multiply:
-  case OpCode::WaveMatrix_MultiplyAccumulate:
-  case OpCode::WaveMatrix_SumAccumulate:
-  case OpCode::WaveMatrix_Add:
+  case OpCode::Deprecated0:
+  case OpCode::Deprecated1:
+  case OpCode::Deprecated2:
+  case OpCode::Deprecated3:
+  case OpCode::Deprecated4:
+  case OpCode::Deprecated5:
+  case OpCode::Deprecated6:
+  case OpCode::Deprecated7:
+  case OpCode::Deprecated8:
+  case OpCode::Deprecated9:
+  case OpCode::Deprecated10:
+  case OpCode::Deprecated11:
   case OpCode::AllocateNodeOutputRecords:
   case OpCode::IncrementOutputCount:
   case OpCode::OutputComplete:
@@ -5889,11 +5817,6 @@ Type *OP::GetSplitDoubleType() const { return m_pSplitDoubleType; }
 Type *OP::GetFourI32Type() const { return m_pFourI32Type; }
 
 Type *OP::GetFourI16Type() const { return m_pFourI16Type; }
-
-StructType *OP::GetWaveMatrixPropertiesType() const {
-  return m_pWaveMatInfoType;
-}
-PointerType *OP::GetWaveMatPtrType() const { return m_pWaveMatPtrType; }
 
 bool OP::IsResRetType(llvm::Type *Ty) {
   for (Type *ResTy : m_pResRetType) {

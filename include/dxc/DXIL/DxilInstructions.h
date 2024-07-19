@@ -8042,498 +8042,234 @@ struct DxilInst_TextureStoreSample {
   void set_sampleIdx(llvm::Value *val) { Instr->setOperand(10, val); }
 };
 
-/// This instruction Annotate a wave matrix pointer with the type information
-struct DxilInst_WaveMatrix_Annotate {
+/// This instruction Deprecated
+struct DxilInst_Deprecated0 {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_WaveMatrix_Annotate(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_Deprecated0(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_Annotate);
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated0);
   }
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
   // Metadata
   bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixPtr = 1,
-    arg_waveMatProps = 2,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
-  void set_waveMatrixPtr(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_waveMatProps() const { return Instr->getOperand(2); }
-  void set_waveMatProps(llvm::Value *val) { Instr->setOperand(2, val); }
 };
 
-/// This instruction Returns depth (K) value for matrix of specified type
-struct DxilInst_WaveMatrix_Depth {
+/// This instruction Deprecated
+struct DxilInst_Deprecated1 {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_WaveMatrix_Depth(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_Deprecated1(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated1);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated2 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated2(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated2);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated3 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated3(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated3);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated4 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated4(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated4);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated5 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated5(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated5);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated6 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated6(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated6);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated7 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated7(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated7);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated8 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated8(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated8);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated9 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated9(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::Deprecated9);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const {
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+      return false;
+    return true;
+  }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
+
+/// This instruction Deprecated
+struct DxilInst_Deprecated10 {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_Deprecated10(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::WaveMatrix_Depth);
+                                          hlsl::OP::OpCode::Deprecated10);
   }
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (2 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
   // Metadata
   bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatProps = 1,
-  };
-  // Accessors
-  llvm::Value *get_waveMatProps() const { return Instr->getOperand(1); }
-  void set_waveMatProps(llvm::Value *val) { Instr->setOperand(1, val); }
 };
 
-/// This instruction Fill wave matrix with scalar value
-struct DxilInst_WaveMatrix_Fill {
+/// This instruction Deprecated
+struct DxilInst_Deprecated11 {
   llvm::Instruction *Instr;
   // Construction and identification
-  DxilInst_WaveMatrix_Fill(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  DxilInst_Deprecated11(llvm::Instruction *pInstr) : Instr(pInstr) {}
   operator bool() const {
     return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::WaveMatrix_Fill);
+                                          hlsl::OP::OpCode::Deprecated11);
   }
   // Validation support
   bool isAllowed() const { return true; }
   bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
+    if (1 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
       return false;
     return true;
   }
   // Metadata
   bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixPtr = 1,
-    arg_value = 2,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
-  void set_waveMatrixPtr(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_value() const { return Instr->getOperand(2); }
-  void set_value(llvm::Value *val) { Instr->setOperand(2, val); }
-};
-
-/// This instruction Load wave matrix from raw buffer
-struct DxilInst_WaveMatrix_LoadRawBuf {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_LoadRawBuf(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_LoadRawBuf);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixPtr = 1,
-    arg_rawBuf = 2,
-    arg_offsetInBytes = 3,
-    arg_strideInBytes = 4,
-    arg_alignmentInBytes = 5,
-    arg_colMajor = 6,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
-  void set_waveMatrixPtr(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_rawBuf() const { return Instr->getOperand(2); }
-  void set_rawBuf(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_offsetInBytes() const { return Instr->getOperand(3); }
-  void set_offsetInBytes(llvm::Value *val) { Instr->setOperand(3, val); }
-  llvm::Value *get_strideInBytes() const { return Instr->getOperand(4); }
-  void set_strideInBytes(llvm::Value *val) { Instr->setOperand(4, val); }
-  llvm::Value *get_alignmentInBytes() const { return Instr->getOperand(5); }
-  void set_alignmentInBytes(llvm::Value *val) { Instr->setOperand(5, val); }
-  int8_t get_alignmentInBytes_val() const {
-    return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))
-                        ->getZExtValue());
-  }
-  void set_alignmentInBytes_val(int8_t val) {
-    Instr->setOperand(5, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 8),
-                             llvm::APInt(8, (uint64_t)val)));
-  }
-  llvm::Value *get_colMajor() const { return Instr->getOperand(6); }
-  void set_colMajor(llvm::Value *val) { Instr->setOperand(6, val); }
-  bool get_colMajor_val() const {
-    return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(6))
-                      ->getZExtValue());
-  }
-  void set_colMajor_val(bool val) {
-    Instr->setOperand(6, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 1),
-                             llvm::APInt(1, (uint64_t)val)));
-  }
-};
-
-/// This instruction Load wave matrix from group shared array
-struct DxilInst_WaveMatrix_LoadGroupShared {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_LoadGroupShared(llvm::Instruction *pInstr)
-      : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_LoadGroupShared);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixPtr = 1,
-    arg_groupsharedPtr = 2,
-    arg_startArrayIndex = 3,
-    arg_strideInElements = 4,
-    arg_colMajor = 5,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
-  void set_waveMatrixPtr(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_groupsharedPtr() const { return Instr->getOperand(2); }
-  void set_groupsharedPtr(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_startArrayIndex() const { return Instr->getOperand(3); }
-  void set_startArrayIndex(llvm::Value *val) { Instr->setOperand(3, val); }
-  llvm::Value *get_strideInElements() const { return Instr->getOperand(4); }
-  void set_strideInElements(llvm::Value *val) { Instr->setOperand(4, val); }
-  llvm::Value *get_colMajor() const { return Instr->getOperand(5); }
-  void set_colMajor(llvm::Value *val) { Instr->setOperand(5, val); }
-  bool get_colMajor_val() const {
-    return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))
-                      ->getZExtValue());
-  }
-  void set_colMajor_val(bool val) {
-    Instr->setOperand(5, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 1),
-                             llvm::APInt(1, (uint64_t)val)));
-  }
-};
-
-/// This instruction Store wave matrix to raw buffer
-struct DxilInst_WaveMatrix_StoreRawBuf {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_StoreRawBuf(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_StoreRawBuf);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (7 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixPtr = 1,
-    arg_rawBuf = 2,
-    arg_offsetInBytes = 3,
-    arg_strideInBytes = 4,
-    arg_alignmentInBytes = 5,
-    arg_colMajor = 6,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
-  void set_waveMatrixPtr(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_rawBuf() const { return Instr->getOperand(2); }
-  void set_rawBuf(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_offsetInBytes() const { return Instr->getOperand(3); }
-  void set_offsetInBytes(llvm::Value *val) { Instr->setOperand(3, val); }
-  llvm::Value *get_strideInBytes() const { return Instr->getOperand(4); }
-  void set_strideInBytes(llvm::Value *val) { Instr->setOperand(4, val); }
-  llvm::Value *get_alignmentInBytes() const { return Instr->getOperand(5); }
-  void set_alignmentInBytes(llvm::Value *val) { Instr->setOperand(5, val); }
-  int8_t get_alignmentInBytes_val() const {
-    return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))
-                        ->getZExtValue());
-  }
-  void set_alignmentInBytes_val(int8_t val) {
-    Instr->setOperand(5, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 8),
-                             llvm::APInt(8, (uint64_t)val)));
-  }
-  llvm::Value *get_colMajor() const { return Instr->getOperand(6); }
-  void set_colMajor(llvm::Value *val) { Instr->setOperand(6, val); }
-  bool get_colMajor_val() const {
-    return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(6))
-                      ->getZExtValue());
-  }
-  void set_colMajor_val(bool val) {
-    Instr->setOperand(6, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 1),
-                             llvm::APInt(1, (uint64_t)val)));
-  }
-};
-
-/// This instruction Store wave matrix to group shared array
-struct DxilInst_WaveMatrix_StoreGroupShared {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_StoreGroupShared(llvm::Instruction *pInstr)
-      : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_StoreGroupShared);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (6 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixPtr = 1,
-    arg_groupsharedPtr = 2,
-    arg_startArrayIndex = 3,
-    arg_strideInElements = 4,
-    arg_colMajor = 5,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
-  void set_waveMatrixPtr(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_groupsharedPtr() const { return Instr->getOperand(2); }
-  void set_groupsharedPtr(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_startArrayIndex() const { return Instr->getOperand(3); }
-  void set_startArrayIndex(llvm::Value *val) { Instr->setOperand(3, val); }
-  llvm::Value *get_strideInElements() const { return Instr->getOperand(4); }
-  void set_strideInElements(llvm::Value *val) { Instr->setOperand(4, val); }
-  llvm::Value *get_colMajor() const { return Instr->getOperand(5); }
-  void set_colMajor(llvm::Value *val) { Instr->setOperand(5, val); }
-  bool get_colMajor_val() const {
-    return (bool)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(5))
-                      ->getZExtValue());
-  }
-  void set_colMajor_val(bool val) {
-    Instr->setOperand(5, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 1),
-                             llvm::APInt(1, (uint64_t)val)));
-  }
-};
-
-/// This instruction Mutiply left and right wave matrix and store in accumulator
-struct DxilInst_WaveMatrix_Multiply {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_Multiply(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_Multiply);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixAccumulator = 1,
-    arg_waveMatrixLeft = 2,
-    arg_waveMatrixRight = 3,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixAccumulator() const {
-    return Instr->getOperand(1);
-  }
-  void set_waveMatrixAccumulator(llvm::Value *val) {
-    Instr->setOperand(1, val);
-  }
-  llvm::Value *get_waveMatrixLeft() const { return Instr->getOperand(2); }
-  void set_waveMatrixLeft(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_waveMatrixRight() const { return Instr->getOperand(3); }
-  void set_waveMatrixRight(llvm::Value *val) { Instr->setOperand(3, val); }
-};
-
-/// This instruction Mutiply left and right wave matrix and accumulate into
-/// accumulator
-struct DxilInst_WaveMatrix_MultiplyAccumulate {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_MultiplyAccumulate(llvm::Instruction *pInstr)
-      : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_MultiplyAccumulate);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixAccumulator = 1,
-    arg_waveMatrixLeft = 2,
-    arg_waveMatrixRight = 3,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixAccumulator() const {
-    return Instr->getOperand(1);
-  }
-  void set_waveMatrixAccumulator(llvm::Value *val) {
-    Instr->setOperand(1, val);
-  }
-  llvm::Value *get_waveMatrixLeft() const { return Instr->getOperand(2); }
-  void set_waveMatrixLeft(llvm::Value *val) { Instr->setOperand(2, val); }
-  llvm::Value *get_waveMatrixRight() const { return Instr->getOperand(3); }
-  void set_waveMatrixRight(llvm::Value *val) { Instr->setOperand(3, val); }
-};
-
-/// This instruction Perform scalar operation on each element of wave matrix
-struct DxilInst_WaveMatrix_ScalarOp {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_ScalarOp(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_ScalarOp);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (4 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixPtr = 1,
-    arg_op = 2,
-    arg_value = 3,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixPtr() const { return Instr->getOperand(1); }
-  void set_waveMatrixPtr(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_op() const { return Instr->getOperand(2); }
-  void set_op(llvm::Value *val) { Instr->setOperand(2, val); }
-  int8_t get_op_val() const {
-    return (int8_t)(llvm::dyn_cast<llvm::ConstantInt>(Instr->getOperand(2))
-                        ->getZExtValue());
-  }
-  void set_op_val(int8_t val) {
-    Instr->setOperand(2, llvm::Constant::getIntegerValue(
-                             llvm::IntegerType::get(Instr->getContext(), 8),
-                             llvm::APInt(8, (uint64_t)val)));
-  }
-  llvm::Value *get_value() const { return Instr->getOperand(3); }
-  void set_value(llvm::Value *val) { Instr->setOperand(3, val); }
-};
-
-/// This instruction Sum rows or columns of an input matrix into an existing
-/// accumulator fragment matrix
-struct DxilInst_WaveMatrix_SumAccumulate {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_SumAccumulate(llvm::Instruction *pInstr)
-      : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(
-        Instr, hlsl::OP::OpCode::WaveMatrix_SumAccumulate);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixFragment = 1,
-    arg_waveMatrixInput = 2,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixFragment() const { return Instr->getOperand(1); }
-  void set_waveMatrixFragment(llvm::Value *val) { Instr->setOperand(1, val); }
-  llvm::Value *get_waveMatrixInput() const { return Instr->getOperand(2); }
-  void set_waveMatrixInput(llvm::Value *val) { Instr->setOperand(2, val); }
-};
-
-/// This instruction Element-wise accumulate, or broadcast add of fragment into
-/// accumulator
-struct DxilInst_WaveMatrix_Add {
-  llvm::Instruction *Instr;
-  // Construction and identification
-  DxilInst_WaveMatrix_Add(llvm::Instruction *pInstr) : Instr(pInstr) {}
-  operator bool() const {
-    return hlsl::OP::IsDxilOpFuncCallInst(Instr,
-                                          hlsl::OP::OpCode::WaveMatrix_Add);
-  }
-  // Validation support
-  bool isAllowed() const { return true; }
-  bool isArgumentListValid() const {
-    if (3 != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands())
-      return false;
-    return true;
-  }
-  // Metadata
-  bool requiresUniformInputs() const { return false; }
-  // Operand indexes
-  enum OperandIdx {
-    arg_waveMatrixAccumulator = 1,
-    arg_waveMatrixAccumulatorOrFragment = 2,
-  };
-  // Accessors
-  llvm::Value *get_waveMatrixAccumulator() const {
-    return Instr->getOperand(1);
-  }
-  void set_waveMatrixAccumulator(llvm::Value *val) {
-    Instr->setOperand(1, val);
-  }
-  llvm::Value *get_waveMatrixAccumulatorOrFragment() const {
-    return Instr->getOperand(2);
-  }
-  void set_waveMatrixAccumulatorOrFragment(llvm::Value *val) {
-    Instr->setOperand(2, val);
-  }
 };
 
 /// This instruction returns a handle for the output records

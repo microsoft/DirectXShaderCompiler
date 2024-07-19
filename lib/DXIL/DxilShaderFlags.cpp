@@ -721,20 +721,6 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
         case DXIL::OpCode::TextureGatherRaw:
           hasAdvancedTextureOps = true;
           break;
-        case DXIL::OpCode::WaveMatrix_Add:
-        case DXIL::OpCode::WaveMatrix_Annotate:
-        case DXIL::OpCode::WaveMatrix_Depth:
-        case DXIL::OpCode::WaveMatrix_Fill:
-        case DXIL::OpCode::WaveMatrix_LoadGroupShared:
-        case DXIL::OpCode::WaveMatrix_LoadRawBuf:
-        case DXIL::OpCode::WaveMatrix_Multiply:
-        case DXIL::OpCode::WaveMatrix_MultiplyAccumulate:
-        case DXIL::OpCode::WaveMatrix_ScalarOp:
-        case DXIL::OpCode::WaveMatrix_StoreGroupShared:
-        case DXIL::OpCode::WaveMatrix_StoreRawBuf:
-        case DXIL::OpCode::WaveMatrix_SumAccumulate:
-          hasWaveMMA = true;
-          break;
         case DXIL::OpCode::StartVertexLocation:
         case DXIL::OpCode::StartInstanceLocation:
           hasExtendedCommandInfo = true;

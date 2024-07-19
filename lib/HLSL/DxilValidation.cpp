@@ -155,7 +155,6 @@ struct ValidationContext {
   Module *pDebugModule;
   DxilModule &DxilMod;
   const Type *HandleTy;
-  const Type *WaveMatrixTy;
   const DataLayout &DL;
   DebugLoc LastDebugLocEmit;
   ValidationRule LastRuleEmit;
@@ -190,8 +189,6 @@ struct ValidationContext {
         slotTracker(&llvmModule, true) {
     DxilMod.GetDxilVersion(m_DxilMajor, m_DxilMinor);
     HandleTy = DxilMod.GetOP()->GetHandleType();
-    WaveMatrixTy =
-        DxilMod.GetOP()->GetWaveMatPtrType()->getPointerElementType();
 
     for (Function &F : llvmModule.functions()) {
       if (DxilMod.HasDxilEntryProps(&F)) {
@@ -2687,7 +2684,7 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
     StringRef Name = ST->getName();
     if (Name.startswith("dx.")) {
       // Allow handle type.
-      if (ValCtx.HandleTy == Ty || ValCtx.WaveMatrixTy == Ty)
+      if (ValCtx.HandleTy == Ty)
         return true;
       hlsl::OP *hlslOP = ValCtx.DxilMod.GetOP();
       if (IsDxilBuiltinStructType(ST, hlslOP)) {
