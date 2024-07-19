@@ -900,4 +900,3 @@ INITIALIZE_PASS(ResourceToHandle, "resource-handle",
 ModulePass *llvm::createResourceToHandlePass() {
   return new ResourceToHandle();
 }
-

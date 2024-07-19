@@ -338,7 +338,6 @@ enum ArBasicKind {
   0x00800000                  // Whether the type is a feedback texture.
 #define BPROP_ENUM 0x01000000 // Whether the type is a enum
 
-
 #define GET_BPROP_PRIM_KIND(_Props)                                            \
   ((_Props) & (BPROP_BOOLEAN | BPROP_INTEGER | BPROP_FLOATING))
 
@@ -3967,7 +3966,6 @@ public:
   bool IsRayQueryType(QualType type) {
     return IsRayQueryBasicKind(GetTypeElementKind(type));
   }
-
 
   void WarnMinPrecision(QualType Type, SourceLocation Loc) {
     Type = Type->getCanonicalTypeUnqualified();
