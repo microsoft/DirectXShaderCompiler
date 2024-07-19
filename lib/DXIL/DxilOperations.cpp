@@ -3488,10 +3488,6 @@ OP::OP(LLVMContext &Ctx, Module *pModule)
                            Type::getInt16Ty(m_Ctx)}; // HiHi, HiLo, LoHi, LoLo
   m_pFourI16Type =
       GetOrCreateStructType(m_Ctx, FourI16Types, "dx.types.fouri16", pModule);
-
-  Type *WaveMatInfoTypes[4] = {Type::getInt8Ty(m_Ctx), Type::getInt8Ty(m_Ctx),
-                               Type::getInt32Ty(m_Ctx),
-                               Type::getInt32Ty(m_Ctx)};
 }
 
 void OP::RefreshCache() {

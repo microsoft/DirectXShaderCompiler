@@ -4286,12 +4286,6 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   UpdateStatus(ResRet, helper.status, Builder, OP);
 }
 
-Value *TranslateWaveMatLoadStore(CallInst *CI, IntrinsicOp IOP,
-                                 OP::OpCode opcode,
-                                 HLOperationLowerHelper &helper,
-                                 HLObjectOperationLowerHelper *pObjHelper,
-                                 bool &Translated);
-
 Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,
                              HLObjectOperationLowerHelper *pObjHelper,
