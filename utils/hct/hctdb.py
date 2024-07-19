@@ -4986,9 +4986,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -4998,9 +4996,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5010,9 +5006,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5022,9 +5016,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5034,9 +5026,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5046,9 +5036,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5058,9 +5046,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5070,9 +5056,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5082,9 +5066,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5094,9 +5076,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5106,9 +5086,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
@@ -5118,9 +5096,7 @@ class db_dxil(object):
             "Deprecated",
             "v",
             "",
-            [
-                retvoid_param
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
 
