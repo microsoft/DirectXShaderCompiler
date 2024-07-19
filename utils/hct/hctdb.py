@@ -4982,7 +4982,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated0",
             next_op_idx,
-            "Deprecated0",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -4994,7 +4994,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated1",
             next_op_idx,
-            "Deprecated1",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5006,7 +5006,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated2",
             next_op_idx,
-            "Deprecated2",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5018,7 +5018,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated3",
             next_op_idx,
-            "Deprecated3",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5030,7 +5030,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated4",
             next_op_idx,
-            "Deprecated4",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5042,7 +5042,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated5",
             next_op_idx,
-            "Deprecated5",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5054,7 +5054,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated6",
             next_op_idx,
-            "Deprecated6",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5066,7 +5066,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated7",
             next_op_idx,
-            "Deprecated7",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5078,7 +5078,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated8",
             next_op_idx,
-            "Deprecated8",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5090,7 +5090,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated9",
             next_op_idx,
-            "Deprecated9",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5102,7 +5102,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated10",
             next_op_idx,
-            "Deprecated10",
+            "Deprecated",
             "Deprecated",
             "v",
             "",
@@ -5114,7 +5114,7 @@ class db_dxil(object):
         self.add_dxil_op(
             "Deprecated11",
             next_op_idx,
-            "Deprecated11",
+            "Deprecated",
             "Deprecated",
             "v",
             "",

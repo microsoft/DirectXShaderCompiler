@@ -997,18 +997,7 @@ enum class OpCode : unsigned {
 // Groups for DXIL operations with equivalent function templates
 enum class OpCodeClass : unsigned {
   //
-  Deprecated0,
-  Deprecated1,
-  Deprecated10,
-  Deprecated11,
-  Deprecated2,
-  Deprecated3,
-  Deprecated4,
-  Deprecated5,
-  Deprecated6,
-  Deprecated7,
-  Deprecated8,
-  Deprecated9,
+  Deprecated,
 
   // Amplification shader instructions
   DispatchMesh,
@@ -1301,9 +1290,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_5 = 143,
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
-  NumOpClasses_Dxil_1_8 = 185,
+  NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 185 // exclusive last value of enumeration
+  NumOpClasses = 174 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
