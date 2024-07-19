@@ -287,9 +287,11 @@ SpirvInstruction *RawBufferHandler::processTemplatedLoadFromBuffer(
   if (const auto *structType = targetType->getAs<RecordType>()) {
     LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
                                       theEmitter.getSpirvOptions(), spvBuilder);
+    auto *decl = targetType->getAsTagDecl();
+    assert(decl && "Expected all structs to be tag decls.");
     const StructType *spvType = dyn_cast<StructType>(lowerTypeVisitor.lowerType(
         targetType, theEmitter.getSpirvOptions().sBufferLayoutRule, llvm::None,
-        SourceLocation()));
+        decl->getLocation()));
     llvm::SmallVector<SpirvInstruction *, 4> loadedElems;
     forEachSpirvField(
         structType, spvType,
@@ -609,9 +611,11 @@ void RawBufferHandler::processTemplatedStoreToBuffer(SpirvInstruction *value,
   if (const auto *structType = valueType->getAs<RecordType>()) {
     LowerTypeVisitor lowerTypeVisitor(astContext, theEmitter.getSpirvContext(),
                                       theEmitter.getSpirvOptions(), spvBuilder);
+    auto *decl = valueType->getAsTagDecl();
+    assert(decl && "Expected all structs to be tag decls.");
     const StructType *spvType = dyn_cast<StructType>(lowerTypeVisitor.lowerType(
         valueType, theEmitter.getSpirvOptions().sBufferLayoutRule, llvm::None,
-        SourceLocation()));
+        decl->getLocation()));
     assert(spvType);
     forEachSpirvField(
         structType, spvType,
