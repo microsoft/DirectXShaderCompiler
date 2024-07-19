@@ -1359,13 +1359,14 @@ SpirvInstruction *SpirvEmitter::castToType(SpirvInstruction *value,
                                            QualType fromType, QualType toType,
                                            SourceLocation srcLoc,
                                            SourceRange range) {
-  {
-    uint32_t fromSize = 0;
-    uint32_t toSize = 0;
-    assert(isVectorType(fromType, nullptr, &fromSize) ==
-               isVectorType(toType, nullptr, &toSize) &&
-           fromSize == toSize);
-  }
+  uint32_t fromSize = 0;
+  uint32_t toSize = 0;
+  assert(isVectorType(fromType, nullptr, &fromSize) ==
+             isVectorType(toType, nullptr, &toSize) &&
+         fromSize == toSize);
+  // Avoid unused variable warning in release builds
+  (void)(fromSize);
+  (void)(toSize);
 
   if (isFloatOrVecMatOfFloatType(toType))
     return castToFloat(value, fromType, toType, srcLoc, range);
