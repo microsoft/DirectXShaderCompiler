@@ -1359,6 +1359,15 @@ SpirvInstruction *SpirvEmitter::castToType(SpirvInstruction *value,
                                            QualType fromType, QualType toType,
                                            SourceLocation srcLoc,
                                            SourceRange range) {
+  uint32_t fromSize = 0;
+  uint32_t toSize = 0;
+  assert(isVectorType(fromType, nullptr, &fromSize) ==
+             isVectorType(toType, nullptr, &toSize) &&
+         fromSize == toSize);
+  // Avoid unused variable warning in release builds
+  (void)(fromSize);
+  (void)(toSize);
+
   if (isFloatOrVecMatOfFloatType(toType))
     return castToFloat(value, fromType, toType, srcLoc, range);
 
@@ -2929,8 +2938,8 @@ SpirvInstruction *SpirvEmitter::getBaseOfMemberFunction(
 SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
   const FunctionDecl *callee = getCalleeDefinition(callExpr);
 
-  // Note that we always want the defintion because Stmts/Exprs in the
-  // function body references the parameters in the definition.
+  // Note that we always want the definition because Stmts/Exprs in the
+  // function body reference the parameters in the definition.
   if (!callee) {
     emitError("found undefined function", callExpr->getExprLoc());
     return nullptr;
@@ -3031,7 +3040,7 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
     const uint32_t argIndex = i + isOperatorOverloading;
 
     // We want the argument variable here so that we can write back to it
-    // later. We will do the OpLoad of this argument manually. So ingore
+    // later. We will do the OpLoad of this argument manually. So ignore
     // the LValueToRValue implicit cast here.
     auto *arg = callExpr->getArg(argIndex)->IgnoreParenLValueCasts();
     const auto *param = callee->getParamDecl(i);
@@ -3112,9 +3121,16 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // has returned.
       if (canActAsOutParmVar(param) &&
           !paramTypeMatchesArgType(paramType, arg->getType())) {
-        if (const auto *refType = paramType->getAs<ReferenceType>())
-          rhsVal = castToType(rhsVal, arg->getType(), refType->getPointeeType(),
-                              arg->getLocStart(), rhsRange);
+        if (const auto *refType = paramType->getAs<ReferenceType>()) {
+          QualType toType = refType->getPointeeType();
+          if (isScalarType(rhsVal->getAstResultType())) {
+            rhsVal =
+                splatScalarToGenerate(toType, rhsVal, SpirvLayoutRule::Void);
+          } else {
+            rhsVal = castToType(rhsVal, rhsVal->getAstResultType(), toType,
+                                arg->getLocStart(), rhsRange);
+          }
+        }
       }
 
       // Initialize the temporary variables using the contents of the arguments
@@ -3164,9 +3180,18 @@ SpirvInstruction *SpirvEmitter::processCall(const CallExpr *callExpr) {
       // mismatch, we need to first cast 'value' to the type of 'arg' because
       // the AST will not include a cast node.
       if (!paramTypeMatchesArgType(paramType, arg->getType())) {
-        if (const auto *refType = paramType->getAs<ReferenceType>())
-          value = castToType(value, refType->getPointeeType(), arg->getType(),
-                             arg->getLocStart());
+        if (const auto *refType = paramType->getAs<ReferenceType>()) {
+          QualType elementType;
+          QualType fromType = refType->getPointeeType();
+          if (isVectorType(fromType, &elementType) &&
+              isScalarType(arg->getType())) {
+            value = spvBuilder.createCompositeExtract(
+                elementType, value, {0}, value->getSourceLocation());
+            fromType = elementType;
+          }
+          value =
+              castToType(value, fromType, arg->getType(), arg->getLocStart());
+        }
       }
 
       processAssignment(arg, value, false, args[index]);
@@ -14930,7 +14955,7 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
   SourceLocation sourceLocation = scalar->getSourceLocation();
 
   if (isScalarType(type)) {
-    // If the type if bool with a non-void layout rule, then it should be
+    // If the type is bool with a non-void layout rule, then it should be
     // treated as a uint.
     assert(layoutRule == SpirvLayoutRule::Void &&
            "If the layout type is not void, then we should cast to an int when "
