@@ -13768,7 +13768,9 @@ void SpirvEmitter::processSwitchStmtUsingIfStmts(const SwitchStmt *switchStmt) {
     // current case.
     std::vector<Stmt *> statements;
     unsigned i = curCaseIndex + 1;
-    for (; i < flatSwitch.size() && !isa<BreakStmt>(flatSwitch[i]); ++i) {
+    for (; i < flatSwitch.size() && !isa<BreakStmt>(flatSwitch[i]) &&
+           !isa<ReturnStmt>(flatSwitch[i]);
+         ++i) {
       if (!isa<CaseStmt>(flatSwitch[i]) && !isa<DefaultStmt>(flatSwitch[i]))
         statements.push_back(const_cast<Stmt *>(flatSwitch[i]));
     }

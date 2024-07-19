@@ -1083,6 +1083,9 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
 SpirvVariable *
 DeclResultIdMapper::createFnVar(const VarDecl *var,
                                 llvm::Optional<SpirvInstruction *> init) {
+  if (astDecls[var].instr != nullptr)
+    return cast<SpirvVariable>(astDecls[var].instr);
+
   const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
   const auto name = var->getName();
@@ -1095,10 +1098,7 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
   varInstr->setContainsAliasComponent(isAlias);
-
-  assert(astDecls[var].instr == nullptr);
   astDecls[var].instr = varInstr;
-
   return varInstr;
 }
 
