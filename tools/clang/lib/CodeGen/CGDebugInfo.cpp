@@ -1043,14 +1043,19 @@ bool CGDebugInfo::TryCollectHLSLRecordElements(const RecordType *Ty,
     // extended vector type, which is represented as an array in DWARF.
     // However, we logically represent it as one field per component.
     QualType ElemQualTy = hlsl::GetHLSLVecElementType(QualTy);
+    unsigned AlignBits = CGM.getContext().getTypeAlign(ElemQualTy);
     unsigned VecSize = hlsl::GetHLSLVecSize(QualTy);
     unsigned ElemSizeInBits = CGM.getContext().getTypeSize(ElemQualTy);
+    unsigned CurrentAlignedOffset = 0;
     for (unsigned ElemIdx = 0; ElemIdx < VecSize; ++ElemIdx) {
       StringRef FieldName = StringRef(&"xyzw"[ElemIdx], 1);
-      unsigned OffsetInBits = ElemSizeInBits * ElemIdx;
-      llvm::DIType *FieldType = createFieldType(FieldName, ElemQualTy, 0,
-        SourceLocation(), AccessSpecifier::AS_public, OffsetInBits,
-        /* tunit */ nullptr, DITy, Ty->getDecl());
+      CurrentAlignedOffset =
+          llvm::RoundUpToAlignment(CurrentAlignedOffset, AlignBits);
+      llvm::DIType *FieldType =
+          createFieldType(FieldName, ElemQualTy, 0, SourceLocation(),
+                          AccessSpecifier::AS_public, CurrentAlignedOffset,
+                          /* tunit */ nullptr, DITy, Ty->getDecl());
+      CurrentAlignedOffset += ElemSizeInBits;
       Elements.emplace_back(FieldType);
     }
 
