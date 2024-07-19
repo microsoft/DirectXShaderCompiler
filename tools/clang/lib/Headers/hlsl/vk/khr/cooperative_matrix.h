@@ -28,7 +28,6 @@ namespace khr {
 template <typename ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
 class CooperativeMatrix {
-
   template <class NewComponentType>
   CooperativeMatrix<NewComponentType, scope, rows, columns, use> cast();
 
@@ -74,6 +73,10 @@ class CooperativeMatrix {
   // mask.
   void StoreColumnMajor(RWStructuredBuffer<ComponentType> data, uint32_t index,
                         uint32_t stride, MemoryAccessMask memoryAccessMask);
+
+  // Constructs a cooperative matrix with all values initialized to v. Note that
+  // all active threads must have the same value for v.
+  static CooperativeMatrix splat(ComponentType v);
 
   // Load the cooperative matrix using OpCooperativeMatrixLoadKHR from data[i]
   // using memory layout RowMajorKHR.

@@ -13,7 +13,9 @@ RWStructuredBuffer<int> data;
   using IntMatA = vk::khr::CooperativeMatrixA<int, vk::ScopeSubgroup, 16, 4>;
 
   // CHECK: [[a:%[0-9]+]] = OpVariable %_ptr_Function_spirvIntrinsicType Function
-  IntMatA a = IntMatA::LoadColumnMajor(data, 0);
+  // CHECK: [[v:%[0-9]+]] = OpCompositeConstruct %spirvIntrinsicType %int_10
+  // CHECK: OpStore [[a]] [[v]]
+  IntMatA a = IntMatA::splat(10);
 
   uint32_t length = a.GetLength();
   // CHECK: OpLoopMerge [[mbb:%[0-9]+]]
