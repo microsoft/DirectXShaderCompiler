@@ -619,6 +619,14 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     return spvContext.getSIntType(32);
   }
 
+  // Templated types.
+  if (const auto *spec = type->getAs<TemplateSpecializationType>()) {
+    return lowerType(spec->desugar(), rule, isRowMajor, srcLoc);
+  }
+  if (const auto *spec = type->getAs<SubstTemplateTypeParmType>()) {
+    return lowerType(spec->desugar(), rule, isRowMajor, srcLoc);
+  }
+
   emitError("lower type %0 unimplemented", srcLoc) << type->getTypeClassName();
   type->dump();
   return 0;
