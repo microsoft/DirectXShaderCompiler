@@ -35,7 +35,6 @@ using namespace llvm;
 // A simple global initialized at DllMain-time will do (still does more work
 // than we should likely perform though).
 static uint32_t g_PassRegistryTid;
-extern "C" uint32_t __stdcall GetCurrentThreadId(void);
 static void CheckThreadId() {
   if (g_PassRegistryTid == 0)
     g_PassRegistryTid = GetCurrentThreadId();
