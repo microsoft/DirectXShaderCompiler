@@ -880,10 +880,14 @@ Constant *ConstantArray::getImpl(ArrayType *Ty, ArrayRef<Constant*> V) {
   if (V.empty())
     return ConstantAggregateZero::get(Ty);
 
-  for (unsigned i = 0, e = V.size(); i != e; ++i) {
-    assert(V[i]->getType() == Ty->getElementType() &&
-           "Wrong type in array element initializer");
-  }
+  // HLSL Change Begin - Disable false-positive assert:
+  // https://github.com/microsoft/DirectXShaderCompiler/issues/5294
+  //
+  // for (unsigned i = 0, e = V.size(); i != e; ++i) {
+  //   assert(V[i]->getType() == Ty->getElementType() &&
+  //          "Wrong type in array element initializer");
+  // }
+  // HLSL Change End
 
   // If this is an all-zero array, return a ConstantAggregateZero object.  If
   // all undef, return an UndefValue, if "all simple", then return a
