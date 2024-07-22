@@ -1,5 +1,7 @@
 // RUN: %dxc -T cs_6_6 -spirv %s | FileCheck %s
 
+// CHECK-DAG:                                        OpCapability RuntimeDescriptorArray
+// CHECK-DAG:                                        OpExtension "SPV_EXT_descriptor_indexing"
 
 // CHECK-DAG:   [[heap_bytebuffer:%[_a-zA-Z0-9]+]] = OpVariable %_ptr_Uniform__runtimearr_type_ByteAddressBuffer Uniform
 // CHECK-DAG:                                        OpDecorate [[heap_bytebuffer]] DescriptorSet 0

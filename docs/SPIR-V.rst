@@ -1723,8 +1723,8 @@ always the same as the main buffer.
 
 .. warning::
    When a RW/append/consume structured buffer is accessed through a resource
-   heap, its associated counter is in it's own binding, but share the same
-   index in the binding than it's associated resource.
+   heap, its associated counter is in its own binding, but shares the same
+   index in the binding as its associated resource.
 
    Example:
     - ResourceDescriptorHeap -> binding 0, set 0
@@ -1968,7 +1968,7 @@ associated ResourceDescriptorHeap RuntimeArray.
 
 The selection of the binding indices for those RuntimeArrays is done once all
 other resources are bound to their respective bindings/sets.
-DXC takes the first 3 unused bindings in the set 0, and distribute them in
+DXC takes the first 3 unused bindings in the set 0, and distributes them in
 that order:
     1. Resource heap.
     2. Sampler heap.

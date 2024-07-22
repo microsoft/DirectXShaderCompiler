@@ -1,9 +1,11 @@
 // RUN: %dxc -T cs_6_6 -O3 -spirv %s | FileCheck %s
 
-// CHECK:  OpDecorate [[resource_heap_ro:%[_a-zA-Z0-9]+]] DescriptorSet 0
-// CHECK:  OpDecorate [[resource_heap_ro]] Binding 0
-// CHECK:  OpDecorate [[resource_heap_rw:%[_a-zA-Z0-9]+]] DescriptorSet 0
-// CHECK:  OpDecorate [[resource_heap_rw]] Binding 0
+// CHECK-DAG: OpCapability RuntimeDescriptorArray
+// CHECK-DAG: OpExtension "SPV_EXT_descriptor_indexing"
+// CHECK:     OpDecorate [[resource_heap_ro:%[_a-zA-Z0-9]+]] DescriptorSet 0
+// CHECK:     OpDecorate [[resource_heap_ro]] Binding 0
+// CHECK:     OpDecorate [[resource_heap_rw:%[_a-zA-Z0-9]+]] DescriptorSet 0
+// CHECK:     OpDecorate [[resource_heap_rw]] Binding 0
 
 // CHECK:                     [[ra_uint_t:%[_a-zA-Z0-9]+]] = OpTypeRuntimeArray %uint
 // CHECK:            [[structuredbuffer_t:%[_a-zA-Z0-9]+]] = OpTypeStruct [[ra_uint_t]]

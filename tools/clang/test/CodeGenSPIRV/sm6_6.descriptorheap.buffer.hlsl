@@ -1,5 +1,8 @@
 // RUN: %dxc -T cs_6_6 -spirv %s | FileCheck %s
 
+// CHECK-DAG:                                           OpCapability RuntimeDescriptorArray
+// CHECK-DAG:                                           OpExtension "SPV_EXT_descriptor_indexing"
+
 // CHECK-DAG:           [[robuffer_t:%[_a-zA-Z0-9]+]] = OpTypeImage %uint Buffer 2 0 0 1 R32ui
 // CHECK-DAG:           [[rwbuffer_t:%[_a-zA-Z0-9]+]] = OpTypeImage %uint Buffer 2 0 0 2 R32ui
 

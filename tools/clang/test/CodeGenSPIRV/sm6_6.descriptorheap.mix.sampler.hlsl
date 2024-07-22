@@ -1,5 +1,8 @@
 // RUN: %dxc -T ps_6_6 -spirv %s | FileCheck %s
 
+// CHECK-DAG:                                          OpCapability RuntimeDescriptorArray
+// CHECK-DAG:                                          OpExtension "SPV_EXT_descriptor_indexing"
+
 // CHECK-DAG:            [[float_00:%[_a-zA-Z0-9]+]] = OpConstantComposite %v2float %float_0 %float_0
 // CHECK-DAG:           [[sampler_t:%[_a-zA-Z0-9]+]] = OpTypeSampler
 // CHECK-DAG:             [[image_t:%[_a-zA-Z0-9]+]] = OpTypeImage %float 2D 2 0 0 1 Unknown

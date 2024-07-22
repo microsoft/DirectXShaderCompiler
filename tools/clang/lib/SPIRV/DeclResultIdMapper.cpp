@@ -1273,14 +1273,6 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
     return varInstr;
 
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
-  // FIXME: handle the flags here?
-  //// DescriptorHeaps have a fixed binding/set.
-  // if (isResourceDescriptorHeap(var->getType()) ||
-  //     isSamplerDescriptorHeap(var->getType())) {
-  //   bindingAttr = ::new (astContext)
-  //       VKBindingAttr(var->getSourceRange(), astContext, /* binding= */ 0,
-  //                     /* set= */ 0, /* spellingListIndex= */ 0);
-  // }
   resourceVars.emplace_back(varInstr, var, loc, getResourceBinding(var),
                             bindingAttr, var->getAttr<VKCounterBindingAttr>());
 

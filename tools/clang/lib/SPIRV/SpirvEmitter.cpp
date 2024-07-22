@@ -5967,19 +5967,19 @@ SpirvEmitter::doCXXOperatorCallExpr(const CXXOperatorCallExpr *expr,
       const Expr *indexExpr = nullptr;
       getDescriptorHeapOperands(expr, &baseExpr, &indexExpr);
 
-      const Expr *ParentExpr = cast<CastExpr>(parentMap->getParent(expr));
-      QualType ResourceType = ParentExpr->getType();
+      const Expr *parentExpr = cast<CastExpr>(parentMap->getParent(expr));
+      QualType resourceType = parentExpr->getType();
       const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreCasts());
       auto *decl = cast<VarDecl>(declRefExpr->getDecl());
-      auto *var = declIdMapper.createResourceHeap(decl, ResourceType);
+      auto *var = declIdMapper.createResourceHeap(decl, resourceType);
 
       auto *index = doExpr(indexExpr);
       auto *accessChainPtr = spvBuilder.createAccessChain(
-          ResourceType, var, index, baseExpr->getExprLoc(), range);
+          resourceType, var, index, baseExpr->getExprLoc(), range);
 
-      if (!isAKindOfStructuredOrByteBuffer(ResourceType) &&
+      if (!isAKindOfStructuredOrByteBuffer(resourceType) &&
           baseExpr->isGLValue())
-        return spvBuilder.createLoad(ResourceType, accessChainPtr,
+        return spvBuilder.createLoad(resourceType, accessChainPtr,
                                      baseExpr->getExprLoc(), range);
       return accessChainPtr;
     }
@@ -13343,8 +13343,10 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     const auto varInfo =
         declIdMapper.getDeclEvalInfo(varDecl, varDecl->getLocation());
     if (const auto *init = varDecl->getInit()) {
+      parentMap = std::make_unique<ParentMap>(const_cast<Expr *>(init));
       storeValue(varInfo, loadIfGLValue(init), varDecl->getType(),
                  init->getLocStart());
+      parentMap.reset(nullptr);
 
       // Update counter variable associated with global variables
       tryToAssignCounterVar(varDecl, init);

@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -spirv %s | FileCheck %s
+// RUN: %dxc -T ps_6_6 -Od -spirv %s | FileCheck %s
 
 // CHECK-DAG:                                          OpCapability RuntimeDescriptorArray
 // CHECK-DAG:                                          OpExtension "SPV_EXT_descriptor_indexing"
@@ -20,14 +20,15 @@
 // CHECK-DAG:                                     OpDecorate [[resource_heap]] DescriptorSet 0
 // CHECK-DAG:                                     OpDecorate [[resource_heap]] Binding 0
 
-float4 main() : SV_Target {
-  SamplerState Sampler = SamplerDescriptorHeap[2];
+static SamplerState Sampler = SamplerDescriptorHeap[2];
 // CHECK: [[ptr:%[0-9]+]] = OpAccessChain [[ptr_u_sampler_t]] [[sampler_heap]] %uint_2
 // CHECK: [[sampler:%[0-9]+]] = OpLoad [[sampler_t]] [[ptr]]
 
-  Texture2D Texture = ResourceDescriptorHeap[3];
+static Texture2D Texture = ResourceDescriptorHeap[3];
 // CHECK: [[ptr:%[0-9]+]] = OpAccessChain [[ptr_u_image_t]] [[resource_heap]] %uint_3
 // CHECK: [[texture:%[0-9]+]] = OpLoad [[image_t]] [[ptr]]
+
+float4 main() : SV_Target {
 
   return Texture.Sample(Sampler, float2(0, 0));
 // CHECK: [[sampled_image:%[0-9]+]] = OpSampledImage %type_sampled_image [[texture]] [[sampler]]
