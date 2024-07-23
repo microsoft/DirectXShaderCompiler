@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 ///
 /// \file
@@ -294,6 +297,13 @@ class ASTContext : public RefCountedBase<ASTContext> {
   /// than the owning module of the declaration) that contain merged
   /// definitions of that entity.
   llvm::DenseMap<NamedDecl*, llvm::TinyPtrVector<Module*>> MergedDefModules;
+
+  /// \brief A mapping from attribute definitions to their parameter
+  /// expressions.
+  ///
+  /// This would not be necessary if Attrs contained the expressions in the
+  /// first place rather than just bare integers etc.
+  llvm::DenseMap<const Attr *, llvm::ArrayRef<const DeclRefExpr *>> AttrArgs;
 
 public:
   /// \brief A type synonym for the TemplateOrInstantiation mapping.
@@ -703,6 +713,15 @@ public:
 
   /// \brief Erase the attributes corresponding to the given declaration.
   void eraseDeclAttrs(const Decl *D);
+
+  void setAttrArgExprs(ArrayRef<const DeclRefExpr *> exprs, Attr *attr) {
+    AttrArgs[attr] = exprs;
+  }
+
+  ArrayRef<const DeclRefExpr *> getAttrArgExprs(const Attr *attr) {
+    return AttrArgs.count(attr) ? AttrArgs[attr]
+                                : ArrayRef<const DeclRefExpr *>();
+  }
 
   /// \brief If this variable is an instantiated static data member of a
   /// class template specialization, returns the templated static data member

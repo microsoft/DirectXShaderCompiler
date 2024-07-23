@@ -268,7 +268,8 @@ inline bool canActAsInParmVar(const ParmVarDecl *param) {
   return !param->hasAttr<HLSLOutAttr>() &&
          // GS output streams are marked as inout, but it should not be
          // used as in parameter.
-         !hlsl::IsHLSLStreamOutputType(param->getType());
+         !hlsl::IsHLSLStreamOutputType(param->getType()) &&
+         !hlsl::IsHLSLNodeOutputType(param->getType());
 }
 
 /// Returns true if the given function parameter can act as shader stage
@@ -613,6 +614,10 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // Set shader model kind and hlsl major/minor version.
   spvContext.setCurrentShaderModelKind(shaderModel->GetKind());
+#ifdef ENABLE_MESH_NODES
+  spvContext.setCurrentNodeLaunchType(
+      SpirvContext::NodeLaunchType::Invalid); // default
+#endif
   spvContext.setMajorVersion(shaderModel->GetMajor());
   spvContext.setMinorVersion(shaderModel->GetMinor());
   spirvOptions.signaturePacking =
@@ -733,8 +738,8 @@ SpirvEmitter::getInterfacesForEntryPoint(SpirvFunction *entryPoint) {
 
 void SpirvEmitter::beginInvocationInterlock(SourceLocation loc,
                                             SourceRange range) {
-  spvBuilder.addExecutionMode(
-      entryFunction, declIdMapper.getInterlockExecutionMode(), {}, loc);
+  spvBuilder.addExecutionMode(entryFunction,
+                              declIdMapper.getInterlockExecutionMode(), loc);
   spvBuilder.createBeginInvocationInterlockEXT(loc, range);
   needsLegalization = true;
 }
@@ -748,6 +753,22 @@ llvm::StringRef SpirvEmitter::getEntryPointName(const FunctionInfo *entryInfo) {
     return spirvOptions.entrypointName;
   }
   return entrypointName;
+}
+
+SpirvInstruction *
+SpirvEmitter::getAttrIntArg(ArrayRef<const DeclRefExpr *> exprs, int argNum,
+                            unsigned fallback) {
+  if (argNum < exprs.size()) {
+    if (exprs[argNum]) {
+      if (SpirvConstant *spvConst = constEvaluator.tryToEvaluateAsConst(
+              exprs[argNum], isSpecConstantMode)) {
+        return spvConst;
+      }
+      return doExpr(exprs[argNum]);
+    }
+  }
+  return spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                   llvm::APInt(32, fallback));
 }
 
 void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
@@ -803,6 +824,16 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   for (uint32_t i = 0; i < workQueue.size(); ++i) {
     const FunctionInfo *curEntryOrCallee = workQueue[i];
     spvContext.setCurrentShaderModelKind(curEntryOrCallee->shaderModelKind);
+#ifdef ENABLE_MESH_NODES
+    if (curEntryOrCallee->shaderModelKind == hlsl::ShaderModel::Kind::Node) {
+      if (auto nodeLaunchAttr =
+              curEntryOrCallee->funcDecl->getAttr<HLSLNodeLaunchAttr>()) {
+        spvContext.setCurrentNodeLaunchType(
+            hlsl::ShaderModel::NodeLaunchTypeFromName(
+                nodeLaunchAttr->getLaunchType()));
+      }
+    }
+#endif
     doDecl(curEntryOrCallee->funcDecl);
     if (context.getDiagnostics().hasErrorOccurred())
       return;
@@ -816,13 +847,49 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   for (uint32_t i = 0; i < workQueue.size(); ++i) {
     // TODO: assign specific StageVars w.r.t. to entry point
     const FunctionInfo *entryInfo = workQueue[i];
-    if (entryInfo->isEntryFunction) {
-      spvBuilder.addEntryPoint(
-          getSpirvShaderStage(
-              entryInfo->shaderModelKind,
-              featureManager.isExtensionEnabled(Extension::EXT_mesh_shader)),
-          entryInfo->entryFunction, getEntryPointName(entryInfo),
-          getInterfacesForEntryPoint(entryInfo->entryFunction));
+    if (!entryInfo->isEntryFunction)
+      continue;
+
+    SpirvFunction *fun = entryInfo->entryFunction;
+    SourceLocation loc = fun->getSourceLocation();
+    auto execModel = getSpirvShaderStage(
+        entryInfo->shaderModelKind,
+        featureManager.isExtensionEnabled(Extension::EXT_mesh_shader));
+#ifdef ENABLE_MESH_NODES
+    if (auto *nodeLaunchAttr =
+            entryInfo->funcDecl->getAttr<HLSLNodeLaunchAttr>()) {
+      if (nodeLaunchAttr->getLaunchType() == "mesh") {
+        execModel = spv::ExecutionModel::MeshEXT;
+      }
+    }
+#endif
+    spvBuilder.addEntryPoint(execModel, fun, getEntryPointName(entryInfo),
+                             getInterfacesForEntryPoint(fun));
+
+    if (const auto *dispatchGrid =
+            entryInfo->funcDecl->getAttr<HLSLNodeDispatchGridAttr>()) {
+      auto attrArgs = astContext.getAttrArgExprs(dispatchGrid);
+      SpirvInstruction *gridX =
+          getAttrIntArg(attrArgs, 0, dispatchGrid->getX());
+      SpirvInstruction *gridY =
+          getAttrIntArg(attrArgs, 1, dispatchGrid->getY());
+      SpirvInstruction *gridZ =
+          getAttrIntArg(attrArgs, 2, dispatchGrid->getZ());
+      spvBuilder.addExecutionMode(fun,
+                                  spv::ExecutionMode::StaticNumWorkgroupsAMDX,
+                                  {gridX, gridY, gridZ}, loc);
+    } else if (const auto *maxDispatchGrid =
+                   entryInfo->funcDecl
+                       ->getAttr<HLSLNodeMaxDispatchGridAttr>()) {
+      auto attrArgs = astContext.getAttrArgExprs(maxDispatchGrid);
+      SpirvInstruction *gridX =
+          getAttrIntArg(attrArgs, 0, maxDispatchGrid->getX());
+      SpirvInstruction *gridY =
+          getAttrIntArg(attrArgs, 1, maxDispatchGrid->getY());
+      SpirvInstruction *gridZ =
+          getAttrIntArg(attrArgs, 2, maxDispatchGrid->getZ());
+      spvBuilder.addExecutionMode(fun, spv::ExecutionMode::MaxNumWorkgroupsAMDX,
+                                  {gridX, gridY, gridZ}, loc);
     }
   }
 
@@ -860,7 +927,7 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
 
   if (spirvOptions.enableMaximalReconvergence) {
     spvBuilder.addExecutionMode(entryFunction,
-                                spv::ExecutionMode::MaximallyReconvergesKHR, {},
+                                spv::ExecutionMode::MaximallyReconvergesKHR,
                                 SourceLocation());
   }
 
@@ -1414,6 +1481,112 @@ SpirvInstruction *SpirvEmitter::castToType(SpirvInstruction *value,
   return nullptr;
 }
 
+static QualType handleDispatchGrid(SpirvContext &spvContext, QualType type) {
+  // TODO: account for bitfields (see clang::spirv::isFieldMergeWithPrevious()
+  // in EmitVisitor.cpp)
+  unsigned index = 0;
+  if (const auto *recordType = type->getAs<RecordType>()) {
+    auto *recordDecl = recordType->getDecl();
+    for (auto fieldDecl : recordDecl->fields()) {
+      for (const hlsl::UnusualAnnotation *it :
+           fieldDecl->getUnusualAnnotations()) {
+        if (it->getKind() == hlsl::UnusualAnnotation::UA_SemanticDecl) {
+          const hlsl::SemanticDecl *sd = cast<hlsl::SemanticDecl>(it);
+          if (sd->SemanticName.equals("SV_DispatchGrid")) {
+            spvContext.registerGraphicsNodeDecoration(
+                recordDecl, index,
+                spv::Decoration::PayloadDispatchIndirectAMDX);
+            return type;
+          }
+        }
+      }
+
+      QualType fieldType = fieldDecl->getType();
+      if (fieldType->isRecordType()) {
+        handleDispatchGrid(spvContext, fieldType);
+      }
+      ++index;
+    }
+  }
+
+  return type;
+}
+
+bool SpirvEmitter::handleNodePayloadArrayType(const ParmVarDecl *decl,
+                                              SpirvInstruction *instr) {
+  // Because SPIR-V node payload array types are node-specific, propagate
+  // lowered types
+  switch (instr->getKind()) {
+  case SpirvInstruction::Kind::IK_Load: {
+    SpirvInstruction *ptr = dyn_cast<SpirvLoad>(instr)->getPointer();
+    if (handleNodePayloadArrayType(decl, ptr)) {
+      const SpirvPointerType *ptrType =
+          dyn_cast<SpirvPointerType>(ptr->getResultType());
+      instr->setResultType(ptrType->getPointeeType());
+      spvContext.addToInstructionsWithLoweredType(instr);
+      return true;
+    }
+    return false;
+  }
+  case SpirvInstruction::Kind::IK_FunctionParameter:
+  case SpirvInstruction::Kind::IK_Variable: {
+    QualType varType = decl->getType();
+    if (hlsl::IsHLSLNodeType(varType)) {
+      if (auto *type = spvContext.getNodeDeclPayloadType(decl)) {
+        instr->setResultType(
+            spvContext.getPointerType(type, instr->getStorageClass()));
+      } else {
+        LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                          spvBuilder);
+        QualType recordType =
+            hlsl::GetHLSLNodeIOResultType(astContext, varType);
+        if (hlsl::IsHLSLDispatchNodeInputRecordType(varType)) {
+          recordType = handleDispatchGrid(spvContext, recordType);
+        }
+        const SpirvType *elemType = lowerTypeVisitor.lowerType(
+            recordType, clang::spirv::SpirvLayoutRule::Scalar, llvm::None,
+            decl->getLocation());
+        const NodePayloadArrayType *arrType =
+            spvContext.getNodePayloadArrayType(elemType, decl);
+        const SpirvType *ptrType =
+            spvContext.getPointerType(arrType, instr->getStorageClass());
+        instr->setResultType(ptrType);
+        spvContext.registerNodeDeclPayloadType(arrType, decl);
+      }
+      spvContext.addToInstructionsWithLoweredType(instr);
+      return true;
+    }
+    return false;
+  }
+  default:
+    return false;
+  }
+}
+
+void SpirvEmitter::evaluateAttrArgExprs(const Decl *decl) {
+  // Evaluate attribute parameter expressions (part of workaround for spec
+  // constants in attributes)
+  if (decl->hasAttrs()) {
+    for (const Attr *attr : decl->getAttrs()) {
+      auto exprs = astContext.getAttrArgExprs(attr);
+      unsigned n = exprs.size();
+      if (n > 0) {
+        auto *instrs = new (spvContext) SmallVector<SpirvInstruction *, 4>();
+        for (unsigned i = 0; i < n; i++) {
+          SpirvInstruction *instr = nullptr;
+          if (exprs[i]) {
+            if (isa<DeclRefExpr>(exprs[i]->IgnoreParenImpCasts())) {
+              instr = doExpr(exprs[i]);
+            }
+          }
+          instrs->push_back(instr);
+        };
+        spvContext.setEvaluatedAttrArgs(attr, *instrs);
+      }
+    }
+  }
+}
+
 void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // Forward declaration of a function inside another.
   if (!decl->isThisDeclarationADefinition()) {
@@ -1555,6 +1728,10 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     QualType paramType = paramDecl->getType();
     auto *param =
         declIdMapper.createFnParam(paramDecl, i + 1 + isNonStaticMemberFn);
+    evaluateAttrArgExprs(paramDecl);
+    if (isEntry) {
+      handleNodePayloadArrayType(paramDecl, param);
+    }
 #ifdef ENABLE_SPIRV_CODEGEN
     if (hlsl::IsVKBufferPointerType(paramType)) {
       Optional<bool> isRowMajor = llvm::None;
@@ -4304,7 +4481,7 @@ SpirvEmitter::processTextureLevelOfDetail(const CXXMemberCallExpr *expr,
       spvBuilder.createImageQuery(spv::Op::OpImageQueryLod, queryResultType,
                                   expr->getExprLoc(), sampledImage, coordinate);
 
-  if (spvContext.isCS()) {
+  if (spvContext.isCS() || spvContext.isNode()) {
     addDerivativeGroupExecutionMode();
   }
   // The first component of the float2 contains the mipmap array layer.
@@ -5307,6 +5484,9 @@ SpirvEmitter::doCXXMemberCallExpr(const CXXMemberCallExpr *expr) {
   uint32_t opcode = static_cast<uint32_t>(hlsl::IntrinsicOp::Num_Intrinsics);
 
   if (hlsl::GetIntrinsicOp(callee, opcode, group)) {
+    if (group == "subscript") {
+      return processIntrinsicExtractRecordStruct(expr);
+    }
     return processIntrinsicMemberCall(expr,
                                       static_cast<hlsl::IntrinsicOp>(opcode));
   }
@@ -5503,6 +5683,28 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
     return processRayQueryIntrinsics(expr, opcode);
   case IntrinsicOp::MOP_GetBufferContents:
     return processIntrinsicGetBufferContents(expr);
+  case hlsl::IntrinsicOp::MOP_GetThreadNodeOutputRecords:
+    return processIntrinsicGetNodeOutputRecords(expr, false);
+  case hlsl::IntrinsicOp::MOP_GetGroupNodeOutputRecords:
+    return processIntrinsicGetNodeOutputRecords(expr, true);
+  case hlsl::IntrinsicOp::MOP_ThreadIncrementOutputCount:
+    retVal = processIntrinsicIncrementOutputCount(expr, false);
+    break;
+  case hlsl::IntrinsicOp::MOP_GroupIncrementOutputCount:
+    retVal = processIntrinsicIncrementOutputCount(expr, true);
+    break;
+  case hlsl::IntrinsicOp::MOP_IsValid:
+    retVal = processIntrinsicIsValid(expr);
+    break;
+  case hlsl::IntrinsicOp::MOP_Count:
+    retVal = processIntrinsicGetRecordCount(expr);
+    break;
+  case hlsl::IntrinsicOp::MOP_OutputComplete:
+    processIntrinsicOutputComplete(expr);
+    break;
+  case hlsl::IntrinsicOp::MOP_FinishedCrossGroupSharing:
+    retVal = processIntrinsicFinishedCrossGroupSharing(expr);
+    break;
   default:
     emitError("intrinsic '%0' method unimplemented",
               expr->getCallee()->getExprLoc())
@@ -5554,7 +5756,8 @@ SpirvInstruction *SpirvEmitter::createImageSample(
   const bool isExplicit = lod || (grad.first && grad.second);
 
   // Implicit-lod instructions are only allowed in pixel and compute shaders.
-  if (!spvContext.isPS() && !spvContext.isCS() && !isExplicit)
+  if (!spvContext.isPS() && !spvContext.isCS() && !spvContext.isNode() &&
+      !isExplicit)
     emitError("sampling with implicit lod is only allowed in fragment and "
               "compute shaders",
               loc);
@@ -5659,7 +5862,7 @@ SpirvEmitter::processTextureSampleGather(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
   if (isSample) {
-    if (spvContext.isCS()) {
+    if (spvContext.isCS() || spvContext.isNode()) {
       addDerivativeGroupExecutionMode();
     }
     return createImageSample(retType, imageType, image, sampler, coordinate,
@@ -5749,7 +5952,7 @@ SpirvEmitter::processTextureSampleBiasLevel(const CXXMemberCallExpr *expr,
 
   const auto retType = expr->getDirectCallee()->getReturnType();
 
-  if (!lod && spvContext.isCS()) {
+  if (!lod && (spvContext.isCS() || spvContext.isNode())) {
     addDerivativeGroupExecutionMode();
   }
   return createImageSample(
@@ -8633,9 +8836,10 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
   }
 
   {
-    // Indexing into ConstantBuffers and TextureBuffers involves an additional
-    // FlatConversion node which casts the handle to the underlying structure
-    // type. We can look past the FlatConversion to continue to collect indices.
+    // Indexing into ConstantBuffers, TextureBuffers, and node input/output
+    // types involves an additional FlatConversion node which casts the handle
+    // to the underlying structure type. We can look past the FlatConversion to
+    // continue to collect indices.
     // For example: MyConstantBufferArray[0].structMember1
     // `-MemberExpr .structMember1
     //   `-ImplicitCastExpr 'const T' lvalue <FlatConversion>
@@ -8644,7 +8848,8 @@ const Expr *SpirvEmitter::collectArrayStructIndices(
       if (castExpr->getCastKind() == CK_FlatConversion) {
         const auto *subExpr = castExpr->getSubExpr();
         const QualType subExprType = subExpr->getType();
-        if (isConstantTextureBuffer(subExprType)) {
+        if (isConstantTextureBuffer(subExprType) ||
+            hlsl::IsHLSLNodeType(subExprType)) {
           return collectArrayStructIndices(subExpr, rawIndex, rawIndices,
                                            indices, isMSOutAttribute);
         }
@@ -9046,6 +9251,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_udot:
     retVal = processIntrinsicDot(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_Barrier:
+    retVal = processIntrinsicBarrier(callExpr);
+    break;
   case hlsl::IntrinsicOp::IOP_GroupMemoryBarrier:
     retVal = processIntrinsicMemoryBarrier(callExpr,
                                            /*isDevice*/ false,
@@ -9077,6 +9285,9 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processIntrinsicMemoryBarrier(callExpr, /*isDevice*/ true,
                                            /*groupSync*/ true,
                                            /*isAllBarrier*/ true);
+    break;
+  case hlsl::IntrinsicOp::IOP_GetRemainingRecursionLevels:
+    retVal = processIntrinsicGetRemainingRecursionLevels(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_CheckAccessFullyMapped:
     retVal = spvBuilder.createImageSparseTexelsResident(
@@ -9547,6 +9758,15 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   if (retVal)
     retVal->setRValue();
   return retVal;
+}
+
+SpirvInstruction *SpirvEmitter::processIntrinsicGetRecordCount(
+    const CXXMemberCallExpr *callExpr) {
+  assert(callExpr->getNumArgs() == 0);
+  const auto obj = callExpr->getImplicitObjectArgument();
+  const auto loc = callExpr->getExprLoc();
+  SpirvInstruction *payload = doExpr(obj);
+  return spvBuilder.createNodePayloadArrayLength(payload, loc);
 }
 
 SpirvInstruction *
@@ -10958,6 +11178,206 @@ SpirvInstruction *SpirvEmitter::processIntrinsicGetBufferContents(
   return retVal;
 }
 
+SpirvInstruction *SpirvEmitter::processIntrinsicExtractRecordStruct(
+    const CXXMemberCallExpr *callExpr) {
+  SourceLocation loc = callExpr->getExprLoc();
+  Expr *obj = callExpr->getImplicitObjectArgument();
+  QualType objType = obj->getType();
+  unsigned n = callExpr->getNumArgs();
+  assert(hlsl::IsHLSLNodeType(objType));
+  assert(n == 0 || n == 1 && hlsl::IsHLSLNodeRecordArrayType(objType));
+
+  QualType recordType = hlsl::GetHLSLNodeIOResultType(astContext, objType);
+  SpirvInstruction *res = doExpr(obj);
+  SpirvInstruction *index =
+      n ? doExpr(callExpr->getArg(0))
+        : spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                    llvm::APInt(32, 0));
+  res->setLayoutRule(SpirvLayoutRule::Scalar);
+
+  return spvBuilder.createAccessChain(recordType, res, {index},
+                                      callExpr->getExprLoc(),
+                                      callExpr->getSourceRange());
+}
+
+SpirvInstruction *SpirvEmitter::processIntrinsicGetRemainingRecursionLevels(
+    const CallExpr *callExpr) {
+  assert(callExpr->getNumArgs() == 0);
+  const auto loc = callExpr->getExprLoc();
+  const QualType retType = callExpr->getCallReturnType(astContext);
+  auto *var = declIdMapper.getBuiltinVar(
+      spv::BuiltIn::RemainingRecursionLevelsAMDX, retType, loc);
+  return spvBuilder.createLoad(retType, var, loc);
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsicIsValid(const CXXMemberCallExpr *callExpr) {
+  assert(callExpr->getNumArgs() == 0);
+  const auto loc = callExpr->getExprLoc();
+  const Expr *nodeOutputExpr = callExpr->getImplicitObjectArgument();
+  Expr *baseExpr = const_cast<Expr *>(nodeOutputExpr);
+  SpirvInstruction *shaderIndex = nullptr;
+
+  if (const auto subExpr = dyn_cast_or_null<CXXOperatorCallExpr>(
+          nodeOutputExpr->IgnoreParenNoopCasts(astContext))) {
+    if (subExpr->getOperator() == OverloadedOperatorKind::OO_Subscript) {
+      // special case: offset shader index by the array subscript
+      shaderIndex = doExpr(subExpr->getArg(1));
+      baseExpr = const_cast<Expr *>(subExpr->getArg(0));
+    }
+  }
+
+  const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreImpCasts());
+  const auto *paramDecl = dyn_cast<ParmVarDecl>(declRefExpr->getDecl());
+  const auto *nodeId = paramDecl->getAttr<HLSLNodeIdAttr>();
+  int nodeIndex = 0;
+  if (HLSLNodeIdAttr *nodeId = paramDecl->getAttr<HLSLNodeIdAttr>()) {
+    nodeIndex = nodeId->getArrayIndex();
+  }
+
+  SpirvInstruction *payload = doExpr(baseExpr);
+  if (!shaderIndex) {
+    shaderIndex = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                            llvm::APInt(32, nodeIndex));
+  }
+
+  return spvBuilder.createIsNodePayloadValid(payload, shaderIndex, loc);
+}
+
+SpirvInstruction *SpirvEmitter::processIntrinsicGetNodeOutputRecords(
+    const CXXMemberCallExpr *callExpr, bool isGroupShared) {
+  assert(callExpr->getNumArgs() == 1);
+  const auto loc = callExpr->getExprLoc();
+  const Expr *nodeOutputExpr = callExpr->getImplicitObjectArgument();
+  Expr *baseExpr = const_cast<Expr *>(nodeOutputExpr);
+  SpirvInstruction *shaderIndex = nullptr;
+
+  if (const auto subExpr = dyn_cast_or_null<CXXOperatorCallExpr>(
+          nodeOutputExpr->IgnoreParenNoopCasts(astContext))) {
+    if (subExpr->getOperator() == OverloadedOperatorKind::OO_Subscript) {
+      // special case: offset shader index by the array subscript
+      shaderIndex = doExpr(subExpr->getArg(1));
+      baseExpr = const_cast<Expr *>(subExpr->getArg(0));
+    }
+  }
+
+  const auto *declRefExpr = dyn_cast<DeclRefExpr>(baseExpr->IgnoreImpCasts());
+  const auto *paramDecl = dyn_cast<ParmVarDecl>(declRefExpr->getDecl());
+  const auto *nodeID = paramDecl->getAttr<HLSLNodeIdAttr>();
+  StringRef nodeName = paramDecl->getName();
+  unsigned nodeIndex = 0;
+  if (nodeID) {
+    nodeName = nodeID->getName();
+    nodeIndex = nodeID->getArrayIndex();
+  }
+
+  if (!shaderIndex) {
+    auto nodeIdArgs = spvContext.getEvaluatedAttrArgs(nodeID);
+    if (nodeIdArgs.size() > 1 && nodeIdArgs[1] &&
+        nodeIdArgs[1]->getopcode() == spv::Op::OpSpecConstant) {
+      shaderIndex = nodeIdArgs[1];
+    } else {
+      shaderIndex = spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                              llvm::APInt(32, nodeIndex));
+    }
+  }
+
+  QualType structType =
+      hlsl::GetHLSLNodeIOResultType(astContext, baseExpr->getType());
+  LowerTypeVisitor lowerTypeVisitor(astContext, spvContext, spirvOptions,
+                                    spvBuilder);
+  const SpirvType *elemType = lowerTypeVisitor.lowerType(
+      hlsl::GetHLSLNodeIOResultType(astContext, baseExpr->getType()),
+      clang::spirv::SpirvLayoutRule::Scalar, llvm::None,
+      paramDecl->getLocation());
+  const SpirvType *payloadType = spvContext.getPointerType(
+      spvContext.getNodePayloadArrayType(elemType, paramDecl),
+      spv::StorageClass::NodePayloadAMDX);
+
+  spv::Scope scope =
+      isGroupShared ? spv::Scope::Workgroup : spv::Scope::Invocation;
+  SpirvInstruction *recordCount = doExpr(callExpr->getArg(0));
+  SpirvInstruction *result = spvBuilder.createAllocateNodePayloads(
+      callExpr->getType(), scope, shaderIndex, recordCount, loc);
+  result->setResultType(payloadType);
+  spvContext.addToInstructionsWithLoweredType(result);
+  return result;
+}
+
+SpirvInstruction *SpirvEmitter::processIntrinsicIncrementOutputCount(
+    const CXXMemberCallExpr *callExpr, bool isGroupShared) {
+  return processIntrinsicGetNodeOutputRecords(callExpr, isGroupShared);
+}
+
+void SpirvEmitter::processIntrinsicOutputComplete(
+    const CXXMemberCallExpr *callExpr) {
+  Expr *payloadExpr =
+      callExpr->getImplicitObjectArgument()->IgnoreParenNoopCasts(astContext);
+  SpirvInstruction *payload = doExpr(payloadExpr);
+  spvBuilder.createEnqueueOutputNodePayloads(payload, callExpr->getExprLoc());
+}
+
+SpirvInstruction *SpirvEmitter::processIntrinsicFinishedCrossGroupSharing(
+    const CXXMemberCallExpr *callExpr) {
+  Expr *payloadExpr = callExpr->getImplicitObjectArgument();
+  SpirvInstruction *payload = doExpr(payloadExpr);
+  QualType type =
+      hlsl::GetHLSLNodeIOResultType(astContext, payloadExpr->getType());
+  return spvBuilder.createFinishWritingNodePayload(payload,
+                                                   callExpr->getExprLoc());
+}
+
+SpirvInstruction *
+SpirvEmitter::processIntrinsicBarrier(const CallExpr *callExpr) {
+  llvm::APSInt a1(32, true), a2(32, true);
+  int64_t i1, i2;
+  const Expr *e1 = callExpr->getArg(0), *e2 = callExpr->getArg(1);
+
+  // object as first argument
+  if (!e1->EvaluateAsInt(a1, astContext)) {
+    assert(e1->getType()->isStructureOrClassType());
+    a1.setAllBits();
+  }
+
+  if (e2->EvaluateAsInt(a2, astContext) && (i1 = a1.getExtValue()) >= 0 &&
+      (i2 = a2.getExtValue()) >= 0) {
+  } else {
+    emitError("Barrier arguments must be non-negative integer constants",
+              callExpr->getExprLoc());
+    return nullptr;
+  }
+
+  if (!(i1 | i2)) { // all zero -> no-op
+    return nullptr;
+  }
+
+  spv::Scope memScope =
+      (i2 & (unsigned)hlsl::DXIL::BarrierSemanticFlag::DeviceScope)
+          ? spv::Scope::Device
+      : (i2 & (unsigned)hlsl::DXIL::BarrierSemanticFlag::GroupScope)
+          ? spv::Scope::Workgroup
+          : spv::Scope::Invocation;
+  spv::MemorySemanticsMask memSemaMask =
+      spv::MemorySemanticsMask::AcquireRelease |
+      ((i1 & (unsigned)hlsl::DXIL::MemoryTypeFlag::UavMemory)
+           ? spv::MemorySemanticsMask::UniformMemory
+           : spv::MemorySemanticsMask::MaskNone) |
+      ((i1 & (unsigned)hlsl::DXIL::MemoryTypeFlag::GroupSharedMemory)
+           ? spv::MemorySemanticsMask::WorkgroupMemory
+           : spv::MemorySemanticsMask::MaskNone) |
+      ((i1 & (unsigned)hlsl::DXIL::MemoryTypeFlag::NodeOutputMemory)
+           ? spv::MemorySemanticsMask::OutputMemory
+           : spv::MemorySemanticsMask::MaskNone);
+  Optional<spv::Scope> execScope =
+      (i2 & (unsigned)hlsl::DXIL::BarrierSemanticFlag::GroupSync)
+          ? Optional<spv::Scope>(spv::Scope::Workgroup)
+          : None;
+
+  spvBuilder.createBarrier(memScope, memSemaMask, execScope,
+                           callExpr->getExprLoc());
+  return nullptr;
+}
+
 SpirvInstruction *
 SpirvEmitter::processIntrinsicMemoryBarrier(const CallExpr *callExpr,
                                             bool isDevice, bool groupSync,
@@ -12095,7 +12515,7 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingSpirvInst(
     case spv::Op::OpFwidth:
     case spv::Op::OpFwidthFine:
     case spv::Op::OpFwidthCoarse:
-      if (spvContext.isCS())
+      if (spvContext.isCS() || spvContext.isNode())
         addDerivativeGroupExecutionMode();
       needsLegalization = true;
       break;
@@ -13180,6 +13600,7 @@ hlsl::ShaderModel::Kind SpirvEmitter::getShaderModelKind(StringRef stageName) {
           .Case("callable", hlsl::ShaderModel::Kind::Callable)
           .Case("mesh", hlsl::ShaderModel::Kind::Mesh)
           .Case("amplification", hlsl::ShaderModel::Kind::Amplification)
+          .Case("node", hlsl::ShaderModel::Kind::Node)
           .Default(hlsl::ShaderModel::Kind::Invalid);
   assert(SMK != hlsl::ShaderModel::Kind::Invalid);
   return SMK;
@@ -13200,6 +13621,7 @@ SpirvEmitter::getSpirvShaderStage(hlsl::ShaderModel::Kind smk,
   case hlsl::ShaderModel::Kind::Pixel:
     return spv::ExecutionModel::Fragment;
   case hlsl::ShaderModel::Kind::Compute:
+  case hlsl::ShaderModel::Kind::Node:
     return spv::ExecutionModel::GLCompute;
   case hlsl::ShaderModel::Kind::RayGeneration:
     return spv::ExecutionModel::RayGenerationNV;
@@ -13232,7 +13654,7 @@ void SpirvEmitter::processInlineSpirvAttributes(const FunctionDecl *decl) {
   for (auto &attr : decl->getAttrs()) {
     if (auto *modeAttr = dyn_cast<VKSpvExecutionModeAttr>(attr)) {
       spvBuilder.addExecutionMode(
-          entryFunction, spv::ExecutionMode(modeAttr->getExecutionMode()), {},
+          entryFunction, spv::ExecutionMode(modeAttr->getExecutionMode()),
           modeAttr->getLocation());
     }
   }
@@ -13273,17 +13695,17 @@ bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
       const auto paramType = param->getType();
       if (hlsl::IsHLSLTriangleStreamType(paramType) && !outTriangle) {
         spvBuilder.addExecutionMode(entryFunction,
-                                    spv::ExecutionMode::OutputTriangleStrip, {},
+                                    spv::ExecutionMode::OutputTriangleStrip,
                                     param->getLocation());
         outTriangle = true;
       } else if (hlsl::IsHLSLLineStreamType(paramType) && !outLine) {
         spvBuilder.addExecutionMode(entryFunction,
-                                    spv::ExecutionMode::OutputLineStrip, {},
+                                    spv::ExecutionMode::OutputLineStrip,
                                     param->getLocation());
         outLine = true;
       } else if (hlsl::IsHLSLPointStreamType(paramType) && !outPoint) {
         spvBuilder.addExecutionMode(entryFunction,
-                                    spv::ExecutionMode::OutputPoints, {},
+                                    spv::ExecutionMode::OutputPoints,
                                     param->getLocation());
         outPoint = true;
       }
@@ -13295,31 +13717,30 @@ bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
     // Add an execution mode based on the input primitive type. Do not add an
     // execution mode more than once.
     if (param->hasAttr<HLSLPointAttr>() && !inPoint) {
-      spvBuilder.addExecutionMode(entryFunction,
-                                  spv::ExecutionMode::InputPoints, {},
-                                  param->getLocation());
+      spvBuilder.addExecutionMode(
+          entryFunction, spv::ExecutionMode::InputPoints, param->getLocation());
       *arraySize = 1;
       inPoint = true;
     } else if (param->hasAttr<HLSLLineAttr>() && !inLine) {
       spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::InputLines,
-                                  {}, param->getLocation());
+                                  param->getLocation());
       *arraySize = 2;
       inLine = true;
     } else if (param->hasAttr<HLSLTriangleAttr>() && !inTriangle) {
       spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::Triangles,
-                                  {}, param->getLocation());
+                                  param->getLocation());
       *arraySize = 3;
       inTriangle = true;
     } else if (param->hasAttr<HLSLLineAdjAttr>() && !inLineAdj) {
       spvBuilder.addExecutionMode(entryFunction,
-                                  spv::ExecutionMode::InputLinesAdjacency, {},
+                                  spv::ExecutionMode::InputLinesAdjacency,
                                   param->getLocation());
       *arraySize = 4;
       inLineAdj = true;
     } else if (param->hasAttr<HLSLTriangleAdjAttr>() && !inTriangleAdj) {
       spvBuilder.addExecutionMode(entryFunction,
                                   spv::ExecutionMode::InputTrianglesAdjacency,
-                                  {}, param->getLocation());
+                                  param->getLocation());
       *arraySize = 6;
       inTriangleAdj = true;
     }
@@ -13341,28 +13762,26 @@ bool SpirvEmitter::processGeometryShaderAttributes(const FunctionDecl *decl,
 }
 
 void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
-  spvBuilder.addExecutionMode(entryFunction,
-                              spv::ExecutionMode::OriginUpperLeft, {},
-                              decl->getLocation());
+  spvBuilder.addExecutionMode(
+      entryFunction, spv::ExecutionMode::OriginUpperLeft, decl->getLocation());
   if (decl->getAttr<HLSLEarlyDepthStencilAttr>()) {
     spvBuilder.addExecutionMode(entryFunction,
-                                spv::ExecutionMode::EarlyFragmentTests, {},
+                                spv::ExecutionMode::EarlyFragmentTests,
                                 decl->getLocation());
   }
   if (decl->getAttr<VKPostDepthCoverageAttr>()) {
     spvBuilder.addExecutionMode(entryFunction,
-                                spv::ExecutionMode::PostDepthCoverage, {},
+                                spv::ExecutionMode::PostDepthCoverage,
                                 decl->getLocation());
   }
   if (decl->getAttr<VKEarlyAndLateTestsAttr>()) {
     spvBuilder.addExecutionMode(
-        entryFunction, spv::ExecutionMode::EarlyAndLateFragmentTestsAMD, {},
+        entryFunction, spv::ExecutionMode::EarlyAndLateFragmentTestsAMD,
         decl->getLocation());
   }
   if (decl->getAttr<VKDepthUnchangedAttr>()) {
-    spvBuilder.addExecutionMode(entryFunction,
-                                spv::ExecutionMode::DepthUnchanged, {},
-                                decl->getLocation());
+    spvBuilder.addExecutionMode(
+        entryFunction, spv::ExecutionMode::DepthUnchanged, decl->getLocation());
   }
 
   // Shaders must not specify more than one of stencil_ref_unchanged_front,
@@ -13374,36 +13793,36 @@ void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
     ++stencilFrontAttrCount;
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::StencilRefUnchangedFrontAMD,
-                                {}, decl->getLocation());
+                                decl->getLocation());
   }
   if (decl->getAttr<VKStencilRefGreaterEqualFrontAttr>()) {
     ++stencilFrontAttrCount;
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::StencilRefGreaterFrontAMD,
-                                {}, decl->getLocation());
+                                decl->getLocation());
   }
   if (decl->getAttr<VKStencilRefLessEqualFrontAttr>()) {
     ++stencilFrontAttrCount;
     spvBuilder.addExecutionMode(entryFunction,
-                                spv::ExecutionMode::StencilRefLessFrontAMD, {},
+                                spv::ExecutionMode::StencilRefLessFrontAMD,
                                 decl->getLocation());
   }
   if (decl->getAttr<VKStencilRefUnchangedBackAttr>()) {
     ++stencilBackAttrCount;
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::StencilRefUnchangedBackAMD,
-                                {}, decl->getLocation());
+                                decl->getLocation());
   }
   if (decl->getAttr<VKStencilRefGreaterEqualBackAttr>()) {
     ++stencilBackAttrCount;
     spvBuilder.addExecutionMode(entryFunction,
                                 spv::ExecutionMode::StencilRefGreaterBackAMD,
-                                {}, decl->getLocation());
+                                decl->getLocation());
   }
   if (decl->getAttr<VKStencilRefLessEqualBackAttr>()) {
     ++stencilBackAttrCount;
     spvBuilder.addExecutionMode(entryFunction,
-                                spv::ExecutionMode::StencilRefLessBackAMD, {},
+                                spv::ExecutionMode::StencilRefLessBackAMD,
                                 decl->getLocation());
   }
   if (stencilFrontAttrCount > 1) {
@@ -13421,15 +13840,77 @@ void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
 }
 
 void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
-  auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>();
-  assert(numThreadsAttr && "thread group size missing from entry-point");
+  auto *nodeLaunchAttr = decl->getAttr<HLSLNodeLaunchAttr>();
+  StringRef launchType = nodeLaunchAttr ? nodeLaunchAttr->getLaunchType() : "";
+  bool isNode = nodeLaunchAttr || decl->hasAttr<HLSLNodeIdAttr>();
 
-  uint32_t x = static_cast<uint32_t>(numThreadsAttr->getX());
-  uint32_t y = static_cast<uint32_t>(numThreadsAttr->getY());
-  uint32_t z = static_cast<uint32_t>(numThreadsAttr->getZ());
+  if (isNode) {
+    if (launchType.equals("coalescing") || launchType.equals("thread")) {
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::CoalescingAMDX,
+                                  decl->getLocation());
+    }
+    if (auto nodeIdAttr = decl->getAttr<HLSLNodeIdAttr>()) {
+      auto attrArgs = astContext.getAttrArgExprs(nodeIdAttr);
+      SpirvInstruction *index =
+          getAttrIntArg(attrArgs, 1, nodeIdAttr->getArrayIndex());
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::ShaderIndexAMDX, {index},
+                                  decl->getLocation());
+    } else {
+      spvBuilder.addExecutionMode(
+          entryFunction, spv::ExecutionMode::ShaderIndexAMDX,
+          {spvBuilder.getConstantInt(astContext.UnsignedIntTy,
+                                     llvm::APInt(32, 0))},
+          decl->getLocation());
+    }
+    if (auto *nodeMaxRecursionDepthAttr =
+            decl->getAttr<HLSLNodeMaxRecursionDepthAttr>()) {
+      auto attrArgs = astContext.getAttrArgExprs(nodeMaxRecursionDepthAttr);
+      SpirvInstruction *count =
+          getAttrIntArg(attrArgs, 0, nodeMaxRecursionDepthAttr->getCount());
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::MaxNodeRecursionAMDX,
+                                  {count}, decl->getLocation());
+    }
+    if (auto *nodeShareInputOfAttr =
+            decl->getAttr<HLSLNodeShareInputOfAttr>()) {
+      auto attrArgs = astContext.getAttrArgExprs(nodeShareInputOfAttr);
+      SpirvInstruction *name =
+          spvBuilder.getConstantString(nodeShareInputOfAttr->getName());
+      SpirvInstruction *index =
+          getAttrIntArg(attrArgs, 1, nodeShareInputOfAttr->getArrayIndex());
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::SharesInputWithAMDX,
+                                  {name, index}, decl->getLocation());
+    }
+  }
 
-  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
-                              {x, y, z}, decl->getLocation());
+  if (auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>()) {
+    auto attrArgs = astContext.getAttrArgExprs(numThreadsAttr);
+    if (featureManager.isTargetEnvVulkan1p3OrAbove() &&
+        std::any_of(attrArgs.begin(), attrArgs.end(),
+                    [](const DeclRefExpr *expr) { return expr != nullptr; })) {
+      SpirvInstruction *x = getAttrIntArg(attrArgs, 0, numThreadsAttr->getX());
+      SpirvInstruction *y = getAttrIntArg(attrArgs, 1, numThreadsAttr->getY());
+      SpirvInstruction *z = getAttrIntArg(attrArgs, 2, numThreadsAttr->getZ());
+      spvBuilder.addExecutionMode(entryFunction,
+                                  spv::ExecutionMode::LocalSizeId, {x, y, z},
+                                  decl->getLocation());
+    } else {
+      uint32_t x = static_cast<uint32_t>(numThreadsAttr->getX());
+      uint32_t y = static_cast<uint32_t>(numThreadsAttr->getY());
+      uint32_t z = static_cast<uint32_t>(numThreadsAttr->getZ());
+      spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                                  {x, y, z}, decl->getLocation());
+    }
+  } else {
+    // For node shaders, if not explicitly specified, x, y, and z should be
+    // defaulted to 1.
+    assert(isNode && "thread group size missing from entry-point");
+    spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                                {1, 1, 1}, decl->getLocation());
+  }
 
   auto *waveSizeAttr = decl->getAttr<HLSLWaveSizeAttr>();
   if (waveSizeAttr) {
@@ -13464,8 +13945,7 @@ bool SpirvEmitter::processTessellationShaderAttributes(
                 domain->getLocation());
       return false;
     }
-    spvBuilder.addExecutionMode(entryFunction, hsExecMode, {},
-                                decl->getLocation());
+    spvBuilder.addExecutionMode(entryFunction, hsExecMode, decl->getLocation());
   }
 
   // Early return for domain shaders as domain shaders only takes the 'domain'
@@ -13492,8 +13972,7 @@ bool SpirvEmitter::processTessellationShaderAttributes(
                 partitioning->getLocation());
       return false;
     }
-    spvBuilder.addExecutionMode(entryFunction, hsExecMode, {},
-                                decl->getLocation());
+    spvBuilder.addExecutionMode(entryFunction, hsExecMode, decl->getLocation());
   }
   if (auto *outputTopology = decl->getAttr<HLSLOutputTopologyAttr>()) {
     const auto topology = outputTopology->getTopology().lower();
@@ -13507,7 +13986,7 @@ bool SpirvEmitter::processTessellationShaderAttributes(
     // default?
     if (topology != "line") {
       if (hsExecMode != spv::ExecutionMode::Max) {
-        spvBuilder.addExecutionMode(entryFunction, hsExecMode, {},
+        spvBuilder.addExecutionMode(entryFunction, hsExecMode,
                                     decl->getLocation());
       } else {
         emitError("unknown output topology in hull shader",
@@ -13673,7 +14152,7 @@ bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
             .Case("line", spv::ExecutionMode::OutputLinesNV)
             .Case("triangle", spv::ExecutionMode::OutputTrianglesNV);
     if (outputPrimitive != spv::ExecutionMode::Max) {
-      spvBuilder.addExecutionMode(entryFunction, outputPrimitive, {},
+      spvBuilder.addExecutionMode(entryFunction, outputPrimitive,
                                   decl->getLocation());
     } else {
       emitError("unknown output topology in mesh shader",
@@ -13886,6 +14365,17 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
     processPixelShaderAttributes(decl);
   } else if (spvContext.isCS()) {
     processComputeShaderAttributes(decl);
+  } else if (spvContext.isNode()) {
+#ifdef ENABLE_MESH_NODES
+    if (auto nodeLaunchAttr = decl->getAttr<HLSLNodeLaunchAttr>()) {
+      StringRef launchType = nodeLaunchAttr->getLaunchType();
+      if (launchType == "mesh") {
+        if (!processMeshOrAmplificationShaderAttributes(decl, &outputArraySize))
+          return nullptr;
+      }
+    }
+#endif
+    processComputeShaderAttributes(decl);
   } else if (spvContext.isHS()) {
     if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))
       return nullptr;
@@ -13994,12 +14484,23 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
   llvm::SmallVector<SpirvInstruction *, 4> params;
   for (const auto *param : decl->params()) {
     const auto paramType = param->getType();
+    if (hlsl::IsHLSLNodeInputType(paramType)) {
+      SpirvInstruction *value = nullptr;
+      if (!declIdMapper.createStageInputVar(param, &value, false))
+        return false;
+      if (value && value->getKind() == SpirvInstruction::Kind::IK_Variable) {
+        handleNodePayloadArrayType(param, value);
+        params.push_back(value);
+      }
+      continue;
+    }
+
     std::string tempVarName = "param.var." + param->getNameAsString();
     auto *tempVar =
         spvBuilder.addFnVar(paramType, param->getLocation(), tempVarName,
                             param->hasAttr<HLSLPreciseAttr>(),
                             param->hasAttr<HLSLNoInterpolationAttr>());
-
+    handleNodePayloadArrayType(param, tempVar);
     params.push_back(tempVar);
 
     // Create the stage input variable for parameter not marked as pure out and
@@ -14017,6 +14518,9 @@ SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
 
       if (!declIdMapper.createStageInputVar(param, &loadedValue, false))
         return nullptr;
+      if (loadedValue) {
+        handleNodePayloadArrayType(param, loadedValue);
+      }
 
       // Only initialize the temporary variable if the parameter is indeed used,
       // or if it is an inout parameter.
@@ -15123,6 +15627,7 @@ SpirvInstruction *
 SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr,
                                             bool useIdParams) {
   llvm::SmallVector<uint32_t, 2> execModesParams;
+  llvm::SmallVector<SpirvInstruction *, 2> execModesIdParams;
   uint32_t exeMode = 0;
   const auto args = expr->getArgs();
   for (uint32_t i = 0; i < expr->getNumArgs(); ++i) {
@@ -15137,17 +15642,23 @@ SpirvEmitter::processIntrinsicExecutionMode(const CallExpr *expr,
       return nullptr;
     }
 
-    if (i > 0)
-      execModesParams.push_back(argInteger);
-    else
+    if (i == 0)
       exeMode = argInteger;
+    else if (useIdParams)
+      execModesIdParams.push_back(spvBuilder.getConstantInt(
+          astContext.UnsignedIntTy, llvm::APInt(32, argInteger)));
+    else
+      execModesParams.push_back(argInteger);
   }
   assert(entryFunction != nullptr);
   assert(exeMode != 0);
 
-  return spvBuilder.addExecutionMode(
-      entryFunction, static_cast<spv::ExecutionMode>(exeMode), execModesParams,
-      expr->getExprLoc(), useIdParams);
+  auto mode = static_cast<spv::ExecutionMode>(exeMode);
+  return useIdParams
+             ? spvBuilder.addExecutionMode(
+                   entryFunction, mode, execModesIdParams, expr->getExprLoc())
+             : spvBuilder.addExecutionMode(entryFunction, mode, execModesParams,
+                                           expr->getExprLoc());
 }
 
 SpirvInstruction *
@@ -15243,7 +15754,7 @@ void SpirvEmitter::addDerivativeGroupExecutionMode() {
     assert(numThreads[0] % 2 == 0 && numThreads[1] % 2 == 0);
   }
 
-  spvBuilder.addExecutionMode(entryFunction, em, {}, SourceLocation());
+  spvBuilder.addExecutionMode(entryFunction, em, SourceLocation());
 }
 
 SpirvVariable *SpirvEmitter::createPCFParmVarAndInitFromStageInputVar(

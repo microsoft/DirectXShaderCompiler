@@ -4,6 +4,10 @@
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 //
 //  This file implements the in-memory representation of SPIR-V types.
@@ -165,6 +169,10 @@ bool RuntimeArrayType::operator==(const RuntimeArrayType &that) const {
   return elementType == that.elementType &&
          stride.hasValue() == that.stride.hasValue() &&
          (!stride.hasValue() || stride.getValue() == that.stride.getValue());
+}
+
+bool NodePayloadArrayType::operator==(const NodePayloadArrayType &that) const {
+  return elementType == that.elementType && nodeDecl == that.nodeDecl;
 }
 
 bool SpvIntrinsicTypeOperand::operator==(

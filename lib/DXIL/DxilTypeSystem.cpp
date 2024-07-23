@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilTypeSystem.h"
@@ -756,6 +759,7 @@ DXIL::SigPointKind SigPointFromInputQual(DxilParamInputQual Q,
     }
     break;
   case DXIL::ShaderKind::Compute:
+  case DXIL::ShaderKind::Node:
     switch (Q) {
     case DxilParamInputQual::In:
       return DXIL::SigPointKind::CSIn;
