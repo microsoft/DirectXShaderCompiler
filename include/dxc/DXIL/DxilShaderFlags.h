@@ -204,6 +204,8 @@ public:
   bool GetWriteableMSAATextures() const { return m_bWriteableMSAATextures; }
 
   // SM 6.8+
+  void setReserved(bool flag) { m_bReserved = flag; }
+
   void SetSampleCmpGradientOrBias(bool flag) {
     m_bSampleCmpGradientOrBias = flag;
   }
