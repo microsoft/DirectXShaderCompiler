@@ -106,8 +106,9 @@ static uint32_t runValidation(
   return S_OK;
 }
 
-static uint32_t runRootSignatureValidation(IDxcBlob *Shader,
-                                           AbstractMemoryStream *DiagMemStream) {
+static uint32_t
+runRootSignatureValidation(IDxcBlob *Shader,
+                           AbstractMemoryStream *DiagMemStream) {
 
   const DxilContainerHeader *DxilContainer =
       IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize());
