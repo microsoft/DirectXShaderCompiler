@@ -45,7 +45,7 @@ ShaderFlags::ShaderFlags()
       m_bSamplerDescriptorHeapIndexing(false),
       m_bAtomicInt64OnHeapResource(false), m_bResMayNotAlias(false),
       m_bAdvancedTextureOps(false), m_bWriteableMSAATextures(false),
-      m_bWaveMMA(false), m_bSampleCmpGradientOrBias(false),
+      m_bReserved(false), m_bSampleCmpGradientOrBias(false),
       m_bExtendedCommandInfo(false), m_bUsesDerivatives(false),
       m_bRequiresGroup(false), m_align1(0) {
   // Silence unused field warnings
@@ -125,8 +125,6 @@ uint64_t ShaderFlags::GetFeatureInfo() const {
                ? hlsl::DXIL::ShaderFeatureInfo_WriteableMSAATextures
                : 0;
 
-  Flags |= m_bWaveMMA ? hlsl::DXIL::ShaderFeatureInfo_WaveMMA : 0;
-
   Flags |= m_bSampleCmpGradientOrBias
                ? hlsl::DXIL::ShaderFeatureInfo_SampleCmpGradientOrBias
                : 0;
@@ -198,7 +196,6 @@ uint64_t ShaderFlags::GetShaderFlagsRawForCollection() {
   Flags.SetResMayNotAlias(true);
   Flags.SetAdvancedTextureOps(true);
   Flags.SetWriteableMSAATextures(true);
-  Flags.SetWaveMMA(true);
   Flags.SetSampleCmpGradientOrBias(true);
   Flags.SetExtendedCommandInfo(true);
   Flags.SetUsesDerivatives(true);
@@ -447,7 +444,6 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   bool hasAdvancedTextureOps = false;
   bool hasSampleCmpGradientOrBias = false;
 
-  bool hasWaveMMA = false;
   bool hasExtendedCommandInfo = false;
 
   // UsesDerivatives is used to indicate any derivative use per-function, before
@@ -848,7 +844,6 @@ ShaderFlags ShaderFlags::CollectShaderFlags(const Function *F,
   flag.SetWriteableMSAATextures(setWriteableMSAATextures_1_7
                                     ? hasWriteableMSAATextures_1_7
                                     : hasWriteableMSAATextures);
-  flag.SetWaveMMA(hasWaveMMA);
   // Only bother setting the flag when there are UAVs.
   flag.SetResMayNotAlias(canSetResMayNotAlias && hasUAVs &&
                          !M->GetResMayAlias());

@@ -212,10 +212,6 @@ public:
   void SetExtendedCommandInfo(bool flag) { m_bExtendedCommandInfo = flag; }
   bool GetExtendedCommandInfo() const { return m_bExtendedCommandInfo; }
 
-  // Experimental SM 6.9+ - Reserved, not yet supported.
-  void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
-  bool GetWaveMMA() const { return m_bWaveMMA; }
-
   // Per-function flags
   void SetUsesDerivatives(bool flag) { m_bUsesDerivatives = flag; }
   bool GetUsesDerivatives() const { return m_bUsesDerivatives; }
@@ -328,7 +324,7 @@ private:
 
   // Experimental SM 6.9+ - Reserved, not yet supported.
   // Bit: 36
-  unsigned m_bWaveMMA : 1; // SHADER_FEATURE_WAVE_MMA
+  unsigned m_bReserved : 1; // SHADER_FEATURE_RESERVED
 
   // SM 6.8+
   // Bit: 37

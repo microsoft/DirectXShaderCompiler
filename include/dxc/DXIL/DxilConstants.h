@@ -1882,8 +1882,7 @@ const uint64_t ShaderFeatureInfo_SampleCmpGradientOrBias = 0x80000000;
 const uint64_t ShaderFeatureInfo_ExtendedCommandInfo = 0x100000000;
 
 // Experimental SM 6.9+ - Reserved, not yet supported.
-// WaveMMA slots in between two SM 6.6 feature bits.
-const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
+const uint64_t ShaderFeatureInfo_Reserved = 0x8000000;
 
 // Maximum count without rolling over into another 64-bit field is 40,
 // so the last flag we can use for a feature requirement is: 0x8000000000
