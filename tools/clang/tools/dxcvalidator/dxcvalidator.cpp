@@ -107,7 +107,7 @@ static uint32_t runValidation(
 }
 
 static uint32_t runRootSignatureValidation(IDxcBlob *Shader,
-                                           AbstractMemoryStream *DiagStream) {
+                                           AbstractMemoryStream *DiagMemStream) {
 
   const DxilContainerHeader *DxilContainer =
       IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize());
@@ -132,7 +132,7 @@ static uint32_t runRootSignatureValidation(IDxcBlob *Shader,
     RSH.LoadSerialized((const uint8_t *)GetDxilPartData(RSPart),
                        RSPart->PartSize);
     RSH.Deserialize();
-    raw_stream_ostream DiagStream(DiagStream);
+    raw_stream_ostream DiagStream(DiagMemStream);
     if (ProgramHeader) {
       if (!VerifyRootSignatureWithShaderPSV(
               RSH.GetDesc(),
