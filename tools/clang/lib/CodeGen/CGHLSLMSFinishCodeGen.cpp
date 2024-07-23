@@ -2966,7 +2966,6 @@ bool BuildImmInit(Function *Ctor) {
         allConst = false;
         break;
       }
-      ImmList.emplace_back(cast<Constant>(V));
       Value *Ptr = SI->getPointerOperand();
       if (GEPOperator *GepOp = dyn_cast<GEPOperator>(Ptr)) {
         Ptr = GepOp->getPointerOperand();
@@ -2978,6 +2977,15 @@ bool BuildImmInit(Function *Ctor) {
           }
         }
       }
+      // If initializing an array, make sure init value type matches array
+      // element type
+      llvm::Type *GVElemTy = GV->getType()->getElementType();
+      if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(GVElemTy)) {
+        llvm::Type *ElTy = AT->getElementType();
+        if (V->getType() != ElTy)
+          return false;
+      }
+      ImmList.emplace_back(cast<Constant>(V));
     } else {
       if (!isa<ReturnInst>(*I)) {
         allConst = false;
