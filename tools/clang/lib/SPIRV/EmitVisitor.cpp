@@ -1662,6 +1662,21 @@ bool EmitVisitor::visit(SpirvDebugTypeVector *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugTypeMatrix *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getVectorType()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getVectorCount()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(1));
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugTypeArray *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
