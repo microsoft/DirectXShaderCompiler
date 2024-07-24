@@ -4978,122 +4978,122 @@ class db_dxil(object):
             % next_op_idx
         )
 
-        # Deprecated ops
+        # Reserved ops
         self.add_dxil_op(
-            "Deprecated0",
+            "Reserved0",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated1",
+            "Reserved1",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated2",
+            "Reserved2",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated3",
+            "Reserved3",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated4",
+            "Reserved4",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated5",
+            "Reserved5",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated6",
+            "Reserved6",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated7",
+            "Reserved7",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated8",
+            "Reserved8",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated9",
+            "Reserved9",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated10",
+            "Reserved10",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],
         )
         next_op_idx += 1
         self.add_dxil_op(
-            "Deprecated11",
+            "Reserved11",
             next_op_idx,
-            "Deprecated",
-            "Deprecated",
+            "Reserved",
+            "Reserved",
             "v",
             "",
             [retvoid_param],

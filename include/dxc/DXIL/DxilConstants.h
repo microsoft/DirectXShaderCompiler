@@ -475,18 +475,18 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
   //
-  Deprecated0 = 226,  // Deprecated
-  Deprecated1 = 227,  // Deprecated
-  Deprecated10 = 236, // Deprecated
-  Deprecated11 = 237, // Deprecated
-  Deprecated2 = 228,  // Deprecated
-  Deprecated3 = 229,  // Deprecated
-  Deprecated4 = 230,  // Deprecated
-  Deprecated5 = 231,  // Deprecated
-  Deprecated6 = 232,  // Deprecated
-  Deprecated7 = 233,  // Deprecated
-  Deprecated8 = 234,  // Deprecated
-  Deprecated9 = 235,  // Deprecated
+  Reserved0 = 226,  // Reserved
+  Reserved1 = 227,  // Reserved
+  Reserved10 = 236, // Reserved
+  Reserved11 = 237, // Reserved
+  Reserved2 = 228,  // Reserved
+  Reserved3 = 229,  // Reserved
+  Reserved4 = 230,  // Reserved
+  Reserved5 = 231,  // Reserved
+  Reserved6 = 232,  // Reserved
+  Reserved7 = 233,  // Reserved
+  Reserved8 = 234,  // Reserved
+  Reserved9 = 235,  // Reserved
 
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
@@ -997,7 +997,7 @@ enum class OpCode : unsigned {
 // Groups for DXIL operations with equivalent function templates
 enum class OpCodeClass : unsigned {
   //
-  Deprecated,
+  Reserved,
 
   // Amplification shader instructions
   DispatchMesh,

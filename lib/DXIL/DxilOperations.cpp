@@ -2291,109 +2291,109 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
 
     //                                                                                                                         void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,   udt,   obj ,  function attribute
     {
-        OC::Deprecated0,
-        "Deprecated0",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved0,
+        "Reserved0",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated1,
-        "Deprecated1",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved1,
+        "Reserved1",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated2,
-        "Deprecated2",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved2,
+        "Reserved2",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated3,
-        "Deprecated3",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved3,
+        "Reserved3",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated4,
-        "Deprecated4",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved4,
+        "Reserved4",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated5,
-        "Deprecated5",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved5,
+        "Reserved5",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated6,
-        "Deprecated6",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved6,
+        "Reserved6",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated7,
-        "Deprecated7",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved7,
+        "Reserved7",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated8,
-        "Deprecated8",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved8,
+        "Reserved8",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated9,
-        "Deprecated9",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved9,
+        "Reserved9",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated10,
-        "Deprecated10",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved10,
+        "Reserved10",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
     },
     {
-        OC::Deprecated11,
-        "Deprecated11",
-        OCC::Deprecated,
-        "deprecated",
+        OC::Reserved11,
+        "Reserved11",
+        OCC::Reserved,
+        "reserved",
         {true, false, false, false, false, false, false, false, false, false,
          false},
         Attribute::None,
@@ -5222,51 +5222,51 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     break;
 
     //
-  case OpCode::Deprecated0:
+  case OpCode::Reserved0:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated1:
+  case OpCode::Reserved1:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated2:
+  case OpCode::Reserved2:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated3:
+  case OpCode::Reserved3:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated4:
+  case OpCode::Reserved4:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated5:
+  case OpCode::Reserved5:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated6:
+  case OpCode::Reserved6:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated7:
+  case OpCode::Reserved7:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated8:
+  case OpCode::Reserved8:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated9:
+  case OpCode::Reserved9:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated10:
+  case OpCode::Reserved10:
     A(pV);
     A(pI32);
     break;
-  case OpCode::Deprecated11:
+  case OpCode::Reserved11:
     A(pV);
     A(pI32);
     break;
@@ -5652,18 +5652,18 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateHandle:
   case OpCode::CreateHandleFromBinding:
   case OpCode::CreateHandleFromHeap:
-  case OpCode::Deprecated0:
-  case OpCode::Deprecated1:
-  case OpCode::Deprecated2:
-  case OpCode::Deprecated3:
-  case OpCode::Deprecated4:
-  case OpCode::Deprecated5:
-  case OpCode::Deprecated6:
-  case OpCode::Deprecated7:
-  case OpCode::Deprecated8:
-  case OpCode::Deprecated9:
-  case OpCode::Deprecated10:
-  case OpCode::Deprecated11:
+  case OpCode::Reserved0:
+  case OpCode::Reserved1:
+  case OpCode::Reserved2:
+  case OpCode::Reserved3:
+  case OpCode::Reserved4:
+  case OpCode::Reserved5:
+  case OpCode::Reserved6:
+  case OpCode::Reserved7:
+  case OpCode::Reserved8:
+  case OpCode::Reserved9:
+  case OpCode::Reserved10:
+  case OpCode::Reserved11:
   case OpCode::AllocateNodeOutputRecords:
   case OpCode::IncrementOutputCount:
   case OpCode::OutputComplete:
