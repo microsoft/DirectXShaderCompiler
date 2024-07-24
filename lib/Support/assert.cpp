@@ -23,11 +23,15 @@ void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
 
 #else
 
-#include <assert.h>
+#include "llvm/Support/Compiler.h"
+#include <cstdio>
 
-void llvm_assert(const char *message, const char *, unsigned,
+void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
                  const char *_Function) {
-  assert(false && message);
+  fprintf(stderr, "Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message,
+          _File, _Line, _Function);
+  fflush(stderr);
+  LLVM_BUILTIN_TRAP;
 }
 
 #endif

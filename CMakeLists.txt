@@ -623,9 +623,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # HLSL Change Starts - override assert to RaiseException instead of abort
 # for better test behavior
-if(WIN32 AND NOT UNIX)
-  include_directories(BEFORE "${LLVM_MAIN_INCLUDE_DIR}/llvm/llvm_assert")
-endif()
+include_directories(BEFORE "${LLVM_MAIN_INCLUDE_DIR}/llvm/llvm_assert")
 # HLSL Change Ends
 
 include_directories( ${LLVM_INCLUDE_DIR} ${LLVM_MAIN_INCLUDE_DIR})
