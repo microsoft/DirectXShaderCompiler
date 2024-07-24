@@ -1604,6 +1604,7 @@ enum class NodeLaunchType {
   Broadcasting,
   Coalescing,
   Thread,
+  Reserved_Mesh,
 
   LastEntry
 };
