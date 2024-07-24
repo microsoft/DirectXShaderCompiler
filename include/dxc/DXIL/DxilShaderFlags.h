@@ -204,8 +204,6 @@ public:
   bool GetWriteableMSAATextures() const { return m_bWriteableMSAATextures; }
 
   // SM 6.8+
-  void setReserved(bool flag) { m_bReserved = flag; }
-
   void SetSampleCmpGradientOrBias(bool flag) {
     m_bSampleCmpGradientOrBias = flag;
   }
@@ -326,7 +324,21 @@ private:
 
   // Experimental SM 6.9+ - Reserved, not yet supported.
   // Bit: 36
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-private-field"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-private-field"
+#endif
+
   unsigned m_bReserved : 1; // SHADER_FEATURE_RESERVED
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
   // SM 6.8+
   // Bit: 37

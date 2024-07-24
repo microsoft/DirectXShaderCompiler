@@ -147,12 +147,18 @@ typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS7 {
 #if WDK_NTDDI_VERSION < NTDDI_WIN10_FE
 #define D3D12_FEATURE_D3D12_OPTIONS9 ((D3D12_FEATURE)37)
 
+typedef enum D3D12_WAVE_MMA_TIER {
+  D3D12_WAVE_MMA_TIER_NOT_SUPPORTED = 0,
+  D3D12_WAVE_MMA_TIER_1_0 = 10
+} D3D12_WAVE_MMA_TIER;
+
 typedef struct D3D12_FEATURE_DATA_D3D12_OPTIONS9 {
   BOOL MeshShaderPipelineStatsSupported;
   BOOL MeshShaderSupportsFullRangeRenderTargetArrayIndex;
   BOOL AtomicInt64OnTypedResourceSupported;
   BOOL AtomicInt64OnGroupSharedSupported;
   BOOL DerivativesInMeshAndAmplificationShadersSupported;
+  D3D12_WAVE_MMA_TIER WaveMMATier;
 } D3D12_FEATURE_DATA_D3D12_OPTIONS9;
 #endif
 
@@ -266,6 +272,17 @@ static const char *MeshShaderTierToStr(D3D12_MESH_SHADER_TIER Tier) {
   }
 }
 
+static const char *WaveMatrixTierToStr(D3D12_WAVE_MMA_TIER Tier) {
+  switch (Tier) {
+  case D3D12_WAVE_MMA_TIER_NOT_SUPPORTED:
+    return "NO";
+  case D3D12_WAVE_MMA_TIER_1_0:
+    return "1";
+  default:
+    return "ERROR";
+  }
+}
+
 static HRESULT
 GetHighestShaderModel(ID3D12Device *pDevice,
                       D3D12_FEATURE_DATA_SHADER_MODEL &DeviceSM) {
@@ -340,7 +357,7 @@ static HRESULT PrintAdapters() {
               : "%c %S - Highest SM [%s] Wave [%s] I64 [%s] Barycentrics [%s] "
                 "View Instancing [%s] 16bit Support [%s] Raytracing [%s] "
                 "Mesh Shaders [%s] Derivatives in Mesh/Amp Shaders [%s] "
-                "Advanced Texture Ops [%s]\n";
+                "Wave Matrix [%s] Advanced Texture Ops [%s]\n";
       printf(
           Format, comma, AdapterDesc.Description,
           ShaderModelToStr(DeviceSM.HighestShaderModel),
@@ -353,6 +370,7 @@ static HRESULT PrintAdapters() {
           MeshShaderTierToStr(DeviceOptions7.MeshShaderTier),
           BoolToStr(
               DeviceOptions9.DerivativesInMeshAndAmplificationShadersSupported),
+          WaveMatrixTierToStr(DeviceOptions9.WaveMMATier),
           BoolToStr(DeviceOptions14.AdvancedTextureOpsSupported));
       AdapterIndex++;
       comma = IsOutputJson ? ',' : ' ';
