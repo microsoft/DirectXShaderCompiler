@@ -1697,7 +1697,7 @@ Constant *ConstantExpr::getFPCast(Constant *C, Type *Ty) {
 }
 
 Constant *ConstantExpr::getTrunc(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif
@@ -1711,7 +1711,7 @@ Constant *ConstantExpr::getTrunc(Constant *C, Type *Ty, bool OnlyIfReduced) {
 }
 
 Constant *ConstantExpr::getSExt(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif
@@ -1725,7 +1725,7 @@ Constant *ConstantExpr::getSExt(Constant *C, Type *Ty, bool OnlyIfReduced) {
 }
 
 Constant *ConstantExpr::getZExt(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif
@@ -1739,7 +1739,7 @@ Constant *ConstantExpr::getZExt(Constant *C, Type *Ty, bool OnlyIfReduced) {
 }
 
 Constant *ConstantExpr::getFPTrunc(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif
@@ -1751,7 +1751,7 @@ Constant *ConstantExpr::getFPTrunc(Constant *C, Type *Ty, bool OnlyIfReduced) {
 }
 
 Constant *ConstantExpr::getFPExtend(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif
@@ -1763,7 +1763,7 @@ Constant *ConstantExpr::getFPExtend(Constant *C, Type *Ty, bool OnlyIfReduced) {
 }
 
 Constant *ConstantExpr::getUIToFP(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif
@@ -1774,7 +1774,7 @@ Constant *ConstantExpr::getUIToFP(Constant *C, Type *Ty, bool OnlyIfReduced) {
 }
 
 Constant *ConstantExpr::getSIToFP(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif
@@ -1785,7 +1785,7 @@ Constant *ConstantExpr::getSIToFP(Constant *C, Type *Ty, bool OnlyIfReduced) {
 }
 
 Constant *ConstantExpr::getFPToUI(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif
@@ -1796,7 +1796,7 @@ Constant *ConstantExpr::getFPToUI(Constant *C, Type *Ty, bool OnlyIfReduced) {
 }
 
 Constant *ConstantExpr::getFPToSI(Constant *C, Type *Ty, bool OnlyIfReduced) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   bool fromVec = C->getType()->getTypeID() == Type::VectorTyID;
   bool toVec = Ty->getTypeID() == Type::VectorTyID;
 #endif

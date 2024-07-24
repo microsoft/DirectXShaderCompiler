@@ -753,7 +753,7 @@ PointerType *PointerType::get(Type *EltTy, unsigned AddressSpace) {
 
 PointerType::PointerType(Type *E, unsigned AddrSpace)
   : SequentialType(PointerTyID, E) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   const unsigned oldNCT = NumContainedTys;
 #endif
   setSubclassData(AddrSpace);

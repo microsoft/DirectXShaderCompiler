@@ -3001,7 +3001,7 @@ private:
                                   SourceLocation Loc);
 
 public:
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   // Determine whether the given argument is an Objective-C method
   // that may have type parameters in its signature.
   static bool isObjCMethodWithTypeParams(const ObjCMethodDecl *method) {
@@ -3034,7 +3034,7 @@ public:
     assert((ParamsToSkip == 0 || CallArgTypeInfo) &&
            "Can't skip parameters if type info is not provided");
     if (CallArgTypeInfo) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
       bool isGenericMethod = isObjCMethodWithTypeParams(CallArgTypeInfo);
 #endif
 

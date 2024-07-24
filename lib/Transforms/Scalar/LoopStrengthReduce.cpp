@@ -868,7 +868,7 @@ public:
 
   void Lose();
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   // Once any of the metrics loses, they must all remain losers.
   bool isValid() {
     return ((NumRegs | AddRecCost | NumIVMuls | NumBaseAdds

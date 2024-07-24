@@ -9,25 +9,49 @@
 
 #include "assert.h"
 
-#ifdef _WIN32
+#ifdef LLVM_ASSERT_TRAPS
+#include "llvm/Support/Compiler.h"
+#include <cstdio>
+namespace {
+void llvm_assert_trap(const char *_Message, const char *_File, unsigned _Line,
+                      const char *_Function) {
+  fprintf(stderr, "Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message,
+          _File, _Line, _Function);
+  fflush(stderr);
+  LLVM_BUILTIN_TRAP;
+}
+} // namespace
+#endif
 
+#ifdef _WIN32
 #include "dxc/Support/Global.h"
 #include "windows.h"
 
 void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
                  const char *_Function) {
+#ifdef LLVM_ASSERT_TRAPS
+  llvm_assert_trap(_Message, _File, _Line, _Function);
+#else
   OutputDebugFormatA("Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message,
                      _File, _Line, _Function);
   RaiseException(STATUS_LLVM_ASSERT, 0, 0, 0);
+#endif
 }
 
-#else
+#else /* _WIN32 */
 
 #include <assert.h>
 
-void llvm_assert(const char *message, const char *, unsigned,
+void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
                  const char *_Function) {
-  assert(false && message);
+#ifdef LLVM_ASSERT_TRAPS
+  llvm_assert_trap(_Message, _File, _Line, _Function);
+#else
+  (void)_File;
+  (void)_Line;
+  (void)_Function;
+  assert(false && _Message);
+#endif
 }
 
-#endif
+#endif /* _WIN32 */

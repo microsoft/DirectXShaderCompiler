@@ -48,7 +48,7 @@ CallGraph::~CallGraph() {
 
 // Reset all node's use counts to zero before deleting them to prevent an
 // assertion from firing.
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   for (auto &I : FunctionMap)
     I.second->allReferencesDropped();
 #endif

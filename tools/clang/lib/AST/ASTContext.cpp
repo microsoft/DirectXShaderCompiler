@@ -3145,7 +3145,7 @@ ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
   return QualType(FTP, 0);
 }
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
 static bool NeedsInjectedClassNameType(const RecordDecl *D) {
   if (!isa<CXXRecordDecl>(D)) return false;
   const CXXRecordDecl *RD = cast<CXXRecordDecl>(D);
@@ -3400,7 +3400,7 @@ ASTContext::getTemplateSpecializationType(TemplateName Template,
                                        Underlying);
 }
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
 static bool hasAnyPackExpansions(const TemplateArgument *Args,
                                  unsigned NumArgs) {
   for (unsigned I = 0; I != NumArgs; ++I)

@@ -992,7 +992,7 @@ UniqueID vfs::getNextVirtualUniqueID() {
   return UniqueID(std::numeric_limits<uint64_t>::max(), ID);
 }
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
 static bool pathHasTraversal(StringRef Path) {
   using namespace llvm::sys;
   for (StringRef Comp : llvm::make_range(path::begin(Path), path::end(Path)))

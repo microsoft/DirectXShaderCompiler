@@ -592,7 +592,7 @@ static bool sink(Instruction &I, const LoopInfo *LI, const DominatorTree *DT,
   ++NumSunk;
   Changed = true;
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   SmallVector<BasicBlock *, 32> ExitBlocks;
   CurLoop->getUniqueExitBlocks(ExitBlocks);
   SmallPtrSet<BasicBlock *, 32> ExitBlockSet(ExitBlocks.begin(), 

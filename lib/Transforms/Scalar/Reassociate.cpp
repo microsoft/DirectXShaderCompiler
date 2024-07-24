@@ -643,7 +643,7 @@ static bool LinearizeExprTree(BinaryOperator *I,
   LeafMap Leaves; // Leaf -> Total weight so far.
   SmallVector<Value*, 8> LeafOrder; // Ensure deterministic leaf output order.
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   SmallPtrSet<Value*, 8> Visited; // For sanity checking the iteration scheme.
 #endif
   while (!Worklist.empty()) {

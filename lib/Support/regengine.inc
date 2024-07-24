@@ -118,10 +118,12 @@ static char *pchar(int);
 #define	AT(t, p1, p2, s1, s2)	at(m, t, p1, p2, s1, s2)
 #define	NOTE(str)	{ if (m->eflags&REG_TRACE) (void)printf("=%s\n", (str)); }
 static int nope = 0;
+#define ASSERT_NOPE() assert(nope)
 #else
 #define	SP(t, s, c)	/* nothing */
 #define	AT(t, p1, p2, s1, s2)	/* nothing */
 #define	NOTE(s)	/* nothing */
+#define ASSERT_NOPE() /* nothing */
 #endif
 
 /*
@@ -328,7 +330,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 		/* figure out what it matched */
 		switch (OP(m->g->strip[ss])) {
 		case OEND:
-			assert(nope);
+			ASSERT_NOPE();
 			break;
 		case OCHAR:
 			sp++;
@@ -344,7 +346,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 			break;
 		case OBACK_:
 		case O_BACK:
-			assert(nope);
+			ASSERT_NOPE();
 			break;
 		/* cases where length of match is hard to find */
 		case OQUEST_:
@@ -454,7 +456,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 		case OOR1:
 		case OOR2:
 		case O_CH:
-			assert(nope);
+			ASSERT_NOPE();
 			break;
 		case OLPAREN:
 			i = OPND(m->g->strip[ss]);
@@ -467,7 +469,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 			m->pmatch[i].rm_eo = sp - m->offp;
 			break;
 		default:		/* uh oh */
-			assert(nope);
+			ASSERT_NOPE();
 			break;
 		}
 	}
@@ -666,12 +668,12 @@ backref(struct match *m, const char *start, const char *stop, sopno startst,
 		return(NULL);
 		break;
 	default:		/* uh oh */
-		assert(nope);
+		ASSERT_NOPE();
 		break;
 	}
 
 	/* "can't happen" */
-	assert(nope);
+	ASSERT_NOPE();
 	/* NOTREACHED */
         return NULL;
 }
@@ -950,7 +952,7 @@ step(struct re_guts *g,
 			FWD(aft, aft, 1);
 			break;
 		default:		/* ooooops... */
-			assert(nope);
+			ASSERT_NOPE();
 			break;
 		}
 	}

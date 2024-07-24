@@ -826,7 +826,7 @@ static bool shouldEmitVTableAtEndOfTranslationUnit(CodeGenModule &CGM,
 /// v-tables, and that we are now at the end of the translation unit,
 /// decide whether we should emit them.
 void CodeGenModule::EmitDeferredVTables() {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   // Remember the size of DeferredVTables, because we're going to assume
   // that this entire operation doesn't modify it.
   size_t savedSize = DeferredVTables.size();

@@ -322,7 +322,7 @@ void Value::takeName(Value *V) {
     ST->reinsertValue(this);
 }
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
 static bool contains(SmallPtrSetImpl<ConstantExpr *> &Cache, ConstantExpr *Expr,
                      Constant *C) {
   if (!Cache.insert(Expr).second)

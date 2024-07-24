@@ -2330,7 +2330,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
   /// just after the stmt record.
   llvm::DenseMap<uint64_t, Stmt *> StmtEntries;
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   unsigned PrevNumStmts = StmtStack.size();
 #endif
 

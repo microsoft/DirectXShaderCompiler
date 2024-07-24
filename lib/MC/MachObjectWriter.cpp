@@ -900,7 +900,7 @@ void MachObjectWriter::writeObject(MCAssembler &Asm,
 
   // Write out the loh commands, if there is one.
   if (LOHSize) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
     unsigned Start = OS.tell();
 #endif
     Asm.getLOHContainer().emit(*this, Layout);

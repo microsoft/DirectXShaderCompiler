@@ -22,11 +22,21 @@
 #define STATUS_LLVM_UNREACHABLE 0xE0000002
 #define STATUS_LLVM_FATAL 0xE0000003
 
-#ifdef NDEBUG
+// Define LLVM_ENABLE_ASSERT_IN_NDEBUG to enable assertions in non-debug builds.
+// Define LLVM_ASSERT_TRAPS to force assertions to trap (LLVM_BUILTIN_TRAP).
+
+// Use ASSERTS_ENABLED instead of NDEBUG to wrap assert-only code
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_ASSERT_IN_NDEBUG)
+#define ASSERTS_ENABLED 1
+#else
+#define ASSERTS_ENABLED 0
+#endif
+
+#if !ASSERTS_ENABLED
 
 #define assert(_Expression) ((void)0)
 
-#else /* NDEBUG */
+#else /* ASSERTS_ENABLED */
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,4 +51,4 @@ void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
   ((void)((!!(_Expression)) ||                                                 \
           (llvm_assert(#_Expression, __FILE__, __LINE__, __FUNCTION__), 0)))
 
-#endif /* NDEBUG */
+#endif /* ASSERTS_ENABLED */

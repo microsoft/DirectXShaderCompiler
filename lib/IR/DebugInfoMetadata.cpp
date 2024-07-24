@@ -167,7 +167,7 @@ static StringRef getString(const MDString *S) {
   return StringRef();
 }
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
 static bool isCanonical(const MDString *S) {
   return !S || !S->getString().empty();
 }

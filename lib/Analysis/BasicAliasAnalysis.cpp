@@ -412,7 +412,7 @@ DecomposeGEPExpression(const Value *V, int64_t &BaseOffs,
 // BasicAliasAnalysis Pass
 //===----------------------------------------------------------------------===//
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
 static const Function *getParent(const Value *V) {
   if (const Instruction *inst = dyn_cast<Instruction>(V))
     return inst->getParent()->getParent();

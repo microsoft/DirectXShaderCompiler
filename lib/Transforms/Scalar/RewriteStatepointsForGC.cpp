@@ -222,7 +222,7 @@ static bool isHandledGCPointerType(Type *T) {
   return false;
 }
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
 /// Returns true if this type contains a gc pointer whether we know how to
 /// handle that type or not.
 static bool containsGCPtrType(Type *Ty) {
@@ -784,7 +784,7 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
 
   bool progress = true;
   while (progress) {
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
     size_t oldSize = states.size();
 #endif
     progress = false;
@@ -808,8 +808,10 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
       }
     }
 
+#if ASSERTS_ENABLED
     assert(oldSize <= states.size());
     assert(oldSize == states.size() || progress);
+#endif
   }
 
   if (TraceLSP) {
@@ -2633,7 +2635,7 @@ static void recomputeLiveInValues(GCPtrLivenessData &RevisedLivenessData,
   StatepointLiveSetTy Updated;
   findLiveSetAtInst(Inst, RevisedLivenessData, Updated);
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   DenseSet<Value *> Bases;
   for (auto KVPair : Info.PointerToBase) {
     Bases.insert(KVPair.second);
@@ -2648,7 +2650,7 @@ static void recomputeLiveInValues(GCPtrLivenessData &RevisedLivenessData,
       continue;
     }
 
-#ifndef NDEBUG
+#if ASSERTS_ENABLED
   for (auto V : Updated) {
     assert(Info.PointerToBase.count(V) &&
            "must be able to find base for live value");
