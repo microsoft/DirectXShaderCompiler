@@ -2915,8 +2915,6 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
   DXASSERT_NOMSG(m_pLibraryReflection);
   IFR(ZeroMemoryToOut(pDesc));
 
-  const ShaderModel *pSM =
-      m_pLibraryReflection->m_pDxilModule->GetShaderModel();
   DXIL::ShaderKind kind = DXIL::ShaderKind::Library;
   if (m_pProps) {
     kind = m_pProps->shaderKind;
