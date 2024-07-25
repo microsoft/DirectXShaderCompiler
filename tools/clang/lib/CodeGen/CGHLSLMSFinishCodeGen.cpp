@@ -2979,11 +2979,13 @@ bool BuildImmInit(Function *Ctor) {
       }
       // If initializing an array, make sure init value type matches array
       // element type
-      llvm::Type *GVElemTy = GV->getType()->getElementType();
-      if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(GVElemTy)) {
-        llvm::Type *ElTy = AT->getElementType();
-        if (V->getType() != ElTy)
-          return false;
+      if (GV) {
+        llvm::Type *GVElemTy = GV->getType()->getElementType();
+        if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(GVElemTy)) {
+          llvm::Type *ElTy = AT->getElementType();
+          if (V->getType() != ElTy)
+            return false;
+        }
       }
       ImmList.emplace_back(cast<Constant>(V));
     } else {
