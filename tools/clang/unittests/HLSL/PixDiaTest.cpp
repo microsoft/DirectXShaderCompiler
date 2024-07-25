@@ -188,6 +188,8 @@ public:
   TEST_METHOD(DxcPixDxilDebugInfo_BitFields_Overlap)
   TEST_METHOD(DxcPixDxilDebugInfo_Min16SizesAndOffsets_Enabled)
   TEST_METHOD(DxcPixDxilDebugInfo_Min16SizesAndOffsets_Disabled)
+  TEST_METHOD(DxcPixDxilDebugInfo_Min16VectorOffsets_Enabled)
+  TEST_METHOD(DxcPixDxilDebugInfo_Min16VectorOffsets_Disabled)
   TEST_METHOD(
       DxcPixDxilDebugInfo_VariableScopes_InlinedFunctions_TwiceInlinedFunctions)
   TEST_METHOD(
@@ -661,6 +663,10 @@ public:
                                 std::array<DWORD, 4> const &memberSizes,
                                 std::vector<const wchar_t *> extraArgs = {
                                     L"-Od"});
+  void RunVectorSizeAndOffsetTestCase(const char *hlsl,
+                                      std::array<DWORD, 4> const &memberOffsets,
+                                      std::vector<const wchar_t *> extraArgs = {
+                                          L"-Od"});
   DebuggerInterfaces
   CompileAndCreateDxcDebug(const char *hlsl, const wchar_t *profile,
                            IDxcIncludeHandler *includer = nullptr,
@@ -3160,6 +3166,83 @@ void main()
 
 )";
   RunSizeAndOffsetTestCase(hlsl, {0, 32, 64, 96}, {16, 16, 16, 16}, {L"-Od"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Min16VectorOffsets_Enabled) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  min16float4 vector;
+  vector.x = UAV[0];
+  vector.y = UAV[1];
+  vector.z = UAV[2];
+  vector.w = UAV[3];
+  UAV[16] = vector.x + vector.y + vector.z + vector.w; //STOP_HERE
+}
+
+
+)";
+  RunVectorSizeAndOffsetTestCase(hlsl, {0, 16, 32, 48},
+                                 {L"-Od", L"-enable-16bit-types"});
+}
+
+TEST_F(PixDiaTest, DxcPixDxilDebugInfo_Min16VectorOffsets_Disabled) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+
+  const char *hlsl = R"(
+RWStructuredBuffer<int> UAV: register(u0);
+
+[numthreads(1, 1, 1)]
+void main()
+{
+  min16float4 vector;
+  vector.x = UAV[0];
+  vector.y = UAV[1];
+  vector.z = UAV[2];
+  vector.w = UAV[3];
+  UAV[16] = vector.x + vector.y + vector.z + vector.w; //STOP_HERE
+}
+
+
+)";
+  RunVectorSizeAndOffsetTestCase(hlsl, {0, 32, 64, 96});
+}
+void PixDiaTest::RunVectorSizeAndOffsetTestCase(
+    const char *hlsl, std::array<DWORD, 4> const &memberOffsets,
+    std::vector<const wchar_t *> extraArgs) {
+  if (m_ver.SkipDxilVersion(1, 5))
+    return;
+  auto debugInfo =
+      CompileAndCreateDxcDebug(hlsl, L"cs_6_5", nullptr, extraArgs).debugInfo;
+  auto live = GetLiveVariablesAt(hlsl, "STOP_HERE", debugInfo);
+  CComPtr<IDxcPixVariable> variable;
+  VERIFY_SUCCEEDED(live->GetVariableByName(L"vector", &variable));
+  CComPtr<IDxcPixType> type;
+  VERIFY_SUCCEEDED(variable->GetType(&type));
+
+  CComPtr<IDxcPixType> unAliasedType;
+  VERIFY_SUCCEEDED(UnAliasType(type, &unAliasedType));
+  CComPtr<IDxcPixStructType> structType;
+  VERIFY_SUCCEEDED(unAliasedType->QueryInterface(IID_PPV_ARGS(&structType)));
+
+  DWORD fieldCount = 0;
+  VERIFY_SUCCEEDED(structType->GetNumFields(&fieldCount));
+  VERIFY_ARE_EQUAL(fieldCount, 4u);
+
+  for (size_t i = 0; i < memberOffsets.size(); i++) {
+    CComPtr<IDxcPixStructField> field;
+    VERIFY_SUCCEEDED(structType->GetFieldByIndex(i, &field));
+    DWORD offsetInBits = 0;
+    VERIFY_SUCCEEDED(field->GetOffsetInBits(&offsetInBits));
+    VERIFY_ARE_EQUAL(memberOffsets[i], offsetInBits);
+  }
 }
 
 TEST_F(PixDiaTest, DxcPixDxilDebugInfo_SubProgramsInNamespaces) {

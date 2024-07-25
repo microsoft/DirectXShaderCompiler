@@ -138,28 +138,8 @@ public:
     unsigned AlignMask = DescendTypeToGetAlignMask(Ty);
     if (AlignMask) {
       VALUE_TO_DECLARE_LOG("Aligning to %d", AlignMask);
-      // This is some magic arithmetic. Here's an example:
-      //
-      // Assume the natural alignment for Ty is 16 bits. Then
-      //
-      //     AlignMask = 0x0000000f(15)
-      //
-      // If the current aligned offset is
-      //
-      //     CurrentAlignedOffset = 0x00000048(72)
-      //
-      // Then
-      //
-      //     T = CurrentAlignOffset + AlignMask = 0x00000057(87)
-      //
-      // Which mean
-      //
-      //     T & ~CurrentOffset = 0x00000050(80)
-      //
-      // is the aligned offset where Ty should be placed.
-      AlignMask = AlignMask - 1;
       m_CurrentAlignedOffset =
-          (m_CurrentAlignedOffset + AlignMask) & ~AlignMask;
+          llvm::RoundUpToAlignment(m_CurrentAlignedOffset, AlignMask);
     } else {
       VALUE_TO_DECLARE_LOG("Failed to find alignment");
     }
@@ -1317,7 +1297,7 @@ void VariableRegisters::PopulateAllocaMap_StructType(
   const llvm::DITypeIdentifierMap EmptyMap;
 
   for (auto OffsetAndMember : SortedMembers) {
-    VALUE_TO_DECLARE_LOG("Member: %s at aligned offset %d",
+    VALUE_TO_DECLARE_LOG("Member: %s at packed offset %d",
                          OffsetAndMember.second->getName().str().c_str(),
                          OffsetAndMember.first);
     // Align the offsets to the member's type natural alignment. This
@@ -1331,9 +1311,12 @@ void VariableRegisters::PopulateAllocaMap_StructType(
       // size would be lost
       PopulateAllocaMap(OffsetAndMember.second);
     } else {
-      assert(m_Offsets.GetCurrentAlignedOffset() ==
-                 StructStart + OffsetAndMember.first &&
-             "Offset mismatch in DIStructType");
+      if (OffsetAndMember.second->getAlignInBits() ==
+          OffsetAndMember.second->getSizeInBits()) {
+        assert(m_Offsets.GetCurrentAlignedOffset() ==
+                   StructStart + OffsetAndMember.first &&
+               "Offset mismatch in DIStructType");
+      }
       if (IsResourceObject(OffsetAndMember.second)) {
         m_Offsets.AddResourceType(OffsetAndMember.second);
       } else {

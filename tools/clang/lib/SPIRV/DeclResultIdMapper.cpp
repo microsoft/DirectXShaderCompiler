@@ -968,27 +968,12 @@ DeclResultIdMapper::getDeclSpirvInfo(const ValueDecl *decl) const {
 SpirvInstruction *DeclResultIdMapper::getDeclEvalInfo(const ValueDecl *decl,
                                                       SourceLocation loc,
                                                       SourceRange range) {
-  if (decl->hasAttr<VKExtensionExtAttr>() ||
-      decl->hasAttr<VKCapabilityExtAttr>()) {
-    theEmitter.createSpirvIntrInstExt(decl->getAttrs(), QualType(),
-                                      /* spvArgs */ {}, /* isInst */ false,
-                                      loc);
-  }
-
   if (auto *builtinAttr = decl->getAttr<VKExtBuiltinInputAttr>()) {
     return getBuiltinVar(spv::BuiltIn(builtinAttr->getBuiltInID()),
                          decl->getType(), spv::StorageClass::Input, loc);
   } else if (auto *builtinAttr = decl->getAttr<VKExtBuiltinOutputAttr>()) {
     return getBuiltinVar(spv::BuiltIn(builtinAttr->getBuiltInID()),
                          decl->getType(), spv::StorageClass::Output, loc);
-  }
-
-  if (hlsl::IsHLSLDynamicResourceType(decl->getType()) ||
-      hlsl::IsHLSLDynamicSamplerType(decl->getType())) {
-    emitError("HLSL object %0 not yet supported with -spirv",
-              decl->getLocation())
-        << decl->getName();
-    return nullptr;
   }
 
   const DeclSpirvInfo *info = getDeclSpirvInfo(decl);
@@ -1090,6 +1075,9 @@ void DeclResultIdMapper::createCounterVarForDecl(const DeclaratorDecl *decl) {
 SpirvVariable *
 DeclResultIdMapper::createFnVar(const VarDecl *var,
                                 llvm::Optional<SpirvInstruction *> init) {
+  if (astDecls[var].instr != nullptr)
+    return cast<SpirvVariable>(astDecls[var].instr);
+
   const auto type = getTypeOrFnRetType(var);
   const auto loc = var->getLocation();
   const auto name = var->getName();
@@ -1102,10 +1090,7 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
   varInstr->setContainsAliasComponent(isAlias);
-
-  assert(astDecls[var].instr == nullptr);
   astDecls[var].instr = varInstr;
-
   return varInstr;
 }
 
@@ -1157,8 +1142,19 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
   return varInstr;
 }
 
+SpirvVariable *DeclResultIdMapper::createResourceHeap(const VarDecl *var,
+                                                      QualType ResourceType) {
+  QualType ResourceArrayType = astContext.getIncompleteArrayType(
+      ResourceType, clang::ArrayType::Normal, 0);
+  return createExternVar(var, ResourceArrayType);
+}
+
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
-  const auto type = var->getType();
+  return createExternVar(var, var->getType());
+}
+
+SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
+                                                   QualType type) {
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
   const bool isACSBuffer =
       isAppendStructuredBuffer(type) || isConsumeStructuredBuffer(type);
@@ -1269,12 +1265,9 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
   if (storageClass == spv::StorageClass::Workgroup)
     return varInstr;
 
-  const auto *regAttr = getResourceBinding(var);
   const auto *bindingAttr = var->getAttr<VKBindingAttr>();
-  const auto *counterBindingAttr = var->getAttr<VKCounterBindingAttr>();
-
-  resourceVars.emplace_back(varInstr, var, loc, regAttr, bindingAttr,
-                            counterBindingAttr);
+  resourceVars.emplace_back(varInstr, var, loc, getResourceBinding(var),
+                            bindingAttr, var->getAttr<VKCounterBindingAttr>());
 
   if (const auto *inputAttachment = var->getAttr<VKInputAttachmentIndexAttr>())
     spvBuilder.decorateInputAttachmentIndex(varInstr,
@@ -1640,6 +1633,18 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
   return bufferVar;
 }
 
+void DeclResultIdMapper::recordsSpirvTypeAlias(const Decl *decl) {
+  auto *typedefDecl = dyn_cast<TypedefNameDecl>(decl);
+  if (!typedefDecl)
+    return;
+
+  if (!typedefDecl->hasAttr<VKCapabilityExtAttr>() &&
+      !typedefDecl->hasAttr<VKExtensionExtAttr>())
+    return;
+
+  typeAliasesWithAttributes.push_back(typedefDecl);
+}
+
 void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
   if (astDecls.count(var) != 0)
     return;
@@ -1814,6 +1819,10 @@ void DeclResultIdMapper::createCounterVar(
       assert(declType->isIncompleteArrayType());
       counterType = spvContext.getRuntimeArrayType(counterType, arrayStride);
     }
+  } else if (isResourceDescriptorHeap(decl->getType()) ||
+             isSamplerDescriptorHeap(decl->getType())) {
+    counterType =
+        spvContext.getRuntimeArrayType(counterType, /* arrayStride= */ 4);
   }
 
   // {RW|Append|Consume}StructuredBuffer are all in Uniform storage class.
@@ -1997,9 +2006,11 @@ private:
   uint32_t nextAvailableLocation[kMaxIndex];
 };
 
+} // namespace
+
 /// A class for managing resource bindings to avoid duplicate uses of the same
 /// set and binding number.
-class BindingSet {
+class DeclResultIdMapper::BindingSet {
 public:
   /// Uses the given set and binding number. Returns false if the binding number
   /// was already occupied in the set, and returns true otherwise.
@@ -2065,7 +2076,6 @@ private:
   ///< set number -> set of used binding number
   llvm::DenseMap<uint32_t, std::set<uint32_t>> usedBindings;
 };
-} // namespace
 
 bool DeclResultIdMapper::checkSemanticDuplication(bool forInput) {
   // Mapping from entry points to the corresponding set of semantics.
@@ -2614,6 +2624,13 @@ bool DeclResultIdMapper::decorateResourceBindings() {
       }
     }
 
+    if (var.getDeclaration()) {
+      const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
+      if (decl && (isResourceDescriptorHeap(decl->getType()) ||
+                   isSamplerDescriptorHeap(decl->getType())))
+        continue;
+    }
+
     if (var.isCounter()) {
 
       if (!var.getCounterBinding()) {
@@ -2668,7 +2685,59 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     }
   }
 
+  decorateResourceHeapsBindings(bindingSet);
   return true;
+}
+
+void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
+  bool hasResource = false;
+  bool hasSamplers = false;
+  bool hasCounters = false;
+
+  // Determine which type of heap resource is used to lazily allocation
+  // bindings.
+  for (const auto &var : resourceVars) {
+    if (!var.getDeclaration())
+      continue;
+    const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
+    if (!decl)
+      continue;
+
+    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+
+    assert(!(var.isCounter() && isSamplerHeap));
+
+    hasResource |= isResourceHeap;
+    hasSamplers |= isSamplerHeap;
+    hasCounters |= isResourceHeap && var.isCounter();
+  }
+
+  // Allocate bindings only for used resources. The order of this allocation is
+  // important:
+  //  - First resource heaps, then sampler heaps, and finally counter heaps.
+  const uint32_t resourceBinding =
+      hasResource ? bindingSet.useNextBinding(0) : 0;
+  const uint32_t samplersBinding =
+      hasSamplers ? bindingSet.useNextBinding(0) : 0;
+  const uint32_t countersBinding =
+      hasCounters ? bindingSet.useNextBinding(0) : 0;
+
+  for (const auto &var : resourceVars) {
+    if (!var.getDeclaration())
+      continue;
+    const VarDecl *decl = dyn_cast<VarDecl>(var.getDeclaration());
+    if (!decl)
+      continue;
+
+    if (isResourceDescriptorHeap(decl->getType()))
+      spvBuilder.decorateDSetBinding(var.getSpirvInstr(), /* set= */ 0,
+                                     var.isCounter() ? countersBinding
+                                                     : resourceBinding);
+    else if (isSamplerDescriptorHeap(decl->getType()))
+      spvBuilder.decorateDSetBinding(var.getSpirvInstr(), /* set= */ 0,
+                                     samplersBinding);
+  }
 }
 
 bool DeclResultIdMapper::decorateResourceCoherent() {
@@ -4773,6 +4842,22 @@ void DeclResultIdMapper::storeOutStageVarsToStorage(
     storeOutStageVarsToStorage(cast<DeclaratorDecl>(field), ctrlPointID,
                                field->getType(), tempLocation);
     ++index;
+  }
+}
+
+void DeclResultIdMapper::registerCapabilitiesAndExtensionsForType(
+    const TypedefType *type) {
+  for (const auto *decl : typeAliasesWithAttributes) {
+    if (type == decl->getTypeForDecl()) {
+      for (auto *attribute : decl->specific_attrs<VKExtensionExtAttr>()) {
+        clang::StringRef extensionName = attribute->getName();
+        spvBuilder.requireExtension(extensionName, decl->getLocation());
+      }
+      for (auto *attribute : decl->specific_attrs<VKCapabilityExtAttr>()) {
+        spv::Capability cap = spv::Capability(attribute->getCapability());
+        spvBuilder.requireCapability(cap, decl->getLocation());
+      }
+    }
   }
 }
 

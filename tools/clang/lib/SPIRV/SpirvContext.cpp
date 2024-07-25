@@ -452,6 +452,21 @@ SpirvContext::getDebugTypeVector(const SpirvType *spirvType,
 }
 
 SpirvDebugType *
+SpirvContext::getDebugTypeMatrix(const SpirvType *spirvType,
+                                 SpirvDebugInstruction *vectorType,
+                                 uint32_t vectorCount) {
+  // Reuse existing debug type if possible.
+  if (debugTypes.find(spirvType) != debugTypes.end())
+    return debugTypes[spirvType];
+
+  auto *eTy = dyn_cast<SpirvDebugTypeVector>(vectorType);
+  assert(eTy && "Element type must be a SpirvDebugTypeVector.");
+  auto *debugType = new (this) SpirvDebugTypeMatrix(eTy, vectorCount);
+  debugTypes[spirvType] = debugType;
+  return debugType;
+}
+
+SpirvDebugType *
 SpirvContext::getDebugTypeFunction(const SpirvType *spirvType, uint32_t flags,
                                    SpirvDebugType *ret,
                                    llvm::ArrayRef<SpirvDebugType *> params) {

@@ -43,6 +43,8 @@
 #include <cassert>
 #include <cstddef>
 #include <iterator>
+#include <memory>  // HLSL Change
+#include <utility> // HLSL Change
 
 namespace llvm {
 
@@ -102,6 +104,12 @@ struct ilist_sentinel_traits {
   static void noteHead(NodeTy *NewHead, NodeTy *Sentinel) {
     ilist_traits<NodeTy>::setPrev(NewHead, Sentinel);
   }
+
+  // HLSL Change Starts
+  /// setSentinel - Take ownership of a constructed sentinel object.
+  /// Unused by this implementation.
+  void setSentinel(std::unique_ptr<NodeTy> &&) {}
+  // HLSL Change Ends
 };
 
 /// ilist_node_traits - A fragment for template traits for intrusive list
@@ -347,7 +355,16 @@ public:
   typedef std::reverse_iterator<const_iterator>  const_reverse_iterator;
   typedef std::reverse_iterator<iterator>  reverse_iterator;
 
+  // Default constructor. Relies on base classes to create and manage
+  // the lifetime of the sentinel.
   iplist() : Head(this->provideInitialHead()) {}
+  // HLSL Change Starts
+  // Construct with a sentinel object, and take ownership of the sentinel.
+  iplist(std::unique_ptr<NodeTy> initial_head) : Head(initial_head.get()) {
+    // Transfer ownership to the sentinel traits base class implementation.
+    this->setSentinel(std::move(initial_head));
+  }
+  // HLSL Change Ends
   ~iplist() {
     if (!Head) return;
     clear();

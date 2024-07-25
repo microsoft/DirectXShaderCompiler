@@ -100,6 +100,11 @@ void SortDebugInfoVisitor::whileEachOperandOfDebugInstruction(
     if (!visitor(inst->getElementType()))
       break;
   } break;
+  case SpirvInstruction::IK_DebugTypeMatrix: {
+    SpirvDebugTypeMatrix *inst = cast<SpirvDebugTypeMatrix>(di);
+    assert(inst != nullptr);
+    visitor(inst->getVectorType());
+  } break;
   case SpirvInstruction::IK_DebugTypeFunction: {
     SpirvDebugTypeFunction *inst = dyn_cast<SpirvDebugTypeFunction>(di);
     assert(inst != nullptr);

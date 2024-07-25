@@ -9108,6 +9108,8 @@ public:
                                 bool isImplicit);
   QualType getHLSLDefaultSpecialization(TemplateDecl *Decl);
   // HLSL Change End - adjust this from T* to T&-like
+
+  void DiagnoseSemanticDecl(hlsl::SemanticDecl *Decl); // HLSL Change
 };
 
 /// \brief RAII object that enters a new expression evaluation context.

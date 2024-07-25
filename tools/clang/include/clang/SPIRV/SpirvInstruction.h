@@ -153,6 +153,7 @@ public:
     IK_DebugTypeBasic,
     IK_DebugTypeArray,
     IK_DebugTypeVector,
+    IK_DebugTypeMatrix,
     IK_DebugTypeFunction,
     IK_DebugTypeComposite,
     IK_DebugTypeMember,
@@ -2877,6 +2878,31 @@ public:
 private:
   SpirvDebugType *elementType;
   uint32_t elementCount;
+};
+
+/// Represents matrix debug types
+class SpirvDebugTypeMatrix : public SpirvDebugType {
+public:
+  SpirvDebugTypeMatrix(SpirvDebugTypeVector *vectorType, uint32_t vectorCount);
+
+  DEFINE_RELEASE_MEMORY_FOR_CLASS(SpirvDebugTypeMatrix)
+
+  static bool classof(const SpirvInstruction *inst) {
+    return inst->getKind() == IK_DebugTypeMatrix;
+  }
+
+  bool invokeVisitor(Visitor *v) override;
+
+  SpirvDebugTypeVector *getVectorType() const { return vectorType; }
+  uint32_t getVectorCount() const { return vectorCount; }
+
+  uint32_t getSizeInBits() const override {
+    return vectorCount * vectorType->getSizeInBits();
+  }
+
+private:
+  SpirvDebugTypeVector *vectorType;
+  uint32_t vectorCount;
 };
 
 /// Represents a function debug type. Includes the function return type and

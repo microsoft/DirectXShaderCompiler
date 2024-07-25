@@ -187,7 +187,7 @@ template <typename T> HRESULT AssignToOut(T value, T *pResult) {
   *pResult = value;
   return S_OK;
 }
-template <typename T> HRESULT AssignToOut(nullptr_t value, T *pResult) {
+template <typename T> HRESULT AssignToOut(std::nullptr_t value, T *pResult) {
   if (pResult == nullptr)
     return E_POINTER;
   *pResult = value;
@@ -204,7 +204,7 @@ template <typename T> void AssignToOutOpt(T value, T *pResult) {
   if (pResult != nullptr)
     *pResult = value;
 }
-template <typename T> void AssignToOutOpt(nullptr_t value, T *pResult) {
+template <typename T> void AssignToOutOpt(std::nullptr_t value, T *pResult) {
   if (pResult != nullptr)
     *pResult = value;
 }

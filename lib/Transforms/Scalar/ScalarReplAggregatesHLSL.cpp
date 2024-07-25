@@ -3427,7 +3427,7 @@ static void updateLifetimeForReplacement(Value *From, Value *To) {
 static bool DominateAllUsers(Instruction *I, Value *V, DominatorTree *DT);
 
 namespace {
-void replaceScalarArrayGEPWithVectorArrayGEP(User *GEP, Value *VectorArray,
+bool replaceScalarArrayGEPWithVectorArrayGEP(User *GEP, Value *VectorArray,
                                              IRBuilder<> &Builder,
                                              unsigned sizeInDwords) {
   gep_type_iterator GEPIt = gep_type_begin(GEP), E = gep_type_end(GEP);
@@ -3461,11 +3461,30 @@ void replaceScalarArrayGEPWithVectorArrayGEP(User *GEP, Value *VectorArray,
   Value *CompIdx = Builder.CreateAnd(ArrayIdx, mask);
   Value *NewGEP = Builder.CreateGEP(
       VecPtr, {ConstantInt::get(CompIdx->getType(), 0), CompIdx});
-  GEP->replaceAllUsesWith(NewGEP);
+
+  if (isa<ConstantExpr>(GEP) && isa<Instruction>(NewGEP)) {
+    if (!ReplaceConstantWithInst(cast<Constant>(GEP), NewGEP, Builder)) {
+      // If new instructions unable to be used, clean them up.
+      if (NewGEP->user_empty())
+        cast<Instruction>(NewGEP)->eraseFromParent();
+      if (isa<Instruction>(VecPtr) && VecPtr->user_empty())
+        cast<Instruction>(VecPtr)->eraseFromParent();
+      if (isa<Instruction>(CompIdx) && CompIdx->user_empty())
+        cast<Instruction>(CompIdx)->eraseFromParent();
+      if (isa<Instruction>(VecIdx) && VecIdx->user_empty())
+        cast<Instruction>(VecIdx)->eraseFromParent();
+      return false;
+    }
+    return true;
+  } else {
+    GEP->replaceAllUsesWith(NewGEP);
+  }
+  return true;
 }
 
-void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
+bool replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
                                        MemCpyInst *MC, unsigned sizeInDwords) {
+  bool bReplacedAll = true;
   LLVMContext &Context = ScalarArray->getContext();
   // All users should be element type.
   // Replace users of AI or GV.
@@ -3474,24 +3493,35 @@ void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
     if (U->user_empty())
       continue;
     if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      BCI->setOperand(0, VectorArray);
+      // Avoid replacing the dest of the memcpy to support partial replacement.
+      if (MC->getArgOperand(0) != BCI)
+        BCI->setOperand(0, VectorArray);
       continue;
     }
 
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
       IRBuilder<> Builder(Context);
+      // If we need to replace the constant with an instruction, start at the
+      // memcpy, so we replace only users dominated by it.
+      if (isa<Instruction>(VectorArray))
+        Builder.SetInsertPoint(MC);
+
       if (GEPOperator *GEP = dyn_cast<GEPOperator>(U)) {
-        // NewGEP must be GEPOperator too.
-        // No instruction will be build.
-        replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,
-                                                sizeInDwords);
+        if (!replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,
+                                                     sizeInDwords))
+          bReplacedAll = false;
       } else if (CE->getOpcode() == Instruction::AddrSpaceCast) {
         Value *NewAddrSpaceCast = Builder.CreateAddrSpaceCast(
             VectorArray,
             PointerType::get(VectorArray->getType()->getPointerElementType(),
                              CE->getType()->getPointerAddressSpace()));
-        replaceScalarArrayWithVectorArray(CE, NewAddrSpaceCast, MC,
-                                          sizeInDwords);
+        if (!replaceScalarArrayWithVectorArray(CE, NewAddrSpaceCast, MC,
+                                               sizeInDwords)) {
+          bReplacedAll = false;
+          if (Instruction *NewInst = dyn_cast<Instruction>(NewAddrSpaceCast))
+            if (NewInst->user_empty())
+              NewInst->eraseFromParent();
+        }
       } else if (CE->hasOneUse() && CE->user_back() == MC) {
         continue;
       } else {
@@ -3499,13 +3529,16 @@ void replaceScalarArrayWithVectorArray(Value *ScalarArray, Value *VectorArray,
       }
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(U)) {
       IRBuilder<> Builder(GEP);
-      replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,
-                                              sizeInDwords);
-      GEP->eraseFromParent();
+      if (!replaceScalarArrayGEPWithVectorArrayGEP(U, VectorArray, Builder,
+                                                   sizeInDwords))
+        bReplacedAll = false;
+      else
+        GEP->eraseFromParent();
     } else {
       DXASSERT(0, "not implemented");
     }
   }
+  return bReplacedAll;
 }
 
 // For pattern like
@@ -3521,8 +3554,25 @@ bool tryToReplaceCBVec4ArrayToScalarArray(Value *V, Type *TyV, Value *Src,
   Type *EltTy = AT->getElementType();
   unsigned sizeInBits = DL.getTypeSizeInBits(EltTy);
   // Convert array of float4 to array of float.
-  replaceScalarArrayWithVectorArray(V, Src, MC, sizeInBits >> 5);
-  return true;
+  if (replaceScalarArrayWithVectorArray(V, Src, MC, sizeInBits >> 5)) {
+    Value *DstBC = MC->getArgOperand(0);
+    MC->setArgOperand(0, UndefValue::get(MC->getArgOperand(0)->getType()));
+    if (DstBC->user_empty()) {
+      // Replacement won't include the memcpy dest.  Now remove that use.
+      if (BitCastInst *BCI = dyn_cast<BitCastInst>(DstBC)) {
+        Value *Dst = BCI->getOperand(0);
+        Type *DstTy = Dst->getType();
+        if (Dst == V)
+          BCI->setOperand(0, UndefValue::get(DstTy));
+        else
+          llvm_unreachable("Unexpected dest of memcpy.");
+      }
+    } else {
+      llvm_unreachable("Unexpected users of memcpy bitcast.");
+    }
+    return true;
+  }
+  return false;
 }
 
 } // namespace
