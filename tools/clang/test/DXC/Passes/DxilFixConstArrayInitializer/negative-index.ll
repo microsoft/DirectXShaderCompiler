@@ -1,5 +1,14 @@
 ; RUN: %dxopt %s -hlsl-passes-resume -dxil-fix-array-init -S | FileCheck %s
 
+; The pass should not perform an out of bounds access when trying to determine
+; which elements of an array are coverd by stores.
+; The store instructions may have out of bounds accesses, including to negative
+; indices.  In these cases, ignore those stores.  They are undefined behaviour
+; anyway, and the best thing to do with them in this pass is nothing.
+; If the original HLSL code used a literal -1 for the array index, the program
+; is rejected at an earlier stage of compilation.
+
+; Issue: #6824
 
 ; Original HLSL:
 
@@ -11,9 +20,11 @@
 ;   w[i] = 0;
 ; }
 
+; Check that the store instruction remains, and the compiler does not crash.
 
 ; CHECK: define void @b
 ; CHECK: store float 0
+; CHECK-SAME: , i32 0, i32 -1)
 ; CHECK-NEXT: ret void
 
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
