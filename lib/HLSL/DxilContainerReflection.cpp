@@ -2814,6 +2814,7 @@ public:
 
   // ID3D12FunctionReflection
   STDMETHOD(GetDesc)(D3D12_FUNCTION_DESC *pDesc);
+  STDMETHOD(GetDesc1)(D3D12_FUNCTION_DESC1 *pDesc);
 
   // BufferIndex relative to used constant buffers here
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
@@ -2911,6 +2912,26 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
 
   pDesc->Name = m_Name.c_str();
 
+  // Unset: INT FunctionParameterCount; // Number of logical parameters in the
+  //                                  function signature (not including return)
+  // Unset: BOOL HasReturn; // TRUE, if function returns a value, false - it is
+  //                           a subroutine
+  // Unset: BOOL Has10Level9VertexShader; // TRUE, if there is a 10L9 VS blob
+  // Unset: BOOL Has10Level9PixelShader; // TRUE, if there is a 10L9 PS blob
+  return S_OK;
+}
+
+HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
+  DXASSERT_NOMSG(m_pLibraryReflection);
+  IFR(ZeroMemoryToOut(pDesc));
+
+  const ShaderModel *pSM =
+      m_pLibraryReflection->m_pDxilModule->GetShaderModel();
+  DXIL::ShaderKind kind = DXIL::ShaderKind::Library;
+  if (m_pProps) {
+    kind = m_pProps->shaderKind;
+  }
+	
   D3D12_COMPUTE_SHADER_DESC computeDesc = {
         m_pProps->WaveSize.Min,
         m_pProps->WaveSize.Max,
@@ -3052,14 +3073,9 @@ HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
             m_pProps->Node.MaxRecursionDepth
         };
         break;
+
   }
 
-  // Unset: INT FunctionParameterCount; // Number of logical parameters in the
-  //                                  function signature (not including return)
-  // Unset: BOOL HasReturn; // TRUE, if function returns a value, false - it is
-  //                           a subroutine
-  // Unset: BOOL Has10Level9VertexShader; // TRUE, if there is a 10L9 VS blob
-  // Unset: BOOL Has10Level9PixelShader; // TRUE, if there is a 10L9 PS blob
   return S_OK;
 }
 
