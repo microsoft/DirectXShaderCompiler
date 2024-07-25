@@ -24,13 +24,12 @@ void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
 #else
 
 #include "llvm/Support/Compiler.h"
-#include <cstdio>
+#include "llvm/Support/raw_ostream.h"
 
 void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
                  const char *_Function) {
-  fprintf(stderr, "Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message,
-          _File, _Line, _Function);
-  fflush(stderr);
+  llvm::errs() << "Error: assert(" << _Message << ")\nFile:\n"
+               << _File << "(" << _Line << ")\nFunc:\t" << _Function << "\n";
   LLVM_BUILTIN_TRAP;
 }
 
