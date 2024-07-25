@@ -724,6 +724,7 @@ CInvalidFunctionParameter g_InvalidFunctionParameter;
 
 class CInvalidFunction final : public ID3D12FunctionReflection {
   STDMETHOD(GetDesc)(D3D12_FUNCTION_DESC *pDesc) { return E_FAIL; }
+  STDMETHOD(GetDesc1)(D3D12_FUNCTION_DESC1 *pDesc) { return E_FAIL; }
 
   STDMETHOD_(ID3D12ShaderReflectionConstantBuffer *, GetConstantBufferByIndex)
   (UINT BufferIndex) { return &g_InvalidSRConstantBuffer; }
