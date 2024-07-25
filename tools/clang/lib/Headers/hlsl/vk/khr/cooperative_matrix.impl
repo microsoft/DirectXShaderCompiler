@@ -175,24 +175,28 @@ CooperativeMatrix<ComponentType, scope, rows, columns, use>::operator*(
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
+template <class Type>
 void CooperativeMatrix<ComponentType, scope, rows, columns, use>::StoreRowMajor(
-    RWStructuredBuffer<ComponentType> data, uint32_t index) {
+    RWStructuredBuffer<Type> data, uint32_t index) {
   __builtin_spv_CooperativeMatrixStoreKHR(data[index], _matrix,
                                           CooperativeMatrixLayoutRowMajorKHR);
 }
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
-void CooperativeMatrix<ComponentType, scope, rows, columns, use>::
-    StoreColumnMajor(RWStructuredBuffer<ComponentType> data, uint32_t index) {
+template <class Type>
+void CooperativeMatrix<ComponentType, scope, rows, columns,
+                       use>::StoreColumnMajor(RWStructuredBuffer<Type> data,
+                                              uint32_t index) {
   __builtin_spv_CooperativeMatrixStoreKHR(
       data[index], _matrix, CooperativeMatrixLayoutColumnMajorKHR);
 }
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
+template <class Type>
 void CooperativeMatrix<ComponentType, scope, rows, columns, use>::StoreRowMajor(
-    RWStructuredBuffer<ComponentType> data, uint32_t index, uint32_t stride,
+    RWStructuredBuffer<Type> data, uint32_t index, uint32_t stride,
     MemoryAccessMask memoryAccessMask) {
   __builtin_spv_CooperativeMatrixStoreKHR(data[index], _matrix,
                                           CooperativeMatrixLayoutRowMajorKHR,
@@ -201,8 +205,9 @@ void CooperativeMatrix<ComponentType, scope, rows, columns, use>::StoreRowMajor(
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
+template <class Type>
 void CooperativeMatrix<ComponentType, scope, rows, columns, use>::
-    StoreColumnMajor(RWStructuredBuffer<ComponentType> data, uint32_t index,
+    StoreColumnMajor(RWStructuredBuffer<Type> data, uint32_t index,
                      uint32_t stride, MemoryAccessMask memoryAccessMask) {
   __builtin_spv_CooperativeMatrixStoreKHR(data[index], _matrix,
                                           CooperativeMatrixLayoutColumnMajorKHR,

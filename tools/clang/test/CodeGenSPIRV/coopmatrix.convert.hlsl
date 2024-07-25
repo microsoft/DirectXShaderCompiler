@@ -3,7 +3,6 @@
 #include "vk/khr/cooperative_matrix.h"
 
 RWStructuredBuffer<int> data;
-RWStructuredBuffer<float> float_data;
 
 // CHECK: OpCapability CooperativeMatrixKHR
 // CHECK: OpExtension "SPV_KHR_cooperative_matrix"
@@ -19,7 +18,7 @@ RWStructuredBuffer<float> float_data;
 // CHECK: [[result:%[0-9]+]] = OpConvertSToF %spirvIntrinsicType_0 [[ld]]
   FloatMatA float_matrix = int_matrix.cast<float>();
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_float %float_data %int_0 %uint_64
+// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_64
 // CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[result]] %int_0
-  float_matrix.StoreRowMajor(float_data, 64);
+  float_matrix.StoreRowMajor(data, 64);
 }
