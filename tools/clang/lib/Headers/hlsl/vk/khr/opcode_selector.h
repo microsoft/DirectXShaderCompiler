@@ -103,6 +103,16 @@ ARITHMETIC_SELECTOR(uint64_t, __builtin_spv_SNegate, __builtin_spv_IAdd,
                     __builtin_spv_ISub, __builtin_spv_IMul, __builtin_spv_UDiv,
                     false);
 
+// The conversion selector is will be used to convert one type to another
+// using the SPIR-V conversion instructions. See
+// https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_conversion_instructions.
+// SourceType and TargetType must be integer or floating point scalar type.
+
+// ConversionSelector::Convert converts an object of type S to an object of type
+// T. S must be SourceType, a vector of SourceType, or a cooperative matrix of
+// SourceType. T must be TargetType, a vector of TargetType, or a cooperative
+// matrix of TargetType. T must have the same number of components as S. T is a
+// cooperative matrix if and only if S is a cooperative matrix.
 template <class SourceType, class TargetType> class ConversionSelector;
 
 #define CONVERSION_SELECTOR(SourceType, TargetType, OpConvert)                 \
