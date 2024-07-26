@@ -289,7 +289,9 @@ public:
   DXC_MICROCOM_TM_CTOR(DxilLibraryReflection)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) noexcept override {
-    return DoBasicQueryInterface<ID3D12LibraryReflection1>(this, iid, ppvObject);
+    return DoBasicQueryInterface<ID3D12LibraryReflection1,
+                                 ID3D12LibraryReflection>(this, iid,
+                                                           ppvObject);
   }
 
   HRESULT Load(const DxilProgramHeader *pProgramHeader,
