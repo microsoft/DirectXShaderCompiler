@@ -269,7 +269,7 @@ public:
 
 class CFunctionReflection;
 class DxilLibraryReflection : public DxilModuleReflection,
-                              public ID3D12LibraryReflection {
+                              public ID3D12LibraryReflection1 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
 
@@ -289,7 +289,7 @@ public:
   DXC_MICROCOM_TM_CTOR(DxilLibraryReflection)
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) noexcept override {
-    return DoBasicQueryInterface<ID3D12LibraryReflection>(this, iid, ppvObject);
+    return DoBasicQueryInterface<ID3D12LibraryReflection1>(this, iid, ppvObject);
   }
 
   HRESULT Load(const DxilProgramHeader *pProgramHeader,
@@ -299,6 +299,9 @@ public:
   STDMETHOD(GetDesc)(D3D12_LIBRARY_DESC *pDesc) override;
 
   STDMETHOD_(ID3D12FunctionReflection *, GetFunctionByIndex)
+  (INT FunctionIndex) override;
+
+  STDMETHOD_(ID3D12FunctionReflection1 *, GetFunctionByIndex1)
   (INT FunctionIndex) override;
 };
 
@@ -722,7 +725,7 @@ class CInvalidFunctionParameter final
 };
 CInvalidFunctionParameter g_InvalidFunctionParameter;
 
-class CInvalidFunction final : public ID3D12FunctionReflection {
+class CInvalidFunction final : public ID3D12FunctionReflection1 {
   STDMETHOD(GetDesc)(D3D12_FUNCTION_DESC *pDesc) { return E_FAIL; }
   STDMETHOD(GetDesc1)(D3D12_FUNCTION_DESC1 *pDesc) { return E_FAIL; }
 
@@ -2782,7 +2785,7 @@ UINT64 DxilShaderReflection::GetRequiresFlags() noexcept {
 
 // ID3D12FunctionReflection
 
-class CFunctionReflection final : public ID3D12FunctionReflection {
+class CFunctionReflection final : public ID3D12FunctionReflection1 {
 protected:
   DxilLibraryReflection *m_pLibraryReflection = nullptr;
   const Function *m_pFunction;
@@ -3256,6 +3259,13 @@ HRESULT DxilLibraryReflection::GetDesc(D3D12_LIBRARY_DESC *pDesc) {
 
 ID3D12FunctionReflection *
 DxilLibraryReflection::GetFunctionByIndex(INT FunctionIndex) {
+  if ((UINT)FunctionIndex >= m_FunctionVector.size())
+    return &g_InvalidFunction;
+  return m_FunctionVector[FunctionIndex];
+}
+
+ID3D12FunctionReflection1 *
+DxilLibraryReflection::GetFunctionByIndex1(INT FunctionIndex) {
   if ((UINT)FunctionIndex >= m_FunctionVector.size())
     return &g_InvalidFunction;
   return m_FunctionVector[FunctionIndex];
