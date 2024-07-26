@@ -2931,6 +2931,10 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
   if (m_pProps) {
     kind = m_pProps->shaderKind;
   }
+
+  else {
+    return E_FAIL;
+  }
 	
   D3D12_COMPUTE_SHADER_DESC computeDesc = {
     m_pProps->WaveSize.Min,
@@ -3060,7 +3064,7 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
       pDesc->ShaderType = D3D12_SHVER_NODE_SHADER;
       pDesc->NodeShader = D3D12_NODE_SHADER_DESC{
         computeDesc,
-        (D3D12_NODE_OVERRIDES_TYPE) m_pProps->Node.LaunchType,
+        (D3D12_NODE_LAUNCH_TYPE) m_pProps->Node.LaunchType,
         m_pProps->Node.IsProgramEntry,
         m_pProps->Node.LocalRootArgumentsTableIndex,
         {
