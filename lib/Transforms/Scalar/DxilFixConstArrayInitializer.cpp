@@ -119,6 +119,10 @@ static bool TryFixGlobalVariable(
 
     GEPOperator *GEP = cast<GEPOperator>(Store->getPointerOperand());
     uint64_t Index = cast<ConstantInt>(GEP->getOperand(2))->getLimitedValue();
+    if (Index >= LatestStores.size()) {
+      // Skip out of bounds index.
+      continue;
+    }
 
     if (LatestStores[Index] <= StoreIndex) {
       InitValue[Index] = cast<Constant>(Store->getValueOperand());
