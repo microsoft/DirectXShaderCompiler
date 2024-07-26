@@ -78,6 +78,10 @@ if( LLVM_ENABLE_ASSERTIONS )
         "${flags_var_to_scrub}" "${${flags_var_to_scrub}}")
     endforeach()
   endif()
+
+  if (LLVM_ASSERTIONS_TRAP)
+    add_definitions( -DLLVM_ASSERTIONS_TRAP )
+  endif()
 else()
   # Disable assertions in Debug builds
   if( uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
