@@ -290,8 +290,7 @@ public:
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid,
                                            void **ppvObject) noexcept override {
     return DoBasicQueryInterface<ID3D12LibraryReflection1,
-                                 ID3D12LibraryReflection>(this, iid,
-                                                           ppvObject);
+                                 ID3D12LibraryReflection>(this, iid, ppvObject);
   }
 
   HRESULT Load(const DxilProgramHeader *pProgramHeader,
@@ -2935,162 +2934,147 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
   else {
     return E_FAIL;
   }
-	
-  D3D12_COMPUTE_SHADER_DESC computeDesc = {
-    m_pProps->WaveSize.Min,
-    m_pProps->WaveSize.Max,
-    m_pProps->WaveSize.Preferred,
-    m_pProps->numThreads[0],
-    m_pProps->numThreads[1],
-    m_pProps->numThreads[2]
-  };
 
-  pDesc->RootSignatureSize = (UINT) m_pProps->serializedRootSignature.size();
+  D3D12_COMPUTE_SHADER_DESC computeDesc = {
+      m_pProps->WaveSize.Min,       m_pProps->WaveSize.Max,
+      m_pProps->WaveSize.Preferred, m_pProps->numThreads[0],
+      m_pProps->numThreads[1],      m_pProps->numThreads[2]};
+
+  pDesc->RootSignatureSize = (UINT)m_pProps->serializedRootSignature.size();
   pDesc->RootSignaturePtr = m_pProps->serializedRootSignature.data();
 
   switch (kind) {
 
-    case ShaderKind::Pixel:
-      pDesc->ShaderType = D3D12_SHVER_PIXEL_SHADER;
-      pDesc->PixelShader.EarlyDepthStencil = m_pProps->ShaderProps.PS.EarlyDepthStencil;
-      break;
+  case ShaderKind::Pixel:
+    pDesc->ShaderType = D3D12_SHVER_PIXEL_SHADER;
+    pDesc->PixelShader.EarlyDepthStencil =
+        m_pProps->ShaderProps.PS.EarlyDepthStencil;
+    break;
 
-    case ShaderKind::Vertex:
-      pDesc->ShaderType = D3D12_SHVER_VERTEX_SHADER;
-      break;
+  case ShaderKind::Vertex:
+    pDesc->ShaderType = D3D12_SHVER_VERTEX_SHADER;
+    break;
 
-    case ShaderKind::Geometry:
-      pDesc->ShaderType = D3D12_SHVER_GEOMETRY_SHADER;
-      pDesc->GeometryShader = D3D12_GEOMETRY_SHADER_DESC{
-        (D3D12_PRIMITIVE) m_pProps->ShaderProps.GS.inputPrimitive,
+  case ShaderKind::Geometry:
+    pDesc->ShaderType = D3D12_SHVER_GEOMETRY_SHADER;
+    pDesc->GeometryShader = D3D12_GEOMETRY_SHADER_DESC{
+        (D3D12_PRIMITIVE)m_pProps->ShaderProps.GS.inputPrimitive,
         m_pProps->ShaderProps.GS.maxVertexCount,
         m_pProps->ShaderProps.GS.instanceCount,
-        {
-          (D3D12_PRIMITIVE_TOPOLOGY) m_pProps->ShaderProps.GS.streamPrimitiveTopologies[0],
-          (D3D12_PRIMITIVE_TOPOLOGY) m_pProps->ShaderProps.GS.streamPrimitiveTopologies[1],
-          (D3D12_PRIMITIVE_TOPOLOGY) m_pProps->ShaderProps.GS.streamPrimitiveTopologies[2],
-          (D3D12_PRIMITIVE_TOPOLOGY) m_pProps->ShaderProps.GS.streamPrimitiveTopologies[3]
-        }
-      };
-      break;
+        {(D3D12_PRIMITIVE_TOPOLOGY)
+             m_pProps->ShaderProps.GS.streamPrimitiveTopologies[0],
+         (D3D12_PRIMITIVE_TOPOLOGY)
+             m_pProps->ShaderProps.GS.streamPrimitiveTopologies[1],
+         (D3D12_PRIMITIVE_TOPOLOGY)
+             m_pProps->ShaderProps.GS.streamPrimitiveTopologies[2],
+         (D3D12_PRIMITIVE_TOPOLOGY)
+             m_pProps->ShaderProps.GS.streamPrimitiveTopologies[3]}};
+    break;
 
-    case ShaderKind::Hull:
-      pDesc->ShaderType = D3D12_SHVER_HULL_SHADER;
-      pDesc->HullShader = D3D12_HULL_SHADER_DESC{
-        (D3D12_TESSELLATOR_DOMAIN) m_pProps->ShaderProps.HS.domain,
-        (D3D12_TESSELLATOR_PARTITIONING) m_pProps->ShaderProps.HS.partition,
-        (D3D12_TESSELLATOR_OUTPUT_PRIMITIVE) m_pProps->ShaderProps.HS.outputPrimitive,
+  case ShaderKind::Hull:
+    pDesc->ShaderType = D3D12_SHVER_HULL_SHADER;
+    pDesc->HullShader = D3D12_HULL_SHADER_DESC{
+        (D3D12_TESSELLATOR_DOMAIN)m_pProps->ShaderProps.HS.domain,
+        (D3D12_TESSELLATOR_PARTITIONING)m_pProps->ShaderProps.HS.partition,
+        (D3D12_TESSELLATOR_OUTPUT_PRIMITIVE)
+            m_pProps->ShaderProps.HS.outputPrimitive,
         m_pProps->ShaderProps.HS.inputControlPoints,
         m_pProps->ShaderProps.HS.outputControlPoints,
-        m_pProps->ShaderProps.HS.maxTessFactor
-      };
-      break;
+        m_pProps->ShaderProps.HS.maxTessFactor};
+    break;
 
-    case ShaderKind::Domain:
-      pDesc->ShaderType = D3D12_SHVER_DOMAIN_SHADER;
-      pDesc->DomainShader = D3D12_DOMAIN_SHADER_DESC{
-        (D3D12_TESSELLATOR_DOMAIN) m_pProps->ShaderProps.DS.domain,
-        m_pProps->ShaderProps.DS.inputControlPoints
-      };
-      break;
+  case ShaderKind::Domain:
+    pDesc->ShaderType = D3D12_SHVER_DOMAIN_SHADER;
+    pDesc->DomainShader = D3D12_DOMAIN_SHADER_DESC{
+        (D3D12_TESSELLATOR_DOMAIN)m_pProps->ShaderProps.DS.domain,
+        m_pProps->ShaderProps.DS.inputControlPoints};
+    break;
 
-    case ShaderKind::Compute:
-      pDesc->ShaderType = D3D12_SHVER_COMPUTE_SHADER;
-      pDesc->ComputeShader = computeDesc;
-      break;
+  case ShaderKind::Compute:
+    pDesc->ShaderType = D3D12_SHVER_COMPUTE_SHADER;
+    pDesc->ComputeShader = computeDesc;
+    break;
 
-    case ShaderKind::RayGeneration:
-      pDesc->ShaderType = D3D12_SHVER_RAY_GENERATION_SHADER;
-      break;
+  case ShaderKind::RayGeneration:
+    pDesc->ShaderType = D3D12_SHVER_RAY_GENERATION_SHADER;
+    break;
 
-    case ShaderKind::Intersection:
-      pDesc->ShaderType = D3D12_SHVER_INTERSECTION_SHADER;
-      pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+  case ShaderKind::Intersection:
+    pDesc->ShaderType = D3D12_SHVER_INTERSECTION_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
         m_pProps->ShaderProps.Ray.paramSizeInBytes,
-        m_pProps->ShaderProps.Ray.attributeSizeInBytes
-      };
-      break;
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
 
-    case ShaderKind::AnyHit:
-      pDesc->ShaderType = D3D12_SHVER_ANY_HIT_SHADER;
-      pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+  case ShaderKind::AnyHit:
+    pDesc->ShaderType = D3D12_SHVER_ANY_HIT_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
         m_pProps->ShaderProps.Ray.paramSizeInBytes,
-        m_pProps->ShaderProps.Ray.attributeSizeInBytes
-      };
-      break;
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
 
-    case ShaderKind::ClosestHit:
-      pDesc->ShaderType = D3D12_SHVER_CLOSEST_HIT_SHADER;
-      pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+  case ShaderKind::ClosestHit:
+    pDesc->ShaderType = D3D12_SHVER_CLOSEST_HIT_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
         m_pProps->ShaderProps.Ray.paramSizeInBytes,
-        m_pProps->ShaderProps.Ray.attributeSizeInBytes
-      };
-      break;
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
 
-    case ShaderKind::Miss:
-      pDesc->ShaderType = D3D12_SHVER_MISS_SHADER;
-      pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+  case ShaderKind::Miss:
+    pDesc->ShaderType = D3D12_SHVER_MISS_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
         m_pProps->ShaderProps.Ray.paramSizeInBytes,
-        m_pProps->ShaderProps.Ray.attributeSizeInBytes
-      };
-      break;
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
 
-    case ShaderKind::Callable:
-      pDesc->ShaderType = D3D12_SHVER_CALLABLE_SHADER;
-      pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
+  case ShaderKind::Callable:
+    pDesc->ShaderType = D3D12_SHVER_CALLABLE_SHADER;
+    pDesc->RaytracingShader = D3D12_RAYTRACING_SHADER_DESC{
         m_pProps->ShaderProps.Ray.paramSizeInBytes,
-        m_pProps->ShaderProps.Ray.attributeSizeInBytes
-      };
-      break;
+        m_pProps->ShaderProps.Ray.attributeSizeInBytes};
+    break;
 
-    case ShaderKind::Mesh:
-      pDesc->ShaderType = D3D12_SHVER_MESH_SHADER;
-      pDesc->MeshShader = D3D12_MESH_SHADER_DESC{
+  case ShaderKind::Mesh:
+    pDesc->ShaderType = D3D12_SHVER_MESH_SHADER;
+    pDesc->MeshShader = D3D12_MESH_SHADER_DESC{
         m_pProps->ShaderProps.MS.payloadSizeInBytes,
         m_pProps->ShaderProps.MS.maxVertexCount,
         m_pProps->ShaderProps.MS.maxPrimitiveCount,
-        (D3D12_MESH_OUTPUT_TOPOLOGY) m_pProps->ShaderProps.MS.outputTopology,
-      };
-      break;
+        (D3D12_MESH_OUTPUT_TOPOLOGY)m_pProps->ShaderProps.MS.outputTopology,
+    };
+    break;
 
-    case ShaderKind::Amplification:
-      pDesc->ShaderType = D3D12_SHVER_AMPLIFICATION_SHADER;
-      pDesc->AmplificationShader = D3D12_AMPLIFICATION_SHADER_DESC{
-        m_pProps->ShaderProps.AS.payloadSizeInBytes
-      };
-      break;
+  case ShaderKind::Amplification:
+    pDesc->ShaderType = D3D12_SHVER_AMPLIFICATION_SHADER;
+    pDesc->AmplificationShader = D3D12_AMPLIFICATION_SHADER_DESC{
+        m_pProps->ShaderProps.AS.payloadSizeInBytes};
+    break;
 
-    case ShaderKind::Node:
-      pDesc->ShaderType = D3D12_SHVER_NODE_SHADER;
-      pDesc->NodeShader = D3D12_NODE_SHADER_DESC{
+  case ShaderKind::Node:
+    pDesc->ShaderType = D3D12_SHVER_NODE_SHADER;
+    pDesc->NodeShader = D3D12_NODE_SHADER_DESC{
         computeDesc,
-        (D3D12_NODE_LAUNCH_TYPE) m_pProps->Node.LaunchType,
+        (D3D12_NODE_LAUNCH_TYPE)m_pProps->Node.LaunchType,
         m_pProps->Node.IsProgramEntry,
         m_pProps->Node.LocalRootArgumentsTableIndex,
         {
-          m_pProps->Node.DispatchGrid[0],
-          m_pProps->Node.DispatchGrid[1],
-          m_pProps->Node.DispatchGrid[2],
+            m_pProps->Node.DispatchGrid[0],
+            m_pProps->Node.DispatchGrid[1],
+            m_pProps->Node.DispatchGrid[2],
         },
         {
-          m_pProps->Node.MaxDispatchGrid[0],
-          m_pProps->Node.MaxDispatchGrid[1],
-          m_pProps->Node.MaxDispatchGrid[2],
+            m_pProps->Node.MaxDispatchGrid[0],
+            m_pProps->Node.MaxDispatchGrid[1],
+            m_pProps->Node.MaxDispatchGrid[2],
         },
         m_pProps->Node.MaxRecursionDepth,
-        D3D12_NODE_ID_DESC{
-          m_pProps->NodeShaderID.Name.c_str(),
-          m_pProps->NodeShaderID.Index
-        },
-        D3D12_NODE_ID_DESC{
-          m_pProps->NodeShaderSharedInput.Name.c_str(),
-          m_pProps->NodeShaderSharedInput.Index
-        },
-		(UINT) m_pProps->InputNodes.size(),
-		(UINT) m_pProps->OutputNodes.size()
-      };
-      break;
-
+        D3D12_NODE_ID_DESC{m_pProps->NodeShaderID.Name.c_str(),
+                           m_pProps->NodeShaderID.Index},
+        D3D12_NODE_ID_DESC{m_pProps->NodeShaderSharedInput.Name.c_str(),
+                           m_pProps->NodeShaderSharedInput.Index},
+        (UINT)m_pProps->InputNodes.size(),
+        (UINT)m_pProps->OutputNodes.size()};
+    break;
   }
 
   return S_OK;
@@ -3110,29 +3094,24 @@ HRESULT CFunctionReflection::GetInputNode(UINT i, D3D12_NODE_DESC *pDesc) {
 
   if (i >= m_pProps->InputNodes.size())
     return E_BOUNDS;
-  
+
   NodeIOProperties prop = m_pProps->InputNodes[i];
-  
+
   *pDesc = D3D12_NODE_DESC{
-    (D3D12_NODE_IO_FLAGS) (uint32_t) prop.Flags,
-    D3D12_NODE_RECORD_TYPE_DESC{
-      prop.RecordType.size,
-      prop.RecordType.alignment,
-      D3D12_DISPATCH_GRID_DESC{
-        prop.RecordType.SV_DispatchGrid.ByteOffset,
-        (D3D12_DISPATCH_COMPONENT_TYPE) prop.RecordType.SV_DispatchGrid.ComponentType,
-        prop.RecordType.SV_DispatchGrid.NumComponents,
-      }
-    },
-    D3D12_NODE_ID_DESC{
-      prop.OutputID.Name.c_str(),
-	  prop.OutputID.Index
-    },
-    prop.MaxRecords,
-    prop.MaxRecordsSharedWith,
-    prop.OutputArraySize,
-    prop.AllowSparseNodes
-  };
+      (D3D12_NODE_IO_FLAGS)(uint32_t)prop.Flags,
+      D3D12_NODE_RECORD_TYPE_DESC{
+          prop.RecordType.size, prop.RecordType.alignment,
+          D3D12_DISPATCH_GRID_DESC{
+              prop.RecordType.SV_DispatchGrid.ByteOffset,
+              (D3D12_DISPATCH_COMPONENT_TYPE)
+                  prop.RecordType.SV_DispatchGrid.ComponentType,
+              prop.RecordType.SV_DispatchGrid.NumComponents,
+          }},
+      D3D12_NODE_ID_DESC{prop.OutputID.Name.c_str(), prop.OutputID.Index},
+      prop.MaxRecords,
+      prop.MaxRecordsSharedWith,
+      prop.OutputArraySize,
+      prop.AllowSparseNodes};
 
   return S_OK;
 }
@@ -3151,29 +3130,24 @@ HRESULT CFunctionReflection::GetOutputNode(UINT i, D3D12_NODE_DESC *pDesc) {
 
   if (i >= m_pProps->OutputNodes.size())
     return E_BOUNDS;
-  
+
   NodeIOProperties prop = m_pProps->OutputNodes[i];
-  
+
   *pDesc = D3D12_NODE_DESC{
-    (D3D12_NODE_IO_FLAGS) (uint32_t) prop.Flags,
-    D3D12_NODE_RECORD_TYPE_DESC{
-      prop.RecordType.size,
-      prop.RecordType.alignment,
-      D3D12_DISPATCH_GRID_DESC{
-        prop.RecordType.SV_DispatchGrid.ByteOffset,
-        (D3D12_DISPATCH_COMPONENT_TYPE) prop.RecordType.SV_DispatchGrid.ComponentType,
-        prop.RecordType.SV_DispatchGrid.NumComponents,
-      }
-    },
-    D3D12_NODE_ID_DESC{
-      prop.OutputID.Name.c_str(),
-      prop.OutputID.Index
-    },
-    prop.MaxRecords,
-    prop.MaxRecordsSharedWith,
-    prop.OutputArraySize,
-    prop.AllowSparseNodes
-  };
+      (D3D12_NODE_IO_FLAGS)(uint32_t)prop.Flags,
+      D3D12_NODE_RECORD_TYPE_DESC{
+          prop.RecordType.size, prop.RecordType.alignment,
+          D3D12_DISPATCH_GRID_DESC{
+              prop.RecordType.SV_DispatchGrid.ByteOffset,
+              (D3D12_DISPATCH_COMPONENT_TYPE)
+                  prop.RecordType.SV_DispatchGrid.ComponentType,
+              prop.RecordType.SV_DispatchGrid.NumComponents,
+          }},
+      D3D12_NODE_ID_DESC{prop.OutputID.Name.c_str(), prop.OutputID.Index},
+      prop.MaxRecords,
+      prop.MaxRecordsSharedWith,
+      prop.OutputArraySize,
+      prop.AllowSparseNodes};
 
   return S_OK;
 }
