@@ -335,6 +335,7 @@ HRESULT CreateDxilLibraryReflection(const DxilProgramHeader *pProgramHeader,
   if (!ppvObject)
     return E_INVALIDARG;
   if (!IsEqualIID(__uuidof(ID3D12LibraryReflection), iid) &&
+      !IsEqualIID(__uuidof(ID3D12LibraryReflection1), iid) &&
       !IsEqualIID(__uuidof(IUnknown), iid))
     return E_NOINTERFACE;
   CComPtr<DxilLibraryReflection> pReflection =
