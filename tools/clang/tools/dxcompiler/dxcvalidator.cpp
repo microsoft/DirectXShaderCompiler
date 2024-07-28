@@ -90,7 +90,7 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
     IDxcOperationResult *
         *ppResult // Validation output status, buffer, and errors
 ) {
-  return hlsl::validate(pShader, Flags, ppResult);
+  return hlsl::validate(pShader, Flags, true, ppResult);
 }
 
 HRESULT STDMETHODCALLTYPE DxcValidator::ValidateWithDebug(
@@ -101,7 +101,8 @@ HRESULT STDMETHODCALLTYPE DxcValidator::ValidateWithDebug(
     IDxcOperationResult *
         *ppResult // Validation output status, buffer, and errors
 ) {
-  return hlsl::validateWithDebug(pShader, Flags, pOptDebugBitcode, ppResult);
+  return hlsl::validateWithDebug(pShader, Flags, true, pOptDebugBitcode,
+                                 ppResult);
 }
 
 HRESULT DxcValidator::ValidateWithOptModules(

@@ -64,7 +64,7 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
     IDxcOperationResult *
         *ppResult // Validation output status, buffer, and errors
 ) {
-  return hlsl::validate(pShader, Flags, ppResult);
+  return hlsl::validate(pShader, Flags, true, ppResult);
 }
 
 HRESULT DxcValidator::ValidateWithOptModules(

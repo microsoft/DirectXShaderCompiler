@@ -112,16 +112,12 @@ static uint32_t runValidation(
 
   if (!Module) {
     DXASSERT_NOMSG(DebugModule == nullptr);
-    HRESULT HR = S_OK;
     if (Flags & DxcValidatorFlags_ModuleOnly)
-      HR = ValidateDxilBitcode((const char *)Shader->GetBufferPointer(),
-                               (uint32_t)Shader->GetBufferSize(), DiagStream);
+      return ValidateDxilBitcode((const char *)Shader->GetBufferPointer(),
+                                 (uint32_t)Shader->GetBufferSize(), DiagStream);
     else
-      HR = ValidateDxilContainer(Shader->GetBufferPointer(),
-                                 Shader->GetBufferSize(), DiagStream);
-    if (HR == S_OK)
-      HashAndUpdateOrCopy(Flags, Shader, Hashed);
-    return HR;
+      return ValidateDxilContainer(Shader->GetBufferPointer(),
+                                   Shader->GetBufferSize(), DiagStream);
   }
 
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
@@ -143,8 +139,6 @@ static uint32_t runValidation(
 
   if (DiagContext.HasErrors() || DiagContext.HasWarnings())
     return DXC_E_IR_VERIFICATION_FAILED;
-
-  HashAndUpdateOrCopy(Flags, Shader, Hashed);
 
   return S_OK;
 }
@@ -228,14 +222,16 @@ static uint32_t runRootSignatureValidation(IDxcBlob *Shader,
 uint32_t hlsl::validate(
     IDxcBlob *Shader,            // Shader to validate.
     uint32_t Flags,              // Validation flags.
+    bool IsInternalValidator,    // Run internal validator.
     IDxcOperationResult **Result // Validation output status, buffer, and errors
 ) {
-  return validateWithDebug(Shader, Flags, nullptr, Result);
+  return validateWithDebug(Shader, Flags, IsInternalValidator, nullptr, Result);
 }
 
 uint32_t hlsl::validateWithDebug(
     IDxcBlob *Shader,            // Shader to validate.
     uint32_t Flags,              // Validation flags.
+    bool IsInternalValidator,    // Run internal validator.
     DxcBuffer *OptDebugBitcode,  // Optional debug module bitcode to provide
                                  // line numbers
     IDxcOperationResult **Result // Validation output status, buffer, and errors
@@ -260,8 +256,7 @@ uint32_t hlsl::validateWithDebug(
   try {
     CComPtr<AbstractMemoryStream> DiagMemStream;
     CComPtr<IDxcBlob> HashedBlob;
-    HR =
-        CreateMemoryStream(TM.GetInstalledAllocator(), &DiagMemStream);
+    HR = CreateMemoryStream(TM.GetInstalledAllocator(), &DiagMemStream);
     if (FAILED(HR))
       throw hlsl::Exception(HR);
 
@@ -270,6 +265,9 @@ uint32_t hlsl::validateWithDebug(
     if (Flags & DxcValidatorFlags_RootSignatureOnly)
       ValidationStatus =
           runRootSignatureValidation(Shader, DiagMemStream, Flags, &HashedBlob);
+    else if ((Flags & DxcValidatorFlags_ModuleOnly) && IsInternalValidator)
+      ValidationStatus = runValidation(Shader, Flags, nullptr, nullptr,
+                                       DiagMemStream, &HashedBlob);
     else
       ValidationStatus = runValidation(Shader, DiagMemStream, Flags,
                                        OptDebugBitcode, &HashedBlob);
