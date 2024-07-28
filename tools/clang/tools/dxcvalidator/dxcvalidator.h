@@ -37,7 +37,7 @@ uint32_t validateWithOptModules(
 uint32_t validate(
     IDxcBlob *Shader,            // Shader to validate.
     uint32_t Flags,              // Validation flags.
-    bool IsInternalValidator,     // Run internal validator.
+    bool IsInternalValidator,    // Run internal validator.
     IDxcOperationResult **Result // Validation output status, buffer, and errors
 );
 
