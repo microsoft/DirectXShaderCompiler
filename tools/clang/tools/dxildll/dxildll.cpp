@@ -29,31 +29,31 @@
 #include "dxc/dxcisense.h"
 #include "dxc/dxctools.h"
 
-HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
-HRESULT CreateDxcHashingContainerBuilder(REFIID riid, LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID, LPVOID *);
+HRESULT CreateDxcHashingContainerBuilder(REFIID, LPVOID *);
 
 // C++ exception specification ignored except to indicate a function is not
 // __declspec(nothrow)
 static HRESULT InitMaybeFail() throw() {
-  HRESULT hr;
-  bool memSetup = false;
-  IFC(DxcInitThreadMalloc());
+  bool MemSetup = false;
+  HRESULT HR = (DxcInitThreadMalloc());
+  if (DXC_FAILED(HR))
+    goto Cleanup;
   DxcSetThreadMallocToDefault();
-  memSetup = true;
+  MemSetup = true;
   if (::llvm::sys::fs::SetupPerThreadFileSystem()) {
-    hr = E_FAIL;
+    HR = E_FAIL;
     goto Cleanup;
   }
 Cleanup:
-  if (FAILED(hr)) {
-    if (memSetup) {
+  if (FAILED(HR)) {
+    if (MemSetup) {
       DxcClearThreadMalloc();
       DxcCleanupThreadMalloc();
     }
-  } else {
+  } else
     DxcClearThreadMalloc();
-  }
-  return hr;
+  return HR;
 }
 
 #if defined(LLVM_ON_UNIX)
@@ -73,11 +73,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
   if (Reason == DLL_PROCESS_ATTACH) {
     EventRegisterMicrosoft_Windows_DxcRuntime_API();
     DxcRuntimeEtw_DxcRuntimeInitialization_Start();
-    HRESULT hr = InitMaybeFail();
-    DxcRuntimeEtw_DxcRuntimeInitialization_Stop(hr);
-    if (FAILED(hr)) {
+    HRESULT HR = InitMaybeFail();
+    DxcRuntimeEtw_DxcRuntimeInitialization_Stop(HR);
+    if (FAILED(HR)) {
       EventUnregisterMicrosoft_Windows_DxcRuntime_API();
-      return hr;
+      return HR;
     }
   } else if (Reason == DLL_PROCESS_DETACH) {
     DxcRuntimeEtw_DxcRuntimeShutdown_Start();
@@ -93,55 +93,51 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD Reason, LPVOID) {
   return TRUE;
 }
 
-void *__CRTDECL operator new(std::size_t size) noexcept(false) {
-  void *ptr = DxcNew(size);
-  if (ptr == nullptr)
+void *__CRTDECL operator new(std::size_t Size) noexcept(false) {
+  void *PTR = DxcNew(Size);
+  if (PTR == nullptr)
     throw std::bad_alloc();
-  return ptr;
+  return PTR;
 }
-void *__CRTDECL operator new(std::size_t size,
-                             const std::nothrow_t &nothrow_value) throw() {
-  return DxcNew(size);
+void *__CRTDECL operator new(std::size_t Size, const std::nothrow_t &) throw() {
+  return DxcNew(Size);
 }
-void __CRTDECL operator delete(void *ptr) throw() { DxcDelete(ptr); }
-void __CRTDECL operator delete(void *ptr,
+void __CRTDECL operator delete(void *PTR) throw() { DxcDelete(PTR); }
+void __CRTDECL operator delete(void *PTR,
                                const std::nothrow_t &nothrow_constant) throw() {
-  DxcDelete(ptr);
+  DxcDelete(PTR);
 }
 #endif
 
-static HRESULT ThreadMallocDxcCreateInstance(REFCLSID rclsid, REFIID riid,
-                                             LPVOID *ppv) {
-  *ppv = nullptr;
-  if (IsEqualCLSID(rclsid, CLSID_DxcValidator)) {
-    return CreateDxcValidator(riid, ppv);
-  }
-  if (IsEqualCLSID(rclsid, CLSID_DxcContainerBuilder)) {
-    return CreateDxcHashingContainerBuilder(riid, ppv);
-  }
+static HRESULT ThreadMallocDxcCreateInstance(REFCLSID RCLSID, REFIID RIID,
+                                             LPVOID *V) {
+  *V = nullptr;
+  if (IsEqualCLSID(RCLSID, CLSID_DxcValidator))
+    return CreateDxcValidator(RIID, V);
+  if (IsEqualCLSID(RCLSID, CLSID_DxcContainerBuilder))
+    return CreateDxcHashingContainerBuilder(RIID, V);
   return REGDB_E_CLASSNOTREG;
 }
 
-DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID rclsid, REFIID riid,
-                                                   LPVOID *ppv) {
-  HRESULT hr = S_OK;
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance(REFCLSID RCLSID, REFIID RIID,
+                                                   LPVOID *V) {
+  HRESULT HR = S_OK;
   DxcEtw_DXCompilerCreateInstance_Start();
   DxcThreadMalloc TM(nullptr);
-  hr = ThreadMallocDxcCreateInstance(rclsid, riid, ppv);
-  DxcEtw_DXCompilerCreateInstance_Stop(hr);
-  return hr;
+  HR = ThreadMallocDxcCreateInstance(RCLSID, RIID, V);
+  DxcEtw_DXCompilerCreateInstance_Stop(HR);
+  return HR;
 }
 
-DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *pMalloc,
-                                                    REFCLSID rclsid,
-                                                    REFIID riid, LPVOID *ppv) {
-  if (ppv == nullptr) {
+DXC_API_IMPORT HRESULT __stdcall DxcCreateInstance2(IMalloc *Malloc,
+                                                    REFCLSID RCLSID,
+                                                    REFIID RIID, LPVOID *V) {
+  if (V == nullptr)
     return E_POINTER;
-  }
-  HRESULT hr = S_OK;
+  HRESULT HR = S_OK;
   DxcEtw_DXCompilerCreateInstance_Start();
-  DxcThreadMalloc TM(pMalloc);
-  hr = ThreadMallocDxcCreateInstance(rclsid, riid, ppv);
-  DxcEtw_DXCompilerCreateInstance_Stop(hr);
-  return hr;
+  DxcThreadMalloc TM(Malloc);
+  HR = ThreadMallocDxcCreateInstance(RCLSID, RIID, V);
+  DxcEtw_DXCompilerCreateInstance_Stop(HR);
+  return HR;
 }

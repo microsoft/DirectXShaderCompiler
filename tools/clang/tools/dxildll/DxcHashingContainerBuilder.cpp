@@ -25,106 +25,105 @@
 
 using namespace hlsl;
 
-HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
+HRESULT CreateDxcValidator(REFIID RIID, LPVOID *V);
 
 class DxcHashingContainerBuilder : public DxcContainerBuilder {
 public:
-  DxcHashingContainerBuilder(IMalloc *pMalloc) : DxcContainerBuilder(pMalloc) {}
+  DxcHashingContainerBuilder(IMalloc *Malloc) : DxcContainerBuilder(Malloc) {}
 
   DXC_MICROCOM_TM_ALLOC(DxcHashingContainerBuilder);
 
-  HRESULT STDMETHODCALLTYPE Load(IDxcBlob *pDxilContainerHeader)
+  HRESULT STDMETHODCALLTYPE Load(IDxcBlob *DxilContainerHeader)
       override; // Loads DxilContainer to the builder
-  HRESULT STDMETHODCALLTYPE SerializeContainer(IDxcOperationResult **ppResult)
+  HRESULT STDMETHODCALLTYPE SerializeContainer(IDxcOperationResult **Result)
       override; // Builds a container of the given container builder state
 
 private:
   // Function to compute hash when valid dxil container is built
   // This is nullptr if loaded container has invalid hash
-  HASH_FUNCTION_PROTO *m_pHashFunction;
+  HASH_FUNCTION_PROTO *m_HashFunction;
 
-  void FindHashFunctionFromSource(const DxilContainerHeader *pContainerHeader);
-  void HashAndUpdate(DxilContainerHeader *pContainerHeader);
+  void FindHashFunctionFromSource(const DxilContainerHeader *ContainerHeader);
+  void HashAndUpdate(DxilContainerHeader *ContainerHeader);
 };
 
-HRESULT STDMETHODCALLTYPE DxcHashingContainerBuilder::Load(IDxcBlob *pSource) {
-  HRESULT hr = DxcContainerBuilder::Load(pSource);
-  if (SUCCEEDED(hr)) {
-    const DxilContainerHeader *pHeader =
-        (DxilContainerHeader *)pSource->GetBufferPointer();
-    FindHashFunctionFromSource(pHeader);
+HRESULT STDMETHODCALLTYPE DxcHashingContainerBuilder::Load(IDxcBlob *Source) {
+  HRESULT HR = DxcContainerBuilder::Load(Source);
+  if (SUCCEEDED(HR)) {
+    const DxilContainerHeader *Header =
+        (DxilContainerHeader *)Source->GetBufferPointer();
+    FindHashFunctionFromSource(Header);
   }
-  return hr;
+  return HR;
 }
 
 HRESULT STDMETHODCALLTYPE
-DxcHashingContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
-  HRESULT hr_saved = DxcContainerBuilder::SerializeContainer(ppResult);
-  if (!SUCCEEDED(hr_saved)) {
-    return hr_saved;
-  }
-  if (ppResult != nullptr && *ppResult != nullptr) {
-    HRESULT hr;
-    (*ppResult)->GetStatus(&hr);
-    if (SUCCEEDED(hr)) {
+DxcHashingContainerBuilder::SerializeContainer(IDxcOperationResult **Result) {
+  HRESULT HR = DxcContainerBuilder::SerializeContainer(Result);
+  if (!SUCCEEDED(HR))
+    return HR;
+
+  if (Result != nullptr && *Result != nullptr) {
+    HRESULT HR;
+    (*Result)->GetStatus(&HR);
+    if (SUCCEEDED(HR)) {
       CComPtr<IDxcBlob> pObject;
-      hr = (*ppResult)->GetResult(&pObject);
-      if (SUCCEEDED(hr)) {
-        LPVOID ptr = pObject->GetBufferPointer();
-        if (IsDxilContainerLike(ptr, pObject->GetBufferSize())) {
-          HashAndUpdate((DxilContainerHeader *)ptr);
-        }
+      HR = (*Result)->GetResult(&pObject);
+      if (SUCCEEDED(HR)) {
+        LPVOID PTR = pObject->GetBufferPointer();
+        if (IsDxilContainerLike(PTR, pObject->GetBufferSize()))
+          HashAndUpdate((DxilContainerHeader *)PTR);
       }
     }
   }
-  return hr_saved;
+  return HR;
 }
 
 void DxcHashingContainerBuilder::FindHashFunctionFromSource(
-    const DxilContainerHeader *pContainerHeader) {
-  DXASSERT(pContainerHeader != nullptr &&
-               IsDxilContainerLike(pContainerHeader,
-                                   pContainerHeader->ContainerSizeInBytes),
+    const DxilContainerHeader *ContainerHeader) {
+  DXASSERT(ContainerHeader != nullptr &&
+               IsDxilContainerLike(ContainerHeader,
+                                   ContainerHeader->ContainerSizeInBytes),
            "otherwise load function should have returned an error.");
-  static const UINT32 HashStartOffset =
+  static const uint32_t HashStartOffset =
       offsetof(struct DxilContainerHeader, Version);
-  const BYTE *pDataToHash = (const BYTE *)pContainerHeader + HashStartOffset;
-  UINT AmountToHash = pContainerHeader->ContainerSizeInBytes - HashStartOffset;
-  BYTE result[DxilContainerHashSize];
-  ComputeHashRetail(pDataToHash, AmountToHash, result);
-  if (0 == memcmp(result, pContainerHeader->Hash.Digest, sizeof(result))) {
-    m_pHashFunction = ComputeHashRetail;
+  const BYTE *DataToHash = (const BYTE *)ContainerHeader + HashStartOffset;
+  UINT AmountToHash = ContainerHeader->ContainerSizeInBytes - HashStartOffset;
+  BYTE Result[DxilContainerHashSize];
+  ComputeHashRetail(DataToHash, AmountToHash, Result);
+  if (0 == memcmp(Result, ContainerHeader->Hash.Digest, sizeof(Result))) {
+    m_HashFunction = ComputeHashRetail;
   } else {
-    ComputeHashDebug(pDataToHash, AmountToHash, result);
-    if (0 == memcmp(result, pContainerHeader->Hash.Digest, sizeof(result))) {
-      m_pHashFunction = ComputeHashDebug;
-    } else {
-      m_pHashFunction = nullptr;
-    }
+    ComputeHashDebug(DataToHash, AmountToHash, Result);
+    if (0 == memcmp(Result, ContainerHeader->Hash.Digest, sizeof(Result)))
+      m_HashFunction = ComputeHashDebug;
+    else
+      m_HashFunction = nullptr;
   }
 }
 
 // For Internal hash function.
 void DxcHashingContainerBuilder::HashAndUpdate(
-    DxilContainerHeader *pContainerHeader) {
-  if (m_pHashFunction != nullptr) {
-    DXASSERT(pContainerHeader != nullptr,
+    DxilContainerHeader *ContainerHeader) {
+  if (m_HashFunction != nullptr) {
+    DXASSERT(ContainerHeader != nullptr,
              "Otherwise serialization should have failed.");
     static const UINT32 HashStartOffset =
         offsetof(struct DxilContainerHeader, Version);
-    const BYTE *pDataToHash = (const BYTE *)pContainerHeader + HashStartOffset;
-    UINT AmountToHash =
-        pContainerHeader->ContainerSizeInBytes - HashStartOffset;
-    m_pHashFunction(pDataToHash, AmountToHash, pContainerHeader->Hash.Digest);
+    const BYTE *DataToHash = (const BYTE *)ContainerHeader + HashStartOffset;
+    UINT AmountToHash = ContainerHeader->ContainerSizeInBytes - HashStartOffset;
+    m_HashFunction(DataToHash, AmountToHash, ContainerHeader->Hash.Digest);
   }
 }
 
-HRESULT CreateDxcHashingContainerBuilder(REFIID riid, LPVOID *ppv) {
+HRESULT CreateDxcHashingContainerBuilder(REFIID RRID, LPVOID *V) {
   // Call dxil.dll's containerbuilder
-  *ppv = nullptr;
+  *V = nullptr;
   CComPtr<DxcHashingContainerBuilder> Result(
       DxcHashingContainerBuilder::Alloc(DxcGetThreadMallocNoRef()));
-  IFROOM(Result.p);
+  if (nullptr == Result.p)
+    return E_OUTOFMEMORY;
+
   Result->Init();
-  return Result->QueryInterface(riid, ppv);
+  return Result->QueryInterface(RRID, V);
 }

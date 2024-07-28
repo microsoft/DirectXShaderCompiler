@@ -23,10 +23,11 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.impl.h"
-
 #ifdef _WIN32
 #include "dxcetw.h"
 #endif
+
+#include "DxilHash.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -47,12 +48,50 @@ struct DiagRestore {
   ~DiagRestore() { Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext); }
 };
 
+static void HashAndUpdate(DxilContainerHeader *Container) {
+  // Compute hash and update stored hash.
+  // Hash the container from this offset to the end.
+  static const uint32_t DXBCHashStartOffset =
+      offsetof(struct DxilContainerHeader, Version);
+  const unsigned char *DataToHash =
+      (const unsigned char *)Container + DXBCHashStartOffset;
+  unsigned AmountToHash = Container->ContainerSizeInBytes - DXBCHashStartOffset;
+  ComputeHashRetail(DataToHash, AmountToHash, Container->Hash.Digest);
+}
+
+static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
+                                IDxcBlob **Hashed) {
+  if (Flags & DxcValidatorFlags_InPlaceEdit) {
+    HashAndUpdate((DxilContainerHeader *)Shader->GetBufferPointer());
+    *Hashed = Shader;
+    Shader->AddRef();
+  } else {
+    // Possible gotcha: the blob allocated here is tied to this .dll, so the
+    // DLL shouldn't be unloaded before the blob is released.
+    CComPtr<AbstractMemoryStream> HashedBlobStream;
+    uint32_t HR =
+        CreateMemoryStream(DxcGetThreadMallocNoRef(), &HashedBlobStream);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+
+    unsigned long CB;
+    HR = HashedBlobStream->Write(Shader->GetBufferPointer(),
+                                 Shader->GetBufferSize(), &CB);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr());
+    HR = HashedBlobStream.QueryInterface(Hashed);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+  }
+}
+
 static uint32_t runValidation(
     IDxcBlob *Shader,
     uint32_t Flags,            // Validation flags.
     llvm::Module *Module,      // Module to validate, if available.
     llvm::Module *DebugModule, // Debug module to validate, if available
-    AbstractMemoryStream *DiagMemStream) {
+    AbstractMemoryStream *DiagMemStream, IDxcBlob **Hashed) {
 
   // Run validation may throw, but that indicates an inability to validate,
   // not that the validation failed (eg out of memory). That is indicated
@@ -73,42 +112,75 @@ static uint32_t runValidation(
 
   if (!Module) {
     DXASSERT_NOMSG(DebugModule == nullptr);
-    if (Flags & DxcValidatorFlags_ModuleOnly) {
-      return ValidateDxilBitcode((const char *)Shader->GetBufferPointer(),
-                                 (uint32_t)Shader->GetBufferSize(), DiagStream);
-    } else {
-      return ValidateDxilContainer(Shader->GetBufferPointer(),
-                                   Shader->GetBufferSize(), DiagStream);
-    }
+    HRESULT HR = S_OK;
+    if (Flags & DxcValidatorFlags_ModuleOnly)
+      HR = ValidateDxilBitcode((const char *)Shader->GetBufferPointer(),
+                               (uint32_t)Shader->GetBufferSize(), DiagStream);
+    else
+      HR = ValidateDxilContainer(Shader->GetBufferPointer(),
+                                 Shader->GetBufferSize(), DiagStream);
+    if (HR == S_OK)
+      HashAndUpdateOrCopy(Flags, Shader, Hashed);
+    return HR;
   }
 
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
   DiagRestore DR(Module->getContext(), &DiagContext);
 
-  HRESULT hr = hlsl::ValidateDxilModule(Module, DebugModule);
-  if (FAILED(hr))
-    return hr;
+  HRESULT HR = hlsl::ValidateDxilModule(Module, DebugModule);
+  if (FAILED(HR))
+    return HR;
   if (!(Flags & DxcValidatorFlags_ModuleOnly)) {
-    hr = ValidateDxilContainerParts(
+    HR = ValidateDxilContainerParts(
         Module, DebugModule,
         IsDxilContainerLike(Shader->GetBufferPointer(),
                             Shader->GetBufferSize()),
         (uint32_t)Shader->GetBufferSize());
-    if (FAILED(hr))
-      return hr;
+    if (FAILED(HR))
+      return HR;
   }
 
-  if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
+  if (DiagContext.HasErrors() || DiagContext.HasWarnings())
     return DXC_E_IR_VERIFICATION_FAILED;
-  }
+
+  HashAndUpdateOrCopy(Flags, Shader, Hashed);
 
   return S_OK;
 }
 
-static uint32_t
-runRootSignatureValidation(IDxcBlob *Shader,
-                           AbstractMemoryStream *DiagMemStream) {
+static uint32_t runValidation(IDxcBlob *Shader,
+                              AbstractMemoryStream *DiagMemStream,
+                              uint32_t Flags, DxcBuffer *DebugBitcode,
+                              IDxcBlob **Hashed) {
+
+  // Run validation may throw, but that indicates an inability to validate,
+  // not that the validation failed (eg out of memory). That is indicated
+  // by a failing HRESULT, and possibly error messages in the diagnostics
+  // stream.
+
+  *Hashed = nullptr;
+  raw_stream_ostream DiagStream(DiagMemStream);
+
+  if (IsDxilContainerLike(Shader->GetBufferPointer(),
+                          Shader->GetBufferSize())) {
+    uint32_t HR = ValidateDxilContainer(
+        Shader->GetBufferPointer(), Shader->GetBufferSize(),
+        DebugBitcode ? DebugBitcode->Ptr : nullptr,
+        DebugBitcode ? (uint32_t)DebugBitcode->Size : 0, DiagStream);
+    if (DXC_FAILED(HR))
+      return HR;
+  } else
+    return DXC_E_CONTAINER_INVALID;
+
+  HashAndUpdateOrCopy(Flags, Shader, Hashed);
+
+  return S_OK;
+}
+
+static uint32_t runRootSignatureValidation(IDxcBlob *Shader,
+                                           AbstractMemoryStream *DiagMemStream,
+                                           uint32_t Flags, IDxcBlob **Hashed) {
 
   const DxilContainerHeader *DxilContainer =
       IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize());
@@ -143,6 +215,7 @@ runRootSignatureValidation(IDxcBlob *Shader,
     } else {
       if (!VerifyRootSignature(RSH.GetDesc(), DiagStream, false))
         return DXC_E_INCORRECT_ROOT_SIGNATURE;
+      HashAndUpdateOrCopy(Flags, Shader, Hashed);
     }
   } catch (...) {
     return DXC_E_IR_VERIFICATION_FAILED;
@@ -157,17 +230,7 @@ uint32_t hlsl::validate(
     uint32_t Flags,              // Validation flags.
     IDxcOperationResult **Result // Validation output status, buffer, and errors
 ) {
-  DxcThreadMalloc TM(DxcGetThreadMallocNoRef());
-  if (Result == nullptr)
-    return false;
-  *Result = nullptr;
-  if (Shader == nullptr || Flags & ~DxcValidatorFlags_ValidMask)
-    return false;
-  if ((Flags & DxcValidatorFlags_ModuleOnly) &&
-      (Flags &
-       (DxcValidatorFlags_InPlaceEdit | DxcValidatorFlags_RootSignatureOnly)))
-    return false;
-  return validateWithOptModules(Shader, Flags, nullptr, nullptr, Result);
+  return validateWithDebug(Shader, Flags, nullptr, Result);
 }
 
 uint32_t hlsl::validateWithDebug(
@@ -191,32 +254,54 @@ uint32_t hlsl::validateWithDebug(
        OptDebugBitcode->Size >= UINT32_MAX))
     return E_INVALIDARG;
 
-  HRESULT hr = S_OK;
+  HRESULT HR = S_OK;
+  HRESULT ValidationStatus = S_OK;
   DxcThreadMalloc TM(DxcGetThreadMallocNoRef());
   try {
-    LLVMContext Ctx;
     CComPtr<AbstractMemoryStream> DiagMemStream;
-    hr = CreateMemoryStream(TM.GetInstalledAllocator(), &DiagMemStream);
-    if (FAILED(hr))
-      throw hlsl::Exception(hr);
-    raw_stream_ostream DiagStream(DiagMemStream);
-    llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
-    PrintDiagnosticContext DiagContext(DiagPrinter);
-    Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
-                             &DiagContext, true);
-    std::unique_ptr<llvm::Module> DebugModule;
-    if (OptDebugBitcode) {
-      hr = ValidateLoadModule((const char *)OptDebugBitcode->Ptr,
-                              (uint32_t)OptDebugBitcode->Size, DebugModule, Ctx,
-                              DiagStream, /*bLazyLoad*/ false);
-      if (FAILED(hr))
-        throw hlsl::Exception(hr);
+    CComPtr<IDxcBlob> HashedBlob;
+    HR =
+        CreateMemoryStream(TM.GetInstalledAllocator(), &DiagMemStream);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+
+    // Run validation may throw, but that indicates an inability to validate,
+    // not that the validation failed (eg out of memory).
+    if (Flags & DxcValidatorFlags_RootSignatureOnly)
+      ValidationStatus =
+          runRootSignatureValidation(Shader, DiagMemStream, Flags, &HashedBlob);
+    else
+      ValidationStatus = runValidation(Shader, DiagMemStream, Flags,
+                                       OptDebugBitcode, &HashedBlob);
+
+    if (FAILED(ValidationStatus)) {
+      std::string msg("Validation failed.\n");
+      ULONG cbWritten;
+      DiagMemStream->Write(msg.c_str(), msg.size(), &cbWritten);
     }
-    return validateWithOptModules(Shader, Flags, nullptr, DebugModule.get(),
-                                  Result);
+    // Assemble the result object.
+    CComPtr<IDxcBlob> DiagBlob;
+    CComPtr<IDxcBlobEncoding> DiagBlobEnconding;
+    HR = DiagMemStream.QueryInterface(&DiagBlob);
+    DXASSERT_NOMSG(SUCCEEDED(HR));
+    HR = DxcCreateBlobWithEncodingSet(DiagBlob, CP_UTF8, &DiagBlobEnconding);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+    HR = DxcResult::Create(
+        ValidationStatus, DXC_OUT_OBJECT,
+        {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, HashedBlob),
+         DxcOutputObject::DataOutput(DXC_OUT_ERRORS, DiagBlobEnconding)},
+        Result);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+  } catch (std::bad_alloc &) {
+    HR = E_OUTOFMEMORY;
+  } catch (hlsl::Exception &_hlsl_exception_) {
+    HR = _hlsl_exception_.hr;
+  } catch (...) {
+    HR = E_FAIL;
   }
-  CATCH_CPP_ASSIGN_HRESULT();
-  return hr;
+  return HR;
 }
 
 uint32_t hlsl::validateWithOptModules(
@@ -227,45 +312,55 @@ uint32_t hlsl::validateWithOptModules(
     IDxcOperationResult **Result // Validation output status, buffer, and errors
 ) {
   *Result = nullptr;
-  HRESULT hr = S_OK;
-  HRESULT validationStatus = S_OK;
+  HRESULT HR = S_OK;
+  HRESULT ValidationStatus = S_OK;
   DxcEtw_DxcValidation_Start();
   DxcThreadMalloc TM(DxcGetThreadMallocNoRef());
   try {
     CComPtr<AbstractMemoryStream> DiagStream;
-    hr = CreateMemoryStream(TM.GetInstalledAllocator(), &DiagStream);
-    if (FAILED(hr))
-      throw hlsl::Exception(hr);
+    HR = CreateMemoryStream(TM.GetInstalledAllocator(), &DiagStream);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+    CComPtr<IDxcBlob> HashedBlob;
     // Run validation may throw, but that indicates an inability to validate,
     // not that the validation failed (eg out of memory).
-    if (Flags & DxcValidatorFlags_RootSignatureOnly) {
-      validationStatus = runRootSignatureValidation(Shader, DiagStream);
-    } else {
-      validationStatus =
-          runValidation(Shader, Flags, Module, DebugModule, DiagStream);
-    }
-    if (FAILED(validationStatus)) {
+    if (Flags & DxcValidatorFlags_RootSignatureOnly)
+      ValidationStatus =
+          runRootSignatureValidation(Shader, DiagStream, Flags, &HashedBlob);
+    else
+      ValidationStatus = runValidation(Shader, Flags, Module, DebugModule,
+                                       DiagStream, &HashedBlob);
+    if (FAILED(ValidationStatus)) {
       std::string msg("Validation failed.\n");
       ULONG cbWritten;
       DiagStream->Write(msg.c_str(), msg.size(), &cbWritten);
     }
     // Assemble the result object.
     CComPtr<IDxcBlob> pDiagBlob;
-    hr = DiagStream.QueryInterface(&pDiagBlob);
-    DXASSERT_NOMSG(SUCCEEDED(hr));
-    hr = DxcResult::Create(
-        validationStatus, DXC_OUT_NONE,
-        {DxcOutputObject::ErrorOutput(
-            CP_UTF8, // TODO Support DefaultTextCodePage
-            (LPCSTR)pDiagBlob->GetBufferPointer(), pDiagBlob->GetBufferSize())},
-        Result);
-    if (FAILED(hr))
-      throw hlsl::Exception(hr);
-  }
-  CATCH_CPP_ASSIGN_HRESULT();
+    HR = DiagStream.QueryInterface(&pDiagBlob);
+    DXASSERT_NOMSG(SUCCEEDED(HR));
+    CComPtr<IDxcBlobEncoding> pDiagBlobEnconding;
+    HR = DxcCreateBlobWithEncodingSet(pDiagBlob, CP_UTF8, &pDiagBlobEnconding);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
 
-  DxcEtw_DxcValidation_Stop(SUCCEEDED(hr) ? validationStatus : hr);
-  return hr;
+    HR = DxcResult::Create(
+        ValidationStatus, DXC_OUT_OBJECT,
+        {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, HashedBlob),
+         DxcOutputObject::DataOutput(DXC_OUT_ERRORS, pDiagBlobEnconding)},
+        Result);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+  } catch (std::bad_alloc &) {
+    HR = E_OUTOFMEMORY;
+  } catch (hlsl::Exception &_hlsl_exception_) {
+    HR = _hlsl_exception_.hr;
+  } catch (...) {
+    HR = E_FAIL;
+  }
+
+  DxcEtw_DxcValidation_Stop(SUCCEEDED(HR) ? ValidationStatus : HR);
+  return HR;
 }
 
 uint32_t hlsl::getValidationVersion(unsigned *Major, unsigned *Minor) {
