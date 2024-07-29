@@ -31,14 +31,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
-                 const char *_Function);
+void llvm_assert(const char *Message, const char *File, unsigned Line,
+                 const char *Function);
 #ifdef __cplusplus
 }
 #endif
 
-#define assert(_Expression)                                                    \
-  ((void)((!!(_Expression)) ||                                                 \
-          (llvm_assert(#_Expression, __FILE__, __LINE__, __FUNCTION__), 0)))
+#define assert(Expression)                                                     \
+  ((void)((!!(Expression)) ||                                                  \
+          (llvm_assert(#Expression, __FILE__, __LINE__, __FUNCTION__), 0)))
 
 #endif /* NDEBUG */

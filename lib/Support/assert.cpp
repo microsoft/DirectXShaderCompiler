@@ -14,10 +14,10 @@
 #include "dxc/Support/Global.h"
 #include "windows.h"
 
-void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
-                 const char *_Function) {
-  OutputDebugFormatA("Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message,
-                     _File, _Line, _Function);
+void llvm_assert(const char *Message, const char *File, unsigned Line,
+                 const char *Function) {
+  OutputDebugFormatA("Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", Message,
+                     File, Line, Function);
   RaiseException(STATUS_LLVM_ASSERT, 0, 0, 0);
 }
 
@@ -26,10 +26,10 @@ void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
 
-void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
-                 const char *_Function) {
-  llvm::errs() << "Error: assert(" << _Message << ")\nFile:\n"
-               << _File << "(" << _Line << ")\nFunc:\t" << _Function << "\n";
+void llvm_assert(const char *Message, const char *File, unsigned Line,
+                 const char *Function) {
+  llvm::errs() << "Error: assert(" << Message << ")\nFile:\n"
+               << File << "(" << Line << ")\nFunc:\t" << Function << "\n";
   LLVM_BUILTIN_TRAP;
 }
 
