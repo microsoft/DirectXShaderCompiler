@@ -102,7 +102,7 @@ class DxcLinker : public IDxcLinker,
                   public IDxcVersionInfo
 #endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 {
-                  public:
+public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcLinker)
 
@@ -534,8 +534,10 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
             // Generate PDB contents
             {
               CComPtr<IDxcBlob> pPdbBlob;
-              IFT(dxcutil::CreatePDBContainerFromModule(m_pMalloc, opts, debugModule.get(), pOutputBlob,
-                  pReflectionStream, this, nullptr, ShaderHashContent.Digest, &pPdbBlob));
+              IFT(dxcutil::CreatePDBContainerFromModule(
+                  m_pMalloc, opts, debugModule.get(), pOutputBlob,
+                  pReflectionStream, this, nullptr, ShaderHashContent.Digest,
+                  &pPdbBlob));
 
               IFT(pResult->SetOutputObject(DXC_OUT_PDB, pPdbBlob));
             }

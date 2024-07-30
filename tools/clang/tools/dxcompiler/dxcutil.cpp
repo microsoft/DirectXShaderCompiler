@@ -524,9 +524,9 @@ HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer,
   return S_OK;
 }
 
-HRESULT CreatePDBContainerFromModule(IMalloc *pMalloc,
-    hlsl::options::DxcOpts &opts, llvm::Module *pDebugModule,
-    IDxcBlob *pOldContainer,  hlsl::AbstractMemoryStream *pReflectionStream,
+HRESULT CreatePDBContainerFromModule(
+    IMalloc *pMalloc, hlsl::options::DxcOpts &opts, llvm::Module *pDebugModule,
+    IDxcBlob *pOldContainer, hlsl::AbstractMemoryStream *pReflectionStream,
     IDxcVersionInfo *pVersionInfo, const hlsl::DxilSourceInfo *pSourceInfo,
     llvm::ArrayRef<BYTE> HashData, IDxcBlob **ppNewContainer) {
   CComPtr<IDxcBlob> pStrippedContainer;
