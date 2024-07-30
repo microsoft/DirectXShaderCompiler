@@ -523,7 +523,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
 
     DXIL::ShaderKind EntrySK = shaderModel->GetKind();
-    DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
+    DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
     if (EntrySK == DXIL::ShaderKind::Library) {
       // For library, check if the exported function is entry with shader
       // attribute.
@@ -533,6 +533,8 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
         if (const auto *pAttr = FDecl->getAttr<HLSLNodeLaunchAttr>())
           NodeLaunchTy =
               ShaderModel::NodeLaunchTypeFromName(pAttr->getLaunchType());
+        else
+          NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
     }
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
