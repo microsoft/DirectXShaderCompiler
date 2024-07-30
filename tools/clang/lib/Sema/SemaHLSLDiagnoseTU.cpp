@@ -523,7 +523,7 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
     }
 
     DXIL::ShaderKind EntrySK = shaderModel->GetKind();
-    DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Invalid;
+    DXIL::NodeLaunchType NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
     if (EntrySK == DXIL::ShaderKind::Library) {
       // For library, check if the exported function is entry with shader
       // attribute.
