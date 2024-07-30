@@ -30,7 +30,6 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include "dxc/DXIL/DxilModule.h"
-#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/DxcBindingTable/DxcBindingTable.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
@@ -87,142 +86,6 @@ HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
                              llvm::Module *pDebugModule, IDxcBlob *pShader,
                              UINT32 Flags, IDxcOperationResult **ppResult);
-
-static bool ShouldBeCopiedIntoPDB(UINT32 FourCC) {
-  switch (FourCC) {
-  case hlsl::DFCC_ShaderDebugName:
-  case hlsl::DFCC_ShaderHash:
-    return true;
-  }
-  return false;
-}
-
-static HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer,
-                                     IDxcBlob *pDebugBlob,
-                                     IDxcVersionInfo *pVersionInfo,
-                                     const hlsl::DxilSourceInfo *pSourceInfo,
-                                     AbstractMemoryStream *pReflectionStream,
-                                     IDxcBlob **ppNewContainer) {
-  // If the pContainer is not a valid container, give up.
-  if (!hlsl::IsValidDxilContainer(
-          (hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer(),
-          pOldContainer->GetBufferSize()))
-    return E_FAIL;
-
-  hlsl::DxilContainerHeader *DxilHeader =
-      (hlsl::DxilContainerHeader *)pOldContainer->GetBufferPointer();
-  hlsl::DxilProgramHeader *ProgramHeader = nullptr;
-
-  std::unique_ptr<DxilContainerWriter> containerWriter(
-      NewDxilContainerWriter(false));
-  std::unique_ptr<DxilPartWriter> pDxilVersionWriter(
-      NewVersionWriter(pVersionInfo));
-
-  for (unsigned i = 0; i < DxilHeader->PartCount; i++) {
-    hlsl::DxilPartHeader *PartHeader = GetDxilContainerPart(DxilHeader, i);
-    if (ShouldBeCopiedIntoPDB(PartHeader->PartFourCC)) {
-      UINT32 uSize = PartHeader->PartSize;
-      const void *pPartData = PartHeader + 1;
-      containerWriter->AddPart(
-          PartHeader->PartFourCC, uSize,
-          [pPartData, uSize](AbstractMemoryStream *pStream) {
-            ULONG uBytesWritten = 0;
-            IFR(pStream->Write(pPartData, uSize, &uBytesWritten));
-            return S_OK;
-          });
-    }
-
-    // Could use any of these. We're mostly after the header version and all
-    // that.
-    if (PartHeader->PartFourCC == hlsl::DFCC_DXIL ||
-        PartHeader->PartFourCC == hlsl::DFCC_ShaderDebugInfoDXIL) {
-      ProgramHeader = (hlsl::DxilProgramHeader *)(PartHeader + 1);
-    }
-  }
-
-  if (!ProgramHeader)
-    return E_FAIL;
-
-  if (pSourceInfo) {
-    const UINT32 uPartSize = pSourceInfo->AlignedSizeInBytes;
-
-    containerWriter->AddPart(hlsl::DFCC_ShaderSourceInfo, uPartSize,
-                             [pSourceInfo](IStream *pStream) {
-                               ULONG uBytesWritten = 0;
-                               pStream->Write(pSourceInfo,
-                                              pSourceInfo->AlignedSizeInBytes,
-                                              &uBytesWritten);
-                               return S_OK;
-                             });
-  }
-
-  if (pReflectionStream) {
-    const hlsl::DxilPartHeader *pReflectionPartHeader =
-        (const hlsl::DxilPartHeader *)pReflectionStream->GetPtr();
-
-    containerWriter->AddPart(
-        hlsl::DFCC_ShaderStatistics, pReflectionPartHeader->PartSize,
-        [pReflectionPartHeader](IStream *pStream) {
-          ULONG uBytesWritten = 0;
-          pStream->Write(pReflectionPartHeader + 1,
-                         pReflectionPartHeader->PartSize, &uBytesWritten);
-          return S_OK;
-        });
-  }
-
-  if (pVersionInfo) {
-    containerWriter->AddPart(
-        hlsl::DFCC_CompilerVersion, pDxilVersionWriter->size(),
-        [&pDxilVersionWriter](AbstractMemoryStream *pStream) {
-          pDxilVersionWriter->write(pStream);
-          return S_OK;
-        });
-  }
-
-  if (pDebugBlob) {
-    static auto AlignByDword = [](UINT32 uSize, UINT32 *pPaddingBytes) {
-      UINT32 uRem = uSize % sizeof(UINT32);
-      UINT32 uResult =
-          (uSize / sizeof(UINT32) + (uRem ? 1 : 0)) * sizeof(UINT32);
-      *pPaddingBytes = uRem ? (sizeof(UINT32) - uRem) : 0;
-      return uResult;
-    };
-
-    UINT32 uPaddingSize = 0;
-    UINT32 uPartSize = AlignByDword(sizeof(hlsl::DxilProgramHeader) +
-                                        pDebugBlob->GetBufferSize(),
-                                    &uPaddingSize);
-
-    containerWriter->AddPart(
-        hlsl::DFCC_ShaderDebugInfoDXIL, uPartSize,
-        [uPartSize, ProgramHeader, pDebugBlob, uPaddingSize](IStream *pStream) {
-          hlsl::DxilProgramHeader Header = *ProgramHeader;
-          Header.BitcodeHeader.BitcodeSize = pDebugBlob->GetBufferSize();
-          Header.BitcodeHeader.BitcodeOffset = sizeof(hlsl::DxilBitcodeHeader);
-          Header.SizeInUint32 = uPartSize / sizeof(UINT32);
-
-          ULONG uBytesWritten = 0;
-          IFR(pStream->Write(&Header, sizeof(Header), &uBytesWritten));
-          IFR(pStream->Write(pDebugBlob->GetBufferPointer(),
-                             pDebugBlob->GetBufferSize(), &uBytesWritten));
-          if (uPaddingSize) {
-            UINT32 uPadding = 0;
-            assert(uPaddingSize <= sizeof(uPadding) &&
-                   "Padding size calculation is wrong.");
-            IFR(pStream->Write(&uPadding, uPaddingSize, &uBytesWritten));
-          }
-          return S_OK;
-        });
-  }
-
-  CComPtr<hlsl::AbstractMemoryStream> pStrippedContainerStream;
-  IFR(hlsl::CreateMemoryStream(pMalloc, &pStrippedContainerStream));
-
-  containerWriter->write(pStrippedContainerStream);
-  IFR(pStrippedContainerStream.QueryInterface(ppNewContainer));
-
-  return S_OK;
-}
 
 #ifdef _WIN32
 
@@ -1149,7 +1012,7 @@ public:
       // SPIRV change ends
 
       if (!hasErrorOccurred && writePDB) {
-        CComPtr<IDxcBlob> pStrippedContainer;
+        CComPtr<IDxcBlob> pPdbBlob;
         {
           // Create the shader source information for PDB
           hlsl::SourceInfoWriter debugSourceInfoWriter;
@@ -1163,38 +1026,12 @@ public:
             pSourceInfo = debugSourceInfoWriter.GetPart();
           }
 
-          CComPtr<IDxcBlob> pDebugProgramBlob;
-          CComPtr<AbstractMemoryStream> pReflectionInPdb;
-          // Don't include the debug part if using source only PDB
-          if (opts.SourceOnlyDebug) {
-            assert(pSourceInfo);
-            pReflectionInPdb = pReflectionStream;
-          } else {
-            if (!opts.SourceInDebugModule) {
-              // Strip out the source related metadata
-              debugModule->GetOrCreateDxilModule()
-                  .StripShaderSourcesAndCompileOptions(
-                      /* bReplaceWithDummyData */ true);
-            }
-            CComPtr<AbstractMemoryStream> pDebugBlobStorage;
-            IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(),
-                                   &pDebugBlobStorage));
-            raw_stream_ostream outStream(pDebugBlobStorage.p);
-            WriteBitcodeToFile(debugModule.get(), outStream, true);
-            outStream.flush();
-            IFT(pDebugBlobStorage.QueryInterface(&pDebugProgramBlob));
-          }
-
-          IFT(CreateContainerForPDB(m_pMalloc, pOutputBlob, pDebugProgramBlob,
-                                    static_cast<IDxcVersionInfo *>(this),
-                                    pSourceInfo, pReflectionInPdb,
-                                    &pStrippedContainer));
+          IFT(dxcutil::CreatePDBContainerFromModule(
+              m_pMalloc, opts, debugModule.get(), pOutputBlob,
+              pReflectionStream, this, pSourceInfo, ShaderHashContent.Digest,
+              &pPdbBlob));
         }
 
-        // Create the final PDB Blob
-        CComPtr<IDxcBlob> pPdbBlob;
-        IFT(hlsl::pdb::WriteDxilPDB(m_pMalloc, pStrippedContainer,
-                                    ShaderHashContent.Digest, &pPdbBlob));
         IFT(pResult->SetOutputObject(DXC_OUT_PDB, pPdbBlob));
 
         // If option Qpdb_in_private given, add the PDB to the DXC_OUT_OBJECT
