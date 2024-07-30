@@ -516,11 +516,6 @@ public:
   bool writeBackOutputStream(const NamedDecl *decl, QualType type,
                              SpirvInstruction *value, SourceRange range = {});
 
-  /// \brief Negates to get the additive inverse of SV_Position.y if requested.
-  SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
-                                       SourceLocation loc,
-                                       SourceRange range = {});
-
   /// \brief Reciprocates to get the multiplicative inverse of SV_Position.w
   /// if requested.
   SpirvInstruction *invertWIfRequested(SpirvInstruction *position,

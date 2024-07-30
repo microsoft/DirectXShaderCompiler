@@ -114,6 +114,11 @@ public:
                          llvm::ArrayRef<SpirvInstruction *> spvArgs,
                          bool isInstr, SourceLocation loc);
 
+  /// \brief Negates to get the additive inverse of SV_Position.y if requested.
+  SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc,
+                                       SourceRange range = {});
+
 private:
   void doFunctionDecl(const FunctionDecl *decl);
   void doVarDecl(const VarDecl *decl);
