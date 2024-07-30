@@ -193,7 +193,7 @@ void node02(RWThreadNodeInputRecord<RECORD> input,
   threadRec.OutputComplete();
 }
 
-// Default launch type is broadingcast which has a visible group.
+// Default launch type is broadcasting which has a visible group.
 // It is OK to use GROUP_SYNC or GROUP_SCOPE.
 [Shader("node")]
 [NumThreads(64,1,1)]
