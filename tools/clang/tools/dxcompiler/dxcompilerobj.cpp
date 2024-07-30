@@ -955,6 +955,7 @@ public:
         opts.SpirvOptions.codeGenHighLevel = opts.CodeGenHighLevel;
         opts.SpirvOptions.defaultRowMajor = opts.DefaultRowMajor;
         opts.SpirvOptions.disableValidation = opts.DisableValidation;
+        opts.SpirvOptions.IEEEStrict = opts.IEEEStrict;
         // Save a string representation of command line options and
         // input file name.
         if (opts.DebugInfo) {

@@ -431,7 +431,9 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
                                spv::Decoration::RelaxedPrecision, {});
   }
   // Emit NoContraction decoration (if any).
-  if (inst->isPrecise() && inst->isArithmeticInstruction()) {
+  // STEVEN: Check if Gis is set here.
+  if ((spvOptions.IEEEStrict || inst->isPrecise()) &&
+      inst->isArithmeticInstruction()) {
     typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
                                spv::Decoration::NoContraction, {});
   }
