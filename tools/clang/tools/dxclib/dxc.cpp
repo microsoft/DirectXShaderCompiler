@@ -978,18 +978,25 @@ int DxcContext::Link() {
     if (pContainer.p != nullptr) {
       CComPtr<IDxcResult> pLinkResult;
       CComPtr<IDxcBlob> pDebugBlob;
-      CComPtr<IDxcBlobWide> pDebugBlobName;
-      LPCWSTR pDebugBlobNameWStr = nullptr;
-      if (SUCCEEDED(pLinkOperationResult->QueryInterface(&pLinkResult))) {
-        if (pLinkResult->HasOutput(DXC_OUT_PDB)) {
-          IFT(pLinkResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pDebugBlob),
-                                     &pDebugBlobName));
 
-          pDebugBlobNameWStr = pDebugBlobName->GetStringPointer();
+      std::wstring outputPDBPath;
+      Unicode::UTF8ToWideString(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
+
+      if (!m_Opts.DebugFile.empty()) {
+        if (SUCCEEDED(pLinkOperationResult->QueryInterface(&pLinkResult))) {
+          if (pLinkResult->HasOutput(DXC_OUT_PDB)) {
+            CComPtr<IDxcBlobWide> pDebugBlobName;
+
+            IFT(pLinkResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pDebugBlob),
+                                       &pDebugBlobName));
+
+            if (m_Opts.DebugFileIsDirectory())
+              outputPDBPath += pDebugBlobName->GetStringPointer();
+          }
         }
       }
 
-      ActOnBlob(pContainer.p, pDebugBlob.p, pDebugBlobNameWStr);
+      ActOnBlob(pContainer.p, pDebugBlob.p, outputPDBPath.c_str());
     }
   } else {
     CComPtr<IDxcBlobEncoding> pErrors;
