@@ -57,7 +57,8 @@ public:
   // caches.
   void RefreshCache();
 
-  llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType);
+  llvm::Function *GetOpFunc(OpCode OpCode, llvm::Type *pOverloadType,
+                            llvm::ArrayRef<llvm::Type *> VarArgs = {});
   const llvm::SmallMapVector<llvm::Type *, llvm::Function *, 8> &
   GetOpFuncList(OpCode OpCode) const;
   bool IsDxilOpUsed(OpCode opcode) const;
@@ -139,6 +140,7 @@ public:
                                        bool bWithTranslation, unsigned valMajor,
                                        unsigned valMinor, unsigned &major,
                                        unsigned &minor, unsigned &mask);
+  static bool IsDxilOpVarArg(OpCode C);
 
 private:
   // Per-module properties.

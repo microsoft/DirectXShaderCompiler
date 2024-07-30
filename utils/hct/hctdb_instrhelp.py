@@ -331,10 +331,11 @@ class db_instrhelp_gen:
             )
             if i.is_dxil_op:
                 print("  bool isArgumentListValid() const {")
-                print(
-                    "    if (%d != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;"
-                    % (len(i.ops) - 1)
-                )
+                if not i.is_vararg:
+                    print(
+                        "    if (%d != llvm::dyn_cast<llvm::CallInst>(Instr)->getNumArgOperands()) return false;"
+                        % (len(i.ops) - 1)
+                    )
                 print("    return true;")
                 # TODO - check operand types
                 print("  }")

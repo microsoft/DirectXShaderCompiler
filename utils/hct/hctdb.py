@@ -97,6 +97,7 @@ class db_dxil_inst(object):
         self.is_dxil_op = self.dxil_op != ""  # whether this is a DXIL operation
         self.is_reserved = self.dxil_class == "Reserved"
         self.shader_model_translated = ()  # minimum shader model required with translation by linker
+        self.is_vararg = False
         self.props = {}  # extra properties
 
     def __str__(self):
@@ -696,6 +697,10 @@ class db_dxil(object):
             self.name_idx[i].category = "Extended Command Information"
             self.name_idx[i].shader_stages = ("vertex",)
             self.name_idx[i].shader_model = 6, 8
+        for i in "DebugPrintf,DebugPrintf".split(","):
+            self.name_idx[i].category = "Debug info"
+            self.name_idx[i].shader_model = 6, 0
+            self.name_idx[i].is_vararg = True
 
     def populate_llvm_instructions(self):
         # Add instructions that map to LLVM instructions.
@@ -5508,10 +5513,23 @@ class db_dxil(object):
         )
         next_op_idx += 1
 
+        self.add_dxil_op(
+            "DebugPrintf",
+            next_op_idx,
+            "DebugPrintf",
+            "printf like intrinsic",
+            "v",
+            "amo",
+            [
+                db_dxil_param(0, "v", "", ""),
+            ],
+        )
+        next_op_idx += 1
+
         # End of DXIL 1.8 opcodes.
         self.set_op_count_for_version(1, 8, next_op_idx)
-        assert next_op_idx == 258, (
-            "258 is expected next operation index but encountered %d and thus opcodes are broken"
+        assert next_op_idx == 259, (
+            "259 is expected next operation index but encountered %d and thus opcodes are broken"
             % next_op_idx
         )
 

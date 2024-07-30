@@ -30,11 +30,14 @@
 #include "dxc/HlslIntrinsicOp.h"
 
 #include "llvm/ADT/APSInt.h"
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -417,6 +420,63 @@ struct IntrinsicLower {
   // DXIL opcode if can direct map.
   DXIL::OpCode DxilOpcode;
 };
+
+void ConvertConstToInst(IRBuilder<> &Builder, ConstantExpr *const constVal) {
+  SmallSet<ConstantExpr *, 8> otherConsts;
+  for (User *const user : constVal->users()) {
+    if (ConstantExpr *const otherConst = dyn_cast<ConstantExpr>(user))
+      otherConsts.insert(otherConst);
+  }
+
+  for (ConstantExpr *const otherConst : otherConsts)
+    ConvertConstToInst(Builder, otherConst);
+
+  otherConsts.clear();
+
+  SmallVector<Value *, 8> users;
+
+  for (User *const user : constVal->users())
+    users.push_back(user);
+
+  for (Value *const user : users) {
+    Instruction *const inst = dyn_cast<Instruction>(user);
+    if (!inst)
+      continue;
+
+    // If the instruction is a phi node, we have to insert the new instructions
+    // in the correct predecessor.
+    if (PHINode *const phiNode = dyn_cast<PHINode>(inst)) {
+      const unsigned incomingValueCount = phiNode->getNumIncomingValues();
+      for (unsigned i = 0; i < incomingValueCount; i++) {
+        if (phiNode->getIncomingValue(i) == constVal) {
+          Builder.SetInsertPoint(phiNode->getIncomingBlock(i)->getTerminator());
+          break;
+        }
+      }
+    } else
+      Builder.SetInsertPoint(inst);
+
+    if (ConstantExpr *const constExpr = dyn_cast<ConstantExpr>(constVal)) {
+      Instruction *const insertPos =
+          Builder.Insert(constExpr->getAsInstruction());
+      inst->replaceUsesOfWith(constExpr, insertPos);
+    } else if (ConstantVector *const constVector =
+                   dyn_cast<ConstantVector>(constVal)) {
+      Value *resultValue = UndefValue::get(constVector->getType());
+      for (unsigned i = 0; i < constVector->getNumOperands(); i++) {
+        // Have to not use the builder here because it will constant fold and we
+        // are trying to undo that now!
+        Instruction *const insertPos = InsertElementInst::Create(
+            resultValue, constVector->getOperand(i), Builder.getInt32(i));
+        resultValue = Builder.Insert(insertPos);
+      }
+      inst->replaceUsesOfWith(constVector, resultValue);
+    } else
+      llvm_unreachable("Should never be called!");
+  }
+
+  constVal->removeDeadConstantUsers();
+}
 
 // IOP intrinsics.
 namespace {
@@ -2747,14 +2807,53 @@ Value *TranslatePow(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return TranslatePowImpl(hlslOP, Builder, x, y, isFXCCompatMode);
 }
 
-Value *TranslatePrintf(CallInst *CI, IntrinsicOp IOP, DXIL::OpCode opcode,
+Value *TranslatePrintf(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                        HLOperationLowerHelper &helper,
                        HLObjectOperationLowerHelper *pObjHelper,
                        bool &Translated) {
-  Translated = false;
-  dxilutil::EmitErrorOnInstruction(CI,
-                                   "use of unsupported identifier 'printf'");
-  return nullptr;
+  Value *Op1 = CI->getArgOperand(1);
+  IRBuilder<> Builder(CI);
+  if (auto ConstantArg = dyn_cast<ConstantExpr>(Op1)) {
+    ConvertConstToInst(Builder, ConstantArg);
+    Op1 = CI->getArgOperand(1);
+    if (auto GemArg = dyn_cast<GetElementPtrInst>(Op1)) {
+      Op1 = GemArg->getPointerOperand();
+    }
+  }
+  assert(Op1->getType()->isPointerTy());
+  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(Op1)) {
+    GV->setLinkage(GlobalValue::LinkageTypes::InternalLinkage);
+  }
+  auto hlslOP = &helper.hlslOP;
+  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
+  SmallVector<Value *, 4> args = {opArg, Op1};
+  SmallVector<Type *, 4> argTypes = {Type::getVoidTy(CI->getContext()),
+                                     opArg->getType(), Op1->getType()};
+
+  std::string structName = "";
+  raw_string_ostream os(structName);
+  Op1->getType()->print(os);
+
+  for (unsigned i = 2; i < CI->getNumArgOperands(); ++i) {
+    auto arg = CI->getArgOperand(i);
+    args.push_back(arg);
+    argTypes.push_back(arg->getType());
+    os << ".";
+    arg->getType()->print(os);
+  }
+  os.flush();
+
+  Module *pModule = helper.M.GetModule();
+  Type *pTy = pModule->getTypeByName(structName);
+  Type *pOverloadedTy =
+      (pTy == nullptr)
+          ? StructType::create(CI->getContext(), argTypes, structName)
+          : pTy;
+
+  Function *dxilFunc = hlslOP->GetOpFunc(opcode, pOverloadedTy, argTypes);
+
+  auto call = Builder.CreateCall(dxilFunc, args);
+  return call;
 }
 
 Value *TranslateFaceforward(CallInst *CI, IntrinsicOp IOP, OP::OpCode op,
@@ -6473,7 +6572,7 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_pack_s8, TranslatePack, DXIL::OpCode::Pack4x8},
     {IntrinsicOp::IOP_pack_u8, TranslatePack, DXIL::OpCode::Pack4x8},
     {IntrinsicOp::IOP_pow, TranslatePow, DXIL::OpCode::NumOpCodes},
-    {IntrinsicOp::IOP_printf, TranslatePrintf, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_printf, TranslatePrintf, DXIL::OpCode::DebugPrintf},
     {IntrinsicOp::IOP_radians, TranslateRadians, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_rcp, TranslateRCP, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_reflect, TranslateReflect, DXIL::OpCode::NumOpCodes},

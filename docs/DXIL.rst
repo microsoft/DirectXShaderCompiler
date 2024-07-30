@@ -99,13 +99,13 @@ The following values of ``<shaderModelName>``, ``<major>``, ``<minor>`` are supp
 +===========================+==============================+======================+
 | Vertex shader (VS)        | vs                           | 6, 0                 |
 +---------------------------+------------------------------+----------------------+
-| Hull shader (HS)          | hs                           | 6, 0                 | 
+| Hull shader (HS)          | hs                           | 6, 0                 |
 +---------------------------+------------------------------+----------------------+
-| Domain shader (DS)        | ds                           | 6, 0                 | 
+| Domain shader (DS)        | ds                           | 6, 0                 |
 +---------------------------+------------------------------+----------------------+
-| Geometry shader (GS)      | gs                           | 6, 0                 | 
+| Geometry shader (GS)      | gs                           | 6, 0                 |
 +---------------------------+------------------------------+----------------------+
-| Pixel shader (PS)         | ps                           | 6, 0                 | 
+| Pixel shader (PS)         | ps                           | 6, 0                 |
 +---------------------------+------------------------------+----------------------+
 | Compute shader (CS)       | cs                           | 6, 0                 |
 +---------------------------+------------------------------+----------------------+
@@ -2369,6 +2369,7 @@ ID  Name                                                  Description
 255 SampleCmpBias                                         samples a texture after applying the input bias to the mipmap level and compares a single component against the specified comparison value
 256 StartVertexLocation                                   returns the BaseVertexLocation from DrawIndexedInstanced or StartVertexLocation from DrawInstanced
 257 StartInstanceLocation                                 returns the StartInstanceLocation from Draw*Instanced
+258 DebugPrintf                                           create a c/c++ like printf function intrinsic
 === ===================================================== =======================================================================================================================================================================================================================
 
 

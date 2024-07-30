@@ -294,7 +294,7 @@ public:
   TEST_METHOD(AmplificationGreaterThanMaxXYZ)
 
   TEST_METHOD(ValidateRootSigContainer)
-  TEST_METHOD(ValidatePrintfNotAllowed)
+  TEST_METHOD(ValidatePrintf)
 
   TEST_METHOD(ValidateWithHash)
   TEST_METHOD(ValidateVersionNotAllowed)
@@ -4069,7 +4069,7 @@ TEST_F(ValidationTest, ValidateRootSigContainer) {
                           DxcValidatorFlags_InPlaceEdit);
 }
 
-TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
+TEST_F(ValidationTest, ValidatePrintf) {
   TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
 }
 

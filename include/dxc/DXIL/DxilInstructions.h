@@ -8765,5 +8765,20 @@ struct DxilInst_StartInstanceLocation {
   // Metadata
   bool requiresUniformInputs() const { return false; }
 };
+
+/// This instruction printf like intrinsic
+struct DxilInst_DebugPrintf {
+  llvm::Instruction *Instr;
+  // Construction and identification
+  DxilInst_DebugPrintf(llvm::Instruction *pInstr) : Instr(pInstr) {}
+  operator bool() const {
+    return hlsl::OP::IsDxilOpFuncCallInst(Instr, hlsl::OP::OpCode::DebugPrintf);
+  }
+  // Validation support
+  bool isAllowed() const { return true; }
+  bool isArgumentListValid() const { return true; }
+  // Metadata
+  bool requiresUniformInputs() const { return false; }
+};
 // INSTR-HELPER:END
 } // namespace hlsl

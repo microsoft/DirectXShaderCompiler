@@ -559,6 +559,9 @@ enum class OpCode : unsigned {
   IndexNodeHandle = 248, // returns the handle for the location in the output
                          // node array at the indicated index
 
+  // Debug info
+  DebugPrintf = 258, // printf like intrinsic
+
   // Derivatives
   CalculateLOD = 81, // calculates the level of detail
   DerivCoarseX = 83, // computes the rate of change per stamp in x direction.
@@ -983,9 +986,9 @@ enum class OpCode : unsigned {
   NumOpCodes_Dxil_1_5 = 216,
   NumOpCodes_Dxil_1_6 = 222,
   NumOpCodes_Dxil_1_7 = 226,
-  NumOpCodes_Dxil_1_8 = 258,
+  NumOpCodes_Dxil_1_8 = 259,
 
-  NumOpCodes = 258 // exclusive last value of enumeration
+  NumOpCodes = 259 // exclusive last value of enumeration
 };
 // OPCODE-ENUM:END
 
@@ -1040,6 +1043,9 @@ enum class OpCodeClass : unsigned {
   CreateNodeInputRecordHandle,
   IndexNodeHandle,
   createNodeOutputHandle,
+
+  // Debug info
+  DebugPrintf,
 
   // Derivatives
   CalculateLOD,
@@ -1290,9 +1296,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_5 = 143,
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
-  NumOpClasses_Dxil_1_8 = 174,
+  NumOpClasses_Dxil_1_8 = 175,
 
-  NumOpClasses = 174 // exclusive last value of enumeration
+  NumOpClasses = 175 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 

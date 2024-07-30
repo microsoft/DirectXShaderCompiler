@@ -1990,7 +1990,10 @@ static void ValidateExternalFunction(Function *F, ValidationContext &ValCtx) {
     // In some cases, no overloads are provided (void is exclusive to others)
     Function *dxilFunc;
     if (hlslOP->IsOverloadLegal(dxilOpcode, voidTy)) {
-      dxilFunc = hlslOP->GetOpFunc(dxilOpcode, voidTy);
+      if (hlslOP->IsDxilOpVarArg(dxilOpcode))
+        dxilFunc = CI->getCalledFunction();
+      else
+        dxilFunc = hlslOP->GetOpFunc(dxilOpcode, voidTy);
     } else {
       Type *Ty = OP::GetOverloadType(dxilOpcode, CI->getCalledFunction());
       try {
@@ -2706,7 +2709,7 @@ static void ValidateFunctionBody(Function *F, ValidationContext &ValCtx) {
 
           bool IllegalOpFunc = true;
           for (auto &it : hlslOP->GetOpFuncList(dxilOpcode)) {
-            if (it.second == FCalled) {
+            if (it.second == FCalled || hlslOP->IsDxilOpVarArg(dxilOpcode)) {
               IllegalOpFunc = false;
               break;
             }

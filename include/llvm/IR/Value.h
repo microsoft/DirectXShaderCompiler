@@ -166,7 +166,7 @@ private:
     using difference_type = std::ptrdiff_t;
     using pointer = value_type *;
     using reference = value_type &;
-  
+
     user_iterator_impl() {}
 
     bool operator==(const user_iterator_impl &x) const { return UI == x.UI; }
@@ -532,7 +532,7 @@ private:
 
     return Merged;
   }
-  
+
   /// \brief Tail-recursive helper for \a mergeUseLists().
   ///
   /// \param[out] Next the first element in the list.

@@ -2602,6 +2602,18 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
          false},
         Attribute::ReadNone,
     },
+
+    // Debug info void,     h,     f,     d,    i1,    i8,   i16,   i32,   i64,
+    // udt,   obj ,  function attribute
+    {
+        OC::DebugPrintf,
+        "DebugPrintf",
+        OCC::DebugPrintf,
+        "debugPrintf",
+        {true, false, false, false, false, false, false, false, false, false,
+         false},
+        Attribute::ArgMemOnly,
+    },
 };
 // OPCODE-OLOADS:END
 
@@ -2735,6 +2747,12 @@ bool OP::IsOverloadLegal(OpCode opCode, Type *pType) {
   unsigned TypeSlot = GetTypeSlot(pType);
   return TypeSlot != UINT_MAX &&
          m_OpCodeProps[(unsigned)opCode].bAllowOverload[TypeSlot];
+}
+
+bool OP::IsDxilOpVarArg(OpCode opCode) {
+  if (opCode == OpCode::DebugPrintf)
+    return true;
+  return false;
 }
 
 bool OP::CheckOpCodeTable() {
@@ -3533,7 +3551,8 @@ void OP::UpdateCache(OpCodeClass opClass, Type *Ty, llvm::Function *F) {
   m_FunctionToOpClass[F] = opClass;
 }
 
-Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
+Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType,
+                        ArrayRef<Type *> VarArgTypes) {
   if (opCode == OpCode::NumOpCodes)
     return nullptr;
   if (!pOverloadType)
@@ -5421,6 +5440,12 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
     A(pI32);
     A(pI32);
     break;
+
+    // Debug info
+  case OpCode::DebugPrintf:
+    A(pV);
+    A(pI32);
+    break;
   // OPCODE-OLOAD-FUNCS:END
   default:
     DXASSERT(false, "otherwise unhandled case");
@@ -5429,10 +5454,19 @@ Function *OP::GetOpFunc(OpCode opCode, Type *pOverloadType) {
 #undef RRT
 #undef A
 
+  bool isVarArg = VarArgTypes.size() > 0;
+  if (!isVarArg) {
+    if (opCode == OpCode::DebugPrintf)
+      return nullptr;
+    VarArgTypes = ArgTypes;
+  }
+
   FunctionType *pFT;
-  DXASSERT(ArgTypes.size() > 1, "otherwise forgot to initialize arguments");
+  DXASSERT(VarArgTypes.size() > 1, "otherwise forgot to initialize arguments");
+
   pFT = FunctionType::get(
-      ArgTypes[0], ArrayRef<Type *>(&ArgTypes[1], ArgTypes.size() - 1), false);
+      VarArgTypes[0], ArrayRef<Type *>(&VarArgTypes[1], VarArgTypes.size() - 1),
+      isVarArg);
 
   std::string funcName;
   ConstructOverloadName(pOverloadType, opCode, funcName);
@@ -5679,6 +5713,7 @@ llvm::Type *OP::GetOverloadType(OpCode opCode, llvm::Function *F) {
   case OpCode::AnnotateNodeRecordHandle:
   case OpCode::NodeOutputIsValid:
   case OpCode::GetRemainingRecursionLevels:
+  case OpCode::DebugPrintf:
     return Type::getVoidTy(Ctx);
   case OpCode::CheckAccessFullyMapped:
   case OpCode::SampleIndex:
