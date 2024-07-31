@@ -28,7 +28,7 @@ void node085_thread_emptynodeinput(EmptyNodeInput input)
 
 // Metadata for node
 // ------------------------------------------------------------------
-// CHECK: = !{void ()* @node085_thread_emptynodeinput, !"node085_thread_emptynodeinput", null, null, [[ATTRS:![0-9]+]]}
+// CHECK-DAG: = !{void ()* @node085_thread_emptynodeinput, !"node085_thread_emptynodeinput", null, null, [[ATTRS:![0-9]+]]}
 
 // Metadata for node attributes
 // Arg #1: ShaderKind Tag (8)
@@ -39,10 +39,7 @@ void node085_thread_emptynodeinput(EmptyNodeInput input)
 // Arg #n: NodeInputs Tag (20)
 // Arg #n+1: NodeInputs (metadata)
 // ------------------------------------------------------------------
-// CHECK: [[ATTRS]] = !{
-// CHECK-SAME: i32 8, i32 15, i32 13, i32 2,
-// CHECK-SAME: i32 20, [[NODE_IN:![0-9]+]]
-// CHECK-SAME: }
+// CHECK-DAG: [[ATTRS]] = !{{{.*}}i32 8, i32 15, i32 13, i32 2,{{.*}}i32 20, [[NODE_IN:![0-9]+]]{{.*}}}
 
 // NodeInputs
 // Arg #1: NodeIOKind Tag (1)
@@ -50,5 +47,5 @@ void node085_thread_emptynodeinput(EmptyNodeInput input)
 // Arg #3: NodeInputMaxRecordArraySize Tag (2)
 // Arg #4: MaxRecordArraySize = 1
 // ------------------------------------------------------------------
-// CHECK: [[NODE_IN]] = !{[[INPUT0:![0-9]+]]}
-// CHECK: [[INPUT0]] = !{i32 1, i32 9}
+// CHECK-DAG: [[NODE_IN]] = !{[[INPUT0:![0-9]+]]}
+// CHECK-DAG: [[INPUT0]] = !{i32 1, i32 9}

@@ -86,7 +86,7 @@ void node02()
 
 // expected-note@+2 {{entry function defined here}}
 [Shader("vertex")]
-float4 vs(float2 a :A) :SV_POSTION {
+float4 vs(float2 a :A) :SV_Position {
   float r = 0;
   if (1>3)
     // expected-error@+1 {{Intrinsic CalculateLevelOfDetail potentially used by 'vs' requires derivatives - only available in pixel, compute, amplification, mesh, or broadcast node shaders}}
