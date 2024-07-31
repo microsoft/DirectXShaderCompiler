@@ -192,3 +192,15 @@ void node02(RWThreadNodeInputRecord<RECORD> input,
   Barrier(threadRec, DEVICE_SCOPE);
   threadRec.OutputComplete();
 }
+
+// Default launch type is broadcasting which has a visible group.
+// It is OK to use GROUP_SYNC or GROUP_SCOPE.
+[Shader("node")]
+[NumThreads(64,1,1)]
+[NodeDispatchGrid(1, 1, 1)]
+void defaultBroadcastingLaunch(RWDispatchNodeInputRecord<RECORD> input,
+            [MaxRecords(11)] NodeOutput<RECORD> output) {
+  Barrier(UAV_MEMORY, GROUP_SYNC);
+  Barrier(UAV_MEMORY, GROUP_SCOPE);
+  Barrier(UAV_MEMORY, GROUP_SCOPE|GROUP_SYNC);
+}
