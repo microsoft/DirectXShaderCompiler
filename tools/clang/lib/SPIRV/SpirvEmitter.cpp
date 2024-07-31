@@ -594,8 +594,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     emitError("unknown shader module: %0", {}) << shaderModel->GetName();
 
   if (spirvOptions.invertY && !shaderModel->IsVS() && !shaderModel->IsDS() &&
-      !shaderModel->IsGS())
-    emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
+      !shaderModel->IsGS() && !shaderModel->IsMS())
+    emitError("-fvk-invert-y can only be used in VS/DS/GS/MS", {});
 
   if (spirvOptions.useGlLayout && spirvOptions.useDxLayout)
     emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-gl-layout",
@@ -7933,6 +7933,9 @@ void SpirvEmitter::assignToMSOutAttribute(
     valueType = astContext.UnsignedIntTy;
   }
   varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
+  if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
+    value = invertYIfRequested(value, semanticInfo.loc);
+
   spvBuilder.createStore(varInstr, value, loc);
 }
 
@@ -14325,6 +14328,22 @@ SpirvEmitter::createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs,
   retVal->setRValue();
 
   return retVal;
+}
+
+SpirvInstruction *SpirvEmitter::invertYIfRequested(SpirvInstruction *position,
+                                                   SourceLocation loc,
+                                                   SourceRange range) {
+  // Negate SV_Position.y if requested
+  if (spirvOptions.invertY) {
+    const auto oldY = spvBuilder.createCompositeExtract(
+        astContext.FloatTy, position, {1}, loc, range);
+    const auto newY = spvBuilder.createUnaryOp(
+        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
+    position = spvBuilder.createCompositeInsert(
+        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
+        loc, range);
+  }
+  return position;
 }
 
 SpirvInstruction *

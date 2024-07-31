@@ -3667,7 +3667,7 @@ bool DeclResultIdMapper::createStageVars(StageVarDataBundle &stageVarData,
         return true;
       // Negate SV_Position.y if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
-        *value = invertYIfRequested(*value, thisSemantic.loc);
+        *value = theEmitter.invertYIfRequested(*value, thisSemantic.loc);
       storeToShaderOutputVariable(varInstr, *value, stageVarData);
     }
 
@@ -3856,7 +3856,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
 
     // Negate SV_Position.y if requested
     if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
-      value = invertYIfRequested(value, loc, range);
+      value = theEmitter.invertYIfRequested(value, loc, range);
 
     // Boolean stage output variables are represented as unsigned integers.
     if (isBooleanStageIOVar(decl, type, semanticInfo.semantic->GetKind(),
@@ -3904,22 +3904,6 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   }
 
   return true;
-}
-
-SpirvInstruction *
-DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
-                                       SourceLocation loc, SourceRange range) {
-  // Negate SV_Position.y if requested
-  if (spirvOptions.invertY) {
-    const auto oldY = spvBuilder.createCompositeExtract(
-        astContext.FloatTy, position, {1}, loc, range);
-    const auto newY = spvBuilder.createUnaryOp(
-        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
-    position = spvBuilder.createCompositeInsert(
-        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
-        loc, range);
-  }
-  return position;
 }
 
 SpirvInstruction *
