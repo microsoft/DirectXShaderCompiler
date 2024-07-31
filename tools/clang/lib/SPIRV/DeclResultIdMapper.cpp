@@ -320,6 +320,15 @@ bool shouldSkipInStructLayout(const Decl *decl) {
   // $Globals' "struct" is the TranslationUnit, so we should ignore resources
   // in the TranslationUnit "struct" and its child namespaces.
   if (declContext->isTranslationUnit() || declContext->isNamespace()) {
+
+    if (decl->hasAttr<VKConstantIdAttr>()) {
+      return true;
+    }
+
+    if (decl->hasAttr<VKPushConstantAttr>()) {
+      return true;
+    }
+
     // External visibility
     if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
       if (!declDecl->hasExternalFormalLinkage())
