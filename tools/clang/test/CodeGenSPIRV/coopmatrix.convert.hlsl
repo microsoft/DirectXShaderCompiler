@@ -3,6 +3,7 @@
 #include "vk/khr/cooperative_matrix.h"
 
 RWStructuredBuffer<int> data;
+int stride;
 
 // CHECK: OpCapability CooperativeMatrixKHR
 // CHECK: OpExtension "SPV_KHR_cooperative_matrix"
@@ -11,14 +12,14 @@ RWStructuredBuffer<int> data;
   using IntMatA = vk::khr::CooperativeMatrixA<int, vk::ScopeSubgroup, 16, 4>;
   using FloatMatA = vk::khr::CooperativeMatrixA<float, vk::ScopeSubgroup, 16, 4>;
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_0
-// CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1
-  IntMatA int_matrix = IntMatA::LoadColumnMajor(data, 0);
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_0
+  // CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1
+  IntMatA int_matrix = IntMatA::Load(data, 0, vk::CooperativeMatrixLayoutColumnMajorKHR, stride);
 
-// CHECK: [[result:%[0-9]+]] = OpConvertSToF %spirvIntrinsicType_0 [[ld]]
+  // CHECK: [[result:%[0-9]+]] = OpConvertSToF %spirvIntrinsicType_0 [[ld]]
   FloatMatA float_matrix = int_matrix.cast<float>();
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_64
-// CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[result]] %int_0
-  float_matrix.StoreRowMajor(data, 64);
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_64
+  // CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[result]] %int_0
+  float_matrix.Store(data, 64, vk::CooperativeMatrixLayoutRowMajorKHR, stride);
 }

@@ -3,6 +3,7 @@
 #include "vk/khr/cooperative_matrix.h"
 
 RWStructuredBuffer<int> data;
+int stride;
 
 // CHECK: OpCapability CooperativeMatrixKHR
 // CHECK: OpExtension "SPV_KHR_cooperative_matrix"
@@ -19,15 +20,14 @@ RWStructuredBuffer<int> data;
 
   uint32_t length = a.GetLength();
   // CHECK: OpLoopMerge [[mbb:%[0-9]+]]
-  for( int i = 0; i < length; ++i) {
+  for (int i = 0; i < length; ++i) {
     // CHECK: [[ac:%[0-9]+]] = OpAccessChain %spirvIntrinsicType_0 [[a]]
     // CHECK: [[get:%[0-9]+]] = OpLoad %int [[ac]]
     // CHECK: [[add:%[0-9]+]] = OpIAdd %int [[get]] %int_1
     // CHECK: OpStore [[ac]] [[add]]
     int v = a.Get(i);
-    a.Set(v+1, i);
+    a.Set(v + 1, i);
   }
   // CHECK: [[mbb]] = OpLabel
-
-  a.StoreRowMajor(data, 64);
+  a.Store(data, 64, vk::CooperativeMatrixLayoutRowMajorKHR, stride);
 }

@@ -11,21 +11,19 @@ groupshared float shared_data[64];
 [numthreads(64, 1, 1)] void main() {
   using FloatMatA = vk::khr::CooperativeMatrixA<float, vk::ScopeSubgroup, 16, 4>;
 
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_0
+  // CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1 %uint_256 Volatile{{$}}
+  FloatMatA m = FloatMatA::Load<vk::MemoryAccessVolatileMask>(data, 0, vk::CooperativeMatrixLayoutColumnMajorKHR, 256);
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_0
-// CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1
-  FloatMatA m = FloatMatA::LoadColumnMajor(data, 0);
-
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_float %shared_data %int_0
-// CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[ld]] %int_1
-  __builtin_spv_CooperativeMatrixStoreKHR(shared_data[0], m._matrix,
-                                          vk::CooperativeMatrixLayoutColumnMajorKHR);
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_float %shared_data %int_0
+  // CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[ld]] %int_1 %uint_64 Volatile{{$}}
+  m.Store<vk::MemoryAccessVolatileMask>(vk::GetGroupSharedAddress(shared_data[0]), vk::CooperativeMatrixLayoutColumnMajorKHR, 64);
 
   FloatMatA m2;
-// CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1
-  m2._matrix = __builtin_spv_CooperativeMatrixLoadKHR<FloatMatA::SpirvMatrixType>(shared_data[0], vk::CooperativeMatrixLayoutColumnMajorKHR);
+  // CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1 %uint_128 Volatile|Nontemporal{{$}}
+  m2 = FloatMatA::Load<vk::MemoryAccessVolatileMask|vk::MemoryAccessNontemporalMask>(vk::GetGroupSharedAddress(shared_data[0]), vk::CooperativeMatrixLayoutColumnMajorKHR, 128);
 
-// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_64
-// CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[ld]] %int_0
-  m2.StoreRowMajor(data, 64);
+  // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_64
+  // CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[ld]] %int_0 %uint_8 Volatile{{$}}
+  m2.Store<vk::MemoryAccessVolatileMask>(data, 64, vk::CooperativeMatrixLayoutRowMajorKHR, 8);
 }

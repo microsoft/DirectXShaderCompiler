@@ -54,65 +54,71 @@ class CooperativeMatrix {
   // Apply OpMatrixTimesScalar in a element by element manner.
   CooperativeMatrix operator*(ComponentType scalar);
 
-  // Note: The SPIR-V specification allows the load and store function to access
-  // workgroup data (groupshared in HLSL). This call does not accept group
-  // shared data because HLSL cannot pass the groupshared array by reference. It
-  // is impossible to implement a function that will load and store from group
-  // sharded data. This can be revisited when references are added to HLSL.
+  // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to
+  // data[index] using the given memory layout, stride, and memory access mask.
+  //
+  // This function uses a Spir-V pointer because HLSL does not allow grouphsared
+  // memory object to be passed by reference. The pointer is a hack to get
+  // around that.
+  template <MemoryAccessMask memoryAccessMask, class Type>
+  void Store(WorkgroupSpirvPointer<Type> data, CooperativeMatrixLayout layout,
+             uint32_t stride);
 
-  // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to data[i]
-  // using memory layout RowMajorKHR.￼
   template <class Type>
-  void StoreRowMajor(RWStructuredBuffer<Type> data, uint32_t index);
+  void Store(WorkgroupSpirvPointer<Type> data, CooperativeMatrixLayout layout,
+             uint32_t stride) {
+    Store<MemoryAccessMaskNone>(data, layout, stride);
+  }
 
-  // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to data[i]
-  // using memory layout ColumnMajorKHR.￼
-  template <class Type>
-  void StoreColumnMajor(RWStructuredBuffer<Type> data, uint32_t index);
+  // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to
+  // data[index] using the given memory layout, stride, and memory access mask.
+  template <MemoryAccessMask memoryAccessMask, class Type>
+  void Store(RWStructuredBuffer<Type> data, uint32_t index,
+             CooperativeMatrixLayout layout, uint32_t stride);
 
-  // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to data[i]
-  // using memory layout RowMajorKHR and the given stride and memory access
-  // mask.
   template <class Type>
-  void StoreRowMajor(RWStructuredBuffer<Type> data, uint32_t index,
-                     uint32_t stride, MemoryAccessMask memoryAccessMask);
+  void Store(RWStructuredBuffer<Type> data, uint32_t index,
+             CooperativeMatrixLayout layout, uint32_t stride) {
+    Store<MemoryAccessMaskNone>(data, index, layout, stride);
+  }
 
-  // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to data[i]
-  // using memory layout ColumnMajorKHR and the given stride and memory access
-  // mask.
+  template <MemoryAccessMask memoryAccessMask, class Type>
+  static CooperativeMatrix Load(WorkgroupSpirvPointer<Type> data,
+                                CooperativeMatrixLayout layout,
+                                uint32_t stride);
+
   template <class Type>
-  void StoreColumnMajor(RWStructuredBuffer<Type> data, uint32_t index,
-                        uint32_t stride, MemoryAccessMask memoryAccessMask);
+  static CooperativeMatrix Load(WorkgroupSpirvPointer<Type> data,
+                                CooperativeMatrixLayout layout,
+                                uint32_t stride) {
+    return Load<MemoryAccessMaskNone>(data, layout, stride);
+  }
+
+  // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from
+  // data[index] using the given memory layout, stride, and memory access mask.
+  template <MemoryAccessMask memoryAccessMask, class Type>
+  static CooperativeMatrix Load(RWStructuredBuffer<Type> data, uint32_t index,
+                                CooperativeMatrixLayout layout,
+                                uint32_t stride);
+
+  template <class Type>
+  static CooperativeMatrix Load(RWStructuredBuffer<Type> data, uint32_t index,
+                                CooperativeMatrixLayout layout,
+                                uint32_t stride) {
+    return Load<MemoryAccessMaskNone>(data, index, layout, stride);
+  }
+
+  // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from
+  // data[index] using the given memory layout, stride, and memory access mask.
+  template <class Type>
+  static CooperativeMatrix
+  Load(StructuredBuffer<Type> data, uint32_t index,
+       CooperativeMatrixLayout layout, uint32_t stride,
+       MemoryAccessMask memoryAccessMask = MemoryAccessMaskNone);
 
   // Constructs a cooperative matrix with all values initialized to v. Note that
   // all active threads must have the same value for v.
   static CooperativeMatrix splat(ComponentType v);
-
-  // Load the cooperative matrix using OpCooperativeMatrixLoadKHR from data[i]
-  // using memory layout RowMajorKHR.
-  template <class BufferType>
-  static CooperativeMatrix LoadRowMajor(BufferType buffer, uint32_t index);
-
-  // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from data[i]
-  // using memory layout ColumnMajorKHR.￼
-  template <class BufferType>
-  static CooperativeMatrix LoadColumnMajor(BufferType buffer, uint32_t index);
-
-  // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from data[i]
-  // using memory layout RowMajorKHR, and the given stride and memory access
-  // mask.
-  template <class BufferType>
-  static CooperativeMatrix
-  LoadRowMajor(BufferType buffer, uint32_t index, uint32_t stride,
-               MemoryAccessMask memoryAccessMask = MemoryAccessMaskNone);
-
-  // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from data[i]
-  // using memory layout ColumnMajorKHR, and the given stride and memory access
-  // mask.
-  template <class BufferType>
-  static CooperativeMatrix
-  LoadColumnMajor(BufferType buffer, uint32_t index, uint32_t stride,
-                  MemoryAccessMask memoryAccessMask = MemoryAccessMaskNone);
 
   // Returns the result of OpCooperativeMatrixLengthKHR on the current type.￼
   static uint32_t GetLength();
