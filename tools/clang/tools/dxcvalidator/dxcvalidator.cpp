@@ -89,7 +89,7 @@ static uint32_t runValidation(
     uint32_t Flags,            // Validation flags.
     llvm::Module *Module,      // Module to validate, if available.
     llvm::Module *DebugModule, // Debug module to validate, if available
-    AbstractMemoryStream *DiagMemStream, IDxcBlob **Hashed) {
+    AbstractMemoryStream *DiagMemStream) {
 
   // Run validation may throw, but that indicates an inability to validate,
   // not that the validation failed (eg out of memory). That is indicated
@@ -263,13 +263,27 @@ uint32_t hlsl::validateWithDebug(
     if (Flags & DxcValidatorFlags_RootSignatureOnly)
       ValidationStatus =
           runRootSignatureValidation(Shader, DiagMemStream, Flags, &HashedBlob);
-    else if ((Flags & DxcValidatorFlags_ModuleOnly) && IsInternalValidator)
-      ValidationStatus = runValidation(Shader, Flags, nullptr, nullptr,
-                                       DiagMemStream, &HashedBlob);
-    else
+    else if ((Flags & DxcValidatorFlags_ModuleOnly) && IsInternalValidator) {
+      LLVMContext Ctx;
+      raw_stream_ostream DiagStream(DiagMemStream);
+      llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+      PrintDiagnosticContext DiagContext(DiagPrinter);
+      Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                               &DiagContext, true);
+      std::unique_ptr<llvm::Module> DebugModule;
+      if (OptDebugBitcode) {
+        HR = ValidateLoadModule((const char *)OptDebugBitcode->Ptr,
+                                (uint32_t)OptDebugBitcode->Size, DebugModule,
+                                Ctx, DiagStream, /*bLazyLoad*/ false);
+        if (FAILED(HR))
+          throw hlsl::Exception(HR);
+      }
+      ValidationStatus = runValidation(Shader, Flags, nullptr,
+                                       DebugModule.get(), DiagMemStream);
+    } else {
       ValidationStatus = runValidation(Shader, DiagMemStream, Flags,
                                        OptDebugBitcode, &HashedBlob);
-
+    }
     if (FAILED(ValidationStatus)) {
       std::string msg("Validation failed.\n");
       ULONG cbWritten;
@@ -325,7 +339,7 @@ uint32_t hlsl::validateWithOptModules(
           runRootSignatureValidation(Shader, DiagStream, Flags, &HashedBlob);
     else
       ValidationStatus = runValidation(Shader, Flags, Module, DebugModule,
-                                       DiagStream, &HashedBlob);
+                                       DiagStream);
     if (FAILED(ValidationStatus)) {
       std::string msg("Validation failed.\n");
       ULONG cbWritten;
