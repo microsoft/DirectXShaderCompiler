@@ -325,6 +325,9 @@ else()
   option(LLVM_ENABLE_ASSERTIONS "Enable assertions" ON)
 endif()
 
+option(LLVM_ASSERTIONS_TRAP "Force assertions to always trap, rather than the default unspecified behavior (e.g. RaiseException on Windows)" OFF)
+option(LLVM_ASSERTIONS_NO_STRINGS "Make assertion macro drops strings to reduce binary size" OFF)
+
 set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")
 

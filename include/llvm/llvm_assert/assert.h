@@ -37,8 +37,15 @@ void llvm_assert(const char *Message, const char *File, unsigned Line,
 }
 #endif
 
+// If LLVM_ASSERTIONS_NO_STRINGS is defined, pass empty strings to llvm_assert
+// to reduce binary size.
+#ifdef LLVM_ASSERTIONS_NO_STRINGS
+#define assert(Expression)                                                     \
+  ((void)((!!(Expression)) || (llvm_assert("", "", 0, ""), 0)))
+#else
 #define assert(Expression)                                                     \
   ((void)((!!(Expression)) ||                                                  \
           (llvm_assert(#Expression, __FILE__, __LINE__, __FUNCTION__), 0)))
+#endif
 
 #endif /* NDEBUG */
