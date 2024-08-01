@@ -474,6 +474,20 @@ inline bool IsFeedbackTexture(DXIL::ResourceKind ResourceKind) {
 // OPCODE-ENUM:BEGIN
 // Enumeration for operations specified by DXIL
 enum class OpCode : unsigned {
+  //
+  Reserved0 = 226,  // Reserved
+  Reserved1 = 227,  // Reserved
+  Reserved10 = 236, // Reserved
+  Reserved11 = 237, // Reserved
+  Reserved2 = 228,  // Reserved
+  Reserved3 = 229,  // Reserved
+  Reserved4 = 230,  // Reserved
+  Reserved5 = 231,  // Reserved
+  Reserved6 = 232,  // Reserved
+  Reserved7 = 233,  // Reserved
+  Reserved8 = 234,  // Reserved
+  Reserved9 = 235,  // Reserved
+
   // Amplification shader instructions
   DispatchMesh = 173, // Amplification shader intrinsic DispatchMesh
 
@@ -946,27 +960,6 @@ enum class OpCode : unsigned {
   WaveReadLaneAt = 117,    // returns the value from the specified lane
   WaveReadLaneFirst = 118, // returns the value from the first lane
 
-  // WaveMatrix
-  WaveMatrix_Add = 237, // Element-wise accumulate, or broadcast add of fragment
-                        // into accumulator
-  WaveMatrix_Annotate =
-      226, // Annotate a wave matrix pointer with the type information
-  WaveMatrix_Depth =
-      227,               // Returns depth (K) value for matrix of specified type
-  WaveMatrix_Fill = 228, // Fill wave matrix with scalar value
-  WaveMatrix_LoadGroupShared = 230, // Load wave matrix from group shared array
-  WaveMatrix_LoadRawBuf = 229,      // Load wave matrix from raw buffer
-  WaveMatrix_Multiply =
-      233, // Mutiply left and right wave matrix and store in accumulator
-  WaveMatrix_MultiplyAccumulate =
-      234, // Mutiply left and right wave matrix and accumulate into accumulator
-  WaveMatrix_ScalarOp =
-      235, // Perform scalar operation on each element of wave matrix
-  WaveMatrix_StoreGroupShared = 232, // Store wave matrix to group shared array
-  WaveMatrix_StoreRawBuf = 231,      // Store wave matrix to raw buffer
-  WaveMatrix_SumAccumulate = 236, // Sum rows or columns of an input matrix into
-                                  // an existing accumulator fragment matrix
-
   // Work Graph intrinsics
   FinishedCrossGroupSharing = 243, // returns true if the current thread group
                                    // is the last to access the input
@@ -1003,6 +996,9 @@ enum class OpCode : unsigned {
 // OPCODECLASS-ENUM:BEGIN
 // Groups for DXIL operations with equivalent function templates
 enum class OpCodeClass : unsigned {
+  //
+  Reserved,
+
   // Amplification shader instructions
   DispatchMesh,
 
@@ -1278,18 +1274,6 @@ enum class OpCodeClass : unsigned {
   WaveReadLaneAt,
   WaveReadLaneFirst,
 
-  // WaveMatrix
-  WaveMatrix_Accumulate,
-  WaveMatrix_Annotate,
-  WaveMatrix_Depth,
-  WaveMatrix_Fill,
-  WaveMatrix_LoadGroupShared,
-  WaveMatrix_LoadRawBuf,
-  WaveMatrix_Multiply,
-  WaveMatrix_ScalarOp,
-  WaveMatrix_StoreGroupShared,
-  WaveMatrix_StoreRawBuf,
-
   // Work Graph intrinsics
   FinishedCrossGroupSharing,
   GetInputRecordCount,
@@ -1306,9 +1290,9 @@ enum class OpCodeClass : unsigned {
   NumOpClasses_Dxil_1_5 = 143,
   NumOpClasses_Dxil_1_6 = 149,
   NumOpClasses_Dxil_1_7 = 153,
-  NumOpClasses_Dxil_1_8 = 183,
+  NumOpClasses_Dxil_1_8 = 174,
 
-  NumOpClasses = 183 // exclusive last value of enumeration
+  NumOpClasses = 174 // exclusive last value of enumeration
 };
 // OPCODECLASS-ENUM:END
 
@@ -1817,29 +1801,6 @@ enum class SamplerFeedbackType : uint8_t {
   LastEntry = 2
 };
 
-enum class WaveMatrixKind : uint8_t {
-  Left = 0,
-  Right = 1,
-  LeftColAcc = 2,
-  RightRowAcc = 3,
-  Accumulator = 4,
-  NumKinds = 5,
-  MaskSide = 1,
-  MaskClass = 6, // 0 = Left/Right, 2 = Fragment, 4 = Accumulator
-};
-
-/* <py::lines('WAVEMATRIXSCALAROPCODE-ENUM')>hctdb_instrhelp.get_enum_decl("WaveMatrixScalarOpCode")</py>*/
-// WAVEMATRIXSCALAROPCODE-ENUM:BEGIN
-// Operation for WaveMatrix_ScalarOp
-enum class WaveMatrixScalarOpCode : unsigned {
-  Add = 0,
-  Divide = 3,
-  Invalid = 4,
-  Multiply = 2,
-  Subtract = 1,
-};
-// WAVEMATRIXSCALAROPCODE-ENUM:END
-
 // Corresponds to MEMORY_TYPE_FLAG enums in HLSL
 enum class MemoryTypeFlag : uint32_t {
   UavMemory = 0x00000001,         // UAV_MEMORY
@@ -1922,8 +1883,7 @@ const uint64_t ShaderFeatureInfo_SampleCmpGradientOrBias = 0x80000000;
 const uint64_t ShaderFeatureInfo_ExtendedCommandInfo = 0x100000000;
 
 // Experimental SM 6.9+ - Reserved, not yet supported.
-// WaveMMA slots in between two SM 6.6 feature bits.
-const uint64_t ShaderFeatureInfo_WaveMMA = 0x8000000;
+const uint64_t ShaderFeatureInfo_Reserved = 0x8000000;
 
 // Maximum count without rolling over into another 64-bit field is 40,
 // so the last flag we can use for a feature requirement is: 0x8000000000
