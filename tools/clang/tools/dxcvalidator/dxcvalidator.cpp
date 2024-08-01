@@ -216,20 +216,59 @@ static uint32_t runRootSignatureValidation(IDxcBlob *Shader,
   return S_OK;
 }
 
+static uint32_t runDxilModuleValidation(
+    IDxcBlob *Shader,           // Shader to validate.
+    DxcBuffer *OptDebugBitcode, // Optional debug module bitcode to provide
+                                // line numbers
+    AbstractMemoryStream *DiagMemStream) {
+  if (IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize()))
+    return E_INVALIDARG;
+
+  LLVMContext Ctx;
+  raw_stream_ostream DiagStream(DiagMemStream);
+  llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
+  PrintDiagnosticContext DiagContext(DiagPrinter);
+  Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                           &DiagContext, true);
+  std::unique_ptr<llvm::Module> DebugModule;
+  if (OptDebugBitcode) {
+    uint32_t HR = ValidateLoadModule(
+        (const char *)OptDebugBitcode->Ptr, (uint32_t)OptDebugBitcode->Size,
+        DebugModule, Ctx, DiagStream, /*bLazyLoad*/ false);
+    if (FAILED(HR))
+      return HR;
+  }
+
+  std::unique_ptr<llvm::Module> Module;
+  uint32_t HR = ValidateLoadModule((const char *)Shader->GetBufferPointer(),
+                                   (uint32_t)Shader->GetBufferSize(), Module,
+                                   Ctx, DiagStream, /*bLazyLoad*/ false);
+  if (FAILED(HR))
+    return HR;
+
+  DiagRestore DR(Module->getContext(), &DiagContext);
+
+  HR = hlsl::ValidateDxilModule(Module.get(), DebugModule.get());
+  if (FAILED(HR))
+    return HR;
+  if (DiagContext.HasErrors() || DiagContext.HasWarnings())
+    return DXC_E_IR_VERIFICATION_FAILED;
+
+  return S_OK;
+}
+
 // Compile a single entry point to the target shader model
 uint32_t hlsl::validate(
     IDxcBlob *Shader,            // Shader to validate.
     uint32_t Flags,              // Validation flags.
-    bool IsInternalValidator,    // Run internal validator.
     IDxcOperationResult **Result // Validation output status, buffer, and errors
 ) {
-  return validateWithDebug(Shader, Flags, IsInternalValidator, nullptr, Result);
+  return validateWithDebug(Shader, Flags, nullptr, Result);
 }
 
 uint32_t hlsl::validateWithDebug(
     IDxcBlob *Shader,            // Shader to validate.
     uint32_t Flags,              // Validation flags.
-    bool IsInternalValidator,    // Run internal validator.
     DxcBuffer *OptDebugBitcode,  // Optional debug module bitcode to provide
                                  // line numbers
     IDxcOperationResult **Result // Validation output status, buffer, and errors
@@ -263,27 +302,13 @@ uint32_t hlsl::validateWithDebug(
     if (Flags & DxcValidatorFlags_RootSignatureOnly)
       ValidationStatus =
           runRootSignatureValidation(Shader, DiagMemStream, Flags, &HashedBlob);
-    else if ((Flags & DxcValidatorFlags_ModuleOnly) && IsInternalValidator) {
-      LLVMContext Ctx;
-      raw_stream_ostream DiagStream(DiagMemStream);
-      llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
-      PrintDiagnosticContext DiagContext(DiagPrinter);
-      Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
-                               &DiagContext, true);
-      std::unique_ptr<llvm::Module> DebugModule;
-      if (OptDebugBitcode) {
-        HR = ValidateLoadModule((const char *)OptDebugBitcode->Ptr,
-                                (uint32_t)OptDebugBitcode->Size, DebugModule,
-                                Ctx, DiagStream, /*bLazyLoad*/ false);
-        if (FAILED(HR))
-          throw hlsl::Exception(HR);
-      }
-      ValidationStatus = runValidation(Shader, Flags, nullptr,
-                                       DebugModule.get(), DiagMemStream);
-    } else {
+    else if (Flags & DxcValidatorFlags_ModuleOnly)
+      ValidationStatus =
+          runDxilModuleValidation(Shader, OptDebugBitcode, DiagMemStream);
+    else
       ValidationStatus = runValidation(Shader, DiagMemStream, Flags,
                                        OptDebugBitcode, &HashedBlob);
-    }
+
     if (FAILED(ValidationStatus)) {
       std::string msg("Validation failed.\n");
       ULONG cbWritten;
