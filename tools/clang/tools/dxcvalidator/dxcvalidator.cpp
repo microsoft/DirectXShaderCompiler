@@ -338,8 +338,8 @@ uint32_t hlsl::validateWithOptModules(
       ValidationStatus =
           runRootSignatureValidation(Shader, DiagStream, Flags, &HashedBlob);
     else
-      ValidationStatus = runValidation(Shader, Flags, Module, DebugModule,
-                                       DiagStream);
+      ValidationStatus =
+          runValidation(Shader, Flags, Module, DebugModule, DiagStream);
     if (FAILED(ValidationStatus)) {
       std::string msg("Validation failed.\n");
       ULONG cbWritten;
