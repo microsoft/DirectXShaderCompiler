@@ -36,7 +36,7 @@ set(sources
   dxildll.cpp
   dxildll.def
   DxcHashingContainerBuilder.cpp
-  dxcvalidatorp.cpp
+  dxcvalidator.cpp
 )
 
 if (WIN32)
