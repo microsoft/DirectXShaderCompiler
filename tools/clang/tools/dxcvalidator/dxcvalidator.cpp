@@ -66,8 +66,6 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
     *Hashed = Shader;
     Shader->AddRef();
   } else {
-    // Possible gotcha: the blob allocated here is tied to this .dll, so the
-    // DLL shouldn't be unloaded before the blob is released.
     CComPtr<AbstractMemoryStream> HashedBlobStream;
     uint32_t HR =
         CreateMemoryStream(DxcGetThreadMallocNoRef(), &HashedBlobStream);
