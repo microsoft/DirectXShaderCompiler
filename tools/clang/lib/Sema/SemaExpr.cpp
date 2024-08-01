@@ -1964,7 +1964,8 @@ Sema::DiagnoseEmptyLookup(Scope *S, CXXScopeSpec &SS, LookupResult &R,
            "Diagnosing an empty lookup with explicit template args!");
     *Out = CorrectTypoDelayed(
         R.getLookupNameInfo(), R.getLookupKind(), S, &SS, std::move(CCC),
-        [=](const TypoCorrection &TC) {
+        [this, SS, Name, TypoLoc, Args, diagnostic,
+         diagnostic_suggest](const TypoCorrection &TC) {
           emitEmptyLookupTypoDiagnostic(TC, *this, SS, Name, TypoLoc, Args,
                                         diagnostic, diagnostic_suggest);
         },
