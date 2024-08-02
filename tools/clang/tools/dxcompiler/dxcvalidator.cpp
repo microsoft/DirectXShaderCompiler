@@ -111,7 +111,7 @@ HRESULT DxcValidator::ValidateWithOptDebugModule(
         *ppResult // Validation output status, buffer, and errors
 ) {
   return hlsl::validateWithOptDebugModule(pShader, Flags, pDebugModule,
-                                      ppResult);
+                                          ppResult);
 }
 
 HRESULT STDMETHODCALLTYPE DxcValidator::GetVersion(UINT32 *pMajor,
