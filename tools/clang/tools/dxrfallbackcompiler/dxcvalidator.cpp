@@ -35,10 +35,9 @@ public:
   }
 
   // For internal use only.
-  HRESULT ValidateWithOptModules(
+  HRESULT ValidateWithOptDebugModule(
       IDxcBlob *pShader,          // Shader to validate.
       UINT32 Flags,               // Validation flags.
-      llvm::Module *pModule,      // Module to validate, if available.
       llvm::Module *pDebugModule, // Debug module to validate, if available
       IDxcOperationResult *
           *ppResult // Validation output status, buffer, and errors
@@ -64,19 +63,18 @@ HRESULT STDMETHODCALLTYPE DxcValidator::Validate(
     IDxcOperationResult *
         *ppResult // Validation output status, buffer, and errors
 ) {
-  return hlsl::validate(pShader, Flags, ppResult);
+  return hlsl::validateWithDebug(pShader, Flags, nullptr, ppResult);
 }
 
-HRESULT DxcValidator::ValidateWithOptModules(
+HRESULT DxcValidator::ValidateWithOptDebugModule(
     IDxcBlob *pShader,          // Shader to validate.
     UINT32 Flags,               // Validation flags.
-    llvm::Module *pModule,      // Module to validate, if available.
     llvm::Module *pDebugModule, // Debug module to validate, if available
     IDxcOperationResult *
         *ppResult // Validation output status, buffer, and errors
 ) {
-  return hlsl::validateWithOptModules(pShader, Flags, pModule, pDebugModule,
-                                      ppResult);
+  return hlsl::validateWithOptDebugModule(pShader, Flags, pDebugModule,
+                                          ppResult);
 }
 
 HRESULT STDMETHODCALLTYPE DxcValidator::GetVersion(UINT32 *pMajor,
@@ -97,17 +95,16 @@ HRESULT STDMETHODCALLTYPE DxcValidator::GetFlags(UINT32 *pFlags) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
+HRESULT RunInternalValidator(IDxcValidator *pValidator,
                              llvm::Module *pDebugModule, IDxcBlob *pShader,
                              UINT32 Flags, IDxcOperationResult **ppResult) {
   DXASSERT_NOMSG(pValidator != nullptr);
-  DXASSERT_NOMSG(pModule != nullptr);
   DXASSERT_NOMSG(pShader != nullptr);
   DXASSERT_NOMSG(ppResult != nullptr);
 
   DxcValidator *pInternalValidator = (DxcValidator *)pValidator;
-  return pInternalValidator->ValidateWithOptModules(pShader, Flags, pModule,
-                                                    pDebugModule, ppResult);
+  return pInternalValidator->ValidateWithOptDebugModule(pShader, Flags,
+                                                        pDebugModule, ppResult);
 }
 
 HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv) {

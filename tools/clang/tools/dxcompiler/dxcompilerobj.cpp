@@ -84,7 +84,7 @@ HRESULT CreateDxcValidator(REFIID riid, LPVOID *ppv);
 // the module. It trusts that the caller didn't make any changes and is
 // kept internal because the layout of the module class may change based
 // on changes across modules, or picking a different compiler version or CRT.
-HRESULT RunInternalValidator(IDxcValidator *pValidator, llvm::Module *pModule,
+HRESULT RunInternalValidator(IDxcValidator *pValidator,
                              llvm::Module *pDebugModule, IDxcBlob *pShader,
                              UINT32 Flags, IDxcOperationResult **ppResult);
 

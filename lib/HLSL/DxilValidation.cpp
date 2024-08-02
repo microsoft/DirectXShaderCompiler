@@ -6983,12 +6983,36 @@ HRESULT ValidateLoadModuleFromContainerLazy(
                                          /*bLazyLoad*/ true);
 }
 
+namespace {
+// Utility class for setting and restoring the diagnostic context so we may
+// capture errors/warnings
+struct DiagRestore {
+  Module *M;
+  void *OrigDiagContext;
+  LLVMContext::DiagnosticHandlerTy OrigHandler;
+
+  DiagRestore(Module *M, void *DiagContext) : M(M) {
+    if (!M)
+      return;
+    LLVMContext &Ctx = M->getContext();
+    OrigHandler = Ctx.getDiagnosticHandler();
+    OrigDiagContext = Ctx.getDiagnosticContext();
+    Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
+                             DiagContext);
+  }
+  ~DiagRestore() {
+    if (!M)
+      return;
+    M->getContext().setDiagnosticHandler(OrigHandler, OrigDiagContext);
+  }
+};
+} // namespace
+
 HRESULT ValidateDxilContainer(const void *pContainer, uint32_t ContainerSize,
-                              const void *pOptDebugBitcode,
-                              uint32_t OptDebugBitcodeSize,
+                              llvm::Module *pDebugModule,
                               llvm::raw_ostream &DiagStream) {
   LLVMContext Ctx, DbgCtx;
-  std::unique_ptr<llvm::Module> pModule, pDebugModule;
+  std::unique_ptr<llvm::Module> pModule, pDebugModuleInContainer;
 
   llvm::DiagnosticPrinterRawOStream DiagPrinter(DiagStream);
   PrintDiagnosticContext DiagContext(DiagPrinter);
@@ -6997,31 +7021,29 @@ HRESULT ValidateDxilContainer(const void *pContainer, uint32_t ContainerSize,
   DbgCtx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
                               &DiagContext, true);
 
-  IFR(ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
-                                      pDebugModule, Ctx, DbgCtx, DiagStream));
+  DiagRestore DR(pDebugModule, &DiagContext);
 
-  if (!pDebugModule && pOptDebugBitcode) {
-    // TODO: lazy load for perf
-    IFR(ValidateLoadModule((const char *)pOptDebugBitcode, OptDebugBitcodeSize,
-                           pDebugModule, DbgCtx, DiagStream,
-                           /*bLazyLoad*/ false));
-  }
+  IFR(ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
+                                      pDebugModuleInContainer, Ctx, DbgCtx,
+                                      DiagStream));
+
+  if (pDebugModuleInContainer)
+    pDebugModule = pDebugModuleInContainer.get();
 
   // Validate DXIL Module
-  IFR(ValidateDxilModule(pModule.get(), pDebugModule.get()));
+  IFR(ValidateDxilModule(pModule.get(), pDebugModule));
 
   if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
     return DXC_E_IR_VERIFICATION_FAILED;
   }
 
   return ValidateDxilContainerParts(
-      pModule.get(), pDebugModule.get(),
+      pModule.get(), pDebugModule,
       IsDxilContainerLike(pContainer, ContainerSize), ContainerSize);
 }
 
 HRESULT ValidateDxilContainer(const void *pContainer, uint32_t ContainerSize,
                               llvm::raw_ostream &DiagStream) {
-  return ValidateDxilContainer(pContainer, ContainerSize, nullptr, 0,
-                               DiagStream);
+  return ValidateDxilContainer(pContainer, ContainerSize, nullptr, DiagStream);
 }
 } // namespace hlsl
