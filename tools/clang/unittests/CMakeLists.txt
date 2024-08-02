@@ -42,7 +42,8 @@ endif (CLANG_INCLUDE_TESTS) # HLSL Change
 
 # HLSL Change Starts
 
-if (HLSL_INCLUDE_TESTS) 
+if (HLSL_INCLUDE_TESTS)
+  add_subdirectory(DxilHash)
   add_subdirectory(HLSL)
   add_subdirectory(HLSLTestLib)
   if (WIN32) # These tests require MS specific TAEF and DIA SDK
