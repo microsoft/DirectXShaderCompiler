@@ -19,4 +19,4 @@
 type = Tool
 name = llvm-stress
 parent = Tools
-required_libraries = AsmParser BitReader BitWriter IPO Instrumentation Scalar
+required_libraries = AsmParser BitReader BitWriter Instrumentation Scalar

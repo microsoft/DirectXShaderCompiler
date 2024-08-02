@@ -26,7 +26,6 @@ add_clang_library(clangARCMigrate
 
   LINK_LIBS
   clangAST
-  clangAnalysis
   clangBasic
   clangEdit
   clangFrontend

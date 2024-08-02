@@ -12,7 +12,6 @@ set(LLVM_LINK_COMPONENTS
   hlsl
   instcombine
   ipa
-  ipo
   irreader
   linker
 #  lto

@@ -81,7 +81,6 @@ add_clang_library(clangStaticAnalyzerCheckers
 
   LINK_LIBS
   clangAST
-  clangAnalysis
   clangBasic
   clangStaticAnalyzerCore
   )

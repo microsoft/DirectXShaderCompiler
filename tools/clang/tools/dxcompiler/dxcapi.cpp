@@ -11,10 +11,14 @@
 
 #include "dxc/Support/WinIncludes.h"
 
+#ifdef ENABLE_DXC_STATIC_LINKING
+#define DXC_API_IMPORT
+#else
 #ifdef _WIN32
 #define DXC_API_IMPORT __declspec(dllexport)
 #else
 #define DXC_API_IMPORT __attribute__((visibility("default")))
+#endif
 #endif
 
 #include "dxc/Support/Global.h"

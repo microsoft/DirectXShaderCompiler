@@ -8,6 +8,6 @@ add_clang_unittest(StaticAnalysisTests
 
 target_link_libraries(StaticAnalysisTests
   clangBasic
-  clangAnalysis
+  clangAST
   clangStaticAnalyzerCore 
   )

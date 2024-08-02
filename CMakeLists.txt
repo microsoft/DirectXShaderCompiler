@@ -13,6 +13,16 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
+if(UNIX AND NOT APPLE)
+	if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+		set(CMAKE_ENABLE_EXPORTS ON)
+	endif()
+endif()
+
+if(NOT WIN32)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
+
 if(POLICY CMP0022)
   cmake_policy(SET CMP0022 NEW) # automatic when 2.8.12 is required
 endif()
@@ -138,6 +148,7 @@ endif()
 # SPIRV change starts
 option(ENABLE_SPIRV_CODEGEN "Enables SPIR-V code generation." OFF)
 option(SPIRV_BUILD_TESTS "Build targets for the SPIR-V unit tests." OFF)
+option(ENABLE_DXC_STATIC_LINKING "Enable DXC static linking" OFF)
 
 # Enable SPIR-V CodeGen for Linux by default.
 if(NOT WIN32)
@@ -150,6 +161,9 @@ if (${SPIRV_BUILD_TESTS})
 endif()
 if (${ENABLE_SPIRV_CODEGEN})
   add_definitions(-DENABLE_SPIRV_CODEGEN)
+endif()
+if (${ENABLE_DXC_STATIC_LINKING})
+  add_definitions(-DENABLE_DXC_STATIC_LINKING)
 endif()
 # SPIRV change ends
 
@@ -814,7 +828,11 @@ endif()
 include(CoverageReport)
 
 # HLSL Change begin - Set default distribution value.
+if(ENABLE_DXC_STATIC_LINKING)
+set(LLVM_DISTRIBUTION_COMPONENTS "dxcompiler;dxc-headers" CACHE STRING "")
+else()
 set(LLVM_DISTRIBUTION_COMPONENTS "dxc;dxcompiler;dxc-headers" CACHE STRING "")
+endif()
 # HLSL Change end - Set default distribution value.
 
 # This must be at the end of the LLVM root CMakeLists file because it must run

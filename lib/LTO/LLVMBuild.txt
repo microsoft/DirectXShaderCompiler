@@ -25,7 +25,6 @@ required_libraries =
  BitWriter
  Core
  IPA
- IPO
  InstCombine
  Linker
  Scalar
