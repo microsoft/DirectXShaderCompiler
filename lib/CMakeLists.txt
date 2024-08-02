@@ -25,6 +25,7 @@ add_subdirectory(DxcSupport) # HLSL Change
 add_subdirectory(HLSL) # HLSL Change
 add_subdirectory(DXIL) # HLSL Change
 add_subdirectory(DxilContainer) # HLSL Change
+add_subdirectory(DxilHash) # HLSL Change
 add_subdirectory(DxilPdbInfo) # HLSL Change
 add_subdirectory(DxilPIXPasses) # HLSL Change
 add_subdirectory(DxilDia) # HLSL Change
