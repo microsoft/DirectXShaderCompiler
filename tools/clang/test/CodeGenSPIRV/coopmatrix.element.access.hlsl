@@ -21,7 +21,7 @@ int stride;
   uint32_t length = a.GetLength();
   // CHECK: OpLoopMerge [[mbb:%[0-9]+]]
   for (int i = 0; i < length; ++i) {
-    // CHECK: [[ac:%[0-9]+]] = OpAccessChain %spirvIntrinsicType_0 [[a]]
+    // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Function_int [[a]]
     // CHECK: [[get:%[0-9]+]] = OpLoad %int [[ac]]
     // CHECK: [[add:%[0-9]+]] = OpIAdd %int [[get]] %int_1
     // CHECK: OpStore [[ac]] [[add]]
