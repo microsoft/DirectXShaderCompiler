@@ -954,7 +954,7 @@ int DxcContext::Link() {
     IFT(pLinker->RegisterLibrary(wInputFiles.back().c_str(), pLib));
   }
 
-  CComPtr<IDxcOperationResult> pLinkResult;
+  CComPtr<IDxcOperationResult> pLinkOperationResult;
 
   std::vector<std::wstring> argStrings;
   CopyArgsToWStrings(m_Opts.Args, CoreOption, argStrings);
@@ -967,19 +967,40 @@ int DxcContext::Link() {
   IFT(pLinker->Link(StringRefWide(m_Opts.EntryPoint),
                     StringRefWide(m_Opts.TargetProfile), wpInputFiles.data(),
                     wpInputFiles.size(), args.data(), args.size(),
-                    &pLinkResult));
+                    &pLinkOperationResult));
 
   HRESULT status;
-  IFT(pLinkResult->GetStatus(&status));
+  IFT(pLinkOperationResult->GetStatus(&status));
   if (SUCCEEDED(status)) {
     CComPtr<IDxcBlob> pContainer;
-    IFT(pLinkResult->GetResult(&pContainer));
+    IFT(pLinkOperationResult->GetResult(&pContainer));
+
     if (pContainer.p != nullptr) {
-      ActOnBlob(pContainer.p);
+      CComPtr<IDxcResult> pLinkResult;
+      CComPtr<IDxcBlob> pDebugBlob;
+
+      std::wstring outputPDBPath;
+      Unicode::UTF8ToWideString(m_Opts.DebugFile.str().c_str(), &outputPDBPath);
+
+      if (!m_Opts.DebugFile.empty()) {
+        if (SUCCEEDED(pLinkOperationResult->QueryInterface(&pLinkResult))) {
+          if (pLinkResult->HasOutput(DXC_OUT_PDB)) {
+            CComPtr<IDxcBlobWide> pDebugBlobName;
+
+            IFT(pLinkResult->GetOutput(DXC_OUT_PDB, IID_PPV_ARGS(&pDebugBlob),
+                                       &pDebugBlobName));
+
+            if (m_Opts.DebugFileIsDirectory())
+              outputPDBPath += pDebugBlobName->GetStringPointer();
+          }
+        }
+      }
+
+      ActOnBlob(pContainer.p, pDebugBlob.p, outputPDBPath.c_str());
     }
   } else {
     CComPtr<IDxcBlobEncoding> pErrors;
-    IFT(pLinkResult->GetErrorBuffer(&pErrors));
+    IFT(pLinkOperationResult->GetErrorBuffer(&pErrors));
     if (pErrors != nullptr) {
       printf("Link failed:\n%s",
              static_cast<char *>(pErrors->GetBufferPointer()));

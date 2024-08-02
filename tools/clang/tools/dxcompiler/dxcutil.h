@@ -99,4 +99,17 @@ void CreateOperationResultFromOutputs(IDxcBlob *pResultBlob,
 
 bool IsAbsoluteOrCurDirRelative(const llvm::Twine &T);
 
+HRESULT CreateContainerForPDB(IMalloc *pMalloc, IDxcBlob *pOldContainer,
+                              IDxcBlob *pDebugBlob,
+                              IDxcVersionInfo *pVersionInfo,
+                              const hlsl::DxilSourceInfo *pSourceInfo,
+                              hlsl::AbstractMemoryStream *pReflectionStream,
+                              IDxcBlob **ppNewContainer);
+
+HRESULT CreatePDBContainerFromModule(
+    IMalloc *pMalloc, hlsl::options::DxcOpts &opts, llvm::Module *pDebugModule,
+    IDxcBlob *pOldContainer, hlsl::AbstractMemoryStream *pReflectionStream,
+    IDxcVersionInfo *pVersionInfo, const hlsl::DxilSourceInfo *pSourceInfo,
+    llvm::ArrayRef<BYTE> HashData, IDxcBlob **ppNewContainer);
+
 } // namespace dxcutil

@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include <algorithm>
 
+#include "dxc/DXIL/DxilPDB.h"
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/HLSL/DxilValidation.h"
 #include "dxc/Support/HLSLOptions.h"
@@ -30,6 +31,7 @@
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.internal.h"
 #include "dxcutil.h"
+#include "dxcversion.inc"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -37,6 +39,11 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
+
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+#include "clang/Basic/Version.h"
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
 
 using namespace hlsl;
 using namespace llvm;
@@ -86,7 +93,15 @@ struct DeserializedDxilCompilerVersion {
   }
 };
 
-class DxcLinker : public IDxcLinker, public IDxcContainerEvent {
+class DxcLinker : public IDxcLinker,
+                  public IDxcContainerEvent,
+                  public IDxcVersionInfo3,
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+                  public IDxcVersionInfo2
+#else
+                  public IDxcVersionInfo
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+{
 public:
   DXC_MICROCOM_TM_ADDREF_RELEASE_IMPL()
   DXC_MICROCOM_TM_CTOR(DxcLinker)
@@ -128,7 +143,11 @@ public:
 
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
                                            void **ppvObject) override {
-    return DoBasicQueryInterface<IDxcLinker>(this, riid, ppvObject);
+    return DoBasicQueryInterface<IDxcLinker, IDxcVersionInfo,
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+                                 IDxcVersionInfo2,
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+                                 IDxcVersionInfo3>(this, riid, ppvObject);
   }
 
   void Initialize() {
@@ -160,6 +179,57 @@ public:
     m_libNameToCompilerVersionPart[libNameStr] = &(*result.first);
 
     return true;
+  }
+
+  // IDxcVersionInfo
+  HRESULT STDMETHODCALLTYPE GetVersion(UINT32 *pMajor,
+                                       UINT32 *pMinor) override {
+    if (pMajor == nullptr || pMinor == nullptr)
+      return E_INVALIDARG;
+    *pMajor = DXIL::kDxilMajor;
+    *pMinor = DXIL::kDxilMinor;
+    return S_OK;
+  }
+  HRESULT STDMETHODCALLTYPE GetCustomVersionString(
+      char **pVersionString // Custom version string for compiler. (Must be
+                            // CoTaskMemFree()'d!)
+      ) override {
+    size_t size = strlen(RC_FILE_VERSION);
+    char *const result = (char *)CoTaskMemAlloc(size + 1);
+    if (result == nullptr)
+      return E_OUTOFMEMORY;
+    std::strcpy(result, RC_FILE_VERSION);
+    *pVersionString = result;
+    return S_OK;
+  }
+
+#ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
+  HRESULT STDMETHODCALLTYPE GetCommitInfo(UINT32 *pCommitCount,
+                                          char **pCommitHash) override {
+    if (pCommitCount == nullptr || pCommitHash == nullptr)
+      return E_INVALIDARG;
+
+    char *const hash = (char *)CoTaskMemAlloc(
+        8 + 1); // 8 is guaranteed by utils/GetCommitInfo.py
+    if (hash == nullptr)
+      return E_OUTOFMEMORY;
+    std::strcpy(hash, clang::getGitCommitHash());
+
+    *pCommitHash = hash;
+    *pCommitCount = clang::getGitCommitCount();
+
+    return S_OK;
+  }
+#endif // SUPPORT_QUERY_GIT_COMMIT_INFO
+
+  HRESULT STDMETHODCALLTYPE GetFlags(UINT32 *pFlags) override {
+    if (pFlags == nullptr)
+      return E_INVALIDARG;
+    *pFlags = DxcVersionInfoFlags_None;
+#ifndef NDEBUG
+    *pFlags |= DxcVersionInfoFlags_Debug;
+#endif
+    return S_OK;
   }
 
   ~DxcLinker() {
@@ -409,11 +479,16 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
           SerializeFlags |= SerializeDxilFlags::IncludeDebugInfoPart;
         }
 
+        std::unique_ptr<llvm::Module> debugModule;
+        if (opts.GenerateFullDebugInfo()) {
+          debugModule.reset(llvm::CloneModule(pM.get()));
+        }
+
         // Validation.
         HRESULT valHR = S_OK;
         dxcutil::AssembleInputs inputs(
             std::move(pM), pOutputBlob, DxcGetThreadMallocNoRef(),
-            SerializeFlags, pOutputStream, opts.DebugFile, &Diag,
+            SerializeFlags, pOutputStream, opts.GetPDBName(), &Diag,
             &ShaderHashContent, pReflectionStream, pRootSigStream, nullptr,
             nullptr);
         if (needsValidation) {
@@ -431,7 +506,42 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
               std::swap(pOutputBlob, pTargetBlob);
             }
           }
-          // TODO: DFCC_ShaderDebugName
+
+          // DXC_OUT_PDB
+          if (pOutputBlob && opts.GenerateFullDebugInfo() &&
+              (SerializeFlags & SerializeDxilFlags::IncludeDebugNamePart) !=
+                  0) {
+            // Resolve PDB name
+            {
+              const DxilContainerHeader *pContainer =
+                  reinterpret_cast<DxilContainerHeader *>(
+                      pOutputBlob->GetBufferPointer());
+              DXASSERT(IsValidDxilContainer(pContainer,
+                                            pOutputBlob->GetBufferSize()),
+                       "else invalid container generated");
+
+              auto it = std::find_if(begin(pContainer), end(pContainer),
+                                     DxilPartIsType(DFCC_ShaderDebugName));
+              if (it != end(pContainer)) {
+                const char *pDebugName;
+                if (GetDxilShaderDebugName(*it, &pDebugName, nullptr) &&
+                    pDebugName && *pDebugName) {
+                  IFT(pResult->SetOutputName(DXC_OUT_PDB, pDebugName));
+                }
+              }
+            }
+
+            // Generate PDB contents
+            {
+              CComPtr<IDxcBlob> pPdbBlob;
+              IFT(dxcutil::CreatePDBContainerFromModule(
+                  m_pMalloc, opts, debugModule.get(), pOutputBlob,
+                  pReflectionStream, this, nullptr, ShaderHashContent.Digest,
+                  &pPdbBlob));
+
+              IFT(pResult->SetOutputObject(DXC_OUT_PDB, pPdbBlob));
+            }
+          }
 
           // DXC_OUT_REFLECTION
           if (pReflectionStream && pReflectionStream->GetPtrSize()) {
