@@ -43,8 +43,6 @@ static uint32_t runValidation(
 
   raw_stream_ostream DiagStream(DiagMemStream);
 
-  if (!IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize()))
-    return DXC_E_CONTAINER_INVALID;
   return ValidateDxilContainer(Shader->GetBufferPointer(),
                                Shader->GetBufferSize(), DebugModule,
                                DiagStream);

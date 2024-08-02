@@ -75,17 +75,32 @@ namespace {
 // Utility class for setting and restoring the diagnostic context so we may
 // capture errors/warnings
 struct DiagRestore {
-  LLVMContext &Ctx;
+  LLVMContext *Ctx = nullptr;
   void *OrigDiagContext;
   LLVMContext::DiagnosticHandlerTy OrigHandler;
 
-  DiagRestore(llvm::LLVMContext &Ctx, void *DiagContext) : Ctx(Ctx) {
-    OrigHandler = Ctx.getDiagnosticHandler();
-    OrigDiagContext = Ctx.getDiagnosticContext();
-    Ctx.setDiagnosticHandler(
+  DiagRestore(llvm::LLVMContext &InputCtx, void *DiagContext) : Ctx(&InputCtx) {
+    init(DiagContext);
+  }
+  DiagRestore(Module *M, void *DiagContext) {
+    if (!M)
+      return;
+    Ctx = &M->getContext();
+    init(DiagContext);
+  }
+  ~DiagRestore() {
+    if (!Ctx)
+      return;
+    Ctx->setDiagnosticHandler(OrigHandler, OrigDiagContext);
+  }
+
+private:
+  void init(void *DiagContext) {
+    OrigHandler = Ctx->getDiagnosticHandler();
+    OrigDiagContext = Ctx->getDiagnosticContext();
+    Ctx->setDiagnosticHandler(
         hlsl::PrintDiagnosticContext::PrintDiagnosticHandler, DiagContext);
   }
-  ~DiagRestore() { Ctx.setDiagnosticHandler(OrigHandler, OrigDiagContext); }
 };
 
 static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
@@ -6982,31 +6997,6 @@ HRESULT ValidateLoadModuleFromContainerLazy(
                                          pDebugModule, Ctx, DbgCtx, DiagStream,
                                          /*bLazyLoad*/ true);
 }
-
-namespace {
-// Utility class for setting and restoring the diagnostic context so we may
-// capture errors/warnings
-struct DiagRestore {
-  Module *M;
-  void *OrigDiagContext;
-  LLVMContext::DiagnosticHandlerTy OrigHandler;
-
-  DiagRestore(Module *M, void *DiagContext) : M(M) {
-    if (!M)
-      return;
-    LLVMContext &Ctx = M->getContext();
-    OrigHandler = Ctx.getDiagnosticHandler();
-    OrigDiagContext = Ctx.getDiagnosticContext();
-    Ctx.setDiagnosticHandler(PrintDiagnosticContext::PrintDiagnosticHandler,
-                             DiagContext);
-  }
-  ~DiagRestore() {
-    if (!M)
-      return;
-    M->getContext().setDiagnosticHandler(OrigHandler, OrigDiagContext);
-  }
-};
-} // namespace
 
 HRESULT ValidateDxilContainer(const void *pContainer, uint32_t ContainerSize,
                               llvm::Module *pDebugModule,
