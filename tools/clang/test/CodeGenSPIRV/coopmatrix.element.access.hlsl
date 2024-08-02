@@ -16,7 +16,7 @@ int stride;
   // CHECK: [[a:%[0-9]+]] = OpVariable %_ptr_Function_spirvIntrinsicType Function
   // CHECK: [[v:%[0-9]+]] = OpCompositeConstruct %spirvIntrinsicType %int_10
   // CHECK: OpStore [[a]] [[v]]
-  IntMatA a = IntMatA::splat(10);
+  IntMatA a = IntMatA::Splat(10);
 
   uint32_t length = a.GetLength();
   // CHECK: OpLoopMerge [[mbb:%[0-9]+]]

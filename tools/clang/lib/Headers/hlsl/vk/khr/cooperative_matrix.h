@@ -118,7 +118,7 @@ class CooperativeMatrix {
 
   // Constructs a cooperative matrix with all values initialized to v. Note that
   // all active threads must have the same value for v.
-  static CooperativeMatrix splat(ComponentType v);
+  static CooperativeMatrix Splat(ComponentType v);
 
   // Returns the result of OpCooperativeMatrixLengthKHR on the current type.￼
   static uint32_t GetLength();

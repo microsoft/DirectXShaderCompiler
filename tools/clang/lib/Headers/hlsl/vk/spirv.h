@@ -75,7 +75,7 @@ enum StorageClass {
 // An opaque type to represent a Spir-V pointer to the workgroup storage class.
 // clang-format off
 template <typename PointeeType>
-using WorkgroupSpirvPointer = vk::SpirvOpaqueType<
+using WorkgroupSpirvPointer = const vk::SpirvOpaqueType<
     /* OpTypePointer */ 32,
     vk::Literal<vk::integral_constant<uint, StorageClassWorkgroup> >,
     PointeeType>;

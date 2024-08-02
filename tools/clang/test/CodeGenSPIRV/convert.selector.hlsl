@@ -100,7 +100,7 @@
 // RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
 // RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
 
-#include "vk/khr/opcode_selector.h"
+#include "vk/opcode_selector.h"
 
 #define VEC_TYPE_INT(TYPE) TYPE##4
 #define VEC_TYPE(t) VEC_TYPE_INT(t)

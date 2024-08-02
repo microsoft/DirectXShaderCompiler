@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "opcode_selector.h"
+#include "vk/opcode_selector.h"
 
 template <typename ResultType, typename ComponentType>
 [[vk::ext_instruction(/* OpMatrixTimesScalar */ 143)]] ResultType
@@ -237,7 +237,7 @@ CooperativeMatrix<ComponentType, scope, rows, columns, use>::Load(
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
 CooperativeMatrix<ComponentType, scope, rows, columns, use>
-CooperativeMatrix<ComponentType, scope, rows, columns, use>::splat(
+CooperativeMatrix<ComponentType, scope, rows, columns, use>::Splat(
     ComponentType v) {
   CooperativeMatrix result;
   result._matrix = __builtin_spv_ConstructCooperativeMatrix<SpirvMatrixType>(v);
