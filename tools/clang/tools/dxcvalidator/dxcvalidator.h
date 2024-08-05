@@ -24,19 +24,12 @@ class LLVMContext;
 } // namespace llvm
 
 namespace hlsl {
-// For internal use only.
-uint32_t validateWithOptModules(
-    IDxcBlob *Shader,            // Shader to validate.
-    uint32_t Flags,              // Validation flags.
-    llvm::Module *Module,        // Module to validate, if available.
-    llvm::Module *DebugModule,   // Debug module to validate, if available
-    IDxcOperationResult **Result // Validation output status, buffer, and errors
-);
 
-// IDxcValidator
-uint32_t validate(
+// For internal use only.
+uint32_t validateWithOptDebugModule(
     IDxcBlob *Shader,            // Shader to validate.
     uint32_t Flags,              // Validation flags.
+    llvm::Module *DebugModule,   // Debug module to validate, if available
     IDxcOperationResult **Result // Validation output status, buffer, and errors
 );
 
