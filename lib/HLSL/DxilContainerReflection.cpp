@@ -264,6 +264,10 @@ public:
   GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
                      UINT *pSizeZ) noexcept override;
 
+  STDMETHODIMP_(BOOL)
+  GetWaveSize(UINT *pWavePreferred, UINT *pWaveMin,
+                     UINT *pWaveMax) noexcept override;
+
   STDMETHODIMP_(UINT64) GetRequiresFlags(THIS) noexcept override;
 };
 
@@ -2775,6 +2779,21 @@ UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
   AssignToOutOpt(y, pSizeY);
   AssignToOutOpt(z, pSizeZ);
   return x * y * z;
+}
+
+BOOL DxilShaderReflection::GetWaveSize(UINT *pWavePreferred, UINT *pWaveMin,
+                                       UINT *pWaveMax) noexcept {
+  if (!m_pDxilModule->GetShaderModel()->IsCS()) {
+    AssignToOutOpt(0u, pWavePreferred);
+    AssignToOutOpt(0u, pWaveMin);
+    AssignToOutOpt(0u, pWaveMax);
+    return false;
+  }
+  DxilWaveSize waveSize = m_pDxilModule->GetWaveSize();
+  AssignToOutOpt(waveSize.Preferred, pWavePreferred);
+  AssignToOutOpt(waveSize.Min, pWaveMin);
+  AssignToOutOpt(waveSize.Max, pWaveMax);
+  return true;
 }
 
 UINT64 DxilShaderReflection::GetRequiresFlags() noexcept {
