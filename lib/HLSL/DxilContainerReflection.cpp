@@ -199,21 +199,22 @@ public:
     HRESULT hr = E_NOINTERFACE;
 
     // There is non-standard handling of QueryInterface:
-    // - although d3d11 and older d3d12 use the same vtable as ID3D12ShaderReflection,
+    // - although d3d11 and older d3d12 use the same vtable as
+    // ID3D12ShaderReflection,
     //   there are differences in behavior depending on the API version, and
     //   there are 3 of these - it's not just d3d11 vs d3d12.
-	// - This changed in latest d3d12 when ID3D12ShaderReflection1 was introduced to be non-breaking.
+    // - This changed in latest d3d12 when ID3D12ShaderReflection1 was
+    // introduced to be non-breaking.
     // - when the object is created the API version is fixed
     // - from that point on, this object can only be QI'd for the matching API
     //   version.
     PublicAPI api = IIDToAPI(iid);
 
     if (IsEqualIID(__uuidof(ID3D12ShaderReflection1), iid)) {
-      *ppvObject = static_cast<ID3D12ShaderReflection1*>(this);
+      *ppvObject = static_cast<ID3D12ShaderReflection1 *>(this);
       hr = S_OK;
-	}
-    else if (api == m_PublicAPI) {
-      *ppvObject = static_cast<ID3D12ShaderReflection*>(this);
+    } else if (api == m_PublicAPI) {
+      *ppvObject = static_cast<ID3D12ShaderReflection *>(this);
       hr = S_OK;
     } else if (IsEqualIID(__uuidof(IUnknown), iid)) {
       *ppvObject = static_cast<IUnknown *>(this);
