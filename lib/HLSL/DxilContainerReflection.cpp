@@ -3081,13 +3081,23 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
         m_pProps->ShaderProps.MS.maxVertexCount,
         m_pProps->ShaderProps.MS.maxPrimitiveCount,
         (D3D12_MESH_OUTPUT_TOPOLOGY)m_pProps->ShaderProps.MS.outputTopology,
+        {
+          m_pProps->numThreads[0],
+          m_pProps->numThreads[1],
+          m_pProps->numThreads[2]
+        }
     };
     break;
 
   case ShaderKind::Amplification:
     pDesc->ShaderType = D3D12_SHVER_AMPLIFICATION_SHADER;
     pDesc->AmplificationShader = D3D12_AMPLIFICATION_SHADER_DESC{
-        m_pProps->ShaderProps.AS.payloadSizeInBytes};
+        m_pProps->ShaderProps.AS.payloadSizeInBytes,
+        {
+          m_pProps->numThreads[0],
+          m_pProps->numThreads[1],
+          m_pProps->numThreads[2]
+        }};
     break;
 
   case ShaderKind::Node:
