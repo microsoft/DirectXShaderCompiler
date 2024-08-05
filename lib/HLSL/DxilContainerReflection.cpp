@@ -266,7 +266,7 @@ public:
 
   STDMETHODIMP_(BOOL)
   GetWaveSize(UINT *pWavePreferred, UINT *pWaveMin,
-                     UINT *pWaveMax) noexcept override;
+              UINT *pWaveMax) noexcept override;
 
   STDMETHODIMP_(UINT64) GetRequiresFlags(THIS) noexcept override;
 };
