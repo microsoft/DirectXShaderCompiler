@@ -161,7 +161,7 @@ public:
 };
 
 class DxilShaderReflection : public DxilModuleReflection,
-                             public ID3D12ShaderReflection {
+                             public ID3D12ShaderReflection1 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC> m_InputSignature;
@@ -183,7 +183,8 @@ public:
   void SetPublicAPI(PublicAPI value) { m_PublicAPI = value; }
   static PublicAPI IIDToAPI(REFIID iid) {
     PublicAPI api = PublicAPI::Invalid;
-    if (IsEqualIID(__uuidof(ID3D12ShaderReflection), iid))
+    if (IsEqualIID(__uuidof(ID3D12ShaderReflection), iid) ||
+        IsEqualIID(__uuidof(ID3D12ShaderReflection1), iid))
       api = PublicAPI::D3D12;
     else if (IsEqualIID(IID_ID3D11ShaderReflection_43, iid))
       api = PublicAPI::D3D11_43;
@@ -198,22 +199,30 @@ public:
     HRESULT hr = E_NOINTERFACE;
 
     // There is non-standard handling of QueryInterface:
-    // - although everything uses the same vtable as ID3D12ShaderReflection,
+    // - although d3d11 and older d3d12 use the same vtable as ID3D12ShaderReflection,
     //   there are differences in behavior depending on the API version, and
     //   there are 3 of these - it's not just d3d11 vs d3d12.
+	// - This changed in latest d3d12 when ID3D12ShaderReflection1 was introduced to be non-breaking.
     // - when the object is created the API version is fixed
     // - from that point on, this object can only be QI'd for the matching API
     //   version.
     PublicAPI api = IIDToAPI(iid);
-    if (api == m_PublicAPI) {
-      *ppvObject = static_cast<ID3D12ShaderReflection *>(this);
-      this->AddRef();
+
+    if (IsEqualIID(__uuidof(ID3D12ShaderReflection1), iid)) {
+      *ppvObject = static_cast<ID3D12ShaderReflection1*>(this);
+      hr = S_OK;
+	}
+    else if (api == m_PublicAPI) {
+      *ppvObject = static_cast<ID3D12ShaderReflection*>(this);
       hr = S_OK;
     } else if (IsEqualIID(__uuidof(IUnknown), iid)) {
       *ppvObject = static_cast<IUnknown *>(this);
-      this->AddRef();
       hr = S_OK;
     }
+
+    if (hr == S_OK)
+      this->AddRef();
+
     return hr;
   }
 
