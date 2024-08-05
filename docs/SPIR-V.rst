@@ -2890,6 +2890,30 @@ If an output unsigned integer ``status`` argument is present,
 ``OpImageSparseSampleDrefExplicitLod`` is used instead. The resulting SPIR-V
 ``Residency Code`` will be written to ``status``.
 
+``.SampleCmpBias(sampler, location, bias, comparator[, offset][, clamp][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
+
+The translation is similar to ``.SampleBias()``, but the
+``OpImageSampleDrefImplicitLod`` instruction is used.
+
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleDrefImplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
+
+``.SampleCmpGrad(sampler, location, ddx, ddy, comparator[, offset][, clamp][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
+
+The translation is similar to ``.SampleGrad()``, but the
+``OpImageSampleDrefExplicitLod`` instruction are used.
+
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleDrefExplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
+
 ``.Gather()``
 +++++++++++++
 
@@ -2983,10 +3007,11 @@ Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
 Since texture types are represented as ``OpTypeImage``, the ``OpImageQueryLod``
 instruction is used for translation. An ``OpSampledImage`` is created based on
-the ``SamplerState`` passed to the function. The resulting sampled image and
-the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a ``float2``. The first element contains
-the mipmap array layer. The second element contains the unclamped level of detail.
+the ``SamplerState`` or ``SamplerComparisonState`` passed to the function. The
+resulting sampled image and the coordinate passed to the function are used to
+invoke ``OpImageQueryLod``. The result of ``OpImageQueryLod`` is a ``float2``.
+The first element contains the mipmap array layer. The second element contains
+the unclamped level of detail.
 
 ``Texture1D``
 ~~~~~~~~~~~~~

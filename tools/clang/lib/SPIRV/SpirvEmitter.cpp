@@ -5259,6 +5259,12 @@ SpirvEmitter::processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
   case IntrinsicOp::MOP_SampleCmp:
     retVal = processTextureSampleCmp(expr);
     break;
+  case IntrinsicOp::MOP_SampleCmpBias:
+    retVal = processTextureSampleCmpBias(expr);
+    break;
+  case IntrinsicOp::MOP_SampleCmpGrad:
+    retVal = processTextureSampleCmpGrad(expr);
+    break;
   case IntrinsicOp::MOP_SampleCmpLevelZero:
     retVal = processTextureSampleCmpLevelZero(expr);
     break;
@@ -5751,6 +5757,132 @@ SpirvEmitter::processTextureSampleCmp(const CXXMemberCallExpr *expr) {
       constOffset, varOffset, /*constOffsets*/ nullptr,
       /*sampleNumber*/ nullptr, /*minLod*/ clamp, status,
       expr->getCallee()->getLocStart(), expr->getSourceRange());
+}
+
+SpirvInstruction *
+SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
+  // .SampleCmpBias() Signature:
+  //
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray:
+  // float Object.SampleCmpBias(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float Bias,
+  //   float CompareValue
+  //   [, int Offset]
+  //   [, float Clamp]
+  //   [, out uint Status]
+  // );
+  //
+  // For TextureCube and TextureCubeArray:
+  // float Object.SampleCmpBias(
+  //   SamplerComparisonState S,
+  //   float Location,
+  //   float Bias,
+  //   float CompareValue
+  //   [, float Clamp]
+  //   [, out uint Status]
+  // );
+
+  const auto numArgs = expr->getNumArgs();
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
+
+  SpirvInstruction *clamp = nullptr;
+  if (numArgs > 4 && expr->getArg(4)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(4));
+  else if (numArgs > 5 && expr->getArg(5)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(5));
+  const bool hasClampArg = clamp != nullptr;
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  auto *image = loadIfGLValue(imageExpr);
+  auto *sampler = doExpr(expr->getArg(0));
+  auto *coordinate = doExpr(expr->getArg(1));
+  auto *bias = doExpr(expr->getArg(2));
+  auto *compareVal = doExpr(expr->getArg(3));
+  // If offset is present in .SampleCmpBias(), it will be the fifth argument.
+  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
+
+  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
+  // and 4 for sampler_state, location, bias, and compare_value.
+  const bool hasOffsetArg = numArgs - hasStatusArg - hasClampArg - 4 > 0;
+  if (hasOffsetArg)
+    handleOffsetInMethodCall(expr, 4, &constOffset, &varOffset);
+
+  const auto retType = expr->getDirectCallee()->getReturnType();
+  const auto imageType = imageExpr->getType();
+
+  if (spvContext.isCS()) {
+    addDerivativeGroupExecutionMode();
+  }
+
+  return createImageSample(
+      retType, imageType, image, sampler, coordinate, compareVal, bias,
+      /*lod*/ nullptr, std::make_pair(nullptr, nullptr), constOffset, varOffset,
+      /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr, /*minLod*/ clamp,
+      status, expr->getCallee()->getLocStart(), expr->getSourceRange());
+}
+
+SpirvInstruction *
+SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
+  // Signature:
+  // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, and Texture3D:
+  // DXGI_FORMAT Object.SampleGrad(sampler_state S,
+  //                               float Location,
+  //                               float DDX,
+  //                               float DDY,
+  //                               float CompareValue
+  //                               [, int Offset]
+  //                               [, float Clamp]
+  //                               [, out uint Status]);
+  //
+  // For TextureCube and TextureCubeArray:
+  // DXGI_FORMAT Object.SampleGrad(sampler_state S,
+  //                               float Location,
+  //                               float DDX,
+  //                               float DDY,
+  //                               float CompareValue
+  //                               [, float Clamp]
+  //                               [, out uint Status]);
+
+  const auto numArgs = expr->getNumArgs();
+  const bool hasStatusArg =
+      expr->getArg(numArgs - 1)->getType()->isUnsignedIntegerType();
+  auto *status = hasStatusArg ? doExpr(expr->getArg(numArgs - 1)) : nullptr;
+
+  SpirvInstruction *clamp = nullptr;
+  if (numArgs > 5 && expr->getArg(5)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(5));
+  else if (numArgs > 6 && expr->getArg(6)->getType()->isFloatingType())
+    clamp = doExpr(expr->getArg(6));
+  const bool hasClampArg = clamp != nullptr;
+
+  // Subtract 1 for clamp (if it exists), 1 for status (if it exists),
+  // and 5 for sampler_state, location, DDX, DDY, and compare_value;
+  const bool hasOffsetArg = numArgs - hasClampArg - hasStatusArg - 5 > 0;
+
+  const auto *imageExpr = expr->getImplicitObjectArgument();
+  const QualType imageType = imageExpr->getType();
+  auto *image = loadIfGLValue(imageExpr);
+  auto *sampler = doExpr(expr->getArg(0));
+  auto *coordinate = doExpr(expr->getArg(1));
+  auto *compareVal = doExpr(expr->getArg(2));
+  auto *ddx = doExpr(expr->getArg(3));
+  auto *ddy = doExpr(expr->getArg(4));
+  // If offset is present in .SampleGrad(), it is the sixth argument.
+  SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
+  if (hasOffsetArg)
+    handleOffsetInMethodCall(expr, 5, &constOffset, &varOffset);
+
+  const auto retType = expr->getDirectCallee()->getReturnType();
+  return createImageSample(
+      retType, imageType, image, sampler, coordinate, compareVal,
+      /*bias*/ nullptr, /*lod*/ nullptr, std::make_pair(ddx, ddy), constOffset,
+      varOffset, /*constOffsets*/ nullptr, /*sampleNumber*/ nullptr,
+      /*minLod*/ clamp, status, expr->getCallee()->getLocStart(),
+      expr->getSourceRange());
 }
 
 SpirvInstruction *
