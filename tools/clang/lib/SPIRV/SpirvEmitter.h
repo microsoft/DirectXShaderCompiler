@@ -1287,6 +1287,11 @@ private:
                                           SpirvInstruction *scalar,
                                           SpirvLayoutRule rule);
 
+  /// Modifies the instruction in the code that use the GLSL450 memory module to
+  /// use the Vulkan memory model. This is done only if it has been requested or
+  /// the Vulkan memory model capability has been added to the module.
+  bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
+
 public:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
@@ -1469,7 +1474,6 @@ private:
 
   /// ParentMap of the current function.
   std::unique_ptr<ParentMap> parentMap = nullptr;
-  bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
 };
 
 void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {
