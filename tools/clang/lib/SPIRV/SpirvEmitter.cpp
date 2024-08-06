@@ -14805,13 +14805,19 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   }
   optimizer.RegisterLegalizationPasses(spirvOptions.preserveInterface);
   // Add flattening of resources if needed.
-  if (spirvOptions.flattenResourceArrays ||
-      declIdMapper.requiresFlatteningCompositeResources()) {
+  if (spirvOptions.flattenResourceArrays) {
     optimizer.RegisterPass(
         spvtools::CreateReplaceDescArrayAccessUsingVarIndexPass());
     optimizer.RegisterPass(
         spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
-    optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
+    optimizer.RegisterPass(
+        spvtools::CreateDescriptorArrayScalarReplacementPass());
+    optimizer.RegisterPass(
+        spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
+  }
+  if (declIdMapper.requiresFlatteningCompositeResources()) {
+    optimizer.RegisterPass(
+        spvtools::CreateDescriptorCompositeScalarReplacementPass());
     // ADCE should be run after desc_sroa in order to remove potentially
     // illegal types such as structures containing opaque types.
     optimizer.RegisterPass(
