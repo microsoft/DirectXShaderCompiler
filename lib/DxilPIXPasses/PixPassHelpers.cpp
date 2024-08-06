@@ -130,6 +130,10 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
           HlslOP->GetI32Const((unsigned)DXIL::OpCode::AnnotateHandle);
       DxilResourceProperties RP =
           resource_helper::loadPropsFromResourceBase(resource);
+      // if (UAVHandleMode == PixUAVHandleMode::NodeShader) {
+      //  DxilResourceProperties AdditionalRP{};
+      //  RP = hlsl::resource_helper::tryMergeProps(AdditionalRP, RP);
+      //}
       Type *resPropertyTy = HlslOP->GetResourcePropertiesType();
       Value *propertiesV = resource_helper::getAsConstant(RP, resPropertyTy,
                                                           *DM.GetShaderModel());
@@ -285,9 +289,10 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM) {
 }
 
 // Set up a UAV with structure of a single int
-llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
-                          unsigned int registerId, const char *name,
-                          PixUAVHandleMode UAVHandleMode) {
+DxilResource *
+CreateGlobalUAVResource(hlsl::DxilModule &DM,
+                          unsigned int hlslBindIndex, unsigned int registerId,
+                          const char *name, PixUAVHandleMode UAVHandleMode) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
   const char *PIXStructTypeName = "struct.RWByteAddressBuffer";
@@ -310,30 +315,40 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
 
   auto const *shaderModel = DM.GetShaderModel();
+  std::string PixUavName = "\01?PIXUAV" + std::to_string(hlslBindIndex) + "@@3URWByteAddressBuffer@@A";
   if (shaderModel->IsLib()) {
-    auto *Global = DM.GetModule()->getOrInsertGlobal(
-        ("PIXUAV" + std::to_string(registerId)).c_str(), UAVStructTy);
+    auto *Global =
+        DM.GetModule()->getOrInsertGlobal(PixUavName.c_str(), UAVStructTy);
     GlobalVariable *NewGV = cast<GlobalVariable>(Global);
     NewGV->setConstant(true);
     NewGV->setLinkage(GlobalValue::ExternalLinkage);
     NewGV->setThreadLocal(false);
     NewGV->setAlignment(4);
-    pUAV->SetGlobalSymbol(NewGV);
+    if (UAVHandleMode == PixUAVHandleMode::NodeShader) {
+      auto handleTy = DM.GetModule()->getTypeByName("dx.types.Handle");
+      auto *G = DM.GetModule()->getOrInsertGlobal(PixUavName.c_str(), handleTy);
+      pUAV->SetGlobalSymbol(G);
+    } else
+      pUAV->SetGlobalSymbol(NewGV);
   } else {
     pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
   }
   pUAV->SetGlobalName(name);
-  pUAV->SetID(GetNextRegisterIdForClass(DM, DXIL::ResourceClass::UAV));
+  pUAV->SetID(registerId);
   pUAV->SetRW(true); // sets UAV class
   pUAV->SetSpaceID(
       (unsigned int)-2); // This is the reserved-for-tools register space
-  pUAV->SetSampleCount(1);
+  pUAV->SetSampleCount(0);  // This is what compiler generates for a raw UAV
   pUAV->SetGloballyCoherent(false);
   pUAV->SetHasCounter(false);
-  pUAV->SetCompType(CompType::getI32());
-  pUAV->SetLowerBound(registerId);
+  pUAV->SetCompType(CompType::getInvalid());  // This is what compiler generates for a raw UAV
+  pUAV->SetLowerBound(hlslBindIndex);
   pUAV->SetRangeSize(1);
+  pUAV->SetElementStride(1);
   pUAV->SetKind(DXIL::ResourceKind::RawBuffer);
+  pUAV->SetHLSLType(DM.GetModule()
+                        ->getTypeByName("struct.RWByteAddressBuffer")
+                        ->getPointerTo());
 
   auto pAnnotation = DM.GetTypeSystem().GetStructAnnotation(UAVStructTy);
   if (pAnnotation == nullptr) {
@@ -345,15 +360,24 @@ llvm::CallInst *CreateUAV(DxilModule &DM, IRBuilder<> &Builder,
     pAnnotation->GetFieldAnnotation(0).SetFieldName("count");
   }
 
-  auto *handle =
-      CreateHandleForResource(DM, Builder, pUAV.get(), name, UAVHandleMode);
-
+  auto *ret = pUAV.get();
   DM.AddUAV(std::move(pUAV));
+  return ret;
+}
+
+// Set up a UAV with structure of a single int
+llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
+                          unsigned int hlslBindIndex, unsigned int registerId,
+                          const char *name, PixUAVHandleMode UAVHandleMode) {
+  auto uav = CreateGlobalUAVResource(DM, hlslBindIndex, registerId, name,
+                          UAVHandleMode);
+  auto *handle =
+      CreateHandleForResource(DM, Builder, uav, name, UAVHandleMode);
 
   return handle;
 }
 
-llvm::Function *GetEntryFunction(hlsl::DxilModule &DM) {
+  llvm::Function *GetEntryFunction(hlsl::DxilModule &DM) {
   if (DM.GetEntryFunction() != nullptr) {
     return DM.GetEntryFunction();
   }

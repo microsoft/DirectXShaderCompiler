@@ -923,7 +923,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
       m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateUAV(
-          DM, Builder, 0u, "PIX_CountUAV_Handle",
+          DM, Builder, 0u, static_cast<unsigned int>(DM.GetUAVs().size()),
+          "PIX_CountUAV_Handle",
           shaderKind == DXIL::ShaderKind::Node
               ? PIXPassHelpers::PixUAVHandleMode::NodeShader
               : PIXPassHelpers::PixUAVHandleMode::Legacy);

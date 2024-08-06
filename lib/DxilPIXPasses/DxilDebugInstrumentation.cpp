@@ -322,7 +322,8 @@ public:
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 
-  bool RunOnFunction(Module &M, DxilModule &DM, llvm::Function *function);
+  bool RunOnFunction(Module &M, DxilModule &DM, hlsl::DxilResource *uav,
+                     llvm::Function *function);
 
 private:
   SystemValueIndices addRequiredSystemValues(BuilderContext &BC,
@@ -705,8 +706,6 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
     ParameterTestResult = addRaygenShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Node:
-    ParameterTestResult = BC.HlslOP->GetI1Const(1);
-    break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
@@ -899,10 +898,10 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     BytesToBeEmitted += addDebugEntryValue(BC, AsFloat);
   } else {
     Function *StoreValue =
-        BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore,
+        BC.HlslOP->GetOpFunc(OP::OpCode::RawBufferStore,
                              TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
     Constant *StoreValueOpcode =
-        BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
+        BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::RawBufferStore);
     UndefValue *Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     UndefValue *UndefArg = nullptr;
     if (TheValueTypeID == Type::TypeID::IntegerTyID) {
@@ -917,6 +916,7 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     Constant *WriteMask_X = BC.HlslOP->GetI8Const(1);
 
     auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+    Constant *RawBufferStoreAlignment = BC.HlslOP->GetU32Const(4);
 
     (void)BC.Builder.CreateCall(
         StoreValue, {StoreValueOpcode,    // i32 opcode
@@ -927,7 +927,7 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
                      UndefArg, // unused values
                      UndefArg, // unused values
                      UndefArg, // unused values
-                     WriteMask_X});
+                     WriteMask_X, RawBufferStoreAlignment});
 
     assert(m_RemainingReservedSpaceInBytes >= 4); // check for underflow
     m_RemainingReservedSpaceInBytes -= 4;
@@ -1215,19 +1215,26 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   auto ShaderModel = DM.GetShaderModel();
   auto shaderKind = ShaderModel->GetKind();
-
+  auto HLSLBindId = 0; // static_cast<unsigned int>(DM.GetUAVs().size());
+  unsigned registerId = 0;
+  for (auto const &uav : DM.GetUAVs()) {
+    registerId = std::max<int>(registerId, uav->GetID() + 1);
+  }
+  auto *uav = PIXPassHelpers::CreateGlobalUAVResource(
+      DM, HLSLBindId, registerId, "PIXUAV",
+      PIXPassHelpers::PixUAVHandleMode::NodeShader);
   bool modified = false;
   if (shaderKind == DXIL::ShaderKind::Library) {
     auto instrumentableFunctions =
         PIXPassHelpers::GetAllInstrumentableFunctions(DM);
     for (auto *F : instrumentableFunctions) {
-      if (RunOnFunction(M, DM, F)) {
+      if (RunOnFunction(M, DM, uav, F)) {
         modified = true;
       }
     }
   } else {
     llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
-    modified = RunOnFunction(M, DM, entryFunction);
+    modified = RunOnFunction(M, DM, uav, entryFunction);
   }
   return modified;
 }
@@ -1383,6 +1390,7 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
 }
 
 bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
+                                             hlsl::DxilResource *uav,
                                              llvm::Function *function) {
   DXIL::ShaderKind shaderKind =
       PIXPassHelpers::GetFunctionShaderKind(DM, function);
@@ -1436,8 +1444,8 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
     break;
   }
 
-  values.UAVHandle = PIXPassHelpers::CreateUAV(
-      DM, Builder, UAVRegisterId, "PIX_DebugUAV_Handle",
+  values.UAVHandle = PIXPassHelpers::CreateHandleForResource(
+      DM, Builder, uav, "PIX_DebugUAV_Handle",
       shaderKind == DXIL::ShaderKind::Node
           ? PIXPassHelpers::PixUAVHandleMode::NodeShader
           : PIXPassHelpers::PixUAVHandleMode::Legacy);
