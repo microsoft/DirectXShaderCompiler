@@ -770,6 +770,10 @@ public:
   /// the feature used at the given source location.
   inline void requireCapability(spv::Capability, SourceLocation loc = {});
 
+  /// \brief Adds the given capability to the module under construction due to
+  /// the feature used at the given source location.
+  inline bool requiresCapability(spv::Capability);
+
   /// \brief Adds an extension to the module under construction for translating
   /// the given target at the given source location.
   inline void requireExtension(llvm::StringRef extension, SourceLocation);
@@ -894,6 +898,11 @@ void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
   } else {
     capability->releaseMemory();
   }
+}
+
+bool SpirvBuilder::requiresCapability(spv::Capability cap) {
+  SpirvCapability capability({}, cap);
+  return mod->hasCapability(capability);
 }
 
 void SpirvBuilder::requireExtension(llvm::StringRef ext, SourceLocation loc) {

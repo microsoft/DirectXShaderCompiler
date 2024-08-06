@@ -36,6 +36,7 @@
 
 #include "ConstEvaluator.h"
 #include "DeclResultIdMapper.h"
+#include "spirv-tools/optimizer.hpp"
 
 namespace spvtools {
 namespace opt {
@@ -1202,6 +1203,13 @@ private:
   /// Returns true on success and false otherwise.
   bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
 
+  // \brief Runs the pass represented by the given pass token on the module.
+  // Returns true if the pass was successfully run. Any messages from the
+  // optimizer are returned in `messages`.
+  bool spirvToolsRunPass(std::vector<uint32_t> *mod,
+                         spvtools::Optimizer::PassToken token,
+                         std::string *messages);
+
   // \brief Calls SPIRV-Tools optimizer fix-opextinst-opcodes pass. This pass
   // fixes OpExtInst/OpExtInstWithForwardRefsKHR opcodes to use the correct one
   // depending of the presence of forward references.
@@ -1215,6 +1223,15 @@ private:
   // headers.
   bool spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
                                   std::string *messages);
+
+  // \brief Runs the upgrade memory model pass using SPIRV-Tools's optimizer.
+  // This pass will modify the module so that it conforms to the Vulkan memory
+  // model instead of the pass. Removes unused capabilities from the given
+  // SPIR-V module |mod|, and returns info/warning/error messages via
+  // |messages|. This pass doesn't trim all capabilities. To see the list of
+  // supported capabilities, check the pass headers.
+  bool spirvToolsUpgradeMemoryModel(std::vector<uint32_t> *mod,
+                                    std::string *messages);
 
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
@@ -1452,6 +1469,7 @@ private:
 
   /// ParentMap of the current function.
   std::unique_ptr<ParentMap> parentMap = nullptr;
+  bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
 };
 
 void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {

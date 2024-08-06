@@ -68,6 +68,7 @@ struct SpirvCodeGenOptions {
   bool fixFuncCallArguments;
   bool allowRWStructuredBufferArrays;
   bool enableMaximalReconvergence;
+  bool useVulkanMemoryModel;
   bool IEEEStrict;
   /// Maximum length in words for the OpString literal containing the shader
   /// source for DebugSource and DebugSourceContinued. If the source code length
