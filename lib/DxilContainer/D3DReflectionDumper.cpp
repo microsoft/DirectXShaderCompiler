@@ -199,6 +199,8 @@ void D3DReflectionDumper::Dump(D3D12_MESH_SHADER_DESC &Desc) {
   WriteLn("OutputTopology: ",
           Desc.OutputTopology == D3D12_MESH_OUTPUT_TOPOLOGY_LINE ? "Line"
                                                                  : "Triangle");
+  WriteLn("NumThreads: ", std::dec, Desc.NumThreads[0], ", ",
+          Desc.NumThreads[1], ", ", Desc.NumThreads[2]);
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_GEOMETRY_SHADER_DESC &Desc) {
@@ -351,6 +353,9 @@ void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC1 &Desc) {
     case D3D12_SHVER_AMPLIFICATION_SHADER:
       WriteLn("PayloadSize: ", std::dec,
               Desc.AmplificationShader.PayloadSize);
+      WriteLn("NumThreads: ", std::dec, Desc.AmplificationShader.NumThreads[0],
+              ", ", Desc.AmplificationShader.NumThreads[1], ", ",
+              Desc.AmplificationShader.NumThreads[2]);
       break;
     case D3D12_SHVER_PIXEL_SHADER:
       WriteLn("EarlyDepthStencil: ",
@@ -559,6 +564,28 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
     Dedent();
   }
   // TODO
+  Dedent();
+}
+void D3DReflectionDumper::Dump(ID3D12ShaderReflection1 *pShaderReflection) {
+
+  ID3D12ShaderReflection *shaderRefl0 = nullptr;
+  if (FAILED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&shaderRefl0)))) {
+    Failure("QueryInterface ID3D12ShaderReflection");
+    return;
+  }
+
+  Dump(shaderRefl0);
+
+  UINT waveSizePreferred = 0, waveSizeMin = 0, waveSizeMax = 0;
+
+  if (!pShaderReflection->GetWaveSize(&waveSizePreferred, &waveSizeMin, &waveSizeMax))
+    return;
+
+  WriteLn("ID3D12ShaderReflection1:");
+  Indent();
+  WriteLn("WaveSizePreferred: ", waveSizePreferred);
+  WriteLn("WaveSizeMin: ", waveSizeMin);
+  WriteLn("WaveSizeMax: ", waveSizeMax);
   Dedent();
 }
 
