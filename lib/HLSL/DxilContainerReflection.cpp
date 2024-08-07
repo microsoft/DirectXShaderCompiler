@@ -2966,8 +2966,8 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
 
   D3D12_COMPUTE_SHADER_DESC computeDesc = {
       m_pProps->WaveSize.Min,       m_pProps->WaveSize.Max,
-      m_pProps->WaveSize.Preferred, m_pProps->numThreads[0],
-      m_pProps->numThreads[1],      m_pProps->numThreads[2]};
+      m_pProps->WaveSize.Preferred, {m_pProps->numThreads[0],
+      m_pProps->numThreads[1],      m_pProps->numThreads[2]}};
 
   pDesc->RootSignatureSize = (UINT)m_pProps->serializedRootSignature.size();
   pDesc->RootSignaturePtr = m_pProps->serializedRootSignature.data();

@@ -317,7 +317,7 @@ typedef int HWND;
 typedef int PALETTEENTRY;
 typedef int HDC;
 typedef uint16_t WORD;
-typedef void* PVOID;
+typedef void *PVOID;
 typedef char BOOLEAN;
 typedef uint64_t ULONGLONG;
 typedef uint16_t USHORT, *PUSHORT;
