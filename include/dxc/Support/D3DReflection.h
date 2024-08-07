@@ -22,5 +22,5 @@
 #undef interface
 #pragma GCC diagnostic pop
 #else
-#include "d3d12shader.h"
+#include <d3d12shader.h>
 #endif

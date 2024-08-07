@@ -689,12 +689,7 @@ list(APPEND LLVM_COMMON_DEPENDS HCTGen)
 if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
   add_subdirectory(external) # SPIRV change
 endif()
-
-if(NOT WIN32)
-  include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/directx ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs)
-else()
-  include_directories(${DIRECTX_HEADER_INCLUDE_DIR}/directx)
-endif()
+include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/directx ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs)
 
 # HLSL - Change End
 
