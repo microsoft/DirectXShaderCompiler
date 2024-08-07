@@ -8,26 +8,37 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "assert.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/raw_ostream.h"
+namespace {
+void llvm_assert_trap(const char *_Message, const char *_File, unsigned _Line,
+                      const char *_Function) {
+  llvm::errs() << "Error: assert(" << _Message << ")\nFile:\n"
+               << _File << "(" << _Line << ")\nFunc:\t" << _Function << "\n";
+  LLVM_BUILTIN_TRAP;
+}
+} // namespace
 
 #ifdef _WIN32
-
 #include "dxc/Support/Global.h"
 #include "windows.h"
 
-void llvm_assert(const char *_Message, const char *_File, unsigned _Line,
-                 const char *_Function) {
-  OutputDebugFormatA("Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", _Message,
-                     _File, _Line, _Function);
-  RaiseException(STATUS_LLVM_ASSERT, 0, 0, 0);
-}
-
+void llvm_assert(const char *Message, const char *File, unsigned Line,
+                 const char *Function) {
+#ifdef LLVM_ASSERTIONS_TRAP
+  llvm_assert_trap(Message, File, Line, Function);
 #else
-
-#include <assert.h>
-
-void llvm_assert(const char *message, const char *, unsigned,
-                 const char *_Function) {
-  assert(false && message);
+  OutputDebugFormatA("Error: assert(%s)\nFile:\n%s(%d)\nFunc:\t%s\n", Message,
+                     File, Line, Function);
+  RaiseException(STATUS_LLVM_ASSERT, 0, 0, 0);
+#endif
 }
 
-#endif
+#else /* _WIN32 */
+
+void llvm_assert(const char *Message, const char *File, unsigned Line,
+                 const char *Function) {
+  llvm_assert_trap(Message, File, Line, Function);
+}
+
+#endif /* _WIN32 */

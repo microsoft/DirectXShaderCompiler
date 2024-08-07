@@ -388,8 +388,6 @@ clang::CXXRecordDecl *DeclareUIntTemplatedTypeWithHandleInDeclContext(
 clang::CXXRecordDecl *DeclareConstantBufferViewType(clang::ASTContext &context,
                                                     bool bTBuf);
 clang::CXXRecordDecl *DeclareRayQueryType(clang::ASTContext &context);
-clang::CXXRecordDecl *DeclareWaveMatrixType(clang::ASTContext &context,
-                                            DXIL::WaveMatrixKind kind);
 clang::CXXRecordDecl *DeclareResourceType(clang::ASTContext &context,
                                           bool bSampler);
 
@@ -524,7 +522,6 @@ bool GetIntrinsicOp(const clang::FunctionDecl *FD, unsigned &opcode,
                     llvm::StringRef &group);
 bool GetIntrinsicLowering(const clang::FunctionDecl *FD, llvm::StringRef &S);
 
-llvm::StringRef GetWaveMatrixName(DXIL::WaveMatrixKind kind);
 bool IsUserDefinedRecordType(clang::QualType type);
 bool DoesTypeDefineOverloadedOperator(clang::QualType typeWithOperator,
                                       clang::OverloadedOperatorKind opc,

@@ -594,8 +594,8 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
     emitError("unknown shader module: %0", {}) << shaderModel->GetName();
 
   if (spirvOptions.invertY && !shaderModel->IsVS() && !shaderModel->IsDS() &&
-      !shaderModel->IsGS())
-    emitError("-fvk-invert-y can only be used in VS/DS/GS", {});
+      !shaderModel->IsGS() && !shaderModel->IsMS())
+    emitError("-fvk-invert-y can only be used in VS/DS/GS/MS", {});
 
   if (spirvOptions.useGlLayout && spirvOptions.useDxLayout)
     emitError("cannot specify both -fvk-use-dx-layout and -fvk-use-gl-layout",
@@ -1462,7 +1462,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
       isEntry = true;
       funcName = "src." + funcName;
       // Create wrapper for the entry function
-      if (!emitEntryFunctionWrapper(decl, func, debugFunction))
+      if (!emitEntryFunctionWrapper(decl, func))
         return;
       // Generate DebugEntryPoint if function definition
       if (spirvOptions.debugInfoVulkan && debugFunction) {
@@ -1531,8 +1531,7 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
     // Add DebugFunctionDefinition if we are emitting
     // NonSemantic.Shader.DebugInfo.100 debug info
-    // and we haven't already added it to the wrapper.
-    if (!isEntry && spirvOptions.debugInfoVulkan && debugFunction)
+    if (spirvOptions.debugInfoVulkan && debugFunction)
       spvBuilder.createDebugFunctionDef(debugFunction, func);
 
     // Process all statments in the body.
@@ -7933,6 +7932,9 @@ void SpirvEmitter::assignToMSOutAttribute(
     valueType = astContext.UnsignedIntTy;
   }
   varInstr = spvBuilder.createAccessChain(valueType, varInstr, indices, loc);
+  if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
+    value = invertYIfRequested(value, semanticInfo.loc);
+
   spvBuilder.createStore(varInstr, value, loc);
 }
 
@@ -13014,18 +13016,10 @@ bool SpirvEmitter::processTessellationShaderAttributes(
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
-    const FunctionDecl *decl, SpirvFunction *entryFuncInstr,
-    SpirvDebugFunction *debugFunction) {
+    const FunctionDecl *decl, SpirvFunction *entryFuncInstr) {
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
-
-  // Add DebugFunctionDefinition if we are emitting
-  // NonSemantic.Shader.DebugInfo.100 debug info.
-  // We will emit it in the wrapper rather than the
-  // user function.
-  if (spirvOptions.debugInfoVulkan && debugFunction)
-    spvBuilder.createDebugFunctionDef(debugFunction, entryFunction);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
@@ -13290,8 +13284,7 @@ bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
-                                            SpirvFunction *entryFuncInstr,
-                                            SpirvDebugFunction *debugFunction) {
+                                            SpirvFunction *entryFuncInstr) {
   // HS specific attributes
   uint32_t numOutputControlPoints = 0;
   SpirvInstruction *outputControlPointIdVal =
@@ -13326,8 +13319,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   entryInfo->entryFunction = entryFunction;
 
   if (spvContext.isRay()) {
-    return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr,
-                                                 debugFunction);
+    return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr);
   }
   // Handle attributes specific to each shader stage
   if (spvContext.isPS()) {
@@ -13407,13 +13399,6 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // are added to the beginning of the entry basic block, so must be called
   // after the basic block is created and insert point is set.
   processInlineSpirvAttributes(decl);
-
-  // Add DebugFunctionDefinition if we are emitting
-  // NonSemantic.Shader.DebugInfo.100 debug info.
-  // We will emit it in the wrapper rather than the
-  // user function.
-  if (spirvOptions.debugInfoVulkan && debugFunction)
-    spvBuilder.createDebugFunctionDef(debugFunction, entryFunction);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
@@ -14327,6 +14312,22 @@ SpirvEmitter::createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs,
   return retVal;
 }
 
+SpirvInstruction *SpirvEmitter::invertYIfRequested(SpirvInstruction *position,
+                                                   SourceLocation loc,
+                                                   SourceRange range) {
+  // Negate SV_Position.y if requested
+  if (spirvOptions.invertY) {
+    const auto oldY = spvBuilder.createCompositeExtract(
+        astContext.FloatTy, position, {1}, loc, range);
+    const auto newY = spvBuilder.createUnaryOp(
+        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
+    position = spvBuilder.createCompositeInsert(
+        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
+        loc, range);
+  }
+  return position;
+}
+
 SpirvInstruction *
 SpirvEmitter::processSpvIntrinsicCallExpr(const CallExpr *expr) {
   const auto *funcDecl = expr->getDirectCallee();
@@ -14786,13 +14787,19 @@ bool SpirvEmitter::spirvToolsLegalize(std::vector<uint32_t> *mod,
   }
   optimizer.RegisterLegalizationPasses(spirvOptions.preserveInterface);
   // Add flattening of resources if needed.
-  if (spirvOptions.flattenResourceArrays ||
-      declIdMapper.requiresFlatteningCompositeResources()) {
+  if (spirvOptions.flattenResourceArrays) {
     optimizer.RegisterPass(
         spvtools::CreateReplaceDescArrayAccessUsingVarIndexPass());
     optimizer.RegisterPass(
         spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
-    optimizer.RegisterPass(spvtools::CreateDescriptorScalarReplacementPass());
+    optimizer.RegisterPass(
+        spvtools::CreateDescriptorArrayScalarReplacementPass());
+    optimizer.RegisterPass(
+        spvtools::CreateAggressiveDCEPass(spirvOptions.preserveInterface));
+  }
+  if (declIdMapper.requiresFlatteningCompositeResources()) {
+    optimizer.RegisterPass(
+        spvtools::CreateDescriptorCompositeScalarReplacementPass());
     // ADCE should be run after desc_sroa in order to remove potentially
     // illegal types such as structures containing opaque types.
     optimizer.RegisterPass(
