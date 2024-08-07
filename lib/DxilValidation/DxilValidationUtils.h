@@ -12,6 +12,7 @@
 #pragma once
 
 #include "dxc/DXIL/DxilConstants.h"
+#include "dxc/DXIL/DxilResourceProperties.h"
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
@@ -48,7 +49,6 @@ const char *GetValidationRuleText(ValidationRule value);
 class DxilEntryProps;
 class DxilModule;
 class DxilResourceBase;
-struct DxilResourceProperties;
 class DxilSignatureElement;
 
 // Save status like output write for entries.
