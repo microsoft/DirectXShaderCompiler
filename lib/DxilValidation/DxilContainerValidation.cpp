@@ -164,13 +164,6 @@ static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
                         pPSVData, PSVSize);
 }
 
-bool VerifyPSVMatches(llvm::Module *pModule, const void *pPSVData,
-                      uint32_t PSVSize) {
-  ValidationContext ValCtx(*pModule, nullptr, pModule->GetOrCreateDxilModule());
-  VerifyPSVMatches(ValCtx, pPSVData, PSVSize);
-  return !ValCtx.Failed;
-}
-
 static void VerifyFeatureInfoMatches(ValidationContext &ValCtx,
                                      const void *pFeatureInfoData,
                                      uint32_t FeatureInfoSize) {
