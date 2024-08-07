@@ -154,7 +154,8 @@ void D3DReflectionDumper::Dump(D3D12_NODE_SHADER_DESC &Desc) {
   Dump(Desc.ComputeDesc);
   DumpEnum("LaunchType", Desc.LaunchType);
   WriteLn("IsProgramEntry: ", Desc.IsProgramEntry ? "TRUE" : "FALSE");
-  WriteLn("LocalRootArgumentsTableIndex: ", std::dec, Desc.LocalRootArgumentsTableIndex);
+  WriteLn("LocalRootArgumentsTableIndex: ", std::dec,
+          Desc.LocalRootArgumentsTableIndex);
   WriteLn("DispatchGrid[0]: ", std::dec, Desc.DispatchGrid[0]);
   WriteLn("DispatchGrid[1]: ", std::dec, Desc.DispatchGrid[1]);
   WriteLn("DispatchGrid[2]: ", std::dec, Desc.DispatchGrid[2]);
@@ -332,46 +333,44 @@ void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC1 &Desc) {
   Indent();
   WriteLn("RootSignatureSize: ", std::dec, Desc.RootSignatureSize);
   switch (Desc.ShaderType) {
-    case D3D12_SHVER_NODE_SHADER:
-      Dump(Desc.NodeShader);
-      break;
-    case D3D12_SHVER_HULL_SHADER:
-      Dump(Desc.HullShader);
-      break;
-    case D3D12_SHVER_COMPUTE_SHADER:
-      Dump(Desc.ComputeShader);
-      break;
-    case D3D12_SHVER_MESH_SHADER:
-      Dump(Desc.MeshShader);
-      break;
-    case D3D12_SHVER_GEOMETRY_SHADER:
-      Dump(Desc.GeometryShader);
-      break;
-    case D3D12_SHVER_DOMAIN_SHADER:
-      Dump(Desc.DomainShader);
-      break;
-    case D3D12_SHVER_AMPLIFICATION_SHADER:
-      WriteLn("PayloadSize: ", std::dec,
-              Desc.AmplificationShader.PayloadSize);
-      WriteLn("NumThreads: ", std::dec, Desc.AmplificationShader.NumThreads[0],
-              ", ", Desc.AmplificationShader.NumThreads[1], ", ",
-              Desc.AmplificationShader.NumThreads[2]);
-      break;
-    case D3D12_SHVER_PIXEL_SHADER:
-      WriteLn("EarlyDepthStencil: ",
-              Desc.PixelShader.EarlyDepthStencil ? "TRUE" : "FALSE");
-      break;
-    case D3D12_SHVER_CALLABLE_SHADER:
-    case D3D12_SHVER_INTERSECTION_SHADER:
-    case D3D12_SHVER_ANY_HIT_SHADER:
-    case D3D12_SHVER_CLOSEST_HIT_SHADER:
-      WriteLn("AttributeSize: ", std::dec,
-              Desc.RaytracingShader.AttributeSize);
-      // fallthrough
-    case D3D12_SHVER_MISS_SHADER:
-      WriteLn("ParamPayloadSize: ", std::dec,
-              Desc.RaytracingShader.ParamPayloadSize);
-      break;
+  case D3D12_SHVER_NODE_SHADER:
+    Dump(Desc.NodeShader);
+    break;
+  case D3D12_SHVER_HULL_SHADER:
+    Dump(Desc.HullShader);
+    break;
+  case D3D12_SHVER_COMPUTE_SHADER:
+    Dump(Desc.ComputeShader);
+    break;
+  case D3D12_SHVER_MESH_SHADER:
+    Dump(Desc.MeshShader);
+    break;
+  case D3D12_SHVER_GEOMETRY_SHADER:
+    Dump(Desc.GeometryShader);
+    break;
+  case D3D12_SHVER_DOMAIN_SHADER:
+    Dump(Desc.DomainShader);
+    break;
+  case D3D12_SHVER_AMPLIFICATION_SHADER:
+    WriteLn("PayloadSize: ", std::dec, Desc.AmplificationShader.PayloadSize);
+    WriteLn("NumThreads: ", std::dec, Desc.AmplificationShader.NumThreads[0],
+            ", ", Desc.AmplificationShader.NumThreads[1], ", ",
+            Desc.AmplificationShader.NumThreads[2]);
+    break;
+  case D3D12_SHVER_PIXEL_SHADER:
+    WriteLn("EarlyDepthStencil: ",
+            Desc.PixelShader.EarlyDepthStencil ? "TRUE" : "FALSE");
+    break;
+  case D3D12_SHVER_CALLABLE_SHADER:
+  case D3D12_SHVER_INTERSECTION_SHADER:
+  case D3D12_SHVER_ANY_HIT_SHADER:
+  case D3D12_SHVER_CLOSEST_HIT_SHADER:
+    WriteLn("AttributeSize: ", std::dec, Desc.RaytracingShader.AttributeSize);
+    // fallthrough
+  case D3D12_SHVER_MISS_SHADER:
+    WriteLn("ParamPayloadSize: ", std::dec,
+            Desc.RaytracingShader.ParamPayloadSize);
+    break;
   }
   Dedent();
 }
@@ -578,7 +577,8 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection1 *pShaderReflection) {
 
   UINT waveSizePreferred = 0, waveSizeMin = 0, waveSizeMax = 0;
 
-  if (!pShaderReflection->GetWaveSize(&waveSizePreferred, &waveSizeMin, &waveSizeMax))
+  if (!pShaderReflection->GetWaveSize(&waveSizePreferred, &waveSizeMin,
+                                      &waveSizeMax))
     return;
 
   WriteLn("ID3D12ShaderReflection1:");
@@ -658,25 +658,29 @@ void D3DReflectionDumper::Dump(ID3D12FunctionReflection1 *pFunctionReflection) {
     return;
   }
   Dump(Desc);
-  if (Desc.ShaderType == D3D12_SHVER_NODE_SHADER && Desc.NodeShader.InputNodes) {
+  if (Desc.ShaderType == D3D12_SHVER_NODE_SHADER &&
+      Desc.NodeShader.InputNodes) {
     WriteLn("Input Nodes:");
     Indent();
     for (UINT i = 0; i < Desc.NodeShader.InputNodes; i++) {
       D3D12_NODE_DESC pND{};
-      if(FAILED(pFunctionReflection->GetInputNode(i, &pND)))
+      if (FAILED(pFunctionReflection->GetInputNode(i, &pND)))
         Failure("GetInputNode", m_LastName);
-      else Dump(pND);
+      else
+        Dump(pND);
     }
     Dedent();
   }
-  if (Desc.ShaderType == D3D12_SHVER_NODE_SHADER && Desc.NodeShader.OutputNodes) {
+  if (Desc.ShaderType == D3D12_SHVER_NODE_SHADER &&
+      Desc.NodeShader.OutputNodes) {
     WriteLn("Output Nodes:");
     Indent();
     for (UINT i = 0; i < Desc.NodeShader.OutputNodes; i++) {
       D3D12_NODE_DESC pND{};
-      if(FAILED(pFunctionReflection->GetOutputNode(i, &pND)))
+      if (FAILED(pFunctionReflection->GetOutputNode(i, &pND)))
         Failure("GetOutputNode", m_LastName);
-      else Dump(pND);
+      else
+        Dump(pND);
     }
     Dedent();
   }
