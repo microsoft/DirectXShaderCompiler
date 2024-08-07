@@ -161,7 +161,7 @@ public:
 };
 
 class DxilShaderReflection : public DxilModuleReflection,
-                             public ID3D12ShaderReflection {
+                             public ID3D12ShaderReflection1 {
 private:
   DXC_MICROCOM_TM_REF_FIELDS()
   std::vector<D3D12_SIGNATURE_PARAMETER_DESC> m_InputSignature;
@@ -183,7 +183,8 @@ public:
   void SetPublicAPI(PublicAPI value) { m_PublicAPI = value; }
   static PublicAPI IIDToAPI(REFIID iid) {
     PublicAPI api = PublicAPI::Invalid;
-    if (IsEqualIID(__uuidof(ID3D12ShaderReflection), iid))
+    if (IsEqualIID(__uuidof(ID3D12ShaderReflection), iid) ||
+        IsEqualIID(__uuidof(ID3D12ShaderReflection1), iid))
       api = PublicAPI::D3D12;
     else if (IsEqualIID(IID_ID3D11ShaderReflection_43, iid))
       api = PublicAPI::D3D11_43;
@@ -198,22 +199,31 @@ public:
     HRESULT hr = E_NOINTERFACE;
 
     // There is non-standard handling of QueryInterface:
-    // - although everything uses the same vtable as ID3D12ShaderReflection,
+    // - although d3d11 and older d3d12 use the same vtable as
+    // ID3D12ShaderReflection,
     //   there are differences in behavior depending on the API version, and
     //   there are 3 of these - it's not just d3d11 vs d3d12.
+    // - This changed in latest d3d12 when ID3D12ShaderReflection1 was
+    // introduced to be non-breaking.
     // - when the object is created the API version is fixed
     // - from that point on, this object can only be QI'd for the matching API
     //   version.
     PublicAPI api = IIDToAPI(iid);
-    if (api == m_PublicAPI) {
+
+    if (IsEqualIID(__uuidof(ID3D12ShaderReflection1), iid)) {
+      *ppvObject = static_cast<ID3D12ShaderReflection1 *>(this);
+      hr = S_OK;
+    } else if (api == m_PublicAPI) {
       *ppvObject = static_cast<ID3D12ShaderReflection *>(this);
-      this->AddRef();
       hr = S_OK;
     } else if (IsEqualIID(__uuidof(IUnknown), iid)) {
       *ppvObject = static_cast<IUnknown *>(this);
-      this->AddRef();
       hr = S_OK;
     }
+
+    if (hr == S_OK)
+      this->AddRef();
+
     return hr;
   }
 
@@ -263,6 +273,10 @@ public:
   STDMETHODIMP_(UINT)
   GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
                      UINT *pSizeZ) noexcept override;
+
+  STDMETHODIMP_(BOOL)
+  GetWaveSize(UINT *pWavePreferred, UINT *pWaveMin,
+              UINT *pWaveMax) noexcept override;
 
   STDMETHODIMP_(UINT64) GetRequiresFlags(THIS) noexcept override;
 };
@@ -2776,6 +2790,21 @@ UINT DxilShaderReflection::GetThreadGroupSize(UINT *pSizeX, UINT *pSizeY,
   return x * y * z;
 }
 
+BOOL DxilShaderReflection::GetWaveSize(UINT *pWavePreferred, UINT *pWaveMin,
+                                       UINT *pWaveMax) noexcept {
+  if (!m_pDxilModule->GetShaderModel()->IsCS()) {
+    AssignToOutOpt(0u, pWavePreferred);
+    AssignToOutOpt(0u, pWaveMin);
+    AssignToOutOpt(0u, pWaveMax);
+    return false;
+  }
+  DxilWaveSize waveSize = m_pDxilModule->GetWaveSize();
+  AssignToOutOpt(waveSize.Preferred, pWavePreferred);
+  AssignToOutOpt(waveSize.Min, pWaveMin);
+  AssignToOutOpt(waveSize.Max, pWaveMax);
+  return true;
+}
+
 UINT64 DxilShaderReflection::GetRequiresFlags() noexcept {
   UINT64 result = m_pDxilModule->m_ShaderFlags.GetFeatureInfo();
   // FeatureInfo flags are identical, with the exception of a collision between:
@@ -3041,13 +3070,16 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
         m_pProps->ShaderProps.MS.maxVertexCount,
         m_pProps->ShaderProps.MS.maxPrimitiveCount,
         (D3D12_MESH_OUTPUT_TOPOLOGY)m_pProps->ShaderProps.MS.outputTopology,
-    };
+        {m_pProps->numThreads[0], m_pProps->numThreads[1],
+         m_pProps->numThreads[2]}};
     break;
 
   case ShaderKind::Amplification:
     pDesc->ShaderType = D3D12_SHVER_AMPLIFICATION_SHADER;
     pDesc->AmplificationShader = D3D12_AMPLIFICATION_SHADER_DESC{
-        m_pProps->ShaderProps.AS.payloadSizeInBytes};
+        m_pProps->ShaderProps.AS.payloadSizeInBytes,
+        {m_pProps->numThreads[0], m_pProps->numThreads[1],
+         m_pProps->numThreads[2]}};
     break;
 
   case ShaderKind::Node:
