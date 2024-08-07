@@ -4218,6 +4218,22 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
       llvm_unreachable("invalid usage of SV_InstanceID sneaked in");
     }
   }
+  // According to DXIL spec, the StartVertexLocation SV can only be used by
+  // VSIn. According to Vulkan spec, the BaseVertex BuiltIn can only be used by
+  // VSIn.
+  case hlsl::Semantic::Kind::StartVertexLocation: {
+    stageVar->setIsSpirvBuiltin();
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::BaseVertex,
+                                         isPrecise, srcLoc);
+  }
+  // According to DXIL spec, the StartInstanceLocation SV can only be used by
+  // VSIn. According to Vulkan spec, the BaseInstance BuiltIn can only be used
+  // by VSIn.
+  case hlsl::Semantic::Kind::StartInstanceLocation: {
+    stageVar->setIsSpirvBuiltin();
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::BaseInstance,
+                                         isPrecise, srcLoc);
+  }
   // According to DXIL spec, the Depth{|GreaterEqual|LessEqual} SV can only be
   // used by PSOut.
   // According to Vulkan spec, the FragDepth BuiltIn can only be used by PSOut.
