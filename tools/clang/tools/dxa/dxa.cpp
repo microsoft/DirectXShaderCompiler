@@ -419,7 +419,7 @@ void DxaContext::DumpReflection() {
   hlsl::dump::D3DReflectionDumper dumper(ss);
 
   CComPtr<ID3D12ShaderReflection> pShaderReflection;
-  CComPtr<ID3D12LibraryReflection> pLibraryReflection;
+  CComPtr<ID3D12LibraryReflection1> pLibraryReflection;
   for (uint32_t i = 0; i < partCount; ++i) {
     uint32_t kind;
     IFT(pReflection->GetPartKind(i, &kind));
