@@ -11,33 +11,13 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "dxc/DXIL/DxilInstructions.h"
-#include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
-#include "dxc/DXIL/DxilShaderModel.h"
-#include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilValidation.h"
-#include "dxc/HLSL/HLModule.h"
-#include "dxc/HLSL/HLOperations.h"
 #include "dxc/Support/Global.h"
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-
-#ifdef _WIN32
-#include <winerror.h>
-#endif
-#include "llvm/Support/raw_ostream.h"
-#include <unordered_set>
 
 using namespace llvm;
 using std::map;

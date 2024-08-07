@@ -26,16 +26,16 @@
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilContainer/DxilRuntimeReflection.h"
+#include "dxc/DxilValidation/DxilValidation.h"
 #include "dxc/HLSL/DxilGenerationPass.h"
-#include "dxc/HLSL/DxilValidation.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
+
 
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/HLSL/DxilPackSignatureElement.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
 #include "dxc/HLSL/DxilSpanAllocator.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -64,6 +64,16 @@ using namespace llvm;
 using std::unique_ptr;
 using std::unordered_set;
 using std::vector;
+
+
+namespace hlsl {
+
+///////////////////////////////////////////////////////////////////////////////
+// Validation rules.
+#include "DxilValidation.inc"
+
+const char *GetValidationRuleText(ValidationRule value);
+} // namespace hlsl
 
 ///////////////////////////////////////////////////////////////////////////////
 // Error messages.
