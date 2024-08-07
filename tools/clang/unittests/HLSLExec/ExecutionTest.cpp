@@ -84,30 +84,6 @@ static const GUID D3D12ExperimentalShaderModelsID =
 typedef HRESULT(WINAPI *D3D12GetInterfaceFn)(REFCLSID rclsid, REFIID riid,
                                              void **ppvDebug);
 
-#ifndef __ID3D12SDKConfiguration_INTERFACE_DEFINED__
-// Copied from AgilitySDK D3D12.h to programmatically enable when in developer
-// mode.
-#define __ID3D12SDKConfiguration_INTERFACE_DEFINED__
-
-EXTERN_C const GUID DECLSPEC_SELECTANY IID_ID3D12SDKConfiguration = {
-    0xe9eb5314,
-    0x33aa,
-    0x42b2,
-    {0xa7, 0x18, 0xd7, 0x7f, 0x58, 0xb1, 0xf1, 0xc7}};
-EXTERN_C const GUID DECLSPEC_SELECTANY CLSID_D3D12SDKConfiguration = {
-    0x7cda6aca,
-    0xa03e,
-    0x49c8,
-    {0x94, 0x58, 0x03, 0x34, 0xd2, 0x0e, 0x07, 0xce}};
-
-MIDL_INTERFACE("e9eb5314-33aa-42b2-a718-d77f58b1f1c7")
-ID3D12SDKConfiguration : public IUnknown {
-public:
-  virtual HRESULT STDMETHODCALLTYPE SetSDKVersion(UINT SDKVersion,
-                                                  LPCSTR SDKPath) = 0;
-};
-#endif /* __ID3D12SDKConfiguration_INTERFACE_DEFINED__ */
-
 using namespace DirectX;
 using namespace hlsl_test;
 

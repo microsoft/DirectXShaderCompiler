@@ -366,7 +366,7 @@ void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC1 &Desc) {
   case D3D12_SHVER_ANY_HIT_SHADER:
   case D3D12_SHVER_CLOSEST_HIT_SHADER:
     WriteLn("AttributeSize: ", std::dec, Desc.RaytracingShader.AttributeSize);
-    // fallthrough
+    [[fallthrough]];
   case D3D12_SHVER_MISS_SHADER:
     WriteLn("ParamPayloadSize: ", std::dec,
             Desc.RaytracingShader.ParamPayloadSize);
