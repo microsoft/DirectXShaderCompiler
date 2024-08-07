@@ -234,11 +234,12 @@
 
 #define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
 #define FAILED(hr) (((HRESULT)(hr)) < 0)
-#define DXC_FAILED(hr) (((HRESULT)(hr)) < 0)
 
 #define HRESULT_FROM_WIN32(x)                                                  \
   (HRESULT)(x) <= 0 ? (HRESULT)(x)                                             \
                     : (HRESULT)(((x) & 0x0000FFFF) | (7 << 16) | 0x80000000)
+
+#define DXC_FAILED(hr) (((HRESULT)(hr)) < 0)
 
 //===----------------------------------------------------------------------===//
 //
@@ -296,62 +297,71 @@
 
 #ifdef __cplusplus
 
-typedef unsigned char BYTE, UINT8;
-typedef unsigned char *LPBYTE;
+// Note: using fixed-width here to match Windows widths
+// Specifically this is different for 'long' vs 'LONG'
+typedef uint8_t UINT8;
+typedef int8_t INT8;
+typedef uint16_t UINT16;
+typedef int16_t INT16;
+typedef uint32_t UINT32, UINT, ULONG, DWORD, WINBOOL;
+typedef int32_t INT32, INT, LONG;
+typedef uint64_t UINT64, ULONG_PTR;
+typedef int64_t INT64, LONG_PTR;
+typedef void VOID, *HANDLE, *RPC_IF_HANDLE, *LPVOID;
+typedef const void *LPCVOID;
+typedef size_t SIZE_T;
+typedef float FLOAT;
+typedef double DOUBLE;
+typedef unsigned char BYTE;
+typedef int HWND;
+typedef int PALETTEENTRY;
+typedef int HDC;
+typedef uint16_t WORD;
+typedef void* PVOID;
+typedef char BOOLEAN;
+typedef uint64_t ULONGLONG;
+typedef uint16_t USHORT, *PUSHORT;
+typedef int64_t LONGLONG, *PLONGLONG;
+typedef int64_t LONG_PTR, *PLONG_PTR;
+typedef int64_t LONG64, *PLONG64;
+typedef uint64_t ULONG64, *PULONG64;
+typedef wchar_t WCHAR, *PWSTR;
+typedef uint8_t UCHAR, *PUCHAR;
+typedef uint64_t ULONG_PTR, *PULONG_PTR;
+typedef uint64_t UINT_PTR, *PUINT_PTR;
+typedef int64_t INT_PTR, *PINT_PTR;
 
-typedef BYTE BOOLEAN;
+// Note: WCHAR is not the same between Windows and Linux, to enable
+// string manipulation APIs to work with resulting strings.
+// APIs to D3D/DXCore will work on Linux wchars, but beware with
+// interactions directly with the Windows kernel.
+typedef char CHAR, *PSTR, *LPSTR, TCHAR, *PTSTR;
+typedef const char *LPCSTR, *PCSTR, *LPCTSTR, *PCTSTR;
+typedef wchar_t WCHAR, *PWSTR, *LPWSTR, *PWCHAR;
+typedef const wchar_t *LPCWSTR, *PCWSTR;
+
+typedef BYTE *LPBYTE;
 typedef BOOLEAN *PBOOLEAN;
 
 typedef bool BOOL;
 typedef BOOL *LPBOOL;
 
-typedef int INT;
-typedef long LONG;
-typedef unsigned int UINT;
-typedef unsigned long ULONG;
-typedef long long LONGLONG;
-typedef long long LONG_PTR;
-typedef unsigned long long ULONG_PTR;
-typedef unsigned long long ULONGLONG;
-
-typedef uint16_t WORD;
-typedef uint32_t DWORD;
 typedef DWORD *LPDWORD;
 
-typedef uint32_t UINT32;
-typedef uint64_t UINT64;
-
-typedef signed char INT8, *PINT8;
-typedef signed int INT32, *PINT32;
-
-typedef size_t SIZE_T;
-typedef const char *LPCSTR;
-typedef const char *PCSTR;
+typedef INT8 *PINT8;
+typedef INT32 *PINT32;
 
 typedef int errno_t;
-
-typedef wchar_t WCHAR;
-typedef wchar_t *LPWSTR;
-typedef wchar_t *PWCHAR;
-typedef const wchar_t *LPCWSTR;
-typedef const wchar_t *PCWSTR;
 
 typedef WCHAR OLECHAR;
 typedef OLECHAR *BSTR;
 typedef OLECHAR *LPOLESTR;
-typedef char *LPSTR;
-
-typedef void *LPVOID;
-typedef const void *LPCVOID;
 
 typedef std::nullptr_t nullptr_t;
 
 typedef signed int HRESULT;
 
 //===--------------------- Handle Types -----------------------------------===//
-
-typedef void *HANDLE;
-typedef void *RPC_IF_HANDLE;
 
 #define DECLARE_HANDLE(name)                                                   \
   struct name##__ {                                                            \
@@ -627,8 +637,12 @@ struct IStream : public ISequentialStream {
 // They still need the __uuidof() though
 CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection,
                       "8E349D19-54DB-4A56-9DC9-119D87BDB804")
+CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection1,
+                      "07692220-8721-4514-BFFE-969BB33196B6")
 CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection,
                       "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
+CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection1,
+                      "9C886958-23F1-4126-B294-FCF3DA13E7C6")
 
 //===--------------------- COM Pointer Types ------------------------------===//
 
