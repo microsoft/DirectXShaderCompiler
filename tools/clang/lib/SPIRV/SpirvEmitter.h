@@ -1225,13 +1225,11 @@ private:
                                   std::string *messages);
 
   // \brief Runs the upgrade memory model pass using SPIRV-Tools's optimizer.
-  // This pass will modify the module so that it conforms to the Vulkan memory
-  // model instead of the pass. Removes unused capabilities from the given
-  // SPIR-V module |mod|, and returns info/warning/error messages via
-  // |messages|. This pass doesn't trim all capabilities. To see the list of
-  // supported capabilities, check the pass headers.
-  bool spirvToolsUpgradeMemoryModel(std::vector<uint32_t> *mod,
-                                    std::string *messages);
+  // This pass will modify the module, |mod|, so that it conforms to the Vulkan
+  // memory model instead of the GLSL450 memory model. Returns
+  // info/warning/error messages via |messages|.
+  bool spirvToolsUpgradeToVulkanMemoryModel(std::vector<uint32_t> *mod,
+                                            std::string *messages);
 
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and

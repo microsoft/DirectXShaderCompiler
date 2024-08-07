@@ -14731,8 +14731,8 @@ bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
   return spirvToolsRunPass(mod, std::move(token), messages);
 }
 
-bool SpirvEmitter::spirvToolsUpgradeMemoryModel(std::vector<uint32_t> *mod,
-                                                std::string *messages) {
+bool SpirvEmitter::spirvToolsUpgradeToVulkanMemoryModel(
+    std::vector<uint32_t> *mod, std::string *messages) {
   spvtools::Optimizer::PassToken token =
       spvtools::CreateUpgradeMemoryModelPass();
   return spirvToolsRunPass(mod, std::move(token), messages);
@@ -15147,11 +15147,11 @@ bool SpirvEmitter::UpgradeToVulkanMemoryModelIfNeeded(
   // if a feature is used that requires the Vulkan memory model, then some code
   // may need to be rewritten.
   if (!spirvOptions.useVulkanMemoryModel &&
-      !spvBuilder.requiresCapability(spv::Capability::VulkanMemoryModel))
+      !spvBuilder.hasCapability(spv::Capability::VulkanMemoryModel))
     return true;
 
   std::string messages;
-  if (!spirvToolsUpgradeMemoryModel(module, &messages)) {
+  if (!spirvToolsUpgradeToVulkanMemoryModel(module, &messages)) {
     emitFatalError("failed to use the vulkan memory model: %0", {}) << messages;
     emitNote("please file a bug report on "
              "https://github.com/Microsoft/DirectXShaderCompiler/issues "
