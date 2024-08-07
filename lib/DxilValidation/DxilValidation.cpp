@@ -30,7 +30,6 @@
 #include "dxc/HLSL/DxilGenerationPass.h"
 #include "llvm/Analysis/ReducibilityAnalysis.h"
 
-
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/HLSL/DxilPackSignatureElement.h"
 #include "dxc/HLSL/DxilSignatureAllocator.h"
@@ -64,7 +63,6 @@ using namespace llvm;
 using std::unique_ptr;
 using std::unordered_set;
 using std::vector;
-
 
 namespace hlsl {
 
