@@ -1,0 +1,1 @@
+RUN: %hash_stability -s smoke /T ps_6_0 %S/../../DXC/Inputs/smoke.hlsl
