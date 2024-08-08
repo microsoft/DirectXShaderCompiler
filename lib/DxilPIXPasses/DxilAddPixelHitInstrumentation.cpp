@@ -78,7 +78,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
     IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(
         PIXPassHelpers::GetEntryFunction(DM)));
 
-    HandleForUAV = PIXPassHelpers::CreateUAV(
+    HandleForUAV = PIXPassHelpers::CreateUAVOnceForModule(
         DM, Builder, 0, static_cast<unsigned int>(DM.GetUAVs().size()),
         "PIX_CountUAV_Handle");
 

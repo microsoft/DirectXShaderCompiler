@@ -337,9 +337,9 @@ bool DxilPIXMeshShaderOutputInstrumentation::runOnModule(Module &M) {
 
   m_OffsetMask = BC.HlslOP->GetU32Const(UAVDumpingGroundOffset() - 1);
 
-  m_OutputUAV =
-      CreateUAV(DM, Builder, 0, static_cast<unsigned int>(DM.GetUAVs().size()),
-                "PIX_DebugUAV_Handle");
+  m_OutputUAV = CreateUAVOnceForModule(
+      DM, Builder, 0, static_cast<unsigned int>(DM.GetUAVs().size()),
+      "PIX_DebugUAV_Handle");
 
   if (FirstNewStructGetMeshPayload == nullptr) {
     Instruction *firstInsertionPt = dxilutil::FirstNonAllocaInsertionPt(

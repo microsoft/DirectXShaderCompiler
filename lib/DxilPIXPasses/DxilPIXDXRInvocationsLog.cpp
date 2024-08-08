@@ -88,10 +88,10 @@ bool DxilPIXDXRInvocationsLog::runOnModule(Module &M) {
     IRBuilder<> Builder(dxilutil::FirstNonAllocaInsertionPt(entryFunction));
 
     // Add the UAVs that we're going to write to
-    CallInst *HandleForCountUAV = PIXPassHelpers::CreateUAV(
+    CallInst *HandleForCountUAV = PIXPassHelpers::CreateUAVOnceForModule(
         DM, Builder, /* registerID */ 0,
         static_cast<unsigned int>(DM.GetUAVs().size()), "PIX_CountUAV_Handle");
-    CallInst *HandleForUAV = PIXPassHelpers::CreateUAV(
+    CallInst *HandleForUAV = PIXPassHelpers::CreateUAVOnceForModule(
         DM, Builder, /* registerID */ 1,
         static_cast<unsigned int>(DM.GetUAVs().size()), "PIX_UAV_Handle");
 

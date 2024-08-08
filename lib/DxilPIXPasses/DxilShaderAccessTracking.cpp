@@ -907,6 +907,10 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
 
+    auto uav = PIXPassHelpers::CreateGlobalUAVResource(
+        DM, 0u, static_cast<unsigned int>(DM.GetUAVs().size()),
+        "PIX_ShaderAccessUAV");
+
     for (auto *F : instrumentableFunctions) {
       DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
       if (!DM.HasDxilFunctionProps(F)) {
@@ -922,9 +926,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
       IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
-      m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateUAV(
-          DM, Builder, 0u, static_cast<unsigned int>(DM.GetUAVs().size()),
-          "PIX_CountUAV_Handle");
+      m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateHandleForResource(
+          DM, Builder, uav, "PIX_ShaderAccessUAV_Handle");
       OP *HlslOP = DM.GetOP();
       for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
            accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);

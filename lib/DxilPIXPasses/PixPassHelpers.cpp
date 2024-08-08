@@ -300,12 +300,12 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
   if (UAVStructTy == nullptr) {
     SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
     UAVStructTy = llvm::StructType::create(Elements, PIXStructTypeName);
-
-    // Since we only have to do this once per module, we can do it now when
-    // we're adding the singular UAV structure type to the module:
-    AddUAVToDxilDefinedGlobalRootSignatures(DM);
-    AddUAVToShaderAttributeRootSignature(DM);
   }
+
+  // Since this function should only be called once per module,
+  // we can modify the root sig at the same time:
+  AddUAVToDxilDefinedGlobalRootSignatures(DM);
+  AddUAVToShaderAttributeRootSignature(DM);
 
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
 
@@ -360,9 +360,11 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
 }
 
 // Set up a UAV with structure of a single int
-llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
-                          unsigned int hlslBindIndex, unsigned int registerId,
-                          const char *name) {
+llvm::CallInst *CreateUAVOnceForModule(hlsl::DxilModule &DM,
+                                       llvm::IRBuilder<> &Builder,
+                                       unsigned int hlslBindIndex,
+                                       unsigned int registerId,
+                                       const char *name) {
   auto uav = CreateGlobalUAVResource(DM, hlslBindIndex, registerId, name);
   auto *handle = CreateHandleForResource(DM, Builder, uav, name);
 

@@ -537,7 +537,7 @@ void Miss( inout Payload payload )
   TestPixUAVCase(hlsl, L"lib_6_5", L"");
   TestPixUAVCase(hlsl, L"lib_6_6", L"");
   TestPixUAVCase(hlsl, L"lib_6_7", L"");
-  TestPixUAVCase(hlsl, L"lib_6_9", L"");
+  TestPixUAVCase(hlsl, L"lib_6_8", L"");
 }
 
 TEST_F(PixTest, CompileDebugDisasmPDB) {
