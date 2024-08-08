@@ -44,12 +44,14 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Unicode.h"
 
+#define INITGUID
+#include "d3d12.h"
+
 //
-// d3d12.h and dxgi1_4.h are included in the Windows 10 SDK
+// dxgi1_4.h is included in the Windows 10 SDK
 // https://msdn.microsoft.com/en-us/library/windows/desktop/dn899120(v=vs.85).aspx
 // https://developer.microsoft.com/en-US/windows/downloads/windows-10-sdk
 //
-#include <d3d12.h>
 #include <dxgi1_4.h>
 #include <DXGIDebug.h>
 #include "dxc/Support/d3dx12.h"
