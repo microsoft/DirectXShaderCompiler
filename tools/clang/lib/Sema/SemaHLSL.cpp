@@ -830,11 +830,12 @@ GetOrCreateTemplateSpecialization(ASTContext &context, Sema &sema,
     if (specializationDecl->getInstantiatedFrom().isNull()) {
       // InstantiateClassTemplateSpecialization returns true if it finds an
       // error.
-      DXVERIFY_NOMSG(false ==
-                     sema.InstantiateClassTemplateSpecialization(
-                         NoLoc, specializationDecl,
-                         TemplateSpecializationKind::TSK_ImplicitInstantiation,
-                         true));
+      bool errorFound = sema.InstantiateClassTemplateSpecialization(
+          NoLoc, specializationDecl,
+          TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
+      // Template specialization is suppressed if a fatal error has already been
+      // registered so don't assert in such cases.
+      DXVERIFY_NOMSG(sema.Diags.hasFatalErrorOccurred() || !errorFound);
     }
     return context.getTemplateSpecializationType(
         TemplateName(templateDecl), templateArgs.data(), templateArgs.size(),
@@ -846,11 +847,12 @@ GetOrCreateTemplateSpecialization(ASTContext &context, Sema &sema,
       templateDecl, templateArgsForDecl.data(), templateArgsForDecl.size(),
       nullptr);
   // InstantiateClassTemplateSpecialization returns true if it finds an error.
-  DXVERIFY_NOMSG(false ==
-                 sema.InstantiateClassTemplateSpecialization(
-                     NoLoc, specializationDecl,
-                     TemplateSpecializationKind::TSK_ImplicitInstantiation,
-                     true));
+  bool errorFound = sema.InstantiateClassTemplateSpecialization(
+      NoLoc, specializationDecl,
+      TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
+  // Template specialization is suppressed if a fatal error has already been
+  // registered so don't assert in such cases.
+  DXVERIFY_NOMSG(sema.Diags.hasFatalErrorOccurred() || !errorFound);
   templateDecl->AddSpecialization(specializationDecl, InsertPos);
   specializationDecl->setImplicit(true);
 
@@ -898,7 +900,9 @@ static QualType GetOrCreateMatrixSpecialization(
   DeclContext::lookup_result lookupResult =
       matrixSpecializationType->getAsCXXRecordDecl()->lookup(
           DeclarationName(&context.Idents.get(StringRef("h"))));
-  DXASSERT(!lookupResult.empty(),
+  // Template specialization is suppressed if a fatal error has been registered
+  // so only assert if lookup failed for some other reason.
+  DXASSERT(sema->Diags.hasFatalErrorOccurred() || !lookupResult.empty(),
            "otherwise matrix handle cannot be looked up");
 #endif
 
@@ -933,7 +937,9 @@ GetOrCreateVectorSpecialization(ASTContext &context, Sema *sema,
   DeclContext::lookup_result lookupResult =
       vectorSpecializationType->getAsCXXRecordDecl()->lookup(
           DeclarationName(&context.Idents.get(StringRef("h"))));
-  DXASSERT(!lookupResult.empty(),
+  // Template specialization is suppressed if a fatal error has been registered
+  // so only assert if lookup failed for some other reason.
+  DXASSERT(sema->Diags.hasFatalErrorOccurred() || !lookupResult.empty(),
            "otherwise vector handle cannot be looked up");
 #endif
 
@@ -961,7 +967,9 @@ GetOrCreateNodeOutputRecordSpecialization(ASTContext &context, Sema *sema,
   DeclContext::lookup_result lookupResult =
       specializationType->getAsCXXRecordDecl()->lookup(
           DeclarationName(&context.Idents.get(StringRef("h"))));
-  DXASSERT(!lookupResult.empty(),
+  // Template specialization is suppressed if a fatal error has been registered
+  // so only assert if lookup failed for some other reason.
+  DXASSERT(sema->Diags.hasFatalErrorOccurred() || !lookupResult.empty(),
            "otherwise *NodeOutputRecords handle cannot be looked up");
 #endif
 
