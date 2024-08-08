@@ -296,7 +296,7 @@
 // CHECK:    FunctionCount: 1
 // CHECK:  ID3D12FunctionReflection:
 // CHECK:    D3D12_FUNCTION_DESC: Name: depth18part0_wg_63_nodes_seed_255
-// CHECK:      Shader Version: <unknown> 6.8
+// CHECK:      Shader Version: Node 6.8
 // CHECK:      Creator: <nullptr>
 // CHECK:      Flags: 0
 // CHECK:      RequiredFeatureFlags: 0
