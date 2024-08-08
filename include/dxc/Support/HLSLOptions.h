@@ -223,6 +223,7 @@ public:
   unsigned long AutoBindingSpace = UINT_MAX; // OPT_auto_binding_space
   bool ExportShadersOnly = false;            // OPT_export_shaders_only
   bool ResMayAlias = false;                  // OPT_res_may_alias
+  bool SkipHash = false;                     // OPT_skip_hash
   unsigned long ValVerMajor = UINT_MAX,
                 ValVerMinor = UINT_MAX; // OPT_validator_version
   ValidatorSelection SelectValidator =
