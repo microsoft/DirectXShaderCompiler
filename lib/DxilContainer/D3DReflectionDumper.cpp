@@ -73,6 +73,9 @@ void D3DReflectionDumper::DumpShaderVersion(UINT Version) {
   case (UINT)hlsl::DXIL::ShaderKind::Amplification:
     szType = "Amplification";
     break;
+  case (UINT)hlsl::DXIL::ShaderKind::Node:
+    szType = "Node";
+    break;
   case (UINT)hlsl::DXIL::ShaderKind::Invalid:
     szType = "Invalid";
     break;
@@ -145,6 +148,114 @@ void D3DReflectionDumper::Dump(D3D12_SIGNATURE_PARAMETER_DESC &elDesc) {
   DumpEnum("MinPrecision", elDesc.MinPrecision);
   Dedent();
 }
+void D3DReflectionDumper::Dump(D3D12_NODE_SHADER_DESC &Desc) {
+  WriteLn("D3D12_NODE_SHADER_DESC:");
+  Indent();
+  Dump(Desc.ComputeDesc);
+  DumpEnum("LaunchType", Desc.LaunchType);
+  WriteLn("IsProgramEntry: ", Desc.IsProgramEntry ? "TRUE" : "FALSE");
+  WriteLn("LocalRootArgumentsTableIndex: ", std::dec,
+          Desc.LocalRootArgumentsTableIndex);
+  WriteLn("DispatchGrid[0]: ", std::dec, Desc.DispatchGrid[0]);
+  WriteLn("DispatchGrid[1]: ", std::dec, Desc.DispatchGrid[1]);
+  WriteLn("DispatchGrid[2]: ", std::dec, Desc.DispatchGrid[2]);
+  WriteLn("MaxDispatchGrid[0]: ", std::dec, Desc.MaxDispatchGrid[0]);
+  WriteLn("MaxDispatchGrid[1]: ", std::dec, Desc.MaxDispatchGrid[1]);
+  WriteLn("MaxDispatchGrid[2]: ", std::dec, Desc.MaxDispatchGrid[2]);
+  WriteLn("MaxRecursionDepth: ", std::dec, Desc.MaxRecursionDepth);
+  Dump(Desc.ShaderId, "ShaderId");
+  Dump(Desc.ShaderId, "ShaderSharedInput");
+  WriteLn("InputNodes: ", std::dec, Desc.InputNodes);
+  WriteLn("OutputNodes: ", std::dec, Desc.OutputNodes);
+  Dedent();
+}
+void D3DReflectionDumper::Dump(D3D12_HULL_SHADER_DESC &Desc) {
+  WriteLn("D3D12_HULL_SHADER_DESC:");
+  Indent();
+  DumpEnum("Domain", Desc.Domain);
+  DumpEnum("Partition", Desc.Partition);
+  DumpEnum("OutputPrimitive", Desc.OutputPrimitive);
+  WriteLn("InputControlPoints: ", std::dec, Desc.InputControlPoints);
+  WriteLn("OutputControlPoints: ", std::dec, Desc.OutputControlPoints);
+  WriteLn("MaxTessFactor: ", Desc.MaxTessFactor);
+  Dedent();
+}
+void D3DReflectionDumper::Dump(D3D12_COMPUTE_SHADER_DESC &Desc) {
+  WriteLn("D3D12_COMPUTE_SHADER_DESC:");
+  Indent();
+  if (Desc.WaveSizeMin | Desc.WaveSizeMax | Desc.WaveSizePreferred)
+    WriteLn("WaveSize: min: ", std::dec, Desc.WaveSizeMin,
+            ", max: ", Desc.WaveSizeMax,
+            ", preferred: ", Desc.WaveSizePreferred);
+  WriteLn("NumThreads: ", std::dec, Desc.NumThreads[0], ", ",
+          Desc.NumThreads[1], ", ", Desc.NumThreads[2]);
+  Dedent();
+}
+void D3DReflectionDumper::Dump(D3D12_MESH_SHADER_DESC &Desc) {
+  WriteLn("D3D12_MESH_SHADER_DESC:");
+  Indent();
+  WriteLn("PayloadSize: ", std::dec, Desc.PayloadSize);
+  WriteLn("MaxVertexCount: ", std::dec, Desc.MaxVertexCount);
+  WriteLn("MaxPrimitiveCount: ", std::dec, Desc.MaxPrimitiveCount);
+  WriteLn("OutputTopology: ",
+          Desc.OutputTopology == D3D12_MESH_OUTPUT_TOPOLOGY_LINE ? "Line"
+                                                                 : "Triangle");
+  WriteLn("NumThreads: ", std::dec, Desc.NumThreads[0], ", ",
+          Desc.NumThreads[1], ", ", Desc.NumThreads[2]);
+  Dedent();
+}
+void D3DReflectionDumper::Dump(D3D12_GEOMETRY_SHADER_DESC &Desc) {
+  WriteLn("D3D12_GEOMETRY_SHADER_DESC:");
+  Indent();
+  DumpEnum("InputPrimitive", Desc.InputPrimitive);
+  WriteLn("MaxVertexCount: ", std::dec, Desc.MaxVertexCount);
+  WriteLn("InstanceCount: ", std::dec, Desc.InstanceCount);
+  DumpEnum("StreamPrimitiveTopologies[0]", Desc.StreamPrimitiveTopologies[0]);
+  DumpEnum("StreamPrimitiveTopologies[1]", Desc.StreamPrimitiveTopologies[1]);
+  DumpEnum("StreamPrimitiveTopologies[2]", Desc.StreamPrimitiveTopologies[2]);
+  DumpEnum("StreamPrimitiveTopologies[3]", Desc.StreamPrimitiveTopologies[3]);
+  Dedent();
+}
+void D3DReflectionDumper::Dump(D3D12_DOMAIN_SHADER_DESC &Desc) {
+  WriteLn("D3D12_DOMAIN_SHADER_DESC:");
+  Indent();
+  DumpEnum("Domain", Desc.Domain);
+  WriteLn("InputControlPoints: ", std::dec, Desc.InputControlPoints);
+  Dedent();
+}
+void D3DReflectionDumper::Dump(D3D12_NODE_ID_DESC &Desc, const char *name) {
+  WriteLn("D3D12_NODE_ID_DESC:");
+  Indent();
+  WriteLn("Name: ", Desc.Name);
+  WriteLn("ID: ", std::dec, Desc.ID);
+  Dedent();
+}
+void D3DReflectionDumper::Dump(D3D12_NODE_DESC &Desc) {
+  WriteLn("D3D12_NODE_DESC:");
+  Indent();
+  WriteLn("Flags: ", std::hex, std::showbase, Desc.Flags);
+
+  WriteLn("Type:");
+  Indent();
+  WriteLn("Size", std::dec, Desc.Type.Size);
+  WriteLn("Alignment", std::dec, Desc.Type.Alignment);
+
+  WriteLn("DispatchGrid:");
+  Indent();
+  WriteLn("ByteOffset", std::dec, Desc.Type.DispatchGrid.ByteOffset);
+  DumpEnum("ComponentType", Desc.Type.DispatchGrid.ComponentType);
+  WriteLn("NumComponents, std::dec", Desc.Type.DispatchGrid.NumComponents);
+  Dedent();
+
+  Dedent();
+
+  Dump(Desc.OutputID, "OutputID");
+  WriteLn("MaxRecords: ", std::dec, Desc.MaxRecords);
+  WriteLn("MaxRecordsSharedWith: ", std::dec, Desc.MaxRecordsSharedWith);
+  WriteLn("OutputArraySize: ", std::dec, Desc.OutputArraySize);
+  WriteLn("AllowSparseNodes: ", Desc.AllowSparseNodes ? "TRUE" : "FALSE");
+  Dedent();
+}
 void D3DReflectionDumper::Dump(D3D12_SHADER_DESC &Desc) {
   WriteLn("D3D12_SHADER_DESC:");
   Indent();
@@ -215,6 +326,52 @@ void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC &Desc) {
   WriteLn("BoundResources: ", Desc.BoundResources);
   WriteLn("FunctionParameterCount: ", Desc.FunctionParameterCount);
   WriteLn("HasReturn: ", Desc.HasReturn ? "TRUE" : "FALSE");
+  Dedent();
+}
+void D3DReflectionDumper::Dump(D3D12_FUNCTION_DESC1 &Desc) {
+  WriteLn("D3D12_FUNCTION_DESC1: ");
+  Indent();
+  WriteLn("RootSignatureSize: ", std::dec, Desc.RootSignatureSize);
+  switch (Desc.ShaderType) {
+  case D3D12_SHVER_NODE_SHADER:
+    Dump(Desc.NodeShader);
+    break;
+  case D3D12_SHVER_HULL_SHADER:
+    Dump(Desc.HullShader);
+    break;
+  case D3D12_SHVER_COMPUTE_SHADER:
+    Dump(Desc.ComputeShader);
+    break;
+  case D3D12_SHVER_MESH_SHADER:
+    Dump(Desc.MeshShader);
+    break;
+  case D3D12_SHVER_GEOMETRY_SHADER:
+    Dump(Desc.GeometryShader);
+    break;
+  case D3D12_SHVER_DOMAIN_SHADER:
+    Dump(Desc.DomainShader);
+    break;
+  case D3D12_SHVER_AMPLIFICATION_SHADER:
+    WriteLn("PayloadSize: ", std::dec, Desc.AmplificationShader.PayloadSize);
+    WriteLn("NumThreads: ", std::dec, Desc.AmplificationShader.NumThreads[0],
+            ", ", Desc.AmplificationShader.NumThreads[1], ", ",
+            Desc.AmplificationShader.NumThreads[2]);
+    break;
+  case D3D12_SHVER_PIXEL_SHADER:
+    WriteLn("EarlyDepthStencil: ",
+            Desc.PixelShader.EarlyDepthStencil ? "TRUE" : "FALSE");
+    break;
+  case D3D12_SHVER_CALLABLE_SHADER:
+  case D3D12_SHVER_INTERSECTION_SHADER:
+  case D3D12_SHVER_ANY_HIT_SHADER:
+  case D3D12_SHVER_CLOSEST_HIT_SHADER:
+    WriteLn("AttributeSize: ", std::dec, Desc.RaytracingShader.AttributeSize);
+    [[fallthrough]];
+  case D3D12_SHVER_MISS_SHADER:
+    WriteLn("ParamPayloadSize: ", std::dec,
+            Desc.RaytracingShader.ParamPayloadSize);
+    break;
+  }
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_LIBRARY_DESC &Desc) {
@@ -408,6 +565,30 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
   // TODO
   Dedent();
 }
+void D3DReflectionDumper::Dump(ID3D12ShaderReflection1 *pShaderReflection) {
+
+  ID3D12ShaderReflection *shaderRefl0 = nullptr;
+  if (FAILED(pShaderReflection->QueryInterface(IID_PPV_ARGS(&shaderRefl0)))) {
+    Failure("QueryInterface ID3D12ShaderReflection");
+    return;
+  }
+
+  Dump(shaderRefl0);
+  shaderRefl0->Release();
+
+  UINT waveSizePreferred = 0, waveSizeMin = 0, waveSizeMax = 0;
+
+  if (!pShaderReflection->GetWaveSize(&waveSizePreferred, &waveSizeMin,
+                                      &waveSizeMax))
+    return;
+
+  WriteLn("ID3D12ShaderReflection1:");
+  Indent();
+  WriteLn("WaveSizePreferred: ", waveSizePreferred);
+  WriteLn("WaveSizeMin: ", waveSizeMin);
+  WriteLn("WaveSizeMax: ", waveSizeMax);
+  Dedent();
+}
 
 void D3DReflectionDumper::Dump(ID3D12FunctionReflection *pFunctionReflection) {
   WriteLn("ID3D12FunctionReflection:");
@@ -468,6 +649,45 @@ void D3DReflectionDumper::Dump(ID3D12FunctionReflection *pFunctionReflection) {
   Dedent();
 }
 
+void D3DReflectionDumper::Dump(ID3D12FunctionReflection1 *pFunctionReflection) {
+  WriteLn("ID3D12FunctionReflection1:");
+  Indent();
+  D3D12_FUNCTION_DESC1 Desc;
+  if (!pFunctionReflection || FAILED(pFunctionReflection->GetDesc1(&Desc))) {
+    Failure("GetDesc1");
+    Dedent();
+    return;
+  }
+  Dump(Desc);
+  if (Desc.ShaderType == D3D12_SHVER_NODE_SHADER &&
+      Desc.NodeShader.InputNodes) {
+    WriteLn("Input Nodes:");
+    Indent();
+    for (UINT i = 0; i < Desc.NodeShader.InputNodes; i++) {
+      D3D12_NODE_DESC pND{};
+      if (FAILED(pFunctionReflection->GetInputNode(i, &pND)))
+        Failure("GetInputNode", m_LastName);
+      else
+        Dump(pND);
+    }
+    Dedent();
+  }
+  if (Desc.ShaderType == D3D12_SHVER_NODE_SHADER &&
+      Desc.NodeShader.OutputNodes) {
+    WriteLn("Output Nodes:");
+    Indent();
+    for (UINT i = 0; i < Desc.NodeShader.OutputNodes; i++) {
+      D3D12_NODE_DESC pND{};
+      if (FAILED(pFunctionReflection->GetOutputNode(i, &pND)))
+        Failure("GetOutputNode", m_LastName);
+      else
+        Dump(pND);
+    }
+    Dedent();
+  }
+  Dedent();
+}
+
 void D3DReflectionDumper::Dump(ID3D12LibraryReflection *pLibraryReflection) {
   WriteLn("ID3D12LibraryReflection:");
   Indent();
@@ -481,6 +701,25 @@ void D3DReflectionDumper::Dump(ID3D12LibraryReflection *pLibraryReflection) {
   if (Desc.FunctionCount) {
     for (UINT uFunc = 0; uFunc < Desc.FunctionCount; uFunc++)
       Dump(pLibraryReflection->GetFunctionByIndex((INT)uFunc));
+  }
+  Dedent();
+}
+
+void D3DReflectionDumper::Dump(ID3D12LibraryReflection1 *pLibraryReflection) {
+  WriteLn("ID3D12LibraryReflection1:");
+  Indent();
+  D3D12_LIBRARY_DESC Desc;
+  if (!pLibraryReflection || FAILED(pLibraryReflection->GetDesc(&Desc))) {
+    Failure("GetDesc");
+    Dedent();
+    return;
+  }
+  Dump(Desc);
+  if (Desc.FunctionCount) {
+    for (UINT uFunc = 0; uFunc < Desc.FunctionCount; uFunc++) {
+      Dump(pLibraryReflection->GetFunctionByIndex((INT)uFunc));
+      Dump(pLibraryReflection->GetFunctionByIndex1((INT)uFunc));
+    }
   }
   Dedent();
 }
