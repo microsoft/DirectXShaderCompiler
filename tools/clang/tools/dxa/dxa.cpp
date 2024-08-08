@@ -69,7 +69,7 @@ static cl::opt<bool> DumpReflection("dumpreflection",
                                     cl::init(false));
 
 static cl::opt<bool> DumpHash("dumphash", cl::desc("Dump validation hash"),
-                                 cl::init(false));
+                              cl::init(false));
 
 class DxaContext {
 

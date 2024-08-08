@@ -12,11 +12,11 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
+#include "dxc/Support/WinIncludes.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilHash/DxilHash.h"
-#include "dxc/DxilValidation/DxilValidation.h"
-#include "dxc/Support/WinIncludes.h"
+#include "dxc/HLSL/DxilValidation.h"
 #include "dxc/dxcapi.h"
 #include "dxcvalidator.h"
 
