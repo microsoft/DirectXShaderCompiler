@@ -16,6 +16,8 @@
 // *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
 
 #define INITGUID
+#include "d3d12.h"
+#undef INITGUID
 
 // clang-format off
 // Includes on Windows are highly order dependent.
@@ -45,7 +47,6 @@
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Unicode.h"
-#include "d3d12.h"
 
 //
 // dxgi1_4.h is included in the Windows 10 SDK
