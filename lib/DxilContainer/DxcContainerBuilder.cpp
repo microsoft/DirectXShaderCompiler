@@ -9,12 +9,13 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/Support/Global.h"
+#include "dxc/Support/WinIncludes.h"
+
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/ErrorCodes.h"
 #include "dxc/Support/FileIOHelper.h"
-#include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
@@ -47,6 +48,10 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(IDxcBlob *pSource) {
                                   pPartHeader->PartSize, &pBlob));
       AddPart(DxilPart(pPartHeader->PartFourCC, pBlob));
     }
+    // Collect hash function.
+    const DxilContainerHeader *Header =
+        (DxilContainerHeader *)pSource->GetBufferPointer();
+    FindHashFunctionFromSource(Header);
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
@@ -164,9 +169,60 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
         {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, pResult, DxcOutNoName),
          DxcOutputObject::DataOutput(DXC_OUT_ERRORS, pErrorBlob, DxcOutNoName)},
         ppResult));
+
+    // Add Hash.
+    if (ppResult != nullptr && *ppResult != nullptr) {
+      HRESULT HR;
+      (*ppResult)->GetStatus(&HR);
+      if (SUCCEEDED(HR)) {
+        CComPtr<IDxcBlob> pObject;
+        HR = (*ppResult)->GetResult(&pObject);
+        if (SUCCEEDED(HR)) {
+          LPVOID PTR = pObject->GetBufferPointer();
+          if (IsDxilContainerLike(PTR, pObject->GetBufferSize()))
+            HashAndUpdate((DxilContainerHeader *)PTR);
+        }
+      }
+    }
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
+}
+
+void DxcContainerBuilder::FindHashFunctionFromSource(
+    const DxilContainerHeader *ContainerHeader) {
+  DXASSERT(ContainerHeader != nullptr &&
+               IsDxilContainerLike(ContainerHeader,
+                                   ContainerHeader->ContainerSizeInBytes),
+           "otherwise load function should have returned an error.");
+  static const uint32_t HashStartOffset =
+      offsetof(struct DxilContainerHeader, Version);
+  const BYTE *DataToHash = (const BYTE *)ContainerHeader + HashStartOffset;
+  UINT AmountToHash = ContainerHeader->ContainerSizeInBytes - HashStartOffset;
+  BYTE Result[DxilContainerHashSize];
+  ComputeHashRetail(DataToHash, AmountToHash, Result);
+  if (0 == memcmp(Result, ContainerHeader->Hash.Digest, sizeof(Result))) {
+    m_HashFunction = ComputeHashRetail;
+  } else {
+    ComputeHashDebug(DataToHash, AmountToHash, Result);
+    if (0 == memcmp(Result, ContainerHeader->Hash.Digest, sizeof(Result)))
+      m_HashFunction = ComputeHashDebug;
+    else
+      m_HashFunction = nullptr;
+  }
+}
+
+// For Internal hash function.
+void DxcContainerBuilder::HashAndUpdate(DxilContainerHeader *ContainerHeader) {
+  if (m_HashFunction != nullptr) {
+    DXASSERT(ContainerHeader != nullptr,
+             "Otherwise serialization should have failed.");
+    static const UINT32 HashStartOffset =
+        offsetof(struct DxilContainerHeader, Version);
+    const BYTE *DataToHash = (const BYTE *)ContainerHeader + HashStartOffset;
+    UINT AmountToHash = ContainerHeader->ContainerSizeInBytes - HashStartOffset;
+    m_HashFunction(DataToHash, AmountToHash, ContainerHeader->Hash.Digest);
+  }
 }
 
 UINT32 DxcContainerBuilder::ComputeContainerSize() {

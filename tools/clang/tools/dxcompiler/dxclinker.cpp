@@ -413,7 +413,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         HRESULT valHR = S_OK;
         dxcutil::AssembleInputs inputs(
             std::move(pM), pOutputBlob, DxcGetThreadMallocNoRef(),
-            SerializeFlags, pOutputStream, opts.DebugFile, &Diag,
+            SerializeFlags, pOutputStream, 0, opts.DebugFile, &Diag,
             &ShaderHashContent, pReflectionStream, pRootSigStream, nullptr,
             nullptr);
         if (needsValidation) {

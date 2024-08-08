@@ -142,16 +142,6 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   // Warning on internal Validator
 
   if (bInternalValidator) {
-#if !DISABLE_GET_CUSTOM_DIAG_ID
-    if (inputs.pDiag) {
-      unsigned diagID = inputs.pDiag->getCustomDiagID(
-          clang::DiagnosticsEngine::Level::Warning,
-          "DXIL signing library (dxil.dll,libdxil.so) not found.  Resulting "
-          "DXIL will not be "
-          "signed for use in release environments.\r\n");
-      inputs.pDiag->Report(diagID);
-    }
-#endif
     // If using the internal validator, we'll use the modules directly.
     // In this case, we'll want to make a clone to avoid
     // SerializeDxilContainerForModule stripping all the debug info. The debug
