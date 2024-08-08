@@ -1,0 +1,4 @@
+// REQUIRES: metal
+
+// RUN:not %dxc %S/Inputs/smoke.hlsl  /T ps_6_0 -metal -Fo Tmp.metal -Fc Tmp.air 2>&1 | FileCheck %s
+// CHECK: Disassembly of Metal IR not supported (yet).
