@@ -574,6 +574,7 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection1 *pShaderReflection) {
   }
 
   Dump(shaderRefl0);
+  shaderRefl0->Release();
 
   UINT waveSizePreferred = 0, waveSizeMin = 0, waveSizeMax = 0;
 
