@@ -2,7 +2,7 @@
 
 // Check we added the UAV:
 // CHECK: @PIXUAV0 = external constant %struct.RWByteAddressBuffer, align 4
-// CHECK: load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @PIXUAV
+// CHECK: load volatile %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @PIXUAV
 // CHECK: call %dx.types.Handle @dx.op.createHandleForLib.struct.RWByteAddressBuffer
 // 
 // check for an attempt to write to the PIX UAV before the load from TerrainTextures:

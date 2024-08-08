@@ -34,21 +34,17 @@ public:
 
 void FindRayQueryHandlesForFunction(
     llvm::Function *F, llvm::SmallPtrSetImpl<llvm::Value *> &RayQueryHandles);
-enum class PixUAVHandleMode { Legacy, NodeShader };
+enum class PixUAVHandleMode { NonLib, Lib };
 llvm::CallInst *CreateUAV(hlsl::DxilModule &DM, llvm::IRBuilder<> &Builder,
                           unsigned int hlslBindIndex, unsigned int registerId,
-                          const char *name, PixUAVHandleMode UAVHandleMode);
-hlsl::DxilResource *
-CreateGlobalUAVResource(hlsl::DxilModule &DM,
+                          const char *name);
+hlsl::DxilResource * CreateGlobalUAVResource(hlsl::DxilModule &DM,
                         unsigned int hlslBindIndex, unsigned int registerId,
-                        const char *name,
-                        PixUAVHandleMode UAVHandleMode);
-llvm::CallInst
-    *CreateHandleForResource(hlsl::DxilModule &DM,
+                        const char *name);
+llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
                                         llvm::IRBuilder<> &Builder,
                                         hlsl::DxilResourceBase *resource,
-                                        const char *name,
-                                        PixUAVHandleMode UAVHandleMode);
+                                        const char *name);
 llvm::Function *GetEntryFunction(hlsl::DxilModule &DM);
 std::vector<llvm::BasicBlock *> GetAllBlocks(hlsl::DxilModule &DM);
 std::vector<llvm::Function *>

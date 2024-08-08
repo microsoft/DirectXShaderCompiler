@@ -1221,8 +1221,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
     registerId = std::max<int>(registerId, uav->GetID() + 1);
   }
   auto *uav = PIXPassHelpers::CreateGlobalUAVResource(
-      DM, HLSLBindId, registerId, "PIXUAV",
-      PIXPassHelpers::PixUAVHandleMode::NodeShader);
+      DM, HLSLBindId, registerId, "PIXUAV");
   bool modified = false;
   if (shaderKind == DXIL::ShaderKind::Library) {
     auto instrumentableFunctions =
@@ -1445,10 +1444,7 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
   }
 
   values.UAVHandle = PIXPassHelpers::CreateHandleForResource(
-      DM, Builder, uav, "PIX_DebugUAV_Handle",
-      shaderKind == DXIL::ShaderKind::Node
-          ? PIXPassHelpers::PixUAVHandleMode::NodeShader
-          : PIXPassHelpers::PixUAVHandleMode::Legacy);
+      DM, Builder, uav, "PIX_DebugUAV_Handle");
 
   auto SystemValues = addRequiredSystemValues(BC, shaderKind);
   addInvocationSelectionProlog(BC, SystemValues, shaderKind);

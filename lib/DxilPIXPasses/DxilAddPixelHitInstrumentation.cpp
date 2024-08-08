@@ -80,7 +80,7 @@ bool DxilAddPixelHitInstrumentation::runOnModule(Module &M) {
 
     HandleForUAV = PIXPassHelpers::CreateUAV(
         DM, Builder, 0, static_cast<unsigned int>(DM.GetUAVs().size()),
-        "PIX_CountUAV_Handle", PIXPassHelpers::PixUAVHandleMode::Legacy);
+        "PIX_CountUAV_Handle");
 
     DM.ReEmitDxilResources();
   }
