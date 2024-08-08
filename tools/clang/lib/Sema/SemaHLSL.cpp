@@ -14974,9 +14974,10 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
     Out << "uniform ";
     break;
 
-  // These four cases are printed in TypePrinter::printAttributedBefore
+  // These three cases are printed in TypePrinter::printAttributedBefore
   case clang::attr::HLSLSnorm:
   case clang::attr::HLSLUnorm:
+  case clang::attr::HLSLGloballyCoherent:
     break;
 
   case clang::attr::HLSLPoint:
@@ -14997,10 +14998,6 @@ void hlsl::CustomPrintHLSLAttr(const clang::Attr *A, llvm::raw_ostream &Out,
 
   case clang::attr::HLSLTriangleAdj:
     Out << "triangleadj ";
-    break;
-
-  case clang::attr::HLSLGloballyCoherent:
-    Out << "globallycoherent ";
     break;
 
   case clang::attr::HLSLIndices:
