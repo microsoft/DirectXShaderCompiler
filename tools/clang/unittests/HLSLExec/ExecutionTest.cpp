@@ -15,6 +15,8 @@
 
 // *** THIS FILE CANNOT TAKE ANY LLVM DEPENDENCIES  *** //
 
+#define INITGUID
+
 // clang-format off
 // Includes on Windows are highly order dependent.
 #include <algorithm>
@@ -43,8 +45,6 @@
 #include "dxc/Test/HlslTestUtils.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Unicode.h"
-
-#define INITGUID
 #include "d3d12.h"
 
 //
