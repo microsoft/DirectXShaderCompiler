@@ -12,6 +12,7 @@
 #pragma once
 
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilHash/DxilHash.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/Support/microcom.h"
@@ -66,6 +67,12 @@ private:
   const char *m_warning;
   bool m_RequireValidation;
   bool m_HasPrivateData;
+  // Function to compute hash when valid dxil container is built
+  // This is nullptr if loaded container has invalid hash
+  HASH_FUNCTION_PROTO *m_HashFunction;
+
+  void FindHashFunctionFromSource(const DxilContainerHeader *ContainerHeader);
+  void HashAndUpdate(DxilContainerHeader *ContainerHeader);
 
   UINT32 ComputeContainerSize();
   HRESULT UpdateContainerHeader(AbstractMemoryStream *pStream,

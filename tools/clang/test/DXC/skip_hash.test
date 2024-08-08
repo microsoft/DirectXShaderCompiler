@@ -1,0 +1,13 @@
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl /Fo %t
+// RUN: %dxa -dumphash %t | FileCheck %s
+
+// RUN: %dxc /T ps_6_0 %S/Inputs/smoke.hlsl -skip-hash /Fo %t.nohash
+// RUN: %dxa -dumphash %t.nohash | FileCheck %s --check-prefix=SKIP
+
+// Make sure generate container with non-zero hash by default.
+// CHECK-NOT: Validation hash: 0x00000000000000000000000000000000
+// CHECK: Validation hash: 0x{{[0-9a-f]+}}
+
+// Make sure -skip-hash generate zero hash.
+// SKIP: Validation hash: 0x00000000000000000000000000000000
+

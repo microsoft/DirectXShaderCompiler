@@ -14,6 +14,7 @@
 #include "llvm/IR/LLVMContext.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilHash/DxilHash.h"
 #include "dxc/DxilValidation/DxilValidation.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
@@ -30,6 +31,42 @@
 
 using namespace llvm;
 using namespace hlsl;
+
+static void HashAndUpdate(DxilContainerHeader *Container) {
+  // Compute hash and update stored hash.
+  // Hash the container from this offset to the end.
+  static const uint32_t DXBCHashStartOffset =
+      offsetof(struct DxilContainerHeader, Version);
+  const unsigned char *DataToHash =
+      (const unsigned char *)Container + DXBCHashStartOffset;
+  unsigned AmountToHash = Container->ContainerSizeInBytes - DXBCHashStartOffset;
+  ComputeHashRetail(DataToHash, AmountToHash, Container->Hash.Digest);
+}
+
+static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
+                                IDxcBlob **Hashed) {
+  if (Flags & DxcValidatorFlags_InPlaceEdit) {
+    HashAndUpdate((DxilContainerHeader *)Shader->GetBufferPointer());
+    *Hashed = Shader;
+    Shader->AddRef();
+  } else {
+    CComPtr<AbstractMemoryStream> HashedBlobStream;
+    uint32_t HR =
+        CreateMemoryStream(DxcGetThreadMallocNoRef(), &HashedBlobStream);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+
+    unsigned long CB;
+    HR = HashedBlobStream->Write(Shader->GetBufferPointer(),
+                                 Shader->GetBufferSize(), &CB);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr());
+    HR = HashedBlobStream.QueryInterface(Hashed);
+    if (FAILED(HR))
+      throw hlsl::Exception(HR);
+  }
+}
 
 static uint32_t runValidation(
     IDxcBlob *Shader,
@@ -180,18 +217,39 @@ uint32_t hlsl::validateWithOptDebugModule(
       ULONG cbWritten;
       DiagStream->Write(msg.c_str(), msg.size(), &cbWritten);
     }
-    // Assemble the result object.
-    CComPtr<IDxcBlob> pDiagBlob;
-    hr = DiagStream.QueryInterface(&pDiagBlob);
-    DXASSERT_NOMSG(SUCCEEDED(hr));
-    hr = DxcResult::Create(
-        validationStatus, DXC_OUT_NONE,
-        {DxcOutputObject::ErrorOutput(
-            CP_UTF8, // TODO Support DefaultTextCodePage
-            (LPCSTR)pDiagBlob->GetBufferPointer(), pDiagBlob->GetBufferSize())},
-        Result);
-    if (FAILED(hr))
-      throw hlsl::Exception(hr);
+    if (Flags & (DxcValidatorFlags_ModuleOnly | DxcValidatorFlags_SkipHash)) {
+      // If we are validating a module only, we don't want to return the
+      // diagnostics stream.
+      CComPtr<IDxcBlob> pDiagBlob;
+      hr = DiagStream.QueryInterface(&pDiagBlob);
+      DXASSERT_NOMSG(SUCCEEDED(hr));
+      hr = DxcResult::Create(validationStatus, DXC_OUT_NONE,
+                             {DxcOutputObject::ErrorOutput(
+                                 CP_UTF8, // TODO Support DefaultTextCodePage
+                                 (LPCSTR)pDiagBlob->GetBufferPointer(),
+                                 pDiagBlob->GetBufferSize())},
+                             Result);
+      if (FAILED(hr))
+        throw hlsl::Exception(hr);
+    } else {
+      CComPtr<IDxcBlob> HashedBlob;
+      // Assemble the result object.
+      CComPtr<IDxcBlob> DiagBlob;
+      CComPtr<IDxcBlobEncoding> DiagBlobEnconding;
+      hr = DiagStream.QueryInterface(&DiagBlob);
+      DXASSERT_NOMSG(SUCCEEDED(hr));
+      hr = DxcCreateBlobWithEncodingSet(DiagBlob, CP_UTF8, &DiagBlobEnconding);
+      if (FAILED(hr))
+        throw hlsl::Exception(hr);
+      HashAndUpdateOrCopy(Flags, Shader, &HashedBlob);
+      hr = DxcResult::Create(
+          validationStatus, DXC_OUT_OBJECT,
+          {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, HashedBlob),
+           DxcOutputObject::DataOutput(DXC_OUT_ERRORS, DiagBlobEnconding)},
+          Result);
+      if (FAILED(hr))
+        throw hlsl::Exception(hr);
+    }
   }
   CATCH_CPP_ASSIGN_HRESULT();
 
