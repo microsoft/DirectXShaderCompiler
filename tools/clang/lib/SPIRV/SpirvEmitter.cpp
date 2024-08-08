@@ -874,6 +874,10 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
   if (context.getDiagnostics().hasErrorOccurred())
     return;
 
+  if (!UpgradeToVulkanMemoryModelIfNeeded(&m)) {
+    return;
+  }
+
   // Check the existance of Texture and Sampler with
   // [[vk::combinedImageSampler]] for the same descriptor set and binding.
   auto resourceInfoForSampledImages =
@@ -14673,8 +14677,9 @@ SpirvEmitter::createFunctionScopeTempFromParameter(const ParmVarDecl *param) {
   return tempVar;
 }
 
-bool SpirvEmitter::spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
-                                            std::string *messages) {
+bool SpirvEmitter::spirvToolsRunPass(std::vector<uint32_t> *mod,
+                                     spvtools::Optimizer::PassToken token,
+                                     std::string *messages) {
   spvtools::Optimizer optimizer(featureManager.getTargetEnv());
   optimizer.SetMessageConsumer(
       [messages](spv_message_level_t /*level*/, const char * /*source*/,
@@ -14691,33 +14696,28 @@ bool SpirvEmitter::spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
   options.set_preserve_bindings(spirvOptions.preserveBindings);
   options.set_max_id_bound(spirvOptions.maxId);
 
-  optimizer.RegisterPass(
-      spvtools::CreateOpExtInstWithForwardReferenceFixupPass());
-
+  optimizer.RegisterPass(std::move(token));
   return optimizer.Run(mod->data(), mod->size(), mod, options);
+}
+
+bool SpirvEmitter::spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
+                                            std::string *messages) {
+  spvtools::Optimizer::PassToken token =
+      spvtools::CreateOpExtInstWithForwardReferenceFixupPass();
+  return spirvToolsRunPass(mod, std::move(token), messages);
 }
 
 bool SpirvEmitter::spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
                                               std::string *messages) {
-  spvtools::Optimizer optimizer(featureManager.getTargetEnv());
-  optimizer.SetMessageConsumer(
-      [messages](spv_message_level_t /*level*/, const char * /*source*/,
-                 const spv_position_t & /*position*/,
-                 const char *message) { *messages += message; });
+  spvtools::Optimizer::PassToken token = spvtools::CreateTrimCapabilitiesPass();
+  return spirvToolsRunPass(mod, std::move(token), messages);
+}
 
-  string::RawOstreamBuf printAllBuf(llvm::errs());
-  std::ostream printAllOS(&printAllBuf);
-  if (spirvOptions.printAll)
-    optimizer.SetPrintAll(&printAllOS);
-
-  spvtools::OptimizerOptions options;
-  options.set_run_validator(false);
-  options.set_preserve_bindings(spirvOptions.preserveBindings);
-  options.set_max_id_bound(spirvOptions.maxId);
-
-  optimizer.RegisterPass(spvtools::CreateTrimCapabilitiesPass());
-
-  return optimizer.Run(mod->data(), mod->size(), mod, options);
+bool SpirvEmitter::spirvToolsUpgradeToVulkanMemoryModel(
+    std::vector<uint32_t> *mod, std::string *messages) {
+  spvtools::Optimizer::PassToken token =
+      spvtools::CreateUpgradeMemoryModelPass();
+  return spirvToolsRunPass(mod, std::move(token), messages);
 }
 
 bool SpirvEmitter::spirvToolsOptimize(std::vector<uint32_t> *mod,
@@ -15121,6 +15121,27 @@ SpirvEmitter::splatScalarToGenerate(QualType type, SpirvInstruction *scalar,
     llvm_unreachable("Trying to generate a type that we cannot generate");
   }
   return {};
+}
+
+bool SpirvEmitter::UpgradeToVulkanMemoryModelIfNeeded(
+    std::vector<uint32_t> *module) {
+  // DXC generates code assuming the vulkan memory model is not used. However,
+  // if a feature is used that requires the Vulkan memory model, then some code
+  // may need to be rewritten.
+  if (!spirvOptions.useVulkanMemoryModel &&
+      !spvBuilder.hasCapability(spv::Capability::VulkanMemoryModel))
+    return true;
+
+  std::string messages;
+  if (!spirvToolsUpgradeToVulkanMemoryModel(module, &messages)) {
+    emitFatalError("failed to use the vulkan memory model: %0", {}) << messages;
+    emitNote("please file a bug report on "
+             "https://github.com/Microsoft/DirectXShaderCompiler/issues "
+             "with source code if possible",
+             {});
+    return false;
+  }
+  return true;
 }
 
 } // end namespace spirv
