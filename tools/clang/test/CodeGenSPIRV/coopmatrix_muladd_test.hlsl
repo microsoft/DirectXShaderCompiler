@@ -22,10 +22,10 @@ uint stride;
   // CHECK: [[stride:%[0-9]+]] = OpLoad %uint [[ac]]
 
   // CHECK: [[a:%[0-9]+]] = OpCooperativeMatrixLoadKHR [[typeA]] {{%[0-9]*}} %int_1 [[stride]] None
-  IntMatA a = IntMatA::Load(data, 0, vk::CooperativeMatrixLayoutColumnMajorKHR, stride);
+  IntMatA a = IntMatA::Load<vk::CooperativeMatrixLayoutColumnMajorKHR>(data, 0, stride);
 
   // CHECK: [[b:%[0-9]+]] = OpCooperativeMatrixLoadKHR [[typeB]] {{%[0-9]*}} %int_0 [[stride]] None
-  IntMatB b = IntMatB::Load(data, 32, vk::CooperativeMatrixLayoutRowMajorKHR, stride);
+  IntMatB b = IntMatB::Load<vk::CooperativeMatrixLayoutRowMajorKHR>(data, 32, stride);
 
   // TODO: Is default initialization meaningful?
   IntMatAc r;
@@ -37,5 +37,5 @@ uint stride;
   r = cooperativeMatrixSaturatingMultiplyAdd(a, b, r);
 
   // CHECK: OpCooperativeMatrixStoreKHR {{.*}} [[r]] %int_0 [[stride]] None
-  r.Store(data, 64, vk::CooperativeMatrixLayoutRowMajorKHR, stride);
+  r.Store<vk::CooperativeMatrixLayoutRowMajorKHR>(data, 64, stride);
 }

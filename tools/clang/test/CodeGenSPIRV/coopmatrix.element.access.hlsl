@@ -29,5 +29,5 @@ int stride;
     a.Set(v + 1, i);
   }
   // CHECK: [[mbb]] = OpLabel
-  a.Store(data, 64, vk::CooperativeMatrixLayoutRowMajorKHR, stride);
+  a.Store<vk::CooperativeMatrixLayoutRowMajorKHR>(data, 64, stride);
 }

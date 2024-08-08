@@ -14,12 +14,12 @@ int stride;
 
   // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_0
   // CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1
-  IntMatA int_matrix = IntMatA::Load(data, 0, vk::CooperativeMatrixLayoutColumnMajorKHR, stride);
+  IntMatA int_matrix = IntMatA::Load<vk::CooperativeMatrixLayoutColumnMajorKHR>(data, 0, stride);
 
   // CHECK: [[result:%[0-9]+]] = OpConvertSToF %spirvIntrinsicType_0 [[ld]]
   FloatMatA float_matrix = int_matrix.cast<float>();
 
   // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_64
   // CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[result]] %int_0
-  float_matrix.Store(data, 64, vk::CooperativeMatrixLayoutRowMajorKHR, stride);
+  float_matrix.Store<vk::CooperativeMatrixLayoutRowMajorKHR>(data, 64, stride);
 }

@@ -175,31 +175,31 @@ CooperativeMatrix<ComponentType, scope, rows, columns, use>::operator*(
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
-template <MemoryAccessMask memoryAccessMask, class Type>
+template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+          class Type>
 void CooperativeMatrix<ComponentType, scope, rows, columns, use>::Store(
-    WorkgroupSpirvPointer<Type> data, CooperativeMatrixLayout layout,
-    uint32_t stride) {
+    WorkgroupSpirvPointer<Type> data, uint32_t stride) {
   __builtin_spv_CooperativeMatrixWorkgroupStoreKHR(data, _matrix, layout,
                                                    stride, memoryAccessMask);
 }
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
-template <MemoryAccessMask memoryAccessMask, class Type>
+template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+          class Type>
 void CooperativeMatrix<ComponentType, scope, rows, columns, use>::Store(
-    RWStructuredBuffer<Type> data, uint32_t index,
-    CooperativeMatrixLayout layout, uint32_t stride) {
+    RWStructuredBuffer<Type> data, uint32_t index, uint32_t stride) {
   __builtin_spv_CooperativeMatrixStoreKHR(data[index], _matrix, layout, stride,
                                           memoryAccessMask);
 }
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
-template <MemoryAccessMask memoryAccessMask, class Type>
+template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+          class Type>
 CooperativeMatrix<ComponentType, scope, rows, columns, use>
 CooperativeMatrix<ComponentType, scope, rows, columns, use>::Load(
-    vk::WorkgroupSpirvPointer<Type> buffer, CooperativeMatrixLayout layout,
-    uint32_t stride) {
+    vk::WorkgroupSpirvPointer<Type> buffer, uint32_t stride) {
   CooperativeMatrix result;
   result._matrix =
       __builtin_spv_CooperativeMatrixWorkgroupLoadKHR<SpirvMatrixType>(
@@ -209,11 +209,11 @@ CooperativeMatrix<ComponentType, scope, rows, columns, use>::Load(
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
-template <MemoryAccessMask memoryAccessMask, class Type>
+template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+          class Type>
 CooperativeMatrix<ComponentType, scope, rows, columns, use>
 CooperativeMatrix<ComponentType, scope, rows, columns, use>::Load(
-    RWStructuredBuffer<Type> buffer, uint32_t index,
-    CooperativeMatrixLayout layout, uint32_t stride) {
+    RWStructuredBuffer<Type> buffer, uint32_t index, uint32_t stride) {
   CooperativeMatrix result;
   result._matrix = __builtin_spv_CooperativeMatrixLoadKHR<SpirvMatrixType>(
       buffer[index], layout, stride, memoryAccessMask);
@@ -222,12 +222,11 @@ CooperativeMatrix<ComponentType, scope, rows, columns, use>::Load(
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
           CooperativeMatrixUse use>
-template <class Type>
+template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+          class Type>
 CooperativeMatrix<ComponentType, scope, rows, columns, use>
 CooperativeMatrix<ComponentType, scope, rows, columns, use>::Load(
-    StructuredBuffer<Type> buffer, uint32_t index,
-    CooperativeMatrixLayout layout, uint32_t stride,
-    MemoryAccessMask memoryAccessMask) {
+    StructuredBuffer<Type> buffer, uint32_t index, uint32_t stride) {
   CooperativeMatrix result;
   result._matrix = __builtin_spv_CooperativeMatrixLoadKHR<SpirvMatrixType>(
       buffer[index], layout, stride, MemoryAccessMaskNone);
