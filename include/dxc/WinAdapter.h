@@ -33,7 +33,7 @@
 #include <vector>
 #endif // __cplusplus
 
-#include "winadapter.h"   //To avoid duplicates, somethings are defined by WSL, some by dxc
+#include "winadapter.h" //To avoid duplicates, somethings are defined by WSL, some by dxc
 
 #define COM_NO_WINDOWS_H // needed to inform d3d headers that this isn't windows
 
@@ -453,20 +453,15 @@ template <typename interface> inline GUID __emulated_uuidof();
     static const IID _IID = guid_from_string(spec);                            \
     return _IID;                                                               \
   }                                                                            \
-  extern "C++"                                                                 \
-    {                                                                          \
-        template <>                                                            \
-        inline const GUID &__wsl_stub_uuidof<interface>()                      \
-        {                                                                      \
-            static const IID _IID = guid_from_string(spec);                    \
-            return _IID;                                                       \
-        }                                                                      \
-        template <>                                                            \
-        inline const GUID &__wsl_stub_uuidof<interface*>()                     \
-        {                                                                      \
-            return __wsl_stub_uuidof<interface>();                             \
-        }                                                                      \
-    }
+  extern "C++" {                                                               \
+  template <> inline const GUID &__wsl_stub_uuidof<interface>() {              \
+    static const IID _IID = guid_from_string(spec);                            \
+    return _IID;                                                               \
+  }                                                                            \
+  template <> inline const GUID &__wsl_stub_uuidof<interface *>() {            \
+    return __wsl_stub_uuidof<interface>();                                     \
+  }                                                                            \
+  }
 
 #else // __EMULATE_UUID
 
