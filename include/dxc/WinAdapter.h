@@ -465,7 +465,19 @@ template <typename interface> inline GUID __emulated_uuidof();
 
 #else // __EMULATE_UUID
 
-#ifndef CROSS_PLATFORM_UUIDOF
+#ifndef _WIN32
+#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
+  struct __declspec(uuid(spec)) interface;                                     \
+  extern "C++" {                                                               \
+  template <> inline const GUID &__wsl_stub_uuidof<interface>() {              \
+    static const IID _IID = guid_from_string(spec);                            \
+    return _IID;                                                               \
+  }                                                                            \
+  template <> inline const GUID &__wsl_stub_uuidof<interface *>() {            \
+    return __wsl_stub_uuidof<interface>();                                     \
+  }                                                                            \
+  }
+#elif !defined(CROSS_PLATFORM_UUIDOF)
 // Warning: This macro exists in dxcapi.h as well
 #define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
   struct __declspec(uuid(spec)) interface;

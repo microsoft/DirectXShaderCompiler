@@ -106,6 +106,12 @@ public:
   virtual HRESULT STDMETHODCALLTYPE SetSDKVersion(UINT SDKVersion,
                                                   LPCSTR SDKPath) = 0;
 };
+#elif defined(_WIN32)
+EXTERN_C const GUID DECLSPEC_SELECTANY CLSID_D3D12SDKConfiguration = {
+    0x7cda6aca,
+    0xa03e,
+    0x49c8,
+    {0x94, 0x58, 0x03, 0x34, 0xd2, 0x0e, 0x07, 0xce}};
 #endif /* __ID3D12SDKConfiguration_INTERFACE_DEFINED__ */
 
 using namespace DirectX;
