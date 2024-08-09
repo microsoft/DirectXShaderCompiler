@@ -14,6 +14,7 @@
 #include <string>
 
 #ifdef _WIN32
+typedef int* LPBOOL;
 #include <specstrings.h>
 #else
 // MultiByteToWideChar which is a Windows-specific method.
