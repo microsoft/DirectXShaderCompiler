@@ -73,10 +73,12 @@ class CooperativeMatrix {
   // data[index] using the given memory layout, stride, and memory access mask.
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
-  void Store(RWStructuredBuffer<Type> data, uint32_t index, uint32_t stride);
+  void Store(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
+             uint32_t stride);
 
   template <CooperativeMatrixLayout layout, class Type>
-  void Store(RWStructuredBuffer<Type> data, uint32_t index, uint32_t stride) {
+  void Store(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
+             uint32_t stride) {
     Store<MemoryAccessMaskNone, layout>(data, index, stride);
   }
 
@@ -97,13 +99,14 @@ class CooperativeMatrix {
   // data[index] using the given memory layout, stride, and memory access mask.
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
-  static CooperativeMatrix Load(RWStructuredBuffer<Type> data, uint32_t index,
+  static CooperativeMatrix Load(globallycoherent RWStructuredBuffer<Type> data,
+                                uint32_t index,
 
                                 uint32_t stride);
 
   template <CooperativeMatrixLayout layout, class Type>
-  static CooperativeMatrix Load(RWStructuredBuffer<Type> data, uint32_t index,
-                                uint32_t stride) {
+  static CooperativeMatrix Load(globallycoherent RWStructuredBuffer<Type> data,
+                                uint32_t index, uint32_t stride) {
     return Load<MemoryAccessMaskNone, layout>(data, index, stride);
   }
 
@@ -143,6 +146,7 @@ class CooperativeMatrix {
 
   [[vk::ext_extension("SPV_KHR_cooperative_matrix")]]
   [[vk::ext_capability(/* CooperativeMatrixKHRCapability */ 6022)]]
+  [[vk::ext_capability(/* VulkanMemoryModel */ 5345)]]
   SpirvMatrixType _matrix;
   // clang-format on
 };

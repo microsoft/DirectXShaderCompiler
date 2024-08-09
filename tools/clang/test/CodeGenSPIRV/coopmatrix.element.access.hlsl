@@ -2,7 +2,7 @@
 
 #include "vk/khr/cooperative_matrix.h"
 
-RWStructuredBuffer<int> data;
+globallycoherent RWStructuredBuffer<int> data;
 int stride;
 
 // CHECK: OpCapability CooperativeMatrixKHR

@@ -63,24 +63,31 @@ __builtin_spv_CooperativeMatrixLoadKHR(
 
 template <typename ResultType, typename PointerType>
 [[vk::ext_instruction(/* OpCooperativeMatrixLoadKHR */ 4457)]] ResultType
+__builtin_spv_CooperativeMatrixLoadKHR(
+    [[vk::ext_reference]] PointerType pointer,
+    vk::CooperativeMatrixLayout memory_layout, uint stride,
+    [[vk::ext_literal]] vk::MemoryAccessMask memory_operand, vk::Scope scope);
+
+template <typename ResultType, typename PointerType>
+[[vk::ext_instruction(/* OpCooperativeMatrixLoadKHR */ 4457)]] ResultType
 __builtin_spv_CooperativeMatrixWorkgroupLoadKHR(
     vk::WorkgroupSpirvPointer<PointerType> pointer,
     vk::CooperativeMatrixLayout memory_layout, uint stride,
-    [[vk::ext_literal]] vk::MemoryAccessMask memory_operand);
+    [[vk::ext_literal]] vk::MemoryAccessMask memory_operand, vk::Scope scope);
 
 template <typename ObjectType, typename PointerType>
 [[vk::ext_instruction(/* OpCooperativeMatrixStoreKHR */ 4458)]] void
 __builtin_spv_CooperativeMatrixStoreKHR(
     [[vk::ext_reference]] PointerType pointer, ObjectType object,
     vk::CooperativeMatrixLayout memory_layout, uint stride,
-    [[vk::ext_literal]] vk::MemoryAccessMask memory_operand);
+    [[vk::ext_literal]] vk::MemoryAccessMask memory_operand, vk::Scope scope);
 
 template <typename ObjectType, typename PointerType>
 [[vk::ext_instruction(/* OpCooperativeMatrixStoreKHR */ 4458)]] void
 __builtin_spv_CooperativeMatrixWorkgroupStoreKHR(
     vk::WorkgroupSpirvPointer<PointerType> pointer, ObjectType object,
     vk::CooperativeMatrixLayout memory_layout, uint stride,
-    [[vk::ext_literal]] vk::MemoryAccessMask memory_operand);
+    [[vk::ext_literal]] vk::MemoryAccessMask memory_operand, vk::Scope scope);
 
 // We cannot define `OpCooperativeMatrixLengthKHR` using ext_instruction because
 // one of the operands is a type id. This builtin will have specific code in the
@@ -179,8 +186,11 @@ template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
           class Type>
 void CooperativeMatrix<ComponentType, scope, rows, columns, use>::Store(
     WorkgroupSpirvPointer<Type> data, uint32_t stride) {
-  __builtin_spv_CooperativeMatrixWorkgroupStoreKHR(data, _matrix, layout,
-                                                   stride, memoryAccessMask);
+  __builtin_spv_CooperativeMatrixWorkgroupStoreKHR(
+      data, _matrix, layout, stride,
+      memoryAccessMask | MemoryAccessNonPrivatePointerMask |
+          MemoryAccessMakePointerAvailableMask,
+      ScopeWorkgroup);
 }
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
@@ -189,8 +199,11 @@ template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
           class Type>
 void CooperativeMatrix<ComponentType, scope, rows, columns, use>::Store(
     RWStructuredBuffer<Type> data, uint32_t index, uint32_t stride) {
-  __builtin_spv_CooperativeMatrixStoreKHR(data[index], _matrix, layout, stride,
-                                          memoryAccessMask);
+  __builtin_spv_CooperativeMatrixStoreKHR(
+      data[index], _matrix, layout, stride,
+      memoryAccessMask | MemoryAccessNonPrivatePointerMask |
+          MemoryAccessMakePointerAvailableMask,
+      ScopeQueueFamily);
 }
 
 template <class ComponentType, Scope scope, uint rows, uint columns,
@@ -203,7 +216,10 @@ CooperativeMatrix<ComponentType, scope, rows, columns, use>::Load(
   CooperativeMatrix result;
   result._matrix =
       __builtin_spv_CooperativeMatrixWorkgroupLoadKHR<SpirvMatrixType>(
-          buffer, layout, stride, memoryAccessMask);
+          buffer, layout, stride,
+          memoryAccessMask | MemoryAccessNonPrivatePointerMask |
+              MemoryAccessMakePointerVisibleMask,
+          ScopeWorkgroup);
   return result;
 }
 
@@ -216,7 +232,10 @@ CooperativeMatrix<ComponentType, scope, rows, columns, use>::Load(
     RWStructuredBuffer<Type> buffer, uint32_t index, uint32_t stride) {
   CooperativeMatrix result;
   result._matrix = __builtin_spv_CooperativeMatrixLoadKHR<SpirvMatrixType>(
-      buffer[index], layout, stride, memoryAccessMask);
+      buffer[index], layout, stride,
+      memoryAccessMask | MemoryAccessNonPrivatePointerMask |
+          MemoryAccessMakePointerVisibleMask,
+      ScopeQueueFamily);
   return result;
 }
 
