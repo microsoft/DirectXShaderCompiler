@@ -453,6 +453,20 @@ template <typename interface> inline GUID __emulated_uuidof();
     static const IID _IID = guid_from_string(spec);                            \
     return _IID;                                                               \
   }
+  extern "C++"                                                                 \
+    {                                                                          \
+        template <>                                                            \
+        inline const GUID &__wsl_stub_uuidof<interface>()                      \
+        {                                                                      \
+            static const IID _IID = guid_from_string(spec);                    \
+            return _IID;                                                       \
+        }                                                                      \
+        template <>                                                            \
+        inline const GUID &__wsl_stub_uuidof<type *>()                         \
+        {                                                                      \
+            return __wsl_stub_uuidof<type>();                                  \
+        }                                                                      \
+    }
 
 #else // __EMULATE_UUID
 
@@ -466,12 +480,10 @@ template <typename interface> inline GUID __emulated_uuidof();
 
 //===--------------------- COM Interfaces ---------------------------------===//
 
-struct INoMarshal;
-__CRT_UUID_DECL(INoMarshal, 0xECC8691B, 0xC1DB, 0x4DC0, 0x85, 0x5E, 0x65, 0xF6, 0xC5, 0x51, 0xAF, 0x49)
+CROSS_PLATFORM_UUIDOF(INoMarshal, "ECC8691B-C1DB-4DC0-855E-65F6C551AF49")
 struct INoMarshal : public IUnknown {};
 
-struct IMalloc;
-__CRT_UUID_DECL(IMalloc, 0x00000002, 0x0000, 0x0000, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46)
+CROSS_PLATFORM_UUIDOF(IMalloc, "00000002-0000-0000-C000-000000000046")
 struct IMalloc : public IUnknown {
   virtual void *Alloc(SIZE_T size) = 0;
   virtual void *Realloc(void *ptr, SIZE_T size) = 0;
@@ -481,15 +493,13 @@ struct IMalloc : public IUnknown {
   virtual void HeapMinimize(void) = 0;
 };
 
-struct ISequentialStream;
-__CRT_UUID_DECL(ISequentialStream, 0x0C733A30, 0x2A1C, 0x11CE, 0xAD, 0xE5, 0x00, 0xAA, 0x00, 0x44, 0x77, 0x3D)
+CROSS_PLATFORM_UUIDOF(ISequentialStream, "0C733A30-2A1C-11CE-ADE5-00AA0044773D")
 struct ISequentialStream : public IUnknown {
   virtual HRESULT Read(void *pv, ULONG cb, ULONG *pcbRead) = 0;
   virtual HRESULT Write(const void *pv, ULONG cb, ULONG *pcbWritten) = 0;
 };
 
-struct IStream;
-__CRT_UUID_DECL(IStream, 0x0000000c, 0x0000, 0x0000, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46)
+CROSS_PLATFORM_UUIDOF(IStream, "0000000c-0000-0000-C000-000000000046")
 struct IStream : public ISequentialStream {
   virtual HRESULT Seek(LARGE_INTEGER dlibMove, DWORD dwOrigin,
                        ULARGE_INTEGER *plibNewPosition) = 0;
@@ -519,8 +529,10 @@ struct IStream : public ISequentialStream {
 struct ID3D12LibraryReflection;
 struct ID3D12ShaderReflection;
 
-__CRT_UUID_DECL(ID3D12LibraryReflection, 0x8E349D19, 0x54DB, 0x4A56, 0x9D, 0xC9, 0x11, 0x9D, 0x87, 0xBD, 0xB8, 0x04)
-__CRT_UUID_DECL(ID3D12ShaderReflection, 0x5A58797D, 0xA72C, 0x478D, 0x8B, 0xA2, 0xEF, 0xC6, 0xB0, 0xEF, 0xE8, 0x8E)
+CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection,
+                      "8E349D19-54DB-4A56-9DC9-119D87BDB804")
+CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection,
+                      "5A58797D-A72C-478D-8BA2-EFC6B0EFE88E")
 
 //===--------------------- COM Pointer Types ------------------------------===//
 

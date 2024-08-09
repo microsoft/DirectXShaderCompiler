@@ -138,7 +138,7 @@ static const BYTE IA_SPECIAL_SLOTS = 4;
 
 struct HLSL_INTRINSIC_ARGUMENT {
   LPCSTR
-      pName; // Name of the argument; the first argument has the function name.
+  pName; // Name of the argument; the first argument has the function name.
   UINT64 qwUsage; // A combination of
                   // AR_QUAL_IN|AR_QUAL_OUT|AR_QUAL_COLMAJOR|AR_QUAL_ROWMAJOR in
                   // parameter tables; other values possible elsewhere.
@@ -173,8 +173,8 @@ struct HLSL_INTRINSIC {
 
 ///////////////////////////////////////////////////////////////////////////////
 // Interfaces.
-struct IDxcIntrinsicTable;
-__CRT_UUID_DECL(IDxcIntrinsicTable, 0xf0d4da3f, 0xf863, 0x4660, 0xb8, 0xb4, 0xdf, 0xd9, 0x4d, 0xed, 0x62, 0x15)
+CROSS_PLATFORM_UUIDOF(IDxcIntrinsicTable,
+                      "f0d4da3f-f863-4660-b8b4-dfd94ded6215")
 struct IDxcIntrinsicTable : public IUnknown {
 public:
   virtual HRESULT STDMETHODCALLTYPE GetTableName(LPCSTR *pTableName) = 0;
@@ -202,8 +202,8 @@ public:
                                                   UINT *pDxilOpcode) = 0;
 };
 
-struct IDxcSemanticDefineValidator;
-__CRT_UUID_DECL(IDxcSemanticDefineValidator, 0x1d063e4f, 0x515a, 0x4d57, 0xa1, 0x2a, 0x43, 0x1f, 0x6a, 0x44, 0xcf, 0xb9)
+CROSS_PLATFORM_UUIDOF(IDxcSemanticDefineValidator,
+                      "1d063e4f-515a-4d57-a12a-431f6a44cfb9")
 struct IDxcSemanticDefineValidator : public IUnknown {
 public:
   virtual HRESULT STDMETHODCALLTYPE GetSemanticDefineWarningsAndErrors(
@@ -211,8 +211,8 @@ public:
       IDxcBlobEncoding **ppErrorBlob) = 0;
 };
 
-struct IDxcLangExtensions;
-__CRT_UUID_DECL(IDxcLangExtensions, 0x282a56b4, 0x3f56, 0x4360, 0x98, 0xc7, 0x9e, 0xa0, 0x4a, 0x75, 0x22, 0x72)
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions,
+                      "282a56b4-3f56-4360-98c7-9ea04a752272")
 struct IDxcLangExtensions : public IUnknown {
 public:
   /// <summary>
@@ -240,15 +240,15 @@ public:
   SetSemanticDefineMetaDataName(LPCSTR name) = 0;
 };
 
-struct IDxcLangExtensions2;
-__CRT_UUID_DECL(IDxcLangExtensions2, 0x2490C368, 0x89EE, 0x4491, 0xA4, 0xB2, 0xC6, 0x54, 0x7B, 0x6C, 0x93, 0x81)
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions2,
+                      "2490C368-89EE-4491-A4B2-C6547B6C9381")
 struct IDxcLangExtensions2 : public IDxcLangExtensions {
 public:
   virtual HRESULT STDMETHODCALLTYPE SetTargetTriple(LPCSTR name) = 0;
 };
 
-struct IDxcLangExtensions3;
-__CRT_UUID_DECL(IDxcLangExtensions3, 0xA1B19880, 0xFB1F, 0x4920, 0x9B, 0xC5, 0x50, 0x35, 0x64, 0x83, 0xBA, 0xC1)
+CROSS_PLATFORM_UUIDOF(IDxcLangExtensions3,
+                      "A1B19880-FB1F-4920-9BC5-50356483BAC1")
 struct IDxcLangExtensions3 : public IDxcLangExtensions2 {
 public:
   /// Registers a semantic define which cannot be overriden using the flag
@@ -257,8 +257,7 @@ public:
   RegisterNonOptSemanticDefine(LPCWSTR name) = 0;
 };
 
-struct IDxcSystemAccess;
-__CRT_UUID_DECL(IDxcSystemAccess, 0x454b764f, 0x3549, 0x475b, 0x95, 0x8c, 0xa7, 0xa6, 0xfc, 0xd0, 0x5f, 0xbc)
+CROSS_PLATFORM_UUIDOF(IDxcSystemAccess, "454b764f-3549-475b-958c-a7a6fcd05fbc")
 struct IDxcSystemAccess : public IUnknown {
 public:
   virtual HRESULT STDMETHODCALLTYPE EnumFiles(LPCWSTR fileName,
@@ -314,16 +313,16 @@ public:
                                                      unsigned *columnCount) = 0;
 };
 
-struct IDxcContainerEventsHandler;
-__CRT_UUID_DECL(IDxcContainerEventsHandler, 0xe991ca8d, 0x2045, 0x413c, 0xa8, 0xb8, 0x78, 0x8b, 0x2c, 0x06, 0xe1, 0x4d)
+CROSS_PLATFORM_UUIDOF(IDxcContainerEventsHandler,
+                      "e991ca8d-2045-413c-a8b8-788b2c06e14d")
 struct IDxcContainerEventsHandler : public IUnknown {
 public:
   virtual HRESULT STDMETHODCALLTYPE
   OnDxilContainerBuilt(IDxcBlob *pSource, IDxcBlob **ppTarget) = 0;
 };
 
-struct IDxcContainerEvent;
-__CRT_UUID_DECL(IDxcContainerEvent, 0x0cfc5058, 0x342b, 0x4ff2, 0x83, 0xf7, 0x04, 0xc1, 0x2a, 0xad, 0x3d, 0x01)
+CROSS_PLATFORM_UUIDOF(IDxcContainerEvent,
+                      "0cfc5058-342b-4ff2-83f7-04c12aad3d01")
 struct IDxcContainerEvent : public IUnknown {
 public:
   virtual HRESULT STDMETHODCALLTYPE RegisterDxilContainerEventHandler(

@@ -133,8 +133,8 @@ namespace Unicode {
 
 bool WideToEncodedString(const wchar_t *text, size_t cWide, DWORD cp,
                          DWORD flags, std::string *pValue, bool *lossy) {
-  bool usedDefaultChar;
-  bool *pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
+  BOOL usedDefaultChar;
+  LPBOOL pUsedDefaultChar = (lossy == nullptr) ? nullptr : &usedDefaultChar;
   if (lossy != nullptr)
     *lossy = false;
 

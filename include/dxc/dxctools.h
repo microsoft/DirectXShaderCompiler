@@ -22,8 +22,7 @@ enum RewriterOptionMask {
   KeepUserMacro = 8,
 };
 
-struct IDxcRewriter;
-__CRT_UUID_DECL(IDxcRewriter, 0xc012115b, 0x8893, 0x4eb9, 0x9c, 0x5a, 0x11, 0x14, 0x56, 0xea, 0x1c, 0x45)
+CROSS_PLATFORM_UUIDOF(IDxcRewriter, "c012115b-8893-4eb9-9c5a-111456ea1c45")
 struct IDxcRewriter : public IUnknown {
 
   virtual HRESULT STDMETHODCALLTYPE RemoveUnusedGlobals(
@@ -56,8 +55,7 @@ CLSID_SCOPE const CLSID
                          0x40b3,
                          {0x96, 0x8d, 0x93, 0xe1, 0x24, 0x73, 0x4d, 0xa4}};
 
-struct IDxcRewriter2;
-__CRT_UUID_DECL(IDxcRewriter2, 0x261afca1, 0x0609, 0x4ec6, 0xa7, 0x7f, 0xd9, 0x8c, 0x70, 0x35, 0x19, 0x4e)
+CROSS_PLATFORM_UUIDOF(IDxcRewriter2, "261afca1-0609-4ec6-a77f-d98c7035194e")
 struct IDxcRewriter2 : public IDxcRewriter {
 
   virtual HRESULT STDMETHODCALLTYPE RewriteWithOptions(
