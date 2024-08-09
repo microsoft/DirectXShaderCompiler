@@ -407,8 +407,6 @@ enum tagSTATFLAG {
 
 //===--------------------- UUID Related Macros ----------------------------===//
 
-#ifdef __EMULATE_UUID
-
 // The following macros are defined to facilitate the lack of 'uuid' on Linux.
 
 constexpr uint8_t nybble_from_hex(char c) {
@@ -444,6 +442,8 @@ constexpr GUID guid_from_string(const char str[37]) {
                byte_from_hexstr(str + 28), byte_from_hexstr(str + 30),
                byte_from_hexstr(str + 32), byte_from_hexstr(str + 34)}};
 }
+
+#ifdef __EMULATE_UUID
 
 template <typename interface> inline GUID __emulated_uuidof();
 
