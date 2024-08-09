@@ -2,7 +2,7 @@
 
 #include "vk/khr/cooperative_matrix.h"
 
-globallycoherent RWStructuredBuffer<int> data;
+RWStructuredBuffer<int> data;
 uint stride;
 
 // CHECK: OpCapability CooperativeMatrixKHR
@@ -21,10 +21,10 @@ uint stride;
   // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %_Globals %int_0
   // CHECK: [[stride:%[0-9]+]] = OpLoad %uint [[ac]]
 
-  // CHECK: [[a:%[0-9]+]] = OpCooperativeMatrixLoadKHR [[typeA]] {{%[0-9]*}} %int_1 [[stride]] MakePointerVisible|NonPrivatePointer %int_5
+  // CHECK: [[a:%[0-9]+]] = OpCooperativeMatrixLoadKHR [[typeA]] {{%[0-9]*}} %int_1 [[stride]] None
   IntMatA a = IntMatA::Load<vk::CooperativeMatrixLayoutColumnMajorKHR>(data, 0, stride);
 
-  // CHECK: [[b:%[0-9]+]] = OpCooperativeMatrixLoadKHR [[typeB]] {{%[0-9]*}} %int_0 [[stride]] MakePointerVisible|NonPrivatePointer %int_5
+  // CHECK: [[b:%[0-9]+]] = OpCooperativeMatrixLoadKHR [[typeB]] {{%[0-9]*}} %int_0 [[stride]] None
   IntMatB b = IntMatB::Load<vk::CooperativeMatrixLayoutRowMajorKHR>(data, 32, stride);
 
   // TODO: Is default initialization meaningful?
@@ -36,6 +36,6 @@ uint stride;
   // CHECK: [[r:%[0-9]+]] = OpCooperativeMatrixMulAddKHR [[typeAc]] [[a]] [[b]] [[r2]] MatrixASignedComponentsKHR|MatrixBSignedComponentsKHR|MatrixCSignedComponentsKHR|MatrixResultSignedComponentsKHR|SaturatingAccumulationKHR
   r = cooperativeMatrixSaturatingMultiplyAdd(a, b, r);
 
-  // CHECK: OpCooperativeMatrixStoreKHR {{.*}} [[r]] %int_0 [[stride]] MakePointerAvailable|NonPrivatePointer %int_5
+  // CHECK: OpCooperativeMatrixStoreKHR {{.*}} [[r]] %int_0 [[stride]] None
   r.Store<vk::CooperativeMatrixLayoutRowMajorKHR>(data, 64, stride);
 }

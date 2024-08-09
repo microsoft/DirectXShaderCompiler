@@ -2,7 +2,7 @@
 
 #include "vk/khr/cooperative_matrix.h"
 
-globallycoherent RWStructuredBuffer<int> data;
+RWStructuredBuffer<int> data;
 
 groupshared float shared_data[64];
 
@@ -13,10 +13,10 @@ groupshared float shared_data[64];
 
   FloatMatA m;
   // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Workgroup_float %shared_data %int_0
-  // CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1 %uint_128 Nontemporal|MakePointerVisible|NonPrivatePointer %int_2
+  // CHECK: [[ld:%[0-9]+]] = OpCooperativeMatrixLoadKHR %spirvIntrinsicType [[ac]] %int_1 %uint_128 Nontemporal
   m = FloatMatA::Load<vk::MemoryAccessNontemporalMask, vk::CooperativeMatrixLayoutColumnMajorKHR>(vk::GetGroupSharedAddress(shared_data[0]), 128);
 
   // CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_StorageBuffer_int %data %int_0 %uint_64
-  // CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[ld]] %int_0 %uint_8 Nontemporal|MakePointerAvailable|NonPrivatePointer %int_5
+  // CHECK: OpCooperativeMatrixStoreKHR [[ac]] [[ld]] %int_0 %uint_8 Nontemporal
   m.Store<vk::MemoryAccessNontemporalMask, vk::CooperativeMatrixLayoutRowMajorKHR>(data, 64, 8);
 }

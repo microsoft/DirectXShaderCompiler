@@ -55,17 +55,18 @@ class CooperativeMatrix {
   CooperativeMatrix operator*(ComponentType scalar);
 
   // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to
-  // data[index] using the given memory layout, stride, and memory access mask.
+  // data using the given memory layout, stride, and memory access mask.
   // `NonPrivatePointer` and `MakePointerVisible` with the workgroup scope
   // will be added to the memory access mask to make the memory coherent.
   //
-  // This function uses a Spir-V pointer because HLSL does not allow grouphsared
+  // This function uses a SPIR-V pointer because HLSL does not allow grouphsared
   // memory object to be passed by reference. The pointer is a hack to get
   // around that.
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
   void Store(WorkgroupSpirvPointer<Type> data, uint32_t stride);
 
+  // Same as above, but uses MemoryAccessMaskNone for the memory access mask.
   template <CooperativeMatrixLayout layout, class Type>
   void Store(WorkgroupSpirvPointer<Type> data, uint32_t stride) {
     Store<MemoryAccessMaskNone, layout>(data, stride);
@@ -73,18 +74,25 @@ class CooperativeMatrix {
 
   // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to
   // data[index] using the given memory layout, stride, and memory access mask.
-  // `NonPrivatePointer` and `MakePointerVisible` with the QueueFamily scope
-  // will be added to the memory access mask to make the memory coherent.
-  //
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
-  void Store(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
-             uint32_t stride);
+  void Store(RWStructuredBuffer<Type> data, uint32_t index, uint32_t stride);
+
+  template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+            class Type>
+  void CoherentStore(globallycoherent RWStructuredBuffer<Type> data,
+                     uint32_t index, uint32_t stride);
+
+  // Same as above, but uses MemoryAccessMaskNone for the memory access mask.
+  template <CooperativeMatrixLayout layout, class Type>
+  void Store(RWStructuredBuffer<Type> data, uint32_t index, uint32_t stride) {
+    Store<MemoryAccessMaskNone, layout>(data, index, stride);
+  }
 
   template <CooperativeMatrixLayout layout, class Type>
-  void Store(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
-             uint32_t stride) {
-    Store<MemoryAccessMaskNone, layout>(data, index, stride);
+  void CoherentStore(globallycoherent RWStructuredBuffer<Type> data,
+                     uint32_t index, uint32_t stride) {
+    CoherentStore<MemoryAccessMaskNone, layout>(data, index, stride);
   }
 
   // Loads a cooperative matrix using OpCooperativeMatrixStoreKHR from
@@ -109,21 +117,29 @@ class CooperativeMatrix {
 
   // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from
   // data[index] using the given memory layout, stride, and memory access mask.
-  // `NonPrivatePointer` and `MakePointerAvailable` with the QueueFamily scope
-  // will be added to the memory access mask to make the memory coherent.
-  //
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
-  static CooperativeMatrix Load(globallycoherent RWStructuredBuffer<Type> data,
-                                uint32_t index,
-
+  static CooperativeMatrix Load(RWStructuredBuffer<Type> data, uint32_t index,
                                 uint32_t stride);
+
+  template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+            class Type>
+  static CooperativeMatrix
+  CoherentLoad(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
+               uint32_t stride);
 
   // Same as above, but uses MemoryAccessMaskNone for the memory access mask.
   template <CooperativeMatrixLayout layout, class Type>
-  static CooperativeMatrix Load(globallycoherent RWStructuredBuffer<Type> data,
-                                uint32_t index, uint32_t stride) {
+  static CooperativeMatrix Load(RWStructuredBuffer<Type> data, uint32_t index,
+                                uint32_t stride) {
     return Load<MemoryAccessMaskNone, layout>(data, index, stride);
+  }
+
+  template <CooperativeMatrixLayout layout, class Type>
+  static CooperativeMatrix
+  CoherentLoad(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
+               uint32_t stride) {
+    return CoherentLoad<MemoryAccessMaskNone, layout>(data, index, stride);
   }
 
   // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from
@@ -143,7 +159,7 @@ class CooperativeMatrix {
   }
 
   // Constructs a cooperative matrix with all values initialized to v. Note that
-  // all active threads must have the same value for v.
+  // all threads in scope must have the same value for v.
   static CooperativeMatrix Splat(ComponentType v);
 
   // Returns the result of OpCooperativeMatrixLengthKHR on the current type.￼
