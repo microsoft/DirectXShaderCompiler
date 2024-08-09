@@ -413,6 +413,17 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   section->insert(section->end(), curInst.begin(), curInst.end());
 }
 
+bool EmitVisitor::emitCooperativeMatrixLength(SpirvUnaryOp *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  const uint32_t operandResultTypeId =
+      typeHandler.emitType(inst->getOperand()->getResultType());
+  curInst.push_back(operandResultTypeId);
+  finalizeInstruction(&mainBinary);
+  return true;
+}
+
 void EmitVisitor::initInstruction(SpirvInstruction *inst) {
   // Emit the result type if the instruction has a result type.
   if (inst->hasResultType()) {
@@ -1318,6 +1329,10 @@ bool EmitVisitor::visit(SpirvNullaryOp *inst) {
 }
 
 bool EmitVisitor::visit(SpirvUnaryOp *inst) {
+  if (inst->getopcode() == spv::Op::OpCooperativeMatrixLengthKHR) {
+    return emitCooperativeMatrixLength(inst);
+  }
+
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
