@@ -144,7 +144,8 @@ typedef struct DxcShaderHash {
 #define DXC_ARG_DEBUG_NAME_FOR_SOURCE L"-Zss"
 #define DXC_ARG_DEBUG_NAME_FOR_BINARY L"-Zsb"
 
-CROSS_PLATFORM_UUIDOF(IDxcBlob, "8BA5FB08-5195-40e2-AC58-0D989C3A0102")
+struct IDxcBlob;
+__CRT_UUID_DECL(IDxcBlob, 0x8BA5FB08, 0x5195, 0x40e2, 0xAC, 0x58, 0x0D, 0x98, 0x9C, 0x3A, 0x01, 0x02)
 /// \brief A sized buffer that can be passed in and out of DXC APIs.
 ///
 /// This is an alias of ID3D10Blob and ID3DBlob.
@@ -157,7 +158,8 @@ public:
   virtual SIZE_T STDMETHODCALLTYPE GetBufferSize(void) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcBlobEncoding, "7241d424-2646-4191-97c0-98e96e42fc68")
+struct IDxcBlobEncoding;
+__CRT_UUID_DECL(IDxcBlobEncoding, 0x7241d424, 0x2646, 0x4191, 0x97, 0xc0, 0x98, 0xe9, 0x6e, 0x42, 0xfc, 0x68)
 /// \brief A blob that might have a known encoding.
 struct IDxcBlobEncoding : public IDxcBlob {
 public:
@@ -174,7 +176,8 @@ public:
                                                 _Out_ UINT32 *pCodePage) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcBlobWide, "A3F84EAB-0FAA-497E-A39C-EE6ED60B2D84")
+struct IDxcBlobWide;
+__CRT_UUID_DECL(IDxcBlobWide, 0xA3F84EAB, 0x0FAA, 0x497E, 0xA3, 0x9C, 0xEE, 0x6E, 0xD6, 0x0B, 0x2D, 0x84)
 /// \brief A blob containing a null-terminated wide string.
 ///
 /// This uses the native wide character encoding (utf16 on Windows, utf32 on
@@ -197,7 +200,8 @@ public:
   virtual SIZE_T STDMETHODCALLTYPE GetStringLength(void) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcBlobUtf8, "3DA636C9-BA71-4024-A301-30CBF125305B")
+struct IDxcBlobUtf8;
+__CRT_UUID_DECL(IDxcBlobUtf8, 0x3DA636C9, 0xBA71, 0x4024, 0xA3, 0x01, 0x30, 0xCB, 0xF1, 0x25, 0x30, 0x5B)
 /// \brief A blob containing a UTF-8 encoded string.
 ///
 /// The value returned by GetBufferSize() is the size of the buffer, in bytes,
@@ -221,8 +225,8 @@ public:
 typedef IDxcBlobWide IDxcBlobUtf16;
 #endif
 
-CROSS_PLATFORM_UUIDOF(IDxcIncludeHandler,
-                      "7f61fc7d-950d-467f-b3e3-3c02fb49187c")
+struct IDxcIncludeHandler;
+__CRT_UUID_DECL(IDxcIncludeHandler, 0x7f61fc7d, 0x950d, 0x467f, 0xb3, 0xe3, 0x3c, 0x02, 0xfb, 0x49, 0x18, 0x7c)
 /// \brief Interface for handling include directives.
 ///
 /// This interface can be implemented to customize handling of include
@@ -263,7 +267,8 @@ struct DxcDefine {
   _Maybenull_ LPCWSTR Value; ///< Optional value for the define.
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcCompilerArgs, "73EFFE2A-70DC-45F8-9690-EFF64C02429D")
+struct IDxcCompilerArgs;
+__CRT_UUID_DECL(IDxcCompilerArgs, 0x73EFFE2A, 0x70DC, 0x45F8, 0x96, 0x90, 0xEF, 0xF6, 0x4C, 0x02, 0x42, 0x9D)
 /// \brief Interface for managing arguments passed to DXC.
 ///
 /// Use IDxcUtils::BuildArguments to create an instance of this interface.
@@ -306,7 +311,8 @@ struct IDxcCompilerArgs : public IUnknown {
 // Legacy Interfaces
 /////////////////////////
 
-CROSS_PLATFORM_UUIDOF(IDxcLibrary, "e5204dc7-d18c-4c3c-bdfb-851673980fe7")
+struct IDxcLibrary;
+__CRT_UUID_DECL(IDxcLibrary, 0xe5204dc7, 0xd18c, 0x4c3c, 0xbd, 0xfb, 0x85, 0x16, 0x73, 0x98, 0x0f, 0xe7)
 /// \deprecated IDxcUtils replaces IDxcLibrary; please use IDxcUtils insted.
 struct IDxcLibrary : public IUnknown {
   /// \deprecated
@@ -364,8 +370,8 @@ struct IDxcLibrary : public IUnknown {
 #endif
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcOperationResult,
-                      "CEDB484A-D4E9-445A-B991-CA21CA157DC2")
+struct IDxcOperationResult;
+__CRT_UUID_DECL(IDxcOperationResult, 0xCEDB484A, 0xD4E9, 0x445A, 0xB9, 0x91, 0xCA, 0x21, 0xCA, 0x15, 0x7D, 0xC2)
 /// \brief The results of a DXC operation.
 ///
 /// Note: IDxcResult replaces IDxcOperationResult and should be used wherever
@@ -391,7 +397,8 @@ struct IDxcOperationResult : public IUnknown {
   GetErrorBuffer(_COM_Outptr_result_maybenull_ IDxcBlobEncoding **ppErrors) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcCompiler, "8c210bf3-011f-4422-8d70-6f9acb8db617")
+struct IDxcCompiler;
+__CRT_UUID_DECL(IDxcCompiler, 0x8c210bf3, 0x011f, 0x4422, 0x8d, 0x70, 0x6f, 0x9a, 0xcb, 0x8d, 0xb6, 0x17)
 /// \deprecated Please use IDxcCompiler3 instead.
 struct IDxcCompiler : public IUnknown {
   /// \brief Compile a single entry point to the target shader model.
@@ -444,7 +451,8 @@ struct IDxcCompiler : public IUnknown {
       ) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcCompiler2, "A005A9D9-B8BB-4594-B5C9-0E633BEC4D37")
+struct IDxcCompiler2;
+__CRT_UUID_DECL(IDxcCompiler2, 0xA005A9D9, 0xB8BB, 0x4594, 0xB5, 0xC9, 0x0E, 0x63, 0x3B, 0xEC, 0x4D, 0x37)
 /// \deprecated Please use IDxcCompiler3 instead.
 struct IDxcCompiler2 : public IDxcCompiler {
   /// \brief Compile a single entry point to the target shader model with debug
@@ -474,7 +482,8 @@ struct IDxcCompiler2 : public IDxcCompiler {
       ) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcLinker, "F1B5BE2A-62DD-4327-A1C2-42AC1E1E78E6")
+struct IDxcLinker;
+__CRT_UUID_DECL(IDxcLinker, 0xF1B5BE2A, 0x62DD, 0x4327, 0xA1, 0xC2, 0x42, 0xAC, 0x1E, 0x1E, 0x78, 0xE6)
 /// \brief DXC linker interface.
 ///
 /// Use DxcCreateInstance with CLSID_DxcLinker to obtain an instance of this
@@ -507,7 +516,8 @@ public:
 // Latest interfaces. Please use these.
 ////////////////////////
 
-CROSS_PLATFORM_UUIDOF(IDxcUtils, "4605C4CB-2019-492A-ADA4-65F20BB7D67F")
+struct IDxcUtils;
+__CRT_UUID_DECL(IDxcUtils, 0x4605C4CB, 0x2019, 0x492A, 0xAD, 0xA4, 0x65, 0xF2, 0x0B, 0xB7, 0xD6, 0x7F)
 /// \brief Various utility functions for DXC.
 ///
 /// Use DxcCreateInstance with CLSID_DxcUtils to obtain an instance of this
@@ -752,7 +762,8 @@ typedef enum DXC_OUT_KIND {
 static_assert(DXC_OUT_NUM_ENUMS == DXC_OUT_LAST + 1,
               "DXC_OUT_* Enum added and last value not updated.");
 
-CROSS_PLATFORM_UUIDOF(IDxcResult, "58346CDA-DDE7-4497-9461-6F87AF5E0659")
+struct IDxcResult;
+__CRT_UUID_DECL(IDxcResult, 0x58346CDA, 0xDDE7, 0x4497, 0x94, 0x61, 0x6F, 0x87, 0xAF, 0x5E, 0x06, 0x59)
 /// \brief Result of a DXC operation.
 ///
 /// DXC operations may have multiple outputs, such as a shader object and
@@ -796,7 +807,8 @@ struct IDxcResult : public IDxcOperationResult {
 #define DXC_EXTRA_OUTPUT_NAME_STDOUT L"*stdout*"
 #define DXC_EXTRA_OUTPUT_NAME_STDERR L"*stderr*"
 
-CROSS_PLATFORM_UUIDOF(IDxcExtraOutputs, "319b37a2-a5c2-494a-a5de-4801b2faf989")
+struct IDxcExtraOutputs;
+__CRT_UUID_DECL(IDxcExtraOutputs, 0x319b37a2, 0xa5c2, 0x494a, 0xa5, 0xde, 0x48, 0x01, 0xb2, 0xfa, 0xf9, 0x89)
 /// \brief Additional outputs from a DXC operation.
 ///
 /// This can be used to obtain outputs that don't have an explicit DXC_OUT_KIND.
@@ -826,7 +838,8 @@ struct IDxcExtraOutputs : public IUnknown {
             _COM_Outptr_opt_result_maybenull_ IDxcBlobWide **ppOutputName) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcCompiler3, "228B4687-5A6A-4730-900C-9702B2203F54")
+struct IDxcCompiler3;
+__CRT_UUID_DECL(IDxcCompiler3, 0x228B4687, 0x5A6A, 0x4730, 0x90, 0x0C, 0x97, 0x02, 0xB2, 0x20, 0x3F, 0x54)
 /// \brief Interface to the DirectX Shader Compiler.
 ///
 /// Use DxcCreateInstance with CLSID_DxcCompiler to obtain an instance of this
@@ -872,7 +885,8 @@ static const UINT32 DxcValidatorFlags_RootSignatureOnly = 2;
 static const UINT32 DxcValidatorFlags_ModuleOnly = 4;
 static const UINT32 DxcValidatorFlags_ValidMask = 0x7;
 
-CROSS_PLATFORM_UUIDOF(IDxcValidator, "A6E82BD2-1FD7-4826-9811-2857E797F49A")
+struct IDxcValidator;
+__CRT_UUID_DECL(IDxcValidator, 0xA6E82BD2, 0x1FD7, 0x4826, 0x98, 0x11, 0x28, 0x57, 0xE7, 0x97, 0xF4, 0x9A)
 /// \brief Interface to DXC shader validator.
 ///
 /// Use DxcCreateInstance with CLSID_DxcValidator to obtain an instance of this.
@@ -886,7 +900,8 @@ struct IDxcValidator : public IUnknown {
       ) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcValidator2, "458e1fd1-b1b2-4750-a6e1-9c10f03bed92")
+struct IDxcValidator2;
+__CRT_UUID_DECL(IDxcValidator2, 0x458e1fd1, 0xb1b2, 0x4750, 0xa6, 0xe1, 0x9c, 0x10, 0xf0, 0x3b, 0xed, 0x92)
 /// \brief Interface to DXC shader validator.
 ///
 /// Use DxcCreateInstance with CLSID_DxcValidator to obtain an instance of this.
@@ -902,8 +917,8 @@ struct IDxcValidator2 : public IDxcValidator {
       ) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcContainerBuilder,
-                      "334b1f50-2292-4b35-99a1-25588d8c17fe")
+struct IDxcContainerBuilder;
+__CRT_UUID_DECL(IDxcContainerBuilder, 0x334b1f50, 0x2292, 0x4b35, 0x99, 0xa1, 0x25, 0x58, 0x8d, 0x8c, 0x17, 0xfe)
 /// \brief Interface to DXC container builder.
 ///
 /// Use DxcCreateInstance with CLSID_DxcContainerBuilder to obtain an instance
@@ -936,7 +951,8 @@ struct IDxcContainerBuilder : public IUnknown {
   SerializeContainer(_Out_ IDxcOperationResult **ppResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcAssembler, "091f7a26-1c1f-4948-904b-e6e3a8a771d5")
+struct IDxcAssembler;
+__CRT_UUID_DECL(IDxcAssembler, 0x091f7a26, 0x1c1f, 0x4948, 0x90, 0x4b, 0xe6, 0xe3, 0xa8, 0xa7, 0x71, 0xd5)
 /// \brief Interface to DxcAssembler.
 ///
 /// Use DxcCreateInstance with CLSID_DxcAssembler to obtain an instance of this.
@@ -949,8 +965,8 @@ struct IDxcAssembler : public IUnknown {
       ) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcContainerReflection,
-                      "d2c21b26-8350-4bdc-976a-331ce6f4c54c")
+struct IDxcContainerReflection;
+__CRT_UUID_DECL(IDxcContainerReflection, 0xd2c21b26, 0x8350, 0x4bdc, 0x97, 0x6a, 0x33, 0x1c, 0xe6, 0xf4, 0xc5, 0x4c)
 /// \brief Interface to DxcContainerReflection.
 ///
 /// Use DxcCreateInstance with CLSID_DxcContainerReflection to obtain an
@@ -1024,7 +1040,8 @@ struct IDxcContainerReflection : public IUnknown {
                                                       void **ppvObject) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcOptimizerPass, "AE2CD79F-CC22-453F-9B6B-B124E7A5204C")
+struct IDxcOptimizerPass;
+__CRT_UUID_DECL(IDxcOptimizerPass, 0xAE2CD79F, 0xCC22, 0x453F, 0x9B, 0x6B, 0xB1, 0x24, 0xE7, 0xA5, 0x20, 0x4C)
 /// \brief An optimizer pass.
 ///
 /// Instances of this can be obtained via IDxcOptimizer::GetAvailablePass.
@@ -1040,7 +1057,8 @@ struct IDxcOptimizerPass : public IUnknown {
   GetOptionArgDescription(UINT32 argIndex, _COM_Outptr_ LPWSTR *ppResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcOptimizer, "25740E2E-9CBA-401B-9119-4FB42F39F270")
+struct IDxcOptimizer;
+__CRT_UUID_DECL(IDxcOptimizer, 0x25740E2E, 0x9CBA, 0x401B, 0x91, 0x19, 0x4F, 0xB4, 0x2F, 0x39, 0xF2, 0x70)
 /// \brief Interface to DxcOptimizer.
 ///
 /// Use DxcCreateInstance with CLSID_DxcOptimizer to obtain an instance of this.
@@ -1060,7 +1078,8 @@ static const UINT32 DxcVersionInfoFlags_Debug = 1; // Matches VS_FF_DEBUG
 static const UINT32 DxcVersionInfoFlags_Internal =
     2; // Internal Validator (non-signing)
 
-CROSS_PLATFORM_UUIDOF(IDxcVersionInfo, "b04f5b50-2059-4f12-a8ff-a1e0cde1cc7e")
+struct IDxcVersionInfo;
+__CRT_UUID_DECL(IDxcVersionInfo, 0xb04f5b50, 0x2059, 0x4f12, 0xa8, 0xff, 0xa1, 0xe0, 0xcd, 0xe1, 0xcc, 0x7e)
 /// \brief PDB Version information.
 ///
 /// Use IDxcPdbUtils2::GetVersionInfo to obtain an instance of this.
@@ -1070,7 +1089,8 @@ struct IDxcVersionInfo : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetFlags(_Out_ UINT32 *pFlags) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcVersionInfo2, "fb6904c4-42f0-4b62-9c46-983af7da7c83")
+struct IDxcVersionInfo2;
+__CRT_UUID_DECL(IDxcVersionInfo2, 0xfb6904c4, 0x42f0, 0x4b62, 0x9c, 0x46, 0x98, 0x3a, 0xf7, 0xda, 0x7c, 0x83)
 /// \brief PDB Version Information.
 ///
 /// Use IDxcPdbUtils2::GetVersionInfo to obtain a IDxcVersionInfo interface, and
@@ -1083,7 +1103,8 @@ struct IDxcVersionInfo2 : public IDxcVersionInfo {
       ) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcVersionInfo3, "5e13e843-9d25-473c-9ad2-03b2d0b44b1e")
+struct IDxcVersionInfo3;
+__CRT_UUID_DECL(IDxcVersionInfo3, 0x5e13e843, 0x9d25, 0x473c, 0x9a, 0xd2, 0x03, 0xb2, 0xd0, 0xb4, 0x4b, 0x1e)
 /// \brief PDB Version Information.
 ///
 /// Use IDxcPdbUtils2::GetVersionInfo to obtain a IDxcVersionInfo interface, and
@@ -1101,7 +1122,8 @@ struct DxcArgPair {
   const WCHAR *pValue;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcPdbUtils, "E6C9647E-9D6A-4C3B-B94C-524B5A6C343D")
+struct IDxcPdbUtils;
+__CRT_UUID_DECL(IDxcPdbUtils, 0xE6C9647E, 0x9D6A, 0x4C3B, 0xB9, 0x4C, 0x52, 0x4B, 0x5A, 0x6C, 0x34, 0x3D)
 /// \deprecated Please use IDxcPdbUtils2 instead.
 struct IDxcPdbUtils : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE Load(_In_ IDxcBlob *pPdbOrDxil) = 0;
@@ -1158,7 +1180,8 @@ struct IDxcPdbUtils : public IUnknown {
   OverrideRootSignature(_In_ const WCHAR *pRootSignature) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcPdbUtils2, "4315D938-F369-4F93-95A2-252017CC3807")
+struct IDxcPdbUtils2;
+__CRT_UUID_DECL(IDxcPdbUtils2, 0x4315D938, 0xF369, 0x4F93, 0x95, 0xA2, 0x25, 0x20, 0x17, 0xCC, 0x38, 0x07)
 /// \brief DxcPdbUtils interface.
 ///
 /// Use DxcCreateInstance with CLSID_DxcPdbUtils to create an instance of this.

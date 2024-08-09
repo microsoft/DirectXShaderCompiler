@@ -662,7 +662,8 @@ struct IDxcCodeCompleteResults;
 struct IDxcCompletionResult;
 struct IDxcCompletionString;
 
-CROSS_PLATFORM_UUIDOF(IDxcCursor, "1467b985-288d-4d2a-80c1-ef89c42c40bc")
+struct IDxcCursor;
+__CRT_UUID_DECL(IDxcCursor, 0x1467b985, 0x288d, 0x4d2a, 0x80, 0xc1, 0xef, 0x89, 0xc4, 0x2c, 0x40, 0xbc)
 struct IDxcCursor : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   GetExtent(_Outptr_result_nullonfailure_ IDxcSourceRange **pRange) = 0;
@@ -728,7 +729,8 @@ struct IDxcCursor : public IUnknown {
                   _Outptr_result_maybenull_ IDxcCursor **pResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcDiagnostic, "4f76b234-3659-4d33-99b0-3b0db994b564")
+struct IDxcDiagnostic;
+__CRT_UUID_DECL(IDxcDiagnostic, 0x4f76b234, 0x3659, 0x4d33, 0x99, 0xb0, 0x3b, 0x0d, 0xb9, 0x94, 0xb5, 0x64)
 struct IDxcDiagnostic : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   FormatDiagnostic(DxcDiagnosticDisplayOptions options,
@@ -752,7 +754,8 @@ struct IDxcDiagnostic : public IUnknown {
              _Outptr_result_maybenull_ LPSTR *pText) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcFile, "bb2fca9e-1478-47ba-b08c-2c502ada4895")
+struct IDxcFile;
+__CRT_UUID_DECL(IDxcFile, 0xbb2fca9e, 0x1478, 0x47ba, 0xb0, 0x8c, 0x2c, 0x50, 0x2a, 0xda, 0x48, 0x95)
 struct IDxcFile : public IUnknown {
   /// <summary>Gets the file name for this file.</summary>
   virtual HRESULT STDMETHODCALLTYPE
@@ -763,7 +766,8 @@ struct IDxcFile : public IUnknown {
                                               _Out_ BOOL *pResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcInclusion, "0c364d65-df44-4412-888e-4e552fc5e3d6")
+struct IDxcInclusion;
+__CRT_UUID_DECL(IDxcInclusion, 0x0c364d65, 0xdf44, 0x4412, 0x88, 0x8e, 0x4e, 0x55, 0x2f, 0xc5, 0xe3, 0xd6)
 struct IDxcInclusion : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   GetIncludedFile(_Outptr_result_nullonfailure_ IDxcFile **pResult) = 0;
@@ -773,7 +777,8 @@ struct IDxcInclusion : public IUnknown {
                _Outptr_result_nullonfailure_ IDxcSourceLocation **pResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcIntelliSense, "b1f99513-46d6-4112-8169-dd0d6053f17d")
+struct IDxcIntelliSense;
+__CRT_UUID_DECL(IDxcIntelliSense, 0xb1f99513, 0x46d6, 0x4112, 0x81, 0x69, 0xdd, 0x0d, 0x60, 0x53, 0xf1, 0x7d)
 struct IDxcIntelliSense : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   CreateIndex(_Outptr_result_nullonfailure_ IDxcIndex **index) = 0;
@@ -793,7 +798,8 @@ struct IDxcIntelliSense : public IUnknown {
       _Outptr_result_nullonfailure_ IDxcUnsavedFile **pResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcIndex, "937824a0-7f5a-4815-9ba7-7fc0424f4173")
+struct IDxcIndex;
+__CRT_UUID_DECL(IDxcIndex, 0x937824a0, 0x7f5a, 0x4815, 0x9b, 0xa7, 0x7f, 0xc0, 0x42, 0x4f, 0x41, 0x73)
 struct IDxcIndex : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   SetGlobalOptions(DxcGlobalOptions options) = 0;
@@ -808,8 +814,8 @@ struct IDxcIndex : public IUnknown {
       _Out_ IDxcTranslationUnit **pTranslationUnit) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcSourceLocation,
-                      "8e7ddf1c-d7d3-4d69-b286-85fccba1e0cf")
+struct IDxcSourceLocation;
+__CRT_UUID_DECL(IDxcSourceLocation, 0x8e7ddf1c, 0xd7d3, 0x4d69, 0xb2, 0x86, 0x85, 0xfc, 0xcb, 0xa1, 0xe0, 0xcf)
 struct IDxcSourceLocation : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE IsEqualTo(_In_ IDxcSourceLocation *other,
                                               _Out_ BOOL *pResult) = 0;
@@ -822,7 +828,8 @@ struct IDxcSourceLocation : public IUnknown {
                       _Out_opt_ unsigned *pCol) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcSourceRange, "f1359b36-a53f-4e81-b514-b6b84122a13f")
+struct IDxcSourceRange;
+__CRT_UUID_DECL(IDxcSourceRange, 0xf1359b36, 0xa53f, 0x4e81, 0xb5, 0x14, 0xb6, 0xb8, 0x41, 0x22, 0xa1, 0x3f)
 struct IDxcSourceRange : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE IsNull(_Out_ BOOL *pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE
@@ -833,7 +840,8 @@ struct IDxcSourceRange : public IUnknown {
                                                _Out_ unsigned *endOffset) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcToken, "7f90b9ff-a275-4932-97d8-3cfd234482a2")
+struct IDxcToken;
+__CRT_UUID_DECL(IDxcToken, 0x7f90b9ff, 0xa275, 0x4932, 0x97, 0xd8, 0x3c, 0xfd, 0x23, 0x44, 0x82, 0xa2)
 struct IDxcToken : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetKind(_Out_ DxcTokenKind *pValue) = 0;
   virtual HRESULT STDMETHODCALLTYPE
@@ -843,8 +851,8 @@ struct IDxcToken : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetSpelling(_Out_ LPSTR *pValue) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcTranslationUnit,
-                      "9677dee0-c0e5-46a1-8b40-3db3168be63d")
+struct IDxcTranslationUnit;
+__CRT_UUID_DECL(IDxcTranslationUnit, 0x9677dee0, 0xc0e5, 0x46a1, 0x8b, 0x40, 0x3d, 0xb3, 0x16, 0x8b, 0xe6, 0x3d)
 struct IDxcTranslationUnit : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetCursor(_Out_ IDxcCursor **pCursor) = 0;
   virtual HRESULT STDMETHODCALLTYPE
@@ -892,7 +900,8 @@ struct IDxcTranslationUnit : public IUnknown {
       _Outptr_result_nullonfailure_ IDxcCodeCompleteResults **pResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcType, "2ec912fd-b144-4a15-ad0d-1c5439c81e46")
+struct IDxcType;
+__CRT_UUID_DECL(IDxcType, 0x2ec912fd, 0xb144, 0x4a15, 0xad, 0x0d, 0x1c, 0x54, 0x39, 0xc8, 0x1e, 0x46)
 struct IDxcType : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   GetSpelling(_Outptr_result_z_ LPSTR *pResult) = 0;
@@ -901,7 +910,8 @@ struct IDxcType : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetKind(_Out_ DxcTypeKind *pResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcUnsavedFile, "8ec00f98-07d0-4e60-9d7c-5a50b5b0017f")
+struct IDxcUnsavedFile;
+__CRT_UUID_DECL(IDxcUnsavedFile, 0x8ec00f98, 0x07d0, 0x4e60, 0x9d, 0x7c, 0x5a, 0x50, 0xb5, 0xb0, 0x01, 0x7f)
 struct IDxcUnsavedFile : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   GetFileName(_Outptr_result_z_ LPSTR *pFileName) = 0;
@@ -910,8 +920,8 @@ struct IDxcUnsavedFile : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetLength(_Out_ unsigned *pLength) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcCodeCompleteResults,
-                      "1E06466A-FD8B-45F3-A78F-8A3F76EBB552")
+struct IDxcCodeCompleteResults;
+__CRT_UUID_DECL(IDxcCodeCompleteResults, 0x1E06466A, 0xFD8B, 0x45F3, 0xA7, 0x8F, 0x8A, 0x3F, 0x76, 0xEB, 0xB5, 0x52)
 struct IDxcCodeCompleteResults : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE GetNumResults(_Out_ unsigned *pResult) = 0;
   virtual HRESULT STDMETHODCALLTYPE
@@ -919,8 +929,8 @@ struct IDxcCodeCompleteResults : public IUnknown {
               _Outptr_result_nullonfailure_ IDxcCompletionResult **pResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcCompletionResult,
-                      "943C0588-22D0-4784-86FC-701F802AC2B6")
+struct IDxcCompletionResult;
+__CRT_UUID_DECL(IDxcCompletionResult, 0x943C0588, 0x22D0, 0x4784, 0x86, 0xFC, 0x70, 0x1F, 0x80, 0x2A, 0xC2, 0xB6)
 struct IDxcCompletionResult : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   GetCursorKind(_Out_ DxcCursorKind *pResult) = 0;
@@ -928,8 +938,8 @@ struct IDxcCompletionResult : public IUnknown {
       _Outptr_result_nullonfailure_ IDxcCompletionString **pResult) = 0;
 };
 
-CROSS_PLATFORM_UUIDOF(IDxcCompletionString,
-                      "06B51E0F-A605-4C69-A110-CD6E14B58EEC")
+struct IDxcCompletionString;
+__CRT_UUID_DECL(IDxcCompletionString, 0x06B51E0F, 0xA605, 0x4C69, 0xA1, 0x10, 0xCD, 0x6E, 0x14, 0xB5, 0x8E, 0xEC)
 struct IDxcCompletionString : public IUnknown {
   virtual HRESULT STDMETHODCALLTYPE
   GetNumCompletionChunks(_Out_ unsigned *pResult) = 0;
