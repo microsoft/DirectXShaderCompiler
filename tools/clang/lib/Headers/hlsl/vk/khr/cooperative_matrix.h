@@ -59,9 +59,13 @@ class CooperativeMatrix {
   // `NonPrivatePointer` and `MakePointerVisible` with the workgroup scope
   // will be added to the memory access mask to make the memory coherent.
   //
-  // This function uses a SPIR-V pointer because HLSL does not allow grouphsared
+  // This function uses a SPIR-V pointer because HLSL does not allow groupshared
   // memory object to be passed by reference. The pointer is a hack to get
   // around that.
+  //
+  // The layout and stride will be passed to the SPIR-V instruction as is. The
+  // precise meaning can be found in the specification for
+  // SPV_KHR_cooperative_matrix.
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
   void Store(WorkgroupSpirvPointer<Type> data, uint32_t stride);
@@ -74,14 +78,12 @@ class CooperativeMatrix {
 
   // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to
   // data[index] using the given memory layout, stride, and memory access mask.
+  // The layout and stride will be passed to the SPIR-V instruction as is. The
+  // precise meaning can be found in the specification for
+  // SPV_KHR_cooperative_matrix.
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
   void Store(RWStructuredBuffer<Type> data, uint32_t index, uint32_t stride);
-
-  template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
-            class Type>
-  void CoherentStore(globallycoherent RWStructuredBuffer<Type> data,
-                     uint32_t index, uint32_t stride);
 
   // Same as above, but uses MemoryAccessMaskNone for the memory access mask.
   template <CooperativeMatrixLayout layout, class Type>
@@ -89,6 +91,21 @@ class CooperativeMatrix {
     Store<MemoryAccessMaskNone, layout>(data, index, stride);
   }
 
+  // Store the cooperative matrix using OpCooperativeMatrixStoreKHR to
+  // data[index] using the given memory layout, stride, and memory access mask.
+  // `NonPrivatePointer` and `MakePointerAvailable` with the QueueFamily scope
+  // will be added to the memory access mask to make the memory coherent.
+  //
+  // The layout and stride will be passed to the SPIR-V instruction as is. The
+  // precise meaning can be found in the specification for
+  // SPV_KHR_cooperative_matrix.
+  template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+            class Type>
+  void CoherentStore(globallycoherent RWStructuredBuffer<Type> data,
+                     uint32_t index, uint32_t stride);
+
+  // Same as above, but uses MemoryAccessMaskNone for the memory access mask
+  // template argument.
   template <CooperativeMatrixLayout layout, class Type>
   void CoherentStore(globallycoherent RWStructuredBuffer<Type> data,
                      uint32_t index, uint32_t stride) {
@@ -100,9 +117,13 @@ class CooperativeMatrix {
   // `NonPrivatePointer` and `MakePointerAvailable` with the workgroup scope
   // will be added to the memory access mask to make the memory coherent.
   //
-  // This function uses a SPIR-V pointer because HLSL does not allow grouphsared
+  // This function uses a SPIR-V pointer because HLSL does not allow groupshared
   // memory object to be passed by reference. The pointer is a hack to get
   // around that.
+  //
+  // The layout and stride will be passed to the SPIR-V instruction as is. The
+  // precise meaning can be found in the specification for
+  // SPV_KHR_cooperative_matrix.
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
   static CooperativeMatrix Load(WorkgroupSpirvPointer<Type> data,
@@ -117,16 +138,14 @@ class CooperativeMatrix {
 
   // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from
   // data[index] using the given memory layout, stride, and memory access mask.
+  //
+  // The layout and stride will be passed to the SPIR-V instruction as is. The
+  // precise meaning can be found in the specification for
+  // SPV_KHR_cooperative_matrix.
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
   static CooperativeMatrix Load(RWStructuredBuffer<Type> data, uint32_t index,
                                 uint32_t stride);
-
-  template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
-            class Type>
-  static CooperativeMatrix
-  CoherentLoad(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
-               uint32_t stride);
 
   // Same as above, but uses MemoryAccessMaskNone for the memory access mask.
   template <CooperativeMatrixLayout layout, class Type>
@@ -135,6 +154,23 @@ class CooperativeMatrix {
     return Load<MemoryAccessMaskNone, layout>(data, index, stride);
   }
 
+  // Loads a cooperative matrix using OpCooperativeMatrixLoadKHR from
+  // data[index] using the given memory layout, stride, and memory access mask.
+  // `NonPrivatePointer` and `MakePointerAvailable` with the QueueFamily scope
+  // will be added to the memory access mask to make the memory coherent.
+  //
+  //
+  // The layout and stride will be passed to the SPIR-V instruction as is. The
+  // precise meaning can be found in the specification for
+  // SPV_KHR_cooperative_matrix.
+  template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
+            class Type>
+  static CooperativeMatrix
+  CoherentLoad(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
+               uint32_t stride);
+
+  // Same as above, but uses MemoryAccessMaskNone for the memory access mask
+  // template argument.
   template <CooperativeMatrixLayout layout, class Type>
   static CooperativeMatrix
   CoherentLoad(globallycoherent RWStructuredBuffer<Type> data, uint32_t index,
@@ -146,6 +182,10 @@ class CooperativeMatrix {
   // data[index] using the given memory layout, stride, and memory access mask.
   // No memory access bits are added to the mask. Since the memory is readonly,
   // there should be no need.
+  //
+  // The layout and stride will be passed to the SPIR-V instruction as is. The
+  // precise meaning can be found in the specification for
+  // SPV_KHR_cooperative_matrix.
   template <MemoryAccessMask memoryAccessMask, CooperativeMatrixLayout layout,
             class Type>
   static CooperativeMatrix Load(StructuredBuffer<Type> data, uint32_t index,
