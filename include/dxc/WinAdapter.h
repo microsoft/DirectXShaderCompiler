@@ -33,7 +33,7 @@
 #include <vector>
 #endif // __cplusplus
 
-#include "../winadapter.h"   //To avoid duplicates, some things are defined by WSL, some by dxc
+#include "../winadapter.h" //To avoid duplicates, some things are defined by WSL, some by dxc
 
 #define COM_NO_WINDOWS_H // needed to inform d3d headers that this isn't windows
 
