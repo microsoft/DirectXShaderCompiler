@@ -674,8 +674,11 @@ endif()
 if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
   add_subdirectory(external) # SPIRV change
 endif()
-include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs ${DIRECTX_HEADER_INCLUDE_DIR}/wsl ${DIRECTX_HEADER_INCLUDE_DIR}/directx)
-
+if(WIN32)
+  include_directories(${DIRECTX_HEADER_INCLUDE_DIR}/directx)
+else()
+  include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs ${DIRECTX_HEADER_INCLUDE_DIR}/wsl ${DIRECTX_HEADER_INCLUDE_DIR}/directx)
+endif()
 
 # Put this before tblgen. Else we have a circular dependence.
 add_subdirectory(lib/Support)
