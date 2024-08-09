@@ -452,7 +452,7 @@ template <typename interface> inline GUID __emulated_uuidof();
   template <> inline GUID __emulated_uuidof<interface>() {                     \
     static const IID _IID = guid_from_string(spec);                            \
     return _IID;                                                               \
-  }
+  }                                                                            \
   extern "C++"                                                                 \
     {                                                                          \
         template <>                                                            \
@@ -462,9 +462,9 @@ template <typename interface> inline GUID __emulated_uuidof();
             return _IID;                                                       \
         }                                                                      \
         template <>                                                            \
-        inline const GUID &__wsl_stub_uuidof<type *>()                         \
+        inline const GUID &__wsl_stub_uuidof<interface*>()                     \
         {                                                                      \
-            return __wsl_stub_uuidof<type>();                                  \
+            return __wsl_stub_uuidof<interface>();                             \
         }                                                                      \
     }
 
