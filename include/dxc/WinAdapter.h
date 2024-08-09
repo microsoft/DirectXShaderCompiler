@@ -33,7 +33,7 @@
 #include <vector>
 #endif // __cplusplus
 
-#include "../winadapter.h"   //To avoid duplicates, somethings are defined by WSL, some by dxc
+#include "../winadapter.h"   //To avoid duplicates, some things are defined by WSL, some by dxc
 
 #define COM_NO_WINDOWS_H // needed to inform d3d headers that this isn't windows
 
@@ -453,20 +453,15 @@ template <typename interface> inline GUID __emulated_uuidof();
     static const IID _IID = guid_from_string(spec);                            \
     return _IID;                                                               \
   }                                                                            \
-  extern "C++"                                                                 \
-    {                                                                          \
-        template <>                                                            \
-        inline const GUID &__wsl_stub_uuidof<interface>()                      \
-        {                                                                      \
-            static const IID _IID = guid_from_string(spec);                    \
-            return _IID;                                                       \
-        }                                                                      \
-        template <>                                                            \
-        inline const GUID &__wsl_stub_uuidof<interface*>()                     \
-        {                                                                      \
-            return __wsl_stub_uuidof<interface>();                             \
-        }                                                                      \
-    }
+  extern "C++" {                                                               \
+  template <> inline const GUID &__wsl_stub_uuidof<interface>() {              \
+    static const IID _IID = guid_from_string(spec);                            \
+    return _IID;                                                               \
+  }                                                                            \
+  template <> inline const GUID &__wsl_stub_uuidof<interface *>() {            \
+    return __wsl_stub_uuidof<interface>();                                     \
+  }                                                                            \
+  }
 
 #else // __EMULATE_UUID
 
@@ -525,10 +520,6 @@ struct IStream : public ISequentialStream {
 
 // These don't need stub implementations as they come from the DirectX Headers
 // They still need the __uuidof() though
-
-struct ID3D12LibraryReflection;
-struct ID3D12ShaderReflection;
-
 CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection,
                       "8E349D19-54DB-4A56-9DC9-119D87BDB804")
 CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection,

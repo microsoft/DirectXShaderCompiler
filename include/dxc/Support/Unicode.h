@@ -14,6 +14,7 @@
 #include <string>
 
 #ifdef _WIN32
+typedef int *LPBOOL;
 #include <specstrings.h>
 #else
 // MultiByteToWideChar which is a Windows-specific method.
@@ -61,7 +62,8 @@ bool UTF8ToConsoleString(const char *text, std::string *pValue, LPBOOL lossy);
 bool WideToConsoleString(const wchar_t *text, size_t textLen,
                          std::string *pValue, LPBOOL lossy);
 
-bool WideToConsoleString(const wchar_t *text, std::string *pValue, LPBOOL lossy);
+bool WideToConsoleString(const wchar_t *text, std::string *pValue,
+                         LPBOOL lossy);
 
 bool UTF8ToWideString(const char *pUTF8, std::wstring *pWide);
 
