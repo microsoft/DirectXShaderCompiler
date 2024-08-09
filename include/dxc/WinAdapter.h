@@ -526,9 +526,6 @@ struct IStream : public ISequentialStream {
 // These don't need stub implementations as they come from the DirectX Headers
 // They still need the __uuidof() though
 
-struct ID3D12LibraryReflection;
-struct ID3D12ShaderReflection;
-
 CROSS_PLATFORM_UUIDOF(ID3D12LibraryReflection,
                       "8E349D19-54DB-4A56-9DC9-119D87BDB804")
 CROSS_PLATFORM_UUIDOF(ID3D12ShaderReflection,
