@@ -26,29 +26,7 @@ class DiagnosticInfo;
 
 namespace hlsl {
 
-#include "dxc/HLSL/DxilValidation.inc"
-
-const char *GetValidationRuleText(ValidationRule value);
 void GetValidationVersion(unsigned *pMajor, unsigned *pMinor);
-HRESULT ValidateDxilModule(llvm::Module *pModule, llvm::Module *pDebugModule);
-
-// DXIL Container Verification Functions (return false on failure)
-
-bool VerifySignatureMatches(llvm::Module *pModule,
-                            hlsl::DXIL::SignatureKind SigKind,
-                            const void *pSigData, uint32_t SigSize);
-
-// PSV = data for Pipeline State Validation
-bool VerifyPSVMatches(llvm::Module *pModule, const void *pPSVData,
-                      uint32_t PSVSize);
-
-// PSV = data for Pipeline State Validation
-bool VerifyRDATMatches(llvm::Module *pModule, const void *pRDATData,
-                       uint32_t RDATSize);
-
-bool VerifyFeatureInfoMatches(llvm::Module *pModule,
-                              const void *pFeatureInfoData,
-                              uint32_t FeatureInfoSize);
 
 // Validate the container parts, assuming supplied module is valid, loaded from
 // the container provided
@@ -106,4 +84,5 @@ public:
   static void PrintDiagnosticHandler(const llvm::DiagnosticInfo &DI,
                                      void *Context);
 };
+
 } // namespace hlsl

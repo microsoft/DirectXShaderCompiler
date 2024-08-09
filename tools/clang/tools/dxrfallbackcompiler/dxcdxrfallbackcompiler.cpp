@@ -21,7 +21,7 @@
 #include "dxc/HLSL/DxilLinker.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilUtil.h"
-#include "dxc/HLSL/DxilValidation.h"
+#include "dxc/DxilValidation/DxilValidation.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/dxcapi.impl.h"
 #include "dxcutil.h"
