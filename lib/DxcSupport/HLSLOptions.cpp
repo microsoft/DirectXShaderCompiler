@@ -327,7 +327,7 @@ static bool hasUnsupportedSpirvOption(const InputArgList &args,
   // available options and their current compatibility is needed to generate a
   // complete list.
   std::vector<OptSpecifier> unsupportedOpts = {OPT_Fd, OPT_Fre, OPT_Gec,
-                                               OPT_Gis, OPT_Qstrip_reflect};
+                                               OPT_Qstrip_reflect};
 
   for (const auto &id : unsupportedOpts) {
     if (Arg *arg = args.getLastArg(id)) {
@@ -1085,6 +1085,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID, false);
   opts.SpirvOptions.enableMaximalReconvergence =
       Args.hasFlag(OPT_fspv_enable_maximal_reconvergence, OPT_INVALID, false);
+  opts.SpirvOptions.useVulkanMemoryModel =
+      Args.hasFlag(OPT_fspv_use_vulkan_memory_model, OPT_INVALID, false);
 
   if (!handleVkShiftArgs(Args, OPT_fvk_b_shift, "b", &opts.SpirvOptions.bShift,
                          errors) ||

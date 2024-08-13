@@ -101,6 +101,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugScope)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeBasic)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeArray)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeVector)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeMatrix)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeFunction)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeMember)
@@ -1101,6 +1102,11 @@ SpirvDebugTypeVector::SpirvDebugTypeVector(SpirvDebugType *elemType,
                                            uint32_t elemCount)
     : SpirvDebugType(IK_DebugTypeVector, /*opcode*/ 6u), elementType(elemType),
       elementCount(elemCount) {}
+
+SpirvDebugTypeMatrix::SpirvDebugTypeMatrix(SpirvDebugTypeVector *vectorType,
+                                           uint32_t vectorCount)
+    : SpirvDebugType(IK_DebugTypeMatrix, /*opcode*/ 108u),
+      vectorType(vectorType), vectorCount(vectorCount) {}
 
 SpirvDebugTypeFunction::SpirvDebugTypeFunction(
     uint32_t flags, SpirvDebugType *ret,

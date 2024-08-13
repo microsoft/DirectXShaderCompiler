@@ -529,10 +529,13 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
       // attribute.
       if (const auto *Attr = FDecl->getAttr<clang::HLSLShaderAttr>())
         EntrySK = ShaderModel::KindFromFullName(Attr->getStage());
-      if (EntrySK == DXIL::ShaderKind::Node)
+      if (EntrySK == DXIL::ShaderKind::Node) {
         if (const auto *pAttr = FDecl->getAttr<HLSLNodeLaunchAttr>())
           NodeLaunchTy =
               ShaderModel::NodeLaunchTypeFromName(pAttr->getLaunchType());
+        else
+          NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
+      }
     }
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.

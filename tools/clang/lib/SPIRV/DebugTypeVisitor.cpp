@@ -365,15 +365,18 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     break;
   }
   case SpirvType::TK_Matrix: {
-    // TODO: I temporarily use a DebugTypeArray for a matrix type.
-    // However, when the debug info extension supports matrix type
-    // e.g., DebugTypeMatrix, we must replace DebugTypeArray with
-    // DebugTypeMatrix.
     auto *matType = dyn_cast<MatrixType>(spirvType);
-    SpirvDebugInstruction *elemDebugType =
-        lowerToDebugType(matType->getElementType());
-    debugType = spvContext.getDebugTypeArray(
-        spirvType, elemDebugType, {matType->numRows(), matType->numCols()});
+    if (spvOptions.debugInfoVulkan) {
+      SpirvDebugInstruction *vecDebugType =
+          lowerToDebugType(matType->getVecType());
+      debugType = spvContext.getDebugTypeMatrix(spirvType, vecDebugType,
+                                                matType->numCols());
+    } else {
+      SpirvDebugInstruction *elemDebugType =
+          lowerToDebugType(matType->getElementType());
+      debugType = spvContext.getDebugTypeArray(
+          spirvType, elemDebugType, {matType->numRows(), matType->numCols()});
+    }
     break;
   }
   case SpirvType::TK_Pointer: {

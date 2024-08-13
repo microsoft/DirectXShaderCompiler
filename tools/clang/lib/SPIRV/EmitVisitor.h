@@ -297,6 +297,7 @@ public:
   bool visit(SpirvDebugExpression *) override;
   bool visit(SpirvDebugTypeBasic *) override;
   bool visit(SpirvDebugTypeVector *) override;
+  bool visit(SpirvDebugTypeMatrix *) override;
   bool visit(SpirvDebugTypeArray *) override;
   bool visit(SpirvDebugTypeFunction *) override;
   bool visit(SpirvDebugTypeComposite *) override;

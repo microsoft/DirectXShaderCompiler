@@ -46,7 +46,6 @@ static StringRef HLOpcodeGroupNames[]{
     "indexnodehandle",             // HLIndexNodeHandle:
     "createnodeinputrecordhandle", // HLCreateNodeInputRecordHandle
     "annotatehandle",              // HLAnnotateHandle,
-    "wavematrix_annotate",         // HLWaveMatrix_Annotate,
     "annotatenodehandle",          // HLAnnotateNodeHandle
     "annotatenoderecordhandle",    // HLAnnotateNodeRecordHandle
     "numOfHLDXIL",                 // NumOfHLOps
@@ -71,7 +70,6 @@ static StringRef HLOpcodeGroupFullNames[]{
     "dx.hl.indexnodehandle",             // HLIndexNodeHandle
     "dx.hl.createnodeinputrecordhandle", // HLCreateNodeInputRecordHandle
     "dx.hl.annotatehandle",              // HLAnnotateHandle,
-    "dx.hl.wavematrix_annotate",         // HLWaveMatrix_Annotate,
     "dx.hl.annotatenodehandle",          // HLAnnotateNodeHandle,
     "dx.hl.annotatenoderecordhandle",    // HLAnnotateNodeRecordHandle
     "numOfHLDXIL",                       // NumOfHLOps
@@ -96,7 +94,6 @@ static HLOpcodeGroup GetHLOpcodeGroupInternal(StringRef group) {
       .Case("createnodeinputrecordhandle",
             HLOpcodeGroup::HLCreateNodeInputRecordHandle)
       .Case("annotatehandle", HLOpcodeGroup::HLAnnotateHandle)
-      .Case("wavematrix_annotate", HLOpcodeGroup::HLWaveMatrix_Annotate)
       .Case("annotatenodehandle", HLOpcodeGroup::HLAnnotateNodeHandle)
       .Case("annotatenoderecordhandle",
             HLOpcodeGroup::HLAnnotateNodeRecordHandle)
@@ -155,7 +152,6 @@ StringRef GetHLOpcodeGroupName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLIndexNodeHandle:
   case HLOpcodeGroup::HLCreateNodeInputRecordHandle:
   case HLOpcodeGroup::HLAnnotateHandle:
-  case HLOpcodeGroup::HLWaveMatrix_Annotate:
   case HLOpcodeGroup::HLAnnotateNodeHandle:
   case HLOpcodeGroup::HLAnnotateNodeRecordHandle:
     return HLOpcodeGroupNames[static_cast<unsigned>(op)];
@@ -180,7 +176,6 @@ StringRef GetHLOpcodeGroupFullName(HLOpcodeGroup op) {
   case HLOpcodeGroup::HLIndexNodeHandle:
   case HLOpcodeGroup::HLCreateNodeInputRecordHandle:
   case HLOpcodeGroup::HLAnnotateHandle:
-  case HLOpcodeGroup::HLWaveMatrix_Annotate:
   case HLOpcodeGroup::HLAnnotateNodeHandle:
   case HLOpcodeGroup::HLAnnotateNodeRecordHandle:
     return HLOpcodeGroupFullNames[static_cast<unsigned>(op)];
@@ -524,9 +519,6 @@ static AttributeSet GetHLFunctionAttributes(LLVMContext &C,
   } break;
   case HLOpcodeGroup::HLAnnotateHandle: {
     addAttr(Attribute::ReadNone);
-  } break;
-  case HLOpcodeGroup::HLWaveMatrix_Annotate: {
-    addAttr(Attribute::ArgMemOnly);
   } break;
   case HLOpcodeGroup::HLIntrinsic: {
     IntrinsicOp intrinsicOp = static_cast<IntrinsicOp>(opcode);

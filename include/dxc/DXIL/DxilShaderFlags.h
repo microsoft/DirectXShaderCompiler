@@ -212,10 +212,6 @@ public:
   void SetExtendedCommandInfo(bool flag) { m_bExtendedCommandInfo = flag; }
   bool GetExtendedCommandInfo() const { return m_bExtendedCommandInfo; }
 
-  // Experimental SM 6.9+ - Reserved, not yet supported.
-  void SetWaveMMA(bool flag) { m_bWaveMMA = flag; }
-  bool GetWaveMMA() const { return m_bWaveMMA; }
-
   // Per-function flags
   void SetUsesDerivatives(bool flag) { m_bUsesDerivatives = flag; }
   bool GetUsesDerivatives() const { return m_bUsesDerivatives; }
@@ -328,7 +324,21 @@ private:
 
   // Experimental SM 6.9+ - Reserved, not yet supported.
   // Bit: 36
-  unsigned m_bWaveMMA : 1; // SHADER_FEATURE_WAVE_MMA
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-private-field"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-private-field"
+#endif
+
+  unsigned m_bReserved : 1; // SHADER_FEATURE_RESERVED
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
   // SM 6.8+
   // Bit: 37

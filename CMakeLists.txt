@@ -106,6 +106,9 @@ endif()
 option(DXC_DISABLE_ALLOCATOR_OVERRIDES "Disable usage of allocator overrides" OFF)
 mark_as_advanced(DXC_DISABLE_ALLOCATOR_OVERRIDES)
 
+option(DXC_CODEGEN_EXCEPTIONS_TRAP "An exception in code generation generates a trap, ending the compiler process" OFF)
+mark_as_advanced(DXC_CODEGEN_EXCEPTIONS_TRAP)
+
 # adjust link option to enable debugging from kernel mode; not compatible with incremental linking
 if(NOT CMAKE_VERSION VERSION_LESS "3.13" AND MSVC AND NOT CMAKE_C_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64EC")
   add_link_options(/DEBUGTYPE:CV,FIXUP,PDATA /INCREMENTAL:NO)
@@ -324,6 +327,9 @@ if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
 else()
   option(LLVM_ENABLE_ASSERTIONS "Enable assertions" ON)
 endif()
+
+option(LLVM_ASSERTIONS_TRAP "Force assertions to always trap, rather than the default unspecified behavior (e.g. RaiseException on Windows)" OFF)
+option(LLVM_ASSERTIONS_NO_STRINGS "Make assertion macro drops strings to reduce binary size" OFF)
 
 set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")
@@ -623,9 +629,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # HLSL Change Starts - override assert to RaiseException instead of abort
 # for better test behavior
-if(WIN32 AND NOT UNIX)
-  include_directories(BEFORE "${LLVM_MAIN_INCLUDE_DIR}/llvm/llvm_assert")
-endif()
+include_directories(BEFORE "${LLVM_MAIN_INCLUDE_DIR}/llvm/llvm_assert")
 # HLSL Change Ends
 
 include_directories( ${LLVM_INCLUDE_DIR} ${LLVM_MAIN_INCLUDE_DIR})

@@ -102,6 +102,9 @@ public:
   // Returns false otherwise (e.g. if the capability already existed).
   bool addCapability(SpirvCapability *cap);
 
+  // Returns true if the capability is in the module.
+  bool hasCapability(SpirvCapability &cap);
+
   // Set the memory model of the module.
   void setMemoryModel(SpirvMemoryModel *model);
 

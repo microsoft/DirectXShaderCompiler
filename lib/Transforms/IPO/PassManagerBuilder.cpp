@@ -289,9 +289,6 @@ void PassManagerBuilder::addHLSLPasses(legacy::PassManagerBase &MPM) {
   // Verify no undef resource again after promotion
   MPM.add(createInvalidateUndefResourcesPass());
 
-  // Translate HL WaveMatrix ptrs to final dxil type
-  MPM.add(createLowerWaveMatTypePass());
-
   MPM.add(createDxilGenerationPass(NoOpt, this->HLSLExtensionsCodeGen));
 
   // Propagate precise attribute.

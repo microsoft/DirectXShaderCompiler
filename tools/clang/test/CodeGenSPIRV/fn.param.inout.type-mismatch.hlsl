@@ -3,6 +3,12 @@ void foo(const half3 input, out half3 output) {
   output = input;
 }
 
+void bar( inout float3 p)
+{
+  p += float3(1,1,1);
+}
+
+
 float4 main() : SV_Target0 {
   float3 output;
 // CHECK:       %param_var_input = OpVariable %_ptr_Function_v3half Function
@@ -17,7 +23,17 @@ float4 main() : SV_Target0 {
 // CHECK-NEXT: [[outputFloat3_0:%[0-9]+]] = OpFConvert %v3float [[outputHalf3_0]]
 // CHECK-NEXT:                         OpStore %output [[outputFloat3_0]]
 
-// CHECK-NEXT: [[outputFloat3_1:%[0-9]+]] = OpLoad %v3float %output
+// CHECK:      [[f:%[0-9]+]] = OpLoad %float %f
+// CHECK-NEXT: [[splat:%[0-9]+]] = OpCompositeConstruct %v3float [[f]] [[f]] [[f]]
+// CHECK-NEXT:      OpStore %param_var_p [[splat]]
+// CHECK-NEXT: OpFunctionCall %void %bar %param_var_p
+// CHECK-NEXT: [[ret:%[0-9]+]] = OpLoad %v3float %param_var_p
+// CHECK-NEXT: [[ext:%[0-9]+]] = OpCompositeExtract %float [[ret]] 0
+// CHECK-NEXT:      OpStore %f [[ext]]
+   float f = 0;
+   bar(f);
+
+// CHECK: [[outputFloat3_1:%[0-9]+]] = OpLoad %v3float %output
 // CHECK-NEXT: OpCompositeExtract %float [[outputFloat3_2:%[0-9]+]] 0
 // CHECK-NEXT: OpCompositeExtract %float [[outputFloat3_3:%[0-9]+]] 1
 // CHECK-NEXT: OpCompositeExtract %float [[outputFloat3_4:%[0-9]+]] 2

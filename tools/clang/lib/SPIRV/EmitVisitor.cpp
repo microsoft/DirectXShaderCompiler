@@ -431,7 +431,8 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
                                spv::Decoration::RelaxedPrecision, {});
   }
   // Emit NoContraction decoration (if any).
-  if (inst->isPrecise() && inst->isArithmeticInstruction()) {
+  if ((spvOptions.IEEEStrict || inst->isPrecise()) &&
+      inst->isArithmeticInstruction()) {
     typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
                                spv::Decoration::NoContraction, {});
   }
@@ -1658,6 +1659,21 @@ bool EmitVisitor::visit(SpirvDebugTypeVector *inst) {
   curInst.push_back(
       getOrAssignResultId<SpirvInstruction>(inst->getElementType()));
   curInst.push_back(getLiteralEncodedForDebugInfo(inst->getElementCount()));
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvDebugTypeMatrix *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getVectorType()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getVectorCount()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(1));
   finalizeInstruction(&richDebugInfo);
   return true;
 }

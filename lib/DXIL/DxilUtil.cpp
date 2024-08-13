@@ -568,9 +568,6 @@ bool IsHLSLObjectType(llvm::Type *Ty) {
     if (name.startswith("LineStream<"))
       return true;
 
-    if (IsHLSLWaveMatrixType(Ty))
-      return true;
-
     if (IsHLSLNodeIOType(Ty))
       return true;
   }
@@ -585,36 +582,6 @@ bool IsHLSLRayQueryType(llvm::Type *Ty) {
     // TODO: don't check names.
     ConsumePrefix(name, "class.");
     if (name.startswith("RayQuery<"))
-      return true;
-  }
-  return false;
-}
-
-bool IsHLSLWaveMatrixType(llvm::Type *Ty, DXIL::WaveMatrixKind *pKind) {
-  if (Ty->isPointerTy())
-    Ty = Ty->getPointerElementType();
-  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
-    if (!ST->hasName())
-      return false;
-    StringRef name = ST->getName();
-    // TODO: don't check names.
-    ConsumePrefix(name, "class.");
-    if (!ConsumePrefix(name, "WaveMatrix"))
-      return false;
-    DXIL::WaveMatrixKind kind = DXIL::WaveMatrixKind::NumKinds;
-    if (name.startswith("Left<"))
-      kind = DXIL::WaveMatrixKind::Left;
-    if (name.startswith("Right<"))
-      kind = DXIL::WaveMatrixKind::Right;
-    if (name.startswith("LeftColAcc<"))
-      kind = DXIL::WaveMatrixKind::LeftColAcc;
-    if (name.startswith("RightRowAcc<"))
-      kind = DXIL::WaveMatrixKind::RightRowAcc;
-    if (name.startswith("Accumulator<"))
-      kind = DXIL::WaveMatrixKind::Accumulator;
-    if (pKind)
-      *pKind = kind;
-    if (kind != DXIL::WaveMatrixKind::NumKinds)
       return true;
   }
   return false;

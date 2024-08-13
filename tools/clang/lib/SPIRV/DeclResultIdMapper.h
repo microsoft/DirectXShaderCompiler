@@ -189,6 +189,9 @@ private:
 /// type, the fields with attached semantics will need to be translated into
 /// stage variables per Vulkan's requirements.
 class DeclResultIdMapper {
+  /// \brief An internal class to handle binding number allocation.
+  class BindingSet;
+
 public:
   inline DeclResultIdMapper(ASTContext &context, SpirvContext &spirvContext,
                             SpirvBuilder &spirvBuilder, SpirvEmitter &emitter,
@@ -277,8 +280,16 @@ public:
   SpirvVariable *createFileVar(const VarDecl *var,
                                llvm::Optional<SpirvInstruction *> init);
 
+  /// Creates a global variable for resource heaps containing elements of type
+  /// |type|.
+  SpirvVariable *createResourceHeap(const VarDecl *var, QualType type);
+
   /// \brief Creates an external-visible variable and returns its instruction.
   SpirvVariable *createExternVar(const VarDecl *var);
+
+  /// \brief Creates an external-visible variable of type |type| and returns its
+  /// instruction.
+  SpirvVariable *createExternVar(const VarDecl *var, QualType type);
 
   /// \brief Returns an OpString instruction that represents the given VarDecl.
   /// VarDecl must be a variable of string type.
@@ -375,6 +386,10 @@ public:
                                           ContextUsageKind kind);
   SpirvVariable *createShaderRecordBuffer(const HLSLBufferDecl *decl,
                                           ContextUsageKind kind);
+
+  // Records the TypedefDecl or TypeAliasDecl of vk::SpirvType so that any
+  // required capabilities and extensions can be added if the type is used.
+  void recordsSpirvTypeAlias(const Decl *decl);
 
 private:
   /// The struct containing SPIR-V information of a AST Decl.
@@ -501,11 +516,6 @@ public:
   bool writeBackOutputStream(const NamedDecl *decl, QualType type,
                              SpirvInstruction *value, SourceRange range = {});
 
-  /// \brief Negates to get the additive inverse of SV_Position.y if requested.
-  SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
-                                       SourceLocation loc,
-                                       SourceRange range = {});
-
   /// \brief Reciprocates to get the multiplicative inverse of SV_Position.w
   /// if requested.
   SpirvInstruction *invertWIfRequested(SpirvInstruction *position,
@@ -569,6 +579,12 @@ public:
 
   spv::ExecutionMode getInterlockExecutionMode();
 
+  /// Records any Spir-V capabilities and extensions for the given type so
+  /// they will be added to the SPIR-V module. The capabilities and extension
+  /// required for the type will be sourced from the decls that were recorded
+  /// using `recordSpirvTypeAlias`.
+  void registerCapabilitiesAndExtensionsForType(const TypedefType *type);
+
 private:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.
@@ -626,6 +642,10 @@ private:
       llvm::function_ref<uint32_t(uint32_t)> nextLocs,
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
           *stageVariableLocationInfo);
+
+  /// \bried Decorates used Resource/Sampler descriptor heaps with the correct
+  /// binding/set decorations.
+  void decorateResourceHeapsBindings(BindingSet &bindingSet);
 
   /// \brief Returns a map that divides all of the shader stage variables into
   /// separate vectors for each entry point.
@@ -1057,6 +1077,8 @@ private:
   bool needsFlatteningCompositeResources;
 
   uint32_t perspBaryCentricsIndex, noPerspBaryCentricsIndex;
+
+  llvm::SmallVector<const TypedefNameDecl *, 4> typeAliasesWithAttributes;
 
 public:
   /// The gl_PerVertex structs for both input and output

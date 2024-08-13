@@ -619,6 +619,14 @@ const SpirvType *LowerTypeVisitor::lowerType(QualType type,
     return spvContext.getSIntType(32);
   }
 
+  // Templated types.
+  if (const auto *spec = type->getAs<TemplateSpecializationType>()) {
+    return lowerType(spec->desugar(), rule, isRowMajor, srcLoc);
+  }
+  if (const auto *spec = type->getAs<SubstTemplateTypeParmType>()) {
+    return lowerType(spec->desugar(), rule, isRowMajor, srcLoc);
+  }
+
   emitError("lower type %0 unimplemented", srcLoc) << type->getTypeClassName();
   type->dump();
   return 0;
@@ -1083,6 +1091,19 @@ LowerTypeVisitor::lowerStructFields(const RecordDecl *decl,
       bitfieldInfo = BitfieldInfo();
       bitfieldInfo->sizeInBits =
           field->getBitWidthValue(field->getASTContext());
+    }
+
+    if (field->hasAttrs()) {
+      for (auto &attr : field->getAttrs()) {
+        if (auto capAttr = dyn_cast<VKCapabilityExtAttr>(attr)) {
+          spvBuilder.requireCapability(
+              static_cast<spv::Capability>(capAttr->getCapability()),
+              capAttr->getLocation());
+        } else if (auto extAttr = dyn_cast<VKExtensionExtAttr>(attr)) {
+          spvBuilder.requireExtension(extAttr->getName(),
+                                      extAttr->getLocation());
+        }
+      }
     }
 
     fields.push_back(HybridStructType::FieldInfo(

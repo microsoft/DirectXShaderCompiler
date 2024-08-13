@@ -1150,17 +1150,18 @@ The following example demonstrates SRV metadata::
  !1 = !{ !2, !3 }
 
  ; Scalar resource: Texture2D<float4> MyTexture2D.
- %dx.types.ResElem.v4f32 = type { <4 x float> }
- @MyTexture2D = external addrspace(1) constant %dx.types.ResElem.v4f32, align 16
- !2 = !{ i32 0, %dx.types.ResElem.v4f32 addrspace(1)* @MyTexture2D, !"MyTexture2D",
+ %"class.Texture2D<vector<float, 4> >" = type { <4 x float>, %"class.Texture2D<vector<float, 4> >::mips_type" }
+ %"class.Texture2D<vector<float, 4> >::mips_type" = type { i32 }
+ @MyTexture2D = external addrspace(1) constant %"class.Texture2D<vector<float, 4> >", align 16
+ !2 = !{ i32 0, %"class.Texture2D<vector<float, 4> >"* @MyTexture2D, !"MyTexture2D",
          i32 0, i32 0, i32 1, i32 2, i32 0, null }
 
  ; Array resource: StructuredBuffer<MyType1> MyBuffer[2][3].
  %struct.NS1.MyType1 = type { float, <2 x i32> }
- %dx.types.ResElem.NS1.MyType1 = type { %struct.NS1.MyType1 }
- @MyBuffer = external addrspace(1) constant [2x [3 x %dx.types.ResElem.NS1.MyType1]], align 16
- !3 = !{ i32 1, [2 x [3 x %dx.types.ResElem.NS1.MyType1]] addrspace(1)* @MyBuffer, !"MyBuffer",
-         i32 0, i32 1, i32 6, i32 11, i32 0, null }
+ %"class.StructuredBuffer<NS1::MyType1>" = type { %"struct.NS1::MyType1" }
+ @MyBuffer = external addrspace(1) constant [2x [3 x %"class.StructuredBuffer<NS1::MyType1>"]], align 16
+ !3 = !{ i32 1, [2 x [3 x %"class.StructuredBuffer<NS1::MyType1>"]]* @MyBuffer, !"MyBuffer",
+         i32 0, i32 1, i32 6, i32 12, i32 0, null }
 
 The type name of the variable is constructed by appending the element name (primitive, vector or UDT name) to dx.types.ResElem prefix. The type configuration of the resource range variable conveys (1) resource range shape and (2) resource element type.
 
@@ -1170,28 +1171,14 @@ Reflection information
 
 Resource reflection data is conveyed via the resource's metadata record and global, external variable. The metadata record contains the original HLSL name, root signature range information, and the reference to the global resource variable declaration. The resource variable declaration conveys resource range shape, resource type and resource element type.
 
-The following disassembly provides an example::
-
- ; Scalar resource: Texture2D<float4> MyTexture2D.
- %dx.types.ResElem.v4f32 = type { <4 x float> }
- @MyTexture2D = external addrspace(1) constant %dx.types.ResElem.v4f32, align 16
- !0 = !{ i32 0, %dx.types.ResElem.v4f32 addrspace(1)* @MyTexture2D, !"MyTexture2D",
-         i32 0, i32 3, i32 1, i32 2, i32 0, null }
+The following disassembly provides an example of a reflection type annotation::
 
  ; struct MyType2 { float4 field1; int2 field2; };
- ; Constant buffer: ConstantBuffer<MyType2> MyCBuffer1[][3] : register(b5, space7)
  %struct.MyType2 = type { <4 x float>, <2 x i32> }
  ; Type reflection information (optional)
  !struct.MyType2 = !{ !1, !2 }
  !1 = !{ !"field1", null }
  !2 = !{ !"field2", null }
-
- %dx.types.ResElem.MyType1 = type { %struct.MyType2 }
-
- @MyCBuffer1 = external addrspace(1) constant [0 x [3 x %dx.types.ResElem.MyType2]], align 16
-
- !3 = !{ i32 0, [0 x [3 x %dx.types.ResElem.MyType1]] addrspace(1)* @MyCBuffer1, !"MyCBuffer1",
-         i32 7, i32 5, i32 -1, null }
 
 The reflection information can be removed from DXIL by obfuscating the resource HLSL name and resource variable name as well as removing reflection type annotations, if any.
 
@@ -2350,18 +2337,18 @@ ID  Name                                                  Description
 223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
 224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
 225 TextureStoreSample                                    stores texel data at specified sample index
-226 WaveMatrix_Annotate                                   Annotate a wave matrix pointer with the type information
-227 WaveMatrix_Depth                                      Returns depth (K) value for matrix of specified type
-228 WaveMatrix_Fill                                       Fill wave matrix with scalar value
-229 WaveMatrix_LoadRawBuf                                 Load wave matrix from raw buffer
-230 WaveMatrix_LoadGroupShared                            Load wave matrix from group shared array
-231 WaveMatrix_StoreRawBuf                                Store wave matrix to raw buffer
-232 WaveMatrix_StoreGroupShared                           Store wave matrix to group shared array
-233 WaveMatrix_Multiply                                   Mutiply left and right wave matrix and store in accumulator
-234 WaveMatrix_MultiplyAccumulate                         Mutiply left and right wave matrix and accumulate into accumulator
-235 WaveMatrix_ScalarOp                                   Perform scalar operation on each element of wave matrix
-236 WaveMatrix_SumAccumulate                              Sum rows or columns of an input matrix into an existing accumulator fragment matrix
-237 WaveMatrix_Add                                        Element-wise accumulate, or broadcast add of fragment into accumulator
+226 Reserved0                                             Reserved
+227 Reserved1                                             Reserved
+228 Reserved2                                             Reserved
+229 Reserved3                                             Reserved
+230 Reserved4                                             Reserved
+231 Reserved5                                             Reserved
+232 Reserved6                                             Reserved
+233 Reserved7                                             Reserved
+234 Reserved8                                             Reserved
+235 Reserved9                                             Reserved
+236 Reserved10                                            Reserved
+237 Reserved11                                            Reserved
 238 AllocateNodeOutputRecords                             returns a handle for the output records
 239 GetNodeRecordPtr                                      retrieve node input/output record pointer in address space 6
 240 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput for the whole group or per thread.
