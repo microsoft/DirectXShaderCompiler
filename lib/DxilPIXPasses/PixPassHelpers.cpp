@@ -71,9 +71,9 @@ GetNextRegisterIdForClass(hlsl::DxilModule &DM,
                           DXIL::ResourceClass resourceClass) {
   switch (resourceClass) {
   case DXIL::ResourceClass::CBuffer:
-    return static_cast<unsigned int>(DM.GetCBuffers().size());
+    return static_cast<unsigned int>(DM.GetCBuffers().size()) - 1;
   case DXIL::ResourceClass::UAV:
-    return static_cast<unsigned int>(DM.GetUAVs().size());
+    return static_cast<unsigned int>(DM.GetUAVs().size()) - 1;
   default:
     DXASSERT(false, "Unexpected resource class");
     return 0;
@@ -118,6 +118,7 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
     llvm::Constant *object = resource->GetGlobalSymbol();
     Value *load = Builder.CreateLoad(object, resourceHandleType);
     llvm::cast<LoadInst>(load)->setAlignment(4);
+    llvm::cast<LoadInst>(load)->setVolatile(false);
     Function *CreateHandleForLibOpFunc =
         HlslOP->GetOpFunc(DXIL::OpCode::CreateHandleForLib, load->getType());
     Constant *CreateHandleForLibOpcodeArg =
@@ -340,7 +341,7 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
   auto HLSLType = DM.GetModule()->getTypeByName(RawUAVType());
   if (HLSLType == nullptr) {
     SmallVector<llvm::Type *, 1> Elements{Type::getInt32Ty(Ctx)};
-    HLSLType = llvm::StructType::create(Elements, PIXStructTypeName);
+    HLSLType = llvm::StructType::create(Elements, RawUAVType());
   }
   pUAV->SetHLSLType(HLSLType->getPointerTo());
 
