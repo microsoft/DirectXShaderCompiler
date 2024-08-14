@@ -50,8 +50,9 @@ static_assert((unsigned)PSVShaderKind::Invalid ==
                   (unsigned)DXIL::ShaderKind::Invalid,
               "otherwise, PSVShaderKind enum out of sync.");
 
-static DxilProgramSigSemantic
-KindToSystemValue(Semantic::Kind kind, DXIL::TessellatorDomain domain) {
+DxilProgramSigSemantic
+hlsl::SemanticKindToSystemValue(Semantic::Kind kind,
+                                DXIL::TessellatorDomain domain) {
   switch (kind) {
   case Semantic::Kind::Arbitrary:
     return DxilProgramSigSemantic::Undefined;
@@ -291,7 +292,7 @@ private:
     memset(&sig, 0, sizeof(DxilProgramSignatureElement));
     sig.Stream = pElement->GetOutputStream();
     sig.SemanticName = GetSemanticOffset(pElement);
-    sig.SystemValue = KindToSystemValue(pElement->GetKind(), m_domain);
+    sig.SystemValue = SemanticKindToSystemValue(pElement->GetKind(), m_domain);
     sig.CompType =
         CompTypeToSigCompType(pElement->GetCompType().GetKind(), m_bCompat_1_4);
     sig.Register = pElement->GetStartRow();

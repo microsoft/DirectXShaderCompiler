@@ -18,7 +18,9 @@
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilHash/DxilHash.h"
+#include "dxc/Support/WinIncludes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
@@ -308,6 +310,8 @@ public:
 
   TEST_METHOD(CacheInitWithMinPrec)
   TEST_METHOD(CacheInitWithLowPrec)
+
+  TEST_METHOD(PSVStringTableReorder)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -4522,4 +4526,90 @@ TEST_F(ValidationTest, CacheInitWithLowPrec) {
       return;
   // Ensures type cache is property initialized when in exact low-precision mode
   TestCheck(L"..\\DXILValidation\\val-dx-type-lowprec.ll");
+}
+
+TEST_F(ValidationTest, PSVStringTableReorder) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
+                "ps_6_0", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update string table.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+
+  uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
+  PSVRuntimeInfo3 *PSVInfo =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(2u, PSVInfo->SigInputElements);
+  PSVPtr += PSVRuntimeInfo_size / 4;
+  uint32_t ResourceCount = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(0u, ResourceCount);
+  uint32_t StringTableSize = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(12u, StringTableSize);
+  const char *StringTable = (const char *)PSVPtr;
+  VERIFY_ARE_EQUAL('\0', StringTable[0]);
+  PSVPtr += StringTableSize / 4;
+  uint32_t SemanticIndexTableEntries = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(1u, SemanticIndexTableEntries);
+  PSVPtr += sizeof(SemanticIndexTableEntries) / 4;
+  uint32_t PSVSignatureElement_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVSignatureElement0), PSVSignatureElement_size);
+  PSVSignatureElement0 *SigInput =
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
+  PSVSignatureElement0 *SigInput1 = SigInput + 1;
+  PSVSignatureElement0 *SigOutput = SigInput + 2;
+  // Update StringTable only.
+  const char OrigStringTable[12] = {0,   'A', 0,   'B', 0, 'm',
+                                    'a', 'i', 'n', 0,   0, 0};
+  VERIFY_ARE_EQUAL(0, memcmp(OrigStringTable, StringTable, 12));
+  const char UpdatedStringTable[12] = {'B', 0,   'A', 0, 'm', 'a',
+                                       'i', 'n', 0,   0, 0,   0};
+  memcpy((void *)StringTable, (void *)UpdatedStringTable, 12);
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedTableResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedTableResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedTableResult);
+  VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  // Update string table index.
+  SigInput->SemanticName = 2;
+  SigInput1->SemanticName = 0;
+  PSVInfo->EntryFunctionName = 4;
+  SigOutput->SemanticName = 1;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
 }
