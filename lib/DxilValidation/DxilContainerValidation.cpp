@@ -155,7 +155,6 @@ public:
                      ValidationContext &ValCtx)
       : DM(DM), PSV(PSV), ValCtx(ValCtx) {}
   void Verify();
-  bool IsValid() { return PSVContentValid; }
 
 private:
   void VerifySignatures(unsigned ValMajor, unsigned ValMinor);
@@ -737,6 +736,10 @@ void PSVContentVerifier::Verify() {
     if (DM.GetEntryFunctionName() != PSV.GetEntryFunctionName())
       EmitFormatError("EntryFunctionName");
   }
+
+  if (!PSVContentValid)
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
+                           {"Pipeline State Validation"});
 }
 
 } // namespace
@@ -825,9 +828,6 @@ static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
   }
   PSVContentVerifier Verifier(PSV, ValCtx.DxilMod, ValCtx);
   Verifier.Verify();
-  if (!Verifier.IsValid())
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
-                           {"Pipeline State Validation"});
 }
 
 static void VerifyFeatureInfoMatches(ValidationContext &ValCtx,
