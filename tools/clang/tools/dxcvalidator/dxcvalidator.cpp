@@ -14,7 +14,7 @@
 #include "llvm/IR/LLVMContext.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
-#include "dxc/HLSL/DxilValidation.h"
+#include "dxc/DxilValidation/DxilValidation.h"
 #include "dxc/Support/WinIncludes.h"
 #include "dxc/dxcapi.h"
 #include "dxcvalidator.h"
