@@ -10,11 +10,11 @@
 
 #define NOMINMAX
 
+#include "dxc/Support/WinIncludes.h"
 #include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
-#include "dxc/Support/WinIncludes.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
