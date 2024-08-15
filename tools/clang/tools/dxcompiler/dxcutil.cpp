@@ -211,13 +211,13 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
   CComPtr<IDxcOperationResult> pValResult;
   // Important: in-place edit is required so the blob is reused and thus
   // dxil.dll can be released.
+  inputs.ValidationFlags |= DxcValidatorFlags_InPlaceEdit;
   if (bInternalValidator) {
-    IFT(RunInternalValidator(
-        pValidator, llvmModuleWithDebugInfo.get(), inputs.pOutputContainerBlob,
-        DxcValidatorFlags_InPlaceEdit | inputs.ValidationFlags, &pValResult));
+    IFT(RunInternalValidator(pValidator, llvmModuleWithDebugInfo.get(),
+                             inputs.pOutputContainerBlob,
+                             inputs.ValidationFlags, &pValResult));
   } else {
     if (pValidator2 && llvmModuleWithDebugInfo) {
-
       // If metadata was stripped, re-serialize the input module.
       CComPtr<AbstractMemoryStream> pDebugModuleStream;
       IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pDebugModuleStream));
@@ -230,13 +230,11 @@ HRESULT ValidateAndAssembleToContainer(AssembleInputs &inputs) {
       debugModule.Size = pDebugModuleStream->GetPtrSize();
 
       IFT(pValidator2->ValidateWithDebug(inputs.pOutputContainerBlob,
-                                         DxcValidatorFlags_InPlaceEdit |
-                                             inputs.ValidationFlags,
-                                         &debugModule, &pValResult));
+                                         inputs.ValidationFlags, &debugModule,
+                                         &pValResult));
     } else {
-      IFT(pValidator->Validate(
-          inputs.pOutputContainerBlob,
-          DxcValidatorFlags_InPlaceEdit | inputs.ValidationFlags, &pValResult));
+      IFT(pValidator->Validate(inputs.pOutputContainerBlob,
+                               inputs.ValidationFlags, &pValResult));
     }
   }
   IFT(pValResult->GetStatus(&valHR));

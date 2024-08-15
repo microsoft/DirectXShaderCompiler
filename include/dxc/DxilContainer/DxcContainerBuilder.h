@@ -11,10 +11,12 @@
 
 #pragma once
 
-#include "dxc/DxilContainer/DxilContainer.h"
-#include "dxc/DxilHash/DxilHash.h"
+// Include Windows header early for DxilHash.h.
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
+
+#include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilHash/DxilHash.h"
 #include "dxc/Support/microcom.h"
 #include "dxc/dxcapi.h"
 #include "llvm/ADT/SmallVector.h"

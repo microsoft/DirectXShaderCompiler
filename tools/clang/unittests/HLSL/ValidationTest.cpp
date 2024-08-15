@@ -295,6 +295,7 @@ public:
   TEST_METHOD(ValidateRootSigContainer)
   TEST_METHOD(ValidatePrintfNotAllowed)
 
+  TEST_METHOD(ValidateWithAndWithoutHash)
   TEST_METHOD(ValidateVersionNotAllowed)
   TEST_METHOD(CreateHandleNotAllowedSM66)
 
@@ -4069,6 +4070,43 @@ TEST_F(ValidationTest, ValidateRootSigContainer) {
 
 TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
   TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
+}
+
+TEST_F(ValidationTest, ValidateWithAndWithoutHash) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+  CComPtr<IDxcBlob> pProgram;
+  CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
+                "ps_6_0", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  // With hash.
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  CComPtr<IDxcBlob> pValidationOutput;
+  pResult->GetStatus(&status);
+  VERIFY_SUCCEEDED(status);
+  pResult->GetResult(&pValidationOutput);
+  // Make sure the validation output is not null when hashing.
+  VERIFY_SUCCEEDED(pValidationOutput != nullptr);
+  // Without hash.
+  CComPtr<IDxcOperationResult> pResult2;
+  Flags = DxcValidatorFlags_SkipHash;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult2));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pResult2);
+  pResult2->GetStatus(&status);
+  VERIFY_SUCCEEDED(status);
+  CComPtr<IDxcBlob> pValidationOutput2;
+  pResult2->GetResult(&pValidationOutput2);
+  // Make sure the validation output is null when not hashing.
+  VERIFY_SUCCEEDED(pValidationOutput2 == nullptr);
 }
 
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {

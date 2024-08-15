@@ -218,8 +218,8 @@ uint32_t hlsl::validateWithOptDebugModule(
       DiagStream->Write(msg.c_str(), msg.size(), &cbWritten);
     }
     if (Flags & (DxcValidatorFlags_ModuleOnly | DxcValidatorFlags_SkipHash)) {
-      // If we are validating a module only, we don't want to return the
-      // diagnostics stream.
+      // Validating a module only or SkipHash, return DXC_OUT_NONE instead of
+      // DXC_OUT_OBJECT.
       CComPtr<IDxcBlob> pDiagBlob;
       hr = DiagStream.QueryInterface(&pDiagBlob);
       DXASSERT_NOMSG(SUCCEEDED(hr));

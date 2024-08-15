@@ -9,9 +9,6 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
-#include "dxc/Support/Global.h"
-#include "dxc/Support/WinIncludes.h"
-
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/Support/ErrorCodes.h"
@@ -189,6 +186,9 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   CATCH_CPP_RETURN_HRESULT();
 }
 
+// Try hashing the source contained in ContainerHeader using retail and debug
+// hashing functions. If either of them match the stored result, set the
+// HashFunction to the matching variant. If neither match, set it to null.
 void DxcContainerBuilder::FindHashFunctionFromSource(
     const DxilContainerHeader *ContainerHeader) {
   DXASSERT(ContainerHeader != nullptr &&
