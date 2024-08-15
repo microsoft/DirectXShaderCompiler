@@ -870,8 +870,7 @@ static const UINT32 DxcValidatorFlags_InPlaceEdit =
     1; // Validator is allowed to update shader blob in-place.
 static const UINT32 DxcValidatorFlags_RootSignatureOnly = 2;
 static const UINT32 DxcValidatorFlags_ModuleOnly = 4;
-static const UINT32 DxcValidatorFlags_SkipHash = 8;
-static const UINT32 DxcValidatorFlags_ValidMask = 0xf;
+static const UINT32 DxcValidatorFlags_ValidMask = 0x7;
 
 CROSS_PLATFORM_UUIDOF(IDxcValidator, "A6E82BD2-1FD7-4826-9811-2857E797F49A")
 /// \brief Interface to DXC shader validator.

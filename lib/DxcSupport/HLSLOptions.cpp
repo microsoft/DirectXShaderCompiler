@@ -813,7 +813,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.ResMayAlias = Args.hasFlag(OPT_res_may_alias, OPT_INVALID, false);
   opts.ResMayAlias =
       Args.hasFlag(OPT_res_may_alias_, OPT_INVALID, opts.ResMayAlias);
-  opts.SkipHash = Args.hasFlag(OPT_skip_hash, OPT_INVALID, false);
   opts.ForceZeroStoreLifetimes =
       Args.hasFlag(OPT_force_zero_store_lifetimes, OPT_INVALID, false);
   // Lifetime markers on by default in 6.6 unless disabled explicitly

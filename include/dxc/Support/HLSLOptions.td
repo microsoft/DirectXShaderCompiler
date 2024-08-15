@@ -540,8 +540,6 @@ def all_resources_bound : Flag<["-", "/"], "all-resources-bound">, Flags<[CoreOp
   HelpText<"Enables agressive flattening">;
 def all_resources_bound_ : Flag<["-", "/"], "all_resources_bound">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
   HelpText<"Enables agressive flattening">;
-def skip_hash : Flag<["-", "/"], "skip-hash">, Flags<[CoreOption, HelpHidden]>, Group<hlslcomp_Group>,
-  HelpText<"Do not hash the output container.">;
 
 def setprivate : JoinedOrSeparate<["-", "/"], "setprivate">, Flags<[CoreOption, DriverOption]>, MetaVarName<"<file>">, Group<hlslutil_Group>,
   HelpText<"Private data to add to compiled shader blob">;

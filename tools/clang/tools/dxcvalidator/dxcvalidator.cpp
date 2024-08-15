@@ -217,8 +217,8 @@ uint32_t hlsl::validateWithOptDebugModule(
       ULONG cbWritten;
       DiagStream->Write(msg.c_str(), msg.size(), &cbWritten);
     }
-    if (Flags & (DxcValidatorFlags_ModuleOnly | DxcValidatorFlags_SkipHash)) {
-      // Validating a module only or SkipHash, return DXC_OUT_NONE instead of
+    if (Flags & (DxcValidatorFlags_ModuleOnly)) {
+      // Validating a module only, return DXC_OUT_NONE instead of
       // DXC_OUT_OBJECT.
       CComPtr<IDxcBlob> pDiagBlob;
       hr = DiagStream.QueryInterface(&pDiagBlob);

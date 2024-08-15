@@ -14,10 +14,11 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "dxc/Support/WinIncludes.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
-#include "dxc/Support/WinIncludes.h"
+#include "dxc/DxilHash/DxilHash.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Regex.h"
@@ -295,7 +296,7 @@ public:
   TEST_METHOD(ValidateRootSigContainer)
   TEST_METHOD(ValidatePrintfNotAllowed)
 
-  TEST_METHOD(ValidateWithAndWithoutHash)
+  TEST_METHOD(ValidateWithHash)
   TEST_METHOD(ValidateVersionNotAllowed)
   TEST_METHOD(CreateHandleNotAllowedSM66)
 
@@ -4072,7 +4073,7 @@ TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
   TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
 }
 
-TEST_F(ValidationTest, ValidateWithAndWithoutHash) {
+TEST_F(ValidationTest, ValidateWithHash) {
   if (m_ver.SkipDxilVersion(1, 8))
     return;
   CComPtr<IDxcBlob> pProgram;
@@ -4095,18 +4096,17 @@ TEST_F(ValidationTest, ValidateWithAndWithoutHash) {
   pResult->GetResult(&pValidationOutput);
   // Make sure the validation output is not null when hashing.
   VERIFY_SUCCEEDED(pValidationOutput != nullptr);
-  // Without hash.
-  CComPtr<IDxcOperationResult> pResult2;
-  Flags = DxcValidatorFlags_SkipHash;
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult2));
-  // Make sure the validation was successful.
-  VERIFY_IS_NOT_NULL(pResult2);
-  pResult2->GetStatus(&status);
-  VERIFY_SUCCEEDED(status);
-  CComPtr<IDxcBlob> pValidationOutput2;
-  pResult2->GetResult(&pValidationOutput2);
-  // Make sure the validation output is null when not hashing.
-  VERIFY_SUCCEEDED(pValidationOutput2 == nullptr);
+
+  hlsl::DxilContainerHeader *pHeader =
+      (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  // Validate the hash.
+  constexpr uint32_t HashStartOffset =
+      offsetof(struct DxilContainerHeader, Version);
+  auto *DataToHash = (const BYTE *)pHeader + HashStartOffset;
+  UINT AmountToHash = pHeader->ContainerSizeInBytes - HashStartOffset;
+  BYTE Result[DxilContainerHashSize];
+  ComputeHashRetail(DataToHash, AmountToHash, Result);
+  VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
 
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {
