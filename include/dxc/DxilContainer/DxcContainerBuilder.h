@@ -73,7 +73,8 @@ private:
   // This is nullptr if loaded container has invalid hash
   HASH_FUNCTION_PROTO *m_HashFunction;
 
-  void FindHashFunctionFromSource(const DxilContainerHeader *ContainerHeader);
+  void DetermineHashFunctionFromContainerContents(
+      const DxilContainerHeader *ContainerHeader);
   void HashAndUpdate(DxilContainerHeader *ContainerHeader);
 
   UINT32 ComputeContainerSize();

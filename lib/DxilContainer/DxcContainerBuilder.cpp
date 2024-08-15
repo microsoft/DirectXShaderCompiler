@@ -48,7 +48,7 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::Load(IDxcBlob *pSource) {
     // Collect hash function.
     const DxilContainerHeader *Header =
         (DxilContainerHeader *)pSource->GetBufferPointer();
-    FindHashFunctionFromSource(Header);
+    DetermineHashFunctionFromContainerContents(Header);
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
@@ -189,7 +189,7 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
 // Try hashing the source contained in ContainerHeader using retail and debug
 // hashing functions. If either of them match the stored result, set the
 // HashFunction to the matching variant. If neither match, set it to null.
-void DxcContainerBuilder::FindHashFunctionFromSource(
+void DxcContainerBuilder::DetermineHashFunctionFromContainerContents(
     const DxilContainerHeader *ContainerHeader) {
   DXASSERT(ContainerHeader != nullptr &&
                IsDxilContainerLike(ContainerHeader,

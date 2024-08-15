@@ -51,20 +51,12 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
     Shader->AddRef();
   } else {
     CComPtr<AbstractMemoryStream> HashedBlobStream;
-    uint32_t HR =
-        CreateMemoryStream(DxcGetThreadMallocNoRef(), &HashedBlobStream);
-    if (FAILED(HR))
-      throw hlsl::Exception(HR);
-
+    IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &HashedBlobStream));
     unsigned long CB;
-    HR = HashedBlobStream->Write(Shader->GetBufferPointer(),
-                                 Shader->GetBufferSize(), &CB);
-    if (FAILED(HR))
-      throw hlsl::Exception(HR);
+    IFT(HashedBlobStream->Write(Shader->GetBufferPointer(),
+                                Shader->GetBufferSize(), &CB));
     HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr());
-    HR = HashedBlobStream.QueryInterface(Hashed);
-    if (FAILED(HR))
-      throw hlsl::Exception(HR);
+    IFT(HashedBlobStream.QueryInterface(Hashed));
   }
 }
 
