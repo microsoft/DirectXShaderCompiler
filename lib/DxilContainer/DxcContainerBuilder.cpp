@@ -166,27 +166,25 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
         {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, pResult, DxcOutNoName),
          DxcOutputObject::DataOutput(DXC_OUT_ERRORS, pErrorBlob, DxcOutNoName)},
         ppResult));
-
-    // Add Hash.
-    if (ppResult == nullptr || *ppResult == nullptr)
-      return S_OK;
-
-    HRESULT HR;
-    (*ppResult)->GetStatus(&HR);
-    if (FAILED(HR))
-      return S_OK;
-
-    CComPtr<IDxcBlob> pObject;
-    HR = (*ppResult)->GetResult(&pObject);
-    if (FAILED(HR))
-      return S_OK;
-
-    LPVOID PTR = pObject->GetBufferPointer();
-    if (IsDxilContainerLike(PTR, pObject->GetBufferSize()))
-      HashAndUpdate((DxilContainerHeader *)PTR);
-    return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
+
+  if (ppResult == nullptr || *ppResult == nullptr)
+    return S_OK;
+
+  HRESULT HR;
+  (*ppResult)->GetStatus(&HR);
+  if (FAILED(HR))
+    return HR;
+
+  CComPtr<IDxcBlob> pObject;
+  IFR((*ppResult)->GetResult(&pObject));
+
+  // Add Hash.
+  LPVOID PTR = pObject->GetBufferPointer();
+  if (IsDxilContainerLike(PTR, pObject->GetBufferSize()))
+    HashAndUpdate((DxilContainerHeader *)PTR);
+  return S_OK;
 }
 
 // Try hashing the source contained in ContainerHeader using retail and debug
