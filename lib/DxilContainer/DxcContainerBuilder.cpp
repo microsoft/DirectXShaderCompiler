@@ -168,19 +168,22 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
         ppResult));
 
     // Add Hash.
-    if (ppResult != nullptr && *ppResult != nullptr) {
-      HRESULT HR;
-      (*ppResult)->GetStatus(&HR);
-      if (SUCCEEDED(HR)) {
-        CComPtr<IDxcBlob> pObject;
-        HR = (*ppResult)->GetResult(&pObject);
-        if (SUCCEEDED(HR)) {
-          LPVOID PTR = pObject->GetBufferPointer();
-          if (IsDxilContainerLike(PTR, pObject->GetBufferSize()))
-            HashAndUpdate((DxilContainerHeader *)PTR);
-        }
-      }
-    }
+    if (ppResult == nullptr || *ppResult == nullptr)
+      return S_OK;
+
+    HRESULT HR;
+    (*ppResult)->GetStatus(&HR);
+    if (FAILED(HR))
+      return S_OK;
+
+    CComPtr<IDxcBlob> pObject;
+    HR = (*ppResult)->GetResult(&pObject);
+    if (FAILED(HR))
+      return S_OK;
+
+    LPVOID PTR = pObject->GetBufferPointer();
+    if (IsDxilContainerLike(PTR, pObject->GetBufferSize()))
+      HashAndUpdate((DxilContainerHeader *)PTR);
     return S_OK;
   }
   CATCH_CPP_RETURN_HRESULT();
