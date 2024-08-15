@@ -979,6 +979,13 @@ private:
                                 SpirvInstruction **constOffset,
                                 SpirvInstruction **varOffset);
 
+  void handleOptionalTextureSampleArgs(const CXXMemberCallExpr *expr,
+                                       uint32_t index,
+                                       SpirvInstruction **constOffset,
+                                       SpirvInstruction **varOffset,
+                                       SpirvInstruction **clamp,
+                                       SpirvInstruction **status);
+
   /// \brief Processes .Load() method call for Buffer/RWBuffer and texture
   /// objects.
   SpirvInstruction *processBufferTextureLoad(const CXXMemberCallExpr *);

@@ -40,20 +40,21 @@ void main() {
 // CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleDrefExplicitLod %float [[sampledImg]] [[v2fc]] [[cmpVal]] Grad|ConstOffset %float_2 %float_3 %int_n5
     float val2 = t1_array.SampleCmpGrad(s, float2(1, 2), cmpVal, 2, 3, -5);
 
-// CHECK:           [[clamp:%[0-9]+]] = OpLoad %float %clamp
-// CHECK-NEXT:         [[t2:%[0-9]+]] = OpLoad %type_2d_image %t2
+
+// CHECK:              [[t2:%[0-9]+]] = OpLoad %type_2d_image %t2
 // CHECK-NEXT:    [[sampler:%[0-9]+]] = OpLoad %type_sampler %s
 // CHECK-NEXT:     [[cmpVal:%[0-9]+]] = OpLoad %float %cmpVal
+// CHECK-NEXT:      [[clamp:%[0-9]+]] = OpLoad %float %clamp
 // CHECK-NEXT: [[sampledImg:%[0-9]+]] = OpSampledImage %type_sampled_image_1 [[t2]] [[sampler]]
 // CHECK-NEXT:            {{%[0-9]+}} = OpImageSampleDrefExplicitLod %float [[sampledImg]] [[v2fc]] [[cmpVal]] Grad|ConstOffset|MinLod [[v2f_2]] [[v2f_3]] [[v2ic]] [[clamp]]
     float val3 = t2.SampleCmpGrad(s, float2(1, 2), cmpVal, float2(2, 2), float2(3, 3), uint2(-5, 7), clamp);
 
     uint status;
 
-// CHECK:              [[clamp:%[0-9]+]] = OpLoad %float %clamp
-// CHECK-NEXT:         [[tcube:%[0-9]+]] = OpLoad %type_cube_image %tcube
+// CHECK:              [[tcube:%[0-9]+]] = OpLoad %type_cube_image %tcube
 // CHECK-NEXT:       [[sampler:%[0-9]+]] = OpLoad %type_sampler %s
 // CHECK-NEXT:        [[cmpVal:%[0-9]+]] = OpLoad %float %cmpVal
+// CHECK-NEXT:         [[clamp:%[0-9]+]] = OpLoad %float %clamp
 // CHECK-NEXT:    [[sampledImg:%[0-9]+]] = OpSampledImage %type_sampled_image_2 [[tcube]] [[sampler]]
 // CHECK-NEXT: [[structResult:%[0-9]+]]  = OpImageSparseSampleDrefExplicitLod %SparseResidencyStruct [[sampledImg]] [[v3fc]] [[cmpVal]] Grad|MinLod [[v3f_1]] [[v3f_2]] [[clamp]]
 // CHECK-NEXT:        [[status:%[0-9]+]] = OpCompositeExtract %uint [[structResult]] 0
