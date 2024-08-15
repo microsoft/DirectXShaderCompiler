@@ -195,9 +195,9 @@ void DxcContainerBuilder::FindHashFunctionFromSource(
                IsDxilContainerLike(ContainerHeader,
                                    ContainerHeader->ContainerSizeInBytes),
            "otherwise load function should have returned an error.");
-  static const uint32_t HashStartOffset =
+  constexpr uint32_t HashStartOffset =
       offsetof(struct DxilContainerHeader, Version);
-  const BYTE *DataToHash = (const BYTE *)ContainerHeader + HashStartOffset;
+  auto *DataToHash = (const BYTE *)ContainerHeader + HashStartOffset;
   UINT AmountToHash = ContainerHeader->ContainerSizeInBytes - HashStartOffset;
   BYTE Result[DxilContainerHashSize];
   ComputeHashRetail(DataToHash, AmountToHash, Result);
