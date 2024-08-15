@@ -49,6 +49,7 @@ public:
     m_warning = warning;
     m_RequireValidation = false;
     m_HasPrivateData = false;
+    m_HashFunction = nullptr;
   }
 
 protected:
