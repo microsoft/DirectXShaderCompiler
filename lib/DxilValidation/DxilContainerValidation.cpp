@@ -77,22 +77,16 @@ static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
   hlsl::dxilutil::EmitErrorOnContext(Ctx, str);
 }
 
-struct MemSpan {
-  uint32_t *Ptr = nullptr;
-  uint32_t Size = 0;
-  bool isEmpty() { return Size == 0; }
-};
-
 struct SimpleViewIDState {
   unsigned NumInputSigScalars = 0;
   unsigned NumOutputSigScalars[DXIL::kNumOutputStreams] = {0, 0, 0, 0};
   unsigned NumPCOrPrimSigScalars = 0;
 
-  MemSpan InputToOutputTable[DXIL::kNumOutputStreams];
-  MemSpan InputToPCOutputTable;
-  MemSpan PCInputToOutputTable;
-  MemSpan ViewIDOutputMask[DXIL::kNumOutputStreams];
-  MemSpan ViewIDPCOutputMask;
+  ArrayRef<uint32_t> InputToOutputTable[DXIL::kNumOutputStreams];
+  ArrayRef<uint32_t> InputToPCOutputTable;
+  ArrayRef<uint32_t> PCInputToOutputTable;
+  ArrayRef<uint32_t> ViewIDOutputMask[DXIL::kNumOutputStreams];
+  ArrayRef<uint32_t> ViewIDPCOutputMask;
   bool IsValid = true;
   SimpleViewIDState(std::vector<uint32_t> &Data, PSVShaderKind,
                     bool UsesViewID);
@@ -163,9 +157,9 @@ private:
   void VerifyResource(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
                       DxilResourceBase &);
   void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1);
-  void VerifyViewIDMask(PSVComponentMask &&, MemSpan &,
+  void VerifyViewIDMask(PSVComponentMask &&, ArrayRef<uint32_t> &,
                         unsigned NumOutputScalars);
-  void VerifyDependencyTable(PSVDependencyTable &&, MemSpan &,
+  void VerifyDependencyTable(PSVDependencyTable &&, ArrayRef<uint32_t> &,
                              unsigned NumInputScalars,
                              unsigned NumOutputScalars);
   void VerifyEntryProperties(const ShaderModel *SM, PSVRuntimeInfo0 *PSV0,
@@ -188,10 +182,10 @@ private:
 };
 
 void PSVContentVerifier::VerifyDependencyTable(PSVDependencyTable &&Tab,
-                                               MemSpan &Mem,
+                                               ArrayRef<uint32_t> &Mem,
                                                unsigned NumInputScalars,
                                                unsigned NumOutputScalars) {
-  if (Tab.InputVectors == 0 && Tab.OutputVectors == 0 && Mem.isEmpty())
+  if (Tab.InputVectors == 0 && Tab.OutputVectors == 0 && Mem.empty())
     return;
 
   if (Tab.InputVectors != (PSVALIGN4(NumInputScalars) >> 2))
@@ -199,28 +193,29 @@ void PSVContentVerifier::VerifyDependencyTable(PSVDependencyTable &&Tab,
   if (Tab.OutputVectors != (PSVALIGN4(NumOutputScalars) >> 2))
     EmitFormatError("Number of OutputVectors for PSVDependencyTable");
 
-  if (Mem.Size != NumInputScalars * RoundUpToUINT(NumOutputScalars)) {
+  if (Mem.size() != NumInputScalars * RoundUpToUINT(NumOutputScalars)) {
     EmitFormatError("Size of PSVDependencyTable");
     return;
   }
-  if (memcmp(Mem.Ptr, Tab.Table, 4 * Mem.Size) != 0) {
+  if (memcmp(Mem.data(), Tab.Table, 4 * Mem.size()) != 0) {
     EmitFormatError("PSVDependencyTable");
   }
 }
 
-void PSVContentVerifier::VerifyViewIDMask(PSVComponentMask &&Mask, MemSpan &Mem,
+void PSVContentVerifier::VerifyViewIDMask(PSVComponentMask &&Mask,
+                                          ArrayRef<uint32_t> &Mem,
                                           unsigned NumOutputScalars) {
-  if (Mask.NumVectors == 0 && Mem.isEmpty())
+  if (Mask.NumVectors == 0 && Mem.empty())
     return;
 
   if (Mask.NumVectors != (PSVALIGN4(NumOutputScalars) >> 2))
     EmitFormatError("NumVectors of PSVComponentMask");
 
-  if (Mem.Size != RoundUpToUINT(NumOutputScalars)) {
+  if (Mem.size() != RoundUpToUINT(NumOutputScalars)) {
     EmitFormatError("Size of PSVComponentMask");
     return;
   }
-  if (memcmp(Mem.Ptr, Mask.Mask, 4 * Mem.Size) != 0) {
+  if (memcmp(Mem.data(), Mask.Mask, 4 * Mem.size()) != 0) {
     EmitFormatError("PSVComponentMask");
   }
 }
