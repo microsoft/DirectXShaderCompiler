@@ -3392,6 +3392,23 @@ SpirvVariable *DeclResultIdMapper::getInstanceIdFromIndexAndBase(
   return instanceIdVar;
 }
 
+SpirvVariable *DeclResultIdMapper::getVertexIdFromIndexAndBase(
+    SpirvVariable *vertexIndexVar, SpirvVariable *baseVertexVar) {
+  QualType type = vertexIndexVar->getAstResultType();
+  auto *vertexIdVar = spvBuilder.addFnVar(
+      type, vertexIndexVar->getSourceLocation(), "SV_VertexID");
+  auto *vertexIndexValue = spvBuilder.createLoad(
+      type, vertexIndexVar, vertexIndexVar->getSourceLocation());
+  auto *baseVertexValue = spvBuilder.createLoad(
+      type, baseVertexVar, vertexIndexVar->getSourceLocation());
+  auto *vertexIdValue = spvBuilder.createBinaryOp(
+      spv::Op::OpISub, type, vertexIndexValue, baseVertexValue,
+      vertexIndexVar->getSourceLocation());
+  spvBuilder.createStore(vertexIdVar, vertexIdValue,
+                         vertexIndexVar->getSourceLocation());
+  return vertexIdVar;
+}
+
 SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
     SemanticInfo *semantic, const hlsl::SigPoint *sigPoint, QualType type) {
   assert(type->isSpecificBuiltinType(BuiltinType::Kind::Int) ||
@@ -3405,6 +3422,21 @@ SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
   var.setIsSpirvBuiltin();
   stageVars.push_back(var);
   return baseInstanceVar;
+}
+
+SpirvVariable *DeclResultIdMapper::getBaseVertexVariable(
+    SemanticInfo *semantic, const hlsl::SigPoint *sigPoint, QualType type) {
+  assert(type->isSpecificBuiltinType(BuiltinType::Kind::Int) ||
+         type->isSpecificBuiltinType(BuiltinType::Kind::UInt));
+  auto *baseVertexVar = spvBuilder.addStageBuiltinVar(
+      type, spv::StorageClass::Input, spv::BuiltIn::BaseVertex, false,
+      semantic->loc);
+  StageVar var(sigPoint, *semantic, nullptr, type,
+               getLocationAndComponentCount(astContext, type));
+  var.setSpirvInstr(baseVertexVar);
+  var.setIsSpirvBuiltin();
+  stageVars.push_back(var);
+  return baseVertexVar;
 }
 
 SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
@@ -3498,6 +3530,17 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
 
     // SPIR-V code for 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
     varInstr = getInstanceIdFromIndexAndBase(varInstr, baseInstanceVar);
+  }
+
+  if (spirvOptions.supportNonzeroBaseVertex &&
+      stageVarData.semantic->getKind() == hlsl::Semantic::Kind::VertexID &&
+      stageVarData.sigPoint->GetKind() == hlsl::SigPoint::Kind::VSIn) {
+
+    auto *baseVertexVar = getBaseVertexVariable(
+        stageVarData.semantic, stageVarData.sigPoint, stageVarData.type);
+
+    // SPIR-V code for 'SV_VertexID = gl_VertexIndex - gl_BaseVertex'
+    varInstr = getVertexIdFromIndexAndBase(varInstr, baseVertexVar);
   }
 
   // We have semantics attached to this decl, which means it must be a

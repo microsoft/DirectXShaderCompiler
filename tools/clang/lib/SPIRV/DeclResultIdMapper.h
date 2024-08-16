@@ -791,6 +791,19 @@ private:
   SpirvVariable *getInstanceIdFromIndexAndBase(SpirvVariable *instanceIndexVar,
                                                SpirvVariable *baseInstanceVar);
 
+  // Creates a function scope variable to represent the "SV_VertexID"
+  // semantic, which it not immediately available in SPIR-V. Its value will be
+  // set by subtracting the values of the given InstanceIndex and base instance
+  // variables.
+  //
+  // vertexIndexVar: The SPIR-V input variable that decorated with
+  // vertexIndex.
+  //
+  // baseVertexVar: The SPIR-V input variable that is decorated with
+  // BaseVertex.
+  SpirvVariable *getVertexIdFromIndexAndBase(SpirvVariable *vertexIndexVar,
+                                               SpirvVariable *baseVertexVar);
+
   // Creates and returns a variable that is the BaseInstance builtin input. The
   // variable is also added to the list of stage variable `this->stageVars`. Its
   // type will be a 32-bit integer.
@@ -807,6 +820,25 @@ private:
   //
   // type: The type to use for the new variable. Must be int or unsigned int.
   SpirvVariable *getBaseInstanceVariable(SemanticInfo *semantic,
+                                         const hlsl::SigPoint *sigPoint,
+                                         QualType type);
+
+  // Creates and returns a variable that is the BaseVertex builtin input. The
+  // variable is also added to the list of stage variable `this->stageVars`. Its
+  // type will be a 32-bit integer.
+  //
+  // The semantic is a lie. We currently give it the semantic for the
+  // VertexID. I'm not sure what would happen if we did not use a semantic, or
+  // tried to generate the correct one. I'm guessing there would be some issue
+  // with reflection.
+  //
+  // semantic: the semantic to attach to this variable
+  //
+  // sigPoint: the signature point identifying which shader stage the variable
+  // will be used in.
+  //
+  // type: The type to use for the new variable. Must be int or unsigned int.
+  SpirvVariable *getBaseVertexVariable(SemanticInfo *semantic,
                                          const hlsl::SigPoint *sigPoint,
                                          QualType type);
 

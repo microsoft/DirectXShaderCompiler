@@ -65,6 +65,7 @@ struct SpirvCodeGenOptions {
   bool reduceLoadSize;
   bool autoShiftBindings;
   bool supportNonzeroBaseInstance;
+  bool supportNonzeroBaseVertex;
   bool fixFuncCallArguments;
   bool allowRWStructuredBufferArrays;
   bool enableMaximalReconvergence;
