@@ -802,7 +802,7 @@ private:
   // baseVertexVar: The SPIR-V input variable that is decorated with
   // BaseVertex.
   SpirvVariable *getVertexIdFromIndexAndBase(SpirvVariable *vertexIndexVar,
-                                               SpirvVariable *baseVertexVar);
+                                             SpirvVariable *baseVertexVar);
 
   // Creates and returns a variable that is the BaseInstance builtin input. The
   // variable is also added to the list of stage variable `this->stageVars`. Its
@@ -839,8 +839,8 @@ private:
   //
   // type: The type to use for the new variable. Must be int or unsigned int.
   SpirvVariable *getBaseVertexVariable(SemanticInfo *semantic,
-                                         const hlsl::SigPoint *sigPoint,
-                                         QualType type);
+                                       const hlsl::SigPoint *sigPoint,
+                                       QualType type);
 
   // Creates and return a new interface variable from the information provided.
   // The new variable with be add to `this->StageVars`.

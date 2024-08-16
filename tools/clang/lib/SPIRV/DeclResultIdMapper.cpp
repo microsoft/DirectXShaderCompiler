@@ -3392,8 +3392,9 @@ SpirvVariable *DeclResultIdMapper::getInstanceIdFromIndexAndBase(
   return instanceIdVar;
 }
 
-SpirvVariable *DeclResultIdMapper::getVertexIdFromIndexAndBase(
-    SpirvVariable *vertexIndexVar, SpirvVariable *baseVertexVar) {
+SpirvVariable *
+DeclResultIdMapper::getVertexIdFromIndexAndBase(SpirvVariable *vertexIndexVar,
+                                                SpirvVariable *baseVertexVar) {
   QualType type = vertexIndexVar->getAstResultType();
   auto *vertexIdVar = spvBuilder.addFnVar(
       type, vertexIndexVar->getSourceLocation(), "SV_VertexID");
