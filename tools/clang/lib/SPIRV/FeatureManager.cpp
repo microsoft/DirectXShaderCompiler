@@ -87,6 +87,12 @@ FeatureManager::FeatureManager(DiagnosticsEngine &de,
   } else {
     for (auto ext : opts.allowedExtensions)
       allowExtension(ext);
+
+    // The option to use the vulkan memory model implies the extension is
+    // available.
+    if (opts.useVulkanMemoryModel) {
+      allowExtension("SPV_KHR_vulkan_memory_model");
+    }
   }
 }
 

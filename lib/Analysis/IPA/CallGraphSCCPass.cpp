@@ -219,7 +219,7 @@ bool CGPassManager::RefreshCallGraph(CallGraphSCC &CurSCC,
     // Get the set of call sites currently in the function.
     for (CallGraphNode::iterator I = CGN->begin(), E = CGN->end(); I != E; ) {
       // If this call site is null, then the function pass deleted the call
-      // entirely and the WeakVH nulled it out.  
+      // entirely and the WeakTrackingVH nulled it out.
       if (!I->first ||
           // If we've already seen this call site, then the FunctionPass RAUW'd
           // one call with another, which resulted in two "uses" in the edge
@@ -360,9 +360,10 @@ bool CGPassManager::RefreshCallGraph(CallGraphSCC &CurSCC,
     if (NumIndirectRemoved > NumIndirectAdded &&
         NumDirectRemoved < NumDirectAdded)
       DevirtualizedCall = true;
-    
+
     // After scanning this function, if we still have entries in callsites, then
-    // they are dangling pointers.  WeakVH should save us for this, so abort if
+    // they are dangling pointers.  WeakTrackingVH should save us for this, so
+    // abort if
     // this happens.
     assert(CallSites.empty() && "Dangling pointers found in call sites map");
     

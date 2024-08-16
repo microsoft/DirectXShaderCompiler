@@ -3,9 +3,9 @@
 // CHECK:  OpExtension "SPV_NV_mesh_shader"
 // CHECK:  OpEntryPoint MeshNV %main "main" %gl_GlobalInvocationID %gl_Position [[primind:%[0-9]+]] [[primcount:%[0-9]+]]
 // CHECK:  OpExecutionMode %main LocalSize 128 1 1
-// CHECK:  OpExecutionMode %main OutputLinesNV
+// CHECK:  OpExecutionMode %main OutputLinesEXT
 // CHECK:  OpExecutionMode %main OutputVertices 256
-// CHECK:  OpExecutionMode %main OutputPrimitivesNV 256
+// CHECK:  OpExecutionMode %main OutputPrimitivesEXT 256
 
 // CHECK:  OpDecorate %gl_GlobalInvocationID BuiltIn GlobalInvocationId
 // CHECK:  OpDecorate %gl_Position BuiltIn Position

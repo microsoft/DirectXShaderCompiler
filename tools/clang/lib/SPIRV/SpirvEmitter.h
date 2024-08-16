@@ -25,6 +25,7 @@
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/ParentMap.h"
 #include "clang/AST/TypeOrdering.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -35,6 +36,7 @@
 
 #include "ConstEvaluator.h"
 #include "DeclResultIdMapper.h"
+#include "spirv-tools/optimizer.hpp"
 
 namespace spvtools {
 namespace opt {
@@ -112,6 +114,11 @@ public:
   createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs, QualType retType,
                          llvm::ArrayRef<SpirvInstruction *> spvArgs,
                          bool isInstr, SourceLocation loc);
+
+  /// \brief Negates to get the additive inverse of SV_Position.y if requested.
+  SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc,
+                                       SourceRange range = {});
 
 private:
   void doFunctionDecl(const FunctionDecl *decl);
@@ -266,6 +273,11 @@ private:
                                const Expr **base = nullptr,
                                const Expr **index = nullptr);
 
+  bool isDescriptorHeap(const Expr *expr);
+
+  void getDescriptorHeapOperands(const Expr *expr, const Expr **base,
+                                 const Expr **index);
+
   /// \brief Returns true if the given CXXOperatorCallExpr is the .mips[][]
   /// access into a Texture or .sample[][] access into Texture2DMS(Array). On
   /// success, writes base texture object into *base if base is not nullptr,
@@ -361,7 +373,14 @@ private:
   /// the value. It returns the <result-id> of the processed vector.
   SpirvInstruction *processEachVectorInMatrix(
       const Expr *matrix, SpirvInstruction *matrixVal,
-      llvm::function_ref<SpirvInstruction *(uint32_t, QualType,
+      llvm::function_ref<SpirvInstruction *(uint32_t, QualType, QualType,
+                                            SpirvInstruction *)>
+          actOnEachVector,
+      SourceLocation loc = {}, SourceRange range = {});
+
+  SpirvInstruction *processEachVectorInMatrix(
+      const Expr *matrix, QualType outputType, SpirvInstruction *matrixVal,
+      llvm::function_ref<SpirvInstruction *(uint32_t, QualType, QualType,
                                             SpirvInstruction *)>
           actOnEachVector,
       SourceLocation loc = {}, SourceRange range = {});
@@ -411,6 +430,10 @@ private:
   /// Validates that vk::* attributes are used correctly and returns false if
   /// errors are found.
   bool validateVKAttributes(const NamedDecl *decl);
+
+  /// Records any Spir-V capabilities and extensions for the given varDecl so
+  /// they will be added to the SPIR-V module.
+  void registerCapabilitiesAndExtensionsForVarDecl(const VarDecl *varDecl);
 
 private:
   /// Converts the given value from the bitwidth of 'fromType' to the bitwidth
@@ -826,8 +849,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
-                                SpirvFunction *entryFuncId,
-                                SpirvDebugFunction *debugFunction);
+                                SpirvFunction *entryFuncId);
 
   /// \brief Emits a wrapper function for the entry functions for raytracing
   /// stages and returns true on success.
@@ -837,8 +859,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
-                                             SpirvFunction *entryFuncId,
-                                             SpirvDebugFunction *debugFunction);
+                                             SpirvFunction *entryFuncId);
 
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
@@ -1180,6 +1201,19 @@ private:
   /// Returns true on success and false otherwise.
   bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
 
+  // \brief Runs the pass represented by the given pass token on the module.
+  // Returns true if the pass was successfully run. Any messages from the
+  // optimizer are returned in `messages`.
+  bool spirvToolsRunPass(std::vector<uint32_t> *mod,
+                         spvtools::Optimizer::PassToken token,
+                         std::string *messages);
+
+  // \brief Calls SPIRV-Tools optimizer fix-opextinst-opcodes pass. This pass
+  // fixes OpExtInst/OpExtInstWithForwardRefsKHR opcodes to use the correct one
+  // depending of the presence of forward references.
+  bool spirvToolsFixupOpExtInst(std::vector<uint32_t> *mod,
+                                std::string *messages);
+
   // \brief Calls SPIRV-Tools optimizer's, but only with the capability trimming
   // pass. Removes unused capabilities from the given SPIR-V module |mod|, and
   // returns info/warning/error messages via |messages|. This pass doesn't trim
@@ -1187,6 +1221,13 @@ private:
   // headers.
   bool spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
                                   std::string *messages);
+
+  // \brief Runs the upgrade memory model pass using SPIRV-Tools's optimizer.
+  // This pass will modify the module, |mod|, so that it conforms to the Vulkan
+  // memory model instead of the GLSL450 memory model. Returns
+  // info/warning/error messages via |messages|.
+  bool spirvToolsUpgradeToVulkanMemoryModel(std::vector<uint32_t> *mod,
+                                            std::string *messages);
 
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
@@ -1241,6 +1282,11 @@ private:
   SpirvInstruction *splatScalarToGenerate(QualType type,
                                           SpirvInstruction *scalar,
                                           SpirvLayoutRule rule);
+
+  /// Modifies the instruction in the code that use the GLSL450 memory module to
+  /// use the Vulkan memory model. This is done only if it has been requested or
+  /// the Vulkan memory model capability has been added to the module.
+  bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
 
 public:
   /// \brief Wrapper method to create a fatal error message and report it
@@ -1421,6 +1467,9 @@ private:
 
   /// The <result-id> of the OpString containing the main source file's path.
   SpirvString *mainSourceFile;
+
+  /// ParentMap of the current function.
+  std::unique_ptr<ParentMap> parentMap = nullptr;
 };
 
 void SpirvEmitter::doDeclStmt(const DeclStmt *declStmt) {

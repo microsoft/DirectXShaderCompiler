@@ -210,6 +210,10 @@ public:
                                      SpirvDebugInstruction *elemType,
                                      uint32_t elemCount);
 
+  SpirvDebugType *getDebugTypeMatrix(const SpirvType *spirvType,
+                                     SpirvDebugInstruction *vectorType,
+                                     uint32_t vectorCount);
+
   SpirvDebugType *getDebugTypeFunction(const SpirvType *spirvType,
                                        uint32_t flags, SpirvDebugType *ret,
                                        llvm::ArrayRef<SpirvDebugType *> params);

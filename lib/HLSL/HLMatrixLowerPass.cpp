@@ -60,7 +60,12 @@ class TempOverloadPool {
 public:
   TempOverloadPool(llvm::Module &Module, const char *BaseName)
       : Module(Module), BaseName(BaseName) {}
-  ~TempOverloadPool() { clear(); }
+  ~TempOverloadPool() {
+    if (!Funcs.empty()) {
+      // The flow has thrown an exception. Let that exception
+      // propagate out and be reported as a compile error.
+    }
+  }
 
   Function *get(FunctionType *Ty);
   bool contains(FunctionType *Ty) const { return Funcs.count(Ty) != 0; }
@@ -248,11 +253,14 @@ bool HLMatrixLowerPass::runOnModule(Module &M) {
   m_matToVecStubs = nullptr;
   m_vecToMatStubs = nullptr;
 
-  // If you hit an assert during TempOverloadPool destruction,
+  // If you hit an assert while clearing TempOverloadPool,
   // it means that either a matrix producer was lowered,
   // causing a translation stub to be created,
   // but the consumer of that matrix was never (properly) lowered.
   // Or the opposite: a matrix consumer was lowered and not its producer.
+
+  matToVecStubs.clear();
+  vecToMatStubs.clear();
 
   return true;
 }

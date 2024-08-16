@@ -8,7 +8,7 @@ black==24.3.0
     # via
     #   -r llvm/utils/git/requirements_formatting.txt.in
     #   darker
-certifi==2023.7.22
+certifi==2024.7.4
     # via requests
 cffi==1.15.1
     # via
@@ -46,7 +46,7 @@ requests==2.32.0
     # via pygithub
 toml==0.10.2
     # via darker
-urllib3==2.0.7
+urllib3==2.2.2
     # via requests
 wrapt==1.15.0
     # via deprecated

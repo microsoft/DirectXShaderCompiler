@@ -1509,7 +1509,6 @@ void CShaderReflectionConstantBuffer::Initialize(
 }
 
 static unsigned CalcResTypeSize(DxilModule &M, DxilResource &R) {
-  UNREFERENCED_PARAMETER(M);
   Type *Ty = R.GetHLSLType()->getPointerElementType();
   if (R.IsStructuredBuffer()) {
     Ty = dxilutil::StripArrayTypes(Ty);

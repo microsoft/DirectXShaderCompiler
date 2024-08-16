@@ -1,11 +1,11 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # This file is distributed under the University of Illinois Open Source License. See LICENSE.TXT for details.
 
-if (WIN32)
+if (MSVC)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
-endif (WIN32)
+endif (MSVC)
 
-if (WIN32)
+if (MSVC)
   add_llvm_library(LLVMDxilDia
     DxcPixCompilationInfo.cpp
     DxcPixDxilDebugInfo.cpp
@@ -33,7 +33,7 @@ if (WIN32)
     ADDITIONAL_HEADER_DIRS
     ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
   )
-else(WIN32)
+else(MSVC)
   # DxcPixLiveVariables_FragmentIterator is not dependent on dia.
   # It is used by PixTest.
   set(HLSL_IGNORE_SOURCES
@@ -65,11 +65,11 @@ else(WIN32)
     ADDITIONAL_HEADER_DIRS
     ${LLVM_MAIN_INCLUDE_DIR}/llvm/IR
   )
-endif(WIN32)
+endif(MSVC)
 
-if (WIN32)
+if (MSVC)
   target_link_libraries(LLVMDxilDia PRIVATE ${LIBRARIES} ${DIASDK_LIBRARIES})
   include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS})
-endif (WIN32)
+endif (MSVC)
 
 add_dependencies(LLVMDxilDia LLVMDxilPIXPasses intrinsics_gen)

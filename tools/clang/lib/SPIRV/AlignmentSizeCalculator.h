@@ -67,6 +67,15 @@ private:
     return astContext.getDiagnostics().Report(srcLoc, diagId);
   }
 
+  /// Emits warning to the diagnostic engine associated with this visitor.
+  template <unsigned N>
+  DiagnosticBuilder emitWarning(const char (&message)[N],
+                                SourceLocation srcLoc = {}) const {
+    const auto diagId = astContext.getDiagnostics().getCustomDiagID(
+        clang::DiagnosticsEngine::Warning, message);
+    return astContext.getDiagnostics().Report(srcLoc, diagId);
+  }
+
   // Returns the alignment and size in bytes for the given struct
   // according to the given LayoutRule.
   std::pair<uint32_t, uint32_t>

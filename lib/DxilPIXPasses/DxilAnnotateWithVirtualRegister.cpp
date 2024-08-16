@@ -121,6 +121,13 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   if (m_DM == nullptr) {
     return false;
   }
+  unsigned int Major = 0;
+  unsigned int Minor = 0;
+  m_DM->GetValidatorVersion(Major, Minor);
+  if (hlsl::DXIL::CompareVersions(Major, Minor, 1, 4) < 0) {
+    m_DM->SetValidatorVersion(1, 4);
+  }
+
   std::uint32_t InstNum = m_StartInstruction;
 
   auto instrumentableFunctions =

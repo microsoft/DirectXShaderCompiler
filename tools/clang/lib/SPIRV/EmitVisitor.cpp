@@ -431,7 +431,8 @@ void EmitVisitor::initInstruction(SpirvInstruction *inst) {
                                spv::Decoration::RelaxedPrecision, {});
   }
   // Emit NoContraction decoration (if any).
-  if (inst->isPrecise() && inst->isArithmeticInstruction()) {
+  if ((spvOptions.IEEEStrict || inst->isPrecise()) &&
+      inst->isArithmeticInstruction()) {
     typeHandler.emitDecoration(getOrAssignResultId<SpirvInstruction>(inst),
                                spv::Decoration::NoContraction, {});
   }
@@ -1001,6 +1002,13 @@ bool EmitVisitor::visit(SpirvConstantComposite *inst) {
 
 bool EmitVisitor::visit(SpirvConstantNull *inst) {
   typeHandler.getOrCreateConstant(inst);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvUndef *inst) {
+  typeHandler.getOrCreateUndef(inst);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
@@ -1655,6 +1663,21 @@ bool EmitVisitor::visit(SpirvDebugTypeVector *inst) {
   return true;
 }
 
+bool EmitVisitor::visit(SpirvDebugTypeMatrix *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getInstructionSet()));
+  curInst.push_back(inst->getDebugOpcode());
+  curInst.push_back(
+      getOrAssignResultId<SpirvInstruction>(inst->getVectorType()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(inst->getVectorCount()));
+  curInst.push_back(getLiteralEncodedForDebugInfo(1));
+  finalizeInstruction(&richDebugInfo);
+  return true;
+}
+
 bool EmitVisitor::visit(SpirvDebugTypeArray *inst) {
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
@@ -2010,6 +2033,8 @@ uint32_t EmitTypeHandler::getOrCreateConstant(SpirvConstant *inst) {
     return getOrCreateConstantNull(constNull);
   } else if (auto *constBool = dyn_cast<SpirvConstantBoolean>(inst)) {
     return getOrCreateConstantBool(constBool);
+  } else if (auto *constUndef = dyn_cast<SpirvUndef>(inst)) {
+    return getOrCreateUndef(constUndef);
   }
 
   llvm_unreachable("cannot emit unknown constant type");
@@ -2067,6 +2092,31 @@ uint32_t EmitTypeHandler::getOrCreateConstantNull(SpirvConstantNull *inst) {
     emittedConstantNulls.push_back(inst);
   }
 
+  return inst->getResultId();
+}
+
+uint32_t EmitTypeHandler::getOrCreateUndef(SpirvUndef *inst) {
+  auto canonicalType = inst->getAstResultType().getCanonicalType();
+  auto found = std::find_if(
+      emittedUndef.begin(), emittedUndef.end(),
+      [canonicalType](SpirvUndef *cached) {
+        return cached->getAstResultType().getCanonicalType() == canonicalType;
+      });
+
+  if (found != emittedUndef.end()) {
+    // We have already emitted this constant. Reuse.
+    inst->setResultId((*found)->getResultId());
+    return inst->getResultId();
+  }
+
+  // Constant wasn't emitted in the past.
+  const uint32_t typeId = emitType(inst->getResultType());
+  initTypeInstruction(inst->getopcode());
+  curTypeInst.push_back(typeId);
+  curTypeInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  finalizeTypeInstruction();
+  // Remember this constant for the future
+  emittedUndef.push_back(inst);
   return inst->getResultId();
 }
 

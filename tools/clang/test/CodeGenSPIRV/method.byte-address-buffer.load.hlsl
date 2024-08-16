@@ -2,6 +2,11 @@
 
 ByteAddressBuffer myBuffer;
 
+struct S {
+  uint32_t x : 8;
+  uint32_t y : 8;
+};
+
 [numthreads(1, 1, 1)]
 void main() {
   uint addr = 0;
@@ -50,4 +55,11 @@ void main() {
 // CHECK-NEXT: [[load4_word3:%[0-9]+]] = OpLoad %uint [[load_ptr6]]
 // CHECK-NEXT: {{%[0-9]+}} = OpCompositeConstruct %v4uint [[load4_word0]] [[load4_word1]] [[load4_word2]] [[load4_word3]]
   uint4 word4 = myBuffer.Load4(addr);
+
+// CHECK: [[idx:%[0-9]+]] = OpShiftRightLogical %uint %uint_0 %uint_2
+// CHECK: [[ac:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %myBuffer %uint_0 [[idx]]
+// CHECK: [[bitfield:%[0-9]+]] = OpLoad %uint [[ac]]
+// CHECK: [[s:%[0-9]+]] = OpCompositeConstruct %S [[bitfield]]
+// CHECK: OpStore %s [[s]]
+  S s = myBuffer.Load<S>(0);
 }

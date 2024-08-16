@@ -102,6 +102,7 @@ set(LIBRARIES
   clangTooling
   clangBasic
   libclang
+  dxcvalidator
   )
 
 if(WIN32)
@@ -121,13 +122,13 @@ set(GENERATED_HEADERS
   ClangStmtNodes
   )
 
-if (WIN32)
+if (MSVC)
   find_package(DiaSDK REQUIRED) # Used for constants and declarations.
-endif (WIN32)
+endif (MSVC)
 
 add_clang_library(dxcompiler SHARED ${SOURCES})
 add_dependencies(dxcompiler TablegenHLSLOptions) 
-if (WIN32)
+if (MSVC)
   # No DxcEtw on non-Windows platforms.
   add_dependencies(dxcompiler DxcEtw)
 endif()
@@ -136,6 +137,7 @@ if (ENABLE_SPIRV_CODEGEN)
   target_link_libraries(dxcompiler PRIVATE clangSPIRV)
 endif (ENABLE_SPIRV_CODEGEN)
 include_directories(AFTER ${LLVM_INCLUDE_DIR}/dxc/Tracing ${DIASDK_INCLUDE_DIRS} ${HLSL_VERSION_LOCATION})
+include_directories(${LLVM_SOURCE_DIR}/tools/clang/tools/dxcvalidator)
 
 set_target_properties(dxcompiler
   PROPERTIES

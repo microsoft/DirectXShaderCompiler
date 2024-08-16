@@ -162,13 +162,13 @@ void DebugTypeVisitor::lowerDebugTypeMembers(
   }
 
   // Note:
-  //    The NonSemantic.Shader.DebugInfo.100 way to define member functions
-  //    breaks both the NonSemantic and SPIR-V specification. Until this is
-  //    resolved, we cannot emit debug instructions for member functions without
-  //    creating invalid forward references.
-  //
+  //    Generating forward references is possible for non-semantic debug info,
+  //    but not when using OpenCL.DebugInfo.100.
+  //    Doing so would go against the SPIR-V spec.
   //    See https://github.com/KhronosGroup/SPIRV-Registry/issues/203
-#if 0
+  if (!spvOptions.debugInfoVulkan)
+    return;
+
   // Push member functions to DebugTypeComposite Members operand.
   for (auto *subDecl : decl->decls()) {
     if (const auto *methodDecl = dyn_cast<FunctionDecl>(subDecl)) {
@@ -181,7 +181,6 @@ void DebugTypeVisitor::lowerDebugTypeMembers(
       }
     }
   }
-#endif
 }
 
 SpirvDebugTypeTemplate *DebugTypeVisitor::lowerDebugTypeTemplate(
@@ -366,15 +365,18 @@ SpirvDebugType *DebugTypeVisitor::lowerToDebugType(const SpirvType *spirvType) {
     break;
   }
   case SpirvType::TK_Matrix: {
-    // TODO: I temporarily use a DebugTypeArray for a matrix type.
-    // However, when the debug info extension supports matrix type
-    // e.g., DebugTypeMatrix, we must replace DebugTypeArray with
-    // DebugTypeMatrix.
     auto *matType = dyn_cast<MatrixType>(spirvType);
-    SpirvDebugInstruction *elemDebugType =
-        lowerToDebugType(matType->getElementType());
-    debugType = spvContext.getDebugTypeArray(
-        spirvType, elemDebugType, {matType->numRows(), matType->numCols()});
+    if (spvOptions.debugInfoVulkan) {
+      SpirvDebugInstruction *vecDebugType =
+          lowerToDebugType(matType->getVecType());
+      debugType = spvContext.getDebugTypeMatrix(spirvType, vecDebugType,
+                                                matType->numCols());
+    } else {
+      SpirvDebugInstruction *elemDebugType =
+          lowerToDebugType(matType->getElementType());
+      debugType = spvContext.getDebugTypeArray(
+          spirvType, elemDebugType, {matType->numRows(), matType->numCols()});
+    }
     break;
   }
   case SpirvType::TK_Pointer: {

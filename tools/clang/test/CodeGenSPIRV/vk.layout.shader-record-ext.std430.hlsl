@@ -1,7 +1,7 @@
 // RUN: %dxc -T lib_6_3 -fspv-target-env=vulkan1.2 -fvk-use-gl-layout -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: OpEntryPoint ClosestHitNV %chs1 "chs1" %cbuf %block %P %A
-// CHECK: OpEntryPoint ClosestHitNV %chs2 "chs2" %cbuf %block %P_0 %A_0
+// CHECK: OpEntryPoint ClosestHitKHR %chs1 "chs1" %cbuf %block %P %A
+// CHECK: OpEntryPoint ClosestHitKHR %chs2 "chs2" %cbuf %block %P_0 %A_0
 
 // CHECK: OpDecorate %_arr_v2float_uint_3 ArrayStride 8
 // CHECK: OpDecorate %_arr_mat3v2float_uint_2 ArrayStride 32
@@ -70,8 +70,8 @@ cbuffer block {
 struct Payload { float p; };
 struct Attr    { float a; };
 
-// CHECK: %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_S = OpTypePointer ShaderRecordBufferNV %type_ConstantBuffer_S
-// CHECK: %cbuf = OpVariable %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_S ShaderRecordBufferNV
+// CHECK: %_ptr_ShaderRecordBufferKHR_type_ConstantBuffer_S = OpTypePointer ShaderRecordBufferKHR %type_ConstantBuffer_S
+// CHECK: %cbuf = OpVariable %_ptr_ShaderRecordBufferKHR_type_ConstantBuffer_S ShaderRecordBufferKHR
 
 [shader("closesthit")]
 void chs1(inout Payload P, in Attr A) {

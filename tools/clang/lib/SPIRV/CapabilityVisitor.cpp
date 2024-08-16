@@ -46,7 +46,7 @@ void CapabilityVisitor::addCapability(spv::Capability cap, SourceLocation loc) {
 void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
                                              SourceLocation loc,
                                              spv::StorageClass sc) {
-  // Defent against instructions that do not have a return type.
+  // Defend against instructions that do not have a return type.
   if (!type)
     return;
 
@@ -827,8 +827,6 @@ void CapabilityVisitor::AddVulkanMemoryModelForVolatile(SpirvDecoration *decor,
                    "Volatile builtin variable in raytracing", loc);
     }
     addCapability(spv::Capability::VulkanMemoryModel, loc);
-    spvBuilder.setMemoryModel(spv::AddressingModel::Logical,
-                              spv::MemoryModel::VulkanKHR);
   }
 }
 
@@ -893,10 +891,6 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
     addExtensionAndCapabilitiesIfEnabled(Extension::KHR_ray_tracing,
                                          {spv::Capability::RayTracingKHR});
   }
-
-  addExtensionAndCapabilitiesIfEnabled(
-      Extension::KHR_vulkan_memory_model,
-      {spv::Capability::VulkanMemoryModelDeviceScope});
 
   addExtensionAndCapabilitiesIfEnabled(
       Extension::NV_shader_subgroup_partitioned,

@@ -1,8 +1,8 @@
 // RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fspv-extension=SPV_KHR_ray_query -fcgl  %s -spirv | FileCheck %s
 // CHECK:  OpCapability RayTracingNV
 // CHECK:  OpExtension "SPV_NV_ray_tracing"
-// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdNV
-// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeNV
+// CHECK:  OpDecorate [[a:%[0-9]+]] BuiltIn LaunchIdKHR
+// CHECK:  OpDecorate [[b:%[0-9]+]] BuiltIn LaunchSizeKHR
 
 // CHECK: %accelerationStructureNV = OpTypeAccelerationStructureKHR
 // CHECK-NOT: OpTypeAccelerationStructureKHR

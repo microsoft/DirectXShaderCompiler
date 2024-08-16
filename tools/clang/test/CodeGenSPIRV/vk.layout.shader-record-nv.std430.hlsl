@@ -67,8 +67,8 @@ cbuffer block {
 struct Payload { float p; };
 struct Attr    { float a; };
 
-// CHECK: %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_S = OpTypePointer ShaderRecordBufferNV %type_ConstantBuffer_S
-// CHECK: %cbuf = OpVariable %_ptr_ShaderRecordBufferNV_type_ConstantBuffer_S ShaderRecordBufferNV
+// CHECK: %_ptr_ShaderRecordBufferKHR_type_ConstantBuffer_S = OpTypePointer ShaderRecordBufferKHR %type_ConstantBuffer_S
+// CHECK: %cbuf = OpVariable %_ptr_ShaderRecordBufferKHR_type_ConstantBuffer_S ShaderRecordBufferKHR
 
 [shader("closesthit")]
 void chs1(inout Payload P, in Attr A) {

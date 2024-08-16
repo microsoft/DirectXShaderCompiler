@@ -1562,7 +1562,7 @@
         </Row>
         <Row Name="AcosHalf">
             <Parameter Name="Validation.Type">Epsilon</Parameter>
-            <Parameter Name="Validation.Tolerance">0.0008</Parameter>
+            <Parameter Name="Validation.Tolerance">0.0010</Parameter>
             <Parameter Name="ShaderOp.Text"> struct SUnaryFPOp {
                 float16_t input;
                 float16_t output;

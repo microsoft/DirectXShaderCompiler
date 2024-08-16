@@ -19,7 +19,6 @@
 #include "dxc/DXIL/DxilOperations.h"
 #include "dxc/DXIL/DxilResourceProperties.h"
 #include "dxc/DXIL/DxilUtil.h"
-#include "dxc/DXIL/DxilWaveMatrix.h"
 #include "dxc/HLSL/DxilPoisonValues.h"
 #include "dxc/HLSL/HLLowerUDT.h"
 #include "dxc/HLSL/HLMatrixLowerHelper.h"
@@ -53,11 +52,7 @@ struct HLOperationLowerHelper {
   DxilFunctionProps *functionProps;
   DataLayout dataLayout;
   SmallDenseMap<Type *, Type *, 4> loweredTypes;
-  typedef std::pair<DxilWaveMatrixProperties, Constant *> WaveMatrix_Props;
-  typedef DenseMap<Value *, WaveMatrix_Props> WaveMatrix_PropMap;
-  WaveMatrix_PropMap waveMatPropMap;
   HLOperationLowerHelper(HLModule &HLM);
-  const WaveMatrix_Props &GetWaveMatInfo(Value *waveMatPtr);
 };
 
 HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
@@ -76,19 +71,6 @@ HLOperationLowerHelper::HLOperationLowerHelper(HLModule &HLM)
   functionProps = nullptr;
   if (HLM.HasDxilFunctionProps(EntryFunc))
     functionProps = &HLM.GetDxilFunctionProps(EntryFunc);
-}
-
-const HLOperationLowerHelper::WaveMatrix_Props &
-HLOperationLowerHelper::GetWaveMatInfo(Value *waveMatPtr) {
-  auto it = waveMatPropMap.find(waveMatPtr);
-  if (it == waveMatPropMap.end()) {
-    Constant *infoC = wavemat_helper::GetInfoConstantFromWaveMatPtr(waveMatPtr);
-    DxilWaveMatrixProperties info = wavemat_helper::LoadInfoFromConstant(infoC);
-    it = waveMatPropMap
-             .insert(std::make_pair(waveMatPtr, std::make_pair(info, infoC)))
-             .first;
-  }
-  return it->second;
 }
 
 struct HLObjectOperationLowerHelper {
@@ -4304,23 +4286,12 @@ void TranslateLoad(ResLoadHelper &helper, HLResource::Kind RK,
   UpdateStatus(ResRet, helper.status, Builder, OP);
 }
 
-Value *TranslateWaveMatLoadStore(CallInst *CI, IntrinsicOp IOP,
-                                 OP::OpCode opcode,
-                                 HLOperationLowerHelper &helper,
-                                 HLObjectOperationLowerHelper *pObjHelper,
-                                 bool &Translated);
-
 Value *TranslateResourceLoad(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                              HLOperationLowerHelper &helper,
                              HLObjectOperationLowerHelper *pObjHelper,
                              bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-
-  // object.Load(...) could be WaveMatrix Load instead of resource method
-  if (handle->getType() == hlslOP->GetWaveMatPtrType())
-    return TranslateWaveMatLoadStore(CI, IOP, opcode, helper, pObjHelper,
-                                     Translated);
 
   IRBuilder<> Builder(CI);
 
@@ -4608,11 +4579,6 @@ Value *TranslateResourceStore(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                               bool &Translated) {
   hlsl::OP *hlslOP = &helper.hlslOP;
   Value *handle = CI->getArgOperand(HLOperandIndex::kHandleOpIdx);
-
-  // object.Store(...) could be WaveMatrix Store instead of resource method
-  if (handle->getType() == hlslOP->GetWaveMatPtrType())
-    return TranslateWaveMatLoadStore(CI, IOP, opcode, helper, pObjHelper,
-                                     Translated);
 
   IRBuilder<> Builder(CI);
   DXIL::ResourceKind RK = pObjHelper->GetRK(handle);
@@ -6095,188 +6061,6 @@ Value *TranslateUnpack(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   return ResVec;
 }
 
-Value *TranslateWaveMatrixDepth(CallInst *CI, IntrinsicOp IOP,
-                                OP::OpCode opcode,
-                                HLOperationLowerHelper &helper,
-                                HLObjectOperationLowerHelper *pObjHelper,
-                                bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-
-  Value *thisWaveMatPtr = CI->getArgOperand(HLOperandIndex::kWaveMatThisOpIdx);
-  const auto &props = helper.GetWaveMatInfo(thisWaveMatPtr);
-
-  IRBuilder<> Builder(CI);
-  Function *dxilFunc = hlslOP->GetOpFunc(opcode, helper.voidTy);
-  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  return Builder.CreateCall(dxilFunc, {opArg, props.second});
-}
-
-Value *TranslateWaveMatrixFill(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
-                               HLOperationLowerHelper &helper,
-                               HLObjectOperationLowerHelper *pObjHelper,
-                               bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-
-  Value *thisWaveMatPtr = CI->getArgOperand(HLOperandIndex::kWaveMatThisOpIdx);
-  Value *val = CI->getArgOperand(HLOperandIndex::kWaveMatFillScalarOpIdx);
-
-  IRBuilder<> Builder(CI);
-  Function *dxilFunc = hlslOP->GetOpFunc(opcode, val->getType());
-  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  return Builder.CreateCall(dxilFunc, {opArg, thisWaveMatPtr, val});
-}
-
-Value *TranslateWaveMatrixScalarOp(CallInst *CI, IntrinsicOp IOP,
-                                   OP::OpCode opcode,
-                                   HLOperationLowerHelper &helper,
-                                   HLObjectOperationLowerHelper *pObjHelper,
-                                   bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-
-  Value *thisWaveMatPtr = CI->getArgOperand(HLOperandIndex::kWaveMatThisOpIdx);
-  Value *val = CI->getArgOperand(HLOperandIndex::kWaveMatScalarOpOpIdx);
-
-  DXIL::WaveMatrixScalarOpCode scalarOp = DXIL::WaveMatrixScalarOpCode::Invalid;
-  switch (IOP) {
-  case IntrinsicOp::MOP_ScalarAdd:
-    scalarOp = DXIL::WaveMatrixScalarOpCode::Add;
-    break;
-  case IntrinsicOp::MOP_ScalarSubtract:
-    scalarOp = DXIL::WaveMatrixScalarOpCode::Subtract;
-    break;
-  case IntrinsicOp::MOP_ScalarMultiply:
-    scalarOp = DXIL::WaveMatrixScalarOpCode::Multiply;
-    break;
-  case IntrinsicOp::MOP_ScalarDivide:
-    scalarOp = DXIL::WaveMatrixScalarOpCode::Divide;
-    break;
-  default:
-    DXASSERT(false, "Missing case for WaveMatrix scalar operation");
-  }
-
-  IRBuilder<> Builder(CI);
-  Function *dxilFunc = hlslOP->GetOpFunc(opcode, val->getType());
-  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  Constant *scalarOpArg = hlslOP->GetU8Const((unsigned)scalarOp);
-  return Builder.CreateCall(dxilFunc,
-                            {opArg, thisWaveMatPtr, scalarOpArg, val});
-}
-
-Value *TranslateWaveMatrix_Accumulate(CallInst *CI, IntrinsicOp IOP,
-                                      OP::OpCode opcode,
-                                      HLOperationLowerHelper &helper,
-                                      HLObjectOperationLowerHelper *pObjHelper,
-                                      bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-
-  Value *thisWaveMatPtr = CI->getArgOperand(HLOperandIndex::kWaveMatThisOpIdx);
-  Value *otherWaveMatPtr1 =
-      CI->getArgOperand(HLOperandIndex::kWaveMatOther1OpIdx);
-
-  IRBuilder<> Builder(CI);
-  Function *dxilFunc = hlslOP->GetOpFunc(opcode, helper.voidTy);
-  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  return Builder.CreateCall(dxilFunc,
-                            {opArg, thisWaveMatPtr, otherWaveMatPtr1});
-}
-
-Value *TranslateWaveMatrixMultiply(CallInst *CI, IntrinsicOp IOP,
-                                   OP::OpCode opcode,
-                                   HLOperationLowerHelper &helper,
-                                   HLObjectOperationLowerHelper *pObjHelper,
-                                   bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-
-  Value *thisWaveMatPtr = CI->getArgOperand(HLOperandIndex::kWaveMatThisOpIdx);
-  Value *otherWaveMatPtr1 =
-      CI->getArgOperand(HLOperandIndex::kWaveMatOther1OpIdx);
-  Value *otherWaveMatPtr2 =
-      CI->getArgOperand(HLOperandIndex::kWaveMatOther2OpIdx);
-
-  IRBuilder<> Builder(CI);
-  Function *dxilFunc = hlslOP->GetOpFunc(opcode, helper.voidTy);
-  Constant *opArg = hlslOP->GetU32Const((unsigned)opcode);
-  return Builder.CreateCall(
-      dxilFunc, {opArg, thisWaveMatPtr, otherWaveMatPtr1, otherWaveMatPtr2});
-}
-
-Value *TranslateWaveMatLoadStore(CallInst *CI, IntrinsicOp IOP,
-                                 OP::OpCode opcode,
-                                 HLOperationLowerHelper &helper,
-                                 HLObjectOperationLowerHelper *pObjHelper,
-                                 bool &Translated) {
-  hlsl::OP *hlslOP = &helper.hlslOP;
-
-  // buf is raw buffer handle or groupshared ptr:
-  Value *buf = CI->getArgOperand(HLOperandIndex::kWaveMatLoadStoreBufOpIdx);
-  Type *bufETy = buf->getType();
-  bool bRawBuf = bufETy == hlslOP->GetHandleType();
-  if (!bRawBuf) {
-    Constant *C = dyn_cast<Constant>(buf);
-    if (auto *CE = dyn_cast<ConstantExpr>(C))
-      C = CE->getOperand(0)->stripPointerCasts();
-    DXASSERT(
-        C && C->getType()->getPointerAddressSpace() == DXIL::kTGSMAddrSpace,
-        "otherwise, non-groupshared type passed to groupshared Load/Store");
-    bufETy = dxilutil::StripArrayTypes(C->getType()->getPointerElementType());
-    buf = ConstantExpr::getPointerBitCastOrAddrSpaceCast(
-        C, bufETy->getPointerTo(DXIL::kTGSMAddrSpace));
-  }
-
-  // Determine if fragment (LeftColAcc/RightRowAcc)
-  const auto &props = helper.GetWaveMatInfo(
-      CI->getArgOperand(HLOperandIndex::kWaveMatThisOpIdx));
-  DXIL::WaveMatrixKind waveMatKind = props.first.kind;
-  bool bFragment = waveMatKind == DXIL::WaveMatrixKind::LeftColAcc ||
-                   waveMatKind == DXIL::WaveMatrixKind::RightRowAcc;
-
-  if (IOP == IntrinsicOp::MOP_Load) {
-    opcode = bRawBuf ? OP::OpCode::WaveMatrix_LoadRawBuf
-                     : OP::OpCode::WaveMatrix_LoadGroupShared;
-  } else if (IOP == IntrinsicOp::MOP_Store) {
-    opcode = bRawBuf ? OP::OpCode::WaveMatrix_StoreRawBuf
-                     : OP::OpCode::WaveMatrix_StoreGroupShared;
-  } else {
-    DXASSERT(0, "otherwise, unexpected IntrinsicOp");
-  }
-
-  Function *dxilFunc =
-      hlslOP->GetOpFunc(opcode, bRawBuf ? helper.voidTy : bufETy);
-
-  IRBuilder<> Builder(CI);
-  SmallVector<Value *, 7> args;
-  args.push_back(hlslOP->GetU32Const((unsigned)opcode));
-  args.push_back(CI->getArgOperand(HLOperandIndex::kWaveMatThisOpIdx));
-  args.push_back(buf);
-  args.push_back(
-      CI->getArgOperand(HLOperandIndex::kWaveMatLoadStoreStartOpIdx));
-
-  // For fragment, stride is element stride with same argument mapping.
-  args.push_back(
-      CI->getArgOperand(HLOperandIndex::kWaveMatLoadStoreStrideOpIdx));
-
-  // if handle, push align arg
-  if (bRawBuf) {
-    Value *align = ConstantInt::get(helper.i8Ty, (uint64_t)0);
-    const unsigned AlignOpIdx =
-        bFragment ? HLOperandIndex::kWaveMatFragLoadStoreAlignmentOpIdx
-                  : HLOperandIndex::kWaveMatLoadStoreAlignmentOpIdx;
-    if (CI->getNumArgOperands() > AlignOpIdx) {
-      align = CI->getArgOperand(AlignOpIdx);
-      align = Builder.CreateTrunc(align, helper.i8Ty);
-    }
-    args.push_back(align);
-  }
-
-  // No orientation for matrix fragments, just use i1 0 for unused arg.
-  args.push_back(
-      bFragment
-          ? ConstantInt::get(helper.i1Ty, (uint64_t)0)
-          : CI->getArgOperand(HLOperandIndex::kWaveMatLoadStoreColMajorOpIdx));
-
-  return Builder.CreateCall(dxilFunc, args);
-}
-
 } // namespace
 
 // Resource Handle.
@@ -6953,26 +6737,6 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::RayQuery_WorldRayDirection},
     {IntrinsicOp::MOP_WorldRayOrigin, TranslateRayQueryFloat3Getter,
      DXIL::OpCode::RayQuery_WorldRayOrigin},
-    {IntrinsicOp::MOP_Fill, TranslateWaveMatrixFill,
-     DXIL::OpCode::WaveMatrix_Fill},
-    {IntrinsicOp::MOP_MatrixDepth, TranslateWaveMatrixDepth,
-     DXIL::OpCode::WaveMatrix_Depth},
-    {IntrinsicOp::MOP_ScalarAdd, TranslateWaveMatrixScalarOp,
-     DXIL::OpCode::WaveMatrix_ScalarOp},
-    {IntrinsicOp::MOP_ScalarDivide, TranslateWaveMatrixScalarOp,
-     DXIL::OpCode::WaveMatrix_ScalarOp},
-    {IntrinsicOp::MOP_ScalarMultiply, TranslateWaveMatrixScalarOp,
-     DXIL::OpCode::WaveMatrix_ScalarOp},
-    {IntrinsicOp::MOP_ScalarSubtract, TranslateWaveMatrixScalarOp,
-     DXIL::OpCode::WaveMatrix_ScalarOp},
-    {IntrinsicOp::MOP_SumAccumulate, TranslateWaveMatrix_Accumulate,
-     DXIL::OpCode::WaveMatrix_SumAccumulate},
-    {IntrinsicOp::MOP_Add, TranslateWaveMatrix_Accumulate,
-     DXIL::OpCode::WaveMatrix_Add},
-    {IntrinsicOp::MOP_Multiply, TranslateWaveMatrixMultiply,
-     DXIL::OpCode::WaveMatrix_Multiply},
-    {IntrinsicOp::MOP_MultiplyAccumulate, TranslateWaveMatrixMultiply,
-     DXIL::OpCode::WaveMatrix_MultiplyAccumulate},
     {IntrinsicOp::MOP_Count, TranslateNodeGetInputRecordCount,
      DXIL::OpCode::GetInputRecordCount},
     {IntrinsicOp::MOP_FinishedCrossGroupSharing,

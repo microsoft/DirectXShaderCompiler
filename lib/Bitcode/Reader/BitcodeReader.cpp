@@ -44,7 +44,7 @@ enum {
 };
 
 class BitcodeReaderValueList {
-  std::vector<WeakVH> ValuePtrs;
+  std::vector<WeakTrackingVH> ValuePtrs;
 
   /// As we resolve forward-referenced constants, we add information about them
   /// to this vector.  This allows us to resolve them in bulk instead of
@@ -786,7 +786,7 @@ void BitcodeReaderValueList::assignValue(Value *V, unsigned Idx) {
   if (Idx >= size())
     resize(Idx+1);
 
-  WeakVH &OldV = ValuePtrs[Idx];
+  WeakTrackingVH &OldV = ValuePtrs[Idx];
   if (!OldV) {
     OldV = V;
     return;

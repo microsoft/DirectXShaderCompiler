@@ -57,6 +57,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantInteger)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantFloat)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvConstantNull)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvUndef)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeConstruct)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeExtract)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvCompositeInsert)
@@ -100,6 +101,7 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugScope)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeBasic)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeArray)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeVector)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeMatrix)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeFunction)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeComposite)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvDebugTypeMember)
@@ -540,6 +542,11 @@ bool SpirvConstant::operator==(const SpirvConstant &that) const {
     if (thatNullInst == nullptr)
       return false;
     return *nullInst == *thatNullInst;
+  } else if (auto *nullInst = dyn_cast<SpirvUndef>(this)) {
+    auto *thatNullInst = dyn_cast<SpirvUndef>(&that);
+    if (thatNullInst == nullptr)
+      return false;
+    return *nullInst == *thatNullInst;
   }
 
   assert(false && "operator== undefined for SpirvConstant subclass");
@@ -609,6 +616,15 @@ SpirvConstantNull::SpirvConstantNull(QualType type)
     : SpirvConstant(IK_ConstantNull, spv::Op::OpConstantNull, type) {}
 
 bool SpirvConstantNull::operator==(const SpirvConstantNull &that) const {
+  return opcode == that.opcode && resultType == that.resultType &&
+         astResultType == that.astResultType;
+}
+
+SpirvUndef::SpirvUndef(QualType type)
+    : SpirvInstruction(IK_Undef, spv::Op::OpUndef, type,
+                       /*SourceLocation*/ {}) {}
+
+bool SpirvUndef::operator==(const SpirvUndef &that) const {
   return opcode == that.opcode && resultType == that.resultType &&
          astResultType == that.astResultType;
 }
@@ -1086,6 +1102,11 @@ SpirvDebugTypeVector::SpirvDebugTypeVector(SpirvDebugType *elemType,
                                            uint32_t elemCount)
     : SpirvDebugType(IK_DebugTypeVector, /*opcode*/ 6u), elementType(elemType),
       elementCount(elemCount) {}
+
+SpirvDebugTypeMatrix::SpirvDebugTypeMatrix(SpirvDebugTypeVector *vectorType,
+                                           uint32_t vectorCount)
+    : SpirvDebugType(IK_DebugTypeMatrix, /*opcode*/ 108u),
+      vectorType(vectorType), vectorCount(vectorCount) {}
 
 SpirvDebugTypeFunction::SpirvDebugTypeFunction(
     uint32_t flags, SpirvDebugType *ret,

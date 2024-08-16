@@ -429,15 +429,6 @@ void GetRowsAndColsForAny(QualType type, uint32_t &rowCount,
         const TemplateArgument &arg1 = argList[1];
         llvm::APSInt rowSize = arg1.getAsIntegral();
         colCount = rowSize.getLimitedValue();
-      } else if (templateDecl->getName().startswith("WaveMatrix")) {
-        auto name = templateDecl->getName();
-        if (name == "WaveMatrixLeft" || name == "WaveMatrixRight" ||
-            name == "WaveMatrixLeftColAcc" || name == "WaveMatrixRightRowAcc" ||
-            name == "WaveMatrixAccumulator") {
-          const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
-          rowCount = argList[1].getAsIntegral().getLimitedValue();
-          colCount = argList[2].getAsIntegral().getLimitedValue();
-        }
       }
     }
   }

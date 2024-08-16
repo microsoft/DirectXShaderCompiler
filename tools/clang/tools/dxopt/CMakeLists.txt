@@ -16,6 +16,10 @@ target_link_libraries(dxopt
   dxcompiler
   )
 
+if (MINGW)
+  target_link_options(dxopt PRIVATE -mconsole -municode)
+endif()
+
 set_target_properties(dxopt PROPERTIES VERSION ${CLANG_EXECUTABLE_VERSION})
 
 add_dependencies(dxopt dxcompiler)

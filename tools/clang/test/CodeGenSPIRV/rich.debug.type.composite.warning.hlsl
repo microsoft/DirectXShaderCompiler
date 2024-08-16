@@ -8,4 +8,4 @@ float4 main(float4 color : COLOR) : SV_TARGET {
   return color;
 }
 
-// CHECK: warning: Member functions will not be linked to their class in the debug information. See https://github.com/KhronosGroup/SPIRV-Registry/issues/203
+// CHECK: warning: Member functions will not be linked to their class in the debug information. Prefer using -fspv-debug=vulkan-with-source. See https://github.com/KhronosGroup/SPIRV-Registry/issues/203

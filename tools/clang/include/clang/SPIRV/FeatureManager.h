@@ -76,7 +76,7 @@ public:
   /// Allows all extensions to be used in CodeGen.
   void allowAllKnownExtensions();
 
-  /// Rqeusts the given extension for translating the given target feature at
+  /// Requests the given extension for translating the given target feature at
   /// the given source location. Emits an error if the given extension is not
   /// permitted to use.
   bool requestExtension(Extension, llvm::StringRef target, SourceLocation);
