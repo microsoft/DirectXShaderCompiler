@@ -32,6 +32,7 @@
 #include "DxilValidationUtils.h"
 
 #include <memory>
+#include <unordered_set>
 
 using namespace llvm;
 using namespace hlsl;
@@ -144,6 +145,20 @@ class PSVContentVerifier {
   ValidationContext &ValCtx;
   bool PSVContentValid = true;
 
+  struct PSVResourceHash {
+    uint64_t operator()(const PSVResourceBindInfo0 *BI) const {
+      return BI->Space | ((uint64_t)BI->LowerBound << 32) |
+             ((uint64_t)BI->ResType << 56);
+    }
+  };
+  struct PSVResourceEqual {
+    template <typename T> bool operator()(const T *lhs, const T *rhs) const {
+      return memcmp(lhs, rhs, sizeof(T)) == 0;
+    }
+  };
+  using PSVResourceSet = std::unordered_set<PSVResourceBindInfo0 *,
+                                            PSVResourceHash, PSVResourceEqual>;
+
 public:
   PSVContentVerifier(DxilPipelineStateValidation &PSV, DxilModule &DM,
                      ValidationContext &ValCtx)
@@ -154,8 +169,9 @@ private:
   void VerifySignatures(unsigned ValMajor, unsigned ValMinor);
   void VerifySignature(PSVSignatureElement &, DxilSignatureElement &, bool);
   void VerifyResources(unsigned PSVVersion);
-  void VerifyResource(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
-                      DxilResourceBase &);
+  template <typename T>
+  void VerifyResourceTable(T &ResTab, PSVResourceSet &ResSet,
+                           unsigned &ResIndex, unsigned PSVVersion);
   void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1);
   void VerifyViewIDMask(PSVComponentMask &&, ArrayRef<uint32_t> &,
                         unsigned NumOutputScalars);
@@ -398,6 +414,32 @@ void PSVContentVerifier::VerifySignature(PSVSignatureElement &PSVSE,
   }
 }
 
+template <typename T>
+void PSVContentVerifier::VerifyResourceTable(T &ResTab, PSVResourceSet &ResSet,
+                                             unsigned &ResIndex,
+                                             unsigned PSVVersion) {
+  for (auto &&R : ResTab) {
+    PSVResourceBindInfo1 BI;
+    initPSVResourceBinding(&BI, &BI, R.get());
+    auto It = ResSet.find(&BI);
+    if (It == ResSet.end()) {
+      EmitFormatError("ResourceBindInfo missing");
+      return;
+    }
+
+    if (PSVVersion > 1) {
+      PSVResourceBindInfo1 *BindInfo1 = (PSVResourceBindInfo1 *)*It;
+      if (memcmp(&BI, BindInfo1, sizeof(PSVResourceBindInfo1)) != 0)
+        EmitFormatError("ResourceBindInfo1 mismatch");
+    } else {
+      PSVResourceBindInfo0 *BindInfo = *It;
+      if (memcmp(&BI, BindInfo, sizeof(PSVResourceBindInfo0)) != 0)
+        EmitFormatError("ResourceBindInfo mismatch");
+    }
+    ResIndex++;
+  }
+}
+
 void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
   UINT uCBuffers = DM.GetCBuffers().size();
   UINT uSamplers = DM.GetSamplers().size();
@@ -405,100 +447,27 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
   UINT uUAVs = DM.GetUAVs().size();
   unsigned ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
   if (PSV.GetBindCount() != ResourceCount) {
-
     EmitFormatError("ResourceCount");
     return;
   }
   unsigned ResIndex = 0;
+  PSVResourceSet ResBindInfo0Set;
+  for (unsigned i = 0; i < ResourceCount; i++) {
+    PSVResourceBindInfo0 *BindInfo = PSV.GetPSVResourceBindInfo0(i);
+    if (!ResBindInfo0Set.insert(BindInfo).second) {
+      EmitFormatError("ResourceBindInfo0 duplicate");
+      return;
+    }
+  }
+
   // CBV
-  for (auto &&R : DM.GetCBuffers()) {
-    PSVResourceBindInfo0 *BindInfo = PSV.GetPSVResourceBindInfo0(ResIndex);
-    PSVResourceBindInfo1 *BindInfo1 =
-        PSVVersion > 1 ? PSV.GetPSVResourceBindInfo1(ResIndex) : nullptr;
-    VerifyResource(BindInfo, BindInfo1, *R.get());
-    ResIndex++;
-  }
+  VerifyResourceTable(DM.GetCBuffers(), ResBindInfo0Set, ResIndex, PSVVersion);
   // Sampler
-  for (auto &&R : DM.GetSamplers()) {
-    PSVResourceBindInfo0 *BindInfo = PSV.GetPSVResourceBindInfo0(ResIndex);
-    PSVResourceBindInfo1 *BindInfo1 =
-        PSVVersion > 1 ? PSV.GetPSVResourceBindInfo1(ResIndex) : nullptr;
-    VerifyResource(BindInfo, BindInfo1, *R.get());
-    ResIndex++;
-  }
-
+  VerifyResourceTable(DM.GetSamplers(), ResBindInfo0Set, ResIndex, PSVVersion);
   // SRV
-  for (auto &&R : DM.GetSRVs()) {
-    PSVResourceBindInfo0 *BindInfo = PSV.GetPSVResourceBindInfo0(ResIndex);
-    PSVResourceBindInfo1 *BindInfo1 =
-        PSVVersion > 1 ? PSV.GetPSVResourceBindInfo1(ResIndex) : nullptr;
-    VerifyResource(BindInfo, BindInfo1, *R.get());
-    ResIndex++;
-  }
-
+  VerifyResourceTable(DM.GetSRVs(), ResBindInfo0Set, ResIndex, PSVVersion);
   // UAV
-  for (auto &&R : DM.GetUAVs()) {
-    PSVResourceBindInfo0 *BindInfo = PSV.GetPSVResourceBindInfo0(ResIndex);
-    PSVResourceBindInfo1 *BindInfo1 =
-        PSVVersion > 1 ? PSV.GetPSVResourceBindInfo1(ResIndex) : nullptr;
-    VerifyResource(BindInfo, BindInfo1, *R.get());
-    ResIndex++;
-  }
-}
-
-void PSVContentVerifier::VerifyResource(PSVResourceBindInfo0 *PSVRes0,
-                                        PSVResourceBindInfo1 *PSVRes1,
-                                        DxilResourceBase &Res) {
-  if (PSVRes0->Space != Res.GetSpaceID())
-    EmitFormatError("Resource Space");
-  if (PSVRes0->LowerBound != Res.GetLowerBound())
-    EmitFormatError("Resource LowerBound");
-  if (PSVRes0->UpperBound != Res.GetUpperBound())
-    EmitFormatError("Resource UpperBound");
-  PSVResourceType ResType = PSVResourceType::Invalid;
-  bool IsUAV = Res.GetClass() == DXIL::ResourceClass::UAV;
-  switch (Res.GetKind()) {
-  case DXIL::ResourceKind::Sampler:
-    ResType = PSVResourceType::Sampler;
-    break;
-  case DXIL::ResourceKind::CBuffer:
-    ResType = PSVResourceType::CBV;
-    break;
-  case DXIL::ResourceKind::StructuredBuffer:
-    ResType =
-        IsUAV ? PSVResourceType::UAVStructured : PSVResourceType::SRVStructured;
-    if (IsUAV) {
-      DxilResource *UAV = static_cast<DxilResource *>(&Res);
-      if (UAV->HasCounter())
-        ResType = PSVResourceType::UAVStructuredWithCounter;
-    }
-    break;
-  case DXIL::ResourceKind::RTAccelerationStructure:
-    ResType = PSVResourceType::SRVRaw;
-    break;
-  case DXIL::ResourceKind::RawBuffer:
-    ResType = IsUAV ? PSVResourceType::UAVRaw : PSVResourceType::SRVRaw;
-    break;
-  default:
-    ResType = IsUAV ? PSVResourceType::UAVTyped : PSVResourceType::SRVTyped;
-    break;
-  }
-  if (PSVRes0->ResType != static_cast<uint32_t>(ResType))
-    EmitFormatError("Resource Type");
-
-  if (PSVRes1) {
-    if (PSVRes1->ResKind != static_cast<uint32_t>(Res.GetKind()))
-      EmitFormatError("Resource Kind");
-    if (IsUAV) {
-      DxilResource *UAV = static_cast<DxilResource *>(&Res);
-      unsigned ResFlags =
-          UAV->HasAtomic64Use()
-              ? static_cast<unsigned>(PSVResourceFlag::UsedByAtomic64)
-              : 0;
-      if (PSVRes1->ResFlags != ResFlags)
-        EmitFormatError("Resource Flags");
-    }
-  }
+  VerifyResourceTable(DM.GetUAVs(), ResBindInfo0Set, ResIndex, PSVVersion);
 }
 
 static char getOutputPositionPresent(DxilModule &DM) {

@@ -1232,55 +1232,28 @@ AddDxilPipelineStateValidationToDXBC(DxilModule *pModule,
     DXASSERT_LOCALVAR_NOMSG(uTotalResources, uResIndex < uTotalResources);
     PSVResourceBindInfo0 *pBindInfo = PSV.GetPSVResourceBindInfo0(uResIndex);
     DXASSERT_NOMSG(pBindInfo);
-    pBindInfo->ResType = (UINT)PSVResourceType::CBV;
-    pBindInfo->Space = R->GetSpaceID();
-    pBindInfo->LowerBound = R->GetLowerBound();
-    pBindInfo->UpperBound = R->GetUpperBound();
+    InitPSVResourceBinding(pBindInfo, nullptr, R.get());
     uResIndex++;
   }
   for (auto &&R : pModule->GetSamplers()) {
     DXASSERT_NOMSG(uResIndex < uTotalResources);
     PSVResourceBindInfo0 *pBindInfo = PSV.GetPSVResourceBindInfo0(uResIndex);
     DXASSERT_NOMSG(pBindInfo);
-    pBindInfo->ResType = (UINT)PSVResourceType::Sampler;
-    pBindInfo->Space = R->GetSpaceID();
-    pBindInfo->LowerBound = R->GetLowerBound();
-    pBindInfo->UpperBound = R->GetUpperBound();
+    InitPSVResourceBinding(pBindInfo, nullptr, R.get());
     uResIndex++;
   }
   for (auto &&R : pModule->GetSRVs()) {
     DXASSERT_NOMSG(uResIndex < uTotalResources);
     PSVResourceBindInfo0 *pBindInfo = PSV.GetPSVResourceBindInfo0(uResIndex);
     DXASSERT_NOMSG(pBindInfo);
-    if (R->IsStructuredBuffer()) {
-      pBindInfo->ResType = (UINT)PSVResourceType::SRVStructured;
-    } else if (R->IsRawBuffer()) {
-      pBindInfo->ResType = (UINT)PSVResourceType::SRVRaw;
-    } else {
-      pBindInfo->ResType = (UINT)PSVResourceType::SRVTyped;
-    }
-    pBindInfo->Space = R->GetSpaceID();
-    pBindInfo->LowerBound = R->GetLowerBound();
-    pBindInfo->UpperBound = R->GetUpperBound();
+    InitPSVResourceBinding(pBindInfo, nullptr, R.get());
     uResIndex++;
   }
   for (auto &&R : pModule->GetUAVs()) {
     DXASSERT_NOMSG(uResIndex < uTotalResources);
     PSVResourceBindInfo0 *pBindInfo = PSV.GetPSVResourceBindInfo0(uResIndex);
     DXASSERT_NOMSG(pBindInfo);
-    if (R->IsStructuredBuffer()) {
-      if (R->HasCounter())
-        pBindInfo->ResType = (UINT)PSVResourceType::UAVStructuredWithCounter;
-      else
-        pBindInfo->ResType = (UINT)PSVResourceType::UAVStructured;
-    } else if (R->IsRawBuffer()) {
-      pBindInfo->ResType = (UINT)PSVResourceType::UAVRaw;
-    } else {
-      pBindInfo->ResType = (UINT)PSVResourceType::UAVTyped;
-    }
-    pBindInfo->Space = R->GetSpaceID();
-    pBindInfo->LowerBound = R->GetLowerBound();
-    pBindInfo->UpperBound = R->GetUpperBound();
+    InitPSVResourceBinding(pBindInfo, nullptr, R.get());
     uResIndex++;
   }
   DXASSERT_NOMSG(uResIndex == uTotalResources);

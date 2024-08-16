@@ -312,6 +312,7 @@ public:
   TEST_METHOD(CacheInitWithLowPrec)
 
   TEST_METHOD(PSVStringTableReorder)
+  TEST_METHOD(PSVResourceTableReorder)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -4604,6 +4605,77 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   SigInput1->SemanticName = 0;
   PSVInfo->EntryFunctionName = 4;
   SigOutput->SemanticName = 1;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+}
+
+TEST_F(ValidationTest, PSVResourceTableReorder) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileSource("Buffer<float> B; int I; float4 main() : SV_Target { return B[I]; }",
+                "ps_6_0", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update string table.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+
+  uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
+  PSVRuntimeInfo3 *PSVInfo =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(PSVInfo->SigInputElements, 0);
+  PSVPtr += PSVRuntimeInfo_size / 4;
+  uint32_t ResourceCount = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(ResourceCount, 2u);
+  uint32_t ResourceBindInfoSize = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(ResourceBindInfoSize, sizeof(PSVResourceBindInfo1));
+  PSVResourceBindInfo1 *ResourceBindInfo =
+      const_cast<PSVResourceBindInfo1 *>((const PSVResourceBindInfo1 *)PSVPtr);
+  PSVResourceBindInfo1 *ResourceBindInfo1 = ResourceBindInfo + 1;
+  PSVResourceBindInfo1 Tmp = *ResourceBindInfo;
+
+  // Overwrite ResourceBindInfo only.
+  *ResourceBindInfo = *ResourceBindInfo1;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedTableResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedTableResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedTableResult);
+  VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  // Update both.
+  *ResourceBindInfo1 = Tmp;
 
   // Run validation again.
   CComPtr<IDxcOperationResult> pUpdatedResult;
