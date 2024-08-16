@@ -47,6 +47,7 @@ struct AssembleInputs {
                  CComPtr<IDxcBlob> &pOutputContainerBlob, IMalloc *pMalloc,
                  hlsl::SerializeDxilFlags SerializeFlags,
                  CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode,
+                 uint32_t ValidationFlags = 0,
                  llvm::StringRef DebugName = llvm::StringRef(),
                  clang::DiagnosticsEngine *pDiag = nullptr,
                  hlsl::DxilShaderHash *pShaderHashOut = nullptr,
@@ -61,6 +62,7 @@ struct AssembleInputs {
   IDxcVersionInfo *pVersionInfo = nullptr;
   IMalloc *pMalloc;
   hlsl::SerializeDxilFlags SerializeFlags;
+  uint32_t ValidationFlags = 0;
   CComPtr<hlsl::AbstractMemoryStream> &pModuleBitcode;
   llvm::StringRef DebugName = llvm::StringRef();
   clang::DiagnosticsEngine *pDiag;

@@ -14,6 +14,7 @@ set( LLVM_LINK_COMPONENTS
   dxilcontainer
   dxilrootsignature
   hlsl
+  dxilhash
   option
   bitreader
   bitwriter
