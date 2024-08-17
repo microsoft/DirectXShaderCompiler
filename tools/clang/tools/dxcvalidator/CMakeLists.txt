@@ -8,6 +8,7 @@ set( LLVM_LINK_COMPONENTS
   DXIL
   DxilContainer
   DxilHash
+  DxilRootSignature
   DxilValidation
   HLSL       # for AreDxilResourcesDense and DxilSignatureAllocator which are used in DxilValidation
   Option     # option library
