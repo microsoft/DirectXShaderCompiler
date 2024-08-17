@@ -74,10 +74,14 @@ endif()
 
 # HLSL Change Begin
 # Explicitly overriding check-clang dependencies for HLSL
-set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler dxildll clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
+set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
 if (WIN32)
 list(APPEND CLANG_TEST_DEPS
-     dxc_batch ExecHLSLTests
+     dxc_batch ExecHLSLTests dxildll
+    )
+elseif(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+list(APPEND CLANG_TEST_DEPS
+     dxildll
     )
 endif()
 add_custom_target(clang-test-depends DEPENDS ${CLANG_TEST_DEPS})
