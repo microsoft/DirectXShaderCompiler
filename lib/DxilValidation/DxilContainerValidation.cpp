@@ -145,6 +145,26 @@ class PSVContentVerifier {
   ValidationContext &ValCtx;
   bool PSVContentValid = true;
 
+  struct PSVSignatureElementHash {
+    uint64_t operator()(const PSVSignatureElement0 *SE) const {
+      return SE->ColsAndStart | (SE->StartRow << 8) | (SE->SemanticKind << 16) |
+             ((uint64_t)SE->DynamicMaskAndStream << 24) |
+             ((uint64_t)SE->SemanticIndexes << 32);
+    }
+  };
+  struct PSVSignatureElementEqual {
+    bool operator()(const PSVSignatureElement0 *lhs,
+                    const PSVSignatureElement0 *rhs) const {
+      return lhs->ColsAndStart == rhs->ColsAndStart &&
+             lhs->StartRow == rhs->StartRow &&
+             lhs->DynamicMaskAndStream == rhs->DynamicMaskAndStream &&
+             lhs->SemanticIndexes == rhs->SemanticIndexes;
+    }
+  };
+  using PSVSignatureSet =
+      std::unordered_set<PSVSignatureElement0 *, PSVSignatureElementHash,
+                         PSVSignatureElementEqual>;
+
   struct PSVResourceHash {
     uint64_t operator()(const PSVResourceBindInfo0 *BI) const {
       return BI->Space | ((uint64_t)BI->LowerBound << 32) |
@@ -167,7 +187,11 @@ public:
 
 private:
   void VerifySignatures(unsigned ValMajor, unsigned ValMinor);
-  void VerifySignature(PSVSignatureElement &, DxilSignatureElement &, bool);
+  void VerifySignature(const DxilSignature &, PSVSignatureElement0 *Base,
+                       unsigned Count, bool i1ToUnknownCompat);
+  void VerifySignatureElement(const DxilSignatureElement &, PSVSignatureSet &,
+                              const PSVStringTable &,
+                              const PSVSemanticIndexTable &, bool);
   void VerifyResources(unsigned PSVVersion);
   template <typename T>
   void VerifyResourceTable(T &ResTab, PSVResourceSet &ResSet,
@@ -321,97 +345,93 @@ void PSVContentVerifier::VerifySignatures(unsigned ValMajor,
                                           unsigned ValMinor) {
   bool i1ToUnknownCompat = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
   // Verify input signature
-  unsigned SigInputElements = PSV.GetSigInputElements();
-  if (SigInputElements != DM.GetInputSignature().GetElements().size()) {
+  VerifySignature(DM.GetInputSignature(), PSV.GetInputElement0(0),
+                  PSV.GetSigInputElements(), i1ToUnknownCompat);
+  // Verify output signature
+  VerifySignature(DM.GetOutputSignature(), PSV.GetOutputElement0(0),
+                  PSV.GetSigOutputElements(), i1ToUnknownCompat);
+  // Verify patch constant signature
+  VerifySignature(DM.GetPatchConstOrPrimSignature(),
+                  PSV.GetPatchConstOrPrimElement0(0),
+                  PSV.GetSigPatchConstOrPrimElements(), i1ToUnknownCompat);
+}
+
+void PSVContentVerifier::VerifySignature(const DxilSignature &Sig,
+                                         PSVSignatureElement0 *Base,
+                                         unsigned Count,
+                                         bool i1ToUnknownCompat) {
+  if (Count != Sig.GetElements().size()) {
     EmitFormatError("SigInputElements");
     return;
   }
-  for (unsigned i = 0; i < SigInputElements; i++) {
-    PSVSignatureElement PSVSE =
-        PSV.GetSignatureElement(PSV.GetInputElement0(i));
-    DxilSignatureElement &SE = DM.GetInputSignature().GetElement(i);
-    VerifySignature(PSVSE, SE, i1ToUnknownCompat);
-  }
 
-  // Verify output signature
-  unsigned SigOutputElements = PSV.GetSigOutputElements();
-  if (SigOutputElements != DM.GetOutputSignature().GetElements().size()) {
-    EmitFormatError("SigOutputElements");
-    return;
-  }
-  for (unsigned i = 0; i < SigOutputElements; i++) {
-    PSVSignatureElement PSVSE =
-        PSV.GetSignatureElement(PSV.GetOutputElement0(i));
-    DxilSignatureElement &SE = DM.GetOutputSignature().GetElement(i);
-    VerifySignature(PSVSE, SE, i1ToUnknownCompat);
-  }
+  ArrayRef<PSVSignatureElement0> Inputs(Base, Count);
+  // Build PSVSignatureSet.
+  PSVSignatureSet SigSet;
+  for (unsigned i = 0; i < Count; i++) {
+    if (SigSet.insert(Base + i).second == false) {
 
-  // Verify patch constant signature
-  unsigned SigPatchConstOrPrimElements = PSV.GetSigPatchConstOrPrimElements();
-  if (SigPatchConstOrPrimElements !=
-      DM.GetPatchConstOrPrimSignature().GetElements().size()) {
-    EmitFormatError("SigPatchConstOrPrimElements");
-    return;
+      EmitFormatError("SignatureElement duplicate");
+      return;
+    }
   }
-  for (unsigned i = 0; i < SigPatchConstOrPrimElements; i++) {
-    PSVSignatureElement PSVSE =
-        PSV.GetSignatureElement(PSV.GetPatchConstOrPrimElement0(i));
-    DxilSignatureElement &SE = DM.GetPatchConstOrPrimSignature().GetElement(i);
-    VerifySignature(PSVSE, SE, i1ToUnknownCompat);
+  // Verify each element.
+  const PSVStringTable &StrTab = PSV.GetStringTable();
+  const PSVSemanticIndexTable &IndexTab = PSV.GetSemanticIndexTable();
+  for (unsigned i = 0; i < Count; i++) {
+    VerifySignatureElement(Sig.GetElement(i), SigSet, StrTab, IndexTab,
+                           i1ToUnknownCompat);
   }
 }
 
-void PSVContentVerifier::VerifySignature(PSVSignatureElement &PSVSE,
-                                         DxilSignatureElement &SE,
-                                         bool i1ToUnknownCompat) {
+static uint32_t
+findSemanticIndex(const PSVSemanticIndexTable &IndexTab,
+                  const std::vector<unsigned> &SemanticIndexVec) {
+  for (uint32_t i = 0; i < IndexTab.Entries; i++) {
+    const uint32_t *PSVSemanticIndexVec = IndexTab.Get(i);
+    bool Match = true;
+    for (unsigned i = 0; i < SemanticIndexVec.size(); i++) {
+      if (PSVSemanticIndexVec[i] != SemanticIndexVec[i]) {
+        Match = false;
+        break;
+      }
+    }
+    if (Match)
+      return i;
+  }
+  return UINT32_MAX;
+}
+
+void PSVContentVerifier::VerifySignatureElement(
+    const DxilSignatureElement &SE, PSVSignatureSet &SigSet,
+    const PSVStringTable &StrTab, const PSVSemanticIndexTable &IndexTab,
+    bool i1ToUnknownCompat) {
+  // Find the signature element in the set.
+  PSVSignatureElement0 PSVSE0;
+  initPSVSignatureElement(PSVSE0, SE, i1ToUnknownCompat);
+
+  PSVSE0.SemanticIndexes =
+      findSemanticIndex(IndexTab, SE.GetSemanticIndexVec());
+
+  auto it = SigSet.find(&PSVSE0);
+  if (it == SigSet.end()) {
+    EmitFormatError("SignatureElement missing");
+    return;
+  }
+  // Check the Name and SemanticIndex.
+  PSVSignatureElement0 *PSVSE0Found = *it;
+  PSVSignatureElement PSVSEFound(StrTab, IndexTab, PSVSE0Found);
   if (SE.IsArbitrary()) {
-    if (strcmp(PSVSE.GetSemanticName(), SE.GetName()))
+    if (strcmp(PSVSEFound.GetSemanticName(), SE.GetName()))
       EmitFormatError("SignatureElement.SemanticName");
   } else {
-    // System semantic not save name in PSV.
-    if (*PSVSE.GetSemanticName() != '\0')
-      EmitFormatError("System semantic name");
+    if (PSVSE0Found->SemanticKind != static_cast<uint8_t>(SE.GetKind()))
+      EmitFormatError("SignatureElement.SemanticKind");
   }
-
-  if (PSVSE.GetSemanticKind() !=
-      static_cast<PSVSemanticKind>(SE.GetSemantic()->GetKind()))
-    EmitFormatError("SignatureElement.SemanticKind");
-  if (PSVSE.GetInterpolationMode() !=
-      static_cast<uint8_t>(SE.GetInterpolationMode()->GetKind()))
-    EmitFormatError("SignatureElement.InterpolationMode");
-
-  if (PSVSE.GetOutputStream() != SE.GetOutputStream())
-    EmitFormatError("SignatureElement.OutputStream");
-  if (PSVSE.GetDynamicIndexMask() != SE.GetDynIdxCompMask())
-    EmitFormatError("SignatureElement.DynamicIndexMask");
-
-  if (PSVSE.GetRows() != SE.GetRows())
-    EmitFormatError("SignatureElement.Rows");
-  if (PSVSE.GetCols() != SE.GetCols())
-    EmitFormatError("SignatureElement.Cols");
-
-  if (PSVSE.IsAllocated() != SE.IsAllocated())
-    EmitFormatError("SignatureElement.IsAllocated");
-
-  if (PSVSE.GetStartRow() != SE.GetStartRow())
-    EmitFormatError("SignatureElement.StartRow");
-
-  if (PSVSE.GetStartCol() != SE.GetStartCol())
-    EmitFormatError("SignatureElement.StartCol");
-
-  DxilProgramSigCompType SigCompType =
-      CompTypeToSigCompType(SE.GetCompType().GetKind(), i1ToUnknownCompat);
-  if (PSVSE.GetComponentType() != static_cast<uint32_t>(SigCompType))
-    EmitFormatError("SignatureElement.ComponentType");
-
-  const std::vector<unsigned> &SemanticIndexVec = SE.GetSemanticIndexVec();
-  const uint32_t *PSVSemanticIndexVec = PSVSE.GetSemanticIndexes();
-  for (unsigned i = 0; i < SemanticIndexVec.size(); i++) {
-    if (PSVSemanticIndexVec[i] != SemanticIndexVec[i]) {
-      Twine Name = "SignatureElement.SemanticIndex[" + Twine(i) + "]";
-      EmitFormatError(Name.str());
-    }
-  }
+  PSVSE0.SemanticName = PSVSE0Found->SemanticName;
+  // Compare all fields.
+  if (memcmp(&PSVSE0, PSVSE0Found, sizeof(PSVSignatureElement0)) != 0)
+    EmitFormatError("SignatureElement mismatch");
 }
 
 template <typename T>

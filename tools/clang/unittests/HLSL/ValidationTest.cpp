@@ -313,6 +313,7 @@ public:
 
   TEST_METHOD(PSVStringTableReorder)
   TEST_METHOD(PSVResourceTableReorder)
+  TEST_METHOD(PSVSignatureTableReorder)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -405,6 +406,18 @@ public:
     CheckOperationResultMsgs(pResult, nullptr, false, false);
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
     return true;
+  }
+
+  bool CompileFile(LPCWSTR fileName, LPCSTR pShaderModel,
+                   IDxcBlob **pResultBlob) {
+    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(fileName);
+    CComPtr<IDxcLibrary> pLibrary;
+    CComPtr<IDxcBlobEncoding> pSource;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(
+        pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
+    return CompileSource(pSource, pShaderModel, nullptr, 0, nullptr, 0,
+                         pResultBlob);
   }
 
   bool CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
@@ -4621,8 +4634,9 @@ TEST_F(ValidationTest, PSVResourceTableReorder) {
       return;
 
   CComPtr<IDxcBlob> pProgram;
-  CompileSource("Buffer<float> B; int I; float4 main() : SV_Target { return B[I]; }",
-                "ps_6_0", &pProgram);
+  CompileSource(
+      "Buffer<float> B; int I; float4 main() : SV_Target { return B[I]; }",
+      "ps_6_0", &pProgram);
 
   CComPtr<IDxcValidator> pValidator;
   CComPtr<IDxcOperationResult> pResult;
@@ -4684,4 +4698,102 @@ TEST_F(ValidationTest, PSVResourceTableReorder) {
   VERIFY_IS_NOT_NULL(pUpdatedResult);
   VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
+}
+
+static void CheckSignatureReorder(IDxcBlob *pProgram,
+                                  PSVSignatureElement0 *SigInput,
+                                  IDxcValidator *pValidator) {
+  PSVSignatureElement0 *SigInput1 = SigInput + 1;
+
+  PSVSignatureElement0 Tmp = *SigInput;
+  // Update SigInput.
+  *SigInput = *SigInput1;
+
+  // Run validation again.
+  unsigned Flags = 0;
+  HRESULT status;
+  CComPtr<IDxcOperationResult> pParitalUpdatedResult;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram, Flags, &pParitalUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pParitalUpdatedResult);
+  VERIFY_SUCCEEDED(pParitalUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  // Update both.
+  *SigInput1 = Tmp;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+}
+
+TEST_F(ValidationTest, PSVSignatureTableReorder) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXILValidation\\hs_signatures.hlsl", "hs_6_0", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update input signature table.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+
+  uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
+  PSVRuntimeInfo3 *PSVInfo =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(PSVInfo->SigInputElements, 3u);
+  VERIFY_ARE_EQUAL(PSVInfo->SigOutputElements, 3u);
+  VERIFY_ARE_EQUAL(PSVInfo->SigPatchConstOrPrimElements, 2u);
+  PSVPtr += PSVRuntimeInfo_size / 4;
+  uint32_t ResourceCount = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(ResourceCount, 0u);
+
+  uint32_t StringTableSize = *(PSVPtr++);
+  PSVPtr += StringTableSize / 4;
+
+  uint32_t SemanticIndexTableEntries = *(PSVPtr++);
+  PSVPtr += SemanticIndexTableEntries;
+
+  uint32_t PSVSignatureElement_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(PSVSignatureElement_size, sizeof(PSVSignatureElement0));
+  PSVSignatureElement0 *SigInput =
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
+  CheckSignatureReorder(pProgram, SigInput, pValidator);
+
+  PSVPtr += PSVSignatureElement_size * PSVInfo->SigInputElements / 4;
+  PSVSignatureElement0 *SigOutput =
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
+  CheckSignatureReorder(pProgram, SigOutput, pValidator);
+
+  PSVPtr += PSVSignatureElement_size * PSVInfo->SigOutputElements / 4;
+  PSVSignatureElement0 *SigPatchConstOrPrim =
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
+  CheckSignatureReorder(pProgram, SigPatchConstOrPrim, pValidator);
 }
