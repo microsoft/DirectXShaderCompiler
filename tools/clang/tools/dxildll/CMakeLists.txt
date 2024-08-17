@@ -75,10 +75,6 @@ if (WIN32)
 
     set_property(SOURCE dxildll.rc PROPERTY COMPILE_DEFINITIONS "INCLUDE_HLSL_VERSION_FILE=1")
     set_property(SOURCE dxildll.rc PROPERTY COMPILE_OPTIONS "/I" "${HLSL_VERSION_LOCATION}" "/I" "${LLVM_MAIN_SRC_DIR}")
-
-else()
-set_target_properties(dxildll PROPERTIES
-    LINK_FLAGS "-z defs")
 endif()
 
 set_target_properties(dxildll
