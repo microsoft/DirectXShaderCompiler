@@ -196,7 +196,7 @@ void DxaContext::ListFiles() {
   for (UINT32 i = 0; i < uNumSources; i++) {
     CComBSTR name;
     IFT(pPdbUtils->GetSourceName(i, &name));
-    printf("%S\r\n", (LPWSTR)name);
+    printf("%ls\r\n", (LPWSTR)name);
   }
 }
 
