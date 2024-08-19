@@ -3417,7 +3417,7 @@ SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
   auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
       type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance, false,
       semantic->loc);
-  StageVar var(sigPoint, *semantic, nullptr, type,
+  StageVar var(sigPoint, {}, nullptr, type,
                getLocationAndComponentCount(astContext, type));
   var.setSpirvInstr(baseInstanceVar);
   var.setIsSpirvBuiltin();
@@ -3432,7 +3432,7 @@ SpirvVariable *DeclResultIdMapper::getBaseVertexVariable(
   auto *baseVertexVar = spvBuilder.addStageBuiltinVar(
       type, spv::StorageClass::Input, spv::BuiltIn::BaseVertex, false,
       semantic->loc);
-  StageVar var(sigPoint, *semantic, nullptr, type,
+  StageVar var(sigPoint, {}, nullptr, type,
                getLocationAndComponentCount(astContext, type));
   var.setSpirvInstr(baseVertexVar);
   var.setIsSpirvBuiltin();
