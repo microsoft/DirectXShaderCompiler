@@ -2,9 +2,9 @@
 
 // Clang suppresses template specialization if a fatal error has been
 // registered (this reduces the risk of a cascade of secondary errors).
-// However, DXC DXASSERTs if a template specialization fails - which
-// prevents the error diagnostic being generated.
-// We check here that a DXASSERT is no longer raised if a fatal error
+// However, DXC asserted if a template specialization failed - which
+// prevented the error diagnostic being generated.
+// We check here that an assert is no longer raised if a fatal error
 // has been registered, and that the error diagnostic is generated.
 
 float a;
@@ -16,7 +16,7 @@ float a;
 void b() {};
 
 int3 c(int X) {
-  // DXASSERT was triggered if include file a.h doesn't exist, and the error 
-  // diagnostic was not produced.
-  return X.xxx; 
+  // an assert was triggered for the expression below when include file a.h
+  // doesn't exist, and the error diagnostic expected above was not produced.
+  return X.xxx;
 }
