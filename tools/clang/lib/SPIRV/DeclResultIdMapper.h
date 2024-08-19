@@ -792,14 +792,14 @@ private:
                                                SpirvVariable *baseInstanceVar);
 
   // Creates a function scope variable to represent the "SV_VertexID"
-  // semantic, which it not immediately available in SPIR-V. Its value will be
+  // semantic, which is not immediately available in SPIR-V. Its value will be
   // set by subtracting the values of the given InstanceIndex and base instance
   // variables.
   //
-  // vertexIndexVar: The SPIR-V input variable that decorated with
+  // vertexIndexVar: The SPIR-V input variable decorated with
   // vertexIndex.
   //
-  // baseVertexVar: The SPIR-V input variable that is decorated with
+  // baseVertexVar: The SPIR-V input variable decorated with
   // BaseVertex.
   SpirvVariable *getVertexIdFromIndexAndBase(SpirvVariable *vertexIndexVar,
                                              SpirvVariable *baseVertexVar);
