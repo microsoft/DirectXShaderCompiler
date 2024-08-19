@@ -850,12 +850,10 @@ GetOrCreateTemplateSpecialization(ASTContext &context, Sema &sema,
     if (specializationDecl->getInstantiatedFrom().isNull()) {
       // InstantiateClassTemplateSpecialization returns true if it finds an
       // error.
-      bool errorFound = sema.InstantiateClassTemplateSpecialization(
-          NoLoc, specializationDecl,
-          TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
-      // Template specialization is suppressed if a fatal error has already been
-      // registered so don't assert in such cases.
-      DXVERIFY_NOMSG(sema.Diags.hasFatalErrorOccurred() || !errorFound);
+      if (sema.InstantiateClassTemplateSpecialization(
+              NoLoc, specializationDecl,
+              TemplateSpecializationKind::TSK_ImplicitInstantiation, true))
+        return QualType();
     }
     return context.getTemplateSpecializationType(
         TemplateName(templateDecl), templateArgs.data(), templateArgs.size(),
@@ -866,19 +864,20 @@ GetOrCreateTemplateSpecialization(ASTContext &context, Sema &sema,
       context, TagDecl::TagKind::TTK_Class, currentDeclContext, NoLoc, NoLoc,
       templateDecl, templateArgsForDecl.data(), templateArgsForDecl.size(),
       nullptr);
-  // InstantiateClassTemplateSpecialization returns true if it finds an error.
-  bool errorFound = sema.InstantiateClassTemplateSpecialization(
-      NoLoc, specializationDecl,
-      TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
-  // Template specialization is suppressed if a fatal error has already been
-  // registered so don't assert in such cases.
-  DXVERIFY_NOMSG(sema.Diags.hasFatalErrorOccurred() || !errorFound);
+  // template specialization isn't performed if a fatal error has occurred
+  if (!sema.Diags.hasFatalErrorOccurred()) {
+    // InstantiateClassTemplateSpecialization returns true if it finds an error.
+    [[maybe_unused]] bool errorFound =
+        sema.InstantiateClassTemplateSpecialization(
+            NoLoc, specializationDecl,
+            TemplateSpecializationKind::TSK_ImplicitInstantiation, true);
+    assert(!errorFound && "template specialization failed");
+  }
   templateDecl->AddSpecialization(specializationDecl, InsertPos);
   specializationDecl->setImplicit(true);
-
   QualType canonType = context.getTypeDeclType(specializationDecl);
-  DXASSERT(isa<RecordType>(canonType),
-           "type of non-dependent specialization is not a RecordType");
+  assert(isa<RecordType>(canonType) &&
+         "type of non-dependent specialization is not a RecordType");
   TemplateArgumentListInfo templateArgumentList(NoLoc, NoLoc);
   TemplateArgumentLocInfo NoTemplateArgumentLocInfo;
   for (unsigned i = 0; i < templateArgs.size(); i++) {
@@ -913,18 +912,17 @@ static QualType GetOrCreateMatrixSpecialization(
       context, *sema, matrixTemplateDecl,
       ArrayRef<TemplateArgument>(templateArgs));
 
-#ifndef NDEBUG
-  // Verify that we can read the field member from the template record.
-  DXASSERT(matrixSpecializationType->getAsCXXRecordDecl(),
+  if (!matrixSpecializationType.isNull() &&
+      !sema->Diags.hasFatalErrorOccurred()) {
+    assert(matrixSpecializationType->getAsCXXRecordDecl() &&
            "type of non-dependent specialization is not a RecordType");
-  DeclContext::lookup_result lookupResult =
-      matrixSpecializationType->getAsCXXRecordDecl()->lookup(
-          DeclarationName(&context.Idents.get(StringRef("h"))));
-  // Template specialization is suppressed if a fatal error has been registered
-  // so only assert if lookup failed for some other reason.
-  DXASSERT(sema->Diags.hasFatalErrorOccurred() || !lookupResult.empty(),
+    // Verify that we can read the field member from the template record.
+    [[maybe_unused]] DeclContext::lookup_result lookupResult =
+        matrixSpecializationType->getAsCXXRecordDecl()->lookup(
+            DeclarationName(&context.Idents.get(StringRef("h"))));
+    assert(!lookupResult.empty() &&
            "otherwise matrix handle cannot be looked up");
-#endif
+  }
 
   return matrixSpecializationType;
 }
@@ -950,18 +948,17 @@ GetOrCreateVectorSpecialization(ASTContext &context, Sema *sema,
       context, *sema, vectorTemplateDecl,
       ArrayRef<TemplateArgument>(templateArgs));
 
-#ifndef NDEBUG
-  // Verify that we can read the field member from the template record.
-  DXASSERT(vectorSpecializationType->getAsCXXRecordDecl(),
+  if (!vectorSpecializationType.isNull() &&
+      !sema->Diags.hasFatalErrorOccurred()) {
+    assert(vectorSpecializationType->getAsCXXRecordDecl() &&
            "type of non-dependent specialization is not a RecordType");
-  DeclContext::lookup_result lookupResult =
-      vectorSpecializationType->getAsCXXRecordDecl()->lookup(
-          DeclarationName(&context.Idents.get(StringRef("h"))));
-  // Template specialization is suppressed if a fatal error has been registered
-  // so only assert if lookup failed for some other reason.
-  DXASSERT(sema->Diags.hasFatalErrorOccurred() || !lookupResult.empty(),
+    // Verify that we can read the field member from the template record.
+    [[maybe_unused]] DeclContext::lookup_result lookupResult =
+        vectorSpecializationType->getAsCXXRecordDecl()->lookup(
+            DeclarationName(&context.Idents.get(StringRef("h"))));
+    assert(!lookupResult.empty() &&
            "otherwise vector handle cannot be looked up");
-#endif
+  }
 
   return vectorSpecializationType;
 }
@@ -980,18 +977,16 @@ GetOrCreateNodeOutputRecordSpecialization(ASTContext &context, Sema *sema,
   QualType specializationType = GetOrCreateTemplateSpecialization(
       context, *sema, templateDecl, ArrayRef<TemplateArgument>(templateArgs));
 
-#ifdef DBG
-  // Verify that we can read the field member from the template record.
-  DXASSERT(specializationType->getAsCXXRecordDecl(),
+  if (!specializationType.isNull() && !sema->Diags.hasFatalErrorOccurred()) {
+    assert(specializationType->getAsCXXRecordDecl() &&
            "type of non-dependent specialization is not a RecordType");
-  DeclContext::lookup_result lookupResult =
-      specializationType->getAsCXXRecordDecl()->lookup(
-          DeclarationName(&context.Idents.get(StringRef("h"))));
-  // Template specialization is suppressed if a fatal error has been registered
-  // so only assert if lookup failed for some other reason.
-  DXASSERT(sema->Diags.hasFatalErrorOccurred() || !lookupResult.empty(),
+    // Verify that we can read the field member from the template record.
+    [[maybe_unused]] DeclContext::lookup_result lookupResult =
+        specializationType->getAsCXXRecordDecl()->lookup(
+            DeclarationName(&context.Idents.get(StringRef("h"))));
+    assert(!lookupResult.empty() &&
            "otherwise *NodeOutputRecords handle cannot be looked up");
-#endif
+  }
 
   return specializationType;
 }
