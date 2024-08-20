@@ -166,6 +166,9 @@ enum class DxilProgramSigSemantic : uint32_t {
   InnerCoverage = 70,
 };
 
+DxilProgramSigSemantic SemanticKindToSystemValue(DXIL::SemanticKind,
+                                                 DXIL::TessellatorDomain);
+
 enum class DxilProgramSigCompType : uint32_t {
   Unknown = 0,
   UInt32 = 1,
@@ -178,6 +181,9 @@ enum class DxilProgramSigCompType : uint32_t {
   SInt64 = 8,
   Float64 = 9,
 };
+
+DxilProgramSigCompType CompTypeToSigCompType(DXIL::ComponentType,
+                                             bool i1ToUnknownCompat);
 
 struct DxilProgramSignatureElement {
   uint32_t Stream; // Stream index (parameters must appear in non-decreasing

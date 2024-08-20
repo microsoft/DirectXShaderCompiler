@@ -16,6 +16,12 @@
 #include <cstring>
 #include <stdint.h>
 
+#include <assert.h>
+
+namespace llvm {
+class raw_ostream;
+}
+
 // Don't include assert.h here.
 // Since this header is included from multiple environments,
 // it is necessary to define assert before this header is included.
@@ -229,11 +235,13 @@ struct PSVResourceBindInfo0 {
   uint32_t Space;
   uint32_t LowerBound;
   uint32_t UpperBound;
+  void print(llvm::raw_ostream &O) const;
 };
 
 struct PSVResourceBindInfo1 : public PSVResourceBindInfo0 {
   uint32_t ResKind;  // PSVResourceKind
   uint32_t ResFlags; // special characteristics of the resource
+  void print(llvm::raw_ostream &O) const;
 };
 
 // Helpers for output dependencies (ViewID and Input-Output tables)
@@ -266,7 +274,8 @@ struct PSVComponentMask {
     if (ComponentIndex < NumVectors * 4)
       Mask[ComponentIndex >> 5] &= ~(1 << (ComponentIndex & 0x1F));
   }
-  bool IsValid() { return Mask != nullptr; }
+  bool IsValid() const { return Mask != nullptr; }
+  void print(llvm::raw_ostream &, const char *, const char *) const;
 };
 
 struct PSVDependencyTable {
@@ -282,6 +291,16 @@ struct PSVDependencyTable {
       : Table(pTable), InputVectors(inputVectors),
         OutputVectors(outputVectors) {}
   PSVComponentMask GetMaskForInput(uint32_t inputComponentIndex) {
+    return getMaskForInput(inputComponentIndex);
+  }
+  const PSVComponentMask GetMaskForInput(uint32_t inputComponentIndex) const {
+    return getMaskForInput(inputComponentIndex);
+  }
+  bool IsValid() const { return Table != nullptr; }
+  void print(llvm::raw_ostream &, const char *, const char *) const;
+
+private:
+  PSVComponentMask getMaskForInput(uint32_t inputComponentIndex) const {
     if (!Table || !InputVectors || !OutputVectors)
       return PSVComponentMask();
     return PSVComponentMask(
@@ -289,7 +308,6 @@ struct PSVDependencyTable {
                  inputComponentIndex),
         OutputVectors);
   }
-  bool IsValid() { return Table != nullptr; }
 };
 
 struct PSVString {
@@ -431,6 +449,7 @@ public:
   uint32_t GetDynamicIndexMask() const {
     return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF;
   }
+  void print(llvm::raw_ostream &O) const;
 };
 
 #define MAX_PSV_VERSION 3
@@ -732,6 +751,9 @@ public:
                ? m_StringTable.Get(m_pPSVRuntimeInfo3->EntryFunctionName)
                : "";
   }
+  void printPSVRuntimeInfo(llvm::raw_ostream &O, uint8_t ShaderKind,
+                           const char *Comment) const;
+  void print(llvm::raw_ostream &O, uint8_t ShaderKind) const;
 };
 
 // Return true if size fits in remaing buffer.
@@ -1036,6 +1058,10 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
 
 namespace hlsl {
 
+class DxilResourceBase;
+class DxilSignatureElement;
+class DxilModule;
+
 class ViewIDValidator {
 public:
   enum class Result {
@@ -1058,6 +1084,21 @@ public:
 
 ViewIDValidator *NewViewIDValidator(unsigned viewIDCount,
                                     unsigned gsRastStreamIndex);
+
+void initPSVResourceBinding(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
+                            DxilResourceBase *);
+
+// Setup PSVSignatureElement0 with DxilSignatureElement.
+// Note that the SemanticName and SemanticIndexes are not done.
+void initPSVSignatureElement(PSVSignatureElement0 &E,
+                             const DxilSignatureElement &SE,
+                             bool i1ToUnknownCompat);
+
+// Setup PSVRuntimeInfo* with DxilModule.
+// Note that the EntryFunctionName is not done.
+void initPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
+                        PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
+                        const DxilModule &DM);
 
 } // namespace hlsl
 
