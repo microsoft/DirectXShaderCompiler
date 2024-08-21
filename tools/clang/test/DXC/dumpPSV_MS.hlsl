@@ -124,7 +124,7 @@
 // CHECK-NEXT:   ComponentType: 1
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: Outputs affected by ViewID as a bitmask for stream 0:
-// CHECK-NEXT:    Outputs[0] dependent on ViewID : 0  1  2  3  4  8  12  16
+// CHECK-NEXT:    ViewID influencing Outputs[0] : 0  1  2  3  4  8  12  16
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 0:
 // CHECK-NEXT: Inputs contributing to computation of Outputs[0]:  None
 

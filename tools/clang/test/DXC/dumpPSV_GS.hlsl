@@ -108,18 +108,18 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 0:
 // CHECK-NEXT: Inputs contributing to computation of Outputs[0]:
-// CHECK-NEXT:   Outputs[0][0] dependent on Inputs : 8
-// CHECK-NEXT:   Outputs[0][1] dependent on Inputs : 9
-// CHECK-NEXT:   Outputs[0][2] dependent on Inputs : 8  9
-// CHECK-NEXT:   Outputs[0][3] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][4] dependent on Inputs : 4
-// CHECK-NEXT:   Outputs[0][5] dependent on Inputs : 5
-// CHECK-NEXT:   Outputs[0][6] dependent on Inputs : 6
-// CHECK-NEXT:   Outputs[0][7] dependent on Inputs : 7
-// CHECK-NEXT:   Outputs[0][8] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][9] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][10] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][11] dependent on Inputs :  None
+// CHECK-NEXT:   Inputs[0] influencing Outputs[0] : 8
+// CHECK-NEXT:   Inputs[1] influencing Outputs[0] : 9
+// CHECK-NEXT:   Inputs[2] influencing Outputs[0] : 8  9
+// CHECK-NEXT:   Inputs[3] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[4] influencing Outputs[0] : 4
+// CHECK-NEXT:   Inputs[5] influencing Outputs[0] : 5
+// CHECK-NEXT:   Inputs[6] influencing Outputs[0] : 6
+// CHECK-NEXT:   Inputs[7] influencing Outputs[0] : 7
+// CHECK-NEXT:   Inputs[8] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[9] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[10] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[11] influencing Outputs[0] :  None
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 1:
 // CHECK-NEXT: Inputs contributing to computation of Outputs[1]:  None
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 2:

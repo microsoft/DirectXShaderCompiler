@@ -482,7 +482,7 @@ void PSVSignatureElement::Print(raw_ostream &OS) const {
 void PSVComponentMask::Print(raw_ostream &OS, const char *InputSetName,
                              const char *OutputSetName) const {
 
-  OS << "  " << OutputSetName << " dependent on " << InputSetName << " :";
+  OS << "  " << InputSetName << " influencing " << OutputSetName << " :";
   bool Empty = true;
   for (unsigned i = 0; i < NumVectors; ++i) {
     for (unsigned j = 0; j < 32; ++j) {
@@ -507,14 +507,14 @@ void PSVDependencyTable::Print(raw_ostream &OS, const char *InputSetName,
     return;
   }
   OS << "\n";
-  for (unsigned i = 0; i < OutputVectors; ++i) {
+  for (unsigned i = 0; i < InputVectors; ++i) {
     for (unsigned j = 0; j < 4; ++j) {
       unsigned Index = i * 4 + j;
       const PSVComponentMask Mask = GetMaskForInput(Index);
 
-      std::string OutputName = OutputSetName;
-      OutputName += "[" + std::to_string(Index) + "]";
-      Mask.Print(OS, InputSetName, OutputName.c_str());
+      std::string InputName = InputSetName;
+      InputName += "[" + std::to_string(Index) + "]";
+      Mask.Print(OS, InputName.c_str(), OutputSetName);
     }
   }
 }

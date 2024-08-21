@@ -150,40 +150,40 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 0:
 // CHECK-NEXT: Inputs contributing to computation of Outputs[0]:
-// CHECK-NEXT:   Outputs[0][0] dependent on Inputs : 0
-// CHECK-NEXT:   Outputs[0][1] dependent on Inputs : 1
-// CHECK-NEXT:   Outputs[0][2] dependent on Inputs : 2
-// CHECK-NEXT:   Outputs[0][3] dependent on Inputs : 3
-// CHECK-NEXT:   Outputs[0][4] dependent on Inputs : 4
-// CHECK-NEXT:   Outputs[0][5] dependent on Inputs : 5
-// CHECK-NEXT:   Outputs[0][6] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][7] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][8] dependent on Inputs : 8
-// CHECK-NEXT:   Outputs[0][9] dependent on Inputs : 9
-// CHECK-NEXT:   Outputs[0][10] dependent on Inputs : 10
-// CHECK-NEXT:   Outputs[0][11] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][12] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][13] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][14] dependent on Inputs :  None
-// CHECK-NEXT:   Outputs[0][15] dependent on Inputs :  None
+// CHECK-NEXT:   Inputs[0] influencing Outputs[0] : 0
+// CHECK-NEXT:   Inputs[1] influencing Outputs[0] : 1
+// CHECK-NEXT:   Inputs[2] influencing Outputs[0] : 2
+// CHECK-NEXT:   Inputs[3] influencing Outputs[0] : 3
+// CHECK-NEXT:   Inputs[4] influencing Outputs[0] : 4
+// CHECK-NEXT:   Inputs[5] influencing Outputs[0] : 5
+// CHECK-NEXT:   Inputs[6] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[7] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[8] influencing Outputs[0] : 8
+// CHECK-NEXT:   Inputs[9] influencing Outputs[0] : 9
+// CHECK-NEXT:   Inputs[10] influencing Outputs[0] : 10
+// CHECK-NEXT:   Inputs[11] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[12] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[13] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[14] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[15] influencing Outputs[0] :  None
 // CHECK-NEXT: Outputs affected by patch constant inputs as a table of bitmasks:
 // CHECK-NEXT: PatchConstantInputs contributing to computation of Outputs:
-// CHECK-NEXT:   Outputs[0] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[1] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[2] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[3] dependent on PatchConstantInputs : 4  5
-// CHECK-NEXT:   Outputs[4] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[5] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[6] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[7] dependent on PatchConstantInputs : 0  1  2  3
-// CHECK-NEXT:   Outputs[8] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[9] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[10] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[11] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[12] dependent on PatchConstantInputs : 8  9  10
-// CHECK-NEXT:   Outputs[13] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[14] dependent on PatchConstantInputs :  None
-// CHECK-NEXT:   Outputs[15] dependent on PatchConstantInputs :  None
+// CHECK-NEXT:   PatchConstantInputs[0] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[1] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[2] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[3] influencing Outputs : 4  5
+// CHECK-NEXT:   PatchConstantInputs[4] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[5] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[6] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[7] influencing Outputs : 0  1  2  3
+// CHECK-NEXT:   PatchConstantInputs[8] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[9] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[10] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[11] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[12] influencing Outputs : 8  9  10
+// CHECK-NEXT:   PatchConstantInputs[13] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[14] influencing Outputs :  None
+// CHECK-NEXT:   PatchConstantInputs[15] influencing Outputs :  None
 
 
 struct PSSceneIn {

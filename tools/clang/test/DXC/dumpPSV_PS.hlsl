@@ -81,10 +81,14 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 0:
 // CHECK-NEXT: Inputs contributing to computation of Outputs[0]:
-// CHECK-NEXT:   Outputs[0][0] dependent on Inputs : 0  1  2  3
-// CHECK-NEXT:   Outputs[0][1] dependent on Inputs : 0  1  2  3
-// CHECK-NEXT:   Outputs[0][2] dependent on Inputs : 0  1  2  3
-// CHECK-NEXT:   Outputs[0][3] dependent on Inputs :  None
+// CHECK-NEXT:   Inputs[0] influencing Outputs[0] : 0  1  2  3
+// CHECK-NEXT:   Inputs[1] influencing Outputs[0] : 0  1  2  3
+// CHECK-NEXT:   Inputs[2] influencing Outputs[0] : 0  1  2  3
+// CHECK-NEXT:   Inputs[3] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[4] influencing Outputs[0] : 0  1  2  3
+// CHECK-NEXT:   Inputs[5] influencing Outputs[0] : 0  1  2  3
+// CHECK-NEXT:   Inputs[6] influencing Outputs[0] :  None
+// CHECK-NEXT:   Inputs[7] influencing Outputs[0] :  None
 
 cbuffer cbPerObject : register( b0 )
 {
