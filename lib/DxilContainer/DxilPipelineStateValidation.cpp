@@ -481,7 +481,6 @@ void PSVSignatureElement::Print(raw_ostream &OS) const {
 
 void PSVComponentMask::Print(raw_ostream &OS, const char *InputSetName,
                              const char *OutputSetName) const {
-
   OS << "  " << InputSetName << " influencing " << OutputSetName << " :";
   bool Empty = true;
   for (unsigned i = 0; i < NumVectors; ++i) {
