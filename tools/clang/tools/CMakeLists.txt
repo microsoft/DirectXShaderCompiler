@@ -23,12 +23,12 @@ endif()
 add_llvm_external_project(clang-tools-extra extra)
 
 # HLSL Change Starts
+add_subdirectory(dxcvalidator)
 add_subdirectory(dxcompiler)
 
 if(NOT ENABLE_DXC_STATIC_LINKING)
 add_subdirectory(dxclib)
 add_subdirectory(dxc)
-add_subdirectory(dxcvalidator)
 add_subdirectory(dxa)
 add_subdirectory(dxopt)
 add_subdirectory(dxl)
