@@ -304,6 +304,61 @@
 // CHECK:      BoundResources: 0
 // CHECK:      FunctionParameterCount: 0
 // CHECK:      HasReturn: FALSE
+// CHECK:ID3D12FunctionReflection1:
+// CHECK:  D3D12_FUNCTION_DESC1:
+// CHECK:    RootSignatureSize: 0
+// CHECK:    D3D12_NODE_SHADER_DESC:
+// CHECK:      D3D12_COMPUTE_SHADER_DESC:
+// CHECK:        NumThreads: 25, 4, 1
+// CHECK:      LaunchType: D3D12_NODE_LAUNCH_TYPE_BROADCASTING_LAUNCH
+// CHECK:      IsProgramEntry: FALSE
+// CHECK:      LocalRootArgumentsTableIndex: -1
+// CHECK:      DispatchGrid[0]: 2
+// CHECK:      DispatchGrid[1]: 8
+// CHECK:      DispatchGrid[2]: 10
+// CHECK:      MaxDispatchGrid[0]: 0
+// CHECK:      MaxDispatchGrid[1]: 0
+// CHECK:      MaxDispatchGrid[2]: 0
+// CHECK:      MaxRecursionDepth: 0
+// CHECK:      D3D12_NODE_ID_DESC: (ShaderId)
+// CHECK:        Name: depth18part0_wg_63_nodes_seed_255
+// CHECK:        ID: 0
+// CHECK:      D3D12_NODE_ID_DESC: (ShaderSharedInput)
+// CHECK:        Name: depth18part0_wg_63_nodes_seed_255
+// CHECK:        ID: 0
+// CHECK:      InputNodes: 1
+// CHECK:      OutputNodes: 1
+// CHECK:  Input Nodes:
+// CHECK:    D3D12_NODE_DESC:
+// CHECK:      Flags: 0x61
+// CHECK:      Type:
+// CHECK:        Size: 8
+// CHECK:        Alignment: 4
+// CHECK:        DispatchGrid:
+// CHECK:          ByteOffset: 0
+// CHECK:          ComponentType: <unknown: 0>
+// CHECK:          NumComponents: 0
+// CHECK:      MaxRecords: 0
+// CHECK:      MaxRecordsSharedWith: -1
+// CHECK:      OutputArraySize: 0
+// CHECK:      AllowSparseNodes: FALSE
+// CHECK:  Output Nodes:
+// CHECK:    D3D12_NODE_DESC:
+// CHECK:      Flags: 0x16
+// CHECK:      Type:
+// CHECK:        Size: 20
+// CHECK:        Alignment: 4
+// CHECK:        DispatchGrid:
+// CHECK:          ByteOffset: 8
+// CHECK:          ComponentType: D3D12_DISPATCH_COMPONENT_TYPE_U32
+// CHECK:          NumComponents: 3
+// CHECK:      D3D12_NODE_ID_DESC: (OutputID)
+// CHECK:        Name: OutputyMcOutputFace
+// CHECK:        ID: 0
+// CHECK:      MaxRecords: 47
+// CHECK:      MaxRecordsSharedWith: -1
+// CHECK:      OutputArraySize: 2
+// CHECK:      AllowSparseNodes: TRUE
 
 struct rec0
 {

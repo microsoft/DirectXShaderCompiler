@@ -224,7 +224,7 @@ void D3DReflectionDumper::Dump(D3D12_DOMAIN_SHADER_DESC &Desc) {
   Dedent();
 }
 void D3DReflectionDumper::Dump(D3D12_NODE_ID_DESC &Desc, const char *name) {
-  WriteLn("D3D12_NODE_ID_DESC:");
+  WriteLn("D3D12_NODE_ID_DESC: (", name, ")");
   Indent();
   WriteLn("Name: ", Desc.Name);
   WriteLn("ID: ", std::dec, Desc.ID);
@@ -237,19 +237,21 @@ void D3DReflectionDumper::Dump(D3D12_NODE_DESC &Desc) {
 
   WriteLn("Type:");
   Indent();
-  WriteLn("Size", std::dec, Desc.Type.Size);
-  WriteLn("Alignment", std::dec, Desc.Type.Alignment);
+  WriteLn("Size: ", std::dec, Desc.Type.Size);
+  WriteLn("Alignment: ", std::dec, Desc.Type.Alignment);
 
   WriteLn("DispatchGrid:");
   Indent();
-  WriteLn("ByteOffset", std::dec, Desc.Type.DispatchGrid.ByteOffset);
+  WriteLn("ByteOffset: ", std::dec, Desc.Type.DispatchGrid.ByteOffset);
   DumpEnum("ComponentType", Desc.Type.DispatchGrid.ComponentType);
-  WriteLn("NumComponents, std::dec", Desc.Type.DispatchGrid.NumComponents);
+  WriteLn("NumComponents: ", std::dec, Desc.Type.DispatchGrid.NumComponents);
   Dedent();
 
   Dedent();
 
-  Dump(Desc.OutputID, "OutputID");
+  if (Desc.Flags & D3D12_NODE_IO_FLAGS_OUTPUT)
+    Dump(Desc.OutputID, "OutputID");
+
   WriteLn("MaxRecords: ", std::dec, Desc.MaxRecords);
   WriteLn("MaxRecordsSharedWith: ", std::dec, Desc.MaxRecordsSharedWith);
   WriteLn("OutputArraySize: ", std::dec, Desc.OutputArraySize);

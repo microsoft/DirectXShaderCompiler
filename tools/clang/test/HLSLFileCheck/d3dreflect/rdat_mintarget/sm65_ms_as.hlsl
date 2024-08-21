@@ -67,3 +67,54 @@ groupshared Vertex pld;
 void amplification(uint3 DTid : SV_DispatchThreadID) {
   DispatchMesh(1, 1, 1, pld);
 }
+
+// RDAT: ID3D12LibraryReflection1:
+// RDAT:   D3D12_LIBRARY_DESC:
+// RDAT:     Creator: <nullptr>
+// RDAT:     Flags: 0
+// RDAT:     FunctionCount: 2
+// RDAT:   ID3D12FunctionReflection:
+// RDAT:     D3D12_FUNCTION_DESC: Name: amplification
+// RDAT:       Shader Version: Amplification 6.8
+// RDAT:       Creator: <nullptr>
+// RDAT:       Flags: 0
+// RDAT:       RequiredFeatureFlags: 0x20000000000
+// RDAT:       ConstantBuffers: 0
+// RDAT:       BoundResources: 0
+// RDAT:       FunctionParameterCount: 0
+// RDAT:       HasReturn: FALSE
+// RDAT:   ID3D12FunctionReflection1:
+// RDAT:     D3D12_FUNCTION_DESC1:
+// RDAT:       RootSignatureSize: 0
+// RDAT:       PayloadSize: 16
+// RDAT:       NumThreads: 8, 8, 1
+// RDAT:   ID3D12FunctionReflection:
+// RDAT:     D3D12_FUNCTION_DESC: Name: mesh
+// RDAT:       Shader Version: Mesh 6.8
+// RDAT:       Creator: <nullptr>
+// RDAT:       Flags: 0
+// RDAT:       RequiredFeatureFlags: 0
+// RDAT:       ConstantBuffers: 0
+// RDAT:       BoundResources: 1
+// RDAT:       FunctionParameterCount: 0
+// RDAT:       HasReturn: FALSE
+// RDAT:     Bound Resources:
+// RDAT:       D3D12_SHADER_INPUT_BIND_DESC: Name: BAB
+// RDAT:         Type: D3D_SIT_UAV_RWBYTEADDRESS
+// RDAT:         uID: 0
+// RDAT:         BindCount: 1
+// RDAT:         BindPoint: 1
+// RDAT:         Space: 0
+// RDAT:         ReturnType: D3D_RETURN_TYPE_MIXED
+// RDAT:         Dimension: D3D_SRV_DIMENSION_BUFFER
+// RDAT:         NumSamples (or stride): 0
+// RDAT:         uFlags: 0
+// RDAT:   ID3D12FunctionReflection1:
+// RDAT:     D3D12_FUNCTION_DESC1:
+// RDAT:       RootSignatureSize: 0
+// RDAT:       D3D12_MESH_SHADER_DESC:
+// RDAT:         PayloadSize: 0
+// RDAT:         MaxVertexCount: 0
+// RDAT:         MaxPrimitiveCount: 0
+// RDAT:         OutputTopology: Triangle
+// RDAT:         NumThreads: 1, 1, 1

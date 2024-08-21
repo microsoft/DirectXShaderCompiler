@@ -335,6 +335,77 @@
 // CHECK:      BoundResources: 0
 // CHECK:      FunctionParameterCount: 0
 // CHECK:      HasReturn: FALSE
+// CHECK:ID3D12FunctionReflection1:
+// CHECK:  D3D12_FUNCTION_DESC1:
+// CHECK:    RootSignatureSize: 0
+// CHECK:    D3D12_NODE_SHADER_DESC:
+// CHECK:      D3D12_COMPUTE_SHADER_DESC:
+// CHECK:        NumThreads: 1, 1, 1
+// CHECK:      LaunchType: D3D12_NODE_LAUNCH_TYPE_THREAD_LAUNCH
+// CHECK:      IsProgramEntry: FALSE
+// CHECK:      LocalRootArgumentsTableIndex: 2
+// CHECK:      DispatchGrid[0]: 0
+// CHECK:      DispatchGrid[1]: 0
+// CHECK:      DispatchGrid[2]: 0
+// CHECK:      MaxDispatchGrid[0]: 0
+// CHECK:      MaxDispatchGrid[1]: 0
+// CHECK:      MaxDispatchGrid[2]: 0
+// CHECK:      MaxRecursionDepth: 0
+// CHECK:      D3D12_NODE_ID_DESC: (ShaderId)
+// CHECK:        Name: Input2Output
+// CHECK:        ID: 0
+// CHECK:      D3D12_NODE_ID_DESC: (ShaderSharedInput)
+// CHECK:        Name: Input2Output
+// CHECK:        ID: 0
+// CHECK:      InputNodes: 1
+// CHECK:      OutputNodes: 2
+// CHECK:  Input Nodes:
+// CHECK:    D3D12_NODE_DESC:
+// CHECK:      Flags: 0x25
+// CHECK:      Type:
+// CHECK:        Size: 8
+// CHECK:        Alignment: 4
+// CHECK:        DispatchGrid:
+// CHECK:          ByteOffset: 0
+// CHECK:          ComponentType: <unknown: 0>
+// CHECK:          NumComponents: 0
+// CHECK:      MaxRecords: 0
+// CHECK:      MaxRecordsSharedWith: -1
+// CHECK:      OutputArraySize: 0
+// CHECK:      AllowSparseNodes: FALSE
+// CHECK:  Output Nodes:
+// CHECK:    D3D12_NODE_DESC:
+// CHECK:      Flags: 0x106
+// CHECK:      Type:
+// CHECK:        Size: 8
+// CHECK:        Alignment: 4
+// CHECK:        DispatchGrid:
+// CHECK:          ByteOffset: 0
+// CHECK:          ComponentType: <unknown: 0>
+// CHECK:          NumComponents: 0
+// CHECK:      D3D12_NODE_ID_DESC: (OutputID)
+// CHECK:        Name: Output1
+// CHECK:        ID: 0
+// CHECK:      MaxRecords: 0
+// CHECK:      MaxRecordsSharedWith: 1
+// CHECK:      OutputArraySize: 0
+// CHECK:      AllowSparseNodes: FALSE
+// CHECK:    D3D12_NODE_DESC:
+// CHECK:      Flags: 0x6
+// CHECK:      Type:
+// CHECK:        Size: 8
+// CHECK:        Alignment: 4
+// CHECK:        DispatchGrid:
+// CHECK:          ByteOffset: 0
+// CHECK:          ComponentType: <unknown: 0>
+// CHECK:          NumComponents: 0
+// CHECK:      D3D12_NODE_ID_DESC: (OutputID)
+// CHECK:        Name: Output2ID
+// CHECK:        ID: 1
+// CHECK:      MaxRecords: 5
+// CHECK:      MaxRecordsSharedWith: -1
+// CHECK:      OutputArraySize: 0
+// CHECK:      AllowSparseNodes: FALSE
 
 struct rec0
 {
