@@ -12,9 +12,11 @@ set( LLVM_LINK_COMPONENTS
   Support    # just for assert and raw streams
   )
 
-add_clang_library(dxcvalidator
-  dxcvalidator.cpp
-  )
+if(ENABLE_DXC_STATIC_LINKING)
+  add_clang_library(dxcvalidator STATIC dxcvalidator.cpp)
+else()
+  add_clang_library(dxcvalidator dxcvalidator.cpp)
+endif()
 
 if (MINGW)
   target_link_options(dxcvalidator PUBLIC -mconsole -municode)
