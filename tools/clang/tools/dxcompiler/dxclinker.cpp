@@ -23,8 +23,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include <algorithm>
 
+#include "dxc/DxilValidation/DxilValidation.h"
 #include "dxc/HLSL/DxilLinker.h"
-#include "dxc/HLSL/DxilValidation.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/microcom.h"
@@ -413,7 +413,7 @@ HRESULT STDMETHODCALLTYPE DxcLinker::Link(
         HRESULT valHR = S_OK;
         dxcutil::AssembleInputs inputs(
             std::move(pM), pOutputBlob, DxcGetThreadMallocNoRef(),
-            SerializeFlags, pOutputStream, opts.DebugFile, &Diag,
+            SerializeFlags, pOutputStream, 0, opts.DebugFile, &Diag,
             &ShaderHashContent, pReflectionStream, pRootSigStream, nullptr,
             nullptr);
         if (needsValidation) {
