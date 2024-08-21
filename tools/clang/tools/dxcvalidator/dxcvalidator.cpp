@@ -52,7 +52,7 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
   } else {
     CComPtr<AbstractMemoryStream> HashedBlobStream;
     IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &HashedBlobStream));
-    unsigned long CB;
+    ULONG CB;
     IFT(HashedBlobStream->Write(Shader->GetBufferPointer(),
                                 Shader->GetBufferSize(), &CB));
     HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr());
