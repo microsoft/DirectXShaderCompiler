@@ -444,42 +444,42 @@ constexpr GUID guid_from_string(const char str[37]) {
 
 #ifdef __EMULATE_UUID
 
-template <typename interface> inline GUID __emulated_uuidof();
+template <typename interfce> inline GUID __emulated_uuidof();
 
-#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
-  struct interface;                                                            \
-  template <> inline GUID __emulated_uuidof<interface>() {                     \
+#define CROSS_PLATFORM_UUIDOF(interfce, spec)                                  \
+  struct interfce;                                                             \
+  template <> inline GUID __emulated_uuidof<interfce>() {                      \
     static const IID _IID = guid_from_string(spec);                            \
     return _IID;                                                               \
   }                                                                            \
   extern "C++" {                                                               \
-  template <> inline const GUID &__wsl_stub_uuidof<interface>() {              \
+  template <> inline const GUID &__wsl_stub_uuidof<interfce>() {               \
     static const IID _IID = guid_from_string(spec);                            \
     return _IID;                                                               \
   }                                                                            \
-  template <> inline const GUID &__wsl_stub_uuidof<interface *>() {            \
-    return __wsl_stub_uuidof<interface>();                                     \
+  template <> inline const GUID &__wsl_stub_uuidof<interfce *>() {             \
+    return __wsl_stub_uuidof<interfce>();                                      \
   }                                                                            \
   }
 
 #else // __EMULATE_UUID
 
 #ifndef _WIN32
-#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
-  struct __declspec(uuid(spec)) interface;                                     \
+#define CROSS_PLATFORM_UUIDOF(interfce, spec)                                  \
+  struct __declspec(uuid(spec)) interfce;                                      \
   extern "C++" {                                                               \
-  template <> inline const GUID &__wsl_stub_uuidof<interface>() {              \
+  template <> inline const GUID &__wsl_stub_uuidof<interfce>() {               \
     static const IID _IID = guid_from_string(spec);                            \
     return _IID;                                                               \
   }                                                                            \
-  template <> inline const GUID &__wsl_stub_uuidof<interface *>() {            \
-    return __wsl_stub_uuidof<interface>();                                     \
+  template <> inline const GUID &__wsl_stub_uuidof<interfce *>() {             \
+    return __wsl_stub_uuidof<interfce>();                                      \
   }                                                                            \
   }
 #elif !defined(CROSS_PLATFORM_UUIDOF)
 // Warning: This macro exists in dxcapi.h as well
-#define CROSS_PLATFORM_UUIDOF(interface, spec)                                 \
-  struct __declspec(uuid(spec)) interface;
+#define CROSS_PLATFORM_UUIDOF(interfce, spec)                                  \
+  struct __declspec(uuid(spec)) interfce;
 #endif
 
 #endif // __EMULATE_UUID
