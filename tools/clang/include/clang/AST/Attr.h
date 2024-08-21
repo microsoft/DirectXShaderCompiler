@@ -149,6 +149,7 @@ public:
   }
 };
 
+#undef interface
 #include "clang/AST/Attrs.inc"
 
 inline const DiagnosticBuilder &operator<<(const DiagnosticBuilder &DB,
