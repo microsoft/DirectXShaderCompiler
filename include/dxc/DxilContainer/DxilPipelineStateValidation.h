@@ -13,10 +13,9 @@
 #define __DXIL_PIPELINE_STATE_VALIDATION__H__
 
 #include "dxc/WinAdapter.h"
+#include <assert.h>
 #include <cstring>
 #include <stdint.h>
-
-#include <assert.h>
 
 namespace llvm {
 class raw_ostream;
@@ -235,13 +234,13 @@ struct PSVResourceBindInfo0 {
   uint32_t Space;
   uint32_t LowerBound;
   uint32_t UpperBound;
-  void print(llvm::raw_ostream &O) const;
+  void Print(llvm::raw_ostream &O) const;
 };
 
 struct PSVResourceBindInfo1 : public PSVResourceBindInfo0 {
   uint32_t ResKind;  // PSVResourceKind
   uint32_t ResFlags; // special characteristics of the resource
-  void print(llvm::raw_ostream &O) const;
+  void Print(llvm::raw_ostream &O) const;
 };
 
 // Helpers for output dependencies (ViewID and Input-Output tables)
@@ -275,7 +274,7 @@ struct PSVComponentMask {
       Mask[ComponentIndex >> 5] &= ~(1 << (ComponentIndex & 0x1F));
   }
   bool IsValid() const { return Mask != nullptr; }
-  void print(llvm::raw_ostream &, const char *, const char *) const;
+  void Print(llvm::raw_ostream &, const char *, const char *) const;
 };
 
 struct PSVDependencyTable {
@@ -297,7 +296,7 @@ struct PSVDependencyTable {
     return getMaskForInput(inputComponentIndex);
   }
   bool IsValid() const { return Table != nullptr; }
-  void print(llvm::raw_ostream &, const char *, const char *) const;
+  void Print(llvm::raw_ostream &, const char *, const char *) const;
 
 private:
   PSVComponentMask getMaskForInput(uint32_t inputComponentIndex) const {
@@ -449,7 +448,7 @@ public:
   uint32_t GetDynamicIndexMask() const {
     return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF;
   }
-  void print(llvm::raw_ostream &O) const;
+  void Print(llvm::raw_ostream &O) const;
 };
 
 #define MAX_PSV_VERSION 3
@@ -751,9 +750,9 @@ public:
                ? m_StringTable.Get(m_pPSVRuntimeInfo3->EntryFunctionName)
                : "";
   }
-  void printPSVRuntimeInfo(llvm::raw_ostream &O, uint8_t ShaderKind,
+  void PrintPSVRuntimeInfo(llvm::raw_ostream &O, uint8_t ShaderKind,
                            const char *Comment) const;
-  void print(llvm::raw_ostream &O, uint8_t ShaderKind) const;
+  void Print(llvm::raw_ostream &O, uint8_t ShaderKind) const;
 };
 
 // Return true if size fits in remaing buffer.
@@ -1085,18 +1084,18 @@ public:
 ViewIDValidator *NewViewIDValidator(unsigned viewIDCount,
                                     unsigned gsRastStreamIndex);
 
-void initPSVResourceBinding(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
+void InitPSVResourceBinding(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
                             DxilResourceBase *);
 
 // Setup PSVSignatureElement0 with DxilSignatureElement.
 // Note that the SemanticName and SemanticIndexes are not done.
-void initPSVSignatureElement(PSVSignatureElement0 &E,
+void InitPSVSignatureElement(PSVSignatureElement0 &E,
                              const DxilSignatureElement &SE,
                              bool i1ToUnknownCompat);
 
 // Setup PSVRuntimeInfo* with DxilModule.
 // Note that the EntryFunctionName is not done.
-void initPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
+void InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
                         PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
                         const DxilModule &DM);
 

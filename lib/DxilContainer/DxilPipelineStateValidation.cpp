@@ -24,7 +24,7 @@
 using namespace hlsl;
 using namespace llvm;
 
-void hlsl::initPSVResourceBinding(PSVResourceBindInfo0 *Bind0,
+void hlsl::InitPSVResourceBinding(PSVResourceBindInfo0 *Bind0,
                                   PSVResourceBindInfo1 *Bind1,
                                   DxilResourceBase *Res) {
   Bind0->Space = Res->GetSpaceID();
@@ -75,7 +75,7 @@ void hlsl::initPSVResourceBinding(PSVResourceBindInfo0 *Bind0,
   }
 }
 
-void hlsl::initPSVSignatureElement(PSVSignatureElement0 &E,
+void hlsl::InitPSVSignatureElement(PSVSignatureElement0 &E,
                                    const DxilSignatureElement &SE,
                                    bool i1ToUnknownCompat) {
   memset(&E, 0, sizeof(PSVSignatureElement0));
@@ -98,7 +98,7 @@ void hlsl::initPSVSignatureElement(PSVSignatureElement0 &E,
   E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
 }
 
-void hlsl::initPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
+void hlsl::InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
                               PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
                               const DxilModule &DM) {
   const ShaderModel *SM = DM.GetShaderModel();
@@ -245,7 +245,7 @@ void hlsl::initPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
   }
 }
 
-void PSVResourceBindInfo0::print(raw_ostream &OS) const {
+void PSVResourceBindInfo0::Print(raw_ostream &OS) const {
   OS << "PSVResourceBindInfo:\n";
   OS << "  Space: " << Space << "\n";
   OS << "  LowerBound: " << LowerBound << "\n";
@@ -287,8 +287,8 @@ void PSVResourceBindInfo0::print(raw_ostream &OS) const {
   }
 }
 
-void PSVResourceBindInfo1::print(raw_ostream &OS) const {
-  PSVResourceBindInfo0::print(OS);
+void PSVResourceBindInfo1::Print(raw_ostream &OS) const {
+  PSVResourceBindInfo0::Print(OS);
   switch (static_cast<PSVResourceKind>(ResKind)) {
   case PSVResourceKind::Invalid:
     OS << "  ResKind: Invalid\n";
@@ -359,7 +359,7 @@ void PSVResourceBindInfo1::print(raw_ostream &OS) const {
   }
 }
 
-void PSVSignatureElement::print(raw_ostream &OS) const {
+void PSVSignatureElement::Print(raw_ostream &OS) const {
   OS << "PSVSignatureElement:\n";
   OS << "  SemanticName: " << GetSemanticName() << "\n";
   OS << "  SemanticIndex: ";
@@ -479,7 +479,7 @@ void PSVSignatureElement::print(raw_ostream &OS) const {
   OS << "  DynamicIndexMask: " << GetDynamicIndexMask() << "\n";
 }
 
-void PSVComponentMask::print(raw_ostream &OS, const char *InputSetName,
+void PSVComponentMask::Print(raw_ostream &OS, const char *InputSetName,
                              const char *OutputSetName) const {
 
   OS << "  " << OutputSetName << " dependent on " << InputSetName << " :";
@@ -498,7 +498,7 @@ void PSVComponentMask::print(raw_ostream &OS, const char *InputSetName,
   OS << "\n";
 }
 
-void PSVDependencyTable::print(raw_ostream &OS, const char *InputSetName,
+void PSVDependencyTable::Print(raw_ostream &OS, const char *InputSetName,
                                const char *OutputSetName) const {
   OS << InputSetName << " contributing to computation of " << OutputSetName
      << ":";
@@ -514,12 +514,12 @@ void PSVDependencyTable::print(raw_ostream &OS, const char *InputSetName,
 
       std::string OutputName = OutputSetName;
       OutputName += "[" + std::to_string(Index) + "]";
-      Mask.print(OS, InputSetName, OutputName.c_str());
+      Mask.Print(OS, InputSetName, OutputName.c_str());
     }
   }
 }
 
-void DxilPipelineStateValidation::printPSVRuntimeInfo(
+void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
     raw_ostream &OS, uint8_t ShaderKind, const char *Comment) const {
   PSVRuntimeInfo0 *pInfo0 = m_pPSVRuntimeInfo0;
   PSVRuntimeInfo1 *pInfo1 = m_pPSVRuntimeInfo1;
@@ -823,22 +823,22 @@ void DxilPipelineStateValidation::printPSVRuntimeInfo(
        << "\n";
 }
 
-void DxilPipelineStateValidation::print(raw_ostream &OS,
+void DxilPipelineStateValidation::Print(raw_ostream &OS,
                                         uint8_t ShaderKind) const {
   OS << "DxilPipelineStateValidation:\n";
-  printPSVRuntimeInfo(OS, ShaderKind, "");
+  PrintPSVRuntimeInfo(OS, ShaderKind, "");
 
   OS << "ResourceCount : " << m_uResourceCount << "\n ";
   if (m_uResourceCount) {
     if (m_uPSVResourceBindInfoSize == sizeof(PSVResourceBindInfo0)) {
       auto *BindInfoPtr = (PSVResourceBindInfo0 *)m_pPSVResourceBindInfo;
       for (uint32_t i = 0; i < m_uResourceCount; ++i)
-        (BindInfoPtr + i)->print(OS);
+        (BindInfoPtr + i)->Print(OS);
     } else {
       assert(m_uPSVResourceBindInfoSize == sizeof(PSVResourceBindInfo1));
       auto *BindInfoPtr = (PSVResourceBindInfo1 *)m_pPSVResourceBindInfo;
       for (uint32_t i = 0; i < m_uResourceCount; ++i)
-        (BindInfoPtr + i)->print(OS);
+        (BindInfoPtr + i)->Print(OS);
     }
   }
 
@@ -849,14 +849,14 @@ void DxilPipelineStateValidation::print(raw_ostream &OS,
     for (uint32_t i = 0; i < m_pPSVRuntimeInfo1->SigInputElements; ++i) {
       PSVSignatureElement PSVSE(m_StringTable, m_SemanticIndexTable,
                                 InputElements + i);
-      PSVSE.print(OS);
+      PSVSE.Print(OS);
     }
     PSVSignatureElement0 *OutputElements =
         (PSVSignatureElement0 *)m_pSigOutputElements;
     for (uint32_t i = 0; i < m_pPSVRuntimeInfo1->SigOutputElements; ++i) {
       PSVSignatureElement PSVSE(m_StringTable, m_SemanticIndexTable,
                                 OutputElements + i);
-      PSVSE.print(OS);
+      PSVSE.Print(OS);
     }
     PSVSignatureElement0 *PatchConstOrPrimElements =
         (PSVSignatureElement0 *)m_pSigPatchConstOrPrimElements;
@@ -864,7 +864,7 @@ void DxilPipelineStateValidation::print(raw_ostream &OS,
          ++i) {
       PSVSignatureElement PSVSE(m_StringTable, m_SemanticIndexTable,
                                 PatchConstOrPrimElements + i);
-      PSVSE.print(OS);
+      PSVSE.Print(OS);
     }
 
     unsigned NumStreams = IsGS() ? PSV_GS_MAX_STREAMS : 1;
@@ -878,7 +878,7 @@ void DxilPipelineStateValidation::print(raw_ostream &OS,
                                           OutputVectors);
         std::string OutputSetName = "Outputs";
         OutputSetName += "[" + std::to_string(i) + "]";
-        ViewIDMask.print(OS, "ViewID", OutputSetName.c_str());
+        ViewIDMask.Print(OS, "ViewID", OutputSetName.c_str());
       }
 
       if (IsHS()) {
@@ -886,7 +886,7 @@ void DxilPipelineStateValidation::print(raw_ostream &OS,
         uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
         const PSVComponentMask ViewIDMask(m_pViewIDPCOrPrimOutputMask,
                                           OutputVectors);
-        ViewIDMask.print(OS, "ViewID", "PCOutputs");
+        ViewIDMask.Print(OS, "ViewID", "PCOutputs");
       }
     }
 
@@ -899,7 +899,7 @@ void DxilPipelineStateValidation::print(raw_ostream &OS,
                                      OutputVectors);
       std::string OutputSetName = "Outputs";
       OutputSetName += "[" + std::to_string(i) + "]";
-      Table.print(OS, "Inputs", OutputSetName.c_str());
+      Table.Print(OS, "Inputs", OutputSetName.c_str());
     }
 
     if (IsHS()) {
@@ -909,7 +909,7 @@ void DxilPipelineStateValidation::print(raw_ostream &OS,
       uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
       const PSVDependencyTable Table(m_pInputToPCOutputTable, InputVectors,
                                      OutputVectors);
-      Table.print(OS, "Inputs", "PatchConstantOutputs");
+      Table.Print(OS, "Inputs", "PatchConstantOutputs");
     } else if (IsDS()) {
       OS << "Outputs affected by patch constant inputs as a table of "
             "bitmasks:\n";
@@ -917,7 +917,7 @@ void DxilPipelineStateValidation::print(raw_ostream &OS,
       uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[0];
       const PSVDependencyTable Table(m_pPCInputToOutputTable, InputVectors,
                                      OutputVectors);
-      Table.print(OS, "PatchConstantInputs", "Outputs");
+      Table.Print(OS, "PatchConstantInputs", "Outputs");
     }
   }
 }

@@ -695,7 +695,7 @@ private:
     memset(&E, 0, sizeof(PSVSignatureElement0));
     bool i1ToUnknownCompat =
         DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 5) < 0;
-    initPSVSignatureElement(E, SE, i1ToUnknownCompat);
+    InitPSVSignatureElement(E, SE, i1ToUnknownCompat);
     // Setup semantic name.
     if (SE.GetKind() == DXIL::SemanticKind::Arbitrary &&
         strlen(SE.GetName()) > 0) {
@@ -835,7 +835,7 @@ public:
     PSVRuntimeInfo2 *pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     PSVRuntimeInfo3 *pInfo3 = m_PSV.GetPSVRuntimeInfo3();
 
-    hlsl::initPSVRuntimeInfo(pInfo, pInfo1, pInfo2, pInfo3, m_Module);
+    hlsl::InitPSVRuntimeInfo(pInfo, pInfo1, pInfo2, pInfo3, m_Module);
     if (pInfo3)
       pInfo3->EntryFunctionName = EntryFunctionName;
 
@@ -848,7 +848,7 @@ public:
       PSVResourceBindInfo1 *pBindInfo1 =
           m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
-      initPSVResourceBinding(pBindInfo, pBindInfo1, R.get());
+      InitPSVResourceBinding(pBindInfo, pBindInfo1, R.get());
       uResIndex++;
     }
     for (auto &&R : m_Module.GetSamplers()) {
@@ -858,7 +858,7 @@ public:
       PSVResourceBindInfo1 *pBindInfo1 =
           m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
-      initPSVResourceBinding(pBindInfo, pBindInfo1, R.get());
+      InitPSVResourceBinding(pBindInfo, pBindInfo1, R.get());
       uResIndex++;
     }
     for (auto &&R : m_Module.GetSRVs()) {
@@ -868,7 +868,7 @@ public:
       PSVResourceBindInfo1 *pBindInfo1 =
           m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
-      initPSVResourceBinding(pBindInfo, pBindInfo1, R.get());
+      InitPSVResourceBinding(pBindInfo, pBindInfo1, R.get());
       uResIndex++;
     }
     for (auto &&R : m_Module.GetUAVs()) {
@@ -878,7 +878,7 @@ public:
       PSVResourceBindInfo1 *pBindInfo1 =
           m_PSV.GetPSVResourceBindInfo1(uResIndex);
       DXASSERT_NOMSG(pBindInfo);
-      initPSVResourceBinding(pBindInfo, pBindInfo1, R.get());
+      InitPSVResourceBinding(pBindInfo, pBindInfo1, R.get());
       uResIndex++;
     }
     DXASSERT_NOMSG(uResIndex == m_PSVInitInfo.ResourceCount);

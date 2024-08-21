@@ -1356,7 +1356,7 @@ void PrintPipelineStateValidationRuntimeInfo(const char *pBuffer,
 
   DxilPipelineStateValidation PSV;
   PSV.InitFromPSV0(pBuffer, uBufferSize);
-  PSV.printPSVRuntimeInfo(OS, static_cast<uint8_t>(shaderKind), comment.data());
+  PSV.PrintPSVRuntimeInfo(OS, static_cast<uint8_t>(shaderKind), comment.data());
 
   OS << comment << "\n";
 }

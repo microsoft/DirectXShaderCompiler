@@ -507,7 +507,7 @@ void DxaContext::DumpPSV() {
   }
   std::string Str;
   llvm::raw_string_ostream OS(Str);
-  PSV.print(OS, static_cast<uint8_t>(PSVShaderKind::Library));
+  PSV.Print(OS, static_cast<uint8_t>(PSVShaderKind::Library));
   for (char &c : Str) {
     printf("%c", c);
   }
