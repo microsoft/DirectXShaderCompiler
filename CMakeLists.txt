@@ -671,6 +671,15 @@ if(LLVM_INCLUDE_TESTS AND WIN32)
   add_definitions(/DMSFT_SUPPORTS_CHILD_PROCESSES)
 endif()
 
+if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
+  add_subdirectory(external) # SPIRV change
+endif()
+if(WIN32)
+  include_directories(${DIRECTX_HEADER_INCLUDE_DIR}/directx)
+else()
+  include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs ${DIRECTX_HEADER_INCLUDE_DIR}/directx)
+endif()
+
 # Put this before tblgen. Else we have a circular dependence.
 add_subdirectory(lib/Support)
 add_subdirectory(lib/MSSupport) # HLSL Change
@@ -685,15 +694,6 @@ add_subdirectory(include/dxc)
 # This over-specifies the dependency graph, but since generating these doesn't
 # really depend on anything else in the build it is safe.
 list(APPEND LLVM_COMMON_DEPENDS HCTGen) 
-
-if(EXISTS "${LLVM_MAIN_SRC_DIR}/external")
-  add_subdirectory(external) # SPIRV change
-endif()
-if(NOT WIN32)
-  include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/directx ${DIRECTX_HEADER_INCLUDE_DIR}/wsl/stubs)
-else()
-  include_directories(AFTER ${DIRECTX_HEADER_INCLUDE_DIR}/directx)
-endif()
 
 # HLSL - Change End
 

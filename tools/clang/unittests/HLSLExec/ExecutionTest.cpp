@@ -106,7 +106,6 @@ public:
   virtual HRESULT STDMETHODCALLTYPE SetSDKVersion(UINT SDKVersion,
                                                   LPCSTR SDKPath) = 0;
 };
-
 #elif defined(_WIN32)
 EXTERN_C const GUID DECLSPEC_SELECTANY CLSID_D3D12SDKConfiguration = {
     0x7cda6aca,

@@ -373,7 +373,7 @@ int __cdecl wmain(int argc, wchar_t **argv) {
       }
 
       std::string textMessage;
-      bool lossy;
+      BOOL lossy;
       if (!Unicode::UTF8ToConsoleString(pMsg, &textMessage, &lossy) || lossy) {
         // Do a direct assignment as a last-ditch effort and print out as UTF-8.
         textMessage = pMsg;
