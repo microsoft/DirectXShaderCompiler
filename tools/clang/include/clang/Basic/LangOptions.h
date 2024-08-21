@@ -171,7 +171,9 @@ public:
   // HLSL Change Ends
 
   bool SPIRV = false;  // SPIRV Change
-  
+  unsigned SpirvMajorVersion; // SPIRV Change
+  unsigned SpirvMinorVersion; // SPIRV Change
+
   bool isSignedOverflowDefined() const {
     return getSignedOverflowBehavior() == SOB_Defined;
   }
