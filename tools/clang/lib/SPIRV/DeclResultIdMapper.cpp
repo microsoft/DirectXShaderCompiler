@@ -320,6 +320,15 @@ bool shouldSkipInStructLayout(const Decl *decl) {
   // $Globals' "struct" is the TranslationUnit, so we should ignore resources
   // in the TranslationUnit "struct" and its child namespaces.
   if (declContext->isTranslationUnit() || declContext->isNamespace()) {
+
+    if (decl->hasAttr<VKConstantIdAttr>()) {
+      return true;
+    }
+
+    if (decl->hasAttr<VKPushConstantAttr>()) {
+      return true;
+    }
+
     // External visibility
     if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
       if (!declDecl->hasExternalFormalLinkage())
@@ -3658,7 +3667,7 @@ bool DeclResultIdMapper::createStageVars(StageVarDataBundle &stageVarData,
         return true;
       // Negate SV_Position.y if requested
       if (semanticKind == hlsl::Semantic::Kind::Position)
-        *value = invertYIfRequested(*value, thisSemantic.loc);
+        *value = theEmitter.invertYIfRequested(*value, thisSemantic.loc);
       storeToShaderOutputVariable(varInstr, *value, stageVarData);
     }
 
@@ -3847,7 +3856,7 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
 
     // Negate SV_Position.y if requested
     if (semanticInfo.semantic->GetKind() == hlsl::Semantic::Kind::Position)
-      value = invertYIfRequested(value, loc, range);
+      value = theEmitter.invertYIfRequested(value, loc, range);
 
     // Boolean stage output variables are represented as unsigned integers.
     if (isBooleanStageIOVar(decl, type, semanticInfo.semantic->GetKind(),
@@ -3895,22 +3904,6 @@ bool DeclResultIdMapper::writeBackOutputStream(const NamedDecl *decl,
   }
 
   return true;
-}
-
-SpirvInstruction *
-DeclResultIdMapper::invertYIfRequested(SpirvInstruction *position,
-                                       SourceLocation loc, SourceRange range) {
-  // Negate SV_Position.y if requested
-  if (spirvOptions.invertY) {
-    const auto oldY = spvBuilder.createCompositeExtract(
-        astContext.FloatTy, position, {1}, loc, range);
-    const auto newY = spvBuilder.createUnaryOp(
-        spv::Op::OpFNegate, astContext.FloatTy, oldY, loc, range);
-    position = spvBuilder.createCompositeInsert(
-        astContext.getExtVectorType(astContext.FloatTy, 4), position, {1}, newY,
-        loc, range);
-  }
-  return position;
 }
 
 SpirvInstruction *
@@ -4224,6 +4217,22 @@ SpirvVariable *DeclResultIdMapper::createSpirvStageVar(
     default:
       llvm_unreachable("invalid usage of SV_InstanceID sneaked in");
     }
+  }
+  // According to DXIL spec, the StartVertexLocation SV can only be used by
+  // VSIn. According to Vulkan spec, the BaseVertex BuiltIn can only be used by
+  // VSIn.
+  case hlsl::Semantic::Kind::StartVertexLocation: {
+    stageVar->setIsSpirvBuiltin();
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::BaseVertex,
+                                         isPrecise, srcLoc);
+  }
+  // According to DXIL spec, the StartInstanceLocation SV can only be used by
+  // VSIn. According to Vulkan spec, the BaseInstance BuiltIn can only be used
+  // by VSIn.
+  case hlsl::Semantic::Kind::StartInstanceLocation: {
+    stageVar->setIsSpirvBuiltin();
+    return spvBuilder.addStageBuiltinVar(type, sc, BuiltIn::BaseInstance,
+                                         isPrecise, srcLoc);
   }
   // According to DXIL spec, the Depth{|GreaterEqual|LessEqual} SV can only be
   // used by PSOut.

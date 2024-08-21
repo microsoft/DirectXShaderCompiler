@@ -2,31 +2,28 @@
 
 // Check the names
 //
-// CHECK: OpName %secondGlobal_t_0_ "secondGlobal.t[0]"
-// CHECK: OpName %secondGlobal_t_1_ "secondGlobal.t[1]"
-// CHECK: OpName %firstGlobal_0__0__t_0_ "firstGlobal[0][0].t[0]"
-// CHECK: OpName %firstGlobal_0__0__t_1_ "firstGlobal[0][0].t[1]"
-// CHECK: OpName %firstGlobal_0__1__t_0_ "firstGlobal[0][1].t[0]"
-// CHECK: OpName %firstGlobal_0__1__t_1_ "firstGlobal[0][1].t[1]"
-// CHECK: OpName %firstGlobal_1__0__t_0_ "firstGlobal[1][0].t[0]"
-// CHECK: OpName %firstGlobal_1__0__t_1_ "firstGlobal[1][0].t[1]"
-// CHECK: OpName %firstGlobal_1__1__t_0_ "firstGlobal[1][1].t[0]"
-// CHECK: OpName %firstGlobal_1__1__t_1_ "firstGlobal[1][1].t[1]"
-// CHECK: OpName %secondGlobal_tt_0__s_1_ "secondGlobal.tt[0].s[1]"
-// CHECK: OpName %secondGlobal_tt_1__s_2_ "secondGlobal.tt[1].s[2]"
-// CHECK: OpName %firstGlobal_0__0__tt_0__s_1_ "firstGlobal[0][0].tt[0].s[1]"
-// CHECK: OpName %firstGlobal_0__0__tt_1__s_2_ "firstGlobal[0][0].tt[1].s[2]"
-// CHECK: OpName %firstGlobal_0__1__tt_0__s_1_ "firstGlobal[0][1].tt[0].s[1]"
-// CHECK: OpName %firstGlobal_0__1__tt_1__s_2_ "firstGlobal[0][1].tt[1].s[2]"
-// CHECK: OpName %firstGlobal_1__0__tt_0__s_1_ "firstGlobal[1][0].tt[0].s[1]"
-// CHECK: OpName %firstGlobal_1__0__tt_1__s_2_ "firstGlobal[1][0].tt[1].s[2]"
-// CHECK: OpName %firstGlobal_1__1__tt_0__s_1_ "firstGlobal[1][1].tt[0].s[1]"
-// CHECK: OpName %firstGlobal_1__1__tt_1__s_2_ "firstGlobal[1][1].tt[1].s[2]"
+// CHECK: OpName %secondGlobal_t "secondGlobal.t"
+// CHECK: OpName %firstGlobal_0__0__t "firstGlobal[0][0].t"
+// CHECK: OpName %firstGlobal_0__1__t "firstGlobal[0][1].t"
+// CHECK: OpName %firstGlobal_1__0__t "firstGlobal[1][0].t"
+// CHECK: OpName %firstGlobal_1__1__t "firstGlobal[1][1].t"
+// CHECK: OpName %secondGlobal_tt_0__s "secondGlobal.tt[0].s"
+// CHECK: OpName %secondGlobal_tt_1__s "secondGlobal.tt[1].s"
+// CHECK: OpName %firstGlobal_0__0__tt_0__s "firstGlobal[0][0].tt[0].s"
+// CHECK: OpName %firstGlobal_0__0__tt_1__s "firstGlobal[0][0].tt[1].s"
+// CHECK: OpName %firstGlobal_0__1__tt_0__s "firstGlobal[0][1].tt[0].s"
+// CHECK: OpName %firstGlobal_0__1__tt_1__s "firstGlobal[0][1].tt[1].s"
+// CHECK: OpName %firstGlobal_1__0__tt_0__s "firstGlobal[1][0].tt[0].s"
+// CHECK: OpName %firstGlobal_1__0__tt_1__s "firstGlobal[1][0].tt[1].s"
+// CHECK: OpName %firstGlobal_1__1__tt_0__s "firstGlobal[1][1].tt[0].s"
+// CHECK: OpName %firstGlobal_1__1__tt_1__s "firstGlobal[1][1].tt[1].s"
 
 // Check flattening of bindings
 // Explanation: Only the resources that are used will have a binding assignment
 // Unused resources will result in gaps in the bindings. This is consistent with
 // the behavior of FXC.
+// Notes: because resource arrays are not flattened, if one binding is used,
+// then the whole arrays remains.
 //
 // In this example:
 //
@@ -71,49 +68,54 @@
 // secondGlobal.tt[1].s[1]       binding: 38
 // secondGlobal.tt[1].s[2]       binding: 39 (used)
 //
-// CHECK: OpDecorate %secondGlobal_t_0_ Binding 32
-// CHECK: OpDecorate %secondGlobal_t_1_ Binding 33
-// CHECK: OpDecorate %firstGlobal_0__0__t_0_ Binding 0
-// CHECK: OpDecorate %firstGlobal_0__0__t_1_ Binding 1
-// CHECK: OpDecorate %firstGlobal_0__1__t_0_ Binding 8
-// CHECK: OpDecorate %firstGlobal_0__1__t_1_ Binding 9
-// CHECK: OpDecorate %firstGlobal_1__0__t_0_ Binding 16
-// CHECK: OpDecorate %firstGlobal_1__0__t_1_ Binding 17
-// CHECK: OpDecorate %firstGlobal_1__1__t_0_ Binding 24
-// CHECK: OpDecorate %firstGlobal_1__1__t_1_ Binding 25
-// CHECK: OpDecorate %secondGlobal_tt_0__s_1_ Binding 35
-// CHECK: OpDecorate %secondGlobal_tt_1__s_2_ Binding 39
-// CHECK: OpDecorate %firstGlobal_0__0__tt_0__s_1_ Binding 3
-// CHECK: OpDecorate %firstGlobal_0__0__tt_1__s_2_ Binding 7
-// CHECK: OpDecorate %firstGlobal_0__1__tt_0__s_1_ Binding 11
-// CHECK: OpDecorate %firstGlobal_0__1__tt_1__s_2_ Binding 15
-// CHECK: OpDecorate %firstGlobal_1__0__tt_0__s_1_ Binding 19
-// CHECK: OpDecorate %firstGlobal_1__0__tt_1__s_2_ Binding 23
-// CHECK: OpDecorate %firstGlobal_1__1__tt_0__s_1_ Binding 27
-// CHECK: OpDecorate %firstGlobal_1__1__tt_1__s_2_ Binding 31
+// CHECK: OpDecorate %secondGlobal_t DescriptorSet 0
+// CHECK: OpDecorate %secondGlobal_t Binding 32
+// CHECK: OpDecorate %firstGlobal_0__0__t DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_0__0__t Binding 0
+// CHECK: OpDecorate %firstGlobal_0__1__t DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_0__1__t Binding 8
+// CHECK: OpDecorate %firstGlobal_1__0__t DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_1__0__t Binding 16
+// CHECK: OpDecorate %firstGlobal_1__1__t DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_1__1__t Binding 24
+// CHECK: OpDecorate %secondGlobal_tt_0__s DescriptorSet 0
+// CHECK: OpDecorate %secondGlobal_tt_0__s Binding 34
+// CHECK: OpDecorate %secondGlobal_tt_1__s DescriptorSet 0
+// CHECK: OpDecorate %secondGlobal_tt_1__s Binding 37
+// CHECK: OpDecorate %firstGlobal_0__0__tt_0__s DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_0__0__tt_0__s Binding 2
+// CHECK: OpDecorate %firstGlobal_0__0__tt_1__s DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_0__0__tt_1__s Binding 5
+// CHECK: OpDecorate %firstGlobal_0__1__tt_0__s DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_0__1__tt_0__s Binding 10
+// CHECK: OpDecorate %firstGlobal_0__1__tt_1__s DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_0__1__tt_1__s Binding 13
+// CHECK: OpDecorate %firstGlobal_1__0__tt_0__s DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_1__0__tt_0__s Binding 18
+// CHECK: OpDecorate %firstGlobal_1__0__tt_1__s DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_1__0__tt_1__s Binding 21
+// CHECK: OpDecorate %firstGlobal_1__1__tt_0__s DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_1__1__tt_0__s Binding 26
+// CHECK: OpDecorate %firstGlobal_1__1__tt_1__s DescriptorSet 0
+// CHECK: OpDecorate %firstGlobal_1__1__tt_1__s Binding 29
 
 // Check existence of replacement variables
 //
-// CHECK: %secondGlobal_t_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %secondGlobal_t_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %firstGlobal_0__0__t_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %firstGlobal_0__0__t_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %firstGlobal_0__1__t_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %firstGlobal_0__1__t_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %firstGlobal_1__0__t_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %firstGlobal_1__0__t_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %firstGlobal_1__1__t_0_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %firstGlobal_1__1__t_1_ = OpVariable %_ptr_UniformConstant_type_2d_image UniformConstant
-// CHECK: %secondGlobal_tt_0__s_1_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %secondGlobal_tt_1__s_2_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %firstGlobal_0__0__tt_0__s_1_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %firstGlobal_0__0__tt_1__s_2_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %firstGlobal_0__1__tt_0__s_1_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %firstGlobal_0__1__tt_1__s_2_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %firstGlobal_1__0__tt_0__s_1_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %firstGlobal_1__0__tt_1__s_2_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %firstGlobal_1__1__tt_0__s_1_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
-// CHECK: %firstGlobal_1__1__tt_1__s_2_ = OpVariable %_ptr_UniformConstant_type_sampler UniformConstant
+// CHECK:            %secondGlobal_t = OpVariable %_ptr_UniformConstant__arr_type_2d_image_uint_2 UniformConstant
+// CHECK:       %firstGlobal_0__0__t = OpVariable %_ptr_UniformConstant__arr_type_2d_image_uint_2 UniformConstant
+// CHECK:       %firstGlobal_0__1__t = OpVariable %_ptr_UniformConstant__arr_type_2d_image_uint_2 UniformConstant
+// CHECK:       %firstGlobal_1__0__t = OpVariable %_ptr_UniformConstant__arr_type_2d_image_uint_2 UniformConstant
+// CHECK:       %firstGlobal_1__1__t = OpVariable %_ptr_UniformConstant__arr_type_2d_image_uint_2 UniformConstant
+// CHECK:      %secondGlobal_tt_0__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK:      %secondGlobal_tt_1__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK: %firstGlobal_0__0__tt_0__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK: %firstGlobal_0__0__tt_1__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK: %firstGlobal_0__1__tt_0__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK: %firstGlobal_0__1__tt_1__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK: %firstGlobal_1__0__tt_0__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK: %firstGlobal_1__0__tt_1__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK: %firstGlobal_1__1__tt_0__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
+// CHECK: %firstGlobal_1__1__tt_1__s = OpVariable %_ptr_UniformConstant__arr_type_sampler_uint_3 UniformConstant
 
 struct T {
   SamplerState s[3];
@@ -132,55 +134,72 @@ S firstGlobal[2][2];
 S secondGlobal;
 
 float4 main() : SV_Target {
-  return 
-// CHECK:      [[fg_1_t_0:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_0__0__t_0_
-// CHECK:      [[fg_1_t_1:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_0__0__t_1_
-// CHECK: [[fg_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_0__0__tt_0__s_1_
-// CHECK: [[fg_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_0__0__tt_1__s_2_
-// CHECK:   [[sampled_img_1:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_t_0]] [[fg_1_tt_0_s_1]]
-// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_1]]
-// CHECK:   [[sampled_img_2:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_t_1]] [[fg_1_tt_1_s_2]]
-// CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_2]]
-// CHECK:                            OpFAdd
+  return
+// CHECK:      [[fg_0_0_t:%[0-9]+]] = OpLoad %_arr_type_2d_image_uint_2 %firstGlobal_0__0__t
+// CHECK:      [[fg_1_t_0:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_0_0_t]] 0
+// CHECK:      [[fg_1_t_1:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_0_0_t]] 1
+// CHECK:           [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %firstGlobal_0__0__tt_0__s %uint_1
+// CHECK: [[fg_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
+// CHECK:           [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %firstGlobal_0__0__tt_1__s %uint_2
+// CHECK: [[fg_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
+// CHECK: [[sampled_img_1:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_t_0]] [[fg_1_tt_0_s_1]]
+// CHECK:               {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_1]]
+// CHECK: [[sampled_img_2:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_t_1]] [[fg_1_tt_1_s_2]]
+// CHECK:               {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_2]]
+// CHECK:                             OpFAdd
     tex2D(firstGlobal[0][0], float2(0,0)) +
-// CHECK:      [[fg_0_1_t_0:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_0__1__t_0_
-// CHECK:      [[fg_0_1_t_1:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_0__1__t_1_
-// CHECK: [[fg_0_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_0__1__tt_0__s_1_
-// CHECK: [[fg_0_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_0__1__tt_1__s_2_
+
+// CHECK:        [[fg_0_1_t:%[0-9]+]] = OpLoad %_arr_type_2d_image_uint_2 %firstGlobal_0__1__t
+// CHECK:      [[fg_0_1_t_0:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_0_1_t]] 0
+// CHECK:      [[fg_0_1_t_1:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_0_1_t]] 1
+// CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %firstGlobal_0__1__tt_0__s %uint_1
+// CHECK: [[fg_0_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
+// CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %firstGlobal_0__1__tt_1__s %uint_2
+// CHECK: [[fg_0_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
 // CHECK:   [[sampled_img_3:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_0_1_t_0]] [[fg_0_1_tt_0_s_1]]
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_3]]
 // CHECK:   [[sampled_img_4:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_0_1_t_1]] [[fg_0_1_tt_1_s_2]]
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_4]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[0][1], float2(0,0)) +
-// CHECK:      [[fg_1_0_t_0:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_1__0__t_0_
-// CHECK:      [[fg_1_0_t_1:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_1__0__t_1_
-// CHECK: [[fg_1_0_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_1__0__tt_0__s_1_
-// CHECK: [[fg_1_0_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_1__0__tt_1__s_2_
+// CHECK:        [[fg_1_0_t:%[0-9]+]] = OpLoad %_arr_type_2d_image_uint_2 %firstGlobal_1__0__t
+// CHECK:      [[fg_1_0_t_0:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_1_0_t]] 0
+// CHECK:      [[fg_1_0_t_1:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_1_0_t]] 1
+// CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %firstGlobal_1__0__tt_0__s %uint_1
+// CHECK: [[fg_1_0_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
+// CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %firstGlobal_1__0__tt_1__s %uint_2
+// CHECK: [[fg_1_0_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
 // CHECK:   [[sampled_img_5:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_0_t_0]] [[fg_1_0_tt_0_s_1]]
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_5]]
 // CHECK:   [[sampled_img_6:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_0_t_1]] [[fg_1_0_tt_1_s_2]]
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_6]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[1][0], float2(0,0)) +
-// CHECK:      [[fg_1_1_t_0:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_1__1__t_0_
-// CHECK:      [[fg_1_1_t_1:%[0-9]+]] = OpLoad %type_2d_image %firstGlobal_1__1__t_1_
-// CHECK: [[fg_1_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_1__1__tt_0__s_1_
-// CHECK: [[fg_1_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %firstGlobal_1__1__tt_1__s_2_
+// CHECK:        [[fg_1_1_t:%[0-9]+]] = OpLoad %_arr_type_2d_image_uint_2 %firstGlobal_1__1__t
+// CHECK:      [[fg_1_1_t_0:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_1_1_t]] 0
+// CHECK:      [[fg_1_1_t_1:%[0-9]+]] = OpCompositeExtract %type_2d_image [[fg_1_1_t]] 1
+// CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %firstGlobal_1__1__tt_0__s %uint_1
+// CHECK: [[fg_1_1_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
+// CHECK:             [[tmp:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %firstGlobal_1__1__tt_1__s %uint_2
+// CHECK: [[fg_1_1_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler [[tmp]]
 // CHECK:   [[sampled_img_7:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_1_t_0]] [[fg_1_1_tt_0_s_1]]
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_7]]
 // CHECK:   [[sampled_img_8:%[0-9]+]] = OpSampledImage %type_sampled_image [[fg_1_1_t_1]] [[fg_1_1_tt_1_s_2]]
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_8]]
 // CHECK:                            OpFAdd
     tex2D(firstGlobal[1][1], float2(0,0)) +
-// CHECK:          [[sg_t_0:%[0-9]+]] = OpLoad %type_2d_image %secondGlobal_t_0_
-// CHECK:     [[sg_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler %secondGlobal_tt_0__s_1_
+// CHECK:            [[sg_t:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %secondGlobal_t %int_0
+// CHECK:          [[sg_t_0:%[0-9]+]] = OpLoad %type_2d_image [[sg_t]]
+// CHECK:            [[sg_s:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %secondGlobal_tt_0__s %int_1
+// CHECK:     [[sg_tt_0_s_1:%[0-9]+]] = OpLoad %type_sampler [[sg_s]]
 // CHECK:   [[sampled_img_9:%[0-9]+]] = OpSampledImage %type_sampled_image [[sg_t_0]] [[sg_tt_0_s_1]]
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_9]]
 // CHECK:                            OpFAdd
     secondGlobal.t[0].Sample(secondGlobal.tt[0].s[1], float2(0,0)) +
-// CHECK:          [[sg_t_1:%[0-9]+]] = OpLoad %type_2d_image %secondGlobal_t_1_
-// CHECK:     [[sg_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler %secondGlobal_tt_1__s_2_
+// CHECK:            [[sg_t:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_2d_image %secondGlobal_t %int_1
+// CHECK:          [[sg_t_1:%[0-9]+]] = OpLoad %type_2d_image [[sg_t]]
+// CHECK:            [[sg_s:%[0-9]+]] = OpAccessChain %_ptr_UniformConstant_type_sampler %secondGlobal_tt_1__s %int_2
+// CHECK:     [[sg_tt_1_s_2:%[0-9]+]] = OpLoad %type_sampler [[sg_s]]
 // CHECK:  [[sampled_img_10:%[0-9]+]] = OpSampledImage %type_sampled_image [[sg_t_1]] [[sg_tt_1_s_2]]
 // CHECK:                 {{%[0-9]+}} = OpImageSampleImplicitLod %v4float [[sampled_img_10]]
     secondGlobal.t[1].Sample(secondGlobal.tt[1].s[2], float2(0,0));

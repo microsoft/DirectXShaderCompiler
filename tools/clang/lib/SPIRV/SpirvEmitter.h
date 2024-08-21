@@ -36,6 +36,7 @@
 
 #include "ConstEvaluator.h"
 #include "DeclResultIdMapper.h"
+#include "spirv-tools/optimizer.hpp"
 
 namespace spvtools {
 namespace opt {
@@ -113,6 +114,11 @@ public:
   createSpirvIntrInstExt(llvm::ArrayRef<const Attr *> attrs, QualType retType,
                          llvm::ArrayRef<SpirvInstruction *> spvArgs,
                          bool isInstr, SourceLocation loc);
+
+  /// \brief Negates to get the additive inverse of SV_Position.y if requested.
+  SpirvInstruction *invertYIfRequested(SpirvInstruction *position,
+                                       SourceLocation loc,
+                                       SourceRange range = {});
 
 private:
   void doFunctionDecl(const FunctionDecl *decl);
@@ -843,8 +849,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
-                                SpirvFunction *entryFuncId,
-                                SpirvDebugFunction *debugFunction);
+                                SpirvFunction *entryFuncId);
 
   /// \brief Emits a wrapper function for the entry functions for raytracing
   /// stages and returns true on success.
@@ -854,8 +859,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
-                                             SpirvFunction *entryFuncId,
-                                             SpirvDebugFunction *debugFunction);
+                                             SpirvFunction *entryFuncId);
 
   /// \brief Performs the following operations for the Hull shader:
   /// * Creates an output variable which is an Array containing results for all
@@ -1197,6 +1201,13 @@ private:
   /// Returns true on success and false otherwise.
   bool spirvToolsOptimize(std::vector<uint32_t> *mod, std::string *messages);
 
+  // \brief Runs the pass represented by the given pass token on the module.
+  // Returns true if the pass was successfully run. Any messages from the
+  // optimizer are returned in `messages`.
+  bool spirvToolsRunPass(std::vector<uint32_t> *mod,
+                         spvtools::Optimizer::PassToken token,
+                         std::string *messages);
+
   // \brief Calls SPIRV-Tools optimizer fix-opextinst-opcodes pass. This pass
   // fixes OpExtInst/OpExtInstWithForwardRefsKHR opcodes to use the correct one
   // depending of the presence of forward references.
@@ -1210,6 +1221,13 @@ private:
   // headers.
   bool spirvToolsTrimCapabilities(std::vector<uint32_t> *mod,
                                   std::string *messages);
+
+  // \brief Runs the upgrade memory model pass using SPIRV-Tools's optimizer.
+  // This pass will modify the module, |mod|, so that it conforms to the Vulkan
+  // memory model instead of the GLSL450 memory model. Returns
+  // info/warning/error messages via |messages|.
+  bool spirvToolsUpgradeToVulkanMemoryModel(std::vector<uint32_t> *mod,
+                                            std::string *messages);
 
   /// \brief Helper function to run SPIRV-Tools optimizer's legalization passes.
   /// Runs the SPIRV-Tools legalization on the given SPIR-V module |mod|, and
@@ -1264,6 +1282,11 @@ private:
   SpirvInstruction *splatScalarToGenerate(QualType type,
                                           SpirvInstruction *scalar,
                                           SpirvLayoutRule rule);
+
+  /// Modifies the instruction in the code that use the GLSL450 memory module to
+  /// use the Vulkan memory model. This is done only if it has been requested or
+  /// the Vulkan memory model capability has been added to the module.
+  bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
 
 public:
   /// \brief Wrapper method to create a fatal error message and report it

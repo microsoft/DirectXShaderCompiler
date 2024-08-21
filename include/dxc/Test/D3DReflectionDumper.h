@@ -38,9 +38,19 @@ public:
   void Dump(D3D12_SHADER_BUFFER_DESC &Desc);
   void Dump(D3D12_SHADER_INPUT_BIND_DESC &resDesc);
   void Dump(D3D12_SIGNATURE_PARAMETER_DESC &elDesc);
+  void Dump(D3D12_NODE_SHADER_DESC &Desc);
+  void Dump(D3D12_HULL_SHADER_DESC &Desc);
+  void Dump(D3D12_COMPUTE_SHADER_DESC &Desc);
+  void Dump(D3D12_MESH_SHADER_DESC &Desc);
+  void Dump(D3D12_GEOMETRY_SHADER_DESC &Desc);
+  void Dump(D3D12_DOMAIN_SHADER_DESC &Desc);
+  void Dump(D3D12_NODE_ID_DESC &Desc, const char *name);
+  void Dump(D3D12_NODE_DESC &Desc);
   void Dump(D3D12_SHADER_DESC &Desc);
   void Dump(D3D12_FUNCTION_DESC &Desc);
   void Dump(D3D12_LIBRARY_DESC &Desc);
+
+  void Dump(D3D12_FUNCTION_DESC1 &Desc);
 
   void Dump(ID3D12ShaderReflectionType *pType);
   void Dump(ID3D12ShaderReflectionVariable *pVar);
@@ -48,8 +58,11 @@ public:
   void Dump(ID3D12ShaderReflectionConstantBuffer *pCBReflection);
 
   void Dump(ID3D12ShaderReflection *pShaderReflection);
+  void Dump(ID3D12ShaderReflection1 *pShaderReflection);
   void Dump(ID3D12FunctionReflection *pFunctionReflection);
+  void Dump(ID3D12FunctionReflection1 *pFunctionReflection);
   void Dump(ID3D12LibraryReflection *pLibraryReflection);
+  void Dump(ID3D12LibraryReflection1 *pLibraryReflection);
 };
 
 } // namespace dump

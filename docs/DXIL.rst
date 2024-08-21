@@ -2337,18 +2337,18 @@ ID  Name                                                  Description
 223 TextureGatherRaw                                      Gather raw elements from 4 texels with no type conversions (SRV type is constrained)
 224 SampleCmpLevel                                        samples a texture and compares a single component against the specified comparison value
 225 TextureStoreSample                                    stores texel data at specified sample index
-226 WaveMatrix_Annotate                                   Annotate a wave matrix pointer with the type information
-227 WaveMatrix_Depth                                      Returns depth (K) value for matrix of specified type
-228 WaveMatrix_Fill                                       Fill wave matrix with scalar value
-229 WaveMatrix_LoadRawBuf                                 Load wave matrix from raw buffer
-230 WaveMatrix_LoadGroupShared                            Load wave matrix from group shared array
-231 WaveMatrix_StoreRawBuf                                Store wave matrix to raw buffer
-232 WaveMatrix_StoreGroupShared                           Store wave matrix to group shared array
-233 WaveMatrix_Multiply                                   Mutiply left and right wave matrix and store in accumulator
-234 WaveMatrix_MultiplyAccumulate                         Mutiply left and right wave matrix and accumulate into accumulator
-235 WaveMatrix_ScalarOp                                   Perform scalar operation on each element of wave matrix
-236 WaveMatrix_SumAccumulate                              Sum rows or columns of an input matrix into an existing accumulator fragment matrix
-237 WaveMatrix_Add                                        Element-wise accumulate, or broadcast add of fragment into accumulator
+226 Reserved0                                             Reserved
+227 Reserved1                                             Reserved
+228 Reserved2                                             Reserved
+229 Reserved3                                             Reserved
+230 Reserved4                                             Reserved
+231 Reserved5                                             Reserved
+232 Reserved6                                             Reserved
+233 Reserved7                                             Reserved
+234 Reserved8                                             Reserved
+235 Reserved9                                             Reserved
+236 Reserved10                                            Reserved
+237 Reserved11                                            Reserved
 238 AllocateNodeOutputRecords                             returns a handle for the output records
 239 GetNodeRecordPtr                                      retrieve node input/output record pointer in address space 6
 240 IncrementOutputCount                                  Select the next logical output count for an EmptyNodeOutput for the whole group or per thread.

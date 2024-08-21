@@ -20,13 +20,13 @@
 
 // TBD: We should be annotating handles used inside called functions
 // xHLCHECK: define internal void @"\01?DoIt
-// xHLCHECK: %[[FuncAnnInputRecHandle:[0-9]+]] = call %dx.types.NodeRecordHandle @"dx.hl.annotatenoderecordhandle..%dx.types.NodeRecordHandle (i32, %dx.types.NodeRecordHandle, %dx.types.NodeRecordInfo)"(i32 17, %dx.types.NodeRecordHandle %[[FuncInputRecHandle]], %dx.types.NodeRecordInfo { i32 613, i32 4 })
+// xHLCHECK: %[[FuncAnnInputRecHandle:[0-9]+]] = call %dx.types.NodeRecordHandle @"dx.hl.annotatenoderecordhandle..%dx.types.NodeRecordHandle (i32, %dx.types.NodeRecordHandle, %dx.types.NodeRecordInfo)"(i32 16, %dx.types.NodeRecordHandle %[[FuncInputRecHandle]], %dx.types.NodeRecordInfo { i32 613, i32 4 })
 
 // HLCHECK: define void @firstNode
 // HLCHECK: %[[CreateInputHandle:[0-9]+]] = call %dx.types.NodeRecordHandle @"dx.hl.createnodeinputrecordhandle..%dx.types.NodeRecordHandle (i32, i32)"(i32 13, i32 0)
 
 // Check that NodeIOFlags is 613 = GloballyCoherent(512) | DispatchRecord(96) | ReadWrite(4) | Input(1)
-// HLCHECK: %[[AnnInputRecHandle:[0-9]+]] = call %dx.types.NodeRecordHandle @"dx.hl.annotatenoderecordhandle..%dx.types.NodeRecordHandle (i32, %dx.types.NodeRecordHandle, %dx.types.NodeRecordInfo)"(i32 17, %dx.types.NodeRecordHandle %[[CreateInputHandle]], %dx.types.NodeRecordInfo { i32 613, i32 4 })
+// HLCHECK: %[[AnnInputRecHandle:[0-9]+]] = call %dx.types.NodeRecordHandle @"dx.hl.annotatenoderecordhandle..%dx.types.NodeRecordHandle (i32, %dx.types.NodeRecordHandle, %dx.types.NodeRecordInfo)"(i32 16, %dx.types.NodeRecordHandle %[[CreateInputHandle]], %dx.types.NodeRecordInfo { i32 613, i32 4 })
 
 // ==== D3DReflect Checks ====
 

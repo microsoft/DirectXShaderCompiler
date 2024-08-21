@@ -68,6 +68,8 @@ enum class RuntimeDataPartType : uint32_t {
   NodeShaderInfoTable = 11,
   Last_1_8 = NodeShaderInfoTable,
 
+  Reserved_MeshNodesPreviewInfoTable = 12,
+
   // Insert experimental here.
   SignatureElementTable,
   VSInfoTable,
@@ -112,6 +114,8 @@ enum class RecordTableIndex : unsigned {
   NodeShaderFuncAttribTable,
   IONodeTable,
   NodeShaderInfoTable,
+
+  Reserved_MeshNodesPreviewInfoTable,
 
   DxilPdbInfoTable,
   DxilPdbInfoSourceTable,

@@ -638,18 +638,6 @@ class db_dxil(object):
         for i in "IsHelperLane".split(","):
             self.name_idx[i].category = "Helper Lanes"
             self.name_idx[i].shader_model = 6, 6
-        for i in (
-            "WaveMatrix_Annotate,WaveMatrix_Depth,WaveMatrix_Fill,"
-            + "WaveMatrix_LoadRawBuf,WaveMatrix_LoadGroupShared,WaveMatrix_StoreRawBuf,WaveMatrix_StoreGroupShared,"
-            + "WaveMatrix_Multiply,WaveMatrix_MultiplyAccumulate,WaveMatrix_ScalarOp,"
-            + "WaveMatrix_SumAccumulate,WaveMatrix_Add"
-        ).split(","):
-            self.name_idx[i].category = "WaveMatrix"
-            self.name_idx[i].shader_model = 6, 9
-            self.name_idx[i].shader_stages = (
-                "library",
-                "compute",
-            )
         for i in "QuadVote,TextureGatherRaw,SampleCmpLevel,TextureStoreSample".split(
             ","
         ):
@@ -4990,280 +4978,125 @@ class db_dxil(object):
             % next_op_idx
         )
 
-        # WaveMatrix ops
+        # Reserved ops
         self.add_dxil_op(
-            "WaveMatrix_Annotate",
+            "Reserved0",
             next_op_idx,
-            "WaveMatrix_Annotate",
-            "Annotate a wave matrix pointer with the type information",
-            "v",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
-                db_dxil_param(
-                    3,
-                    "waveMatProps",
-                    "waveMatProps",
-                    "constant WaveMatrix type info",
-                    is_const=True,
-                ),
-            ],
-        )
-        next_op_idx += 1
-
-        self.add_dxil_op(
-            "WaveMatrix_Depth",
-            next_op_idx,
-            "WaveMatrix_Depth",
-            "Returns depth (K) value for matrix of specified type",
-            "v",
-            "rn",
-            [
-                db_dxil_param(0, "i32", "", "depth (k) value"),
-                db_dxil_param(
-                    2, "waveMatProps", "waveMatProps", "constant WaveMatrix type info"
-                ),
-            ],
-        )
-        next_op_idx += 1
-
-        self.add_dxil_op(
-            "WaveMatrix_Fill",
-            next_op_idx,
-            "WaveMatrix_Fill",
-            "Fill wave matrix with scalar value",
-            "hfi",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
-                db_dxil_param(3, "$o", "value", "scalar value to fill matrix with"),
-            ],
-        )
-        next_op_idx += 1
-
-        self.add_dxil_op(
-            "WaveMatrix_LoadRawBuf",
-            next_op_idx,
-            "WaveMatrix_LoadRawBuf",
-            "Load wave matrix from raw buffer",
+            "Reserved",
+            "Reserved",
             "v",
             "",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
-                db_dxil_param(3, "res", "rawBuf", "handle of raw buffer"),
-                db_dxil_param(4, "i32", "offsetInBytes", "offset in bytes"),
-                db_dxil_param(5, "i32", "strideInBytes", "stride in bytes"),
-                db_dxil_param(
-                    6, "i8", "alignmentInBytes", "alignment in bytes", is_const=True
-                ),
-                db_dxil_param(
-                    7, "i1", "colMajor", "memory is col-major", is_const=True
-                ),
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
-
         self.add_dxil_op(
-            "WaveMatrix_LoadGroupShared",
+            "Reserved1",
             next_op_idx,
-            "WaveMatrix_LoadGroupShared",
-            "Load wave matrix from group shared array",
-            "hfi",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
-                db_dxil_param(
-                    3, "$gsptr", "groupsharedPtr", "pointer to groupshared array"
-                ),
-                db_dxil_param(4, "i32", "startArrayIndex", "start array index"),
-                db_dxil_param(5, "i32", "strideInElements", "stride in elements"),
-                db_dxil_param(
-                    6, "i1", "colMajor", "memory is col-major", is_const=True
-                ),
-            ],
-        )
-        next_op_idx += 1
-
-        self.add_dxil_op(
-            "WaveMatrix_StoreRawBuf",
-            next_op_idx,
-            "WaveMatrix_StoreRawBuf",
-            "Store wave matrix to raw buffer",
+            "Reserved",
+            "Reserved",
             "v",
             "",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
-                db_dxil_param(3, "res", "rawBuf", "handle of raw buffer"),
-                db_dxil_param(4, "i32", "offsetInBytes", "offset in bytes"),
-                db_dxil_param(5, "i32", "strideInBytes", "stride in bytes"),
-                db_dxil_param(
-                    6, "i8", "alignmentInBytes", "alignment in bytes", is_const=True
-                ),
-                db_dxil_param(
-                    7, "i1", "colMajor", "memory is col-major", is_const=True
-                ),
-            ],
+            [retvoid_param],
         )
         next_op_idx += 1
-
         self.add_dxil_op(
-            "WaveMatrix_StoreGroupShared",
+            "Reserved2",
             next_op_idx,
-            "WaveMatrix_StoreGroupShared",
-            "Store wave matrix to group shared array",
-            "hfi",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
-                db_dxil_param(
-                    3, "$gsptr", "groupsharedPtr", "pointer to groupshared array"
-                ),
-                db_dxil_param(4, "i32", "startArrayIndex", "start array index"),
-                db_dxil_param(5, "i32", "strideInElements", "stride in elements"),
-                db_dxil_param(
-                    6, "i1", "colMajor", "memory is col-major", is_const=True
-                ),
-            ],
-        )
-        next_op_idx += 1
-
-        self.add_dxil_op(
-            "WaveMatrix_Multiply",
-            next_op_idx,
-            "WaveMatrix_Multiply",
-            "Mutiply left and right wave matrix and store in accumulator",
+            "Reserved",
+            "Reserved",
             "v",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(
-                    2,
-                    "waveMat",
-                    "waveMatrixAccumulator",
-                    "pointer to WaveMatrixAccumulator",
-                ),
-                db_dxil_param(
-                    3, "waveMat", "waveMatrixLeft", "pointer to WaveMatrixLeft"
-                ),
-                db_dxil_param(
-                    4, "waveMat", "waveMatrixRight", "pointer to WaveMatrixRight"
-                ),
-            ],
+            "",
+            [retvoid_param],
         )
         next_op_idx += 1
-
         self.add_dxil_op(
-            "WaveMatrix_MultiplyAccumulate",
+            "Reserved3",
             next_op_idx,
-            "WaveMatrix_Multiply",
-            "Mutiply left and right wave matrix and accumulate into accumulator",
+            "Reserved",
+            "Reserved",
             "v",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(
-                    2,
-                    "waveMat",
-                    "waveMatrixAccumulator",
-                    "pointer to WaveMatrixAccumulator",
-                ),
-                db_dxil_param(
-                    3, "waveMat", "waveMatrixLeft", "pointer to WaveMatrixLeft"
-                ),
-                db_dxil_param(
-                    4, "waveMat", "waveMatrixRight", "pointer to WaveMatrixRight"
-                ),
-            ],
+            "",
+            [retvoid_param],
         )
         next_op_idx += 1
-
         self.add_dxil_op(
-            "WaveMatrix_ScalarOp",
+            "Reserved4",
             next_op_idx,
-            "WaveMatrix_ScalarOp",
-            "Perform scalar operation on each element of wave matrix",
-            "hfi",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(2, "waveMat", "waveMatrixPtr", "WaveMatrix pointer"),
-                db_dxil_param(
-                    3,
-                    "i8",
-                    "op",
-                    "operation",
-                    enum_name="WaveMatrixScalarOpCode",
-                    is_const=True,
-                ),
-                db_dxil_param(4, "$o", "value", "scalar value"),
-            ],
-        )
-        next_op_idx += 1
-        self.add_enum_type(
-            "WaveMatrixScalarOpCode",
-            "Operation for WaveMatrix_ScalarOp",
-            [
-                (0, "Add", ""),
-                (1, "Subtract", ""),
-                (2, "Multiply", ""),
-                (3, "Divide", ""),
-                (4, "Invalid", ""),
-            ],
-        )
-
-        self.add_dxil_op(
-            "WaveMatrix_SumAccumulate",
-            next_op_idx,
-            "WaveMatrix_Accumulate",
-            "Sum rows or columns of an input matrix into an existing accumulator fragment matrix",
+            "Reserved",
+            "Reserved",
             "v",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(
-                    2,
-                    "waveMat",
-                    "waveMatrixFragment",
-                    "pointer to WaveMatrixLeftColAcc or WaveMatrixRightRowAcc",
-                ),
-                db_dxil_param(
-                    3,
-                    "waveMat",
-                    "waveMatrixInput",
-                    "pointer to WaveMatrixLeft or WaveMatrixRight",
-                ),
-            ],
+            "",
+            [retvoid_param],
         )
         next_op_idx += 1
-
         self.add_dxil_op(
-            "WaveMatrix_Add",
+            "Reserved5",
             next_op_idx,
-            "WaveMatrix_Accumulate",
-            "Element-wise accumulate, or broadcast add of fragment into accumulator",
+            "Reserved",
+            "Reserved",
             "v",
-            "amo",
-            [
-                db_dxil_param(0, "v", "", ""),
-                db_dxil_param(
-                    2,
-                    "waveMat",
-                    "waveMatrixAccumulator",
-                    "pointer to WaveMatrixAccumulator",
-                ),
-                db_dxil_param(
-                    3,
-                    "waveMat",
-                    "waveMatrixAccumulatorOrFragment",
-                    "pointer to Accumulator or WaveMatrixLeftColAcc or WaveMatrixRightRowAcc",
-                ),
-            ],
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "Reserved6",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "Reserved7",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "Reserved8",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "Reserved9",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "Reserved10",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
+        )
+        next_op_idx += 1
+        self.add_dxil_op(
+            "Reserved11",
+            next_op_idx,
+            "Reserved",
+            "Reserved",
+            "v",
+            "",
+            [retvoid_param],
         )
         next_op_idx += 1
 
@@ -6286,12 +6119,6 @@ class db_dxil(object):
         )
         add_pass(
             "resource-handle", "ResourceToHandle", "Lower resource into handle", []
-        )
-        add_pass(
-            "hlsl-lower-wavematrix-type",
-            "LowerWaveMatType",
-            "Lower WaveMatrix types to dxil type",
-            [],
         )
         add_pass(
             "hlsl-passes-nopause",
@@ -8436,11 +8263,6 @@ class db_hlsl(object):
             "any_sampler": "LICOMPTYPE_ANY_SAMPLER",
             "ByteAddressBuffer": "LICOMPTYPE_BYTEADDRESSBUFFER",
             "RWByteAddressBuffer": "LICOMPTYPE_RWBYTEADDRESSBUFFER",
-            "WaveMatrixLeft": "LICOMPTYPE_WAVE_MATRIX_LEFT",
-            "WaveMatrixRight": "LICOMPTYPE_WAVE_MATRIX_RIGHT",
-            "WaveMatrixLeftColAcc": "LICOMPTYPE_WAVE_MATRIX_LEFT_COL_ACC",
-            "WaveMatrixRightRowAcc": "LICOMPTYPE_WAVE_MATRIX_RIGHT_ROW_ACC",
-            "WaveMatrixAccumulator": "LICOMPTYPE_WAVE_MATRIX_ACCUMULATOR",
             "NodeRecordOrUAV": "LICOMPTYPE_NODE_RECORD_OR_UAV",
             "AnyNodeOutputRecord": "LICOMPTYPE_ANY_NODE_OUTPUT_RECORD",
             "GroupNodeOutputRecords": "LICOMPTYPE_GROUP_NODE_OUTPUT_RECORDS",
@@ -8497,7 +8319,7 @@ class db_hlsl(object):
             r"""(
             sampler\w* | string |
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
-            WaveMatrix\w* | acceleration_struct | ray_desc |
+            acceleration_struct | ray_desc |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
             $)""",

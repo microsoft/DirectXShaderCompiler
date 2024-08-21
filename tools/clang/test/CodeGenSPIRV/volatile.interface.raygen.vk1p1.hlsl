@@ -1,4 +1,5 @@
 // RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fspv-extension=SPV_KHR_ray_query -fspv-extension=SPV_KHR_vulkan_memory_model -fspv-target-env=vulkan1.1 -O0  %s -spirv | FileCheck %s
+// RUN: %dxc -T lib_6_3 -fspv-extension=SPV_NV_ray_tracing -fspv-extension=SPV_KHR_ray_query -fspv-use-vulkan-memory-model -fspv-target-env=vulkan1.1 -O0  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability VulkanMemoryModel
 // CHECK: OpExtension "SPV_KHR_vulkan_memory_model"

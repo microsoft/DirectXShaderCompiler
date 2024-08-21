@@ -39,6 +39,8 @@ LPCSTR ToString(D3D_PARAMETER_FLAGS Flag);
 LPCSTR ToString(D3D_NAME Name);
 LPCSTR ToString(D3D_REGISTER_COMPONENT_TYPE CompTy);
 LPCSTR ToString(D3D_MIN_PRECISION MinPrec);
+LPCSTR ToString(D3D12_NODE_LAUNCH_TYPE NodeLaunchType);
+LPCSTR ToString(D3D12_DISPATCH_COMPONENT_TYPE DispatchComponentType);
 LPCSTR CompMaskToString(unsigned CompMask);
 
 // These macros declare the ToString functions for DXC types
