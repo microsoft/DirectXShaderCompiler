@@ -7,7 +7,7 @@
 
 // Make sure CB usage is correct.
 #if 0
-// CHECK: ID3D12LibraryReflection:
+// CHECK: ID3D12LibraryReflection1:
 // CHECK-NEXT:   D3D12_LIBRARY_DESC:
 // CHECK:     Flags: 0
 // CHECK-NEXT:     FunctionCount: 2

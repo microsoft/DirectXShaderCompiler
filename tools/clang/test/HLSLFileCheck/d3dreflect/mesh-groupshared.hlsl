@@ -146,7 +146,7 @@
 // CHECK:      MeshOutputTopology: 2
 // CHECK:    }
 // CHECK:  }
-// CHECK:ID3D12LibraryReflection:
+// CHECK:ID3D12LibraryReflection1:
 // CHECK:  D3D12_LIBRARY_DESC:
 // CHECK:    Creator: <nullptr>
 // CHECK:    Flags: 0

@@ -1,6 +1,6 @@
 // RUN: %dxc -E MainVp -T vs_6_0 %s | %D3DReflect %s | FileCheck %s
 
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK: OutputParameters: 2
 
 void MainVp (out float4 rw_sv_clipdistance : SV_ClipDistance,

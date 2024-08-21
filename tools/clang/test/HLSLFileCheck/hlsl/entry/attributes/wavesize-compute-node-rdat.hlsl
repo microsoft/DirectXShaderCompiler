@@ -58,7 +58,7 @@ void node() { }
 //RDAT:      D3D12_COMPUTE_SHADER_DESC:
 //RDAT1:       WaveSize: min: 16, max: 0, preferred: 0
 //RDAT2:       WaveSize: min: 16, max: 64, preferred: 0
-//RDAT2:       WaveSize: min: 16, max: 64, preferred: 32
+//RDAT3:       WaveSize: min: 16, max: 64, preferred: 32
 //RDAT:        NumThreads: 1, 1, 8
 //RDAT:  ID3D12FunctionReflection:
 //RDAT:    D3D12_FUNCTION_DESC: Name: node
@@ -77,7 +77,7 @@ void node() { }
 //RDAT:        D3D12_COMPUTE_SHADER_DESC:
 //RDAT1:         WaveSize: min: 16, max: 0, preferred: 0
 //RDAT2:         WaveSize: min: 16, max: 64, preferred: 0
-//RDAT2:         WaveSize: min: 16, max: 64, preferred: 32
+//RDAT3:         WaveSize: min: 16, max: 64, preferred: 32
 //RDAT:          NumThreads: 1, 1, 8
 //RDAT:        LaunchType: D3D12_NODE_LAUNCH_TYPE_BROADCASTING_LAUNCH
 //RDAT:        IsProgramEntry: FALSE

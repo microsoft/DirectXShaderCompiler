@@ -26,7 +26,7 @@ cbuffer Params_cbuffer2 : register(b1) {
 float4 main(float4 pos : POSITION) : SV_POSITION { return foo + bar; }
 
 
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK:   D3D12_SHADER_DESC:
 // CHECK:     Shader Version: Vertex
 // CHECK:     ConstantBuffers: 2

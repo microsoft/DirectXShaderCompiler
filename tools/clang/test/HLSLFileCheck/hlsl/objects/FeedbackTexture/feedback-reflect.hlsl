@@ -30,7 +30,7 @@ float main() : SV_Target
     return 0;
 }
 
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK-NEXT:   D3D12_SHADER_DESC:
 // CHECK-NEXT:     Shader Version: Pixel 6.5
 // CHECK:     Flags: 0
