@@ -462,13 +462,19 @@ void D3DReflectionDumper::Dump(
   Dedent();
 }
 
-void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
-  WriteLn("ID3D12ShaderReflection:");
-  Indent();
+void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection, BOOL printHeader) {
+
+  if(printHeader) {
+    WriteLn("ID3D12ShaderReflection:");
+    Indent();
+  }
+
   D3D12_SHADER_DESC Desc;
   if (!pShaderReflection || FAILED(pShaderReflection->GetDesc(&Desc))) {
     Failure("GetDesc");
-    Dedent();
+    if(printHeader) {
+      Dedent();
+    }
     return;
   }
   Dump(Desc);
@@ -565,7 +571,9 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection) {
     Dedent();
   }
   // TODO
-  Dedent();
+  if(printHeader) {
+    Dedent();
+  }
 }
 void D3DReflectionDumper::Dump(ID3D12ShaderReflection1 *pShaderReflection) {
 
@@ -574,18 +582,21 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection1 *pShaderReflection) {
     Failure("QueryInterface ID3D12ShaderReflection");
     return;
   }
+  
+  WriteLn("ID3D12LibraryReflection1:");
+  Indent();
 
-  Dump(shaderRefl0);
+  Dump(shaderRefl0, false);
   shaderRefl0->Release();
 
   UINT waveSizePreferred = 0, waveSizeMin = 0, waveSizeMax = 0;
 
   if (!pShaderReflection->GetWaveSize(&waveSizePreferred, &waveSizeMin,
-                                      &waveSizeMax))
+                                      &waveSizeMax)) {
+    Dedent();
     return;
+  }
 
-  WriteLn("ID3D12ShaderReflection1:");
-  Indent();
   WriteLn("WaveSizePreferred: ", waveSizePreferred);
   WriteLn("WaveSizeMin: ", waveSizeMin);
   WriteLn("WaveSizeMax: ", waveSizeMax);
