@@ -79,7 +79,8 @@ void amplification(uint3 DTid : SV_DispatchThreadID) {
 // RDAT17:     Shader Version: Amplification 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
-// RDAT:       RequiredFeatureFlags: 0x20000000000
+// RDAT18:     RequiredFeatureFlags: 0x20000000000
+// RDAT17:     RequiredFeatureFlags: 0
 // RDAT:       ConstantBuffers: 0
 // RDAT:       BoundResources: 0
 // RDAT:       FunctionParameterCount: 0
