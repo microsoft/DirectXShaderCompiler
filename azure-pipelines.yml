@@ -59,8 +59,8 @@ stages:
         Linux_Clang_Debug:
           image: ${{ variables.linux }}
           configuration: Debug
-          CC: clang-18
-          CXX: clang++-18
+          CC: clang
+          CXX: clang++
           CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_USE_LINKER=lld
         Linux_Gcc_Release:
           image: ${{ variables.linux }}

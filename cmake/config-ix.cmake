@@ -288,6 +288,9 @@ else()
   unset(HAVE_FFI_CALL CACHE)
 endif( LLVM_ENABLE_FFI )
 
+# Define LLVM_HAS_ATOMICS if gcc or MSVC atomic builtins are supported.
+include(CheckAtomic)
+
 if( LLVM_ENABLE_PIC )
   set(ENABLE_PIC 1)
 else()
