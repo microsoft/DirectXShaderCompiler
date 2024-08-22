@@ -99,7 +99,7 @@ stages:
         versionSpec: '3.x'
 
     - bash: |
-        sudo apt-get install ninja-build
+        sudo apt-get install ninja-build libstdc++-12-dev
         wget https://apt.llvm.org/llvm.sh
         chmod u+x llvm.sh
         sudo ./llvm.sh 18
