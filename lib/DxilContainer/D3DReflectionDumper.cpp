@@ -462,9 +462,10 @@ void D3DReflectionDumper::Dump(
   Dedent();
 }
 
-void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection, BOOL printHeader) {
+void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection,
+                               BOOL printHeader) {
 
-  if(printHeader) {
+  if (printHeader) {
     WriteLn("ID3D12ShaderReflection:");
     Indent();
   }
@@ -472,7 +473,7 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection, BOOL p
   D3D12_SHADER_DESC Desc;
   if (!pShaderReflection || FAILED(pShaderReflection->GetDesc(&Desc))) {
     Failure("GetDesc");
-    if(printHeader) {
+    if (printHeader) {
       Dedent();
     }
     return;
@@ -571,7 +572,7 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection *pShaderReflection, BOOL p
     Dedent();
   }
   // TODO
-  if(printHeader) {
+  if (printHeader) {
     Dedent();
   }
 }
@@ -582,8 +583,8 @@ void D3DReflectionDumper::Dump(ID3D12ShaderReflection1 *pShaderReflection) {
     Failure("QueryInterface ID3D12ShaderReflection");
     return;
   }
-  
-  WriteLn("ID3D12LibraryReflection1:");
+
+  WriteLn("ID3D12ShaderReflection1:");
   Indent();
 
   Dump(shaderRefl0, false);
