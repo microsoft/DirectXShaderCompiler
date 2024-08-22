@@ -5796,8 +5796,8 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
   // float Object.SampleCmpBias(
   //   SamplerComparisonState S,
   //   float Location,
-  //   float Bias,
-  //   float CompareValue
+  //   float CompareValue,
+  //   float Bias
   //   [, int Offset]
   //   [, float Clamp]
   //   [, out uint Status]
@@ -5807,8 +5807,8 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
   // float Object.SampleCmpBias(
   //   SamplerComparisonState S,
   //   float Location,
-  //   float Bias,
-  //   float CompareValue
+  //   float CompareValue,
+  //   float Bias
   //   [, float Clamp]
   //   [, out uint Status]
   // );
@@ -5818,8 +5818,8 @@ SpirvEmitter::processTextureSampleCmpBias(const CXXMemberCallExpr *expr) {
 
   auto *sampler = doExpr(expr->getArg(0));
   auto *coordinate = doExpr(expr->getArg(1));
-  auto *bias = doExpr(expr->getArg(2));
-  auto *compareVal = doExpr(expr->getArg(3));
+  auto *compareVal = doExpr(expr->getArg(2));
+  auto *bias = doExpr(expr->getArg(3));
 
   SpirvInstruction *constOffset = nullptr, *varOffset = nullptr;
   SpirvInstruction *clamp = nullptr;
