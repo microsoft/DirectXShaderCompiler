@@ -99,6 +99,7 @@ stages:
         versionSpec: '3.x'
 
     - bash: |
+        sudo apt remove libstdc++-12-dev
         sudo apt-get install ninja-build libc++-dev libstdc++-11-dev
         wget https://apt.llvm.org/llvm.sh
         chmod u+x llvm.sh
