@@ -180,6 +180,10 @@
 // CHECK-NEXT:         Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK-NEXT:         NumSamples (or stride): 72
 // CHECK-NEXT:         uFlags: 0
+// CHECK-NEXT:   ID3D12FunctionReflection1:
+// CHECK-NEXT:     D3D12_FUNCTION_DESC1: 
+// CHECK-NEXT:       RootSignatureSize: 0
+// CHECK-NEXT:       EarlyDepthStencil: FALSE
 // CHECK-NEXT:   ID3D12FunctionReflection:
 // CHECK-NEXT:     D3D12_FUNCTION_DESC: Name: test
 // CHECK-NEXT:       Shader Version: Pixel
@@ -369,6 +373,10 @@
 // CHECK-NEXT:         Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK-NEXT:         NumSamples (or stride): 72
 // CHECK-NEXT:         uFlags: 0
+// CHECK-NEXT:   ID3D12FunctionReflection1:
+// CHECK-NEXT:     D3D12_FUNCTION_DESC1: 
+// CHECK-NEXT:       RootSignatureSize: 0
+// CHECK-NEXT:       EarlyDepthStencil: FALSE
 #endif
 
 Texture2D    g_txDiffuse;

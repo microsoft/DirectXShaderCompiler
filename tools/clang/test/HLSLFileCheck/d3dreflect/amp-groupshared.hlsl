@@ -81,11 +81,11 @@
 // CHECK:        Dimension: D3D_SRV_DIMENSION_BUFFER
 // CHECK:        NumSamples (or stride): 4294967295
 // CHECK:        uFlags: (D3D_SIF_TEXTURE_COMPONENT_0 | D3D_SIF_TEXTURE_COMPONENT_1)
-// CHECK:ID3D12LibraryReflection1:
-// CHECK:  D3D12_LIBRARY_DESC1:
-// CHECK:    RootSignatureSize: 0
-// CHECK:    PayloadSize: 16
-// CHECK:    NumThreads: 4, 1, 1
+// CHECK:  ID3D12FunctionReflection1:
+// CHECK:    D3D12_FUNCTION_DESC1: 
+// CHECK:      RootSignatureSize: 0
+// CHECK:      PayloadSize: 16
+// CHECK:      NumThreads: 4, 1, 1
 
 struct MeshPayload
 {

@@ -102,7 +102,8 @@ void callable(inout MyPayload param) {
 // RDAT:     FunctionCount: 6
 // RDAT:   ID3D12FunctionReflection:
 // RDAT:     D3D12_FUNCTION_DESC: Name: \01?anyhit@@YAXUMyPayload@@UBuiltInTriangleIntersectionAttributes@@@Z
-// RDAT:       Shader Version: AnyHit 6.8
+// RDAT18:     Shader Version: AnyHit 6.8
+// RDAT17:     Shader Version: AnyHit 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
 // RDAT:       RequiredFeatureFlags: 0
@@ -128,7 +129,8 @@ void callable(inout MyPayload param) {
 // RDAT:       ParamPayloadSize: 8
 // RDAT:   ID3D12FunctionReflection:
 // RDAT:     D3D12_FUNCTION_DESC: Name: \01?callable@@YAXUMyPayload@@@Z
-// RDAT:       Shader Version: Callable 6.8
+// RDAT18:     Shader Version: Callable 6.8
+// RDAT17:     Shader Version: Callable 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
 // RDAT:       RequiredFeatureFlags: 0
@@ -154,7 +156,8 @@ void callable(inout MyPayload param) {
 // RDAT:       ParamPayloadSize: 8
 // RDAT:   ID3D12FunctionReflection:
 // RDAT:     D3D12_FUNCTION_DESC: Name: \01?closesthit@@YAXUMyPayload@@UBuiltInTriangleIntersectionAttributes@@@Z
-// RDAT:       Shader Version: ClosestHit 6.8
+// RDAT18:     Shader Version: ClosestHit 6.8
+// RDAT17:     Shader Version: ClosestHit 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
 // RDAT:       RequiredFeatureFlags: 0
@@ -180,7 +183,8 @@ void callable(inout MyPayload param) {
 // RDAT:       ParamPayloadSize: 8
 // RDAT:   ID3D12FunctionReflection:
 // RDAT:     D3D12_FUNCTION_DESC: Name: \01?intersection@@YAXXZ
-// RDAT:       Shader Version: Intersection 6.8
+// RDAT18:     Shader Version: Intersection 6.8
+// RDAT17:     Shader Version: Intersection 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
 // RDAT:       RequiredFeatureFlags: 0
@@ -206,7 +210,8 @@ void callable(inout MyPayload param) {
 // RDAT:       ParamPayloadSize: 0
 // RDAT:   ID3D12FunctionReflection:
 // RDAT:     D3D12_FUNCTION_DESC: Name: \01?miss@@YAXUMyPayload@@@Z
-// RDAT:       Shader Version: Miss 6.8
+// RDAT18:     Shader Version: Miss 6.8
+// RDAT17:     Shader Version: Miss 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
 // RDAT:       RequiredFeatureFlags: 0
@@ -231,7 +236,8 @@ void callable(inout MyPayload param) {
 // RDAT:       ParamPayloadSize: 8
 // RDAT:   ID3D12FunctionReflection:
 // RDAT:     D3D12_FUNCTION_DESC: Name: \01?raygen@@YAXXZ
-// RDAT:       Shader Version: RayGeneration 6.8
+// RDAT18:     Shader Version: RayGeneration 6.8
+// RDAT17:     Shader Version: RayGeneration 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
 // RDAT:       RequiredFeatureFlags: 0

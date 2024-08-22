@@ -75,7 +75,8 @@ void amplification(uint3 DTid : SV_DispatchThreadID) {
 // RDAT:     FunctionCount: 2
 // RDAT:   ID3D12FunctionReflection:
 // RDAT:     D3D12_FUNCTION_DESC: Name: amplification
-// RDAT:       Shader Version: Amplification 6.8
+// RDAT18:     Shader Version: Amplification 6.8
+// RDAT17:     Shader Version: Amplification 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
 // RDAT:       RequiredFeatureFlags: 0x20000000000
@@ -90,7 +91,8 @@ void amplification(uint3 DTid : SV_DispatchThreadID) {
 // RDAT:       NumThreads: 8, 8, 1
 // RDAT:   ID3D12FunctionReflection:
 // RDAT:     D3D12_FUNCTION_DESC: Name: mesh
-// RDAT:       Shader Version: Mesh 6.8
+// RDAT18:     Shader Version: Mesh 6.8
+// RDAT17:     Shader Version: Mesh 6.7
 // RDAT:       Creator: <nullptr>
 // RDAT:       Flags: 0
 // RDAT:       RequiredFeatureFlags: 0
