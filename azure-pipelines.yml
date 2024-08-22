@@ -99,11 +99,11 @@ stages:
         versionSpec: '3.x'
 
     - bash: |
-        sudo apt remove libstdc++-12-dev
-        sudo apt-get install ninja-build libc++-dev libstdc++-11-dev
+        sudo apt-get install ninja-build
         wget https://apt.llvm.org/llvm.sh
         chmod u+x llvm.sh
         sudo ./llvm.sh 18
+        sudo apt-get install libstdc++-18-dev
       displayName: 'Installing dependencies'
       condition: eq(variables['image'], variables['linux'])
 
