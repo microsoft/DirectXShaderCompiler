@@ -5848,9 +5848,9 @@ SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
   // For Texture1D, Texture1DArray, Texture2D, Texture2DArray, and Texture3D:
   // DXGI_FORMAT Object.SampleGrad(sampler_state S,
   //                               float Location,
+  //                               float CompareValue,
   //                               float DDX,
-  //                               float DDY,
-  //                               float CompareValue
+  //                               float DDY
   //                               [, int Offset]
   //                               [, float Clamp]
   //                               [, out uint Status]);
@@ -5858,9 +5858,9 @@ SpirvEmitter::processTextureSampleCmpGrad(const CXXMemberCallExpr *expr) {
   // For TextureCube and TextureCubeArray:
   // DXGI_FORMAT Object.SampleGrad(sampler_state S,
   //                               float Location,
+  //                               float CompareValue,
   //                               float DDX,
-  //                               float DDY,
-  //                               float CompareValue
+  //                               float DDY
   //                               [, float Clamp]
   //                               [, out uint Status]);
 
