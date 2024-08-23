@@ -716,7 +716,7 @@ public:
     return PSVDependencyTable();
   }
   PSVDependencyTable GetInputToPCOutputTable() const {
-    if (IsHS() && m_pInputToPCOutputTable && m_pPSVRuntimeInfo1) {
+    if ((IsHS() || IsMS()) && m_pInputToPCOutputTable && m_pPSVRuntimeInfo1) {
       return PSVDependencyTable(m_pInputToPCOutputTable,
                                 m_pPSVRuntimeInfo1->SigInputVectors,
                                 m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors);

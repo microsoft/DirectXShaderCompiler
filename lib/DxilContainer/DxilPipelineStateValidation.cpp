@@ -880,7 +880,7 @@ void DxilPipelineStateValidation::Print(raw_ostream &OS,
         ViewIDMask.Print(OS, "ViewID", OutputSetName.c_str());
       }
 
-      if (IsHS()) {
+      if (IsHS() || IsMS()) {
         OS << "PCOutputs affected by ViewID as a bitmask:\n";
         uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
         const PSVComponentMask ViewIDMask(m_pViewIDPCOrPrimOutputMask,
@@ -901,7 +901,7 @@ void DxilPipelineStateValidation::Print(raw_ostream &OS,
       Table.Print(OS, "Inputs", OutputSetName.c_str());
     }
 
-    if (IsHS()) {
+    if (IsHS() || IsMS()) {
       OS << "Patch constant outputs affected by inputs as a table of "
             "bitmasks:\n";
       uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
