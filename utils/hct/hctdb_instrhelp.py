@@ -1941,7 +1941,6 @@ if __name__ == "__main__":
             "lib/DXIL/DxilShaderModel.cpp",
             "include/dxc/DXIL/DxilConstants.h",
             "include/dxc/DXIL/DxilShaderModel.h",
-            "include/dxc/HLSL/DxilValidation.h",
             "include/dxc/Support/HLSLOptions.td",
             "include/dxc/DXIL/DxilInstructions.h",
             "lib/HLSL/DxcOptimizer.cpp",

@@ -2972,7 +2972,7 @@ HRESULT CFunctionReflection::GetDesc1(D3D12_FUNCTION_DESC1 *pDesc) {
   }
 
   else {
-    return E_FAIL;
+    return S_OK;
   }
 
   D3D12_COMPUTE_SHADER_DESC computeDesc = {m_pProps->WaveSize.Min,
@@ -3140,7 +3140,7 @@ HRESULT CFunctionReflection::GetInputNode(UINT i, D3D12_NODE_DESC *pDesc) {
   if (i >= m_pProps->InputNodes.size())
     return E_BOUNDS;
 
-  NodeIOProperties prop = m_pProps->InputNodes[i];
+  const NodeIOProperties &prop = m_pProps->InputNodes[i];
 
   *pDesc = D3D12_NODE_DESC{
       (D3D12_NODE_IO_FLAGS)(uint32_t)prop.Flags,
@@ -3176,7 +3176,7 @@ HRESULT CFunctionReflection::GetOutputNode(UINT i, D3D12_NODE_DESC *pDesc) {
   if (i >= m_pProps->OutputNodes.size())
     return E_BOUNDS;
 
-  NodeIOProperties prop = m_pProps->OutputNodes[i];
+  const NodeIOProperties &prop = m_pProps->OutputNodes[i];
 
   *pDesc = D3D12_NODE_DESC{
       (D3D12_NODE_IO_FLAGS)(uint32_t)prop.Flags,

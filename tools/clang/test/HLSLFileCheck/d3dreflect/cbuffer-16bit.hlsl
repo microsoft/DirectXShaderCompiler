@@ -37,7 +37,7 @@ float main(int i : A) : SV_TARGET
   return b + mf1 + h2.y + f16_3.z + (float)(d * i64 + u64) + u16 * i16.x;
 }
 
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK-NEXT:   D3D12_SHADER_DESC:
 // CHECK-NEXT:     Shader Version: Pixel
 // CHECK:     Flags: 0

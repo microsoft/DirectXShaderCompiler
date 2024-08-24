@@ -146,7 +146,7 @@
 // CHECK:      MeshOutputTopology: 2
 // CHECK:    }
 // CHECK:  }
-// CHECK:ID3D12LibraryReflection:
+// CHECK:ID3D12LibraryReflection1:
 // CHECK:  D3D12_LIBRARY_DESC:
 // CHECK:    Creator: <nullptr>
 // CHECK:    Flags: 0
@@ -160,6 +160,15 @@
 // CHECK:      BoundResources: 0
 // CHECK:      FunctionParameterCount: 0
 // CHECK:      HasReturn: FALSE
+// CHECK:ID3D12FunctionReflection1:
+// CHECK:  D3D12_FUNCTION_DESC1:
+// CHECK:    RootSignatureSize: 0
+// CHECK:    D3D12_MESH_SHADER_DESC:
+// CHECK:      PayloadSize: 36
+// CHECK:      MaxVertexCount: 32
+// CHECK:      MaxPrimitiveCount: 16
+// CHECK:      OutputTopology: Triangle
+// CHECK:      NumThreads: 32, 1, 1
 
 #define MAX_VERT 32
 #define MAX_PRIM 16

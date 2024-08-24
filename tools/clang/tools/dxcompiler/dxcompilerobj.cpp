@@ -1039,7 +1039,7 @@ public:
 
           dxcutil::AssembleInputs inputs(
               std::move(serializeModule), pOutputBlob, m_pMalloc,
-              SerializeFlags, pOutputStream, opts.GetPDBName(),
+              SerializeFlags, pOutputStream, 0, opts.GetPDBName(),
               &compiler.getDiagnostics(), &ShaderHashContent, pReflectionStream,
               pRootSigStream, pRootSignatureBlob, pPrivateBlob,
               opts.SelectValidator);

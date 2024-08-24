@@ -57,7 +57,8 @@ public:
 
   void Dump(ID3D12ShaderReflectionConstantBuffer *pCBReflection);
 
-  void Dump(ID3D12ShaderReflection *pShaderReflection);
+  void Dump(ID3D12ShaderReflection *pShaderReflection,
+            BOOL printHeader = false);
   void Dump(ID3D12ShaderReflection1 *pShaderReflection);
   void Dump(ID3D12FunctionReflection *pFunctionReflection);
   void Dump(ID3D12FunctionReflection1 *pFunctionReflection);

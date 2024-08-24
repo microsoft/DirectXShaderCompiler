@@ -1,7 +1,6 @@
 # HLSL Change
 
 add_hlsl_hctgen(DxcOptimizer OUTPUT DxcOptimizer.inc BUILD_DIR)
-add_hlsl_hctgen(DxilValidation OUTPUT DxilValidationImpl.inc BUILD_DIR)
 
 add_llvm_library(LLVMScalarOpts
 
@@ -34,7 +33,6 @@ add_llvm_library(LLVMScalarOpts
   ../../HLSL/DxilTargetTransformInfo.cpp
   ../../HLSL/DxilTranslateRawBuffer.cpp
   ../../HLSL/DxilExportMap.cpp
-  ../../HLSL/DxilValidation.cpp
   ../../HLSL/DxcOptimizer.cpp
   ../../HLSL/HLDeadFunctionElimination.cpp
   ../../HLSL/HLExpandStoreIntrinsics.cpp
