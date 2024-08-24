@@ -808,38 +808,22 @@ private:
   // variable is also added to the list of stage variable `this->stageVars`. Its
   // type will be a 32-bit integer.
   //
-  // The semantic is a lie. We currently give it the semantic for the
-  // InstanceID. I'm not sure what would happen if we did not use a semantic, or
-  // tried to generate the correct one. I'm guessing there would be some issue
-  // with reflection.
-  //
-  // semantic: the semantic to attach to this variable
-  //
   // sigPoint: the signature point identifying which shader stage the variable
   // will be used in.
   //
   // type: The type to use for the new variable. Must be int or unsigned int.
-  SpirvVariable *getBaseInstanceVariable(SemanticInfo *semantic,
-                                         const hlsl::SigPoint *sigPoint,
+  SpirvVariable *getBaseInstanceVariable(const hlsl::SigPoint *sigPoint,
                                          QualType type);
 
   // Creates and returns a variable that is the BaseVertex builtin input. The
   // variable is also added to the list of stage variable `this->stageVars`. Its
   // type will be a 32-bit integer.
   //
-  // The semantic is a lie. We currently give it the semantic for the
-  // VertexID. I'm not sure what would happen if we did not use a semantic, or
-  // tried to generate the correct one. I'm guessing there would be some issue
-  // with reflection.
-  //
-  // semantic: the semantic to attach to this variable
-  //
   // sigPoint: the signature point identifying which shader stage the variable
   // will be used in.
   //
   // type: The type to use for the new variable. Must be int or unsigned int.
-  SpirvVariable *getBaseVertexVariable(SemanticInfo *semantic,
-                                       const hlsl::SigPoint *sigPoint,
+  SpirvVariable *getBaseVertexVariable(const hlsl::SigPoint *sigPoint,
                                        QualType type);
 
   // Creates and return a new interface variable from the information provided.

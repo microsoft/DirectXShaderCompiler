@@ -3410,13 +3410,13 @@ DeclResultIdMapper::getVertexIdFromIndexAndBase(SpirvVariable *vertexIndexVar,
   return vertexIdVar;
 }
 
-SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
-    SemanticInfo *semantic, const hlsl::SigPoint *sigPoint, QualType type) {
+SpirvVariable *
+DeclResultIdMapper::getBaseInstanceVariable(const hlsl::SigPoint *sigPoint,
+                                            QualType type) {
   assert(type->isSpecificBuiltinType(BuiltinType::Kind::Int) ||
          type->isSpecificBuiltinType(BuiltinType::Kind::UInt));
   auto *baseInstanceVar = spvBuilder.addStageBuiltinVar(
-      type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance, false,
-      semantic->loc);
+      type, spv::StorageClass::Input, spv::BuiltIn::BaseInstance, false, {});
   StageVar var(sigPoint, {}, nullptr, type,
                getLocationAndComponentCount(astContext, type));
   var.setSpirvInstr(baseInstanceVar);
@@ -3425,13 +3425,13 @@ SpirvVariable *DeclResultIdMapper::getBaseInstanceVariable(
   return baseInstanceVar;
 }
 
-SpirvVariable *DeclResultIdMapper::getBaseVertexVariable(
-    SemanticInfo *semantic, const hlsl::SigPoint *sigPoint, QualType type) {
+SpirvVariable *
+DeclResultIdMapper::getBaseVertexVariable(const hlsl::SigPoint *sigPoint,
+                                          QualType type) {
   assert(type->isSpecificBuiltinType(BuiltinType::Kind::Int) ||
          type->isSpecificBuiltinType(BuiltinType::Kind::UInt));
   auto *baseVertexVar = spvBuilder.addStageBuiltinVar(
-      type, spv::StorageClass::Input, spv::BuiltIn::BaseVertex, false,
-      semantic->loc);
+      type, spv::StorageClass::Input, spv::BuiltIn::BaseVertex, false, {});
   StageVar var(sigPoint, {}, nullptr, type,
                getLocationAndComponentCount(astContext, type));
   var.setSpirvInstr(baseVertexVar);
@@ -3526,8 +3526,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
     // The above call to createSpirvStageVar creates the gl_InstanceIndex.
     // We should now manually create the gl_BaseInstance variable and do the
     // subtraction.
-    auto *baseInstanceVar = getBaseInstanceVariable(
-        stageVarData.semantic, stageVarData.sigPoint, stageVarData.type);
+    auto *baseInstanceVar =
+        getBaseInstanceVariable(stageVarData.sigPoint, stageVarData.type);
 
     // SPIR-V code for 'SV_InstanceID = gl_InstanceIndex - gl_BaseInstance'
     varInstr = getInstanceIdFromIndexAndBase(varInstr, baseInstanceVar);
@@ -3537,8 +3537,8 @@ SpirvVariable *DeclResultIdMapper::createSpirvInterfaceVariable(
       stageVarData.semantic->getKind() == hlsl::Semantic::Kind::VertexID &&
       stageVarData.sigPoint->GetKind() == hlsl::SigPoint::Kind::VSIn) {
 
-    auto *baseVertexVar = getBaseVertexVariable(
-        stageVarData.semantic, stageVarData.sigPoint, stageVarData.type);
+    auto *baseVertexVar =
+        getBaseVertexVariable(stageVarData.sigPoint, stageVarData.type);
 
     // SPIR-V code for 'SV_VertexID = gl_VertexIndex - gl_BaseVertex'
     varInstr = getVertexIdFromIndexAndBase(varInstr, baseVertexVar);
