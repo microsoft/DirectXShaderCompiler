@@ -2,9 +2,9 @@
 
 
 // Check that handles for the two UAVs were created:
-// CHECK: load volatile %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @PIXUAV
+// CHECK: load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @PIXUAV
 // CHECK: createHandleForLib
-// CHECK: load volatile %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @PIXUAV
+// CHECK: load %struct.RWByteAddressBuffer, %struct.RWByteAddressBuffer* @PIXUAV
 // CHECK: createHandleForLib
 
 // Check that an increment was added (to the counter UAV):

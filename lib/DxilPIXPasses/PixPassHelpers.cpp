@@ -71,9 +71,9 @@ GetNextRegisterIdForClass(hlsl::DxilModule &DM,
                           DXIL::ResourceClass resourceClass) {
   switch (resourceClass) {
   case DXIL::ResourceClass::CBuffer:
-    return static_cast<unsigned int>(DM.GetCBuffers().size()) - 1;
+    return static_cast<unsigned int>(DM.GetCBuffers().size());
   case DXIL::ResourceClass::UAV:
-    return static_cast<unsigned int>(DM.GetUAVs().size()) - 1;
+    return static_cast<unsigned int>(DM.GetUAVs().size());
   default:
     DXASSERT(false, "Unexpected resource class");
     return 0;
