@@ -4612,6 +4612,8 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   VERIFY_IS_NOT_NULL(pUpdatedTableResult);
   VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
   VERIFY_FAILED(status);
+  CheckOperationResultMsgs(pUpdatedTableResult, {""},
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
 
   // Update string table index.
   SigInput->SemanticName = 2;
@@ -4687,6 +4689,8 @@ TEST_F(ValidationTest, PSVResourceTableReorder) {
   VERIFY_IS_NOT_NULL(pUpdatedTableResult);
   VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
   VERIFY_FAILED(status);
+  CheckOperationResultMsgs(pUpdatedTableResult, {""},
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
 
   // Update both.
   *ResourceBindInfo1 = Tmp;
@@ -4720,6 +4724,8 @@ static void CheckSignatureReorder(IDxcBlob *pProgram,
   VERIFY_SUCCEEDED(pParitalUpdatedResult->GetStatus(&status));
   VERIFY_FAILED(status);
 
+  CheckOperationResultMsgs(pParitalUpdatedResult, {""},
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
   // Update both.
   *SigInput1 = Tmp;
 

@@ -360,8 +360,12 @@ void PSVResourceBindInfo1::Print(raw_ostream &OS) const {
 }
 
 void PSVSignatureElement::Print(raw_ostream &OS) const {
+  Print(OS, GetSemanticName());
+}
+
+void PSVSignatureElement::Print(raw_ostream &OS, const char *Name) const {
   OS << "PSVSignatureElement:\n";
-  OS << "  SemanticName: " << GetSemanticName() << "\n";
+  OS << "  SemanticName: " << Name << "\n";
   OS << "  SemanticIndex: ";
   const uint32_t *SemanticIndexes = GetSemanticIndexes();
   for (unsigned i = 0; i < GetRows(); ++i) {
@@ -518,13 +522,10 @@ void PSVDependencyTable::Print(raw_ostream &OS, const char *InputSetName,
   }
 }
 
-void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
-    raw_ostream &OS, uint8_t ShaderKind, const char *Comment) const {
-  PSVRuntimeInfo0 *pInfo0 = m_pPSVRuntimeInfo0;
-  PSVRuntimeInfo1 *pInfo1 = m_pPSVRuntimeInfo1;
-  PSVRuntimeInfo2 *pInfo2 = m_pPSVRuntimeInfo2;
-  PSVRuntimeInfo3 *pInfo3 = m_pPSVRuntimeInfo3;
-
+void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
+                               PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
+                               PSVRuntimeInfo3 *pInfo3, uint8_t ShaderKind,
+                               const char *EntryName, const char *Comment) {
   if (pInfo1 && pInfo1->ShaderStage != ShaderKind)
     ShaderKind = pInfo1->ShaderStage;
   OS << Comment << "PSVRuntimeInfo:\n";
@@ -817,9 +818,20 @@ void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
     }
   }
   if (pInfo3)
-    OS << Comment
-       << " EntryFunctionName: " << m_StringTable.Get(pInfo3->EntryFunctionName)
-       << "\n";
+    OS << Comment << " EntryFunctionName: " << EntryName << "\n";
+}
+
+void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
+    raw_ostream &OS, uint8_t ShaderKind, const char *Comment) const {
+  PSVRuntimeInfo0 *pInfo0 = m_pPSVRuntimeInfo0;
+  PSVRuntimeInfo1 *pInfo1 = m_pPSVRuntimeInfo1;
+  PSVRuntimeInfo2 *pInfo2 = m_pPSVRuntimeInfo2;
+  PSVRuntimeInfo3 *pInfo3 = m_pPSVRuntimeInfo3;
+
+  hlsl::PrintPSVRuntimeInfo(
+      OS, pInfo0, pInfo1, pInfo2, pInfo3, ShaderKind,
+      m_pPSVRuntimeInfo3 ? m_StringTable.Get(pInfo3->EntryFunctionName) : "",
+      Comment);
 }
 
 void DxilPipelineStateValidation::Print(raw_ostream &OS,

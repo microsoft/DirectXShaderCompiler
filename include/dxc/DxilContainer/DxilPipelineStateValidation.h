@@ -260,6 +260,13 @@ struct PSVComponentMask {
     }
     return *this;
   }
+  bool operator!=(const PSVComponentMask &other) const {
+    if (NumVectors != other.NumVectors)
+      return true;
+    return memcmp(Mask, other.Mask,
+                  PSVComputeMaskDwordsFromVectors(NumVectors) *
+                      sizeof(uint32_t));
+  }
   bool Get(uint32_t ComponentIndex) const {
     if (ComponentIndex < NumVectors * 4)
       return (bool)(Mask[ComponentIndex >> 5] & (1 << (ComponentIndex & 0x1F)));
@@ -294,6 +301,15 @@ struct PSVDependencyTable {
   }
   const PSVComponentMask GetMaskForInput(uint32_t inputComponentIndex) const {
     return getMaskForInput(inputComponentIndex);
+  }
+  bool operator!=(const PSVDependencyTable &other) const {
+    if (InputVectors != other.InputVectors ||
+        OutputVectors != other.OutputVectors)
+      return true;
+    return memcmp(
+        Table, other.Table,
+        PSVComputeInputOutputTableDwords(InputVectors, OutputVectors) *
+            sizeof(uint32_t));
   }
   bool IsValid() const { return Table != nullptr; }
   void Print(llvm::raw_ostream &, const char *, const char *) const;
@@ -449,6 +465,7 @@ public:
     return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF;
   }
   void Print(llvm::raw_ostream &O) const;
+  void Print(llvm::raw_ostream &O, const char *Name) const;
 };
 
 #define MAX_PSV_VERSION 3
@@ -1098,6 +1115,11 @@ void InitPSVSignatureElement(PSVSignatureElement0 &E,
 void InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
                         PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
                         const DxilModule &DM);
+
+void PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
+                         PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
+                         PSVRuntimeInfo3 *pInfo3, uint8_t ShaderKind,
+                         const char *EntryName, const char *Comment);
 
 } // namespace hlsl
 
