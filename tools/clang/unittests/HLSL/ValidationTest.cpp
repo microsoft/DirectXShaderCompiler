@@ -4612,7 +4612,63 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   VERIFY_IS_NOT_NULL(pUpdatedTableResult);
   VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
   VERIFY_FAILED(status);
-  CheckOperationResultMsgs(pUpdatedTableResult, {""},
+  CheckOperationResultMsgs(pUpdatedTableResult,
+                           {"error: 'SigInputElement' does not match, for "
+                            "container: 'PSVSignatureElement:",
+                            "  SemanticName: ",
+                            "  SemanticIndex: 0 ",
+                            "  IsAllocated: 1",
+                            "  StartRow: 0",
+                            "  StartCol: 0",
+                            "  Rows: 1",
+                            "  Cols: 1",
+                            "  SemanticKind: Arbitrary",
+                            "  InterpolationMode: 2",
+                            "  OutputStream: 0",
+                            "  ComponentType: 3",
+                            "  DynamicIndexMask: 0",
+                            "', for dxil module: 'PSVSignatureElement:",
+                            "  SemanticName: A",
+                            "  SemanticIndex: 0 ",
+                            "  IsAllocated: 1",
+                            "  StartRow: 0",
+                            "  StartCol: 0",
+                            "  Rows: 1",
+                            "  Cols: 1",
+                            "  SemanticKind: Arbitrary",
+                            "  InterpolationMode: 2",
+                            "  OutputStream: 0",
+                            "  ComponentType: 3",
+                            "  DynamicIndexMask: 0",
+                            "'.",
+                            "error: 'SigInputElement' does not match, for "
+                            "container: 'PSVSignatureElement:",
+                            "  SemanticName: ",
+                            "  SemanticIndex: 0 ",
+                            "  IsAllocated: 1",
+                            "  StartRow: 0",
+                            "  StartCol: 1",
+                            "  Rows: 1",
+                            "  Cols: 1",
+                            "  SemanticKind: Arbitrary",
+                            "  InterpolationMode: 2",
+                            "  OutputStream: 0",
+                            "  ComponentType: 3",
+                            "  DynamicIndexMask: 0",
+                            "', for dxil module: 'PSVSignatureElement:",
+                            "  SemanticName: B",
+                            "  SemanticIndex: 0 ",
+                            "  IsAllocated: 1",
+                            "  StartRow: 0",
+                            "  StartCol: 1",
+                            "  Rows: 1",
+                            "  Cols: 1",
+                            "  SemanticKind: Arbitrary",
+                            "  InterpolationMode: 2",
+                            "  OutputStream: 0",
+                            "  ComponentType: 3",
+                            "  DynamicIndexMask: 0",
+                            "'."},
                            /*maySucceedAnyway*/ false, /*bRegex*/ false);
 
   // Update string table index.
@@ -4689,8 +4745,12 @@ TEST_F(ValidationTest, PSVResourceTableReorder) {
   VERIFY_IS_NOT_NULL(pUpdatedTableResult);
   VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
   VERIFY_FAILED(status);
-  CheckOperationResultMsgs(pUpdatedTableResult, {""},
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  CheckOperationResultMsgs(
+      pUpdatedTableResult,
+      {"error: 'ResourceBindInfo' with content 'PSVResourceBindInfo:",
+       "  Space: 0", "  LowerBound: 0", "  UpperBound: 0",
+       "  ResType: SRVTyped", "' duplicates."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 
   // Update both.
   *ResourceBindInfo1 = Tmp;
@@ -4706,6 +4766,7 @@ TEST_F(ValidationTest, PSVResourceTableReorder) {
 
 static void CheckSignatureReorder(IDxcBlob *pProgram,
                                   PSVSignatureElement0 *SigInput,
+                                  llvm::ArrayRef<LPCSTR> pErrorMsgs,
                                   IDxcValidator *pValidator) {
   PSVSignatureElement0 *SigInput1 = SigInput + 1;
 
@@ -4724,7 +4785,7 @@ static void CheckSignatureReorder(IDxcBlob *pProgram,
   VERIFY_SUCCEEDED(pParitalUpdatedResult->GetStatus(&status));
   VERIFY_FAILED(status);
 
-  CheckOperationResultMsgs(pParitalUpdatedResult, {""},
+  CheckOperationResultMsgs(pParitalUpdatedResult, pErrorMsgs,
                            /*maySucceedAnyway*/ false, /*bRegex*/ false);
   // Update both.
   *SigInput1 = Tmp;
@@ -4791,15 +4852,39 @@ TEST_F(ValidationTest, PSVSignatureTableReorder) {
   VERIFY_ARE_EQUAL(PSVSignatureElement_size, sizeof(PSVSignatureElement0));
   PSVSignatureElement0 *SigInput =
       const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
-  CheckSignatureReorder(pProgram, SigInput, pValidator);
+  CheckSignatureReorder(pProgram, SigInput,
+                        {"'SigInputElement' with content 'PSVSignatureElement:",
+                         "  SemanticName: TEXCOORD", "  SemanticIndex: 0 0 ",
+                         "  IsAllocated: 1", "  StartRow: 1", "  StartCol: 0",
+                         "  Rows: 1", "  Cols: 2", "  SemanticKind: Arbitrary",
+                         "  InterpolationMode: 2", "  OutputStream: 0",
+                         "  ComponentType: 3", "  DynamicIndexMask: 0",
+                         "' duplicates"},
+                        pValidator);
 
   PSVPtr += PSVSignatureElement_size * PSVInfo->SigInputElements / 4;
   PSVSignatureElement0 *SigOutput =
       const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
-  CheckSignatureReorder(pProgram, SigOutput, pValidator);
+  CheckSignatureReorder(
+      pProgram, SigOutput,
+      {"'SigOutputElement' with content 'PSVSignatureElement:",
+       "  SemanticName: TEXCOORD", "  SemanticIndex: 0 0 ", "  IsAllocated: 1",
+       "  StartRow: 1", "  StartCol: 0", "  Rows: 1", "  Cols: 2",
+       "  SemanticKind: Arbitrary", "  InterpolationMode: 2",
+       "  OutputStream: 0", "  ComponentType: 3", "  DynamicIndexMask: 0",
+       "' duplicates"},
+      pValidator);
 
   PSVPtr += PSVSignatureElement_size * PSVInfo->SigOutputElements / 4;
   PSVSignatureElement0 *SigPatchConstOrPrim =
       const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
-  CheckSignatureReorder(pProgram, SigPatchConstOrPrim, pValidator);
+  CheckSignatureReorder(
+      pProgram, SigPatchConstOrPrim,
+      {"'SigPatchConstantOrPrimElement' with content 'PSVSignatureElement:",
+       "  SemanticName: PN_POSITION", "  SemanticIndex: 0 ", "  IsAllocated: 1",
+       "  StartRow: 0", "  StartCol: 0", "  Rows: 1", "  Cols: 1",
+       "  SemanticKind: Arbitrary", "  InterpolationMode: 0",
+       "  OutputStream: 0", "  ComponentType: 3", "  DynamicIndexMask: 0",
+       "' duplicates"},
+      pValidator);
 }

@@ -23,10 +23,10 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilUtil.h"
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Module.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -113,7 +113,8 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
       Offset += MaskDwords;
     }
     unsigned TabSize = MaskDwords * NumInputSigScalars;
-    unsigned AlignedTabSize = MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
+    unsigned AlignedTabSize =
+        MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
     InputToOutputTable[i] = std::vector<uint32_t>(AlignedTabSize, 0);
     memcpy(InputToOutputTable[i].data(), Data.data() + Offset, TabSize * 4);
     Offset += TabSize;
@@ -128,7 +129,8 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
       Offset += MaskDwords;
     }
     unsigned TabSize = MaskDwords * NumInputSigScalars;
-    unsigned AlignedTabSize = MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
+    unsigned AlignedTabSize =
+        MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
     InputToPCOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
     memcpy(InputToPCOutputTable.data(), Data.data() + Offset, TabSize * 4);
     Offset += TabSize;
@@ -138,7 +140,8 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
     unsigned OutputScalars = NumOutputSigScalars[0];
     unsigned MaskDwords = llvm::RoundUpToAlignment(OutputScalars, 32) / 32;
     unsigned TabSize = MaskDwords * NumPCOrPrimSigScalars;
-    unsigned AlignedTabSize = MaskDwords * llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4);
+    unsigned AlignedTabSize =
+        MaskDwords * llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4);
     PCInputToOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
     memcpy(PCInputToOutputTable.data(), Data.data() + Offset, TabSize * 4);
     Offset += TabSize;
@@ -245,11 +248,11 @@ private:
 };
 
 bool ViewIDTableAndMaskMismatched(const PSVDependencyTable &PSVTable,
-                              std::vector<uint32_t> &VecPSVTable,
-                              const PSVComponentMask &&PSVMask,
-                              MutableArrayRef<uint32_t> ArrayMask,
-                              uint32_t NumInputVectors,
-                              uint32_t NumOutputVectors, bool UsesViewID) {
+                                  std::vector<uint32_t> &VecPSVTable,
+                                  const PSVComponentMask &&PSVMask,
+                                  MutableArrayRef<uint32_t> ArrayMask,
+                                  uint32_t NumInputVectors,
+                                  uint32_t NumOutputVectors, bool UsesViewID) {
   if (NumInputVectors == 0 || NumOutputVectors == 0)
     return false;
   const PSVDependencyTable DxilTable(VecPSVTable.data(), NumInputVectors,
