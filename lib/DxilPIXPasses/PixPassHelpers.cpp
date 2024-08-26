@@ -66,20 +66,6 @@ void FindRayQueryHandlesForFunction(llvm::Function *F,
   }
 }
 
-static unsigned int
-GetNextRegisterIdForClass(hlsl::DxilModule &DM,
-                          DXIL::ResourceClass resourceClass) {
-  switch (resourceClass) {
-  case DXIL::ResourceClass::CBuffer:
-    return static_cast<unsigned int>(DM.GetCBuffers().size());
-  case DXIL::ResourceClass::UAV:
-    return static_cast<unsigned int>(DM.GetUAVs().size());
-  default:
-    DXASSERT(false, "Unexpected resource class");
-    return 0;
-  }
-}
-
 static bool IsDynamicResourceShaderModel(DxilModule &DM) {
   return DM.GetShaderModel()->IsSMAtLeast(6, 6);
 }
@@ -107,9 +93,6 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
   DXIL::ResourceClass resourceClass = resource->GetClass();
-
-  unsigned int resourceMetaDataId =
-      GetNextRegisterIdForClass(DM, resourceClass);
 
   auto const *shaderModel = DM.GetShaderModel();
   Type *resourceHandleType =
@@ -183,10 +166,8 @@ llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
     Constant *ClassArg = HlslOP->GetI8Const(
         static_cast<std::underlying_type<DxilResourceBase::Class>::type>(
             resourceClass));
-    Constant *MetaDataArg = HlslOP->GetU32Const(
-        resourceMetaDataId); // position of the metadata record in the
-                             // corresponding metadata list
-    Constant *IndexArg = HlslOP->GetU32Const(0); //
+    Constant *MetaDataArg = HlslOP->GetU32Const(resource->GetID());
+    Constant *IndexArg = HlslOP->GetU32Const(0);
     Constant *FalseArg =
         HlslOP->GetI1Const(0); // non-uniform resource index: false
     return Builder.CreateCall(
