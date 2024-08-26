@@ -311,7 +311,6 @@ bool LiteralTypeVisitor::visit(SpirvLoad *inst) {
 
   assert(inst->hasAstResultType());
   QualType resultType = inst->getAstResultType();
-  assert(!isLitTypeOrVecOfLitType(resultType));
 
   if (!canDeduceTypeFromLitType(pointerType, resultType))
     return true;

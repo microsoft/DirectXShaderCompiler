@@ -644,7 +644,7 @@ int DxcContext::VerifyRootSignature() {
   IFT(pContainerBuilder->AddPart(hlsl::DxilFourCC::DFCC_RootSignature,
                                  pRootSignature));
   CComPtr<IDxcOperationResult> pOperationResult;
-  IFT(pContainerBuilder->SerializeContainer(&pOperationResult));
+  pContainerBuilder->SerializeContainer(&pOperationResult);
   HRESULT status = E_FAIL;
   CComPtr<IDxcBlob> pResult;
   IFT(pOperationResult->GetStatus(&status));

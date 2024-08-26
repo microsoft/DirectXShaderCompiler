@@ -51,8 +51,8 @@ stages:
         Linux_Clang_Release:
           image: ${{ variables.linux }}
           configuration: Release
-          CC: clang
-          CXX: clang++
+          CC: clang-18
+          CXX: clang++-18
           CMAKE_OPTS: -DLLVM_ENABLE_WERROR=On -DLLVM_USE_SANITIZER='Address;Undefined' -DLLVM_ENABLE_LIBCXX=On -DLLVM_USE_LINKER=lld
           CHECK_ALL_ENV: ASAN_OPTIONS=alloc_dealloc_mismatch=0
           OS: Linux
@@ -98,7 +98,12 @@ stages:
       inputs:
         versionSpec: '3.x'
 
-    - bash: sudo apt-get install ninja-build
+    - bash: |
+        sudo apt-get install ninja-build
+        wget https://apt.llvm.org/llvm.sh
+        chmod u+x llvm.sh
+        sudo ./llvm.sh 18
+        sudo apt-get install libc++-18-dev
       displayName: 'Installing dependencies'
       condition: eq(variables['image'], variables['linux'])
 
