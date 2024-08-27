@@ -901,7 +901,7 @@ void DxilPipelineStateValidation::Print(raw_ostream &OS,
       Table.Print(OS, "Inputs", OutputSetName.c_str());
     }
 
-    if (IsHS()) {
+    if (IsHS() || IsMS()) {
       OS << "Patch constant outputs affected by inputs as a table of "
             "bitmasks:\n";
       uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
