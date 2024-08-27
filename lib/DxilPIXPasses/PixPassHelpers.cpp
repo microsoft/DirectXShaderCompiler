@@ -269,9 +269,8 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM) {
 }
 
 // Set up a UAV with structure of a single int
-hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
+hlsl::DxilResource * CreateGlobalUAVResource(hlsl::DxilModule &DM,
                                             unsigned int hlslBindIndex,
-                                            unsigned int registerId,
                                             const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
 
@@ -289,7 +288,9 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
   AddUAVToDxilDefinedGlobalRootSignatures(DM);
   AddUAVToShaderAttributeRootSignature(DM);
 
+  unsigned int Id = static_cast<unsigned int>(DM.GetUAVs().size());
   std::unique_ptr<DxilResource> pUAV = llvm::make_unique<DxilResource>();
+  pUAV->SetID(Id);
 
   auto const *shaderModel = DM.GetShaderModel();
   std::string PixUavName = "PIXUAV" + std::to_string(hlslBindIndex);
@@ -306,7 +307,6 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
     pUAV->SetGlobalSymbol(UndefValue::get(UAVStructTy->getPointerTo()));
   }
   pUAV->SetGlobalName(name);
-  pUAV->SetID(registerId);
   pUAV->SetRW(true); // sets UAV class
   pUAV->SetSpaceID(
       (unsigned int)-2);   // This is the reserved-for-tools register space
@@ -342,12 +342,11 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
 }
 
 // Set up a UAV with structure of a single int
-llvm::CallInst *CreateUAVOnceForModule(hlsl::DxilModule &DM,
+llvm::CallInst * CreateUAVOnceForModule(hlsl::DxilModule &DM,
                                        llvm::IRBuilder<> &Builder,
                                        unsigned int hlslBindIndex,
-                                       unsigned int registerId,
                                        const char *name) {
-  auto uav = CreateGlobalUAVResource(DM, hlslBindIndex, registerId, name);
+  auto uav = CreateGlobalUAVResource(DM, hlslBindIndex, name);
   auto *handle = CreateHandleForResource(DM, Builder, uav, name);
 
   return handle;

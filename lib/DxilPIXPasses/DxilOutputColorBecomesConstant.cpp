@@ -161,7 +161,7 @@ bool DxilOutputColorBecomesConstant::runOnModule(Module &M) {
     std::unique_ptr<DxilCBuffer> pCBuf = llvm::make_unique<DxilCBuffer>();
     pCBuf->SetGlobalName("PIX_ConstantColorCBName");
     pCBuf->SetGlobalSymbol(UndefValue::get(CBStructTy));
-    pCBuf->SetID(0);
+    pCBuf->SetID(static_cast<unsigned int>(DM.GetCBuffers().size()));
     pCBuf->SetSpaceID(
         (unsigned int)-2); // This is the reserved-for-tools register space
     pCBuf->SetLowerBound(0);

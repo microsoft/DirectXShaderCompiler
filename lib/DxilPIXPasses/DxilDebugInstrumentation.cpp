@@ -1221,7 +1221,7 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
     registerId = std::max<int>(registerId, uav->GetID() + 1);
   }
   auto *uav = PIXPassHelpers::CreateGlobalUAVResource(
-      DM, HLSLBindId, registerId, "PIXUAV");
+      DM, HLSLBindId, "PIXUAV");
   bool modified = false;
   if (shaderKind == DXIL::ShaderKind::Library) {
     auto instrumentableFunctions =

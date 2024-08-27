@@ -38,11 +38,9 @@ enum class PixUAVHandleMode { NonLib, Lib };
 llvm::CallInst *CreateUAVOnceForModule(hlsl::DxilModule &DM,
                                        llvm::IRBuilder<> &Builder,
                                        unsigned int hlslBindIndex,
-                                       unsigned int registerId,
                                        const char *name);
 hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
                                             unsigned int hlslBindIndex,
-                                            unsigned int registerId,
                                             const char *name);
 llvm::CallInst *CreateHandleForResource(hlsl::DxilModule &DM,
                                         llvm::IRBuilder<> &Builder,
