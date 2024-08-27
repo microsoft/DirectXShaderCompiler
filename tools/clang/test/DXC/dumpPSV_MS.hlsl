@@ -125,10 +125,10 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: Outputs affected by ViewID as a bitmask for stream 0:
 // CHECK-NEXT:    ViewID influencing Outputs[0] : 0  1  2  3  4  8  12  16
+// CHECK-NEXT: PCOutputs affected by ViewID as a bitmask:
+// CHECK-NEXT:    ViewID influencing PCOutputs :  None
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 0:
 // CHECK-NEXT: Inputs contributing to computation of Outputs[0]:  None
-// CHECK-NEXT: Patch constant outputs affected by inputs as a table of bitmasks:
-// CHECK-NEXT: Inputs contributing to computation of PatchConstantOutputs:  None
 
 #define MAX_VERT 32
 #define MAX_PRIM 16
