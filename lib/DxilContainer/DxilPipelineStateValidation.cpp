@@ -364,7 +364,7 @@ void PSVSignatureElement::Print(raw_ostream &OS) const {
   OS << "  SemanticName: " << GetSemanticName() << "\n";
   OS << "  SemanticIndex: ";
   const uint32_t *SemanticIndexes = GetSemanticIndexes();
-  for (unsigned i = 0; i < GetCols(); ++i) {
+  for (unsigned i = 0; i < GetRows(); ++i) {
     OS << *(SemanticIndexes + i) << " ";
   }
   OS << "\n";
