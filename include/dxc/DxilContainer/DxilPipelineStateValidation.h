@@ -449,6 +449,7 @@ public:
     return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF;
   }
   void Print(llvm::raw_ostream &O) const;
+  void Print(llvm::raw_ostream &O, const char *Name) const;
 };
 
 #define MAX_PSV_VERSION 3
@@ -752,6 +753,7 @@ public:
   }
   void PrintPSVRuntimeInfo(llvm::raw_ostream &O, uint8_t ShaderKind,
                            const char *Comment) const;
+  void PrintViewIDState(llvm::raw_ostream &OS) const;
   void Print(llvm::raw_ostream &O, uint8_t ShaderKind) const;
 };
 
@@ -1098,6 +1100,11 @@ void InitPSVSignatureElement(PSVSignatureElement0 &E,
 void InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
                         PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
                         const DxilModule &DM);
+
+void PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
+                         PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
+                         PSVRuntimeInfo3 *pInfo3, uint8_t ShaderKind,
+                         const char *EntryName, const char *Comment);
 
 } // namespace hlsl
 
