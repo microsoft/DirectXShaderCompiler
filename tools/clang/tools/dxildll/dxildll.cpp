@@ -10,6 +10,12 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#ifdef _WIN32
+#define DXC_API_IMPORT
+#else
+#define DXC_API_IMPORT __attribute__((visibility("default")))
+#endif
+
 #include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
@@ -19,12 +25,6 @@
 #ifdef _WIN32
 #include "Tracing/DxcRuntimeEtw.h"
 #include "dxc/Tracing/dxcetw.h"
-#endif
-
-#ifdef _WIN32
-#define DXC_API_IMPORT
-#else
-#define DXC_API_IMPORT __attribute__((visibility("default")))
 #endif
 
 #include "dxc/dxcisense.h"

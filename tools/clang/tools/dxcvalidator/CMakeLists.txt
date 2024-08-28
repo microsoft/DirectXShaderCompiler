@@ -9,6 +9,7 @@ set( LLVM_LINK_COMPONENTS
   DxilContainer
   DxilHash
   DxilValidation
+  DxilRootSignature
   Option     # option library
   Support    # just for assert and raw streams
   )
