@@ -23,7 +23,7 @@
 // CHECK-NEXT: ResourceCount : 0
 // CHECK-NEXT:  PSVSignatureElement:
 // CHECK-NEXT:   SemanticName:
-// CHECK-NEXT:   SemanticIndex: 0 0 1 2
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 0
 // CHECK-NEXT:   StartCol: 0
@@ -36,7 +36,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: TEXCOORD
-// CHECK-NEXT:   SemanticIndex: 0 0
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 1
 // CHECK-NEXT:   StartCol: 0
@@ -49,46 +49,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: NORMAL
-// CHECK-NEXT:   SemanticIndex: 0 0 1
-// CHECK-NEXT:   IsAllocated: 1
-// CHECK-NEXT:   StartRow: 2
-// CHECK-NEXT:   StartCol: 0
-// CHECK-NEXT:   Rows: 1
-// CHECK-NEXT:   Cols: 3
-// CHECK-NEXT:   SemanticKind: Arbitrary
-// CHECK-NEXT:   InterpolationMode: 2
-// CHECK-NEXT:   OutputStream: 0
-// CHECK-NEXT:   ComponentType: 3
-// CHECK-NEXT:   DynamicIndexMask: 0
-// CHECK-NEXT: PSVSignatureElement:
-// CHECK-NEXT:   SemanticName:
-// CHECK-NEXT:   SemanticIndex: 0 0 1 2
-// CHECK-NEXT:   IsAllocated: 1
-// CHECK-NEXT:   StartRow: 0
-// CHECK-NEXT:   StartCol: 0
-// CHECK-NEXT:   Rows: 1
-// CHECK-NEXT:   Cols: 4
-// CHECK-NEXT:   SemanticKind: Position
-// CHECK-NEXT:   InterpolationMode: 4
-// CHECK-NEXT:   OutputStream: 0
-// CHECK-NEXT:   ComponentType: 3
-// CHECK-NEXT:   DynamicIndexMask: 0
-// CHECK-NEXT: PSVSignatureElement:
-// CHECK-NEXT:   SemanticName: TEXCOORD
-// CHECK-NEXT:   SemanticIndex: 0 0
-// CHECK-NEXT:   IsAllocated: 1
-// CHECK-NEXT:   StartRow: 1
-// CHECK-NEXT:   StartCol: 0
-// CHECK-NEXT:   Rows: 1
-// CHECK-NEXT:   Cols: 2
-// CHECK-NEXT:   SemanticKind: Arbitrary
-// CHECK-NEXT:   InterpolationMode: 2
-// CHECK-NEXT:   OutputStream: 0
-// CHECK-NEXT:   ComponentType: 3
-// CHECK-NEXT:   DynamicIndexMask: 0
-// CHECK-NEXT: PSVSignatureElement:
-// CHECK-NEXT:   SemanticName: NORMAL
-// CHECK-NEXT:   SemanticIndex: 0 0 1
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 2
 // CHECK-NEXT:   StartCol: 0
@@ -102,6 +63,45 @@
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName:
 // CHECK-NEXT:   SemanticIndex: 0
+// CHECK-NEXT:   IsAllocated: 1
+// CHECK-NEXT:   StartRow: 0
+// CHECK-NEXT:   StartCol: 0
+// CHECK-NEXT:   Rows: 1
+// CHECK-NEXT:   Cols: 4
+// CHECK-NEXT:   SemanticKind: Position
+// CHECK-NEXT:   InterpolationMode: 4
+// CHECK-NEXT:   OutputStream: 0
+// CHECK-NEXT:   ComponentType: 3
+// CHECK-NEXT:   DynamicIndexMask: 0
+// CHECK-NEXT: PSVSignatureElement:
+// CHECK-NEXT:   SemanticName: TEXCOORD
+// CHECK-NEXT:   SemanticIndex: 0
+// CHECK-NEXT:   IsAllocated: 1
+// CHECK-NEXT:   StartRow: 1
+// CHECK-NEXT:   StartCol: 0
+// CHECK-NEXT:   Rows: 1
+// CHECK-NEXT:   Cols: 2
+// CHECK-NEXT:   SemanticKind: Arbitrary
+// CHECK-NEXT:   InterpolationMode: 2
+// CHECK-NEXT:   OutputStream: 0
+// CHECK-NEXT:   ComponentType: 3
+// CHECK-NEXT:   DynamicIndexMask: 0
+// CHECK-NEXT: PSVSignatureElement:
+// CHECK-NEXT:   SemanticName: NORMAL
+// CHECK-NEXT:   SemanticIndex: 0
+// CHECK-NEXT:   IsAllocated: 1
+// CHECK-NEXT:   StartRow: 2
+// CHECK-NEXT:   StartCol: 0
+// CHECK-NEXT:   Rows: 1
+// CHECK-NEXT:   Cols: 3
+// CHECK-NEXT:   SemanticKind: Arbitrary
+// CHECK-NEXT:   InterpolationMode: 2
+// CHECK-NEXT:   OutputStream: 0
+// CHECK-NEXT:   ComponentType: 3
+// CHECK-NEXT:   DynamicIndexMask: 0
+// CHECK-NEXT: PSVSignatureElement:
+// CHECK-NEXT:   SemanticName:
+// CHECK-NEXT:   SemanticIndex: 0 1 2
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 0
 // CHECK-NEXT:   StartCol: 3

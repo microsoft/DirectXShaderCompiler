@@ -27,7 +27,7 @@
 // CHECK-NEXT:   ResFlags: None
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: POSITION
-// CHECK-NEXT:   SemanticIndex: 0 16 1
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 0
 // CHECK-NEXT:   StartCol: 0
@@ -40,7 +40,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: NORMAL
-// CHECK-NEXT:   SemanticIndex: 0 16 1
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 1
 // CHECK-NEXT:   StartCol: 0
@@ -53,7 +53,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: TEXCOORD
-// CHECK-NEXT:   SemanticIndex: 0 16
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 2
 // CHECK-NEXT:   StartCol: 0
@@ -66,7 +66,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: NORMAL
-// CHECK-NEXT:   SemanticIndex: 0 16 1
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 0
 // CHECK-NEXT:   StartCol: 0
@@ -79,7 +79,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: TEXCOORD
-// CHECK-NEXT:   SemanticIndex: 0 16
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 1
 // CHECK-NEXT:   StartCol: 0
@@ -92,7 +92,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName:
-// CHECK-NEXT:   SemanticIndex: 0 16 1 0
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 2
 // CHECK-NEXT:   StartCol: 0

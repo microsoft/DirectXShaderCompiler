@@ -364,7 +364,7 @@ void PSVSignatureElement::Print(raw_ostream &OS) const {
   OS << "  SemanticName: " << GetSemanticName() << "\n";
   OS << "  SemanticIndex: ";
   const uint32_t *SemanticIndexes = GetSemanticIndexes();
-  for (unsigned i = 0; i < GetCols(); ++i) {
+  for (unsigned i = 0; i < GetRows(); ++i) {
     OS << *(SemanticIndexes + i) << " ";
   }
   OS << "\n";
@@ -880,7 +880,7 @@ void DxilPipelineStateValidation::Print(raw_ostream &OS,
         ViewIDMask.Print(OS, "ViewID", OutputSetName.c_str());
       }
 
-      if (IsHS()) {
+      if (IsHS() || IsMS()) {
         OS << "PCOutputs affected by ViewID as a bitmask:\n";
         uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
         const PSVComponentMask ViewIDMask(m_pViewIDPCOrPrimOutputMask,

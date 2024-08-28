@@ -21,7 +21,7 @@
 // CHECK-NEXT: ResourceCount : 0
 // CHECK-NEXT:  PSVSignatureElement:
 // CHECK-NEXT:   SemanticName:
-// CHECK-NEXT:   SemanticIndex: 0 0 1 2
+// CHECK-NEXT:   SemanticIndex: 0
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 0
 // CHECK-NEXT:   StartCol: 0
@@ -34,7 +34,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: COLOR
-// CHECK-NEXT:   SemanticIndex: 0
+// CHECK-NEXT:   SemanticIndex: 0 1 2 3
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 1
 // CHECK-NEXT:   StartCol: 0
@@ -99,7 +99,7 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: PSVSignatureElement:
 // CHECK-NEXT:   SemanticName: LAYER
-// CHECK-NEXT:   SemanticIndex: 0
+// CHECK-NEXT:   SemanticIndex: 0 1 2 3 4 5
 // CHECK-NEXT:   IsAllocated: 1
 // CHECK-NEXT:   StartRow: 1
 // CHECK-NEXT:   StartCol: 0
@@ -125,6 +125,8 @@
 // CHECK-NEXT:   DynamicIndexMask: 0
 // CHECK-NEXT: Outputs affected by ViewID as a bitmask for stream 0:
 // CHECK-NEXT:    ViewID influencing Outputs[0] : 0  1  2  3  4  8  12  16
+// CHECK-NEXT: PCOutputs affected by ViewID as a bitmask:
+// CHECK-NEXT:    ViewID influencing PCOutputs :  None
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 0:
 // CHECK-NEXT: Inputs contributing to computation of Outputs[0]:  None
 
