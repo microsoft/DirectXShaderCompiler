@@ -92,7 +92,7 @@ struct SimpleViewIDState {
   bool IsValid = true;
   SimpleViewIDState(std::vector<uint32_t> &Data, PSVShaderKind,
                     bool UsesViewID);
-  void Print(raw_ostream& OS, PSVShaderKind ShaderStage, bool UsesViewID) {
+  void Print(raw_ostream &OS, PSVShaderKind ShaderStage, bool UsesViewID) {
     unsigned NumStreams =
         ShaderStage == PSVShaderKind::Geometry ? PSV_GS_MAX_STREAMS : 1;
 
