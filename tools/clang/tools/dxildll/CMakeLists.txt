@@ -10,6 +10,7 @@ set(DXCComponents
   LLVMDxilContainer
   LLVMDxilHash
   LLVMDxilRootSignature
+  LLVMDxilValidation
   LLVMHLSL       # for AreDxilResourcesDense and DxilSignatureAllocator which are used in DxilValidation
   LLVMMSSupport
   LLVMSupport
