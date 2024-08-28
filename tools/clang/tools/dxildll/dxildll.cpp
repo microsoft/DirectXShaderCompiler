@@ -10,6 +10,7 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DxilContainer/DxcContainerBuilder.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/Support/FileSystem.h"
@@ -30,22 +31,18 @@
 #include "dxc/dxctools.h"
 
 HRESULT CreateDxcValidator(REFIID, LPVOID *);
-HRESULT CreateDxcHashingContainerBuilder(REFIID RRID, LPVOID *V);
 
 // C++ exception specification ignored except to indicate a function is not
 // __declspec(nothrow)
 static HRESULT InitMaybeFail() throw() {
   bool MemSetup = false;
   HRESULT HR = (DxcInitThreadMalloc());
-  if (DXC_FAILED(HR))
-    goto Cleanup;
-  DxcSetThreadMallocToDefault();
-  MemSetup = true;
-  if (::llvm::sys::fs::SetupPerThreadFileSystem()) {
-    HR = E_FAIL;
-    goto Cleanup;
+  if (!DXC_FAILED(HR)) {
+    DxcSetThreadMallocToDefault();
+    MemSetup = true;
+    if (::llvm::sys::fs::SetupPerThreadFileSystem())
+      HR = E_FAIL;
   }
-Cleanup:
   if (FAILED(HR)) {
     if (MemSetup) {
       DxcClearThreadMalloc();
@@ -108,6 +105,18 @@ void __CRTDECL operator delete(void *PTR,
   DxcDelete(PTR);
 }
 #endif
+
+static HRESULT CreateDxcHashingContainerBuilder(REFIID RRID, LPVOID *V) {
+  // Call dxil.dll's containerbuilder
+  *V = nullptr;
+  CComPtr<DxcContainerBuilder> Result(
+      DxcContainerBuilder::Alloc(DxcGetThreadMallocNoRef()));
+  if (nullptr == Result.p)
+    return E_OUTOFMEMORY;
+
+  Result->Init();
+  return Result->QueryInterface(RRID, V);
+}
 
 static HRESULT ThreadMallocDxcCreateInstance(REFCLSID RCLSID, REFIID RIID,
                                              LPVOID *V) {

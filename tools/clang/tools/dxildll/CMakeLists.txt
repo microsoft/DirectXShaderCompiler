@@ -9,6 +9,7 @@ set(DXCComponents
   LLVMDxilContainer
   LLVMDxilHash
   LLVMDxilRootSignature
+  LLVMHLSL       # for AreDxilResourcesDense and DxilSignatureAllocator which are used in DxilValidation
   LLVMMSSupport
   LLVMSupport
   LLVMTransformUtils
@@ -35,7 +36,6 @@ include_directories(
 set(sources
   dxildll.cpp
   dxildll.def
-  dxccontainerbuilder.cpp
   dxcvalidator.cpp
 )
 
