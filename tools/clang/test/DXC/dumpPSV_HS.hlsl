@@ -10,7 +10,7 @@
 // CHECK-NEXT:  OutputPrimitive=triangle_cw
 // CHECK-NEXT:  MinimumExpectedWaveLaneCount: 0
 // CHECK-NEXT:  MaximumExpectedWaveLaneCount: 4294967295
-// CHECK-NEXT:  UsesViewID: false
+// CHECK-NEXT:  UsesViewID: true
 // CHECK-NEXT:  SigInputElements: 3
 // CHECK-NEXT:  SigOutputElements: 3
 // CHECK-NEXT:  SigPatchConstOrPrimElements: 2
@@ -125,6 +125,10 @@
 // CHECK-NEXT:   OutputStream: 0
 // CHECK-NEXT:   ComponentType: 3
 // CHECK-NEXT:   DynamicIndexMask: 0
+// CHECK-NEXT: Outputs affected by ViewID as a bitmask for stream 0:
+// CHECK-NEXT:    ViewID influencing Outputs[0] : 8  9  10
+// CHECK-NEXT: PCOutputs affected by ViewID as a bitmask:
+// CHECK-NEXT:   ViewID influencing PCOutputs : 12
 // CHECK-NEXT: Outputs affected by inputs as a table of bitmasks for stream 0:
 // CHECK-NEXT: Inputs contributing to computation of Outputs[0]:
 // CHECK-NEXT:   Inputs[0] influencing Outputs[0] : 0
@@ -141,7 +145,7 @@
 // CHECK-NEXT:   Inputs[11] influencing Outputs[0] :  None
 // CHECK-NEXT: Patch constant outputs affected by inputs as a table of bitmasks:
 // CHECK-NEXT: Inputs contributing to computation of PatchConstantOutputs:
-// CHECK-NEXT:   Inputs[0] influencing PatchConstantOutputs :  None
+// CHECK-NEXT:   Inputs[0] influencing PatchConstantOutputs :  3
 // CHECK-NEXT:   Inputs[1] influencing PatchConstantOutputs :  None
 // CHECK-NEXT:   Inputs[2] influencing PatchConstantOutputs :  None
 // CHECK-NEXT:   Inputs[3] influencing PatchConstantOutputs :  None

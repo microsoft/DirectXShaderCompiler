@@ -4862,7 +4862,7 @@ TEST_F(ValidationTest, PSVSignatureTableReorder) {
       const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
   CheckSignatureReorder(pProgram, SigInput,
                         {"'SigInputElement' with content 'PSVSignatureElement:",
-                         "  SemanticName: TEXCOORD", "  SemanticIndex: 0 0 ",
+                         "  SemanticName: TEXCOORD", "  SemanticIndex: 0",
                          "  IsAllocated: 1", "  StartRow: 1", "  StartCol: 0",
                          "  Rows: 1", "  Cols: 2", "  SemanticKind: Arbitrary",
                          "  InterpolationMode: 2", "  OutputStream: 0",
@@ -4876,7 +4876,7 @@ TEST_F(ValidationTest, PSVSignatureTableReorder) {
   CheckSignatureReorder(
       pProgram, SigOutput,
       {"'SigOutputElement' with content 'PSVSignatureElement:",
-       "  SemanticName: TEXCOORD", "  SemanticIndex: 0 0 ", "  IsAllocated: 1",
+       "  SemanticName: TEXCOORD", "  SemanticIndex: 0", "  IsAllocated: 1",
        "  StartRow: 1", "  StartCol: 0", "  Rows: 1", "  Cols: 2",
        "  SemanticKind: Arbitrary", "  InterpolationMode: 2",
        "  OutputStream: 0", "  ComponentType: 3", "  DynamicIndexMask: 0",
@@ -4889,7 +4889,7 @@ TEST_F(ValidationTest, PSVSignatureTableReorder) {
   CheckSignatureReorder(
       pProgram, SigPatchConstOrPrim,
       {"'SigPatchConstantOrPrimElement' with content 'PSVSignatureElement:",
-       "  SemanticName: PN_POSITION", "  SemanticIndex: 0 ", "  IsAllocated: 1",
+       "  SemanticName: PN_POSITION", "  SemanticIndex: 0", "  IsAllocated: 1",
        "  StartRow: 0", "  StartCol: 0", "  Rows: 1", "  Cols: 1",
        "  SemanticKind: Arbitrary", "  InterpolationMode: 0",
        "  OutputStream: 0", "  ComponentType: 3", "  DynamicIndexMask: 0",
@@ -5084,7 +5084,7 @@ TEST_F(ValidationTest, PSVContentValidationVS) {
           "error: 'SigInputElement' does not match, for container: "
           "'PSVSignatureElement:",
           "  SemanticName: POSITION",
-          "  SemanticIndex: 0 16 1 ",
+          "  SemanticIndex: 0",
           "  IsAllocated: 1",
           "  StartRow: 0",
           "  StartCol: 0",
@@ -5097,7 +5097,7 @@ TEST_F(ValidationTest, PSVContentValidationVS) {
           "  DynamicIndexMask: 0",
           "', for dxil module: 'PSVSignatureElement:",
           "  SemanticName: POSITION",
-          "  SemanticIndex: 0 16 1 ",
+          "  SemanticIndex: 0",
           "  IsAllocated: 1",
           "  StartRow: 0",
           "  StartCol: 0",
@@ -5112,7 +5112,7 @@ TEST_F(ValidationTest, PSVContentValidationVS) {
           "error: 'SigOutputElement' does not match, for container: "
           "'PSVSignatureElement:",
           "  SemanticName: NORMAL",
-          "  SemanticIndex: 0 16 1 ",
+          "  SemanticIndex: 0",
           "  IsAllocated: 1",
           "  StartRow: 0",
           "  StartCol: 0",
@@ -5125,7 +5125,7 @@ TEST_F(ValidationTest, PSVContentValidationVS) {
           "  DynamicIndexMask: 0",
           "', for dxil module: 'PSVSignatureElement:",
           "  SemanticName: NORMAL",
-          "  SemanticIndex: 0 16 1 ",
+          "  SemanticIndex: 0",
           "  IsAllocated: 1",
           "  StartRow: 0",
           "  StartCol: 0",
