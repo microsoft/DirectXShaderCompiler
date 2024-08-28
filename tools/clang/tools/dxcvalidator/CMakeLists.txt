@@ -10,6 +10,7 @@ set( LLVM_LINK_COMPONENTS
   DxilHash
   DxilValidation
   DxilRootSignature
+  HLSL       # for gcc link error on AreDxilResourcesDense and DxilSignatureAllocator which are used in DxilValidation
   Option     # option library
   Support    # just for assert and raw streams
   )
