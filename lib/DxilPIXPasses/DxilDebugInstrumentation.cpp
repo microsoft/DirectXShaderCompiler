@@ -1217,13 +1217,8 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   auto ShaderModel = DM.GetShaderModel();
   auto shaderKind = ShaderModel->GetKind();
-  auto HLSLBindId = 0; // static_cast<unsigned int>(DM.GetUAVs().size());
-  unsigned registerId = 0;
-  for (auto const &uav : DM.GetUAVs()) {
-    registerId = std::max<int>(registerId, uav->GetID() + 1);
-  }
-  auto *uav = PIXPassHelpers::CreateGlobalUAVResource(
-      DM, HLSLBindId, "PIXUAV");
+  auto HLSLBindId = 0;
+  auto *uav = PIXPassHelpers::CreateGlobalUAVResource(DM, HLSLBindId, "PIXUAV");
   bool modified = false;
   if (shaderKind == DXIL::ShaderKind::Library) {
     auto instrumentableFunctions =
