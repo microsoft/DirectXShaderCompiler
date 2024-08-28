@@ -111,12 +111,13 @@ private:
     // Contributing instructions per output.
     std::unordered_map<unsigned, InstructionSetType>
         ContributingInstructions[kNumStreams];
-
+    bool IsForPatchConstantOrPrimitive;
+    EntryInfo(bool ForPC) : IsForPatchConstantOrPrimitive(ForPC) {}
     void Clear();
   };
 
-  EntryInfo m_Entry;
-  EntryInfo m_PCEntry;
+  EntryInfo m_Entry = EntryInfo{false};
+  EntryInfo m_PCEntry = EntryInfo{true};
 
   // Information per function.
   using FunctionReturnSet = std::unordered_set<llvm::ReturnInst *>;
@@ -190,9 +191,12 @@ void DxilViewIdStateBuilder::Compute() {
   CallGraph CG = CGA.run(m_pModule->GetModule());
   m_Entry.pEntryFunc = m_pModule->GetEntryFunction();
   m_PCEntry.pEntryFunc = m_pModule->GetPatchConstantFunction();
+  // For MS, use main entry as PC entry to collect primitive outputs.
+  if (pSM->IsMS())
+    m_PCEntry.pEntryFunc = m_pModule->GetEntryFunction();
   ComputeReachableFunctionsRec(CG, CG[m_Entry.pEntryFunc], m_Entry.Functions);
   if (m_PCEntry.pEntryFunc) {
-    DXASSERT_NOMSG(pSM->IsHS());
+    DXASSERT_NOMSG(pSM->IsHS() || pSM->IsMS());
     ComputeReachableFunctionsRec(CG, CG[m_PCEntry.pEntryFunc],
                                  m_PCEntry.Functions);
   }
@@ -461,6 +465,7 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
     unsigned id = (unsigned)-1;
     int startRow = Semantic::kUndefinedRow, endRow = Semantic::kUndefinedRow;
     unsigned col = (unsigned)-1;
+    bool IsForPatchConstantOrPrimitive = false;
     if (DxilInst_StoreOutput SO = DxilInst_StoreOutput(CI)) {
       pDxilSig = &m_pModule->GetOutputSignature();
       pContributingValue = SO.get_value();
@@ -481,6 +486,7 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       GetUnsignedVal(SPO.get_outputSigId(), &id);
       GetUnsignedVal(SPO.get_colIndex(), &col);
       GetUnsignedVal(SPO.get_rowIndex(), (uint32_t *)&startRow);
+      IsForPatchConstantOrPrimitive = true;
     } else if (DxilInst_StorePatchConstant SPC =
                    DxilInst_StorePatchConstant(CI)) {
       pDxilSig = &m_pModule->GetPatchConstOrPrimSignature();
@@ -488,9 +494,14 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       GetUnsignedVal(SPC.get_outputSigID(), &id);
       GetUnsignedVal(SPC.get_row(), (uint32_t *)&startRow);
       GetUnsignedVal(SPC.get_col(), &col);
+      IsForPatchConstantOrPrimitive = true;
     } else {
       IFT(DXC_E_GENERAL_INTERNAL_ERROR);
     }
+
+    // Skip vertex outputs for MS when check primitive outputs.
+    if (IsForPatchConstantOrPrimitive != Entry.IsForPatchConstantOrPrimitive)
+      continue;
 
     DxilSignatureElement &SigElem = pDxilSig->GetElement(id);
     if (!SigElem.IsAllocated())
