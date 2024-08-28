@@ -314,6 +314,14 @@ public:
   TEST_METHOD(PSVStringTableReorder)
   TEST_METHOD(PSVResourceTableReorder)
   TEST_METHOD(PSVSignatureTableReorder)
+  TEST_METHOD(PSVContentValidationVS)
+  TEST_METHOD(PSVContentValidationHS)
+  TEST_METHOD(PSVContentValidationDS)
+  TEST_METHOD(PSVContentValidationGS)
+  TEST_METHOD(PSVContentValidationPS)
+  TEST_METHOD(PSVContentValidationCS)
+  TEST_METHOD(PSVContentValidationMS)
+  TEST_METHOD(PSVContentValidationAS)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -4887,4 +4895,980 @@ TEST_F(ValidationTest, PSVSignatureTableReorder) {
        "  OutputStream: 0", "  ComponentType: 3", "  DynamicIndexMask: 0",
        "' duplicates"},
       pValidator);
+}
+
+struct SimplePSV {
+  PSVRuntimeInfo3 *PSVInfo;
+  llvm::MutableArrayRef<PSVResourceBindInfo1> ResourceBindInfo;
+  llvm::MutableArrayRef<char> StringTable;
+  llvm::MutableArrayRef<uint32_t> SemanticIndexTable;
+
+  llvm::MutableArrayRef<PSVSignatureElement0> SigInput;
+  llvm::MutableArrayRef<PSVSignatureElement0> SigOutput;
+  llvm::MutableArrayRef<PSVSignatureElement0> SigPatchConstOrPrim;
+
+  llvm::MutableArrayRef<uint32_t> InputToOutputTable[DXIL::kNumOutputStreams];
+  llvm::MutableArrayRef<uint32_t> InputToPCOutputTable;
+  llvm::MutableArrayRef<uint32_t> PCInputToOutputTable;
+  llvm::MutableArrayRef<uint32_t> ViewIDOutputMask[DXIL::kNumOutputStreams];
+  llvm::MutableArrayRef<uint32_t> ViewIDPCOutputMask;
+  SimplePSV(const DxilPartHeader *pPSVPart);
+};
+
+SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
+  uint32_t PartSize = pPSVPart->PartSize;
+  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+  const uint32_t *PSVPtrEnd = PSVPtr + PartSize / 4;
+
+  uint32_t PSVRuntimeInfoSize = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfoSize);
+  PSVRuntimeInfo3 *PSVInfo3 =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  PSVInfo = PSVInfo3;
+
+  PSVPtr += PSVRuntimeInfoSize / 4;
+  uint32_t ResourceCount = *(PSVPtr++);
+  if (ResourceCount) {
+    uint32_t ResourceBindInfoSize = *(PSVPtr++);
+    VERIFY_ARE_EQUAL(sizeof(PSVResourceBindInfo1), ResourceBindInfoSize);
+    ResourceBindInfo = llvm::MutableArrayRef<PSVResourceBindInfo1>(
+        (PSVResourceBindInfo1 *)PSVPtr, ResourceCount);
+  }
+  PSVPtr += ResourceCount * sizeof(PSVResourceBindInfo1) / 4;
+  uint32_t StringTableSize = *(PSVPtr++);
+  if (StringTableSize)
+    StringTable = llvm::MutableArrayRef<char>((char *)PSVPtr, StringTableSize);
+  PSVPtr += StringTableSize / 4;
+  uint32_t SemanticIndexTableEntries = *(PSVPtr++);
+  if (SemanticIndexTableEntries)
+    SemanticIndexTable = llvm::MutableArrayRef<uint32_t>(
+        (uint32_t *)PSVPtr, SemanticIndexTableEntries);
+  PSVPtr += SemanticIndexTableEntries;
+  if (PSVInfo3->SigInputElements || PSVInfo3->SigOutputElements ||
+      PSVInfo3->SigPatchConstOrPrimElements) {
+    uint32_t PSVSignatureElementSize = *(PSVPtr++);
+    VERIFY_ARE_EQUAL(sizeof(PSVSignatureElement0), PSVSignatureElementSize);
+  }
+  if (PSVInfo3->SigInputElements)
+    SigInput = llvm::MutableArrayRef<PSVSignatureElement0>(
+        (PSVSignatureElement0 *)PSVPtr, PSVInfo->SigInputElements);
+  PSVPtr += PSVInfo3->SigInputElements * sizeof(PSVSignatureElement0) / 4;
+
+  if (PSVInfo3->SigOutputElements)
+    SigOutput = llvm::MutableArrayRef<PSVSignatureElement0>(
+        (PSVSignatureElement0 *)PSVPtr, PSVInfo->SigOutputElements);
+  PSVPtr += PSVInfo3->SigOutputElements * sizeof(PSVSignatureElement0) / 4;
+
+  if (PSVInfo3->SigPatchConstOrPrimElements)
+    SigPatchConstOrPrim = llvm::MutableArrayRef<PSVSignatureElement0>(
+        (PSVSignatureElement0 *)PSVPtr, PSVInfo->SigPatchConstOrPrimElements);
+  PSVPtr +=
+      PSVInfo3->SigPatchConstOrPrimElements * sizeof(PSVSignatureElement0) / 4;
+
+  if (PSVInfo3->UsesViewID) {
+
+    for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
+      if (PSVInfo3->SigOutputVectors[i] == 0)
+        continue;
+      ViewIDOutputMask[i] = llvm::MutableArrayRef<uint32_t>(
+          (uint32_t *)PSVPtr,
+          llvm::RoundUpToAlignment(PSVInfo3->SigOutputVectors[i], 8) / 8);
+      PSVPtr += ViewIDOutputMask[i].size();
+    }
+    if (PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
+        PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh) &&
+            PSVInfo3->SigPatchConstOrPrimVectors != 0) {
+      ViewIDPCOutputMask = llvm::MutableArrayRef<uint32_t>(
+          (uint32_t *)PSVPtr,
+          llvm::RoundUpToAlignment(PSVInfo3->SigPatchConstOrPrimVectors, 8) /
+              8);
+      PSVPtr += ViewIDPCOutputMask.size();
+    }
+  }
+
+  for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
+    if (PSVInfo3->SigInputVectors == 0 || PSVInfo3->SigOutputVectors[i] == 0)
+      continue;
+    InputToOutputTable[i] = llvm::MutableArrayRef<uint32_t>(
+        (uint32_t *)PSVPtr,
+        4 * PSVInfo3->SigInputVectors *
+            llvm::RoundUpToAlignment(PSVInfo3->SigOutputVectors[i], 8) / 8);
+    PSVPtr += InputToOutputTable[i].size();
+  }
+  if ((PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
+       PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh)) &&
+      PSVInfo3->SigInputVectors != 0 && PSVInfo3->SigOutputVectors != 0) {
+    InputToPCOutputTable = llvm::MutableArrayRef<uint32_t>(
+        (uint32_t *)PSVPtr,
+        4 * PSVInfo3->SigInputVectors *
+            llvm::RoundUpToAlignment(PSVInfo3->SigPatchConstOrPrimVectors, 8) /
+            8);
+    PSVPtr += InputToPCOutputTable.size();
+  } else if (PSVInfo3->ShaderStage ==
+                 static_cast<uint8_t>(PSVShaderKind::Domain) &&
+             PSVInfo3->SigOutputVectors[0] != 0 &&
+             PSVInfo3->SigOutputVectors != 0) {
+    PCInputToOutputTable = llvm::MutableArrayRef<uint32_t>(
+        (uint32_t *)PSVPtr,
+        4 * PSVInfo3->SigPatchConstOrPrimVectors *
+            llvm::RoundUpToAlignment(PSVInfo3->SigOutputVectors[0], 8) / 8);
+    PSVPtr += PCInputToOutputTable.size();
+  }
+  VERIFY_ARE_EQUAL(PSVPtr, PSVPtrEnd);
+}
+
+TEST_F(ValidationTest, PSVContentValidationVS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_VS.hlsl", "vs_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.SigInput[0].InterpolationMode = 20;
+  PSV.SigOutput[0].InterpolationMode = 20;
+  PSV.ResourceBindInfo[0].ResFlags = 20;
+  memset(PSV.InputToOutputTable[0].data(), 0,
+         PSV.InputToOutputTable[0].size() * sizeof(uint32_t));
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedTableResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedTableResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedTableResult);
+  VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(
+      pUpdatedTableResult,
+      {
+          "error: 'ResourceBindInfo' does not match, for container: "
+          "'PSVResourceBindInfo:",
+          "  Space: 0",
+          "  LowerBound: 5",
+          "  UpperBound: 5",
+          "  ResType: CBV",
+          "  ResKind: CBuffer",
+          "  ResFlags: None",
+          "', for dxil module: 'PSVResourceBindInfo:",
+          "  Space: 0",
+          "  LowerBound: 5",
+          "  UpperBound: 5",
+          "  ResType: CBV",
+          "  ResKind: CBuffer",
+          "  ResFlags: ",
+          "'.",
+          "error: 'SigInputElement' does not match, for container: "
+          "'PSVSignatureElement:",
+          "  SemanticName: POSITION",
+          "  SemanticIndex: 0 16 1 ",
+          "  IsAllocated: 1",
+          "  StartRow: 0",
+          "  StartCol: 0",
+          "  Rows: 1",
+          "  Cols: 3",
+          "  SemanticKind: Arbitrary",
+          "  InterpolationMode: 0",
+          "  OutputStream: 0",
+          "  ComponentType: 3",
+          "  DynamicIndexMask: 0",
+          "', for dxil module: 'PSVSignatureElement:",
+          "  SemanticName: POSITION",
+          "  SemanticIndex: 0 16 1 ",
+          "  IsAllocated: 1",
+          "  StartRow: 0",
+          "  StartCol: 0",
+          "  Rows: 1",
+          "  Cols: 3",
+          "  SemanticKind: Arbitrary",
+          "  InterpolationMode: 20",
+          "  OutputStream: 0",
+          "  ComponentType: 3",
+          "  DynamicIndexMask: 0",
+          "'.",
+          "error: 'SigOutputElement' does not match, for container: "
+          "'PSVSignatureElement:",
+          "  SemanticName: NORMAL",
+          "  SemanticIndex: 0 16 1 ",
+          "  IsAllocated: 1",
+          "  StartRow: 0",
+          "  StartCol: 0",
+          "  Rows: 1",
+          "  Cols: 3",
+          "  SemanticKind: Arbitrary",
+          "  InterpolationMode: 2",
+          "  OutputStream: 0",
+          "  ComponentType: 3",
+          "  DynamicIndexMask: 0",
+          "', for dxil module: 'PSVSignatureElement:",
+          "  SemanticName: NORMAL",
+          "  SemanticIndex: 0 16 1 ",
+          "  IsAllocated: 1",
+          "  StartRow: 0",
+          "  StartCol: 0",
+          "  Rows: 1",
+          "  Cols: 3",
+          "  SemanticKind: Arbitrary",
+          "  InterpolationMode: 20",
+          "  OutputStream: 0",
+          "  ComponentType: 3",
+          "  DynamicIndexMask: 0",
+          "'.",
+          "error: 'ViewIDState' does not match, for container: 'Outputs "
+          "affected by inputs as a table of bitmasks for stream 0:",
+          "Inputs contributing to computation of Outputs[0]:",
+          "  Inputs[0] influencing Outputs[0] :  None",
+          "  Inputs[1] influencing Outputs[0] :  None",
+          "  Inputs[2] influencing Outputs[0] :  None",
+          "  Inputs[3] influencing Outputs[0] :  None",
+          "  Inputs[4] influencing Outputs[0] :  None",
+          "  Inputs[5] influencing Outputs[0] :  None",
+          "  Inputs[6] influencing Outputs[0] :  None",
+          "  Inputs[7] influencing Outputs[0] :  None",
+          "  Inputs[8] influencing Outputs[0] :  None",
+          "  Inputs[9] influencing Outputs[0] :  None",
+          "  Inputs[10] influencing Outputs[0] :  None",
+          "  Inputs[11] influencing Outputs[0] :  None",
+          "', for dxil module: 'Outputs affected by inputs as a table of "
+          "bitmasks for stream 0:",
+          "Inputs contributing to computation of Outputs[0]:",
+          "  Inputs[0] influencing Outputs[0] : 8  9  10  11 ",
+          "  Inputs[1] influencing Outputs[0] : 8  9  10  11 ",
+          "  Inputs[2] influencing Outputs[0] : 8  9  10  11 ",
+          "  Inputs[3] influencing Outputs[0] :  None",
+          "  Inputs[4] influencing Outputs[0] : 0  1  2 ",
+          "  Inputs[5] influencing Outputs[0] : 0  1  2 ",
+          "  Inputs[6] influencing Outputs[0] : 0  1  2 ",
+          "  Inputs[7] influencing Outputs[0] :  None",
+          "  Inputs[8] influencing Outputs[0] : 4 ",
+          "  Inputs[9] influencing Outputs[0] : 5 ",
+          "  Inputs[10] influencing Outputs[0] :  None",
+          "  Inputs[11] influencing Outputs[0] :  None",
+          "'.",
+      },
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationHS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_HS.hlsl", "hs_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.SigPatchConstOrPrim[0].InterpolationMode = 20;
+  memset(PSV.InputToPCOutputTable.data(), 0,
+         PSV.InputToPCOutputTable.size() * sizeof(uint32_t));
+  memset(PSV.ViewIDPCOutputMask.data(), 0,
+         PSV.ViewIDPCOutputMask.size() * sizeof(uint32_t));
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {
+          "error: 'SigPatchConstantOrPrimElement' does not match, for "
+          "container: 'PSVSignatureElement:",
+          "  SemanticName: ",
+          "  SemanticIndex: 0 ",
+          "  IsAllocated: 1",
+          "  StartRow: 0",
+          "  StartCol: 3",
+          "  Rows: 3",
+          "  Cols: 1",
+          "  SemanticKind: TessFactor",
+          "  InterpolationMode: 0",
+          "  OutputStream: 0",
+          "  ComponentType: 3",
+          "  DynamicIndexMask: 0",
+          "', for dxil module: 'PSVSignatureElement:",
+          "  SemanticName: SV_TessFactor",
+          "  SemanticIndex: 0 ",
+          "  IsAllocated: 1",
+          "  StartRow: 0",
+          "  StartCol: 3",
+          "  Rows: 3",
+          "  Cols: 1",
+          "  SemanticKind: TessFactor",
+          "  InterpolationMode: 20",
+          "  OutputStream: 0",
+          "  ComponentType: 3",
+          "  DynamicIndexMask: 0",
+          "'.",
+          "error: 'ViewIDState' does not match, for container: 'Outputs "
+          "affected by ViewID as a bitmask for stream 0:",
+          "   ViewID influencing Outputs[0] : 8  9  10 ",
+          "PCOutputs affected by ViewID as a bitmask:",
+          "  ViewID influencing PCOutputs :  None",
+          "Outputs affected by inputs as a table of bitmasks for stream 0:",
+          "Inputs contributing to computation of Outputs[0]:",
+          "  Inputs[0] influencing Outputs[0] : 0 ",
+          "  Inputs[1] influencing Outputs[0] : 1 ",
+          "  Inputs[2] influencing Outputs[0] : 2 ",
+          "  Inputs[3] influencing Outputs[0] : 3 ",
+          "  Inputs[4] influencing Outputs[0] : 4 ",
+          "  Inputs[5] influencing Outputs[0] : 5 ",
+          "  Inputs[6] influencing Outputs[0] :  None",
+          "  Inputs[7] influencing Outputs[0] :  None",
+          "  Inputs[8] influencing Outputs[0] : 8 ",
+          "  Inputs[9] influencing Outputs[0] : 9 ",
+          "  Inputs[10] influencing Outputs[0] : 10 ",
+          "  Inputs[11] influencing Outputs[0] :  None",
+          "Patch constant outputs affected by inputs as a table of bitmasks:",
+          "Inputs contributing to computation of PatchConstantOutputs:",
+          "  Inputs[0] influencing PatchConstantOutputs :  None",
+          "  Inputs[1] influencing PatchConstantOutputs :  None",
+          "  Inputs[2] influencing PatchConstantOutputs :  None",
+          "  Inputs[3] influencing PatchConstantOutputs :  None",
+          "  Inputs[4] influencing PatchConstantOutputs :  None",
+          "  Inputs[5] influencing PatchConstantOutputs :  None",
+          "  Inputs[6] influencing PatchConstantOutputs :  None",
+          "  Inputs[7] influencing PatchConstantOutputs :  None",
+          "  Inputs[8] influencing PatchConstantOutputs :  None",
+          "  Inputs[9] influencing PatchConstantOutputs :  None",
+          "  Inputs[10] influencing PatchConstantOutputs :  None",
+          "  Inputs[11] influencing PatchConstantOutputs :  None",
+          "', for dxil module: 'Outputs affected by ViewID as a bitmask for "
+          "stream 0:",
+          "   ViewID influencing Outputs[0] : 8  9  10 ",
+          "PCOutputs affected by ViewID as a bitmask:",
+          "  ViewID influencing PCOutputs : 12 ",
+          "Outputs affected by inputs as a table of bitmasks for stream 0:",
+          "Inputs contributing to computation of Outputs[0]:",
+          "  Inputs[0] influencing Outputs[0] : 0 ",
+          "  Inputs[1] influencing Outputs[0] : 1 ",
+          "  Inputs[2] influencing Outputs[0] : 2 ",
+          "  Inputs[3] influencing Outputs[0] : 3 ",
+          "  Inputs[4] influencing Outputs[0] : 4 ",
+          "  Inputs[5] influencing Outputs[0] : 5 ",
+          "  Inputs[6] influencing Outputs[0] :  None",
+          "  Inputs[7] influencing Outputs[0] :  None",
+          "  Inputs[8] influencing Outputs[0] : 8 ",
+          "  Inputs[9] influencing Outputs[0] : 9 ",
+          "  Inputs[10] influencing Outputs[0] : 10 ",
+          "  Inputs[11] influencing Outputs[0] :  None",
+          "Patch constant outputs affected by inputs as a table of bitmasks:",
+          "Inputs contributing to computation of PatchConstantOutputs:",
+          "  Inputs[0] influencing PatchConstantOutputs : 3 ",
+          "  Inputs[1] influencing PatchConstantOutputs :  None",
+          "  Inputs[2] influencing PatchConstantOutputs :  None",
+          "  Inputs[3] influencing PatchConstantOutputs :  None",
+          "  Inputs[4] influencing PatchConstantOutputs :  None",
+          "  Inputs[5] influencing PatchConstantOutputs :  None",
+          "  Inputs[6] influencing PatchConstantOutputs :  None",
+          "  Inputs[7] influencing PatchConstantOutputs :  None",
+          "  Inputs[8] influencing PatchConstantOutputs :  None",
+          "  Inputs[9] influencing PatchConstantOutputs :  None",
+          "  Inputs[10] influencing PatchConstantOutputs :  None",
+          "  Inputs[11] influencing PatchConstantOutputs :  None",
+          "'.",
+      },
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationDS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_DS.hlsl", "ds_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.SigPatchConstOrPrim[0].InterpolationMode = 20;
+  memset(PSV.PCInputToOutputTable.data(), 0,
+         PSV.PCInputToOutputTable.size() * sizeof(uint32_t));
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {
+          "error: 'SigPatchConstantOrPrimElement' does not match, for "
+          "container: 'PSVSignatureElement:",
+          "  SemanticName: ",
+          "  SemanticIndex: 0 ",
+          "  IsAllocated: 1",
+          "  StartRow: 0",
+          "  StartCol: 3",
+          "  Rows: 3",
+          "  Cols: 1",
+          "  SemanticKind: TessFactor",
+          "  InterpolationMode: 0",
+          "  OutputStream: 0",
+          "  ComponentType: 3",
+          "  DynamicIndexMask: 0",
+          "', for dxil module: 'PSVSignatureElement:",
+          "  SemanticName: SV_TessFactor",
+          "  SemanticIndex: 0 ",
+          "  IsAllocated: 1",
+          "  StartRow: 0",
+          "  StartCol: 3",
+          "  Rows: 3",
+          "  Cols: 1",
+          "  SemanticKind: TessFactor",
+          "  InterpolationMode: 20",
+          "  OutputStream: 0",
+          "  ComponentType: 3",
+          "  DynamicIndexMask: 0",
+          "'.",
+          "error: 'ViewIDState' does not match, for container: 'Outputs "
+          "affected by inputs as a table of bitmasks for stream 0:",
+          "Inputs contributing to computation of Outputs[0]:",
+          "  Inputs[0] influencing Outputs[0] : 0 ",
+          "  Inputs[1] influencing Outputs[0] : 1 ",
+          "  Inputs[2] influencing Outputs[0] : 2 ",
+          "  Inputs[3] influencing Outputs[0] : 3 ",
+          "  Inputs[4] influencing Outputs[0] : 4 ",
+          "  Inputs[5] influencing Outputs[0] : 5 ",
+          "  Inputs[6] influencing Outputs[0] :  None",
+          "  Inputs[7] influencing Outputs[0] :  None",
+          "  Inputs[8] influencing Outputs[0] : 8 ",
+          "  Inputs[9] influencing Outputs[0] : 9 ",
+          "  Inputs[10] influencing Outputs[0] : 10 ",
+          "  Inputs[11] influencing Outputs[0] :  None",
+          "  Inputs[12] influencing Outputs[0] :  None",
+          "  Inputs[13] influencing Outputs[0] :  None",
+          "  Inputs[14] influencing Outputs[0] :  None",
+          "  Inputs[15] influencing Outputs[0] :  None",
+          "Outputs affected by patch constant inputs as a table of bitmasks:",
+          "PatchConstantInputs contributing to computation of Outputs:",
+          "  PatchConstantInputs[0] influencing Outputs :  None",
+          "  PatchConstantInputs[1] influencing Outputs :  None",
+          "  PatchConstantInputs[2] influencing Outputs :  None",
+          "  PatchConstantInputs[3] influencing Outputs :  None",
+          "  PatchConstantInputs[4] influencing Outputs :  None",
+          "  PatchConstantInputs[5] influencing Outputs :  None",
+          "  PatchConstantInputs[6] influencing Outputs :  None",
+          "  PatchConstantInputs[7] influencing Outputs :  None",
+          "  PatchConstantInputs[8] influencing Outputs :  None",
+          "  PatchConstantInputs[9] influencing Outputs :  None",
+          "  PatchConstantInputs[10] influencing Outputs :  None",
+          "  PatchConstantInputs[11] influencing Outputs :  None",
+          "  PatchConstantInputs[12] influencing Outputs :  None",
+          "  PatchConstantInputs[13] influencing Outputs :  None",
+          "  PatchConstantInputs[14] influencing Outputs :  None",
+          "  PatchConstantInputs[15] influencing Outputs :  None",
+          "', for dxil module: 'Outputs affected by inputs as a table of "
+          "bitmasks for stream 0:",
+          "Inputs contributing to computation of Outputs[0]:",
+          "  Inputs[0] influencing Outputs[0] : 0 ",
+          "  Inputs[1] influencing Outputs[0] : 1 ",
+          "  Inputs[2] influencing Outputs[0] : 2 ",
+          "  Inputs[3] influencing Outputs[0] : 3 ",
+          "  Inputs[4] influencing Outputs[0] : 4 ",
+          "  Inputs[5] influencing Outputs[0] : 5 ",
+          "  Inputs[6] influencing Outputs[0] :  None",
+          "  Inputs[7] influencing Outputs[0] :  None",
+          "  Inputs[8] influencing Outputs[0] : 8 ",
+          "  Inputs[9] influencing Outputs[0] : 9 ",
+          "  Inputs[10] influencing Outputs[0] : 10 ",
+          "  Inputs[11] influencing Outputs[0] :  None",
+          "  Inputs[12] influencing Outputs[0] :  None",
+          "  Inputs[13] influencing Outputs[0] :  None",
+          "  Inputs[14] influencing Outputs[0] :  None",
+          "  Inputs[15] influencing Outputs[0] :  None",
+          "Outputs affected by patch constant inputs as a table of bitmasks:",
+          "PatchConstantInputs contributing to computation of Outputs:",
+          "  PatchConstantInputs[0] influencing Outputs :  None",
+          "  PatchConstantInputs[1] influencing Outputs :  None",
+          "  PatchConstantInputs[2] influencing Outputs :  None",
+          "  PatchConstantInputs[3] influencing Outputs : 4  5 ",
+          "  PatchConstantInputs[4] influencing Outputs :  None",
+          "  PatchConstantInputs[5] influencing Outputs :  None",
+          "  PatchConstantInputs[6] influencing Outputs :  None",
+          "  PatchConstantInputs[7] influencing Outputs : 0  1  2  3 ",
+          "  PatchConstantInputs[8] influencing Outputs :  None",
+          "  PatchConstantInputs[9] influencing Outputs :  None",
+          "  PatchConstantInputs[10] influencing Outputs :  None",
+          "  PatchConstantInputs[11] influencing Outputs :  None",
+          "  PatchConstantInputs[12] influencing Outputs : 8  9  10 ",
+          "  PatchConstantInputs[13] influencing Outputs :  None",
+          "  PatchConstantInputs[14] influencing Outputs :  None",
+          "  PatchConstantInputs[15] influencing Outputs :  None",
+          "'.",
+      },
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationGS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_GS.hlsl", "gs_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+  // Update PSV.
+  PSV.PSVInfo->MaxVertexCount = 2;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(pUpdatedResult,
+                           {
+                               "error: 'PSVRuntimeInfo' does not match, for "
+                               "container: 'PSVRuntimeInfo:",
+                               " Geometry Shader",
+                               " InputPrimitive=point",
+                               " OutputTopology=triangle",
+                               " OutputStreamMask=1",
+                               " OutputPositionPresent=1",
+                               " MinimumExpectedWaveLaneCount: 0",
+                               " MaximumExpectedWaveLaneCount: 4294967295",
+                               " UsesViewID: false",
+                               " SigInputElements: 3",
+                               " SigOutputElements: 3",
+                               " SigPatchConstOrPrimElements: 0",
+                               " SigInputVectors: 3",
+                               " SigOutputVectors[0]: 3",
+                               " SigOutputVectors[1]: 0",
+                               " SigOutputVectors[2]: 0",
+                               " SigOutputVectors[3]: 0",
+                               " EntryFunctionName: main",
+                               "', for dxil module: 'PSVRuntimeInfo:",
+                               " Geometry Shader",
+                               " InputPrimitive=point",
+                               " OutputTopology=triangle",
+                               " OutputStreamMask=1",
+                               " OutputPositionPresent=1",
+                               " MinimumExpectedWaveLaneCount: 0",
+                               " MaximumExpectedWaveLaneCount: 4294967295",
+                               " UsesViewID: false",
+                               " SigInputElements: 3",
+                               " SigOutputElements: 3",
+                               " SigPatchConstOrPrimElements: 0",
+                               " SigInputVectors: 3",
+                               " SigOutputVectors[0]: 3",
+                               " SigOutputVectors[1]: 0",
+                               " SigOutputVectors[2]: 0",
+                               " SigOutputVectors[3]: 0",
+                               " EntryFunctionName: main",
+                               "'.",
+                           },
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationPS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_PS.hlsl", "ps_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.PSVInfo->PS.DepthOutput = 1;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(pUpdatedResult,
+                           {
+                               "error: 'PSVRuntimeInfo' does not match, for "
+                               "container: 'PSVRuntimeInfo:",
+                               " Pixel Shader",
+                               " DepthOutput=0",
+                               " SampleFrequency=1",
+                               " MinimumExpectedWaveLaneCount: 0",
+                               " MaximumExpectedWaveLaneCount: 4294967295",
+                               " UsesViewID: false",
+                               " SigInputElements: 2",
+                               " SigOutputElements: 1",
+                               " SigPatchConstOrPrimElements: 0",
+                               " SigInputVectors: 2",
+                               " SigOutputVectors[0]: 1",
+                               " SigOutputVectors[1]: 0",
+                               " SigOutputVectors[2]: 0",
+                               " SigOutputVectors[3]: 0",
+                               " EntryFunctionName: main",
+                               "', for dxil module: 'PSVRuntimeInfo:",
+                               " Pixel Shader",
+                               " DepthOutput=1",
+                               " SampleFrequency=1",
+                               " MinimumExpectedWaveLaneCount: 0",
+                               " MaximumExpectedWaveLaneCount: 4294967295",
+                               " UsesViewID: false",
+                               " SigInputElements: 2",
+                               " SigOutputElements: 1",
+                               " SigPatchConstOrPrimElements: 0",
+                               " SigInputVectors: 2",
+                               " SigOutputVectors[0]: 1",
+                               " SigOutputVectors[1]: 0",
+                               " SigOutputVectors[2]: 0",
+                               " SigOutputVectors[3]: 0",
+                               " EntryFunctionName: main",
+                               "'.",
+                           },
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationCS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+  // Update PSV.
+  PSV.PSVInfo->NumThreadsX = 1;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(pUpdatedResult,
+                           {
+                               "error: 'PSVRuntimeInfo' does not match, for "
+                               "container: 'PSVRuntimeInfo:",
+                               " Compute Shader",
+                               " NumThreads=(128,1,1)",
+                               " MinimumExpectedWaveLaneCount: 0",
+                               " MaximumExpectedWaveLaneCount: 4294967295",
+                               " UsesViewID: false",
+                               " SigInputElements: 0",
+                               " SigOutputElements: 0",
+                               " SigPatchConstOrPrimElements: 0",
+                               " SigInputVectors: 0",
+                               " SigOutputVectors[0]: 0",
+                               " SigOutputVectors[1]: 0",
+                               " SigOutputVectors[2]: 0",
+                               " SigOutputVectors[3]: 0",
+                               " EntryFunctionName: main",
+                               "', for dxil module: 'PSVRuntimeInfo:",
+                               " Compute Shader",
+                               " NumThreads=(1,1,1)",
+                               " MinimumExpectedWaveLaneCount: 0",
+                               " MaximumExpectedWaveLaneCount: 4294967295",
+                               " UsesViewID: false",
+                               " SigInputElements: 0",
+                               " SigOutputElements: 0",
+                               " SigPatchConstOrPrimElements: 0",
+                               " SigInputVectors: 0",
+                               " SigOutputVectors[0]: 0",
+                               " SigOutputVectors[1]: 0",
+                               " SigOutputVectors[2]: 0",
+                               " SigOutputVectors[3]: 0",
+                               " EntryFunctionName: main",
+                               "'.",
+                           },
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationMS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_MS.hlsl", "ms_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+  // Update PSV.
+  memset(PSV.ViewIDOutputMask[0].data(), 0,
+         PSV.ViewIDOutputMask[0].size() * sizeof(uint32_t));
+  memset(PSV.ViewIDPCOutputMask.data(), 0,
+         PSV.ViewIDPCOutputMask.size() * sizeof(uint32_t));
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {
+          "error: 'ViewIDState' does not match, for container: 'Outputs "
+          "affected by ViewID as a bitmask for stream 0:",
+          "   ViewID influencing Outputs[0] :  None",
+          "Outputs affected by inputs as a table of bitmasks for stream 0:",
+          "Inputs contributing to computation of Outputs[0]:  None",
+          "', for dxil module: 'Outputs affected by ViewID as a bitmask for "
+          "stream 0:",
+          "   ViewID influencing Outputs[0] : 0  1  2  3  4  8  12  16 ",
+          "PCOutputs affected by ViewID as a bitmask:",
+          "  ViewID influencing PCOutputs :  None",
+          "Outputs affected by inputs as a table of bitmasks for stream 0:",
+          "Inputs contributing to computation of Outputs[0]:  None",
+          "Patch constant outputs affected by inputs as a table of bitmasks:",
+          "Inputs contributing to computation of PatchConstantOutputs:  None",
+          "'.",
+      },
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationAS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_AS.hlsl", "as_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.PSVInfo->AS.PayloadSizeInBytes = 0;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(pUpdatedResult,
+                           {
+                               "error: 'PSVRuntimeInfo' does not match, for "
+                               "container: 'PSVRuntimeInfo:",
+                               " Amplification Shader",
+                               " NumThreads=(32,1,1)",
+                               " MinimumExpectedWaveLaneCount: 0",
+                               " MaximumExpectedWaveLaneCount: 4294967295",
+                               " UsesViewID: false",
+                               " SigInputElements: 0",
+                               " SigOutputElements: 0",
+                               " SigPatchConstOrPrimElements: 0",
+                               " SigInputVectors: 0",
+                               " SigOutputVectors[0]: 0",
+                               " SigOutputVectors[1]: 0",
+                               " SigOutputVectors[2]: 0",
+                               " SigOutputVectors[3]: 0",
+                               " EntryFunctionName: main",
+                               "', for dxil module: 'PSVRuntimeInfo:",
+                               " Amplification Shader",
+                               " NumThreads=(32,1,1)",
+                               " MinimumExpectedWaveLaneCount: 0",
+                               " MaximumExpectedWaveLaneCount: 4294967295",
+                               " UsesViewID: false",
+                               " SigInputElements: 0",
+                               " SigOutputElements: 0",
+                               " SigPatchConstOrPrimElements: 0",
+                               " SigInputVectors: 0",
+                               " SigOutputVectors[0]: 0",
+                               " SigOutputVectors[1]: 0",
+                               " SigOutputVectors[2]: 0",
+                               " SigOutputVectors[3]: 0",
+                               " EntryFunctionName: main",
+                               "'.",
+                           },
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }

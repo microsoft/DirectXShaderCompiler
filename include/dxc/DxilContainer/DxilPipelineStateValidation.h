@@ -769,6 +769,7 @@ public:
   }
   void PrintPSVRuntimeInfo(llvm::raw_ostream &O, uint8_t ShaderKind,
                            const char *Comment) const;
+  void PrintViewIDState(llvm::raw_ostream &OS) const;
   void Print(llvm::raw_ostream &O, uint8_t ShaderKind) const;
 };
 

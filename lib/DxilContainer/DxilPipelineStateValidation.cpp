@@ -834,6 +834,60 @@ void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
       Comment);
 }
 
+void DxilPipelineStateValidation::PrintViewIDState(raw_ostream &OS) const {
+  unsigned NumStreams = IsGS() ? PSV_GS_MAX_STREAMS : 1;
+
+  if (m_pPSVRuntimeInfo1->UsesViewID) {
+    for (unsigned i = 0; i < NumStreams; ++i) {
+      OS << "Outputs affected by ViewID as a bitmask for stream " << i
+         << ":\n ";
+      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[i];
+      const PSVComponentMask ViewIDMask(m_pViewIDOutputMask[i], OutputVectors);
+      std::string OutputSetName = "Outputs";
+      OutputSetName += "[" + std::to_string(i) + "]";
+      ViewIDMask.Print(OS, "ViewID", OutputSetName.c_str());
+    }
+
+    if (IsHS() || IsMS()) {
+      OS << "PCOutputs affected by ViewID as a bitmask:\n";
+      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
+      const PSVComponentMask ViewIDMask(m_pViewIDPCOrPrimOutputMask,
+                                        OutputVectors);
+      ViewIDMask.Print(OS, "ViewID", "PCOutputs");
+    }
+  }
+
+  for (unsigned i = 0; i < NumStreams; ++i) {
+    OS << "Outputs affected by inputs as a table of bitmasks for stream " << i
+       << ":\n";
+    uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
+    uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[i];
+    const PSVDependencyTable Table(m_pInputToOutputTable[i], InputVectors,
+                                   OutputVectors);
+    std::string OutputSetName = "Outputs";
+    OutputSetName += "[" + std::to_string(i) + "]";
+    Table.Print(OS, "Inputs", OutputSetName.c_str());
+  }
+
+  if (IsHS()) {
+    OS << "Patch constant outputs affected by inputs as a table of "
+          "bitmasks:\n";
+    uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
+    uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
+    const PSVDependencyTable Table(m_pInputToPCOutputTable, InputVectors,
+                                   OutputVectors);
+    Table.Print(OS, "Inputs", "PatchConstantOutputs");
+  } else if (IsDS()) {
+    OS << "Outputs affected by patch constant inputs as a table of "
+          "bitmasks:\n";
+    uint8_t InputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
+    uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[0];
+    const PSVDependencyTable Table(m_pPCInputToOutputTable, InputVectors,
+                                   OutputVectors);
+    Table.Print(OS, "PatchConstantInputs", "Outputs");
+  }
+}
+
 void DxilPipelineStateValidation::Print(raw_ostream &OS,
                                         uint8_t ShaderKind) const {
   OS << "DxilPipelineStateValidation:\n";
@@ -878,57 +932,6 @@ void DxilPipelineStateValidation::Print(raw_ostream &OS,
       PSVSE.Print(OS);
     }
 
-    unsigned NumStreams = IsGS() ? PSV_GS_MAX_STREAMS : 1;
-
-    if (m_pPSVRuntimeInfo1->UsesViewID) {
-      for (unsigned i = 0; i < NumStreams; ++i) {
-        OS << "Outputs affected by ViewID as a bitmask for stream " << i
-           << ":\n ";
-        uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[i];
-        const PSVComponentMask ViewIDMask(m_pViewIDOutputMask[i],
-                                          OutputVectors);
-        std::string OutputSetName = "Outputs";
-        OutputSetName += "[" + std::to_string(i) + "]";
-        ViewIDMask.Print(OS, "ViewID", OutputSetName.c_str());
-      }
-
-      if (IsHS() || IsMS()) {
-        OS << "PCOutputs affected by ViewID as a bitmask:\n";
-        uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
-        const PSVComponentMask ViewIDMask(m_pViewIDPCOrPrimOutputMask,
-                                          OutputVectors);
-        ViewIDMask.Print(OS, "ViewID", "PCOutputs");
-      }
-    }
-
-    for (unsigned i = 0; i < NumStreams; ++i) {
-      OS << "Outputs affected by inputs as a table of bitmasks for stream " << i
-         << ":\n";
-      uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
-      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[i];
-      const PSVDependencyTable Table(m_pInputToOutputTable[i], InputVectors,
-                                     OutputVectors);
-      std::string OutputSetName = "Outputs";
-      OutputSetName += "[" + std::to_string(i) + "]";
-      Table.Print(OS, "Inputs", OutputSetName.c_str());
-    }
-
-    if (IsHS()) {
-      OS << "Patch constant outputs affected by inputs as a table of "
-            "bitmasks:\n";
-      uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
-      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
-      const PSVDependencyTable Table(m_pInputToPCOutputTable, InputVectors,
-                                     OutputVectors);
-      Table.Print(OS, "Inputs", "PatchConstantOutputs");
-    } else if (IsDS()) {
-      OS << "Outputs affected by patch constant inputs as a table of "
-            "bitmasks:\n";
-      uint8_t InputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
-      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[0];
-      const PSVDependencyTable Table(m_pPCInputToOutputTable, InputVectors,
-                                     OutputVectors);
-      Table.Print(OS, "PatchConstantInputs", "Outputs");
-    }
+    PrintViewIDState(OS);
   }
 }

@@ -183,14 +183,14 @@ float4 HSPerPatchFunc()
     return 1.8;
 }
 
-HSPerPatchData HSPerPatchFunc( const InputPatch< PSSceneIn, 3 > points )
+HSPerPatchData HSPerPatchFunc( const InputPatch< PSSceneIn, 3 > points ,uint vid : SV_ViewID)
 {
     HSPerPatchData d;
 
-    d.edges[ 0 ] = 1;
+    d.edges[ 0 ] = points[0].pos.x;
     d.edges[ 1 ] = 1;
     d.edges[ 2 ] = 1;
-    d.inside = 1;
+    d.inside = vid;
 
     return d;
 }
@@ -202,12 +202,13 @@ HSPerPatchData HSPerPatchFunc( const InputPatch< PSSceneIn, 3 > points )
 [patchconstantfunc("HSPerPatchFunc")]
 [outputcontrolpoints(3)]
 HSPerVertexData main( const uint id : SV_OutputControlPointID,
-                               const InputPatch< PSSceneIn, 3 > points )
+                      uint vid : SV_ViewID,
+                      const InputPatch< PSSceneIn, 3 > points )
 {
     HSPerVertexData v;
 
     // Just forward the vertex
     v.v = points[ id ];
-
+    v.v.norm += vid;
 	return v;
 }
