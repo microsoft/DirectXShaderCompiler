@@ -706,6 +706,8 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
     ParameterTestResult = addRaygenShaderProlog(BC);
     break;
   case DXIL::ShaderKind::Node:
+    ParameterTestResult = BC.HlslOP->GetI1Const(1);
+    break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
