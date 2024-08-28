@@ -1053,8 +1053,9 @@ void DeclSpec::Finish(DiagnosticsEngine &D, Preprocessor &PP, const PrintingPoli
   if (TypeSpecSign != TSS_unspecified) {
     if (TypeSpecType == TST_unspecified)
       TypeSpecType = TST_int;
-    // HLSL Change starts - shorthand vectors and matrices can have signed/unsigned specifiers.
-    // If other typenames are used with signed/unsigned, it is already diagnosed by hlsl external source
+    // HLSL Change starts - shorthand vectors and matrices can have
+    // signed/unsigned specifiers. If other typenames are used with
+    // signed/unsigned, it is already diagnosed by hlsl external source
     if (TypeSpecType != TST_int && TypeSpecType != TST_int128 &&
         TypeSpecType != TST_char && TypeSpecType != TST_wchar &&
         TypeSpecType != TST_typename) {

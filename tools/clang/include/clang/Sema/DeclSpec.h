@@ -618,10 +618,10 @@ public:
 
   /// \brief Return true if any type-specifier has been found.
   bool hasTypeSpecifier() const {
-      return getTypeSpecType() != DeclSpec::TST_unspecified ||
-             getTypeSpecWidth() != DeclSpec::TSW_unspecified ||
-             getTypeSpecComplex() != DeclSpec::TSC_unspecified ||
-             getTypeSpecSign() != DeclSpec::TSS_unspecified;
+    return getTypeSpecType() != DeclSpec::TST_unspecified ||
+           getTypeSpecWidth() != DeclSpec::TSW_unspecified ||
+           getTypeSpecComplex() != DeclSpec::TSC_unspecified ||
+           getTypeSpecSign() != DeclSpec::TSS_unspecified;
   }
 
   /// \brief Return a bitmask of which flavors of specifiers this
