@@ -269,7 +269,7 @@ static void AddUAVToDxilDefinedGlobalRootSignatures(DxilModule &DM) {
 }
 
 // Set up a UAV with structure of a single int
-hlsl::DxilResource * CreateGlobalUAVResource(hlsl::DxilModule &DM,
+hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
                                             unsigned int hlslBindIndex,
                                             const char *name) {
   LLVMContext &Ctx = DM.GetModule()->getContext();
@@ -342,7 +342,7 @@ hlsl::DxilResource * CreateGlobalUAVResource(hlsl::DxilModule &DM,
 }
 
 // Set up a UAV with structure of a single int
-llvm::CallInst * CreateUAVOnceForModule(hlsl::DxilModule &DM,
+llvm::CallInst *CreateUAVOnceForModule(hlsl::DxilModule &DM,
                                        llvm::IRBuilder<> &Builder,
                                        unsigned int hlslBindIndex,
                                        const char *name) {

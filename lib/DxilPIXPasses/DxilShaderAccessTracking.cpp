@@ -907,8 +907,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
 
-    auto uav = PIXPassHelpers::CreateGlobalUAVResource(
-        DM, 0u, "PIX_ShaderAccessUAV");
+    auto uav =
+        PIXPassHelpers::CreateGlobalUAVResource(DM, 0u, "PIX_ShaderAccessUAV");
 
     for (auto *F : instrumentableFunctions) {
       DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;

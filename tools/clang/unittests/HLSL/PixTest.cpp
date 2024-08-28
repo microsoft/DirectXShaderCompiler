@@ -515,7 +515,7 @@ void CSMain()
 }
 )";
   // In 6.2, rawBufferLoad replaced bufferLoad for UAVs, but we don't
-  // expect this test to notice the difference. We just test 6.2 
+  // expect this test to notice the difference. We just test 6.2
   TestPixUAVCase(hlsl, L"cs_6_2", L"CSMain");
 }
 
