@@ -6,7 +6,7 @@ set(SHARED_LIBRARY TRUE)
 set(DXCComponents
   LLVMBitWriter
   LLVMDxcSupport
-  LLVMDxil
+  LLVMDXIL
   LLVMDxilContainer
   LLVMDxilHash
   LLVMDxilRootSignature
