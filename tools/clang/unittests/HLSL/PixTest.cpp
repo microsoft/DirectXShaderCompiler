@@ -454,15 +454,6 @@ void PixTest::TestPixUAVCase(char const *hlsl, wchar_t const *model,
   ReplaceDxilBlobPart(mod->GetBufferPointer(), mod->GetBufferSize(),
                       passOutput.blob, &modifiedDxilContainer);
 
-  CComPtr<IDxcCompiler> pCompiler;
-  CComPtr<IDxcCompiler2> pCompiler2;
-  VERIFY_SUCCEEDED(CreateCompiler(m_dllSupport, &pCompiler));
-  VERIFY_SUCCEEDED(pCompiler.QueryInterface(&pCompiler2));
-  CComPtr<IDxcBlobEncoding> pDisasm;
-  VERIFY_SUCCEEDED(pCompiler->Disassemble(modifiedDxilContainer, &pDisasm));
-  auto const *dis = reinterpret_cast<char const *>(pDisasm->GetBufferPointer());
-  dis;
-
   ModuleAndHangersOn moduleEtc(modifiedDxilContainer);
   auto &compilerGeneratedUAV = moduleEtc.GetDxilModule().GetUAV(0);
   auto &pixDebugGeneratedUAV = moduleEtc.GetDxilModule().GetUAV(1);
