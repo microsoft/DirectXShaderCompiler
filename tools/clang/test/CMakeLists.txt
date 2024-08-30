@@ -79,7 +79,7 @@ if (WIN32)
 list(APPEND CLANG_TEST_DEPS
      dxc_batch ExecHLSLTests dxildll
     )
-elseif(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+else()
 list(APPEND CLANG_TEST_DEPS
      dxildll
     )
