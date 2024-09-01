@@ -63,6 +63,7 @@
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
 #include "clang/SPIRV/EmitSpirvAction.h"
+#include "clang/SPIRV/FeatureManager.h"
 #endif
 // SPIRV change ends
 
@@ -1451,6 +1452,22 @@ public:
 // SPIRV change starts
 #ifdef ENABLE_SPIRV_CODEGEN
     compiler.getLangOpts().SPIRV = Opts.GenSPIRV;
+    llvm::Optional<spv_target_env> spirvTargetEnv =
+        spirv::FeatureManager::stringToSpvEnvironment(
+            Opts.SpirvOptions.targetEnv);
+
+    // If we do not have a valid target environment, the error will be handled
+    // later.
+    if (spirvTargetEnv.hasValue()) {
+      VersionTuple spirvVersion =
+          spirv::FeatureManager::getSpirvVersion(spirvTargetEnv.getValue());
+      compiler.getLangOpts().SpirvMajorVersion = spirvVersion.getMajor();
+      assert(spirvVersion.getMinor().hasValue() &&
+             "There must always be a major and minor version number when "
+             "targeting SPIR-V.");
+      compiler.getLangOpts().SpirvMinorVersion =
+          spirvVersion.getMinor().getValue();
+    }
 #endif
     // SPIRV change ends
 

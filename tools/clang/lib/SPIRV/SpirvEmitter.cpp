@@ -1801,6 +1801,8 @@ void SpirvEmitter::doRecordDecl(const RecordDecl *recordDecl) {
         doVarDecl(varDecl);
     } else if (auto *enumDecl = dyn_cast<EnumDecl>(subDecl)) {
       doEnumDecl(enumDecl);
+    } else if (auto recordDecl = dyn_cast<RecordDecl>(subDecl)) {
+      doRecordDecl(recordDecl);
     }
   }
 }

@@ -397,8 +397,8 @@ interface variables:
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
 
-Macro for SPIR-V
-----------------
+Macros for SPIR-V
+-----------------
 
 If SPIR-V CodeGen is enabled and ``-spirv`` flag is used as one of the command
 line options (meaning that "generates SPIR-V code"), it defines an implicit
@@ -411,6 +411,12 @@ specific part of the HLSL code:
   [[vk::binding(X, Y), vk::counter_binding(Z)]]
   #endif
   RWStructuredBuffer<S> mySBuffer;
+
+When the ``-spirv`` flag is used, the ``-fspv-target-env`` option will
+implicitly define the macros ``__SPIRV_MAJOR_VERSION__`` and
+``__SPIRV_MINOR_VERSION__``, which will be integers representing the major and
+minor version of the SPIR-V being generated. This can be used to enable code that uses a feature
+only for environments where that feature is available.
 
 SPIR-V version and extension
 ----------------------------

@@ -1,5 +1,7 @@
 // RUN: %dxc -HV 2016 -E main -T ps_6_0 %s | FileCheck %s
 // check that different float literals are being considered for mul-only code gen for pow.
+
+// CHECK: define void @main()
 // CHECK-NOT: Log
 // CHECK-NOT: Exp
 
