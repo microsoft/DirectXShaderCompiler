@@ -907,6 +907,9 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
       }
     }
 
+    auto uav =
+        PIXPassHelpers::CreateGlobalUAVResource(DM, 0u, "PIX_ShaderAccessUAV");
+
     for (auto *F : instrumentableFunctions) {
       DXIL::ShaderKind shaderKind = DXIL::ShaderKind::Invalid;
       if (!DM.HasDxilFunctionProps(F)) {
@@ -922,8 +925,8 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
 
       IRBuilder<> Builder(F->getEntryBlock().getFirstInsertionPt());
 
-      m_FunctionToUAVHandle[F] =
-          PIXPassHelpers::CreateUAV(DM, Builder, 0u, "PIX_CountUAV_Handle");
+      m_FunctionToUAVHandle[F] = PIXPassHelpers::CreateHandleForResource(
+          DM, Builder, uav, "PIX_ShaderAccessUAV_Handle");
       OP *HlslOP = DM.GetOP();
       for (int accessStyle = static_cast<int>(ResourceAccessStyle::None);
            accessStyle < static_cast<int>(ResourceAccessStyle::EndOfEnum);
@@ -998,6 +1001,10 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           }
 
           for (unsigned iParam : handleParams) {
+            // Don't instrument the accesses to the UAV that we just added
+            if (Call->getArgOperand(iParam) ==
+                m_FunctionToUAVHandle[CallerParent->getParent()])
+              continue;
             auto res = GetResourceFromHandle(Call->getArgOperand(iParam), DM);
             if (res.accessStyle == AccessStyle::None) {
               continue;
