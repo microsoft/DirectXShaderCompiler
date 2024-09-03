@@ -1376,7 +1376,7 @@ const SpirvType *LowerTypeVisitor::getSpirvPointerFromInlineSpirvType(
     ArrayRef<TemplateArgument> args, SpirvLayoutRule rule,
     Optional<bool> isRowMajor, SourceLocation location) {
 
-  assert(args.size() == 2 && "OpTypePoint requires exactly 2 arguments.");
+  assert(args.size() == 2 && "OpTypePointer requires exactly 2 arguments.");
   QualType scLiteralType = args[0].getAsType();
   SpirvConstant *constant = nullptr;
   if (!getVkIntegralConstantValue(scLiteralType, constant, location) ||
