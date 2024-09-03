@@ -39,7 +39,7 @@ static const Toggle TOGGLE_GVN = {"gvn", DEFAULT_ON};
 static const Toggle TOGGLE_LICM = {"licm", DEFAULT_ON};
 static const Toggle TOGGLE_SINK = {"sink", DEFAULT_ON};
 static const Toggle TOGGLE_ENABLE_AGGRESSIVE_REASSOCIATION = {
-    "aggressive-reassociation", DEFAULT_ON};
+    "aggressive-reassociation", DEFAULT_OFF};
 static const Toggle TOGGLE_LIFETIME_MARKERS = {"lifetime-markers", DEFAULT_ON};
 static const Toggle TOGGLE_PARTIAL_LIFETIME_MARKERS = {
     "partial-lifetime-markers", DEFAULT_OFF};
