@@ -54,6 +54,7 @@ endif()
 
 target_link_libraries(dxildll PRIVATE
   ${DXCLibs}
+  clangBasic # for clang::getGitCommitHash.
   dxcvalidator
 )
 
