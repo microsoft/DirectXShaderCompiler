@@ -111,13 +111,11 @@ private:
     // Contributing instructions per output.
     std::unordered_map<unsigned, InstructionSetType>
         ContributingInstructions[kNumStreams];
-    bool IsForPatchConstantOrPrimitive;
-    EntryInfo(bool ForPC) : IsForPatchConstantOrPrimitive(ForPC) {}
     void Clear();
   };
 
-  EntryInfo m_Entry = EntryInfo{false};
-  EntryInfo m_PCEntry = EntryInfo{true};
+  EntryInfo m_Entry;
+  EntryInfo m_PCEntry;
 
   // Information per function.
   using FunctionReturnSet = std::unordered_set<llvm::ReturnInst *>;
@@ -143,7 +141,7 @@ private:
                                     llvm::CallGraphNode *pNode,
                                     FunctionSetType &FuncSet);
   void AnalyzeFunctions(EntryInfo &Entry);
-  void CollectValuesContributingToOutputs(EntryInfo &Entry);
+  void CollectValuesContributingToOutputs(EntryInfo &Entry, bool IsForPatchConstant);
   void CollectValuesContributingToOutputRec(
       EntryInfo &Entry, llvm::Value *pContributingValue,
       InstructionSetType &ContributingInstructions);
@@ -209,10 +207,11 @@ void DxilViewIdStateBuilder::Compute() {
   }
 
   // 4. Collect sets of values contributing to outputs.
-  CollectValuesContributingToOutputs(m_Entry);
-  if (m_PCEntry.pEntryFunc) {
-    CollectValuesContributingToOutputs(m_PCEntry);
-  }
+  CollectValuesContributingToOutputs(m_Entry,
+                                     /*IsForPatchConstantOrPrimitive*/ false);
+  if (m_PCEntry.pEntryFunc)
+    CollectValuesContributingToOutputs(m_PCEntry,
+                                       /*IsForPatchConstantOrPrimitive*/ true);
 
   // 5. Construct dependency sets.
   for (unsigned StreamId = 0; StreamId < (pSM->IsGS() ? kNumStreams : 1u);
@@ -458,15 +457,16 @@ void DxilViewIdStateBuilder::AnalyzeFunctions(EntryInfo &Entry) {
 }
 
 void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
-    EntryInfo &Entry) {
+    EntryInfo &Entry, bool IsForPatchConstantOrPrimitive) {
   for (auto *CI : Entry.Outputs) { // CI = call instruction
     DxilSignature *pDxilSig = nullptr;
     Value *pContributingValue = nullptr;
     unsigned id = (unsigned)-1;
     int startRow = Semantic::kUndefinedRow, endRow = Semantic::kUndefinedRow;
     unsigned col = (unsigned)-1;
-    bool IsForPatchConstantOrPrimitive = false;
     if (DxilInst_StoreOutput SO = DxilInst_StoreOutput(CI)) {
+      if (IsForPatchConstantOrPrimitive)
+        continue;
       pDxilSig = &m_pModule->GetOutputSignature();
       pContributingValue = SO.get_value();
       GetUnsignedVal(SO.get_outputSigId(), &id);
@@ -474,6 +474,8 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       GetUnsignedVal(SO.get_rowIndex(), (uint32_t *)&startRow);
     } else if (DxilInst_StoreVertexOutput SVO =
                    DxilInst_StoreVertexOutput(CI)) {
+      if (IsForPatchConstantOrPrimitive)
+        continue;
       pDxilSig = &m_pModule->GetOutputSignature();
       pContributingValue = SVO.get_value();
       GetUnsignedVal(SVO.get_outputSigId(), &id);
@@ -481,6 +483,8 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       GetUnsignedVal(SVO.get_rowIndex(), (uint32_t *)&startRow);
     } else if (DxilInst_StorePrimitiveOutput SPO =
                    DxilInst_StorePrimitiveOutput(CI)) {
+      if (!IsForPatchConstantOrPrimitive)
+        continue;
       pDxilSig = &m_pModule->GetPatchConstOrPrimSignature();
       pContributingValue = SPO.get_value();
       GetUnsignedVal(SPO.get_outputSigId(), &id);
@@ -489,19 +493,16 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       IsForPatchConstantOrPrimitive = true;
     } else if (DxilInst_StorePatchConstant SPC =
                    DxilInst_StorePatchConstant(CI)) {
+      if (!IsForPatchConstantOrPrimitive)
+        continue;
       pDxilSig = &m_pModule->GetPatchConstOrPrimSignature();
       pContributingValue = SPC.get_value();
       GetUnsignedVal(SPC.get_outputSigID(), &id);
       GetUnsignedVal(SPC.get_row(), (uint32_t *)&startRow);
       GetUnsignedVal(SPC.get_col(), &col);
-      IsForPatchConstantOrPrimitive = true;
     } else {
       IFT(DXC_E_GENERAL_INTERNAL_ERROR);
     }
-
-    // Skip vertex outputs for MS when check primitive outputs.
-    if (IsForPatchConstantOrPrimitive != Entry.IsForPatchConstantOrPrimitive)
-      continue;
 
     DxilSignatureElement &SigElem = pDxilSig->GetElement(id);
     if (!SigElem.IsAllocated())
