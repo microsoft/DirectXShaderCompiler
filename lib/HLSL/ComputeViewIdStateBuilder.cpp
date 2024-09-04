@@ -141,7 +141,8 @@ private:
                                     llvm::CallGraphNode *pNode,
                                     FunctionSetType &FuncSet);
   void AnalyzeFunctions(EntryInfo &Entry);
-  void CollectValuesContributingToOutputs(EntryInfo &Entry, bool IsForPatchConstant);
+  void CollectValuesContributingToOutputs(EntryInfo &Entry,
+                                          bool IsForPatchConstant);
   void CollectValuesContributingToOutputRec(
       EntryInfo &Entry, llvm::Value *pContributingValue,
       InstructionSetType &ContributingInstructions);
