@@ -526,8 +526,17 @@ void Miss( inout Payload payload )
   TestPixUAVCase(hlsl, L"lib_6_3", L"");
   TestPixUAVCase(hlsl, L"lib_6_4", L"");
   TestPixUAVCase(hlsl, L"lib_6_5", L"");
+
+  if (m_ver.SkipDxilVersion(1, 6))
+    return;
   TestPixUAVCase(hlsl, L"lib_6_6", L"");
+
+  if (m_ver.SkipDxilVersion(1, 7))
+    return;
   TestPixUAVCase(hlsl, L"lib_6_7", L"");
+
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
   TestPixUAVCase(hlsl, L"lib_6_8", L"");
 }
 
