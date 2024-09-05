@@ -24,6 +24,7 @@ The included licenses apply to the following files:
 - Header file `dxcpix.h` was added to the release package.
 - Moved Linear Algebra (Cooperative Vector) DXIL Opcodes to experimental Shader Model 6.10
 - Added support for `long long` and `unsigned long long` compile-time constant evaluation, fixes [#7952](https://github.com/microsoft/DirectXShaderCompiler/issues/7952).
+- Rich debug info now emits a `DebugGlobalVariable` for the `$Globals` block and a `DebugTypeMember` for each uniform member, so debuggers can distinguish member storage.
 
 ### Version 1.8.2505
 

@@ -2106,5 +2106,103 @@ std::vector<uint32_t> SpirvBuilder::takeModule() {
   return emitVisitor.takeBinary();
 }
 
+bool SpirvBuilder::shouldSkipInStructLayout(const Decl *decl) {
+  // Ignore implicit generated struct declarations/constructors/destructors
+  if (decl->isImplicit())
+    return true;
+  // Ignore embedded type decls
+  if (isa<TypeDecl>(decl))
+    return true;
+  // Ignore embeded function decls
+  if (isa<FunctionDecl>(decl))
+    return true;
+  // Ignore empty decls
+  if (isa<EmptyDecl>(decl))
+    return true;
+
+  // For the $Globals cbuffer, we only care about externally-visible
+  // non-resource-type variables. The rest should be filtered out.
+
+  const auto *declContext = decl->getDeclContext();
+
+  // $Globals' "struct" is the TranslationUnit, so we should ignore resources
+  // in the TranslationUnit "struct" and its child namespaces.
+  if (declContext->isTranslationUnit() || declContext->isNamespace()) {
+
+    if (decl->hasAttr<VKConstantIdAttr>()) {
+      return true;
+    }
+
+    if (decl->hasAttr<VKPushConstantAttr>()) {
+      return true;
+    }
+
+    if (decl->hasAttr<VKStorageClassExtAttr>()) {
+      return true;
+    }
+
+    // External visibility
+    if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
+      if (!declDecl->hasExternalFormalLinkage())
+        return true;
+
+    // cbuffer/tbuffer
+    if (isa<HLSLBufferDecl>(decl))
+      return true;
+
+    // 'groupshared' variables should not be placed in $Globals cbuffer.
+    if (decl->hasAttr<HLSLGroupSharedAttr>())
+      return true;
+
+    // Other resource types
+    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl)) {
+      const auto declType = valueDecl->getType();
+      if (isResourceType(declType) || isResourceOnlyStructure(declType))
+        return true;
+    }
+  }
+
+  return false;
+}
+
+void SpirvBuilder::collectDeclsInField(
+    const Decl *field, llvm::SmallVector<const Decl *, 4> *decls) {
+
+  // Case of nested namespaces.
+  if (const auto *nsDecl = dyn_cast<NamespaceDecl>(field)) {
+    for (const auto *decl : nsDecl->decls()) {
+      collectDeclsInField(decl, decls);
+    }
+  }
+
+  if (shouldSkipInStructLayout(field))
+    return;
+
+  if (!isa<DeclaratorDecl>(field)) {
+    return;
+  }
+
+  decls->push_back(field);
+}
+
+llvm::SmallVector<const Decl *, 4>
+SpirvBuilder::collectDeclsInDeclContext(const DeclContext *declContext) {
+  llvm::SmallVector<const Decl *, 4> decls;
+  for (const auto *field : declContext->decls()) {
+    collectDeclsInField(field, &decls);
+  }
+  return decls;
+}
+
+const StructType *
+SpirvBuilder::lowerHybridStructType(const HybridStructType *hybridStruct) {
+  LowerTypeVisitor lowerTypeVisitor(astContext, context, spirvOptions, *this);
+  auto fields = lowerTypeVisitor.populateLayoutInformation(
+      hybridStruct->getFields(), spirvOptions.cBufferLayoutRule);
+  return context.getStructType(fields, hybridStruct->getStructName(),
+                               hybridStruct->isReadOnly(),
+                               hybridStruct->getInterfaceType());
+}
+
 } // end namespace spirv
 } // end namespace clang
