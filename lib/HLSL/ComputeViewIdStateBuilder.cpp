@@ -491,7 +491,6 @@ void DxilViewIdStateBuilder::CollectValuesContributingToOutputs(
       GetUnsignedVal(SPO.get_outputSigId(), &id);
       GetUnsignedVal(SPO.get_colIndex(), &col);
       GetUnsignedVal(SPO.get_rowIndex(), (uint32_t *)&startRow);
-      IsForPatchConstantOrPrimitive = true;
     } else if (DxilInst_StorePatchConstant SPC =
                    DxilInst_StorePatchConstant(CI)) {
       if (!IsForPatchConstantOrPrimitive)
