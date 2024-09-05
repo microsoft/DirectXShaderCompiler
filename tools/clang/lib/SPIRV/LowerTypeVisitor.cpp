@@ -313,12 +313,17 @@ const SpirvType *LowerTypeVisitor::lowerType(const SpirvType *type,
     assert(isa<ImageType>(imageSpirvType));
     return spvContext.getSampledImageType(cast<ImageType>(imageSpirvType));
   } else if (const auto *hybridStruct = dyn_cast<HybridStructType>(type)) {
+    // Reuse prior lowering of this HybridStructType object if one exists
+    if (const StructType *cached =
+            spvContext.getLoweredStructType(hybridStruct))
+      return cached;
     // lower all fields of the struct.
     auto loweredFields =
         populateLayoutInformation(hybridStruct->getFields(), rule);
     const StructType *structType = spvContext.getStructType(
         loweredFields, hybridStruct->getStructName(),
         hybridStruct->isReadOnly(), hybridStruct->getInterfaceType());
+    spvContext.registerLoweredStructType(hybridStruct, structType);
     if (const auto *decl = spvContext.getStructDeclForSpirvType(type))
       spvContext.registerStructDeclForSpirvType(structType, decl);
     return structType;

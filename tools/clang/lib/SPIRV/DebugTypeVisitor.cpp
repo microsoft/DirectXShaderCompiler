@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
 #include <sstream>
 
 #include "DebugTypeVisitor.h"
@@ -42,6 +43,31 @@ SpirvDebugInfoNone *DebugTypeVisitor::getDebugInfoNone() {
   return debugNone;
 }
 
+RichDebugInfo *
+DebugTypeVisitor::getOrCreateRichDebugInfo(const SourceLocation &loc) {
+  auto &debugInfoMap = spvContext.getDebugInfo();
+  RichDebugInfo *debugInfo =
+      debugInfoMap.empty() ? nullptr : &debugInfoMap.begin()->second;
+
+  const char *file =
+      astContext.getSourceManager().getPresumedLoc(loc).getFilename();
+  if (!file || file[0] == '\0')
+    return debugInfo;
+
+  const auto it = debugInfoMap.find(file);
+  if (it != debugInfoMap.end())
+    return &it->second;
+
+  auto *dbgSrc = spvBuilder.createDebugSource(file);
+  setDefaultDebugInfo(dbgSrc);
+
+  auto *dbgCompUnit = spvBuilder.getModule()->getDebugCompilationUnit();
+  setDefaultDebugInfo(dbgCompUnit);
+
+  return &debugInfoMap.insert({file, RichDebugInfo(dbgSrc, dbgCompUnit)})
+              .first->second;
+}
+
 SpirvDebugTypeComposite *DebugTypeVisitor::createDebugTypeComposite(
     const SpirvType *type, const SourceLocation &loc, uint32_t tag) {
   const auto &sm = astContext.getSourceManager();
@@ -52,23 +78,8 @@ SpirvDebugTypeComposite *DebugTypeVisitor::createDebugTypeComposite(
   // TODO: Update linkageName using astContext.createMangleContext().
   std::string name = type->getName();
 
-  RichDebugInfo *debugInfo = &spvContext.getDebugInfo().begin()->second;
-  const char *file = sm.getPresumedLoc(loc).getFilename();
-  if (file) {
-    auto &debugInfoMap = spvContext.getDebugInfo();
-    auto it = debugInfoMap.find(file);
-    if (it != debugInfoMap.end()) {
-      debugInfo = &it->second;
-    } else {
-      auto *dbgSrc = spvBuilder.createDebugSource(file);
-      setDefaultDebugInfo(dbgSrc);
-      auto dbgCompUnit = spvBuilder.getModule()->getDebugCompilationUnit();
-      setDefaultDebugInfo(dbgCompUnit);
-      debugInfo =
-          &debugInfoMap.insert({file, RichDebugInfo(dbgSrc, dbgCompUnit)})
-               .first->second;
-    }
-  }
+  RichDebugInfo *debugInfo = getOrCreateRichDebugInfo(loc);
+  assert(debugInfo);
   return spvContext.getDebugTypeComposite(
       type, name, debugInfo->source, line, column,
       /* parent */ debugInfo->compilationUnit, linkageName, 3u, tag);
@@ -107,19 +118,22 @@ void DebugTypeVisitor::addDebugTypeForMemberVariables(
     const SourceLocation loc = location();
     uint32_t line = sm.getPresumedLineNumber(loc);
     uint32_t column = sm.getPresumedColumnNumber(loc);
+    const auto *debugInfo = getOrCreateRichDebugInfo(loc);
+    assert(debugInfo);
 
     // TODO: Replace 2u and 3u with valid flags when debug info extension is
     // placed in SPIRV-Header.
     auto *debugInstr = spvContext.getDebugTypeMember(
-        field.name, memberDebugType, debugTypeComposite->getSource(), line,
-        column, debugTypeComposite,
+        field.name, memberDebugType, debugInfo->source, line, column,
+        debugTypeComposite,
         /* flags */ 3u, offsetInBits, sizeInBits, /* value */ nullptr);
     assert(debugInstr);
 
     setDefaultDebugInfo(debugInstr);
     members.push_back(debugInstr);
 
-    compositeSizeInBits = offsetInBits + sizeInBits;
+    compositeSizeInBits =
+        std::max(compositeSizeInBits, offsetInBits + sizeInBits);
   }
   debugTypeComposite->setMembers(members);
   debugTypeComposite->setSizeInBits(compositeSizeInBits);
@@ -157,6 +171,23 @@ void DebugTypeVisitor::lowerDebugTypeMembers(
           return location;
         },
         0);
+  } else if (const auto *translationUnitDecl =
+                 dyn_cast<TranslationUnitDecl>(decl)) {
+    llvm::SmallVector<const Decl *, 4> decls =
+        spvBuilder.collectDeclsInDeclContext(translationUnitDecl);
+    auto subDeclIter = decls.begin();
+    auto subDeclEnd = decls.end();
+    addDebugTypeForMemberVariables(
+        debugTypeComposite, type,
+        [&subDeclIter, &subDeclEnd]() {
+          assert(subDeclIter != subDeclEnd);
+          (void)subDeclEnd;
+          auto location = (*subDeclIter)->getLocation();
+          ++subDeclIter;
+          return location;
+        },
+        0);
+    return;
   } else {
     assert(false && "Uknown DeclContext for DebugTypeMember generation");
   }

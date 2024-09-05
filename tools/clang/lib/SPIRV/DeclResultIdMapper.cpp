@@ -299,94 +299,6 @@ LocationAndComponent getLocationAndComponentCount(const ASTContext &astContext,
   return {0, 0, false};
 }
 
-bool shouldSkipInStructLayout(const Decl *decl) {
-  // Ignore implicit generated struct declarations/constructors/destructors
-  if (decl->isImplicit())
-    return true;
-  // Ignore embedded type decls
-  if (isa<TypeDecl>(decl))
-    return true;
-  // Ignore embeded function decls
-  if (isa<FunctionDecl>(decl))
-    return true;
-  // Ignore empty decls
-  if (isa<EmptyDecl>(decl))
-    return true;
-
-  // For the $Globals cbuffer, we only care about externally-visible
-  // non-resource-type variables. The rest should be filtered out.
-
-  const auto *declContext = decl->getDeclContext();
-
-  // $Globals' "struct" is the TranslationUnit, so we should ignore resources
-  // in the TranslationUnit "struct" and its child namespaces.
-  if (declContext->isTranslationUnit() || declContext->isNamespace()) {
-
-    if (decl->hasAttr<VKConstantIdAttr>()) {
-      return true;
-    }
-
-    if (decl->hasAttr<VKPushConstantAttr>()) {
-      return true;
-    }
-
-    if (decl->hasAttr<VKStorageClassExtAttr>()) {
-      return true;
-    }
-
-    // External visibility
-    if (const auto *declDecl = dyn_cast<DeclaratorDecl>(decl))
-      if (!declDecl->hasExternalFormalLinkage())
-        return true;
-
-    // cbuffer/tbuffer
-    if (isa<HLSLBufferDecl>(decl))
-      return true;
-
-    // 'groupshared' variables should not be placed in $Globals cbuffer.
-    if (decl->hasAttr<HLSLGroupSharedAttr>())
-      return true;
-
-    // Other resource types
-    if (const auto *valueDecl = dyn_cast<ValueDecl>(decl)) {
-      const auto declType = valueDecl->getType();
-      if (isResourceType(declType) || isResourceOnlyStructure(declType))
-        return true;
-    }
-  }
-
-  return false;
-}
-
-void collectDeclsInField(const Decl *field,
-                         llvm::SmallVector<const Decl *, 4> *decls) {
-
-  // Case of nested namespaces.
-  if (const auto *nsDecl = dyn_cast<NamespaceDecl>(field)) {
-    for (const auto *decl : nsDecl->decls()) {
-      collectDeclsInField(decl, decls);
-    }
-  }
-
-  if (shouldSkipInStructLayout(field))
-    return;
-
-  if (!isa<DeclaratorDecl>(field)) {
-    return;
-  }
-
-  decls->push_back(field);
-}
-
-llvm::SmallVector<const Decl *, 4>
-collectDeclsInDeclContext(const DeclContext *declContext) {
-  llvm::SmallVector<const Decl *, 4> decls;
-  for (const auto *field : declContext->decls()) {
-    collectDeclsInField(field, &decls);
-  }
-  return decls;
-}
-
 /// \brief Returns true if the given decl is a boolean stage I/O variable.
 /// Returns false if the type is not boolean, or the decl is a built-in stage
 /// variable.
@@ -1186,6 +1098,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var) {
 
 SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
                                                    QualType type) {
+  const auto name = var->getName();
   const bool isGroupShared = var->hasAttr<HLSLGroupSharedAttr>();
   const bool hasInlineSpirvSC = var->hasAttr<VKStorageClassExtAttr>();
   const bool isACSBuffer =
@@ -1217,7 +1130,10 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
       createGlobalsCBuffer(var);
 
     auto *varInstr = astDecls[var].instr;
-    return varInstr ? cast<SpirvVariable>(varInstr) : nullptr;
+    if (varInstr)
+      return cast<SpirvVariable>(varInstr);
+
+    return nullptr;
   }
 
   if (isResourceOnlyStructure(type)) {
@@ -1245,7 +1161,6 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
     needsFlatteningCompositeResources = true;
   }
 
-  const auto name = var->getName();
   SpirvVariable *varInstr = spvBuilder.addModuleVar(
       type, storageClass, var->hasAttr<HLSLPreciseAttr>(),
       var->hasAttr<HLSLNoInterpolationAttr>(), name, llvm::None, loc);
@@ -1370,7 +1285,7 @@ SpirvVariable *DeclResultIdMapper::createStructOrStructArrayVarOfExplicitLayout(
   const bool forShaderRecordEXT =
       usageKind == ContextUsageKind::ShaderRecordBufferKHR;
 
-  const auto &declGroup = collectDeclsInDeclContext(decl);
+  const auto &declGroup = spvBuilder.collectDeclsInDeclContext(decl);
 
   // Collect the type and name for each field
   llvm::SmallVector<HybridStructType::FieldInfo, 4> fields;
@@ -1484,7 +1399,7 @@ void DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
 
   SmallVector<const VarDecl *, 4> variablesToDeclare;
   for (const auto *subDecl : decl->decls()) {
-    if (shouldSkipInStructLayout(subDecl))
+    if (spvBuilder.shouldSkipInStructLayout(subDecl))
       continue;
 
     // If the subDecl is a resource, it is lowered as a standalone variable.
@@ -1657,7 +1572,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
   // OpAccessChain.
   int index = 0;
   for (const auto *subDecl : decl->decls()) {
-    if (shouldSkipInStructLayout(subDecl))
+    if (spvBuilder.shouldSkipInStructLayout(subDecl))
       continue;
 
     // If subDecl is a variable with resource type, we already added a separate
@@ -1693,7 +1608,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       "$Globals");
 
   uint32_t index = 0;
-  for (const auto *decl : collectDeclsInDeclContext(context)) {
+  for (const auto *decl : spvBuilder.collectDeclsInDeclContext(context)) {
     if (const auto *varDecl = dyn_cast<VarDecl>(decl)) {
       if (!spirvOptions.noWarnIgnoredFeatures) {
         if (const auto *init = varDecl->getInit())
@@ -1727,6 +1642,18 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
                               nullptr, nullptr, nullptr, /*isCounterVar*/ false,
                               /*isGlobalsCBuffer*/ true);
   }
+
+  if (!spirvOptions.debugInfoRich)
+    return;
+
+  // Register the hybrid or pre-lowered struct type:
+  const SpirvType *typeToRegister = globals->getResultType();
+  if (const auto *ptrType = dyn_cast<SpirvPointerType>(typeToRegister))
+    typeToRegister = ptrType->getPointeeType();
+  spvContext.registerStructDeclForSpirvType(typeToRegister,
+                                            var->getTranslationUnitDecl());
+  createDebugGlobalVariable(globals, QualType(), var->getLocation(),
+                            StringRef());
 }
 
 SpirvFunction *DeclResultIdMapper::getOrRegisterFn(const FunctionDecl *fn) {

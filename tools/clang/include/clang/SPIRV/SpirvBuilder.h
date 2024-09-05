@@ -931,6 +931,16 @@ private:
   /// Mapping of a temporary stage parameter variable to real stage input
   /// variables, only when the declaration has attribute `nointerpolation`
   llvm::DenseMap<SpirvInstruction *, SpirvInstruction *> perVertexInputVarMap;
+
+public:
+  /// Routines for creating Globals
+  bool shouldSkipInStructLayout(const Decl *decl);
+
+  void collectDeclsInField(const Decl *field,
+                           llvm::SmallVector<const Decl *, 4> *decls);
+
+  llvm::SmallVector<const Decl *, 4>
+  collectDeclsInDeclContext(const DeclContext *declContext);
 };
 
 void SpirvBuilder::requireCapability(spv::Capability cap, SourceLocation loc) {
