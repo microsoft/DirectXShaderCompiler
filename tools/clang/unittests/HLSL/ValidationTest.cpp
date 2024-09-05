@@ -4917,7 +4917,8 @@ struct SimplePSV {
 
 SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
   uint32_t PartSize = pPSVPart->PartSize;
-  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+  uint32_t *PSVPtr =
+      const_cast<uint32_t *>((const uint32_t *)GetDxilPartData(pPSVPart));
   const uint32_t *PSVPtrEnd = PSVPtr + PartSize / 4;
 
   uint32_t PSVRuntimeInfoSize = *(PSVPtr++);
@@ -4975,9 +4976,9 @@ SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
           llvm::RoundUpToAlignment(PSVInfo3->SigOutputVectors[i], 8) / 8);
       PSVPtr += ViewIDOutputMask[i].size();
     }
-    if (PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
-        PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh) &&
-            PSVInfo3->SigPatchConstOrPrimVectors != 0) {
+    if ((PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
+         PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh)) &&
+        PSVInfo3->SigPatchConstOrPrimVectors != 0) {
       ViewIDPCOutputMask = llvm::MutableArrayRef<uint32_t>(
           (uint32_t *)PSVPtr,
           llvm::RoundUpToAlignment(PSVInfo3->SigPatchConstOrPrimVectors, 8) /
@@ -4997,7 +4998,7 @@ SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
   }
   if ((PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
        PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh)) &&
-      PSVInfo3->SigInputVectors != 0 && PSVInfo3->SigOutputVectors != 0) {
+      PSVInfo3->SigInputVectors != 0 && PSVInfo3->SigPatchConstOrPrimVectors != 0) {
     InputToPCOutputTable = llvm::MutableArrayRef<uint32_t>(
         (uint32_t *)PSVPtr,
         4 * PSVInfo3->SigInputVectors *
@@ -5007,7 +5008,7 @@ SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
   } else if (PSVInfo3->ShaderStage ==
                  static_cast<uint8_t>(PSVShaderKind::Domain) &&
              PSVInfo3->SigOutputVectors[0] != 0 &&
-             PSVInfo3->SigOutputVectors != 0) {
+             PSVInfo3->SigPatchConstOrPrimVectors != 0) {
     PCInputToOutputTable = llvm::MutableArrayRef<uint32_t>(
         (uint32_t *)PSVPtr,
         4 * PSVInfo3->SigPatchConstOrPrimVectors *
