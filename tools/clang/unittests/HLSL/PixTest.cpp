@@ -99,6 +99,10 @@ public:
 
   TEST_CLASS_SETUP(InitSupport);
 
+  TEST_METHOD(DebugUAV_CS_6_1)
+  TEST_METHOD(DebugUAV_CS_6_2)
+  TEST_METHOD(DebugUAV_lib_6_3_through_6_8)
+
   TEST_METHOD(CompileDebugDisasmPDB)
 
   TEST_METHOD(AddToASPayload)
@@ -208,6 +212,8 @@ public:
     std::wstring debugArg =
         L"-hlsl-dxil-debug-instrumentation,UAVSize=" + std::to_wstring(UAVSize);
     Options.push_back(debugArg.c_str());
+    Options.push_back(L"-viewid-state");
+    Options.push_back(L"-hlsl-dxilemit");
 
     CComPtr<IDxcBlob> pOptimizedModule;
     CComPtr<IDxcBlobEncoding> pText;
@@ -349,21 +355,31 @@ public:
 
   public:
     ModuleAndHangersOn(IDxcBlob *pBlob) {
-      // Verify we have a valid dxil container.
+
+      // Assume we were given a dxil part first:
+      const DxilProgramHeader *pProgramHeader =
+          reinterpret_cast<const DxilProgramHeader *>(
+              pBlob->GetBufferPointer());
+      uint32_t partSize = static_cast<uint32_t>(pBlob->GetBufferSize());
+      // Check if we were given a valid dxil container instead:
       const DxilContainerHeader *pContainer = IsDxilContainerLike(
           pBlob->GetBufferPointer(), pBlob->GetBufferSize());
-      VERIFY_IS_NOT_NULL(pContainer);
-      VERIFY_IS_TRUE(IsValidDxilContainer(pContainer, pBlob->GetBufferSize()));
+      if (pContainer != nullptr) {
+        VERIFY_IS_TRUE(
+            IsValidDxilContainer(pContainer, pBlob->GetBufferSize()));
 
-      // Get Dxil part from container.
-      DxilPartIterator it =
-          std::find_if(begin(pContainer), end(pContainer),
-                       DxilPartIsType(DFCC_ShaderDebugInfoDXIL));
-      VERIFY_IS_FALSE(it == end(pContainer));
+        // Get Dxil part from container.
+        DxilPartIterator it =
+            std::find_if(begin(pContainer), end(pContainer),
+                         DxilPartIsType(DFCC_ShaderDebugInfoDXIL));
+        VERIFY_IS_FALSE(it == end(pContainer));
 
-      const DxilProgramHeader *pProgramHeader =
-          reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
-      VERIFY_IS_TRUE(IsValidDxilProgramHeader(pProgramHeader, (*it)->PartSize));
+        pProgramHeader =
+            reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(*it));
+        partSize = (*it)->PartSize;
+      }
+
+      VERIFY_IS_TRUE(IsValidDxilProgramHeader(pProgramHeader, partSize));
 
       // Get a pointer to the llvm bitcode.
       const char *pIL;
@@ -417,6 +433,8 @@ public:
   std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob *blob);
+  void TestPixUAVCase(char const *hlsl, wchar_t const *model,
+                      wchar_t const *entry);
 };
 
 bool PixTest::InitSupport() {
@@ -425,6 +443,92 @@ bool PixTest::InitSupport() {
     m_ver.Initialize(m_dllSupport);
   }
   return true;
+}
+
+void PixTest::TestPixUAVCase(char const *hlsl, wchar_t const *model,
+                             wchar_t const *entry) {
+  auto mod = Compile(m_dllSupport, hlsl, model, {}, entry);
+  CComPtr<IDxcBlob> dxilPart = FindModule(DFCC_ShaderDebugInfoDXIL, mod);
+  PassOutput passOutput = RunDebugPass(dxilPart);
+  CComPtr<IDxcBlob> modifiedDxilContainer;
+  ReplaceDxilBlobPart(mod->GetBufferPointer(), mod->GetBufferSize(),
+                      passOutput.blob, &modifiedDxilContainer);
+
+  ModuleAndHangersOn moduleEtc(modifiedDxilContainer);
+  auto &compilerGeneratedUAV = moduleEtc.GetDxilModule().GetUAV(0);
+  auto &pixDebugGeneratedUAV = moduleEtc.GetDxilModule().GetUAV(1);
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetClass(),
+                   pixDebugGeneratedUAV.GetClass());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetKind(),
+                   pixDebugGeneratedUAV.GetKind());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetHLSLType(),
+                   pixDebugGeneratedUAV.GetHLSLType());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetSampleCount(),
+                   pixDebugGeneratedUAV.GetSampleCount());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetElementStride(),
+                   pixDebugGeneratedUAV.GetElementStride());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetBaseAlignLog2(),
+                   pixDebugGeneratedUAV.GetBaseAlignLog2());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetCompType(),
+                   pixDebugGeneratedUAV.GetCompType());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetSamplerFeedbackType(),
+                   pixDebugGeneratedUAV.GetSamplerFeedbackType());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.IsGloballyCoherent(),
+                   pixDebugGeneratedUAV.IsGloballyCoherent());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.HasCounter(),
+                   pixDebugGeneratedUAV.HasCounter());
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.HasAtomic64Use(),
+                   pixDebugGeneratedUAV.HasAtomic64Use());
+
+  VERIFY_ARE_EQUAL(compilerGeneratedUAV.GetGlobalSymbol()->getType(),
+                   pixDebugGeneratedUAV.GetGlobalSymbol()->getType());
+}
+
+TEST_F(PixTest, DebugUAV_CS_6_1) {
+  const char *hlsl = R"(
+RWByteAddressBuffer RawUAV : register(u0);
+[numthreads(1, 1, 1)]
+void CSMain()
+{
+    RawUAV.Store(0, RawUAV.Load(4));
+}
+)";
+  TestPixUAVCase(hlsl, L"cs_6_1", L"CSMain");
+}
+
+TEST_F(PixTest, DebugUAV_CS_6_2) {
+  const char *hlsl = R"(
+RWByteAddressBuffer RawUAV : register(u0);
+[numthreads(1, 1, 1)]
+void CSMain()
+{
+    RawUAV.Store(0, RawUAV.Load(4));
+}
+)";
+  // In 6.2, rawBufferLoad replaced bufferLoad for UAVs, but we don't
+  // expect this test to notice the difference. We just test 6.2
+  TestPixUAVCase(hlsl, L"cs_6_2", L"CSMain");
+}
+
+TEST_F(PixTest, DebugUAV_lib_6_3_through_6_8) {
+  const char *hlsl = R"(
+RWByteAddressBuffer RawUAV : register(u0);
+struct [raypayload] Payload
+{
+  double a : read(caller, closesthit, anyhit) : write(caller, miss, closesthit);
+};
+[shader("miss")]
+void Miss( inout Payload payload ) 
+{ 
+    RawUAV.Store(0, RawUAV.Load(4));
+    payload.a = 4.2;
+})";
+  TestPixUAVCase(hlsl, L"lib_6_3", L"");
+  TestPixUAVCase(hlsl, L"lib_6_4", L"");
+  TestPixUAVCase(hlsl, L"lib_6_5", L"");
+  TestPixUAVCase(hlsl, L"lib_6_6", L"");
+  TestPixUAVCase(hlsl, L"lib_6_7", L"");
+  TestPixUAVCase(hlsl, L"lib_6_8", L"");
 }
 
 TEST_F(PixTest, CompileDebugDisasmPDB) {

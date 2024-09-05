@@ -2,24 +2,24 @@
 
 // Check that the expected PIX UAV read-tracking is emitted (the atomicBinOp "|= 1") followed by the expected raw read:
 
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_ShaderAccessUAV_Handle
 // CHECK: call %dx.types.ResRet.f32 @dx.op.rawBufferLoad.f32
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_ShaderAccessUAV_Handle
 // CHECK: call %dx.types.ResRet.i32 @dx.op.rawBufferLoad.i32
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_ShaderAccessUAV_Handle
 // CHECK: call %dx.types.ResRet.f16 @dx.op.rawBufferLoad.f16
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_ShaderAccessUAV_Handle
 // CHECK: call %dx.types.ResRet.i16 @dx.op.rawBufferLoad.i16
 
 // Now the writes with atomicBinOp "|=2":
 
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_ShaderAccessUAV_Handle
 // CHECK: call void @dx.op.rawBufferStore.f32
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_ShaderAccessUAV_Handle
 // CHECK: call void @dx.op.rawBufferStore.i32
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_ShaderAccessUAV_Handle
 // CHECK: call void @dx.op.rawBufferStore.f16
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_CountUAV_Handle
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %PIX_ShaderAccessUAV_Handle
 // CHECK: call void @dx.op.rawBufferStore.i16
 
 struct S
