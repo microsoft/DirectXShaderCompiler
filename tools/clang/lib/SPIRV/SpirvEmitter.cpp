@@ -5488,19 +5488,16 @@ void SpirvEmitter::handleOptionalTextureSampleArgs(
     index++;
   }
 
-  bool hasClampArg =
-      index < numArgs && expr->getArg(index)->getType()->isFloatingType();
-  if (hasClampArg) {
-    *clamp = doExpr(expr->getArg(index));
-    index++;
-  }
+  if (index >= numArgs)
+    return;
 
-  const bool hasStatusArg =
-      index < numArgs &&
-      expr->getArg(index)->getType()->isUnsignedIntegerType();
-  if (hasStatusArg) {
-    *status = doExpr(expr->getArg(index));
-  }
+  *clamp = doExpr(expr->getArg(index));
+  index++;
+
+  if (index >= numArgs)
+    return;
+
+  *status = doExpr(expr->getArg(index));
 }
 
 SpirvInstruction *
