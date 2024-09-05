@@ -77,7 +77,11 @@ endif()
 set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
 if (WIN32)
 list(APPEND CLANG_TEST_DEPS
-     dxc_batch ExecHLSLTests
+     dxc_batch ExecHLSLTests dxildll
+    )
+else()
+list(APPEND CLANG_TEST_DEPS
+     dxildll
     )
 endif()
 add_custom_target(clang-test-depends DEPENDS ${CLANG_TEST_DEPS})
