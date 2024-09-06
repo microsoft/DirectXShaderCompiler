@@ -1,3 +1,4 @@
+// REQUIRES: dxil-1-8
 // RUN: %dxc -E main -T hs_6_8 %s -Fo %t
 // RUN: %dxa %t -dumppsv | FileCheck %s
 
