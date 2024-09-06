@@ -178,6 +178,8 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
       Offset += MaskDwords;
     }
     unsigned TabSize = MaskDwords * NumInputSigScalars;
+    if (TabSize == 0)
+      continue;
     unsigned AlignedTabSize =
         MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
     InputToOutputTable[i] = std::vector<uint32_t>(AlignedTabSize, 0);
@@ -194,22 +196,26 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
       Offset += MaskDwords;
     }
     unsigned TabSize = MaskDwords * NumInputSigScalars;
-    unsigned AlignedTabSize =
-        MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
-    InputToPCOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
-    memcpy(InputToPCOutputTable.data(), Data.data() + Offset, TabSize * 4);
-    Offset += TabSize;
+    if (TabSize) {
+      unsigned AlignedTabSize =
+          MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
+      InputToPCOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
+      memcpy(InputToPCOutputTable.data(), Data.data() + Offset, TabSize * 4);
+      Offset += TabSize;
+    }
   } else if (SK == PSVShaderKind::Domain) {
     // #PatchConstant.
     NumPCOrPrimSigScalars = Data[Offset++];
     unsigned OutputScalars = NumOutputSigScalars[0];
     unsigned MaskDwords = llvm::RoundUpToAlignment(OutputScalars, 32) / 32;
     unsigned TabSize = MaskDwords * NumPCOrPrimSigScalars;
-    unsigned AlignedTabSize =
-        MaskDwords * llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4);
-    PCInputToOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
-    memcpy(PCInputToOutputTable.data(), Data.data() + Offset, TabSize * 4);
-    Offset += TabSize;
+    if (TabSize) {
+      unsigned AlignedTabSize =
+          MaskDwords * llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4);
+      PCInputToOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
+      memcpy(PCInputToOutputTable.data(), Data.data() + Offset, TabSize * 4);
+      Offset += TabSize;
+    }
   }
   IsValid = Offset == Data.size();
 }
