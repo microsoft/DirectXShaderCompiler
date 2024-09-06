@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_0 -E main -fvk-allow-rwstructuredbuffer-arrays -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 struct T {
   float  a;

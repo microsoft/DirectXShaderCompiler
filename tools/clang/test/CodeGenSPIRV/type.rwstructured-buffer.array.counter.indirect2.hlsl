@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -E main -O0 -fvk-allow-rwstructuredbuffer-arrays  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_6 -E main -O0 %s -spirv | FileCheck %s
 
 struct PSInput
 {
