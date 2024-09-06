@@ -12,7 +12,7 @@ The included licenses apply to the following files:
 
 | License file | Applies to |
 |---|---|
-|LICENSE-MS.txt     |dxil.dll (if included in package)|
+|LICENSE-MS.txt     |dxil.dll|
 |LICENSE-MIT.txt    |d3d12shader.h|
 |LICENSE-LLVM.txt   |all other files|
 
@@ -23,6 +23,7 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this line upon naming this release.
 
 - The incomplete WaveMatrix implementation has been removed.
+- DXIL Validator Hash is open sourced.
 
 ### Version 1.8.2407
 
