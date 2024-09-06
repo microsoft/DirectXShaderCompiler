@@ -4998,7 +4998,8 @@ SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
   }
   if ((PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
        PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh)) &&
-      PSVInfo3->SigInputVectors != 0 && PSVInfo3->SigPatchConstOrPrimVectors != 0) {
+      PSVInfo3->SigInputVectors != 0 &&
+      PSVInfo3->SigPatchConstOrPrimVectors != 0) {
     InputToPCOutputTable = llvm::MutableArrayRef<uint32_t>(
         (uint32_t *)PSVPtr,
         4 * PSVInfo3->SigInputVectors *
