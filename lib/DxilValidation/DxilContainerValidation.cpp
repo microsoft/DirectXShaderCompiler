@@ -79,11 +79,13 @@ static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
   hlsl::dxilutil::EmitErrorOnContext(Ctx, str);
 }
 
+// Helper class which build PSV ViewID state from serialized view id state.
 struct SimpleViewIDState {
   unsigned NumInputSigScalars = 0;
   unsigned NumOutputSigScalars[DXIL::kNumOutputStreams] = {0, 0, 0, 0};
   unsigned NumPCOrPrimSigScalars = 0;
-
+  // Use vector here because the data in PSV is aligned while data in serialized
+  // view id state is not.
   std::vector<uint32_t> InputToOutputTable[DXIL::kNumOutputStreams];
   std::vector<uint32_t> InputToPCOutputTable;
   std::vector<uint32_t> PCInputToOutputTable;
@@ -308,15 +310,6 @@ private:
     OS.flush();
     return Str;
   }
-  template <typename Ty>
-  static std::string GetViewIDDump(const Ty &T, const char *InputName,
-                                   const char *OutputName) {
-    std::string Str;
-    raw_string_ostream OS(Str);
-    T.Print(OS, InputName, OutputName);
-    OS.flush();
-    return Str;
-  }
 };
 
 bool ViewIDTableAndMaskMismatched(const PSVDependencyTable &PSVTable,
@@ -428,7 +421,7 @@ void PSVContentVerifier::VerifySignature(const DxilSignature &Sig,
   }
 
   ArrayRef<PSVSignatureElement0> Inputs(Base, Count);
-  // Build PSVSignatureSet.
+  // Build PSVSignatureSet with data in PSV.
   PSVSignatureSet SigSet;
   for (unsigned i = 0; i < Count; i++) {
     if (SigSet.insert(Base + i).second == false) {
@@ -439,7 +432,7 @@ void PSVContentVerifier::VerifySignature(const DxilSignature &Sig,
       return;
     }
   }
-  // Verify each element.
+  // Verify each element in DxilSignature.
   const PSVStringTable &StrTab = PSV.GetStringTable();
   const PSVSemanticIndexTable &IndexTab = PSV.GetSemanticIndexTable();
   for (unsigned i = 0; i < Count; i++) {
@@ -555,6 +548,7 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
     return;
   }
   unsigned ResIndex = 0;
+  // Build PSVResourceSet with data in PSV.
   PSVResourceSet ResBindInfo0Set;
   for (unsigned i = 0; i < ResourceCount; i++) {
     PSVResourceBindInfo0 *BindInfo = PSV.GetPSVResourceBindInfo0(i);
@@ -565,6 +559,7 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
     }
   }
 
+  // Verify each resource table.
   // CBV
   VerifyResourceTable(DM.GetCBuffers(), ResBindInfo0Set, ResIndex, PSVVersion);
   // Sampler
@@ -600,13 +595,13 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
           DM.GetPatchConstOrPrimSignature().NumVectorsUsed(0);
   }
   bool Mismatched = false;
-  if (PSV2) {
+  if (PSV2)
     Mismatched = memcmp(PSV2, &DMPSV, sizeof(PSVRuntimeInfo2)) != 0;
-  } else if (PSV1) {
+  else if (PSV1)
     Mismatched = memcmp(PSV1, &DMPSV, sizeof(PSVRuntimeInfo1)) != 0;
-  } else {
+  else
     Mismatched = memcmp(PSV0, &DMPSV, sizeof(PSVRuntimeInfo0)) != 0;
-  }
+
   if (Mismatched) {
     std::string Str;
     raw_string_ostream OS(Str);
