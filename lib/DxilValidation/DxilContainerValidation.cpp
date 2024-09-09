@@ -280,7 +280,7 @@ private:
   void VerifyResources(unsigned PSVVersion);
   template <typename T>
   void VerifyResourceTable(T &ResTab, PSVResourceSet &ResSet,
-                           unsigned &ResIndex, unsigned PSVVersion);
+                           unsigned PSVVersion);
   void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1);
   void VerifyEntryProperties(const ShaderModel *SM, PSVRuntimeInfo0 *PSV0,
                              PSVRuntimeInfo1 *PSV1, PSVRuntimeInfo2 *PSV2);
@@ -505,7 +505,6 @@ void PSVContentVerifier::VerifySignatureElement(
 
 template <typename T>
 void PSVContentVerifier::VerifyResourceTable(T &ResTab, PSVResourceSet &ResSet,
-                                             unsigned &ResIndex,
                                              unsigned PSVVersion) {
   for (auto &&R : ResTab) {
     PSVResourceBindInfo1 BI;
@@ -532,7 +531,6 @@ void PSVContentVerifier::VerifyResourceTable(T &ResTab, PSVResourceSet &ResSet,
         EmitMismatchError("ResourceBindInfo", Str, Str1);
       }
     }
-    ResIndex++;
   }
 }
 
@@ -547,7 +545,6 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
                       std::to_string(ResourceCount));
     return;
   }
-  unsigned ResIndex = 0;
   // Build PSVResourceSet with data in PSV.
   PSVResourceSet ResBindInfo0Set;
   for (unsigned i = 0; i < ResourceCount; i++) {
@@ -561,13 +558,13 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
 
   // Verify each resource table.
   // CBV
-  VerifyResourceTable(DM.GetCBuffers(), ResBindInfo0Set, ResIndex, PSVVersion);
+  VerifyResourceTable(DM.GetCBuffers(), ResBindInfo0Set, PSVVersion);
   // Sampler
-  VerifyResourceTable(DM.GetSamplers(), ResBindInfo0Set, ResIndex, PSVVersion);
+  VerifyResourceTable(DM.GetSamplers(), ResBindInfo0Set, PSVVersion);
   // SRV
-  VerifyResourceTable(DM.GetSRVs(), ResBindInfo0Set, ResIndex, PSVVersion);
+  VerifyResourceTable(DM.GetSRVs(), ResBindInfo0Set, PSVVersion);
   // UAV
-  VerifyResourceTable(DM.GetUAVs(), ResBindInfo0Set, ResIndex, PSVVersion);
+  VerifyResourceTable(DM.GetUAVs(), ResBindInfo0Set, PSVVersion);
 }
 
 void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
