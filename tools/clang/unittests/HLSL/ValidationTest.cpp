@@ -5039,7 +5039,7 @@ TEST_F(ValidationTest, PSVContentValidationVS) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update PSV part.
+  // Get PSV part.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
@@ -5194,7 +5194,7 @@ TEST_F(ValidationTest, PSVContentValidationHS) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update PSV part.
+  // Get PSV part.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
@@ -5343,7 +5343,7 @@ TEST_F(ValidationTest, PSVContentValidationDS) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update PSV part.
+  // Get PSV part.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
@@ -5498,7 +5498,7 @@ TEST_F(ValidationTest, PSVContentValidationGS) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update PSV part.
+  // Get PSV part.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
@@ -5584,7 +5584,7 @@ TEST_F(ValidationTest, PSVContentValidationPS) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update PSV part.
+  // Get PSV part.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
@@ -5667,7 +5667,7 @@ TEST_F(ValidationTest, PSVContentValidationCS) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update PSV part.
+  // Get PSV part.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
@@ -5747,7 +5747,7 @@ TEST_F(ValidationTest, PSVContentValidationMS) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update PSV part.
+  // Get PSV part.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
@@ -5814,7 +5814,7 @@ TEST_F(ValidationTest, PSVContentValidationAS) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update PSV part.
+  // Get PSV part.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
