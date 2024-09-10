@@ -1847,14 +1847,10 @@ void SpirvEmitter::doVarDecl(const VarDecl *decl) {
   // counters, which are quite nasty to handle.
   if (decl->getType()->isArrayType() &&
       isRWAppendConsumeSBuffer(decl->getType())) {
-    if (!spirvOptions.allowRWStructuredBufferArrays) {
-      emitError("arrays of RW/append/consume structured buffers unsupported",
-                loc);
-      return;
-    } else if (decl->getType()
-                   ->getAsArrayTypeUnsafe()
-                   ->getElementType()
-                   ->isArrayType()) {
+    if (decl->getType()
+            ->getAsArrayTypeUnsafe()
+            ->getElementType()
+            ->isArrayType()) {
       // See
       // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#interfaces-resources-setandbinding
       emitError("Multi-dimensional arrays of RW/append/consume structured "
@@ -4681,7 +4677,8 @@ SpirvEmitter::incDecRWACSBufferCounter(const CXXMemberCallExpr *expr,
 
   auto *counter = getFinalACSBufferCounterInstruction(object);
   if (!counter) {
-    emitFatalError("cannot find the associated counter variable",
+    emitFatalError("Cannot access associated counter variable for an array of "
+                   "buffers in a struct.",
                    object->getExprLoc());
     return nullptr;
   }

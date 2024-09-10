@@ -67,7 +67,6 @@ struct SpirvCodeGenOptions {
   bool supportNonzeroBaseInstance;
   bool supportNonzeroBaseVertex;
   bool fixFuncCallArguments;
-  bool allowRWStructuredBufferArrays;
   bool enableMaximalReconvergence;
   bool useVulkanMemoryModel;
   bool IEEEStrict;
