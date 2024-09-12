@@ -385,12 +385,6 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
     debugColumnEnd = columnEnd;
   }
 
-  if ((emittedSource[fileId] == 0) && (spvOptions.debugInfoVulkan)) {
-    SpirvDebugSource *src = new (context) SpirvDebugSource(fileName, "");
-    visit(src);
-    spvInstructions.push_back(src);
-  }
-
   curInst.clear();
   if (!spvOptions.debugInfoVulkan) {
     curInst.push_back(static_cast<uint32_t>(spv::Op::OpLine));
