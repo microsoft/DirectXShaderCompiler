@@ -77,13 +77,14 @@ endif()
 set(CLANG_TEST_DEPS dxc dxa dxopt dxl dxv dxr dxcompiler clang-tblgen llvm-config opt FileCheck count not ClangUnitTests)
 if (WIN32)
 list(APPEND CLANG_TEST_DEPS
-     dxc_batch ExecHLSLTests dxildll
+     dxc_batch ExecHLSLTests
     )
-else()
+endif()
+if (HLSL_BUILD_DXILDLL)
 list(APPEND CLANG_TEST_DEPS
      dxildll
     )
-endif()
+else()
 add_custom_target(clang-test-depends DEPENDS ${CLANG_TEST_DEPS})
 set_target_properties(clang-test-depends PROPERTIES FOLDER "Clang tests")
 # HLSL Change End

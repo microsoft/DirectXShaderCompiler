@@ -58,7 +58,6 @@ target_link_libraries(dxildll PRIVATE
   dxcvalidator
 )
 
-if (HLSL_BUILD_DXILDLL)
 if (WIN32)
 add_dependencies(dxildll
     ${DXCDependencies}
@@ -70,7 +69,6 @@ add_dependencies(dxildll
     ${DXCDependencies}
 )
 endif()
-endif(HLSL_BUILD_DXILDLL)
 
 if (WIN32)
     get_target_property(sources dxildll SOURCES)
