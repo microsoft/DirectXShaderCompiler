@@ -270,7 +270,7 @@ public:
   static bool ScalarizePreciseVectorAlloca(Function &F) {
     BasicBlock *Entry = &*F.begin();
 
-    bool Changed = false;
+    SmallVector<AllocaInst *, 4> PreciseAllocaInsts;
     for (auto it = Entry->begin(); it != Entry->end();) {
       Instruction *I = &*(it++);
       AllocaInst *AI = dyn_cast<AllocaInst>(I);
@@ -278,7 +278,11 @@ public:
         continue;
       if (!HLModule::HasPreciseAttributeWithMetadata(AI))
         continue;
+      PreciseAllocaInsts.push_back(AI);
+    }
 
+    bool Changed = false;
+    for (auto AI : PreciseAllocaInsts) {
       IRBuilder<> B(AI);
       VectorType *VTy = cast<VectorType>(AI->getAllocatedType());
       Type *ScalarTy = VTy->getVectorElementType();

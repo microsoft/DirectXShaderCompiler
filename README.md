@@ -61,7 +61,7 @@ release mode for DXIL 1.1 and Shader Model 6.1 (View Instancing support only).
 
 Drivers can be downloaded from the following link [Intel Graphics Drivers](https://downloadcenter.intel.com/product/80939/Graphics-Drivers)
 
-Direct access to 15.60 driver (latest as of of this update) is provided below:
+Direct access to 15.60 driver (latest as of this update) is provided below:
 
 [Installer](https://downloadmirror.intel.com/27412/a08/win64_15.60.2.4901.exe)
 

@@ -387,6 +387,9 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
 
     break;
   }
+  case spv::Decoration::LinkageAttributes:
+    addCapability(spv::Capability::Linkage);
+    break;
   default:
     break;
   }
@@ -847,16 +850,12 @@ bool CapabilityVisitor::visit(SpirvReadClock *inst) {
 }
 
 bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
-  // If there are no entry-points in the module (hence shaderModel is not set),
-  // add the Linkage capability. This allows library shader models to use
-  // 'export' attribute on functions, and generate an "incomplete/partial"
-  // SPIR-V binary.
-  // ExecutionModel::Max means that no entrypoints exist, therefore we should
-  // add the Linkage Capability.
+  // If there are no entry-points in the module add the Shader capability.
+  // This allows library shader models with no entry pointer and just exported
+  // function. ExecutionModel::Max means that no entrypoints exist.
   if (phase == Visitor::Phase::Done &&
       shaderModel == spv::ExecutionModel::Max) {
     addCapability(spv::Capability::Shader);
-    addCapability(spv::Capability::Linkage);
   }
 
   // SPIRV-Tools now has a pass to trim superfluous capabilities. This means we
