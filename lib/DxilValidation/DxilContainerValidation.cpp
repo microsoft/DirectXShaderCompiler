@@ -176,7 +176,7 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
     NumOutputSigScalars[i] = OutputScalars;
     unsigned MaskDwords = llvm::RoundUpToAlignment(OutputScalars, 32) / 32;
     if (UsesViewID) {
-      ViewIDOutputMask[i] = {Data.data() + Offset, MaskDwords};
+      ViewIDOutputMask[i] = {&(Data[Offset]), MaskDwords};
       Offset += MaskDwords;
     }
     unsigned TabSize = MaskDwords * NumInputSigScalars;
@@ -185,7 +185,7 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
     unsigned AlignedTabSize =
         MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
     InputToOutputTable[i] = std::vector<uint32_t>(AlignedTabSize, 0);
-    memcpy(InputToOutputTable[i].data(), Data.data() + Offset, TabSize * 4);
+    memcpy(InputToOutputTable[i].data(), &(Data[Offset]), TabSize * 4);
     Offset += TabSize;
   }
   if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh) {
@@ -194,7 +194,7 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
     unsigned MaskDwords =
         llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 32) / 32;
     if (UsesViewID) {
-      ViewIDPCOutputMask = {Data.data() + Offset, MaskDwords};
+      ViewIDPCOutputMask = {&(Data[Offset]), MaskDwords};
       Offset += MaskDwords;
     }
     unsigned TabSize = MaskDwords * NumInputSigScalars;
@@ -202,7 +202,7 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
       unsigned AlignedTabSize =
           MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
       InputToPCOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
-      memcpy(InputToPCOutputTable.data(), Data.data() + Offset, TabSize * 4);
+      memcpy(InputToPCOutputTable.data(), &(Data[Offset]), TabSize * 4);
       Offset += TabSize;
     }
   } else if (SK == PSVShaderKind::Domain) {
@@ -215,7 +215,7 @@ SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
       unsigned AlignedTabSize =
           MaskDwords * llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4);
       PCInputToOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
-      memcpy(PCInputToOutputTable.data(), Data.data() + Offset, TabSize * 4);
+      memcpy(PCInputToOutputTable.data(), &(Data[Offset]), TabSize * 4);
       Offset += TabSize;
     }
   }
@@ -228,41 +228,6 @@ class PSVContentVerifier {
   ValidationContext &ValCtx;
   bool PSVContentValid = true;
 
-  struct PSVSignatureElementHash {
-    uint64_t operator()(const PSVSignatureElement0 *SE) const {
-      return SE->ColsAndStart | (SE->StartRow << 8) | (SE->SemanticKind << 16) |
-             ((uint64_t)SE->DynamicMaskAndStream << 24) |
-             ((uint64_t)SE->SemanticIndexes << 32);
-    }
-  };
-  struct PSVSignatureElementEqual {
-    bool operator()(const PSVSignatureElement0 *lhs,
-                    const PSVSignatureElement0 *rhs) const {
-      return lhs->ColsAndStart == rhs->ColsAndStart &&
-             lhs->StartRow == rhs->StartRow &&
-             lhs->DynamicMaskAndStream == rhs->DynamicMaskAndStream &&
-             lhs->SemanticKind == rhs->SemanticKind &&
-             lhs->SemanticIndexes == rhs->SemanticIndexes;
-    }
-  };
-  using PSVSignatureSet =
-      std::unordered_set<PSVSignatureElement0 *, PSVSignatureElementHash,
-                         PSVSignatureElementEqual>;
-
-  struct PSVResourceHash {
-    uint64_t operator()(const PSVResourceBindInfo0 *BI) const {
-      return BI->Space | ((uint64_t)BI->LowerBound << 32) |
-             ((uint64_t)BI->ResType << 56);
-    }
-  };
-  struct PSVResourceEqual {
-    template <typename T> bool operator()(const T *lhs, const T *rhs) const {
-      return memcmp(lhs, rhs, sizeof(T)) == 0;
-    }
-  };
-  using PSVResourceSet = std::unordered_set<PSVResourceBindInfo0 *,
-                                            PSVResourceHash, PSVResourceEqual>;
-
 public:
   PSVContentVerifier(DxilPipelineStateValidation &PSV, DxilModule &DM,
                      ValidationContext &ValCtx)
@@ -274,29 +239,20 @@ private:
   void VerifySignature(const DxilSignature &, PSVSignatureElement0 *Base,
                        unsigned Count, std::string Name,
                        bool i1ToUnknownCompat);
-  void VerifySignatureElement(const DxilSignatureElement &, PSVSignatureSet &,
-                              const PSVStringTable &,
+  void VerifySignatureElement(const DxilSignatureElement &,
+                              PSVSignatureElement0 *, const PSVStringTable &,
                               const PSVSemanticIndexTable &, std::string, bool);
   void VerifyResources(unsigned PSVVersion);
   template <typename T>
-  void VerifyResourceTable(T &ResTab, PSVResourceSet &ResSet,
+  void VerifyResourceTable(T &ResTab, unsigned &ResourceIndex,
                            unsigned PSVVersion);
   void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1);
   void VerifyEntryProperties(const ShaderModel *SM, PSVRuntimeInfo0 *PSV0,
                              PSVRuntimeInfo1 *PSV1, PSVRuntimeInfo2 *PSV2);
-  void EmitDuplicateError(StringRef Name, StringRef DupContent) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerContentDuplicates,
-                           {Name, DupContent});
-    PSVContentValid = false;
-  }
-  void EmitMissingError(StringRef Name, StringRef Content) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerContentMissing,
-                           {Name, Content});
-    PSVContentValid = false;
-  }
-  void EmitMismatchError(StringRef Name, StringRef Expected, StringRef Actual) {
+  void EmitMismatchError(StringRef Name, StringRef PartContent,
+                         StringRef ModuleContent) {
     ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
-                           {Name, Expected, Actual});
+                           {Name, "PSV0", PartContent, ModuleContent});
     PSVContentValid = false;
   }
   void EmitInvalidError(StringRef Name) {
@@ -420,117 +376,83 @@ void PSVContentVerifier::VerifySignature(const DxilSignature &Sig,
     return;
   }
 
-  ArrayRef<PSVSignatureElement0> Inputs(Base, Count);
-  // Build PSVSignatureSet with data in PSV.
-  PSVSignatureSet SigSet;
-  for (unsigned i = 0; i < Count; i++) {
-    if (SigSet.insert(Base + i).second == false) {
-      PSVSignatureElement PSVSE(PSV.GetStringTable(),
-                                PSV.GetSemanticIndexTable(), Base + i);
-      std::string Str = GetDump(PSVSE);
-      EmitDuplicateError(Name + "Element", Str);
-      return;
-    }
-  }
   // Verify each element in DxilSignature.
   const PSVStringTable &StrTab = PSV.GetStringTable();
   const PSVSemanticIndexTable &IndexTab = PSV.GetSemanticIndexTable();
-  for (unsigned i = 0; i < Count; i++) {
-    VerifySignatureElement(Sig.GetElement(i), SigSet, StrTab, IndexTab, Name,
+  for (unsigned i = 0; i < Count; i++)
+    VerifySignatureElement(Sig.GetElement(i), Base + i, StrTab, IndexTab, Name,
                            i1ToUnknownCompat);
-  }
-}
-
-static uint32_t
-findSemanticIndex(const PSVSemanticIndexTable &IndexTab,
-                  const std::vector<unsigned> &SemanticIndexVec) {
-  for (uint32_t i = 0; i < IndexTab.Entries; i++) {
-    const uint32_t *PSVSemanticIndexVec = IndexTab.Get(i);
-    bool Match = true;
-    for (unsigned i = 0; i < SemanticIndexVec.size(); i++) {
-      if (PSVSemanticIndexVec[i] != SemanticIndexVec[i]) {
-        Match = false;
-        break;
-      }
-    }
-    if (Match)
-      return i;
-  }
-  return UINT32_MAX;
 }
 
 void PSVContentVerifier::VerifySignatureElement(
-    const DxilSignatureElement &SE, PSVSignatureSet &SigSet,
+    const DxilSignatureElement &SE, PSVSignatureElement0 *PSVSE0,
     const PSVStringTable &StrTab, const PSVSemanticIndexTable &IndexTab,
     std::string Name, bool i1ToUnknownCompat) {
   // Find the signature element in the set.
-  PSVSignatureElement0 PSVSE0;
-  InitPSVSignatureElement(PSVSE0, SE, i1ToUnknownCompat);
+  PSVSignatureElement0 ModulePSVSE0;
+  InitPSVSignatureElement(ModulePSVSE0, SE, i1ToUnknownCompat);
 
-  PSVSE0.SemanticIndexes =
-      findSemanticIndex(IndexTab, SE.GetSemanticIndexVec());
-
-  auto it = SigSet.find(&PSVSE0);
-  if (it == SigSet.end()) {
-    PSVSignatureElement PSVSE(StrTab, IndexTab, &PSVSE0);
-    std::string Str;
-    raw_string_ostream OS(Str);
-    PSVSE.Print(OS, SE.GetName());
-    OS.flush();
-    EmitMissingError(Name + "Element", Str);
-    return;
-  }
   // Check the Name and SemanticIndex.
   bool Mismatch = false;
-  PSVSignatureElement0 *PSVSE0Found = *it;
-  PSVSignatureElement PSVSEFound(StrTab, IndexTab, PSVSE0Found);
-  if (SE.IsArbitrary())
-    Mismatch = strcmp(PSVSEFound.GetSemanticName(), SE.GetName());
+  const std::vector<uint32_t> &SemanticIndexVec = SE.GetSemanticIndexVec();
+  llvm::ArrayRef<uint32_t> PSVSemanticIndexVec(
+      IndexTab.Get(PSVSE0->SemanticIndexes), PSVSE0->Rows);
+  if (SemanticIndexVec.size() == PSVSemanticIndexVec.size())
+    Mismatch |= memcmp(PSVSemanticIndexVec.data(), SemanticIndexVec.data(),
+                       SemanticIndexVec.size() * sizeof(uint32_t)) != 0;
   else
-    Mismatch = PSVSE0Found->SemanticKind != static_cast<uint8_t>(SE.GetKind());
+    Mismatch = true;
 
-  PSVSE0.SemanticName = PSVSE0Found->SemanticName;
+  ModulePSVSE0.SemanticIndexes = PSVSE0->SemanticIndexes;
+
+  PSVSignatureElement PSVSE(StrTab, IndexTab, PSVSE0);
+  if (SE.IsArbitrary())
+    Mismatch |= strcmp(PSVSE.GetSemanticName(), SE.GetName());
+  else
+    Mismatch |= PSVSE0->SemanticKind != static_cast<uint8_t>(SE.GetKind());
+
+  ModulePSVSE0.SemanticName = PSVSE0->SemanticName;
   // Compare all fields.
-  Mismatch |= memcmp(&PSVSE0, PSVSE0Found, sizeof(PSVSignatureElement0)) != 0;
+  Mismatch |= memcmp(&ModulePSVSE0, PSVSE0, sizeof(PSVSignatureElement0)) != 0;
   if (Mismatch) {
-    PSVSignatureElement PSVSE(StrTab, IndexTab, &PSVSE0);
-    std::string Str = GetDump(PSVSE);
-    std::string Str1;
-    raw_string_ostream OS(Str1);
-    PSVSEFound.Print(OS, SE.GetName());
+    PSVSignatureElement ModulePSVSE(StrTab, IndexTab, &ModulePSVSE0);
+    std::string ModuleStr;
+    raw_string_ostream OS(ModuleStr);
+    ModulePSVSE.Print(OS, SE.GetName(), SemanticIndexVec.data());
     OS.flush();
-    EmitMismatchError(Name + "Element", Str, Str1);
+    std::string PartStr;
+    raw_string_ostream OS1(PartStr);
+    PSVSE.Print(OS1, PSVSE.GetSemanticName(), PSVSemanticIndexVec.data());
+    OS1.flush();
+    EmitMismatchError(Name + "Element", PartStr, ModuleStr);
   }
 }
 
 template <typename T>
-void PSVContentVerifier::VerifyResourceTable(T &ResTab, PSVResourceSet &ResSet,
+void PSVContentVerifier::VerifyResourceTable(T &ResTab, unsigned &ResourceIndex,
                                              unsigned PSVVersion) {
   for (auto &&R : ResTab) {
     PSVResourceBindInfo1 BI;
     InitPSVResourceBinding(&BI, &BI, R.get());
-    auto It = ResSet.find(&BI);
-    if (It == ResSet.end()) {
-      std::string Str = GetDump(BI);
-      EmitMissingError("ResourceBindInfo", Str);
-      return;
-    }
 
     if (PSVVersion > 1) {
-      PSVResourceBindInfo1 *BindInfo1 = (PSVResourceBindInfo1 *)*It;
-      if (memcmp(&BI, BindInfo1, sizeof(PSVResourceBindInfo1)) != 0) {
-        std::string Str = GetDump(BI);
-        std::string Str1 = GetDump(*BindInfo1);
-        EmitMismatchError("ResourceBindInfo", Str, Str1);
+      PSVResourceBindInfo1 *BindInfo =
+          PSV.GetPSVResourceBindInfo1(ResourceIndex);
+      if (memcmp(&BI, BindInfo, sizeof(PSVResourceBindInfo1)) != 0) {
+        std::string ModuleStr = GetDump(BI);
+        std::string PartStr = GetDump(*BindInfo);
+        EmitMismatchError("ResourceBindInfo", PartStr, ModuleStr);
       }
     } else {
-      PSVResourceBindInfo0 *BindInfo = *It;
+      PSVResourceBindInfo0 *BindInfo =
+          PSV.GetPSVResourceBindInfo0(ResourceIndex);
       if (memcmp(&BI, BindInfo, sizeof(PSVResourceBindInfo0)) != 0) {
-        std::string Str = GetDump(BI);
-        std::string Str1 = GetDump(*BindInfo);
-        EmitMismatchError("ResourceBindInfo", Str, Str1);
+        std::string ModuleStr = GetDump(BI);
+        std::string PartStr = GetDump(*BindInfo);
+        EmitMismatchError("ResourceBindInfo", PartStr, ModuleStr);
       }
     }
+    ResourceIndex++;
   }
 }
 
@@ -545,26 +467,16 @@ void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
                       std::to_string(ResourceCount));
     return;
   }
-  // Build PSVResourceSet with data in PSV.
-  PSVResourceSet ResBindInfo0Set;
-  for (unsigned i = 0; i < ResourceCount; i++) {
-    PSVResourceBindInfo0 *BindInfo = PSV.GetPSVResourceBindInfo0(i);
-    if (!ResBindInfo0Set.insert(BindInfo).second) {
-      std::string Str = GetDump(*BindInfo);
-      EmitDuplicateError("ResourceBindInfo", Str);
-      return;
-    }
-  }
-
   // Verify each resource table.
+  unsigned ResIndex = 0;
   // CBV
-  VerifyResourceTable(DM.GetCBuffers(), ResBindInfo0Set, PSVVersion);
+  VerifyResourceTable(DM.GetCBuffers(), ResIndex, PSVVersion);
   // Sampler
-  VerifyResourceTable(DM.GetSamplers(), ResBindInfo0Set, PSVVersion);
+  VerifyResourceTable(DM.GetSamplers(), ResIndex, PSVVersion);
   // SRV
-  VerifyResourceTable(DM.GetSRVs(), ResBindInfo0Set, PSVVersion);
+  VerifyResourceTable(DM.GetSRVs(), ResIndex, PSVVersion);
   // UAV
-  VerifyResourceTable(DM.GetUAVs(), ResBindInfo0Set, PSVVersion);
+  VerifyResourceTable(DM.GetUAVs(), ResIndex, PSVVersion);
 }
 
 void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,

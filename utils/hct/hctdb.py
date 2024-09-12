@@ -6926,22 +6926,12 @@ class db_dxil(object):
         self.add_valrule_msg(
             "Container.ContentMatches",
             "DXIL Container Content must match Module",
-            "'%0' does not match, for container: '%1', for dxil module: '%2'.",
-        )
-        self.add_valrule_msg(
-            "Container.ContentDuplicates",
-            "DXIL Container Content got duplication",
-            "'%0' with content '%1' duplicates.",
-        )
-        self.add_valrule_msg(
-            "Container.ContentMissing",
-            "DXIL Container Content missing",
-            "Cannot find '%0' with content '%1' in dxil container.",
+            "DXIL container mismatch for '%0' between '%1' part:('%2') and DXIL module:('%3')",
         )
         self.add_valrule_msg(
             "Container.ContentInvalid",
-            "DXIL Container Content invalid",
-            "'%0' is invalid in dxil container.",
+            "DXIL Container Content is well-formed",
+            "In '%0', '%1' is not well-formed",
         )
         self.add_valrule("Meta.Required", "Required metadata missing.")
         self.add_valrule_msg(

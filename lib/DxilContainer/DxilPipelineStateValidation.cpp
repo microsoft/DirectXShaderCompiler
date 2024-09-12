@@ -360,14 +360,14 @@ void PSVResourceBindInfo1::Print(raw_ostream &OS) const {
 }
 
 void PSVSignatureElement::Print(raw_ostream &OS) const {
-  Print(OS, GetSemanticName());
+  Print(OS, GetSemanticName(), GetSemanticIndexes());
 }
 
-void PSVSignatureElement::Print(raw_ostream &OS, const char *Name) const {
+void PSVSignatureElement::Print(raw_ostream &OS, const char *Name,
+                                const uint32_t *SemanticIndexes) const {
   OS << "PSVSignatureElement:\n";
   OS << "  SemanticName: " << Name << "\n";
   OS << "  SemanticIndex: ";
-  const uint32_t *SemanticIndexes = GetSemanticIndexes();
   for (unsigned i = 0; i < GetRows(); ++i) {
     OS << *(SemanticIndexes + i) << " ";
   }

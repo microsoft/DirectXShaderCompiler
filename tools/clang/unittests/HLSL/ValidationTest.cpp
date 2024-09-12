@@ -312,8 +312,7 @@ public:
   TEST_METHOD(CacheInitWithLowPrec)
 
   TEST_METHOD(PSVStringTableReorder)
-  TEST_METHOD(PSVResourceTableReorder)
-  TEST_METHOD(PSVSignatureTableReorder)
+  TEST_METHOD(PSVSemanticIndexTableReorder)
   TEST_METHOD(PSVContentValidationVS)
   TEST_METHOD(PSVContentValidationHS)
   TEST_METHOD(PSVContentValidationDS)
@@ -4620,64 +4619,70 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   VERIFY_IS_NOT_NULL(pUpdatedTableResult);
   VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
   VERIFY_FAILED(status);
-  CheckOperationResultMsgs(pUpdatedTableResult,
-                           {"error: 'SigInputElement' does not match, for "
-                            "container: 'PSVSignatureElement:",
-                            "  SemanticName: ",
-                            "  SemanticIndex: 0 ",
-                            "  IsAllocated: 1",
-                            "  StartRow: 0",
-                            "  StartCol: 0",
-                            "  Rows: 1",
-                            "  Cols: 1",
-                            "  SemanticKind: Arbitrary",
-                            "  InterpolationMode: 2",
-                            "  OutputStream: 0",
-                            "  ComponentType: 3",
-                            "  DynamicIndexMask: 0",
-                            "', for dxil module: 'PSVSignatureElement:",
-                            "  SemanticName: A",
-                            "  SemanticIndex: 0 ",
-                            "  IsAllocated: 1",
-                            "  StartRow: 0",
-                            "  StartCol: 0",
-                            "  Rows: 1",
-                            "  Cols: 1",
-                            "  SemanticKind: Arbitrary",
-                            "  InterpolationMode: 2",
-                            "  OutputStream: 0",
-                            "  ComponentType: 3",
-                            "  DynamicIndexMask: 0",
-                            "'.",
-                            "error: 'SigInputElement' does not match, for "
-                            "container: 'PSVSignatureElement:",
-                            "  SemanticName: ",
-                            "  SemanticIndex: 0 ",
-                            "  IsAllocated: 1",
-                            "  StartRow: 0",
-                            "  StartCol: 1",
-                            "  Rows: 1",
-                            "  Cols: 1",
-                            "  SemanticKind: Arbitrary",
-                            "  InterpolationMode: 2",
-                            "  OutputStream: 0",
-                            "  ComponentType: 3",
-                            "  DynamicIndexMask: 0",
-                            "', for dxil module: 'PSVSignatureElement:",
-                            "  SemanticName: B",
-                            "  SemanticIndex: 0 ",
-                            "  IsAllocated: 1",
-                            "  StartRow: 0",
-                            "  StartCol: 1",
-                            "  Rows: 1",
-                            "  Cols: 1",
-                            "  SemanticKind: Arbitrary",
-                            "  InterpolationMode: 2",
-                            "  OutputStream: 0",
-                            "  ComponentType: 3",
-                            "  DynamicIndexMask: 0",
-                            "'."},
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  CheckOperationResultMsgs(
+      pUpdatedTableResult,
+      {"error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 1",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 1",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'EntryFunctionName' between 'PSV0' "
+       "part:('main') and DXIL module:('ain')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 
   // Update string table index.
   SigInput->SemanticName = 2;
@@ -4694,120 +4699,25 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   VERIFY_SUCCEEDED(status);
 }
 
-TEST_F(ValidationTest, PSVResourceTableReorder) {
-  if (!m_ver.m_InternalValidator)
-    if (m_ver.SkipDxilVersion(1, 8))
-      return;
+class SemanticIndexRotator {
+  llvm::MutableArrayRef<PSVSignatureElement0> SignatureElements;
 
-  CComPtr<IDxcBlob> pProgram;
-  CompileSource(
-      "Buffer<float> B; int I; float4 main() : SV_Target { return B[I]; }",
-      "ps_6_0", &pProgram);
+public:
+  SemanticIndexRotator(PSVSignatureElement0 *SigInput,
+                       unsigned NumSignatureElements)
+      : SignatureElements(SigInput, NumSignatureElements) {}
 
-  CComPtr<IDxcValidator> pValidator;
-  CComPtr<IDxcOperationResult> pResult;
-  unsigned Flags = 0;
-  VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
-  // Make sure the validation was successful.
-  HRESULT status;
-  VERIFY_IS_NOT_NULL(pResult);
-  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
-  VERIFY_SUCCEEDED(status);
+  void Rotate(uint32_t SemanticIndexTableEntries) {
+    for (unsigned i = 0; i < SignatureElements.size(); ++i)
+      if (SignatureElements[i].SemanticIndexes == 0)
+        SignatureElements[i].SemanticIndexes = SemanticIndexTableEntries - 1;
+      else
+        SignatureElements[i].SemanticIndexes =
+            SignatureElements[i].SemanticIndexes - 1;
+  }
+};
 
-  // Update string table.
-  hlsl::DxilContainerHeader *pHeader;
-  hlsl::DxilPartIterator pPartIter(nullptr, 0);
-  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
-  pPartIter =
-      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
-                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
-  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
-
-  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
-  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
-
-  uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
-  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
-  PSVRuntimeInfo3 *PSVInfo =
-      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
-  VERIFY_ARE_EQUAL(PSVInfo->SigInputElements, 0);
-  PSVPtr += PSVRuntimeInfo_size / 4;
-  uint32_t ResourceCount = *(PSVPtr++);
-  VERIFY_ARE_EQUAL(ResourceCount, 2u);
-  uint32_t ResourceBindInfoSize = *(PSVPtr++);
-  VERIFY_ARE_EQUAL(ResourceBindInfoSize, sizeof(PSVResourceBindInfo1));
-  PSVResourceBindInfo1 *ResourceBindInfo =
-      const_cast<PSVResourceBindInfo1 *>((const PSVResourceBindInfo1 *)PSVPtr);
-  PSVResourceBindInfo1 *ResourceBindInfo1 = ResourceBindInfo + 1;
-  PSVResourceBindInfo1 Tmp = *ResourceBindInfo;
-
-  // Overwrite ResourceBindInfo only.
-  *ResourceBindInfo = *ResourceBindInfo1;
-
-  // Run validation again.
-  CComPtr<IDxcOperationResult> pUpdatedTableResult;
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedTableResult));
-  // Make sure the validation was fail.
-  VERIFY_IS_NOT_NULL(pUpdatedTableResult);
-  VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
-  VERIFY_FAILED(status);
-  CheckOperationResultMsgs(
-      pUpdatedTableResult,
-      {"error: 'ResourceBindInfo' with content 'PSVResourceBindInfo:",
-       "  Space: 0", "  LowerBound: 0", "  UpperBound: 0",
-       "  ResType: SRVTyped", "' duplicates."},
-      /*maySucceedAnyway*/ false, /*bRegex*/ false);
-
-  // Update both.
-  *ResourceBindInfo1 = Tmp;
-
-  // Run validation again.
-  CComPtr<IDxcOperationResult> pUpdatedResult;
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
-  // Make sure the validation was successful.
-  VERIFY_IS_NOT_NULL(pUpdatedResult);
-  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
-  VERIFY_SUCCEEDED(status);
-}
-
-static void CheckSignatureReorder(IDxcBlob *pProgram,
-                                  PSVSignatureElement0 *SigInput,
-                                  llvm::ArrayRef<LPCSTR> pErrorMsgs,
-                                  IDxcValidator *pValidator) {
-  PSVSignatureElement0 *SigInput1 = SigInput + 1;
-
-  PSVSignatureElement0 Tmp = *SigInput;
-  // Update SigInput.
-  *SigInput = *SigInput1;
-
-  // Run validation again.
-  unsigned Flags = 0;
-  HRESULT status;
-  CComPtr<IDxcOperationResult> pParitalUpdatedResult;
-  VERIFY_SUCCEEDED(
-      pValidator->Validate(pProgram, Flags, &pParitalUpdatedResult));
-  // Make sure the validation was fail.
-  VERIFY_IS_NOT_NULL(pParitalUpdatedResult);
-  VERIFY_SUCCEEDED(pParitalUpdatedResult->GetStatus(&status));
-  VERIFY_FAILED(status);
-
-  CheckOperationResultMsgs(pParitalUpdatedResult, pErrorMsgs,
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
-  // Update both.
-  *SigInput1 = Tmp;
-
-  // Run validation again.
-  CComPtr<IDxcOperationResult> pUpdatedResult;
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
-  // Make sure the validation was successful.
-  VERIFY_IS_NOT_NULL(pUpdatedResult);
-  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
-  VERIFY_SUCCEEDED(status);
-}
-
-TEST_F(ValidationTest, PSVSignatureTableReorder) {
+TEST_F(ValidationTest, PSVSemanticIndexTableReorder) {
   if (!m_ver.m_InternalValidator)
     if (m_ver.SkipDxilVersion(1, 8))
       return;
@@ -4827,7 +4737,7 @@ TEST_F(ValidationTest, PSVSignatureTableReorder) {
   VERIFY_SUCCEEDED(pResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
 
-  // Update input signature table.
+  // Update input signature semantic index table.
   hlsl::DxilContainerHeader *pHeader;
   hlsl::DxilPartIterator pPartIter(nullptr, 0);
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
@@ -4854,47 +4764,285 @@ TEST_F(ValidationTest, PSVSignatureTableReorder) {
   PSVPtr += StringTableSize / 4;
 
   uint32_t SemanticIndexTableEntries = *(PSVPtr++);
+  llvm::MutableArrayRef<uint32_t> SemanticTable(const_cast<uint32_t *>(PSVPtr),
+                                                SemanticIndexTableEntries);
+
   PSVPtr += SemanticIndexTableEntries;
 
   uint32_t PSVSignatureElement_size = *(PSVPtr++);
   VERIFY_ARE_EQUAL(PSVSignatureElement_size, sizeof(PSVSignatureElement0));
-  PSVSignatureElement0 *SigInput =
-      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
-  CheckSignatureReorder(pProgram, SigInput,
-                        {"'SigInputElement' with content 'PSVSignatureElement:",
-                         "  SemanticName: TEXCOORD", "  SemanticIndex: 0",
-                         "  IsAllocated: 1", "  StartRow: 1", "  StartCol: 0",
-                         "  Rows: 1", "  Cols: 2", "  SemanticKind: Arbitrary",
-                         "  InterpolationMode: 2", "  OutputStream: 0",
-                         "  ComponentType: 3", "  DynamicIndexMask: 0",
-                         "' duplicates"},
-                        pValidator);
+
+  SemanticIndexRotator InputRotator(
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr),
+      PSVInfo->SigInputElements);
 
   PSVPtr += PSVSignatureElement_size * PSVInfo->SigInputElements / 4;
-  PSVSignatureElement0 *SigOutput =
-      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
-  CheckSignatureReorder(
-      pProgram, SigOutput,
-      {"'SigOutputElement' with content 'PSVSignatureElement:",
-       "  SemanticName: TEXCOORD", "  SemanticIndex: 0", "  IsAllocated: 1",
-       "  StartRow: 1", "  StartCol: 0", "  Rows: 1", "  Cols: 2",
-       "  SemanticKind: Arbitrary", "  InterpolationMode: 2",
-       "  OutputStream: 0", "  ComponentType: 3", "  DynamicIndexMask: 0",
-       "' duplicates"},
-      pValidator);
+  SemanticIndexRotator OutputRotator(
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr),
+      PSVInfo->SigOutputElements);
 
   PSVPtr += PSVSignatureElement_size * PSVInfo->SigOutputElements / 4;
-  PSVSignatureElement0 *SigPatchConstOrPrim =
-      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
-  CheckSignatureReorder(
-      pProgram, SigPatchConstOrPrim,
-      {"'SigPatchConstantOrPrimElement' with content 'PSVSignatureElement:",
-       "  SemanticName: PN_POSITION", "  SemanticIndex: 0", "  IsAllocated: 1",
-       "  StartRow: 0", "  StartCol: 0", "  Rows: 1", "  Cols: 1",
-       "  SemanticKind: Arbitrary", "  InterpolationMode: 0",
-       "  OutputStream: 0", "  ComponentType: 3", "  DynamicIndexMask: 0",
-       "' duplicates"},
-      pValidator);
+  SemanticIndexRotator PatchConstOrPrimRotator(
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr),
+      PSVInfo->SigPatchConstOrPrimElements);
+
+  // Update SemanticTable by rotating.
+  std::rotate(SemanticTable.begin(), SemanticTable.begin() + 1,
+              SemanticTable.end());
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pParitalUpdatedResult;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram, Flags, &pParitalUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pParitalUpdatedResult);
+  VERIFY_SUCCEEDED(pParitalUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pParitalUpdatedResult,
+      {"error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 4",
+       "  SemanticKind: Position",
+       "  InterpolationMode: 4",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 4",
+       "  SemanticKind: Position",
+       "  InterpolationMode: 4",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: TEXCOORD",
+       "  SemanticIndex: 3 ",
+       "  IsAllocated: 1",
+       "  StartRow: 1",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 2",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: TEXCOORD",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 1",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 2",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 2",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 3 ",
+       "  IsAllocated: 1",
+       "  StartRow: 2",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigOutputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 4",
+       "  SemanticKind: Position",
+       "  InterpolationMode: 4",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 4",
+       "  SemanticKind: Position",
+       "  InterpolationMode: 4",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigOutputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: TEXCOORD",
+       "  SemanticIndex: 3 ",
+       "  IsAllocated: 1",
+       "  StartRow: 1",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 2",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: TEXCOORD",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 1",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 2",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigOutputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 2",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 3 ",
+       "  IsAllocated: 1",
+       "  StartRow: 2",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigPatchConstantOrPrimElement' "
+       "between 'PSV0' part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 1 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 2",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 2",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigPatchConstantOrPrimElement' "
+       "between 'PSV0' part:('PSVSignatureElement:",
+       "  SemanticName: PN_POSITION",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: PN_POSITION",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."
+
+      },
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  // Update SemanticIndexes.
+  InputRotator.Rotate(SemanticIndexTableEntries);
+  OutputRotator.Rotate(SemanticIndexTableEntries);
+  PatchConstOrPrimRotator.Rotate(SemanticIndexTableEntries);
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
 }
 
 struct SimplePSV {
@@ -5066,111 +5214,112 @@ TEST_F(ValidationTest, PSVContentValidationVS) {
   VERIFY_FAILED(status);
   CheckOperationResultMsgs(
       pUpdatedTableResult,
-      {
-          "error: 'ResourceBindInfo' does not match, for container: "
-          "'PSVResourceBindInfo:",
-          "  Space: 0",
-          "  LowerBound: 5",
-          "  UpperBound: 5",
-          "  ResType: CBV",
-          "  ResKind: CBuffer",
-          "  ResFlags: None",
-          "', for dxil module: 'PSVResourceBindInfo:",
-          "  Space: 0",
-          "  LowerBound: 5",
-          "  UpperBound: 5",
-          "  ResType: CBV",
-          "  ResKind: CBuffer",
-          "  ResFlags: ",
-          "'.",
-          "error: 'SigInputElement' does not match, for container: "
-          "'PSVSignatureElement:",
-          "  SemanticName: POSITION",
-          "  SemanticIndex: 0",
-          "  IsAllocated: 1",
-          "  StartRow: 0",
-          "  StartCol: 0",
-          "  Rows: 1",
-          "  Cols: 3",
-          "  SemanticKind: Arbitrary",
-          "  InterpolationMode: 0",
-          "  OutputStream: 0",
-          "  ComponentType: 3",
-          "  DynamicIndexMask: 0",
-          "', for dxil module: 'PSVSignatureElement:",
-          "  SemanticName: POSITION",
-          "  SemanticIndex: 0",
-          "  IsAllocated: 1",
-          "  StartRow: 0",
-          "  StartCol: 0",
-          "  Rows: 1",
-          "  Cols: 3",
-          "  SemanticKind: Arbitrary",
-          "  InterpolationMode: 20",
-          "  OutputStream: 0",
-          "  ComponentType: 3",
-          "  DynamicIndexMask: 0",
-          "'.",
-          "error: 'SigOutputElement' does not match, for container: "
-          "'PSVSignatureElement:",
-          "  SemanticName: NORMAL",
-          "  SemanticIndex: 0",
-          "  IsAllocated: 1",
-          "  StartRow: 0",
-          "  StartCol: 0",
-          "  Rows: 1",
-          "  Cols: 3",
-          "  SemanticKind: Arbitrary",
-          "  InterpolationMode: 2",
-          "  OutputStream: 0",
-          "  ComponentType: 3",
-          "  DynamicIndexMask: 0",
-          "', for dxil module: 'PSVSignatureElement:",
-          "  SemanticName: NORMAL",
-          "  SemanticIndex: 0",
-          "  IsAllocated: 1",
-          "  StartRow: 0",
-          "  StartCol: 0",
-          "  Rows: 1",
-          "  Cols: 3",
-          "  SemanticKind: Arbitrary",
-          "  InterpolationMode: 20",
-          "  OutputStream: 0",
-          "  ComponentType: 3",
-          "  DynamicIndexMask: 0",
-          "'.",
-          "error: 'ViewIDState' does not match, for container: 'Outputs "
-          "affected by inputs as a table of bitmasks for stream 0:",
-          "Inputs contributing to computation of Outputs[0]:",
-          "  Inputs[0] influencing Outputs[0] :  None",
-          "  Inputs[1] influencing Outputs[0] :  None",
-          "  Inputs[2] influencing Outputs[0] :  None",
-          "  Inputs[3] influencing Outputs[0] :  None",
-          "  Inputs[4] influencing Outputs[0] :  None",
-          "  Inputs[5] influencing Outputs[0] :  None",
-          "  Inputs[6] influencing Outputs[0] :  None",
-          "  Inputs[7] influencing Outputs[0] :  None",
-          "  Inputs[8] influencing Outputs[0] :  None",
-          "  Inputs[9] influencing Outputs[0] :  None",
-          "  Inputs[10] influencing Outputs[0] :  None",
-          "  Inputs[11] influencing Outputs[0] :  None",
-          "', for dxil module: 'Outputs affected by inputs as a table of "
-          "bitmasks for stream 0:",
-          "Inputs contributing to computation of Outputs[0]:",
-          "  Inputs[0] influencing Outputs[0] : 8  9  10  11 ",
-          "  Inputs[1] influencing Outputs[0] : 8  9  10  11 ",
-          "  Inputs[2] influencing Outputs[0] : 8  9  10  11 ",
-          "  Inputs[3] influencing Outputs[0] :  None",
-          "  Inputs[4] influencing Outputs[0] : 0  1  2 ",
-          "  Inputs[5] influencing Outputs[0] : 0  1  2 ",
-          "  Inputs[6] influencing Outputs[0] : 0  1  2 ",
-          "  Inputs[7] influencing Outputs[0] :  None",
-          "  Inputs[8] influencing Outputs[0] : 4 ",
-          "  Inputs[9] influencing Outputs[0] : 5 ",
-          "  Inputs[10] influencing Outputs[0] :  None",
-          "  Inputs[11] influencing Outputs[0] :  None",
-          "'.",
-      },
+      {"error: DXIL container mismatch for 'ResourceBindInfo' between 'PSV0' "
+       "part:('PSVResourceBindInfo:",
+       "  Space: 0",
+       "  LowerBound: 5",
+       "  UpperBound: 5",
+       "  ResType: CBV",
+       "  ResKind: CBuffer",
+       "  ResFlags: ",
+       "') and DXIL module:('PSVResourceBindInfo:",
+       "  Space: 0",
+       "  LowerBound: 5",
+       "  UpperBound: 5",
+       "  ResType: CBV",
+       "  ResKind: CBuffer",
+       "  ResFlags: None",
+       "')",
+       "error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: POSITION",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 20",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: POSITION",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigOutputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 20",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'ViewIDState' between 'PSV0' "
+       "part:('Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] :  None",
+       "  Inputs[1] influencing Outputs[0] :  None",
+       "  Inputs[2] influencing Outputs[0] :  None",
+       "  Inputs[3] influencing Outputs[0] :  None",
+       "  Inputs[4] influencing Outputs[0] :  None",
+       "  Inputs[5] influencing Outputs[0] :  None",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] :  None",
+       "  Inputs[9] influencing Outputs[0] :  None",
+       "  Inputs[10] influencing Outputs[0] :  None",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "') and DXIL module:('Outputs affected by inputs as a table of bitmasks "
+       "for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 8  9  10  11 ",
+       "  Inputs[1] influencing Outputs[0] : 8  9  10  11 ",
+       "  Inputs[2] influencing Outputs[0] : 8  9  10  11 ",
+       "  Inputs[3] influencing Outputs[0] :  None",
+       "  Inputs[4] influencing Outputs[0] : 0  1  2 ",
+       "  Inputs[5] influencing Outputs[0] : 0  1  2 ",
+       "  Inputs[6] influencing Outputs[0] : 0  1  2 ",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 4 ",
+       "  Inputs[9] influencing Outputs[0] : 5 ",
+       "  Inputs[10] influencing Outputs[0] :  None",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
@@ -5223,103 +5372,104 @@ TEST_F(ValidationTest, PSVContentValidationHS) {
 
   CheckOperationResultMsgs(
       pUpdatedResult,
-      {
-          "error: 'SigPatchConstantOrPrimElement' does not match, for "
-          "container: 'PSVSignatureElement:",
-          "  SemanticName: ",
-          "  SemanticIndex: 0 ",
-          "  IsAllocated: 1",
-          "  StartRow: 0",
-          "  StartCol: 3",
-          "  Rows: 3",
-          "  Cols: 1",
-          "  SemanticKind: TessFactor",
-          "  InterpolationMode: 0",
-          "  OutputStream: 0",
-          "  ComponentType: 3",
-          "  DynamicIndexMask: 0",
-          "', for dxil module: 'PSVSignatureElement:",
-          "  SemanticName: SV_TessFactor",
-          "  SemanticIndex: 0 ",
-          "  IsAllocated: 1",
-          "  StartRow: 0",
-          "  StartCol: 3",
-          "  Rows: 3",
-          "  Cols: 1",
-          "  SemanticKind: TessFactor",
-          "  InterpolationMode: 20",
-          "  OutputStream: 0",
-          "  ComponentType: 3",
-          "  DynamicIndexMask: 0",
-          "'.",
-          "error: 'ViewIDState' does not match, for container: 'Outputs "
-          "affected by ViewID as a bitmask for stream 0:",
-          "   ViewID influencing Outputs[0] : 8  9  10 ",
-          "PCOutputs affected by ViewID as a bitmask:",
-          "  ViewID influencing PCOutputs :  None",
-          "Outputs affected by inputs as a table of bitmasks for stream 0:",
-          "Inputs contributing to computation of Outputs[0]:",
-          "  Inputs[0] influencing Outputs[0] : 0 ",
-          "  Inputs[1] influencing Outputs[0] : 1 ",
-          "  Inputs[2] influencing Outputs[0] : 2 ",
-          "  Inputs[3] influencing Outputs[0] : 3 ",
-          "  Inputs[4] influencing Outputs[0] : 4 ",
-          "  Inputs[5] influencing Outputs[0] : 5 ",
-          "  Inputs[6] influencing Outputs[0] :  None",
-          "  Inputs[7] influencing Outputs[0] :  None",
-          "  Inputs[8] influencing Outputs[0] : 8 ",
-          "  Inputs[9] influencing Outputs[0] : 9 ",
-          "  Inputs[10] influencing Outputs[0] : 10 ",
-          "  Inputs[11] influencing Outputs[0] :  None",
-          "Patch constant outputs affected by inputs as a table of bitmasks:",
-          "Inputs contributing to computation of PatchConstantOutputs:",
-          "  Inputs[0] influencing PatchConstantOutputs :  None",
-          "  Inputs[1] influencing PatchConstantOutputs :  None",
-          "  Inputs[2] influencing PatchConstantOutputs :  None",
-          "  Inputs[3] influencing PatchConstantOutputs :  None",
-          "  Inputs[4] influencing PatchConstantOutputs :  None",
-          "  Inputs[5] influencing PatchConstantOutputs :  None",
-          "  Inputs[6] influencing PatchConstantOutputs :  None",
-          "  Inputs[7] influencing PatchConstantOutputs :  None",
-          "  Inputs[8] influencing PatchConstantOutputs :  None",
-          "  Inputs[9] influencing PatchConstantOutputs :  None",
-          "  Inputs[10] influencing PatchConstantOutputs :  None",
-          "  Inputs[11] influencing PatchConstantOutputs :  None",
-          "', for dxil module: 'Outputs affected by ViewID as a bitmask for "
-          "stream 0:",
-          "   ViewID influencing Outputs[0] : 8  9  10 ",
-          "PCOutputs affected by ViewID as a bitmask:",
-          "  ViewID influencing PCOutputs : 12 ",
-          "Outputs affected by inputs as a table of bitmasks for stream 0:",
-          "Inputs contributing to computation of Outputs[0]:",
-          "  Inputs[0] influencing Outputs[0] : 0 ",
-          "  Inputs[1] influencing Outputs[0] : 1 ",
-          "  Inputs[2] influencing Outputs[0] : 2 ",
-          "  Inputs[3] influencing Outputs[0] : 3 ",
-          "  Inputs[4] influencing Outputs[0] : 4 ",
-          "  Inputs[5] influencing Outputs[0] : 5 ",
-          "  Inputs[6] influencing Outputs[0] :  None",
-          "  Inputs[7] influencing Outputs[0] :  None",
-          "  Inputs[8] influencing Outputs[0] : 8 ",
-          "  Inputs[9] influencing Outputs[0] : 9 ",
-          "  Inputs[10] influencing Outputs[0] : 10 ",
-          "  Inputs[11] influencing Outputs[0] :  None",
-          "Patch constant outputs affected by inputs as a table of bitmasks:",
-          "Inputs contributing to computation of PatchConstantOutputs:",
-          "  Inputs[0] influencing PatchConstantOutputs : 3 ",
-          "  Inputs[1] influencing PatchConstantOutputs :  None",
-          "  Inputs[2] influencing PatchConstantOutputs :  None",
-          "  Inputs[3] influencing PatchConstantOutputs :  None",
-          "  Inputs[4] influencing PatchConstantOutputs :  None",
-          "  Inputs[5] influencing PatchConstantOutputs :  None",
-          "  Inputs[6] influencing PatchConstantOutputs :  None",
-          "  Inputs[7] influencing PatchConstantOutputs :  None",
-          "  Inputs[8] influencing PatchConstantOutputs :  None",
-          "  Inputs[9] influencing PatchConstantOutputs :  None",
-          "  Inputs[10] influencing PatchConstantOutputs :  None",
-          "  Inputs[11] influencing PatchConstantOutputs :  None",
-          "'.",
-      },
+      {"error: DXIL container mismatch for 'SigPatchConstantOrPrimElement' "
+       "between 'PSV0' part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 3",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 20",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 3",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'ViewIDState' between 'PSV0' "
+       "part:('Outputs affected by ViewID as a bitmask for stream 0:",
+       "   ViewID influencing Outputs[0] : 8  9  10 ",
+       "PCOutputs affected by ViewID as a bitmask:",
+       "  ViewID influencing PCOutputs :  None",
+       "Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 0 ",
+       "  Inputs[1] influencing Outputs[0] : 1 ",
+       "  Inputs[2] influencing Outputs[0] : 2 ",
+       "  Inputs[3] influencing Outputs[0] : 3 ",
+       "  Inputs[4] influencing Outputs[0] : 4 ",
+       "  Inputs[5] influencing Outputs[0] : 5 ",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 8 ",
+       "  Inputs[9] influencing Outputs[0] : 9 ",
+       "  Inputs[10] influencing Outputs[0] : 10 ",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "Patch constant outputs affected by inputs as a table of bitmasks:",
+       "Inputs contributing to computation of PatchConstantOutputs:",
+       "  Inputs[0] influencing PatchConstantOutputs :  None",
+       "  Inputs[1] influencing PatchConstantOutputs :  None",
+       "  Inputs[2] influencing PatchConstantOutputs :  None",
+       "  Inputs[3] influencing PatchConstantOutputs :  None",
+       "  Inputs[4] influencing PatchConstantOutputs :  None",
+       "  Inputs[5] influencing PatchConstantOutputs :  None",
+       "  Inputs[6] influencing PatchConstantOutputs :  None",
+       "  Inputs[7] influencing PatchConstantOutputs :  None",
+       "  Inputs[8] influencing PatchConstantOutputs :  None",
+       "  Inputs[9] influencing PatchConstantOutputs :  None",
+       "  Inputs[10] influencing PatchConstantOutputs :  None",
+       "  Inputs[11] influencing PatchConstantOutputs :  None",
+       "') and DXIL module:('Outputs affected by ViewID as a bitmask for "
+       "stream 0:",
+       "   ViewID influencing Outputs[0] : 8  9  10 ",
+       "PCOutputs affected by ViewID as a bitmask:",
+       "  ViewID influencing PCOutputs : 12 ",
+       "Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 0 ",
+       "  Inputs[1] influencing Outputs[0] : 1 ",
+       "  Inputs[2] influencing Outputs[0] : 2 ",
+       "  Inputs[3] influencing Outputs[0] : 3 ",
+       "  Inputs[4] influencing Outputs[0] : 4 ",
+       "  Inputs[5] influencing Outputs[0] : 5 ",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 8 ",
+       "  Inputs[9] influencing Outputs[0] : 9 ",
+       "  Inputs[10] influencing Outputs[0] : 10 ",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "Patch constant outputs affected by inputs as a table of bitmasks:",
+       "Inputs contributing to computation of PatchConstantOutputs:",
+       "  Inputs[0] influencing PatchConstantOutputs : 3 ",
+       "  Inputs[1] influencing PatchConstantOutputs :  None",
+       "  Inputs[2] influencing PatchConstantOutputs :  None",
+       "  Inputs[3] influencing PatchConstantOutputs :  None",
+       "  Inputs[4] influencing PatchConstantOutputs :  None",
+       "  Inputs[5] influencing PatchConstantOutputs :  None",
+       "  Inputs[6] influencing PatchConstantOutputs :  None",
+       "  Inputs[7] influencing PatchConstantOutputs :  None",
+       "  Inputs[8] influencing PatchConstantOutputs :  None",
+       "  Inputs[9] influencing PatchConstantOutputs :  None",
+       "  Inputs[10] influencing PatchConstantOutputs :  None",
+       "  Inputs[11] influencing PatchConstantOutputs :  None",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
@@ -5370,111 +5520,113 @@ TEST_F(ValidationTest, PSVContentValidationDS) {
 
   CheckOperationResultMsgs(
       pUpdatedResult,
-      {
-          "error: 'SigPatchConstantOrPrimElement' does not match, for "
-          "container: 'PSVSignatureElement:",
-          "  SemanticName: ",
-          "  SemanticIndex: 0 ",
-          "  IsAllocated: 1",
-          "  StartRow: 0",
-          "  StartCol: 3",
-          "  Rows: 3",
-          "  Cols: 1",
-          "  SemanticKind: TessFactor",
-          "  InterpolationMode: 0",
-          "  OutputStream: 0",
-          "  ComponentType: 3",
-          "  DynamicIndexMask: 0",
-          "', for dxil module: 'PSVSignatureElement:",
-          "  SemanticName: SV_TessFactor",
-          "  SemanticIndex: 0 ",
-          "  IsAllocated: 1",
-          "  StartRow: 0",
-          "  StartCol: 3",
-          "  Rows: 3",
-          "  Cols: 1",
-          "  SemanticKind: TessFactor",
-          "  InterpolationMode: 20",
-          "  OutputStream: 0",
-          "  ComponentType: 3",
-          "  DynamicIndexMask: 0",
-          "'.",
-          "error: 'ViewIDState' does not match, for container: 'Outputs "
-          "affected by inputs as a table of bitmasks for stream 0:",
-          "Inputs contributing to computation of Outputs[0]:",
-          "  Inputs[0] influencing Outputs[0] : 0 ",
-          "  Inputs[1] influencing Outputs[0] : 1 ",
-          "  Inputs[2] influencing Outputs[0] : 2 ",
-          "  Inputs[3] influencing Outputs[0] : 3 ",
-          "  Inputs[4] influencing Outputs[0] : 4 ",
-          "  Inputs[5] influencing Outputs[0] : 5 ",
-          "  Inputs[6] influencing Outputs[0] :  None",
-          "  Inputs[7] influencing Outputs[0] :  None",
-          "  Inputs[8] influencing Outputs[0] : 8 ",
-          "  Inputs[9] influencing Outputs[0] : 9 ",
-          "  Inputs[10] influencing Outputs[0] : 10 ",
-          "  Inputs[11] influencing Outputs[0] :  None",
-          "  Inputs[12] influencing Outputs[0] :  None",
-          "  Inputs[13] influencing Outputs[0] :  None",
-          "  Inputs[14] influencing Outputs[0] :  None",
-          "  Inputs[15] influencing Outputs[0] :  None",
-          "Outputs affected by patch constant inputs as a table of bitmasks:",
-          "PatchConstantInputs contributing to computation of Outputs:",
-          "  PatchConstantInputs[0] influencing Outputs :  None",
-          "  PatchConstantInputs[1] influencing Outputs :  None",
-          "  PatchConstantInputs[2] influencing Outputs :  None",
-          "  PatchConstantInputs[3] influencing Outputs :  None",
-          "  PatchConstantInputs[4] influencing Outputs :  None",
-          "  PatchConstantInputs[5] influencing Outputs :  None",
-          "  PatchConstantInputs[6] influencing Outputs :  None",
-          "  PatchConstantInputs[7] influencing Outputs :  None",
-          "  PatchConstantInputs[8] influencing Outputs :  None",
-          "  PatchConstantInputs[9] influencing Outputs :  None",
-          "  PatchConstantInputs[10] influencing Outputs :  None",
-          "  PatchConstantInputs[11] influencing Outputs :  None",
-          "  PatchConstantInputs[12] influencing Outputs :  None",
-          "  PatchConstantInputs[13] influencing Outputs :  None",
-          "  PatchConstantInputs[14] influencing Outputs :  None",
-          "  PatchConstantInputs[15] influencing Outputs :  None",
-          "', for dxil module: 'Outputs affected by inputs as a table of "
-          "bitmasks for stream 0:",
-          "Inputs contributing to computation of Outputs[0]:",
-          "  Inputs[0] influencing Outputs[0] : 0 ",
-          "  Inputs[1] influencing Outputs[0] : 1 ",
-          "  Inputs[2] influencing Outputs[0] : 2 ",
-          "  Inputs[3] influencing Outputs[0] : 3 ",
-          "  Inputs[4] influencing Outputs[0] : 4 ",
-          "  Inputs[5] influencing Outputs[0] : 5 ",
-          "  Inputs[6] influencing Outputs[0] :  None",
-          "  Inputs[7] influencing Outputs[0] :  None",
-          "  Inputs[8] influencing Outputs[0] : 8 ",
-          "  Inputs[9] influencing Outputs[0] : 9 ",
-          "  Inputs[10] influencing Outputs[0] : 10 ",
-          "  Inputs[11] influencing Outputs[0] :  None",
-          "  Inputs[12] influencing Outputs[0] :  None",
-          "  Inputs[13] influencing Outputs[0] :  None",
-          "  Inputs[14] influencing Outputs[0] :  None",
-          "  Inputs[15] influencing Outputs[0] :  None",
-          "Outputs affected by patch constant inputs as a table of bitmasks:",
-          "PatchConstantInputs contributing to computation of Outputs:",
-          "  PatchConstantInputs[0] influencing Outputs :  None",
-          "  PatchConstantInputs[1] influencing Outputs :  None",
-          "  PatchConstantInputs[2] influencing Outputs :  None",
-          "  PatchConstantInputs[3] influencing Outputs : 4  5 ",
-          "  PatchConstantInputs[4] influencing Outputs :  None",
-          "  PatchConstantInputs[5] influencing Outputs :  None",
-          "  PatchConstantInputs[6] influencing Outputs :  None",
-          "  PatchConstantInputs[7] influencing Outputs : 0  1  2  3 ",
-          "  PatchConstantInputs[8] influencing Outputs :  None",
-          "  PatchConstantInputs[9] influencing Outputs :  None",
-          "  PatchConstantInputs[10] influencing Outputs :  None",
-          "  PatchConstantInputs[11] influencing Outputs :  None",
-          "  PatchConstantInputs[12] influencing Outputs : 8  9  10 ",
-          "  PatchConstantInputs[13] influencing Outputs :  None",
-          "  PatchConstantInputs[14] influencing Outputs :  None",
-          "  PatchConstantInputs[15] influencing Outputs :  None",
-          "'.",
-      },
+      {"error: DXIL container mismatch for 'SigPatchConstantOrPrimElement' "
+       "between 'PSV0' part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 3",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 20",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 3",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'ViewIDState' between 'PSV0' "
+       "part:('Outputs affected by inputs as a table of bitmasks for stream "
+       "0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 0 ",
+       "  Inputs[1] influencing Outputs[0] : 1 ",
+       "  Inputs[2] influencing Outputs[0] : 2 ",
+       "  Inputs[3] influencing Outputs[0] : 3 ",
+       "  Inputs[4] influencing Outputs[0] : 4 ",
+       "  Inputs[5] influencing Outputs[0] : 5 ",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 8 ",
+       "  Inputs[9] influencing Outputs[0] : 9 ",
+       "  Inputs[10] influencing Outputs[0] : 10 ",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "  Inputs[12] influencing Outputs[0] :  None",
+       "  Inputs[13] influencing Outputs[0] :  None",
+       "  Inputs[14] influencing Outputs[0] :  None",
+       "  Inputs[15] influencing Outputs[0] :  None",
+       "Outputs affected by patch constant inputs as a table of bitmasks:",
+       "PatchConstantInputs contributing to computation of Outputs:",
+       "  PatchConstantInputs[0] influencing Outputs :  None",
+       "  PatchConstantInputs[1] influencing Outputs :  None",
+       "  PatchConstantInputs[2] influencing Outputs :  None",
+       "  PatchConstantInputs[3] influencing Outputs :  None",
+       "  PatchConstantInputs[4] influencing Outputs :  None",
+       "  PatchConstantInputs[5] influencing Outputs :  None",
+       "  PatchConstantInputs[6] influencing Outputs :  None",
+       "  PatchConstantInputs[7] influencing Outputs :  None",
+       "  PatchConstantInputs[8] influencing Outputs :  None",
+       "  PatchConstantInputs[9] influencing Outputs :  None",
+       "  PatchConstantInputs[10] influencing Outputs :  None",
+       "  PatchConstantInputs[11] influencing Outputs :  None",
+       "  PatchConstantInputs[12] influencing Outputs :  None",
+       "  PatchConstantInputs[13] influencing Outputs :  None",
+       "  PatchConstantInputs[14] influencing Outputs :  None",
+       "  PatchConstantInputs[15] influencing Outputs :  None",
+       "') and DXIL module:('Outputs affected by inputs as a table of "
+       "bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 0 ",
+       "  Inputs[1] influencing Outputs[0] : 1 ",
+       "  Inputs[2] influencing Outputs[0] : 2 ",
+       "  Inputs[3] influencing Outputs[0] : 3 ",
+       "  Inputs[4] influencing Outputs[0] : 4 ",
+       "  Inputs[5] influencing Outputs[0] : 5 ",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 8 ",
+       "  Inputs[9] influencing Outputs[0] : 9 ",
+       "  Inputs[10] influencing Outputs[0] : 10 ",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "  Inputs[12] influencing Outputs[0] :  None",
+       "  Inputs[13] influencing Outputs[0] :  None",
+       "  Inputs[14] influencing Outputs[0] :  None",
+       "  Inputs[15] influencing Outputs[0] :  None",
+       "Outputs affected by patch constant inputs as a table of bitmasks:",
+       "PatchConstantInputs contributing to computation of Outputs:",
+       "  PatchConstantInputs[0] influencing Outputs :  None",
+       "  PatchConstantInputs[1] influencing Outputs :  None",
+       "  PatchConstantInputs[2] influencing Outputs :  None",
+       "  PatchConstantInputs[3] influencing Outputs : 4  5 ",
+       "  PatchConstantInputs[4] influencing Outputs :  None",
+       "  PatchConstantInputs[5] influencing Outputs :  None",
+       "  PatchConstantInputs[6] influencing Outputs :  None",
+       "  PatchConstantInputs[7] influencing Outputs : 0  1  2  3 ",
+       "  PatchConstantInputs[8] influencing Outputs :  None",
+       "  PatchConstantInputs[9] influencing Outputs :  None",
+       "  PatchConstantInputs[10] influencing Outputs :  None",
+       "  PatchConstantInputs[11] influencing Outputs :  None",
+       "  PatchConstantInputs[12] influencing Outputs : 8  9  10 ",
+       "  PatchConstantInputs[13] influencing Outputs :  None",
+       "  PatchConstantInputs[14] influencing Outputs :  None",
+       "  PatchConstantInputs[15] influencing Outputs :  None",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
@@ -5520,48 +5672,50 @@ TEST_F(ValidationTest, PSVContentValidationGS) {
   VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
   VERIFY_FAILED(status);
 
-  CheckOperationResultMsgs(pUpdatedResult,
-                           {
-                               "error: 'PSVRuntimeInfo' does not match, for "
-                               "container: 'PSVRuntimeInfo:",
-                               " Geometry Shader",
-                               " InputPrimitive=point",
-                               " OutputTopology=triangle",
-                               " OutputStreamMask=1",
-                               " OutputPositionPresent=1",
-                               " MinimumExpectedWaveLaneCount: 0",
-                               " MaximumExpectedWaveLaneCount: 4294967295",
-                               " UsesViewID: false",
-                               " SigInputElements: 3",
-                               " SigOutputElements: 3",
-                               " SigPatchConstOrPrimElements: 0",
-                               " SigInputVectors: 3",
-                               " SigOutputVectors[0]: 3",
-                               " SigOutputVectors[1]: 0",
-                               " SigOutputVectors[2]: 0",
-                               " SigOutputVectors[3]: 0",
-                               " EntryFunctionName: main",
-                               "', for dxil module: 'PSVRuntimeInfo:",
-                               " Geometry Shader",
-                               " InputPrimitive=point",
-                               " OutputTopology=triangle",
-                               " OutputStreamMask=1",
-                               " OutputPositionPresent=1",
-                               " MinimumExpectedWaveLaneCount: 0",
-                               " MaximumExpectedWaveLaneCount: 4294967295",
-                               " UsesViewID: false",
-                               " SigInputElements: 3",
-                               " SigOutputElements: 3",
-                               " SigPatchConstOrPrimElements: 0",
-                               " SigInputVectors: 3",
-                               " SigOutputVectors[0]: 3",
-                               " SigOutputVectors[1]: 0",
-                               " SigOutputVectors[2]: 0",
-                               " SigOutputVectors[3]: 0",
-                               " EntryFunctionName: main",
-                               "'.",
-                           },
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'PSVRuntimeInfo' between 'PSV0' "
+       "part:('PSVRuntimeInfo:",
+       " Geometry Shader",
+       " InputPrimitive=point",
+       " OutputTopology=triangle",
+       " OutputStreamMask=1",
+       " OutputPositionPresent=1",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 3",
+       " SigOutputElements: 3",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 3",
+       " SigOutputVectors[0]: 3",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "') and DXIL module:('PSVRuntimeInfo:",
+       " Geometry Shader",
+       " InputPrimitive=point",
+       " OutputTopology=triangle",
+       " OutputStreamMask=1",
+       " OutputPositionPresent=1",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 3",
+       " SigOutputElements: 3",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 3",
+       " SigOutputVectors[0]: 3",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
 TEST_F(ValidationTest, PSVContentValidationPS) {
@@ -5607,44 +5761,46 @@ TEST_F(ValidationTest, PSVContentValidationPS) {
   VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
   VERIFY_FAILED(status);
 
-  CheckOperationResultMsgs(pUpdatedResult,
-                           {
-                               "error: 'PSVRuntimeInfo' does not match, for "
-                               "container: 'PSVRuntimeInfo:",
-                               " Pixel Shader",
-                               " DepthOutput=0",
-                               " SampleFrequency=1",
-                               " MinimumExpectedWaveLaneCount: 0",
-                               " MaximumExpectedWaveLaneCount: 4294967295",
-                               " UsesViewID: false",
-                               " SigInputElements: 2",
-                               " SigOutputElements: 1",
-                               " SigPatchConstOrPrimElements: 0",
-                               " SigInputVectors: 2",
-                               " SigOutputVectors[0]: 1",
-                               " SigOutputVectors[1]: 0",
-                               " SigOutputVectors[2]: 0",
-                               " SigOutputVectors[3]: 0",
-                               " EntryFunctionName: main",
-                               "', for dxil module: 'PSVRuntimeInfo:",
-                               " Pixel Shader",
-                               " DepthOutput=1",
-                               " SampleFrequency=1",
-                               " MinimumExpectedWaveLaneCount: 0",
-                               " MaximumExpectedWaveLaneCount: 4294967295",
-                               " UsesViewID: false",
-                               " SigInputElements: 2",
-                               " SigOutputElements: 1",
-                               " SigPatchConstOrPrimElements: 0",
-                               " SigInputVectors: 2",
-                               " SigOutputVectors[0]: 1",
-                               " SigOutputVectors[1]: 0",
-                               " SigOutputVectors[2]: 0",
-                               " SigOutputVectors[3]: 0",
-                               " EntryFunctionName: main",
-                               "'.",
-                           },
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'PSVRuntimeInfo' between 'PSV0' "
+       "part:('PSVRuntimeInfo:",
+       " Pixel Shader",
+       " DepthOutput=0",
+       " SampleFrequency=1",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 2",
+       " SigOutputElements: 1",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 2",
+       " SigOutputVectors[0]: 1",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "') and DXIL module:('PSVRuntimeInfo:",
+       " Pixel Shader",
+       " DepthOutput=1",
+       " SampleFrequency=1",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 2",
+       " SigOutputElements: 1",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 2",
+       " SigOutputVectors[0]: 1",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
 TEST_F(ValidationTest, PSVContentValidationCS) {
@@ -5689,42 +5845,44 @@ TEST_F(ValidationTest, PSVContentValidationCS) {
   VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
   VERIFY_FAILED(status);
 
-  CheckOperationResultMsgs(pUpdatedResult,
-                           {
-                               "error: 'PSVRuntimeInfo' does not match, for "
-                               "container: 'PSVRuntimeInfo:",
-                               " Compute Shader",
-                               " NumThreads=(128,1,1)",
-                               " MinimumExpectedWaveLaneCount: 0",
-                               " MaximumExpectedWaveLaneCount: 4294967295",
-                               " UsesViewID: false",
-                               " SigInputElements: 0",
-                               " SigOutputElements: 0",
-                               " SigPatchConstOrPrimElements: 0",
-                               " SigInputVectors: 0",
-                               " SigOutputVectors[0]: 0",
-                               " SigOutputVectors[1]: 0",
-                               " SigOutputVectors[2]: 0",
-                               " SigOutputVectors[3]: 0",
-                               " EntryFunctionName: main",
-                               "', for dxil module: 'PSVRuntimeInfo:",
-                               " Compute Shader",
-                               " NumThreads=(1,1,1)",
-                               " MinimumExpectedWaveLaneCount: 0",
-                               " MaximumExpectedWaveLaneCount: 4294967295",
-                               " UsesViewID: false",
-                               " SigInputElements: 0",
-                               " SigOutputElements: 0",
-                               " SigPatchConstOrPrimElements: 0",
-                               " SigInputVectors: 0",
-                               " SigOutputVectors[0]: 0",
-                               " SigOutputVectors[1]: 0",
-                               " SigOutputVectors[2]: 0",
-                               " SigOutputVectors[3]: 0",
-                               " EntryFunctionName: main",
-                               "'.",
-                           },
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'PSVRuntimeInfo' between 'PSV0' "
+       "part:('PSVRuntimeInfo:",
+       " Compute Shader",
+       " NumThreads=(128,1,1)",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 0",
+       " SigOutputElements: 0",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 0",
+       " SigOutputVectors[0]: 0",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "') and DXIL module:('PSVRuntimeInfo:",
+       " Compute Shader",
+       " NumThreads=(1,1,1)",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 0",
+       " SigOutputElements: 0",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 0",
+       " SigOutputVectors[0]: 0",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
 TEST_F(ValidationTest, PSVContentValidationMS) {
@@ -5774,23 +5932,26 @@ TEST_F(ValidationTest, PSVContentValidationMS) {
 
   CheckOperationResultMsgs(
       pUpdatedResult,
-      {
-          "error: 'ViewIDState' does not match, for container: 'Outputs "
-          "affected by ViewID as a bitmask for stream 0:",
-          "   ViewID influencing Outputs[0] :  None",
-          "Outputs affected by inputs as a table of bitmasks for stream 0:",
-          "Inputs contributing to computation of Outputs[0]:  None",
-          "', for dxil module: 'Outputs affected by ViewID as a bitmask for "
-          "stream 0:",
-          "   ViewID influencing Outputs[0] : 0  1  2  3  4  8  12  16 ",
-          "PCOutputs affected by ViewID as a bitmask:",
-          "  ViewID influencing PCOutputs :  None",
-          "Outputs affected by inputs as a table of bitmasks for stream 0:",
-          "Inputs contributing to computation of Outputs[0]:  None",
-          "Patch constant outputs affected by inputs as a table of bitmasks:",
-          "Inputs contributing to computation of PatchConstantOutputs:  None",
-          "'.",
-      },
+      {"error: DXIL container mismatch for 'ViewIDState' between 'PSV0' "
+       "part:('Outputs affected by ViewID as a bitmask for stream 0:",
+       "   ViewID influencing Outputs[0] :  None",
+       "PCOutputs affected by ViewID as a bitmask:",
+       "  ViewID influencing PCOutputs :  None",
+       "Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:  None",
+       "') and DXIL module:('Outputs affected by ViewID as a bitmask for "
+       "stream 0:",
+       "   ViewID influencing Outputs[0] : 0  1  2  3  4  8  12  16 ",
+       "PCOutputs affected by ViewID as a bitmask:",
+       "  ViewID influencing PCOutputs : 3 ",
+       "Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:  None",
+       "Patch constant outputs affected by inputs as a table of bitmasks:",
+       "Inputs contributing to computation of PatchConstantOutputs:  None",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
@@ -5837,40 +5998,42 @@ TEST_F(ValidationTest, PSVContentValidationAS) {
   VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
   VERIFY_FAILED(status);
 
-  CheckOperationResultMsgs(pUpdatedResult,
-                           {
-                               "error: 'PSVRuntimeInfo' does not match, for "
-                               "container: 'PSVRuntimeInfo:",
-                               " Amplification Shader",
-                               " NumThreads=(32,1,1)",
-                               " MinimumExpectedWaveLaneCount: 0",
-                               " MaximumExpectedWaveLaneCount: 4294967295",
-                               " UsesViewID: false",
-                               " SigInputElements: 0",
-                               " SigOutputElements: 0",
-                               " SigPatchConstOrPrimElements: 0",
-                               " SigInputVectors: 0",
-                               " SigOutputVectors[0]: 0",
-                               " SigOutputVectors[1]: 0",
-                               " SigOutputVectors[2]: 0",
-                               " SigOutputVectors[3]: 0",
-                               " EntryFunctionName: main",
-                               "', for dxil module: 'PSVRuntimeInfo:",
-                               " Amplification Shader",
-                               " NumThreads=(32,1,1)",
-                               " MinimumExpectedWaveLaneCount: 0",
-                               " MaximumExpectedWaveLaneCount: 4294967295",
-                               " UsesViewID: false",
-                               " SigInputElements: 0",
-                               " SigOutputElements: 0",
-                               " SigPatchConstOrPrimElements: 0",
-                               " SigInputVectors: 0",
-                               " SigOutputVectors[0]: 0",
-                               " SigOutputVectors[1]: 0",
-                               " SigOutputVectors[2]: 0",
-                               " SigOutputVectors[3]: 0",
-                               " EntryFunctionName: main",
-                               "'.",
-                           },
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'PSVRuntimeInfo' between 'PSV0' "
+       "part:('PSVRuntimeInfo:",
+       " Amplification Shader",
+       " NumThreads=(32,1,1)",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 0",
+       " SigOutputElements: 0",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 0",
+       " SigOutputVectors[0]: 0",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "') and DXIL module:('PSVRuntimeInfo:",
+       " Amplification Shader",
+       " NumThreads=(32,1,1)",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 0",
+       " SigOutputElements: 0",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 0",
+       " SigOutputVectors[0]: 0",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }

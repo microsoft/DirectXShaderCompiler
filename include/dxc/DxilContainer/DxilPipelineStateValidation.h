@@ -465,7 +465,8 @@ public:
     return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF;
   }
   void Print(llvm::raw_ostream &O) const;
-  void Print(llvm::raw_ostream &O, const char *Name) const;
+  void Print(llvm::raw_ostream &O, const char *Name,
+             const uint32_t *SemanticIndexes) const;
 };
 
 #define MAX_PSV_VERSION 3

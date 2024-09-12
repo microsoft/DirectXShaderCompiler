@@ -3,8 +3,8 @@
 struct PSSceneIn
 {
     float4 pos  : SV_Position;
-    float2 tex  : TEXCOORD0;
-    float3 norm : NORMAL;
+    float2 tex  : TEXCOORD2;
+    float3 norm : NORMAL3;
 };
 
 struct HSPerVertexData
