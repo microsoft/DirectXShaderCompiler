@@ -58,7 +58,7 @@ target_link_libraries(dxildll PRIVATE
   dxcvalidator
 )
 
-if (WIN32)
+if (WIN32 AND HLSL_BUILD_DXILCONV)
 add_dependencies(dxildll
     ${DXCDependencies}
     DxcEtw
