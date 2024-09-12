@@ -613,6 +613,14 @@ public:
     return ReadOrWrite(pBuffer, pSize, Mode, initInfo);
   }
 
+  uint32_t GetRuntimeInfoSize() const { return m_uPSVRuntimeInfoSize; }
+  uint32_t GetResourceBindInfoSize() const {
+    return m_uPSVResourceBindInfoSize;
+  }
+  uint32_t GetSignatureElementSize() const {
+    return m_uPSVSignatureElementSize;
+  }
+
   PSVRuntimeInfo0 *GetPSVRuntimeInfo0() const { return m_pPSVRuntimeInfo0; }
 
   PSVRuntimeInfo1 *GetPSVRuntimeInfo1() const { return m_pPSVRuntimeInfo1; }
@@ -1102,6 +1110,9 @@ public:
 
 ViewIDValidator *NewViewIDValidator(unsigned viewIDCount,
                                     unsigned gsRastStreamIndex);
+
+uint32_t GetPSVVersion(uint32_t ValidatorMajorVersion,
+                       uint32_t ValidatorMinorVersion);
 
 void InitPSVResourceBinding(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
                             DxilResourceBase *);

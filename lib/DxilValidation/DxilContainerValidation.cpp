@@ -380,8 +380,10 @@ void PSVContentVerifier::VerifySignature(const DxilSignature &Sig,
   const PSVStringTable &StrTab = PSV.GetStringTable();
   const PSVSemanticIndexTable &IndexTab = PSV.GetSemanticIndexTable();
   for (unsigned i = 0; i < Count; i++)
-    VerifySignatureElement(Sig.GetElement(i), Base + i, StrTab, IndexTab, Name,
-                           i1ToUnknownCompat);
+    VerifySignatureElement(Sig.GetElement(i),
+                           PSV.GetRecord<PSVSignatureElement0>(
+                               Base, PSV.GetSignatureElementSize(), Count, i),
+                           StrTab, IndexTab, Name, i1ToUnknownCompat);
 }
 
 void PSVContentVerifier::VerifySignatureElement(
@@ -530,41 +532,40 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
 void PSVContentVerifier::Verify() {
   unsigned ValMajor, ValMinor;
   DM.GetValidatorVersion(ValMajor, ValMinor);
-  unsigned PSVVersion = MAX_PSV_VERSION;
-  // Constraint PSVVersion based on validator version
-  if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) < 0)
-    PSVVersion = 0;
-  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) < 0)
-    PSVVersion = 1;
-  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 8) < 0)
-    PSVVersion = 2;
+  unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
 
+  PSVInitInfo PSVInfo(PSVVersion);
+  if (PSV.GetRuntimeInfoSize() != PSVInfo.RuntimeInfoSize()) {
+    EmitMismatchError("PSVRuntimeInfoSize",
+                      std::to_string(PSV.GetRuntimeInfoSize()),
+                      std::to_string(PSVInfo.RuntimeInfoSize()));
+    return;
+  }
+
+  if (PSV.GetBindCount() > 0 &&
+      PSV.GetResourceBindInfoSize() != PSVInfo.ResourceBindInfoSize()) {
+    EmitMismatchError("ResourceBindInfoSize",
+                      std::to_string(PSV.GetResourceBindInfoSize()),
+                      std::to_string(PSVInfo.ResourceBindInfoSize()));
+    return;
+  }
   VerifyResources(PSVVersion);
 
   PSVRuntimeInfo0 *PSV0 = PSV.GetPSVRuntimeInfo0();
-  if (!PSV0) {
-    EmitMismatchError("PSVRuntimeInfo0", "null", "non-null");
-    return;
-  }
   PSVRuntimeInfo1 *PSV1 = PSV.GetPSVRuntimeInfo1();
-  if (!PSV1 && PSVVersion > 0) {
-    EmitMismatchError("PSVRuntimeInfo1", "null", "non-null");
-    return;
-  }
   PSVRuntimeInfo2 *PSV2 = PSV.GetPSVRuntimeInfo2();
-  if (!PSV2 && PSVVersion > 1) {
-    EmitMismatchError("PSVRuntimeInfo2", "null", "non-null");
-    return;
-  }
-  PSVRuntimeInfo3 *PSV3 = PSV.GetPSVRuntimeInfo3();
-  if (!PSV3 && PSVVersion > 2) {
-    EmitMismatchError("PSVRuntimeInfo3", "null", "non-null");
-    return;
-  }
 
   const ShaderModel *SM = DM.GetShaderModel();
   VerifyEntryProperties(SM, PSV0, PSV1, PSV2);
   if (PSVVersion > 0) {
+    if (((PSV.GetSigInputElements() + PSV.GetSigOutputElements() +
+          PSV.GetSigPatchConstOrPrimElements()) > 0) &&
+        PSV.GetSignatureElementSize() != PSVInfo.SignatureElementSize()) {
+      EmitMismatchError("SignatureElementSize",
+                        std::to_string(PSV.GetSignatureElementSize()),
+                        std::to_string(PSVInfo.SignatureElementSize()));
+      return;
+    }
     uint8_t ShaderStage = static_cast<uint8_t>(SM->GetKind());
     PSVRuntimeInfo1 *PSV1 = PSV.GetPSVRuntimeInfo1();
     if (PSV1->ShaderStage != ShaderStage) {

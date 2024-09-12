@@ -739,17 +739,9 @@ public:
       : m_Module(mod), m_PSVInitInfo(PSVVersion) {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
     // Constraint PSVVersion based on validator version
-    if (PSVVersion > 0 &&
-        DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 1) < 0)
-      m_PSVInitInfo.PSVVersion = 0;
-    else if (PSVVersion > 1 &&
-             DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
-      m_PSVInitInfo.PSVVersion = 1;
-    else if (PSVVersion > 2 &&
-             DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0)
-      m_PSVInitInfo.PSVVersion = 2;
-    else if (PSVVersion > MAX_PSV_VERSION)
-      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
+    uint32_t PSVVersionConstraint = hlsl::GetPSVVersion(m_ValMajor, m_ValMinor);
+    if (PSVVersion > PSVVersionConstraint)
+      m_PSVInitInfo.PSVVersion = PSVVersionConstraint;
 
     const ShaderModel *SM = m_Module.GetShaderModel();
     UINT uCBuffers = m_Module.GetCBuffers().size();

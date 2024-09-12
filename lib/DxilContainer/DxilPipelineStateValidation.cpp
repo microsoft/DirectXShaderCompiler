@@ -24,6 +24,18 @@
 using namespace hlsl;
 using namespace llvm;
 
+uint32_t hlsl::GetPSVVersion(uint32_t ValMajor, uint32_t ValMinor) {
+  unsigned PSVVersion = MAX_PSV_VERSION;
+  // Constraint PSVVersion based on validator version
+  if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) < 0)
+    PSVVersion = 0;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) < 0)
+    PSVVersion = 1;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 8) < 0)
+    PSVVersion = 2;
+  return PSVVersion;
+}
+
 void hlsl::InitPSVResourceBinding(PSVResourceBindInfo0 *Bind0,
                                   PSVResourceBindInfo1 *Bind1,
                                   DxilResourceBase *Res) {
