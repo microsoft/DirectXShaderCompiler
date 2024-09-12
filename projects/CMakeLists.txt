@@ -1,7 +1,14 @@
 set(DXC_PROJECTS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(DXC_PROJECTS_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
-if(WIN32 AND HLSL_BUILD_DXILCONV)
-  add_subdirectory(include/Tracing)
+if(WIN32)
+
+if(HLSL_BUILD_DXILCONV OR HLSL_BUILD_DXILDLL)
+  add_subdirectory(include/Tracing) # DxcRuntimeEtw target
+endif (HLSL_BUILD_DXILCONV OR HLSL_BUILD_DXILDLL)
+
+if (HLSL_BUILD_DXILCONV)
   add_subdirectory(dxilconv)
 endif (WIN32 AND HLSL_BUILD_DXILCONV)
+
+endif (WIN32)

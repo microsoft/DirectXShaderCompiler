@@ -92,6 +92,7 @@ option(HLSL_ENABLE_FIXED_VER "Reads version information from a file." OFF) # HLS
 option(HLSL_ENABLE_ANALYZE "Enables compiler analysis during compilation." OFF) # HLSL Change
 option(HLSL_OPTIONAL_PROJS_IN_DEFAULT "Include optional projects in default build target." OFF) # HLSL Change
 option(HLSL_BUILD_DXILCONV "Include DXBC to DXIL converter and tools." ON) # HLSL Change
+option(HLSL_BUILD_DXILDLL "Build dxildll." ON) # HLSL Change
 
 option(HLSL_ENABLE_DEBUG_ITERATORS "Disable debug iterators for faster debug and to remove some additional allocations with improper noexcept attribution" OFF) # HLSL Change
 
