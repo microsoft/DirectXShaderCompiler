@@ -567,7 +567,6 @@ void PSVContentVerifier::Verify() {
       return;
     }
     uint8_t ShaderStage = static_cast<uint8_t>(SM->GetKind());
-    PSVRuntimeInfo1 *PSV1 = PSV.GetPSVRuntimeInfo1();
     if (PSV1->ShaderStage != ShaderStage) {
       EmitMismatchError("ShaderStage", std::to_string(PSV1->ShaderStage),
                         std::to_string(ShaderStage));
