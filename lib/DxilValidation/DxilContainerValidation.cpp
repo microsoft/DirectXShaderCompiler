@@ -585,8 +585,8 @@ void PSVContentVerifier::Verify() {
   }
   if (PSVVersion > 2) {
     if (DM.GetEntryFunctionName() != PSV.GetEntryFunctionName())
-      EmitMismatchError("EntryFunctionName", DM.GetEntryFunctionName(),
-                        PSV.GetEntryFunctionName());
+      EmitMismatchError("EntryFunctionName", PSV.GetEntryFunctionName(),
+                        DM.GetEntryFunctionName());
   }
 
   if (!PSVContentValid)

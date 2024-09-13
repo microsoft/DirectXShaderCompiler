@@ -4678,7 +4678,7 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
        "  DynamicIndexMask: 0",
        "')",
        "error: DXIL container mismatch for 'EntryFunctionName' between 'PSV0' "
-       "part:('main') and DXIL module:('ain')",
+       "part:('ain') and DXIL module:('main')",
        "error: Container part 'Pipeline State Validation' does not match "
        "expected for module.",
        "Validation failed."},
