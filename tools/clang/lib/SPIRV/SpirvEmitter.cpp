@@ -532,6 +532,12 @@ bool isVkRawBufferLoadIntrinsic(const clang::FunctionDecl *FD) {
   return true;
 }
 
+bool isCooperativeMatrixGetLengthIntrinsic(
+    const FunctionDecl *functionDeclaration) {
+  return functionDeclaration->getName().equals(
+      "__builtin_spv_CooperativeMatrixLengthKHR");
+}
+
 // Takes an AST member type, and determines its index in the equivalent SPIR-V
 // struct type. This is required as the struct layout might change between the
 // AST representation and SPIR-V representation.
@@ -2903,6 +2909,11 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
   // Handle 'vk::RawBufferLoad()'
   if (isVkRawBufferLoadIntrinsic(funcDecl)) {
     return processRawBufferLoad(callExpr);
+  }
+
+  // Handle CooperativeMatrix::GetLength()
+  if (isCooperativeMatrixGetLengthIntrinsic(funcDecl)) {
+    return processCooperativeMatrixGetLength(callExpr);
   }
 
   // Normal standalone functions
@@ -14683,6 +14694,35 @@ SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
   auto *storeAsInt = castToInt(value, boolType, bufferType, loc);
   return storeDataToRawAddress(address, storeAsInt, bufferType, alignment, loc,
                                callExpr->getLocStart());
+}
+
+SpirvInstruction *
+SpirvEmitter::processCooperativeMatrixGetLength(const CallExpr *call) {
+  auto *declaration = dyn_cast<FunctionDecl>(call->getCalleeDecl());
+  assert(declaration);
+
+  const auto *templateSpecializationInfo =
+      declaration->getTemplateSpecializationInfo();
+  assert(templateSpecializationInfo);
+  const clang::TemplateArgumentList &templateArgs =
+      *templateSpecializationInfo->TemplateArguments;
+  assert(templateArgs.size() == 1);
+  const clang::TemplateArgument &arg = templateArgs[0];
+  assert(arg.getKind() == clang::TemplateArgument::Type);
+  const clang::QualType &type = arg.getAsType();
+
+  // Create an undef for `type`.
+  SpirvInstruction *undef = spvBuilder.getUndef(type);
+
+  // Create an OpCooperativeMatrixLengthKHR instruction. However, we cannot
+  // make a type a parameter at this point in the code. We will use an Undef of
+  // the type that will become the parameter, and then adjust the instruction
+  // in EmitVisitor.
+  SpirvInstruction *inst = getSpirvBuilder().createUnaryOp(
+      spv::Op::OpCooperativeMatrixLengthKHR, call->getType(), undef,
+      call->getLocStart(), call->getSourceRange());
+  inst->setRValue();
+  return inst;
 }
 
 SpirvInstruction *

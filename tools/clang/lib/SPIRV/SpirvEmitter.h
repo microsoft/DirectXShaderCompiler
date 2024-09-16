@@ -752,6 +752,10 @@ private:
   /// `vk::RawBufferStore()`.
   uint32_t getRawBufferAlignment(const Expr *expr);
 
+  /// Returns a spirv OpCooperativeMatrixLengthKHR instruction generated from a
+  /// call to __builtin_spv_CooperativeMatrixLengthKHR.
+  SpirvInstruction *processCooperativeMatrixGetLength(const CallExpr *call);
+
   /// Process vk::ext_execution_mode intrinsic
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
                                                   bool useIdParams);
