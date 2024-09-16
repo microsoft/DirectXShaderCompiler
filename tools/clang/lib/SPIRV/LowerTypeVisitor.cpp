@@ -732,6 +732,15 @@ const SpirvType *LowerTypeVisitor::lowerInlineSpirvType(
 
   auto args = specDecl->getTemplateArgs()[operandsIndex].getPackAsArray();
 
+  if (operandsIndex == 1 && args.size() == 2 &&
+      static_cast<spv::Op>(opcode) == spv::Op::OpTypePointer) {
+    const SpirvType *result =
+        getSpirvPointerFromInlineSpirvType(args, rule, isRowMajor, srcLoc);
+    if (result) {
+      return result;
+    }
+  }
+
   for (TemplateArgument arg : args) {
     switch (arg.getKind()) {
     case TemplateArgument::ArgKind::Type: {
@@ -1361,6 +1370,42 @@ LowerTypeVisitor::populateLayoutInformation(
   for (const auto &field : fields)
     result.push_back(loweredFields[fieldToIndexMap[&field]]);
   return result;
+}
+
+const SpirvType *LowerTypeVisitor::getSpirvPointerFromInlineSpirvType(
+    ArrayRef<TemplateArgument> args, SpirvLayoutRule rule,
+    Optional<bool> isRowMajor, SourceLocation location) {
+
+  assert(args.size() == 2 && "OpTypePointer requires exactly 2 arguments.");
+  QualType scLiteralType = args[0].getAsType();
+  SpirvConstant *constant = nullptr;
+  if (!getVkIntegralConstantValue(scLiteralType, constant, location) ||
+      !constant) {
+    return nullptr;
+  }
+  if (!constant->isLiteral())
+    return nullptr;
+
+  auto *intConstant = dyn_cast<SpirvConstantInteger>(constant);
+  if (!intConstant) {
+    return nullptr;
+  }
+
+  visitInstruction(constant);
+  spv::StorageClass storageClass =
+      static_cast<spv::StorageClass>(intConstant->getValue().getLimitedValue());
+
+  QualType pointeeType;
+  if (args[1].getKind() == TemplateArgument::ArgKind::Type) {
+    pointeeType = args[1].getAsType();
+  } else {
+    TemplateName templateName = args[1].getAsTemplate();
+    pointeeType = createASTTypeFromTemplateName(templateName);
+  }
+
+  const SpirvType *pointeeSpirvType =
+      lowerType(pointeeType, rule, isRowMajor, location);
+  return spvContext.getPointerType(pointeeSpirvType, storageClass);
 }
 
 } // namespace spirv
