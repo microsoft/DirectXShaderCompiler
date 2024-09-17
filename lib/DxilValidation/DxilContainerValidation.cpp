@@ -344,7 +344,10 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
                                                PSVRuntimeInfo2 *PSV2) {
   PSVRuntimeInfo3 DMPSV;
   memset(&DMPSV, 0, sizeof(PSVRuntimeInfo3));
-  hlsl::InitPSVRuntimeInfo(&DMPSV, &DMPSV, &DMPSV, &DMPSV, DM);
+
+  hlsl::SetShaderProps((PSVRuntimeInfo0 *)&DMPSV, DM);
+  hlsl::SetShaderProps((PSVRuntimeInfo1 *)&DMPSV, DM);
+  hlsl::SetShaderProps((PSVRuntimeInfo2 *)&DMPSV, DM);
   if (PSV1) {
     // Init things not set in InitPSVRuntimeInfo.
     DMPSV.ShaderStage = static_cast<uint8_t>(SM->GetKind());

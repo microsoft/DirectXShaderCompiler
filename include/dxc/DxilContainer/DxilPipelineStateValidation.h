@@ -1123,11 +1123,10 @@ void InitPSVSignatureElement(PSVSignatureElement0 &E,
                              const DxilSignatureElement &SE,
                              bool i1ToUnknownCompat);
 
-// Setup PSVRuntimeInfo* with DxilModule.
-// Note that the EntryFunctionName is not done.
-void InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
-                        PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
-                        const DxilModule &DM);
+// Setup shader properties for PSVRuntimeInfo* with DxilModule.
+void SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM);
+void SetShaderProps(PSVRuntimeInfo1 *pInfo1, const DxilModule &DM);
+void SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM);
 
 void PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
                          PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,

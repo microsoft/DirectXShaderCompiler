@@ -110,9 +110,7 @@ void hlsl::InitPSVSignatureElement(PSVSignatureElement0 &E,
   E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
 }
 
-void hlsl::InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
-                              PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
-                              const DxilModule &DM) {
+void hlsl::SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM) {
   const ShaderModel *SM = DM.GetShaderModel();
   pInfo->MinimumExpectedWaveLaneCount = 0;
   pInfo->MaximumExpectedWaveLaneCount = (uint32_t)-1;
@@ -217,7 +215,6 @@ void hlsl::InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
   case ShaderModel::Kind::Mesh: {
     pInfo->MS.MaxOutputVertices = (uint16_t)DM.GetMaxOutputVertices();
     pInfo->MS.MaxOutputPrimitives = (uint16_t)DM.GetMaxOutputPrimitives();
-    pInfo1->MS1.MeshOutputTopology = (uint8_t)DM.GetMeshOutputTopology();
     Module *mod = DM.GetModule();
     const DataLayout &DL = mod->getDataLayout();
     unsigned totalByteSize = 0;
@@ -238,22 +235,36 @@ void hlsl::InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
     break;
   }
   }
+}
 
-  // Write MaxVertexCount
-  if (pInfo1) {
-    if (SM->GetKind() == ShaderModel::Kind::Geometry)
-      pInfo1->MaxVertexCount = (uint16_t)DM.GetMaxVertexCount();
+void hlsl::SetShaderProps(PSVRuntimeInfo1 *pInfo1, const DxilModule &DM) {
+  assert(pInfo1);
+  const ShaderModel *SM = DM.GetShaderModel();
+  switch (SM->GetKind()) {
+  case ShaderModel::Kind::Geometry:
+    pInfo1->MaxVertexCount = (uint16_t)DM.GetMaxVertexCount();
+    break;
+  case ShaderModel::Kind::Mesh:
+    pInfo1->MS1.MeshOutputTopology = (uint8_t)DM.GetMeshOutputTopology();
+    break;
+  default:
+    break;
   }
-  if (pInfo2) {
-    switch (SM->GetKind()) {
-    case ShaderModel::Kind::Compute:
-    case ShaderModel::Kind::Mesh:
-    case ShaderModel::Kind::Amplification:
-      pInfo2->NumThreadsX = DM.GetNumThreads(0);
-      pInfo2->NumThreadsY = DM.GetNumThreads(1);
-      pInfo2->NumThreadsZ = DM.GetNumThreads(2);
-      break;
-    }
+}
+
+void hlsl::SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM) {
+  assert(pInfo2);
+  const ShaderModel *SM = DM.GetShaderModel();
+  switch (SM->GetKind()) {
+  case ShaderModel::Kind::Compute:
+  case ShaderModel::Kind::Mesh:
+  case ShaderModel::Kind::Amplification:
+    pInfo2->NumThreadsX = DM.GetNumThreads(0);
+    pInfo2->NumThreadsY = DM.GetNumThreads(1);
+    pInfo2->NumThreadsZ = DM.GetNumThreads(2);
+    break;
+  default:
+    break;
   }
 }
 

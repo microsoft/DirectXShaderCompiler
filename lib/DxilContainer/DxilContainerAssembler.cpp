@@ -827,8 +827,12 @@ public:
     PSVRuntimeInfo1 *pInfo1 = m_PSV.GetPSVRuntimeInfo1();
     PSVRuntimeInfo2 *pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     PSVRuntimeInfo3 *pInfo3 = m_PSV.GetPSVRuntimeInfo3();
-
-    hlsl::InitPSVRuntimeInfo(pInfo, pInfo1, pInfo2, pInfo3, m_Module);
+    if (pInfo)
+      hlsl::SetShaderProps(pInfo, m_Module);
+    if (pInfo1)
+      hlsl::SetShaderProps(pInfo1, m_Module);
+    if (pInfo2)
+      hlsl::SetShaderProps(pInfo2, m_Module);
     if (pInfo3)
       pInfo3->EntryFunctionName = EntryFunctionName;
 
