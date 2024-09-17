@@ -7,8 +7,9 @@
 #ifndef _HLSL_VK_KHR_COOPERATIVE_MATRIX_H_
 #define _HLSL_VK_KHR_COOPERATIVE_MATRIX_H_
 
-// TODO: Add a macro to HLSL to be able to check the Vulkan version being
-// targeted.
+#if __SPIRV_MAJOR_VERSION__ == 1 && __SPIRV_MINOR_VERSION__ < 6
+#error "CooperativeMatrix requires a minimum of SPIR-V 1.6"
+#endif
 
 #include "vk/spirv.h"
 
