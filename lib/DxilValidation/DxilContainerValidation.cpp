@@ -125,27 +125,6 @@ private:
   }
 };
 
-bool ViewIDTableAndMaskMismatched(const PSVDependencyTable &PSVTable,
-                                  std::vector<uint32_t> &VecPSVTable,
-                                  const PSVComponentMask &&PSVMask,
-                                  MutableArrayRef<uint32_t> ArrayMask,
-                                  uint32_t NumInputVectors,
-                                  uint32_t NumOutputVectors, bool UsesViewID) {
-  if (NumInputVectors > 0 && NumOutputVectors > 0) {
-    const PSVDependencyTable DxilTable(VecPSVTable.data(), NumInputVectors,
-                                       NumOutputVectors);
-    if (PSVTable != DxilTable)
-      return true;
-  }
-
-  if (UsesViewID && NumOutputVectors > 0) {
-    PSVComponentMask DxilMask(ArrayMask.data(), NumOutputVectors);
-    if (PSVMask != DxilMask)
-      return true;
-  }
-  return false;
-}
-
 void PSVContentVerifier::VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1,
                                                 unsigned PSVVersion) {
   std::vector<unsigned int> ViewStateInPSV;
