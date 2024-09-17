@@ -79,149 +79,6 @@ static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
   hlsl::dxilutil::EmitErrorOnContext(Ctx, str);
 }
 
-// Helper class which build PSV ViewID state from serialized view id state.
-struct SimpleViewIDState {
-  unsigned NumInputSigScalars = 0;
-  unsigned NumOutputSigScalars[DXIL::kNumOutputStreams] = {0, 0, 0, 0};
-  unsigned NumPCOrPrimSigScalars = 0;
-  // Use vector here because the data in PSV is aligned while data in serialized
-  // view id state is not.
-  std::vector<uint32_t> InputToOutputTable[DXIL::kNumOutputStreams];
-  std::vector<uint32_t> InputToPCOutputTable;
-  std::vector<uint32_t> PCInputToOutputTable;
-  MutableArrayRef<uint32_t> ViewIDOutputMask[DXIL::kNumOutputStreams];
-  MutableArrayRef<uint32_t> ViewIDPCOutputMask;
-  bool IsValid = true;
-  SimpleViewIDState(std::vector<uint32_t> &Data, PSVShaderKind,
-                    bool UsesViewID);
-  void Print(raw_ostream &OS, PSVShaderKind ShaderStage, bool UsesViewID) {
-    unsigned NumStreams =
-        ShaderStage == PSVShaderKind::Geometry ? PSV_GS_MAX_STREAMS : 1;
-
-    if (UsesViewID) {
-      for (unsigned i = 0; i < NumStreams; ++i) {
-        OS << "Outputs affected by ViewID as a bitmask for stream " << i
-           << ":\n ";
-        uint8_t OutputVectors =
-            llvm::RoundUpToAlignment(NumOutputSigScalars[i], 4) / 4;
-        const PSVComponentMask ViewIDMask(ViewIDOutputMask[i].data(),
-                                          OutputVectors);
-        std::string OutputSetName = "Outputs";
-        OutputSetName += "[" + std::to_string(i) + "]";
-        ViewIDMask.Print(OS, "ViewID", OutputSetName.c_str());
-      }
-
-      if (ShaderStage == PSVShaderKind::Hull ||
-          ShaderStage == PSVShaderKind::Mesh) {
-        OS << "PCOutputs affected by ViewID as a bitmask:\n";
-        uint8_t OutputVectors =
-            llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4) / 4;
-        const PSVComponentMask ViewIDMask(ViewIDPCOutputMask.data(),
-                                          OutputVectors);
-        ViewIDMask.Print(OS, "ViewID", "PCOutputs");
-      }
-    }
-
-    for (unsigned i = 0; i < NumStreams; ++i) {
-      OS << "Outputs affected by inputs as a table of bitmasks for stream " << i
-         << ":\n";
-      uint8_t InputVectors =
-          llvm::RoundUpToAlignment(NumInputSigScalars, 4) / 4;
-      uint8_t OutputVectors =
-          llvm::RoundUpToAlignment(NumOutputSigScalars[i], 4) / 4;
-      const PSVDependencyTable Table(InputToOutputTable[i].data(), InputVectors,
-                                     OutputVectors);
-      std::string OutputSetName = "Outputs";
-      OutputSetName += "[" + std::to_string(i) + "]";
-      Table.Print(OS, "Inputs", OutputSetName.c_str());
-    }
-
-    if (ShaderStage == PSVShaderKind::Hull ||
-        ShaderStage == PSVShaderKind::Mesh) {
-      OS << "Patch constant outputs affected by inputs as a table of "
-            "bitmasks:\n";
-      uint8_t InputVectors =
-          llvm::RoundUpToAlignment(NumInputSigScalars, 4) / 4;
-      uint8_t OutputVectors =
-          llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4) / 4;
-      const PSVDependencyTable Table(InputToPCOutputTable.data(), InputVectors,
-                                     OutputVectors);
-      Table.Print(OS, "Inputs", "PatchConstantOutputs");
-    } else if (ShaderStage == PSVShaderKind::Domain) {
-      OS << "Outputs affected by patch constant inputs as a table of "
-            "bitmasks:\n";
-      uint8_t InputVectors =
-          llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4) / 4;
-      uint8_t OutputVectors =
-          llvm::RoundUpToAlignment(NumOutputSigScalars[0], 4) / 4;
-      const PSVDependencyTable Table(PCInputToOutputTable.data(), InputVectors,
-                                     OutputVectors);
-      Table.Print(OS, "PatchConstantInputs", "Outputs");
-    }
-  }
-};
-SimpleViewIDState::SimpleViewIDState(std::vector<uint32_t> &Data,
-                                     PSVShaderKind SK, bool UsesViewID) {
-  if (Data.empty())
-    return;
-
-  unsigned Offset = 0;
-  // #Inputs.
-  NumInputSigScalars = Data[Offset++];
-  unsigned NumStreams =
-      SK == PSVShaderKind::Geometry ? DXIL::kNumOutputStreams : 1;
-  for (unsigned i = 0; i < NumStreams; i++) {
-    // #Outputs for stream StreamId.
-    unsigned OutputScalars = Data[Offset++];
-    NumOutputSigScalars[i] = OutputScalars;
-    unsigned MaskDwords = llvm::RoundUpToAlignment(OutputScalars, 32) / 32;
-    if (UsesViewID) {
-      ViewIDOutputMask[i] = {&(Data[Offset]), MaskDwords};
-      Offset += MaskDwords;
-    }
-    unsigned TabSize = MaskDwords * NumInputSigScalars;
-    if (TabSize == 0)
-      continue;
-    unsigned AlignedTabSize =
-        MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
-    InputToOutputTable[i] = std::vector<uint32_t>(AlignedTabSize, 0);
-    memcpy(InputToOutputTable[i].data(), &(Data[Offset]), TabSize * 4);
-    Offset += TabSize;
-  }
-  if (SK == PSVShaderKind::Hull || SK == PSVShaderKind::Mesh) {
-    // #PatchConstant.
-    NumPCOrPrimSigScalars = Data[Offset++];
-    unsigned MaskDwords =
-        llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 32) / 32;
-    if (UsesViewID) {
-      ViewIDPCOutputMask = {&(Data[Offset]), MaskDwords};
-      Offset += MaskDwords;
-    }
-    unsigned TabSize = MaskDwords * NumInputSigScalars;
-    if (TabSize) {
-      unsigned AlignedTabSize =
-          MaskDwords * llvm::RoundUpToAlignment(NumInputSigScalars, 4);
-      InputToPCOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
-      memcpy(InputToPCOutputTable.data(), &(Data[Offset]), TabSize * 4);
-      Offset += TabSize;
-    }
-  } else if (SK == PSVShaderKind::Domain) {
-    // #PatchConstant.
-    NumPCOrPrimSigScalars = Data[Offset++];
-    unsigned OutputScalars = NumOutputSigScalars[0];
-    unsigned MaskDwords = llvm::RoundUpToAlignment(OutputScalars, 32) / 32;
-    unsigned TabSize = MaskDwords * NumPCOrPrimSigScalars;
-    if (TabSize) {
-      unsigned AlignedTabSize =
-          MaskDwords * llvm::RoundUpToAlignment(NumPCOrPrimSigScalars, 4);
-      PCInputToOutputTable = std::vector<uint32_t>(AlignedTabSize, 0);
-      memcpy(PCInputToOutputTable.data(), &(Data[Offset]), TabSize * 4);
-      Offset += TabSize;
-    }
-  }
-  IsValid = Offset == Data.size();
-}
-
 class PSVContentVerifier {
   DxilModule &DM;
   DxilPipelineStateValidation &PSV;
@@ -246,7 +103,7 @@ private:
   template <typename T>
   void VerifyResourceTable(T &ResTab, unsigned &ResourceIndex,
                            unsigned PSVVersion);
-  void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1);
+  void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1, unsigned PSVVersion);
   void VerifyEntryProperties(const ShaderModel *SM, PSVRuntimeInfo0 *PSV0,
                              PSVRuntimeInfo1 *PSV1, PSVRuntimeInfo2 *PSV2);
   void EmitMismatchError(StringRef Name, StringRef PartContent,
@@ -289,65 +146,65 @@ bool ViewIDTableAndMaskMismatched(const PSVDependencyTable &PSVTable,
   return false;
 }
 
-void PSVContentVerifier::VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1) {
-  SimpleViewIDState ViewIDState(DM.GetSerializedViewIdState(),
-                                PSV.GetShaderKind(), PSV1->UsesViewID);
+void PSVContentVerifier::VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1,
+                                                unsigned PSVVersion) {
+  std::vector<unsigned int> ViewStateInPSV;
+  unsigned OutputSizeInUInts = hlsl::LoadViewIDStateFromPSV(nullptr, 0, PSV);
+  if (OutputSizeInUInts) {
+    ViewStateInPSV.assign(OutputSizeInUInts, 0);
+    hlsl::LoadViewIDStateFromPSV(ViewStateInPSV.data(),
+                                 (unsigned)ViewStateInPSV.size(), PSV);
+  }
+  // In case the num of input/output scalars are aligned to 4, the
+  // ViewStateInPSV could match the DxilModule's view state directly.
+  std::vector<unsigned int> ViewStateInDxilModule =
+      DM.GetSerializedViewIdState();
+  if (ViewStateInPSV == ViewStateInDxilModule)
+    return;
+  if (ViewStateInDxilModule.empty() &&
+      std::all_of(ViewStateInPSV.begin(), ViewStateInPSV.end(),
+                  [](unsigned int i) { return i == 0; }))
+    return;
 
-  if (!ViewIDState.IsValid) {
-    EmitInvalidError("ViewIDState");
+  std::string Str;
+  raw_string_ostream OS(Str);
+  PSV.PrintViewIDState(OS);
+  OS.flush();
+
+  // Create a Temp PSV from DxilModule to print the ViewIDState.
+  unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(DM, PSVVersion));
+  CComPtr<AbstractMemoryStream> pOutputStream;
+  IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
+  pOutputStream->Reserve(pWriter->size());
+  pWriter->write(pOutputStream);
+
+  DxilPipelineStateValidation PSVFromDxilModule;
+  if (!PSVFromDxilModule.InitFromPSV0(pOutputStream->GetPtr(),
+                                      pOutputStream->GetPtrSize())) {
+    ValCtx.EmitFormatError(
+        ValidationRule::ContainerPartMatches,
+        {"Pipeline State Validation generated from DxiModule"});
     return;
   }
 
-  unsigned NumInputScalars = ViewIDState.NumInputSigScalars;
-  auto &NumOutputScalars = ViewIDState.NumOutputSigScalars;
-  unsigned NumPCOrPrimScalars = ViewIDState.NumPCOrPrimSigScalars;
-  bool Mismatched = false;
-  for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
-    // NumInputScalars as input, NumOutputScalars[i] as output.
-    uint32_t NumInputVectors = llvm::RoundUpToAlignment(NumInputScalars, 4) / 4;
-    uint32_t NumOutputVectors =
-        llvm::RoundUpToAlignment(NumOutputScalars[i], 4) / 4;
-    Mismatched |= ViewIDTableAndMaskMismatched(
-        PSV.GetInputToOutputTable(i), ViewIDState.InputToOutputTable[i],
-        PSV.GetViewIDOutputMask(i), ViewIDState.ViewIDOutputMask[i],
-        NumInputVectors, NumOutputVectors, PSV1->UsesViewID);
+  ViewStateInDxilModule.clear();
+  OutputSizeInUInts =
+      hlsl::LoadViewIDStateFromPSV(nullptr, 0, PSVFromDxilModule);
+  if (OutputSizeInUInts) {
+    ViewStateInDxilModule.assign(OutputSizeInUInts, 0);
+    hlsl::LoadViewIDStateFromPSV(ViewStateInDxilModule.data(),
+                                 OutputSizeInUInts, PSVFromDxilModule);
   }
+  // ViewStateInDxilModule and ViewStateInPSV all go through
+  // LoadViewIDStateFromPSV here, so they should match.
+  if (ViewStateInPSV == ViewStateInDxilModule)
+    return;
 
-  // NumInputScalars as input, NumPCOrPrimScalars as output.
-  if (PSV1->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
-      PSV1->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh)) {
-    uint32_t NumInputVectors = llvm::RoundUpToAlignment(NumInputScalars, 4) / 4;
-    uint32_t NumOutputVectors =
-        llvm::RoundUpToAlignment(NumPCOrPrimScalars, 4) / 4;
-    Mismatched |= ViewIDTableAndMaskMismatched(
-        PSV.GetInputToPCOutputTable(), ViewIDState.InputToPCOutputTable,
-        PSV.GetViewIDPCOutputMask(), ViewIDState.ViewIDPCOutputMask,
-        NumInputVectors, NumOutputVectors, PSV1->UsesViewID);
-  }
-
-  // NumPCOrPrimScalars as input, NumOutputScalars[0] as output.
-  if (PSV1->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Domain)) {
-    uint32_t NumInputVectors =
-        llvm::RoundUpToAlignment(NumPCOrPrimScalars, 4) / 4;
-    uint32_t NumOutputVectors =
-        llvm::RoundUpToAlignment(NumOutputScalars[0], 4) / 4;
-    Mismatched |= ViewIDTableAndMaskMismatched(
-        PSV.GetPCInputToOutputTable(), ViewIDState.PCInputToOutputTable,
-        PSVComponentMask(), ViewIDState.ViewIDOutputMask[0], NumInputVectors,
-        NumOutputVectors, false);
-  }
-  if (Mismatched) {
-    std::string Str;
-    raw_string_ostream OS(Str);
-    PSV.PrintViewIDState(OS);
-    OS.flush();
-    std::string Str1;
-    raw_string_ostream OS1(Str1);
-    ViewIDState.Print(OS1, static_cast<PSVShaderKind>(PSV1->ShaderStage),
-                      PSV1->UsesViewID);
-    OS1.flush();
-    EmitMismatchError("ViewIDState", Str, Str1);
-  }
+  std::string Str1;
+  raw_string_ostream OS1(Str1);
+  PSVFromDxilModule.PrintViewIDState(OS1);
+  OS1.flush();
+  EmitMismatchError("ViewIDState", Str, Str1);
 }
 
 void PSVContentVerifier::VerifySignatures(unsigned ValMajor,
@@ -578,11 +435,9 @@ void PSVContentVerifier::Verify() {
 
     VerifySignatures(ValMajor, ValMinor);
 
-    VerifyViewIDDependence(PSV1);
+    VerifyViewIDDependence(PSV1, PSVVersion);
   }
-  if (PSVVersion > 1) {
-    // PSV2 only added NumThreadsX/Y/Z which verified in VerifyEntryProperties.
-  }
+  // PSV2 only added NumThreadsX/Y/Z which verified in VerifyEntryProperties.
   if (PSVVersion > 2) {
     if (DM.GetEntryFunctionName() != PSV.GetEntryFunctionName())
       EmitMismatchError("EntryFunctionName", PSV.GetEntryFunctionName(),

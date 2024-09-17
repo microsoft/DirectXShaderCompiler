@@ -5946,8 +5946,6 @@ TEST_F(ValidationTest, PSVContentValidationMS) {
        "  ViewID influencing PCOutputs : 3 ",
        "Outputs affected by inputs as a table of bitmasks for stream 0:",
        "Inputs contributing to computation of Outputs[0]:  None",
-       "Patch constant outputs affected by inputs as a table of bitmasks:",
-       "Inputs contributing to computation of PatchConstantOutputs:  None",
        "')",
        "error: Container part 'Pipeline State Validation' does not match "
        "expected for module.",
