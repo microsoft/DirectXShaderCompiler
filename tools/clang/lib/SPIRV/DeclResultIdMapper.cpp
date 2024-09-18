@@ -2507,6 +2507,17 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
   BindingSet bindingSet;
 
+  // If some bindings are reserved for heaps, mark those are used.
+  if (spirvOptions.resourceHeapBinding)
+    bindingSet.useBinding(spirvOptions.resourceHeapBinding->binding,
+                          spirvOptions.resourceHeapBinding->set);
+  if (spirvOptions.samplerHeapBinding)
+    bindingSet.useBinding(spirvOptions.samplerHeapBinding->binding,
+                          spirvOptions.samplerHeapBinding->set);
+  if (spirvOptions.counterHeapBinding)
+    bindingSet.useBinding(spirvOptions.counterHeapBinding->binding,
+                          spirvOptions.counterHeapBinding->set);
+
   // Decorates the given varId of the given category with set number
   // setNo, binding number bindingNo. Ignores overlaps.
   const auto tryToDecorate = [this, &bindingSet](const ResourceVar &var,
