@@ -7663,8 +7663,8 @@ def err_hlsl_unsupported_nested_typedef : Error<
 def err_hlsl_unsupported_operator : Error<
   "operator is not supported">;
 // This error is unused because the HLSL parser will catch all cases.
-//def err_hlsl_unsupported_string_literal : Error<
-//  "unsupported style of string literal - use a char-based literal">;
+def err_hlsl_unsupported_string_literal : Error<
+  "string literals parameters are not supported in HLSL">;
 def err_hlsl_unsupported_struct_op: Error<
   "operator cannot be used with user-defined type %0">;
 def err_hlsl_unsupported_subscript_base_rhs : Error<
