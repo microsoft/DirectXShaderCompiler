@@ -512,7 +512,7 @@ operator=(const NestedNameSpecifierLocBuilder &Other) {
   
   // Free our storage, if we have any.
   if (BufferCapacity) {
-    free(Buffer);
+    delete[] Buffer;
     BufferCapacity = 0;
   }
   
@@ -647,7 +647,7 @@ void NestedNameSpecifierLocBuilder::MakeTrivial(ASTContext &Context,
 
 void NestedNameSpecifierLocBuilder::Adopt(NestedNameSpecifierLoc Other) {
   if (BufferCapacity)
-    free(Buffer);
+    delete[] Buffer;
 
   if (!Other) {
     Representation = nullptr;
