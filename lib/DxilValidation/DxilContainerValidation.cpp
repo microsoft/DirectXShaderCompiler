@@ -89,7 +89,7 @@ public:
   PSVContentVerifier(DxilPipelineStateValidation &PSV, DxilModule &DM,
                      ValidationContext &ValCtx)
       : DM(DM), PSV(PSV), ValCtx(ValCtx) {}
-  void Verify();
+  void Verify(unsigned ValMajor, unsigned ValMinor, unsigned PSVVersion);
 
 private:
   void VerifySignatures(unsigned ValMajor, unsigned ValMinor);
@@ -368,11 +368,8 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
   }
 }
 
-void PSVContentVerifier::Verify() {
-  unsigned ValMajor, ValMinor;
-  DM.GetValidatorVersion(ValMajor, ValMinor);
-  unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
-
+void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
+                                unsigned PSVVersion) {
   PSVInitInfo PSVInfo(PSVVersion);
   if (PSV.GetRuntimeInfoSize() != PSVInfo.RuntimeInfoSize()) {
     EmitMismatchError("PSVRuntimeInfoSize",
@@ -509,14 +506,18 @@ bool VerifySignatureMatches(llvm::Module *pModule, DXIL::SignatureKind SigKind,
 
 static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
                              uint32_t PSVSize) {
+  unsigned ValMajor, ValMinor;
+  ValCtx.DxilMod.GetValidatorVersion(ValMajor, ValMinor);
+  unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
   DxilPipelineStateValidation PSV;
-  if (!PSV.InitFromPSV0(pPSVData, PSVSize)) {
+  if (!PSV.InitFromPSV0(pPSVData, PSVSize, PSVVersion)) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
                            {"Pipeline State Validation"});
     return;
   }
+
   PSVContentVerifier Verifier(PSV, ValCtx.DxilMod, ValCtx);
-  Verifier.Verify();
+  Verifier.Verify(ValMajor, ValMinor, PSVVersion);
 }
 
 static void VerifyFeatureInfoMatches(ValidationContext &ValCtx,

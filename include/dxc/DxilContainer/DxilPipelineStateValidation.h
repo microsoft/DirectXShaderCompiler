@@ -554,6 +554,7 @@ public:
 
     uint32_t GetSize() { return Size; }
     RWMode GetMode() { return Mode; }
+    uint32_t GetOffset() { return Offset; }
 
     // Return true if size fits in remaing buffer.
     bool CheckBounds(size_t size);
@@ -595,8 +596,9 @@ private:
                    const PSVInitInfo &initInfo = PSVInitInfo(MAX_PSV_VERSION));
 
 public:
-  bool InitFromPSV0(const void *pBits, uint32_t size) {
-    return ReadOrWrite(pBits, &size, RWMode::Read);
+  bool InitFromPSV0(const void *pBits, uint32_t size,
+                    uint32_t PSVVersion = MAX_PSV_VERSION) {
+    return ReadOrWrite(pBits, &size, RWMode::Read, PSVInitInfo(PSVVersion));
   }
 
   // Initialize a new buffer
@@ -937,12 +939,15 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
 
   PSV_RETB(rw.MapValue(&m_uPSVRuntimeInfoSize, initInfo.RuntimeInfoSize()));
   PSV_RETB(rw.MapArray(&m_pPSVRuntimeInfo0, 1, m_uPSVRuntimeInfoSize));
-  AssignDerived(&m_pPSVRuntimeInfo1, m_pPSVRuntimeInfo0,
-                m_uPSVRuntimeInfoSize); // failure ok
-  AssignDerived(&m_pPSVRuntimeInfo2, m_pPSVRuntimeInfo0,
-                m_uPSVRuntimeInfoSize); // failure ok
-  AssignDerived(&m_pPSVRuntimeInfo3, m_pPSVRuntimeInfo0,
-                m_uPSVRuntimeInfoSize); // failure ok
+  if (initInfo.PSVVersion > 0)
+    AssignDerived(&m_pPSVRuntimeInfo1, m_pPSVRuntimeInfo0,
+                  m_uPSVRuntimeInfoSize); // failure ok
+  if (initInfo.PSVVersion > 1)
+    AssignDerived(&m_pPSVRuntimeInfo2, m_pPSVRuntimeInfo0,
+                  m_uPSVRuntimeInfoSize); // failure ok
+  if (initInfo.PSVVersion > 2)
+    AssignDerived(&m_pPSVRuntimeInfo3, m_pPSVRuntimeInfo0,
+                  m_uPSVRuntimeInfoSize); // failure ok
 
   // In RWMode::CalcSize, use temp runtime info to hold needed values from
   // initInfo
@@ -1078,6 +1083,9 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
   if (mode == RWMode::CalcSize) {
     *pSize = rw.GetSize();
     m_pPSVRuntimeInfo1 = nullptr; // clear ptr to tempRuntimeInfo
+  } else if (mode == RWMode::Read) {
+    if (rw.GetSize() != rw.GetOffset())
+      return false;
   }
   return true;
 }

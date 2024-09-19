@@ -23,6 +23,7 @@ The included licenses apply to the following files:
 Place release notes for the upcoming release below this line and remove this line upon naming this release.
 
 - The incomplete WaveMatrix implementation has been removed.
+- The DXIL validator supports the string table and semantic index table in any order.
 
 ### Version 1.8.2407
 

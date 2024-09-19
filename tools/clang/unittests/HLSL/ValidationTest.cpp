@@ -321,6 +321,8 @@ public:
   TEST_METHOD(PSVContentValidationCS)
   TEST_METHOD(PSVContentValidationMS)
   TEST_METHOD(PSVContentValidationAS)
+  TEST_METHOD(WrongPSVSize)
+  TEST_METHOD(WrongPSVVersion)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -425,6 +427,18 @@ public:
         pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
     return CompileSource(pSource, pShaderModel, nullptr, 0, nullptr, 0,
                          pResultBlob);
+  }
+
+  bool CompileFile(LPCWSTR fileName, LPCSTR pShaderModel, LPCWSTR *pArguments,
+                   UINT32 argCount, IDxcBlob **pResultBlob) {
+    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(fileName);
+    CComPtr<IDxcLibrary> pLibrary;
+    CComPtr<IDxcBlobEncoding> pSource;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(
+        pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
+    return CompileSource(pSource, pShaderModel, pArguments, argCount, nullptr,
+                         0, pResultBlob);
   }
 
   bool CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
@@ -6032,5 +6046,306 @@ TEST_F(ValidationTest, PSVContentValidationAS) {
        "error: Container part 'Pipeline State Validation' does not match "
        "expected for module.",
        "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+struct SimpleContainer {
+  hlsl::DxilContainerHeader *Header;
+  std::vector<uint32_t> PartOffsets;
+  std::vector<const DxilPartHeader *> PartHeaders;
+  SimpleContainer(void *Ptr) {
+    Header = (hlsl::DxilContainerHeader *)Ptr;
+    hlsl::DxilPartIterator pPartIter(nullptr, 0);
+    pPartIter = hlsl::begin(Header);
+    for (unsigned i = 0; i < Header->PartCount; ++i) {
+      VERIFY_IS_TRUE(pPartIter != hlsl::end(Header));
+      PartOffsets.push_back(
+          (uint32_t)((const char *)(*pPartIter) - (const char *)Header));
+      PartHeaders.push_back((const DxilPartHeader *)(*pPartIter));
+      ++pPartIter;
+    }
+    VERIFY_ARE_EQUAL(pPartIter, hlsl::end(Header));
+  }
+};
+
+TEST_F(ValidationTest, WrongPSVSize) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_AS.hlsl", "as_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  // Make sure the PSV part exists.
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  // Create a new Blob which is 16 bytes larger than the original one.
+  std::vector<char> pProgram2Data(pProgram->GetBufferSize() + 16, 0);
+  // Copy data from the original blob part by part.
+  // Copy all parts to program2.
+  SimpleContainer Container(pProgram->GetBufferPointer());
+  uint32_t PartOffsetsSize = pHeader->PartCount * sizeof(uint32_t);
+  uint32_t Offset = sizeof(hlsl::DxilContainerHeader) + PartOffsetsSize;
+  std::vector<uint32_t> PartOffsets;
+  const uint32_t ExtraSize = 16;
+  // copy all parts to program2.
+  for (unsigned i = 0; i < pHeader->PartCount; ++i) {
+    PartOffsets.emplace_back(Offset);
+    const DxilPartHeader *pPartHeader = Container.PartHeaders[i];
+
+    // Copy part header.
+    memcpy(pProgram2Data.data() + Offset, pPartHeader, sizeof(DxilPartHeader));
+    Offset += sizeof(DxilPartHeader);
+
+    // Copy part content.
+    uint32_t *PartPtr =
+        const_cast<uint32_t *>((const uint32_t *)GetDxilPartData(pPartHeader));
+    memcpy(pProgram2Data.data() + Offset, PartPtr, pPartHeader->PartSize);
+
+    Offset += pPartHeader->PartSize;
+
+    if (pPartHeader->PartFourCC == hlsl::DFCC_PipelineStateValidation) {
+      // Update the size of PSV part.
+      DxilPartHeader *pPSVPartHeader =
+          (DxilPartHeader *)(pProgram2Data.data() + PartOffsets.back());
+      pPSVPartHeader->PartSize += ExtraSize;
+      Offset += ExtraSize;
+    }
+  }
+  // Copy header.
+  pHeader->ContainerSizeInBytes += ExtraSize;
+  memcpy(pProgram2Data.data(), pHeader, sizeof(hlsl::DxilContainerHeader));
+  // Copy partOffsets.
+  memcpy(pProgram2Data.data() + sizeof(hlsl::DxilContainerHeader),
+         PartOffsets.data(), PartOffsetsSize);
+
+  // Create a new Blob from pProgram2Data.
+  CComPtr<IDxcBlobEncoding> pProgram2;
+  CComPtr<IDxcLibrary> pLibrary;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+      pProgram2Data.data(), pProgram2Data.size(), CP_UTF8, &pProgram2));
+
+  // Run validation on updated container.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram2, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(pUpdatedResult,
+                           {"Container part 'Pipeline State Validation' does "
+                            "not match expected for module."},
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, WrongPSVVersion) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram60;
+  std::vector<LPCWSTR> args;
+  args.emplace_back(L"-validator-version");
+  args.emplace_back(L"1.0");
+  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_0", args.data(), args.size(),
+              &pProgram60);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = DxcValidatorFlags_InPlaceEdit;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram60, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  hlsl::DxilContainerHeader *pHeader60;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader60 = (hlsl::DxilContainerHeader *)pProgram60->GetBufferPointer();
+  // Make sure the PSV part exists.
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader60), hlsl::end(pHeader60),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader60), pPartIter);
+
+  CComPtr<IDxcBlob> pProgram68;
+
+  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", &pProgram68);
+  CComPtr<IDxcOperationResult> pResult2;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram68, Flags, &pResult2));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  hlsl::DxilContainerHeader *pHeader68;
+  pHeader68 = (hlsl::DxilContainerHeader *)pProgram68->GetBufferPointer();
+  // Make sure the PSV part exists.
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader68), hlsl::end(pHeader68),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader68), pPartIter);
+
+  // Switch the PSV part between 6.0 to 6.8.
+  SimpleContainer Container60(pProgram60->GetBufferPointer());
+  SimpleContainer Container68(pProgram68->GetBufferPointer());
+  uint32_t Container60WithPSV68Size = sizeof(hlsl::DxilContainerHeader) +
+                                      pHeader60->PartCount * sizeof(uint32_t);
+  uint32_t Container68WithPSV60Size = sizeof(hlsl::DxilContainerHeader) +
+                                      pHeader60->PartCount * sizeof(uint32_t);
+  unsigned Container68PartSkipped = 0;
+  for (unsigned i = 0; i < pHeader60->PartCount; ++i) {
+    const DxilPartHeader *pPartHeader60 = Container60.PartHeaders[i];
+    const DxilPartHeader *pPartHeader68 =
+        Container68.PartHeaders[i + Container68PartSkipped];
+    if (pPartHeader68->PartFourCC == hlsl::DFCC_ShaderHash) {
+      Container68PartSkipped++;
+      pPartHeader68 = Container68.PartHeaders[i + Container68PartSkipped];
+    }
+
+    VERIFY_ARE_EQUAL(pPartHeader60->PartFourCC, pPartHeader68->PartFourCC);
+    Container60WithPSV68Size += sizeof(DxilPartHeader);
+    Container68WithPSV60Size += sizeof(DxilPartHeader);
+    if (pPartHeader60->PartFourCC == hlsl::DFCC_PipelineStateValidation) {
+      Container60WithPSV68Size += pPartHeader68->PartSize;
+      Container68WithPSV60Size += pPartHeader60->PartSize;
+    } else {
+      Container60WithPSV68Size += pPartHeader60->PartSize;
+      Container68WithPSV60Size += pPartHeader68->PartSize;
+    }
+  }
+
+  // Create mixed container.
+  std::vector<char> pProgram60WithPSV68Data(Container60WithPSV68Size, 0);
+  std::vector<char> pProgram68WithPSV60Data(Container68WithPSV60Size, 0);
+
+  uint32_t PartOffsetsSize = pHeader60->PartCount * sizeof(uint32_t);
+  uint32_t Offset60 = sizeof(hlsl::DxilContainerHeader) + PartOffsetsSize;
+  std::vector<uint32_t> PartOffsets60;
+  uint32_t Offset68 = sizeof(hlsl::DxilContainerHeader) + PartOffsetsSize;
+  std::vector<uint32_t> PartOffsets68;
+  Container68PartSkipped = 0;
+  for (unsigned i = 0; i < pHeader60->PartCount; ++i) {
+    PartOffsets60.emplace_back(Offset60);
+    PartOffsets68.emplace_back(Offset68);
+
+    const DxilPartHeader *pPartHeader60 = Container60.PartHeaders[i];
+    const DxilPartHeader *pPartHeader68 =
+        Container68.PartHeaders[i + Container68PartSkipped];
+    if (pPartHeader68->PartFourCC == hlsl::DFCC_ShaderHash) {
+      Container68PartSkipped++;
+      pPartHeader68 = Container68.PartHeaders[i + Container68PartSkipped];
+    }
+
+    if (pPartHeader60->PartFourCC == hlsl::DFCC_PipelineStateValidation) {
+      // Copy PSV part from 6.8 to 6.0.
+      memcpy(pProgram60WithPSV68Data.data() + Offset60, pPartHeader68,
+             sizeof(DxilPartHeader));
+      Offset60 += sizeof(DxilPartHeader);
+      memcpy(pProgram60WithPSV68Data.data() + Offset60,
+             GetDxilPartData(pPartHeader68), pPartHeader68->PartSize);
+      Offset60 += pPartHeader68->PartSize;
+      // Copy PSV part from 6.0 to 6.8.
+      memcpy(pProgram68WithPSV60Data.data() + Offset68, pPartHeader60,
+             sizeof(DxilPartHeader));
+      Offset68 += sizeof(DxilPartHeader);
+      memcpy(pProgram68WithPSV60Data.data() + Offset68,
+             GetDxilPartData(pPartHeader60), pPartHeader60->PartSize);
+
+      Offset68 += pPartHeader60->PartSize;
+    } else {
+      // Copy PSV part from 6.0 to 6.0.
+      memcpy(pProgram60WithPSV68Data.data() + Offset60, pPartHeader60,
+             sizeof(DxilPartHeader));
+      Offset60 += sizeof(DxilPartHeader);
+      memcpy(pProgram60WithPSV68Data.data() + Offset60,
+             GetDxilPartData(pPartHeader60), pPartHeader60->PartSize);
+      Offset60 += pPartHeader60->PartSize;
+      // Copy PSV part from 6.8 to 6.8.
+      memcpy(pProgram68WithPSV60Data.data() + Offset68, pPartHeader68,
+             sizeof(DxilPartHeader));
+      Offset68 += sizeof(DxilPartHeader);
+      memcpy(pProgram68WithPSV60Data.data() + Offset68,
+             GetDxilPartData(pPartHeader68), pPartHeader68->PartSize);
+      Offset68 += pPartHeader68->PartSize;
+    }
+  }
+
+  // Copy header.
+  VERIFY_ARE_EQUAL(Container60WithPSV68Size, Offset60);
+  pHeader60->ContainerSizeInBytes = Container60WithPSV68Size;
+  memcpy(pProgram60WithPSV68Data.data(), pHeader60,
+         sizeof(hlsl::DxilContainerHeader));
+  VERIFY_ARE_EQUAL(Container68WithPSV60Size, Offset68);
+  pHeader68->ContainerSizeInBytes = Container68WithPSV60Size;
+  pHeader68->PartCount -= Container68PartSkipped;
+  memcpy(pProgram68WithPSV60Data.data(), pHeader68,
+         sizeof(hlsl::DxilContainerHeader));
+  // Copy partOffsets.
+  memcpy(pProgram60WithPSV68Data.data() + sizeof(hlsl::DxilContainerHeader),
+         PartOffsets60.data(), PartOffsetsSize);
+  memcpy(pProgram68WithPSV60Data.data() + sizeof(hlsl::DxilContainerHeader),
+         PartOffsets68.data(), PartOffsetsSize);
+
+  // Create a new Blob.
+  CComPtr<IDxcBlobEncoding> pProgram60WithPSV68;
+  CComPtr<IDxcLibrary> pLibrary;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+      pProgram60WithPSV68Data.data(), pProgram60WithPSV68Data.size(), CP_UTF8,
+      &pProgram60WithPSV68));
+
+  // Run validation on new containers.
+  CComPtr<IDxcOperationResult> p60WithPSV68Result;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram60WithPSV68, Flags, &p60WithPSV68Result));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(p60WithPSV68Result);
+  VERIFY_SUCCEEDED(p60WithPSV68Result->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(p60WithPSV68Result,
+                           {"Container part 'Pipeline State Validation' does "
+                            "not match expected for module."},
+                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+
+  // Create a new Blob.
+  CComPtr<IDxcBlobEncoding> pProgram68WithPSV60;
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+      pProgram68WithPSV60Data.data(), pProgram68WithPSV60Data.size(), CP_UTF8,
+      &pProgram68WithPSV60));
+  CComPtr<IDxcOperationResult> p68WithPSV60Result;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram68WithPSV60, Flags, &p68WithPSV60Result));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(p68WithPSV60Result);
+  VERIFY_SUCCEEDED(p68WithPSV60Result->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(
+      p68WithPSV60Result,
+      {"DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' "
+       "part:('24') and DXIL module:('52')"},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
