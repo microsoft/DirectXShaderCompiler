@@ -14,13 +14,13 @@
 #endif
 
 #include <algorithm>
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
 #include <cassert>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <assert.h> // Needed for DxilPipelineStateValidation.h
 
 // For DxilRuntimeReflection.h:
 #include "dxc/Support/WinIncludes.h"

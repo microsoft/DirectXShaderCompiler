@@ -42,9 +42,9 @@
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include <algorithm>
-#include <list> // should change this for string_table
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
+#include <list>     // should change this for string_table
 #include <vector>
-#include <assert.h>  // Needed for DxilPipelineStateValidation.h
 
 #include "llvm/PassPrinters/PassPrinters.h"
 
