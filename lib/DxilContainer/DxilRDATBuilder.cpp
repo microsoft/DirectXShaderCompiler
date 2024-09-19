@@ -1,3 +1,5 @@
+#include <assert.h>  // Needed for DxilPipelineStateValidation.h
+
 #include "dxc/DxilContainer/DxilRDATBuilder.h"
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/Support/FileIOHelper.h"

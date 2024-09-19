@@ -12,19 +12,18 @@
 #ifndef __DXIL_PIPELINE_STATE_VALIDATION__H__
 #define __DXIL_PIPELINE_STATE_VALIDATION__H__
 
+// Don't include assert.h here.
+// Since this header is included from multiple environments,
+// it is necessary to define assert before this header is included.
+// #include <assert.h>
+
 #include "dxc/WinAdapter.h"
-#include <assert.h>
 #include <cstring>
 #include <stdint.h>
 
 namespace llvm {
 class raw_ostream;
 }
-
-// Don't include assert.h here.
-// Since this header is included from multiple environments,
-// it is necessary to define assert before this header is included.
-// #include <assert.h>
 
 #ifndef UINT_MAX
 #define UINT_MAX 0xffffffff

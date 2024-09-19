@@ -9,6 +9,8 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <assert.h>  // Needed for DxilPipelineStateValidation.h
+
 #include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilResource.h"

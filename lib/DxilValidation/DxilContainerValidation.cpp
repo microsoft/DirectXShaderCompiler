@@ -32,6 +32,7 @@
 #include "DxilValidationUtils.h"
 
 #include <memory>
+#include <assert.h>  // Needed for DxilPipelineStateValidation.h
 
 using std::unique_ptr;
 using std::unordered_set;

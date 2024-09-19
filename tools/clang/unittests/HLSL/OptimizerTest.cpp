@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <assert.h> // Needed for DxilPipelineStateValidation.h
 
 // For DxilRuntimeReflection.h:
 #include "dxc/Support/WinIncludes.h"
