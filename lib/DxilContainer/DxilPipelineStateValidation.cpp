@@ -110,6 +110,43 @@ void hlsl::InitPSVSignatureElement(PSVSignatureElement0 &E,
   E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
 }
 
+void hlsl::SetupPSVInitInfo(PSVInitInfo &InitInfo, const DxilModule &DM) {
+  // Constraint PSVVersion based on validator version
+  unsigned ValMajor, ValMinor;
+  DM.GetValidatorVersion(ValMajor, ValMinor);
+  unsigned PSVVersionConstraint = hlsl::GetPSVVersion(ValMajor, ValMinor);
+  if (InitInfo.PSVVersion > PSVVersionConstraint)
+    InitInfo.PSVVersion = PSVVersionConstraint;
+
+  const ShaderModel *SM = DM.GetShaderModel();
+  uint32_t uCBuffers = DM.GetCBuffers().size();
+  uint32_t uSamplers = DM.GetSamplers().size();
+  uint32_t uSRVs = DM.GetSRVs().size();
+  uint32_t uUAVs = DM.GetUAVs().size();
+  InitInfo.ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
+
+  if (InitInfo.PSVVersion > 0) {
+    InitInfo.ShaderStage = (PSVShaderKind)SM->GetKind();
+    InitInfo.SigInputElements = DM.GetInputSignature().GetElements().size();
+    InitInfo.SigPatchConstOrPrimElements =
+        DM.GetPatchConstOrPrimSignature().GetElements().size();
+    InitInfo.SigOutputElements = DM.GetOutputSignature().GetElements().size();
+
+    // Set up ViewID and signature dependency info
+    InitInfo.UsesViewID = DM.m_ShaderFlags.GetViewID() ? true : false;
+    InitInfo.SigInputVectors = DM.GetInputSignature().NumVectorsUsed(0);
+    for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
+      InitInfo.SigOutputVectors[streamIndex] =
+          DM.GetOutputSignature().NumVectorsUsed(streamIndex);
+    }
+    InitInfo.SigPatchConstOrPrimVectors = 0;
+    if (SM->IsHS() || SM->IsDS() || SM->IsMS()) {
+      InitInfo.SigPatchConstOrPrimVectors =
+          DM.GetPatchConstOrPrimSignature().NumVectorsUsed(0);
+    }
+  }
+}
+
 void hlsl::SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM) {
   const ShaderModel *SM = DM.GetShaderModel();
   pInfo->MinimumExpectedWaveLaneCount = 0;

@@ -6326,10 +6326,11 @@ TEST_F(ValidationTest, WrongPSVVersion) {
   VERIFY_IS_NOT_NULL(p60WithPSV68Result);
   VERIFY_SUCCEEDED(p60WithPSV68Result->GetStatus(&status));
   VERIFY_FAILED(status);
-  CheckOperationResultMsgs(p60WithPSV68Result,
-                           {"Container part 'Pipeline State Validation' does "
-                            "not match expected for module."},
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  CheckOperationResultMsgs(
+      p60WithPSV68Result,
+      {"DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' "
+       "part:('52') and DXIL module:('24')"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 
   // Create a new Blob.
   CComPtr<IDxcBlobEncoding> pProgram68WithPSV60;

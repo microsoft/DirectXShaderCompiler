@@ -84,7 +84,6 @@ class PSVContentVerifier {
   DxilPipelineStateValidation &PSV;
   ValidationContext &ValCtx;
   bool PSVContentValid = true;
-
 public:
   PSVContentVerifier(DxilPipelineStateValidation &PSV, DxilModule &DM,
                      ValidationContext &ValCtx)
@@ -506,17 +505,45 @@ bool VerifySignatureMatches(llvm::Module *pModule, DXIL::SignatureKind SigKind,
 
 static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
                              uint32_t PSVSize) {
-  unsigned ValMajor, ValMinor;
-  ValCtx.DxilMod.GetValidatorVersion(ValMajor, ValMinor);
-  unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
-  DxilPipelineStateValidation PSV;
-  uint32_t PSVSizeRead = PSVSize;
-  if (!PSV.InitFromPSV0(pPSVData, &PSVSizeRead, PSVVersion)) {
+  if (PSVSize < sizeof(uint32_t)) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
                            {"Pipeline State Validation"});
     return;
   }
-  if (PSVSizeRead != PSVSize) {
+  unsigned ValMajor, ValMinor;
+  ValCtx.DxilMod.GetValidatorVersion(ValMajor, ValMinor);
+  unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
+
+  PSVInitInfo PSVInfo(PSVVersion);
+  hlsl::SetupPSVInitInfo(PSVInfo, ValCtx.DxilMod);
+  uint32_t PSVRuntimeInfoSize = *(uint32_t *)pPSVData;
+
+  if (PSVRuntimeInfoSize != PSVInfo.RuntimeInfoSize()) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
+                           {"PSVRuntimeInfoSize", "PSV0",
+                            std::to_string(PSVRuntimeInfoSize),
+                            std::to_string(PSVInfo.RuntimeInfoSize())});
+    return;
+  }
+
+  DxilPipelineStateValidation PSV;
+  if (!PSV.InitFromPSV0(pPSVData, PSVSize)) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
+                           {"Pipeline State Validation"});
+    return;
+  }
+
+  PSVInfo.StringTable = PSV.GetStringTable();
+  PSVInfo.SemanticIndexTable = PSV.GetSemanticIndexTable();
+  uint32_t ExpectedSize = 0;
+  DxilPipelineStateValidation SizePSV;
+  if (!SizePSV.InitNew(PSVInfo, nullptr, &ExpectedSize)) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
+                           {"Pipeline State Validation"});
+    return;
+  }
+
+  if (ExpectedSize != PSVSize) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
                            {"Pipeline State Validation"});
     return;
