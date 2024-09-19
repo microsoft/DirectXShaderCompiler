@@ -510,7 +510,13 @@ static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
   ValCtx.DxilMod.GetValidatorVersion(ValMajor, ValMinor);
   unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
   DxilPipelineStateValidation PSV;
-  if (!PSV.InitFromPSV0(pPSVData, PSVSize, PSVVersion)) {
+  uint32_t PSVSizeRead = PSVSize;
+  if (!PSV.InitFromPSV0(pPSVData, &PSVSizeRead, PSVVersion)) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
+                           {"Pipeline State Validation"});
+    return;
+  }
+  if (PSVSizeRead != PSVSize) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
                            {"Pipeline State Validation"});
     return;

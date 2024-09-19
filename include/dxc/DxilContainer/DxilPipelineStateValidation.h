@@ -596,9 +596,12 @@ private:
                    const PSVInitInfo &initInfo = PSVInitInfo(MAX_PSV_VERSION));
 
 public:
-  bool InitFromPSV0(const void *pBits, uint32_t size,
-                    uint32_t PSVVersion = MAX_PSV_VERSION) {
-    return ReadOrWrite(pBits, &size, RWMode::Read, PSVInitInfo(PSVVersion));
+  bool InitFromPSV0(const void *pBits, uint32_t size) {
+    return ReadOrWrite(pBits, &size, RWMode::Read);
+  }
+
+  bool InitFromPSV0(const void *pBits, uint32_t *pSize, uint32_t PSVVersion) {
+    return ReadOrWrite(pBits, pSize, RWMode::Read, PSVInitInfo(PSVVersion));
   }
 
   // Initialize a new buffer
@@ -1084,8 +1087,7 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
     *pSize = rw.GetSize();
     m_pPSVRuntimeInfo1 = nullptr; // clear ptr to tempRuntimeInfo
   } else if (mode == RWMode::Read) {
-    if (rw.GetSize() != rw.GetOffset())
-      return false;
+    *pSize = rw.GetOffset();
   }
   return true;
 }
