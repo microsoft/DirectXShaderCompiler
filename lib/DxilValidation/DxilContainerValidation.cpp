@@ -23,6 +23,7 @@
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilUtil.h"
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Module.h"
@@ -32,6 +33,10 @@
 #include "DxilValidationUtils.h"
 
 #include <memory>
+#include <unordered_set>
+
+using namespace llvm;
+using namespace hlsl;
 
 using std::unique_ptr;
 using std::unordered_set;
@@ -73,6 +78,359 @@ private:
 static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
   hlsl::dxilutil::EmitErrorOnContext(Ctx, str);
 }
+
+class PSVContentVerifier {
+  DxilModule &DM;
+  DxilPipelineStateValidation &PSV;
+  ValidationContext &ValCtx;
+  bool PSVContentValid = true;
+
+public:
+  PSVContentVerifier(DxilPipelineStateValidation &PSV, DxilModule &DM,
+                     ValidationContext &ValCtx)
+      : DM(DM), PSV(PSV), ValCtx(ValCtx) {}
+  void Verify();
+
+private:
+  void VerifySignatures(unsigned ValMajor, unsigned ValMinor);
+  void VerifySignature(const DxilSignature &, PSVSignatureElement0 *Base,
+                       unsigned Count, std::string Name,
+                       bool i1ToUnknownCompat);
+  void VerifySignatureElement(const DxilSignatureElement &,
+                              PSVSignatureElement0 *, const PSVStringTable &,
+                              const PSVSemanticIndexTable &, std::string, bool);
+  void VerifyResources(unsigned PSVVersion);
+  template <typename T>
+  void VerifyResourceTable(T &ResTab, unsigned &ResourceIndex,
+                           unsigned PSVVersion);
+  void VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1, unsigned PSVVersion);
+  void VerifyEntryProperties(const ShaderModel *SM, PSVRuntimeInfo0 *PSV0,
+                             PSVRuntimeInfo1 *PSV1, PSVRuntimeInfo2 *PSV2);
+  void EmitMismatchError(StringRef Name, StringRef PartContent,
+                         StringRef ModuleContent) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
+                           {Name, "PSV0", PartContent, ModuleContent});
+    PSVContentValid = false;
+  }
+  void EmitInvalidError(StringRef Name) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid, {Name});
+    PSVContentValid = false;
+  }
+  template <typename Ty> static std::string GetDump(const Ty &T) {
+    std::string Str;
+    raw_string_ostream OS(Str);
+    T.Print(OS);
+    OS.flush();
+    return Str;
+  }
+};
+
+void PSVContentVerifier::VerifyViewIDDependence(PSVRuntimeInfo1 *PSV1,
+                                                unsigned PSVVersion) {
+  std::vector<unsigned int> ViewStateInPSV;
+  unsigned OutputSizeInUInts = hlsl::LoadViewIDStateFromPSV(nullptr, 0, PSV);
+  if (OutputSizeInUInts) {
+    ViewStateInPSV.assign(OutputSizeInUInts, 0);
+    hlsl::LoadViewIDStateFromPSV(ViewStateInPSV.data(),
+                                 (unsigned)ViewStateInPSV.size(), PSV);
+  }
+  // In case the num of input/output scalars are aligned to 4, the
+  // ViewStateInPSV could match the DxilModule's view state directly.
+  std::vector<unsigned int> ViewStateInDxilModule =
+      DM.GetSerializedViewIdState();
+  if (ViewStateInPSV == ViewStateInDxilModule)
+    return;
+  if (ViewStateInDxilModule.empty() &&
+      std::all_of(ViewStateInPSV.begin(), ViewStateInPSV.end(),
+                  [](unsigned int i) { return i == 0; }))
+    return;
+
+  std::string Str;
+  raw_string_ostream OS(Str);
+  PSV.PrintViewIDState(OS);
+  OS.flush();
+
+  // Create a Temp PSV from DxilModule to print the ViewIDState.
+  unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(DM, PSVVersion));
+  CComPtr<AbstractMemoryStream> pOutputStream;
+  IFT(CreateMemoryStream(DxcGetThreadMallocNoRef(), &pOutputStream));
+  pOutputStream->Reserve(pWriter->size());
+  pWriter->write(pOutputStream);
+
+  DxilPipelineStateValidation PSVFromDxilModule;
+  if (!PSVFromDxilModule.InitFromPSV0(pOutputStream->GetPtr(),
+                                      pOutputStream->GetPtrSize())) {
+    ValCtx.EmitFormatError(
+        ValidationRule::ContainerPartMatches,
+        {"Pipeline State Validation generated from DxiModule"});
+    return;
+  }
+
+  ViewStateInDxilModule.clear();
+  OutputSizeInUInts =
+      hlsl::LoadViewIDStateFromPSV(nullptr, 0, PSVFromDxilModule);
+  if (OutputSizeInUInts) {
+    ViewStateInDxilModule.assign(OutputSizeInUInts, 0);
+    hlsl::LoadViewIDStateFromPSV(ViewStateInDxilModule.data(),
+                                 OutputSizeInUInts, PSVFromDxilModule);
+  }
+  // ViewStateInDxilModule and ViewStateInPSV all go through
+  // LoadViewIDStateFromPSV here, so they should match.
+  if (ViewStateInPSV == ViewStateInDxilModule)
+    return;
+
+  std::string Str1;
+  raw_string_ostream OS1(Str1);
+  PSVFromDxilModule.PrintViewIDState(OS1);
+  OS1.flush();
+  EmitMismatchError("ViewIDState", Str, Str1);
+}
+
+void PSVContentVerifier::VerifySignatures(unsigned ValMajor,
+                                          unsigned ValMinor) {
+  bool i1ToUnknownCompat = DXIL::CompareVersions(ValMajor, ValMinor, 1, 5) < 0;
+  // Verify input signature
+  VerifySignature(DM.GetInputSignature(), PSV.GetInputElement0(0),
+                  PSV.GetSigInputElements(), "SigInput", i1ToUnknownCompat);
+  // Verify output signature
+  VerifySignature(DM.GetOutputSignature(), PSV.GetOutputElement0(0),
+                  PSV.GetSigOutputElements(), "SigOutput", i1ToUnknownCompat);
+  // Verify patch constant signature
+  VerifySignature(DM.GetPatchConstOrPrimSignature(),
+                  PSV.GetPatchConstOrPrimElement0(0),
+                  PSV.GetSigPatchConstOrPrimElements(),
+                  "SigPatchConstantOrPrim", i1ToUnknownCompat);
+}
+
+void PSVContentVerifier::VerifySignature(const DxilSignature &Sig,
+                                         PSVSignatureElement0 *Base,
+                                         unsigned Count, std::string Name,
+                                         bool i1ToUnknownCompat) {
+  if (Count != Sig.GetElements().size()) {
+    EmitMismatchError(Name + "Elements", std::to_string(Count),
+                      std::to_string(Sig.GetElements().size()));
+    return;
+  }
+
+  // Verify each element in DxilSignature.
+  const PSVStringTable &StrTab = PSV.GetStringTable();
+  const PSVSemanticIndexTable &IndexTab = PSV.GetSemanticIndexTable();
+  for (unsigned i = 0; i < Count; i++)
+    VerifySignatureElement(Sig.GetElement(i),
+                           PSV.GetRecord<PSVSignatureElement0>(
+                               Base, PSV.GetSignatureElementSize(), Count, i),
+                           StrTab, IndexTab, Name, i1ToUnknownCompat);
+}
+
+void PSVContentVerifier::VerifySignatureElement(
+    const DxilSignatureElement &SE, PSVSignatureElement0 *PSVSE0,
+    const PSVStringTable &StrTab, const PSVSemanticIndexTable &IndexTab,
+    std::string Name, bool i1ToUnknownCompat) {
+  // Find the signature element in the set.
+  PSVSignatureElement0 ModulePSVSE0;
+  InitPSVSignatureElement(ModulePSVSE0, SE, i1ToUnknownCompat);
+
+  // Check the Name and SemanticIndex.
+  bool Mismatch = false;
+  const std::vector<uint32_t> &SemanticIndexVec = SE.GetSemanticIndexVec();
+  llvm::ArrayRef<uint32_t> PSVSemanticIndexVec(
+      IndexTab.Get(PSVSE0->SemanticIndexes), PSVSE0->Rows);
+  if (SemanticIndexVec.size() == PSVSemanticIndexVec.size())
+    Mismatch |= memcmp(PSVSemanticIndexVec.data(), SemanticIndexVec.data(),
+                       SemanticIndexVec.size() * sizeof(uint32_t)) != 0;
+  else
+    Mismatch = true;
+
+  ModulePSVSE0.SemanticIndexes = PSVSE0->SemanticIndexes;
+
+  PSVSignatureElement PSVSE(StrTab, IndexTab, PSVSE0);
+  if (SE.IsArbitrary())
+    Mismatch |= strcmp(PSVSE.GetSemanticName(), SE.GetName());
+  else
+    Mismatch |= PSVSE0->SemanticKind != static_cast<uint8_t>(SE.GetKind());
+
+  ModulePSVSE0.SemanticName = PSVSE0->SemanticName;
+  // Compare all fields.
+  Mismatch |= memcmp(&ModulePSVSE0, PSVSE0, sizeof(PSVSignatureElement0)) != 0;
+  if (Mismatch) {
+    PSVSignatureElement ModulePSVSE(StrTab, IndexTab, &ModulePSVSE0);
+    std::string ModuleStr;
+    raw_string_ostream OS(ModuleStr);
+    ModulePSVSE.Print(OS, SE.GetName(), SemanticIndexVec.data());
+    OS.flush();
+    std::string PartStr;
+    raw_string_ostream OS1(PartStr);
+    PSVSE.Print(OS1, PSVSE.GetSemanticName(), PSVSemanticIndexVec.data());
+    OS1.flush();
+    EmitMismatchError(Name + "Element", PartStr, ModuleStr);
+  }
+}
+
+template <typename T>
+void PSVContentVerifier::VerifyResourceTable(T &ResTab, unsigned &ResourceIndex,
+                                             unsigned PSVVersion) {
+  for (auto &&R : ResTab) {
+    PSVResourceBindInfo1 BI;
+    InitPSVResourceBinding(&BI, &BI, R.get());
+
+    if (PSVVersion > 1) {
+      PSVResourceBindInfo1 *BindInfo =
+          PSV.GetPSVResourceBindInfo1(ResourceIndex);
+      if (memcmp(&BI, BindInfo, sizeof(PSVResourceBindInfo1)) != 0) {
+        std::string ModuleStr = GetDump(BI);
+        std::string PartStr = GetDump(*BindInfo);
+        EmitMismatchError("ResourceBindInfo", PartStr, ModuleStr);
+      }
+    } else {
+      PSVResourceBindInfo0 *BindInfo =
+          PSV.GetPSVResourceBindInfo0(ResourceIndex);
+      if (memcmp(&BI, BindInfo, sizeof(PSVResourceBindInfo0)) != 0) {
+        std::string ModuleStr = GetDump(BI);
+        std::string PartStr = GetDump(*BindInfo);
+        EmitMismatchError("ResourceBindInfo", PartStr, ModuleStr);
+      }
+    }
+    ResourceIndex++;
+  }
+}
+
+void PSVContentVerifier::VerifyResources(unsigned PSVVersion) {
+  UINT uCBuffers = DM.GetCBuffers().size();
+  UINT uSamplers = DM.GetSamplers().size();
+  UINT uSRVs = DM.GetSRVs().size();
+  UINT uUAVs = DM.GetUAVs().size();
+  unsigned ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
+  if (PSV.GetBindCount() != ResourceCount) {
+    EmitMismatchError("ResourceCount", std::to_string(PSV.GetBindCount()),
+                      std::to_string(ResourceCount));
+    return;
+  }
+  // Verify each resource table.
+  unsigned ResIndex = 0;
+  // CBV
+  VerifyResourceTable(DM.GetCBuffers(), ResIndex, PSVVersion);
+  // Sampler
+  VerifyResourceTable(DM.GetSamplers(), ResIndex, PSVVersion);
+  // SRV
+  VerifyResourceTable(DM.GetSRVs(), ResIndex, PSVVersion);
+  // UAV
+  VerifyResourceTable(DM.GetUAVs(), ResIndex, PSVVersion);
+}
+
+void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
+                                               PSVRuntimeInfo0 *PSV0,
+                                               PSVRuntimeInfo1 *PSV1,
+                                               PSVRuntimeInfo2 *PSV2) {
+  PSVRuntimeInfo3 DMPSV;
+  memset(&DMPSV, 0, sizeof(PSVRuntimeInfo3));
+
+  hlsl::SetShaderProps((PSVRuntimeInfo0 *)&DMPSV, DM);
+  hlsl::SetShaderProps((PSVRuntimeInfo1 *)&DMPSV, DM);
+  hlsl::SetShaderProps((PSVRuntimeInfo2 *)&DMPSV, DM);
+  if (PSV1) {
+    // Init things not set in InitPSVRuntimeInfo.
+    DMPSV.ShaderStage = static_cast<uint8_t>(SM->GetKind());
+    DMPSV.SigInputElements = DM.GetInputSignature().GetElements().size();
+    DMPSV.SigOutputElements = DM.GetOutputSignature().GetElements().size();
+    DMPSV.SigPatchConstOrPrimElements =
+        DM.GetPatchConstOrPrimSignature().GetElements().size();
+    // Set up ViewID and signature dependency info
+    DMPSV.UsesViewID = DM.m_ShaderFlags.GetViewID() ? true : false;
+    DMPSV.SigInputVectors = DM.GetInputSignature().NumVectorsUsed(0);
+    for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++)
+      DMPSV.SigOutputVectors[streamIndex] =
+          DM.GetOutputSignature().NumVectorsUsed(streamIndex);
+    if (SM->IsHS() || SM->IsDS() || SM->IsMS())
+      DMPSV.SigPatchConstOrPrimVectors =
+          DM.GetPatchConstOrPrimSignature().NumVectorsUsed(0);
+  }
+  bool Mismatched = false;
+  if (PSV2)
+    Mismatched = memcmp(PSV2, &DMPSV, sizeof(PSVRuntimeInfo2)) != 0;
+  else if (PSV1)
+    Mismatched = memcmp(PSV1, &DMPSV, sizeof(PSVRuntimeInfo1)) != 0;
+  else
+    Mismatched = memcmp(PSV0, &DMPSV, sizeof(PSVRuntimeInfo0)) != 0;
+
+  if (Mismatched) {
+    std::string Str;
+    raw_string_ostream OS(Str);
+    hlsl::PrintPSVRuntimeInfo(OS, &DMPSV, &DMPSV, &DMPSV, &DMPSV,
+                              static_cast<uint8_t>(SM->GetKind()),
+                              DM.GetEntryFunctionName().c_str(), "");
+    OS.flush();
+    std::string Str1;
+    raw_string_ostream OS1(Str1);
+    PSV.PrintPSVRuntimeInfo(OS1, static_cast<uint8_t>(PSVShaderKind::Library),
+                            "");
+    OS1.flush();
+    EmitMismatchError("PSVRuntimeInfo", Str, Str1);
+  }
+}
+
+void PSVContentVerifier::Verify() {
+  unsigned ValMajor, ValMinor;
+  DM.GetValidatorVersion(ValMajor, ValMinor);
+  unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
+
+  PSVInitInfo PSVInfo(PSVVersion);
+  if (PSV.GetRuntimeInfoSize() != PSVInfo.RuntimeInfoSize()) {
+    EmitMismatchError("PSVRuntimeInfoSize",
+                      std::to_string(PSV.GetRuntimeInfoSize()),
+                      std::to_string(PSVInfo.RuntimeInfoSize()));
+    return;
+  }
+
+  if (PSV.GetBindCount() > 0 &&
+      PSV.GetResourceBindInfoSize() != PSVInfo.ResourceBindInfoSize()) {
+    EmitMismatchError("ResourceBindInfoSize",
+                      std::to_string(PSV.GetResourceBindInfoSize()),
+                      std::to_string(PSVInfo.ResourceBindInfoSize()));
+    return;
+  }
+  VerifyResources(PSVVersion);
+
+  PSVRuntimeInfo0 *PSV0 = PSV.GetPSVRuntimeInfo0();
+  PSVRuntimeInfo1 *PSV1 = PSV.GetPSVRuntimeInfo1();
+  PSVRuntimeInfo2 *PSV2 = PSV.GetPSVRuntimeInfo2();
+
+  const ShaderModel *SM = DM.GetShaderModel();
+  VerifyEntryProperties(SM, PSV0, PSV1, PSV2);
+  if (PSVVersion > 0) {
+    if (((PSV.GetSigInputElements() + PSV.GetSigOutputElements() +
+          PSV.GetSigPatchConstOrPrimElements()) > 0) &&
+        PSV.GetSignatureElementSize() != PSVInfo.SignatureElementSize()) {
+      EmitMismatchError("SignatureElementSize",
+                        std::to_string(PSV.GetSignatureElementSize()),
+                        std::to_string(PSVInfo.SignatureElementSize()));
+      return;
+    }
+    uint8_t ShaderStage = static_cast<uint8_t>(SM->GetKind());
+    if (PSV1->ShaderStage != ShaderStage) {
+      EmitMismatchError("ShaderStage", std::to_string(PSV1->ShaderStage),
+                        std::to_string(ShaderStage));
+      return;
+    }
+    if (PSV1->UsesViewID != DM.m_ShaderFlags.GetViewID())
+      EmitMismatchError("UsesViewID", std::to_string(PSV1->UsesViewID),
+                        std::to_string(DM.m_ShaderFlags.GetViewID()));
+
+    VerifySignatures(ValMajor, ValMinor);
+
+    VerifyViewIDDependence(PSV1, PSVVersion);
+  }
+  // PSV2 only added NumThreadsX/Y/Z which verified in VerifyEntryProperties.
+  if (PSVVersion > 2) {
+    if (DM.GetEntryFunctionName() != PSV.GetEntryFunctionName())
+      EmitMismatchError("EntryFunctionName", PSV.GetEntryFunctionName(),
+                        DM.GetEntryFunctionName());
+  }
+
+  if (!PSVContentValid)
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
+                           {"Pipeline State Validation"});
+}
+
 } // namespace
 
 namespace hlsl {
@@ -151,17 +509,14 @@ bool VerifySignatureMatches(llvm::Module *pModule, DXIL::SignatureKind SigKind,
 
 static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
                              uint32_t PSVSize) {
-  uint32_t PSVVersion =
-      MAX_PSV_VERSION; // This should be set to the newest version
-  unique_ptr<DxilPartWriter> pWriter(NewPSVWriter(ValCtx.DxilMod, PSVVersion));
-  // Try each version in case an earlier version matches module
-  while (PSVVersion && pWriter->size() != PSVSize) {
-    PSVVersion--;
-    pWriter.reset(NewPSVWriter(ValCtx.DxilMod, PSVVersion));
+  DxilPipelineStateValidation PSV;
+  if (!PSV.InitFromPSV0(pPSVData, PSVSize)) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
+                           {"Pipeline State Validation"});
+    return;
   }
-  // generate PSV data from module and memcmp
-  VerifyBlobPartMatches(ValCtx, "Pipeline State Validation", pWriter.get(),
-                        pPSVData, PSVSize);
+  PSVContentVerifier Verifier(PSV, ValCtx.DxilMod, ValCtx);
+  Verifier.Verify();
 }
 
 static void VerifyFeatureInfoMatches(ValidationContext &ValCtx,

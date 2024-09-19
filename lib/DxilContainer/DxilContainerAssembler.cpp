@@ -50,8 +50,9 @@ static_assert((unsigned)PSVShaderKind::Invalid ==
                   (unsigned)DXIL::ShaderKind::Invalid,
               "otherwise, PSVShaderKind enum out of sync.");
 
-static DxilProgramSigSemantic
-KindToSystemValue(Semantic::Kind kind, DXIL::TessellatorDomain domain) {
+DxilProgramSigSemantic
+hlsl::SemanticKindToSystemValue(Semantic::Kind kind,
+                                DXIL::TessellatorDomain domain) {
   switch (kind) {
   case Semantic::Kind::Arbitrary:
     return DxilProgramSigSemantic::Undefined;
@@ -291,7 +292,7 @@ private:
     memset(&sig, 0, sizeof(DxilProgramSignatureElement));
     sig.Stream = pElement->GetOutputStream();
     sig.SemanticName = GetSemanticOffset(pElement);
-    sig.SystemValue = KindToSystemValue(pElement->GetKind(), m_domain);
+    sig.SystemValue = SemanticKindToSystemValue(pElement->GetKind(), m_domain);
     sig.CompType =
         CompTypeToSigCompType(pElement->GetCompType().GetKind(), m_bCompat_1_4);
     sig.Register = pElement->GetStartRow();
@@ -738,17 +739,9 @@ public:
       : m_Module(mod), m_PSVInitInfo(PSVVersion) {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
     // Constraint PSVVersion based on validator version
-    if (PSVVersion > 0 &&
-        DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 1) < 0)
-      m_PSVInitInfo.PSVVersion = 0;
-    else if (PSVVersion > 1 &&
-             DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
-      m_PSVInitInfo.PSVVersion = 1;
-    else if (PSVVersion > 2 &&
-             DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0)
-      m_PSVInitInfo.PSVVersion = 2;
-    else if (PSVVersion > MAX_PSV_VERSION)
-      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
+    uint32_t PSVVersionConstraint = hlsl::GetPSVVersion(m_ValMajor, m_ValMinor);
+    if (PSVVersion > PSVVersionConstraint)
+      m_PSVInitInfo.PSVVersion = PSVVersionConstraint;
 
     const ShaderModel *SM = m_Module.GetShaderModel();
     UINT uCBuffers = m_Module.GetCBuffers().size();
@@ -834,8 +827,12 @@ public:
     PSVRuntimeInfo1 *pInfo1 = m_PSV.GetPSVRuntimeInfo1();
     PSVRuntimeInfo2 *pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     PSVRuntimeInfo3 *pInfo3 = m_PSV.GetPSVRuntimeInfo3();
-
-    hlsl::InitPSVRuntimeInfo(pInfo, pInfo1, pInfo2, pInfo3, m_Module);
+    if (pInfo)
+      hlsl::SetShaderProps(pInfo, m_Module);
+    if (pInfo1)
+      hlsl::SetShaderProps(pInfo1, m_Module);
+    if (pInfo2)
+      hlsl::SetShaderProps(pInfo2, m_Module);
     if (pInfo3)
       pInfo3->EntryFunctionName = EntryFunctionName;
 

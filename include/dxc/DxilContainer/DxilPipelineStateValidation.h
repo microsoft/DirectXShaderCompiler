@@ -260,6 +260,13 @@ struct PSVComponentMask {
     }
     return *this;
   }
+  bool operator!=(const PSVComponentMask &other) const {
+    if (NumVectors != other.NumVectors)
+      return true;
+    return memcmp(Mask, other.Mask,
+                  PSVComputeMaskDwordsFromVectors(NumVectors) *
+                      sizeof(uint32_t));
+  }
   bool Get(uint32_t ComponentIndex) const {
     if (ComponentIndex < NumVectors * 4)
       return (bool)(Mask[ComponentIndex >> 5] & (1 << (ComponentIndex & 0x1F)));
@@ -294,6 +301,15 @@ struct PSVDependencyTable {
   }
   const PSVComponentMask GetMaskForInput(uint32_t inputComponentIndex) const {
     return getMaskForInput(inputComponentIndex);
+  }
+  bool operator!=(const PSVDependencyTable &other) const {
+    if (InputVectors != other.InputVectors ||
+        OutputVectors != other.OutputVectors)
+      return true;
+    return memcmp(
+        Table, other.Table,
+        PSVComputeInputOutputTableDwords(InputVectors, OutputVectors) *
+            sizeof(uint32_t));
   }
   bool IsValid() const { return Table != nullptr; }
   void Print(llvm::raw_ostream &, const char *, const char *) const;
@@ -449,6 +465,8 @@ public:
     return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF;
   }
   void Print(llvm::raw_ostream &O) const;
+  void Print(llvm::raw_ostream &O, const char *Name,
+             const uint32_t *SemanticIndexes) const;
 };
 
 #define MAX_PSV_VERSION 3
@@ -593,6 +611,14 @@ public:
   bool InitNew(const PSVInitInfo &initInfo, void *pBuffer, uint32_t *pSize) {
     RWMode Mode = nullptr != pBuffer ? RWMode::Write : RWMode::CalcSize;
     return ReadOrWrite(pBuffer, pSize, Mode, initInfo);
+  }
+
+  uint32_t GetRuntimeInfoSize() const { return m_uPSVRuntimeInfoSize; }
+  uint32_t GetResourceBindInfoSize() const {
+    return m_uPSVResourceBindInfoSize;
+  }
+  uint32_t GetSignatureElementSize() const {
+    return m_uPSVSignatureElementSize;
   }
 
   PSVRuntimeInfo0 *GetPSVRuntimeInfo0() const { return m_pPSVRuntimeInfo0; }
@@ -752,6 +778,7 @@ public:
   }
   void PrintPSVRuntimeInfo(llvm::raw_ostream &O, uint8_t ShaderKind,
                            const char *Comment) const;
+  void PrintViewIDState(llvm::raw_ostream &OS) const;
   void Print(llvm::raw_ostream &O, uint8_t ShaderKind) const;
 };
 
@@ -1084,6 +1111,9 @@ public:
 ViewIDValidator *NewViewIDValidator(unsigned viewIDCount,
                                     unsigned gsRastStreamIndex);
 
+uint32_t GetPSVVersion(uint32_t ValidatorMajorVersion,
+                       uint32_t ValidatorMinorVersion);
+
 void InitPSVResourceBinding(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
                             DxilResourceBase *);
 
@@ -1093,11 +1123,15 @@ void InitPSVSignatureElement(PSVSignatureElement0 &E,
                              const DxilSignatureElement &SE,
                              bool i1ToUnknownCompat);
 
-// Setup PSVRuntimeInfo* with DxilModule.
-// Note that the EntryFunctionName is not done.
-void InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
-                        PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
-                        const DxilModule &DM);
+// Setup shader properties for PSVRuntimeInfo* with DxilModule.
+void SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM);
+void SetShaderProps(PSVRuntimeInfo1 *pInfo1, const DxilModule &DM);
+void SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM);
+
+void PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
+                         PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
+                         PSVRuntimeInfo3 *pInfo3, uint8_t ShaderKind,
+                         const char *EntryName, const char *Comment);
 
 } // namespace hlsl
 

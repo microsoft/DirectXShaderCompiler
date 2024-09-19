@@ -24,6 +24,18 @@
 using namespace hlsl;
 using namespace llvm;
 
+uint32_t hlsl::GetPSVVersion(uint32_t ValMajor, uint32_t ValMinor) {
+  unsigned PSVVersion = MAX_PSV_VERSION;
+  // Constraint PSVVersion based on validator version
+  if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 1) < 0)
+    PSVVersion = 0;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 6) < 0)
+    PSVVersion = 1;
+  else if (DXIL::CompareVersions(ValMajor, ValMinor, 1, 8) < 0)
+    PSVVersion = 2;
+  return PSVVersion;
+}
+
 void hlsl::InitPSVResourceBinding(PSVResourceBindInfo0 *Bind0,
                                   PSVResourceBindInfo1 *Bind1,
                                   DxilResourceBase *Res) {
@@ -98,9 +110,7 @@ void hlsl::InitPSVSignatureElement(PSVSignatureElement0 &E,
   E.DynamicMaskAndStream |= (SE.GetDynIdxCompMask()) & 0xF;
 }
 
-void hlsl::InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
-                              PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
-                              const DxilModule &DM) {
+void hlsl::SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM) {
   const ShaderModel *SM = DM.GetShaderModel();
   pInfo->MinimumExpectedWaveLaneCount = 0;
   pInfo->MaximumExpectedWaveLaneCount = (uint32_t)-1;
@@ -205,7 +215,6 @@ void hlsl::InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
   case ShaderModel::Kind::Mesh: {
     pInfo->MS.MaxOutputVertices = (uint16_t)DM.GetMaxOutputVertices();
     pInfo->MS.MaxOutputPrimitives = (uint16_t)DM.GetMaxOutputPrimitives();
-    pInfo1->MS1.MeshOutputTopology = (uint8_t)DM.GetMeshOutputTopology();
     Module *mod = DM.GetModule();
     const DataLayout &DL = mod->getDataLayout();
     unsigned totalByteSize = 0;
@@ -226,22 +235,36 @@ void hlsl::InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
     break;
   }
   }
+}
 
-  // Write MaxVertexCount
-  if (pInfo1) {
-    if (SM->GetKind() == ShaderModel::Kind::Geometry)
-      pInfo1->MaxVertexCount = (uint16_t)DM.GetMaxVertexCount();
+void hlsl::SetShaderProps(PSVRuntimeInfo1 *pInfo1, const DxilModule &DM) {
+  assert(pInfo1);
+  const ShaderModel *SM = DM.GetShaderModel();
+  switch (SM->GetKind()) {
+  case ShaderModel::Kind::Geometry:
+    pInfo1->MaxVertexCount = (uint16_t)DM.GetMaxVertexCount();
+    break;
+  case ShaderModel::Kind::Mesh:
+    pInfo1->MS1.MeshOutputTopology = (uint8_t)DM.GetMeshOutputTopology();
+    break;
+  default:
+    break;
   }
-  if (pInfo2) {
-    switch (SM->GetKind()) {
-    case ShaderModel::Kind::Compute:
-    case ShaderModel::Kind::Mesh:
-    case ShaderModel::Kind::Amplification:
-      pInfo2->NumThreadsX = DM.GetNumThreads(0);
-      pInfo2->NumThreadsY = DM.GetNumThreads(1);
-      pInfo2->NumThreadsZ = DM.GetNumThreads(2);
-      break;
-    }
+}
+
+void hlsl::SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM) {
+  assert(pInfo2);
+  const ShaderModel *SM = DM.GetShaderModel();
+  switch (SM->GetKind()) {
+  case ShaderModel::Kind::Compute:
+  case ShaderModel::Kind::Mesh:
+  case ShaderModel::Kind::Amplification:
+    pInfo2->NumThreadsX = DM.GetNumThreads(0);
+    pInfo2->NumThreadsY = DM.GetNumThreads(1);
+    pInfo2->NumThreadsZ = DM.GetNumThreads(2);
+    break;
+  default:
+    break;
   }
 }
 
@@ -360,10 +383,14 @@ void PSVResourceBindInfo1::Print(raw_ostream &OS) const {
 }
 
 void PSVSignatureElement::Print(raw_ostream &OS) const {
+  Print(OS, GetSemanticName(), GetSemanticIndexes());
+}
+
+void PSVSignatureElement::Print(raw_ostream &OS, const char *Name,
+                                const uint32_t *SemanticIndexes) const {
   OS << "PSVSignatureElement:\n";
-  OS << "  SemanticName: " << GetSemanticName() << "\n";
+  OS << "  SemanticName: " << Name << "\n";
   OS << "  SemanticIndex: ";
-  const uint32_t *SemanticIndexes = GetSemanticIndexes();
   for (unsigned i = 0; i < GetRows(); ++i) {
     OS << *(SemanticIndexes + i) << " ";
   }
@@ -518,13 +545,10 @@ void PSVDependencyTable::Print(raw_ostream &OS, const char *InputSetName,
   }
 }
 
-void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
-    raw_ostream &OS, uint8_t ShaderKind, const char *Comment) const {
-  PSVRuntimeInfo0 *pInfo0 = m_pPSVRuntimeInfo0;
-  PSVRuntimeInfo1 *pInfo1 = m_pPSVRuntimeInfo1;
-  PSVRuntimeInfo2 *pInfo2 = m_pPSVRuntimeInfo2;
-  PSVRuntimeInfo3 *pInfo3 = m_pPSVRuntimeInfo3;
-
+void hlsl::PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
+                               PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
+                               PSVRuntimeInfo3 *pInfo3, uint8_t ShaderKind,
+                               const char *EntryName, const char *Comment) {
   if (pInfo1 && pInfo1->ShaderStage != ShaderKind)
     ShaderKind = pInfo1->ShaderStage;
   OS << Comment << "PSVRuntimeInfo:\n";
@@ -817,9 +841,74 @@ void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
     }
   }
   if (pInfo3)
-    OS << Comment
-       << " EntryFunctionName: " << m_StringTable.Get(pInfo3->EntryFunctionName)
-       << "\n";
+    OS << Comment << " EntryFunctionName: " << EntryName << "\n";
+}
+
+void DxilPipelineStateValidation::PrintPSVRuntimeInfo(
+    raw_ostream &OS, uint8_t ShaderKind, const char *Comment) const {
+  PSVRuntimeInfo0 *pInfo0 = m_pPSVRuntimeInfo0;
+  PSVRuntimeInfo1 *pInfo1 = m_pPSVRuntimeInfo1;
+  PSVRuntimeInfo2 *pInfo2 = m_pPSVRuntimeInfo2;
+  PSVRuntimeInfo3 *pInfo3 = m_pPSVRuntimeInfo3;
+
+  hlsl::PrintPSVRuntimeInfo(
+      OS, pInfo0, pInfo1, pInfo2, pInfo3, ShaderKind,
+      m_pPSVRuntimeInfo3 ? m_StringTable.Get(pInfo3->EntryFunctionName) : "",
+      Comment);
+}
+
+void DxilPipelineStateValidation::PrintViewIDState(raw_ostream &OS) const {
+  unsigned NumStreams = IsGS() ? PSV_GS_MAX_STREAMS : 1;
+
+  if (m_pPSVRuntimeInfo1->UsesViewID) {
+    for (unsigned i = 0; i < NumStreams; ++i) {
+      OS << "Outputs affected by ViewID as a bitmask for stream " << i
+         << ":\n ";
+      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[i];
+      const PSVComponentMask ViewIDMask(m_pViewIDOutputMask[i], OutputVectors);
+      std::string OutputSetName = "Outputs";
+      OutputSetName += "[" + std::to_string(i) + "]";
+      ViewIDMask.Print(OS, "ViewID", OutputSetName.c_str());
+    }
+
+    if (IsHS() || IsMS()) {
+      OS << "PCOutputs affected by ViewID as a bitmask:\n";
+      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
+      const PSVComponentMask ViewIDMask(m_pViewIDPCOrPrimOutputMask,
+                                        OutputVectors);
+      ViewIDMask.Print(OS, "ViewID", "PCOutputs");
+    }
+  }
+
+  for (unsigned i = 0; i < NumStreams; ++i) {
+    OS << "Outputs affected by inputs as a table of bitmasks for stream " << i
+       << ":\n";
+    uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
+    uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[i];
+    const PSVDependencyTable Table(m_pInputToOutputTable[i], InputVectors,
+                                   OutputVectors);
+    std::string OutputSetName = "Outputs";
+    OutputSetName += "[" + std::to_string(i) + "]";
+    Table.Print(OS, "Inputs", OutputSetName.c_str());
+  }
+
+  if (IsHS()) {
+    OS << "Patch constant outputs affected by inputs as a table of "
+          "bitmasks:\n";
+    uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
+    uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
+    const PSVDependencyTable Table(m_pInputToPCOutputTable, InputVectors,
+                                   OutputVectors);
+    Table.Print(OS, "Inputs", "PatchConstantOutputs");
+  } else if (IsDS()) {
+    OS << "Outputs affected by patch constant inputs as a table of "
+          "bitmasks:\n";
+    uint8_t InputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
+    uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[0];
+    const PSVDependencyTable Table(m_pPCInputToOutputTable, InputVectors,
+                                   OutputVectors);
+    Table.Print(OS, "PatchConstantInputs", "Outputs");
+  }
 }
 
 void DxilPipelineStateValidation::Print(raw_ostream &OS,
@@ -866,57 +955,6 @@ void DxilPipelineStateValidation::Print(raw_ostream &OS,
       PSVSE.Print(OS);
     }
 
-    unsigned NumStreams = IsGS() ? PSV_GS_MAX_STREAMS : 1;
-
-    if (m_pPSVRuntimeInfo1->UsesViewID) {
-      for (unsigned i = 0; i < NumStreams; ++i) {
-        OS << "Outputs affected by ViewID as a bitmask for stream " << i
-           << ":\n ";
-        uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[i];
-        const PSVComponentMask ViewIDMask(m_pViewIDOutputMask[i],
-                                          OutputVectors);
-        std::string OutputSetName = "Outputs";
-        OutputSetName += "[" + std::to_string(i) + "]";
-        ViewIDMask.Print(OS, "ViewID", OutputSetName.c_str());
-      }
-
-      if (IsHS() || IsMS()) {
-        OS << "PCOutputs affected by ViewID as a bitmask:\n";
-        uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
-        const PSVComponentMask ViewIDMask(m_pViewIDPCOrPrimOutputMask,
-                                          OutputVectors);
-        ViewIDMask.Print(OS, "ViewID", "PCOutputs");
-      }
-    }
-
-    for (unsigned i = 0; i < NumStreams; ++i) {
-      OS << "Outputs affected by inputs as a table of bitmasks for stream " << i
-         << ":\n";
-      uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
-      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[i];
-      const PSVDependencyTable Table(m_pInputToOutputTable[i], InputVectors,
-                                     OutputVectors);
-      std::string OutputSetName = "Outputs";
-      OutputSetName += "[" + std::to_string(i) + "]";
-      Table.Print(OS, "Inputs", OutputSetName.c_str());
-    }
-
-    if (IsHS()) {
-      OS << "Patch constant outputs affected by inputs as a table of "
-            "bitmasks:\n";
-      uint8_t InputVectors = m_pPSVRuntimeInfo1->SigInputVectors;
-      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
-      const PSVDependencyTable Table(m_pInputToPCOutputTable, InputVectors,
-                                     OutputVectors);
-      Table.Print(OS, "Inputs", "PatchConstantOutputs");
-    } else if (IsDS()) {
-      OS << "Outputs affected by patch constant inputs as a table of "
-            "bitmasks:\n";
-      uint8_t InputVectors = m_pPSVRuntimeInfo1->SigPatchConstOrPrimVectors;
-      uint8_t OutputVectors = m_pPSVRuntimeInfo1->SigOutputVectors[0];
-      const PSVDependencyTable Table(m_pPCInputToOutputTable, InputVectors,
-                                     OutputVectors);
-      Table.Print(OS, "PatchConstantInputs", "Outputs");
-    }
+    PrintViewIDState(OS);
   }
 }
