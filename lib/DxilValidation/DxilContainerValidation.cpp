@@ -125,8 +125,8 @@ public:
 };
 
 class SemanticIndexTableVerifier {
-  std::vector<bool> UseMask;
   const PSVSemanticIndexTable &Table;
+  std::vector<bool> UseMask;
 
 public:
   SemanticIndexTableVerifier(const PSVSemanticIndexTable &Table)
@@ -602,11 +602,11 @@ struct SimplePSV {
   uint32_t PSVNumResources = 0;
   uint32_t PSVResourceBindInfoSize = 0;
   uint32_t StringTableSize = 0;
-  char *StringTable = nullptr;
+  const char *StringTable = nullptr;
   uint32_t SemanticIndexTableEntries = 0;
-  uint32_t *SemanticIndexTable = nullptr;
+  const uint32_t *SemanticIndexTable = nullptr;
   uint32_t PSVSignatureElementSize = 0;
-  PSVRuntimeInfo1 *RuntimeInfo1 = nullptr;
+  const PSVRuntimeInfo1 *RuntimeInfo1 = nullptr;
   bool IsValid = true;
   SimplePSV(const void *pPSVData, uint32_t PSVSize) {
     uint32_t Offset = 4;
@@ -614,23 +614,24 @@ struct SimplePSV {
       IsValid = false;
       return;
     }
-    PSVRuntimeInfoSize = *(uint32_t *)pPSVData;
+    PSVRuntimeInfoSize = *(const uint32_t *)pPSVData;
     if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
-      RuntimeInfo1 = (PSVRuntimeInfo1 *)((char *)pPSVData + Offset);
+      RuntimeInfo1 = (const PSVRuntimeInfo1 *)((const char *)pPSVData + Offset);
     Offset += PSVRuntimeInfoSize;
     if (PSVSize < Offset) {
       IsValid = false;
       return;
     }
 
-    PSVNumResources = *(uint32_t *)((char *)pPSVData + Offset);
+    PSVNumResources = *(const uint32_t *)((const char *)pPSVData + Offset);
     Offset += 4;
     if (PSVSize < Offset) {
       IsValid = false;
       return;
     }
     if (PSVNumResources > 0) {
-      PSVResourceBindInfoSize = *(uint32_t *)((char *)pPSVData + Offset);
+      PSVResourceBindInfoSize =
+          *(const uint32_t *)((const char *)pPSVData + Offset);
       Offset += 4;
       if (PSVSize < Offset) {
         IsValid = false;
@@ -643,7 +644,7 @@ struct SimplePSV {
       }
     }
     if (RuntimeInfo1) {
-      StringTableSize = *(uint32_t *)((char *)pPSVData + Offset);
+      StringTableSize = *(const uint32_t *)((const char *)pPSVData + Offset);
       Offset += 4;
       if (PSVSize < Offset) {
         IsValid = false;
@@ -655,17 +656,19 @@ struct SimplePSV {
         return;
       }
       if (StringTableSize) {
-        StringTable = (char *)pPSVData + Offset;
+        StringTable = (const char *)pPSVData + Offset;
         Offset += StringTableSize;
       }
-      SemanticIndexTableEntries = *(uint32_t *)((char *)pPSVData + Offset);
+      SemanticIndexTableEntries =
+          *(const uint32_t *)((const char *)pPSVData + Offset);
       Offset += 4;
       if (PSVSize < Offset) {
         IsValid = false;
         return;
       }
       if (SemanticIndexTableEntries) {
-        SemanticIndexTable = (uint32_t *)((char *)pPSVData + Offset);
+        SemanticIndexTable =
+            (const uint32_t *)((const char *)pPSVData + Offset);
         Offset += SemanticIndexTableEntries * 4;
         if (PSVSize < Offset) {
           IsValid = false;
@@ -674,7 +677,8 @@ struct SimplePSV {
       }
       if (RuntimeInfo1->SigInputElements || RuntimeInfo1->SigOutputElements ||
           RuntimeInfo1->SigPatchConstOrPrimElements) {
-        PSVSignatureElementSize = *(uint32_t *)((char *)pPSVData + Offset);
+        PSVSignatureElementSize =
+            *(const uint32_t *)((const char *)pPSVData + Offset);
         Offset += 4;
         if (PSVSize < Offset) {
           IsValid = false;
