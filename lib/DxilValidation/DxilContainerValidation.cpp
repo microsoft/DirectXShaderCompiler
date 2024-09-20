@@ -84,6 +84,7 @@ class PSVContentVerifier {
   DxilPipelineStateValidation &PSV;
   ValidationContext &ValCtx;
   bool PSVContentValid = true;
+
 public:
   PSVContentVerifier(DxilPipelineStateValidation &PSV, DxilModule &DM,
                      ValidationContext &ValCtx)
@@ -370,12 +371,6 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
 void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
                                 unsigned PSVVersion) {
   PSVInitInfo PSVInfo(PSVVersion);
-  if (PSV.GetRuntimeInfoSize() != PSVInfo.RuntimeInfoSize()) {
-    EmitMismatchError("PSVRuntimeInfoSize",
-                      std::to_string(PSV.GetRuntimeInfoSize()),
-                      std::to_string(PSVInfo.RuntimeInfoSize()));
-    return;
-  }
 
   if (PSV.GetBindCount() > 0 &&
       PSV.GetResourceBindInfoSize() != PSVInfo.ResourceBindInfoSize()) {
@@ -503,28 +498,214 @@ bool VerifySignatureMatches(llvm::Module *pModule, DXIL::SignatureKind SigKind,
   return !ValCtx.Failed;
 }
 
+struct SimplePSV {
+  uint32_t PSVRuntimeInfoSize = 0;
+  uint32_t PSVNumResources = 0;
+  uint32_t PSVResourceBindInfoSize = 0;
+  uint32_t StringTableSize = 0;
+  char *StringTable = nullptr;
+  uint32_t SemanticIndexTableEntries = 0;
+  uint32_t *SemanticIndexTable = nullptr;
+  uint32_t PSVSignatureElementSize = 0;
+  PSVRuntimeInfo1 *RuntimeInfo1 = nullptr;
+  bool IsValid = true;
+  SimplePSV(const void *pPSVData, uint32_t PSVSize) {
+    uint32_t Offset = 4;
+    if (PSVSize < Offset) {
+      IsValid = false;
+      return;
+    }
+    PSVRuntimeInfoSize = *(uint32_t *)pPSVData;
+    if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
+      RuntimeInfo1 = (PSVRuntimeInfo1 *)((char *)pPSVData + Offset);
+    Offset += PSVRuntimeInfoSize;
+    if (PSVSize < Offset) {
+      IsValid = false;
+      return;
+    }
+
+    PSVNumResources = *(uint32_t *)((char *)pPSVData + Offset);
+    Offset += 4;
+    if (PSVSize < Offset) {
+      IsValid = false;
+      return;
+    }
+    if (PSVNumResources > 0) {
+      PSVResourceBindInfoSize = *(uint32_t *)((char *)pPSVData + Offset);
+      Offset += 4;
+      if (PSVSize < Offset) {
+        IsValid = false;
+        return;
+      }
+      Offset += PSVNumResources * PSVResourceBindInfoSize;
+      if (PSVSize < Offset) {
+        IsValid = false;
+        return;
+      }
+    }
+    if (RuntimeInfo1) {
+      StringTableSize = *(uint32_t *)((char *)pPSVData + Offset);
+      Offset += 4;
+      if (PSVSize < Offset) {
+        IsValid = false;
+        return;
+      }
+      // Make sure StringTableSize is aligned to 4 bytes.
+      if ((StringTableSize & 3) != 0) {
+        IsValid = false;
+        return;
+      }
+      if (StringTableSize) {
+        StringTable = (char *)pPSVData + Offset;
+        Offset += StringTableSize;
+      }
+      SemanticIndexTableEntries = *(uint32_t *)((char *)pPSVData + Offset);
+      Offset += 4;
+      if (PSVSize < Offset) {
+        IsValid = false;
+        return;
+      }
+      if (SemanticIndexTableEntries) {
+        SemanticIndexTable = (uint32_t *)((char *)pPSVData + Offset);
+        Offset += SemanticIndexTableEntries * 4;
+        if (PSVSize < Offset) {
+          IsValid = false;
+          return;
+        }
+      }
+      if (RuntimeInfo1->SigInputElements || RuntimeInfo1->SigOutputElements ||
+          RuntimeInfo1->SigPatchConstOrPrimElements) {
+        PSVSignatureElementSize = *(uint32_t *)((char *)pPSVData + Offset);
+        Offset += 4;
+        if (PSVSize < Offset) {
+          IsValid = false;
+          return;
+        }
+        uint32_t PSVNumSignatures = RuntimeInfo1->SigInputElements +
+                                    RuntimeInfo1->SigOutputElements +
+                                    RuntimeInfo1->SigPatchConstOrPrimElements;
+        Offset += PSVNumSignatures * PSVSignatureElementSize;
+        if (PSVSize < Offset) {
+          IsValid = false;
+          return;
+        }
+      }
+      if (RuntimeInfo1->UsesViewID) {
+        for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
+          uint32_t SigOutputVectors = RuntimeInfo1->SigOutputVectors[i];
+          if (SigOutputVectors == 0)
+            continue;
+          Offset += sizeof(uint32_t) *
+                    llvm::RoundUpToAlignment(SigOutputVectors, 8) / 8;
+          if (PSVSize < Offset) {
+            IsValid = false;
+            return;
+          }
+        }
+        if ((RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Hull ||
+             RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Mesh) &&
+            RuntimeInfo1->SigPatchConstOrPrimVectors) {
+          Offset += sizeof(uint32_t) *
+                    llvm::RoundUpToAlignment(
+                        RuntimeInfo1->SigPatchConstOrPrimVectors, 8) /
+                    8;
+          if (PSVSize < Offset) {
+            IsValid = false;
+            return;
+          }
+        }
+      }
+
+      for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
+        uint32_t SigOutputVectors = RuntimeInfo1->SigOutputVectors[i];
+        if (SigOutputVectors == 0)
+          continue;
+        Offset += sizeof(uint32_t) *
+                  llvm::RoundUpToAlignment(SigOutputVectors, 8) / 8 *
+                  RuntimeInfo1->SigInputVectors * 4;
+        if (PSVSize < Offset) {
+          IsValid = false;
+          return;
+        }
+      }
+
+      if ((RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Hull ||
+           RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Mesh) &&
+          RuntimeInfo1->SigPatchConstOrPrimVectors &&
+          RuntimeInfo1->SigInputVectors) {
+        Offset += sizeof(uint32_t) *
+                  llvm::RoundUpToAlignment(
+                      RuntimeInfo1->SigPatchConstOrPrimVectors, 8) /
+                  8 * RuntimeInfo1->SigInputVectors * 4;
+        if (PSVSize < Offset) {
+          IsValid = false;
+          return;
+        }
+      }
+
+      if (RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Domain &&
+          RuntimeInfo1->SigOutputVectors[0] &&
+          RuntimeInfo1->SigPatchConstOrPrimVectors) {
+        Offset +=
+            sizeof(uint32_t) *
+            llvm::RoundUpToAlignment(RuntimeInfo1->SigOutputVectors[0], 8) / 8 *
+            RuntimeInfo1->SigPatchConstOrPrimVectors * 4;
+        if (PSVSize < Offset) {
+          IsValid = false;
+          return;
+        }
+      }
+    }
+    IsValid = PSVSize == Offset;
+  }
+  bool ValidatePSVInit(PSVInitInfo PSVInfo, ValidationContext &ValCtx) {
+    if (PSVRuntimeInfoSize != PSVInfo.RuntimeInfoSize()) {
+      ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
+                             {"PSVRuntimeInfoSize", "PSV0",
+                              std::to_string(PSVRuntimeInfoSize),
+                              std::to_string(PSVInfo.RuntimeInfoSize())});
+      return false;
+    }
+    if (PSVNumResources &&
+        PSVResourceBindInfoSize != PSVInfo.ResourceBindInfoSize()) {
+      ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
+                             {"PSVResourceBindInfoSize", "PSV0",
+                              std::to_string(PSVResourceBindInfoSize),
+                              std::to_string(PSVInfo.ResourceBindInfoSize())});
+      return false;
+    }
+    if (RuntimeInfo1 &&
+        (RuntimeInfo1->SigInputElements || RuntimeInfo1->SigOutputElements ||
+         RuntimeInfo1->SigPatchConstOrPrimElements) &&
+        PSVSignatureElementSize != PSVInfo.SignatureElementSize()) {
+      ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
+                             {"PSVSignatureElementSize", "PSV0",
+                              std::to_string(PSVSignatureElementSize),
+                              std::to_string(PSVInfo.SignatureElementSize())});
+      return false;
+    }
+    return true;
+  }
+};
+
 static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
                              uint32_t PSVSize) {
-  if (PSVSize < sizeof(uint32_t)) {
+  SimplePSV SimplePSV(pPSVData, PSVSize);
+  if (!SimplePSV.IsValid) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
                            {"Pipeline State Validation"});
     return;
   }
+
   unsigned ValMajor, ValMinor;
   ValCtx.DxilMod.GetValidatorVersion(ValMajor, ValMinor);
   unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
 
   PSVInitInfo PSVInfo(PSVVersion);
   hlsl::SetupPSVInitInfo(PSVInfo, ValCtx.DxilMod);
-  uint32_t PSVRuntimeInfoSize = *(uint32_t *)pPSVData;
 
-  if (PSVRuntimeInfoSize != PSVInfo.RuntimeInfoSize()) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
-                           {"PSVRuntimeInfoSize", "PSV0",
-                            std::to_string(PSVRuntimeInfoSize),
-                            std::to_string(PSVInfo.RuntimeInfoSize())});
+  if (!SimplePSV.ValidatePSVInit(PSVInfo, ValCtx))
     return;
-  }
 
   DxilPipelineStateValidation PSV;
   if (!PSV.InitFromPSV0(pPSVData, PSVSize)) {

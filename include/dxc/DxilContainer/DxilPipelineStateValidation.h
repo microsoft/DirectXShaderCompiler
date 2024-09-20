@@ -940,15 +940,12 @@ DxilPipelineStateValidation::ReadOrWrite(const void *pBits, uint32_t *pSize,
 
   PSV_RETB(rw.MapValue(&m_uPSVRuntimeInfoSize, initInfo.RuntimeInfoSize()));
   PSV_RETB(rw.MapArray(&m_pPSVRuntimeInfo0, 1, m_uPSVRuntimeInfoSize));
-  if (initInfo.PSVVersion > 0)
-    AssignDerived(&m_pPSVRuntimeInfo1, m_pPSVRuntimeInfo0,
-                  m_uPSVRuntimeInfoSize); // failure ok
-  if (initInfo.PSVVersion > 1)
-    AssignDerived(&m_pPSVRuntimeInfo2, m_pPSVRuntimeInfo0,
-                  m_uPSVRuntimeInfoSize); // failure ok
-  if (initInfo.PSVVersion > 2)
-    AssignDerived(&m_pPSVRuntimeInfo3, m_pPSVRuntimeInfo0,
-                  m_uPSVRuntimeInfoSize); // failure ok
+  AssignDerived(&m_pPSVRuntimeInfo1, m_pPSVRuntimeInfo0,
+                m_uPSVRuntimeInfoSize); // failure ok
+  AssignDerived(&m_pPSVRuntimeInfo2, m_pPSVRuntimeInfo0,
+                m_uPSVRuntimeInfoSize); // failure ok
+  AssignDerived(&m_pPSVRuntimeInfo3, m_pPSVRuntimeInfo0,
+                m_uPSVRuntimeInfoSize); // failure ok
 
   // In RWMode::CalcSize, use temp runtime info to hold needed values from
   // initInfo
