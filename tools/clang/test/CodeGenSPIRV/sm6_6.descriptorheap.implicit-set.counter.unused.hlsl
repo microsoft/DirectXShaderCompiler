@@ -1,4 +1,4 @@
-// RUN: %dxc -T cs_6_6 -E main -fcgl %s -spirv 2>&1 | FileCheck %s
+// RUN: %dxc -T cs_6_6 -E main -fcgl %s -spirv | FileCheck %s
 
 // CHECK-DAG: OpDecorate %a DescriptorSet 0
 // CHECK-DAG: OpDecorate %a Binding 0

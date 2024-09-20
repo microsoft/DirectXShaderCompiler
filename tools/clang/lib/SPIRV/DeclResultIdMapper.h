@@ -643,7 +643,13 @@ private:
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
           *stageVariableLocationInfo);
 
-  /// \bried Decorates used Resource/Sampler descriptor heaps with the correct
+  /// \brief Get a valid BindingInfo. If no user provided binding info is given,
+  /// allocates a new binding and returns it.
+  static SpirvCodeGenOptions::BindingInfo getBindingInfo(
+      BindingSet &bindingSet,
+      const std::optional<SpirvCodeGenOptions::BindingInfo> &userProvidedInfo);
+
+  /// \brief Decorates used Resource/Sampler descriptor heaps with the correct
   /// binding/set decorations.
   void decorateResourceHeapsBindings(BindingSet &bindingSet);
 

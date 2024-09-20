@@ -15,6 +15,7 @@
 
 #include "dxc/DXIL/DxilConstants.h"
 #include "dxc/DXIL/DxilTypeSystem.h"
+#include "dxc/Support/SPIRVOptions.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/HlslTypes.h"
 #include "clang/SPIRV/AstTypeProbe.h"
@@ -2506,6 +2507,17 @@ bool DeclResultIdMapper::decorateResourceBindings() {
 
   BindingSet bindingSet;
 
+  // If some bindings are reserved for heaps, mark those are used.
+  if (spirvOptions.resourceHeapBinding)
+    bindingSet.useBinding(spirvOptions.resourceHeapBinding->binding,
+                          spirvOptions.resourceHeapBinding->set);
+  if (spirvOptions.samplerHeapBinding)
+    bindingSet.useBinding(spirvOptions.samplerHeapBinding->binding,
+                          spirvOptions.samplerHeapBinding->set);
+  if (spirvOptions.counterHeapBinding)
+    bindingSet.useBinding(spirvOptions.counterHeapBinding->binding,
+                          spirvOptions.counterHeapBinding->set);
+
   // Decorates the given varId of the given category with set number
   // setNo, binding number bindingNo. Ignores overlaps.
   const auto tryToDecorate = [this, &bindingSet](const ResourceVar &var,
@@ -2698,6 +2710,15 @@ bool DeclResultIdMapper::decorateResourceBindings() {
   return true;
 }
 
+SpirvCodeGenOptions::BindingInfo DeclResultIdMapper::getBindingInfo(
+    BindingSet &bindingSet,
+    const std::optional<SpirvCodeGenOptions::BindingInfo> &userProvidedInfo) {
+  if (userProvidedInfo.has_value()) {
+    return *userProvidedInfo;
+  }
+  return {bindingSet.useNextBinding(0), /* set= */ 0};
+}
+
 void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
   bool hasResource = false;
   bool hasSamplers = false;
@@ -2725,12 +2746,21 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
   // Allocate bindings only for used resources. The order of this allocation is
   // important:
   //  - First resource heaps, then sampler heaps, and finally counter heaps.
-  const uint32_t resourceBinding =
-      hasResource ? bindingSet.useNextBinding(0) : 0;
-  const uint32_t samplersBinding =
-      hasSamplers ? bindingSet.useNextBinding(0) : 0;
-  const uint32_t countersBinding =
-      hasCounters ? bindingSet.useNextBinding(0) : 0;
+  SpirvCodeGenOptions::BindingInfo resourceBinding = {/* binding= */ 0,
+                                                      /* set= */ 0};
+  SpirvCodeGenOptions::BindingInfo samplersBinding = {/* binding= */ 0,
+                                                      /* set= */ 0};
+  SpirvCodeGenOptions::BindingInfo countersBinding = {/* binding= */ 0,
+                                                      /* set= */ 0};
+  if (hasResource)
+    resourceBinding =
+        getBindingInfo(bindingSet, spirvOptions.resourceHeapBinding);
+  if (hasSamplers)
+    samplersBinding =
+        getBindingInfo(bindingSet, spirvOptions.samplerHeapBinding);
+  if (hasCounters)
+    countersBinding =
+        getBindingInfo(bindingSet, spirvOptions.counterHeapBinding);
 
   for (const auto &var : resourceVars) {
     if (!var.getDeclaration())
@@ -2739,13 +2769,14 @@ void DeclResultIdMapper::decorateResourceHeapsBindings(BindingSet &bindingSet) {
     if (!decl)
       continue;
 
-    if (isResourceDescriptorHeap(decl->getType()))
-      spvBuilder.decorateDSetBinding(var.getSpirvInstr(), /* set= */ 0,
-                                     var.isCounter() ? countersBinding
-                                                     : resourceBinding);
-    else if (isSamplerDescriptorHeap(decl->getType()))
-      spvBuilder.decorateDSetBinding(var.getSpirvInstr(), /* set= */ 0,
-                                     samplersBinding);
+    const bool isResourceHeap = isResourceDescriptorHeap(decl->getType());
+    const bool isSamplerHeap = isSamplerDescriptorHeap(decl->getType());
+    if (!isSamplerHeap && !isResourceHeap)
+      continue;
+    const SpirvCodeGenOptions::BindingInfo &info =
+        isSamplerHeap ? samplersBinding
+                      : (var.isCounter() ? countersBinding : resourceBinding);
+    spvBuilder.decorateDSetBinding(var.getSpirvInstr(), info.set, info.binding);
   }
 }
 

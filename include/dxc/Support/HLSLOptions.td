@@ -416,6 +416,12 @@ def fspv_preserve_interface : Flag<["-"], "fspv-preserve-interface">, Group<spir
   HelpText<"Preserves all interface variables in the entry point, even when those variables are unused">;
 def fspv_max_id : MultiArg<["-"], "fspv-max-id", 1>, MetaVarName<"<shift> <space>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Set the maximum value for an id in the SPIR-V binary. Default is 0x3FFFFF, which is the largest value all drivers must support.">;
+def fvk_bind_resource_heap : MultiArg<["-"], "fvk-bind-resource-heap", 2>, MetaVarName<"<binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan binding number and set number for the resource heap.">;
+def fvk_bind_sampler_heap : MultiArg<["-"], "fvk-bind-sampler-heap", 2>, MetaVarName<"<binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan binding number and set number for the sampler heap.">;
+def fvk_bind_counter_heap : MultiArg<["-"], "fvk-bind-counter-heap", 2>, MetaVarName<"<binding> <set>">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Specify Vulkan binding number and set number for the counter heap.">;
 // SPIRV Change Ends
 
 //////////////////////////////////////////////////////////////////////////////

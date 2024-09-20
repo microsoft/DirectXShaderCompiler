@@ -20,6 +20,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 
+#include <optional>
+
 namespace clang {
 namespace spirv {
 
@@ -96,6 +98,15 @@ struct SpirvCodeGenOptions {
   std::vector<std::string> bindGlobals;
   std::string entrypointName;
   std::string floatDenormalMode; // OPT_denorm
+
+  // User-defined bindings/set numbers for resource/sampler/counter heaps.
+  struct BindingInfo {
+    size_t binding;
+    size_t set;
+  };
+  std::optional<BindingInfo> resourceHeapBinding;
+  std::optional<BindingInfo> samplerHeapBinding;
+  std::optional<BindingInfo> counterHeapBinding;
 
   bool signaturePacking; ///< Whether signature packing is enabled or not
 
