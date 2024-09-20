@@ -707,15 +707,10 @@ static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
   if (!SimplePSV.ValidatePSVInit(PSVInfo, ValCtx))
     return;
 
-  DxilPipelineStateValidation PSV;
-  if (!PSV.InitFromPSV0(pPSVData, PSVSize)) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
-                           {"Pipeline State Validation"});
-    return;
-  }
-
-  PSVInfo.StringTable = PSV.GetStringTable();
-  PSVInfo.SemanticIndexTable = PSV.GetSemanticIndexTable();
+  PSVInfo.StringTable =
+      PSVStringTable(SimplePSV.StringTable, SimplePSV.StringTableSize);
+  PSVInfo.SemanticIndexTable = PSVSemanticIndexTable(
+      SimplePSV.SemanticIndexTable, SimplePSV.SemanticIndexTableEntries);
   uint32_t ExpectedSize = 0;
   DxilPipelineStateValidation SizePSV;
   if (!SizePSV.InitNew(PSVInfo, nullptr, &ExpectedSize)) {
@@ -725,6 +720,13 @@ static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
   }
 
   if (ExpectedSize != PSVSize) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
+                           {"Pipeline State Validation"});
+    return;
+  }
+
+  DxilPipelineStateValidation PSV;
+  if (!PSV.InitFromPSV0(pPSVData, PSVSize)) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
                            {"Pipeline State Validation"});
     return;
