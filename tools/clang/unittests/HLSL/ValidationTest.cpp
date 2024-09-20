@@ -4715,7 +4715,7 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   VERIFY_SUCCEEDED(status);
 
   // Create unused name in String table.
-  PSVInfo->EntryFunctionName = 2;
+  PSVInfo->EntryFunctionName = UINT32_MAX;
 
   // Run validation again.
   CComPtr<IDxcOperationResult> pUpdatedTableResult2;
@@ -4728,8 +4728,7 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   CheckOperationResultMsgs(
       pUpdatedTableResult2,
       {
-          "error: DXIL container mismatch for 'EntryFunctionName' between "
-          "'PSV0' part:('A') and DXIL module:('main')",
+          "In 'PSV0 part', 'EntryFunctionName' is not well-formed",
           "error: In 'StringTable', 'main' is not used",
       },
       /*maySucceedAnyway*/ false, /*bRegex*/ false);

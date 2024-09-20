@@ -81,7 +81,7 @@ static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
 }
 
 class StringTableVerifier {
-  MapVector<unsigned, unsigned> OffsetToUseCountMap;
+  std::unordered_map<unsigned, unsigned> OffsetToUseCountMap;
   const PSVStringTable &Table;
 
 public:
