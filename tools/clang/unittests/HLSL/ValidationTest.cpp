@@ -4650,7 +4650,7 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
        "  ComponentType: 3",
        "  DynamicIndexMask: 0",
        "') and DXIL module:('PSVSignatureElement:",
-       "  SemanticName: ",
+       "  SemanticName: A",
        "  SemanticIndex: 0 ",
        "  IsAllocated: 1",
        "  StartRow: 0",
@@ -4678,7 +4678,7 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
        "  ComponentType: 3",
        "  DynamicIndexMask: 0",
        "') and DXIL module:('PSVSignatureElement:",
-       "  SemanticName: ",
+       "  SemanticName: B",
        "  SemanticIndex: 0 ",
        "  IsAllocated: 1",
        "  StartRow: 0",
@@ -4693,6 +4693,8 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
        "')",
        "error: DXIL container mismatch for 'EntryFunctionName' between 'PSV0' "
        "part:('ain') and DXIL module:('main')",
+       "error: In 'StringTable', 'A' is not used",
+       "error: In 'StringTable', 'main' is not used",
        "error: Container part 'Pipeline State Validation' does not match "
        "expected for module.",
        "Validation failed."},
@@ -4711,6 +4713,26 @@ TEST_F(ValidationTest, PSVStringTableReorder) {
   VERIFY_IS_NOT_NULL(pUpdatedResult);
   VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
+
+  // Create unused name in String table.
+  PSVInfo->EntryFunctionName = 2;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedTableResult2;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram, Flags, &pUpdatedTableResult2));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedTableResult2);
+  VERIFY_SUCCEEDED(pUpdatedTableResult2->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(
+      pUpdatedTableResult2,
+      {
+          "error: DXIL container mismatch for 'EntryFunctionName' between "
+          "'PSV0' part:('A') and DXIL module:('main')",
+          "error: In 'StringTable', 'main' is not used",
+      },
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
 class SemanticIndexRotator {
@@ -4728,6 +4750,10 @@ public:
       else
         SignatureElements[i].SemanticIndexes =
             SignatureElements[i].SemanticIndexes - 1;
+  }
+  void Clear(unsigned Index) {
+    for (unsigned i = 0; i < SignatureElements.size(); ++i)
+      SignatureElements[i].SemanticIndexes = Index;
   }
 };
 
@@ -5057,6 +5083,31 @@ TEST_F(ValidationTest, PSVSemanticIndexTableReorder) {
   VERIFY_IS_NOT_NULL(pUpdatedResult);
   VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
   VERIFY_SUCCEEDED(status);
+
+  // Clear SemanticIndexes.
+  InputRotator.Clear(UINT32_MAX);
+  OutputRotator.Clear(UINT32_MAX);
+  PatchConstOrPrimRotator.Clear(UINT32_MAX);
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult2;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult2));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pUpdatedResult2);
+  VERIFY_SUCCEEDED(pUpdatedResult2->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult2,
+      {"error: In 'PSV0 part', 'SemanticIndex' is not well-formed",
+       "error: In 'SemanticIndexTable', '0' is not used",
+       "error: In 'SemanticIndexTable', '2' is not used",
+       "error: In 'SemanticIndexTable', '3' is not used",
+       "error: In 'SemanticIndexTable', '4' is not used",
+       "error: Container part 'Pipeline State Validation' "
+       "does not match expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
 struct SimplePSV {

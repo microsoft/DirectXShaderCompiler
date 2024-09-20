@@ -33,6 +33,7 @@
 #include "DxilValidationUtils.h"
 
 #include <memory>
+#include <unordered_map>
 #include <unordered_set>
 
 using namespace llvm;
@@ -79,16 +80,94 @@ static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
   hlsl::dxilutil::EmitErrorOnContext(Ctx, str);
 }
 
+class StringTableVerifier {
+  MapVector<unsigned, unsigned> OffsetToUseCountMap;
+  const PSVStringTable &Table;
+
+public:
+  StringTableVerifier(const PSVStringTable &Table) : Table(Table) {
+    unsigned Start = 0;
+    for (unsigned i = 0; i < Table.Size; ++i) {
+      char ch = Table.Table[i];
+      if (ch == '\0') {
+        OffsetToUseCountMap[Start] = 0;
+        Start = i + 1;
+      }
+    }
+    if (Table.Size >= 4) {
+      // Remove the '\0's at the end of the table added for padding.
+      for (unsigned i = Table.Size - 1; i > Table.Size - 4; --i) {
+        if (Table.Table[i] != '\0')
+          break;
+        OffsetToUseCountMap.erase(i);
+      }
+    }
+  }
+  bool MarkUse(unsigned Offset) {
+    auto it = OffsetToUseCountMap.find(Offset);
+    if (it != OffsetToUseCountMap.end())
+      it->second++;
+    return Offset < Table.Size;
+  }
+  void Verify(ValidationContext &ValCtx) {
+    for (auto [Offset, UseCount] : OffsetToUseCountMap) {
+      if (UseCount != 0)
+        continue;
+      // DXC will always add a null-terminated string at the beginning of the
+      // StringTable. It is OK if it is not used.
+      if (Offset == 0 && Table.Table[0] == '\0')
+        continue;
+
+      ValCtx.EmitFormatError(ValidationRule::ContainerUnusedItemInTable,
+                             {"StringTable", Table.Get(Offset)});
+    }
+  }
+};
+
+class SemanticIndexTableVerifier {
+  std::vector<bool> UseMask;
+  const PSVSemanticIndexTable &Table;
+
+public:
+  SemanticIndexTableVerifier(const PSVSemanticIndexTable &Table)
+      : Table(Table), UseMask(Table.Entries, false) {}
+  bool MarkUse(unsigned Offset, unsigned Size) {
+    if (Table.Table == nullptr)
+      return false;
+    if (Offset > Table.Entries)
+      return false;
+    if ((Offset + Size) > Table.Entries)
+      return false;
+    for (unsigned i = Offset; i < (Offset + Size); ++i) {
+      UseMask[i] = true;
+    }
+    return true;
+  }
+  void Verify(ValidationContext &ValCtx) {
+    for (unsigned i = 0; i < Table.Entries; i++) {
+      if (UseMask[i])
+        continue;
+
+      ValCtx.EmitFormatError(ValidationRule::ContainerUnusedItemInTable,
+                             {"SemanticIndexTable", std::to_string(i)});
+    }
+  }
+};
+
 class PSVContentVerifier {
   DxilModule &DM;
   DxilPipelineStateValidation &PSV;
   ValidationContext &ValCtx;
   bool PSVContentValid = true;
+  StringTableVerifier StrTableVerifier;
+  SemanticIndexTableVerifier IndexTableVerifier;
 
 public:
   PSVContentVerifier(DxilPipelineStateValidation &PSV, DxilModule &DM,
                      ValidationContext &ValCtx)
-      : DM(DM), PSV(PSV), ValCtx(ValCtx) {}
+      : DM(DM), PSV(PSV), ValCtx(ValCtx),
+        StrTableVerifier(PSV.GetStringTable()),
+        IndexTableVerifier(PSV.GetSemanticIndexTable()) {}
   void Verify(unsigned ValMajor, unsigned ValMinor, unsigned PSVVersion);
 
 private:
@@ -113,7 +192,8 @@ private:
     PSVContentValid = false;
   }
   void EmitInvalidError(StringRef Name) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid, {Name});
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid,
+                           {"PSV0 part", Name});
     PSVContentValid = false;
   }
   template <typename Ty> static std::string GetDump(const Ty &T) {
@@ -226,6 +306,17 @@ void PSVContentVerifier::VerifySignatureElement(
     const DxilSignatureElement &SE, PSVSignatureElement0 *PSVSE0,
     const PSVStringTable &StrTab, const PSVSemanticIndexTable &IndexTab,
     std::string Name, bool i1ToUnknownCompat) {
+  bool InvalidTableAccess = false;
+  if (!StrTableVerifier.MarkUse(PSVSE0->SemanticName)) {
+    EmitInvalidError("SemanticName");
+    InvalidTableAccess = true;
+  }
+  if (!IndexTableVerifier.MarkUse(PSVSE0->SemanticIndexes, PSVSE0->Rows)) {
+    EmitInvalidError("SemanticIndex");
+    InvalidTableAccess = true;
+  }
+  if (InvalidTableAccess)
+    return;
   // Find the signature element in the set.
   PSVSignatureElement0 ModulePSVSE0;
   InitPSVSignatureElement(ModulePSVSE0, SE, i1ToUnknownCompat);
@@ -412,10 +503,18 @@ void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
   }
   // PSV2 only added NumThreadsX/Y/Z which verified in VerifyEntryProperties.
   if (PSVVersion > 2) {
-    if (DM.GetEntryFunctionName() != PSV.GetEntryFunctionName())
-      EmitMismatchError("EntryFunctionName", PSV.GetEntryFunctionName(),
-                        DM.GetEntryFunctionName());
+    PSVRuntimeInfo3 *PSV3 = PSV.GetPSVRuntimeInfo3();
+    if (!StrTableVerifier.MarkUse(PSV3->EntryFunctionName)) {
+      EmitInvalidError("EntryFunctionName");
+    } else {
+      if (DM.GetEntryFunctionName() != PSV.GetEntryFunctionName())
+        EmitMismatchError("EntryFunctionName", PSV.GetEntryFunctionName(),
+                          DM.GetEntryFunctionName());
+    }
   }
+
+  StrTableVerifier.Verify(ValCtx);
+  IndexTableVerifier.Verify(ValCtx);
 
   if (!PSVContentValid)
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
@@ -706,6 +805,13 @@ static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
 
   if (!SimplePSV.ValidatePSVInit(PSVInfo, ValCtx))
     return;
+
+  if (SimplePSV.StringTable &&
+      SimplePSV.StringTable[SimplePSV.StringTableSize - 1] != '\0') {
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid,
+                           {"PSV part StringTable"});
+    return;
+  }
 
   PSVInfo.StringTable =
       PSVStringTable(SimplePSV.StringTable, SimplePSV.StringTableSize);
