@@ -609,113 +609,76 @@ struct SimplePSV {
   const PSVRuntimeInfo1 *RuntimeInfo1 = nullptr;
   bool IsValid = true;
   SimplePSV(const void *pPSVData, uint32_t PSVSize) {
-    uint32_t Offset = 4;
-    if (PSVSize < Offset) {
-      IsValid = false;
-      return;
-    }
-    PSVRuntimeInfoSize = *(const uint32_t *)pPSVData;
-    if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
-      RuntimeInfo1 = (const PSVRuntimeInfo1 *)((const char *)pPSVData + Offset);
-    Offset += PSVRuntimeInfoSize;
-    if (PSVSize < Offset) {
-      IsValid = false;
-      return;
-    }
 
-    PSVNumResources = *(const uint32_t *)((const char *)pPSVData + Offset);
-    Offset += 4;
-    if (PSVSize < Offset) {
-      IsValid = false;
-      return;
-    }
+#define INCREMENT_POS(Size)                                                    \
+  Offset += Size;                                                              \
+  if (Offset > PSVSize) {                                                      \
+    IsValid = false;                                                           \
+    return;                                                                    \
+  }
+
+    uint32_t Offset = 0;
+    PSVRuntimeInfoSize = GetUint32AtOffset(pPSVData, 0);
+    INCREMENT_POS(4);
+    if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
+      RuntimeInfo1 =
+          (const PSVRuntimeInfo1 *)(GetPtrAtOffset(pPSVData, Offset));
+    INCREMENT_POS(PSVRuntimeInfoSize);
+
+    PSVNumResources = GetUint32AtOffset(pPSVData, Offset);
+    INCREMENT_POS(4);
     if (PSVNumResources > 0) {
-      PSVResourceBindInfoSize =
-          *(const uint32_t *)((const char *)pPSVData + Offset);
-      Offset += 4;
-      if (PSVSize < Offset) {
-        IsValid = false;
-        return;
-      }
-      Offset += PSVNumResources * PSVResourceBindInfoSize;
-      if (PSVSize < Offset) {
-        IsValid = false;
-        return;
-      }
+      PSVResourceBindInfoSize = GetUint32AtOffset(pPSVData, Offset);
+      // Increase the offset for the resource bind info size.
+      INCREMENT_POS(4);
+      // Increase the offset for the resource bind info.
+      INCREMENT_POS(PSVNumResources * PSVResourceBindInfoSize);
     }
     if (RuntimeInfo1) {
-      StringTableSize = *(const uint32_t *)((const char *)pPSVData + Offset);
-      Offset += 4;
-      if (PSVSize < Offset) {
-        IsValid = false;
-        return;
-      }
+      StringTableSize = GetUint32AtOffset(pPSVData, Offset);
+      INCREMENT_POS(4);
       // Make sure StringTableSize is aligned to 4 bytes.
       if ((StringTableSize & 3) != 0) {
         IsValid = false;
         return;
       }
       if (StringTableSize) {
-        StringTable = (const char *)pPSVData + Offset;
-        Offset += StringTableSize;
+        StringTable = GetPtrAtOffset(pPSVData, Offset);
+        INCREMENT_POS(StringTableSize);
       }
-      SemanticIndexTableEntries =
-          *(const uint32_t *)((const char *)pPSVData + Offset);
-      Offset += 4;
-      if (PSVSize < Offset) {
-        IsValid = false;
-        return;
-      }
+      SemanticIndexTableEntries = GetUint32AtOffset(pPSVData, Offset);
+      INCREMENT_POS(4);
       if (SemanticIndexTableEntries) {
         SemanticIndexTable =
-            (const uint32_t *)((const char *)pPSVData + Offset);
-        Offset += SemanticIndexTableEntries * 4;
-        if (PSVSize < Offset) {
-          IsValid = false;
-          return;
-        }
+            (const uint32_t *)(GetPtrAtOffset(pPSVData, Offset));
+        INCREMENT_POS(SemanticIndexTableEntries * 4);
       }
       if (RuntimeInfo1->SigInputElements || RuntimeInfo1->SigOutputElements ||
           RuntimeInfo1->SigPatchConstOrPrimElements) {
-        PSVSignatureElementSize =
-            *(const uint32_t *)((const char *)pPSVData + Offset);
-        Offset += 4;
-        if (PSVSize < Offset) {
-          IsValid = false;
-          return;
-        }
+        PSVSignatureElementSize = GetUint32AtOffset(pPSVData, Offset);
+        INCREMENT_POS(4);
         uint32_t PSVNumSignatures = RuntimeInfo1->SigInputElements +
                                     RuntimeInfo1->SigOutputElements +
                                     RuntimeInfo1->SigPatchConstOrPrimElements;
-        Offset += PSVNumSignatures * PSVSignatureElementSize;
-        if (PSVSize < Offset) {
-          IsValid = false;
-          return;
-        }
+        INCREMENT_POS(PSVNumSignatures * PSVSignatureElementSize);
       }
       if (RuntimeInfo1->UsesViewID) {
         for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
           uint32_t SigOutputVectors = RuntimeInfo1->SigOutputVectors[i];
           if (SigOutputVectors == 0)
             continue;
-          Offset += sizeof(uint32_t) *
-                    llvm::RoundUpToAlignment(SigOutputVectors, 8) / 8;
-          if (PSVSize < Offset) {
-            IsValid = false;
-            return;
-          }
+          uint32_t MaskSizeInBytes =
+              sizeof(uint32_t) *
+              PSVComputeMaskDwordsFromVectors(SigOutputVectors);
+          INCREMENT_POS(MaskSizeInBytes);
         }
         if ((RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Hull ||
              RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Mesh) &&
             RuntimeInfo1->SigPatchConstOrPrimVectors) {
-          Offset += sizeof(uint32_t) *
-                    llvm::RoundUpToAlignment(
-                        RuntimeInfo1->SigPatchConstOrPrimVectors, 8) /
-                    8;
-          if (PSVSize < Offset) {
-            IsValid = false;
-            return;
-          }
+          uint32_t MaskSizeInBytes =
+              sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(
+                                     RuntimeInfo1->SigPatchConstOrPrimVectors);
+          INCREMENT_POS(MaskSizeInBytes);
         }
       }
 
@@ -723,43 +686,36 @@ struct SimplePSV {
         uint32_t SigOutputVectors = RuntimeInfo1->SigOutputVectors[i];
         if (SigOutputVectors == 0)
           continue;
-        Offset += sizeof(uint32_t) *
-                  llvm::RoundUpToAlignment(SigOutputVectors, 8) / 8 *
-                  RuntimeInfo1->SigInputVectors * 4;
-        if (PSVSize < Offset) {
-          IsValid = false;
-          return;
-        }
+        uint32_t TableSizeInBytes =
+            sizeof(uint32_t) *
+            PSVComputeInputOutputTableDwords(RuntimeInfo1->SigInputVectors,
+                                             SigOutputVectors);
+        INCREMENT_POS(TableSizeInBytes);
       }
 
       if ((RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Hull ||
            RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Mesh) &&
           RuntimeInfo1->SigPatchConstOrPrimVectors &&
           RuntimeInfo1->SigInputVectors) {
-        Offset += sizeof(uint32_t) *
-                  llvm::RoundUpToAlignment(
-                      RuntimeInfo1->SigPatchConstOrPrimVectors, 8) /
-                  8 * RuntimeInfo1->SigInputVectors * 4;
-        if (PSVSize < Offset) {
-          IsValid = false;
-          return;
-        }
+        uint32_t TableSizeInBytes =
+            sizeof(uint32_t) * PSVComputeInputOutputTableDwords(
+                                   RuntimeInfo1->SigInputVectors,
+                                   RuntimeInfo1->SigPatchConstOrPrimVectors);
+        INCREMENT_POS(TableSizeInBytes);
       }
 
       if (RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Domain &&
           RuntimeInfo1->SigOutputVectors[0] &&
           RuntimeInfo1->SigPatchConstOrPrimVectors) {
-        Offset +=
-            sizeof(uint32_t) *
-            llvm::RoundUpToAlignment(RuntimeInfo1->SigOutputVectors[0], 8) / 8 *
-            RuntimeInfo1->SigPatchConstOrPrimVectors * 4;
-        if (PSVSize < Offset) {
-          IsValid = false;
-          return;
-        }
+        uint32_t TableSizeInBytes =
+            sizeof(uint32_t) * PSVComputeInputOutputTableDwords(
+                                   RuntimeInfo1->SigPatchConstOrPrimVectors,
+                                   RuntimeInfo1->SigOutputVectors[0]);
+        INCREMENT_POS(TableSizeInBytes);
       }
     }
     IsValid = PSVSize == Offset;
+#undef INCREMENT_POS
   }
   bool ValidatePSVInit(PSVInitInfo PSVInfo, ValidationContext &ValCtx) {
     if (PSVRuntimeInfoSize != PSVInfo.RuntimeInfoSize()) {
@@ -788,6 +744,14 @@ struct SimplePSV {
       return false;
     }
     return true;
+  }
+
+private:
+  const char *GetPtrAtOffset(const void *BasePtr, uint32_t Offset) const {
+    return (const char *)BasePtr + Offset;
+  }
+  uint32_t GetUint32AtOffset(const void *BasePtr, uint32_t Offset) const {
+    return *(const uint32_t *)GetPtrAtOffset(BasePtr, Offset);
   }
 };
 
