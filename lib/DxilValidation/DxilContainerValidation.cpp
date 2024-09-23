@@ -758,45 +758,32 @@ private:
 
 static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
                              uint32_t PSVSize) {
+  // SimplePSV.IsValid indicates whether the part is well-formed so that we may
+  // proceed with more detailed validation.
   SimplePSV SimplePSV(pPSVData, PSVSize);
   if (!SimplePSV.IsValid) {
     ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid,
                            {"DxilContainer", "PSV0 part"});
     return;
   }
-
+  // The PSVVersion determines the size of record structures that should be
+  // used when writing PSV0 data, and is based on the validator version in the
+  // module.
   unsigned ValMajor, ValMinor;
   ValCtx.DxilMod.GetValidatorVersion(ValMajor, ValMinor);
   unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
-
+  // PSVInfo is used to compute the expected record size of the PSV0 part of the
+  // container. It uses facts from the module.
   PSVInitInfo PSVInfo(PSVVersion);
   hlsl::SetupPSVInitInfo(PSVInfo, ValCtx.DxilMod);
-
+  // ValidatePSVInit checks that record sizes match expected for PSVVersion.
   if (!SimplePSV.ValidatePSVInit(PSVInfo, ValCtx))
     return;
-
+  // Ensure that the string table data is null-terminated.
   if (SimplePSV.StringTable &&
       SimplePSV.StringTable[SimplePSV.StringTableSize - 1] != '\0') {
     ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid,
                            {"PSV part StringTable"});
-    return;
-  }
-
-  PSVInfo.StringTable =
-      PSVStringTable(SimplePSV.StringTable, SimplePSV.StringTableSize);
-  PSVInfo.SemanticIndexTable = PSVSemanticIndexTable(
-      SimplePSV.SemanticIndexTable, SimplePSV.SemanticIndexTableEntries);
-  uint32_t ExpectedSize = 0;
-  DxilPipelineStateValidation SizePSV;
-  if (!SizePSV.InitNew(PSVInfo, nullptr, &ExpectedSize)) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
-                           {"Pipeline State Validation"});
-    return;
-  }
-
-  if (ExpectedSize != PSVSize) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
-                           {"Pipeline State Validation"});
     return;
   }
 
