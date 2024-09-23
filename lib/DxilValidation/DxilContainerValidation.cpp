@@ -24,6 +24,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/BitVector.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Module.h"
@@ -126,7 +127,7 @@ public:
 
 class SemanticIndexTableVerifier {
   const PSVSemanticIndexTable &Table;
-  std::vector<bool> UseMask;
+  llvm::BitVector UseMask;
 
 public:
   SemanticIndexTableVerifier(const PSVSemanticIndexTable &Table)
