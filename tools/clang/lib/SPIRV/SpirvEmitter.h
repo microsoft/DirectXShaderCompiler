@@ -370,12 +370,14 @@ private:
   /// Emit instructions for assigning to the given mesh out attribute.
   void assignToMSOutAttribute(
       const DeclaratorDecl *decl, SpirvInstruction *value,
-      const llvm::SmallVector<SpirvInstruction *, 4> &indices);
+      const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+      SourceLocation loc);
 
   /// Emit instructions for assigning to the given mesh out indices object.
   void
   assignToMSOutIndices(const DeclaratorDecl *decl, SpirvInstruction *value,
-                       const llvm::SmallVector<SpirvInstruction *, 4> &indices);
+                       const llvm::SmallVector<SpirvInstruction *, 4> &indices,
+                       SourceLocation loc);
 
   /// Processes each vector within the given matrix by calling actOnEachVector.
   /// matrixVal should be the loaded value of the matrix. actOnEachVector takes
