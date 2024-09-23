@@ -6202,10 +6202,9 @@ TEST_F(ValidationTest, WrongPSVSize) {
   VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
   VERIFY_FAILED(status);
 
-  CheckOperationResultMsgs(pUpdatedResult,
-                           {"Container part 'Pipeline State Validation' does "
-                            "not match expected for module."},
-                           /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  CheckOperationResultMsgs(
+      pUpdatedResult, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
 
 TEST_F(ValidationTest, WrongPSVVersion) {

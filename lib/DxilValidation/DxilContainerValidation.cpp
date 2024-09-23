@@ -760,8 +760,8 @@ static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
                              uint32_t PSVSize) {
   SimplePSV SimplePSV(pPSVData, PSVSize);
   if (!SimplePSV.IsValid) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
-                           {"Pipeline State Validation"});
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid,
+                           {"DxilContainer", "PSV0 part"});
     return;
   }
 
