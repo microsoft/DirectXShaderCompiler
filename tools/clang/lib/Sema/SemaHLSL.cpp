@@ -8444,8 +8444,19 @@ ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
   ExprValueKind VK = positions.ContainsDuplicateElements()
                          ? VK_RValue
                          : (IsArrow ? VK_LValue : BaseExpr.getValueKind());
-  HLSLVectorElementExpr *vectorExpr = new (m_context) HLSLVectorElementExpr(
-      resultType, VK, &BaseExpr, *member, MemberLoc, positions);
+
+  Expr *E = &BaseExpr;
+  // Insert an lvalue-to-rvalue cast if necessary
+  if (BaseExpr.getValueKind() == VK_LValue && VK == VK_RValue) {
+    // Remove qualifiers from result type and cast target type
+    resultType = resultType.getUnqualifiedType();
+    auto targetType = E->getType().getUnqualifiedType();
+    E = ImplicitCastExpr::Create(*m_context, targetType,
+                                 CastKind::CK_LValueToRValue, E, nullptr,
+                                 VK_RValue);
+  }
+  HLSLVectorElementExpr *vectorExpr = new (m_context)
+      HLSLVectorElementExpr(resultType, VK, E, *member, MemberLoc, positions);
 
   return vectorExpr;
 }
