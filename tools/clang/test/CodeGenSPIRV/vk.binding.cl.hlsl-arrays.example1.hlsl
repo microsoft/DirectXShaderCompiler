@@ -7,7 +7,7 @@
 // CHECK: OpDecorate %MySamplers Binding 8
 // CHECK: OpDecorate NextSampler Binding 10
 Texture2D    AnotherTexture;
-Texture2D    NextTextures[5] : register(t1);  // This is suppose to be t6.
+Texture2D    MyTexturesExplicit[5] : register(t1);
 Texture2D    MyTextures[5];
 SamplerState MySamplersExplicit[2] : register(s7);
 SamplerState MySamplers[2];
@@ -22,6 +22,6 @@ float4 main(float2 TexCoord : TexCoord) : SV_Target0
     MyTextures[3].Sample(MySamplers[1], TexCoord) +
     MyTextures[4].Sample(MySamplersExplicit[1], TexCoord) +
     AnotherTexture.Sample(MySamplers[1], TexCoord) +
-    NextTextures[0].Sample(NextSampler, TexCoord);
+    MyTexturesExplicit[0].Sample(NextSampler, TexCoord);
   return result;
 }
