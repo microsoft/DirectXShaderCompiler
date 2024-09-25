@@ -1,17 +1,13 @@
-// RUN: %dxc -T ps_6_0 -E main -fspv-implicit-hlsl-resource-arrays -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_0 -E main -fspv-hlsl-resource-arrays -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: OpDecorate %MyTexturesExplicit Binding 1
-// CHECK: OpDecorate %MySamplersExplicit Binding 7
-// CHECK: OpDecorate %AnotherTexture Binding 0
-// CHECK: OpDecorate %MyTextures Binding 2
-// CHECK: OpDecorate %MySamplers Binding 8
-// CHECK: OpDecorate NextSampler Binding 10
-Texture2D    AnotherTexture;
-Texture2D    MyTexturesExplicit[5] : register(t1);
+// CHECK: OpDecorate %MyTextures Binding 0
+// CHECK: OpDecorate %AnotherTexture Binding 5
+// CHECK: OpDecorate %NextTexture Binding 6
+// CHECK: OpDecorate %MySamplers Binding 7
 Texture2D    MyTextures[5];
-SamplerState MySamplersExplicit[2] : register(s7);
+Texture2D    NextTexture;
+Texture2D    AnotherTexture;
 SamplerState MySamplers[2];
-SamplerState NextSampler;
 
 float4 main(float2 TexCoord : TexCoord) : SV_Target0
 {
@@ -20,8 +16,8 @@ float4 main(float2 TexCoord : TexCoord) : SV_Target0
     MyTextures[1].Sample(MySamplers[0], TexCoord) +
     MyTextures[2].Sample(MySamplers[0], TexCoord) +
     MyTextures[3].Sample(MySamplers[1], TexCoord) +
-    MyTextures[4].Sample(MySamplersExplicit[1], TexCoord) +
+    MyTextures[4].Sample(MySamplers[1], TexCoord) +
     AnotherTexture.Sample(MySamplers[1], TexCoord) +
-    MyTexturesExplicit[0].Sample(NextSampler, TexCoord);
+    NextTexture.Sample(MySamplers[1], TexCoord);
   return result;
 }
