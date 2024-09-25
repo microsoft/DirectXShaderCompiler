@@ -64,6 +64,7 @@ struct SpirvCodeGenOptions {
   bool useLegacyBufferMatrixOrder;
   bool useScalarLayout;
   bool flattenResourceArrays;
+  bool hlslResourceArrays;
   bool reduceLoadSize;
   bool autoShiftBindings;
   bool supportNonzeroBaseInstance;
