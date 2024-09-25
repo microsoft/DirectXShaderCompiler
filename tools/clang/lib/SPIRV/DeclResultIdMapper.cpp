@@ -2617,12 +2617,12 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // resources also gets only one binding number. However, for array of
     // resources (e.g. array of textures), DX uses one binding number per array
     // element. We can match this behavior via a command line option.
-    // hlslResourceArrays - Use only if var doesn't have explicit binding
+    // hlslResourceArrays - One binding number per array element
     // assignment
     uint32_t numBindingsToUse = 1;
     if (spirvOptions.flattenResourceArrays ||
         needsFlatteningCompositeResources ||
-        (spirvOptions.hlslResourceArrays && !var.getBinding()))
+        spirvOptions.hlslResourceArrays)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 

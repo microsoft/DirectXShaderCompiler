@@ -390,8 +390,8 @@ def fspv_target_env_EQ : Joined<["-"], "fspv-target-env=">, Group<spirv_Group>, 
   HelpText<"Specify the target environment: vulkan1.0 (default), vulkan1.1, vulkan1.1spirv1.4, vulkan1.2, vulkan1.3, or universal1.5">;
 def fspv_flatten_resource_arrays: Flag<["-"], "fspv-flatten-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Flatten arrays of resources so each array element takes one binding number">;
-def fspv_implicit_hlsl_resource_arrays: Flag<["-"], "fspv-implicit-hlsl-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
-  HelpText<"Resource arrays with implicit register assignment use one binding per array element to match hlsl style">;
+def fspv_hlsl_resource_arrays: Flag<["-"], "fspv-hlsl-resource-arrays">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
+  HelpText<"Resource arrays use one binding per array element to match hlsl style">;
 def fspv_reduce_load_size: Flag<["-"], "fspv-reduce-load-size">, Group<spirv_Group>, Flags<[CoreOption, DriverOption]>,
   HelpText<"Replaces loads of composite objects to reduce memory pressure for the loads">;
 def fspv_fix_func_call_arguments: Flag<["-"], "fspv-fix-func-call-arguments">, Group<spirv_Group>, Flags<[CoreOption, DriverOption, HelpHidden]>,
