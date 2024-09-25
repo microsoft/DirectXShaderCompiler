@@ -2621,8 +2621,7 @@ bool DeclResultIdMapper::decorateResourceBindings() {
     // assignment
     uint32_t numBindingsToUse = 1;
     if (spirvOptions.flattenResourceArrays ||
-        needsFlatteningCompositeResources ||
-        spirvOptions.hlslResourceArrays)
+        needsFlatteningCompositeResources || spirvOptions.hlslResourceArrays)
       numBindingsToUse = getNumBindingsUsedByResourceType(
           var.getSpirvInstr()->getAstResultType());
 
