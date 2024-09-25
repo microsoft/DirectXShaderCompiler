@@ -31,7 +31,9 @@ using namespace llvm::opt;
 using namespace dxc;
 using namespace hlsl;
 using namespace hlsl::options;
+#ifdef ENABLE_SPIRV_CODEGEN
 using namespace clang::spirv;
+#endif
 
 #define PREFIX(NAME, VALUE) static const char *const NAME[] = VALUE;
 #include "dxc/Support/HLSLOptions.inc"
