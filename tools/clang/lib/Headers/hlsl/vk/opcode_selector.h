@@ -12,7 +12,7 @@
   [[vk::ext_instruction(opcode)]] ResultType __builtin_spv_##name(             \
       ResultType a)
 
-DECLARE_UNARY_OP(CopyObj, 83);
+DECLARE_UNARY_OP(CopyObject, 83);
 DECLARE_UNARY_OP(SNegate, 126);
 DECLARE_UNARY_OP(FNegate, 127);
 
@@ -115,7 +115,7 @@ template <class SourceType, class TargetType> class ConversionSelector;
   };
 
 #if __HLSL_ENABLE_16_BIT
-CONVERSION_SELECTOR(uint16_t, uint16_t, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(uint16_t, uint16_t, __builtin_spv_CopyObject);
 CONVERSION_SELECTOR(uint16_t, int16_t, __builtin_spv_Bitcast);
 CONVERSION_SELECTOR(uint16_t, uint32_t, __builtin_spv_UConvert);
 CONVERSION_SELECTOR(uint16_t, int32_t, __builtin_spv_SConvert);
@@ -126,7 +126,7 @@ CONVERSION_SELECTOR(uint16_t, float, __builtin_spv_ConvertUToF);
 CONVERSION_SELECTOR(uint16_t, double, __builtin_spv_ConvertUToF);
 
 CONVERSION_SELECTOR(int16_t, uint16_t, __builtin_spv_Bitcast);
-CONVERSION_SELECTOR(int16_t, int16_t, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(int16_t, int16_t, __builtin_spv_CopyObject);
 CONVERSION_SELECTOR(int16_t, uint32_t, __builtin_spv_UConvert);
 CONVERSION_SELECTOR(int16_t, int32_t, __builtin_spv_SConvert);
 CONVERSION_SELECTOR(int16_t, uint64_t, __builtin_spv_UConvert);
@@ -157,7 +157,7 @@ CONVERSION_SELECTOR(double, uint16_t, __builtin_spv_ConvertFtoU);
 CONVERSION_SELECTOR(double, int16_t, __builtin_spv_ConvertFtoS);
 #endif
 
-CONVERSION_SELECTOR(uint32_t, uint32_t, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(uint32_t, uint32_t, __builtin_spv_CopyObject);
 CONVERSION_SELECTOR(uint32_t, int32_t, __builtin_spv_Bitcast);
 CONVERSION_SELECTOR(uint32_t, uint64_t, __builtin_spv_UConvert);
 CONVERSION_SELECTOR(uint32_t, int64_t, __builtin_spv_SConvert);
@@ -166,7 +166,7 @@ CONVERSION_SELECTOR(uint32_t, float, __builtin_spv_ConvertUToF);
 CONVERSION_SELECTOR(uint32_t, double, __builtin_spv_ConvertUToF);
 
 CONVERSION_SELECTOR(int32_t, uint32_t, __builtin_spv_Bitcast);
-CONVERSION_SELECTOR(int32_t, int32_t, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(int32_t, int32_t, __builtin_spv_CopyObject);
 CONVERSION_SELECTOR(int32_t, uint64_t, __builtin_spv_UConvert);
 CONVERSION_SELECTOR(int32_t, int64_t, __builtin_spv_SConvert);
 CONVERSION_SELECTOR(int32_t, half, __builtin_spv_ConvertSToF);
@@ -176,7 +176,7 @@ CONVERSION_SELECTOR(int32_t, double, __builtin_spv_ConvertSToF);
 CONVERSION_SELECTOR(uint64_t, uint32_t, __builtin_spv_UConvert);
 CONVERSION_SELECTOR(uint64_t, int32_t, __builtin_spv_SConvert);
 CONVERSION_SELECTOR(uint64_t, uint64_t, __builtin_spv_Bitcast);
-CONVERSION_SELECTOR(uint64_t, int64_t, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(uint64_t, int64_t, __builtin_spv_CopyObject);
 CONVERSION_SELECTOR(uint64_t, half, __builtin_spv_ConvertUToF);
 CONVERSION_SELECTOR(uint64_t, float, __builtin_spv_ConvertUToF);
 CONVERSION_SELECTOR(uint64_t, double, __builtin_spv_ConvertUToF);
@@ -184,7 +184,7 @@ CONVERSION_SELECTOR(uint64_t, double, __builtin_spv_ConvertUToF);
 CONVERSION_SELECTOR(int64_t, uint32_t, __builtin_spv_UConvert);
 CONVERSION_SELECTOR(int64_t, int32_t, __builtin_spv_SConvert);
 CONVERSION_SELECTOR(int64_t, uint64_t, __builtin_spv_Bitcast);
-CONVERSION_SELECTOR(int64_t, int64_t, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(int64_t, int64_t, __builtin_spv_CopyObject);
 CONVERSION_SELECTOR(int64_t, half, __builtin_spv_ConvertSToF);
 CONVERSION_SELECTOR(int64_t, float, __builtin_spv_ConvertSToF);
 CONVERSION_SELECTOR(int64_t, double, __builtin_spv_ConvertSToF);
@@ -193,11 +193,11 @@ CONVERSION_SELECTOR(half, uint32_t, __builtin_spv_ConvertFtoU);
 CONVERSION_SELECTOR(half, int32_t, __builtin_spv_ConvertFtoS);
 CONVERSION_SELECTOR(half, uint64_t, __builtin_spv_ConvertFtoU);
 CONVERSION_SELECTOR(half, int64_t, __builtin_spv_ConvertFtoS);
-CONVERSION_SELECTOR(half, half, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(half, half, __builtin_spv_CopyObject);
 #if __HLSL_ENABLE_16_BIT
 CONVERSION_SELECTOR(half, float, __builtin_spv_FConvert);
 #else
-CONVERSION_SELECTOR(half, float, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(half, float, __builtin_spv_CopyObject);
 #endif
 
 CONVERSION_SELECTOR(half, double, __builtin_spv_FConvert);
@@ -209,9 +209,9 @@ CONVERSION_SELECTOR(float, int64_t, __builtin_spv_ConvertFtoS);
 #if __HLSL_ENABLE_16_BIT
 CONVERSION_SELECTOR(float, half, __builtin_spv_FConvert);
 #else
-CONVERSION_SELECTOR(float, half, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(float, half, __builtin_spv_CopyObject);
 #endif
-CONVERSION_SELECTOR(float, float, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(float, float, __builtin_spv_CopyObject);
 CONVERSION_SELECTOR(float, double, __builtin_spv_FConvert);
 
 CONVERSION_SELECTOR(double, uint32_t, __builtin_spv_ConvertFtoU);
@@ -220,7 +220,7 @@ CONVERSION_SELECTOR(double, uint64_t, __builtin_spv_ConvertFtoU);
 CONVERSION_SELECTOR(double, int64_t, __builtin_spv_ConvertFtoS);
 CONVERSION_SELECTOR(double, half, __builtin_spv_FConvert);
 CONVERSION_SELECTOR(double, float, __builtin_spv_FConvert);
-CONVERSION_SELECTOR(double, double, __builtin_spv_CopyObj);
+CONVERSION_SELECTOR(double, double, __builtin_spv_CopyObject);
 }; // namespace util
 } // namespace vk
 
