@@ -1115,7 +1115,7 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
   opts.SpirvOptions.flattenResourceArrays =
       Args.hasFlag(OPT_fspv_flatten_resource_arrays, OPT_INVALID, false);
   opts.SpirvOptions.hlslResourceArrays =
-      Args.hasFlag(OPT_fspv_implicit_hlsl_resource_arrays, OPT_INVALID, false);
+      Args.hasFlag(OPT_fspv_hlsl_resource_arrays, OPT_INVALID, false);
   opts.SpirvOptions.reduceLoadSize =
       Args.hasFlag(OPT_fspv_reduce_load_size, OPT_INVALID, false);
   opts.SpirvOptions.fixFuncCallArguments =
