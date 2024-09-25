@@ -1,9 +1,9 @@
 // RUN: %dxc -T ps_6_0 -E main -fspv-implicit-hlsl-resource-arrays -fcgl  %s -spirv | FileCheck %s
 
-// CHECK: OpDecorate %AnotherTexture Binding 0
 // CHECK: OpDecorate %MyTexturesExplicit Binding 1
-// CHECK: OpDecorate %MyTextures Binding 2
 // CHECK: OpDecorate %MySamplersExplicit Binding 7
+// CHECK: OpDecorate %AnotherTexture Binding 0
+// CHECK: OpDecorate %MyTextures Binding 2
 // CHECK: OpDecorate %MySamplers Binding 8
 // CHECK: OpDecorate NextSampler Binding 10
 Texture2D    AnotherTexture;
