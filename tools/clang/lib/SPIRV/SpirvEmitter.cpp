@@ -661,8 +661,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // Rich DebugInfo DebugSource
   if (spirvOptions.debugInfoRich) {
-    auto *dbgSrc =
-        spvBuilder.createDebugSource(mainSourceFile->getString(), source);
+    auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString());
     // spvContext.getDebugInfo().insert() inserts {string key, RichDebugInfo}
     // pair and returns {{string key, RichDebugInfo}, true /*Success*/}.
     // spvContext.getDebugInfo().insert().first->second is a RichDebugInfo.
@@ -839,17 +838,23 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   // Add source instruction(s)
-  if ((spirvOptions.debugInfoSource || spirvOptions.debugInfoFile) &&
-      !spirvOptions.debugInfoVulkan) {
+  if (spirvOptions.debugInfoSource || spirvOptions.debugInfoFile) {
     std::vector<llvm::StringRef> fileNames;
     fileNames.clear();
     const auto &sm = context.getSourceManager();
     // Add each include file from preprocessor output
     for (unsigned int i = 0; i < sm.getNumLineTableFilenames(); i++) {
-      fileNames.push_back(sm.getLineTableFilename(i));
+      llvm::StringRef file = sm.getLineTableFilename(i);
+      if (spirvOptions.debugInfoVulkan) {
+        getOrCreateRichDebugInfoImpl(file);
+      } else {
+        fileNames.push_back(file);
+      }
     }
-    spvBuilder.setDebugSource(spvContext.getMajorVersion(),
-                              spvContext.getMinorVersion(), fileNames);
+    if (!spirvOptions.debugInfoVulkan) {
+      spvBuilder.setDebugSource(spvContext.getMajorVersion(),
+                                spvContext.getMinorVersion(), fileNames);
+    }
   }
 
   if (spirvOptions.enableMaximalReconvergence) {
@@ -1046,6 +1051,11 @@ RichDebugInfo *
 SpirvEmitter::getOrCreateRichDebugInfo(const SourceLocation &loc) {
   const StringRef file =
       astContext.getSourceManager().getPresumedLoc(loc).getFilename();
+  return getOrCreateRichDebugInfoImpl(file);
+}
+
+RichDebugInfo *
+SpirvEmitter::getOrCreateRichDebugInfoImpl(llvm::StringRef file) {
   auto &debugInfo = spvContext.getDebugInfo();
   auto it = debugInfo.find(file);
   if (it != debugInfo.end())

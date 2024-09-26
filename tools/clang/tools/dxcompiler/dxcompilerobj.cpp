@@ -610,8 +610,7 @@ public:
       // pre-seeding with #line directives. We invoke Preprocess() here
       // first for such case. Then we invoke the compilation process over the
       // preprocessed source code.
-      if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo &&
-          !opts.SpirvOptions.debugInfoVulkan) {
+      if (!isPreprocessing && opts.GenSPIRV && opts.DebugInfo) {
         // Convert source code encoding
         CComPtr<IDxcBlobUtf8> pOrigUtf8Source;
         IFC(hlsl::DxcGetBlobAsUtf8(pSourceEncoding, m_pMalloc,
