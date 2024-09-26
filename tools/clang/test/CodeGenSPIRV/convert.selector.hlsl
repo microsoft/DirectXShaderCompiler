@@ -1,104 +1,104 @@
 // Convert to half
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=half -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
 
 // Convert to float
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=float -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
 
 // Convert to double
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UTOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=STOF
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=double -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FCONVERT
 
 // int type to int16_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
 
 // float type to int16_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=int16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
 
 // int type to int32_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
 
 // float type to int32_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=int32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
 
 // int type to int64_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=SCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
 
 // float type to int64_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=int64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOS
 
 // int type to uint16_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
 
 // float type to uint16_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=uint16_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
 
 // int type to uint32_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint64_t -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
 
 // float type to uint32_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=uint32_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
 
 // int type to uint64_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=int16_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int32_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint16_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=uint32_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=UCONVERT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=int64_t -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=BITCAST
 
 // float type to uint64_t
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
-// RUN: dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=half -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -enable-16bit-types -T cs_6_2 -E main -spirv -HV 2021 -DSOURCE_TYPE=float -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -DSOURCE_TYPE=double -DTARGET_TYPE=uint64_t -I %hlsl_headers %s | FileCheck %s --check-prefix=CHECK --check-prefix=FTOU
 
 #include "vk/opcode_selector.h"
 
