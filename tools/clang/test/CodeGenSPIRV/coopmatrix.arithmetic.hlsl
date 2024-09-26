@@ -1,13 +1,13 @@
-// RUN: dxc -enable-16bit-types -fspv-target-env=vulkan1.3 -T cs_6_2 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=int16_t %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=INT16
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=int %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=INT32
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=int64_t %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=INT64
-// RUN: dxc -enable-16bit-types -fspv-target-env=vulkan1.3 -T cs_6_2 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=uint16_t %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=UINT16
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=uint %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=UINT32
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=uint64_t %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=UINT64
-// RUN: dxc -enable-16bit-types -fspv-target-env=vulkan1.3 -T cs_6_2 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=half %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=HALF-ENABLED
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=half %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=HALF-DISABLED
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=float %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=FLOAT
-// RUN: dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=double %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=DOUBLE
+// RUN: %dxc -enable-16bit-types -fspv-target-env=vulkan1.3 -T cs_6_2 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=int16_t %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=INT16
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=int %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=INT32
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=int64_t %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=INT64
+// RUN: %dxc -enable-16bit-types -fspv-target-env=vulkan1.3 -T cs_6_2 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=uint16_t %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=UINT16
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=uint %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=UINT32
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=uint64_t %s | FileCheck %s --check-prefix=CHECK --check-prefix=INTEGERS --check-prefix=UINT64
+// RUN: %dxc -enable-16bit-types -fspv-target-env=vulkan1.3 -T cs_6_2 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=half %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=HALF-ENABLED
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=half %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=HALF-DISABLED
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=float %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=FLOAT
+// RUN: %dxc -fspv-target-env=vulkan1.3 -T cs_6_0 -E main -spirv -HV 2021 -I %hlsl_headers -DTYPE=double %s | FileCheck %s --check-prefix=CHECK --check-prefix=FLOATS --check-prefix=DOUBLE
 
 #include "vk/khr/cooperative_matrix.h"
 
