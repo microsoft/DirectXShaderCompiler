@@ -1098,6 +1098,9 @@ bool isOpaqueType(QualType type) {
 
     if (name == "RayQuery")
       return true;
+
+    if (name == "SubpassInput")
+      return true;
   }
   return false;
 }
