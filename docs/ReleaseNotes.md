@@ -12,7 +12,6 @@ The included licenses apply to the following files:
 
 | License file | Applies to |
 |---|---|
-|LICENSE-MS.txt     |dxil.dll|
 |LICENSE-MIT.txt    |d3d12shader.h|
 |LICENSE-LLVM.txt   |all other files|
 
