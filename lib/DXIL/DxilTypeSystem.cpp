@@ -180,8 +180,8 @@ DxilPayloadFieldAnnotation::GetPayloadFieldQualifier(
 
   int bitOffset = GetBitOffsetForShaderStage(shaderStage);
   unsigned accessBits = m_bitmask >> bitOffset;
-  return (DXIL::PayloadAccessQualifier)(accessBits &
-    DXIL::PayloadAccessQualifierValidMaskPerStage);
+  return (DXIL::PayloadAccessQualifier)(
+      accessBits & DXIL::PayloadAccessQualifierValidMaskPerStage);
 }
 
 bool DxilPayloadFieldAnnotation::HasAnnotations() const {
