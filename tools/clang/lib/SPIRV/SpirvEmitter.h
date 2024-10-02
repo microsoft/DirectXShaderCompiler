@@ -74,6 +74,7 @@ public:
   /// created, we just return RichDebugInfo containing it. Otherwise,
   /// create DebugSource and DebugCompilationUnit for loc and return it.
   RichDebugInfo *getOrCreateRichDebugInfo(const SourceLocation &loc);
+  RichDebugInfo *getOrCreateRichDebugInfoImpl(llvm::StringRef file);
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
@@ -751,6 +752,10 @@ private:
   /// Returns the value of the alignment argument for `vk::RawBufferLoad()` and
   /// `vk::RawBufferStore()`.
   uint32_t getRawBufferAlignment(const Expr *expr);
+
+  /// Returns a spirv OpCooperativeMatrixLengthKHR instruction generated from a
+  /// call to __builtin_spv_CooperativeMatrixLengthKHR.
+  SpirvInstruction *processCooperativeMatrixGetLength(const CallExpr *call);
 
   /// Process vk::ext_execution_mode intrinsic
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,

@@ -532,6 +532,12 @@ bool isVkRawBufferLoadIntrinsic(const clang::FunctionDecl *FD) {
   return true;
 }
 
+bool isCooperativeMatrixGetLengthIntrinsic(
+    const FunctionDecl *functionDeclaration) {
+  return functionDeclaration->getName().equals(
+      "__builtin_spv_CooperativeMatrixLengthKHR");
+}
+
 // Takes an AST member type, and determines its index in the equivalent SPIR-V
 // struct type. This is required as the struct layout might change between the
 // AST representation and SPIR-V representation.
@@ -655,8 +661,7 @@ SpirvEmitter::SpirvEmitter(CompilerInstance &ci)
 
   // Rich DebugInfo DebugSource
   if (spirvOptions.debugInfoRich) {
-    auto *dbgSrc =
-        spvBuilder.createDebugSource(mainSourceFile->getString(), source);
+    auto *dbgSrc = spvBuilder.createDebugSource(mainSourceFile->getString());
     // spvContext.getDebugInfo().insert() inserts {string key, RichDebugInfo}
     // pair and returns {{string key, RichDebugInfo}, true /*Success*/}.
     // spvContext.getDebugInfo().insert().first->second is a RichDebugInfo.
@@ -833,17 +838,23 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
     return;
 
   // Add source instruction(s)
-  if ((spirvOptions.debugInfoSource || spirvOptions.debugInfoFile) &&
-      !spirvOptions.debugInfoVulkan) {
+  if (spirvOptions.debugInfoSource || spirvOptions.debugInfoFile) {
     std::vector<llvm::StringRef> fileNames;
     fileNames.clear();
     const auto &sm = context.getSourceManager();
     // Add each include file from preprocessor output
     for (unsigned int i = 0; i < sm.getNumLineTableFilenames(); i++) {
-      fileNames.push_back(sm.getLineTableFilename(i));
+      llvm::StringRef file = sm.getLineTableFilename(i);
+      if (spirvOptions.debugInfoVulkan) {
+        getOrCreateRichDebugInfoImpl(file);
+      } else {
+        fileNames.push_back(file);
+      }
     }
-    spvBuilder.setDebugSource(spvContext.getMajorVersion(),
-                              spvContext.getMinorVersion(), fileNames);
+    if (!spirvOptions.debugInfoVulkan) {
+      spvBuilder.setDebugSource(spvContext.getMajorVersion(),
+                                spvContext.getMinorVersion(), fileNames);
+    }
   }
 
   if (spirvOptions.enableMaximalReconvergence) {
@@ -1040,6 +1051,11 @@ RichDebugInfo *
 SpirvEmitter::getOrCreateRichDebugInfo(const SourceLocation &loc) {
   const StringRef file =
       astContext.getSourceManager().getPresumedLoc(loc).getFilename();
+  return getOrCreateRichDebugInfoImpl(file);
+}
+
+RichDebugInfo *
+SpirvEmitter::getOrCreateRichDebugInfoImpl(llvm::StringRef file) {
   auto &debugInfo = spvContext.getDebugInfo();
   auto it = debugInfo.find(file);
   if (it != debugInfo.end())
@@ -2903,6 +2919,11 @@ SpirvInstruction *SpirvEmitter::doCallExpr(const CallExpr *callExpr,
   // Handle 'vk::RawBufferLoad()'
   if (isVkRawBufferLoadIntrinsic(funcDecl)) {
     return processRawBufferLoad(callExpr);
+  }
+
+  // Handle CooperativeMatrix::GetLength()
+  if (isCooperativeMatrixGetLengthIntrinsic(funcDecl)) {
+    return processCooperativeMatrixGetLength(callExpr);
   }
 
   // Normal standalone functions
@@ -14683,6 +14704,35 @@ SpirvEmitter::processRawBufferStore(const CallExpr *callExpr) {
   auto *storeAsInt = castToInt(value, boolType, bufferType, loc);
   return storeDataToRawAddress(address, storeAsInt, bufferType, alignment, loc,
                                callExpr->getLocStart());
+}
+
+SpirvInstruction *
+SpirvEmitter::processCooperativeMatrixGetLength(const CallExpr *call) {
+  auto *declaration = dyn_cast<FunctionDecl>(call->getCalleeDecl());
+  assert(declaration);
+
+  const auto *templateSpecializationInfo =
+      declaration->getTemplateSpecializationInfo();
+  assert(templateSpecializationInfo);
+  const clang::TemplateArgumentList &templateArgs =
+      *templateSpecializationInfo->TemplateArguments;
+  assert(templateArgs.size() == 1);
+  const clang::TemplateArgument &arg = templateArgs[0];
+  assert(arg.getKind() == clang::TemplateArgument::Type);
+  const clang::QualType &type = arg.getAsType();
+
+  // Create an undef for `type`.
+  SpirvInstruction *undef = spvBuilder.getUndef(type);
+
+  // Create an OpCooperativeMatrixLengthKHR instruction. However, we cannot
+  // make a type a parameter at this point in the code. We will use an Undef of
+  // the type that will become the parameter, and then adjust the instruction
+  // in EmitVisitor.
+  SpirvInstruction *inst = getSpirvBuilder().createUnaryOp(
+      spv::Op::OpCooperativeMatrixLengthKHR, call->getType(), undef,
+      call->getLocStart(), call->getSourceRange());
+  inst->setRValue();
+  return inst;
 }
 
 SpirvInstruction *
