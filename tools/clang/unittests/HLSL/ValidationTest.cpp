@@ -322,6 +322,7 @@ public:
   TEST_METHOD(PSVContentValidationMS)
   TEST_METHOD(PSVContentValidationAS)
   TEST_METHOD(WrongPSVSize)
+  TEST_METHOD(WrongPSVSizeOnZeros)
   TEST_METHOD(WrongPSVVersion)
 
   dxc::DxcDllSupport m_dllSupport;
@@ -6205,6 +6206,102 @@ TEST_F(ValidationTest, WrongPSVSize) {
   CheckOperationResultMsgs(
       pUpdatedResult, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
       /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, WrongPSVSizeOnZeros) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_PS.hlsl", "ps_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  // Make sure the PSV part exists.
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+
+  uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
+  PSVRuntimeInfo3 *PSVInfo =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(2u, PSVInfo->SigInputElements);
+  PSVPtr += PSVRuntimeInfo_size / 4;
+  uint32_t *ResourceCountPtr = const_cast<uint32_t *>(PSVPtr++);
+  uint32_t ResourceCount = *ResourceCountPtr;
+  VERIFY_ARE_NOT_EQUAL(0u, ResourceCount);
+  uint32_t ResourceBindingsSize = *(PSVPtr++);
+  PSVPtr += (ResourceCount * ResourceBindingsSize) / 4;
+  uint32_t *StringTableSizePtr = const_cast<uint32_t *>(PSVPtr++);
+  uint32_t StringTableSize = *StringTableSizePtr;
+  // Skip string table.
+  PSVPtr += StringTableSize / 4;
+  uint32_t *SemanticIndexTableEntriesPtr = const_cast<uint32_t *>(PSVPtr++);
+  uint32_t SemanticIndexTableEntries = *SemanticIndexTableEntriesPtr;
+
+  *SemanticIndexTableEntriesPtr = 0;
+
+  // Run validation on updated container.
+  CComPtr<IDxcOperationResult> pUpdatedResult1;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult1));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult1);
+  VERIFY_SUCCEEDED(pUpdatedResult1->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult1, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+
+  *SemanticIndexTableEntriesPtr = SemanticIndexTableEntries;
+  *StringTableSizePtr = 0;
+
+  // Run validation on updated container.
+  CComPtr<IDxcOperationResult> pUpdatedResult2;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult2));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult2);
+  VERIFY_SUCCEEDED(pUpdatedResult2->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult2, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+
+  *StringTableSizePtr = StringTableSize;
+  *ResourceCountPtr = 0;
+
+  // Run validation on updated container.
+  CComPtr<IDxcOperationResult> pUpdatedResult3;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult3));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult3);
+  VERIFY_SUCCEEDED(pUpdatedResult3->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult3, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  *ResourceCountPtr = ResourceCount;
 }
 
 TEST_F(ValidationTest, WrongPSVVersion) {
