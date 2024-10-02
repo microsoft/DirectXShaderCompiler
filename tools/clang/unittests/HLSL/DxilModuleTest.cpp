@@ -574,7 +574,8 @@ TEST_F(DxilModuleTest, PayloadQualifier) {
                   "  int b : read(caller) : write(miss);\n"
                   "};\n\n"
                   "[shader(\"miss\")]\n"
-                  "void Miss( inout Payload payload ) { payload.a = 4.2; payload.b = 1; }\n";
+                  "void Miss( inout Payload payload ) { payload.a = 4.2; "
+                  "payload.b = 1; }\n";
 
   c.Compile(shader, L"lib_6_6", arguments, {});
 
