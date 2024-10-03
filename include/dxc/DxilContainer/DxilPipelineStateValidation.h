@@ -226,7 +226,8 @@ struct PSVStringTable {
   PSVStringTable() : Table(nullptr), Size(0) {}
   PSVStringTable(const char *table, uint32_t size) : Table(table), Size(size) {}
   const char *Get(uint32_t offset) const {
-    assert(offset < Size && Table && Table[Size - 1] == '\0');
+    if (!(offset < Size && Table && Table[Size - 1] == '\0'))
+      return nullptr;
     return Table + offset;
   }
 };
@@ -344,7 +345,8 @@ struct PSVSemanticIndexTable {
   PSVSemanticIndexTable(const uint32_t *table, uint32_t entries)
       : Table(table), Entries(entries) {}
   const uint32_t *Get(uint32_t offset) const {
-    assert(offset < Entries && Table);
+    if (!(offset < Entries && Table))
+      return nullptr;
     return Table + offset;
   }
 };
@@ -638,7 +640,8 @@ public:
   _T *GetRecord(void *pRecords, uint32_t recordSize, uint32_t numRecords,
                 uint32_t index) const {
     if (pRecords && index < numRecords && sizeof(_T) <= recordSize) {
-      assert((size_t)index * (size_t)recordSize <= UINT_MAX);
+      if (!((size_t)index * (size_t)recordSize <= UINT_MAX))
+        return nullptr;
       return reinterpret_cast<_T *>(reinterpret_cast<uint8_t *>(pRecords) +
                                     (index * recordSize));
     }
@@ -1125,6 +1128,10 @@ void InitPSVResourceBinding(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
 void InitPSVSignatureElement(PSVSignatureElement0 &E,
                              const DxilSignatureElement &SE,
                              bool i1ToUnknownCompat);
+
+// Setup PSVInitInfo with DxilModule.
+// Note that the StringTable and PSVSemanticIndexTable are not done.
+void SetupPSVInitInfo(PSVInitInfo &InitInfo, const DxilModule &DM);
 
 // Setup shader properties for PSVRuntimeInfo* with DxilModule.
 void SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM);

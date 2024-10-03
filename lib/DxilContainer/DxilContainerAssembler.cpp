@@ -738,30 +738,14 @@ public:
   DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = UINT_MAX)
       : m_Module(mod), m_PSVInitInfo(PSVVersion) {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
-    // Constraint PSVVersion based on validator version
-    uint32_t PSVVersionConstraint = hlsl::GetPSVVersion(m_ValMajor, m_ValMinor);
-    if (PSVVersion > PSVVersionConstraint)
-      m_PSVInitInfo.PSVVersion = PSVVersionConstraint;
+    hlsl::SetupPSVInitInfo(m_PSVInitInfo, m_Module);
 
-    const ShaderModel *SM = m_Module.GetShaderModel();
-    UINT uCBuffers = m_Module.GetCBuffers().size();
-    UINT uSamplers = m_Module.GetSamplers().size();
-    UINT uSRVs = m_Module.GetSRVs().size();
-    UINT uUAVs = m_Module.GetUAVs().size();
-    m_PSVInitInfo.ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
     // TODO: for >= 6.2 version, create more efficient structure
     if (m_PSVInitInfo.PSVVersion > 0) {
-      m_PSVInitInfo.ShaderStage = (PSVShaderKind)SM->GetKind();
       // Copy Dxil Signatures
       m_StringBuffer.push_back('\0'); // For empty semantic name (system value)
-      m_PSVInitInfo.SigInputElements =
-          m_Module.GetInputSignature().GetElements().size();
       m_SigInputElements.resize(m_PSVInitInfo.SigInputElements);
-      m_PSVInitInfo.SigOutputElements =
-          m_Module.GetOutputSignature().GetElements().size();
       m_SigOutputElements.resize(m_PSVInitInfo.SigOutputElements);
-      m_PSVInitInfo.SigPatchConstOrPrimElements =
-          m_Module.GetPatchConstOrPrimSignature().GetElements().size();
       m_SigPatchConstOrPrimElements.resize(
           m_PSVInitInfo.SigPatchConstOrPrimElements);
       uint32_t i = 0;
@@ -791,20 +775,6 @@ public:
       m_PSVInitInfo.StringTable.Size = m_StringBuffer.size();
       m_PSVInitInfo.SemanticIndexTable.Table = m_SemanticIndexBuffer.data();
       m_PSVInitInfo.SemanticIndexTable.Entries = m_SemanticIndexBuffer.size();
-      // Set up ViewID and signature dependency info
-      m_PSVInitInfo.UsesViewID =
-          m_Module.m_ShaderFlags.GetViewID() ? true : false;
-      m_PSVInitInfo.SigInputVectors =
-          m_Module.GetInputSignature().NumVectorsUsed(0);
-      for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
-        m_PSVInitInfo.SigOutputVectors[streamIndex] =
-            m_Module.GetOutputSignature().NumVectorsUsed(streamIndex);
-      }
-      m_PSVInitInfo.SigPatchConstOrPrimVectors = 0;
-      if (SM->IsHS() || SM->IsDS() || SM->IsMS()) {
-        m_PSVInitInfo.SigPatchConstOrPrimVectors =
-            m_Module.GetPatchConstOrPrimSignature().NumVectorsUsed(0);
-      }
     }
     if (!m_PSV.InitNew(m_PSVInitInfo, nullptr, &m_PSVBufferSize)) {
       DXASSERT(false, "PSV InitNew failed computing size!");

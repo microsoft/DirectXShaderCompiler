@@ -24,6 +24,7 @@
 #include "dxc/DXIL/DxilUtil.h"
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/BitVector.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/Module.h"
@@ -33,6 +34,7 @@
 #include "DxilValidationUtils.h"
 
 #include <memory>
+#include <unordered_map>
 #include <unordered_set>
 
 using namespace llvm;
@@ -79,17 +81,95 @@ static void emitDxilDiag(LLVMContext &Ctx, const char *str) {
   hlsl::dxilutil::EmitErrorOnContext(Ctx, str);
 }
 
+class StringTableVerifier {
+  std::unordered_map<unsigned, unsigned> OffsetToUseCountMap;
+  const PSVStringTable &Table;
+
+public:
+  StringTableVerifier(const PSVStringTable &Table) : Table(Table) {
+    unsigned Start = 0;
+    for (unsigned i = 0; i < Table.Size; ++i) {
+      char ch = Table.Table[i];
+      if (ch == '\0') {
+        OffsetToUseCountMap[Start] = 0;
+        Start = i + 1;
+      }
+    }
+    if (Table.Size >= 4) {
+      // Remove the '\0's at the end of the table added for padding.
+      for (unsigned i = Table.Size - 1; i > Table.Size - 4; --i) {
+        if (Table.Table[i] != '\0')
+          break;
+        OffsetToUseCountMap.erase(i);
+      }
+    }
+  }
+  bool MarkUse(unsigned Offset) {
+    auto it = OffsetToUseCountMap.find(Offset);
+    if (it != OffsetToUseCountMap.end())
+      it->second++;
+    return Offset < Table.Size;
+  }
+  void Verify(ValidationContext &ValCtx) {
+    for (auto [Offset, UseCount] : OffsetToUseCountMap) {
+      if (UseCount != 0)
+        continue;
+      // DXC will always add a null-terminated string at the beginning of the
+      // StringTable. It is OK if it is not used.
+      if (Offset == 0 && Table.Table[0] == '\0')
+        continue;
+
+      ValCtx.EmitFormatError(ValidationRule::ContainerUnusedItemInTable,
+                             {"StringTable", Table.Get(Offset)});
+    }
+  }
+};
+
+class SemanticIndexTableVerifier {
+  const PSVSemanticIndexTable &Table;
+  llvm::BitVector UseMask;
+
+public:
+  SemanticIndexTableVerifier(const PSVSemanticIndexTable &Table)
+      : Table(Table), UseMask(Table.Entries, false) {}
+  bool MarkUse(unsigned Offset, unsigned Size) {
+    if (Table.Table == nullptr)
+      return false;
+    if (Offset > Table.Entries)
+      return false;
+    if ((Offset + Size) > Table.Entries)
+      return false;
+    for (unsigned i = Offset; i < (Offset + Size); ++i) {
+      UseMask[i] = true;
+    }
+    return true;
+  }
+  void Verify(ValidationContext &ValCtx) {
+    for (unsigned i = 0; i < Table.Entries; i++) {
+      if (UseMask[i])
+        continue;
+
+      ValCtx.EmitFormatError(ValidationRule::ContainerUnusedItemInTable,
+                             {"SemanticIndexTable", std::to_string(i)});
+    }
+  }
+};
+
 class PSVContentVerifier {
   DxilModule &DM;
   DxilPipelineStateValidation &PSV;
   ValidationContext &ValCtx;
   bool PSVContentValid = true;
+  StringTableVerifier StrTableVerifier;
+  SemanticIndexTableVerifier IndexTableVerifier;
 
 public:
   PSVContentVerifier(DxilPipelineStateValidation &PSV, DxilModule &DM,
                      ValidationContext &ValCtx)
-      : DM(DM), PSV(PSV), ValCtx(ValCtx) {}
-  void Verify();
+      : DM(DM), PSV(PSV), ValCtx(ValCtx),
+        StrTableVerifier(PSV.GetStringTable()),
+        IndexTableVerifier(PSV.GetSemanticIndexTable()) {}
+  void Verify(unsigned ValMajor, unsigned ValMinor, unsigned PSVVersion);
 
 private:
   void VerifySignatures(unsigned ValMajor, unsigned ValMinor);
@@ -113,7 +193,8 @@ private:
     PSVContentValid = false;
   }
   void EmitInvalidError(StringRef Name) {
-    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid, {Name});
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid,
+                           {"PSV0 part", Name});
     PSVContentValid = false;
   }
   template <typename Ty> static std::string GetDump(const Ty &T) {
@@ -226,6 +307,17 @@ void PSVContentVerifier::VerifySignatureElement(
     const DxilSignatureElement &SE, PSVSignatureElement0 *PSVSE0,
     const PSVStringTable &StrTab, const PSVSemanticIndexTable &IndexTab,
     std::string Name, bool i1ToUnknownCompat) {
+  bool InvalidTableAccess = false;
+  if (!StrTableVerifier.MarkUse(PSVSE0->SemanticName)) {
+    EmitInvalidError("SemanticName");
+    InvalidTableAccess = true;
+  }
+  if (!IndexTableVerifier.MarkUse(PSVSE0->SemanticIndexes, PSVSE0->Rows)) {
+    EmitInvalidError("SemanticIndex");
+    InvalidTableAccess = true;
+  }
+  if (InvalidTableAccess)
+    return;
   // Find the signature element in the set.
   PSVSignatureElement0 ModulePSVSE0;
   InitPSVSignatureElement(ModulePSVSE0, SE, i1ToUnknownCompat);
@@ -368,18 +460,9 @@ void PSVContentVerifier::VerifyEntryProperties(const ShaderModel *SM,
   }
 }
 
-void PSVContentVerifier::Verify() {
-  unsigned ValMajor, ValMinor;
-  DM.GetValidatorVersion(ValMajor, ValMinor);
-  unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
-
+void PSVContentVerifier::Verify(unsigned ValMajor, unsigned ValMinor,
+                                unsigned PSVVersion) {
   PSVInitInfo PSVInfo(PSVVersion);
-  if (PSV.GetRuntimeInfoSize() != PSVInfo.RuntimeInfoSize()) {
-    EmitMismatchError("PSVRuntimeInfoSize",
-                      std::to_string(PSV.GetRuntimeInfoSize()),
-                      std::to_string(PSVInfo.RuntimeInfoSize()));
-    return;
-  }
 
   if (PSV.GetBindCount() > 0 &&
       PSV.GetResourceBindInfoSize() != PSVInfo.ResourceBindInfoSize()) {
@@ -421,10 +504,18 @@ void PSVContentVerifier::Verify() {
   }
   // PSV2 only added NumThreadsX/Y/Z which verified in VerifyEntryProperties.
   if (PSVVersion > 2) {
-    if (DM.GetEntryFunctionName() != PSV.GetEntryFunctionName())
-      EmitMismatchError("EntryFunctionName", PSV.GetEntryFunctionName(),
-                        DM.GetEntryFunctionName());
+    PSVRuntimeInfo3 *PSV3 = PSV.GetPSVRuntimeInfo3();
+    if (!StrTableVerifier.MarkUse(PSV3->EntryFunctionName)) {
+      EmitInvalidError("EntryFunctionName");
+    } else {
+      if (DM.GetEntryFunctionName() != PSV.GetEntryFunctionName())
+        EmitMismatchError("EntryFunctionName", PSV.GetEntryFunctionName(),
+                          DM.GetEntryFunctionName());
+    }
   }
+
+  StrTableVerifier.Verify(ValCtx);
+  IndexTableVerifier.Verify(ValCtx);
 
   if (!PSVContentValid)
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
@@ -507,16 +598,204 @@ bool VerifySignatureMatches(llvm::Module *pModule, DXIL::SignatureKind SigKind,
   return !ValCtx.Failed;
 }
 
+struct SimplePSV {
+  uint32_t PSVRuntimeInfoSize = 0;
+  uint32_t PSVNumResources = 0;
+  uint32_t PSVResourceBindInfoSize = 0;
+  uint32_t StringTableSize = 0;
+  const char *StringTable = nullptr;
+  uint32_t SemanticIndexTableEntries = 0;
+  const uint32_t *SemanticIndexTable = nullptr;
+  uint32_t PSVSignatureElementSize = 0;
+  const PSVRuntimeInfo1 *RuntimeInfo1 = nullptr;
+  bool IsValid = true;
+  SimplePSV(const void *pPSVData, uint32_t PSVSize) {
+
+#define INCREMENT_POS(Size)                                                    \
+  Offset += Size;                                                              \
+  if (Offset > PSVSize) {                                                      \
+    IsValid = false;                                                           \
+    return;                                                                    \
+  }
+
+    uint32_t Offset = 0;
+    PSVRuntimeInfoSize = GetUint32AtOffset(pPSVData, 0);
+    INCREMENT_POS(4);
+    if (PSVRuntimeInfoSize >= sizeof(PSVRuntimeInfo1))
+      RuntimeInfo1 =
+          (const PSVRuntimeInfo1 *)(GetPtrAtOffset(pPSVData, Offset));
+    INCREMENT_POS(PSVRuntimeInfoSize);
+
+    PSVNumResources = GetUint32AtOffset(pPSVData, Offset);
+    INCREMENT_POS(4);
+    if (PSVNumResources > 0) {
+      PSVResourceBindInfoSize = GetUint32AtOffset(pPSVData, Offset);
+      // Increase the offset for the resource bind info size.
+      INCREMENT_POS(4);
+      // Increase the offset for the resource bind info.
+      INCREMENT_POS(PSVNumResources * PSVResourceBindInfoSize);
+    }
+    if (RuntimeInfo1) {
+      StringTableSize = GetUint32AtOffset(pPSVData, Offset);
+      INCREMENT_POS(4);
+      // Make sure StringTableSize is aligned to 4 bytes.
+      if ((StringTableSize & 3) != 0) {
+        IsValid = false;
+        return;
+      }
+      if (StringTableSize) {
+        StringTable = GetPtrAtOffset(pPSVData, Offset);
+        INCREMENT_POS(StringTableSize);
+      }
+      SemanticIndexTableEntries = GetUint32AtOffset(pPSVData, Offset);
+      INCREMENT_POS(4);
+      if (SemanticIndexTableEntries) {
+        SemanticIndexTable =
+            (const uint32_t *)(GetPtrAtOffset(pPSVData, Offset));
+        INCREMENT_POS(SemanticIndexTableEntries * 4);
+      }
+      if (RuntimeInfo1->SigInputElements || RuntimeInfo1->SigOutputElements ||
+          RuntimeInfo1->SigPatchConstOrPrimElements) {
+        PSVSignatureElementSize = GetUint32AtOffset(pPSVData, Offset);
+        INCREMENT_POS(4);
+        uint32_t PSVNumSignatures = RuntimeInfo1->SigInputElements +
+                                    RuntimeInfo1->SigOutputElements +
+                                    RuntimeInfo1->SigPatchConstOrPrimElements;
+        INCREMENT_POS(PSVNumSignatures * PSVSignatureElementSize);
+      }
+      if (RuntimeInfo1->UsesViewID) {
+        for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
+          uint32_t SigOutputVectors = RuntimeInfo1->SigOutputVectors[i];
+          if (SigOutputVectors == 0)
+            continue;
+          uint32_t MaskSizeInBytes =
+              sizeof(uint32_t) *
+              PSVComputeMaskDwordsFromVectors(SigOutputVectors);
+          INCREMENT_POS(MaskSizeInBytes);
+        }
+        if ((RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Hull ||
+             RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Mesh) &&
+            RuntimeInfo1->SigPatchConstOrPrimVectors) {
+          uint32_t MaskSizeInBytes =
+              sizeof(uint32_t) * PSVComputeMaskDwordsFromVectors(
+                                     RuntimeInfo1->SigPatchConstOrPrimVectors);
+          INCREMENT_POS(MaskSizeInBytes);
+        }
+      }
+
+      for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
+        uint32_t SigOutputVectors = RuntimeInfo1->SigOutputVectors[i];
+        if (SigOutputVectors == 0)
+          continue;
+        uint32_t TableSizeInBytes =
+            sizeof(uint32_t) *
+            PSVComputeInputOutputTableDwords(RuntimeInfo1->SigInputVectors,
+                                             SigOutputVectors);
+        INCREMENT_POS(TableSizeInBytes);
+      }
+
+      if ((RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Hull ||
+           RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Mesh) &&
+          RuntimeInfo1->SigPatchConstOrPrimVectors &&
+          RuntimeInfo1->SigInputVectors) {
+        uint32_t TableSizeInBytes =
+            sizeof(uint32_t) * PSVComputeInputOutputTableDwords(
+                                   RuntimeInfo1->SigInputVectors,
+                                   RuntimeInfo1->SigPatchConstOrPrimVectors);
+        INCREMENT_POS(TableSizeInBytes);
+      }
+
+      if (RuntimeInfo1->ShaderStage == (unsigned)DXIL::ShaderKind::Domain &&
+          RuntimeInfo1->SigOutputVectors[0] &&
+          RuntimeInfo1->SigPatchConstOrPrimVectors) {
+        uint32_t TableSizeInBytes =
+            sizeof(uint32_t) * PSVComputeInputOutputTableDwords(
+                                   RuntimeInfo1->SigPatchConstOrPrimVectors,
+                                   RuntimeInfo1->SigOutputVectors[0]);
+        INCREMENT_POS(TableSizeInBytes);
+      }
+    }
+    IsValid = PSVSize == Offset;
+#undef INCREMENT_POS
+  }
+  bool ValidatePSVInit(PSVInitInfo PSVInfo, ValidationContext &ValCtx) {
+    if (PSVRuntimeInfoSize != PSVInfo.RuntimeInfoSize()) {
+      ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
+                             {"PSVRuntimeInfoSize", "PSV0",
+                              std::to_string(PSVRuntimeInfoSize),
+                              std::to_string(PSVInfo.RuntimeInfoSize())});
+      return false;
+    }
+    if (PSVNumResources &&
+        PSVResourceBindInfoSize != PSVInfo.ResourceBindInfoSize()) {
+      ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
+                             {"PSVResourceBindInfoSize", "PSV0",
+                              std::to_string(PSVResourceBindInfoSize),
+                              std::to_string(PSVInfo.ResourceBindInfoSize())});
+      return false;
+    }
+    if (RuntimeInfo1 &&
+        (RuntimeInfo1->SigInputElements || RuntimeInfo1->SigOutputElements ||
+         RuntimeInfo1->SigPatchConstOrPrimElements) &&
+        PSVSignatureElementSize != PSVInfo.SignatureElementSize()) {
+      ValCtx.EmitFormatError(ValidationRule::ContainerContentMatches,
+                             {"PSVSignatureElementSize", "PSV0",
+                              std::to_string(PSVSignatureElementSize),
+                              std::to_string(PSVInfo.SignatureElementSize())});
+      return false;
+    }
+    return true;
+  }
+
+private:
+  const char *GetPtrAtOffset(const void *BasePtr, uint32_t Offset) const {
+    return (const char *)BasePtr + Offset;
+  }
+  uint32_t GetUint32AtOffset(const void *BasePtr, uint32_t Offset) const {
+    return *(const uint32_t *)GetPtrAtOffset(BasePtr, Offset);
+  }
+};
+
 static void VerifyPSVMatches(ValidationContext &ValCtx, const void *pPSVData,
                              uint32_t PSVSize) {
+  // SimplePSV.IsValid indicates whether the part is well-formed so that we may
+  // proceed with more detailed validation.
+  SimplePSV SimplePSV(pPSVData, PSVSize);
+  if (!SimplePSV.IsValid) {
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid,
+                           {"DxilContainer", "PSV0 part"});
+    return;
+  }
+  // The PSVVersion determines the size of record structures that should be
+  // used when writing PSV0 data, and is based on the validator version in the
+  // module.
+  unsigned ValMajor, ValMinor;
+  ValCtx.DxilMod.GetValidatorVersion(ValMajor, ValMinor);
+  unsigned PSVVersion = hlsl::GetPSVVersion(ValMajor, ValMinor);
+  // PSVInfo is used to compute the expected record size of the PSV0 part of the
+  // container. It uses facts from the module.
+  PSVInitInfo PSVInfo(PSVVersion);
+  hlsl::SetupPSVInitInfo(PSVInfo, ValCtx.DxilMod);
+  // ValidatePSVInit checks that record sizes match expected for PSVVersion.
+  if (!SimplePSV.ValidatePSVInit(PSVInfo, ValCtx))
+    return;
+  // Ensure that the string table data is null-terminated.
+  if (SimplePSV.StringTable &&
+      SimplePSV.StringTable[SimplePSV.StringTableSize - 1] != '\0') {
+    ValCtx.EmitFormatError(ValidationRule::ContainerContentInvalid,
+                           {"PSV part StringTable"});
+    return;
+  }
+
   DxilPipelineStateValidation PSV;
   if (!PSV.InitFromPSV0(pPSVData, PSVSize)) {
     ValCtx.EmitFormatError(ValidationRule::ContainerPartMatches,
                            {"Pipeline State Validation"});
     return;
   }
+
   PSVContentVerifier Verifier(PSV, ValCtx.DxilMod, ValCtx);
-  Verifier.Verify();
+  Verifier.Verify(ValMajor, ValMinor, PSVVersion);
 }
 
 static void VerifyFeatureInfoMatches(ValidationContext &ValCtx,
