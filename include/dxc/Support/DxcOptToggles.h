@@ -27,7 +27,7 @@ namespace options {
 struct Toggle {
   const char *Name;
   bool Default = false;
-  Toggle(char *Name, bool Default) : Name(Name), Default(Default) {}
+  Toggle(const char *Name, bool Default) : Name(Name), Default(Default) {}
 };
 
 enum {
