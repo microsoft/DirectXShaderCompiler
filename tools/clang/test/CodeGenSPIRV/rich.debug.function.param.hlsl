@@ -7,7 +7,7 @@
 // CHECK:        [[emptyStr:%[0-9]+]] = OpString ""
 // CHECK:               [[y:%[0-9]+]] = OpString "y"
 // CHECK:               [[x:%[0-9]+]] = OpString "x"
-// CHECK:        [[mainName:%[0-9]+]] = OpString "main"
+// CHECK:        [[mainName:%[0-9]+]] = OpString "src.main"
 // CHECK:           [[color:%[0-9]+]] = OpString "color"
 
 // CHECK: [[int:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeBasic {{%[0-9]+}} %uint_32 Signed
