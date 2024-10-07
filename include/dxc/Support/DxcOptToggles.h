@@ -25,9 +25,9 @@ namespace hlsl {
 namespace options {
 
 struct Toggle {
-  llvm::StringRef Name;
+  const char* Name;
   bool Default = false;
-  Toggle(llvm::StringRef Name, bool Default) : Name(Name), Default(Default) {}
+  Toggle(char* Name, bool Default) : Name(Name), Default(Default) {}
 };
 
 enum {
