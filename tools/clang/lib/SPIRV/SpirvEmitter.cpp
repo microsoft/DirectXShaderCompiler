@@ -9444,7 +9444,7 @@ SpirvEmitter::processIntrinsicFirstbit(const CallExpr *callExpr,
       astContext, argType, spirvOptions.enable16BitTypes);
   if (bitwidth != 32) {
     emitError("%0 is currently limited to 32-bit width components when "
-              "targetting SPIR-V",
+              "targeting SPIR-V",
               srcLoc)
         << getFunctionOrOperatorName(callee, true);
     return nullptr;
