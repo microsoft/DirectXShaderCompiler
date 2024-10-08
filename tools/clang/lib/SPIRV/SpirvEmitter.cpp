@@ -9366,6 +9366,12 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
   case hlsl::IntrinsicOp::IOP_isfinite:
     retVal = processIntrinsicIsFinite(callExpr);
     break;
+  case hlsl::IntrinsicOp::IOP_EvaluateAttributeCentroid:
+  case hlsl::IntrinsicOp::IOP_EvaluateAttributeAtSample:
+  case hlsl::IntrinsicOp::IOP_EvaluateAttributeSnapped: {
+    retVal = processEvaluateAttributeAt(callExpr, hlslOpcode, srcLoc, srcRange);
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
     INTRINSIC_SPIRV_OP_CASE(ddx_fine, DPdxFine, false);
@@ -11937,6 +11943,44 @@ SpirvInstruction *SpirvEmitter::processIntrinsicUsingGLSLInst(
   emitError("unsupported %0 intrinsic function", callExpr->getExprLoc())
       << cast<DeclRefExpr>(callExpr->getCallee())->getNameInfo().getAsString();
   return nullptr;
+}
+
+SpirvInstruction *SpirvEmitter::processEvaluateAttributeAt(
+    const CallExpr *callExpr, hlsl::IntrinsicOp opcode, SourceLocation loc,
+    SourceRange range) {
+  QualType returnType = callExpr->getType();
+  SpirvInstruction *arg0Instr = doExpr(callExpr->getArg(0));
+  SpirvInstruction *interpolant =
+      turnIntoLValue(callExpr->getType(), arg0Instr, callExpr->getExprLoc());
+
+  switch (opcode) {
+  case hlsl::IntrinsicOp::IOP_EvaluateAttributeCentroid:
+    return spvBuilder.createGLSLExtInst(
+        returnType, GLSLstd450InterpolateAtCentroid, {interpolant}, loc, range);
+  case hlsl::IntrinsicOp::IOP_EvaluateAttributeAtSample: {
+    SpirvInstruction *sample = doExpr(callExpr->getArg(1));
+    return spvBuilder.createGLSLExtInst(returnType,
+                                        GLSLstd450InterpolateAtSample,
+                                        {interpolant, sample}, loc, range);
+  }
+  case hlsl::IntrinsicOp::IOP_EvaluateAttributeSnapped: {
+    const Expr *arg1 = callExpr->getArg(1);
+    SpirvInstruction *arg1Inst = doExpr(arg1);
+
+    QualType float2Type = astContext.getExtVectorType(astContext.FloatTy, 2);
+    SpirvInstruction *offset =
+        castToFloat(arg1Inst, arg1->getType(), float2Type, arg1->getLocStart(),
+                    arg1->getSourceRange());
+
+    return spvBuilder.createGLSLExtInst(returnType,
+                                        GLSLstd450InterpolateAtOffset,
+                                        {interpolant, offset}, loc, range);
+  }
+  default:
+    assert(false && "processEvaluateAttributeAt must be called with an "
+                    "EvaluateAttribute* opcode");
+    return nullptr;
+  }
 }
 
 SpirvInstruction *

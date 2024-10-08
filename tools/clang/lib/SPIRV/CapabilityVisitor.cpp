@@ -895,6 +895,8 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
       Extension::NV_shader_subgroup_partitioned,
       {spv::Capability::GroupNonUniformPartitionedNV});
 
+  addCapability(spv::Capability::InterpolationFunction);
+
   return true;
 }
 
