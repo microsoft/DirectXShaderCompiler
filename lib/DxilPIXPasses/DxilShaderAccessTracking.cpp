@@ -980,7 +980,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
           case DXIL::OpCode::BufferUpdateCounter:
             readWrite = ShaderAccessFlags::Counter;
             break;
-          case DXIL::OpCode::TraceRay:
+          case DXIL::OpCode::TraceRay: {
             // Read of AccelerationStructure; doesn't match function attribute
             auto res = GetResourceFromHandle(Call->getArgOperand(1), DM);
             if (res.accessStyle == AccessStyle::None) {
@@ -990,6 +990,7 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
                                    ShaderAccessFlags::Read)) {
               Modified = true;
             }
+          }
             continue;
           case DXIL::OpCode::RayQuery_TraceRayInline: {
             // Read of AccelerationStructure; doesn't match function attribute
