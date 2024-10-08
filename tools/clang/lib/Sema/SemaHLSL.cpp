@@ -4904,7 +4904,7 @@ public:
   }
 
   bool IsValidTemplateArgumentType(SourceLocation argLoc, const QualType &type,
-                                   bool requireScalar) {
+                                   bool requireScalar, bool allowObject) {
     if (type.isNull()) {
       return false;
     }
@@ -4929,7 +4929,7 @@ public:
       if (qt->isArrayType()) {
         const ArrayType *arrayType = qt->getAsArrayTypeUnsafe();
         return IsValidTemplateArgumentType(argLoc, arrayType->getElementType(),
-                                           false);
+                                           false, allowObject);
       } else if (objectKind == AR_TOBJ_VECTOR) {
         bool valid = true;
         if (!IsValidVectorSize(GetHLSLVecSize(type))) {
@@ -4964,9 +4964,12 @@ public:
         objectKind = ClassifyRecordType(recordType);
         switch (objectKind) {
         case AR_TOBJ_OBJECT:
-          m_sema->Diag(argLoc, diag::err_hlsl_objectintemplateargument) << type;
-          return false;
         case AR_TOBJ_COMPOUND: {
+          if (objectKind == AR_TOBJ_OBJECT && !allowObject) {
+            m_sema->Diag(argLoc, diag::err_hlsl_objectintemplateargument)
+                << type;
+            return false;
+          }
           const RecordDecl *recordDecl = recordType->getDecl();
           if (recordDecl->isInvalidDecl())
             return false;
@@ -4975,8 +4978,9 @@ public:
           bool result = true;
           while (begin != end) {
             const FieldDecl *fieldDecl = *begin;
-            if (!IsValidTemplateArgumentType(argLoc, fieldDecl->getType(),
-                                             false)) {
+            if (!IsValidTemplateArgumentType(
+                    argLoc, fieldDecl->getType(), false,
+                    allowObject && objectKind != AR_TOBJ_OBJECT)) {
               m_sema->Diag(argLoc, diag::note_field_type_usage)
                   << fieldDecl->getType() << fieldDecl->getIdentifier() << type;
               result = false;
@@ -5193,7 +5197,10 @@ public:
         QualType argType = arg.getAsType();
         // Skip dependent types.  Types will be checked later, when concrete.
         if (!argType->isDependentType()) {
-          if (!IsValidTemplateArgumentType(argSrcLoc, argType, requireScalar)) {
+          bool allowObject =
+              templateName == "SpirvType" || templateName == "SpirvOpaqueType";
+          if (!IsValidTemplateArgumentType(argSrcLoc, argType, requireScalar,
+                                           allowObject)) {
             // NOTE: IsValidTemplateArgumentType emits its own diagnostics
             return true;
           }
