@@ -76,11 +76,34 @@ void main() {
     double value;
     uint lowbits;
     uint highbits;
-// CHECK-NEXT:      [[value:%[0-9]+]] = OpLoad %double %value
-// CHECK-NEXT:  [[resultVec:%[0-9]+]] = OpBitcast %v2uint [[value]]
-// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec]] 0
+// CHECK-NEXT:  [[resultArr:%[0-9]+]] = OpBitcast %_ptr_Function__arr_uint_uint_2 %value
+// CHECK-NEXT:     [[chain0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[resultArr]] %uint_0
+// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpLoad %uint [[chain0]]
 // CHECK-NEXT:                       OpStore %lowbits [[resultVec0]]
-// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec]] 1
+// CHECK-NEXT:     [[chain1:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[resultArr]] %uint_1
+// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpLoad %uint [[chain1]]
 // CHECK-NEXT:                       OpStore %highbits [[resultVec1]]
     asuint(value, lowbits, highbits);
+
+    double4 value4;
+    uint4 lowbits4;
+    uint4 highbits4;
+// CHECK-NEXT:  [[resultArr:%[0-9]+]] = OpBitcast %_ptr_Function__arr_v4uint_uint_2 %value4
+// CHECK-NEXT:     [[chain0:%[0-9]+]] = OpAccessChain %_ptr_Function_v4uint [[resultArr]] %uint_0
+// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpLoad %v4uint [[chain0]]
+// CHECK-NEXT:                       OpStore %lowbits4 [[resultVec0]]
+// CHECK-NEXT:     [[chain1:%[0-9]+]] = OpAccessChain %_ptr_Function_v4uint [[resultArr]] %uint_1
+// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpLoad %v4uint [[chain1]]
+// CHECK-NEXT:                       OpStore %highbits4 [[resultVec1]]
+    asuint(value4, lowbits4, highbits4);
+
+// CHECK-NEXT:                          OpStore %temp_var_double %double_1234
+// CHECK-NEXT:  [[resultArr:%[0-9]+]] = OpBitcast %_ptr_Function__arr_uint_uint_2 %temp_var_double
+// CHECK-NEXT:     [[chain0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[resultArr]] %uint_0
+// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpLoad %uint [[chain0]]
+// CHECK-NEXT:                       OpStore %lowbits [[resultVec0]]
+// CHECK-NEXT:     [[chain1:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[resultArr]] %uint_1
+// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpLoad %uint [[chain1]]
+// CHECK-NEXT:                       OpStore %highbits [[resultVec1]]
+    asuint(1234.0, lowbits, highbits);
 }

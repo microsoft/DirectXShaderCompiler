@@ -11519,23 +11519,45 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   }
   case 3: {
     // Handling Method 6.
-    auto *value = doExpr(arg0);
-    auto *lowbits = doExpr(callExpr->getArg(1));
-    auto *highbits = doExpr(callExpr->getArg(2));
-    const auto uintType = astContext.UnsignedIntTy;
-    const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
-    auto *vecResult = spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintVec2Type,
-                                               value, loc, range);
-    spvBuilder.createStore(
-        lowbits,
-        spvBuilder.createCompositeExtract(uintType, vecResult, {0},
-                                          arg0->getLocStart(), range),
-        loc, range);
-    spvBuilder.createStore(
-        highbits,
-        spvBuilder.createCompositeExtract(uintType, vecResult, {1},
-                                          arg0->getLocStart(), range),
-        loc, range);
+    const Expr *arg1 = callExpr->getArg(1);
+    SourceLocation arg1loc = arg1->getExprLoc();
+    SourceRange arg1range = arg1->getSourceRange();
+
+    const Expr *arg2 = callExpr->getArg(2);
+    SourceLocation arg2loc = arg2->getExprLoc();
+    SourceRange arg2range = arg2->getSourceRange();
+
+    SpirvInstruction *value = doExpr(arg0->IgnoreParenLValueCasts());
+    if (!value->isLValue()) {
+      value = turnIntoLValue(argType, value, arg0->getExprLoc());
+    }
+    SpirvInstruction *lowbits = doExpr(arg1);
+    SpirvInstruction *highbits = doExpr(arg2);
+
+    QualType outType = arg1->getType();
+    QualType arrayType = astContext.getConstantArrayType(
+        outType, llvm::APInt(32, 2), clang::ArrayType::Normal, 0);
+
+    const SpirvType *arrayPtrType =
+        spvContext.getPointerType(arrayType, spv::StorageClass::Function);
+
+    auto *arrayResultPtr =
+        spvBuilder.createUnaryOp(spv::Op::OpBitcast, arrayPtrType, value, loc);
+
+    SpirvInstruction *lowbitsResultPtr = spvBuilder.createAccessChain(
+        outType, arrayResultPtr, {getValueZero(astContext.UnsignedIntTy)},
+        arg1loc);
+    SpirvInstruction *lowbitsResult =
+        spvBuilder.createLoad(outType, lowbitsResultPtr, arg1loc, arg1range);
+    spvBuilder.createStore(lowbits, lowbitsResult, arg1loc, arg1range);
+
+    SpirvInstruction *highbitsResultPtr = spvBuilder.createAccessChain(
+        outType, arrayResultPtr, {getValueOne(astContext.UnsignedIntTy)},
+        arg2loc);
+    SpirvInstruction *highbitsResult =
+        spvBuilder.createLoad(outType, highbitsResultPtr, arg2loc, arg2range);
+    spvBuilder.createStore(highbits, highbitsResult, arg2loc, arg2range);
+
     return nullptr;
   }
   default:
