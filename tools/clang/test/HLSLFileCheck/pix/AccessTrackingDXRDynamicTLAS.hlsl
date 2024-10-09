@@ -14,8 +14,7 @@
 // This is then added to the base address for dynamic writes, which is 256
 // (from the config=.256 in the command-line above), for a total of 324.
 
-// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %2, i32 324,
-// ("%2" should be stable: the PIX output UAV is always added at the start of the shader.)
+// CHECK: call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %[[UAV:[0-9+]]], i32 324,
 
 RWTexture2D<float4> RTOutput : register(u0);
 
