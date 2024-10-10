@@ -21,6 +21,7 @@
 #include "dxc/Support/Unicode.h"
 #include "dxc/Support/dxcfilesystem.h"
 #include "clang/Frontend/CompilerInstance.h"
+#include "llvm/Support/Path.h"
 
 #ifndef _WIN32
 #include <sys/stat.h>
@@ -394,6 +395,11 @@ public:
         ws += Unicode::UTF8ToWideStringOrThrow(E.Path.c_str());
         m_searchEntries.emplace_back(std::move(ws));
       }
+    }
+    if (compiler.getHeaderSearchOpts().UseBuiltinIncludes) {
+        SmallString<128> P = StringRef(compiler.getHeaderSearchOpts().ResourceDir);
+        llvm::sys::path::append(P, "include");
+        m_searchEntries.emplace_back(Unicode::UTF8ToWideStringOrThrow(P.c_str()));
     }
   }
 

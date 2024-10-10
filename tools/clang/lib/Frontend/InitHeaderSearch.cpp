@@ -442,7 +442,12 @@ void InitHeaderSearch::AddDefaultIncludePaths(const LangOptions &Lang,
                                               const llvm::Triple &triple,
                                             const HeaderSearchOptions &HSOpts) {
 #if 1 // HLSL Change Starts
-  return;
+    if (HSOpts.UseBuiltinIncludes) {
+        SmallString<128> P = StringRef(HSOpts.ResourceDir);
+        llvm::sys::path::append(P, "include");
+        AddUnmappedPath(P, Angled, false);
+    }
+    return;
 #else
   // NB: This code path is going away. All of the logic is moving into the
   // driver which has the information necessary to do target-specific
