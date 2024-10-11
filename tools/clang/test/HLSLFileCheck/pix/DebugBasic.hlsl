@@ -16,7 +16,7 @@
 // Check for branches-for-interest and AND value and counter location for a UAV size of 128
 // CHECK: br i1 %ComparePos, label %PIXInterestingBlock, label %PIXNonInterestingBlock
 // CHECK: %PIXOffsetOr = phi i32 [ 0, %PIXInterestingBlock ], [ 64, %PIXNonInterestingBlock ]
-// CHECK: %PIXCounterLocation = phi i32 [ 63, %PIXInterestingBlock ], [ 127, %PIXNonInterestingBlock ]
+// CHECK: %PIXCounterLocation = phi i32 [ 60, %PIXInterestingBlock ], [ 124, %PIXNonInterestingBlock ]
 
 // Check the first block header was emitted: (increment, AND + OR)
 // CHECK: call i32 @dx.op.atomicBinOp.i32(i32 78, %dx.types.Handle %PIX_DebugUAV_Handle, i32 0
