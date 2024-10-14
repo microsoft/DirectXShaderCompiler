@@ -159,17 +159,10 @@ add_clang_library(libclang ${ENABLE_SHARED} ${ENABLE_STATIC}
   )
 
 if(ENABLE_SHARED)
-  if(WIN32)
-    set_target_properties(libclang
-      PROPERTIES
-      VERSION ${LIBCLANG_LIBRARY_VERSION}
-      DEFINE_SYMBOL _CINDEX_LIB_)
-  else()
-    set_target_properties(libclang
-      PROPERTIES
-      VERSION ${LIBCLANG_LIBRARY_VERSION}
-      DEFINE_SYMBOL _CINDEX_LIB_)
-  endif()
+  set_target_properties(libclang
+    PROPERTIES
+    VERSION ${LIBCLANG_LIBRARY_VERSION}
+    DEFINE_SYMBOL _CINDEX_LIB_)
 
   if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(LIBCLANG_LINK_FLAGS " -Wl,-compatibility_version -Wl,1")
