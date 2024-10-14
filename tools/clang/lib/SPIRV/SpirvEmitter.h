@@ -1312,6 +1312,22 @@ private:
   /// the Vulkan memory model capability has been added to the module.
   bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
 
+  // TODO: docs
+  void splitDouble(SpirvInstruction *value, SpirvInstruction *&lowbits,
+                   SpirvInstruction *&highbits, SourceLocation loc,
+                   SourceRange range);
+
+  void splitDoubleVector(QualType elemType, uint32_t count, QualType outputType,
+                         SpirvInstruction *value, SpirvInstruction *&lowbits,
+                         SpirvInstruction *&highbits, SourceLocation loc,
+                         SourceRange range);
+
+  void splitDoubleMatrix(QualType elemType, uint32_t rowCount,
+                         uint32_t colCount, QualType outputType,
+                         SpirvInstruction *value, SpirvInstruction *&lowbits,
+                         SpirvInstruction *&highbits, SourceLocation loc,
+                         SourceRange range);
+
 public:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.

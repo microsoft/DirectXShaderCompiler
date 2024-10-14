@@ -76,34 +76,65 @@ void main() {
     double value;
     uint lowbits;
     uint highbits;
-// CHECK-NEXT:  [[resultArr:%[0-9]+]] = OpBitcast %_ptr_Function__arr_uint_uint_2 %value
-// CHECK-NEXT:     [[chain0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[resultArr]] %uint_0
-// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpLoad %uint [[chain0]]
+// CHECK-NEXT:      [[value:%[0-9]+]] = OpLoad %double %value
+// CHECK-NEXT:  [[resultVec:%[0-9]+]] = OpBitcast %v2uint [[value]]
+// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec]] 0
+// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec]] 1
 // CHECK-NEXT:                       OpStore %lowbits [[resultVec0]]
-// CHECK-NEXT:     [[chain1:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[resultArr]] %uint_1
-// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpLoad %uint [[chain1]]
 // CHECK-NEXT:                       OpStore %highbits [[resultVec1]]
     asuint(value, lowbits, highbits);
 
-    double4 value4;
-    uint4 lowbits4;
-    uint4 highbits4;
-// CHECK-NEXT:  [[resultArr:%[0-9]+]] = OpBitcast %_ptr_Function__arr_v4uint_uint_2 %value4
-// CHECK-NEXT:     [[chain0:%[0-9]+]] = OpAccessChain %_ptr_Function_v4uint [[resultArr]] %uint_0
-// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpLoad %v4uint [[chain0]]
-// CHECK-NEXT:                       OpStore %lowbits4 [[resultVec0]]
-// CHECK-NEXT:     [[chain1:%[0-9]+]] = OpAccessChain %_ptr_Function_v4uint [[resultArr]] %uint_1
-// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpLoad %v4uint [[chain1]]
-// CHECK-NEXT:                       OpStore %highbits4 [[resultVec1]]
-    asuint(value4, lowbits4, highbits4);
+    double3 value3;
+    uint3 lowbits3;
+    uint3 highbits3;
+// CHECK-NEXT:      [[value:%[0-9]+]] = OpLoad %v3double %value3
+// CHECK-NEXT:     [[value0:%[0-9]+]] = OpCompositeExtract %double [[value]] 0
+// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpBitcast %v2uint [[value0]]
+// CHECK-NEXT:       [[low0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 0
+// CHECK-NEXT:      [[high0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 1
+// CHECK-NEXT:     [[value1:%[0-9]+]] = OpCompositeExtract %double [[value]] 1
+// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpBitcast %v2uint [[value1]]
+// CHECK-NEXT:       [[low1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 0
+// CHECK-NEXT:      [[high1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 1
+// CHECK-NEXT:     [[value2:%[0-9]+]] = OpCompositeExtract %double [[value]] 2
+// CHECK-NEXT: [[resultVec2:%[0-9]+]] = OpBitcast %v2uint [[value2]]
+// CHECK-NEXT:       [[low2:%[0-9]+]] = OpCompositeExtract %uint [[resultVec2]] 0
+// CHECK-NEXT:      [[high2:%[0-9]+]] = OpCompositeExtract %uint [[resultVec2]] 1
+// CHECK-NEXT:        [[low:%[0-9]+]] = OpCompositeConstruct %v3uint [[low0]] [[low1]] [[low2]]
+// CHECK-NEXT:       [[high:%[0-9]+]] = OpCompositeConstruct %v3uint [[high0]] [[high1]] [[high2]]
+// CHECK-NEXT:                          OpStore %lowbits3 [[low]]
+// CHECK-NEXT:                          OpStore %highbits3 [[high]]
+    asuint(value3, lowbits3, highbits3);
 
-// CHECK-NEXT:                          OpStore %temp_var_double %double_1234
-// CHECK-NEXT:  [[resultArr:%[0-9]+]] = OpBitcast %_ptr_Function__arr_uint_uint_2 %temp_var_double
-// CHECK-NEXT:     [[chain0:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[resultArr]] %uint_0
-// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpLoad %uint [[chain0]]
-// CHECK-NEXT:                       OpStore %lowbits [[resultVec0]]
-// CHECK-NEXT:     [[chain1:%[0-9]+]] = OpAccessChain %_ptr_Function_uint [[resultArr]] %uint_1
-// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpLoad %uint [[chain1]]
-// CHECK-NEXT:                       OpStore %highbits [[resultVec1]]
-    asuint(1234.0, lowbits, highbits);
+    double2x2 value2x2;
+    uint2x2 lowbits2x2;
+    uint2x2 highbits2x2;
+// CHECK-NEXT:      [[value:%[0-9]+]] = OpLoad %mat2v2double %value2x2
+// CHECK-NEXT:       [[row0:%[0-9]+]] = OpCompositeExtract %v2double [[value]] 0
+// CHECK-NEXT:     [[value0:%[0-9]+]] = OpCompositeExtract %double [[row0]] 0
+// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpBitcast %v2uint [[value0]]
+// CHECK-NEXT:       [[low0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 0
+// CHECK-NEXT:      [[high0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 1
+// CHECK-NEXT:     [[value1:%[0-9]+]] = OpCompositeExtract %double [[row0]] 1
+// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpBitcast %v2uint [[value1]]
+// CHECK-NEXT:       [[low1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 0
+// CHECK-NEXT:      [[high1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 1
+// CHECK-NEXT:    [[lowRow0:%[0-9]+]] = OpCompositeConstruct %v2uint [[low0]] [[low1]]
+// CHECK-NEXT:   [[highRow0:%[0-9]+]] = OpCompositeConstruct %v2uint [[high0]] [[high1]]
+// CHECK-NEXT:       [[row1:%[0-9]+]] = OpCompositeExtract %v2double [[value]] 1
+// CHECK-NEXT:     [[value2:%[0-9]+]] = OpCompositeExtract %double [[row1]] 0
+// CHECK-NEXT: [[resultVec2:%[0-9]+]] = OpBitcast %v2uint [[value2]]
+// CHECK-NEXT:       [[low2:%[0-9]+]] = OpCompositeExtract %uint [[resultVec2]] 0
+// CHECK-NEXT:      [[high2:%[0-9]+]] = OpCompositeExtract %uint [[resultVec2]] 1
+// CHECK-NEXT:     [[value3:%[0-9]+]] = OpCompositeExtract %double [[row1]] 1
+// CHECK-NEXT: [[resultVec3:%[0-9]+]] = OpBitcast %v2uint [[value3]]
+// CHECK-NEXT:       [[low3:%[0-9]+]] = OpCompositeExtract %uint [[resultVec3]] 0
+// CHECK-NEXT:      [[high3:%[0-9]+]] = OpCompositeExtract %uint [[resultVec3]] 1
+// CHECK-NEXT:    [[lowRow1:%[0-9]+]] = OpCompositeConstruct %v2uint [[low2]] [[low3]]
+// CHECK-NEXT:   [[highRow1:%[0-9]+]] = OpCompositeConstruct %v2uint [[high2]] [[high3]]
+// CHECK-NEXT:        [[low:%[0-9]+]] = OpCompositeConstruct %_arr_v2uint_uint_2 [[lowRow0]] [[lowRow1]]
+// CHECK-NEXT:       [[high:%[0-9]+]] = OpCompositeConstruct %_arr_v2uint_uint_2 [[highRow0]] [[highRow1]]
+// CHECK-NEXT:                          OpStore %lowbits2x2 [[low]]
+// CHECK-NEXT:                          OpStore %highbits2x2 [[high]]
+    asuint(value2x2, lowbits2x2, highbits2x2);
 }
