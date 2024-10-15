@@ -25,9 +25,10 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
 /// Returns the smallest value greater than or equal to |val| that is a multiple
 /// of |multiple|.
 inline uint32_t roundToMultiple(uint32_t val, uint32_t multiple) {
-  if (val == 0) return 0;
-  uint32_t t = (val-1) / multiple;
-  return (multiple*(t+1));
+  if (val == 0)
+    return 0;
+  uint32_t t = (val - 1) / multiple;
+  return (multiple * (t + 1));
 }
 
 /// Returns true if the given vector type (of the given size) crosses the
