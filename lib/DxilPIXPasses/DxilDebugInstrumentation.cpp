@@ -1192,9 +1192,19 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
     // The subsequent instructions that dereference the pointer will be
     // properly instrumented and show the (meaningful) retrieved value.
     break;
-  case Type::TypeID::VectorTyID:
-    // Shows up in "insertelement" in raygen shader?
-    break;
+  case Type::TypeID::VectorTyID: {
+    auto *source = llvm::dyn_cast<llvm::VectorType>(V->getType());
+    for (uint64_t el = 0; el < source->getArrayNumElements(); ++el) {
+      // auto *gep = BC->Builder.CreateGEP(V, BC->HlslOP->GetU32Const(el));
+      auto *elValue = BC->Builder.CreateExtractElement(V, el);
+      if (auto *indexAsConstant =
+              llvm::dyn_cast<llvm::ConstantInt>(ValueOrdinalIndex)) {
+        addStepDebugEntryValue(
+            BC, InstNum, elValue, ValueOrdinal,
+            BC->HlslOP->GetU32Const(indexAsConstant->getLimitedValue() + el));
+      }
+    }
+  } break;
   case Type::TypeID::FP128TyID:
   case Type::TypeID::LabelTyID:
   case Type::TypeID::MetadataTyID:
