@@ -11465,13 +11465,13 @@ void SpirvEmitter::splitDoubleMatrix(QualType elemType, uint32_t rowCount,
   llvm::SmallVector<SpirvInstruction *, 4> lowElems;
   llvm::SmallVector<SpirvInstruction *, 4> highElems;
 
-  QualType colType = astContext.getExtVectorType(elemType, rowCount);
+  QualType colType = astContext.getExtVectorType(elemType, colCount);
 
   const QualType uintType = astContext.UnsignedIntTy;
   const QualType outputColType =
-      astContext.getExtVectorType(uintType, rowCount);
+      astContext.getExtVectorType(uintType, colCount);
 
-  for (uint32_t i = 0; i < colCount; ++i) {
+  for (uint32_t i = 0; i < rowCount; ++i) {
     SpirvInstruction *column =
         spvBuilder.createCompositeExtract(colType, value, {i}, loc, range);
     SpirvInstruction *lowbitsResult = nullptr;
