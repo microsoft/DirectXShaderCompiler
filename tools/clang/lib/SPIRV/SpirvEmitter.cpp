@@ -11593,12 +11593,7 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   case 3: {
     // Handling Method 6.
     const Expr *arg1 = callExpr->getArg(1);
-    SourceLocation arg1loc = arg1->getExprLoc();
-    SourceRange arg1range = arg1->getSourceRange();
-
     const Expr *arg2 = callExpr->getArg(2);
-    SourceLocation arg2loc = arg2->getExprLoc();
-    SourceRange arg2range = arg2->getSourceRange();
 
     SpirvInstruction *value = doExpr(arg0);
     SpirvInstruction *lowbits = doExpr(arg1);
@@ -11621,10 +11616,8 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
                         lowbitsResult, highbitsResult, loc, range);
     }
 
-    spvBuilder.createStore(lowbits, lowbitsResult, arg1loc, arg1range);
-    spvBuilder.createStore(highbits, highbitsResult, arg2loc, arg2range);
-
-    // TODO: handle matrices
+    spvBuilder.createStore(lowbits, lowbitsResult, loc, range);
+    spvBuilder.createStore(highbits, highbitsResult, loc, range);
 
     return nullptr;
   }

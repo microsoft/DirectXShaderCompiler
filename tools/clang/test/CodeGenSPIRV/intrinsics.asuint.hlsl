@@ -180,4 +180,40 @@ void main() {
 // CHECK-NEXT:                          OpStore %lowbits3x2 [[low]]
 // CHECK-NEXT:                          OpStore %highbits3x2 [[high]]
     asuint(value3x2, lowbits3x2, highbits3x2);
+
+    double2x1 value2x1;
+    uint2x1 lowbits2x1;
+    uint2x1 highbits2x1;
+// CHECK-NEXT:      [[value:%[0-9]+]] = OpLoad %v2double %value2x1
+// CHECK-NEXT:     [[value0:%[0-9]+]] = OpCompositeExtract %double [[value]] 0
+// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpBitcast %v2uint [[value0]]
+// CHECK-NEXT:       [[low0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 0
+// CHECK-NEXT:      [[high0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 1
+// CHECK-NEXT:     [[value1:%[0-9]+]] = OpCompositeExtract %double [[value]] 1
+// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpBitcast %v2uint [[value1]]
+// CHECK-NEXT:       [[low1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 0
+// CHECK-NEXT:      [[high1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 1
+// CHECK-NEXT:        [[low:%[0-9]+]] = OpCompositeConstruct %v2uint [[low0]] [[low1]]
+// CHECK-NEXT:       [[high:%[0-9]+]] = OpCompositeConstruct %v2uint [[high0]] [[high1]]
+// CHECK-NEXT:                          OpStore %lowbits2x1 [[low]]
+// CHECK-NEXT:                          OpStore %highbits2x1 [[high]]
+    asuint(value2x1, lowbits2x1, highbits2x1);
+
+    double1x2 value1x2;
+    uint1x2 lowbits1x2;
+    uint1x2 highbits1x2;
+// CHECK-NEXT:      [[value:%[0-9]+]] = OpLoad %v2double %value1x2
+// CHECK-NEXT:     [[value0:%[0-9]+]] = OpCompositeExtract %double [[value]] 0
+// CHECK-NEXT: [[resultVec0:%[0-9]+]] = OpBitcast %v2uint [[value0]]
+// CHECK-NEXT:       [[low0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 0
+// CHECK-NEXT:      [[high0:%[0-9]+]] = OpCompositeExtract %uint [[resultVec0]] 1
+// CHECK-NEXT:     [[value1:%[0-9]+]] = OpCompositeExtract %double [[value]] 1
+// CHECK-NEXT: [[resultVec1:%[0-9]+]] = OpBitcast %v2uint [[value1]]
+// CHECK-NEXT:       [[low1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 0
+// CHECK-NEXT:      [[high1:%[0-9]+]] = OpCompositeExtract %uint [[resultVec1]] 1
+// CHECK-NEXT:        [[low:%[0-9]+]] = OpCompositeConstruct %v2uint [[low0]] [[low1]]
+// CHECK-NEXT:       [[high:%[0-9]+]] = OpCompositeConstruct %v2uint [[high0]] [[high1]]
+// CHECK-NEXT:                          OpStore %lowbits1x2 [[low]]
+// CHECK-NEXT:                          OpStore %highbits1x2 [[high]]
+    asuint(value1x2, lowbits1x2, highbits1x2);
 }
