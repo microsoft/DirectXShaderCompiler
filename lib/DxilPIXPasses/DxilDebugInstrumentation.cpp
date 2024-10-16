@@ -343,14 +343,15 @@ private:
   void addInvocationStartMarker(BuilderContext &BC);
   void determineLimitANDAndInitializeCounter(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
-  std::optional<InstructionAndType> addStoreStepDebugEntry(BuilderContext *BC,
-                                                           StoreInst *Inst);
-  std::optional<InstructionAndType>
+  std::vector<InstructionAndType> addStoreStepDebugEntry(BuilderContext *BC,
+                                                         StoreInst *Inst);
+  std::vector<InstructionAndType>
   addStepDebugEntry(BuilderContext *BC, Instruction *Inst,
                     llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles);
-  std::optional<DebugShaderModifierRecordType>
+  std::vector<DebugShaderModifierRecordType>
   addStepDebugEntryValue(BuilderContext *BC, std::uint32_t InstNum, Value *V,
-                         std::uint32_t ValueOrdinal, Value *ValueOrdinalIndex);
+                         Type *VType, std::uint32_t ValueOrdinal,
+                         Value *ValueOrdinalIndex);
   uint32_t UAVDumpingGroundOffset();
   template <typename ReturnType>
   void addStepEntryForType(DebugShaderModifierRecordType RecordType,
@@ -989,7 +990,7 @@ void DxilDebugInstrumentation::addStepEntryForType(
   }
 }
 
-std::optional<InstructionAndType>
+std::vector<InstructionAndType>
 DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
                                                  StoreInst *Inst) {
   std::uint32_t ValueOrdinalBase;
@@ -998,68 +999,68 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
   if (!pix_dxil::PixAllocaRegWrite::FromInst(Inst, &ValueOrdinalBase,
                                              &UnusedValueOrdinalSize,
                                              &ValueOrdinalIndex)) {
-    return std::nullopt;
+    return {};
   }
 
   std::uint32_t InstNum;
   if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
-    return std::nullopt;
+    return {};
   }
 
-  auto Type = addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(),
-                                     ValueOrdinalBase, ValueOrdinalIndex);
-  if (Type) {
+  auto Types = addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(),
+                                      Inst->getValueOperand()->getType(),
+                             ValueOrdinalBase, ValueOrdinalIndex);
+  std::vector<InstructionAndType> ret;
+  for (auto Type : Types) {
     if (Instruction *ValueAsInst =
             dyn_cast<Instruction>(Inst->getValueOperand())) {
       uint32_t RegNum = 0;
       if (pix_dxil::PixDxilReg::FromInst(ValueAsInst, &RegNum)) {
-        InstructionAndType ret{};
-        ret.Inst = Inst;
-        ret.InstructionOrdinal = InstNum;
-        ret.Type = *Type;
-        ret.RegisterNumber = RegNum;
-        ret.AllocaBase = ValueOrdinalBase;
-        ret.AllocaWriteIndex = ValueOrdinalIndex;
-        return ret;
+        InstructionAndType IandT{};
+        IandT.Inst = Inst;
+        IandT.InstructionOrdinal = InstNum;
+        IandT.Type = Type;
+        IandT.RegisterNumber = RegNum;
+        IandT.AllocaBase = ValueOrdinalBase;
+        IandT.AllocaWriteIndex = ValueOrdinalIndex;
+        ret.push_back(IandT);
       }
     } else if (Constant *ValueAsConst =
                    dyn_cast<Constant>(Inst->getValueOperand())) {
-      InstructionAndType ret{};
-      ret.Inst = Inst;
-      ret.InstructionOrdinal = InstNum;
-      ret.Type = *Type;
-      ret.AllocaBase = ValueOrdinalBase;
-      ret.AllocaWriteIndex = ValueOrdinalIndex;
+      InstructionAndType IandT{};
+      IandT.Inst = Inst;
+      IandT.InstructionOrdinal = InstNum;
+      IandT.Type = Type;
+      IandT.AllocaBase = ValueOrdinalBase;
+      IandT.AllocaWriteIndex = ValueOrdinalIndex;
 
       switch (ValueAsConst->getType()->getTypeID()) {
       case Type::HalfTyID:
       case Type::FloatTyID:
       case Type::DoubleTyID:
-        ret.ConstantAllocaStoreValue = dyn_cast<ConstantFP>(ValueAsConst)
-                                           ->getValueAPF()
-                                           .bitcastToAPInt()
-                                           .getLimitedValue();
+        IandT.ConstantAllocaStoreValue = dyn_cast<ConstantFP>(ValueAsConst)
+                                             ->getValueAPF()
+                                             .bitcastToAPInt()
+                                             .getLimitedValue();
         break;
       case Type::IntegerTyID:
-        ret.ConstantAllocaStoreValue =
+        IandT.ConstantAllocaStoreValue =
             dyn_cast<ConstantInt>(ValueAsConst)->getLimitedValue();
         break;
-      default:
-        return std::nullopt;
       }
-      return ret;
+      ret.push_back(IandT);
     }
   }
-  return std::nullopt;
+  return ret;
 }
 
-std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
+std::vector<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
     BuilderContext *BC, Instruction *Inst,
     llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles) {
 
   std::uint32_t InstNum;
   if (!pix_dxil::PixDxilInstNum::FromInst(Inst, &InstNum)) {
-    return std::nullopt;
+    return {};
   }
 
   if (RayQueryHandles.count(Inst) != 0) {
@@ -1067,7 +1068,7 @@ std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
     ret.Inst = Inst;
     ret.InstructionOrdinal = InstNum;
     ret.Type = DebugShaderModifierRecordTypeDXILStepVoid;
-    return ret;
+    return {ret};
   }
 
   if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
@@ -1088,7 +1089,7 @@ std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
           ret.Inst = Inst;
           ret.InstructionOrdinal = InstNum;
           ret.Type = DebugShaderModifierRecordTypeDXILStepVoid;
-          return ret;
+          return {ret};
         }
       }
     }
@@ -1104,7 +1105,7 @@ std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
       ret.Inst = Inst;
       ret.InstructionOrdinal = InstNum;
       ret.Type = DebugShaderModifierRecordTypeDXILStepRet;
-      return ret;
+      return {ret};
     } else if (Inst->isTerminator()) {
       if (BC != nullptr)
         addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid,
@@ -1113,30 +1114,31 @@ std::optional<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
       ret.Inst = Inst;
       ret.InstructionOrdinal = InstNum;
       ret.Type = DebugShaderModifierRecordTypeDXILStepVoid;
-      return ret;
+      return {ret};
     }
-    return std::nullopt;
+    return {};
   }
-  auto Type = addStepDebugEntryValue(BC, InstNum, Inst, RegNum,
-                                     BC ? BC->Builder.getInt32(0) : nullptr);
-  if (Type) {
-    InstructionAndType ret{};
-    ret.Inst = Inst;
-    ret.InstructionOrdinal = InstNum;
-    ret.Type = *Type;
-    ret.RegisterNumber = RegNum;
-    return ret;
+  auto Types = addStepDebugEntryValue(BC, InstNum, Inst, Inst->getType(), RegNum,
+                                      BC ? BC->Builder.getInt32(0) : nullptr);
+  std::vector<InstructionAndType> ret;
+  for (auto Type : Types) {
+    InstructionAndType IandT{};
+    IandT.Inst = Inst;
+    IandT.InstructionOrdinal = InstNum;
+    IandT.Type = Type;
+    IandT.RegisterNumber = RegNum;
+    ret.push_back(IandT);
   }
-  return std::nullopt;
+  return ret;
 }
 
-std::optional<DebugShaderModifierRecordType>
+std::vector<DebugShaderModifierRecordType>
 DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
                                                  std::uint32_t InstNum,
-                                                 Value *V,
+                                                 Value *V, Type *VType,
                                                  std::uint32_t ValueOrdinal,
                                                  Value *ValueOrdinalIndex) {
-  const Type::TypeID ID = V->getType()->getTypeID();
+  const Type::TypeID ID = VType->getTypeID();
 
   switch (ID) {
   case Type::TypeID::StructTyID:
@@ -1144,47 +1146,47 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
     if (BC != nullptr)
       addStepEntryForType<void>(DebugShaderModifierRecordTypeDXILStepVoid, *BC,
                                 InstNum, V, ValueOrdinal, ValueOrdinalIndex);
-    return DebugShaderModifierRecordTypeDXILStepVoid;
+    return {DebugShaderModifierRecordTypeDXILStepVoid};
   case Type::TypeID::FloatTyID:
     if (BC != nullptr)
       addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat,
                                  *BC, InstNum, V, ValueOrdinal,
                                  ValueOrdinalIndex);
-    return DebugShaderModifierRecordTypeDXILStepFloat;
+    return {DebugShaderModifierRecordTypeDXILStepFloat};
   case Type::TypeID::IntegerTyID:
     assert(V->getType()->getIntegerBitWidth() == 64 ||
            V->getType()->getIntegerBitWidth() <= 32);
     if (V->getType()->getIntegerBitWidth() > 64) {
-      return std::nullopt;
+      return {};
     }
     if (V->getType()->getIntegerBitWidth() == 64) {
       if (BC != nullptr)
         addStepEntryForType<uint64_t>(
             DebugShaderModifierRecordTypeDXILStepUint64, *BC, InstNum, V,
             ValueOrdinal, ValueOrdinalIndex);
-      return DebugShaderModifierRecordTypeDXILStepUint64;
+      return {DebugShaderModifierRecordTypeDXILStepUint64};
     } else {
       if (V->getType()->getIntegerBitWidth() > 32) {
-        return std::nullopt;
+        return {};
       }
       if (BC != nullptr)
         addStepEntryForType<uint32_t>(
             DebugShaderModifierRecordTypeDXILStepUint32, *BC, InstNum, V,
             ValueOrdinal, ValueOrdinalIndex);
-      return DebugShaderModifierRecordTypeDXILStepUint32;
+      return {DebugShaderModifierRecordTypeDXILStepUint32};
     }
   case Type::TypeID::DoubleTyID:
     if (BC != nullptr)
       addStepEntryForType<double>(DebugShaderModifierRecordTypeDXILStepDouble,
                                   *BC, InstNum, V, ValueOrdinal,
                                   ValueOrdinalIndex);
-    return DebugShaderModifierRecordTypeDXILStepDouble;
+    return {DebugShaderModifierRecordTypeDXILStepDouble};
   case Type::TypeID::HalfTyID:
     if (BC != nullptr)
       addStepEntryForType<float>(DebugShaderModifierRecordTypeDXILStepFloat,
                                  *BC, InstNum, V, ValueOrdinal,
                                  ValueOrdinalIndex);
-    return DebugShaderModifierRecordTypeDXILStepFloat;
+    return {DebugShaderModifierRecordTypeDXILStepFloat};
   case Type::TypeID::PointerTyID:
     // Skip pointer calculation instructions. They aren't particularly
     // meaningful to the user (being a mere implementation detail for lookup
@@ -1193,17 +1195,25 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
     // properly instrumented and show the (meaningful) retrieved value.
     break;
   case Type::TypeID::VectorTyID: {
+    std::vector<DebugShaderModifierRecordType> ret;
     auto *source = llvm::dyn_cast<llvm::VectorType>(V->getType());
-    for (uint64_t el = 0; el < source->getArrayNumElements(); ++el) {
-      // auto *gep = BC->Builder.CreateGEP(V, BC->HlslOP->GetU32Const(el));
-      auto *elValue = BC->Builder.CreateExtractElement(V, el);
+    for (uint64_t el = 0; el < source->getVectorNumElements(); ++el) {
+      Value *elValue = nullptr;
+      if (BC != nullptr)
+        elValue = BC->Builder.CreateExtractElement(V, el);
       if (auto *indexAsConstant =
               llvm::dyn_cast<llvm::ConstantInt>(ValueOrdinalIndex)) {
-        addStepDebugEntryValue(
-            BC, InstNum, elValue, ValueOrdinal,
-            BC->HlslOP->GetU32Const(indexAsConstant->getLimitedValue() + el));
+        Value *Index = ValueOrdinalIndex;
+        if (BC != nullptr)
+          Index =
+              BC->HlslOP->GetU32Const(indexAsConstant->getLimitedValue() + el);
+        auto stepEntries = addStepDebugEntryValue(
+            BC, InstNum, elValue, source->getVectorElementType(), ValueOrdinal,
+            Index);
+        ret.insert(ret.end(), stepEntries.begin(), stepEntries.end());
       }
     }
+    return ret;
   } break;
   case Type::TypeID::FP128TyID:
   case Type::TypeID::LabelTyID:
@@ -1215,7 +1225,7 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
   case Type::TypeID::PPC_FP128TyID:
     assert(false);
   }
-  return std::nullopt;
+  return {};
 }
 
 bool DxilDebugInstrumentation::runOnModule(Module &M) {
@@ -1339,10 +1349,10 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
         FoundFirstInstruction = true;
       }
     }
-    auto IandT = addStepDebugEntry(nullptr, &Inst, RayQueryHandles);
-    if (IandT) {
+    auto IsAndTs = addStepDebugEntry(nullptr, &Inst, RayQueryHandles);
+    for (auto IandT : IsAndTs) {
       InstructionToInstrument DebugOutputForThisInstruction{};
-      DebugOutputForThisInstruction.ValueType = IandT->Type;
+      DebugOutputForThisInstruction.ValueType = IandT.Type;
       auto *InsertionPoint = FindFirstNonPhiInstruction(&Inst);
       if (InsertionPoint->isTerminator() || llvm::isa<llvm::PHINode>(Inst))
         DebugOutputForThisInstruction
@@ -1353,38 +1363,38 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
 
       const char *IndexingToken = nullptr;
       std::optional<std::string> RegisterOrStaticIndex;
-      if (IandT->Type == DebugShaderModifierRecordTypeDXILStepRet) {
+      if (IandT.Type == DebugShaderModifierRecordTypeDXILStepRet) {
         IndexingToken = "r";
-      } else if (IandT->Type == DebugShaderModifierRecordTypeDXILStepVoid) {
+      } else if (IandT.Type == DebugShaderModifierRecordTypeDXILStepVoid) {
         IndexingToken = "v"; // void instruction, no debug output required
-      } else if (IandT->AllocaWriteIndex != nullptr) {
+      } else if (IandT.AllocaWriteIndex != nullptr) {
         if (ConstantInt *IndexAsConstant =
-                dyn_cast<ConstantInt>(IandT->AllocaWriteIndex)) {
+                dyn_cast<ConstantInt>(IandT.AllocaWriteIndex)) {
           RegisterOrStaticIndex =
-              std::to_string(IandT->AllocaBase) + "+" +
+              std::to_string(IandT.AllocaBase) + "+" +
               std::to_string(IndexAsConstant->getLimitedValue());
           IndexingToken = "s"; // static indexing, no debug output required
         } else {
           IndexingToken = "d"; // dynamic indexing
-          RegisterOrStaticIndex = std::to_string(IandT->AllocaBase);
+          RegisterOrStaticIndex = std::to_string(IandT.AllocaBase);
           DebugOutputForThisInstruction.ValueToWriteToDebugMemory =
-              IandT->AllocaWriteIndex;
+              IandT.AllocaWriteIndex;
         }
       } else {
         IndexingToken = "a"; // meaning an SSA assignment
         // todo: Can SSA Values be assigned a literal constant?
-        DebugOutputForThisInstruction.ValueToWriteToDebugMemory = IandT->Inst;
+        DebugOutputForThisInstruction.ValueToWriteToDebugMemory = IandT.Inst;
       }
 
-      *OSOverride << std::to_string(IandT->InstructionOrdinal) << ","
-                  << TypeString(*IandT) << ","
-                  << std::to_string(IandT->RegisterNumber) << ","
+      *OSOverride << std::to_string(IandT.InstructionOrdinal) << ","
+                  << TypeString(IandT) << ","
+                  << std::to_string(IandT.RegisterNumber) << ","
                   << IndexingToken;
       if (RegisterOrStaticIndex) {
         *OSOverride << "," << *RegisterOrStaticIndex;
       }
-      if (IandT->ConstantAllocaStoreValue) {
-        *OSOverride << "," << std::to_string(*IandT->ConstantAllocaStoreValue);
+      if (IandT.ConstantAllocaStoreValue) {
+        *OSOverride << "," << std::to_string(*IandT.ConstantAllocaStoreValue);
       }
       *OSOverride << ";";
       if (DebugOutputForThisInstruction.ValueToWriteToDebugMemory)

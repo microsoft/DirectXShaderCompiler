@@ -365,6 +365,8 @@ void DxilAnnotateWithVirtualRegister::AnnotateAlloca(
     AssignNewAllocaRegister(pAlloca, 1);
   } else if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy)) {
     AssignNewAllocaRegister(pAlloca, AT->getNumElements());
+  } else if (auto *VT = llvm::dyn_cast<llvm::VectorType>(pAllocaTy)) {
+    AssignNewAllocaRegister(pAlloca, VT->getNumElements());
   } else if (auto *ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy)) {
     AssignNewAllocaRegister(pAlloca, CountStructMembers(ST));
   } else {
