@@ -24,6 +24,8 @@ clang_obj_root = os.path.join(llvm_obj_root, 'tools', 'clang')
 if os.path.exists(clang_obj_root):
     builtin_parameters['clang_site_config'] = \
         os.path.join(clang_obj_root, 'test', 'lit.site.cfg')
+    builtin_parameters['clang_hash_stability_site_config'] = \
+        os.path.join(clang_obj_root, 'test','HashStability', 'lit.site.cfg')
     clang_tools_extra_obj_root = os.path.join(clang_obj_root, 'tools', 'extra')
     if os.path.exists(clang_tools_extra_obj_root):
         builtin_parameters['clang_tools_extra_site_config'] = \
