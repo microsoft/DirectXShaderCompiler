@@ -1450,28 +1450,10 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   auto range = decl->getSourceRange();
   RichDebugInfo *info = nullptr;
   SpirvDebugFunction *debugFunction = nullptr;
+  SpirvDebugFunction *wrappedDebugFunction = nullptr;
   SpirvDebugInstruction *outer_scope = spvContext.getCurrentLexicalScope();
-  const auto &sm = astContext.getSourceManager();
   if (spirvOptions.debugInfoRich && decl->hasBody()) {
-    const uint32_t line = sm.getPresumedLineNumber(loc);
-    const uint32_t column = sm.getPresumedColumnNumber(loc);
-    info = getOrCreateRichDebugInfo(loc);
-
-    auto *source = info->source;
-    // Note that info->scopeStack.back() is a lexical scope of the function
-    // caller.
-    auto *parentScope = info->compilationUnit;
-    // TODO: figure out the proper flag based on the function decl.
-    // using FlagIsPublic for now.
-    uint32_t flags = 3u;
-    // The line number in the source program at which the function scope begins.
-    auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
-    debugFunction = spvBuilder.createDebugFunction(decl, debugFuncName, source,
-                                                   line, column, parentScope,
-                                                   "", flags, scopeLine, func);
-    func->setDebugScope(new (spvContext) SpirvDebugScope(debugFunction));
-
-    spvContext.pushDebugLexicalScope(info, debugFunction);
+    debugFunction = emitDebugFunction(decl, func, &info, funcName);
   }
 
   bool isEntry = false;
@@ -1481,8 +1463,11 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     if (entryInfo->isEntryFunction) {
       isEntry = true;
       funcName = "src." + funcName;
+      if (spirvOptions.debugInfoRich && decl->hasBody()) {
+        wrappedDebugFunction = emitDebugFunction(decl, func, &info, funcName);
+      }
       // Create wrapper for the entry function
-      if (!emitEntryFunctionWrapper(decl, func))
+      if (!emitEntryFunctionWrapper(decl, debugFunction, func))
         return;
       // Generate DebugEntryPoint if function definition
       if (spirvOptions.debugInfoVulkan && debugFunction) {
@@ -1551,8 +1536,8 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
     // Add DebugFunctionDefinition if we are emitting
     // NonSemantic.Shader.DebugInfo.100 debug info
-    if (spirvOptions.debugInfoVulkan && debugFunction)
-      spvBuilder.createDebugFunctionDef(debugFunction, func);
+    if (spirvOptions.debugInfoVulkan && wrappedDebugFunction)
+      spvBuilder.createDebugFunctionDef(wrappedDebugFunction, func);
 
     // Process all statments in the body.
     parentMap = std::make_unique<ParentMap>(decl->getBody());
@@ -13241,10 +13226,16 @@ bool SpirvEmitter::processTessellationShaderAttributes(
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
-    const FunctionDecl *decl, SpirvFunction *entryFuncInstr) {
+    const FunctionDecl *decl, SpirvDebugFunction *debugFunction,
+    SpirvFunction *entryFuncInstr) {
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
+
+  // Add DebugFunctionDefinition if we are emitting
+  // NonSemantic.Shader.DebugInfo.100 debug info.
+  if (spirvOptions.debugInfoVulkan && debugFunction)
+    spvBuilder.createDebugFunctionDef(debugFunction, entryFunction);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
@@ -13508,7 +13499,36 @@ bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
   return true;
 }
 
+SpirvDebugFunction *SpirvEmitter::emitDebugFunction(const FunctionDecl *decl,
+                                                    SpirvFunction *func,
+                                                    RichDebugInfo **info,
+                                                    std::string name) {
+  auto loc = decl->getLocStart();
+  const auto &sm = astContext.getSourceManager();
+  const uint32_t line = sm.getPresumedLineNumber(loc);
+  const uint32_t column = sm.getPresumedColumnNumber(loc);
+  *info = getOrCreateRichDebugInfo(loc);
+
+  SpirvDebugSource *source = (*info)->source;
+  // Note that info->scopeStack.back() is a lexical scope of the function
+  // caller.
+  SpirvDebugInstruction *parentScope = (*info)->compilationUnit;
+  // TODO: figure out the proper flag based on the function decl.
+  // using FlagIsPublic for now.
+  uint32_t flags = 3u;
+  // The line number in the source program at which the function scope begins.
+  auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
+  SpirvDebugFunction *debugFunction =
+      spvBuilder.createDebugFunction(decl, name, source, line, column,
+                                     parentScope, "", flags, scopeLine, func);
+  func->setDebugScope(new (spvContext) SpirvDebugScope(debugFunction));
+
+  spvContext.pushDebugLexicalScope(*info, debugFunction);
+  return debugFunction;
+}
+
 bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
+                                            SpirvDebugFunction *debugFunction,
                                             SpirvFunction *entryFuncInstr) {
   // HS specific attributes
   uint32_t numOutputControlPoints = 0;
@@ -13544,7 +13564,8 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   entryInfo->entryFunction = entryFunction;
 
   if (spvContext.isRay()) {
-    return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr);
+    return emitEntryFunctionWrapperForRayTracing(decl, debugFunction,
+                                                 entryFuncInstr);
   }
   // Handle attributes specific to each shader stage
   if (spvContext.isPS()) {
@@ -13624,6 +13645,11 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // are added to the beginning of the entry basic block, so must be called
   // after the basic block is created and insert point is set.
   processInlineSpirvAttributes(decl);
+
+  // Add DebugFunctionDefinition if we are emitting
+  // NonSemantic.Shader.DebugInfo.100 debug info.
+  if (spirvOptions.debugInfoVulkan && debugFunction)
+    spvBuilder.createDebugFunctionDef(debugFunction, entryFunction);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {

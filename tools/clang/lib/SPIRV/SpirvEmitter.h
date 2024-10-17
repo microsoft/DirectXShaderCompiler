@@ -848,6 +848,12 @@ private:
   processMeshOrAmplificationShaderAttributes(const FunctionDecl *decl,
                                              uint32_t *outVerticesArraySize);
 
+  /// \brief Emits a SpirvDebugFunction to match given SpirvFunction, and
+  /// returns a pointer to it.
+  SpirvDebugFunction *emitDebugFunction(const FunctionDecl *decl,
+                                        SpirvFunction *func,
+                                        RichDebugInfo **info, std::string name);
+
   /// \brief Emits a wrapper function for the entry function and returns true
   /// on success.
   ///
@@ -860,6 +866,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
+                                SpirvDebugFunction *debugFunction,
                                 SpirvFunction *entryFuncId);
 
   /// \brief Emits a wrapper function for the entry functions for raytracing
@@ -870,6 +877,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
+                                             SpirvDebugFunction *debugFunction,
                                              SpirvFunction *entryFuncId);
 
   /// \brief Performs the following operations for the Hull shader:
