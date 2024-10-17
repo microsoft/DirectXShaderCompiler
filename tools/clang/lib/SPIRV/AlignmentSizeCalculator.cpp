@@ -22,6 +22,15 @@ inline uint32_t roundToPow2(uint32_t val, uint32_t pow2) {
   return (val + pow2 - 1) & ~(pow2 - 1);
 }
 
+/// Returns the smallest value greater than or equal to |val| that is a multiple
+/// of |multiple|.
+inline uint32_t roundToMultiple(uint32_t val, uint32_t multiple) {
+  if (val == 0)
+    return 0;
+  uint32_t t = (val - 1) / multiple;
+  return (multiple * (t + 1));
+}
+
 /// Returns true if the given vector type (of the given size) crosses the
 /// 4-component vector boundary if placed at the given offset.
 bool improperStraddle(clang::QualType type, int size, int offset) {
@@ -411,7 +420,7 @@ std::pair<uint32_t, uint32_t> AlignmentSizeCalculator::getAlignmentAndSize(
 
     if (rule == SpirvLayoutRule::FxcSBuffer ||
         rule == SpirvLayoutRule::Scalar) {
-      *stride = size;
+      *stride = roundToMultiple(size, alignment);
       // Use element alignment for fxc structured buffers and
       // VK_EXT_scalar_block_layout
       return {alignment, size * elemCount};
