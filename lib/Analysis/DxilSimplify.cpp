@@ -23,8 +23,11 @@
 
 #include "dxc/DXIL/DxilModule.h"
 #include "dxc/DXIL/DxilOperations.h"
+#include "dxc/DXIL/DxilInstructions.h"
 #include "llvm/Analysis/DxilConstantFolding.h"
 #include "llvm/Analysis/DxilSimplify.h"
+
+#include "llvm/ADT/BitVector.h"
 
 using namespace llvm;
 using namespace hlsl;
@@ -39,6 +42,67 @@ DXIL::OpCode GetOpcode(Value *opArg) {
   }
   return DXIL::OpCode::NumOpCodes;
 }
+
+Value *SimplifyDxilDot(hlsl::OP *hlslOP, Instruction *I, ArrayRef<Value *> a,
+                       ArrayRef<Value *> b) {
+  unsigned size = a.size();
+  BitVector zero(size);
+
+  for (unsigned i = 0; i < size; i++) {
+    if (ConstantFP *c = dyn_cast<ConstantFP>(a[i])) {
+      if (c->getValueAPF().isZero()) {
+        zero[i] = true;
+        continue;
+      }
+    }
+    if (ConstantFP *c = dyn_cast<ConstantFP>(b[i])) {
+      if (c->getValueAPF().isZero()) {
+        zero[i] = true;
+      }
+    }
+  }
+  if (zero.none())
+    return nullptr;
+
+  Type *Ty = I->getType();
+  if (zero.count() == size)
+    return ConstantFP::get(Ty, 0);
+
+  SmallVector<Value *, 4> a2, b2;
+  for (unsigned i = 0; i < size; i++) {
+    if (zero[i])
+      continue;
+    a2.emplace_back(a[i]);
+    b2.emplace_back(b[i]);
+  }
+  unsigned leftCount = size - zero.count();
+  switch (leftCount) {
+  default:
+    return nullptr;
+  case 1: {
+    IRBuilder<> Builder(I);
+    llvm::FastMathFlags FMF;
+    FMF.setUnsafeAlgebraHLSL();
+    Builder.SetFastMathFlags(FMF);
+
+    return Builder.CreateFMul(a2[0], b2[0]);
+  }
+  case 2: {
+    Function *F = hlslOP->GetOpFunc(DXIL::OpCode::Dot2, Ty);
+    IRBuilder<> Builder(I);
+    Value *Opcode = Builder.getInt32(static_cast<unsigned>(DXIL::OpCode::Dot2));
+    return Builder.CreateCall(F, {Opcode, a2[0], a2[1], b2[0], b2[1]});
+  }
+  case 3: {
+    Function *F = hlslOP->GetOpFunc(DXIL::OpCode::Dot3, Ty);
+    IRBuilder<> Builder(I);
+    Value *Opcode = Builder.getInt32(static_cast<unsigned>(DXIL::OpCode::Dot3));
+    return Builder.CreateCall(
+        F, {Opcode, a2[0], a2[1], a2[2], b2[0], b2[1], b2[2]});
+  }
+  }
+}
+
 } // namespace
 
 namespace hlsl {
@@ -64,6 +128,10 @@ bool CanSimplify(const llvm::Function *F) {
       break;
     case OP::OpCodeClass::Tertiary:
       return true;
+    case OP::OpCodeClass::Dot2:
+    case OP::OpCodeClass::Dot3:
+    case OP::OpCodeClass::Dot4:
+      return true;
     }
   }
 
@@ -88,7 +156,9 @@ Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
 
   // Lookup opcode class in dxil module. Set default value to invalid class.
   OP::OpCodeClass opClass = OP::OpCodeClass::NumOpClasses;
-  const bool found = DM.GetOP()->GetOpCodeClass(F, opClass);
+  hlsl::OP *hlslOP = DM.GetOP();
+
+  const bool found = hlslOP->GetOpCodeClass(F, opClass);
   if (!found)
     return nullptr;
 
@@ -180,6 +250,24 @@ Value *SimplifyDxilCall(llvm::Function *F, ArrayRef<Value *> Args,
     if (op1 == zero)
       return op0;
     return nullptr;
+  } break;
+  case DXIL::OpCode::Dot2: {
+    DxilInst_Dot2 dot(cast<CallInst>(I));
+    Value *a[] = {dot.get_ax(), dot.get_ay()};
+    Value *b[] = {dot.get_bx(), dot.get_by()};
+    return SimplifyDxilDot(hlslOP, I, a, b);
+  } break;
+  case DXIL::OpCode::Dot3: {
+    DxilInst_Dot3 dot(cast<CallInst>(I));
+    Value *a[] = {dot.get_ax(), dot.get_ay(), dot.get_az()};
+    Value *b[] = {dot.get_bx(), dot.get_by(), dot.get_bz()};
+    return SimplifyDxilDot(hlslOP, I, a, b);
+  } break;
+  case DXIL::OpCode::Dot4: {
+    DxilInst_Dot4 dot4(cast<CallInst>(I));
+    Value *a[] = {dot4.get_ax(), dot4.get_ay(), dot4.get_az(), dot4.get_aw()};
+    Value *b[] = {dot4.get_bx(), dot4.get_by(), dot4.get_bz(), dot4.get_bw()};
+    return SimplifyDxilDot(hlslOP, I, a, b);
   } break;
   }
 }
