@@ -76,7 +76,8 @@ public:
 
 private:
   void AnnotateValues(llvm::Instruction *pI);
-  void AnnotateStore(hlsl::OP *HlslOP, llvm::Instruction *pI);
+  void AnnotateStore(llvm::Instruction *pI);
+  void SplitVectorStores(hlsl::OP *HlslOP, llvm::Instruction *pI);
   bool IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI,
                              llvm::Value **pIdx);
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
@@ -133,14 +134,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   auto instrumentableFunctions =
       PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
-  for (auto *F : instrumentableFunctions) {
-    for (auto &block : F->getBasicBlockList()) {
-      for (llvm::Instruction &I : block.getInstList()) {
-        AnnotateValues(&I);
-      }
-    }
-  }
-
   // Make a vector of the instructions since we may delete some of them as we go
   std::vector<llvm::Instruction *> InstrumentableInstructions;
   for (auto *F : instrumentableFunctions) {
@@ -151,7 +144,23 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     }
   }
   for (llvm::Instruction *I : InstrumentableInstructions)
-    AnnotateStore(m_DM->GetOP(), I);
+    SplitVectorStores(m_DM->GetOP(), I);
+
+  for (auto *F : instrumentableFunctions) {
+    for (auto &block : F->getBasicBlockList()) {
+      for (llvm::Instruction &I : block.getInstList()) {
+        AnnotateValues(&I);
+      }
+    }
+  }
+
+  for (auto *F : instrumentableFunctions) {
+    for (auto &block : F->getBasicBlockList()) {
+      for (llvm::Instruction &I : block.getInstList()) {
+        AnnotateStore(&I);
+      }
+    }
+  }
 
   for (auto *F : instrumentableFunctions) {
     int InstructionRangeStart = InstNum;
@@ -195,6 +204,9 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
 }
 
 void DxilAnnotateWithVirtualRegister::AnnotateValues(llvm::Instruction *pI) {
+  if (llvm::dyn_cast<llvm::ExtractElementInst>(pI)) {
+    llvm::dyn_cast<llvm::ExtractElementInst>(pI);
+  }
   if (auto *pAlloca = llvm::dyn_cast<llvm::AllocaInst>(pI)) {
     AnnotateAlloca(pAlloca);
   } else if (!pI->getType()->isPointerTy()) {
@@ -204,8 +216,7 @@ void DxilAnnotateWithVirtualRegister::AnnotateValues(llvm::Instruction *pI) {
   }
 }
 
-void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP *HlslOP,
-                                                    llvm::Instruction *pI) {
+void DxilAnnotateWithVirtualRegister::AnnotateStore(llvm::Instruction *pI) {
   auto *pSt = llvm::dyn_cast<llvm::StoreInst>(pI);
   if (pSt == nullptr) {
     return;
@@ -219,24 +230,6 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP *HlslOP,
 
   llvm::MDNode *AllocaReg = Alloca->getMetadata(PixAllocaReg::MDName);
   if (AllocaReg == nullptr) {
-    return;
-  }
-
-  llvm::Type *SourceType = pSt->getValueOperand()->getType();
-  const llvm::Type::TypeID ID = SourceType->getTypeID();
-  if (ID == llvm::Type::TypeID::VectorTyID) {
-    // break vector alloca stores up into individual stores
-    llvm::IRBuilder<> B(pSt);
-    auto *source = llvm::dyn_cast<llvm::VectorType>(SourceType);
-    for (uint64_t el = 0; el < source->getVectorNumElements(); ++el) {
-      llvm::Value *destPointer = B.CreateGEP(pSt->getPointerOperand(),
-                                             {B.getInt32(0), B.getInt32(el)});
-      llvm::Value *source = B.CreateExtractElement(pSt->getValueOperand(), el);
-      llvm::Instruction *store = B.CreateStore(source, destPointer);
-      AnnotateStore(HlslOP, store);
-    }
-    pI->removeFromParent();
-    delete pI;
     return;
   }
 
@@ -456,6 +449,39 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(
     llvm::AllocaInst *pAlloca, std::uint32_t C) {
   PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
   m_uVReg += C;
+}
+
+void DxilAnnotateWithVirtualRegister::SplitVectorStores(hlsl::OP *HlslOP,
+                                                        llvm::Instruction *pI) {
+  auto *pSt = llvm::dyn_cast<llvm::StoreInst>(pI);
+  if (pSt == nullptr) {
+    return;
+  }
+
+  llvm::AllocaInst *Alloca;
+  llvm::Value *Index;
+  if (!IsAllocaRegisterWrite(pSt->getPointerOperand(), &Alloca, &Index)) {
+    return;
+  }
+
+  llvm::Type *SourceType = pSt->getValueOperand()->getType();
+  const llvm::Type::TypeID ID = SourceType->getTypeID();
+  if (ID == llvm::Type::TypeID::VectorTyID) {
+    if (auto *constIntIIndex = llvm::cast<llvm::ConstantInt>(Index)) {
+      // break vector alloca stores up into individual stores
+      llvm::IRBuilder<> B(pSt);
+      auto *source = llvm::dyn_cast<llvm::VectorType>(SourceType);
+      for (uint64_t el = 0; el < source->getVectorNumElements(); ++el) {
+        llvm::Value *destPointer = B.CreateGEP(pSt->getPointerOperand(),
+                                               {B.getInt32(0), B.getInt32(el)});
+        llvm::Value *source =
+            B.CreateExtractElement(pSt->getValueOperand(), el);
+        B.CreateStore(source, destPointer);
+      }
+      pI->removeFromParent();
+      delete pI;
+    }
+  }
 }
 
 } // namespace

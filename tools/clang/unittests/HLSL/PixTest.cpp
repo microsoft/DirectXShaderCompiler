@@ -2978,11 +2978,12 @@ struct RayPayload
 {
     float4 color;
 };
+RWStructuredBuffer<float> UAV: register(u0);
 [shader("raygeneration")]
 void RaygenInternalName()
 {
     RayDesc ray;
-    ray.Origin = float3(1.1,2.2,3.3);
+    ray.Origin = float3(UAV[0], UAV[1],UAV[3]);
     ray.Direction = float3(4.4,5.5,6.6);
     ray.TMin = 0.001;
     ray.TMax = 10000.0;
