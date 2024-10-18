@@ -171,7 +171,7 @@ int main(int argc, const char **argv) {
       }
 
       std::string textMessage;
-      bool lossy;
+      BOOL lossy;
       if (!Unicode::UTF8ToConsoleString(msg, &textMessage, &lossy) || lossy) {
         // Do a direct assignment as a last-ditch effort and print out as UTF-8.
         textMessage = msg;
