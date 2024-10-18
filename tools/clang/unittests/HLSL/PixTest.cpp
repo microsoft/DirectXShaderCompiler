@@ -144,6 +144,8 @@ public:
   TEST_METHOD(DebugInstrumentation_TextOutput)
   TEST_METHOD(DebugInstrumentation_BlockReport)
 
+  TEST_METHOD(DebugInstrumentation_ExistingDbgDeclare)
+
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
 
@@ -435,6 +437,8 @@ public:
   CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob *blob);
   void TestPixUAVCase(char const *hlsl, wchar_t const *model,
                       wchar_t const *entry);
+  std::string Disassemble(IDxcBlob* pProgram);
+
 };
 
 bool PixTest::InitSupport() {
@@ -1081,6 +1085,17 @@ static bool FindStructMemberFromStore(llvm::StoreInst *S,
   }
 
   return false;
+}
+
+std::string PixTest::Disassemble(IDxcBlob * pProgram)
+{
+    CComPtr<IDxcCompiler> pCompiler;
+    CComPtr<IDxcOperationResult> pResult;
+    CComPtr<IDxcBlobEncoding> pSource;
+    VERIFY_SUCCEEDED(CreateCompiler(m_dllSupport, &pCompiler));
+    CComPtr<IDxcBlobEncoding> pDisassembly;
+    VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
+    return BlobToUtf8(pDisassembly);
 }
 
 // This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp
@@ -2954,4 +2969,29 @@ float4 main() : SV_Target {
   VERIFY_IS_TRUE(foundFloatAssignment);
   VERIFY_IS_TRUE(foundDoubleAssignment);
   VERIFY_IS_TRUE(found32BitAllocaStore);
+}
+
+TEST_F(PixTest, DebugInstrumentation_ExistingDbgDeclare) {
+  const char *source = R"x(
+RaytracingAccelerationStructure Scene : register(t0, space0);
+struct RayPayload
+{
+    float4 color;
+};
+[shader("raygeneration")]
+void RaygenInternalName()
+{
+    RayDesc ray;
+    ray.Origin = float3(1.1,2.2,3.3);
+    ray.Direction = float3(4.4,5.5,6.6);
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    RayPayload payload = { float4(0, 1, 0, 1) };
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"lib_6_6", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  auto disTextW = Disassemble(output.blob);
+  disTextW;
 }

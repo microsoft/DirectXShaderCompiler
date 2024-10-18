@@ -294,6 +294,7 @@ public:
 
 private:
   void handleDbgValue(llvm::Module &M, llvm::DbgValueInst *DbgValue);
+  void handleDbgDeclare(llvm::Module &M, llvm::DbgDeclareInst *DbgValue);
   bool handleStoreIfDestIsGlobal(llvm::Module &M,
                                  GlobalStorageMap &GlobalStorage,
                                  llvm::StoreInst *Store);
@@ -619,6 +620,15 @@ bool DxilDbgValueToDbgDeclare::runOnModule(llvm::Module &M) {
           if (auto *Store = llvm::dyn_cast<llvm::StoreInst>(instruction)) {
             Changed =
                 handleStoreIfDestIsGlobal(M, GlobalEmbeddedArrayStorage, Store);
+          }
+        }
+        // Look at all dbg.declare instructions first, because handleDebugValue will add more.
+        for (auto &instruction : instructions) {
+          if (auto *DbgDeclare =
+                  llvm::dyn_cast<llvm::DbgDeclareInst>(instruction)) {
+            Changed = true;
+            handleDbgDeclare(M, DbgDeclare);
+            DbgDeclare->eraseFromParent();
           }
         }
         for (auto &instruction : instructions) {
@@ -972,6 +982,11 @@ void DxilDbgValueToDbgDeclare::handleDbgValue(llvm::Module &M,
       }
     }
   }
+}
+
+void DxilDbgValueToDbgDeclare::handleDbgDeclare(llvm::Module &M,
+                                                llvm::DbgDeclareInst *DbgDeclare) {
+//  llvm::DIVariable *Variable = DbgDeclare->getVariable();
 }
 
 struct GlobalVariableAndStorage {

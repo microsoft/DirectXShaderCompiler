@@ -343,13 +343,12 @@ private:
   void addInvocationStartMarker(BuilderContext &BC);
   void determineLimitANDAndInitializeCounter(BuilderContext &BC);
   void reserveDebugEntrySpace(BuilderContext &BC, uint32_t SpaceInDwords);
-  std::vector<InstructionAndType> addStoreStepDebugEntry(BuilderContext *BC,
+  std::vector<InstructionAndType> addStoreStepDebugEntry(OP * HlslOP,
+                                                         BuilderContext *BC,
                                                          StoreInst *Inst);
-  std::vector<InstructionAndType>
-  addStepDebugEntry(BuilderContext *BC, Instruction *Inst,
+  std::vector<InstructionAndType> addStepDebugEntry(OP * HlslOP, BuilderContext *BC, Instruction *Inst,
                     llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles);
-  std::vector<DebugShaderModifierRecordType>
-  addStepDebugEntryValue(BuilderContext *BC, std::uint32_t InstNum, Value *V,
+  std::vector<DebugShaderModifierRecordType> addStepDebugEntryValue(OP *HlslOP, BuilderContext *BC, std::uint32_t InstNum, Value *V,
                          Type *VType, std::uint32_t ValueOrdinal,
                          Value *ValueOrdinalIndex);
   uint32_t UAVDumpingGroundOffset();
@@ -990,8 +989,8 @@ void DxilDebugInstrumentation::addStepEntryForType(
   }
 }
 
-std::vector<InstructionAndType>
-DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
+std::vector<InstructionAndType> DxilDebugInstrumentation::addStoreStepDebugEntry(OP * HlslOP,
+                                                 BuilderContext *BC,
                                                  StoreInst *Inst) {
   std::uint32_t ValueOrdinalBase;
   std::uint32_t UnusedValueOrdinalSize;
@@ -1007,9 +1006,9 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
     return {};
   }
 
-  auto Types = addStepDebugEntryValue(BC, InstNum, Inst->getValueOperand(),
-                                      Inst->getValueOperand()->getType(),
-                             ValueOrdinalBase, ValueOrdinalIndex);
+  auto Types = addStepDebugEntryValue(HlslOP, BC, InstNum,
+                                      Inst->getValueOperand(),
+                             Inst->getValueOperand()->getType(), ValueOrdinalBase, ValueOrdinalIndex);
   std::vector<InstructionAndType> ret;
   for (auto Type : Types) {
     if (Instruction *ValueAsInst =
@@ -1055,7 +1054,7 @@ DxilDebugInstrumentation::addStoreStepDebugEntry(BuilderContext *BC,
 }
 
 std::vector<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
-    BuilderContext *BC, Instruction *Inst,
+    OP * HlslOP, BuilderContext *BC, Instruction *Inst,
     llvm::SmallPtrSetImpl<Value *> const &RayQueryHandles) {
 
   std::uint32_t InstNum;
@@ -1072,7 +1071,7 @@ std::vector<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
   }
 
   if (auto *St = llvm::dyn_cast<llvm::StoreInst>(Inst)) {
-    return addStoreStepDebugEntry(BC, St);
+    return addStoreStepDebugEntry(HlslOP, BC, St);
   }
 
   if (auto *Ld = llvm::dyn_cast<llvm::LoadInst>(Inst)) {
@@ -1118,7 +1117,8 @@ std::vector<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
     }
     return {};
   }
-  auto Types = addStepDebugEntryValue(BC, InstNum, Inst, Inst->getType(), RegNum,
+  auto Types = addStepDebugEntryValue(HlslOP, BC, InstNum, Inst, Inst->getType(),
+                                      RegNum,
                                       BC ? BC->Builder.getInt32(0) : nullptr);
   std::vector<InstructionAndType> ret;
   for (auto Type : Types) {
@@ -1132,8 +1132,7 @@ std::vector<InstructionAndType> DxilDebugInstrumentation::addStepDebugEntry(
   return ret;
 }
 
-std::vector<DebugShaderModifierRecordType>
-DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
+std::vector<DebugShaderModifierRecordType> DxilDebugInstrumentation::addStepDebugEntryValue(OP *HlslOP, BuilderContext *BC,
                                                  std::uint32_t InstNum,
                                                  Value *V, Type *VType,
                                                  std::uint32_t ValueOrdinal,
@@ -1203,12 +1202,9 @@ DxilDebugInstrumentation::addStepDebugEntryValue(BuilderContext *BC,
         elValue = BC->Builder.CreateExtractElement(V, el);
       if (auto *indexAsConstant =
               llvm::dyn_cast<llvm::ConstantInt>(ValueOrdinalIndex)) {
-        Value *Index = ValueOrdinalIndex;
-        if (BC != nullptr)
-          Index =
-              BC->HlslOP->GetU32Const(indexAsConstant->getLimitedValue() + el);
-        auto stepEntries = addStepDebugEntryValue(
-            BC, InstNum, elValue, source->getVectorElementType(), ValueOrdinal,
+        Value *Index = HlslOP->GetU32Const(indexAsConstant->getLimitedValue() + el);
+        auto stepEntries = addStepDebugEntryValue(HlslOP, BC, InstNum, elValue, source->getVectorElementType(),
+            ValueOrdinal,
             Index);
         ret.insert(ret.end(), stepEntries.begin(), stepEntries.end());
       }
@@ -1349,7 +1345,7 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
         FoundFirstInstruction = true;
       }
     }
-    auto IsAndTs = addStepDebugEntry(nullptr, &Inst, RayQueryHandles);
+    auto IsAndTs = addStepDebugEntry(HlslOP, nullptr, &Inst, RayQueryHandles);
     for (auto IandT : IsAndTs) {
       InstructionToInstrument DebugOutputForThisInstruction{};
       DebugOutputForThisInstruction.ValueType = IandT.Type;

@@ -76,7 +76,7 @@ public:
 
 private:
   void AnnotateValues(llvm::Instruction *pI);
-  void AnnotateStore(llvm::Instruction *pI);
+  void AnnotateStore(hlsl::OP *HlslOP, llvm::Instruction *pI);
   bool IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI,
                              llvm::Value **pIdx);
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
@@ -141,13 +141,17 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
     }
   }
 
+  // Make a vector of the instructions since we may delete some of them as we go
+  std::vector<llvm::Instruction *> InstrumentableInstructions;
   for (auto *F : instrumentableFunctions) {
     for (auto &block : F->getBasicBlockList()) {
       for (llvm::Instruction &I : block.getInstList()) {
-        AnnotateStore(&I);
+        InstrumentableInstructions.push_back(&I);
       }
     }
   }
+  for (llvm::Instruction *I : InstrumentableInstructions)
+    AnnotateStore(m_DM->GetOP(), I);
 
   for (auto *F : instrumentableFunctions) {
     int InstructionRangeStart = InstNum;
@@ -200,7 +204,8 @@ void DxilAnnotateWithVirtualRegister::AnnotateValues(llvm::Instruction *pI) {
   }
 }
 
-void DxilAnnotateWithVirtualRegister::AnnotateStore(llvm::Instruction *pI) {
+void DxilAnnotateWithVirtualRegister::AnnotateStore(hlsl::OP *HlslOP,
+                                                    llvm::Instruction *pI) {
   auto *pSt = llvm::dyn_cast<llvm::StoreInst>(pI);
   if (pSt == nullptr) {
     return;
@@ -214,6 +219,24 @@ void DxilAnnotateWithVirtualRegister::AnnotateStore(llvm::Instruction *pI) {
 
   llvm::MDNode *AllocaReg = Alloca->getMetadata(PixAllocaReg::MDName);
   if (AllocaReg == nullptr) {
+    return;
+  }
+
+  llvm::Type *SourceType = pSt->getValueOperand()->getType();
+  const llvm::Type::TypeID ID = SourceType->getTypeID();
+  if (ID == llvm::Type::TypeID::VectorTyID) {
+    // break vector alloca stores up into individual stores
+    llvm::IRBuilder<> B(pSt);
+    auto *source = llvm::dyn_cast<llvm::VectorType>(SourceType);
+    for (uint64_t el = 0; el < source->getVectorNumElements(); ++el) {
+      llvm::Value *destPointer = B.CreateGEP(pSt->getPointerOperand(),
+                                             {B.getInt32(0), B.getInt32(el)});
+      llvm::Value *source = B.CreateExtractElement(pSt->getValueOperand(), el);
+      llvm::Instruction *store = B.CreateStore(source, destPointer);
+      AnnotateStore(HlslOP, store);
+    }
+    pI->removeFromParent();
+    delete pI;
     return;
   }
 
