@@ -12,7 +12,7 @@ uint UseBuf(int2 idx) {
   return g_buffer[idx.x][idx.y].b;
 }
 
-// CHECK: ID3D12LibraryReflection:
+// CHECK: ID3D12LibraryReflection1:
 // CHECK:   D3D12_LIBRARY_DESC:
 // CHECK:     FunctionCount: 1
 // CHECK:   ID3D12FunctionReflection:

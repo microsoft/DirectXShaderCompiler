@@ -22,7 +22,7 @@ float4 main(uint4 color : COLOR) : SV_TARGET
    ;
 }
 
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK:   Bound Resources:
 // CHECK:    D3D12_SHADER_INPUT_BIND_DESC: Name: msTexture
 // CHECK-NEXT:      Type: D3D_SIT_TEXTURE
