@@ -101,7 +101,7 @@ void main() {
   testParamTypeCast(Second);
 
 //CHECK:        [[a_2:%[0-9]+]] = OpLoad %int %a
-//CHECK-NEXT:   [[a_3:%[0-9]+]] = OpBitcast %float [[a_2]]
+//CHECK-NEXT:   [[a_3:%[0-9]+]] = OpConvertSToF %float [[a_2]]
 //CHECK-NEXT: [[sin:%[0-9]+]] = OpExtInst %float {{%[0-9]+}} Sin [[a_3]]
 //CHECK-NEXT:                OpStore %bar [[sin]]
   float bar = sin(a);
