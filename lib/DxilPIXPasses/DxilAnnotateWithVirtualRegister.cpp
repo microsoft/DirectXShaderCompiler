@@ -323,6 +323,27 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
           precedingMemberCount +=
               CountStructMembers(pStructType->getStructElementType(i));
         }
+
+        // And the source pointer may be a vector (floatn) type,
+        // and if so, that's another offset to consider.
+        llvm::Type *DestType = pGEP->getPointerOperand()->getType();
+        const llvm::Type::TypeID ID = DestType->getTypeID();
+        // We expect this to be a pointer type (it's a GEP after all):
+        if (ID == llvm::Type::TypeID::PointerTyID) {
+          llvm::Type * PointedType =
+              llvm::cast<llvm::PointerType>(DestType)->getElementType();
+          const llvm::Type::TypeID PointedID = PointedType->getTypeID();
+          if (PointedID == llvm::Type::TypeID::VectorTyID) {
+            // Fetch the second deref (in operand 2).
+            // (the first derefs the pointer to the "floatn",
+            // and the second denotes the index into the floatn.)
+            llvm::Value *vectorIndex = pGEP->getOperand(2);
+            if (auto *constIntIIndex =
+                    llvm::cast<llvm::ConstantInt>(vectorIndex)) {
+              precedingMemberCount += constIntIIndex->getLimitedValue();
+            }
+          }
+        }
       } else {
         return false;
       }
