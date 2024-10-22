@@ -1,3 +1,5 @@
+// Skip hash stability test for no dxc RUN line
+// UNSUPPORTED: hash_stability
 
 // REQUIRES: system-windows
 
