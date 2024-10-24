@@ -9102,7 +9102,10 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
       return false;
     } else if (IS_BASIC_ENUM(SourceInfo.EltKind)) {
       // enum -> int/float
-      ComponentConversion = ICK_Integral_Conversion;
+      if (IS_BASIC_FLOAT(TargetInfo.EltKind))
+        ComponentConversion = ICK_Floating_Integral;
+      else
+        ComponentConversion = ICK_Integral_Conversion;
     } else if (TargetInfo.EltKind == AR_OBJECT_STRING) {
       if (SourceInfo.EltKind == AR_OBJECT_STRING_LITERAL) {
         ComponentConversion = ICK_Array_To_Pointer;
