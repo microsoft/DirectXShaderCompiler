@@ -11,6 +11,7 @@
 
 #include <array>
 #include <limits>
+#include <optional>
 
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "clang/AST/DeclTemplate.h"
@@ -138,7 +139,7 @@ struct FunctionTypeMapInfo {
 struct VkImageFeatures {
   // True if it is a Vulkan "Combined Image Sampler".
   bool isCombinedImageSampler;
-  spv::ImageFormat format; // SPIR-V image format.
+  std::optional<spv::ImageFormat> format; // SPIR-V image format.
 };
 
 // A struct that contains the information of a resource that will be used to
@@ -378,7 +379,7 @@ public:
   getVkImageFeaturesForSpirvVariable(const SpirvVariable *spvVar) {
     auto itr = spvVarToVkImageFeatures.find(spvVar);
     if (itr == spvVarToVkImageFeatures.end())
-      return {false, spv::ImageFormat::Unknown};
+      return {false, std::nullopt};
     return itr->second;
   }
 

@@ -1,8 +1,7 @@
 // RUN: %dxc -T ps_6_0 -E main -fcgl  %s -spirv | FileCheck %s
 
 // CHECK: OpCapability ImageBuffer
-// CHECK: OpCapability StorageImageReadWithoutFormat
-
+// CHECK-NOT: OpCapability StorageImageReadWithoutFormat
 
 // CHECK: %type_buffer_image = OpTypeImage %int Buffer 2 0 0 1 R32i
 // CHECK: %type_buffer_image_0 = OpTypeImage %uint Buffer 2 0 0 1 R32ui
