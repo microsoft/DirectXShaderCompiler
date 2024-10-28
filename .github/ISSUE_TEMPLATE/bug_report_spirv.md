@@ -16,8 +16,6 @@ provide source and tool command line options, or if the issue reproduces on
 Compiler Explorer (https://godbolt.org/), please provide a link.
 If the source is split across multiple files, please preprocess into a single file using DXC's 
 command line `-P -Fi <path>`.
-
-Note: Do **not** use Shader Playground. Its DXC version is very stale.
  --->
 
 
