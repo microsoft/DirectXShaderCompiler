@@ -7900,8 +7900,12 @@ SpirvInstruction *SpirvEmitter::tryToAssignToRWBufferRWTexture(
       beginInvocationInterlock(baseExpr->getExprLoc(), range);
     }
 
-    auto *image = spvBuilder.createLoad(imageType, baseInfo,
-                                        baseExpr->getExprLoc(), range);
+    SpirvInstruction *image = baseInfo;
+    // If the base is an L-value (OpVariable, OpAccessChain to OpVariable), we
+    // need a load.
+    if (baseInfo->isLValue())
+      image = spvBuilder.createLoad(imageType, baseInfo, baseExpr->getExprLoc(),
+                                    range);
     spvBuilder.createImageWrite(imageType, image, loc, rhs, lhs->getExprLoc(),
                                 range);
 
