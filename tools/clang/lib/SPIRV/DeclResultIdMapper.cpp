@@ -517,9 +517,10 @@ SpirvLayoutRule getLayoutRuleForExternVar(QualType type,
   return SpirvLayoutRule::Void;
 }
 
-spv::ImageFormat getSpvImageFormat(const VKImageFormatAttr *imageFormatAttr) {
+std::optional<spv::ImageFormat>
+getSpvImageFormat(const VKImageFormatAttr *imageFormatAttr) {
   if (imageFormatAttr == nullptr)
-    return spv::ImageFormat::Unknown;
+    return std::nullopt;
 
   switch (imageFormatAttr->getImageFormat()) {
   case VKImageFormatAttr::unknown:
@@ -1235,14 +1236,13 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
   VkImageFeatures vkImgFeatures = {
       var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
       getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
-  if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
+  if (vkImgFeatures.format) {
     // Legalization is needed to propagate the correct image type for
     // instructions in addition to cases where the resource is assigned to
     // another variable or function parameter
     needsLegalization = true;
   }
-  if (vkImgFeatures.isCombinedImageSampler ||
-      vkImgFeatures.format != spv::ImageFormat::Unknown) {
+  if (vkImgFeatures.isCombinedImageSampler || vkImgFeatures.format) {
     spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
   }
 
@@ -1256,8 +1256,9 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
   }
 
   if (hlsl::IsHLSLResourceType(type)) {
-    if (!areFormatAndTypeCompatible(vkImgFeatures.format,
-                                    hlsl::GetHLSLResourceResultType(type))) {
+    if (!areFormatAndTypeCompatible(
+            vkImgFeatures.format.value_or(spv::ImageFormat::Unknown),
+            hlsl::GetHLSLResourceResultType(type))) {
       emitError("The image format and the sampled type are not compatible.\n"
                 "For the table of compatible types, see "
                 "https://docs.vulkan.org/spec/latest/appendices/"

@@ -198,15 +198,17 @@ bool LowerTypeVisitor::visitInstruction(SpirvInstruction *instr) {
       }
 
       auto vkImgFeatures = spvContext.getVkImageFeaturesForSpirvVariable(var);
-      if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
+      if (vkImgFeatures.format) {
         if (const auto *imageType = dyn_cast<ImageType>(resultType)) {
-          resultType = spvContext.getImageType(imageType, vkImgFeatures.format);
+          resultType =
+              spvContext.getImageType(imageType, *vkImgFeatures.format);
           instr->setResultType(resultType);
         } else if (const auto *arrayType = dyn_cast<ArrayType>(resultType)) {
           if (const auto *imageType =
                   dyn_cast<ImageType>(arrayType->getElementType())) {
-            auto newImgType =
-                spvContext.getImageType(imageType, vkImgFeatures.format);
+            auto newImgType = spvContext.getImageType(
+                imageType,
+                vkImgFeatures.format.value_or(spv::ImageFormat::Unknown));
             resultType = spvContext.getArrayType(newImgType,
                                                  arrayType->getElementCount(),
                                                  arrayType->getStride());
