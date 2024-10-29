@@ -1312,6 +1312,45 @@ private:
   /// the Vulkan memory model capability has been added to the module.
   bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
 
+  // Splits the `value`, which must be a 64-bit scalar, into two 32-bit wide
+  // uints, stored in `lowbits` and `highbits`.
+  void splitDouble(SpirvInstruction *value, SourceLocation loc,
+                   SourceRange range, SpirvInstruction *&lowbits,
+                   SpirvInstruction *&highbits);
+
+  // Splits the value, which must be a vector with element type `elemType` and
+  // size `count`, into two composite values of size `count` and type
+  // `outputType`. The elements are split component-wise: the vector
+  // {0x0123456789abcdef, 0x0123456789abcdef} is split into `lowbits`
+  // {0x89abcdef, 0x89abcdef} and and `highbits` {0x01234567, 0x01234567}.
+  void splitDoubleVector(QualType elemType, uint32_t count, QualType outputType,
+                         SpirvInstruction *value, SourceLocation loc,
+                         SourceRange range, SpirvInstruction *&lowbits,
+                         SpirvInstruction *&highbits);
+
+  // Splits the value, which must be a matrix with element type `elemType` and
+  // dimensions `rowCount` and `colCount`, into two composite values of
+  // dimensions `rowCount` and `colCount`. The elements are split
+  // component-wise: the matrix
+  //
+  // { 0x0123456789abcdef, 0x0123456789abcdef,
+  //   0x0123456789abcdef, 0x0123456789abcdef }
+  //
+  // is split into `lowbits`
+  //
+  // { 0x89abcdef, 0x89abcdef,
+  //   0x89abcdef, 0x89abcdef }
+  //
+  //  and `highbits`
+  //
+  // { 0x012345678, 0x012345678,
+  //   0x012345678, 0x012345678 }.
+  void splitDoubleMatrix(QualType elemType, uint32_t rowCount,
+                         uint32_t colCount, QualType outputType,
+                         SpirvInstruction *value, SourceLocation loc,
+                         SourceRange range, SpirvInstruction *&lowbits,
+                         SpirvInstruction *&highbits);
+
 public:
   /// \brief Wrapper method to create a fatal error message and report it
   /// in the diagnostic engine associated with this consumer.

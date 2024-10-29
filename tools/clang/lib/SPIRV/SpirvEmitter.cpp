@@ -11419,6 +11419,78 @@ SpirvEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
   return nullptr;
 }
 
+void SpirvEmitter::splitDouble(SpirvInstruction *value, SourceLocation loc,
+                               SourceRange range, SpirvInstruction *&lowbits,
+                               SpirvInstruction *&highbits) {
+  const QualType uintType = astContext.UnsignedIntTy;
+  const QualType uintVec2Type = astContext.getExtVectorType(uintType, 2);
+
+  SpirvInstruction *uints = spvBuilder.createUnaryOp(
+      spv::Op::OpBitcast, uintVec2Type, value, loc, range);
+
+  lowbits = spvBuilder.createCompositeExtract(uintType, uints, {0}, loc, range);
+  highbits =
+      spvBuilder.createCompositeExtract(uintType, uints, {1}, loc, range);
+}
+
+void SpirvEmitter::splitDoubleVector(QualType elemType, uint32_t count,
+                                     QualType outputType,
+                                     SpirvInstruction *value,
+                                     SourceLocation loc, SourceRange range,
+                                     SpirvInstruction *&lowbits,
+                                     SpirvInstruction *&highbits) {
+  llvm::SmallVector<SpirvInstruction *, 4> lowElems;
+  llvm::SmallVector<SpirvInstruction *, 4> highElems;
+
+  for (uint32_t i = 0; i < count; ++i) {
+    SpirvInstruction *elem =
+        spvBuilder.createCompositeExtract(elemType, value, {i}, loc, range);
+    SpirvInstruction *lowbitsResult = nullptr;
+    SpirvInstruction *highbitsResult = nullptr;
+    splitDouble(elem, loc, range, lowbitsResult, highbitsResult);
+    lowElems.push_back(lowbitsResult);
+    highElems.push_back(highbitsResult);
+  }
+
+  lowbits =
+      spvBuilder.createCompositeConstruct(outputType, lowElems, loc, range);
+  highbits =
+      spvBuilder.createCompositeConstruct(outputType, highElems, loc, range);
+}
+
+void SpirvEmitter::splitDoubleMatrix(QualType elemType, uint32_t rowCount,
+                                     uint32_t colCount, QualType outputType,
+                                     SpirvInstruction *value,
+                                     SourceLocation loc, SourceRange range,
+                                     SpirvInstruction *&lowbits,
+                                     SpirvInstruction *&highbits) {
+
+  llvm::SmallVector<SpirvInstruction *, 4> lowElems;
+  llvm::SmallVector<SpirvInstruction *, 4> highElems;
+
+  QualType colType = astContext.getExtVectorType(elemType, colCount);
+
+  const QualType uintType = astContext.UnsignedIntTy;
+  const QualType outputColType =
+      astContext.getExtVectorType(uintType, colCount);
+
+  for (uint32_t i = 0; i < rowCount; ++i) {
+    SpirvInstruction *column =
+        spvBuilder.createCompositeExtract(colType, value, {i}, loc, range);
+    SpirvInstruction *lowbitsResult = nullptr;
+    SpirvInstruction *highbitsResult = nullptr;
+    splitDoubleVector(elemType, colCount, outputColType, column, loc, range,
+                      lowbitsResult, highbitsResult);
+    lowElems.push_back(lowbitsResult);
+    highElems.push_back(highbitsResult);
+  }
+
+  lowbits =
+      spvBuilder.createCompositeConstruct(outputType, lowElems, loc, range);
+  highbits =
+      spvBuilder.createCompositeConstruct(outputType, highElems, loc, range);
+}
+
 SpirvInstruction *
 SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   // This function handles the following intrinsics:
@@ -11523,23 +11595,37 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
   }
   case 3: {
     // Handling Method 6.
-    auto *value = doExpr(arg0);
-    auto *lowbits = doExpr(callExpr->getArg(1));
-    auto *highbits = doExpr(callExpr->getArg(2));
-    const auto uintType = astContext.UnsignedIntTy;
-    const auto uintVec2Type = astContext.getExtVectorType(uintType, 2);
-    auto *vecResult = spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintVec2Type,
-                                               value, loc, range);
-    spvBuilder.createStore(
-        lowbits,
-        spvBuilder.createCompositeExtract(uintType, vecResult, {0},
-                                          arg0->getLocStart(), range),
-        loc, range);
-    spvBuilder.createStore(
-        highbits,
-        spvBuilder.createCompositeExtract(uintType, vecResult, {1},
-                                          arg0->getLocStart(), range),
-        loc, range);
+    const Expr *arg1 = callExpr->getArg(1);
+    const Expr *arg2 = callExpr->getArg(2);
+
+    SpirvInstruction *value = doExpr(arg0);
+    SpirvInstruction *lowbits = doExpr(arg1);
+    SpirvInstruction *highbits = doExpr(arg2);
+
+    QualType elemType = QualType();
+    uint32_t rowCount = 0;
+    uint32_t colCount = 0;
+
+    SpirvInstruction *lowbitsResult = nullptr;
+    SpirvInstruction *highbitsResult = nullptr;
+
+    if (isScalarType(argType)) {
+      splitDouble(value, loc, range, lowbitsResult, highbitsResult);
+    } else if (isVectorType(argType, &elemType, &rowCount)) {
+      splitDoubleVector(elemType, rowCount, arg1->getType(), value, loc, range,
+                        lowbitsResult, highbitsResult);
+    } else if (isMxNMatrix(argType, &elemType, &rowCount, &colCount)) {
+      splitDoubleMatrix(elemType, rowCount, colCount, arg1->getType(), value,
+                        loc, range, lowbitsResult, highbitsResult);
+    } else {
+      llvm_unreachable(
+          "unexpected argument type is not scalar, vector, or matrix");
+      return nullptr;
+    }
+
+    spvBuilder.createStore(lowbits, lowbitsResult, loc, range);
+    spvBuilder.createStore(highbits, highbitsResult, loc, range);
+
     return nullptr;
   }
   default:
