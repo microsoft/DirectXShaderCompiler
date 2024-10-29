@@ -11415,10 +11415,9 @@ SpirvEmitter::processIntrinsicAllOrAny(const CallExpr *callExpr,
   return nullptr;
 }
 
-void SpirvEmitter::splitDouble(SpirvInstruction *value,
-                               SpirvInstruction *&lowbits,
-                               SpirvInstruction *&highbits, SourceLocation loc,
-                               SourceRange range) {
+void SpirvEmitter::splitDouble(SpirvInstruction *value, SourceLocation loc,
+                               SourceRange range, SpirvInstruction *&lowbits,
+                               SpirvInstruction *&highbits) {
   const QualType uintType = astContext.UnsignedIntTy;
   const QualType uintVec2Type = astContext.getExtVectorType(uintType, 2);
 
@@ -11433,9 +11432,9 @@ void SpirvEmitter::splitDouble(SpirvInstruction *value,
 void SpirvEmitter::splitDoubleVector(QualType elemType, uint32_t count,
                                      QualType outputType,
                                      SpirvInstruction *value,
+                                     SourceLocation loc, SourceRange range,
                                      SpirvInstruction *&lowbits,
-                                     SpirvInstruction *&highbits,
-                                     SourceLocation loc, SourceRange range) {
+                                     SpirvInstruction *&highbits) {
   llvm::SmallVector<SpirvInstruction *, 4> lowElems;
   llvm::SmallVector<SpirvInstruction *, 4> highElems;
 
@@ -11444,7 +11443,7 @@ void SpirvEmitter::splitDoubleVector(QualType elemType, uint32_t count,
         spvBuilder.createCompositeExtract(elemType, value, {i}, loc, range);
     SpirvInstruction *lowbitsResult = nullptr;
     SpirvInstruction *highbitsResult = nullptr;
-    splitDouble(elem, lowbitsResult, highbitsResult, loc, range);
+    splitDouble(elem, loc, range, lowbitsResult, highbitsResult);
     lowElems.push_back(lowbitsResult);
     highElems.push_back(highbitsResult);
   }
@@ -11458,9 +11457,9 @@ void SpirvEmitter::splitDoubleVector(QualType elemType, uint32_t count,
 void SpirvEmitter::splitDoubleMatrix(QualType elemType, uint32_t rowCount,
                                      uint32_t colCount, QualType outputType,
                                      SpirvInstruction *value,
+                                     SourceLocation loc, SourceRange range,
                                      SpirvInstruction *&lowbits,
-                                     SpirvInstruction *&highbits,
-                                     SourceLocation loc, SourceRange range) {
+                                     SpirvInstruction *&highbits) {
 
   llvm::SmallVector<SpirvInstruction *, 4> lowElems;
   llvm::SmallVector<SpirvInstruction *, 4> highElems;
@@ -11476,8 +11475,8 @@ void SpirvEmitter::splitDoubleMatrix(QualType elemType, uint32_t rowCount,
         spvBuilder.createCompositeExtract(colType, value, {i}, loc, range);
     SpirvInstruction *lowbitsResult = nullptr;
     SpirvInstruction *highbitsResult = nullptr;
-    splitDoubleVector(elemType, colCount, outputColType, column, lowbitsResult,
-                      highbitsResult, loc, range);
+    splitDoubleVector(elemType, colCount, outputColType, column, loc, range,
+                      lowbitsResult, highbitsResult);
     lowElems.push_back(lowbitsResult);
     highElems.push_back(highbitsResult);
   }
@@ -11607,13 +11606,17 @@ SpirvEmitter::processIntrinsicAsType(const CallExpr *callExpr) {
     SpirvInstruction *highbitsResult = nullptr;
 
     if (isScalarType(argType)) {
-      splitDouble(value, lowbitsResult, highbitsResult, loc, range);
+      splitDouble(value, loc, range, lowbitsResult, highbitsResult);
     } else if (isVectorType(argType, &elemType, &rowCount)) {
-      splitDoubleVector(elemType, rowCount, arg1->getType(), value,
-                        lowbitsResult, highbitsResult, loc, range);
+      splitDoubleVector(elemType, rowCount, arg1->getType(), value, loc, range,
+                        lowbitsResult, highbitsResult);
     } else if (isMxNMatrix(argType, &elemType, &rowCount, &colCount)) {
       splitDoubleMatrix(elemType, rowCount, colCount, arg1->getType(), value,
-                        lowbitsResult, highbitsResult, loc, range);
+                        loc, range, lowbitsResult, highbitsResult);
+    } else {
+      llvm_unreachable(
+          "unexpected argument type is not scalar, vector, or matrix");
+      return nullptr;
     }
 
     spvBuilder.createStore(lowbits, lowbitsResult, loc, range);
