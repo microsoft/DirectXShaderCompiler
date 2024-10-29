@@ -313,15 +313,17 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
           return false;
         }
         // And of course the member we're after might not be at the beginning of
-        // the struct:
-        auto *pStructType = llvm::dyn_cast<llvm::StructType>(
-            pPointerGEP->getPointerOperandType()->getPointerElementType());
-        auto *pStructMember =
-            llvm::dyn_cast<llvm::ConstantInt>(pPointerGEP->getOperand(2));
-        uint64_t memberIndex = pStructMember->getLimitedValue();
-        for (uint64_t i = 0; i < memberIndex; ++i) {
-          precedingMemberCount +=
-              CountStructMembers(pStructType->getStructElementType(i));
+        // any containing struct:
+        if (auto *pStructType = llvm::dyn_cast<llvm::StructType>(
+                pPointerGEP->getPointerOperandType()
+                    ->getPointerElementType())) {
+          auto *pStructMember =
+              llvm::dyn_cast<llvm::ConstantInt>(pPointerGEP->getOperand(2));
+          uint64_t memberIndex = pStructMember->getLimitedValue();
+          for (uint64_t i = 0; i < memberIndex; ++i) {
+            precedingMemberCount +=
+                CountStructMembers(pStructType->getStructElementType(i));
+          }
         }
 
         // And the source pointer may be a vector (floatn) type,
@@ -330,10 +332,13 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
         const llvm::Type::TypeID ID = DestType->getTypeID();
         // We expect this to be a pointer type (it's a GEP after all):
         if (ID == llvm::Type::TypeID::PointerTyID) {
-          llvm::Type * PointedType =
+          llvm::Type *PointedType =
               llvm::cast<llvm::PointerType>(DestType)->getElementType();
           const llvm::Type::TypeID PointedID = PointedType->getTypeID();
-          if (PointedID == llvm::Type::TypeID::VectorTyID) {
+          // Being careful to check num operands too in order to avoid false
+          // positives:
+          if (PointedID == llvm::Type::TypeID::VectorTyID &&
+              pGEP->getNumOperands() == 3) {
             // Fetch the second deref (in operand 2).
             // (the first derefs the pointer to the "floatn",
             // and the second denotes the index into the floatn.)
