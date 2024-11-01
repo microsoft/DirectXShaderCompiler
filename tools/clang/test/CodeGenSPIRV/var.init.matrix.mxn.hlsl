@@ -3,8 +3,10 @@
 // TODO: optimize to generate constant composite for suitable initializers
 // TODO: decompose matrix in initializer
 
-// CHECK:      [[v3fc1:%[0-9]+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
-// CHECK-NEXT: [[v3fc0:%[0-9]+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
+// CHECK-DAG:  [[v3fc0:%[0-9]+]] = OpConstantComposite %v3float %float_0 %float_0 %float_0
+// CHECK-DAG: [[f2_1_2:%[0-9]+]] = OpConstantComposite %v2float %float_1 %float_2
+// CHECK-DAG: [[i2_1_2:%[0-9]+]] = OpConstantComposite %v2int %int_1 %int_2
+// CHECK-DAG:  [[v3fc1:%[0-9]+]] = OpConstantComposite %v3float %float_1 %float_1 %float_1
 
 void main() {
 // CHECK-LABEL: %bb_entry = OpLabel
@@ -58,7 +60,9 @@ void main() {
 // CHECK-NEXT: [[ce05:%[0-9]+]] = OpCompositeExtract %float [[vec2a]] 0
 // CHECK-NEXT: [[ce06:%[0-9]+]] = OpCompositeExtract %float [[vec2a]] 1
 // CHECK-NEXT: [[cc15:%[0-9]+]] = OpCompositeConstruct %v4float [[ce02]] [[ce03]] [[ce04]] [[ce05]]
-// CHECK-NEXT: [[cc16:%[0-9]+]] = OpCompositeConstruct %v4float [[ce06]] %float_1 %float_2 %float_3
+// CHECK-NEXT: [[f_1:%[0-9]+]] = OpCompositeExtract %float [[f2_1_2]] 0
+// CHECK-NEXT: [[f_2:%[0-9]+]] = OpCompositeExtract %float [[f2_1_2]] 1
+// CHECK-NEXT: [[cc16:%[0-9]+]] = OpCompositeConstruct %v4float [[ce06]] [[f_1]] [[f_2]] %float_3
 // CHECK-NEXT: [[cc17:%[0-9]+]] = OpCompositeConstruct %mat4v4float [[cc14]] [[cc15]] [[cc16]] [[vec4]]
 // CHECK-NEXT:  OpStore %mat5 [[cc17]]
     float4x4 mat5 = {scalar, vec1, vec2,  // [0]
@@ -193,7 +197,9 @@ void main() {
 // CHECK-NEXT: [[ce05_0:%[0-9]+]] = OpCompositeExtract %int [[vec2a_0]] 0
 // CHECK-NEXT: [[ce06_0:%[0-9]+]] = OpCompositeExtract %int [[vec2a_0]] 1
 // CHECK-NEXT: [[cc15_0:%[0-9]+]] = OpCompositeConstruct %v4int [[ce02_0]] [[ce03_0]] [[ce04_0]] [[ce05_0]]
-// CHECK-NEXT: [[cc16_0:%[0-9]+]] = OpCompositeConstruct %v4int [[ce06_0]] %int_1 %int_2 %int_3
+// CHECK-NEXT: [[i_1:%[0-9]+]] = OpCompositeExtract %int [[i2_1_2]] 0
+// CHECK-NEXT: [[i_2:%[0-9]+]] = OpCompositeExtract %int [[i2_1_2]] 1
+// CHECK-NEXT: [[cc16_0:%[0-9]+]] = OpCompositeConstruct %v4int [[ce06_0]] [[i_1]] [[i_2]] %int_3
 // CHECK-NEXT: [[cc17_0:%[0-9]+]] = OpCompositeConstruct %_arr_v4int_uint_4 [[cc14_0]] [[cc15_0]] [[cc16_0]] [[vec4_0]]
 // CHECK-NEXT:  OpStore %imat5 [[cc17_0]]
     int4x4 imat5 = {intScalar, intVec1, intVec2, // [0]
