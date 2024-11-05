@@ -322,7 +322,8 @@ public:
   void applyOptions(PassOptions O) override;
   bool runOnModule(Module &M) override;
 
-  bool RunOnFunction(Module &M, DxilModule &DM, llvm::Function *function);
+  bool RunOnFunction(Module &M, DxilModule &DM, hlsl::DxilResource *uav,
+                     llvm::Function *function);
 
 private:
   SystemValueIndices addRequiredSystemValues(BuilderContext &BC,
@@ -447,6 +448,7 @@ DxilDebugInstrumentation::addRequiredSystemValues(BuilderContext &BC,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Node:
     // Dispatch* thread Id is not in the input signature
     break;
   case DXIL::ShaderKind::Vertex: {
@@ -703,6 +705,9 @@ void DxilDebugInstrumentation::addInvocationSelectionProlog(
   case DXIL::ShaderKind::Miss:
     ParameterTestResult = addRaygenShaderProlog(BC);
     break;
+  case DXIL::ShaderKind::Node:
+    ParameterTestResult = BC.HlslOP->GetI1Const(1);
+    break;
   case DXIL::ShaderKind::Compute:
   case DXIL::ShaderKind::Amplification:
   case DXIL::ShaderKind::Mesh:
@@ -790,12 +795,12 @@ void DxilDebugInstrumentation::determineLimitANDAndInitializeCounter(
   auto *PHIForCounterOffset =
       BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXCounterLocation");
   const uint32_t InterestingCounterOffset =
-      static_cast<uint32_t>(m_UAVSize / 2 - 1);
+      static_cast<uint32_t>(m_UAVSize / 2 - sizeof(uint32_t));
   PHIForCounterOffset->addIncoming(
       BC.HlslOP->GetU32Const(InterestingCounterOffset),
       InterestingInvocationBlock);
   const uint32_t UninterestingCounterOffsetValue =
-      static_cast<uint32_t>(m_UAVSize - 1);
+      static_cast<uint32_t>(m_UAVSize - sizeof(uint32_t));
   PHIForCounterOffset->addIncoming(
       BC.HlslOP->GetU32Const(UninterestingCounterOffsetValue),
       NonInterestingInvocationBlock);
@@ -895,10 +900,10 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     BytesToBeEmitted += addDebugEntryValue(BC, AsFloat);
   } else {
     Function *StoreValue =
-        BC.HlslOP->GetOpFunc(OP::OpCode::BufferStore,
+        BC.HlslOP->GetOpFunc(OP::OpCode::RawBufferStore,
                              TheValue->getType()); // Type::getInt32Ty(BC.Ctx));
     Constant *StoreValueOpcode =
-        BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::BufferStore);
+        BC.HlslOP->GetU32Const((unsigned)DXIL::OpCode::RawBufferStore);
     UndefValue *Undef32Arg = UndefValue::get(Type::getInt32Ty(BC.Ctx));
     UndefValue *UndefArg = nullptr;
     if (TheValueTypeID == Type::TypeID::IntegerTyID) {
@@ -913,6 +918,7 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
     Constant *WriteMask_X = BC.HlslOP->GetI8Const(1);
 
     auto &values = m_FunctionToValues[BC.Builder.GetInsertBlock()->getParent()];
+    Constant *RawBufferStoreAlignment = BC.HlslOP->GetU32Const(4);
 
     (void)BC.Builder.CreateCall(
         StoreValue, {StoreValueOpcode,    // i32 opcode
@@ -923,7 +929,7 @@ uint32_t DxilDebugInstrumentation::addDebugEntryValue(BuilderContext &BC,
                      UndefArg, // unused values
                      UndefArg, // unused values
                      UndefArg, // unused values
-                     WriteMask_X});
+                     WriteMask_X, RawBufferStoreAlignment});
 
     assert(m_RemainingReservedSpaceInBytes >= 4); // check for underflow
     m_RemainingReservedSpaceInBytes -= 4;
@@ -1211,19 +1217,20 @@ bool DxilDebugInstrumentation::runOnModule(Module &M) {
 
   auto ShaderModel = DM.GetShaderModel();
   auto shaderKind = ShaderModel->GetKind();
-
+  auto HLSLBindId = 0;
+  auto *uav = PIXPassHelpers::CreateGlobalUAVResource(DM, HLSLBindId, "PIXUAV");
   bool modified = false;
   if (shaderKind == DXIL::ShaderKind::Library) {
     auto instrumentableFunctions =
         PIXPassHelpers::GetAllInstrumentableFunctions(DM);
     for (auto *F : instrumentableFunctions) {
-      if (RunOnFunction(M, DM, F)) {
+      if (RunOnFunction(M, DM, uav, F)) {
         modified = true;
       }
     }
   } else {
     llvm::Function *entryFunction = PIXPassHelpers::GetEntryFunction(DM);
-    modified = RunOnFunction(M, DM, entryFunction);
+    modified = RunOnFunction(M, DM, uav, entryFunction);
   }
   return modified;
 }
@@ -1379,6 +1386,7 @@ DxilDebugInstrumentation::FindInstrumentableInstructionsInBlock(
 }
 
 bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
+                                             hlsl::DxilResource *uav,
                                              llvm::Function *function) {
   DXIL::ShaderKind shaderKind =
       PIXPassHelpers::GetFunctionShaderKind(DM, function);
@@ -1397,6 +1405,7 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
   case DXIL::ShaderKind::AnyHit:
   case DXIL::ShaderKind::ClosestHit:
   case DXIL::ShaderKind::Miss:
+  case DXIL::ShaderKind::Node:
     break;
   default:
     return false;
@@ -1431,8 +1440,8 @@ bool DxilDebugInstrumentation::RunOnFunction(Module &M, DxilModule &DM,
     break;
   }
 
-  values.UAVHandle = PIXPassHelpers::CreateUAV(DM, Builder, UAVRegisterId,
-                                               "PIX_DebugUAV_Handle");
+  values.UAVHandle = PIXPassHelpers::CreateHandleForResource(
+      DM, Builder, uav, "PIX_DebugUAV_Handle");
 
   auto SystemValues = addRequiredSystemValues(BC, shaderKind);
   addInvocationSelectionProlog(BC, SystemValues, shaderKind);

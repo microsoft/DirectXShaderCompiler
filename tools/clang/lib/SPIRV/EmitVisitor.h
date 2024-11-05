@@ -78,7 +78,7 @@ public:
   uint32_t emitType(const SpirvType *);
 
   // Emits OpDecorate (or OpMemberDecorate if memberIndex is non-zero)
-  // targetting the given type. Uses the given decoration kind and its
+  // targeting the given type. Uses the given decoration kind and its
   // parameters.
   void emitDecoration(uint32_t typeResultId, spv::Decoration,
                       llvm::ArrayRef<uint32_t> decorationParams,
@@ -398,6 +398,11 @@ private:
   void setFileOfSourceToDebugSourceId(uint32_t fileId, uint32_t dbg_src_id) {
     emittedSource[fileId] = dbg_src_id;
   }
+
+  // Emits an OpCooperativeMatrixLength instruction into the main binary
+  // section. It will replace the operand with the id of the type of the
+  // operand.
+  bool emitCooperativeMatrixLength(SpirvUnaryOp *inst);
 
 private:
   /// Emits error to the diagnostic engine associated with this visitor.

@@ -885,7 +885,7 @@ void HLModule::GetParameterRowsAndCols(
     DxilParameterAnnotation &paramAnnotation) {
   if (Ty->isPointerTy())
     Ty = Ty->getPointerElementType();
-  // For array input of HS, DS, GS,
+  // For array input of HS, DS, GS and array output of MS,
   // we need to skip the first level which size is based on primitive type.
   DxilParamInputQual inputQual = paramAnnotation.GetParamInputQual();
   bool skipOneLevelArray = inputQual == DxilParamInputQual::InputPatch;

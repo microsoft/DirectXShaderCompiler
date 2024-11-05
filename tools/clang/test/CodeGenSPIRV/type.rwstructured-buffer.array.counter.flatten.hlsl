@@ -1,4 +1,4 @@
-// RUN: %dxc -T ps_6_6 -E main -fspv-flatten-resource-arrays -fvk-allow-rwstructuredbuffer-arrays -fcgl  %s -spirv | FileCheck %s
+// RUN: %dxc -T ps_6_6 -E main -fspv-flatten-resource-arrays -fcgl  %s -spirv | FileCheck %s
 
 // TODO: This test should add `-O0` to make sure that the resource arrays are correctly flattened.
 // DXC is currently generating the correct code, but the spirv-tools passes are failing on the counter

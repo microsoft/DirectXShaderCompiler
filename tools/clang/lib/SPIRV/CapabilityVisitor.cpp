@@ -387,6 +387,9 @@ bool CapabilityVisitor::visit(SpirvDecoration *decor) {
 
     break;
   }
+  case spv::Decoration::LinkageAttributes:
+    addCapability(spv::Capability::Linkage);
+    break;
   default:
     break;
   }
@@ -436,22 +439,6 @@ bool CapabilityVisitor::visit(SpirvImageSparseTexelsResident *instr) {
   return true;
 }
 
-namespace {
-bool isImageOpOnUnknownFormat(const SpirvImageOp *instruction) {
-  if (!instruction->getImage() || !instruction->getImage()->getResultType()) {
-    return false;
-  }
-
-  const ImageType *imageType =
-      dyn_cast<ImageType>(instruction->getImage()->getResultType());
-  if (!imageType || imageType->getImageFormat() != spv::ImageFormat::Unknown) {
-    return false;
-  }
-
-  return imageType->getImageFormat() == spv::ImageFormat::Unknown;
-}
-} // namespace
-
 bool CapabilityVisitor::visit(SpirvImageOp *instr) {
   addCapabilityForType(instr->getResultType(), instr->getSourceLocation(),
                        instr->getStorageClass());
@@ -459,13 +446,6 @@ bool CapabilityVisitor::visit(SpirvImageOp *instr) {
     addCapability(spv::Capability::ImageGatherExtended);
   if (instr->isSparse())
     addCapability(spv::Capability::SparseResidency);
-
-  if (isImageOpOnUnknownFormat(instr)) {
-    addCapability(instr->isImageWrite()
-                      ? spv::Capability::StorageImageWriteWithoutFormat
-                      : spv::Capability::StorageImageReadWithoutFormat);
-  }
-
   return true;
 }
 
@@ -847,16 +827,12 @@ bool CapabilityVisitor::visit(SpirvReadClock *inst) {
 }
 
 bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
-  // If there are no entry-points in the module (hence shaderModel is not set),
-  // add the Linkage capability. This allows library shader models to use
-  // 'export' attribute on functions, and generate an "incomplete/partial"
-  // SPIR-V binary.
-  // ExecutionModel::Max means that no entrypoints exist, therefore we should
-  // add the Linkage Capability.
+  // If there are no entry-points in the module add the Shader capability.
+  // This allows library shader models with no entry pointer and just exported
+  // function. ExecutionModel::Max means that no entrypoints exist.
   if (phase == Visitor::Phase::Done &&
       shaderModel == spv::ExecutionModel::Max) {
     addCapability(spv::Capability::Shader);
-    addCapability(spv::Capability::Linkage);
   }
 
   // SPIRV-Tools now has a pass to trim superfluous capabilities. This means we
@@ -865,6 +841,8 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   // supports only some capabilities. This list should be expanded to match the
   // supported capabilities.
   addCapability(spv::Capability::MinLod);
+  addCapability(spv::Capability::StorageImageWriteWithoutFormat);
+  addCapability(spv::Capability::StorageImageReadWithoutFormat);
 
   addExtensionAndCapabilitiesIfEnabled(
       Extension::EXT_fragment_shader_interlock,
@@ -895,6 +873,8 @@ bool CapabilityVisitor::visit(SpirvModule *, Visitor::Phase phase) {
   addExtensionAndCapabilitiesIfEnabled(
       Extension::NV_shader_subgroup_partitioned,
       {spv::Capability::GroupNonUniformPartitionedNV});
+
+  addCapability(spv::Capability::InterpolationFunction);
 
   return true;
 }

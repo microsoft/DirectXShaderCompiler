@@ -175,31 +175,13 @@ void DxilPayloadFieldAnnotation::AddPayloadFieldQualifier(
 DXIL::PayloadAccessQualifier
 DxilPayloadFieldAnnotation::GetPayloadFieldQualifier(
     DXIL::PayloadAccessShaderStage shaderStage) const {
+  if (!HasAnnotations())
+    return DXIL::PayloadAccessQualifier::ReadWrite;
 
   int bitOffset = GetBitOffsetForShaderStage(shaderStage);
-
-  // default type is always ReadWrite
-  DXIL::PayloadAccessQualifier accessType =
-      DXIL::PayloadAccessQualifier::ReadWrite;
-
-  const unsigned readBit =
-      static_cast<unsigned>(DXIL::PayloadAccessQualifier::Read);
-  const unsigned writeBit =
-      static_cast<unsigned>(DXIL::PayloadAccessQualifier::Write);
-
   unsigned accessBits = m_bitmask >> bitOffset;
-  if (accessBits & readBit) {
-    // set Read if the first bit is set
-    accessType = DXIL::PayloadAccessQualifier::Read;
-  }
-  if (accessBits & writeBit) {
-
-    // set Write only if the second bit set, if both are set set to ReadWrite
-    accessType = accessType == DXIL::PayloadAccessQualifier::ReadWrite
-                     ? DXIL::PayloadAccessQualifier::Write
-                     : DXIL::PayloadAccessQualifier::ReadWrite;
-  }
-  return accessType;
+  return (DXIL::PayloadAccessQualifier)(
+      accessBits & DXIL::PayloadAccessQualifierValidMaskPerStage);
 }
 
 bool DxilPayloadFieldAnnotation::HasAnnotations() const {

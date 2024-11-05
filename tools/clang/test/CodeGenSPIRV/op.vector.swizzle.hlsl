@@ -118,18 +118,18 @@ void main() {
     // Keep lhs.1
     // So final selectors to write to lhs.(0, 1, 2, 3): 6, 1, 4, 5
 // CHECK-NEXT: [[v22:%[0-9]+]] = OpLoad %v2float %v2f
-// CHECK-NEXT: [[vs15:%[0-9]+]] = OpVectorShuffle %v3float [[v22]] [[v22]] 0 1 0
+// CHECK-NEXT: [[vs15:%[0-9]+]] = OpVectorShuffle %v2float [[v22]] [[v22]] 1 0
+// CHECK-NEXT: [[vs16:%[0-9]+]] = OpVectorShuffle %v3float [[vs15]] [[vs15]] 1 0 1
 // CHECK-NEXT: [[v23:%[0-9]+]] = OpLoad %v4float %v4f2
-// CHECK-NEXT: [[vs16:%[0-9]+]] = OpVectorShuffle %v4float [[v23]] [[vs15]] 6 1 4 5
-// CHECK-NEXT: OpStore %v4f2 [[vs16]]
+// CHECK-NEXT: [[vs17:%[0-9]+]] = OpVectorShuffle %v4float [[v23]] [[vs16]] 6 1 4 5
+// CHECK-NEXT: OpStore %v4f2 [[vs17]]
     v4f2.wzx.grb = v2f.gr.yxy; // select more than original, write to a part
 
 // CHECK-NEXT: [[v24:%[0-9]+]] = OpLoad %v4float %v4f1
 // CHECK-NEXT: OpStore %v4f2 [[v24]]
     v4f2.wzyx.abgr.xywz.rgab = v4f1.xyzw.xyzw.rgab.rgab; // from original vector to original vector
-
-// CHECK-NEXT: [[v24_0:%[0-9]+]] = OpAccessChain %_ptr_Function_float %v4f1 %int_2
-// CHECK-NEXT: [[ce1:%[0-9]+]] = OpLoad %float [[v24_0]]
+// CHECK-NEXT: [[v24_0:%[0-9]+]] = OpLoad %v4float %v4f1
+// CHECK-NEXT: [[ce1:%[0-9]+]] =  OpCompositeExtract %float [[v24_0]] 2
 // CHECK-NEXT: [[ac4:%[0-9]+]] = OpAccessChain %_ptr_Function_float %v4f2 %int_1
 // CHECK-NEXT: OpStore [[ac4]] [[ce1]]
     v4f2.wzyx.zy.x = v4f1.xzyx.y.x; // from one element (rvalue) to one element (lvalue)

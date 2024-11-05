@@ -2,7 +2,8 @@
 
 // Check that the vertex id check is present:
 
-// CHECK:  %PIX_DebugUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false)
+// Check we added the UAV:                                                                      v----metadata position: not important for this check
+// CHECK: %PIX_DebugUAV_Handle = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 [[S:[0-9]+]], i32 0, i1 false)
 // CHECK:  %VertId = call i32 @dx.op.loadInput.i32(i32 4, i32 0, i32 0, i8 0, i32 undef)
 // CHECK:  %InstanceId = call i32 @dx.op.loadInput.i32(i32 4, i32 1, i32 0, i8 0, i32 undef)
 // CHECK:  %CompareToVertId = icmp eq i32 %VertId, 0

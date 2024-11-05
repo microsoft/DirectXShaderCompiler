@@ -14,6 +14,7 @@
 #include "dxc/Support/WinIncludes.h"
 
 #include "dxc/DxilContainer/DxilContainer.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/HLSLOptions.h"
 #include "dxc/Support/dxcapi.use.h"
@@ -68,6 +69,13 @@ static cl::opt<bool> DumpReflection("dumpreflection",
                                     cl::desc("Dump reflection"),
                                     cl::init(false));
 
+static cl::opt<bool> DumpHash("dumphash", cl::desc("Dump validation hash"),
+                              cl::init(false));
+
+static cl::opt<bool> DumpPSV("dumppsv",
+                             cl::desc("Dump pipeline state validation"),
+                             cl::init(false));
+
 class DxaContext {
 
 private:
@@ -88,6 +96,8 @@ public:
   void DumpRS();
   void DumpRDAT();
   void DumpReflection();
+  void DumpValidationHash();
+  void DumpPSV();
 };
 
 void DxaContext::Assemble() {
@@ -466,6 +476,43 @@ void DxaContext::DumpReflection() {
   printf("%s", ss.str().c_str());
 }
 
+void DxaContext::DumpValidationHash() {
+  CComPtr<IDxcBlobEncoding> pSource;
+  ReadFileIntoBlob(m_dxcSupport, StringRefWide(InputFilename), &pSource);
+  if (!hlsl::IsValidDxilContainer(
+          (hlsl::DxilContainerHeader *)pSource->GetBufferPointer(),
+          pSource->GetBufferSize())) {
+    printf("Invalid input file, use binary DxilContainer.");
+    return;
+  }
+  hlsl::DxilContainerHeader *pDxilContainerHeader =
+      (hlsl::DxilContainerHeader *)pSource->GetBufferPointer();
+  printf("Validation hash: 0x");
+  for (size_t i = 0; i < hlsl::DxilContainerHashSize; i++) {
+    printf("%02x", pDxilContainerHeader->Hash.Digest[i]);
+  }
+}
+
+void DxaContext::DumpPSV() {
+  CComPtr<IDxcBlob> pContent;
+  if (!ExtractPart(hlsl::DFCC_PipelineStateValidation, &pContent)) {
+    printf("cannot find PSV part");
+    return;
+  }
+  DxilPipelineStateValidation PSV;
+  if (!PSV.InitFromPSV0(pContent->GetBufferPointer(),
+                        pContent->GetBufferSize())) {
+    printf("fail to read PSV part");
+    return;
+  }
+  std::string Str;
+  llvm::raw_string_ostream OS(Str);
+  PSV.Print(OS, static_cast<uint8_t>(PSVShaderKind::Library));
+  for (char &c : Str) {
+    printf("%c", c);
+  }
+}
+
 using namespace hlsl::options;
 
 #ifdef _WIN32
@@ -527,6 +574,12 @@ int main(int argc, const char **argv) {
     } else if (DumpReflection) {
       pStage = "Dump Reflection";
       context.DumpReflection();
+    } else if (DumpHash) {
+      pStage = "Dump Validation Hash";
+      context.DumpValidationHash();
+    } else if (DumpPSV) {
+      pStage = "Dump Pipeline State Validation";
+      context.DumpPSV();
     } else {
       pStage = "Assembling";
       context.Assemble();

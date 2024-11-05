@@ -190,7 +190,7 @@ For API clients and LLVM developers.
 
 :doc:`CodeGenerator`
    The design and implementation of the LLVM code generator.  Useful if you are
-   working on retargetting LLVM to a new architecture, designing a new codegen
+   working on retargeting LLVM to a new architecture, designing a new codegen
    pass, or enhancing existing components.
 
 :doc:`TableGen <TableGen/index>`

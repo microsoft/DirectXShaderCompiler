@@ -643,7 +643,13 @@ private:
       llvm::DenseSet<StageVariableLocationInfo, StageVariableLocationInfo>
           *stageVariableLocationInfo);
 
-  /// \bried Decorates used Resource/Sampler descriptor heaps with the correct
+  /// \brief Get a valid BindingInfo. If no user provided binding info is given,
+  /// allocates a new binding and returns it.
+  static SpirvCodeGenOptions::BindingInfo getBindingInfo(
+      BindingSet &bindingSet,
+      const std::optional<SpirvCodeGenOptions::BindingInfo> &userProvidedInfo);
+
+  /// \brief Decorates used Resource/Sampler descriptor heaps with the correct
   /// binding/set decorations.
   void decorateResourceHeapsBindings(BindingSet &bindingSet);
 
@@ -791,24 +797,40 @@ private:
   SpirvVariable *getInstanceIdFromIndexAndBase(SpirvVariable *instanceIndexVar,
                                                SpirvVariable *baseInstanceVar);
 
+  // Creates a function scope variable to represent the "SV_VertexID"
+  // semantic, which is not immediately available in SPIR-V. Its value will be
+  // set by subtracting the values of the given InstanceIndex and base instance
+  // variables.
+  //
+  // vertexIndexVar: The SPIR-V input variable decorated with
+  // vertexIndex.
+  //
+  // baseVertexVar: The SPIR-V input variable decorated with
+  // BaseVertex.
+  SpirvVariable *getVertexIdFromIndexAndBase(SpirvVariable *vertexIndexVar,
+                                             SpirvVariable *baseVertexVar);
+
   // Creates and returns a variable that is the BaseInstance builtin input. The
   // variable is also added to the list of stage variable `this->stageVars`. Its
   // type will be a 32-bit integer.
-  //
-  // The semantic is a lie. We currently give it the semantic for the
-  // InstanceID. I'm not sure what would happen if we did not use a semantic, or
-  // tried to generate the correct one. I'm guessing there would be some issue
-  // with reflection.
-  //
-  // semantic: the semantic to attach to this variable
   //
   // sigPoint: the signature point identifying which shader stage the variable
   // will be used in.
   //
   // type: The type to use for the new variable. Must be int or unsigned int.
-  SpirvVariable *getBaseInstanceVariable(SemanticInfo *semantic,
-                                         const hlsl::SigPoint *sigPoint,
+  SpirvVariable *getBaseInstanceVariable(const hlsl::SigPoint *sigPoint,
                                          QualType type);
+
+  // Creates and returns a variable that is the BaseVertex builtin input. The
+  // variable is also added to the list of stage variable `this->stageVars`. Its
+  // type will be a 32-bit integer.
+  //
+  // sigPoint: the signature point identifying which shader stage the variable
+  // will be used in.
+  //
+  // type: The type to use for the new variable. Must be int or unsigned int.
+  SpirvVariable *getBaseVertexVariable(const hlsl::SigPoint *sigPoint,
+                                       QualType type);
 
   // Creates and return a new interface variable from the information provided.
   // The new variable with be add to `this->StageVars`.
@@ -958,6 +980,16 @@ private:
   /// \brief Records which execution mode should be used for rasterizer order
   /// views.
   void setInterlockExecutionMode(spv::ExecutionMode mode);
+
+  /// \brief Add |varInstr| to |astDecls| for every Decl for the variable |var|.
+  /// It is possible for a variable to have multiple declarations, and all of
+  /// them should be associated with the same variable.
+  void registerVariableForDecl(const VarDecl *var, SpirvInstruction *varInstr);
+
+  /// \brief Add |spirvInfo| to |astDecls| for every Decl for the variable
+  /// |var|. It is possible for a variable to have multiple declarations, and
+  /// all of them should be associated with the same variable.
+  void registerVariableForDecl(const VarDecl *var, DeclSpirvInfo spirvInfo);
 
 private:
   SpirvBuilder &spvBuilder;
@@ -1124,8 +1156,7 @@ bool DeclResultIdMapper::decorateStageIOLocations() {
 }
 
 bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
-  return getStorageClassForSigPoint(v.getSigPoint()) ==
-         spv::StorageClass::Input;
+  return v.getStorageClass() == spv::StorageClass::Input;
 }
 
 void DeclResultIdMapper::createFnParamCounterVar(const VarDecl *param) {

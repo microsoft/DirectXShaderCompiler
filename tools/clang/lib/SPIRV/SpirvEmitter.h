@@ -74,6 +74,7 @@ public:
   /// created, we just return RichDebugInfo containing it. Otherwise,
   /// create DebugSource and DebugCompilationUnit for loc and return it.
   RichDebugInfo *getOrCreateRichDebugInfo(const SourceLocation &loc);
+  RichDebugInfo *getOrCreateRichDebugInfoImpl(llvm::StringRef file);
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
@@ -621,6 +622,12 @@ private:
   SpirvInstruction *processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
                                                hlsl::IntrinsicOp opcode);
 
+  /// Processes EvaluateAttributeAt* intrinsic calls.
+  SpirvInstruction *processEvaluateAttributeAt(const CallExpr *expr,
+                                               hlsl::IntrinsicOp opcode,
+                                               SourceLocation loc,
+                                               SourceRange range);
+
   /// Processes Interlocked* intrinsic functions.
   SpirvInstruction *processIntrinsicInterlockedMethod(const CallExpr *,
                                                       hlsl::IntrinsicOp);
@@ -751,6 +758,10 @@ private:
   /// Returns the value of the alignment argument for `vk::RawBufferLoad()` and
   /// `vk::RawBufferStore()`.
   uint32_t getRawBufferAlignment(const Expr *expr);
+
+  /// Returns a spirv OpCooperativeMatrixLengthKHR instruction generated from a
+  /// call to __builtin_spv_CooperativeMatrixLengthKHR.
+  SpirvInstruction *processCooperativeMatrixGetLength(const CallExpr *call);
 
   /// Process vk::ext_execution_mode intrinsic
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
@@ -979,6 +990,13 @@ private:
                                 SpirvInstruction **constOffset,
                                 SpirvInstruction **varOffset);
 
+  void handleOptionalTextureSampleArgs(const CXXMemberCallExpr *expr,
+                                       uint32_t index,
+                                       SpirvInstruction **constOffset,
+                                       SpirvInstruction **varOffset,
+                                       SpirvInstruction **clamp,
+                                       SpirvInstruction **status);
+
   /// \brief Processes .Load() method call for Buffer/RWBuffer and texture
   /// objects.
   SpirvInstruction *processBufferTextureLoad(const CXXMemberCallExpr *);
@@ -1008,6 +1026,12 @@ private:
 
   /// \brief Processes .SampleCmp() method call for texture objects.
   SpirvInstruction *processTextureSampleCmp(const CXXMemberCallExpr *expr);
+
+  /// \brief Processes .SampleCmpBias() method call for texture objects.
+  SpirvInstruction *processTextureSampleCmpBias(const CXXMemberCallExpr *expr);
+
+  /// \brief Processes .SampleCmpGrad() method call for texture objects.
+  SpirvInstruction *processTextureSampleCmpGrad(const CXXMemberCallExpr *expr);
 
   /// \brief Processes .SampleCmpLevelZero() method call for texture objects.
   SpirvInstruction *
@@ -1287,6 +1311,45 @@ private:
   /// use the Vulkan memory model. This is done only if it has been requested or
   /// the Vulkan memory model capability has been added to the module.
   bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
+
+  // Splits the `value`, which must be a 64-bit scalar, into two 32-bit wide
+  // uints, stored in `lowbits` and `highbits`.
+  void splitDouble(SpirvInstruction *value, SourceLocation loc,
+                   SourceRange range, SpirvInstruction *&lowbits,
+                   SpirvInstruction *&highbits);
+
+  // Splits the value, which must be a vector with element type `elemType` and
+  // size `count`, into two composite values of size `count` and type
+  // `outputType`. The elements are split component-wise: the vector
+  // {0x0123456789abcdef, 0x0123456789abcdef} is split into `lowbits`
+  // {0x89abcdef, 0x89abcdef} and and `highbits` {0x01234567, 0x01234567}.
+  void splitDoubleVector(QualType elemType, uint32_t count, QualType outputType,
+                         SpirvInstruction *value, SourceLocation loc,
+                         SourceRange range, SpirvInstruction *&lowbits,
+                         SpirvInstruction *&highbits);
+
+  // Splits the value, which must be a matrix with element type `elemType` and
+  // dimensions `rowCount` and `colCount`, into two composite values of
+  // dimensions `rowCount` and `colCount`. The elements are split
+  // component-wise: the matrix
+  //
+  // { 0x0123456789abcdef, 0x0123456789abcdef,
+  //   0x0123456789abcdef, 0x0123456789abcdef }
+  //
+  // is split into `lowbits`
+  //
+  // { 0x89abcdef, 0x89abcdef,
+  //   0x89abcdef, 0x89abcdef }
+  //
+  //  and `highbits`
+  //
+  // { 0x012345678, 0x012345678,
+  //   0x012345678, 0x012345678 }.
+  void splitDoubleMatrix(QualType elemType, uint32_t rowCount,
+                         uint32_t colCount, QualType outputType,
+                         SpirvInstruction *value, SourceLocation loc,
+                         SourceRange range, SpirvInstruction *&lowbits,
+                         SpirvInstruction *&highbits);
 
 public:
   /// \brief Wrapper method to create a fatal error message and report it

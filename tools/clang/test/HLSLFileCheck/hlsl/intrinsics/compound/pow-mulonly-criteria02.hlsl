@@ -1,6 +1,7 @@
 // RUN: %dxc -HV 2016 -E main -T ps_6_0 %s | FileCheck %s
 // dxc should use log-mul-exp pattern to implement all scenarios listed below.
 
+// CHECK: define void @main()
 // CHECK-NOT: Log
 // CHECK-NOT: Exp
 

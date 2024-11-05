@@ -25,10 +25,15 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <optional>
+
 using namespace llvm::opt;
 using namespace dxc;
 using namespace hlsl;
 using namespace hlsl::options;
+#ifdef ENABLE_SPIRV_CODEGEN
+using namespace clang::spirv;
+#endif
 
 #define PREFIX(NAME, VALUE) static const char *const NAME[] = VALUE;
 #include "dxc/Support/HLSLOptions.inc"
@@ -317,6 +322,46 @@ static bool handleVkShiftArgs(const InputArgList &args, OptSpecifier id,
            << "-shift argument should be used alone";
     return false;
   }
+  return true;
+}
+
+// Parses the given flag |id| in |args|. If present and valid, sets |info| to
+// the correct value. Returns true if parsing succeeded. Returns false if
+// parsing failed, and outputs in |errors| a message using |name| as pretty name
+// for the flag.
+static bool
+handleFixedBinding(const InputArgList &args, OptSpecifier id,
+                   std::optional<SpirvCodeGenOptions::BindingInfo> *info,
+                   llvm::StringRef name, llvm::raw_ostream &errors) {
+  const auto values = args.getAllArgValues(id);
+  if (values.size() == 0) {
+    *info = std::nullopt;
+    return true;
+  }
+
+  if (!args.hasArg(OPT_spirv)) {
+    errors << name << " requires -spirv";
+    return false;
+  }
+
+  assert(values.size() == 2);
+
+  size_t output[2] = {0, 0};
+  for (unsigned i = 0; i < 2; ++i) {
+    int number = 0;
+    if (llvm::StringRef(values[i]).getAsInteger(10, number)) {
+      errors << "invalid " << name << " argument: '" << values[i] << "'";
+      return false;
+    }
+    if (number < 0) {
+      errors << "expected positive integer for " << name
+             << ", got: " << values[i];
+      return false;
+    }
+    output[i] = number;
+  }
+
+  *info = {output[0], output[1]};
   return true;
 }
 
@@ -1053,6 +1098,8 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fvk_use_dx_position_w, OPT_INVALID, false);
   opts.SpirvOptions.supportNonzeroBaseInstance =
       Args.hasFlag(OPT_fvk_support_nonzero_base_instance, OPT_INVALID, false);
+  opts.SpirvOptions.supportNonzeroBaseVertex =
+      Args.hasFlag(OPT_fvk_support_nonzero_base_vertex, OPT_INVALID, false);
   opts.SpirvOptions.useGlLayout =
       Args.hasFlag(OPT_fvk_use_gl_layout, OPT_INVALID, false);
   opts.SpirvOptions.useDxLayout =
@@ -1081,8 +1128,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_fspv_preserve_bindings, OPT_INVALID, false);
   opts.SpirvOptions.preserveInterface =
       Args.hasFlag(OPT_fspv_preserve_interface, OPT_INVALID, false);
-  opts.SpirvOptions.allowRWStructuredBufferArrays =
-      Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID, false);
   opts.SpirvOptions.enableMaximalReconvergence =
       Args.hasFlag(OPT_fspv_enable_maximal_reconvergence, OPT_INVALID, false);
   opts.SpirvOptions.useVulkanMemoryModel =
@@ -1106,6 +1151,18 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       opts.SpirvOptions.stageIoOrder != "decl") {
     errors << "unknown Vulkan stage I/O location assignment order: "
            << opts.SpirvOptions.stageIoOrder;
+    return 1;
+  }
+
+  if (!handleFixedBinding(Args, OPT_fvk_bind_resource_heap,
+                          &opts.SpirvOptions.resourceHeapBinding,
+                          "-fvk-bind-resource-heap", errors) ||
+      !handleFixedBinding(Args, OPT_fvk_bind_sampler_heap,
+                          &opts.SpirvOptions.samplerHeapBinding,
+                          "-fvk-bind-sampler-heap", errors) ||
+      !handleFixedBinding(Args, OPT_fvk_bind_counter_heap,
+                          &opts.SpirvOptions.counterHeapBinding,
+                          "-fvk-bind-counter-heap", errors)) {
     return 1;
   }
 
@@ -1235,8 +1292,6 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       Args.hasFlag(OPT_Wno_vk_ignored_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_Wno_vk_emulated_features, OPT_INVALID, false) ||
       Args.hasFlag(OPT_fvk_auto_shift_bindings, OPT_INVALID, false) ||
-      Args.hasFlag(OPT_fvk_allow_rwstructuredbuffer_arrays, OPT_INVALID,
-                   false) ||
       !Args.getLastArgValue(OPT_fvk_stage_io_order_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_debug_EQ).empty() ||
       !Args.getLastArgValue(OPT_fspv_extension_EQ).empty() ||
@@ -1247,7 +1302,10 @@ int ReadDxcOpts(const OptTable *optionTable, unsigned flagsToInclude,
       !Args.getLastArgValue(OPT_fvk_b_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_t_shift).empty() ||
       !Args.getLastArgValue(OPT_fvk_s_shift).empty() ||
-      !Args.getLastArgValue(OPT_fvk_u_shift).empty()) {
+      !Args.getLastArgValue(OPT_fvk_u_shift).empty() ||
+      !Args.getLastArgValue(OPT_fvk_bind_resource_heap).empty() ||
+      !Args.getLastArgValue(OPT_fvk_bind_sampler_heap).empty() ||
+      !Args.getLastArgValue(OPT_fvk_bind_counter_heap).empty()) {
     errors << "SPIR-V CodeGen not available. "
               "Please recompile with -DENABLE_SPIRV_CODEGEN=ON.";
     return 1;

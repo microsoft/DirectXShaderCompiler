@@ -303,6 +303,7 @@ Supported extensions
 * SPV_GOOGLE_user_type
 * SPV_NV_mesh_shader
 * SPV_KHR_fragment_shading_barycentric
+* SPV_KHR_float_controls
 
 Vulkan specific attributes
 --------------------------
@@ -397,8 +398,8 @@ interface variables:
   main([[vk::location(N)]] float4 input: A) : B
   { ... }
 
-Macro for SPIR-V
-----------------
+Macros for SPIR-V
+-----------------
 
 If SPIR-V CodeGen is enabled and ``-spirv`` flag is used as one of the command
 line options (meaning that "generates SPIR-V code"), it defines an implicit
@@ -411,6 +412,12 @@ specific part of the HLSL code:
   [[vk::binding(X, Y), vk::counter_binding(Z)]]
   #endif
   RWStructuredBuffer<S> mySBuffer;
+
+When the ``-spirv`` flag is used, the ``-fspv-target-env`` option will
+implicitly define the macros ``__SPIRV_MAJOR_VERSION__`` and
+``__SPIRV_MINOR_VERSION__``, which will be integers representing the major and
+minor version of the SPIR-V being generated. This can be used to enable code that uses a feature
+only for environments where that feature is available.
 
 SPIR-V version and extension
 ----------------------------
@@ -2884,6 +2891,30 @@ If an output unsigned integer ``status`` argument is present,
 ``OpImageSparseSampleDrefExplicitLod`` is used instead. The resulting SPIR-V
 ``Residency Code`` will be written to ``status``.
 
+``.SampleCmpBias(sampler, location, bias, comparator[, offset][, clamp][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
+
+The translation is similar to ``.SampleBias()``, but the
+``OpImageSampleDrefImplicitLod`` instruction is used.
+
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleDrefImplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
+
+``.SampleCmpGrad(sampler, location, ddx, ddy, comparator[, offset][, clamp][, Status])``
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Not available to ``Texture3D``, ``Texture2DMS``, and ``Texture2DMSArray``.
+
+The translation is similar to ``.SampleGrad()``, but the
+``OpImageSampleDrefExplicitLod`` instruction are used.
+
+If an output unsigned integer ``status`` argument is present,
+``OpImageSparseSampleDrefExplicitLod`` is used instead. The resulting SPIR-V
+``Residency Code`` will be written to ``status``.
+
 ``.Gather()``
 +++++++++++++
 
@@ -2977,10 +3008,11 @@ Not available to ``Texture2DMS`` and ``Texture2DMSArray``.
 
 Since texture types are represented as ``OpTypeImage``, the ``OpImageQueryLod``
 instruction is used for translation. An ``OpSampledImage`` is created based on
-the ``SamplerState`` passed to the function. The resulting sampled image and
-the coordinate passed to the function are used to invoke ``OpImageQueryLod``.
-The result of ``OpImageQueryLod`` is a ``float2``. The first element contains
-the mipmap array layer. The second element contains the unclamped level of detail.
+the ``SamplerState`` or ``SamplerComparisonState`` passed to the function. The
+resulting sampled image and the coordinate passed to the function are used to
+invoke ``OpImageQueryLod``. The result of ``OpImageQueryLod`` is a ``float2``.
+The first element contains the mipmap array layer. The second element contains
+the unclamped level of detail.
 
 ``Texture1D``
 ~~~~~~~~~~~~~

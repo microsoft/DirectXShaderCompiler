@@ -5300,7 +5300,9 @@ void SROA_Parameter_HLSL::flattenArgument(
     // Unwrap top-level array if primitive
     if (inputQual == DxilParamInputQual::InputPatch ||
         inputQual == DxilParamInputQual::OutputPatch ||
-        inputQual == DxilParamInputQual::InputPrimitive) {
+        inputQual == DxilParamInputQual::InputPrimitive ||
+        inputQual == DxilParamInputQual::OutPrimitives ||
+        inputQual == DxilParamInputQual::OutVertices) {
       Type *Ty = Arg->getType();
       if (Ty->isPointerTy())
         Ty = Ty->getPointerElementType();

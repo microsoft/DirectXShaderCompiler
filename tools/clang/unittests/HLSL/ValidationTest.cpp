@@ -10,6 +10,7 @@
 
 #define NOMINMAX
 
+#include "dxc/Support/WinIncludes.h"
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -17,6 +18,8 @@
 
 #include "dxc/DxilContainer/DxilContainer.h"
 #include "dxc/DxilContainer/DxilContainerAssembler.h"
+#include "dxc/DxilContainer/DxilPipelineStateValidation.h"
+#include "dxc/DxilHash/DxilHash.h"
 #include "dxc/Support/WinIncludes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
@@ -295,6 +298,7 @@ public:
   TEST_METHOD(ValidateRootSigContainer)
   TEST_METHOD(ValidatePrintfNotAllowed)
 
+  TEST_METHOD(ValidateWithHash)
   TEST_METHOD(ValidateVersionNotAllowed)
   TEST_METHOD(CreateHandleNotAllowedSM66)
 
@@ -306,6 +310,20 @@ public:
 
   TEST_METHOD(CacheInitWithMinPrec)
   TEST_METHOD(CacheInitWithLowPrec)
+
+  TEST_METHOD(PSVStringTableReorder)
+  TEST_METHOD(PSVSemanticIndexTableReorder)
+  TEST_METHOD(PSVContentValidationVS)
+  TEST_METHOD(PSVContentValidationHS)
+  TEST_METHOD(PSVContentValidationDS)
+  TEST_METHOD(PSVContentValidationGS)
+  TEST_METHOD(PSVContentValidationPS)
+  TEST_METHOD(PSVContentValidationCS)
+  TEST_METHOD(PSVContentValidationMS)
+  TEST_METHOD(PSVContentValidationAS)
+  TEST_METHOD(WrongPSVSize)
+  TEST_METHOD(WrongPSVSizeOnZeros)
+  TEST_METHOD(WrongPSVVersion)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -398,6 +416,30 @@ public:
     CheckOperationResultMsgs(pResult, nullptr, false, false);
     VERIFY_SUCCEEDED(pResult->GetResult(pResultBlob));
     return true;
+  }
+
+  bool CompileFile(LPCWSTR fileName, LPCSTR pShaderModel,
+                   IDxcBlob **pResultBlob) {
+    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(fileName);
+    CComPtr<IDxcLibrary> pLibrary;
+    CComPtr<IDxcBlobEncoding> pSource;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(
+        pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
+    return CompileSource(pSource, pShaderModel, nullptr, 0, nullptr, 0,
+                         pResultBlob);
+  }
+
+  bool CompileFile(LPCWSTR fileName, LPCSTR pShaderModel, LPCWSTR *pArguments,
+                   UINT32 argCount, IDxcBlob **pResultBlob) {
+    std::wstring fullPath = hlsl_test::GetPathToHlslDataFile(fileName);
+    CComPtr<IDxcLibrary> pLibrary;
+    CComPtr<IDxcBlobEncoding> pSource;
+    VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+    VERIFY_SUCCEEDED(
+        pLibrary->CreateBlobFromFile(fullPath.c_str(), nullptr, &pSource));
+    return CompileSource(pSource, pShaderModel, pArguments, argCount, nullptr,
+                         0, pResultBlob);
   }
 
   bool CompileSource(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
@@ -4071,6 +4113,42 @@ TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
   TestCheck(L"..\\CodeGenHLSL\\printf.hlsl");
 }
 
+TEST_F(ValidationTest, ValidateWithHash) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+  CComPtr<IDxcBlob> pProgram;
+  CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
+                "ps_6_0", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  // With hash.
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  CComPtr<IDxcBlob> pValidationOutput;
+  pResult->GetStatus(&status);
+  VERIFY_SUCCEEDED(status);
+  pResult->GetResult(&pValidationOutput);
+  // Make sure the validation output is not null when hashing.
+  VERIFY_SUCCEEDED(pValidationOutput != nullptr);
+
+  hlsl::DxilContainerHeader *pHeader =
+      (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  // Validate the hash.
+  constexpr uint32_t HashStartOffset =
+      offsetof(struct DxilContainerHeader, Version);
+  auto *DataToHash = (const BYTE *)pHeader + HashStartOffset;
+  UINT AmountToHash = pHeader->ContainerSizeInBytes - HashStartOffset;
+  BYTE Result[DxilContainerHashSize];
+  ComputeHashRetail(DataToHash, AmountToHash, Result);
+  VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
+}
+
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {
   if (m_ver.SkipDxilVersion(1, 6))
     return;
@@ -4275,35 +4353,45 @@ TEST_F(ValidationTest, ComputeNodeCompatibility) {
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!11 = !{i32 8, i32 15"}, // original: node shader
-      {"!11 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Compute entry 'node01' has unexpected node shader metadata", false);
+      {"!\"node01\", null, null, !([0-9]+)}\n"
+       "!\\1 = !{i32 8, i32 15"}, // original: node shader
+      {"!\"node01\", null, null, !\\1}\n"
+       "!\\1 = !{i32 8, i32 5"}, // changed to: compute shader
+      "Compute entry 'node01' has unexpected node shader metadata", true);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!19 = !{i32 8, i32 15"}, // original: node shader
-      {"!19 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Compute entry 'node02' has unexpected node shader metadata", false);
+      {"!\"node02\", null, null, !([0-9]+)}\n"
+       "!\\1 = !{i32 8, i32 15"}, // original: node shader
+      {"!\"node02\", null, null, !\\1}\n"
+       "!\\1 = !{i32 8, i32 5"}, // changed to: compute shader
+      "Compute entry 'node02' has unexpected node shader metadata", true);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!25 = !{i32 8, i32 15"}, // original: node shader
-      {"!25 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Compute entry 'node03' has unexpected node shader metadata", false);
+      {"!\"node03\", null, null, !([0-9]+)}\n"
+       "!\\1 = !{i32 8, i32 15"}, // original: node shader
+      {"!\"node03\", null, null, !\\1}\n"
+       "!\\1 = !{i32 8, i32 5"}, // changed to: compute shader
+      "Compute entry 'node03' has unexpected node shader metadata", true);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!32 = !{i32 8, i32 15"}, // original: node shader
-      {"!32 = !{i32 8, i32 5"},  // changed to: compute shader
-      "Compute entry 'node04' has unexpected node shader metadata", false);
+      {"!\"node04\", null, null, !([0-9]+)}\n"
+       "!\\1 = !{i32 8, i32 15"}, // original: node shader
+      {"!\"node04\", null, null, !\\1}\n"
+       "!\\1 = !{i32 8, i32 5"}, // changed to: compute shader
+      "Compute entry 'node04' has unexpected node shader metadata", true);
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\compute_node_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!32 = !{i32 8, i32 15, i32 13, i32 2"}, // original: node shader,
-                                                // coalesing launch type
-      {"!32 = !{i32 8, i32 5, i32 13, i32 3"},  // changed to: compute shader,
+      {"!\"node04\", null, null, !([0-9]+)}\n"
+       "!\\1 = !{i32 8, i32 15, i32 13, i32 2"}, // original: node shader
+                                                 // coalesing launch type
+      {"!\"node04\", null, null, !\\1}\n"
+       "!\\1 = !{i32 8, i32 5, i32 13, i32 3"}, // changed to: compute shader
                                                 // thread launch type
-      "Compute entry 'node04' has unexpected node shader metadata", false);
+      "Compute entry 'node04' has unexpected node shader metadata", true);
 }
 
 // Check validation error for incompatible node input record types
@@ -4314,88 +4402,88 @@ TEST_F(ValidationTest, NodeInputCompatibility) {
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!13 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
-      {"!13 = !{i32 1, i32 65"}, // GroupNodeInputRecords
+      {"= !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"= !{i32 1, i32 65"}, // GroupNodeInputRecords
       "broadcasting node shader 'node01' has incompatible input record type "
       "(should be {RW}DispatchNodeInputRecord)");
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!13 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
-      {"!13 = !{i32 1, i32 69"}, // RWGroupNodeInputRecords
+      {"= !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"= !{i32 1, i32 69"}, // RWGroupNodeInputRecords
       "broadcasting node shader 'node01' has incompatible input record type "
       "(should be {RW}DispatchNodeInputRecord)");
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!13 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
-      {"!13 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
+      {"= !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"= !{i32 1, i32 33"}, // ThreadNodeInputRecord
       "broadcasting node shader 'node01' has incompatible input record type "
       "(should be {RW}DispatchNodeInputRecord)");
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!13 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
-      {"!13 = !{i32 1, i32 37"}, // RWThreadNodeInputRecord
+      {"= !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"= !{i32 1, i32 37"}, // RWThreadNodeInputRecord
       "broadcasting node shader 'node01' has incompatible input record type "
       "(should be {RW}DispatchNodeInputRecord)");
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!20 = !{i32 1, i32 65"}, // GroupNodeInputRecords
-      {"!20 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
+      {"= !{i32 1, i32 65"}, // GroupNodeInputRecords
+      {"= !{i32 1, i32 97"}, // DispatchNodeInputRecord
       "coalescing node shader 'node02' has incompatible input record type "
       "(should be {RW}GroupNodeInputRecords or EmptyNodeInput)");
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!20 = !{i32 1, i32 65"},  // GroupNodeInputRecords
-      {"!20 = !{i32 1, i32 101"}, // RWDispatchNodeInputRecord
+      {"= !{i32 1, i32 65"},  // GroupNodeInputRecords
+      {"= !{i32 1, i32 101"}, // RWDispatchNodeInputRecord
       "coalescing node shader 'node02' has incompatible input record type "
       "(should be {RW}GroupNodeInputRecords or EmptyNodeInput)");
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!20 = !{i32 1, i32 65"}, // GroupNodeInputRecords
-      {"!20 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
+      {"= !{i32 1, i32 65"}, // GroupNodeInputRecords
+      {"= !{i32 1, i32 33"}, // ThreadNodeInputRecord
       "coalescing node shader 'node02' has incompatible input record type "
       "(should be {RW}GroupNodeInputRecords or EmptyNodeInput)");
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!20 = !{i32 1, i32 65"}, // GroupNodeInputRecords
-      {"!20 = !{i32 1, i32 37"}, // RWThreadNodeInputRecord
+      {"= !{i32 1, i32 65"}, // GroupNodeInputRecords
+      {"= !{i32 1, i32 37"}, // RWThreadNodeInputRecord
       "coalescing node shader 'node02' has incompatible input record type "
       "(should be {RW}GroupNodeInputRecords or EmptyNodeInput)");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\node_input_compatibility.hlsl",
                           "lib_6_8", pArguments.data(), 2, nullptr, 0,
-                          {"!25 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
-                          {"!25 = !{i32 1, i32 97"}, // DispatchNodeInputRecord
+                          {"= !{i32 1, i32 33"}, // ThreadNodeInputRecord
+                          {"= !{i32 1, i32 97"}, // DispatchNodeInputRecord
                           "thread node shader 'node03' has incompatible input "
                           "record type (should be {RW}ThreadNodeInputRecord)");
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!25 = !{i32 1, i32 33"},  // ThreadNodeInputRecord
-      {"!25 = !{i32 1, i32 101"}, // RWDispatchNodeInputRecord
+      {"= !{i32 1, i32 33"},  // ThreadNodeInputRecord
+      {"= !{i32 1, i32 101"}, // RWDispatchNodeInputRecord
       "thread node shader 'node03' has incompatible input record type (should "
       "be {RW}ThreadNodeInputRecord)");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\node_input_compatibility.hlsl",
                           "lib_6_8", pArguments.data(), 2, nullptr, 0,
-                          {"!25 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
-                          {"!25 = !{i32 1, i32 65"}, // GroupNodeInputRecords
+                          {"= !{i32 1, i32 33"}, // ThreadNodeInputRecord
+                          {"= !{i32 1, i32 65"}, // GroupNodeInputRecords
                           "thread node shader 'node03' has incompatible input "
                           "record type (should be {RW}ThreadNodeInputRecord)");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\node_input_compatibility.hlsl",
                           "lib_6_8", pArguments.data(), 2, nullptr, 0,
-                          {"!25 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
-                          {"!25 = !{i32 1, i32 69"}, // RWGroupNodeInputRecords
+                          {"= !{i32 1, i32 33"}, // ThreadNodeInputRecord
+                          {"= !{i32 1, i32 69"}, // RWGroupNodeInputRecords
                           "thread node shader 'node03' has incompatible input "
                           "record type (should be {RW}ThreadNodeInputRecord)");
   RewriteAssemblyCheckMsg(L"..\\DXILValidation\\node_input_compatibility.hlsl",
                           "lib_6_8", pArguments.data(), 2, nullptr, 0,
-                          {"!25 = !{i32 1, i32 33"}, // ThreadNodeInputRecord
-                          {"!25 = !{i32 1, i32 69"}, // RWGroupNodeInputRecords
+                          {"= !{i32 1, i32 33"}, // ThreadNodeInputRecord
+                          {"= !{i32 1, i32 69"}, // RWGroupNodeInputRecords
                           "thread node shader 'node03' has incompatible input "
                           "record type (should be {RW}ThreadNodeInputRecord)");
 }
@@ -4409,65 +4497,87 @@ TEST_F(ValidationTest, NodeInputMultiplicity) {
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!12 = !{!13}",                          // input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
-      {"!12 = !{!13, !100}",                    // multiple input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 97, i32 2, "
-       "!14}"}, // extra DispatchNodeInputRecord
-      "node shader 'node01' may not have more than one input record (2 are "
-      "declared)");
-  RewriteAssemblyCheckMsg(
-      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
-      pArguments.data(), 2, nullptr, 0,
-      {"!12 = !{!13}",                          // input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
-      {"!12 = !{!13, !100}",                    // multiple input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 9, i32 2, "
-       "!14}"}, // extra EmptyNodeInput
-      "node shader 'node01' may not have more than one input record (2 are "
-      "declared)");
+      {"= !{i32 8, i32 15, i32 13, i32 1,([^\n]*)i32 20, !([0-9]+)(.*)"
+       "!\\2 = !{!([0-9]+)}",                   // input records
+       "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
+      {"= !{i32 8, i32 15, i32 13, i32 1,\\1i32 20, !\\2\\3"
+       "!\\2 = !{!\\4, !100}", // multiple input records
+       "= !{i32 1, i32 33, i32 2, !\\1}\n"
+       "!100 = !{i32 1, i32 97, i32 2, !\\1}\n"}, // extra
+                                                  // DispatchNodeInputRecord
+      "node shader 'node01' may not have more than one input record \\(2 are "
+      "declared\\)",
+      true);
 
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!19 = !{!20}",                          // input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
-      {"!19 = !{!20, !100}",                    // multiple input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 65, i32 2, "
-       "!14}"}, // extra GroupNodeInputRecords
-      "node shader 'node02' may not have more than one input record (2 are "
-      "declared)");
-  RewriteAssemblyCheckMsg(
-      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
-      pArguments.data(), 2, nullptr, 0,
-      {"!19 = !{!20}",                          // input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
-      {"!19 = !{!20, !100}",                    // multiple input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 9, i32 2, "
-       "!14}"}, // extra EmptyNodeInput
-      "node shader 'node02' may not have more than one input record (2 are "
-      "declared)");
+      {"= !{i32 8, i32 15, i32 13, i32 1,([^\n]*)i32 20, !([0-9]+)(.*)"
+       "!\\2 = !{!([0-9]+)}",                   // input records
+       "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
+      {"= !{i32 8, i32 15, i32 13, i32 1,\\1i32 20, !\\2\\3"
+       "!\\2 = !{!\\4, !100}", // multiple input records
+       "= !{i32 1, i32 33, i32 2, !\\1}\n"
+       "!100 = !{i32 1, i32 9, i32 2, !\\1}\n"}, // extra EmptyNodeInput
+      "node shader 'node01' may not have more than one input record \\(2 are "
+      "declared\\)",
+      true);
 
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!24 = !{!25}",                          // input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
-      {"!24 = !{!25, !100}",                    // multiple input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 33, i32 2, "
-       "!14}"}, // extra ThreadNodeInputRecord
-      "node shader 'node03' may not have more than one input record (2 are "
-      "declared)");
+      {"= !{i32 8, i32 15, i32 13, i32 2,([^\n]*)i32 20, !([0-9]+)(.*)"
+       "!\\2 = !{!([0-9]+)}",                   // input records
+       "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
+      {"= !{i32 8, i32 15, i32 13, i32 2,\\1i32 20, !\\2\\3"
+       "!\\2 = !{!\\4, !100}", // multiple input records
+       "= !{i32 1, i32 33, i32 2, !\\1}\n"
+       "!100 = !{i32 1, i32 65, i32 2, !\\1}\n"}, // extra GroupNodeInputRecords
+      "node shader 'node02' may not have more than one input record \\(2 are "
+      "declared\\)",
+      true);
+
   RewriteAssemblyCheckMsg(
       L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
       pArguments.data(), 2, nullptr, 0,
-      {"!24 = !{!25}",                          // input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n"}, // end of output
-      {"!24 = !{!25, !100}",                    // multiple input records
-       "!25 = !{i32 1, i32 33, i32 2, !14}\n!100 = !{i32 1, i32 9, i32 2, "
-       "!14}"}, // extra EmptyNodeInput
-      "node shader 'node03' may not have more than one input record (2 are "
-      "declared)");
+      {"= !{i32 8, i32 15, i32 13, i32 2,([^\n]*)i32 20, !([0-9]+)(.*)"
+       "!\\2 = !{!([0-9]+)}",                   // input records
+       "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
+      {"= !{i32 8, i32 15, i32 13, i32 2,\\1i32 20, !\\2\\3"
+       "!\\2 = !{!\\4, !100}", // multiple input records
+       "= !{i32 1, i32 33, i32 2, !\\1}\n"
+       "!100 = !{i32 1, i32 9, i32 2, !\\1}\n"}, // extra EmptyNodeInput
+      "node shader 'node02' may not have more than one input record \\(2 are "
+      "declared\\)",
+      true);
+
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"= !{i32 8, i32 15, i32 13, i32 3,([^\n]*)i32 20, !([0-9]+)(.*)"
+       "!\\2 = !{!([0-9]+)}",                   // input records
+       "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
+      {"= !{i32 8, i32 15, i32 13, i32 3,\\1i32 20, !\\2\\3"
+       "!\\2 = !{!\\4, !100}", // multiple input records
+       "= !{i32 1, i32 33, i32 2, !\\1}\n"
+       "!100 = !{i32 1, i32 33, i32 2, !\\1}\n"}, // extra ThreadNodeInputRecord
+      "node shader 'node03' may not have more than one input record \\(2 are "
+      "declared\\)",
+      true);
+
+  RewriteAssemblyCheckMsg(
+      L"..\\DXILValidation\\node_input_compatibility.hlsl", "lib_6_8",
+      pArguments.data(), 2, nullptr, 0,
+      {"= !{i32 8, i32 15, i32 13, i32 3,([^\n]*)i32 20, !([0-9]+)(.*)"
+       "!\\2 = !{!([0-9]+)}",                   // input records
+       "= !{i32 1, i32 33, i32 2, !([0-9]+)}"}, // end of output
+      {"= !{i32 8, i32 15, i32 13, i32 3,\\1i32 20, !\\2\\3"
+       "!\\2 = !{!\\4, !100}", // multiple input records
+       "= !{i32 1, i32 33, i32 2, !\\1}\n"
+       "!100 = !{i32 1, i32 9, i32 2, !\\1}\n"}, // extra EmptyNodeInput
+      "node shader 'node03' may not have more than one input record \\(2 are "
+      "declared\\)",
+      true);
 }
 
 TEST_F(ValidationTest, CacheInitWithMinPrec) {
@@ -4484,4 +4594,1937 @@ TEST_F(ValidationTest, CacheInitWithLowPrec) {
       return;
   // Ensures type cache is property initialized when in exact low-precision mode
   TestCheck(L"..\\DXILValidation\\val-dx-type-lowprec.ll");
+}
+
+TEST_F(ValidationTest, PSVStringTableReorder) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
+                "ps_6_0", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update string table.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+
+  uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
+  PSVRuntimeInfo3 *PSVInfo =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(2u, PSVInfo->SigInputElements);
+  PSVPtr += PSVRuntimeInfo_size / 4;
+  uint32_t ResourceCount = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(0u, ResourceCount);
+  uint32_t StringTableSize = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(12u, StringTableSize);
+  const char *StringTable = (const char *)PSVPtr;
+  VERIFY_ARE_EQUAL('\0', StringTable[0]);
+  PSVPtr += StringTableSize / 4;
+  uint32_t SemanticIndexTableEntries = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(1u, SemanticIndexTableEntries);
+  PSVPtr += sizeof(SemanticIndexTableEntries) / 4;
+  uint32_t PSVSignatureElement_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVSignatureElement0), PSVSignatureElement_size);
+  PSVSignatureElement0 *SigInput =
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr);
+  PSVSignatureElement0 *SigInput1 = SigInput + 1;
+  PSVSignatureElement0 *SigOutput = SigInput + 2;
+  // Update StringTable only.
+  const char OrigStringTable[12] = {0,   'A', 0,   'B', 0, 'm',
+                                    'a', 'i', 'n', 0,   0, 0};
+  VERIFY_ARE_EQUAL(0, memcmp(OrigStringTable, StringTable, 12));
+  const char UpdatedStringTable[12] = {'B', 0,   'A', 0, 'm', 'a',
+                                       'i', 'n', 0,   0, 0,   0};
+  memcpy((void *)StringTable, (void *)UpdatedStringTable, 12);
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedTableResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedTableResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedTableResult);
+  VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(
+      pUpdatedTableResult,
+      {"error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: A",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 1",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: B",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 1",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'EntryFunctionName' between 'PSV0' "
+       "part:('ain') and DXIL module:('main')",
+       "error: In 'StringTable', 'A' is not used",
+       "error: In 'StringTable', 'main' is not used",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+
+  // Update string table index.
+  SigInput->SemanticName = 2;
+  SigInput1->SemanticName = 0;
+  PSVInfo->EntryFunctionName = 4;
+  SigOutput->SemanticName = 1;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Create unused name in String table.
+  PSVInfo->EntryFunctionName = UINT32_MAX;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedTableResult2;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram, Flags, &pUpdatedTableResult2));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedTableResult2);
+  VERIFY_SUCCEEDED(pUpdatedTableResult2->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(
+      pUpdatedTableResult2,
+      {
+          "In 'PSV0 part', 'EntryFunctionName' is not well-formed",
+          "error: In 'StringTable', 'main' is not used",
+      },
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+class SemanticIndexRotator {
+  llvm::MutableArrayRef<PSVSignatureElement0> SignatureElements;
+
+public:
+  SemanticIndexRotator(PSVSignatureElement0 *SigInput,
+                       unsigned NumSignatureElements)
+      : SignatureElements(SigInput, NumSignatureElements) {}
+
+  void Rotate(uint32_t SemanticIndexTableEntries) {
+    for (unsigned i = 0; i < SignatureElements.size(); ++i)
+      if (SignatureElements[i].SemanticIndexes == 0)
+        SignatureElements[i].SemanticIndexes = SemanticIndexTableEntries - 1;
+      else
+        SignatureElements[i].SemanticIndexes =
+            SignatureElements[i].SemanticIndexes - 1;
+  }
+  void Clear(unsigned Index) {
+    for (unsigned i = 0; i < SignatureElements.size(); ++i)
+      SignatureElements[i].SemanticIndexes = Index;
+  }
+};
+
+TEST_F(ValidationTest, PSVSemanticIndexTableReorder) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXILValidation\\hs_signatures.hlsl", "hs_6_0", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Update input signature semantic index table.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+
+  uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
+  PSVRuntimeInfo3 *PSVInfo =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(PSVInfo->SigInputElements, 3u);
+  VERIFY_ARE_EQUAL(PSVInfo->SigOutputElements, 3u);
+  VERIFY_ARE_EQUAL(PSVInfo->SigPatchConstOrPrimElements, 2u);
+  PSVPtr += PSVRuntimeInfo_size / 4;
+  uint32_t ResourceCount = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(ResourceCount, 0u);
+
+  uint32_t StringTableSize = *(PSVPtr++);
+  PSVPtr += StringTableSize / 4;
+
+  uint32_t SemanticIndexTableEntries = *(PSVPtr++);
+  llvm::MutableArrayRef<uint32_t> SemanticTable(const_cast<uint32_t *>(PSVPtr),
+                                                SemanticIndexTableEntries);
+
+  PSVPtr += SemanticIndexTableEntries;
+
+  uint32_t PSVSignatureElement_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(PSVSignatureElement_size, sizeof(PSVSignatureElement0));
+
+  SemanticIndexRotator InputRotator(
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr),
+      PSVInfo->SigInputElements);
+
+  PSVPtr += PSVSignatureElement_size * PSVInfo->SigInputElements / 4;
+  SemanticIndexRotator OutputRotator(
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr),
+      PSVInfo->SigOutputElements);
+
+  PSVPtr += PSVSignatureElement_size * PSVInfo->SigOutputElements / 4;
+  SemanticIndexRotator PatchConstOrPrimRotator(
+      const_cast<PSVSignatureElement0 *>((const PSVSignatureElement0 *)PSVPtr),
+      PSVInfo->SigPatchConstOrPrimElements);
+
+  // Update SemanticTable by rotating.
+  std::rotate(SemanticTable.begin(), SemanticTable.begin() + 1,
+              SemanticTable.end());
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pParitalUpdatedResult;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram, Flags, &pParitalUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pParitalUpdatedResult);
+  VERIFY_SUCCEEDED(pParitalUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pParitalUpdatedResult,
+      {"error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 4",
+       "  SemanticKind: Position",
+       "  InterpolationMode: 4",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 4",
+       "  SemanticKind: Position",
+       "  InterpolationMode: 4",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: TEXCOORD",
+       "  SemanticIndex: 3 ",
+       "  IsAllocated: 1",
+       "  StartRow: 1",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 2",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: TEXCOORD",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 1",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 2",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 2",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 3 ",
+       "  IsAllocated: 1",
+       "  StartRow: 2",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigOutputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 4",
+       "  SemanticKind: Position",
+       "  InterpolationMode: 4",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 4",
+       "  SemanticKind: Position",
+       "  InterpolationMode: 4",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigOutputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: TEXCOORD",
+       "  SemanticIndex: 3 ",
+       "  IsAllocated: 1",
+       "  StartRow: 1",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 2",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: TEXCOORD",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 1",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 2",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigOutputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 2",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 3 ",
+       "  IsAllocated: 1",
+       "  StartRow: 2",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigPatchConstantOrPrimElement' "
+       "between 'PSV0' part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 1 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 2",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 2",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigPatchConstantOrPrimElement' "
+       "between 'PSV0' part:('PSVSignatureElement:",
+       "  SemanticName: PN_POSITION",
+       "  SemanticIndex: 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: PN_POSITION",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 1",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."
+
+      },
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  // Update SemanticIndexes.
+  InputRotator.Rotate(SemanticIndexTableEntries);
+  OutputRotator.Rotate(SemanticIndexTableEntries);
+  PatchConstOrPrimRotator.Rotate(SemanticIndexTableEntries);
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Clear SemanticIndexes.
+  InputRotator.Clear(UINT32_MAX);
+  OutputRotator.Clear(UINT32_MAX);
+  PatchConstOrPrimRotator.Clear(UINT32_MAX);
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult2;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult2));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pUpdatedResult2);
+  VERIFY_SUCCEEDED(pUpdatedResult2->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult2,
+      {"error: In 'PSV0 part', 'SemanticIndex' is not well-formed",
+       "error: In 'SemanticIndexTable', '0' is not used",
+       "error: In 'SemanticIndexTable', '2' is not used",
+       "error: In 'SemanticIndexTable', '3' is not used",
+       "error: In 'SemanticIndexTable', '4' is not used",
+       "error: Container part 'Pipeline State Validation' "
+       "does not match expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+struct SimplePSV {
+  PSVRuntimeInfo3 *PSVInfo;
+  llvm::MutableArrayRef<PSVResourceBindInfo1> ResourceBindInfo;
+  llvm::MutableArrayRef<char> StringTable;
+  llvm::MutableArrayRef<uint32_t> SemanticIndexTable;
+
+  llvm::MutableArrayRef<PSVSignatureElement0> SigInput;
+  llvm::MutableArrayRef<PSVSignatureElement0> SigOutput;
+  llvm::MutableArrayRef<PSVSignatureElement0> SigPatchConstOrPrim;
+
+  llvm::MutableArrayRef<uint32_t> InputToOutputTable[DXIL::kNumOutputStreams];
+  llvm::MutableArrayRef<uint32_t> InputToPCOutputTable;
+  llvm::MutableArrayRef<uint32_t> PCInputToOutputTable;
+  llvm::MutableArrayRef<uint32_t> ViewIDOutputMask[DXIL::kNumOutputStreams];
+  llvm::MutableArrayRef<uint32_t> ViewIDPCOutputMask;
+  SimplePSV(const DxilPartHeader *pPSVPart);
+};
+
+SimplePSV::SimplePSV(const DxilPartHeader *pPSVPart) {
+  uint32_t PartSize = pPSVPart->PartSize;
+  uint32_t *PSVPtr =
+      const_cast<uint32_t *>((const uint32_t *)GetDxilPartData(pPSVPart));
+  const uint32_t *PSVPtrEnd = PSVPtr + PartSize / 4;
+
+  uint32_t PSVRuntimeInfoSize = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfoSize);
+  PSVRuntimeInfo3 *PSVInfo3 =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  PSVInfo = PSVInfo3;
+
+  PSVPtr += PSVRuntimeInfoSize / 4;
+  uint32_t ResourceCount = *(PSVPtr++);
+  if (ResourceCount) {
+    uint32_t ResourceBindInfoSize = *(PSVPtr++);
+    VERIFY_ARE_EQUAL(sizeof(PSVResourceBindInfo1), ResourceBindInfoSize);
+    ResourceBindInfo = llvm::MutableArrayRef<PSVResourceBindInfo1>(
+        (PSVResourceBindInfo1 *)PSVPtr, ResourceCount);
+  }
+  PSVPtr += ResourceCount * sizeof(PSVResourceBindInfo1) / 4;
+  uint32_t StringTableSize = *(PSVPtr++);
+  if (StringTableSize)
+    StringTable = llvm::MutableArrayRef<char>((char *)PSVPtr, StringTableSize);
+  PSVPtr += StringTableSize / 4;
+  uint32_t SemanticIndexTableEntries = *(PSVPtr++);
+  if (SemanticIndexTableEntries)
+    SemanticIndexTable = llvm::MutableArrayRef<uint32_t>(
+        (uint32_t *)PSVPtr, SemanticIndexTableEntries);
+  PSVPtr += SemanticIndexTableEntries;
+  if (PSVInfo3->SigInputElements || PSVInfo3->SigOutputElements ||
+      PSVInfo3->SigPatchConstOrPrimElements) {
+    uint32_t PSVSignatureElementSize = *(PSVPtr++);
+    VERIFY_ARE_EQUAL(sizeof(PSVSignatureElement0), PSVSignatureElementSize);
+  }
+  if (PSVInfo3->SigInputElements)
+    SigInput = llvm::MutableArrayRef<PSVSignatureElement0>(
+        (PSVSignatureElement0 *)PSVPtr, PSVInfo->SigInputElements);
+  PSVPtr += PSVInfo3->SigInputElements * sizeof(PSVSignatureElement0) / 4;
+
+  if (PSVInfo3->SigOutputElements)
+    SigOutput = llvm::MutableArrayRef<PSVSignatureElement0>(
+        (PSVSignatureElement0 *)PSVPtr, PSVInfo->SigOutputElements);
+  PSVPtr += PSVInfo3->SigOutputElements * sizeof(PSVSignatureElement0) / 4;
+
+  if (PSVInfo3->SigPatchConstOrPrimElements)
+    SigPatchConstOrPrim = llvm::MutableArrayRef<PSVSignatureElement0>(
+        (PSVSignatureElement0 *)PSVPtr, PSVInfo->SigPatchConstOrPrimElements);
+  PSVPtr +=
+      PSVInfo3->SigPatchConstOrPrimElements * sizeof(PSVSignatureElement0) / 4;
+
+  if (PSVInfo3->UsesViewID) {
+
+    for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
+      if (PSVInfo3->SigOutputVectors[i] == 0)
+        continue;
+      ViewIDOutputMask[i] = llvm::MutableArrayRef<uint32_t>(
+          (uint32_t *)PSVPtr,
+          llvm::RoundUpToAlignment(PSVInfo3->SigOutputVectors[i], 8) / 8);
+      PSVPtr += ViewIDOutputMask[i].size();
+    }
+    if ((PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
+         PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh)) &&
+        PSVInfo3->SigPatchConstOrPrimVectors != 0) {
+      ViewIDPCOutputMask = llvm::MutableArrayRef<uint32_t>(
+          (uint32_t *)PSVPtr,
+          llvm::RoundUpToAlignment(PSVInfo3->SigPatchConstOrPrimVectors, 8) /
+              8);
+      PSVPtr += ViewIDPCOutputMask.size();
+    }
+  }
+
+  for (unsigned i = 0; i < DXIL::kNumOutputStreams; i++) {
+    if (PSVInfo3->SigInputVectors == 0 || PSVInfo3->SigOutputVectors[i] == 0)
+      continue;
+    InputToOutputTable[i] = llvm::MutableArrayRef<uint32_t>(
+        (uint32_t *)PSVPtr,
+        4 * PSVInfo3->SigInputVectors *
+            llvm::RoundUpToAlignment(PSVInfo3->SigOutputVectors[i], 8) / 8);
+    PSVPtr += InputToOutputTable[i].size();
+  }
+  if ((PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Hull) ||
+       PSVInfo3->ShaderStage == static_cast<uint8_t>(PSVShaderKind::Mesh)) &&
+      PSVInfo3->SigInputVectors != 0 &&
+      PSVInfo3->SigPatchConstOrPrimVectors != 0) {
+    InputToPCOutputTable = llvm::MutableArrayRef<uint32_t>(
+        (uint32_t *)PSVPtr,
+        4 * PSVInfo3->SigInputVectors *
+            llvm::RoundUpToAlignment(PSVInfo3->SigPatchConstOrPrimVectors, 8) /
+            8);
+    PSVPtr += InputToPCOutputTable.size();
+  } else if (PSVInfo3->ShaderStage ==
+                 static_cast<uint8_t>(PSVShaderKind::Domain) &&
+             PSVInfo3->SigOutputVectors[0] != 0 &&
+             PSVInfo3->SigPatchConstOrPrimVectors != 0) {
+    PCInputToOutputTable = llvm::MutableArrayRef<uint32_t>(
+        (uint32_t *)PSVPtr,
+        4 * PSVInfo3->SigPatchConstOrPrimVectors *
+            llvm::RoundUpToAlignment(PSVInfo3->SigOutputVectors[0], 8) / 8);
+    PSVPtr += PCInputToOutputTable.size();
+  }
+  VERIFY_ARE_EQUAL(PSVPtr, PSVPtrEnd);
+}
+
+TEST_F(ValidationTest, PSVContentValidationVS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_VS.hlsl", "vs_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Get PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.SigInput[0].InterpolationMode = 20;
+  PSV.SigOutput[0].InterpolationMode = 20;
+  PSV.ResourceBindInfo[0].ResFlags = 20;
+  memset(PSV.InputToOutputTable[0].data(), 0,
+         PSV.InputToOutputTable[0].size() * sizeof(uint32_t));
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedTableResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedTableResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedTableResult);
+  VERIFY_SUCCEEDED(pUpdatedTableResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(
+      pUpdatedTableResult,
+      {"error: DXIL container mismatch for 'ResourceBindInfo' between 'PSV0' "
+       "part:('PSVResourceBindInfo:",
+       "  Space: 0",
+       "  LowerBound: 5",
+       "  UpperBound: 5",
+       "  ResType: CBV",
+       "  ResKind: CBuffer",
+       "  ResFlags: ",
+       "') and DXIL module:('PSVResourceBindInfo:",
+       "  Space: 0",
+       "  LowerBound: 5",
+       "  UpperBound: 5",
+       "  ResType: CBV",
+       "  ResKind: CBuffer",
+       "  ResFlags: None",
+       "')",
+       "error: DXIL container mismatch for 'SigInputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: POSITION",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 20",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: POSITION",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'SigOutputElement' between 'PSV0' "
+       "part:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 20",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: NORMAL",
+       "  SemanticIndex: 0 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 0",
+       "  Rows: 1",
+       "  Cols: 3",
+       "  SemanticKind: Arbitrary",
+       "  InterpolationMode: 2",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'ViewIDState' between 'PSV0' "
+       "part:('Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] :  None",
+       "  Inputs[1] influencing Outputs[0] :  None",
+       "  Inputs[2] influencing Outputs[0] :  None",
+       "  Inputs[3] influencing Outputs[0] :  None",
+       "  Inputs[4] influencing Outputs[0] :  None",
+       "  Inputs[5] influencing Outputs[0] :  None",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] :  None",
+       "  Inputs[9] influencing Outputs[0] :  None",
+       "  Inputs[10] influencing Outputs[0] :  None",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "') and DXIL module:('Outputs affected by inputs as a table of bitmasks "
+       "for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 8  9  10  11 ",
+       "  Inputs[1] influencing Outputs[0] : 8  9  10  11 ",
+       "  Inputs[2] influencing Outputs[0] : 8  9  10  11 ",
+       "  Inputs[3] influencing Outputs[0] :  None",
+       "  Inputs[4] influencing Outputs[0] : 0  1  2 ",
+       "  Inputs[5] influencing Outputs[0] : 0  1  2 ",
+       "  Inputs[6] influencing Outputs[0] : 0  1  2 ",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 4 ",
+       "  Inputs[9] influencing Outputs[0] : 5 ",
+       "  Inputs[10] influencing Outputs[0] :  None",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationHS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_HS.hlsl", "hs_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Get PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.SigPatchConstOrPrim[0].InterpolationMode = 20;
+  memset(PSV.InputToPCOutputTable.data(), 0,
+         PSV.InputToPCOutputTable.size() * sizeof(uint32_t));
+  memset(PSV.ViewIDPCOutputMask.data(), 0,
+         PSV.ViewIDPCOutputMask.size() * sizeof(uint32_t));
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'SigPatchConstantOrPrimElement' "
+       "between 'PSV0' part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 3",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 20",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 3",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'ViewIDState' between 'PSV0' "
+       "part:('Outputs affected by ViewID as a bitmask for stream 0:",
+       "   ViewID influencing Outputs[0] : 8  9  10 ",
+       "PCOutputs affected by ViewID as a bitmask:",
+       "  ViewID influencing PCOutputs :  None",
+       "Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 0 ",
+       "  Inputs[1] influencing Outputs[0] : 1 ",
+       "  Inputs[2] influencing Outputs[0] : 2 ",
+       "  Inputs[3] influencing Outputs[0] : 3 ",
+       "  Inputs[4] influencing Outputs[0] : 4 ",
+       "  Inputs[5] influencing Outputs[0] : 5 ",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 8 ",
+       "  Inputs[9] influencing Outputs[0] : 9 ",
+       "  Inputs[10] influencing Outputs[0] : 10 ",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "Patch constant outputs affected by inputs as a table of bitmasks:",
+       "Inputs contributing to computation of PatchConstantOutputs:",
+       "  Inputs[0] influencing PatchConstantOutputs :  None",
+       "  Inputs[1] influencing PatchConstantOutputs :  None",
+       "  Inputs[2] influencing PatchConstantOutputs :  None",
+       "  Inputs[3] influencing PatchConstantOutputs :  None",
+       "  Inputs[4] influencing PatchConstantOutputs :  None",
+       "  Inputs[5] influencing PatchConstantOutputs :  None",
+       "  Inputs[6] influencing PatchConstantOutputs :  None",
+       "  Inputs[7] influencing PatchConstantOutputs :  None",
+       "  Inputs[8] influencing PatchConstantOutputs :  None",
+       "  Inputs[9] influencing PatchConstantOutputs :  None",
+       "  Inputs[10] influencing PatchConstantOutputs :  None",
+       "  Inputs[11] influencing PatchConstantOutputs :  None",
+       "') and DXIL module:('Outputs affected by ViewID as a bitmask for "
+       "stream 0:",
+       "   ViewID influencing Outputs[0] : 8  9  10 ",
+       "PCOutputs affected by ViewID as a bitmask:",
+       "  ViewID influencing PCOutputs : 12 ",
+       "Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 0 ",
+       "  Inputs[1] influencing Outputs[0] : 1 ",
+       "  Inputs[2] influencing Outputs[0] : 2 ",
+       "  Inputs[3] influencing Outputs[0] : 3 ",
+       "  Inputs[4] influencing Outputs[0] : 4 ",
+       "  Inputs[5] influencing Outputs[0] : 5 ",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 8 ",
+       "  Inputs[9] influencing Outputs[0] : 9 ",
+       "  Inputs[10] influencing Outputs[0] : 10 ",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "Patch constant outputs affected by inputs as a table of bitmasks:",
+       "Inputs contributing to computation of PatchConstantOutputs:",
+       "  Inputs[0] influencing PatchConstantOutputs : 3 ",
+       "  Inputs[1] influencing PatchConstantOutputs :  None",
+       "  Inputs[2] influencing PatchConstantOutputs :  None",
+       "  Inputs[3] influencing PatchConstantOutputs :  None",
+       "  Inputs[4] influencing PatchConstantOutputs :  None",
+       "  Inputs[5] influencing PatchConstantOutputs :  None",
+       "  Inputs[6] influencing PatchConstantOutputs :  None",
+       "  Inputs[7] influencing PatchConstantOutputs :  None",
+       "  Inputs[8] influencing PatchConstantOutputs :  None",
+       "  Inputs[9] influencing PatchConstantOutputs :  None",
+       "  Inputs[10] influencing PatchConstantOutputs :  None",
+       "  Inputs[11] influencing PatchConstantOutputs :  None",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationDS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_DS.hlsl", "ds_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Get PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.SigPatchConstOrPrim[0].InterpolationMode = 20;
+  memset(PSV.PCInputToOutputTable.data(), 0,
+         PSV.PCInputToOutputTable.size() * sizeof(uint32_t));
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'SigPatchConstantOrPrimElement' "
+       "between 'PSV0' part:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 3",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 20",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "') and DXIL module:('PSVSignatureElement:",
+       "  SemanticName: ",
+       "  SemanticIndex: 0 1 2 ",
+       "  IsAllocated: 1",
+       "  StartRow: 0",
+       "  StartCol: 3",
+       "  Rows: 3",
+       "  Cols: 1",
+       "  SemanticKind: TessFactor",
+       "  InterpolationMode: 0",
+       "  OutputStream: 0",
+       "  ComponentType: 3",
+       "  DynamicIndexMask: 0",
+       "')",
+       "error: DXIL container mismatch for 'ViewIDState' between 'PSV0' "
+       "part:('Outputs affected by inputs as a table of bitmasks for stream "
+       "0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 0 ",
+       "  Inputs[1] influencing Outputs[0] : 1 ",
+       "  Inputs[2] influencing Outputs[0] : 2 ",
+       "  Inputs[3] influencing Outputs[0] : 3 ",
+       "  Inputs[4] influencing Outputs[0] : 4 ",
+       "  Inputs[5] influencing Outputs[0] : 5 ",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 8 ",
+       "  Inputs[9] influencing Outputs[0] : 9 ",
+       "  Inputs[10] influencing Outputs[0] : 10 ",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "  Inputs[12] influencing Outputs[0] :  None",
+       "  Inputs[13] influencing Outputs[0] :  None",
+       "  Inputs[14] influencing Outputs[0] :  None",
+       "  Inputs[15] influencing Outputs[0] :  None",
+       "Outputs affected by patch constant inputs as a table of bitmasks:",
+       "PatchConstantInputs contributing to computation of Outputs:",
+       "  PatchConstantInputs[0] influencing Outputs :  None",
+       "  PatchConstantInputs[1] influencing Outputs :  None",
+       "  PatchConstantInputs[2] influencing Outputs :  None",
+       "  PatchConstantInputs[3] influencing Outputs :  None",
+       "  PatchConstantInputs[4] influencing Outputs :  None",
+       "  PatchConstantInputs[5] influencing Outputs :  None",
+       "  PatchConstantInputs[6] influencing Outputs :  None",
+       "  PatchConstantInputs[7] influencing Outputs :  None",
+       "  PatchConstantInputs[8] influencing Outputs :  None",
+       "  PatchConstantInputs[9] influencing Outputs :  None",
+       "  PatchConstantInputs[10] influencing Outputs :  None",
+       "  PatchConstantInputs[11] influencing Outputs :  None",
+       "  PatchConstantInputs[12] influencing Outputs :  None",
+       "  PatchConstantInputs[13] influencing Outputs :  None",
+       "  PatchConstantInputs[14] influencing Outputs :  None",
+       "  PatchConstantInputs[15] influencing Outputs :  None",
+       "') and DXIL module:('Outputs affected by inputs as a table of "
+       "bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:",
+       "  Inputs[0] influencing Outputs[0] : 0 ",
+       "  Inputs[1] influencing Outputs[0] : 1 ",
+       "  Inputs[2] influencing Outputs[0] : 2 ",
+       "  Inputs[3] influencing Outputs[0] : 3 ",
+       "  Inputs[4] influencing Outputs[0] : 4 ",
+       "  Inputs[5] influencing Outputs[0] : 5 ",
+       "  Inputs[6] influencing Outputs[0] :  None",
+       "  Inputs[7] influencing Outputs[0] :  None",
+       "  Inputs[8] influencing Outputs[0] : 8 ",
+       "  Inputs[9] influencing Outputs[0] : 9 ",
+       "  Inputs[10] influencing Outputs[0] : 10 ",
+       "  Inputs[11] influencing Outputs[0] :  None",
+       "  Inputs[12] influencing Outputs[0] :  None",
+       "  Inputs[13] influencing Outputs[0] :  None",
+       "  Inputs[14] influencing Outputs[0] :  None",
+       "  Inputs[15] influencing Outputs[0] :  None",
+       "Outputs affected by patch constant inputs as a table of bitmasks:",
+       "PatchConstantInputs contributing to computation of Outputs:",
+       "  PatchConstantInputs[0] influencing Outputs :  None",
+       "  PatchConstantInputs[1] influencing Outputs :  None",
+       "  PatchConstantInputs[2] influencing Outputs :  None",
+       "  PatchConstantInputs[3] influencing Outputs : 4  5 ",
+       "  PatchConstantInputs[4] influencing Outputs :  None",
+       "  PatchConstantInputs[5] influencing Outputs :  None",
+       "  PatchConstantInputs[6] influencing Outputs :  None",
+       "  PatchConstantInputs[7] influencing Outputs : 0  1  2  3 ",
+       "  PatchConstantInputs[8] influencing Outputs :  None",
+       "  PatchConstantInputs[9] influencing Outputs :  None",
+       "  PatchConstantInputs[10] influencing Outputs :  None",
+       "  PatchConstantInputs[11] influencing Outputs :  None",
+       "  PatchConstantInputs[12] influencing Outputs : 8  9  10 ",
+       "  PatchConstantInputs[13] influencing Outputs :  None",
+       "  PatchConstantInputs[14] influencing Outputs :  None",
+       "  PatchConstantInputs[15] influencing Outputs :  None",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationGS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_GS.hlsl", "gs_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Get PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+  // Update PSV.
+  PSV.PSVInfo->MaxVertexCount = 2;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'PSVRuntimeInfo' between 'PSV0' "
+       "part:('PSVRuntimeInfo:",
+       " Geometry Shader",
+       " InputPrimitive=point",
+       " OutputTopology=triangle",
+       " OutputStreamMask=1",
+       " OutputPositionPresent=1",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 3",
+       " SigOutputElements: 3",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 3",
+       " SigOutputVectors[0]: 3",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "') and DXIL module:('PSVRuntimeInfo:",
+       " Geometry Shader",
+       " InputPrimitive=point",
+       " OutputTopology=triangle",
+       " OutputStreamMask=1",
+       " OutputPositionPresent=1",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 3",
+       " SigOutputElements: 3",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 3",
+       " SigOutputVectors[0]: 3",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationPS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_PS.hlsl", "ps_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Get PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.PSVInfo->PS.DepthOutput = 1;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'PSVRuntimeInfo' between 'PSV0' "
+       "part:('PSVRuntimeInfo:",
+       " Pixel Shader",
+       " DepthOutput=0",
+       " SampleFrequency=1",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 2",
+       " SigOutputElements: 1",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 2",
+       " SigOutputVectors[0]: 1",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "') and DXIL module:('PSVRuntimeInfo:",
+       " Pixel Shader",
+       " DepthOutput=1",
+       " SampleFrequency=1",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 2",
+       " SigOutputElements: 1",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 2",
+       " SigOutputVectors[0]: 1",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationCS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Get PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+  // Update PSV.
+  PSV.PSVInfo->NumThreadsX = 1;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'PSVRuntimeInfo' between 'PSV0' "
+       "part:('PSVRuntimeInfo:",
+       " Compute Shader",
+       " NumThreads=(128,1,1)",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 0",
+       " SigOutputElements: 0",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 0",
+       " SigOutputVectors[0]: 0",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "') and DXIL module:('PSVRuntimeInfo:",
+       " Compute Shader",
+       " NumThreads=(1,1,1)",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 0",
+       " SigOutputElements: 0",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 0",
+       " SigOutputVectors[0]: 0",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationMS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_MS.hlsl", "ms_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Get PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+  // Update PSV.
+  memset(PSV.ViewIDOutputMask[0].data(), 0,
+         PSV.ViewIDOutputMask[0].size() * sizeof(uint32_t));
+  memset(PSV.ViewIDPCOutputMask.data(), 0,
+         PSV.ViewIDPCOutputMask.size() * sizeof(uint32_t));
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'ViewIDState' between 'PSV0' "
+       "part:('Outputs affected by ViewID as a bitmask for stream 0:",
+       "   ViewID influencing Outputs[0] :  None",
+       "PCOutputs affected by ViewID as a bitmask:",
+       "  ViewID influencing PCOutputs :  None",
+       "Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:  None",
+       "') and DXIL module:('Outputs affected by ViewID as a bitmask for "
+       "stream 0:",
+       "   ViewID influencing Outputs[0] : 0  1  2  3  4  8  12  16 ",
+       "PCOutputs affected by ViewID as a bitmask:",
+       "  ViewID influencing PCOutputs : 3 ",
+       "Outputs affected by inputs as a table of bitmasks for stream 0:",
+       "Inputs contributing to computation of Outputs[0]:  None", "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, PSVContentValidationAS) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_AS.hlsl", "as_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  // Get PSV part.
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  SimplePSV PSV(pPSVPart);
+
+  // Update PSV.
+  PSV.PSVInfo->AS.PayloadSizeInBytes = 0;
+
+  // Run validation again.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult,
+      {"error: DXIL container mismatch for 'PSVRuntimeInfo' between 'PSV0' "
+       "part:('PSVRuntimeInfo:",
+       " Amplification Shader",
+       " NumThreads=(32,1,1)",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 0",
+       " SigOutputElements: 0",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 0",
+       " SigOutputVectors[0]: 0",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "') and DXIL module:('PSVRuntimeInfo:",
+       " Amplification Shader",
+       " NumThreads=(32,1,1)",
+       " MinimumExpectedWaveLaneCount: 0",
+       " MaximumExpectedWaveLaneCount: 4294967295",
+       " UsesViewID: false",
+       " SigInputElements: 0",
+       " SigOutputElements: 0",
+       " SigPatchConstOrPrimElements: 0",
+       " SigInputVectors: 0",
+       " SigOutputVectors[0]: 0",
+       " SigOutputVectors[1]: 0",
+       " SigOutputVectors[2]: 0",
+       " SigOutputVectors[3]: 0",
+       " EntryFunctionName: main",
+       "')",
+       "error: Container part 'Pipeline State Validation' does not match "
+       "expected for module.",
+       "Validation failed."},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+struct SimpleContainer {
+  hlsl::DxilContainerHeader *Header;
+  std::vector<uint32_t> PartOffsets;
+  std::vector<const DxilPartHeader *> PartHeaders;
+  SimpleContainer(void *Ptr) {
+    Header = (hlsl::DxilContainerHeader *)Ptr;
+    hlsl::DxilPartIterator pPartIter(nullptr, 0);
+    pPartIter = hlsl::begin(Header);
+    for (unsigned i = 0; i < Header->PartCount; ++i) {
+      VERIFY_IS_TRUE(pPartIter != hlsl::end(Header));
+      PartOffsets.push_back(
+          (uint32_t)((const char *)(*pPartIter) - (const char *)Header));
+      PartHeaders.push_back((const DxilPartHeader *)(*pPartIter));
+      ++pPartIter;
+    }
+    VERIFY_ARE_EQUAL(pPartIter, hlsl::end(Header));
+  }
+};
+
+TEST_F(ValidationTest, WrongPSVSize) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_AS.hlsl", "as_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  // Make sure the PSV part exists.
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  // Create a new Blob which is 16 bytes larger than the original one.
+  std::vector<char> pProgram2Data(pProgram->GetBufferSize() + 16, 0);
+  // Copy data from the original blob part by part.
+  // Copy all parts to program2.
+  SimpleContainer Container(pProgram->GetBufferPointer());
+  uint32_t PartOffsetsSize = pHeader->PartCount * sizeof(uint32_t);
+  uint32_t Offset = sizeof(hlsl::DxilContainerHeader) + PartOffsetsSize;
+  std::vector<uint32_t> PartOffsets;
+  const uint32_t ExtraSize = 16;
+  // copy all parts to program2.
+  for (unsigned i = 0; i < pHeader->PartCount; ++i) {
+    PartOffsets.emplace_back(Offset);
+    const DxilPartHeader *pPartHeader = Container.PartHeaders[i];
+
+    // Copy part header.
+    memcpy(pProgram2Data.data() + Offset, pPartHeader, sizeof(DxilPartHeader));
+    Offset += sizeof(DxilPartHeader);
+
+    // Copy part content.
+    uint32_t *PartPtr =
+        const_cast<uint32_t *>((const uint32_t *)GetDxilPartData(pPartHeader));
+    memcpy(pProgram2Data.data() + Offset, PartPtr, pPartHeader->PartSize);
+
+    Offset += pPartHeader->PartSize;
+
+    if (pPartHeader->PartFourCC == hlsl::DFCC_PipelineStateValidation) {
+      // Update the size of PSV part.
+      DxilPartHeader *pPSVPartHeader =
+          (DxilPartHeader *)(pProgram2Data.data() + PartOffsets.back());
+      pPSVPartHeader->PartSize += ExtraSize;
+      Offset += ExtraSize;
+    }
+  }
+  // Copy header.
+  pHeader->ContainerSizeInBytes += ExtraSize;
+  memcpy(pProgram2Data.data(), pHeader, sizeof(hlsl::DxilContainerHeader));
+  // Copy partOffsets.
+  memcpy(pProgram2Data.data() + sizeof(hlsl::DxilContainerHeader),
+         PartOffsets.data(), PartOffsetsSize);
+
+  // Create a new Blob from pProgram2Data.
+  CComPtr<IDxcBlobEncoding> pProgram2;
+  CComPtr<IDxcLibrary> pLibrary;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+      pProgram2Data.data(), pProgram2Data.size(), CP_UTF8, &pProgram2));
+
+  // Run validation on updated container.
+  CComPtr<IDxcOperationResult> pUpdatedResult;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram2, Flags, &pUpdatedResult));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult);
+  VERIFY_SUCCEEDED(pUpdatedResult->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+}
+
+TEST_F(ValidationTest, WrongPSVSizeOnZeros) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram;
+  CompileFile(L"..\\DXC\\dumpPSV_PS.hlsl", "ps_6_8", &pProgram);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  hlsl::DxilContainerHeader *pHeader;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  // Make sure the PSV part exists.
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader), hlsl::end(pHeader),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader), pPartIter);
+
+  const DxilPartHeader *pPSVPart = (const DxilPartHeader *)(*pPartIter);
+  const uint32_t *PSVPtr = (const uint32_t *)GetDxilPartData(pPSVPart);
+
+  uint32_t PSVRuntimeInfo_size = *(PSVPtr++);
+  VERIFY_ARE_EQUAL(sizeof(PSVRuntimeInfo3), PSVRuntimeInfo_size);
+  PSVRuntimeInfo3 *PSVInfo =
+      const_cast<PSVRuntimeInfo3 *>((const PSVRuntimeInfo3 *)PSVPtr);
+  VERIFY_ARE_EQUAL(2u, PSVInfo->SigInputElements);
+  PSVPtr += PSVRuntimeInfo_size / 4;
+  uint32_t *ResourceCountPtr = const_cast<uint32_t *>(PSVPtr++);
+  uint32_t ResourceCount = *ResourceCountPtr;
+  VERIFY_ARE_NOT_EQUAL(0u, ResourceCount);
+  uint32_t ResourceBindingsSize = *(PSVPtr++);
+  PSVPtr += (ResourceCount * ResourceBindingsSize) / 4;
+  uint32_t *StringTableSizePtr = const_cast<uint32_t *>(PSVPtr++);
+  uint32_t StringTableSize = *StringTableSizePtr;
+  // Skip string table.
+  PSVPtr += StringTableSize / 4;
+  uint32_t *SemanticIndexTableEntriesPtr = const_cast<uint32_t *>(PSVPtr++);
+  uint32_t SemanticIndexTableEntries = *SemanticIndexTableEntriesPtr;
+
+  *SemanticIndexTableEntriesPtr = 0;
+
+  // Run validation on updated container.
+  CComPtr<IDxcOperationResult> pUpdatedResult1;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult1));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult1);
+  VERIFY_SUCCEEDED(pUpdatedResult1->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult1, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+
+  *SemanticIndexTableEntriesPtr = SemanticIndexTableEntries;
+  *StringTableSizePtr = 0;
+
+  // Run validation on updated container.
+  CComPtr<IDxcOperationResult> pUpdatedResult2;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult2));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult2);
+  VERIFY_SUCCEEDED(pUpdatedResult2->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult2, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+
+  *StringTableSizePtr = StringTableSize;
+  *ResourceCountPtr = 0;
+
+  // Run validation on updated container.
+  CComPtr<IDxcOperationResult> pUpdatedResult3;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pUpdatedResult3));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(pUpdatedResult3);
+  VERIFY_SUCCEEDED(pUpdatedResult3->GetStatus(&status));
+  VERIFY_FAILED(status);
+
+  CheckOperationResultMsgs(
+      pUpdatedResult3, {"In 'DxilContainer', 'PSV0 part' is not well-formed"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+  *ResourceCountPtr = ResourceCount;
+}
+
+TEST_F(ValidationTest, WrongPSVVersion) {
+  if (!m_ver.m_InternalValidator)
+    if (m_ver.SkipDxilVersion(1, 8))
+      return;
+
+  CComPtr<IDxcBlob> pProgram60;
+  std::vector<LPCWSTR> args;
+  args.emplace_back(L"-validator-version");
+  args.emplace_back(L"1.0");
+  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_0", args.data(), args.size(),
+              &pProgram60);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = DxcValidatorFlags_InPlaceEdit;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram60, Flags, &pResult));
+  // Make sure the validation was successful.
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  hlsl::DxilContainerHeader *pHeader60;
+  hlsl::DxilPartIterator pPartIter(nullptr, 0);
+  pHeader60 = (hlsl::DxilContainerHeader *)pProgram60->GetBufferPointer();
+  // Make sure the PSV part exists.
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader60), hlsl::end(pHeader60),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader60), pPartIter);
+
+  CComPtr<IDxcBlob> pProgram68;
+
+  CompileFile(L"..\\DXC\\dumpPSV_CS.hlsl", "cs_6_8", &pProgram68);
+  CComPtr<IDxcOperationResult> pResult2;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram68, Flags, &pResult2));
+  // Make sure the validation was successful.
+  VERIFY_IS_NOT_NULL(pResult);
+  VERIFY_SUCCEEDED(pResult->GetStatus(&status));
+  VERIFY_SUCCEEDED(status);
+
+  hlsl::DxilContainerHeader *pHeader68;
+  pHeader68 = (hlsl::DxilContainerHeader *)pProgram68->GetBufferPointer();
+  // Make sure the PSV part exists.
+  pPartIter =
+      std::find_if(hlsl::begin(pHeader68), hlsl::end(pHeader68),
+                   hlsl::DxilPartIsType(hlsl::DFCC_PipelineStateValidation));
+  VERIFY_ARE_NOT_EQUAL(hlsl::end(pHeader68), pPartIter);
+
+  // Switch the PSV part between 6.0 to 6.8.
+  SimpleContainer Container60(pProgram60->GetBufferPointer());
+  SimpleContainer Container68(pProgram68->GetBufferPointer());
+  uint32_t Container60WithPSV68Size = sizeof(hlsl::DxilContainerHeader) +
+                                      pHeader60->PartCount * sizeof(uint32_t);
+  uint32_t Container68WithPSV60Size = sizeof(hlsl::DxilContainerHeader) +
+                                      pHeader60->PartCount * sizeof(uint32_t);
+  unsigned Container68PartSkipped = 0;
+  for (unsigned i = 0; i < pHeader60->PartCount; ++i) {
+    const DxilPartHeader *pPartHeader60 = Container60.PartHeaders[i];
+    const DxilPartHeader *pPartHeader68 =
+        Container68.PartHeaders[i + Container68PartSkipped];
+    if (pPartHeader68->PartFourCC == hlsl::DFCC_ShaderHash) {
+      Container68PartSkipped++;
+      pPartHeader68 = Container68.PartHeaders[i + Container68PartSkipped];
+    }
+
+    VERIFY_ARE_EQUAL(pPartHeader60->PartFourCC, pPartHeader68->PartFourCC);
+    Container60WithPSV68Size += sizeof(DxilPartHeader);
+    Container68WithPSV60Size += sizeof(DxilPartHeader);
+    if (pPartHeader60->PartFourCC == hlsl::DFCC_PipelineStateValidation) {
+      Container60WithPSV68Size += pPartHeader68->PartSize;
+      Container68WithPSV60Size += pPartHeader60->PartSize;
+    } else {
+      Container60WithPSV68Size += pPartHeader60->PartSize;
+      Container68WithPSV60Size += pPartHeader68->PartSize;
+    }
+  }
+
+  // Create mixed container.
+  std::vector<char> pProgram60WithPSV68Data(Container60WithPSV68Size, 0);
+  std::vector<char> pProgram68WithPSV60Data(Container68WithPSV60Size, 0);
+
+  uint32_t PartOffsetsSize = pHeader60->PartCount * sizeof(uint32_t);
+  uint32_t Offset60 = sizeof(hlsl::DxilContainerHeader) + PartOffsetsSize;
+  std::vector<uint32_t> PartOffsets60;
+  uint32_t Offset68 = sizeof(hlsl::DxilContainerHeader) + PartOffsetsSize;
+  std::vector<uint32_t> PartOffsets68;
+  Container68PartSkipped = 0;
+  for (unsigned i = 0; i < pHeader60->PartCount; ++i) {
+    PartOffsets60.emplace_back(Offset60);
+    PartOffsets68.emplace_back(Offset68);
+
+    const DxilPartHeader *pPartHeader60 = Container60.PartHeaders[i];
+    const DxilPartHeader *pPartHeader68 =
+        Container68.PartHeaders[i + Container68PartSkipped];
+    if (pPartHeader68->PartFourCC == hlsl::DFCC_ShaderHash) {
+      Container68PartSkipped++;
+      pPartHeader68 = Container68.PartHeaders[i + Container68PartSkipped];
+    }
+
+    if (pPartHeader60->PartFourCC == hlsl::DFCC_PipelineStateValidation) {
+      // Copy PSV part from 6.8 to 6.0.
+      memcpy(pProgram60WithPSV68Data.data() + Offset60, pPartHeader68,
+             sizeof(DxilPartHeader));
+      Offset60 += sizeof(DxilPartHeader);
+      memcpy(pProgram60WithPSV68Data.data() + Offset60,
+             GetDxilPartData(pPartHeader68), pPartHeader68->PartSize);
+      Offset60 += pPartHeader68->PartSize;
+      // Copy PSV part from 6.0 to 6.8.
+      memcpy(pProgram68WithPSV60Data.data() + Offset68, pPartHeader60,
+             sizeof(DxilPartHeader));
+      Offset68 += sizeof(DxilPartHeader);
+      memcpy(pProgram68WithPSV60Data.data() + Offset68,
+             GetDxilPartData(pPartHeader60), pPartHeader60->PartSize);
+
+      Offset68 += pPartHeader60->PartSize;
+    } else {
+      // Copy PSV part from 6.0 to 6.0.
+      memcpy(pProgram60WithPSV68Data.data() + Offset60, pPartHeader60,
+             sizeof(DxilPartHeader));
+      Offset60 += sizeof(DxilPartHeader);
+      memcpy(pProgram60WithPSV68Data.data() + Offset60,
+             GetDxilPartData(pPartHeader60), pPartHeader60->PartSize);
+      Offset60 += pPartHeader60->PartSize;
+      // Copy PSV part from 6.8 to 6.8.
+      memcpy(pProgram68WithPSV60Data.data() + Offset68, pPartHeader68,
+             sizeof(DxilPartHeader));
+      Offset68 += sizeof(DxilPartHeader);
+      memcpy(pProgram68WithPSV60Data.data() + Offset68,
+             GetDxilPartData(pPartHeader68), pPartHeader68->PartSize);
+      Offset68 += pPartHeader68->PartSize;
+    }
+  }
+
+  // Copy header.
+  VERIFY_ARE_EQUAL(Container60WithPSV68Size, Offset60);
+  pHeader60->ContainerSizeInBytes = Container60WithPSV68Size;
+  memcpy(pProgram60WithPSV68Data.data(), pHeader60,
+         sizeof(hlsl::DxilContainerHeader));
+  VERIFY_ARE_EQUAL(Container68WithPSV60Size, Offset68);
+  pHeader68->ContainerSizeInBytes = Container68WithPSV60Size;
+  pHeader68->PartCount -= Container68PartSkipped;
+  memcpy(pProgram68WithPSV60Data.data(), pHeader68,
+         sizeof(hlsl::DxilContainerHeader));
+  // Copy partOffsets.
+  memcpy(pProgram60WithPSV68Data.data() + sizeof(hlsl::DxilContainerHeader),
+         PartOffsets60.data(), PartOffsetsSize);
+  memcpy(pProgram68WithPSV60Data.data() + sizeof(hlsl::DxilContainerHeader),
+         PartOffsets68.data(), PartOffsetsSize);
+
+  // Create a new Blob.
+  CComPtr<IDxcBlobEncoding> pProgram60WithPSV68;
+  CComPtr<IDxcLibrary> pLibrary;
+  VERIFY_SUCCEEDED(m_dllSupport.CreateInstance(CLSID_DxcLibrary, &pLibrary));
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+      pProgram60WithPSV68Data.data(), pProgram60WithPSV68Data.size(), CP_UTF8,
+      &pProgram60WithPSV68));
+
+  // Run validation on new containers.
+  CComPtr<IDxcOperationResult> p60WithPSV68Result;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram60WithPSV68, Flags, &p60WithPSV68Result));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(p60WithPSV68Result);
+  VERIFY_SUCCEEDED(p60WithPSV68Result->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(
+      p60WithPSV68Result,
+      {"DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' "
+       "part:('52') and DXIL module:('24')"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
+
+  // Create a new Blob.
+  CComPtr<IDxcBlobEncoding> pProgram68WithPSV60;
+  VERIFY_SUCCEEDED(pLibrary->CreateBlobWithEncodingFromPinned(
+      pProgram68WithPSV60Data.data(), pProgram68WithPSV60Data.size(), CP_UTF8,
+      &pProgram68WithPSV60));
+  CComPtr<IDxcOperationResult> p68WithPSV60Result;
+  VERIFY_SUCCEEDED(
+      pValidator->Validate(pProgram68WithPSV60, Flags, &p68WithPSV60Result));
+  // Make sure the validation was fail.
+  VERIFY_IS_NOT_NULL(p68WithPSV60Result);
+  VERIFY_SUCCEEDED(p68WithPSV60Result->GetStatus(&status));
+  VERIFY_FAILED(status);
+  CheckOperationResultMsgs(
+      p68WithPSV60Result,
+      {"DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' "
+       "part:('24') and DXIL module:('52')"},
+      /*maySucceedAnyway*/ false, /*bRegex*/ false);
 }
