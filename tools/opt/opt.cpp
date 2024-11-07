@@ -387,12 +387,12 @@ int __cdecl main(int argc, char **argv) {
 
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");
-// HLSL Change Starts: add help option.
+  // HLSL Change Starts: add help option.
   if (Help) {
-      cl::PrintHelpMessage();
-      return 2;
+    cl::PrintHelpMessage();
+    return 2;
   }
-// HLSL Change Ends
+  // HLSL Change Ends
 
   if (AnalyzeOnly && NoOutput) {
     errs() << argv[0] << ": analyze mode conflicts with no-output mode.\n";
