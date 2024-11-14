@@ -589,7 +589,8 @@ PassOutput PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-opt-mod-passes");
-  Options.push_back(L"-hlsl-dxil-pix-shader-access-instrumentation,config=U0:0:10i0;U0:1:2i0;.0;0;0.");
+  Options.push_back(L"-hlsl-dxil-pix-shader-access-instrumentation,config=U0:0:"
+                    L"10i0;U0:1:2i0;.0;0;0.");
 
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
@@ -832,7 +833,7 @@ void PixTest::ValidateAccessTrackingMods(const char *hlsl, bool modsExpected) {
   auto code = Compile(m_dllSupport, hlsl, L"ps_6_6", {L"-Od"}, L"main");
   auto result = RunShaderAccessTrackingPass(code).lines;
   bool hasMods = true;
-  for (auto const& line : result)
+  for (auto const &line : result)
     if (line.find("NotModified") != std::string::npos)
       hasMods = false;
   VERIFY_ARE_EQUAL(modsExpected, hasMods);
