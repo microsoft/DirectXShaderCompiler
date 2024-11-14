@@ -204,9 +204,6 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
 }
 
 void DxilAnnotateWithVirtualRegister::AnnotateValues(llvm::Instruction *pI) {
-  if (llvm::dyn_cast<llvm::ExtractElementInst>(pI)) {
-    llvm::dyn_cast<llvm::ExtractElementInst>(pI);
-  }
   if (auto *pAlloca = llvm::dyn_cast<llvm::AllocaInst>(pI)) {
     AnnotateAlloca(pAlloca);
   } else if (!pI->getType()->isPointerTy()) {
