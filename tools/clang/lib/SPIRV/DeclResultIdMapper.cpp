@@ -517,9 +517,10 @@ SpirvLayoutRule getLayoutRuleForExternVar(QualType type,
   return SpirvLayoutRule::Void;
 }
 
-spv::ImageFormat getSpvImageFormat(const VKImageFormatAttr *imageFormatAttr) {
+std::optional<spv::ImageFormat>
+getSpvImageFormat(const VKImageFormatAttr *imageFormatAttr) {
   if (imageFormatAttr == nullptr)
-    return spv::ImageFormat::Unknown;
+    return std::nullopt;
 
   switch (imageFormatAttr->getImageFormat()) {
   case VKImageFormatAttr::unknown:
@@ -1051,7 +1052,7 @@ DeclResultIdMapper::createFnParam(const ParmVarDecl *param,
   fnParamInstr->setContainsAliasComponent(isAlias);
 
   assert(astDecls[param].instr == nullptr);
-  astDecls[param].instr = fnParamInstr;
+  registerVariableForDecl(param, fnParamInstr);
 
   if (spirvOptions.debugInfoRich) {
     // Add DebugLocalVariable information
@@ -1100,7 +1101,7 @@ DeclResultIdMapper::createFnVar(const VarDecl *var,
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
   varInstr->setContainsAliasComponent(isAlias);
-  astDecls[var].instr = varInstr;
+  registerVariableForDecl(var, varInstr);
   return varInstr;
 }
 
@@ -1145,7 +1146,7 @@ DeclResultIdMapper::createFileVar(const VarDecl *var,
   bool isAlias = false;
   (void)getTypeAndCreateCounterForPotentialAliasVar(var, &isAlias);
   varInstr->setContainsAliasComponent(isAlias);
-  astDecls[var].instr = varInstr;
+  registerVariableForDecl(var, varInstr);
 
   createDebugGlobalVariable(varInstr, type, loc, name);
 
@@ -1235,14 +1236,13 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
   VkImageFeatures vkImgFeatures = {
       var->getAttr<VKCombinedImageSamplerAttr>() != nullptr,
       getSpvImageFormat(var->getAttr<VKImageFormatAttr>())};
-  if (vkImgFeatures.format != spv::ImageFormat::Unknown) {
+  if (vkImgFeatures.format) {
     // Legalization is needed to propagate the correct image type for
     // instructions in addition to cases where the resource is assigned to
     // another variable or function parameter
     needsLegalization = true;
   }
-  if (vkImgFeatures.isCombinedImageSampler ||
-      vkImgFeatures.format != spv::ImageFormat::Unknown) {
+  if (vkImgFeatures.isCombinedImageSampler || vkImgFeatures.format) {
     spvContext.registerVkImageFeaturesForSpvVariable(varInstr, vkImgFeatures);
   }
 
@@ -1256,8 +1256,9 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
   }
 
   if (hlsl::IsHLSLResourceType(type)) {
-    if (!areFormatAndTypeCompatible(vkImgFeatures.format,
-                                    hlsl::GetHLSLResourceResultType(type))) {
+    if (!areFormatAndTypeCompatible(
+            vkImgFeatures.format.value_or(spv::ImageFormat::Unknown),
+            hlsl::GetHLSLResourceResultType(type))) {
       emitError("The image format and the sampled type are not compatible.\n"
                 "For the table of compatible types, see "
                 "https://docs.vulkan.org/spec/latest/appendices/"
@@ -1267,7 +1268,7 @@ SpirvVariable *DeclResultIdMapper::createExternVar(const VarDecl *var,
     }
   }
 
-  astDecls[var] = createDeclSpirvInfo(varInstr);
+  registerVariableForDecl(var, createDeclSpirvInfo(varInstr));
 
   createDebugGlobalVariable(varInstr, type, loc, name);
 
@@ -1305,7 +1306,7 @@ SpirvInstruction *DeclResultIdMapper::createResultId(const VarDecl *var) {
   }
 
   SpirvInstruction *init = theEmitter.doExpr(var->getInit());
-  astDecls[var] = createDeclSpirvInfo(init);
+  registerVariableForDecl(var, createDeclSpirvInfo(init));
   return init;
 }
 
@@ -1324,7 +1325,7 @@ DeclResultIdMapper::createOrUpdateStringVar(const VarDecl *var) {
   const StringLiteral *stringLiteral =
       dyn_cast<StringLiteral>(var->getInit()->IgnoreParenCasts());
   SpirvString *init = spvBuilder.getString(stringLiteral->getString());
-  astDecls[var] = createDeclSpirvInfo(init);
+  registerVariableForDecl(var, createDeclSpirvInfo(init));
   return init;
 }
 
@@ -1483,7 +1484,7 @@ SpirvVariable *DeclResultIdMapper::createCTBuffer(const HLSLBufferDecl *decl) {
     if (isResourceType(varDecl->getType()))
       continue;
 
-    astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
+    registerVariableForDecl(varDecl, createDeclSpirvInfo(bufferVar, index++));
   }
   // If it does not contains a member with non-resource type, we do not want to
   // set a dedicated binding number.
@@ -1549,7 +1550,7 @@ SpirvVariable *DeclResultIdMapper::createPushConstant(const VarDecl *decl) {
   }
 
   // Register the VarDecl
-  astDecls[decl] = createDeclSpirvInfo(var);
+  registerVariableForDecl(decl, createDeclSpirvInfo(var));
 
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
@@ -1600,7 +1601,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const VarDecl *decl,
   }
 
   // Register the VarDecl
-  astDecls[decl] = createDeclSpirvInfo(var);
+  registerVariableForDecl(decl, createDeclSpirvInfo(var));
 
   // Do not push this variable into resourceVars since it does not need
   // descriptor set.
@@ -1638,7 +1639,7 @@ DeclResultIdMapper::createShaderRecordBuffer(const HLSLBufferDecl *decl,
     if (isResourceType(varDecl->getType()))
       continue;
 
-    astDecls[varDecl] = createDeclSpirvInfo(bufferVar, index++);
+    registerVariableForDecl(varDecl, createDeclSpirvInfo(bufferVar, index++));
   }
   return bufferVar;
 }
@@ -1688,7 +1689,7 @@ void DeclResultIdMapper::createGlobalsCBuffer(const VarDecl *var) {
       if (isResourceType(varDecl->getType()))
         continue;
 
-      astDecls[varDecl] = createDeclSpirvInfo(globals, index++);
+      registerVariableForDecl(varDecl, createDeclSpirvInfo(globals, index++));
     }
   }
 
@@ -1801,7 +1802,7 @@ DeclResultIdMapper::getCounterVarFields(const DeclaratorDecl *decl) {
 void DeclResultIdMapper::registerSpecConstant(const VarDecl *decl,
                                               SpirvInstruction *specConstant) {
   specConstant->setRValue();
-  astDecls[decl] = createDeclSpirvInfo(specConstant);
+  registerVariableForDecl(decl, createDeclSpirvInfo(specConstant));
 }
 
 void DeclResultIdMapper::createCounterVar(
@@ -4817,7 +4818,7 @@ void DeclResultIdMapper::tryToCreateImplicitConstVar(const ValueDecl *decl) {
   SpirvInstruction *constVal =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, val->getInt());
   constVal->setRValue(true);
-  astDecls[varDecl].instr = constVal;
+  registerVariableForDecl(varDecl, constVal);
 }
 
 void DeclResultIdMapper::decorateWithIntrinsicAttrs(
@@ -4878,6 +4879,21 @@ void DeclResultIdMapper::setInterlockExecutionMode(spv::ExecutionMode mode) {
 spv::ExecutionMode DeclResultIdMapper::getInterlockExecutionMode() {
   return interlockExecutionMode.getValueOr(
       spv::ExecutionMode::PixelInterlockOrderedEXT);
+}
+
+void DeclResultIdMapper::registerVariableForDecl(const VarDecl *var,
+                                                 SpirvInstruction *varInstr) {
+  DeclSpirvInfo spirvInfo;
+  spirvInfo.instr = varInstr;
+  spirvInfo.indexInCTBuffer = -1;
+  registerVariableForDecl(var, spirvInfo);
+}
+
+void DeclResultIdMapper::registerVariableForDecl(const VarDecl *var,
+                                                 DeclSpirvInfo spirvInfo) {
+  for (const auto *v : var->redecls()) {
+    astDecls[v] = spirvInfo;
+  }
 }
 
 void DeclResultIdMapper::copyHullOutStageVarsToOutputPatch(
