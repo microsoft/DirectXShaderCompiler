@@ -3033,9 +3033,9 @@ struct AllocaMetadata {
 AllocaMetadata
 FindAllocaRelatedMetadata(std::vector<std::string> const &lines) {
 
-  constexpr char *allocaMetaDataAssignment = "= !{i32 1, ";
-  constexpr char *allocaRegWRiteAssignment = "= !{i32 2, !";
-  constexpr char *allocaRegWriteTag = "!pix-alloca-reg-write !";
+  const char *allocaMetaDataAssignment = "= !{i32 1, ";
+  const char *allocaRegWRiteAssignment = "= !{i32 2, !";
+  const char *allocaRegWriteTag = "!pix-alloca-reg-write !";
 
   AllocaMetadata ret;
   for (auto const &line : lines) {
