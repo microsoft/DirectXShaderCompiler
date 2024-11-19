@@ -1442,37 +1442,16 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   // This will allow the entry-point name to be something like
   // myNamespace::myEntrypointFunc.
   std::string funcName = getFnName(decl);
-  std::string debugFuncName = funcName;
-
+  std::string srcFuncName = "src." + funcName;
   SpirvFunction *func = declIdMapper.getOrRegisterFn(decl);
+  SpirvFunction *srcFunc = nullptr;
 
   auto loc = decl->getLocStart();
   auto range = decl->getSourceRange();
   RichDebugInfo *info = nullptr;
   SpirvDebugFunction *debugFunction = nullptr;
+  SpirvDebugFunction *srcDebugFunction = nullptr;
   SpirvDebugInstruction *outer_scope = spvContext.getCurrentLexicalScope();
-  const auto &sm = astContext.getSourceManager();
-  if (spirvOptions.debugInfoRich && decl->hasBody()) {
-    const uint32_t line = sm.getPresumedLineNumber(loc);
-    const uint32_t column = sm.getPresumedColumnNumber(loc);
-    info = getOrCreateRichDebugInfo(loc);
-
-    auto *source = info->source;
-    // Note that info->scopeStack.back() is a lexical scope of the function
-    // caller.
-    auto *parentScope = info->compilationUnit;
-    // TODO: figure out the proper flag based on the function decl.
-    // using FlagIsPublic for now.
-    uint32_t flags = 3u;
-    // The line number in the source program at which the function scope begins.
-    auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
-    debugFunction = spvBuilder.createDebugFunction(decl, debugFuncName, source,
-                                                   line, column, parentScope,
-                                                   "", flags, scopeLine, func);
-    func->setDebugScope(new (spvContext) SpirvDebugScope(debugFunction));
-
-    spvContext.pushDebugLexicalScope(info, debugFunction);
-  }
 
   bool isEntry = false;
   const auto iter = functionInfoMap.find(decl);
@@ -1480,10 +1459,17 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
     const auto &entryInfo = iter->second;
     if (entryInfo->isEntryFunction) {
       isEntry = true;
-      funcName = "src." + funcName;
       // Create wrapper for the entry function
-      if (!emitEntryFunctionWrapper(decl, func))
+      srcFunc = func;
+
+      func = emitEntryFunctionWrapper(decl, &info, &debugFunction, srcFunc);
+      if (func == nullptr)
         return;
+      if (spirvOptions.debugInfoRich && decl->hasBody()) {
+        // use the HLSL name the debug user will expect to see
+        srcDebugFunction = emitDebugFunction(decl, srcFunc, &info, funcName);
+      }
+
       // Generate DebugEntryPoint if function definition
       if (spirvOptions.debugInfoVulkan && debugFunction) {
         auto *cu = dyn_cast<SpirvDebugCompilationUnit>(outer_scope);
@@ -1492,15 +1478,30 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
                                          clang::getGitCommitHash(),
                                          spirvOptions.clOptions);
       }
+    } else {
+      if (spirvOptions.debugInfoRich && decl->hasBody()) {
+        debugFunction = emitDebugFunction(decl, func, &info, funcName);
+      }
     }
+  }
+
+  if (spirvOptions.debugInfoRich) {
+    spvContext.pushDebugLexicalScope(info, debugFunction);
   }
 
   const QualType retType =
       declIdMapper.getTypeAndCreateCounterForPotentialAliasVar(decl);
 
-  spvBuilder.beginFunction(retType, decl->getLocStart(), funcName,
-                           decl->hasAttr<HLSLPreciseAttr>(),
-                           decl->hasAttr<NoInlineAttr>(), func);
+  if (srcFunc) {
+    spvBuilder.beginFunction(retType, decl->getLocStart(), srcFuncName,
+                             decl->hasAttr<HLSLPreciseAttr>(),
+                             decl->hasAttr<NoInlineAttr>(), srcFunc);
+
+  } else {
+    spvBuilder.beginFunction(retType, decl->getLocStart(), funcName,
+                             decl->hasAttr<HLSLPreciseAttr>(),
+                             decl->hasAttr<NoInlineAttr>(), func);
+  }
 
   bool isNonStaticMemberFn = false;
   if (const auto *memberFn = dyn_cast<CXXMethodDecl>(decl)) {
@@ -1551,7 +1552,9 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
 
     // Add DebugFunctionDefinition if we are emitting
     // NonSemantic.Shader.DebugInfo.100 debug info
-    if (spirvOptions.debugInfoVulkan && debugFunction)
+    if (spirvOptions.debugInfoVulkan && srcDebugFunction)
+      spvBuilder.createDebugFunctionDef(srcDebugFunction, srcFunc);
+    else if (spirvOptions.debugInfoVulkan && debugFunction)
       spvBuilder.createDebugFunctionDef(debugFunction, func);
 
     // Process all statments in the body.
@@ -13331,10 +13334,16 @@ bool SpirvEmitter::processTessellationShaderAttributes(
 }
 
 bool SpirvEmitter::emitEntryFunctionWrapperForRayTracing(
-    const FunctionDecl *decl, SpirvFunction *entryFuncInstr) {
+    const FunctionDecl *decl, SpirvDebugFunction *debugFunction,
+    SpirvFunction *entryFuncInstr) {
   // The entry basic block.
   auto *entryLabel = spvBuilder.createBasicBlock();
   spvBuilder.setInsertPoint(entryLabel);
+
+  // Add DebugFunctionDefinition if we are emitting
+  // NonSemantic.Shader.DebugInfo.100 debug info.
+  if (spirvOptions.debugInfoVulkan && debugFunction)
+    spvBuilder.createDebugFunctionDef(debugFunction, entryFunction);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
@@ -13598,8 +13607,36 @@ bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
   return true;
 }
 
-bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
-                                            SpirvFunction *entryFuncInstr) {
+SpirvDebugFunction *SpirvEmitter::emitDebugFunction(const FunctionDecl *decl,
+                                                    SpirvFunction *func,
+                                                    RichDebugInfo **info,
+                                                    std::string name) {
+  auto loc = decl->getLocStart();
+  const auto &sm = astContext.getSourceManager();
+  const uint32_t line = sm.getPresumedLineNumber(loc);
+  const uint32_t column = sm.getPresumedColumnNumber(loc);
+  *info = getOrCreateRichDebugInfo(loc);
+
+  SpirvDebugSource *source = (*info)->source;
+  // Note that info->scopeStack.back() is a lexical scope of the function
+  // caller.
+  SpirvDebugInstruction *parentScope = (*info)->compilationUnit;
+  // TODO: figure out the proper flag based on the function decl.
+  // using FlagIsPublic for now.
+  uint32_t flags = 3u;
+  // The line number in the source program at which the function scope begins.
+  auto scopeLine = sm.getPresumedLineNumber(decl->getBody()->getLocStart());
+  SpirvDebugFunction *debugFunction =
+      spvBuilder.createDebugFunction(decl, name, source, line, column,
+                                     parentScope, "", flags, scopeLine, func);
+  func->setDebugScope(new (spvContext) SpirvDebugScope(debugFunction));
+
+  return debugFunction;
+}
+
+SpirvFunction *SpirvEmitter::emitEntryFunctionWrapper(
+    const FunctionDecl *decl, RichDebugInfo **info,
+    SpirvDebugFunction **debugFunction, SpirvFunction *entryFuncInstr) {
   // HS specific attributes
   uint32_t numOutputControlPoints = 0;
   SpirvInstruction *outputControlPointIdVal =
@@ -13620,6 +13657,10 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   entryFunction = spvBuilder.beginFunction(
       astContext.VoidTy, decl->getLocStart(), decl->getName());
 
+  if (spirvOptions.debugInfoRich && decl->hasBody()) {
+    *debugFunction = emitDebugFunction(decl, entryFunction, info, "wrapper");
+  }
+
   // Specify that entryFunction is an entry function wrapper.
   entryFunction->setEntryFunctionWrapper();
 
@@ -13634,7 +13675,10 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   entryInfo->entryFunction = entryFunction;
 
   if (spvContext.isRay()) {
-    return emitEntryFunctionWrapperForRayTracing(decl, entryFuncInstr);
+    return emitEntryFunctionWrapperForRayTracing(decl, *debugFunction,
+                                                 entryFuncInstr)
+               ? entryFunction
+               : nullptr;
   }
   // Handle attributes specific to each shader stage
   if (spvContext.isPS()) {
@@ -13643,7 +13687,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     processComputeShaderAttributes(decl);
   } else if (spvContext.isHS()) {
     if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))
-      return false;
+      return nullptr;
 
     // The input array size for HS is specified in the InputPatch parameter.
     for (const auto *param : decl->params())
@@ -13655,7 +13699,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     outputArraySize = numOutputControlPoints;
   } else if (spvContext.isDS()) {
     if (!processTessellationShaderAttributes(decl, &numOutputControlPoints))
-      return false;
+      return nullptr;
 
     // The input array size for HS is specified in the OutputPatch parameter.
     for (const auto *param : decl->params())
@@ -13666,11 +13710,11 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // The per-vertex output of DS is not an array.
   } else if (spvContext.isGS()) {
     if (!processGeometryShaderAttributes(decl, &inputArraySize))
-      return false;
+      return nullptr;
     // The per-vertex output of GS is not an array.
   } else if (spvContext.isMS() || spvContext.isAS()) {
     if (!processMeshOrAmplificationShaderAttributes(decl, &outputArraySize))
-      return false;
+      return nullptr;
   }
 
   // Go through all parameters and record the declaration of SV_ClipDistance
@@ -13686,14 +13730,14 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   for (const auto *param : decl->params()) {
     if (canActAsInParmVar(param))
       if (!declIdMapper.glPerVertex.recordGlPerVertexDeclFacts(param, true))
-        return false;
+        return nullptr;
     if (canActAsOutParmVar(param))
       if (!declIdMapper.glPerVertex.recordGlPerVertexDeclFacts(param, false))
-        return false;
+        return nullptr;
   }
   // Also consider the SV_ClipDistance/SV_CullDistance in the return type
   if (!declIdMapper.glPerVertex.recordGlPerVertexDeclFacts(decl, false))
-    return false;
+    return nullptr;
 
   // Calculate the total size of the ClipDistance/CullDistance array and the
   // offset of SV_ClipDistance/SV_CullDistance variables within the array.
@@ -13714,6 +13758,11 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   // are added to the beginning of the entry basic block, so must be called
   // after the basic block is created and insert point is set.
   processInlineSpirvAttributes(decl);
+
+  // Add DebugFunctionDefinition if we are emitting
+  // NonSemantic.Shader.DebugInfo.100 debug info.
+  if (spirvOptions.debugInfoVulkan && *debugFunction)
+    spvBuilder.createDebugFunctionDef(*debugFunction, entryFunction);
 
   // Initialize all global variables at the beginning of the wrapper
   for (const VarDecl *varDecl : toInitGloalVars) {
@@ -13766,7 +13815,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
       SpirvInstruction *loadedValue = nullptr;
 
       if (!declIdMapper.createStageInputVar(param, &loadedValue, false))
-        return false;
+        return nullptr;
 
       // Only initialize the temporary variable if the parameter is indeed used,
       // or if it is an inout parameter.
@@ -13805,15 +13854,15 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
     // Create stage output variables out of the return type.
     if (!declIdMapper.createStageOutputVar(decl, numOutputControlPoints,
                                            outputControlPointIdVal, retVal))
-      return false;
+      return nullptr;
     if (!processHSEntryPointOutputAndPCF(
             decl, retType, retVal, numOutputControlPoints,
             outputControlPointIdVal, primitiveIdVar, viewIdVar,
             hullMainInputPatchParam))
-      return false;
+      return nullptr;
   } else {
     if (!declIdMapper.createStageOutputVar(decl, retVal, /*forPCF*/ false))
-      return false;
+      return nullptr;
   }
 
   // Create and write stage output variables for parameters marked as
@@ -13836,7 +13885,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
                                             param->getLocStart());
 
       if (!declIdMapper.createStageOutputVar(param, loadedParam, false))
-        return false;
+        return nullptr;
     }
   }
 
@@ -13851,7 +13900,7 @@ bool SpirvEmitter::emitEntryFunctionWrapper(const FunctionDecl *decl,
   if (spvContext.isHS())
     doDecl(patchConstFunc);
 
-  return true;
+  return entryFunction;
 }
 
 bool SpirvEmitter::processHSEntryPointOutputAndPCF(
