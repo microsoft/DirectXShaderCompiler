@@ -134,17 +134,14 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
   auto instrumentableFunctions =
       PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
 
-  // Make a vector of the instructions since we may delete some of them as we go
-  std::vector<llvm::Instruction *> InstrumentableInstructions;
   for (auto *F : instrumentableFunctions) {
     for (auto &block : F->getBasicBlockList()) {
-      for (llvm::Instruction &I : block.getInstList()) {
-        InstrumentableInstructions.push_back(&I);
+      for (auto it = block.begin(); it != block.end();) {
+        llvm::Instruction *I = &*(it++);
+        SplitVectorStores(m_DM->GetOP(), I);
       }
     }
   }
-  for (llvm::Instruction *I : InstrumentableInstructions)
-    SplitVectorStores(m_DM->GetOP(), I);
 
   for (auto *F : instrumentableFunctions) {
     for (auto &block : F->getBasicBlockList()) {
@@ -326,16 +323,12 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
         // And the source pointer may be a vector (floatn) type,
         // and if so, that's another offset to consider.
         llvm::Type *DestType = pGEP->getPointerOperand()->getType();
-        const llvm::Type::TypeID ID = DestType->getTypeID();
         // We expect this to be a pointer type (it's a GEP after all):
-        if (ID == llvm::Type::TypeID::PointerTyID) {
-          llvm::Type *PointedType =
-              llvm::cast<llvm::PointerType>(DestType)->getElementType();
-          const llvm::Type::TypeID PointedID = PointedType->getTypeID();
+        if (DestType->isPointerTy()) {
+          llvm::Type *PointedType = DestType->getPointerElementType();
           // Being careful to check num operands too in order to avoid false
           // positives:
-          if (PointedID == llvm::Type::TypeID::VectorTyID &&
-              pGEP->getNumOperands() == 3) {
+          if (PointedType->isVectorTy() && pGEP->getNumOperands() == 3) {
             // Fetch the second deref (in operand 2).
             // (the first derefs the pointer to the "floatn",
             // and the second denotes the index into the floatn.)
@@ -488,21 +481,18 @@ void DxilAnnotateWithVirtualRegister::SplitVectorStores(hlsl::OP *HlslOP,
   }
 
   llvm::Type *SourceType = pSt->getValueOperand()->getType();
-  const llvm::Type::TypeID ID = SourceType->getTypeID();
-  if (ID == llvm::Type::TypeID::VectorTyID) {
+  if (SourceType->isVectorTy()) {
     if (auto *constIntIIndex = llvm::cast<llvm::ConstantInt>(Index)) {
       // break vector alloca stores up into individual stores
       llvm::IRBuilder<> B(pSt);
-      auto *source = llvm::dyn_cast<llvm::VectorType>(SourceType);
-      for (uint64_t el = 0; el < source->getVectorNumElements(); ++el) {
+      for (uint64_t el = 0; el < SourceType->getVectorNumElements(); ++el) {
         llvm::Value *destPointer = B.CreateGEP(pSt->getPointerOperand(),
                                                {B.getInt32(0), B.getInt32(el)});
         llvm::Value *source =
             B.CreateExtractElement(pSt->getValueOperand(), el);
         B.CreateStore(source, destPointer);
       }
-      pI->removeFromParent();
-      delete pI;
+      pI->eraseFromParent();
     }
   }
 }
