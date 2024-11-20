@@ -3,15 +3,17 @@
 // CHECK:  [[set:%[0-9]+]] = OpExtInstImport "OpenCL.DebugInfo.100"
 // CHECK: [[compUnit:%[0-9]+]] = OpExtInst %void [[set]] DebugCompilationUnit
 // CHECK: [[main:%[0-9]+]] = OpExtInst %void [[set]] DebugFunction
-// CHECK: [[mainFnLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 15 1 [[main]]
-// CHECK: [[whileLoopLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 35 3 [[mainFnLexBlock]]
-// CHECK: [[ifStmtLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 42 20 [[whileLoopLexBlock]]
-// CHECK: [[tempLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 47 7 [[ifStmtLexBlock]]
-// CHECK: [[forLoopLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 20 12 [[mainFnLexBlock]]
+// CHECK: [[mainFnLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 17 1 [[main]]
+// CHECK: [[whileLoopLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 37 3 [[mainFnLexBlock]]
+// CHECK: [[ifStmtLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 44 20 [[whileLoopLexBlock]]
+// CHECK: [[tempLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 49 7 [[ifStmtLexBlock]]
+// CHECK: [[forLoopLexBlock:%[0-9]+]] = OpExtInst %void [[set]] DebugLexicalBlock {{%[0-9]+}} 22 12 [[mainFnLexBlock]]
+// CHECK: [[srcMain:%[0-9]+]] = OpExtInst %void [[set]] DebugFunction
 
 float4 main(float4 color : COLOR) : SV_TARGET
+// CHECK:     %main = OpFunction
 // CHECK:     %src_main = OpFunction
-// CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[main]]
+// CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[srcMain]]
 {
 // CHECK:     %bb_entry = OpLabel
 // CHECK-NEXT: {{%[0-9]+}} = OpExtInst %void [[set]] DebugScope [[mainFnLexBlock]]
