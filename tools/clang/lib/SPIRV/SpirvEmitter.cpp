@@ -778,7 +778,8 @@ void SpirvEmitter::HandleTranslationUnit(ASTContext &context) {
         }
       } else {
         const bool isPrototype = !funcDecl->isThisDeclarationADefinition();
-        if (funcDecl->getName() == hlslEntryFunctionName && !isPrototype) {
+        if (funcDecl->getIdentifier() &&
+            funcDecl->getName() == hlslEntryFunctionName && !isPrototype) {
           addFunctionToWorkQueue(spvContext.getCurrentShaderModelKind(),
                                  funcDecl, /*isEntryFunction*/ true);
           numEntryPoints++;
