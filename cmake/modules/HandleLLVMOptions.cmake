@@ -390,7 +390,7 @@ if( MSVC )
       append("-Wmissing-field-initializers" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
 
       # enable warnings explicitly.
-      append("-Wnonportable-include-path -Wunused-function" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+      append("-Wnonportable-include-path -Wno-unused-function" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
       append("-Wtrigraphs -Wconstant-logical-operand -Wunused-variable" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     endif (CLANG_CL)
   endif (LLVM_ENABLE_WARNINGS)
