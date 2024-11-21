@@ -1052,6 +1052,9 @@ bool DxilShaderAccessTracking::runOnModule(Module &M) {
   // Done with these guys:
   m_GEPOperandAsInstructionDestroyers.clear();
 
+  if (OSOverride != nullptr && !Modified) {
+    *OSOverride << "\nNotModified\n";
+  }
   return Modified;
 }
 char DxilShaderAccessTracking::ID = 0;
