@@ -5055,7 +5055,10 @@ public:
 
   bool CheckRangedTemplateArgument(SourceLocation diagLoc,
                                    llvm::APSInt &sintValue) {
-    if (!sintValue.isStrictlyPositive() || sintValue.getLimitedValue() > 4) {
+    const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+    if (!sintValue.isStrictlyPositive() ||
+        (sintValue.getLimitedValue() > 4 && !SM->IsSM69Plus())) {
       m_sema->Diag(diagLoc, diag::err_hlsl_invalid_range_1_4);
       return true;
     }
