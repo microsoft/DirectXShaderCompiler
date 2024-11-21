@@ -3928,7 +3928,9 @@ public:
   }
 
   QualType LookupVectorType(HLSLScalarType scalarType, unsigned int colCount) {
-    QualType qt = m_vectorTypes[scalarType][colCount - 1];
+    QualType qt;
+    if (colCount < 4)
+      qt = m_vectorTypes[scalarType][colCount - 1];
     if (qt.isNull()) {
       if (m_scalarTypes[scalarType].isNull()) {
         LookupScalarTypeDef(scalarType);
@@ -3936,7 +3938,8 @@ public:
       qt = GetOrCreateVectorSpecialization(*m_context, m_sema,
                                            m_vectorTemplateDecl,
                                            m_scalarTypes[scalarType], colCount);
-      m_vectorTypes[scalarType][colCount - 1] = qt;
+      if (colCount < 4)
+        m_vectorTypes[scalarType][colCount - 1] = qt;
     }
     return qt;
   }
@@ -5055,7 +5058,10 @@ public:
 
   bool CheckRangedTemplateArgument(SourceLocation diagLoc,
                                    llvm::APSInt &sintValue) {
-    if (!sintValue.isStrictlyPositive() || sintValue.getLimitedValue() > 4) {
+    const auto *SM =
+        hlsl::ShaderModel::GetByName(m_sema->getLangOpts().HLSLProfile.c_str());
+    if (!sintValue.isStrictlyPositive() ||
+        (sintValue.getLimitedValue() > 4 && !SM->IsSM69Plus())) {
       m_sema->Diag(diagLoc, diag::err_hlsl_invalid_range_1_4);
       return true;
     }
