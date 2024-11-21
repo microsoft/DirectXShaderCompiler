@@ -112,6 +112,11 @@ public:
   TEST_METHOD(SignatureModification_VertexIdAlready)
   TEST_METHOD(SignatureModification_SomethingElseFirst)
 
+  TEST_METHOD(AccessTracking_ModificationReport_Nothing)
+  TEST_METHOD(AccessTracking_ModificationReport_Read)
+  TEST_METHOD(AccessTracking_ModificationReport_Write)
+  TEST_METHOD(AccessTracking_ModificationReport_SM66)
+
   TEST_METHOD(PixStructAnnotation_Lib_DualRaygen)
   TEST_METHOD(PixStructAnnotation_Lib_RaygenAllocaStructAlignment)
 
@@ -348,6 +353,8 @@ public:
     *ppNewShaderOut = pNewContainer.Detach();
   }
 
+  void ValidateAccessTrackingMods(const char *hlsl, bool modsExpected);
+
   class ModuleAndHangersOn {
     std::unique_ptr<llvm::LLVMContext> llvmContext;
     std::unique_ptr<llvm::Module> llvmModule;
@@ -429,7 +436,7 @@ public:
                                            const wchar_t *profile = L"as_6_5");
   void ValidateAllocaWrite(std::vector<AllocaWrite> const &allocaWrites,
                            size_t index, const char *name);
-  CComPtr<IDxcBlob> RunShaderAccessTrackingPass(IDxcBlob *blob);
+  PassOutput RunShaderAccessTrackingPass(IDxcBlob *blob);
   std::string RunDxilPIXAddTidToAmplificationShaderPayloadPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob);
   CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob *blob);
@@ -576,13 +583,14 @@ TEST_F(PixTest, CompileDebugDisasmPDB) {
   VERIFY_SUCCEEDED(pCompiler->Disassemble(pPdbBlob, &pDisasm));
 }
 
-CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
+PassOutput PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
   CComPtr<IDxcOptimizer> pOptimizer;
   VERIFY_SUCCEEDED(
       m_dllSupport.CreateInstance(CLSID_DxcOptimizer, &pOptimizer));
   std::vector<LPCWSTR> Options;
   Options.push_back(L"-opt-mod-passes");
-  Options.push_back(L"-hlsl-dxil-pix-shader-access-instrumentation,config=");
+  Options.push_back(L"-hlsl-dxil-pix-shader-access-instrumentation,config=U0:0:"
+                    L"10i0;U0:1:2i0;.0;0;0.");
 
   CComPtr<IDxcBlob> pOptimizedModule;
   CComPtr<IDxcBlobEncoding> pText;
@@ -604,7 +612,12 @@ CComPtr<IDxcBlob> PixTest::RunShaderAccessTrackingPass(IDxcBlob *blob) {
   CComPtr<IDxcBlob> pNewContainer;
   VERIFY_SUCCEEDED(pAssembleResult->GetResult(&pNewContainer));
 
-  return pNewContainer;
+  PassOutput ret;
+  ret.blob = pNewContainer;
+  std::string outputText = BlobToUtf8(pText);
+  ret.lines = Tokenize(outputText.c_str(), "\n");
+
+  return ret;
 }
 
 CComPtr<IDxcBlob> PixTest::RunDxilPIXMeshShaderOutputPass(IDxcBlob *blob) {
@@ -814,6 +827,61 @@ TEST_F(PixTest, SignatureModification_SomethingElseFirst) {
   VERIFY_ARE_EQUAL(sig.GetElement(2).GetRows(), 1u);
   VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartCol(), 0);
   VERIFY_ARE_EQUAL(sig.GetElement(2).GetStartRow(), 2);
+}
+
+void PixTest::ValidateAccessTrackingMods(const char *hlsl, bool modsExpected) {
+  auto code = Compile(m_dllSupport, hlsl, L"ps_6_6", {L"-Od"}, L"main");
+  auto result = RunShaderAccessTrackingPass(code).lines;
+  bool hasMods = true;
+  for (auto const &line : result)
+    if (line.find("NotModified") != std::string::npos)
+      hasMods = false;
+  VERIFY_ARE_EQUAL(modsExpected, hasMods);
+}
+
+TEST_F(PixTest, AccessTracking_ModificationReport_Nothing) {
+  const char *hlsl = R"(
+float main() : SV_Target 
+{
+  return 0;
+}
+)";
+  ValidateAccessTrackingMods(hlsl, false);
+}
+
+TEST_F(PixTest, AccessTracking_ModificationReport_Read) {
+  const char *hlsl = R"(
+RWByteAddressBuffer g_texture;
+float main() : SV_Target 
+{
+  return g_texture.Load(0);
+}
+)";
+  ValidateAccessTrackingMods(hlsl, true);
+}
+
+TEST_F(PixTest, AccessTracking_ModificationReport_Write) {
+  const char *hlsl = R"(
+RWByteAddressBuffer g_texture;
+float main() : SV_Target 
+{
+  g_texture.Store(0, 0);
+  return 0;
+}
+)";
+  ValidateAccessTrackingMods(hlsl, true);
+}
+
+TEST_F(PixTest, AccessTracking_ModificationReport_SM66) {
+  const char *hlsl = R"(
+float main() : SV_Target 
+{
+    RWByteAddressBuffer g_texture = ResourceDescriptorHeap[0];
+    g_texture.Store(0, 0);
+    return 0;
+}
+)";
+  ValidateAccessTrackingMods(hlsl, true);
 }
 
 TEST_F(PixTest, AddToASGroupSharedPayload) {
@@ -2720,7 +2788,7 @@ void MyMiss(inout MyPayload payload)
   CComPtr<IDxcBlob> compiled;
   VERIFY_SUCCEEDED(pResult->GetResult(&compiled));
 
-  auto optimizedContainer = RunShaderAccessTrackingPass(compiled);
+  auto optimizedContainer = RunShaderAccessTrackingPass(compiled).blob;
 
   const char *pBlobContent =
       reinterpret_cast<const char *>(optimizedContainer->GetBufferPointer());
@@ -2790,7 +2858,7 @@ float4 main(int i : A, float j : B) : SV_TARGET
   )x";
 
   auto compiled = Compile(m_dllSupport, dynamicTextureAccess, L"ps_6_6");
-  auto pOptimizedContainer = RunShaderAccessTrackingPass(compiled);
+  auto pOptimizedContainer = RunShaderAccessTrackingPass(compiled).blob;
 
   const char *pBlobContent =
       reinterpret_cast<const char *>(pOptimizedContainer->GetBufferPointer());
