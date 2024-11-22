@@ -39,7 +39,7 @@ float main(int i : A) : SV_TARGET
   return TBS.b + TBS.mf1 + TBS.h2.y + TBS.f16_3.z + (float)(TBS.d * TBS.i64 + TBS.u64) + TBS.u16 * TBS.i16.x;
 }
 
-// CHECK: ID3D12ShaderReflection:
+// CHECK: ID3D12ShaderReflection1:
 // CHECK-NEXT:   D3D12_SHADER_DESC:
 // CHECK-NEXT:     Shader Version: Pixel
 // CHECK:     Flags: 0
