@@ -63,7 +63,6 @@ public:
   bool IsDxilOpUsed(OpCode opcode) const;
   void RemoveFunction(llvm::Function *F);
   llvm::LLVMContext &GetCtx() { return m_Ctx; }
-  llvm::Module *GetModule() { return m_pModule; }
   llvm::Type *GetHandleType() const;
   llvm::Type *GetNodeHandleType() const;
   llvm::Type *GetNodeRecordHandleType() const;
