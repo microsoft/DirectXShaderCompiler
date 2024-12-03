@@ -144,112 +144,112 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Sin,
      "Sin",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Tan,
      "Tan",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Acos,
      "Acos",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Asin,
      "Asin",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Atan,
      "Atan",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Hcos,
      "Hcos",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Hsin,
      "Hsin",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Htan,
      "Htan",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Exp,
      "Exp",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Frc,
      "Frc",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Log,
      "Log",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Sqrt,
      "Sqrt",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Rsqrt,
      "Rsqrt",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
 
     // Unary float - rounding
     {OC::Round_ne,
@@ -258,32 +258,32 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Round_ni,
      "Round_ni",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Round_pi,
      "Round_pi",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
     {OC::Round_z,
      "Round_z",
      OCC::Unary,
      "unary",
      Attribute::ReadNone,
      1,
-     {{0x3}},
-     {{0x0}}}, // Overloads: hf
+     {{0x403}},
+     {{0x3}}}, // Overloads: hf<hf
 
     // Unary int
     {OC::Bfrev,
@@ -338,16 +338,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "binary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
     {OC::FMin,
      "FMin",
      OCC::Binary,
      "binary",
      Attribute::ReadNone,
      1,
-     {{0x7}},
-     {{0x0}}}, // Overloads: hfd
+     {{0x407}},
+     {{0x7}}}, // Overloads: hfd<hfd
 
     // Binary int
     {OC::IMax,
@@ -356,16 +356,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "binary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
     {OC::IMin,
      "IMin",
      OCC::Binary,
      "binary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Binary uint
     {OC::UMax,
@@ -374,16 +374,16 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "binary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
     {OC::UMin,
      "UMin",
      OCC::Binary,
      "binary",
      Attribute::ReadNone,
      1,
-     {{0xe0}},
-     {{0x0}}}, // Overloads: wil
+     {{0x4e0}},
+     {{0xe0}}}, // Overloads: wil<wil
 
     // Binary int with two outputs
     {OC::IMul,
@@ -446,8 +446,8 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
      "tertiary",
      Attribute::ReadNone,
      1,
-     {{0x4}},
-     {{0x0}}}, // Overloads: d
+     {{0x404}},
+     {{0x4}}}, // Overloads: d<d
 
     // Tertiary int
     {OC::IMad,
