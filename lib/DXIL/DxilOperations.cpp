@@ -208,7 +208,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -235,7 +235,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -244,7 +244,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -262,7 +262,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Unary,
         "unary",
         {false, true, true, false, false, false, false, false, false, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -385,7 +385,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, true, true, true, false, false, false, false, false, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -394,7 +394,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, true, true, true, false, false, false, false, false, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
 
@@ -406,7 +406,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, false, false, false, false, false, true, true, true, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -415,7 +415,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, false, false, false, false, false, true, true, true, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
 
@@ -427,7 +427,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, false, false, false, false, false, true, true, true, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
     {
@@ -436,7 +436,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Binary,
         "binary",
         {false, false, false, false, false, false, true, true, true, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
 
@@ -511,7 +511,7 @@ const OP::OpCodeProperty OP::m_OpCodeProps[(unsigned)OP::OpCode::NumOpCodes] = {
         OCC::Tertiary,
         "tertiary",
         {false, false, false, true, false, false, false, false, false, false,
-         false, false},
+         false, true},
         Attribute::ReadNone,
     },
 
