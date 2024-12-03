@@ -2193,6 +2193,8 @@ static bool ValidateType(Type *Ty, ValidationContext &ValCtx,
     return true;
 
   if (Ty->isVectorTy()) {
+    if (ValCtx.DxilMod.GetShaderModel()->IsSM69Plus())
+      return true;
     ValCtx.EmitTypeError(Ty, ValidationRule::TypesNoVector);
     return false;
   }
