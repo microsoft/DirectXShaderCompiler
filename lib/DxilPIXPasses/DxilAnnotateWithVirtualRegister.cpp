@@ -77,6 +77,7 @@ public:
 private:
   void AnnotateValues(llvm::Instruction *pI);
   void AnnotateStore(llvm::Instruction *pI);
+  void SplitVectorStores(hlsl::OP *HlslOP, llvm::Instruction *pI);
   bool IsAllocaRegisterWrite(llvm::Value *V, llvm::AllocaInst **pAI,
                              llvm::Value **pIdx);
   void AnnotateAlloca(llvm::AllocaInst *pAlloca);
@@ -132,6 +133,15 @@ bool DxilAnnotateWithVirtualRegister::runOnModule(llvm::Module &M) {
 
   auto instrumentableFunctions =
       PIXPassHelpers::GetAllInstrumentableFunctions(*m_DM);
+
+  for (auto *F : instrumentableFunctions) {
+    for (auto &block : F->getBasicBlockList()) {
+      for (auto it = block.begin(); it != block.end();) {
+        llvm::Instruction *I = &*(it++);
+        SplitVectorStores(m_DM->GetOP(), I);
+      }
+    }
+  }
 
   for (auto *F : instrumentableFunctions) {
     for (auto &block : F->getBasicBlockList()) {
@@ -297,15 +307,37 @@ bool DxilAnnotateWithVirtualRegister::IsAllocaRegisterWrite(
           return false;
         }
         // And of course the member we're after might not be at the beginning of
-        // the struct:
-        auto *pStructType = llvm::dyn_cast<llvm::StructType>(
-            pPointerGEP->getPointerOperandType()->getPointerElementType());
-        auto *pStructMember =
-            llvm::dyn_cast<llvm::ConstantInt>(pPointerGEP->getOperand(2));
-        uint64_t memberIndex = pStructMember->getLimitedValue();
-        for (uint64_t i = 0; i < memberIndex; ++i) {
-          precedingMemberCount +=
-              CountStructMembers(pStructType->getStructElementType(i));
+        // any containing struct:
+        if (auto *pStructType = llvm::dyn_cast<llvm::StructType>(
+                pPointerGEP->getPointerOperandType()
+                    ->getPointerElementType())) {
+          auto *pStructMember =
+              llvm::dyn_cast<llvm::ConstantInt>(pPointerGEP->getOperand(2));
+          uint64_t memberIndex = pStructMember->getLimitedValue();
+          for (uint64_t i = 0; i < memberIndex; ++i) {
+            precedingMemberCount +=
+                CountStructMembers(pStructType->getStructElementType(i));
+          }
+        }
+
+        // And the source pointer may be a vector (floatn) type,
+        // and if so, that's another offset to consider.
+        llvm::Type *DestType = pGEP->getPointerOperand()->getType();
+        // We expect this to be a pointer type (it's a GEP after all):
+        if (DestType->isPointerTy()) {
+          llvm::Type *PointedType = DestType->getPointerElementType();
+          // Being careful to check num operands too in order to avoid false
+          // positives:
+          if (PointedType->isVectorTy() && pGEP->getNumOperands() == 3) {
+            // Fetch the second deref (in operand 2).
+            // (the first derefs the pointer to the "floatn",
+            // and the second denotes the index into the floatn.)
+            llvm::Value *vectorIndex = pGEP->getOperand(2);
+            if (auto *constIntIIndex =
+                    llvm::cast<llvm::ConstantInt>(vectorIndex)) {
+              precedingMemberCount += constIntIIndex->getLimitedValue();
+            }
+          }
         }
       } else {
         return false;
@@ -365,6 +397,8 @@ void DxilAnnotateWithVirtualRegister::AnnotateAlloca(
     AssignNewAllocaRegister(pAlloca, 1);
   } else if (auto *AT = llvm::dyn_cast<llvm::ArrayType>(pAllocaTy)) {
     AssignNewAllocaRegister(pAlloca, AT->getNumElements());
+  } else if (auto *VT = llvm::dyn_cast<llvm::VectorType>(pAllocaTy)) {
+    AssignNewAllocaRegister(pAlloca, VT->getNumElements());
   } else if (auto *ST = llvm::dyn_cast<llvm::StructType>(pAllocaTy)) {
     AssignNewAllocaRegister(pAlloca, CountStructMembers(ST));
   } else {
@@ -431,6 +465,36 @@ void DxilAnnotateWithVirtualRegister::AssignNewAllocaRegister(
     llvm::AllocaInst *pAlloca, std::uint32_t C) {
   PixAllocaReg::AddMD(m_DM->GetCtx(), pAlloca, m_uVReg, C);
   m_uVReg += C;
+}
+
+void DxilAnnotateWithVirtualRegister::SplitVectorStores(hlsl::OP *HlslOP,
+                                                        llvm::Instruction *pI) {
+  auto *pSt = llvm::dyn_cast<llvm::StoreInst>(pI);
+  if (pSt == nullptr) {
+    return;
+  }
+
+  llvm::AllocaInst *Alloca;
+  llvm::Value *Index;
+  if (!IsAllocaRegisterWrite(pSt->getPointerOperand(), &Alloca, &Index)) {
+    return;
+  }
+
+  llvm::Type *SourceType = pSt->getValueOperand()->getType();
+  if (SourceType->isVectorTy()) {
+    if (auto *constIntIIndex = llvm::cast<llvm::ConstantInt>(Index)) {
+      // break vector alloca stores up into individual stores
+      llvm::IRBuilder<> B(pSt);
+      for (uint64_t el = 0; el < SourceType->getVectorNumElements(); ++el) {
+        llvm::Value *destPointer = B.CreateGEP(pSt->getPointerOperand(),
+                                               {B.getInt32(0), B.getInt32(el)});
+        llvm::Value *source =
+            B.CreateExtractElement(pSt->getValueOperand(), el);
+        B.CreateStore(source, destPointer);
+      }
+      pI->eraseFromParent();
+    }
+  }
 }
 
 } // namespace
