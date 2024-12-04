@@ -14,6 +14,7 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cfloat>
 #include <map>
@@ -148,6 +149,8 @@ public:
 
   TEST_METHOD(DebugInstrumentation_TextOutput)
   TEST_METHOD(DebugInstrumentation_BlockReport)
+
+  TEST_METHOD(DebugInstrumentation_VectorAllocaWrite_Structs)
 
   dxc::DxcDllSupport m_dllSupport;
   VersionSupportInfo m_ver;
@@ -442,6 +445,7 @@ public:
   CComPtr<IDxcBlob> RunDxilPIXDXRInvocationsLog(IDxcBlob *blob);
   void TestPixUAVCase(char const *hlsl, wchar_t const *model,
                       wchar_t const *entry);
+  std::string Disassemble(IDxcBlob *pProgram);
 };
 
 bool PixTest::InitSupport() {
@@ -1149,6 +1153,16 @@ static bool FindStructMemberFromStore(llvm::StoreInst *S,
   }
 
   return false;
+}
+
+std::string PixTest::Disassemble(IDxcBlob *pProgram) {
+  CComPtr<IDxcCompiler> pCompiler;
+  CComPtr<IDxcOperationResult> pResult;
+  CComPtr<IDxcBlobEncoding> pSource;
+  VERIFY_SUCCEEDED(CreateCompiler(m_dllSupport, &pCompiler));
+  CComPtr<IDxcBlobEncoding> pDisassembly;
+  VERIFY_SUCCEEDED(pCompiler->Disassemble(pProgram, &pDisassembly));
+  return BlobToUtf8(pDisassembly);
 }
 
 // This function lives in lib\DxilPIXPasses\DxilAnnotateWithVirtualRegister.cpp
@@ -3022,4 +3036,173 @@ float4 main() : SV_Target {
   VERIFY_IS_TRUE(foundFloatAssignment);
   VERIFY_IS_TRUE(foundDoubleAssignment);
   VERIFY_IS_TRUE(found32BitAllocaStore);
+}
+
+std::string ExtractBracedSubstring(std::string const &line) {
+  auto open = line.find('{');
+  auto close = line.find('}');
+  if (open != std::string::npos && close != std::string::npos &&
+      open + 1 < close) {
+    return line.substr(open + 1, close - open - 1);
+  }
+  return {};
+}
+
+int ExtractMetaInt32Value(std::string const &token) {
+  auto findi32 = token.find("i32 ");
+  if (findi32 != std::string_view::npos) {
+    return atoi(
+        std::string(token.data() + findi32 + 4, token.length() - (findi32 + 4))
+            .c_str());
+  }
+  return -1;
+}
+
+std::vector<std::string> Split(std::string str, char delimeter) {
+  std::vector<std::string> lines;
+
+  auto const *p = str.data();
+  auto const *justPastPreviousDelimiter = p;
+  while (p < str.data() + str.length()) {
+    if (*p == delimeter) {
+      lines.emplace_back(std::string(justPastPreviousDelimiter,
+                                     p - justPastPreviousDelimiter));
+      justPastPreviousDelimiter = p + 1;
+      p = justPastPreviousDelimiter;
+    } else {
+      p++;
+    }
+  }
+
+  lines.emplace_back(
+      std::string(justPastPreviousDelimiter, p - justPastPreviousDelimiter));
+
+  return lines;
+}
+
+struct MetadataAllocaDefinition {
+  int base;
+  int count;
+};
+using AllocaDefinitions = std::map<int, MetadataAllocaDefinition>;
+struct MetadataAllocaWrite {
+  int allocaDefMetadataKey;
+  int offset;
+  int size;
+};
+using AllocaWrites = std::map<int, MetadataAllocaWrite>;
+
+struct AllocaMetadata {
+  AllocaDefinitions allocaDefinitions;
+  AllocaWrites allocaWrites;
+  std::vector<int> allocaWritesMetaKeys;
+};
+
+AllocaMetadata
+FindAllocaRelatedMetadata(std::vector<std::string> const &lines) {
+
+  const char *allocaMetaDataAssignment = "= !{i32 1, ";
+  const char *allocaRegWRiteAssignment = "= !{i32 2, !";
+  const char *allocaRegWriteTag = "!pix-alloca-reg-write !";
+
+  AllocaMetadata ret;
+  for (auto const &line : lines) {
+    if (line[0] == '!') {
+      auto key = atoi(std::string(line.data() + 1, line.length() - 1).c_str());
+      if (key != -1) {
+        if (line.find(allocaMetaDataAssignment) != std::string::npos) {
+          std::string bitInBraces = ExtractBracedSubstring(line);
+          if (bitInBraces != "") {
+            auto tokens = Split(bitInBraces, ',');
+            if (tokens.size() == 3) {
+              auto value0 = ExtractMetaInt32Value(tokens[1]);
+              auto value1 = ExtractMetaInt32Value(tokens[2]);
+              if (value0 != -1 && value1 != -1) {
+                MetadataAllocaDefinition def;
+                def.base = value0;
+                def.count = value1;
+                ret.allocaDefinitions[key] = def;
+              }
+            }
+          }
+        } else if (line.find(allocaRegWRiteAssignment) != std::string::npos) {
+          std::string bitInBraces = ExtractBracedSubstring(line);
+          if (bitInBraces != "") {
+            auto tokens = Split(bitInBraces, ',');
+            if (tokens.size() == 4 && tokens[1][1] == '!') {
+              auto allocaKey = atoi(tokens[1].c_str() + 2);
+              auto value0 = ExtractMetaInt32Value(tokens[2]);
+              auto value1 = ExtractMetaInt32Value(tokens[3]);
+              if (value0 != -1 && value1 != -1) {
+                MetadataAllocaWrite aw;
+                aw.allocaDefMetadataKey = allocaKey;
+                aw.size = value0;
+                aw.offset = value1;
+                ret.allocaWrites[key] = aw;
+              }
+            }
+          }
+        }
+      }
+    } else {
+      auto findAw = line.find(allocaRegWriteTag);
+      if (findAw != std::string::npos) {
+        ret.allocaWritesMetaKeys.push_back(
+            atoi(line.c_str() + findAw + strlen(allocaRegWriteTag)));
+      }
+    }
+  }
+  return ret;
+}
+
+TEST_F(PixTest, DebugInstrumentation_VectorAllocaWrite_Structs) {
+  const char *source = R"x(
+RaytracingAccelerationStructure Scene : register(t0, space0);
+struct RayPayload
+{
+    float4 color;
+};
+RWStructuredBuffer<float> UAV: register(u0);
+[shader("raygeneration")]
+void RaygenInternalName()
+{
+    RayDesc ray;
+    ray.Origin = float3(UAV[0], UAV[1],UAV[3]);
+    ray.Direction = float3(4.4,5.5,6.6);
+    ray.TMin = 0.001;
+    ray.TMax = 10000.0;
+    RayPayload payload = { float4(0, 1, 0, 1) };
+    TraceRay(Scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payload);
+})x";
+
+  auto compiled = Compile(m_dllSupport, source, L"lib_6_6", {L"-Od"});
+  auto output = RunDebugPass(compiled);
+  auto disassembly = Disassemble(output.blob);
+  auto lines = Split(disassembly, '\n');
+  auto metaDataKeyToValue = FindAllocaRelatedMetadata(lines);
+  // To validate that the RayDesc and RayPayload instances were fully covered,
+  // check that there are alloca writes that cover all of them. RayPayload
+  // has four elements, and RayDesc has eight.
+  std::array<bool, 4> RayPayloadElementCoverage;
+  std::array<bool, 8> RayDescElementCoverage;
+
+  for (auto const &write : metaDataKeyToValue.allocaWrites) {
+    // the whole point of the changes with this test is to separate vector
+    // writes into individual elements:
+    VERIFY_ARE_EQUAL(1, write.second.size);
+    auto findAlloca = metaDataKeyToValue.allocaDefinitions.find(
+        write.second.allocaDefMetadataKey);
+    if (findAlloca != metaDataKeyToValue.allocaDefinitions.end()) {
+      if (findAlloca->second.count == 4) {
+        RayPayloadElementCoverage[write.second.offset] = true;
+      } else if (findAlloca->second.count == 8) {
+        RayDescElementCoverage[write.second.offset] = true;
+      }
+    }
+  }
+  // Check that coverage for every element was emitted:
+  for (auto const &b : RayPayloadElementCoverage)
+    VERIFY_IS_TRUE(b);
+  for (auto const &b : RayDescElementCoverage)
+    VERIFY_IS_TRUE(b);
 }
