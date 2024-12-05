@@ -60,7 +60,7 @@ void main() {
 // CHECK:      DebugLine [[src]] %uint_46 %uint_46 %uint_12 %uint_12
 // CHECK-NEXT: OpConvertFToS %int
 // CHECK-NEXT: OpConvertFToS %int
-// CHECK:      DebugLine [[src]] %uint_46 %uint_65 %uint_12 %uint_3
+// CHECK:      DebugLine [[src]] %uint_46 %uint_65 %uint_0 %uint_0
 // CHECK:      OpCompositeConstruct %v4int
   };
 
