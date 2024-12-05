@@ -520,6 +520,16 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
               << hullPatchCount.value();
         }
       }
+      for (const auto *param : pPatchFnDecl->params())
+        if (HasLongVecs(param->getType()))
+          self->Diag(param->getLocation(),
+                     diag::err_hlsl_unsupported_long_vector)
+              << "patch constant function parameters";
+
+      if (HasLongVecs(pPatchFnDecl->getReturnType()))
+        self->Diag(pPatchFnDecl->getLocation(),
+                   diag::err_hlsl_unsupported_long_vector)
+            << "patch constant function return type";
     }
 
     DXIL::ShaderKind EntrySK = shaderModel->GetKind();

@@ -3733,10 +3733,14 @@ private:
         DXASSERT(templateArgCount == 1 || templateArgCount == 2,
                  "otherwise a new case has been added");
 
+        InheritableAttr *Attr = nullptr;
+        if (kind == AR_OBJECT_INPUTPATCH || kind == AR_OBJECT_OUTPUTPATCH)
+          Attr = HLSLTessPatchAttr::CreateImplicit(*m_context);
+
         TypeSourceInfo *typeDefault =
             TemplateHasDefaultType(kind) ? float4TypeSourceInfo : nullptr;
         recordDecl = DeclareTemplateTypeWithHandle(
-            *m_context, typeName, templateArgCount, typeDefault);
+            *m_context, typeName, templateArgCount, typeDefault, Attr);
       }
       m_objectTypeDecls[i] = recordDecl;
       m_objectTypeDeclsMap[i] = std::make_pair(recordDecl, i);
@@ -4896,10 +4900,6 @@ public:
            AR_BASIC_UNKNOWN;
   }
 
-  /// <summary>Checks whether the specified value is a valid vector
-  /// size.</summary>
-  bool IsValidVectorSize(size_t length) { return 1 <= length && length <= 4; }
-
   /// <summary>Checks whether the specified value is a valid matrix row or
   /// column size.</summary>
   bool IsValidMatrixColOrRowSize(size_t length) {
@@ -4935,11 +4935,6 @@ public:
                                            false);
       } else if (objectKind == AR_TOBJ_VECTOR) {
         bool valid = true;
-        if (!IsValidVectorSize(GetHLSLVecSize(type))) {
-          valid = false;
-          m_sema->Diag(argLoc, diag::err_hlsl_unsupportedvectorsize)
-              << type << GetHLSLVecSize(type);
-        }
         if (!IsScalarType(GetMatrixOrVectorElementType(type))) {
           valid = false;
           m_sema->Diag(argLoc, diag::err_hlsl_unsupportedvectortype)
@@ -5085,11 +5080,12 @@ public:
       return false;
     }
     // Allow object type for Constant/TextureBuffer.
-    if (templateName == "ConstantBuffer" || templateName == "TextureBuffer") {
+    if (Template->getTemplatedDecl()->hasAttr<HLSLCBufferAttr>()) {
       if (TemplateArgList.size() == 1) {
         const TemplateArgumentLoc &argLoc = TemplateArgList[0];
         const TemplateArgument &arg = argLoc.getArgument();
-        DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type, "");
+        DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type,
+                 "cbuffer with non-type template arg");
         QualType argType = arg.getAsType();
         SourceLocation argSrcLoc = argLoc.getLocation();
         if (IsScalarType(argType) || IsVectorType(m_sema, argType) ||
@@ -5099,6 +5095,12 @@ public:
               << argType;
           return true;
         }
+        if (HasLongVecs(argType)) {
+          m_sema->Diag(argSrcLoc, diag::err_hlsl_unsupported_long_vector)
+              << "cbuffers";
+          return true;
+        }
+
         if (auto *TST = dyn_cast<TemplateSpecializationType>(argType)) {
           // This is a bit of a special case we need to handle. Because the
           // buffer types don't use their template parameter in a way that would
@@ -5182,8 +5184,20 @@ public:
         return true;
       }
       return false;
+    } else if (Template->getTemplatedDecl()->hasAttr<HLSLTessPatchAttr>()) {
+      DXASSERT(TemplateArgList.size() == 1,
+               "Tessellation patch has more than one template arg");
+      const TemplateArgumentLoc &argLoc = TemplateArgList[0];
+      const TemplateArgument &arg = argLoc.getArgument();
+      DXASSERT(arg.getKind() == TemplateArgument::ArgKind::Type, "");
+      QualType argType = arg.getAsType();
+      if (HasLongVecs(argType)) {
+        m_sema->Diag(argLoc.getLocation(),
+                     diag::err_hlsl_unsupported_long_vector)
+            << "tessellation patches";
+        return true;
+      }
     }
-
     bool isMatrix = Template->getCanonicalDecl() ==
                     m_matrixTemplateDecl->getCanonicalDecl();
     bool isVector = Template->getCanonicalDecl() ==
@@ -11423,10 +11437,17 @@ bool hlsl::DiagnoseNodeStructArgument(Sema *self, TemplateArgumentLoc ArgLoc,
   HLSLExternalSource *source = HLSLExternalSource::FromSema(self);
   ArTypeObjectKind shapeKind = source->GetTypeObjectKind(ArgTy);
   switch (shapeKind) {
+  case AR_TOBJ_VECTOR:
+    if (GetHLSLVecSize(ArgTy) > 4) {
+      self->Diag(ArgLoc.getLocation(), diag::err_hlsl_unsupported_long_vector)
+          << "node records";
+      Empty = false;
+      return false;
+    }
+    LLVM_FALLTHROUGH;
   case AR_TOBJ_ARRAY:
   case AR_TOBJ_BASIC:
   case AR_TOBJ_MATRIX:
-  case AR_TOBJ_VECTOR:
     Empty = false;
     return false;
   case AR_TOBJ_OBJECT:
@@ -11885,6 +11906,33 @@ bool hlsl::ShouldSkipNRVO(clang::Sema &sema, clang::QualType returnType,
     }
   }
 
+  return false;
+}
+
+bool hlsl::HasLongVecs(const QualType &qt) {
+  if (qt.isNull()) {
+    return false;
+  }
+
+  if (IsHLSLVecType(qt)) {
+    if (GetHLSLVecSize(qt) > 4)
+      return true;
+  } else if (qt->isArrayType()) {
+    const ArrayType *arrayType = qt->getAsArrayTypeUnsafe();
+    return HasLongVecs(arrayType->getElementType());
+  } else if (qt->isStructureOrClassType()) {
+    const RecordType *recordType = qt->getAs<RecordType>();
+    const RecordDecl *recordDecl = recordType->getDecl();
+    if (recordDecl->isInvalidDecl())
+      return false;
+    RecordDecl::field_iterator begin = recordDecl->field_begin();
+    RecordDecl::field_iterator end = recordDecl->field_end();
+    for (; begin != end; begin++) {
+      const FieldDecl *fieldDecl = *begin;
+      if (HasLongVecs(fieldDecl->getType()))
+        return true;
+    }
+  }
   return false;
 }
 
@@ -14211,6 +14259,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
                        *pDispatchGrid = nullptr, *pMaxDispatchGrid = nullptr;
   bool usageIn = false;
   bool usageOut = false;
+  bool isGroupShared = false;
 
   for (clang::AttributeList *pAttr = D.getDeclSpec().getAttributes().getList();
        pAttr != NULL; pAttr = pAttr->getNext()) {
@@ -14234,6 +14283,7 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
       }
       break;
     case AttributeList::AT_HLSLGroupShared:
+      isGroupShared = true;
       if (!isGlobal) {
         Diag(pAttr->getLoc(), diag::err_hlsl_varmodifierna)
             << pAttr->getName() << declarationType << pAttr->getRange();
@@ -14511,6 +14561,12 @@ bool Sema::DiagnoseHLSLDecl(Declarator &D, DeclContext *DC, Expr *BitWidth,
        basicKind == ArBasicKind::AR_OBJECT_POINTSTREAM ||
        basicKind == ArBasicKind::AR_OBJECT_TRIANGLESTREAM)) {
     Diag(D.getLocStart(), diag::err_hlsl_missing_inout_attr);
+    result = false;
+  }
+
+  // Disallow long vecs from cbuffers.
+  if (isGlobal && !isStatic && !isGroupShared && HasLongVecs(qt)) {
+    Diag(D.getLocStart(), diag::err_hlsl_unsupported_long_vector) << "cbuffers";
     result = false;
   }
 
@@ -15402,6 +15458,16 @@ static bool isRelatedDeclMarkedNointerpolation(Expr *E) {
   return false;
 }
 
+// Verify that user-defined intrinsic struct args contain no long vectors
+static bool CheckUDTIntrinsicArg(Sema *S, Expr *Arg) {
+  if (HasLongVecs(Arg->getType())) {
+    S->Diag(Arg->getExprLoc(), diag::err_hlsl_unsupported_long_vector)
+        << "user-defined struct parameter";
+    return true;
+  }
+  return false;
+}
+
 static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
                                                CallExpr *TheCall) {
   assert(TheCall->getNumArgs() > 0);
@@ -15419,6 +15485,12 @@ static bool CheckIntrinsicGetAttributeAtVertex(Sema *S, FunctionDecl *FDecl,
 bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
   auto attr = FDecl->getAttr<HLSLIntrinsicAttr>();
 
+  if (!attr)
+    return false;
+
+  if (!IsBuiltinTable(attr->getGroup()))
+    return false;
+
   switch (hlsl::IntrinsicOp(attr->getOpcode())) {
   case hlsl::IntrinsicOp::IOP_GetAttributeAtVertex:
     // See #hlsl-specs/issues/181. Feature is broken. For SPIR-V we want
@@ -15430,6 +15502,22 @@ bool Sema::CheckHLSLIntrinsicCall(FunctionDecl *FDecl, CallExpr *TheCall) {
     // existing ones. See the ExtensionTest.EvalAttributeCollision test.
     assert(FDecl->getName() == "GetAttributeAtVertex");
     return CheckIntrinsicGetAttributeAtVertex(this, FDecl, TheCall);
+  case hlsl::IntrinsicOp::IOP_DispatchMesh:
+    assert(TheCall->getNumArgs() > 3);
+    assert(FDecl->getName() == "DispatchMesh");
+    return CheckUDTIntrinsicArg(this, TheCall->getArg(3)->IgnoreCasts());
+  case hlsl::IntrinsicOp::IOP_CallShader:
+    assert(TheCall->getNumArgs() > 1);
+    assert(FDecl->getName() == "CallShader");
+    return CheckUDTIntrinsicArg(this, TheCall->getArg(1)->IgnoreCasts());
+  case hlsl::IntrinsicOp::IOP_TraceRay:
+    assert(TheCall->getNumArgs() > 7);
+    assert(FDecl->getName() == "TraceRay");
+    return CheckUDTIntrinsicArg(this, TheCall->getArg(7)->IgnoreCasts());
+  case hlsl::IntrinsicOp::IOP_ReportHit:
+    assert(TheCall->getNumArgs() > 2);
+    assert(FDecl->getName() == "ReportHit");
+    return CheckUDTIntrinsicArg(this, TheCall->getArg(2)->IgnoreCasts());
   default:
     break;
   }
@@ -16109,6 +16197,17 @@ void DiagnoseEntry(Sema &S, FunctionDecl *FD) {
 
     return;
   }
+
+  // Check general parameter characteristics
+  // Would be nice to check for resources here as they crash the compiler now.
+  for (const auto *param : FD->params())
+    if (HasLongVecs(param->getType()))
+      S.Diag(param->getLocation(), diag::err_hlsl_unsupported_long_vector)
+          << "entry function parameters";
+
+  if (HasLongVecs(FD->getReturnType()))
+    S.Diag(FD->getLocation(), diag::err_hlsl_unsupported_long_vector)
+        << "entry function return type";
 
   DXIL::ShaderKind Stage =
       ShaderModel::KindFromFullName(shaderAttr->getStage());
