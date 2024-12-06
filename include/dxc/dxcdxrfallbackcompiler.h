@@ -12,7 +12,8 @@
 
 #ifndef __DXC_DXR_FALLBACK_COMPILER_API__
 #define __DXC_DXR_FALLBACK_COMPILER_API__
-#include "dxcapi.h"
+
+#include "dxc/dxcapi.h"
 
 enum class ShaderType : unsigned int {
   Raygen,
@@ -94,7 +95,7 @@ struct __declspec(uuid("76bb3c85-006d-4b72-9e10-63cd97df57f0"))
 // Note: __declspec(selectany) requires 'extern'
 // On Linux __declspec(selectany) is removed and using 'extern' results in link
 // error.
-#ifdef _MSC_VER
+#ifdef _WIN32
 #define CLSID_SCOPE __declspec(selectany) extern
 #else
 #define CLSID_SCOPE
