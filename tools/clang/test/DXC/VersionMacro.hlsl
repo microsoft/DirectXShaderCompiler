@@ -1,3 +1,6 @@
+// Skip hash stability because all dxc RUN lines don't have target profile
+// UNSUPPORTED: hash_stability
+
 // RUN: %dxc  -HV 202x %s -P %t.v202x.hlsl.pp
 // RUN: FileCheck --input-file=%t.v202x.hlsl.pp %s --check-prefix=LATEST
 // LATEST: 2029
