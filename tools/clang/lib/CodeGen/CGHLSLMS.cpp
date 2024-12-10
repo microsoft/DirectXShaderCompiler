@@ -2572,10 +2572,10 @@ bool CGMSHLSLRuntime::FindDispatchGridSemantic(const CXXRecordDecl *RD,
                                                CharUnits Offset) {
   const ASTRecordLayout &Layout = CGM.getContext().getASTRecordLayout(RD);
 
-  // Collect any non-virtual bases.
+  // Collect any bases.
   SmallVector<const CXXRecordDecl *, 4> Bases;
   for (const CXXBaseSpecifier &Base : RD->bases()) {
-    if (!Base.isVirtual() && !Base.getType()->isDependentType())
+    if (!Base.getType()->isDependentType())
       Bases.push_back(Base.getType()->getAsCXXRecordDecl());
   }
 
@@ -2586,7 +2586,7 @@ bool CGMSHLSLRuntime::FindDispatchGridSemantic(const CXXRecordDecl *RD,
                             Layout.getBaseClassOffset(R);
                    });
 
-  // Check (non-virtual) bases
+  // Check bases in order
   for (const CXXRecordDecl *Base : Bases) {
     CharUnits BaseOffset = Offset + Layout.getBaseClassOffset(Base);
     if (FindDispatchGridSemantic(Base, SDGRec, BaseOffset))
