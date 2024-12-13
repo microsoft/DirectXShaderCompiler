@@ -27,7 +27,8 @@ namespace options {
 struct Toggle {
   llvm::StringRef Name;
   bool Default = false;
-  constexpr Toggle(llvm::StringRef Name, bool Default) : Name(Name), Default(Default) {}
+  constexpr Toggle(llvm::StringRef Name, bool Default)
+      : Name(Name), Default(Default) {}
 };
 
 enum {
