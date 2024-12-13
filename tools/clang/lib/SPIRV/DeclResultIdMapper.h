@@ -981,6 +981,16 @@ private:
   /// views.
   void setInterlockExecutionMode(spv::ExecutionMode mode);
 
+  /// \brief Add |varInstr| to |astDecls| for every Decl for the variable |var|.
+  /// It is possible for a variable to have multiple declarations, and all of
+  /// them should be associated with the same variable.
+  void registerVariableForDecl(const VarDecl *var, SpirvInstruction *varInstr);
+
+  /// \brief Add |spirvInfo| to |astDecls| for every Decl for the variable
+  /// |var|. It is possible for a variable to have multiple declarations, and
+  /// all of them should be associated with the same variable.
+  void registerVariableForDecl(const VarDecl *var, DeclSpirvInfo spirvInfo);
+
 private:
   SpirvBuilder &spvBuilder;
   SpirvEmitter &theEmitter;
@@ -1146,8 +1156,7 @@ bool DeclResultIdMapper::decorateStageIOLocations() {
 }
 
 bool DeclResultIdMapper::isInputStorageClass(const StageVar &v) {
-  return getStorageClassForSigPoint(v.getSigPoint()) ==
-         spv::StorageClass::Input;
+  return v.getStorageClass() == spv::StorageClass::Input;
 }
 
 void DeclResultIdMapper::createFnParamCounterVar(const VarDecl *param) {
