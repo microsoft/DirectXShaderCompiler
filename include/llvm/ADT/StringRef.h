@@ -78,7 +78,6 @@ namespace llvm {
         : Data(data), Length(length) {
       assert((data || length == 0) && "StringRef cannot be built from a NULL "
                                       "argument with non-null length");
-
     }
     // HLSL Change - End - Make StringRef constructors constexpr.
 
