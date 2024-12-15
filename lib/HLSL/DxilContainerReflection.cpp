@@ -766,6 +766,8 @@ class CInvalidFunction final : public ID3D12FunctionReflection1 {
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
   (INT ParameterIndex) { return &g_InvalidFunctionParameter; }
+
+  STDMETHOD_(UINT64, GetRequiresFlags)() { return 0; }
 };
 CInvalidFunction g_InvalidFunction;
 
@@ -2874,6 +2876,8 @@ public:
   // Use D3D_RETURN_PARAMETER_INDEX to get description of the return value.
   STDMETHOD_(ID3D12FunctionParameterReflection *, GetFunctionParameter)
   (INT ParameterIndex) { return &g_InvalidFunctionParameter; }
+  
+  STDMETHOD_(UINT64, GetRequiresFlags)() { return m_FeatureFlags; }
 };
 
 HRESULT CFunctionReflection::GetDesc(D3D12_FUNCTION_DESC *pDesc) {
