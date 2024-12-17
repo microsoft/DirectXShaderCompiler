@@ -27,7 +27,8 @@ namespace options {
 struct Toggle {
   llvm::StringRef Name;
   bool Default = false;
-  Toggle(llvm::StringRef Name, bool Default) : Name(Name), Default(Default) {}
+  constexpr Toggle(llvm::StringRef Name, bool Default)
+      : Name(Name), Default(Default) {}
 };
 
 enum {
@@ -35,19 +36,20 @@ enum {
   DEFAULT_OFF = 0,
 };
 
-static const Toggle TOGGLE_GVN = {"gvn", DEFAULT_ON};
-static const Toggle TOGGLE_LICM = {"licm", DEFAULT_ON};
-static const Toggle TOGGLE_SINK = {"sink", DEFAULT_ON};
-static const Toggle TOGGLE_ENABLE_AGGRESSIVE_REASSOCIATION = {
+static constexpr Toggle TOGGLE_GVN = {"gvn", DEFAULT_ON};
+static constexpr Toggle TOGGLE_LICM = {"licm", DEFAULT_ON};
+static constexpr Toggle TOGGLE_SINK = {"sink", DEFAULT_ON};
+static constexpr Toggle TOGGLE_ENABLE_AGGRESSIVE_REASSOCIATION = {
     "aggressive-reassociation", DEFAULT_ON};
-static const Toggle TOGGLE_LIFETIME_MARKERS = {"lifetime-markers", DEFAULT_ON};
-static const Toggle TOGGLE_PARTIAL_LIFETIME_MARKERS = {
+static constexpr Toggle TOGGLE_LIFETIME_MARKERS = {"lifetime-markers",
+                                                   DEFAULT_ON};
+static constexpr Toggle TOGGLE_PARTIAL_LIFETIME_MARKERS = {
     "partial-lifetime-markers", DEFAULT_OFF};
-static const Toggle TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL = {
+static constexpr Toggle TOGGLE_STRUCTURIZE_LOOP_EXITS_FOR_UNROLL = {
     "structurize-loop-exits-for-unroll", DEFAULT_ON};
-static const Toggle TOGGLE_DEBUG_NOPS = {"debug-nops", DEFAULT_ON};
-static const Toggle TOGGLE_STRUCTURIZE_RETURNS = {"structurize-returns",
-                                                  DEFAULT_OFF};
+static constexpr Toggle TOGGLE_DEBUG_NOPS = {"debug-nops", DEFAULT_ON};
+static constexpr Toggle TOGGLE_STRUCTURIZE_RETURNS = {"structurize-returns",
+                                                      DEFAULT_OFF};
 
 struct OptimizationToggles {
   // Optimization pass enables, disables and selects
