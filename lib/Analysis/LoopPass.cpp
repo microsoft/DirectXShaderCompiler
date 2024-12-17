@@ -17,8 +17,8 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/Timer.h"
 #include "llvm/Support/TimeProfiler.h" // HLSL Change
+#include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
