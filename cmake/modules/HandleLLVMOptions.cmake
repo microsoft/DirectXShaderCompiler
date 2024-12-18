@@ -357,9 +357,11 @@ if( MSVC )
 
   # Change release to always build debug information out-of-line, but
   # also enable Reference optimization, ie dead function elimination.
-  append("/Zi" CMAKE_CXX_FLAGS_RELEASE)
-  append("/DEBUG /OPT:REF" CMAKE_SHARED_LINKER_FLAGS_RELEASE)
-  append("/DEBUG /OPT:REF" CMAKE_EXE_LINKER_FLAGS_RELEASE)
+  if (NOT CMAKE_MSVC_DEBUG_INFORMATION_FORMAT)
+    append("/Zi" CMAKE_CXX_FLAGS_RELEASE)
+    append("/DEBUG /OPT:REF" CMAKE_SHARED_LINKER_FLAGS_RELEASE)
+    append("/DEBUG /OPT:REF" CMAKE_EXE_LINKER_FLAGS_RELEASE)
+  endif()
 
   # HLSL Changes End
 
