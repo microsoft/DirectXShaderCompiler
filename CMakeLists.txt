@@ -115,7 +115,11 @@ endif()
 if(MSVC)
   # use new Standard Conforming Preprocessor
   # https://learn.microsoft.com/en-us/cpp/preprocessor/preprocessor-experimental-overview?view=msvc-170
-  add_compile_options(/Zc:preprocessor)
+  # TODO: update sources for all targets to compile (we checked "dxcompiler" only)
+  option(LLVM_BUILD_WITH_NEW_MSVC_PREPROCESSOR "Enable MSVC new Standard Conforming Preprocessor" OFF) 
+  if(LLVM_BUILD_WITH_NEW_MSVC_PREPROCESSOR)
+    add_compile_options(/Zc:preprocessor)
+  endif()
 endif()
 
 # enable control flow guard
