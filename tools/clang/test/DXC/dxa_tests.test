@@ -36,7 +36,7 @@
 // REBUILD:define void @main()
 
 // RUN: %dxa %t.dxa.cso -dumpreflection | FileCheck %s --check-prefix=REFLECTION
-// REFLECTION: ID3D12ShaderReflection:
+// REFLECTION: ID3D12ShaderReflection1:
 // REFLECTION-NEXT: D3D12_SHADER_DESC:
 // REFLECTION-NEXT:     Shader Version: Vertex 6.0
 // REFLECTION-NEXT:     Creator: dxc
