@@ -795,12 +795,12 @@ void DxilDebugInstrumentation::determineLimitANDAndInitializeCounter(
   auto *PHIForCounterOffset =
       BC.Builder.CreatePHI(Type::getInt32Ty(BC.Ctx), 2, "PIXCounterLocation");
   const uint32_t InterestingCounterOffset =
-      static_cast<uint32_t>(m_UAVSize / 2 - 1);
+      static_cast<uint32_t>(m_UAVSize / 2 - sizeof(uint32_t));
   PHIForCounterOffset->addIncoming(
       BC.HlslOP->GetU32Const(InterestingCounterOffset),
       InterestingInvocationBlock);
   const uint32_t UninterestingCounterOffsetValue =
-      static_cast<uint32_t>(m_UAVSize - 1);
+      static_cast<uint32_t>(m_UAVSize - sizeof(uint32_t));
   PHIForCounterOffset->addIncoming(
       BC.HlslOP->GetU32Const(UninterestingCounterOffsetValue),
       NonInterestingInvocationBlock);

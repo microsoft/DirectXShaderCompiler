@@ -74,6 +74,7 @@ public:
   /// created, we just return RichDebugInfo containing it. Otherwise,
   /// create DebugSource and DebugCompilationUnit for loc and return it.
   RichDebugInfo *getOrCreateRichDebugInfo(const SourceLocation &loc);
+  RichDebugInfo *getOrCreateRichDebugInfoImpl(llvm::StringRef file);
 
   void doDecl(const Decl *decl);
   void doStmt(const Stmt *stmt, llvm::ArrayRef<const Attr *> attrs = {});
@@ -621,6 +622,12 @@ private:
   SpirvInstruction *processIntrinsicMemberCall(const CXXMemberCallExpr *expr,
                                                hlsl::IntrinsicOp opcode);
 
+  /// Processes EvaluateAttributeAt* intrinsic calls.
+  SpirvInstruction *processEvaluateAttributeAt(const CallExpr *expr,
+                                               hlsl::IntrinsicOp opcode,
+                                               SourceLocation loc,
+                                               SourceRange range);
+
   /// Processes Interlocked* intrinsic functions.
   SpirvInstruction *processIntrinsicInterlockedMethod(const CallExpr *,
                                                       hlsl::IntrinsicOp);
@@ -752,6 +759,10 @@ private:
   /// `vk::RawBufferStore()`.
   uint32_t getRawBufferAlignment(const Expr *expr);
 
+  /// Returns a spirv OpCooperativeMatrixLengthKHR instruction generated from a
+  /// call to __builtin_spv_CooperativeMatrixLengthKHR.
+  SpirvInstruction *processCooperativeMatrixGetLength(const CallExpr *call);
+
   /// Process vk::ext_execution_mode intrinsic
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
                                                   bool useIdParams);
@@ -837,8 +848,14 @@ private:
   processMeshOrAmplificationShaderAttributes(const FunctionDecl *decl,
                                              uint32_t *outVerticesArraySize);
 
-  /// \brief Emits a wrapper function for the entry function and returns true
-  /// on success.
+  /// \brief Emits a SpirvDebugFunction to match given SpirvFunction, and
+  /// returns a pointer to it.
+  SpirvDebugFunction *emitDebugFunction(const FunctionDecl *decl,
+                                        SpirvFunction *func,
+                                        RichDebugInfo **info, std::string name);
+
+  /// \brief Emits a wrapper function for the entry function and returns a
+  /// pointer to the wrapper SpirvFunction on success.
   ///
   /// The wrapper function loads the values of all stage input variables and
   /// creates composites as expected by the source code entry function. It then
@@ -848,8 +865,10 @@ private:
   ///
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
-  bool emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
-                                SpirvFunction *entryFuncId);
+  SpirvFunction *emitEntryFunctionWrapper(const FunctionDecl *entryFunction,
+                                          RichDebugInfo **info,
+                                          SpirvDebugFunction **debugFunction,
+                                          SpirvFunction *entryFuncId);
 
   /// \brief Emits a wrapper function for the entry functions for raytracing
   /// stages and returns true on success.
@@ -859,6 +878,7 @@ private:
   /// The wrapper function is also responsible for initializing global static
   /// variables for some cases.
   bool emitEntryFunctionWrapperForRayTracing(const FunctionDecl *entryFunction,
+                                             SpirvDebugFunction *debugFunction,
                                              SpirvFunction *entryFuncId);
 
   /// \brief Performs the following operations for the Hull shader:
@@ -1300,6 +1320,45 @@ private:
   /// use the Vulkan memory model. This is done only if it has been requested or
   /// the Vulkan memory model capability has been added to the module.
   bool UpgradeToVulkanMemoryModelIfNeeded(std::vector<uint32_t> *module);
+
+  // Splits the `value`, which must be a 64-bit scalar, into two 32-bit wide
+  // uints, stored in `lowbits` and `highbits`.
+  void splitDouble(SpirvInstruction *value, SourceLocation loc,
+                   SourceRange range, SpirvInstruction *&lowbits,
+                   SpirvInstruction *&highbits);
+
+  // Splits the value, which must be a vector with element type `elemType` and
+  // size `count`, into two composite values of size `count` and type
+  // `outputType`. The elements are split component-wise: the vector
+  // {0x0123456789abcdef, 0x0123456789abcdef} is split into `lowbits`
+  // {0x89abcdef, 0x89abcdef} and and `highbits` {0x01234567, 0x01234567}.
+  void splitDoubleVector(QualType elemType, uint32_t count, QualType outputType,
+                         SpirvInstruction *value, SourceLocation loc,
+                         SourceRange range, SpirvInstruction *&lowbits,
+                         SpirvInstruction *&highbits);
+
+  // Splits the value, which must be a matrix with element type `elemType` and
+  // dimensions `rowCount` and `colCount`, into two composite values of
+  // dimensions `rowCount` and `colCount`. The elements are split
+  // component-wise: the matrix
+  //
+  // { 0x0123456789abcdef, 0x0123456789abcdef,
+  //   0x0123456789abcdef, 0x0123456789abcdef }
+  //
+  // is split into `lowbits`
+  //
+  // { 0x89abcdef, 0x89abcdef,
+  //   0x89abcdef, 0x89abcdef }
+  //
+  //  and `highbits`
+  //
+  // { 0x012345678, 0x012345678,
+  //   0x012345678, 0x012345678 }.
+  void splitDoubleMatrix(QualType elemType, uint32_t rowCount,
+                         uint32_t colCount, QualType outputType,
+                         SpirvInstruction *value, SourceLocation loc,
+                         SourceRange range, SpirvInstruction *&lowbits,
+                         SpirvInstruction *&highbits);
 
 public:
   /// \brief Wrapper method to create a fatal error message and report it

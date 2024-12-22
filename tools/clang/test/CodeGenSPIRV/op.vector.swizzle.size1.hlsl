@@ -43,11 +43,11 @@ void main(float4 input: INPUT) {
 
     // Selecting from resources
 // CHECK:      [[fptr:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float %PerFrame %int_0 %uint_5 %int_0
-// CHECK-NEXT: [[elem:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[fptr]] %int_3
-// CHECK-NEXT:      {{%[0-9]+}} = OpLoad %float [[elem]]
+// CHECK-NEXT: [[val:%[0-9]+]] = OpLoad %v4float [[fptr]]
+// CHECK-NEXT:     {{%[0-9]+}} = OpCompositeExtract %float [[val]] 3
     v4f = input * PerFrame[5].f.www.r;
 // CHECK:      [[fptr_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_v4float %PerFrame %int_0 %uint_6 %int_0
-// CHECK-NEXT: [[elem_0:%[0-9]+]] = OpAccessChain %_ptr_Uniform_float [[fptr_0]] %int_2
-// CHECK-NEXT:      {{%[0-9]+}} = OpLoad %float [[elem_0]]
+// CHECK-NEXT: [[val_0:%[0-9]+]] = OpLoad %v4float [[fptr_0]]
+// CHECK-NEXT:       {{%[0-9]+}} = OpCompositeExtract %float [[val_0]] 2
     sf = PerFrame[6].f.zzz.r * input.y;
 }

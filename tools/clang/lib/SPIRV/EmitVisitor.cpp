@@ -385,10 +385,8 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
     debugColumnEnd = columnEnd;
   }
 
-  if ((emittedSource[fileId] == 0) && (spvOptions.debugInfoVulkan)) {
-    SpirvDebugSource *src = new (context) SpirvDebugSource(fileName, "");
-    visit(src);
-    spvInstructions.push_back(src);
+  if (columnEnd < columnStart) {
+    columnEnd = columnStart = 0;
   }
 
   curInst.clear();
@@ -411,6 +409,17 @@ void EmitVisitor::emitDebugLine(spv::Op op, const SourceLocation &loc,
   }
   curInst[0] |= static_cast<uint32_t>(curInst.size()) << 16;
   section->insert(section->end(), curInst.begin(), curInst.end());
+}
+
+bool EmitVisitor::emitCooperativeMatrixLength(SpirvUnaryOp *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  const uint32_t operandResultTypeId =
+      typeHandler.emitType(inst->getOperand()->getResultType());
+  curInst.push_back(operandResultTypeId);
+  finalizeInstruction(&mainBinary);
+  return true;
 }
 
 void EmitVisitor::initInstruction(SpirvInstruction *inst) {
@@ -1318,6 +1327,10 @@ bool EmitVisitor::visit(SpirvNullaryOp *inst) {
 }
 
 bool EmitVisitor::visit(SpirvUnaryOp *inst) {
+  if (inst->getopcode() == spv::Op::OpCooperativeMatrixLengthKHR) {
+    return emitCooperativeMatrixLength(inst);
+  }
+
   initInstruction(inst);
   curInst.push_back(inst->getResultTypeId());
   curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));

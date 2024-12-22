@@ -50,8 +50,9 @@ static_assert((unsigned)PSVShaderKind::Invalid ==
                   (unsigned)DXIL::ShaderKind::Invalid,
               "otherwise, PSVShaderKind enum out of sync.");
 
-static DxilProgramSigSemantic
-KindToSystemValue(Semantic::Kind kind, DXIL::TessellatorDomain domain) {
+DxilProgramSigSemantic
+hlsl::SemanticKindToSystemValue(Semantic::Kind kind,
+                                DXIL::TessellatorDomain domain) {
   switch (kind) {
   case Semantic::Kind::Arbitrary:
     return DxilProgramSigSemantic::Undefined;
@@ -291,7 +292,7 @@ private:
     memset(&sig, 0, sizeof(DxilProgramSignatureElement));
     sig.Stream = pElement->GetOutputStream();
     sig.SemanticName = GetSemanticOffset(pElement);
-    sig.SystemValue = KindToSystemValue(pElement->GetKind(), m_domain);
+    sig.SystemValue = SemanticKindToSystemValue(pElement->GetKind(), m_domain);
     sig.CompType =
         CompTypeToSigCompType(pElement->GetCompType().GetKind(), m_bCompat_1_4);
     sig.Register = pElement->GetStartRow();
@@ -737,38 +738,14 @@ public:
   DxilPSVWriter(const DxilModule &mod, uint32_t PSVVersion = UINT_MAX)
       : m_Module(mod), m_PSVInitInfo(PSVVersion) {
     m_Module.GetValidatorVersion(m_ValMajor, m_ValMinor);
-    // Constraint PSVVersion based on validator version
-    if (PSVVersion > 0 &&
-        DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 1) < 0)
-      m_PSVInitInfo.PSVVersion = 0;
-    else if (PSVVersion > 1 &&
-             DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 6) < 0)
-      m_PSVInitInfo.PSVVersion = 1;
-    else if (PSVVersion > 2 &&
-             DXIL::CompareVersions(m_ValMajor, m_ValMinor, 1, 8) < 0)
-      m_PSVInitInfo.PSVVersion = 2;
-    else if (PSVVersion > MAX_PSV_VERSION)
-      m_PSVInitInfo.PSVVersion = MAX_PSV_VERSION;
+    hlsl::SetupPSVInitInfo(m_PSVInitInfo, m_Module);
 
-    const ShaderModel *SM = m_Module.GetShaderModel();
-    UINT uCBuffers = m_Module.GetCBuffers().size();
-    UINT uSamplers = m_Module.GetSamplers().size();
-    UINT uSRVs = m_Module.GetSRVs().size();
-    UINT uUAVs = m_Module.GetUAVs().size();
-    m_PSVInitInfo.ResourceCount = uCBuffers + uSamplers + uSRVs + uUAVs;
     // TODO: for >= 6.2 version, create more efficient structure
     if (m_PSVInitInfo.PSVVersion > 0) {
-      m_PSVInitInfo.ShaderStage = (PSVShaderKind)SM->GetKind();
       // Copy Dxil Signatures
       m_StringBuffer.push_back('\0'); // For empty semantic name (system value)
-      m_PSVInitInfo.SigInputElements =
-          m_Module.GetInputSignature().GetElements().size();
       m_SigInputElements.resize(m_PSVInitInfo.SigInputElements);
-      m_PSVInitInfo.SigOutputElements =
-          m_Module.GetOutputSignature().GetElements().size();
       m_SigOutputElements.resize(m_PSVInitInfo.SigOutputElements);
-      m_PSVInitInfo.SigPatchConstOrPrimElements =
-          m_Module.GetPatchConstOrPrimSignature().GetElements().size();
       m_SigPatchConstOrPrimElements.resize(
           m_PSVInitInfo.SigPatchConstOrPrimElements);
       uint32_t i = 0;
@@ -798,20 +775,6 @@ public:
       m_PSVInitInfo.StringTable.Size = m_StringBuffer.size();
       m_PSVInitInfo.SemanticIndexTable.Table = m_SemanticIndexBuffer.data();
       m_PSVInitInfo.SemanticIndexTable.Entries = m_SemanticIndexBuffer.size();
-      // Set up ViewID and signature dependency info
-      m_PSVInitInfo.UsesViewID =
-          m_Module.m_ShaderFlags.GetViewID() ? true : false;
-      m_PSVInitInfo.SigInputVectors =
-          m_Module.GetInputSignature().NumVectorsUsed(0);
-      for (unsigned streamIndex = 0; streamIndex < 4; streamIndex++) {
-        m_PSVInitInfo.SigOutputVectors[streamIndex] =
-            m_Module.GetOutputSignature().NumVectorsUsed(streamIndex);
-      }
-      m_PSVInitInfo.SigPatchConstOrPrimVectors = 0;
-      if (SM->IsHS() || SM->IsDS() || SM->IsMS()) {
-        m_PSVInitInfo.SigPatchConstOrPrimVectors =
-            m_Module.GetPatchConstOrPrimSignature().NumVectorsUsed(0);
-      }
     }
     if (!m_PSV.InitNew(m_PSVInitInfo, nullptr, &m_PSVBufferSize)) {
       DXASSERT(false, "PSV InitNew failed computing size!");
@@ -834,8 +797,12 @@ public:
     PSVRuntimeInfo1 *pInfo1 = m_PSV.GetPSVRuntimeInfo1();
     PSVRuntimeInfo2 *pInfo2 = m_PSV.GetPSVRuntimeInfo2();
     PSVRuntimeInfo3 *pInfo3 = m_PSV.GetPSVRuntimeInfo3();
-
-    hlsl::InitPSVRuntimeInfo(pInfo, pInfo1, pInfo2, pInfo3, m_Module);
+    if (pInfo)
+      hlsl::SetShaderProps(pInfo, m_Module);
+    if (pInfo1)
+      hlsl::SetShaderProps(pInfo1, m_Module);
+    if (pInfo2)
+      hlsl::SetShaderProps(pInfo2, m_Module);
     if (pInfo3)
       pInfo3->EntryFunctionName = EntryFunctionName;
 

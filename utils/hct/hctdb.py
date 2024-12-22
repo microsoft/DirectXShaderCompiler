@@ -6923,7 +6923,21 @@ class db_dxil(object):
             "Root Signature in DXIL Container must be compatible with shader",
             "Root Signature in DXIL container is not compatible with shader.",
         )
-
+        self.add_valrule_msg(
+            "Container.ContentMatches",
+            "DXIL Container Content must match Module",
+            "DXIL container mismatch for '%0' between '%1' part:('%2') and DXIL module:('%3')",
+        )
+        self.add_valrule_msg(
+            "Container.ContentInvalid",
+            "DXIL Container Content is well-formed",
+            "In '%0', '%1' is not well-formed",
+        )
+        self.add_valrule_msg(
+            "Container.UnusedItemInTable",
+            "Items in Table must be used",
+            "In '%0', '%1' is not used",
+        )
         self.add_valrule("Meta.Required", "Required metadata missing.")
         self.add_valrule_msg(
             "Meta.ComputeWithNode",

@@ -54,7 +54,7 @@ int ExtractMetaInt32Value(std::string const &token) {
   return -1;
 }
 std::map<int, std::pair<int, int>>
-MetaDataKeyToRegisterNumber(std::vector<std::string> const &lines) {
+FindAllocaRelatedMetadata(std::vector<std::string> const &lines) {
   // Find lines of the exemplary form
   // "!249 = !{i32 0, i32 20}"  (in the case of a DXIL value)
   // "!196 = !{i32 1, i32 5, i32 1}" (in the case of a DXIL alloca reg)
@@ -148,7 +148,7 @@ DxilRegisterToNameMap BuildDxilRegisterToNameMap(char const *disassembly) {
 
   auto lines = Tokenize(disassembly, "\n");
 
-  auto metaDataKeyToValue = MetaDataKeyToRegisterNumber(lines);
+  auto metaDataKeyToValue = FindAllocaRelatedMetadata(lines);
 
   for (auto const &line : lines) {
     if (line[0] == '!') {

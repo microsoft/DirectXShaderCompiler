@@ -12,19 +12,22 @@
 #ifndef __DXIL_PIPELINE_STATE_VALIDATION__H__
 #define __DXIL_PIPELINE_STATE_VALIDATION__H__
 
+// ------ Don't unconditionally #include <assert.h> here --------
+// Since this header is included from multiple environments,
+// Conditionally include <assert.h> here is to avoid overwriting
+// the assert that's using by the code which includes this header.
+//
+
 #include "dxc/WinAdapter.h"
+#ifndef assert
 #include <assert.h>
+#endif
 #include <cstring>
 #include <stdint.h>
 
 namespace llvm {
 class raw_ostream;
 }
-
-// Don't include assert.h here.
-// Since this header is included from multiple environments,
-// it is necessary to define assert before this header is included.
-// #include <assert.h>
 
 #ifndef UINT_MAX
 #define UINT_MAX 0xffffffff
@@ -223,7 +226,8 @@ struct PSVStringTable {
   PSVStringTable() : Table(nullptr), Size(0) {}
   PSVStringTable(const char *table, uint32_t size) : Table(table), Size(size) {}
   const char *Get(uint32_t offset) const {
-    assert(offset < Size && Table && Table[Size - 1] == '\0');
+    if (!(offset < Size && Table && Table[Size - 1] == '\0'))
+      return nullptr;
     return Table + offset;
   }
 };
@@ -260,6 +264,13 @@ struct PSVComponentMask {
     }
     return *this;
   }
+  bool operator!=(const PSVComponentMask &other) const {
+    if (NumVectors != other.NumVectors)
+      return true;
+    return memcmp(Mask, other.Mask,
+                  PSVComputeMaskDwordsFromVectors(NumVectors) *
+                      sizeof(uint32_t));
+  }
   bool Get(uint32_t ComponentIndex) const {
     if (ComponentIndex < NumVectors * 4)
       return (bool)(Mask[ComponentIndex >> 5] & (1 << (ComponentIndex & 0x1F)));
@@ -295,6 +306,15 @@ struct PSVDependencyTable {
   const PSVComponentMask GetMaskForInput(uint32_t inputComponentIndex) const {
     return getMaskForInput(inputComponentIndex);
   }
+  bool operator!=(const PSVDependencyTable &other) const {
+    if (InputVectors != other.InputVectors ||
+        OutputVectors != other.OutputVectors)
+      return true;
+    return memcmp(
+        Table, other.Table,
+        PSVComputeInputOutputTableDwords(InputVectors, OutputVectors) *
+            sizeof(uint32_t));
+  }
   bool IsValid() const { return Table != nullptr; }
   void Print(llvm::raw_ostream &, const char *, const char *) const;
 
@@ -325,7 +345,8 @@ struct PSVSemanticIndexTable {
   PSVSemanticIndexTable(const uint32_t *table, uint32_t entries)
       : Table(table), Entries(entries) {}
   const uint32_t *Get(uint32_t offset) const {
-    assert(offset < Entries && Table);
+    if (!(offset < Entries && Table))
+      return nullptr;
     return Table + offset;
   }
 };
@@ -449,6 +470,8 @@ public:
     return !m_pElement0 ? 0 : (uint32_t)m_pElement0->DynamicMaskAndStream & 0xF;
   }
   void Print(llvm::raw_ostream &O) const;
+  void Print(llvm::raw_ostream &O, const char *Name,
+             const uint32_t *SemanticIndexes) const;
 };
 
 #define MAX_PSV_VERSION 3
@@ -595,6 +618,14 @@ public:
     return ReadOrWrite(pBuffer, pSize, Mode, initInfo);
   }
 
+  uint32_t GetRuntimeInfoSize() const { return m_uPSVRuntimeInfoSize; }
+  uint32_t GetResourceBindInfoSize() const {
+    return m_uPSVResourceBindInfoSize;
+  }
+  uint32_t GetSignatureElementSize() const {
+    return m_uPSVSignatureElementSize;
+  }
+
   PSVRuntimeInfo0 *GetPSVRuntimeInfo0() const { return m_pPSVRuntimeInfo0; }
 
   PSVRuntimeInfo1 *GetPSVRuntimeInfo1() const { return m_pPSVRuntimeInfo1; }
@@ -609,7 +640,8 @@ public:
   _T *GetRecord(void *pRecords, uint32_t recordSize, uint32_t numRecords,
                 uint32_t index) const {
     if (pRecords && index < numRecords && sizeof(_T) <= recordSize) {
-      assert((size_t)index * (size_t)recordSize <= UINT_MAX);
+      if (!((size_t)index * (size_t)recordSize <= UINT_MAX))
+        return nullptr;
       return reinterpret_cast<_T *>(reinterpret_cast<uint8_t *>(pRecords) +
                                     (index * recordSize));
     }
@@ -752,6 +784,7 @@ public:
   }
   void PrintPSVRuntimeInfo(llvm::raw_ostream &O, uint8_t ShaderKind,
                            const char *Comment) const;
+  void PrintViewIDState(llvm::raw_ostream &OS) const;
   void Print(llvm::raw_ostream &O, uint8_t ShaderKind) const;
 };
 
@@ -1084,6 +1117,9 @@ public:
 ViewIDValidator *NewViewIDValidator(unsigned viewIDCount,
                                     unsigned gsRastStreamIndex);
 
+uint32_t GetPSVVersion(uint32_t ValidatorMajorVersion,
+                       uint32_t ValidatorMinorVersion);
+
 void InitPSVResourceBinding(PSVResourceBindInfo0 *, PSVResourceBindInfo1 *,
                             DxilResourceBase *);
 
@@ -1093,11 +1129,19 @@ void InitPSVSignatureElement(PSVSignatureElement0 &E,
                              const DxilSignatureElement &SE,
                              bool i1ToUnknownCompat);
 
-// Setup PSVRuntimeInfo* with DxilModule.
-// Note that the EntryFunctionName is not done.
-void InitPSVRuntimeInfo(PSVRuntimeInfo0 *pInfo, PSVRuntimeInfo1 *pInfo1,
-                        PSVRuntimeInfo2 *pInfo2, PSVRuntimeInfo3 *pInfo3,
-                        const DxilModule &DM);
+// Setup PSVInitInfo with DxilModule.
+// Note that the StringTable and PSVSemanticIndexTable are not done.
+void SetupPSVInitInfo(PSVInitInfo &InitInfo, const DxilModule &DM);
+
+// Setup shader properties for PSVRuntimeInfo* with DxilModule.
+void SetShaderProps(PSVRuntimeInfo0 *pInfo, const DxilModule &DM);
+void SetShaderProps(PSVRuntimeInfo1 *pInfo1, const DxilModule &DM);
+void SetShaderProps(PSVRuntimeInfo2 *pInfo2, const DxilModule &DM);
+
+void PrintPSVRuntimeInfo(llvm::raw_ostream &OS, PSVRuntimeInfo0 *pInfo0,
+                         PSVRuntimeInfo1 *pInfo1, PSVRuntimeInfo2 *pInfo2,
+                         PSVRuntimeInfo3 *pInfo3, uint8_t ShaderKind,
+                         const char *EntryName, const char *Comment);
 
 } // namespace hlsl
 

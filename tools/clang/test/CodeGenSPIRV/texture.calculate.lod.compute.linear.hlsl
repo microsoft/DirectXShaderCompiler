@@ -1,8 +1,8 @@
-// RUN: %dxc -T cs_6_6 -E main -fspv-extension=SPV_NV_compute_shader_derivatives -fcgl  %s -spirv  2>&1 | FileCheck %s
+// RUN: %dxc -T cs_6_6 -E main -fspv-extension=SPV_NV_compute_shader_derivatives -fcgl  %s -spirv  2>&1 | FileCheck %s --check-prefix=CHECK
 
-// CHECK: OpCapability ComputeDerivativeGroupLinearNV
+// CHECK: OpCapability ComputeDerivativeGroupLinearKHR
 // CHECK: OpExtension "SPV_NV_compute_shader_derivatives"
-// CHECK: OpExecutionMode %main DerivativeGroupLinearNV
+// CHECK: OpExecutionMode %main DerivativeGroupLinearKHR
 
 SamplerState ss : register(s2);
 SamplerComparisonState scs;

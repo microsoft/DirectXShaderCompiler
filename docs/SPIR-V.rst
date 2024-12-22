@@ -303,6 +303,7 @@ Supported extensions
 * SPV_GOOGLE_user_type
 * SPV_NV_mesh_shader
 * SPV_KHR_fragment_shading_barycentric
+* SPV_KHR_float_controls
 
 Vulkan specific attributes
 --------------------------

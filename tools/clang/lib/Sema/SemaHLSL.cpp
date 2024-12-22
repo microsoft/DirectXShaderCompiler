@@ -8444,8 +8444,19 @@ ExprResult HLSLExternalSource::LookupVectorMemberExprForHLSL(
   ExprValueKind VK = positions.ContainsDuplicateElements()
                          ? VK_RValue
                          : (IsArrow ? VK_LValue : BaseExpr.getValueKind());
-  HLSLVectorElementExpr *vectorExpr = new (m_context) HLSLVectorElementExpr(
-      resultType, VK, &BaseExpr, *member, MemberLoc, positions);
+
+  Expr *E = &BaseExpr;
+  // Insert an lvalue-to-rvalue cast if necessary
+  if (BaseExpr.getValueKind() == VK_LValue && VK == VK_RValue) {
+    // Remove qualifiers from result type and cast target type
+    resultType = resultType.getUnqualifiedType();
+    auto targetType = E->getType().getUnqualifiedType();
+    E = ImplicitCastExpr::Create(*m_context, targetType,
+                                 CastKind::CK_LValueToRValue, E, nullptr,
+                                 VK_RValue);
+  }
+  HLSLVectorElementExpr *vectorExpr = new (m_context)
+      HLSLVectorElementExpr(resultType, VK, E, *member, MemberLoc, positions);
 
   return vectorExpr;
 }
@@ -9091,7 +9102,10 @@ static bool ConvertComponent(ArTypeInfo TargetInfo, ArTypeInfo SourceInfo,
       return false;
     } else if (IS_BASIC_ENUM(SourceInfo.EltKind)) {
       // enum -> int/float
-      ComponentConversion = ICK_Integral_Conversion;
+      if (IS_BASIC_FLOAT(TargetInfo.EltKind))
+        ComponentConversion = ICK_Floating_Integral;
+      else
+        ComponentConversion = ICK_Integral_Conversion;
     } else if (TargetInfo.EltKind == AR_OBJECT_STRING) {
       if (SourceInfo.EltKind == AR_OBJECT_STRING_LITERAL) {
         ComponentConversion = ICK_Array_To_Pointer;
@@ -11344,6 +11358,13 @@ static void DiagnoseReachableBarrier(Sema &S, CallExpr *CE,
   }
 }
 
+static bool isStringLiteral(QualType type) {
+  if (!type->isConstantArrayType())
+    return false;
+  const Type *eType = type->getArrayElementTypeNoTypeQual();
+  return eType->isSpecificBuiltinType(BuiltinType::Char_S);
+}
+
 // Check HLSL member call constraints for used functions.
 // locallyVisited is true if this call has been visited already from any other
 // entry function.  Used to avoid duplicate diagnostics when not dependent on
@@ -11356,6 +11377,13 @@ void Sema::DiagnoseReachableHLSLCall(CallExpr *CE, const hlsl::ShaderModel *SM,
   FunctionDecl *FD = CE->getDirectCallee();
   if (!FD)
     return;
+
+  for (ParmVarDecl *P : FD->parameters()) {
+    if (isStringLiteral(P->getType())) {
+      Diags.Report(CE->getExprLoc(), diag::err_hlsl_unsupported_string_literal);
+    }
+  }
+
   HLSLIntrinsicAttr *IntrinsicAttr = FD->getAttr<HLSLIntrinsicAttr>();
   if (!IntrinsicAttr)
     return;

@@ -17,6 +17,7 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/TimeProfiler.h" // HLSL Change
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
@@ -199,6 +200,10 @@ bool LPPassManager::runOnFunction(Function &F) {
   LI = &LIWP.getLoopInfo();
   bool Changed = false;
 
+  // HLSL Change Begin - Support hierarchial time tracing.
+  llvm::TimeTraceScope FunctionScope("Loop Pass Manager Function", F.getName());
+  // HLSL Change End
+
   // Collect inherited analysis from Module level pass manager.
   populateInheritedAnalysis(TPM->activeStack);
 
@@ -247,6 +252,10 @@ bool LPPassManager::runOnFunction(Function &F) {
       {
         PassManagerPrettyStackEntry X(P, *CurrentLoop->getHeader());
         TimeRegion PassTimer(getPassTimer(P));
+
+        // HLSL Change Begin - Support hierarchial time tracing.
+        llvm::TimeTraceScope PassScope("RunLoopPass", P->getPassName());
+        // HLSL Change End - Support hierarchial time tracing.
 
         Changed |= P->runOnLoop(CurrentLoop, *this);
       }
