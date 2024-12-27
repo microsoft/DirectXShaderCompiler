@@ -293,17 +293,32 @@ Supported extensions
 * SPV_KHR_fragment_shading_rate
 * SPV_KHR_multivew
 * SPV_KHR_post_depth_coverage
+* SPV_KHR_non_semantic_info
 * SPV_KHR_shader_draw_parameters
+* SPV_KHR_ray_tracing
+* SPV_KHR_shader_clock
+* SPV_EXT_demote_to_helper_invocation
 * SPV_EXT_descriptor_indexing
 * SPV_EXT_fragment_fully_covered
+* SPV_EXT_fragment_invocation_density
+* SPV_EXT_fragment_shader_interlock
 * SPV_EXT_mesh_shader
 * SPV_EXT_shader_stencil_support
+* SPV_EXT_shader_viewport_index_layer
 * SPV_AMD_shader_early_and_late_fragment_tests
 * SPV_GOOGLE_hlsl_functionality1
 * SPV_GOOGLE_user_type
+* SPV_NV_ray_tracing
 * SPV_NV_mesh_shader
+* SPV_KHR_ray_query
+* SPV_EXT_shader_image_int64
 * SPV_KHR_fragment_shading_barycentric
+* SPV_KHR_physical_storage_buffer
+* SPV_KHR_vulkan_memory_model
+* SPV_NV_compute_shader_derivatives
+* SPV_KHR_maximal_reconvergence
 * SPV_KHR_float_controls
+* SPV_NV_shader_subgroup_partitioned
 
 Vulkan specific attributes
 --------------------------
