@@ -1,9 +1,142 @@
 // RUN: %dxc -auto-binding-space 13 -T lib_6_3 -exports HSMain1;HSMain2;HSMain3 %s | %D3DReflect %s | FileCheck %s
 
 // This version of HSPerPatchFunc1 should not be exported
-// CHECK: ID3D12FunctionReflection:
-// CHECK-NOT: D3D12_FUNCTION_DESC: Name: \01?HSPerPatchFunc1{{[@$?.A-Za-z0-9_]+InputPatch[@$?.A-Za-z0-9_]+}}
-// CHECK-NOT: D3D_SRV_DIMENSION_BUFFER
+// CHECK:  ID3D12LibraryReflection1:
+// CHECK:    D3D12_LIBRARY_DESC:
+// CHECK:      Creator: <nullptr>
+// CHECK:      Flags: 0
+// CHECK:      FunctionCount: 8
+// CHECK:    ID3D12FunctionReflection:
+// CHECK:      D3D12_FUNCTION_DESC: Name: \01?HSMain1@@YAXIV?$InputPatch@UPSSceneIn@@$02@@@Z
+// CHECK:        Shader Version: Library 6.3
+// CHECK:        Creator: <nullptr>
+// CHECK:        Flags: 0
+// CHECK:        RequiredFeatureFlags: 0
+// CHECK:        ConstantBuffers: 0
+// CHECK:        BoundResources: 0
+// CHECK:        FunctionParameterCount: 0
+// CHECK:        HasReturn: FALSE
+// CHECK:    ID3D12FunctionReflection1:
+// CHECK:      D3D12_FUNCTION_DESC1:
+// CHECK:        RootSignatureSize: 0
+// CHECK:        EarlyDepthStencil: FALSE
+// CHECK:    ID3D12FunctionReflection:
+// CHECK:      D3D12_FUNCTION_DESC: Name: \01?HSMain2@@YAXIV?$InputPatch@UPSSceneIn@@$03@@@Z
+// CHECK:        Shader Version: Library 6.3
+// CHECK:        Creator: <nullptr>
+// CHECK:        Flags: 0
+// CHECK:        RequiredFeatureFlags: 0
+// CHECK:        ConstantBuffers: 0
+// CHECK:        BoundResources: 0
+// CHECK:        FunctionParameterCount: 0
+// CHECK:        HasReturn: FALSE
+// CHECK:    ID3D12FunctionReflection1:
+// CHECK:      D3D12_FUNCTION_DESC1:
+// CHECK:        RootSignatureSize: 0
+// CHECK:        EarlyDepthStencil: FALSE
+// CHECK:    ID3D12FunctionReflection:
+// CHECK:      D3D12_FUNCTION_DESC: Name: \01?HSMain3@@YAXIV?$InputPatch@UPSSceneIn@@$02@@@Z
+// CHECK:        Shader Version: Library 6.3
+// CHECK:        Creator: <nullptr>
+// CHECK:        Flags: 0
+// CHECK:        RequiredFeatureFlags: 0
+// CHECK:        ConstantBuffers: 0
+// CHECK:        BoundResources: 0
+// CHECK:        FunctionParameterCount: 0
+// CHECK:        HasReturn: FALSE
+// CHECK:    ID3D12FunctionReflection1:
+// CHECK:      D3D12_FUNCTION_DESC1:
+// CHECK:        RootSignatureSize: 0
+// CHECK:        EarlyDepthStencil: FALSE
+// CHECK:    ID3D12FunctionReflection:
+// CHECK:      D3D12_FUNCTION_DESC: Name: \01?HSPerPatchFunc1@@YA?AUHSPerPatchData@@XZ
+// CHECK:        Shader Version: Library 6.3
+// CHECK:        Creator: <nullptr>
+// CHECK:        Flags: 0
+// CHECK:        RequiredFeatureFlags: 0
+// CHECK:        ConstantBuffers: 0
+// CHECK:        BoundResources: 0
+// CHECK:        FunctionParameterCount: 0
+// CHECK:        HasReturn: FALSE
+// CHECK:    ID3D12FunctionReflection1:
+// CHECK:      D3D12_FUNCTION_DESC1:
+// CHECK:        RootSignatureSize: 0
+// CHECK:        EarlyDepthStencil: FALSE
+// CHECK:    ID3D12FunctionReflection:
+// CHECK:      D3D12_FUNCTION_DESC: Name: \01?HSPerPatchFunc2@@YA?AUHSPerPatchDataQuad@@V?$InputPatch@UPSSceneIn@@$03@@@Z
+// CHECK:        Shader Version: Library 6.3
+// CHECK:        Creator: <nullptr>
+// CHECK:        Flags: 0
+// CHECK:        RequiredFeatureFlags: 0
+// CHECK:        ConstantBuffers: 0
+// CHECK:        BoundResources: 0
+// CHECK:        FunctionParameterCount: 0
+// CHECK:        HasReturn: FALSE
+// CHECK:    ID3D12FunctionReflection1:
+// CHECK:      D3D12_FUNCTION_DESC1:
+// CHECK:        RootSignatureSize: 0
+// CHECK:        EarlyDepthStencil: FALSE
+// CHECK:    ID3D12FunctionReflection:
+// CHECK:      D3D12_FUNCTION_DESC: Name: HSMain1
+// CHECK:        Shader Version: Hull 6.3
+// CHECK:        Creator: <nullptr>
+// CHECK:        Flags: 0
+// CHECK:        RequiredFeatureFlags: 0
+// CHECK:        ConstantBuffers: 0
+// CHECK:        BoundResources: 0
+// CHECK:        FunctionParameterCount: 0
+// CHECK:        HasReturn: FALSE
+// CHECK:    ID3D12FunctionReflection1:
+// CHECK:      D3D12_FUNCTION_DESC1:
+// CHECK:        RootSignatureSize: 0
+// CHECK:        D3D12_HULL_SHADER_DESC:
+// CHECK:          Domain: D3D_TESSELLATOR_DOMAIN_TRI
+// CHECK:          Partition: D3D_TESSELLATOR_PARTITIONING_FRACTIONAL_ODD
+// CHECK:          OutputPrimitive: D3D_TESSELLATOR_OUTPUT_TRIANGLE_CW
+// CHECK:          InputControlPoints: 3
+// CHECK:          OutputControlPoints: 3
+// CHECK:          MaxTessFactor: 64
+// CHECK:    ID3D12FunctionReflection:
+// CHECK:      D3D12_FUNCTION_DESC: Name: HSMain2
+// CHECK:        Shader Version: Hull 6.3
+// CHECK:        Creator: <nullptr>
+// CHECK:        Flags: 0
+// CHECK:        RequiredFeatureFlags: 0
+// CHECK:        ConstantBuffers: 0
+// CHECK:        BoundResources: 0
+// CHECK:        FunctionParameterCount: 0
+// CHECK:        HasReturn: FALSE
+// CHECK:    ID3D12FunctionReflection1:
+// CHECK:      D3D12_FUNCTION_DESC1:
+// CHECK:        RootSignatureSize: 0
+// CHECK:        D3D12_HULL_SHADER_DESC:
+// CHECK:          Domain: D3D_TESSELLATOR_DOMAIN_QUAD
+// CHECK:          Partition: D3D_TESSELLATOR_PARTITIONING_FRACTIONAL_ODD
+// CHECK:          OutputPrimitive: D3D_TESSELLATOR_OUTPUT_TRIANGLE_CW
+// CHECK:          InputControlPoints: 4
+// CHECK:          OutputControlPoints: 4
+// CHECK:          MaxTessFactor: 64
+// CHECK:    ID3D12FunctionReflection:
+// CHECK:      D3D12_FUNCTION_DESC: Name: HSMain3
+// CHECK:        Shader Version: Hull 6.3
+// CHECK:        Creator: <nullptr>
+// CHECK:        Flags: 0
+// CHECK:        RequiredFeatureFlags: 0
+// CHECK:        ConstantBuffers: 0
+// CHECK:        BoundResources: 0
+// CHECK:        FunctionParameterCount: 0
+// CHECK:        HasReturn: FALSE
+// CHECK:    ID3D12FunctionReflection1:
+// CHECK:      D3D12_FUNCTION_DESC1:
+// CHECK:        RootSignatureSize: 0
+// CHECK:        D3D12_HULL_SHADER_DESC:
+// CHECK:          Domain: D3D_TESSELLATOR_DOMAIN_TRI
+// CHECK:          Partition: D3D_TESSELLATOR_PARTITIONING_FRACTIONAL_ODD
+// CHECK:          OutputPrimitive: D3D_TESSELLATOR_OUTPUT_TRIANGLE_CCW
+// CHECK:          InputControlPoints: 3
+// CHECK:          OutputControlPoints: 3
+// CHECK:          MaxTessFactor: 64
+// CHECK-NOT:ID3D12FunctionReflection:
 
 Buffer<float> T_unused;
 
