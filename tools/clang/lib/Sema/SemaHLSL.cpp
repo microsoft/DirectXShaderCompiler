@@ -6606,7 +6606,7 @@ bool HLSLExternalSource::MatchArguments(
   argTypes.clear();
   const bool isVariadic = IsVariadicIntrinsicFunction(pIntrinsic);
 
-  static const UINT UnusedSize = 0xFF;
+  static const UINT UnusedSize = UINT_MAX;
   static const BYTE MaxIntrinsicArgs = g_MaxIntrinsicParamCount + 1;
 #define CAB(cond, arg)                                                         \
   {                                                                            \
@@ -6622,7 +6622,7 @@ bool HLSLExternalSource::MatchArguments(
   ArBasicKind
       ComponentType[MaxIntrinsicArgs]; // Component type for each argument,
                                        // AR_BASIC_UNKNOWN if unspecified.
-  UINT uSpecialSize[IA_SPECIAL_SLOTS]; // row/col matching types, UNUSED_INDEX32
+  UINT uSpecialSize[IA_SPECIAL_SLOTS]; // row/col matching types, UnusedSize
                                        // if unspecified.
   badArgIdx = MaxIntrinsicArgs;
 
