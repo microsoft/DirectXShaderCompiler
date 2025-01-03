@@ -4,10 +4,10 @@
 // CHECK: [[varNameCond:%[0-9]+]] = OpString "cond"
 // CHECK:    [[varNameC:%[0-9]+]] = OpString "c"
 
-// CHECK:      [[source:%[0-9]+]] = OpExtInst %void [[set]] DebugSource
-// CHECK: [[compileUnit:%[0-9]+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[source]] HLSL
 // CHECK: [[floatType:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeBasic {{%[0-9]+}} %uint_32 Float
 // CHECK: [[float4Type:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeVector [[floatType]] 4
+// CHECK:      [[source:%[0-9]+]] = OpExtInst %void [[set]] DebugSource
+// CHECK: [[compileUnit:%[0-9]+]] = OpExtInst %void [[set]] DebugCompilationUnit 1 4 [[source]] HLSL
 // CHECK:  [[boolType:%[0-9]+]] = OpExtInst %void [[set]] DebugTypeBasic {{%[0-9]+}} %uint_32 Boolean
 
 // CHECK: {{%[0-9]+}} = OpExtInst %void [[set]] DebugGlobalVariable [[varNameCond]] [[boolType]] [[source]] 17 13 [[compileUnit]] [[varNameCond]] %cond FlagIsDefinition

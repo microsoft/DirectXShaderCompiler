@@ -1487,7 +1487,11 @@ void SpirvEmitter::doFunctionDecl(const FunctionDecl *decl) {
   }
 
   if (spirvOptions.debugInfoRich) {
-    spvContext.pushDebugLexicalScope(info, debugFunction);
+    if (srcDebugFunction) {
+      spvContext.pushDebugLexicalScope(info, srcDebugFunction);
+    } else {
+      spvContext.pushDebugLexicalScope(info, debugFunction);
+    }
   }
 
   const QualType retType =
