@@ -817,6 +817,12 @@ bool CanUseFxcMulOnlyPatternForPow(IRBuilder<> &Builder, Value *x, Value *pow,
     }
   }
 
+  // Only apply on aggregates of 16 or fewer elements,
+  // representing the max 4x4 matrix size.
+  Type *xTy = x->getType();
+  if (xTy->isVectorTy() && xTy->getVectorNumElements() > 16)
+    return false;
+
   APFloat powAPF = isa<ConstantDataVector>(pow)
                        ? cast<ConstantDataVector>(pow)->getElementAsAPFloat(0)
                        : // should be a splat value
@@ -2537,16 +2543,20 @@ Value *TrivialDotOperation(OP::OpCode opcode, Value *src0, Value *src1,
   return dotOP;
 }
 
-Value *TranslateIDot(Value *arg0, Value *arg1, unsigned vecSize,
-                     hlsl::OP *hlslOP, IRBuilder<> &Builder,
-                     bool Unsigned = false) {
+// Instead of using a DXIL intrinsic, implement a dot product operation using
+// multiply and add operations. Used for integer dots and long vectors.
+Value *ExpandDot(Value *arg0, Value *arg1, unsigned vecSize,
+		 hlsl::OP *hlslOP, IRBuilder<> &Builder,
+		 bool Unsigned = false) {
   auto madOpCode = Unsigned ? DXIL::OpCode::UMad : DXIL::OpCode::IMad;
+  if (arg0->getType()->getScalarType()->isFloatingPointTy())
+    madOpCode = DXIL::OpCode::FMad;
   Value *Elt0 = Builder.CreateExtractElement(arg0, (uint64_t)0);
   Value *Elt1 = Builder.CreateExtractElement(arg1, (uint64_t)0);
   Value *Result = Builder.CreateMul(Elt0, Elt1);
-  for (unsigned iVecElt = 1; iVecElt < vecSize; ++iVecElt) {
-    Elt0 = Builder.CreateExtractElement(arg0, iVecElt);
-    Elt1 = Builder.CreateExtractElement(arg1, iVecElt);
+  for (unsigned Elt = 1; Elt < vecSize; ++Elt) {
+    Elt0 = Builder.CreateExtractElement(arg0, Elt);
+    Elt1 = Builder.CreateExtractElement(arg1, Elt);
     Result = TrivialDxilTrinaryOperationRet(madOpCode, Elt0, Elt1, Result, Elt0->getType(), hlslOP,
 					    Builder);
   }
@@ -2586,10 +2596,10 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   unsigned vecSize = Ty->getVectorNumElements();
   Value *arg1 = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
   IRBuilder<> Builder(CI);
-  if (Ty->getScalarType()->isFloatingPointTy()) {
+  if (Ty->getScalarType()->isFloatingPointTy() && Ty->getVectorNumElements() <= 4) {
     return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
   } else {
-    return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder,
+    return ExpandDot(arg0, arg1, vecSize, hlslOP, Builder,
                          IOP == IntrinsicOp::IOP_udot);
   }
 }
@@ -3156,7 +3166,7 @@ Value *TranslateMul(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
       if (arg0Ty->getScalarType()->isFloatingPointTy()) {
         return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
       } else {
-        return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder,
+        return ExpandDot(arg0, arg1, vecSize, hlslOP, Builder,
                              IOP == IntrinsicOp::IOP_umul);
       }
     } else {
