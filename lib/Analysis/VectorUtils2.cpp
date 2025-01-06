@@ -42,7 +42,7 @@ llvm::Value *llvm::findScalarElement(llvm::Value *V, unsigned EltNo) {
     if (EltNo == IIElt)
       return III->getOperand(1);
 
-// Guard against infinite loop on malformed, unreachable IR.
+    // Guard against infinite loop on malformed, unreachable IR.
     if (III == III->getOperand(0))
       return nullptr;
 
