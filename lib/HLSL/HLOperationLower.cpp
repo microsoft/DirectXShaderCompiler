@@ -2480,7 +2480,8 @@ Value *TranslateDot(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
   if (Ty->getScalarType()->isFloatingPointTy()) {
     return TranslateFDot(arg0, arg1, vecSize, hlslOP, Builder);
   } else {
-    return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder);
+    return TranslateIDot(arg0, arg1, vecSize, hlslOP, Builder,
+                         IOP == IntrinsicOp::IOP_udot);
   }
 }
 
@@ -6789,6 +6790,7 @@ IntrinsicLower gLowerTable[] = {
      DXIL::OpCode::WavePrefixOp},
     {IntrinsicOp::IOP_uabs, TranslateUAbs, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_uclamp, TranslateClamp, DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_udot, TranslateDot, DXIL::OpCode::NumOpCodes},
     {IntrinsicOp::IOP_ufirstbithigh, TranslateFirstbitHi,
      DXIL::OpCode::FirstbitHi},
     {IntrinsicOp::IOP_umad, TranslateFUITrinary, DXIL::OpCode::UMad},

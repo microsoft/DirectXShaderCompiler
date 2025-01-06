@@ -367,6 +367,7 @@ enum class IntrinsicOp {
   IOP_WavePrefixUSum,
   IOP_uabs,
   IOP_uclamp,
+  IOP_udot,
   IOP_ufirstbithigh,
   IOP_umad,
   IOP_umax,
@@ -391,6 +392,7 @@ inline bool HasUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
   case IntrinsicOp::IOP_WavePrefixSum:
   case IntrinsicOp::IOP_abs:
   case IntrinsicOp::IOP_clamp:
+  case IntrinsicOp::IOP_dot:
   case IntrinsicOp::IOP_firstbithigh:
   case IntrinsicOp::IOP_mad:
   case IntrinsicOp::IOP_max:
@@ -432,6 +434,8 @@ inline unsigned GetUnsignedIntrinsicOpcode(IntrinsicOp opcode) {
     return static_cast<unsigned>(IntrinsicOp::IOP_uabs);
   case IntrinsicOp::IOP_clamp:
     return static_cast<unsigned>(IntrinsicOp::IOP_uclamp);
+  case IntrinsicOp::IOP_dot:
+    return static_cast<unsigned>(IntrinsicOp::IOP_udot);
   case IntrinsicOp::IOP_firstbithigh:
     return static_cast<unsigned>(IntrinsicOp::IOP_ufirstbithigh);
   case IntrinsicOp::IOP_mad:
