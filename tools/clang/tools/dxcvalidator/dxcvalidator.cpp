@@ -20,12 +20,11 @@
 #include "dxc/dxcapi.h"
 #include "dxcvalidator.h"
 
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/DxilRootSignature/DxilRootSignature.h"
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.impl.h"
-#include "dxc/DXIL/DxilShaderModel.h"
-
 
 #ifdef _WIN32
 #include "dxcetw.h"
@@ -49,12 +48,10 @@ static void HashAndUpdate(DxilContainerHeader *Container, bool isPreRelease) {
       (const unsigned char *)Container + DXBCHashStartOffset;
   unsigned AmountToHash = Container->ContainerSizeInBytes - DXBCHashStartOffset;
   ComputeHashRetail(DataToHash, AmountToHash, Container->Hash.Digest);
-  
 }
 
 static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
-                                IDxcBlob **Hashed,
-                                llvm::Module *DebugModule) {
+                                IDxcBlob **Hashed, llvm::Module *DebugModule) {
   bool isPreRelease = false;
   const DxilContainerHeader *DxilContainer =
       IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize());
@@ -72,7 +69,8 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
   }
 
   if (Flags & DxcValidatorFlags_InPlaceEdit) {
-    HashAndUpdate((DxilContainerHeader *)Shader->GetBufferPointer(), isPreRelease);
+    HashAndUpdate((DxilContainerHeader *)Shader->GetBufferPointer(),
+                  isPreRelease);
     *Hashed = Shader;
     Shader->AddRef();
   } else {
@@ -81,7 +79,8 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
     unsigned long CB;
     IFT(HashedBlobStream->Write(Shader->GetBufferPointer(),
                                 Shader->GetBufferSize(), &CB));
-    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr(), isPreRelease);
+    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr(),
+                  isPreRelease);
     IFT(HashedBlobStream.QueryInterface(Hashed));
   }
 }

@@ -67,8 +67,10 @@ public:
 
 // Assemble dxil in ll or llvm bitcode to dxbc container.
 HRESULT STDMETHODCALLTYPE DxcAssembler::AssembleToContainer(
-    IDxcBlob *pShader,             // Shader to assemble.
-    IDxcOperationResult **ppResult // Assemble output status, buffer, and errors) { // inputs used to assemble the container
+    IDxcBlob *pShader, // Shader to assemble.
+    IDxcOperationResult *
+        *ppResult // Assemble output status, buffer, and errors) { // inputs
+                  // used to assemble the container
 ) {
   if (pShader == nullptr || ppResult == nullptr)
     return E_POINTER;
