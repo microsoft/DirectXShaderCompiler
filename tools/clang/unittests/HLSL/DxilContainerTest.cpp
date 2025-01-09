@@ -599,7 +599,7 @@ public:
       VERIFY_SUCCEEDED(pDxcResult->GetOutput(
           DXC_OUT_SHADER_HASH, IID_PPV_ARGS(&pHashBlob), nullptr));
       std::string hashFromResult = RetrieveHashFromBlob(pHashBlob);
-      VERIFY_ARE_EQUAL(hashFromPart, hashFromPart);
+      VERIFY_ARE_EQUAL(hashFromPart, hashFromResult);
     }
 
     return hashFromPart;

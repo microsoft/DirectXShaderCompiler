@@ -66,19 +66,20 @@ namespace llvm {
     /*implicit*/ StringRef() : Data(nullptr), Length(0) {}
     StringRef(std::nullptr_t) = delete; // HLSL Change - So we don't accidentally pass `false` again
 
+    // HLSL Change - Begin - Make StringRef constructors constexpr.
     /// Construct a string ref from a cstring.
-    /*implicit*/ StringRef(const char *Str)
-      : Data(Str) {
-        assert(Str && "StringRef cannot be built from a NULL argument");
-        Length = ::strlen(Str); // invoking strlen(NULL) is undefined behavior
-      }
+    /*implicit*/ constexpr StringRef(const char *Str)
+        : Data(Str), Length(Str ? std::char_traits<char>::length(Str) : 0) {
+      assert(Str && "StringRef cannot be built from a NULL argument");
+    }
 
     /// Construct a string ref from a pointer and length.
-    /*implicit*/ StringRef(const char *data, size_t length)
-      : Data(data), Length(length) {
-        assert((data || length == 0) &&
-        "StringRef cannot be built from a NULL argument with non-null length");
-      }
+    /*implicit*/ constexpr StringRef(const char *data, size_t length)
+        : Data(data), Length(length) {
+      assert((data || length == 0) && "StringRef cannot be built from a NULL "
+                                      "argument with non-null length");
+    }
+    // HLSL Change - End - Make StringRef constructors constexpr.
 
     /// Construct a string ref from an std::string.
     /*implicit*/ StringRef(const std::string &Str)

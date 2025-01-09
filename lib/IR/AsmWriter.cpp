@@ -3049,7 +3049,7 @@ void AssemblyWriter::printMetadataAttachments(
     return;
 
   if (MDNames.empty())
-    TheModule->getMDKindNames(MDNames);
+    MDs[0].second->getContext().getMDKindNames(MDNames);
 
   for (const auto &I : MDs) {
     unsigned Kind = I.first;
