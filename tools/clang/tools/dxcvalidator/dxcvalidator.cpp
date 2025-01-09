@@ -24,6 +24,8 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
 #include "dxc/Support/dxcapi.impl.h"
+#include "dxc/DXIL/DxilShaderModel.h"
+
 
 #ifdef _WIN32
 #include "dxcetw.h"
@@ -32,7 +34,13 @@
 using namespace llvm;
 using namespace hlsl;
 
-static void HashAndUpdate(DxilContainerHeader *Container) {
+static void HashAndUpdate(DxilContainerHeader *Container, bool isPreRelease) {
+  if (isPreRelease) {
+    // If preview bypass is enabled, use the preview hash.
+    UINT previewHash[4] = {0x02020202, 0x02020202, 0x02020202, 0x02020202};
+    memcpy(Container->Hash.Digest, previewHash, sizeof(previewHash));
+    return;
+  }
   // Compute hash and update stored hash.
   // Hash the container from this offset to the end.
   static const uint32_t DXBCHashStartOffset =
@@ -41,12 +49,30 @@ static void HashAndUpdate(DxilContainerHeader *Container) {
       (const unsigned char *)Container + DXBCHashStartOffset;
   unsigned AmountToHash = Container->ContainerSizeInBytes - DXBCHashStartOffset;
   ComputeHashRetail(DataToHash, AmountToHash, Container->Hash.Digest);
+  
 }
 
 static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
-                                IDxcBlob **Hashed) {
+                                IDxcBlob **Hashed,
+                                llvm::Module *DebugModule) {
+  bool isPreRelease = false;
+  const DxilContainerHeader *DxilContainer =
+      IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize());
+  if (!DxilContainer)
+    return;
+
+  const DxilProgramHeader *ProgramHeader =
+      GetDxilProgramHeader(DxilContainer, DFCC_DXIL);
+
+  if (ProgramHeader) {
+    int PV = ProgramHeader->ProgramVersion;
+    int major = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
+    int minor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
+    isPreRelease = ShaderModel::IsPreReleaseShaderModel(major, minor);
+  }
+
   if (Flags & DxcValidatorFlags_InPlaceEdit) {
-    HashAndUpdate((DxilContainerHeader *)Shader->GetBufferPointer());
+    HashAndUpdate((DxilContainerHeader *)Shader->GetBufferPointer(), isPreRelease);
     *Hashed = Shader;
     Shader->AddRef();
   } else {
@@ -55,7 +81,7 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
     unsigned long CB;
     IFT(HashedBlobStream->Write(Shader->GetBufferPointer(),
                                 Shader->GetBufferSize(), &CB));
-    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr());
+    HashAndUpdate((DxilContainerHeader *)HashedBlobStream->GetPtr(), isPreRelease);
     IFT(HashedBlobStream.QueryInterface(Hashed));
   }
 }
@@ -233,7 +259,7 @@ uint32_t hlsl::validateWithOptDebugModule(
       hr = DxcCreateBlobWithEncodingSet(DiagBlob, CP_UTF8, &DiagBlobEnconding);
       if (FAILED(hr))
         throw hlsl::Exception(hr);
-      HashAndUpdateOrCopy(Flags, Shader, &HashedBlob);
+      HashAndUpdateOrCopy(Flags, Shader, &HashedBlob, DebugModule);
       hr = DxcResult::Create(
           validationStatus, DXC_OUT_OBJECT,
           {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, HashedBlob),

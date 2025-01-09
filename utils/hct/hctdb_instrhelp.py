@@ -1538,8 +1538,9 @@ def get_interpretation_table():
 
 highest_major = 6
 highest_minor = 8
-highest_shader_models = {4: 1, 5: 1, 6: highest_minor}
-
+prerelease_major = 6
+prerelease_minor = 9
+highest_shader_models = {4: 1, 5: 1, 6: prerelease_minor}
 
 def getShaderModels():
     shader_models = []
@@ -1558,9 +1559,16 @@ static const unsigned kHighestMinor = %d;""" % (
     )
     return result
 
+def get_prerelease_shader_model():
+    result = """static const unsigned kPreReleaseMajor = %d;
+static const unsigned kPreReleaseMinor = %d;""" % (
+        prerelease_major,
+        prerelease_minor,
+    )
+    return result
 
 def get_dxil_version_minor():
-    return "const unsigned kDxilMinor = %d;" % highest_minor
+    return "const unsigned kDxilMinor = %d;" % prerelease_minor
 
 
 def get_dxil_version_minor_int():
@@ -1778,7 +1786,7 @@ def get_validation_version():
 *pMajor = 1;
 *pMinor = %d;
 """
-        % highest_minor
+        % prerelease_minor
     )
     return result
 
@@ -1806,7 +1814,7 @@ def get_target_profiles():
 
 def get_min_validator_version():
     result = ""
-    for i in range(0, highest_minor + 1):
+    for i in range(0, prerelease_minor + 1):
         result += "case %d:\n" % i
         result += "  ValMinor = %d;\n" % i
         result += "  break;\n"
@@ -1815,12 +1823,12 @@ def get_min_validator_version():
 
 def get_dxil_version():
     result = ""
-    for i in range(0, highest_minor + 1):
+    for i in range(0, prerelease_minor + 1):
         result += "case %d:\n" % i
         result += "  DxilMinor = %d;\n" % i
         result += "  break;\n"
     result += "case kOfflineMinor: // Always update this to highest dxil version\n"
-    result += "  DxilMinor = %d;\n" % highest_minor
+    result += "  DxilMinor = %d;\n" % prerelease_minor
     result += "  break;\n"
     return result
 
@@ -1852,7 +1860,7 @@ def get_shader_model_by_name():
 
 def get_is_valid_for_dxil():
     result = ""
-    for i in range(0, highest_minor + 1):
+    for i in range(0, prerelease_minor + 1):
         result += "case %d:\n" % i
     return result
 

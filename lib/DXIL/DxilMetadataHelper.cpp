@@ -284,13 +284,19 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
       "_" + std::to_string(Major) + "_" +
       (Minor == ShaderModel::kOfflineMinor ? "x" : std::to_string(Minor));
   pSM = ShaderModel::GetByName(ShaderModelName.c_str());
-  if (!pSM->IsValidForDxil()) {
-    char ErrorMsgTxt[40];
-    StringCchPrintfA(ErrorMsgTxt, _countof(ErrorMsgTxt),
-                     "Unknown shader model '%s'", ShaderModelName.c_str());
-    string ErrorMsg(ErrorMsgTxt);
-    throw hlsl::Exception(DXC_E_INCORRECT_DXIL_METADATA, ErrorMsg);
+  // check to see if the provided shader model is the pre-release version
+  if (ShaderModel::IsPreReleaseShaderModel(Major, Minor)) {
+    pSM = ShaderModel::GetPreReleaseShaderModel(ShaderModelName);
+  } else {
+    if (!pSM->IsValidForDxil()) {
+      char ErrorMsgTxt[40];
+      StringCchPrintfA(ErrorMsgTxt, _countof(ErrorMsgTxt),
+                       "Unknown shader model '%s'", ShaderModelName.c_str());
+      string ErrorMsg(ErrorMsgTxt);
+      throw hlsl::Exception(DXC_E_INCORRECT_DXIL_METADATA, ErrorMsg);
+    }
   }
+
   SetShaderModel(pSM);
 }
 
