@@ -105,6 +105,9 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(UINT32 fourCC) {
 HRESULT STDMETHODCALLTYPE
 DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   DxcThreadMalloc TM(m_pMalloc);
+  if (ppResult == nullptr || *ppResult == nullptr)
+    return E_INVALIDARG;
+
   try {
     // Allocate memory for new dxil container.
     uint32_t ContainerSize = ComputeContainerSize();
@@ -161,6 +164,13 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
       errorHeap.Detach();
     }
 
+    // Add Hash.
+    LPVOID PTR = pResult->GetBufferPointer();
+    if (!IsDxilContainerLike(PTR, pResult->GetBufferSize()))
+      return E_FAIL;
+
+    HashAndUpdate((DxilContainerHeader *)PTR);
+
     IFT(DxcResult::Create(
         valHR, DXC_OUT_OBJECT,
         {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, pResult, DxcOutNoName),
@@ -169,21 +179,6 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   }
   CATCH_CPP_RETURN_HRESULT();
 
-  if (ppResult == nullptr || *ppResult == nullptr)
-    return S_OK;
-
-  HRESULT HR;
-  (*ppResult)->GetStatus(&HR);
-  if (FAILED(HR))
-    return HR;
-
-  CComPtr<IDxcBlob> pObject;
-  IFR((*ppResult)->GetResult(&pObject));
-
-  // Add Hash.
-  LPVOID PTR = pObject->GetBufferPointer();
-  if (IsDxilContainerLike(PTR, pObject->GetBufferSize()))
-    HashAndUpdate((DxilContainerHeader *)PTR);
   return S_OK;
 }
 
