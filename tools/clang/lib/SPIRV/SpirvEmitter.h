@@ -767,6 +767,13 @@ private:
   SpirvInstruction *processIntrinsicExecutionMode(const CallExpr *expr,
                                                   bool useIdParams);
 
+  // Returns a spirv instruction with the given binary opcode with operands `a0`
+  // and `a1`. The operands will be cast to bool if they are not already bools.
+  SpirvInstruction *
+  createBinaryOpWithBoolOperands(spv::Op opcode, const Expr *a0, const Expr *a1,
+                                 QualType resultType, SourceLocation loc,
+                                 SourceRange range);
+
   /// Processes the 'firstbit{high|low}' intrinsic functions.
   SpirvInstruction *processIntrinsicFirstbit(const CallExpr *,
                                              GLSLstd450 glslOpcode);

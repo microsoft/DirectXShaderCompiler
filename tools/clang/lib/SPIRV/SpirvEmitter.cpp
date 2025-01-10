@@ -9384,6 +9384,20 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     retVal = processEvaluateAttributeAt(callExpr, hlslOpcode, srcLoc, srcRange);
     break;
   }
+  case hlsl::IntrinsicOp::IOP_and: {
+    retVal = createBinaryOpWithBoolOperands(
+        spv::Op::OpLogicalAnd, callExpr->getArg(0), callExpr->getArg(1),
+        callExpr->getType(), callExpr->getExprLoc(),
+        callExpr->getSourceRange());
+    break;
+  }
+  case hlsl::IntrinsicOp::IOP_or: {
+    retVal = createBinaryOpWithBoolOperands(
+        spv::Op::OpLogicalOr, callExpr->getArg(0), callExpr->getArg(1),
+        callExpr->getType(), callExpr->getExprLoc(),
+        callExpr->getSourceRange());
+    break;
+  }
     INTRINSIC_SPIRV_OP_CASE(ddx, DPdx, true);
     INTRINSIC_SPIRV_OP_CASE(ddx_coarse, DPdxCoarse, false);
     INTRINSIC_SPIRV_OP_CASE(ddx_fine, DPdxFine, false);
@@ -9394,8 +9408,6 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     INTRINSIC_SPIRV_OP_CASE(fmod, FRem, true);
     INTRINSIC_SPIRV_OP_CASE(fwidth, Fwidth, true);
     INTRINSIC_SPIRV_OP_CASE(reversebits, BitReverse, false);
-    INTRINSIC_SPIRV_OP_CASE(and, LogicalAnd, false);
-    INTRINSIC_SPIRV_OP_CASE(or, LogicalOr, false);
     INTRINSIC_OP_CASE(round, RoundEven, true);
     INTRINSIC_OP_CASE(uabs, SAbs, true);
     INTRINSIC_OP_CASE_INT_FLOAT(abs, SAbs, FAbs, true);
@@ -9447,6 +9459,19 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
 
   if (retVal)
     retVal->setRValue();
+  return retVal;
+}
+
+SpirvInstruction *SpirvEmitter::createBinaryOpWithBoolOperands(
+    spv::Op opcode, const Expr *a0, const Expr *a1, QualType resultType,
+    SourceLocation loc, SourceRange range) {
+  SpirvInstruction *retVal;
+  SpirvInstruction *arg0 = castToBool(doExpr(a0), a0->getType(), resultType,
+                                      a0->getExprLoc(), a0->getSourceRange());
+  SpirvInstruction *arg1 = castToBool(doExpr(a1), a1->getType(), resultType,
+                                      a1->getExprLoc(), a1->getSourceRange());
+  retVal =
+      spvBuilder.createBinaryOp(opcode, resultType, arg0, arg1, loc, range);
   return retVal;
 }
 
