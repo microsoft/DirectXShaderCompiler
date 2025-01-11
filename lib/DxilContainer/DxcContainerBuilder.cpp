@@ -105,7 +105,7 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(UINT32 fourCC) {
 HRESULT STDMETHODCALLTYPE
 DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
   DxcThreadMalloc TM(m_pMalloc);
-  if (ppResult == nullptr || *ppResult == nullptr)
+  if (ppResult == nullptr)
     return E_INVALIDARG;
 
   try {
