@@ -104,9 +104,10 @@ HRESULT STDMETHODCALLTYPE DxcContainerBuilder::RemovePart(UINT32 fourCC) {
 
 HRESULT STDMETHODCALLTYPE
 DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
-  DxcThreadMalloc TM(m_pMalloc);
   if (ppResult == nullptr)
     return E_INVALIDARG;
+
+  DxcThreadMalloc TM(m_pMalloc);
 
   try {
     // Allocate memory for new dxil container.
@@ -165,11 +166,9 @@ DxcContainerBuilder::SerializeContainer(IDxcOperationResult **ppResult) {
     }
 
     // Add Hash.
-    LPVOID PTR = pResult->GetBufferPointer();
-    if (!IsDxilContainerLike(PTR, pResult->GetBufferSize()))
-      return E_FAIL;
-
-    HashAndUpdate((DxilContainerHeader *)PTR);
+    if (SUCCEEDED(valHR))
+      HashAndUpdate(IsDxilContainerLike(pResult->GetBufferPointer(),
+                                        pResult->GetBufferSize()));
 
     IFT(DxcResult::Create(
         valHR, DXC_OUT_OBJECT,
