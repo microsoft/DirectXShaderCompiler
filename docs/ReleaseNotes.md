@@ -21,6 +21,8 @@ The included licenses apply to the following files:
 
 Place release notes for the upcoming release below this line and remove this line upon naming this release.
 
+### Version 1.8.2502
+
 - The incomplete WaveMatrix implementation has been removed.
 - DXIL Validator Hash is open sourced.
 - DXIL container validation for PSV0 part allows any content ordering inside string and semantic index tables.
