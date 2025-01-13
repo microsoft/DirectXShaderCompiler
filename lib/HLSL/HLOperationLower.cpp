@@ -6206,20 +6206,8 @@ Value *TranslateAnd(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                     bool &Translated) {
   Value *x = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
-  Type *Ty = CI->getType();
-  Type *EltTy = Ty->getScalarType();
   IRBuilder<> Builder(CI);
 
-  if (Ty != EltTy) {
-    Value *Result = UndefValue::get(Ty);
-    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
-      Value *EltX = Builder.CreateExtractElement(x, i);
-      Value *EltY = Builder.CreateExtractElement(y, i);
-      Value *tmp = Builder.CreateAnd(EltX, EltY);
-      Result = Builder.CreateInsertElement(Result, tmp, i);
-    }
-    return Result;
-  }
   return Builder.CreateAnd(x, y);
 }
 Value *TranslateOr(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
@@ -6227,20 +6215,8 @@ Value *TranslateOr(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
                    HLObjectOperationLowerHelper *pObjHelper, bool &Translated) {
   Value *x = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc0Idx);
   Value *y = CI->getArgOperand(HLOperandIndex::kBinaryOpSrc1Idx);
-  Type *Ty = CI->getType();
-  Type *EltTy = Ty->getScalarType();
   IRBuilder<> Builder(CI);
 
-  if (Ty != EltTy) {
-    Value *Result = UndefValue::get(Ty);
-    for (unsigned i = 0; i < Ty->getVectorNumElements(); i++) {
-      Value *EltX = Builder.CreateExtractElement(x, i);
-      Value *EltY = Builder.CreateExtractElement(y, i);
-      Value *tmp = Builder.CreateOr(EltX, EltY);
-      Result = Builder.CreateInsertElement(Result, tmp, i);
-    }
-    return Result;
-  }
   return Builder.CreateOr(x, y);
 }
 Value *TranslateSelect(CallInst *CI, IntrinsicOp IOP, OP::OpCode opcode,
