@@ -42,6 +42,10 @@ llvm::Value *llvm::findScalarElement(llvm::Value *V, unsigned EltNo) {
     if (EltNo == IIElt)
       return III->getOperand(1);
 
+    // Guard against infinite loop on malformed, unreachable IR.
+    if (III == III->getOperand(0))
+      return nullptr;
+
     // Otherwise, the insertelement doesn't modify the value, recurse on its
     // vector input.
     return findScalarElement(III->getOperand(0), EltNo);
