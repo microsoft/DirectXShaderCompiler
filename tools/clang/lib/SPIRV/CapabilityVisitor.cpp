@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 #include "CapabilityVisitor.h"
@@ -200,6 +203,7 @@ void CapabilityVisitor::addCapabilityForType(const SpirvType *type,
   }
   // Pointer type
   else if (const auto *ptrType = dyn_cast<SpirvPointerType>(type)) {
+    sc = ptrType->getStorageClass();
     addCapabilityForType(ptrType->getPointeeType(), loc, sc);
     if (sc == spv::StorageClass::PhysicalStorageBuffer) {
       addExtension(Extension::KHR_physical_storage_buffer,

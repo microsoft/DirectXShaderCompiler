@@ -5,6 +5,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
 //                                                                           //
 ///
 /// \file                                                                    //
@@ -905,6 +908,50 @@ bool IsHLSLRayQueryType(clang::QualType type) {
   }
   return false;
 }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+bool IsVKBufferPointerType(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(
+                RT->getAsCXXRecordDecl())) {
+      if (auto *namespaceDecl =
+              dyn_cast_or_null<NamespaceDecl>(templateDecl->getDeclContext())) {
+        if (namespaceDecl->getName().equals("vk") &&
+            templateDecl->getName().equals("BufferPointer")) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+QualType GetVKBufferPointerBufferType(clang::QualType type) {
+  return GetHLSLResourceTemplateParamType(type);
+}
+
+unsigned GetVKBufferPointerAlignment(clang::QualType type) {
+  type = type.getCanonicalType();
+  if (const RecordType *RT = dyn_cast<RecordType>(type)) {
+    if (const ClassTemplateSpecializationDecl *templateDecl =
+            dyn_cast<ClassTemplateSpecializationDecl>(
+                RT->getAsCXXRecordDecl())) {
+      if (auto *namespaceDecl =
+              dyn_cast_or_null<NamespaceDecl>(templateDecl->getDeclContext())) {
+        if (namespaceDecl->getName().equals("vk") &&
+            templateDecl->getName().equals("BufferPointer")) {
+          const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+          return (unsigned)argList[1].getAsIntegral().getLimitedValue();
+        }
+      }
+    }
+  }
+
+  return 0; // TODO: error
+}
+#endif
 
 QualType GetHLSLResourceResultType(QualType type) {
   // Don't canonicalize the type as to not lose snorm in Buffer<snorm float>
