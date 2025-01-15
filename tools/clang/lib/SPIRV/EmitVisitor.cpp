@@ -5,6 +5,9 @@
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
+//
 //===----------------------------------------------------------------------===//
 
 // Do not change the inclusion order between "dxc/Support/*" files.
@@ -488,6 +491,7 @@ std::vector<uint32_t> EmitVisitor::takeBinary() {
                 debugVariableBinary.end());
   result.insert(result.end(), annotationsBinary.begin(),
                 annotationsBinary.end());
+  result.insert(result.end(), fwdDeclBinary.begin(), fwdDeclBinary.end());
   result.insert(result.end(), typeConstantBinary.begin(),
                 typeConstantBinary.end());
   result.insert(result.end(), globalVarsBinary.begin(), globalVarsBinary.end());
@@ -1011,6 +1015,28 @@ bool EmitVisitor::visit(SpirvConstantComposite *inst) {
 
 bool EmitVisitor::visit(SpirvConstantNull *inst) {
   typeHandler.getOrCreateConstant(inst);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvConvertPtrToU *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getPtr()));
+  finalizeInstruction(&mainBinary);
+  emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
+                              inst->getDebugName());
+  return true;
+}
+
+bool EmitVisitor::visit(SpirvConvertUToPtr *inst) {
+  initInstruction(inst);
+  curInst.push_back(inst->getResultTypeId());
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst));
+  curInst.push_back(getOrAssignResultId<SpirvInstruction>(inst->getVal()));
+  finalizeInstruction(&mainBinary);
   emitDebugNameForInstruction(getOrAssignResultId<SpirvInstruction>(inst),
                               inst->getDebugName());
   return true;
@@ -2012,10 +2038,11 @@ void EmitTypeHandler::initTypeInstruction(spv::Op op) {
   curTypeInst.push_back(static_cast<uint32_t>(op));
 }
 
-void EmitTypeHandler::finalizeTypeInstruction() {
+void EmitTypeHandler::finalizeTypeInstruction(bool isFwdDecl) {
   curTypeInst[0] |= static_cast<uint32_t>(curTypeInst.size()) << 16;
-  typeConstantBinary->insert(typeConstantBinary->end(), curTypeInst.begin(),
-                             curTypeInst.end());
+  auto binarySection = isFwdDecl ? fwdDeclBinary : typeConstantBinary;
+  binarySection->insert(binarySection->end(), curTypeInst.begin(),
+                        curTypeInst.end());
 }
 
 uint32_t EmitTypeHandler::getResultIdForType(const SpirvType *type,
@@ -2593,6 +2620,17 @@ uint32_t EmitTypeHandler::emitType(const SpirvType *type) {
     curTypeInst.push_back(static_cast<uint32_t>(ptrType->getStorageClass()));
     curTypeInst.push_back(pointeeType);
     finalizeTypeInstruction();
+  }
+  // Forward pointer types
+  else if (const auto *fwdPtrType = dyn_cast<ForwardPointerType>(type)) {
+    const SpirvPointerType *ptrType =
+        context.getForwardReference(fwdPtrType->getPointeeType());
+    const uint32_t refId = emitType(ptrType);
+    initTypeInstruction(spv::Op::OpTypeForwardPointer);
+    curTypeInst.push_back(refId);
+    curTypeInst.push_back(static_cast<uint32_t>(ptrType->getStorageClass()));
+    finalizeTypeInstruction(true);
+    return refId;
   }
   // Function types
   else if (const auto *fnType = dyn_cast<FunctionType>(type)) {
