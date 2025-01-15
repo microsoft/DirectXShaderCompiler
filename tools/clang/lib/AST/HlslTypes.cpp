@@ -5,6 +5,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.                 //
 // This file is distributed under the University of Illinois Open Source     //
 // License. See LICENSE.TXT for details.                                     //
+//
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.
+// All rights reserved.
 //                                                                           //
 ///
 /// \file                                                                    //
@@ -777,6 +780,50 @@ bool IsHLSLRayQueryType(clang::QualType type) {
   }
   return false;
 }
+
+#ifdef ENABLE_SPIRV_CODEGEN
+static llvm::Optional<std::pair<clang::QualType, unsigned>>
+MaybeGetVKBufferPointerParams(clang::QualType type) {
+  const RecordType *RT = dyn_cast<RecordType>(type.getCanonicalType());
+  if (!RT)
+    return llvm::None;
+
+  const ClassTemplateSpecializationDecl *templateDecl =
+      dyn_cast<ClassTemplateSpecializationDecl>(RT->getAsCXXRecordDecl());
+  if (!templateDecl || !templateDecl->getName().equals("BufferPointer"))
+    return llvm::None;
+
+  auto *namespaceDecl =
+      dyn_cast_or_null<NamespaceDecl>(templateDecl->getDeclContext());
+  if (!namespaceDecl || !namespaceDecl->getName().equals("vk"))
+    return llvm::None;
+
+  const TemplateArgumentList &argList = templateDecl->getTemplateArgs();
+  QualType bufferType = argList[0].getAsType();
+  unsigned align =
+      argList.size() > 1 ? argList[1].getAsIntegral().getLimitedValue() : 0;
+  return std::make_pair(bufferType, align);
+}
+
+bool IsVKBufferPointerType(clang::QualType type) {
+  return MaybeGetVKBufferPointerParams(type).hasValue();
+}
+
+QualType GetVKBufferPointerBufferType(clang::QualType type) {
+  auto bpParams = MaybeGetVKBufferPointerParams(type);
+  assert(bpParams.hasValue() &&
+         "cannot get pointer type for type that is not a vk::BufferPointer");
+  return bpParams.getValue().first;
+}
+
+unsigned GetVKBufferPointerAlignment(clang::QualType type) {
+  auto bpParams = MaybeGetVKBufferPointerParams(type);
+  assert(
+      bpParams.hasValue() &&
+      "cannot get pointer alignment for type that is not a vk::BufferPointer");
+  return bpParams.getValue().second;
+}
+#endif
 
 QualType GetHLSLResourceResultType(QualType type) {
   // Don't canonicalize the type as to not lose snorm in Buffer<snorm float>

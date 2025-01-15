@@ -7,6 +7,9 @@
 //                                                                           //
 // Lower functions to lower HL operations to DXIL operations.                //
 //                                                                           //
+// Modifications Copyright(C) 2025 Advanced Micro Devices, Inc.              //
+// All rights reserved.                                                      //
+//                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
 #define _USE_MATH_DEFINES
@@ -6818,6 +6821,12 @@ IntrinsicLower gLowerTable[] = {
     {IntrinsicOp::IOP_DxMaybeReorderThread, TranslateMaybeReorderThread,
      DXIL::OpCode::NumOpCodes_Dxil_1_8}, // FIXME: Just a placeholder Dxil
                                          // opcode
+    {IntrinsicOp::IOP_Vkstatic_pointer_cast, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::IOP_Vkreinterpret_pointer_cast, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
+    {IntrinsicOp::MOP_GetBufferContents, UnsupportedVulkanIntrinsic,
+     DXIL::OpCode::NumOpCodes},
 };
 } // namespace
 static_assert(
