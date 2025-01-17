@@ -1222,11 +1222,12 @@ TEST_F(ValidationTest, ValidationFailNoHash) {
   // Make sure the validation output is not null even when validation fails
   VERIFY_SUCCEEDED(pValidationOutput != nullptr);
 
-  hlsl::DxilContainerHeader *pHeader =
-      IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  hlsl::DxilContainerHeader *pHeader = IsDxilContainerLike(
+      pProgram->GetBufferPointer(), pProgram->GetBufferSize());
   VERIFY_IS_NOT_NULL(pHeader);
 
-  BYTE Result[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  BYTE Result[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0,
+                                        0, 0, 0, 0, 0, 0, 0, 0};
   // ComputeHashRetail(DataToHash, AmountToHash, Result);
   // Should be unequal, this proves the hash isn't written when validation fails
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
