@@ -1185,11 +1185,15 @@ TEST_F(ValidationTest, ValidationFailNoHash) {
   if (m_ver.SkipDxilVersion(1, 8))
     return;
   CComPtr<IDxcBlob> pProgram;
-  LPCSTR pSource = "float main(snorm float b : B) : SV_DEPTH \
-                 { \
-                   float a; \
-                   return b + a; \
-                 }";
+
+  // we need any shader that will pass compilation but fail validation
+  LPCSTR pSource = R"(
+    float main(snorm float b : B) : SV_DEPTH
+    {
+        float a;
+        return b + a;
+    }
+)";
 
   CComPtr<IDxcBlobEncoding> pSourceBlob;
   Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
@@ -1215,20 +1219,17 @@ TEST_F(ValidationTest, ValidationFailNoHash) {
   // expect validation to fail
   VERIFY_FAILED(status);
   pResult->GetResult(&pValidationOutput);
-  // Make sure the validation output is not null when hashing.
+  // Make sure the validation output is not null even when validation fails
   VERIFY_SUCCEEDED(pValidationOutput != nullptr);
 
   hlsl::DxilContainerHeader *pHeader =
-      (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
-  // Validate the hash.
-  constexpr uint32_t HashStartOffset =
-      offsetof(struct DxilContainerHeader, Version);
-  auto *DataToHash = (const BYTE *)pHeader + HashStartOffset;
-  UINT AmountToHash = pHeader->ContainerSizeInBytes - HashStartOffset;
-  BYTE Result[DxilContainerHashSize];
-  ComputeHashRetail(DataToHash, AmountToHash, Result);
+      IsDxilContainerLike(pProgram->GetBufferPointer(), pProgram->GetBufferSize());
+  VERIFY_IS_NOT_NULL(pHeader);
+
+  BYTE Result[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  // ComputeHashRetail(DataToHash, AmountToHash, Result);
   // Should be unequal, this proves the hash isn't written when validation fails
-  VERIFY_ARE_NOT_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
+  VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
   if (m_ver.SkipIRSensitiveTest())
