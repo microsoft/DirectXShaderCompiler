@@ -46,6 +46,7 @@ set WINSDK_MIN_VERSION=10.0.17763.0
 set INSTALL_DIR=
 set DEFAULT_EXEC_ADAPTER=-DTAEF_EXEC_ADAPTER=
 set LIT_ARGS=
+set FRESH=
 
 :parse_args
 if "%1"=="" (
@@ -206,6 +207,10 @@ if "%1"=="-default-adapter" (
 )
 if "%1"=="-sanitizer" (
   set CMAKE_OPTS=%CMAKE_OPTS% -DLLVM_USE_SANITIZER:STRING=Address
+  shift /1 & goto :parse_args
+)
+if "%1"=="-fresh" (
+  set FRESH="--fresh"
   shift /1 & goto :parse_args
 )
 
@@ -468,13 +473,13 @@ cd /d %3
 if "%DO_SETUP%"=="1" (
   echo Creating solution files for %2, logging to %3\cmake-log.txt
   if "%BUILD_GENERATOR%"=="Ninja" (
-    echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
-    "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    echo Running "%CMAKE_PATH%" %FRESH% -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    "%CMAKE_PATH%" %FRESH% -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   ) else (
     rem BUILD_TYPE is mostly ignored in this path as VS generates multiple targets
     rem it is still needed to satisfy cmake file expectations
-    echo Running "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1  %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
-    "%CMAKE_PATH%" -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
+    echo Running "%CMAKE_PATH%" %FRESH% -DCMAKE_BUILD_TYPE:STRING=%1  %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% > %3\cmake-log.txt
+    "%CMAKE_PATH%" %FRESH% -DCMAKE_BUILD_TYPE:STRING=%1 %CMAKE_OPTS% -G %4 %5 %HLSL_SRC_DIR% >> %3\cmake-log.txt 2>&1
   )
   if %SHOW_CMAKE_LOG%==1 (
     echo ------- Start of %3\cmake-log.txt -------
