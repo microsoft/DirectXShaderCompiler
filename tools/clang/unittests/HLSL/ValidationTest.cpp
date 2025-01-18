@@ -1186,7 +1186,8 @@ TEST_F(ValidationTest, ValidationFailNoHash) {
     return;
   CComPtr<IDxcBlob> pProgram;
 
-  // we need any shader that will pass compilation but fail validation
+  // We need any shader that will pass compilation but fail validation.
+  // This shader reads from uninitialized 'float a', which works for now.
   LPCSTR pSource = R"(
     float main(snorm float b : B) : SV_DEPTH
     {
@@ -1226,11 +1227,11 @@ TEST_F(ValidationTest, ValidationFailNoHash) {
       pProgram->GetBufferPointer(), pProgram->GetBufferSize());
   VERIFY_IS_NOT_NULL(pHeader);
 
-  BYTE Result[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0,
+  BYTE ZeroHash[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0,
                                         0, 0, 0, 0, 0, 0, 0, 0};
-  // ComputeHashRetail(DataToHash, AmountToHash, Result);
-  // Should be unequal, this proves the hash isn't written when validation fails
-  VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
+
+  // Should be equal, this proves the hash isn't written when validation fails
+  VERIFY_ARE_EQUAL(memcmp(ZeroHash, pHeader->Hash.Digest, sizeof(ZeroHash)), 0);
 }
 TEST_F(ValidationTest, UpdateCounterFail) {
   if (m_ver.SkipIRSensitiveTest())
