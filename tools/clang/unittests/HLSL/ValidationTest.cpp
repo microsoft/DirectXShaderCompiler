@@ -1228,7 +1228,7 @@ TEST_F(ValidationTest, ValidationFailNoHash) {
   VERIFY_IS_NOT_NULL(pHeader);
 
   BYTE ZeroHash[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0,
-                                        0, 0, 0, 0, 0, 0, 0, 0};
+                                          0, 0, 0, 0, 0, 0, 0, 0};
 
   // Should be equal, this proves the hash isn't written when validation fails
   VERIFY_ARE_EQUAL(memcmp(ZeroHash, pHeader->Hash.Digest, sizeof(ZeroHash)), 0);
