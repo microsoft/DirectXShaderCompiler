@@ -98,53 +98,46 @@ void main(uint3 tid : SV_DispatchThreadId)
 // ********* 64-bit matrix ********************
 
 // CHECK:             [[index_1:%[0-9]+]] = OpShiftRightLogical %uint [[addr0_1:%[0-9]+]] %uint_2
-// CHECK:                 [[ptr_11:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
-// CHECK:               [[word0_2:%[0-9]+]] = OpLoad %uint [[ptr_11]]
-// CHECK:             [[index_1_2:%[0-9]+]] = OpIAdd %uint [[index_1]] %uint_1
-// CHECK:                 [[ptr_12:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1_2]]
-// CHECK:               [[word1_3:%[0-9]+]] = OpLoad %uint [[ptr_12]]
-// CHECK:         [[word0_ulong:%[0-9]+]] = OpUConvert %ulong [[word0_2]]
-// CHECK:         [[word1_ulong:%[0-9]+]] = OpUConvert %ulong [[word1_3]]
-// CHECK: [[word1_ulong_shifted:%[0-9]+]] = OpShiftLeftLogical %ulong [[word1_ulong]] %uint_32
-// CHECK:          [[val0_ulong:%[0-9]+]] = OpBitwiseOr %ulong [[word0_ulong]] [[word1_ulong_shifted]]
-// CHECK:                [[val0_1:%[0-9]+]] = OpBitcast %double [[val0_ulong]]
-// CHECK:             [[index_2_2:%[0-9]+]] = OpIAdd %uint [[index_1_2]] %uint_1
-// CHECK:                 [[ptr_13:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2_2]]
-// CHECK:               [[word2_2:%[0-9]+]] = OpLoad %uint [[ptr_13]]
-// CHECK:             [[index_3_0:%[0-9]+]] = OpIAdd %uint [[index_2_2]] %uint_1
-// CHECK:                 [[ptr_14:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3_0]]
-// CHECK:               [[word3_0:%[0-9]+]] = OpLoad %uint [[ptr_14]]
-// CHECK:         [[word2_ulong:%[0-9]+]] = OpUConvert %ulong [[word2_2]]
-// CHECK:         [[word3_ulong:%[0-9]+]] = OpUConvert %ulong [[word3_0]]
-// CHECK: [[word3_ulong_shifted:%[0-9]+]] = OpShiftLeftLogical %ulong [[word3_ulong]] %uint_32
-// CHECK:          [[val1_ulong:%[0-9]+]] = OpBitwiseOr %ulong [[word2_ulong]] [[word3_ulong_shifted]]
-// CHECK:                [[val1_1:%[0-9]+]] = OpBitcast %double [[val1_ulong]]
-// CHECK:             [[index_4_0:%[0-9]+]] = OpIAdd %uint [[index_3_0]] %uint_1
-// CHECK:                 [[ptr_15:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4_0]]
-// CHECK:               [[word4_0:%[0-9]+]] = OpLoad %uint [[ptr_15]]
-// CHECK:             [[index_5_0:%[0-9]+]] = OpIAdd %uint [[index_4_0]] %uint_1
-// CHECK:                 [[ptr_16:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_5_0]]
-// CHECK:               [[word5_0:%[0-9]+]] = OpLoad %uint [[ptr_16]]
-// CHECK:         [[word4_ulong:%[0-9]+]] = OpUConvert %ulong [[word4_0]]
-// CHECK:         [[word5_ulong:%[0-9]+]] = OpUConvert %ulong [[word5_0]]
-// CHECK: [[word5_ulong_shifted:%[0-9]+]] = OpShiftLeftLogical %ulong [[word5_ulong]] %uint_32
-// CHECK:          [[val2_ulong:%[0-9]+]] = OpBitwiseOr %ulong [[word4_ulong]] [[word5_ulong_shifted]]
-// CHECK:                [[val2_1:%[0-9]+]] = OpBitcast %double [[val2_ulong]]
+// CHECK:              [[ptr_11:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1]]
+// CHECK:             [[word0_2:%[0-9]+]] = OpLoad %uint [[ptr_11]]
+// CHECK:           [[index_1_2:%[0-9]+]] = OpIAdd %uint [[index_1]] %uint_1
+// CHECK:              [[ptr_12:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_1_2]]
+// CHECK:             [[word1_3:%[0-9]+]] = OpLoad %uint [[ptr_12]]
+// CHECK:           [[index_2_2:%[0-9]+]] = OpIAdd %uint [[index_1_2]] %uint_1
+// CHECK:               [[merge:%[0-9]+]] = OpCompositeConstruct %v2uint [[word0_2]] [[word1_3]]
+// CHECK:              [[val0_1:%[0-9]+]] = OpBitcast %double [[merge]]
+
+// CHECK:              [[ptr_13:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_2_2]]
+// CHECK:             [[word2_2:%[0-9]+]] = OpLoad %uint [[ptr_13]]
+// CHECK:           [[index_3_0:%[0-9]+]] = OpIAdd %uint [[index_2_2]] %uint_1
+// CHECK:              [[ptr_14:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_3_0]]
+// CHECK:             [[word3_0:%[0-9]+]] = OpLoad %uint [[ptr_14]]
+// CHECK:           [[index_4_0:%[0-9]+]] = OpIAdd %uint [[index_3_0]] %uint_1
+// CHECK:               [[merge:%[0-9]+]] = OpCompositeConstruct %v2uint [[word2_2]] [[word3_0]]
+// CHECK:              [[val1_1:%[0-9]+]] = OpBitcast %double [[merge]]
+
+// CHECK:              [[ptr_15:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_4_0]]
+// CHECK:             [[word4_0:%[0-9]+]] = OpLoad %uint [[ptr_15]]
+// CHECK:           [[index_5_0:%[0-9]+]] = OpIAdd %uint [[index_4_0]] %uint_1
+// CHECK:              [[ptr_16:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_5_0]]
+// CHECK:             [[word5_0:%[0-9]+]] = OpLoad %uint [[ptr_16]]
 // CHECK:             [[index_6:%[0-9]+]] = OpIAdd %uint [[index_5_0]] %uint_1
-// CHECK:                 [[ptr_17:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_6]]
+// CHECK:               [[merge:%[0-9]+]] = OpCompositeConstruct %v2uint [[word4_0]] [[word5_0]]
+// CHECK:              [[val2_1:%[0-9]+]] = OpBitcast %double [[merge]]
+
+// CHECK:              [[ptr_17:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_6]]
 // CHECK:               [[word6:%[0-9]+]] = OpLoad %uint [[ptr_17]]
 // CHECK:             [[index_7:%[0-9]+]] = OpIAdd %uint [[index_6]] %uint_1
-// CHECK:                 [[ptr_18:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_7]]
+// CHECK:              [[ptr_18:%[0-9]+]] = OpAccessChain %_ptr_Uniform_uint %buf %uint_0 [[index_7]]
 // CHECK:               [[word7:%[0-9]+]] = OpLoad %uint [[ptr_18]]
-// CHECK:         [[word6_ulong:%[0-9]+]] = OpUConvert %ulong [[word6]]
-// CHECK:         [[word7_ulong:%[0-9]+]] = OpUConvert %ulong [[word7]]
-// CHECK: [[word7_ulong_shifted:%[0-9]+]] = OpShiftLeftLogical %ulong [[word7_ulong]] %uint_32
-// CHECK:          [[val3_ulong:%[0-9]+]] = OpBitwiseOr %ulong [[word6_ulong]] [[word7_ulong_shifted]]
-// CHECK:                [[val3_1:%[0-9]+]] = OpBitcast %double [[val3_ulong]]
-// CHECK:                [[row0_1:%[0-9]+]] = OpCompositeConstruct %v2double [[val0_1]] [[val2_1]]
-// CHECK:                [[row1_1:%[0-9]+]] = OpCompositeConstruct %v2double [[val1_1]] [[val3_1]]
-// CHECK:              [[matrix_1:%[0-9]+]] = OpCompositeConstruct %mat2v2double [[row0_1]] [[row1_1]]
-// CHECK:                                OpStore %f64 [[matrix_1]]
+// CHECK:             [[index_8:%[0-9]+]] = OpIAdd %uint [[index_7]] %uint_1
+// CHECK:               [[merge:%[0-9]+]] = OpCompositeConstruct %v2uint [[word6]] [[word7]]
+// CHECK:              [[val3_1:%[0-9]+]] = OpBitcast %double [[merge]]
+
+// CHECK:              [[row0_1:%[0-9]+]] = OpCompositeConstruct %v2double [[val0_1]] [[val2_1]]
+// CHECK:              [[row1_1:%[0-9]+]] = OpCompositeConstruct %v2double [[val1_1]] [[val3_1]]
+// CHECK:            [[matrix_1:%[0-9]+]] = OpCompositeConstruct %mat2v2double [[row0_1]] [[row1_1]]
+// CHECK:                                   OpStore %f64 [[matrix_1]]
   float64_t2x2 f64 = buf.Load<float64_t2x2>(tid.x);
 
 // ********* array of matrices ********************

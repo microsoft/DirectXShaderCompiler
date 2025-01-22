@@ -333,6 +333,12 @@ const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {
       break;
     } else
       return GetInvalid();
+  case '9':
+    if (Major == 6) {
+      Minor = 9;
+      break;
+    } else
+      return GetInvalid();
     // VALRULE-TEXT:END
   case 'x':
     if (kind == Kind::Library && Major == 6) {

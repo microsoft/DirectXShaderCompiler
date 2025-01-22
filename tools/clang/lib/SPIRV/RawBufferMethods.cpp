@@ -117,48 +117,32 @@ SpirvInstruction *RawBufferHandler::load64Bits(SpirvInstruction *buffer,
   SpirvInstruction *ptr = nullptr;
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint32 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
 
+  // Load the first word and increment index.
   auto *index = address.getWordIndex(loc, range);
-
-  // Need to perform two 32-bit uint loads and construct a 64-bit value.
-
-  // Load the first 32-bit uint (word0).
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
   SpirvInstruction *word0 =
       spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
-  // Increment the base index
   address.incrementWordIndex(loc, range);
+
+  // Load the second word and increment index.
   index = address.getWordIndex(loc, range);
-  // Load the second 32-bit uint (word1).
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
   SpirvInstruction *word1 =
       spvBuilder.createLoad(astContext.UnsignedIntTy, ptr, loc, range);
-
-  // Convert both word0 and word1 to 64-bit uints.
-  word0 = spvBuilder.createUnaryOp(
-      spv::Op::OpUConvert, astContext.UnsignedLongLongTy, word0, loc, range);
-  word1 = spvBuilder.createUnaryOp(
-      spv::Op::OpUConvert, astContext.UnsignedLongLongTy, word1, loc, range);
-
-  // Shift word1 to the left by 32 bits.
-  word1 = spvBuilder.createBinaryOp(spv::Op::OpShiftLeftLogical,
-                                    astContext.UnsignedLongLongTy, word1,
-                                    constUint32, loc, range);
-
-  // BitwiseOr word0 and word1.
-  result = spvBuilder.createBinaryOp(spv::Op::OpBitwiseOr,
-                                     astContext.UnsignedLongLongTy, word0,
-                                     word1, loc, range);
-  result = bitCastToNumericalOrBool(result, astContext.UnsignedLongLongTy,
-                                    target64BitType, loc, range);
-  result->setRValue();
-
   address.incrementWordIndex(loc, range);
 
+  // Combine the 2 words into a composite, and bitcast into the destination
+  // type.
+  const auto uintVec2Type =
+      astContext.getExtVectorType(astContext.UnsignedIntTy, 2);
+  auto *operand = spvBuilder.createCompositeConstruct(
+      uintVec2Type, {word0, word1}, loc, range);
+  result = spvBuilder.createUnaryOp(spv::Op::OpBitcast, target64BitType,
+                                    operand, loc, range);
+  result->setRValue();
   return result;
 }
 
@@ -441,39 +425,31 @@ void RawBufferHandler::store64Bits(SpirvInstruction *value,
   const auto loc = buffer->getSourceLocation();
   auto *constUint0 =
       spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 0));
-  auto *constUint32 =
-      spvBuilder.getConstantInt(astContext.UnsignedIntTy, llvm::APInt(32, 32));
 
+  // Bitcast the source into a 32-bit words composite.
+  const auto uintVec2Type =
+      astContext.getExtVectorType(astContext.UnsignedIntTy, 2);
+  auto *tmp = spvBuilder.createUnaryOp(spv::Op::OpBitcast, uintVec2Type, value,
+                                       loc, range);
+
+  // Extract the low and high word (careful! word order).
+  auto *A = spvBuilder.createCompositeExtract(astContext.UnsignedIntTy, tmp,
+                                              {0}, loc, range);
+  auto *B = spvBuilder.createCompositeExtract(astContext.UnsignedIntTy, tmp,
+                                              {1}, loc, range);
+
+  // Store the first word, and increment counter.
   auto *index = address.getWordIndex(loc, range);
-
-  // The underlying element type of the ByteAddressBuffer is uint. So we
-  // need to store two 32-bit values.
   auto *ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                            {constUint0, index}, loc, range);
-  // First convert the 64-bit value to uint64_t. Then extract two 32-bit words
-  // from it.
-  value = bitCastToNumericalOrBool(value, valueType,
-                                   astContext.UnsignedLongLongTy, loc, range);
-
-  // Use OpUConvert to perform truncation (produces the least significant bits).
-  SpirvInstruction *lsb = spvBuilder.createUnaryOp(
-      spv::Op::OpUConvert, astContext.UnsignedIntTy, value, loc, range);
-
-  // Shift uint64_t to the right by 32 bits and truncate to get the most
-  // significant bits.
-  SpirvInstruction *msb = spvBuilder.createUnaryOp(
-      spv::Op::OpUConvert, astContext.UnsignedIntTy,
-      spvBuilder.createBinaryOp(spv::Op::OpShiftRightLogical,
-                                astContext.UnsignedLongLongTy, value,
-                                constUint32, loc, range),
-      loc, range);
-
-  spvBuilder.createStore(ptr, lsb, loc, range);
+  spvBuilder.createStore(ptr, A, loc, range);
   address.incrementWordIndex(loc, range);
+
+  // Store the second word, and increment counter.
   index = address.getWordIndex(loc, range);
   ptr = spvBuilder.createAccessChain(astContext.UnsignedIntTy, buffer,
                                      {constUint0, index}, loc, range);
-  spvBuilder.createStore(ptr, msb, loc, range);
+  spvBuilder.createStore(ptr, B, loc, range);
   address.incrementWordIndex(loc, range);
 }
 
