@@ -369,8 +369,8 @@ resource [[hidden]] CreateResourceFromHeap(in uint index);
 // Replacement for vector logical &&, ||, and ternary conditional operators,
 // For use when HLSL changes to support short-circuiting and only scalar
 // conditions to maintain clarity.
-$match<1, 0> bool<> [[rn]] and(in any<> x, in $type1 y);
-$match<1, 0> bool<> [[rn]] or(in any<> x, in $type1 y);
+$match<1, 0> bool<> [[rn]] and(in bool<> x, in $type1 y);
+$match<1, 0> bool<> [[rn]] or(in bool<> x, in $type1 y);
 $type2 [[rn]] select(in bool<> cond, in $match<1, 2> any<> t, in $type2 f);
 $type2 [[rn]] select(in bool cond, in any_sampler t, in $type2 f);
 
