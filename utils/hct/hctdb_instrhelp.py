@@ -1537,7 +1537,7 @@ def get_interpretation_table():
 
 
 highest_major = 6
-highest_minor = 8
+highest_minor = 9
 highest_shader_models = {4: 1, 5: 1, 6: highest_minor}
 
 
