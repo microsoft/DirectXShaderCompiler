@@ -1537,6 +1537,7 @@ def get_interpretation_table():
     gen = db_sigpoint_gen(db)
     return run_with_stdout(lambda: gen.print_interpretation_table())
 
+
 # highest minor is different than highest released minor,
 # since there can be pre-release versions that are higher
 # than the last released version
