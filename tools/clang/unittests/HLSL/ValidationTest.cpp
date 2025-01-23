@@ -4237,15 +4237,51 @@ TEST_F(ValidationTest, ValidatePreviewBypassHash) {
 
   pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
 
-  // Validate the hash.
-  BYTE PreviewBypassHash[DxilContainerHashSize] = {2, 2, 2, 2, 2, 2, 2, 2,
-                                                   2, 2, 2, 2, 2, 2, 2, 2};
-
   // Should be equal, this proves the hash is set to the preview bypass hash
   // when a prerelease version is used
-  VERIFY_ARE_EQUAL(memcmp(PreviewBypassHash, pHeader->Hash.Digest,
-                          sizeof(PreviewBypassHash)),
+  VERIFY_ARE_EQUAL(memcmp(&hlsl::PreviewByPassHash, pHeader->Hash.Digest,
+                          sizeof(hlsl::PreviewByPassHash)),
                    0);
+
+  // test that when the program version differs from the dxil module shader
+  // model version, the validator fails
+  DxilPartHeader *pPart = GetDxilPartByType(pHeader, DxilFourCC::DFCC_DXIL);
+
+  DxilProgramHeader *pMutableProgramHeader =
+      reinterpret_cast<DxilProgramHeader *>(GetDxilPartData(pPart));
+  int oldMajor = 0;
+  int oldMinor = 0;
+  int newMajor = 0;
+  int newMinor = 0;
+  VERIFY_IS_NOT_NULL(pMutableProgramHeader);
+  uint32_t &PV = pMutableProgramHeader->ProgramVersion;
+  oldMajor = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
+  oldMinor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
+
+  // flip the bit of the shader model version minor
+  PV ^= 1;
+
+  newMajor = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
+  newMinor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
+
+  // now test that the validation fails
+  pResult.Release();
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  VERIFY_IS_NOT_NULL(pResult);
+  pResult->GetStatus(&status);
+
+  // expect validation to fail
+  VERIFY_FAILED(status);
+  // validation succeeded prior, so by inference we know that oldMajor /
+  // oldMinor were the old dxil module shader model versions
+  char buffer[100];
+  std::sprintf(buffer,
+               "error: Program Version is %d.%d but Dxil Module shader model "
+               "version is %d.%d.\nValidation failed.\n",
+               newMajor, newMinor, oldMajor, oldMinor);
+  std::string formattedString = buffer;
+
+  CheckOperationResultMsgs(pResult, {buffer}, false, false);
 }
 
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {

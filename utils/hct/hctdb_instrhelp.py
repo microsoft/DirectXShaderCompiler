@@ -1537,22 +1537,20 @@ def get_interpretation_table():
     gen = db_sigpoint_gen(db)
     return run_with_stdout(lambda: gen.print_interpretation_table())
 
-# highest recognized is different than highest released,
-# since there can be prerelease versions that are higher
+# highest minor is different than highest released minor,
+# since there can be pre-release versions that are higher
 # than the last released version
-highest_recognized_major = 6
-highest_recognized_minor = 9
-
+highest_major = 6
+highest_minor = 9
+highest_shader_models = {4: 1, 5: 1, 6: highest_minor}
 
 # fetch the last released version from latest-released.json
 json_path = os.path.dirname(os.path.dirname(__file__)) + "/version/latest-release.json"
-with open(json_path, 'r') as file:
+with open(json_path, "r") as file:
     json_data = json.load(file)
 
 highest_released_minor = int(json_data["version"]["minor"])
 
-
-highest_shader_models = {4: 1, 5: 1, 6: highest_recognized_minor}
 
 def getShaderModels():
     shader_models = []
@@ -1566,35 +1564,35 @@ def getShaderModels():
 def get_highest_released_shader_model():
     result = """static const unsigned kHighestReleasedMajor = %d;
 static const unsigned kHighestReleasedMinor = %d;""" % (
-        highest_recognized_major,
+        highest_major,
         highest_released_minor,
     )
     return result
 
-def get_highest_recognized_shader_model():
+def get_highest_shader_model():
     result = """static const unsigned kHighestMajor = %d;
 static const unsigned kHighestMinor = %d;""" % (
-        highest_recognized_major,
-        highest_recognized_minor,
+        highest_major,
+        highest_minor,
     )
     return result
 
 def get_dxil_version_minor():
-    return "const unsigned kDxilMinor = %d;" % highest_recognized_minor
+    return "const unsigned kDxilMinor = %d;" % highest_minor
 
 
 def get_dxil_version_minor_int():
-    return highest_recognized_minor
+    return highest_minor
 
 
 def get_is_shader_model_plus():
     result = ""
 
-    for i in range(0, highest_recognized_minor + 1):
+    for i in range(0, highest_minor + 1):
         result += "bool IsSM%d%dPlus() const { return IsSMAtLeast(%d, %d); }\n" % (
-            highest_recognized_major,
+            highest_major,
             i,
-            highest_recognized_major,
+            highest_major,
             i,
         )
     return result
@@ -1798,7 +1796,7 @@ def get_validation_version():
 *pMajor = 1;
 *pMinor = %d;
 """
-        % highest_recognized_minor
+        % highest_minor
     )
     return result
 
@@ -1810,7 +1808,7 @@ def get_target_profiles():
     profiles = getShaderProfiles()
     shader_models = getShaderModels()
 
-    base_sm = "%d_0" % highest_recognized_major
+    base_sm = "%d_0" % highest_major
     for profile, min_sm in profiles:
         for shader_model in shader_models:
             if base_sm > shader_model:
@@ -1826,7 +1824,7 @@ def get_target_profiles():
 
 def get_min_validator_version():
     result = ""
-    for i in range(0, highest_recognized_minor + 1):
+    for i in range(0, highest_minor + 1):
         result += "case %d:\n" % i
         result += "  ValMinor = %d;\n" % i
         result += "  break;\n"
@@ -1835,12 +1833,12 @@ def get_min_validator_version():
 
 def get_dxil_version():
     result = ""
-    for i in range(0, highest_recognized_minor + 1):
+    for i in range(0, highest_minor + 1):
         result += "case %d:\n" % i
         result += "  DxilMinor = %d;\n" % i
         result += "  break;\n"
     result += "case kOfflineMinor: // Always update this to highest dxil version\n"
-    result += "  DxilMinor = %d;\n" % highest_recognized_minor
+    result += "  DxilMinor = %d;\n" % highest_minor
     result += "  break;\n"
     return result
 
@@ -1859,9 +1857,9 @@ def get_shader_model_get():
 
 def get_shader_model_by_name():
     result = ""
-    for i in range(2, highest_recognized_minor + 1):
+    for i in range(2, highest_minor + 1):
         result += "case '%d':\n" % i
-        result += "  if (Major == %d) {\n" % highest_recognized_major
+        result += "  if (Major == %d) {\n" % highest_major
         result += "    Minor = %d;\n" % i
         result += "    break;\n"
         result += "  }\n"
@@ -1872,7 +1870,7 @@ def get_shader_model_by_name():
 
 def get_is_valid_for_dxil():
     result = ""
-    for i in range(0, highest_recognized_minor + 1):
+    for i in range(0, highest_minor + 1):
         result += "case %d:\n" % i
     return result
 

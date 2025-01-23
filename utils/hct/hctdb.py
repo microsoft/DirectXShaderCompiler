@@ -7501,6 +7501,11 @@ class db_dxil(object):
             "Shader model requires Dxil Version %0.%1.",
         )
         self.add_valrule_msg(
+            "Sm.ProgramVersion",
+            "Program Version in Dxil Container does not match Dxil Module shader model version",
+            "Program Version is %0.%1 but Dxil Module shader model version is %2.%3.",
+        )
+        self.add_valrule_msg(
             "Sm.Opcode",
             "Opcode must be defined in target shader model",
             "Opcode %0 not valid in shader model %1.",

@@ -206,7 +206,7 @@ bool ShaderModel::IsPreReleaseShaderModel(int major, int minor) {
   return false;
 }
 
-const ShaderModel::Kind ShaderModel::GetKindFromName(llvm::StringRef Name) {
+ShaderModel::Kind ShaderModel::GetKindFromName(llvm::StringRef Name) {
   Kind kind;
   if (Name.empty()) {
     return Kind::Invalid;

@@ -36,6 +36,9 @@ struct DxilContainerHash {
   uint8_t Digest[DxilContainerHashSize];
 };
 
+static const DxilContainerHash PreviewByPassHash = {2, 2, 2, 2, 2, 2, 2, 2,
+                                                    2, 2, 2, 2, 2, 2, 2, 2};
+
 enum class DxilShaderHashFlags : uint32_t {
   None = 0,           // No flags defined.
   IncludesSource = 1, // This flag indicates that the shader hash was computed

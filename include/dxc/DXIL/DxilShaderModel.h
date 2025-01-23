@@ -29,7 +29,7 @@ public:
   // Major/Minor version of highest released shader model
   // clang-format off
   // Python lines need to be not formatted.
-  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_recognized_shader_model()</py>*/
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_shader_model()</py>*/
   // clang-format on
   // VALRULE-TEXT:BEGIN
   static const unsigned kHighestMajor = 6;
@@ -95,8 +95,7 @@ public:
   static const ShaderModel *GetByName(llvm::StringRef Name);
   static const char *GetKindName(Kind kind);
   static bool IsPreReleaseShaderModel(int Major, int Minor);
-  static const ShaderModel *GetPreReleaseShaderModel(llvm::StringRef name);
-  static const Kind GetKindFromName(llvm::StringRef Name);
+  static Kind GetKindFromName(llvm::StringRef Name);
   static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
   static const llvm::StringRef FullNameFromKind(DXIL::ShaderKind sk);
   static const char *GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy);

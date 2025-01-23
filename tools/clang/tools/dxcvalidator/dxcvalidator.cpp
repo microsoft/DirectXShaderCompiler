@@ -36,8 +36,8 @@ using namespace hlsl;
 static void HashAndUpdate(DxilContainerHeader *Container, bool isPreRelease) {
   if (isPreRelease) {
     // If preview bypass is enabled, use the preview hash.
-    UINT previewHash[4] = {0x02020202, 0x02020202, 0x02020202, 0x02020202};
-    memcpy(Container->Hash.Digest, previewHash, sizeof(previewHash));
+    memcpy(Container->Hash.Digest, PreviewByPassHash.Digest,
+           sizeof(PreviewByPassHash.Digest));
     return;
   }
   // Compute hash and update stored hash.
@@ -61,6 +61,7 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
   const DxilProgramHeader *ProgramHeader =
       GetDxilProgramHeader(DxilContainer, DFCC_DXIL);
 
+  // ProgramHeader may be null here, when hasing a root signature container
   if (ProgramHeader) {
     int PV = ProgramHeader->ProgramVersion;
     int major = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
