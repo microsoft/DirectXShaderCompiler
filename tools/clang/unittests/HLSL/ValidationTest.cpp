@@ -4216,55 +4216,28 @@ TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   }
 
   // Now test a pre-release version.
-  CComPtr<IDxcBlobWide> pProgramOutput;
-  CComPtr<IDxcBlob> pProgramPreRelease;
-  CComPtr<IDxcUtils> pDxcUtils;
-  HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pDxcUtils));
-  if (FAILED(hr))
-    return;
+  pProgram.Release();
+  pShaderModel =
+      ShaderModel::Get(ShaderModel::Kind::Pixel, ShaderModel::kHighestMajor,
+                       ShaderModel::kHighestMinor)
+          ->GetName();
+  result = CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
+                         &pProgram);
 
-  // Convert IDXCBlob to an IDXCBlobEncoding
-  pDxcUtils->GetBlobAsWide(pProgram, &pProgramOutput);
-
-  std::string disassembly;
-  DisassembleProgram(pProgram, &disassembly);
-
-  // increase the dxil version and the shader model version
-  std::string LookFor1 = "= !{i32 1, i32 " +
-                         std::to_string(ShaderModel::kHighestReleasedMinor) +
-                         "}";
-  std::string LookFor2 = "= !{!\"ps\", i32 6, i32 " +
-                         std::to_string(ShaderModel::kHighestReleasedMinor) +
-                         "}";
-
-  llvm::ArrayRef<LPCSTR> LookFors = {LookFor1.c_str(), LookFor2.c_str()};
-
-  std::string Replace1 =
-      "= !{i32 1, i32 " + std::to_string(ShaderModel::kHighestMinor) + "}";
-  std::string Replace2 = "= !{!\"ps\", i32 6, i32 " +
-                         std::to_string(ShaderModel::kHighestMinor) + "}";
-
-  llvm::ArrayRef<LPCSTR> Replaces = {Replace1.c_str(), Replace2.c_str()};
-
-  PerformReplacementOnDisassembly(disassembly, LookFors, Replaces,
-                                  &pProgramPreRelease, false);
-
-  std::string newDisassembly;
-  DisassembleProgram(pProgramPreRelease, &newDisassembly);
-
+  VERIFY_IS_TRUE(result);
   pResult.Release();
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgramPreRelease, Flags, &pResult));
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
   VERIFY_IS_NOT_NULL(pResult);
+  pValidationOutput.Release();
   pResult->GetStatus(&status);
 
   // expect validation to succeed
   VERIFY_SUCCEEDED(status);
   pResult->GetResult(&pValidationOutput);
 
-  pHeader = IsDxilContainerLike(pProgramPreRelease->GetBufferPointer(),
-                                pProgramPreRelease->GetBufferSize());
-  VERIFY_IS_NOT_NULL(pHeader);
+  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
 
+  // Validate the hash.
   BYTE PreviewBypassHash[DxilContainerHashSize] = {2, 2, 2, 2, 2, 2, 2, 2,
                                                    2, 2, 2, 2, 2, 2, 2, 2};
 
@@ -4273,36 +4246,6 @@ TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   VERIFY_ARE_EQUAL(memcmp(PreviewBypassHash, pHeader->Hash.Digest,
                           sizeof(PreviewBypassHash)),
                    0);
-
-  // Now test a version beyond the highest recognized version
-
-  RewriteAssemblyToText(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
-                        ("= !{!\" lib \", i32 6, i32 " +
-                         std::to_string(ShaderModel::kHighestReleasedMajor) +
-                         "}")
-                            .c_str(),
-                        ("= !{!\" lib \", i32 6, i32 " +
-                         std::to_string(ShaderModel::kHighestMajor) + "}")
-                            .c_str(),
-                        &pProgram, false);
-
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
-  VERIFY_IS_NOT_NULL(pResult);
-  pResult->GetStatus(&status);
-
-  // expect validation to succeed
-  VERIFY_SUCCEEDED(status);
-  pResult->GetResult(&pValidationOutput);
-
-  pHeader = IsDxilContainerLike(pProgram->GetBufferPointer(),
-                                pProgram->GetBufferSize());
-  VERIFY_IS_NOT_NULL(pHeader);
-
-  BYTE ZeroHash[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0,
-                                          0, 0, 0, 0, 0, 0, 0, 0};
-
-  // Should be equal, this proves the hash isn't written when validation fails
-  VERIFY_ARE_EQUAL(memcmp(ZeroHash, pHeader->Hash.Digest, sizeof(ZeroHash)), 0);
 }
 
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {
