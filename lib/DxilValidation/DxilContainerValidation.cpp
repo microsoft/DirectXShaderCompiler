@@ -1283,7 +1283,7 @@ static HRESULT ValidateLoadModuleFromContainer(
     int PV = pProgramHeader->ProgramVersion;
     int major = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
     int minor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
-    DxilModule *pDxilModule = DxilModule::TryGetDxilModule(&*pModule);
+    DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule.get());
 
     ValidationContext ValCtx(*pModule, &*pDebugModule, *pDxilModule);
     int moduleMajor = ValCtx.DxilMod.GetShaderModel()->GetMajor();
