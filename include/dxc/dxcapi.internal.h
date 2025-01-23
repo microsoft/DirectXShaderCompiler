@@ -44,10 +44,13 @@ enum LEGAL_INTRINSIC_TEMPLATES {
   LITEMPLATE_MATRIX = 3, // Matrix types (eg. float3x3).
   LITEMPLATE_ANY =
       4, // Any one of scalar, vector or matrix types (but not object).
-  LITEMPLATE_OBJECT = 5, // Object types.
-  LITEMPLATE_ARRAY = 6,  // Scalar array.
+  LITEMPLATE_OBJECT = 5,      // Object types.
+  LITEMPLATE_ARRAY = 6,       // Scalar array.
+  LITEMPLATE_SCALAR_ONLY = 7, // Uncastable scalar types.
+  LITEMPLATE_VECTOR_ONLY = 8, // Uncastable vector types (eg. float3).
+  LITEMPLATE_MATRIX_ONLY = 9, // Uncastable matrix types (eg. float3x3).
 
-  LITEMPLATE_COUNT = 7
+  LITEMPLATE_COUNT = 10
 };
 
 // INTRIN_COMPTYPE_FROM_TYPE_ELT0 is for object method intrinsics to indicate
