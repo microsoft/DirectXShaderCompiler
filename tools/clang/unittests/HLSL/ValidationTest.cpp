@@ -31,6 +31,7 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
 
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HlslTestUtils.h"
 
@@ -300,6 +301,7 @@ public:
 
   TEST_METHOD(ValidateWithHash)
   TEST_METHOD(ValidateVersionNotAllowed)
+  TEST_METHOD(ValidatePreviewBypassHash)
   TEST_METHOD(CreateHandleNotAllowedSM66)
 
   TEST_METHOD(AtomicsConsts)
@@ -537,18 +539,10 @@ public:
                             pLookFors, pReplacements, pErrorMsgs, bRegex);
   }
 
-  bool RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
-                             LPCWSTR *pArguments, UINT32 argCount,
-                             const DxcDefine *pDefines, UINT32 defineCount,
-                             llvm::ArrayRef<LPCSTR> pLookFors,
-                             llvm::ArrayRef<LPCSTR> pReplacements,
-                             IDxcBlob **pBlob, bool bRegex = false) {
-    CComPtr<IDxcBlob> pProgram;
-    std::string disassembly;
-    if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines,
-                       defineCount, &pProgram))
-      return false;
-    DisassembleProgram(pProgram, &disassembly);
+  void PerformReplacementOnDisassembly(std::string disassembly,
+                                       llvm::ArrayRef<LPCSTR> pLookFors,
+                                       llvm::ArrayRef<LPCSTR> pReplacements,
+                                       IDxcBlob **pBlob, bool bRegex = false) {
     for (unsigned i = 0; i < pLookFors.size(); ++i) {
       LPCSTR pLookFor = pLookFors[i];
       bool bOptional = false;
@@ -605,6 +599,22 @@ public:
       }
     }
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), pBlob);
+  }
+
+  bool RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+                             LPCWSTR *pArguments, UINT32 argCount,
+                             const DxcDefine *pDefines, UINT32 defineCount,
+                             llvm::ArrayRef<LPCSTR> pLookFors,
+                             llvm::ArrayRef<LPCSTR> pReplacements,
+                             IDxcBlob **pBlob, bool bRegex = false) {
+    CComPtr<IDxcBlob> pProgram;
+    std::string disassembly;
+    if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines,
+                       defineCount, &pProgram))
+      return false;
+    DisassembleProgram(pProgram, &disassembly);
+    PerformReplacementOnDisassembly(disassembly, pLookFors, pReplacements,
+                                    pBlob, bRegex);
     return true;
   }
 
@@ -4147,6 +4157,152 @@ TEST_F(ValidationTest, ValidateWithHash) {
   BYTE Result[DxilContainerHashSize];
   ComputeHashRetail(DataToHash, AmountToHash, Result);
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
+}
+
+// verify that containers that are not valid DXIL do not
+// get assigned a hash.
+TEST_F(ValidationTest, ValidatePreviewBypassHash) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+  CComPtr<IDxcBlob> pProgram;
+
+  LPCSTR pSource =
+      R"(float4 main(float a:A, float b:B) : SV_Target { return 1; })";
+
+  CComPtr<IDxcBlobEncoding> pSourceBlob;
+  Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
+  LPCSTR pShaderModel = ShaderModel::Get(ShaderModel::Kind::Pixel,
+                                         ShaderModel::kHighestReleasedMajor,
+                                         ShaderModel::kHighestReleasedMinor)
+                            ->GetName();
+  bool result = CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
+                              &pProgram);
+
+  VERIFY_IS_TRUE(result);
+
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  HRESULT status;
+  VERIFY_IS_NOT_NULL(pResult);
+  CComPtr<IDxcBlob> pValidationOutput;
+  pResult->GetStatus(&status);
+
+  // expect validation to succeed
+  VERIFY_SUCCEEDED(status);
+  pResult->GetResult(&pValidationOutput);
+
+  hlsl::DxilContainerHeader *pHeader =
+      (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  // Validate the hash.
+  constexpr uint32_t HashStartOffset =
+      offsetof(struct DxilContainerHeader, Version);
+  auto *DataToHash = (const BYTE *)pHeader + HashStartOffset;
+  UINT AmountToHash = pHeader->ContainerSizeInBytes - HashStartOffset;
+  BYTE Result[DxilContainerHashSize];
+  ComputeHashRetail(DataToHash, AmountToHash, Result);
+  VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
+
+  // If there is no available pre-release version to test, return
+  if (DXIL::CompareVersions(ShaderModel::kHighestMajor,
+                            ShaderModel::kHighestMinor,
+                            ShaderModel::kHighestReleasedMajor,
+                            ShaderModel::kHighestReleasedMinor) <= 0) {
+    return;
+  }
+
+  // Now test a pre-release version.
+  CComPtr<IDxcBlobWide> pProgramOutput;
+  CComPtr<IDxcBlob> pProgramPreRelease;
+  CComPtr<IDxcUtils> pDxcUtils;
+  HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&pDxcUtils));
+  if (FAILED(hr))
+    return;
+
+  // Convert IDXCBlob to an IDXCBlobEncoding
+  pDxcUtils->GetBlobAsWide(pProgram, &pProgramOutput);
+
+  std::string disassembly;
+  DisassembleProgram(pProgram, &disassembly);
+
+  // increase the dxil version and the shader model version
+  std::string LookFor1 = "= !{i32 1, i32 " +
+                         std::to_string(ShaderModel::kHighestReleasedMinor) +
+                         "}";
+  std::string LookFor2 = "= !{!\"ps\", i32 6, i32 " +
+                         std::to_string(ShaderModel::kHighestReleasedMinor) +
+                         "}";
+
+  llvm::ArrayRef<LPCSTR> LookFors = {LookFor1.c_str(), LookFor2.c_str()};
+
+  std::string Replace1 =
+      "= !{i32 1, i32 " + std::to_string(ShaderModel::kHighestMinor) + "}";
+  std::string Replace2 = "= !{!\"ps\", i32 6, i32 " +
+                         std::to_string(ShaderModel::kHighestMinor) + "}";
+
+  llvm::ArrayRef<LPCSTR> Replaces = {Replace1.c_str(), Replace2.c_str()};
+
+  PerformReplacementOnDisassembly(disassembly, LookFors, Replaces,
+                                  &pProgramPreRelease, false);
+
+  std::string newDisassembly;
+  DisassembleProgram(pProgramPreRelease, &newDisassembly);
+
+  pResult.Release();
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgramPreRelease, Flags, &pResult));
+  VERIFY_IS_NOT_NULL(pResult);
+  pResult->GetStatus(&status);
+
+  // expect validation to succeed
+  VERIFY_SUCCEEDED(status);
+  pResult->GetResult(&pValidationOutput);
+
+  pHeader = IsDxilContainerLike(pProgramPreRelease->GetBufferPointer(),
+                                pProgramPreRelease->GetBufferSize());
+  VERIFY_IS_NOT_NULL(pHeader);
+
+  BYTE PreviewBypassHash[DxilContainerHashSize] = {2, 2, 2, 2, 2, 2, 2, 2,
+                                                   2, 2, 2, 2, 2, 2, 2, 2};
+
+  // Should be equal, this proves the hash is set to the preview bypass hash
+  // when a prerelease version is used
+  VERIFY_ARE_EQUAL(memcmp(PreviewBypassHash, pHeader->Hash.Digest,
+                          sizeof(PreviewBypassHash)),
+                   0);
+
+  // Now test a version beyond the highest recognized version
+
+  RewriteAssemblyToText(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
+                        ("= !{!\" lib \", i32 6, i32 " +
+                         std::to_string(ShaderModel::kHighestReleasedMajor) +
+                         "}")
+                            .c_str(),
+                        ("= !{!\" lib \", i32 6, i32 " +
+                         std::to_string(ShaderModel::kHighestMajor) + "}")
+                            .c_str(),
+                        &pProgram, false);
+
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  VERIFY_IS_NOT_NULL(pResult);
+  pResult->GetStatus(&status);
+
+  // expect validation to succeed
+  VERIFY_SUCCEEDED(status);
+  pResult->GetResult(&pValidationOutput);
+
+  pHeader = IsDxilContainerLike(pProgram->GetBufferPointer(),
+                                pProgram->GetBufferSize());
+  VERIFY_IS_NOT_NULL(pHeader);
+
+  BYTE ZeroHash[DxilContainerHashSize] = {0, 0, 0, 0, 0, 0, 0, 0,
+                                          0, 0, 0, 0, 0, 0, 0, 0};
+
+  // Should be equal, this proves the hash isn't written when validation fails
+  VERIFY_ARE_EQUAL(memcmp(ZeroHash, pHeader->Hash.Digest, sizeof(ZeroHash)), 0);
 }
 
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {

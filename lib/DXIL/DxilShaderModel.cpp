@@ -194,7 +194,13 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
 }
 
 bool ShaderModel::IsPreReleaseShaderModel(int major, int minor) {
-  if (major == kPreReleaseMajor && minor == kPreReleaseMinor) {
+  if (DXIL::CompareVersions(major, minor, kHighestReleasedMajor,
+                            kHighestReleasedMinor) <= 0) {
+    return false;
+  }
+
+  // now compare against highest recognized
+  if (DXIL::CompareVersions(major, minor, kHighestMajor, kHighestMinor) <= 0) {
     return true;
   }
   return false;
@@ -238,11 +244,6 @@ const ShaderModel::Kind ShaderModel::GetKindFromName(llvm::StringRef Name) {
     return Kind::Invalid;
   }
   return kind;
-}
-
-const ShaderModel *ShaderModel::GetPreReleaseShaderModel(llvm::StringRef name) {
-  Kind kind = GetKindFromName(name);
-  return Get(kind, kPreReleaseMajor, kPreReleaseMinor);
 }
 
 const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {

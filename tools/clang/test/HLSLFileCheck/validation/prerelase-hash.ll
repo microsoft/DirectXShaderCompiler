@@ -20,7 +20,7 @@ define void @node01() {
 
 !0 = !{!"dxc(private) 1.7.0.4390 (dxil_validation_on_sv_value_node_launch, 6a52940e2258)"}
 !1 = !{i32 1, i32 9}
-!2 = !{!"lib", i32 6, i32 9}
+!2 = !{!"lib", i32 6, i32 10}
 !3 = !{i32 1, void ()* @node01, !4}
 !4 = !{!5}
 !5 = !{i32 0, !6, !6}

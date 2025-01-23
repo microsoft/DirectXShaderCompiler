@@ -51,7 +51,7 @@ static void HashAndUpdate(DxilContainerHeader *Container, bool isPreRelease) {
 }
 
 static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
-                                IDxcBlob **Hashed, llvm::Module *DebugModule) {
+                                IDxcBlob **Hashed) {
   bool isPreRelease = false;
   const DxilContainerHeader *DxilContainer =
       IsDxilContainerLike(Shader->GetBufferPointer(), Shader->GetBufferSize());
@@ -258,7 +258,7 @@ uint32_t hlsl::validateWithOptDebugModule(
       hr = DxcCreateBlobWithEncodingSet(DiagBlob, CP_UTF8, &DiagBlobEnconding);
       if (FAILED(hr))
         throw hlsl::Exception(hr);
-      HashAndUpdateOrCopy(Flags, Shader, &HashedBlob, DebugModule);
+      HashAndUpdateOrCopy(Flags, Shader, &HashedBlob);
       hr = DxcResult::Create(
           validationStatus, DXC_OUT_OBJECT,
           {DxcOutputObject::DataOutput(DXC_OUT_OBJECT, HashedBlob),

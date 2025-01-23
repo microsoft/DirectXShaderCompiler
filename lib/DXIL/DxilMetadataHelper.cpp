@@ -286,7 +286,8 @@ void DxilMDHelper::LoadDxilShaderModel(const ShaderModel *&pSM) {
   pSM = ShaderModel::GetByName(ShaderModelName.c_str());
   // check to see if the provided shader model is the pre-release version
   if (ShaderModel::IsPreReleaseShaderModel(Major, Minor)) {
-    pSM = ShaderModel::GetPreReleaseShaderModel(ShaderModelName);
+    ShaderModel::Kind kind = ShaderModel::GetKindFromName(ShaderModelName);
+    pSM = ShaderModel::Get(kind, Major, Minor);
   } else {
     if (!pSM->IsValidForDxil()) {
       char ErrorMsgTxt[40];
