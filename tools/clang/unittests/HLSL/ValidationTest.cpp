@@ -4234,10 +4234,10 @@ TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   // validation succeeded prior, so by inference we know that oldMajor /
   // oldMinor were the old dxil module shader model versions
   char buffer[100];
-  std::sprintf(buffer,
-               "error: Program Version is %d.%d but Dxil Module shader model "
-               "version is %d.%d.\nValidation failed.\n",
-               newMajor, newMinor, oldMajor, oldMinor);
+  std::snprintf(buffer, sizeof(buffer),
+                "error: Program Version is %d.%d but Dxil Module shader model "
+                "version is %d.%d.\nValidation failed.\n",
+                newMajor, newMinor, oldMajor, oldMinor);
   std::string formattedString = buffer;
 
   CheckOperationResultMsgs(pResult, {buffer}, false, false);
