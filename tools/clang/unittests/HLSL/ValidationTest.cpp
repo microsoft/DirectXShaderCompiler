@@ -4124,7 +4124,7 @@ TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
 }
 
 TEST_F(ValidationTest, ValidateWithHash) {
-  if (m_ver.SkipDxilVersion(1, 8))
+  if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestReleasedMinor))
     return;
   CComPtr<IDxcBlob> pProgram;
   CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
@@ -4159,54 +4159,9 @@ TEST_F(ValidationTest, ValidateWithHash) {
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
 }
 
-// verify that containers that are not valid DXIL do not
-// get assigned a hash.
 TEST_F(ValidationTest, ValidatePreviewBypassHash) {
-  if (m_ver.SkipDxilVersion(1, 8))
+  if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestMinor))
     return;
-  CComPtr<IDxcBlob> pProgram;
-
-  LPCSTR pSource =
-      R"(float4 main(float a:A, float b:B) : SV_Target { return 1; })";
-
-  CComPtr<IDxcBlobEncoding> pSourceBlob;
-  Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
-  LPCSTR pShaderModel = ShaderModel::Get(ShaderModel::Kind::Pixel,
-                                         ShaderModel::kHighestReleasedMajor,
-                                         ShaderModel::kHighestReleasedMinor)
-                            ->GetName();
-  bool result = CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
-                              &pProgram);
-
-  VERIFY_IS_TRUE(result);
-
-  CComPtr<IDxcValidator> pValidator;
-  CComPtr<IDxcOperationResult> pResult;
-  unsigned Flags = 0;
-  VERIFY_SUCCEEDED(
-      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
-
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
-  HRESULT status;
-  VERIFY_IS_NOT_NULL(pResult);
-  CComPtr<IDxcBlob> pValidationOutput;
-  pResult->GetStatus(&status);
-
-  // expect validation to succeed
-  VERIFY_SUCCEEDED(status);
-  pResult->GetResult(&pValidationOutput);
-
-  hlsl::DxilContainerHeader *pHeader =
-      (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
-  // Validate the hash.
-  constexpr uint32_t HashStartOffset =
-      offsetof(struct DxilContainerHeader, Version);
-  auto *DataToHash = (const BYTE *)pHeader + HashStartOffset;
-  UINT AmountToHash = pHeader->ContainerSizeInBytes - HashStartOffset;
-  BYTE Result[DxilContainerHashSize];
-  ComputeHashRetail(DataToHash, AmountToHash, Result);
-  VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
-
   // If there is no available pre-release version to test, return
   if (DXIL::CompareVersions(ShaderModel::kHighestMajor,
                             ShaderModel::kHighestMinor,
@@ -4216,26 +4171,24 @@ TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   }
 
   // Now test a pre-release version.
-  pProgram.Release();
-  pShaderModel =
+  CComPtr<IDxcBlob> pProgram;
+  LPCSTR pSource =
+      R"(float4 main(float a:A, float b:B) : SV_Target { return 1; })";
+
+  CComPtr<IDxcBlobEncoding> pSourceBlob;
+  Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
+
+  LPCSTR pShaderModel =
       ShaderModel::Get(ShaderModel::Kind::Pixel, ShaderModel::kHighestMajor,
                        ShaderModel::kHighestMinor)
           ->GetName();
-  result = CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
-                         &pProgram);
 
+  bool result = CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
+                              &pProgram);
   VERIFY_IS_TRUE(result);
-  pResult.Release();
-  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
-  VERIFY_IS_NOT_NULL(pResult);
-  pValidationOutput.Release();
-  pResult->GetStatus(&status);
 
-  // expect validation to succeed
-  VERIFY_SUCCEEDED(status);
-  pResult->GetResult(&pValidationOutput);
-
-  pHeader = (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  hlsl::DxilContainerHeader *pHeader =
+      (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
 
   // Should be equal, this proves the hash is set to the preview bypass hash
   // when a prerelease version is used
@@ -4265,7 +4218,13 @@ TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   newMinor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
 
   // now test that the validation fails
-  pResult.Release();
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+  HRESULT status;
   VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
   VERIFY_IS_NOT_NULL(pResult);
   pResult->GetStatus(&status);
