@@ -195,14 +195,12 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
 
 bool ShaderModel::IsPreReleaseShaderModel(int major, int minor) {
   if (DXIL::CompareVersions(major, minor, kHighestReleasedMajor,
-                            kHighestReleasedMinor) <= 0) {
+                            kHighestReleasedMinor) <= 0)
     return false;
-  }
 
   // now compare against highest recognized
-  if (DXIL::CompareVersions(major, minor, kHighestMajor, kHighestMinor) <= 0) {
+  if (DXIL::CompareVersions(major, minor, kHighestMajor, kHighestMinor) <= 0)
     return true;
-  }
   return false;
 }
 
