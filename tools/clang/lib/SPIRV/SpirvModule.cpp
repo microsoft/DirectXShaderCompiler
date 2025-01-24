@@ -294,9 +294,10 @@ void SpirvModule::addEntryPoint(SpirvEntryPoint *ep) {
   entryPoints.push_back(ep);
 }
 
-SpirvExecutionMode *SpirvModule::findExecutionMode(SpirvFunction *entryPoint,
-                                                   spv::ExecutionMode em) {
-  for (SpirvExecutionMode *cem : executionModes) {
+SpirvExecutionModeBase *
+SpirvModule::findExecutionMode(SpirvFunction *entryPoint,
+                               spv::ExecutionMode em) {
+  for (SpirvExecutionModeBase *cem : executionModes) {
     if (cem->getEntryPoint() != entryPoint)
       continue;
     if (cem->getExecutionMode() != em)
@@ -306,7 +307,7 @@ SpirvExecutionMode *SpirvModule::findExecutionMode(SpirvFunction *entryPoint,
   return nullptr;
 }
 
-void SpirvModule::addExecutionMode(SpirvExecutionMode *em) {
+void SpirvModule::addExecutionMode(SpirvExecutionModeBase *em) {
   assert(em && "cannot add null execution mode");
   executionModes.push_back(em);
 }

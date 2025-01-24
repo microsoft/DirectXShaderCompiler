@@ -228,7 +228,7 @@ public:
   bool visit(SpirvEmitVertex *) override;
   bool visit(SpirvEndPrimitive *) override;
   bool visit(SpirvEntryPoint *) override;
-  bool visit(SpirvExecutionMode *) override;
+  bool visit(SpirvExecutionModeBase *) override;
   bool visit(SpirvString *) override;
   bool visit(SpirvSource *) override;
   bool visit(SpirvModuleProcessed *) override;
