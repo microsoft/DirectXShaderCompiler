@@ -26,7 +26,7 @@ class ShaderModel {
 public:
   using Kind = DXIL::ShaderKind;
 
-  // Major/Minor version of highest released shader model
+  // Major/Minor version of highest recognized shader model
   // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_shader_model()</py>*/
@@ -36,6 +36,7 @@ public:
   static const unsigned kHighestMinor = 9;
   // VALRULE-TEXT:END
 
+  // Major/Minor version of highest released shader model
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_released_shader_model()</py>*/
   // clang-format on
   // VALRULE-TEXT:BEGIN
