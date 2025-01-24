@@ -1275,28 +1275,6 @@ static HRESULT ValidateLoadModuleFromContainer(
     }
   }
 
-  // Verify that the ProgramHeader in the container contains a program version
-  // that matches the DxilModule's shader model version
-  const DxilProgramHeader *pProgramHeader =
-      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart));
-  if (pProgramHeader) {
-    int PV = pProgramHeader->ProgramVersion;
-    int major = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
-    int minor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
-    DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule.get());
-
-    ValidationContext ValCtx(*pModule, &*pDebugModule, *pDxilModule);
-    int moduleMajor = ValCtx.DxilMod.GetShaderModel()->GetMajor();
-    int moduleMinor = ValCtx.DxilMod.GetShaderModel()->GetMinor();
-    if (moduleMajor != major || moduleMinor != minor) {
-      ValCtx.EmitFormatError(ValidationRule::SmProgramVersion,
-                             {std::to_string(major), std::to_string(minor),
-                              std::to_string(moduleMajor),
-                              std::to_string(moduleMinor)});
-      return DXC_E_INCORRECT_PROGRAM_VERSION;
-    }
-  }
-
   return S_OK;
 }
 
@@ -1318,6 +1296,39 @@ HRESULT ValidateLoadModuleFromContainerLazy(
   return ValidateLoadModuleFromContainer(pContainer, ContainerSize, pModule,
                                          pDebugModule, Ctx, DbgCtx, DiagStream,
                                          /*bLazyLoad*/ true);
+}
+
+HRESULT ValidateDxilContainerAgainstModule(const void *pContainer,
+                                           uint32_t ContainerSize,
+                                           llvm::Module *pModule,
+                                           llvm::Module *pDebugModule,
+                                           llvm::raw_ostream &DiagStream) {
+  const DxilPartHeader *pPart = nullptr;
+  IFR(FindDxilPart(pContainer, ContainerSize, DFCC_DXIL, &pPart));
+  // Verify that the ProgramHeader in the container contains a program version
+  // that matches the DxilModule's shader model version
+  const DxilProgramHeader *pProgramHeader =
+      reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart));
+  if (pProgramHeader) {
+    int PV = pProgramHeader->ProgramVersion;
+    int major = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
+    int minor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
+    DxilModule *pDxilModule = DxilModule::TryGetDxilModule(pModule);
+    if (!pDxilModule) {
+      return DXC_E_IR_VERIFICATION_FAILED;
+    }
+    ValidationContext ValCtx(*pModule, pDebugModule, *pDxilModule);
+    int moduleMajor = ValCtx.DxilMod.GetShaderModel()->GetMajor();
+    int moduleMinor = ValCtx.DxilMod.GetShaderModel()->GetMinor();
+    if (moduleMajor != major || moduleMinor != minor) {
+      ValCtx.EmitFormatError(ValidationRule::SmProgramVersion,
+                             {std::to_string(major), std::to_string(minor),
+                              std::to_string(moduleMajor),
+                              std::to_string(moduleMinor)});
+      return DXC_E_INCORRECT_PROGRAM_VERSION;
+    }
+  }
+  return S_OK;
 }
 
 HRESULT ValidateDxilContainer(const void *pContainer, uint32_t ContainerSize,
@@ -1344,6 +1355,9 @@ HRESULT ValidateDxilContainer(const void *pContainer, uint32_t ContainerSize,
 
   // Validate DXIL Module
   IFR(ValidateDxilModule(pModule.get(), pDebugModule));
+
+  IFR(ValidateDxilContainerAgainstModule(
+      pContainer, ContainerSize, pModule.get(), pDebugModule, DiagStream));
 
   if (DiagContext.HasErrors() || DiagContext.HasWarnings()) {
     return DXC_E_IR_VERIFICATION_FAILED;
