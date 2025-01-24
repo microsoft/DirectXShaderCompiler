@@ -617,19 +617,21 @@ bool EmitVisitor::visit(SpirvEntryPoint *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvExecutionMode *inst) {
+bool EmitVisitor::visit(SpirvExecutionModeBase *inst) {
   initInstruction(inst);
   curInst.push_back(getOrAssignResultId<SpirvFunction>(inst->getEntryPoint()));
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionMode()));
-  if (inst->getopcode() == spv::Op::OpExecutionMode) {
-    curInst.insert(curInst.end(), inst->getParams().begin(),
-                   inst->getParams().end());
-  } else {
-    for (uint32_t param : inst->getParams()) {
-      curInst.push_back(typeHandler.getOrCreateConstantInt(
-          llvm::APInt(32, param), context.getUIntType(32),
-          /*isSpecConst */ false));
+  if (auto *exeModeId = dyn_cast<SpirvExecutionModeId>(inst)) {
+    for (SpirvInstruction *param : exeModeId->getParams()) {
+      if (auto *ConstantInst = dyn_cast<SpirvConstant>(param))
+        typeHandler.getOrCreateConstant(ConstantInst);
+      curInst.push_back(getOrAssignResultId<SpirvInstruction>(param));
     }
+  } else {
+    auto *exeMode = dyn_cast<SpirvExecutionMode>(inst);
+    assert(exeMode);
+    ArrayRef<uint32_t> params = exeMode->getParams();
+    curInst.insert(curInst.end(), params.begin(), params.end());
   }
   finalizeInstruction(&preambleBinary);
   return true;
