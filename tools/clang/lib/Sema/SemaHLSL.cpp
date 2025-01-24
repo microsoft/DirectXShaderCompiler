@@ -13661,6 +13661,18 @@ void hlsl::HandleDeclAttributeForHLSL(Sema &S, Decl *D, const AttributeList &A,
     }
     break;
   }
+  case AttributeList::AT_HLSLSpirvNumThreads: {
+    // TODO: require SPIR-V 1.2
+    // TODO: require expression to be C++11ConstantExpr or a spec constant.
+    // We we want to allow things with SpecConstantOp?
+    auto *X = A.getArgAsExpr(0);
+    auto *Y = A.getArgAsExpr(1);
+    auto *Z = A.getArgAsExpr(2);
+    auto numThreads = ::new (S.Context) HLSLSpirvNumThreadsAttr(
+        A.getRange(), S.Context, X, Y, Z, A.getAttributeSpellingListIndex());
+    declAttr = numThreads;
+    break;
+  }
   case AttributeList::AT_HLSLRootSignature:
     declAttr = ::new (S.Context) HLSLRootSignatureAttr(
         A.getRange(), S.Context,
@@ -15934,7 +15946,8 @@ void DiagnoseDispatchGridSemantics(Sema &S, RecordDecl *NodeRecordStruct,
 void DiagnoseAmplificationEntry(Sema &S, FunctionDecl *FD,
                                 llvm::StringRef StageName) {
 
-  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+  if (!(FD->getAttr<HLSLNumThreadsAttr>()) &&
+      !(FD->getAttr<HLSLSpirvNumThreadsAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "numthreads";
 
@@ -15958,7 +15971,8 @@ void DiagnoseVertexEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
 void DiagnoseMeshEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName) {
 
-  if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+  if (!(FD->getAttr<HLSLNumThreadsAttr>()) &&
+      !(FD->getAttr<HLSLSpirvNumThreadsAttr>()))
     S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
         << StageName << "numthreads";
   if (!(FD->getAttr<HLSLOutputTopologyAttr>()))
@@ -16013,7 +16027,8 @@ void DiagnoseGeometryEntry(Sema &S, FunctionDecl *FD,
 void DiagnoseComputeEntry(Sema &S, FunctionDecl *FD, llvm::StringRef StageName,
                           bool isActiveEntry) {
   if (isActiveEntry) {
-    if (!(FD->getAttr<HLSLNumThreadsAttr>()))
+    if (!(FD->getAttr<HLSLNumThreadsAttr>()) &&
+        !(FD->getAttr<HLSLSpirvNumThreadsAttr>()))
       S.Diags.Report(FD->getLocation(), diag::err_hlsl_missing_attr)
           << StageName << "numthreads";
     if (auto WaveSizeAttr = FD->getAttr<HLSLWaveSizeAttr>()) {

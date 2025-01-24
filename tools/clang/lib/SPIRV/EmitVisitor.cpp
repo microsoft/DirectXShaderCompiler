@@ -613,18 +613,29 @@ bool EmitVisitor::visit(SpirvEntryPoint *inst) {
   return true;
 }
 
-bool EmitVisitor::visit(SpirvExecutionMode *inst) {
+bool EmitVisitor::visit(SpirvExecutionModeBase *inst) {
   initInstruction(inst);
   curInst.push_back(getOrAssignResultId<SpirvFunction>(inst->getEntryPoint()));
   curInst.push_back(static_cast<uint32_t>(inst->getExecutionMode()));
   if (inst->getopcode() == spv::Op::OpExecutionMode) {
-    curInst.insert(curInst.end(), inst->getParams().begin(),
-                   inst->getParams().end());
+    ArrayRef<uint32_t> params =
+        static_cast<SpirvExecutionMode *>(inst)->getParams();
+    curInst.insert(curInst.end(), params.begin(), params.end());
   } else {
-    for (uint32_t param : inst->getParams()) {
-      curInst.push_back(typeHandler.getOrCreateConstantInt(
-          llvm::APInt(32, param), context.getUIntType(32),
-          /*isSpecConst */ false));
+    if (inst->getKind() == SpirvInstruction::IK_ExecutionModeId) {
+      auto *exeModeId = static_cast<SpirvExecutionModeId *>(inst);
+      for (SpirvInstruction *param : exeModeId->getParams()) {
+        uint32_t id = getOrAssignResultId<SpirvInstruction>(param);
+        curInst.push_back(id);
+      }
+    } else {
+      ArrayRef<uint32_t> params =
+          static_cast<SpirvExecutionMode *>(inst)->getParams();
+      for (uint32_t param : params) {
+        curInst.push_back(typeHandler.getOrCreateConstantInt(
+            llvm::APInt(32, param), context.getUIntType(32),
+            /*isSpecConst */ false));
+      }
     }
   }
   finalizeInstruction(&preambleBinary);

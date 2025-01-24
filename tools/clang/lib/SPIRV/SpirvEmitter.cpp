@@ -34,6 +34,7 @@
 
 #ifdef SUPPORT_QUERY_GIT_COMMIT_INFO
 #include "clang/Basic/Version.h"
+#include "clang/Sema/Lookup.h"
 #else
 namespace clang {
 uint32_t getGitCommitCount() { return 0; }
@@ -13234,14 +13235,26 @@ void SpirvEmitter::processPixelShaderAttributes(const FunctionDecl *decl) {
 
 void SpirvEmitter::processComputeShaderAttributes(const FunctionDecl *decl) {
   auto *numThreadsAttr = decl->getAttr<HLSLNumThreadsAttr>();
-  assert(numThreadsAttr && "thread group size missing from entry-point");
+  auto *localSizeIdAttr = decl->getAttr<HLSLSpirvNumThreadsAttr>();
+  assert((numThreadsAttr || localSizeIdAttr) &&
+         "thread group size missing from entry-point");
 
-  uint32_t x = static_cast<uint32_t>(numThreadsAttr->getX());
-  uint32_t y = static_cast<uint32_t>(numThreadsAttr->getY());
-  uint32_t z = static_cast<uint32_t>(numThreadsAttr->getZ());
+  if (numThreadsAttr) {
+    uint32_t x = static_cast<uint32_t>(numThreadsAttr->getX());
+    uint32_t y = static_cast<uint32_t>(numThreadsAttr->getY());
+    uint32_t z = static_cast<uint32_t>(numThreadsAttr->getZ());
 
-  spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
-                              {x, y, z}, decl->getLocation());
+    spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
+                                {x, y, z}, decl->getLocation());
+  } else {
+    auto *exprX = localSizeIdAttr->getX();
+    auto *x = doExpr(exprX);
+    auto *y = doExpr(localSizeIdAttr->getY());
+    auto *z = doExpr(localSizeIdAttr->getZ());
+    spvBuilder.addExecutionModeId(entryFunction,
+                                  spv::ExecutionMode::LocalSizeId, {x, y, z},
+                                  decl->getLocation());
+  }
 
   auto *waveSizeAttr = decl->getAttr<HLSLWaveSizeAttr>();
   if (waveSizeAttr) {
@@ -13469,6 +13482,13 @@ bool SpirvEmitter::processMeshOrAmplificationShaderAttributes(
     z = static_cast<uint32_t>(numThreadsAttr->getZ());
     spvBuilder.addExecutionMode(entryFunction, spv::ExecutionMode::LocalSize,
                                 {x, y, z}, decl->getLocation());
+  } else if (auto *localSizeIdAttr = decl->getAttr<HLSLSpirvNumThreadsAttr>()) {
+    auto *x = doExpr(localSizeIdAttr->getX());
+    auto *y = doExpr(localSizeIdAttr->getY());
+    auto *z = doExpr(localSizeIdAttr->getZ());
+    spvBuilder.addExecutionModeId(entryFunction,
+                                  spv::ExecutionMode::LocalSizeId, {x, y, z},
+                                  decl->getLocation());
   }
 
   // Early return for amplification shaders as they only take the 'numthreads'
@@ -15030,9 +15050,14 @@ bool SpirvEmitter::spirvToolsValidate(std::vector<uint32_t> *mod,
 void SpirvEmitter::addDerivativeGroupExecutionMode() {
   assert(spvContext.isCS());
 
-  SpirvExecutionMode *numThreadsEm = spvBuilder.getModule()->findExecutionMode(
-      entryFunction, spv::ExecutionMode::LocalSize);
-  auto numThreads = numThreadsEm->getParams();
+  SpirvExecutionModeBase *numThreadsEm =
+      spvBuilder.getModule()->findExecutionMode(entryFunction,
+                                                spv::ExecutionMode::LocalSize);
+
+  // TODO: Need to handle LocalSizeID as well.
+  assert(numThreadsEm->getKind() == SpirvInstruction::IK_ExecutionMode);
+  auto numThreads =
+      static_cast<SpirvExecutionMode *>(numThreadsEm)->getParams();
 
   // The layout of the quad is determined by the numer of threads in each
   // dimention. From the HLSL spec

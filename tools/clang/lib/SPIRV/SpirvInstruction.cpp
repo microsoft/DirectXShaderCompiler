@@ -29,7 +29,9 @@ DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtension)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExtInstImport)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvMemoryModel)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvEntryPoint)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionModeBase)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionMode)
+DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvExecutionModeId)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvString)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvSource)
 DEFINE_INVOKE_VISITOR_FOR_CLASS(SpirvModuleProcessed)
@@ -203,11 +205,17 @@ SpirvExecutionMode::SpirvExecutionMode(SourceLocation loc, SpirvFunction *entry,
                                        spv::ExecutionMode em,
                                        llvm::ArrayRef<uint32_t> paramsVec,
                                        bool usesIdParams)
-    : SpirvInstruction(IK_ExecutionMode,
-                       usesIdParams ? spv::Op::OpExecutionModeId
-                                    : spv::Op::OpExecutionMode,
-                       QualType(), loc),
-      entryPoint(entry), execMode(em),
+    : SpirvExecutionModeBase(IK_ExecutionMode,
+                             usesIdParams ? spv::Op::OpExecutionModeId
+                                          : spv::Op::OpExecutionMode,
+                             loc, entry, em),
+      params(paramsVec.begin(), paramsVec.end()) {}
+
+SpirvExecutionModeId::SpirvExecutionModeId(
+    SourceLocation loc, SpirvFunction *entry, spv::ExecutionMode em,
+    llvm::ArrayRef<SpirvInstruction *> paramsVec)
+    : SpirvExecutionModeBase(IK_ExecutionModeId, spv::Op::OpExecutionModeId,
+                             loc, entry, em),
       params(paramsVec.begin(), paramsVec.end()) {}
 
 SpirvString::SpirvString(SourceLocation loc, llvm::StringRef stringLiteral)

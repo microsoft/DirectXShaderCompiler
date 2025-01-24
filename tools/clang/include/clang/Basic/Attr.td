@@ -671,6 +671,11 @@ def HLSLNumThreads: InheritableAttr {
   let Args = [IntArgument<"X">, IntArgument<"Y">, IntArgument<"Z">];
   let Documentation = [Undocumented];
 }
+def HLSLSpirvNumThreads : InheritableAttr {
+  let Spellings = [CXX11<"vk", "LocalSizeId", 2015>];
+  let Args = [ExprArgument<"X">, ExprArgument<"Y">, ExprArgument<"Z">];
+  let Documentation = [Undocumented];
+}
 def HLSLRootSignature: InheritableAttr {
   let Spellings = [CXX11<"", "RootSignature", 2015>];
   let Args = [StringArgument<"SignatureName">];
