@@ -1035,22 +1035,21 @@ HRESULT ValidateDxilContainerParts(llvm::Module *pModule,
     case DFCC_PrivateData:
       break;
     case DFCC_DXIL:
-    case DFCC_ShaderDebugInfoDXIL: {    
+    case DFCC_ShaderDebugInfoDXIL: {
       const DxilProgramHeader *pProgramHeader =
           reinterpret_cast<const DxilProgramHeader *>(GetDxilPartData(pPart));
       if (pProgramHeader) {
         int PV = pProgramHeader->ProgramVersion;
-        int major =
-            (PV >> 4) & 0xF;  // Extract the major version (next 4 bits)
+        int major = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
         int minor = PV & 0xF; // Extract the minor version (lowest 4 bits)
-        
+
         int moduleMajor = pDxilModule->GetShaderModel()->GetMajor();
         int moduleMinor = pDxilModule->GetShaderModel()->GetMinor();
         if (moduleMajor != major || moduleMinor != minor) {
-          ValCtx.EmitFormatError(
-              ValidationRule::SmProgramVersion,
-              {std::to_string(major), std::to_string(minor),
-                std::to_string(moduleMajor), std::to_string(moduleMinor)});
+          ValCtx.EmitFormatError(ValidationRule::SmProgramVersion,
+                                 {std::to_string(major), std::to_string(minor),
+                                  std::to_string(moduleMajor),
+                                  std::to_string(moduleMinor)});
           return DXC_E_INCORRECT_PROGRAM_VERSION;
         }
       }

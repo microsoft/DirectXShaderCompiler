@@ -4195,7 +4195,7 @@ TEST_F(ValidationTest, ValidatePreviewBypassHash) {
   // when a prerelease version is used
   VERIFY_ARE_EQUAL(memcmp(&hlsl::PreviewByPassHash, pHeader->Hash.Digest,
                           sizeof(hlsl::PreviewByPassHash)),
-                   0);  
+                   0);
 }
 
 TEST_F(ValidationTest, ValidateProgramVersionAgainstDxilModule) {
@@ -4210,14 +4210,13 @@ TEST_F(ValidationTest, ValidateProgramVersionAgainstDxilModule) {
   Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
 
   LPCSTR pShaderModel =
-      ShaderModel::Get(ShaderModel::Kind::Pixel, 6, 0)
-          ->GetName();
+      ShaderModel::Get(ShaderModel::Kind::Pixel, 6, 0)->GetName();
 
   bool result = CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
                               &pProgram);
   VERIFY_IS_TRUE(result);
 
- hlsl::DxilContainerHeader *pHeader =
+  hlsl::DxilContainerHeader *pHeader =
       (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
   // test that when the program version differs from the dxil module shader
   // model version, the validator fails
@@ -4235,7 +4234,7 @@ TEST_F(ValidationTest, ValidateProgramVersionAgainstDxilModule) {
   oldMinor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
 
   // Add one to the last bit of the program version, which is 0, because
-  // the program version (shader model version) is 6.0, and we want to 
+  // the program version (shader model version) is 6.0, and we want to
   // test that the validation fails when the program version is changed to 6.1
   PV += 1;
 
