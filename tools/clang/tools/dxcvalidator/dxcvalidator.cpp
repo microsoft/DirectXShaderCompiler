@@ -61,7 +61,7 @@ static void HashAndUpdateOrCopy(uint32_t Flags, IDxcBlob *Shader,
   const DxilProgramHeader *ProgramHeader =
       GetDxilProgramHeader(DxilContainer, DFCC_DXIL);
 
-  // ProgramHeader may be null here, when hasing a root signature container
+  // ProgramHeader may be null here, when hashing a root signature container
   if (ProgramHeader) {
     int PV = ProgramHeader->ProgramVersion;
     int major = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
