@@ -26,7 +26,7 @@ class ShaderModel {
 public:
   using Kind = DXIL::ShaderKind;
 
-  // Major/Minor version of highest shader model
+  // Major/Minor version of highest recognized shader model
   // clang-format off
   // Python lines need to be not formatted.
   /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_shader_model()</py>*/
@@ -35,6 +35,15 @@ public:
   static const unsigned kHighestMajor = 6;
   static const unsigned kHighestMinor = 9;
   // VALRULE-TEXT:END
+
+  // Major/Minor version of highest released shader model
+  /* <py::lines('VALRULE-TEXT')>hctdb_instrhelp.get_highest_released_shader_model()</py>*/
+  // clang-format on
+  // VALRULE-TEXT:BEGIN
+  static const unsigned kHighestReleasedMajor = 6;
+  static const unsigned kHighestReleasedMinor = 8;
+  // VALRULE-TEXT:END
+
   static const unsigned kOfflineMinor = 0xF;
 
   bool IsPS() const { return m_Kind == Kind::Pixel; }
@@ -86,6 +95,8 @@ public:
   static const ShaderModel *Get(Kind Kind, unsigned Major, unsigned Minor);
   static const ShaderModel *GetByName(llvm::StringRef Name);
   static const char *GetKindName(Kind kind);
+  static bool IsPreReleaseShaderModel(int Major, int Minor);
+  static Kind GetKindFromName(llvm::StringRef Name);
   static DXIL::ShaderKind KindFromFullName(llvm::StringRef Name);
   static const llvm::StringRef FullNameFromKind(DXIL::ShaderKind sk);
   static const char *GetNodeLaunchTypeName(DXIL::NodeLaunchType launchTy);

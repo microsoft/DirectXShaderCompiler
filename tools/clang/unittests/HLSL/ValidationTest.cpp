@@ -31,6 +31,7 @@
 #include "dxc/Support/FileIOHelper.h"
 #include "dxc/Support/Global.h"
 
+#include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/Test/DxcTestUtils.h"
 #include "dxc/Test/HlslTestUtils.h"
 
@@ -300,6 +301,8 @@ public:
 
   TEST_METHOD(ValidateWithHash)
   TEST_METHOD(ValidateVersionNotAllowed)
+  TEST_METHOD(ValidatePreviewBypassHash)
+  TEST_METHOD(ValidateProgramVersionAgainstDxilModule)
   TEST_METHOD(CreateHandleNotAllowedSM66)
 
   TEST_METHOD(AtomicsConsts)
@@ -537,18 +540,10 @@ public:
                             pLookFors, pReplacements, pErrorMsgs, bRegex);
   }
 
-  bool RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
-                             LPCWSTR *pArguments, UINT32 argCount,
-                             const DxcDefine *pDefines, UINT32 defineCount,
-                             llvm::ArrayRef<LPCSTR> pLookFors,
-                             llvm::ArrayRef<LPCSTR> pReplacements,
-                             IDxcBlob **pBlob, bool bRegex = false) {
-    CComPtr<IDxcBlob> pProgram;
-    std::string disassembly;
-    if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines,
-                       defineCount, &pProgram))
-      return false;
-    DisassembleProgram(pProgram, &disassembly);
+  void PerformReplacementOnDisassembly(std::string disassembly,
+                                       llvm::ArrayRef<LPCSTR> pLookFors,
+                                       llvm::ArrayRef<LPCSTR> pReplacements,
+                                       IDxcBlob **pBlob, bool bRegex = false) {
     for (unsigned i = 0; i < pLookFors.size(); ++i) {
       LPCSTR pLookFor = pLookFors[i];
       bool bOptional = false;
@@ -605,6 +600,22 @@ public:
       }
     }
     Utf8ToBlob(m_dllSupport, disassembly.c_str(), pBlob);
+  }
+
+  bool RewriteAssemblyToText(IDxcBlobEncoding *pSource, LPCSTR pShaderModel,
+                             LPCWSTR *pArguments, UINT32 argCount,
+                             const DxcDefine *pDefines, UINT32 defineCount,
+                             llvm::ArrayRef<LPCSTR> pLookFors,
+                             llvm::ArrayRef<LPCSTR> pReplacements,
+                             IDxcBlob **pBlob, bool bRegex = false) {
+    CComPtr<IDxcBlob> pProgram;
+    std::string disassembly;
+    if (!CompileSource(pSource, pShaderModel, pArguments, argCount, pDefines,
+                       defineCount, &pProgram))
+      return false;
+    DisassembleProgram(pProgram, &disassembly);
+    PerformReplacementOnDisassembly(disassembly, pLookFors, pReplacements,
+                                    pBlob, bRegex);
     return true;
   }
 
@@ -4114,7 +4125,7 @@ TEST_F(ValidationTest, ValidatePrintfNotAllowed) {
 }
 
 TEST_F(ValidationTest, ValidateWithHash) {
-  if (m_ver.SkipDxilVersion(1, 8))
+  if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestReleasedMinor))
     return;
   CComPtr<IDxcBlob> pProgram;
   CompileSource("float4 main(float a:A, float b:B) : SV_Target { return 1; }",
@@ -4147,6 +4158,113 @@ TEST_F(ValidationTest, ValidateWithHash) {
   BYTE Result[DxilContainerHashSize];
   ComputeHashRetail(DataToHash, AmountToHash, Result);
   VERIFY_ARE_EQUAL(memcmp(Result, pHeader->Hash.Digest, sizeof(Result)), 0);
+}
+
+TEST_F(ValidationTest, ValidatePreviewBypassHash) {
+  if (m_ver.SkipDxilVersion(1, ShaderModel::kHighestMinor))
+    return;
+  // If there is no available pre-release version to test, return
+  if (DXIL::CompareVersions(ShaderModel::kHighestMajor,
+                            ShaderModel::kHighestMinor,
+                            ShaderModel::kHighestReleasedMajor,
+                            ShaderModel::kHighestReleasedMinor) <= 0) {
+    return;
+  }
+
+  // Now test a pre-release version.
+  CComPtr<IDxcBlob> pProgram;
+  LPCSTR pSource =
+      R"(float4 main(float a:A, float b:B) : SV_Target { return 1; })";
+
+  CComPtr<IDxcBlobEncoding> pSourceBlob;
+  Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
+
+  LPCSTR pShaderModel =
+      ShaderModel::Get(ShaderModel::Kind::Pixel, ShaderModel::kHighestMajor,
+                       ShaderModel::kHighestMinor)
+          ->GetName();
+
+  bool result = CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
+                              &pProgram);
+  VERIFY_IS_TRUE(result);
+
+  hlsl::DxilContainerHeader *pHeader =
+      (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+
+  // Should be equal, this proves the hash is set to the preview bypass hash
+  // when a prerelease version is used
+  VERIFY_ARE_EQUAL(memcmp(&hlsl::PreviewByPassHash, pHeader->Hash.Digest,
+                          sizeof(hlsl::PreviewByPassHash)),
+                   0);
+}
+
+TEST_F(ValidationTest, ValidateProgramVersionAgainstDxilModule) {
+  if (m_ver.SkipDxilVersion(1, 8))
+    return;
+
+  CComPtr<IDxcBlob> pProgram;
+  LPCSTR pSource =
+      R"(float4 main(float a:A, float b:B) : SV_Target { return 1; })";
+
+  CComPtr<IDxcBlobEncoding> pSourceBlob;
+  Utf8ToBlob(m_dllSupport, pSource, &pSourceBlob);
+
+  LPCSTR pShaderModel =
+      ShaderModel::Get(ShaderModel::Kind::Pixel, 6, 0)->GetName();
+
+  bool result = CompileSource(pSourceBlob, pShaderModel, nullptr, 0, nullptr, 0,
+                              &pProgram);
+  VERIFY_IS_TRUE(result);
+
+  hlsl::DxilContainerHeader *pHeader =
+      (hlsl::DxilContainerHeader *)pProgram->GetBufferPointer();
+  // test that when the program version differs from the dxil module shader
+  // model version, the validator fails
+  DxilPartHeader *pPart = GetDxilPartByType(pHeader, DxilFourCC::DFCC_DXIL);
+
+  DxilProgramHeader *pMutableProgramHeader =
+      reinterpret_cast<DxilProgramHeader *>(GetDxilPartData(pPart));
+  int oldMajor = 0;
+  int oldMinor = 0;
+  int newMajor = 0;
+  int newMinor = 0;
+  VERIFY_IS_NOT_NULL(pMutableProgramHeader);
+  uint32_t &PV = pMutableProgramHeader->ProgramVersion;
+  oldMajor = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
+  oldMinor = PV & 0xF;        // Extract the minor version (lowest 4 bits)
+
+  // Add one to the last bit of the program version, which is 0, because
+  // the program version (shader model version) is 6.0, and we want to
+  // test that the validation fails when the program version is changed to 6.1
+  PV += 1;
+
+  newMajor = (PV >> 4) & 0xF; // Extract the major version (next 4 bits)
+  newMinor = PV & 0xF;        // Extract the new minor version (lowest 4 bits)
+
+  // now test that the validation fails
+  CComPtr<IDxcValidator> pValidator;
+  CComPtr<IDxcOperationResult> pResult;
+  unsigned Flags = 0;
+  VERIFY_SUCCEEDED(
+      m_dllSupport.CreateInstance(CLSID_DxcValidator, &pValidator));
+
+  HRESULT status;
+  VERIFY_SUCCEEDED(pValidator->Validate(pProgram, Flags, &pResult));
+  VERIFY_IS_NOT_NULL(pResult);
+  pResult->GetStatus(&status);
+
+  // expect validation to fail
+  VERIFY_FAILED(status);
+  // validation succeeded prior, so by inference we know that oldMajor /
+  // oldMinor were the old dxil module shader model versions
+  char buffer[100];
+  std::snprintf(buffer, sizeof(buffer),
+                "error: Program Version is %d.%d but Dxil Module shader model "
+                "version is %d.%d.\nValidation failed.\n",
+                newMajor, newMinor, oldMajor, oldMinor);
+  std::string formattedString = buffer;
+
+  CheckOperationResultMsgs(pResult, {buffer}, false, false);
 }
 
 TEST_F(ValidationTest, ValidateVersionNotAllowed) {

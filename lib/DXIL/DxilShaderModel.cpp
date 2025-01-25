@@ -193,11 +193,21 @@ const ShaderModel *ShaderModel::Get(Kind Kind, unsigned Major, unsigned Minor) {
   // VALRULE-TEXT:END
 }
 
-const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {
-  // [ps|vs|gs|hs|ds|cs|ms|as]_[major]_[minor]
+bool ShaderModel::IsPreReleaseShaderModel(int major, int minor) {
+  if (DXIL::CompareVersions(major, minor, kHighestReleasedMajor,
+                            kHighestReleasedMinor) <= 0)
+    return false;
+
+  // now compare against highest recognized
+  if (DXIL::CompareVersions(major, minor, kHighestMajor, kHighestMinor) <= 0)
+    return true;
+  return false;
+}
+
+ShaderModel::Kind ShaderModel::GetKindFromName(llvm::StringRef Name) {
   Kind kind;
   if (Name.empty()) {
-    return GetInvalid();
+    return Kind::Invalid;
   }
 
   switch (Name[0]) {
@@ -229,8 +239,17 @@ const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {
     kind = Kind::Amplification;
     break;
   default:
-    return GetInvalid();
+    return Kind::Invalid;
   }
+  return kind;
+}
+
+const ShaderModel *ShaderModel::GetByName(llvm::StringRef Name) {
+  // [ps|vs|gs|hs|ds|cs|ms|as]_[major]_[minor]
+  Kind kind = GetKindFromName(Name);
+  if (kind == Kind::Invalid)
+    return GetInvalid();
+
   unsigned Idx = 3;
   if (kind != Kind::Library) {
     if (Name[1] != 's' || Name[2] != '_')
