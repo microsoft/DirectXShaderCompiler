@@ -8957,6 +8957,7 @@ SpirvEmitter::processIntrinsicCallExpr(const CallExpr *callExpr) {
     return nullptr;
   }
   case hlsl::IntrinsicOp::IOP_dot:
+  case hlsl::IntrinsicOp::IOP_udot:
     retVal = processIntrinsicDot(callExpr);
     break;
   case hlsl::IntrinsicOp::IOP_GroupMemoryBarrier:

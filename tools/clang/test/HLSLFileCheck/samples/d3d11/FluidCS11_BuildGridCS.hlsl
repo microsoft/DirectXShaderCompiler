@@ -4,7 +4,7 @@
 // CHECK: bufferLoad
 // CHECK: FMax
 // CHECK: FMin
-// CHECK: IMad
+// CHECK: UMad
 // CHECK: bufferStore
 
 //--------------------------------------------------------------------------------------
