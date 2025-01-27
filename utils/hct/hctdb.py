@@ -8208,6 +8208,8 @@ class db_hlsl_intrinsic(object):
         unsigned_op,
         overload_idx,
         hidden,
+        static_member,
+        class_prefix,
     ):
         self.name = name  # Function name
         self.idx = idx  # Unique number within namespace
@@ -8223,7 +8225,11 @@ class db_hlsl_intrinsic(object):
             self.name = "Vk" + self.name
             id_prefix = "IOP"
         # SPIR-V Change Ends
-        self.enum_name = "%s_%s" % (id_prefix, name)  # enum name
+        if class_prefix:
+            class_name = ns[0 : -len("Methods")]
+            self.enum_name = "%s_%s_%s" % (id_prefix, class_name, name)
+        else:
+            self.enum_name = "%s_%s" % (id_prefix, name)
         self.readonly = ro  # Only read memory
         self.readnone = rn  # Not read memory
         self.argmemonly = amo  # Only accesses memory through argument pointers
@@ -8235,6 +8241,7 @@ class db_hlsl_intrinsic(object):
             overload_idx  # Parameter determines the overload type, -1 means ret type
         )
         self.hidden = hidden  # Internal high-level op, not exposed to HLSL
+        self.static_member = static_member  # HLSL static member function
         self.key = (
             ("%3d" % ns_idx)
             + "!"
@@ -8330,6 +8337,8 @@ class db_hlsl(object):
             "resource": "LICOMPTYPE_RESOURCE",
             "ray_desc": "LICOMPTYPE_RAYDESC",
             "acceleration_struct": "LICOMPTYPE_ACCELERATION_STRUCT",
+            "ray_query": "LICOMPTYPE_RAY_QUERY",
+            "hit_object": "LICOMPTYPE_HIT_OBJECT",
             "udt": "LICOMPTYPE_USER_DEFINED_TYPE",
             "void": "LICOMPTYPE_VOID",
             "string": "LICOMPTYPE_STRING",
@@ -8399,7 +8408,7 @@ class db_hlsl(object):
             r"""(
             sampler\w* | string |
             (?:RW)?(?:Texture\w*|ByteAddressBuffer) |
-            acceleration_struct | ray_desc |
+            acceleration_struct | ray_desc | ray_query | hit_object |
             Node\w* | RWNode\w* | EmptyNode\w* |
             AnyNodeOutput\w* | NodeOutputRecord\w* | GroupShared\w*
             $)""",
@@ -8605,7 +8614,9 @@ class db_hlsl(object):
             readonly = False  # Only read memory
             readnone = False  # Not read memory
             argmemonly = False  # Only reads memory through pointer arguments
+            static_member = False  # Static member function
             is_wave = False
+            class_prefix = False  # Insert class name as enum_prefix
             # Is wave-sensitive
             unsigned_op = ""  # Unsigned opcode if exist
             overload_param_index = (
@@ -8629,6 +8640,12 @@ class db_hlsl(object):
                     continue
                 if a == "hidden":
                     hidden = True
+                    continue
+                if a == "static":
+                    static_member = True
+                    continue
+                if a == "class_prefix":
+                    class_prefix = True
                     continue
 
                 assign = a.split("=")
@@ -8654,6 +8671,8 @@ class db_hlsl(object):
                 unsigned_op,
                 overload_param_index,
                 hidden,
+                static_member,
+                class_prefix,
             )
 
         current_namespace = None
@@ -8701,6 +8720,8 @@ class db_hlsl(object):
                     unsigned_op,
                     overload_param_index,
                     hidden,
+                    static_member,
+                    class_prefix,
                 ) = process_attr(attr)
                 # Add an entry for this intrinsic.
                 if bracket_cleanup_re.search(opts):
@@ -8717,6 +8738,8 @@ class db_hlsl(object):
                 for in_arg in in_args:
                     args.append(process_arg(in_arg, arg_idx, args, name))
                     arg_idx += 1
+                if class_prefix:
+                    assert current_namespace.endswith("Methods")
                 # We have to process the return type description last
                 # to match the compiler's handling of it and allow
                 # the return type to match an input type.
@@ -8739,6 +8762,8 @@ class db_hlsl(object):
                         unsigned_op,
                         overload_param_index,
                         hidden,
+                        static_member,
+                        class_prefix,
                     )
                 )
                 num_entries += 1

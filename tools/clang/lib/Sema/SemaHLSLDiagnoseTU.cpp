@@ -9,12 +9,14 @@
 //                                                                           //
 ///////////////////////////////////////////////////////////////////////////////
 
+#include "dxc/DXIL/DxilFunctionProps.h"
 #include "dxc/DXIL/DxilShaderModel.h"
 #include "dxc/HlslIntrinsicOp.h"
 #include "dxc/Support/Global.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "clang/Sema/SemaHLSL.h"
@@ -336,6 +338,30 @@ private:
   llvm::SmallPtrSetImpl<CallExpr *> &DiagnosedCalls;
 };
 
+class HLSLNoSERDiagnoseVisitor
+    : public RecursiveASTVisitor<HLSLNoSERDiagnoseVisitor> {
+public:
+  explicit HLSLNoSERDiagnoseVisitor(Sema &S, DXIL::ShaderKind EntrySK,
+                                    const FunctionDecl *EntryDecl)
+      : S(S), EntrySK(EntrySK), EntryDecl(EntryDecl) {}
+
+  bool VisitTypeLoc(TypeLoc TL) {
+    if (!hlsl::IsHLSLHitObjectType(TL.getType()))
+      return true;
+
+    S.Diag(TL.getLocStart(), diag::err_hlsl_ser_invalid_shader_kind)
+        << ShaderModel::FullNameFromKind(EntrySK);
+    S.Diag(EntryDecl->getLocation(), diag::note_hlsl_entry_defined_here);
+    return true;
+  }
+
+private:
+  clang::Sema &S;
+  DXIL::ShaderKind EntrySK;
+  const FunctionDecl *EntryDecl;
+  bool AllowHitObject;
+};
+
 std::optional<uint32_t>
 getFunctionInputPatchCount(const FunctionDecl *function) {
   for (const auto *param : function->params()) {
@@ -537,6 +563,19 @@ void hlsl::DiagnoseTranslationUnit(clang::Sema *self) {
           NodeLaunchTy = DXIL::NodeLaunchType::Broadcasting;
       }
     }
+
+    // Shader Execution Reordering
+    // ReorderThread(..) handled elsewhere.
+    const bool AllowHitObject = (EntrySK == DXIL::ShaderKind::ClosestHit ||
+                                 EntrySK == DXIL::ShaderKind::Miss ||
+                                 EntrySK == DXIL::ShaderKind::RayGeneration);
+    if (!AllowHitObject) {
+      HLSLNoSERDiagnoseVisitor Visitor(*self, EntrySK, FDecl);
+      for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {
+        Visitor.TraverseDecl(FD);
+      }
+    }
+
     // Visit all visited functions in call graph to collect illegal intrinsic
     // calls.
     for (FunctionDecl *FD : callGraph.GetVisitedFunctions()) {

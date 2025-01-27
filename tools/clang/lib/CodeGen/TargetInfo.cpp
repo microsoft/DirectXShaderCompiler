@@ -17,6 +17,7 @@
 #include "CGCXXABI.h"
 #include "CGValue.h"
 #include "CodeGenFunction.h"
+#include "clang/AST/HlslTypes.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/Frontend/CodeGenOptions.h"
@@ -44,6 +45,8 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
 }
 
 static bool isAggregateTypeForABI(QualType T) {
+  if (hlsl::IsHLSLHitObjectType(T))
+    return false;
   return !CodeGenFunction::hasScalarEvaluationKind(T) ||
          T->isMemberFunctionPointerType();
 }
@@ -6189,7 +6192,12 @@ public:
       RetTy = EnumTy->getDecl()->getIntegerType();
 
     // do not use extend for hlsl.
-    return ABIArgInfo::getDirect(CGT.ConvertType(RetTy));
+    ABIArgInfo RetInfo = ABIArgInfo::getDirect(CGT.ConvertType(RetTy));
+
+    // Maintain opacity of dx.types.HitObject and never flatten it
+    if (hlsl::IsHLSLHitObjectType(RetTy))
+      RetInfo.setCanBeFlattened(false);
+    return RetInfo;
   }
 
   ABIArgInfo classifyArgumentType(QualType Ty) const;
@@ -6220,8 +6228,14 @@ ABIArgInfo MSDXILABIInfo::classifyArgumentType(QualType Ty) const {
   if (isAggregateTypeForABI(Ty))
     return ABIArgInfo::getIndirect(0, /* byval */ false);
 
-  return (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
-                                        : ABIArgInfo::getDirect());
+  ABIArgInfo ArgInfo =
+      (Ty->isPromotableIntegerType() ? ABIArgInfo::getExtend()
+                                     : ABIArgInfo::getDirect());
+
+  // Maintain opacity of dx.types.HitObject and never flatten it
+  if (hlsl::IsHLSLHitObjectType(Ty))
+    ArgInfo.setCanBeFlattened(false);
+  return ArgInfo;
 }
 
 void MSDXILABIInfo::computeInfo(CGFunctionInfo &FI) const {
