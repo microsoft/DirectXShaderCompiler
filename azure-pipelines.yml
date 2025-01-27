@@ -1,6 +1,10 @@
 trigger:
   - main
   - release*
+
+pr: 
+  - main
+  - release*
   
 resources:
 - repo: self
@@ -9,7 +13,7 @@ stages:
 - stage: Build
   jobs:
   - job: Windows
-    timeoutInMinutes: 90
+    timeoutInMinutes: 120
 
     pool:
       vmImage: windows-2022
@@ -40,7 +44,7 @@ stages:
       displayName: 'DXIL Tests'
 
   - job: Nix
-    timeoutInMinutes: 90
+    timeoutInMinutes: 120
 
     variables:
       macOS: macOS-latest
