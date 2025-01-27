@@ -1056,6 +1056,9 @@ private:
       if (pRes->IsGloballyCoherent())
         info.Flags |=
             static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVGloballyCoherent);
+      if (pRes->IsReorderCoherent())
+        info.Flags |=
+            static_cast<uint32_t>(RDAT::DxilResourceFlag::UAVReorderCoherent);
       if (pRes->IsROV())
         info.Flags |= static_cast<uint32_t>(
             RDAT::DxilResourceFlag::UAVRasterizerOrderedView);

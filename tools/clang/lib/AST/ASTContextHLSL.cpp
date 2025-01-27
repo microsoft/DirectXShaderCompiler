@@ -688,7 +688,8 @@ void hlsl::AddBarrierConstants(ASTContext &context) {
       context, "BARRIER_SEMANTIC_FLAG",
       {{"GROUP_SYNC", (unsigned)DXIL::BarrierSemanticFlag::GroupSync},
        {"GROUP_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::GroupScope},
-       {"DEVICE_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::DeviceScope}});
+       {"DEVICE_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::DeviceScope},
+       {"REORDER_SCOPE", (unsigned)DXIL::BarrierSemanticFlag::ReorderScope}});
 }
 
 static Expr *IntConstantAsBoolExpr(clang::Sema &sema, uint64_t value) {

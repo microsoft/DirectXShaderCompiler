@@ -312,6 +312,7 @@ hlsl::DxilResource *CreateGlobalUAVResource(hlsl::DxilModule &DM,
       (unsigned int)-2);   // This is the reserved-for-tools register space
   pUAV->SetSampleCount(0); // This is what compiler generates for a raw UAV
   pUAV->SetGloballyCoherent(false);
+  pUAV->SetReorderCoherent(false);
   pUAV->SetHasCounter(false);
   pUAV->SetCompType(
       CompType::getInvalid()); // This is what compiler generates for a raw UAV

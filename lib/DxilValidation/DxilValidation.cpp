@@ -1645,6 +1645,7 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                   shaderKind == DXIL::ShaderKind::Mesh ||
                   shaderKind == DXIL::ShaderKind::Amplification ||
                   shaderKind == DXIL::ShaderKind::Node;
+
   // Is called from a library function
   bool isLibFunc = shaderKind == DXIL::ShaderKind::Library;
 
@@ -1794,8 +1795,8 @@ static void ValidateDxilOperationCallInProfile(CallInst *CI,
                            (unsigned)hlsl::DXIL::MemoryTypeFlag::ValidMask,
                            "memory type", "BarrierByMemoryType");
     ValidateBarrierFlagArg(ValCtx, CI, DI.get_SemanticFlags(),
-                           (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask,
-                           "semantic", "BarrierByMemoryType");
+                           (unsigned)hlsl::DXIL::BarrierSemanticFlag::ValidMask, "semantic",
+                           "BarrierByMemoryType");
     if (!isLibFunc && shaderKind != DXIL::ShaderKind::Node &&
         OP::BarrierRequiresNode(CI)) {
       ValCtx.EmitInstrError(CI, ValidationRule::InstrBarrierRequiresNode);

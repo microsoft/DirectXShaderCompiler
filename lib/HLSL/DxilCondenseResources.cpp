@@ -2061,7 +2061,8 @@ void DxilLowerCreateHandleForLib::ReplaceResourceUserWithHandle(
     };
 
     // Search all users for update counter
-    bool updateAnnotateHandle = res.IsGloballyCoherent();
+    bool updateAnnotateHandle =
+        res.IsGloballyCoherent() || res.IsReorderCoherent();
     if (!res.HasCounter()) {
       for (User *U : handle->users()) {
         if (IsDxilOp(U, hlsl::OP::OpCode::BufferUpdateCounter)) {
@@ -2321,6 +2322,7 @@ void InitTBuffer(const DxilCBuffer *pSource, DxilResource *pDest) {
   pDest->SetSampleCount(0);
   pDest->SetElementStride(0);
   pDest->SetGloballyCoherent(false);
+  pDest->SetReorderCoherent(false);
   pDest->SetHasCounter(false);
   pDest->SetRW(false);
   pDest->SetROV(false);

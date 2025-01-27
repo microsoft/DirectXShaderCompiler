@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/OperationKinds.h"
 #include "clang/Sema/SemaInternal.h"
 #include "TreeTransform.h"

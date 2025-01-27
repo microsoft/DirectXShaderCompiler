@@ -1881,7 +1881,8 @@ enum class BarrierSemanticFlag : uint32_t {
   GroupSync = 0x00000001,   // GROUP_SYNC
   GroupScope = 0x00000002,  // GROUP_SCOPE
   DeviceScope = 0x00000004, // DEVICE_SCOPE
-  ValidMask = 0x00000007,
+  ReorderScope = 0x00000008, // REORDER_SCOPE
+  ValidMask = 0x0000000F,
   GroupFlags = GroupSync | GroupScope,
 };
 

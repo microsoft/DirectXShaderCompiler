@@ -5116,6 +5116,17 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
     return;
   }
 
+  // HLSL Change Starts - Warn of redundant reorder / globally coherent
+  // attributes
+  if (D->hasAttr<HLSLGloballyCoherentAttr>() &&
+      D->hasAttr<HLSLReorderCoherentAttr>()) {
+    Diag(AttrList->getLoc(), diag::warn_hlsl_gc_implies_rc_attribute)
+        << cast<NamedDecl>(D);
+    D->dropAttr<HLSLReorderCoherentAttr>();
+    return;
+  }
+  // HLSL Change Ends
+
   // FIXME: We should be able to handle this in TableGen as well. It would be
   // good to have a way to specify "these attributes must appear as a group",
   // for these. Additionally, it would be good to have a way to specify "these

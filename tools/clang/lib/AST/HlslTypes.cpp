@@ -286,6 +286,20 @@ bool HasHLSLGloballyCoherent(clang::QualType type) {
   return false;
 }
 
+bool HasHLSLReorderCoherent(clang::QualType type) {
+  const AttributedType *AT = type->getAs<AttributedType>();
+  while (AT) {
+    AttributedType::Kind kind = AT->getAttrKind();
+    switch (kind) {
+    case AttributedType::attr_hlsl_reordercoherent:
+      return true;
+    }
+    AT = AT->getLocallyUnqualifiedSingleStepDesugaredType()
+             ->getAs<AttributedType>();
+  }
+  return false;
+}
+
 /// Checks whether the pAttributes indicate a parameter is inout or out; if
 /// inout, pIsIn will be set to true.
 bool IsParamAttributedAsOut(clang::AttributeList *pAttributes, bool *pIsIn);
